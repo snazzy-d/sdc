@@ -13,8 +13,8 @@ import std.file;
 import std.ctype;
 import std.c.time;
 
-import sdc.token;
 import sdc.tokenstream;
+import sdc.info;
 
 
 immutable string[12] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -139,10 +139,10 @@ class Lexer
         } else if (token.value == "__EOF__") {
             mEOF = true;
         } else if (token.value == "__VENDOR__") {
-            token.value = `"Stupid D Compiler"`;
+            token.value = VENDOR;
             mType = TokenType.StringLiteral;
         } else if (token.value == "__VERSION__") {
-            token.value = to!string(0);
+            token.value = to!string(VERSION);
             token.type = TokenType.IntegerLiteral;
         }
     }

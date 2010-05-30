@@ -19,8 +19,6 @@
 module sdc.sdc;
 
 import std.stdio;
-import std.string;
-import std.process;
 
 import libdjson.json;
 
