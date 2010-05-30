@@ -1,0 +1,5 @@
+*.geany
+*.o
+*.swp
+test.d
+
