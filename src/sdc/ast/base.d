@@ -28,7 +28,7 @@ class Node
 
 class IdentifierNode : Node
 {
-    Token* token;
+    Token token;
     
     override void parse(TokenStream tstream)
     {

@@ -25,6 +25,7 @@ import std.process;
 import libdjson.json;
 
 import sdc.lexer;
+import sdc.tokenstream;
 import sdc.ast.sdcmodule;
 
 
@@ -43,6 +44,5 @@ int main(string[] args)
     auto parseTree = new JSONObject();
     moduleNode.prettyPrint(parseTree);
     writeln(parseTree.toString());
-    
     return 0;
 }

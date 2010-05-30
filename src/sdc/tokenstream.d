@@ -16,7 +16,7 @@ class TokenStream
 {
     string filename;
     
-    void addToken(Token* token)
+    void addToken(Token token)
     {
         mTokens ~= token;
     }
@@ -27,25 +27,25 @@ class TokenStream
         throw new CompilerError();
     }
     
-    Token* getToken()
+    Token getToken()
     {
         if (mIndex >= mTokens.length) {
-            return &EOFToken;
+            return EOFToken;
         }
         auto retval = mTokens[mIndex];
         mIndex++;
         return retval;
     }
     
-    Token* peek() @property
+    Token peek() @property
     {
         if (mIndex >= mTokens.length) {
-            return &EOFToken;
+            return EOFToken;
         }
         return mTokens[mIndex];
     }
     
-    Token* match(TokenType type)
+    Token match(TokenType type)
     {
         if (peek.type != type) {
             error("match error " ~ peek.value);
@@ -54,6 +54,6 @@ class TokenStream
     }
     
     
-    protected Token*[] mTokens;
+    protected Token[] mTokens;
     protected size_t mIndex;
 }

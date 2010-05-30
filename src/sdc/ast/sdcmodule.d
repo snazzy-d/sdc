@@ -25,7 +25,7 @@ class ModuleNode : Node
         moduleDeclaration = new ModuleDeclarationNode();
         moduleDeclaration.parse(tstream);
         
-        while (tstream.peek != &EOFToken) {
+        while (tstream.peek !is EOFToken) {
             switch (tstream.peek.type) {
             case TokenType.Import:
                 auto importDecl = new ImportDeclarationNode();

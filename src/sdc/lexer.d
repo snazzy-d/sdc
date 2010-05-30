@@ -34,6 +34,7 @@ class Lexer
         tstream.filename = sdcmodule;
         moduleSource = cast(string) std.file.read(sdcmodule);
         getChar();
+        mColumnNumber--;
         if (mChar == '#' && peek() == '!') {
             moduleSource = moduleSource[2 .. $];
             mIndex = 0;
@@ -45,7 +46,7 @@ class Lexer
     
     void error(string message)
     {
-        stderr.writeln(format("%s(%d): lexerror: %s", tstream.filename, mLineNumber, message));
+        stderr.writeln(format("%s(%d:%d): lexerror: %s", tstream.filename, mLineNumber, mColumnNumber, message));
         throw new CompilerError();
     }
     
@@ -62,6 +63,7 @@ class Lexer
     protected void next()
     {
         auto start = mIndex - 1;  // The index is alwaysma one ahead.
+        auto column = mColumnNumber;
         
         if (isalpha(mChar) || mChar == '_') {
             if (mChar == 'r' && peek() == '"') {
@@ -92,11 +94,12 @@ class Lexer
         
         token.type = mType;
         token.lineNumber = mLineNumber;
+        token.columnNumber = column;
         tstream.addToken(token);
     }
     
     
-    protected void specialTokens(Token* token)
+    protected void specialTokens(Token token)
     {
         if (mType != TokenType.Identifier) {
             return;
@@ -447,10 +450,7 @@ class Lexer
         while (mChar != '\n' && !mEOF) {
             getChar();
         }
-        if (mChar == '\n') {
-            mLineNumber++;
-            match('\n');
-        }
+        match('\n');
     }
     
     protected void cComment()
@@ -475,7 +475,6 @@ class Lexer
                     error("nested c comment");
                 }
             } else {
-                if (mChar == '\n') mLineNumber++;
                 getChar();
             }
         }
@@ -503,7 +502,6 @@ class Lexer
                     getChar();
                 }
             } else {
-                if (mChar == '\n') mLineNumber++;
                 getChar();
             }
         }
@@ -549,9 +547,6 @@ class Lexer
             if (mEOF) {
                 break;
             }
-            if (mChar == '\n') {
-                mLineNumber++;
-            }
             getChar();
         }
     }
@@ -572,7 +567,14 @@ class Lexer
             mChar = 0;
             return;
         }
+        if (mChar == '\n') {
+            mColumnNumber = 0;
+            mLineNumber++;
+        }
+           
         mChar = moduleSource[mIndex];
+        mColumnNumber++;
+        
         mIndex++;
     }
         
@@ -589,4 +591,5 @@ class Lexer
     protected TokenType mType = TokenType.None;
     protected bool mEOF = false;
     protected int mLineNumber = 1;
+    protected int mColumnNumber = 1;
 }

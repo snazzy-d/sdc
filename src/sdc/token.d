@@ -241,16 +241,19 @@ static this()
         keywordToTokenType["@trusted"] = atTrusted;
         keywordToTokenType["@system"] = atSystem;
     }
+    EOFToken = new Token();
+    EOFToken.type = TokenType.End;
+    EOFToken.value = "EOF";
+    EOFToken.lineNumber = -1;
+    EOFToken.columnNumber = -1;
 }
 
 
-
-
-struct Token
+class Token
 {
     TokenType type;
     string value;
     int lineNumber;
+    int columnNumber;
 }
-
-__gshared Token EOFToken = Token(TokenType.End, "EOF", -1);
+__gshared Token EOFToken;
