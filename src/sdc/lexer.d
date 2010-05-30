@@ -2,6 +2,8 @@
  * Copyright 2010 Bernard Helyer
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdl.d for more details.
+ * 
+ * This code is pretty bad. I know. D=
  */ 
 
 module sdc.lexer;
@@ -48,6 +50,11 @@ class Lexer
     {
         stderr.writeln(format("%s(%d:%d): lexerror: %s", tstream.filename, mLineNumber, mColumnNumber, message));
         throw new CompilerError();
+    }
+    
+    void warning(string message)
+    {
+        stderr.writeln(format("%s(%d:%d): lexwarning: %s", tstream.filename, mLineNumber, mColumnNumber, message));
     }
     
     void lex()
@@ -460,7 +467,7 @@ class Lexer
         bool looping = true;
         while (looping) {
             if (mEOF) {
-                error("unterminated c comment");
+                error("unterminated c style comment");
             }
             if (mChar == '*') {
                 getChar();
@@ -472,7 +479,7 @@ class Lexer
             } else if (mChar == '/') {
                 getChar();
                 if (mChar == '*') {
-                    error("nested c comment");
+                    warning("'/*' within c style comment");
                 }
             } else {
                 getChar();
