@@ -9,5 +9,5 @@ Also, I don't know what I'm doing in terms of compiler writing. If you find some
 
 The code is released under the GPL (see the LICENCE file for more details), except for libdjson, which is not my code, and included here just for ease of compilation.
 
-Contact me at b.helyer AT g mail DOT com 
+Contact me at b.helyer@gmail.com
 
