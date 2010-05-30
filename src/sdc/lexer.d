@@ -68,7 +68,7 @@ class Lexer
         if (isalpha(mChar) || mChar == '_') {
             if (mChar == 'r' && peek() == '"') {
                 match('r');
-                readString('"');
+                readString('"', true);
             } else {
                 readIdentifier();
             }
@@ -175,10 +175,10 @@ class Lexer
             readIdentifier();
             break;
         case '`':
-            readString('`');
+            readString('`', true);
             break;
         case '"':
-            readString('"');
+            readString('"', false);
             break;
         case '\'':
             readCharacter();
@@ -509,7 +509,7 @@ class Lexer
     
     
     // Note that nothing is expanded in the lexer. That happens as late as possible.
-    void readString(char terminator, bool postfix = true)
+    void readString(char terminator, bool raw, bool postfix = true)
     {
         mType = TokenType.StringLiteral;
         match(terminator);
@@ -517,7 +517,7 @@ class Lexer
             if (mEOF) {
                 error("unterminated string");
             }
-            if (mChar == '\\') {
+            if (!raw && mChar == '\\') {
                 getChar();
                 if (mEOF) error("unterminated string");
                 if (mChar == terminator) {
@@ -537,7 +537,7 @@ class Lexer
     
     void readCharacter()
     {
-        readString('\'', false);
+        readString('\'', false, false);
         mType = TokenType.CharacterLiteral;
     }
     

@@ -33,14 +33,10 @@ int main(string[] args)
         return 0;
     }
     
-    auto lexer = new Lexer(args[1]);
-    lexer.lex();
-        
-    auto moduleNode = new ModuleNode();
-    moduleNode.parse(lexer.tstream);
+    foreach (arg; args[1 .. $]) {
+        auto lexer = new Lexer(arg);
+        lexer.lex();
+    }
     
-    auto parseTree = new JSONObject();
-    moduleNode.prettyPrint(parseTree);
-    writeln(parseTree.toString());
     return 0;
 }
