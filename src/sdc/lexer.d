@@ -394,45 +394,45 @@ class Lexer
             getChar();
             if (mChar == '=') {
                 mType = TokenType.DoubleAssign;
+                getChar();
             } else {
                 mType = TokenType.Assign;
-                getChar();
             }
             break;
         case '*':
             getChar();
             if (mChar == '=') {
                 mType = TokenType.AsterixAssign;
+                getChar();
             } else {
                 mType = TokenType.Asterix;
-                getChar();
             }
             break;
         case '%':
             getChar();
             if (mChar == '=') {
                 mType = TokenType.PercentAssign;
+                getChar();
             } else {
                 mType = TokenType.Percent;
-                getChar();
             }
             break;
         case '^':
             getChar();
             if (mChar == '=') {
                 mType = TokenType.CaretAssign;
+                getChar();
             } else {
                 mType = TokenType.Caret;
-                getChar();
             }
             break;
         case '~':
             getChar();
             if (mChar == '=') {
                 mType = TokenType.TildeAssign;
+                getChar();
             } else {
                 mType = TokenType.Tilde;
-                getChar();
             }
             break;
         default:
