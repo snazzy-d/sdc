@@ -187,8 +187,8 @@ bool lexIdentifier(TokenStream tstream)
         if (tstream.source.eof) break;
     }
     
-    identToken.type = TokenType.Identifier;
     identToken.value = tstream.source.sliceFrom(m);
+    identToken.type = identifierType(identToken.value);
     if ((identToken.value in keywordToTokenType) !is null) {
         identToken.type = keywordToTokenType[identToken.value];
     }
