@@ -18,26 +18,8 @@
  */
 module sdc.sdc;
 
-import std.stdio;
-import std.getopt;
-
-import libdjson.json;
-
-import sdc.lexer;
-import sdc.tokenstream;
-import sdc.ast.sdcmodule;
-
 
 int main(string[] args)
 {    
-    if (args.length == 1) {
-        return 0;
-    }
-    
-    foreach (arg; args[1 .. $]) {
-        auto lexer = new Lexer(arg);
-        lexer.lex();
-    }
-    
     return 0;
 }
