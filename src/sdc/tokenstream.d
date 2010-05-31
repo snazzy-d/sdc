@@ -8,17 +8,34 @@ module sdc.tokenstream;
 import std.stdio;
 import std.string;
 
+import sdc.source;
 import sdc.compilererror;
 public import sdc.token;
 
 
-class TokenStream
+final class TokenStream
 {
+    Source source;
     string filename;
+    
+    this() {}  // TMP
+    this(Source source)
+    {
+        this.source = source;
+        auto start = new Token();
+        start.type = TokenType.Begin;
+        start.value = "START";
+        mTokens ~= start;
+    }
     
     void addToken(Token token)
     {
         mTokens ~= token;
+    }
+    
+    Token lastAdded() @property
+    {
+        return mTokens[$ - 1];
     }
     
     void error(string message)
@@ -54,6 +71,6 @@ class TokenStream
     }
     
     
-    protected Token[] mTokens;
-    protected size_t mIndex;
+    private Token[] mTokens;
+    private size_t mIndex;
 }

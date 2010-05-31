@@ -18,8 +18,32 @@
  */
 module sdc.sdc;
 
+import std.stdio;
+
+import sdc.source;
+import sdc.tokenstream;
+import sdc.lexer;
+import sdc.compilererror;
 
 int main(string[] args)
-{    
+{
+    try {
+        return realmain(args);
+    } catch (CompilerError) {
+        return 1;
+    }
+}
+
+
+int realmain(string[] args)
+{
+    auto source = new Source(args[1]);
+    TokenStream tstream = lex(source);
+    
+    Token t;
+    while ((t = tstream.getToken()) !is EOFToken) {
+        stdout.writefln("%s (%s)", t.value, t.location);
+    }
+            
     return 0;
 }

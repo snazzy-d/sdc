@@ -5,6 +5,8 @@
  */ 
 module sdc.token;
 
+import sdc.location;
+
 
 
 enum TokenType
@@ -100,6 +102,7 @@ enum TokenType
     DoubleAssign,           // ==
     Asterix,                // *
     AsterixAssign,          // *=
+    DoubleAsterix,          // **   NOTE: this is not in the spec, but I suspect it's an omission.
     Percent,                // %
     PercentAssign,          // %=
     Caret,                  // ^
@@ -108,7 +111,9 @@ enum TokenType
     TildeAssign,            // ~=
     
     opKirbyRape,            // (>^(>O_O)>
+    Symbol,
     
+    Begin,
     End,
 }
 
@@ -255,5 +260,6 @@ class Token
     string value;
     int lineNumber;
     int columnNumber;
+    Location location;
 }
 __gshared Token EOFToken;
