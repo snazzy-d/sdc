@@ -8,7 +8,7 @@ module sdc.tokenstream;
 import std.stdio;
 import std.string;
 
-import sdc.lexer : CompilerError;
+import sdc.compilererror;
 public import sdc.token;
 
 

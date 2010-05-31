@@ -19,6 +19,7 @@
 module sdc.sdc;
 
 import std.stdio;
+import std.getopt;
 
 import libdjson.json;
 

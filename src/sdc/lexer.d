@@ -17,13 +17,12 @@ import std.c.time;
 
 import sdc.tokenstream;
 import sdc.info;
+import sdc.compilererror;
 
 
 immutable string[12] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 immutable string[7]  days   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-
-class CompilerError {}
 
 class Lexer
 {
