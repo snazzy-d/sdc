@@ -112,6 +112,7 @@ enum TokenType
     
     opKirbyRape,            // (>^(>O_O)>
     Symbol,
+    Number,
     
     Begin,
     End,
