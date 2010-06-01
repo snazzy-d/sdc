@@ -39,14 +39,10 @@ int realmain(string[] args)
 {
     auto source = new Source(args[1]);
     TokenStream tstream = lex(source);
+    tstream.printTo(stdout);
     
-    Token t;
-    t = tstream.getToken();
-    while (t.type != TokenType.End) {
-        stdout.writefln("%s (%s)", t.value, t.location);
-        t = tstream.getToken();
-    }
-    stdout.writefln("%s (%s)", t.value, t.location);
-            
     return 0;
 }
+
+
+

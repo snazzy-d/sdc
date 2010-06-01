@@ -52,6 +52,17 @@ final class TokenStream
         return mTokens[mIndex];
     }
     
+    void printTo(File file)
+    {
+        Token t;
+        t = getToken();
+        while (t.type != TokenType.End) {
+            file.writefln("%s (%s)", t.value, t.location);
+            t = getToken();
+        }
+        file.writefln("%s (%s)", t.value, t.location);
+    }
+    
     private Token[] mTokens;
     private size_t mIndex;
 }
