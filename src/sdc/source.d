@@ -15,14 +15,12 @@ alias size_t Mark;
 
 final class Source
 {
-    string filename;
     string source;
     Location location;
     bool eof = false;
     
     this(string filename)
     {
-        this.filename = filename;
         source = cast(string) std.file.read(filename);
         std.utf.validate(source);
         
