@@ -38,38 +38,19 @@ final class TokenStream
         return mTokens[$ - 1];
     }
     
-    void error(string message)
-    {
-        stderr.writeln(format("%s(%d): parseerror: %s", filename, peek.lineNumber, message));
-        throw new CompilerError();
-    }
-    
     Token getToken()
     {
-        if (mIndex >= mTokens.length) {
-            return EOFToken;
-        }
         auto retval = mTokens[mIndex];
-        mIndex++;
+        if (mIndex < mTokens.length - 1) {
+            mIndex++;
+        }
         return retval;
     }
     
     Token peek() @property
     {
-        if (mIndex >= mTokens.length) {
-            return EOFToken;
-        }
         return mTokens[mIndex];
     }
-    
-    Token match(TokenType type)
-    {
-        if (peek.type != type) {
-            error("match error " ~ peek.value);
-        }
-        return getToken();
-    }
-    
     
     private Token[] mTokens;
     private size_t mIndex;

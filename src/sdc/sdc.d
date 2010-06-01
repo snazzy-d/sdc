@@ -41,8 +41,10 @@ int realmain(string[] args)
     TokenStream tstream = lex(source);
     
     Token t;
-    while ((t = tstream.getToken()) !is EOFToken) {
+    t = tstream.getToken();
+    while (t.type != TokenType.End) {
         stdout.writefln("%s (%s)", t.value, t.location);
+        t = tstream.getToken();
     }
             
     return 0;
