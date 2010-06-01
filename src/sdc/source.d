@@ -15,8 +15,6 @@ alias size_t Mark;
 
 final class Source
 {
-
-    
     string filename;
     string source;
     Location location;

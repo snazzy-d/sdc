@@ -46,6 +46,7 @@ int realmain(string[] args)
         stdout.writefln("%s (%s)", t.value, t.location);
         t = tstream.getToken();
     }
+    stdout.writefln("%s (%s)", t.value, t.location);
             
     return 0;
 }

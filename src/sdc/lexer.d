@@ -7,13 +7,16 @@ module sdc.lexer;
 
 import std.stdio;
 import std.string;
+import std.conv;
 import std.ctype;
 import std.uni;
+import std.c.time;
 
 import sdc.source;
 import sdc.location;
 import sdc.tokenstream;
 import sdc.compilererror;
+import sdc.info;
 
 
 TokenStream lex(Source source)
@@ -88,7 +91,7 @@ TokenType nextLex(TokenStream tstream)
         return TokenType.End;
     }
     
-    if (isUniAlpha(tstream.source.peek)) {
+    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_') {
         bool lookaheadEOF;
         if (tstream.source.peek == 'r' || tstream.source.peek == 'q' || tstream.source.peek == 'x') {
             dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
@@ -192,16 +195,20 @@ bool lexEOF(TokenStream tstream)
 
 bool lexIdentifier(TokenStream tstream)
 {
-    assert(isUniAlpha(tstream.source.peek));
+    assert(isUniAlpha(tstream.source.peek) || tstream.source.peek == '_');
     
-    Mark m = tstream.source.save();
     auto identToken = currentLocationToken(tstream);
-    while (isUniAlpha(tstream.source.peek)) {
+    Mark m = tstream.source.save();
+    tstream.source.get();
+    
+    while (isUniAlpha(tstream.source.peek) || isdigit(tstream.source.peek) || tstream.source.peek == '_') {
         tstream.source.get();
         if (tstream.source.eof) break;
     }
     
     identToken.value = tstream.source.sliceFrom(m);
+    bool retval = lexSpecialToken(tstream, identToken);
+    if (retval) return true;
     identToken.type = identifierType(identToken.value);
     if ((identToken.value in keywordToTokenType) !is null) {
         identToken.type = keywordToTokenType[identToken.value];
@@ -209,6 +216,56 @@ bool lexIdentifier(TokenStream tstream)
     tstream.addToken(identToken);
     
     return true;
+}
+
+bool lexSpecialToken(TokenStream tstream, Token token)
+{
+    immutable string[12] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    immutable string[7] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    
+    if (token.value == "__DATE__") {
+        auto thetime = time(null);
+        auto tm = localtime(&thetime);
+        token.type = TokenType.StringLiteral;
+        token.value = format(`"%s %02s %s"`,
+                             months[tm.tm_mon], 
+                             tm.tm_mday,
+                             1900 + tm.tm_year);
+        tstream.addToken(token);
+        return true;
+    } else if (token.value == "__EOF__") {
+        tstream.source.eof = true;
+        return true;
+    } else if (token.value == "__TIME__") {
+        auto thetime = time(null);
+        auto tm = localtime(&thetime);
+        token.type = TokenType.StringLiteral;
+        token.value = format(`"%02s:%02s:%02s"`, tm.tm_hour, tm.tm_min,
+                             tm.tm_sec);
+        tstream.addToken(token);
+        return true;
+    } else if (token.value == "__TIMESTAMP__") {
+        auto thetime = time(null);
+        auto tm = localtime(&thetime);
+        token.type = TokenType.StringLiteral;
+        token.value = format(`"%s %s %02s %02s:%02s:%02s %s"`,
+                             days[tm.tm_wday], months[tm.tm_mon],
+                             tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+                             1900 + tm.tm_year);
+        tstream.addToken(token);
+        return true;
+    } else if (token.value == "__VENDOR__") {
+        token.type = TokenType.StringLiteral;
+        token.value = sdc.info.VENDOR;
+        tstream.addToken(token);
+        return true;
+    } else if (token.value == "__VERSION__") {
+        token.type = TokenType.IntegerLiteral;
+        token.value = to!string(sdc.info.VERSION);
+        tstream.addToken(token);
+        return true;
+    }
+    return false;
 }
 
 bool lexSymbol(TokenStream tstream)
