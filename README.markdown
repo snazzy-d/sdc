@@ -7,7 +7,7 @@ SDC is at the moment, particularly stupid; it is a work in progress. Feel free t
 
 Also, I don't know what I'm doing in terms of compiler writing. If you find some horrible design decision, that's most likely why.
 
-The code is released under the GPL (see the LICENCE file for more details), except for libdjson, which is not my code, and included here just for ease of compilation.
+The code is released under the GPL (see the LICENCE file for more details).
 
 Contact me at b.helyer@gmail.com
 
