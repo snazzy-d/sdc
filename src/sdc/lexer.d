@@ -94,6 +94,8 @@ TokenType nextLex(TokenStream tstream)
             dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
             if (oneAhead == '"') {
                 return TokenType.StringLiteral;
+            } else if (tstream.source.peek == 'q' && oneAhead == '{') {
+                return TokenType.StringLiteral;
             }
         }
         return TokenType.Identifier;
@@ -583,6 +585,7 @@ bool lexString(TokenStream tstream)
         raw = true;
         terminator = '"';
     } else if (tstream.source.peek == 'q') {
+        error(token.location, "strings that start with q are unimplemented");
     } else if (tstream.source.peek == 'x') {
         match(tstream, 'x');
         raw = false;
@@ -621,6 +624,6 @@ bool lexString(TokenStream tstream)
     token.value = tstream.source.sliceFrom(mark);
     tstream.addToken(token);
     
-    return false;
+    return true;
 }
 
