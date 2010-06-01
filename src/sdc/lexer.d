@@ -91,7 +91,7 @@ TokenType nextLex(TokenStream tstream)
         return TokenType.End;
     }
     
-    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_') {
+    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_' || tstream.source.peek == '@') {
         bool lookaheadEOF;
         if (tstream.source.peek == 'r' || tstream.source.peek == 'q' || tstream.source.peek == 'x') {
             dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
@@ -193,9 +193,10 @@ bool lexEOF(TokenStream tstream)
     return true;
 }
 
+// This is a bit of a dog's breakfast.
 bool lexIdentifier(TokenStream tstream)
 {
-    assert(isUniAlpha(tstream.source.peek) || tstream.source.peek == '_');
+    assert(isUniAlpha(tstream.source.peek) || tstream.source.peek == '_' || tstream.source.peek == '@');
     
     auto identToken = currentLocationToken(tstream);
     Mark m = tstream.source.save();
@@ -207,12 +208,18 @@ bool lexIdentifier(TokenStream tstream)
     }
     
     identToken.value = tstream.source.sliceFrom(m);
+    if (identToken.value[0] == '@') {
+        auto i = identifierType(identToken.value);
+        if (i == TokenType.Identifier) {
+            auto err = format("invalid @ attribute '%s'", identToken.value);
+            error(identToken.location, err);
+        }
+    }
+    
+    
     bool retval = lexSpecialToken(tstream, identToken);
     if (retval) return true;
     identToken.type = identifierType(identToken.value);
-    if ((identToken.value in keywordToTokenType) !is null) {
-        identToken.type = keywordToTokenType[identToken.value];
-    }
     tstream.addToken(identToken);
     
     return true;
