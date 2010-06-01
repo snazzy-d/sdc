@@ -67,6 +67,8 @@ bool lexNext(TokenStream tstream)
         return lexEOF(tstream);
     case TokenType.Identifier:
         return lexIdentifier(tstream);
+    case TokenType.CharacterLiteral:
+        return lexCharacter(tstream);
     case TokenType.Symbol:
         return lexSymbol(tstream);
     default:
@@ -93,6 +95,10 @@ TokenType nextLex(TokenStream tstream)
             }
         }
         return TokenType.Identifier;
+    }
+    
+    if (tstream.source.peek == '\'') {
+        return TokenType.CharacterLiteral;
     }
     
     return TokenType.Symbol;
@@ -525,6 +531,39 @@ bool lexBang(TokenStream tstream)
         }
     }
     
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    return true;
+}
+
+// Escape sequences are not expanded inside of the lexer.
+
+bool lexString(TokenStream tstream)
+{
+    return false;
+}
+
+bool lexCharacter(TokenStream tstream)
+{
+    auto token = currentLocationToken(tstream);
+    auto mark = tstream.source.save();
+    match(tstream, '\'');
+    while (tstream.source.peek != '\'') {
+        if (tstream.source.eof) {
+            error(token.location, "unterminated character literal");
+        }
+        if (tstream.source.peek == '\\') {
+            match(tstream, '\\');
+            if (tstream.source.peek == '\'') {
+                match(tstream, '\'');
+            }
+        } else {
+            tstream.source.get();
+        }
+    }
+    match(tstream, '\'');
+    
+    token.type = TokenType.CharacterLiteral;
     token.value = tstream.source.sliceFrom(mark);
     tstream.addToken(token);
     return true;
