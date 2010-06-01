@@ -69,6 +69,8 @@ bool lexNext(TokenStream tstream)
         return lexIdentifier(tstream);
     case TokenType.CharacterLiteral:
         return lexCharacter(tstream);
+    case TokenType.StringLiteral:
+        return lexString(tstream);
     case TokenType.Symbol:
         return lexSymbol(tstream);
     default:
@@ -88,7 +90,7 @@ TokenType nextLex(TokenStream tstream)
     
     if (isUniAlpha(tstream.source.peek)) {
         bool lookaheadEOF;
-        if (tstream.source.peek == 'r') {
+        if (tstream.source.peek == 'r' || tstream.source.peek == 'q' || tstream.source.peek == 'x') {
             dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
             if (oneAhead == '"') {
                 return TokenType.StringLiteral;
@@ -99,6 +101,10 @@ TokenType nextLex(TokenStream tstream)
     
     if (tstream.source.peek == '\'') {
         return TokenType.CharacterLiteral;
+    }
+    
+    if (tstream.source.peek == '"' || tstream.source.peek == '`') {
+        return TokenType.StringLiteral;
     }
     
     return TokenType.Symbol;
@@ -538,11 +544,6 @@ bool lexBang(TokenStream tstream)
 
 // Escape sequences are not expanded inside of the lexer.
 
-bool lexString(TokenStream tstream)
-{
-    return false;
-}
-
 bool lexCharacter(TokenStream tstream)
 {
     auto token = currentLocationToken(tstream);
@@ -568,3 +569,58 @@ bool lexCharacter(TokenStream tstream)
     tstream.addToken(token);
     return true;
 }
+
+bool lexString(TokenStream tstream)
+{
+    auto token = currentLocationToken(tstream);
+    auto mark = tstream.source.save();
+    dchar terminator;
+    bool raw;
+    bool postfix = true;
+    
+    if (tstream.source.peek == 'r') {
+        match(tstream, 'r');
+        raw = true;
+        terminator = '"';
+    } else if (tstream.source.peek == 'q') {
+    } else if (tstream.source.peek == 'x') {
+        match(tstream, 'x');
+        raw = false;
+        terminator = '"';
+    } else if (tstream.source.peek == '`') {
+        raw = true;
+        terminator = '`';
+    } else if (tstream.source.peek == '"') {
+        raw = false;
+        terminator = '"';
+    } else {
+        return false;
+    }
+    
+    match(tstream, terminator);
+    while (tstream.source.peek != terminator) {
+        if (tstream.source.eof) {
+            error(token.location, "unterminated string literal");
+        }
+        if (!raw && tstream.source.peek == '\\') {
+            match(tstream, '\\');
+            if (tstream.source.peek == terminator) {
+                match(tstream, terminator);
+            }
+        } else {
+            tstream.source.get();
+        }
+    }
+    match(tstream, terminator);
+    dchar postfixc = tstream.source.peek;
+    if ((postfixc == 'c' || postfixc == 'w' || postfixc == 'd') && postfix) {
+        match(tstream, postfixc);
+    }
+    
+    token.type = TokenType.StringLiteral;
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    
+    return false;
+}
+
