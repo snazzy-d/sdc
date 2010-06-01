@@ -7,11 +7,39 @@ module sdc.token;
 
 import sdc.location;
 
-
+/* I don't really have to tell you to keep this
+ * table and the TokenType enum in sync, do I?
+ */
+immutable string[181] tokenToString = [
+"none", "identifier", "string literal", "character literal",
+"integer literal", "float literal", "abstract", "alias", "align",
+"asm", "assert", "auto", "body", "bool", "break", "byte", "case",
+"cast", "catch", "cdouble", "cent", "cfloat", "char", "class",
+"const", "continue", "creal", "dchar", "debug", "default",
+"delegate", "delete", "deprecated", "do", "double", "else", "enum",
+"export", "extern", "false", "final", "finally", "float", "for",
+"foreach", "foreach_reverse", "function", "goto", "idouble", "if",
+"ifloat", "immutable", "import", "in", "inout", "int", "interface",
+"invariant", "ireal", "is", "lazy", "long", "macro", "mixin", "module",
+"new", "nothrow", "null", "out", "override", "package", "pragma",
+"private", "protected", "public", "pure", "real", "ref", "return",
+"scope", "shared", "short", "static", "struct", "super",
+"switch", "synchronized", "template", "this", "throw", "true",
+"try", "typedef", "typeid", "typeof", "ubyte", "ucent", "uint",
+"ulong", "union", "unittest", "ushort", "version", "void", "volatile",
+"wchar", "while", "with", "__FILE__", "__LINE__", "__gshared",
+"__thread", "__traits", "@property", "@safe", "@trusted", "@system",
+"/", "/=", ".", "..", "...", "&", "&=", "&&", "|", "|=", "||",
+"-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
+">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
+"!<=", "!>", "!>=", "(", ")", "[", "]", "{", "}", "?", ",", ";",
+":", "$", "=", "==", "*", "*=", "**", "%", "%=", "^", "^=", "~", "~=",
+"(>^(>O_O)>", "symbol", "number", "BEGIN", "END"
+];
 
 enum TokenType
 {
-    None,
+    None = 0,
     
     // Literals
     Identifier,

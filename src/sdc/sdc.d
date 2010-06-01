@@ -19,6 +19,7 @@
 module sdc.sdc;
 
 import std.stdio;
+import std.process;
 
 import sdc.source;
 import sdc.tokenstream;
@@ -40,7 +41,7 @@ int realmain(string[] args)
     auto source = new Source(args[1]);
     TokenStream tstream = lex(source);
     tstream.printTo(stdout);
-    
+        
     return 0;
 }
 

@@ -53,13 +53,10 @@ final class TokenStream
     
     void printTo(File file)
     {
-        Token t;
-        t = getToken();
-        while (t.type != TokenType.End) {
-            file.writefln("%s (%s)", t.value, t.location);
-            t = getToken();
+        foreach (i; 0 .. mTokens.length) {
+            auto t = mTokens[i];
+            file.writefln("%s (%s @ %s)", t.value, tokenToString[t.type], t.location);
         }
-        file.writefln("%s (%s)", t.value, t.location);
     }
     
     private Token[] mTokens;
