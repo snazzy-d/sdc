@@ -18,7 +18,6 @@ final class TokenStream
     Source source;
     string filename;
     
-    this() {}  // TMP
     this(Source source)
     {
         this.source = source;
