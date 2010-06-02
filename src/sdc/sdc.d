@@ -30,16 +30,6 @@ import sdc.info;
 
 int main(string[] args)
 {
-    try {
-        return realmain(args);
-    } catch (CompilerError) {
-        return 1;
-    }
-}
-
-
-int realmain(string[] args)
-{
     bool printTokens;
     
     getopt(args,
@@ -52,13 +42,20 @@ int realmain(string[] args)
         usage(); exit(1);
     }
     
+    bool errors;
     foreach (arg; args[1 .. $]) {
-        auto source = new Source(args[1]);
-        TokenStream tstream = lex(source);
+        auto source = new Source(arg);
+        TokenStream tstream;
+        try {
+            tstream = lex(source);
+        } catch (CompilerError) {
+            errors = true;
+            continue;
+        }
         if (printTokens) tstream.printTo(stdout);
     }
         
-    return 0;
+    return errors ? 1 : 0;
 }
 
 
