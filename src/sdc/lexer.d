@@ -667,7 +667,7 @@ bool lexString(TokenStream tstream)
         raw = true;
         terminator = '"';
     } else if (tstream.source.peek == 'q') {
-        error(token.location, "strings that start with q are unimplemented");
+        return lexQString(tstream);
     } else if (tstream.source.peek == 'x') {
         match(tstream.source, 'x');
         raw = false;
@@ -707,6 +707,51 @@ bool lexString(TokenStream tstream)
     return true;
 }
 
+bool lexQString(TokenStream tstream)
+{
+    match(tstream.source, 'q');
+    if (tstream.source.peek == '{') {
+        return lexTokenString(tstream);
+    }
+    
+    return false;
+}
+
+bool lexTokenString(TokenStream tstream)
+{
+    
+    auto token = currentLocationToken(tstream);
+    token.type = TokenType.StringLiteral;
+    auto mark = tstream.source.save();
+    match(tstream.source, '{');
+    auto dummystream = new TokenStream(tstream.source);
+    
+    int nest = 1;
+    while (nest > 0) {
+        bool retval = lexNext(dummystream);
+        if (!retval) {
+            error(dummystream.source.location, format("expected token, got '%s'", tstream.source.peek));
+            return false;
+        }
+        switch (dummystream.lastAdded.type) {
+        case TokenType.OpenBrace:
+            nest++;
+            break;
+        case TokenType.CloseBrace:
+            nest--;
+            break;
+        case TokenType.End:
+            error(dummystream.source.location, "unterminated token string");
+            break;
+        default:
+            break;
+        }
+    }
+    
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    return true;
+}
 
 // This function was adapted from DMD.
 bool lexNumber(TokenStream tstream)
