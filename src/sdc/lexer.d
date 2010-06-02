@@ -709,20 +709,69 @@ bool lexString(TokenStream tstream)
 
 bool lexQString(TokenStream tstream)
 {
-    match(tstream.source, 'q');
-    if (tstream.source.peek == '{') {
+    auto token = currentLocationToken(tstream);
+    token.type = TokenType.StringLiteral;
+    auto mark = tstream.source.save();
+    bool leof;
+    if (tstream.source.lookahead(1, leof) == '{') {
         return lexTokenString(tstream);
     }
+    match(tstream.source, 'q');
+    match(tstream.source, '"');
     
-    return false;
+    dchar opendelimiter, closedelimiter;
+    switch (tstream.source.peek) {
+    case '[':
+        opendelimiter = '[';
+        closedelimiter = ']';
+        break;
+    case '(':
+        opendelimiter = '(';
+        closedelimiter = ')';
+        break;
+    case '<':
+        opendelimiter = '<';
+        closedelimiter = '>';
+        break;
+    case '{':
+        opendelimiter = '{';
+        closedelimiter = '}';
+        break;
+    default:
+        assert(false);
+    }
+    
+    match(tstream.source, opendelimiter);
+    int nest = 1;
+    while (nest > 0) {
+        if (tstream.source.eof) {
+            error(token.location, "unterminated string");
+        }
+        if (tstream.source.peek == opendelimiter) {
+            match(tstream.source, opendelimiter);
+            nest++;
+        } else if (tstream.source.peek == closedelimiter) {
+            match(tstream.source, closedelimiter);
+            nest--;
+            if (nest == 0) {
+                match(tstream.source, '"');
+            }
+        } else {
+            tstream.source.get();
+        }
+    }
+    
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    return true;
 }
 
 bool lexTokenString(TokenStream tstream)
 {
-    
     auto token = currentLocationToken(tstream);
     token.type = TokenType.StringLiteral;
     auto mark = tstream.source.save();
+    match(tstream.source, 'q');
     match(tstream.source, '{');
     auto dummystream = new TokenStream(tstream.source);
     
