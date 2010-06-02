@@ -75,6 +75,16 @@ pure bool isoctal(dchar c)
     return c >= '0' && c <= '7';
 }
 
+enum Position { Start, MiddleOrEnd }
+bool isdalpha(dchar c, Position position)
+{
+    if (position == Position.Start) {
+        return isUniAlpha(c) || c == '_';
+    } else {
+        return isUniAlpha(c) || c == '_' || isdigit(c);
+    }
+}
+
 bool lexNext(TokenStream tstream)
 {
     TokenType type = nextLex(tstream);
@@ -720,6 +730,8 @@ bool lexQString(TokenStream tstream)
     match(tstream.source, '"');
     
     dchar opendelimiter, closedelimiter;
+    bool nesting = true;
+    string identdelim = null;
     switch (tstream.source.peek) {
     case '[':
         opendelimiter = '[';
@@ -738,12 +750,26 @@ bool lexQString(TokenStream tstream)
         closedelimiter = '}';
         break;
     default:
-        assert(false);
+        nesting = false;
+        if (isdalpha(tstream.source.peek, Position.Start)) {
+            char[] buf;
+            buf ~= tstream.source.peek;
+            tstream.source.get();
+            while (isdalpha(tstream.source.peek, Position.MiddleOrEnd)) {
+                buf ~= tstream.source.peek;
+                tstream.source.get();
+            }
+            match(tstream.source, '\n');
+            identdelim = buf.idup;
+        } else {
+            opendelimiter = tstream.source.peek;
+            closedelimiter = tstream.source.peek;
+        }
     }
     
-    match(tstream.source, opendelimiter);
+    if (identdelim is null) match(tstream.source, opendelimiter);
     int nest = 1;
-    while (nest > 0) {
+    LOOP: while (true) {
         if (tstream.source.eof) {
             error(token.location, "unterminated string");
         }
@@ -758,6 +784,32 @@ bool lexQString(TokenStream tstream)
             }
         } else {
             tstream.source.get();
+        }
+        
+        // Time to quit?
+        if (nesting && nest <= 0) {
+            break;
+        } else if (identdelim !is null && tstream.source.peek == '\n') {
+            size_t look = 1;
+            while (look - 1 < identdelim.length) {
+                dchar c = tstream.source.lookahead(look, leof);
+                if (leof) {
+                    error(token.location, "unterminated string");
+                }
+                if (c != identdelim[look - 1]) {
+                    continue LOOP;
+                }
+                look++;
+            }
+            foreach (i; 0 .. look) {
+                tstream.source.get();
+            }
+            match(tstream.source, '"');
+            break;
+        } else if (tstream.source.peek == closedelimiter) {
+            match(tstream.source, closedelimiter);
+            match(tstream.source, '"');
+            break;
         }
     }
     
