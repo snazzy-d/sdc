@@ -1132,7 +1132,7 @@ body
 bool lexPragma(TokenStream tstream)
 {
     /* Can't do this yet because the code for getting values out of
-     * literals hasn't been written yet.
+     * literals hasn't been written.
      */
     error(tstream.source.location, "# pragma is not implemented");
     assert(false);
