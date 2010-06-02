@@ -2,6 +2,8 @@
  * Copyright 2010 Bernard Helyer
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdl.d for more details.
+ * 
+ * lexer.d: split input source file into a list of tokens.
  */ 
 module sdc.lexer;
 
@@ -35,6 +37,8 @@ TokenStream lex(Source source)
     return tstream;
 }
 
+private:
+
 void error(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s.", loc, message));
@@ -46,12 +50,12 @@ void warning(Location loc, string message)
     stderr.writeln(format("%s: warning: %s.", loc, message));
 }
 
-void match(TokenStream tstream, dchar c)
+void match(Source src, dchar c)
 {
-    if (tstream.source.peek != c) {
-        error(tstream.source.location, format("expected '%s' got '%s'", c, tstream.source.peek));
+    if (src.peek != c) {
+        error(src.location, format("expected '%s' got '%s'", c, src.peek));
     }
-    tstream.source.get();
+    src.get();
 }
 
 Token currentLocationToken(TokenStream tstream)
@@ -59,6 +63,16 @@ Token currentLocationToken(TokenStream tstream)
     auto t = new Token();
     t.location = tstream.source.location;
     return t;
+}
+
+bool ishex(dchar c)
+{
+    return isdigit(c) || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f';
+}
+
+pure bool isoctal(dchar c)
+{
+    return c >= '0' && c <= '7';
 }
 
 bool lexNext(TokenStream tstream)
@@ -132,7 +146,7 @@ void skipWhitespace(TokenStream tstream)
 
 void skipLineComment(TokenStream tstream)
 {
-    match(tstream, '/');
+    match(tstream.source, '/');
     while (tstream.source.peek != '\n') {
         tstream.source.get();
         if (tstream.source.eof) return;
@@ -148,15 +162,15 @@ void skipBlockComment(TokenStream tstream)
             error(tstream.source.location, "unterminated block comment");
         }
         if (tstream.source.peek == '/') {
-            match(tstream, '/');
+            match(tstream.source, '/');
             if (tstream.source.peek == '*') {
                 warning(tstream.source.location, "'/*' inside of block comment");
             }
         }
         if (tstream.source.peek == '*') {
-            match(tstream, '*');
+            match(tstream.source, '*');
             if (tstream.source.peek == '/') {
-                match(tstream, '/');
+                match(tstream.source, '/');
                 looping = false;
             }
         } 
@@ -172,13 +186,13 @@ void skipNestingComment(TokenStream tstream)
             error(tstream.source.location, "unterminated nesting comment");
         }
         if (tstream.source.peek == '+') {
-            match(tstream, '+');
+            match(tstream.source, '+');
             if (tstream.source.peek == '/') {
                 depth--;
             }
         }
         if (tstream.source.peek == '/') {
-            match(tstream, '/');
+            match(tstream.source, '/');
             if (tstream.source.peek == '+') {
                 depth++;
             }
@@ -351,11 +365,11 @@ bool lexSlash(TokenStream tstream)
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     auto type = TokenType.Slash;
-    match(tstream, '/');
+    match(tstream.source, '/');
     
     switch (tstream.source.peek) {
     case '=':
-        match(tstream, '=');
+        match(tstream.source, '=');
         type = TokenType.SlashAssign;
         break;
     case '/':
@@ -383,13 +397,13 @@ bool lexDot(TokenStream tstream)
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     auto type = TokenType.Dot;
-    match(tstream, '.');
+    match(tstream.source, '.');
     
     switch (tstream.source.peek) {
     case '.':
-        match(tstream, '.');
+        match(tstream.source, '.');
         if (tstream.source.peek == '.') {
-            match(tstream, '.');
+            match(tstream.source, '.');
             type = TokenType.TripleDot;
         } else {
             type = TokenType.DoubleDot;
@@ -411,13 +425,13 @@ bool lexSymbolOrSymbolAssignOrDoubleSymbol(TokenStream tstream, dchar c, TokenTy
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     auto type = symbol;
-    match(tstream, c);
+    match(tstream.source, c);
     
     if (tstream.source.peek == '=') {
-        match(tstream, '=');
+        match(tstream.source, '=');
         type = symbolAssign;
     } else if (tstream.source.peek == c) {
-        match(tstream, c);
+        match(tstream.source, c);
         type = doubleSymbol;
     }
     
@@ -432,7 +446,7 @@ bool lexSingleSymbol(TokenStream tstream, dchar c, TokenType symbol)
 {
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
-    match(tstream, c);
+    match(tstream.source, c);
     token.type = symbol;
     token.value = tstream.source.sliceFrom(mark);
     tstream.addToken(token);
@@ -444,10 +458,10 @@ bool lexSymbolOrSymbolAssign(TokenStream tstream, dchar c, TokenType symbol, Tok
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     auto type = symbol;
-    match(tstream, c);
+    match(tstream.source, c);
     
     if (tstream.source.peek == '=') {
-        match(tstream, '=');
+        match(tstream.source, '=');
         type = symbolAssign;
     }
     
@@ -464,7 +478,7 @@ bool lexOpenParen(TokenStream tstream)
     if (!lexOpKirbyRape(tstream)) {
         Mark m = tstream.source.save();
         auto token = currentLocationToken(tstream);
-        match(tstream, '(');
+        match(tstream.source, '(');
         token.type = TokenType.OpenParen;
         token.value = tstream.source.sliceFrom(m);
         tstream.addToken(token);
@@ -513,23 +527,23 @@ bool lexLess(TokenStream tstream)
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     token.type = TokenType.Less;
-    match(tstream, '<');
+    match(tstream.source, '<');
     
     if (tstream.source.peek == '=') {
-        match(tstream, '=');
+        match(tstream.source, '=');
         token.type = TokenType.LessAssign;
     } else if (tstream.source.peek == '<') {
-        match(tstream, '<');
+        match(tstream.source, '<');
         if (tstream.source.peek == '=') {
-            match(tstream, '=');
+            match(tstream.source, '=');
             token.type = TokenType.DoubleLessAssign;
         } else {
             token.type = TokenType.DoubleLess;
         }
     } else if (tstream.source.peek == '>') {
-        match(tstream, '>');
+        match(tstream.source, '>');
         if (tstream.source.peek == '=') {
-            match(tstream, '=');
+            match(tstream.source, '=');
             token.type = TokenType.LessGreaterAssign;
         } else {
             token.type = TokenType.LessGreater;
@@ -546,20 +560,20 @@ bool lexGreater(TokenStream tstream)
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     token.type = TokenType.Greater;
-    match(tstream, '>');
+    match(tstream.source, '>');
     
     if (tstream.source.peek == '=') {
-        match(tstream, '=');
+        match(tstream.source, '=');
         token.type = TokenType.GreaterAssign;
     } else if (tstream.source.peek == '>') {
-        match(tstream, '>');
+        match(tstream.source, '>');
         if (tstream.source.peek == '=') {
-            match(tstream, '=');
+            match(tstream.source, '=');
             token.type = TokenType.DoubleGreaterAssign;
         } else if (tstream.source.peek == '>') {
-            match(tstream, '>');
+            match(tstream.source, '>');
             if (tstream.source.peek == '=') {
-                match(tstream, '=');
+                match(tstream.source, '=');
                 token.type = TokenType.TripleGreaterAssign;
             } else {
                 token.type = TokenType.TripleGreater;
@@ -579,30 +593,30 @@ bool lexBang(TokenStream tstream)
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
     token.type = TokenType.Bang;
-    match(tstream, '!');
+    match(tstream.source, '!');
     
     if (tstream.source.peek == '=') {
-        match(tstream, '=');
+        match(tstream.source, '=');
         token.type = TokenType.BangAssign;
     } else if (tstream.source.peek == '>') {
-        match(tstream, '>');
+        match(tstream.source, '>');
         if (tstream.source.peek == '=') {
             token.type = TokenType.BangGreaterAssign;
         } else {
             token.type = TokenType.BangGreater;
         }
     } else if (tstream.source.peek == '<') {
-        match(tstream, '<');
+        match(tstream.source, '<');
         if (tstream.source.peek == '>') {
-            match(tstream, '>');
+            match(tstream.source, '>');
             if (tstream.source.peek == '=') {
-                match(tstream, '=');
+                match(tstream.source, '=');
                 token.type = TokenType.BangLessGreaterAssign;
             } else {
                 token.type = TokenType.BangLessGreater;
             }
         } else if (tstream.source.peek == '=') {
-            match(tstream, '=');
+            match(tstream.source, '=');
             token.type = TokenType.BangLessAssign;
         } else {
             token.type = TokenType.BangLess;
@@ -620,21 +634,21 @@ bool lexCharacter(TokenStream tstream)
 {
     auto token = currentLocationToken(tstream);
     auto mark = tstream.source.save();
-    match(tstream, '\'');
+    match(tstream.source, '\'');
     while (tstream.source.peek != '\'') {
         if (tstream.source.eof) {
             error(token.location, "unterminated character literal");
         }
         if (tstream.source.peek == '\\') {
-            match(tstream, '\\');
+            match(tstream.source, '\\');
             if (tstream.source.peek == '\'') {
-                match(tstream, '\'');
+                match(tstream.source, '\'');
             }
         } else {
             tstream.source.get();
         }
     }
-    match(tstream, '\'');
+    match(tstream.source, '\'');
     
     token.type = TokenType.CharacterLiteral;
     token.value = tstream.source.sliceFrom(mark);
@@ -651,13 +665,13 @@ bool lexString(TokenStream tstream)
     bool postfix = true;
     
     if (tstream.source.peek == 'r') {
-        match(tstream, 'r');
+        match(tstream.source, 'r');
         raw = true;
         terminator = '"';
     } else if (tstream.source.peek == 'q') {
         error(token.location, "strings that start with q are unimplemented");
     } else if (tstream.source.peek == 'x') {
-        match(tstream, 'x');
+        match(tstream.source, 'x');
         raw = false;
         terminator = '"';
     } else if (tstream.source.peek == '`') {
@@ -670,24 +684,24 @@ bool lexString(TokenStream tstream)
         return false;
     }
     
-    match(tstream, terminator);
+    match(tstream.source, terminator);
     while (tstream.source.peek != terminator) {
         if (tstream.source.eof) {
             error(token.location, "unterminated string literal");
         }
         if (!raw && tstream.source.peek == '\\') {
-            match(tstream, '\\');
+            match(tstream.source, '\\');
             if (tstream.source.peek == terminator) {
-                match(tstream, terminator);
+                match(tstream.source, terminator);
             }
         } else {
             tstream.source.get();
         }
     }
-    match(tstream, terminator);
+    match(tstream.source, terminator);
     dchar postfixc = tstream.source.peek;
     if ((postfixc == 'c' || postfixc == 'w' || postfixc == 'd') && postfix) {
-        match(tstream, postfixc);
+        match(tstream.source, postfixc);
     }
     
     token.type = TokenType.StringLiteral;
@@ -698,7 +712,275 @@ bool lexString(TokenStream tstream)
 }
 
 
+// This function was adapted from DMD.
 bool lexNumber(TokenStream tstream)
 {
-    return false;
+    enum State { Initial, Zero, Decimal, Octal, Octale, 
+                 Hex, Binary, HexZero, BinaryZero }
+    
+    auto token = currentLocationToken(tstream);
+    auto mark = tstream.source.save();
+    State state = State.Initial;
+    int base = 0;
+    bool leof;
+    auto src = tstream.source.dup;
+    
+    LOOP: while (true) {
+        switch (state) {
+        case State.Initial:
+            if (src.peek == '0') {
+                state = State.Zero;
+            } else {
+                state = State.Decimal;
+            }
+            break;
+        case State.Zero:
+            switch (src.peek) {
+            case 'x': case 'X':
+                state = State.HexZero;
+                break;
+            case '.':
+                if (src.lookahead(1, leof) == '.') {
+                    break LOOP;  // '..' is a separate token.
+                }
+            // FALLTHROUGH
+            case 'i': case 'f': case 'F':
+                return lexReal(tstream);
+            case 'b': case 'B':
+                state = State.BinaryZero;
+                break;
+            case '0': case '1': case '2': case '3': 
+            case '4': case '5': case '6': case '7':
+                state = State.Octal;
+                break;
+            case '_':
+                state = State.Octal;
+                match(src, '_');
+                continue;
+            case 'L':
+                if (src.lookahead(1, leof) == 'i') {
+                    return lexReal(tstream);
+                }
+                break LOOP;
+            default:
+                break LOOP;
+            }
+            break;
+        case State.Decimal:  // Reading a decimal number.
+            if (!isdigit(src.peek)) {
+                if (src.peek == '_') {
+                    // Ignore embedded '_'.
+                    match(src, '_');
+                    continue;
+                }
+                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
+                    return lexReal(tstream);
+                } else if (src.peek == 'i' || src.peek == 'f' ||
+                           src.peek == 'F' || src.peek == 'e' ||
+                           src.peek == 'E') {
+                    return lexReal(tstream);
+                } else if (src.peek == 'L' && src.lookahead(1, leof) == 'i') {
+                    return lexReal(tstream);
+                }
+                break LOOP;
+            }
+            break;
+        case State.Hex:  // Reading a hexadecimal number.
+        case State.HexZero:
+            if (!ishex(src.peek)) {
+                if (src.peek == '_') {
+                    match(src, '_');
+                    continue;
+                }
+                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
+                    return lexReal(tstream);
+                } 
+                if (src.peek == 'p' || src.peek == 'P' || src.peek == 'i') {
+                    return lexReal(tstream);
+                }
+                if (state == State.HexZero) {
+                    error(src.location, format("hex digit expected, not '%s'", src.peek));
+                }
+                break LOOP;
+            }
+            state = State.Hex;
+            break;
+        case State.Octal:   // Reading an octal number.
+        case State.Octale:  // Reading an octal number with non-octal digits.
+            if (!isoctal(src.peek)) {
+                if (src.peek == '_') {
+                    match(src, '_');
+                    continue;
+                }
+                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
+                    return lexReal(tstream);
+                }
+                if (src.peek == 'i') {
+                    return lexReal(tstream);
+                }
+                if (isdigit(src.peek)) {
+                    state = State.Octale;
+                } else {
+                    break LOOP;
+                }
+            }
+            break;
+        case State.BinaryZero:  // Reading the beginning of a binary number.
+        case State.Binary:      // Reading a binary number.
+            if (src.peek != '0' && src.peek != '1') {
+                if (src.peek == '_') {
+                    match(src, '_');
+                    continue;
+                }
+                if (state == State.BinaryZero) {
+                    error(src.location, format("binary digit expected, not '%s'", src.peek));
+                } else {
+                    break LOOP;
+                }
+            }
+            state = State.Binary;
+            break;
+        default:
+            assert(false);
+        }
+        src.get();
+    }
+    
+    if (state == State.Octale) {
+        error(src.location, format("octal digit expected, not '%s'", src.peek));
+    }
+    
+    tstream.source.sync(src);
+    
+    // Parse trailing 'u', 'U', 'l' or 'L' in any combination.
+    while (true) {
+        switch (tstream.source.peek) {
+        case 'U': case 'u':
+            tstream.source.get();
+            continue;
+        case 'l':
+            error(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead");
+            break;
+        case 'L':
+            match(tstream.source, 'L');
+            continue;
+        default:
+            break;
+        }
+        break;
+    }
+    
+    token.type = TokenType.IntegerLiteral;
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    
+    return true;
+}
+
+// This function was adapted from DMD.
+bool lexReal(TokenStream tstream)
+in
+{
+    assert(tstream.source.peek == '.' || isdigit(tstream.source.peek));
+}
+body
+{
+    auto token = currentLocationToken(tstream);
+    token.type = TokenType.FloatLiteral;
+    auto mark = tstream.source.save();
+    
+    int dblstate = 0;
+    int hex = 0;
+    bool first = true;
+    OUTER: while (true) {
+        if (first) {
+            first = false;
+        } else {
+            tstream.source.get();
+        }
+        INNER: while (true) {
+            switch (dblstate) {
+            case 0:  // Opening state.
+                if (tstream.source.peek == '0') {
+                    dblstate = 9;
+                } else if (tstream.source.peek == '.') {
+                    dblstate = 3;
+                } else {
+                    dblstate = 1;
+                }
+                break;
+            case 9:
+                dblstate = 1;
+                if (tstream.source.peek == 'x' || tstream.source.peek == 'X') {
+                    hex++;
+                    break;
+                }
+            case 1:  // Digits to the left of the decimal point.
+            case 3:  // Digits to the right of the decimal point.
+            case 7:  // Continuing exponent digits.
+                if (!isdigit(tstream.source.peek) && !(hex && ishex(tstream.source.peek))) {
+                    if (tstream.source.peek == '_') {
+                        continue OUTER;
+                    }
+                    dblstate++;
+                    continue INNER;
+                }
+                break;
+            case 2:  // No more digits to the left of the decimal point.
+                if (tstream.source.peek == '.') {
+                    dblstate++;
+                    break;
+                }
+                // FALLTHROUGH
+            case 4:  // No more digits to the right of the decimal point.
+                if ((tstream.source.peek == 'e' || tstream.source.peek == 'E') ||
+                    hex && (tstream.source.peek == 'P' || tstream.source.peek == 'p')) {
+                    dblstate = 5;
+                    hex = 0;  // An exponent is always decimal.
+                    break;
+                }
+                if (hex) {
+                    error(tstream.source.location, "binary-exponent-part required");
+                }
+                break OUTER;
+            case 5:  // Looking immediately to the right of E.
+                dblstate++;
+                if (tstream.source.peek == '-' || tstream.source.peek == '+') {
+                    break;
+                }
+            case 6:  // First exponent digit expected.
+                if (!isdigit(tstream.source.peek)) {
+                    error(tstream.source.location, "exponent expected");
+                } 
+                dblstate++;
+                break;
+            case 8:  // Past end of exponent digits.
+                break OUTER;
+            default:
+                assert(false);
+            }
+            break;
+        }
+    }
+    
+    switch (tstream.source.peek) {
+    case 'f': case 'F': case 'L':
+        tstream.source.get();
+        break;
+    case 'l':
+        error(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead");
+    default:
+        break;
+    }
+    
+    if (tstream.source.peek == 'i' || tstream.source.peek == 'I') {
+        if (tstream.source.peek == 'I') {
+            error(tstream.source.location, "'I' suffix is deprecated. Use 'i' instead");
+        }
+        match(tstream.source, 'i');
+    }
+    
+    token.value = tstream.source.sliceFrom(mark);
+    tstream.addToken(token);
+    return true;
 }
