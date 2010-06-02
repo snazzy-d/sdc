@@ -92,7 +92,21 @@ final class Source
         newSource.source = this.source;
         newSource.location = this.location;
         newSource.eof = this.eof;
+        newSource.mChar = this.mChar;
+        newSource.mIndex = this.mIndex;
         return newSource;
+    }
+    
+    /// Synchronise this source with a duplicated one.
+    void sync(Source src)
+    {
+        if (src.source !is this.source) {
+            throw new Exception("attempted to sync different sources");
+        }
+        this.location = src.location;
+        this.mIndex = src.mIndex;
+        this.mChar = src.mChar;
+        this.eof = src.eof;
     }
 
     private dchar mChar;
