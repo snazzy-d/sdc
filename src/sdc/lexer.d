@@ -114,7 +114,7 @@ TokenType nextLex(TokenStream tstream)
         return TokenType.StringLiteral;
     }
     
-    if (isdigit(tstream.source.peek) || tstream.source.peek == '.') {
+    if (isdigit(tstream.source.peek)) {
         return TokenType.Number;
     }
     
