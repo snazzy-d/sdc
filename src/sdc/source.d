@@ -30,6 +30,7 @@ final class Source
         location.line = 1;
         location.column = 1;
     }
+    this() {}
     
 
     dchar get()
@@ -82,6 +83,16 @@ final class Source
     string sliceFrom(Mark mark)
     {
         return source[mark .. mIndex - 1];
+    }
+    
+    /// Make a new Source object in the same state as this one.
+    Source dup() @property
+    {
+        auto newSource = new Source();
+        newSource.source = this.source;
+        newSource.location = this.location;
+        newSource.eof = this.eof;
+        return newSource;
     }
 
     private dchar mChar;
