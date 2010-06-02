@@ -641,9 +641,7 @@ bool lexCharacter(TokenStream tstream)
         }
         if (tstream.source.peek == '\\') {
             match(tstream.source, '\\');
-            if (tstream.source.peek == '\'') {
-                match(tstream.source, '\'');
-            }
+            tstream.source.get();
         } else {
             tstream.source.get();
         }
@@ -691,9 +689,7 @@ bool lexString(TokenStream tstream)
         }
         if (!raw && tstream.source.peek == '\\') {
             match(tstream.source, '\\');
-            if (tstream.source.peek == terminator) {
-                match(tstream.source, terminator);
-            }
+            tstream.source.get();
         } else {
             tstream.source.get();
         }
