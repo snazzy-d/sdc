@@ -363,6 +363,8 @@ bool lexSymbol(TokenStream tstream)
         return lexSymbolOrSymbolAssign(tstream, '^', TokenType.Caret, TokenType.CaretAssign);
     case '~':
         return lexSymbolOrSymbolAssign(tstream, '~', TokenType.Tilde, TokenType.TildeAssign);
+    case '#':
+        return lexPragma(tstream);
     default:
         break;
     }
@@ -1125,4 +1127,10 @@ body
     token.value = tstream.source.sliceFrom(mark);
     tstream.addToken(token);
     return true;
+}
+
+bool lexPragma(TokenStream tstream)
+{
+    error(tstream.source.location, "# pragma is not implemented");
+    assert(false);
 }
