@@ -19,12 +19,14 @@
 module sdc.sdc;
 
 import std.stdio;
-import std.process;
+import std.getopt;
+import std.c.stdlib;
 
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
+import sdc.info;
 
 int main(string[] args)
 {
@@ -38,12 +40,33 @@ int main(string[] args)
 
 int realmain(string[] args)
 {
-    auto source = new Source(args[1]);
-    TokenStream tstream = lex(source);
-    tstream.printTo(stdout);
+    bool printTokens;
+    
+    getopt(args,
+           "help", () { usage(); exit(0); },
+           "version", () { stdout.writeln(NAME); exit(0); },
+           "print-tokens", &printTokens
+          );
+          
+    if (args.length == 1) {
+        usage(); exit(1);
+    }
+    
+    foreach (arg; args[1 .. $]) {
+        auto source = new Source(args[1]);
+        TokenStream tstream = lex(source);
+        if (printTokens) tstream.printTo(stdout);
+    }
         
     return 0;
 }
 
 
+void usage()
+{
+    stdout.writeln("sdc [options] files");
+    stdout.writeln("  --help:          print this message.");
+    stdout.writeln("  --version:       print version information to stdout.");
+    stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
+}
 
