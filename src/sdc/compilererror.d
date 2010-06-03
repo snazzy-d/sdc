@@ -5,6 +5,23 @@
  */ 
 module sdc.compilererror;
 
+import std.stdio;
+import std.string;
+
+import sdc.location;
+
+
 class CompilerError
 {
+}
+
+void error(Location loc, string message)
+{
+    stderr.writeln(format("%s: error: %s.", loc, message));
+    throw new CompilerError();
+}
+
+void warning(Location loc, string message)
+{
+    stderr.writeln(format("%s: warning: %s.", loc, message));
 }

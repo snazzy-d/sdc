@@ -39,17 +39,6 @@ TokenStream lex(Source source)
 
 private:
 
-void error(Location loc, string message)
-{
-    stderr.writeln(format("%s: error: %s.", loc, message));
-    throw new CompilerError();
-}
-
-void warning(Location loc, string message)
-{
-    stderr.writeln(format("%s: warning: %s.", loc, message));
-}
-
 void match(Source src, dchar c)
 {
     if (src.peek != c) {
