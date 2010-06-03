@@ -10,7 +10,7 @@ import sdc.location;
 /* I don't really have to tell you to keep this
  * table and the TokenType enum in sync, do I?
  */
-immutable string[181] tokenToString = [
+immutable string[182] tokenToString = [
 "none", "identifier", "string literal", "character literal",
 "integer literal", "float literal", "abstract", "alias", "align",
 "asm", "assert", "auto", "body", "bool", "break", "byte", "case",
@@ -29,6 +29,7 @@ immutable string[181] tokenToString = [
 "ulong", "union", "unittest", "ushort", "version", "void", "volatile",
 "wchar", "while", "with", "__FILE__", "__LINE__", "__gshared",
 "__thread", "__traits", "@property", "@safe", "@trusted", "@system",
+"@disable",
 "/", "/=", ".", "..", "...", "&", "&=", "&&", "|", "|=", "||",
 "-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
 ">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
@@ -75,7 +76,7 @@ enum TokenType
     Version, Void, Volatile,
     Wchar, While, With,
     __File__, __Line__, __Gshared, __Thread, __Traits,
-    atProperty, atSafe, atTrusted, atSystem,
+    atProperty, atSafe, atTrusted, atSystem, atDisable,
     
     /// Symbols.
     Slash,             // /
@@ -274,6 +275,7 @@ static this()
         keywordToTokenType["@safe"] = atSafe;
         keywordToTokenType["@trusted"] = atTrusted;
         keywordToTokenType["@system"] = atSystem;
+        keywordToTokenType["@disable"] = atDisable;
     }
 }
 
