@@ -47,6 +47,5 @@ class AttributeSpecifier : DeclarationDefinition
 class Attribute
 {
     TokenType type;
-    Token argument;  // Optional
+    Token argument;  // Optional.
 }
-
