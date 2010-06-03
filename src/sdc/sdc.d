@@ -27,6 +27,7 @@ import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
+import sdc.ast.sdcmodule;
 
 int main(string[] args)
 {
@@ -48,6 +49,7 @@ int main(string[] args)
         TokenStream tstream;
         try {
             tstream = lex(source);
+            auto parseTree = new Module(tstream);
         } catch (CompilerError) {
             errors = true;
             continue;
