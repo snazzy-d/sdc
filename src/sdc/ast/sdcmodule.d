@@ -15,28 +15,9 @@ import sdc.ast.base;
 class Module : Node
 {
     ModuleDeclaration moduleDeclaration;
-    
-    this(TokenStream tstream)
-    {
-        match(tstream, TokenType.Begin);
-        moduleDeclaration = new ModuleDeclaration(tstream);
-    }
 }
 
 class ModuleDeclaration : Node
 {
     QualifiedName name;
-    
-    this(TokenStream tstream)
-    {
-        if (tstream.peek.type == TokenType.Module) {
-            // Explicit module declaration.
-            match(tstream, TokenType.Module);
-            name = new QualifiedName(tstream);
-            match(tstream, TokenType.Semicolon);
-        } else {
-            // Implicit module declaration.
-            name = new QualifiedName(tstream, basename(tstream.filename, "." ~ getExt(tstream.filename)));
-        }
-    }
 }

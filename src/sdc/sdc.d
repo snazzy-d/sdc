@@ -49,7 +49,6 @@ int main(string[] args)
         TokenStream tstream;
         try {
             tstream = lex(source);
-            auto parseTree = new Module(tstream);
         } catch (CompilerError) {
             errors = true;
             continue;
