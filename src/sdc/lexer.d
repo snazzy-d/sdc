@@ -167,7 +167,6 @@ void skipBlockComment(TokenStream tstream)
 {
     bool looping = true;
     while (looping) {
-        tstream.source.get();
         if (tstream.source.eof) {
             error(tstream.source.location, "unterminated block comment");
         }
@@ -176,14 +175,15 @@ void skipBlockComment(TokenStream tstream)
             if (tstream.source.peek == '*') {
                 warning(tstream.source.location, "'/*' inside of block comment");
             }
-        }
-        if (tstream.source.peek == '*') {
+        } else if (tstream.source.peek == '*') {
             match(tstream.source, '*');
             if (tstream.source.peek == '/') {
                 match(tstream.source, '/');
                 looping = false;
             }
-        } 
+        } else {
+            tstream.source.get();
+        }
     }
 }
 
@@ -191,7 +191,6 @@ void skipNestingComment(TokenStream tstream)
 {
     int depth = 1;
     while (depth > 0) {
-        tstream.source.get();
         if (tstream.source.eof) {
             error(tstream.source.location, "unterminated nesting comment");
         }
@@ -200,12 +199,13 @@ void skipNestingComment(TokenStream tstream)
             if (tstream.source.peek == '/') {
                 depth--;
             }
-        }
-        if (tstream.source.peek == '/') {
+        } else if (tstream.source.peek == '/') {
             match(tstream.source, '/');
             if (tstream.source.peek == '+') {
                 depth++;
             }
+        } else {
+            tstream.source.get();
         }
     }
 }
