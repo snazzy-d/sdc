@@ -20,6 +20,7 @@ class Module : Node
     DeclarationDefinition[] declarationDefinitions;
 }
 
+// module QualifiedName ;
 class ModuleDeclaration : Node
 {
     QualifiedName name;
@@ -29,11 +30,23 @@ class DeclarationDefinition : Node
 {
 }
 
+// DeclarationDefinition | { DeclarationDefinition* }
+class DeclarationBlock : Node
+{
+    DeclarationDefinition[] declarationDefinitions;
+}
+
+// Attribute :? | Attribute DeclarationBlock
 class AttributeSpecifier : DeclarationDefinition
 {
+    Attribute attribute;
+    bool colon;
+    DeclarationBlock declarationBlock;
 }
 
 class Attribute
 {
     TokenType type;
+    Token argument;  // Optional
 }
+
