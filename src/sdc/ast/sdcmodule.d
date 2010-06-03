@@ -17,9 +17,23 @@ import sdc.ast.base;
 class Module : Node
 {
     ModuleDeclaration moduleDeclaration;
+    DeclarationDefinition[] declarationDefinitions;
 }
 
 class ModuleDeclaration : Node
 {
     QualifiedName name;
+}
+
+class DeclarationDefinition : Node
+{
+}
+
+class AttributeSpecifier : DeclarationDefinition
+{
+}
+
+class Attribute
+{
+    TokenType type;
 }
