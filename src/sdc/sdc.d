@@ -22,23 +22,28 @@ import std.stdio;
 import std.getopt;
 import std.c.stdlib;
 
+import libdjson.json;
+
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
 import sdc.parse;
+import sdc.treetojson;
 import sdc.ast.base;
 import sdc.ast.sdcmodule;
 
 int main(string[] args)
 {
     bool printTokens;
+    bool printAST;
     
     getopt(args,
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
-           "print-tokens", &printTokens
+           "print-tokens", &printTokens,
+           "print-ast", &printAST
           );
           
     if (args.length == 1) {
@@ -58,6 +63,10 @@ int main(string[] args)
             continue;
         }
         if (printTokens) tstream.printTo(stdout);
+        if (printAST) {
+            JSONObject root = toJSON(parseTree);
+            stdout.writeln(root.toPrettyString);
+        }
     }
         
     return errors ? 1 : 0;
@@ -70,5 +79,6 @@ void usage()
     stdout.writeln("  --help:          print this message.");
     stdout.writeln("  --version:       print version information to stdout.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
+    stdout.writeln("  --print-ast:     print the AST to stdout.");
 }
 

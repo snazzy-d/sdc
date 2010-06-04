@@ -20,6 +20,7 @@ final class TokenStream
     
     this(Source source)
     {
+        filename = source.location.filename;
         this.source = source;
         auto start = new Token();
         start.type = TokenType.Begin;
