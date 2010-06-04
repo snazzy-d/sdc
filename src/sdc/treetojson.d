@@ -33,12 +33,14 @@ void prettyQualifiedName(QualifiedName name, JSONObject root)
 {
     auto localRoot = new JSONArray();
     foreach (ident; name.identifiers) {
-        localRoot ~= prettyIdentifier(ident);
+        auto r = new JSONObject();
+        prettyIdentifier(ident, r);
+        localRoot ~= r;
     }
     root["QualifiedName"] = localRoot;
 }
 
-JSONString prettyIdentifier(Identifier ident)
+void prettyIdentifier(Identifier ident, JSONObject root)
 {
-    return new JSONString(ident.token.value);
+    root["Identifier"] = new JSONString(ident.token.value);
 }
