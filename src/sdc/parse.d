@@ -8,6 +8,7 @@
 module sdc.parse;
 
 import std.string;
+import std.path;
 
 import sdc.compilererror;
 import sdc.tokenstream;
@@ -51,6 +52,14 @@ void parseModuleDeclaration(TokenStream tstream, ModuleDeclaration modDec)
         match(tstream, TokenType.Semicolon);
     } else {
         // Implicit module declaration.
+        modDec.name = new QualifiedName();
+        auto token = new Token();
+        token.type = TokenType.Identifier;
+        token.location = tstream.peek.location;
+        token.value = basename(tstream.filename, "." ~ getExt(tstream.filename));
+        auto ident = new Identifier();
+        ident.token = token;
+        modDec.name.identifiers ~= ident;
     }
 }
 
