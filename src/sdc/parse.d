@@ -18,9 +18,7 @@ import sdc.ast.sdcmodule;
 
 Module parse(TokenStream tstream)
 {
-    auto mod = new Module();
-    parseModule(tstream, mod);
-    return mod;
+    return parseModule(tstream);
 }
 
 private:
@@ -35,20 +33,21 @@ void match(TokenStream tstream, TokenType type)
     tstream.getToken();
 }
 
-void parseModule(TokenStream tstream, Module mod)
+Module parseModule(TokenStream tstream)
 {
+    auto mod = new Module();
     match(tstream, TokenType.Begin);
-    mod.moduleDeclaration = new ModuleDeclaration();
-    parseModuleDeclaration(tstream, mod.moduleDeclaration);
+    mod.moduleDeclaration = parseModuleDeclaration(tstream);
+    return mod;
 }                                        
 
-void parseModuleDeclaration(TokenStream tstream, ModuleDeclaration modDec)
+ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
 {
+    auto modDec = new ModuleDeclaration();
     if (tstream.peek.type == TokenType.Module) {
         // Explicit module declaration.
         match(tstream, TokenType.Module);
-        modDec.name = new QualifiedName();
-        parseQualifiedName(tstream, modDec.name);
+        modDec.name = parseQualifiedName(tstream);
         match(tstream, TokenType.Semicolon);
     } else {
         // Implicit module declaration.
@@ -61,25 +60,29 @@ void parseModuleDeclaration(TokenStream tstream, ModuleDeclaration modDec)
         ident.token = token;
         modDec.name.identifiers ~= ident;
     }
+    return modDec;
 }
 
-void parseQualifiedName(TokenStream tstream, QualifiedName name)
+QualifiedName parseQualifiedName(TokenStream tstream)
 {
+    auto name = new QualifiedName();
     auto ident = new Identifier();
     while (true) {
-        parseIdentifier(tstream, ident);
-        name.identifiers ~= ident;
+        name.identifiers ~= parseIdentifier(tstream);
         if (tstream.peek.type == TokenType.Dot) {
             match(tstream, TokenType.Dot);
-            ident = new Identifier();
         } else {
             break;
         }
     }
+    return name;
 }
 
-void parseIdentifier(TokenStream tstream, Identifier ident)
+Identifier parseIdentifier(TokenStream tstream)
 {
+    auto ident = new Identifier();
     ident.token = tstream.peek;
     match(tstream, TokenType.Identifier);
+    return ident;
 }
+
