@@ -207,7 +207,7 @@ bool lexEOF(TokenStream tstream)
     
     auto eof = currentLocationToken(tstream);
     eof.type = TokenType.End;
-    eof.value = "END";
+    eof.value = "EOF";
     tstream.addToken(eof);
     return true;
 }
