@@ -15,32 +15,32 @@ import sdc.ast.sdcmodule;
 
 JSONObject toJSON(Module parseTree)
 {
-    auto root = new JSONObject();
-    prettyModuleDeclaration(parseTree.moduleDeclaration, root);
-    return root;
+    return prettyModuleDeclaration(parseTree.moduleDeclaration);
 }
 
 private:
 
-void prettyModuleDeclaration(ModuleDeclaration modDec, JSONObject root)
+JSONObject prettyModuleDeclaration(ModuleDeclaration modDect)
 {
-    auto localRoot = new JSONObject();
-    prettyQualifiedName(modDec.name, localRoot);
-    root["ModuleDeclaration"] = localRoot;
+    auto root = new JSONObject();
+    root["ModuleDeclaration"] = prettyQualifiedName(modDect.name);
+    return root;
 }
 
-void prettyQualifiedName(QualifiedName name, JSONObject root)
+JSONObject prettyQualifiedName(QualifiedName name)
 {
-    auto localRoot = new JSONArray();
+    auto root = new JSONObject;
+    auto qualifiedName = new JSONArray();
     foreach (ident; name.identifiers) {
-        auto r = new JSONObject();
-        prettyIdentifier(ident, r);
-        localRoot ~= r;
+        qualifiedName ~= prettyIdentifier(ident);
     }
-    root["QualifiedName"] = localRoot;
+    root["QualifiedName"] = qualifiedName;
+    return root;
 }
 
-void prettyIdentifier(Identifier ident, JSONObject root)
+JSONObject prettyIdentifier(Identifier ident)
 {
+    auto root = new JSONObject();
     root["Identifier"] = new JSONString(ident.token.value);
+    return root;
 }
