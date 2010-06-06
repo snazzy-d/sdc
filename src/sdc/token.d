@@ -34,7 +34,7 @@ immutable string[182] tokenToString = [
 "-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
 ">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
 "!<=", "!>", "!>=", "(", ")", "[", "]", "{", "}", "?", ",", ";",
-":", "$", "=", "==", "*", "*=", "**", "%", "%=", "^", "^=", "~", "~=",
+":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "~", "~=",
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
 
@@ -131,11 +131,11 @@ enum TokenType
     DoubleAssign,           // ==
     Asterix,                // *
     AsterixAssign,          // *=
-    DoubleAsterix,          // **   NOTE: this is not in the spec, but I suspect it's an omission.
     Percent,                // %
     PercentAssign,          // %=
     Caret,                  // ^
     CaretAssign,            // ^=
+    DoubleCaret,            // ^^
     Tilde,                  // ~
     TildeAssign,            // ~=
     

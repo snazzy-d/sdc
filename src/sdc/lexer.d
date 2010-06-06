@@ -344,12 +344,12 @@ bool lexSymbol(TokenStream tstream)
     case '=':
         return lexSymbolOrSymbolAssign(tstream, '=', TokenType.Assign, TokenType.DoubleAssign);
     case '*':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '*', 
-               TokenType.Asterix, TokenType.AsterixAssign, TokenType.DoubleAsterix);
+        return lexSymbolOrSymbolAssign(tstream, '*', TokenType.Asterix, TokenType.AsterixAssign);
     case '%':
         return lexSymbolOrSymbolAssign(tstream, '%', TokenType.Percent, TokenType.PercentAssign);
     case '^':
-        return lexSymbolOrSymbolAssign(tstream, '^', TokenType.Caret, TokenType.CaretAssign);
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '^', 
+               TokenType.Caret, TokenType.CaretAssign, TokenType.DoubleCaret);
     case '~':
         return lexSymbolOrSymbolAssign(tstream, '~', TokenType.Tilde, TokenType.TildeAssign);
     case '#':
