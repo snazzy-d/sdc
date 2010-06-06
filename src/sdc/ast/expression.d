@@ -337,9 +337,40 @@ class IsExpression : Node
     Identifier identifier;  // Optional.
 }
 
+enum TraitsKeyword
+{
+    isAbstractClass,
+    isArithmetic,
+    isAssociativeArray,
+    isFinalClass,
+    isFloating,
+    isIntegral,
+    isScalar,
+    isStaticArray,
+    isUnsigned,
+    isVirtualFunction,
+    isAbstractFunction,
+    isFinalFunction,
+    isStaticFunction,
+    isRef,
+    isOut,
+    isLazy,
+    hasMember,
+    identifier,
+    getMember,
+    getOverloads,
+    getVirtualFunctions,
+    classInstanceSize,
+    allMembers,
+    derivedMembers,
+    isSame,
+    compiles,
+}
+
+
 class TraitsExpression : Node
 {
-    Identifier keyword;
+    TraitsKeyword keyword;
     TraitsArguments traitsArguments;
 }
 
