@@ -331,10 +331,38 @@ class TypeidExpression : Node
     Expression expression;
 }
 
+enum IsOperation
+{
+    SemanticCheck,  // is(T)
+    ImplicitType,  // is(foo : t)
+    ExplicitType,  // is(foo == t)
+}
+
+enum IsSpecialisation
+{
+    Type,
+	Struct,
+	Union,
+	Class,
+	Interface,
+	Enum,
+	Function,
+	Delegate,
+	Super,
+	Const,
+	Immutable,
+	Inout,
+	Shared,
+	Return,
+}
+
 class IsExpression : Node
 {
+    IsOperation operation;
     Type type;
     Identifier identifier;  // Optional.
+    IsSpecialisation specialisation;
+    // TODO: Template pararameters.
 }
 
 enum TraitsKeyword
