@@ -36,6 +36,7 @@ void match(TokenStream tstream, TokenType type)
 Module parseModule(TokenStream tstream)
 {
     auto mod = new Module();
+    mod.location = tstream.peek.location;
     match(tstream, TokenType.Begin);
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
     return mod;
@@ -46,6 +47,7 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
     auto modDec = new ModuleDeclaration();
     if (tstream.peek.type == TokenType.Module) {
         // Explicit module declaration.
+        modDec.location = tstream.peek.location;
         match(tstream, TokenType.Module);
         modDec.name = parseQualifiedName(tstream);
         match(tstream, TokenType.Semicolon);
@@ -62,7 +64,7 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
 QualifiedName parseQualifiedName(TokenStream tstream)
 {
     auto name = new QualifiedName();
-    auto ident = new Identifier();
+    name.location = tstream.peek.location;
     while (true) {
         name.identifiers ~= parseIdentifier(tstream);
         if (tstream.peek.type == TokenType.Dot) {
@@ -78,6 +80,7 @@ Identifier parseIdentifier(TokenStream tstream)
 {
     auto ident = new Identifier();
     ident.value = tstream.peek.value;
+    ident.location = tstream.peek.location;
     match(tstream, TokenType.Identifier);
     return ident;
 }
