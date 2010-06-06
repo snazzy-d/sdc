@@ -41,6 +41,6 @@ JSONObject prettyQualifiedName(QualifiedName name)
 JSONObject prettyIdentifier(Identifier ident)
 {
     auto root = new JSONObject();
-    root["Identifier"] = new JSONString(ident.token.value);
+    root["Identifier"] = new JSONString(ident.value);
     return root;
 }

@@ -52,12 +52,8 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
     } else {
         // Implicit module declaration.
         modDec.name = new QualifiedName();
-        auto token = new Token();
-        token.type = TokenType.Identifier;
-        token.location = tstream.peek.location;
-        token.value = basename(tstream.filename, "." ~ getExt(tstream.filename));
         auto ident = new Identifier();
-        ident.token = token;
+        ident.value = basename(tstream.filename, "." ~ getExt(tstream.filename));
         modDec.name.identifiers ~= ident;
     }
     return modDec;
@@ -81,7 +77,7 @@ QualifiedName parseQualifiedName(TokenStream tstream)
 Identifier parseIdentifier(TokenStream tstream)
 {
     auto ident = new Identifier();
-    ident.token = tstream.peek;
+    ident.value = tstream.peek.value;
     match(tstream, TokenType.Identifier);
     return ident;
 }

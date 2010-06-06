@@ -25,9 +25,47 @@ class QualifiedName : Node
 
 class Identifier : Node
 {
-    Token token;
+    string value;
+}
+
+class BasicType : Node
+{
 }
 
 class Type : Node
+{
+}
+
+class IntegerLiteral : Node
+{
+    Token token;
+}
+
+class FloatLiteral : Node
+{
+    Token token;
+}
+
+class CharacterLiteral : Node
+{
+    Token token;
+}
+
+class StringLiteral : Node
+{
+    Token token;
+}
+
+class ArrayLiteral : Node
+{
+    Token[] tokens;
+}
+
+class AssocArrayLiteral : Node
+{
+    Token[] tokens;
+}
+
+class FunctionLiteral : Node
 {
 }
