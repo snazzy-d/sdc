@@ -27,3 +27,7 @@ class Identifier : Node
 {
     Token token;
 }
+
+class Type : Node
+{
+}
