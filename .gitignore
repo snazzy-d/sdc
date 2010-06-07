@@ -3,4 +3,5 @@
 *.swp
 test.d
 .svn
+sdc.bin
 
