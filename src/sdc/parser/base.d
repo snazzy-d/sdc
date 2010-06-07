@@ -5,16 +5,14 @@
  * 
  * parse.d: translate a TokenStream into a parse tree.
  */ 
-module sdc.parse;
+module sdc.parser.base;
 
 import std.string;
 import std.path;
 
 import sdc.compilererror;
 import sdc.tokenstream;
-import sdc.ast.base;
-import sdc.ast.sdcmodule;
-import sdc.ast.expression;
+import sdc.ast.all;
 
 
 Module parse(TokenStream tstream)
