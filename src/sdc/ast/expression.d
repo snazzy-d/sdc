@@ -93,6 +93,8 @@ enum Comparison
     NotEquality,
     Is,
     NotIs,
+    In,
+    NotIn,
     Less,
     LessEqual,
     Greater,
