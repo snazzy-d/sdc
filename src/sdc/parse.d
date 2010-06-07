@@ -404,5 +404,89 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
     auto unaryExpr = new UnaryExpression();
     unaryExpr.location = tstream.peek.location;
     
+    switch (tstream.peek.type) {
+    case TokenType.Ampersand:
+        unaryExpr.unaryPrefix = UnaryPrefix.AddressOf;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.DoublePlus:
+        unaryExpr.unaryPrefix = UnaryPrefix.PrefixInc;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.DoubleDash:
+        unaryExpr.unaryPrefix = UnaryPrefix.PrefixDec;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.Asterix:
+        unaryExpr.unaryPrefix = UnaryPrefix.Dereference;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+    case TokenType.Dash:
+        unaryExpr.unaryPrefix = UnaryPrefix.UnaryMinus;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.Plus:
+        unaryExpr.unaryPrefix = UnaryPrefix.UnaryPlus;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.Bang:
+        unaryExpr.unaryPrefix = UnaryPrefix.LogicalNot;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    case TokenType.Tilde:
+        unaryExpr.unaryPrefix = UnaryPrefix.BitwiseNot;
+        unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
+    // TODO: The rest.
+    case TokenType.New:
+        unaryExpr.newExpression = parseNewExpression(tstream);
+        break;
+    case TokenType.Delete:
+        unaryExpr.deleteExpression = parseDeleteExpression(tstream);
+        break;
+    default:
+        unaryExpr.postfixExpression = parsePostfixExpression(tstream);
+        break;
+    }
+    
     return unaryExpr;
+}
+
+NewExpression parseNewExpression(TokenStream tstream)
+{
+    auto newExpr = new NewExpression();
+    newExpr.location = tstream.peek.location;
+    
+    return newExpr;
+}
+
+DeleteExpression parseDeleteExpression(TokenStream tstream)
+{
+    auto deleteExpr = new DeleteExpression();
+    deleteExpr.location = tstream.peek.location;
+    match(tstream, TokenType.Delete);
+    deleteExpr.unaryExpression = parseUnaryExpression(tstream);
+    return deleteExpr;
+}
+
+PostfixExpression parsePostfixExpression(TokenStream tstream)
+{
+    auto postfixExpr = new PostfixExpression();
+    postfixExpr.location = tstream.peek.location;
+    
+    postfixExpr.primaryExpression = parsePrimaryExpression(tstream);
+    switch (tstream.peek.type) {
+    default:
+        break;
+    }
+    
+    return postfixExpr;
+}
+
+PrimaryExpression parsePrimaryExpression(TokenStream tstream)
+{
+    auto primaryExpr = new PrimaryExpression();
+    primaryExpr.location = tstream.peek.location;
+    
+    
+    return primaryExpr;
 }
