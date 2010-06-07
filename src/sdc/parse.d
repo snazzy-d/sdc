@@ -318,8 +318,22 @@ ShiftExpression parseShiftExpression(TokenStream tstream)
     auto shiftExpr = new ShiftExpression();
     shiftExpr.location = tstream.peek.location;
     
-    // !!!
+    shiftExpr.addExpression = parseAddExpression(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.DoubleLess:
+        shiftExpr.shift = Shift.Left;
+        break;
+    case TokenType.DoubleGreater:
+        shiftExpr.shift = Shift.SignedRight;
+        break;
+    case TokenType.TripleGreater:
+        shiftExpr.shift = Shift.UnsignedRight;
+        break;
+    default:
+        return shiftExpr;
+    }
     
+    shiftExpr.shiftExpression = parseShiftExpression(tstream);
     return shiftExpr;
 }
 
@@ -328,8 +342,22 @@ AddExpression parseAddExpression(TokenStream tstream)
     auto addExpr = new AddExpression();
     addExpr.location = tstream.peek.location;
     
-    // !!!
-    
+    addExpr.mulExpression = parseMulExpression(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.Plus:
+        addExpr.addOperation = AddOperation.Add;
+        break;
+    case TokenType.Dash:
+        addExpr.addOperation = AddOperation.Subtract;
+        break;
+    case TokenType.Tilde:
+        addExpr.addOperation = AddOperation.Concat;
+        break;
+    default:
+        return addExpr;
+    }
+
+    addExpr.addExpression = parseAddExpression(tstream);
     return addExpr;
 }
 
@@ -338,8 +366,22 @@ MulExpression parseMulExpression(TokenStream tstream)
     auto mulExpr = new MulExpression();
     mulExpr.location = tstream.peek.location;
     
-    // !!!
+    mulExpr.powExpression = parsePowExpression(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.Asterix:
+        mulExpr.mulOperation = MulOperation.Mul;
+        break;
+    case TokenType.Slash:
+        mulExpr.mulOperation = MulOperation.Div;
+        break;
+    case TokenType.Percent:
+        mulExpr.mulOperation = MulOperation.Mod;
+        break;
+    default:
+        return mulExpr;
+    }
     
+    mulExpr.mulExpression = parseMulExpression(tstream);
     return mulExpr;
 }
 

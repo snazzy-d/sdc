@@ -151,7 +151,7 @@ class AddExpression : Node
 enum MulOperation
 {
     Mul,
-    Divide,
+    Div,
     Mod,
 }
 
