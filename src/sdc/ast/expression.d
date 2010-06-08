@@ -7,6 +7,7 @@ module sdc.ast.expression;
 
 import sdc.tokenstream;
 import sdc.ast.base;
+import sdc.ast.declaration;
 
 
 // AssignExpression (, Expression)?

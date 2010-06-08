@@ -30,14 +30,6 @@ class Identifier : Node
     string value;
 }
 
-class BasicType : Node
-{
-}
-
-class Type : Node
-{
-}
-
 class IntegerLiteral : Node
 {
     Token token;
