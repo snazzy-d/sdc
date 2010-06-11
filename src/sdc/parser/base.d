@@ -26,7 +26,7 @@ void match(TokenStream tstream, TokenType type)
     if (tstream.peek.type != type) {
         error(tstream.peek.location, format("expected '%s', got '%s'",
                                             tokenToString[type],
-                                            tokenToString[tstream.peek.type]));
+                                            tstream.peek.value));
     }
     tstream.getToken();
 }
