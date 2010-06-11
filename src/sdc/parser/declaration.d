@@ -40,10 +40,10 @@ Declaration parseDeclaration(TokenStream tstream)
         decl.storageClasses ~= parseStorageClass(tstream);
     }
     
+    // auto declaration: '<storage> <identifier> <=> <assignexpr>'
     if (decl.storageClasses.length >= 1 &&
     tstream.peek.type == TokenType.Identifier &&
     tstream.lookahead(1).type == TokenType.Assign) {
-        // auto declaration.
         decl.autoIdentifier = parseIdentifier(tstream);
         match(tstream, TokenType.Assign);
         decl.autoAssignExpression = parseAssignExpression(tstream);
