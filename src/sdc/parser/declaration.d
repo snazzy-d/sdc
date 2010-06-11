@@ -40,17 +40,18 @@ Declaration parseDeclaration(TokenStream tstream)
         decl.storageClasses ~= parseStorageClass(tstream);
     }
     
-    if (decl.storageClasses.length == 0 || startsLikeBasicType(tstream)) {
-        decl.basicType = parseBasicType(tstream);
-        decl.declarators = parseDeclarators(tstream);
-    } else {
+    if (decl.storageClasses.length >= 1 &&
+    tstream.peek.type == TokenType.Identifier &&
+    tstream.lookahead(1).type == TokenType.Assign) {
         // auto declaration.
         decl.autoIdentifier = parseIdentifier(tstream);
         match(tstream, TokenType.Assign);
         decl.autoAssignExpression = parseAssignExpression(tstream);
         match(tstream, TokenType.Semicolon);
+    } else {
+        decl.basicType = parseBasicType(tstream);
+        decl.declarators = parseDeclarators(tstream);
     }
-    
     // TODO FunctionBody
     
     return decl;
