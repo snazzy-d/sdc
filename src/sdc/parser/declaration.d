@@ -99,7 +99,7 @@ BasicType parseBasicType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     } else {
         // TODO: identifier/typeof
-        error(basicType.location, format("expected basic type, not '%s'", tokenToString[tstream.peek.type]));
+        error(basicType.location, format("expected basic type, not '%s'", tstream.peek.value));
     }
     
     return basicType;
@@ -164,7 +164,7 @@ Parameters parseParameters(TokenStream tstream)
             match(tstream, TokenType.Comma);
         } else {
             if (tstream.peek.type != TokenType.CloseParen) {
-                error(tstream.peek.location, format("expected ')', not '%s'", tokenToString[tstream.peek.type]));
+                error(tstream.peek.location, format("expected ')', not '%s'", tstream.peek.value));
             }
         }
     }

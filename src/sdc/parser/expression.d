@@ -177,7 +177,7 @@ CmpExpression parseCmpExpression(TokenStream tstream)
         } else if (tstream.peek.type == TokenType.In) {
             cmpExpr.comparison = Comparison.NotIn;
         } else {
-            error(tstream.peek.location, format("expected 'is' or 'in', not '%s'", tokenToString[tstream.peek.type]));
+            error(tstream.peek.location, format("expected 'is' or 'in', not '%s'", tstream.peek.value));
         }
         break;
     case TokenType.DoubleAssign:
@@ -303,7 +303,7 @@ MulExpression parseMulExpression(TokenStream tstream)
     default:
         return mulExpr;
     }
-    
+    tstream.getToken();    
     mulExpr.mulExpression = parseMulExpression(tstream);
     return mulExpr;
 }
@@ -414,6 +414,12 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     case TokenType.IntegerLiteral:
         primaryExpr.type = PrimaryType.IntegerLiteral;
         primaryExpr.node = parseIntegerLiteral(tstream);
+        break;
+    case TokenType.OpenParen:
+        primaryExpr.type = PrimaryType.ParenExpression;
+        match(tstream, TokenType.OpenParen);
+        primaryExpr.node = parseExpression(tstream);
+        match(tstream, TokenType.CloseParen);
         break;
     default:
         break;
