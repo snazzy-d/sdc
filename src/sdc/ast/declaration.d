@@ -175,6 +175,7 @@ class BasicType : Node
 {
     BasicTypeType type;
     Type secondType;  // Optional.
+    QualifiedName qualifiedName;  // Optional.
 }
 
 class Initialiser : Node
