@@ -58,7 +58,14 @@ final class TokenStream
             return peek();
         }
         auto index = mIndex + n;
-        if (index >= mTokens.length) return null;
+        if (index >= mTokens.length) {
+            auto token = new Token();
+            token.type = TokenType.End;
+            token.value = "EOF";
+            token.location = lastAdded.location;
+            return token;
+        }
+        
         return mTokens[index];
     }
     
