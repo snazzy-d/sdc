@@ -231,7 +231,7 @@ CmpExpression parseCmpExpression(TokenStream tstream)
     default:
         return cmpExpr;
     }
-    
+    tstream.getToken();
     cmpExpr.rhShiftExpression = parseShiftExpression(tstream);
     return cmpExpr;
 }
@@ -255,7 +255,7 @@ ShiftExpression parseShiftExpression(TokenStream tstream)
     default:
         return shiftExpr;
     }
-    
+    tstream.getToken();
     shiftExpr.shiftExpression = parseShiftExpression(tstream);
     return shiftExpr;
 }
@@ -279,7 +279,7 @@ AddExpression parseAddExpression(TokenStream tstream)
     default:
         return addExpr;
     }
-
+    tstream.getToken();
     addExpr.addExpression = parseAddExpression(tstream);
     return addExpr;
 }
@@ -410,6 +410,15 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     auto primaryExpr = new PrimaryExpression();
     primaryExpr.location = tstream.peek.location;
     
+    switch (tstream.peek.type) {
+    case TokenType.IntegerLiteral:
+        primaryExpr.type = PrimaryType.IntegerLiteral;
+        primaryExpr.node = parseIntegerLiteral(tstream);
+        break;
+    default:
+        break;
+    }
     
     return primaryExpr;
 }
+

@@ -52,6 +52,16 @@ final class TokenStream
         return mTokens[mIndex];
     }
     
+    Token lookahead(size_t n)
+    {
+        if (n == 0) {
+            return peek();
+        }
+        auto index = mIndex + n;
+        if (index >= mTokens.length) return null;
+        return mTokens[index];
+    }
+    
     void printTo(File file)
     {
         foreach (i; 0 .. mTokens.length) {

@@ -13,6 +13,7 @@ import std.path;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.all;
+import sdc.parser.all;
 
 
 Module parse(TokenStream tstream)
@@ -35,7 +36,8 @@ Module parseModule(TokenStream tstream)
     auto mod = new Module();
     mod.location = tstream.peek.location;
     match(tstream, TokenType.Begin);
-    mod.moduleDeclaration = parseModuleDeclaration(tstream);
+    parseDeclaration(tstream);
+    //mod.moduleDeclaration = parseModuleDeclaration(tstream);
     return mod;
 }                                        
 
@@ -80,4 +82,13 @@ Identifier parseIdentifier(TokenStream tstream)
     ident.location = tstream.peek.location;
     match(tstream, TokenType.Identifier);
     return ident;
+}
+
+IntegerLiteral parseIntegerLiteral(TokenStream tstream)
+{
+    auto integerLiteral = new IntegerLiteral();
+    integerLiteral.value = tstream.peek.value;
+    integerLiteral.location = tstream.peek.location;
+    match(tstream, TokenType.IntegerLiteral);
+    return integerLiteral;
 }

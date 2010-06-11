@@ -30,36 +30,40 @@ class Identifier : Node
     string value;
 }
 
-class IntegerLiteral : Node
+class Literal : Node
+{
+}
+
+class IntegerLiteral : Literal
+{
+    string value;
+}
+
+class FloatLiteral : Literal
 {
     Token token;
 }
 
-class FloatLiteral : Node
+class CharacterLiteral : Literal
 {
     Token token;
 }
 
-class CharacterLiteral : Node
+class StringLiteral : Literal
 {
     Token token;
 }
 
-class StringLiteral : Node
-{
-    Token token;
-}
-
-class ArrayLiteral : Node
+class ArrayLiteral : Literal
 {
     Token[] tokens;
 }
 
-class AssocArrayLiteral : Node
+class AssocArrayLiteral : Literal
 {
     Token[] tokens;
 }
 
-class FunctionLiteral : Node
+class FunctionLiteral : Literal
 {
 }

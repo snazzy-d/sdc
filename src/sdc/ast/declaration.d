@@ -14,8 +14,14 @@ class Declaration : Node
 {
     bool isAlias;
     StorageClass[] storageClasses;  // Optional.
-    BasicType basicType;  // Optional, if there is a StorageClass.
+    BasicType basicType;  // Optional.
     Declarators declarators;  // Optional.
+    
+    // These are for auto declarations. If one is non-null they both have to be.
+    Identifier autoIdentifier;
+    AssignExpression autoAssignExpression;
+    
+    // TODO: FunctionBody
 }
 
 class Type : Node
@@ -35,18 +41,19 @@ class Declarators : Node
 class DeclaratorInitialiser : Node
 {
     Declarator declarator;
-    Initialiser initialiser;
+    Initialiser initialiser;  // Optional.
 }
 
+// Identifier (= Initialiser)?
 class DeclaratorIdentifier : Node
 {
     Identifier identifier;
-    Initialiser initialiser;
+    Initialiser initialiser;  // Optional.
 }
 
 class Declarator2 : Node
 {
-    BasicType2 basicType2;
+    BasicType2[] basicType2s;
     Declarator2 declarator2;
     DeclaratorSuffix[] declaratorSuffixes;  // Optional.
 }
@@ -69,9 +76,8 @@ class DeclaratorSuffix : Node
 
 class Declarator : Node
 {
-    BasicType2 basicType2;  // Optional.
-    Declarator declarator;  // Optional.
-    Identifier identifier;  // Optional.
+    BasicType2[] basicType2s;  // Optional.
+    Identifier identifier;  // Optional if declarator isn't null.
     DeclaratorSuffix[] declaratorSuffixes;  // Optional.
 }
 
@@ -104,21 +110,21 @@ class BasicType2 : Node
 
 enum StorageClassType
 {
-    Abstract,
-    Auto,
-    Const,
-    Deprecated,
-    Extern,
-    Final,
-    Immutable,
-    Inout,
-    Shared,
-    Nothrow,
-    Override,
-    Pure,
-    Scope,
-    Static,
-    Synchronized,
+    Abstract = TokenType.Abstract,
+    Auto = TokenType.Auto,
+    Const = TokenType.Const,
+    Deprecated = TokenType.Deprecated,
+    Extern = TokenType.Extern,
+    Final = TokenType.Final,
+    Immutable = TokenType.Immutable,
+    Inout = TokenType.Inout,
+    Shared = TokenType.Shared,
+    Nothrow = TokenType.Nothrow,
+    Override = TokenType.Override,
+    Pure = TokenType.Pure,
+    Scope = TokenType.Scope,
+    Static = TokenType.Static,
+    Synchronized = TokenType.Synchronized,
 }
 
 class StorageClass : Node
@@ -128,42 +134,47 @@ class StorageClass : Node
 
 enum BasicTypeType
 {
-    Bool,
-    Byte,
-    Ubyte,
-    Short,
-    Ushort,
-    Int,
-    Uint,
-    Long,
-    Ulong,
-    Char,
-    Wchar,
-    Dchar,
-    Float,
-    Double,
-    Real,
-    Ifloat,
-    Idouble,
-    Ireal,
-    Cfloat,
-    Cdouble,
-    Creal,
-    Void,
-    GlobalIdentifierList,
+    Bool = TokenType.Bool,
+    Byte = TokenType.Byte,
+    Ubyte = TokenType.Ubyte,
+    Short = TokenType.Short,
+    Ushort = TokenType.Ushort,
+    Int = TokenType.Int,
+    Uint = TokenType.Uint,
+    Long = TokenType.Long,
+    Ulong = TokenType.Ulong,
+    Char = TokenType.Char,
+    Wchar = TokenType.Wchar,
+    Dchar = TokenType.Dchar,
+    Float = TokenType.Float,
+    Double = TokenType.Double,
+    Real = TokenType.Real,
+    Ifloat = TokenType.Ifloat,
+    Idouble = TokenType.Idouble, 
+    Ireal = TokenType.Ireal,
+    Cfloat = TokenType.Cfloat,
+    Cdouble = TokenType.Cdouble,
+    Creal = TokenType.Creal,
+    Void = TokenType.Void,
+    LastKeyword = BasicTypeType.Void,
+    
+    // These four have to have a paren immediately following.
+    Const = TokenType.Const,
+    Immutable = TokenType.Immutable,
+    Shared = TokenType.Shared,
+    Inout = TokenType.Inout,
+    LastStorage = BasicTypeType.Inout,
+    
+    GlobalIdentifierList = TokenType.End + 1,
     IdentifierList,
     Typeof,
     TypeofIdentifierList,
-    Const,
-    Immutable,
-    Shared,
-    Inout,
 }
 
 class BasicType : Node
 {
     BasicTypeType type;
-    Type secondType;
+    Type secondType;  // Optional.
 }
 
 class Initialiser : Node
@@ -190,11 +201,11 @@ class ArrayInitialiser : Node
     ArrayMemberInitialisation[] arrayMemberInitialisations;
 }
 
-// NonVoidInitialiser | AssignExpression : NonVoidInitialiser
+// NonVoidInitialiser (: NonVoidInitialiser)?
 class ArrayMemberInitialisation : Node
 {
-    NonVoidInitialiser nonVoidInitialiser;
-    AssignExpression assignExpression;  // 
+    NonVoidInitialiser left;
+    NonVoidInitialiser right;  // Optional.
 }
 
 // { (StructMemberInitialiser (, StructMemberInitialiser)*)? }
@@ -219,37 +230,28 @@ class Parameters : Node
 enum InOutType
 {
     None,
-    In,
-    Out,
-    Ref,
-    Lazy,
+    In = TokenType.In,
+    Out = TokenType.Out,
+    Ref = TokenType.Ref,
+    Lazy = TokenType.Lazy,
 }
 
+/* This is a parameter for a function/delegate variable declaration,
+ * so we don't have a declarator or default initialiser here, as is
+ * specified in the D grammar (!!! - no basic type listed)
+ */
 class Parameter : Node
 {
     InOutType inOutType; 
-    /* !!!
-     * The grammar says that a parameter has a declarator. This has
-     * two problems. Firstly, a Declarator doesn't include a BasicType.
-     * And secondly, a Declarator requires an Identifier. The following
-     * (valid) function definition requires the former, and doesn't have
-     * the latter:
-     * 
-     * int function(int, int) a;
-     * 
-     * So I've replaced the Declarator with BasicType and BasicType2.
-     */
-    //Declarator declarator; 
     BasicType basicType;
     BasicType2[] basicType2;  // Optional.
-    DefaultInitialiserExpression defaultInitialiserExpression;  // Optional.
 }
 
 enum DefaultInitialiserExpressionType
 {
-    Assign,
-    __File__,
-    __Line__,
+    Assign = TokenType.__File__ - 1,
+    __File__ = TokenType.__File__,
+    __Line__ = TokenType.__Line__,
 }
 
 class DefaultInitialiserExpression : Node

@@ -279,22 +279,7 @@ class PrimaryExpression : Node
     /* What should be instantiated here depends 
      * on the above primary expression type.
      */
-    Identifier identifier;
-    IntegerLiteral integerLiteral;
-    FloatLiteral floatLiteral;
-    CharacterLiteral characterLiteral;
-    StringLiteral stringLiteral;
-    ArrayLiteral arrayLiteral;
-    AssocArrayLiteral assocArrayLiteral;
-    FunctionLiteral functionLiteral;
-    AssertExpression assertExpression;
-    MixinExpression mixinExpression;
-    ImportExpression importExpression;
-    BasicType basicType;  // BasicType . Identifier
-    TypeofExpression typeofExpression;
-    TypeidExpression typeidExpression;
-    Expression expression;  // ( Expression )
-    TraitsExpression traitsExpression;
+    Node node;
 }
 
 // assert ( AssertExpr (, AssertExpr)? )

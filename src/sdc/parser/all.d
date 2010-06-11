@@ -7,3 +7,4 @@ module sdc.parser.all;
 
 public import sdc.parser.base;
 public import sdc.parser.expression;
+public import sdc.parser.declaration;
