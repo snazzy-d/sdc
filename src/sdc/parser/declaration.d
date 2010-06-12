@@ -108,7 +108,7 @@ BasicType parseBasicType(TokenStream tstream)
 
 bool startsLikeBasicType2(TokenStream tstream)
 {
-    return contains([TokenType.Asterix, TokenType.OpenBracket, TokenType.Delegate, TokenType.Function], tstream.peek.type);
+    return contains([TokenType.Asterix, TokenType.OpenBracket, TokenType.Delegate, TokenType.Function, TokenType.OpenParen], tstream.peek.type);
 }
 
 BasicType2 parseBasicType2(TokenStream tstream)
@@ -148,6 +148,8 @@ BasicType2 parseBasicType2(TokenStream tstream)
         match(tstream, TokenType.Function);
         basicType2.type = BasicType2Type.Function;
         basicType2.parameters = parseParameters(tstream);
+    } else if (tstream.peek.type == TokenType.OpenParen) {
+        error(tstream.peek.location, "c style function pointers are unsupported. Use d style function pointers instead");
     }
     
     return basicType2;
