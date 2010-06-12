@@ -169,6 +169,7 @@ Parameters parseParameters(TokenStream tstream)
             }
         }
     }
+    match(tstream, TokenType.CloseParen);
     
     return parameters;
 }
@@ -214,11 +215,10 @@ Declarator2 parseDeclarator2(TokenStream tstream)
 {
     auto decl2 = new Declarator2();
     decl2.location = tstream.peek.location;
-    
+
     while (startsLikeBasicType2(tstream)) {
         decl2.basicType2s ~= parseBasicType2(tstream);
     }
-    
     // TODO: the paren shit.
     
     return decl2;
