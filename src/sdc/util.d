@@ -5,6 +5,8 @@
  */
 module sdc.util;
 
+import std.stdio;
+
 pure nothrow bool contains(T)(const(T)[] l, const T a)
 {
     foreach (e; l) {
@@ -13,4 +15,9 @@ pure nothrow bool contains(T)(const(T)[] l, const T a)
         }
     }
     return false;
+}
+
+void debugPrint(lazy string msg)
+{
+    debug writeln("DEBUG: ", msg);
 }
