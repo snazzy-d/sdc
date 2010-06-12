@@ -98,8 +98,17 @@ BasicType parseBasicType(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         basicType.secondType = parseType(tstream);
         match(tstream, TokenType.CloseParen);
+    } else if (tstream.peek.type == TokenType.Dot ||
+               tstream.peek.type == TokenType.Identifier) {
+        if (tstream.peek.type == TokenType.Dot) {
+            match(tstream, TokenType.Dot);
+            basicType.type = BasicTypeType.GlobalIdentifierList;
+        } else {
+            basicType.type = BasicTypeType.IdentifierList;
+        }
+        basicType.qualifiedName = parseQualifiedName(tstream);
     } else {
-        // TODO: identifier/typeof
+        // TODO: typeof
         error(basicType.location, format("expected basic type, not '%s'", tstream.peek.value));
     }
     
