@@ -231,6 +231,7 @@ Declarators parseDeclarators(TokenStream tstream)
     
     decls.declaratorInitialiser = parseDeclaratorInitialiser(tstream);
     while (tstream.peek.type == TokenType.Comma) {
+        match(tstream, TokenType.Comma);
         decls.declaratorIdentifiers ~= parseDeclaratorIdentifier(tstream);
     }
     
