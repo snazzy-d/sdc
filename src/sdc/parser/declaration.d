@@ -6,6 +6,7 @@
 module sdc.parser.declaration;
 
 import std.string;
+import std.conv;
 
 import sdc.util;
 import sdc.tokenstream;
@@ -15,12 +16,7 @@ import sdc.parser.base;
 import sdc.parser.expression;
 
 
-immutable TokenType[] StorageClasses =
-[TokenType.Abstract, TokenType.Auto, TokenType.Const,
- TokenType.Deprecated, TokenType.Extern, TokenType.Final,
- TokenType.Immutable, TokenType.Inout, TokenType.Shared,
- TokenType.Nothrow, TokenType.Override, TokenType.Pure,
- TokenType.Scope, TokenType.Static, TokenType.Synchronized];
+
  
 immutable TokenType[] inOuts = 
 [TokenType.In, TokenType.Out, TokenType.Ref, TokenType.Lazy];
@@ -36,7 +32,7 @@ Declaration parseDeclaration(TokenStream tstream)
         decl.isAlias = true;
     }
     
-    while (contains(StorageClasses, tstream.peek.type)) {
+    while (startsLikeStorageClass(tstream)) {
         decl.storageClasses ~= parseStorageClass(tstream);
     }
     
@@ -66,40 +62,54 @@ StorageClass parseStorageClass(TokenStream tstream)
     return storageClass;
 }
 
-/// Returns: true if the current peek could be the start of a BasicType.
-bool startsLikeBasicType(TokenStream tstream)
+bool startsLikeStorageClass(TokenStream tstream)
 {
-    if (tstream.peek.type >= BasicTypeType.Bool &&
-        tstream.peek.type <= BasicTypeType.LastKeyword) {
+    immutable TokenType[] SimpleStorageClasses =
+        [TokenType.Abstract, TokenType.Auto, 
+        TokenType.Deprecated, TokenType.Extern, TokenType.Final,
+        TokenType.Nothrow, TokenType.Override, TokenType.Pure,
+        TokenType.Scope, TokenType.Static, TokenType.Synchronized];
+    immutable ComplicatedStorageClasses =
+        [TokenType.Const, TokenType.Shared, TokenType.Immutable,
+        TokenType.Inout];
+        
+    if (contains(SimpleStorageClasses, tstream.peek.type)) {
         return true;
-    } else if (tstream.peek.type >= BasicTypeType.Const &&
-               tstream.peek.type <= BasicTypeType.LastStorage) {
-        return true;
-    } else if (tstream.peek.type == TokenType.Identifier ||
-               tstream.peek.type == TokenType.Typeof) {
+    } else if (contains(ComplicatedStorageClasses, tstream.peek.type)) {
+        if (tstream.lookahead(1).type == TokenType.OpenParen) {
+            /* For example, 'const(int)' should be parsed
+             * as a type -- not a storage class.
+             */   
+            return false;
+        }
         return true;
     }
     return false;
+}
+
+/// Returns: true if the current peek could be the start of a BasicType.
+bool startsLikeBasicType(TokenStream tstream)
+{
+    return contains(ONE_WORD_TYPES,          tstream.peek.type) ||
+           contains(PAREN_TYPES,             tstream.peek.type) ||
+           contains(IDENTIFIER_TYPEOF_TYPES, tstream.peek.type);
 }
 
 BasicType parseBasicType(TokenStream tstream)
 {
     auto basicType = new BasicType();
     basicType.location = tstream.peek.location;
-    
-    if (tstream.peek.type >= BasicTypeType.Bool &&
-        tstream.peek.type <= BasicTypeType.LastKeyword) {
+        
+    if (contains(ONE_WORD_TYPES, tstream.peek.type)) {
         basicType.type = cast(BasicTypeType) tstream.peek.type;
         tstream.getToken();
-    } else if (tstream.peek.type >= BasicTypeType.Const &&
-               tstream.peek.type <= BasicTypeType.LastStorage) {
+    } else if (contains(PAREN_TYPES, tstream.peek.type)) {
         basicType.type = cast(BasicTypeType) tstream.peek.type;
         tstream.getToken();
         match(tstream, TokenType.OpenParen);
         basicType.secondType = parseType(tstream);
         match(tstream, TokenType.CloseParen);
-    } else if (tstream.peek.type == TokenType.Dot ||
-               tstream.peek.type == TokenType.Identifier) {
+    } else if (contains(IDENTIFIER_TYPEOF_TYPES, tstream.peek.type)) {
         if (tstream.peek.type == TokenType.Dot) {
             match(tstream, TokenType.Dot);
             basicType.type = BasicTypeType.GlobalIdentifierList;

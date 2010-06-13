@@ -156,20 +156,34 @@ enum BasicTypeType
     Cdouble = TokenType.Cdouble,
     Creal = TokenType.Creal,
     Void = TokenType.Void,
-    LastKeyword = BasicTypeType.Void,
     
     // These four have to have a paren immediately following.
     Const = TokenType.Const,
     Immutable = TokenType.Immutable,
     Shared = TokenType.Shared,
     Inout = TokenType.Inout,
-    LastStorage = BasicTypeType.Inout,
     
     GlobalIdentifierList = TokenType.End + 1,
     IdentifierList,
     Typeof,
     TypeofIdentifierList,
 }
+immutable ONE_WORD_TYPES = [
+TokenType.Bool, TokenType.Byte, TokenType.Ubyte, TokenType.Short,
+TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long,
+TokenType.Ulong, TokenType.Char, TokenType.Wchar, TokenType.Dchar,
+TokenType.Float, TokenType.Double, TokenType.Real, TokenType.Ifloat,
+TokenType.Idouble, TokenType.Ireal, TokenType.Cfloat, TokenType.Cdouble,
+TokenType.Creal, TokenType.Void
+];
+
+immutable PAREN_TYPES = [
+TokenType.Const,  TokenType.Immutable, TokenType.Shared, TokenType.Inout,
+];
+
+immutable IDENTIFIER_TYPEOF_TYPES = [
+TokenType.Dot, TokenType.Identifier, TokenType.Typeof
+];
 
 class BasicType : Node
 {
