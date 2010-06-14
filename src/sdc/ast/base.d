@@ -22,6 +22,7 @@ class Node
 // ident(.ident)*
 class QualifiedName : Node
 {
+    bool leadingDot;
     Identifier[] identifiers;
 }
 

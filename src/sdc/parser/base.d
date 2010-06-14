@@ -63,6 +63,11 @@ QualifiedName parseQualifiedName(TokenStream tstream)
 {
     auto name = new QualifiedName();
     name.location = tstream.peek.location;
+    if (tstream.peek.type == TokenType.Dot) {
+        match(tstream, TokenType.Dot);
+        name.leadingDot = true;
+    }
+    
     while (true) {
         name.identifiers ~= parseIdentifier(tstream);
         if (tstream.peek.type == TokenType.Dot) {

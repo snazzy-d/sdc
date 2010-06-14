@@ -16,8 +16,6 @@ JSONObject toJSON(Module parseTree)
     return prettyModuleDeclaration(parseTree.moduleDeclaration);
 }
 
-private:
-
 JSONObject prettyModuleDeclaration(ModuleDeclaration modDect)
 {
     auto root = new JSONObject();
@@ -28,10 +26,13 @@ JSONObject prettyModuleDeclaration(ModuleDeclaration modDect)
 JSONObject prettyQualifiedName(QualifiedName name)
 {
     auto root = new JSONObject;
-    auto qualifiedName = new JSONArray();
+    auto qualifiedName = new JSONObject();
+    auto names = new JSONArray();
     foreach (ident; name.identifiers) {
-        qualifiedName ~= prettyIdentifier(ident);
+        names ~= prettyIdentifier(ident);
     }
+    qualifiedName["Names"] = names;
+    qualifiedName["LeadingDot"] = prettyBool(name.leadingDot);
     root["QualifiedName"] = qualifiedName;
     return root;
 }
@@ -41,4 +42,9 @@ JSONObject prettyIdentifier(Identifier ident)
     auto root = new JSONObject();
     root["Identifier"] = new JSONString(ident.value);
     return root;
+}
+
+JSONString prettyBool(bool b)
+{
+    return new JSONString(b ? "yes" : "no");
 }

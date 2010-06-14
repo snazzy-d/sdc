@@ -168,6 +168,7 @@ enum BasicTypeType
     Typeof,
     TypeofIdentifierList,
 }
+
 immutable ONE_WORD_TYPES = [
 TokenType.Bool, TokenType.Byte, TokenType.Ubyte, TokenType.Short,
 TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long,
