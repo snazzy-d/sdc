@@ -273,7 +273,7 @@ class JSONObject:JSONType {
 			ret ~= "\""~JSONEncode(key)~"\":"~val.toString~",";
 		}
 		// rip off the trailing comma, we don't need it
-		if (ret.length > 1) ret = ret[0..$-1];
+		if (_children.length) ret = ret[0..$-1];
 		ret ~= "}";
 		return ret;
 	}
@@ -287,7 +287,7 @@ class JSONObject:JSONType {
 			ret ~= indent~"	\""~JSONEncode(key)~"\":"~val.toPrettyString(indent~"	")~",\n";
 		}
 		// rip off the trailing comma, we don't need it
-		if (ret.length > 1) ret = ret[0..$-2]~"\n";
+		if (_children.length) ret = ret[0..$-2]~"\n";
 		ret ~= indent~"}";
 		return ret;
 	}
@@ -386,7 +386,7 @@ class JSONArray:JSONType {
 			ret ~= val.toString~",";
 		}
 		// rip off the trailing comma, we don't need it
-		if (ret.length > 1) ret = ret[0..$-1];
+		if (_children.length) ret = ret[0..$-1];
 		ret ~= "]";
 		return ret;
 	}
@@ -400,7 +400,7 @@ class JSONArray:JSONType {
 			ret ~= indent~"	"~val.toPrettyString(indent~"	")~",\n";
 		}
 		// rip off the trailing comma, we don't need it
-		if (ret.length > 1) ret = ret[0..$-2]~"\n";
+		if (_children.length) ret = ret[0..$-2]~"\n";
 		ret ~= indent~"]";
 		return ret;
 	}
@@ -725,6 +725,7 @@ unittest {
 	root["what is that on your ear?"] = arr;
 	root["my pants"] = new JSONString("are on fire");
 	root["i am this many"] = new JSONNumber(10.253);
+	root["blank"] = new JSONObject();
 	string jstr = root.toString;
 	writef("Unit Test libDJSON JSON creation...\n");
 	writef("Generated JSON string: " ~ jstr ~ "\n");
