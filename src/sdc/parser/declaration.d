@@ -113,7 +113,6 @@ BasicType parseBasicType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     } else if (contains(IDENTIFIER_TYPEOF_TYPES, tstream.peek.type)) {
         if (tstream.peek.type == TokenType.Dot) {
-            //match(tstream, TokenType.Dot);
             basicType.type = BasicTypeType.GlobalIdentifierList;
         } else {
             basicType.type = BasicTypeType.IdentifierList;
