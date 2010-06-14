@@ -7,3 +7,4 @@ module sdc.asttojson.all;
 
 public import sdc.asttojson.base;
 public import sdc.asttojson.declaration;
+public import sdc.asttojson.expression;

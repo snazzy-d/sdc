@@ -8,7 +8,9 @@ module sdc.asttojson.declaration;
 import sdc.util;
 import sdc.token;
 import sdc.ast.declaration;
+import sdc.ast.expression;
 import sdc.asttojson.base;
+import sdc.asttojson.expression;
 
 
 JSONObject prettyDeclaration(Declaration declaration)
@@ -76,6 +78,15 @@ JSONObject prettyBasicType2(BasicType2 basicType2)
 {
     auto root = new JSONObject();
     root["Type"] = prettyBasicType2Type(basicType2.type);
+    if (basicType2.firstAssignExpression !is null) {
+        root["FirstAssignExpression"] = prettyAssignExpression(basicType2.firstAssignExpression);
+    }
+    if (basicType2.secondAssignExpression !is null) {
+        root["SecondAssignExpression"] = prettyAssignExpression(basicType2.secondAssignExpression);
+    }
+    if (basicType2.aaType !is null) {
+        root["AAType"] = prettyType(basicType2.aaType);
+    }
     return root;
 }
 
@@ -100,4 +111,10 @@ JSONString prettyBasicType2Type(BasicType2Type type)
         assert(false);
     }
     assert(false);
+}
+
+JSONObject prettyType(Type type)
+{
+    auto root = new JSONObject();
+    return root;
 }
