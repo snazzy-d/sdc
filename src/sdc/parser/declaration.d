@@ -16,12 +16,6 @@ import sdc.parser.base;
 import sdc.parser.expression;
 
 
-
- 
-immutable TokenType[] inOuts = 
-[TokenType.In, TokenType.Out, TokenType.Ref, TokenType.Lazy];
- 
-
 Declaration parseDeclaration(TokenStream tstream)
 {
     auto decl = new Declaration();
@@ -202,6 +196,9 @@ Parameters parseParameters(TokenStream tstream)
 
 Parameter parseParameter(TokenStream tstream)
 {
+    immutable TokenType[] inOuts = 
+    [TokenType.In, TokenType.Out, TokenType.Ref, TokenType.Lazy];
+    
     auto parameter = new Parameter();
     parameter.location = tstream.peek.location;
     
