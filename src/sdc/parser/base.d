@@ -59,11 +59,11 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
     return modDec;
 }
 
-QualifiedName parseQualifiedName(TokenStream tstream)
+QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false)
 {
     auto name = new QualifiedName();
     name.location = tstream.peek.location;
-    if (tstream.peek.type == TokenType.Dot) {
+    if (allowLeadingDot && tstream.peek.type == TokenType.Dot) {
         match(tstream, TokenType.Dot);
         name.leadingDot = true;
     }

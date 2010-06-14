@@ -118,7 +118,7 @@ BasicType parseBasicType(TokenStream tstream)
         } else {
             basicType.type = BasicTypeType.IdentifierList;
         }
-        basicType.qualifiedName = parseQualifiedName(tstream);
+        basicType.qualifiedName = parseQualifiedName(tstream, true);
     } else {
         // TODO: typeof
         error(basicType.location, format("expected basic type, not '%s'", tstream.peek.value));
