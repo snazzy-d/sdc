@@ -53,3 +53,51 @@ JSONObject prettyBasicType(BasicType basicType)
     
     return root;
 }
+
+JSONObject prettyDeclarators(Declarators declarators)
+{
+    auto root = new JSONObject();
+    return root;
+}
+
+JSONObject prettyDeclaratorInitialiser(DeclaratorInitialiser declaratorInitialiser)
+{
+    auto root = new JSONObject();
+    return root;
+}
+
+JSONObject prettyDeclarator(Declarator declarator)
+{
+    auto root = new JSONObject();
+    return root;
+}
+
+JSONObject prettyBasicType2(BasicType2 basicType2)
+{
+    auto root = new JSONObject();
+    root["Type"] = prettyBasicType2Type(basicType2.type);
+    return root;
+}
+
+JSONString prettyBasicType2Type(BasicType2Type type)
+{
+    switch (type) {
+    case BasicType2Type.Pointer:
+        return new JSONString("Pointer");
+    case BasicType2Type.DynamicArray:
+        return new JSONString("Dynamic Array");
+    case BasicType2Type.StaticArray:
+        return new JSONString("Static Array");
+    case BasicType2Type.TupleSlice:
+        return new JSONString("Tuple Slice");
+    case BasicType2Type.AssociativeArray:
+        return new JSONString("Associative Array");
+    case BasicType2Type.Delegate:
+        return new JSONString("Delegate");
+    case BasicType2Type.Function:
+        return new JSONString("Function");
+    default:
+        assert(false);
+    }
+    assert(false);
+}
