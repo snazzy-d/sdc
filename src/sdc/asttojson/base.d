@@ -5,7 +5,7 @@
  */
 module sdc.asttojson.base;
 
-import libdjson.json;
+public import libdjson.json;
 
 import sdc.ast.base;
 import sdc.ast.sdcmodule;

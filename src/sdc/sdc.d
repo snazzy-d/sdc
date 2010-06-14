@@ -22,8 +22,6 @@ import std.stdio;
 import std.getopt;
 import std.c.stdlib;
 
-import libdjson.json;
-
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
@@ -31,7 +29,7 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.ast.all;
 import sdc.parser.all;
-import sdc.asttojson.base;
+import sdc.asttojson.all;
 
 int main(string[] args)
 {
@@ -53,18 +51,23 @@ int main(string[] args)
     foreach (arg; args[1 .. $]) {
         auto source = new Source(arg);
         TokenStream tstream;
-        Module parseTree;
+        Declaration[] declarations;
         try {
             tstream = lex(source);
-            parseTree = parse(tstream);
+            tstream.getToken();  // Eat TokenType.Begin.
+            while (tstream.peek.type != TokenType.End) {
+                declarations ~= parseDeclaration(tstream);
+            }
         } catch (CompilerError) {
             errors = true;
             continue;
         }
         if (printTokens) tstream.printTo(stdout);
         if (printAST) {
-            JSONObject root = toJSON(parseTree);
-            stdout.writeln(root.toPrettyString);
+            foreach (declaration; declarations) {
+                JSONObject root = prettyDeclaration(declaration);
+                stdout.writeln(root.toPrettyString());
+            }
         }
     }
         

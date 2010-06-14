@@ -36,11 +36,19 @@ Declaration parseDeclaration(TokenStream tstream)
     tstream.lookahead(1).type == TokenType.Assign) {
         decl.autoIdentifier = parseIdentifier(tstream);
         match(tstream, TokenType.Assign);
+        if (decl.isAlias) {
+            error(decl.location, "alias declaration cannot have an initialiser");
+        }
         decl.autoAssignExpression = parseAssignExpression(tstream);
         match(tstream, TokenType.Semicolon);
     } else {
         decl.basicType = parseBasicType(tstream);
         decl.declarators = parseDeclarators(tstream);
+        if (decl.isAlias && decl.declarators !is null) {
+            if (decl.declarators.declaratorInitialiser.initialiser !is null) {
+                error(decl.location, "alias declaration cannot have an initaliser");
+            }
+        }
     }
     // TODO FunctionBody
     
