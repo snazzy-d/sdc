@@ -5,7 +5,7 @@
  * 
  * treetojson.d: translate a parse tree into a JSON object.
  */ 
-module sdc.treetojson;
+module sdc.asttojson.base;
 
 import libdjson.json;
 

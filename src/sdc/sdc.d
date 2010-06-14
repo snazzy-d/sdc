@@ -29,9 +29,9 @@ import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
-import sdc.treetojson;
 import sdc.ast.all;
 import sdc.parser.all;
+import sdc.asttojson.base;
 
 int main(string[] args)
 {
