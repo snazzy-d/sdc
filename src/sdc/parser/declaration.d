@@ -217,7 +217,7 @@ Parameter parseParameter(TokenStream tstream)
     parameter.basicType = parseBasicType(tstream);
     
     while (startsLikeBasicType2(tstream)) {
-        parameter.basicType2 ~= parseBasicType2(tstream);
+        parameter.basicType2s ~= parseBasicType2(tstream);
     }
         
     return parameter;

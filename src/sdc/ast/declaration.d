@@ -260,7 +260,7 @@ class Parameter : Node
 {
     InOutType inOutType; 
     BasicType basicType;
-    BasicType2[] basicType2;  // Optional.
+    BasicType2[] basicType2s;  // Optional.
 }
 
 enum DefaultInitialiserExpressionType

@@ -28,6 +28,10 @@ JSONObject prettyDeclaration(Declaration declaration)
         root["BasicType"] = prettyBasicType(declaration.basicType);
     }
     
+    if (declaration.declarators !is null) {
+        root["Declarators"] = prettyDeclarators(declaration.declarators);
+    }
+    
     return root;
 }
 
@@ -59,18 +63,25 @@ JSONObject prettyBasicType(BasicType basicType)
 JSONObject prettyDeclarators(Declarators declarators)
 {
     auto root = new JSONObject();
+    root["DeclaratorInitialiser"] = prettyDeclaratorInitialiser(declarators.declaratorInitialiser);
     return root;
 }
 
 JSONObject prettyDeclaratorInitialiser(DeclaratorInitialiser declaratorInitialiser)
 {
     auto root = new JSONObject();
+    root["Declarator"] = prettyDeclarator(declaratorInitialiser.declarator);
     return root;
 }
 
 JSONObject prettyDeclarator(Declarator declarator)
 {
     auto root = new JSONObject();
+    auto list = new JSONArray();
+    foreach (basicType2; declarator.basicType2s) {
+        list ~= prettyBasicType2(basicType2);
+    }
+    root["BasicType2s"] = list;
     return root;
 }
 
@@ -86,6 +97,9 @@ JSONObject prettyBasicType2(BasicType2 basicType2)
     }
     if (basicType2.aaType !is null) {
         root["AAType"] = prettyType(basicType2.aaType);
+    }
+    if (basicType2.parameters !is null) {
+        root["Parameters"] = prettyParameters(basicType2.parameters);
     }
     return root;
 }
@@ -116,5 +130,29 @@ JSONString prettyBasicType2Type(BasicType2Type type)
 JSONObject prettyType(Type type)
 {
     auto root = new JSONObject();
+    return root;
+}
+
+JSONObject prettyParameters(Parameters parameters)
+{
+    auto root = new JSONObject();
+    auto list = new JSONArray();
+    foreach (p; parameters.parameters) {
+        list ~= prettyParameter(p);
+    }
+    root["Parameters"] = list;
+    return root;
+}
+
+JSONObject prettyParameter(Parameter parameter)
+{
+    auto root = new JSONObject();
+    root["InOutType"] = new JSONString(parameter.inOutType == InOutType.None ? "None" : tokenToString[parameter.inOutType]);
+    root["BasicType"] = prettyBasicType(parameter.basicType);
+    auto list = new JSONArray();
+    foreach (basicType2; parameter.basicType2s) {
+        list ~= prettyBasicType2(basicType2);
+    }
+    root["BasicType2s"] = list;
     return root;
 }
