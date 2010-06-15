@@ -79,29 +79,17 @@ QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false
     return name;
 }
 
-Identifier parseIdentifier(TokenStream tstream)
+T parseLiteral(T, TokenType E)(TokenStream tstream)
 {
-    auto ident = new Identifier();
-    ident.value = tstream.peek.value;
-    ident.location = tstream.peek.location;
-    match(tstream, TokenType.Identifier);
-    return ident;
+    auto literal = new T();
+    literal.value = tstream.peek.value;
+    literal.location = tstream.peek.location;
+    match(tstream, E);
+    return literal;
 }
 
-IntegerLiteral parseIntegerLiteral(TokenStream tstream)
-{
-    auto integerLiteral = new IntegerLiteral();
-    integerLiteral.value = tstream.peek.value;
-    integerLiteral.location = tstream.peek.location;
-    match(tstream, TokenType.IntegerLiteral);
-    return integerLiteral;
-}
-
-FloatLiteral parseFloatLiteral(TokenStream tstream)
-{
-    auto floatLiteral = new FloatLiteral();
-    floatLiteral.value = tstream.peek.value;
-    floatLiteral.location = tstream.peek.location;
-    match(tstream, TokenType.FloatLiteral);
-    return floatLiteral;
-}
+alias parseLiteral!(Identifier, TokenType.Identifier) parseIdentifier;
+alias parseLiteral!(IntegerLiteral, TokenType.IntegerLiteral) parseIntegerLiteral;
+alias parseLiteral!(FloatLiteral, TokenType.FloatLiteral) parseFloatLiteral;
+alias parseLiteral!(StringLiteral, TokenType.StringLiteral) parseStringLiteral;
+alias parseLiteral!(CharacterLiteral, TokenType.CharacterLiteral) parseCharacterLiteral;
