@@ -460,6 +460,14 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.type = PrimaryType.FloatLiteral;
         primaryExpr.node = parseFloatLiteral(tstream);
         break;
+    case TokenType.StringLiteral:
+        primaryExpr.type = PrimaryType.StringLiteral;
+        primaryExpr.node = parseStringLiteral(tstream);
+        break;
+    case TokenType.CharacterLiteral:
+        primaryExpr.type = PrimaryType.CharacterLiteral;
+        primaryExpr.node = parseCharacterLiteral(tstream);
+        break;
     case TokenType.OpenParen:
         primaryExpr.type = PrimaryType.ParenExpression;
         match(tstream, TokenType.OpenParen);
