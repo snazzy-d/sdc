@@ -96,3 +96,12 @@ IntegerLiteral parseIntegerLiteral(TokenStream tstream)
     match(tstream, TokenType.IntegerLiteral);
     return integerLiteral;
 }
+
+FloatLiteral parseFloatLiteral(TokenStream tstream)
+{
+    auto floatLiteral = new FloatLiteral();
+    floatLiteral.value = tstream.peek.value;
+    floatLiteral.location = tstream.peek.location;
+    match(tstream, TokenType.FloatLiteral);
+    return floatLiteral;
+}

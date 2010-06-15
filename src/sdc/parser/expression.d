@@ -411,9 +411,54 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     primaryExpr.location = tstream.peek.location;
     
     switch (tstream.peek.type) {
+    case TokenType.Identifier:
+        primaryExpr.type = PrimaryType.Identifier;
+        primaryExpr.node = parseIdentifier(tstream);
+        break;
+    case TokenType.Dot:
+        match(tstream, TokenType.Dot);
+        primaryExpr.type = PrimaryType.GlobalIdentifier;
+        primaryExpr.node = parseIdentifier(tstream);
+        break;
+    case TokenType.This:
+        match(tstream, TokenType.This);
+        primaryExpr.type = PrimaryType.This;
+        break;
+    case TokenType.Super:
+        match(tstream, TokenType.Super);
+        primaryExpr.type = PrimaryType.Super;
+        break;
+    case TokenType.Null:
+        match(tstream, TokenType.Null);
+        primaryExpr.type = PrimaryType.Null;
+        break;
+    case TokenType.True:
+        match(tstream, TokenType.True);
+        primaryExpr.type = PrimaryType.True;
+        break;
+    case TokenType.False:
+        match(tstream, TokenType.False);
+        primaryExpr.type = PrimaryType.False;
+        break;
+    case TokenType.Dollar:
+        match(tstream, TokenType.Dollar);
+        primaryExpr.type = PrimaryType.Dollar;
+        break;
+    case TokenType.__File__:
+        match(tstream, TokenType.__File__);
+        primaryExpr.type = PrimaryType.__File__;
+        break;
+    case TokenType.__Line__:
+        match(tstream, TokenType.__Line__);
+        primaryExpr.type = PrimaryType.__Line__;
+        break;
     case TokenType.IntegerLiteral:
         primaryExpr.type = PrimaryType.IntegerLiteral;
         primaryExpr.node = parseIntegerLiteral(tstream);
+        break;
+    case TokenType.FloatLiteral:
+        primaryExpr.type = PrimaryType.FloatLiteral;
+        primaryExpr.node = parseFloatLiteral(tstream);
         break;
     case TokenType.OpenParen:
         primaryExpr.type = PrimaryType.ParenExpression;

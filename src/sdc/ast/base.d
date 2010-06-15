@@ -42,7 +42,7 @@ class IntegerLiteral : Literal
 
 class FloatLiteral : Literal
 {
-    Token token;
+    string value;
 }
 
 class CharacterLiteral : Literal
