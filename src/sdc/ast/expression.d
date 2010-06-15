@@ -329,19 +329,19 @@ enum IsOperation
 enum IsSpecialisation
 {
     Type,
-	Struct,
-	Union,
-	Class,
-	Interface,
-	Enum,
-	Function,
-	Delegate,
-	Super,
-	Const,
-	Immutable,
-	Inout,
-	Shared,
-	Return,
+    Struct,
+    Union,
+    Class,
+    Interface,
+    Enum,
+    Function,
+    Delegate,
+    Super,
+    Const,
+    Immutable,
+    Inout,
+    Shared,
+    Return,
 }
 
 class IsExpression : Node
