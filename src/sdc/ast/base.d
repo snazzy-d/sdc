@@ -47,12 +47,12 @@ class FloatLiteral : Literal
 
 class CharacterLiteral : Literal
 {
-    Token token;
+    string value;
 }
 
 class StringLiteral : Literal
 {
-    Token token;
+    string value;
 }
 
 class ArrayLiteral : Literal
