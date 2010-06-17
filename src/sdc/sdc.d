@@ -32,6 +32,7 @@ import sdc.info;
 import sdc.ast.all;
 import sdc.parser.all;
 import sdc.asttojson.all;
+import sdc.gen.base;
 
 int main(string[] args)
 {
@@ -64,6 +65,7 @@ int main(string[] args)
         if (printTokens) tstream.printTo(stdout);
         if (printAST) {
         }
+        genModule(mod, stdout);
     }
         
     return errors ? 1 : 0;
