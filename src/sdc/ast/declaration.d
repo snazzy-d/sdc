@@ -73,6 +73,7 @@ class DeclaratorSuffix : Node
     DeclaratorSuffixType suffixType;
     AssignExpression assignExpression;
     Type type;
+    Parameters parameters;
     // TODO: Template stuff.
 }
 

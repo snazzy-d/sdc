@@ -224,8 +224,7 @@ Parameter parseParameter(TokenStream tstream)
         parameter.identifier = parseIdentifier(tstream);
     }
     
-    retur
-    n parameter;
+    return parameter;
 }
 
 Declarator parseDeclarator(TokenStream tstream)
@@ -389,6 +388,7 @@ DeclaratorSuffix parseDeclaratorSuffix(TokenStream tstream)
     declSuffix.location = tstream.peek.location;
     
     if (tstream.peek.type == TokenType.OpenParen) {
+        declSuffix.parameters = parseParameters(tstream);
     } else {
         match(tstream, TokenType.OpenBracket);
         if (tstream.peek.type == TokenType.CloseBracket) {
