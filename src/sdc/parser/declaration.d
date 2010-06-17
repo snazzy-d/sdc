@@ -219,8 +219,13 @@ Parameter parseParameter(TokenStream tstream)
     while (startsLikeBasicType2(tstream)) {
         parameter.basicType2s ~= parseBasicType2(tstream);
     }
-        
-    return parameter;
+    
+    if (tstream.peek.type == TokenType.Identifier) {
+        parameter.identifier = parseIdentifier(tstream);
+    }
+    
+    retur
+    n parameter;
 }
 
 Declarator parseDeclarator(TokenStream tstream)
@@ -372,26 +377,31 @@ ArrayMemberInitialisation parseArrayMemberInitialisation(TokenStream tstream)
 
 bool startsLikeDeclaratorSuffix(TokenStream tstream)
 {
-    return tstream.peek.type == TokenType.OpenBracket;
     // TODO: template
+    return tstream.peek.type == TokenType.OpenBracket || 
+           tstream.peek.type == TokenType.OpenParen;
 }
 
 DeclaratorSuffix parseDeclaratorSuffix(TokenStream tstream)
 {
+    // TODO: template
     auto declSuffix = new DeclaratorSuffix();
     declSuffix.location = tstream.peek.location;
     
-    match(tstream, TokenType.OpenBracket);  // TODO: template
-    if (tstream.peek.type == TokenType.CloseBracket) {
-        declSuffix.suffixType = DeclaratorSuffixType.DynamicArray;
-    } else if (startsLikeBasicType(tstream)) {
-        declSuffix.suffixType = DeclaratorSuffixType.AssociativeArray;
-        declSuffix.type = parseType(tstream);
+    if (tstream.peek.type == TokenType.OpenParen) {
     } else {
-        declSuffix.suffixType = DeclaratorSuffixType.StaticArray;
-        declSuffix.assignExpression = parseAssignExpression(tstream);
+        match(tstream, TokenType.OpenBracket);
+        if (tstream.peek.type == TokenType.CloseBracket) {
+            declSuffix.suffixType = DeclaratorSuffixType.DynamicArray;
+        } else if (startsLikeBasicType(tstream)) {
+            declSuffix.suffixType = DeclaratorSuffixType.AssociativeArray;
+            declSuffix.type = parseType(tstream);
+        } else {
+            declSuffix.suffixType = DeclaratorSuffixType.StaticArray;
+            declSuffix.assignExpression = parseAssignExpression(tstream);
+        }
+        match(tstream, TokenType.CloseBracket);
     }
-    match(tstream, TokenType.CloseBracket);
     
     return declSuffix;
 }

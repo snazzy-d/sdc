@@ -263,6 +263,7 @@ class Parameter : Node
     InOutType inOutType; 
     BasicType basicType;
     BasicType2[] basicType2s;  // Optional.
+    Identifier identifier;  // Optional.
 }
 
 enum DefaultInitialiserExpressionType

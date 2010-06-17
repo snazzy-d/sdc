@@ -11,6 +11,7 @@ import sdc.compilererror;
 import sdc.ast.statement;
 import sdc.parser.base;
 import sdc.parser.expression;
+import sdc.parser.declaration;
 
 
 Statement parseStatement(TokenStream tstream)
@@ -71,8 +72,8 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
         statement.node = parseReturnStatement(tstream);
         break;
     default:
-        error(tstream.peek.location, "unknown statement");
-        assert(false);
+        statement.type = NonEmptyStatementType.DeclarationStatement;
+        statement.node = parseDeclarationStatement(tstream);
     }
     
     return statement;
@@ -182,5 +183,13 @@ ReturnStatement parseReturnStatement(TokenStream tstream)
         statement.expression = parseExpression(tstream);
     }
     match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+DeclarationStatement parseDeclarationStatement(TokenStream tstream)
+{
+    auto statement = new DeclarationStatement();
+    statement.location = tstream.peek.location;
+    statement.declaration = parseDeclaration(tstream);    
     return statement;
 }
