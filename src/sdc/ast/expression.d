@@ -2,6 +2,8 @@
  * Copyright 2010 Bernard Helyer
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ * 
+ * sdc.ast.expression: AST nodes for expressions.
  */
 module sdc.ast.expression;
 

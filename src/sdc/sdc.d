@@ -15,6 +15,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * sdc.sdc: contains the entry point and main driver for SDC.
  */
 module sdc.sdc;
 
@@ -51,23 +53,20 @@ int main(string[] args)
     foreach (arg; args[1 .. $]) {
         auto source = new Source(arg);
         TokenStream tstream;
-        Declaration[] declarations;
+        Statement[] statements;
         try {
             tstream = lex(source);
             tstream.getToken();  // Eat TokenType.Begin.
             while (tstream.peek.type != TokenType.End) {
-                declarations ~= parseDeclaration(tstream);
+                statements ~= parseStatement(tstream);
             }
+            stdout.writefln("Parsed %s top level statement%s.", statements.length, statements.length == 1 ? "" : "s");
         } catch (CompilerError) {
             errors = true;
             continue;
         }
         if (printTokens) tstream.printTo(stdout);
         if (printAST) {
-            foreach (declaration; declarations) {
-                JSONObject root = prettyDeclaration(declaration);
-                stdout.writeln(root.toPrettyString());
-            }
         }
     }
         

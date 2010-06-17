@@ -5,6 +5,7 @@
  */
 module sdc.parser.statement;
 
+import sdc.util;
 import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.ast.statement;
@@ -56,6 +57,18 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     case TokenType.If:
         statement.type = NonEmptyStatementType.IfStatement;
         statement.node = parseIfStatement(tstream);
+        break;
+    case TokenType.While:
+        statement.type = NonEmptyStatementType.WhileStatement;
+        statement.node = parseWhileStatement(tstream);
+        break;
+    case TokenType.Do:
+        statement.type = NonEmptyStatementType.DoStatement;
+        statement.node = parseDoStatement(tstream);
+        break;
+    case TokenType.Return:
+        statement.type = NonEmptyStatementType.ReturnStatement;
+        statement.node = parseReturnStatement(tstream);
         break;
     default:
         error(tstream.peek.location, "unknown statement");
@@ -128,5 +141,46 @@ ElseStatement parseElseStatement(TokenStream tstream)
     auto statement = new ElseStatement();
     statement.location = tstream.peek.location;
     statement.statement = parseScopeStatement(tstream);
+    return statement;
+}
+
+
+WhileStatement parseWhileStatement(TokenStream tstream)
+{
+    auto statement = new WhileStatement();
+    statement.location = tstream.peek.location;
+    match(tstream, TokenType.While);
+    match(tstream, TokenType.OpenParen);
+    statement.expression = parseExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    statement.statement = parseScopeStatement(tstream);
+    return statement;
+}
+
+
+DoStatement parseDoStatement(TokenStream tstream)
+{
+    auto statement = new DoStatement();
+    statement.location = tstream.peek.location;
+    match(tstream, TokenType.Do);
+    statement.statement = parseScopeStatement(tstream);
+    match(tstream, TokenType.While);
+    match(tstream, TokenType.OpenParen);
+    statement.expression = parseExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+
+ReturnStatement parseReturnStatement(TokenStream tstream)
+{
+    auto statement = new ReturnStatement();
+    statement.location = tstream.peek.location;
+    match(tstream, TokenType.Return);
+    if (tstream.peek.type != TokenType.Semicolon) {
+        statement.expression = parseExpression(tstream);
+    }
+    match(tstream, TokenType.Semicolon);
     return statement;
 }

@@ -208,6 +208,7 @@ static this()
         keywordToTokenType["function"] = Function;
         keywordToTokenType["goto"] = Goto;
         keywordToTokenType["idouble"] = Idouble;
+        keywordToTokenType["if"] = If;
         keywordToTokenType["ifloat"] = Ifloat;
         keywordToTokenType["immutable"] = Immutable;
         keywordToTokenType["import"] = Import;
