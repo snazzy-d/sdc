@@ -190,6 +190,6 @@ DeclarationStatement parseDeclarationStatement(TokenStream tstream)
 {
     auto statement = new DeclarationStatement();
     statement.location = tstream.peek.location;
-    statement.declaration = parseDeclaration(tstream);    
+    statement.declaration = parseDeclaration(tstream);
     return statement;
 }

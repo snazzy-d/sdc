@@ -14,6 +14,7 @@ import sdc.compilererror;
 import sdc.ast.declaration;
 import sdc.parser.base;
 import sdc.parser.expression;
+import sdc.parser.statement;
 
 
 Declaration parseDeclaration(TokenStream tstream)
@@ -50,7 +51,13 @@ Declaration parseDeclaration(TokenStream tstream)
             }
         }
     }
+    
     // TODO FunctionBody
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        decl.functionBody = parseFunctionBody(tstream);
+    } else {
+        match(tstream, TokenType.Semicolon);
+    }
     
     return decl;
 }
@@ -269,8 +276,6 @@ Declarators parseDeclarators(TokenStream tstream)
         decls.declaratorIdentifiers ~= parseDeclaratorIdentifier(tstream);
     }
     
-    match(tstream, TokenType.Semicolon);
-    
     return decls;
 }
 
@@ -432,4 +437,13 @@ DefaultInitialiserExpression parseDefaultInitialiserExpression(TokenStream tstre
     }
     
     return def;
+}
+
+
+FunctionBody parseFunctionBody(TokenStream tstream)
+{
+    auto functionBody = new FunctionBody();
+    functionBody.location = tstream.peek.location;
+    functionBody.statement = parseBlockStatement(tstream);
+    return functionBody;
 }

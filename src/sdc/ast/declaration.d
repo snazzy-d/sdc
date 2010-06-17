@@ -10,6 +10,7 @@ module sdc.ast.declaration;
 import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.expression;
+import sdc.ast.statement;
 
 
 class Declaration : Node
@@ -23,7 +24,7 @@ class Declaration : Node
     Identifier autoIdentifier;
     AssignExpression autoAssignExpression;
     
-    // TODO: FunctionBody
+    FunctionBody functionBody;  // Optional.
 }
 
 class Type : Node
@@ -278,4 +279,11 @@ class DefaultInitialiserExpression : Node
 {
     DefaultInitialiserExpressionType type;
     AssignExpression assignExpression;  // Optional.
+}
+
+
+class FunctionBody : Node
+{
+    BlockStatement statement;
+    // TODO
 }
