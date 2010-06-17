@@ -37,6 +37,9 @@ Module parseModule(TokenStream tstream)
     mod.location = tstream.peek.location;
     match(tstream, TokenType.Begin);
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
+    while (tstream.peek.type != TokenType.End) {
+        mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+    }
     return mod;
 }                                        
 
@@ -57,6 +60,14 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
         modDec.name.identifiers ~= ident;
     }
     return modDec;
+}
+
+DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
+{
+    auto decldef = new DeclarationDefinition();
+    decldef.location = tstream.peek.location;
+    decldef.declaration = parseDeclaration(tstream);
+    return decldef;
 }
 
 QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false)

@@ -53,14 +53,10 @@ int main(string[] args)
     foreach (arg; args[1 .. $]) {
         auto source = new Source(arg);
         TokenStream tstream;
-        Statement[] statements;
+        Module mod;
         try {
             tstream = lex(source);
-            tstream.getToken();  // Eat TokenType.Begin.
-            while (tstream.peek.type != TokenType.End) {
-                statements ~= parseStatement(tstream);
-            }
-            stdout.writefln("Parsed %s top level statement%s.", statements.length, statements.length == 1 ? "" : "s");
+            mod = parseModule(tstream);
         } catch (CompilerError) {
             errors = true;
             continue;

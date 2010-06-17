@@ -12,6 +12,7 @@ import std.path;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.base;
+import sdc.ast.declaration;
 
 
 class Module : Node
@@ -28,4 +29,5 @@ class ModuleDeclaration : Node
 
 class DeclarationDefinition : Node
 {
+    Declaration declaration;  // TMP
 }
