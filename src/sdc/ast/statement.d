@@ -68,7 +68,7 @@ enum ScopeStatementType
 }
 
 // NonEmptyStatement | BlockStatement
-class ScopeStatement
+class ScopeStatement : Node
 {
     ScopeStatementType type;
     Node node;
@@ -164,7 +164,7 @@ class IfCondition : Node
 {
     IfConditionType type;
     Expression expression;
-    Node node;
+    Node node;  // Optional.
 }
 
 class ThenStatement : Node
