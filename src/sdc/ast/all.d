@@ -9,4 +9,4 @@ public import sdc.ast.base;
 public import sdc.ast.sdcmodule;
 public import sdc.ast.expression;
 public import sdc.ast.declaration;
-
+public import sdc.ast.statement;
