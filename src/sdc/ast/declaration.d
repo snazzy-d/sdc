@@ -13,106 +13,59 @@ import sdc.ast.expression;
 import sdc.ast.statement;
 
 
+enum DeclarationType
+{
+    Variable,
+    Function
+}
+
 class Declaration : Node
 {
+    DeclarationType type;
+    Node node;
+}
+
+class VariableDeclaration : Node
+{
     bool isAlias;
-    StorageClass[] storageClasses;  // Optional.
-    BasicType basicType;  // Optional.
-    Declarators declarators;  // Optional.
-    
-    // These are for auto declarations. If one is non-null they both have to be.
-    Identifier autoIdentifier;
-    AssignExpression autoAssignExpression;
-    
-    FunctionBody functionBody;  // Optional.
-}
-
-class Type : Node
-{
-    BasicType basicType;
-    Declarator2 declarator2;
-}
-
-// DeclaratorInitialiser (, DeclaratorIdentifier (, DeclaratorIdentifier)*)?
-class Declarators : Node
-{
-    DeclaratorInitialiser declaratorInitialiser;
-    DeclaratorIdentifier[] declaratorIdentifiers;
-}
-
-// Declarator (= Initialiser)?
-class DeclaratorInitialiser : Node
-{
-    Declarator declarator;
-    Initialiser initialiser;  // Optional.
-}
-
-// Identifier (= Initialiser)?
-class DeclaratorIdentifier : Node
-{
-    Identifier identifier;
-    Initialiser initialiser;  // Optional.
-}
-
-class Declarator2 : Node
-{
-    BasicType2[] basicType2s;
-    Declarator2 declarator2;
-    DeclaratorSuffix[] declaratorSuffixes;  // Optional.
-}
-
-enum DeclaratorSuffixType
-{
-    DynamicArray,
-    StaticArray,
-    AssociativeArray,
-    TemplateParameters,
-}
-
-class DeclaratorSuffix : Node
-{
-    DeclaratorSuffixType suffixType;
-    AssignExpression assignExpression;
     Type type;
-    Parameters parameters;
-    // TODO: Template stuff.
+    Declarator[] declarators;
 }
 
 class Declarator : Node
 {
-    BasicType2[] basicType2s;  // Optional.
-    Identifier identifier;  // Optional if declarator isn't null.
-    DeclaratorSuffix[] declaratorSuffixes;  // Optional.
+    Identifier name;
+    Initialiser initialiser;  // Optional.
+}
+    
+class FunctionDeclaration : Node
+{
+    Type retval;
+    Identifier name;
+    Parameter[] parameters;
+    FunctionBody functionBody;
 }
 
-enum BasicType2Type
+class FunctionBody : Node
 {
-    Pointer,
-    DynamicArray,
-    StaticArray,
-    TupleSlice,
-    AssociativeArray,
+    BlockStatement statement;
+    // TODO
+}
+
+enum TypeType
+{
+    Primitive,
+    UserDefined,
+    Typeof,
+    FunctionPointer,
     Delegate,
-    Function,
+    ConstType,  // const(Type)
+    ImmutableType,  // immutable(Type)
+    SharedType,  // shared(Type)
+    InoutType,  // inout(Type)
 }
 
-enum FunctionAttribute
-{
-    Nothrow,
-    Pure,
-}
-
-class BasicType2 : Node
-{
-    BasicType2Type type;
-    AssignExpression firstAssignExpression;  // Optional.
-    AssignExpression secondAssignExpression;  // Optional.
-    Type aaType;  // Optional.
-    Parameters parameters;  // Optional.
-    FunctionAttribute[] functionAttributes;  // Optional.
-}
-
-enum StorageClassType
+enum StorageType
 {
     Abstract = TokenType.Abstract,
     Auto = TokenType.Auto,
@@ -130,13 +83,42 @@ enum StorageClassType
     Static = TokenType.Static,
     Synchronized = TokenType.Synchronized,
 }
+immutable STORAGE_TYPES = [
+TokenType.Abstract, TokenType.Auto, TokenType.Const,
+TokenType.Deprecated, TokenType.Extern, TokenType.Final,
+TokenType.Immutable, TokenType.Inout, TokenType.Shared,
+TokenType.Nothrow, TokenType.Override, TokenType.Pure,
+TokenType.Scope, TokenType.Static, TokenType.Synchronized
+];
 
-class StorageClass : Node
+immutable PAREN_TYPES = [
+TokenType.Const, TokenType.Immutable, TokenType.Shared, TokenType.Inout
+];
+
+
+class Type : Node
 {
-    StorageClassType type;
+    TypeType type;
+    Node node;
+    StorageType[] storageTypes;
+    TypeSuffix[] suffixes;
 }
 
-enum BasicTypeType
+enum TypeSuffixType
+{
+    Pointer,
+    DynamicArray,
+    StaticArray,
+    AssociativeArray
+}
+
+class TypeSuffix : Node
+{
+    TypeSuffixType type;
+    Node node;  // Optional.
+}
+
+enum PrimitiveTypeType
 {
     Bool = TokenType.Bool,
     Byte = TokenType.Byte,
@@ -160,130 +142,60 @@ enum BasicTypeType
     Cdouble = TokenType.Cdouble,
     Creal = TokenType.Creal,
     Void = TokenType.Void,
-    
-    // These four have to have a paren immediately following.
-    Const = TokenType.Const,
-    Immutable = TokenType.Immutable,
-    Shared = TokenType.Shared,
-    Inout = TokenType.Inout,
-    
-    GlobalIdentifierList = TokenType.End + 1,
-    IdentifierList,
-    Typeof,
-    TypeofIdentifierList,
 }
 
-immutable ONE_WORD_TYPES = [
-TokenType.Bool, TokenType.Byte, TokenType.Ubyte, TokenType.Short,
-TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long,
-TokenType.Ulong, TokenType.Char, TokenType.Wchar, TokenType.Dchar,
-TokenType.Float, TokenType.Double, TokenType.Real, TokenType.Ifloat,
-TokenType.Idouble, TokenType.Ireal, TokenType.Cfloat, TokenType.Cdouble,
-TokenType.Creal, TokenType.Void
-];
-
-immutable PAREN_TYPES = [
-TokenType.Const,  TokenType.Immutable, TokenType.Shared, TokenType.Inout,
-];
-
-immutable IDENTIFIER_TYPEOF_TYPES = [
-TokenType.Dot, TokenType.Identifier, TokenType.Typeof
-];
-
-class BasicType : Node
+class PrimitiveType : Node
 {
-    BasicTypeType type;
-    Type secondType;  // Optional.
+    PrimitiveTypeType type;
+}
+
+class UserDefinedType : Node
+{
+    QualifiedName qualifiedName;
+}
+
+enum TypeofTypeType
+{
+    Return,
+    This,
+    Super,
+    Expression
+}
+
+class TypeofType : Node
+{
+    TypeofTypeType type;
+    Expression expression;  // Optional.
     QualifiedName qualifiedName;  // Optional.
+}
+
+class FunctionPointerType : Node
+{
+    Type retval;
+    Parameter[] parameters;
+}
+
+class DelegateType : Node
+{
+    Type retval;
+    Parameter[] parameters;
+}
+
+class Parameter : Node
+{
+    Type type;
+    Identifier identifier;  // Optional.
+}
+
+enum InitialiserType
+{
+    Void,
+    AssignExpression
 }
 
 class Initialiser : Node
 {
-    // Mutually exclusive.
-    VoidInitialiser voidInitialiser;
-    NonVoidInitialiser nonVoidInitialiser;
+    InitialiserType type;
+    Node node;  // Optional.
 }
 
-class VoidInitialiser : Node
-{
-}
-
-class NonVoidInitialiser : Node
-{
-    AssignExpression assignExpression;
-    ArrayInitialiser arrayInitialiser;
-    StructInitialiser structInitialiser;
-}
-
-// [ (ArrayMemberInitialisation (, ArrayMemberInitialisation)*)? ]
-class ArrayInitialiser : Node
-{
-    ArrayMemberInitialisation[] arrayMemberInitialisations;
-}
-
-// NonVoidInitialiser (: NonVoidInitialiser)?
-class ArrayMemberInitialisation : Node
-{
-    NonVoidInitialiser left;
-    NonVoidInitialiser right;  // Optional.
-}
-
-// { (StructMemberInitialiser (, StructMemberInitialiser)*)? }
-class StructInitialiser : Node
-{
-    StructMemberInitialiser[] structMemberInitialisers;  // Optional.
-}
-
-// (Identifier :)? NonVoidInitialiser
-class StructMemberInitialiser : Node
-{
-    NonVoidInitialiser nonVoidInitialiser;
-    Identifier identifier;  // Optional
-}
-
-// \( (Parameter (, Parameter)*)? \)
-class Parameters : Node
-{
-    Parameter[] parameters;
-}
-
-enum InOutType
-{
-    None,
-    In = TokenType.In,
-    Out = TokenType.Out,
-    Ref = TokenType.Ref,
-    Lazy = TokenType.Lazy,
-}
-
-/* This is a parameter for a function/delegate variable declaration,
- * so we don't have a declarator or default initialiser here, as is
- * specified in the D grammar (!!! - no basic type listed)
- */
-class Parameter : Node
-{
-    InOutType inOutType; 
-    BasicType basicType;
-    BasicType2[] basicType2s;  // Optional.
-    Identifier identifier;  // Optional.
-}
-
-enum DefaultInitialiserExpressionType
-{
-    Assign = TokenType.__File__ - 1,
-    __File__ = TokenType.__File__,
-    __Line__ = TokenType.__Line__,
-}
-
-class DefaultInitialiserExpression : Node
-{
-    DefaultInitialiserExpressionType type;
-    AssignExpression assignExpression;  // Optional.
-}
-
-
-class FunctionBody : Node
-{
-    BlockStatement statement;
-    // TODO
-}

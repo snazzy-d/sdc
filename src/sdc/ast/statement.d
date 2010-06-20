@@ -347,7 +347,7 @@ class Catch : Node
 
 class CatchParameter : Node
 {
-    BasicType type;
+    Type type;
     Identifier identifier;  // XXX: Optional, grammar disagrees.
 }
 
