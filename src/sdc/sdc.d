@@ -22,6 +22,7 @@ module sdc.sdc;
 
 import std.stdio;
 import std.getopt;
+import std.process : system;
 import std.c.stdlib;
 
 import sdc.source;
@@ -38,12 +39,14 @@ int main(string[] args)
 {
     bool printTokens;
     bool printAST;
+    bool optimise;
     
     getopt(args,
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
            "print-tokens", &printTokens,
-           "print-ast", &printAST
+           "print-ast", &printAST,
+           "optimise|O", &optimise
           );
           
     if (args.length == 1) {
@@ -65,7 +68,13 @@ int main(string[] args)
         if (printTokens) tstream.printTo(stdout);
         if (printAST) {
         }
-        genModule(mod, stdout);
+        auto f = File("test.ll", "w");
+        genModule(mod, f);
+        system("llvm-as test.ll");
+        system("llvm-ld -native test.bc");
+        if (optimise) {
+            system("opt test.bc -o test.bc");
+        }
     }
         
     return errors ? 1 : 0;
@@ -79,5 +88,6 @@ void usage()
     stdout.writeln("  --version:       print version information to stdout.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
     stdout.writeln("  --print-ast:     print the AST to stdout.");
+    stdout.writeln("  --optimise|-O:   run optimiser.");
 }
 

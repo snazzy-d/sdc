@@ -18,3 +18,8 @@ string extractQualifiedName(QualifiedName qualifiedName)
     buf = buf[0 .. $ - 1];  // Chop off final '.'
     return buf.idup;
 }
+
+string extractIdentifier(Identifier identifier)
+{
+    return identifier.value;
+}
