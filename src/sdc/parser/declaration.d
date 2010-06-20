@@ -48,7 +48,7 @@ bool isVariableDeclaration(TokenStream tstream)
     Token token;
     while (true) {
         token = tstream.lookahead(lookahead);
-        if (token.type == TokenType.End && token.type == TokenType.OpenBrace) {
+        if (token.type == TokenType.End || token.type == TokenType.OpenBrace) {
             return false;
         } else if (token.type == TokenType.Semicolon) {
             return true;
@@ -151,9 +151,21 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     auto declaration = new FunctionDeclaration();
     declaration.location = tstream.peek.location;
     
+    declaration.retval = parseType(tstream);
+    declaration.name = parseIdentifier(tstream);
+    declaration.parameters = parseParameters(tstream);
+    declaration.functionBody = parseFunctionBody(tstream);
+    
     return declaration;
 }
 
+FunctionBody parseFunctionBody(TokenStream tstream)
+{
+    auto functionBody = new FunctionBody();
+    functionBody.location = tstream.peek.location;
+    functionBody.statement = parseBlockStatement(tstream);
+    return functionBody;
+}
 
 immutable TokenType[] PRIMITIVE_TYPES = [
 TokenType.Bool, TokenType.Byte, TokenType.Ubyte,
