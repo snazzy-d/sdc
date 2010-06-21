@@ -35,7 +35,7 @@ void emitIndent(File file)
     }
 }
 
-string llvmType(ref const(Primitive) primitive)
+string llvmType(Primitive primitive)
 {
     char[] buf = "i".dup;
     buf ~= to!string(primitive.size);
@@ -148,13 +148,9 @@ alias emitDuoOps!("emitDiv") emitDivOps;
 void emitFunctionDeclaration(File file, FunctionDeclaration declaration)
 {
     emitIndent(file);
-    file.write("define i32 @", extractIdentifier(declaration.name));
+    file.write("define ", llvmType(fullTypeToPrimitive(declaration.retval)), " @", extractIdentifier(declaration.name));
     file.write("(");
     foreach (i, parameter; declaration.parameters) {
-        file.write("i32", extractIdentifier(parameter.identifier));
-        if (i < declaration.parameters.length - 1) {
-            file.write(", ");
-        }
     }
     file.writeln(") {");
 }

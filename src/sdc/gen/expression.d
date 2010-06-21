@@ -128,8 +128,21 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file)
     switch (expression.type) {
     case PrimaryType.IntegerLiteral:
         var = genVariable(Primitive(32, 0), "primitive");
+        var.dType = PrimitiveTypeType.Int;
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant((cast(IntegerLiteral)expression.node).value, Primitive(32, 0)));
+        break;
+    case PrimaryType.True:
+        var = genVariable(Primitive(8, 0), "true");
+        var.dType = PrimitiveTypeType.Bool;
+        asmgen.emitAlloca(file, var);
+        asmgen.emitStore(file, var, new Constant("1", Primitive(8, 0)));
+        break;
+    case PrimaryType.False:
+        var = genVariable(Primitive(8, 0), "false");
+        var.dType = PrimitiveTypeType.Bool;
+        asmgen.emitAlloca(file, var);
+        asmgen.emitStore(file, var, new Constant("0", Primitive(8, 0)));
         break;
     default:
         break;
