@@ -8,29 +8,13 @@ module sdc.gen.base;
 import std.stdio;
 import std.conv;
 
+import sdc.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.expression;
 public import asmgen = sdc.gen.llvm.base;
-
-
-string genVariable(string s = "")
-{
-    static bool[string] sVariables;
-    
-    int counter = -1;
-    string proposedVariable;
-    do {
-        counter++;
-        proposedVariable = s ~ to!string(counter);
-    } while (proposedVariable in sVariables);
-    sVariables[proposedVariable] = true;
-    
-    return proposedVariable;
-}
-
 
 
 void genModule(Module mod, File file)
@@ -87,9 +71,9 @@ void genNonEmptyStatement(NonEmptyStatement statement, File file)
 
 void genReturnStatement(ReturnStatement statement, File file)
 {
-    auto result = genExpression(statement.expression, file);
-    auto retval = genVariable("retval");
-    asmgen.emitLoad(file, retval, result, null);
-    asmgen.emitReturnExpression(file, retval, null);
+    auto expr = genExpression(statement.expression, file);
+    auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");
+    asmgen.emitLoad(file, retval, expr);
+    asmgen.emitReturn(file, retval);
 }
 

@@ -70,11 +70,12 @@ int main(string[] args)
         }
         auto f = File("test.ll", "w");
         genModule(mod, f);
-        system("llvm-as test.ll");
-        system("llvm-ld -native test.bc");
         if (optimise) {
-            system("opt test.bc -o test.bc");
+            system("opt -std-compile-opts test.ll -o test.bc");
+        } else {
+            system("llvm-as test.ll -o test.bc");
         }
+        system("llvm-ld -native test.bc");
     }
         
     return errors ? 1 : 0;

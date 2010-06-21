@@ -329,33 +329,42 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
     
     switch (tstream.peek.type) {
     case TokenType.Ampersand:
+        match(tstream, TokenType.Ampersand);
         unaryExpr.unaryPrefix = UnaryPrefix.AddressOf;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.DoublePlus:
+        match(tstream, TokenType.DoublePlus);
         unaryExpr.unaryPrefix = UnaryPrefix.PrefixInc;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.DoubleDash:
+        match(tstream, TokenType.DoubleDash);
         unaryExpr.unaryPrefix = UnaryPrefix.PrefixDec;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.Asterix:
+        match(tstream, TokenType.Asterix);
         unaryExpr.unaryPrefix = UnaryPrefix.Dereference;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
+        break;
     case TokenType.Dash:
+        match(tstream, TokenType.Dash);
         unaryExpr.unaryPrefix = UnaryPrefix.UnaryMinus;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.Plus:
+        match(tstream, TokenType.Plus);
         unaryExpr.unaryPrefix = UnaryPrefix.UnaryPlus;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.Bang:
+        match(tstream, TokenType.Bang);
         unaryExpr.unaryPrefix = UnaryPrefix.LogicalNot;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.Tilde:
+        match(tstream, TokenType.Tilde);
         unaryExpr.unaryPrefix = UnaryPrefix.BitwiseNot;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
