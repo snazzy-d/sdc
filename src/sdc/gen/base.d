@@ -37,6 +37,12 @@ void genDeclaration(Declaration declaration, File file)
 
 void genVariableDeclaration(VariableDeclaration declaration, File file)
 {
+    auto primitive = fullTypeToPrimitive(declaration.type);
+    foreach (declarator; declaration.declarators) {
+        auto var = genVariable(primitive, extractIdentifier(declarator.name));
+        asmgen.emitAlloca(file, var);
+        asmgen.emitStore(file, var, new Constant("0", primitive));
+    }
 }
 
 void genFunctionDeclaration(FunctionDeclaration declaration, File file)
@@ -66,12 +72,20 @@ void genStatement(Statement statement, File file)
 void genNonEmptyStatement(NonEmptyStatement statement, File file)
 {
     switch (statement.type) {
+    case NonEmptyStatementType.DeclarationStatement:
+        genDeclarationStatement(cast(DeclarationStatement) statement.node, file);
+        break;
     case NonEmptyStatementType.ReturnStatement:
         genReturnStatement(cast(ReturnStatement) statement.node, file);
         break;
     default:
         break;
     }
+}
+
+void genDeclarationStatement(DeclarationStatement statement, File file)
+{
+    genDeclaration(statement.declaration, file);
 }
 
 void genReturnStatement(ReturnStatement statement, File file)
