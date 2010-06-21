@@ -186,6 +186,7 @@ void skipNestingComment(TokenStream tstream)
         if (tstream.source.peek == '+') {
             match(tstream.source, '+');
             if (tstream.source.peek == '/') {
+                match(tstream.source, '/');
                 depth--;
             }
         } else if (tstream.source.peek == '/') {
