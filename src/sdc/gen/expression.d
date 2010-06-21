@@ -126,6 +126,10 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file)
     Primitive primitive;
     
     switch (expression.type) {
+    case PrimaryType.Identifier:
+        string ident = extractIdentifier(cast(Identifier) expression.node);
+        error(expression.location, "HOLY SHIT A VARIABLE? WHAT THE FUCK");
+        break;
     case PrimaryType.IntegerLiteral:
         var = genVariable(Primitive(32, 0), "primitive");
         var.dType = PrimitiveTypeType.Int;

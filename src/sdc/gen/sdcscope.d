@@ -5,10 +5,43 @@
  */
 module sdc.gen.sdcscope;
 
+import sdc.ast.all;
 
-class Scope
+class RedeclarationError {}
+
+/**
+ * Represents a Scope, primarily for declarations.
+ */
+final class Scope
 {
-    void newScope()
+    /**
+     * Add a declaration to this scope.
+     * Params:
+     *   identifier = a unique identifier to store the declaration against.
+     *   declaration = the declaration to store.
+     * Throws: RedeclarationError if identifier is already declared in this scope.
+     */
+    void addDeclaration(string identifier, Declaration declaration)
     {
+        if ((identifier in mDeclarations) !is null) {
+            throw new RedeclarationError();
+        }
+        mDeclarations[identifier] = declaration;
     }
+    
+    /**
+     * Lookup a declaration in this scope.
+     * Params:
+     *   identifier = the identifier to look for a declaration against.
+     * Returns: the Declaration, or null if there is nothing declared against the identifier.
+     */
+    Declaration lookupDeclaration(string identifier)
+    {
+        if ((identifier in mDeclarations) is null) {
+            return null;
+        }
+        return mDeclarations[identifier];
+    }
+    
+    private Declaration[string] mDeclarations;
 }
