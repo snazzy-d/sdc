@@ -7,6 +7,9 @@ module sdc.primitive;
 
 import std.conv;
 
+import sdc.compilererror;
+import sdc.ast.declaration;
+
 
 struct Primitive
 {
@@ -19,6 +22,7 @@ abstract class Value
 {
     ValueType type;
     Primitive primitive;
+    PrimitiveTypeType dType = PrimitiveTypeType.Int;
 }
 
 class Variable : Value
@@ -69,3 +73,43 @@ Variable genVariable(Primitive primitive, string s = "")
     return new Variable(name, primitive);
 }
 
+
+
+Primitive[PrimitiveTypeType] typeToPrimitive;
+
+static this()
+{
+    with (PrimitiveTypeType) {
+        typeToPrimitive[Bool] = Primitive(8, 0);
+        typeToPrimitive[Byte] = Primitive(8, 0);
+        typeToPrimitive[Ubyte] = Primitive(8, 0);
+        typeToPrimitive[Short] = Primitive(16, 0);
+        typeToPrimitive[Ushort] = Primitive(16, 0);
+        typeToPrimitive[Int] = Primitive(32, 0);
+        typeToPrimitive[Uint] = Primitive(32, 0);
+        typeToPrimitive[Long] = Primitive(64, 0);
+        typeToPrimitive[Ulong] = Primitive(64, 0);
+        typeToPrimitive[Char] = Primitive(8, 0);
+        typeToPrimitive[Wchar] = Primitive(16, 0);
+        typeToPrimitive[Dchar] = Primitive(32, 0);
+        //Float
+        //Double
+        //Real
+        //Ifloat
+        //Idouble
+        //Ireal
+        //Cdouble
+        //Creal
+        //Void
+    }
+}
+
+
+Primitive fullTypeToPrimitive(Type type)
+{
+    if (type.type != TypeType.Primitive) {
+        error(type.location, "non-primitive types are unimplemented");
+    }
+    auto primitive = cast(PrimitiveType) type.node;
+    return typeToPrimitive[primitive.type];
+}
