@@ -89,6 +89,8 @@ static this()
         typeToPrimitive[Uint] = Primitive(32, 0);
         typeToPrimitive[Long] = Primitive(64, 0);
         typeToPrimitive[Ulong] = Primitive(64, 0);
+        typeToPrimitive[Cent] = Primitive(128, 0);
+        typeToPrimitive[Ucent] = Primitive(128, 0);
         typeToPrimitive[Char] = Primitive(8, 0);
         typeToPrimitive[Wchar] = Primitive(16, 0);
         typeToPrimitive[Dchar] = Primitive(32, 0);

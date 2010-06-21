@@ -129,6 +129,8 @@ enum PrimitiveTypeType
     Uint = TokenType.Uint,
     Long = TokenType.Long,
     Ulong = TokenType.Ulong,
+    Cent = TokenType.Cent,
+    Ucent = TokenType.Ucent,
     Char = TokenType.Char,
     Wchar = TokenType.Wchar,
     Dchar = TokenType.Dchar,
