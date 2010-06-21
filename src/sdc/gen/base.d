@@ -30,9 +30,14 @@ void genDeclaration(Declaration declaration, File file)
 {
     if (declaration.type == DeclarationType.Function) {
         genFunctionDeclaration(cast(FunctionDeclaration) declaration.node, file);
+    } else if (declaration.type == DeclarationType.Variable) {
+        genVariableDeclaration(cast(VariableDeclaration) declaration.node, file);
     }
 }
 
+void genVariableDeclaration(VariableDeclaration declaration, File file)
+{
+}
 
 void genFunctionDeclaration(FunctionDeclaration declaration, File file)
 {
