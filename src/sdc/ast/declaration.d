@@ -25,8 +25,20 @@ class Declaration : Node
     Node node;
 }
 
-class VariableDeclaration : Node
+enum DeclType
 {
+    Variable,
+    Function,
+}
+
+class Decl : Node
+{
+    DeclType dtype;
+}
+
+class VariableDeclaration : Decl
+{
+    this() { dtype = DeclType.Variable; }
     bool isAlias;
     Type type;
     Declarator[] declarators;
@@ -38,8 +50,9 @@ class Declarator : Node
     Initialiser initialiser;  // Optional.
 }
     
-class FunctionDeclaration : Node
+class FunctionDeclaration : Decl
 {
+    this() { dtype = DeclType.Function; }
     Type retval;
     Identifier name;
     Parameter[] parameters;

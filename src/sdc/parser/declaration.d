@@ -411,9 +411,7 @@ Parameter[] parseParameters(TokenStream tstream)
             parameter.identifier = parseIdentifier(tstream);
         }
         parameters ~= parameter;
-        if (tstream.peek.type == TokenType.Comma) {
-            match(tstream, TokenType.Comma);
-        } else if (tstream.peek.type == TokenType.CloseParen) {
+        if (tstream.peek.type == TokenType.CloseParen) {
             break;
         }
         tstream.getToken();

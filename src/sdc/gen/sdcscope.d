@@ -21,7 +21,7 @@ final class Scope
      *   declaration = the declaration to store.
      * Throws: RedeclarationError if identifier is already declared in this scope.
      */
-    void addDeclaration(string identifier, Declaration declaration)
+    void addDeclaration(string identifier, Decl declaration)
     {
         if ((identifier in mDeclarations) !is null) {
             throw new RedeclarationError();
@@ -35,7 +35,7 @@ final class Scope
      *   identifier = the identifier to look for a declaration against.
      * Returns: the Declaration, or null if there is nothing declared against the identifier.
      */
-    Declaration lookupDeclaration(string identifier)
+    Decl lookupDeclaration(string identifier)
     {
         if ((identifier in mDeclarations) is null) {
             return null;
@@ -43,5 +43,5 @@ final class Scope
         return mDeclarations[identifier];
     }
     
-    private Declaration[string] mDeclarations;
+    private Decl[string] mDeclarations;
 }
