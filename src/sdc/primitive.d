@@ -109,7 +109,7 @@ static this()
         //Ireal
         //Cdouble
         //Creal
-        //Void
+        typeToPrimitive[Void] = Primitive(0, 0);
     }
 }
 

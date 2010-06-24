@@ -109,9 +109,13 @@ void genDeclarationStatement(DeclarationStatement statement, File file, Semantic
 
 void genReturnStatement(ReturnStatement statement, File file, Semantic semantic)
 {
-    auto expr = genExpression(statement.expression, file, semantic);
-    auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");
-    asmgen.emitLoad(file, retval, expr);
-    asmgen.emitReturn(file, retval);
+    if (statement.expression !is null) {
+        auto expr = genExpression(statement.expression, file, semantic);
+        auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");
+        asmgen.emitLoad(file, retval, expr);
+        asmgen.emitReturn(file, retval);
+    } else {
+        asmgen.emitVoidReturn(file);
+    }
 }
 

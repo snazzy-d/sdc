@@ -298,7 +298,7 @@ class BreakStatement : Node
 
 class ReturnStatement : Node
 {
-    Expression expression;
+    Expression expression;  // Optional.
 }
 
 

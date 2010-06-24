@@ -37,6 +37,10 @@ void emitIndent(File file)
 
 string llvmType(Primitive primitive)
 {
+    if (primitive.size == 0) {
+        return "void";
+    }
+    
     char[] buf = "i".dup;
     buf ~= to!string(primitive.size);
     foreach (i; 0 .. primitive.pointer) {
@@ -176,6 +180,12 @@ void emitReturn(File file, Value val)
 {
     emitIndent(file);
     file.writefln("ret %s %s", llvmType(val.primitive), llvmString(val));
+}
+
+void emitVoidReturn(File file)
+{
+    emitIndent(file);
+    file.writeln("ret void");
 }
 
 /**
