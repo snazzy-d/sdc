@@ -37,6 +37,12 @@ class Variable : Value
     }
 }
 
+Variable voidVariable;
+
+static this()
+{
+    voidVariable = new Variable("VOID", Primitive(0, 0));
+}
 
 class Constant : Value
 {
