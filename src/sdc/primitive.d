@@ -28,6 +28,7 @@ abstract class Value
 class Variable : Value
 {
     string name;
+    bool isFunction;
     
     this(string name, Primitive primitive)
     {
@@ -37,7 +38,7 @@ class Variable : Value
     }
 }
 
-Variable voidVariable;
+__gshared Variable voidVariable;
 
 static this()
 {

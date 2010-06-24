@@ -121,9 +121,9 @@ Variable genPostfixExpression(PostfixExpression expression, File file, Semantic 
 {
     auto var = genPrimaryExpression(expression.primaryExpression, file, semantic);
     
-    if (expression.postfixOperation == PostfixOperation.Parens) {
+    if (expression.postfixOperation == PostfixOperation.Parens || var.isFunction) {
         Variable[] args;
-        foreach (argument; expression.argumentList.expressions) {
+        if (expression.argumentList !is null) foreach (argument; expression.argumentList.expressions) {
             args ~= genAssignExpression(argument, file, semantic);
         }
         return asmgen.emitFunctionCall(file, var, args);
@@ -189,6 +189,7 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
             auto prim = fullTypeToPrimitive(fun.retval);
             auto name = extractIdentifier(fun.name);
             var = new Variable(name, prim);
+            var.isFunction = true;
             break;
         default:
             error(identifier.location, "unknown declaration type");
