@@ -29,6 +29,7 @@ enum DeclType
 {
     Variable,
     Function,
+    SyntheticVariable
 }
 
 class Decl : Node
@@ -42,6 +43,16 @@ class VariableDeclaration : Decl
     bool isAlias;
     Type type;
     Declarator[] declarators;
+}
+
+class SyntheticVariableDeclaration : Decl
+{
+    this() { dtype = DeclType.SyntheticVariable; }
+    bool isAlias;
+    bool isParameter;
+    Type type;
+    Identifier identifier;
+    Initialiser initialiser;  // Optional.
 }
 
 class Declarator : Node

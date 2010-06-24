@@ -54,6 +54,11 @@ string llvmString(Value value)
     }
 }
 
+Primitive removePointer(Primitive primitive)
+{
+    return Primitive(primitive.size, primitive.pointer - 1);
+}
+
 /**
  * Comment 'msg' at the current indent level.
  */
@@ -145,19 +150,26 @@ alias emitDuoOps!("emitAdd") emitAddOps;
 alias emitDuoOps!("emitSub") emitSubOps;
 alias emitDuoOps!("emitDiv") emitDivOps;
 
-void emitFunctionDeclaration(File file, FunctionDeclaration declaration)
+void emitFunctionName(File file, FunctionDeclaration declaration)
 {
     emitIndent(file);
     file.write("define ", llvmType(fullTypeToPrimitive(declaration.retval)), " @", extractIdentifier(declaration.name));
     file.write("(");
-    foreach (i, parameter; declaration.parameters) {
-    }
+}
+
+void emitFunctionParameter(File file, Primitive primitive, string name, bool last)
+{
+    file.write(llvmType(primitive), " %", name, last ? "" : ", ");
+}
+
+void emitFunctionBeginEnd(File file)
+{
     file.writeln(") {");
 }
 
 void emitCloseFunctionDeclaration(File file, FunctionDeclaration declaration)
 {
-    file.writeln("}");
+    file.writeln("}\n");
 }
 
 void emitReturn(File file, Value val)
@@ -166,4 +178,35 @@ void emitReturn(File file, Value val)
     file.writefln("ret %s %s", llvmType(val.primitive), llvmString(val));
 }
 
-
+/**
+ * Generate code to call a function.
+ * Params:
+ *   file = the file to write the generated code to.
+ *   name = the name of the function to call.
+ *   args = arguments to the function, stored via a pointer.
+ */
+Variable emitFunctionCall(File file, Variable func, Variable[] args)
+{
+    Variable[] directargs;
+    foreach (arg; args) {
+        auto var = genVariable(removePointer(arg.primitive), "param");
+        emitLoad(file, var, arg);
+        directargs ~= var;
+    }
+    
+    emitIndent(file);
+    auto ret = genVariable(func.primitive, "ret");
+    file.writef("%s = call %s @%s(", llvmString(ret), llvmType(func.primitive), func.name);
+    foreach (i, arg; directargs) {
+        file.write(llvmType(arg.primitive), " %", arg.name);
+        if (i < directargs.length - 1) {
+            file.write(", ");
+        }
+    }
+    file.writeln(")");
+    
+    auto retval = genVariable(func.primitive, "retval");
+    emitAlloca(file, retval);
+    emitStore(file, retval, ret);
+    return retval;
+}

@@ -407,11 +407,32 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
     
     postfixExpr.primaryExpression = parsePrimaryExpression(tstream);
     switch (tstream.peek.type) {
+    case TokenType.OpenParen:  // TMP
+        postfixExpr.argumentList = parseArgumentList(tstream);
+        postfixExpr.postfixOperation = PostfixOperation.Parens;
+        break;
     default:
         break;
     }
     
     return postfixExpr;
+}
+
+ArgumentList parseArgumentList(TokenStream tstream)
+{
+    auto list = new ArgumentList();
+    list.location = tstream.peek.location;
+    
+    match(tstream, TokenType.OpenParen);
+    while (tstream.peek.type != TokenType.CloseParen) {
+        list.expressions ~= parseAssignExpression(tstream);
+        if (tstream.peek.type != TokenType.CloseParen) {
+            match(tstream, TokenType.Comma);
+        }
+    }
+    match(tstream, TokenType.CloseParen);
+    
+    return list;
 }
 
 PrimaryExpression parsePrimaryExpression(TokenStream tstream)

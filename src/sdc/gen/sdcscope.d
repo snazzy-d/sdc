@@ -7,6 +7,7 @@ module sdc.gen.sdcscope;
 
 import sdc.ast.all;
 
+
 class RedeclarationError {}
 
 /**

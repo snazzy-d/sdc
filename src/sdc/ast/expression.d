@@ -205,13 +205,6 @@ class NewExpression : Node
     // TODO TODO TODO 
 }
 
-// AssignExpression , ArgumentList
-class ArgumentList : Node
-{
-    AssignExpression assignExpression;
-    ArgumentList argumentList;
-}
-
 // delete UnaryExpression
 class DeleteExpression : Node
 {
@@ -241,6 +234,12 @@ class PostfixExpression : Node
     PrimaryExpression primaryExpression;
     PostfixExpression postfixExpression;  // Optional.
     PostfixOperation postfixOperation;  // Optional.
+    ArgumentList argumentList;  // Optional.
+}
+
+class ArgumentList : Node
+{
+    AssignExpression[] expressions;
 }
 
 enum PrimaryType

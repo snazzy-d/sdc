@@ -90,6 +90,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream)
         
         auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
         auto declarator = new Declarator();
+        declarator.location = tstream.peek.location;
         declarator.name = parseIdentifier(tstream);
         suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
         match(tstream, TokenType.CloseParen);

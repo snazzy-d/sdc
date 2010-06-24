@@ -50,27 +50,28 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
 
 void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic semantic)
 {
-    asmgen.emitFunctionDeclaration(file, declaration);
-    asmgen.incrementIndent();
+    asmgen.emitFunctionName(file, declaration);
     
     string functionName = extractIdentifier(declaration.name);
     semantic.addDeclaration(functionName, declaration);
     semantic.pushScope();
-    foreach (parameter; declaration.parameters) if (parameter.identifier !is null) {
-        /*
-        auto var = new VariableDeclaration();
+    foreach (i, parameter; declaration.parameters) if (parameter.identifier !is null) {
+        auto var = new SyntheticVariableDeclaration();
         var.location = parameter.location;
         var.type = parameter.type;
-        var.name = parameter.identifier;
-        string paramName = extractIdentifier(var.name);
-        semantic.addDeclaration(paramName, var);*/
+        var.identifier = parameter.identifier;
+        var.isParameter = true;
+        semantic.addDeclaration(extractIdentifier(var.identifier), var);
+        asmgen.emitFunctionParameter(file, fullTypeToPrimitive(var.type), extractIdentifier(var.identifier), i == declaration.parameters.length - 1);
     }
+    asmgen.emitFunctionBeginEnd(file);
+    asmgen.incrementIndent();
     genBlockStatement(declaration.functionBody.statement, file, semantic);
-    
     semantic.popScope();
     asmgen.decrementIndent();
     asmgen.emitCloseFunctionDeclaration(file, declaration);
 }
+
 
 void genBlockStatement(BlockStatement statement, File file, Semantic semantic)
 {
@@ -108,7 +109,7 @@ void genDeclarationStatement(DeclarationStatement statement, File file, Semantic
 
 void genReturnStatement(ReturnStatement statement, File file, Semantic semantic)
 {
-    auto expr = genExpression(statement.expression, file);
+    auto expr = genExpression(statement.expression, file, semantic);
     auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");
     asmgen.emitLoad(file, retval, expr);
     asmgen.emitReturn(file, retval);

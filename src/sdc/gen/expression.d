@@ -6,6 +6,7 @@
 module sdc.gen.expression;
 
 import std.stdio;
+import std.string;
 
 import sdc.primitive;
 import sdc.compilererror;
@@ -13,62 +14,63 @@ import sdc.ast.all;
 import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.base;
+import sdc.gen.semantic;
 
-Variable genExpression(Expression expression, File file)
+Variable genExpression(Expression expression, File file, Semantic semantic)
 {
-    return genAssignExpression(expression.assignExpression, file);
+    return genAssignExpression(expression.assignExpression, file, semantic);
 }
 
-Variable genAssignExpression(AssignExpression expression, File file)
+Variable genAssignExpression(AssignExpression expression, File file, Semantic semantic)
 {
-    return genConditionalExpression(expression.conditionalExpression, file);
+    return genConditionalExpression(expression.conditionalExpression, file, semantic);
 }
 
-Variable genConditionalExpression(ConditionalExpression expression, File file)
+Variable genConditionalExpression(ConditionalExpression expression, File file, Semantic semantic)
 {
-    return genOrOrExpression(expression.orOrExpression, file);
+    return genOrOrExpression(expression.orOrExpression, file, semantic);
 }
 
-Variable genOrOrExpression(OrOrExpression expression, File file)
+Variable genOrOrExpression(OrOrExpression expression, File file, Semantic semantic)
 {
-    return genAndAndExpression(expression.andAndExpression, file);
+    return genAndAndExpression(expression.andAndExpression, file, semantic);
 }
 
-Variable genAndAndExpression(AndAndExpression expression, File file)
+Variable genAndAndExpression(AndAndExpression expression, File file, Semantic semantic)
 {
-    return genOrExpression(expression.orExpression, file);
+    return genOrExpression(expression.orExpression, file, semantic);
 }
 
-Variable genOrExpression(OrExpression expression, File file)
+Variable genOrExpression(OrExpression expression, File file, Semantic semantic)
 {
-    return genXorExpression(expression.xorExpression, file);
+    return genXorExpression(expression.xorExpression, file, semantic);
 }
 
-Variable genXorExpression(XorExpression expression, File file)
+Variable genXorExpression(XorExpression expression, File file, Semantic semantic)
 {
-    return genAndExpression(expression.andExpression, file);
+    return genAndExpression(expression.andExpression, file, semantic);
 }
 
-Variable genAndExpression(AndExpression expression, File file)
+Variable genAndExpression(AndExpression expression, File file, Semantic semantic)
 {
-    return genCmpExpression(expression.cmpExpression, file);
+    return genCmpExpression(expression.cmpExpression, file, semantic);
 }
 
-Variable genCmpExpression(CmpExpression expression, File file)
+Variable genCmpExpression(CmpExpression expression, File file, Semantic semantic)
 {
-    return genShiftExpression(expression.lhShiftExpression, file);
+    return genShiftExpression(expression.lhShiftExpression, file, semantic);
 }
 
-Variable genShiftExpression(ShiftExpression expression, File file)
+Variable genShiftExpression(ShiftExpression expression, File file, Semantic semantic)
 {
-    return genAddExpression(expression.addExpression, file);
+    return genAddExpression(expression.addExpression, file, semantic);
 }
 
-Variable genAddExpression(AddExpression expression, File file)
+Variable genAddExpression(AddExpression expression, File file, Semantic semantic)
 {
-    auto var = genMulExpression(expression.mulExpression, file);
+    auto var = genMulExpression(expression.mulExpression, file, semantic);
     if (expression.addExpression !is null) {
-        auto var2 = genAddExpression(expression.addExpression, file);
+        auto var2 = genAddExpression(expression.addExpression, file, semantic);
         
         Variable result;
         if (expression.addOperation == AddOperation.Add) {
@@ -81,11 +83,11 @@ Variable genAddExpression(AddExpression expression, File file)
     return var;
 }
 
-Variable genMulExpression(MulExpression expression, File file)
+Variable genMulExpression(MulExpression expression, File file, Semantic semantic)
 {
-    auto var = genPowExpression(expression.powExpression, file);
+    auto var = genPowExpression(expression.powExpression, file, semantic);
     if (expression.mulExpression !is null) {
-        auto var2 = genMulExpression(expression.mulExpression, file);
+        auto var2 = genMulExpression(expression.mulExpression, file, semantic);
         
         Variable result;
         if (expression.mulOperation == MulOperation.Mul) {
@@ -98,38 +100,45 @@ Variable genMulExpression(MulExpression expression, File file)
     return var;
 }
 
-Variable genPowExpression(PowExpression expression, File file)
+Variable genPowExpression(PowExpression expression, File file, Semantic semantic)
 {
-    return genUnaryExpression(expression.unaryExpression, file);
+    return genUnaryExpression(expression.unaryExpression, file, semantic);
 }
 
-Variable genUnaryExpression(UnaryExpression expression, File file)
+Variable genUnaryExpression(UnaryExpression expression, File file, Semantic semantic)
 {
     if (expression.unaryPrefix != UnaryPrefix.None) {
-        auto var = genUnaryExpression(expression.unaryExpression, file);
+        auto var = genUnaryExpression(expression.unaryExpression, file, semantic);
         if (expression.unaryPrefix == UnaryPrefix.UnaryMinus) {
             var = asmgen.emitNeg(file, var);
         }
         return var;
     }
-    return genPostfixExpression(expression.postfixExpression, file);
+    return genPostfixExpression(expression.postfixExpression, file, semantic);
 }
 
-Variable genPostfixExpression(PostfixExpression expression, File file)
+Variable genPostfixExpression(PostfixExpression expression, File file, Semantic semantic)
 {
-    return genPrimaryExpression(expression.primaryExpression, file);
+    auto var = genPrimaryExpression(expression.primaryExpression, file, semantic);
+    
+    if (expression.postfixOperation == PostfixOperation.Parens) {
+        Variable[] args;
+        foreach (argument; expression.argumentList.expressions) {
+            args ~= genAssignExpression(argument, file, semantic);
+        }
+        return asmgen.emitFunctionCall(file, var, args);
+    }
+    
+    return var;
 }
 
-Variable genPrimaryExpression(PrimaryExpression expression, File file)
+Variable genPrimaryExpression(PrimaryExpression expression, File file, Semantic semantic)
 {
     Variable var;
-    Primitive primitive;
     
     switch (expression.type) {
     case PrimaryType.Identifier:
-        string ident = extractIdentifier(cast(Identifier) expression.node);
-        error(expression.location, "HOLY SHIT A VARIABLE? WHAT THE FUCK");
-        break;
+        return genIdentifierExpression(cast(Identifier) expression.node, file, semantic);
     case PrimaryType.IntegerLiteral:
         var = genVariable(Primitive(32, 0), "primitive");
         var.dType = PrimitiveTypeType.Int;
@@ -154,3 +163,37 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file)
     
     return var;
 }
+
+
+Variable genIdentifierExpression(Identifier identifier, File file, Semantic semantic)
+{
+        string ident = extractIdentifier(identifier);
+        auto decl = semantic.findDeclaration(ident);
+        if (decl is null) {
+            error(identifier.location, format("undefined identifier '%s'", ident));
+        }
+        
+        Variable var;
+        switch (decl.dtype) {
+        case DeclType.SyntheticVariable:
+            auto syn = cast(SyntheticVariableDeclaration) decl;
+            var = genVariable(fullTypeToPrimitive(syn.type), extractIdentifier(syn.identifier));
+            var.dType = PrimitiveTypeType.Int;  // !!!
+            asmgen.emitAlloca(file, var);
+            if (syn.isParameter) {
+                asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), fullTypeToPrimitive(syn.type)));
+            }
+            break;
+        case DeclType.Function:
+            auto fun = cast(FunctionDeclaration) decl;
+            auto prim = fullTypeToPrimitive(fun.retval);
+            auto name = extractIdentifier(fun.name);
+            var = new Variable(name, prim);
+            break;
+        default:
+            error(identifier.location, "unknown declaration type");
+        }
+        
+        return var;
+}
+

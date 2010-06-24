@@ -5,8 +5,11 @@
  */
 module sdc.gen.semantic;
 
+import std.array;
+import std.conv;
 import std.range;
 
+import sdc.util;
 import sdc.ast.all;
 public import sdc.gen.sdcscope;
 
@@ -30,10 +33,10 @@ final class Semantic
     }
     
     void popScope()
-    in { assert(nestedScopes.length >= 1); }
+    in { assert(nestedScopes.length > 0); }
     body
     {
-        nestedScopes = nestedScopes[0 .. $ - 1];
+        nestedScopes.popBack();
     }
     
     Decl findDeclaration(string identifier)
@@ -48,8 +51,8 @@ final class Semantic
     
     void addDeclaration(string identifier, Decl declaration)
     {
-        if (nestedScopes.length >= 1) {
-            nestedScopes[$ - 1].addDeclaration(identifier, declaration);
+        if (nestedScopes.length > 0) {
+            return nestedScopes.back.addDeclaration(identifier, declaration);
         }
         return globalScope.addDeclaration(identifier, declaration);
     }
