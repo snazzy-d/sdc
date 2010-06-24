@@ -18,7 +18,11 @@ import sdc.gen.semantic;
 
 Variable genExpression(Expression expression, File file, Semantic semantic)
 {
-    return genAssignExpression(expression.assignExpression, file, semantic);
+    auto var = genAssignExpression(expression.assignExpression, file, semantic);
+    if (var is voidVariable) {
+        error(expression.location, "void expression has no value");
+    }
+    return var;
 }
 
 Variable genAssignExpression(AssignExpression expression, File file, Semantic semantic)

@@ -215,8 +215,13 @@ Variable emitFunctionCall(File file, Variable func, Variable[] args)
     }
     file.writeln(")");
     
-    auto retval = genVariable(func.primitive, "retval");
-    emitAlloca(file, retval);
-    emitStore(file, retval, ret);
-    return retval;
+    if (func.primitive.size != 0) {
+        auto retval = genVariable(func.primitive, "retval");
+        emitAlloca(file, retval);
+        emitStore(file, retval, ret);
+        return retval;
+    } else {
+        return voidVariable;
+    }
+    assert(false);
 }
