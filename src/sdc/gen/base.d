@@ -12,6 +12,7 @@ import sdc.util;
 import sdc.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
+import sdc.ast.declaration;
 import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.expression;
@@ -42,7 +43,14 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
 {
     auto primitive = fullTypeToPrimitive(declaration.type);
     foreach (declarator; declaration.declarators) {
-        auto var = genVariable(primitive, extractIdentifier(declarator.name));
+        auto name = extractIdentifier(declarator.name);
+        auto syn = new SyntheticVariableDeclaration();
+        syn.location = declaration.location;
+        syn.type = declaration.type;
+        syn.identifier = declarator.name;
+        syn.initialiser = declarator.initialiser;
+        semantic.addDeclaration(name, syn);
+        auto var = genVariable(primitive, name);
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant("0", primitive));
     }

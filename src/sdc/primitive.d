@@ -17,6 +17,11 @@ struct Primitive
     int pointer;  // 0 == not a pointer, 1 == pointer to iSize, 2 == pointer to pointer to iSize and so on.
 }
 
+Primitive removePointer(Primitive primitive)
+{
+    return Primitive(primitive.size, primitive.pointer - 1);
+}
+
 enum ValueType { None, Variable, Constant }
 abstract class Value
 {

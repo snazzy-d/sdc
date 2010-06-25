@@ -8,6 +8,7 @@ module sdc.gen.expression;
 import std.stdio;
 import std.string;
 
+import sdc.util;
 import sdc.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
@@ -15,6 +16,7 @@ import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.base;
 import sdc.gen.semantic;
+
 
 Variable genExpression(Expression expression, File file, Semantic semantic)
 {
@@ -27,7 +29,21 @@ Variable genExpression(Expression expression, File file, Semantic semantic)
 
 Variable genAssignExpression(AssignExpression expression, File file, Semantic semantic)
 {
-    return genConditionalExpression(expression.conditionalExpression, file, semantic);
+    auto lvalue = genConditionalExpression(expression.conditionalExpression, file, semantic);
+    
+    switch (expression.assignType) {
+    case AssignType.Normal:
+        auto rvalue = genAssignExpression(expression.assignExpression, file, semantic);
+        auto rvar = genVariable(removePointer(rvalue.primitive), "rvalue");
+        asmgen.emitLoad(file, rvar, rvalue);
+        asmgen.emitStore(file, lvalue, rvar);
+        break;
+    case AssignType.None:
+    default:
+        break;
+    }
+    
+    return lvalue;
 }
 
 Variable genConditionalExpression(ConditionalExpression expression, File file, Semantic semantic)

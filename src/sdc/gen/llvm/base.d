@@ -58,11 +58,6 @@ string llvmString(Value value)
     }
 }
 
-Primitive removePointer(Primitive primitive)
-{
-    return Primitive(primitive.size, primitive.pointer - 1);
-}
-
 /**
  * Comment 'msg' at the current indent level.
  */
