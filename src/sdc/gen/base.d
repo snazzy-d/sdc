@@ -67,6 +67,10 @@ void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic
     asmgen.emitFunctionBeginEnd(file);
     asmgen.incrementIndent();
     genBlockStatement(declaration.functionBody.statement, file, semantic);
+    if (!semantic.currentScope.hasReturnStatement) {
+        asmgen.emitVoidReturn(file);
+    }
+    
     semantic.popScope();
     asmgen.decrementIndent();
     asmgen.emitCloseFunctionDeclaration(file, declaration);
@@ -109,6 +113,7 @@ void genDeclarationStatement(DeclarationStatement statement, File file, Semantic
 
 void genReturnStatement(ReturnStatement statement, File file, Semantic semantic)
 {
+    semantic.currentScope.hasReturnStatement = true;
     if (statement.expression !is null) {
         auto expr = genExpression(statement.expression, file, semantic);
         auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");

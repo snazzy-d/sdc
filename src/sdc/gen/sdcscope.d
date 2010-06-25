@@ -15,6 +15,8 @@ class RedeclarationError {}
  */
 final class Scope
 {
+    bool hasReturnStatement;
+    
     /**
      * Add a declaration to this scope.
      * Params:

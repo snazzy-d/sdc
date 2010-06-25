@@ -56,4 +56,10 @@ final class Semantic
         }
         return globalScope.addDeclaration(identifier, declaration);
     }
+    
+    Scope currentScope() @property
+    {
+        if (nestedScopes.length > 0) return nestedScopes.back;
+        else return globalScope;
+    }
 }
