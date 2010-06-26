@@ -453,6 +453,10 @@ Initialiser parseInitialiser(TokenStream tstream)
 
 bool startsLikeDeclaration(TokenStream tstream)
 {
+    /* TODO: this is horribly incomplete. The TokenStream should be 
+     * thoroughly (but non-destructively) examined, not the simple
+     * 'search through keywords' function that is here now.
+     */
     auto t = tstream.peek.type;
     return t == TokenType.Alias || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
 }
