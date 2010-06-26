@@ -22,6 +22,11 @@ Primitive removePointer(Primitive primitive)
     return Primitive(primitive.size, primitive.pointer - 1);
 }
 
+Primitive addPointer(Primitive primitive)
+{
+    return Primitive(primitive.size, primitive.pointer + 1);
+}
+
 enum ValueType { None, Variable, Constant }
 abstract class Value
 {

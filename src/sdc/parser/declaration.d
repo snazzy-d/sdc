@@ -178,6 +178,14 @@ TokenType.Ifloat, TokenType.Idouble, TokenType.Ireal,
 TokenType.Cfloat, TokenType.Cdouble, TokenType.Creal,
 TokenType.Void ];
 
+immutable TokenType[] STORAGE_CLASSES = [
+TokenType.Abstract, TokenType.Auto, TokenType.Const,
+TokenType.Deprecated, TokenType.Extern, TokenType.Final,
+TokenType.Immutable, TokenType.Inout, TokenType.Shared,
+TokenType.Nothrow, TokenType.Override, TokenType.Pure,
+TokenType.Scope, TokenType.Static, TokenType.Synchronized
+];
+
 
 Type parseType(TokenStream tstream)
 {
@@ -440,5 +448,12 @@ Initialiser parseInitialiser(TokenStream tstream)
     }
     
     return initialiser;
+}
+
+
+bool startsLikeDeclaration(TokenStream tstream)
+{
+    auto t = tstream.peek.type;
+    return t == TokenType.Alias || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
 }
 

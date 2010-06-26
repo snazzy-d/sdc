@@ -199,9 +199,11 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
             auto syn = cast(SyntheticVariableDeclaration) decl;
             var = genVariable(fullTypeToPrimitive(syn.type), extractIdentifier(syn.identifier));
             var.dType = PrimitiveTypeType.Int;  // !!!
-            asmgen.emitAlloca(file, var);
             if (syn.isParameter) {
+                asmgen.emitAlloca(file, var);
                 asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), fullTypeToPrimitive(syn.type)));
+            } else {
+                return new Variable(extractIdentifier(syn.identifier), addPointer(fullTypeToPrimitive(syn.type)));
             }
             break;
         case DeclType.Function:

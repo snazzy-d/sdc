@@ -9,4 +9,6 @@ sdc.bin
 *.ll
 a.out
 *.bc
+.classpath
+.project
 

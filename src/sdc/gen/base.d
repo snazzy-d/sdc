@@ -50,7 +50,7 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
         semantic.addDeclaration(name, syn);
-        auto var = genVariable(primitive, name);
+        auto var = new Variable(name, primitive);
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant("0", primitive));
     }
@@ -103,6 +103,9 @@ void genStatement(Statement statement, File file, Semantic semantic)
 void genNonEmptyStatement(NonEmptyStatement statement, File file, Semantic semantic)
 {
     switch (statement.type) {
+    case NonEmptyStatementType.ExpressionStatement:
+        genExpressionStatement(cast(ExpressionStatement) statement.node, file, semantic);
+        break;
     case NonEmptyStatementType.DeclarationStatement:
         genDeclarationStatement(cast(DeclarationStatement) statement.node, file, semantic);
         break;
@@ -112,6 +115,11 @@ void genNonEmptyStatement(NonEmptyStatement statement, File file, Semantic seman
     default:
         break;
     }
+}
+
+void genExpressionStatement(ExpressionStatement statement, File file, Semantic semantic)
+{
+    auto expr = genExpression(statement.expression, file, semantic);
 }
 
 void genDeclarationStatement(DeclarationStatement statement, File file, Semantic semantic)

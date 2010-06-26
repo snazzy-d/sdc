@@ -7,6 +7,7 @@ module sdc.parser.expression;
 
 import std.string;
 
+import sdc.util;
 import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.ast.all;
