@@ -61,6 +61,8 @@ int main(string[] args)
         try {
             tstream = lex(source);
             mod = parseModule(tstream);
+            auto f = File("test.ll", "w");
+            genModule(mod, f);
         } catch (CompilerError) {
             errors = true;
             continue;
@@ -68,8 +70,6 @@ int main(string[] args)
         if (printTokens) tstream.printTo(stdout);
         if (printAST) {
         }
-        auto f = File("test.ll", "w");
-        genModule(mod, f);
         if (optimise) {
             system("opt -std-compile-opts test.ll -o test.bc");
         } else {
