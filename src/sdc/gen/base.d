@@ -5,8 +5,9 @@
  */
 module sdc.gen.base;
 
-import std.stdio;
 import std.conv;
+import std.stdio;
+import std.string;
 
 import sdc.util;
 import sdc.primitive;
@@ -49,7 +50,11 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         syn.type = declaration.type;
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
-        semantic.addDeclaration(name, syn);
+        try {
+            semantic.addDeclaration(name, syn);
+        } catch (RedeclarationError) {
+            error(declarator.location, format("'%s' is already defined", name));
+        }
         auto var = new Variable(name, primitive);
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant("0", primitive));
