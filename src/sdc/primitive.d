@@ -39,6 +39,7 @@ class Variable : Value
 {
     string name;
     bool isFunction;
+    bool isGlobal;
     
     this(string name, Primitive primitive)
     {

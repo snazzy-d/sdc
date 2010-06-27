@@ -203,7 +203,8 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
                 asmgen.emitAlloca(file, var);
                 asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), fullTypeToPrimitive(syn.type)));
             } else {
-                return new Variable(extractIdentifier(syn.identifier), addPointer(fullTypeToPrimitive(syn.type)));
+                return syn.variable;
+                //return new Variable(extractIdentifier(syn.identifier), addPointer(fullTypeToPrimitive(syn.type)));
             }
             break;
         case DeclType.Function:

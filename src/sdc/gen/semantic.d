@@ -49,9 +49,9 @@ final class Semantic
         return globalScope.lookupDeclaration(identifier);
     }
     
-    void addDeclaration(string identifier, Decl declaration)
+    void addDeclaration(string identifier, Decl declaration, bool forceGlobal = false)
     {
-        if (nestedScopes.length > 0) {
+        if (nestedScopes.length > 0 && !forceGlobal) {
             return nestedScopes.back.addDeclaration(identifier, declaration);
         }
         return globalScope.addDeclaration(identifier, declaration);

@@ -42,6 +42,8 @@ void genDeclaration(Declaration declaration, File file, Semantic semantic)
 
 void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic semantic)
 {
+    bool global = semantic.currentScope is semantic.globalScope;
+    
     auto primitive = fullTypeToPrimitive(declaration.type);
     foreach (declarator; declaration.declarators) {
         auto name = extractIdentifier(declarator.name);
@@ -51,13 +53,18 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
         try {
-            semantic.addDeclaration(name, syn);
+            semantic.addDeclaration(name, syn, global);
         } catch (RedeclarationError) {
             error(declarator.location, format("'%s' is already defined", name));
         }
         auto var = new Variable(name, primitive);
-        asmgen.emitAlloca(file, var);
-        asmgen.emitStore(file, var, new Constant("0", primitive));
+        if (!global) {
+            asmgen.emitAlloca(file, var);
+            asmgen.emitStore(file, var, new Constant("0", primitive));
+        } else {
+            asmgen.emitGlobal(file, var);
+        }
+        syn.variable = var;
     }
 }
 

@@ -52,7 +52,8 @@ string llvmType(Primitive primitive)
 string llvmString(Value value)
 {
     if (value.type == ValueType.Variable) {
-        return "%" ~ (cast(Variable)value).name;
+        auto var = cast(Variable) value;
+        return (var.isGlobal ? "@" : "%") ~ var.name;
     } else {
         return (cast(Constant)value).value;
     }
@@ -77,6 +78,14 @@ void emitAlloca(File file, Variable var)
     emitIndent(file);
     file.writeln("%", var.name, " = alloca ", llvmType(var.primitive));
     var.primitive.pointer++;
+}
+
+void emitGlobal(File file, Variable var)
+{
+    emitIndent(file);
+    file.writeln("@", var.name, " = common global ", llvmType(var.primitive), " 0");
+    var.primitive.pointer++;  // Globals are always pointers.
+    var.isGlobal = true;
 }
 
 /**
