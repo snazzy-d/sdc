@@ -10,3 +10,4 @@ public import sdc.ast.sdcmodule;
 public import sdc.ast.expression;
 public import sdc.ast.declaration;
 public import sdc.ast.statement;
+public import sdc.ast.attribute;

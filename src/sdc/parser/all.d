@@ -9,3 +9,4 @@ public import sdc.parser.base;
 public import sdc.parser.expression;
 public import sdc.parser.declaration;
 public import sdc.parser.statement;
+public import sdc.parser.attribute;
