@@ -2,8 +2,6 @@
  * Copyright 2010 Bernard Helyer
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
- * 
- * lexer.d: split input source file into a list of tokens.
  */ 
 module sdc.lexer;
 
