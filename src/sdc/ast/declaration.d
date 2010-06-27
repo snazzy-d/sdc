@@ -81,6 +81,7 @@ class FunctionBody : Node
 enum TypeType
 {
     Primitive,
+    Inferred,
     UserDefined,
     Typeof,
     FunctionPointer,

@@ -201,6 +201,14 @@ Type parseType(TokenStream tstream)
         type.storageTypes ~= cast(StorageType) tstream.peek.type;
         tstream.getToken();
     }
+    
+    if (type.storageTypes.length > 0 &&
+        tstream.peek.type == TokenType.Identifier &&
+        tstream.lookahead(1).type == TokenType.Assign) {
+        //    
+        type.type = TypeType.Inferred;
+        // TODO
+    }
 
     if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
         type.type = TypeType.Primitive;
