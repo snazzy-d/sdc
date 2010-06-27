@@ -39,9 +39,9 @@ final class Semantic
         nestedScopes.popBack();
     }
     
-    Decl findDeclaration(string identifier)
+    Decl findDeclaration(string identifier, bool forceGlobal = false)
     {
-        foreach (nestedScope; retro(nestedScopes)) {
+        if (!forceGlobal) foreach (nestedScope; retro(nestedScopes)) {
             if (nestedScope.lookupDeclaration(identifier) !is null) {
                 return nestedScope.lookupDeclaration(identifier);
             }

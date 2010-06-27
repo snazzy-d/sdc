@@ -156,9 +156,13 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file, Semantic 
 {
     Variable var;
     
+    bool globalLookup = false;
     switch (expression.type) {
+    case PrimaryType.GlobalIdentifier:
+        globalLookup = true;
+        // Fallthrough.
     case PrimaryType.Identifier:
-        return genIdentifierExpression(cast(Identifier) expression.node, file, semantic);
+        return genIdentifierExpression(cast(Identifier) expression.node, file, semantic, globalLookup);
     case PrimaryType.IntegerLiteral:
         var = genVariable(Primitive(32, 0), "primitive");
         var.dType = PrimitiveTypeType.Int;
@@ -185,10 +189,10 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file, Semantic 
 }
 
 
-Variable genIdentifierExpression(Identifier identifier, File file, Semantic semantic)
+Variable genIdentifierExpression(Identifier identifier, File file, Semantic semantic, bool globalLookup = false)
 {
         string ident = extractIdentifier(identifier);
-        auto decl = semantic.findDeclaration(ident);
+        auto decl = semantic.findDeclaration(ident, globalLookup);
         if (decl is null) {
             error(identifier.location, format("undefined identifier '%s'", ident));
         }
