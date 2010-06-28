@@ -18,6 +18,7 @@ import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.expression;
 import sdc.gen.semantic;
+import sdc.gen.attribute;
 public import asmgen = sdc.gen.llvm.base;
 
 
@@ -26,10 +27,40 @@ void genModule(Module mod, File file)
     auto semantic = new Semantic();
     asmgen.emitComment(file, extractQualifiedName(mod.moduleDeclaration.name));
     foreach (declarationDefinition; mod.declarationDefinitions) {
-        genDeclaration(declarationDefinition.declaration, file, semantic);
+        genDeclarationDefinition(declarationDefinition, file, semantic);
     }
 }
 
+
+void genDeclarationDefinition(DeclarationDefinition declDef, File file, Semantic semantic)
+{
+    switch (declDef.type) {
+    case DeclarationDefinitionType.Declaration:
+        return genDeclaration(cast(Declaration) declDef.node, file, semantic);
+    case DeclarationDefinitionType.AttributeSpecifier:
+        return genAttributeSpecifier(cast(AttributeSpecifier) declDef.node, file, semantic);
+    default:
+        error(declDef.location, "unhandled DeclarationDefinition");
+        assert(false);
+    }
+    assert(false);
+}
+
+void genAttributeSpecifier(AttributeSpecifier attributeSpecifier, File file, Semantic semantic)
+{
+    genAttribute(attributeSpecifier.attribute, file, semantic);
+    if (attributeSpecifier.declarationBlock !is null) {
+        genDeclarationBlock(attributeSpecifier.declarationBlock, file, semantic);
+        semantic.popAttribute();
+    }  // Otherwise, the attribute applies until the module's end.
+}
+
+void genDeclarationBlock(DeclarationBlock declarationBlock, File file, Semantic semantic)
+{
+    foreach (declarationDefinition; declarationBlock.declarationDefinitions) {
+        genDeclarationDefinition(declarationDefinition, file, semantic);
+    }
+}
 
 void genDeclaration(Declaration declaration, File file, Semantic semantic)
 {
@@ -60,12 +91,28 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         auto var = new Variable(name, primitive);
         if (!global) {
             asmgen.emitAlloca(file, var);
-            asmgen.emitStore(file, var, new Constant("0", primitive));
         } else {
             asmgen.emitGlobal(file, var);
         }
+        genOptionalInitialiser(syn.initialiser, file, semantic, var);
         syn.variable = var;
     }
+}
+
+void genOptionalInitialiser(Initialiser initialiser, File file, Semantic semantic, Variable var)
+{
+    if (initialiser is null) {
+        return asmgen.emitStore(file, var, new Constant("0", removePointer(var.primitive)));
+    }
+    
+    if (initialiser.type == InitialiserType.Void) {
+        return;
+    }
+    
+    auto expr = genAssignExpression(cast(AssignExpression) initialiser.node, file, semantic);
+    auto init = genVariable(removePointer(expr.primitive), "initialiser");
+    asmgen.emitLoad(file, init, expr);
+    asmgen.emitStore(file, var, init);
 }
 
 void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic semantic)

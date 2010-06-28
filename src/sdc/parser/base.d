@@ -64,7 +64,15 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
 {
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
-    decldef.declaration = parseDeclaration(tstream);
+    
+    if (startsLikeAttribute(tstream)) {
+        decldef.type = DeclarationDefinitionType.AttributeSpecifier;
+        decldef.node = parseAttributeSpecifier(tstream);
+    } else {
+        decldef.type = DeclarationDefinitionType.Declaration;
+        decldef.node = parseDeclaration(tstream);
+    }
+    
     return decldef;
 }
 

@@ -25,7 +25,33 @@ class ModuleDeclaration : Node
     QualifiedName name;
 }
 
+enum DeclarationDefinitionType
+{
+    AttributeSpecifier,
+    ImportDeclaration,
+    EnumDeclaration,
+    ClassDeclaration,
+    InterfaceDeclaration,
+    AggregateDeclaration,
+    Declaration,
+    Constructor,
+    Destructor,
+    Invariant,
+    UnitTest,
+    StaticConstructor,
+    StaticDestructor,
+    SharedStaticConstructor,
+    SharedStaticDestructor,
+    ConditionalDeclaration,
+    StaticAssert,
+    TemplateDeclaration,
+    TemplateMixin,
+    MixinDeclaration,
+    Empty,
+}
+
 class DeclarationDefinition : Node
 {
-    Declaration declaration;  // TMP
+    DeclarationDefinitionType type;
+    Node node;
 }

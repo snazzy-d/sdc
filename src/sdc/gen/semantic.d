@@ -13,14 +13,12 @@ import sdc.util;
 import sdc.ast.all;
 public import sdc.gen.sdcscope;
 
-
 /**
  * Stores and gives access to semantic information for a module.
  */
 final class Semantic
 {
     Scope globalScope;
-    Scope[] nestedScopes;
     
     this()
     {
@@ -29,19 +27,19 @@ final class Semantic
     
     void pushScope()
     {
-        nestedScopes ~= new Scope();
+        mNestedScopes ~= new Scope();
     }
     
     void popScope()
-    in { assert(nestedScopes.length > 0); }
+    in { assert(mNestedScopes.length > 0); }
     body
     {
-        nestedScopes.popBack();
+        mNestedScopes.popBack();
     }
     
     Decl findDeclaration(string identifier, bool forceGlobal = false)
     {
-        if (!forceGlobal) foreach (nestedScope; retro(nestedScopes)) {
+        if (!forceGlobal) foreach (nestedScope; retro(mNestedScopes)) {
             if (nestedScope.lookupDeclaration(identifier) !is null) {
                 return nestedScope.lookupDeclaration(identifier);
             }
@@ -51,15 +49,33 @@ final class Semantic
     
     void addDeclaration(string identifier, Decl declaration, bool forceGlobal = false)
     {
-        if (nestedScopes.length > 0 && !forceGlobal) {
-            return nestedScopes.back.addDeclaration(identifier, declaration);
+        if (mNestedScopes.length > 0 && !forceGlobal) {
+            return mNestedScopes.back.addDeclaration(identifier, declaration);
         }
         return globalScope.addDeclaration(identifier, declaration);
     }
     
     Scope currentScope() @property
     {
-        if (nestedScopes.length > 0) return nestedScopes.back;
+        if (mNestedScopes.length > 0) return mNestedScopes.back;
         else return globalScope;
     }
+    
+    void pushAttribute(AttributeType attribute)
+    {
+        mAttributeStack ~= attribute;
+    }
+    
+    void popAttribute()
+    {
+        mAttributeStack.popBack();
+    }
+    
+    bool isAttributeActive(AttributeType attribute)
+    {
+        return contains(mAttributeStack, attribute);
+    }
+    
+    private Scope[] mNestedScopes;
+    private AttributeType[] mAttributeStack;
 }

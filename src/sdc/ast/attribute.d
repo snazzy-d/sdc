@@ -56,6 +56,11 @@ TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
 TokenType.Align, TokenType.Pragma, TokenType.Extern
 ];
 
+immutable ACCESS = [
+AttributeType.Public, AttributeType.Protected, AttributeType.Private,
+AttributeType.Package, AttributeType.Export
+];
+
 // Attribute (:|DeclarationBlock)
 class AttributeSpecifier : Node
 {

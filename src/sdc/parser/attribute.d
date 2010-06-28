@@ -46,6 +46,7 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Inout: case TokenType.atDisable:
         // Simple keyword attribute.
         attribute.type = cast(AttributeType) tstream.peek.type;
+        tstream.getToken();
         break;
     case TokenType.Align:
         attribute.type = AttributeType.Align;
