@@ -94,17 +94,18 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         } else {
             asmgen.emitGlobal(file, var);
         }
-        genOptionalInitialiser(syn.initialiser, file, semantic, var);
+        
+        if (syn.initialiser !is null) {
+            genInitialiser(syn.initialiser, file, semantic, var);
+        } else {
+            genDefaultInitialiser(file, semantic, var);
+        }
         syn.variable = var;
     }
 }
 
-void genOptionalInitialiser(Initialiser initialiser, File file, Semantic semantic, Variable var)
+void genInitialiser(Initialiser initialiser, File file, Semantic semantic, Variable var)
 {
-    if (initialiser is null) {
-        return asmgen.emitStore(file, var, new Constant("0", removePointer(var.primitive)));
-    }
-    
     if (initialiser.type == InitialiserType.Void) {
         return;
     }
@@ -113,6 +114,11 @@ void genOptionalInitialiser(Initialiser initialiser, File file, Semantic semanti
     auto init = genVariable(removePointer(expr.primitive), "initialiser");
     asmgen.emitLoad(file, init, expr);
     asmgen.emitStore(file, var, init);
+}
+
+void genDefaultInitialiser(File file, Semantic semantic, Variable var)
+{
+    return asmgen.emitStore(file, var, new Constant("0", removePointer(var.primitive)));
 }
 
 void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic semantic)
