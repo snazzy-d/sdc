@@ -201,6 +201,8 @@ void emitVoidReturn(File file)
  */
 Variable emitFunctionCall(File file, Variable func, Variable[] args)
 {
+    bool isVoidFunction = func.primitive.size == 0;
+    
     Variable[] directargs;
     foreach (arg; args) {
         auto var = genVariable(removePointer(arg.primitive), "param");
@@ -209,8 +211,14 @@ Variable emitFunctionCall(File file, Variable func, Variable[] args)
     }
     
     emitIndent(file);
-    auto ret = genVariable(func.primitive, "ret");
-    file.writef("%s = call %s @%s(", llvmString(ret), llvmType(func.primitive), func.name);
+    Variable ret;
+    if (!isVoidFunction) {
+        ret = genVariable(func.primitive, "ret");
+        file.writef("%s = call %s @%s(", llvmString(ret), llvmType(func.primitive), func.name);
+    } else {
+        ret = voidVariable;
+        file.writef("call void @%s(", func.name);
+    }
     foreach (i, arg; directargs) {
         file.write(llvmType(arg.primitive), " %", arg.name);
         if (i < directargs.length - 1) {
@@ -219,7 +227,7 @@ Variable emitFunctionCall(File file, Variable func, Variable[] args)
     }
     file.writeln(")");
     
-    if (func.primitive.size != 0) {
+    if (!isVoidFunction) {
         auto retval = genVariable(func.primitive, "retval");
         emitAlloca(file, retval);
         emitStore(file, retval, ret);

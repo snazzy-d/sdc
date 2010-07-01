@@ -17,13 +17,18 @@ import sdc.extract.expression;
 import sdc.gen.base;
 import sdc.gen.semantic;
 
+enum VoidExpression
+{
+    Permitted,
+    Forbidden
+}
 
 Variable genExpression(Expression expression, File file, Semantic semantic)
 {
     auto var = genAssignExpression(expression.assignExpression, file, semantic);
-    if (var is voidVariable) {
+    /+if (var is voidVariable) {
         error(expression.location, "void expression has no value");
-    }
+    }+/
     return var;
 }
 
