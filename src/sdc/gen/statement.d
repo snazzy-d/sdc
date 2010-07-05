@@ -59,6 +59,9 @@ void genNonEmptyStatement(NonEmptyStatement statement, File file, Semantic seman
     case NonEmptyStatementType.IfStatement:
         genIfStatement(cast(IfStatement) statement.node, file, semantic);
         break;
+    case NonEmptyStatementType.WhileStatement:
+        genWhileStatement(cast(WhileStatement) statement.node, file, semantic);
+        break;
     default:
         break;
     }
@@ -90,8 +93,8 @@ void genReturnStatement(ReturnStatement statement, File file, Semantic semantic)
 void genIfStatement(IfStatement statement, File file, Semantic semantic)
 {
     auto var = genIfCondition(statement.ifCondition, file, semantic);
-    auto l1 = asmgen.genLabel("iftrue");
-    auto l2 = asmgen.genLabel("iffalse");
+    auto l1 = asmgen.genLabel("then");
+    auto l2 = asmgen.genLabel("else");
     asmgen.emitIndirectBr(file, var, l1, l2);
     asmgen.emitLabel(file, l1);
     genThenStatement(statement.thenStatement, file, semantic);
@@ -122,4 +125,17 @@ void genThenStatement(ThenStatement statement, File file, Semantic semantic)
 void genElseStatement(ElseStatement statement, File file, Semantic semantic)
 {
     genScopeStatement(statement.statement, file, semantic);
+}
+
+void genWhileStatement(WhileStatement statement, File file, Semantic semantic)
+{
+    auto expr = genExpression(statement.expression, file, semantic);
+    auto l1 = asmgen.genLabel("looptop");
+    auto l2 = asmgen.genLabel("endloop");
+    asmgen.emitIndirectBr(file, expr, l1, l2);
+    asmgen.emitLabel(file, l1);
+    genScopeStatement(statement.statement, file, semantic);
+    expr = genExpression(statement.expression, file, semantic);
+    asmgen.emitIndirectBr(file, expr, l1, l2);
+    asmgen.emitLabel(file, l2);
 }

@@ -150,13 +150,15 @@ void emitIndirectBr(File file, Variable what, string labelIfTrue, string labelIf
     emitBr(file, op, labelIfTrue, labelIfFalse);
 }
 
-void emitIcmpEq(File file, Variable to, Value a, Value b)
+void emitIcmp(string s)(File file, Variable to, Value a, Value b)
 {
     emitIndent(file);
     to.primitive = Primitive(1, 0);
-    file.writeln(llvmString(to), " = icmp eq ", llvmType(a.primitive), " ", llvmString(a), ", ", llvmString(b));
+    file.writeln(llvmString(to), " = icmp " ~ mixin(s) ~ " ", llvmType(a.primitive), " ", llvmString(a), ", ", llvmString(b));
 }
 
+alias emitIcmp!`"eq"` emitIcmpEq;
+alias emitIcmp!`"ne"` emitIcmpNe;
 
 /**
  * Negate the value stored in var.
@@ -199,6 +201,7 @@ alias emitDuoOps!"emitAdd" emitAddOps;
 alias emitDuoOps!"emitSub" emitSubOps;
 alias emitDuoOps!"emitDiv" emitDivOps;
 alias emitDuoOps!"emitIcmpEq" emitIcmpEqOps;
+alias emitDuoOps!"emitIcmpNe" emitIcmpNeOps;
 
 void emitFunctionName(File file, FunctionDeclaration declaration)
 {

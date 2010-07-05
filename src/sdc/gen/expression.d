@@ -89,6 +89,10 @@ Variable genCmpExpression(CmpExpression expression, File file, Semantic semantic
         auto rhs = genShiftExpression(expression.rhShiftExpression, file, semantic);
         var = asmgen.emitIcmpEqOps(file, var, rhs);
         break;
+    case Comparison.NotEquality:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, file, semantic);
+        var = asmgen.emitIcmpNeOps(file, var, rhs);
+        break;
     default:
         break;
     }
