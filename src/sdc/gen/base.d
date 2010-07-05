@@ -128,6 +128,11 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         syn.type = declaration.type;
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
+        
+        auto decl = semantic.findDeclaration(name);
+        if (decl !is null && semantic.scopeDepth >= 2) {
+            error(declarator.location, format("'%s' shadows declaration at '%s'", name, decl.location));
+        }
         try {
             semantic.addDeclaration(name, syn, global);
         } catch (RedeclarationError) {

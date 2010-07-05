@@ -61,6 +61,11 @@ final class Semantic
         else return globalScope;
     }
     
+    int scopeDepth() @property
+    {
+        return mNestedScopes.length;
+    }
+    
     void pushAttribute(AttributeType attribute)
     {
         mAttributeStack ~= attribute;
