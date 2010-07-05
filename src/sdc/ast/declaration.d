@@ -35,6 +35,7 @@ class Decl : Node
 {
     DeclType dtype;
     Variable variable;  // Variable declaration for semantic purposes.
+    bool isParameter;
 }
 
 class VariableDeclaration : Decl
@@ -49,7 +50,6 @@ class SyntheticVariableDeclaration : Decl
 {
     this() { dtype = DeclType.SyntheticVariable; }
     bool isAlias;
-    bool isParameter;
     Type type;
     Identifier identifier;
     Initialiser initialiser;  // Optional.
