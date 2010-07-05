@@ -115,7 +115,7 @@ enum Comparison
 class CmpExpression : Node
 {
     ShiftExpression lhShiftExpression;
-    Comparison comparison;  // Optional.
+    Comparison comparison;
     ShiftExpression rhShiftExpression;  // Optional.
 }
 

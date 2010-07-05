@@ -83,7 +83,17 @@ Variable genAndExpression(AndExpression expression, File file, Semantic semantic
 
 Variable genCmpExpression(CmpExpression expression, File file, Semantic semantic)
 {
-    return genShiftExpression(expression.lhShiftExpression, file, semantic);
+    auto var = genShiftExpression(expression.lhShiftExpression, file, semantic);
+    switch (expression.comparison) {
+    case Comparison.Equality:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, file, semantic);
+        var = asmgen.emitIcmpEqOps(file, var, rhs);
+        break;
+    default:
+        break;
+    }
+    
+    return var;
 }
 
 Variable genShiftExpression(ShiftExpression expression, File file, Semantic semantic)

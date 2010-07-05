@@ -5,8 +5,9 @@
  */
 module sdc.gen.llvm.base;
 
-import std.stdio;
+import std.algorithm;
 import std.conv;
+import std.stdio;
 
 import sdc.primitive;
 import sdc.compilererror;
@@ -33,6 +34,20 @@ void emitIndent(File file)
     foreach (i; 0 .. indent) {
         file.write("  ");
     }
+}
+
+string genLabel(string base)
+{
+    static int[string] labelTable;
+    
+    if (find!"a >= '0' && a <= '9'"(base) != []) {
+        throw new Exception("label bases may not contain digits.");
+    }
+    
+    if ((base in labelTable) is null) {
+        labelTable[base] = 0;
+    }
+    return base ~ to!string(labelTable[base]++);
 }
 
 string llvmType(Primitive primitive)
@@ -68,6 +83,12 @@ void emitComment(File file, string msg)
     file.writeln("; ", msg);
 }
 
+void emitLabel(File file, string label)
+{
+    // Note that we do not indent labels.
+    file.writeln(label, ":");
+}
+
 /**
  * Allocate memory on the stack of the type of var, and
  * place in var. Note that this modifies the type of var
@@ -80,10 +101,10 @@ void emitAlloca(File file, Variable var)
     var.primitive.pointer++;
 }
 
-void emitGlobal(File file, Variable var)
+void emitGlobal(File file, Variable var, Value init)
 {
     emitIndent(file);
-    file.writeln("@", var.name, " = common global ", llvmType(var.primitive), " 0");
+    file.writeln("@", var.name, " = common global ", llvmType(var.primitive), " ", llvmString(init));
     var.primitive.pointer++;  // Globals are always pointers.
     var.isGlobal = true;
 }
@@ -110,11 +131,31 @@ void emitOp(string OP)(File file, Variable to, Value a, Value b)
     file.writefln("%s = %s %s %s, %s", llvmString(to), mixin(OP), llvmType(to.primitive), llvmString(a), llvmString(b));
 }
 
-alias emitOp!(`"sub"`) emitSub;
-alias emitOp!(`"xor"`) emitXor;
-alias emitOp!(`"mul"`) emitMul;
-alias emitOp!(`"add"`) emitAdd;
-alias emitOp!(`"sdiv"`) emitDiv;
+alias emitOp!`"sub"` emitSub;
+alias emitOp!`"xor"` emitXor;
+alias emitOp!`"mul"` emitMul;
+alias emitOp!`"add"` emitAdd;
+alias emitOp!`"sdiv"` emitDiv;
+
+void emitBr(File file, Variable what, string labelIfTrue, string labelIfFalse)
+{
+    emitIndent(file);
+    file.writefln("br %s %s, label %s, label %s", llvmType(what.primitive), llvmString(what), "%" ~ labelIfTrue, "%" ~ labelIfFalse);
+}
+
+void emitIndirectBr(File file, Variable what, string labelIfTrue, string labelIfFalse)
+{
+    auto op = genVariable(removePointer(what.primitive), "brop");
+    emitLoad(file, op, what);
+    emitBr(file, op, labelIfTrue, labelIfFalse);
+}
+
+void emitIcmpEq(File file, Variable to, Value a, Value b)
+{
+    emitIndent(file);
+    to.primitive = Primitive(1, 0);
+    file.writeln(llvmString(to), " = icmp eq ", llvmType(a.primitive), " ", llvmString(a), ", ", llvmString(b));
+}
 
 
 /**
@@ -147,16 +188,17 @@ Variable emitDuoOps(string OP)(File file, Variable a, Variable b)
     emitLoad(file, op2, b);
     auto result = genVariable(prim, "result");
     mixin(OP ~ "(file, result, op1, op2);");
-    auto retval = genVariable(prim, "retval");
+    auto retval = genVariable(result.primitive, "retval");
     emitAlloca(file, retval);
     emitStore(file, retval, result);
     return retval;
 }
 
-alias emitDuoOps!("emitMul") emitMulOps;
-alias emitDuoOps!("emitAdd") emitAddOps;
-alias emitDuoOps!("emitSub") emitSubOps;
-alias emitDuoOps!("emitDiv") emitDivOps;
+alias emitDuoOps!"emitMul" emitMulOps;
+alias emitDuoOps!"emitAdd" emitAddOps;
+alias emitDuoOps!"emitSub" emitSubOps;
+alias emitDuoOps!"emitDiv" emitDivOps;
+alias emitDuoOps!"emitIcmpEq" emitIcmpEqOps;
 
 void emitFunctionName(File file, FunctionDeclaration declaration)
 {

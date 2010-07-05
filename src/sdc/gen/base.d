@@ -19,6 +19,7 @@ import sdc.extract.expression;
 import sdc.gen.expression;
 import sdc.gen.semantic;
 import sdc.gen.attribute;
+import sdc.gen.statement;
 public import asmgen = sdc.gen.llvm.base;
 
 
@@ -136,12 +137,13 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         if (!global) {
             asmgen.emitAlloca(file, var);
         } else {
-            asmgen.emitGlobal(file, var);
+            Value val = genConstantInitialiser(syn.initialiser, file, semantic);
+            asmgen.emitGlobal(file, var, val);
         }
         
-        if (syn.initialiser !is null) {
+        if (!global && syn.initialiser !is null) {
             genInitialiser(syn.initialiser, file, semantic, var);
-        } else {
+        } else if (!global) {
             genDefaultInitialiser(file, semantic, var);
         }
         syn.variable = var;
@@ -158,6 +160,19 @@ void genInitialiser(Initialiser initialiser, File file, Semantic semantic, Varia
     auto init = genVariable(removePointer(expr.primitive), "initialiser");
     asmgen.emitLoad(file, init, expr);
     asmgen.emitStore(file, var, init);
+}
+
+Value genConstantInitialiser(Initialiser initialiser, File file, Semantic semantic)
+{
+    if (initialiser is null || initialiser.type == InitialiserType.Void) {
+        return new Constant("0", Primitive(32, 0));
+    }
+    
+    auto expr = genAssignExpression(cast(AssignExpression) initialiser.node, file, semantic);
+    if (expr.type != ValueType.Constant) {
+        error(initialiser.location, "non-constant expression");
+    }
+    return cast(Constant) expr;
 }
 
 void genDefaultInitialiser(File file, Semantic semantic, Variable var)
@@ -203,60 +218,3 @@ void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic
     asmgen.decrementIndent();
     asmgen.emitCloseFunctionDeclaration(file, declaration);
 }
-
-
-void genBlockStatement(BlockStatement statement, File file, Semantic semantic)
-{
-    foreach(sstatement; statement.statements) {
-        genStatement(sstatement, file, semantic);
-    }
-}
-
-void genStatement(Statement statement, File file, Semantic semantic)
-{
-    if (statement.type == StatementType.Empty) {
-    } else if (statement.type == StatementType.NonEmpty) {
-        genNonEmptyStatement(cast(NonEmptyStatement) statement.node, file, semantic);
-    }
-}
-
-void genNonEmptyStatement(NonEmptyStatement statement, File file, Semantic semantic)
-{
-    switch (statement.type) {
-    case NonEmptyStatementType.ExpressionStatement:
-        genExpressionStatement(cast(ExpressionStatement) statement.node, file, semantic);
-        break;
-    case NonEmptyStatementType.DeclarationStatement:
-        genDeclarationStatement(cast(DeclarationStatement) statement.node, file, semantic);
-        break;
-    case NonEmptyStatementType.ReturnStatement:
-        genReturnStatement(cast(ReturnStatement) statement.node, file, semantic);
-        break;
-    default:
-        break;
-    }
-}
-
-void genExpressionStatement(ExpressionStatement statement, File file, Semantic semantic)
-{
-    auto expr = genExpression(statement.expression, file, semantic);
-}
-
-void genDeclarationStatement(DeclarationStatement statement, File file, Semantic semantic)
-{
-    genDeclaration(statement.declaration, file, semantic);
-}
-
-void genReturnStatement(ReturnStatement statement, File file, Semantic semantic)
-{
-    semantic.currentScope.hasReturnStatement = true;
-    if (statement.expression !is null) {
-        auto expr = genExpression(statement.expression, file, semantic);
-        auto retval = genVariable(Primitive(expr.primitive.size, expr.primitive.pointer - 1), "retval");
-        asmgen.emitLoad(file, retval, expr);
-        asmgen.emitReturn(file, retval);
-    } else {
-        asmgen.emitVoidReturn(file);
-    }
-}
-
