@@ -131,6 +131,19 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         
         auto decl = semantic.findDeclaration(name);
         if (decl !is null && semantic.scopeDepth >= 2) {
+            /* This makes some pieces of code (which are still in error) 
+             * have the wrong error message: 
+             * ---
+             * void foo(int a)
+             * {
+             *     int a;  // if a is declared here, `'a' is already defined.`
+             *     if (a == 42) {
+             *         int a;  // but! if a is declared here, '`'a' shadows declaration...` 
+             *     }
+             * } 
+             * ---
+             * Interestingly, DMD has identical behaviour.
+             */ 
             error(declarator.location, format("'%s' shadows declaration at '%s'", name, decl.location));
         }
         try {
