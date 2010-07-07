@@ -9,7 +9,7 @@ import std.algorithm;
 import std.conv;
 import std.stdio;
 
-import sdc.primitive;
+import sdc.gen.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.extract.base;

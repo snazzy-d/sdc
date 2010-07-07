@@ -8,7 +8,7 @@ module sdc.gen.statement;
 import std.stdio;
 
 import sdc.compilererror;
-import sdc.primitive;
+import sdc.gen.primitive;
 import sdc.ast.statement;
 import sdc.gen.base;
 import sdc.gen.semantic;

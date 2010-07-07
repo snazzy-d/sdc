@@ -10,7 +10,7 @@ import std.stdio;
 import std.string;
 
 import sdc.util;
-import sdc.primitive;
+import sdc.gen.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.ast.declaration;
