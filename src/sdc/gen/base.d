@@ -10,12 +10,14 @@ import std.stdio;
 import std.string;
 
 import sdc.util;
-import sdc.gen.primitive;
+
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.ast.declaration;
 import sdc.extract.base;
 import sdc.extract.expression;
+import sdc.gen.type;
+import sdc.gen.primitive;
 import sdc.gen.expression;
 import sdc.gen.semantic;
 import sdc.gen.attribute;
@@ -100,7 +102,7 @@ void declareVariableDeclaration(VariableDeclaration declaration, File file, Sema
 {
     bool global = semantic.currentScope is semantic.globalScope;
     
-    auto primitive = fullTypeToPrimitive(declaration.type);
+    auto type = new IntType();  // !!!
     foreach (declarator; declaration.declarators) {
         auto name = extractIdentifier(declarator.name);
         auto syn  = new SyntheticVariableDeclaration();
@@ -120,7 +122,7 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
 {
     bool global = semantic.currentScope is semantic.globalScope;
     
-    auto primitive = fullTypeToPrimitive(declaration.type);
+    auto type = new IntType();  // !!!
     foreach (declarator; declaration.declarators) {
         auto name = extractIdentifier(declarator.name);
         auto syn = new SyntheticVariableDeclaration();
@@ -142,7 +144,7 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         } catch (RedeclarationError) {
             error(declarator.location, format("'%s' is already defined", name));
         }
-        auto var = new Variable(name, primitive);
+        auto var = new Variable(name, type.primitive);
         if (!global) {
             asmgen.emitAlloca(file, var);
         } else {
@@ -208,13 +210,14 @@ void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic
     assert(semantic.findDeclaration(functionName, global));
     semantic.pushScope();
     foreach (i, parameter; declaration.parameters) if (parameter.identifier !is null) {
+        auto last = i == declaration.parameters.length - 1;
         auto var = new SyntheticVariableDeclaration();
         var.location = parameter.location;
         var.type = parameter.type;
         var.identifier = parameter.identifier;
         var.isParameter = true;
         semantic.addDeclaration(extractIdentifier(var.identifier), var);
-        asmgen.emitFunctionParameter(file, fullTypeToPrimitive(var.type), extractIdentifier(var.identifier), i == declaration.parameters.length - 1);
+        asmgen.emitFunctionParameter(file, Primitive(32, 0), extractIdentifier(var.identifier), last);  // !!!
     }
     asmgen.emitFunctionBeginEnd(file);
     asmgen.incrementIndent();

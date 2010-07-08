@@ -206,7 +206,7 @@ alias emitDuoOps!"emitIcmpNe" emitIcmpNeOps;
 void emitFunctionName(File file, FunctionDeclaration declaration)
 {
     emitIndent(file);
-    file.write("define ", llvmType(fullTypeToPrimitive(declaration.retval)), " @", extractIdentifier(declaration.name));
+    file.write("define ", llvmType(Primitive(32, 0)), " @", extractIdentifier(declaration.name));  // !!!
     file.write("(");
 }
 

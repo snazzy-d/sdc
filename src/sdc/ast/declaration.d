@@ -7,6 +7,7 @@ module sdc.ast.declaration;
 
 import sdc.tokenstream;
 import sdc.gen.primitive;
+import sdc.gen.type;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
@@ -33,14 +34,15 @@ enum DeclType
 
 class Decl : Node
 {
-    DeclType dtype;
+    DeclType dectype;
     Variable variable;  // Variable declaration for semantic purposes.
     bool isParameter;
+    DType dtype;
 }
 
 class VariableDeclaration : Decl
 {
-    this() { dtype = DeclType.Variable; }
+    this() { dectype = DeclType.Variable; }
     bool isAlias;
     Type type;
     Declarator[] declarators;
@@ -48,7 +50,7 @@ class VariableDeclaration : Decl
 
 class SyntheticVariableDeclaration : Decl
 {
-    this() { dtype = DeclType.SyntheticVariable; }
+    this() { dectype = DeclType.SyntheticVariable; }
     bool isAlias;
     Type type;
     Identifier identifier;
@@ -63,7 +65,7 @@ class Declarator : Node
     
 class FunctionDeclaration : Decl
 {
-    this() { dtype = DeclType.Function; }
+    this() { dectype = DeclType.Function; }
     Type retval;
     Identifier name;
     Parameter[] parameters;

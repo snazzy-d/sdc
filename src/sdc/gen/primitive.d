@@ -8,23 +8,24 @@ module sdc.gen.primitive;
 import std.conv;
 
 import sdc.compilererror;
-import sdc.ast.declaration;
+import sdc.gen.type;
 
 
 struct Primitive
 {
     int size;     /// Size of primitive in bytes.
     int pointer;  // 0 == not a pointer, 1 == pointer to iSize, 2 == pointer to pointer to iSize and so on.
+    bool signed = true;
 }
 
-Primitive removePointer(Primitive primitive)
+pure Primitive removePointer(Primitive primitive)
 {
-    return Primitive(primitive.size, primitive.pointer - 1);
+    return Primitive(primitive.size, primitive.pointer - 1, primitive.signed);
 }
 
-Primitive addPointer(Primitive primitive)
+pure Primitive addPointer(Primitive primitive)
 {
-    return Primitive(primitive.size, primitive.pointer + 1);
+    return Primitive(primitive.size, primitive.pointer + 1, primitive.signed);
 }
 
 enum ValueType { None, Variable, Constant }
@@ -32,7 +33,7 @@ abstract class Value
 {
     ValueType type;
     Primitive primitive;
-    PrimitiveTypeType dType = PrimitiveTypeType.Int;
+    DType dtype;
 }
 
 class Variable : Value
@@ -92,26 +93,26 @@ Variable genVariable(Primitive primitive, string s = "")
 }
 
 
-
+/*
 Primitive[PrimitiveTypeType] typeToPrimitive;
 
 static this()
 {
     with (PrimitiveTypeType) {
-        typeToPrimitive[Bool] = Primitive(8, 0);
-        typeToPrimitive[Byte] = Primitive(8, 0);
-        typeToPrimitive[Ubyte] = Primitive(8, 0);
-        typeToPrimitive[Short] = Primitive(16, 0);
-        typeToPrimitive[Ushort] = Primitive(16, 0);
-        typeToPrimitive[Int] = Primitive(32, 0);
-        typeToPrimitive[Uint] = Primitive(32, 0);
-        typeToPrimitive[Long] = Primitive(64, 0);
-        typeToPrimitive[Ulong] = Primitive(64, 0);
-        typeToPrimitive[Cent] = Primitive(128, 0);
-        typeToPrimitive[Ucent] = Primitive(128, 0);
-        typeToPrimitive[Char] = Primitive(8, 0);
-        typeToPrimitive[Wchar] = Primitive(16, 0);
-        typeToPrimitive[Dchar] = Primitive(32, 0);
+        typeToPrimitive[Bool] = Primitive(1, 0, false);
+        typeToPrimitive[Byte] = Primitive(8, 0, true);
+        typeToPrimitive[Ubyte] = Primitive(8, 0, false);
+        typeToPrimitive[Short] = Primitive(16, 0, true);
+        typeToPrimitive[Ushort] = Primitive(16, 0, false);
+        typeToPrimitive[Int] = Primitive(32, 0, true);
+        typeToPrimitive[Uint] = Primitive(32, 0, false);
+        typeToPrimitive[Long] = Primitive(64, 0, true);
+        typeToPrimitive[Ulong] = Primitive(64, 0, false);
+        typeToPrimitive[Cent] = Primitive(128, 0, true);
+        typeToPrimitive[Ucent] = Primitive(128, 0, false);
+        typeToPrimitive[Char] = Primitive(8, 0, false);
+        typeToPrimitive[Wchar] = Primitive(16, 0, false);
+        typeToPrimitive[Dchar] = Primitive(32, 0, false);
         //Float
         //Double
         //Real
@@ -133,3 +134,4 @@ Primitive fullTypeToPrimitive(Type type)
     auto primitive = cast(PrimitiveType) type.node;
     return typeToPrimitive[primitive.type];
 }
+*/

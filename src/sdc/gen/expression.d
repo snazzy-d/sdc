@@ -9,13 +9,14 @@ import std.stdio;
 import std.string;
 
 import sdc.util;
-import sdc.gen.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.extract.base;
 import sdc.extract.expression;
 import sdc.gen.base;
 import sdc.gen.semantic;
+import sdc.gen.type;
+import sdc.gen.primitive;
 
 enum VoidExpression
 {
@@ -184,19 +185,19 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file, Semantic 
         return genIdentifierExpression(cast(Identifier) expression.node, file, semantic, globalLookup);
     case PrimaryType.IntegerLiteral:
         var = genVariable(Primitive(32, 0), "primitive");
-        var.dType = PrimitiveTypeType.Int;
+        var.dtype = new IntType();
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant((cast(IntegerLiteral)expression.node).value, Primitive(32, 0)));
         break;
     case PrimaryType.True:
         var = genVariable(Primitive(8, 0), "true");
-        var.dType = PrimitiveTypeType.Bool;
+        var.dtype = new BoolType();
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant("1", Primitive(8, 0)));
         break;
     case PrimaryType.False:
         var = genVariable(Primitive(8, 0), "false");
-        var.dType = PrimitiveTypeType.Bool;
+        var.dtype = new BoolType();
         asmgen.emitAlloca(file, var);
         asmgen.emitStore(file, var, new Constant("0", Primitive(8, 0)));
         break;
@@ -217,14 +218,14 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
         }
         
         Variable var;
-        switch (decl.dtype) {
+        switch (decl.dectype) {
         case DeclType.SyntheticVariable:
             auto syn = cast(SyntheticVariableDeclaration) decl;
-            var = genVariable(fullTypeToPrimitive(syn.type), extractIdentifier(syn.identifier));
-            var.dType = PrimitiveTypeType.Int;  // !!!
+            var = genVariable(Primitive(32, 0), extractIdentifier(syn.identifier));  // !!!
+            var.dtype = new IntType();  // !!!
             if (syn.isParameter) {
                 asmgen.emitAlloca(file, var);
-                asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), fullTypeToPrimitive(syn.type)));
+                asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), Primitive(32, 0)));  // !!!
             } else {
                 return syn.variable;
                 //return new Variable(extractIdentifier(syn.identifier), addPointer(fullTypeToPrimitive(syn.type)));
@@ -232,7 +233,7 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
             break;
         case DeclType.Function:
             auto fun = cast(FunctionDeclaration) decl;
-            auto prim = fullTypeToPrimitive(fun.retval);
+            auto prim = Primitive(32, 0);  // !!!
             auto name = extractIdentifier(fun.name);
             var = new Variable(name, prim);
             var.isFunction = true;
