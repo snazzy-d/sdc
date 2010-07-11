@@ -102,12 +102,13 @@ void declareVariableDeclaration(VariableDeclaration declaration, File file, Sema
 {
     bool global = semantic.currentScope is semantic.globalScope;
     
-    auto type = new IntType();  // !!!
+    auto type = astToDType(declaration.type);
     foreach (declarator; declaration.declarators) {
         auto name = extractIdentifier(declarator.name);
         auto syn  = new SyntheticVariableDeclaration();
         syn.location = declaration.location;
         syn.type = declaration.type;
+        syn.dtype = type;
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
         try {
@@ -122,12 +123,13 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
 {
     bool global = semantic.currentScope is semantic.globalScope;
     
-    auto type = new IntType();  // !!!
+    auto type = astToDType(declaration.type);
     foreach (declarator; declaration.declarators) {
         auto name = extractIdentifier(declarator.name);
         auto syn = new SyntheticVariableDeclaration();
         syn.location = declaration.location;
         syn.type = declaration.type;
+        syn.dtype = type;
         syn.identifier = declarator.name;
         syn.initialiser = declarator.initialiser;
         
@@ -214,6 +216,7 @@ void genFunctionDeclaration(FunctionDeclaration declaration, File file, Semantic
         auto var = new SyntheticVariableDeclaration();
         var.location = parameter.location;
         var.type = parameter.type;
+        var.dtype = astToDType(parameter.type);
         var.identifier = parameter.identifier;
         var.isParameter = true;
         semantic.addDeclaration(extractIdentifier(var.identifier), var);

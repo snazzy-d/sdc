@@ -9,11 +9,12 @@ import std.algorithm;
 import std.conv;
 import std.stdio;
 
-import sdc.gen.primitive;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.extract.base;
 import sdc.extract.expression;
+import sdc.gen.primitive;
+import sdc.gen.type;
 
 int indent;
 
@@ -206,7 +207,7 @@ alias emitDuoOps!"emitIcmpNe" emitIcmpNeOps;
 void emitFunctionName(File file, FunctionDeclaration declaration)
 {
     emitIndent(file);
-    file.write("define ", llvmType(Primitive(32, 0)), " @", extractIdentifier(declaration.name));  // !!!
+    file.write("define ", llvmType(astToDType(declaration.retval).primitive), " @", extractIdentifier(declaration.name));  // !!!
     file.write("(");
 }
 

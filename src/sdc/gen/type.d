@@ -67,6 +67,16 @@ DType createType(DTypeType dtype)
     }
 }
 
+DType astToDType(Type type)
+{
+    if (type.type != TypeType.Primitive) {
+        error(type.location, "only primitives have been implemented");
+    }
+    auto p = cast(PrimitiveType) type.node;
+    assert(p);
+    return createType(cast(DTypeType)p.type);
+}
+
 private DType iCast(DType from, DType to, Location at, DTypeType[] dtypes...)
 {
     if (dtypes.contains(to.dtype)) {
@@ -122,6 +132,12 @@ abstract class DType
             primitive.signed = false;
         }
         mModifiers ~= modifier;
+    }
+    
+    override bool opEquals(Object o)
+    {
+        auto dtype = cast(DType) o;
+        return dtype && this.dtype == dtype.dtype;
     }
     
     Modifier[] modifiers() @property { return mModifiers; }

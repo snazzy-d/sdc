@@ -184,22 +184,25 @@ Variable genPrimaryExpression(PrimaryExpression expression, File file, Semantic 
     case PrimaryType.Identifier:
         return genIdentifierExpression(cast(Identifier) expression.node, file, semantic, globalLookup);
     case PrimaryType.IntegerLiteral:
-        var = genVariable(Primitive(32, 0), "primitive");
-        var.dtype = new IntType();
+        auto dtype = new IntType();
+        var = genVariable(dtype.primitive, "primitive");
+        var.dtype = dtype;
         asmgen.emitAlloca(file, var);
-        asmgen.emitStore(file, var, new Constant((cast(IntegerLiteral)expression.node).value, Primitive(32, 0)));
+        asmgen.emitStore(file, var, new Constant((cast(IntegerLiteral)expression.node).value, var.dtype.primitive));
         break;
     case PrimaryType.True:
-        var = genVariable(Primitive(8, 0), "true");
-        var.dtype = new BoolType();
+        auto dtype = new BoolType();
+        var = genVariable(dtype.primitive, "true");
+        var.dtype = dtype;
         asmgen.emitAlloca(file, var);
-        asmgen.emitStore(file, var, new Constant("1", Primitive(8, 0)));
+        asmgen.emitStore(file, var, new Constant("1", var.dtype.primitive));
         break;
     case PrimaryType.False:
-        var = genVariable(Primitive(8, 0), "false");
-        var.dtype = new BoolType();
+        auto dtype = new BoolType();
+        var = genVariable(dtype.primitive, "false");
+        var.dtype = dtype;
         asmgen.emitAlloca(file, var);
-        asmgen.emitStore(file, var, new Constant("0", Primitive(8, 0)));
+        asmgen.emitStore(file, var, new Constant("0", var.dtype.primitive));
         break;
     default:
         break;
@@ -221,14 +224,14 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
         switch (decl.dectype) {
         case DeclType.SyntheticVariable:
             auto syn = cast(SyntheticVariableDeclaration) decl;
-            var = genVariable(Primitive(32, 0), extractIdentifier(syn.identifier));  // !!!
-            var.dtype = new IntType();  // !!!
+            auto dtype = astToDType(syn.type);
+            var = genVariable(dtype.primitive, extractIdentifier(syn.identifier));
+            var.dtype = dtype;
             if (syn.isParameter) {
                 asmgen.emitAlloca(file, var);
-                asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), Primitive(32, 0)));  // !!!
+                asmgen.emitStore(file, var, new Variable(extractIdentifier(syn.identifier), dtype.primitive));  // !!!
             } else {
                 return syn.variable;
-                //return new Variable(extractIdentifier(syn.identifier), addPointer(fullTypeToPrimitive(syn.type)));
             }
             break;
         case DeclType.Function:
