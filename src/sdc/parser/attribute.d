@@ -57,7 +57,7 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Extern:
         break;
     default:
-        error(tstream.peek.location, format("bad attribute '%s'", tokenToString[tstream.peek.type]));
+        error(tstream.peek.location, format("bad attribute '%s'.", tokenToString[tstream.peek.type]));
         assert(false);
     }
     

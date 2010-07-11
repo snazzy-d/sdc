@@ -106,7 +106,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream)
             // e.g. (*x)[3]
             suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
         } else {
-            error(tstream.peek.location, "expected '(' or '[', not '%s'");
+            error(tstream.peek.location, "expected '(' or '[', not '%s'.");
         }
         if (tstream.peek.type == TokenType.Assign) {
             declarator.initialiser = parseInitialiser(tstream);
@@ -128,7 +128,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream)
     }
     declaration.declarators ~= declarator;
     if (suffixes.length > 0 && tstream.peek.type != TokenType.Semicolon) {
-        error(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix");
+        error(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix.");
     }
     declaration.type.suffixes ~= suffixes;
     while (tstream.peek.type != TokenType.Semicolon) {

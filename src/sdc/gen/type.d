@@ -40,12 +40,12 @@ enum DTypeType
 
 private void onImplicitCastFailure(DType from, DType to, Location at)
 {
-    error(at, format("cannot implicitly cast from type '%s' to type '%s'", from, to));
+    error(at, format("cannot implicitly cast from type '%s' to type '%s'.", from, to));
 }
 
 private void onExplicitCastFailure(DType from, DType to, Location at)
 {
-    error(at, format("cannot explicitly cast from type '%s' to type '%s'", from, to));
+    error(at, format("cannot explicitly cast from type '%s' to type '%s'.", from, to));
 }
 
 /// Convert a DTypeType to an actual DType instance.
@@ -70,7 +70,7 @@ DType createType(DTypeType dtype)
 DType astToDType(Type type)
 {
     if (type.type != TypeType.Primitive) {
-        error(type.location, "only primitives have been implemented");
+        error(type.location, "only primitives have been implemented.");
     }
     auto p = cast(PrimitiveType) type.node;
     assert(p);

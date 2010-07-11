@@ -60,7 +60,7 @@ void genDeclarationDefinition(DeclarationDefinition declDef, File file, Semantic
     case DeclarationDefinitionType.AttributeSpecifier:
         return genAttributeSpecifier(cast(AttributeSpecifier) declDef.node, file, semantic);
     default:
-        error(declDef.location, "unhandled DeclarationDefinition");
+        error(declDef.location, "unhandled DeclarationDefinition.");
         assert(false);
     }
     assert(false);
@@ -114,7 +114,7 @@ void declareVariableDeclaration(VariableDeclaration declaration, File file, Sema
         try {
             semantic.addDeclaration(name, syn, global);
         } catch (RedeclarationError) {
-            error(declarator.location, format("'%s' is already defined", name));
+            error(declarator.location, format("'%s' is already defined.", name));
         }
     }
 }
@@ -135,16 +135,16 @@ void genVariableDeclaration(VariableDeclaration declaration, File file, Semantic
         
         auto decl = semantic.findDeclaration(name);
         if (decl !is null && semantic.scopeDepth >= 2 && !decl.isParameter) {
-            error(declarator.location, format("'%s' shadows declaration at '%s'", name, decl.location));
+            error(declarator.location, format("'%s' shadows declaration at '%s'.", name, decl.location));
         } else if (decl !is null && decl.isParameter) {
             // A hack, for LeoD.
-            error(declarator.location, format("'%s' is already defined", name));
+            error(declarator.location, format("'%s' is already defined.", name));
         }
         
         try {
             semantic.addDeclaration(name, syn, global);
         } catch (RedeclarationError) {
-            error(declarator.location, format("'%s' is already defined", name));
+            error(declarator.location, format("'%s' is already defined.", name));
         }
         auto var = new Variable(name, type.primitive);
         if (!global) {
@@ -183,7 +183,7 @@ Value genConstantInitialiser(Initialiser initialiser, File file, Semantic semant
     
     auto expr = genAssignExpression(cast(AssignExpression) initialiser.node, file, semantic);
     if (expr.type != ValueType.Constant) {
-        error(initialiser.location, "non-constant expression");
+        error(initialiser.location, "non-constant expression.");
     }
     return cast(Constant) expr;
 }
@@ -199,7 +199,7 @@ void declareFunctionDeclaration(FunctionDeclaration declaration, File file, Sema
     try {
         semantic.addDeclaration(functionName, declaration);
     } catch (RedeclarationError) {
-        error(declaration.location, format("function '%s' is already defined", functionName));
+        error(declaration.location, format("function '%s' is already defined.", functionName));
     }
 }
 

@@ -217,7 +217,7 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
         string ident = extractIdentifier(identifier);
         auto decl = semantic.findDeclaration(ident, globalLookup);
         if (decl is null) {
-            error(identifier.location, format("undefined identifier '%s'", ident));
+            error(identifier.location, format("undefined identifier '%s'.", ident));
         }
         
         Variable var;
@@ -242,7 +242,7 @@ Variable genIdentifierExpression(Identifier identifier, File file, Semantic sema
             var.isFunction = true;
             break;
         default:
-            error(identifier.location, "unknown declaration type");
+            error(identifier.location, "unknown declaration type.");
         }
         
         return var;
