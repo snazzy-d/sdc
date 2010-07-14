@@ -5,4 +5,16 @@
  */
 module sdc.gen.base;
 
+import std.string;
+
+import llvm.c.Core;
+
 import sdc.ast.sdcmodule;
+
+
+
+LLVMModuleRef genModule(Module mod)
+{
+    auto context = LLVMGetGlobalContext();
+    return LLVMModuleCreateWithNameInContext(toStringz(mod.tstream.filename), context);
+}

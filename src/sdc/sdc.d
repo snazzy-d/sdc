@@ -23,6 +23,9 @@ import std.getopt;
 import std.process : system;
 import std.c.stdlib;
 
+import llvm.c.Analysis;
+import llvm.c.Core;
+
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
@@ -30,6 +33,7 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.ast.all;
 import sdc.parser.all;
+import sdc.gen.base;
 
 int main(string[] args)
 {
@@ -53,14 +57,18 @@ int main(string[] args)
         auto source = new Source(arg);
         TokenStream tstream;
         Module mod;
+        LLVMModuleRef llvmMod;
         try {
             tstream = lex(source);
             mod = parseModule(tstream);
+            llvmMod = genModule(mod);
         } catch (CompilerError) {
             errors = true;
             continue;
         }
         if (printTokens) tstream.printTo(stdout);
+        LLVMVerifyModule(llvmMod, LLVMVerifierFailureAction.AbortProcess, null);
+        LLVMDumpModule(llvmMod);
     }
         
     return errors ? 1 : 0;
