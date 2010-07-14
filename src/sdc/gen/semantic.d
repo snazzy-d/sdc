@@ -10,7 +10,7 @@ import llvm.c.Core;
 
 /**
  * I'm going to be honest here. Semantic is a big grab bag of shit
- * needed for codegen, intended to be passes around like a cheap
+ * needed for codegen, intended to be passed around like a cheap
  * whore.
  */
 class Semantic
