@@ -10,11 +10,13 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.ast.sdcmodule;
+import sdc.gen.semantic;
 
 
 
 LLVMModuleRef genModule(Module mod)
 {
-    auto context = LLVMGetGlobalContext();
-    return LLVMModuleCreateWithNameInContext(toStringz(mod.tstream.filename), context);
+    auto semantic = new Semantic();
+    semantic.mod = LLVMModuleCreateWithNameInContext(toStringz(mod.tstream.filename), semantic.context);
+    return semantic.mod;
 }

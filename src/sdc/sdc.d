@@ -67,7 +67,7 @@ int main(string[] args)
         LLVMVerifyModule(llvmMod, LLVMVerifierFailureAction.AbortProcess, null);
         LLVMDumpModule(llvmMod);
     }
-        
+
     return errors ? 1 : 0;
 }
 
