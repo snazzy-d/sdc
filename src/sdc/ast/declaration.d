@@ -6,8 +6,6 @@
 module sdc.ast.declaration;
 
 import sdc.tokenstream;
-import sdc.gen.primitive;
-import sdc.gen.type;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
@@ -35,9 +33,7 @@ enum DeclType
 class Decl : Node
 {
     DeclType dectype;
-    Variable variable;  // Variable declaration for semantic purposes.
     bool isParameter;
-    DType dtype;
 }
 
 class VariableDeclaration : Decl

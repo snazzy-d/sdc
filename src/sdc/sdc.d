@@ -30,8 +30,6 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.ast.all;
 import sdc.parser.all;
-import sdc.asttojson.all;
-import sdc.gen.base;
 
 int main(string[] args)
 {
@@ -43,7 +41,6 @@ int main(string[] args)
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
            "print-tokens", &printTokens,
-           "print-ast", &printAST,
            "optimise|O", &optimise
           );
           
@@ -59,21 +56,11 @@ int main(string[] args)
         try {
             tstream = lex(source);
             mod = parseModule(tstream);
-            auto f = File("test.ll", "w");
-            genModule(mod, f);
         } catch (CompilerError) {
             errors = true;
             continue;
         }
         if (printTokens) tstream.printTo(stdout);
-        if (printAST) {
-        }
-        if (optimise) {
-            system("opt -std-compile-opts test.ll -o test.bc");
-        } else {
-            system("llvm-as test.ll -o test.bc");
-        }
-        system("llvm-ld -native test.bc");
     }
         
     return errors ? 1 : 0;
@@ -86,7 +73,6 @@ void usage()
     stdout.writeln("  --help:          print this message.");
     stdout.writeln("  --version:       print version information to stdout.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
-    stdout.writeln("  --print-ast:     print the AST to stdout.");
     stdout.writeln("  --optimise|-O:   run optimiser.");
 }
 
