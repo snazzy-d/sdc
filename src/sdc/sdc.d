@@ -38,14 +38,11 @@ import sdc.gen.base;
 int main(string[] args)
 {
     bool printTokens;
-    bool printAST;
-    bool optimise;
     
     getopt(args,
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
-           "print-tokens", &printTokens,
-           "optimise|O", &optimise
+           "print-tokens", &printTokens
           );
           
     if (args.length == 1) {
@@ -81,6 +78,5 @@ void usage()
     stdout.writeln("  --help:          print this message.");
     stdout.writeln("  --version:       print version information to stdout.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
-    stdout.writeln("  --optimise|-O:   run optimiser.");
 }
 
