@@ -15,6 +15,8 @@ import sdc.ast.declaration;
 
 class Module : Node
 {
+    TokenStream tstream;   // The token stream used to create this AST tree.
+    
     ModuleDeclaration moduleDeclaration;
     DeclarationDefinition[] declarationDefinitions;
 }
