@@ -78,6 +78,18 @@ LLVMValueRef genShiftExpression(ShiftExpression expr, Semantic semantic)
 LLVMValueRef genAddExpression(AddExpression expr, Semantic semantic)
 {
     auto lhs = genMulExpression(expr.mulExpression, semantic);
+    if (expr.addExpression !is null) {
+        auto rhs = genAddExpression(expr.addExpression, semantic);
+        final switch (expr.addOperation) {
+        case AddOperation.Add:
+            lhs = LLVMBuildAdd(semantic.builder, lhs, rhs, "add");
+            break;
+        case AddOperation.Subtract:
+            break;
+        case AddOperation.Concat:
+            break;
+        }
+    }
     return lhs;
 }
 
