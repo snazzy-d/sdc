@@ -85,9 +85,11 @@ LLVMValueRef genAddExpression(AddExpression expr, Semantic semantic)
             lhs = LLVMBuildAdd(semantic.builder, lhs, rhs, "add");
             break;
         case AddOperation.Subtract:
+            lhs = LLVMBuildSub(semantic.builder, lhs, rhs, "sub");
             break;
         case AddOperation.Concat:
-            break;
+            error(expr.location, "ICE: concatenation is unimplemented.");
+            assert(false);
         }
     }
     return lhs;
@@ -96,6 +98,20 @@ LLVMValueRef genAddExpression(AddExpression expr, Semantic semantic)
 LLVMValueRef genMulExpression(MulExpression expr, Semantic semantic)
 {
     auto lhs = genPowExpression(expr.powExpression, semantic);
+    if (expr.mulExpression !is null) {
+        auto rhs = genMulExpression(expr.mulExpression, semantic);
+        final switch (expr.mulOperation) {
+        case MulOperation.Mul:
+            lhs = LLVMBuildMul(semantic.builder, lhs, rhs, "mul");
+            break;
+        case MulOperation.Div:
+            error(expr.location, "ICE: division is unimplemented.");
+            break;
+        case MulOperation.Mod:
+            error(expr.location, "ICE: modulo is unimplemented.");
+            break;
+        }
+    }
     return lhs;
 }
 
@@ -121,7 +137,7 @@ LLVMValueRef genPrimaryExpression(PrimaryExpression expr, Semantic semantic)
 {
     switch (expr.type) {
     case PrimaryType.IntegerLiteral:
-        return LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral)expr.node).value), false);
+        return LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral) expr.node).value), false);
     default:
         error(expr.location, "ICE: unhandled primary expression type.");
     }
