@@ -10,7 +10,7 @@ EXE=sdc.bin
 CXX=g++
 CXXFLAGS=-m32
 PHOBOS2=/usr/lib/libphobos2.a
-DRUNTIIME=/usr/lib/libdruntime.a
+DRUNTIME=/usr/lib/libdruntime.a
 LIBLLVM=/home/bernard/Projects/sdc/libLLVM-2.7.so
 LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(DRUNTIME) $(LIBLLVM)
 

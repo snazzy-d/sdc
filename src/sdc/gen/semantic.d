@@ -7,6 +7,8 @@ module sdc.gen.semantic;
 
 import llvm.c.Core;
 
+import sdc.ast.declaration;
+
 
 /**
  * I'm going to be honest here. Semantic is a big grab bag of shit
@@ -17,9 +19,13 @@ class Semantic
 {
     LLVMContextRef context;
     LLVMModuleRef mod;
+    LLVMBuilderRef builder;
+    
+    FunctionDeclaration currentFunction;
     
     this()
     {
         context = LLVMGetGlobalContext();
+        builder = LLVMCreateBuilderInContext(context);
     }
 }
