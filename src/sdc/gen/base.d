@@ -21,7 +21,9 @@ LLVMModuleRef genModule(Module mod)
 {
     auto semantic = new Semantic();
     semantic.mod = LLVMModuleCreateWithNameInContext(toStringz(mod.tstream.filename), semantic.context);
-    genDeclarationDefinition(mod.declarationDefinitions[0], semantic);
+    foreach (declaration; mod.declarationDefinitions) {
+        genDeclarationDefinition(declaration, semantic);
+    }
     return semantic.mod;
 }
 

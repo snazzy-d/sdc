@@ -466,6 +466,20 @@ bool startsLikeDeclaration(TokenStream tstream)
      * 'search through keywords' function that is here now.
      */
     auto t = tstream.peek.type;
+    
+    if (t == TokenType.Identifier) {
+        size_t l = 1;
+        while (tstream.lookahead(l).type == TokenType.Dot) {
+            l++;
+            if (tstream.lookahead(l).type != TokenType.Identifier) {
+                return false;
+            }
+        }
+        if (tstream.lookahead(l).type == TokenType.Identifier) {
+            return true;
+        }
+    }
+    
     return t == TokenType.Alias || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
 }
 

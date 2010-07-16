@@ -12,6 +12,7 @@ import sdc.ast.statement;
 import sdc.gen.semantic;
 import sdc.gen.type;
 import sdc.gen.expression;
+import sdc.gen.declaration;
 
 
 void genBlockStatement(BlockStatement statement, Semantic semantic)
@@ -37,6 +38,8 @@ void genStatement(Statement statement, Semantic semantic)
 void genNonEmptyStatement(NonEmptyStatement statement, Semantic semantic)
 {
     switch (statement.type) {
+    case NonEmptyStatementType.DeclarationStatement:
+        return genDeclarationStatement(cast(DeclarationStatement) statement.node, semantic);
     case NonEmptyStatementType.ReturnStatement:
         return genReturnStatement(cast(ReturnStatement) statement.node, semantic);
     default:
@@ -50,11 +53,16 @@ void genScopeStatement(ScopeStatement statement, Semantic semantic)
     error(statement.location, "ICE: scope statement unimplemented.");
 }
 
+void genDeclarationStatement(DeclarationStatement statement, Semantic semantic)
+{
+    genDeclaration(statement.declaration, semantic);
+}
+
 void genReturnStatement(ReturnStatement statement, Semantic semantic)
 {
     auto expr = genExpression(statement.expression, semantic);
     auto exprType = LLVMTypeOf(expr);
-    auto retvalType = typeToLLVM(semantic.currentFunction.retval, semantic);
+    auto retvalType = LLVMGetReturnType(semantic.functionType);
     assert(exprType == retvalType);
     LLVMBuildRet(semantic.builder, expr);
 }

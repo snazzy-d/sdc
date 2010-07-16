@@ -5,9 +5,13 @@
  */
 module sdc.gen.semantic;
 
+import std.range;
+
 import llvm.c.Core;
 
 import sdc.ast.declaration;
+public import sdc.gen.sdcscope;
+
 
 
 /**
@@ -15,17 +19,52 @@ import sdc.ast.declaration;
  * needed for codegen, intended to be passed around like a cheap
  * whore.
  */
-class Semantic
+final class Semantic
 {
     LLVMContextRef context;
     LLVMModuleRef mod;
     LLVMBuilderRef builder;
-    
-    FunctionDeclaration currentFunction;
+    LLVMTypeRef functionType;
     
     this()
     {
         context = LLVMGetGlobalContext();
         builder = LLVMCreateBuilderInContext(context);
+        mGlobalScope = new Scope();
     }
+    
+    void pushScope()
+    {
+        mScopeStack ~= new Scope();
+    }
+    
+    void popScope()
+    in { assert(mScopeStack.length >= 1); }
+    body
+    {
+        mScopeStack = mScopeStack[0 .. $ - 1];
+    }
+    
+    void setDeclaration(string name, DeclarationStore val)
+    {
+        if (mScopeStack.length >= 1) {
+            mScopeStack[$ - 1].setDeclaration(name, val);
+        } else {
+            mGlobalScope.setDeclaration(name, val);
+        }
+    }
+    
+    DeclarationStore getDeclaration(string name, bool forceGlobal = false)
+    {
+        foreach (s; retro(mScopeStack)) if (!forceGlobal) {
+            if (auto p = s.getDeclaration(name)) {
+                return p;
+            }
+        }
+        return mGlobalScope.getDeclaration(name);
+    }
+    
+    
+    protected Scope   mGlobalScope;
+    protected Scope[] mScopeStack;
 }

@@ -12,3 +12,13 @@ string extractIdentifier(Identifier identifier)
 {
     return identifier.value;
 }
+
+string extractQualifiedName(QualifiedName qualifiedName)
+{
+    char[] buf;
+    if (qualifiedName.leadingDot) buf ~= ".";
+    foreach (identifier; qualifiedName.identifiers) {
+        buf ~= extractIdentifier(identifier);
+    }
+    return buf.idup;
+}
