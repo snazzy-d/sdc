@@ -61,12 +61,12 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
         } else {
             LLVMBuildStore(semantic.builder, LLVMConstInt(type, 0, false), store.value);
         }
+        semantic.setDeclaration(name, store);
     }
 }
 
 void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
 {
-    debugPrint("genFunctionDeclaration");
     auto FT = LLVMFunctionType(typeToLLVM(decl.retval, semantic), null, 0, false);
     auto F  = LLVMAddFunction(semantic.mod, toStringz(extractIdentifier(decl.name)), FT);
     auto BB = LLVMAppendBasicBlockInContext(semantic.context, F, "entry");
@@ -92,7 +92,9 @@ void genInitialiser(Initialiser initialiser, Semantic semantic, LLVMValueRef var
         LLVMBuildStore(semantic.builder, LLVMGetUndef(type), var);
         break;
     case InitialiserType.AssignExpression:
-        LLVMBuildStore(semantic.builder, genAssignExpression(cast(AssignExpression) initialiser.node, semantic), var);
+        auto expr = genAssignExpression(cast(AssignExpression) initialiser.node, semantic);
+        auto init = LLVMBuildLoad(semantic.builder, expr, "init");
+        LLVMBuildStore(semantic.builder, init, var);
         break;
     }
 }

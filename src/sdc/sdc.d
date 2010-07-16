@@ -24,7 +24,9 @@ import std.process : system;
 import std.c.stdlib;
 
 import llvm.c.Analysis;
+import llvm.c.BitWriter;
 import llvm.c.Core;
+import llvm.c.transforms.Scalar;
 
 import sdc.source;
 import sdc.tokenstream;
@@ -65,10 +67,24 @@ int main(string[] args)
         }
         if (printTokens) tstream.printTo(stdout);
         LLVMVerifyModule(llvmMod, LLVMVerifierFailureAction.AbortProcess, null);
+        LLVMWriteBitcodeToFile(llvmMod, "test.bc");
+        optimise(llvmMod);
         LLVMDumpModule(llvmMod);
+        system("llvm-ld -native test.bc");
+        LLVMDisposeModule(llvmMod);
     }
 
     return errors ? 1 : 0;
+}
+
+
+void optimise(LLVMModuleRef mod)
+{
+    auto passManager = LLVMCreatePassManager();
+    LLVMAddInstructionCombiningPass(passManager);
+    LLVMAddPromoteMemoryToRegisterPass(passManager);
+    LLVMRunPassManager(passManager, mod);
+    LLVMDisposePassManager(passManager);
 }
 
 

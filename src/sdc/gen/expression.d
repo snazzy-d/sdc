@@ -6,6 +6,7 @@
 module sdc.gen.expression;
 
 import std.conv;
+import std.string;
 
 import llvm.c.Core;
 
@@ -13,6 +14,7 @@ import sdc.compilererror;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.gen.semantic;
+import sdc.gen.extract;
 
 
 LLVMValueRef genExpression(Expression expr, Semantic semantic)
@@ -24,6 +26,11 @@ LLVMValueRef genExpression(Expression expr, Semantic semantic)
 LLVMValueRef genAssignExpression(AssignExpression expr, Semantic semantic)
 {
     auto lhs = genConditionalExpression(expr.conditionalExpression, semantic);
+    if (expr.assignType != AssignType.None) {
+        auto rhs = genAssignExpression(expr.assignExpression, semantic);
+        auto r   = LLVMBuildLoad(semantic.builder, rhs, "assign");
+        LLVMBuildStore(semantic.builder, r, lhs);
+    }
     return lhs;
 }
 
@@ -80,17 +87,21 @@ LLVMValueRef genAddExpression(AddExpression expr, Semantic semantic)
     auto lhs = genMulExpression(expr.mulExpression, semantic);
     if (expr.addExpression !is null) {
         auto rhs = genAddExpression(expr.addExpression, semantic);
+        auto l   = LLVMBuildLoad(semantic.builder, lhs, "addlhs");
+        auto r   = LLVMBuildLoad(semantic.builder, rhs, "addrhs");
+        LLVMValueRef result;
         final switch (expr.addOperation) {
         case AddOperation.Add:
-            lhs = LLVMBuildAdd(semantic.builder, lhs, rhs, "add");
+            result = LLVMBuildAdd(semantic.builder, l, r, "add");
             break;
         case AddOperation.Subtract:
-            lhs = LLVMBuildSub(semantic.builder, lhs, rhs, "sub");
+            result = LLVMBuildSub(semantic.builder, l, r, "sub");
             break;
         case AddOperation.Concat:
             error(expr.location, "ICE: concatenation is unimplemented.");
             assert(false);
         }
+        LLVMBuildStore(semantic.builder, result, lhs);
     }
     return lhs;
 }
@@ -100,9 +111,12 @@ LLVMValueRef genMulExpression(MulExpression expr, Semantic semantic)
     auto lhs = genPowExpression(expr.powExpression, semantic);
     if (expr.mulExpression !is null) {
         auto rhs = genMulExpression(expr.mulExpression, semantic);
+        auto l   = LLVMBuildLoad(semantic.builder, lhs, "mullhs");
+        auto r   = LLVMBuildLoad(semantic.builder, rhs, "mulrhs");
+        LLVMValueRef result;
         final switch (expr.mulOperation) {
         case MulOperation.Mul:
-            lhs = LLVMBuildMul(semantic.builder, lhs, rhs, "mul");
+            result = LLVMBuildMul(semantic.builder, l, r, "mul");
             break;
         case MulOperation.Div:
             error(expr.location, "ICE: division is unimplemented.");
@@ -111,6 +125,7 @@ LLVMValueRef genMulExpression(MulExpression expr, Semantic semantic)
             error(expr.location, "ICE: modulo is unimplemented.");
             break;
         }
+        LLVMBuildStore(semantic.builder, result, lhs);
     }
     return lhs;
 }
@@ -136,10 +151,28 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
 LLVMValueRef genPrimaryExpression(PrimaryExpression expr, Semantic semantic)
 {
     switch (expr.type) {
+    case PrimaryType.Identifier:
+        return genIdentifier(cast(Identifier) expr.node, semantic);
     case PrimaryType.IntegerLiteral:
-        return LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral) expr.node).value), false);
+        auto val = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral) expr.node).value), false);
+        auto var = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "literalvar");
+        LLVMBuildStore(semantic.builder, val, var);
+        return var;
     default:
         error(expr.location, "ICE: unhandled primary expression type.");
     }
     assert(false);
+}
+
+LLVMValueRef genIdentifier(Identifier identifier, Semantic semantic)
+{
+    auto name = extractIdentifier(identifier);
+    auto d    = semantic.getDeclaration(name);
+    if (d is null) {
+        error(identifier.location, format("undefined identifier '%s'.", name));
+    }
+    if (d.value is null) {
+        error(identifier.location, format("identifier '%s' has no value.", name));
+    }
+    return d.value;
 }

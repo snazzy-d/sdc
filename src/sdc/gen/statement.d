@@ -40,6 +40,8 @@ void genNonEmptyStatement(NonEmptyStatement statement, Semantic semantic)
     switch (statement.type) {
     case NonEmptyStatementType.DeclarationStatement:
         return genDeclarationStatement(cast(DeclarationStatement) statement.node, semantic);
+    case NonEmptyStatementType.ExpressionStatement:
+        return genExpressionStatement(cast(ExpressionStatement) statement.node, semantic);
     case NonEmptyStatementType.ReturnStatement:
         return genReturnStatement(cast(ReturnStatement) statement.node, semantic);
     default:
@@ -61,8 +63,14 @@ void genDeclarationStatement(DeclarationStatement statement, Semantic semantic)
 void genReturnStatement(ReturnStatement statement, Semantic semantic)
 {
     auto expr = genExpression(statement.expression, semantic);
-    auto exprType = LLVMTypeOf(expr);
+    auto retval = LLVMBuildLoad(semantic.builder, expr, "retval");
+    auto exprType = LLVMTypeOf(retval);
     auto retvalType = LLVMGetReturnType(semantic.functionType);
     assert(exprType == retvalType);
-    LLVMBuildRet(semantic.builder, expr);
+    LLVMBuildRet(semantic.builder, retval);
+}
+
+void genExpressionStatement(ExpressionStatement statement, Semantic semantic)
+{
+    genExpression(statement.expression, semantic);
 }
