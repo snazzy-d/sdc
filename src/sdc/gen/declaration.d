@@ -78,6 +78,10 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
     auto BB = LLVMAppendBasicBlockInContext(semantic.context, F, "entry");
     LLVMPositionBuilderAtEnd(semantic.builder, BB);
     
+    semantic.functionType = FT;
+    semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
+    semantic.pushScope();
+    
     auto numberOfParams = LLVMCountParams(F);
     assert(numberOfParams == decl.parameters.length);
     foreach (i, parameter; decl.parameters) {
@@ -90,10 +94,6 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
         LLVMBuildStore(semantic.builder, p, v);
         semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(null, v, null, DeclarationType.Variable));
     }
-    
-    semantic.functionType = FT;
-    semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
-    semantic.pushScope();
     
     genFunctionBody(decl.functionBody, semantic);
     
