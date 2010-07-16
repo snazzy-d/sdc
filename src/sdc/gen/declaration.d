@@ -67,15 +67,36 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
 
 void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
 {
-    auto FT = LLVMFunctionType(typeToLLVM(decl.retval, semantic), null, 0, false);
+    LLVMTypeRef[] params;
+    foreach (parameter; decl.parameters) {
+        params ~= typeToLLVM(parameter.type, semantic);
+    }
+    
+    // Create the function, and append a basic block.
+    auto FT = LLVMFunctionType(typeToLLVM(decl.retval, semantic), params.ptr, params.length, false);
     auto F  = LLVMAddFunction(semantic.mod, toStringz(extractIdentifier(decl.name)), FT);
     auto BB = LLVMAppendBasicBlockInContext(semantic.context, F, "entry");
     LLVMPositionBuilderAtEnd(semantic.builder, BB);
     
+    auto numberOfParams = LLVMCountParams(F);
+    assert(numberOfParams == decl.parameters.length);
+    foreach (i, parameter; decl.parameters) {
+        // Anonymous parameter.
+        if (parameter.identifier is null) continue;
+        
+        auto name = extractIdentifier(parameter.identifier);
+        auto p = LLVMGetParam(F, i);
+        auto v = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(p), toStringz(name));
+        LLVMBuildStore(semantic.builder, p, v);
+        semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(null, v, null, DeclarationType.Variable));
+    }
+    
     semantic.functionType = FT;
     semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
     semantic.pushScope();
+    
     genFunctionBody(decl.functionBody, semantic);
+    
     semantic.popScope();
     semantic.functionType = null;
 }
