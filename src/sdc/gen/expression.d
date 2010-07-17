@@ -149,6 +149,14 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
     auto lhs = genPrimaryExpression(expr.primaryExpression, semantic);
     final switch (expr.postfixOperation) {
     case PostfixOperation.None:
+        auto ident = cast(Identifier) expr.primaryExpression.node;
+        if (ident is null) break;
+        auto name = extractIdentifier(ident);
+        auto d = semantic.getDeclaration(name);
+        assert(d);  // It should've been looked up in genIdentifier.
+        if (d.declarationType == DeclarationType.Function) {
+            lhs = genFunctionCall(expr, semantic, lhs);
+        }
         break;
     case PostfixOperation.Dot:
     case PostfixOperation.PostfixInc:
@@ -167,7 +175,7 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
 LLVMValueRef genFunctionCall(PostfixExpression expr, Semantic semantic, LLVMValueRef fn)
 {
     LLVMValueRef[] args;
-    foreach (arg; expr.argumentList.expressions) {
+    if (expr.argumentList !is null) foreach (arg; expr.argumentList.expressions) {
         auto exp   = genAssignExpression(arg, semantic);
         auto param = LLVMBuildLoad(semantic.builder, exp, "param");
         args ~= param;
