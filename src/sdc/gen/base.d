@@ -21,18 +21,34 @@ LLVMModuleRef genModule(Module mod)
 {
     auto semantic = new Semantic();
     semantic.mod = LLVMModuleCreateWithNameInContext(toStringz(mod.tstream.filename), semantic.context);
+    
+    foreach (declaration; mod.declarationDefinitions) {
+        declareDeclarationDefinition(declaration, semantic);
+    }
+    
     foreach (declaration; mod.declarationDefinitions) {
         genDeclarationDefinition(declaration, semantic);
     }
+    
     return semantic.mod;
 }
 
+void declareDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
+{
+    switch (declDef.type) {
+    case DeclarationDefinitionType.Declaration:
+        declareDeclaration(cast(Declaration) declDef.node, semantic);
+        break;
+    default:
+        break;
+    }
+}
 
 void genDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
 {
     switch (declDef.type) {
     case DeclarationDefinitionType.Declaration:
-        genDeclaration(cast(Declaration)declDef.node, semantic);
+        genDeclaration(cast(Declaration) declDef.node, semantic);
         break;
     default:
         error(declDef.location, "unsupported declaration definition.");

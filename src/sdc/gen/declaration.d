@@ -20,16 +20,25 @@ import sdc.gen.extract;
 import sdc.gen.statement;
 
 
-
+void declareDeclaration(Declaration decl, Semantic semantic)
+{
+    final switch (decl.type) {
+    case DeclarationType.Variable:
+        break;
+    case DeclarationType.Function:
+        declareFunctionDeclaration(cast(FunctionDeclaration) decl.node, semantic);
+        break;
+    }
+}
 
 void genDeclaration(Declaration decl, Semantic semantic)
 {
     final switch (decl.type) {
     case DeclarationType.Variable:
-        genVariableDeclaration(cast(VariableDeclaration)decl.node, semantic);
+        genVariableDeclaration(cast(VariableDeclaration) decl.node, semantic);
         break;
     case DeclarationType.Function:
-        genFunctionDeclaration(cast(FunctionDeclaration)decl.node, semantic);
+        genFunctionDeclaration(cast(FunctionDeclaration) decl.node, semantic);
         break;
     }
 }
@@ -65,21 +74,30 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
     }
 }
 
-void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
+void declareFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
 {
     LLVMTypeRef[] params;
     foreach (parameter; decl.parameters) {
         params ~= typeToLLVM(parameter.type, semantic);
     }
-    
-    // Create the function, and append a basic block.
     auto FT = LLVMFunctionType(typeToLLVM(decl.retval, semantic), params.ptr, params.length, false);
     auto F  = LLVMAddFunction(semantic.mod, toStringz(extractIdentifier(decl.name)), FT);
+    semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
+}
+
+void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
+{
+    auto d = semantic.getDeclaration(extractIdentifier(decl.name));
+    if (d is null || d.declarationType != DeclarationType.Function) {
+        error(decl.location, "ICE: attempted to declare non-existent function.");
+    }
+    
+    auto F  = d.value;
+    auto FT = d.type;
     auto BB = LLVMAppendBasicBlockInContext(semantic.context, F, "entry");
     LLVMPositionBuilderAtEnd(semantic.builder, BB);
-    
+        
     semantic.functionType = FT;
-    semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
     semantic.pushScope();
     
     auto numberOfParams = LLVMCountParams(F);
