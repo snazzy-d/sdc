@@ -34,6 +34,8 @@ LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
     switch (t.type) {
     case PrimitiveTypeType.Int:
         return LLVMInt32TypeInContext(semantic.context);
+    case PrimitiveTypeType.Void:
+        return LLVMVoidTypeInContext(semantic.context);
     default:
         error(t.location, "ICE: unimplemented primitive type.");
     }

@@ -7,12 +7,14 @@ module sdc.gen.expression;
 
 import std.conv;
 import std.string;
+import core.memory;
 
 import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.ast.base;
 import sdc.ast.expression;
+import sdc.ast.declaration;
 import sdc.gen.semantic;
 import sdc.gen.extract;
 
@@ -145,7 +147,55 @@ LLVMValueRef genUnaryExpression(UnaryExpression expr, Semantic semantic)
 LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
 {
     auto lhs = genPrimaryExpression(expr.primaryExpression, semantic);
+    final switch (expr.postfixOperation) {
+    case PostfixOperation.None:
+        break;
+    case PostfixOperation.Dot:
+    case PostfixOperation.PostfixInc:
+    case PostfixOperation.PostfixDec:
+    case PostfixOperation.Index:
+    case PostfixOperation.Slice:
+        error(expr.location, "ICE: unsupported postfix operation.");
+        assert(false);
+    case PostfixOperation.Parens:
+        lhs = genFunctionCall(expr, semantic, lhs);
+        break;
+    }
     return lhs;
+}
+
+LLVMValueRef genFunctionCall(PostfixExpression expr, Semantic semantic, LLVMValueRef fn)
+{
+    LLVMValueRef[] args;
+    foreach (arg; expr.argumentList.expressions) {
+        auto exp   = genAssignExpression(arg, semantic);
+        auto param = LLVMBuildLoad(semantic.builder, exp, "param");
+        args ~= param;
+    }
+    verifyArgs(expr, args, fn);
+    auto ret = LLVMBuildCall(semantic.builder, fn, args.ptr, args.length, "fn");
+    auto retval = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(ret), "retval");
+    LLVMBuildStore(semantic.builder, ret, retval);
+    return retval;
+}
+
+
+void verifyArgs(PostfixExpression expr, LLVMValueRef[] callerArgs, LLVMValueRef fn)
+{
+    
+    auto argsLength = LLVMCountParams(fn);
+    LLVMValueRef* functionArgs = cast(LLVMValueRef*) GC.malloc(LLVMValueRef.sizeof * argsLength);
+    if (argsLength != callerArgs.length) goto err;
+    LLVMGetParams(fn, functionArgs);
+    foreach (i; 0 .. argsLength) {
+        if (LLVMTypeOf(callerArgs[i]) != LLVMTypeOf(*(functionArgs + i))) {
+            goto err;
+        }
+    }
+    return;  // It all seems to check out.
+    
+err:
+    error(expr.location, "function call does not match function signature.");    
 }
 
 LLVMValueRef genPrimaryExpression(PrimaryExpression expr, Semantic semantic)

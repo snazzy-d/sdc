@@ -5,8 +5,11 @@
  */
 module sdc.gen.statement;
 
+import std.conv;
+
 import llvm.c.Core;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.ast.statement;
 import sdc.gen.semantic;
@@ -62,11 +65,24 @@ void genDeclarationStatement(DeclarationStatement statement, Semantic semantic)
 
 void genReturnStatement(ReturnStatement statement, Semantic semantic)
 {
+    auto retvalType = LLVMGetReturnType(semantic.functionType);
+    if (retvalType == LLVMVoidTypeInContext(semantic.context)) {
+        if (statement.expression !is null) {
+            error(statement.expression.location, "expression specified in void function.");
+        }
+        LLVMBuildRetVoid(semantic.builder);
+        return;
+    }
+    
+    
     auto expr = genExpression(statement.expression, semantic);
     auto retval = LLVMBuildLoad(semantic.builder, expr, "retval");
     auto exprType = LLVMTypeOf(retval);
-    auto retvalType = LLVMGetReturnType(semantic.functionType);
-    assert(exprType == retvalType);
+    
+    if (exprType != retvalType) {
+        error(statement.expression.location, "expression does not match function return type. (ICE: no implicit casting)");
+    }
+    
     LLVMBuildRet(semantic.builder, retval);
 }
 

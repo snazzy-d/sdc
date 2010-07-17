@@ -231,7 +231,7 @@ class PostfixExpression : Node
 {
     PrimaryExpression primaryExpression;
     PostfixExpression postfixExpression;  // Optional.
-    PostfixOperation postfixOperation;  // Optional.
+    PostfixOperation postfixOperation;
     ArgumentList argumentList;  // Optional.
 }
 
