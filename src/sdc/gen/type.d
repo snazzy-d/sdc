@@ -32,6 +32,8 @@ LLVMTypeRef typeToLLVM(Type t, Semantic semantic)
 LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
 {
     switch (t.type) {
+    case PrimitiveTypeType.Short:
+        return LLVMInt16TypeInContext(semantic.context);
     case PrimitiveTypeType.Int:
         return LLVMInt32TypeInContext(semantic.context);
     case PrimitiveTypeType.Void:
