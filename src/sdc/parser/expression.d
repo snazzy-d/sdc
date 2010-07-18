@@ -12,6 +12,7 @@ import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.ast.all;
 import sdc.parser.base;
+import sdc.parser.declaration;
 
 
 Expression parseExpression(TokenStream tstream)
@@ -369,6 +370,9 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
         unaryExpr.unaryPrefix = UnaryPrefix.BitwiseNot;
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
+    case TokenType.Cast:
+        unaryExpr.castExpression = parseCastExpression(tstream);
+        break;
     // TODO: The rest.
     case TokenType.New:
         unaryExpr.newExpression = parseNewExpression(tstream);
@@ -382,6 +386,18 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
     }
     
     return unaryExpr;
+}
+
+CastExpression parseCastExpression(TokenStream tstream)
+{
+    auto castExpr = new CastExpression();
+    castExpr.location = tstream.peek.location;
+    match(tstream, TokenType.Cast);
+    match(tstream, TokenType.OpenParen);
+    castExpr.type = parseType(tstream);
+    match(tstream, TokenType.CloseParen);
+    castExpr.unaryExpression = parseUnaryExpression(tstream);
+    return castExpr;
 }
 
 NewExpression parseNewExpression(TokenStream tstream)

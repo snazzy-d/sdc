@@ -17,6 +17,7 @@ import sdc.ast.expression;
 import sdc.ast.declaration;
 import sdc.gen.semantic;
 import sdc.gen.extract;
+import sdc.gen.type;
 
 
 LLVMValueRef genExpression(Expression expr, Semantic semantic)
@@ -140,8 +141,32 @@ LLVMValueRef genPowExpression(PowExpression expr, Semantic semantic)
 
 LLVMValueRef genUnaryExpression(UnaryExpression expr, Semantic semantic)
 {
-    auto lhs = genPostfixExpression(expr.postfixExpression, semantic);
+    LLVMValueRef lhs;
+    if (expr.castExpression !is null) {
+        lhs = genCastExpression(expr.castExpression, semantic);
+    } else {
+        lhs = genPostfixExpression(expr.postfixExpression, semantic);
+    }
     return lhs;
+}
+
+LLVMValueRef genCastExpression(CastExpression expr, Semantic semantic)
+{
+    auto toType = typeToLLVM(expr.type, semantic);
+    auto e = genUnaryExpression(expr.unaryExpression, semantic);
+    auto val = LLVMBuildLoad(semantic.builder, e, "tmp");
+    
+    switch (LLVMGetTypeKind(toType)) {
+    case LLVMTypeKind.Integer:
+        val = LLVMBuildIntCast(semantic.builder, val, toType, "cast");
+        break;
+    default:
+        error(expr.location, "invalid explicit cast.");
+    }
+    
+    auto ex = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "ex");
+    LLVMBuildStore(semantic.builder, val, ex);
+    return ex;
 }
 
 LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)

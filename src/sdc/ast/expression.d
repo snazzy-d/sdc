@@ -187,7 +187,7 @@ enum UnaryPrefix
 class UnaryExpression : Node
 {
     PostfixExpression postfixExpression;  // Optional.
-    UnaryPrefix unaryPrefix;  // Optional.
+    UnaryPrefix unaryPrefix;
     UnaryExpression unaryExpression;  // Optional.
     NewExpression newExpression;  // Optional.
     DeleteExpression deleteExpression;  // Optional.
