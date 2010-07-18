@@ -168,7 +168,7 @@ LLVMValueRef genCastExpression(CastExpression expr, Semantic semantic)
     LLVMBuildStore(semantic.builder, val, ex);
     return ex;
 }
-
+0
 LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
 {
     auto lhs = genPrimaryExpression(expr.primaryExpression, semantic);
