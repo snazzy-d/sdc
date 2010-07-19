@@ -47,6 +47,16 @@ class VariableDeclaration : Decl
 class SyntheticVariableDeclaration : Decl
 {
     this() { dectype = DeclType.SyntheticVariable; }
+    this(VariableDeclaration decl, Declarator declarator)
+    {
+        dectype = DeclType.SyntheticVariable;
+        location = declarator.location;
+        isAlias = decl.isAlias;
+        type = decl.type;
+        identifier = declarator.name;
+        initialiser = declarator.initialiser;
+    }
+    
     bool isAlias;
     Type type;
     Identifier identifier;

@@ -44,6 +44,7 @@ final class Semantic
     body
     {
         disposedScope = mScopeStack[$ - 1];
+        disposedScope.checkUnused();
         mScopeStack = mScopeStack[0 .. $ - 1];
     }
     

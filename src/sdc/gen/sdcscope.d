@@ -5,11 +5,14 @@
  */
 module sdc.gen.sdcscope;
 
+import std.string;
+
 import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.ast.base;
 import sdc.ast.declaration;
+import sdc.gen.extract;
 
 
 class DeclarationStore
@@ -23,6 +26,11 @@ class DeclarationStore
         declarationType = decltype;
     }
     
+    /** The type of declaration.
+     *  Also dictates the type held in the declaration node.
+     *  Note that if DeclarationType.Variable, the node type shall be
+     *  SyntheticVariableDeclaration.
+     */
     DeclarationType declarationType;
     Node declaration;
     LLVMValueRef value;
@@ -56,7 +64,9 @@ final class Scope
     {
         foreach (k, v; mDeclarations) {
             if (v.readCount == 0 && v.declarationType == DeclarationType.Variable) {
-                warning(v.declaration.location, "unused variable declaration.");
+                auto synthVar = cast(SyntheticVariableDeclaration) v.declaration;
+                if (synthVar is null) continue;  // An anonymous parameter.
+                warning(v.declaration.location, format("unused variable '%s'.", extractIdentifier(synthVar.identifier)));
             }
         }
     }

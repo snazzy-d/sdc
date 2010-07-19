@@ -53,7 +53,7 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
             error(decl.location, format("declaration '%s' shadows declaration.", name));
         }
         auto store = new DeclarationStore();
-        store.declaration = decl;
+        store.declaration = new SyntheticVariableDeclaration(decl, declarator);
         store.declarationType = DeclarationType.Variable;
         store.type = type;
         if (decl.isAlias) {
@@ -111,7 +111,11 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
         auto p = LLVMGetParam(F, i);
         auto v = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(p), toStringz(name));
         LLVMBuildStore(semantic.builder, p, v);
-        semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(null, v, null, DeclarationType.Variable));
+        auto synth = new SyntheticVariableDeclaration();
+        synth.location = parameter.location;
+        synth.identifier = parameter.identifier;
+        synth.type = parameter.type;
+        semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(synth, v, null, DeclarationType.Variable));
     }
     
     genFunctionBody(decl.functionBody, semantic);
