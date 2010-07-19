@@ -6,6 +6,7 @@
 module sdc.gen.statement;
 
 import std.conv;
+import std.string;
 
 import llvm.c.Core;
 
@@ -41,6 +42,8 @@ void genStatement(Statement statement, Semantic semantic)
 void genNonEmptyStatement(NonEmptyStatement statement, Semantic semantic)
 {
     switch (statement.type) {
+    case NonEmptyStatementType.IfStatement:
+        return genIfStatement(cast(IfStatement) statement.node, semantic);
     case NonEmptyStatementType.DeclarationStatement:
         return genDeclarationStatement(cast(DeclarationStatement) statement.node, semantic);
     case NonEmptyStatementType.ExpressionStatement:
@@ -72,8 +75,65 @@ void genDeclarationStatement(DeclarationStatement statement, Semantic semantic)
     genDeclaration(statement.declaration, semantic);
 }
 
+void genIfStatement(IfStatement statement, Semantic semantic)
+{
+    auto thenbb = LLVMAppendBasicBlockInContext(semantic.context, semantic.currentFunction, "thenbb");
+    auto elsebb = LLVMAppendBasicBlockInContext(semantic.context, semantic.currentFunction, "elsebb");
+    auto outbb = LLVMAppendBasicBlockInContext(semantic.context, semantic.currentFunction, "outbb");
+    
+    auto e    = genIfCondition(statement.ifCondition, semantic);    
+    LLVMBuildCondBr(semantic.builder, e, thenbb, elsebb);
+    LLVMPositionBuilderAtEnd(semantic.builder, thenbb);
+    
+    genThenStatement(statement.thenStatement, semantic);
+    if (!semantic.disposedScope.builtReturn) {
+        LLVMBuildBr(semantic.builder, outbb);
+    }
+    LLVMPositionBuilderAtEnd(semantic.builder, elsebb);
+    
+    if (statement.elseStatement !is null) {
+        genElseStatement(statement.elseStatement, semantic);
+        
+        if (!semantic.disposedScope.builtReturn) {
+            LLVMBuildBr(semantic.builder, outbb);
+        }
+        
+        LLVMPositionBuilderAtEnd(semantic.builder, outbb);
+    } else {
+        LLVMBuildBr(semantic.builder, outbb);
+        LLVMPositionBuilderAtEnd(semantic.builder, outbb);
+    }
+}
+
+LLVMValueRef genIfCondition(IfCondition statement, Semantic semantic)
+{
+    final switch (statement.type) {
+    case IfConditionType.ExpressionOnly:
+        auto expr = genExpression(statement.expression, semantic);
+        auto e    = LLVMBuildLoad(semantic.builder, expr, "ifcondition");
+        assert(LLVMTypeOf(e) == LLVMInt1TypeInContext(semantic.context));
+        return e;
+    case IfConditionType.Identifier:
+    case IfConditionType.Declarator:
+        error(statement.location, "ICE: unhandled if condition type.");
+        assert(false);
+    }
+    assert(false);
+}
+
+void genThenStatement(ThenStatement statement, Semantic semantic)
+{
+    genScopeStatement(statement.statement, semantic);
+}
+
+void genElseStatement(ElseStatement statement, Semantic semantic)
+{
+    genScopeStatement(statement.statement, semantic);
+}
+
 void genReturnStatement(ReturnStatement statement, Semantic semantic)
 {
+    semantic.currentScope.builtReturn = true;
     auto retvalType = LLVMGetReturnType(semantic.functionType);
     if (retvalType == LLVMVoidTypeInContext(semantic.context)) {
         if (statement.expression !is null) {

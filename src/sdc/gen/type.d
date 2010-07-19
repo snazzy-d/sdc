@@ -32,6 +32,8 @@ LLVMTypeRef typeToLLVM(Type t, Semantic semantic)
 LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
 {
     switch (t.type) {
+    case PrimitiveTypeType.Bool:
+        return LLVMInt1TypeInContext(semantic.context);
     case PrimitiveTypeType.Byte:
         return LLVMInt8TypeInContext(semantic.context);
     case PrimitiveTypeType.Short:

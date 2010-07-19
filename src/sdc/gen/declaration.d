@@ -98,6 +98,7 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
     LLVMPositionBuilderAtEnd(semantic.builder, BB);
         
     semantic.functionType = FT;
+    semantic.currentFunction = F;
     semantic.pushScope();
     
     auto numberOfParams = LLVMCountParams(F);
@@ -114,9 +115,17 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
     }
     
     genFunctionBody(decl.functionBody, semantic);
+    if (!semantic.currentScope.builtReturn) {
+        if (LLVMGetReturnType(FT) == LLVMVoidTypeInContext(semantic.context)) {
+            LLVMBuildRetVoid(semantic.builder);
+        } else {
+            error(decl.location, "control reaches end of non-void function.");
+        }
+    }
     
     semantic.popScope();
     semantic.functionType = null;
+    semantic.currentFunction = null;
 }
 
 void genFunctionBody(FunctionBody fbody, Semantic semantic)

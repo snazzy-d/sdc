@@ -25,6 +25,7 @@ final class Semantic
     LLVMModuleRef mod;
     LLVMBuilderRef builder;
     LLVMTypeRef functionType;
+    LLVMValueRef currentFunction;
     
     this()
     {
@@ -42,7 +43,23 @@ final class Semantic
     in { assert(mScopeStack.length >= 1); }
     body
     {
+        disposedScope = mScopeStack[$ - 1];
         mScopeStack = mScopeStack[0 .. $ - 1];
+    }
+    
+    int scopeDepth() @property
+    {
+        return mScopeStack.length;
+    }
+    
+    Scope disposedScope;
+    
+    Scope currentScope() @property
+    {
+        if (mScopeStack.length >= 1) {
+            return mScopeStack[$ - 1];
+        }
+        return mGlobalScope;
     }
     
     void setDeclaration(string name, DeclarationStore val)

@@ -7,6 +7,7 @@ module sdc.gen.sdcscope;
 
 import llvm.c.Core;
 
+import sdc.compilererror;
 import sdc.ast.base;
 import sdc.ast.declaration;
 
@@ -26,11 +27,14 @@ class DeclarationStore
     Node declaration;
     LLVMValueRef value;
     LLVMTypeRef type;
+    int readCount;
 }
 
 
 final class Scope
 {
+    bool builtReturn;
+    
     void setDeclaration(string name, DeclarationStore val)
     {
         mDeclarations[name] = val;
@@ -39,7 +43,22 @@ final class Scope
     DeclarationStore getDeclaration(string name)
     {
         auto p = name in mDeclarations;
-        return p ? *p : null;
+        if (p) {
+            auto d = *p;
+            d.readCount++;
+            return d;
+        } else {
+            return null;
+        }
+    }
+    
+    void checkUnused()
+    {
+        foreach (k, v; mDeclarations) {
+            if (v.readCount == 0 && v.declarationType == DeclarationType.Variable) {
+                warning(v.declaration.location, "unused variable declaration.");
+            }
+        }
     }
     
     protected DeclarationStore[string] mDeclarations;
