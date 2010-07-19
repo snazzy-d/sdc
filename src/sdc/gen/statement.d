@@ -55,7 +55,16 @@ void genNonEmptyStatement(NonEmptyStatement statement, Semantic semantic)
 
 void genScopeStatement(ScopeStatement statement, Semantic semantic)
 {
-    error(statement.location, "ICE: scope statement unimplemented.");
+    semantic.pushScope();
+    final switch (statement.type) {
+    case ScopeStatementType.NonEmpty:
+        genNonEmptyStatement(cast(NonEmptyStatement) statement.node, semantic);
+        break;
+    case ScopeStatementType.Block:
+        genBlockStatement(cast(BlockStatement) statement.node, semantic);
+        break;
+    }
+    semantic.popScope();
 }
 
 void genDeclarationStatement(DeclarationStatement statement, Semantic semantic)
