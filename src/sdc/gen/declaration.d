@@ -50,7 +50,7 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
         auto name = extractIdentifier(declarator.name);
         auto d = semantic.getDeclaration(name);
         if (d !is null) {
-            error(decl.location, format("declaration '%s' shadows declaration.", name));
+            error(decl.location, format("declaration '%s' shadows declaration at '%s'.", name, d.declaration.location));
         }
         auto store = new DeclarationStore();
         store.declaration = new SyntheticVariableDeclaration(decl, declarator);
