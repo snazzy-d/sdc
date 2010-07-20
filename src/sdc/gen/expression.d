@@ -237,7 +237,7 @@ LLVMValueRef genPrimaryExpression(PrimaryExpression expr, Semantic semantic)
     case PrimaryType.Identifier:
         return genIdentifier(cast(Identifier) expr.node, semantic);
     case PrimaryType.IntegerLiteral:
-        auto val = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral) expr.node).value), false);
+        auto val = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), to!int((cast(IntegerLiteral) expr.node).value), true);
         auto var = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "literalvar");
         LLVMBuildStore(semantic.builder, val, var);
         return var;
