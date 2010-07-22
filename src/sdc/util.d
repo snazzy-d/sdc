@@ -7,7 +7,7 @@ module sdc.util;
 
 import std.stdio;
 
-pure nothrow bool contains(T)(const(T)[] l, const T a)
+bool contains(T)(const(T)[] l, const T a)
 {
     foreach (e; l) {
         if (e == a) {
