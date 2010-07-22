@@ -241,6 +241,9 @@ LLVMValueRef genPrimaryExpression(PrimaryExpression expr, Semantic semantic)
         auto var = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "literalvar");
         LLVMBuildStore(semantic.builder, val, var);
         return var;
+    case PrimaryType.ParenExpression:
+        auto val = genExpression(cast(Expression) expr.node, semantic);
+        return val;
     default:
         error(expr.location, "ICE: unhandled primary expression type.");
     }
