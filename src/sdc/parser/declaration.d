@@ -51,7 +51,7 @@ bool isVariableDeclaration(TokenStream tstream)
         if (token.type == TokenType.End || token.type == TokenType.OpenBrace ||
             token.type == TokenType.OpenParen) {
             return false;
-        } else if (token.type == TokenType.Semicolon) {
+        } else if (token.type == TokenType.Semicolon || token.type == TokenType.Assign) {
             return true;
         }
         lookahead++;
