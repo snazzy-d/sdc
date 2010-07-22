@@ -38,7 +38,10 @@ void genDeclaration(Declaration decl, Semantic semantic)
         genVariableDeclaration(cast(VariableDeclaration) decl.node, semantic);
         break;
     case DeclarationType.Function:
-        genFunctionDeclaration(cast(FunctionDeclaration) decl.node, semantic);
+        auto FD = cast(FunctionDeclaration) decl.node;
+        if (FD.functionBody !is null) {
+            genFunctionDeclaration(cast(FunctionDeclaration) decl.node, semantic);
+        }
         break;
     }
 }
@@ -117,7 +120,7 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
         synth.type = parameter.type;
         semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(synth, v, null, DeclarationType.Variable));
     }
-    
+        
     genFunctionBody(decl.functionBody, semantic);
     if (!semantic.currentScope.builtReturn) {
         if (LLVMGetReturnType(FT) == LLVMVoidTypeInContext(semantic.context)) {
