@@ -23,33 +23,18 @@ class Declaration : Node
     Node node;
 }
 
-enum DeclType
+class VariableDeclaration : Node
 {
-    Variable,
-    Function,
-    SyntheticVariable
-}
-
-class Decl : Node
-{
-    DeclType dectype;
-    bool isParameter;
-}
-
-class VariableDeclaration : Decl
-{
-    this() { dectype = DeclType.Variable; }
     bool isAlias;
     Type type;
     Declarator[] declarators;
 }
 
-class SyntheticVariableDeclaration : Decl
+class SyntheticVariableDeclaration : Node
 {
-    this() { dectype = DeclType.SyntheticVariable; }
+    this() {}
     this(VariableDeclaration decl, Declarator declarator)
     {
-        dectype = DeclType.SyntheticVariable;
         location = declarator.location;
         isAlias = decl.isAlias;
         type = decl.type;
@@ -69,9 +54,8 @@ class Declarator : Node
     Initialiser initialiser;  // Optional.
 }
     
-class FunctionDeclaration : Decl
+class FunctionDeclaration : Node
 {
-    this() { dectype = DeclType.Function; }
     Type retval;
     Identifier name;
     Parameter[] parameters;
