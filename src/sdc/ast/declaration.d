@@ -59,7 +59,7 @@ class FunctionDeclaration : Node
     Type retval;
     Identifier name;
     Parameter[] parameters;
-    FunctionBody functionBody;
+    FunctionBody functionBody;  // Optional.
 }
 
 class FunctionBody : Node
