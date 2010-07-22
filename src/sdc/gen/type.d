@@ -34,12 +34,25 @@ LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
     switch (t.type) {
     case PrimitiveTypeType.Bool:
         return LLVMInt1TypeInContext(semantic.context);
+    case PrimitiveTypeType.Ubyte:
     case PrimitiveTypeType.Byte:
         return LLVMInt8TypeInContext(semantic.context);
+    case PrimitiveTypeType.Ushort:
     case PrimitiveTypeType.Short:
         return LLVMInt16TypeInContext(semantic.context);
+    case PrimitiveTypeType.Uint:
     case PrimitiveTypeType.Int:
         return LLVMInt32TypeInContext(semantic.context);
+    case PrimitiveTypeType.Ulong:
+    case PrimitiveTypeType.Long:
+        return LLVMInt64TypeInContext(semantic.context);
+    case PrimitiveTypeType.Ucent:
+    case PrimitiveTypeType.Cent:
+        return LLVMIntTypeInContext(semantic.context, 128);
+    case PrimitiveTypeType.Float:
+        return LLVMFloatTypeInContext(semantic.context);
+    case PrimitiveTypeType.Double:
+        return LLVMDoubleTypeInContext(semantic.context);
     case PrimitiveTypeType.Void:
         return LLVMVoidTypeInContext(semantic.context);
     default:
