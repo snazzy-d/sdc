@@ -34,6 +34,48 @@ Attribute parseAttribute(TokenStream tstream)
     auto attribute = new Attribute();
     attribute.location = tstream.peek.location;
     
+    Attribute parseExtern()
+    {
+        match(tstream, TokenType.Extern);
+        if (tstream.peek.type != TokenType.OpenParen) {
+            goto err;
+        }
+        match(tstream, TokenType.OpenParen);
+        if (tstream.peek.type != TokenType.Identifier) {
+            goto err;
+        }
+        switch (tstream.peek.value) {
+        case "C":
+            attribute.type = AttributeType.ExternC;
+            break;
+        case "C++":
+            attribute.type = AttributeType.ExternCPlusPlus;
+            break;
+        case "D":
+            attribute.type = AttributeType.ExternD;
+            break;
+        case "Windows":
+            attribute.type = AttributeType.ExternWindows;
+            break;
+        case "Pascal":
+            attribute.type = AttributeType.ExternPascal;
+            break;
+        case "System":;
+            attribute.type = AttributeType.ExternSystem;
+            break;
+        default:
+            error(tstream.peek.location, "unsupported extern linkage. Supported linkages are C, C++, D, Windows, Pascal, and System.");
+        }
+        match(tstream, TokenType.Identifier);
+        match(tstream, TokenType.CloseParen);
+        
+        return attribute;
+        
+    err:
+        error(tstream.peek.location, "ICE: only linkage style extern supported.");
+        assert(false);
+    }
+    
     switch (tstream.peek.type) {
     case TokenType.Deprecated: case TokenType.Private:
     case TokenType.Package: case TokenType.Protected:
@@ -55,7 +97,7 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Pragma:
         break;
     case TokenType.Extern:
-        break;
+        return parseExtern();
     default:
         error(tstream.peek.location, format("bad attribute '%s'.", tokenToString[tstream.peek.type]));
         assert(false);
