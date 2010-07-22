@@ -149,6 +149,9 @@ void genInitialiser(Initialiser initialiser, Semantic semantic, LLVMValueRef var
     case InitialiserType.AssignExpression:
         auto expr = genAssignExpression(cast(AssignExpression) initialiser.node, semantic);
         auto init = LLVMBuildLoad(semantic.builder, expr, "init");
+        if (LLVMTypeOf(init) != type) {
+            error(initialiser.location, "assign expression does not match declaration type. (ICE: no implicit casting).");
+        }
         LLVMBuildStore(semantic.builder, init, var);
         break;
     }

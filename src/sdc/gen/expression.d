@@ -32,6 +32,10 @@ LLVMValueRef genAssignExpression(AssignExpression expr, Semantic semantic)
     if (expr.assignType != AssignType.None) {
         auto rhs = genAssignExpression(expr.assignExpression, semantic);
         auto r   = LLVMBuildLoad(semantic.builder, rhs, "assign");
+        if (LLVMTypeOf(rhs) != LLVMTypeOf(lhs)) {
+            // TODO: implicit casting.
+            error(expr.location, "left hand type of assignment does not match right hand. (ICE: no implicit casting).");
+        }
         LLVMBuildStore(semantic.builder, r, lhs);
     }
     return lhs;
