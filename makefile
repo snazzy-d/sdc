@@ -9,9 +9,9 @@ EXE=sdc.bin
 # LIBLLVM must be a 32 bit SO.
 CXX=g++
 CXXFLAGS=-m32
-PHOBOS2=/usr/lib/libphobos2.a
-DRUNTIME=/usr/lib/libdruntime.a
-LIBLLVM=/home/bernard/Projects/sdc/libLLVM-2.7.so
+PHOBOS2=/usr/lib32/libphobos2.a
+DRUNTIME=/usr/lib32/libdruntime.a
+LIBLLVM=/home/bernard/Projects/SDC/libLLVM-2.7.so
 LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(DRUNTIME) $(LIBLLVM)
 
 all:
