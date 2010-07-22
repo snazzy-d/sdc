@@ -69,6 +69,8 @@ LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
         return LLVMFloatTypeInContext(semantic.context);
     case PrimitiveTypeType.Double:
         return LLVMDoubleTypeInContext(semantic.context);
+    case PrimitiveTypeType.Real:
+        return LLVMFP128TypeInContext(semantic.context);
     case PrimitiveTypeType.Void:
         return LLVMVoidTypeInContext(semantic.context);
     default:
