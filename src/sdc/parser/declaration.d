@@ -177,6 +177,7 @@ immutable TokenType[] PRIMITIVE_TYPES = [
 TokenType.Bool, TokenType.Byte, TokenType.Ubyte,
 TokenType.Short, TokenType.Ushort, TokenType.Int,
 TokenType.Uint, TokenType.Long, TokenType.Ulong,
+TokenType.Cent, TokenType.Ucent,
 TokenType.Char, TokenType.Wchar, TokenType.Dchar,
 TokenType.Float, TokenType.Double, TokenType.Real,
 TokenType.Ifloat, TokenType.Idouble, TokenType.Ireal,
