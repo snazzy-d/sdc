@@ -206,7 +206,10 @@ LLVMValueRef genFunctionCall(PostfixExpression expr, Semantic semantic, LLVMValu
         args ~= param;
     }
     verifyArgs(expr, args, fn);
-    auto ret = LLVMBuildCall(semantic.builder, fn, args.ptr, args.length, "fn");
+    auto ret = LLVMBuildCall(semantic.builder, fn, args.ptr, args.length, "");
+    if (LLVMTypeOf(ret) == LLVMVoidTypeInContext(semantic.context)) {
+        return ret;
+    }
     auto retval = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(ret), "retval");
     LLVMBuildStore(semantic.builder, ret, retval);
     return retval;
