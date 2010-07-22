@@ -48,7 +48,8 @@ bool isVariableDeclaration(TokenStream tstream)
     Token token;
     while (true) {
         token = tstream.lookahead(lookahead);
-        if (token.type == TokenType.End || token.type == TokenType.OpenBrace) {
+        if (token.type == TokenType.End || token.type == TokenType.OpenBrace ||
+            token.type == TokenType.OpenParen) {
             return false;
         } else if (token.type == TokenType.Semicolon) {
             return true;
@@ -155,7 +156,11 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     declaration.retval = parseType(tstream);
     declaration.name = parseIdentifier(tstream);
     declaration.parameters = parseParameters(tstream);
-    declaration.functionBody = parseFunctionBody(tstream);
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        declaration.functionBody = parseFunctionBody(tstream);
+    } else {
+        match(tstream, TokenType.Semicolon);
+    }
     
     return declaration;
 }
