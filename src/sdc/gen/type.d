@@ -18,15 +18,31 @@ import sdc.gen.extract;
 
 LLVMTypeRef typeToLLVM(Type t, Semantic semantic)
 {
+    LLVMTypeRef T;
     switch (t.type) {
     case TypeType.Primitive:
-        return primitiveToLLVM(cast(PrimitiveType) t.node, semantic);
+        T = primitiveToLLVM(cast(PrimitiveType) t.node, semantic);
+        break;
     case TypeType.UserDefined:
-        return userDefinedTypeToLLVM(cast(UserDefinedType) t.node, semantic);
+        T = userDefinedTypeToLLVM(cast(UserDefinedType) t.node, semantic);
+        break;
     default:
         error(t.location, "ICE: unimplemented type.");
     }
-    assert(false);
+    
+    foreach (suffix; t.suffixes) {
+        final switch (suffix.type) {
+        case TypeSuffixType.Pointer:
+            T = LLVMPointerType(T, 0);
+            break;
+        case TypeSuffixType.DynamicArray:
+        case TypeSuffixType.StaticArray:
+        case TypeSuffixType.AssociativeArray:
+            error(suffix.location, "ICE: unimplemented type suffix.");
+        }
+    }
+    
+    return T;
 }
 
 LLVMTypeRef primitiveToLLVM(PrimitiveType t, Semantic semantic)
