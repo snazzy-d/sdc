@@ -9,6 +9,7 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.location;
 import sdc.ast.declaration;
@@ -106,4 +107,32 @@ void genCast(CastType type, Location location, Semantic semantic, LLVMTypeRef to
     default:
         error(location, format("invalid %s cast.", type == CastType.Implicit ? "implicit" : "explicit"));
     }
+}
+
+void genImplicitCast(Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
+{
+    auto from = LLVMTypeOf(val);
+    if (LLVMGetTypeKind(to) != LLVMGetTypeKind(from)) {
+        goto err;
+    }
+    
+    auto kind = LLVMGetTypeKind(to);
+    switch (kind) {
+    case LLVMTypeKind.Integer:
+        auto toWidth   = LLVMGetIntTypeWidth(to);
+        auto fromWidth = LLVMGetIntTypeWidth(from);
+        if (toWidth < fromWidth) {
+            // Truncating implicit cast.
+            goto err;
+        }
+        break;
+    default:
+        goto err;
+    }
+    
+    genCast(CastType.Implicit, location, semantic, to, val);
+    return;
+    
+err:
+    error(location, "invalid implicit cast.");
 }

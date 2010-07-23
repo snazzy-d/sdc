@@ -33,8 +33,8 @@ LLVMValueRef genAssignExpression(AssignExpression expr, Semantic semantic)
         auto rhs = genAssignExpression(expr.assignExpression, semantic);
         auto r   = LLVMBuildLoad(semantic.builder, rhs, "assign");
         if (LLVMTypeOf(rhs) != LLVMTypeOf(lhs)) {
-            // TODO: implicit casting.
-            error(expr.location, "left hand type of assignment does not match right hand. (ICE: no implicit casting).");
+            auto l = LLVMBuildLoad(semantic.builder, lhs, "impcast");
+            genImplicitCast(expr.location, semantic, LLVMTypeOf(l), r);
         }
         LLVMBuildStore(semantic.builder, r, lhs);
     }

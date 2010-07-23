@@ -149,7 +149,7 @@ void genReturnStatement(ReturnStatement statement, Semantic semantic)
     auto exprType = LLVMTypeOf(retval);
     
     if (exprType != retvalType) {
-        error(statement.expression.location, "expression does not match function return type. (ICE: no implicit casting)");
+        genImplicitCast(statement.expression.location, semantic, retvalType, retval);
     }
     
     LLVMBuildRet(semantic.builder, retval);
