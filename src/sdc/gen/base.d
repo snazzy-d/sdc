@@ -10,6 +10,7 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.location;
 import sdc.ast.sdcmodule;
 import sdc.ast.declaration;
 import sdc.gen.semantic;
@@ -54,3 +55,16 @@ void genDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
         error(declDef.location, "unsupported declaration definition.");
     }
 }
+
+
+void genCast(Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
+{
+    switch (LLVMGetTypeKind(to)) {
+    case LLVMTypeKind.Integer:
+        val = LLVMBuildIntCast(semantic.builder, val, to, "cast");
+        break;
+    default:
+        error(location, "invalid cast.");
+    }
+}
+

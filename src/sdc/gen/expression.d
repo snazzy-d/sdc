@@ -15,6 +15,7 @@ import sdc.compilererror;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.declaration;
+import sdc.gen.base;
 import sdc.gen.semantic;
 import sdc.gen.extract;
 import sdc.gen.type;
@@ -160,13 +161,7 @@ LLVMValueRef genCastExpression(CastExpression expr, Semantic semantic)
     auto e = genUnaryExpression(expr.unaryExpression, semantic);
     auto val = LLVMBuildLoad(semantic.builder, e, "tmp");
     
-    switch (LLVMGetTypeKind(toType)) {
-    case LLVMTypeKind.Integer:
-        val = LLVMBuildIntCast(semantic.builder, val, toType, "cast");
-        break;
-    default:
-        error(expr.location, "invalid explicit cast.");
-    }
+    genCast(expr.location, semantic, toType, val);
     
     auto ex = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "ex");
     LLVMBuildStore(semantic.builder, val, ex);
