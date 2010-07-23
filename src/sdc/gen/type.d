@@ -10,6 +10,7 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.location;
 import sdc.ast.declaration;
 import sdc.gen.semantic;
 import sdc.gen.extract;
@@ -88,4 +89,21 @@ LLVMTypeRef userDefinedTypeToLLVM(UserDefinedType userDefinedType, Semantic sema
         assert(false);
     }
     return d.type;
+}
+
+enum CastType
+{
+    Implicit,
+    Explicit
+}
+
+void genCast(CastType type, Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
+{
+    switch (LLVMGetTypeKind(to)) {
+    case LLVMTypeKind.Integer:
+        val = LLVMBuildIntCast(semantic.builder, val, to, "cast");
+        break;
+    default:
+        error(location, format("invalid %s cast.", type == CastType.Implicit ? "implicit" : "explicit"));
+    }
 }

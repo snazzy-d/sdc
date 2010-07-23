@@ -55,21 +55,3 @@ void genDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
         error(declDef.location, "unsupported declaration definition.");
     }
 }
-
-enum CastType
-{
-    Implicit,
-    Explicit
-}
-
-void genCast(CastType type, Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
-{
-    switch (LLVMGetTypeKind(to)) {
-    case LLVMTypeKind.Integer:
-        val = LLVMBuildIntCast(semantic.builder, val, to, "cast");
-        break;
-    default:
-        error(location, format("invalid %s cast.", type == CastType.Implicit ? "implicit" : "explicit"));
-    }
-}
-
