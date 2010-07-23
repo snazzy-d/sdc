@@ -56,15 +56,20 @@ void genDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
     }
 }
 
+enum CastType
+{
+    Implicit,
+    Explicit
+}
 
-void genCast(Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
+void genCast(CastType type, Location location, Semantic semantic, LLVMTypeRef to, ref LLVMValueRef val)
 {
     switch (LLVMGetTypeKind(to)) {
     case LLVMTypeKind.Integer:
         val = LLVMBuildIntCast(semantic.builder, val, to, "cast");
         break;
     default:
-        error(location, "invalid cast.");
+        error(location, format("invalid %s cast.", type == CastType.Implicit ? "implicit" : "explicit"));
     }
 }
 

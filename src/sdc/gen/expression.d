@@ -161,7 +161,7 @@ LLVMValueRef genCastExpression(CastExpression expr, Semantic semantic)
     auto e = genUnaryExpression(expr.unaryExpression, semantic);
     auto val = LLVMBuildLoad(semantic.builder, e, "tmp");
     
-    genCast(expr.location, semantic, toType, val);
+    genCast(CastType.Explicit, expr.location, semantic, toType, val);
     
     auto ex = LLVMBuildAlloca(semantic.builder, LLVMTypeOf(val), "ex");
     LLVMBuildStore(semantic.builder, val, ex);
