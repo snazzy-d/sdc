@@ -424,9 +424,11 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
     
     postfixExpr.primaryExpression = parsePrimaryExpression(tstream);
     switch (tstream.peek.type) {
+    case TokenType.Dot:
+        break;
     case TokenType.OpenParen:  // TMP
-        postfixExpr.argumentList = parseArgumentList(tstream);
-        postfixExpr.postfixOperation = PostfixOperation.Parens;
+        postfixExpr.firstNode = parseArgumentList(tstream);
+        postfixExpr.type = PostfixType.Parens;
         break;
     default:
         break;

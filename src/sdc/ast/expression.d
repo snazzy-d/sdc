@@ -216,7 +216,7 @@ class CastExpression : Node
     UnaryExpression unaryExpression;
 }
 
-enum PostfixOperation
+enum PostfixType
 {
     None,
     Dot,  // . ( Identifier )  // XXX: specs say a new expression can go here: DMD disagrees.
@@ -229,10 +229,10 @@ enum PostfixOperation
 
 class PostfixExpression : Node
 {
+    PostfixType type;
     PrimaryExpression primaryExpression;
-    PostfixExpression postfixExpression;  // Optional.
-    PostfixOperation postfixOperation;
-    ArgumentList argumentList;  // Optional.
+    Node firstNode;
+    Node secondNode;
 }
 
 class ArgumentList : Node
