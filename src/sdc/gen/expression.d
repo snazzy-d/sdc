@@ -177,7 +177,7 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
         auto name = extractIdentifier(ident);
         auto d = semantic.getDeclaration(name);
         assert(d);  // It should've been looked up in genIdentifier.
-        if (d.declarationType == DeclarationType.Function) {
+        if (d.stype == StoreType.Function) {
             lhs = genFunctionCall(expr, semantic, lhs);
         }
         break;

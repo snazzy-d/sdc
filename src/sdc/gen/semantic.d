@@ -63,7 +63,7 @@ final class Semantic
         return mGlobalScope;
     }
     
-    void setDeclaration(string name, DeclarationStore val)
+    void setDeclaration(string name, Store val)
     {
         if (mScopeStack.length >= 1) {
             mScopeStack[$ - 1].setDeclaration(name, val);
@@ -72,7 +72,7 @@ final class Semantic
         }
     }
     
-    DeclarationStore getDeclaration(string name, bool forceGlobal = false)
+    Store getDeclaration(string name, bool forceGlobal = false)
     {
         foreach (s; retro(mScopeStack)) if (!forceGlobal) {
             if (auto p = s.getDeclaration(name)) {

@@ -55,9 +55,8 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
         if (d !is null) {
             error(decl.location, format("declaration '%s' shadows declaration at '%s'.", name, d.declaration.location));
         }
-        auto store = new DeclarationStore();
+        auto store = new VariableStore();
         store.declaration = new SyntheticVariableDeclaration(decl, declarator);
-        store.declarationType = DeclarationType.Variable;
         store.type = type;
         if (decl.isAlias) {
             if (declarator.initialiser !is null) {
@@ -85,14 +84,18 @@ void declareFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
     }
     auto FT = LLVMFunctionType(typeToLLVM(decl.retval, semantic), params.ptr, params.length, false);
     auto F  = LLVMAddFunction(semantic.mod, toStringz(extractIdentifier(decl.name)), FT);
-    semantic.setDeclaration(extractIdentifier(decl.name), new DeclarationStore(decl, F, FT, DeclarationType.Function));
+    auto store = new FunctionStore();
+    store.declaration = decl;
+    store.type = FT;
+    store.value = F;
+    semantic.setDeclaration(extractIdentifier(decl.name), store);
 }
 
 void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
 {
     auto d = semantic.getDeclaration(extractIdentifier(decl.name));
-    if (d is null || d.declarationType != DeclarationType.Function) {
-        error(decl.location, "ICE: attempted to declare non-existent function.");
+    if (d is null || d.stype != StoreType.Function) {
+        error(decl.location, "ICE: attempted to define non-existent function.");
     }
     
     auto F  = d.value;
@@ -118,7 +121,11 @@ void genFunctionDeclaration(FunctionDeclaration decl, Semantic semantic)
         synth.location = parameter.location;
         synth.identifier = parameter.identifier;
         synth.type = parameter.type;
-        semantic.setDeclaration(extractIdentifier(parameter.identifier), new DeclarationStore(synth, v, null, DeclarationType.Variable));
+        auto store = new VariableStore();
+        store.declaration = synth;
+        store.value = v;
+        store.type = LLVMTypeOf(p);
+        semantic.setDeclaration(extractIdentifier(parameter.identifier), store);
     }
         
     genFunctionBody(decl.functionBody, semantic);
