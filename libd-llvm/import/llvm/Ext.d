@@ -27,14 +27,14 @@ LLVMValueRef LLVMConstRealFromBits(LLVMTypeRef T, uint bits, ulong* data, uint n
 
 void LLVMMoveBasicBlockAfter(LLVMBasicBlockRef src, LLVMBasicBlockRef tgt);
 
-LLVMValueRef LLVMGetNamedAlias(LLVMModuleRef M, /*const*/ char *Name);
+LLVMValueRef LLVMGetNamedAlias(LLVMModuleRef M, const char *Name);
 
 void LLVMAddRetAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 // target triple binding
 
 // returns the running host triple
-char* LLVMGetHostTriple();
+const(char)* LLVMGetHostTriple();
 
 version(none) // disable for now, since this enum is too unstable in llvm
 {
@@ -89,7 +89,7 @@ enum LLVMOSType {
     Win32
 };
 
-LLVMTripleRef LLVMCreateTriple(char* str);
+LLVMTripleRef LLVMCreateTriple(const char* str);
 void LLVMDisposeTriple(LLVMTripleRef triple);
 
 LLVMArchType LLVMTripleGetArch(LLVMTripleRef triple);
@@ -102,7 +102,7 @@ LLVMOSType LLVMTripleGetOS(LLVMTripleRef triple);
 struct LLVM_OpaqueTargetMachine {}
 alias LLVM_OpaqueTargetMachine* LLVMTargetMachineRef;
 
-LLVMTargetMachineRef LLVMCreateTargetMachine(char* cpu, char* triple, char** feats, size_t nfeats);
+LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple, const char** feats, size_t nfeats);
 void LLVMDisposeTargetMachine(LLVMTargetMachineRef machine);
 LLVMTargetDataRef LLVMTargetMachineData(LLVMTargetMachineRef TM);
 
