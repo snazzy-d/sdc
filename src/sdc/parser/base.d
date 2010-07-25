@@ -69,6 +69,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     if (startsLikeAttribute(tstream)) {
         decldef.type = DeclarationDefinitionType.AttributeSpecifier;
         decldef.node = parseAttributeSpecifier(tstream);
+    } else if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
+        decldef.type = DeclarationDefinitionType.AggregateDeclaration;
+        decldef.node = parseAggregateDeclaration(tstream);
     } else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
