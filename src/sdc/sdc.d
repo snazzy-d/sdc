@@ -77,7 +77,6 @@ int main(string[] args)
     return errors ? 1 : 0;
 }
 
-
 void optimise(LLVMModuleRef mod)
 {
     auto passManager = LLVMCreatePassManager();
@@ -87,7 +86,6 @@ void optimise(LLVMModuleRef mod)
     LLVMDisposePassManager(passManager);
 }
 
-
 void usage()
 {
     stdout.writeln("sdc [options] files");
@@ -95,4 +93,3 @@ void usage()
     stdout.writeln("  --version:       print version information to stdout.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
 }
-

@@ -6,6 +6,7 @@
 module sdc.gen.sdcscope;
 
 import std.string;
+import std.typecons;
 
 import llvm.c.Core;
 
@@ -19,6 +20,8 @@ enum StoreType
 {
     Variable,
     Function,
+    Aggregate,
+    AggregateInstance,
 }
 
 class Store
@@ -30,7 +33,7 @@ class Store
     int readCount;
 }
 
-final class VariableStore : Store
+class VariableStore : Store
 {
     this()
     {
@@ -38,17 +41,36 @@ final class VariableStore : Store
     }
 }
 
-/**
- * Holds the declaration, and optionally, the definition of a function.
- */
-final class FunctionStore : Store
+class FunctionStore : Store
 {
     this()
     {
         stype = StoreType.Function;
     }
+    
+     
 }
 
+class AggregateStore : Store
+{
+    this()
+    {
+        stype = StoreType.Aggregate;
+    }
+    
+    // XXX This member causes a segfault if unittests are enabled.
+    int[string] fields;
+}
+
+class AggregateInstance : Store
+{
+    this()
+    {
+        stype = StoreType.AggregateInstance;
+    }
+    
+    AggregateStore aggregateType;
+}
 
 final class Scope
 {

@@ -10,6 +10,7 @@ import std.string;
 import core.memory;
 
 import llvm.c.Core;
+import llvm.Ext;
 
 import sdc.compilererror;
 import sdc.ast.base;
@@ -182,6 +183,29 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
         }
         break;
     case PostfixType.Dot:
+        auto ident = cast(Identifier) expr.primaryExpression.node;
+        if (ident is null) break;
+        auto name = extractIdentifier(ident);
+        auto d = semantic.getDeclaration(name);
+        assert(d);
+        if (d.stype != StoreType.AggregateInstance) {
+            error(expr.location, "attempted to dereference non-aggregate type.");
+        }
+        auto memberIdent = cast(Identifier) expr.firstNode;
+        if (memberIdent is null) break;
+        auto member = extractIdentifier(memberIdent);
+        
+        auto pindex = member in (cast(AggregateInstance)d).aggregateType.fields;
+        if (pindex is null) {
+            error(memberIdent.location, format("non existent field '%s'.", member));
+        }
+        
+        LLVMValueRef[2] indices;
+        indices[0] = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), 0, false);
+        indices[1] = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), *pindex, false);
+        lhs = LLVMBuildInBoundsGEP(semantic.builder, d.value, indices.ptr, indices.length, "dot");
+        
+        break;
     case PostfixType.PostfixInc:
     case PostfixType.PostfixDec:
     case PostfixType.Index:

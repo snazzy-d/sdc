@@ -13,6 +13,7 @@ import sdc.compilererror;
 import sdc.location;
 import sdc.ast.sdcmodule;
 import sdc.ast.declaration;
+import sdc.ast.aggregate;
 import sdc.gen.semantic;
 import sdc.gen.declaration;
 
@@ -40,6 +41,9 @@ void declareDeclarationDefinition(DeclarationDefinition declDef, Semantic semant
     case DeclarationDefinitionType.Declaration:
         declareDeclaration(cast(Declaration) declDef.node, semantic);
         break;
+    case DeclarationDefinitionType.AggregateDeclaration:
+        declareAggregateDeclaration(cast(AggregateDeclaration) declDef.node, semantic);
+        break;
     default:
         break;
     }
@@ -50,6 +54,8 @@ void genDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
     switch (declDef.type) {
     case DeclarationDefinitionType.Declaration:
         genDeclaration(cast(Declaration) declDef.node, semantic);
+        break;
+    case DeclarationDefinitionType.AggregateDeclaration:
         break;
     default:
         error(declDef.location, "unsupported declaration definition.");

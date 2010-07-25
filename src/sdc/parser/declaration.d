@@ -477,9 +477,11 @@ bool startsLikeDeclaration(TokenStream tstream)
         size_t l = 1;
         while (tstream.lookahead(l).type == TokenType.Dot) {
             l++;
-            if (tstream.lookahead(l).type != TokenType.Identifier) {
-                return false;
+            if (tstream.lookahead(l).type == TokenType.Identifier) {
+                l++;
+                break;
             }
+            return false;
         }
         if (tstream.lookahead(l).type == TokenType.Identifier) {
             return true;

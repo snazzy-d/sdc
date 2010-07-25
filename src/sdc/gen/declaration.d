@@ -6,6 +6,7 @@
 module sdc.gen.declaration;
 
 import std.string;
+import std.typecons;
 
 import llvm.c.Core;
 
@@ -13,6 +14,7 @@ import sdc.util;
 import sdc.compilererror;
 import sdc.ast.expression;
 import sdc.ast.declaration;
+import sdc.ast.aggregate;
 import sdc.gen.expression;
 import sdc.gen.semantic;
 import sdc.gen.type;
@@ -48,6 +50,15 @@ void genDeclaration(Declaration decl, Semantic semantic)
 
 void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
 {
+    // Go elsewhere for aggregates.
+    if (decl.type.type == TypeType.UserDefined) {
+        auto tname = extractQualifiedName((cast(UserDefinedType) decl.type.node).qualifiedName);
+        auto dt = semantic.getDeclaration(tname);
+        if (dt !is null && dt.stype == StoreType.Aggregate) {
+            return genAggregateInstance(decl, semantic);
+        }
+    }
+        
     auto type = typeToLLVM(decl.type, semantic);
     foreach (declarator; decl.declarators) {
         auto name = extractIdentifier(declarator.name);
@@ -72,6 +83,37 @@ void genVariableDeclaration(VariableDeclaration decl, Semantic semantic)
         } else {
             LLVMBuildStore(semantic.builder, LLVMConstInt(type, 0, false), store.value);
         }
+        semantic.setDeclaration(name, store);
+    }
+}
+
+void genAggregateInstance(VariableDeclaration decl, Semantic semantic)
+{
+    auto type = typeToLLVM(decl.type, semantic);
+    foreach (declarator; decl.declarators) {
+        auto name = extractIdentifier(declarator.name);
+        auto d = semantic.getDeclaration(name);
+        if (d !is null) {
+            error(decl.location, format("aggregate '%s' shadows declaration at '%s'.", name, d.declaration.location));
+        }
+        
+        auto store = new AggregateInstance();
+        
+        auto tname = extractQualifiedName((cast(UserDefinedType) decl.type.node).qualifiedName);
+        auto dt = semantic.getDeclaration(tname);
+        if (dt is null || dt.stype != StoreType.Aggregate) {
+            error(decl.location, "ICE: attempted to aggregate declare an instance of a non-aggregate type.");
+        }
+        
+        store.declaration = decl;
+        store.type = dt.type;
+        store.aggregateType = cast(AggregateStore) dt;
+        store.value = LLVMBuildAlloca(semantic.builder, type, toStringz(name));
+        // TODO: aliases
+        if (declarator.initialiser !is null) {
+            genInitialiser(declarator.initialiser, semantic, store.value, store.type);
+        }
+        
         semantic.setDeclaration(name, store);
     }
 }
@@ -162,4 +204,68 @@ void genInitialiser(Initialiser initialiser, Semantic semantic, LLVMValueRef var
         LLVMBuildStore(semantic.builder, init, var);
         break;
     }
+}
+
+void declareAggregateDeclaration(AggregateDeclaration decl, Semantic semantic)
+{
+    if (decl.type == AggregateType.Union) {
+        error(decl.location, "ICE: unions are unimplemented.");
+    }
+    
+    auto store = new AggregateStore();
+    store.declaration = decl;
+    auto name = extractIdentifier(decl.name);
+    auto d = semantic.getDeclaration(name);
+    if (d !is null) {
+        error(decl.location, format("already a definition of '%s' at %s.", name, d.declaration.location));
+    }
+    semantic.setDeclaration(name, store);
+    if (decl.structBody is null) {
+        return;
+    }
+    
+    auto fields = declareStructBody(decl.structBody, semantic, store);
+    store.type = LLVMStructTypeInContext(semantic.context, fields.ptr, fields.length, false);
+}
+
+LLVMTypeRef[] declareStructBody(StructBody structBody, Semantic semantic, AggregateStore store)
+{
+    LLVMTypeRef[] fields;
+    foreach (decl; structBody.declarations) {
+        semantic.pushScope();
+        final switch (decl.type) {
+        case StructBodyDeclarationType.Declaration:
+            auto d = cast(Declaration) decl.node;
+            genDeclaration(cast(Declaration) decl.node, semantic);
+            switch (d.type) {
+            case DeclarationType.Variable:
+                auto v = cast(VariableDeclaration) d.node;
+                foreach (declarator; v.declarators) {
+                    auto name = extractIdentifier(declarator.name);
+                    auto vstore = semantic.getDeclaration(name);
+                    assert(vstore);
+                    store.fields[name] = fields.length;
+                    fields ~= vstore.type;
+                }
+                break;
+            default:
+                break;
+            }
+            break;
+        case StructBodyDeclarationType.StaticConstructor:
+        case StructBodyDeclarationType.StaticDestructor:
+        case StructBodyDeclarationType.Invariant:
+        case StructBodyDeclarationType.Unittest:
+        case StructBodyDeclarationType.StructAllocator:
+        case StructBodyDeclarationType.StructDeallocator:
+        case StructBodyDeclarationType.StructConstructor:
+        case StructBodyDeclarationType.StructPostblit:
+        case StructBodyDeclarationType.StructDestructor:
+        case StructBodyDeclarationType.AliasThis:
+            error(decl.location, "ICE: unimplemented struct member.");
+            break;
+        }
+        semantic.popScope();
+    }
+    return fields;
 }
