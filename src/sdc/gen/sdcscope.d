@@ -18,6 +18,7 @@ import sdc.gen.extract;
 
 enum StoreType
 {
+    Empty,
     Variable,
     Function,
     Aggregate,
@@ -31,6 +32,14 @@ class Store
     LLVMValueRef value;
     Node declaration;
     int readCount;
+}
+
+class EmptyStore : Store
+{
+    this()
+    {
+        stype = StoreType.Empty;
+    }
 }
 
 class VariableStore : Store
@@ -47,8 +56,6 @@ class FunctionStore : Store
     {
         stype = StoreType.Function;
     }
-    
-     
 }
 
 class AggregateStore : Store
@@ -58,8 +65,8 @@ class AggregateStore : Store
         stype = StoreType.Aggregate;
     }
     
-    // XXX This member causes a segfault if unittests are enabled.
     int[string] fields;
+    Store[] types;
 }
 
 class AggregateInstance : Store

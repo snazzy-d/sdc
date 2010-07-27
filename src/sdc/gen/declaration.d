@@ -5,8 +5,8 @@
  */
 module sdc.gen.declaration;
 
+import std.conv;
 import std.string;
-import std.typecons;
 
 import llvm.c.Core;
 
@@ -228,6 +228,14 @@ void declareAggregateDeclaration(AggregateDeclaration decl, Semantic semantic)
     store.type = LLVMStructTypeInContext(semantic.context, fields.ptr, fields.length, false);
 }
 
+void stubAggregateDeclaration(AggregateDeclaration decl, Semantic semantic)
+{
+    auto name = extractIdentifier(decl.name);
+    auto store = new EmptyStore();
+    store.type = LLVMOpaqueTypeInContext(semantic.context);
+    semantic.setDeclaration(name, store);
+}
+
 LLVMTypeRef[] declareStructBody(StructBody structBody, Semantic semantic, AggregateStore store)
 {
     LLVMTypeRef[] fields;
@@ -244,6 +252,7 @@ LLVMTypeRef[] declareStructBody(StructBody structBody, Semantic semantic, Aggreg
                     auto name = extractIdentifier(declarator.name);
                     auto vstore = semantic.getDeclaration(name);
                     assert(vstore);
+                    store.types ~= vstore;
                     store.fields[name] = fields.length;
                     fields ~= vstore.type;
                 }

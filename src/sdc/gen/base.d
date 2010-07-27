@@ -35,6 +35,15 @@ LLVMModuleRef genModule(Module mod)
     return semantic.mod;
 }
 
+void dataSkeletonPass(Module mod, Semantic semantic)
+{
+    foreach (declDef; mod.declarationDefinitions) {
+        if (declDef.type == DeclarationDefinitionType.AggregateDeclaration) {
+            stubAggregateDeclaration(cast(AggregateDeclaration) declDef.node, semantic);
+        }
+    }
+}
+
 void declareDeclarationDefinition(DeclarationDefinition declDef, Semantic semantic)
 {
     switch (declDef.type) {

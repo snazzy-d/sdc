@@ -13,6 +13,7 @@ import llvm.c.Core;
 import llvm.Ext;
 
 import sdc.compilererror;
+import sdc.util;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.declaration;
@@ -183,28 +184,46 @@ LLVMValueRef genPostfixExpression(PostfixExpression expr, Semantic semantic)
         }
         break;
     case PostfixType.Dot:
-        auto ident = cast(Identifier) expr.primaryExpression.node;
-        if (ident is null) break;
-        auto name = extractIdentifier(ident);
-        auto d = semantic.getDeclaration(name);
-        assert(d);
+        auto baseIdent = cast(Identifier) expr.primaryExpression.node;
+        if (!baseIdent) {
+            error(expr.location, "attempted to use postfix dot operator on non identifier primary expression.");
+        }
+        auto baseName = extractIdentifier(baseIdent);
+        auto d = semantic.getDeclaration(baseName);
+        if (d is null) {
+            error(baseIdent.location, format("undefined identifier '%s'.", baseName));
+        }
         if (d.stype != StoreType.AggregateInstance) {
             error(expr.location, "attempted to dereference non-aggregate type.");
         }
-        auto memberIdent = cast(Identifier) expr.firstNode;
-        if (memberIdent is null) break;
-        auto member = extractIdentifier(memberIdent);
+        auto aggregateInstance = cast(AggregateInstance) d;
+        assert(aggregateInstance);
         
-        auto pindex = member in (cast(AggregateInstance)d).aggregateType.fields;
-        if (pindex is null) {
-            error(memberIdent.location, format("non existent field '%s'.", member));
+        LLVMValueRef[] indices;
+        indices ~= LLVMConstInt(LLVMInt32TypeInContext(semantic.context), 0, false);
+        AggregateStore store = aggregateInstance.aggregateType;
+        foreach (dotExpr; expr.dotExpressions) {
+            if (dotExpr.type == PrimaryType.Identifier) {
+                auto name = extractIdentifier(cast(Identifier) dotExpr.node);
+                auto pindex = name in store.fields;
+                if (pindex is null) {
+                    error(dotExpr.location, format("non existent field '%s'.", name));
+                }
+                auto type = store.types[*pindex];
+                if (type.stype == StoreType.AggregateInstance) {
+                    debugPrint(name);
+                    auto tmp = cast(AggregateInstance) type;
+                    assert(tmp);
+                    store = cast(AggregateStore) tmp.aggregateType;
+                    assert(store);
+                }
+                indices ~= LLVMConstInt(LLVMInt32TypeInContext(semantic.context), *pindex, false);
+            } else {
+                error(dotExpr.location, "ICE: the only sub expression of the postfix dot operator is identifier.");
+            }
         }
-        
-        LLVMValueRef[2] indices;
-        indices[0] = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), 0, false);
-        indices[1] = LLVMConstInt(LLVMInt32TypeInContext(semantic.context), *pindex, false);
+    
         lhs = LLVMBuildInBoundsGEP(semantic.builder, d.value, indices.ptr, indices.length, "dot");
-        
         break;
     case PostfixType.PostfixInc:
     case PostfixType.PostfixDec:
