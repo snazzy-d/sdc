@@ -61,17 +61,19 @@ int main(string[] args)
             tstream = lex(source);
             mod = parseModule(tstream);
             llvmMod = genModule(mod);
+            continue;
         } catch (CompilerError) {
             errors = true;
             continue;
         }
+        /+
         if (printTokens) tstream.printTo(stdout);
         LLVMVerifyModule(llvmMod, LLVMVerifierFailureAction.AbortProcess, null);
         LLVMWriteBitcodeToFile(llvmMod, "test.bc");
         optimise(llvmMod);
         LLVMDumpModule(llvmMod);
         system("llvm-ld -native test.bc");
-        LLVMDisposeModule(llvmMod);
+        LLVMDisposeModule(llvmMod);+/
     }
 
     return errors ? 1 : 0;
