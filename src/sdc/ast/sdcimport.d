@@ -15,10 +15,19 @@ class ImportDeclaration : Node
     ImportList importList;
 }
 
-// binders+ [via ,] 
+enum ImportListType
+{
+    SingleSimple,
+    SingleBinder,
+    Multiple,
+}
+
+
 class ImportList : Node
 {
-    ImportBinder[] binders;
+    ImportListType type;
+    Import[] imports;
+    ImportBinder binder;
 }
 
 // theImport (: binds+ [via ,])?
@@ -28,7 +37,7 @@ class ImportBinder : Node
     ImportBind[] binds;  // Optional.
 }
 
-// name (= aliasName)?
+// (aliasName =)? name
 class ImportBind : Node
 {
     Identifier name;

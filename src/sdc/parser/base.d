@@ -2,7 +2,7 @@
  * Copyright 2010 Bernard Helyer
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
- */ 
+ */
 module sdc.parser.base;
 
 import std.string;
@@ -66,12 +66,16 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
     
-    if (startsLikeAttribute(tstream)) {
-        decldef.type = DeclarationDefinitionType.AttributeSpecifier;
-        decldef.node = parseAttributeSpecifier(tstream);
-    } else if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
+    if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
         decldef.type = DeclarationDefinitionType.AggregateDeclaration;
         decldef.node = parseAggregateDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Import || (tstream.peek.type == TokenType.Static &&
+                                                         tstream.lookahead(1).type == TokenType.Import)) {
+        decldef.type = DeclarationDefinitionType.ImportDeclaration;
+        decldef.node = parseImportDeclaration(tstream);
+    } else if (startsLikeAttribute(tstream)) {
+        decldef.type = DeclarationDefinitionType.AttributeSpecifier;
+        decldef.node = parseAttributeSpecifier(tstream);
     } else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
