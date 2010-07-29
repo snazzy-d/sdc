@@ -5,12 +5,3 @@
  */
 module sdc.gen.base;
 
-import llvm.c.Core;
-
-import sdc.ast.sdcmodule;
-
-
-LLVMModuleRef genModule(Module mod)
-{
-    return null;
-}

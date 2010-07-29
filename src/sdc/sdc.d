@@ -35,7 +35,6 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.ast.all;
 import sdc.parser.all;
-import sdc.gen.base;
 
 int main(string[] args)
 {
@@ -56,11 +55,9 @@ int main(string[] args)
         auto source = new Source(arg);
         TokenStream tstream;
         Module mod;
-        LLVMModuleRef llvmMod;
         try {
             tstream = lex(source);
             mod = parseModule(tstream);
-            llvmMod = genModule(mod);
             continue;
         } catch (CompilerError) {
             errors = true;
