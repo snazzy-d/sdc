@@ -25,3 +25,15 @@ void warning(Location loc, string message)
 {
     stderr.writeln(format("%s: warning: %s", loc, message));
 }
+
+void panic(Location loc, string message)
+{
+    stderr.writeln(format("%s: Internal Compiler Error: %s", loc, message));
+    throw new CompilerError();
+}
+
+void panic(string message)
+{
+    stderr.writeln(format("Internal Compiler Error: %s", message));
+    throw new CompilerError();
+}
