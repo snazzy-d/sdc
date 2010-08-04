@@ -43,8 +43,6 @@ class IntegerType(alias LLVMTypeFunction) : Type
     protected LLVMTypeRef mType;
 }
 
-// The instances of this class are in the value module.
-
 class FunctionType : Type
 {
     this(Module mod, ast.FunctionDeclaration funcDecl)

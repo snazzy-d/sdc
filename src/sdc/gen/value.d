@@ -63,10 +63,8 @@ class IntegerValue(T, R) : Value
     protected LLVMValueRef mValue;
 }
 
-// The types are here because of a DMD forward reference bug. (grumble grumble)
 alias IntegerType!LLVMInt32TypeInContext Int32Type;
 alias IntegerValue!(Int32Type, int) Int32Value;
-
 
 class FunctionValue : Value
 {
