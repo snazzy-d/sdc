@@ -10,6 +10,7 @@ import llvm.c.Core;
 import sdc.compilererror;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
+import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.value;
 
@@ -56,6 +57,9 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.DeclarationStatement:
+        genDeclarationStatement(cast(ast.DeclarationStatement) statement.node, mod);
+        break;
     case ast.NonEmptyStatementType.ReturnStatement:
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
         break;
@@ -65,6 +69,11 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
 {
     genExpression(statement.expression, mod);
+}
+
+void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
+{
+    genDeclaration(statement.declaration, mod);
 }
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
