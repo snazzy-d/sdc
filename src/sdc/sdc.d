@@ -33,8 +33,10 @@ import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
-import sdc.ast.all;
+import ast = sdc.ast.all;
 import sdc.parser.all;
+import sdc.gen.base;
+import sdc.gen.sdcmodule;
 
 int main(string[] args)
 {
@@ -54,23 +56,23 @@ int main(string[] args)
     foreach (arg; args[1 .. $]) {
         auto source = new Source(arg);
         TokenStream tstream;
-        Module mod;
+        ast.Module aModule;
+        Module gModule;
         try {
             tstream = lex(source);
-            mod = parseModule(tstream);
-            continue;
+            aModule = parseModule(tstream);
+            gModule = genModule(aModule);
         } catch (CompilerError) {
             errors = true;
             continue;
         }
-        /+
+        
         if (printTokens) tstream.printTo(stdout);
-        LLVMVerifyModule(llvmMod, LLVMVerifierFailureAction.AbortProcess, null);
-        LLVMWriteBitcodeToFile(llvmMod, "test.bc");
-        optimise(llvmMod);
-        LLVMDumpModule(llvmMod);
+        LLVMVerifyModule(gModule.mod, LLVMVerifierFailureAction.AbortProcess, null);
+        LLVMWriteBitcodeToFile(gModule.mod, "test.bc");
+        optimise(gModule.mod);
+        LLVMDumpModule(gModule.mod);
         system("llvm-ld -native test.bc");
-        LLVMDisposeModule(llvmMod);+/
     }
 
     return errors ? 1 : 0;

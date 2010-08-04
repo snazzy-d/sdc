@@ -5,6 +5,8 @@
  */
 module sdc.extract.base;
 
+import std.conv;
+
 import sdc.ast.all;
 
 
@@ -22,4 +24,9 @@ string extractQualifiedName(QualifiedName qualifiedName)
 string extractIdentifier(Identifier identifier)
 {
     return identifier.value;
+}
+
+int extractIntegerLiteral(IntegerLiteral literal)
+{
+    return to!int(literal.value);
 }
