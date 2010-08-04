@@ -83,7 +83,20 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
 {
-    return genPrimaryExpression(expression.primaryExpression, mod);
+    auto lhs = genPrimaryExpression(expression.primaryExpression, mod);
+    final switch (expression.type) {
+    case ast.PostfixType.None:
+        break;
+    case ast.PostfixType.Dot:
+    case ast.PostfixType.PostfixInc:
+    case ast.PostfixType.PostfixDec:
+    case ast.PostfixType.Parens:
+    case ast.PostfixType.Index:
+    case ast.PostfixType.Slice:
+        panic(expression.location, "unimplemented postfix expression type.");
+        assert(false);
+    }
+    return lhs;
 }
 
 Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
