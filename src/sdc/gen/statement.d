@@ -53,10 +53,18 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     default:
         panic(statement.location, "unimplemented non empty statement type.");
         assert(false);
+    case ast.NonEmptyStatementType.ExpressionStatement:
+        genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
+        break;
     case ast.NonEmptyStatementType.ReturnStatement:
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
         break;
     }
+}
+
+void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
+{
+    genExpression(statement.expression, mod);
 }
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
