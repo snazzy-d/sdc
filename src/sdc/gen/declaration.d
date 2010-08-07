@@ -40,11 +40,20 @@ void genDeclaration(ast.Declaration decl, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
-        panic(decl.location, "global variables are unimplemented.");
-        assert(false);
+        genVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
+        break;
     case ast.DeclarationType.Function:
         genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
+    }
+}
+
+void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
+{
+    foreach (declarator; decl.declarators) {
+        auto var = astTypeToBackendValue(decl.type, mod);
+        var.set(var.init());
+        mod.currentScope.add(var, extractIdentifier(declarator.name));
     }
 }
 

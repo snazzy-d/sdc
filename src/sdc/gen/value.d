@@ -9,28 +9,31 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.compilererror;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 
 
-interface Value
+abstract class Value
 {
+    bool constant;
+    
     Type type();
     LLVMValueRef get();
     void set(Value val);
+    Value init();
 }
 
-class IntegerValue(T, R) : Value
+class Int32Value : Value
 {
-    bool constant;
-    R constVal;
+    int constVal;
     
     
     this(Module mod)
     {
         mModule = mod;
-        mType = new T(mod);
+        mType = new Int32Type(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType(), "int");
     }
     
@@ -38,24 +41,41 @@ class IntegerValue(T, R) : Value
     {
         this(mod);
         constVal = extractIntegerLiteral(integerLiteral);
-        auto val = LLVMConstInt(mType.llvmType(), constVal, false);
-        LLVMBuildStore(mod.builder, val, mValue);
-        constant = true;
+        constInit(constVal);
     }
     
-    Type type()
+    this(Module mod, int constInitialiser)
+    {
+        this(mod);
+        constInit(constInitialiser);
+    }
+    
+    override Type type()
     {
         return mType;
     }
     
-    LLVMValueRef get()
+    override LLVMValueRef get()
     {
         return LLVMBuildLoad(mModule.builder, mValue, "int");
     }
     
-    void set(Value val)
+    override void set(Value val)
     {
+        this.constant = this.constant && val.constant;
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override Value init()
+    {
+        return new Int32Value(mModule, 0);
+    }
+    
+    protected void constInit(int n)
+    {
+        auto val = LLVMConstInt(mType.llvmType(), n, false);
+        LLVMBuildStore(mModule.builder, val, mValue);
+        constant = true;
     }
     
     protected Module mModule;
@@ -63,8 +83,6 @@ class IntegerValue(T, R) : Value
     protected LLVMValueRef mValue;
 }
 
-alias IntegerType!LLVMInt32TypeInContext Int32Type;
-alias IntegerValue!(Int32Type, int) Int32Value;
 
 class FunctionValue : Value
 {
@@ -76,22 +94,41 @@ class FunctionValue : Value
         mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
     }
     
-    Type type()
+    override Type type()
     {
         return mFunctionType;
     }
     
-    LLVMValueRef get()
+    override LLVMValueRef get()
     {
         return mValue;
     }
     
-    void set(Value val)
+    override void set(Value val)
     {
+    }
+    
+    override Value init()
+    {
+        panic("tried to get the init of a function value.");
+        assert(false);
     }
     
     protected Module mModule;
     protected FunctionType mFunctionType;
     protected LLVMValueRef mValue;
     protected string mName;
+}
+
+
+// I hope it's obvious that the following are stub functions.
+
+Type astTypeToBackendType(ast.Type, Module mod)
+{
+    return new Int32Type(mod);
+}
+
+Value astTypeToBackendValue(ast.Type, Module mod)
+{
+    return new Int32Value(mod);
 }

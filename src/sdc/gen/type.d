@@ -14,24 +14,17 @@ import sdc.gen.sdcmodule;
 import sdc.gen.value;
 
 
-Type astTypeToBackendType(ast.Type, Module mod)
-{
-    return new Int32Type(mod);
-}
-
-
 interface Type
 {
     LLVMTypeRef llvmType();
 }
 
-
-class IntegerType(alias LLVMTypeFunction) : Type
+class Int32Type : Type
 {
     this(Module mod)
     {
         mModule = mod;
-        mType = LLVMTypeFunction(mod.context);
+        mType = LLVMInt32TypeInContext(mod.context);
     }
     
     LLVMTypeRef llvmType()
