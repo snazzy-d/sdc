@@ -5,7 +5,10 @@
  */
 module sdc.gen.expression;
 
+import std.string;
+
 import sdc.compilererror;
+import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -105,8 +108,20 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     switch (expression.type) {
     case ast.PrimaryType.IntegerLiteral:
         return new Int32Value(mod, cast(ast.IntegerLiteral) expression.node);
+    case ast.PrimaryType.Identifier:
+        return genIdentifier(cast(ast.Identifier) expression.node, mod);
     default:
         panic(expression.location, "unhandled primary expression type.");
+    }
+    return val;
+}
+
+Value genIdentifier(ast.Identifier identifier, Module mod)
+{
+    auto name = extractIdentifier(identifier);
+    auto val = mod.currentScope.get(name);
+    if (val is null) {
+        error(identifier.location, format("unknown identifier '%s'.", name));
     }
     return val;
 }
