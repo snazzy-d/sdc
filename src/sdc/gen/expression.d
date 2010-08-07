@@ -92,6 +92,10 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         break;
     case ast.PostfixType.Dot:
     case ast.PostfixType.PostfixInc:
+        auto val = lhs;
+        lhs = new Int32Value(mod, lhs);
+        val.add(new Int32Value(mod, 1));
+        break;
     case ast.PostfixType.PostfixDec:
     case ast.PostfixType.Parens:
     case ast.PostfixType.Index:

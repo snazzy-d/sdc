@@ -26,6 +26,7 @@ abstract class Value
     Type type();
     LLVMValueRef get();
     void set(Value val);
+    void add(Value val);
     Value init();
 }
 
@@ -51,6 +52,12 @@ class Int32Value : Value
         constInit(constInitialiser);
     }
     
+    this(Module mod, Value val)
+    {
+        this(mod);
+        set(val);
+    }
+    
     override Type type()
     {
         return mType;
@@ -64,7 +71,20 @@ class Int32Value : Value
     override void set(Value val)
     {
         this.constant = this.constant && val.constant;
+        if (this.constant) {
+            this.constInt = val.constInt;
+        }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void add(Value val)
+    {
+        this.constant = this.constant && val.constant;
+        if (this.constant) {
+            this.constInt = this.constInt + val.constInt;
+        }
+        auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
+        LLVMBuildStore(mModule.builder, result, mValue);
     }
     
     override Value init()
@@ -106,6 +126,10 @@ class FunctionValue : Value
     }
     
     override void set(Value val)
+    {
+    }
+    
+    override void add(Value val)
     {
     }
     
