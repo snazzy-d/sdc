@@ -18,6 +18,10 @@ import sdc.gen.type;
 abstract class Value
 {
     bool constant;
+    union
+    {
+        int constInt;
+    }
     
     Type type();
     LLVMValueRef get();
@@ -27,9 +31,6 @@ abstract class Value
 
 class Int32Value : Value
 {
-    int constVal;
-    
-    
     this(Module mod)
     {
         mModule = mod;
@@ -40,8 +41,8 @@ class Int32Value : Value
     this(Module mod, ast.IntegerLiteral integerLiteral)
     {
         this(mod);
-        constVal = extractIntegerLiteral(integerLiteral);
-        constInit(constVal);
+        constInt = extractIntegerLiteral(integerLiteral);
+        constInit(constInt);
     }
     
     this(Module mod, int constInitialiser)
