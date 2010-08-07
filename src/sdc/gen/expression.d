@@ -94,7 +94,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         lhs = new Int32Value(mod, lhs);
-        val.add(new Int32Value(mod, 1));
+        val.add(new Int32Value(mod, expression.location, 1));
         break;
     case ast.PostfixType.PostfixDec:
     case ast.PostfixType.Parens:

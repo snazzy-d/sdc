@@ -33,7 +33,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto type = new FunctionType(mod, decl);
     type.declare();
     auto name = extractIdentifier(decl.name);
-    mod.currentScope.add(new FunctionValue(mod, type, name), name);
+    mod.currentScope.add(new FunctionValue(mod, decl.location, type, name), name);
 }
 
 void genDeclaration(ast.Declaration decl, Module mod)
@@ -52,7 +52,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
         auto var = astTypeToBackendValue(decl.type, mod);
-        var.set(var.init());
+        var.set(var.init(decl.location));
         mod.currentScope.add(var, extractIdentifier(declarator.name));
     }
 }

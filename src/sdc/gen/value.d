@@ -10,6 +10,7 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.location;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -17,6 +18,15 @@ import sdc.gen.type;
 
 abstract class Value
 {
+    /// The location that this Value was created at.
+    Location location;
+    
+    this(Module mod, Location loc)
+    {
+        mModule = mod;
+        location = loc;
+    }
+    
     bool constant;
     union
     {
@@ -27,34 +37,38 @@ abstract class Value
     LLVMValueRef get();
     void set(Value val);
     void add(Value val);
-    Value init();
+    Value init(Location location);
+    
+    protected Module mModule;
+    protected Type mType;
+    protected LLVMValueRef mValue;
 }
 
 class Int32Value : Value
 {
-    this(Module mod)
+    this(Module mod, Location loc)
     {
-        mModule = mod;
+        super(mod, loc);
         mType = new Int32Type(mod);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType(), "int");
+        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
     }
-    
+        
     this(Module mod, ast.IntegerLiteral integerLiteral)
     {
-        this(mod);
+        this(mod, integerLiteral.location);
         constInt = extractIntegerLiteral(integerLiteral);
         constInit(constInt);
     }
     
-    this(Module mod, int constInitialiser)
+    this(Module mod, Location location, int constInitialiser)
     {
-        this(mod);
+        this(mod, location);
         constInit(constInitialiser);
     }
     
     this(Module mod, Value val)
     {
-        this(mod);
+        this(mod, val.location);
         set(val);
     }
     
@@ -87,9 +101,9 @@ class Int32Value : Value
         LLVMBuildStore(mModule.builder, result, mValue);
     }
     
-    override Value init()
+    override Value init(Location location)
     {
-        return new Int32Value(mModule, 0);
+        return new Int32Value(mModule, location, 0);
     }
     
     protected void constInit(int n)
@@ -98,26 +112,22 @@ class Int32Value : Value
         LLVMBuildStore(mModule.builder, val, mValue);
         constant = true;
     }
-    
-    protected Module mModule;
-    protected Type mType;
-    protected LLVMValueRef mValue;
 }
 
 
 class FunctionValue : Value
 {
-    this(Module mod, FunctionType func, string name)
+    this(Module mod, Location location, FunctionType func, string name)
     {
-        mModule = mod;
-        mFunctionType = func;
+        super(mod, location);
+        mType = func;
         mName = name;
         mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
     }
     
     override Type type()
     {
-        return mFunctionType;
+        return mType;
     }
     
     override LLVMValueRef get()
@@ -133,15 +143,12 @@ class FunctionValue : Value
     {
     }
     
-    override Value init()
+    override Value init(Location location)
     {
-        panic("tried to get the init of a function value.");
+        panic(location, "tried to get the init of a function value.");
         assert(false);
     }
     
-    protected Module mModule;
-    protected FunctionType mFunctionType;
-    protected LLVMValueRef mValue;
     protected string mName;
 }
 
@@ -153,7 +160,7 @@ Type astTypeToBackendType(ast.Type, Module mod)
     return new Int32Type(mod);
 }
 
-Value astTypeToBackendValue(ast.Type, Module mod)
+Value astTypeToBackendValue(ast.Type type, Module mod)
 {
-    return new Int32Value(mod);
+    return new Int32Value(mod, type.location);
 }
