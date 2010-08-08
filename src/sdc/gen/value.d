@@ -30,6 +30,7 @@ abstract class Value
     bool constant;
     union
     {
+        bool constBool;
         int constInt;
     }
     
@@ -48,26 +49,19 @@ abstract class Value
     protected LLVMValueRef mValue;
 }
 
-class IntValue : Value
+class PrimitiveIntegerValue(T, B, alias C) : Value
 {
     this(Module mod, Location loc)
     {
         super(mod, loc);
-        mType = new IntType(mod);
+        mType = new B(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
     }
-        
-    this(Module mod, ast.IntegerLiteral integerLiteral)
-    {
-        this(mod, integerLiteral.location);
-        constInt = extractIntegerLiteral(integerLiteral);
-        constInit(constInt);
-    }
     
-    this(Module mod, Location location, int constInitialiser)
+    this(Module mod, Location loc, T n)
     {
-        this(mod, location);
-        constInit(constInitialiser);
+        this(mod, loc);
+        constInit(n);
     }
     
     this(Module mod, Value val)
@@ -78,14 +72,14 @@ class IntValue : Value
     
     override LLVMValueRef get()
     {
-        return LLVMBuildLoad(mModule.builder, mValue, "int");
+        return LLVMBuildLoad(mModule.builder, mValue, "primitive");
     }
     
     override void set(Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
-            this.constInt = val.constInt;
+            mixin(C ~ " = val." ~ C ~ ";");
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
     }
@@ -94,7 +88,7 @@ class IntValue : Value
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
-            this.constInt = this.constInt + val.constInt;
+            mixin(C ~ " = " ~ C ~ " + val." ~ C ~ ";");
         }
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         LLVMBuildStore(mModule.builder, result, mValue);
@@ -102,17 +96,19 @@ class IntValue : Value
     
     override Value init(Location location)
     {
-        return new IntValue(mModule, location, 0);
+        return new typeof(this)(mModule, location, 0);
     }
     
-    protected void constInit(int n)
+    protected void constInit(T n)
     {
         auto val = LLVMConstInt(mType.llvmType(), n, false);
         LLVMBuildStore(mModule.builder, val, mValue);
         constant = true;
+        mixin(C ~ " = n;");
     }
 }
 
+alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
 class FunctionValue : Value
 {

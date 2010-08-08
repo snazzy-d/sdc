@@ -111,7 +111,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     Value val;
     switch (expression.type) {
     case ast.PrimaryType.IntegerLiteral:
-        return new IntValue(mod, cast(ast.IntegerLiteral) expression.node);
+        return new IntValue(mod, expression.location, extractIntegerLiteral(cast(ast.IntegerLiteral) expression.node));
     case ast.PrimaryType.Identifier:
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     default:
