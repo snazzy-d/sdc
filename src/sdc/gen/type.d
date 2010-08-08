@@ -14,8 +14,16 @@ import sdc.gen.sdcmodule;
 import sdc.gen.value;
 
 
+enum DType
+{
+    None,
+    Int,
+    Function,
+}
+
 abstract class Type
 {
+    DType dtype;
     LLVMTypeRef llvmType();
 }
 
@@ -23,6 +31,7 @@ class Int32Type : Type
 {
     this(Module mod)
     {
+        dtype = DType.Int;
         mModule = mod;
         mType = LLVMInt32TypeInContext(mod.context);
     }
@@ -40,6 +49,7 @@ class FunctionType : Type
 {
     this(Module mod, ast.FunctionDeclaration funcDecl)
     {
+        dtype = DType.Function;
         mModule = mod;
         mFunctionDeclaration = funcDecl;
     }
