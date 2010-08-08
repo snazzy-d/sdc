@@ -148,11 +148,6 @@ class FunctionValue : Value
 
 // I hope it's obvious that the following are stub functions.
 
-Type astTypeToBackendType(ast.Type, Module mod)
-{
-    return new IntType(mod);
-}
-
 Value astTypeToBackendValue(ast.Type type, Module mod)
 {
     return new IntValue(mod, type.location);
