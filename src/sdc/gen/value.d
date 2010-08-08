@@ -33,7 +33,11 @@ abstract class Value
         int constInt;
     }
     
-    Type type();
+    Type type()
+    {
+        return mType;
+    }
+    
     LLVMValueRef get();
     void set(Value val);
     void add(Value val);
@@ -70,11 +74,6 @@ class IntValue : Value
     {
         this(mod, val.location);
         set(val);
-    }
-    
-    override Type type()
-    {
-        return mType;
     }
     
     override LLVMValueRef get()
@@ -123,11 +122,6 @@ class FunctionValue : Value
         mType = func;
         mName = name;
         mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
-    }
-    
-    override Type type()
-    {
-        return mType;
     }
     
     override LLVMValueRef get()
