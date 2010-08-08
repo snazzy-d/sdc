@@ -17,6 +17,7 @@ import sdc.gen.value;
 enum DType
 {
     None,
+    Bool,
     Int,
     Function,
 }
@@ -37,6 +38,16 @@ abstract class Type
     
     protected Module mModule;
     protected LLVMTypeRef mType;
+}
+
+class BoolType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Bool;
+        mType = LLVMInt1TypeInContext(mod.context);
+    }
 }
 
 class IntType : Type
