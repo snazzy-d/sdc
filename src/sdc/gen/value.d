@@ -44,7 +44,7 @@ abstract class Value
     protected LLVMValueRef mValue;
 }
 
-class Int32Value : Value
+class IntValue : Value
 {
     this(Module mod, Location loc)
     {
@@ -103,7 +103,7 @@ class Int32Value : Value
     
     override Value init(Location location)
     {
-        return new Int32Value(mModule, location, 0);
+        return new IntValue(mModule, location, 0);
     }
     
     protected void constInit(int n)
@@ -164,5 +164,5 @@ Type astTypeToBackendType(ast.Type, Module mod)
 
 Value astTypeToBackendValue(ast.Type type, Module mod)
 {
-    return new Int32Value(mod, type.location);
+    return new IntValue(mod, type.location);
 }

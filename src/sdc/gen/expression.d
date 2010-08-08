@@ -93,8 +93,8 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     case ast.PostfixType.Dot:
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
-        lhs = new Int32Value(mod, lhs);
-        val.add(new Int32Value(mod, expression.location, 1));
+        lhs = new IntValue(mod, lhs);
+        val.add(new IntValue(mod, expression.location, 1));
         break;
     case ast.PostfixType.PostfixDec:
     case ast.PostfixType.Parens:
@@ -111,7 +111,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     Value val;
     switch (expression.type) {
     case ast.PrimaryType.IntegerLiteral:
-        return new Int32Value(mod, cast(ast.IntegerLiteral) expression.node);
+        return new IntValue(mod, cast(ast.IntegerLiteral) expression.node);
     case ast.PrimaryType.Identifier:
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     default:
