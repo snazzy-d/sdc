@@ -88,7 +88,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
-            mixin(C ~ " = " ~ C ~ " + val." ~ C ~ ";");
+            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
         }
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         LLVMBuildStore(mModule.builder, result, mValue);
@@ -108,6 +108,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     }
 }
 
+alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
 class FunctionValue : Value
