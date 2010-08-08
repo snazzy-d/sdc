@@ -49,7 +49,7 @@ class Int32Value : Value
     this(Module mod, Location loc)
     {
         super(mod, loc);
-        mType = new Int32Type(mod);
+        mType = new IntType(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
     }
         
@@ -159,7 +159,7 @@ class FunctionValue : Value
 
 Type astTypeToBackendType(ast.Type, Module mod)
 {
-    return new Int32Type(mod);
+    return new IntType(mod);
 }
 
 Value astTypeToBackendValue(ast.Type type, Module mod)

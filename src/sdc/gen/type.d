@@ -27,7 +27,7 @@ abstract class Type
     LLVMTypeRef llvmType();
 }
 
-class Int32Type : Type
+class IntType : Type
 {
     this(Module mod)
     {
