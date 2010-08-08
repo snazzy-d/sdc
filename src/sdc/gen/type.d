@@ -24,19 +24,13 @@ enum DType
 abstract class Type
 {
     DType dtype;
-    LLVMTypeRef llvmType();
-}
-
-class IntType : Type
-{
+    
     this(Module mod)
     {
-        dtype = DType.Int;
         mModule = mod;
-        mType = LLVMInt32TypeInContext(mod.context);
     }
     
-    override LLVMTypeRef llvmType()
+    LLVMTypeRef llvmType()
     {
         return mType;
     }
@@ -45,12 +39,22 @@ class IntType : Type
     protected LLVMTypeRef mType;
 }
 
+class IntType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Int;
+        mType = LLVMInt32TypeInContext(mod.context);
+    }
+}
+
 class FunctionType : Type
 {
     this(Module mod, ast.FunctionDeclaration funcDecl)
     {
+        super(mod);
         dtype = DType.Function;
-        mModule = mod;
         mFunctionDeclaration = funcDecl;
     }
     
@@ -64,14 +68,7 @@ class FunctionType : Type
         }
         mType = LLVMFunctionType(retval.llvmType, params.ptr, params.length, false);
     }
-    
-    override LLVMTypeRef llvmType()
-    {
-        return mType;
-    }
         
-    protected Module mModule;
-    protected LLVMTypeRef mType;
     protected ast.FunctionDeclaration mFunctionDeclaration;
     protected Type[] mParameters;
 }
