@@ -14,6 +14,7 @@ import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.statement;
+import sdc.gen.expression;
 
 
 void declareDeclaration(ast.Declaration decl, Module mod)
@@ -52,7 +53,17 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
         auto var = astTypeToBackendValue(decl.type, mod);
-        var.set(var.init(decl.location));
+        if (declarator.initialiser is null) {
+            var.set(var.init(decl.location));
+        } else {
+            if (declarator.initialiser.type == ast.InitialiserType.Void) {
+                panic(declarator.initialiser.location, "void initialisers are unimplemented.");
+            } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
+                var.set(genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod));
+            } else {
+                panic(declarator.initialiser.location, "unhandled initialiser type.");
+            }
+        }
         mod.currentScope.add(var, extractIdentifier(declarator.name));
     }
 }
