@@ -150,5 +150,26 @@ class FunctionValue : Value
 
 Value astTypeToBackendValue(ast.Type type, Module mod)
 {
-    return new IntValue(mod, type.location);
+    switch (type.type) {
+    case ast.TypeType.Primitive:
+        return primitiveTypeToBackendValue(cast(ast.PrimitiveType) type.node, mod);
+    default:
+        panic(type.location, "unhandled type type.");
+    }
+    
+    assert(false);
+}
+
+Value primitiveTypeToBackendValue(ast.PrimitiveType type, Module mod)
+{
+    switch (type.type) {
+    case ast.PrimitiveTypeType.Bool:
+        return new BoolValue(mod, type.location);
+    case ast.PrimitiveTypeType.Int:
+        return new IntValue(mod, type.location);
+    default:
+        panic(type.location, "unhandled primitive type type.");
+    }
+    
+    assert(false);
 }
