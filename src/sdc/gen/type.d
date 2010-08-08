@@ -14,7 +14,7 @@ import sdc.gen.sdcmodule;
 import sdc.gen.value;
 
 
-interface Type
+abstract class Type
 {
     LLVMTypeRef llvmType();
 }
@@ -27,7 +27,7 @@ class Int32Type : Type
         mType = LLVMInt32TypeInContext(mod.context);
     }
     
-    LLVMTypeRef llvmType()
+    override LLVMTypeRef llvmType()
     {
         return mType;
     }
@@ -55,7 +55,7 @@ class FunctionType : Type
         mType = LLVMFunctionType(retval.llvmType, params.ptr, params.length, false);
     }
     
-    LLVMTypeRef llvmType()
+    override LLVMTypeRef llvmType()
     {
         return mType;
     }
