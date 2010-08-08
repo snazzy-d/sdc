@@ -137,10 +137,12 @@ class FunctionValue : Value
     
     override void set(Value val)
     {
+        panic(val.location, "tried to directly set a function value.");
     }
     
     override void add(Value val)
     {
+        panic(val.location, "tried to add a value directly to a function value.");
     }
     
     override Value init(Location location)
