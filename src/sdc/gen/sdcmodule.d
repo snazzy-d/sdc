@@ -32,8 +32,16 @@ class Module
         currentScope = globalScope;
     }
     
+    ~this()
+    {
+        if (!mDisposed) {
+            llvmDispose();
+        }
+    }
+    
     void llvmDispose()
     {
+        mDisposed = true;
         LLVMDisposeModule(mod);
         LLVMDisposeBuilder(builder);
     }
@@ -79,6 +87,7 @@ class Module
     
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
+    protected bool mDisposed;
 }
 
 class Scope
