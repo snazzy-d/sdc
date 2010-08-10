@@ -32,7 +32,7 @@ class Module
         currentScope = globalScope;
     }
     
-    ~this()
+    void llvmDispose()
     {
         LLVMDisposeModule(mod);
         LLVMDisposeBuilder(builder);
