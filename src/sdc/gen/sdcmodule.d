@@ -37,7 +37,7 @@ class Module
         LLVMDisposeModule(mod);
         LLVMDisposeBuilder(builder);
     }
-    
+
     void pushScope()
     {
         mScopeStack ~= new Scope();
