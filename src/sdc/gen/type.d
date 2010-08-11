@@ -19,6 +19,7 @@ enum DType
     None,
     Bool,
     Int,
+    Complex,
     Function,
 }
 
@@ -34,6 +35,18 @@ abstract class Type
     LLVMTypeRef llvmType()
     {
         return mType;
+    }
+    
+    override bool opEquals(Object o)
+    {
+        auto asType = cast(Type) o;
+        if (!asType) return false;
+        
+        if (this.dtype < DType.Complex) {
+            return this.dtype == asType.dtype;
+        }
+        
+        return this.mType == asType.mType;
     }
     
     protected Module mModule;
