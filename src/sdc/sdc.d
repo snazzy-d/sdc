@@ -58,7 +58,7 @@ int main(string[] args)
         TokenStream tstream;
         ast.Module aModule;
         Module gModule;
-        scope (exit) if (gModule !is null) gModule.llvmDispose();
+        scope (exit) if (gModule !is null) gModule.dispose();
         try {
             tstream = lex(source);
             aModule = parseModule(tstream);

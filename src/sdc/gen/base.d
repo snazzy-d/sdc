@@ -14,7 +14,17 @@ import sdc.gen.declaration;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
+    try {
+        realGenModule(astModule, mod);
+    } catch (CompilerError e) {
+        mod.dispose();
+        throw e;
+    }
+    return mod;
+}
 
+void realGenModule(ast.Module astModule, Module mod)
+{
     // Declare all functions and data structures.
     foreach (declDef; astModule.declarationDefinitions) {
         declareDeclarationDefinition(declDef, mod);
@@ -24,8 +34,6 @@ Module genModule(ast.Module astModule)
     foreach (declDef; astModule.declarationDefinitions) {
         genDeclarationDefinition(declDef, mod);
     }
-    
-    return mod;
 }
 
 void declareDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
