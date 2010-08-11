@@ -34,10 +34,16 @@ abstract class Value
         int constInt;
     }
     
-    Type type()
+    Type type() @property
     {
         return mType;
     }
+    
+    void type(Type t) @property
+    {
+        mType = t;
+    }
+    
     
     LLVMValueRef get();
     void set(Value val);
