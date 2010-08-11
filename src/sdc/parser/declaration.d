@@ -7,7 +7,7 @@ module sdc.parser.declaration;
 
 import std.string;
 import std.conv;
-import std.contracts;
+import std.exception;
 
 import sdc.util;
 import sdc.tokenstream;
