@@ -42,7 +42,7 @@ abstract class Type
         auto asType = cast(Type) o;
         if (!asType) return false;
         
-        return this.dtype == asType.dtype;
+        return this.mType == asType.mType;
     }
     
     protected Module mModule;
@@ -83,12 +83,23 @@ class FunctionType : Type
         auto retval = astTypeToBackendValue(mFunctionDeclaration.retval, mModule);
         LLVMTypeRef[] params;
         foreach (param; mFunctionDeclaration.parameters) {
-            mParameters ~= astTypeToBackendValue(param.type, mModule);
-            params ~= mParameters[$ - 1].type.llvmType;
+            params ~= astTypeToBackendValue(param.type, mModule).type.llvmType;
         }
         mType = LLVMFunctionType(retval.type.llvmType, params.ptr, params.length, false);
     }
-        
+
     protected ast.FunctionDeclaration mFunctionDeclaration;
-    protected Value[] mParameters;
 }
+
+unittest
+{
+    auto mod = new Module("unittest_module");
+    auto a = new IntType(mod);
+    auto b = new IntType(mod);
+    assert(a !is b);
+    assert(a == b);
+    auto c = new BoolType(mod);
+    assert(a != c);
+    mod.dispose();
+}
+
