@@ -19,7 +19,6 @@ enum DType
     None,
     Bool,
     Int,
-    Complex,
     Function,
 }
 
@@ -37,16 +36,13 @@ abstract class Type
         return mType;
     }
     
+    /// An opEquals appropriate for simple types.
     override bool opEquals(Object o)
     {
         auto asType = cast(Type) o;
         if (!asType) return false;
         
-        if (this.dtype < DType.Complex) {
-            return this.dtype == asType.dtype;
-        }
-        
-        return this.mType == asType.mType;
+        return this.dtype == asType.dtype;
     }
     
     protected Module mModule;
