@@ -9,6 +9,7 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.compilererror;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -19,7 +20,13 @@ enum DType
     None,
     Bool,
     Int,
+    Complex,
     Function,
+}
+
+pure bool isComplexDType(DType dtype)
+{
+    return dtype >= DType.Complex;
 }
 
 abstract class Type
@@ -102,4 +109,3 @@ unittest
     assert(a != c);
     mod.dispose();
 }
-
