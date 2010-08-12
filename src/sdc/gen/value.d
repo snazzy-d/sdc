@@ -128,7 +128,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
 alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
-mixin template invalidOperation(alias FunctionName)
+mixin template InvalidOperation(alias FunctionName)
 {
     mixin("override void " ~ FunctionName ~ "(Value val) {\n"
           `    panic(val.location, "invalid operation used.");`
@@ -150,9 +150,9 @@ class FunctionValue : Value
         return mValue;
     }
     
-    mixin invalidOperation!"set";
-    mixin invalidOperation!"add";
-    mixin invalidOperation!"sub";
+    mixin InvalidOperation!"set";
+    mixin InvalidOperation!"add";
+    mixin InvalidOperation!"sub";
     
     override Value init(Location location)
     {
