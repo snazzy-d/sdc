@@ -5,9 +5,12 @@
  */
 module sdc.gen.statement;
 
+import std.conv;
+
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.util;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
