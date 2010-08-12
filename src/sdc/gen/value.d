@@ -130,7 +130,7 @@ alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
 mixin template InvalidOperation(alias FunctionName)
 {
-    mixin("override void " ~ FunctionName ~ "(Value val) {\n"
+    mixin("override void " ~ FunctionName ~ "(Value val) {"
           `    panic(val.location, "invalid operation used.");`
           "}");
 }
