@@ -57,7 +57,7 @@ class Module
          * because of a bug manifested in std.range.retro.
          * WORKAROUND 2.048
          */
-        for (auto i = mScopeStack.length - 1; i >= 0; i--) {
+        for (int i = mScopeStack.length - 1; i >= 0; i--) {
             auto localScope = mScopeStack[i];
             auto v = localScope.get(name);
             if (v !is null) {
