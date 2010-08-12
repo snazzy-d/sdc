@@ -48,6 +48,7 @@ abstract class Value
     LLVMValueRef get();
     void set(Value val);
     void add(Value val);
+    void sub(Value val);
     Value init(Location location);
     
     protected Module mModule;
@@ -100,6 +101,16 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, result, mValue);
     }
     
+    override void sub(Value val)
+    {
+        this.constant = this.constant && val.constant;
+        if (this.constant) {
+            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
+        }
+        auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
+        LLVMBuildStore(mModule.builder, result, mValue);
+    }
+    
     override Value init(Location location)
     {
         return new typeof(this)(mModule, location, 0);
@@ -117,6 +128,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
 alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
+mixin template invalidOperation(alias FunctionName)
+{
+    mixin("override void " ~ FunctionName ~ "(Value val) {\n"
+          `    panic(val.location, "invalid operation used.");`
+          "}");
+}
+
 class FunctionValue : Value
 {
     this(Module mod, Location location, FunctionType func, string name)
@@ -132,15 +150,9 @@ class FunctionValue : Value
         return mValue;
     }
     
-    override void set(Value val)
-    {
-        panic(val.location, "tried to directly set a function value.");
-    }
-    
-    override void add(Value val)
-    {
-        panic(val.location, "tried to add a value directly to a function value.");
-    }
+    mixin invalidOperation!"set";
+    mixin invalidOperation!"add";
+    mixin invalidOperation!"sub";
     
     override Value init(Location location)
     {
