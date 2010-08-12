@@ -67,7 +67,27 @@ Value genShiftExpression(ast.ShiftExpression expression, Module mod)
 
 Value genAddExpression(ast.AddExpression expression, Module mod)
 {
-    return genMulExpression(expression.mulExpression, mod);
+    //auto val = genMulExpression(expression.mulExpression, mod);
+    Value val;
+    if (expression.addExpression !is null) {
+        auto lhs = genAddExpression(expression.addExpression, mod);
+        val = genMulExpression(expression.mulExpression, mod);
+        final switch (expression.addOperation) {
+        case ast.AddOperation.Add:
+            val.add(lhs);
+            break;
+        case ast.AddOperation.Subtract:
+            val.sub(lhs);
+            break;
+        case ast.AddOperation.Concat:
+            panic(expression.location, "unimplemented add operation.");
+            assert(false);
+        }
+    } else {
+        val = genMulExpression(expression.mulExpression, mod);
+    }
+    
+    return val;
 }
 
 Value genMulExpression(ast.MulExpression expression, Module mod)
