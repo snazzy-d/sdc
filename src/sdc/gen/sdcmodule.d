@@ -51,6 +51,22 @@ class Module
         currentScope = mScopeStack.length >= 1 ? mScopeStack[$ - 1] : globalScope;
     }
     
+    Value search(string name)
+    {
+        /* This isn't just `foreach (localScope; retro(mScopeStack)`  
+         * because of a bug manifested in std.range.retro.
+         * WORKAROUND 2.048
+         */
+        foreach (i; mScopeStack.length - 1 .. 0) {
+            auto localScope = mScopeStack[i];
+            auto v = localScope.get(name);
+            if (v !is null) {
+                return v;
+            }
+        }
+        return globalScope.get(name);
+    }
+    
     void pushPath(PathType type)
     {
         mPathStack ~= new Path(type);
