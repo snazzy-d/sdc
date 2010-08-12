@@ -121,7 +121,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
-            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
+            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " - val." ~ C ~ ");");
         }
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
         LLVMBuildStore(mModule.builder, result, mValue);
