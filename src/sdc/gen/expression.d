@@ -81,7 +81,30 @@ Value genPowExpression(ast.PowExpression expression, Module mod)
 
 Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 {
-    return genPostfixExpression(expression.postfixExpression, mod);
+    //auto val = genPostfixExpression(expression.postfixExpression, mod);
+    Value val;
+    final switch (expression.unaryPrefix) {
+    case ast.UnaryPrefix.PrefixDec:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val.sub(new IntValue(mod, expression.location, 1));
+        break;
+    case ast.UnaryPrefix.PrefixInc:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val.add(new IntValue(mod, expression.location, 1));
+        break;
+    case ast.UnaryPrefix.AddressOf:
+    case ast.UnaryPrefix.UnaryMinus:
+    case ast.UnaryPrefix.UnaryPlus:
+    case ast.UnaryPrefix.Dereference:
+    case ast.UnaryPrefix.LogicalNot:
+    case ast.UnaryPrefix.BitwiseNot:
+        panic(expression.location, "unimplemented unary expression.");
+        assert(false);
+    case ast.UnaryPrefix.None:
+        val = genPostfixExpression(expression.postfixExpression, mod);
+        break;
+    }
+    return val;
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
