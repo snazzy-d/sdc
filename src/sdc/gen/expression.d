@@ -146,6 +146,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         val.sub(new IntValue(mod, expression.location, 1));
         break;
     case ast.PostfixType.Parens:
+        if (lhs.type.dtype == DType.Function) {
+            lhs = lhs.call(null);
+        } else {
+            error(expression.location, "can only call functions.");
+        }
+        break;
     case ast.PostfixType.Index:
     case ast.PostfixType.Slice:
         panic(expression.location, "unimplemented postfix expression type.");

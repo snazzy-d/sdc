@@ -56,8 +56,10 @@ abstract class Value
     
     LLVMValueRef get();
     void set(Value val);
+    void set(LLVMValueRef val);
     void add(Value val);
     void sub(Value val);
+    Value call(Value[] args);
     Value init(Location location);
     
     protected Module mModule;
@@ -68,14 +70,14 @@ abstract class Value
 mixin template InvalidOperation(alias FunctionSignature)
 {
     mixin("override " ~ FunctionSignature ~ " {"
-          `    panic(location, "invalid operation used."); }`);
+          `    panic(location, "invalid operation used."); assert(false); }`);
 }
 
     
 class PrimitiveIntegerValue(T, B, alias C) : Value
 {
     this(Module mod, Location loc)
-    {
+    { 
         super(mod, loc);
         mType = new B(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
@@ -107,6 +109,12 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, val.get(), mValue);
     }
     
+    override void set(LLVMValueRef val)
+    {
+        constant = false;
+        LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
     override void add(Value val)
     {
         this.constant = this.constant && val.constant;
@@ -126,6 +134,8 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
         LLVMBuildStore(mModule.builder, result, mValue);
     }
+    
+    mixin InvalidOperation!"Value call(Value[])";
     
     override Value init(Location location)
     {
@@ -161,7 +171,21 @@ class FunctionValue : Value
         return mValue;
     }
     
+    override Value call(Value[] args)
+    {
+        LLVMValueRef[] llvmArgs;
+        foreach (arg; args) {
+            llvmArgs ~= arg.get();
+        }
+        
+        auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
+        auto val = new IntValue(mModule, location);  // TMP TMP TMP
+        val.set(retval);
+        return val;
+    }
+    
     mixin InvalidOperation!"void set(Value)";
+    mixin InvalidOperation!"void set(LLVMValueRef)";
     mixin InvalidOperation!"void add(Value)";
     mixin InvalidOperation!"void sub(Value)";
     
