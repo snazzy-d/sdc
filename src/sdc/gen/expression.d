@@ -97,6 +97,10 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         val.add(new IntValue(mod, expression.location, 1));
         break;
     case ast.PostfixType.PostfixDec:
+        auto val = lhs;
+        lhs = new IntValue(mod, lhs);
+        val.sub(new IntValue(mod, expression.location, 1));
+        break;
     case ast.PostfixType.Parens:
     case ast.PostfixType.Index:
     case ast.PostfixType.Slice:
