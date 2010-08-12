@@ -53,7 +53,7 @@ class Module
     
     Value search(string name)
     {
-        /* This isn't just `foreach (localScope; retro(mScopeStack)`  
+        /* This isn't just `foreach (localScope; retro(mScopeStack))`  
          * because of a bug manifested in std.range.retro.
          * WORKAROUND 2.048
          */
