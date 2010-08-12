@@ -11,6 +11,7 @@ import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
+import sdc.gen.type;
 import sdc.gen.value;
 
 
@@ -154,7 +155,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
     auto name = extractIdentifier(identifier);
-    auto val = mod.currentScope.get(name);
+    auto val = mod.search(name);
     if (val is null) {
         error(identifier.location, format("unknown identifier '%s'.", name));
     }
