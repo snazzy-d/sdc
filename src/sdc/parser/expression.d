@@ -435,6 +435,10 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
         postfixExpr.type = PostfixType.PostfixInc;
         match(tstream, TokenType.DoublePlus);
         break;
+    case TokenType.DoubleDash:
+        postfixExpr.type = PostfixType.PostfixDec;
+        match(tstream, TokenType.DoubleDash);
+        break;
     case TokenType.OpenParen:  // TMP
         postfixExpr.firstNode = parseArgumentList(tstream);
         postfixExpr.type = PostfixType.Parens;
