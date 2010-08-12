@@ -49,12 +49,28 @@ abstract class Value
     void set(Value val);
     void add(Value val);
     void sub(Value val);
+    Value call();
     Value init(Location location);
     
     protected Module mModule;
     protected Type mType;
     protected LLVMValueRef mValue;
 }
+
+mixin template InvalidOperation(alias FunctionName)
+{
+    mixin("override void " ~ FunctionName ~ "(Value val) {"
+          `    panic(val.location, "invalid operation used.");`
+          "}");
+}
+
+mixin template InvalidValueOperation(alias FunctionName)
+{
+    mixin("override Value " ~ FunctionName ~ "() {"
+          `    panic(location, "invalid operation used.");`
+          "    assert(false);"
+          "}");
+}     
 
 class PrimitiveIntegerValue(T, B, alias C) : Value
 {
@@ -111,6 +127,8 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, result, mValue);
     }
     
+    mixin InvalidValueOperation!"call";
+    
     override Value init(Location location)
     {
         return new typeof(this)(mModule, location, 0);
@@ -128,12 +146,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
 alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
-mixin template InvalidOperation(alias FunctionName)
-{
-    mixin("override void " ~ FunctionName ~ "(Value val) {"
-          `    panic(val.location, "invalid operation used.");`
-          "}");
-}
+
 
 class FunctionValue : Value
 {
@@ -153,6 +166,7 @@ class FunctionValue : Value
     mixin InvalidOperation!"set";
     mixin InvalidOperation!"add";
     mixin InvalidOperation!"sub";
+    mixin InvalidValueOperation!"call";
     
     override Value init(Location location)
     {
