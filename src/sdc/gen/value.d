@@ -8,6 +8,7 @@ module sdc.gen.value;
 import std.string;
 
 import llvm.c.Core;
+import llvm.Ext;
 
 import sdc.compilererror;
 import sdc.location;
@@ -53,6 +54,10 @@ abstract class Value
         mType = t;
     }
     
+    void castTo(Type t)
+    {
+        panic(location, "invalid cast");
+    }
     
     LLVMValueRef get();
     void set(Value val);
@@ -93,6 +98,14 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         this(mod, val.location);
         set(val);
+    }
+    
+    override void castTo(Type t)
+    {
+        auto v = LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast");
+        mValue = LLVMBuildAlloca(mModule.builder, LLVMTypeOf(v), "castalloca");
+        LLVMBuildStore(mModule.builder, v, mValue);
+        mType = t;
     }
     
     override LLVMValueRef get()
