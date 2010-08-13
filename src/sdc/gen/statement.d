@@ -60,6 +60,9 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.IfStatement:
         genIfStatement(cast(ast.IfStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.WhileStatement:
+        genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
+        break;
     case ast.NonEmptyStatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
         break;
@@ -129,6 +132,26 @@ void genThenStatement(ast.ThenStatement statement, Module mod)
 void genElseStatement(ast.ElseStatement statement, Module mod)
 {
     genScopeStatement(statement.statement, mod);
+}
+
+void genWhileStatement(ast.WhileStatement statement, Module mod)
+{    
+    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "looptop");
+    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopbody");
+    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopend");
+
+    LLVMBuildBr(mod.builder, looptopBB);
+    mod.pushScope();
+    mod.pushPath(PathType.Optional);
+    LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
+    auto expr = genExpression(statement.expression, mod);
+    LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
+    LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
+    genScopeStatement(statement.statement, mod);
+    LLVMBuildBr(mod.builder, looptopBB);
+    mod.popPath();
+    mod.popScope();
+    LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
