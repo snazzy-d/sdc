@@ -88,13 +88,18 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
 {
     mod.pushScope();
     
+    // Add parameters into the functions namespace.
     auto functionType = cast(FunctionType) func.type();
     assert(functionType);
     foreach (i, argType; functionType.argumentTypes) {
         auto val = argType.getValue(func.location);
         val.set(LLVMGetParam(func.get(), i));
-        auto name = extractIdentifier(decl.parameters[i].identifier);
-        mod.currentScope.add(val, name);
+        auto ident = decl.parameters[i].identifier;
+        if (ident is null) {
+            // Anonymous parameter.
+            continue;
+        }
+        mod.currentScope.add(val, extractIdentifier(ident));
     }
     
     mod.pushPath(PathType.Inevitable);
