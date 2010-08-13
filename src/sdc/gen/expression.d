@@ -147,7 +147,13 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
-            lhs = lhs.call(null);
+            Value[] args;
+            auto argList = cast(ast.ArgumentList) expression.firstNode;
+            assert(argList);
+            foreach (expr; argList.expressions) {
+                args ~= genAssignExpression(expr, mod);
+            }
+            lhs = lhs.call(args);
         } else {
             error(expression.location, "can only call functions.");
         }

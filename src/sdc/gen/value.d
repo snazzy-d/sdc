@@ -172,6 +172,18 @@ class FunctionValue : Value
     
     override Value call(Value[] args)
     {
+        // Check function signature.
+        auto functionType = cast(FunctionType) mType;
+        assert(functionType);
+        if (functionType.argumentTypes.length != args.length) {
+            goto err;
+        }
+        foreach (i, arg; functionType.argumentTypes) {
+            if (arg != args[i].type) {
+                goto err;
+            }
+        }
+        
         LLVMValueRef[] llvmArgs;
         foreach (arg; args) {
             llvmArgs ~= arg.get();
@@ -181,6 +193,10 @@ class FunctionValue : Value
         auto val = new IntValue(mModule, location);  // TMP TMP TMP
         val.set(retval);
         return val;
+        
+    err:
+        error(location, "can't call function with given arguments.");
+        assert(false);
     }
     
     mixin InvalidOperation!"void set(Value)";

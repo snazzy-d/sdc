@@ -78,6 +78,9 @@ class IntType : Type
 
 class FunctionType : Type
 {
+    Type returnType;
+    Type[] argumentTypes;
+    
     this(Module mod, ast.FunctionDeclaration funcDecl)
     {
         super(mod);
@@ -88,9 +91,12 @@ class FunctionType : Type
     void declare()
     {
         auto retval = astTypeToBackendValue(mFunctionDeclaration.retval, mModule);
+        returnType = retval.type;
         LLVMTypeRef[] params;
         foreach (param; mFunctionDeclaration.parameters) {
-            params ~= astTypeToBackendValue(param.type, mModule).type.llvmType;
+            auto val = astTypeToBackendValue(param.type, mModule);
+            argumentTypes ~= val.type;
+            params ~= val.type.llvmType;
         }
         mType = LLVMFunctionType(retval.type.llvmType, params.ptr, params.length, false);
     }
