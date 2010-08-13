@@ -149,8 +149,15 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, result, mValue);
     }
     
+    override Value eq(Value val)
+    {
+        auto v = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "eq");
+        auto b = new BoolValue(mModule, location);
+        b.set(v);
+        return b;
+    }
+    
     mixin InvalidOperation!"Value call(Value[])";
-    mixin InvalidOperation!"Value eq(Value)";
     
     override Value init(Location location)
     {
