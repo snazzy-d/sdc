@@ -162,7 +162,6 @@ class FunctionValue : Value
     {
         super(mod, location);
         mType = func;
-        mName = name;
         mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
     }
     
@@ -194,8 +193,6 @@ class FunctionValue : Value
         panic(location, "tried to get the init of a function value.");
         assert(false);
     }
-    
-    protected string mName;
 }
 
 
