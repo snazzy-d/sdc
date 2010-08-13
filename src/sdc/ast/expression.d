@@ -182,6 +182,7 @@ enum UnaryPrefix
     UnaryPlus,  // +
     LogicalNot,  // !
     BitwiseNot,  // ~
+    Cast,  // cast (type) unaryExpr
 }
 
 class UnaryExpression : Node

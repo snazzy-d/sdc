@@ -113,6 +113,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.unaryExpression, mod);
         val.add(new IntValue(mod, expression.location, 1));
         break;
+    case ast.UnaryPrefix.Cast:
     case ast.UnaryPrefix.AddressOf:
     case ast.UnaryPrefix.UnaryMinus:
     case ast.UnaryPrefix.UnaryPlus:

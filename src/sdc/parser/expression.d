@@ -371,6 +371,7 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
         unaryExpr.unaryExpression = parseUnaryExpression(tstream);
         break;
     case TokenType.Cast:
+        unaryExpr.unaryPrefix = UnaryPrefix.Cast;
         unaryExpr.castExpression = parseCastExpression(tstream);
         break;
     // TODO: The rest.
