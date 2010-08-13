@@ -21,6 +21,7 @@ class Module
     Scope globalScope;
     Scope currentScope;
     Path currentPath;
+    Value currentFunction;
     
     this(string name)
     {

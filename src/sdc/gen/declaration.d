@@ -87,6 +87,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Value func, Module mod)
 {
     mod.pushScope();
+    mod.currentFunction = func;
     
     // Add parameters into the functions namespace.
     auto functionType = cast(FunctionType) func.type();
@@ -107,6 +108,8 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     if (!mod.currentPath.functionEscaped) {
         error(functionBody.location, "function expected to return a value.");
     }
+    
     mod.popPath();
+    mod.currentFunction = null;
     mod.popScope();
 }
