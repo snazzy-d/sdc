@@ -57,6 +57,9 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     default:
         panic(statement.location, "unimplemented non empty statement type.");
         assert(false);
+    case ast.NonEmptyStatementType.IfStatement:
+        genIfStatement(cast(ast.IfStatement) statement.node, mod);
+        break;
     case ast.NonEmptyStatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
         break;
@@ -67,6 +70,65 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
         break;
     }
+}
+
+void genIfStatement(ast.IfStatement statement, Module mod)
+{
+    LLVMBasicBlockRef ifBB, elseBB;
+    
+    mod.pushScope();
+    mod.pushPath(PathType.Optional);
+    genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
+    LLVMPositionBuilderAtEnd(mod.builder, ifBB);
+    genThenStatement(statement.thenStatement, mod);
+    if (!mod.currentPath.functionEscaped) {
+        LLVMBuildBr(mod.builder, elseBB);
+    }
+    mod.popPath();
+    mod.popScope();
+    
+    LLVMPositionBuilderAtEnd(mod.builder, elseBB);
+    if (statement.elseStatement !is null) {
+        auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
+        mod.pushScope();
+        mod.pushPath(PathType.Optional);
+        genElseStatement(statement.elseStatement, mod);
+        if (!mod.currentPath.functionEscaped) {
+            LLVMBuildBr(mod.builder, endifBB);
+        }
+        mod.popPath();
+        mod.popScope();
+        
+        LLVMPositionBuilderAtEnd(mod.builder, endifBB);
+    }
+}
+
+void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
+{ 
+    auto expr = genExpression(condition.expression, mod);
+    
+    final switch (condition.type) {
+    case ast.IfConditionType.ExpressionOnly:
+        break;
+    case ast.IfConditionType.Identifier:
+    case ast.IfConditionType.Declarator:
+        panic("unimplemented if condition type.");
+        break;
+    }
+    
+    ifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "iftrue");
+    elseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "else");
+    LLVMBuildCondBr(mod.builder, expr.get(), ifBB, elseBB);
+}
+
+void genThenStatement(ast.ThenStatement statement, Module mod)
+{
+    genScopeStatement(statement.statement, mod);
+}
+
+void genElseStatement(ast.ElseStatement statement, Module mod)
+{
+    genScopeStatement(statement.statement, mod);
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
