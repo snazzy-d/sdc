@@ -89,6 +89,9 @@ void genFunctionBody(ast.FunctionBody functionBody, Module mod)
     mod.pushScope();
     mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
+    if (!mod.currentPath.functionEscaped) {
+        error(functionBody.location, "function expected to return a value.");
+    }
     mod.popPath();
     mod.popScope();
 }

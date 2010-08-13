@@ -83,4 +83,5 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
     auto val = genExpression(statement.expression, mod);
     LLVMBuildRet(mod.builder, val.get());
+    mod.currentPath.functionEscaped = true;
 }
