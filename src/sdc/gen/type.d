@@ -10,6 +10,7 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.location;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -52,6 +53,8 @@ abstract class Type
         return this.mType == asType.mType;
     }
     
+    Value getValue(Location location);
+    
     protected Module mModule;
     protected LLVMTypeRef mType;
 }
@@ -64,6 +67,8 @@ class BoolType : Type
         dtype = DType.Bool;
         mType = LLVMInt1TypeInContext(mod.context);
     }
+    
+    override Value getValue(Location location) { return new BoolValue(mModule, location); }
 }
 
 class IntType : Type
@@ -74,6 +79,8 @@ class IntType : Type
         dtype = DType.Int;
         mType = LLVMInt32TypeInContext(mod.context);
     }
+    
+    override Value getValue(Location location) { return new IntValue(mModule, location); }
 }
 
 class FunctionType : Type
@@ -100,6 +107,8 @@ class FunctionType : Type
         }
         mType = LLVMFunctionType(retval.type.llvmType, params.ptr, params.length, false);
     }
+    
+    override Value getValue(Location location) { return null; }
 
     protected ast.FunctionDeclaration mFunctionDeclaration;
 }

@@ -190,7 +190,7 @@ class FunctionValue : Value
         }
         
         auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
-        auto val = new IntValue(mModule, location);  // TMP TMP TMP
+        auto val = functionType.returnType.getValue(location);
         val.set(retval);
         return val;
         
