@@ -81,12 +81,22 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     }
     auto BB = LLVMAppendBasicBlockInContext(mod.context, val.get(), "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
-    genFunctionBody(decl.functionBody, mod);
+    genFunctionBody(decl.functionBody, decl, val, mod);
 }
 
-void genFunctionBody(ast.FunctionBody functionBody, Module mod)
+void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Value func, Module mod)
 {
     mod.pushScope();
+    
+    auto functionType = cast(FunctionType) func.type();
+    assert(functionType);
+    foreach (i, argType; functionType.argumentTypes) {
+        auto val = argType.getValue(func.location);
+        val.set(LLVMGetParam(func.get(), i));
+        auto name = extractIdentifier(decl.parameters[i].identifier);
+        mod.currentScope.add(val, name);
+    }
+    
     mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
     if (!mod.currentPath.functionEscaped) {
