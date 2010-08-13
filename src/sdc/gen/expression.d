@@ -57,7 +57,15 @@ Value genAndExpression(ast.AndExpression expression, Module mod)
 
 Value genCmpExpression(ast.CmpExpression expression, Module mod)
 {
-    return genShiftExpression(expression.lhShiftExpression, mod);
+    auto lhs = genShiftExpression(expression.lhShiftExpression, mod);
+    switch (expression.comparison) {
+    case ast.Comparison.None:
+        break;
+    default:
+        panic(expression.location, "unhandled comparison expression.");
+        assert(false);
+    }
+    return lhs;
 }
 
 Value genShiftExpression(ast.ShiftExpression expression, Module mod)
