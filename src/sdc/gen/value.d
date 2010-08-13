@@ -172,7 +172,7 @@ class FunctionValue : Value
     
     override Value call(Value[] args)
     {
-        // Check function signature.
+        // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
         if (functionType.argumentTypes.length != args.length) {
