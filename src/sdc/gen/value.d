@@ -64,6 +64,7 @@ abstract class Value
     void set(LLVMValueRef val);
     void add(Value val);
     void sub(Value val);
+    Value eq(Value val);
     Value call(Value[] args);
     Value init(Location location);
     
@@ -149,6 +150,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     }
     
     mixin InvalidOperation!"Value call(Value[])";
+    mixin InvalidOperation!"Value eq(Value)";
     
     override Value init(Location location)
     {
@@ -216,6 +218,7 @@ class FunctionValue : Value
     mixin InvalidOperation!"void set(LLVMValueRef)";
     mixin InvalidOperation!"void add(Value)";
     mixin InvalidOperation!"void sub(Value)";
+    mixin InvalidOperation!"Value eq(Value)";
     
     override Value init(Location location)
     {
