@@ -33,12 +33,12 @@ void realGenModule(ast.Module astModule, Module mod)
         }
     }
     
-    
+    // Declare functions.
     foreach (declDef; astModule.declarationDefinitions) {
         declareDeclarationDefinition(declDef, mod);
     }
     
-    // Generate the code for the above.
+    // Generate the code for the functions.
     foreach (declDef; astModule.declarationDefinitions) {
         genDeclarationDefinition(declDef, mod);
     }
