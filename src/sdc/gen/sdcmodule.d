@@ -98,6 +98,46 @@ class Module
     protected Path[] mPathStack;
 }
 
+enum StoreType
+{
+    Value,
+    Type,
+}
+
+class Store
+{
+    StoreType storeType;
+    Object object;
+    
+    this(Value store)
+    {
+        storeType = StoreType.Value;
+        object = store;
+    }
+    
+    this(Type type)
+    {
+        storeType = StoreType.Type;
+        object = type;
+    }
+    
+    Value value() @property
+    {
+        assert(storeType == StoreType.Value);
+        auto val = cast(Value) object;
+        assert(val);
+        return val;
+    }
+    
+    Type type() @property
+    {
+        assert(storeType == StoreType.Type);
+        auto type = cast(Type) object;
+        assert(type);
+        return type;
+    }
+}
+
 class Scope
 {
     void add(Value val, string name)
