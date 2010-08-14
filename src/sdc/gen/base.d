@@ -25,7 +25,15 @@ Module genModule(ast.Module astModule)
 
 void realGenModule(ast.Module astModule, Module mod)
 {
-    // Declare all functions and data structures.
+    // Declare all data structures.
+    foreach (declDef; astModule.declarationDefinitions) if (declDef.type == ast.DeclarationDefinitionType.Declaration) {
+        auto decl = cast(ast.Declaration) declDef.node;
+        if (decl.type == ast.DeclarationType.Variable) {
+            declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
+        }
+    }
+    
+    
     foreach (declDef; astModule.declarationDefinitions) {
         declareDeclarationDefinition(declDef, mod);
     }

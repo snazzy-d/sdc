@@ -8,6 +8,7 @@ module sdc.gen.declaration;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.util;
 import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
@@ -25,6 +26,18 @@ void declareDeclaration(ast.Declaration decl, Module mod)
     case ast.DeclarationType.Function:
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
+    }
+}
+
+void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
+{
+    foreach (declarator; decl.declarators) {
+        auto type = astTypeToBackendType(decl.type, mod);
+        
+        if (decl.isAlias) {
+            mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
+            continue;
+        }
     }
 }
 
@@ -51,14 +64,11 @@ void genDeclaration(ast.Declaration decl, Module mod)
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
+        if (decl.isAlias) continue;
         auto type = astTypeToBackendType(decl.type, mod);
         
         if (mod.scopeDepth == 0) {
-            if (!decl.isAlias) {
-                panic(decl.location, "Global variables unimplemented.");
-            }
-            mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
-            continue;
+            panic(decl.location, "global variables are unimplemented.");
         }
         
         auto var = type.getValue(declarator.location);

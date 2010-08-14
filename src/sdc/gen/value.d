@@ -235,13 +235,15 @@ class FunctionValue : Value
 }
 
 
-// I hope it's obvious that the following are stub functions.
+// I would like to think that it's obvious that the following are stub functions.
 
 Type astTypeToBackendType(ast.Type type, Module mod)
 {
     switch (type.type) {
     case ast.TypeType.Primitive:
         return primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod);
+    case ast.TypeType.UserDefined:
+        return userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod);
     default:
         panic(type.location, "unhandled type type.");
     }
@@ -261,4 +263,17 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
     }
     
     assert(false);
+}
+
+Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod)
+{
+    auto name = extractQualifiedName(type.qualifiedName);
+    auto store = mod.search(name);
+    if (store is null) {
+        error(type.location, format("undefined type '%s'.", name));
+    }
+    if (store.storeType != StoreType.Type) {
+        error(type.location, format("'%s' is not valid type."));
+    }
+    return store.type;
 }
