@@ -203,9 +203,9 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
     auto name = extractIdentifier(identifier);
-    auto val = mod.search(name);
-    if (val is null) {
+    auto store = mod.search(name);
+    if (store is null) {
         error(identifier.location, format("unknown identifier '%s'.", name));
     }
-    return val;
+    return store.value();
 }

@@ -52,7 +52,7 @@ class Module
         currentScope = mScopeStack.length >= 1 ? mScopeStack[$ - 1] : globalScope;
     }
     
-    Value search(string name)
+    Store search(string name)
     {
         /* This isn't just `foreach (localScope; retro(mScopeStack))`  
          * because of a bug manifested in std.range.retro.
@@ -140,18 +140,18 @@ class Store
 
 class Scope
 {
-    void add(Value val, string name)
+    void add(string name, Store store)
     {
-        mSymbolTable[name] = val;
+        mSymbolTable[name] = store;
     }
     
-    Value get(string name)
+    Store get(string name)
     {
         auto p = name in mSymbolTable;
         return p is null ? null : *p;
     }
     
-    protected Value[string] mSymbolTable;
+    protected Store[string] mSymbolTable;
 }
 
 enum PathType

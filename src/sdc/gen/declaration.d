@@ -34,7 +34,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto type = new FunctionType(mod, decl);
     type.declare();
     auto name = extractIdentifier(decl.name);
-    mod.currentScope.add(new FunctionValue(mod, decl.location, type, name), name);
+    mod.currentScope.add(name, new Store(new FunctionValue(mod, decl.location, type, name)));
 }
 
 void genDeclaration(ast.Declaration decl, Module mod)
@@ -64,17 +64,18 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 panic(declarator.initialiser.location, "unhandled initialiser type.");
             }
         }
-        mod.currentScope.add(var, extractIdentifier(declarator.name));
+        mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
     }
 }
 
 void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
     auto name = extractIdentifier(decl.name);
-    auto val = mod.currentScope.get(name);
-    if (val is null) {
+    auto store = mod.currentScope.get(name);
+    if (store is null) {
         panic(decl.location, "attempted to gen undeclared function.");
     }
+    auto val = store.value();
     if (decl.functionBody is null) {
         // The function's code is defined elsewhere.
         return;
@@ -100,7 +101,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             // Anonymous parameter.
             continue;
         }
-        mod.currentScope.add(val, extractIdentifier(ident));
+        mod.currentScope.add(extractIdentifier(ident), new Store(val));
     }
     
     mod.pushPath(PathType.Inevitable);
