@@ -237,11 +237,11 @@ class FunctionValue : Value
 
 // I hope it's obvious that the following are stub functions.
 
-Value astTypeToBackendValue(ast.Type type, Module mod)
+Type astTypeToBackendType(ast.Type type, Module mod)
 {
     switch (type.type) {
     case ast.TypeType.Primitive:
-        return primitiveTypeToBackendValue(cast(ast.PrimitiveType) type.node, mod);
+        return primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod);
     default:
         panic(type.location, "unhandled type type.");
     }
@@ -249,13 +249,13 @@ Value astTypeToBackendValue(ast.Type type, Module mod)
     assert(false);
 }
 
-Value primitiveTypeToBackendValue(ast.PrimitiveType type, Module mod)
+Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
 {
     switch (type.type) {
     case ast.PrimitiveTypeType.Bool:
-        return new BoolValue(mod, type.location);
+        return new BoolType(mod);
     case ast.PrimitiveTypeType.Int:
-        return new IntValue(mod, type.location);
+        return new IntType(mod);
     default:
         panic(type.location, "unhandled primitive type type.");
     }

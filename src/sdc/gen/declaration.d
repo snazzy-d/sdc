@@ -21,8 +21,7 @@ void declareDeclaration(ast.Declaration decl, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
-        panic(decl.location, "global variables are unimplemented.");
-        assert(false);
+        break;
     case ast.DeclarationType.Function:
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
@@ -52,7 +51,18 @@ void genDeclaration(ast.Declaration decl, Module mod)
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
-        auto var = astTypeToBackendValue(decl.type, mod);
+        auto type = astTypeToBackendType(decl.type, mod);
+        
+        if (mod.scopeDepth == 0) {
+            if (!decl.isAlias) {
+                panic(decl.location, "Global variables unimplemented.");
+            }
+            mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
+            continue;
+        }
+        
+        auto var = type.getValue(declarator.location);
+        
         if (declarator.initialiser is null) {
             var.set(var.init(decl.location));
         } else {

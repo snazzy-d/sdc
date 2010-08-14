@@ -97,15 +97,14 @@ class FunctionType : Type
     
     void declare()
     {
-        auto retval = astTypeToBackendValue(mFunctionDeclaration.retval, mModule);
-        returnType = retval.type;
+        returnType = astTypeToBackendType(mFunctionDeclaration.retval, mModule);
         LLVMTypeRef[] params;
         foreach (param; mFunctionDeclaration.parameters) {
-            auto val = astTypeToBackendValue(param.type, mModule);
-            argumentTypes ~= val.type;
-            params ~= val.type.llvmType;
+            auto type = astTypeToBackendType(param.type, mModule);
+            argumentTypes ~= type;
+            params ~= type.llvmType;
         }
-        mType = LLVMFunctionType(retval.type.llvmType, params.ptr, params.length, false);
+        mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, false);
     }
     
     override Value getValue(Location location) { return null; }
