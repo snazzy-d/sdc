@@ -36,7 +36,6 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         
         if (decl.isAlias) {
             mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
-            continue;
         }
     }
 }
