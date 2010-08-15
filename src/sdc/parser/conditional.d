@@ -26,27 +26,33 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
         && tstream.lookahead(1).type == TokenType.Assign) {
         if (tstream.peek.type == TokenType.Version) {
             match(tstream, TokenType.Version);
-            decl.type = ConditionDeclarationType.VersionSpecification;
+            decl.type = ConditionalDeclarationType.VersionSpecification;
         } else if (tstream.peek.type == TokenType.Debug) {
             match(tstream, TokenType.Debug);
-            decl.type = ConditionDeclarationType.DebugSpecification;
+            decl.type = ConditionalDeclarationType.DebugSpecification;
         } else assert(false);
         match(tstream, TokenType.Assign);
         Node payload;
+        SpecificationType type;
         if (tstream.peek.type == TokenType.Identifier) {
+            type = SpecificationType.Identifier;
             payload = parseIdentifier(tstream);
         } else {
+            type = SpecificationType.Integer;
             payload = parseIntegerLiteral(tstream);
         }
-        if (decl.type == ConditionDeclarationType.VersionSpecification) {
+        if (decl.type == ConditionalDeclarationType.VersionSpecification) {
             auto spec = new VersionSpecification();
             spec.node = payload;
+            spec.type = type;
             decl.specification = spec;
         } else {
             auto spec = new DebugSpecification();
             spec.node = payload;
+            spec.type = type;
             decl.specification = spec;
         }
+        match(tstream, TokenType.Semicolon);
         return decl;
     }
     
@@ -54,7 +60,7 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
     decl.condition = parseCondition(tstream);
     if (tstream.peek.type == TokenType.Colon) {
         match(tstream, TokenType.Colon);
-        decl.type = ConditionDeclarationType.AlwaysOn;
+        decl.type = ConditionalDeclarationType.AlwaysOn;
         return decl;
     }
     decl.thenBlock = parseDeclarationDefinitionBlock(tstream);

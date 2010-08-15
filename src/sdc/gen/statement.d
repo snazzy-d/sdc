@@ -13,6 +13,7 @@ import sdc.compilererror;
 import sdc.util;
 import sdc.global;
 import ast = sdc.ast.all;
+import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
@@ -198,53 +199,4 @@ void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
             genNoScopeNonEmptyStatement(statement.elseStatement, mod);
         }
     }
-}
-
-bool genCondition(ast.Condition condition, Module mod)
-{
-    final switch (condition.conditionType) {
-    case ast.ConditionType.Version:
-        return genVersionCondition(cast(ast.VersionCondition) condition.condition, mod);
-    case ast.ConditionType.Debug:
-        return genDebugCondition(cast(ast.DebugCondition) condition.condition, mod);
-    case ast.ConditionType.StaticIf:
-        return genStaticIfCondition(cast(ast.StaticIfCondition) condition.condition, mod);
-    }
-}
-
-bool genVersionCondition(ast.VersionCondition condition, Module mod)
-{
-    final switch (condition.type) {
-    case ast.VersionConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return i >= versionLevel;
-    case ast.VersionConditionType.Identifier:
-        auto ident = extractIdentifier(condition.identifier);
-        return isVersionIdentifierSet(ident);
-    case ast.VersionConditionType.Unittest:
-        return unittestsEnabled;
-    }
-}
-
-bool genDebugCondition(ast.DebugCondition condition, Module mod)
-{
-    final switch (condition.type) {
-    case ast.DebugConditionType.Simple:
-        return isDebug;
-    case ast.DebugConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return i >= debugLevel;
-    case ast.DebugConditionType.Identifier:
-        auto ident = extractIdentifier(condition.identifier);
-        return isDebugIdentifierSet(ident);
-    }
-}
-
-bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
-{
-    auto expr = genAssignExpression(condition.expression, mod);
-    if (!expr.constant) {
-        error(condition.expression.location, "expression inside of a static if must be known at compile time.");
-    }
-    return expr.constBool;
 }

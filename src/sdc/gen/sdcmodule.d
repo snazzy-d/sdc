@@ -140,6 +140,8 @@ class Store
 
 class Scope
 {
+    bool topLevelBail;
+    
     void add(string name, Store store)
     {
         mSymbolTable[name] = store;

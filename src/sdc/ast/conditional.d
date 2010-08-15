@@ -11,7 +11,7 @@ import sdc.ast.sdcmodule;
 import sdc.ast.statement;
 
 
-enum ConditionDeclarationType
+enum ConditionalDeclarationType
 {
     Block,
     AlwaysOn,
@@ -21,7 +21,7 @@ enum ConditionDeclarationType
 
 class ConditionalDeclaration : Node
 {
-    ConditionDeclarationType type;
+    ConditionalDeclarationType type;
     Condition condition;  // Optional.
     DeclarationDefinition[] thenBlock;  // Optional.
     DeclarationDefinition[] elseBlock;  // Optional.
