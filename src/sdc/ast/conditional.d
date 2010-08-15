@@ -10,12 +10,6 @@ import sdc.ast.declaration;
 import sdc.ast.expression;
 import sdc.ast.statement;
 
-enum ConditionType
-{
-    Version,
-    Debug,
-    StaticIf
-}
 
 enum ConditionDeclarationType
 {
@@ -26,18 +20,29 @@ enum ConditionDeclarationType
 
 class ConditionalDeclaration : Node
 {
-    ConditionType conditionType;
-    Node condition;
+    Condition condition;
     Declaration[] thenBlock;
     Declaration[] elseBlock;  // Optional.
 }
 
 class ConditionalStatement : Node
 {
-    ConditionType conditionType;
-    Node condition;
+    Condition condition;
     NoScopeNonEmptyStatement thenStatement;
     NoScopeNonEmptyStatement elseStatement;  // Optional.
+}
+
+enum ConditionType
+{
+    Version,
+    Debug,
+    StaticIf
+}
+
+class Condition : Node
+{
+    ConditionType conditionType;
+    Node condition;
 }
 
 enum VersionConditionType
