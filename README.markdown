@@ -11,3 +11,26 @@ The code is released under the GPL (see the LICENCE file for more details).
 
 Contact me at b.helyer@gmail.com
 
+ 
+Features
+========
+
+Lexer
+-----
+* Scan and handle multiple incoding formats.  [no -- all code is assumed in UTF-8 format at the moment.]
+* Handle leading script lines.  [no.]
+* Split source into tokens.  [yes.]
+* Replace special tokens.  [yes.]
+* Process special token sequences.  [no.]
+
+Parser
+------
+* Parse module declaration.  [yes.]
+
+
+Codegen
+-------
+
+ 
+Roadmap
+=======
