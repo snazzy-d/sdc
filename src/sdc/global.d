@@ -23,9 +23,22 @@ void setVersion(string s)
     versionIdentifiers[s] = true;
 }
 
+void setDebug(string s)
+{
+    if (s in debugIdentifiers) {
+        error(format("debug identifier '%s' already defined.", s));
+    }
+    debugIdentifiers[s] = true;
+}
+
 bool isVersionIdentifierSet(string s)
 {
     return (s in versionIdentifiers) !is null;
+}
+
+bool isDebugIdentifierSet(string s)
+{
+    return (s in debugIdentifiers) !is null;
 }
 
 static this()
@@ -34,4 +47,5 @@ static this()
 }
 
 private shared bool[string] versionIdentifiers;
+private shared bool[string] debugIdentifiers;
 

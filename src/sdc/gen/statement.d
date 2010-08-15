@@ -228,10 +228,23 @@ bool genVersionCondition(ast.VersionCondition condition, Module mod)
 
 bool genDebugCondition(ast.DebugCondition condition, Module mod)
 {
-    return false;
+    final switch (condition.type) {
+    case ast.DebugConditionType.Simple:
+        return isDebug;
+    case ast.DebugConditionType.Integer:
+        auto i = extractIntegerLiteral(condition.integer);
+        return i >= debugLevel;
+    case ast.DebugConditionType.Identifier:
+        auto ident = extractIdentifier(condition.identifier);
+        return isDebugIdentifierSet(ident);
+    }
 }
 
 bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 {
-    return false;
+    auto expr = genAssignExpression(condition.expression, mod);
+    if (!expr.constant) {
+        error(condition.expression.location, "expression inside of a static if must be known at compile time.");
+    }
+    return expr.constBool;
 }
