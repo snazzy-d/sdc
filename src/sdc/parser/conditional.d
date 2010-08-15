@@ -105,6 +105,7 @@ VersionCondition parseVersionCondition(TokenStream tstream)
         break;
     case TokenType.Unittest:
         condition.type = VersionConditionType.Unittest;
+        match(tstream, TokenType.Unittest);
         break;
     default:
         error(tstream.peek.location, "version conditions should be either an integer, an identifier, or 'unittest'.");
@@ -144,7 +145,11 @@ StaticIfCondition parseStaticIfCondition(TokenStream tstream)
     auto condition = new StaticIfCondition();
     condition.location = tstream.peek.location;
     
+    match(tstream, TokenType.Static);
+    match(tstream, TokenType.If);
+    match(tstream, TokenType.OpenParen);
     condition.expression = parseAssignExpression(tstream);
+    match(tstream, TokenType.CloseParen);
     return condition;
 }
  
