@@ -11,13 +11,13 @@ The code is released under the GPL (see the LICENCE file for more details).
 
 Contact me at b.helyer@gmail.com
 
- 
+
 Features
 ========
 
 Lexer
 -----
-* Scan and handle multiple incoding formats.  [no -- all code is assumed in UTF-8 format at the moment.]
+* Scan and handle multiple incoding formats.  _[no -- all code is assumed in UTF-8 format at the moment.]_
 * Handle leading script lines.  [no.]
 * Split source into tokens.  [yes.]
 * Replace special tokens.  [yes.]
@@ -31,6 +31,6 @@ Parser
 Codegen
 -------
 
- 
+
 Roadmap
 =======
