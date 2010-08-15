@@ -12,3 +12,4 @@ public import sdc.parser.statement;
 public import sdc.parser.attribute;
 public import sdc.parser.aggregate;
 public import sdc.parser.sdcimport;
+public import sdc.parser.conditional;

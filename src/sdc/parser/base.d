@@ -69,6 +69,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
         decldef.type = DeclarationDefinitionType.AggregateDeclaration;
         decldef.node = parseAggregateDeclaration(tstream);
+    } else if (startsLikeConditional(tstream)) {
+        decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
+        decldef.node = parseConditionalDeclaration(tstream);
     } else if (tstream.peek.type == TokenType.Import || (tstream.peek.type == TokenType.Static &&
                                                          tstream.lookahead(1).type == TokenType.Import)) {
         decldef.type = DeclarationDefinitionType.ImportDeclaration;
@@ -76,7 +79,7 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (startsLikeAttribute(tstream)) {
         decldef.type = DeclarationDefinitionType.AttributeSpecifier;
         decldef.node = parseAttributeSpecifier(tstream);
-    } else {
+    }  else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
     }

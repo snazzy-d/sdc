@@ -12,3 +12,4 @@ public import sdc.ast.declaration;
 public import sdc.ast.statement;
 public import sdc.ast.attribute;
 public import sdc.ast.aggregate;
+public import sdc.ast.conditional;

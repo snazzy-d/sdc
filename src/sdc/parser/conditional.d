@@ -7,6 +7,7 @@ module sdc.parser.conditional;
 
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.util;
 import sdc.ast.conditional;
 import sdc.ast.sdcmodule;
 import sdc.parser.base;
@@ -64,12 +65,15 @@ Condition parseCondition(TokenStream tstream)
     case TokenType.Version:
         condition.conditionType = ConditionType.Version;
         condition.condition = parseVersionCondition(tstream);
+        break;
     case TokenType.Debug:
         condition.conditionType = ConditionType.Debug;
         condition.condition = parseDebugCondition(tstream);
+        break;
     case TokenType.Static:
         condition.conditionType = ConditionType.StaticIf;
         condition.condition = parseStaticIfCondition(tstream);
+        break;
     default:
         error(tstream.peek.location, "expected 'version', 'debug', or 'static' for compile time conditional.");
     }
@@ -137,3 +141,13 @@ StaticIfCondition parseStaticIfCondition(TokenStream tstream)
     return condition;
 }
  
+bool startsLikeConditional(TokenStream tstream)
+{
+    if (tstream.peek.type == TokenType.Version || tstream.peek.type == TokenType.Debug) {
+        return true;
+    }
+    if (tstream.peek.type != TokenType.Static) {
+        return false;
+    }
+    return tstream.lookahead(1).type == TokenType.If;
+}
