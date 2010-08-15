@@ -12,6 +12,7 @@ import sdc.ast.conditional;
 import sdc.ast.sdcmodule;
 import sdc.parser.base;
 import sdc.parser.expression;
+import sdc.parser.statement;
 
 
 ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
@@ -53,6 +54,12 @@ ConditionalStatement parseConditionalStatement(TokenStream tstream)
     auto statement = new ConditionalStatement();
     statement.location = tstream.peek.location;
     
+    statement.condition = parseCondition(tstream);
+    statement.thenStatement = parseNoScopeNonEmptyStatement(tstream);
+    if (tstream.peek.type == TokenType.Else) {
+        match(tstream, TokenType.Else);
+        statement.elseStatement = parseNoScopeNonEmptyStatement(tstream);
+    }
     return statement;
 }
 

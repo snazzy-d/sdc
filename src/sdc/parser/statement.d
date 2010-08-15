@@ -12,6 +12,7 @@ import sdc.ast.statement;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.declaration;
+import sdc.parser.conditional;
 
 
 Statement parseStatement(TokenStream tstream)
@@ -66,6 +67,9 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Return) {
         statement.type = NonEmptyStatementType.ReturnStatement;
         statement.node = parseReturnStatement(tstream);
+    } else if (startsLikeConditional(tstream)) {
+        statement.type = NonEmptyStatementType.ConditionalStatement;
+        statement.node = parseConditionalStatement(tstream);
     } else if (startsLikeDeclaration(tstream)) {
         statement.type = NonEmptyStatementType.DeclarationStatement;
         statement.node = parseDeclarationStatement(tstream);
@@ -74,6 +78,21 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
         statement.node = parseExpressionStatement(tstream);
     }
     
+    return statement;
+}
+
+NoScopeNonEmptyStatement parseNoScopeNonEmptyStatement(TokenStream tstream)
+{
+    auto statement = new NoScopeNonEmptyStatement();
+    statement.location = tstream.peek.location;
+    
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        statement.type = NoScopeNonEmptyStatementType.Block;
+        statement.node = parseBlockStatement(tstream);
+    } else {
+        statement.type = NoScopeNonEmptyStatementType.NonEmpty;
+        statement.node = parseNonEmptyStatement(tstream);
+    }
     return statement;
 }
 
