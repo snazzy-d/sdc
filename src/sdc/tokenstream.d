@@ -13,7 +13,7 @@ import sdc.compilererror;
 public import sdc.token;
 
 
-final class TokenStream
+class TokenStream
 {
     Source source;
     string filename;

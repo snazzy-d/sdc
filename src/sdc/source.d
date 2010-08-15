@@ -13,7 +13,7 @@ import sdc.location;
 
 alias size_t Mark;
 
-final class Source
+class Source
 {
     string source;
     Location location;
