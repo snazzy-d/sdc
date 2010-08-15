@@ -6,8 +6,8 @@
 module sdc.ast.conditional;
 
 import sdc.ast.base;
-import sdc.ast.declaration;
 import sdc.ast.expression;
+import sdc.ast.sdcmodule;
 import sdc.ast.statement;
 
 
@@ -21,8 +21,8 @@ enum ConditionDeclarationType
 class ConditionalDeclaration : Node
 {
     Condition condition;
-    Declaration[] thenBlock;
-    Declaration[] elseBlock;  // Optional.
+    DeclarationDefinition[] thenBlock;
+    DeclarationDefinition[] elseBlock;  // Optional.
 }
 
 class ConditionalStatement : Node
