@@ -15,6 +15,12 @@ class CompilerError
 {
 }
 
+void error(string message)
+{
+    stderr.writeln(format("error: %s", message));
+    throw new CompilerError();
+}
+
 void error(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));

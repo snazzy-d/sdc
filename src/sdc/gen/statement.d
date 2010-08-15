@@ -11,11 +11,13 @@ import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.util;
+import sdc.global;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.value;
+import sdc.extract.base;
 
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
@@ -51,6 +53,19 @@ void genScopeStatement(ast.ScopeStatement statement, Module mod)
     }
 }
 
+void genNoScopeNonEmptyStatement(ast.NoScopeNonEmptyStatement statement, Module mod)
+{
+    final switch (statement.type) {
+    case ast.NoScopeNonEmptyStatementType.NonEmpty:
+        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
+        break;
+    case ast.NoScopeNonEmptyStatementType.Block:
+        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
+        break;
+    }
+}
+
+
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
     switch (statement.type) {
@@ -71,6 +86,9 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
         break;
     case ast.NonEmptyStatementType.ReturnStatement:
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
+        break;
+    case ast.NonEmptyStatementType.ConditionalStatement:
+        genConditionalStatement(cast(ast.ConditionalStatement) statement.node, mod);
         break;
     }
 }
@@ -169,4 +187,51 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
     auto val = genExpression(statement.expression, mod);
     LLVMBuildRet(mod.builder, val.get());
     mod.currentPath.functionEscaped = true;
+}
+
+void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
+{
+    if (genCondition(statement.condition, mod)) {
+        genNoScopeNonEmptyStatement(statement.thenStatement, mod);
+    } else {
+        if (statement.elseStatement !is null) {
+            genNoScopeNonEmptyStatement(statement.elseStatement, mod);
+        }
+    }
+}
+
+bool genCondition(ast.Condition condition, Module mod)
+{
+    final switch (condition.conditionType) {
+    case ast.ConditionType.Version:
+        return genVersionCondition(cast(ast.VersionCondition) condition.condition, mod);
+    case ast.ConditionType.Debug:
+        return genDebugCondition(cast(ast.DebugCondition) condition.condition, mod);
+    case ast.ConditionType.StaticIf:
+        return genStaticIfCondition(cast(ast.StaticIfCondition) condition.condition, mod);
+    }
+}
+
+bool genVersionCondition(ast.VersionCondition condition, Module mod)
+{
+    final switch (condition.type) {
+    case ast.VersionConditionType.Integer:
+        auto i = extractIntegerLiteral(condition.integer);
+        return i >= versionLevel;
+    case ast.VersionConditionType.Identifier:
+        auto ident = extractIdentifier(condition.identifier);
+        return isVersionIdentifierSet(ident);
+    case ast.VersionConditionType.Unittest:
+        return unittestsEnabled;
+    }
+}
+
+bool genDebugCondition(ast.DebugCondition condition, Module mod)
+{
+    return false;
+}
+
+bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
+{
+    return false;
 }
