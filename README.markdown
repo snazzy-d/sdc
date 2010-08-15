@@ -16,15 +16,15 @@ Lexer
 -----
 * Scan and handle multiple incoding formats.  _[no -- all code is treated as UTF-8 format at the moment.]_
 * Handle leading script lines.  _[no.]_
-* Split source into tokens.  _[yes.]_
-* Replace special tokens.  _[yes.]_
+* Split source into tokens.  *_[yes.]_*
+* Replace special tokens.  *_[yes.]_*
 * Process special token sequences.  _[no.]_
 
 Parser
 ------
-* Parse module declaration.  _[yes.]_
-* Parse attribute declarations.  _[yes.]_
-* Parse import declarations.  _[yes.]_
+* Parse module declaration.  *_[yes.]_*
+* Parse attribute declarations.  *_[yes.]_*
+* Parse import declarations.  *_[yes.]_*
 
 
 Codegen
