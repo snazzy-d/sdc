@@ -55,7 +55,7 @@ enum VersionConditionType
 class VersionCondition : Node
 {
     VersionConditionType type;
-    int integer;  // Optional.
+    IntegerLiteral integer;  // Optional.
     Identifier identifier;  // Optional.
 }
 
