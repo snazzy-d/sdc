@@ -14,15 +14,18 @@ import sdc.ast.statement;
 enum ConditionDeclarationType
 {
     Block,
-    AlwaysOn
+    AlwaysOn,
+    VersionSpecification,
+    DebugSpecification,
 }
 
 class ConditionalDeclaration : Node
 {
     ConditionDeclarationType type;
-    Condition condition;
-    DeclarationDefinition[] thenBlock;
+    Condition condition;  // Optional.
+    DeclarationDefinition[] thenBlock;  // Optional.
     DeclarationDefinition[] elseBlock;  // Optional.
+    Node specification;  // Optional.
 }
 
 class ConditionalStatement : Node
@@ -59,6 +62,19 @@ class VersionCondition : Node
     Identifier identifier;  // Optional.
 }
 
+enum SpecificationType
+{
+    Identifier,
+    Integer
+}
+
+// version = foo
+class VersionSpecification : Node
+{
+    SpecificationType type;
+    Node node;
+}
+
 enum DebugConditionType
 {
     Simple,
@@ -71,6 +87,13 @@ class DebugCondition : Node
     DebugConditionType type;
     IntegerLiteral integer;  // Optional.
     Identifier identifier;  // Optional.
+}
+
+// debug = foo
+class DebugSpecification : Node
+{
+    SpecificationType type;
+    Node node;
 }
 
 class StaticIfCondition : Node

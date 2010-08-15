@@ -8,6 +8,7 @@ module sdc.parser.conditional;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.util;
+import sdc.ast.base;
 import sdc.ast.conditional;
 import sdc.ast.sdcmodule;
 import sdc.parser.base;
@@ -19,6 +20,36 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
 {
     auto decl = new ConditionalDeclaration();
     decl.location = tstream.peek.location;
+    
+    // parse version = foo, or debug = foo
+    if ((tstream.peek.type == TokenType.Version || tstream.peek.type == TokenType.Debug) 
+        && tstream.lookahead(1).type == TokenType.Assign) {
+        if (tstream.peek.type == TokenType.Version) {
+            match(tstream, TokenType.Version);
+            decl.type = ConditionDeclarationType.VersionSpecification;
+        } else if (tstream.peek.type == TokenType.Debug) {
+            match(tstream, TokenType.Debug);
+            decl.type = ConditionDeclarationType.DebugSpecification;
+        } else assert(false);
+        match(tstream, TokenType.Assign);
+        Node payload;
+        if (tstream.peek.type == TokenType.Identifier) {
+            payload = parseIdentifier(tstream);
+        } else {
+            payload = parseIntegerLiteral(tstream);
+        }
+        if (decl.type == ConditionDeclarationType.VersionSpecification) {
+            auto spec = new VersionSpecification();
+            spec.node = payload;
+            decl.specification = spec;
+        } else {
+            auto spec = new DebugSpecification();
+            spec.node = payload;
+            decl.specification = spec;
+        }
+        return decl;
+    }
+    
     
     decl.condition = parseCondition(tstream);
     if (tstream.peek.type == TokenType.Colon) {
