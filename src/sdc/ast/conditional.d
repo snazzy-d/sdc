@@ -13,13 +13,13 @@ import sdc.ast.statement;
 
 enum ConditionDeclarationType
 {
-    ConditionThenDeclarations,
-    ConditionThenDeclarationsThenElse,
-    ConditionOn
+    Block,
+    AlwaysOn
 }
 
 class ConditionalDeclaration : Node
 {
+    ConditionDeclarationType type;
     Condition condition;
     DeclarationDefinition[] thenBlock;
     DeclarationDefinition[] elseBlock;  // Optional.
