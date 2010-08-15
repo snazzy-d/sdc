@@ -69,7 +69,7 @@ enum DebugConditionType
 class DebugCondition : Node
 {
     DebugConditionType type;
-    int integer;  // Optional.
+    IntegerLiteral integer;  // Optional.
     Identifier identifier;  // Optional.
 }
 
