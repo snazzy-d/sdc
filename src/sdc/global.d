@@ -50,6 +50,7 @@ bool isDebugIdentifierSet(string s)
 
 static this()
 {
+    isDebug = true;
     setVersion("all");
 }
 

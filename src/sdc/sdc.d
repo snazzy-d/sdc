@@ -44,11 +44,15 @@ int main(string[] args)
 {
     bool printTokens;
     
+
     getopt(args,
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
            "version-identifier", (string option, string arg) { setVersion(arg); },
            "version-level", &versionLevel,
+           "debug", () { isDebug = true; },
+           "release", () { isDebug = false; },
+           "unittest", () { unittestsEnabled = true; },
            "print-tokens", &printTokens
           );
           
@@ -99,5 +103,8 @@ void usage()
     stdout.writeln("  --version:             print version information to stdout.");
     stdout.writeln("  --version-identifier:  specify the given version identifier.");
     stdout.writeln("  --version-level:       set the version level to the given integer.");
+    stdout.writeln("  --debug:               compile in debug mode (defaults on).");
+    stdout.writeln("  --release:             don't compile in debug mode (defaults off).");
+    stdout.writeln("  --unittest:            compile in unittests (defaults off)."); 
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
 }
