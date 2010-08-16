@@ -11,4 +11,6 @@ a.out
 *.bc
 .classpath
 .project
+*.s
+
 
