@@ -73,7 +73,9 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         auto var = type.getValue(declarator.location);
         
         if (declarator.initialiser is null) {
-            var.set(var.init(decl.location));
+            if (var.type.dtype != DType.Struct) {
+                var.set(var.init(decl.location));
+            }
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
                 panic(declarator.initialiser.location, "void initialisers are unimplemented.");

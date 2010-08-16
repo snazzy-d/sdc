@@ -16,6 +16,8 @@ import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
+import sdc.gen.type;
+import sdc.gen.aggregate;
 
 
 Module genModule(ast.Module astModule)
@@ -84,10 +86,14 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         break;
+    case ast.DeclarationDefinitionType.AggregateDeclaration:
+        genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+        break;
     default:
         error(declDef.location, "ICE: unhandled DeclarationDefinition.");
     }
 }
+
 
 ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
 {

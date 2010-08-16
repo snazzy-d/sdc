@@ -22,6 +22,7 @@ class Module
     Scope currentScope;
     Path currentPath;
     Value currentFunction;
+    Value base;
     
     this(string name)
     {

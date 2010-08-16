@@ -67,6 +67,7 @@ abstract class Value
     Value eq(Value val);
     Value call(Value[] args);
     Value init(Location location);
+    Value getMember(string name);
     
     protected Module mModule;
     protected Type mType;
@@ -158,6 +159,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     }
     
     mixin InvalidOperation!"Value call(Value[])";
+    mixin InvalidOperation!"Value getMember(string)";
     
     override Value init(Location location)
     {
@@ -226,6 +228,7 @@ class FunctionValue : Value
     mixin InvalidOperation!"void add(Value)";
     mixin InvalidOperation!"void sub(Value)";
     mixin InvalidOperation!"Value eq(Value)";
+    mixin InvalidOperation!"Value getMember(string)";
     
     override Value init(Location location)
     {
@@ -234,6 +237,49 @@ class FunctionValue : Value
     }
 }
 
+
+class StructValue : Value
+{
+    this(Module mod, Location location, StructType type)
+    {
+        super(mod, location);
+        mType = type;
+        mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+    }
+    
+    override LLVMValueRef get()
+    {
+        return LLVMBuildLoad(mModule.builder, mValue, "struct");
+    }
+    
+    override Value init(Location location)
+    {
+        panic(location, "tried to get the init of a struct value.");
+        assert(false);
+    }
+    
+    override Value getMember(string name)
+    {
+        auto t = new IntType(mModule);
+        LLVMValueRef[] indices;
+        indices ~= LLVMConstInt(t.llvmType, 0, false);
+        
+        auto asStruct = cast(StructType) mType;
+        assert(asStruct);
+        indices ~= LLVMConstInt(t.llvmType, asStruct.memberPositions[name], false);
+        
+        auto i = new IntValue(mModule, location);
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
+        return i;
+    }
+    
+    mixin InvalidOperation!"void set(Value)";
+    mixin InvalidOperation!"void set(LLVMValueRef)";
+    mixin InvalidOperation!"void add(Value)";
+    mixin InvalidOperation!"void sub(Value)";
+    mixin InvalidOperation!"Value eq(Value)";
+    mixin InvalidOperation!"Value call(Value[])";
+}
 
 // I would like to think that it's obvious that the following are stub functions.
 

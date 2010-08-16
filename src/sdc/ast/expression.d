@@ -40,7 +40,7 @@ enum AssignType
 class AssignExpression : Node
 {
     ConditionalExpression conditionalExpression;
-    AssignType assignType;  // Optional.
+    AssignType assignType;
     AssignExpression assignExpression;  // Optional.
 }
 

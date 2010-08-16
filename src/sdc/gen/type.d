@@ -23,6 +23,7 @@ enum DType
     Int,
     Complex,
     Function,
+    Struct,
 }
 
 pure bool isComplexDType(DType dtype)
@@ -110,6 +111,38 @@ class FunctionType : Type
     override Value getValue(Location location) { return null; }
 
     protected ast.FunctionDeclaration mFunctionDeclaration;
+}
+
+class StructType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Struct;
+    }
+    
+    void declare()
+    {
+        LLVMTypeRef[] types;
+        foreach (member; members) {
+            types ~= member.llvmType;
+        }
+        mType = LLVMStructTypeInContext(mModule.context, types.ptr, types.length, false);
+    }
+    
+    override Value getValue(Location location)
+    {
+        return new StructValue(mModule, location, this);
+    }
+    
+    void addMemberVar(string id, Type t)
+    {
+        memberPositions[id] = members.length;
+        members ~= t;
+    }
+    
+    Type[] members;
+    int[string] memberPositions;
 }
 
 unittest

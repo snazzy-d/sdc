@@ -22,7 +22,19 @@ Value genExpression(ast.Expression expression, Module mod)
 
 Value genAssignExpression(ast.AssignExpression expression, Module mod)
 {
-    return genConditionalExpression(expression.conditionalExpression, mod);
+    auto lhs = genConditionalExpression(expression.conditionalExpression, mod);
+    switch (expression.assignType) {
+    case ast.AssignType.None:
+        break;
+    case ast.AssignType.Normal:
+        auto rhs = genAssignExpression(expression.assignExpression, mod);
+        lhs.set(rhs);
+        break;
+    default:
+        panic(expression.location, "unimplemented assign expression type.");
+        assert(false);
+    }
+    return lhs;
 }
 
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
@@ -151,6 +163,10 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     case ast.PostfixType.None:
         break;
     case ast.PostfixType.Dot:
+        mod.base = lhs;
+        lhs = genPrimaryExpression(expression.dotExpressions[0], mod);
+        mod.base = null;
+        break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         lhs = new IntValue(mod, lhs);
@@ -203,6 +219,9 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
     auto name = extractIdentifier(identifier);
+    if (mod.base !is null) {
+        return mod.base.getMember(name);
+    }
     auto store = mod.search(name);
     if (store is null) {
         error(identifier.location, format("unknown identifier '%s'.", name));
