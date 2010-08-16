@@ -18,10 +18,19 @@ shared bool unittestsEnabled;
 
 void setVersion(string s)
 {
+    if (s in reservedVersionIdentifiers || (s.length >= 2 && s[0 .. 2] == "D_")) {
+        error(format("cannot specify reserved version identifier '%s'.", s));
+    }
     if (s in versionIdentifiers) {
         error(format("version identifier '%s' already defined.", s));
     }
     versionIdentifiers[s] = true;
+}
+
+private void specifyAndReserve(string s)
+{
+    setVersion(s);
+    reservedVersionIdentifiers[s] = true;
 }
 
 void setDebug(string s)
@@ -51,9 +60,13 @@ bool isDebugIdentifierSet(string s)
 static this()
 {
     isDebug = true;
-    setVersion("all");
+    reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.
+    specifyAndReserve("all");                   // Guaranteed to be defined by all implementations.
+    specifyAndReserve("SDC");                   // Vendor specification.
+    versionIdentifiers["D_Version2"] = true;    // D version supported is 2.
 }
 
+private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] testedVersionIdentifiers;
 private shared bool[string] debugIdentifiers;
