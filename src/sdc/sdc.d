@@ -49,7 +49,9 @@ int main(string[] args)
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
            "version-identifier", (string option, string arg) { setVersion(arg); },
+           "debug-identifier", (string option, string arg) { setDebug(arg); },
            "version-level", &versionLevel,
+           "debug-level", &debugLevel,
            "debug", () { isDebug = true; },
            "release", () { isDebug = false; },
            "unittest", () { unittestsEnabled = true; },
@@ -102,7 +104,9 @@ void usage()
     stdout.writeln("  --help:                print this message.");
     stdout.writeln("  --version:             print version information to stdout.");
     stdout.writeln("  --version-identifier:  specify the given version identifier.");
+    stdout.writeln("  --debug-identifier:    specify the given debug identifier.");
     stdout.writeln("  --version-level:       set the version level to the given integer.");
+    stdout.writeln("  --debug-level:         set the debug level to the given integer.");
     stdout.writeln("  --debug:               compile in debug mode (defaults on).");
     stdout.writeln("  --release:             don't compile in debug mode (defaults off).");
     stdout.writeln("  --unittest:            compile in unittests (defaults off)."); 
