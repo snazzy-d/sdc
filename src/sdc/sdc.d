@@ -47,7 +47,7 @@ int main(string[] args)
     try {
         getopt(args,
                "help", () { usage(); exit(0); },
-               "version", () { stdout.writeln(NAME); exit(0); },
+               "version", () { stdout.writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
                "version-level", &versionLevel,
