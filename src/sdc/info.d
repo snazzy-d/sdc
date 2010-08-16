@@ -6,6 +6,6 @@
 module sdc.info;
 
 
-immutable string NAME = "Stupid D Compiler";
+immutable string NAME = "SDC";
 immutable string VENDOR = `"` ~ NAME ~ `"`;
 immutable int VERSION = 0;
