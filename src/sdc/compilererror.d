@@ -11,8 +11,12 @@ import std.string;
 import sdc.location;
 
 
-class CompilerError
+class CompilerError : Exception
 {
+    this()
+    {
+        super("CompilerError");
+    }
 }
 
 void error(string message)
