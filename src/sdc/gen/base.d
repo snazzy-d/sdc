@@ -5,9 +5,11 @@
  */
 module sdc.gen.base;
 
+import std.conv;
 import std.string;
 
 import sdc.compilererror;
+import sdc.util;
 import sdc.global;
 import ast = sdc.ast.all;
 import sdc.extract.base;
@@ -145,7 +147,7 @@ bool genVersionCondition(ast.VersionCondition condition, Module mod)
     final switch (condition.type) {
     case ast.VersionConditionType.Integer:
         auto i = extractIntegerLiteral(condition.integer);
-        return i >= versionLevel;
+        return versionLevel >= i;
     case ast.VersionConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
         return isVersionIdentifierSet(ident);
@@ -161,7 +163,7 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
         return isDebug;
     case ast.DebugConditionType.Integer:
         auto i = extractIntegerLiteral(condition.integer);
-        return i >= debugLevel;
+        return debugLevel >= i;
     case ast.DebugConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
         return isDebugIdentifierSet(ident);
