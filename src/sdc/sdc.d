@@ -44,19 +44,25 @@ int main(string[] args)
 {
     bool printTokens;
     
-
-    getopt(args,
-           "help", () { usage(); exit(0); },
-           "version", () { stdout.writeln(NAME); exit(0); },
-           "version-identifier", (string option, string arg) { setVersion(arg); },
-           "debug-identifier", (string option, string arg) { setDebug(arg); },
-           "version-level", &versionLevel,
-           "debug-level", &debugLevel,
-           "debug", () { isDebug = true; },
-           "release", () { isDebug = false; },
-           "unittest", () { unittestsEnabled = true; },
-           "print-tokens", &printTokens
-          );
+    try {
+        getopt(args,
+               "help", () { usage(); exit(0); },
+               "version", () { stdout.writeln(NAME); exit(0); },
+               "version-identifier", (string option, string arg) { setVersion(arg); },
+               "debug-identifier", (string option, string arg) { setDebug(arg); },
+               "version-level", &versionLevel,
+               "debug-level", &debugLevel,
+               "debug", () { isDebug = true; },
+               "release", () { isDebug = false; },
+               "unittest", () { unittestsEnabled = true; },
+               "print-tokens", &printTokens
+               );
+    } catch (CompilerError) {
+        exit(1);
+    } catch (Exception) {
+        stderr.writeln("bad command line.");
+        exit(1);
+    }
           
     if (args.length == 1) {
         usage(); exit(1);
