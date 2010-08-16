@@ -43,11 +43,13 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
         }
         if (decl.type == ConditionalDeclarationType.VersionSpecification) {
             auto spec = new VersionSpecification();
+            spec.location = decl.location;
             spec.node = payload;
             spec.type = type;
             decl.specification = spec;
         } else {
             auto spec = new DebugSpecification();
+            spec.location = decl.location;
             spec.node = payload;
             spec.type = type;
             decl.specification = spec;

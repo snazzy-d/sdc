@@ -5,6 +5,8 @@
  */
 module sdc.gen.base;
 
+import std.string;
+
 import sdc.compilererror;
 import sdc.global;
 import ast = sdc.ast.all;
@@ -28,6 +30,10 @@ Module genModule(ast.Module astModule)
 
 void realGenModule(ast.Module astModule, Module mod)
 {
+    ast.DeclarationDefinition[] newTopLevels;
+    versionConditionalsPass(astModule.declarationDefinitions, mod, newTopLevels);
+    astModule.declarationDefinitions ~= newTopLevels;
+    
     // Declare all data structures.
     foreach (declDef; astModule.declarationDefinitions) if (declDef.type == ast.DeclarationDefinitionType.Declaration) {
         auto decl = cast(ast.Declaration) declDef.node;
@@ -47,14 +53,21 @@ void realGenModule(ast.Module astModule, Module mod)
     }
 }
 
+void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)
+{
+    foreach (declDef; declDefs) {
+        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration) {
+            continue;
+        }
+        newDeclDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
+    }
+}
+
 void declareDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
     switch (declDef.type) {
     case ast.DeclarationDefinitionType.Declaration:
         declareDeclaration(cast(ast.Declaration) declDef.node, mod);
-        break;
-    case ast.DeclarationDefinitionType.ConditionalDeclaration:
-        declareConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
         break;
     default: break;
     }
@@ -68,43 +81,26 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
-        genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
         break;
     default:
         error(declDef.location, "ICE: unhandled DeclarationDefinition.");
     }
 }
 
-void declareConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
+ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
 {
-    switch (decl.type) {
-    case ast.ConditionalDeclarationType.VersionSpecification:
-        auto spec = cast(ast.VersionSpecification) decl.specification;
-        if (spec.type == ast.SpecificationType.Identifier) {
-            auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
-            setVersion(ident);
-        } else {
-            auto n = extractIntegerLiteral(cast(ast.IntegerLiteral) spec.node);
-            versionLevel = n;
-        }
-        break;
-    case ast.ConditionalDeclarationType.DebugSpecification:
-    default: break;
-    }
-}
-
-void genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
-{
+    if (mod.currentScope.topLevelBail) return null;
+    ast.DeclarationDefinition[] newTopLevels;
     final switch (decl.type) {
     case ast.ConditionalDeclarationType.Block:
         bool cond = genCondition(decl.condition, mod);
         if (cond) {
             foreach (declDef; decl.thenBlock) {
-                genDeclarationDefinition(declDef, mod);
+                newTopLevels ~= declDef;
             }
         } else if (decl.elseBlock !is null) {
             foreach (declDef; decl.elseBlock) {
-                genDeclarationDefinition(declDef, mod);
+                newTopLevels ~= declDef;
             }
         }
         break;
@@ -112,9 +108,24 @@ void genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
         mod.currentScope.topLevelBail = !genCondition(decl.condition, mod);
         break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
+        auto spec = cast(ast.VersionSpecification) decl.specification;
+        if (spec.type == ast.SpecificationType.Identifier) {
+            auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
+            if (hasVersionIdentifierBeenTested(ident)) {
+                error(spec.location, format("specification of '%s' after use is not allowed.", ident));
+            }
+            setVersion(ident);
+        } else {
+            auto n = extractIntegerLiteral(cast(ast.IntegerLiteral) spec.node);
+            versionLevel = n;
+        }
+        break;
     case ast.ConditionalDeclarationType.DebugSpecification:
-        break;  // handled in declareConditionalDeclaration
+        auto spec = cast(ast.DebugSpecification) decl.specification;
+        panic(spec.location, "debug specifications are not implemented.");
+        break;
     }
+    return newTopLevels;
 }
 
 bool genCondition(ast.Condition condition, Module mod)
