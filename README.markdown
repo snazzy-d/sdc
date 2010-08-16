@@ -38,7 +38,7 @@ Parser
 * Parse static destructors.  _[no.]_
 * Parse shared static constructors.  _[no.]_
 * Parse shared static destructors.  _[no.]_
-* Parse conditional declarations.  _[no.]_
+* Parse conditional declarations.  __[yes.]__
 * Parse static asserts.  _[no.]_
 * Parse template declarations.  _[no.]_
 * Parse template mixins.  _[no.]_
@@ -80,7 +80,7 @@ Codegen
 * Pragma statement.  _[no.]_
 * Mixin statement.  _[no.]_
 * Foreach range statement.  _[no.]_
-* Conditional statement.  _[no.]_
+* Conditional statement.  __[yes.]__
 * Static assert.  _[no.]_
 * Template mixin.  _[no.]_
 
@@ -92,12 +92,16 @@ By 'handle', I mean can compile a working executable, and featured features act 
 
     module test;  // The name given here is currently ignored.
     
+    version = foo;
+    
     int add(int a, int b)
     {
         return a + b;
     }
     
-    /++ /+/+/++/+/+/
+    version (none) int foo() { return 12; }
+    
+    /++
      + Returns: the value '42'.
      +/
     int main()
@@ -108,5 +112,8 @@ By 'handle', I mean can compile a working executable, and featured features act 
         while (j == 38) {
             if (i == 2) j++;
         }
+        version (foo) j++;
+        version (all) j--;
+        version (none) j++;
         return add(++j, i);
     }
