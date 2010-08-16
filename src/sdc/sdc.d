@@ -87,7 +87,7 @@ int main(string[] args)
         if (printTokens) tstream.printTo(stdout);
         LLVMVerifyModule(gModule.mod, LLVMVerifierFailureAction.AbortProcess, null);
         LLVMWriteBitcodeToFile(gModule.mod, "test.bc");
-        //optimise(gModule.mod);
+        optimise(gModule.mod);
         LLVMDumpModule(gModule.mod);
         system("llvm-ld -native test.bc");
     }
