@@ -33,7 +33,13 @@ void setDebug(string s)
 
 bool isVersionIdentifierSet(string s)
 {
+    testedVersionIdentifiers[s] = true;
     return (s in versionIdentifiers) !is null;
+}
+
+bool hasVersionIdentifierBeenTested(string s)
+{
+    return (s in testedVersionIdentifiers) !is null;
 }
 
 bool isDebugIdentifierSet(string s)
@@ -47,5 +53,6 @@ static this()
 }
 
 private shared bool[string] versionIdentifiers;
+private shared bool[string] testedVersionIdentifiers;
 private shared bool[string] debugIdentifiers;
 
