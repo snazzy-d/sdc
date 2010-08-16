@@ -111,5 +111,4 @@ void usage()
     stdout.writeln("  --release:             don't compile in debug mode (defaults off).");
     stdout.writeln("  --unittest:            compile in unittests (defaults off)."); 
     stdout.writeln("  --print-tokens:        print the results of tokenisation to stdout.");
-    stdout.writeln("  --print-tokens:        print the results of tokenisation to stdout.");
 }
