@@ -8,6 +8,7 @@ module sdc.global;
 import std.string;
 
 import sdc.compilererror;
+import sdc.util;
 
 
 shared int versionLevel;

@@ -18,6 +18,7 @@
  */
 module sdc.sdc;
 
+import std.conv;
 import std.stdio;
 import std.getopt;
 import std.process : system;
@@ -33,6 +34,7 @@ import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
+import sdc.global;
 import ast = sdc.ast.all;
 import sdc.parser.all;
 import sdc.gen.base;
@@ -45,6 +47,8 @@ int main(string[] args)
     getopt(args,
            "help", () { usage(); exit(0); },
            "version", () { stdout.writeln(NAME); exit(0); },
+           "version-identifier", (string option, string arg) { setVersion(arg); },
+           "version-level", &versionLevel,
            "print-tokens", &printTokens
           );
           
@@ -91,7 +95,9 @@ void optimise(LLVMModuleRef mod)
 void usage()
 {
     stdout.writeln("sdc [options] files");
-    stdout.writeln("  --help:          print this message.");
-    stdout.writeln("  --version:       print version information to stdout.");
+    stdout.writeln("  --help:                print this message.");
+    stdout.writeln("  --version:             print version information to stdout.");
+    stdout.writeln("  --version-identifier:  specify the given version identifier.");
+    stdout.writeln("  --version-level:       set the version level to the given integer.");
     stdout.writeln("  --print-tokens:  print the results of tokenisation to stdout.");
 }
