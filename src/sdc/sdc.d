@@ -20,6 +20,7 @@ module sdc.sdc;
 
 import std.conv;
 import std.stdio;
+import std.string;
 import std.getopt;
 import std.process : system;
 import std.c.stdlib;
@@ -40,14 +41,37 @@ import sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 
+enum OutputMode
+{
+    Bitcode,
+    NativeAssembly
+}
+
 int main(string[] args)
 {
     bool printTokens;
+    auto outputMode = OutputMode.Bitcode;
+    string march = "x86-64";
     
     try {
         getopt(args,
                "help", () { usage(); exit(0); },
                "version", () { stdout.writeln(VERSION_STRING); exit(0); },
+               "output", 
+               (string option, string arg)
+               {
+                   switch (arg) {
+                   case "bitcode":
+                       outputMode = OutputMode.Bitcode;
+                       break;
+                   case "native-assembly":
+                       outputMode = OutputMode.NativeAssembly;
+                       break;
+                   default:
+                       error(format("unknown output type '%s'.", arg));
+                   }
+               },
+               "march", &march,
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
                "version-level", &versionLevel,
@@ -85,36 +109,39 @@ int main(string[] args)
         }
         
         if (printTokens) tstream.printTo(stdout);
-        LLVMVerifyModule(gModule.mod, LLVMVerifierFailureAction.AbortProcess, null);
-        LLVMWriteBitcodeToFile(gModule.mod, "test.bc");
-        optimise(gModule.mod);
-        LLVMDumpModule(gModule.mod);
+        gModule.verify();
+        if (outputMode == OutputMode.Bitcode) {
+            gModule.writeBitcodeToFile("test.bc");
+        } else if (outputMode == OutputMode.NativeAssembly) {
+            gModule.writeBitcodeToFile("test.bc");
+            gModule.writeNativeAssemblyToFile("test.bc", "test.s", march);
+        }
+        gModule.optimise();
+        gModule.dump();
         system("llvm-ld -native test.bc");
     }
 
     return errors ? 1 : 0;
 }
 
-void optimise(LLVMModuleRef mod)
-{
-    auto passManager = LLVMCreatePassManager();
-    LLVMAddInstructionCombiningPass(passManager);
-    LLVMAddPromoteMemoryToRegisterPass(passManager);
-    LLVMRunPassManager(passManager, mod);
-    LLVMDisposePassManager(passManager);
-}
 
 void usage()
 {
-    stdout.writeln("sdc [options] files");
-    stdout.writeln("  --help:                print this message.");
-    stdout.writeln("  --version:             print version information to stdout.");
-    stdout.writeln("  --version-identifier:  specify the given version identifier.");
-    stdout.writeln("  --debug-identifier:    specify the given debug identifier.");
-    stdout.writeln("  --version-level:       set the version level to the given integer.");
-    stdout.writeln("  --debug-level:         set the debug level to the given integer.");
-    stdout.writeln("  --debug:               compile in debug mode (defaults on).");
-    stdout.writeln("  --release:             don't compile in debug mode (defaults off).");
-    stdout.writeln("  --unittest:            compile in unittests (defaults off)."); 
-    stdout.writeln("  --print-tokens:        print the results of tokenisation to stdout.");
+    writeln("sdc [options] modules");
+    writeln("  --help:                print this message.");
+    writeln("  --version:             print version information to stdout.");
+    writeln("  --output:              output input module as: (default is bitcode)");
+    writeln("                         ['bitcode', 'native-assembly']");
+    writeln("  --march:               if output (see above) is set to native-assembly,");
+    writeln("                         the argument to march is passed to llc. See the");
+    writeln("                         output of `llc --version` for supported archs.");
+    writeln("                         Defaults to 'x86-64'.");
+    writeln("  --version-identifier:  specify the given version identifier.");
+    writeln("  --debug-identifier:    specify the given debug identifier.");
+    writeln("  --version-level:       set the version level to the given integer.");
+    writeln("  --debug-level:         set the debug level to the given integer.");
+    writeln("  --debug:               compile in debug mode (defaults on).");
+    writeln("  --release:             don't compile in debug mode (defaults off).");
+    writeln("  --unittest:            compile in unittests (defaults off)."); 
+    writeln("  --print-tokens:        print the results of tokenisation to stdout.");
 }

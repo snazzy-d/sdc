@@ -5,14 +5,21 @@
  */
 module sdc.gen.sdcmodule;
 
+import std.process;
 import std.string;
 
+import llvm.c.Analysis;
+import llvm.c.BitWriter;
 import llvm.c.Core;
+import llvm.c.transforms.Scalar;
 
 import sdc.gen.type;
 import sdc.gen.value;
 
 
+/**
+ * Module encapsulates the code generated for a module.
+ */ 
 class Module
 {
     LLVMContextRef context;
@@ -38,6 +45,48 @@ class Module
     {
         LLVMDisposeModule(mod);
         LLVMDisposeBuilder(builder);
+    }
+    
+    /**
+     * Verify that the generated bit code is correct.
+     * If it isn't, an error will be printed and the process will be aborted.
+     */
+    void verify()
+    {
+        LLVMVerifyModule(mod, LLVMVerifierFailureAction.AbortProcess, null);
+    }
+    
+    /**
+     * Dump a human readable form of the generated code to stderr.
+     */
+    void dump()
+    {
+        LLVMDumpModule(mod);
+    }
+    
+    /**
+     * Write the bitcode to a specified file.
+     */
+    void writeBitcodeToFile(string filename)
+    {
+        LLVMWriteBitcodeToFile(mod, toStringz(filename));
+    }
+    
+    void writeNativeAssemblyToFile(string fromFilename, string toFilename, string arch)
+    {
+        system(format("llc -o %s -march=%s %s", toFilename, arch, fromFilename));
+    }
+    
+    /**
+     * Optimise the generated code in place.
+     */
+    void optimise()
+    {
+        auto passManager = LLVMCreatePassManager();
+        LLVMAddInstructionCombiningPass(passManager);
+        LLVMAddPromoteMemoryToRegisterPass(passManager);
+        LLVMRunPassManager(passManager, mod);
+        LLVMDisposePassManager(passManager);
     }
 
     void pushScope()

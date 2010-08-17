@@ -23,12 +23,8 @@ import sdc.gen.aggregate;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    try {
-        realGenModule(astModule, mod);
-    } catch (CompilerError e) {
-        mod.dispose();
-        throw e;
-    }
+    scope (failure) mod.dispose();
+    realGenModule(astModule, mod);
     return mod;
 }
 
