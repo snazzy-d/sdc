@@ -110,15 +110,16 @@ int main(string[] args)
         
         if (printTokens) tstream.printTo(stdout);
         gModule.verify();
+        gModule.optimise();
+        gModule.dump();
         if (outputMode == OutputMode.Bitcode) {
             gModule.writeBitcodeToFile("test.bc");
+            system("llvm-ld -native test.bc");
         } else if (outputMode == OutputMode.NativeAssembly) {
             gModule.writeBitcodeToFile("test.bc");
             gModule.writeNativeAssemblyToFile("test.bc", "test.s", march);
+            system("gcc test.s");
         }
-        gModule.optimise();
-        gModule.dump();
-        system("llvm-ld -native test.bc");
     }
 
     return errors ? 1 : 0;
