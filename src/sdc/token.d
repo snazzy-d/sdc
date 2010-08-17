@@ -36,7 +36,7 @@ immutable string[182] tokenToString = [
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
 
-static assert(tokenToString.length == __traits(allMembers, TokenType).length);
+static assert(tokenToString.length == TokenType.max + 1);
 
 enum TokenType
 {
