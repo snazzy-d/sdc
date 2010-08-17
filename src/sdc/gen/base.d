@@ -86,7 +86,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
         break;
     default:
-        error(declDef.location, "ICE: unhandled DeclarationDefinition.");
+        error(declDef.location, format("ICE: unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 
