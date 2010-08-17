@@ -7,9 +7,7 @@ module sdc.token;
 
 import sdc.location;
 
-/* I don't really have to tell you to keep this
- * table and the TokenType enum in sync, do I?
- */
+
 immutable string[182] tokenToString = [
 "none", "identifier", "string literal", "character literal",
 "integer literal", "float literal", "abstract", "alias", "align",
@@ -37,6 +35,8 @@ immutable string[182] tokenToString = [
 ":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "~", "~=",
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
+
+static assert(tokenToString.length == __traits(allMembers, TokenType).length);
 
 enum TokenType
 {
