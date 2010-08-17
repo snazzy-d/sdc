@@ -36,7 +36,8 @@ immutable string[182] tokenToString = [
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
 
-static assert(tokenToString.length == TokenType.max + 1);
+static assert(tokenToString.length == TokenType.max + 1, "the tokenToString array and TokenType enum are out of sync.");
+static assert(TokenType.max + 1 == __traits(allMembers, TokenType).length, "all TokenType enum members must be sequential.");
 
 enum TokenType
 {
