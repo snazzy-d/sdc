@@ -25,11 +25,6 @@ import std.getopt;
 import std.process : system;
 import std.c.stdlib;
 
-import llvm.c.Analysis;
-import llvm.c.BitWriter;
-import llvm.c.Core;
-import llvm.c.transforms.Scalar;
-
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
