@@ -154,5 +154,4 @@ unittest
     assert(a == b);
     auto c = new BoolType(mod);
     assert(a != c);
-    mod.dispose();
 }

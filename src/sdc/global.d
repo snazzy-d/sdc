@@ -9,12 +9,26 @@ import std.string;
 
 import sdc.compilererror;
 import sdc.util;
+import sdc.source;
+import sdc.tokenstream;
+import ast = sdc.ast.all;
+import sdc.gen.sdcmodule;
 
+
+class TranslationUnit
+{
+    string filename;
+    Source source;
+    TokenStream tstream;
+    ast.Module aModule;
+    Module gModule;
+}
 
 shared int versionLevel;
 shared bool isDebug;
 shared int debugLevel;
 shared bool unittestsEnabled;
+
 
 void setVersion(string s)
 {
@@ -57,6 +71,21 @@ bool isDebugIdentifierSet(string s)
     return (s in debugIdentifiers) !is null;
 }
 
+void addTranslationUnit(string key, TranslationUnit val)
+{
+    translationUnits[key] = val;
+}
+
+TranslationUnit getTranslationUnit(string key)
+{
+    return translationUnits.get(key, null);
+}
+
+TranslationUnit[] getTranslationUnits()
+{
+    return translationUnits.values;
+}
+
 static this()
 {
     isDebug = true;
@@ -70,4 +99,5 @@ private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] testedVersionIdentifiers;
 private shared bool[string] debugIdentifiers;
+private __gshared TranslationUnit[string] translationUnits;
 

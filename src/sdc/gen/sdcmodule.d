@@ -43,7 +43,7 @@ class Module
         currentScope = globalScope;
     }
         
-    void dispose()
+    ~this()
     {
         LLVMDisposeModule(mod);
         LLVMDisposeBuilder(builder);

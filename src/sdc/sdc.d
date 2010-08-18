@@ -22,6 +22,7 @@ import std.conv;
 import std.stdio;
 import std.string;
 import std.getopt;
+import std.path;
 import std.process : system;
 import std.c.stdlib;
 
@@ -32,9 +33,11 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.global;
 import ast = sdc.ast.all;
+import sdc.extract.base;
 import sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
+
 
 enum OutputMode
 {
@@ -44,7 +47,17 @@ enum OutputMode
 
 int main(string[] args)
 {
-    bool printTokens;
+    int retval;
+    try {
+        realmain(args);
+    } catch (CompilerError) {
+        retval = 1;
+    }
+    return retval;
+}
+
+void realmain(string[] args)
+{
     auto outputMode = OutputMode.Bitcode;
     string march = "x86-64";
     
@@ -73,37 +86,35 @@ int main(string[] args)
                "debug-level", &debugLevel,
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; },
-               "print-tokens", &printTokens
+               "unittest", () { unittestsEnabled = true; }
                );
-    } catch (CompilerError) {
-        exit(1);
     } catch (Exception) {
         stderr.writeln("bad command line.");
-        exit(1);
+        throw new CompilerError();
     }
           
     if (args.length == 1) {
-        usage(); exit(1);
+        usage();
+        return;
     }
     
-    bool errors;
     foreach (arg; args[1 .. $]) {
-        auto source = new Source(arg);
-        TokenStream tstream;
-        ast.Module aModule;
-        Module gModule;
-        scope (exit) if (gModule !is null) gModule.dispose();
-        try {
-            tstream = lex(source);
-            aModule = parseModule(tstream);
-            gModule = genModule(aModule);
-        } catch (CompilerError) {
-            errors = true;
-            continue;
+        auto ext = getExt(arg);
+        if (ext != "d") {
+            stderr.writeln("unknown extension '", ext, "'.");
+            throw new CompilerError();
         }
-        
-        if (printTokens) tstream.printTo(stdout);
+        auto translationUnit = new TranslationUnit();
+        translationUnit.filename = arg;
+        translationUnit.source = new Source(arg);
+        translationUnit.tstream = lex(translationUnit.source);
+        translationUnit.aModule = parseModule(translationUnit.tstream);
+        auto name = extractQualifiedName(translationUnit.aModule.moduleDeclaration.name);
+        addTranslationUnit(name, translationUnit);
+    }
+    
+    foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+        gModule = genModule(translationUnit.aModule);
         gModule.verify();
         gModule.optimise();
         gModule.dump();
@@ -116,8 +127,6 @@ int main(string[] args)
             system("gcc test.s");
         }
     }
-
-    return errors ? 1 : 0;
 }
 
 
@@ -139,5 +148,4 @@ void usage()
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off)."); 
-    writeln("  --print-tokens:        print the results of tokenisation to stdout.");
 }

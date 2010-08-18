@@ -24,7 +24,6 @@ import sdc.gen.attribute;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    scope (failure) mod.dispose();
     realGenModule(astModule, mod);
     return mod;
 }
