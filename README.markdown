@@ -91,6 +91,7 @@ Nothing practical. What follows is the a program featuring most complex features
 By 'handle', I mean can compile a working executable, and featured features act as expected.
 
     module test;  // The name given here is currently ignored.
+    extern (C):   // Only C mangling (or lack thereof) and call conventions are currently supported.
     
     version = foo;
     

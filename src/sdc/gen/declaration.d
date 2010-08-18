@@ -5,6 +5,8 @@
  */
 module sdc.gen.declaration;
 
+import std.conv;
+
 import llvm.c.Core;
 
 import sdc.compilererror;
@@ -20,6 +22,10 @@ import sdc.gen.expression;
 
 void declareDeclaration(ast.Declaration decl, Module mod)
 {
+    if (mod.currentLinkage != ast.Linkage.ExternC) {
+        panic(decl.location, "only extern (C) linkage is currently supported.");
+    }
+    
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         break;

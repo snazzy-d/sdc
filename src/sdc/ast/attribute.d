@@ -46,6 +46,16 @@ enum AttributeType
     ExternSystem,
 }
 
+enum Linkage
+{
+    ExternC = AttributeType.ExternC,
+    ExternCPlusPlus,
+    ExternD,
+    ExternWindows,
+    ExternPascal,
+    ExternSystem,
+}
+
 immutable ATTRIBUTE_KEYWORDS = [
 TokenType.Deprecated, TokenType.Private, TokenType.Package,
 TokenType.Protected, TokenType.Public, TokenType.Export,
@@ -88,5 +98,5 @@ class PragmaAttribute : Node
 // DeclarationDefinition | { DeclarationDefinition* }
 class DeclarationBlock : Node
 {
-    DeclarationDefinition[] declarationDefinitions;  // Optional.
+    DeclarationDefinition[] declarationDefinitions;
 }

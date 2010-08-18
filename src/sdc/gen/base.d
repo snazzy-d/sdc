@@ -18,6 +18,7 @@ import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.type;
 import sdc.gen.aggregate;
+import sdc.gen.attribute;
 
 
 Module genModule(ast.Module astModule)
@@ -69,6 +70,9 @@ void declareDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.Declaration:
         declareDeclaration(cast(ast.Declaration) declDef.node, mod);
         break;
+    case ast.DeclarationDefinitionType.AttributeSpecifier:
+        declareAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
+        break;
     default: break;
     }
 }
@@ -84,6 +88,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+        break;
+    case ast.DeclarationDefinitionType.AttributeSpecifier:
+        genAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
         break;
     default:
         error(declDef.location, format("ICE: unhandled DeclarationDefinition '%s'", to!string(declDef.type)));

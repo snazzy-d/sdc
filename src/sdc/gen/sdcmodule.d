@@ -30,6 +30,8 @@ class Module
     Path currentPath;
     Value currentFunction;
     Value base;
+    ast.Linkage currentLinkage = ast.Linkage.ExternD;
+
     
     this(string name)
     {
