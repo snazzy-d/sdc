@@ -39,12 +39,6 @@ import sdc.gen.base;
 import sdc.gen.sdcmodule;
 
 
-enum OutputMode
-{
-    Bitcode,
-    NativeAssembly
-}
-
 int main(string[] args)
 {
     int retval;
@@ -58,28 +52,10 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
-    auto outputMode = OutputMode.Bitcode;
-    string march = "x86-64";
-    
     try {
         getopt(args,
                "help", () { usage(); exit(0); },
                "version", () { stdout.writeln(VERSION_STRING); exit(0); },
-               "output", 
-               (string option, string arg)
-               {
-                   switch (arg) {
-                   case "bitcode":
-                       outputMode = OutputMode.Bitcode;
-                       break;
-                   case "native-assembly":
-                       outputMode = OutputMode.NativeAssembly;
-                       break;
-                   default:
-                       error(format("unknown output type '%s'.", arg));
-                   }
-               },
-               "march", &march,
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
                "version-level", &versionLevel,
@@ -118,14 +94,8 @@ void realmain(string[] args)
         gModule.verify();
         gModule.optimise();
         gModule.dump();
-        if (outputMode == OutputMode.Bitcode) {
-            gModule.writeBitcodeToFile("test.bc");
-            system("llvm-ld -native test.bc");
-        } else if (outputMode == OutputMode.NativeAssembly) {
-            gModule.writeBitcodeToFile("test.bc");
-            gModule.writeNativeAssemblyToFile("test.bc", "test.s", march);
-            system("gcc test.s");
-        }
+        gModule.writeBitcodeToFile("test.bc");
+        system("llvm-ld -native test.bc");
     }
 }
 
