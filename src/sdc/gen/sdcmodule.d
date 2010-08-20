@@ -6,6 +6,7 @@
 module sdc.gen.sdcmodule;
 
 import std.process;
+import std.stdio;
 import std.string;
 
 import llvm.c.Analysis;
@@ -76,7 +77,9 @@ class Module
     
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        system(format("llc -o %s %s", toFilename, fromFilename));
+        auto cmd = format("llc -o %s %s", toFilename, fromFilename);
+        stderr.writeln(cmd);
+        system(cmd);
     }
     
     /**

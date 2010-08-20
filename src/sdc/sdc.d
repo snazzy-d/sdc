@@ -19,6 +19,7 @@
 module sdc.sdc;
 
 import std.conv;
+import std.regex;
 import std.stdio;
 import std.string;
 import std.getopt;
@@ -89,14 +90,27 @@ void realmain(string[] args)
         addTranslationUnit(name, translationUnit);
     }
     
+    auto extensionRegex = regex("d(i)?$", "i");
+    string[] assemblies;
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
         gModule = genModule(translationUnit.aModule);
         gModule.verify();
         gModule.optimise();
-        gModule.dump();
-        gModule.writeBitcodeToFile("test.bc");
-        system("llvm-ld -native test.bc");
+        
+        assert(!match(filename, extensionRegex).empty);
+        auto asBitcode  = replace(filename, extensionRegex, "bc");
+        auto asAssembly = replace(filename, extensionRegex, "s");
+        gModule.writeBitcodeToFile(asBitcode);
+        gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
+        assemblies ~= asAssembly;
     }
+    
+    auto linkCommand = "gcc -o a.out ";
+    foreach (assembly; assemblies) {
+        linkCommand ~= assembly;
+    }
+    stderr.writeln(linkCommand);
+    system(linkCommand);
 }
 
 
