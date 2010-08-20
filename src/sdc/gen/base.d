@@ -92,7 +92,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
         break;
     default:
-        error(declDef.location, format("ICE: unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
+        panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 
