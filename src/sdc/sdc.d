@@ -105,12 +105,6 @@ void usage()
     writeln("sdc [options] modules");
     writeln("  --help:                print this message.");
     writeln("  --version:             print version information to stdout.");
-    writeln("  --output:              output input module as: (default is bitcode)");
-    writeln("                         ['bitcode', 'native-assembly']");
-    writeln("  --march:               if output (see above) is set to native-assembly,");
-    writeln("                         the argument to march is passed to llc. See the");
-    writeln("                         output of `llc --version` for supported archs.");
-    writeln("                         Defaults to 'x86-64'.");
     writeln("  --version-identifier:  specify the given version identifier.");
     writeln("  --debug-identifier:    specify the given debug identifier.");
     writeln("  --version-level:       set the version level to the given integer.");
