@@ -76,7 +76,7 @@ void realmain(string[] args)
     
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
-        if (ext != "d") {
+        if (ext != "d" && ext != "di") {
             stderr.writeln("unknown extension '", ext, "'.");
             throw new CompilerError();
         }
