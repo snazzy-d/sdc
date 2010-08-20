@@ -93,7 +93,7 @@ void realmain(string[] args)
     auto extensionRegex = regex("d(i)?$", "i");
     string[] assemblies;
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
-        gModule = genModule(translationUnit.aModule);
+        gModule = genModule(aModule);
         gModule.verify();
         gModule.optimise();
         
