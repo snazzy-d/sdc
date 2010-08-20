@@ -33,6 +33,7 @@ class Module
     Value currentFunction;
     Value base;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
+    TranslationUnit[] importedTranslationUnits;
 
     
     this(string name)

@@ -64,6 +64,8 @@ abstract class Value
         panic(location, "invalid cast");
         assert(false);
     }
+            
+    Value importToModule(Module m);
     
     LLVMValueRef get();
     void set(Value val);
@@ -74,6 +76,7 @@ abstract class Value
     Value call(Value[] args);
     Value init(Location location);
     Value getMember(string name);
+
     
     protected Module mModule;
     protected Type mType;
@@ -86,7 +89,7 @@ mixin template InvalidOperation(alias FunctionSignature)
           `    panic(location, "invalid operation used."); assert(false); }`);
 }
 
-    
+
 class PrimitiveIntegerValue(T, B, alias C) : Value
 {
     this(Module mod, Location loc)
@@ -106,6 +109,12 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         this(mod, val.location);
         set(val);
+    }
+    
+    override Value importToModule(Module m)
+    {
+        panic(location, "tried to import primitive integer value across modules.");
+        assert(false);
     }
     
     override void performCastInPlace(Type t)
@@ -195,11 +204,21 @@ alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 
 class FunctionValue : Value
 {
+    string name;
+    
     this(Module mod, Location location, FunctionType func, string name)
     {
         super(mod, location);
+        this.name = name;
         mType = func;
         mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
+    }
+    
+    override Value importToModule(Module m)
+    {
+        auto newType = cast(FunctionType) mType.importToModule(m);
+        assert(newType);
+        return new FunctionValue(m, location, newType, name);
     }
     
     override LLVMValueRef get()
@@ -258,6 +277,13 @@ class StructValue : Value
         super(mod, location);
         mType = type;
         mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+    }
+    
+    override Value importToModule(Module m)
+    {
+        auto newType = cast(StructType) mType.importToModule(m);
+        assert(newType);
+        return new StructValue(m, location, newType);
     }
     
     override LLVMValueRef get()

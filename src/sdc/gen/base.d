@@ -14,6 +14,7 @@ import sdc.global;
 import ast = sdc.ast.all;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
+import sdc.gen.sdcimport;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.type;
@@ -72,6 +73,9 @@ void declareDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         declareAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
         break;
+    case ast.DeclarationDefinitionType.ImportDeclaration:
+        genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
+        break;
     default: break;
     }
 }
@@ -83,6 +87,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.Declaration:
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
         break;
+    case ast.DeclarationDefinitionType.ImportDeclaration:
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:

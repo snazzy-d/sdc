@@ -219,12 +219,31 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
     auto name = extractIdentifier(identifier);
+    void failure() { error(identifier.location, format("unknown identifier '%s'.", name)); }
+    
     if (mod.base !is null) {
         return mod.base.getMember(name);
     }
     auto store = mod.search(name);
     if (store is null) {
-        error(identifier.location, format("unknown identifier '%s'.", name));
+        foreach (tu; mod.importedTranslationUnits) {
+            store = tu.gModule.globalScope.get(name);
+            if (store !is null) {
+                final switch (store.storeType) {
+                case StoreType.Value:
+                    return store.value.importToModule(mod);
+                case StoreType.TranslationUnit:
+                    panic("Ugh!");
+                    break;
+                case StoreType.Type:
+                    panic("Argh!");
+                    break;
+                }
+            }
+        }
+        failure();
+    } else {
+        return store.value();
     }
-    return store.value();
+    assert(false);
 }
