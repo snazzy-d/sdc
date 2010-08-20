@@ -107,7 +107,7 @@ void realmain(string[] args)
     
     auto linkCommand = "gcc -o a.out ";
     foreach (assembly; assemblies) {
-        linkCommand ~= assembly;
+        linkCommand ~= assembly ~ " ";
     }
     stderr.writeln(linkCommand);
     system(linkCommand);
