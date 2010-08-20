@@ -74,9 +74,9 @@ class Module
         LLVMWriteBitcodeToFile(mod, toStringz(filename));
     }
     
-    void writeNativeAssemblyToFile(string fromFilename, string toFilename, string arch)
+    void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        system(format("llc -o %s -march=%s %s", toFilename, arch, fromFilename));
+        system(format("llc -o %s %s", toFilename, fromFilename));
     }
     
     /**
