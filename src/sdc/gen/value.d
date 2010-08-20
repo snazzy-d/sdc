@@ -54,7 +54,7 @@ abstract class Value
         mType = t;
     }
     
-    void castTo(Type t)
+    void performCastInPlace(Type t)
     {
         panic(location, "invalid cast");
     }
@@ -108,7 +108,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         set(val);
     }
     
-    override void castTo(Type t)
+    override void performCastInPlace(Type t)
     {
         auto v = LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast");
         mValue = LLVMBuildAlloca(mModule.builder, LLVMTypeOf(v), "castalloca");
