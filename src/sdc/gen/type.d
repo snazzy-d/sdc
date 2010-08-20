@@ -45,6 +45,8 @@ abstract class Type
         return mType;
     }
     
+    Type importToModule(Module mod);
+    
     /// An opEquals appropriate for simple types.
     override bool opEquals(Object o)
     {
@@ -69,6 +71,11 @@ class BoolType : Type
         mType = LLVMInt1TypeInContext(mod.context);
     }
     
+    override BoolType importToModule(Module mod)
+    {
+        return new BoolType(mod);
+    }
+    
     override Value getValue(Location location) { return new BoolValue(mModule, location); }
 }
 
@@ -79,6 +86,11 @@ class IntType : Type
         super(mod);
         dtype = DType.Int;
         mType = LLVMInt32TypeInContext(mod.context);
+    }
+    
+    override IntType importToModule(Module mod)
+    {
+        return new IntType(mod);
     }
     
     override Value getValue(Location location) { return new IntValue(mModule, location); }
@@ -108,6 +120,13 @@ class FunctionType : Type
         mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, false);
     }
     
+    override FunctionType importToModule(Module mod)
+    {
+        auto f = new FunctionType(mod, mFunctionDeclaration);
+        f.declare();
+        return f;
+    }
+    
     override Value getValue(Location location) { return null; }
 
     protected ast.FunctionDeclaration mFunctionDeclaration;
@@ -133,6 +152,13 @@ class StructType : Type
     override Value getValue(Location location)
     {
         return new StructValue(mModule, location, this);
+    }
+    
+    override StructType importToModule(Module mod)
+    {
+        auto s = new StructType(mod);
+        s.declare();
+        return s;
     }
     
     void addMemberVar(string id, Type t)
