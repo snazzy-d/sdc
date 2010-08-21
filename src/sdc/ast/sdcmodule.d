@@ -57,6 +57,8 @@ enum BuildStage
 {
     Unhandled,
     Deferred,
+    ReadyToExpand,
+    ReadyToRecurse,
     ReadyForCodegen,
     Done,
 }
