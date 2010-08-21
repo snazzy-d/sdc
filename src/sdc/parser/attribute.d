@@ -43,10 +43,12 @@ Attribute parseAttribute(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         switch (tstream.peek.value) {
         case "C":
-            attribute.type = AttributeType.ExternC;
-            break;
-        case "C++":
-            attribute.type = AttributeType.ExternCPlusPlus;
+            if (tstream.lookahead(1).type == TokenType.DoublePlus) {
+                match(tstream, TokenType.Identifier);
+                attribute.type = AttributeType.ExternCPlusPlus;
+            } else {
+                attribute.type = AttributeType.ExternC;
+            }
             break;
         case "D":
             attribute.type = AttributeType.ExternD;
