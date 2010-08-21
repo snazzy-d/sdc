@@ -26,17 +26,17 @@ import sdc.gen.attribute;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    newGenModule(astModule, mod);
+    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
     return mod;
 }
 
-void newGenModule(ast.Module astModule, Module mod)
+void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
-    auto resolutionList = astModule.declarationDefinitions.dup;
+    auto resolutionList = list.dup;
     int stillToGo;
     do {
         foreach (declDef; resolutionList) {
-            newGenDeclarationDefinition(declDef, mod);
+            genDeclarationDefinition(declDef, mod);
         }
         
         stillToGo = 0;
@@ -57,7 +57,7 @@ void newGenModule(ast.Module astModule, Module mod)
     }
 }
 
-void newGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
+void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
     with (declDef) if (buildStage == ast.BuildStage.Done || buildStage == ast.BuildStage.ReadyForCodegen) {
         return;
@@ -106,27 +106,6 @@ void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, r
             continue;
         }
         newDeclDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
-    }
-}
-
-void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
-{
-    if (mod.currentScope.topLevelBail) return;
-    switch (declDef.type) {
-    case ast.DeclarationDefinitionType.Declaration:
-        genDeclaration(cast(ast.Declaration) declDef.node, mod);
-        break;
-    case ast.DeclarationDefinitionType.ImportDeclaration:
-    case ast.DeclarationDefinitionType.ConditionalDeclaration:
-        break;
-    case ast.DeclarationDefinitionType.AggregateDeclaration:
-        genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-        break;
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        genAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
-        break;
-    default:
-        panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 
