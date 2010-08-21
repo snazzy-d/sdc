@@ -33,19 +33,40 @@ Module genModule(ast.Module astModule)
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
-    int stillToGo;
+    int stillToGo, oldStillToGo = -1;
     do {
         foreach (declDef; resolutionList) {
             genDeclarationDefinition(declDef, mod);
         }
         
         stillToGo = 0;
-        foreach (declDef; resolutionList) {
-            with (declDef) if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled) {
+        foreach (declDef; resolutionList) with (declDef) {
+            if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled ||
+                buildStage == ast.BuildStage.ReadyToExpand || buildStage == ast.BuildStage.ReadyToRecurse) {
                 stillToGo++;
             }
         }
-    } while (stillToGo > 0);
+        
+        // Let's figure out if we can leave.
+        if (stillToGo == 0) {
+            break;
+        } else if (stillToGo == oldStillToGo) {
+            // Uh-oh.. nothing new was resolved... look for things we can expand.
+            ast.DeclarationDefinition[] toAppend;
+            foreach (declDef; resolutionList) {
+                if (declDef.buildStage == ast.BuildStage.ReadyToExpand) {
+                    toAppend ~= expand(declDef, mod);
+                }
+            }
+            if (toAppend.length > 0) {
+                resolutionList ~= toAppend;
+            } else {
+                error("cannot resolve dependencies. Insert better error here.");
+                assert(false);
+            }
+        }
+        oldStillToGo = stillToGo;
+    } while (true);
     
     // Okay. Build ze functions!
     foreach (declDef; resolutionList) {
@@ -55,6 +76,27 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
+}
+
+ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
+{
+    declDef.buildStage = ast.BuildStage.Done;
+    switch (declDef.type) {
+    case ast.DeclarationDefinitionType.AttributeSpecifier:
+        auto specifier = cast(ast.AttributeSpecifier) declDef.node;
+        assert(specifier);
+        if (specifier.declarationBlock is null) {
+            panic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
+        }
+        auto list = specifier.declarationBlock.declarationDefinitions.dup;
+        foreach (e; list) {
+            e.attributes ~= specifier.attribute;
+        }
+        return list;
+    default:
+        panic(declDef.location, "attempted to expand non expandable declaration definition.");
+    }
+    assert(false);
 }
 
 void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
@@ -93,7 +135,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
-        panic(declDef.location, "attributes are unimplemented.");
+        if (can) {
+            declDef.buildStage = ast.BuildStage.ReadyToExpand;
+        } else {
+            declDef.buildStage = ast.BuildStage.Deferred;
+        }
         break;
     default:
         panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
