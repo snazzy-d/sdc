@@ -53,13 +53,21 @@ enum DeclarationDefinitionType
     Empty,
 }
 
+enum BuildStage
+{
+    Unhandled,
+    Deferred,
+    ReadyForCodegen,
+}
+
 class DeclarationDefinition : Node
 {
     DeclarationDefinitionType type;
     Node node;
     
-    /* This is for codegen purposes.
+    /* The following are for codegen purposes.
      * It's kinda icky, I know.
      */
     Attribute[] attributes;
+    BuildStage buildStage;
 }
