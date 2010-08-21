@@ -92,7 +92,8 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         }
         break;
     case ast.DeclarationDefinitionType.AttributeSpecifier:
-        declDef.buildStage = ast.BuildStage.Done;
+        auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
+        panic(declDef.location, "attributes are unimplemented.");
         break;
     default:
         panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
