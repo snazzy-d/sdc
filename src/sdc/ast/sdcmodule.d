@@ -60,6 +60,9 @@ enum BuildStage
     ReadyForCodegen,
 }
 
+/**
+ * A DeclarationDefinition is a top-level declaration.
+ */
 class DeclarationDefinition : Node
 {
     DeclarationDefinitionType type;
