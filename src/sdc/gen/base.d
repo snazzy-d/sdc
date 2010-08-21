@@ -61,6 +61,11 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             if (toAppend.length > 0) {
                 resolutionList ~= toAppend;
             } else {
+                /* This is only temporary until the circular building
+                 * thing is complete. Going through and pointing out
+                 * every deferred declaration definition will probably
+                 * be about as friendly as we can do.
+                 */
                 error("cannot resolve dependencies. Insert better error here.");
                 assert(false);
             }
