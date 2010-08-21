@@ -41,9 +41,6 @@ Attribute parseAttribute(TokenStream tstream)
             goto err;
         }
         match(tstream, TokenType.OpenParen);
-        if (tstream.peek.type != TokenType.Identifier) {
-            goto err;
-        }
         switch (tstream.peek.value) {
         case "C":
             attribute.type = AttributeType.ExternC;
@@ -66,7 +63,7 @@ Attribute parseAttribute(TokenStream tstream)
         default:
             error(tstream.peek.location, "unsupported extern linkage. Supported linkages are C, C++, D, Windows, Pascal, and System.");
         }
-        match(tstream, TokenType.Identifier);
+        tstream.getToken();
         match(tstream, TokenType.CloseParen);
         
         return attribute;
