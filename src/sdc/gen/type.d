@@ -110,10 +110,10 @@ class FunctionType : Type
     
     void declare()
     {
-        returnType = astTypeToBackendType(mFunctionDeclaration.retval, mModule);
+        returnType = astTypeToBackendType(mFunctionDeclaration.retval, mModule, OnFailure.DieWithError);
         LLVMTypeRef[] params;
         foreach (param; mFunctionDeclaration.parameters) {
-            auto type = astTypeToBackendType(param.type, mModule);
+            auto type = astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
             argumentTypes ~= type;
             params ~= type.llvmType;
         }

@@ -5,6 +5,7 @@
  */
 module sdc.gen.base;
 
+import std.array;
 import std.conv;
 import std.string;
 
@@ -25,33 +26,77 @@ import sdc.gen.attribute;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    realGenModule(astModule, mod);
+    newGenModule(astModule, mod);
     return mod;
 }
 
-void realGenModule(ast.Module astModule, Module mod)
+void newGenModule(ast.Module astModule, Module mod)
 {
-    ast.DeclarationDefinition[] newTopLevels;
-    versionConditionalsPass(astModule.declarationDefinitions, mod, newTopLevels);
-    astModule.declarationDefinitions ~= newTopLevels;
-    
-    // Declare all data structures.
-    foreach (declDef; astModule.declarationDefinitions) if (declDef.type == ast.DeclarationDefinitionType.Declaration) {
-        auto decl = cast(ast.Declaration) declDef.node;
-        if (decl.type == ast.DeclarationType.Variable) {
-            declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
+    auto resolutionList = astModule.declarationDefinitions.dup;
+    int stillToGo;
+    do {
+        foreach (declDef; resolutionList) {
+            newGenDeclarationDefinition(declDef, mod);
         }
+        
+        stillToGo = 0;
+        foreach (declDef; resolutionList) {
+            with (declDef) if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled) {
+                stillToGo++;
+            }
+        }
+    } while (stillToGo > 0);
+    
+    // Okay. Build ze functions!
+    foreach (declDef; resolutionList) {
+        if (declDef.buildStage != ast.BuildStage.ReadyForCodegen) {
+            continue;
+        }
+        assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
+        genDeclaration(cast(ast.Declaration) declDef.node, mod);
+    }
+}
+
+void newGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
+{
+    with (declDef) if (buildStage == ast.BuildStage.Done || buildStage == ast.BuildStage.ReadyForCodegen) {
+        return;
     }
     
-    // Declare functions.
-    foreach (declDef; astModule.declarationDefinitions) {
-        declareDeclarationDefinition(declDef, mod);
-    }
-    
-    // Generate the code for the functions.
-    foreach (declDef; astModule.declarationDefinitions) {
-        genDeclarationDefinition(declDef, mod);
-    }
+    switch (declDef.type) {
+    case ast.DeclarationDefinitionType.Declaration:
+        auto decl = cast(ast.Declaration) declDef.node;
+        assert(decl);
+        auto can = canGenDeclaration(decl, mod);
+        
+        if (can) {
+            if (decl.type != ast.DeclarationType.Function) {
+                declareDeclaration(decl, mod);
+                genDeclaration(decl, mod);
+                declDef.buildStage = ast.BuildStage.Done;
+            } else {
+                declareDeclaration(decl, mod);
+                declDef.buildStage = ast.BuildStage.ReadyForCodegen;
+            }
+        } else {
+            declDef.buildStage = ast.BuildStage.Deferred;
+        }
+        break;
+    case ast.DeclarationDefinitionType.ImportDeclaration:
+    case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        break;
+    case ast.DeclarationDefinitionType.AggregateDeclaration:
+        auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+        if (can) {
+            genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+        }
+        break;
+    case ast.DeclarationDefinitionType.AttributeSpecifier:
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
+    default:
+        panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
+    } 
 }
 
 void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)
@@ -61,22 +106,6 @@ void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, r
             continue;
         }
         newDeclDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
-    }
-}
-
-void declareDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
-{
-    switch (declDef.type) {
-    case ast.DeclarationDefinitionType.Declaration:
-        declareDeclaration(cast(ast.Declaration) declDef.node, mod);
-        break;
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        declareAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
-        break;
-    case ast.DeclarationDefinitionType.ImportDeclaration:
-        genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
-        break;
-    default: break;
     }
 }
 

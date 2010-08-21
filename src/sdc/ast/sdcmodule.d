@@ -58,6 +58,7 @@ enum BuildStage
     Unhandled,
     Deferred,
     ReadyForCodegen,
+    Done,
 }
 
 /**

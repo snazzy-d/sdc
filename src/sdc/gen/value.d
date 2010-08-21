@@ -320,15 +320,19 @@ class StructValue : Value
     mixin InvalidOperation!"Value call(Value[])";
 }
 
-// I would like to think that it's obvious that the following are stub functions.
+enum OnFailure
+{
+    DieWithError,
+    ReturnNull,
+}
 
-Type astTypeToBackendType(ast.Type type, Module mod)
+Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 {
     switch (type.type) {
     case ast.TypeType.Primitive:
-        return primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod);
+        return primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod, onFailure);
     case ast.TypeType.UserDefined:
-        return userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod);
+        return userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod, onFailure);
     default:
         panic(type.location, "unhandled type type.");
     }
@@ -336,7 +340,7 @@ Type astTypeToBackendType(ast.Type type, Module mod)
     assert(false);
 }
 
-Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
+Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure onFailure)
 {
     switch (type.type) {
     case ast.PrimitiveTypeType.Bool:
@@ -350,15 +354,23 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
     assert(false);
 }
 
-Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod)
+Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
 {
     auto name = extractQualifiedName(type.qualifiedName);
     auto store = mod.search(name);
     if (store is null) {
-        error(type.location, format("undefined type '%s'.", name));
+        if (onFailure == OnFailure.ReturnNull) {
+            return null;
+        } else {
+            error(type.location, format("undefined type '%s'.", name));
+        }
     }
     if (store.storeType != StoreType.Type) {
-        error(type.location, format("'%s' is not valid type."));
+        if (onFailure == OnFailure.ReturnNull) {
+            return null;
+        } else {
+            error(type.location, format("'%s' is not valid type."));
+        }
     }
     return store.type;
 }

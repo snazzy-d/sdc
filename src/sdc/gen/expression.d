@@ -139,7 +139,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
-        val = val.performCast(astTypeToBackendType(expression.castExpression.type, mod));
+        val = val.performCast(astTypeToBackendType(expression.castExpression.type, mod, OnFailure.DieWithError));
         break;
     case ast.UnaryPrefix.AddressOf:
     case ast.UnaryPrefix.UnaryMinus:

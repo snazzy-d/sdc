@@ -20,6 +20,37 @@ import sdc.gen.statement;
 import sdc.gen.expression;
 
 
+bool canGenDeclaration(ast.Declaration decl, Module mod)
+{
+    bool b;
+    final switch (decl.type) {
+    case ast.DeclarationType.Variable:
+        b = canGenVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
+        break;
+    case ast.DeclarationType.Function:
+        b = canGenFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
+        break;
+    }
+    return b;
+}
+
+bool canGenVariableDeclaration(ast.VariableDeclaration decl, Module mod)
+{
+    auto type = astTypeToBackendType(decl.type, mod, OnFailure.ReturnNull);
+    return type !is null;
+}
+
+bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
+{
+    bool retval = astTypeToBackendType(decl.retval, mod, OnFailure.ReturnNull) !is null;
+    foreach (parameter; decl.parameters) {
+        auto t = astTypeToBackendType(parameter.type, mod, OnFailure.ReturnNull);
+        retval = retval && t !is null;
+    }
+    return retval;
+}
+
+
 void declareDeclaration(ast.Declaration decl, Module mod)
 {
     if (mod.currentLinkage != ast.Linkage.ExternC) {
@@ -28,6 +59,7 @@ void declareDeclaration(ast.Declaration decl, Module mod)
     
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
+        declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Function:
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
@@ -38,7 +70,7 @@ void declareDeclaration(ast.Declaration decl, Module mod)
 void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
-        auto type = astTypeToBackendType(decl.type, mod);
+        auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
         if (decl.isAlias) {
             mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
@@ -70,7 +102,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
         if (decl.isAlias) continue;
-        auto type = astTypeToBackendType(decl.type, mod);
+        auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
         if (mod.scopeDepth == 0) {
             panic(decl.location, "global variables are unimplemented.");

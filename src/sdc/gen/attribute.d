@@ -15,13 +15,16 @@ import sdc.gen.sdcmodule;
 
 void declareAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod)
 {
-    auto oldLinkage = mod.currentLinkage;
-    genAttribute(attributeSpecifier.attribute, mod);
-    if (attributeSpecifier.declarationBlock !is null) {
-        foreach (declDef; attributeSpecifier.declarationBlock.declarationDefinitions) {
-            declareDeclarationDefinition(declDef, mod);
+    panic("OH SHIT THINGS ARE GETTING REFACTORED, YO!");
+    version (none) {
+        auto oldLinkage = mod.currentLinkage;
+        genAttribute(attributeSpecifier.attribute, mod);
+        if (attributeSpecifier.declarationBlock !is null) {
+            foreach (declDef; attributeSpecifier.declarationBlock.declarationDefinitions) {
+                declareDeclarationDefinition(declDef, mod);
+            }
+            mod.currentLinkage = oldLinkage;
         }
-        mod.currentLinkage = oldLinkage;
     }
 }
 
