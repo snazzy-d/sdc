@@ -11,6 +11,7 @@ import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.declaration;
+import sdc.ast.attribute;
 
 
 class Module : Node
@@ -56,4 +57,9 @@ class DeclarationDefinition : Node
 {
     DeclarationDefinitionType type;
     Node node;
+    
+    /* This is for codegen purposes.
+     * It's kinda icky, I know.
+     */
+    Attribute[] attributes;
 }
