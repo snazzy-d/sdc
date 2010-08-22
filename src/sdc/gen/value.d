@@ -74,6 +74,7 @@ abstract class Value
     void add(Value val);
     void sub(Value val);
     Value eq(Value val);
+    Value neq(Value val);
     Value call(Value[] args);
     Value init(Location location);
     Value getMember(string name);
@@ -88,6 +89,16 @@ mixin template InvalidOperation(alias FunctionSignature)
 {
     mixin("override " ~ FunctionSignature ~ " {"
           `    panic(location, "invalid operation used."); assert(false); }`);
+}
+
+mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
+{
+    mixin("override Value " ~ ComparisonString ~ "(Value val) {" ~
+        "auto v = LLVMBuildICmp(mModule.builder, ComparisonType, get(), val.get(), toStringz(ComparisonString));"
+        "auto b = new BoolValue(mModule, location);"
+        "b.set(v);"
+        "return b;"
+    "}");
 }
 
 
@@ -173,6 +184,9 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, result, mValue);
     }
     
+    mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
+    mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
+    /+
     override Value eq(Value val)
     {
         auto v = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "eq");
@@ -180,6 +194,8 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         b.set(v);
         return b;
     }
+    +/
+    
     
     mixin InvalidOperation!"Value call(Value[])";
     mixin InvalidOperation!"Value getMember(string)";
@@ -262,6 +278,7 @@ class FunctionValue : Value
     mixin InvalidOperation!"void add(Value)";
     mixin InvalidOperation!"void sub(Value)";
     mixin InvalidOperation!"Value eq(Value)";
+    mixin InvalidOperation!"Value neq(Value)";
     mixin InvalidOperation!"Value getMember(string)";
     
     override Value init(Location location)
@@ -319,6 +336,7 @@ class StructValue : Value
     mixin InvalidOperation!"void add(Value)";
     mixin InvalidOperation!"void sub(Value)";
     mixin InvalidOperation!"Value eq(Value)";
+    mixin InvalidOperation!"Value neq(Value)";
     mixin InvalidOperation!"Value call(Value[])";
 }
 

@@ -77,6 +77,10 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
         lhs = lhs.eq(rhs);
         break;
+    case ast.Comparison.NotEquality:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        lhs = lhs.neq(rhs);
+        break;
     default:
         panic(expression.location, "unhandled comparison expression.");
         assert(false);
