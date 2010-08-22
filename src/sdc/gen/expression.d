@@ -141,9 +141,16 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
         val = val.performCast(astTypeToBackendType(expression.castExpression.type, mod, OnFailure.DieWithError));
         break;
-    case ast.UnaryPrefix.AddressOf:
     case ast.UnaryPrefix.UnaryMinus:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        auto zero = new IntValue(mod, expression.location, 0);
+        zero.sub(val);
+        val = zero;
+        break;
     case ast.UnaryPrefix.UnaryPlus:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        break;
+    case ast.UnaryPrefix.AddressOf:
     case ast.UnaryPrefix.Dereference:
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:
