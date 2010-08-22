@@ -23,7 +23,14 @@ Declaration parseDeclaration(TokenStream tstream)
     auto declaration = new Declaration();
     declaration.location = tstream.peek.location;
     
-    if (isVariableDeclaration(tstream)) {
+    if (tstream.peek.type == TokenType.Alias) {
+        match(tstream, TokenType.Alias);
+        if (tstream.peek.type == TokenType.Alias) {
+            error(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
+        }
+        declaration.type = DeclarationType.Alias;
+        declaration.node = parseDeclaration(tstream);
+    } else if (isVariableDeclaration(tstream)) {
         declaration.type = DeclarationType.Variable;
         declaration.node = parseVariableDeclaration(tstream);
     } else {
@@ -64,12 +71,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream)
 {
     auto declaration = new VariableDeclaration();
     declaration.location = tstream.peek.location;
-    
-    if (tstream.peek.type == TokenType.Alias) {
-        match(tstream, TokenType.Alias);
-        declaration.isAlias = true;
-    }
-    
+        
     declaration.type = parseType(tstream);
     if (tstream.peek.type == TokenType.Function) {
         declaration.type.type = TypeType.FunctionPointer;

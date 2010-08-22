@@ -30,6 +30,9 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
     case ast.DeclarationType.Function:
         b = canGenFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
+    case ast.DeclarationType.Alias:
+        b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
+        break;
     }
     return b;
 }
@@ -64,16 +67,21 @@ void declareDeclaration(ast.Declaration decl, Module mod)
     case ast.DeclarationType.Function:
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
+    case ast.DeclarationType.Alias:
+        mod.isAlias = true;
+        declareDeclaration(cast(ast.Declaration) decl.node, mod);
+        mod.isAlias = false;
+        break;
     }
 }
 
 void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
+    auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
     foreach (declarator; decl.declarators) {
-        auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
-        
-        if (decl.isAlias) {
-            mod.currentScope.add(extractIdentifier(declarator.name), new Store(type));
+        auto name = extractIdentifier(declarator.name);
+        if (mod.isAlias) {
+            mod.currentScope.add(name, new Store(type));
         }
     }
 }
@@ -95,13 +103,14 @@ void genDeclaration(ast.Declaration decl, Module mod)
     case ast.DeclarationType.Function:
         genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
+    case ast.DeclarationType.Alias:
+        break;
     }
 }
 
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
-        if (decl.isAlias) continue;
         auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
         if (mod.scopeDepth == 0) {

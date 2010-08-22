@@ -14,7 +14,8 @@ import sdc.ast.statement;
 enum DeclarationType
 {
     Variable,
-    Function
+    Function,
+    Alias,
 }
 
 class Declaration : Node
@@ -25,7 +26,6 @@ class Declaration : Node
 
 class VariableDeclaration : Node
 {
-    bool isAlias;
     Type type;
     Declarator[] declarators;
 }
@@ -36,7 +36,6 @@ class SyntheticVariableDeclaration : Node
     this(VariableDeclaration decl, Declarator declarator)
     {
         location = declarator.location;
-        isAlias = decl.isAlias;
         type = decl.type;
         identifier = declarator.name;
         initialiser = declarator.initialiser;
