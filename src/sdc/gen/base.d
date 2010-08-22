@@ -38,6 +38,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
     }
+    bool finalPass;
     do {
         foreach (i, declDef; resolutionList) {
             genDeclarationDefinition(declDef, mod);
@@ -69,6 +70,10 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             if (toAppend.length > 0) {
                 resolutionList ~= toAppend;
             } else {
+                if (!finalPass) {
+                    finalPass = true;
+                    continue;
+                }
                 /* This is only temporary until the circular building
                  * thing is complete. Going through and pointing out
                  * every deferred declaration definition will probably
