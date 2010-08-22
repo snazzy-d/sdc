@@ -91,7 +91,6 @@ Value genShiftExpression(ast.ShiftExpression expression, Module mod)
 
 Value genAddExpression(ast.AddExpression expression, Module mod)
 {
-    //auto val = genMulExpression(expression.mulExpression, mod);
     Value val;
     if (expression.addExpression !is null) {
         auto lhs = genAddExpression(expression.addExpression, mod);
