@@ -5,6 +5,9 @@
  */
 module sdc.gen.sdcimport;
 
+import std.conv;
+
+import sdc.util;
 import sdc.compilererror;
 import sdc.global;
 import sdc.extract.base;
@@ -12,17 +15,22 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 
 
-void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
+bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
-    genImportList(importDeclaration.importList, mod);
+    return true;
 }
 
-void genImportList(ast.ImportList importList, Module mod)
+ast.DeclarationDefinition[] genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
+{
+    return genImportList(importDeclaration.importList, mod);
+}
+
+ast.DeclarationDefinition[] genImportList(ast.ImportList importList, Module mod)
 {
     final switch (importList.type) {
     case ast.ImportListType.SingleSimple:
         foreach (imp; importList.imports) {
-            genImport(imp, mod);
+            return genImport(imp, mod);
         }
         break;
     case ast.ImportListType.SingleBinder:
@@ -32,17 +40,20 @@ void genImportList(ast.ImportList importList, Module mod)
         panic(importList.location, "TODO: multiple import list.");
         break;
     }
+    assert(false);
 }
 
-void genImportBinder(ast.ImportBinder importBinder, Module mod)
+ast.DeclarationDefinition[] genImportBinder(ast.ImportBinder importBinder, Module mod)
 {
+    return null;
 }
 
-void genImportBind(ast.ImportBind importBind, Module mod)
+ast.DeclarationDefinition[] genImportBind(ast.ImportBind importBind, Module mod)
 {
+    return null;
 }
 
-void genImport(ast.Import theImport, Module mod)
+ast.DeclarationDefinition[] genImport(ast.Import theImport, Module mod)
 {
     auto name = extractQualifiedName(theImport.moduleName);
     auto tu = getTranslationUnit(name);
@@ -50,5 +61,5 @@ void genImport(ast.Import theImport, Module mod)
         panic(theImport.moduleName.location, "TODO: Search through import paths for module.");
     }
     mod.currentScope.add(name, new Store(tu));
-    mod.importedTranslationUnits ~= tu;
+    return tu.aModule.declarationDefinitions.dup;
 }

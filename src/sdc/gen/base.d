@@ -34,8 +34,12 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
+    foreach (d; resolutionList) {
+        d.importedSymbol = false;
+        d.buildStage = ast.BuildStage.Unhandled;
+    }
     do {
-        foreach (declDef; resolutionList) {
+        foreach (i, declDef; resolutionList) {
             genDeclarationDefinition(declDef, mod);
         }
         
@@ -46,6 +50,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                 stillToGo++;
             }
         }
+        //debugPrint(to!string(stillToGo));
         
         // Let's figure out if we can leave.
         if (stillToGo == 0) {
@@ -56,6 +61,9 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             foreach (declDef; resolutionList) {
                 if (declDef.buildStage == ast.BuildStage.ReadyToExpand) {
                     toAppend ~= expand(declDef, mod);
+                }
+                foreach (d; toAppend) if (d.buildStage != ast.BuildStage.DoneForever) {
+                    d.buildStage = ast.BuildStage.Unhandled;
                 }
             }
             if (toAppend.length > 0) {
@@ -75,7 +83,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     
     // Okay. Build ze functions!
     foreach (declDef; resolutionList) {
-        if (declDef.buildStage != ast.BuildStage.ReadyForCodegen) {
+        if (declDef.buildStage != ast.BuildStage.ReadyForCodegen || declDef.importedSymbol) {
             continue;
         }
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
@@ -98,6 +106,16 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
             e.attributes ~= specifier.attribute;
         }
         return list;
+    case ast.DeclarationDefinitionType.ImportDeclaration:
+        auto list = genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
+        foreach (e; list) {
+            e.importedSymbol = true;
+            if (e.type == ast.DeclarationDefinitionType.ImportDeclaration) {
+                // TODO: don't do this for public imports.
+                e.buildStage = ast.BuildStage.DoneForever;
+            }
+        }
+        return list;
     default:
         panic(declDef.location, "attempted to expand non expandable declaration definition.");
     }
@@ -106,7 +124,8 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 
 void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
-    with (declDef) if (buildStage == ast.BuildStage.Done || buildStage == ast.BuildStage.ReadyForCodegen) {
+    with (declDef) if (buildStage == ast.BuildStage.Done || buildStage == ast.BuildStage.ReadyForCodegen ||
+                       buildStage == ast.BuildStage.DoneForever || buildStage == ast.BuildStage.ReadyToExpand) {
         return;
     }
     
@@ -114,8 +133,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.Declaration:
         auto decl = cast(ast.Declaration) declDef.node;
         assert(decl);
-        auto can = canGenDeclaration(decl, mod);
-        
+        auto can = canGenDeclaration(decl, mod);        
         if (can) {
             if (decl.type != ast.DeclarationType.Function) {
                 declareDeclaration(decl, mod);
@@ -130,6 +148,15 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         }
         break;
     case ast.DeclarationDefinitionType.ImportDeclaration:
+        auto importDecl = cast(ast.ImportDeclaration) declDef.node;
+        assert(importDecl);
+        auto can = canGenImportDeclaration(importDecl, mod);
+        if (can) {
+            declDef.buildStage = ast.BuildStage.ReadyToExpand;
+        } else {
+            declDef.buildStage = ast.BuildStage.Deferred;
+        }
+        break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:

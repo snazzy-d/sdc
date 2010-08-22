@@ -61,6 +61,7 @@ enum BuildStage
     ReadyToRecurse,
     ReadyForCodegen,
     Done,
+    DoneForever,
 }
 
 /**
@@ -76,4 +77,5 @@ class DeclarationDefinition : Node
      */
     Attribute[] attributes;
     BuildStage buildStage;
+    bool importedSymbol;
 }

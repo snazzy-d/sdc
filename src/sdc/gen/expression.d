@@ -226,24 +226,8 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     }
     auto store = mod.search(name);
     if (store is null) {
-        foreach (tu; mod.importedTranslationUnits) {
-            store = tu.gModule.globalScope.get(name);
-            if (store !is null) {
-                final switch (store.storeType) {
-                case StoreType.Value:
-                    return store.value.importToModule(mod);
-                case StoreType.TranslationUnit:
-                    panic("Ugh!");
-                    break;
-                case StoreType.Type:
-                    panic("Argh!");
-                    break;
-                }
-            }
-        }
         failure();
-    } else {
-        return store.value();
     }
-    assert(false);
+    
+    return store.value();
 }
