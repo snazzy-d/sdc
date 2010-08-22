@@ -186,16 +186,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
-    /+
-    override Value eq(Value val)
-    {
-        auto v = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "eq");
-        auto b = new BoolValue(mModule, location);
-        b.set(v);
-        return b;
-    }
-    +/
-    
     
     mixin InvalidOperation!"Value call(Value[])";
     mixin InvalidOperation!"Value getMember(string)";
