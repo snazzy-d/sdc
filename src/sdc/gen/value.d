@@ -42,6 +42,7 @@ abstract class Value
     {
         bool constBool;
         int constInt;
+        long constLong;
     }
     
     Type type() @property
@@ -199,6 +200,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
 
 alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
+alias PrimitiveIntegerValue!(long, LongType, "constLong") LongValue;
 
 
 
@@ -347,6 +349,8 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
         return new BoolType(mod);
     case ast.PrimitiveTypeType.Int:
         return new IntType(mod);
+    case ast.PrimitiveTypeType.Long:
+        return new LongType(mod);
     default:
         panic(type.location, "unhandled primitive type type.");
     }
