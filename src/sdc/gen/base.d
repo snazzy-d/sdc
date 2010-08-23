@@ -51,7 +51,6 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                 stillToGo++;
             }
         }
-        //debugPrint(to!string(stillToGo));
         
         // Let's figure out if we can leave.
         if (stillToGo == 0) {
