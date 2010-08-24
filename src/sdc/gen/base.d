@@ -26,11 +26,17 @@ import sdc.gen.attribute;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod, OnFailure.Die);
     return mod;
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+enum OnFailure
+{
+    GiveUp,
+    Die,
+}
+
+void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, OnFailure onFailure)
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
@@ -73,13 +79,18 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     finalPass = true;
                     continue;
                 }
-                /* This is only temporary until the circular building
-                 * thing is complete. Going through and pointing out
-                 * every deferred declaration definition will probably
-                 * be about as friendly as we can do.
-                 */
-                error("cannot resolve dependencies. Insert better error here.");
-                assert(false);
+                
+                if (onFailure == OnFailure.Die) {
+                    /* This is only temporary until the circular building
+                     * thing is complete. Going through and pointing out
+                     * every deferred declaration definition will probably
+                     * be about as friendly as we can do.
+                     */
+                    error("cannot resolve dependencies. Insert better error here.");
+                    assert(false);
+                } else {
+                    return;
+                }
             }
         }
         oldStillToGo = stillToGo;
