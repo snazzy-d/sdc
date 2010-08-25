@@ -26,17 +26,19 @@ import sdc.gen.attribute;
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod, OnFailure.Die);
+    ast.DeclarationDefinition[][] rDeclDefs;
+    rDeclDefs ~= astModule.declarationDefinitions;
+    resolveRecursiveDeclarationDefinitions(rDeclDefs, mod);
     return mod;
 }
 
-enum OnFailure
+enum IReturnedBecause
 {
-    GiveUp,
-    Die,
+    HugeSuccess,
+    IAmFailureToTheSoftware,  // Aww. Don't feel bad, little compiler. 
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, OnFailure onFailure)
+IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
@@ -46,7 +48,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     }
     bool finalPass;
     do {
-        foreach (i, declDef; resolutionList) {
+        foreach (declDef; resolutionList) {
             genDeclarationDefinition(declDef, mod);
         }
         
@@ -80,17 +82,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     continue;
                 }
                 
-                if (onFailure == OnFailure.Die) {
-                    /* This is only temporary until the circular building
-                     * thing is complete. Going through and pointing out
-                     * every deferred declaration definition will probably
-                     * be about as friendly as we can do.
-                     */
-                    error("cannot resolve dependencies. Insert better error here.");
-                    assert(false);
-                } else {
-                    return;
-                }
+                return IReturnedBecause.IAmFailureToTheSoftware;
             }
         }
         oldStillToGo = stillToGo;
@@ -104,7 +96,35 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
+    
+    return IReturnedBecause.HugeSuccess;
 }
+
+void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclDefs, Module mod)
+{
+    int failures, oldFailures = -1;
+    bool finalPass;
+    do {
+        foreach (rDeclDef; rDeclDefs) {
+            auto reason = resolveDeclarationDefinitionList(rDeclDef, mod);
+            if (reason == IReturnedBecause.IAmFailureToTheSoftware) {
+                failures++;
+            }
+        }
+        
+        if (failures == 0) {
+            break;
+        } else if (failures == oldFailures) {
+            if (!finalPass) {
+                finalPass = true;
+                continue;
+            }
+            error("cannot resolve recursive dependencies. Insert better error here.");
+        }
+        oldFailures = failures;
+    } while (true);
+}
+
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
 {
