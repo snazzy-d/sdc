@@ -392,6 +392,8 @@ bool lexSlash(TokenStream tstream)
     return true;
 }
 
+/* Help! I'm trapped in a code factory. Send food! */
+
 bool lexDot(TokenStream tstream)
 {
     auto token = currentLocationToken(tstream);
