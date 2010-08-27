@@ -126,6 +126,7 @@ void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclD
     int failures, oldFailures = -1;
     bool finalPass;
     do {
+        failures = 0;
         foreach (rDeclDef; rDeclDefs) {
             auto reason = resolveDeclarationDefinitionList(rDeclDef, mod, rDeclDefs);
             if (reason == IReturnedBecause.IAmFailureToTheSoftware) {

@@ -42,10 +42,21 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto type = new StructType(mod);
     
+    mod.pushScope();
     foreach (declDef; decl.structBody.declarations) {
         genDeclarationDefinition(declDef, mod);
         // Nope, we're not adding stuff yet. Patience, it will come!
     }
+    foreach (name, store; mod.currentScope.mSymbolTable) {
+        if (store.storeType == StoreType.Type) {
+            type.addMemberVar(name, store.type);
+        } else if (store.storeType == StoreType.Value) {
+            type.addMemberVar(name, store.value.type);
+        } else {
+            error(decl.location, "invalid aggregrate declaration type.");
+        }
+    }
+    mod.popScope();
     type.declare();
     
     mod.currentScope.add(name, new Store(type));
