@@ -226,7 +226,7 @@ class Scope
         return p is null ? null : *p;
     }
     
-    protected Store[string] mSymbolTable;
+    package Store[string] mSymbolTable;
 }
 
 enum PathType
