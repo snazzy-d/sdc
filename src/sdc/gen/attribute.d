@@ -67,13 +67,11 @@ void genAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod
 
 void genAttribute(ast.Attribute attribute, Module mod)
 {
-    with (ast.AttributeType) {
-        switch (attribute.type) {
-        case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
-            mod.currentLinkage = cast(ast.Linkage) attribute.type;
-            break;
-        default:
-            panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
-        }
+    switch (attribute.type) with (ast.AttributeType) {
+    case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
+        mod.currentLinkage = cast(ast.Linkage) attribute.type;
+        break;
+    default:
+        panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
     }
 }

@@ -11,36 +11,19 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
+import sdc.gen.base;
 
 
 bool canGenAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
 {
     bool b = true;
-    foreach (sdecl; decl.structBody.declarations) {
-        b = b && canGenStructBodyDeclaration(sdecl, mod);
+    foreach (declDef; decl.structBody.declarations) {
+        b = b && canGenDeclarationDefinition(declDef, mod);
         if (!b) {
             break;
         }
     }
     return b;
-}
-
-bool canGenStructBodyDeclaration(ast.StructBodyDeclaration sdecl, Module mod)
-{
-    Type type;
-    switch (sdecl.type) {
-    case ast.StructBodyDeclarationType.Declaration:
-        auto decl = cast(ast.Declaration) sdecl.node;
-        if (decl.type != ast.DeclarationType.Variable) {
-            panic(decl.location, "aggregate functions are unimplemented.");
-        }
-        auto vdec = cast(ast.VariableDeclaration) decl.node;
-        type = astTypeToBackendType(vdec.type, mod, OnFailure.ReturnNull);
-        break;
-    default:
-        panic(sdecl.location, "unimplemented aggregate member.");
-    }
-    return type !is null;
 }
 
 void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
@@ -59,30 +42,11 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto type = new StructType(mod);
     
-    foreach (sdecl; decl.structBody.declarations) {
-        genStructBodyDeclaration(sdecl, mod, type);
+    foreach (declDef; decl.structBody.declarations) {
+        genDeclarationDefinition(declDef, mod);
+        // Nope, we're not adding stuff yet. Patience, it will come!
     }
     type.declare();
     
     mod.currentScope.add(name, new Store(type));
-}
-
-void genStructBodyDeclaration(ast.StructBodyDeclaration sdecl, Module mod, StructType stype)
-{
-    switch (sdecl.type) {
-    case ast.StructBodyDeclarationType.Declaration:
-        auto decl = cast(ast.Declaration) sdecl.node;
-        if (decl.type != ast.DeclarationType.Variable) {
-            panic(decl.location, "aggregate functions are unimplemented.");
-        }
-        auto vdec = cast(ast.VariableDeclaration) decl.node;
-        auto type = astTypeToBackendType(vdec.type, mod, OnFailure.DieWithError);
-        foreach (declarator; vdec.declarators) {
-            auto name = extractIdentifier(declarator.name);
-            stype.addMemberVar(name, type);
-        }
-        break;
-    default:
-        panic(sdecl.location, "unimplemented aggregate member.");
-    }
 }

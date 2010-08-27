@@ -23,6 +23,25 @@ import sdc.gen.aggregate;
 import sdc.gen.attribute;
 
 
+bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
+{
+    switch (declDef.type) with (ast) {
+    case DeclarationDefinitionType.Declaration:
+        return canGenDeclaration(cast(Declaration) declDef.node, mod);
+    case DeclarationDefinitionType.ImportDeclaration:
+        return canGenImportDeclaration(cast(ImportDeclaration) declDef.node, mod);
+    case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        return true;  // TODO
+    case ast.DeclarationDefinitionType.AggregateDeclaration:
+        return canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+    case ast.DeclarationDefinitionType.AttributeSpecifier:
+        return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
+    default:
+        return false;
+    }
+    assert(false);
+}
+
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.tstream.filename);
@@ -38,7 +57,7 @@ enum IReturnedBecause
     IAmFailureToTheSoftware,  // Aww. Don't feel bad, little compiler. 
 }
 
-IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, ast.DeclarationDefinition[][] rDeclDefs)
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
@@ -69,6 +88,8 @@ IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] li
             foreach (declDef; resolutionList) {
                 if (declDef.buildStage == ast.BuildStage.ReadyToExpand) {
                     toAppend ~= expand(declDef, mod);
+                } else if (declDef.buildStage == ast.BuildStage.ReadyToRecurse) {
+                    rDeclDefs ~= expandRecursive(declDef, mod);
                 }
                 foreach (d; toAppend) if (d.buildStage != ast.BuildStage.DoneForever) {
                     d.buildStage = ast.BuildStage.Unhandled;
@@ -106,7 +127,7 @@ void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclD
     bool finalPass;
     do {
         foreach (rDeclDef; rDeclDefs) {
-            auto reason = resolveDeclarationDefinitionList(rDeclDef, mod);
+            auto reason = resolveDeclarationDefinitionList(rDeclDef, mod, rDeclDefs);
             if (reason == IReturnedBecause.IAmFailureToTheSoftware) {
                 failures++;
             }
@@ -125,6 +146,18 @@ void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclD
     } while (true);
 }
 
+ast.DeclarationDefinition[] expandRecursive(ast.DeclarationDefinition declDef, Module mod)
+{
+    declDef.buildStage = ast.BuildStage.Done;
+    switch (declDef.type) {
+    case ast.DeclarationDefinitionType.AggregateDeclaration:
+        auto aggregate = cast(ast.AggregateDeclaration) declDef.node;
+        assert(aggregate);
+    default:
+        panic(declDef.location, "attempted to expand invalid recursive declaration definition.");
+    }
+    assert(false);
+}
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
 {
@@ -313,3 +346,4 @@ bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
     }
     return expr.constBool;
 }
+

@@ -6,6 +6,7 @@
 module sdc.ast.aggregate;
 
 import sdc.ast.base;
+import sdc.ast.sdcmodule;
 
 
 enum AggregateType
@@ -25,26 +26,5 @@ class AggregateDeclaration : Node
 // { StructBodyDeclaration* }
 class StructBody : Node
 {
-    StructBodyDeclaration[] declarations;
-}
-
-enum StructBodyDeclarationType
-{
-    Declaration,
-    StaticConstructor,
-    StaticDestructor,
-    Invariant,
-    Unittest,
-    StructAllocator,
-    StructDeallocator,
-    StructConstructor,
-    StructPostblit,
-    StructDestructor,
-    AliasThis,
-}
-
-class StructBodyDeclaration : Node
-{
-    StructBodyDeclarationType type;
-    Node node;
+    DeclarationDefinition[] declarations;
 }

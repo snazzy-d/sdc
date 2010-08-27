@@ -7,6 +7,7 @@ module sdc.parser.aggregate;
 
 import std.string;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.base;
@@ -48,34 +49,9 @@ StructBody parseStructBody(TokenStream tstream)
     
     match(tstream, TokenType.OpenBrace);
     while (tstream.peek.type != TokenType.CloseBrace) {
-        structBody.declarations ~= parseStructBodyDeclaration(tstream);
+        structBody.declarations ~= parseDeclarationDefinition(tstream);
     }
     match(tstream, TokenType.CloseBrace);
     
     return structBody;
-}
-
-StructBodyDeclaration parseStructBodyDeclaration(TokenStream tstream)
-{
-    auto decl = new StructBodyDeclaration();
-    decl.location = tstream.peek.location;
-    
-    switch (tstream.peek.type) {
-    case TokenType.Static:
-        break;
-    case TokenType.Invariant:
-        break;
-    case TokenType.Unittest:
-        break;
-    case TokenType.This:
-        break;
-    case TokenType.Alias:
-        break;
-    default:
-        decl.type = StructBodyDeclarationType.Declaration;
-        decl.node = parseDeclaration(tstream);
-        break;
-    }
-    
-    return decl;
 }
