@@ -91,10 +91,10 @@ class Module
     void optimise()
     {
         auto passManager = LLVMCreatePassManager();
+        scope (exit) LLVMDisposePassManager(passManager);
         LLVMAddInstructionCombiningPass(passManager);
         LLVMAddPromoteMemoryToRegisterPass(passManager);
         LLVMRunPassManager(passManager, mod);
-        LLVMDisposePassManager(passManager);
     }
 
     void pushScope()
