@@ -34,7 +34,7 @@ extern(C):
  @param arg An anonymous argument for client use.
  @result 0 on success; -1 otherwise.
  */
-typedef int function(uint8_t *byte_, uint64_t address, void *arg) EDByteReaderCallback;
+alias int function(uint8_t *byte_, uint64_t address, void *arg) EDByteReaderCallback;
 
 /*!
  @typedef EDRegisterReaderCallback
@@ -45,7 +45,7 @@ typedef int function(uint8_t *byte_, uint64_t address, void *arg) EDByteReaderCa
  @param arg An anonymous argument for client use.
  @result 0 if the register could be read; -1 otherwise.
  */
-typedef int function(uint64_t *value, uint regID, 
+ alias int function(uint64_t *value, uint regID, 
                                         void* arg) EDRegisterReaderCallback;
 
 /*!
