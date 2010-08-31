@@ -44,7 +44,15 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 
 Value genOrOrExpression(ast.OrOrExpression expression, Module mod)
 {
-    return genAndAndExpression(expression.andAndExpression, mod);
+    Value val;
+    if (expression.orOrExpression !is null) {
+        auto lhs = genOrOrExpression(expression.orOrExpression, mod);
+        val = genAndAndExpression(expression.andAndExpression, mod);
+        val.or(lhs);
+    } else {
+        val = genAndAndExpression(expression.andAndExpression, mod);
+    }
+    return val;
 }
 
 Value genAndAndExpression(ast.AndAndExpression expression, Module mod)
@@ -81,6 +89,14 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
         lhs = lhs.neq(rhs);
         break;
+    case ast.Comparison.Greater:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        lhs = lhs.gt(rhs);
+        break;
+    case ast.Comparison.LessEqual:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        lhs = lhs.lte(rhs);
+        break;
     default:
         panic(expression.location, "unhandled comparison expression.");
         assert(false);
@@ -101,10 +117,10 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
         val = genMulExpression(expression.mulExpression, mod);
         final switch (expression.addOperation) {
         case ast.AddOperation.Add:
-            val.add(lhs);
+            val = val.add(lhs);
             break;
         case ast.AddOperation.Subtract:
-            val.sub(lhs);
+            val = val.sub(lhs);
             break;
         case ast.AddOperation.Concat:
             panic(expression.location, "unimplemented add operation.");
@@ -119,7 +135,25 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
 
 Value genMulExpression(ast.MulExpression expression, Module mod)
 {
-    return genPowExpression(expression.powExpression, mod);
+    Value val;
+    if (expression.mulExpression !is null) {
+        auto lhs = genMulExpression(expression.mulExpression, mod);
+        val = genPowExpression(expression.powExpression, mod);
+        final switch (expression.mulOperation) {
+        case ast.MulOperation.Mul:
+            val = val.mul(lhs);
+            break;
+        case ast.MulOperation.Div:
+            val = val.div(lhs);
+            break;
+        case ast.MulOperation.Mod:
+            panic(expression.location, "unimplemented mul operation.");
+            assert(false);
+        }
+    } else {
+        val = genPowExpression(expression.powExpression, mod);
+    }
+    return val;
 }
 
 Value genPowExpression(ast.PowExpression expression, Module mod)
@@ -134,11 +168,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.sub(new IntValue(mod, expression.location, 1));
+        val.set(val.sub(new IntValue(mod, expression.location, 1)));
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.add(new IntValue(mod, expression.location, 1));
+        val.set(val.add(new IntValue(mod, expression.location, 1)));
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
@@ -147,8 +181,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     case ast.UnaryPrefix.UnaryMinus:
         val = genUnaryExpression(expression.unaryExpression, mod);
         auto zero = new IntValue(mod, expression.location, 0);
-        zero.sub(val);
-        val = zero;
+        val = zero.sub(val);
         break;
     case ast.UnaryPrefix.UnaryPlus:
         val = genUnaryExpression(expression.unaryExpression, mod);
@@ -180,12 +213,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         lhs = new IntValue(mod, lhs);
-        val.add(new IntValue(mod, expression.location, 1));
+        val.set(lhs.add(new IntValue(mod, expression.location, 1)));
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
         lhs = new IntValue(mod, lhs);
-        val.sub(new IntValue(mod, expression.location, 1));
+        val.set(lhs.sub(new IntValue(mod, expression.location, 1)));
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
