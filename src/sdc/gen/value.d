@@ -71,10 +71,15 @@ abstract class Value
     LLVMValueRef get();
     void set(Value val);
     void set(LLVMValueRef val);
-    void add(Value val);
-    void sub(Value val);
+    Value add(Value val);
+    Value sub(Value val);
+    Value mul(Value val);
+    Value div(Value val);
     Value eq(Value val);
     Value neq(Value val);
+    Value gt(Value val);
+    Value lte(Value val);
+    Value or(Value val);
     Value call(Value[] args);
     Value init(Location location);
     Value getMember(string name);
@@ -164,28 +169,66 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         LLVMBuildStore(mModule.builder, val, mValue);
     }
     
-    override void add(Value val)
+    override Value add(Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
         }
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
-        LLVMBuildStore(mModule.builder, result, mValue);
+        auto v = new typeof(this)(mModule, location);
+        v.set(result);
+        return v;
     }
     
-    override void sub(Value val)
+    override Value sub(Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " - val." ~ C ~ ");");
         }
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
-        LLVMBuildStore(mModule.builder, result, mValue);
+        auto v = new typeof(this)(mModule, location);
+        v.set(result);
+        return v;
     }
     
+    override Value mul(Value val)
+    {
+        this.constant = this.constant && val.constant;
+        if (this.constant) {
+            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " * val." ~ C ~ ");");
+        }
+        auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "add");
+        auto v = new typeof(this)(mModule, location);
+        v.set(result);
+        return v;
+    }
+    
+    override Value div(Value val)
+    {
+        this.constant = this.constant && val.constant;
+        if (this.constant) {
+            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
+        }
+        auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+        auto v = new typeof(this)(mModule, location);
+        v.set(result);
+        return v;
+    }
+    
+    override Value or(Value val)
+    {
+        auto v = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
+        auto b = new BoolValue(mModule, location);
+        b.set(v);
+        return b;
+    }
+        
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
+    mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
+    mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
     
     mixin InvalidOperation!"Value call(Value[])";
     mixin InvalidOperation!"Value getMember(string)";
@@ -265,10 +308,15 @@ class FunctionValue : Value
     
     mixin InvalidOperation!"void set(Value)";
     mixin InvalidOperation!"void set(LLVMValueRef)";
-    mixin InvalidOperation!"void add(Value)";
-    mixin InvalidOperation!"void sub(Value)";
+    mixin InvalidOperation!"Value add(Value)";
+    mixin InvalidOperation!"Value sub(Value)";
+    mixin InvalidOperation!"Value mul(Value)";
+    mixin InvalidOperation!"Value div(Value)";
     mixin InvalidOperation!"Value eq(Value)";
     mixin InvalidOperation!"Value neq(Value)";
+    mixin InvalidOperation!"Value gt(Value)";
+    mixin InvalidOperation!"Value lte(Value)";
+    mixin InvalidOperation!"Value or(Value)";
     mixin InvalidOperation!"Value getMember(string)";
     
     override Value init(Location location)
@@ -323,10 +371,15 @@ class StructValue : Value
     
     mixin InvalidOperation!"void set(Value)";
     mixin InvalidOperation!"void set(LLVMValueRef)";
-    mixin InvalidOperation!"void add(Value)";
-    mixin InvalidOperation!"void sub(Value)";
+    mixin InvalidOperation!"Value add(Value)";
+    mixin InvalidOperation!"Value sub(Value)";
+    mixin InvalidOperation!"Value mul(Value)";
+    mixin InvalidOperation!"Value div(Value)";
     mixin InvalidOperation!"Value eq(Value)";
     mixin InvalidOperation!"Value neq(Value)";
+    mixin InvalidOperation!"Value gt(Value)";
+    mixin InvalidOperation!"Value lte(Value)";
+    mixin InvalidOperation!"Value or(Value)";
     mixin InvalidOperation!"Value call(Value[])";
 }
 
