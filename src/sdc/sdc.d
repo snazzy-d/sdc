@@ -75,8 +75,14 @@ void realmain(string[] args)
         return;
     }
     
+    string[] assemblies;
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
+        if (ext == "o") {
+            assemblies ~= arg;
+            continue;
+        }
+        
         if (ext != "d" && ext != "di") {
             stderr.writeln("unknown extension '", ext, "'.");
             throw new CompilerError();
@@ -91,7 +97,6 @@ void realmain(string[] args)
     }
     
     auto extensionRegex = regex("d(i)?$", "i");
-    string[] assemblies;
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
         gModule = genModule(aModule);
         gModule.verify();
