@@ -253,6 +253,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return new BoolValue(mod, expression.location, false);
     case ast.PrimaryType.Identifier:
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
+    case ast.PrimaryType.ParenExpression:
+        return genExpression(cast(ast.Expression) expression.node, mod);
     default:
         panic(expression.location, "unhandled primary expression type.");
     }
