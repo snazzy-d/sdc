@@ -12,13 +12,13 @@ import sdc.ast.all;
 
 string extractQualifiedName(QualifiedName qualifiedName)
 {
-    char[] buf = qualifiedName.leadingDot ? ".".dup : "".dup;
+    string buf = qualifiedName.leadingDot ? "." : "";
     foreach (identifier; qualifiedName.identifiers) {
         buf ~= identifier.value;
         buf ~= ".";
     }
     buf = buf[0 .. $ - 1];  // Chop off final '.'
-    return buf.idup;
+    return buf;
 }
 
 string extractIdentifier(Identifier identifier)
