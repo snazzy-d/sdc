@@ -22,6 +22,7 @@ enum DType
     Bool,
     Int,
     Long,
+    Double,
     Complex,
     Function,
     Struct,
@@ -112,6 +113,26 @@ class LongType : Type
     }
     
     override Value getValue(Location location) { return new LongValue(mModule, location); }
+}
+
+class DoubleType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Double;
+        mType = LLVMDoubleTypeInContext(mod.context);
+    }
+    
+    override DoubleType importToModule(Module mod)
+    {
+        return new DoubleType(mod);
+    }
+    
+    override Value getValue(Location location)
+    {
+        return new DoubleValue(mModule, location);
+    }
 }
 
 class FunctionType : Type

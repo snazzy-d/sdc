@@ -43,6 +43,7 @@ abstract class Value
         bool constBool;
         int constInt;
         long constLong;
+        double constDouble;
     }
     
     Type type() @property
@@ -79,7 +80,15 @@ abstract class Value
     Value neq(Value val);
     Value gt(Value val);
     Value lte(Value val);
-    Value or(Value val);
+    
+    Value or(Value val)
+    {
+        auto v = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
+        auto b = new BoolValue(mModule, location);
+        b.set(v);
+        return b;
+    }
+    
     Value call(Value[] args);
     Value init(Location location);
     Value getMember(string name);
@@ -217,14 +226,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         return v;
     }
     
-    override Value or(Value val)
-    {
-        auto v = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
-        auto b = new BoolValue(mModule, location);
-        b.set(v);
-        return b;
-    }
-        
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
     mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
@@ -251,7 +252,115 @@ alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
 alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
 alias PrimitiveIntegerValue!(long, LongType, "constLong") LongValue;
 
-
+class DoubleValue : Value
+{
+    this(Module mod, Location location)
+    {
+        super(mod, location);
+        mType = new DoubleType(mod);
+        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
+    }
+    
+    this(Module mod, Location location, double d)
+    {
+        this(mod, location);
+        constInit(d);
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        panic("attempted to import double value across modules.");
+        assert(false);
+    }
+    
+    override LLVMValueRef get()
+    {
+        return LLVMBuildLoad(mModule.builder, mValue, "doubleget");
+    }
+    
+    override void set(Value val)
+    {
+        this.constant = this.constant && val.constant;
+        if (this.constant) {
+            this.constDouble = val.constDouble;
+        }
+        LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void set(LLVMValueRef val)
+    {
+        constant = false;
+        LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
+    override Value add(Value val)
+    {
+        auto v = new DoubleValue(mModule, location);
+        auto result = LLVMBuildFAdd(mModule.builder, this.get(), val.get(), "fadd");
+        v.set(result);
+        v.constant = this.constant && val.constant;
+        if (v.constant) {
+            v.constDouble = this.constDouble + val.constDouble;
+        }
+        return v;
+    }
+    
+    override Value sub(Value val)
+    {
+        auto v = new DoubleValue(mModule, location);
+        auto result = LLVMBuildFSub(mModule.builder, this.get(), val.get(), "fsub");
+        v.set(result);
+        v.constant = this.constant && val.constant;
+        if (v.constant) {
+            v.constDouble = this.constDouble - val.constDouble;
+        }
+        return v;
+    }
+    
+    override Value mul(Value val)
+    {
+        auto v = new DoubleValue(mModule, location);
+        auto result = LLVMBuildFMul(mModule.builder, this.get(), val.get(), "fmul");
+        v.set(result);
+        v.constant = this.constant && val.constant;
+        if (v.constant) {
+            v.constDouble = this.constDouble * val.constDouble;
+        }
+        return v;
+    }
+    
+    override Value div(Value val)
+    {
+        auto v = new DoubleValue(mModule, location);
+        auto result = LLVMBuildFDiv(mModule.builder, this.get(), val.get(), "fdiv");
+        v.set(result);
+        v.constant = this.constant && val.constant;
+        if (v.constant) {
+            v.constDouble = this.constDouble / val.constDouble;
+        }
+        return v;
+    }
+    
+    override Value init(Location location)
+    {
+        return new DoubleValue(mModule, location);
+    }
+    
+    mixin InvalidOperation!"Value eq(Value)";
+    mixin InvalidOperation!"Value neq(Value)";
+    mixin InvalidOperation!"Value gt(Value)";
+    mixin InvalidOperation!"Value lte(Value)";
+    mixin InvalidOperation!"Value call(Value[])";
+    mixin InvalidOperation!"Value getMember(string)";
+    
+    protected void constInit(double d)
+    {
+        auto val = LLVMConstReal(mType.llvmType, d);
+        LLVMBuildStore(mModule.builder, val, mValue);
+        constant = true;
+        constDouble = d;
+    }
+}
 
 class FunctionValue : Value
 {
@@ -412,6 +521,8 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
         return new IntType(mod);
     case ast.PrimitiveTypeType.Long:
         return new LongType(mod);
+    case ast.PrimitiveTypeType.Double:
+        return new DoubleType(mod);
     default:
         panic(type.location, "unhandled primitive type type.");
     }

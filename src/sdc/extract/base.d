@@ -30,3 +30,8 @@ int extractIntegerLiteral(IntegerLiteral literal)
 {
     return to!int(literal.value);
 }
+
+double extractFloatLiteral(FloatLiteral literal)
+{
+    return to!double(literal.value);
+}

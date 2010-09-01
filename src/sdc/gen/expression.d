@@ -247,6 +247,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     switch (expression.type) {
     case ast.PrimaryType.IntegerLiteral:
         return new IntValue(mod, expression.location, extractIntegerLiteral(cast(ast.IntegerLiteral) expression.node));
+    case ast.PrimaryType.FloatLiteral:
+        return new DoubleValue(mod, expression.location, extractFloatLiteral(cast(ast.FloatLiteral) expression.node));
     case ast.PrimaryType.True:
         return new BoolValue(mod, expression.location, true);
     case ast.PrimaryType.False:
