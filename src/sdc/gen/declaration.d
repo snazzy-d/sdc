@@ -125,9 +125,11 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
             }
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
-                panic(declarator.initialiser.location, "void initialisers are unimplemented.");
+                var.set(LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
-                var.set(genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod));
+                auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
+                aexp = implicitCast(aexp, type);
+                var.set(aexp);
             } else {
                 panic(declarator.initialiser.location, "unhandled initialiser type.");
             }

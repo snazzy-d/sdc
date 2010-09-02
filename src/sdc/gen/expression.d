@@ -24,11 +24,15 @@ Value genExpression(ast.Expression expression, Module mod)
 Value genAssignExpression(ast.AssignExpression expression, Module mod)
 {
     auto lhs = genConditionalExpression(expression.conditionalExpression, mod);
+    if (expression.assignType == ast.AssignType.None) {
+        return lhs;
+    }
+    auto rhs = genAssignExpression(expression.assignExpression, mod);
+    rhs = implicitCast(rhs, lhs.type);
     switch (expression.assignType) {
     case ast.AssignType.None:
-        break;
+        assert(false);
     case ast.AssignType.Normal:
-        auto rhs = genAssignExpression(expression.assignExpression, mod);
         lhs.set(rhs);
         break;
     default:
