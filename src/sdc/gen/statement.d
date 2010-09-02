@@ -18,6 +18,7 @@ import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.value;
+import sdc.gen.type;
 import sdc.extract.base;
 
 
@@ -186,6 +187,8 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
     auto val = genExpression(statement.expression, mod);
+    auto t = (cast(FunctionType) mod.currentFunction.type).returnType;
+    val = implicitCast(val, t);
     LLVMBuildRet(mod.builder, val.get());
     mod.currentPath.functionEscaped = true;
 }

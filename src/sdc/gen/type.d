@@ -20,12 +20,60 @@ enum DType
 {
     None,
     Bool,
+    Char,
+    Ubyte,
+    Byte,
+    Wchar,
+    Ushort,
+    Short,
+    Dchar,
+    Uint,
     Int,
+    Ulong,
     Long,
+    Float,
     Double,
+    Real,
     Complex,
     Function,
     Struct,
+}
+
+Type dtypeToType(DType dtype, Module mod)
+{
+    final switch (dtype) with (DType) {
+    case None:
+        break;
+    case Bool:
+        return new BoolType(mod);
+    case Char:
+    case Ubyte:
+    case Byte:
+    case Wchar:
+    case Ushort:
+    case Short:
+    case Dchar:
+    case Uint:
+        break;
+    case Int:
+        return new IntType(mod);
+    case Ulong:
+        break;
+    case Long:
+        return new LongType(mod); 
+    case Float:
+        break;
+    case Double:
+        return new DoubleType(mod);
+    case Real:
+        break;
+    case Complex:
+    case Function:
+    case Struct:
+        break;
+    }
+    panic("tried to get Type out of invalid DType.");
+    assert(false);
 }
 
 pure bool isComplexDType(DType dtype)

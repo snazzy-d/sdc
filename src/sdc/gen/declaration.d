@@ -156,7 +156,8 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Value func, Module mod)
 {
     mod.pushScope();
-    mod.currentFunction = func;
+    mod.currentFunction = cast(FunctionValue) func;
+    assert(mod.currentFunction);
     
     // Add parameters into the functions namespace.
     auto functionType = cast(FunctionType) func.type();

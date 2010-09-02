@@ -7,6 +7,7 @@ module sdc.gen.expression;
 
 import std.string;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
@@ -115,12 +116,23 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
     if (expression.addExpression !is null) {
         auto lhs = genAddExpression(expression.addExpression, mod);
         val = genMulExpression(expression.mulExpression, mod);
+        SideToChange sideToChange;
+        auto v = binaryOperatorImplicitCast(lhs, val, sideToChange);
+        if (sideToChange == SideToChange.Left) {
+            debugPrint("A");
+            lhs = v;
+        } else if (sideToChange == SideToChange.Right) {
+            debugPrint("B");
+            val = v;
+        }
+        assert(lhs.type.dtype == val.type.dtype); 
+        
         final switch (expression.addOperation) {
         case ast.AddOperation.Add:
-            val = val.add(lhs);
+            val = lhs.add(val);
             break;
         case ast.AddOperation.Subtract:
-            val = val.sub(lhs);
+            val = lhs.sub(val);
             break;
         case ast.AddOperation.Concat:
             panic(expression.location, "unimplemented add operation.");
@@ -141,10 +153,10 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
         val = genPowExpression(expression.powExpression, mod);
         final switch (expression.mulOperation) {
         case ast.MulOperation.Mul:
-            val = val.mul(lhs);
+            val = lhs.mul(val);
             break;
         case ast.MulOperation.Div:
-            val = val.div(lhs);
+            val = lhs.div(val);
             break;
         case ast.MulOperation.Mod:
             panic(expression.location, "unimplemented mul operation.");

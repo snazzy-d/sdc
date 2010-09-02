@@ -30,7 +30,7 @@ class Module
     Scope globalScope;
     Scope currentScope;
     Path currentPath;
-    Value currentFunction;
+    FunctionValue currentFunction;
     Value base;
     ast.Linkage currentLinkage = ast.Linkage.ExternC;
     bool isAlias;

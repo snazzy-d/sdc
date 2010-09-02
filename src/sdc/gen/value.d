@@ -5,11 +5,14 @@
  */
 module sdc.gen.value;
 
+import std.algorithm;
+import std.conv;
 import std.string;
 
 import llvm.c.Core;
 import llvm.Ext;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.location;
 import sdc.extract.base;
@@ -92,6 +95,7 @@ abstract class Value
     Value call(Value[] args);
     Value init(Location location);
     Value getMember(string name);
+    Module getModule() { return mModule; }
 
     
     protected Module mModule;
@@ -549,4 +553,73 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         }
     }
     return store.type;
+}
+
+enum SideToChange
+{
+    Neither,
+    Left,
+    Right,
+}
+
+Value binaryOperatorImplicitCast(Value lhs, Value rhs, ref SideToChange sideToChange)
+{
+    sideToChange = SideToChange.Left;
+    
+    if (lhs.type.dtype == rhs.type.dtype) {
+        sideToChange = SideToChange.Neither;
+        return null;
+    }
+ 
+    auto toDType = max(lhs.type.dtype, rhs.type.dtype);
+    auto t = dtypeToType(toDType, lhs.getModule());
+    if (lhs.type.dtype > rhs.type.dtype) {
+        sideToChange = SideToChange.Right;
+        return implicitCast(lhs, t);
+    } else {
+        sideToChange = SideToChange.Left;
+        return implicitCast(rhs, t);
+    }
+}
+
+Value implicitCast(Value v, Type toType)
+{
+    if (isComplexDType(v.type.dtype)) {
+        panic(v.location, "casts involving complex types are unimplemented.");
+    }
+    if (!canImplicitCast(v.type.dtype, toType.dtype)) {
+        // TODO: Implement toString for Types.
+        error(v.location, format("cannot implicitly cast '%s' to '%s'.", to!string(v.type.dtype), to!string(toType.dtype)));
+    }
+    return v.performCast(toType);
+}
+
+bool canImplicitCast(DType from, DType to)
+{
+    switch (from) with (DType) {
+    case Bool:
+        return true;
+    case Char:
+    case Ubyte:
+    case Byte:
+        return to >= Char;
+    case Wchar:
+    case Ushort:
+    case Short:
+        return to >= Wchar;
+    case Dchar:
+    case Uint:
+    case Int:
+        return to >= Dchar;
+    case Ulong:
+    case Long:
+        return to >= Ulong;
+    case Float:
+    case Double:
+    case Real:
+        return to >= Float;
+    default:
+        return false;
+    }
+    assert(false);
 }
