@@ -81,6 +81,16 @@ pure bool isComplexDType(DType dtype)
     return dtype >= DType.Complex;
 }
 
+pure bool isIntegerDType(DType dtype)
+{
+    return dtype >= DType.Bool && dtype <= DType.Long;
+}
+
+pure bool isFPDtype(DType dtype)
+{
+    return dtype >= DType.Float && dtype <= DType.Double;
+}
+
 abstract class Type
 {
     DType dtype;
