@@ -562,23 +562,18 @@ enum SideToChange
     Right,
 }
 
-Value binaryOperatorImplicitCast(Value lhs, Value rhs, ref SideToChange sideToChange)
-{
-    sideToChange = SideToChange.Left;
-    
+void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
+{    
     if (lhs.type.dtype == rhs.type.dtype) {
-        sideToChange = SideToChange.Neither;
-        return null;
+        return;
     }
  
     auto toDType = max(lhs.type.dtype, rhs.type.dtype);
     auto t = dtypeToType(toDType, lhs.getModule());
     if (lhs.type.dtype > rhs.type.dtype) {
-        sideToChange = SideToChange.Right;
-        return implicitCast(lhs, t);
+        *rhs = implicitCast(*rhs, t);
     } else {
-        sideToChange = SideToChange.Left;
-        return implicitCast(rhs, t);
+        *lhs = implicitCast(*lhs, t);
     }
 }
 

@@ -120,16 +120,7 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
     if (expression.addExpression !is null) {
         auto lhs = genAddExpression(expression.addExpression, mod);
         val = genMulExpression(expression.mulExpression, mod);
-        SideToChange sideToChange;
-        auto v = binaryOperatorImplicitCast(lhs, val, sideToChange);
-        if (sideToChange == SideToChange.Left) {
-            debugPrint("A");
-            lhs = v;
-        } else if (sideToChange == SideToChange.Right) {
-            debugPrint("B");
-            val = v;
-        }
-        assert(lhs.type.dtype == val.type.dtype); 
+        binaryOperatorImplicitCast(&lhs, &val);
         
         final switch (expression.addOperation) {
         case ast.AddOperation.Add:
