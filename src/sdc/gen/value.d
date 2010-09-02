@@ -582,6 +582,9 @@ Value implicitCast(Value v, Type toType)
     if (isComplexDType(v.type.dtype)) {
         panic(v.location, "casts involving complex types are unimplemented.");
     }
+    if (toType.dtype == v.type.dtype) {
+        return v;
+    }
     if (!canImplicitCast(v.type.dtype, toType.dtype)) {
         // TODO: Implement toString for Types.
         error(v.location, format("cannot implicitly cast '%s' to '%s'.", to!string(v.type.dtype), to!string(toType.dtype)));

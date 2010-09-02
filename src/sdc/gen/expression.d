@@ -146,6 +146,8 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
     if (expression.mulExpression !is null) {
         auto lhs = genMulExpression(expression.mulExpression, mod);
         val = genPowExpression(expression.powExpression, mod);
+        binaryOperatorImplicitCast(&lhs, &val);
+        
         final switch (expression.mulOperation) {
         case ast.MulOperation.Mul:
             val = lhs.mul(val);
@@ -179,7 +181,9 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.add(new IntValue(mod, expression.location, 1)));
+        auto rhs = new IntValue(mod, expression.location, 1);
+        binaryOperatorImplicitCast(&val, &rhs);
+        val.set(val.add(rhs));
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
