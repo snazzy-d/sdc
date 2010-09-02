@@ -59,11 +59,6 @@ abstract class Value
         mType = t;
     }
     
-    void performCastInPlace(Type t)
-    {
-        panic(location, "invalid cast");
-    }
-    
     Value performCast(Type t)
     {
         panic(location, "invalid cast");
@@ -145,14 +140,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         panic(location, "tried to import primitive integer value across modules.");
         assert(false);
-    }
-    
-    override void performCastInPlace(Type t)
-    {
-        auto v = LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast");
-        mValue = LLVMBuildAlloca(mModule.builder, LLVMTypeOf(v), "castalloca");
-        LLVMBuildStore(mModule.builder, v, mValue);
-        mType = t;
     }
     
     override Value performCast(Type t)
