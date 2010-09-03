@@ -33,18 +33,20 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
     }
     auto rhs = genAssignExpression(expression.assignExpression, mod);
     rhs = implicitCast(rhs, lhs.type);
-    switch (expression.assignType) {
-    case ast.AssignType.None:
+    switch (expression.assignType) with (ast.AssignType) {
+    case None:
         assert(false);
-    case ast.AssignType.Normal:
+    case Normal:
         lhs.set(rhs);
-        lhs = rhs;
+        break;
+    case AddAssign:
+        lhs.set(lhs.add(rhs));
         break;
     default:
         panic(expression.location, "unimplemented assign expression type.");
         assert(false);
     }
-    return lhs;
+    return rhs;
 }
 
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
