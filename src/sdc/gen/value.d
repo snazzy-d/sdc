@@ -145,7 +145,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     override Value performCast(Type t)
     {
         auto v = t.getValue(location);
-        v.set(LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast"));
+        if (isIntegerDType(t.dtype)) {
+            v.set(LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast"));
+        } else if (isFPDtype(t.dtype)) {
+            v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
+        } else {
+            panic(location, "invalid cast");
+        }
         return v;
     }
     
