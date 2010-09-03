@@ -121,11 +121,10 @@ void genIfStatement(ast.IfStatement statement, Module mod)
         }
         mod.popPath();
         mod.popScope();
-        
-        LLVMPositionBuilderAtEnd(mod.builder, endifBB);
     } else {
         LLVMBuildBr(mod.builder, endifBB);
     }
+    LLVMPositionBuilderAtEnd(mod.builder, endifBB);
 }
 
 void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
