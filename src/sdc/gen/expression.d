@@ -34,6 +34,7 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
         assert(false);
     case ast.AssignType.Normal:
         lhs.set(rhs);
+        lhs = rhs;
         break;
     default:
         panic(expression.location, "unimplemented assign expression type.");
