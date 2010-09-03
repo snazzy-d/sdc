@@ -102,17 +102,17 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.pushScope();
     mod.pushPath(PathType.Optional);
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
+    auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
     genThenStatement(statement.thenStatement, mod);
     if (!mod.currentPath.functionEscaped) {
-        LLVMBuildBr(mod.builder, elseBB);
+        LLVMBuildBr(mod.builder, endifBB);
     }
     mod.popPath();
     mod.popScope();
     
     LLVMPositionBuilderAtEnd(mod.builder, elseBB);
     if (statement.elseStatement !is null) {
-        auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
         mod.pushScope();
         mod.pushPath(PathType.Optional);
         genElseStatement(statement.elseStatement, mod);
@@ -123,6 +123,8 @@ void genIfStatement(ast.IfStatement statement, Module mod)
         mod.popScope();
         
         LLVMPositionBuilderAtEnd(mod.builder, endifBB);
+    } else {
+        LLVMBuildBr(mod.builder, endifBB);
     }
 }
 
