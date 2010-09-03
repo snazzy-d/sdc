@@ -18,7 +18,11 @@ import sdc.gen.value;
 
 Value genExpression(ast.Expression expression, Module mod)
 {
-    return genAssignExpression(expression.assignExpression, mod);
+    auto v = genAssignExpression(expression.assignExpression, mod);
+    if (expression.expression !is null) {
+        return genExpression(expression.expression, mod);
+    }
+    return v;
 }
 
 Value genAssignExpression(ast.AssignExpression expression, Module mod)
