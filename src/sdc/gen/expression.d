@@ -42,6 +42,42 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
     case AddAssign:
         lhs.set(lhs.add(rhs));
         break;
+    case SubAssign:
+        lhs.set(lhs.sub(rhs));
+        break;
+    case MulAssign:
+        lhs.set(lhs.mul(rhs));
+        break;
+    case DivAssign:
+        lhs.set(lhs.div(rhs));
+        break;
+    case ModAssign:
+        panic(expression.location, "modulo assign is unimplemented.");
+        break;
+    case AndAssign:
+        panic(expression.location, "and assign is unimplemented.");
+        break;
+    case OrAssign:
+        panic(expression.location, "or assign is unimplemented.");
+        break;
+    case XorAssign:
+        panic(expression.location, "xor assign is unimplemented.");
+        break;
+    case CatAssign:
+        panic(expression.location, "cat assign is unimplemented.");
+        break;
+    case ShiftLeftAssign:
+        panic(expression.location, "shift left assign is unimplemented.");
+        break;
+    case SignedShiftRightAssign:
+        panic(expression.location, "signed shift assign is unimplemented.");
+        break;
+    case UnsignedShiftRightAssign:
+        panic(expression.location, "unsigned shift assign is unimplemented.");
+        break;
+    case PowAssign:
+        panic(expression.location, "pow assign is unimplemented.");
+        break;
     default:
         panic(expression.location, "unimplemented assign expression type.");
         assert(false);
