@@ -264,6 +264,19 @@ class DoubleValue : Value
         constInit(d);
     }
     
+    override Value performCast(Type t)
+    {
+        auto v = t.getValue(location);
+        if (isIntegerDType(t.dtype)) {
+            v.set(LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
+        } else if (isFPDtype(t.dtype)) {
+            panic(location, "floating point to floating point casts are unimplemented.");
+        } else {
+            panic(location, "invalid cast.");
+        }
+        return v;
+    }
+    
     override Value importToModule(Module mod)
     {
         panic("attempted to import double value across modules.");
