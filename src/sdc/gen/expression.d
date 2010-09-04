@@ -7,6 +7,8 @@ module sdc.gen.expression;
 
 import std.string;
 
+import llvm.c.Core;
+
 import sdc.util;
 import sdc.compilererror;
 import sdc.extract.base;
@@ -87,7 +89,8 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
 
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 {
-    return genOrOrExpression(expression.orOrExpression, mod);
+    auto a = genOrOrExpression(expression.orOrExpression, mod);
+    return a;
 }
 
 Value genOrOrExpression(ast.OrOrExpression expression, Module mod)
