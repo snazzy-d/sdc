@@ -72,9 +72,10 @@ IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] li
         }
         
         stillToGo = 0;
-        foreach (declDef; resolutionList) with (declDef) {
+        foreach (i, declDef; resolutionList) with (declDef) {
             if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled ||
                 buildStage == ast.BuildStage.ReadyToExpand || buildStage == ast.BuildStage.ReadyToRecurse) {
+                debugPrint(to!string(i) ~ " " ~ to!string(buildStage));
                 stillToGo++;
             }
         }
@@ -130,6 +131,7 @@ void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclD
         foreach (rDeclDef; rDeclDefs) {
             auto reason = resolveDeclarationDefinitionList(rDeclDef, mod, rDeclDefs);
             if (reason == IReturnedBecause.IAmFailureToTheSoftware) {
+                debugPrint(to!string(rDeclDef[0].type) ~ ":" ~ to!string(rDeclDef[0].buildStage));
                 failures++;
             }
         }
@@ -193,8 +195,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 
 void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
-    with (declDef) if (buildStage == ast.BuildStage.Done || buildStage == ast.BuildStage.ReadyForCodegen ||
-                       buildStage == ast.BuildStage.DoneForever || buildStage == ast.BuildStage.ReadyToExpand) {
+    with (declDef) if (buildStage != ast.BuildStage.Unhandled && buildStage != ast.BuildStage.Deferred) {
         return;
     }
     
@@ -232,6 +233,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
         if (can) {
             genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+            declDef.buildStage = ast.BuildStage.Done;
+        } else {
+            declDef.buildStage = ast.BuildStage.Deferred;
         }
         break;
     case ast.DeclarationDefinitionType.AttributeSpecifier:
