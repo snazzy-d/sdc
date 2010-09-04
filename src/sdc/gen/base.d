@@ -75,7 +75,6 @@ IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] li
         foreach (i, declDef; resolutionList) with (declDef) {
             if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled ||
                 buildStage == ast.BuildStage.ReadyToExpand || buildStage == ast.BuildStage.ReadyToRecurse) {
-                debugPrint(to!string(i) ~ " " ~ to!string(buildStage));
                 stillToGo++;
             }
         }
@@ -131,7 +130,6 @@ void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclD
         foreach (rDeclDef; rDeclDefs) {
             auto reason = resolveDeclarationDefinitionList(rDeclDef, mod, rDeclDefs);
             if (reason == IReturnedBecause.IAmFailureToTheSoftware) {
-                debugPrint(to!string(rDeclDef[0].type) ~ ":" ~ to!string(rDeclDef[0].buildStage));
                 failures++;
             }
         }
