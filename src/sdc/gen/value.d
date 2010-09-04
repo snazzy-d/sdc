@@ -440,6 +440,16 @@ class StructValue : Value
         return LLVMBuildLoad(mModule.builder, mValue, "struct");
     }
     
+    override void set(Value val)
+    {
+        LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void set(LLVMValueRef val)
+    {
+        LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
     override Value init(Location location)
     {
         panic(location, "tried to get the init of a struct value.");
