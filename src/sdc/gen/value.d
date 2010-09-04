@@ -67,17 +67,19 @@ abstract class Value
             
     Value importToModule(Module m);
     
-    LLVMValueRef get();
-    void set(Value val);
-    void set(LLVMValueRef val);
-    Value add(Value val);
-    Value sub(Value val);
-    Value mul(Value val);
-    Value div(Value val);
-    Value eq(Value val);
-    Value neq(Value val);
-    Value gt(Value val);
-    Value lte(Value val);
+    void fail() { panic(location, "call to unimplemented method."); }
+        
+    LLVMValueRef get() { fail(); assert(false); }
+    void set(Value val) { fail(); assert(false); }
+    void set(LLVMValueRef val) { fail(); assert(false); }
+    Value add(Value val) { fail(); assert(false); }
+    Value sub(Value val) { fail(); assert(false); }
+    Value mul(Value val) { fail(); assert(false); }
+    Value div(Value val) { fail(); assert(false); }
+    Value eq(Value val) { fail(); assert(false); }
+    Value neq(Value val) { fail(); assert(false); }
+    Value gt(Value val) { fail(); assert(false); }
+    Value lte(Value val) { fail(); assert(false); }
     
     Value or(Value val)
     {
@@ -87,21 +89,15 @@ abstract class Value
         return b;
     }
     
-    Value call(Value[] args);
-    Value init(Location location);
-    Value getMember(string name);
+    Value call(Value[] args) { fail(); assert(false); }
+    Value init(Location location) { fail(); assert(false); }
+    Value getMember(string name) { fail(); assert(false); }
     Module getModule() { return mModule; }
 
     
     protected Module mModule;
     protected Type mType;
     protected LLVMValueRef mValue;
-}
-
-mixin template InvalidOperation(alias FunctionSignature)
-{
-    mixin("override " ~ FunctionSignature ~ " {"
-          `    panic(location, "invalid operation used."); assert(false); }`);
 }
 
 mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
@@ -228,9 +224,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
     mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
     
-    mixin InvalidOperation!"Value call(Value[])";
-    mixin InvalidOperation!"Value getMember(string)";
-    
     override Value init(Location location)
     {
         return new typeof(this)(mModule, location, 0);
@@ -356,13 +349,6 @@ class DoubleValue : Value
         return new DoubleValue(mModule, location);
     }
     
-    mixin InvalidOperation!"Value eq(Value)";
-    mixin InvalidOperation!"Value neq(Value)";
-    mixin InvalidOperation!"Value gt(Value)";
-    mixin InvalidOperation!"Value lte(Value)";
-    mixin InvalidOperation!"Value call(Value[])";
-    mixin InvalidOperation!"Value getMember(string)";
-    
     protected void constInit(double d)
     {
         auto val = LLVMConstReal(mType.llvmType, d);
@@ -425,19 +411,6 @@ class FunctionValue : Value
         assert(false);
     }
     
-    mixin InvalidOperation!"void set(Value)";
-    mixin InvalidOperation!"void set(LLVMValueRef)";
-    mixin InvalidOperation!"Value add(Value)";
-    mixin InvalidOperation!"Value sub(Value)";
-    mixin InvalidOperation!"Value mul(Value)";
-    mixin InvalidOperation!"Value div(Value)";
-    mixin InvalidOperation!"Value eq(Value)";
-    mixin InvalidOperation!"Value neq(Value)";
-    mixin InvalidOperation!"Value gt(Value)";
-    mixin InvalidOperation!"Value lte(Value)";
-    mixin InvalidOperation!"Value or(Value)";
-    mixin InvalidOperation!"Value getMember(string)";
-    
     override Value init(Location location)
     {
         panic(location, "tried to get the init of a function value.");
@@ -487,19 +460,6 @@ class StructValue : Value
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
     }
-    
-    mixin InvalidOperation!"void set(Value)";
-    mixin InvalidOperation!"void set(LLVMValueRef)";
-    mixin InvalidOperation!"Value add(Value)";
-    mixin InvalidOperation!"Value sub(Value)";
-    mixin InvalidOperation!"Value mul(Value)";
-    mixin InvalidOperation!"Value div(Value)";
-    mixin InvalidOperation!"Value eq(Value)";
-    mixin InvalidOperation!"Value neq(Value)";
-    mixin InvalidOperation!"Value gt(Value)";
-    mixin InvalidOperation!"Value lte(Value)";
-    mixin InvalidOperation!"Value or(Value)";
-    mixin InvalidOperation!"Value call(Value[])";
 }
 
 enum OnFailure
