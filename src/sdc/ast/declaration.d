@@ -30,23 +30,6 @@ class VariableDeclaration : Node
     Declarator[] declarators;
 }
 
-class SyntheticVariableDeclaration : Node
-{
-    this() {}
-    this(VariableDeclaration decl, Declarator declarator)
-    {
-        location = declarator.location;
-        type = decl.type;
-        identifier = declarator.name;
-        initialiser = declarator.initialiser;
-    }
-    
-    bool isAlias;
-    Type type;
-    Identifier identifier;
-    Initialiser initialiser;  // Optional.
-}
-
 class Declarator : Node
 {
     Identifier name;
