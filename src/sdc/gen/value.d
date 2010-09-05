@@ -359,7 +359,7 @@ class DoubleValue : Value
         v.set(mValue);
         return v;
     }
-    
+
     override Value init(Location location)
     {
         return new DoubleValue(mModule, location);
@@ -411,6 +411,17 @@ class PointerValue : Value
     {
         auto v = new PointerValue(mModule, location, this);
         v.set(mValue);
+        return v;
+    }
+    
+    override Value dereference()
+    {
+        auto t = new IntType(mModule);
+        LLVMValueRef[] indices;
+        indices ~= LLVMConstInt(t.llvmType, 0, false);
+        
+        auto v = base.type.getValue(location);
+        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
     
