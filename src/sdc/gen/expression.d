@@ -218,7 +218,6 @@ Value genPowExpression(ast.PowExpression expression, Module mod)
 
 Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 {
-    //auto val = genPostfixExpression(expression.postfixExpression, mod);
     Value val;
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
