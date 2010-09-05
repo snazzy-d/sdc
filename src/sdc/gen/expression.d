@@ -247,6 +247,9 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.unaryExpression, mod);
         break;
     case ast.UnaryPrefix.AddressOf:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = val.addressOf();
+        break;
     case ast.UnaryPrefix.Dereference:
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:

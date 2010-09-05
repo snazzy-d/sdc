@@ -80,6 +80,8 @@ abstract class Value
     Value neq(Value val) { fail(); assert(false); }
     Value gt(Value val) { fail(); assert(false); }
     Value lte(Value val) { fail(); assert(false); }
+    Value addressOf() { fail(); assert(false); }
+    Value dereference() { fail(); assert(false); }
     
     Value or(Value val)
     {
@@ -224,6 +226,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
     mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
     
+    override Value addressOf()
+    {
+        auto v = new PointerValue(mModule, location, this);
+        v.set(mValue);
+        return v;
+    }
+    
     override Value init(Location location)
     {
         return new typeof(this)(mModule, location, 0);
@@ -344,6 +353,13 @@ class DoubleValue : Value
         return v;
     }
     
+    override Value addressOf()
+    {
+        auto v = new PointerValue(mModule, location, this);
+        v.set(mValue);
+        return v;
+    }
+    
     override Value init(Location location)
     {
         return new DoubleValue(mModule, location);
@@ -389,6 +405,13 @@ class PointerValue : Value
     override void set(LLVMValueRef val)
     {
         LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
+    override Value addressOf()
+    {
+        auto v = new PointerValue(mModule, location, this);
+        v.set(mValue);
+        return v;
     }
     
     override Value init(Location location)
