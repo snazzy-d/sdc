@@ -358,6 +358,47 @@ class DoubleValue : Value
     }
 }
 
+class PointerValue : Value
+{
+    Value base;
+    
+    this(Module mod, Location location, Value base)
+    {
+        super(mod, location);
+        this.base = base;
+        mType = new PointerType(mod, base.type);
+        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        panic("attempted to import double value across modules.");
+        assert(false);
+    }
+    
+    override LLVMValueRef get()
+    {
+        return LLVMBuildLoad(mModule.builder, mValue, "get");
+    }
+    
+    override void set(Value val)
+    {
+        LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void set(LLVMValueRef val)
+    {
+        LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
+    override Value init(Location location)
+    {
+        auto v = new PointerValue(mModule, location, base);
+        v.set(LLVMConstNull(v.mType.llvmType));
+        return v;
+    }
+}
+
 class FunctionValue : Value
 {
     string name;
@@ -481,16 +522,27 @@ enum OnFailure
 
 Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 {
+    Type t;
     switch (type.type) {
     case ast.TypeType.Primitive:
-        return primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod, onFailure);
+        t = primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod, onFailure);
+        break;
     case ast.TypeType.UserDefined:
-        return userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod, onFailure);
+        t = userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod, onFailure);
+        break;
     default:
         panic(type.location, "unhandled type type.");
     }
     
-    assert(false);
+    foreach (suffix; type.suffixes) {
+        if (suffix.type == ast.TypeSuffixType.Pointer) {
+            t = new PointerType(mod, t);
+        } else {
+            panic(type.location, "unimplemented type suffix.");
+        }
+    }
+    
+    return t;
 }
 
 Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure onFailure)

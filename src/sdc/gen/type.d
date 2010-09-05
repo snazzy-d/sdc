@@ -34,6 +34,7 @@ enum DType
     Float,
     Double,
     Real,
+    Pointer,
     Complex,
     Function,
     Struct,
@@ -66,7 +67,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Double:
         return new DoubleType(mod);
     case Real:
-        break;
+    case Pointer:
     case Complex:
     case Function:
     case Struct:
@@ -193,6 +194,29 @@ class DoubleType : Type
     }
 }
 
+class PointerType : Type
+{
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        this.base = base;
+        dtype = DType.Pointer;
+        mType = LLVMPointerType(base.llvmType, 0);
+    }
+    
+    override PointerType importToModule(Module mod)
+    {
+        return new PointerType(mod, base);
+    }
+    
+    override Value getValue(Location location)
+    {
+        return new PointerValue(mModule, location, base.getValue(location));
+    }
+}
+
 class FunctionType : Type
 {
     Type returnType;
@@ -277,4 +301,10 @@ unittest
     assert(a == b);
     auto c = new BoolType(mod);
     assert(a != c);
+    auto pa = new PointerType(mod, a);
+    auto pb = new PointerType(mod, b);
+    auto pc = new PointerType(mod, c);
+    assert(pa !is pb);
+    assert(pa == pb);
+    assert(pa != pc);
 }
