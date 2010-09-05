@@ -556,6 +556,9 @@ void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
 Value implicitCast(Value v, Type toType)
 {
     if (isComplexDType(v.type.dtype)) {
+        if (v.type == toType) {
+            return v;
+        }
         panic(v.location, "casts involving complex types are unimplemented.");
     }
     if (toType.dtype == v.type.dtype) {
