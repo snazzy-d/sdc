@@ -464,9 +464,10 @@ class StructValue : Value
         
         auto asStruct = cast(StructType) mType;
         assert(asStruct);
-        indices ~= LLVMConstInt(t.llvmType, asStruct.memberPositions[name], false);
+        auto index = asStruct.memberPositions[name];
+        indices ~= LLVMConstInt(t.llvmType, index, false);
         
-        auto i = new IntValue(mModule, location);
+        auto i = asStruct.members[index].getValue(location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
     }

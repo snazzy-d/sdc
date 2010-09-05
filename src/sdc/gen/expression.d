@@ -5,6 +5,7 @@
  */
 module sdc.gen.expression;
 
+import std.conv;
 import std.string;
 
 import llvm.c.Core;
@@ -265,8 +266,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     case ast.PostfixType.None:
         break;
     case ast.PostfixType.Dot:
-        mod.base = lhs;
-        lhs = genPrimaryExpression(expression.dotExpressions[0], mod);
+        auto base = lhs;
+        foreach (i, dotExpression; expression.dotExpressions) {
+            mod.base = base;
+            base = genPrimaryExpression(dotExpression, mod);
+        }
+        lhs = base;
         mod.base = null;
         break;
     case ast.PostfixType.PostfixInc:

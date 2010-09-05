@@ -5,6 +5,9 @@
  */
 module sdc.gen.aggregate;
 
+import std.conv;
+
+import sdc.util;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
