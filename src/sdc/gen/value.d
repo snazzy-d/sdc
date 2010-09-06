@@ -102,6 +102,26 @@ abstract class Value
     protected LLVMValueRef mValue;
 }
 
+class VoidValue : Value
+{
+    this(Module mod, Location loc)
+    {
+        super(mod, loc);
+        mType = new VoidType(mod);
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        panic(location, "Attempted to import void value across modules.");
+        assert(false);
+    }
+    
+    override void fail()
+    {
+        error(location, "can't perform an action on variable of type 'void'.");
+    }
+}
+
 mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
 {
     mixin("override Value " ~ ComparisonString ~ "(Value val) {" ~
@@ -582,6 +602,8 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure onFailure)
 {
     switch (type.type) {
+    case ast.PrimitiveTypeType.Void:
+        return new VoidType(mod);
     case ast.PrimitiveTypeType.Bool:
         return new BoolType(mod);
     case ast.PrimitiveTypeType.Int:
@@ -616,13 +638,6 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         }
     }
     return store.type;
-}
-
-enum SideToChange
-{
-    Neither,
-    Left,
-    Right,
 }
 
 void binaryOperatorImplicitCast(Value* lhs, Value* rhs)

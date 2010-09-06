@@ -187,11 +187,15 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
-    auto val = genExpression(statement.expression, mod);
+    mod.currentPath.functionEscaped = true;
     auto t = (cast(FunctionType) mod.currentFunction.type).returnType;
+    if (t.dtype == DType.Void) {
+        LLVMBuildRetVoid(mod.builder);
+        return;
+    }
+    auto val = genExpression(statement.expression, mod);
     val = implicitCast(val, t);
     LLVMBuildRet(mod.builder, val.get());
-    mod.currentPath.functionEscaped = true;
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)

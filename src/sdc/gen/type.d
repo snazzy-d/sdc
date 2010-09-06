@@ -19,6 +19,7 @@ import sdc.gen.value;
 enum DType
 {
     None,
+    Void,
     Bool,
     Char,
     Ubyte,
@@ -45,6 +46,8 @@ Type dtypeToType(DType dtype, Module mod)
     final switch (dtype) with (DType) {
     case None:
         break;
+    case Void:
+        return new VoidType(mod);
     case Bool:
         return new BoolType(mod);
     case Char:
@@ -121,6 +124,26 @@ abstract class Type
     
     protected Module mModule;
     protected LLVMTypeRef mType;
+}
+
+class VoidType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Void;
+        mType = LLVMVoidTypeInContext(mod.context);
+    }
+    
+    override VoidType importToModule(Module mod)
+    {
+        return new VoidType(mod);
+    }
+    
+    override Value getValue(Location location)
+    {
+        return null;
+    }
 }
 
 class BoolType : Type
