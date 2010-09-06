@@ -448,8 +448,7 @@ class PointerValue : Value
     
     override Value index(Value val)
     {
-        auto i = new IntType(mModule);
-        val = val.performCast(i);
+        val = implicitCast(val, new IntType(mModule));
         LLVMValueRef[] indices;
         indices ~= val.get();
         
