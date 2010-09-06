@@ -82,6 +82,7 @@ abstract class Value
     Value lte(Value val) { fail(); assert(false); }
     Value addressOf() { fail(); assert(false); }
     Value dereference() { fail(); assert(false); }
+    Value index(Value val) { fail(); assert(false); }
     
     Value or(Value val)
     {
@@ -439,6 +440,18 @@ class PointerValue : Value
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
+        
+        auto v = base.type.getValue(location);
+        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
+        return v;
+    }
+    
+    override Value index(Value val)
+    {
+        auto i = new IntType(mModule);
+        val = val.performCast(i);
+        LLVMValueRef[] indices;
+        indices ~= val.get();
         
         auto v = base.type.getValue(location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");

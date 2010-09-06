@@ -444,6 +444,10 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
         postfixExpr.firstNode = parseArgumentList(tstream);
         postfixExpr.type = PostfixType.Parens;
         break;
+    case TokenType.OpenBracket:
+        postfixExpr.firstNode = parseArgumentList(tstream, TokenType.OpenBracket, TokenType.CloseBracket);
+        postfixExpr.type = PostfixType.Index;
+        break;
     default:
         break;
     }
@@ -451,19 +455,19 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
     return postfixExpr;
 }
 
-ArgumentList parseArgumentList(TokenStream tstream)
+ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.OpenParen, TokenType close = TokenType.CloseParen)
 {
     auto list = new ArgumentList();
     list.location = tstream.peek.location;
     
-    match(tstream, TokenType.OpenParen);
-    while (tstream.peek.type != TokenType.CloseParen) {
+    match(tstream, open);
+    while (tstream.peek.type != close) {
         list.expressions ~= parseAssignExpression(tstream);
-        if (tstream.peek.type != TokenType.CloseParen) {
+        if (tstream.peek.type != close) {
             match(tstream, TokenType.Comma);
         }
     }
-    match(tstream, TokenType.CloseParen);
+    match(tstream, close);
     
     return list;
 }

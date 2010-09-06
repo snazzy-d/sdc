@@ -308,6 +308,15 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         }
         break;
     case ast.PostfixType.Index:
+        Value[] args;
+        foreach (expr; (cast(ast.ArgumentList) expression.firstNode).expressions) {
+            args ~= genAssignExpression(expr, mod);
+        }
+        if (args.length == 0 || args.length > 1) {
+            panic(expression.location, "slice argument lists must contain only one argument.");
+        }
+        lhs = lhs.index(args[0]);
+        break;
     case ast.PostfixType.Slice:
         panic(expression.location, "unimplemented postfix expression type.");
         assert(false);
