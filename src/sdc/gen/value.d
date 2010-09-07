@@ -508,9 +508,15 @@ class FunctionValue : Value
             llvmArgs ~= arg.get();
         }
         
-        auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
-        auto val = functionType.returnType.getValue(location);
-        val.set(retval);
+        Value val;
+        if (functionType.returnType.dtype != DType.Void) {
+            auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
+            val = functionType.returnType.getValue(location);
+            val.set(retval);
+        } else {
+            LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
+            val = new VoidValue(mModule, location);
+        }
         return val;
         
     err:
