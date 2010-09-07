@@ -78,7 +78,7 @@ void realmain(string[] args)
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
-        if (ext == "o") {
+        if (ext == "o" || ext == "a") {
             assemblies ~= arg;
             continue;
         }
