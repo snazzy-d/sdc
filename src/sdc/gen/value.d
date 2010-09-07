@@ -413,6 +413,17 @@ class PointerValue : Value
         assert(false);
     }
     
+    override Value performCast(Type t)
+    {
+        auto v = t.getValue(location);
+        if (t.dtype == DType.Pointer) {
+            v.set(LLVMBuildPointerCast(mModule.builder, get(), t.llvmType(), "pcast"));
+        } else {
+            error(location, "cannot cast from pointer to non-pointer type.");
+        }
+        return v;
+    }
+    
     override LLVMValueRef get()
     {
         return LLVMBuildLoad(mModule.builder, mValue, "get");

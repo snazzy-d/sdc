@@ -142,7 +142,7 @@ class VoidType : Type
     
     override Value getValue(Location location)
     {
-        return null;
+        return new VoidValue(mModule, location);
     }
 }
 
@@ -226,7 +226,12 @@ class PointerType : Type
         super(mod);
         this.base = base;
         dtype = DType.Pointer;
-        mType = LLVMPointerType(base.llvmType, 0);
+        if (base.dtype == DType.Void) {
+            // Handle void pointers special like.
+            mType = LLVMPointerType(LLVMInt8TypeInContext(mod.context), 0);
+        } else {
+            mType = LLVMPointerType(base.llvmType, 0);
+        }
     }
     
     override PointerType importToModule(Module mod)
