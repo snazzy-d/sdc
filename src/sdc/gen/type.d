@@ -39,6 +39,7 @@ enum DType
     Complex,
     Function,
     Struct,
+    Inferred,
 }
 
 Type dtypeToType(DType dtype, Module mod)
@@ -75,6 +76,8 @@ Type dtypeToType(DType dtype, Module mod)
     case Function:
     case Struct:
         break;
+    case Inferred:
+        return new InferredType(mod);
     }
     panic("tried to get Type out of invalid DType.");
     assert(false);
@@ -318,6 +321,26 @@ class StructType : Type
     
     Type[] members;
     int[string] memberPositions;
+}
+
+class InferredType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Inferred;
+    }
+    
+    override Type importToModule(Module mod)
+    {
+        return new InferredType(mod);
+    }
+    
+    override Value getValue(Location location)
+    {
+        panic(location, "attempted to call InferredType.getValue");
+        assert(false);
+    }
 }
 
 unittest

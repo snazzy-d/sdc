@@ -117,7 +117,14 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
             panic(decl.location, "global variables are unimplemented.");
         }
         
-        auto var = type.getValue(declarator.location);
+        Value var;
+        if (type.dtype == DType.Inferred) {
+            if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
+                error(decl.location, "not enough information to infer type.");
+            }
+        } else {
+            var = type.getValue(declarator.location);
+        }
         
         if (declarator.initialiser is null) {
             if (var.type.dtype != DType.Struct) {
@@ -128,7 +135,14 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 var.set(LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
+                if (type.dtype == DType.Inferred) {
+                    type = aexp.type;
+                    var = type.getValue(decl.location);
+                }
                 aexp = implicitCast(aexp, type);
+                if (var is null) {
+                    panic(decl.location, "inferred type ended up with no value at declaration point.");
+                }
                 var.set(aexp);
             } else {
                 panic(declarator.initialiser.location, "unhandled initialiser type.");

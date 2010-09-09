@@ -614,7 +614,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         t = userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod, onFailure);
         break;
     default:
-        panic(type.location, "unhandled type type.");
+        t = new InferredType(mod);
     }
     
     foreach (suffix; type.suffixes) {
