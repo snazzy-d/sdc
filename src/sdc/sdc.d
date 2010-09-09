@@ -27,6 +27,8 @@ import std.path;
 import std.process : system;
 import std.c.stdlib;
 
+import llvm.c.Core;
+
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
@@ -78,7 +80,7 @@ void realmain(string[] args)
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
-        if (ext == "o" || ext == "a") {
+        if (ext == "o") {
             assemblies ~= arg;
             continue;
         }
