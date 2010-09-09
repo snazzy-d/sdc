@@ -323,6 +323,10 @@ class StructType : Type
     int[string] memberPositions;
 }
 
+/* InferredType means, as soon as we get enough information
+ * to know what type this is, replace InferredType with the
+ * real one.
+ */
 class InferredType : Type
 {
     this(Module mod)
