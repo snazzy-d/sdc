@@ -213,7 +213,7 @@ Type parseType(TokenStream tstream)
     if (type.storageTypes.length > 0 &&
         tstream.peek.type == TokenType.Identifier &&
         tstream.lookahead(1).type == TokenType.Assign) {
-        //    
+        //
         type.type = TypeType.Inferred;
         // TODO
     }
@@ -223,6 +223,9 @@ Type parseType(TokenStream tstream)
         type.node = parsePrimitiveType(tstream);
     } else if (tstream.peek.type == TokenType.Dot ||
                tstream.peek.type == TokenType.Identifier) {
+        if (type.type == TypeType.Inferred) {
+            return type;
+        }
         type.type = TypeType.UserDefined;
         type.node = parseUserDefinedType(tstream);
     } else if (tstream.peek.type == TokenType.Typeof) {
