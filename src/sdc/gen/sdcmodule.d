@@ -32,10 +32,8 @@ class Module
     Path currentPath;
     FunctionValue currentFunction;
     Value base;
-    ast.Linkage currentLinkage = ast.Linkage.ExternC;
+    ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;
-    //TranslationUnit[] importedTranslationUnits;
-
     
     this(string name)
     {

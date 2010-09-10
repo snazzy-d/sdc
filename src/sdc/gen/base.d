@@ -193,8 +193,22 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 
 void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
-    with (declDef) if (buildStage != ast.BuildStage.Unhandled && buildStage != ast.BuildStage.Deferred) {
+    with (declDef) with (ast.BuildStage)
+    if (buildStage != Unhandled && buildStage != Deferred) {
         return;
+    }
+    
+    foreach (attribute; declDef.attributes) {
+        switch (attribute.type) with (ast.AttributeType) {
+        case ExternC:
+            mod.currentLinkage = ast.Linkage.ExternC;
+            break;
+        case ExternD:
+            mod.currentLinkage = ast.Linkage.ExternD;
+            break;
+        default:
+            break;
+        }
     }
     
     switch (declDef.type) {

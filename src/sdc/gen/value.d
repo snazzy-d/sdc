@@ -24,6 +24,7 @@ abstract class Value
 {
     /// The location that this Value was created at.
     Location location;
+    string mangledName;
     
     this(Module mod, Location loc)
     {
