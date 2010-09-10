@@ -22,6 +22,7 @@ AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
     attributeSpecifier.attribute = parseAttribute(tstream);
     if (tstream.peek.type == TokenType.Colon) {
         match(tstream, TokenType.Colon);
+        attributeSpecifier.declarationBlock = parseUntilEndOfTopLevelBlock(tstream);
     } else {
         attributeSpecifier.declarationBlock = parseDeclarationBlock(tstream);
     }
@@ -153,6 +154,28 @@ DeclarationBlock parseDeclarationBlock(TokenStream tstream)
         }
         match(tstream, TokenType.CloseBrace);
     } else {
+        declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+    }
+    
+    return declarationBlock;
+}
+
+/* This one may require some explanation. An attribute can use a colon:
+ * 
+ * extern (Pascal):
+ * 
+ * This extends (if at a top level) to the end of the module, or (if in
+ * a top level holder like a struct, class, template, or so on) until the
+ * end of that block. The parses until a colon attribute stops applying.
+ * 
+ * It's a little hack-ish, but it makes life a lot easier in the backend.
+ */
+DeclarationBlock parseUntilEndOfTopLevelBlock(TokenStream tstream)
+{
+    auto declarationBlock = new DeclarationBlock();
+    declarationBlock.location = tstream.peek.location;
+    
+    while (tstream.peek.type != TokenType.End && tstream.peek.type != TokenType.CloseBrace) { 
         declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
     }
     
