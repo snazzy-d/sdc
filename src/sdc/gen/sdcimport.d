@@ -60,6 +60,5 @@ ast.DeclarationDefinition[] genImport(ast.Import theImport, Module mod)
     if (tu is null) {
         panic(theImport.moduleName.location, "TODO: Search through import paths for module.");
     }
-    mod.currentScope.add(name, new Store(tu));
     return tu.aModule.declarationDefinitions.dup;
 }

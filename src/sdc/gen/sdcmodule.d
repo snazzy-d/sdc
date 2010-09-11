@@ -161,7 +161,6 @@ enum StoreType
 {
     Value,
     Type,
-    TranslationUnit,
 }
 
 class Store
@@ -181,12 +180,6 @@ class Store
         object = type;
     }
     
-    this(TranslationUnit t)
-    {
-        storeType = StoreType.TranslationUnit;
-        object = t;
-    }
-    
     Value value() @property
     {
         assert(storeType == StoreType.Value);
@@ -201,14 +194,6 @@ class Store
         auto type = cast(Type) object;
         assert(type);
         return type;
-    }
-    
-    TranslationUnit translationUnit() @property
-    {
-        assert(storeType == StoreType.TranslationUnit);
-        auto t = cast(TranslationUnit) object;
-        assert(t);
-        return t;
     }
 }
 
