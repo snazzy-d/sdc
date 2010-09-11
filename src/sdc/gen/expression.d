@@ -271,15 +271,6 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
     final switch (expression.type) {
     case ast.PostfixType.None:
         break;
-    case ast.PostfixType.Dot:
-        auto base = lhs;
-        foreach (i, dotExpression; expression.dotExpressions) {
-            mod.base = base;
-            base = genPrimaryExpression(dotExpression, mod);
-        }
-        lhs = base;
-        mod.base = null;
-        break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         lhs = new IntValue(mod, lhs);
@@ -340,6 +331,14 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     case ast.PrimaryType.ParenExpression:
         return genExpression(cast(ast.Expression) expression.node, mod);
+    case ast.PrimaryType.QualifiedName:
+        auto qname = cast(ast.QualifiedName) expression.node;
+        foreach (identifier; qname.identifiers) {
+            mod.base = genIdentifier(identifier, mod);
+        }
+        val = mod.base;
+        mod.base = null;
+        break;
     default:
         panic(expression.location, "unhandled primary expression type.");
     }
