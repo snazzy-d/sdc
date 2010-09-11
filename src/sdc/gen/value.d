@@ -13,6 +13,7 @@ import llvm.c.Core;
 import llvm.Ext;
 
 import sdc.util;
+import sdc.mangle;
 import sdc.compilererror;
 import sdc.location;
 import sdc.extract.base;
@@ -486,7 +487,13 @@ class FunctionValue : Value
         super(mod, location);
         this.name = name;
         mType = func;
-        auto nameToFile = mod.currentLinkage == ast.Linkage.ExternC ? name : "_D" ~ mod.name ~ name;
+        string nameToFile;
+        if (mod.currentLinkage == ast.Linkage.ExternD) {
+            auto decl = (cast(FunctionType) mType).functionDeclaration;
+            nameToFile = mangleFunctionToD(mod, mod.name, decl);
+        } else {
+            nameToFile = name;
+        }
         mValue = LLVMAddFunction(mod.mod, toStringz(nameToFile), func.llvmType);
     }
     

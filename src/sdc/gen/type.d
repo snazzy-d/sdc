@@ -252,19 +252,20 @@ class FunctionType : Type
 {
     Type returnType;
     Type[] argumentTypes;
+    ast.FunctionDeclaration functionDeclaration;
     
     this(Module mod, ast.FunctionDeclaration funcDecl)
     {
         super(mod);
         dtype = DType.Function;
-        mFunctionDeclaration = funcDecl;
+        functionDeclaration = funcDecl;
     }
     
     void declare()
     {
-        returnType = astTypeToBackendType(mFunctionDeclaration.retval, mModule, OnFailure.DieWithError);
+        returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         LLVMTypeRef[] params;
-        foreach (param; mFunctionDeclaration.parameters) {
+        foreach (param; functionDeclaration.parameters) {
             auto type = astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
             argumentTypes ~= type;
             params ~= type.llvmType;
@@ -274,14 +275,12 @@ class FunctionType : Type
     
     override FunctionType importToModule(Module mod)
     {
-        auto f = new FunctionType(mod, mFunctionDeclaration);
+        auto f = new FunctionType(mod, functionDeclaration);
         f.declare();
         return f;
     }
     
     override Value getValue(Location location) { return null; }
-
-    protected ast.FunctionDeclaration mFunctionDeclaration;
 }
 
 class StructType : Type
@@ -345,21 +344,4 @@ class InferredType : Type
         panic(location, "attempted to call InferredType.getValue");
         assert(false);
     }
-}
-
-unittest
-{
-    auto mod = new Module("unittest_module");
-    auto a = new IntType(mod);
-    auto b = new IntType(mod);
-    assert(a !is b);
-    assert(a == b);
-    auto c = new BoolType(mod);
-    assert(a != c);
-    auto pa = new PointerType(mod, a);
-    auto pb = new PointerType(mod, b);
-    auto pc = new PointerType(mod, c);
-    assert(pa !is pb);
-    assert(pa == pb);
-    assert(pa != pc);
 }

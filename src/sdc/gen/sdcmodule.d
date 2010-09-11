@@ -15,6 +15,7 @@ import llvm.c.Core;
 import llvm.c.transforms.Scalar;
 
 import sdc.global;
+import sdc.extract.base;
 import sdc.gen.type;
 import sdc.gen.value;
 
@@ -24,7 +25,7 @@ import sdc.gen.value;
  */ 
 class Module
 {
-    string name;
+    ast.QualifiedName name;
     LLVMContextRef context;
     LLVMModuleRef  mod;
     LLVMBuilderRef builder;
@@ -36,11 +37,11 @@ class Module
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;
     
-    this(string name)
+    this(ast.QualifiedName name)
     {
         this.name = name;
         context = LLVMGetGlobalContext();
-        mod     = LLVMModuleCreateWithNameInContext(toStringz(name), context);
+        mod     = LLVMModuleCreateWithNameInContext(toStringz(extractQualifiedName(name)), context);
         builder = LLVMCreateBuilderInContext(context);
         
         globalScope = new Scope();
