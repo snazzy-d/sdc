@@ -56,10 +56,6 @@ bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 
 void declareDeclaration(ast.Declaration decl, Module mod)
 {
-    if (mod.currentLinkage != ast.Linkage.ExternC) {
-        panic(decl.location, "only extern (C) linkage is currently supported.");
-    }
-    
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);

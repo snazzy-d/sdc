@@ -486,7 +486,8 @@ class FunctionValue : Value
         super(mod, location);
         this.name = name;
         mType = func;
-        mValue = LLVMAddFunction(mod.mod, toStringz(name), func.llvmType);
+        auto nameToFile = mod.currentLinkage == ast.Linkage.ExternC ? name : "_D" ~ mod.name ~ name;
+        mValue = LLVMAddFunction(mod.mod, toStringz(nameToFile), func.llvmType);
     }
     
     override Value importToModule(Module m)

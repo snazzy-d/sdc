@@ -24,6 +24,7 @@ import sdc.gen.value;
  */ 
 class Module
 {
+    string name;
     LLVMContextRef context;
     LLVMModuleRef  mod;
     LLVMBuilderRef builder;
@@ -37,6 +38,7 @@ class Module
     
     this(string name)
     {
+        this.name = name;
         context = LLVMGetGlobalContext();
         mod     = LLVMModuleCreateWithNameInContext(toStringz(name), context);
         builder = LLVMCreateBuilderInContext(context);

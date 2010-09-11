@@ -44,7 +44,7 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 
 Module genModule(ast.Module astModule)
 {
-    auto mod = new Module(astModule.tstream.filename);
+    auto mod = new Module(extractQualifiedName(astModule.moduleDeclaration.name));
     ast.DeclarationDefinition[][] rDeclDefs;
     rDeclDefs ~= astModule.declarationDefinitions;
     resolveRecursiveDeclarationDefinitions(rDeclDefs, mod);
