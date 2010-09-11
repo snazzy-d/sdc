@@ -604,6 +604,13 @@ class StructValue : Value
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
     }
+    
+    override Value addressOf()
+    {
+        auto v = new PointerValue(mModule, location, this);
+        v.set(mValue);
+        return v;
+    }
 }
 
 enum OnFailure
