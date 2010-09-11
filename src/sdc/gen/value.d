@@ -691,22 +691,26 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
 {
     auto name = extractQualifiedName(type.qualifiedName);
-    auto store = mod.search(name);
-    if (store is null) {
-        if (onFailure == OnFailure.ReturnNull) {
-            return null;
+    Scope baseScope;
+    foreach (identifier; type.qualifiedName.identifiers) {
+        Store store;
+        if (baseScope !is null) {
+            store = baseScope.get(extractIdentifier(identifier));
         } else {
+            store = mod.search(extractIdentifier(identifier));
+        }
+        
+        if (store is null) {
             error(type.location, format("undefined type '%s'.", name));
+        } else if (store.storeType == StoreType.Value) {
+            error(type.location, format("'%s' is not a type.", name));
+        } else if (store.storeType == StoreType.Type) {
+            return store.type;
+        } else if (store.storeType == StoreType.Scope) {
+            baseScope = store.getScope();
         }
     }
-    if (store.storeType != StoreType.Type) {
-        if (onFailure == OnFailure.ReturnNull) {
-            return null;
-        } else {
-            error(type.location, format("'%s' is not valid type."));
-        }
-    }
-    return store.type;
+    assert(false);
 }
 
 void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
