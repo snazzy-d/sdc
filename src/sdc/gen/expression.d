@@ -358,5 +358,11 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         failure();
     }
     
-    return store.value();
+    if (store.storeType == StoreType.Value) {
+        return store.value();
+    } else if (store.storeType == StoreType.Scope) {
+        return new ScopeValue(mod, identifier.location, store.getScope());
+    } else {
+        assert(false);
+    }
 }

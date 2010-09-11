@@ -45,10 +45,23 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
+    genModuleAndPackages(mod);
     ast.DeclarationDefinition[][] rDeclDefs;
     rDeclDefs ~= astModule.declarationDefinitions;
     resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
     return mod;
+}
+
+void genModuleAndPackages(Module mod)
+{
+    foreach (i, identifier; mod.name.identifiers) {
+        if (i == mod.name.identifiers.length - 1) {
+            auto name = extractIdentifier(identifier);
+            mod.currentScope.add(name, new Store(mod.globalScope));
+        } else {
+            assert(false);
+        }
+    }
 }
 
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)

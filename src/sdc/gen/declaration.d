@@ -87,7 +87,8 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto type = new FunctionType(mod, decl);
     type.declare();
     auto name = extractIdentifier(decl.name);
-    mod.currentScope.add(name, new Store(new FunctionValue(mod, decl.location, type, name)));
+    auto store = new Store(new FunctionValue(mod, decl.location, type, name));
+    mod.currentScope.add(name, store);
 }
 
 void genDeclaration(ast.Declaration decl, Module mod)

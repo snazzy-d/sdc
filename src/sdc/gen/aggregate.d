@@ -53,6 +53,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
         if (store.storeType == StoreType.Type) {
             type.addMemberVar(name, store.type);
         } else if (store.storeType == StoreType.Value) {
+            if (store.value.type.dtype == DType.Function) {
+                debugPrint("I found a function. Gonna die soon.");
+            }
             type.addMemberVar(name, store.value.type);
         } else {
             error(decl.location, "invalid aggregrate declaration type.");

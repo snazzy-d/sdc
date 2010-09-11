@@ -613,6 +613,27 @@ class StructValue : Value
     }
 }
 
+class ScopeValue : Value
+{
+    Scope _scope;
+    
+    this(Module mod, Location location, Scope _scope)
+    {
+        super(mod, location);
+        this._scope = _scope;
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        assert(false);
+    }
+    
+    override Value getMember(string name)
+    {
+        return _scope.get(name).value;
+    }
+}
+
 enum OnFailure
 {
     DieWithError,

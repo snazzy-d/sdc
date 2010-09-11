@@ -161,6 +161,7 @@ enum StoreType
 {
     Value,
     Type,
+    Scope,
 }
 
 class Store
@@ -168,16 +169,22 @@ class Store
     StoreType storeType;
     Object object;
     
-    this(Value store)
+    this(Value value)
     {
         storeType = StoreType.Value;
-        object = store;
+        object = value;
     }
     
     this(Type type)
     {
         storeType = StoreType.Type;
         object = type;
+    }
+    
+    this(Scope _scope)
+    {
+        storeType = StoreType.Scope;
+        object = _scope;
     }
     
     Value value() @property
@@ -194,6 +201,14 @@ class Store
         auto type = cast(Type) object;
         assert(type);
         return type;
+    }
+    
+    Scope getScope() @property
+    {
+        assert(storeType == StoreType.Scope);
+        auto _scope = cast(Scope) object;
+        assert(_scope);
+        return _scope;
     }
 }
 
