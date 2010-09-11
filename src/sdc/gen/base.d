@@ -48,7 +48,7 @@ Module genModule(ast.Module astModule)
     genModuleAndPackages(mod);
     ast.DeclarationDefinition[][] rDeclDefs;
     rDeclDefs ~= astModule.declarationDefinitions;
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    resolveRecursiveDeclarationDefinitions(rDeclDefs, mod);
     return mod;
 }
 
@@ -64,7 +64,13 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+enum IReturnedBecause
+{
+    HugeSuccess,
+    IAmFailureToTheSoftware,  // Aww. Don't feel bad, little compiler. 
+}
+
+IReturnedBecause resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, ast.DeclarationDefinition[][] rDeclDefs)
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
@@ -81,7 +87,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         stillToGo = 0;
         foreach (i, declDef; resolutionList) with (declDef) {
             if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled ||
-                buildStage == ast.BuildStage.ReadyToExpand) {
+                buildStage == ast.BuildStage.ReadyToExpand || buildStage == ast.BuildStage.ReadyToRecurse) {
                 stillToGo++;
             }
         }
@@ -95,6 +101,8 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             foreach (declDef; resolutionList) {
                 if (declDef.buildStage == ast.BuildStage.ReadyToExpand) {
                     toAppend ~= expand(declDef, mod);
+                } else if (declDef.buildStage == ast.BuildStage.ReadyToRecurse) {
+                    rDeclDefs ~= expandRecursive(declDef, mod);
                 }
                 foreach (d; toAppend) if (d.buildStage != ast.BuildStage.DoneForever) {
                     d.buildStage = ast.BuildStage.Unhandled;
@@ -107,7 +115,8 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     finalPass = true;
                     continue;
                 }
-                assert(false, "ultimate failure. :(");
+                
+                return IReturnedBecause.IAmFailureToTheSoftware;
             }
         }
         oldStillToGo = stillToGo;
@@ -121,8 +130,48 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
+    
+    return IReturnedBecause.HugeSuccess;
 }
 
+void resolveRecursiveDeclarationDefinitions(ast.DeclarationDefinition[][] rDeclDefs, Module mod)
+{
+    int failures, oldFailures = -1;
+    bool finalPass;
+    do {
+        failures = 0;
+        foreach (rDeclDef; rDeclDefs) {
+            auto reason = resolveDeclarationDefinitionList(rDeclDef, mod, rDeclDefs);
+            if (reason == IReturnedBecause.IAmFailureToTheSoftware) {
+                failures++;
+            }
+        }
+        
+        if (failures == 0) {
+            break;
+        } else if (failures == oldFailures) {
+            if (!finalPass) {
+                finalPass = true;
+                continue;
+            }
+            error("cannot resolve recursive dependencies. Insert better error here.");
+        }
+        oldFailures = failures;
+    } while (true);
+}
+
+ast.DeclarationDefinition[] expandRecursive(ast.DeclarationDefinition declDef, Module mod)
+{
+    declDef.buildStage = ast.BuildStage.Done;
+    switch (declDef.type) {
+    case ast.DeclarationDefinitionType.AggregateDeclaration:
+        auto aggregate = cast(ast.AggregateDeclaration) declDef.node;
+        assert(aggregate);
+    default:
+        panic(declDef.location, "attempted to expand invalid recursive declaration definition.");
+    }
+    assert(false);
+}
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
 {
