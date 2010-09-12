@@ -110,7 +110,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     foreach (declarator; decl.declarators) {
         auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
-        if (mod.scopeDepth == 0) {
+        if (mod.currentScope is mod.globalScope) {
             panic(decl.location, "global variables are unimplemented.");
         }
         

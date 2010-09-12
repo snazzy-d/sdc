@@ -45,7 +45,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto type = new StructType(mod);
     
-    mod.pushScope();
+    auto currentScope = mod.currentScope;
+    mod.currentScope = new Scope();
+    currentScope.add(name, new Store(mod.currentScope));
     foreach (declDef; decl.structBody.declarations) {
         genDeclarationDefinition(declDef, mod);
     }
@@ -54,14 +56,14 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
             type.addMemberVar(name, store.type);
         } else if (store.storeType == StoreType.Value) {
             if (store.value.type.dtype == DType.Function) {
-                debugPrint("I found a function. Gonna die soon.");
+                continue;
             }
             type.addMemberVar(name, store.value.type);
         } else {
             error(decl.location, "invalid aggregrate declaration type.");
         }
     }
-    mod.popScope();
+    mod.currentScope = currentScope;
     type.declare();
     
     mod.currentScope.add(name, new Store(type));
