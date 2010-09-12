@@ -259,16 +259,25 @@ class FunctionType : Type
         super(mod);
         dtype = DType.Function;
         functionDeclaration = funcDecl;
+        returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
+        foreach (param; functionDeclaration.parameters) {
+            argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
+        }
+    }
+    
+    this(Module mod, Type retval, Type[] args)
+    {
+        super(mod);
+        dtype = DType.Function;
+        returnType = retval;
+        argumentTypes = args;
     }
     
     void declare()
     {
-        returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         LLVMTypeRef[] params;
-        foreach (param; functionDeclaration.parameters) {
-            auto type = astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
-            argumentTypes ~= type;
-            params ~= type.llvmType;
+        foreach (t; argumentTypes) {
+            params ~= t.llvmType;
         }
         mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, false);
     }
