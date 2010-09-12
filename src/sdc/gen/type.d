@@ -318,8 +318,15 @@ class StructType : Type
         members ~= t;
     }
     
+    void addMemberFunction(string id, Value f)
+    {
+        memberFunctions[id] = f;
+        mModule.globalScope.add(id, new Store(f));
+    }
+    
     Type[] members;
     int[string] memberPositions;
+    Value[string] memberFunctions;
 }
 
 /* InferredType means, as soon as we get enough information

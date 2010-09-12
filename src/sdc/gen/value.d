@@ -591,12 +591,18 @@ class StructValue : Value
     
     override Value getMember(string name)
     {
+        auto asStruct = cast(StructType) mType;
+        assert(asStruct);
+        
+        if (auto p = name in asStruct.memberFunctions) {
+            return *p;
+        }
+        
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-        auto asStruct = cast(StructType) mType;
-        assert(asStruct);
+
         auto index = asStruct.memberPositions[name];
         indices ~= LLVMConstInt(t.llvmType, index, false);
         

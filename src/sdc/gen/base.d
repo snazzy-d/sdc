@@ -120,7 +120,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     } while (true);
     
     // Okay. Build ze functions!
-    foreach (declDef; resolutionList) {
+    foreach (declDef; mod.functionBuildList) {
         if (declDef.buildStage != ast.BuildStage.ReadyForCodegen || declDef.importedSymbol) {
             continue;
         }
@@ -193,6 +193,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             } else {
                 declareDeclaration(decl, mod);
                 declDef.buildStage = ast.BuildStage.ReadyForCodegen;
+                mod.functionBuildList ~= declDef;
             }
         } else {
             declDef.buildStage = ast.BuildStage.Deferred;

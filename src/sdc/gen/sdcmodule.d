@@ -32,6 +32,7 @@ class Module
     Scope globalScope;
     Scope currentScope;
     Path currentPath;
+    ast.DeclarationDefinition[] functionBuildList;
     FunctionValue currentFunction;
     Value base;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
