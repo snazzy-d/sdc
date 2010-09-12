@@ -225,6 +225,7 @@ Type parseType(TokenStream tstream)
                tstream.peek.type == TokenType.Identifier) {
         if (type.type == TypeType.Inferred) {
             return type;
+            
         }
         type.type = TypeType.UserDefined;
         type.node = parseUserDefinedType(tstream);
@@ -484,7 +485,7 @@ bool startsLikeDeclaration(TokenStream tstream)
             l++;
             if (tstream.lookahead(l).type == TokenType.Identifier) {
                 l++;
-                break;
+                continue;
             }
             return false;
         }
