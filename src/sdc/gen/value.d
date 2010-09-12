@@ -630,6 +630,10 @@ class ScopeValue : Value
     
     override Value getMember(string name)
     {
+        auto store = _scope.get(name);
+        if (store.storeType == StoreType.Scope) {
+            return new ScopeValue(mModule, location, store.getScope());
+        }
         return _scope.get(name).value;
     }
 }

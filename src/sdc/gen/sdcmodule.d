@@ -218,7 +218,7 @@ class Store
         return _scope;
     }
     
-    Store store() @property
+    version (none) Store store() @property
     {
         assert(storeType == StoreType.Store);
         auto store = cast(Store) object;

@@ -52,12 +52,19 @@ Module genModule(ast.Module astModule)
 
 void genModuleAndPackages(Module mod)
 {
+    Scope parentScope = mod.currentScope;
     foreach (i, identifier; mod.name.identifiers) {
-        if (i == mod.name.identifiers.length - 1) {
+        if (i < mod.name.identifiers.length - 1) {
+            // Package.
             auto name = extractIdentifier(identifier);
-            mod.currentScope.add(name, new Store(mod.globalScope));
+            auto _scope = new Scope();
+            parentScope.add(name, new Store(_scope));
+            parentScope = _scope;
         } else {
-            assert(false);
+            // Module.
+            auto name = extractIdentifier(identifier);
+            auto store = new Store(mod.currentScope);
+            parentScope.add(name, store);
         }
     }
 }
