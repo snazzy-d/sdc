@@ -58,7 +58,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
             if (store.value.type.dtype != DType.Function) {
                 type.addMemberVar(name, store.value.type);
             } else {
-                type.addMemberFunction(name, store.value);
+                auto asFunction = cast(FunctionValue) store.value;
+                assert(asFunction);
+                type.addMemberFunction(name, asFunction.newWithAddedArgument(new IntType(mod)));
             }
         } else {
             error(decl.location, "invalid aggregrate declaration type.");

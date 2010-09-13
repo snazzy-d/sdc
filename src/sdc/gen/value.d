@@ -489,12 +489,28 @@ class FunctionValue : Value
         mType = func;
         string nameToFile;
         if (mod.currentLinkage == ast.Linkage.ExternD) {
-            auto decl = (cast(FunctionType) mType).functionDeclaration;
-            nameToFile = mangleFunctionToD(mod, mod.name, decl);
+            nameToFile = startMangle();
+            mangleQualifiedName(nameToFile, mod.name);
+            mangleLName(nameToFile, name);
+            mangleFunction(nameToFile, func);
         } else {
             nameToFile = name;
         }
         mValue = LLVMAddFunction(mod.mod, toStringz(nameToFile), func.llvmType);
+    }
+    
+    Value newWithAddedArgument(Type newArgument)
+    {
+        auto asFunctionType = cast(FunctionType) mType;
+        assert(asFunctionType);
+        auto returnType = asFunctionType.returnType;
+        auto args = asFunctionType.argumentTypes;
+        args ~= newArgument;
+        auto t = new FunctionType(mModule, returnType, args);
+        t.linkage = asFunctionType.linkage;
+        t.declare();
+        LLVMDeleteFunction(mValue);
+        return new FunctionValue(mModule, location, t, name);
     }
     
     override Value importToModule(Module m)

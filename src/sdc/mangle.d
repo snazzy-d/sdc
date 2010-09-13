@@ -9,40 +9,33 @@ import std.conv;
 
 import sdc.compilererror;
 import sdc.gen.sdcmodule;
+import sdc.gen.type;
 import sdc.ast.attribute;
 import sdc.ast.base;
-import sdc.ast.declaration;
-import sdc.ast.expression;
 import sdc.extract.base;
 
-
-string mangleFunctionToD(Module mod, QualifiedName baseName, FunctionDeclaration functionDeclaration)
+string startMangle()
 {
-    auto mangledName = "_D";
-    if (extractIdentifier(functionDeclaration.name) == "main") {
-        return "_Dmain";
-    }
-    mangleQualifiedName(mangledName, baseName, functionDeclaration.name);
-    // TODO: functions that require a this pointer get 'M' appended here.
-    mangleCallConvention(mangledName, mod, mod.currentLinkage);
+    return "_D";
+}
+
+void mangleFunction(ref string mangledName, FunctionType type)
+{
+    mangleCallConvention(mangledName, type.linkage);
     // TODO: mangle function attributes
-    foreach (parameter; functionDeclaration.parameters) {
-        mangleType(mangledName, parameter.type);
+    foreach (paramType; type.argumentTypes) {
+        mangleType(mangledName, paramType);
     }
     // TODO: Variadic functions have a different terminator here.
     mangledName ~= "Z";
-    mangleType(mangledName, functionDeclaration.retval);
-    return mangledName;
+    mangleType(mangledName, type.returnType);
 }
 
-private:
-
-void mangleQualifiedName(ref string mangledName, QualifiedName baseName, Identifier name)
+void mangleQualifiedName(ref string mangledName, QualifiedName baseName)
 {
     foreach (identifier; baseName.identifiers) {
         mangleLName(mangledName, extractIdentifier(identifier));
     }
-    mangleLName(mangledName, extractIdentifier(name));
 }
 
 void mangleLName(ref string mangledName, string name)
@@ -50,7 +43,7 @@ void mangleLName(ref string mangledName, string name)
     mangledName ~= to!string(name.length) ~ name;
 }
 
-void mangleCallConvention(ref string mangledName, Module mod, Linkage convention)
+void mangleCallConvention(ref string mangledName, Linkage convention)
 {
     final switch (convention) with (Linkage) {
     case ExternC:
@@ -73,34 +66,13 @@ void mangleCallConvention(ref string mangledName, Module mod, Linkage convention
     }
 }
 
-void mangleTypeSuffixes(ref string mangledName, Type type)
-{
-    for (int i = type.suffixes.length; i > 0; i--) {
-        // Once again, this isn't foreach (e; retro(l)) because of a DMD bug.
-        auto suffix = type.suffixes[i - 1];
-        final switch (suffix.type) with (TypeSuffixType) {
-        case Pointer:
-            mangledName ~= "P";
-            break;
-        case DynamicArray:
-            mangledName ~= "A";
-            break;
-        case StaticArray:
-            mangledName ~= "G";
-            auto expr = cast(Expression) type.node;
-            // TODO
-            break;
-        case AssociativeArray:
-            mangledName ~= "H";
-            mangleType(mangledName, cast(Type) type.node);
-            break;
-        }
-    }
-}
-
-void manglePrimitiveType(ref string mangledName, PrimitiveType ptype)
-{
-    final switch (ptype.type) with (PrimitiveTypeType) {
+void mangleType(ref string mangledName, Type type)
+{        
+    final switch (type.dtype) with (DType) {
+    case Complex:
+    case None:
+        panic("attempted to mangle invalid type.");
+        break;
     case Bool:
         mangledName ~= "b";
         break;
@@ -128,10 +100,6 @@ void manglePrimitiveType(ref string mangledName, PrimitiveType ptype)
     case Ulong:
         mangledName ~= "m";
         break;
-    case Cent:
-    case Ucent:
-        panic(ptype.location, "the cent and ucent types are unimplemented.");
-        break; 
     case Char:
         mangledName ~= "a";
         break;
@@ -150,68 +118,23 @@ void manglePrimitiveType(ref string mangledName, PrimitiveType ptype)
     case Real:
         mangledName ~= "e";
         break;
-    case Ifloat:
-        mangledName ~= "o";
-        break;
-    case Idouble:
-        mangledName ~= "p";
-        break;
-    case Ireal:
-        mangledName ~= "j";
-        break;
-    case Cfloat:
-        mangledName ~= "q";
-        break;
-    case Cdouble:
-        mangledName ~= "r";
-        break;
-    case Creal:
-        mangledName ~= "c";
-        break;
     case Void:
         mangledName ~= "v";
         break;
-    }
-}
-
-void mangleType(ref string mangledName, Type type)
-{
-    mangleTypeSuffixes(mangledName, type);
-    
-    final switch (type.type) with (TypeType) {
-    case Primitive:
-        manglePrimitiveType(mangledName, cast(PrimitiveType) type.node);
+    case Pointer:
+        auto asPointer = cast(PointerType) type;
+        assert(asPointer);
+        mangledName ~= "P";
+        mangleType(mangledName, asPointer.base);
         break;
+    case Function:
+        auto asFunction = cast(FunctionType) type;
+        assert(asFunction);
+        mangleFunction(mangledName, asFunction);
+        break;
+    case Struct:
     case Inferred:
         // TODO
-        break;
-    case UserDefined:
-        // TODO
-        break;
-    case Typeof:
-        // TODO
-        break;
-    case FunctionPointer:
-        mangledName ~= "P";
-        // TODO
-        break;
-    case Delegate:
-        // TODO
-        mangledName ~= "D";
-        break;
-    case ConstType:
-        mangledName ~= "x";
-        mangleType(mangledName, cast(Type) type.node);
-        break;
-    case ImmutableType:
-        mangledName ~= "y";
-        mangleType(mangledName, cast(Type) type.node);
-        break;
-    case SharedType:
-        mangledName ~= "O";
-        mangleType(mangledName, cast(Type) type.node);
-        break;
-    case InoutType:
-        break;
+        assert(false);
     }
 }

@@ -252,13 +252,13 @@ class FunctionType : Type
 {
     Type returnType;
     Type[] argumentTypes;
-    ast.FunctionDeclaration functionDeclaration;
+    ast.Linkage linkage;
     
-    this(Module mod, ast.FunctionDeclaration funcDecl)
+    this(Module mod, ast.FunctionDeclaration functionDeclaration)
     {
         super(mod);
+        linkage = mod.currentLinkage;
         dtype = DType.Function;
-        functionDeclaration = funcDecl;
         returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         foreach (param; functionDeclaration.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
@@ -284,9 +284,7 @@ class FunctionType : Type
     
     override FunctionType importToModule(Module mod)
     {
-        auto f = new FunctionType(mod, functionDeclaration);
-        f.declare();
-        return f;
+        assert(false);
     }
     
     override Value getValue(Location location) { return null; }
