@@ -183,7 +183,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             // Anonymous parameter.
             continue;
         }
-        mod.currentScope.add("a", new Store(val));
+        mod.currentScope.add(extractIdentifier(ident), new Store(val));
     }
     
     mod.pushPath(PathType.Inevitable);
