@@ -499,14 +499,16 @@ class FunctionValue : Value
         mValue = LLVMAddFunction(mod.mod, toStringz(nameToFile), func.llvmType);
     }
     
-    Value newWithAddedArgument(Type newArgument)
+    Value newWithAddedArgument(Type newArgument, string argName)
     {
         auto asFunctionType = cast(FunctionType) mType;
         assert(asFunctionType);
         auto returnType = asFunctionType.returnType;
         auto args = asFunctionType.argumentTypes;
+        auto argNames = asFunctionType.argumentNames;
         args ~= newArgument;
-        auto t = new FunctionType(mModule, returnType, args);
+        argNames ~= argName;
+        auto t = new FunctionType(mModule, returnType, args, argNames);
         t.linkage = asFunctionType.linkage;
         t.declare();
         LLVMDeleteFunction(mValue);

@@ -11,6 +11,7 @@ import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.location;
+import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -252,6 +253,7 @@ class FunctionType : Type
 {
     Type returnType;
     Type[] argumentTypes;
+    string[] argumentNames;
     ast.Linkage linkage;
     
     this(Module mod, ast.FunctionDeclaration functionDeclaration)
@@ -262,15 +264,17 @@ class FunctionType : Type
         returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         foreach (param; functionDeclaration.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
+            argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
         }
     }
     
-    this(Module mod, Type retval, Type[] args)
+    this(Module mod, Type retval, Type[] args, string[] argNames)
     {
         super(mod);
         dtype = DType.Function;
         returnType = retval;
         argumentTypes = args;
+        argumentNames = argNames;
     }
     
     void declare()

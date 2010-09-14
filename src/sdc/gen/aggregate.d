@@ -60,7 +60,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
             } else {
                 auto asFunction = cast(FunctionValue) store.value;
                 assert(asFunction);
-                type.addMemberFunction(name, asFunction.newWithAddedArgument(new IntType(mod)));
+                type.addMemberFunction(name, asFunction.newWithAddedArgument(new IntType(mod), "this"));
             }
         } else {
             error(decl.location, "invalid aggregrate declaration type.");
