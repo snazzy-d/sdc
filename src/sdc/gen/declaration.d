@@ -152,7 +152,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
     auto name = extractIdentifier(decl.name);
-    auto store = mod.currentScope.get(name);
+    auto store = mod.globalScope.get(name);
     if (store is null) {
         panic(decl.location, "attempted to gen undeclared function.");
     }

@@ -9,6 +9,7 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.location;
 import sdc.extract.base;

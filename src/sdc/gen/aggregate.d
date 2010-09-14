@@ -51,6 +51,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     foreach (declDef; decl.structBody.declarations) {
         genDeclarationDefinition(declDef, mod);
     }
+    FunctionValue[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
             type.addMemberVar(name, store.type);
@@ -58,9 +59,10 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
             if (store.value.type.dtype != DType.Function) {
                 type.addMemberVar(name, store.value.type);
             } else {
-                auto asFunction = cast(FunctionValue) store.value;
-                assert(asFunction);
-                type.addMemberFunction(name, asFunction.newWithAddedArgument(new IntType(mod), "this"));
+                auto func = cast(FunctionValue) store.value;
+                assert(func);
+                functions ~= func;
+                
             }
         } else {
             error(decl.location, "invalid aggregrate declaration type.");
@@ -68,6 +70,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     }
     mod.currentScope = currentScope;
     type.declare();
+    foreach (func; functions) {
+        type.addMemberFunction(func.name, func.newWithAddedArgument(new PointerType(mod, type), "this"));
+    }
     
     mod.currentScope.add(name, new Store(type));
 }

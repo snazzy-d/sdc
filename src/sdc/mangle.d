@@ -133,6 +133,8 @@ void mangleType(ref string mangledName, Type type)
         mangleFunction(mangledName, asFunction);
         break;
     case Struct:
+        mangledName ~= "C-c-c-c-combobreaker!";
+        break;
     case Inferred:
         // TODO
         assert(false);
