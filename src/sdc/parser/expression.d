@@ -441,6 +441,11 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
         postfixExpr.firstNode = parseArgumentList(tstream, TokenType.OpenBracket, TokenType.CloseBracket);
         postfixExpr.type = PostfixType.Index;
         break;
+    case TokenType.Dot:
+        postfixExpr.type = PostfixType.Dot;
+        match(tstream, TokenType.Dot);
+        postfixExpr.firstNode = parseQualifiedName(tstream);
+        break;
     default:
         break;
     }
@@ -472,13 +477,8 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     
     switch (tstream.peek.type) {
     case TokenType.Identifier:
-        if (tstream.lookahead(1).type != TokenType.Dot) {
-            primaryExpr.type = PrimaryType.Identifier;
-            primaryExpr.node = parseIdentifier(tstream);
-        } else {
-            primaryExpr.type = PrimaryType.QualifiedName;
-            primaryExpr.node = parseQualifiedName(tstream);
-        }
+        primaryExpr.type = PrimaryType.Identifier;
+        primaryExpr.node = parseIdentifier(tstream);
         break;
     case TokenType.Dot:
         match(tstream, TokenType.Dot);

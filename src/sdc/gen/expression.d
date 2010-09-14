@@ -308,6 +308,15 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         }
         lhs = lhs.index(args[0]);
         break;
+    case ast.PostfixType.Dot:
+        auto qname = cast(ast.QualifiedName) expression.firstNode;
+        mod.base = lhs;
+        foreach (identifier; qname.identifiers) {
+            mod.base = genIdentifier(identifier, mod);
+        }
+        lhs = mod.base;
+        mod.base = null;
+        break;
     case ast.PostfixType.Slice:
         panic(expression.location, "unimplemented postfix expression type.");
         assert(false);
@@ -331,14 +340,6 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     case ast.PrimaryType.ParenExpression:
         return genExpression(cast(ast.Expression) expression.node, mod);
-    case ast.PrimaryType.QualifiedName:
-        auto qname = cast(ast.QualifiedName) expression.node;
-        foreach (identifier; qname.identifiers) {
-            mod.base = genIdentifier(identifier, mod);
-        }
-        val = mod.base;
-        mod.base = null;
-        break;
     default:
         panic(expression.location, "unhandled primary expression type.");
     }
