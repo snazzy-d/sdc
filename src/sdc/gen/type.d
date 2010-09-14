@@ -297,6 +297,8 @@ class FunctionType : Type
 
 class StructType : Type
 {
+    string name;
+    
     this(Module mod)
     {
         super(mod);

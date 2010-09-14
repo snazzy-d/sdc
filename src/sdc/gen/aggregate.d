@@ -44,6 +44,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     
     auto name = extractIdentifier(decl.name);
     auto type = new StructType(mod);
+    type.name = name;
     
     auto currentScope = mod.currentScope;
     mod.currentScope = new Scope();
