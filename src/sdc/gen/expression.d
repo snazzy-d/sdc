@@ -265,9 +265,15 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     return val;
 }
 
-Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
+Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
-    auto lhs = genPrimaryExpression(expression.primaryExpression, mod);
+    Value lhs;
+    if (suppressPrimary is null) {
+        lhs = genPrimaryExpression(expression.primaryExpression, mod);
+    } else {
+        lhs = suppressPrimary;
+    }
+    
     final switch (expression.type) {
     case ast.PostfixType.None:
         break;
@@ -316,6 +322,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod)
         }
         lhs = mod.base;
         mod.base = null;
+        lhs = genPostfixExpression(cast(ast.PostfixExpression) expression.secondNode, mod, lhs);
         break;
     case ast.PostfixType.Slice:
         panic(expression.location, "unimplemented postfix expression type.");

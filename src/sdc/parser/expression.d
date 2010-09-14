@@ -445,6 +445,7 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
         postfixExpr.type = PostfixType.Dot;
         match(tstream, TokenType.Dot);
         postfixExpr.firstNode = parseQualifiedName(tstream);
+        postfixExpr.secondNode = parsePostfixExpression(tstream);
         break;
     default:
         break;
