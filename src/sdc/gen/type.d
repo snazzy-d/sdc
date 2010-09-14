@@ -256,6 +256,7 @@ class FunctionType : Type
     Type[] argumentTypes;
     string[] argumentNames;
     ast.Linkage linkage;
+    StructType parent;
     
     this(Module mod, ast.FunctionDeclaration functionDeclaration)
     {
@@ -297,7 +298,7 @@ class FunctionType : Type
 
 class StructType : Type
 {
-    string name;
+    ast.QualifiedName name;
     
     this(Module mod)
     {

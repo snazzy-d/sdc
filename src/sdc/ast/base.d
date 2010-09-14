@@ -22,6 +22,14 @@ class QualifiedName : Node
 {
     bool leadingDot;
     Identifier[] identifiers;
+    
+    QualifiedName dup()
+    {
+        auto qn = new QualifiedName();
+        qn.identifiers = this.identifiers.dup;
+        qn.leadingDot = this.leadingDot;
+        return qn;
+    }
 }
 
 class Identifier : Node

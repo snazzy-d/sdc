@@ -69,6 +69,7 @@ void mangleCallConvention(ref string mangledName, Linkage convention)
 void mangleType(ref string mangledName, Type type)
 {        
     final switch (type.dtype) with (DType) {
+    case Inferred:
     case Complex:
     case None:
         panic("attempted to mangle invalid type.");
@@ -133,10 +134,10 @@ void mangleType(ref string mangledName, Type type)
         mangleFunction(mangledName, asFunction);
         break;
     case Struct:
-        mangledName ~= "C-c-c-c-combobreaker!";
+        mangledName ~= "S";
+        auto asStruct = cast(StructType) type;
+        assert(asStruct);
+        mangleQualifiedName(mangledName, asStruct.name);
         break;
-    case Inferred:
-        // TODO
-        assert(false);
     }
 }

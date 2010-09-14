@@ -44,7 +44,8 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     
     auto name = extractIdentifier(decl.name);
     auto type = new StructType(mod);
-    type.name = name;
+    type.name = mod.name.dup;
+    type.name.identifiers ~= decl.name;
     
     auto currentScope = mod.currentScope;
     mod.currentScope = new Scope();
@@ -72,6 +73,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     mod.currentScope = currentScope;
     type.declare();
     foreach (func; functions) {
+        auto ft = cast(FunctionType) func.type;
+        assert(ft);
+        ft.parent = type;
         type.addMemberFunction(func.name, func.newWithAddedArgument(new PointerType(mod, type), "this"));
     }
     

@@ -25,7 +25,6 @@ abstract class Value
 {
     /// The location that this Value was created at.
     Location location;
-    string mangledName;
     
     this(Module mod, Location loc)
     {
@@ -481,22 +480,39 @@ class PointerValue : Value
 class FunctionValue : Value
 {
     string name;
+    string mangledName;
     
-    this(Module mod, Location location, FunctionType func, string name)
+    this(Module mod, Location location, FunctionType func, string name, string forceMangled="")
     {
         super(mod, location);
         this.name = name;
         mType = func;
-        string nameToFile;
         if (mod.currentLinkage == ast.Linkage.ExternD) {
-            nameToFile = startMangle();
-            mangleQualifiedName(nameToFile, mod.name);
-            mangleLName(nameToFile, name);
-            mangleFunction(nameToFile, func);
+            if (forceMangled == "") {
+                mangledName = mangle(func);
+            } else {
+                mangledName = forceMangled;
+            }
         } else {
-            nameToFile = name;
+            mangledName = name;
         }
-        mValue = LLVMAddFunction(mod.mod, toStringz(nameToFile), func.llvmType);
+        mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
+    }
+    
+    protected string mangle(FunctionType type)
+    {
+        auto s = startMangle();
+        if (type.parent !is null) {
+            mangleQualifiedName(s, type.parent.name);
+        } else {
+            mangleQualifiedName(s, mModule.name);
+        }
+        mangleLName(s, name);
+        if (type.parent !is null) {
+            s ~= "M";
+        }
+        mangleFunction(s, type);
+        return s;
     }
     
     Value newWithAddedArgument(Type newArgument, string argName)
@@ -510,9 +526,10 @@ class FunctionValue : Value
         argNames ~= argName;
         auto t = new FunctionType(mModule, returnType, args, argNames);
         t.linkage = asFunctionType.linkage;
+        t.parent = asFunctionType.parent;
         t.declare();
         LLVMDeleteFunction(mValue);
-        return new FunctionValue(mModule, location, t, name);
+        return new FunctionValue(mModule, location, t, name, mangle(asFunctionType));
     }
     
     override Value importToModule(Module m)
