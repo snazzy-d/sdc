@@ -81,9 +81,15 @@ abstract class Value
     Value neq(Value val) { fail(); assert(false); }
     Value gt(Value val) { fail(); assert(false); }
     Value lte(Value val) { fail(); assert(false); }
-    Value addressOf() { fail(); assert(false); }
     Value dereference() { fail(); assert(false); }
     Value index(Value val) { fail(); assert(false); }
+    
+    Value addressOf()
+    {
+        auto v = new PointerValue(mModule, location, mType);
+        v.set(mValue);
+        return v;
+    }
     
     Value or(Value val)
     {
@@ -248,12 +254,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
     mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
     
-    override Value addressOf()
-    {
-        auto v = new PointerValue(mModule, location, this);
-        v.set(mValue);
-        return v;
-    }
     
     override Value init(Location location)
     {
@@ -377,7 +377,7 @@ class DoubleValue : Value
     
     override Value addressOf()
     {
-        auto v = new PointerValue(mModule, location, this);
+        auto v = new PointerValue(mModule, location, mType);
         v.set(mValue);
         return v;
     }
@@ -398,13 +398,13 @@ class DoubleValue : Value
 
 class PointerValue : Value
 {
-    Value base;
+    Type baseType;
     
-    this(Module mod, Location location, Value base)
+    this(Module mod, Location location, Type baseType)
     {
         super(mod, location);
-        this.base = base;
-        mType = new PointerType(mod, base.type);
+        this.baseType = baseType;
+        mType = new PointerType(mod, baseType);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
     }
     
@@ -440,20 +440,13 @@ class PointerValue : Value
         LLVMBuildStore(mModule.builder, val, mValue);
     }
     
-    override Value addressOf()
-    {
-        auto v = new PointerValue(mModule, location, this);
-        v.set(mValue);
-        return v;
-    }
-    
     override Value dereference()
     {
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-        auto v = base.type.getValue(location);
+        auto v = baseType.getValue(location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -464,14 +457,14 @@ class PointerValue : Value
         LLVMValueRef[] indices;
         indices ~= val.get();
         
-        auto v = base.type.getValue(location);
+        auto v = baseType.getValue(location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
     
     override Value init(Location location)
     {
-        auto v = new PointerValue(mModule, location, base);
+        auto v = new PointerValue(mModule, location, baseType);
         v.set(LLVMConstNull(v.mType.llvmType));
         return v;
     }
@@ -654,13 +647,6 @@ class StructValue : Value
         auto i = asStruct.members[index].getValue(location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
-    }
-    
-    override Value addressOf()
-    {
-        auto v = new PointerValue(mModule, location, this);
-        v.set(mValue);
-        return v;
     }
 }
 

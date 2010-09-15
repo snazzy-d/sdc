@@ -246,7 +246,7 @@ class PointerType : Type
     
     override Value getValue(Location location)
     {
-        return new PointerValue(mModule, location, base.getValue(location));
+        return new PointerValue(mModule, location, base);
     }
 }
 
