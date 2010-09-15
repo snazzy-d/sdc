@@ -506,6 +506,10 @@ class FunctionValue : Value
     
     protected string mangle(FunctionType type)
     {
+        if (name == "main") {
+            // TMP
+            return "main";
+        }
         auto s = startMangle();
         if (type.parent !is null) {
             mangleQualifiedName(s, type.parent.name);
