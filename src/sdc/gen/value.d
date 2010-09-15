@@ -101,7 +101,7 @@ abstract class Value
     
     protected Module mModule;
     protected Type mType;
-    protected LLVMValueRef mValue;
+    package LLVMValueRef mValue;
 }
 
 class VoidValue : Value

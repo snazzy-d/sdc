@@ -134,7 +134,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
                     type = aexp.type;
-                    var = type.getValue(decl.location);
+                    var = aexp;
                 }
                 aexp = implicitCast(aexp, type);
                 if (var is null) {
