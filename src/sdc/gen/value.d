@@ -475,6 +475,11 @@ class PointerValue : Value
         v.set(LLVMConstNull(v.mType.llvmType));
         return v;
     }
+    
+    override Value getMember(string name)
+    {
+        return base.getMember(name);
+    }
 }
 
 class FunctionValue : Value
