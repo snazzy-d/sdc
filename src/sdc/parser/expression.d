@@ -418,12 +418,14 @@ DeleteExpression parseDeleteExpression(TokenStream tstream)
     return deleteExpr;
 }
 
-PostfixExpression parsePostfixExpression(TokenStream tstream)
+PostfixExpression parsePostfixExpression(TokenStream tstream, bool second = false)
 {
     auto postfixExpr = new PostfixExpression();
     postfixExpr.location = tstream.peek.location;
     
-    postfixExpr.primaryExpression = parsePrimaryExpression(tstream);
+    if (!second) {
+        postfixExpr.primaryExpression = parsePrimaryExpression(tstream);
+    }
     switch (tstream.peek.type) {
     case TokenType.DoublePlus:
         postfixExpr.type = PostfixType.PostfixInc;
@@ -445,7 +447,7 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
         postfixExpr.type = PostfixType.Dot;
         match(tstream, TokenType.Dot);
         postfixExpr.firstNode = parseQualifiedName(tstream);
-        postfixExpr.secondNode = parsePostfixExpression(tstream);
+        postfixExpr.secondNode = parsePostfixExpression(tstream, true);
         break;
     default:
         break;
