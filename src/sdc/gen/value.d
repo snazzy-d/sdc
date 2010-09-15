@@ -478,7 +478,8 @@ class PointerValue : Value
     
     override Value getMember(string name)
     {
-        return base.getMember(name);
+        auto v = dereference();
+        return v.getMember(name);
     }
 }
 
