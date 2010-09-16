@@ -299,7 +299,10 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             auto argList = cast(ast.ArgumentList) expression.firstNode;
             assert(argList);
             foreach (expr; argList.expressions) {
+                auto oldAggregate = mod.callingAggregate;
+                mod.callingAggregate = null;
                 args ~= genAssignExpression(expr, mod);
+                mod.callingAggregate = oldAggregate;
             }
             if (mod.callingAggregate !is null) {
                 auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
