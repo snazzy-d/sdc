@@ -293,11 +293,18 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
+            auto asFunction = cast(FunctionType) lhs.type;
+            assert(asFunction);
             Value[] args;
             auto argList = cast(ast.ArgumentList) expression.firstNode;
             assert(argList);
             foreach (expr; argList.expressions) {
                 args ~= genAssignExpression(expr, mod);
+            }
+            if (mod.callingAggregate !is null) {
+                auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
+                p.set(mod.callingAggregate.addressOf());
+                args ~= p;
             }
             lhs = lhs.call(args);
         } else {
@@ -318,11 +325,15 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         auto qname = cast(ast.QualifiedName) expression.firstNode;
         mod.base = lhs;
         foreach (identifier; qname.identifiers) {
+            if (mod.base.type.dtype == DType.Struct) {
+                mod.callingAggregate = mod.base;
+            }
             mod.base = genIdentifier(identifier, mod);
         }
         lhs = mod.base;
         mod.base = null;
         lhs = genPostfixExpression(cast(ast.PostfixExpression) expression.secondNode, mod, lhs);
+        mod.callingAggregate = null;
         break;
     case ast.PostfixType.Slice:
         panic(expression.location, "unimplemented postfix expression type.");
@@ -347,6 +358,11 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     case ast.PrimaryType.ParenExpression:
         return genExpression(cast(ast.Expression) expression.node, mod);
+    case ast.PrimaryType.This:
+        auto i = new ast.Identifier();
+        i.location = expression.location;
+        i.value = "this";
+        return genIdentifier(i, mod);
     default:
         panic(expression.location, "unhandled primary expression type.");
     }
@@ -358,12 +374,27 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     auto name = extractIdentifier(identifier);
     void failure() { error(identifier.location, format("unknown identifier '%s'.", name)); }
     
+    
+    Value implicitBase;
     if (mod.base !is null) {
         return mod.base.getMember(name);
+    } else {
+        auto s = mod.search("this");
+        if (s !is null) {
+            if (s.storeType != StoreType.Value) {
+                panic(identifier.location, "this reference not a value.");
+            }
+            implicitBase = s.value;
+        }
     }
     auto store = mod.search(name);
     if (store is null) {
-        failure();
+        if (implicitBase !is null) {
+            store = new Store(implicitBase.getMember(name));
+        }
+        if (store is null) {
+            failure();
+        }
     }
     
     if (store.storeType == StoreType.Value) {

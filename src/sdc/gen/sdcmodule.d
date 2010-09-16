@@ -35,6 +35,7 @@ class Module
     ast.DeclarationDefinition[] functionBuildList;
     FunctionValue currentFunction;
     Value base;
+    Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;
     
