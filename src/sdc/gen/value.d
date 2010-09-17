@@ -698,7 +698,8 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         panic(type.location, "unhandled type type.");
     }
     
-    foreach (suffix; type.suffixes) {
+    for (int i = type.suffixes.length - 1; i >= 0; i--) {
+        auto suffix = type.suffixes[i];
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
         } else {
