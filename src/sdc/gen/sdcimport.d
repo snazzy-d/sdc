@@ -20,6 +20,23 @@ bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod
     return true;
 }
 
+ast.ImportDeclaration synthesiseImport(string modname)
+{
+    with (ast) {
+        auto decl = new ImportDeclaration();
+        decl.importList = new ImportList();
+        decl.importList.type = ImportListType.SingleSimple;
+        auto imp = new Import();
+        auto qname = new QualifiedName();
+        auto iname = new Identifier();
+        iname.value = modname;
+        qname.identifiers ~= iname;
+        imp.moduleName = qname;
+        decl.importList.imports ~= imp;
+        return decl;
+    }
+} 
+
 ast.DeclarationDefinition[] genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
     return genImportList(importDeclaration.importList, mod);
