@@ -75,7 +75,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     foreach (func; functions) {
         auto ft = cast(FunctionType) func.type;
         assert(ft);
-        ft.parent = type;
+        ft.parentAggregate = type;
         type.addMemberFunction(func.name, func.newWithAddedArgument(new PointerType(mod, type), "this"));
     }
     

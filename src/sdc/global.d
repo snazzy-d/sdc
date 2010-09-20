@@ -13,6 +13,7 @@ import sdc.source;
 import sdc.tokenstream;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
+import sdc.gen.value;
 
 
 class TranslationUnit
@@ -22,12 +23,14 @@ class TranslationUnit
     TokenStream tstream;
     ast.Module aModule;
     Module gModule;
+    bool compile = true;
 }
 
 shared int versionLevel;
 shared bool isDebug;
 shared int debugLevel;
 shared bool unittestsEnabled;
+__gshared ast.DeclarationDefinition[] implicitDeclDefs;
 
 
 void setVersion(string s)
@@ -101,3 +104,4 @@ private shared bool[string] testedVersionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
 
+FunctionValue gcMalloc;

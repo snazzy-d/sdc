@@ -73,8 +73,12 @@ void genModuleAndPackages(Module mod)
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
+    foreach (df; implicitDeclDefs) {
+        resolutionList ~= df;
+    }
     int stillToGo, oldStillToGo = -1;
     foreach (d; resolutionList) {
+        d.parentName = mod.name;
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
     }
@@ -167,6 +171,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return;
     }
     
+    auto oldName = mod.name;
+    mod.name = declDef.parentName;
+    
     foreach (attribute; declDef.attributes) {
         switch (attribute.type) with (ast.AttributeType) {
         case ExternC:
@@ -230,7 +237,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     default:
         panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
-    } 
+    }
+    
+    mod.name = oldName;
 }
 
 void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)

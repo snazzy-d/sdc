@@ -40,6 +40,7 @@ import sdc.extract.base;
 import sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
+import sdc.gen.sdcimport;
 
 
 int main(string[] args)
@@ -78,6 +79,29 @@ void realmain(string[] args)
     }
     
     string[] assemblies;
+    
+    // Add special modules.
+    auto tu = new TranslationUnit();
+    tu.filename = "src/sdcruntime/object.d";
+    tu.source = new Source(tu.filename);
+    tu.tstream = lex(tu.source);
+    tu.aModule = parse(tu.tstream);
+    addTranslationUnit("object", tu);
+    
+    auto decl = synthesiseImport("object");
+    auto df = new ast.DeclarationDefinition;
+    df.type = ast.DeclarationDefinitionType.ImportDeclaration;
+    df.node = decl;
+    implicitDeclDefs ~= df;
+    
+    auto gc = new TranslationUnit();
+    gc.filename = "src/sdcruntime/gc.d";
+    gc.source = new Source(gc.filename);
+    gc.tstream = lex(gc.source);
+    gc.aModule = parse(gc.tstream);
+    gc.compile = false;
+    addTranslationUnit("sdcruntime.gc", gc);
+    
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
         if (ext == "o") {
@@ -99,14 +123,28 @@ void realmain(string[] args)
     }
     
     auto extensionRegex = regex("d(i)?$", "i");
+    
+    gc.gModule = genModule(gc.aModule);
+    gc.gModule.verify();
+    gc.gModule.optimise();
+    assert(!match(gc.filename, extensionRegex).empty);
+    auto asBitcode  = replace(gc.filename, extensionRegex, "bc");
+    auto asAssembly = replace(gc.filename, extensionRegex, "s");
+    gc.gModule.writeBitcodeToFile(asBitcode);
+    gc.gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
+    assemblies ~= asAssembly;
+    
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+        if (!compile) {
+            continue;
+        }
         gModule = genModule(aModule);
         gModule.verify();
         gModule.optimise();
         
         assert(!match(filename, extensionRegex).empty);
-        auto asBitcode  = replace(filename, extensionRegex, "bc");
-        auto asAssembly = replace(filename, extensionRegex, "s");
+        asBitcode  = replace(filename, extensionRegex, "bc");
+        asAssembly = replace(filename, extensionRegex, "s");
         gModule.writeBitcodeToFile(asBitcode);
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
         assemblies ~= asAssembly;
@@ -116,10 +154,15 @@ void realmain(string[] args)
     foreach (assembly; assemblies) {
         linkCommand ~= assembly ~ " ";
     }
+    linkCommand ~= "gc.a";
     stderr.writeln(linkCommand);
     system(linkCommand);
 }
 
+void addImplicitImports()
+{
+
+}
 
 void usage()
 {

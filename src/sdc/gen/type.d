@@ -38,6 +38,7 @@ enum DType
     Double,
     Real,
     Pointer,
+    Array,
     Complex,
     Function,
     Struct,
@@ -74,6 +75,7 @@ Type dtypeToType(DType dtype, Module mod)
         return new DoubleType(mod);
     case Real:
     case Pointer:
+    case Array:
     case Complex:
     case Function:
     case Struct:
@@ -250,13 +252,43 @@ class PointerType : Type
     }
 }
 
+class ArrayType : Type
+{
+    Type base;
+    StructType structType;
+    PointerType structTypePointer;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        this.base = base;
+        dtype = DType.Array;
+        structType = new StructType(mod);
+        structType.addMemberVar("length", new IntType(mod));
+        structType.addMemberVar("ptr", new PointerType(mod, base));
+        structType.declare();
+        structTypePointer = new PointerType(mod, structType);
+        mType = structTypePointer.llvmType;
+    }
+    
+    override ArrayType importToModule(Module mod)
+    {
+        return new ArrayType(mod, base);
+    }
+    
+    override Value getValue(Location location)
+    {
+        return new ArrayValue(mModule, location, base);
+    }
+}
+
 class FunctionType : Type
 {
     Type returnType;
     Type[] argumentTypes;
     string[] argumentNames;
     ast.Linkage linkage;
-    StructType parent;
+    StructType parentAggregate;
     
     this(Module mod, ast.FunctionDeclaration functionDeclaration)
     {

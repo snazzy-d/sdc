@@ -77,5 +77,9 @@ ast.DeclarationDefinition[] genImport(ast.Import theImport, Module mod)
     if (tu is null) {
         panic(theImport.moduleName.location, "TODO: Search through import paths for module.");
     }
-    return tu.aModule.declarationDefinitions.dup;
+    auto list = tu.aModule.declarationDefinitions.dup;
+    foreach (e; list) {
+        e.parentName = theImport.moduleName;
+    }
+    return list;
 }

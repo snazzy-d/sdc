@@ -128,6 +128,12 @@ void mangleType(ref string mangledName, Type type)
         mangledName ~= "P";
         mangleType(mangledName, asPointer.base);
         break;
+    case Array:
+        auto asArray = cast(ArrayType) type;
+        assert(asArray);
+        mangledName ~= "A";
+        mangleType(mangledName, asArray.base);
+        break;
     case Function:
         auto asFunction = cast(FunctionType) type;
         assert(asFunction);

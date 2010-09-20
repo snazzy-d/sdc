@@ -9,6 +9,7 @@ import std.path;
 
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.global;
 import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
@@ -78,4 +79,5 @@ class DeclarationDefinition : Node
     Attribute[] attributes;
     BuildStage buildStage;
     bool importedSymbol;
+    QualifiedName parentName;
 }

@@ -38,7 +38,7 @@ class Module
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;
-    
+
     this(ast.QualifiedName name)
     {
         this.name = name;

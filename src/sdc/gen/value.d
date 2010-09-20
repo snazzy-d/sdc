@@ -16,6 +16,7 @@ import sdc.util;
 import sdc.mangle;
 import sdc.compilererror;
 import sdc.location;
+import sdc.global;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -68,21 +69,21 @@ abstract class Value
             
     Value importToModule(Module m);
     
-    void fail() { panic(location, "call to unimplemented method."); }
+    void fail(string s = "unspecified") { panic(location, "call to unimplemented method '" ~ s ~ "'."); }
         
-    LLVMValueRef get() { fail(); assert(false); }
-    void set(Value val) { fail(); assert(false); }
-    void set(LLVMValueRef val) { fail(); assert(false); }
-    Value add(Value val) { fail(); assert(false); }
-    Value sub(Value val) { fail(); assert(false); }
-    Value mul(Value val) { fail(); assert(false); }
-    Value div(Value val) { fail(); assert(false); }
-    Value eq(Value val) { fail(); assert(false); }
-    Value neq(Value val) { fail(); assert(false); }
-    Value gt(Value val) { fail(); assert(false); }
-    Value lte(Value val) { fail(); assert(false); }
-    Value dereference() { fail(); assert(false); }
-    Value index(Value val) { fail(); assert(false); }
+    LLVMValueRef get() { fail("get"); assert(false); }
+    void set(Value val) { fail("set:Value"); assert(false); }
+    void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
+    Value add(Value val) { fail("add"); assert(false); }
+    Value sub(Value val) { fail("sub"); assert(false); }
+    Value mul(Value val) { fail("mul"); assert(false); }
+    Value div(Value val) { fail("div"); assert(false); }
+    Value eq(Value val) { fail("eq"); assert(false); }
+    Value neq(Value val) { fail("neq"); assert(false); }
+    Value gt(Value val) { fail("gt"); assert(false); }
+    Value lte(Value val) { fail("lte"); assert(false); }
+    Value dereference() { fail("dereference"); assert(false); }
+    Value index(Value val) { fail("index"); assert(false); }
     
     Value addressOf()
     {
@@ -99,9 +100,9 @@ abstract class Value
         return b;
     }
     
-    Value call(Value[] args) { fail(); assert(false); }
-    Value init(Location location) { fail(); assert(false); }
-    Value getMember(string name) { fail(); assert(false); }
+    Value call(Value[] args) { fail("call"); assert(false); }
+    Value init(Location location) { fail("init"); assert(false); }
+    Value getMember(string name) { fail("getMember"); assert(false); }
     Module getModule() { return mModule; }
 
     
@@ -124,7 +125,7 @@ class VoidValue : Value
         assert(false);
     }
     
-    override void fail()
+    override void fail(string s)
     {
         error(location, "can't perform an action on variable of type 'void'.");
     }
@@ -396,6 +397,53 @@ class DoubleValue : Value
     }
 }
 
+class ArrayValue : Value
+{
+    Type baseType;
+    PointerValue structPointerValue;
+    
+    this(Module mod, Location location, Type baseType)
+    {
+        super(mod, location);
+        auto asArray = new ArrayType(mod, baseType);
+        mType = asArray;
+        structPointerValue = new PointerValue(mod, location, asArray.structType);
+        mValue = structPointerValue.mValue;
+    }
+     
+    override Value importToModule(Module mod)
+    {
+        panic("attempted to import value across modules.");
+        assert(false);
+    }
+    
+    override void set(Value val)
+    {
+        LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void set(LLVMValueRef val)
+    {
+        LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
+    override LLVMValueRef get()
+    {
+        return LLVMBuildLoad(mModule.builder, mValue, "get");
+    }
+    
+    override Value getMember(string name)
+    {
+        return structPointerValue.getMember(name);
+    }
+    
+    override Value init(Location location)
+    {
+        auto asArray = cast(ArrayType) mType;
+        return new PointerValue(mModule, location, asArray.structType);
+    }
+}
+
 class PointerValue : Value
 {
     Type baseType;
@@ -410,7 +458,7 @@ class PointerValue : Value
     
     override Value importToModule(Module mod)
     {
-        panic("attempted to import double value across modules.");
+        panic("attempted to import pointer value across modules.");
         assert(false);
     }
     
@@ -495,6 +543,9 @@ class FunctionValue : Value
         } else {
             mangledName = name;
         }
+        if (mangledName == "_D10sdcruntime2gc8gcMallocFiZPv") {
+            gcMalloc = this;
+        }
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
     }
     
@@ -505,13 +556,13 @@ class FunctionValue : Value
             return "main";
         }
         auto s = startMangle();
-        if (type.parent !is null) {
-            mangleQualifiedName(s, type.parent.name);
+        if (type.parentAggregate !is null) {
+            mangleQualifiedName(s, type.parentAggregate.name);
         } else {
             mangleQualifiedName(s, mModule.name);
         }
         mangleLName(s, name);
-        if (type.parent !is null) {
+        if (type.parentAggregate !is null) {
             s ~= "M";
         }
         mangleFunction(s, type);
@@ -529,7 +580,7 @@ class FunctionValue : Value
         argNames ~= argName;
         auto t = new FunctionType(mModule, returnType, args, argNames);
         t.linkage = asFunctionType.linkage;
-        t.parent = asFunctionType.parent;
+        t.parentAggregate = asFunctionType.parentAggregate;
         t.declare();
         LLVMDeleteFunction(mValue);
         return new FunctionValue(mModule, location, t, name, mangle(asFunctionType));
@@ -702,6 +753,8 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         auto suffix = type.suffixes[i];
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
+        } else if (suffix.type == ast.TypeSuffixType.DynamicArray) {
+            t = new ArrayType(mod, t);
         } else {
             panic(type.location, "unimplemented type suffix.");
         }
