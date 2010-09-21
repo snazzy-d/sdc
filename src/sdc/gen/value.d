@@ -409,8 +409,11 @@ class ArrayValue : Value
         mType = asArray;
         
         structPointerValue = new PointerValue(mod, location, asArray.structType);
-        auto ii = [new IntValue(mod, location, 12)];
-        auto memory = gcMalloc.call(ii);  // !!!!!!
+        auto l = new LongValue(mod, location);
+        l.set(LLVMSizeOf(asArray.structType.llvmType));
+        auto i = l.performCast(new IntType(mod));
+        auto ii = [i];
+        auto memory = gcMalloc.call(ii);
         auto typed = memory.performCast(asArray.structTypePointer);
         structPointerValue.set(typed);
         mValue = structPointerValue.mValue;
