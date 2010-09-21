@@ -366,6 +366,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         i.location = expression.location;
         i.value = "this";
         return genIdentifier(i, mod);
+    case ast.PrimaryType.Null:
+        return new NullPointerValue(mod, expression.location);
     default:
         panic(expression.location, "unhandled primary expression type.");
     }

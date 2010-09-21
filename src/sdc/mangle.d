@@ -122,6 +122,7 @@ void mangleType(ref string mangledName, Type type)
     case Void:
         mangledName ~= "v";
         break;
+    case NullPointer:
     case Pointer:
         auto asPointer = cast(PointerType) type;
         assert(asPointer);

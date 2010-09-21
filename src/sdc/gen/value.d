@@ -531,6 +531,15 @@ class PointerValue : Value
     }
 }
 
+class NullPointerValue : PointerValue
+{
+    this(Module mod, Location location)
+    {
+        super(mod, location, new VoidType(mod));
+        mType = new NullPointerType(mod);
+    }
+}
+
 class FunctionValue : Value
 {
     string name;

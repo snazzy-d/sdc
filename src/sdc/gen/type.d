@@ -38,6 +38,7 @@ enum DType
     Double,
     Real,
     Pointer,
+    NullPointer,
     Array,
     Complex,
     Function,
@@ -75,6 +76,7 @@ Type dtypeToType(DType dtype, Module mod)
         return new DoubleType(mod);
     case Real:
     case Pointer:
+    case NullPointer:
     case Array:
     case Complex:
     case Function:
@@ -249,6 +251,14 @@ class PointerType : Type
     override Value getValue(Location location)
     {
         return new PointerValue(mModule, location, base);
+    }
+}
+
+class NullPointerType : PointerType
+{
+    this(Module mod)
+    {
+        super(mod, new VoidType(mod));
     }
 }
 
