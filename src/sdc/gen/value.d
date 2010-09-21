@@ -617,15 +617,21 @@ class FunctionValue : Value
     
     override Value call(Value[] args)
     {
+        void failure()
+        {
+            error(location, "can't call function with given arguments.");
+        }
+            
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
         if (functionType.argumentTypes.length != args.length) {
-            goto err;
+            failure();
         }
         foreach (i, arg; functionType.argumentTypes) {
+            args[i] = implicitCast(args[i], arg);
             if (arg != args[i].type) {
-                goto err;
+                failure();
             }
         }
         
@@ -644,10 +650,6 @@ class FunctionValue : Value
             val = new VoidValue(mModule, location);
         }
         return val;
-        
-    err:
-        error(location, "can't call function with given arguments.");
-        assert(false);
     }
     
     override Value init(Location location)
