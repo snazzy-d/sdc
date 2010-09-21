@@ -14,6 +14,7 @@ import llvm.c.BitWriter;
 import llvm.c.Core;
 import llvm.c.transforms.Scalar;
 
+import sdc.compilererror;
 import sdc.global;
 import sdc.extract.base;
 import sdc.gen.type;
@@ -62,7 +63,11 @@ class Module
      */
     void verify()
     {
-        LLVMVerifyModule(mod, LLVMVerifierFailureAction.AbortProcess, null);
+        auto failed = LLVMVerifyModule(mod, LLVMVerifierFailureAction.PrintMessage, null);
+        if (failed) {
+            LLVMDumpModule(mod);
+            panic("Module verification failed.");
+        }
     }
     
     /**
