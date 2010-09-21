@@ -411,9 +411,8 @@ class ArrayValue : Value
         structPointerValue = new PointerValue(mod, location, asArray.structType);
         auto l = new LongValue(mod, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
-        auto i = l.performCast(new IntType(mod));
-        auto ii = [i];
-        auto memory = gcMalloc.call(ii);
+        auto ll = [l];
+        auto memory = gcMalloc.call(ll);
         auto typed = memory.performCast(asArray.structTypePointer);
         structPointerValue.set(typed);
         mValue = structPointerValue.mValue;
@@ -551,7 +550,7 @@ class FunctionValue : Value
         } else {
             mangledName = name;
         }
-        if (mangledName == "_D10sdcruntime2gc8gcMallocFiZPv") {
+        if (mangledName == "_D10sdcruntime2gc8gcMallocFlZPv") {
             gcMalloc = this;
         }
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
