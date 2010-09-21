@@ -234,7 +234,6 @@ class PostfixExpression : Node
     PrimaryExpression primaryExpression;
     Node firstNode;
     Node secondNode;
-//    PrimaryExpression[] dotExpressions;
 }
 
 class ArgumentList : Node

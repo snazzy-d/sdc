@@ -461,6 +461,7 @@ class PointerValue : Value
         this.baseType = baseType;
         mType = new PointerType(mod, baseType);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+        set(LLVMConstNull(mType.llvmType));
     }
     
     override Value importToModule(Module mod)
@@ -851,7 +852,7 @@ Value implicitCast(Value v, Type toType)
         }
         panic(v.location, "casts involving complex types are unimplemented.");
     }
-    if (toType.dtype == v.type.dtype) {
+    if (toType.dtype == v.type.dtype && toType.dtype != DType.Pointer) {
         return v;
     }
     if (!canImplicitCast(v.type.dtype, toType.dtype)) {
@@ -885,6 +886,9 @@ bool canImplicitCast(DType from, DType to)
     case Double:
     case Real:
         return to >= Float;
+    case Pointer:
+    case NullPointer:
+        return to == Pointer || to == NullPointer; 
     default:
         return false;
     }
