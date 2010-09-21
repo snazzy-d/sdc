@@ -5,7 +5,7 @@
  */
 module sdc.gen.sdcimport;
 
-import std.conv;
+import std.string;
 
 import sdc.util;
 import sdc.compilererror;
@@ -27,10 +27,14 @@ ast.ImportDeclaration synthesiseImport(string modname)
         decl.importList = new ImportList();
         decl.importList.type = ImportListType.SingleSimple;
         auto imp = new Import();
+        
+        auto names = split(modname, ".");
         auto qname = new QualifiedName();
-        auto iname = new Identifier();
-        iname.value = modname;
-        qname.identifiers ~= iname;
+        foreach (name; names) {
+            auto iname = new Identifier();
+            iname.value = name;
+            qname.identifiers ~= iname;
+        }
         imp.moduleName = qname;
         decl.importList.imports ~= imp;
         return decl;

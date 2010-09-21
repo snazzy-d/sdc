@@ -407,7 +407,12 @@ class ArrayValue : Value
         super(mod, location);
         auto asArray = new ArrayType(mod, baseType);
         mType = asArray;
+        
         structPointerValue = new PointerValue(mod, location, asArray.structType);
+        auto ii = [new IntValue(mod, location, 12)];
+        auto memory = gcMalloc.call(ii);  // !!!!!!
+        auto typed = memory.performCast(asArray.structTypePointer);
+        structPointerValue.set(typed);
         mValue = structPointerValue.mValue;
     }
      

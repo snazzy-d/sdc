@@ -88,12 +88,6 @@ void realmain(string[] args)
     tu.aModule = parse(tu.tstream);
     addTranslationUnit("object", tu);
     
-    auto decl = synthesiseImport("object");
-    auto df = new ast.DeclarationDefinition;
-    df.type = ast.DeclarationDefinitionType.ImportDeclaration;
-    df.node = decl;
-    implicitDeclDefs ~= df;
-    
     auto gc = new TranslationUnit();
     gc.filename = "src/sdcruntime/gc.d";
     gc.source = new Source(gc.filename);
@@ -102,6 +96,12 @@ void realmain(string[] args)
     gc.compile = false;
     addTranslationUnit("sdcruntime.gc", gc);
     
+    auto decl = synthesiseImport("object");
+    auto df = new ast.DeclarationDefinition();
+    df.type = ast.DeclarationDefinitionType.ImportDeclaration;
+    df.node = decl;
+    implicitDeclDefs ~= df;
+
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
         if (ext == "o") {
