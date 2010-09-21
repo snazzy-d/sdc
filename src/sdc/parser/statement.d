@@ -70,12 +70,17 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
+    } else if (tstream.lookahead(0).type == TokenType.Identifier &&
+               tstream.lookahead(1).type == TokenType.Asterix &&
+               tstream.lookahead(2).type == TokenType.Identifier) {
+        // is it 'a * b;' or 'a* b;'?
+        statement.type = NonEmptyStatementType.DeclarationOrExpressionStatement;
+        statement.node = parseDeclarationOrExpressionStatement(tstream);
     } else if (startsLikeDeclaration(tstream)) {
         statement.type = NonEmptyStatementType.DeclarationStatement;
         statement.node = parseDeclarationStatement(tstream);
     } else {
-        statement.type = NonEmptyStatementType.ExpressionStatement;
-        statement.node = parseExpressionStatement(tstream);
+        
     }
     
     return statement;
@@ -216,6 +221,20 @@ ExpressionStatement parseExpressionStatement(TokenStream tstream)
     auto statement = new ExpressionStatement();
     statement.location = tstream.peek.location;
     statement.expression = parseExpression(tstream);
+    match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+DeclarationOrExpressionStatement parseDeclarationOrExpressionStatement(TokenStream tstream)
+{
+    auto statement = new DeclarationOrExpressionStatement();
+    statement.location = tstream.peek.location;
+    statement.tstream = new TokenStream();
+    while (tstream.peek.type != TokenType.Semicolon) {
+        statement.tstream.addToken(tstream.peek);
+        tstream.getToken();
+    }
+    statement.tstream.addToken(tstream.peek);
     match(tstream, TokenType.Semicolon);
     return statement;
 }

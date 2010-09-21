@@ -28,6 +28,10 @@ class TokenStream
         mTokens ~= start;
     }
     
+    this()
+    {
+    }
+    
     void addToken(Token token)
     {
         mTokens ~= token;

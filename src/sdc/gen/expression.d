@@ -377,7 +377,10 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
     auto name = extractIdentifier(identifier);
-    void failure() { error(identifier.location, format("unknown identifier '%s'.", name)); }
+    void failure() 
+    { 
+        error(identifier.location, format("unknown identifier '%s'.", name));
+    }
     
     
     Value implicitBase;

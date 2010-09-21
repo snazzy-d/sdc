@@ -5,6 +5,7 @@
  */
 module sdc.ast.statement;
 
+import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.declaration;
@@ -80,6 +81,7 @@ enum NonEmptyStatementType
     LabeledStatement,
     ExpressionStatement,
     DeclarationStatement,
+    DeclarationOrExpressionStatement,
     IfStatement,
     WhileStatement,
     DoStatement,
@@ -143,6 +145,10 @@ class DeclarationStatement : Node
     Declaration declaration;
 }
 
+class DeclarationOrExpressionStatement : Node
+{
+    TokenStream tstream;
+}
 
 // if ( IfCondition ) ThenStatement (else ElseStatement)?
 class IfStatement : Node
