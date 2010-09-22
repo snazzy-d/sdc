@@ -80,7 +80,8 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
         statement.type = NonEmptyStatementType.DeclarationStatement;
         statement.node = parseDeclarationStatement(tstream);
     } else {
-        
+        statement.type = NonEmptyStatementType.ExpressionStatement;
+        statement.node = parseExpressionStatement(tstream);
     }
     
     return statement;
