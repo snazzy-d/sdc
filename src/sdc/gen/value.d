@@ -461,7 +461,6 @@ class PointerValue : Value
         this.baseType = baseType;
         mType = new PointerType(mod, baseType);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
-        set(LLVMConstNull(mType.llvmType));
     }
     
     override Value importToModule(Module mod)
