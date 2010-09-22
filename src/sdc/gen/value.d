@@ -487,7 +487,11 @@ class PointerValue : Value
     
     override void set(Value val)
     {
-        LLVMBuildStore(mModule.builder, val.get(), mValue);
+        if (val.type.dtype == DType.NullPointer) {
+            set(init(location));
+        } else {
+            LLVMBuildStore(mModule.builder, val.get(), mValue);
+        }
     }
     
     override void set(LLVMValueRef val)
@@ -847,6 +851,9 @@ void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
 
 Value implicitCast(Value v, Type toType)
 {
+    if (v.type.dtype == DType.NullPointer && toType.dtype == DType.Pointer) {
+        return v;
+    }
     if (isComplexDType(v.type.dtype)) {
         if (v.type == toType) {
             return v;

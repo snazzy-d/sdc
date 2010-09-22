@@ -259,6 +259,7 @@ class NullPointerType : PointerType
     this(Module mod)
     {
         super(mod, new VoidType(mod));
+        dtype = DType.NullPointer;
     }
 }
 
