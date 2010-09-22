@@ -89,9 +89,6 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.DeclarationStatement:
         genDeclarationStatement(cast(ast.DeclarationStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.DeclarationOrExpressionStatement:
-        genDeclarationOrExpressionStatement(cast(ast.DeclarationOrExpressionStatement) statement.node, mod);
-        break;
     case ast.NonEmptyStatementType.ReturnStatement:
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
         break;
@@ -189,71 +186,6 @@ void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
 void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 {
     genDeclaration(statement.declaration, mod);
-}
-
-void genDeclarationOrExpressionStatement(ast.DeclarationOrExpressionStatement statement, Module mod)
-{
-    void decl()
-    {
-        auto d = parseDeclaration(statement.tstream);
-        genDeclaration(d, mod);
-    }
-    
-    void expr()
-    {
-        auto e = parseExpression(statement.tstream);
-        genExpression(e, mod);
-    }
-    
-    
-    size_t l;
-    while (statement.tstream.lookahead(l).type != TokenType.Semicolon) {
-        auto t = statement.tstream.lookahead(l);
-        switch (t.type) {
-        case TokenType.Bool:
-        case TokenType.Byte:
-        case TokenType.Ubyte:
-        case TokenType.Short:
-        case TokenType.Ushort:
-        case TokenType.Int:
-        case TokenType.Uint:
-        case TokenType.Long:
-        case TokenType.Ulong:
-        case TokenType.Cent:
-        case TokenType.Ucent:
-        case TokenType.Char:
-        case TokenType.Wchar:
-        case TokenType.Dchar:
-        case TokenType.Float:
-        case TokenType.Double:
-        case TokenType.Real:
-        case TokenType.Ifloat:
-        case TokenType.Idouble: 
-        case TokenType.Ireal:
-        case TokenType.Cfloat:
-        case TokenType.Cdouble:
-        case TokenType.Creal:
-        case TokenType.Void:
-        case TokenType.Alias:
-        case TokenType.Auto:
-            decl();
-            return;
-        case TokenType.Identifier:
-            auto name = t.value;
-            auto store = mod.search(name);
-            if (store is null || store.storeType == StoreType.Value) {
-                break;
-            } else {
-                decl();
-                return;
-            }
-        default:
-            break;
-        }
-        l++;
-    }
-    expr();
-    return;
 }
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)

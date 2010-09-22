@@ -81,7 +81,6 @@ enum NonEmptyStatementType
     LabeledStatement,
     ExpressionStatement,
     DeclarationStatement,
-    DeclarationOrExpressionStatement,
     IfStatement,
     WhileStatement,
     DoStatement,
@@ -143,11 +142,6 @@ class ExpressionStatement : Node
 class DeclarationStatement : Node
 {
     Declaration declaration;
-}
-
-class DeclarationOrExpressionStatement : Node
-{
-    TokenStream tstream;
 }
 
 // if ( IfCondition ) ThenStatement (else ElseStatement)?
