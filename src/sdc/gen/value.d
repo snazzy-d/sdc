@@ -397,57 +397,23 @@ class DoubleValue : Value
     }
 }
 
-class ArrayValue : Value
+class ArrayValue : PointerValue
 {
-    Type baseType;
-    PointerValue structPointerValue;
-    
-    this(Module mod, Location location, Type baseType)
+    this(Module mod, Location location, Type base)
     {
-        super(mod, location);
-        auto asArray = new ArrayType(mod, baseType);
+        auto asArray = new ArrayType(mod, base);
+        super(mod, location, asArray.structType);
         mType = asArray;
-        
-        structPointerValue = new PointerValue(mod, location, asArray.structType);
-        auto l = new LongValue(mod, location);
-        l.set(LLVMSizeOf(asArray.structType.llvmType));
-        auto ll = [l];
-        auto memory = gcMalloc.call(ll);
-        auto typed = memory.performCast(asArray.structTypePointer);
-        structPointerValue.set(typed);
-        mValue = structPointerValue.mValue;
-    }
-     
-    override Value importToModule(Module mod)
-    {
-        panic("attempted to import value across modules.");
-        assert(false);
-    }
-    
-    override void set(Value val)
-    {
-        LLVMBuildStore(mModule.builder, val.get(), mValue);
-    }
-    
-    override void set(LLVMValueRef val)
-    {
-        LLVMBuildStore(mModule.builder, val, mValue);
-    }
-    
-    override LLVMValueRef get()
-    {
-        return LLVMBuildLoad(mModule.builder, mValue, "get");
-    }
-    
-    override Value getMember(string name)
-    {
-        return structPointerValue.getMember(name);
     }
     
     override Value init(Location location)
     {
         auto asArray = cast(ArrayType) mType;
-        return new PointerValue(mModule, location, asArray.structType);
+        auto l = new LongValue(mModule, location);
+        l.set(LLVMSizeOf(asArray.structType.llvmType));
+        auto ll = [l];
+        auto memory = gcMalloc.call(ll);
+        return memory.performCast(asArray.structTypePointer);
     }
 }
 
