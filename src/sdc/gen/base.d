@@ -171,9 +171,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return;
     }
     
-    auto oldName = mod.name;
-    mod.name = declDef.parentName;
-    
     foreach (attribute; declDef.attributes) {
         switch (attribute.type) with (ast.AttributeType) {
         case ExternC:
@@ -238,8 +235,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     default:
         panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
-    
-    mod.name = oldName;
 }
 
 void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)

@@ -64,7 +64,6 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
                 auto func = cast(FunctionValue) store.value;
                 assert(func);
                 functions ~= func;
-                
             }
         } else {
             error(decl.location, "invalid aggregrate declaration type.");

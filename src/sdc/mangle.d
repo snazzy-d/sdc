@@ -7,6 +7,7 @@ module sdc.mangle;
 
 import std.conv;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;

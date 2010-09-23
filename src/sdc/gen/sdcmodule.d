@@ -42,6 +42,9 @@ class Module
 
     this(ast.QualifiedName name)
     {
+        if (name is null) {
+            panic("Module called with null name argument.");
+        }
         this.name = name;
         context = LLVMGetGlobalContext();
         mod     = LLVMModuleCreateWithNameInContext(toStringz(extractQualifiedName(name)), context);

@@ -537,6 +537,7 @@ class FunctionValue : Value
     
     protected string mangle(FunctionType type)
     {
+        debugPrint(name);
         if (name == "main") {
             // TMP
             return "main";
@@ -545,6 +546,9 @@ class FunctionValue : Value
         if (type.parentAggregate !is null) {
             mangleQualifiedName(s, type.parentAggregate.name);
         } else {
+            if (mModule.name is null) {
+                panic("null module name.");
+            }
             mangleQualifiedName(s, mModule.name);
         }
         mangleLName(s, name);
