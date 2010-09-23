@@ -10,7 +10,7 @@ Contact me at b.helyer@gmail.com
 Features
 ========
 What follows is a very high level overview of what's done, and what's still to do.
-This list is incomplete.
+This list is incomplete. SDC is in a state of flux, and this is likely to be out of date.
 
 Lexer
 -----
@@ -48,14 +48,14 @@ Parser
 Codegen
 -------
 * Import symbols from other modules.  _[no.]_
-* Apply attributes.  _[no.]_
+* Apply attributes.  _[partially.]_
 * Enums.  _[no.]_
-* Structs.  _[no.]_
+* Structs.  _[partially.]_
 * Classes.  _[no.]_
 * Functions.  _[partially.]_
-* Local variables.  _[partially.]_
+* Local variables.  _[yes.]_
 * Global variables.  _[no.]_
-* Alias declarations.  __[yes.]__
+* Alias declarations.  _[partially.]_
 * Expressions.  _[partially.]_
 * Label statement.  _[no.]_
 * If statement.  __[yes.]__
@@ -87,34 +87,51 @@ Codegen
 
 What Can It Compile?
 ====================
-Nothing practical. What follows is the a program featuring most complex features SDC can currently handle.
-By 'handle', I mean can compile a working executable, and featured features act as expected.
+Nothing practical. What follows is the a program featuring the most complex features SDC can currently handle.
 
-    module test;  // The name given here is currently ignored.
-    extern (C):   // Only C mangling (or lack thereof) and call conventions are currently supported.
-    
-    version = foo;
-    
+    module test;
+
+    extern (C) void exit(int);  // extern (D) functions are mangled.
+
+    struct Person
+    {
+        int age;
+        
+        void growOlder()
+        {
+            age = this.age + 1;
+            return;  // No implicit void return yet.
+        }
+    }
+
+    void bump(int* p)
+    {
+        *p = *p + 1;
+        return;
+    }
+
     int add(int a, int b)
     {
         return a + b;
     }
-    
-    version (none) int foo() { return 12; }
-    
-    /++
-     + Returns: the value '42'.
-     +/
+
+    /**
+     * Returns 42.
+     */
     int main()
     {
-        bool b;
-        int i = cast(int)b + 1, j = 38;  // No implicit casting.
-        i++;
-        while (j == 38) {
-            if (i == 2) j++;
+        Person p;
+        p.age = 0;
+        p.growOlder();
+        if (p.age != 1) {
+            return 1;
         }
-        version (foo) j++;
-        version (all) j--;
-        version (none) j++;
-        return add(++j, i);
+        p.age = p.age + 20;
+        int i;
+        while (i != 19) {
+            i++;
+        }
+        bump(&i);
+        exit(add(p.age, i + 1));
+        return 1;  // Never reached.
     }
