@@ -517,7 +517,6 @@ class FunctionValue : Value
     
     protected string mangle(FunctionType type)
     {
-        debugPrint(name);
         if (name == "main") {
             // TMP
             return "main";
