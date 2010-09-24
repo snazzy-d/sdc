@@ -120,7 +120,6 @@ void realmain(string[] args)
     foreach (assembly; assemblies) {
         linkCommand ~= assembly ~ " ";
     }
-    stderr.writeln(linkCommand);
     system(linkCommand);
 }
 

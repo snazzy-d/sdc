@@ -92,7 +92,6 @@ class Module
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
         auto cmd = format("llc -o %s %s", toFilename, fromFilename);
-        stderr.writeln(cmd);
         system(cmd);
     }
     
