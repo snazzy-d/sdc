@@ -66,8 +66,6 @@ abstract class Value
         panic(location, "invalid cast");
         assert(false);
     }
-            
-    Value importToModule(Module m);
     
     void fail(string s = "unspecified") { panic(location, "call to unimplemented method '" ~ s ~ "'."); }
         
@@ -119,12 +117,6 @@ class VoidValue : Value
         mType = new VoidType(mod);
     }
     
-    override Value importToModule(Module mod)
-    {
-        panic(location, "Attempted to import void value across modules.");
-        assert(false);
-    }
-    
     override void fail(string s)
     {
         error(location, "can't perform an action on variable of type 'void'.");
@@ -161,12 +153,6 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         this(mod, val.location);
         set(val);
-    }
-    
-    override Value importToModule(Module m)
-    {
-        panic(location, "tried to import primitive integer value across modules.");
-        assert(false);
     }
     
     override Value performCast(Type t)
@@ -302,7 +288,7 @@ class DoubleValue : Value
         return v;
     }
     
-    override Value importToModule(Module mod)
+    version (none) override Value importToModule(Module mod)
     {
         panic("attempted to import double value across modules.");
         assert(false);
@@ -427,12 +413,6 @@ class PointerValue : Value
         this.baseType = baseType;
         mType = new PointerType(mod, baseType);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
-    }
-    
-    override Value importToModule(Module mod)
-    {
-        panic("attempted to import pointer value across modules.");
-        assert(false);
     }
     
     override Value performCast(Type t)
@@ -576,13 +556,6 @@ class FunctionValue : Value
         return new FunctionValue(mModule, location, t, name, mangle(asFunctionType));
     }
     
-    override Value importToModule(Module m)
-    {
-        auto newType = cast(FunctionType) mType.importToModule(m);
-        assert(newType);
-        return new FunctionValue(m, location, newType, name);
-    }
-    
     override LLVMValueRef get()
     {
         return mValue;
@@ -642,13 +615,6 @@ class StructValue : Value
         mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
     }
     
-    override Value importToModule(Module m)
-    {
-        auto newType = cast(StructType) mType.importToModule(m);
-        assert(newType);
-        return new StructValue(m, location, newType);
-    }
-    
     override LLVMValueRef get()
     {
         return LLVMBuildLoad(mModule.builder, mValue, "struct");
@@ -701,11 +667,6 @@ class ScopeValue : Value
     {
         super(mod, location);
         this._scope = _scope;
-    }
-    
-    override Value importToModule(Module mod)
-    {
-        assert(false);
     }
     
     override Value getMember(string name)
