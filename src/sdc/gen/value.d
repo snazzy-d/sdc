@@ -159,7 +159,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     {
         auto v = t.getValue(location);
         if (isIntegerDType(t.dtype)) {
-            v.set(LLVMBuildIntCast(mModule.builder, get(), t.llvmType, "cast"));
+            if (mType.dtype < t.dtype) {
+                v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
+            } else if (mType.dtype > t.dtype) {
+                v.set(LLVMBuildTrunc(mModule.builder, get(), t.llvmType, "cast"));
+            } else {
+                v.set(get());
+            }
         } else if (isFPDtype(t.dtype)) {
             v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
         } else {
