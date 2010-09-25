@@ -148,17 +148,6 @@ class VoidType : Type
     }
 }
 
-version (none) class SimpleType(DType D, alias Fn) : Type
-{
-    this(Module mod)
-    {
-        super(mod);
-        dtype = D;
-        mType = Fn(mod.context);
-    }
-}
-        
-
 class BoolType : Type
 {
     this(Module mod)
