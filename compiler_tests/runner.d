@@ -46,22 +46,23 @@ bool test(string filename)
             return false;
         }
         auto set = split(words[1], ":");
-        if (set.length != 2) {
+        if (set.length == 0) {
             malformed();
             return false;
         }
         auto var = set[0].idup;
-        auto val = set[1].idup;
         
         switch (var) {
         case "compiles":
+            auto val = set[1].idup;
             expectedToCompile = getBool(val);
             break;
         case "retval":
+            auto val = set[1].idup;
             expectedRetval = getInt(val);
             break;
         default:
-            stderr.writeln("Bad variable '" ~ val ~ "'.");
+            stderr.writeln("Bad command '" ~ var ~ "'.");
             return false;
         }
     }
