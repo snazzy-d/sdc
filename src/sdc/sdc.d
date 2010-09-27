@@ -99,7 +99,7 @@ void realmain(string[] args)
         addTranslationUnit(name, translationUnit);
     }
     
-    auto extensionRegex = regex("d(i)?$", "i");
+    auto extensionRegex = regex(r"d(i)?$", "i");
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
         if (!compile) {
             continue;
