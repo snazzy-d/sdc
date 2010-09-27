@@ -31,6 +31,7 @@ enum TUSource
 
 class TranslationUnit
 {
+    TUSource tusource;
     ModuleState state;
     string filename;
     Source source;
