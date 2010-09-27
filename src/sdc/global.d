@@ -15,9 +15,17 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
 
+enum ModuleState
+{
+    Unhandled,
+    PendingResolution,
+    ReadyToBuild,
+    Complete,
+}
 
 class TranslationUnit
 {
+    ModuleState state;
     string filename;
     Source source;
     TokenStream tstream;
