@@ -23,7 +23,7 @@ enum ModuleState
     Complete,
 }
 
-enum Source
+enum TUSource
 {
     Import,
     Compilation,
