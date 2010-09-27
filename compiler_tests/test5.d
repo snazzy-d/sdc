@@ -4,7 +4,7 @@
 
 int main()
 {
-    return add(21, add(20, 1));
+    return add(21, add(19 + 1, 1));
 }
 
 int add(int a, int b)
