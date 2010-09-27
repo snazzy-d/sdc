@@ -23,6 +23,12 @@ enum ModuleState
     Complete,
 }
 
+enum Source
+{
+    Import,
+    Compilation,
+}
+
 class TranslationUnit
 {
     ModuleState state;
