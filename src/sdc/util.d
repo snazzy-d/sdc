@@ -22,8 +22,16 @@ void debugPrint(lazy string msg)
     debug writeln("DEBUG: ", msg);
 }
 
-enum Status
+enum Status : bool
 {
     Failure,
     Success,
+}
+
+unittest
+{
+    auto fail = Status.Failure;
+    auto success = Status.Success;
+    assert(!fail);
+    assert(success);
 }
