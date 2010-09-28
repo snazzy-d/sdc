@@ -21,3 +21,9 @@ void debugPrint(lazy string msg)
 {
     debug writeln("DEBUG: ", msg);
 }
+
+enum Status
+{
+    Failure,
+    Success,
+}
