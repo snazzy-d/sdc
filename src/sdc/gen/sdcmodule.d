@@ -125,7 +125,44 @@ class Module
     
     Store search(string name)
     {
-        return localSearch(name);
+        // "Look up the symbol in the current scope."
+        auto store = localSearch(name);
+        if (store !is null) {
+            // "If found, lookup ends successfully."
+            goto exit;
+        }
+        
+        // "Look up the symbol in the current module's scope."
+        store = globalScope.get(name);
+        if (store !is null) {
+            // "If found, lookup ends successfully."
+            goto exit;
+        }
+        
+        // "Look up the symbol in _all_ imported modules."
+        assert(store is null);
+        foreach (tu; importedTranslationUnits) {
+            auto tustore = tu.gModule.globalScope.get(name);
+            if (store is null) {
+                store = tustore;
+                continue;
+            }
+            /* "If found in more than one module, 
+             *  and the symbol is not the name of a function,
+             *  fail with 'duplicated symbol' error message."
+             */
+            if (store.storeType == StoreType.Value && store.value.type.dtype != DType.Function) {
+                error("duplicate symbol '" ~ name ~ "'.");
+            } else {
+                /* "...if the symbol is the name of a function,
+                 *  apply cross-module overload resolution."
+                 */
+                panic("no cross-module overload resolution!");
+             }            
+        }
+        
+    exit:
+        return store;
     }
     
     Store localSearch(string name)
@@ -141,7 +178,7 @@ class Module
                 return v;
             }
         }
-        return globalScope.get(name);
+        return null;
     }
     
     void pushPath(PathType type)
