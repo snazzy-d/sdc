@@ -91,6 +91,7 @@ void realmain(string[] args)
             throw new CompilerError();
         }
         auto translationUnit = new TranslationUnit();
+        translationUnit.tusource = TUSource.Compilation;
         translationUnit.filename = arg;
         translationUnit.source = new Source(arg);
         translationUnit.tstream = lex(translationUnit.source);

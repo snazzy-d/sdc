@@ -69,7 +69,6 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;

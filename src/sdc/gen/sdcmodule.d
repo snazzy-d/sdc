@@ -23,6 +23,8 @@ import sdc.gen.value;
 
 /**
  * Module encapsulates the code generated for a module.
+ * 
+ * Also, GOD OBJECT
  */ 
 class Module
 {
@@ -38,7 +40,8 @@ class Module
     Value base;
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
-    bool isAlias;
+    bool isAlias;  // ewwww
+    TranslationUnit[] importedTranslationUnits;
 
     this(ast.QualifiedName name)
     {
@@ -121,6 +124,11 @@ class Module
     }
     
     Store search(string name)
+    {
+        return localSearch(name);
+    }
+    
+    Store localSearch(string name)
     {
         /* This isn't just `foreach (localScope; retro(mScopeStack))`  
          * because of a bug manifested in std.range.retro.
