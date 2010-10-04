@@ -5,6 +5,7 @@
  */
 module sdc.gen.sdcmodule;
 
+import std.exception;
 import std.process;
 import std.stdio;
 import std.string;
@@ -15,7 +16,9 @@ import llvm.c.Core;
 import llvm.c.transforms.Scalar;
 
 import sdc.compilererror;
+import sdc.util;
 import sdc.global;
+import sdc.location;
 import sdc.extract.base;
 import sdc.gen.type;
 import sdc.gen.value;
@@ -143,10 +146,21 @@ class Module
         assert(store is null);
         foreach (tu; importedTranslationUnits) {
             auto tustore = tu.gModule.globalScope.get(name);
+            if (tustore is null) {
+                continue;
+            }
+            
+            if (tustore.storeType == StoreType.Value) {
+                tustore = new Store(tustore.value.importToModule(this));
+            } else if (tustore.storeType == StoreType.Type) {
+                tustore = new Store(tustore.type.importToModule(this));
+            }
+
             if (store is null) {
                 store = tustore;
                 continue;
             }
+
             /* "If found in more than one module, 
              *  and the symbol is not the name of a function,
              *  fail with 'duplicated symbol' error message."
@@ -158,7 +172,7 @@ class Module
                  *  apply cross-module overload resolution."
                  */
                 panic("no cross-module overload resolution!");
-             }            
+            }            
         }
         
     exit:
@@ -169,7 +183,9 @@ class Module
     {
         /* This isn't just `foreach (localScope; retro(mScopeStack))`  
          * because of a bug manifested in std.range.retro.
-         * WORKAROUND 2.048
+         * WORKAROUND 2.048-2.049
+         * Unfortunately, it has resisted being boiled down
+         * into a simple test case.
          */
         for (int i = mScopeStack.length - 1; i >= 0; i--) {
             auto localScope = mScopeStack[i];

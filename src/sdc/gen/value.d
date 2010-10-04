@@ -7,6 +7,7 @@ module sdc.gen.value;
 
 import std.algorithm;
 import std.conv;
+import std.exception;
 import std.string;
 
 import llvm.c.Core;
@@ -102,7 +103,11 @@ abstract class Value
     Value init(Location location) { fail("init"); assert(false); }
     Value getMember(string name) { fail("getMember"); assert(false); }
     Module getModule() { return mModule; }
-
+    
+    Value importToModule(Module mod)
+    {
+        return this;
+    }
     
     protected Module mModule;
     protected Type mType;
@@ -157,7 +162,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             if (mType.dtype < t.dtype) {
                 v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
@@ -283,7 +288,7 @@ class DoubleValue : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             v.set(LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
         } else if (isFPDtype(t.dtype)) {
@@ -423,7 +428,7 @@ class PointerValue : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (t.dtype == DType.Pointer) {
             v.set(LLVMBuildPointerCast(mModule.builder, get(), t.llvmType(), "pcast"));
         } else {
@@ -457,7 +462,7 @@ class PointerValue : Value
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-        auto v = baseType.getValue(location);
+        auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -468,7 +473,7 @@ class PointerValue : Value
         LLVMValueRef[] indices;
         indices ~= val.get();
         
-        auto v = baseType.getValue(location);
+        auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -594,7 +599,7 @@ class FunctionValue : Value
         Value val;
         if (functionType.returnType.dtype != DType.Void) {
             auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
-            val = functionType.returnType.getValue(location);
+            val = functionType.returnType.getValue(mModule, location);
             val.set(retval);
         } else {
             LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
@@ -607,6 +612,12 @@ class FunctionValue : Value
     {
         panic(location, "tried to get the init of a function value.");
         assert(false);
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        auto f = new FunctionValue(mod, location, enforce(cast(FunctionType) mType.importToModule(mod)), name, mangledName);
+        return f;
     }
 }
 
@@ -658,7 +669,7 @@ class StructValue : Value
         auto index = asStruct.memberPositions[name];
         indices ~= LLVMConstInt(t.llvmType, index, false);
         
-        auto i = asStruct.members[index].getValue(location);
+        auto i = asStruct.members[index].getValue(mModule, location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
     }

@@ -29,6 +29,7 @@ import std.c.stdlib;
 
 import llvm.c.Core;
 
+import sdc.util;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
@@ -102,10 +103,15 @@ void realmain(string[] args)
     
     auto extensionRegex = regex(r"d(i)?$", "i");
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
-        if (!compile) {
+        if (!compile || state == ModuleState.Complete) {
             continue;
         }
         gModule = genModule(aModule);
+        if (gModule is null) {
+            continue;   // WOAH BESSIE
+        } else {
+            state = ModuleState.Complete;
+        }
         gModule.verify();
         gModule.optimise();
         

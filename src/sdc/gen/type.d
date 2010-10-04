@@ -127,7 +127,12 @@ abstract class Type
         return this.mType == asType.mType;
     }
     
-    Value getValue(Location location);
+    Value getValue(Module mod, Location location);
+    
+    Type importToModule(Module mod)
+    {
+        return this;
+    }
     
     protected Module mModule;
     protected LLVMTypeRef mType;
@@ -142,9 +147,9 @@ class VoidType : Type
         mType = LLVMVoidTypeInContext(mod.context);
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
-        return new VoidValue(mModule, location);
+        return new VoidValue(mod, location);
     }
 }
 
@@ -157,7 +162,10 @@ class BoolType : Type
         mType = LLVMInt1TypeInContext(mod.context);
     }
     
-    override Value getValue(Location location) { return new BoolValue(mModule, location); }
+    override Value getValue(Module mod, Location location)
+    { 
+        return new BoolValue(mod, location);
+    }
 }
 
 class IntType : Type
@@ -169,7 +177,10 @@ class IntType : Type
         mType = LLVMInt32TypeInContext(mod.context);
     }
     
-    override Value getValue(Location location) { return new IntValue(mModule, location); }
+    override Value getValue(Module mod, Location location)
+    {
+        return new IntValue(mod, location);
+    }
 }
 
 class LongType : Type
@@ -181,7 +192,10 @@ class LongType : Type
         mType = LLVMInt64TypeInContext(mod.context);
     }
     
-    override Value getValue(Location location) { return new LongValue(mModule, location); }
+    override Value getValue(Module mod, Location location)
+    {
+        return new LongValue(mod, location);
+    }
 }
 
 class DoubleType : Type
@@ -193,9 +207,9 @@ class DoubleType : Type
         mType = LLVMDoubleTypeInContext(mod.context);
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
-        return new DoubleValue(mModule, location);
+        return new DoubleValue(mod, location);
     }
 }
 
@@ -209,16 +223,15 @@ class PointerType : Type
         this.base = base;
         dtype = DType.Pointer;
         if (base.dtype == DType.Void) {
-            // Handle void pointers special like.
             mType = LLVMPointerType(LLVMInt8TypeInContext(mod.context), 0);
         } else {
             mType = LLVMPointerType(base.llvmType, 0);
         }
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
-        return new PointerValue(mModule, location, base);
+        return new PointerValue(mod, location, base);
     }
 }
 
@@ -250,9 +263,9 @@ class ArrayType : Type
         mType = structTypePointer.llvmType;
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
-        return new ArrayValue(mModule, location, base);
+        return new ArrayValue(mod, location, base);
     }
 }
 
@@ -294,7 +307,10 @@ class FunctionType : Type
         mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, false);
     }
     
-    override Value getValue(Location location) { return null; }
+    override Value getValue(Module mod, Location location)
+    {
+        return null;
+    }
 }
 
 class StructType : Type
@@ -316,9 +332,9 @@ class StructType : Type
         mType = LLVMStructTypeInContext(mModule.context, types.ptr, types.length, false);
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
-        return new StructValue(mModule, location, this);
+        return new StructValue(mod, location, this);
     }
 
     void addMemberVar(string id, Type t)
@@ -331,6 +347,19 @@ class StructType : Type
     {
         memberFunctions[id] = f;
         mModule.globalScope.add(id, new Store(f));
+    }
+    
+    override Type importToModule(Module mod)
+    {
+        auto t = new StructType(mod);
+        foreach (name, index; memberPositions) {
+            t.addMemberVar(name, members[index].importToModule(mod));
+        }
+        foreach (name, func; memberFunctions) {
+            t.addMemberFunction(name, func.importToModule(mod));
+        }
+        t.declare();
+        return t;
     }
     
     Type[] members;
@@ -350,7 +379,7 @@ class InferredType : Type
         dtype = DType.Inferred;
     }
     
-    override Value getValue(Location location)
+    override Value getValue(Module mod, Location location)
     {
         panic(location, "attempted to call InferredType.getValue");
         assert(false);

@@ -46,8 +46,8 @@ Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
     genModuleAndPackages(mod);
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
-    return mod;
+    auto status = resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    return status ? mod : null;
 }
 
 void genModuleAndPackages(Module mod)
@@ -69,7 +69,7 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
     foreach (df; implicitDeclDefs) {
@@ -116,7 +116,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     finalPass = true;
                     continue;
                 }
-                assert(false, ":(");
+                return Status.Failure;
             }
         }
         oldStillToGo = stillToGo;
@@ -130,6 +130,8 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
+    
+    return Status.Success;
 }
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
@@ -145,16 +147,6 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         auto list = specifier.declarationBlock.declarationDefinitions.dup;
         foreach (e; list) {
             e.attributes ~= specifier.attribute;
-        }
-        return list;
-    case ast.DeclarationDefinitionType.ImportDeclaration:
-        auto list = genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
-        foreach (e; list) {
-            e.importedSymbol = true;
-            if (e.type == ast.DeclarationDefinitionType.ImportDeclaration) {
-                // TODO: don't do this for public imports.
-                e.buildStage = ast.BuildStage.DoneForever;
-            }
         }
         return list;
     default:
@@ -202,17 +194,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             declDef.buildStage = ast.BuildStage.Deferred;
         }
         break;
-    case ast.DeclarationDefinitionType.ImportDeclaration:
-        auto importDecl = cast(ast.ImportDeclaration) declDef.node;
-        assert(importDecl);
-        auto can = canGenImportDeclaration(importDecl, mod);
-        if (can) {
-            declDef.buildStage = ast.BuildStage.ReadyToExpand;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
-        }
-        break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        break;
+    case ast.DeclarationDefinitionType.ImportDeclaration:
+        declDef.buildStage = ast.BuildStage.Done;
+        genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
