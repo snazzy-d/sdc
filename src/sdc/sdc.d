@@ -110,7 +110,7 @@ void realmain(string[] args)
         }
         gModule = genModule(aModule);
         if (gModule is null) {
-            continue;   // WOAH BESSIE
+            panic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
         } else {
             state = ModuleState.Complete;
         }
