@@ -57,6 +57,7 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
+    bool justCompile;
     try {
         getopt(args,
                "help", () { usage(); exit(0); },
@@ -67,7 +68,8 @@ void realmain(string[] args)
                "debug-level", &debugLevel,
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; }
+               "unittest", () { unittestsEnabled = true; },
+               "c", &justCompile
                );
     } catch (Exception) {
         stderr.writeln("bad command line.");
@@ -118,16 +120,21 @@ void realmain(string[] args)
         assert(!match(filename, extensionRegex).empty);
         auto asBitcode  = replace(filename, extensionRegex, "bc");
         auto asAssembly = replace(filename, extensionRegex, "s");
+        auto asObject   = replace(filename, extensionRegex, "o");
         gModule.writeBitcodeToFile(asBitcode);
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-        assemblies ~= asAssembly;
+        auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
+        system(compileCommand);
+        assemblies ~= asObject;
     }
     
-    auto linkCommand = "gcc -o a.out ";
-    foreach (assembly; assemblies) {
-        linkCommand ~= assembly ~ " ";
+    if (!justCompile) {
+        auto linkCommand = "gcc -o a.out ";
+        foreach (assembly; assemblies) {
+            linkCommand ~= assembly ~ " ";
+        }
+        system(linkCommand);
     }
-    system(linkCommand);
 }
 
 void addImplicitImports()
@@ -147,4 +154,5 @@ void usage()
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off)."); 
+    writeln("  -c:                    just compile, don't link.");
 }
