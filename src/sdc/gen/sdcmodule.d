@@ -45,6 +45,7 @@ class Module
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;  // ewwww
     TranslationUnit[] importedTranslationUnits;
+    bool[string] versionIdentifiers;
 
     this(ast.QualifiedName name)
     {
