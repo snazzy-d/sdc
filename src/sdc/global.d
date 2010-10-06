@@ -47,10 +47,14 @@ shared int debugLevel;
 shared bool unittestsEnabled;
 __gshared ast.DeclarationDefinition[] implicitDeclDefs;
 
+bool isReserved(string s)
+{
+    return s in reservedVersionIdentifiers || (s.length >= 2 && s[0 .. 2] == "D_");
+}
 
 void setVersion(string s)
 {
-    if (s in reservedVersionIdentifiers || (s.length >= 2 && s[0 .. 2] == "D_")) {
+    if (isReserved(s)) {
         error(format("cannot specify reserved version identifier '%s'.", s));
     }
     if (s in versionIdentifiers) {
