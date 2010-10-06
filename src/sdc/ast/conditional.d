@@ -9,12 +9,12 @@ import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.sdcmodule;
 import sdc.ast.statement;
+import sdc.ast.attribute;
 
 
 enum ConditionalDeclarationType
 {
     Block,
-    AlwaysOn,
     VersionSpecification,
     DebugSpecification,
 }
@@ -22,9 +22,9 @@ enum ConditionalDeclarationType
 class ConditionalDeclaration : Node
 {
     ConditionalDeclarationType type;
-    Condition condition;  // Optional.
-    DeclarationDefinition[] thenBlock;  // Optional.
-    DeclarationDefinition[] elseBlock;  // Optional.
+    Condition condition;
+    DeclarationBlock thenBlock;  // Optional.
+    DeclarationBlock elseBlock;  // Optional.
     Node specification;  // Optional.
 }
 

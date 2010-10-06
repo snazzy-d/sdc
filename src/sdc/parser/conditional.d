@@ -14,6 +14,7 @@ import sdc.ast.sdcmodule;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
+import sdc.parser.attribute;
 
 
 ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
@@ -60,32 +61,13 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
     
     
     decl.condition = parseCondition(tstream);
-    if (tstream.peek.type == TokenType.Colon) {
-        match(tstream, TokenType.Colon);
-        decl.type = ConditionalDeclarationType.AlwaysOn;
-        return decl;
-    }
-    decl.thenBlock = parseDeclarationDefinitionBlock(tstream);
+    decl.thenBlock = parseDeclarationBlock(tstream);
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        decl.elseBlock = parseDeclarationDefinitionBlock(tstream);
+        decl.elseBlock = parseDeclarationBlock(tstream);
     }
+    
     return decl;
-}
-
-DeclarationDefinition[] parseDeclarationDefinitionBlock(TokenStream tstream)
-{
-    DeclarationDefinition[] block;
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        match(tstream, TokenType.OpenBrace);
-        while (tstream.peek.type != TokenType.CloseBrace) {
-            block ~= parseDeclarationDefinition(tstream);
-        }
-        match(tstream, TokenType.CloseBrace);
-    } else {
-        block ~= parseDeclarationDefinition(tstream);
-    }
-    return block;
 }
 
 ConditionalStatement parseConditionalStatement(TokenStream tstream)

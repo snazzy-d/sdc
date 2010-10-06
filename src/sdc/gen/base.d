@@ -241,17 +241,14 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
     case ast.ConditionalDeclarationType.Block:
         bool cond = genCondition(decl.condition, mod);
         if (cond) {
-            foreach (declDef; decl.thenBlock) {
+            foreach (declDef; decl.thenBlock.declarationDefinitions) {
                 newTopLevels ~= declDef;
             }
         } else if (decl.elseBlock !is null) {
-            foreach (declDef; decl.elseBlock) {
+            foreach (declDef; decl.elseBlock.declarationDefinitions) {
                 newTopLevels ~= declDef;
             }
         }
-        break;
-    case ast.ConditionalDeclarationType.AlwaysOn:
-        mod.currentScope.topLevelBail = !genCondition(decl.condition, mod);
         break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
         auto spec = cast(ast.VersionSpecification) decl.specification;
