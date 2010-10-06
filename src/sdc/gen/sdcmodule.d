@@ -224,6 +224,29 @@ class Module
         return mScopeStack.length;
     }
     
+    /**
+     * Set a given version identifier for this module.
+     */
+    void setVersion(Location loc, string s)
+    {
+        if (isReserved(s)) {
+            error(loc, format("can't set reserved version identifier '%s'.", s));
+        }
+        if (s in versionIdentifiers) {
+            error(loc, format("version identifier '%s' is already set.", s));
+        }
+        versionIdentifiers[s] = true;
+    }
+    
+    bool isVersionSet(string s)
+    {
+        auto result = isVersionIdentifierSet(s);
+        if (!result) {
+            result = (s in versionIdentifiers) !is null;
+        }
+        return result;
+    }
+    
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
 }
