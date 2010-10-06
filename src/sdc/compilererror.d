@@ -31,6 +31,11 @@ void error(Location loc, string message)
     throw new CompilerError();
 }
 
+void errorMessageOnly(Location loc, string message)
+{
+    stderr.writeln(format("%s: error: %s", loc, message));
+}
+
 void warning(Location loc, string message)
 {
     stderr.writeln(format("%s: warning: %s", loc, message));
