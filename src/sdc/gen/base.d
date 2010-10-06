@@ -7,6 +7,7 @@ module sdc.gen.base;
 
 import std.array;
 import std.conv;
+import std.exception;
 import std.string;
 
 import sdc.compilererror;
@@ -72,14 +73,15 @@ void genModuleAndPackages(Module mod)
 Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
-    foreach (df; implicitDeclDefs) {
-        resolutionList ~= df;
-    }
     int stillToGo, oldStillToGo = -1;
     foreach (d; resolutionList) {
         d.parentName = mod.name;
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
+    }
+    genConditionals(resolutionList, mod);
+    foreach (df; implicitDeclDefs) {
+        resolutionList ~= df;
     }
     bool finalPass;
     do {
@@ -194,8 +196,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             declDef.buildStage = ast.BuildStage.Deferred;
         }
         break;
-    case ast.DeclarationDefinitionType.ConditionalDeclaration:
-        break;
     case ast.DeclarationDefinitionType.ImportDeclaration:
         declDef.buildStage = ast.BuildStage.Done;
         genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
@@ -222,20 +222,41 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     }
 }
 
-void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)
+/**
+ * Go through the module's declarations and find all version/debug
+ * specifications.
+ */
+void genConditionalSpecifications(ast.DeclarationDefinition[] declDefs, Module mod)
 {
     foreach (declDef; declDefs) {
         if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration) {
             continue;
         }
-        newDeclDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
+        auto asConditional = enforce(cast(ast.ConditionalDeclaration) declDef.node);
+        if (asConditional.type == ast.ConditionalDeclarationType.Block) {
+            continue;
+        }
+        auto emptyList = genConditionalDeclaration(asConditional, mod);
+        assert(emptyList.length == 0);
+        declDef.buildStage = ast.BuildStage.Done;
     }
 }
 
+void genConditionals(ref ast.DeclarationDefinition[] declDefs, Module mod)
+{
+    genConditionalSpecifications(declDefs, mod);
+    foreach (declDef; declDefs) {
+        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration ||
+            declDef.buildStage != ast.BuildStage.Unhandled) {
+            continue;
+        }
+        declDef.buildStage = ast.BuildStage.Done;
+        declDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
+    }
+}
 
 ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
 {
-    if (mod.currentScope.topLevelBail) return null;
     ast.DeclarationDefinition[] newTopLevels;
     final switch (decl.type) {
     case ast.ConditionalDeclarationType.Block:
@@ -257,7 +278,8 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
             if (hasVersionIdentifierBeenTested(ident)) {
                 error(spec.location, format("specification of '%s' after use is not allowed.", ident));
             }
-            setVersion(ident);
+            
+            mod.setVersion(decl.location, ident);
         } else {
             auto n = extractIntegerLiteral(cast(ast.IntegerLiteral) spec.node);
             versionLevel = n;
@@ -291,7 +313,7 @@ bool genVersionCondition(ast.VersionCondition condition, Module mod)
         return versionLevel >= i;
     case ast.VersionConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
-        return isVersionIdentifierSet(ident);
+        return mod.isVersionSet(ident);
     case ast.VersionConditionType.Unittest:
         return unittestsEnabled;
     }
