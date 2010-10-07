@@ -167,8 +167,6 @@ void usage()
     writeln("  --version:             print version information to stdout.");
     writeln("  --version-identifier:  specify the given version identifier.");
     writeln("  --debug-identifier:    specify the given debug identifier.");
-    writeln("  --version-level:       set the version level to the given integer.");
-    writeln("  --debug-level:         set the debug level to the given integer.");
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off)."); 
