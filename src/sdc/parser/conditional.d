@@ -33,26 +33,17 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
             decl.type = ConditionalDeclarationType.DebugSpecification;
         } else assert(false);
         match(tstream, TokenType.Assign);
-        Node payload;
-        SpecificationType type;
-        if (tstream.peek.type == TokenType.Identifier) {
-            type = SpecificationType.Identifier;
-            payload = parseIdentifier(tstream);
-        } else {
-            type = SpecificationType.Integer;
-            payload = parseIntegerLiteral(tstream);
-        }
+        
+        auto payload = parseIdentifier(tstream);
         if (decl.type == ConditionalDeclarationType.VersionSpecification) {
             auto spec = new VersionSpecification();
             spec.location = decl.location;
             spec.node = payload;
-            spec.type = type;
             decl.specification = spec;
         } else {
             auto spec = new DebugSpecification();
             spec.location = decl.location;
             spec.node = payload;
-            spec.type = type;
             decl.specification = spec;
         }
         match(tstream, TokenType.Semicolon);
@@ -117,8 +108,7 @@ VersionCondition parseVersionCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        condition.type = VersionConditionType.Integer;
-        condition.integer = parseIntegerLiteral(tstream);
+        error(tstream.peek.location, "integer versions are unsupported.");
         break;
     case TokenType.Identifier:
         condition.type = VersionConditionType.Identifier;
@@ -147,8 +137,7 @@ DebugCondition parseDebugCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        condition.type = DebugConditionType.Integer;
-        condition.integer = parseIntegerLiteral(tstream);
+        error(tstream.peek.location, "integer debug levels are unsupported.");
         break;
     case TokenType.Identifier:
         condition.type = DebugConditionType.Identifier;

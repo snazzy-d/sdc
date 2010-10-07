@@ -45,7 +45,6 @@ class Module
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     bool isAlias;  // ewwww
     TranslationUnit[] importedTranslationUnits;
-    bool[string] versionIdentifiers;
 
     this(ast.QualifiedName name)
     {
@@ -232,23 +231,31 @@ class Module
         if (isReserved(s)) {
             error(loc, format("can't set reserved version identifier '%s'.", s));
         }
-        if (s in versionIdentifiers) {
+        if (s in mVersionIdentifiers) {
             error(loc, format("version identifier '%s' is already set.", s));
         }
-        versionIdentifiers[s] = true;
+        mVersionIdentifiers[s] = true;
     }
     
     bool isVersionSet(string s)
     {
+        mTestedVersionIdentifiers[s] = true;
         auto result = isVersionIdentifierSet(s);
         if (!result) {
-            result = (s in versionIdentifiers) !is null;
+            result = (s in mVersionIdentifiers) !is null;
         }
         return result;
     }
     
+    bool hasVersionBeenTested(string s)
+    {
+        return (s in mTestedVersionIdentifiers) !is null;
+    }
+    
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
+    protected bool[string] mVersionIdentifiers;
+    protected bool[string] mTestedVersionIdentifiers;
 }
 
 enum StoreType

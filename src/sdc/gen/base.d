@@ -222,29 +222,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     }
 }
 
-/**
- * Go through the module's declarations and find all version/debug
- * specifications.
- */
-void genConditionalSpecifications(ast.DeclarationDefinition[] declDefs, Module mod)
-{
-    foreach (declDef; declDefs) {
-        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration) {
-            continue;
-        }
-        auto asConditional = enforce(cast(ast.ConditionalDeclaration) declDef.node);
-        if (asConditional.type == ast.ConditionalDeclarationType.Block) {
-            continue;
-        }
-        auto emptyList = genConditionalDeclaration(asConditional, mod);
-        assert(emptyList.length == 0);
-        declDef.buildStage = ast.BuildStage.Done;
-    }
-}
 
 void genConditionals(ref ast.DeclarationDefinition[] declDefs, Module mod)
 {
-    genConditionalSpecifications(declDefs, mod);
     foreach (declDef; declDefs) {
         if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration ||
             declDef.buildStage != ast.BuildStage.Unhandled) {
@@ -273,17 +253,12 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
         auto spec = cast(ast.VersionSpecification) decl.specification;
-        if (spec.type == ast.SpecificationType.Identifier) {
-            auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
-            if (hasVersionIdentifierBeenTested(ident)) {
-                error(spec.location, format("specification of '%s' after use is not allowed.", ident));
-            }
-            
-            mod.setVersion(decl.location, ident);
-        } else {
-            auto n = extractIntegerLiteral(cast(ast.IntegerLiteral) spec.node);
-            versionLevel = n;
+        auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
+        if (mod.hasVersionBeenTested(ident)) {
+            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
         }
+        
+        mod.setVersion(decl.location, ident);
         break;
     case ast.ConditionalDeclarationType.DebugSpecification:
         auto spec = cast(ast.DebugSpecification) decl.specification;
@@ -308,9 +283,6 @@ bool genCondition(ast.Condition condition, Module mod)
 bool genVersionCondition(ast.VersionCondition condition, Module mod)
 {
     final switch (condition.type) {
-    case ast.VersionConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return versionLevel >= i;
     case ast.VersionConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
         return mod.isVersionSet(ident);
@@ -324,9 +296,6 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
     final switch (condition.type) {
     case ast.DebugConditionType.Simple:
         return isDebug;
-    case ast.DebugConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return debugLevel >= i;
     case ast.DebugConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
         return isDebugIdentifierSet(ident);

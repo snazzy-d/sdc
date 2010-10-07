@@ -50,7 +50,6 @@ class Condition : Node
 
 enum VersionConditionType
 {
-    Integer,
     Identifier,
     Unittest
 }
@@ -58,27 +57,18 @@ enum VersionConditionType
 class VersionCondition : Node
 {
     VersionConditionType type;
-    IntegerLiteral integer;  // Optional.
     Identifier identifier;  // Optional.
-}
-
-enum SpecificationType
-{
-    Identifier,
-    Integer
 }
 
 // version = foo
 class VersionSpecification : Node
 {
-    SpecificationType type;
     Node node;
 }
 
 enum DebugConditionType
 {
     Simple,
-    Integer,
     Identifier
 }
 
@@ -92,7 +82,6 @@ class DebugCondition : Node
 // debug = foo
 class DebugSpecification : Node
 {
-    SpecificationType type;
     Node node;
 }
 
