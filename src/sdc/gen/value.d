@@ -409,8 +409,11 @@ class ArrayValue : PointerValue
         auto l = new LongValue(mModule, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
         auto ll = [l];
-        auto memory = gcMalloc.call(ll);
-        return memory.performCast(asArray.structTypePointer);
+        panic(location, "arrays are unimplemented.");
+        assert(false);
+        // Allocate memory here,
+        // then cast to asArray.structTypePointer.
+        // return that.
     }
 }
 
@@ -519,9 +522,6 @@ class FunctionValue : Value
             }
         } else {
             mangledName = name;
-        }
-        if (mangledName == "_D10sdcruntime2gc8gcMallocFlZPv") {
-            gcMalloc = this;
         }
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
     }
