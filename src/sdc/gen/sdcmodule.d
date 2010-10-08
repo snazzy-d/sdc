@@ -5,6 +5,7 @@
  */
 module sdc.gen.sdcmodule;
 
+import std.conv;
 import std.exception;
 import std.process;
 import std.stdio;
@@ -231,7 +232,7 @@ class Module
         if (isReserved(s)) {
             error(loc, format("can't set reserved version identifier '%s'.", s));
         }
-        if (s in mVersionIdentifiers) {
+        if (s in mVersionIdentifiers || isVersionIdentifierSet(s)) {
             error(loc, format("version identifier '%s' is already set.", s));
         }
         mVersionIdentifiers[s] = true;
@@ -239,7 +240,7 @@ class Module
     
     void setDebug(Location loc, string s)
     {
-        if (s in mDebugIdentifiers) {
+        if (s in mDebugIdentifiers || isDebugIdentifierSet(s)) {
             error(loc, format("debug identifier '%s' is already set.", s));
         }
         mDebugIdentifiers[s] = true;

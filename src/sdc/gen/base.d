@@ -257,12 +257,15 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         if (mod.hasVersionBeenTested(ident)) {
             error(spec.location, format("specification of '%s' after use is not allowed.", ident));
         }
-        
         mod.setVersion(decl.location, ident);
         break;
     case ast.ConditionalDeclarationType.DebugSpecification:
         auto spec = cast(ast.DebugSpecification) decl.specification;
-        panic(spec.location, "debug specifications are not implemented.");
+        auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
+        if (mod.hasDebugBeenTested(ident)) {
+            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
+        }
+        mod.setDebug(decl.location, ident);
         break;
     }
     return newTopLevels;
@@ -298,7 +301,7 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
         return isDebug;
     case ast.DebugConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
-        return isDebugIdentifierSet(ident);
+        return mod.isDebugSet(ident);
     }
 }
 

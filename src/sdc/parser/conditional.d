@@ -144,7 +144,7 @@ DebugCondition parseDebugCondition(TokenStream tstream)
         condition.identifier = parseIdentifier(tstream);
         break;
     default:
-        error(tstream.peek.location, "expected identifier or integer literal as debug condition.");
+        error(tstream.peek.location, "expected identifier as debug condition.");
     }
     match(tstream, TokenType.CloseParen);
     return condition;
