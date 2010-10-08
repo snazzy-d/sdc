@@ -237,6 +237,14 @@ class Module
         mVersionIdentifiers[s] = true;
     }
     
+    void setDebug(Location loc, string s)
+    {
+        if (s in mDebugIdentifiers) {
+            error(loc, format("debug identifier '%s' is already set.", s));
+        }
+        mDebugIdentifiers[s] = true;
+    }
+    
     bool isVersionSet(string s)
     {
         mTestedVersionIdentifiers[s] = true;
@@ -247,15 +255,32 @@ class Module
         return result;
     }
     
+    bool isDebugSet(string s)
+    {
+        mTestedDebugIdentifiers[s] = true;
+        auto result = isDebugIdentifierSet(s);
+        if (!result) {
+            result = (s in mDebugIdentifiers) !is null;
+        }
+        return result;
+    }
+    
     bool hasVersionBeenTested(string s)
     {
         return (s in mTestedVersionIdentifiers) !is null;
+    }
+    
+    bool hasDebugBeenTested(string s)
+    {
+        return (s in mTestedDebugIdentifiers) !is null;
     }
     
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
     protected bool[string] mVersionIdentifiers;
     protected bool[string] mTestedVersionIdentifiers;
+    protected bool[string] mDebugIdentifiers;
+    protected bool[string] mTestedDebugIdentifiers;
 }
 
 enum StoreType
