@@ -750,7 +750,7 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
     case ast.PrimitiveTypeType.Double:
         return new DoubleType(mod);
     default:
-        panic(type.location, "unhandled primitive type type.");
+        panic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
     
     assert(false);
