@@ -67,7 +67,14 @@ bool test(string filename)
         }
     }
     
-    auto command = "../sdc.bin " ~ filename;
+    version(Windows) // Put SDC in your PATH
+    {
+		auto command = `sdc "` ~ filename ~ `"`;
+	}
+	else // Leaving this decision to the Unix crowd
+	{
+		auto command = `../sdc.bin "` ~ filename ~ `"`;
+	}
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
         stderr.writeln("Program expected to compile did not.");
