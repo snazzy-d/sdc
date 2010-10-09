@@ -7,6 +7,7 @@ module sdc.gen.base;
 
 import std.array;
 import std.conv;
+import std.exception;
 import std.string;
 
 import sdc.compilererror;
@@ -46,8 +47,8 @@ Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
     genModuleAndPackages(mod);
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
-    return mod;
+    auto status = resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    return status ? mod : null;
 }
 
 void genModuleAndPackages(Module mod)
@@ -69,17 +70,18 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
-    foreach (df; implicitDeclDefs) {
-        resolutionList ~= df;
-    }
     int stillToGo, oldStillToGo = -1;
     foreach (d; resolutionList) {
         d.parentName = mod.name;
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
+    }
+    genConditionals(resolutionList, mod);
+    foreach (df; implicitDeclDefs) {
+        resolutionList ~= df;
     }
     bool finalPass;
     do {
@@ -116,7 +118,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     finalPass = true;
                     continue;
                 }
-                assert(false, ":(");
+                return Status.Failure;
             }
         }
         oldStillToGo = stillToGo;
@@ -130,6 +132,8 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
+    
+    return Status.Success;
 }
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
@@ -145,16 +149,6 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         auto list = specifier.declarationBlock.declarationDefinitions.dup;
         foreach (e; list) {
             e.attributes ~= specifier.attribute;
-        }
-        return list;
-    case ast.DeclarationDefinitionType.ImportDeclaration:
-        auto list = genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
-        foreach (e; list) {
-            e.importedSymbol = true;
-            if (e.type == ast.DeclarationDefinitionType.ImportDeclaration) {
-                // TODO: don't do this for public imports.
-                e.buildStage = ast.BuildStage.DoneForever;
-            }
         }
         return list;
     default:
@@ -178,7 +172,23 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         case ExternD:
             mod.currentLinkage = ast.Linkage.ExternD;
             break;
+        case Private:
+            mod.currentAccess = ast.Access.Private;
+            break;
+        case Protected:
+            mod.currentAccess = ast.Access.Protected;
+            break;
+        case Package:
+            mod.currentAccess = ast.Access.Package;
+            break;
+        case Export:
+            mod.currentAccess = ast.Access.Export;
+            break;
+        case Public:
+            mod.currentAccess = ast.Access.Public;
+            break;
         default:
+            panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
             break;
         }
     }
@@ -203,16 +213,8 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         }
         break;
     case ast.DeclarationDefinitionType.ImportDeclaration:
-        auto importDecl = cast(ast.ImportDeclaration) declDef.node;
-        assert(importDecl);
-        auto can = canGenImportDeclaration(importDecl, mod);
-        if (can) {
-            declDef.buildStage = ast.BuildStage.ReadyToExpand;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
-        }
-        break;
-    case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        declDef.buildStage = ast.BuildStage.Done;
+        genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
@@ -236,53 +238,50 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     }
 }
 
-void versionConditionalsPass(ast.DeclarationDefinition[] declDefs, Module mod, ref ast.DeclarationDefinition[] newDeclDefs)
+
+void genConditionals(ref ast.DeclarationDefinition[] declDefs, Module mod)
 {
     foreach (declDef; declDefs) {
-        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration) {
+        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration ||
+            declDef.buildStage != ast.BuildStage.Unhandled) {
             continue;
         }
-        newDeclDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        declDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
     }
 }
 
-
 ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
 {
-    if (mod.currentScope.topLevelBail) return null;
     ast.DeclarationDefinition[] newTopLevels;
     final switch (decl.type) {
     case ast.ConditionalDeclarationType.Block:
         bool cond = genCondition(decl.condition, mod);
         if (cond) {
-            foreach (declDef; decl.thenBlock) {
+            foreach (declDef; decl.thenBlock.declarationDefinitions) {
                 newTopLevels ~= declDef;
             }
         } else if (decl.elseBlock !is null) {
-            foreach (declDef; decl.elseBlock) {
+            foreach (declDef; decl.elseBlock.declarationDefinitions) {
                 newTopLevels ~= declDef;
             }
         }
         break;
-    case ast.ConditionalDeclarationType.AlwaysOn:
-        mod.currentScope.topLevelBail = !genCondition(decl.condition, mod);
-        break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
         auto spec = cast(ast.VersionSpecification) decl.specification;
-        if (spec.type == ast.SpecificationType.Identifier) {
-            auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
-            if (hasVersionIdentifierBeenTested(ident)) {
-                error(spec.location, format("specification of '%s' after use is not allowed.", ident));
-            }
-            setVersion(ident);
-        } else {
-            auto n = extractIntegerLiteral(cast(ast.IntegerLiteral) spec.node);
-            versionLevel = n;
+        auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
+        if (mod.hasVersionBeenTested(ident)) {
+            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
         }
+        mod.setVersion(decl.location, ident);
         break;
     case ast.ConditionalDeclarationType.DebugSpecification:
         auto spec = cast(ast.DebugSpecification) decl.specification;
-        panic(spec.location, "debug specifications are not implemented.");
+        auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
+        if (mod.hasDebugBeenTested(ident)) {
+            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
+        }
+        mod.setDebug(decl.location, ident);
         break;
     }
     return newTopLevels;
@@ -303,12 +302,9 @@ bool genCondition(ast.Condition condition, Module mod)
 bool genVersionCondition(ast.VersionCondition condition, Module mod)
 {
     final switch (condition.type) {
-    case ast.VersionConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return versionLevel >= i;
     case ast.VersionConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
-        return isVersionIdentifierSet(ident);
+        return mod.isVersionSet(ident);
     case ast.VersionConditionType.Unittest:
         return unittestsEnabled;
     }
@@ -319,12 +315,9 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
     final switch (condition.type) {
     case ast.DebugConditionType.Simple:
         return isDebug;
-    case ast.DebugConditionType.Integer:
-        auto i = extractIntegerLiteral(condition.integer);
-        return debugLevel >= i;
     case ast.DebugConditionType.Identifier:
         auto ident = extractIdentifier(condition.identifier);
-        return isDebugIdentifierSet(ident);
+        return mod.isDebugSet(ident);
     }
 }
 

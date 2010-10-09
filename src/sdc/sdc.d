@@ -29,6 +29,7 @@ import std.c.stdlib;
 
 import llvm.c.Core;
 
+import sdc.util;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.lexer;
@@ -56,17 +57,17 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
+    bool justCompile;
     try {
         getopt(args,
-               "help", () { usage(); exit(0); },
-               "version", () { stdout.writeln(VERSION_STRING); exit(0); },
+               "help|h", () { usage(); exit(0); },
+               "version|v", () { stdout.writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
-               "version-level", &versionLevel,
-               "debug-level", &debugLevel,
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; }
+               "unittest", () { unittestsEnabled = true; },
+               "c", &justCompile
                );
     } catch (Exception) {
         stderr.writeln("bad command line.");
@@ -101,35 +102,65 @@ void realmain(string[] args)
     }
     
     auto extensionRegex = regex(r"d(i)?$", "i");
-    foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
-        if (!compile) {
-            continue;
+    int moduleCompilationFailures, oldModuleCompilationFailures = -1;
+    bool lastPass;
+    while (true) {
+        moduleCompilationFailures = 0;
+        foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+            if (!compile || state == ModuleState.Complete) {
+                continue;
+            }
+            gModule = genModule(aModule);
+            if (gModule is null) {
+                moduleCompilationFailures++;
+                continue;
+            } else {
+                state = ModuleState.Complete;
+            }
+            gModule.verify();
+            gModule.optimise();
+            
+            assert(!match(filename, extensionRegex).empty);
+            auto asBitcode  = replace(filename, extensionRegex, "bc");
+            auto asAssembly = replace(filename, extensionRegex, "s");
+            auto asObject   = replace(filename, extensionRegex, "o");
+            gModule.writeBitcodeToFile(asBitcode);
+            gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
+            auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
+            system(compileCommand);
+            assemblies ~= asObject;
         }
-        gModule = genModule(aModule);
-        gModule.verify();
-        gModule.optimise();
         
-        assert(!match(filename, extensionRegex).empty);
-        auto asBitcode  = replace(filename, extensionRegex, "bc");
-        auto asAssembly = replace(filename, extensionRegex, "s");
-        gModule.writeBitcodeToFile(asBitcode);
-        gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-        assemblies ~= asAssembly;
+        if (moduleCompilationFailures == 0) {
+            break;
+        } else if (oldModuleCompilationFailures == moduleCompilationFailures) {
+            if (lastPass) {
+                panic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
+            } else {
+                lastPass = true;
+            }
+        } else {
+            lastPass = false;
+            oldModuleCompilationFailures = moduleCompilationFailures;
+        }
     }
     
-    version(Windows)
-    {
-		auto linkCommand = "gcc -o a.exe ";
-    }
-    else
-    {
-		auto linkCommand = "gcc -o a.out ";
-	}
+	if(!justCompile)
+	{
+		version(Windows)
+		{
+			auto linkCommand = "gcc -o a.exe ";
+		}
+		else
+		{
+			auto linkCommand = "gcc -o a.out ";
+		}
 	
-    foreach (assembly; assemblies) {
-        linkCommand ~= `"` ~ assembly ~ `" `;
+		foreach (assembly; assemblies) {
+			linkCommand ~= `"` ~ assembly ~ `" `;
+        }
+        system(linkCommand);
     }
-    system(linkCommand);
 }
 
 void addImplicitImports()
@@ -140,13 +171,12 @@ void addImplicitImports()
 void usage()
 {
     writeln("sdc [options] modules");
-    writeln("  --help:                print this message.");
-    writeln("  --version:             print version information to stdout.");
+    writeln("  --help|-h:             print this message.");
+    writeln("  --version|-v:          print version information to stdout.");
     writeln("  --version-identifier:  specify the given version identifier.");
     writeln("  --debug-identifier:    specify the given debug identifier.");
-    writeln("  --version-level:       set the version level to the given integer.");
-    writeln("  --debug-level:         set the debug level to the given integer.");
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off)."); 
+    writeln("  -c:                    just compile, don't link.");
 }

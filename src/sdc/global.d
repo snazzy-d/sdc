@@ -41,16 +41,18 @@ class TranslationUnit
     bool compile = true;
 }
 
-shared int versionLevel;
 shared bool isDebug;
-shared int debugLevel;
 shared bool unittestsEnabled;
 __gshared ast.DeclarationDefinition[] implicitDeclDefs;
 
+bool isReserved(string s)
+{
+    return s in reservedVersionIdentifiers || (s.length >= 2 && s[0 .. 2] == "D_");
+}
 
 void setVersion(string s)
 {
-    if (s in reservedVersionIdentifiers || (s.length >= 2 && s[0 .. 2] == "D_")) {
+    if (isReserved(s)) {
         error(format("cannot specify reserved version identifier '%s'.", s));
     }
     if (s in versionIdentifiers) {
@@ -75,13 +77,7 @@ void setDebug(string s)
 
 bool isVersionIdentifierSet(string s)
 {
-    testedVersionIdentifiers[s] = true;
     return (s in versionIdentifiers) !is null;
-}
-
-bool hasVersionIdentifierBeenTested(string s)
-{
-    return (s in testedVersionIdentifiers) !is null;
 }
 
 bool isDebugIdentifierSet(string s)
@@ -115,8 +111,5 @@ static this()
 
 private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
-private shared bool[string] testedVersionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
-
-FunctionValue gcMalloc;

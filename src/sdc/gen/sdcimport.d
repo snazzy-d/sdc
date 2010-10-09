@@ -41,17 +41,17 @@ ast.ImportDeclaration synthesiseImport(string modname)
     }
 } 
 
-ast.DeclarationDefinition[] genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
+void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
     return genImportList(importDeclaration.importList, mod);
 }
 
-ast.DeclarationDefinition[] genImportList(ast.ImportList importList, Module mod)
+void genImportList(ast.ImportList importList, Module mod)
 {
     final switch (importList.type) {
     case ast.ImportListType.SingleSimple:
         foreach (imp; importList.imports) {
-            return genImport(imp, mod);
+            genImport(imp, mod);
         }
         break;
     case ast.ImportListType.SingleBinder:
@@ -61,29 +61,25 @@ ast.DeclarationDefinition[] genImportList(ast.ImportList importList, Module mod)
         panic(importList.location, "TODO: multiple import list.");
         break;
     }
-    assert(false);
 }
 
-ast.DeclarationDefinition[] genImportBinder(ast.ImportBinder importBinder, Module mod)
+void genImportBinder(ast.ImportBinder importBinder, Module mod)
 {
-    return null;
 }
 
-ast.DeclarationDefinition[] genImportBind(ast.ImportBind importBind, Module mod)
+void genImportBind(ast.ImportBind importBind, Module mod)
 {
-    return null;
 }
 
-ast.DeclarationDefinition[] genImport(ast.Import theImport, Module mod)
+void genImport(ast.Import theImport, Module mod)
 {
     auto name = extractQualifiedName(theImport.moduleName);
     auto tu = getTranslationUnit(name);
     if (tu is null) {
         panic(theImport.moduleName.location, "TODO: Search through import paths for module.");
     }
-    auto list = tu.aModule.declarationDefinitions.dup;
-    foreach (e; list) {
-        e.parentName = theImport.moduleName;
+    if (mod.importedTranslationUnits.contains(tu)) {
+        return;
     }
-    return list;
+    mod.importedTranslationUnits ~= tu;
 }

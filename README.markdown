@@ -47,7 +47,7 @@ Parser
 
 Codegen
 -------
-* Import symbols from other modules.  _[no.]_
+* Import symbols from other modules.  __[yes.]__
 * Apply attributes.  _[partially.]_
 * Enums.  _[no.]_
 * Structs.  _[partially.]_
@@ -135,9 +135,23 @@ Nothing practical. What follows is the a program featuring the most complex feat
         exit(add(p.age, i + 1));
         return 1;  // Never reached.
     }
-    
+
+Roadmap
+=======
+This just me thinking outloud about what features I want, when.
+
+1.0
+---
+* druntime compatibility
+* phobos compatibility
+
+2.0
+---
+* dmd calling convention compatibility
+* inline assembler
+
 Windows
--------
+=======
 The following are required for LLVM to function on Windows:
 
 * [LLVM](http://llvm.org/) => 2.7

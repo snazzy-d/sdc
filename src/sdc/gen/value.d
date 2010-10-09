@@ -7,6 +7,7 @@ module sdc.gen.value;
 
 import std.algorithm;
 import std.conv;
+import std.exception;
 import std.string;
 
 import llvm.c.Core;
@@ -20,17 +21,20 @@ import sdc.global;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
+import ast = sdc.ast.all;
 
 
 abstract class Value
 {
     /// The location that this Value was created at.
     Location location;
+    ast.Access access;
     
     this(Module mod, Location loc)
     {
         mModule = mod;
         location = loc;
+        access = mod.currentAccess;
     }
     
     /*
@@ -46,9 +50,20 @@ abstract class Value
     union
     {
         bool constBool;
+        byte constByte;
+        ubyte constUbyte;
+        short constShort;
+        ushort constUshort;
         int constInt;
+        uint constUint;
         long constLong;
+        ulong constUlong;
+        float constFloat;
         double constDouble;
+        real constReal;
+        char constChar;
+        wchar constWchar;
+        dchar constDchar;
     }
     
     Type type() @property
@@ -73,6 +88,8 @@ abstract class Value
     void set(Value val) { fail("set:Value"); assert(false); }
     void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
     Value add(Value val) { fail("add"); assert(false); }
+    Value inc() { fail("inc"); assert(false); }
+    Value dec() { fail("dec"); assert(false); }
     Value sub(Value val) { fail("sub"); assert(false); }
     Value mul(Value val) { fail("mul"); assert(false); }
     Value div(Value val) { fail("div"); assert(false); }
@@ -102,7 +119,11 @@ abstract class Value
     Value init(Location location) { fail("init"); assert(false); }
     Value getMember(string name) { fail("getMember"); assert(false); }
     Module getModule() { return mModule; }
-
+    
+    Value importToModule(Module mod)
+    {
+        return this;
+    }
     
     protected Module mModule;
     protected Type mType;
@@ -134,7 +155,7 @@ mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
 }
 
 
-class PrimitiveIntegerValue(T, B, alias C) : Value
+class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
 {
     this(Module mod, Location loc)
     { 
@@ -157,7 +178,7 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             if (mType.dtype < t.dtype) {
                 v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
@@ -206,6 +227,22 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         return v;
     }
     
+    override Value inc()
+    {
+        auto v = new typeof(this)(mModule, location);
+        auto one = new typeof(this)(mModule, location, 1);
+        v.set(this.add(one));
+        return v;
+    }
+    
+    override Value dec()
+    {
+        auto v = new typeof(this)(mModule, location);
+        auto one = new typeof(this)(mModule, location, 1);
+        v.set(this.sub(one));
+        return v;
+    }
+    
     override Value sub(Value val)
     {
         this.constant = this.constant && val.constant;
@@ -236,7 +273,11 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         if (this.constant) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
         }
-        auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+        static if (SIGNED) {
+            auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+        } else {
+            auto result = LLVMBuildUDiv(mModule.builder, this.get(), val.get(), "add");
+        }
         auto v = new typeof(this)(mModule, location);
         v.set(result);
         return v;
@@ -244,8 +285,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
-    mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
-    mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
+    static if (SIGNED) {
+        mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
+    } else {
+        mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte");
+    }
     
     
     override Value init(Location location)
@@ -255,23 +301,32 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     protected void constInit(T n)
     {
-        auto val = LLVMConstInt(mType.llvmType(), n, false);
+        auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
         LLVMBuildStore(mModule.builder, val, mValue);
         constant = true;
         mixin(C ~ " = n;");
     }
 }
 
-alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
-alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
-alias PrimitiveIntegerValue!(long, LongType, "constLong") LongValue;
+alias PrimitiveIntegerValue!(bool, BoolType, "constBool", true) BoolValue;
+alias PrimitiveIntegerValue!(byte, ByteType, "constByte", true) ByteValue;
+alias PrimitiveIntegerValue!(ubyte, UbyteType, "constUbyte", false) UbyteValue;
+alias PrimitiveIntegerValue!(short, ShortType, "constShort", true) ShortValue;
+alias PrimitiveIntegerValue!(ushort, UshortType, "constUshort", false) UshortValue;
+alias PrimitiveIntegerValue!(int, IntType, "constInt", true) IntValue;  
+alias PrimitiveIntegerValue!(uint, UintType, "constUint", false) UintValue;
+alias PrimitiveIntegerValue!(long, LongType, "constLong", true) LongValue;
+alias PrimitiveIntegerValue!(ulong, UlongType, "constUlong", false) UlongValue;
+alias PrimitiveIntegerValue!(char, CharType, "constChar", false) CharValue;
+alias PrimitiveIntegerValue!(wchar, WcharType, "constWchar", false) WcharValue;
+alias PrimitiveIntegerValue!(dchar, DcharType, "constDchar", false) DcharValue;
 
-class DoubleValue : Value
+class FloatingPointValue(T, B) : Value
 {
     this(Module mod, Location location)
     {
         super(mod, location);
-        mType = new DoubleType(mod);
+        mType = new B(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
     }
     
@@ -283,7 +338,7 @@ class DoubleValue : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             v.set(LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
         } else if (isFPDtype(t.dtype)) {
@@ -377,10 +432,10 @@ class DoubleValue : Value
 
     override Value init(Location location)
     {
-        return new DoubleValue(mModule, location);
+        return new typeof(this)(mModule, location);
     }
     
-    protected void constInit(double d)
+    protected void constInit(T d)
     {
         auto val = LLVMConstReal(mType.llvmType, d);
         LLVMBuildStore(mModule.builder, val, mValue);
@@ -388,6 +443,10 @@ class DoubleValue : Value
         constDouble = d;
     }
 }
+
+alias FloatingPointValue!(float, FloatType) FloatValue;
+alias FloatingPointValue!(double, DoubleType) DoubleValue;
+alias FloatingPointValue!(real, RealType) RealValue;
 
 class ArrayValue : PointerValue
 {
@@ -404,8 +463,11 @@ class ArrayValue : PointerValue
         auto l = new LongValue(mModule, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
         auto ll = [l];
-        auto memory = gcMalloc.call(ll);
-        return memory.performCast(asArray.structTypePointer);
+        panic(location, "arrays are unimplemented.");
+        assert(false);
+        // Allocate memory here,
+        // then cast to asArray.structTypePointer.
+        // return that.
     }
 }
 
@@ -423,7 +485,7 @@ class PointerValue : Value
     
     override Value performCast(Type t)
     {
-        auto v = t.getValue(location);
+        auto v = t.getValue(mModule, location);
         if (t.dtype == DType.Pointer) {
             v.set(LLVMBuildPointerCast(mModule.builder, get(), t.llvmType(), "pcast"));
         } else {
@@ -457,7 +519,7 @@ class PointerValue : Value
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-        auto v = baseType.getValue(location);
+        auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -468,7 +530,7 @@ class PointerValue : Value
         LLVMValueRef[] indices;
         indices ~= val.get();
         
-        auto v = baseType.getValue(location);
+        auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -514,9 +576,6 @@ class FunctionValue : Value
             }
         } else {
             mangledName = name;
-        }
-        if (mangledName == "_D10sdcruntime2gc8gcMallocFlZPv") {
-            gcMalloc = this;
         }
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
     }
@@ -594,7 +653,7 @@ class FunctionValue : Value
         Value val;
         if (functionType.returnType.dtype != DType.Void) {
             auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
-            val = functionType.returnType.getValue(location);
+            val = functionType.returnType.getValue(mModule, location);
             val.set(retval);
         } else {
             LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
@@ -607,6 +666,12 @@ class FunctionValue : Value
     {
         panic(location, "tried to get the init of a function value.");
         assert(false);
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        auto f = new FunctionValue(mod, location, enforce(cast(FunctionType) mType.importToModule(mod)), name, mangledName);
+        return f;
     }
 }
 
@@ -658,7 +723,7 @@ class StructValue : Value
         auto index = asStruct.memberPositions[name];
         indices ~= LLVMConstInt(t.llvmType, index, false);
         
-        auto i = asStruct.members[index].getValue(location);
+        auto i = asStruct.members[index].getValue(mModule, location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
     }
@@ -707,6 +772,10 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         panic(type.location, "unhandled type type.");
     }
     
+    if (t is null) {
+        return null;
+    }        
+    
     for (int i = type.suffixes.length - 1; i >= 0; i--) {
         auto suffix = type.suffixes[i];
         if (suffix.type == ast.TypeSuffixType.Pointer) {
@@ -728,14 +797,36 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
         return new VoidType(mod);
     case ast.PrimitiveTypeType.Bool:
         return new BoolType(mod);
+    case ast.PrimitiveTypeType.Byte:
+        return new ByteType(mod);
+    case ast.PrimitiveTypeType.Ubyte:
+        return new UbyteType(mod);
+    case ast.PrimitiveTypeType.Short:
+        return new ShortType(mod);
+    case ast.PrimitiveTypeType.Ushort:
+        return new UshortType(mod);
     case ast.PrimitiveTypeType.Int:
         return new IntType(mod);
+    case ast.PrimitiveTypeType.Uint:
+        return new UintType(mod);
     case ast.PrimitiveTypeType.Long:
         return new LongType(mod);
+    case ast.PrimitiveTypeType.Ulong:
+        return new UlongType(mod);
+    case ast.PrimitiveTypeType.Float:
+        return new FloatType(mod);
     case ast.PrimitiveTypeType.Double:
         return new DoubleType(mod);
+    case ast.PrimitiveTypeType.Real:
+        return new RealType(mod);
+    case ast.PrimitiveTypeType.Char:
+        return new CharType(mod);
+    case ast.PrimitiveTypeType.Wchar:
+        return new WcharType(mod);
+    case ast.PrimitiveTypeType.Dchar:
+        return new DcharType(mod);
     default:
-        panic(type.location, "unhandled primitive type type.");
+        panic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
     
     assert(false);
@@ -757,6 +848,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
             if (onFailure == OnFailure.DieWithError) {
                 error(type.location, format("undefined type '%s'.", name));
             } else {
+                errorMessageOnly(type.location, format("undefined type '%s' (temporary message, compilation continues -- you will get error spam).", name));
                 return null;
             }
         } else if (store.storeType == StoreType.Value) {

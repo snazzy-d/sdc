@@ -14,6 +14,7 @@ import sdc.ast.sdcmodule;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
+import sdc.parser.attribute;
 
 
 ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
@@ -32,26 +33,17 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
             decl.type = ConditionalDeclarationType.DebugSpecification;
         } else assert(false);
         match(tstream, TokenType.Assign);
-        Node payload;
-        SpecificationType type;
-        if (tstream.peek.type == TokenType.Identifier) {
-            type = SpecificationType.Identifier;
-            payload = parseIdentifier(tstream);
-        } else {
-            type = SpecificationType.Integer;
-            payload = parseIntegerLiteral(tstream);
-        }
+        
+        auto payload = parseIdentifier(tstream);
         if (decl.type == ConditionalDeclarationType.VersionSpecification) {
             auto spec = new VersionSpecification();
             spec.location = decl.location;
             spec.node = payload;
-            spec.type = type;
             decl.specification = spec;
         } else {
             auto spec = new DebugSpecification();
             spec.location = decl.location;
             spec.node = payload;
-            spec.type = type;
             decl.specification = spec;
         }
         match(tstream, TokenType.Semicolon);
@@ -60,32 +52,13 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
     
     
     decl.condition = parseCondition(tstream);
-    if (tstream.peek.type == TokenType.Colon) {
-        match(tstream, TokenType.Colon);
-        decl.type = ConditionalDeclarationType.AlwaysOn;
-        return decl;
-    }
-    decl.thenBlock = parseDeclarationDefinitionBlock(tstream);
+    decl.thenBlock = parseDeclarationBlock(tstream);
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        decl.elseBlock = parseDeclarationDefinitionBlock(tstream);
+        decl.elseBlock = parseDeclarationBlock(tstream);
     }
+    
     return decl;
-}
-
-DeclarationDefinition[] parseDeclarationDefinitionBlock(TokenStream tstream)
-{
-    DeclarationDefinition[] block;
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        match(tstream, TokenType.OpenBrace);
-        while (tstream.peek.type != TokenType.CloseBrace) {
-            block ~= parseDeclarationDefinition(tstream);
-        }
-        match(tstream, TokenType.CloseBrace);
-    } else {
-        block ~= parseDeclarationDefinition(tstream);
-    }
-    return block;
 }
 
 ConditionalStatement parseConditionalStatement(TokenStream tstream)
@@ -135,8 +108,7 @@ VersionCondition parseVersionCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        condition.type = VersionConditionType.Integer;
-        condition.integer = parseIntegerLiteral(tstream);
+        error(tstream.peek.location, "integer versions are unsupported.");
         break;
     case TokenType.Identifier:
         condition.type = VersionConditionType.Identifier;
@@ -165,15 +137,14 @@ DebugCondition parseDebugCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        condition.type = DebugConditionType.Integer;
-        condition.integer = parseIntegerLiteral(tstream);
+        error(tstream.peek.location, "integer debug levels are unsupported.");
         break;
     case TokenType.Identifier:
         condition.type = DebugConditionType.Identifier;
         condition.identifier = parseIdentifier(tstream);
         break;
     default:
-        error(tstream.peek.location, "expected identifier or integer literal as debug condition.");
+        error(tstream.peek.location, "expected identifier as debug condition.");
     }
     match(tstream, TokenType.CloseParen);
     return condition;

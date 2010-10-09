@@ -5,6 +5,8 @@
  */
 module sdc.gen.sdcmodule;
 
+import std.conv;
+import std.exception;
 import std.process;
 import std.stdio;
 import std.string;
@@ -15,7 +17,9 @@ import llvm.c.Core;
 import llvm.c.transforms.Scalar;
 
 import sdc.compilererror;
+import sdc.util;
 import sdc.global;
+import sdc.location;
 import sdc.extract.base;
 import sdc.gen.type;
 import sdc.gen.value;
@@ -40,6 +44,7 @@ class Module
     Value base;
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
+    ast.Access currentAccess = ast.Access.Public;
     bool isAlias;  // ewwww
     TranslationUnit[] importedTranslationUnits;
 
@@ -142,11 +147,30 @@ class Module
         // "Look up the symbol in _all_ imported modules."
         assert(store is null);
         foreach (tu; importedTranslationUnits) {
+            void checkAccess(ast.Access access)
+            {
+                if (access != ast.Access.Public) {
+                    error("cannot access symbol '" ~ name ~ "', as it is declared private.");
+                }
+            }
             auto tustore = tu.gModule.globalScope.get(name);
+            if (tustore is null) {
+                continue;
+            }
+            
+            if (tustore.storeType == StoreType.Value) {
+                checkAccess(tustore.value.access);
+                tustore = new Store(tustore.value.importToModule(this));
+            } else if (tustore.storeType == StoreType.Type) {
+                checkAccess(tustore.type.access);
+                tustore = new Store(tustore.type.importToModule(this));
+            }
+
             if (store is null) {
                 store = tustore;
                 continue;
             }
+
             /* "If found in more than one module, 
              *  and the symbol is not the name of a function,
              *  fail with 'duplicated symbol' error message."
@@ -158,7 +182,7 @@ class Module
                  *  apply cross-module overload resolution."
                  */
                 panic("no cross-module overload resolution!");
-             }            
+            }            
         }
         
     exit:
@@ -169,7 +193,9 @@ class Module
     {
         /* This isn't just `foreach (localScope; retro(mScopeStack))`  
          * because of a bug manifested in std.range.retro.
-         * WORKAROUND 2.048
+         * WORKAROUND 2.048-2.049
+         * Unfortunately, it has resisted being boiled down
+         * into a simple test case.
          */
         for (int i = mScopeStack.length - 1; i >= 0; i--) {
             auto localScope = mScopeStack[i];
@@ -207,8 +233,64 @@ class Module
         return mScopeStack.length;
     }
     
+    /**
+     * Set a given version identifier for this module.
+     */
+    void setVersion(Location loc, string s)
+    {
+        if (isReserved(s)) {
+            error(loc, format("can't set reserved version identifier '%s'.", s));
+        }
+        if (s in mVersionIdentifiers || isVersionIdentifierSet(s)) {
+            error(loc, format("version identifier '%s' is already set.", s));
+        }
+        mVersionIdentifiers[s] = true;
+    }
+    
+    void setDebug(Location loc, string s)
+    {
+        if (s in mDebugIdentifiers || isDebugIdentifierSet(s)) {
+            error(loc, format("debug identifier '%s' is already set.", s));
+        }
+        mDebugIdentifiers[s] = true;
+    }
+    
+    bool isVersionSet(string s)
+    {
+        mTestedVersionIdentifiers[s] = true;
+        auto result = isVersionIdentifierSet(s);
+        if (!result) {
+            result = (s in mVersionIdentifiers) !is null;
+        }
+        return result;
+    }
+    
+    bool isDebugSet(string s)
+    {
+        mTestedDebugIdentifiers[s] = true;
+        auto result = isDebugIdentifierSet(s);
+        if (!result) {
+            result = (s in mDebugIdentifiers) !is null;
+        }
+        return result;
+    }
+    
+    bool hasVersionBeenTested(string s)
+    {
+        return (s in mTestedVersionIdentifiers) !is null;
+    }
+    
+    bool hasDebugBeenTested(string s)
+    {
+        return (s in mTestedDebugIdentifiers) !is null;
+    }
+    
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
+    protected bool[string] mVersionIdentifiers;
+    protected bool[string] mTestedVersionIdentifiers;
+    protected bool[string] mDebugIdentifiers;
+    protected bool[string] mTestedDebugIdentifiers;
 }
 
 enum StoreType
@@ -269,8 +351,6 @@ class Store
 
 class Scope
 {
-    bool topLevelBail;
-    
     void add(string name, Store store)
     {
         mSymbolTable[name] = store;

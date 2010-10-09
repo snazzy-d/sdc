@@ -120,7 +120,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 error(decl.location, "not enough information to infer type.");
             }
         } else {
-            var = type.getValue(declarator.location);
+            var = type.getValue(mod, declarator.location);
         }
         
         if (declarator.initialiser is null) {
@@ -134,7 +134,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
                     type = aexp.type;
-                    var = type.getValue(decl.location);
+                    var = type.getValue(mod, decl.location);
                 }
                 aexp = implicitCast(aexp, type);
                 if (var is null) {
@@ -176,7 +176,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     
     // Add parameters into the functions namespace.
     foreach (i, argType; functionType.argumentTypes) {
-        auto val = argType.getValue(func.location);
+        auto val = argType.getValue(mod, func.location);
         val.set(LLVMGetParam(func.get(), i));
         mod.currentScope.add(functionType.argumentNames[i], new Store(val));
     }
