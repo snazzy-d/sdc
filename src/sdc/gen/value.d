@@ -85,6 +85,8 @@ abstract class Value
     void set(Value val) { fail("set:Value"); assert(false); }
     void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
     Value add(Value val) { fail("add"); assert(false); }
+    Value inc() { fail("inc"); assert(false); }
+    Value dec() { fail("dec"); assert(false); }
     Value sub(Value val) { fail("sub"); assert(false); }
     Value mul(Value val) { fail("mul"); assert(false); }
     Value div(Value val) { fail("div"); assert(false); }
@@ -219,6 +221,22 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
         v.set(result);
+        return v;
+    }
+    
+    override Value inc()
+    {
+        auto v = new typeof(this)(mModule, location);
+        auto one = new typeof(this)(mModule, location, 1);
+        v.set(this.add(one));
+        return v;
+    }
+    
+    override Value dec()
+    {
+        auto v = new typeof(this)(mModule, location);
+        auto one = new typeof(this)(mModule, location, 1);
+        v.set(this.sub(one));
         return v;
     }
     

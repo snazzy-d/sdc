@@ -1,5 +1,5 @@
 //T compiles:yes
-//T retval:0
+//T retval:1
 // Tests increment on types smaller than int.
 
 int main()

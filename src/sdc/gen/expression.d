@@ -223,15 +223,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        auto rhs = new IntValue(mod, expression.location, 1);
-        binaryOperatorImplicitCast(&val, &rhs);
-        val.set(val.sub(rhs));
+        val.set(val.dec());
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        auto rhs = new IntValue(mod, expression.location, 1);
-        binaryOperatorImplicitCast(&val, &rhs);
-        val.set(val.add(rhs));
+        val.set(val.inc());
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
@@ -279,17 +275,17 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
-        lhs = new IntValue(mod, lhs);
-        auto rhs = new IntValue(mod, expression.location, 1);
-        binaryOperatorImplicitCast(&lhs, &rhs);
-        val.set(lhs.add(rhs));
+        auto tmp = lhs.type.getValue(mod, lhs.location);
+        tmp.set(lhs);
+        lhs = tmp;
+        val.set(val.inc());
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
-        lhs = new IntValue(mod, lhs);
-        auto rhs = new IntValue(mod, expression.location, 1);
-        binaryOperatorImplicitCast(&lhs, &rhs);
-        val.set(lhs.sub(rhs));
+        auto tmp = lhs.type.getValue(mod, lhs.location);
+        tmp.set(lhs);
+        lhs = tmp;
+        val.set(val.dec());
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
