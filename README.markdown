@@ -47,7 +47,7 @@ Parser
 
 Codegen
 -------
-* Import symbols from other modules.  _[no.]_
+* Import symbols from other modules.  __[yes.]__
 * Apply attributes.  _[partially.]_
 * Enums.  _[no.]_
 * Structs.  _[partially.]_
