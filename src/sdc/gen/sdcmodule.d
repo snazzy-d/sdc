@@ -44,6 +44,7 @@ class Module
     Value base;
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
+    ast.Access currentAccess = ast.Access.Public;
     bool isAlias;  // ewwww
     TranslationUnit[] importedTranslationUnits;
 
@@ -146,14 +147,22 @@ class Module
         // "Look up the symbol in _all_ imported modules."
         assert(store is null);
         foreach (tu; importedTranslationUnits) {
+            void checkAccess(ast.Access access)
+            {
+                if (access != ast.Access.Public) {
+                    error("cannot access symbol '" ~ name ~ "', as it is declared private.");
+                }
+            }
             auto tustore = tu.gModule.globalScope.get(name);
             if (tustore is null) {
                 continue;
             }
             
             if (tustore.storeType == StoreType.Value) {
+                checkAccess(tustore.value.access);
                 tustore = new Store(tustore.value.importToModule(this));
             } else if (tustore.storeType == StoreType.Type) {
+                checkAccess(tustore.type.access);
                 tustore = new Store(tustore.type.importToModule(this));
             }
 

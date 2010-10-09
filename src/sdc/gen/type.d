@@ -107,10 +107,12 @@ pure bool isFPDtype(DType dtype)
 abstract class Type
 {
     DType dtype;
+    ast.Access access;
     
     this(Module mod)
     {
         mModule = mod;
+        access = mod.currentAccess;
     }
     
     LLVMTypeRef llvmType()

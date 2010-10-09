@@ -21,17 +21,20 @@ import sdc.global;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
+import ast = sdc.ast.all;
 
 
 abstract class Value
 {
     /// The location that this Value was created at.
     Location location;
+    ast.Access access;
     
     this(Module mod, Location loc)
     {
         mModule = mod;
         location = loc;
+        access = mod.currentAccess;
     }
     
     /*

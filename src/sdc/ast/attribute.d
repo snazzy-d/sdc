@@ -56,6 +56,15 @@ enum Linkage
     ExternSystem,
 }
 
+enum Access
+{
+    Private = AttributeType.Private,
+    Package,
+    Protected,
+    Public,
+    Export,
+}
+
 immutable ATTRIBUTE_KEYWORDS = [
 TokenType.Deprecated, TokenType.Private, TokenType.Package,
 TokenType.Protected, TokenType.Public, TokenType.Export,

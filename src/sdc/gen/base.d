@@ -172,7 +172,23 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         case ExternD:
             mod.currentLinkage = ast.Linkage.ExternD;
             break;
+        case Private:
+            mod.currentAccess = ast.Access.Private;
+            break;
+        case Protected:
+            mod.currentAccess = ast.Access.Protected;
+            break;
+        case Package:
+            mod.currentAccess = ast.Access.Package;
+            break;
+        case Export:
+            mod.currentAccess = ast.Access.Export;
+            break;
+        case Public:
+            mod.currentAccess = ast.Access.Public;
+            break;
         default:
+            panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
             break;
         }
     }
