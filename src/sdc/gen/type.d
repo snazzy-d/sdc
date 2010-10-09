@@ -183,6 +183,21 @@ class IntType : Type
     }
 }
 
+class UintType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Uint;
+        mType = LLVMInt32TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new UintValue(mod, location);
+    }
+}
+
 class LongType : Type
 {
     this(Module mod)

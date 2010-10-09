@@ -48,6 +48,7 @@ abstract class Value
     {
         bool constBool;
         int constInt;
+        uint constUint;
         long constLong;
         double constDouble;
     }
@@ -139,7 +140,7 @@ mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
 }
 
 
-class PrimitiveIntegerValue(T, B, alias C) : Value
+class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
 {
     this(Module mod, Location loc)
     { 
@@ -241,7 +242,11 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
         if (this.constant) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
         }
-        auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+        static if (SIGNED) {
+            auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+        } else {
+            auto result = LLVMBuildUDiv(mModule.builder, this.get(), val.get(), "add");
+        }
         auto v = new typeof(this)(mModule, location);
         v.set(result);
         return v;
@@ -249,8 +254,13 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
-    mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
-    mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
+    static if (SIGNED) {
+        mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
+    } else {
+        mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte");
+    }
     
     
     override Value init(Location location)
@@ -260,16 +270,17 @@ class PrimitiveIntegerValue(T, B, alias C) : Value
     
     protected void constInit(T n)
     {
-        auto val = LLVMConstInt(mType.llvmType(), n, false);
+        auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
         LLVMBuildStore(mModule.builder, val, mValue);
         constant = true;
         mixin(C ~ " = n;");
     }
 }
 
-alias PrimitiveIntegerValue!(bool, BoolType, "constBool") BoolValue;
-alias PrimitiveIntegerValue!(int, IntType, "constInt") IntValue;
-alias PrimitiveIntegerValue!(long, LongType, "constLong") LongValue;
+alias PrimitiveIntegerValue!(bool, BoolType, "constBool", true) BoolValue;
+alias PrimitiveIntegerValue!(int, IntType, "constInt", true) IntValue;
+alias PrimitiveIntegerValue!(uint, UintType, "constUint", false) UintValue;
+alias PrimitiveIntegerValue!(long, LongType, "constLong", true) LongValue;
 
 class DoubleValue : Value
 {
@@ -745,6 +756,8 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
         return new BoolType(mod);
     case ast.PrimitiveTypeType.Int:
         return new IntType(mod);
+    case ast.PrimitiveTypeType.Uint:
+        return new UintType(mod);
     case ast.PrimitiveTypeType.Long:
         return new LongType(mod);
     case ast.PrimitiveTypeType.Double:
