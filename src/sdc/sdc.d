@@ -145,19 +145,15 @@ void realmain(string[] args)
         }
     }
     
-	if(!justCompile)
-	{
-		version(Windows)
-		{
-			auto linkCommand = "gcc -o a.exe ";
-		}
-		else
-		{
-			auto linkCommand = "gcc -o a.out ";
-		}
+    if (!justCompile) {
+        version(Windows) {
+            auto linkCommand = "gcc -o a.exe ";
+        } else {
+            auto linkCommand = "gcc -o a.out ";
+	}
 	
-		foreach (assembly; assemblies) {
-			linkCommand ~= `"` ~ assembly ~ `" `;
+	foreach (assembly; assemblies) {
+            linkCommand ~= `"` ~ assembly ~ `" `;
         }
         system(linkCommand);
     }

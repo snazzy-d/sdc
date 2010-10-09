@@ -69,12 +69,12 @@ bool test(string filename)
     
     version(Windows) // Put SDC in your PATH
     {
-		auto command = `sdc "` ~ filename ~ `"`;
-	}
-	else // Leaving this decision to the Unix crowd
-	{
-		auto command = `../sdc.bin "` ~ filename ~ `"`;
-	}
+        auto command = `sdc "` ~ filename ~ `"`;
+    }
+    else // Leaving this decision to the Unix crowd
+    {
+        auto command = `../sdc.bin "` ~ filename ~ `"`;
+    }
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
         stderr.writeln("Program expected to compile did not.");
@@ -88,11 +88,11 @@ bool test(string filename)
     //This part can be merged with the above version branch once SDC has an -o switch
     version(Windows)
     {
-		retval = system("a.exe");
+        retval = system("a.exe");
     }
     else
     {
-		retval = system("./a.out");
+        retval = system("./a.out");
     }
     
     if (retval != expectedRetval) {
