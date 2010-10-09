@@ -135,3 +135,12 @@ Nothing practical. What follows is the a program featuring the most complex feat
         exit(add(p.age, i + 1));
         return 1;  // Never reached.
     }
+    
+Windows
+-------
+The following are required for LLVM to function on Windows:
+
+* [LLVM](http://llvm.org/) => 2.7
+  * SDC requires the `llc` tool as well as the LLVM core libraries
+* [MinGW](http://www.mingw.org/)
+  * SDC requires `ld` (the linker)
