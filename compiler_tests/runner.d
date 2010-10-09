@@ -29,7 +29,7 @@ int getInt(string s)
 
 bool test(string filename)
 {
-    void malformed() { stderr.writeln("Malformed test."); }
+    static void malformed() { stderr.writeln("Malformed test."); }
     
     bool expectedToCompile;
     int expectedRetval;
