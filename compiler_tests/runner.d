@@ -84,7 +84,17 @@ bool test(string filename)
         stderr.writeln("Program expected not to compile did.");
         return false;
     }
-    retval = system("./a.out");
+    
+    //This part can be merged with the above version branch once SDC has an -o switch
+    version(Windows)
+    {
+		retval = system("a.exe");
+    }
+    else
+    {
+		retval = system("./a.out");
+    }
+    
     if (retval != expectedRetval) {
         stderr.writeln("Retval was '" ~ to!string(retval) ~ "', expected '" ~ to!string(expectedRetval) ~ "'.");
         return false;
