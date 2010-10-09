@@ -168,6 +168,66 @@ class BoolType : Type
     }
 }
 
+class ByteType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Byte;
+        mType = LLVMInt8TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ByteValue(mod, location);
+    }
+}
+
+class UbyteType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Ubyte;
+        mType = LLVMInt8TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new UbyteValue(mod, location);
+    }
+}
+
+class ShortType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Short;
+        mType = LLVMInt16TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ShortValue(mod, location);
+    }
+}
+
+class UshortType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Ushort;
+        mType = LLVMInt16TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new UshortValue(mod, location);
+    }
+}
+
 class IntType : Type
 {
     this(Module mod)
@@ -213,6 +273,36 @@ class LongType : Type
     }
 }
 
+class UlongType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Ulong;
+        mType = LLVMInt64TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new UlongValue(mod, location);
+    }
+}
+
+class FloatType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Float;
+        mType = LLVMFloatTypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new FloatValue(mod, location);
+    }
+}
+
 class DoubleType : Type
 {
     this(Module mod)
@@ -225,6 +315,66 @@ class DoubleType : Type
     override Value getValue(Module mod, Location location)
     {
         return new DoubleValue(mod, location);
+    }
+}
+
+class RealType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Real;
+        mType = LLVMFP128TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new RealValue(mod, location);
+    }
+}
+
+class CharType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Char;
+        mType = LLVMInt8TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new CharValue(mod, location);
+    }
+}
+
+class WcharType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Wchar;
+        mType = LLVMInt16TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new WcharValue(mod, location);
+    }
+}
+
+class DcharType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Dchar;
+        mType = LLVMInt32TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new DcharValue(mod, location);
     }
 }
 

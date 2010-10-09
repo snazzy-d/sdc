@@ -47,10 +47,20 @@ abstract class Value
     union
     {
         bool constBool;
+        byte constByte;
+        ubyte constUbyte;
+        short constShort;
+        ushort constUshort;
         int constInt;
         uint constUint;
         long constLong;
+        ulong constUlong;
+        float constFloat;
         double constDouble;
+        real constReal;
+        char constChar;
+        wchar constWchar;
+        dchar constDchar;
     }
     
     Type type() @property
@@ -278,16 +288,24 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
 }
 
 alias PrimitiveIntegerValue!(bool, BoolType, "constBool", true) BoolValue;
-alias PrimitiveIntegerValue!(int, IntType, "constInt", true) IntValue;
+alias PrimitiveIntegerValue!(byte, ByteType, "constByte", true) ByteValue;
+alias PrimitiveIntegerValue!(ubyte, UbyteType, "constUbyte", false) UbyteValue;
+alias PrimitiveIntegerValue!(short, ShortType, "constShort", true) ShortValue;
+alias PrimitiveIntegerValue!(ushort, UshortType, "constUshort", false) UshortValue;
+alias PrimitiveIntegerValue!(int, IntType, "constInt", true) IntValue;  
 alias PrimitiveIntegerValue!(uint, UintType, "constUint", false) UintValue;
 alias PrimitiveIntegerValue!(long, LongType, "constLong", true) LongValue;
+alias PrimitiveIntegerValue!(ulong, UlongType, "constUlong", false) UlongValue;
+alias PrimitiveIntegerValue!(char, CharType, "constChar", false) CharValue;
+alias PrimitiveIntegerValue!(wchar, WcharType, "constWchar", false) WcharValue;
+alias PrimitiveIntegerValue!(dchar, DcharType, "constDchar", false) DcharValue;
 
-class DoubleValue : Value
+class FloatingPointValue(T, B) : Value
 {
     this(Module mod, Location location)
     {
         super(mod, location);
-        mType = new DoubleType(mod);
+        mType = new B(mod);
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
     }
     
@@ -393,10 +411,10 @@ class DoubleValue : Value
 
     override Value init(Location location)
     {
-        return new DoubleValue(mModule, location);
+        return new typeof(this)(mModule, location);
     }
     
-    protected void constInit(double d)
+    protected void constInit(T d)
     {
         auto val = LLVMConstReal(mType.llvmType, d);
         LLVMBuildStore(mModule.builder, val, mValue);
@@ -404,6 +422,10 @@ class DoubleValue : Value
         constDouble = d;
     }
 }
+
+alias FloatingPointValue!(float, FloatType) FloatValue;
+alias FloatingPointValue!(double, DoubleType) DoubleValue;
+alias FloatingPointValue!(real, RealType) RealValue;
 
 class ArrayValue : PointerValue
 {
@@ -754,14 +776,34 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
         return new VoidType(mod);
     case ast.PrimitiveTypeType.Bool:
         return new BoolType(mod);
+    case ast.PrimitiveTypeType.Byte:
+        return new ByteType(mod);
+    case ast.PrimitiveTypeType.Ubyte:
+        return new UbyteType(mod);
+    case ast.PrimitiveTypeType.Short:
+        return new ShortType(mod);
+    case ast.PrimitiveTypeType.Ushort:
+        return new UshortType(mod);
     case ast.PrimitiveTypeType.Int:
         return new IntType(mod);
     case ast.PrimitiveTypeType.Uint:
         return new UintType(mod);
     case ast.PrimitiveTypeType.Long:
         return new LongType(mod);
+    case ast.PrimitiveTypeType.Ulong:
+        return new UlongType(mod);
+    case ast.PrimitiveTypeType.Float:
+        return new FloatType(mod);
     case ast.PrimitiveTypeType.Double:
         return new DoubleType(mod);
+    case ast.PrimitiveTypeType.Real:
+        return new RealType(mod);
+    case ast.PrimitiveTypeType.Char:
+        return new CharType(mod);
+    case ast.PrimitiveTypeType.Wchar:
+        return new WcharType(mod);
+    case ast.PrimitiveTypeType.Dchar:
+        return new DcharType(mod);
     default:
         panic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
