@@ -60,8 +60,8 @@ void realmain(string[] args)
     bool justCompile;
     try {
         getopt(args,
-               "help", () { usage(); exit(0); },
-               "version", () { stdout.writeln(VERSION_STRING); exit(0); },
+               "help|h", () { usage(); exit(0); },
+               "version|v", () { stdout.writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
                "debug", () { isDebug = true; },
@@ -163,8 +163,8 @@ void addImplicitImports()
 void usage()
 {
     writeln("sdc [options] modules");
-    writeln("  --help:                print this message.");
-    writeln("  --version:             print version information to stdout.");
+    writeln("  --help|-h:             print this message.");
+    writeln("  --version|-v:          print version information to stdout.");
     writeln("  --version-identifier:  specify the given version identifier.");
     writeln("  --debug-identifier:    specify the given debug identifier.");
     writeln("  --debug:               compile in debug mode (defaults on).");
