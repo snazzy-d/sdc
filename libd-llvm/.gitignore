@@ -14,4 +14,7 @@ a.out
 .project
 *.s
 
-
+#DMD/Windows
+*.exe
+*.map
+*.obj
