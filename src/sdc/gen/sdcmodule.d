@@ -94,7 +94,7 @@ class Module
     
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        auto cmd = format("llc -o %s %s", toFilename, fromFilename);
+        auto cmd = format(`llc -o "%s" "%s"`, toFilename, fromFilename);
         system(cmd);
     }
     
