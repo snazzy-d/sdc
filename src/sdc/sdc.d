@@ -117,9 +117,17 @@ void realmain(string[] args)
         assemblies ~= asAssembly;
     }
     
-    auto linkCommand = "gcc -o a.out ";
+    version(Windows)
+    {
+		auto linkCommand = "gcc -o a.exe ";
+    }
+    else
+    {
+		auto linkCommand = "gcc -o a.out ";
+	}
+	
     foreach (assembly; assemblies) {
-        linkCommand ~= assembly ~ " ";
+        linkCommand ~= `"` ~ assembly ~ `" `;
     }
     system(linkCommand);
 }
