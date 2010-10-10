@@ -152,6 +152,8 @@ This just me thinking outloud about what features I want, when.
 
 SDC with DMD/Windows
 =======
+(These instructions are from Jakob, so please don't contact me regarding them.)
+
 The following are required for LLVM to function on Windows:
 
 * [LLVM](http://llvm.org/) >= 2.7
