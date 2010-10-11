@@ -79,7 +79,7 @@ Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
     }
-    genConditionals(resolutionList, mod);
+    //genConditionals(resolutionList, mod);
     foreach (df; implicitDeclDefs) {
         resolutionList ~= df;
     }
@@ -151,6 +151,20 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
             e.attributes ~= specifier.attribute;
         }
         return list;
+    case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        auto decl = enforce(cast(ast.ConditionalDeclaration) declDef.node);
+        bool cond = genCondition(decl.condition, mod);
+        ast.DeclarationDefinition[] newTopLevels;
+        if (cond) {
+            foreach (declDef_; decl.thenBlock.declarationDefinitions) {
+                newTopLevels ~= declDef_;
+            }
+        } else if (decl.elseBlock !is null) {
+            foreach (declDef_; decl.elseBlock.declarationDefinitions) {
+                newTopLevels ~= declDef_;
+            }
+        }
+        return newTopLevels;
     default:
         panic(declDef.location, "attempted to expand non expandable declaration definition.");
     }
@@ -233,41 +247,23 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             declDef.buildStage = ast.BuildStage.Deferred;
         }
         break;
+    case ast.DeclarationDefinitionType.ConditionalDeclaration:
+        genConditionalDeclaration(declDef, cast(ast.ConditionalDeclaration) declDef.node, mod);
+        break;
     default:
         panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 
 
-void genConditionals(ref ast.DeclarationDefinition[] declDefs, Module mod)
+void genConditionalDeclaration(ast.DeclarationDefinition declDef, ast.ConditionalDeclaration decl, Module mod)
 {
-    foreach (declDef; declDefs) {
-        if (declDef.type != ast.DeclarationDefinitionType.ConditionalDeclaration ||
-            declDef.buildStage != ast.BuildStage.Unhandled) {
-            continue;
-        }
-        declDef.buildStage = ast.BuildStage.Done;
-        declDefs ~= genConditionalDeclaration(cast(ast.ConditionalDeclaration) declDef.node, mod);
-    }
-}
-
-ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration decl, Module mod)
-{
-    ast.DeclarationDefinition[] newTopLevels;
     final switch (decl.type) {
-    case ast.ConditionalDeclarationType.Block:
-        bool cond = genCondition(decl.condition, mod);
-        if (cond) {
-            foreach (declDef; decl.thenBlock.declarationDefinitions) {
-                newTopLevels ~= declDef;
-            }
-        } else if (decl.elseBlock !is null) {
-            foreach (declDef; decl.elseBlock.declarationDefinitions) {
-                newTopLevels ~= declDef;
-            }
-        }
+    case ast.ConditionalDeclarationType.Block:    
+        declDef.buildStage = ast.BuildStage.ReadyToExpand;
         break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
+        declDef.buildStage = ast.BuildStage.Done;
         auto spec = cast(ast.VersionSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasVersionBeenTested(ident)) {
@@ -276,6 +272,7 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         mod.setVersion(decl.location, ident);
         break;
     case ast.ConditionalDeclarationType.DebugSpecification:
+        declDef.buildStage = ast.BuildStage.Done;
         auto spec = cast(ast.DebugSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasDebugBeenTested(ident)) {
@@ -284,7 +281,6 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         mod.setDebug(decl.location, ident);
         break;
     }
-    return newTopLevels;
 }
 
 bool genCondition(ast.Condition condition, Module mod)
