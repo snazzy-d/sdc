@@ -58,6 +58,7 @@ int main(string[] args)
 void realmain(string[] args)
 {
     bool justCompile;
+    string outputName = "";
     try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
@@ -67,7 +68,8 @@ void realmain(string[] args)
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
-               "c", &justCompile
+               "c", &justCompile,
+               "o", &outputName
                );
     } catch (Exception) {
         stderr.writeln("bad command line.");
@@ -77,6 +79,10 @@ void realmain(string[] args)
     if (args.length == 1) {
         usage();
         return;
+    }
+    
+    if (justCompile && outputName != "" && args.length > 2) {
+        error("multiple modules cannot have the same output name, unless being linked into an executable.");
     }
     
     string[] assemblies;
@@ -126,7 +132,7 @@ void realmain(string[] args)
             auto asObject   = replace(filename, extensionRegex, "o");
             gModule.writeBitcodeToFile(asBitcode);
             gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-            auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
+            auto compileCommand = "gcc -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
             system(compileCommand);
             assemblies ~= asObject;
         }
@@ -145,14 +151,19 @@ void realmain(string[] args)
         }
     }
     
+    string linkCommand = "gcc -o ";
     if (!justCompile) {
-        version(Windows) {
-            auto linkCommand = "gcc -o a.exe ";
+        if (outputName == "") {
+            version (Windows) {
+                linkCommand ~= "a.exe ";
+            } else {
+                linkCommand ~= "a.out ";
+            }
         } else {
-            auto linkCommand = "gcc -o a.out ";
-	}
-	
-	foreach (assembly; assemblies) {
+            linkCommand ~= outputName ~ " ";
+        }
+        
+        foreach (assembly; assemblies) {
             linkCommand ~= `"` ~ assembly ~ `" `;
         }
         system(linkCommand);
@@ -175,4 +186,5 @@ void usage()
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off)."); 
     writeln("  -c:                    just compile, don't link.");
+    writeln("  -o:                    name of the output file.");
 }
