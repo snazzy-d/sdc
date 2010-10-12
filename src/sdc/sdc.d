@@ -63,7 +63,7 @@ void realmain(string[] args)
     }
     
     bool skipLink = false;
-    //try {
+    try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
                "version|v", () { writeln(VERSION_STRING); exit(0); },
@@ -74,10 +74,9 @@ void realmain(string[] args)
                "unittest", () { unittestsEnabled = true; },
                "c", &skipLink
                );
-    /+} catch (Exception) {
-        stderr.writeln("bad command line.");
-        throw new CompilerError();
-    }+/
+    } catch (Exception e) {
+        throw new CompilerError(e.msg);
+    }
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
