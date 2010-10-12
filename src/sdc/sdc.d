@@ -36,6 +36,7 @@ import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
 import sdc.global;
+import sdc.terminal;
 import ast = sdc.ast.all;
 import sdc.extract.base;
 import sdc.parser.all;
@@ -52,14 +53,15 @@ int main(string[] args)
         stderr.writeln(error.msg);
         
         if(error.hasLocation) {
-            auto lineBuffer = error.readLine();
-            stderr.writeln('\t', lineBuffer);
+            char[] line = readErrorLine(error.location);
+            stderr.writeln('\t', line);
             
-            lineBuffer = lineBuffer[0 .. error.location.column];
-            lineBuffer[] = ' ';
-            lineBuffer[$ - 1] = '^';
+            line[] = '~';
+            line[error.location.column - 1] = '^';
             
-            stderr.writeln('\t', lineBuffer);
+            writeColoredText({
+                stderr.writeln('\t', line);
+            });
         }
         return 1;
     }
@@ -110,10 +112,7 @@ void realmain(string[] args)
             break;
         
         default:
-            throw new CompilerError(
-                format(`unknown extension '%s' ("%s")`, ext, arg),
-                ErrorType.Other
-            );
+            throw new CompilerError(format(`unknown extension '%s' ("%s")`, ext, arg));
         }
     }
     

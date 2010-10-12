@@ -10,50 +10,70 @@ import std.string;
 
 import sdc.location;
 
-enum ErrorType
-{
-    Compilation,
-    Other
-}
-
 class CompilerError : Exception
 {
     Location location;
     bool hasLocation = false;
     
-    ErrorType type = ErrorType.Compilation;
-    
-    this(string message, ErrorType type = ErrorType.Compilation)
+    this(string message)
     {
-        if(type == ErrorType.Compilation) {
-            super(format("error: %s", message));
-        } else {
-            super(message);
-        }
-        this.type = type;
+        super(format(errorFormat(), message));
     }
     
     this(Location loc, string message)
     {
-        super(format("%s: error: %s", loc, message));
+        super(format(locationFormat(), loc, message));
         location = loc;
         hasLocation = true;
     }
     
-    char[] readLine()
+    protected:
+    string errorFormat()
     {
-        if(!hasLocation)
-            throw new Exception("CompilerError has no location");
-            
-        auto f = File(location.filename);
-        foreach(ulong lineNumber, char[] line; lines(f))
-        {
-            if(lineNumber == location.line - 1)
-                return line;
-        }
-        
-        return null;
+        return "error: %s";
     }
+    
+    string locationFormat()
+    {
+        return "%s: error: %s";
+    }
+}
+
+class CompilerPanic : CompilerError
+{
+    this(string message)
+    {
+        super(message);
+    }
+    
+    this(Location loc, string message)
+    {
+        super(loc, message);
+    }
+    
+    protected override:
+    string errorFormat()
+    {
+        return "panic: %s";
+    }
+    
+    string locationFormat()
+    {
+        return "%s: panic: %s";
+    }
+}
+
+char[] readErrorLine(Location loc)
+{            
+    auto f = File(loc.filename);
+    
+    foreach(ulong n, char[] line; lines(f)) {
+        if(n == loc.line - 1) {
+            return line;
+        }
+    }
+    
+    return null;
 }
 
 void errorMessageOnly(Location loc, string message)
