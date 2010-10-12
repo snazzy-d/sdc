@@ -70,11 +70,6 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
-    if (args.length == 1) {
-        usage();
-        return;
-    }
-    
     bool skipLink = false;
     try {
         getopt(args,
@@ -89,6 +84,11 @@ void realmain(string[] args)
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
+    }
+    
+    if (args.length == 1) {
+        usage();
+        return;
     }
     
     string[] assemblies;
