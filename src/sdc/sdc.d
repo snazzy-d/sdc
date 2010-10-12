@@ -44,6 +44,7 @@ import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 
+bool colouredOutputDisabled = false;
 
 int main(string[] args)
 {
@@ -53,7 +54,7 @@ int main(string[] args)
         stderr.writeln(error.msg);
         
         if(error.hasLocation) {
-            outputCaretDiagnostics(error.location);
+            outputCaretDiagnostics(error.location, colouredOutputDisabled);
         }
         return 1;
     }
@@ -74,7 +75,8 @@ void realmain(string[] args)
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
                "c", &skipLink,
-               "o", &outputName
+               "o", &outputName,
+               "no-colour-print", &colouredOutputDisabled
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);

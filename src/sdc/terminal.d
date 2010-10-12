@@ -10,7 +10,7 @@ version(Windows) {
     import std.c.windows.windows;
 }
 
-void outputCaretDiagnostics(Location loc)
+void outputCaretDiagnostics(Location loc, bool disableColour)
 {
     char[] line = readErrorLine(loc);
     
@@ -19,9 +19,13 @@ void outputCaretDiagnostics(Location loc)
         loc.column--;
     }
     
-    writeColouredText(stderr, ConsoleColour.Green, {
+    if(disableColour) {
         stderr.writeln('\t', line);
-    });
+    } else {
+        writeColouredText(stderr, ConsoleColour.Green, {
+            stderr.writeln('\t', line);
+        });
+    }
     
     line[] = ' ';
     line[loc.column - 1] = '^';
@@ -29,9 +33,13 @@ void outputCaretDiagnostics(Location loc)
         line[i] = '~';
     }
     
-    writeColouredText(stderr, ConsoleColour.Yellow, {
+    if(disableColour) {
         stderr.writeln('\t', line);
-    });
+    } else {
+        writeColouredText(stderr, ConsoleColour.Yellow, {
+            stderr.writeln('\t', line);
+        });
+    }
 }
 
 version(Windows) {
