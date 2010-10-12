@@ -29,7 +29,7 @@ version(Windows) {
         Red = FOREGROUND_RED,
         Green = FOREGROUND_GREEN,
         Blue = FOREGROUND_BLUE,
-        Yellow = FOREGROUND_GREEN | FOREGROUND_BLUE
+        Yellow = FOREGROUND_RED | FOREGROUND_GREEN
     }
 } else {
     /*
@@ -63,7 +63,7 @@ void writeColoredText(File pipe, ConsoleColor color, scope void delegate() dg)
         CONSOLE_SCREEN_BUFFER_INFO termInfo;
         GetConsoleScreenBufferInfo(handle, &termInfo);
         
-        SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN);
+        SetConsoleTextAttribute(handle, color);
     } else {
         static char[5] colorBuffer = [0x1B, '[', '3', '0', 'm'];
         colorBuffer[3] = cast(char)(color + '0');
