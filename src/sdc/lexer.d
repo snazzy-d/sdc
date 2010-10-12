@@ -221,11 +221,13 @@ bool lexIdentifier(TokenStream tstream)
     
     while (isUniAlpha(tstream.source.peek) || isdigit(tstream.source.peek) || tstream.source.peek == '_') {
         tstream.source.get();
-        identToken.location.length++;
+        //identToken.location.length++;
         if (tstream.source.eof) break;
     }
     
     identToken.value = tstream.source.sliceFrom(m);
+    identToken.location.length = identToken.value.length;
+    
     if (identToken.value[0] == '@') {
         auto i = identifierType(identToken.value);
         if (i == TokenType.Identifier) {

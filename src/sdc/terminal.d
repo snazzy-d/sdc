@@ -13,11 +13,19 @@ version(Windows) {
 void outputCaretDiagnostics(Location loc)
 {
     char[] line = readErrorLine(loc);
-    stderr.writeln('\t', line);
+    
+    while(line.length > 0 && (line[0] == ' ' || line[0] == '\t')) {
+        line = line[1..$];
+        loc.column--;
+    }
+    
+    writeColouredText(stderr, ConsoleColour.Green, {
+        stderr.writeln('\t', line);
+    });
     
     line[] = ' ';
     line[loc.column - 1] = '^';
-    foreach(i; loc.column .. loc.column + loc.length) {
+    foreach(i; loc.column .. loc.column + loc.length - 1) {
         line[i] = '~';
     }
     
