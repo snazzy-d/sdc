@@ -191,7 +191,8 @@ void usage()
     writeln("  --debug-identifier:    specify the given debug identifier.");
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
-    writeln("  --unittest:            compile in unittests (defaults off)."); 
+    writeln("  --unittest:            compile in unittests (defaults off).");
+    writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }
