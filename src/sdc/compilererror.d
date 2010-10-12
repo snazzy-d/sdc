@@ -19,20 +19,40 @@ enum ErrorType
 class CompilerError : Exception
 {
     Location location;
-    ErrorType type;
+    bool hasLocation = false;
+    
+    ErrorType type = ErrorType.Compilation;
     
     this(string message, ErrorType type = ErrorType.Compilation)
     {
-        if(type == ErrorType.Compilation)
+        if(type == ErrorType.Compilation) {
             super(format("error: %s", message));
-        else
+        } else {
             super(message);
+        }
+        this.type = type;
     }
     
     this(Location loc, string message)
     {
         super(format("%s: error: %s", loc, message));
         location = loc;
+        hasLocation = true;
+    }
+    
+    char[] readLine()
+    {
+        if(!hasLocation)
+            throw new Exception("CompilerError has no location");
+            
+        auto f = File(location.filename);
+        foreach(ulong lineNumber, char[] line; lines(f))
+        {
+            if(lineNumber == location.line - 1)
+                return line;
+        }
+        
+        return null;
     }
 }
 

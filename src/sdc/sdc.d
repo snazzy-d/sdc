@@ -50,6 +50,17 @@ int main(string[] args)
         realmain(args);
     } catch (CompilerError error) {
         stderr.writeln(error.msg);
+        
+        if(error.hasLocation) {
+            auto lineBuffer = error.readLine();
+            stderr.writeln('\t', lineBuffer);
+            
+            lineBuffer = lineBuffer[0 .. error.location.column];
+            lineBuffer[] = ' ';
+            lineBuffer[$ - 1] = '^';
+            
+            stderr.writeln('\t', lineBuffer);
+        }
         return 1;
     }
     return 0;
