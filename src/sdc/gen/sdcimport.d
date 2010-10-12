@@ -55,11 +55,9 @@ void genImportList(ast.ImportList importList, Module mod)
         }
         break;
     case ast.ImportListType.SingleBinder:
-        panic(importList.location, "TODO: single binder import list.");
-        break;
+        throw new CompilerError(importList.location, "TODO: single binder import list.");
     case ast.ImportListType.Multiple:
-        panic(importList.location, "TODO: multiple import list.");
-        break;
+        throw new CompilerError(importList.location, "TODO: multiple import list.");
     }
 }
 
@@ -76,7 +74,7 @@ void genImport(ast.Import theImport, Module mod)
     auto name = extractQualifiedName(theImport.moduleName);
     auto tu = getTranslationUnit(name);
     if (tu is null) {
-        panic(theImport.moduleName.location, "TODO: Search through import paths for module.");
+        throw new CompilerError(theImport.moduleName.location, "TODO: Search through import paths for module.");
     }
     if (mod.importedTranslationUnits.contains(tu)) {
         return;

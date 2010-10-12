@@ -53,10 +53,10 @@ bool isReserved(string s)
 void setVersion(string s)
 {
     if (isReserved(s)) {
-        error(format("cannot specify reserved version identifier '%s'.", s));
+        throw new CompilerError(format("cannot specify reserved version identifier '%s'.", s));
     }
     if (s in versionIdentifiers) {
-        error(format("version identifier '%s' already defined.", s));
+        throw new CompilerError(format("version identifier '%s' already defined.", s));
     }
     versionIdentifiers[s] = true;
 }
@@ -70,7 +70,7 @@ private void specifyAndReserve(string s)
 void setDebug(string s)
 {
     if (s in debugIdentifiers) {
-        error(format("debug identifier '%s' already defined.", s));
+        throw new CompilerError(format("debug identifier '%s' already defined.", s));
     }
     debugIdentifiers[s] = true;
 }

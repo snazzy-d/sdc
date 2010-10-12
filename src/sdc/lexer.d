@@ -26,7 +26,7 @@ TokenStream lex(Source source)
     lexNext(tstream);
     while (tstream.lastAdded.type != TokenType.End) {
         if (!lexNext(tstream)) {
-            error(tstream.source.location, 
+            throw new CompilerError(tstream.source.location, 
                   format("unexpected character: '%s'.", tstream.source.peek)); 
         }
     }
@@ -39,7 +39,7 @@ private:
 void match(Source src, dchar c)
 {
     if (src.peek != c) {
-        error(src.location, format("expected '%s' got '%s'.", c, src.peek));
+        throw new CompilerError(src.location, format("expected '%s' got '%s'.", c, src.peek));
     }
     src.get();
 }
@@ -154,7 +154,7 @@ void skipBlockComment(TokenStream tstream)
     bool looping = true;
     while (looping) {
         if (tstream.source.eof) {
-            error(tstream.source.location, "unterminated block comment.");
+            throw new CompilerError(tstream.source.location, "unterminated block comment.");
         }
         if (tstream.source.peek == '/') {
             match(tstream.source, '/');
@@ -178,7 +178,7 @@ void skipNestingComment(TokenStream tstream)
     int depth = 1;
     while (depth > 0) {
         if (tstream.source.eof) {
-            error(tstream.source.location, "unterminated nesting comment.");
+            throw new CompilerError(tstream.source.location, "unterminated nesting comment.");
         }
         if (tstream.source.peek == '+') {
             match(tstream.source, '+');
@@ -229,7 +229,7 @@ bool lexIdentifier(TokenStream tstream)
         auto i = identifierType(identToken.value);
         if (i == TokenType.Identifier) {
             auto err = format("invalid @ attribute '%s'.", identToken.value);
-            error(identToken.location, err);
+            throw new CompilerError(identToken.location, err);
         }
     }
     
@@ -518,9 +518,7 @@ bool lexOpKirbyRape(TokenStream tstream)
     dchar nine = tstream.source.lookahead(9, eof);
     if (eof || nine != '>') return false;
     
-    error(tstream.source.location, "no means no!");
-    
-    assert(false);
+    throw new CompilerError(tstream.source.location, "no means no!");
 }
 
 bool lexLess(TokenStream tstream)
@@ -638,7 +636,7 @@ bool lexCharacter(TokenStream tstream)
     match(tstream.source, '\'');
     while (tstream.source.peek != '\'') {
         if (tstream.source.eof) {
-            error(token.location, "unterminated character literal.");
+            throw new CompilerError(token.location, "unterminated character literal.");
         }
         if (tstream.source.peek == '\\') {
             match(tstream.source, '\\');
@@ -686,7 +684,7 @@ bool lexString(TokenStream tstream)
     match(tstream.source, terminator);
     while (tstream.source.peek != terminator) {
         if (tstream.source.eof) {
-            error(token.location, "unterminated string literal.");
+            throw new CompilerError(token.location, "unterminated string literal.");
         }
         if (!raw && tstream.source.peek == '\\') {
             match(tstream.source, '\\');
@@ -762,7 +760,7 @@ bool lexQString(TokenStream tstream)
     int nest = 1;
     LOOP: while (true) {
         if (tstream.source.eof) {
-            error(token.location, "unterminated string.");
+            throw new CompilerError(token.location, "unterminated string.");
         }
         if (tstream.source.peek == opendelimiter) {
             match(tstream.source, opendelimiter);
@@ -785,7 +783,7 @@ bool lexQString(TokenStream tstream)
             while (look - 1 < identdelim.length) {
                 dchar c = tstream.source.lookahead(look, leof);
                 if (leof) {
-                    error(token.location, "unterminated string.");
+                    throw new CompilerError(token.location, "unterminated string.");
                 }
                 if (c != identdelim[look - 1]) {
                     continue LOOP;
@@ -822,8 +820,7 @@ bool lexTokenString(TokenStream tstream)
     while (nest > 0) {
         bool retval = lexNext(dummystream);
         if (!retval) {
-            error(dummystream.source.location, format("expected token, got '%s'.", tstream.source.peek));
-            return false;
+            throw new CompilerError(dummystream.source.location, format("expected token, got '%s'.", tstream.source.peek));
         }
         switch (dummystream.lastAdded.type) {
         case TokenType.OpenBrace:
@@ -833,8 +830,7 @@ bool lexTokenString(TokenStream tstream)
             nest--;
             break;
         case TokenType.End:
-            error(dummystream.source.location, "unterminated token string.");
-            break;
+            throw new CompilerError(dummystream.source.location, "unterminated token string.");
         default:
             break;
         }
@@ -932,7 +928,7 @@ bool lexNumber(TokenStream tstream)
                     return lexReal(tstream);
                 }
                 if (state == State.HexZero) {
-                    error(src.location, format("hex digit expected, not '%s'.", src.peek));
+                    throw new CompilerError(src.location, format("hex digit expected, not '%s'.", src.peek));
                 }
                 break LOOP;
             }
@@ -966,7 +962,7 @@ bool lexNumber(TokenStream tstream)
                     continue;
                 }
                 if (state == State.BinaryZero) {
-                    error(src.location, format("binary digit expected, not '%s'.", src.peek));
+                    throw new CompilerError(src.location, format("binary digit expected, not '%s'.", src.peek));
                 } else {
                     break LOOP;
                 }
@@ -980,7 +976,7 @@ bool lexNumber(TokenStream tstream)
     }
     
     if (state == State.Octale) {
-        error(src.location, format("octal digit expected, not '%s'.", src.peek));
+        throw new CompilerError(src.location, format("octal digit expected, not '%s'.", src.peek));
     }
     
     tstream.source.sync(src);
@@ -992,8 +988,7 @@ bool lexNumber(TokenStream tstream)
             tstream.source.get();
             continue;
         case 'l':
-            error(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
-            break;
+            throw new CompilerError(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
         case 'L':
             match(tstream.source, 'L');
             continue;
@@ -1073,7 +1068,7 @@ body
                     break;
                 }
                 if (hex) {
-                    error(tstream.source.location, "binary-exponent-part required.");
+                    throw new CompilerError(tstream.source.location, "binary-exponent-part required.");
                 }
                 break OUTER;
             case 5:  // Looking immediately to the right of E.
@@ -1083,7 +1078,7 @@ body
                 }
             case 6:  // First exponent digit expected.
                 if (!isdigit(tstream.source.peek)) {
-                    error(tstream.source.location, "exponent expected.");
+                    throw new CompilerError(tstream.source.location, "exponent expected.");
                 } 
                 dblstate++;
                 break;
@@ -1101,14 +1096,14 @@ body
         tstream.source.get();
         break;
     case 'l':
-        error(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
+        throw new CompilerError(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
     default:
         break;
     }
     
     if (tstream.source.peek == 'i' || tstream.source.peek == 'I') {
         if (tstream.source.peek == 'I') {
-            error(tstream.source.location, "'I' suffix is deprecated. Use 'i' instead.");
+            throw new CompilerError(tstream.source.location, "'I' suffix is deprecated. Use 'i' instead.");
         }
         match(tstream.source, 'i');
     }
@@ -1123,7 +1118,5 @@ bool lexPragma(TokenStream tstream)
     /* Can't do this yet because the code for getting values out of
      * literals hasn't been written.
      */
-    error(tstream.source.location, "# pragma is not implemented.");
-    error(tstream.source.location, "# pragma is not implemented.");
-    assert(false);
+    throw new CompilerError(tstream.source.location, "# pragma is not implemented.");
 }

@@ -144,7 +144,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         auto specifier = cast(ast.AttributeSpecifier) declDef.node;
         assert(specifier);
         if (specifier.declarationBlock is null) {
-            panic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
+            throw new CompilerError(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
         }
         auto list = specifier.declarationBlock.declarationDefinitions.dup;
         foreach (e; list) {
@@ -152,7 +152,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         }
         return list;
     default:
-        panic(declDef.location, "attempted to expand non expandable declaration definition.");
+        throw new CompilerError(declDef.location, "attempted to expand non expandable declaration definition.");
     }
     assert(false);
 }
@@ -188,8 +188,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             mod.currentAccess = ast.Access.Public;
             break;
         default:
-            panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
-            break;
+            throw new CompilerError(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
         }
     }
     
@@ -234,7 +233,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         }
         break;
     default:
-        panic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
+        throw new CompilerError(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 
@@ -271,7 +270,7 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         auto spec = cast(ast.VersionSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasVersionBeenTested(ident)) {
-            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
+            throw new CompilerError(spec.location, format("specification of '%s' after use is not allowed.", ident));
         }
         mod.setVersion(decl.location, ident);
         break;
@@ -279,7 +278,7 @@ ast.DeclarationDefinition[] genConditionalDeclaration(ast.ConditionalDeclaration
         auto spec = cast(ast.DebugSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasDebugBeenTested(ident)) {
-            error(spec.location, format("specification of '%s' after use is not allowed.", ident));
+            throw new CompilerError(spec.location, format("specification of '%s' after use is not allowed.", ident));
         }
         mod.setDebug(decl.location, ident);
         break;
@@ -325,7 +324,7 @@ bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 {
     auto expr = genAssignExpression(condition.expression, mod);
     if (!expr.constant) {
-        error(condition.expression.location, "expression inside of a static if must be known at compile time.");
+        throw new CompilerError(condition.expression.location, "expression inside of a static if must be known at compile time.");
     }
     return expr.constBool;
 }

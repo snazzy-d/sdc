@@ -10,25 +10,30 @@ import std.string;
 
 import sdc.location;
 
+enum ErrorType
+{
+    Compilation,
+    Other
+}
 
 class CompilerError : Exception
 {
-    this()
+    Location location;
+    ErrorType type;
+    
+    this(string message, ErrorType type = ErrorType.Compilation)
     {
-        super("CompilerError");
+        if(type == ErrorType.Compilation)
+            super(format("error: %s", message));
+        else
+            super(message);
     }
-}
-
-void error(string message)
-{
-    stderr.writeln(format("error: %s", message));
-    throw new CompilerError();
-}
-
-void error(Location loc, string message)
-{
-    stderr.writeln(format("%s: error: %s", loc, message));
-    throw new CompilerError();
+    
+    this(Location loc, string message)
+    {
+        super(format("%s: error: %s", loc, message));
+        location = loc;
+    }
 }
 
 void errorMessageOnly(Location loc, string message)
@@ -39,16 +44,4 @@ void errorMessageOnly(Location loc, string message)
 void warning(Location loc, string message)
 {
     stderr.writeln(format("%s: warning: %s", loc, message));
-}
-
-void panic(Location loc, string message)
-{
-    stderr.writeln(format("%s: Internal Compiler Error: %s", loc, message));
-    throw new CompilerError();
-}
-
-void panic(string message)
-{
-    stderr.writeln(format("Internal Compiler Error: %s", message));
-    throw new CompilerError();
 }

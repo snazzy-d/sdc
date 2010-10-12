@@ -28,7 +28,10 @@ AggregateDeclaration parseAggregateDeclaration(TokenStream tstream)
         match(tstream, TokenType.Union);
         aggregate.type = AggregateType.Union;
     } else {
-        error(aggregate.location, format("aggregate declarations must begin with 'struct' or 'union', not '%s'.", tstream.peek.value));
+        throw new CompilerError(
+            aggregate.location, 
+            format("aggregate declarations must begin with 'struct' or 'union', not '%s'.", tstream.peek.value)
+        );
     }
     
     aggregate.name = parseIdentifier(tstream);

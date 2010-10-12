@@ -51,7 +51,7 @@ class Module
     this(ast.QualifiedName name)
     {
         if (name is null) {
-            panic("Module called with null name argument.");
+            throw new CompilerError("Module called with null name argument.");
         }
         this.name = name;
         context = LLVMGetGlobalContext();
@@ -77,7 +77,7 @@ class Module
         auto failed = LLVMVerifyModule(mod, LLVMVerifierFailureAction.PrintMessage, null);
         if (failed) {
             LLVMDumpModule(mod);
-            panic("Module verification failed.");
+            throw new CompilerError("Module verification failed.");
         }
     }
     
@@ -150,7 +150,7 @@ class Module
             void checkAccess(ast.Access access)
             {
                 if (access != ast.Access.Public) {
-                    error("cannot access symbol '" ~ name ~ "', as it is declared private.");
+                    throw new CompilerError("cannot access symbol '" ~ name ~ "', as it is declared private.");
                 }
             }
             auto tustore = tu.gModule.globalScope.get(name);
@@ -176,12 +176,12 @@ class Module
              *  fail with 'duplicated symbol' error message."
              */
             if (store.storeType == StoreType.Value && store.value.type.dtype != DType.Function) {
-                error("duplicate symbol '" ~ name ~ "'.");
+                throw new CompilerError("duplicate symbol '" ~ name ~ "'.");
             } else {
                 /* "...if the symbol is the name of a function,
                  *  apply cross-module overload resolution."
                  */
-                panic("no cross-module overload resolution!");
+                throw new CompilerError("no cross-module overload resolution!");
             }            
         }
         
@@ -239,10 +239,10 @@ class Module
     void setVersion(Location loc, string s)
     {
         if (isReserved(s)) {
-            error(loc, format("can't set reserved version identifier '%s'.", s));
+            throw new CompilerError(loc, format("can't set reserved version identifier '%s'.", s));
         }
         if (s in mVersionIdentifiers || isVersionIdentifierSet(s)) {
-            error(loc, format("version identifier '%s' is already set.", s));
+            throw new CompilerError(loc, format("version identifier '%s' is already set.", s));
         }
         mVersionIdentifiers[s] = true;
     }
@@ -250,7 +250,7 @@ class Module
     void setDebug(Location loc, string s)
     {
         if (s in mDebugIdentifiers || isDebugIdentifierSet(s)) {
-            error(loc, format("debug identifier '%s' is already set.", s));
+            throw new CompilerError(loc, format("debug identifier '%s' is already set.", s));
         }
         mDebugIdentifiers[s] = true;
     }

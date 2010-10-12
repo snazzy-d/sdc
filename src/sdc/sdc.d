@@ -48,7 +48,8 @@ int main(string[] args)
 {
     try {
         realmain(args);
-    } catch (CompilerError) {
+    } catch (CompilerError error) {
+        stderr.writeln(error.msg);
         return 1;
     }
     return 0;
@@ -62,7 +63,7 @@ void realmain(string[] args)
     }
     
     bool skipLink = false;
-    try {
+    //try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
                "version|v", () { writeln(VERSION_STRING); exit(0); },
@@ -73,10 +74,10 @@ void realmain(string[] args)
                "unittest", () { unittestsEnabled = true; },
                "c", &skipLink
                );
-    } catch (Exception) {
+    /+} catch (Exception) {
         stderr.writeln("bad command line.");
         throw new CompilerError();
-    }
+    }+/
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
@@ -100,8 +101,10 @@ void realmain(string[] args)
                 break;
             
             default:
-                stderr.writeln("unknown extension '", ext, `' ("`, arg,`")`);
-                throw new CompilerError();
+                throw new CompilerError(
+                    format(`unknown extension '%s' ("%s")`, ext, arg),
+                    ErrorType.Other
+                );
         }
     }
     
@@ -140,7 +143,7 @@ void realmain(string[] args)
             break;
         } else if (oldModuleCompilationFailures == moduleCompilationFailures) {
             if (lastPass) {
-                panic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
+                throw new CompilerError("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
             } else {
                 lastPass = true;
             }

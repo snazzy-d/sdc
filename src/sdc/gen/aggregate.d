@@ -35,11 +35,11 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     case ast.AggregateType.Struct:
         break;
     case ast.AggregateType.Union:
-        panic(decl.location, "unions are unimplemented.");
+        throw new CompilerError(decl.location, "unions are unimplemented.");
     }
     
     if (decl.structBody is null) {
-        panic(decl.location, "aggregates with no body are unimplemented.");
+        throw new CompilerError(decl.location, "aggregates with no body are unimplemented.");
     }
     
     auto name = extractIdentifier(decl.name);
@@ -66,7 +66,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
                 functions ~= func;
             }
         } else {
-            error(decl.location, "invalid aggregrate declaration type.");
+            throw new CompilerError(decl.location, "invalid aggregrate declaration type.");
         }
     }
     mod.currentScope = currentScope;

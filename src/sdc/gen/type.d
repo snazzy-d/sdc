@@ -85,7 +85,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Inferred:
         return new InferredType(mod);
     }
-    panic("tried to get Type out of invalid DType.");
+    throw new CompilerError("tried to get Type out of invalid DType.");
     assert(false);
 }
 
@@ -548,7 +548,7 @@ class InferredType : Type
     
     override Value getValue(Module mod, Location location)
     {
-        panic(location, "attempted to call InferredType.getValue");
+        throw new CompilerError(location, "attempted to call InferredType.getValue");
         assert(false);
     }
 }

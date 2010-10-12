@@ -73,8 +73,7 @@ void mangleType(ref string mangledName, Type type)
     case Inferred:
     case Complex:
     case None:
-        panic("attempted to mangle invalid type.");
-        break;
+        throw new CompilerError("attempted to mangle invalid type.");
     case Bool:
         mangledName ~= "b";
         break;

@@ -22,9 +22,12 @@ Module parse(TokenStream tstream)
 void match(TokenStream tstream, TokenType type)
 {
     if (tstream.peek.type != type) {
-        error(tstream.peek.location, format("expected '%s', got '%s'.",
-                                            tokenToString[type],
-                                            tstream.peek.value));
+        throw new CompilerError(
+            tstream.peek.location, 
+            format("expected '%s', got '%s'.",
+                tokenToString[type],
+                tstream.peek.value)
+        );
     }
     tstream.getToken();
 }

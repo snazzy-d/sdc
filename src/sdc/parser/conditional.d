@@ -94,7 +94,7 @@ Condition parseCondition(TokenStream tstream)
         condition.condition = parseStaticIfCondition(tstream);
         break;
     default:
-        error(tstream.peek.location, "expected 'version', 'debug', or 'static' for compile time conditional.");
+        throw new CompilerError(tstream.peek.location, "expected 'version', 'debug', or 'static' for compile time conditional.");
     }
     return condition;
 }
@@ -108,8 +108,7 @@ VersionCondition parseVersionCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        error(tstream.peek.location, "integer versions are unsupported.");
-        break;
+        throw new CompilerError(tstream.peek.location, "integer versions are unsupported.");
     case TokenType.Identifier:
         condition.type = VersionConditionType.Identifier;
         condition.identifier = parseIdentifier(tstream);
@@ -119,7 +118,7 @@ VersionCondition parseVersionCondition(TokenStream tstream)
         match(tstream, TokenType.Unittest);
         break;
     default:
-        error(tstream.peek.location, "version conditions should be either an integer, an identifier, or 'unittest'.");
+        throw new CompilerError(tstream.peek.location, "version conditions should be either an integer, an identifier, or 'unittest'.");
     }
     match(tstream, TokenType.CloseParen);
     return condition;
@@ -137,14 +136,13 @@ DebugCondition parseDebugCondition(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     switch (tstream.peek.type) {
     case TokenType.IntegerLiteral:
-        error(tstream.peek.location, "integer debug levels are unsupported.");
-        break;
+        throw new CompilerError(tstream.peek.location, "integer debug levels are unsupported.");
     case TokenType.Identifier:
         condition.type = DebugConditionType.Identifier;
         condition.identifier = parseIdentifier(tstream);
         break;
     default:
-        error(tstream.peek.location, "expected identifier as debug condition.");
+        throw new CompilerError(tstream.peek.location, "expected identifier as debug condition.");
     }
     match(tstream, TokenType.CloseParen);
     return condition;

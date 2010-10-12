@@ -40,7 +40,7 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
 
 void declareAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod)
 {
-    panic("OH SHIT THINGS ARE GETTING REFACTORED, YO!");
+    throw new CompilerError("OH SHIT THINGS ARE GETTING REFACTORED, YO!");
     version (none) {
         auto oldLinkage = mod.currentLinkage;
         genAttribute(attributeSpecifier.attribute, mod);
@@ -72,6 +72,6 @@ void genAttribute(ast.Attribute attribute, Module mod)
         mod.currentLinkage = cast(ast.Linkage) attribute.type;
         break;
     default:
-        panic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
+        throw new CompilerError(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
     }
 }

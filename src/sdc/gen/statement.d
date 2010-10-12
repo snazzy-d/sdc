@@ -75,7 +75,7 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
     switch (statement.type) {
     default:
-        panic(statement.location, "unimplemented non empty statement type.");
+        throw new CompilerError(statement.location, "unimplemented non empty statement type.");
         assert(false);
     case ast.NonEmptyStatementType.IfStatement:
         genIfStatement(cast(ast.IfStatement) statement.node, mod);
@@ -139,8 +139,7 @@ void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef
         break;
     case ast.IfConditionType.Identifier:
     case ast.IfConditionType.Declarator:
-        panic("unimplemented if condition type.");
-        break;
+        throw new CompilerError("unimplemented if condition type.");
     }
     
     ifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "iftrue");

@@ -111,13 +111,13 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
         if (mod.currentScope is mod.globalScope) {
-            panic(decl.location, "global variables are unimplemented.");
+            throw new CompilerError(decl.location, "global variables are unimplemented.");
         }
         
         Value var;
         if (type.dtype == DType.Inferred) {
             if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
-                error(decl.location, "not enough information to infer type.");
+                throw new CompilerError(decl.location, "not enough information to infer type.");
             }
         } else {
             var = type.getValue(mod, declarator.location);
@@ -138,11 +138,11 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 }
                 aexp = implicitCast(aexp, type);
                 if (var is null) {
-                    panic(decl.location, "inferred type ended up with no value at declaration point.");
+                    throw new CompilerError(decl.location, "inferred type ended up with no value at declaration point.");
                 }
                 var.set(aexp);
             } else {
-                panic(declarator.initialiser.location, "unhandled initialiser type.");
+                throw new CompilerError(declarator.initialiser.location, "unhandled initialiser type.");
             }
         }
         mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
@@ -154,7 +154,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto store = mod.globalScope.get(name);
     if (store is null) {
-        panic(decl.location, "attempted to gen undeclared function.");
+        throw new CompilerError(decl.location, "attempted to gen undeclared function.");
     }
     auto val = store.value();
     if (decl.functionBody is null) {
@@ -184,7 +184,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
     if (!mod.currentPath.functionEscaped) {
-        error(functionBody.location, "function expected to return a value.");
+        throw new CompilerError(functionBody.location, "function expected to return a value.");
     }
     
     mod.popPath();

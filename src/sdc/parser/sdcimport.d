@@ -48,7 +48,7 @@ ImportList parseImportList(TokenStream tstream)
             list.type = ImportListType.SingleSimple;
             break;
         } else {
-            error(tstream.lookahead(l).location, format("unknown token in import list: '%s'.", tstream.lookahead(l).value));
+            throw new CompilerError(tstream.lookahead(l).location, format("unknown token in import list: '%s'.", tstream.lookahead(l).value));
         }
     }
     
@@ -59,7 +59,7 @@ ImportList parseImportList(TokenStream tstream)
     case ImportListType.SingleBinder:
         list.binder = parseImportBinder(tstream);
         if (tstream.peek.type != TokenType.Semicolon) {
-            error(tstream.peek.location, "only the final import in an import list may have a bind list.");
+            throw new CompilerError(tstream.peek.location, "only the final import in an import list may have a bind list.");
         }
         break;
     case ImportListType.Multiple:
@@ -76,14 +76,14 @@ ImportList parseImportList(TokenStream tstream)
             } else if (tstream.lookahead(l).type == TokenType.Colon) {
                 list.binder = parseImportBinder(tstream);
                 if (tstream.peek.type != TokenType.Semicolon) {
-                    error(tstream.peek.location, "only the final import in an import list may have a bind list.");
+                    throw new CompilerError(tstream.peek.location, "only the final import in an import list may have a bind list.");
                 }
                 break;
             } else if (tstream.lookahead(l).type == TokenType.Semicolon) {
                 list.imports ~= parseImport(tstream);
                 break;
             } else {
-                error(tstream.lookahead(l).location, format("unknown token in import list: '%s'.", tstream.lookahead(l).value));
+                throw new CompilerError(tstream.lookahead(l).location, format("unknown token in import list: '%s'.", tstream.lookahead(l).value));
             }
         }
         break;
