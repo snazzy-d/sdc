@@ -9,7 +9,7 @@ import sdc.compilererror;
 version(Windows) {
     import std.c.windows.windows;
 } else {
-    // import POSIX stuff
+    import std.conv;
 }
 
 void outputCaretDiagnostics(Location loc)
@@ -20,35 +20,64 @@ void outputCaretDiagnostics(Location loc)
     line[] = '~';
     line[loc.column - 1] = '^';
     
-    writeColoredText({
+    writeColoredText(stderr, ConsoleColor.Yellow, {
         stderr.writeln('\t', line);
     });
 }
 
-// putting color selection off until ANSI terminal implementation
-void writeColoredText(scope void delegate() dg)
+version(Windows) {
+    enum ConsoleColor : WORD
+    {
+        Red = FOREGROUND_RED,
+        Green = FOREGROUND_GREEN,
+        Blue = FOREGROUND_BLUE,
+        Yellow = FOREGROUND_GREEN | FOREGROUND_BLUE
+    }
+} else {
+    /*
+     * ANSI colour codes per ECMA-48 (minus 30).
+     * e.g., Yellow = 3 + 30 = 33.
+     */
+    enum ConsoleColor
+    {
+        Black = 0,
+        Red = 1,
+        Green = 2,
+        Yellow = 3,
+        Blue = 4,
+        Magenta = 5,
+        Cyan = 6,
+        White = 7
+    }
+}
+
+void writeColoredText(File pipe, ConsoleColor color, scope void delegate() dg)
 {
     version(Windows) {
+        HANDLE handle;
+        
+        if(pipe == stderr) {
+            handle = GetStdHandle(STD_ERROR_HANDLE);
+        } else {
+            handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        } 
+        
         CONSOLE_SCREEN_BUFFER_INFO termInfo;
+        GetConsoleScreenBufferInfo(handle, &termInfo);
         
-        GetConsoleScreenBufferInfo(
-            GetStdHandle(STD_ERROR_HANDLE),
-            &termInfo
-        );
+        SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_GREEN);
+    } else {
+        static char[5] colorBuffer = [0x1B, '[', '3', '0', 'm'];
+        colorBuffer[3] = cast(char)(color + '0');
         
-        SetConsoleTextAttribute(
-            GetStdHandle(STD_ERROR_HANDLE),
-            FOREGROUND_RED | FOREGROUND_GREEN
-        );
+        pipe.write(colorBuffer);
     }
     
     dg();
     
-    version(Windows)
-    {
-        SetConsoleTextAttribute(
-            GetStdHandle(STD_ERROR_HANDLE),
-            termInfo.wAttributes
-        );
+    version(Windows) {
+        SetConsoleTextAttribute(handle, termInfo.wAttributes);
+    } else {
+        pipe.write("\x1b[30m");
     }
 }
