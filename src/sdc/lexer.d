@@ -16,8 +16,8 @@ import sdc.source;
 import sdc.location;
 import sdc.tokenstream;
 import sdc.compilererror;
-import sdc.info;
 
+static import sdc.info;
 
 TokenStream lex(Source source)
 {
@@ -25,8 +25,7 @@ TokenStream lex(Source source)
     
     lexNext(tstream);
     while (tstream.lastAdded.type != TokenType.End) {
-        bool retval = lexNext(tstream);
-        if (!retval) {
+        if (!lexNext(tstream)) {
             error(tstream.source.location, 
                   format("unexpected character: '%s'.", tstream.source.peek)); 
         }
