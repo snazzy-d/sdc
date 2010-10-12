@@ -83,28 +83,27 @@ void realmain(string[] args)
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
         
-        switch(ext)
-        {
-            case "o":
-                assemblies ~= arg;
-                break;
+        switch(ext){
+        case "o":
+            assemblies ~= arg;
+            break;
                 
-            case "d", "di":
-                auto translationUnit = new TranslationUnit();
-                translationUnit.tusource = TUSource.Compilation;
-                translationUnit.filename = arg;
-                translationUnit.source = new Source(arg);
-                translationUnit.tstream = lex(translationUnit.source);
-                translationUnit.aModule = parseModule(translationUnit.tstream);
-                auto name = extractQualifiedName(translationUnit.aModule.moduleDeclaration.name);
-                addTranslationUnit(name, translationUnit);
-                break;
-            
-            default:
-                throw new CompilerError(
-                    format(`unknown extension '%s' ("%s")`, ext, arg),
-                    ErrorType.Other
-                );
+        case "d", "di":
+            auto translationUnit = new TranslationUnit();
+            translationUnit.tusource = TUSource.Compilation;
+            translationUnit.filename = arg;
+            translationUnit.source = new Source(arg);
+            translationUnit.tstream = lex(translationUnit.source);
+            translationUnit.aModule = parseModule(translationUnit.tstream);
+            auto name = extractQualifiedName(translationUnit.aModule.moduleDeclaration.name);
+            addTranslationUnit(name, translationUnit);
+            break;
+        
+        default:
+            throw new CompilerError(
+                format(`unknown extension '%s' ("%s")`, ext, arg),
+                ErrorType.Other
+            );
         }
     }
     
