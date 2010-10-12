@@ -63,22 +63,6 @@ class CompilerPanic : CompilerError
     }
 }
 
-char[] readErrorLine(Location loc)
-{            
-    auto f = File(loc.filename);
-    
-    foreach(ulong n, char[] line; lines(f)) {
-        if(n == loc.line - 1) {
-            while(line[$-1] == '\n' || line[$-1] == '\r'){ 
-                line = line[0 .. $ - 1];
-            }
-            return line;
-        }
-    }
-    
-    return null;
-}
-
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));

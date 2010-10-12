@@ -53,15 +53,7 @@ int main(string[] args)
         stderr.writeln(error.msg);
         
         if(error.hasLocation) {
-            char[] line = readErrorLine(error.location);
-            stderr.writeln('\t', line);
-            
-            line[] = '~';
-            line[error.location.column - 1] = '^';
-            
-            writeColoredText({
-                stderr.writeln('\t', line);
-            });
+            outputCaretDiagnostics(error.location);
         }
         return 1;
     }
