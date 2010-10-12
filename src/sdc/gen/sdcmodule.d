@@ -285,6 +285,14 @@ class Module
         return (s in mTestedDebugIdentifiers) !is null;
     }
     
+    Module dup() @property
+    {
+        auto mod = new Module(name);
+        mod.mScopeStack = mScopeStack.dup;
+        mod.mPathStack = mPathStack.dup;
+        return mod;
+    }
+    
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
     protected bool[string] mVersionIdentifiers;

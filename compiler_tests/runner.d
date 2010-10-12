@@ -67,13 +67,10 @@ bool test(string filename)
         }
     }
     
-    version(Windows) // Put SDC in your PATH
-    {
+    version (Windows) { // Put SDC in your PATH
         auto command = `sdc "` ~ filename ~ `"`;
-    }
-    else // Leaving this decision to the Unix crowd
-    {
-        auto command = `../sdc.bin "` ~ filename ~ `"`;
+    } else { // Leaving this decision to the Unix crowd
+        auto command = `../sdc "` ~ filename ~ `"`;
     }
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {

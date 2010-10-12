@@ -2,7 +2,7 @@ DMD=dmd
 DFLAGS=-w -debug -gc -c -unittest -Iimport
 SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d
 OBJ=sdc.o
-EXE=sdc.bin
+EXE=sdc
 
 # Apologies for the specificness of this.
 # In time this will change. For now, fill in your details.
