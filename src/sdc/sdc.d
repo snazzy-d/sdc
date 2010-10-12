@@ -46,61 +46,66 @@ import sdc.gen.sdcimport;
 
 int main(string[] args)
 {
-    int retval;
     try {
         realmain(args);
     } catch (CompilerError) {
-        retval = 1;
+        return 1;
     }
-    return retval;
+    return 0;
 }
 
 void realmain(string[] args)
 {
-    bool justCompile;
-    try {
-        getopt(args,
-               "help|h", () { usage(); exit(0); },
-               "version|v", () { stdout.writeln(VERSION_STRING); exit(0); },
-               "version-identifier", (string option, string arg) { setVersion(arg); },
-               "debug-identifier", (string option, string arg) { setDebug(arg); },
-               "debug", () { isDebug = true; },
-               "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; },
-               "c", &justCompile
-               );
-    } catch (Exception) {
-        stderr.writeln("bad command line.");
-        throw new CompilerError();
-    }
-          
     if (args.length == 1) {
         usage();
         return;
     }
     
+    bool skipLink = false;
+    try {
+        getopt(args,
+               "help|h", () { usage(); exit(0); },
+               "version|v", () { writeln(VERSION_STRING); exit(0); },
+               "version-identifier", (string option, string arg) { setVersion(arg); },
+               "debug-identifier", (string option, string arg) { setDebug(arg); },
+               "debug", () { isDebug = true; },
+               "release", () { isDebug = false; },
+               "unittest", () { unittestsEnabled = true; },
+               "c", &skipLink
+               );
+    } catch (Exception) {
+        stderr.writeln("bad command line.");
+        throw new CompilerError();
+    }
+    
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
-        if (ext == "o") {
-            assemblies ~= arg;
-            continue;
-        }
         
-        if (ext != "d" && ext != "di") {
-            stderr.writeln("unknown extension '", ext, "'.");
-            throw new CompilerError();
+        switch(ext)
+        {
+            case "o":
+                assemblies ~= arg;
+                break;
+                
+            case "d", "di":
+                auto translationUnit = new TranslationUnit();
+                translationUnit.tusource = TUSource.Compilation;
+                translationUnit.filename = arg;
+                translationUnit.source = new Source(arg);
+                translationUnit.tstream = lex(translationUnit.source);
+                translationUnit.aModule = parseModule(translationUnit.tstream);
+                auto name = extractQualifiedName(translationUnit.aModule.moduleDeclaration.name);
+                addTranslationUnit(name, translationUnit);
+                break;
+            
+            default:
+                stderr.writeln("unknown extension '", ext, `' ("`, arg,`")`);
+                throw new CompilerError();
         }
-        auto translationUnit = new TranslationUnit();
-        translationUnit.tusource = TUSource.Compilation;
-        translationUnit.filename = arg;
-        translationUnit.source = new Source(arg);
-        translationUnit.tstream = lex(translationUnit.source);
-        translationUnit.aModule = parseModule(translationUnit.tstream);
-        auto name = extractQualifiedName(translationUnit.aModule.moduleDeclaration.name);
-        addTranslationUnit(name, translationUnit);
     }
     
+    // v Good lord!! v
     auto extensionRegex = regex(r"d(i)?$", "i");
     int moduleCompilationFailures, oldModuleCompilationFailures = -1;
     bool lastPass;
@@ -144,24 +149,21 @@ void realmain(string[] args)
             oldModuleCompilationFailures = moduleCompilationFailures;
         }
     }
+    // ^ Good lord!! ^
     
-    if (!justCompile) {
+    if (!skipLink) {
         version(Windows) {
             auto linkCommand = "gcc -o a.exe ";
         } else {
             auto linkCommand = "gcc -o a.out ";
-	}
+        }
 	
-	foreach (assembly; assemblies) {
+	    foreach (assembly; assemblies) {
             linkCommand ~= `"` ~ assembly ~ `" `;
         }
+        
         system(linkCommand);
     }
-}
-
-void addImplicitImports()
-{
-
 }
 
 void usage()
