@@ -8,8 +8,6 @@ import sdc.compilererror;
 
 version(Windows) {
     import std.c.windows.windows;
-} else {
-    import std.conv;
 }
 
 void outputCaretDiagnostics(Location loc)
