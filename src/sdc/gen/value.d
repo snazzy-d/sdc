@@ -78,11 +78,10 @@ abstract class Value
     
     Value performCast(Type t)
     {
-        throw new CompilerError(location, "invalid cast");
-        assert(false);
+        throw new CompilerPanic(location, "invalid cast");
     }
     
-    void fail(string s = "unspecified") { throw new CompilerError(location, "call to unimplemented method '" ~ s ~ "'."); }
+    void fail(string s = "unspecified") { throw new CompilerPanic(location, "call to unimplemented method '" ~ s ~ "'."); }
         
     LLVMValueRef get() { fail("get"); assert(false); }
     void set(Value val) { fail("set:Value"); assert(false); }
@@ -190,7 +189,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         } else if (isFPDtype(t.dtype)) {
             v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
         } else {
-            throw new CompilerError(location, "invalid cast");
+            throw new CompilerPanic(location, "invalid cast");
         }
         return v;
     }
@@ -342,17 +341,16 @@ class FloatingPointValue(T, B) : Value
         if (isIntegerDType(t.dtype)) {
             v.set(LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
         } else if (isFPDtype(t.dtype)) {
-            throw new CompilerError(location, "floating point to floating point casts are unimplemented.");
+            throw new CompilerPanic(location, "floating point to floating point casts are unimplemented.");
         } else {
-            throw new CompilerError(location, "invalid cast.");
+            throw new CompilerPanic(location, "invalid cast.");
         }
         return v;
     }
     
     version (none) override Value importToModule(Module mod)
     {
-        throw new CompilerError("attempted to import double value across modules.");
-        assert(false);
+        throw new CompilerPanic("attempted to import double value across modules.");
     }
     
     override LLVMValueRef get()
@@ -463,8 +461,7 @@ class ArrayValue : PointerValue
         auto l = new LongValue(mModule, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
         auto ll = [l];
-        throw new CompilerError(location, "arrays are unimplemented.");
-        assert(false);
+        throw new CompilerPanic(location, "arrays are unimplemented.");
         // Allocate memory here,
         // then cast to asArray.structTypePointer.
         // return that.
@@ -591,7 +588,7 @@ class FunctionValue : Value
             mangleQualifiedName(s, type.parentAggregate.name);
         } else {
             if (mModule.name is null) {
-                throw new CompilerError("null module name.");
+                throw new CompilerPanic("null module name.");
             }
             mangleQualifiedName(s, mModule.name);
         }
@@ -664,8 +661,7 @@ class FunctionValue : Value
     
     override Value init(Location location)
     {
-        throw new CompilerError(location, "tried to get the init of a function value.");
-        assert(false);
+        throw new CompilerPanic(location, "tried to get the init of a function value.");
     }
     
     override Value importToModule(Module mod)
@@ -702,8 +698,7 @@ class StructValue : Value
     
     override Value init(Location location)
     {
-        throw new CompilerError(location, "tried to get the init of a struct value.");
-        assert(false);
+        throw new CompilerPanic(location, "tried to get the init of a struct value.");
     }
     
     override Value getMember(string name)
@@ -769,7 +764,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         t = new InferredType(mod);
         break;
     default:
-        throw new CompilerError(type.location, "unhandled type type.");
+        throw new CompilerPanic(type.location, "unhandled type type.");
     }
     
     if (t is null) {
@@ -783,7 +778,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         } else if (suffix.type == ast.TypeSuffixType.DynamicArray) {
             t = new ArrayType(mod, t);
         } else {
-            throw new CompilerError(type.location, "unimplemented type suffix.");
+            throw new CompilerPanic(type.location, "unimplemented type suffix.");
         }
     }
     
@@ -826,7 +821,7 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
     case ast.PrimitiveTypeType.Dchar:
         return new DcharType(mod);
     default:
-        throw new CompilerError(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
+        throw new CompilerPanic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
     
     assert(false);
@@ -886,7 +881,7 @@ Value implicitCast(Value v, Type toType)
         if (v.type == toType) {
             return v;
         }
-        throw new CompilerError(v.location, "casts involving complex types are unimplemented.");
+        throw new CompilerPanic(v.location, "casts involving complex types are unimplemented.");
     }
     if (toType.dtype == v.type.dtype && toType.dtype != DType.Pointer) {
         return v;

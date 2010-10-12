@@ -144,7 +144,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         auto specifier = cast(ast.AttributeSpecifier) declDef.node;
         assert(specifier);
         if (specifier.declarationBlock is null) {
-            throw new CompilerError(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
+            throw new CompilerPanic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
         }
         auto list = specifier.declarationBlock.declarationDefinitions.dup;
         foreach (e; list) {
@@ -152,7 +152,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         }
         return list;
     default:
-        throw new CompilerError(declDef.location, "attempted to expand non expandable declaration definition.");
+        throw new CompilerPanic(declDef.location, "attempted to expand non expandable declaration definition.");
     }
     assert(false);
 }
@@ -188,7 +188,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             mod.currentAccess = ast.Access.Public;
             break;
         default:
-            throw new CompilerError(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
+            throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
         }
     }
     
@@ -233,7 +233,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         }
         break;
     default:
-        throw new CompilerError(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
+        throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
 }
 

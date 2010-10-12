@@ -85,8 +85,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Inferred:
         return new InferredType(mod);
     }
-    throw new CompilerError("tried to get Type out of invalid DType.");
-    assert(false);
+    throw new CompilerPanic("tried to get Type out of invalid DType.");
 }
 
 pure bool isComplexDType(DType dtype)
@@ -548,7 +547,6 @@ class InferredType : Type
     
     override Value getValue(Module mod, Location location)
     {
-        throw new CompilerError(location, "attempted to call InferredType.getValue");
-        assert(false);
+        throw new CompilerPanic(location, "attempted to call InferredType.getValue");
     }
 }

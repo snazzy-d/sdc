@@ -151,7 +151,7 @@ void realmain(string[] args)
             break;
         } else if (oldModuleCompilationFailures == moduleCompilationFailures) {
             if (lastPass) {
-                throw new CompilerError("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
+                throw new CompilerPanic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
             } else {
                 lastPass = true;
             }

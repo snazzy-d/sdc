@@ -111,7 +111,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
         
         if (mod.currentScope is mod.globalScope) {
-            throw new CompilerError(decl.location, "global variables are unimplemented.");
+            throw new CompilerPanic(decl.location, "global variables are unimplemented.");
         }
         
         Value var;
@@ -138,11 +138,11 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 }
                 aexp = implicitCast(aexp, type);
                 if (var is null) {
-                    throw new CompilerError(decl.location, "inferred type ended up with no value at declaration point.");
+                    throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
                 }
                 var.set(aexp);
             } else {
-                throw new CompilerError(declarator.initialiser.location, "unhandled initialiser type.");
+                throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
             }
         }
         mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
@@ -154,7 +154,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto store = mod.globalScope.get(name);
     if (store is null) {
-        throw new CompilerError(decl.location, "attempted to gen undeclared function.");
+        throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
     auto val = store.value();
     if (decl.functionBody is null) {

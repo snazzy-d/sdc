@@ -34,7 +34,7 @@ Attribute parseAttribute(TokenStream tstream)
     {
         match(tstream, TokenType.Extern);
         if (tstream.peek.type != TokenType.OpenParen) {
-            throw new CompilerError(tstream.peek.location, "ICE: only linkage style extern supported.");
+            throw new CompilerPanic(tstream.peek.location, "ICE: only linkage style extern supported.");
         }
         match(tstream, TokenType.OpenParen);
         switch (tstream.peek.value) {

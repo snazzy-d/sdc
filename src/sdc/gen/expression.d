@@ -55,25 +55,25 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
         lhs.set(lhs.div(rhs));
         break;
     case ModAssign:
-        throw new CompilerError(expression.location, "modulo assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "modulo assign is unimplemented.");
     case AndAssign:
-        throw new CompilerError(expression.location, "and assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "and assign is unimplemented.");
     case OrAssign:
-        throw new CompilerError(expression.location, "or assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "or assign is unimplemented.");
     case XorAssign:
-        throw new CompilerError(expression.location, "xor assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "xor assign is unimplemented.");
     case CatAssign:
-        throw new CompilerError(expression.location, "cat assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "cat assign is unimplemented.");
     case ShiftLeftAssign:
-        throw new CompilerError(expression.location, "shift left assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "shift left assign is unimplemented.");
     case SignedShiftRightAssign:
-        throw new CompilerError(expression.location, "signed shift assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "signed shift assign is unimplemented.");
     case UnsignedShiftRightAssign:
-        throw new CompilerError(expression.location, "unsigned shift assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "unsigned shift assign is unimplemented.");
     case PowAssign:
-        throw new CompilerError(expression.location, "pow assign is unimplemented.");
+        throw new CompilerPanic(expression.location, "pow assign is unimplemented.");
     default:
-        throw new CompilerError(expression.location, "unimplemented assign expression type.");
+        throw new CompilerPanic(expression.location, "unimplemented assign expression type.");
     }
     return rhs;
 }
@@ -140,8 +140,7 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         lhs = lhs.lte(rhs);
         break;
     default:
-        throw new CompilerError(expression.location, "unhandled comparison expression.");
-        assert(false);
+        throw new CompilerPanic(expression.location, "unhandled comparison expression.");
     }
     return lhs;
 }
@@ -167,7 +166,7 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
             val = lhs.sub(val);
             break;
         case ast.AddOperation.Concat:
-            throw new CompilerError(expression.location, "unimplemented add operation.");
+            throw new CompilerPanic(expression.location, "unimplemented add operation.");
             assert(false);
         }
     } else {
@@ -193,7 +192,7 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
             val = lhs.div(val);
             break;
         case ast.MulOperation.Mod:
-            throw new CompilerError(expression.location, "unimplemented mul operation.");
+            throw new CompilerPanic(expression.location, "unimplemented mul operation.");
             assert(false);
         }
     } else {
@@ -242,8 +241,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:
-        throw new CompilerError(expression.location, "unimplemented unary expression.");
-        assert(false);
+        throw new CompilerPanic(expression.location, "unimplemented unary expression.");
     case ast.UnaryPrefix.None:
         val = genPostfixExpression(expression.postfixExpression, mod);
         break;
@@ -306,7 +304,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             args ~= genAssignExpression(expr, mod);
         }
         if (args.length == 0 || args.length > 1) {
-            throw new CompilerError(expression.location, "slice argument lists must contain only one argument.");
+            throw new CompilerPanic(expression.location, "slice argument lists must contain only one argument.");
         }
         lhs = lhs.index(args[0]);
         break;
@@ -325,7 +323,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         mod.callingAggregate = null;
         break;
     case ast.PostfixType.Slice:
-        throw new CompilerError(expression.location, "unimplemented postfix expression type.");
+        throw new CompilerPanic(expression.location, "unimplemented postfix expression type.");
         assert(false);
     }
     return lhs;
@@ -354,7 +352,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     case ast.PrimaryType.Null:
         return new NullPointerValue(mod, expression.location);
     default:
-        throw new CompilerError(expression.location, "unhandled primary expression type.");
+        throw new CompilerPanic(expression.location, "unhandled primary expression type.");
     }
 }
 
@@ -374,7 +372,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         auto s = mod.search("this");
         if (s !is null) {
             if (s.storeType != StoreType.Value) {
-                throw new CompilerError(identifier.location, "this reference not a value.");
+                throw new CompilerPanic(identifier.location, "this reference not a value.");
             }
             implicitBase = s.value;
         }

@@ -51,7 +51,7 @@ class Module
     this(ast.QualifiedName name)
     {
         if (name is null) {
-            throw new CompilerError("Module called with null name argument.");
+            throw new CompilerPanic("Module called with null name argument.");
         }
         this.name = name;
         context = LLVMGetGlobalContext();
@@ -77,7 +77,7 @@ class Module
         auto failed = LLVMVerifyModule(mod, LLVMVerifierFailureAction.PrintMessage, null);
         if (failed) {
             LLVMDumpModule(mod);
-            throw new CompilerError("Module verification failed.");
+            throw new CompilerPanic("Module verification failed.");
         }
     }
     
@@ -181,7 +181,7 @@ class Module
                 /* "...if the symbol is the name of a function,
                  *  apply cross-module overload resolution."
                  */
-                throw new CompilerError("no cross-module overload resolution!");
+                throw new CompilerPanic("no cross-module overload resolution!");
             }            
         }
         
