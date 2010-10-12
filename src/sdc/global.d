@@ -41,8 +41,8 @@ class TranslationUnit
     bool compile = true;
 }
 
-shared bool isDebug;
-shared bool unittestsEnabled;
+shared bool isDebug = true;
+shared bool unittestsEnabled = false;
 __gshared ast.DeclarationDefinition[] implicitDeclDefs;
 
 bool isReserved(string s)
@@ -102,7 +102,6 @@ TranslationUnit[] getTranslationUnits()
 
 static this()
 {
-    isDebug = true;
     reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.
     specifyAndReserve("all");                   // Guaranteed to be defined by all implementations.
     specifyAndReserve("SDC");                   // Vendor specification.
