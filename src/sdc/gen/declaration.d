@@ -183,10 +183,20 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     
     mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
+    
     if (!mod.currentPath.functionEscaped) {
-        throw new CompilerError(functionBody.location, "function expected to return a value.");
+        if(decl.retval.type == ast.TypeType.Primitive) {
+           auto prim = cast(ast.PrimitiveType)decl.retval.node;
+           
+           if(prim.type == ast.PrimitiveTypeType.Void) {
+               LLVMBuildRetVoid(mod.builder);
+               goto success;
+           }
+        }
+        throw new CompilerError(decl.location, "function expected to return a value.");
     }
     
+    success:
     mod.popPath();
     mod.currentFunction = null;
     mod.popScope();

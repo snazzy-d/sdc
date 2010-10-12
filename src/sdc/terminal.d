@@ -77,7 +77,7 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
             handle = GetStdHandle(STD_ERROR_HANDLE);
         } else {
             handle = GetStdHandle(STD_OUTPUT_HANDLE);
-        } 
+        }
         
         CONSOLE_SCREEN_BUFFER_INFO termInfo;
         GetConsoleScreenBufferInfo(handle, &termInfo);
