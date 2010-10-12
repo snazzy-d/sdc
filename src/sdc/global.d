@@ -100,6 +100,14 @@ TranslationUnit[] getTranslationUnits()
     return translationUnits.values;
 }
 
+Module dummyModule(Module parent)
+{
+    if (mDummyModule is null) {
+        mDummyModule = parent.dup;
+    }
+    return mDummyModule;
+}
+
 static this()
 {
     isDebug = true;
@@ -113,3 +121,4 @@ private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
+private Module mDummyModule;
