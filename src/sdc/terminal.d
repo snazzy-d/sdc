@@ -21,13 +21,13 @@ void outputCaretDiagnostics(Location loc)
         line[i] = '~';
     }
     
-    writeColoredText(stderr, ConsoleColor.Yellow, {
+    writeColouredText(stderr, ConsoleColour.Yellow, {
         stderr.writeln('\t', line);
     });
 }
 
 version(Windows) {
-    enum ConsoleColor : WORD
+    enum ConsoleColour : WORD
     {
         Red = FOREGROUND_RED,
         Green = FOREGROUND_GREEN,
@@ -39,7 +39,7 @@ version(Windows) {
      * ANSI colour codes per ECMA-48 (minus 30).
      * e.g., Yellow = 3 + 30 = 33.
      */
-    enum ConsoleColor
+    enum ConsoleColour
     {
         Black = 0,
         Red = 1,
@@ -52,7 +52,7 @@ version(Windows) {
     }
 }
 
-void writeColoredText(File pipe, ConsoleColor color, scope void delegate() dg)
+void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg)
 {
     version(Windows) {
         HANDLE handle;
@@ -66,12 +66,11 @@ void writeColoredText(File pipe, ConsoleColor color, scope void delegate() dg)
         CONSOLE_SCREEN_BUFFER_INFO termInfo;
         GetConsoleScreenBufferInfo(handle, &termInfo);
         
-        SetConsoleTextAttribute(handle, color);
+        SetConsoleTextAttribute(handle, colour);
     } else {
-        static char[5] colorBuffer = [0x1B, '[', '3', '0', 'm'];
-        colorBuffer[3] = cast(char)(color + '0');
-        
-        pipe.write(colorBuffer);
+        static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
+        ansiSequence[3] = cast(char)(colour + '0');
+        pipe.write(ansiSequence);
     }
     
     dg();
