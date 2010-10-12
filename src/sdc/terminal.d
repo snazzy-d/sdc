@@ -15,8 +15,11 @@ void outputCaretDiagnostics(Location loc)
     char[] line = readErrorLine(loc);
     stderr.writeln('\t', line);
     
-    line[] = '~';
+    line[] = ' ';
     line[loc.column - 1] = '^';
+    foreach(i; loc.column .. loc.column + loc.length) {
+        line[i] = '~';
+    }
     
     writeColoredText(stderr, ConsoleColor.Yellow, {
         stderr.writeln('\t', line);

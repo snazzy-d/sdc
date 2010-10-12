@@ -221,6 +221,7 @@ bool lexIdentifier(TokenStream tstream)
     
     while (isUniAlpha(tstream.source.peek) || isdigit(tstream.source.peek) || tstream.source.peek == '_') {
         tstream.source.get();
+        identToken.location.length++;
         if (tstream.source.eof) break;
     }
     

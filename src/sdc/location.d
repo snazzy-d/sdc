@@ -15,6 +15,7 @@ struct Location
     string filename;
     uint line = 1;
     uint column = 1;
+    uint length = 0;
     
     string toString()
     {
