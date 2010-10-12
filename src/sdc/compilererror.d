@@ -69,6 +69,9 @@ char[] readErrorLine(Location loc)
     
     foreach(ulong n, char[] line; lines(f)) {
         if(n == loc.line - 1) {
+            while(line[$-1] == '\n' || line[$-1] == '\r'){ 
+                line = line[0 .. $ - 1];
+            }
             return line;
         }
     }
