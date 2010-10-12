@@ -75,8 +75,7 @@ class TokenStream
     
     void printTo(File file)
     {
-        foreach (i; 0 .. mTokens.length) {
-            auto t = mTokens[i];
+        foreach (t; mTokens) {
             file.writefln("%s (%s @ %s)", t.value, tokenToString[t.type], t.location);
         }
     }
