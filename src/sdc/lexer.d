@@ -225,7 +225,6 @@ bool lexIdentifier(TokenStream tstream)
     }
     
     identToken.value = tstream.source.sliceFrom(m);
-    identToken.location.length = identToken.value.length;
     
     if (identToken.value[0] == '@') {
         auto i = identifierType(identToken.value);

@@ -35,6 +35,7 @@ class TokenStream
     void addToken(Token token)
     {
         mTokens ~= token;
+        token.location.length = token.value.length;
     }
     
     Token lastAdded() @property
