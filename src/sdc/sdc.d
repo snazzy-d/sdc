@@ -44,6 +44,7 @@ import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 
+bool colouredOutputDisabled = false;
 
 int main(string[] args)
 {
@@ -53,7 +54,7 @@ int main(string[] args)
         stderr.writeln(error.msg);
         
         if(error.hasLocation) {
-            outputCaretDiagnostics(error.location);
+            outputCaretDiagnostics(error.location, colouredOutputDisabled);
         }
         return 1;
     }
@@ -74,7 +75,8 @@ void realmain(string[] args)
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
                "c", &skipLink,
-               "o", &outputName
+               "o", &outputName,
+               "no-colour-print", &colouredOutputDisabled
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -189,7 +191,8 @@ void usage()
     writeln("  --debug-identifier:    specify the given debug identifier.");
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
-    writeln("  --unittest:            compile in unittests (defaults off)."); 
+    writeln("  --unittest:            compile in unittests (defaults off).");
+    writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }
