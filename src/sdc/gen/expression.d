@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 SDC Authors. See AUTHORS for more details.
+ * Copyright 2010 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -10,6 +10,7 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.global;
 import sdc.util;
 import sdc.compilererror;
 import sdc.extract.base;
@@ -81,6 +82,24 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 {
     auto a = genOrOrExpression(expression.orOrExpression, mod);
+    if (expression.expression !is null) {
+        auto e = genExpression(expression.expression, dummyModule(mod));
+        auto v = e.type.getValue(mod, expression.location);
+        
+        auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condTrue");
+        auto condFalseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condFalse");
+        auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condEnd");
+        LLVMBuildCondBr(mod.builder, a.performCast(new BoolType(mod)).get(), condTrueBB, condFalseBB);
+        LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
+        v.set(genExpression(expression.expression, mod));
+        LLVMBuildBr(mod.builder, condEndBB);
+        LLVMPositionBuilderAtEnd(mod.builder, condFalseBB);
+        v.set(genConditionalExpression(expression.conditionalExpression, mod));
+        LLVMBuildBr(mod.builder, condEndBB);
+        LLVMPositionBuilderAtEnd(mod.builder, condEndBB);
+        
+        a = v;
+    }
     return a;
 }
 
