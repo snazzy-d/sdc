@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -12,6 +13,7 @@ import llvm.c.Core;
 
 import sdc.global;
 import sdc.util;
+import sdc.location;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
@@ -299,12 +301,14 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             auto asFunction = cast(FunctionType) lhs.type;
             assert(asFunction);
             Value[] args;
+            Location[] argLocations;
             auto argList = cast(ast.ArgumentList) expression.firstNode;
             assert(argList);
             foreach (expr; argList.expressions) {
                 auto oldAggregate = mod.callingAggregate;
                 mod.callingAggregate = null;
                 args ~= genAssignExpression(expr, mod);
+                argLocations ~= expr.location;
                 mod.callingAggregate = oldAggregate;
             }
             if (mod.callingAggregate !is null) {
@@ -312,7 +316,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
                 p.set(mod.callingAggregate.addressOf());
                 args ~= p;
             }
-            lhs = lhs.call(expression.location, args);
+            lhs = lhs.call(expression.location, argLocations, args);
         } else {
             throw new CompilerError(expression.location, "can only call functions.");
         }

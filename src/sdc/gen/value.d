@@ -115,7 +115,7 @@ abstract class Value
         return b;
     }
     
-    Value call(Location location, Value[] args) { fail("call"); assert(false); }
+    Value call(Location location, Location[] argLocations, Value[] args) { fail("call"); assert(false); }
     Value init(Location location) { fail("init"); assert(false); }
     Value getMember(string name) { fail("getMember"); assert(false); }
     Module getModule() { return mModule; }
@@ -630,7 +630,7 @@ class FunctionValue : Value
         return mValue;
     }
     
-    override Value call(Location location, Value[] args)
+    override Value call(Location location, Location[] argLocations, Value[] args)
     {
         void failure()
         {
@@ -644,7 +644,7 @@ class FunctionValue : Value
             failure();
         }
         foreach (i, arg; functionType.argumentTypes) {
-            args[i] = implicitCast(location, args[i], arg);
+            args[i] = implicitCast(argLocations[i], args[i], arg);
             if (arg != args[i].type) {
                 failure();
             }
