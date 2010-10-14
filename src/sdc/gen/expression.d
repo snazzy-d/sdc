@@ -46,16 +46,16 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
         lhs.set(rhs);
         break;
     case AddAssign:
-        lhs.set(lhs.add(rhs));
+        lhs.set(lhs.add(expression.location, rhs));
         break;
     case SubAssign:
-        lhs.set(lhs.sub(rhs));
+        lhs.set(lhs.sub(expression.location, rhs));
         break;
     case MulAssign:
-        lhs.set(lhs.mul(rhs));
+        lhs.set(lhs.mul(expression.location, rhs));
         break;
     case DivAssign:
-        lhs.set(lhs.div(rhs));
+        lhs.set(lhs.div(expression.location, rhs));
         break;
     case ModAssign:
         throw new CompilerPanic(expression.location, "modulo assign is unimplemented.");
@@ -146,19 +146,19 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         break;
     case ast.Comparison.Equality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        lhs = lhs.eq(rhs);
+        lhs = lhs.eq(expression.location, rhs);
         break;
     case ast.Comparison.NotEquality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        lhs = lhs.neq(rhs);
+        lhs = lhs.neq(expression.location, rhs);
         break;
     case ast.Comparison.Greater:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        lhs = lhs.gt(rhs);
+        lhs = lhs.gt(expression.location, rhs);
         break;
     case ast.Comparison.LessEqual:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        lhs = lhs.lte(rhs);
+        lhs = lhs.lte(expression.location, rhs);
         break;
     default:
         throw new CompilerPanic(expression.location, "unhandled comparison expression.");
@@ -181,14 +181,13 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
         
         final switch (expression.addOperation) {
         case ast.AddOperation.Add:
-            val = lhs.add(val);
+            val = lhs.add(expression.location, val);
             break;
         case ast.AddOperation.Subtract:
-            val = lhs.sub(val);
+            val = lhs.sub(expression.location, val);
             break;
         case ast.AddOperation.Concat:
             throw new CompilerPanic(expression.location, "unimplemented add operation.");
-            assert(false);
         }
     } else {
         val = genMulExpression(expression.mulExpression, mod);
@@ -207,10 +206,10 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
         
         final switch (expression.mulOperation) {
         case ast.MulOperation.Mul:
-            val = lhs.mul(val);
+            val = lhs.mul(expression.location, val);
             break;
         case ast.MulOperation.Div:
-            val = lhs.div(val);
+            val = lhs.div(expression.location, val);
             break;
         case ast.MulOperation.Mod:
             throw new CompilerPanic(expression.location, "unimplemented mul operation.");
@@ -233,11 +232,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.dec());
+        val.set(val.dec(expression.location));
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.inc());
+        val.set(val.inc(expression.location));
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
@@ -247,7 +246,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.unaryExpression, mod);
         auto zero = new IntValue(mod, expression.location, 0);
         binaryOperatorImplicitCast(expression.location, &zero, &val);
-        val = zero.sub(val);
+        val = zero.sub(expression.location, val);
         break;
     case ast.UnaryPrefix.UnaryPlus:
         val = genUnaryExpression(expression.unaryExpression, mod);
@@ -258,7 +257,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.Dereference:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val = val.dereference();
+        val = val.dereference(expression.location);
         break;
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:
@@ -287,14 +286,14 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         auto tmp = lhs.type.getValue(mod, lhs.location);
         tmp.set(lhs);
         lhs = tmp;
-        val.set(val.inc());
+        val.set(val.inc(expression.location));
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
         tmp.set(lhs);
         lhs = tmp;
-        val.set(val.dec());
+        val.set(val.dec(expression.location));
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
@@ -390,7 +389,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     
     Value implicitBase;
     if (mod.base !is null) {
-        return mod.base.getMember(name);
+        return mod.base.getMember(identifier.location, name);
     } else {
         auto s = mod.search("this");
         if (s !is null) {
@@ -403,7 +402,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     auto store = mod.search(name);
     if (store is null) {
         if (implicitBase !is null) {
-            store = new Store(implicitBase.getMember(name));
+            store = new Store(implicitBase.getMember(identifier.location, name));
         }
         if (store is null) {
             failure();
