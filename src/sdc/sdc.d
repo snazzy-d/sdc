@@ -63,7 +63,7 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
-    bool skipLink = false;
+    bool skipLink = false, optimise = false;
     string outputName = "";
     try {
         getopt(args,
@@ -74,6 +74,7 @@ void realmain(string[] args)
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
+               "optimise", &optimise,
                "c", &skipLink,
                "o", &outputName,
                "no-colour-print", &colouredOutputDisabled
@@ -134,7 +135,7 @@ void realmain(string[] args)
                 state = ModuleState.Complete;
             }
             gModule.verify();
-            gModule.optimise();
+            if (optimise) gModule.optimise();
             
             assert(!match(filename, extensionRegex).empty);
             auto asBitcode  = replace(filename, extensionRegex, "bc");
@@ -193,6 +194,7 @@ void usage()
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off).");
     writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
+    writeln("  --optimise:            optimise the output.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }

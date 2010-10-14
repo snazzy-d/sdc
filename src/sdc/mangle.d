@@ -63,7 +63,11 @@ void mangleCallConvention(ref string mangledName, Linkage convention)
         mangledName ~= "V";
         break;
     case ExternSystem:
-        goto case ExternC;
+        version(Windows) {
+            goto case ExternWindows;
+        } else {
+            goto case ExternC;
+        }
     }
 }
 

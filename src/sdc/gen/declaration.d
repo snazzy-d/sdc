@@ -187,6 +187,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     if (!mod.currentPath.functionEscaped) {
         if(decl.retval.type == ast.TypeType.Primitive) {
            auto prim = cast(ast.PrimitiveType)decl.retval.node;
+           assert(prim);
            
            if(prim.type == ast.PrimitiveTypeType.Void) {
                LLVMBuildRetVoid(mod.builder);

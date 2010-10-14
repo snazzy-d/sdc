@@ -179,7 +179,9 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
-            if (mType.dtype < t.dtype) {
+            if (t.dtype == DType.Bool) {
+                v.set(LLVMBuildNot(mModule.builder, this.eq(new typeof(this)(mModule, location, 0)).get(), "boolnot"));
+            } else if (mType.dtype < t.dtype) {
                 v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
             } else if (mType.dtype > t.dtype) {
                 v.set(LLVMBuildTrunc(mModule.builder, get(), t.llvmType, "cast"));
