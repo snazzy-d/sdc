@@ -831,8 +831,6 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
     default:
         throw new CompilerPanic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
-    
-    assert(false);
 }
 
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
