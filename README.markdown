@@ -100,7 +100,6 @@ Nothing practical. What follows is the a program featuring the most complex feat
         void growOlder()
         {
             age = this.age + 1;
-            return;  // No implicit void return yet.
         }
     }
 
