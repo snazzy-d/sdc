@@ -187,13 +187,11 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     if (!mod.currentPath.functionEscaped) {
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
-            goto success;
+        } else {
+            throw new CompilerError(decl.location, "function expected to return a value.");
         }
-        
-        throw new CompilerError(decl.location, "function expected to return a value.");
     }
     
-    success:
     mod.popPath();
     mod.currentFunction = null;
     mod.popScope();
