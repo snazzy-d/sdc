@@ -22,6 +22,9 @@ struct Location
     {
         return format("%s(%s:%s)", filename, line, column);
     }
+    
+    // When the column is 0, the whole line is assumed to be the location
+    immutable uint wholeLine = 0;
 }
 
 char[] readErrorLine(Location loc)
