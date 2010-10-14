@@ -185,15 +185,11 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     genBlockStatement(functionBody.statement, mod);
     
     if (!mod.currentPath.functionEscaped) {
-        if(decl.retval.type == ast.TypeType.Primitive) {
-           auto prim = cast(ast.PrimitiveType)decl.retval.node;
-           assert(prim);
-           
-           if(prim.type == ast.PrimitiveTypeType.Void) {
-               LLVMBuildRetVoid(mod.builder);
-               goto success;
-           }
+        if (functionType.returnType.dtype == DType.Void) {
+            LLVMBuildRetVoid(mod.builder);
+            goto success;
         }
+        
         throw new CompilerError(decl.location, "function expected to return a value.");
     }
     
