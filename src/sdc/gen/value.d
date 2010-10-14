@@ -632,22 +632,15 @@ class FunctionValue : Value
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        void failure()
-        {
-            throw new CompilerError(location, "can't call function with given arguments.");
-        }
-            
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
         if (functionType.argumentTypes.length != args.length) {
-            failure();
+            location.column = location.wholeLine;
+            throw new CompilerError(location, format("expected %s arguments, got %s", functionType.argumentTypes.length, args.length));
         }
         foreach (i, arg; functionType.argumentTypes) {
             args[i] = implicitCast(argLocations[i], args[i], arg);
-            if (arg != args[i].type) {
-                failure();
-            }
         }
         
         LLVMValueRef[] llvmArgs;
