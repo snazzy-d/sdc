@@ -587,7 +587,7 @@ class FunctionValue : Value
         }
         auto s = startMangle();
         if (type.parentAggregate !is null) {
-            mangleQualifiedName(s, type.parentAggregate.name);
+            mangleQualifiedName(s, type.parentAggregate.fullName);
         } else {
             if (mModule.name is null) {
                 throw new CompilerPanic("null module name.");
