@@ -36,7 +36,7 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
         return lhs;
     }
     auto rhs = genAssignExpression(expression.assignExpression, mod);
-    rhs = implicitCast(rhs, lhs.type);
+    rhs = implicitCast(rhs.location, rhs, lhs.type);
     switch (expression.assignType) with (ast.AssignType) {
     case None:
         assert(false);
@@ -89,7 +89,7 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
         auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condTrue");
         auto condFalseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condFalse");
         auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condEnd");
-        LLVMBuildCondBr(mod.builder, a.performCast(new BoolType(mod)).get(), condTrueBB, condFalseBB);
+        LLVMBuildCondBr(mod.builder, a.performCast(expression.location, new BoolType(mod)).get(), condTrueBB, condFalseBB);
         LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
         v.set(genExpression(expression.expression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
@@ -175,7 +175,7 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
     if (expression.addExpression !is null) {
         auto lhs = genAddExpression(expression.addExpression, mod);
         val = genMulExpression(expression.mulExpression, mod);
-        binaryOperatorImplicitCast(&lhs, &val);
+        binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.addOperation) {
         case ast.AddOperation.Add:
@@ -201,7 +201,7 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
     if (expression.mulExpression !is null) {
         auto lhs = genMulExpression(expression.mulExpression, mod);
         val = genPowExpression(expression.powExpression, mod);
-        binaryOperatorImplicitCast(&lhs, &val);
+        binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.mulOperation) {
         case ast.MulOperation.Mul:
@@ -239,12 +239,12 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
-        val = val.performCast(astTypeToBackendType(expression.castExpression.type, mod, OnFailure.DieWithError));
+        val = val.performCast(expression.location, astTypeToBackendType(expression.castExpression.type, mod, OnFailure.DieWithError));
         break;
     case ast.UnaryPrefix.UnaryMinus:
         val = genUnaryExpression(expression.unaryExpression, mod);
         auto zero = new IntValue(mod, expression.location, 0);
-        binaryOperatorImplicitCast(&zero, &val);
+        binaryOperatorImplicitCast(expression.location, &zero, &val);
         val = zero.sub(val);
         break;
     case ast.UnaryPrefix.UnaryPlus:
@@ -312,7 +312,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
                 p.set(mod.callingAggregate.addressOf());
                 args ~= p;
             }
-            lhs = lhs.call(args);
+            lhs = lhs.call(expression.location, args);
         } else {
             throw new CompilerError(expression.location, "can only call functions.");
         }
@@ -325,7 +325,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (args.length == 0 || args.length > 1) {
             throw new CompilerPanic(expression.location, "slice argument lists must contain only one argument.");
         }
-        lhs = lhs.index(args[0]);
+        lhs = lhs.index(lhs.location, args[0]);
         break;
     case ast.PostfixType.Dot:
         auto qname = cast(ast.QualifiedName) expression.firstNode;

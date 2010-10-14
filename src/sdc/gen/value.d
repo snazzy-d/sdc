@@ -77,7 +77,7 @@ abstract class Value
         mType = t;
     }
     
-    Value performCast(Type t)
+    Value performCast(Location location, Type t)
     {
         throw new CompilerPanic(location, "invalid cast");
     }
@@ -98,7 +98,7 @@ abstract class Value
     Value gt(Value val) { fail("gt"); assert(false); }
     Value lte(Value val) { fail("lte"); assert(false); }
     Value dereference() { fail("dereference"); assert(false); }
-    Value index(Value val) { fail("index"); assert(false); }
+    Value index(Location location, Value val) { fail("index"); assert(false); }
     
     Value addressOf()
     {
@@ -115,7 +115,7 @@ abstract class Value
         return b;
     }
     
-    Value call(Value[] args) { fail("call"); assert(false); }
+    Value call(Location location, Value[] args) { fail("call"); assert(false); }
     Value init(Location location) { fail("init"); assert(false); }
     Value getMember(string name) { fail("getMember"); assert(false); }
     Module getModule() { return mModule; }
@@ -176,7 +176,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         set(val);
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
@@ -343,7 +343,7 @@ class FloatingPointValue(T, B) : Value
         constInit(d);
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
@@ -488,7 +488,7 @@ class PointerValue : Value
         mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (t.dtype == DType.Pointer) {
@@ -529,9 +529,9 @@ class PointerValue : Value
         return v;
     }
     
-    override Value index(Value val)
+    override Value index(Location location, Value val)
     {
-        val = implicitCast(val, new IntType(mModule));
+        val = implicitCast(location, val, new IntType(mModule));
         LLVMValueRef[] indices;
         indices ~= val.get();
         
@@ -630,7 +630,7 @@ class FunctionValue : Value
         return mValue;
     }
     
-    override Value call(Value[] args)
+    override Value call(Location location, Value[] args)
     {
         void failure()
         {
@@ -644,7 +644,7 @@ class FunctionValue : Value
             failure();
         }
         foreach (i, arg; functionType.argumentTypes) {
-            args[i] = implicitCast(args[i], arg);
+            args[i] = implicitCast(location, args[i], arg);
             if (arg != args[i].type) {
                 failure();
             }
@@ -865,7 +865,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
     assert(false);
 }
 
-void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
+void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
 {    
     if (lhs.type.dtype == rhs.type.dtype) {
         return;
@@ -874,13 +874,13 @@ void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
     auto toDType = max(lhs.type.dtype, rhs.type.dtype);
     auto t = dtypeToType(toDType, lhs.getModule());
     if (lhs.type.dtype > rhs.type.dtype) {
-        *rhs = implicitCast(*rhs, t);
+        *rhs = implicitCast(location, *rhs, t);
     } else {
-        *lhs = implicitCast(*lhs, t);
+        *lhs = implicitCast(location, *lhs, t);
     }
 }
 
-Value implicitCast(Value v, Type toType)
+Value implicitCast(Location location, Value v, Type toType)
 {
     if (v.type.dtype == DType.NullPointer && toType.dtype == DType.Pointer) {
         return v;
@@ -889,16 +889,15 @@ Value implicitCast(Value v, Type toType)
         if (v.type == toType) {
             return v;
         }
-        throw new CompilerPanic(v.location, "casts involving complex types are unimplemented.");
+        throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
     }
     if (toType.dtype == v.type.dtype && toType.dtype != DType.Pointer) {
         return v;
     }
     if (!canImplicitCast(v.type.dtype, toType.dtype)) {
-        // TODO: Implement toString for Types.
-        throw new CompilerError(v.location, format("cannot implicitly cast '%s' to '%s'.", to!string(v.type.dtype), to!string(toType.dtype)));
+        throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
     }
-    return v.performCast(toType);
+    return v.performCast(location, toType);
 }
 
 bool canImplicitCast(DType from, DType to)

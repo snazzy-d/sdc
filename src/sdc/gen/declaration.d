@@ -136,7 +136,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                     type = aexp.type;
                     var = type.getValue(mod, decl.location);
                 }
-                aexp = implicitCast(aexp, type);
+                aexp = implicitCast(declarator.initialiser.location, aexp, type);
                 if (var is null) {
                     throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
                 }
