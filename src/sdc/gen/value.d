@@ -774,7 +774,13 @@ class StructValue : Value
     {
         super(mod, location);
         mType = type;
-        mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, type.llvmType, "tlsstruct");
+            LLVMSetThreadLocal(mValue, true);
+            LLVMSetInitializer(mValue, LLVMGetUndef(type.llvmType));
+        }
     }
     
     override LLVMValueRef get()
