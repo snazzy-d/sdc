@@ -931,5 +931,4 @@ bool canImplicitCast(DType from, DType to)
     default:
         return false;
     }
-    assert(false);
 }
