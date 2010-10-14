@@ -192,7 +192,12 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         } else if (isFPDtype(t.dtype)) {
             v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
         } else {
-            throw new CompilerPanic(location, "invalid cast");
+            throw new CompilerError(
+                location,
+                format(`cannot implicitly convert from "%s" to "%s"`,
+                    type.name(),
+                    t.name())
+            );
         }
         return v;
     }
