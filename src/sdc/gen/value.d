@@ -35,6 +35,7 @@ abstract class Value
         mModule = mod;
         location = loc;
         access = mod.currentAccess;
+        mGlobal = mod.currentScope is mod.globalScope;
     }
     
     /*
@@ -85,7 +86,9 @@ abstract class Value
         
     LLVMValueRef get() { fail("get"); assert(false); }
     void set(Value val) { fail("set:Value"); assert(false); }
-    void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
+    void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }    
+    void initialise(Value val) { fail("set:Value"); assert(false); }
+    void initialise(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
     Value add(Value val) { fail("add"); assert(false); }
     Value inc() { fail("inc"); assert(false); }
     Value dec() { fail("dec"); assert(false); }
@@ -127,6 +130,7 @@ abstract class Value
     protected Module mModule;
     protected Type mType;
     package LLVMValueRef mValue;
+    protected bool mGlobal;
 }
 
 class VoidValue : Value
@@ -160,7 +164,12 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     { 
         super(mod, loc);
         mType = new B(mod);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
+        if (mGlobal) {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsint");
+            LLVMSetThreadLocal(mValue, true);
+        } else {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
+        }
     }
     
     this(Module mod, Location loc, T n)
@@ -214,6 +223,27 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     {
         constant = false;
         LLVMBuildStore(mModule.builder, val, mValue);
+    }
+    
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            initialise(LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, val);
+        }
     }
     
     override Value add(Value val)
@@ -303,7 +333,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     protected void constInit(T n)
     {
         auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
-        LLVMBuildStore(mModule.builder, val, mValue);
+        initialise(val);
         constant = true;
         mixin(C ~ " = n;");
     }
@@ -328,7 +358,12 @@ class FloatingPointValue(T, B) : Value
     {
         super(mod, location);
         mType = new B(mod);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsdouble");
+            LLVMSetThreadLocal(mValue, true);
+        }
     }
     
     this(Module mod, Location location, double d)
@@ -367,6 +402,35 @@ class FloatingPointValue(T, B) : Value
             this.constDouble = val.constDouble;
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+    }
+    
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            static if (is(T == float)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constFloat));
+            } else if (is(T == double)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constDouble));
+            } else if (is(T == real)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constReal));
+            } else {
+                assert(false, "unknown floating point type.");
+            }
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, val);
+        }
     }
     
     override void set(LLVMValueRef val)
@@ -432,7 +496,9 @@ class FloatingPointValue(T, B) : Value
 
     override Value init(Location location)
     {
-        return new typeof(this)(mModule, location);
+        auto v = new typeof(this)(mModule, location);
+        v.constant = true;
+        return v;
     }
     
     protected void constInit(T d)
@@ -479,7 +545,12 @@ class PointerValue : Value
         super(mod, location);
         this.baseType = baseType;
         mType = new PointerType(mod, baseType);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlspv");
+            LLVMSetThreadLocal(mValue, true);
+        }
     }
     
     override Value performCast(Type t)
@@ -512,6 +583,27 @@ class PointerValue : Value
         LLVMBuildStore(mModule.builder, val, mValue);
     }
     
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            initialise(val.get());
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, LLVMConstNull(mType.llvmType));  // HACK
+        }
+    }
+    
     override Value dereference()
     {
         auto t = new IntType(mModule);
@@ -538,6 +630,7 @@ class PointerValue : Value
     {
         auto v = new PointerValue(mModule, location, baseType);
         v.set(LLVMConstNull(v.mType.llvmType));
+        v.constant = true;
         return v;
     }
     
@@ -554,6 +647,7 @@ class NullPointerValue : PointerValue
     {
         super(mod, location, new VoidType(mod));
         mType = new NullPointerType(mod);
+        constant = true;
     }
 }
 
