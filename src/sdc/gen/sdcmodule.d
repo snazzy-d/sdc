@@ -47,6 +47,7 @@ class Module
     ast.Access currentAccess = ast.Access.Public;
     bool isAlias;  // ewwww
     TranslationUnit[] importedTranslationUnits;
+    string arch;
 
     this(ast.QualifiedName name)
     {
@@ -99,7 +100,7 @@ class Module
     
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        auto cmd = format(`llc -o "%s" "%s"`, toFilename, fromFilename);
+        auto cmd = format(`llc -march=%s -o "%s" "%s"`, arch, toFilename, fromFilename);
         system(cmd);
     }
     
