@@ -36,6 +36,7 @@ abstract class Value
         mModule = mod;
         location = loc;
         access = mod.currentAccess;
+        mGlobal = mod.currentScope is mod.globalScope;
     }
     
     /*
@@ -97,6 +98,8 @@ abstract class Value
     LLVMValueRef get() { fail("get"); assert(false); }
     void set(Value val) { fail("set (by Value)"); assert(false); }
     void set(LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
+    void initialise(Value val) { fail("initialise (Value)"); assert(false); }
+    void initialise(LLVMValueRef val) { fail("initialise (LLVMValueRef)"); assert(false); }
     Value add(Location loc, Value val) { fail(loc, "add"); assert(false); }
     Value inc(Location loc) { fail(loc, "increment"); assert(false); }
     Value dec(Location loc) { fail(loc, "decrement"); assert(false); }
@@ -135,9 +138,36 @@ abstract class Value
         return this;
     }
     
+    void addSetPreCallback(void delegate(Value val) callback)
+    {
+        mSetPreCallbacks ~= callback;
+    }
+    
+    void addSetPostCallback(void delegate(Value val) callback)
+    {
+        mSetPostCallbacks ~= callback;
+    }
+    
+    void setPreCallbacks()
+    {
+        foreach (callback; mSetPreCallbacks) {
+            callback(this);
+        }
+    }
+    
+    void setPostCallbacks()
+    {
+        foreach (callback; mSetPostCallbacks) {
+            callback(this);
+        }
+    }
+    
     protected Module mModule;
     protected Type mType;
     package LLVMValueRef mValue;
+    protected bool mGlobal;
+    protected void delegate(Value val)[] mSetPreCallbacks;
+    protected void delegate(Value val)[] mSetPostCallbacks;
 }
 
 class VoidValue : Value
@@ -171,7 +201,12 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     { 
         super(mod, loc);
         mType = new B(mod);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
+        if (mGlobal) {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsint");
+            LLVMSetThreadLocal(mValue, true);
+        } else {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
+        }
     }
     
     this(Module mod, Location loc, T n)
@@ -219,17 +254,42 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         this.constant = this.constant && val.constant;
         if (this.constant) {
             mixin(C ~ " = val." ~ C ~ ";");
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         constant = false;
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
+    }
+    
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            initialise(LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, val);
+        }
     }
     
     override Value add(Location location, Value val)
@@ -319,7 +379,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     protected void constInit(T n)
     {
         auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
-        LLVMBuildStore(mModule.builder, val, mValue);
+        initialise(val);
         constant = true;
         mixin(C ~ " = n;");
     }
@@ -344,7 +404,12 @@ class FloatingPointValue(T, B) : Value
     {
         super(mod, location);
         mType = new B(mod);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsdouble");
+            LLVMSetThreadLocal(mValue, true);
+        }
     }
     
     this(Module mod, Location location, double d)
@@ -378,11 +443,42 @@ class FloatingPointValue(T, B) : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         this.constant = this.constant && val.constant;
         if (this.constant) {
             this.constDouble = val.constDouble;
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
+    }
+    
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            static if (is(T == float)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constFloat));
+            } else if (is(T == double)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constDouble));
+            } else if (is(T == real)) {
+                initialise(LLVMConstReal(mType.llvmType, val.constReal));
+            } else {
+                assert(false, "unknown floating point type.");
+            }
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, val);
+        }
     }
     
     override void set(LLVMValueRef val)
@@ -448,7 +544,9 @@ class FloatingPointValue(T, B) : Value
 
     override Value init(Location location)
     {
-        return new typeof(this)(mModule, location);
+        auto v = new typeof(this)(mModule, location);
+        v.constant = true;
+        return v;
     }
     
     protected void constInit(T d)
@@ -476,14 +574,36 @@ class ArrayValue : PointerValue
     override Value init(Location location)
     {
         auto asArray = cast(ArrayType) mType;
-        auto l = new LongValue(mModule, location);
+        auto l = new UlongValue(mModule, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
         auto ll = [l];
-        throw new CompilerPanic(location, "arrays are unimplemented.");
-        // Allocate memory here,
-        // then cast to asArray.structTypePointer.
-        // return that.
+        return gcAlloc.call(location, null, ll).performCast(location, asArray.structTypePointer);
     }
+    
+    override Value getMember(Location location, string name)
+    {
+        auto v = dereference(location);
+        v = v.getMember(location, name);
+        if (name == "length") {
+            assert(v.type.dtype == DType.Ulong);
+            mOldLength = v;
+            v.addSetPostCallback((Value val)
+                                {
+                                    assert(val.type.dtype == DType.Ulong);
+                                    auto vl = [val];
+                                    auto ptr = getMember(location, "ptr");
+                                    ptr.set(gcAlloc.call(location, null, vl).performCast(location, ptr.type));
+                                });
+        }
+        return v;
+    }
+    
+    override Value index(Location location, Value val)
+    {
+        return dereference(location).getMember(location, "ptr").index(location, val);
+    }
+    
+    protected Value mOldLength;
 }
 
 class PointerValue : Value
@@ -495,7 +615,12 @@ class PointerValue : Value
         super(mod, location);
         this.baseType = baseType;
         mType = new PointerType(mod, baseType);
-        mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlspv");
+            LLVMSetThreadLocal(mValue, true);
+        }
     }
     
     override Value performCast(Location location, Type t)
@@ -519,13 +644,38 @@ class PointerValue : Value
         if (val.type.dtype == DType.NullPointer) {
             set(init(location));
         } else {
+            setPreCallbacks();
             LLVMBuildStore(mModule.builder, val.get(), mValue);
+            setPostCallbacks();
         }
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
+    }
+    
+    override void initialise(Value val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            if (!val.constant) {
+                throw new CompilerError(location, "non-constant global initialiser.");
+            }
+            initialise(val.get());
+        }
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        if (!mGlobal) {
+            set(val);
+        } else {
+            LLVMSetInitializer(mValue, LLVMConstNull(mType.llvmType));  // HACK
+        }
     }
     
     override Value dereference(Location location)
@@ -554,6 +704,7 @@ class PointerValue : Value
     {
         auto v = new PointerValue(mModule, location, baseType);
         v.set(LLVMConstNull(v.mType.llvmType));
+        v.constant = true;
         return v;
     }
     
@@ -570,6 +721,7 @@ class NullPointerValue : PointerValue
     {
         super(mod, location, new VoidType(mod));
         mType = new NullPointerType(mod);
+        constant = true;
     }
 }
 
@@ -592,7 +744,21 @@ class FunctionValue : Value
         } else {
             mangledName = name;
         }
+        
+        storeSpecial();
+        
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
+    }
+    
+    /**
+     * If this is a special runtime function, store it away
+     * for later use.
+     */
+    void storeSpecial()
+    {
+        if (mangledName == "malloc") {
+            gcAlloc = this;
+        }
     }
     
     protected string mangle(FunctionType type)
@@ -689,7 +855,13 @@ class StructValue : Value
     {
         super(mod, location);
         mType = type;
-        mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+        if (!mGlobal) {
+            mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
+        } else {
+            mValue = LLVMAddGlobal(mod.mod, type.llvmType, "tlsstruct");
+            LLVMSetThreadLocal(mValue, true);
+            LLVMSetInitializer(mValue, LLVMGetUndef(type.llvmType));
+        }
     }
     
     override LLVMValueRef get()
@@ -699,12 +871,16 @@ class StructValue : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
     }
     
     override Value init(Location location)

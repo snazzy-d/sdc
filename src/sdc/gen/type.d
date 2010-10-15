@@ -461,7 +461,7 @@ class ArrayType : Type
         this.base = base;
         dtype = DType.Array;
         structType = new StructType(mod);
-        structType.addMemberVar("length", new IntType(mod));
+        structType.addMemberVar("length", new UlongType(mod));
         structType.addMemberVar("ptr", new PointerType(mod, base));
         structType.declare();
         structTypePointer = new PointerType(mod, structType);

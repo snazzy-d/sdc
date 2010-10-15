@@ -109,11 +109,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     foreach (declarator; decl.declarators) {
         auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
-        
-        if (mod.currentScope is mod.globalScope) {
-            throw new CompilerPanic(decl.location, "global variables are unimplemented.");
-        }
-        
+                
         Value var;
         if (type.dtype == DType.Inferred) {
             if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
@@ -125,11 +121,11 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         
         if (declarator.initialiser is null) {
             if (var.type.dtype != DType.Struct) {
-                var.set(var.init(decl.location));
+                var.initialise(var.init(decl.location));
             }
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
-                var.set(LLVMGetUndef(type.llvmType));
+                var.initialise(LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
@@ -140,7 +136,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 if (var is null) {
                     throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
                 }
-                var.set(aexp);
+                var.initialise(aexp);
             } else {
                 throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
             }

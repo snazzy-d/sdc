@@ -66,6 +66,8 @@ void realmain(string[] args)
 {
     bool skipLink = false, optimise = false;
     string outputName = "";
+    string gcc = "gcc";
+    string arch = "x86-64";
     try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
@@ -76,6 +78,8 @@ void realmain(string[] args)
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
                "optimise", &optimise,
+               "gcc", &gcc,
+               "arch", &arch,
                "c", &skipLink,
                "o", &outputName,
                "no-colour-print", &colouredOutputDisabled
@@ -142,9 +146,10 @@ void realmain(string[] args)
             auto asBitcode  = replace(filename, extensionRegex, "bc");
             auto asAssembly = replace(filename, extensionRegex, "s");
             auto asObject   = replace(filename, extensionRegex, "o");
+            gModule.arch = arch;
             gModule.writeBitcodeToFile(asBitcode);
             gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-            auto compileCommand = "gcc -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
+            auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
             system(compileCommand);
             assemblies ~= asObject;
         }
@@ -164,7 +169,7 @@ void realmain(string[] args)
     }
     // ^ Good lord!! ^
     
-    string linkCommand = "gcc -o ";
+    string linkCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -o ";
     if (!skipLink) {
         if (outputName == "") {
             version (Windows) {
@@ -194,8 +199,10 @@ void usage()
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off).");
-    writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
+    writeln("  --no-colour-print:     don't apply colour to diagnostic output.");
     writeln("  --optimise:            optimise the output.");
+    writeln("  --gcc:                 set the command for running GCC.");
+    writeln("  --arch:                set the architecture to generate code for. See llc(1).");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }
