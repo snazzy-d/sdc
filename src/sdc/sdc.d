@@ -198,7 +198,7 @@ void usage()
     writeln("  --debug:               compile in debug mode (defaults on).");
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off).");
-    writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
+    writeln("  --no-colour-print:     don't apply colour to diagnostic output.");
     writeln("  --optimise:            optimise the output.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
