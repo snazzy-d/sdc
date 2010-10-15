@@ -127,10 +127,36 @@ abstract class Value
         return this;
     }
     
+    void addSetPreCallback(void delegate(Value val) callback)
+    {
+        mSetPreCallbacks ~= callback;
+    }
+    
+    void addSetPostCallback(void delegate(Value val) callback)
+    {
+        mSetPostCallbacks ~= callback;
+    }
+    
+    void setPreCallbacks()
+    {
+        foreach (callback; mSetPreCallbacks) {
+            callback(this);
+        }
+    }
+    
+    void setPostCallbacks()
+    {
+        foreach (callback; mSetPostCallbacks) {
+            callback(this);
+        }
+    }
+    
     protected Module mModule;
     protected Type mType;
     package LLVMValueRef mValue;
     protected bool mGlobal;
+    protected void delegate(Value val)[] mSetPreCallbacks;
+    protected void delegate(Value val)[] mSetPostCallbacks;
 }
 
 class VoidValue : Value
@@ -212,17 +238,21 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         this.constant = this.constant && val.constant;
         if (this.constant) {
             mixin(C ~ " = val." ~ C ~ ";");
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         constant = false;
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
     }
     
     override void initialise(Value val)
@@ -397,11 +427,13 @@ class FloatingPointValue(T, B) : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         this.constant = this.constant && val.constant;
         if (this.constant) {
             this.constDouble = val.constDouble;
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
     }
     
     override void initialise(Value val)
@@ -526,14 +558,36 @@ class ArrayValue : PointerValue
     override Value init(Location location)
     {
         auto asArray = cast(ArrayType) mType;
-        auto l = new LongValue(mModule, location);
+        auto l = new UlongValue(mModule, location);
         l.set(LLVMSizeOf(asArray.structType.llvmType));
         auto ll = [l];
-        throw new CompilerPanic(location, "arrays are unimplemented.");
-        // Allocate memory here,
-        // then cast to asArray.structTypePointer.
-        // return that.
+        return gcAlloc.call(ll).performCast(asArray.structTypePointer);
     }
+    
+    override Value getMember(string name)
+    {
+        auto v = dereference();
+        v = v.getMember(name);
+        if (name == "length") {
+            assert(v.type.dtype == DType.Ulong);
+            mOldLength = v;
+            v.addSetPostCallback((Value val)
+                                {
+                                    assert(val.type.dtype == DType.Ulong);
+                                    auto vl = [val];
+                                    auto ptr = getMember("ptr");
+                                    ptr.set(gcAlloc.call(vl).performCast(ptr.type));
+                                });
+        }
+        return v;
+    }
+    
+    override Value index(Value val)
+    {
+        return dereference().getMember("ptr").index(val);
+    }
+    
+    protected Value mOldLength;
 }
 
 class PointerValue : Value
@@ -574,13 +628,17 @@ class PointerValue : Value
         if (val.type.dtype == DType.NullPointer) {
             set(init(location));
         } else {
+            setPreCallbacks();
             LLVMBuildStore(mModule.builder, val.get(), mValue);
+            setPostCallbacks();
         }
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
     }
     
     override void initialise(Value val)
@@ -670,7 +728,21 @@ class FunctionValue : Value
         } else {
             mangledName = name;
         }
+        
+        storeSpecial();
+        
         mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
+    }
+    
+    /**
+     * If this is a special runtime function, store it away
+     * for later use.
+     */
+    void storeSpecial()
+    {
+        if (mangledName == "malloc") {
+            gcAlloc = this;
+        }
     }
     
     protected string mangle(FunctionType type)
@@ -790,12 +862,16 @@ class StructValue : Value
     
     override void set(Value val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val.get(), mValue);
+        setPostCallbacks();
     }
     
     override void set(LLVMValueRef val)
     {
+        setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
+        setPostCallbacks();
     }
     
     override Value init(Location location)

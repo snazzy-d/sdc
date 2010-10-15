@@ -121,3 +121,7 @@ private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
 private Module mDummyModule;
+
+
+// Runtime functions that the compiler needs to be able to call.
+__gshared FunctionValue gcAlloc;
