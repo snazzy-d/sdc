@@ -65,6 +65,7 @@ void realmain(string[] args)
 {
     bool skipLink = false, optimise = false;
     string outputName = "";
+    string gcc = "gcc";
     try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
@@ -75,6 +76,7 @@ void realmain(string[] args)
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
                "optimise", &optimise,
+               "gcc", &gcc,
                "c", &skipLink,
                "o", &outputName,
                "no-colour-print", &colouredOutputDisabled
@@ -163,7 +165,7 @@ void realmain(string[] args)
     }
     // ^ Good lord!! ^
     
-    string linkCommand = "gcc -o ";
+    string linkCommand = gcc ~ " -o ";
     if (!skipLink) {
         if (outputName == "") {
             version (Windows) {
@@ -195,6 +197,7 @@ void usage()
     writeln("  --unittest:            compile in unittests (defaults off).");
     writeln("  --no-colour-print:     don't apply colour to diagnostics output.");
     writeln("  --optimise:            optimise the output.");
+    writeln("  --gcc:                 set the command for running GCC.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }
