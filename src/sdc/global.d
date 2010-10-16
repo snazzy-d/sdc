@@ -165,4 +165,5 @@ private Module mDummyModule;
 
 
 // Runtime functions that the compiler needs to be able to call.
-__gshared FunctionValue gcAlloc;
+FunctionValue gcAlloc;
+FunctionValue gcRealloc;
