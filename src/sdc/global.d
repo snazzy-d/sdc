@@ -112,20 +112,17 @@ Module dummyModule(Module parent)
 
 void globalInit(string arch)
 {
-    reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.
-    specifyAndReserve("all");                   // Guaranteed to be defined by all implementations.
-    specifyAndReserve("SDC");                   // Vendor specification.
-    versionIdentifiers["D_Version2"] = true;    // D version supported is 2.
-    
     switch (arch) {
     case "x86":
         specifyAndReserve("LittleEndian");
         specifyAndReserve("X86");
+        reservedVersionIdentifiers["X86_64"] = true;
         bits = 32;
         break;
     case "x86-64":
         specifyAndReserve("LittleEndian");
         specifyAndReserve("X86_64");
+        reservedVersionIdentifiers["X86"] = true;
         bits = 64;
         break;
     case "ppc32": 
@@ -146,6 +143,44 @@ void globalInit(string arch)
     if (bits != 32 && bits != 64) {
         throw new CompilerError("Specified architecture must be of 32 or 64 bits.");
     }
+    
+    reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.
+    // Predefined version identifiers may not be set, even if they aren't active.
+    reservedVersionIdentifiers["DigitalMars"] = true;
+    version (Windows) {
+        specifyAndReserve("Windows");
+        if (bits == 32) {
+            specifyAndReserve("Win32");
+            reservedVersionIdentifiers["Win64"] = true;
+        } else {
+            specifyAndReserve("Win64");
+            reservedVersionIdentifiers["Win32"] = true;
+        }
+    } else {
+        reservedVersionIdentifiers["Windows"] = true;
+        reservedVersionIdentifiers["Win32"] = true;
+        reservedVersionIdentifiers["Win64"] = true;
+    }
+    version (linux) {
+        specifyAndReserve("linux");
+    } else {
+        reservedVersionIdentifiers["linux"] = true;
+    }
+    version (Posix) {
+        specifyAndReserve("Posix");
+    } else {
+        reservedVersionIdentifiers["Posix"] = true;
+    }
+    if (isVersionIdentifierSet("LittleEndian")) {
+        reservedVersionIdentifiers["BigEndian"] = true;
+    } else {
+        reservedVersionIdentifiers["LittleEndian"] = true;
+    }
+    
+    
+    specifyAndReserve("all");                   // Guaranteed to be defined by all implementations.
+    specifyAndReserve("SDC");                   // Vendor specification.
+    versionIdentifiers["D_Version2"] = true;    // D version supported is 2.
     
     if (bits == 64) {
         versionIdentifiers["D_LP64"] = true;
