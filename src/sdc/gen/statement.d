@@ -196,7 +196,7 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
         return; 
     }
     auto val = genExpression(statement.expression, mod);
-    val = implicitCast(val, t);
+    val = implicitCast(val.location, val, t);
     LLVMBuildRet(mod.builder, val.get());
 }
 

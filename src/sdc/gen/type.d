@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -136,6 +137,8 @@ abstract class Type
         return this;
     }
     
+    abstract string name();
+    
     protected Module mModule;
     protected LLVMTypeRef mType;
 }
@@ -153,6 +156,8 @@ class VoidType : Type
     {
         return new VoidValue(mod, location);
     }
+    
+    override string name(){ return "void"; }
 }
 
 class BoolType : Type
@@ -168,6 +173,8 @@ class BoolType : Type
     { 
         return new BoolValue(mod, location);
     }
+    
+    override string name(){ return "bool"; }
 }
 
 class ByteType : Type
@@ -183,6 +190,8 @@ class ByteType : Type
     {
         return new ByteValue(mod, location);
     }
+    
+    override string name(){ return "byte"; }
 }
 
 class UbyteType : Type
@@ -198,6 +207,8 @@ class UbyteType : Type
     {
         return new UbyteValue(mod, location);
     }
+    
+    override string name(){ return "ubyte"; }
 }
 
 class ShortType : Type
@@ -213,6 +224,8 @@ class ShortType : Type
     {
         return new ShortValue(mod, location);
     }
+    
+    override string name(){ return "short"; }
 }
 
 class UshortType : Type
@@ -228,6 +241,8 @@ class UshortType : Type
     {
         return new UshortValue(mod, location);
     }
+    
+    override string name(){ return "ushort"; }
 }
 
 class IntType : Type
@@ -243,6 +258,8 @@ class IntType : Type
     {
         return new IntValue(mod, location);
     }
+    
+    override string name(){ return "int"; }
 }
 
 class UintType : Type
@@ -258,6 +275,8 @@ class UintType : Type
     {
         return new UintValue(mod, location);
     }
+    
+    override string name(){ return "uint"; }
 }
 
 class LongType : Type
@@ -273,6 +292,8 @@ class LongType : Type
     {
         return new LongValue(mod, location);
     }
+    
+    override string name(){ return "long"; }
 }
 
 class UlongType : Type
@@ -288,6 +309,8 @@ class UlongType : Type
     {
         return new UlongValue(mod, location);
     }
+    
+    override string name(){ return "ulong"; }
 }
 
 class FloatType : Type
@@ -303,6 +326,8 @@ class FloatType : Type
     {
         return new FloatValue(mod, location);
     }
+    
+    override string name(){ return "float"; }
 }
 
 class DoubleType : Type
@@ -318,6 +343,8 @@ class DoubleType : Type
     {
         return new DoubleValue(mod, location);
     }
+    
+    override string name(){ return "double"; }
 }
 
 class RealType : Type
@@ -333,6 +360,8 @@ class RealType : Type
     {
         return new RealValue(mod, location);
     }
+    
+    override string name(){ return "real"; }
 }
 
 class CharType : Type
@@ -348,6 +377,8 @@ class CharType : Type
     {
         return new CharValue(mod, location);
     }
+    
+    override string name(){ return "char"; }
 }
 
 class WcharType : Type
@@ -363,6 +394,8 @@ class WcharType : Type
     {
         return new WcharValue(mod, location);
     }
+    
+    override string name(){ return "wchar"; }
 }
 
 class DcharType : Type
@@ -378,6 +411,8 @@ class DcharType : Type
     {
         return new DcharValue(mod, location);
     }
+    
+    override string name(){ return "dchar"; }
 }
 
 class PointerType : Type
@@ -400,6 +435,8 @@ class PointerType : Type
     {
         return new PointerValue(mod, location, base);
     }
+    
+    override string name(){ return base.name() ~ '*'; }
 }
 
 class NullPointerType : PointerType
@@ -409,6 +446,8 @@ class NullPointerType : PointerType
         super(mod, new VoidType(mod));
         dtype = DType.NullPointer;
     }
+    
+    override string name(){ return "null"; }
 }
 
 class ArrayType : Type
@@ -434,6 +473,8 @@ class ArrayType : Type
     {
         return new ArrayValue(mod, location, base);
     }
+    
+    override string name(){ return base.name() ~ "[]"; }
 }
 
 class FunctionType : Type
@@ -478,11 +519,20 @@ class FunctionType : Type
     {
         return null;
     }
+    
+    override string name()
+    {
+        string args;
+        foreach(arg; argumentTypes) {
+            args ~= ", " ~ arg.name(); 
+        }
+        return returnType.name() ~ "function(" ~ args[3..$] ~ ")"; 
+    }
 }
 
 class StructType : Type
 {
-    ast.QualifiedName name;
+    ast.QualifiedName fullName;
     
     this(Module mod)
     {
@@ -529,6 +579,11 @@ class StructType : Type
         return t;
     }
     
+    override string name()
+    { 
+        return extractQualifiedName(fullName);
+    }
+    
     Type[] members;
     int[string] memberPositions;
     Value[string] memberFunctions;
@@ -550,4 +605,6 @@ class InferredType : Type
     {
         throw new CompilerPanic(location, "attempted to call InferredType.getValue");
     }
+    
+    override string name(){ return "auto"; }
 }

@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -77,30 +78,40 @@ abstract class Value
         mType = t;
     }
     
-    Value performCast(Type t)
+    Value performCast(Location location, Type t)
     {
         throw new CompilerPanic(location, "invalid cast");
     }
     
-    void fail(string s = "unspecified") { throw new CompilerPanic(location, "call to unimplemented method '" ~ s ~ "'."); }
+    void fail(Location location, string s)
+    { 
+        throw new CompilerError(location, 
+            format(`invalid operation: cannot %s value of type "%s"`, s, type.name())
+        );
+    }
+    
+    void fail(string s)
+    {
+        throw new CompilerPanic(format(`attempt to %s value of type "%s" failed`, s, type.name()));
+    }
         
     LLVMValueRef get() { fail("get"); assert(false); }
-    void set(Value val) { fail("set:Value"); assert(false); }
-    void set(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }    
-    void initialise(Value val) { fail("set:Value"); assert(false); }
-    void initialise(LLVMValueRef val) { fail("set:LLVMValueRef"); assert(false); }
-    Value add(Value val) { fail("add"); assert(false); }
-    Value inc() { fail("inc"); assert(false); }
-    Value dec() { fail("dec"); assert(false); }
-    Value sub(Value val) { fail("sub"); assert(false); }
-    Value mul(Value val) { fail("mul"); assert(false); }
-    Value div(Value val) { fail("div"); assert(false); }
-    Value eq(Value val) { fail("eq"); assert(false); }
-    Value neq(Value val) { fail("neq"); assert(false); }
-    Value gt(Value val) { fail("gt"); assert(false); }
-    Value lte(Value val) { fail("lte"); assert(false); }
-    Value dereference() { fail("dereference"); assert(false); }
-    Value index(Value val) { fail("index"); assert(false); }
+    void set(Value val) { fail("set (by Value)"); assert(false); }
+    void set(LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
+    void initialise(Value val) { fail("initialise (Value)"); assert(false); }
+    void initialise(LLVMValueRef val) { fail("initialise (LLVMValueRef)"); assert(false); }
+    Value add(Location loc, Value val) { fail(loc, "add"); assert(false); }
+    Value inc(Location loc) { fail(loc, "increment"); assert(false); }
+    Value dec(Location loc) { fail(loc, "decrement"); assert(false); }
+    Value sub(Location loc, Value val) { fail(loc, "subtract"); assert(false); }
+    Value mul(Location loc, Value val) { fail(loc, "multiply"); assert(false); }
+    Value div(Location loc, Value val) { fail(loc, "divide"); assert(false); }
+    Value eq(Location loc, Value val) { fail(loc, "compare equality of"); assert(false); }
+    Value neq(Location loc, Value val) { fail(loc, "compare non-equality of"); assert(false); }
+    Value gt(Location loc, Value val) { fail(loc, "compare greater-than of"); assert(false); }
+    Value lte(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
+    Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
+    Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     
     Value addressOf()
     {
@@ -117,9 +128,9 @@ abstract class Value
         return b;
     }
     
-    Value call(Value[] args) { fail("call"); assert(false); }
+    Value call(Location location, Location[] argLocations, Value[] args) { fail("call"); assert(false); }
     Value init(Location location) { fail("init"); assert(false); }
-    Value getMember(string name) { fail("getMember"); assert(false); }
+    Value getMember(Location loc, string name) { fail(loc, "member access on"); assert(false); }
     Module getModule() { return mModule; }
     
     Value importToModule(Module mod)
@@ -167,7 +178,7 @@ class VoidValue : Value
         mType = new VoidType(mod);
     }
     
-    override void fail(string s)
+    override void fail(Location location, string s)
     {
         throw new CompilerError(location, "can't perform an action on variable of type 'void'.");
     }
@@ -175,7 +186,7 @@ class VoidValue : Value
 
 mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
 {
-    mixin("override Value " ~ ComparisonString ~ "(Value val) {" ~
+    mixin("override Value " ~ ComparisonString ~ "(Location location, Value val) {" ~
         "auto v = LLVMBuildICmp(mModule.builder, ComparisonType, get(), val.get(), toStringz(ComparisonString));"
         "auto b = new BoolValue(mModule, location);"
         "b.set(v);"
@@ -210,12 +221,12 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         set(val);
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             if (t.dtype == DType.Bool) {
-                v.set(LLVMBuildNot(mModule.builder, this.eq(new typeof(this)(mModule, location, 0)).get(), "boolnot"));
+                v.set(LLVMBuildNot(mModule.builder, this.eq(location, new typeof(this)(mModule, location, 0)).get(), "boolnot"));
             } else if (mType.dtype < t.dtype) {
                 v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
             } else if (mType.dtype > t.dtype) {
@@ -226,7 +237,12 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         } else if (isFPDtype(t.dtype)) {
             v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
         } else {
-            throw new CompilerPanic(location, "invalid cast");
+            throw new CompilerError(
+                location,
+                format(`cannot implicitly convert from "%s" to "%s"`,
+                    type.name(),
+                    t.name())
+            );
         }
         return v;
     }
@@ -276,7 +292,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         }
     }
     
-    override Value add(Value val)
+    override Value add(Location location, Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
@@ -288,23 +304,23 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
-    override Value inc()
+    override Value inc(Location location)
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
-        v.set(this.add(one));
+        v.set(this.add(location, one));
         return v;
     }
     
-    override Value dec()
+    override Value dec(Location location)
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
-        v.set(this.sub(one));
+        v.set(this.sub(location, one));
         return v;
     }
     
-    override Value sub(Value val)
+    override Value sub(Location location, Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
@@ -316,7 +332,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
-    override Value mul(Value val)
+    override Value mul(Location location, Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
@@ -328,7 +344,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
-    override Value div(Value val)
+    override Value div(Location location, Value val)
     {
         this.constant = this.constant && val.constant;
         if (this.constant) {
@@ -402,7 +418,7 @@ class FloatingPointValue(T, B) : Value
         constInit(d);
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
@@ -471,7 +487,7 @@ class FloatingPointValue(T, B) : Value
         LLVMBuildStore(mModule.builder, val, mValue);
     }
     
-    override Value add(Value val)
+    override Value add(Location location, Value val)
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFAdd(mModule.builder, this.get(), val.get(), "fadd");
@@ -483,7 +499,7 @@ class FloatingPointValue(T, B) : Value
         return v;
     }
     
-    override Value sub(Value val)
+    override Value sub(Location location, Value val)
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFSub(mModule.builder, this.get(), val.get(), "fsub");
@@ -495,7 +511,7 @@ class FloatingPointValue(T, B) : Value
         return v;
     }
     
-    override Value mul(Value val)
+    override Value mul(Location location, Value val)
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFMul(mModule.builder, this.get(), val.get(), "fmul");
@@ -507,7 +523,7 @@ class FloatingPointValue(T, B) : Value
         return v;
     }
     
-    override Value div(Value val)
+    override Value div(Location location, Value val)
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFDiv(mModule.builder, this.get(), val.get(), "fdiv");
@@ -565,13 +581,13 @@ class ArrayValue : PointerValue
             l.set(LLVMSizeOf(asArray.structType.llvmType));
         }
         auto ll = [l];
-        return gcAlloc.call(ll).performCast(asArray.structTypePointer);
+        return gcAlloc.call(location, null, ll).performCast(location, asArray.structTypePointer);
     }
     
-    override Value getMember(string name)
+    override Value getMember(Location location, string name)
     {
-        auto v = dereference();
-        v = v.getMember(name);
+        auto v = dereference(location);
+        v = v.getMember(location, name);
         if (name == "length") {
             auto theSizeT = getSizeT(mModule);
             assert(v.type.dtype == theSizeT.dtype);
@@ -580,16 +596,16 @@ class ArrayValue : PointerValue
                                 {
                                     assert(val.type.dtype == theSizeT.dtype);
                                     auto vl = [val];
-                                    auto ptr = getMember("ptr");
-                                    ptr.set(gcAlloc.call(vl).performCast(ptr.type));
+                                    auto ptr = getMember(location, "ptr");
+                                    ptr.set(gcAlloc.call(location, null, vl).performCast(location, ptr.type));
                                 });
         }
         return v;
     }
     
-    override Value index(Value val)
+    override Value index(Location location, Value val)
     {
-        return dereference().getMember("ptr").index(val);
+        return dereference(location).getMember(location, "ptr").index(location, val);
     }
     
     protected Value mOldLength;
@@ -612,7 +628,7 @@ class PointerValue : Value
         }
     }
     
-    override Value performCast(Type t)
+    override Value performCast(Location location, Type t)
     {
         auto v = t.getValue(mModule, location);
         if (t.dtype == DType.Pointer) {
@@ -667,7 +683,7 @@ class PointerValue : Value
         }
     }
     
-    override Value dereference()
+    override Value dereference(Location location)
     {
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
@@ -678,9 +694,9 @@ class PointerValue : Value
         return v;
     }
     
-    override Value index(Value val)
+    override Value index(Location location, Value val)
     {
-        val = implicitCast(val, new IntType(mModule));
+        val = implicitCast(location, val, new IntType(mModule));
         LLVMValueRef[] indices;
         indices ~= val.get();
         
@@ -697,10 +713,10 @@ class PointerValue : Value
         return v;
     }
     
-    override Value getMember(string name)
+    override Value getMember(Location location, string name)
     {
-        auto v = dereference();
-        return v.getMember(name);
+        auto v = dereference(location);
+        return v.getMember(location, name);
     }
 }
 
@@ -758,7 +774,7 @@ class FunctionValue : Value
         }
         auto s = startMangle();
         if (type.parentAggregate !is null) {
-            mangleQualifiedName(s, type.parentAggregate.name);
+            mangleQualifiedName(s, type.parentAggregate.fullName);
         } else {
             if (mModule.name is null) {
                 throw new CompilerPanic("null module name.");
@@ -795,24 +811,17 @@ class FunctionValue : Value
         return mValue;
     }
     
-    override Value call(Value[] args)
+    override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        void failure()
-        {
-            throw new CompilerError(location, "can't call function with given arguments.");
-        }
-            
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
         if (functionType.argumentTypes.length != args.length) {
-            failure();
+            location.column = location.wholeLine;
+            throw new CompilerError(location, format("expected %s arguments, got %s", functionType.argumentTypes.length, args.length));
         }
         foreach (i, arg; functionType.argumentTypes) {
-            args[i] = implicitCast(args[i], arg);
-            if (arg != args[i].type) {
-                failure();
-            }
+            args[i] = implicitCast(argLocations[i], args[i], arg);
         }
         
         LLVMValueRef[] llvmArgs;
@@ -884,7 +893,7 @@ class StructValue : Value
         throw new CompilerPanic(location, "tried to get the init of a struct value.");
     }
     
-    override Value getMember(string name)
+    override Value getMember(Location location, string name)
     {
         auto asStruct = cast(StructType) mType;
         assert(asStruct);
@@ -917,7 +926,7 @@ class ScopeValue : Value
         this._scope = _scope;
     }
     
-    override Value getMember(string name)
+    override Value getMember(Location location, string name)
     {
         auto store = _scope.get(name);
         if (store.storeType == StoreType.Scope) {
@@ -1006,8 +1015,6 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure on
     default:
         throw new CompilerPanic(type.location, format("unhandled primitive type '%s'.", to!string(type.type)));
     }
-    
-    assert(false);
 }
 
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
@@ -1040,7 +1047,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
     assert(false);
 }
 
-void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
+void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
 {    
     if (lhs.type.dtype == rhs.type.dtype) {
         return;
@@ -1049,13 +1056,13 @@ void binaryOperatorImplicitCast(Value* lhs, Value* rhs)
     auto toDType = max(lhs.type.dtype, rhs.type.dtype);
     auto t = dtypeToType(toDType, lhs.getModule());
     if (lhs.type.dtype > rhs.type.dtype) {
-        *rhs = implicitCast(*rhs, t);
+        *rhs = implicitCast(location, *rhs, t);
     } else {
-        *lhs = implicitCast(*lhs, t);
+        *lhs = implicitCast(location, *lhs, t);
     }
 }
 
-Value implicitCast(Value v, Type toType)
+Value implicitCast(Location location, Value v, Type toType)
 {
     if (v.type.dtype == DType.NullPointer && toType.dtype == DType.Pointer) {
         return v;
@@ -1064,16 +1071,15 @@ Value implicitCast(Value v, Type toType)
         if (v.type == toType) {
             return v;
         }
-        throw new CompilerPanic(v.location, "casts involving complex types are unimplemented.");
+        throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
     }
     if (toType.dtype == v.type.dtype && toType.dtype != DType.Pointer) {
         return v;
     }
     if (!canImplicitCast(v.type.dtype, toType.dtype)) {
-        // TODO: Implement toString for Types.
-        throw new CompilerError(v.location, format("cannot implicitly cast '%s' to '%s'.", to!string(v.type.dtype), to!string(toType.dtype)));
+        throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
     }
-    return v.performCast(toType);
+    return v.performCast(location, toType);
 }
 
 bool canImplicitCast(DType from, DType to)
@@ -1106,5 +1112,4 @@ bool canImplicitCast(DType from, DType to)
     default:
         return false;
     }
-    assert(false);
 }

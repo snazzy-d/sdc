@@ -148,7 +148,7 @@ void mangleType(ref string mangledName, Type type)
         mangledName ~= "S";
         auto asStruct = cast(StructType) type;
         assert(asStruct);
-        mangleQualifiedName(mangledName, asStruct.name);
+        mangleQualifiedName(mangledName, asStruct.fullName);
         break;
     }
 }

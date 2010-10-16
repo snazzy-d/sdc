@@ -1,3 +1,8 @@
+/**
+ * Copyright 2010 Jakob Ovrum.
+ * This file is part of SDC. SDC is licensed under the GPL.
+ * See LICENCE or sdc.d for more details.
+ */ 
 module sdc.terminal;
 
 import std.stdio;
@@ -16,7 +21,10 @@ void outputCaretDiagnostics(Location loc, bool disableColour)
     
     while(line.length > 0 && (line[0] == ' ' || line[0] == '\t')) {
         line = line[1..$];
-        loc.column--;
+        
+        if(loc.column > 0) {
+            loc.column--;
+        }
     }
     
     if(disableColour) {
@@ -27,10 +35,14 @@ void outputCaretDiagnostics(Location loc, bool disableColour)
         });
     }
     
-    line[] = ' ';
-    line[loc.column - 1] = '^';
-    foreach(i; loc.column .. loc.column + loc.length - 1) {
-        line[i] = '~';
+    if(loc.column == Location.wholeLine) {
+        line[] = '~';
+    } else {
+        line[] = ' ';
+        line[loc.column - 1] = '^';
+        foreach(i; loc.column .. loc.column + loc.length - 1) {
+            line[i] = '~';
+        }
     }
     
     if(disableColour) {
