@@ -558,8 +558,12 @@ class ArrayValue : PointerValue
     override Value init(Location location)
     {
         auto asArray = cast(ArrayType) mType;
-        auto l = new UlongValue(mModule, location);
-        l.set(LLVMSizeOf(asArray.structType.llvmType));
+        auto l = getSizeT(mModule).getValue(mModule, location);
+        if (bits == 32) {
+            l.set(LLVMBuildTrunc(mModule.builder, LLVMSizeOf(asArray.structType.llvmType), LLVMInt32TypeInContext(mModule.context), "trunc"));
+        } else {
+            l.set(LLVMSizeOf(asArray.structType.llvmType));
+        }
         auto ll = [l];
         return gcAlloc.call(ll).performCast(asArray.structTypePointer);
     }
@@ -569,11 +573,12 @@ class ArrayValue : PointerValue
         auto v = dereference();
         v = v.getMember(name);
         if (name == "length") {
-            assert(v.type.dtype == DType.Ulong);
+            auto theSizeT = getSizeT(mModule);
+            assert(v.type.dtype == theSizeT.dtype);
             mOldLength = v;
             v.addSetPostCallback((Value val)
                                 {
-                                    assert(val.type.dtype == DType.Ulong);
+                                    assert(val.type.dtype == theSizeT.dtype);
                                     auto vl = [val];
                                     auto ptr = getMember("ptr");
                                     ptr.set(gcAlloc.call(vl).performCast(ptr.type));

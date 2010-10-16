@@ -14,6 +14,7 @@ import sdc.tokenstream;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
+import sdc.gen.type;
 
 enum ModuleState
 {
@@ -44,6 +45,7 @@ class TranslationUnit
 shared bool isDebug = true;
 shared bool unittestsEnabled = false;
 __gshared ast.DeclarationDefinition[] implicitDeclDefs;
+shared int bits;
 
 bool isReserved(string s)
 {
@@ -108,12 +110,51 @@ Module dummyModule(Module parent)
     return mDummyModule;
 }
 
-static this()
+void globalInit(string arch)
 {
     reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.
     specifyAndReserve("all");                   // Guaranteed to be defined by all implementations.
     specifyAndReserve("SDC");                   // Vendor specification.
     versionIdentifiers["D_Version2"] = true;    // D version supported is 2.
+    
+    switch (arch) {
+    case "x86":
+        specifyAndReserve("LittleEndian");
+        bits = 32;
+        break;
+    case "x86-64":
+        specifyAndReserve("LittleEndian");
+        bits = 64;
+        break;
+    case "ppc32": 
+        specifyAndReserve("BigEndian");
+        bits = 32;
+        break;
+    case "ppc64":
+        specifyAndReserve("BigEndian");
+        bits = 64;
+        break;
+    case "arm":
+        specifyAndReserve("LittleEndian");  // TODO: bi-endian archs
+        bits = 32;
+    default:
+        throw new CompilerError("Unknown arch string '" ~ arch ~ "'.");
+    }
+    
+    if (bits != 32 && bits != 64) {
+        throw new CompilerError("Specified architecture must be of 32 or 64 bits.");
+    }
+}
+
+Type getSizeT(Module mod)
+{
+    if (bits == 32) {
+        return new UintType(mod);
+    } else if (bits == 64) {
+        return new UlongType(mod);
+    } else {
+        assert(false);
+    }
 }
 
 private shared bool[string] reservedVersionIdentifiers;

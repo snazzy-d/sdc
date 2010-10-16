@@ -27,6 +27,7 @@ import std.path;
 import std.process : system;
 import std.c.stdlib;
 
+import llvm.Ext;
 import llvm.c.Core;
 
 import sdc.util;
@@ -45,6 +46,8 @@ import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 
 bool colouredOutputDisabled = false;
+
+version = SDC_x86_default;
 
 int main(string[] args)
 {
@@ -66,7 +69,12 @@ void realmain(string[] args)
     bool skipLink = false, optimise = false;
     string outputName = "";
     string gcc = "gcc";
-    string arch = "x86-64";
+    version (SDC_x86_default) {
+        string arch = "x86";
+    } else {
+        string arch = "x86-64";
+    }
+    
     try {
         getopt(args,
                "help|h", () { usage(); exit(0); },
@@ -86,6 +94,7 @@ void realmain(string[] args)
     } catch (Exception e) {
         throw new CompilerError(e.msg);
     }
+    globalInit(arch);
     
     if (args.length == 1) {
         usage();

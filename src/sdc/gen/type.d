@@ -9,6 +9,7 @@ import std.string;
 
 import llvm.c.Core;
 
+import sdc.global;
 import sdc.util;
 import sdc.compilererror;
 import sdc.location;
@@ -422,7 +423,7 @@ class ArrayType : Type
         this.base = base;
         dtype = DType.Array;
         structType = new StructType(mod);
-        structType.addMemberVar("length", new UlongType(mod));
+        structType.addMemberVar("length", getSizeT(mod));
         structType.addMemberVar("ptr", new PointerType(mod, base));
         structType.declare();
         structTypePointer = new PointerType(mod, structType);
