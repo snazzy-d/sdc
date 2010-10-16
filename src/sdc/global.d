@@ -184,6 +184,7 @@ void globalInit(string arch)
     
     if (bits == 64) {
         versionIdentifiers["D_LP64"] = true;
+        // Note that all "D_" identifiers are reserved, so no need to manually do so.
     }
 }
 
