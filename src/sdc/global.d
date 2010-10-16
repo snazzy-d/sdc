@@ -120,10 +120,12 @@ void globalInit(string arch)
     switch (arch) {
     case "x86":
         specifyAndReserve("LittleEndian");
+        specifyAndReserve("X86");
         bits = 32;
         break;
     case "x86-64":
         specifyAndReserve("LittleEndian");
+        specifyAndReserve("X86_64");
         bits = 64;
         break;
     case "ppc32": 
