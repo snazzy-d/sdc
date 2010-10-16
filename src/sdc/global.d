@@ -144,6 +144,10 @@ void globalInit(string arch)
     if (bits != 32 && bits != 64) {
         throw new CompilerError("Specified architecture must be of 32 or 64 bits.");
     }
+    
+    if (bits == 64) {
+        versionIdentifiers["D_LP64"] = true;
+    }
 }
 
 Type getSizeT(Module mod)
