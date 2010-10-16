@@ -581,7 +581,7 @@ class ArrayValue : PointerValue
             l.set(LLVMSizeOf(asArray.structType.llvmType));
         }
         auto ll = [l];
-        return gcAlloc.call(location, [location], ll).performCast(location, asArray.structTypePointer);
+        return gcAlloc.call(location, [l.location], ll).performCast(location, asArray.structTypePointer);
     }
     
     override Value getMember(Location location, string name)
@@ -595,9 +595,10 @@ class ArrayValue : PointerValue
             v.addSetPostCallback((Value val)
                                 {
                                     assert(val.type.dtype == theSizeT.dtype);
-                                    auto vl = [val];
+                                    //auto vl = [val];
                                     auto ptr = getMember(location, "ptr");
-                                    ptr.set(gcAlloc.call(location, [location], vl).performCast(location, ptr.type));
+                                    auto vl = [ptr, val];
+                                    ptr.set(gcRealloc.call(location, [ptr.location, val.location], vl).performCast(location, ptr.type));
                                 });
         }
         return v;
