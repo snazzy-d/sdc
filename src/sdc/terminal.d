@@ -38,6 +38,10 @@ void outputCaretDiagnostics(Location loc, bool disableColour)
     if(loc.column == Location.wholeLine) {
         line[] = '~';
     } else {
+        if(loc.column + loc.length > line.length) {
+            line.length = loc.column + loc.length;
+        }
+        
         line[] = ' ';
         line[loc.column - 1] = '^';
         foreach(i; loc.column .. loc.column + loc.length - 1) {
