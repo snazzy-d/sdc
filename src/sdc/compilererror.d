@@ -63,6 +63,16 @@ class CompilerPanic : CompilerError
     }
 }
 
+class MissingSemicolonError : CompilerError
+{
+    this(Location loc, string type)
+    {
+        loc.column += loc.length;
+        loc.length = 1;
+        super(loc, format("missing ';' after %s", type));
+    }
+}
+
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));
