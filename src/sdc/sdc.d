@@ -55,11 +55,14 @@ int main(string[] args)
     try {
         realmain(args);
     } catch (CompilerError error) {
-        stderr.writeln(error.msg);
+        do {
+            stderr.writeln(error.msg);
+            
+            if(error.hasLocation) {
+                outputCaretDiagnostics(error.location, colouredOutputDisabled);
+            }
+        } while((error = error.more) !is null);
         
-        if(error.hasLocation) {
-            outputCaretDiagnostics(error.location, colouredOutputDisabled);
-        }
         return 1;
     }
     return 0;

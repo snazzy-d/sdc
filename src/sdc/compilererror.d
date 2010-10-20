@@ -14,10 +14,17 @@ class CompilerError : Exception
 {
     Location location;
     bool hasLocation = false;
+    CompilerError more;
     
     this(string message)
     {
         super(format(errorFormat(), message));
+    }
+    
+    this(string message, CompilerError more)
+    {
+        this.more = more;
+        this(message);
     }
     
     this(Location loc, string message)
@@ -25,6 +32,12 @@ class CompilerError : Exception
         super(format(locationFormat(), loc, message));
         location = loc;
         hasLocation = true;
+    }
+    
+    this(Location loc, string message, CompilerError more)
+    {
+        this.more = more;
+        this(loc, message);
     }
     
     protected:
