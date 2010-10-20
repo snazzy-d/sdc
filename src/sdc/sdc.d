@@ -46,8 +46,6 @@ import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 
-bool colouredOutputDisabled = false;
-
 version = SDC_x86_default;
 
 int main(string[] args)
@@ -59,7 +57,7 @@ int main(string[] args)
             stderr.writeln(error.msg);
             
             if(error.hasLocation) {
-                outputCaretDiagnostics(error.location, colouredOutputDisabled);
+                outputCaretDiagnostics(error.location, error.fixHint);
             }
         } while((error = error.more) !is null);
         
@@ -93,7 +91,7 @@ void realmain(string[] args)
                "arch", &arch,
                "c", &skipLink,
                "o", &outputName,
-               "no-colour-print", &colouredOutputDisabled
+               "no-colour-print", (){ coloursEnabled = false; }
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
