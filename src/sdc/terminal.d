@@ -50,6 +50,13 @@ void outputCaretDiagnostics(Location loc, string fixHint)
     writeColouredText(stderr, ConsoleColour.Yellow, {
         stderr.writeln('\t', line);
     });
+    
+    if(fixHint !is null) {
+        line[] = ' ';
+        writeColouredText(stderr, ConsoleColour.Yellow, {
+            stderr.writeln('\t', line[0 .. loc.column - 1], fixHint);
+        });
+    }
 }
 
 version(Windows) {
