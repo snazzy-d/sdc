@@ -120,9 +120,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         }
         
         if (declarator.initialiser is null) {
-            if (var.type.dtype != DType.Struct) {
-                var.initialise(var.init(decl.location));
-            }
+            var.initialise(var.init(decl.location));
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
                 var.initialise(LLVMGetUndef(type.llvmType));

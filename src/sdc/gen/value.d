@@ -98,8 +98,8 @@ abstract class Value
     LLVMValueRef get() { fail("get"); assert(false); }
     void set(Value val) { fail("set (by Value)"); assert(false); }
     void set(LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
-    void initialise(Value val) { fail("initialise (Value)"); assert(false); }
-    void initialise(LLVMValueRef val) { fail("initialise (LLVMValueRef)"); assert(false); }
+    void initialise(Value val) { set(val); }
+    void initialise(LLVMValueRef val) { set(val); }
     Value add(Location loc, Value val) { fail(loc, "add"); assert(false); }
     Value inc(Location loc) { fail(loc, "increment"); assert(false); }
     Value dec(Location loc) { fail(loc, "decrement"); assert(false); }
@@ -562,32 +562,18 @@ alias FloatingPointValue!(float, FloatType) FloatValue;
 alias FloatingPointValue!(double, DoubleType) DoubleValue;
 alias FloatingPointValue!(real, RealType) RealValue;
 
-class ArrayValue : PointerValue
+class ArrayValue : StructValue
 {
     this(Module mod, Location location, Type base)
     {
         auto asArray = new ArrayType(mod, base);
-        super(mod, location, asArray.structType);
-        mType = asArray;
-    }
-    
-    override Value init(Location location)
-    {
-        auto asArray = cast(ArrayType) mType;
-        auto l = getSizeT(mModule).getValue(mModule, location);
-        if (bits == 32) {
-            l.set(LLVMBuildTrunc(mModule.builder, LLVMSizeOf(asArray.structType.llvmType), LLVMInt32TypeInContext(mModule.context), "trunc"));
-        } else {
-            l.set(LLVMSizeOf(asArray.structType.llvmType));
-        }
-        auto ll = [l];
-        return gcAlloc.call(location, [l.location], ll).performCast(location, asArray.structTypePointer);
+        super(mod, location, asArray);
+        mType = asArray; 
     }
     
     override Value getMember(Location location, string name)
     {
-        auto v = dereference(location);
-        v = v.getMember(location, name);
+        auto v = super.getMember(location, name);
         if (name == "length") {
             auto theSizeT = getSizeT(mModule);
             assert(v.type.dtype == theSizeT.dtype);
@@ -595,7 +581,6 @@ class ArrayValue : PointerValue
             v.addSetPostCallback((Value val)
                                 {
                                     assert(val.type.dtype == theSizeT.dtype);
-                                    //auto vl = [val];
                                     auto ptr = getMember(location, "ptr");
                                     auto vl = [ptr, val];
                                     ptr.set(gcRealloc.call(location, [ptr.location, val.location], vl).performCast(location, ptr.type));
@@ -606,7 +591,7 @@ class ArrayValue : PointerValue
     
     override Value index(Location location, Value val)
     {
-        return dereference(location).getMember(location, "ptr").index(location, val);
+        return getMember(location, "ptr").index(location, val);
     }
     
     protected Value mOldLength;
@@ -893,7 +878,13 @@ class StructValue : Value
     
     override Value init(Location location)
     {
-        throw new CompilerPanic(location, "tried to get the init of a struct value.");
+        auto asStruct = enforce(cast(StructType) mType);
+        auto v = new StructValue(mModule, location, asStruct);
+        foreach (member; asStruct.memberPositions.keys) {
+            auto m = v.getMember(location, member);
+            m.set(m.init(location));
+        }
+        return v;
     }
     
     override Value getMember(Location location, string name)

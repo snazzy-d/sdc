@@ -450,23 +450,18 @@ class NullPointerType : PointerType
     override string name(){ return "null"; }
 }
 
-class ArrayType : Type
+class ArrayType : StructType
 {
     Type base;
-    StructType structType;
-    PointerType structTypePointer;
     
     this(Module mod, Type base)
     {
         super(mod);
         this.base = base;
         dtype = DType.Array;
-        structType = new StructType(mod);
-        structType.addMemberVar("length", getSizeT(mod));
-        structType.addMemberVar("ptr", new PointerType(mod, base));
-        structType.declare();
-        structTypePointer = new PointerType(mod, structType);
-        mType = structTypePointer.llvmType;
+        addMemberVar("length", getSizeT(mod));
+        addMemberVar("ptr", new PointerType(mod, base));
+        declare();
     }
     
     override Value getValue(Module mod, Location location)
@@ -474,7 +469,7 @@ class ArrayType : Type
         return new ArrayValue(mod, location, base);
     }
     
-    override string name(){ return base.name() ~ "[]"; }
+    override string name() { return base.name() ~ "[]"; }
 }
 
 class FunctionType : Type
