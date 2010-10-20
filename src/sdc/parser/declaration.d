@@ -67,7 +67,7 @@ bool isVariableDeclaration(TokenStream tstream)
 }
 
 
-VariableDeclaration parseVariableDeclaration(TokenStream tstream)
+VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicolon = false)
 {
     auto declaration = new VariableDeclaration();
     declaration.location = tstream.peek.location;
@@ -134,17 +134,19 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream)
         throw new CompilerError(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix.");
     }
     declaration.type.suffixes ~= suffixes;
-    while (tstream.peek.type != TokenType.Semicolon) {
-        match(tstream, TokenType.Comma);
-        declarator = new Declarator();
-        declarator.location = tstream.peek.location;
-        declarator.name = parseIdentifier(tstream);
-        if (tstream.peek.type == TokenType.Assign) {
-            declarator.initialiser = parseInitialiser(tstream);
+    if (!noSemicolon) {
+        while (tstream.peek.type != TokenType.Semicolon) {
+            match(tstream, TokenType.Comma);
+            declarator = new Declarator();
+            declarator.location = tstream.peek.location;
+            declarator.name = parseIdentifier(tstream);
+            if (tstream.peek.type == TokenType.Assign) {
+                declarator.initialiser = parseInitialiser(tstream);
+            }
+            declaration.declarators ~= declarator;
         }
-        declaration.declarators ~= declarator;
+        match(tstream, TokenType.Semicolon);
     }
-    match(tstream, TokenType.Semicolon);
     
     return declaration;
 }

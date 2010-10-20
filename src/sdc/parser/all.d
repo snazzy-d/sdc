@@ -13,3 +13,4 @@ public import sdc.parser.attribute;
 public import sdc.parser.aggregate;
 public import sdc.parser.sdcimport;
 public import sdc.parser.conditional;
+public import sdc.parser.sdctemplate;
