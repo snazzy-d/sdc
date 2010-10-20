@@ -15,9 +15,18 @@ class CompilerError : Exception
     Location location;
     bool hasLocation = false;
     
+    CompilerError more; // Optional
+    string fixHint; // Optional
+    
     this(string message)
     {
         super(format(errorFormat(), message));
+    }
+    
+    this(string message, CompilerError more)
+    {
+        this.more = more;
+        this(message);
     }
     
     this(Location loc, string message)
@@ -25,6 +34,12 @@ class CompilerError : Exception
         super(format(locationFormat(), loc, message));
         location = loc;
         hasLocation = true;
+    }
+    
+    this(Location loc, string message, CompilerError more)
+    {
+        this.more = more;
+        this(loc, message);
     }
     
     protected:
@@ -60,6 +75,18 @@ class CompilerPanic : CompilerError
     string locationFormat()
     {
         return "%s: panic: %s";
+    }
+}
+
+class MissingSemicolonError : CompilerError
+{
+    this(Location loc, string type)
+    {
+        loc.column += loc.length;
+        loc.length = 1;
+        super(loc, format("missing ';' after %s", type));
+        
+        fixHint = ";";
     }
 }
 

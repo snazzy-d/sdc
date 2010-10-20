@@ -151,7 +151,6 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     return declaration;
 }
 
-
 FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
 {
     auto declaration = new FunctionDeclaration();
@@ -159,6 +158,12 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     
     declaration.retval = parseType(tstream);
     declaration.name = parseIdentifier(tstream);
+    
+    // If the next token isn't '(', assume the user missed a ';' off a variable declaration
+    if(tstream.peek.type != TokenType.OpenParen) {
+        throw new MissingSemicolonError(declaration.name.location, "declaration");
+    }
+    
     declaration.parameters = parseParameters(tstream);
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);

@@ -801,15 +801,34 @@ class FunctionValue : Value
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
+        CompilerError getDeclaration()
+        {
+            auto loc = this.location;
+            loc.column = Location.wholeLine;
+            return new CompilerError(
+                loc,
+                format(`declaration of "%s"`, this.name)
+            );
+        }
+        
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
         if (functionType.argumentTypes.length != args.length) {
             location.column = location.wholeLine;
-            throw new CompilerError(location, format("expected %s arguments, got %s", functionType.argumentTypes.length, args.length));
+            throw new CompilerError(
+                location, 
+                format("expected %s arguments, got %s", functionType.argumentTypes.length, args.length),
+                getDeclaration()
+            );
         }
         foreach (i, arg; functionType.argumentTypes) {
-            args[i] = implicitCast(argLocations[i], args[i], arg);
+            try {
+                args[i] = implicitCast(argLocations[i], args[i], arg);
+            } catch (CompilerError error) {
+                error.more = getDeclaration();
+                throw error;
+            }
         }
         
         LLVMValueRef[] llvmArgs;

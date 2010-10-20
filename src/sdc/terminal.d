@@ -10,12 +10,14 @@ import std.stdio;
 import sdc.location;
 import sdc.compilererror;
 
+import sdc.global;
+
 
 version(Windows) {
     import std.c.windows.windows;
 }
 
-void outputCaretDiagnostics(Location loc, bool disableColour)
+void outputCaretDiagnostics(Location loc, string fixHint)
 {
     char[] line = readErrorLine(loc);
     
@@ -27,17 +29,17 @@ void outputCaretDiagnostics(Location loc, bool disableColour)
         }
     }
     
-    if(disableColour) {
+    writeColouredText(stderr, ConsoleColour.Green, {
         stderr.writeln('\t', line);
-    } else {
-        writeColouredText(stderr, ConsoleColour.Green, {
-            stderr.writeln('\t', line);
-        });
-    }
+    });
     
     if(loc.column == Location.wholeLine) {
         line[] = '~';
     } else {
+        if(loc.column + loc.length > line.length) {
+            line.length = loc.column + loc.length;
+        }
+        
         line[] = ' ';
         line[loc.column - 1] = '^';
         foreach(i; loc.column .. loc.column + loc.length - 1) {
@@ -45,11 +47,14 @@ void outputCaretDiagnostics(Location loc, bool disableColour)
         }
     }
     
-    if(disableColour) {
+    writeColouredText(stderr, ConsoleColour.Yellow, {
         stderr.writeln('\t', line);
-    } else {
+    });
+    
+    if(fixHint !is null) {
+        line[] = ' ';
         writeColouredText(stderr, ConsoleColour.Yellow, {
-            stderr.writeln('\t', line);
+            stderr.writeln('\t', line[0 .. loc.column - 1], fixHint);
         });
     }
 }
@@ -82,30 +87,34 @@ version(Windows) {
 
 void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg)
 {
-    version(Windows) {
-        HANDLE handle;
-        
-        if(pipe == stderr) {
-            handle = GetStdHandle(STD_ERROR_HANDLE);
+    if(coloursEnabled) {
+        version(Windows) {
+            HANDLE handle;
+            
+            if(pipe == stderr) {
+                handle = GetStdHandle(STD_ERROR_HANDLE);
+            } else {
+                handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            }
+            
+            CONSOLE_SCREEN_BUFFER_INFO termInfo;
+            GetConsoleScreenBufferInfo(handle, &termInfo);
+            
+            SetConsoleTextAttribute(handle, colour);
         } else {
-            handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
+            ansiSequence[3] = cast(char)(colour + '0');
+            pipe.write(ansiSequence);
         }
         
-        CONSOLE_SCREEN_BUFFER_INFO termInfo;
-        GetConsoleScreenBufferInfo(handle, &termInfo);
+        dg();
         
-        SetConsoleTextAttribute(handle, colour);
+        version(Windows) {
+            SetConsoleTextAttribute(handle, termInfo.wAttributes);
+        } else {
+            pipe.write("\x1b[30m");
+        }
     } else {
-        static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
-        ansiSequence[3] = cast(char)(colour + '0');
-        pipe.write(ansiSequence);
-    }
-    
-    dg();
-    
-    version(Windows) {
-        SetConsoleTextAttribute(handle, termInfo.wAttributes);
-    } else {
-        pipe.write("\x1b[30m");
+        dg();
     }
 }

@@ -44,6 +44,7 @@ class TranslationUnit
 
 shared bool isDebug = true;
 shared bool unittestsEnabled = false;
+shared bool coloursEnabled = true;
 __gshared ast.DeclarationDefinition[] implicitDeclDefs;
 shared int bits;
 
