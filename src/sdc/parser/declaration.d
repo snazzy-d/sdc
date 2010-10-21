@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -136,7 +137,16 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     declaration.type.suffixes ~= suffixes;
     if (!noSemicolon) {
         while (tstream.peek.type != TokenType.Semicolon) {
-            match(tstream, TokenType.Comma);
+            // If there is no comma here, assume the user is missing a semicolon
+            if(tstream.peek.type != TokenType.Comma) {
+                if(declarator.initialiser is null) {
+                    throw new MissingSemicolonError(declarator.name.location, "declaration");
+                } else {
+                    throw new MissingSemicolonError(declarator.initialiser.node.location, "initialisation");
+                }
+            }
+            tstream.getToken();
+            
             declarator = new Declarator();
             declarator.location = tstream.peek.location;
             declarator.name = parseIdentifier(tstream);
