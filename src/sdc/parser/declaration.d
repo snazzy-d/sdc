@@ -178,7 +178,10 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);
     } else {
-        match(tstream, TokenType.Semicolon);
+        if(tstream.peek.type != TokenType.Semicolon) {
+            throw new MissingSemicolonError(tstream.lookbehind(1).location, "function declaration");
+        }
+        tstream.getToken();
     }
     
     return declaration;
