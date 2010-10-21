@@ -477,6 +477,7 @@ class FunctionType : Type
     Type returnType;
     Type[] argumentTypes;
     string[] argumentNames;
+    Location[] argumentLocations; // For error diagnostics
     ast.Linkage linkage;
     StructType parentAggregate;
     
@@ -489,6 +490,7 @@ class FunctionType : Type
         foreach (param; functionDeclaration.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
+            argumentLocations ~= param.identifier !is null ? param.identifier.location : functionDeclaration.location;
         }
     }
     

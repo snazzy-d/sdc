@@ -826,7 +826,10 @@ class FunctionValue : Value
             try {
                 args[i] = implicitCast(argLocations[i], args[i], arg);
             } catch (CompilerError error) {
-                error.more = getDeclaration();
+                error.more = new CompilerError(
+                    functionType.argumentLocations[i],
+                    format(`argument #%s of function "%s"`, i + 1, this.name)
+                );
                 throw error;
             }
         }
