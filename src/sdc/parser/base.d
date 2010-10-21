@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -53,7 +54,10 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
         modDec.location = tstream.peek.location;
         match(tstream, TokenType.Module);
         modDec.name = parseQualifiedName(tstream);
-        match(tstream, TokenType.Semicolon);
+        if(tstream.peek.type != TokenType.Semicolon) {
+            throw new MissingSemicolonError(modDec.name.location, "module declaration");
+        }
+        tstream.getToken();
     } else {
         // Implicit module declaration.
         modDec.name = new QualifiedName();
