@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -222,6 +223,9 @@ ExpressionStatement parseExpressionStatement(TokenStream tstream)
     auto statement = new ExpressionStatement();
     statement.location = tstream.peek.location;
     statement.expression = parseExpression(tstream);
-    match(tstream, TokenType.Semicolon);
+    if(tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.lookbehind(1).location, "expression");
+    }
+    tstream.getToken();
     return statement;
 }
