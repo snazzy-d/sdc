@@ -164,5 +164,5 @@ enum TemplateSingleArgumentType
 class TemplateSingleArgument : Node
 {
     TemplateSingleArgumentType type;
-    Node node;
+    Node node;  // Optional
 }

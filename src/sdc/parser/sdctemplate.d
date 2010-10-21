@@ -185,3 +185,100 @@ Constraint parseConstraint(TokenStream tstream)
     match(tstream, TokenType.CloseParen);
     return constraint;
 }
+
+TemplateInstance parseTemplateInstance(TokenStream tstream)
+{
+    auto instance = new TemplateInstance();
+    instance.location = tstream.peek.location;
+    
+    instance.identifier = parseIdentifier(tstream);
+    match(tstream, TokenType.Bang);
+    if (tstream.peek.type == TokenType.OpenParen) {
+        match(tstream, TokenType.OpenParen);
+        while (tstream.peek.type != TokenType.CloseParen) {
+            instance.arguments ~= parseTemplateArgument(tstream);
+            if (tstream.peek.type == TokenType.Comma) {
+                match(tstream, TokenType.Comma);
+            }
+        }
+        match(tstream, TokenType.CloseParen);
+    } else {
+        instance.argument = parseTemplateSingleArgument(tstream);
+    }
+    return instance;
+}
+
+TemplateArgument parseTemplateArgument(TokenStream tstream)
+{
+    auto argument = new TemplateArgument();
+    argument.location = tstream.peek.location;
+    
+    if (startsLikeDeclaration(tstream)) {
+        argument.type = TemplateArgumentType.Type;
+        argument.node = parseType(tstream);
+    } else {
+        argument.type = TemplateArgumentType.AssignExpression;
+        argument.node = parseAssignExpression(tstream);
+    }
+    
+    return argument;
+}
+
+TemplateSingleArgument parseTemplateSingleArgument(TokenStream tstream)
+{
+    auto argument = new TemplateSingleArgument();
+    argument.location = tstream.peek.location;
+    
+    switch (tstream.peek.type) {
+    case TokenType.Identifier:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.Identifier;
+        argument.node = parseIdentifier(tstream);
+        break;
+    case TokenType.CharacterLiteral:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.CharacterLiteral;
+        argument.node = parseCharacterLiteral(tstream);
+        break;
+    case TokenType.StringLiteral:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.StringLiteral;
+        argument.node = parseStringLiteral(tstream);
+        break;
+    case TokenType.IntegerLiteral:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.IntegerLiteral;
+        argument.node = parseIntegerLiteral(tstream);
+        break;
+    case TokenType.FloatLiteral:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.FloatLiteral;
+        argument.node = parseFloatLiteral(tstream);
+        break;
+    case TokenType.True:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.True;
+        break;
+    case TokenType.False:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.False;
+        break;
+    case TokenType.Null:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.Null;
+        break;
+    case TokenType.__File__:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.__File__;
+        break;
+    case TokenType.__Line__:
+        tstream.getToken();
+        argument.type = TemplateSingleArgumentType.__Line__;
+        break;
+    default:
+        argument.type = TemplateSingleArgumentType.BasicType;
+        argument.node = parsePrimitiveType(tstream);
+        break;
+    }
+    return argument;
+}
