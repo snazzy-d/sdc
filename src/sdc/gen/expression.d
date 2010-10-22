@@ -362,6 +362,10 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return new BoolValue(mod, expression.location, true);
     case ast.PrimaryType.False:
         return new BoolValue(mod, expression.location, false);
+    case ast.PrimaryType.CharacterLiteral: 
+        return new CharValue(mod, expression.location, cast(char)extractCharacterLiteral(cast(ast.CharacterLiteral) expression.node));
+    case ast.PrimaryType.StringLiteral:
+        return new StringValue(mod, expression.location, extractStringLiteral(cast(ast.StringLiteral) expression.node));
     case ast.PrimaryType.Identifier:
         return genIdentifier(cast(ast.Identifier) expression.node, mod);
     case ast.PrimaryType.ParenExpression:
