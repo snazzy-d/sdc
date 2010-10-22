@@ -63,6 +63,10 @@ string extractStringLiteral(StringLiteral literal)
 dchar extractCharacterLiteral(CharacterLiteral literal)
 {
     auto value = literal.value[1..$-1];
+    if(value.length == 0) {
+        throw new CompilerError(literal.location, "character literals can't be empty");
+    }
+    
     size_t index = 0;
     auto c = extractCharacter(literal.location, value, index);
     if(index < value.length) {
