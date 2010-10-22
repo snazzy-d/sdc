@@ -13,6 +13,7 @@ import sdc.compilererror;
 import sdc.ast.all;
 import sdc.parser.base;
 import sdc.parser.declaration;
+import sdc.parser.sdctemplate;
 
 
 Expression parseExpression(TokenStream tstream)
@@ -480,8 +481,13 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     
     switch (tstream.peek.type) {
     case TokenType.Identifier:
-        primaryExpr.type = PrimaryType.Identifier;
-        primaryExpr.node = parseIdentifier(tstream);
+        if (tstream.lookahead(1).type == TokenType.Bang) {
+            primaryExpr.type = PrimaryType.TemplateInstance;
+            primaryExpr.node = parseTemplateInstance(tstream);
+        } else {
+            primaryExpr.type = PrimaryType.Identifier;
+            primaryExpr.node = parseIdentifier(tstream);
+        }
         break;
     case TokenType.Dot:
         match(tstream, TokenType.Dot);
