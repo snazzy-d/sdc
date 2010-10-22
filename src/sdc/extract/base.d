@@ -48,9 +48,9 @@ string extractStringLiteral(StringLiteral literal)
     
     switch(value[0]){
     case 'r', 'q':
-        return extractRawString(value[2..$]);
-    case '`':
         return extractRawString(value[1..$]);
+    case '`':
+        return extractRawString(value);
     case '"':
         return extractString(literal.location, value[1..$]);
     case 'x':
