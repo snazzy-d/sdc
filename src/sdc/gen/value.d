@@ -605,7 +605,7 @@ class StringValue : ArrayValue
         super(mod, location, base);
         
         // String literals should be null-terminated
-        if(s[$-1] != '\0') {
+        if(s.length == 0 || s[$-1] != '\0') {
             s ~= '\0';
         }
         
