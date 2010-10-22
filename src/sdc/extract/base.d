@@ -1,12 +1,17 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.extract.base;
 
 import std.conv;
+import std.utf;
+import std.string;
 
+import sdc.compilererror;
+import sdc.location;
 import sdc.ast.all;
 
 
@@ -34,4 +39,135 @@ int extractIntegerLiteral(IntegerLiteral literal)
 double extractFloatLiteral(FloatLiteral literal)
 {
     return to!double(literal.value);
+}
+
+//TODO: support wstring and dstring
+string extractStringLiteral(StringLiteral literal)
+{   
+    auto value = literal.value;
+    
+    switch(value[0]){
+    case 'r', 'q':
+        return extractRawString(value[2..$]);
+    case '`':
+        return extractRawString(value[1..$]);
+    case '"':
+        return extractString(literal.location, value[1..$]);
+    case 'x':
+        throw new CompilerPanic(literal.location, "hex literals are unimplemented");
+    default:
+        throw new CompilerError(literal.location, format("unrecognised string prefix '%s'", value[0]));
+    }
+}
+
+dchar extractCharacterLiteral(CharacterLiteral literal)
+{
+    auto value = literal.value[1..$-1];
+    size_t index = 0;
+    auto c = extractCharacter(literal.location, value, index);
+    if(index < value.length) {
+        throw new CompilerError(literal.location, "character literals must be a single character");
+    }
+    return c;
+}
+
+private:
+string extractRawString(string s)
+{
+    char terminator = s[0];
+    s = s[1..$-1];
+    if(s[$-1] == terminator) {
+        s = s[0..$-1];
+    }
+    return s;
+}
+
+dchar[dchar] escapeChars;
+
+static this()
+{
+    escapeChars = [
+	    'a': '\a',
+	    'b': '\b',
+	    'f': '\f',
+	    'n': '\n',
+	    'r': '\r',
+	    't': '\t',
+	    'v': '\v'
+	];
+}
+
+string extractString(Location loc, string s)
+{
+    auto suffix = s[$-1];
+    switch(suffix) {
+    case 'c', 'w', 'd':
+        s = s[0..$-2];
+        break;
+    case '"', '`':
+        s = s[0..$-1];
+        break;
+    default:
+        throw new CompilerError(loc, format("unrecognized string suffix '%s'", suffix)); 
+    }
+    
+    dstring parsed;
+    
+    size_t index = 0;
+    while(index < s.length) {
+        parsed ~= extractCharacter(loc, s, index);
+    }
+    
+    return to!string(parsed);
+}
+
+dchar extractCharacter(Location loc, string s, ref size_t index)
+{
+    dchar c = decode(s, index);
+    
+    if(c == '\\') {
+        dchar escapeChar = decode(s, index);
+        switch(escapeChar) {
+        case 'x': // One byte hexadecimal
+            c = parse!uint(s[index..index+2], 16);
+            index += 2;
+            break;
+        case 'u': // Two byte code point
+            c = parse!ushort(s[index..index+4], 16);
+            index += 4;
+            break;
+        case 'U': // Four byte code point
+            c = parse!uint(s[index..index+8], 16);
+            index += 8;
+            break;
+        case '&': // Named entity
+            break;
+        case '0': .. case '9': // Octal
+            size_t octalLength = 1;
+            foreach(i; 0..2) {
+                if(index + octalLength >= s.length) {
+                    break;
+                } else {
+                    dchar next = s[index + octalLength];
+                    if(next > '0' && next < '9') {
+                        octalLength++;
+                    }
+                 }
+            }
+            c = parse!uint(s[index - 1 .. index + octalLength - 1], 8);
+            index += octalLength;
+            break;
+        case '\\', '"', '\'', '\?':
+            c = escapeChar;
+            break;
+        default:
+            if(auto pchar = escapeChar in escapeChars) {
+                c = *pchar;
+                break;
+            }
+            throw new CompilerError(loc, format("unrecognised escape character '%s'", escapeChar));
+        }
+    }
+    
+    return c;
 }

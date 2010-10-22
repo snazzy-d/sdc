@@ -597,6 +597,30 @@ class ArrayValue : StructValue
     protected Value mOldLength;
 }
 
+class StringValue : ArrayValue
+{
+    this(Module mod, Location location, string s)
+    {
+        auto base = new CharType(mod);
+        super(mod, location, base);
+        
+        // String literals should be null-terminated
+        if(s[$-1] != '\0') {
+            s ~= '\0';
+        }
+        
+        LLVMValueRef val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, s.length), "string");
+
+        LLVMSetLinkage(val, LLVMLinkage.Internal);
+        LLVMSetGlobalConstant(val, true);
+        LLVMSetInitializer(val, LLVMConstString(s.ptr, s.length, true));
+        
+        auto ptr = getMember(location, "ptr");
+        auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
+        ptr.set(castedVal);
+    }
+}
+
 class PointerValue : Value
 {
     Type baseType;
