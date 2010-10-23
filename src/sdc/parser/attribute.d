@@ -34,7 +34,7 @@ Attribute parseAttribute(TokenStream tstream)
     {
         match(tstream, TokenType.Extern);
         if (tstream.peek.type != TokenType.OpenParen) {
-            throw new CompilerPanic(tstream.peek.location, "ICE: only linkage style extern supported.");
+            throw new CompilerPanic(tstream.peek.location, "ICE: only linkage style extern supported");
         }
         match(tstream, TokenType.OpenParen);
         switch (tstream.peek.value) {
@@ -61,7 +61,7 @@ Attribute parseAttribute(TokenStream tstream)
         default:
             throw new CompilerError(
                 tstream.peek.location, 
-                "unsupported extern linkage. Supported linkages are C, C++, D, Windows, Pascal, and System."
+                "unsupported extern linkage. Supported linkages are C, C++, D, Windows, Pascal, and System"
             );
         }
         tstream.getToken();
@@ -95,7 +95,7 @@ Attribute parseAttribute(TokenStream tstream)
     default:
         throw new CompilerError(
             tstream.peek.location, 
-            format("bad attribute '%s'.", tokenToString[tstream.peek.type])
+            format("bad attribute '%s'", tokenToString[tstream.peek.type])
         );
     }
     

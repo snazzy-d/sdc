@@ -87,7 +87,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Inferred:
         return new InferredType(mod);
     }
-    throw new CompilerPanic("tried to get Type out of invalid DType.");
+    throw new CompilerPanic("tried to get Type out of invalid DType");
 }
 
 pure bool isComplexDType(DType dtype)

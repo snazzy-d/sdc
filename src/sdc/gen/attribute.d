@@ -72,6 +72,6 @@ void genAttribute(ast.Attribute attribute, Module mod)
         mod.currentLinkage = cast(ast.Linkage) attribute.type;
         break;
     default:
-        throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
+        throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'", to!string(attribute.type)));
     }
 }

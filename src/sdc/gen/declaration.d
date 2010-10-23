@@ -113,7 +113,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         Value var;
         if (type.dtype == DType.Inferred) {
             if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
-                throw new CompilerError(decl.location, "not enough information to infer type.");
+                throw new CompilerError(decl.location, "not enough information to infer type");
             }
         } else {
             var = type.getValue(mod, declarator.location);
@@ -132,11 +132,11 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 }
                 aexp = implicitCast(declarator.initialiser.location, aexp, type);
                 if (var is null) {
-                    throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
+                    throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point");
                 }
                 var.initialise(aexp);
             } else {
-                throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
+                throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type");
             }
         }
         mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
@@ -148,7 +148,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     auto name = extractIdentifier(decl.name);
     auto store = mod.globalScope.get(name);
     if (store is null) {
-        throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
+        throw new CompilerPanic(decl.location, "attempted to gen undeclared function");
     }
     auto val = store.value();
     if (decl.functionBody is null) {
@@ -182,7 +182,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
-            throw new CompilerError(decl.location, "function expected to return a value.");
+            throw new CompilerError(decl.location, "function expected to return a value");
         }
     }
     
