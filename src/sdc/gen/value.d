@@ -838,7 +838,17 @@ class FunctionValue : Value
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
-        if (functionType.argumentTypes.length != args.length) {
+        
+        if (functionType.varargs) {
+            if (functionType.argumentTypes.length > args.length) {
+                location.column = location.wholeLine;
+                throw new CompilerError(
+                    location, 
+                    format("expected at least %s arguments, got %s", functionType.argumentTypes.length, args.length),
+                    getDeclaration()
+                );
+             }
+        } else if (functionType.argumentTypes.length != args.length) {
             location.column = location.wholeLine;
             throw new CompilerError(
                 location, 
@@ -846,6 +856,7 @@ class FunctionValue : Value
                 getDeclaration()
             );
         }
+        
         foreach (i, arg; functionType.argumentTypes) {
             try {
                 args[i] = implicitCast(argLocations[i], args[i], arg);

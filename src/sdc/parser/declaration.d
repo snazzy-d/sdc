@@ -174,7 +174,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         throw new MissingSemicolonError(declaration.name.location, "declaration");
     }
     
-    declaration.parameters = parseParameters(tstream);
+    declaration.parameterList = parseParameters(tstream);
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);
     } else {
@@ -445,27 +445,37 @@ DelegateType parseDelegateType(TokenStream tstream, Type retval)
     return type;
 }
 
-Parameter[] parseParameters(TokenStream tstream)
+ParameterList parseParameters(TokenStream tstream)
 {
-    Parameter[] parameters;
+    auto list = new ParameterList();
+    list.location = tstream.peek.location; //TODO: length
     
     match(tstream, TokenType.OpenParen);
-    while (tstream.peek.type != TokenType.CloseParen) {
+    while(tstream.peek.type != TokenType.CloseParen) {
         auto parameter = new Parameter();
         parameter.location = tstream.peek.location;
+        
+        if (tstream.peek.type == TokenType.TripleDot) {
+            list.varargs = true;
+            tstream.getToken();
+            if (tstream.peek.type != TokenType.CloseParen) {
+                throw new CompilerError(tstream.peek.location, "varargs must appear last in the parameter list");
+            }
+            break;
+        }
         parameter.type = parseType(tstream);
         if (tstream.peek.type == TokenType.Identifier) {
             parameter.identifier = parseIdentifier(tstream);
         }
-        parameters ~= parameter;
+        list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {
             break;
         }
-        tstream.getToken();
+        match(tstream, TokenType.Comma);
     }
     match(tstream, TokenType.CloseParen);
     
-    return parameters;
+    return list;
 }
 
 Initialiser parseInitialiser(TokenStream tstream)

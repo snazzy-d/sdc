@@ -35,12 +35,18 @@ class Declarator : Node
     Identifier name;
     Initialiser initialiser;  // Optional.
 }
+
+class ParameterList : Node
+{
+    Parameter[] parameters;
+    bool varargs = false;
+}
     
 class FunctionDeclaration : Node
 {
     Type retval;
     Identifier name;
-    Parameter[] parameters;
+    ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
 }
 
@@ -173,13 +179,13 @@ class TypeofType : Node
 class FunctionPointerType : Node
 {
     Type retval;
-    Parameter[] parameters;
+    ParameterList parameters;
 }
 
 class DelegateType : Node
 {
     Type retval;
-    Parameter[] parameters;
+    ParameterList parameters;
 }
 
 class Parameter : Node
