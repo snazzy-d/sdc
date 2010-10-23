@@ -477,6 +477,8 @@ class FunctionType : Type
     Type returnType;
     Type[] argumentTypes;
     string[] argumentNames;
+    Location[] argumentLocations; // For error diagnostics
+    bool varargs;
     ast.Linkage linkage;
     StructType parentAggregate;
     
@@ -486,10 +488,11 @@ class FunctionType : Type
         linkage = mod.currentLinkage;
         dtype = DType.Function;
         returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
-        foreach (param; functionDeclaration.parameters) {
+        foreach (param; functionDeclaration.parameterList.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
         }
+        varargs = functionDeclaration.parameterList.varargs;
     }
     
     this(Module mod, Type retval, Type[] args, string[] argNames)
@@ -507,7 +510,7 @@ class FunctionType : Type
         foreach (t; argumentTypes) {
             params ~= t.llvmType;
         }
-        mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, false);
+        mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
     }
     
     override Value getValue(Module mod, Location location)

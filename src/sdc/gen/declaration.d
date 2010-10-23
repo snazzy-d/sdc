@@ -46,7 +46,7 @@ bool canGenVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
     bool retval = astTypeToBackendType(decl.retval, mod, OnFailure.ReturnNull) !is null;
-    foreach (parameter; decl.parameters) {
+    foreach (parameter; decl.parameterList.parameters) {
         auto t = astTypeToBackendType(parameter.type, mod, OnFailure.ReturnNull);
         retval = retval && t !is null;
     }
