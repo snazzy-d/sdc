@@ -245,7 +245,7 @@ enum PrimaryType
 {
     Identifier,
     GlobalIdentifier,  // . Identifier
-    TemplateInstance,  // TODO
+    TemplateInstance,
     This,
     Super,
     Null,
