@@ -202,17 +202,17 @@ void realmain(string[] args)
 void usage()
 {
     writeln("sdc [options] modules");
-    writeln("  --help|-h:             print this message.");
-    writeln("  --version|-v:          print version information to stdout.");
-    writeln("  --version-identifier:  specify the given version identifier.");
-    writeln("  --debug-identifier:    specify the given debug identifier.");
-    writeln("  --debug:               compile in debug mode (defaults on).");
-    writeln("  --release:             don't compile in debug mode (defaults off).");
-    writeln("  --unittest:            compile in unittests (defaults off).");
-    writeln("  --no-colour-print:     don't apply colour to diagnostic output.");
-    writeln("  --optimise:            optimise the output.");
-    writeln("  --gcc:                 set the command for running GCC.");
-    writeln("  --arch:                set the architecture to generate code for. See llc(1).");
-    writeln("  -c:                    just compile, don't link.");
-    writeln("  -o:                    name of the output file.");
+    writeln("  --help|-h:             print this message");
+    writeln("  --version|-v:          print version information to stdout");
+    writeln("  --version-identifier:  specify the given version identifier");
+    writeln("  --debug-identifier:    specify the given debug identifier");
+    writeln("  --debug:               compile in debug mode (defaults on)");
+    writeln("  --release:             don't compile in debug mode (defaults off)");
+    writeln("  --unittest:            compile in unittests (defaults off)");
+    writeln("  --no-colour-print:     don't apply colour to diagnostic output");
+    writeln("  --optimise:            optimise the output");
+    writeln("  --gcc:                 set the command for running GCC");
+    writeln("  --arch:                set the architecture to generate code for. See llc(1)");
+    writeln("  -c:                    just compile, don't link");
+    writeln("  -o:                    name of the output file");
 }
