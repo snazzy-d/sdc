@@ -493,6 +493,13 @@ class FunctionType : Type
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
         }
         varargs = functionDeclaration.parameterList.varargs;
+        
+        // C varargs requires at least one typed parameter
+        if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
+            auto loc = functionDeclaration.location;
+            loc.column = loc.wholeLine;
+            throw new CompilerError(loc, "C varargs requires at least one typed parameter");
+        }
     }
     
     this(Module mod, Type retval, Type[] args, string[] argNames)
