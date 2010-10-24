@@ -54,9 +54,9 @@ string extractStringLiteral(StringLiteral literal)
     case '"':
         return extractString(literal.location, value[1..$]);
     case 'x':
-        throw new CompilerPanic(literal.location, "hex literals are unimplemented");
+        throw new CompilerPanic(literal.location, "hex literals are unimplemented.");
     default:
-        throw new CompilerError(literal.location, format("unrecognised string prefix '%s'", value[0]));
+        throw new CompilerError(literal.location, format("unrecognised string prefix '%s'.", value[0]));
     }
 }
 
@@ -64,13 +64,13 @@ dchar extractCharacterLiteral(CharacterLiteral literal)
 {
     auto value = literal.value[1..$-1];
     if(value.length == 0) {
-        throw new CompilerError(literal.location, "character literals can't be empty");
+        throw new CompilerError(literal.location, "character literals can't be empty.");
     }
     
     size_t index = 0;
     auto c = extractCharacter(literal.location, value, index);
     if(index < value.length) {
-        throw new CompilerError(literal.location, "character literals must be a single character");
+        throw new CompilerError(literal.location, "character literals must be a single character.");
     }
     return c;
 }
@@ -112,7 +112,7 @@ string extractString(Location loc, string s)
         s = s[0..$-1];
         break;
     default:
-        throw new CompilerError(loc, format("unrecognized string suffix '%s'", suffix)); 
+        throw new CompilerError(loc, format("unrecognized string suffix '%s'.", suffix)); 
     }
     
     dstring parsed;
@@ -169,7 +169,7 @@ dchar extractCharacter(Location loc, string s, ref size_t index)
                 c = *pchar;
                 break;
             }
-            throw new CompilerError(loc, format("unrecognised escape character '%s'", escapeChar));
+            throw new CompilerError(loc, format("unrecognised escape character '%s'.", escapeChar));
         }
     }
     

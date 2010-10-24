@@ -498,7 +498,7 @@ class FunctionType : Type
         if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
             auto loc = functionDeclaration.location;
             loc.column = loc.wholeLine;
-            throw new CompilerError(loc, "C varargs requires at least one typed parameter");
+            throw new CompilerError(loc, "C varargs requires at least one typed parameter.");
         }
     }
     
@@ -608,7 +608,7 @@ class InferredType : Type
     
     override Value getValue(Module mod, Location location)
     {
-        throw new CompilerPanic(location, "attempted to call InferredType.getValue");
+        throw new CompilerPanic(location, "attempted to call InferredType.getValue.");
     }
     
     override string name(){ return "auto"; }
