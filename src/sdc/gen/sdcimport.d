@@ -7,6 +7,7 @@ module sdc.gen.sdcimport;
 
 import std.string;
 import file = std.file;
+import path = std.path;
 
 import sdc.util;
 import sdc.compilererror;
@@ -75,35 +76,54 @@ void genImportBind(ast.ImportBind importBind, Module mod)
 {
 }
 
+private string searchImport(string impPath)
+{
+    if (file.exists(impPath) && file.isfile(impPath)) {
+        return impPath;
+    }
+    
+    foreach (importPath; importPaths) {
+        auto fullPath = importPath ~ path.sep ~ impPath;
+        if (file.exists(impPath) && file.isfile(impPath)) {
+            return fullPath;
+        }
+    }
+    return null;
+}
+
 void genImport(Location location, ast.Import theImport, Module mod)
 {
     auto name = extractQualifiedName(theImport.moduleName);
     auto tu = getTranslationUnit(name);
-    if(tu !is null) {
+    if (tu !is null) {
         if (!mod.importedTranslationUnits.contains(tu)) {
             mod.importedTranslationUnits ~= tu;
         }
         return;
     }
 
-    auto path = extractModulePath(theImport.moduleName);
-    if (!file.exists(path)) {
-        throw new CompilerError(
+    auto impPath = extractModulePath(theImport.moduleName);
+    auto fullPath = searchImport(impPath);
+    if (fullPath is null) {
+        auto err = new CompilerError(
             theImport.moduleName.location,
-            format(`source "%s" could not be found.`, path)
+            format(`module "%s" could not be found.`, name),
+            new CompilerError(format(`tried path "%s"`, impPath))
         );
-    }
-    if(!file.isfile(path)) {
-        throw new CompilerError(
-            theImport.moduleName.location,
-            format(`source "%s" is not a file.`, path)
-        );
+        
+        auto next = err.more;
+        foreach (importPath; importPaths) {
+            next = next.more = new CompilerError(
+                format(`tried path "%s"`, importPath ~ path.sep ~ impPath)
+            );
+        }
+        throw err;
     }
     
     tu = new TranslationUnit();
     tu.tusource = TUSource.Import;
-    tu.filename = path;
-    tu.source = new Source(path);
+    tu.filename = fullPath;
+    tu.source = new Source(fullPath);
     tu.tstream = lex(tu.source);
     tu.aModule = parser.parseModule(tu.tstream);
     

@@ -89,6 +89,7 @@ void realmain(string[] args)
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
                "no-colour-print", (){ coloursEnabled = false; },
+               "I", (string, string path){ importPaths ~= path; },
                "optimise", &optimise,
                "gcc", &gcc,
                "arch", &arch,

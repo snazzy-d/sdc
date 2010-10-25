@@ -47,6 +47,7 @@ shared bool isDebug = true;
 shared bool unittestsEnabled = false;
 shared bool coloursEnabled = true;
 shared int bits;
+shared string[] importPaths;
 
 bool isReserved(string s)
 {

@@ -9,6 +9,7 @@ module sdc.extract.base;
 import std.conv;
 import std.utf;
 import std.string;
+import path = std.path;
 
 import sdc.compilererror;
 import sdc.location;
@@ -30,7 +31,7 @@ string extractModulePath(QualifiedName qualifiedName)
 {
     string buf;
     foreach (identifier; qualifiedName.identifiers) {
-        buf ~= identifier.value ~ '/';
+        buf ~= identifier.value ~ path.sep;
     }
     return buf[0 .. $ - 1] ~ ".d";
 }
