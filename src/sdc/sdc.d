@@ -119,6 +119,13 @@ void realmain(string[] args)
             break;
                 
         case "d", "di":
+            if (!file.exists(arg)) {
+                throw new CompilerError(format(`source "%s" could not be found.`, arg));
+            }
+            if(!file.isfile(arg)) {
+                throw new CompilerError(format(`source "%s" is not a file.`, arg));
+            }
+        
             auto translationUnit = new TranslationUnit();
             translationUnit.tusource = TUSource.Compilation;
             translationUnit.filename = arg;
