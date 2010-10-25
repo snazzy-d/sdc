@@ -79,10 +79,6 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         d.importedSymbol = false;
         d.buildStage = ast.BuildStage.Unhandled;
     }
-    //genConditionals(resolutionList, mod);
-    foreach (df; implicitDeclDefs) {
-        resolutionList ~= df;
-    }
     bool finalPass;
     do {
         foreach (declDef; resolutionList) {
