@@ -6,6 +6,7 @@
 module sdc.gen.declaration;
 
 import std.conv;
+import std.string;
 
 import llvm.c.Core;
 
@@ -182,7 +183,13 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
-            throw new CompilerError(decl.location, "function expected to return a value.");
+            throw new CompilerError(
+                decl.location, 
+                format(`function "%s" expected to return a value of type "%s".`,
+                    mod.currentFunction.name, 
+                    functionType.returnType.name()
+                )
+            );
         }
     }
     
