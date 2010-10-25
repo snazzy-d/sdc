@@ -459,7 +459,7 @@ ParameterList parseParameters(TokenStream tstream)
             list.varargs = true;
             tstream.getToken();
             if (tstream.peek.type != TokenType.CloseParen) {
-                throw new CompilerError(tstream.peek.location, "varargs must appear last in the parameter list");
+                throw new CompilerError(tstream.peek.location, "varargs must appear last in the parameter list.");
             }
             break;
         }

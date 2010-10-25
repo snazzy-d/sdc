@@ -86,13 +86,13 @@ abstract class Value
     void fail(Location location, string s)
     { 
         throw new CompilerError(location, 
-            format(`invalid operation: cannot %s value of type "%s"`, s, type.name())
+            format(`invalid operation: cannot %s value of type "%s".`, s, type.name())
         );
     }
     
     void fail(string s)
     {
-        throw new CompilerPanic(format(`attempt to %s value of type "%s" failed`, s, type.name()));
+        throw new CompilerPanic(format(`attempt to %s value of type "%s" failed.`, s, type.name()));
     }
         
     LLVMValueRef get() { fail("get"); assert(false); }
@@ -831,7 +831,7 @@ class FunctionValue : Value
             loc.column = Location.wholeLine;
             return new CompilerError(
                 loc,
-                format(`declaration of "%s"`, this.name)
+                format(`declaration of "%s".`, this.name)
             );
         }
         
@@ -844,7 +844,7 @@ class FunctionValue : Value
                 location.column = location.wholeLine;
                 throw new CompilerError(
                     location, 
-                    format("expected at least %s arguments, got %s", functionType.argumentTypes.length, args.length),
+                    format("expected at least %s arguments, got %s.", functionType.argumentTypes.length, args.length),
                     getDeclaration()
                 );
              }
@@ -852,7 +852,7 @@ class FunctionValue : Value
             location.column = location.wholeLine;
             throw new CompilerError(
                 location, 
-                format("expected %s arguments, got %s", functionType.argumentTypes.length, args.length),
+                format("expected %s arguments, got %s.", functionType.argumentTypes.length, args.length),
                 getDeclaration()
             );
         }
@@ -1084,7 +1084,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
             if (onFailure == OnFailure.DieWithError) {
                 throw new CompilerError(type.location, format("undefined type '%s'.", name));
             } else {
-                errorMessageOnly(type.location, format("undefined type '%s' (temporary message, compilation continues -- you will get error spam).", name));
+                mod.addFailure(LookupFailure(name, type.location));
                 return null;
             }
         } else if (store.storeType == StoreType.Value) {
