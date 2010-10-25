@@ -607,6 +607,8 @@ class StringValue : ArrayValue
         auto base = new CharType(mod);
         super(mod, location, base);
         
+        auto strLen = s.length;
+        
         // String literals should be null-terminated
         if(s.length == 0 || s[$-1] != '\0') {
             s ~= '\0';
@@ -621,6 +623,9 @@ class StringValue : ArrayValue
         auto ptr = getMember(location, "ptr");
         auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
         ptr.set(castedVal);
+        
+        auto length = newSizeT(mod, location, strLen);
+        StructValue.getMember(location, "length").set(length);
     }
 }
 

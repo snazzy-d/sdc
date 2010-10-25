@@ -11,6 +11,7 @@ import sdc.compilererror;
 import sdc.util;
 import sdc.source;
 import sdc.tokenstream;
+import sdc.location;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -195,6 +196,18 @@ Type getSizeT(Module mod)
         return new UintType(mod);
     } else if (bits == 64) {
         return new UlongType(mod);
+    } else {
+        assert(false);
+    }
+}
+
+// Urgh
+Value newSizeT(Module mod, Location loc, ulong init)
+{
+    if (bits == 32) {
+        return new UintValue(mod, loc, cast(uint)init);
+    } else if (bits == 64) {
+        return new UlongValue(mod, loc, init);
     } else {
         assert(false);
     }
