@@ -26,6 +26,15 @@ string extractQualifiedName(QualifiedName qualifiedName)
     return buf;
 }
 
+string extractModulePath(QualifiedName qualifiedName)
+{
+    string buf;
+    foreach (identifier; qualifiedName.identifiers) {
+        buf ~= identifier.value ~ '/';
+    }
+    return buf[0 .. $ - 1] ~ ".d";
+}
+
 string extractIdentifier(Identifier identifier)
 {
     return identifier.value;
