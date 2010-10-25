@@ -867,7 +867,7 @@ class FunctionValue : Value
             } catch (CompilerError error) {
                 error.more = new CompilerError(
                     functionType.argumentLocations[i],
-                    format(`argument #%s of function "%s"`, i + 1, this.name)
+                    format(`argument #%s of function "%s":`, i + 1, this.name)
                 );
                 throw error;
             }
