@@ -198,6 +198,7 @@ void usage()
     writeln("  --unittest:            compile in unittests (defaults off).");
     writeln("  --no-colour-print:     don't apply colour to diagnostic output.");
     writeln("  --optimise:            optimise the output.");
+    writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
     writeln("  -c:                    just compile, don't link.");
