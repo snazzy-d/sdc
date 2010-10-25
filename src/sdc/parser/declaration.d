@@ -465,6 +465,7 @@ ParameterList parseParameters(TokenStream tstream)
         parameter.type = parseType(tstream);
         if (tstream.peek.type == TokenType.Identifier) {
             parameter.identifier = parseIdentifier(tstream);
+            parameter.location = parameter.identifier.location - parameter.location;
         }
         list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {

@@ -495,6 +495,7 @@ class FunctionType : Type
     Type[] argumentTypes;
     string[] argumentNames;
     Location[] argumentLocations; // For error diagnostics
+    Location argumentListLocation;
     bool varargs;
     ast.Linkage linkage;
     StructType parentAggregate;
@@ -508,14 +509,15 @@ class FunctionType : Type
         foreach (param; functionDeclaration.parameterList.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
-            argumentLocations ~= param.identifier !is null ? param.identifier.location : functionDeclaration.location;
+            argumentLocations ~= param.identifier !is null ? param.location : functionDeclaration.location;
         }
         varargs = functionDeclaration.parameterList.varargs;
+        argumentListLocation = functionDeclaration.parameterList.location;
         
         // C varargs requires at least one typed parameter
         if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
             throw new CompilerError(
-                functionDeclaration.parameterList.location, 
+                argumentListLocation, 
                 "C varargs requires at least one typed parameter."
             );
         }

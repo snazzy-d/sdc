@@ -833,16 +833,6 @@ class FunctionValue : Value
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        CompilerError getDeclaration()
-        {
-            auto loc = this.location;
-            loc.column = Location.wholeLine;
-            return new CompilerError(
-                loc,
-                format(`declaration of "%s":`, this.name)
-            );
-        }
-        
         // Check call with function signature.
         auto functionType = cast(FunctionType) mType;
         assert(functionType);
@@ -853,7 +843,10 @@ class FunctionValue : Value
                 throw new CompilerError(
                     location, 
                     format("expected at least %s arguments, got %s.", functionType.argumentTypes.length, args.length),
-                    getDeclaration()
+                    new CompilerError(
+                        functionType.argumentListLocation,
+                        format(`parameters of "%s":`, this.name)
+                    )
                 );
              }
         } else if (functionType.argumentTypes.length != args.length) {
@@ -861,7 +854,10 @@ class FunctionValue : Value
             throw new CompilerError(
                 location, 
                 format("expected %s arguments, got %s.", functionType.argumentTypes.length, args.length),
-                getDeclaration()
+                    new CompilerError(
+                        functionType.argumentListLocation,
+                        format(`parameters of "%s":`, this.name)
+                    )
             );
         }
         
