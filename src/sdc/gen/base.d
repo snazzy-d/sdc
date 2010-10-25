@@ -47,8 +47,8 @@ Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
     genModuleAndPackages(mod);
-    auto status = resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
-    return status ? mod : null;
+    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    return mod;
 }
 
 void genModuleAndPackages(Module mod)
@@ -70,7 +70,7 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
 {
     auto resolutionList = list.dup;
     int stillToGo, oldStillToGo = -1;
@@ -118,7 +118,7 @@ Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module
                     finalPass = true;
                     continue;
                 }
-                return Status.Failure;
+                throw new CompilerPanic(resolutionList[$ - 1].location, "module compilation failure.");
             }
         }
         oldStillToGo = stillToGo;
@@ -132,8 +132,6 @@ Status resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module
         assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
         genDeclaration(cast(ast.Declaration) declDef.node, mod);
     }
-    
-    return Status.Success;
 }
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)

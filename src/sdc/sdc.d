@@ -132,52 +132,27 @@ void realmain(string[] args)
         }
     }
     
-    // v Good lord!! v
     auto extensionRegex = regex(r"d(i)?$", "i");
-    int moduleCompilationFailures, oldModuleCompilationFailures = -1;
-    bool lastPass;
-    while (true) {
-        moduleCompilationFailures = 0;
-        foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
-            if (!compile || state == ModuleState.Complete) {
-                continue;
-            }
-            gModule = genModule(aModule);
-            if (gModule is null) {
-                moduleCompilationFailures++;
-                continue;
-            } else {
-                state = ModuleState.Complete;
-            }
-            gModule.verify();
-            if (optimise) gModule.optimise();
-            
-            assert(!match(filename, extensionRegex).empty);
-            auto asBitcode  = replace(filename, extensionRegex, "bc");
-            auto asAssembly = replace(filename, extensionRegex, "s");
-            auto asObject   = replace(filename, extensionRegex, "o");
-            gModule.arch = arch;
-            gModule.writeBitcodeToFile(asBitcode);
-            gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-            auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
-            system(compileCommand);
-            assemblies ~= asObject;
+    foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+        if (!compile) {
+            continue;
         }
+        gModule = genModule(aModule);
+        gModule.verify();
+        if (optimise) gModule.optimise();
         
-        if (moduleCompilationFailures == 0) {
-            break;
-        } else if (oldModuleCompilationFailures == moduleCompilationFailures) {
-            if (lastPass) {
-                throw new CompilerPanic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
-            } else {
-                lastPass = true;
-            }
-        } else {
-            lastPass = false;
-            oldModuleCompilationFailures = moduleCompilationFailures;
-        }
+        assert(!match(filename, extensionRegex).empty);
+        auto asBitcode  = replace(filename, extensionRegex, "bc");
+        auto asAssembly = replace(filename, extensionRegex, "s");
+        auto asObject   = replace(filename, extensionRegex, "o");
+        gModule.arch = arch;
+        gModule.writeBitcodeToFile(asBitcode);
+        gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
+        auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
+        system(compileCommand);
+        assemblies ~= asObject;
+        
     }
-    // ^ Good lord!! ^
     
     string linkCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -o ";
     if (!skipLink) {
