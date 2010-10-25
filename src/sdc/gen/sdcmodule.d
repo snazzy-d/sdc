@@ -294,12 +294,29 @@ class Module
         return mod;
     }
     
+    void addFailure(LookupFailure lookupFailure)
+    {
+        mFailureList ~= lookupFailure;
+    }
+    
+    const(LookupFailure[]) lookupFailures() @property
+    {
+        return mFailureList;
+    }
+        
     protected Scope[] mScopeStack;
     protected Path[] mPathStack;
+    protected LookupFailure[] mFailureList;
     protected bool[string] mVersionIdentifiers;
     protected bool[string] mTestedVersionIdentifiers;
     protected bool[string] mDebugIdentifiers;
     protected bool[string] mTestedDebugIdentifiers;
+}
+
+struct LookupFailure
+{
+    string name;
+    Location location;
 }
 
 enum StoreType

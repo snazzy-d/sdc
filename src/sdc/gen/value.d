@@ -1081,6 +1081,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
             if (onFailure == OnFailure.DieWithError) {
                 throw new CompilerError(type.location, format("undefined type '%s'.", name));
             } else {
+                mod.addFailure(LookupFailure(name, type.location));
                 return null;
             }
         } else if (store.storeType == StoreType.Value) {

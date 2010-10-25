@@ -118,7 +118,13 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                     finalPass = true;
                     continue;
                 }
-                throw new CompilerPanic(resolutionList[$ - 1].location, "module compilation failure.");
+                // Module compilation failed.
+                if (mod.lookupFailures.length > 0) {
+                    auto failure = mod.lookupFailures[$ - 1];
+                    throw new CompilerError(failure.location, format("undefined type '%s'.", failure.name));
+                } else {
+                    throw new CompilerPanic("module compilation failure.");
+                }
             }
         }
         oldStillToGo = stillToGo;
