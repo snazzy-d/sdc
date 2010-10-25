@@ -23,6 +23,28 @@ struct Location
         return format("%s(%s:%s)", filename, line, column);
     }
     
+    // Difference between two locations
+    // end - begin == begin .. end
+    Location opBinary(string op)(Location begin) if (op == "-")
+    {        
+        assert(begin.filename == filename);
+        assert(begin.line <= line);
+        
+        Location loc;
+        loc.filename = filename;
+        loc.line = begin.line;
+        loc.column = begin.column;
+        
+        if (line != begin.line) {
+            loc.length = -1; // End of line
+        } else {
+            assert(begin.column <= column);
+            loc.length = column + length - begin.column;
+        }
+        
+        return loc;
+    }
+    
     // When the column is 0, the whole line is assumed to be the location
     immutable uint wholeLine = 0;
 }

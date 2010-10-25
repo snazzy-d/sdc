@@ -100,7 +100,8 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
 QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false)
 {
     auto name = new QualifiedName();
-    name.location = tstream.peek.location;
+    auto startLocation = tstream.peek.location;
+    
     if (allowLeadingDot && tstream.peek.type == TokenType.Dot) {
         match(tstream, TokenType.Dot);
         name.leadingDot = true;
@@ -114,6 +115,7 @@ QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false
             break;
         }
     }
+    name.location = name.identifiers[$ - 1].location - startLocation;
     return name;
 }
 
