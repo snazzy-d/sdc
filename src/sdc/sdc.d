@@ -153,11 +153,10 @@ void realmain(string[] args)
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
         
         auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o ";
-        if (outputName == "") {
-            compileCommand ~= asObject;
-        } else {
-            compileCommand ~= outputName;
+        if (skipLink && outputName != "") {
+            asObject = outputName;
         }
+        compileCommand ~= asObject;
         compileCommand ~= " " ~ asAssembly;
         
         system(compileCommand);
