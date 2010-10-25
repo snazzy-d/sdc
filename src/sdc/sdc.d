@@ -80,6 +80,8 @@ void realmain(string[] args)
     
     try {
         getopt(args,
+               std.getopt.config.caseSensitive,
+               std.getopt.config.bundling,
                "help|h", () { usage(); exit(0); },
                "version|v", () { writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
@@ -150,7 +152,15 @@ void realmain(string[] args)
         gModule.arch = arch;
         gModule.writeBitcodeToFile(asBitcode);
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-        auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" && skipLink ? asObject : outputName) ~ " " ~ asAssembly;
+        
+        auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o ";
+        if (outputName == "") {
+            compileCommand ~= asObject;
+        } else {
+            compileCommand ~= outputName;
+        }
+        compileCommand ~= " " ~ asAssembly;
+        
         system(compileCommand);
         assemblies ~= asObject;
         
