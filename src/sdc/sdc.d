@@ -217,6 +217,7 @@ void usage()
     writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
+    writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
 }
