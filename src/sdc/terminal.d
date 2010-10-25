@@ -20,6 +20,9 @@ version(Windows) {
 void outputCaretDiagnostics(Location loc, string fixHint)
 {
     char[] line = readErrorLine(loc);
+    if (loc.length == -1) {
+        loc.length = line.length - loc.column;
+    }
     
     while(line.length > 0 && (line[0] == ' ' || line[0] == '\t')) {
         line = line[1..$];
