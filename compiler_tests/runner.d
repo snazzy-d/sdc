@@ -68,7 +68,7 @@ bool test(string filename)
     }
     
     version (Windows) { // Put SDC in your PATH
-        auto command = `sdc --optimise"` ~ filename ~ `"`;
+        auto command = `sdc --optimise "` ~ filename ~ `"`;
     } else { // Leaving this decision to the Unix crowd
         auto command = `../sdc --optimise "` ~ filename ~ `"`;
     }
