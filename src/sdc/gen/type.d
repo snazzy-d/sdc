@@ -132,6 +132,13 @@ abstract class Type
     
     Value getValue(Module mod, Location location);
     
+    Type getBase()
+    {
+        throw new CompilerPanic(
+            format(`tried to get base type of type "%s"`, name())
+        );
+    }
+    
     Type importToModule(Module mod)
     {
         return this;
@@ -436,6 +443,11 @@ class PointerType : Type
         return new PointerValue(mod, location, base);
     }
     
+    override Type getBase()
+    {
+        return base;
+    }
+    
     override string name(){ return base.name() ~ '*'; }
 }
 
@@ -467,6 +479,11 @@ class ArrayType : StructType
     override Value getValue(Module mod, Location location)
     {
         return new ArrayValue(mod, location, base);
+    }
+    
+    override Type getBase()
+    {
+        return base;
     }
     
     override string name() { return base.name() ~ "[]"; }

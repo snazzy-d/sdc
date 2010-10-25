@@ -564,11 +564,14 @@ alias FloatingPointValue!(real, RealType) RealValue;
 
 class ArrayValue : StructValue
 {
-    this(Module mod, Location location, Type base)
+    Type baseType;
+    
+    this(Module mod, Location location, Type baseType)
     {
-        auto asArray = new ArrayType(mod, base);
+        auto asArray = new ArrayType(mod, baseType);
         super(mod, location, asArray);
-        mType = asArray; 
+        this.baseType = baseType;
+        mType = asArray;
     }
     
     override Value getMember(Location location, string name)
@@ -1115,22 +1118,40 @@ void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
 
 Value implicitCast(Location location, Value v, Type toType)
 {
-    if (v.type.dtype == DType.NullPointer && toType.dtype == DType.Pointer) {
-        return v;
-    }
-    if (isComplexDType(v.type.dtype)) {
-        if (v.type == toType) {
+    switch(toType.dtype) {
+    case DType.Pointer:
+        if (v.type.dtype == DType.NullPointer) {
             return v;
         }
+        else if (v.type.dtype == DType.Pointer) {
+            if(v.type.getBase().dtype == toType.getBase().dtype) {
+                return v;
+            }
+        }
+        else if (v.type.dtype == DType.Array) {
+            if(v.type.getBase().dtype == toType.getBase().dtype) {
+                return v.getMember(location, "ptr");
+            }
+        }
+        break;
+    case DType.Array:
+        if (v.type.dtype == DType.Array) {
+            if (v.type.getBase().dtype == toType.getBase().dtype) {
+                return v;
+            }
+        }
+        break;
+    case DType.Complex: .. case DType.max:
         throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
+    default:
+        if (toType.dtype == v.type.dtype) {
+            return v;
+        } else if (canImplicitCast(v.type.dtype, toType.dtype)) {
+            return v.performCast(location, toType);
+        }
+        break;
     }
-    if (toType.dtype == v.type.dtype && toType.dtype != DType.Pointer) {
-        return v;
-    }
-    if (!canImplicitCast(v.type.dtype, toType.dtype)) {
-        throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
-    }
-    return v.performCast(location, toType);
+    throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
 }
 
 bool canImplicitCast(DType from, DType to)
