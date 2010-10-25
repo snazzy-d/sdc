@@ -514,17 +514,10 @@ class FunctionType : Type
         
         // C varargs requires at least one typed parameter
         if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
-            auto loc = functionDeclaration.location;
-            loc.column = loc.wholeLine;
-            throw new CompilerError(loc, "C varargs requires at least one typed parameter");
-        }
-        varargs = functionDeclaration.parameterList.varargs;
-        
-        // C varargs requires at least one typed parameter
-        if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
-            auto loc = functionDeclaration.location;
-            loc.column = loc.wholeLine;
-            throw new CompilerError(loc, "C varargs requires at least one typed parameter.");
+            throw new CompilerError(
+                functionDeclaration.parameterList.location, 
+                "C varargs requires at least one typed parameter."
+            );
         }
     }
     

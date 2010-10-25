@@ -448,9 +448,8 @@ DelegateType parseDelegateType(TokenStream tstream, Type retval)
 ParameterList parseParameters(TokenStream tstream)
 {
     auto list = new ParameterList();
-    list.location = tstream.peek.location; //TODO: length
+    auto openParen = match(tstream, TokenType.OpenParen);
     
-    match(tstream, TokenType.OpenParen);
     while(tstream.peek.type != TokenType.CloseParen) {
         auto parameter = new Parameter();
         parameter.location = tstream.peek.location;
@@ -473,8 +472,9 @@ ParameterList parseParameters(TokenStream tstream)
         }
         match(tstream, TokenType.Comma);
     }
-    match(tstream, TokenType.CloseParen);
+    auto closeParen = match(tstream, TokenType.CloseParen);
     
+    list.location = closeParen.location - openParen.location;
     return list;
 }
 

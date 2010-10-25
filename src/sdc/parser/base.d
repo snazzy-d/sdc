@@ -20,7 +20,7 @@ Module parse(TokenStream tstream)
     return parseModule(tstream);
 }
 
-void match(TokenStream tstream, TokenType type)
+Token match(TokenStream tstream, TokenType type)
 {
     if (tstream.peek.type != type) {
         throw new CompilerError(
@@ -30,7 +30,7 @@ void match(TokenStream tstream, TokenType type)
                 tstream.peek.value)
         );
     }
-    tstream.getToken();
+    return tstream.getToken();
 }
 
 Module parseModule(TokenStream tstream)
