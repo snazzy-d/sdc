@@ -84,7 +84,7 @@ class MissingSemicolonError : CompilerError
     {
         loc.column += loc.length;
         loc.length = 1;
-        super(loc, format("missing ';' after %s", type));
+        super(loc, format("missing ';' after %s.", type));
         
         fixHint = ";";
     }
