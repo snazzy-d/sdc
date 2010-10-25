@@ -839,7 +839,7 @@ class FunctionValue : Value
             loc.column = Location.wholeLine;
             return new CompilerError(
                 loc,
-                format(`declaration of "%s".`, this.name)
+                format(`declaration of "%s":`, this.name)
             );
         }
         
