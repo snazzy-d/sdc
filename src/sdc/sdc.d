@@ -81,7 +81,6 @@ void realmain(string[] args)
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
-               std.getopt.config.bundling,
                "help|h", () { usage(); exit(0); },
                "version|v", () { writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
