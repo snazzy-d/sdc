@@ -150,7 +150,7 @@ void realmain(string[] args)
         gModule.arch = arch;
         gModule.writeBitcodeToFile(asBitcode);
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
-        auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" ? asObject : outputName) ~ " " ~ asAssembly;
+        auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o " ~ (outputName == "" && skipLink ? asObject : outputName) ~ " " ~ asAssembly;
         system(compileCommand);
         assemblies ~= asObject;
         
