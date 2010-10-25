@@ -30,7 +30,7 @@ AggregateDeclaration parseAggregateDeclaration(TokenStream tstream)
     } else {
         throw new CompilerError(
             aggregate.location, 
-            format("aggregate declarations must begin with 'struct' or 'union', not '%s'", tstream.peek.value)
+            format("aggregate declarations must begin with 'struct' or 'union', not '%s'.", tstream.peek.value)
         );
     }
     

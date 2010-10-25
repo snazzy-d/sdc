@@ -180,7 +180,7 @@ CmpExpression parseCmpExpression(TokenStream tstream)
         } else if (tstream.peek.type == TokenType.In) {
             cmpExpr.comparison = Comparison.NotIn;
         } else {
-            throw new CompilerError(tstream.peek.location, format("expected 'is' or 'in', not '%s'", tstream.peek.value));
+            throw new CompilerError(tstream.peek.location, format("expected 'is' or 'in', not '%s'.", tstream.peek.value));
         }
         break;
     case TokenType.DoubleAssign:

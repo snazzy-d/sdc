@@ -78,7 +78,7 @@ TemplateParameter parseTemplateParameter(TokenStream tstream)
         parameter.node = parseTemplateThisParameter(tstream);
         break;
     default:
-        throw new CompilerError(tstream.peek.location, "expected template parameter");
+        throw new CompilerError(tstream.peek.location, "expected template parameter.");
     }
     
     return parameter;

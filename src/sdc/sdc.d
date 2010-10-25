@@ -104,7 +104,7 @@ void realmain(string[] args)
     }
     
     if (skipLink && outputName != "" && args.length > 2) {
-        throw new CompilerError("multiple modules cannot have the same output name, unless being linked into an executable");
+        throw new CompilerError("multiple modules cannot have the same output name, unless being linked into an executable.");
     }
     
     string[] assemblies;
@@ -168,7 +168,7 @@ void realmain(string[] args)
             break;
         } else if (oldModuleCompilationFailures == moduleCompilationFailures) {
             if (lastPass) {
-                throw new CompilerPanic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error");
+                throw new CompilerPanic("A simple error has occured. However, SDC is in flux at the moment, and this is a temporary error.");
             } else {
                 lastPass = true;
             }

@@ -56,10 +56,10 @@ bool isReserved(string s)
 void setVersion(string s)
 {
     if (isReserved(s)) {
-        throw new CompilerError(format("cannot specify reserved version identifier '%s'", s));
+        throw new CompilerError(format("cannot specify reserved version identifier '%s'.", s));
     }
     if (s in versionIdentifiers) {
-        throw new CompilerError(format("version identifier '%s' already defined", s));
+        throw new CompilerError(format("version identifier '%s' already defined.", s));
     }
     versionIdentifiers[s] = true;
 }
@@ -73,7 +73,7 @@ private void specifyAndReserve(string s)
 void setDebug(string s)
 {
     if (s in debugIdentifiers) {
-        throw new CompilerError(format("debug identifier '%s' already defined", s));
+        throw new CompilerError(format("debug identifier '%s' already defined.", s));
     }
     debugIdentifiers[s] = true;
 }
@@ -138,11 +138,11 @@ void globalInit(string arch)
         specifyAndReserve("LittleEndian");  // TODO: bi-endian archs
         bits = 32;
     default:
-        throw new CompilerError("Unknown arch string '" ~ arch ~ "'");
+        throw new CompilerError("Unknown arch string '" ~ arch ~ "'.");
     }
     
     if (bits != 32 && bits != 64) {
-        throw new CompilerError("Specified architecture must be of 32 or 64 bits");
+        throw new CompilerError("Specified architecture must be of 32 or 64 bits.");
     }
     
     reservedVersionIdentifiers["none"] = true;  // Guaranteed never to be defined.

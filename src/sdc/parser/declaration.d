@@ -27,7 +27,7 @@ Declaration parseDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.Alias) {
         match(tstream, TokenType.Alias);
         if (tstream.peek.type == TokenType.Alias) {
-            throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration");
+            throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
         }
         declaration.type = DeclarationType.Alias;
         declaration.node = parseDeclaration(tstream);
@@ -110,7 +110,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
             // e.g. (*x)[3]
             suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
         } else {
-            throw new CompilerError(tstream.peek.location, "expected '(' or '[', not '%s'");
+            throw new CompilerError(tstream.peek.location, "expected '(' or '[', not '%s'.");
         }
         if (tstream.peek.type == TokenType.Assign) {
             declarator.initialiser = parseInitialiser(tstream);
@@ -132,7 +132,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     }
     declaration.declarators ~= declarator;
     if (suffixes.length > 0 && tstream.peek.type != TokenType.Semicolon) {
-        throw new CompilerError(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix");
+        throw new CompilerError(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix.");
     }
     declaration.type.suffixes ~= suffixes;
     if (!noSemicolon) {
@@ -348,7 +348,7 @@ body
                 token = tstream.lookahead(lookahead);
                 switch (token.type) {
                 case TokenType.End:
-                    throw new CompilerError(tstream.peek.location, "expected declaration, got EOF");
+                    throw new CompilerError(tstream.peek.location, "expected declaration, got EOF.");
                 case TokenType.OpenParen:
                     nesting++;
                     break;
@@ -362,7 +362,7 @@ body
             lookahead++;
         }
         if (token.type == TokenType.End) {
-            throw new CompilerError(tstream.peek.location, "expected declaration, got EOF");
+            throw new CompilerError(tstream.peek.location, "expected declaration, got EOF.");
         } else if (token.type == TokenType.Identifier) {
             break;
         } else if (token.type == TokenType.Delegate) {
