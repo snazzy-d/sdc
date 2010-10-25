@@ -26,6 +26,7 @@ import std.string;
 import std.getopt;
 import std.path;
 import std.process : system;
+import file = std.file;
 import std.c.stdlib;
 
 import llvm.Ext;
@@ -68,7 +69,7 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
-    bool skipLink = false, optimise = false;
+    bool skipLink = false, optimise = false, saveTemps = false;
     string outputName = "";
     string gcc = "gcc";
     version (SDC_x86_default) {
@@ -86,12 +87,13 @@ void realmain(string[] args)
                "debug", () { isDebug = true; },
                "release", () { isDebug = false; },
                "unittest", () { unittestsEnabled = true; },
+               "no-colour-print", (){ coloursEnabled = false; },
                "optimise", &optimise,
                "gcc", &gcc,
                "arch", &arch,
                "c", &skipLink,
                "o", &outputName,
-               "no-colour-print", (){ coloursEnabled = false; }
+               "save-temps", &saveTemps
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -152,6 +154,10 @@ void realmain(string[] args)
         system(compileCommand);
         assemblies ~= asObject;
         
+        if (!saveTemps) {
+            file.remove(asBitcode);
+            file.remove(asAssembly);
+        }
     }
     
     string linkCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -o ";
@@ -171,6 +177,12 @@ void realmain(string[] args)
         }
         
         system(linkCommand);
+        
+        if (!saveTemps) {
+            foreach (assembly; assemblies) {
+                file.remove(assembly);
+            }
+        }
     }
 }
 
