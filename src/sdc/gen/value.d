@@ -1073,7 +1073,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     Type t;
     switch (type.type) {
     case ast.TypeType.Primitive:
-        t = primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod, onFailure);
+        t = primitiveTypeToBackendType(cast(ast.PrimitiveType) type.node, mod);
         break;
     case ast.TypeType.UserDefined:
         t = userDefinedTypeToBackendType(cast(ast.UserDefinedType) type.node, mod, onFailure);
@@ -1103,7 +1103,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     return t;
 }
 
-Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod, OnFailure onFailure)
+Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
 {
     switch (type.type) {
     case ast.PrimitiveTypeType.Void:

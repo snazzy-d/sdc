@@ -5,6 +5,7 @@
  */
 module sdc.parser.expression;
 
+import std.conv;
 import std.string;
 
 import sdc.util;
@@ -549,7 +550,14 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
         break;
     default:
-        break;
+        if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
+            primaryExpr.type = PrimaryType.BasicTypeDotIdentifier;
+            primaryExpr.node = parsePrimitiveType(tstream);
+            match(tstream, TokenType.Dot);
+            primaryExpr.secondNode = parseIdentifier(tstream);
+        } else {
+            throw new CompilerError(tstream.peek.location, "expected a primary expression.");
+        }
     }
     
     return primaryExpr;

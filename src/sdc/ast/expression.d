@@ -280,6 +280,7 @@ class PrimaryExpression : Node
      * on the above primary expression type.
      */
     Node node;
+    Node secondNode;  // Optional.
 }
 
 // assert ( AssertExpr (, AssertExpr)? )
