@@ -206,7 +206,13 @@ ReturnStatement parseReturnStatement(TokenStream tstream)
     if (tstream.peek.type != TokenType.Semicolon) {
         statement.expression = parseExpression(tstream);
     }
-    match(tstream, TokenType.Semicolon);
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(
+            tstream.lookbehind(1).location,
+            "return statement"
+        );
+    }
+    tstream.getToken();
     return statement;
 }
 
