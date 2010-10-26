@@ -460,17 +460,17 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, bool second = fals
 ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.OpenParen, TokenType close = TokenType.CloseParen)
 {
     auto list = new ArgumentList();
-    list.location = tstream.peek.location;
     
-    match(tstream, open);
+    auto openToken = match(tstream, open);
     while (tstream.peek.type != close) {
         list.expressions ~= parseAssignExpression(tstream);
         if (tstream.peek.type != close) {
             match(tstream, TokenType.Comma);
         }
     }
-    match(tstream, close);
+    auto closeToken = match(tstream, close);
     
+    list.location = closeToken.location - openToken.location;
     return list;
 }
 

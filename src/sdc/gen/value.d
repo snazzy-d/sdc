@@ -887,7 +887,6 @@ class FunctionValue : Value
         
         if (functionType.varargs) {
             if (functionType.argumentTypes.length > args.length) {
-                location.column = location.wholeLine;
                 throw new CompilerError(
                     location, 
                     format("expected at least %s arguments, got %s.", functionType.argumentTypes.length, args.length),

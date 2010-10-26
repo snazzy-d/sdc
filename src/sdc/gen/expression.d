@@ -315,7 +315,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
                 p.set(mod.callingAggregate.addressOf());
                 args ~= p;
             }
-            lhs = lhs.call(expression.location, argLocations, args);
+            lhs = lhs.call(argList.location, argLocations, args);
         } else {
             throw new CompilerError(expression.location, "can only call functions.");
         }
