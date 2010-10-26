@@ -205,6 +205,11 @@ class VoidValue : Value
     {
         throw new CompilerError(location, "can't perform an action on variable of type 'void'.");
     }
+    
+    override Value getSizeof(Location loc)
+    {
+        return newSizeT(mModule, loc, 1);
+    }
 }
 
 mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
@@ -942,6 +947,13 @@ class FunctionValue : Value
     {
         auto f = new FunctionValue(mod, location, enforce(cast(FunctionType) mType.importToModule(mod)), name, mangledName);
         return f;
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        auto asFunction = enforce(cast(FunctionType) mType);
+        // This is how DMD does it. Seems fairly arbitrary to my mind.
+        return asFunction.returnType.getValue(mModule, loc).getSizeof(loc);
     }
 }
 
