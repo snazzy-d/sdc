@@ -112,6 +112,7 @@ abstract class Value
     Value lte(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
+    Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
     
     Value addressOf()
     {
@@ -128,9 +129,31 @@ abstract class Value
         return b;
     }
     
+    
+    Value getProperty(Location loc, string name)
+    {
+        switch (name) {
+        case "init":
+            return init(loc);
+        case "sizeof":
+            return getSizeof(loc);
+        default:
+            return null;
+        }
+    }
+    
+    Value getMember(Location loc, string name)
+    {
+        auto prop = getProperty(loc, name);
+        if (prop !is null) {
+            return prop;
+        }
+        fail(loc, "member access on");
+        assert(false);
+    }
+    
     Value call(Location location, Location[] argLocations, Value[] args) { fail("call"); assert(false); }
     Value init(Location location) { fail("init"); assert(false); }
-    Value getMember(Location loc, string name) { fail(loc, "member access on"); assert(false); }
     Module getModule() { return mModule; }
     
     Value importToModule(Module mod)
@@ -360,6 +383,11 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
+    override Value getSizeof(Location location)
+    {
+        return newSizeT(mModule, location, T.sizeof);
+    }
+    
     mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
     static if (SIGNED) {
@@ -533,6 +561,11 @@ class FloatingPointValue(T, B) : Value
             v.constDouble = this.constDouble / val.constDouble;
         }
         return v;
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        return newSizeT(mModule, loc, T.sizeof);
     }
     
     override Value addressOf()
@@ -733,8 +766,18 @@ class PointerValue : Value
     
     override Value getMember(Location location, string name)
     {
+        auto prop = getProperty(location, name);
+        if (prop !is null) {
+            return prop;
+        }
+        
         auto v = dereference(location);
         return v.getMember(location, name);
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        return getSizeT(mModule).getValue(mModule, loc).getSizeof(loc);
     }
 }
 
@@ -950,6 +993,11 @@ class StructValue : Value
     
     override Value getMember(Location location, string name)
     {
+        auto prop = getProperty(location, name);
+        if (prop !is null) {
+            return prop;
+        }
+        
         auto asStruct = cast(StructType) mType;
         assert(asStruct);
         
@@ -968,6 +1016,17 @@ class StructValue : Value
         auto i = asStruct.members[index].getValue(mModule, location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
         return i;
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        auto v = getSizeT(mModule).getValue(mModule, loc);
+        v.initialise(v.init(loc));
+        auto asStruct = enforce(cast(StructType) mType);
+        foreach (member; asStruct.members) {
+            v = v.add(loc, member.getValue(mModule, loc).getSizeof(loc));
+        }
+        return v;
     }
 }
 
