@@ -39,15 +39,6 @@ abstract class Value
         mGlobal = mod.currentScope is mod.globalScope;
     }
     
-    /*
-     * This is not related to the attributes 'const' or 'immutable'.
-     * This boolean and the following union are all in aid of constant
-     * folding. If constant is true, then this Value has been constructed
-     * out of all compile time known values, thus this value is known at 
-     * compile time. This will be used in places like assert, static 
-     * arrays, bounds checked type conversions -- places in the D spec 
-     * where constant folding is required.
-     */
     bool constant;
     union
     {
