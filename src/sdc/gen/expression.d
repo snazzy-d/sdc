@@ -377,7 +377,11 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genIdentifier(i, mod);
     case ast.PrimaryType.Null:
         return new NullPointerValue(mod, expression.location);
+    case ast.PrimaryType.BasicTypeDotIdentifier:
+        auto v = primitiveTypeToBackendType(cast(ast.PrimitiveType) expression.node, mod).getValue(mod, expression.location);
+        return v.getMember(expression.location, extractIdentifier(cast(ast.Identifier) expression.secondNode));
     default:
+    
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
     }
 }
@@ -417,6 +421,8 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         return store.value();
     } else if (store.storeType == StoreType.Scope) {
         return new ScopeValue(mod, identifier.location, store.getScope());
+    } else if (store.storeType == StoreType.Type) {
+        return store.type().getValue(mod, identifier.location);
     } else {
         assert(false);
     }

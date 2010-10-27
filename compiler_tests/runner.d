@@ -12,6 +12,15 @@ import std.stdio;
 import std.string;
 
 
+version (Windows) {
+    immutable SDC      = "sdc";  // Put SDC in your PATH.
+    immutable EXE_NAME = "a.exe";
+} else {
+    immutable SDC      = "../sdc"; // Leaving this decision to the Unix crowd.
+    immutable EXE_NAME = "a.out";
+}
+
+
 string getTestFilename(int n)
 {
     return "test" ~ to!string(n) ~ ".d";
@@ -67,11 +76,8 @@ bool test(string filename)
         }
     }
     
-    version (Windows) { // Put SDC in your PATH
-        auto command = `sdc --optimise "` ~ filename ~ `"`;
-    } else { // Leaving this decision to the Unix crowd
-        auto command = `../sdc --optimise "` ~ filename ~ `"`;
-    }
+    auto command = format(`%s -o=%s --optimise "%s"`, SDC, EXE_NAME, filename);
+    
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
         stderr.writeln("Program expected to compile did not.");
@@ -82,15 +88,7 @@ bool test(string filename)
         return false;
     }
     
-    //This part can be merged with the above version branch once SDC has an -o switch
-    version(Windows)
-    {
-        retval = system("a.exe");
-    }
-    else
-    {
-        retval = system("./a.out");
-    }
+    system(EXE_NAME);
     
     if (retval != expectedRetval) {
         stderr.writeln("Retval was '" ~ to!string(retval) ~ "', expected '" ~ to!string(expectedRetval) ~ "'.");
