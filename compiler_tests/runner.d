@@ -88,7 +88,7 @@ bool test(string filename)
         return false;
     }
     
-    system(EXE_NAME);
+    retval = system(EXE_NAME);
     
     if (retval != expectedRetval) {
         stderr.writeln("Retval was '" ~ to!string(retval) ~ "', expected '" ~ to!string(expectedRetval) ~ "'.");
