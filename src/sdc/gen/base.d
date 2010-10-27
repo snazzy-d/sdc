@@ -22,6 +22,7 @@ import sdc.gen.expression;
 import sdc.gen.type;
 import sdc.gen.aggregate;
 import sdc.gen.attribute;
+import sdc.gen.enumeration;
 
 
 bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
@@ -248,6 +249,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         genConditionalDeclaration(declDef, cast(ast.ConditionalDeclaration) declDef.node, mod);
+        break;
+    case ast.DeclarationDefinitionType.EnumDeclaration:
+        genEnumDeclaration(cast(ast.EnumDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
         break;
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));

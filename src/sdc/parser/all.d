@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -14,3 +15,4 @@ public import sdc.parser.aggregate;
 public import sdc.parser.sdcimport;
 public import sdc.parser.conditional;
 public import sdc.parser.sdctemplate;
+public import sdc.parser.enumeration;

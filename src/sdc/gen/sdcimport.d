@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -122,6 +123,7 @@ void genImport(Location location, ast.Import theImport, Module mod)
     
     tu = new TranslationUnit();
     tu.tusource = TUSource.Import;
+    tu.compile = false;
     tu.filename = fullPath;
     tu.source = new Source(fullPath);
     tu.tstream = lex(tu.source);

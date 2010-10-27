@@ -76,6 +76,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
         decldef.type = DeclarationDefinitionType.AggregateDeclaration;
         decldef.node = parseAggregateDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Enum) {
+        decldef.type = DeclarationDefinitionType.EnumDeclaration;
+        decldef.node = parseEnumDeclaration(tstream);
     } else if (tstream.peek.type == TokenType.Template) {
         decldef.type = DeclarationDefinitionType.TemplateDeclaration;
         decldef.node = parseTemplateDeclaration(tstream);
