@@ -462,6 +462,7 @@ class ConstType : Type
         super(mod);
         this.base = base;
         dtype = DType.Const;
+        mType = base.mType;
     }
     
     override Value getValue(Module mod, Location location)

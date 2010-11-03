@@ -786,6 +786,7 @@ class ConstValue : Value
         super(mod, location);
         this.base = base;
         mType = new ConstType(mod, base.type);
+        mValue = base.mValue;
     }
     
     override Value init(Location location)
