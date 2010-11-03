@@ -42,6 +42,7 @@ enum DType
     Pointer,
     NullPointer,
     Array,
+    Const,
     Complex,
     Function,
     Struct,
@@ -83,6 +84,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Complex:
     case Function:
     case Struct:
+    case Const:
         break;
     case Inferred:
         return new InferredType(mod);
@@ -449,6 +451,25 @@ class PointerType : Type
     }
     
     override string name(){ return base.name() ~ '*'; }
+}
+
+class ConstType : Type
+{
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        this.base = base;
+        dtype = DType.Const;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ConstValue(mod, location, base.getValue(mod, location));
+    }
+    
+    override string name() { return "const(" ~ base.name() ~ ")"; }
 }
 
 class NullPointerType : PointerType

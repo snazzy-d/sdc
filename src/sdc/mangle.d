@@ -150,5 +150,8 @@ void mangleType(ref string mangledName, Type type)
         assert(asStruct);
         mangleQualifiedName(mangledName, asStruct.fullName);
         break;
+    case Const:
+        mangledName ~= "x";
+        break;
     }
 }

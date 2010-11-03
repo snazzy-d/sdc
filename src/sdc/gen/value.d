@@ -777,6 +777,48 @@ class PointerValue : Value
     }
 }
 
+class ConstValue : Value
+{
+    Value base;
+    
+    this(Module mod, Location location, Value base)
+    {
+        super(mod, location);
+        this.base = base;
+        mType = new ConstType(mod, base.type);
+    }
+    
+    override Value init(Location location)
+    {
+        return base.init(location);
+    }
+    
+    override void set(Value val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void set(LLVMValueRef val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void initialise(Value val)
+    {
+        base.initialise(val);
+    }
+    
+    override void initialise(LLVMValueRef val)
+    {
+        base.initialise(val);
+    }
+    
+    override Value performCast(Location location, Type t)
+    {
+        return base.performCast(location, t);
+    }
+}
+
 class NullPointerValue : PointerValue
 {
     this(Module mod, Location location)
@@ -1090,6 +1132,14 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         }
     }
     
+    foreach (storageType; type.storageTypes) switch (storageType) with (ast.StorageType) {
+    case Const:
+        t = new ConstType(mod, t);
+        break;
+    default:
+        throw new CompilerPanic(type.location, "unimplemented storage type.");
+    }
+    
     return t;
 }
 
@@ -1208,7 +1258,7 @@ Value implicitCast(Location location, Value v, Type toType)
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
-        } else if (canImplicitCast(v.type.dtype, toType.dtype)) {
+        } else if (canImplicitCast(v.type, toType)) {
             return v.performCast(location, toType);
         }
         break;
@@ -1216,34 +1266,42 @@ Value implicitCast(Location location, Value v, Type toType)
     throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
 }
 
-bool canImplicitCast(DType from, DType to)
+bool canImplicitCast(Type from, Type to)
 {
-    switch (from) with (DType) {
+    switch (from.dtype) with (DType) {
     case Bool:
         return true;
     case Char:
     case Ubyte:
     case Byte:
-        return to >= Char;
+        return to.dtype >= Char;
     case Wchar:
     case Ushort:
     case Short:
-        return to >= Wchar;
+        return to.dtype >= Wchar;
     case Dchar:
     case Uint:
     case Int:
-        return to >= Dchar;
+        return to.dtype >= Dchar;
     case Ulong:
     case Long:
-        return to >= Ulong;
+        return to.dtype >= Ulong;
     case Float:
     case Double:
     case Real:
-        return to >= Float;
+        return to.dtype >= Float;
     case Pointer:
     case NullPointer:
-        return to == Pointer || to == NullPointer; 
+        return to.dtype == Pointer || to.dtype == NullPointer;
+    case Const:
+        auto asConst = enforce(cast(ConstType) from);
+        return canImplicitCast(asConst.base, to) && !hasMutableIndirection(to);
     default:
         return false;
     }
+}
+
+bool hasMutableIndirection(Type t)
+{
+    return false;
 }
