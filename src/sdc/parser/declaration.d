@@ -86,40 +86,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
         declaration.type.suffixes ~= suffixes;
     } else if (tstream.peek.type == TokenType.OpenParen &&
                tstream.lookahead(1).type == TokenType.Asterix) {
-        // bizarro world function pointer/array declaration
-        // Holy shit folks, it's a trainwreck. Forgive me.
-        auto location = tstream.peek.location;
-        match(tstream, TokenType.OpenParen);
-        match(tstream, TokenType.Asterix);
-        
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        auto declarator = new Declarator();
-        declarator.location = tstream.peek.location;
-        declarator.name = parseIdentifier(tstream);
-        suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        match(tstream, TokenType.CloseParen);
-        if (tstream.peek.type == TokenType.OpenParen) {
-            // e.g. (*x)()
-            declaration.type.type = TypeType.FunctionPointer;
-            auto node = new FunctionPointerType();
-            node.location = location;
-            node.parameters = parseParameters(tstream);
-            declaration.type.node = node;
-            suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        } else if (tstream.peek.type == TokenType.OpenBracket) {
-            // e.g. (*x)[3]
-            suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        } else {
-            throw new CompilerError(tstream.peek.location, "expected '(' or '[', not '%s'.");
-        }
-        if (tstream.peek.type == TokenType.Assign) {
-            declarator.initialiser = parseInitialiser(tstream);
-        }
-        match(tstream, TokenType.Semicolon);
-        declaration.declarators ~= declarator;
-        declaration.type.suffixes ~= suffixes;
-        
-        return declaration;
+        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
     }
         
     
