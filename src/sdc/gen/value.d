@@ -1256,6 +1256,8 @@ Value implicitCast(Location location, Value v, Type toType)
         break;
     case DType.Complex: .. case DType.max:
         throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
+    case DType.Const:
+        return v;
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
