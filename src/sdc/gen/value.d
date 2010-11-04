@@ -825,6 +825,11 @@ class ConstValue : Value
     {
         return base.get();
     }
+    
+    override Value getMember(Location location, string name)
+    {
+        return new ConstValue(mModule, location, base.getMember(location, name));
+    }
 }
 
 class NullPointerValue : PointerValue
