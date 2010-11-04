@@ -52,10 +52,25 @@ bool isVariableDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.Alias) {
         return true;
     }
-    size_t lookahead = 1;
+    size_t lookahead = 0;
     Token token;
     while (true) {
         token = tstream.lookahead(lookahead);
+        if (contains(PAREN_TYPES, token.type) && tstream.lookahead(lookahead + 1).type == TokenType.OpenParen) {
+            lookahead += 2;  // <paren type> <open paren>
+            int parenCount = 1;
+            do {
+                token = tstream.lookahead(lookahead);
+                if (token.type == TokenType.OpenParen) {
+                    parenCount++;
+                } else if (token.type == TokenType.CloseParen) {
+                    parenCount--;
+                } else if (token.type == TokenType.End) {
+                    throw new CompilerError(token.location, "Unexpected EOF when parsing type.");
+                }
+                lookahead++;
+            } while (parenCount > 0);
+        }
         if (token.type == TokenType.End || token.type == TokenType.OpenBrace ||
             token.type == TokenType.OpenParen) {
             return false;
@@ -190,7 +205,27 @@ Type parseType(TokenStream tstream)
     while (contains(STORAGE_TYPES, tstream.peek.type)) {
         if (contains(PAREN_TYPES, tstream.peek.type)) {
             if (tstream.lookahead(1).type == TokenType.OpenParen) {
-                break;
+                switch (tstream.peek.type) {
+                case TokenType.Const:
+                    type.type = TypeType.ConstType;
+                    break;
+                case TokenType.Immutable:
+                    type.type = TypeType.ImmutableType;
+                    break;
+                case TokenType.Inout:
+                    type.type = TypeType.InoutType;
+                    break;
+                case TokenType.Shared:
+                    type.type = TypeType.SharedType;
+                    break;
+                default:
+                    throw new CompilerPanic(tstream.peek.location, "unexpected storage type token preceding open paren.");
+                }
+                tstream.getToken();
+                match(tstream, TokenType.OpenParen);
+                type.node = parseType(tstream);
+                match(tstream, TokenType.CloseParen);
+                goto PARSE_SUFFIXES;
             }
         }
         type.storageTypes ~= cast(StorageType) tstream.peek.type;
@@ -202,7 +237,6 @@ Type parseType(TokenStream tstream)
         tstream.lookahead(1).type == TokenType.Assign) {
         //
         type.type = TypeType.Inferred;
-        // TODO
     }
 
     if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
@@ -245,6 +279,7 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     }
     
+PARSE_SUFFIXES:
     type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
     
     return type;
