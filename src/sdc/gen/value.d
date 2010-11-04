@@ -818,6 +818,11 @@ class ConstValue : Value
     {
         return base.performCast(location, t);
     }
+    
+    override LLVMValueRef get()
+    {
+        return base.get();
+    }
 }
 
 class NullPointerValue : PointerValue
@@ -1257,7 +1262,7 @@ Value implicitCast(Location location, Value v, Type toType)
     case DType.Complex: .. case DType.max:
         throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
     case DType.Const:
-        return v;
+        return new ConstValue(v.getModule(), location, v);
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
