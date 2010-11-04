@@ -614,8 +614,10 @@ class ArrayValue : StructValue
                                 {
                                     assert(val.type.dtype == theSizeT.dtype);
                                     auto ptr = getMember(location, "ptr");
-                                    auto vl = [ptr, val];
-                                    ptr.set(gcRealloc.call(location, [ptr.location, val.location], vl).performCast(location, ptr.type));
+                                    auto vl = [ptr.performCast(location, new PointerType(mModule, new VoidType(mModule))), val];
+
+                                    auto memptr = gcRealloc.call(location, [ptr.location, val.location], vl);
+                                    ptr.set(memptr.performCast(location, ptr.type));
                                 });
         }
         return v;
