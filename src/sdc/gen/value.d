@@ -1119,6 +1119,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     case ast.TypeType.Inferred:
         t = new InferredType(mod);
         break;
+    case ast.TypeType.ConstType:
+        t = new ConstType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
+        break;
     default:
         throw new CompilerPanic(type.location, "unhandled type type.");
     }
