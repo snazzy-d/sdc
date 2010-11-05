@@ -87,10 +87,10 @@ abstract class Value
     }
         
     LLVMValueRef get() { fail("get"); assert(false); }
-    void set(Value val) { fail("set (by Value)"); assert(false); }
-    void set(LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
-    void initialise(Value val) { set(val); }
-    void initialise(LLVMValueRef val) { set(val); }
+    void set(Location location, Value val) { fail("set (by Value)"); assert(false); }
+    void set(Location location, LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
+    void initialise(Location location, Value val) { set(location, val); }
+    void initialise(Location location, LLVMValueRef val) { set(location, val); }
     Value add(Location loc, Value val) { fail(loc, "add"); assert(false); }
     Value inc(Location loc) { fail(loc, "increment"); assert(false); }
     Value dec(Location loc) { fail(loc, "decrement"); assert(false); }
@@ -108,7 +108,7 @@ abstract class Value
     Value addressOf()
     {
         auto v = new PointerValue(mModule, location, mType);
-        v.set(mValue);
+        v.set(location, mValue);
         return v;
     }
     
@@ -116,7 +116,7 @@ abstract class Value
     {
         auto v = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
         auto b = new BoolValue(mModule, location);
-        b.set(v);
+        b.set(location, v);
         return b;
     }
     
@@ -208,7 +208,7 @@ mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
     mixin("override Value " ~ ComparisonString ~ "(Location location, Value val) {" ~
         "auto v = LLVMBuildICmp(mModule.builder, ComparisonType, get(), val.get(), toStringz(ComparisonString));"
         "auto b = new BoolValue(mModule, location);"
-        "b.set(v);"
+        "b.set(location, v);"
         "return b;"
     "}");
 }
@@ -237,7 +237,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     this(Module mod, Value val)
     {
         this(mod, val.location);
-        set(val);
+        set(location, val);
     }
     
     override Value performCast(Location location, Type t)
@@ -245,16 +245,16 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             if (t.dtype == DType.Bool) {
-                v.set(LLVMBuildNot(mModule.builder, this.eq(location, new typeof(this)(mModule, location, 0)).get(), "boolnot"));
+                v.set(location, LLVMBuildNot(mModule.builder, this.eq(location, new typeof(this)(mModule, location, 0)).get(), "boolnot"));
             } else if (mType.dtype < t.dtype) {
-                v.set(LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
+                v.set(location, LLVMBuildZExt(mModule.builder, get(), t.llvmType, "cast"));
             } else if (mType.dtype > t.dtype) {
-                v.set(LLVMBuildTrunc(mModule.builder, get(), t.llvmType, "cast"));
+                v.set(location, LLVMBuildTrunc(mModule.builder, get(), t.llvmType, "cast"));
             } else {
-                v.set(get());
+                v.set(location, get());
             }
         } else if (isFPDtype(t.dtype)) {
-            v.set(LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
+            v.set(location, LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
         } else {
             throw new CompilerError(
                 location,
@@ -271,7 +271,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return LLVMBuildLoad(mModule.builder, mValue, "primitive");
     }
     
-    override void set(Value val)
+    override void set(Location location, Value val)
     {
         setPreCallbacks();
         this.constant = this.constant && val.constant;
@@ -282,7 +282,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         setPostCallbacks();
     }
     
-    override void set(LLVMValueRef val)
+    override void set(Location location, LLVMValueRef val)
     {
         setPreCallbacks();
         constant = false;
@@ -290,22 +290,22 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         setPostCallbacks();
     }
     
-    override void initialise(Value val)
+    override void initialise(Location location, Value val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             if (!val.constant) {
                 throw new CompilerError(location, "non-constant global initialiser.");
             }
-            initialise(LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
+            initialise(location, LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
         }
     }
     
-    override void initialise(LLVMValueRef val)
+    override void initialise(Location location, LLVMValueRef val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             LLVMSetInitializer(mValue, val);
         }
@@ -319,7 +319,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         }
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
-        v.set(result);
+        v.set(location, result);
         return v;
     }
     
@@ -327,7 +327,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
-        v.set(this.add(location, one));
+        v.set(location, this.add(location, one));
         return v;
     }
     
@@ -335,7 +335,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
-        v.set(this.sub(location, one));
+        v.set(location, this.sub(location, one));
         return v;
     }
     
@@ -347,7 +347,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         }
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
-        v.set(result);
+        v.set(location, result);
         return v;
     }
     
@@ -359,7 +359,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         }
         auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
-        v.set(result);
+        v.set(location, result);
         return v;
     }
     
@@ -375,7 +375,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
             auto result = LLVMBuildUDiv(mModule.builder, this.get(), val.get(), "add");
         }
         auto v = new typeof(this)(mModule, location);
-        v.set(result);
+        v.set(location, result);
         return v;
     }
     
@@ -403,7 +403,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     protected void constInit(T n)
     {
         auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
-        initialise(val);
+        initialise(location, val);
         constant = true;
         mixin(C ~ " = n;");
     }
@@ -446,7 +446,7 @@ class FloatingPointValue(T, B) : Value
     {
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
-            v.set(LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
+            v.set(location, LLVMBuildFPToSI(mModule.builder, get(), t.llvmType, "cast"));
         } else if (isFPDtype(t.dtype)) {
             throw new CompilerPanic(location, "floating point to floating point casts are unimplemented.");
         } else {
@@ -465,7 +465,7 @@ class FloatingPointValue(T, B) : Value
         return LLVMBuildLoad(mModule.builder, mValue, "doubleget");
     }
     
-    override void set(Value val)
+    override void set(Location location, Value val)
     {
         setPreCallbacks();
         this.constant = this.constant && val.constant;
@@ -476,36 +476,36 @@ class FloatingPointValue(T, B) : Value
         setPostCallbacks();
     }
     
-    override void initialise(Value val)
+    override void initialise(Location location, Value val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             if (!val.constant) {
                 throw new CompilerError(location, "non-constant global initialiser.");
             }
             static if (is(T == float)) {
-                initialise(LLVMConstReal(mType.llvmType, val.constFloat));
+                initialise(location, LLVMConstReal(mType.llvmType, val.constFloat));
             } else if (is(T == double)) {
-                initialise(LLVMConstReal(mType.llvmType, val.constDouble));
+                initialise(location, LLVMConstReal(mType.llvmType, val.constDouble));
             } else if (is(T == real)) {
-                initialise(LLVMConstReal(mType.llvmType, val.constReal));
+                initialise(location, LLVMConstReal(mType.llvmType, val.constReal));
             } else {
                 assert(false, "unknown floating point type.");
             }
         }
     }
     
-    override void initialise(LLVMValueRef val)
+    override void initialise(Location location, LLVMValueRef val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             LLVMSetInitializer(mValue, val);
         }
     }
     
-    override void set(LLVMValueRef val)
+    override void set(Location location, LLVMValueRef val)
     {
         constant = false;
         LLVMBuildStore(mModule.builder, val, mValue);
@@ -515,7 +515,7 @@ class FloatingPointValue(T, B) : Value
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFAdd(mModule.builder, this.get(), val.get(), "fadd");
-        v.set(result);
+        v.set(location, result);
         v.constant = this.constant && val.constant;
         if (v.constant) {
             v.constDouble = this.constDouble + val.constDouble;
@@ -527,7 +527,7 @@ class FloatingPointValue(T, B) : Value
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFSub(mModule.builder, this.get(), val.get(), "fsub");
-        v.set(result);
+        v.set(location, result);
         v.constant = this.constant && val.constant;
         if (v.constant) {
             v.constDouble = this.constDouble - val.constDouble;
@@ -539,7 +539,7 @@ class FloatingPointValue(T, B) : Value
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFMul(mModule.builder, this.get(), val.get(), "fmul");
-        v.set(result);
+        v.set(location, result);
         v.constant = this.constant && val.constant;
         if (v.constant) {
             v.constDouble = this.constDouble * val.constDouble;
@@ -551,7 +551,7 @@ class FloatingPointValue(T, B) : Value
     {
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFDiv(mModule.builder, this.get(), val.get(), "fdiv");
-        v.set(result);
+        v.set(location, result);
         v.constant = this.constant && val.constant;
         if (v.constant) {
             v.constDouble = this.constDouble / val.constDouble;
@@ -567,7 +567,7 @@ class FloatingPointValue(T, B) : Value
     override Value addressOf()
     {
         auto v = new PointerValue(mModule, location, mType);
-        v.set(mValue);
+        v.set(location, mValue);
         return v;
     }
 
@@ -617,7 +617,7 @@ class ArrayValue : StructValue
                                     auto vl = [ptr.performCast(location, new PointerType(mModule, new VoidType(mModule))), val];
 
                                     auto memptr = gcRealloc.call(location, [ptr.location, val.location], vl);
-                                    ptr.set(memptr.performCast(location, ptr.type));
+                                    ptr.set(location, memptr.performCast(location, ptr.type));
                                 });
         }
         return v;
@@ -653,10 +653,10 @@ class StringValue : ArrayValue
         
         auto ptr = getMember(location, "ptr");
         auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
-        ptr.set(castedVal);
+        ptr.set(location, castedVal);
         
         auto length = newSizeT(mod, location, strLen);
-        StructValue.getMember(location, "length").set(length);
+        StructValue.getMember(location, "length").set(location, length);
     }
 }
 
@@ -681,7 +681,7 @@ class PointerValue : Value
     {
         auto v = t.getValue(mModule, location);
         if (t.dtype == DType.Pointer) {
-            v.set(LLVMBuildPointerCast(mModule.builder, get(), t.llvmType(), "pcast"));
+            v.set(location, LLVMBuildPointerCast(mModule.builder, get(), t.llvmType(), "pcast"));
         } else {
             throw new CompilerError(location, "cannot cast from pointer to non-pointer type.");
         }
@@ -693,10 +693,10 @@ class PointerValue : Value
         return LLVMBuildLoad(mModule.builder, mValue, "get");
     }
     
-    override void set(Value val)
+    override void set(Location location, Value val)
     {
         if (val.type.dtype == DType.NullPointer) {
-            set(init(location));
+            set(location, init(location));
         } else {
             setPreCallbacks();
             LLVMBuildStore(mModule.builder, val.get(), mValue);
@@ -704,29 +704,29 @@ class PointerValue : Value
         }
     }
     
-    override void set(LLVMValueRef val)
+    override void set(Location location, LLVMValueRef val)
     {
         setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
         setPostCallbacks();
     }
     
-    override void initialise(Value val)
+    override void initialise(Location location, Value val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             if (!val.constant) {
                 throw new CompilerError(location, "non-constant global initialiser.");
             }
-            initialise(val.get());
+            initialise(location, val.get());
         }
     }
     
-    override void initialise(LLVMValueRef val)
+    override void initialise(Location location, LLVMValueRef val)
     {
         if (!mGlobal) {
-            set(val);
+            set(location, val);
         } else {
             LLVMSetInitializer(mValue, LLVMConstNull(mType.llvmType));  // HACK
         }
@@ -757,7 +757,7 @@ class PointerValue : Value
     override Value init(Location location)
     {
         auto v = new PointerValue(mModule, location, baseType);
-        v.set(LLVMConstNull(v.mType.llvmType));
+        v.set(location, LLVMConstNull(v.mType.llvmType));
         v.constant = true;
         return v;
     }
@@ -796,24 +796,24 @@ class ConstValue : Value
         return base.init(location);
     }
     
-    override void set(Value val)
+    override void set(Location location, Value val)
     {
         throw new CompilerError(location, "cannot modify const value.");
     }
     
-    override void set(LLVMValueRef val)
+    override void set(Location location, LLVMValueRef val)
     {
         throw new CompilerError(location, "cannot modify const value.");
     }
     
-    override void initialise(Value val)
+    override void initialise(Location location, Value val)
     {
-        base.initialise(val);
+        base.initialise(location, val);
     }
     
-    override void initialise(LLVMValueRef val)
+    override void initialise(Location location, LLVMValueRef val)
     {
-        base.initialise(val);
+        base.initialise(location, val);
     }
     
     override Value performCast(Location location, Type t)
@@ -975,7 +975,7 @@ class FunctionValue : Value
         if (functionType.returnType.dtype != DType.Void) {
             auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
             val = functionType.returnType.getValue(mModule, location);
-            val.set(retval);
+            val.set(location, retval);
         } else {
             LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
             val = new VoidValue(mModule, location);
@@ -1023,14 +1023,14 @@ class StructValue : Value
         return LLVMBuildLoad(mModule.builder, mValue, "struct");
     }
     
-    override void set(Value val)
+    override void set(Location location, Value val)
     {
         setPreCallbacks();
         LLVMBuildStore(mModule.builder, val.get(), mValue);
         setPostCallbacks();
     }
     
-    override void set(LLVMValueRef val)
+    override void set(Location location, LLVMValueRef val)
     {
         setPreCallbacks();
         LLVMBuildStore(mModule.builder, val, mValue);
@@ -1043,7 +1043,7 @@ class StructValue : Value
         auto v = new StructValue(mModule, location, asStruct);
         foreach (member; asStruct.memberPositions.keys) {
             auto m = v.getMember(location, member);
-            m.set(m.init(location));
+            m.set(location, m.init(location));
         }
         return v;
     }
@@ -1078,7 +1078,7 @@ class StructValue : Value
     override Value getSizeof(Location loc)
     {
         auto v = getSizeT(mModule).getValue(mModule, loc);
-        v.initialise(v.init(loc));
+        v.initialise(location, v.init(loc));
         auto asStruct = enforce(cast(StructType) mType);
         foreach (member; asStruct.members) {
             v = v.add(loc, member.getValue(mModule, loc).getSizeof(loc));

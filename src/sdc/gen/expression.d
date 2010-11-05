@@ -43,19 +43,19 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
     case None:
         assert(false);
     case Normal:
-        lhs.set(rhs);
+        lhs.set(expression.location, rhs);
         break;
     case AddAssign:
-        lhs.set(lhs.add(expression.location, rhs));
+        lhs.set(expression.location, lhs.add(expression.location, rhs));
         break;
     case SubAssign:
-        lhs.set(lhs.sub(expression.location, rhs));
+        lhs.set(expression.location, lhs.sub(expression.location, rhs));
         break;
     case MulAssign:
-        lhs.set(lhs.mul(expression.location, rhs));
+        lhs.set(expression.location, lhs.mul(expression.location, rhs));
         break;
     case DivAssign:
-        lhs.set(lhs.div(expression.location, rhs));
+        lhs.set(expression.location, lhs.div(expression.location, rhs));
         break;
     case ModAssign:
         throw new CompilerPanic(expression.location, "modulo assign is unimplemented.");
@@ -93,10 +93,10 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
         auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condEnd");
         LLVMBuildCondBr(mod.builder, a.performCast(expression.location, new BoolType(mod)).get(), condTrueBB, condFalseBB);
         LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
-        v.set(genExpression(expression.expression, mod));
+        v.set(expression.location, genExpression(expression.expression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condFalseBB);
-        v.set(genConditionalExpression(expression.conditionalExpression, mod));
+        v.set(expression.location, genConditionalExpression(expression.conditionalExpression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condEndBB);
         
@@ -232,11 +232,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.dec(expression.location));
+        val.set(expression.location, val.dec(expression.location));
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.inc(expression.location));
+        val.set(expression.location, val.inc(expression.location));
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
@@ -284,16 +284,16 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(lhs);
+        tmp.set(expression.location, lhs);
         lhs = tmp;
-        val.set(val.inc(expression.location));
+        val.set(expression.location, val.inc(expression.location));
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(lhs);
+        tmp.set(expression.location, lhs);
         lhs = tmp;
-        val.set(val.dec(expression.location));
+        val.set(expression.location, val.dec(expression.location));
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
@@ -312,7 +312,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             }
             if (mod.callingAggregate !is null) {
                 auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-                p.set(mod.callingAggregate.addressOf());
+                p.set(expression.location, mod.callingAggregate.addressOf());
                 args ~= p;
             }
             lhs = lhs.call(argList.location, argLocations, args);

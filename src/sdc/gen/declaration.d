@@ -121,10 +121,10 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         }
         
         if (declarator.initialiser is null) {
-            var.initialise(var.init(decl.location));
+            var.initialise(decl.location, var.init(decl.location));
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
-                var.initialise(LLVMGetUndef(type.llvmType));
+                var.initialise(decl.location, LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
@@ -135,7 +135,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 if (var is null) {
                     throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
                 }
-                var.initialise(aexp);
+                var.initialise(decl.location, aexp);
             } else {
                 throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
             }
@@ -172,7 +172,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     // Add parameters into the functions namespace.
     foreach (i, argType; functionType.argumentTypes) {
         auto val = argType.getValue(mod, func.location);
-        val.set(LLVMGetParam(func.get(), i));
+        val.set(func.location, LLVMGetParam(func.get(), i));
         mod.currentScope.add(functionType.argumentNames[i], new Store(val));
     }
     
