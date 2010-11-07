@@ -85,7 +85,7 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 {
     auto a = genOrOrExpression(expression.orOrExpression, mod);
     if (expression.expression !is null) {
-        auto e = genExpression(expression.expression, dummyModule(mod));
+        auto e = genExpression(expression.expression, mod.dup);
         auto v = e.type.getValue(mod, expression.location);
         
         auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condTrue");

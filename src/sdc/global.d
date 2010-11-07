@@ -105,7 +105,7 @@ TranslationUnit[] getTranslationUnits()
     return translationUnits.values;
 }
 
-Module dummyModule(Module parent)
+version (none) Module dummyModule(Module parent)
 {
     if (mDummyModule is null) {
         mDummyModule = parent.dup;
