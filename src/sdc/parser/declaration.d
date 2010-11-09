@@ -56,7 +56,8 @@ bool isVariableDeclaration(TokenStream tstream)
     Token token;
     while (true) {
         token = tstream.lookahead(lookahead);
-        if (contains(PAREN_TYPES, token.type) && tstream.lookahead(lookahead + 1).type == TokenType.OpenParen) {
+        if ((contains(PAREN_TYPES, token.type) && tstream.lookahead(lookahead + 1).type == TokenType.OpenParen) ||
+            token.type == TokenType.Typeof) {
             lookahead += 2;  // <paren type> <open paren>
             int parenCount = 1;
             do {
@@ -525,6 +526,6 @@ bool startsLikeDeclaration(TokenStream tstream)
         }
     }
     
-    return t == TokenType.Alias || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
+    return t == TokenType.Alias || t == TokenType.Typeof || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
 }
 

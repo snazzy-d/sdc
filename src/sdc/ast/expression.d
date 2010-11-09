@@ -301,7 +301,7 @@ class ImportExpression : Node
     AssignExpression assignExpression;
 }
 
-enum TypeofType
+enum TypeofExpressionType
 {
     Expression,
     Return,
@@ -309,7 +309,7 @@ enum TypeofType
 
 class TypeofExpression : Node
 {
-    TypeofType type;
+    TypeofExpressionType type;
     Expression expression;  // Optional.
 }
 

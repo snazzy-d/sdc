@@ -20,6 +20,7 @@ import sdc.compilererror;
 import sdc.location;
 import sdc.global;
 import sdc.extract.base;
+import sdc.gen.expression;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import ast = sdc.ast.all;
@@ -184,6 +185,14 @@ abstract class Value
     protected void delegate(Value val)[] mSetPostCallbacks;
 }
 
+mixin template SimpleImportToModule()
+{
+    override Value importToModule(Module mod)
+    {
+        return new typeof(this)(mod, location);
+    }
+}
+
 class VoidValue : Value
 {
     this(Module mod, Location loc)
@@ -212,7 +221,6 @@ mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
         "return b;"
     "}");
 }
-
 
 class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
 {
@@ -400,6 +408,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return new typeof(this)(mModule, location, 0);
     }
     
+    mixin SimpleImportToModule;
+        
     protected void constInit(T n)
     {
         auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
@@ -578,6 +588,8 @@ class FloatingPointValue(T, B) : Value
         return v;
     }
     
+    mixin SimpleImportToModule;
+    
     protected void constInit(T d)
     {
         auto val = LLVMConstReal(mType.llvmType, d);
@@ -628,6 +640,11 @@ class ArrayValue : StructValue
         return getMember(location, "ptr").index(location, val);
     }
     
+    override Value importToModule(Module mod)
+    {
+        return new ArrayValue(mod, location, baseType.importToModule(mod));
+    }
+    
     protected Value mOldLength;
 }
 
@@ -641,7 +658,7 @@ class StringValue : ArrayValue
         auto strLen = s.length;
         
         // String literals should be null-terminated
-        if(s.length == 0 || s[$-1] != '\0') {
+        if (s.length == 0 || s[$-1] != '\0') {
             s ~= '\0';
         }
         
@@ -777,6 +794,11 @@ class PointerValue : Value
     {
         return getSizeT(mModule).getValue(mModule, loc).getSizeof(loc);
     }
+    
+    override Value importToModule(Module mod)
+    {
+        return new PointerValue(mod, location, baseType.importToModule(mod));
+    }
 }
 
 class ConstValue : Value
@@ -829,6 +851,11 @@ class ConstValue : Value
     override Value getMember(Location location, string name)
     {
         return new ConstValue(mModule, location, base.getMember(location, name));
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        return base.importToModule(mod);
     }
 }
 
@@ -987,19 +1014,19 @@ class FunctionValue : Value
     {
         throw new CompilerPanic(location, "tried to get the init of a function value.");
     }
-    
-    override Value importToModule(Module mod)
-    {
-        auto f = new FunctionValue(mod, location, enforce(cast(FunctionType) mType.importToModule(mod)), name, mangledName);
-        return f;
-    }
-    
+        
     override Value getSizeof(Location loc)
     {
         auto asFunction = enforce(cast(FunctionType) mType);
-        // This is how DMD does it. Seems fairly arbitrary to my mind.
+        // This is how DMD does it. Seems fairly arbitrary to me.
         return asFunction.returnType.getValue(mModule, loc).getSizeof(loc);
     }
+    
+    override Value importToModule(Module mod)
+    {
+        auto asFunction = enforce(cast(FunctionType) mType);
+        return new FunctionValue(mod, location, cast(FunctionType) asFunction.importToModule(mod), name, mangledName);
+    } 
 }
 
 
@@ -1085,6 +1112,11 @@ class StructValue : Value
         }
         return v;
     }
+    
+    override Value importToModule(Module mod)
+    {
+        return new StructValue(mod, location, cast(StructType) type.importToModule(mod));
+    }
 }
 
 class ScopeValue : Value
@@ -1104,6 +1136,11 @@ class ScopeValue : Value
             return new ScopeValue(mModule, location, store.getScope());
         }
         return _scope.get(name).value;
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        return new ScopeValue(mod, location, _scope);
     }
 }
 
@@ -1128,6 +1165,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         break;
     case ast.TypeType.ConstType:
         t = new ConstType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
+        break;
+    case ast.TypeType.Typeof:
+        t = genTypeof(cast(ast.TypeofType) type.node, mod);
         break;
     default:
         throw new CompilerPanic(type.location, "unhandled type type.");
@@ -1156,6 +1196,24 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         throw new CompilerPanic(type.location, "unimplemented storage type.");
     }
     
+    return t;
+}
+
+Type genTypeof(ast.TypeofType typeoftype, Module mod)
+{
+    Type t;
+    final switch (typeoftype.type) with (ast.TypeofTypeType) {
+    case Return:
+        throw new CompilerPanic(typeoftype.location, "typeof(return) is unimplemented.");
+    case This:
+        throw new CompilerPanic(typeoftype.location, "typeof(this) is unimplemented.");
+    case Super:
+        throw new CompilerPanic(typeoftype.location, "typeof(super) is unimplemented.");
+    case Expression:
+        auto val = genExpression(typeoftype.expression, mod.dup);
+        t = val.type;
+        break;
+    }
     return t;
 }
 

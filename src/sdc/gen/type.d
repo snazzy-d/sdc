@@ -269,6 +269,8 @@ class IntType : Type
     }
     
     override string name() { return "int"; }
+    
+    override Type importToModule(Module mod) { return new IntType(mod); }
 }
 
 class UintType : Type
