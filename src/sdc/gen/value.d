@@ -101,6 +101,7 @@ abstract class Value
     Value eq(Location loc, Value val) { fail(loc, "compare equality of"); assert(false); }
     Value neq(Location loc, Value val) { fail(loc, "compare non-equality of"); assert(false); }
     Value gt(Location loc, Value val) { fail(loc, "compare greater-than of"); assert(false); }
+    Value lt(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
     Value lte(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
@@ -396,9 +397,11 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
     static if (SIGNED) {
         mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SLT, "lt");
         mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
     } else {
         mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt");
+        mixin LLVMIntComparison!(LLVMIntPredicate.ULT, "lt");
         mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte");
     }
     

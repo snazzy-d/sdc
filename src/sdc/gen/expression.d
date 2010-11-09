@@ -160,6 +160,10 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
         lhs = lhs.lte(expression.location, rhs);
         break;
+    case ast.Comparison.Less:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        lhs = lhs.lt(expression.location, rhs);
+        break;
     default:
         throw new CompilerPanic(expression.location, "unhandled comparison expression.");
     }
