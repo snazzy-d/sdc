@@ -166,7 +166,7 @@ class VoidType : Type
         return new VoidValue(mod, location);
     }
     
-    override string name(){ return "void"; }
+    override string name() { return "void"; }
 }
 
 class BoolType : Type
@@ -183,7 +183,7 @@ class BoolType : Type
         return new BoolValue(mod, location);
     }
     
-    override string name(){ return "bool"; }
+    override string name() { return "bool"; }
 }
 
 class ByteType : Type
@@ -200,7 +200,7 @@ class ByteType : Type
         return new ByteValue(mod, location);
     }
     
-    override string name(){ return "byte"; }
+    override string name() { return "byte"; }
 }
 
 class UbyteType : Type
@@ -217,7 +217,7 @@ class UbyteType : Type
         return new UbyteValue(mod, location);
     }
     
-    override string name(){ return "ubyte"; }
+    override string name() { return "ubyte"; }
 }
 
 class ShortType : Type
@@ -234,7 +234,7 @@ class ShortType : Type
         return new ShortValue(mod, location);
     }
     
-    override string name(){ return "short"; }
+    override string name() { return "short"; }
 }
 
 class UshortType : Type
@@ -251,7 +251,7 @@ class UshortType : Type
         return new UshortValue(mod, location);
     }
     
-    override string name(){ return "ushort"; }
+    override string name() { return "ushort"; }
 }
 
 class IntType : Type
@@ -268,7 +268,7 @@ class IntType : Type
         return new IntValue(mod, location);
     }
     
-    override string name(){ return "int"; }
+    override string name() { return "int"; }
 }
 
 class UintType : Type
@@ -285,7 +285,7 @@ class UintType : Type
         return new UintValue(mod, location);
     }
     
-    override string name(){ return "uint"; }
+    override string name() { return "uint"; }
 }
 
 class LongType : Type
@@ -302,7 +302,7 @@ class LongType : Type
         return new LongValue(mod, location);
     }
     
-    override string name(){ return "long"; }
+    override string name() { return "long"; }
 }
 
 class UlongType : Type
@@ -319,7 +319,7 @@ class UlongType : Type
         return new UlongValue(mod, location);
     }
     
-    override string name(){ return "ulong"; }
+    override string name() { return "ulong"; }
 }
 
 class FloatType : Type
@@ -336,7 +336,7 @@ class FloatType : Type
         return new FloatValue(mod, location);
     }
     
-    override string name(){ return "float"; }
+    override string name() { return "float"; }
 }
 
 class DoubleType : Type
@@ -353,7 +353,7 @@ class DoubleType : Type
         return new DoubleValue(mod, location);
     }
     
-    override string name(){ return "double"; }
+    override string name() { return "double"; }
 }
 
 class RealType : Type
@@ -370,7 +370,7 @@ class RealType : Type
         return new RealValue(mod, location);
     }
     
-    override string name(){ return "real"; }
+    override string name() { return "real"; }
 }
 
 class CharType : Type
@@ -387,7 +387,7 @@ class CharType : Type
         return new CharValue(mod, location);
     }
     
-    override string name(){ return "char"; }
+    override string name() { return "char"; }
 }
 
 class WcharType : Type
@@ -404,7 +404,7 @@ class WcharType : Type
         return new WcharValue(mod, location);
     }
     
-    override string name(){ return "wchar"; }
+    override string name() { return "wchar"; }
 }
 
 class DcharType : Type
@@ -421,7 +421,7 @@ class DcharType : Type
         return new DcharValue(mod, location);
     }
     
-    override string name(){ return "dchar"; }
+    override string name() { return "dchar"; }
 }
 
 class PointerType : Type
@@ -450,7 +450,7 @@ class PointerType : Type
         return base;
     }
     
-    override string name(){ return base.name() ~ '*'; }
+    override string name() { return base.name() ~ '*'; }
 }
 
 class ConstType : Type
@@ -481,7 +481,7 @@ class NullPointerType : PointerType
         dtype = DType.NullPointer;
     }
     
-    override string name(){ return "null"; }
+    override string name() { return "null"; }
 }
 
 class ArrayType : StructType
@@ -654,5 +654,5 @@ class InferredType : Type
         throw new CompilerPanic(location, "attempted to call InferredType.getValue.");
     }
     
-    override string name(){ return "auto"; }
+    override string name() { return "auto"; }
 }
