@@ -472,6 +472,11 @@ class ConstType : Type
         return new ConstValue(mod, location, base.getValue(mod, location));
     }
     
+    override Type getBase()
+    {
+        return base;
+    }
+    
     override string name() { return "const(" ~ base.name() ~ ")"; }
 }
 

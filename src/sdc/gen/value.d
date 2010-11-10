@@ -820,7 +820,7 @@ class ConstValue : Value
     {
         return base.init(location);
     }
-    
+        
     override void set(Location location, Value val)
     {
         throw new CompilerError(location, "cannot modify const value.");
@@ -1311,14 +1311,14 @@ Value implicitCast(Location location, Value v, Type toType)
     case DType.Pointer:
         if (v.type.dtype == DType.NullPointer) {
             return v;
-        }
-        else if (v.type.dtype == DType.Pointer) {
-            if(v.type.getBase().dtype == toType.getBase().dtype) {
+        } else if (v.type.dtype == DType.Pointer) {
+            if (v.type.getBase().dtype == toType.getBase().dtype) {
                 return v;
+            } else if (toType.getBase().dtype == DType.Const) {
+                return implicitCast(location, v, toType.getBase());
             }
-        }
-        else if (v.type.dtype == DType.Array) {
-            if(v.type.getBase().dtype == toType.getBase().dtype) {
+        } else if (v.type.dtype == DType.Array) {
+            if (v.type.getBase().dtype == toType.getBase().dtype) {
                 return v.getMember(location, "ptr");
             }
         }
