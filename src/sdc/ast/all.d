@@ -17,3 +17,4 @@ public import sdc.ast.aggregate;
 public import sdc.ast.conditional;
 public import sdc.ast.sdctemplate;
 public import sdc.ast.enumeration;
+public import sdc.ast.sdcpragma;

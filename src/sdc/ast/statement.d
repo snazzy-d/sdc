@@ -9,6 +9,7 @@ import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.declaration;
+import sdc.ast.sdcpragma;
 
 
 enum StatementType
@@ -377,4 +378,10 @@ class ScopeGuardStatement : Node
     NonEmptyOrScopeBlockStatement statement;
 }
 
-// TODO: asm pragma mixin foreachrange 
+class PragmaStatement : Node
+{
+    Pragma thePragma;
+    NoScopeStatement statement;
+}
+
+// TODO: asm mixin foreachrange 
