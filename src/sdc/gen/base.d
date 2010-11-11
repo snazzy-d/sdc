@@ -324,9 +324,9 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
 bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 {
     auto expr = genAssignExpression(condition.expression, mod);
-    if (!expr.constant) {
+    if (!expr.isKnown) {
         throw new CompilerError(condition.expression.location, "expression inside of a static if must be known at compile time.");
     }
-    return expr.constBool;
+    return expr.knownBool;
 }
 

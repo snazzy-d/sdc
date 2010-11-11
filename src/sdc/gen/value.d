@@ -40,24 +40,24 @@ abstract class Value
         mGlobal = mod.currentScope is mod.globalScope;
     }
     
-    bool constant;
+    bool isKnown;
     union
     {
-        bool constBool;
-        byte constByte;
-        ubyte constUbyte;
-        short constShort;
-        ushort constUshort;
-        int constInt;
-        uint constUint;
-        long constLong;
-        ulong constUlong;
-        float constFloat;
-        double constDouble;
-        real constReal;
-        char constChar;
-        wchar constWchar;
-        dchar constDchar;
+        bool knownBool;
+        byte knownByte;
+        ubyte knownUbyte;
+        short knownShort;
+        ushort knownUshort;
+        int knownInt;
+        uint knownUint;
+        long knownLong;
+        ulong knownUlong;
+        float knownFloat;
+        double knownDouble;
+        real knownReal;
+        char knownChar;
+        wchar knownWchar;
+        dchar knownDchar;
     }
     
     Type type() @property
@@ -283,8 +283,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override void set(Location location, Value val)
     {
         setPreCallbacks();
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
             mixin(C ~ " = val." ~ C ~ ";");
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
@@ -294,7 +294,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override void set(Location location, LLVMValueRef val)
     {
         setPreCallbacks();
-        constant = false;
+        isKnown = false;
         LLVMBuildStore(mModule.builder, val, mValue);
         setPostCallbacks();
     }
@@ -304,8 +304,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         if (!mGlobal) {
             set(location, val);
         } else {
-            if (!val.constant) {
-                throw new CompilerError(location, "non-constant global initialiser.");
+            if (!val.isKnown) {
+                throw new CompilerError(location, "non-isKnown global initialiser.");
             }
             initialise(location, LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
         }
@@ -322,8 +322,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value add(Location location, Value val)
     {
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
         }
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
@@ -350,8 +350,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value sub(Location location, Value val)
     {
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " - val." ~ C ~ ");");
         }
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
@@ -362,8 +362,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value mul(Location location, Value val)
     {
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " * val." ~ C ~ ");");
         }
         auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "add");
@@ -374,8 +374,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value div(Location location, Value val)
     {
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
             mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
         }
         static if (SIGNED) {
@@ -417,23 +417,23 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     {
         auto val = LLVMConstInt(mType.llvmType(), n, !SIGNED);
         initialise(location, val);
-        constant = true;
+        isKnown = true;
         mixin(C ~ " = n;");
     }
 }
 
-alias PrimitiveIntegerValue!(bool, BoolType, "constBool", true) BoolValue;
-alias PrimitiveIntegerValue!(byte, ByteType, "constByte", true) ByteValue;
-alias PrimitiveIntegerValue!(ubyte, UbyteType, "constUbyte", false) UbyteValue;
-alias PrimitiveIntegerValue!(short, ShortType, "constShort", true) ShortValue;
-alias PrimitiveIntegerValue!(ushort, UshortType, "constUshort", false) UshortValue;
-alias PrimitiveIntegerValue!(int, IntType, "constInt", true) IntValue;  
-alias PrimitiveIntegerValue!(uint, UintType, "constUint", false) UintValue;
-alias PrimitiveIntegerValue!(long, LongType, "constLong", true) LongValue;
-alias PrimitiveIntegerValue!(ulong, UlongType, "constUlong", false) UlongValue;
-alias PrimitiveIntegerValue!(char, CharType, "constChar", false) CharValue;
-alias PrimitiveIntegerValue!(wchar, WcharType, "constWchar", false) WcharValue;
-alias PrimitiveIntegerValue!(dchar, DcharType, "constDchar", false) DcharValue;
+alias PrimitiveIntegerValue!(bool, BoolType, "knownBool", true) BoolValue;
+alias PrimitiveIntegerValue!(byte, ByteType, "knownByte", true) ByteValue;
+alias PrimitiveIntegerValue!(ubyte, UbyteType, "knownUbyte", false) UbyteValue;
+alias PrimitiveIntegerValue!(short, ShortType, "knownShort", true) ShortValue;
+alias PrimitiveIntegerValue!(ushort, UshortType, "knownUshort", false) UshortValue;
+alias PrimitiveIntegerValue!(int, IntType, "knownInt", true) IntValue;  
+alias PrimitiveIntegerValue!(uint, UintType, "knownUint", false) UintValue;
+alias PrimitiveIntegerValue!(long, LongType, "knownLong", true) LongValue;
+alias PrimitiveIntegerValue!(ulong, UlongType, "knownUlong", false) UlongValue;
+alias PrimitiveIntegerValue!(char, CharType, "knownChar", false) CharValue;
+alias PrimitiveIntegerValue!(wchar, WcharType, "knownWchar", false) WcharValue;
+alias PrimitiveIntegerValue!(dchar, DcharType, "knownDchar", false) DcharValue;
 
 class FloatingPointValue(T, B) : Value
 {
@@ -481,9 +481,9 @@ class FloatingPointValue(T, B) : Value
     override void set(Location location, Value val)
     {
         setPreCallbacks();
-        this.constant = this.constant && val.constant;
-        if (this.constant) {
-            this.constDouble = val.constDouble;
+        this.isKnown = this.isKnown && val.isKnown;
+        if (this.isKnown) {
+            this.knownDouble = val.knownDouble;
         }
         LLVMBuildStore(mModule.builder, val.get(), mValue);
         setPostCallbacks();
@@ -494,15 +494,15 @@ class FloatingPointValue(T, B) : Value
         if (!mGlobal) {
             set(location, val);
         } else {
-            if (!val.constant) {
-                throw new CompilerError(location, "non-constant global initialiser.");
+            if (!val.isKnown) {
+                throw new CompilerError(location, "non-isKnown global initialiser.");
             }
             static if (is(T == float)) {
-                initialise(location, LLVMConstReal(mType.llvmType, val.constFloat));
+                initialise(location, LLVMConstReal(mType.llvmType, val.knownFloat));
             } else if (is(T == double)) {
-                initialise(location, LLVMConstReal(mType.llvmType, val.constDouble));
+                initialise(location, LLVMConstReal(mType.llvmType, val.knownDouble));
             } else if (is(T == real)) {
-                initialise(location, LLVMConstReal(mType.llvmType, val.constReal));
+                initialise(location, LLVMConstReal(mType.llvmType, val.knownReal));
             } else {
                 assert(false, "unknown floating point type.");
             }
@@ -520,7 +520,7 @@ class FloatingPointValue(T, B) : Value
     
     override void set(Location location, LLVMValueRef val)
     {
-        constant = false;
+        isKnown = false;
         LLVMBuildStore(mModule.builder, val, mValue);
     }
     
@@ -529,9 +529,9 @@ class FloatingPointValue(T, B) : Value
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFAdd(mModule.builder, this.get(), val.get(), "fadd");
         v.set(location, result);
-        v.constant = this.constant && val.constant;
-        if (v.constant) {
-            v.constDouble = this.constDouble + val.constDouble;
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            v.knownDouble = this.knownDouble + val.knownDouble;
         }
         return v;
     }
@@ -541,9 +541,9 @@ class FloatingPointValue(T, B) : Value
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFSub(mModule.builder, this.get(), val.get(), "fsub");
         v.set(location, result);
-        v.constant = this.constant && val.constant;
-        if (v.constant) {
-            v.constDouble = this.constDouble - val.constDouble;
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            v.knownDouble = this.knownDouble - val.knownDouble;
         }
         return v;
     }
@@ -553,9 +553,9 @@ class FloatingPointValue(T, B) : Value
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFMul(mModule.builder, this.get(), val.get(), "fmul");
         v.set(location, result);
-        v.constant = this.constant && val.constant;
-        if (v.constant) {
-            v.constDouble = this.constDouble * val.constDouble;
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            v.knownDouble = this.knownDouble * val.knownDouble;
         }
         return v;
     }
@@ -565,9 +565,9 @@ class FloatingPointValue(T, B) : Value
         auto v = new DoubleValue(mModule, location);
         auto result = LLVMBuildFDiv(mModule.builder, this.get(), val.get(), "fdiv");
         v.set(location, result);
-        v.constant = this.constant && val.constant;
-        if (v.constant) {
-            v.constDouble = this.constDouble / val.constDouble;
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            v.knownDouble = this.knownDouble / val.knownDouble;
         }
         return v;
     }
@@ -587,7 +587,7 @@ class FloatingPointValue(T, B) : Value
     override Value init(Location location)
     {
         auto v = new typeof(this)(mModule, location);
-        v.constant = true;
+        v.isKnown = true;
         return v;
     }
     
@@ -597,8 +597,8 @@ class FloatingPointValue(T, B) : Value
     {
         auto val = LLVMConstReal(mType.llvmType, d);
         LLVMBuildStore(mModule.builder, val, mValue);
-        constant = true;
-        constDouble = d;
+        isKnown = true;
+        knownDouble = d;
     }
 }
 
@@ -736,8 +736,8 @@ class PointerValue : Value
         if (!mGlobal) {
             set(location, val);
         } else {
-            if (!val.constant) {
-                throw new CompilerError(location, "non-constant global initialiser.");
+            if (!val.isKnown) {
+                throw new CompilerError(location, "non-isKnown global initialiser.");
             }
             initialise(location, val.get());
         }
@@ -778,7 +778,7 @@ class PointerValue : Value
     {
         auto v = new PointerValue(mModule, location, baseType);
         v.set(location, LLVMConstNull(v.mType.llvmType));
-        v.constant = true;
+        v.isKnown = true;
         return v;
     }
     
@@ -868,7 +868,7 @@ class NullPointerValue : PointerValue
     {
         super(mod, location, new VoidType(mod));
         mType = new NullPointerType(mod);
-        constant = true;
+        isKnown = true;
     }
 }
 
