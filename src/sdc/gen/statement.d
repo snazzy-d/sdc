@@ -20,6 +20,7 @@ import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.value;
 import sdc.gen.type;
+import sdc.gen.sdcpragma;
 import sdc.parser.declaration;
 import sdc.parser.expression;
 import sdc.extract.base;
@@ -70,6 +71,19 @@ void genNoScopeNonEmptyStatement(ast.NoScopeNonEmptyStatement statement, Module 
     }
 }
 
+void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
+{
+    final switch (statement.type) with (ast.NoScopeStatementType) {
+    case NonEmpty:
+        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
+        break;
+    case Block:
+        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
+        break;
+    case Empty:
+        break;
+    }
+}
 
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
@@ -94,6 +108,9 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
         break;
     case ast.NonEmptyStatementType.ConditionalStatement:
         genConditionalStatement(cast(ast.ConditionalStatement) statement.node, mod);
+        break;
+    case ast.NonEmptyStatementType.PragmaStatement:
+        genPragmaStatement(cast(ast.PragmaStatement) statement.node, mod);
         break;
     }
 }
@@ -209,4 +226,10 @@ void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
             genNoScopeNonEmptyStatement(statement.elseStatement, mod);
         }
     }
+}
+
+void genPragmaStatement(ast.PragmaStatement statement, Module mod)
+{
+    genPragma(statement.thePragma, mod);
+    genNoScopeStatement(statement.statement, mod);
 }
