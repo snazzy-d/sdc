@@ -537,6 +537,9 @@ class FunctionType : Type
         returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         foreach (param; functionDeclaration.parameterList.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
+            if (argumentTypes[$ - 1].dtype == DType.Void) {
+                throw new CompilerError(param.location, "void is not a valid parameter type.");
+            }
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
             argumentLocations ~= param.identifier !is null ? param.location : functionDeclaration.location;
         }
