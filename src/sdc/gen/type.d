@@ -59,25 +59,33 @@ Type dtypeToType(DType dtype, Module mod)
     case Bool:
         return new BoolType(mod);
     case Char:
+        return new CharType(mod);
     case Ubyte:
+        return new UbyteType(mod);
     case Byte:
+        return new ByteType(mod);
     case Wchar:
+        return new WcharType(mod);
     case Ushort:
+        return new UshortType(mod);
     case Short:
+        return new ShortType(mod);
     case Dchar:
+        return new DcharType(mod);
     case Uint:
-        break;
+        return new UintType(mod);
     case Int:
         return new IntType(mod);
     case Ulong:
-        break;
+        return new UlongType(mod);
     case Long:
         return new LongType(mod); 
     case Float:
-        break;
+        return new FloatType(mod);
     case Double:
         return new DoubleType(mod);
     case Real:
+        return new RealType(mod);
     case Pointer:
     case NullPointer:
     case Array:

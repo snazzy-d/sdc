@@ -146,22 +146,27 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         break;
     case ast.Comparison.Equality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.eq(expression.location, rhs);
         break;
     case ast.Comparison.NotEquality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.neq(expression.location, rhs);
         break;
     case ast.Comparison.Greater:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.gt(expression.location, rhs);
         break;
     case ast.Comparison.LessEqual:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.lte(expression.location, rhs);
         break;
     case ast.Comparison.Less:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.lt(expression.location, rhs);
         break;
     default:
