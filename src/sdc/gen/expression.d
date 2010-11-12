@@ -7,6 +7,7 @@
 module sdc.gen.expression;
 
 import std.conv;
+import std.exception;
 import std.string;
 
 import llvm.c.Core;
@@ -415,8 +416,9 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
             }
             implicitBase = s.value;
         }
-    }
+    }  
     auto store = mod.search(name);
+
     if (store is null) {
         if (implicitBase !is null) {
             store = new Store(implicitBase.getMember(identifier.location, name));
@@ -426,6 +428,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         }
     }
     
+ 
     if (store.storeType == StoreType.Value) {
         return store.value();
     } else if (store.storeType == StoreType.Scope) {

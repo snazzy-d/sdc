@@ -22,6 +22,9 @@ void debugPrint(lazy string msg)
     debug writeln("DEBUG: ", msg);
 }
 
+void dbga() { debugPrint("A"); }
+void dbgb() { debugPrint("B"); }
+
 enum Status : bool
 {
     Failure,
