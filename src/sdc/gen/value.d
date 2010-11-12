@@ -58,6 +58,7 @@ abstract class Value
         char knownChar;
         wchar knownWchar;
         dchar knownDchar;
+        string knownString;
     }
     
     Type type() @property
@@ -657,6 +658,8 @@ class StringValue : ArrayValue
     {
         auto base = new CharType(mod);
         super(mod, location, base);
+        isKnown = true;
+        knownString = s;
         
         auto strLen = s.length;
         
@@ -665,7 +668,7 @@ class StringValue : ArrayValue
             s ~= '\0';
         }
         
-        LLVMValueRef val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, s.length), "string");
+        val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, s.length), "string");
 
         LLVMSetLinkage(val, LLVMLinkage.Internal);
         LLVMSetGlobalConstant(val, true);
@@ -678,6 +681,8 @@ class StringValue : ArrayValue
         auto length = newSizeT(mod, location, strLen);
         StructValue.getMember(location, "length").set(location, length);
     }
+    
+    LLVMValueRef val;
 }
 
 class PointerValue : Value
@@ -986,7 +991,12 @@ class FunctionValue : Value
         
         foreach (i, arg; functionType.argumentTypes) {
             try {
-                args[i] = implicitCast(argLocations[i], args[i], arg);
+                if (i < argLocations.length) {
+                    args[i] = implicitCast(argLocations[i], args[i], arg);
+                } else {
+                    // Some arguments are hidden at the end (i.e. this), and thus don't have locations. 
+                    args[i] = implicitCast(location, args[i], arg);
+                }
             } catch (CompilerError error) {
                 error.more = new CompilerError(
                     functionType.argumentLocations[i],

@@ -6,6 +6,7 @@
 module sdc.gen.statement;
 
 import std.conv;
+import std.exception;
 
 import llvm.c.Core;
 
@@ -28,7 +29,7 @@ import sdc.extract.base;
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
-    foreach (statement; blockStatement.statements) {
+    foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
     }
 }

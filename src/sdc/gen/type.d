@@ -674,3 +674,9 @@ class InferredType : Type
     
     override string name() { return "auto"; }
 }
+
+
+bool isString(Type t)
+{
+    return t.dtype == DType.Array && t.getBase().dtype == DType.Char;
+}
