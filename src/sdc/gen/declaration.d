@@ -14,6 +14,7 @@ import sdc.compilererror;
 import sdc.util;
 import sdc.extract.base;
 import ast = sdc.ast.all;
+import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
@@ -176,10 +177,9 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         mod.currentScope.add(functionType.argumentNames[i], new Store(val));
     }
     
-    mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
     
-    if (!mod.currentPath.functionEscaped) {
+    if (!mod.currentFunction.cfgTail.isExitBlock) {
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
@@ -193,7 +193,6 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         }
     }
     
-    mod.popPath();
     mod.currentFunction = null;
     mod.popScope();
 }

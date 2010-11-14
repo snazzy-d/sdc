@@ -16,6 +16,7 @@ import sdc.util;
 import sdc.global;
 import ast = sdc.ast.all;
 import sdc.gen.base;
+import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
@@ -29,6 +30,13 @@ import sdc.extract.base;
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
+    if (mod.currentFunction.cfgTail is null) {
+        // Entry block.
+        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock();
+    } else {
+        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
+    }
+    
     foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
     }
@@ -76,6 +84,7 @@ void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
 {
     final switch (statement.type) with (ast.NoScopeStatementType) {
     case NonEmpty:
+        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
         genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
         break;
     case Block:
@@ -88,6 +97,9 @@ void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
 
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
+    if (mod.currentFunction.cfgTail.isExitBlock) {
+        throw new CompilerError(statement.location, "statement is unreachable.");
+    }
     switch (statement.type) {
     default:
         throw new CompilerPanic(statement.location, "unimplemented non empty statement type.");
@@ -121,31 +133,35 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     LLVMBasicBlockRef ifBB, elseBB;
     
     mod.pushScope();
-    mod.pushPath(PathType.Optional);
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
     auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
+    
+    auto parent = mod.currentFunction.cfgTail;
+    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
     genThenStatement(statement.thenStatement, mod);
-    if (!mod.currentPath.functionEscaped) {
+    
+    if (!mod.currentFunction.cfgTail.isExitBlock) {
         LLVMBuildBr(mod.builder, endifBB);
     }
-    mod.popPath();
+    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
     mod.popScope();
     
     LLVMPositionBuilderAtEnd(mod.builder, elseBB);
     if (statement.elseStatement !is null) {
         mod.pushScope();
-        mod.pushPath(PathType.Optional);
+        
         genElseStatement(statement.elseStatement, mod);
-        if (!mod.currentPath.functionEscaped) {
+        if (!mod.currentFunction.cfgTail.isExitBlock) {
             LLVMBuildBr(mod.builder, endifBB);
         }
-        mod.popPath();
+        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
         mod.popScope();
     } else {
         LLVMBuildBr(mod.builder, endifBB);
     }
     LLVMPositionBuilderAtEnd(mod.builder, endifBB);
+    mod.currentFunction.cfgTail.llvmBasicBlock = endifBB;
 }
 
 void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
@@ -183,14 +199,17 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
 
     LLVMBuildBr(mod.builder, looptopBB);
     mod.pushScope();
-    mod.pushPath(PathType.Optional);
     LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
     auto expr = genExpression(statement.expression, mod);
     LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
     LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
+    
+    auto parent = mod.currentFunction.cfgTail;
+    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
     genScopeStatement(statement.statement, mod);
+    
     LLVMBuildBr(mod.builder, looptopBB);
-    mod.popPath();
+    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
 }
@@ -207,7 +226,7 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
-    mod.currentPath.functionEscaped = true;
+    mod.currentFunction.cfgTail.isExitBlock = true;
     auto t = (cast(FunctionType) mod.currentFunction.type).returnType;
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);

@@ -38,7 +38,6 @@ class Module
     LLVMBuilderRef builder;
     Scope globalScope;
     Scope currentScope;
-    Path currentPath;
     ast.DeclarationDefinition[] functionBuildList;
     FunctionValue currentFunction;
     Value base;
@@ -208,23 +207,6 @@ class Module
         return null;
     }
     
-    void pushPath(PathType type)
-    {
-        mPathStack ~= new Path(type);
-        currentPath = mPathStack[$ - 1];
-    }
-    
-    void popPath()
-    {
-        assert(mPathStack.length >= 1);
-        auto oldPath = currentPath;
-        mPathStack = mPathStack[0 .. $ - 1];
-        currentPath = mPathStack.length >= 1 ? mPathStack[$ - 1] : null;
-        if (oldPath !is null && currentPath !is null && oldPath.type == PathType.Inevitable) {
-            currentPath.functionEscaped = oldPath.functionEscaped;
-        }
-    }
-    
     /**
      * Returns: the depth of the current scope.
      *          A value of zero means the current scope is global.
@@ -307,7 +289,6 @@ class Module
         
         mod.globalScope = globalScope.importToModule(mod);
         mod.currentScope = currentScope.importToModule(mod);
-        mod.currentPath = currentPath;
         mod.functionBuildList = functionBuildList.dup;
         if (currentFunction !is null) {
             mod.currentFunction = cast(FunctionValue) currentFunction.importToModule(mod);
@@ -327,7 +308,6 @@ class Module
         foreach (_scope; mScopeStack) {
             mod.mScopeStack ~= _scope.importToModule(mod);
         }
-        mod.mPathStack = mPathStack.dup;
         mod.mFailureList = mFailureList;
         mod.mVersionIdentifiers = mVersionIdentifiers;
         mod.mTestedVersionIdentifiers = mTestedVersionIdentifiers;
@@ -348,7 +328,6 @@ class Module
     }
         
     protected Scope[] mScopeStack;
-    protected Path[] mPathStack;
     protected LookupFailure[] mFailureList;
     protected bool[string] mVersionIdentifiers;
     protected bool[string] mTestedVersionIdentifiers;
@@ -453,21 +432,4 @@ class Scope
     }
     
     Store[string] mSymbolTable;
-}
-
-enum PathType
-{
-    Inevitable,
-    Optional,
-}
-
-class Path
-{
-    this(PathType type)
-    {
-        this.type = type;
-    }
-    
-    PathType type;
-    bool functionEscaped;
 }

@@ -20,6 +20,7 @@ import sdc.compilererror;
 import sdc.location;
 import sdc.global;
 import sdc.extract.base;
+import sdc.gen.cfg;
 import sdc.gen.expression;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -881,6 +882,8 @@ class FunctionValue : Value
 {
     string name;
     string mangledName;
+    BasicBlock cfgEntry;
+    BasicBlock cfgTail;
     
     this(Module mod, Location location, FunctionType func, string name, string forceMangled="")
     {
