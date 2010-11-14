@@ -115,7 +115,7 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
         version(Windows) {
             SetConsoleTextAttribute(handle, termInfo.wAttributes);
         } else {
-            pipe.write("\x1b[30m");
+            pipe.write("\x1b[0m");
         }
     } else {
         dg();
