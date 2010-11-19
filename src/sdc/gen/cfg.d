@@ -8,7 +8,8 @@
  */
 module sdc.gen.cfg;
 
-import llvm.c.Core;
+import std.array;
+import std.typecons;
 
 
 /**
@@ -16,45 +17,36 @@ import llvm.c.Core;
  */
 class BasicBlock
 {
-    bool isExitBlock  = false;
+    bool isExitBlock = false;
+    BasicBlock[] children;
     
-    Edge predecessor;
-    Edge[] successors;
-    
-    LLVMBasicBlockRef llvmBasicBlock;  // Optional.
-    
-    this() {}
-    
-    this(Edge predecessor)
+    bool canReachWithoutExit(BasicBlock target)
     {
-        this.predecessor = predecessor;
+        if (this is target) {
+            return !isExitBlock;
+        }
+        alias Tuple!(BasicBlock, "node", size_t, "childToSearch") Parent;
+        Parent[] blockStack;
+        bool[BasicBlock] considered;
+        blockStack ~= Parent(this, 0);
+        do {
+            if (blockStack[$ - 1].node is target) {
+                return true;
+            }
+            considered[blockStack[$ - 1].node] = true;
+            if (blockStack[$ - 1].childToSearch >= blockStack[$ - 1].node.children.length) {
+                blockStack.popBack;
+                continue;
+            }
+            auto child = blockStack[$ - 1].node.children[blockStack[$ - 1].childToSearch];
+            blockStack[$ - 1].childToSearch++;
+            if ((child in considered) !is null) {
+                continue;
+            }
+            if (!child.isExitBlock) {
+                blockStack ~= Parent(child, 0);            
+            }
+        } while (blockStack.length > 0);
+        return false;
     }
-    
-    BasicBlock createSuccessorBlock()
-    {
-        auto edge  = new Edge();
-        auto block = new BasicBlock(edge);
-        edge.source = this;
-        edge.destination = block;
-        successors ~= edge;
-        return block;
-    }
-    
-    /** 
-     * Is it inevitable that upon reaching the end of this block 
-     * that control flow shall be terminated?
-     */
-    bool inevitableExit()
-    {
-        return isExitBlock;
-    }
-}
-
-/**
- * An edge connects one BasicBlock with another.
- */
-class Edge
-{
-    BasicBlock source;
-    BasicBlock destination;
 }

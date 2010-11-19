@@ -33,10 +33,7 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
     if (mod.currentFunction.cfgTail is null) {
         // Entry block.
         mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock();
-    } else {
-        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
     }
-    
     foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
     }
@@ -84,7 +81,6 @@ void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
 {
     final switch (statement.type) with (ast.NoScopeStatementType) {
     case NonEmpty:
-        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
         genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
         break;
     case Block:
@@ -131,37 +127,52 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 void genIfStatement(ast.IfStatement statement, Module mod)
 {
     LLVMBasicBlockRef ifBB, elseBB;
+    auto parent = mod.currentFunction.cfgTail;
+    auto ifblock = new BasicBlock();
+    auto ifout = new BasicBlock();
+    parent.children ~= ifblock;
     
     mod.pushScope();
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
     auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
     
-    auto parent = mod.currentFunction.cfgTail;
-    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
+    mod.currentFunction.cfgTail = ifblock;
     genThenStatement(statement.thenStatement, mod);
     
     if (!mod.currentFunction.cfgTail.isExitBlock) {
         LLVMBuildBr(mod.builder, endifBB);
     }
-    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
     mod.popScope();
     
     LLVMPositionBuilderAtEnd(mod.builder, elseBB);
     if (statement.elseStatement !is null) {
         mod.pushScope();
         
+        auto elseblock = new BasicBlock();
+        parent.children ~= elseblock;
+                
+        mod.currentFunction.cfgTail = elseblock;
         genElseStatement(statement.elseStatement, mod);
         if (!mod.currentFunction.cfgTail.isExitBlock) {
             LLVMBuildBr(mod.builder, endifBB);
         }
-        mod.currentFunction.cfgTail = mod.currentFunction.cfgTail.createSuccessorBlock();
+        if (elseblock.children.length == 0) {
+            elseblock.children ~= ifout;
+            ifblock.children ~= ifout;
+            mod.currentFunction.cfgTail = ifout;
+        } else {
+            ifblock.children ~= mod.currentFunction.cfgTail;
+        }
         mod.popScope();
     } else {
+        parent.children ~= ifout;
+        mod.currentFunction.cfgTail = ifout;
         LLVMBuildBr(mod.builder, endifBB);
     }
+    
+    
     LLVMPositionBuilderAtEnd(mod.builder, endifBB);
-    mod.currentFunction.cfgTail.llvmBasicBlock = endifBB;
 }
 
 void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
@@ -196,6 +207,14 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "looptop");
     auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopbody");
     auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopend");
+    
+    auto parent  = mod.currentFunction.cfgTail;
+    auto looptop = new BasicBlock();
+    auto loopout = new BasicBlock();
+    parent.children ~= looptop;
+    parent.children ~= loopout;
+    looptop.children ~= loopout;
+    looptop.children ~= looptop;
 
     LLVMBuildBr(mod.builder, looptopBB);
     mod.pushScope();
@@ -204,12 +223,11 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
     LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
     
-    auto parent = mod.currentFunction.cfgTail;
-    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
+    mod.currentFunction.cfgTail = looptop;
     genScopeStatement(statement.statement, mod);
     
     LLVMBuildBr(mod.builder, looptopBB);
-    mod.currentFunction.cfgTail = parent.createSuccessorBlock();
+    mod.currentFunction.cfgTail = loopout;
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
 }

@@ -178,8 +178,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     }
     
     genBlockStatement(functionBody.statement, mod);
-    
-    if (!mod.currentFunction.cfgTail.isExitBlock) {
+    if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
@@ -191,6 +190,8 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
                 )
             );
         }
+    } else if (!mod.currentFunction.cfgTail.isExitBlock) {
+        LLVMBuildRet(mod.builder, LLVMGetUndef(functionType.returnType.llvmType));
     }
     
     mod.currentFunction = null;
