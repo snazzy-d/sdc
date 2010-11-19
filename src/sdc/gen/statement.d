@@ -225,8 +225,10 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = looptop;
     genScopeStatement(statement.statement, mod);
-    
-    LLVMBuildBr(mod.builder, looptopBB);
+    if (!mod.currentFunction.cfgTail.isExitBlock) {
+        LLVMBuildBr(mod.builder, looptopBB);
+    }
+            
     mod.currentFunction.cfgTail = loopout;
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
