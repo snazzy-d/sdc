@@ -93,7 +93,7 @@ void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
 
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
-    if (mod.currentFunction.cfgTail.isExitBlock) {
+    if (!mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
         throw new CompilerError(statement.location, "statement is unreachable.");
     }
     switch (statement.type) {
