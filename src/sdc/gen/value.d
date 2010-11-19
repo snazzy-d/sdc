@@ -41,7 +41,7 @@ abstract class Value
         mGlobal = mod.currentScope is mod.globalScope;
     }
     
-    bool isKnown;
+    bool isKnown = false;
     union
     {
         bool knownBool;
