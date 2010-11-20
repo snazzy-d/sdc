@@ -31,6 +31,9 @@ Declaration parseDeclaration(TokenStream tstream)
         }
         declaration.type = DeclarationType.Alias;
         declaration.node = parseDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Mixin) {
+        declaration.type = DeclarationType.Mixin;
+        declaration.node = parseMixinDeclaration(tstream);
     } else if (isVariableDeclaration(tstream)) {
         declaration.type = DeclarationType.Variable;
         declaration.node = parseVariableDeclaration(tstream);
@@ -42,6 +45,17 @@ Declaration parseDeclaration(TokenStream tstream)
     return declaration;
 }
 
+MixinDeclaration parseMixinDeclaration(TokenStream tstream)
+{
+    auto decl = new MixinDeclaration();
+    decl.location = tstream.peek.location;
+    match(tstream, TokenType.Mixin);
+    match(tstream, TokenType.OpenParen);   
+    decl.expression = parseAssignExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    match(tstream, TokenType.Semicolon); 
+    return decl;
+}
 
 /**
  * Non destructively determines if the next declaration

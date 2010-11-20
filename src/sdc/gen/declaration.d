@@ -11,6 +11,8 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.lexer;
+import sdc.source;
 import sdc.util;
 import sdc.extract.base;
 import ast = sdc.ast.all;
@@ -20,6 +22,7 @@ import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.statement;
 import sdc.gen.expression;
+import sdc.parser.declaration;
 
 
 bool canGenDeclaration(ast.Declaration decl, Module mod)
@@ -34,6 +37,11 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
         break;
     case ast.DeclarationType.Alias:
         b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
+        break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        genMixinDeclaration(asMixin, mod);
+        b = canGenDeclaration(asMixin.declarationCache, mod);
         break;
     }
     return b;
@@ -70,6 +78,11 @@ void declareDeclaration(ast.Declaration decl, Module mod)
         declareDeclaration(cast(ast.Declaration) decl.node, mod);
         mod.isAlias = false;
         break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        genMixinDeclaration(asMixin, mod);
+        declareDeclaration(asMixin.declarationCache, mod);
+        break;
     }
 }
 
@@ -93,6 +106,21 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     mod.currentScope.add(name, store);
 }
 
+void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
+{
+    if (decl.declarationCache !is null) {
+        return;
+    }
+    auto val = genAssignExpression(decl.expression, mod);
+    if (!val.isKnown || !isString(val.type)) {
+        throw new CompilerError(decl.location, "a mixin expression must be a string known at compile time.");
+    }
+    auto source = new Source(val.knownString, val.location);
+    auto tstream = lex(source);
+    tstream.getToken();  // Skip BEGIN
+    decl.declarationCache = parseDeclaration(tstream);
+}
+
 void genDeclaration(ast.Declaration decl, Module mod)
 {
     final switch (decl.type) {
@@ -103,6 +131,11 @@ void genDeclaration(ast.Declaration decl, Module mod)
         genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Alias:
+        break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        assert(asMixin.declarationCache);
+        genDeclaration(asMixin.declarationCache, mod);
         break;
     }
 }

@@ -16,12 +16,19 @@ enum DeclarationType
     Variable,
     Function,
     Alias,
+    Mixin,
 }
 
 class Declaration : Node
 {
     DeclarationType type;
     Node node;
+}
+
+class MixinDeclaration : Node
+{
+    AssignExpression expression;
+    Declaration declarationCache;
 }
 
 class VariableDeclaration : Node
