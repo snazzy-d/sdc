@@ -30,7 +30,18 @@ class Source
         location.line = 1;
         location.column = 1;
     }
+    
     this() {}
+    
+    this(string s, Location location)
+    {
+        source = s;
+        std.utf.validate(source);
+        
+        get();
+        
+        location = location;
+    }
     
 
     dchar get()

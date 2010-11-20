@@ -9,11 +9,14 @@ module sdc.gen.expression;
 import std.conv;
 import std.exception;
 import std.string;
+import std.stdio;
 
 import llvm.c.Core;
 
 import sdc.global;
+import sdc.source;
 import sdc.util;
+import sdc.lexer;
 import sdc.location;
 import sdc.compilererror;
 import sdc.extract.base;
@@ -21,6 +24,7 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
+import sdc.parser.expression;
 
 
 Value genExpression(ast.Expression expression, Module mod)
@@ -390,8 +394,18 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     case ast.PrimaryType.BasicTypeDotIdentifier:
         auto v = primitiveTypeToBackendType(cast(ast.PrimitiveType) expression.node, mod).getValue(mod, expression.location);
         return v.getMember(expression.location, extractIdentifier(cast(ast.Identifier) expression.secondNode));
+    case ast.PrimaryType.MixinExpression:
+       auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
+       if (!v.isKnown || !isString(v.type)) {
+           throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
+       }
+       auto source = new Source(v.knownString, expression.location);
+       auto tstream = lex(source);
+       tstream.getToken();  // Skip BEGIN 
+       auto expr = parseAssignExpression(tstream);
+       return genAssignExpression(expr, mod);
     default:
-    
+     
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
     }
 }

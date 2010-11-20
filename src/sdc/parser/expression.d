@@ -548,6 +548,12 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         primaryExpr.node = parseExpression(tstream);
         match(tstream, TokenType.CloseParen);
+    case TokenType.Mixin:
+        primaryExpr.type = PrimaryType.MixinExpression;
+        match(tstream, TokenType.Mixin);
+        match(tstream, TokenType.OpenParen);
+        primaryExpr.node = parseAssignExpression(tstream);
+        match(tstream, TokenType.CloseParen);
         break;
     default:
         if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
