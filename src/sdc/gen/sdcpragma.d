@@ -34,6 +34,19 @@ void genPragma(ast.Pragma thePragma, Module mod)
         }
         writeln();
         break;
+    case "SDC_is_known_at_compile_time":
+        if (thePragma.argumentList is null || thePragma.argumentList.expressions.length == 0) {
+            throw new CompilerError(thePragma.location, "pragma 'SDC_const' requires at least one argument.");
+        }
+        foreach (assignExpression; thePragma.argumentList.expressions) {
+            auto val = genAssignExpression(assignExpression, mod);
+            if (!val.isKnown) {
+                writefln("SDC_const: value not known at compile time.");
+            } else {
+                writefln("SDC_const: value is known at compile time.");
+            }
+        }
+        break;
     default:
         throw new CompilerError(thePragma.identifier.location, format("unrecognised pragma identifier '%s'.", thePragma.identifier.value));
     }
