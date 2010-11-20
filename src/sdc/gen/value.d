@@ -324,13 +324,14 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value add(Location location, Value val)
     {
-        this.isKnown = this.isKnown && val.isKnown;
-        if (this.isKnown) {
-            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
-        }
+
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
         v.set(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " + val." ~ C ~ ");");
+        }
         return v;
     }
     
@@ -352,34 +353,30 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value sub(Location location, Value val)
     {
-        this.isKnown = this.isKnown && val.isKnown;
-        if (this.isKnown) {
-            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " - val." ~ C ~ ");");
-        }
         auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
         v.set(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " - val." ~ C ~ ");");
+        }
         return v;
     }
     
     override Value mul(Location location, Value val)
     {
-        this.isKnown = this.isKnown && val.isKnown;
-        if (this.isKnown) {
-            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " * val." ~ C ~ ");");
-        }
         auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
         v.set(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " * val." ~ C ~ ");");
+        }
         return v;
     }
     
     override Value div(Location location, Value val)
     {
-        this.isKnown = this.isKnown && val.isKnown;
-        if (this.isKnown) {
-            mixin(C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
-        }
         static if (SIGNED) {
             auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
         } else {
@@ -387,6 +384,10 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         }
         auto v = new typeof(this)(mModule, location);
         v.set(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
+        }
         return v;
     }
     
