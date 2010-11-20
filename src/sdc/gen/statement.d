@@ -12,6 +12,8 @@ import llvm.c.Core;
 
 import sdc.tokenstream;
 import sdc.compilererror;
+import sdc.source;
+import sdc.lexer;
 import sdc.util;
 import sdc.global;
 import ast = sdc.ast.all;
@@ -25,6 +27,7 @@ import sdc.gen.type;
 import sdc.gen.sdcpragma;
 import sdc.parser.declaration;
 import sdc.parser.expression;
+import sdc.parser.statement;
 import sdc.extract.base;
 
 
@@ -121,7 +124,23 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.PragmaStatement:
         genPragmaStatement(cast(ast.PragmaStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.MixinStatement:
+        genMixinStatement(cast(ast.MixinStatement) statement.node, mod);
+        break;
     }
+}
+
+void genMixinStatement(ast.MixinStatement statement, Module mod)
+{
+    auto val = genAssignExpression(statement.expression, mod);
+    if (!val.isKnown || !isString(val.type)) {
+        throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
+    }
+    auto source = new Source(val.knownString, val.location);
+    auto tstream = lex(source);
+    tstream.getToken();  // Skip BEGIN
+    auto mixinState = parseStatement(tstream);
+    genStatement(mixinState, mod);
 }
 
 void genIfStatement(ast.IfStatement statement, Module mod)

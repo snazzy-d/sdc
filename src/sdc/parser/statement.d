@@ -72,6 +72,9 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Pragma) {
         statement.type = NonEmptyStatementType.PragmaStatement;
         statement.node = parsePragmaStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Mixin) {
+        statement.type = NonEmptyStatementType.MixinStatement;
+        statement.node = parseMixinStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -265,5 +268,18 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
     
     statement.thePragma = parsePragma(tstream);
     statement.statement = parseNoScopeStatement(tstream);
+    return statement;
+}
+
+MixinStatement parseMixinStatement(TokenStream tstream)
+{
+    auto statement = new MixinStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Mixin);
+    match(tstream, TokenType.OpenParen);
+    statement.expression = parseAssignExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    match(tstream, TokenType.Semicolon);
     return statement;
 }

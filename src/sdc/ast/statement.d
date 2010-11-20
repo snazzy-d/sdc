@@ -384,4 +384,9 @@ class PragmaStatement : Node
     NoScopeStatement statement;
 }
 
-// TODO: asm mixin foreachrange 
+class MixinStatement : Node
+{
+    AssignExpression expression;
+}
+
+// TODO: asm foreachrange 
