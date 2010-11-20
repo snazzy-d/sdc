@@ -399,7 +399,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         if (!v.isKnown || !isString(v.type)) {
             throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
         }
-        auto source = new Source(v.knownString, expression.location);
+        auto source = new Source(v.knownString, v.location);
         auto tstream = lex(source);
         tstream.getToken();  // Skip BEGIN 
         auto expr = parseAssignExpression(tstream);
