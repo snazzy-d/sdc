@@ -40,7 +40,7 @@ class Source
         
         get();
         
-        location = location;
+        this.location = location;
     }
     
 
