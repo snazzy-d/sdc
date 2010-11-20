@@ -139,8 +139,19 @@ void genMixinStatement(ast.MixinStatement statement, Module mod)
     auto source = new Source(val.knownString, val.location);
     auto tstream = lex(source);
     tstream.getToken();  // Skip BEGIN
-    auto mixinState = parseStatement(tstream);
-    genStatement(mixinState, mod);
+    
+    ast.Statement[] states;
+    do {
+        try {
+            states ~= parseStatement(tstream);
+        } catch (CompilerError) {
+            break;
+        }
+    } while (true);
+    
+    foreach (state; states) {
+        genStatement(state, mod);
+    }
 }
 
 void genIfStatement(ast.IfStatement statement, Module mod)
