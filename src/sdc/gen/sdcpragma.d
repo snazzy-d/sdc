@@ -41,9 +41,9 @@ void genPragma(ast.Pragma thePragma, Module mod)
         foreach (assignExpression; thePragma.argumentList.expressions) {
             auto val = genAssignExpression(assignExpression, mod);
             if (!val.isKnown) {
-                writefln("SDC_const: value not known at compile time.");
+                writefln("SDC_is_known_at_compile_time: %s: value not known at compile time.", val.location);
             } else {
-                writefln("SDC_const: value is known at compile time.");
+                writefln("SDC_is_known_at_compile_time: %s: value is known at compile time.", val.location);
             }
         }
         break;
