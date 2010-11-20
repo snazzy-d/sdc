@@ -395,15 +395,15 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         auto v = primitiveTypeToBackendType(cast(ast.PrimitiveType) expression.node, mod).getValue(mod, expression.location);
         return v.getMember(expression.location, extractIdentifier(cast(ast.Identifier) expression.secondNode));
     case ast.PrimaryType.MixinExpression:
-       auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
-       if (!v.isKnown || !isString(v.type)) {
-           throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
-       }
-       auto source = new Source(v.knownString, expression.location);
-       auto tstream = lex(source);
-       tstream.getToken();  // Skip BEGIN 
-       auto expr = parseAssignExpression(tstream);
-       return genAssignExpression(expr, mod);
+        auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
+        if (!v.isKnown || !isString(v.type)) {
+            throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
+        }
+        auto source = new Source(v.knownString, expression.location);
+        auto tstream = lex(source);
+        tstream.getToken();  // Skip BEGIN 
+        auto expr = parseAssignExpression(tstream);
+        return genAssignExpression(expr, mod);
     default:
      
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
