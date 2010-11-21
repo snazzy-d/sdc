@@ -3,6 +3,9 @@
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ *
+ * Jakob Sez: "best module, A++ would edit again :V"
+ * Bernard Sez: "Hey! This is the _refactored_ version!"
  */
 module sdc.parser.declaration;
 
