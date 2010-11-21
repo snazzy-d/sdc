@@ -23,6 +23,7 @@ import sdc.gen.type;
 import sdc.gen.aggregate;
 import sdc.gen.attribute;
 import sdc.gen.enumeration;
+import sdc.gen.sdctemplate;
 
 
 bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
@@ -38,6 +39,8 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
+    case ast.DeclarationDefinitionType.TemplateDeclaration:
+        return true;  // TMP
     default:
         return false;
     }
@@ -252,6 +255,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.EnumDeclaration:
         genEnumDeclaration(cast(ast.EnumDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
+    case ast.DeclarationDefinitionType.TemplateDeclaration:
+        genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
         break;
     default:

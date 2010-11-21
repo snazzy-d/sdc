@@ -16,3 +16,8 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
 {
     return null;
 }
+
+void genTemplateDeclaration(ast.TemplateDeclaration decl, Module mod)
+{
+    mod.currentScope.add(extractIdentifier(decl.templateIdentifier), new Store(decl));
+}

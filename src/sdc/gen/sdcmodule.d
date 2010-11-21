@@ -346,6 +346,7 @@ enum StoreType
     Value,
     Type,
     Scope,
+    Template,
 }
 
 class Store
@@ -369,6 +370,12 @@ class Store
     {
         storeType = StoreType.Scope;
         object = _scope;
+    }
+    
+    this(ast.TemplateDeclaration _template)
+    {
+        storeType = StoreType.Template;
+        object = _template;
     }
     
     Value value() @property
@@ -395,6 +402,14 @@ class Store
         return _scope;
     }
     
+    ast.TemplateDeclaration getTemplate() @property
+    {
+        assert(storeType == StoreType.Template);
+        auto _template = cast(ast.TemplateDeclaration) object;
+        assert(_template);
+        return _template;
+    }
+    
     Store importToModule(Module mod)
     {
         Store store;
@@ -405,6 +420,8 @@ class Store
             return new Store(type.importToModule(mod));
         case Scope:
             return new Store(getScope());
+        case Template:
+            return this;  
         }
     }
 }
