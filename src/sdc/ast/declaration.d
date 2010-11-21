@@ -165,7 +165,13 @@ class PrimitiveType : Node
 
 class UserDefinedType : Node
 {
-    QualifiedName qualifiedName;
+    IdentifierOrTemplateInstance[] segments;
+}
+
+class IdentifierOrTemplateInstance : Node
+{
+    bool isIdentifier;
+    Node node;
 }
 
 enum TypeofTypeType

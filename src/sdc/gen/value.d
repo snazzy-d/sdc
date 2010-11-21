@@ -1276,9 +1276,13 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
 
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
 {
-    auto name = extractQualifiedName(type.qualifiedName);
+    auto name = "temporarilyUselessName (sorry Jakob!)";
     Scope baseScope;
-    foreach (identifier; type.qualifiedName.identifiers) {
+    foreach (thing; type.segments) {
+        if (!thing.isIdentifier) {
+            throw new CompilerPanic(type.location, "template instance!");
+        }
+        auto identifier = cast(ast.Identifier) thing.node;
         Store store;
         if (baseScope !is null) {
             store = baseScope.get(extractIdentifier(identifier));

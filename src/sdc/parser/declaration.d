@@ -20,6 +20,7 @@ import sdc.ast.declaration;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
+import sdc.parser.sdctemplate;
 
 
 Declaration parseDeclaration(TokenStream tstream)
@@ -410,8 +411,27 @@ UserDefinedType parseUserDefinedType(TokenStream tstream)
 {
     auto type = new UserDefinedType();
     type.location = tstream.peek.location;
-    type.qualifiedName = parseQualifiedName(tstream, true);
+    
+    type.segments ~= parseIdentifierOrTemplateInstance(tstream);
+    while (tstream.peek.type == TokenType.Dot) {
+        match(tstream, TokenType.Dot);
+        type.segments ~= parseIdentifierOrTemplateInstance(tstream);        
+    }
     return type;
+}
+
+IdentifierOrTemplateInstance parseIdentifierOrTemplateInstance(TokenStream tstream)
+{
+    auto node = new IdentifierOrTemplateInstance();
+    node.location = tstream.peek.location;
+    if (tstream.lookahead(1).type == TokenType.Bang) {
+        node.isIdentifier = false;
+        node.node = parseTemplateInstance(tstream);
+    } else {
+        node.isIdentifier = true;
+        node.node = parseIdentifier(tstream);
+    }
+    return node;
 }
 
 TypeofType parseTypeofType(TokenStream tstream)
