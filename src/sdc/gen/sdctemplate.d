@@ -29,22 +29,25 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         return tdecl.value;
     }
     
-    string parameterName;
+    string[] parameterNames;
     foreach (parameter; tdecl.parameterList.parameters) {
         if (parameter.type != ast.TemplateParameterType.Type) {
             throw new CompilerPanic(parameter.location, "only simple type template parameters are supported.");
         }
         auto asType = cast(ast.TemplateTypeParameter) parameter.node;
-        parameterName = extractIdentifier(asType.identifier);
+        parameterNames ~= extractIdentifier(asType.identifier);
     }
     
     mod.pushScope();
     if (instance.argument !is null) {
         // Foo!argument
+        if (parameterNames.length != 1) {
+            throw new CompilerError(instance.location, format("template instantiated with 1 parameter, when it has %s required parameters.", parameterNames.length)); 
+        }
         final switch (instance.argument.type) with (ast.TemplateSingleArgumentType) { 
         case BasicType:
             auto type = primitiveTypeToBackendType(enforce(cast(ast.PrimitiveType) instance.argument.node), mod);
-            mod.currentScope.add(parameterName, new Store(type));
+            mod.currentScope.add(parameterNames[0], new Store(type));
             break;
         case Identifier:
         case CharacterLiteral:
@@ -60,7 +63,18 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         }
     } else {
         // Foo!(arguments)
-        throw new CompilerPanic(instance.location, "template arguments with multiple types are unsupported.");
+        if (parameterNames.length != instance.arguments.length) {
+            throw new CompilerError(instance.location, format("template instantiated with %s parameter, when it has %s required parameters.", instance.arguments.length, parameterNames.length)); 
+        }
+        foreach (i, argument; instance.arguments) final switch (argument.type) with (ast.TemplateArgumentType) {
+        case Type:
+            auto type = astTypeToBackendType(cast(ast.Type) argument.node, mod, OnFailure.DieWithError);
+            mod.currentScope.add(parameterNames[i], new Store(type));
+            break;
+        case AssignExpression:
+        case Symbol:
+            throw new CompilerPanic(argument.location, "unsupported template argument type.");
+        }
     }
     
     auto theScope = mod.currentScope;
