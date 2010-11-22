@@ -23,6 +23,7 @@ import sdc.extract.base;
 import sdc.gen.cfg;
 import sdc.gen.expression;
 import sdc.gen.sdcmodule;
+import sdc.gen.sdctemplate;
 import sdc.gen.type;
 import ast = sdc.ast.all;
 
@@ -1144,11 +1145,15 @@ class ScopeValue : Value
     {
         super(mod, location);
         this._scope = _scope;
+        mType = new ScopeType(mod);
     }
     
     override Value getMember(Location location, string name)
     {
         auto store = _scope.get(name);
+        if (store is null) {
+            throw new CompilerError(location, format("no member called '%s' in scope.", name)); 
+        }
         if (store.storeType == StoreType.Scope) {
             return new ScopeValue(mModule, location, store.getScope());
         }
@@ -1280,7 +1285,7 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
     Scope baseScope;
     foreach (thing; type.segments) {
         if (!thing.isIdentifier) {
-            throw new CompilerPanic(type.location, "template instance!");
+            genTemplateInstance(cast(ast.TemplateInstance) thing.node, mod);
         }
         auto identifier = cast(ast.Identifier) thing.node;
         Store store;

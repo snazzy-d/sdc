@@ -47,6 +47,7 @@ enum DType
     Function,
     Struct,
     Inferred,
+    Scope,
 }
 
 Type dtypeToType(DType dtype, Module mod)
@@ -93,6 +94,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Function:
     case Struct:
     case Const:
+    case Scope:
         break;
     case Inferred:
         return new InferredType(mod);
@@ -158,6 +160,22 @@ abstract class Type
     
     protected Module mModule;
     protected LLVMTypeRef mType;
+}
+
+class ScopeType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Scope;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        throw new CompilerPanic(location, "attempted to getValue a ScopeType.");
+    }
+    
+    override string name() { return "scope"; }
 }
 
 class VoidType : Type

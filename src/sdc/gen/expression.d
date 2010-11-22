@@ -22,6 +22,7 @@ import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
+import sdc.gen.sdctemplate;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.parser.expression;
@@ -404,6 +405,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         tstream.getToken();  // Skip BEGIN 
         auto expr = parseAssignExpression(tstream);
         return genAssignExpression(expr, mod);
+    case ast.PrimaryType.TemplateInstance:
+        return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     default:
      
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
