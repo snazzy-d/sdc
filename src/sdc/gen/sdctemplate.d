@@ -5,6 +5,7 @@
  */
 module sdc.gen.sdctemplate;
 
+import std.stdio;
 import std.string;
 import std.exception;
 
@@ -25,9 +26,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         throw new CompilerError(instance.identifier.location, format("'%s' is not a template.", name));
     }
     auto tdecl = store.getTemplate();
-    if (tdecl.value !is null) {
-        return tdecl.value;
-    }
+
     
     string[] parameterNames;
     foreach (parameter; tdecl.parameterList.parameters) {
@@ -38,16 +37,27 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         parameterNames ~= extractIdentifier(asType.identifier);
     }
     
+
+    if (tdecl.cacheTree is null) {
+        tdecl.cacheTree = new TemplateCacheNode();
+    }
+    
+    TemplateCacheNode node;
     mod.pushScope();
+    scope (exit) mod.popScope();
+    auto theScope = mod.currentScope;
+  
     if (instance.argument !is null) {
         // Foo!argument
         if (parameterNames.length != 1) {
             throw new CompilerError(instance.location, format("template instantiated with 1 parameter, when it has %s required parameters.", parameterNames.length)); 
         }
-        final switch (instance.argument.type) with (ast.TemplateSingleArgumentType) { 
+        node = retrieveCacheNodeFromSingleArgument(tdecl.cacheTree, instance.argument, mod);
+        
+        final switch (instance.argument.type) with (ast.TemplateSingleArgumentType) if (node.cache is null) { 
         case BasicType:
             auto type = primitiveTypeToBackendType(enforce(cast(ast.PrimitiveType) instance.argument.node), mod);
-            mod.currentScope.add(parameterNames[0], new Store(type));
+            theScope.add(parameterNames[0], new Store(type));
             break;
         case Identifier:
         case CharacterLiteral:
@@ -76,17 +86,58 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
             throw new CompilerPanic(argument.location, "unsupported template argument type.");
         }
     }
+    if (node.cache !is null) {
+        return node.cache;
+    }
     
-    auto theScope = mod.currentScope;
     foreach (declDef; tdecl.declDefs) {
+        declDef.buildStage = ast.BuildStage.Unhandled;
         genDeclarationDefinition(declDef, mod);
     }
-    mod.popScope;
-    tdecl.value = new ScopeValue(mod, instance.location, theScope);
-    return tdecl.value;
+    
+    node.cache = new ScopeValue(mod, instance.location, theScope);
+    return node.cache;
 }
+
+TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, ast.TemplateSingleArgument argument, Module mod)
+{
+    final switch (argument.type) with (ast.TemplateSingleArgumentType) { 
+    case BasicType:
+        auto type = primitiveTypeToBackendType(enforce(cast(ast.PrimitiveType) argument.node), mod);
+        foreach (child; root.children) {
+            if (child.type == type.dtype) {
+                return child;
+            }
+        }
+        auto child = new TemplateCacheNode();
+        child.type = type.dtype;
+        root.children ~= child; 
+        return child;       
+        break;
+    case Identifier:
+    case CharacterLiteral:
+    case StringLiteral:
+    case IntegerLiteral:
+    case FloatLiteral:
+    case True:
+    case False:
+    case Null:
+    case __File__:
+    case __Line__:
+        throw new CompilerPanic(argument.location, "unsupported template argument type.");
+    }
+    return null;
+} 
 
 void genTemplateDeclaration(ast.TemplateDeclaration decl, Module mod)
 {
     mod.currentScope.add(extractIdentifier(decl.templateIdentifier), new Store(decl));
+}
+
+
+class TemplateCacheNode
+{
+    DType type = DType.None;
+    TemplateCacheNode[] children;
+    ScopeValue cache = null;
 }

@@ -10,6 +10,7 @@ import sdc.ast.declaration;
 import sdc.ast.expression;
 import sdc.ast.sdcmodule;
 import sdc.gen.value;
+import sdc.gen.sdctemplate;
 
 
 /*
@@ -25,7 +26,7 @@ class TemplateDeclaration : Node
     DeclarationDefinition[] declDefs;
     
     // For codegen.
-    ScopeValue value;
+    TemplateCacheNode cacheTree;
 }
 
 // TemplateParameter (, TemplateParameter)?
