@@ -5,6 +5,7 @@
  */
 module sdc.gen.sdctemplate;
 
+import std.conv;
 import std.stdio;
 import std.string;
 import std.exception;
@@ -76,10 +77,11 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         if (parameterNames.length != instance.arguments.length) {
             throw new CompilerError(instance.location, format("template instantiated with %s parameter, when it has %s required parameters.", instance.arguments.length, parameterNames.length)); 
         }
+        node = retrieveCacheNode(tdecl.cacheTree, instance.arguments, mod);
         foreach (i, argument; instance.arguments) final switch (argument.type) with (ast.TemplateArgumentType) {
         case Type:
             auto type = astTypeToBackendType(cast(ast.Type) argument.node, mod, OnFailure.DieWithError);
-            mod.currentScope.add(parameterNames[i], new Store(type));
+            theScope.add(parameterNames[i], new Store(type));
             break;
         case AssignExpression:
         case Symbol:
@@ -127,6 +129,30 @@ TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, as
         throw new CompilerPanic(argument.location, "unsupported template argument type.");
     }
     return null;
+}
+
+TemplateCacheNode retrieveCacheNode(TemplateCacheNode root, ast.TemplateArgument[] arguments, Module mod)
+{
+    auto current = root;
+    ARGUMENTLOOP: foreach (argument; arguments) final switch (argument.type) with (ast.TemplateArgumentType) {
+    case Type:
+        auto type = astTypeToBackendType(enforce(cast(ast.Type) argument.node), mod, OnFailure.DieWithError);
+        foreach (child; current.children) {
+            if (child.type == type.dtype) {
+                current = child;
+                continue ARGUMENTLOOP;
+            }
+        }
+        auto child = new TemplateCacheNode();
+        child.type = type.dtype;
+        current.children ~= child;
+        current = child;
+        break;
+    case AssignExpression:
+    case Symbol:
+        throw new CompilerPanic(argument.location, "unsupported template argument type.");
+    }
+    return current;
 } 
 
 void genTemplateDeclaration(ast.TemplateDeclaration decl, Module mod)
