@@ -18,3 +18,4 @@ public import sdc.ast.conditional;
 public import sdc.ast.sdctemplate;
 public import sdc.ast.enumeration;
 public import sdc.ast.sdcpragma;
+public import sdc.ast.sdcclass;

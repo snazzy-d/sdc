@@ -16,3 +16,4 @@ public import sdc.parser.sdcimport;
 public import sdc.parser.conditional;
 public import sdc.parser.sdctemplate;
 public import sdc.parser.enumeration;
+public import sdc.parser.sdcclass;
