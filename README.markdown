@@ -25,7 +25,7 @@ Parser
 * Parse module declarations.  __[yes.]__
 * Parse attribute declarations.  __[yes.]__
 * Parse import declarations.  __[yes.]__
-* Parse enum declarations.  _[no.]_
+* Parse enum declarations.  _[partially.]_
 * Parse class declarations.  _[no.]_
 * Parse interface declarations.  _[no.]_
 * Parse aggregate declarations.  _[partially.]_
@@ -40,9 +40,9 @@ Parser
 * Parse shared static destructors.  _[no.]_
 * Parse conditional declarations.  __[yes.]__
 * Parse static asserts.  _[no.]_
-* Parse template declarations.  _[no.]_
+* Parse template declarations.  _[partially.]_
 * Parse template mixins.  _[no.]_
-* Parse mixin declarations.  _[no.]_
+* Parse mixin declarations.  _[partially.]_
 * Parse statements.  _[partially.]_
 
 Codegen
@@ -54,7 +54,7 @@ Codegen
 * Classes.  _[no.]_
 * Functions.  _[partially.]_
 * Local variables.  _[yes.]_
-* Global variables.  _[no.]_
+* Global variables.  _[partially.]_
 * Alias declarations.  _[partially.]_
 * Expressions.  _[partially.]_
 * Label statement.  _[no.]_
@@ -78,11 +78,12 @@ Codegen
 * Throw statement.  _[no.]_
 * Asm statement.  _[no.]_
 * Pragma statement.  _[no.]_
-* Mixin statement.  _[no.]_
+* Mixin statement.  _[yes.]_
 * Foreach range statement.  _[no.]_
 * Conditional statement.  __[yes.]__
 * Static assert.  _[no.]_
 * Template mixin.  _[no.]_
+* Templated scope. _[partially.]_
 
 
 What Can It Compile?
