@@ -38,3 +38,11 @@ unittest
     assert(!fail);
     assert(success);
 }
+
+template MultiMixin(alias A, T...)
+{
+    static if (T.length) {
+        mixin A!(T[0]);
+        mixin MultiMixin!(A, T[1 .. $]);
+    }
+}

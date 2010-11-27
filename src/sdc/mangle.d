@@ -151,6 +151,12 @@ void mangleType(ref string mangledName, Type type)
         assert(asStruct);
         mangleQualifiedName(mangledName, asStruct.fullName);
         break;
+    case Class:
+        mangledName ~= "C";
+        auto asClass = cast(ClassType) type;
+        assert(asClass);
+        mangleQualifiedName(mangledName, asClass.fullName);
+        break;
     case Const:
         mangledName ~= "x";
         break;

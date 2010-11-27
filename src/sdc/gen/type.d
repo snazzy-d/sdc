@@ -46,6 +46,7 @@ enum DType
     Complex,
     Function,
     Struct,
+    Class,
     Inferred,
     Scope,
 }
@@ -93,6 +94,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Complex:
     case Function:
     case Struct:
+    case Class:
     case Const:
     case Scope:
         break;
@@ -504,6 +506,28 @@ class ConstType : Type
     }
     
     override string name() { return "const(" ~ base.name() ~ ")"; }
+}
+
+class ClassType : Type
+{
+    ast.QualifiedName fullName;
+    
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Class;
+        mType = LLVMInt32TypeInContext(mod.context);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ClassValue(mod, location);
+    }
+    
+    override string name()
+    {
+        return extractQualifiedName(fullName);
+    }
 }
 
 class NullPointerType : PointerType

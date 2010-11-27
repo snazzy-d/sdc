@@ -812,6 +812,83 @@ class PointerValue : Value
     }
 }
 
+mixin template ReferenceImplementation(alias SIGNATURE, alias CALL)
+{
+    mixin("override Value " ~ SIGNATURE ~ "{ return pointerToBase.dereference(loc)." ~ CALL ~ "; }");
+}
+
+mixin template BinaryReferenceImplementation(alias NAME)
+{
+    mixin ReferenceImplementation!(NAME ~ "(Location loc, Value val)", NAME ~ "(loc, val)");
+}
+
+mixin template UnaryReferenceImplementation(alias NAME)
+{
+    mixin ReferenceImplementation!(NAME ~ "(Location loc)", NAME ~ "(loc)");
+}
+
+class ReferenceValue : Value
+{
+    Value base;
+    PointerValue pointerToBase;
+    
+    this(Module mod, Location location, Value base)
+    {
+        super(mod, location);
+        this.base = base;
+        mType = base.type;
+        mValue = base.mValue;
+        pointerToBase = new PointerValue(mod, location, base.type);
+        setReferencePointer(location, base.mValue);
+    }
+    
+    void setReferencePointer(Location loc, LLVMValueRef val)
+    {
+        pointerToBase.set(loc, val);
+    }
+    
+    override void set(Location loc, Value val)
+    {
+        setPreCallbacks();
+        pointerToBase.dereference(loc).set(loc, val);
+        setPostCallbacks();
+    }
+    
+    override void set(Location loc, LLVMValueRef val)
+    {
+        setPreCallbacks();
+        pointerToBase.dereference(loc).set(loc, val);
+        setPostCallbacks();
+    }
+    
+    mixin MultiMixin!(UnaryReferenceImplementation, "inc", "dec", "dereference", 
+                      "getSizeof", "init");
+    mixin MultiMixin!(BinaryReferenceImplementation, "add", "sub", "mul", "div", 
+                      "eq", "neq", "gt", "lt", "lte", "index");
+    
+    override Value getMember(Location loc, string name)
+    {
+        return pointerToBase.dereference(loc).getMember(loc, name);
+    }    
+    
+    override Value importToModule(Module mod)
+    {
+        return new ReferenceValue(mod, location, base.importToModule(mod));
+    }
+}
+
+class ClassValue : ReferenceValue
+{
+    StructValue structValue;
+    
+    this(Module mod, Location location)
+    {
+        auto t = new StructType(mod);
+        structValue = new StructValue(mod, location, t);
+        super(mod, location, structValue);
+    }
+}
+
 class ConstValue : Value
 {
     Value base;

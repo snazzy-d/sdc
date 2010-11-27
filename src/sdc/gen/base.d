@@ -17,6 +17,7 @@ import ast = sdc.ast.all;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
+import sdc.gen.sdcclass;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.type;
@@ -40,7 +41,9 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
     case ast.DeclarationDefinitionType.TemplateDeclaration:
-        return true;  // TMP
+        return true;  // TODO
+    case ast.DeclarationDefinitionType.ClassDeclaration:
+        return true;  // TODO
     default:
         return false;
     }
@@ -241,6 +244,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         } else {
             declDef.buildStage = ast.BuildStage.Deferred;
         }
+        break;
+    case ast.DeclarationDefinitionType.ClassDeclaration:
+        genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
