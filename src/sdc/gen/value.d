@@ -9,6 +9,7 @@ module sdc.gen.value;
 import std.algorithm;
 import std.conv;
 import std.exception;
+import std.stdio;
 import std.string;
 
 import llvm.c.Core;
@@ -883,7 +884,11 @@ class ClassValue : ReferenceValue
     
     this(Module mod, Location location)
     {
+        auto c = new ClassType(mod);
+        c.declare();
+        mType = c;
         auto t = new StructType(mod);
+        t.declare();
         structValue = new StructValue(mod, location, t);
         super(mod, location, structValue);
     }

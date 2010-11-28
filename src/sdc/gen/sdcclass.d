@@ -5,6 +5,8 @@
  */
 module sdc.gen.sdcclass;
 
+import std.stdio;
+
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -13,5 +15,6 @@ import sdc.gen.type;
 void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
 {
     auto ctype = new ClassType(mod);
+    ctype.declare();
     mod.currentScope.add("tea", new Store(ctype));
 }

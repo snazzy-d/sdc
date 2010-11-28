@@ -516,9 +516,16 @@ class ClassType : Type
     {
         super(mod);
         dtype = DType.Class;
-        mType = LLVMInt32TypeInContext(mod.context);
     }
     
+    void declare()
+    {
+        auto s = new StructType(mModule);
+        s.declare();
+        auto p = new PointerType(mModule, s);
+        mType = p.mType;
+    }  
+
     override Value getValue(Module mod, Location location)
     {
         return new ClassValue(mod, location);
