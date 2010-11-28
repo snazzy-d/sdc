@@ -295,6 +295,15 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     
     final switch (expression.type) {
     case ast.PostfixType.None:
+        if (lhs.type.dtype == DType.Function) {
+            if (mod.callingAggregate !is null) {
+                auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
+                p.set(expression.location, mod.callingAggregate.addressOf());
+                lhs = lhs.call(expression.location, null, [p]);
+            } else {
+                lhs = lhs.call(expression.location, null, null);
+            }
+        }
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
