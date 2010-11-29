@@ -47,15 +47,19 @@ class Source
     
     void checkBOM()
     {
-        if (source[0 .. 2] == [0xFE, 0xFF] ||
-            source[0 .. 2] == [0xFF, 0xFE] ||
-            source[0 .. 4] == [0x00, 0x00, 0xFE, 0xFF] ||
-            source[0 .. 4] == [0xFF, 0xFE, 0x00, 0x00]) {
+        if (source.length >= 2 && source[0 .. 2] == [0xFE, 0xFF] ||
+            source.length >= 2 && source[0 .. 2] == [0xFF, 0xFE] ||
+            source.length >= 4 && source[0 .. 4] == [0x00, 0x00, 0xFE, 0xFF] ||
+            source.length >= 4 && source[0 .. 4] == [0xFF, 0xFE, 0x00, 0x00]) {
             
             throw new CompilerPanic("only UTF-8 input is supported.");
         }
         if (source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
-            source = source[3 .. $];
+            if (source.length > 3) {
+                source = source[3 .. $];
+            } else {
+                source = "";
+            }
         }
     }
 
