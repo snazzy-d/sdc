@@ -183,6 +183,7 @@ enum UnaryPrefix
     LogicalNot,  // !
     BitwiseNot,  // ~
     Cast,  // cast (type) unaryExpr
+    New,
 }
 
 class UnaryExpression : Node
@@ -197,11 +198,9 @@ class UnaryExpression : Node
 
 class NewExpression : Node
 {
-    ArgumentList newArgumentList;  // new ( * )
     Type type;  // new *
     AssignExpression assignExpression;  // new blah[*]
     ArgumentList argumentList;  // new blah(*)
-    // TODO TODO TODO 
 }
 
 // delete UnaryExpression

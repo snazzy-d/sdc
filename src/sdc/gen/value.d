@@ -890,6 +890,8 @@ class ClassValue : ReferenceValue
         auto t = new StructType(mod);
         t.declare();
         structValue = new StructValue(mod, location, t);
+        //auto p = gcAlloc.call(location, [location], [structValue.getSizeof(location)]).performCast(location, c);
+        //setReferencePointer(location, p.get());
         super(mod, location, structValue);
     }
 }

@@ -274,6 +274,9 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.unaryExpression, mod);
         val = val.dereference(expression.location);
         break;
+    case ast.UnaryPrefix.New:
+        val = genNewExpression(expression.newExpression, mod);
+        break;
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:
         throw new CompilerPanic(expression.location, "unimplemented unary expression.");
@@ -282,6 +285,14 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     }
     return val;
+}
+
+Value genNewExpression(ast.NewExpression expression, Module mod)
+{
+    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);
+    auto loc  = expression.location;
+    auto size = type.getValue(mod, loc).getSizeof(loc);
+    return gcAlloc.call(expression.location, [loc], [size]).performCast(loc, new PointerType(mod, type));
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
@@ -417,7 +428,6 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     case ast.PrimaryType.TemplateInstance:
         return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     default:
-     
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
     }
 }
