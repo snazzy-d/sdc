@@ -9,6 +9,7 @@ import std.file;
 import std.utf;
 import std.string;
 
+import sdc.compilererror;
 import sdc.location;
 
 alias size_t Mark;
@@ -22,6 +23,7 @@ class Source
     this(string filename)
     {
         source = cast(string) std.file.read(filename);
+        checkBOM();
         std.utf.validate(source);
         
         get();
@@ -43,6 +45,19 @@ class Source
         this.location = location;
     }
     
+    void checkBOM()
+    {
+        if (source[0 .. 2] == [0xFE, 0xFF] ||
+            source[0 .. 2] == [0xFF, 0xFE] ||
+            source[0 .. 4] == [0x00, 0x00, 0xFE, 0xFF] ||
+            source[0 .. 4] == [0xFF, 0xFE, 0x00, 0x00]) {
+            
+            throw new CompilerPanic("only UTF-8 input is supported.");
+        }
+        if (source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
+            source = source[3 .. $];
+        }
+    }
 
     dchar get()
     {
