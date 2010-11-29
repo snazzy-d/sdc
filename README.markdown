@@ -26,7 +26,7 @@ Parser
 * Parse attribute declarations.  __[yes.]__
 * Parse import declarations.  __[yes.]__
 * Parse enum declarations.  _[partially.]_
-* Parse class declarations.  _[no.]_
+* Parse class declarations.  _[partially.]_
 * Parse interface declarations.  _[no.]_
 * Parse aggregate declarations.  _[partially.]_
 * Parse declarations.  _[partially.]_
