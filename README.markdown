@@ -15,7 +15,7 @@ This list is incomplete. SDC is in a state of flux, and this is likely to be out
 Lexer
 -----
 * Scan and handle multiple incoding formats.  _[no -- all code is treated as UTF-8.]_
-* Handle BOMs. __[yes.__ -- _anything but UTF-8 is rejected_]__
+* Handle BOMs. __[yes.__ -- _anything but UTF-8 is rejected._ __]__
 * Handle leading script lines.  _[no.]_
 * Split source into tokens.  __[yes.]__
 * Replace special tokens.  __[yes.]__
