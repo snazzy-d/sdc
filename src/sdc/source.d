@@ -54,12 +54,8 @@ class Source
             
             throw new CompilerPanic("only UTF-8 input is supported.");
         }
-        if (source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
-            if (source.length > 3) {
-                source = source[3 .. $];
-            } else {
-                source = "";
-            }
+        if (source.length >= 3 && source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
+            source = source[3 .. $];
         }
     }
 
