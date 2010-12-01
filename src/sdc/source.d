@@ -24,9 +24,9 @@ class Source
     {
         source = cast(string) std.file.read(filename);
         checkBOM();
-        std.utf.validate(source);
-        
+        std.utf.validate(source);        
         get();
+        skipScriptLine();
         
         location.filename = filename;
         location.line = 1;
@@ -56,6 +56,13 @@ class Source
         }
         if (source.length >= 3 && source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
             source = source[3 .. $];
+        }
+    }
+    
+    void skipScriptLine()
+    {
+        bool lookEOF = false; 
+        if (peek == '#' && lookahead(1, lookEOF) == '!') while (get() != '\n' && !eof) {
         }
     }
 
