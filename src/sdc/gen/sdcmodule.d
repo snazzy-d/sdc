@@ -379,23 +379,6 @@ class Scope
 {
     void add(string name, Store store)
     {
-        if (auto prev = name in mSymbolTable) {
-            if (prev.storeType == StoreType.Value) {
-                throw new CompilerError(
-                    store.value.location,
-                    format(`declaration "%s" is already defined.`, name),
-                    new CompilerError(
-                        prev.value.location,
-                        "previous declaration:"
-                    )
-                );
-            }
-        }
-        rawAdd(name, store);
-    }
-    
-    void rawAdd(string name, Store store)
-    {
         mSymbolTable[name] = store;
     }
     
