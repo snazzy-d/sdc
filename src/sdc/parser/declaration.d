@@ -127,9 +127,11 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     auto declarator = new Declarator();
     declarator.location = tstream.peek.location;
     declarator.name = parseIdentifier(tstream);
+    
     auto suffixes = parseTypeSuffixes(tstream, Placed.Insanely);
     if (tstream.peek.type == TokenType.Assign) {
         declarator.initialiser = parseInitialiser(tstream);
+        declarator.location = declarator.initialiser.location - declarator.location;
     }
     declaration.declarators ~= declarator;
     if (suffixes.length > 0 && tstream.peek.type != TokenType.Semicolon) {
@@ -153,6 +155,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
             declarator.name = parseIdentifier(tstream);
             if (tstream.peek.type == TokenType.Assign) {
                 declarator.initialiser = parseInitialiser(tstream);
+                declarator.location = declarator.initialiser.location - declarator.location;
             }
             declaration.declarators ~= declarator;
         }
@@ -536,6 +539,9 @@ Initialiser parseInitialiser(TokenStream tstream)
         break;
     }
     
+    // Hey! If you see this quick fix, feel free to spend some time
+    // thinking whether it's a sufficiently good one or not :)
+    initialiser.location = tstream.lookbehind(1).location - initialiser.location;
     return initialiser;
 }
 
