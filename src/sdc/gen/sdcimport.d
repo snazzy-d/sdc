@@ -81,11 +81,22 @@ private string searchImport(string impPath)
 {
     if (file.exists(impPath) && file.isfile(impPath)) {
         return impPath;
-    }
+    } else {
+		auto impInterfacePath = impPath ~ 'i';
+		if (file.exists(impInterfacePath) && file.isfile(impInterfacePath)) {
+			return impInterfacePath;
+		}
+	}
     
     foreach (importPath; importPaths) {
         auto fullPath = importPath ~ path.sep ~ impPath;
-        if (file.exists(impPath) && file.isfile(impPath)) {
+        if (file.exists(fullPath) && file.isfile(fullPath)) {
+            return fullPath;
+        }
+        
+        fullPath ~= 'i';
+        
+        if (file.exists(fullPath) && file.isfile(fullPath)) {
             return fullPath;
         }
     }
