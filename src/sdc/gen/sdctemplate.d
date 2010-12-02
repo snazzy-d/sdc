@@ -114,8 +114,7 @@ TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, as
         auto child = new TemplateCacheNode();
         child.type = type.dtype;
         root.children ~= child; 
-        return child;       
-        break;
+        return child;
     case Identifier:
     case CharacterLiteral:
     case StringLiteral:
@@ -128,7 +127,6 @@ TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, as
     case __Line__:
         throw new CompilerPanic(argument.location, "unsupported template argument type.");
     }
-    return null;
 }
 
 TemplateCacheNode retrieveCacheNode(TemplateCacheNode root, ast.TemplateArgument[] arguments, Module mod)
