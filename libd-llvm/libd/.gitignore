@@ -13,6 +13,7 @@ a.out
 .classpath
 .project
 *.s
+compiler_tests/runner
 
 #DMD/Windows
 *.exe
