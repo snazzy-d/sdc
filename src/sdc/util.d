@@ -22,6 +22,9 @@ void debugPrint(lazy string msg)
     debug writeln("DEBUG: ", msg);
 }
 
+void dbga() { debugPrint("A"); }
+void dbgb() { debugPrint("B"); }
+
 enum Status : bool
 {
     Failure,
@@ -34,4 +37,12 @@ unittest
     auto success = Status.Success;
     assert(!fail);
     assert(success);
+}
+
+template MultiMixin(alias A, T...)
+{
+    static if (T.length) {
+        mixin A!(T[0]);
+        mixin MultiMixin!(A, T[1 .. $]);
+    }
 }

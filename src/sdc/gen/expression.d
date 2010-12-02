@@ -7,19 +7,25 @@
 module sdc.gen.expression;
 
 import std.conv;
+import std.exception;
 import std.string;
+import std.stdio;
 
 import llvm.c.Core;
 
 import sdc.global;
+import sdc.source;
 import sdc.util;
+import sdc.lexer;
 import sdc.location;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
+import sdc.gen.sdctemplate;
 import sdc.gen.type;
 import sdc.gen.value;
+import sdc.parser.expression;
 
 
 Value genExpression(ast.Expression expression, Module mod)
@@ -43,19 +49,19 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
     case None:
         assert(false);
     case Normal:
-        lhs.set(rhs);
+        lhs.set(expression.location, rhs);
         break;
     case AddAssign:
-        lhs.set(lhs.add(expression.location, rhs));
+        lhs.set(expression.location, lhs.add(expression.location, rhs));
         break;
     case SubAssign:
-        lhs.set(lhs.sub(expression.location, rhs));
+        lhs.set(expression.location, lhs.sub(expression.location, rhs));
         break;
     case MulAssign:
-        lhs.set(lhs.mul(expression.location, rhs));
+        lhs.set(expression.location, lhs.mul(expression.location, rhs));
         break;
     case DivAssign:
-        lhs.set(lhs.div(expression.location, rhs));
+        lhs.set(expression.location, lhs.div(expression.location, rhs));
         break;
     case ModAssign:
         throw new CompilerPanic(expression.location, "modulo assign is unimplemented.");
@@ -85,7 +91,7 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 {
     auto a = genOrOrExpression(expression.orOrExpression, mod);
     if (expression.expression !is null) {
-        auto e = genExpression(expression.expression, dummyModule(mod));
+        auto e = genExpression(expression.expression, mod.dup);
         auto v = e.type.getValue(mod, expression.location);
         
         auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condTrue");
@@ -93,10 +99,10 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
         auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condEnd");
         LLVMBuildCondBr(mod.builder, a.performCast(expression.location, new BoolType(mod)).get(), condTrueBB, condFalseBB);
         LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
-        v.set(genExpression(expression.expression, mod));
+        v.set(expression.location, genExpression(expression.expression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condFalseBB);
-        v.set(genConditionalExpression(expression.conditionalExpression, mod));
+        v.set(expression.location, genConditionalExpression(expression.conditionalExpression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condEndBB);
         
@@ -146,19 +152,28 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         break;
     case ast.Comparison.Equality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.eq(expression.location, rhs);
         break;
     case ast.Comparison.NotEquality:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.neq(expression.location, rhs);
         break;
     case ast.Comparison.Greater:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.gt(expression.location, rhs);
         break;
     case ast.Comparison.LessEqual:
         auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.lte(expression.location, rhs);
+        break;
+    case ast.Comparison.Less:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
+        lhs = lhs.lt(expression.location, rhs);
         break;
     default:
         throw new CompilerPanic(expression.location, "unhandled comparison expression.");
@@ -232,11 +247,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.dec(expression.location));
+        val.set(expression.location, val.dec(expression.location));
         break;
     case ast.UnaryPrefix.PrefixInc:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val.set(val.inc(expression.location));
+        val.set(expression.location, val.inc(expression.location));
         break;
     case ast.UnaryPrefix.Cast:
         val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
@@ -259,6 +274,9 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genUnaryExpression(expression.unaryExpression, mod);
         val = val.dereference(expression.location);
         break;
+    case ast.UnaryPrefix.New:
+        val = genNewExpression(expression.newExpression, mod);
+        break;
     case ast.UnaryPrefix.LogicalNot:
     case ast.UnaryPrefix.BitwiseNot:
         throw new CompilerPanic(expression.location, "unimplemented unary expression.");
@@ -267,6 +285,14 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     }
     return val;
+}
+
+Value genNewExpression(ast.NewExpression expression, Module mod)
+{
+    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);
+    auto loc  = expression.location;
+    auto size = type.getValue(mod, loc).getSizeof(loc);
+    return gcAlloc.call(expression.location, [loc], [size]).performCast(loc, new PointerType(mod, type));
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
@@ -280,20 +306,29 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     
     final switch (expression.type) {
     case ast.PostfixType.None:
+        if (lhs.type.dtype == DType.Function) {
+            if (mod.callingAggregate !is null) {
+                auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
+                p.set(expression.location, mod.callingAggregate.addressOf());
+                lhs = lhs.call(expression.location, null, [p]);
+            } else {
+                lhs = lhs.call(expression.location, null, null);
+            }
+        }
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(lhs);
+        tmp.set(expression.location, lhs);
         lhs = tmp;
-        val.set(val.inc(expression.location));
+        val.set(expression.location, val.inc(expression.location));
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(lhs);
+        tmp.set(expression.location, lhs);
         lhs = tmp;
-        val.set(val.dec(expression.location));
+        val.set(expression.location, val.dec(expression.location));
         break;
     case ast.PostfixType.Parens:
         if (lhs.type.dtype == DType.Function) {
@@ -312,7 +347,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             }
             if (mod.callingAggregate !is null) {
                 auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-                p.set(mod.callingAggregate.addressOf());
+                p.set(expression.location, mod.callingAggregate.addressOf());
                 args ~= p;
             }
             lhs = lhs.call(argList.location, argLocations, args);
@@ -380,8 +415,19 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     case ast.PrimaryType.BasicTypeDotIdentifier:
         auto v = primitiveTypeToBackendType(cast(ast.PrimitiveType) expression.node, mod).getValue(mod, expression.location);
         return v.getMember(expression.location, extractIdentifier(cast(ast.Identifier) expression.secondNode));
+    case ast.PrimaryType.MixinExpression:
+        auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
+        if (!v.isKnown || !isString(v.type)) {
+            throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
+        }
+        auto source = new Source(v.knownString, v.location);
+        auto tstream = lex(source);
+        tstream.getToken();  // Skip BEGIN 
+        auto expr = parseAssignExpression(tstream);
+        return genAssignExpression(expr, mod);
+    case ast.PrimaryType.TemplateInstance:
+        return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     default:
-    
         throw new CompilerPanic(expression.location, "unhandled primary expression type.");
     }
 }
@@ -406,8 +452,9 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
             }
             implicitBase = s.value;
         }
-    }
+    }  
     auto store = mod.search(name);
+
     if (store is null) {
         if (implicitBase !is null) {
             store = new Store(implicitBase.getMember(identifier.location, name));
@@ -417,6 +464,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         }
     }
     
+ 
     if (store.storeType == StoreType.Value) {
         return store.value();
     } else if (store.storeType == StoreType.Scope) {

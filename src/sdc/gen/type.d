@@ -42,10 +42,13 @@ enum DType
     Pointer,
     NullPointer,
     Array,
+    Const,
     Complex,
     Function,
     Struct,
+    Class,
     Inferred,
+    Scope,
 }
 
 Type dtypeToType(DType dtype, Module mod)
@@ -58,31 +61,42 @@ Type dtypeToType(DType dtype, Module mod)
     case Bool:
         return new BoolType(mod);
     case Char:
+        return new CharType(mod);
     case Ubyte:
+        return new UbyteType(mod);
     case Byte:
+        return new ByteType(mod);
     case Wchar:
+        return new WcharType(mod);
     case Ushort:
+        return new UshortType(mod);
     case Short:
+        return new ShortType(mod);
     case Dchar:
+        return new DcharType(mod);
     case Uint:
-        break;
+        return new UintType(mod);
     case Int:
         return new IntType(mod);
     case Ulong:
-        break;
+        return new UlongType(mod);
     case Long:
         return new LongType(mod); 
     case Float:
-        break;
+        return new FloatType(mod);
     case Double:
         return new DoubleType(mod);
     case Real:
+        return new RealType(mod);
     case Pointer:
     case NullPointer:
     case Array:
     case Complex:
     case Function:
     case Struct:
+    case Class:
+    case Const:
+    case Scope:
         break;
     case Inferred:
         return new InferredType(mod);
@@ -150,6 +164,22 @@ abstract class Type
     protected LLVMTypeRef mType;
 }
 
+class ScopeType : Type
+{
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Scope;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        throw new CompilerPanic(location, "attempted to getValue a ScopeType.");
+    }
+    
+    override string name() { return "scope"; }
+}
+
 class VoidType : Type
 {
     this(Module mod)
@@ -164,7 +194,7 @@ class VoidType : Type
         return new VoidValue(mod, location);
     }
     
-    override string name(){ return "void"; }
+    override string name() { return "void"; }
 }
 
 class BoolType : Type
@@ -181,7 +211,7 @@ class BoolType : Type
         return new BoolValue(mod, location);
     }
     
-    override string name(){ return "bool"; }
+    override string name() { return "bool"; }
 }
 
 class ByteType : Type
@@ -198,7 +228,7 @@ class ByteType : Type
         return new ByteValue(mod, location);
     }
     
-    override string name(){ return "byte"; }
+    override string name() { return "byte"; }
 }
 
 class UbyteType : Type
@@ -215,7 +245,7 @@ class UbyteType : Type
         return new UbyteValue(mod, location);
     }
     
-    override string name(){ return "ubyte"; }
+    override string name() { return "ubyte"; }
 }
 
 class ShortType : Type
@@ -232,7 +262,7 @@ class ShortType : Type
         return new ShortValue(mod, location);
     }
     
-    override string name(){ return "short"; }
+    override string name() { return "short"; }
 }
 
 class UshortType : Type
@@ -249,7 +279,7 @@ class UshortType : Type
         return new UshortValue(mod, location);
     }
     
-    override string name(){ return "ushort"; }
+    override string name() { return "ushort"; }
 }
 
 class IntType : Type
@@ -266,7 +296,9 @@ class IntType : Type
         return new IntValue(mod, location);
     }
     
-    override string name(){ return "int"; }
+    override string name() { return "int"; }
+    
+    override Type importToModule(Module mod) { return new IntType(mod); }
 }
 
 class UintType : Type
@@ -283,7 +315,7 @@ class UintType : Type
         return new UintValue(mod, location);
     }
     
-    override string name(){ return "uint"; }
+    override string name() { return "uint"; }
 }
 
 class LongType : Type
@@ -300,7 +332,7 @@ class LongType : Type
         return new LongValue(mod, location);
     }
     
-    override string name(){ return "long"; }
+    override string name() { return "long"; }
 }
 
 class UlongType : Type
@@ -317,7 +349,7 @@ class UlongType : Type
         return new UlongValue(mod, location);
     }
     
-    override string name(){ return "ulong"; }
+    override string name() { return "ulong"; }
 }
 
 class FloatType : Type
@@ -334,7 +366,7 @@ class FloatType : Type
         return new FloatValue(mod, location);
     }
     
-    override string name(){ return "float"; }
+    override string name() { return "float"; }
 }
 
 class DoubleType : Type
@@ -351,7 +383,7 @@ class DoubleType : Type
         return new DoubleValue(mod, location);
     }
     
-    override string name(){ return "double"; }
+    override string name() { return "double"; }
 }
 
 class RealType : Type
@@ -368,7 +400,7 @@ class RealType : Type
         return new RealValue(mod, location);
     }
     
-    override string name(){ return "real"; }
+    override string name() { return "real"; }
 }
 
 class CharType : Type
@@ -385,7 +417,7 @@ class CharType : Type
         return new CharValue(mod, location);
     }
     
-    override string name(){ return "char"; }
+    override string name() { return "char"; }
 }
 
 class WcharType : Type
@@ -402,7 +434,7 @@ class WcharType : Type
         return new WcharValue(mod, location);
     }
     
-    override string name(){ return "wchar"; }
+    override string name() { return "wchar"; }
 }
 
 class DcharType : Type
@@ -419,7 +451,7 @@ class DcharType : Type
         return new DcharValue(mod, location);
     }
     
-    override string name(){ return "dchar"; }
+    override string name() { return "dchar"; }
 }
 
 class PointerType : Type
@@ -448,7 +480,61 @@ class PointerType : Type
         return base;
     }
     
-    override string name(){ return base.name() ~ '*'; }
+    override string name() { return base.name() ~ '*'; }
+}
+
+class ConstType : Type
+{
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        this.base = base;
+        dtype = DType.Const;
+        mType = base.mType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ConstValue(mod, location, base.getValue(mod, location));
+    }
+    
+    override Type getBase()
+    {
+        return base;
+    }
+    
+    override string name() { return "const(" ~ base.name() ~ ")"; }
+}
+
+class ClassType : Type
+{
+    ast.QualifiedName fullName;
+    
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Class;
+    }
+    
+    void declare()
+    {
+        auto s = new StructType(mModule);
+        s.declare();
+        auto p = new PointerType(mModule, s);
+        mType = p.mType;
+    }  
+
+    override Value getValue(Module mod, Location location)
+    {
+        return new ClassValue(mod, location);
+    }
+    
+    override string name()
+    {
+        return extractQualifiedName(fullName);
+    }
 }
 
 class NullPointerType : PointerType
@@ -459,7 +545,7 @@ class NullPointerType : PointerType
         dtype = DType.NullPointer;
     }
     
-    override string name(){ return "null"; }
+    override string name() { return "null"; }
 }
 
 class ArrayType : StructType
@@ -508,6 +594,9 @@ class FunctionType : Type
         returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
         foreach (param; functionDeclaration.parameterList.parameters) {
             argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
+            if (argumentTypes[$ - 1].dtype == DType.Void) {
+                throw new CompilerError(param.location, "void is not a valid parameter type.");
+            }
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
             argumentLocations ~= param.identifier !is null ? param.location : functionDeclaration.location;
         }
@@ -632,5 +721,11 @@ class InferredType : Type
         throw new CompilerPanic(location, "attempted to call InferredType.getValue.");
     }
     
-    override string name(){ return "auto"; }
+    override string name() { return "auto"; }
+}
+
+
+bool isString(Type t)
+{
+    return t.dtype == DType.Array && t.getBase().dtype == DType.Char;
 }

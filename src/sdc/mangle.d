@@ -77,6 +77,7 @@ void mangleType(ref string mangledName, Type type)
     case Inferred:
     case Complex:
     case None:
+    case Scope:
         throw new CompilerPanic("attempted to mangle invalid type.");
     case Bool:
         mangledName ~= "b";
@@ -149,6 +150,15 @@ void mangleType(ref string mangledName, Type type)
         auto asStruct = cast(StructType) type;
         assert(asStruct);
         mangleQualifiedName(mangledName, asStruct.fullName);
+        break;
+    case Class:
+        mangledName ~= "C";
+        auto asClass = cast(ClassType) type;
+        assert(asClass);
+        mangleQualifiedName(mangledName, asClass.fullName);
+        break;
+    case Const:
+        mangledName ~= "x";
         break;
     }
 }

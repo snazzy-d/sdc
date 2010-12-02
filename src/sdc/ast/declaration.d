@@ -16,12 +16,19 @@ enum DeclarationType
     Variable,
     Function,
     Alias,
+    Mixin,
 }
 
 class Declaration : Node
 {
     DeclarationType type;
     Node node;
+}
+
+class MixinDeclaration : Node
+{
+    AssignExpression expression;
+    Declaration declarationCache;
 }
 
 class VariableDeclaration : Node
@@ -158,7 +165,13 @@ class PrimitiveType : Node
 
 class UserDefinedType : Node
 {
-    QualifiedName qualifiedName;
+    IdentifierOrTemplateInstance[] segments;
+}
+
+class IdentifierOrTemplateInstance : Node
+{
+    bool isIdentifier;
+    Node node;
 }
 
 enum TypeofTypeType

@@ -17,7 +17,7 @@ version (Windows) {
     immutable EXE_NAME = "a.exe";
 } else {
     immutable SDC      = "../sdc"; // Leaving this decision to the Unix crowd.
-    immutable EXE_NAME = "a.out";
+    immutable EXE_NAME = "./a.out";
 }
 
 

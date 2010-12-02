@@ -225,7 +225,9 @@ bool lexIdentifier(TokenStream tstream)
     }
     
     identToken.value = tstream.source.sliceFrom(m);
-    
+    if (identToken.value.length == 0) {
+        throw new CompilerPanic(identToken.location, "empty identifier string.");
+    }
     if (identToken.value[0] == '@') {
         auto i = identifierType(identToken.value);
         if (i == TokenType.Identifier) {

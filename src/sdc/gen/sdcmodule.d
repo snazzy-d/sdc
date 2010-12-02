@@ -38,7 +38,6 @@ class Module
     LLVMBuilderRef builder;
     Scope globalScope;
     Scope currentScope;
-    Path currentPath;
     ast.DeclarationDefinition[] functionBuildList;
     FunctionValue currentFunction;
     Value base;
@@ -208,23 +207,6 @@ class Module
         return null;
     }
     
-    void pushPath(PathType type)
-    {
-        mPathStack ~= new Path(type);
-        currentPath = mPathStack[$ - 1];
-    }
-    
-    void popPath()
-    {
-        assert(mPathStack.length >= 1);
-        auto oldPath = currentPath;
-        mPathStack = mPathStack[0 .. $ - 1];
-        currentPath = mPathStack.length >= 1 ? mPathStack[$ - 1] : null;
-        if (oldPath !is null && currentPath !is null && oldPath.type == PathType.Inevitable) {
-            currentPath.functionEscaped = oldPath.functionEscaped;
-        }
-    }
-    
     /**
      * Returns: the depth of the current scope.
      *          A value of zero means the current scope is global.
@@ -286,11 +268,52 @@ class Module
         return (s in mTestedDebugIdentifiers) !is null;
     }
     
+    /**
+     * This is here for when you need to generate code in a contex
+     * that will be discarded.
+     * Usually to get the type of a given expression without side effects,
+     * e.g. `int i; typeof(i++) j; assert(i == 0);`
+     * 
+     * WARNING: Do NOT generate code from a dup'd module --
+     *          THE CODE GENERATED WILL BE INVALID/INCORRECT.   :)
+     *          Further more, all variables will be reset to their init.
+     */
     Module dup() @property
     {
-        auto mod = new Module(name);
-        mod.mScopeStack = mScopeStack.dup;
-        mod.mPathStack = mPathStack.dup;
+
+        auto ident = new ast.Identifier();
+        ident.value = "dup";
+        auto qual = new ast.QualifiedName();
+        qual.identifiers = name.identifiers.dup ~ ident;
+        auto mod = new Module(qual);
+        
+        mod.globalScope = globalScope.importToModule(mod);
+        mod.currentScope = currentScope.importToModule(mod);
+        mod.functionBuildList = functionBuildList.dup;
+        if (currentFunction !is null) {
+            mod.currentFunction = cast(FunctionValue) currentFunction.importToModule(mod);
+        }
+        if (base !is null) {
+            mod.base = base.importToModule(mod);
+        }
+        if (callingAggregate !is null) {
+            mod.callingAggregate = callingAggregate.importToModule(mod);
+        }
+        mod.currentLinkage = currentLinkage;
+        mod.currentAccess = currentAccess;
+        mod.isAlias = isAlias;
+        mod.importedTranslationUnits = mod.importedTranslationUnits.dup;
+        mod.arch = arch;
+        
+        foreach (_scope; mScopeStack) {
+            mod.mScopeStack ~= _scope.importToModule(mod);
+        }
+        mod.mFailureList = mFailureList;
+        mod.mVersionIdentifiers = mVersionIdentifiers;
+        mod.mTestedVersionIdentifiers = mTestedVersionIdentifiers;
+        mod.mDebugIdentifiers = mDebugIdentifiers;
+        mod.mTestedDebugIdentifiers = mTestedDebugIdentifiers;
+        
         return mod;
     }
     
@@ -305,7 +328,6 @@ class Module
     }
         
     protected Scope[] mScopeStack;
-    protected Path[] mPathStack;
     protected LookupFailure[] mFailureList;
     protected bool[string] mVersionIdentifiers;
     protected bool[string] mTestedVersionIdentifiers;
@@ -324,7 +346,7 @@ enum StoreType
     Value,
     Type,
     Scope,
-    Store,
+    Template,
 }
 
 class Store
@@ -350,6 +372,12 @@ class Store
         object = _scope;
     }
     
+    this(ast.TemplateDeclaration _template)
+    {
+        storeType = StoreType.Template;
+        object = _template;
+    }
+    
     Value value() @property
     {
         assert(storeType == StoreType.Value);
@@ -373,6 +401,29 @@ class Store
         assert(_scope);
         return _scope;
     }
+    
+    ast.TemplateDeclaration getTemplate() @property
+    {
+        assert(storeType == StoreType.Template);
+        auto _template = cast(ast.TemplateDeclaration) object;
+        assert(_template);
+        return _template;
+    }
+    
+    Store importToModule(Module mod)
+    {
+        Store store;
+        final switch (storeType) with (StoreType) {
+        case Value:
+            return new Store(value.importToModule(mod));
+        case Type:
+            return new Store(type.importToModule(mod));
+        case Scope:
+            return new Store(getScope());
+        case Template:
+            return this;  
+        }
+    }
 }
 
 class Scope
@@ -388,22 +439,14 @@ class Scope
         return p is null ? null : *p;
     }
     
-    package Store[string] mSymbolTable;
-}
-
-enum PathType
-{
-    Inevitable,
-    Optional,
-}
-
-class Path
-{
-    this(PathType type)
+    Scope importToModule(Module mod)
     {
-        this.type = type;
+        auto _scope = new Scope();
+        foreach (name, store; mSymbolTable) {
+            _scope.add(name, store.importToModule(mod));
+        }
+        return _scope;
     }
     
-    PathType type;
-    bool functionEscaped;
+    Store[string] mSymbolTable;
 }

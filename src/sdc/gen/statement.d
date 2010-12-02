@@ -6,28 +6,38 @@
 module sdc.gen.statement;
 
 import std.conv;
+import std.exception;
 
 import llvm.c.Core;
 
 import sdc.tokenstream;
 import sdc.compilererror;
+import sdc.source;
+import sdc.lexer;
 import sdc.util;
 import sdc.global;
 import ast = sdc.ast.all;
 import sdc.gen.base;
+import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.value;
 import sdc.gen.type;
+import sdc.gen.sdcpragma;
 import sdc.parser.declaration;
 import sdc.parser.expression;
+import sdc.parser.statement;
 import sdc.extract.base;
 
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
-    foreach (statement; blockStatement.statements) {
+    if (mod.currentFunction.cfgTail is null) {
+        // Entry block.
+        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock();
+    }
+    foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
     }
 }
@@ -70,9 +80,25 @@ void genNoScopeNonEmptyStatement(ast.NoScopeNonEmptyStatement statement, Module 
     }
 }
 
+void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
+{
+    final switch (statement.type) with (ast.NoScopeStatementType) {
+    case NonEmpty:
+        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
+        break;
+    case Block:
+        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
+        break;
+    case Empty:
+        break;
+    }
+}
 
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
+    if (!mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
+        throw new CompilerError(statement.location, "statement is unreachable.");
+    }
     switch (statement.type) {
     default:
         throw new CompilerPanic(statement.location, "unimplemented non empty statement type.");
@@ -95,38 +121,87 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.ConditionalStatement:
         genConditionalStatement(cast(ast.ConditionalStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.PragmaStatement:
+        genPragmaStatement(cast(ast.PragmaStatement) statement.node, mod);
+        break;
+    case ast.NonEmptyStatementType.MixinStatement:
+        genMixinStatement(cast(ast.MixinStatement) statement.node, mod);
+        break;
+    }
+}
+
+void genMixinStatement(ast.MixinStatement statement, Module mod)
+{
+    auto val = genAssignExpression(statement.expression, mod);
+    if (!val.isKnown || !isString(val.type)) {
+        throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
+    }
+    auto source = new Source(val.knownString, val.location);
+    auto tstream = lex(source);
+    tstream.getToken();  // Skip BEGIN
+    
+    ast.Statement[] states;
+    do {
+        try {
+            states ~= parseStatement(tstream);
+        } catch (CompilerError) {
+            break;
+        }
+    } while (true);
+    
+    foreach (state; states) {
+        genStatement(state, mod);
     }
 }
 
 void genIfStatement(ast.IfStatement statement, Module mod)
 {
     LLVMBasicBlockRef ifBB, elseBB;
+    auto parent = mod.currentFunction.cfgTail;
+    auto ifblock = new BasicBlock();
+    auto ifout = new BasicBlock();
+    parent.children ~= ifblock;
     
     mod.pushScope();
-    mod.pushPath(PathType.Optional);
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
     auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
+    
+    mod.currentFunction.cfgTail = ifblock;
     genThenStatement(statement.thenStatement, mod);
-    if (!mod.currentPath.functionEscaped) {
+    
+    if (!mod.currentFunction.cfgTail.isExitBlock) {
         LLVMBuildBr(mod.builder, endifBB);
     }
-    mod.popPath();
     mod.popScope();
     
     LLVMPositionBuilderAtEnd(mod.builder, elseBB);
     if (statement.elseStatement !is null) {
         mod.pushScope();
-        mod.pushPath(PathType.Optional);
+        
+        auto elseblock = new BasicBlock();
+        parent.children ~= elseblock;
+                
+        mod.currentFunction.cfgTail = elseblock;
         genElseStatement(statement.elseStatement, mod);
-        if (!mod.currentPath.functionEscaped) {
+        if (!mod.currentFunction.cfgTail.isExitBlock) {
             LLVMBuildBr(mod.builder, endifBB);
         }
-        mod.popPath();
+        if (elseblock.children.length == 0) {
+            elseblock.children ~= ifout;
+            ifblock.children ~= ifout;
+            mod.currentFunction.cfgTail = ifout;
+        } else {
+            ifblock.children ~= mod.currentFunction.cfgTail;
+        }
         mod.popScope();
     } else {
+        parent.children ~= ifout;
+        mod.currentFunction.cfgTail = ifout;
         LLVMBuildBr(mod.builder, endifBB);
     }
+    
+    
     LLVMPositionBuilderAtEnd(mod.builder, endifBB);
 }
 
@@ -162,17 +237,29 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "looptop");
     auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopbody");
     auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopend");
+    
+    auto parent  = mod.currentFunction.cfgTail;
+    auto looptop = new BasicBlock();
+    auto loopout = new BasicBlock();
+    parent.children ~= looptop;
+    parent.children ~= loopout;
+    looptop.children ~= loopout;
+    looptop.children ~= looptop;
 
     LLVMBuildBr(mod.builder, looptopBB);
     mod.pushScope();
-    mod.pushPath(PathType.Optional);
     LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
     auto expr = genExpression(statement.expression, mod);
     LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
     LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
+    
+    mod.currentFunction.cfgTail = looptop;
     genScopeStatement(statement.statement, mod);
-    LLVMBuildBr(mod.builder, looptopBB);
-    mod.popPath();
+    if (!mod.currentFunction.cfgTail.isExitBlock) {
+        LLVMBuildBr(mod.builder, looptopBB);
+    }
+            
+    mod.currentFunction.cfgTail = loopout;
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
 }
@@ -189,7 +276,7 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
-    mod.currentPath.functionEscaped = true;
+    mod.currentFunction.cfgTail.isExitBlock = true;
     auto t = (cast(FunctionType) mod.currentFunction.type).returnType;
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);
@@ -209,4 +296,10 @@ void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
             genNoScopeNonEmptyStatement(statement.elseStatement, mod);
         }
     }
+}
+
+void genPragmaStatement(ast.PragmaStatement statement, Module mod)
+{
+    genPragma(statement.thePragma, mod);
+    genNoScopeStatement(statement.statement, mod);
 }

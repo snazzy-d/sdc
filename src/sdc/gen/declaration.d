@@ -11,14 +11,18 @@ import std.string;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.lexer;
+import sdc.source;
 import sdc.util;
 import sdc.extract.base;
 import ast = sdc.ast.all;
+import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.statement;
 import sdc.gen.expression;
+import sdc.parser.declaration;
 
 
 bool canGenDeclaration(ast.Declaration decl, Module mod)
@@ -33,6 +37,11 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
         break;
     case ast.DeclarationType.Alias:
         b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
+        break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        genMixinDeclaration(asMixin, mod);
+        b = canGenDeclaration(asMixin.declarationCache, mod);
         break;
     }
     return b;
@@ -69,6 +78,11 @@ void declareDeclaration(ast.Declaration decl, Module mod)
         declareDeclaration(cast(ast.Declaration) decl.node, mod);
         mod.isAlias = false;
         break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        genMixinDeclaration(asMixin, mod);
+        declareDeclaration(asMixin.declarationCache, mod);
+        break;
     }
 }
 
@@ -92,6 +106,21 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     mod.currentScope.add(name, store);
 }
 
+void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
+{
+    if (decl.declarationCache !is null) {
+        return;
+    }
+    auto val = genAssignExpression(decl.expression, mod);
+    if (!val.isKnown || !isString(val.type)) {
+        throw new CompilerError(decl.location, "a mixin expression must be a string known at compile time.");
+    }
+    auto source = new Source(val.knownString, val.location);
+    auto tstream = lex(source);
+    tstream.getToken();  // Skip BEGIN
+    decl.declarationCache = parseDeclaration(tstream);
+}
+
 void genDeclaration(ast.Declaration decl, Module mod)
 {
     final switch (decl.type) {
@@ -102,6 +131,11 @@ void genDeclaration(ast.Declaration decl, Module mod)
         genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Alias:
+        break;
+    case ast.DeclarationType.Mixin:
+        auto asMixin = cast(ast.MixinDeclaration) decl.node;
+        assert(asMixin.declarationCache);
+        genDeclaration(asMixin.declarationCache, mod);
         break;
     }
 }
@@ -121,10 +155,10 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         }
         
         if (declarator.initialiser is null) {
-            var.initialise(var.init(decl.location));
+            var.initialise(decl.location, var.init(decl.location));
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
-                var.initialise(LLVMGetUndef(type.llvmType));
+                var.initialise(decl.location, LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
                 auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
@@ -135,7 +169,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 if (var is null) {
                     throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
                 }
-                var.initialise(aexp);
+                var.initialise(decl.location, aexp);
             } else {
                 throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
             }
@@ -172,14 +206,12 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     // Add parameters into the functions namespace.
     foreach (i, argType; functionType.argumentTypes) {
         auto val = argType.getValue(mod, func.location);
-        val.set(LLVMGetParam(func.get(), i));
+        val.set(func.location, LLVMGetParam(func.get(), i));
         mod.currentScope.add(functionType.argumentNames[i], new Store(val));
     }
     
-    mod.pushPath(PathType.Inevitable);
     genBlockStatement(functionBody.statement, mod);
-    
-    if (!mod.currentPath.functionEscaped) {
+    if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
@@ -191,9 +223,10 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
                 )
             );
         }
+    } else if (!mod.currentFunction.cfgTail.isExitBlock) {
+        LLVMBuildRet(mod.builder, LLVMGetUndef(functionType.returnType.llvmType));
     }
     
-    mod.popPath();
     mod.currentFunction = null;
     mod.popScope();
 }

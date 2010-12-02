@@ -82,6 +82,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Template) {
         decldef.type = DeclarationDefinitionType.TemplateDeclaration;
         decldef.node = parseTemplateDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Class) {
+        decldef.type = DeclarationDefinitionType.ClassDeclaration;
+        decldef.node = parseClassDeclaration(tstream);
     } else if (startsLikeConditional(tstream)) {
         decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
         decldef.node = parseConditionalDeclaration(tstream);

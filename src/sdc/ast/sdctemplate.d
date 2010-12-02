@@ -9,6 +9,8 @@ import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.expression;
 import sdc.ast.sdcmodule;
+import sdc.gen.value;
+import sdc.gen.sdctemplate;
 
 
 /*
@@ -22,6 +24,9 @@ class TemplateDeclaration : Node
     TemplateParameterList parameterList;
     Constraint constraint;  // Optional.
     DeclarationDefinition[] declDefs;
+    
+    // For codegen.
+    TemplateCacheNode cacheTree;
 }
 
 // TemplateParameter (, TemplateParameter)?

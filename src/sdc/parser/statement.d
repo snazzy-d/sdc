@@ -14,6 +14,7 @@ import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.declaration;
 import sdc.parser.conditional;
+import sdc.parser.sdcpragma;
 
 
 Statement parseStatement(TokenStream tstream)
@@ -68,6 +69,12 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Return) {
         statement.type = NonEmptyStatementType.ReturnStatement;
         statement.node = parseReturnStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Pragma) {
+        statement.type = NonEmptyStatementType.PragmaStatement;
+        statement.node = parsePragmaStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Mixin) {
+        statement.type = NonEmptyStatementType.MixinStatement;
+        statement.node = parseMixinStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -98,6 +105,24 @@ NoScopeNonEmptyStatement parseNoScopeNonEmptyStatement(TokenStream tstream)
         statement.node = parseBlockStatement(tstream);
     } else {
         statement.type = NoScopeNonEmptyStatementType.NonEmpty;
+        statement.node = parseNonEmptyStatement(tstream);
+    }
+    return statement;
+}
+
+NoScopeStatement parseNoScopeStatement(TokenStream tstream)
+{
+    auto statement = new NoScopeStatement();
+    statement.location = tstream.peek.location;
+    
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        statement.type = NoScopeStatementType.Block;
+        statement.node = parseBlockStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Semicolon) {
+        match(tstream, TokenType.Semicolon);
+        statement.type = NoScopeStatementType.Empty;
+    } else {
+        statement.type = NoScopeStatementType.NonEmpty;
         statement.node = parseNonEmptyStatement(tstream);
     }
     return statement;
@@ -233,5 +258,28 @@ ExpressionStatement parseExpressionStatement(TokenStream tstream)
         throw new MissingSemicolonError(tstream.lookbehind(1).location, "expression");
     }
     tstream.getToken();
+    return statement;
+}
+
+PragmaStatement parsePragmaStatement(TokenStream tstream)
+{
+    auto statement = new PragmaStatement();
+    statement.location = tstream.peek.location;
+    
+    statement.thePragma = parsePragma(tstream);
+    statement.statement = parseNoScopeStatement(tstream);
+    return statement;
+}
+
+MixinStatement parseMixinStatement(TokenStream tstream)
+{
+    auto statement = new MixinStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Mixin);
+    match(tstream, TokenType.OpenParen);
+    statement.expression = parseAssignExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    match(tstream, TokenType.Semicolon);
     return statement;
 }

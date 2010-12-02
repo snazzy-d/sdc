@@ -3,6 +3,9 @@
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ *
+ * Jakob Sez: "best module, A++ would edit again :V"
+ * Bernard Sez: "Hey! This is the _refactored_ version!"
  */
 module sdc.parser.declaration;
 
@@ -17,6 +20,7 @@ import sdc.ast.declaration;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
+import sdc.parser.sdctemplate;
 
 
 Declaration parseDeclaration(TokenStream tstream)
@@ -31,6 +35,9 @@ Declaration parseDeclaration(TokenStream tstream)
         }
         declaration.type = DeclarationType.Alias;
         declaration.node = parseDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Mixin) {
+        declaration.type = DeclarationType.Mixin;
+        declaration.node = parseMixinDeclaration(tstream);
     } else if (isVariableDeclaration(tstream)) {
         declaration.type = DeclarationType.Variable;
         declaration.node = parseVariableDeclaration(tstream);
@@ -42,6 +49,17 @@ Declaration parseDeclaration(TokenStream tstream)
     return declaration;
 }
 
+MixinDeclaration parseMixinDeclaration(TokenStream tstream)
+{
+    auto decl = new MixinDeclaration();
+    decl.location = tstream.peek.location;
+    match(tstream, TokenType.Mixin);
+    match(tstream, TokenType.OpenParen);   
+    decl.expression = parseAssignExpression(tstream);
+    match(tstream, TokenType.CloseParen);
+    match(tstream, TokenType.Semicolon); 
+    return decl;
+}
 
 /**
  * Non destructively determines if the next declaration
@@ -52,10 +70,26 @@ bool isVariableDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.Alias) {
         return true;
     }
-    size_t lookahead = 1;
+    size_t lookahead = 0;
     Token token;
     while (true) {
         token = tstream.lookahead(lookahead);
+        if ((contains(PAREN_TYPES, token.type) && tstream.lookahead(lookahead + 1).type == TokenType.OpenParen) ||
+            token.type == TokenType.Typeof) {
+            lookahead += 2;  // <paren type> <open paren>
+            int parenCount = 1;
+            do {
+                token = tstream.lookahead(lookahead);
+                if (token.type == TokenType.OpenParen) {
+                    parenCount++;
+                } else if (token.type == TokenType.CloseParen) {
+                    parenCount--;
+                } else if (token.type == TokenType.End) {
+                    throw new CompilerError(token.location, "Unexpected EOF when parsing type.");
+                }
+                lookahead++;
+            } while (parenCount > 0);
+        }
         if (token.type == TokenType.End || token.type == TokenType.OpenBrace ||
             token.type == TokenType.OpenParen) {
             return false;
@@ -86,40 +120,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
         declaration.type.suffixes ~= suffixes;
     } else if (tstream.peek.type == TokenType.OpenParen &&
                tstream.lookahead(1).type == TokenType.Asterix) {
-        // bizarro world function pointer/array declaration
-        // Holy shit folks, it's a trainwreck. Forgive me.
-        auto location = tstream.peek.location;
-        match(tstream, TokenType.OpenParen);
-        match(tstream, TokenType.Asterix);
-        
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        auto declarator = new Declarator();
-        declarator.location = tstream.peek.location;
-        declarator.name = parseIdentifier(tstream);
-        suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        match(tstream, TokenType.CloseParen);
-        if (tstream.peek.type == TokenType.OpenParen) {
-            // e.g. (*x)()
-            declaration.type.type = TypeType.FunctionPointer;
-            auto node = new FunctionPointerType();
-            node.location = location;
-            node.parameters = parseParameters(tstream);
-            declaration.type.node = node;
-            suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        } else if (tstream.peek.type == TokenType.OpenBracket) {
-            // e.g. (*x)[3]
-            suffixes ~= parseTypeSuffixes(tstream, Placed.Insanely);
-        } else {
-            throw new CompilerError(tstream.peek.location, "expected '(' or '[', not '%s'.");
-        }
-        if (tstream.peek.type == TokenType.Assign) {
-            declarator.initialiser = parseInitialiser(tstream);
-        }
-        match(tstream, TokenType.Semicolon);
-        declaration.declarators ~= declarator;
-        declaration.type.suffixes ~= suffixes;
-        
-        return declaration;
+        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
     }
         
     
@@ -223,7 +224,27 @@ Type parseType(TokenStream tstream)
     while (contains(STORAGE_TYPES, tstream.peek.type)) {
         if (contains(PAREN_TYPES, tstream.peek.type)) {
             if (tstream.lookahead(1).type == TokenType.OpenParen) {
-                break;
+                switch (tstream.peek.type) {
+                case TokenType.Const:
+                    type.type = TypeType.ConstType;
+                    break;
+                case TokenType.Immutable:
+                    type.type = TypeType.ImmutableType;
+                    break;
+                case TokenType.Inout:
+                    type.type = TypeType.InoutType;
+                    break;
+                case TokenType.Shared:
+                    type.type = TypeType.SharedType;
+                    break;
+                default:
+                    throw new CompilerPanic(tstream.peek.location, "unexpected storage type token preceding open paren.");
+                }
+                tstream.getToken();
+                match(tstream, TokenType.OpenParen);
+                type.node = parseType(tstream);
+                match(tstream, TokenType.CloseParen);
+                goto PARSE_SUFFIXES;
             }
         }
         type.storageTypes ~= cast(StorageType) tstream.peek.type;
@@ -235,7 +256,6 @@ Type parseType(TokenStream tstream)
         tstream.lookahead(1).type == TokenType.Assign) {
         //
         type.type = TypeType.Inferred;
-        // TODO
     }
 
     if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
@@ -278,6 +298,7 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     }
     
+PARSE_SUFFIXES:
     type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
     
     return type;
@@ -390,8 +411,27 @@ UserDefinedType parseUserDefinedType(TokenStream tstream)
 {
     auto type = new UserDefinedType();
     type.location = tstream.peek.location;
-    type.qualifiedName = parseQualifiedName(tstream, true);
+    
+    type.segments ~= parseIdentifierOrTemplateInstance(tstream);
+    while (tstream.peek.type == TokenType.Dot) {
+        match(tstream, TokenType.Dot);
+        type.segments ~= parseIdentifierOrTemplateInstance(tstream);        
+    }
     return type;
+}
+
+IdentifierOrTemplateInstance parseIdentifierOrTemplateInstance(TokenStream tstream)
+{
+    auto node = new IdentifierOrTemplateInstance();
+    node.location = tstream.peek.location;
+    if (tstream.lookahead(1).type == TokenType.Bang) {
+        node.isIdentifier = false;
+        node.node = parseTemplateInstance(tstream);
+    } else {
+        node.isIdentifier = true;
+        node.node = parseIdentifier(tstream);
+    }
+    return node;
 }
 
 TypeofType parseTypeofType(TokenStream tstream)
@@ -523,6 +563,6 @@ bool startsLikeDeclaration(TokenStream tstream)
         }
     }
     
-    return t == TokenType.Alias || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
+    return t == TokenType.Alias || t == TokenType.Typeof || contains(PRIMITIVE_TYPES, t) || contains(STORAGE_CLASSES, t);
 }
 

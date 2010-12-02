@@ -17,12 +17,14 @@ import ast = sdc.ast.all;
 import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
+import sdc.gen.sdcclass;
 import sdc.gen.declaration;
 import sdc.gen.expression;
 import sdc.gen.type;
 import sdc.gen.aggregate;
 import sdc.gen.attribute;
 import sdc.gen.enumeration;
+import sdc.gen.sdctemplate;
 
 
 bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
@@ -38,6 +40,10 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
+    case ast.DeclarationDefinitionType.TemplateDeclaration:
+        return true;  // TODO
+    case ast.DeclarationDefinitionType.ClassDeclaration:
+        return true;  // TODO
     default:
         return false;
     }
@@ -239,6 +245,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
             declDef.buildStage = ast.BuildStage.Deferred;
         }
         break;
+    case ast.DeclarationDefinitionType.ClassDeclaration:
+        genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
     case ast.DeclarationDefinitionType.AttributeSpecifier:
         auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
         if (can) {
@@ -252,6 +262,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.EnumDeclaration:
         genEnumDeclaration(cast(ast.EnumDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
+    case ast.DeclarationDefinitionType.TemplateDeclaration:
+        genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
         break;
     default:
@@ -324,9 +338,9 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
 bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 {
     auto expr = genAssignExpression(condition.expression, mod);
-    if (!expr.constant) {
+    if (!expr.isKnown) {
         throw new CompilerError(condition.expression.location, "expression inside of a static if must be known at compile time.");
     }
-    return expr.constBool;
+    return expr.knownBool;
 }
 

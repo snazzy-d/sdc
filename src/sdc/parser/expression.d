@@ -376,8 +376,8 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
         unaryExpr.unaryPrefix = UnaryPrefix.Cast;
         unaryExpr.castExpression = parseCastExpression(tstream);
         break;
-    // TODO: The rest.
     case TokenType.New:
+        unaryExpr.unaryPrefix = UnaryPrefix.New;
         unaryExpr.newExpression = parseNewExpression(tstream);
         break;
     case TokenType.Delete:
@@ -408,6 +408,28 @@ NewExpression parseNewExpression(TokenStream tstream)
     auto newExpr = new NewExpression();
     newExpr.location = tstream.peek.location;
     
+    match(tstream, TokenType.New);
+    if (tstream.peek.type == TokenType.OpenParen) {
+        // new(
+        match(tstream, TokenType.OpenParen);
+        if (tstream.peek.type != TokenType.CloseParen) {
+            parseAssignExpression(tstream);
+        }
+        throw new CompilerError(tstream.peek.location - newExpr.location, "custom allocators are unsupported."); 
+    }
+    newExpr.type = parseType(tstream);
+    switch (tstream.peek.type) with (TokenType) {
+    case OpenParen:
+        newExpr.argumentList = parseArgumentList(tstream);
+        break;
+    case OpenBracket:
+        match(tstream, OpenBracket);
+        newExpr.assignExpression = parseAssignExpression(tstream);
+        match(tstream, CloseBracket);
+        break;
+    default:
+        break;
+    }
     return newExpr;
 }
 
@@ -415,9 +437,8 @@ DeleteExpression parseDeleteExpression(TokenStream tstream)
 {
     auto deleteExpr = new DeleteExpression();
     deleteExpr.location = tstream.peek.location;
-    match(tstream, TokenType.Delete);
-    deleteExpr.unaryExpression = parseUnaryExpression(tstream);
-    return deleteExpr;
+    
+    throw new CompilerError(tstream.peek.location, "delete expressions are unsupported.");
 }
 
 PostfixExpression parsePostfixExpression(TokenStream tstream, bool second = false)
@@ -547,6 +568,12 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.type = PrimaryType.ParenExpression;
         match(tstream, TokenType.OpenParen);
         primaryExpr.node = parseExpression(tstream);
+        match(tstream, TokenType.CloseParen);
+    case TokenType.Mixin:
+        primaryExpr.type = PrimaryType.MixinExpression;
+        match(tstream, TokenType.Mixin);
+        match(tstream, TokenType.OpenParen);
+        primaryExpr.node = parseAssignExpression(tstream);
         match(tstream, TokenType.CloseParen);
         break;
     default:
