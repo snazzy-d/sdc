@@ -1243,9 +1243,9 @@ class EnumValue : Value
         if (auto p = name in asEnum.members) {
             return *p;
         } else {
-			throw new CompilerError(location,
-				format(`enum "%s" has no member "%s"`, mType.name(), name)
-			);
+            throw new CompilerError(location,
+                format(`enum "%s" has no member "%s"`, mType.name(), name)
+            );
         }
     }
     

@@ -46,11 +46,11 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         list.location = member.location;
 
         if (member.initialiser is null) {
-			throw new CompilerError(member.location, "manifest constant declaration must have initialiser.");
+            throw new CompilerError(member.location, "manifest constant declaration must have initialiser.");
         }
         
         if (tstream.peek.type != TokenType.Semicolon) {
-			throw new MissingSemicolonError(member.initialiser.location, "manifest constant declaration");
+            throw new MissingSemicolonError(member.initialiser.location, "manifest constant declaration");
         }
         tstream.getToken();
         
@@ -80,18 +80,18 @@ EnumMemberList parseEnumMembers(TokenStream tstream)
 
 EnumMember parseEnumMember(TokenStream tstream)
 {
-	auto member = new EnumMember;
-	member.location = tstream.peek.location;
-	
-	// Check explicit type here!
-	
-	member.name = parseIdentifier(tstream);
-	
-	if (tstream.peek.type == TokenType.Assign) {
-		tstream.getToken();
-		member.initialiser = parseAssignExpression(tstream);
-		member.location = member.initialiser.location - member.location;
-	}
-	
-	return member;
+    auto member = new EnumMember;
+    member.location = tstream.peek.location;
+    
+    // Check explicit type here!
+    
+    member.name = parseIdentifier(tstream);
+    
+    if (tstream.peek.type == TokenType.Assign) {
+        tstream.getToken();
+        member.initialiser = parseAssignExpression(tstream);
+        member.location = member.initialiser.location - member.location;
+    }
+    
+    return member;
 }

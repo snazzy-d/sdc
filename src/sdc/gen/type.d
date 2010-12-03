@@ -729,19 +729,19 @@ class EnumType : Type
         auto t = new EnumType(mod, base);
         t.fullName = fullName;
         foreach(name, member; members) {
-			t.members[name] = member.importToModule(mod);
-		}
+            t.members[name] = member.importToModule(mod);
+        }
         return t;
     }
     
     override Value getValue(Module mod, Location loc)
     {
-		return new EnumValue(mod, loc, this);
+        return new EnumValue(mod, loc, this);
     }
     
     override Type getBase()
     {
-		return base;
+        return base;
     }
     
     override string name()

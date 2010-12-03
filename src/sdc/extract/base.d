@@ -101,14 +101,14 @@ dchar[dchar] escapeChars;
 static this()
 {
     escapeChars = [
-	    'a': '\a',
-	    'b': '\b',
-	    'f': '\f',
-	    'n': '\n',
-	    'r': '\r',
-	    't': '\t',
-	    'v': '\v'
-	];
+        'a': '\a',
+        'b': '\b',
+        'f': '\f',
+        'n': '\n',
+        'r': '\r',
+        't': '\t',
+        'v': '\v'
+    ];
 }
 
 string extractString(Location loc, string s)
