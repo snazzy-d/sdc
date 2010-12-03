@@ -46,6 +46,7 @@ enum DType
     Complex,
     Function,
     Struct,
+    Enum,
     Class,
     Inferred,
     Scope,
@@ -94,6 +95,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Complex:
     case Function:
     case Struct:
+    case Enum:
     case Class:
     case Const:
     case Scope:
@@ -144,7 +146,7 @@ abstract class Type
         return this.mType == asType.mType;
     }
     
-    Value getValue(Module mod, Location location);
+    abstract Value getValue(Module mod, Location location);
     
     Type getBase()
     {
@@ -702,6 +704,46 @@ class StructType : Type
     Type[] members;
     int[string] memberPositions;
     Value[string] memberFunctions;
+}
+
+class EnumType : Type
+{
+    ast.QualifiedName fullName;
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        
+        this.base = base;
+        dtype = DType.Enum;
+    }
+    
+    void addMember(string id, Value v)
+    {
+        members[id] = v;
+    }
+    
+    override Type importToModule(Module mod)
+    {
+        auto t = new EnumType(mod, base);
+        foreach(name, member; members) {
+			t.members[name] = member;
+		}
+        return t;
+    }
+    
+    override Value getValue(Module mod, Location loc)
+    {
+		throw new CompilerPanic(loc, "tried to get value of enum type.");
+    }
+    
+    override string name()
+    { 
+        return extractQualifiedName(fullName);
+    }
+    
+    Value[string] members;
 }
 
 /* InferredType means, as soon as we get enough information

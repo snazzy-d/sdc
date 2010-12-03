@@ -15,5 +15,24 @@ import sdc.gen.value;
 import sdc.gen.base;
 
 void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
-{
+{	
+	if (decl.name !is null) {
+		Type base;
+		if (decl.base is null) {
+			base = new IntType(mod);
+		} else {
+			base = astTypeToBackendType(decl.base, mod, OnFailure.DieWithError);
+		}
+		
+		auto type = new EnumType(mod, base);
+		type.fullName = mod.name.dup;
+		type.fullName.identifiers ~= decl.name;
+		
+		auto name = extractIdentifier(decl.name);
+		mod.currentScope.add(name, new Store(type));
+		
+		
+    } else {
+		throw new CompilerPanic(decl.location, "anonymous enums are unimplemented.");
+    }
 }
