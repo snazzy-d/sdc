@@ -10,6 +10,7 @@ import std.exception;
 import std.process;
 import std.stdio;
 import std.string;
+import std.range;
 
 import llvm.c.Analysis;
 import llvm.c.BitWriter;
@@ -191,14 +192,7 @@ class Module
     
     Store localSearch(string name)
     {
-        /* This isn't just `foreach (localScope; retro(mScopeStack))`  
-         * because of a bug manifested in std.range.retro.
-         * WORKAROUND 2.048-2.049
-         * Unfortunately, it has resisted being boiled down
-         * into a simple test case.
-         */
-        for (int i = mScopeStack.length - 1; i >= 0; i--) {
-            auto localScope = mScopeStack[i];
+        foreach (localScope; retro(mScopeStack)) {
             auto v = localScope.get(name);
             if (v !is null) {
                 return v;
