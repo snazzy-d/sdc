@@ -727,19 +727,25 @@ class EnumType : Type
     override Type importToModule(Module mod)
     {
         auto t = new EnumType(mod, base);
+        t.fullName = fullName;
         foreach(name, member; members) {
-			t.members[name] = member;
+			t.members[name] = member.importToModule(mod);
 		}
         return t;
     }
     
     override Value getValue(Module mod, Location loc)
     {
-		throw new CompilerPanic(loc, "tried to get value of enum type.");
+		return new EnumValue(mod, loc, this);
+    }
+    
+    override Type getBase()
+    {
+		return base;
     }
     
     override string name()
-    { 
+    {
         return extractQualifiedName(fullName);
     }
     
