@@ -201,8 +201,18 @@ class DelegateType : Node
     ParameterList parameters;
 }
 
+enum ParameterAttribute
+{
+    None,
+    In,
+    Out,
+    Ref,
+    Lazy,
+}
+
 class Parameter : Node
 {
+    ParameterAttribute attribute;
     Type type;
     Identifier identifier;  // Optional.
 }

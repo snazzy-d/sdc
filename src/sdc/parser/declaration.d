@@ -502,6 +502,28 @@ ParameterList parseParameters(TokenStream tstream)
             }
             break;
         }
+        
+        switch (tstream.peek.type) with (TokenType) {
+        case In:
+            parameter.attribute = ParameterAttribute.In;
+            break;
+        case Out:
+            parameter.attribute = ParameterAttribute.Out;
+            break;
+        case Lazy:
+            parameter.attribute = ParameterAttribute.Lazy;
+            break;
+        case Ref:
+            parameter.attribute = ParameterAttribute.Ref;
+            break;
+        default:
+            parameter.attribute = ParameterAttribute.None;
+            break;
+        }
+        if (parameter.attribute != ParameterAttribute.None) {
+            tstream.getToken();
+        }
+               
         parameter.type = parseType(tstream);
         if (tstream.peek.type == TokenType.Identifier) {
             parameter.identifier = parseIdentifier(tstream);

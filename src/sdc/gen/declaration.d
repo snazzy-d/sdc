@@ -205,11 +205,18 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     
     // Add parameters into the functions namespace.
     foreach (i, argType; functionType.argumentTypes) {
-        auto val = argType.getValue(mod, func.location);
-        val.set(func.location, LLVMGetParam(func.get(), i));
+        Value val;
+        if (argType.isRef) {
+            auto dummy = argType.getValue(mod, func.location);
+            auto r = new ReferenceValue(mod, func.location, dummy);
+            r.setReferencePointer(func.location, LLVMGetParam(func.get(), i));
+            val = r;  
+        } else {
+            val = argType.getValue(mod, func.location);
+            val.set(func.location, LLVMGetParam(func.get(), i));
+        }
         mod.currentScope.add(functionType.argumentNames[i], new Store(val));
     }
-    
     genBlockStatement(functionBody.statement, mod);
     if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
         if (functionType.returnType.dtype == DType.Void) {
