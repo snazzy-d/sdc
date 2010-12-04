@@ -147,7 +147,7 @@ abstract class Type
         return this.mType == asType.mType;
     }
     
-    Value getValue(Module mod, Location location);
+    abstract Value getValue(Module mod, Location location);
     
     Type getBase()
     {
