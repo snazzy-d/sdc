@@ -9,17 +9,10 @@ import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.declaration;
 
-enum EnumType
-{
-    Named,
-    Anonymous
-}
-
 class EnumDeclaration : Node
 {
-    EnumType type;
-    Identifier name; // Optional
-    Type base;
+    Identifier name; // Optional - when absent, enum is anonymous
+    Type base; // Optional
     EnumMemberList memberList;
 }
 
@@ -31,5 +24,5 @@ class EnumMemberList : Node
 class EnumMember : Node
 {
     Identifier name;
-    AssignExpression expression; // Optional
+    AssignExpression initialiser; // Optional
 }

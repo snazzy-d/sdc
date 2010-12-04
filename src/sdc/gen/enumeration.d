@@ -15,5 +15,42 @@ import sdc.gen.value;
 import sdc.gen.base;
 
 void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
-{
+{    
+    if (decl.name !is null) {
+        Type base;
+        if (decl.base is null) {
+            base = new IntType(mod);
+        } else {
+            base = astTypeToBackendType(decl.base, mod, OnFailure.DieWithError);
+        }
+        
+        auto type = new EnumType(mod, base);
+        type.fullName = mod.name.dup;
+        type.fullName.identifiers ~= decl.name;
+        
+        auto firstMember = decl.memberList.members[0];
+        if (firstMember.initialiser) {
+            throw new CompilerPanic(firstMember.initialiser.location, "enum member initialisers are unimplemented.");
+        }
+        
+        auto firstValue = base.getValue(mod, firstMember.location);
+        //TODO: constInit, where art thou?
+        firstValue.initialise(firstValue.location, firstValue.init(firstValue.location));
+        type.addMember(extractIdentifier(firstMember.name), firstValue);
+        
+        foreach(i; 1..decl.memberList.members.length) {
+            auto member = decl.memberList.members[i];
+            
+            if (member.initialiser) {
+                throw new CompilerPanic(member.initialiser.location, "enum member initialisers are unimplemented.");
+            }
+            
+            //type.addMember(mod, v);
+        }
+        
+        auto name = extractIdentifier(decl.name);
+        mod.currentScope.add(name, new Store(type));
+    } else {
+        throw new CompilerPanic(decl.location, "anonymous enums are unimplemented.");
+    }
 }

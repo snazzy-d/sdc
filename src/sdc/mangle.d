@@ -151,6 +151,12 @@ void mangleType(ref string mangledName, Type type)
         assert(asStruct);
         mangleQualifiedName(mangledName, asStruct.fullName);
         break;
+    case Enum:
+        mangledName ~= "E";
+        auto asEnum = cast(EnumType) type;
+        assert(asEnum);
+        mangleQualifiedName(mangledName, asEnum.fullName);
+        break;
     case Class:
         mangledName ~= "C";
         auto asClass = cast(ClassType) type;

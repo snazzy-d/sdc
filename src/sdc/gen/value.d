@@ -1229,6 +1229,47 @@ class StructValue : Value
     }
 }
 
+/* Why, genIdentifier, why!!! */
+class EnumValue : Value
+{
+    this(Module mod, Location location, EnumType type)
+    {
+        super(mod, location);
+        mType = type;
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        auto prop = getProperty(location, name);
+        if (prop !is null) {
+            return prop;
+        }
+        
+        auto asEnum = cast(EnumType) mType;
+        assert(asEnum);
+        
+        if (auto p = name in asEnum.members) {
+            return *p;
+        } else {
+            throw new CompilerError(location,
+                format(`enum "%s" has no member "%s"`, mType.name(), name)
+            );
+        }
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        auto v = getSizeT(mModule).getValue(mModule, loc);
+        v.initialise(loc, mType.getBase().getValue(mModule, loc).getSizeof(loc));
+        return v;
+    }
+    
+    /+override Value importToModule(Module mod)
+    {
+        return new EnumValue(mod, location, cast(EnumType)(mType.importToModule(mod)));
+    }+/
+}
+
 class ScopeValue : Value
 {
     Scope _scope;

@@ -114,7 +114,7 @@ TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, as
         auto child = new TemplateCacheNode();
         child.type = type.dtype;
         root.children ~= child; 
-        return child;       
+        return child;
     case Identifier:
     case CharacterLiteral:
     case StringLiteral:

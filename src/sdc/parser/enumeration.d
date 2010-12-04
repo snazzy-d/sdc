@@ -11,6 +11,7 @@ import sdc.ast.base;
 import sdc.ast.enumeration;
 import sdc.parser.base;
 import sdc.parser.declaration;
+import sdc.parser.expression;
 
 EnumDeclaration parseEnumDeclaration(TokenStream tstream)
 {
@@ -20,7 +21,6 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
     if (tstream.lookahead(0).type == TokenType.Identifier &&
        (tstream.lookahead(1).type == TokenType.OpenBrace ||
         tstream.lookahead(1).type == TokenType.Colon)) {
-        decl.type = EnumType.Named;
         decl.name = parseIdentifier(tstream);
         
         if (tstream.peek.type == TokenType.Colon) {
@@ -32,8 +32,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         decl.location = (decl.base? decl.base : decl.name).location - enumToken.location;
     } else if (tstream.peek.type == TokenType.OpenBrace ||
                tstream.peek.type == TokenType.Colon) {
-        decl.type = EnumType.Anonymous;
-        
+               
         if (tstream.peek.type == TokenType.Colon) {
             tstream.getToken();
             decl.base = parseType(tstream);
@@ -42,7 +41,20 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         decl.memberList = parseEnumMembers(tstream);
         decl.location = decl.base? decl.base.location - enumToken.location : enumToken.location;
     } else {
-        throw new CompilerPanic(tstream.peek.location, "manifest constants not implemented.");
+        auto list = new EnumMemberList;
+        auto member = parseEnumMember(tstream);
+        list.location = member.location;
+
+        if (member.initialiser is null) {
+            throw new CompilerError(member.location, "manifest constant declaration must have initialiser.");
+        }
+        
+        if (tstream.peek.type != TokenType.Semicolon) {
+            throw new MissingSemicolonError(member.initialiser.location, "manifest constant declaration");
+        }
+        tstream.getToken();
+        
+        list.members ~= member;
     }
     return decl;
 }
@@ -54,9 +66,7 @@ EnumMemberList parseEnumMembers(TokenStream tstream)
     auto openBrace = match(tstream, TokenType.OpenBrace);
     
     while (tstream.peek.type != TokenType.CloseBrace) {
-        auto member = new EnumMember;
-        member.name = parseIdentifier(tstream);
-        list.members ~= member;
+        list.members ~= parseEnumMember(tstream);
         
         if (tstream.peek.type == TokenType.Comma) {
             tstream.getToken();
@@ -66,4 +76,22 @@ EnumMemberList parseEnumMembers(TokenStream tstream)
     auto closeBrace = match(tstream, TokenType.CloseBrace);
     list.location = closeBrace.location - openBrace.location;
     return list;
+}
+
+EnumMember parseEnumMember(TokenStream tstream)
+{
+    auto member = new EnumMember;
+    member.location = tstream.peek.location;
+    
+    // Check explicit type here!
+    
+    member.name = parseIdentifier(tstream);
+    
+    if (tstream.peek.type == TokenType.Assign) {
+        tstream.getToken();
+        member.initialiser = parseAssignExpression(tstream);
+        member.location = member.initialiser.location - member.location;
+    }
+    
+    return member;
 }
