@@ -8,7 +8,9 @@ module sdc.parser.base;
 
 import std.string;
 import std.path;
+import std.conv;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.all;
@@ -72,7 +74,6 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
 {
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
-    
     if (tstream.peek.type == TokenType.Struct || tstream.peek.type == TokenType.Union) {
         decldef.type = DeclarationDefinitionType.AggregateDeclaration;
         decldef.node = parseAggregateDeclaration(tstream);

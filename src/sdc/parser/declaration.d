@@ -170,7 +170,12 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     auto declaration = new FunctionDeclaration();
     declaration.location = tstream.peek.location;
     
-    declaration.retval = parseType(tstream);
+    if (tstream.peek.type == TokenType.Auto && tstream.lookahead(1).type == TokenType.Identifier) {
+        // TODO: look for function attributes here, as well. Once we have function attributes, of course. :P
+        declaration.retval = parseInferredType(tstream);
+    } else {
+        declaration.retval = parseType(tstream);
+    }
     declaration.name = parseIdentifier(tstream);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration
@@ -259,17 +264,14 @@ Type parseType(TokenStream tstream)
         tstream.lookahead(1).type == TokenType.Assign) {
         //
         type.type = TypeType.Inferred;
+        return type;
     }
-
+    
     if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
         type.type = TypeType.Primitive;
         type.node = parsePrimitiveType(tstream);
     } else if (tstream.peek.type == TokenType.Dot ||
                tstream.peek.type == TokenType.Identifier) {
-        if (type.type == TypeType.Inferred) {
-            return type;
-            
-        }
         type.type = TypeType.UserDefined;
         type.node = parseUserDefinedType(tstream);
     } else if (tstream.peek.type == TokenType.Typeof) {
@@ -303,7 +305,15 @@ Type parseType(TokenStream tstream)
     
 PARSE_SUFFIXES:
     type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-    
+    return type;
+}
+
+Type parseInferredType(TokenStream tstream)
+{
+    auto type = new Type();
+    type.location = tstream.peek.location;
+    match(tstream, TokenType.Auto);
+    type.type = TypeType.Inferred;
     return type;
 }
 
