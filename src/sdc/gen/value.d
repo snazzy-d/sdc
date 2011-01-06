@@ -840,12 +840,17 @@ class ReferenceValue : Value
         mType = base.type;
         mValue = base.mValue;
         pointerToBase = new PointerValue(mod, location, base.type);
-        setReferencePointer(location, base.mValue);
+        setReferencePointer(location, base.addressOf.get);
     }
     
     void setReferencePointer(Location loc, LLVMValueRef val)
     {
         pointerToBase.set(loc, val);
+    }
+    
+    override LLVMValueRef get()
+    {
+        return pointerToBase.dereference(location).get();
     }
     
     override void set(Location loc, Value val)
@@ -1085,6 +1090,9 @@ class FunctionValue : Value
                 } else {
                     // Some arguments are hidden at the end (i.e. this), and thus don't have locations. 
                     args[i] = implicitCast(location, args[i], arg);
+                }
+                if (arg.isRef) {
+                    args[i] = args[i].addressOf();
                 }
             } catch (CompilerError error) {
                 error.more = new CompilerError(
@@ -1487,7 +1495,7 @@ Value implicitCast(Location location, Value v, Type toType)
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
-        } else if (canImplicitCast(v.type, toType)) {
+        } else if (canImplicitCast(location, v.type, toType)) {
             return v.performCast(location, toType);
         }
         break;
@@ -1495,7 +1503,7 @@ Value implicitCast(Location location, Value v, Type toType)
     throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
 }
 
-bool canImplicitCast(Type from, Type to)
+bool canImplicitCast(Location location, Type from, Type to)
 {
     switch (from.dtype) with (DType) {
     case Bool:
@@ -1523,8 +1531,11 @@ bool canImplicitCast(Type from, Type to)
     case NullPointer:
         return to.dtype == Pointer || to.dtype == NullPointer;
     case Const:
+        if (to.isRef) {
+            throw new CompilerError(location, "cannot pass a const value as a ref parameter.");
+        }
         auto asConst = enforce(cast(ConstType) from);
-        return canImplicitCast(asConst.base, to) && !hasMutableIndirection(to);
+        return canImplicitCast(location, asConst.base, to) && !hasMutableIndirection(to);
     default:
         return false;
     }

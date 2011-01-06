@@ -125,6 +125,7 @@ abstract class Type
 {
     DType dtype;
     ast.Access access;
+    bool isRef = false;
     
     this(Module mod)
     {
@@ -599,6 +600,9 @@ class FunctionType : Type
             if (argumentTypes[$ - 1].dtype == DType.Void) {
                 throw new CompilerError(param.location, "void is not a valid parameter type.");
             }
+            if (param.attribute == ast.ParameterAttribute.Ref) {
+                argumentTypes[$ - 1].isRef = true;
+            }
             argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
             argumentLocations ~= param.identifier !is null ? param.location : functionDeclaration.location;
         }
@@ -626,8 +630,13 @@ class FunctionType : Type
     void declare()
     {
         LLVMTypeRef[] params;
-        foreach (t; argumentTypes) {
-            params ~= t.llvmType;
+        foreach (ref t; argumentTypes) {
+            auto type = t;
+            if (t.isRef) {
+                type = new PointerType(mModule, type);
+                t.isRef = true;
+            }
+            params ~= type.llvmType;
         }
         mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
     }

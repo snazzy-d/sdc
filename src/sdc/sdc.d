@@ -93,6 +93,8 @@ void realmain(string[] args)
                "optimise", &optimise,
                "gcc", &gcc,
                "arch", &arch,
+               "m32", () { arch = "x86"; },
+               "m64", () { arch = "x86-64"; },
                "c", &skipLink,
                "o", &outputName,
                "save-temps", &saveTemps
@@ -217,6 +219,8 @@ void usage()
     writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
+    writeln("  --m32:                 synonym for '--arch=x86'.");
+    writeln("  --m64:                 synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");

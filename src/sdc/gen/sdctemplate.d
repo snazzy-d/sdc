@@ -127,6 +127,7 @@ TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, as
     case __Line__:
         throw new CompilerPanic(argument.location, "unsupported template argument type.");
     }
+    // Never reached.
 }
 
 TemplateCacheNode retrieveCacheNode(TemplateCacheNode root, ast.TemplateArgument[] arguments, Module mod)

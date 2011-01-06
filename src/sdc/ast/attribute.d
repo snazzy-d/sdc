@@ -69,7 +69,7 @@ immutable ATTRIBUTE_KEYWORDS = [
 TokenType.Deprecated, TokenType.Private, TokenType.Package,
 TokenType.Protected, TokenType.Public, TokenType.Export,
 TokenType.Static, TokenType.Final, TokenType.Override,
-TokenType.Abstract, TokenType.Const, TokenType.Auto,
+TokenType.Abstract, TokenType.Const,
 TokenType.Scope, TokenType.__Gshared, TokenType.Shared,
 TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
 TokenType.Align, TokenType.Pragma, TokenType.Extern
