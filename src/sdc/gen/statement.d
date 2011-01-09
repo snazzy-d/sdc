@@ -282,7 +282,17 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
         LLVMBuildRetVoid(mod.builder);
         return; 
     }
+    
+    if (mod.inferringFunction && statement.expression is null) {
+        throw new InferredTypeFoundException(new VoidType(mod));
+    }
+    
     auto val = genExpression(statement.expression, mod);
+    
+    if (mod.inferringFunction) {
+        throw new InferredTypeFoundException(val.type);
+    }
+    
     val = implicitCast(val.location, val, t);
     LLVMBuildRet(mod.builder, val.get());
 }

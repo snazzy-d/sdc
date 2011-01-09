@@ -99,11 +99,30 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 
 void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
+    // In this function I use exceptions as control flow _and_ a goto. Enjoy!
     auto type = new FunctionType(mod, decl);
+_declare:
     type.declare();
     auto name = extractIdentifier(decl.name);
     auto store = new Store(new FunctionValue(mod, decl.location, type, name));
     mod.currentScope.add(name, store);
+    
+    if (type.returnType.dtype == DType.Inferred) {
+        auto inferrenceContext = mod.dup;
+        inferrenceContext.inferringFunction = true;
+        
+        try {
+            genFunctionDeclaration(decl, inferrenceContext);
+        } catch (InferredTypeFoundException e) {
+            type.returnType = e.type;
+        }
+        
+        if (type.returnType.dtype == DType.Inferred) {
+            throw new CompilerPanic(decl.location, "inferred return value not inferred.");
+        }
+        
+        goto _declare;
+    }
 }
 
 void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
@@ -221,6 +240,8 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
         if (functionType.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
+        } else if (mod.inferringFunction) {
+            throw new InferredTypeFoundException(new VoidType(mod));
         } else {
             throw new CompilerError(
                 decl.location, 

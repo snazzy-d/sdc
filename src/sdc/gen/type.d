@@ -638,7 +638,16 @@ class FunctionType : Type
             }
             params ~= type.llvmType;
         }
-        mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
+        
+        if (returnType.dtype == DType.Inferred) {
+            /* The return type here doesn't matter, we just need
+             * *something* to get a valid LLVM function type.
+             * This will be then generated with the real return type.
+             */
+            mType = LLVMFunctionType(LLVMInt32Type(), params.ptr, params.length, varargs);
+        } else {
+            mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
+        }
     }
     
     override Value getValue(Module mod, Location location)
@@ -779,6 +788,18 @@ class InferredType : Type
     }
     
     override string name() { return "auto"; }
+}
+
+// This is evil.  EEEEEEEEEEEEEEEEEEEVIL.  >:D
+class InferredTypeFoundException : Exception
+{
+    Type type;
+    
+    this(Type type)
+    {
+        super("msg");
+        this.type = type;
+    }
 }
 
 
