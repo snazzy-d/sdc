@@ -31,6 +31,7 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
     case Align: case Extern: case ExternC:
     case ExternCPlusPlus: case ExternD: case ExternWindows:
     case ExternPascal: case ExternSystem:
+    case Pure: case Nothrow:
         return true;
     case Pragma:
         return false;

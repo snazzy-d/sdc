@@ -33,6 +33,8 @@ enum AttributeType
     Immutable = TokenType.Immutable,
     Inout = TokenType.Inout,
     atDisable = TokenType.atDisable,
+    Pure = TokenType.Pure,
+    Nothrow = TokenType.Nothrow,
     
     Align = TokenType.Align,
     Pragma = TokenType.Pragma,
@@ -72,7 +74,8 @@ TokenType.Static, TokenType.Final, TokenType.Override,
 TokenType.Abstract, TokenType.Const,
 TokenType.Scope, TokenType.__Gshared, TokenType.Shared,
 TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
-TokenType.Align, TokenType.Pragma, TokenType.Extern
+TokenType.Align, TokenType.Pragma, TokenType.Extern,
+TokenType.Pure, TokenType.Nothrow
 ];
 
 immutable ACCESS = [
