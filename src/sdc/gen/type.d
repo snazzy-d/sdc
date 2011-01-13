@@ -156,6 +156,13 @@ abstract class Type
         );
     }
     
+    ast.QualifiedName getFullName()
+    {
+        throw new CompilerPanic(
+            format(`tried to get full name of type "%s"`, name())
+        );
+    }
+    
     Type importToModule(Module mod)
     {
         return this;
@@ -751,6 +758,11 @@ class EnumType : Type
     override Type getBase()
     {
         return base;
+    }
+    
+    override ast.QualifiedName getFullName()
+    {
+        return fullName;
     }
     
     override string name()
