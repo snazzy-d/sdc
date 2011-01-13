@@ -188,6 +188,14 @@ void globalInit(string arch)
     }
 }
 
+version(Windows) extern(Windows) private
+{
+    void* GetModuleHandleA(const char* modName);
+    uint GetModuleFileNameA(void* mod, char* path, uint pathLen);
+    import std.c.string : strlen;
+    import std.path : dirname;
+}
+
 void loadConfig(ref string[] args)
 {
     void checkType(JSONValue val, JSON_TYPE type, string msg)
@@ -213,11 +221,19 @@ void loadConfig(ref string[] args)
     }
     
     version (Posix) string[] confLocations = ["~/.sdc.conf", "/etc/sdc.conf"];
-    else pragma(error, "please implement global.loadConfig for your platform. (Hi Jakob!)");
+    else version(Windows)
+    {
+        char[256] filePath;
+        GetModuleFileNameA(GetModuleHandleA(null), filePath.ptr, filePath.length);
+        string exeDirPath = cast(immutable)dirname(filePath.ptr[0..strlen(filePath.ptr)]);
+        string[] confLocations = [exeDirPath ~ "\\sdc.conf"];
+    }
+    else pragma(error, "please implement global.loadConfig for your platform.");
     
     auto confs = array( filter!exists(map!expandTilde(confLocations)) );
     if (confs.length == 0) {
         // Try to soldier on without a config file.
+        // How about a warning or something?
         return;
     }
     auto conf = cast(string) read(confs[0]);
