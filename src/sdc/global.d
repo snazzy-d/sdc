@@ -6,6 +6,11 @@
  */
 module sdc.global;
 
+import std.algorithm;
+import std.array;
+import std.file;
+import std.json;
+import std.path;
 import std.string;
 
 import sdc.compilererror;
@@ -181,6 +186,47 @@ void globalInit(string arch)
         versionIdentifiers["D_LP64"] = true;
         // Note that all "D_" identifiers are reserved, so no need to manually do so.
     }
+}
+
+void loadConfig(ref string[] args)
+{
+    void checkType(JSONValue val, JSON_TYPE type, string msg)
+    {
+        if (val.type != type) {
+            throw new CompilerError("malformed config: " ~ msg);
+        }
+    }
+    
+    string[] getStringArray(JSONValue object, string member)
+    {
+        string[] results;
+        if (auto p = member in object.object) {
+            auto array = *p;
+            checkType(array, JSON_TYPE.ARRAY, "non array typed " ~ member ~ ".");
+            
+            foreach (e; array.array) {
+                checkType(e, JSON_TYPE.STRING, "non string array member.");
+                results ~= e.str;
+            }
+        }
+        return results;
+    }
+    
+    version (Posix) string[] confLocations = ["~/.sdc.conf", "/etc/sdc.conf"];
+    else pragma(error, "please implement global.loadConfig for your platform. (Hi Jakob!)");
+    
+    auto confs = array( filter!exists(map!expandTilde(confLocations)) );
+    if (confs.length == 0) {
+        // Try to soldier on without a config file.
+        return;
+    }
+    auto conf = cast(string) read(confs[0]);
+    
+    auto confRoot = parseJSON(conf);
+    checkType(confRoot, JSON_TYPE.OBJECT, "no root object."); 
+    
+    importPaths ~= getStringArray(confRoot, "defaultImportPaths");
+    args.insert(1, getStringArray(confRoot, "defaultFlags"));
 }
 
 Type getSizeT(Module mod)

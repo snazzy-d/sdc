@@ -78,6 +78,7 @@ void realmain(string[] args)
         string arch = "x86-64";
     }
     
+    loadConfig(args);
     try {
         getopt(args,
                std.getopt.config.caseSensitive,

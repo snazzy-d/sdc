@@ -80,6 +80,7 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Scope: case TokenType.__Gshared:
     case TokenType.Shared: case TokenType.Immutable:
     case TokenType.Inout: case TokenType.atDisable:
+    case TokenType.Pure: case TokenType.Nothrow:
         // Simple keyword attribute.
         attribute.type = cast(AttributeType) tstream.peek.type;
         tstream.getToken();
