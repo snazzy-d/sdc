@@ -116,9 +116,6 @@ void realmain(string[] args)
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
-        if (!arg) {
-            continue;
-        }
         auto ext = getExt(arg);
         
         switch(ext){
