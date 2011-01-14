@@ -242,7 +242,11 @@ void loadConfig(ref string[] args)
     checkType(confRoot, JSON_TYPE.OBJECT, "no root object."); 
     
     importPaths ~= getStringArray(confRoot, "defaultImportPaths");
-    args.insert(1, getStringArray(confRoot, "defaultFlags"));
+    if (args.length > 1) {
+        args = args[0] ~ getStringArray(confRoot, "defaultFlags") ~ args[1 .. $];
+    } else {
+        args = args[0] ~ getStringArray(confRoot, "defaultFlags");
+    }
 }
 
 Type getSizeT(Module mod)
