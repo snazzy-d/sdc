@@ -15,6 +15,7 @@ import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.all;
 import sdc.parser.all;
+import sdc.gen.sdcimport;
 
 
 Module parse(TokenStream tstream)
@@ -45,6 +46,11 @@ Module parseModule(TokenStream tstream)
     while (tstream.peek.type != TokenType.End) {
         mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
     }
+    
+    auto implicitObjectImport = new DeclarationDefinition();
+    implicitObjectImport.type = DeclarationDefinitionType.ImportDeclaration;
+    implicitObjectImport.node = synthesiseImport("object");
+    mod.declarationDefinitions ~= implicitObjectImport;
     return mod;
 }                                        
 
