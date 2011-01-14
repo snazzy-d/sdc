@@ -2,12 +2,6 @@
 //T retval:0
 // Tests strings and character literals, and string/pointer casts.
 
-version (D_LP64) {
-    alias ulong size_t;
-} else {
-    alias uint size_t;
-}
-
 extern(C) size_t strlen(const char* s);
 
 int main()
