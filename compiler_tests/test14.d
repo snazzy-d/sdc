@@ -10,5 +10,7 @@ int main()
     if (retval != 57 && retval--) {
         retval = 32;
     }
-    return retval + 1;
+    if (retval == 57 && retval++) {
+    }
+    return retval;
 }
