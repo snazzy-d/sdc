@@ -117,7 +117,7 @@ Value genOrOrExpression(ast.OrOrExpression expression, Module mod)
     if (expression.orOrExpression !is null) {
         auto lhs = genOrOrExpression(expression.orOrExpression, mod);
         val = genAndAndExpression(expression.andAndExpression, mod);
-        val.or(lhs);
+        val = val.logicalOr(expression.location, lhs);
     } else {
         val = genAndAndExpression(expression.andAndExpression, mod);
     }
@@ -126,7 +126,15 @@ Value genOrOrExpression(ast.OrOrExpression expression, Module mod)
 
 Value genAndAndExpression(ast.AndAndExpression expression, Module mod)
 {
-    return genOrExpression(expression.orExpression, mod);
+    Value val;
+    if (expression.andAndExpression !is null) {
+        auto lhs = genAndAndExpression(expression.andAndExpression, mod);
+        val = genOrExpression(expression.orExpression, mod);
+        val = val.logicalAnd(expression.location, lhs);
+    } else {
+        val = genOrExpression(expression.orExpression, mod);
+    }
+    return val;
 }
 
 Value genOrExpression(ast.OrExpression expression, Module mod)

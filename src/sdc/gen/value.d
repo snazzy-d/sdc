@@ -107,9 +107,29 @@ abstract class Value
     Value gt(Location loc, Value val) { fail(loc, "compare greater-than of"); assert(false); }
     Value lt(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
     Value lte(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
+    Value or(Location loc, Value val) { fail(loc, "or"); assert(false); }
+    Value and(Location loc, Value val) { fail(loc, "and"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
+        
+        
+    Value logicalOr(Location location, Value val)
+    {
+        auto boolType = new BoolType(mModule);
+        auto a = this.performCast(location, boolType);
+        auto b = val.performCast(location, boolType);
+        return a.or(location, b);
+    }
+    
+    Value logicalAnd(Location location, Value val)
+    {
+        auto boolType = new BoolType(mModule);
+        auto a = this.performCast(location, boolType);
+        auto b = val.performCast(location, boolType);
+        return a.and(location, b);
+    }
+    
     
     Value addressOf()
     {
@@ -117,15 +137,6 @@ abstract class Value
         v.set(location, mValue);
         return v;
     }
-    
-    Value or(Value val)
-    {
-        auto v = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
-        auto b = new BoolValue(mModule, location);
-        b.set(location, v);
-        return b;
-    }
-    
     
     Value getProperty(Location loc, string name)
     {
@@ -390,6 +401,22 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         if (v.isKnown) {
             mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
         }
+        return v;
+    }
+    
+    override Value or(Location location, Value val)
+    {
+        auto result = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
+        auto v = new typeof(this)(mModule, location);
+        v.set(location, result);
+        return v;
+    }
+    
+    override Value and(Location location, Value val)
+    {
+        auto result = LLVMBuildAnd(mModule.builder, this.get(), val.get(), "and");
+        auto v = new typeof(this)(mModule, location);
+        v.set(location, result);
         return v;
     }
     
