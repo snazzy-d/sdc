@@ -158,7 +158,16 @@ Value genXorExpression(ast.XorExpression expression, Module mod)
 
 Value genAndExpression(ast.AndExpression expression, Module mod)
 {
-    return genCmpExpression(expression.cmpExpression, mod);
+    Value val;
+    if (expression.andExpression !is null) {
+        auto lhs = genAndExpression(expression.andExpression, mod);
+        val = genCmpExpression(expression.cmpExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &val);
+        val = lhs.and(expression.location, val);
+    } else {
+        val = genCmpExpression(expression.cmpExpression, mod);
+    }
+    return val;
 }
 
 Value genCmpExpression(ast.CmpExpression expression, Module mod)
