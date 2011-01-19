@@ -139,7 +139,16 @@ Value genAndAndExpression(ast.AndAndExpression expression, Module mod)
 
 Value genOrExpression(ast.OrExpression expression, Module mod)
 {
-    return genXorExpression(expression.xorExpression, mod);
+    Value val;
+    if (expression.orExpression !is null) {
+        auto lhs = genOrExpression(expression.orExpression, mod);
+        val = genXorExpression(expression.xorExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &val);
+        val = lhs.or(expression.location, val);
+    } else {
+        val = genXorExpression(expression.xorExpression, mod);
+    }
+    return val;
 }
 
 Value genXorExpression(ast.XorExpression expression, Module mod)
