@@ -43,7 +43,17 @@ string extractIdentifier(Identifier identifier)
 
 int extractIntegerLiteral(IntegerLiteral literal)
 {
-    return to!int(literal.value);
+    if (literal.value.length < 2) {
+        return parse!int(literal.value);
+    }
+    switch (literal.value[0 .. 2]) {
+    case "0x":
+        return parse!int(literal.value[2 .. $], 16);
+    case "0b":
+        return parse!int(literal.value[2 .. $], 2);
+    default:
+        return parse!int(literal.value);
+    }
 }
 
 double extractFloatLiteral(FloatLiteral literal)
