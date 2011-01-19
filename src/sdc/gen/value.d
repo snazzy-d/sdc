@@ -109,6 +109,7 @@ abstract class Value
     Value lte(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
     Value or(Location loc, Value val) { fail(loc, "or"); assert(false); }
     Value and(Location loc, Value val) { fail(loc, "and"); assert(false); }
+    Value xor(Location loc, Value val) { fail(loc, "xor"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
@@ -415,6 +416,14 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override Value and(Location location, Value val)
     {
         auto result = LLVMBuildAnd(mModule.builder, this.get(), val.get(), "and");
+        auto v = new typeof(this)(mModule, location);
+        v.set(location, result);
+        return v;
+    }
+    
+    override Value xor(Location location, Value val)
+    {
+        auto result = LLVMBuildXor(mModule.builder, this.get(), val.get(), "xor");
         auto v = new typeof(this)(mModule, location);
         v.set(location, result);
         return v;
