@@ -104,7 +104,8 @@ TokenType.Scope, TokenType.Static, TokenType.Synchronized
 ];
 
 immutable PAREN_TYPES = [
-TokenType.Const, TokenType.Immutable, TokenType.Shared, TokenType.Inout
+TokenType.Const, TokenType.Immutable, TokenType.Shared, TokenType.Inout,
+TokenType.Function,
 ];
 
 
