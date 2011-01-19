@@ -3,7 +3,6 @@
 
 int foo(int a)
 {
-    int a = 56;
     if (a == 56 || a++) {
         a++;
     }
