@@ -366,29 +366,25 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         val.set(expression.location, val.dec(expression.location));
         break;
     case ast.PostfixType.Parens:
-        if (lhs.type.dtype == DType.Function) {
-            auto asFunction = cast(FunctionType) lhs.type;
-            assert(asFunction);
-            Value[] args;
-            Location[] argLocations;
-            auto argList = cast(ast.ArgumentList) expression.firstNode;
-            assert(argList);
-            foreach (expr; argList.expressions) {
-                auto oldAggregate = mod.callingAggregate;
-                mod.callingAggregate = null;
-                args ~= genAssignExpression(expr, mod);
-                argLocations ~= expr.location;
-                mod.callingAggregate = oldAggregate;
-            }
-            if (mod.callingAggregate !is null) {
-                auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-                p.set(expression.location, mod.callingAggregate.addressOf());
-                args ~= p;
-            }
-            lhs = lhs.call(argList.location, argLocations, args);
-        } else {
-            throw new CompilerError(expression.location, "can only call functions.");
+        auto asFunction = cast(FunctionType) lhs.type;
+        assert(asFunction);
+        Value[] args;
+        Location[] argLocations;
+        auto argList = cast(ast.ArgumentList) expression.firstNode;
+        assert(argList);
+        foreach (expr; argList.expressions) {
+            auto oldAggregate = mod.callingAggregate;
+            mod.callingAggregate = null;
+            args ~= genAssignExpression(expr, mod);
+            argLocations ~= expr.location;
+            mod.callingAggregate = oldAggregate;
         }
+        if (mod.callingAggregate !is null) {
+            auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
+            p.set(expression.location, mod.callingAggregate.addressOf());
+            args ~= p;
+        }
+        lhs = lhs.call(argList.location, argLocations, args);
         break;
     case ast.PostfixType.Index:
         Value[] args;
