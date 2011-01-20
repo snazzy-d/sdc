@@ -1360,6 +1360,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     case ast.TypeType.Typeof:
         t = genTypeof(cast(ast.TypeofType) type.node, mod);
         break;
+    case ast.TypeType.FunctionPointer:
+        t = genFunctionPointerType(cast(ast.FunctionPointerType) type.node, mod, onFailure);
+        break;
     default:
         throw new CompilerPanic(type.location, "unhandled type type.");
     }
@@ -1390,6 +1393,24 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     }
     
     return t;
+}
+
+Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure onFailure)
+{
+    auto retval = astTypeToBackendType(type.retval, mod, onFailure);
+    auto args   = genParameterList(type.parameters, mod, onFailure);
+    auto fn     = new FunctionType(mod, retval, args, null);
+    fn.declare();
+    return new PointerType(mod, fn);
+}
+
+Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)
+{
+    Type[] list;
+    foreach (parameter; parameterList.parameters) {
+        list ~= astTypeToBackendType(parameter.type, mod, onFailure);
+    }
+    return list;
 }
 
 Type genTypeof(ast.TypeofType typeoftype, Module mod)
