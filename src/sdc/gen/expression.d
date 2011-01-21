@@ -366,8 +366,6 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         val.set(expression.location, val.dec(expression.location));
         break;
     case ast.PostfixType.Parens:
-        auto asFunction = cast(FunctionType) lhs.type;
-        assert(asFunction);
         Value[] args;
         Location[] argLocations;
         auto argList = cast(ast.ArgumentList) expression.firstNode;
