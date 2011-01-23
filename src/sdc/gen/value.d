@@ -802,8 +802,9 @@ class PointerValue : Value
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
-        
+           
         auto v = baseType.getValue(mModule, location);
+        assert(v !is null);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
         return v;
     }
@@ -836,6 +837,12 @@ class PointerValue : Value
         
         auto v = dereference(location);
         return v.getMember(location, name);
+    }
+    
+    override Value call(Location location, Location[] argLocations, Value[] args)
+    {
+        auto v = dereference(location);
+        return v.call(location, argLocations, args);
     }
     
     override Value getSizeof(Location loc)

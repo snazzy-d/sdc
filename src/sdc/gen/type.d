@@ -659,7 +659,7 @@ class FunctionType : Type
     
     override Value getValue(Module mod, Location location)
     {
-        return null;
+        return new FunctionValue(mod, location, this, "");
     }
     
     override string name()
@@ -668,7 +668,8 @@ class FunctionType : Type
         foreach(arg; argumentTypes) {
             args ~= ", " ~ arg.name(); 
         }
-        return returnType.name() ~ "function(" ~ args[3..$] ~ ")"; 
+        args = args[2 .. $];  // Skip first ', '.
+        return returnType.name() ~ "function(" ~ args ~ ")";
     }
 }
 
