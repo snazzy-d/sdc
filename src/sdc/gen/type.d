@@ -659,7 +659,7 @@ class FunctionType : Type
     
     override Value getValue(Module mod, Location location)
     {
-        return new FunctionValue(mod, location, this, "");
+        return null;
     }
     
     override string name()
