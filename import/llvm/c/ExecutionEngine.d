@@ -1,4 +1,3 @@
-//2.7
 /*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
@@ -113,6 +112,8 @@ LLVMBool LLVMRemoveModuleProvider(LLVMExecutionEngineRef EE,
 
 LLVMBool LLVMFindFunction(LLVMExecutionEngineRef EE, /*const*/ char* Name,
                           LLVMValueRef* OutFn);
+
+void *LLVMRecompileAndRelinkFunction(LLVMExecutionEngineRef EE, LLVMValueRef Fn);
 
 LLVMTargetDataRef LLVMGetExecutionEngineTargetData(LLVMExecutionEngineRef EE);
 

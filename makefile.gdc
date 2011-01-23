@@ -5,10 +5,11 @@ OBJS=$(SOURCE:.d=.o)
 EXE=sdc
 
 sdc: $(OBJS)
-	$(GDC) $(OBJS) -lLLVM-2.7 -o $(EXE)
+	$(GDC) $(OBJS) -lLLVM-2.8 -o $(EXE)
 
 %.o: %.d $(SOURCE)
 	$(GDC) $(DFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(EXE)
+

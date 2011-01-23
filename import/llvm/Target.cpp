@@ -88,10 +88,12 @@ LLVMTargetDataRef LLVMTargetMachineData(LLVMTargetMachineRef TM)
 
 // stolen from LDC and modified
 // based on llc (from LLVM) code, University of Illinois Open Source License
-int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TMRef, LLVMModuleRef MRef, const char* filename, int opt)
+int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TMRef, LLVMModuleRef MRef, const char* filename, int opt, int pic)
 {
     TargetMachine* TM = unwrap(TMRef);
     Module* M = unwrap(MRef);
+
+    TargetMachine::setRelocationModel(pic ? Reloc::PIC_ : Reloc::Default);
 
 #if 0
     printf("trying to write native asm for target: %s\n", TM->getTarget().getName());

@@ -4,20 +4,14 @@ SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/ex
 OBJ=sdc.o
 EXE=sdc
 
-# Apologies for the specificness of this.
-# In time this will change. For now, fill in your details.
-# LIBLLVM must be a 32 bit SO.
 CXX=g++
 CXXFLAGS=-m32
 PHOBOS2=/usr/lib32/libphobos2.a
 DRUNTIME=/usr/lib32/libdruntime.a
-LIBLLVM=/home/bernard/Projects/SDC/libLLVM-2.7.so
-LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(DRUNTIME) $(LIBLLVM) Ext.o
+LIBLLVM=-lLLVM-2.8
+LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(DRUNTIME) $(LIBLLVM) libllvm-c-ext.a
 
-all: Ext.o
+all:
 	$(DMD) -of$(OBJ) $(SOURCE) $(DFLAGS)
 	$(CXX) $(CXXFLAGS) -o$(EXE) $(OBJ) $(LDFLAGS)
-
-Ext.o: import/llvm/Ext.cpp
-	$(CXX) -m32 -c -oExt.o import/llvm/Ext.cpp `llvm-config --cxxflags`
 

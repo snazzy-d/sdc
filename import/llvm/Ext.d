@@ -5,6 +5,9 @@ import llvm.c.Target;
 
 extern(C):
 
+LLVMTypeRef LLVMMetadataType();
+LLVMValueRef LLVMMetadataOperand(LLVMValueRef, uint);
+
 void LLVMSetStoreAlign(LLVMValueRef store, uint alignment);
 uint LLVMGetStoreAlign(LLVMValueRef store);
 
@@ -25,16 +28,14 @@ LLVMTypeRef LLVMGetStructElementType(LLVMTypeRef ST, uint elem_index);
 
 LLVMValueRef LLVMConstRealFromBits(LLVMTypeRef T, uint bits, ulong* data, uint nbitwords);
 
-void LLVMMoveBasicBlockAfter(LLVMBasicBlockRef src, LLVMBasicBlockRef tgt);
-
-LLVMValueRef LLVMGetNamedAlias(LLVMModuleRef M, const char *Name);
+LLVMValueRef LLVMGetNamedAlias(LLVMModuleRef M, /*const*/ char *Name);
 
 void LLVMAddRetAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 // target triple binding
 
 // returns the running host triple
-const(char)* LLVMGetHostTriple();
+char* LLVMGetHostTriple();
 
 version(none) // disable for now, since this enum is too unstable in llvm
 {
@@ -89,7 +90,7 @@ enum LLVMOSType {
     Win32
 };
 
-LLVMTripleRef LLVMCreateTriple(const char* str);
+LLVMTripleRef LLVMCreateTriple(char* str);
 void LLVMDisposeTriple(LLVMTripleRef triple);
 
 LLVMArchType LLVMTripleGetArch(LLVMTripleRef triple);
@@ -102,7 +103,7 @@ LLVMOSType LLVMTripleGetOS(LLVMTripleRef triple);
 struct LLVM_OpaqueTargetMachine {}
 alias LLVM_OpaqueTargetMachine* LLVMTargetMachineRef;
 
-LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple, const char** feats, size_t nfeats);
+LLVMTargetMachineRef LLVMCreateTargetMachine(char* cpu, char* triple, char** feats, size_t nfeats);
 void LLVMDisposeTargetMachine(LLVMTargetMachineRef machine);
 LLVMTargetDataRef LLVMTargetMachineData(LLVMTargetMachineRef TM);
 
@@ -128,13 +129,13 @@ void LLVMInitializeSparcAsmPrinter();
 
 // Extra output functions
 int LLVMWriteAsmToFile(LLVMModuleRef M, char* path, char** errstr);
-int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TM, LLVMModuleRef M, char* path, int opt);
+int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TM, LLVMModuleRef M, char* path, int opt, int pic);
 
-// More IPO
+// More optimization
 
-void LLVMAddInternalizePass(LLVMPassManagerRef PM, char** exp, uint nexps);
+void LLVMAddInternalizePassWithExportList(LLVMPassManagerRef PM, char** exp, uint nexps);
 void LLVMAddTailDuplicationPass(LLVMPassManagerRef PM);
-void LLVMAddIPSCCPPass(LLVMPassManagerRef PM);
+void LLVMAddCorrelatedValuePropagationPass(LLVMPassManagerRef PM);
 
 // system utils
 

@@ -1,4 +1,3 @@
-//2.7
 /*===-- llvm-c/lto.h - LTO Public C Interface ---------------------*- C -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
@@ -60,43 +59,43 @@ extern(C):
 /**
  * Returns a printable string.
  */
-extern const(char)*
+extern /*const*/ char*
 lto_get_version();
 
 
 /**
  * Returns the last error string or NULL if last operation was sucessful.
  */
-extern const(char)*
+extern /*const*/ char*
 lto_get_error_message();
 
 /**
  * Checks if a file is a loadable object file.
  */
 extern bool
-lto_module_is_object_file(const(char)* path);
+lto_module_is_object_file(/*const*/ char* path);
 
 
 /**
  * Checks if a file is a loadable object compiled for requested target.
  */
 extern bool
-lto_module_is_object_file_for_target(const(char)* path, 
-                                     const(char)* target_triple_prefix);
+lto_module_is_object_file_for_target(/*const*/ char* path, 
+                                     /*const*/ char* target_triple_prefix);
 
 
 /**
  * Checks if a buffer is a loadable object file.
  */
 extern bool
-lto_module_is_object_file_in_memory(const void* mem, size_t length);
+lto_module_is_object_file_in_memory(/*const*/ void* mem, size_t length);
 
 
 /**
  * Checks if a buffer is a loadable object compiled for requested target.
  */
 extern bool
-lto_module_is_object_file_in_memory_for_target(const void* mem, size_t length, const(char)* target_triple_prefix);
+lto_module_is_object_file_in_memory_for_target(/*const*/ void* mem, size_t length, /*const*/ char* target_triple_prefix);
 
 
 /**
@@ -104,7 +103,7 @@ lto_module_is_object_file_in_memory_for_target(const void* mem, size_t length, c
  * Returns NULL on error (check lto_get_error_message() for details).
  */
 extern lto_module_t
-lto_module_create(const(char)* path);
+lto_module_create(/*const*/ char* path);
 
 
 /**
@@ -112,7 +111,7 @@ lto_module_create(const(char)* path);
  * Returns NULL on error (check lto_get_error_message() for details).
  */
 extern lto_module_t
-lto_module_create_from_memory(const void* mem, size_t length);
+lto_module_create_from_memory(/*const*/ void* mem, size_t length);
 
 
 /**
@@ -126,8 +125,14 @@ lto_module_dispose(lto_module_t mod);
 /**
  * Returns triple string which the object module was compiled under.
  */
-extern const(char)*
+extern /*const*/ char*
 lto_module_get_target_triple(lto_module_t mod);
+
+/**
+ * Sets triple string with which the object will be codegened.
+ */
+extern void
+lto_module_set_target_triple(lto_module_t mod, /*const*/ char* triple);
 
 
 /**
@@ -140,7 +145,7 @@ lto_module_get_num_symbols(lto_module_t mod);
 /**
  * Returns the name of the ith symbol in the object module.
  */
-extern const(char)*
+extern /*const*/ char*
 lto_module_get_symbol_name(lto_module_t mod, uint index);
 
 
@@ -194,20 +199,24 @@ lto_codegen_set_pic_model(lto_code_gen_t cg, lto_codegen_model);
 
 
 /**
- * Sets the location of the "gcc" to run. If not set, libLTO will search for
- * "gcc" on the path.
+ * Sets the cpu to generate code for.
  */
 extern void
-lto_codegen_set_gcc_path(lto_code_gen_t cg, const(char)* path);
-
+lto_codegen_set_cpu(lto_code_gen_t cg, /*const*/ char* cpu);
 
 /**
  * Sets the location of the assembler tool to run. If not set, libLTO
  * will use gcc to invoke the assembler.
  */
 extern void
-lto_codegen_set_assembler_path(lto_code_gen_t cg, const(char)* path);
+lto_codegen_set_assembler_path(lto_code_gen_t cg, /*const*/ char* path);
 
+/**
+ * Sets extra arguments that libLTO should pass to the assembler.
+ */
+extern void
+lto_codegen_set_assembler_args(lto_code_gen_t cg, /*const*/ char** args,
+                               int nargs);
 
 /**
  * Adds to a list of all global symbols that must exist in the final
@@ -215,7 +224,7 @@ lto_codegen_set_assembler_path(lto_code_gen_t cg, const(char)* path);
  * inlined into every usage and optimized away.
  */
 extern void
-lto_codegen_add_must_preserve_symbol(lto_code_gen_t cg, const(char)* symbol);
+lto_codegen_add_must_preserve_symbol(lto_code_gen_t cg, /*const*/ char* symbol);
 
 
 /**
@@ -224,7 +233,7 @@ lto_codegen_add_must_preserve_symbol(lto_code_gen_t cg, const(char)* symbol);
  * Returns true on error (check lto_get_error_message() for details).
  */
 extern bool
-lto_codegen_write_merged_modules(lto_code_gen_t cg, const(char)* path);
+lto_codegen_write_merged_modules(lto_code_gen_t cg, /*const*/ char* path);
 
 
 /**
@@ -235,7 +244,7 @@ lto_codegen_write_merged_modules(lto_code_gen_t cg, const(char)* path);
  * is called, or lto_codegen_compile() is called again.
  * On failure, returns NULL (check lto_get_error_message() for details).
  */
-extern const(void)*
+extern /*const*/ void*
 lto_codegen_compile(lto_code_gen_t cg, size_t* length);
 
 
@@ -243,5 +252,5 @@ lto_codegen_compile(lto_code_gen_t cg, size_t* length);
  * Sets options to help debug codegen bugs.
  */
 extern void
-lto_codegen_debug_options(lto_code_gen_t cg, const char *);
+lto_codegen_debug_options(lto_code_gen_t cg, /*const*/ char *);
 
