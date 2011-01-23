@@ -16,6 +16,14 @@ using namespace llvm;
 
 extern "C" {
 
+LLVMTypeRef LLVMMetadataType()
+{
+  return wrap(Type::getMetadataTy(*unwrap(LLVMGetGlobalContext())));
+}
+LLVMValueRef LLVMMetadataOperand(LLVMValueRef md, unsigned i)
+{
+	return wrap(unwrap<MDNode>(md)->getOperand(i));
+}
 
 // load/store alignment
 
@@ -124,21 +132,23 @@ const char* LLVMGetHostTriple()
 
 //ModulePass *createInternalizePass(const std::vector<const char *> &exportList);
 
-void LLVMAddInternalizePass(LLVMPassManagerRef PM, const char* exp[], unsigned nexps) {
+void LLVMAddInternalizePassWithExportList(LLVMPassManagerRef PM, const char* exp[], unsigned nexps) {
   std::vector<const char *> exportList(nexps, NULL);
   for (unsigned i = 0; i < nexps; ++i)
     exportList[i] = exp[i];
   unwrap(PM)->add(createInternalizePass(exportList));
 }
 
+// other optimizations
+
+void LLVMAddCorrelatedValuePropagationPass(LLVMPassManagerRef PM)
+{
+	unwrap(PM)->add(createCorrelatedValuePropagationPass());
+}
+
 void LLVMAddTailDuplicationPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createTailDuplicationPass());
-}
-
-void LLVMAddIPSCCPPass(LLVMPassManagerRef PM)
-{
-    unwrap(PM)->add(createIPSCCPPass());
 }
 
 // system stuff
@@ -153,13 +163,6 @@ void LLVMPrintStackTraceOnErrorSignal()
 LLVMValueRef LLVMConstRealFromBits(LLVMTypeRef T, unsigned bits, uint64_t* data, unsigned nbitwords)
 {
     return wrap(ConstantFP::get(getGlobalContext(), APFloat(APInt(bits, nbitwords, data))));
-}
-
-// moving a BB
-
-void LLVMMoveBasicBlockAfter(LLVMBasicBlockRef src, LLVMBasicBlockRef tgt)
-{
-    unwrap(src)->moveAfter(unwrap(tgt));
 }
 
 // get alias

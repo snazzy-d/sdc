@@ -1,4 +1,3 @@
-//2.7
 /*===-- llvm-c/EnhancedDisassembly.h - Disassembler C Interface ---*- C -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
@@ -20,9 +19,6 @@ module llvm.c.EnhancedAssembly;
 
 import llvm.c.Core;
 
-alias ubyte uint8_t;
-alias ulong uint64_t;
-
 extern(C):
 
 
@@ -34,7 +30,7 @@ extern(C):
  @param arg An anonymous argument for client use.
  @result 0 on success; -1 otherwise.
  */
-alias int function(uint8_t *byte_, uint64_t address, void *arg) EDByteReaderCallback;
+alias int function(ubyte *_byte, ulong address, void *arg) EDByteReaderCallback;
 
 /*!
  @typedef EDRegisterReaderCallback
@@ -45,47 +41,44 @@ alias int function(uint8_t *byte_, uint64_t address, void *arg) EDByteReaderCall
  @param arg An anonymous argument for client use.
  @result 0 if the register could be read; -1 otherwise.
  */
- alias int function(uint64_t *value, uint regID, 
+alias int function(ulong *value, uint regID, 
                                         void* arg) EDRegisterReaderCallback;
 
 /*!
  @typedef EDAssemblySyntax_t
  An assembly syntax for use in tokenizing instructions.
  */
-enum kEDAssemblySyntax {
+enum EDAssemblySyntax : uint {
 /*! @constant kEDAssemblySyntaxX86Intel Intel syntax for i386 and x86_64. */
   X86Intel  = 0,
 /*! @constant kEDAssemblySyntaxX86ATT AT&T syntax for i386 and x86_64. */
-  X86ATT    = 1
+  X86ATT    = 1,
+  ARMUAL    = 2
 }
 
 /*!
  @typedef EDDisassemblerRef
  Encapsulates a disassembler for a single CPU architecture.
  */
-struct EDDisassembler;
-alias EDDisassembler* EDDisassemblerRef;
+alias void* EDDisassemblerRef;
 
 /*!
  @typedef EDInstRef
  Encapsulates a single disassembled instruction in one assembly syntax.
  */
-struct EDInst;
-alias EDInst* EDInstRef;
+alias void* EDInstRef;
 
 /*!
  @typedef EDTokenRef
  Encapsulates a token from the disassembly of an instruction.
  */
-struct EDToken;
-alias EDToken* EDTokenRef;
+alias void* EDTokenRef;
 
 /*!
  @typedef EDOperandRef
  Encapsulates an operand of an instruction.
  */
-struct EDOperand;
-alias EDOperand* EDOperandRef;
+alias void* EDOperandRef;
   
 /*!
  @functiongroup Getting a disassembler
@@ -100,9 +93,9 @@ alias EDOperand* EDOperandRef;
  @param syntax The assembly syntax to use when decoding instructions.
  @result 0 on success; -1 otherwise.
  */
-//int EDGetDisassembler(EDDisassemblerRef* disassembler,
- //                     /*const*/ char* triple,
-  //                    EDAssemblySyntax syntax);
+int EDGetDisassembler(EDDisassemblerRef* disassembler,
+                      const char* triple,
+                      EDAssemblySyntax syntax);
 
 /*!
  @functiongroup Generic architectural queries
@@ -117,7 +110,7 @@ alias EDOperand* EDOperandRef;
  @param regID The register identifier, as returned by EDRegisterTokenValue.
  @result 0 on success; -1 otherwise.
  */
-int EDGetRegisterName(/*const*/ char** regName,
+int EDGetRegisterName(const char** regName,
                       EDDisassemblerRef disassembler,
                       uint regID);
   
@@ -448,7 +441,7 @@ typedef int function(ubyte* byte_, ulong address) EDByteBlock_t;
  @param regID The LLVM register identifier for the register to read.
  @result 0 if the register could be read; -1 otherwise.
  */
-typedef int function(ulong* value, uint regID) EDRegisterBlock_t;
+alias int function(ulong* value, uint regID) EDRegisterBlock_t;
 
 /*!
  @typedef EDTokenVisitor_t
@@ -456,7 +449,7 @@ typedef int function(ulong* value, uint regID) EDRegisterBlock_t;
  @param token The current token being read.
  @result 0 to continue; 1 to stop normally; -1 on error.
  */
-typedef int function(EDTokenRef token) EDTokenVisitor_t;
+alias int function(EDTokenRef token) EDTokenVisitor_t;
 
 /*! @functiongroup Block-based interfaces */
   

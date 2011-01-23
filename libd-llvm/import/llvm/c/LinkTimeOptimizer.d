@@ -1,4 +1,3 @@
-//2.7
 //===-- llvm/LinkTimeOptimizer.h - LTO Public C Interface -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure

@@ -195,7 +195,7 @@ enum LLVMTypeKind {
   Float,       /**< 32 bit floating point type */
   Double,      /**< 64 bit floating point type */
   X86_FP80,    /**< 80 bit floating point type (X87) */
-  FP128,       /**< 128 bit floating point type (112-bit mantissa)*/
+  FP128,       /**< 128 bit floating point type (112-bit mantissa) */
   PPC_FP128,   /**< 128 bit floating point type (two 64-bits) */
   Label,       /**< Labels */
   Integer,     /**< Arbitrary bit width integers */
@@ -205,8 +205,7 @@ enum LLVMTypeKind {
   Pointer,     /**< Pointers */
   Opaque,      /**< Opaque: type with unknown structure */
   Vector,      /**< SIMD 'packed' format, or other vector type */
-  Metadata,    /**< Metadata */
-  Union        /**< Unions */
+  Metadata    /**< Metadata */
 }
 
 enum LLVMLinkage {
@@ -227,7 +226,9 @@ enum LLVMLinkage {
   ExternalWeak,/**< ExternalWeak linkage description */
   Ghost,       /**< Obsolete */
   Common,      /**< Tentative definitions */
-  LinkerPrivate /**< Like Private, but linker removes. */
+  LinkerPrivate, /**< Like Private, but linker removes. */
+  LinkerPrivateWeak, /**< Like LinkerPrivate, but is weak. */
+  LinkerPrivateWeakDefAuto /**< Like LinkerPrivateWeak, but possibly hidden. */
 }
 
 enum LLVMVisibility {
@@ -279,7 +280,7 @@ enum LLVMRealPredicate {
 
 /*===-- Error handling ----------------------------------------------------===*/
 
-void LLVMDisposeMessage(const(char)* Message);
+void LLVMDisposeMessage(char* Message);
 
 
 /*===-- Contexts ----------------------------------------------------------===*/
@@ -305,11 +306,11 @@ LLVMModuleRef LLVMModuleCreateWithNameInContext(const char* ModuleID,
 void LLVMDisposeModule(LLVMModuleRef M);
 
 /** Data layout. See Module::getDataLayout. */
-const(char)* LLVMGetDataLayout(LLVMModuleRef M);
+const (char)* LLVMGetDataLayout(LLVMModuleRef M);
 void LLVMSetDataLayout(LLVMModuleRef M, const char* Triple);
 
 /** Target triple. See Module::getTargetTriple. */
-const(char)* LLVMGetTarget(LLVMModuleRef M);
+const (char)* LLVMGetTarget(LLVMModuleRef M);
 void LLVMSetTarget(LLVMModuleRef M, const char* Triple);
 
 /** See Module::addTypeName. */
@@ -320,6 +321,8 @@ LLVMTypeRef LLVMGetTypeByName(LLVMModuleRef M, const char* Name);
 /** See Module::dump. */
 void LLVMDumpModule(LLVMModuleRef M);
 
+/** See Module::setModuleInlineAsm. */
+void LLVMSetModuleInlineAsm(LLVMModuleRef M, const char* Asm);
 
 /*===-- Types -------------------------------------------------------------===*/
 
@@ -391,13 +394,6 @@ uint LLVMCountStructElementTypes(LLVMTypeRef StructTy);
 void LLVMGetStructElementTypes(LLVMTypeRef StructTy, LLVMTypeRef* Dest);
 LLVMBool LLVMIsPackedStruct(LLVMTypeRef StructTy);
 
-/* Operations on union types */
-LLVMTypeRef LLVMUnionTypeInContext(LLVMContextRef C, LLVMTypeRef* ElementTypes,
-                                   uint ElementCount);
-LLVMTypeRef LLVMUnionType(LLVMTypeRef* ElementTypes, uint ElementCount);
-uint LLVMCountUnionElementTypes(LLVMTypeRef UnionTy);
-void LLVMGetUnionElementTypes(LLVMTypeRef UnionTy, LLVMTypeRef* Dest);
-
 /* Operations on array, pointer, and vector types (sequence types) */
 LLVMTypeRef LLVMArrayType(LLVMTypeRef ElementType, uint ElementCount);
 LLVMTypeRef LLVMPointerType(LLVMTypeRef ElementType, uint AddressSpace);
@@ -429,11 +425,11 @@ void LLVMDisposeTypeHandle(LLVMTypeHandleRef TypeHandle);
 /* The bulk of LLVM's object model consists of values, which comprise a very
  * rich type hierarchy.
  */
-// macros were removed for these bindings
+// marcos were removed for these bindings
 
 /* Operations on all values */
 LLVMTypeRef LLVMTypeOf(LLVMValueRef Val);
-const(char)* LLVMGetValueName(LLVMValueRef Val);
+const (char)* LLVMGetValueName(LLVMValueRef Val);
 void LLVMSetValueName(LLVMValueRef Val, const char* Name);
 void LLVMDumpValue(LLVMValueRef Val);
 void LLVMReplaceAllUsesWith(LLVMValueRef OldVal, LLVMValueRef NewVal);
@@ -441,6 +437,13 @@ int LLVMHasMetadata(LLVMValueRef Val);
 LLVMValueRef LLVMGetMetadata(LLVMValueRef Val, uint KindID);
 void LLVMSetMetadata(LLVMValueRef Val, uint KindID, LLVMValueRef Node);
 
+/* Conversion functions. Return the input value if it is an instance of the
+   specified class, otherwise NULL. See llvm::dyn_cast_or_null<>. */
+/*
+#define LLVM_DECLARE_VALUE_CAST(name) \
+  LLVMValueRef LLVMIsA##name(LLVMValueRef Val);
+LLVM_FOR_EACH_VALUE_SUBCLASS(LLVM_DECLARE_VALUE_CAST)
+*/
 
 /* Operations on Uses */
 LLVMUseRef LLVMGetFirstUse(LLVMValueRef Val);
@@ -450,6 +453,8 @@ LLVMValueRef LLVMGetUsedValue(LLVMUseRef U);
 
 /* Operations on Users */
 LLVMValueRef LLVMGetOperand(LLVMValueRef Val, uint Index);
+void LLVMSetOperand(LLVMValueRef User, uint Index, LLVMValueRef Val);
+int LLVMGetNumOperands(LLVMValueRef Val);
 
 /* Operations on constants of any type */
 LLVMValueRef LLVMConstNull(LLVMTypeRef Ty); /* all zeroes */
@@ -497,7 +502,6 @@ LLVMValueRef LLVMConstArray(LLVMTypeRef ElementTy,
 LLVMValueRef LLVMConstStruct(LLVMValueRef* ConstantVals, uint Count,
                              LLVMBool Packed);
 LLVMValueRef LLVMConstVector(LLVMValueRef* ScalarConstantVals, uint Size);
-LLVMValueRef LLVMConstUnion(LLVMTypeRef Ty, LLVMValueRef Val);
 
 /* Constant expressions */
 LLVMOpcode LLVMGetConstOpcode(LLVMValueRef ConstantVal);
@@ -582,7 +586,7 @@ LLVMValueRef LLVMConstInsertValue(LLVMValueRef AggConstant,
                                   LLVMValueRef ElementValueConstant,
                                   uint *IdxList, uint NumIdx);
 LLVMValueRef LLVMConstInlineAsm(LLVMTypeRef Ty,
-                                const char* AsmString, const char* Constraints,
+                                const char* AsmString, /*const*/ char* Constraints,
                                 LLVMBool HasSideEffects, LLVMBool IsAlignStack);
 LLVMValueRef LLVMBlockAddress(LLVMValueRef F, LLVMBasicBlockRef BB);
 
@@ -591,7 +595,7 @@ LLVMModuleRef LLVMGetGlobalParent(LLVMValueRef Global);
 LLVMBool LLVMIsDeclaration(LLVMValueRef Global);
 LLVMLinkage LLVMGetLinkage(LLVMValueRef Global);
 void LLVMSetLinkage(LLVMValueRef Global, LLVMLinkage Linkage);
-const(char)* LLVMGetSection(LLVMValueRef Global);
+const (char)* LLVMGetSection(LLVMValueRef Global);
 void LLVMSetSection(LLVMValueRef Global, const char* Section);
 LLVMVisibility LLVMGetVisibility(LLVMValueRef Global);
 void LLVMSetVisibility(LLVMValueRef Global, LLVMVisibility Viz);
@@ -632,7 +636,7 @@ void LLVMDeleteFunction(LLVMValueRef Fn);
 uint LLVMGetIntrinsicID(LLVMValueRef Fn);
 uint LLVMGetFunctionCallConv(LLVMValueRef Fn);
 void LLVMSetFunctionCallConv(LLVMValueRef Fn, uint CC);
-const(char)* LLVMGetGC(LLVMValueRef Fn);
+const (char)* LLVMGetGC(LLVMValueRef Fn);
 void LLVMSetGC(LLVMValueRef Fn, const char* Name);
 void LLVMAddFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 LLVMAttribute LLVMGetFunctionAttr(LLVMValueRef Fn);
@@ -676,6 +680,9 @@ LLVMBasicBlockRef LLVMAppendBasicBlock(LLVMValueRef Fn, const char* Name);
 LLVMBasicBlockRef LLVMInsertBasicBlock(LLVMBasicBlockRef InsertBeforeBB,
                                        const char* Name);
 void LLVMDeleteBasicBlock(LLVMBasicBlockRef BB);
+
+void LLVMMoveBasicBlockBefore(LLVMBasicBlockRef BB, LLVMBasicBlockRef MovePos);
+void LLVMMoveBasicBlockAfter(LLVMBasicBlockRef BB, LLVMBasicBlockRef MovePos);
 
 /* Operations on instructions */
 LLVMBasicBlockRef LLVMGetInstructionParent(LLVMValueRef Inst);
