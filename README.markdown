@@ -7,6 +7,150 @@ I don't know what I'm doing in terms of compiler writing. If you find some horri
 The code is released under the GPL (see the LICENCE file for more details).
 Contact me at b.helyer@gmail.com
 
+Features
+========
+What follows is a very high level overview of what's done, and what's still to do.
+This list is incomplete. SDC is in a state of flux, and this is likely to be out of date.
+
+Lexer
+-----
+* Add something to the README to indicate SDC isn't dead. __[yes.]__
+* Scan and handle multiple encoding formats.  __[yes.]__ -- _in so far all code is treated as UTF-8 and its BOM is eaten; other BOMs are rejected._ __]__
+* Handle leading script lines.  __[yes.]__
+* Split source into tokens.  __[yes.]_  _
+* Replace special tokens.  __[yes.]__
+* Process special token sequences.  _[no.]_
+
+Parser
+------
+* Parse module declarations.  __[yes.]__
+* Parse attribute declarations.  __[yes.]__
+* Parse import declarations.  __[yes.]__
+* Parse enum declarations.  _[partially.]_
+* Parse class declarations.  _[partially.]_
+* Parse interface declarations.  _[no.]_
+* Parse aggregate declarations.  _[partially.]_
+* Parse declarations.  _[partially.]_
+* Parse constructors.  _[no.]_
+* Parse destructors.  _[no.]_
+* Parse invariants.  _[no.]_
+* Parse unittests.  _[no.]_
+* Parse static constructors.  _[no.]_
+* Parse static destructors.  _[no.]_
+* Parse shared static constructors.  _[no.]_
+* Parse shared static destructors.  _[no.]_
+* Parse conditional declarations.  __[yes.]__
+* Parse static asserts.  _[no.]_
+* Parse template declarations.  _[partially.]_
+* Parse template mixins.  _[no.]_
+* Parse mixin declarations.  _[partially.]_
+* Parse statements.  _[partially.]_
+
+Codegen
+-------
+* Import symbols from other modules.  __[yes.]__
+* Apply attributes.  _[partially.]_
+* Enums.  _[no.]_
+* Structs.  _[partially.]_
+* Classes.  _[no.]_
+* Functions.  _[partially.]_
+* Local variables.  _[yes.]_
+* Global variables.  _[partially.]_
+* Alias declarations.  _[partially.]_
+* Expressions.  _[partially.]_
+* Label statement.  _[no.]_
+* If statement.  __[yes.]__
+* While statement.  __[yes.]__
+* Do statement.  _[no.]_
+* For statement.  _[no.]_
+* Switch statement.  _[no.]_
+* Final switch statement.  _[no.]_
+* Case statement.  _[no.]_
+* Case range statement.  _[no.]_
+* Default statement.  _[no.]_
+* Continue statement.  _[no.]_
+* Break statement.  _[no.]_
+* Return statement.  _[partially.]_
+* Goto statement.  _[no.]_
+* With statement.  _[no.]_
+* Synchronized statement.  _[no.]_
+* Try statement.  _[no.]_
+* Scope guard statement.  _[no.]_
+* Throw statement.  _[no.]_
+* Asm statement.  _[no.]_
+* Pragma statement.  _[no.]_
+* Mixin statement.  _[yes.]_
+* Foreach range statement.  _[no.]_
+* Conditional statement.  __[yes.]__
+* Static assert.  _[no.]_
+* Template mixin.  _[no.]_
+* Templated scope. _[partially.]_
+
+
+What Can It Compile?
+====================
+Nothing practical. What follows is the a program featuring the most complex features SDC can currently handle.
+
+    module test;
+
+    extern (C) void exit(int);  // extern (D) functions are mangled.
+
+    struct Person
+    {
+        int age;
+        
+        void growOlder()
+        {
+            age = this.age + 1;
+        }
+    }
+
+    void bump(int* p)
+    {
+        *p = *p + 1;
+        return;
+    }
+
+    int add(int a, int b)
+    {
+        return a + b;
+    }
+
+    /**
+     * Returns 42.
+     */
+    int main()
+    {
+        Person p;
+        p.age = 0;
+        p.growOlder();
+        if (p.age != 1) {
+            return 1;
+        }
+        p.age = p.age + 20;
+        int i;
+        while (i != 19) {
+            i++;
+        }
+        bump(&i);
+        exit(add(p.age, i + 1));
+        return 1;  // Never reached.
+    }
+
+Roadmap
+=======
+This just me thinking outloud about what features I want, when.
+
+1.0
+---
+* druntime compatibility
+* phobos compatibility
+
+2.0
+---
+* dmd calling convention compatibility
+* inline assembler
+
 SDC with DMD/Windows
 =======
 (These instructions are from Jakob, so please don't contact me regarding them.)
