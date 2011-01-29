@@ -164,7 +164,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     
     mod.pushScope();
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
-    auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "endif");
+    auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
     
     mod.currentFunction.cfgTail = ifblock;
@@ -217,8 +217,8 @@ void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef
         throw new CompilerPanic("unimplemented if condition type.");
     }
     
-    ifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "iftrue");
-    elseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "else");
+    ifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "iftrue");
+    elseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "else");
     LLVMBuildCondBr(mod.builder, expr.get(), ifBB, elseBB);
 }
 
@@ -234,9 +234,9 @@ void genElseStatement(ast.ElseStatement statement, Module mod)
 
 void genWhileStatement(ast.WhileStatement statement, Module mod)
 {    
-    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "looptop");
-    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopbody");
-    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "loopend");
+    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
+    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
+    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
     
     auto parent  = mod.currentFunction.cfgTail;
     auto looptop = new BasicBlock();
@@ -277,7 +277,7 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
     mod.currentFunction.cfgTail.isExitBlock = true;
-    auto t = (cast(FunctionType) mod.currentFunction.type).returnType;
+    auto t = mod.currentFunction.type.returnType;
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);
         return; 

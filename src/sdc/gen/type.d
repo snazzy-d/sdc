@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -18,6 +18,7 @@ import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
+import sdc.gen.sdcfunction;
 
 
 enum DType
@@ -44,7 +45,6 @@ enum DType
     Array,
     Const,
     Complex,
-    Function,
     Struct,
     Enum,
     Class,
@@ -93,7 +93,6 @@ Type dtypeToType(DType dtype, Module mod)
     case NullPointer:
     case Array:
     case Complex:
-    case Function:
     case Struct:
     case Enum:
     case Class:
@@ -170,7 +169,7 @@ abstract class Type
     
     abstract string name();
     
-    protected Module mModule;
+    package   Module mModule;
     protected LLVMTypeRef mType;
 }
 
@@ -585,94 +584,6 @@ class ArrayType : StructType
     override string name() { return base.name() ~ "[]"; }
 }
 
-class FunctionType : Type
-{
-    Type returnType;
-    Type[] argumentTypes;
-    string[] argumentNames;
-    Location[] argumentLocations; // For error diagnostics
-    Location argumentListLocation;
-    bool varargs;
-    ast.Linkage linkage;
-    StructType parentAggregate;
-    
-    this(Module mod, ast.FunctionDeclaration functionDeclaration)
-    {
-        super(mod);
-        linkage = mod.currentLinkage;
-        dtype = DType.Function;
-        returnType = astTypeToBackendType(functionDeclaration.retval, mModule, OnFailure.DieWithError);
-        foreach (param; functionDeclaration.parameterList.parameters) {
-            argumentTypes ~= astTypeToBackendType(param.type, mModule, OnFailure.DieWithError);
-            if (argumentTypes[$ - 1].dtype == DType.Void) {
-                throw new CompilerError(param.location, "void is not a valid parameter type.");
-            }
-            if (param.attribute == ast.ParameterAttribute.Ref) {
-                argumentTypes[$ - 1].isRef = true;
-            }
-            argumentNames ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
-            argumentLocations ~= param.identifier !is null ? param.location : functionDeclaration.location;
-        }
-        varargs = functionDeclaration.parameterList.varargs;
-        argumentListLocation = functionDeclaration.parameterList.location;
-        
-        // C varargs requires at least one typed parameter
-        if (varargs && argumentTypes.length == 0 && linkage == ast.Linkage.ExternC) {
-            throw new CompilerError(
-                argumentListLocation, 
-                "C varargs requires at least one typed parameter."
-            );
-        }
-    }
-    
-    this(Module mod, Type retval, Type[] args, string[] argNames)
-    {
-        super(mod);
-        dtype = DType.Function;
-        returnType = retval;
-        argumentTypes = args;
-        argumentNames = argNames;
-    }
-    
-    void declare()
-    {
-        LLVMTypeRef[] params;
-        foreach (ref t; argumentTypes) {
-            auto type = t;
-            if (t.isRef) {
-                type = new PointerType(mModule, type);
-                t.isRef = true;
-            }
-            params ~= type.llvmType;
-        }
-        
-        if (returnType.dtype == DType.Inferred) {
-            /* The return type here doesn't matter, we just need
-             * *something* to get a valid LLVM function type.
-             * This will be then generated with the real return type.
-             */
-            mType = LLVMFunctionType(LLVMInt32Type(), params.ptr, params.length, varargs);
-        } else {
-            mType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
-        }
-    }
-    
-    override Value getValue(Module mod, Location location)
-    {
-        return null;
-    }
-    
-    override string name()
-    {
-        string args;
-        foreach(arg; argumentTypes) {
-            args ~= ", " ~ arg.name(); 
-        }
-        args = args[2 .. $];  // Skip first ', '.
-        return returnType.name() ~ "function(" ~ args ~ ")";
-    }
-}
-
 class StructType : Type
 {
     ast.QualifiedName fullName;
@@ -703,7 +614,7 @@ class StructType : Type
         members ~= t;
     }
     
-    void addMemberFunction(string id, Value f)
+    void addMemberFunction(string id, Function f)
     {
         memberFunctions[id] = f;
         mModule.globalScope.add(id, new Store(f));
@@ -715,8 +626,9 @@ class StructType : Type
         foreach (name, index; memberPositions) {
             t.addMemberVar(name, members[index].importToModule(mod));
         }
-        foreach (name, func; memberFunctions) {
-            t.addMemberFunction(name, func.importToModule(mod));
+        foreach (name, fn; memberFunctions) {
+            fn.importToModule(mod);
+            t.addMemberFunction(name, fn);
         }
         t.declare();
         return t;
@@ -729,7 +641,7 @@ class StructType : Type
     
     Type[] members;
     int[string] memberPositions;
-    Value[string] memberFunctions;
+    Function[string] memberFunctions;
 }
 
 class EnumType : Type

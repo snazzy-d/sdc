@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -94,9 +94,9 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
         auto e = genExpression(expression.expression, mod.dup);
         auto v = e.type.getValue(mod, expression.location);
         
-        auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condTrue");
-        auto condFalseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condFalse");
-        auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.get(), "condEnd");
+        auto condTrueBB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "condTrue");
+        auto condFalseBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "condFalse");
+        auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "condEnd");
         LLVMBuildCondBr(mod.builder, a.performCast(expression.location, new BoolType(mod)).get(), condTrueBB, condFalseBB);
         LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
         v.set(expression.location, genExpression(expression.expression, mod));
@@ -341,7 +341,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     
     final switch (expression.type) {
     case ast.PostfixType.None:
-        if (lhs.type.dtype == DType.Function) {
+        version (none) if (lhs.type.dtype == DType.Function) {
             if (mod.callingAggregate !is null) {
                 auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
                 p.set(expression.location, mod.callingAggregate.addressOf());
@@ -382,7 +382,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             p.set(expression.location, mod.callingAggregate.addressOf());
             args ~= p;
         }
-        lhs = lhs.call(argList.location, argLocations, args);
+        lhs = mod.expressionFunction.call(argList.location, argLocations, args);
         break;
     case ast.PostfixType.Index:
         Value[] args;
@@ -500,6 +500,9 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         return new ScopeValue(mod, identifier.location, store.getScope());
     } else if (store.storeType == StoreType.Type) {
         return store.type().getValue(mod, identifier.location);
+    } else if (store.storeType == StoreType.Function) {
+        mod.expressionFunction = store.getFunction();
+        return null;
     } else {
         assert(false);
     }

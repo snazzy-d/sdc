@@ -22,6 +22,7 @@ import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.statement;
 import sdc.gen.expression;
+import sdc.gen.sdcfunction;
 import sdc.parser.declaration;
 
 
@@ -97,32 +98,41 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     }
 }
 
+/// Create and add the function, but generate no code.
 void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
-    // In this function I use exceptions as control flow _and_ a goto. Enjoy!
-    auto type = new FunctionType(mod, decl);
-_declare:
-    type.declare();
-    auto name = extractIdentifier(decl.name);
-    auto store = new Store(new FunctionValue(mod, decl.location, type, name));
-    mod.currentScope.add(name, store);
+    auto retval = astTypeToBackendType(decl.retval, mod, OnFailure.DieWithError);
+    Type[] params;
+    string[] names;
+    foreach (param; decl.parameterList.parameters) {
+        params ~= astTypeToBackendType(param.type, mod, OnFailure.DieWithError);
+        names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
+    }
     
-    if (type.returnType.dtype == DType.Inferred) {
+    auto fn = new Function(new FunctionType(retval, params, decl.parameterList.varargs));
+    fn.simpleName = extractIdentifier(decl.name);
+    fn.argumentNames = names;
+    auto store = new Store(fn);
+    mod.currentScope.add(fn.simpleName, store);
+    
+    if (fn.type.returnType.dtype == DType.Inferred) {
         auto inferrenceContext = mod.dup;
         inferrenceContext.inferringFunction = true;
         
         try {
+            // Why in fuck's name am I doing this _here_? Oh well; TODO.
             genFunctionDeclaration(decl, inferrenceContext);
         } catch (InferredTypeFoundException e) {
-            type.returnType = e.type;
+            fn.type.returnType = e.type;
         }
         
-        if (type.returnType.dtype == DType.Inferred) {
+        if (fn.type.returnType.dtype == DType.Inferred) {
             throw new CompilerPanic(decl.location, "inferred return value not inferred.");
         }
-        
-        goto _declare;
     }
+    
+    fn.type.declare();
+    fn.add(mod);
 }
 
 void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
@@ -199,46 +209,49 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 
 void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
+    if (decl.functionBody is null) {
+        // The function's code is defined elsewhere.
+        return;
+    }
+    
     auto name = extractIdentifier(decl.name);
     auto store = mod.globalScope.get(name);
     if (store is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
-    auto val = store.value();
-    if (decl.functionBody is null) {
-        // The function's code is defined elsewhere.
-        return;
+    if (store.storeType != StoreType.Function) {
+        throw new CompilerPanic(decl.location, "function '" ~ name ~ "' not stored as function.");
     }
-    auto BB = LLVMAppendBasicBlockInContext(mod.context, val.get(), "entry");
+    auto fn = store.getFunction();
+    
+    auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
-    genFunctionBody(decl.functionBody, decl, val, mod);
+    genFunctionBody(decl.functionBody, decl, fn, mod);
 }
 
-void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Value func, Module mod)
+void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Function fn, Module mod)
 {
     mod.pushScope();
-    mod.currentFunction = cast(FunctionValue) func;
+    mod.currentFunction = fn;
     assert(mod.currentFunction);
-    auto functionType = cast(FunctionType) func.type;
-    assert(functionType);
     
     // Add parameters into the functions namespace.
-    foreach (i, argType; functionType.argumentTypes) {
+    foreach (i, argType; fn.type.argumentTypes) {
         Value val;
         if (argType.isRef) {
-            auto dummy = argType.getValue(mod, func.location);
-            auto r = new ReferenceValue(mod, func.location, dummy);
-            r.setReferencePointer(func.location, LLVMGetParam(func.get(), i));
+            auto dummy = argType.getValue(mod, decl.location);
+            auto r = new ReferenceValue(mod, decl.location, dummy);
+            r.setReferencePointer(decl.location, LLVMGetParam(fn.llvmValue, i));
             val = r;  
         } else {
-            val = argType.getValue(mod, func.location);
-            val.set(func.location, LLVMGetParam(func.get(), i));
+            val = argType.getValue(mod, decl.location);
+            val.set(decl.location, LLVMGetParam(fn.llvmValue, i));
         }
-        mod.currentScope.add(functionType.argumentNames[i], new Store(val));
+        mod.currentScope.add(fn.argumentNames[i], new Store(val));
     }
     genBlockStatement(functionBody.statement, mod);
     if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
-        if (functionType.returnType.dtype == DType.Void) {
+        if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else if (mod.inferringFunction) {
             throw new InferredTypeFoundException(new VoidType(mod));
@@ -246,13 +259,13 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             throw new CompilerError(
                 decl.location, 
                 format(`function "%s" expected to return a value of type "%s".`,
-                    mod.currentFunction.name, 
-                    functionType.returnType.name()
+                    mod.currentFunction.simpleName, 
+                    fn.type.returnType.name()
                 )
             );
         }
     } else if (!mod.currentFunction.cfgTail.isExitBlock) {
-        LLVMBuildRet(mod.builder, LLVMGetUndef(functionType.returnType.llvmType));
+        LLVMBuildRet(mod.builder, LLVMGetUndef(fn.type.returnType.llvmType));
     }
     
     mod.currentFunction = null;

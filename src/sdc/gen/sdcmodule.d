@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -24,6 +24,7 @@ import sdc.location;
 import sdc.extract.base;
 import sdc.gen.type;
 import sdc.gen.value;
+import sdc.gen.sdcfunction;
 
 
 /**
@@ -40,13 +41,14 @@ class Module
     Scope globalScope;
     Scope currentScope;
     ast.DeclarationDefinition[] functionBuildList;
-    FunctionValue currentFunction;
+    Function currentFunction;
     Value base;
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
     bool isAlias;  // ewwww
-    bool inferringFunction;  // OH GOD.
+    bool inferringFunction;  // OH GOD
+    Function expressionFunction;  // WHAT THE FUCK IS WRONG WITH ME?
     TranslationUnit[] importedTranslationUnits;
     string arch;
 
@@ -177,7 +179,7 @@ class Module
              *  and the symbol is not the name of a function,
              *  fail with 'duplicated symbol' error message."
              */
-            if (store.storeType == StoreType.Value && store.value.type.dtype != DType.Function) {
+            if (store.storeType == StoreType.Value) {
                 throw new CompilerError("duplicate symbol '" ~ name ~ "'.");
             } else {
                 /* "...if the symbol is the name of a function,
@@ -286,7 +288,7 @@ class Module
         mod.currentScope = currentScope.importToModule(mod);
         mod.functionBuildList = functionBuildList.dup;
         if (currentFunction !is null) {
-            mod.currentFunction = cast(FunctionValue) currentFunction.importToModule(mod);
+            currentFunction.importToModule(mod);
         }
         if (base !is null) {
             mod.base = base.importToModule(mod);
@@ -342,6 +344,7 @@ enum StoreType
     Type,
     Scope,
     Template,
+    Function,
 }
 
 class Store
@@ -371,6 +374,12 @@ class Store
     {
         storeType = StoreType.Template;
         object = _template;
+    }
+    
+    this(Function fn)
+    {
+        storeType = StoreType.Function;
+        object = fn;
     }
     
     Value value() @property
@@ -405,6 +414,14 @@ class Store
         return _template;
     }
     
+    Function getFunction() @property
+    {
+        assert(storeType == StoreType.Function);
+        auto fn = cast(Function) object;
+        assert(fn);
+        return fn;
+    }
+    
     Store importToModule(Module mod)
     {
         Store store;
@@ -415,6 +432,9 @@ class Store
             return new Store(type.importToModule(mod));
         case Scope:
             return new Store(getScope());
+        case Function:
+            getFunction().importToModule(mod);
+            return this;
         case Template:
             return this;  
         }

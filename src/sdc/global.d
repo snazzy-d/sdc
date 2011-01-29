@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -22,6 +22,7 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
 import sdc.gen.type;
+import sdc.gen.sdcfunction;
 
 enum ModuleState
 {
@@ -279,5 +280,5 @@ private __gshared TranslationUnit[string] translationUnits;
 
 
 // Runtime functions that the compiler needs to be able to call.
-FunctionValue gcAlloc;
-FunctionValue gcRealloc;
+Function gcAlloc;
+Function gcRealloc;

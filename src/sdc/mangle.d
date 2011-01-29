@@ -1,16 +1,19 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.mangle;
 
 import std.conv;
+import std.exception;
 
 import sdc.util;
 import sdc.compilererror;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
+import sdc.gen.value;
+import sdc.gen.sdcfunction;
 import sdc.ast.attribute;
 import sdc.ast.base;
 import sdc.extract.base;
@@ -20,7 +23,7 @@ string startMangle()
     return "_D";
 }
 
-void mangleFunction(ref string mangledName, FunctionType type)
+version (none) void mangleFunction(ref string mangledName, FunctionType type)
 {
     mangleCallConvention(mangledName, type.linkage);
     // TODO: mangle function attributes
@@ -30,6 +33,36 @@ void mangleFunction(ref string mangledName, FunctionType type)
     // TODO: Variadic functions have a different terminator here.
     mangledName ~= "Z";
     mangleType(mangledName, type.returnType);
+}
+
+void mangleFunction(ref string mangledName, Function fn)
+{
+    if (mangledName == "main") {
+        // TMP
+        return;
+    }
+    mangledName = startMangle();
+    if (fn.parentAggregate !is null) {
+        auto asStruct = enforce(cast(StructType) fn.parentAggregate);
+        mangleQualifiedName(mangledName, asStruct.fullName);
+    } else {
+        if (fn.mod.name is null) {
+            throw new CompilerPanic("null module name.");
+        }
+        mangleQualifiedName(mangledName, fn.mod.name);
+    }
+    mangleLName(mangledName, fn.simpleName);
+    if (fn.parentAggregate !is null) {
+        mangledName ~= "M";
+    }
+    mangleCallConvention(mangledName, fn.type.linkage);
+    // TODO: mangle function attributes.
+    foreach (paramType; fn.type.argumentTypes) {
+        mangleType(mangledName, paramType);
+    }
+    // TODO: Variadic functions have a different terminator here.
+    mangledName ~= "Z";
+    mangleType(mangledName, fn.type.returnType);
 }
 
 void mangleQualifiedName(ref string mangledName, QualifiedName baseName)
@@ -139,11 +172,6 @@ void mangleType(ref string mangledName, Type type)
         assert(asArray);
         mangledName ~= "A";
         mangleType(mangledName, asArray.base);
-        break;
-    case Function:
-        auto asFunction = cast(FunctionType) type;
-        assert(asFunction);
-        mangleFunction(mangledName, asFunction);
         break;
     case Struct:
         mangledName ~= "S";

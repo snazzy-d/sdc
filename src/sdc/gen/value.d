@@ -1012,177 +1012,6 @@ class NullPointerValue : PointerValue
     }
 }
 
-class FunctionValue : Value
-{
-    string name;
-    string mangledName;
-    BasicBlock cfgEntry;
-    BasicBlock cfgTail;
-    
-    this(Module mod, Location location, FunctionType func, string name, string forceMangled="")
-    {
-        super(mod, location);
-        this.name = name;
-        mType = func;
-        if (mod.currentLinkage == ast.Linkage.ExternD) {
-            if (forceMangled == "") {
-                mangledName = mangle(func);
-            } else {
-                mangledName = forceMangled;
-            }
-        } else {
-            mangledName = name;
-        }
-        
-        storeSpecial();
-        
-        mValue = LLVMAddFunction(mod.mod, toStringz(mangledName), func.llvmType);
-    }
-    
-    /**
-     * If this is a special runtime function, store it away
-     * for later use.
-     */
-    void storeSpecial()
-    {
-        if (mangledName == "malloc" && gcAlloc is null) {
-            gcAlloc = this;
-        } else if (mangledName == "realloc" && gcRealloc is null) {
-            gcRealloc = this;
-        }
-    }
-    
-    protected string mangle(FunctionType type)
-    {
-        if (name == "main") {
-            // TMP
-            return "main";
-        }
-        auto s = startMangle();
-        if (type.parentAggregate !is null) {
-            mangleQualifiedName(s, type.parentAggregate.fullName);
-        } else {
-            if (mModule.name is null) {
-                throw new CompilerPanic("null module name.");
-            }
-            mangleQualifiedName(s, mModule.name);
-        }
-        mangleLName(s, name);
-        if (type.parentAggregate !is null) {
-            s ~= "M";
-        }
-        mangleFunction(s, type);
-        return s;
-    }
-    
-    Value newWithAddedArgument(Type newArgument, string argName)
-    {
-        auto asFunctionType = cast(FunctionType) mType;
-        assert(asFunctionType);
-        auto returnType = asFunctionType.returnType;
-        auto args = asFunctionType.argumentTypes;
-        auto argNames = asFunctionType.argumentNames;
-        args ~= newArgument;
-        argNames ~= argName;
-        auto t = new FunctionType(mModule, returnType, args, argNames);
-        t.linkage = asFunctionType.linkage;
-        t.parentAggregate = asFunctionType.parentAggregate;
-        t.declare();
-        LLVMDeleteFunction(mValue);
-        return new FunctionValue(mModule, location, t, name, mangle(asFunctionType));
-    }
-    
-    override LLVMValueRef get()
-    {
-        return mValue;
-    }
-    
-    override Value call(Location location, Location[] argLocations, Value[] args)
-    {
-        // Check call with function signature.
-        auto functionType = cast(FunctionType) mType;
-        assert(functionType);
-        
-        if (functionType.varargs) {
-            if (functionType.argumentTypes.length > args.length) {
-                throw new CompilerError(
-                    location, 
-                    format("expected at least %s arguments, got %s.", functionType.argumentTypes.length, args.length),
-                    new CompilerError(
-                        functionType.argumentListLocation,
-                        format(`parameters of "%s":`, this.name)
-                    )
-                );
-             }
-        } else if (functionType.argumentTypes.length != args.length) {
-            location.column = location.wholeLine;
-            throw new CompilerError(
-                location, 
-                format("expected %s arguments, got %s.", functionType.argumentTypes.length, args.length),
-                    new CompilerError(
-                        functionType.argumentListLocation,
-                        format(`parameters of "%s":`, this.name)
-                    )
-            );
-        }
-        
-        foreach (i, arg; functionType.argumentTypes) {
-            try {
-                if (i < argLocations.length) {
-                    args[i] = implicitCast(argLocations[i], args[i], arg);
-                } else {
-                    // Some arguments are hidden at the end (i.e. this), and thus don't have locations. 
-                    args[i] = implicitCast(location, args[i], arg);
-                }
-                if (arg.isRef) {
-                    args[i] = args[i].addressOf();
-                }
-            } catch (CompilerError error) {
-                error.more = new CompilerError(
-                    functionType.argumentLocations[i],
-                    format(`argument #%s of function "%s":`, i + 1, this.name)
-                );
-                throw error;
-            }
-        }
-        
-        LLVMValueRef[] llvmArgs;
-        foreach (arg; args) {
-            llvmArgs ~= arg.get();
-        }
-        
-        Value val;
-        if (functionType.returnType.dtype != DType.Void) {
-            auto retval = LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "call");
-            val = functionType.returnType.getValue(mModule, location);
-            val.set(location, retval);
-        } else {
-            LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
-            val = new VoidValue(mModule, location);
-        }
-        return val;
-    }
-    
-    override Value init(Location location)
-    {
-        throw new CompilerPanic(location, "tried to get the init of a function value.");
-    }
-        
-    override Value getSizeof(Location loc)
-    {
-        auto asFunction = enforce(cast(FunctionType) mType);
-        // This is how DMD does it. Seems fairly arbitrary to me.
-        return asFunction.returnType.getValue(mModule, loc).getSizeof(loc);
-    }
-    
-    override Value importToModule(Module mod)
-    {
-        auto asFunction = enforce(cast(FunctionType) mType);
-        return new FunctionValue(mod, location, cast(FunctionType) asFunction.importToModule(mod), name, mangledName);
-    } 
-}
-
-
 class StructValue : Value
 {
     this(Module mod, Location location, StructType type)
@@ -1228,7 +1057,7 @@ class StructValue : Value
         return v;
     }
     
-    override Value getMember(Location location, string name)
+    override Value getMember(Location location, string name)  // !!!
     {
         auto prop = getProperty(location, name);
         if (prop !is null) {
@@ -1238,8 +1067,9 @@ class StructValue : Value
         auto asStruct = cast(StructType) mType;
         assert(asStruct);
         
-        if (auto p = name in asStruct.memberFunctions) {
-            return *p;
+        if (auto fnp = name in asStruct.memberFunctions) {
+            mModule.expressionFunction = *fnp;
+            return this;
         }
         
         auto t = new IntType(mModule);
@@ -1404,11 +1234,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 
 Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure onFailure)
 {
-    auto retval = astTypeToBackendType(type.retval, mod, onFailure);
-    auto args   = genParameterList(type.parameters, mod, onFailure);
-    auto fn     = new FunctionType(mod, retval, args, null);
-    fn.declare();
-    return new PointerType(mod, fn);
+    return null;
 }
 
 Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)

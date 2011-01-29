@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -15,6 +15,7 @@ import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.base;
+import sdc.gen.sdcfunction;
 
 
 bool canGenAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
@@ -53,29 +54,24 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     foreach (declDef; decl.structBody.declarations) {
         genDeclarationDefinition(declDef, mod);
     }
-    FunctionValue[] functions;
+    Function[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
             type.addMemberVar(name, store.type);
         } else if (store.storeType == StoreType.Value) {
-            if (store.value.type.dtype != DType.Function) {
-                type.addMemberVar(name, store.value.type);
-            } else {
-                auto func = cast(FunctionValue) store.value;
-                assert(func);
-                functions ~= func;
-            }
+            type.addMemberVar(name, store.value.type);
+        } else if (store.storeType == StoreType.Function) {
+            functions ~= store.getFunction();  
         } else {
             throw new CompilerError(decl.location, "invalid aggregrate declaration type.");
         }
     }
     mod.currentScope = currentScope;
     type.declare();
-    foreach (func; functions) {
-        auto ft = cast(FunctionType) func.type;
-        assert(ft);
-        ft.parentAggregate = type;
-        type.addMemberFunction(func.name, func.newWithAddedArgument(new PointerType(mod, type), "this"));
+    foreach (fn; functions) {
+        fn.parentAggregate = type;
+        fn.addArgument(new PointerType(mod, type), "this");
+        type.addMemberFunction(fn.simpleName, fn);
     }
     
     mod.currentScope.add(name, new Store(type));
