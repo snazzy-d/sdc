@@ -106,6 +106,9 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     string[] names;
     foreach (param; decl.parameterList.parameters) {
         params ~= astTypeToBackendType(param.type, mod, OnFailure.DieWithError);
+        if (param.attribute == ast.ParameterAttribute.Ref) {
+            params[$ - 1].isRef = true;
+        }
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
