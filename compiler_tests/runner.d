@@ -101,10 +101,19 @@ void main()
 {
     int testNumber;
     auto testName = getTestFilename(testNumber);
+    int  passed = 0;
     while (exists(testName)) {
         write(testName ~ ":");
         auto succeeded = test(testName);
+        passed = passed + (succeeded ? 1 : 0);
         writeln(succeeded ? "SUCCEEDED" : "FAILED");
         testName = getTestFilename(++testNumber);
+    }
+    assert(passed <= testNumber);
+    if (testNumber > 0) {
+        writefln("Summary: %s tests, %s pass%s, %s failure%s, %s%% pass rate",
+                 testNumber, passed, passed == 1 ? "" : "es", 
+                 testNumber - passed, (testNumber - passed) == 1 ? "" : "s", 
+                 (cast(real)passed / testNumber) * 100);
     }
 }
