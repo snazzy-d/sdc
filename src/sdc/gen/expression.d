@@ -378,7 +378,14 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             p.set(expression.location, mod.callingAggregate.addressOf());
             args ~= p;
         }
-        lhs = mod.expressionFunction.call(argList.location, argLocations, args);
+        
+        if (lhs is null || lhs is mod.callingAggregate) {
+            lhs = mod.expressionFunction.call(argList.location, argLocations, args);
+        } else {
+            if (lhs.type.dtype == DType.FunctionPointer) {
+                assert(false);
+            }
+        }
         break;
     case ast.PostfixType.Index:
         Value[] args;
