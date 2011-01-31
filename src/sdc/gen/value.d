@@ -25,6 +25,7 @@ import sdc.gen.cfg;
 import sdc.gen.expression;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdctemplate;
+import sdc.gen.sdcfunction;
 import sdc.gen.type;
 import ast = sdc.ast.all;
 
@@ -799,13 +800,8 @@ class PointerValue : Value
     
     override Value dereference(Location location)
     {
-        auto t = new IntType(mModule);
-        LLVMValueRef[] indices;
-        indices ~= LLVMConstInt(t.llvmType, 0, false);
-           
         auto v = baseType.getValue(mModule, location);
-        assert(v !is null);
-        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
+        v.mValue = LLVMBuildLoad(mModule.builder, mValue, "load");
         return v;
     }
     
@@ -1143,6 +1139,16 @@ class EnumValue : Value
     }+/
 }
 
+class FunctionPointerValue : PointerValue
+{
+    this(Module mod, Location location, FunctionType functionType)
+    {
+        auto ftype = new FunctionPointerType(mod, functionType);
+        super(mod, location, ftype);
+        mType = ftype;
+    }
+}
+
 class ScopeValue : Value
 {
     Scope _scope;
@@ -1234,7 +1240,16 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 
 Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure onFailure)
 {
-    return null;
+    auto retval = astTypeToBackendType(type.retval, mod, onFailure);
+    bool varargs = type.parameters.varargs;
+    Type[] args;
+    foreach (param; type.parameters.parameters) {
+        args ~= astTypeToBackendType(param.type, mod, onFailure);
+        args[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
+    }
+    auto fn = new FunctionType(retval, args, varargs);
+    fn.declare();
+    return new FunctionPointerType(mod, fn);
 }
 
 Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)

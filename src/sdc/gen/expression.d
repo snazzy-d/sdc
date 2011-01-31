@@ -303,7 +303,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.AddressOf:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        val = val.addressOf();
+        if (mod.expressionFunction !is null) {
+            val = mod.expressionFunction.addressOf(expression.unaryExpression.location);
+        } else {    
+            val = val.addressOf();
+        }
         break;
     case ast.UnaryPrefix.Dereference:
         val = genUnaryExpression(expression.unaryExpression, mod);
@@ -341,15 +345,6 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     
     final switch (expression.type) {
     case ast.PostfixType.None:
-        version (none) if (lhs.type.dtype == DType.Function) {
-            if (mod.callingAggregate !is null) {
-                auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-                p.set(expression.location, mod.callingAggregate.addressOf());
-                lhs = lhs.call(expression.location, null, [p]);
-            } else {
-                lhs = lhs.call(expression.location, null, null);
-            }
-        }
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;

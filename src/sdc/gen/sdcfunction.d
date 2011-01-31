@@ -159,6 +159,13 @@ class Function
     {
     }
     
+    Value addressOf(Location location)
+    {
+        auto fptr = new FunctionPointerValue(mod, location, type);
+        fptr.set(location, llvmValue);
+        return fptr;
+    }
+    
     /**
      * Generate code to call this function.
      */

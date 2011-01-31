@@ -42,6 +42,7 @@ enum DType
     Real,
     Pointer,
     NullPointer,
+    FunctionPointer,
     Array,
     Const,
     Complex,
@@ -91,6 +92,7 @@ Type dtypeToType(DType dtype, Module mod)
         return new RealType(mod);
     case Pointer:
     case NullPointer:
+    case FunctionPointer:
     case Array:
     case Complex:
     case Struct:
@@ -472,11 +474,18 @@ class PointerType : Type
         super(mod);
         this.base = base;
         dtype = DType.Pointer;
-        if (base.dtype == DType.Void) {
-            mType = LLVMPointerType(LLVMInt8TypeInContext(mod.context), 0);
-        } else {
-            mType = LLVMPointerType(base.llvmType, 0);
+        if (base !is null) {
+            if (base.dtype == DType.Void) {
+                init(LLVMInt8TypeInContext(mod.context));
+            } else {
+                init(base.llvmType);
+            }
         }
+    }
+    
+    void init(LLVMTypeRef t)
+    {
+        mType = LLVMPointerType(t, 0);
     }
     
     override Value getValue(Module mod, Location location)
@@ -693,6 +702,25 @@ class EnumType : Type
     }
     
     Value[string] members;
+}
+
+class FunctionPointerType : PointerType
+{
+    FunctionType functionType;
+    
+    this(Module mod, FunctionType functionType)
+    {
+        super(mod, null);
+        mType = functionType.functionType;
+        assert(mType);
+        dtype = DType.FunctionPointer;
+        this.functionType = functionType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new FunctionPointerValue(mod, location, functionType);
+    }
 }
 
 /* InferredType means, as soon as we get enough information

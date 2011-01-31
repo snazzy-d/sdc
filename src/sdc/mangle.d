@@ -161,6 +161,7 @@ void mangleType(ref string mangledName, Type type)
         mangledName ~= "v";
         break;
     case NullPointer:
+    case FunctionPointer:
     case Pointer:
         auto asPointer = cast(PointerType) type;
         assert(asPointer);
