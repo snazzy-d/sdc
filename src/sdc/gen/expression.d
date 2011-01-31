@@ -34,6 +34,7 @@ Value genExpression(ast.Expression expression, Module mod)
     if (expression.expression !is null) {
         return genExpression(expression.expression, mod);
     }
+    mod.expressionFunction = null;
     return v;
 }
 
