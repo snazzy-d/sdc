@@ -16,6 +16,7 @@ import llvm.c.Analysis;
 import llvm.c.BitWriter;
 import llvm.c.Core;
 import llvm.c.transforms.Scalar;
+import llvm.c.transforms.IPO;
 
 import sdc.compilererror;
 import sdc.util;
@@ -107,15 +108,22 @@ class Module
         system(cmd);
     }
     
+    void optimiseBitcode(string filename)
+    {
+        auto cmd = format("opt -std-compile-opts -o %s %s", filename, filename);
+        system(cmd);
+    }
+    
     /**
      * Optimise the generated code in place.
      */
-    void optimise()
+    @disable void optimise()
     {
         auto passManager = LLVMCreatePassManager();
         scope (exit) LLVMDisposePassManager(passManager);
         LLVMAddInstructionCombiningPass(passManager);
         LLVMAddPromoteMemoryToRegisterPass(passManager);
+        LLVMAddInternalizePass(passManager, false);
         LLVMRunPassManager(passManager, mod);
     }
 

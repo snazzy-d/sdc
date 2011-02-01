@@ -160,7 +160,6 @@ void realmain(string[] args)
         }
         gModule = genModule(aModule);
         gModule.verify();
-        if (optimise) gModule.optimise();
         
         assert(!match(filename, extensionRegex).empty);
         auto asBitcode  = replace(filename, extensionRegex, "bc");
@@ -168,6 +167,9 @@ void realmain(string[] args)
         auto asObject   = replace(filename, extensionRegex, "o");
         gModule.arch = arch;
         gModule.writeBitcodeToFile(asBitcode);
+        if (optimise) {
+            gModule.optimiseBitcode(asBitcode);
+        }
         gModule.writeNativeAssemblyToFile(asBitcode, asAssembly);
         
         auto compileCommand = gcc ~ ((arch == "x86") ? " -m32 " : "") ~ " -c -o ";
