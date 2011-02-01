@@ -28,6 +28,7 @@ import std.path;
 import std.process : system;
 import file = std.file;
 import std.c.stdlib;
+import core.runtime;
 
 import llvm.Ext;
 import llvm.c.Core;
@@ -49,8 +50,14 @@ import sdc.gen.sdcimport;
 
 version = SDC_x86_default;
 
+Throwable.TraceInfo nullTraceHandler()
+{
+    return null;
+}
+
 int main(string[] args)
 {
+    Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError error) {
