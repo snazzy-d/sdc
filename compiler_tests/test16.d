@@ -1,14 +1,14 @@
 //T compiles:yes
 //T retval:32
 
-int foo()
+int add(int a, int b)
 {
-    return 32;
+    return a + b;
 }
 
 int main()
 {
-    int function() f;
-    f = &foo;
-    return f();
+    int function(int, int) f;
+    f = &add;
+    return f(30, 2);
 }
