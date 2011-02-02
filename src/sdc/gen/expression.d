@@ -383,7 +383,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             lhs = mod.expressionFunction.call(argList.location, argLocations, args);
         } else {
             if (lhs.type.dtype == DType.FunctionPointer) {
-                assert(false);
+                lhs = lhs.call(argList.location, argLocations, args);
             }
         }
         break;

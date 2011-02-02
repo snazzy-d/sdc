@@ -246,3 +246,8 @@ class Function
         }
     }
 }
+
+LLVMValueRef buildCall()
+{
+    return null;
+}
