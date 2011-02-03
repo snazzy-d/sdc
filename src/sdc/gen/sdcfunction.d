@@ -247,7 +247,7 @@ class Function
     }
 }
 
-LLVMValueRef buildCall()
+LLVMValueRef buildCall(Module mod, FunctionType type, Location[] argLocations, Value[] args)
 {
     return null;
 }
