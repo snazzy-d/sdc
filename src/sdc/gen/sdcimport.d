@@ -117,17 +117,26 @@ void genImport(Location location, ast.Import theImport, Module mod)
     auto impPath = extractModulePath(theImport.moduleName);
     auto fullPath = searchImport(impPath);
     if (fullPath is null) {
-        auto err = new CompilerError(
-            theImport.moduleName.location,
-            format(`module "%s" could not be found.`, name),
-            new CompilerError(format(`tried path "%s"`, impPath))
-        );
+        CompilerError err;
+        if (theImport.moduleName.location.filename is null) {
+            err = new CompilerError(
+                format(`implicitly imported module "%s" could not be found.`, name)
+            );
+        } else {
+            err = new CompilerError(
+                theImport.moduleName.location,
+                format(`module "%s" could not be found.`, name)
+            );
+        }
+        
+        err.more = new CompilerError(format(`tried path "%s"`, impPath));
         
         auto next = err.more;
         foreach (importPath; importPaths) {
-            next = next.more = new CompilerError(
+            next.more = new CompilerError(
                 format(`tried path "%s"`, importPath ~ path.sep ~ impPath)
             );
+            next = next.more;
         }
         throw err;
     }

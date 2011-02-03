@@ -234,7 +234,6 @@ void loadConfig(ref string[] args)
     auto confs = array( filter!exists(map!expandTilde(confLocations)) );
     if (confs.length == 0) {
         // Try to soldier on without a config file.
-        // How about a warning or something?
         return;
     }
     auto conf = cast(string) read(confs[0]);

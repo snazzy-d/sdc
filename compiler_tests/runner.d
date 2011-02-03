@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer
+ * Copyright 2011 Jakob Ovrum
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -97,9 +98,16 @@ bool test(string filename)
     return true;
 }
 
-void main()
+void main(string[] args)
 {
-    int testNumber;
+    if (args.length > 1) {
+        int testNumber = to!int(args[1]);
+        auto testName = getTestFilename(testNumber);
+        writeln(test(testName) ? "SUCCEEDED" : "FAILED");
+        return;
+    }
+	
+    int testNumber = 0;
     auto testName = getTestFilename(testNumber);
     int  passed = 0;
     while (exists(testName)) {
