@@ -1156,31 +1156,13 @@ class FunctionPointerValue : PointerValue
         if (mModule is null) {
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
+        auto v = buildCall(mModule, functionType, get(), "fptr", location, argLocations, args);
            
-        foreach (i, arg; functionType.argumentTypes) {
-            if (i < argLocations.length) {
-                args[i] = implicitCast(argLocations[i], args[i], arg);
-            } else {
-                // Some arguments are hidden at the end (i.e. this), and thus don't have locations. 
-                args[i] = implicitCast(location, args[i], arg);
-            }
-            if (arg.isRef) {
-                args[i] = args[i].addressOf();
-            }
-        }
-        
-        LLVMValueRef[] llvmArgs;
-        foreach (arg; args) {
-            llvmArgs ~= arg.get();
-        }
-        
         Value val;
         if (functionType.returnType.dtype != DType.Void) {
-            auto retval = LLVMBuildCall(mModule.builder, get(), llvmArgs.ptr, llvmArgs.length, "call");
             val = functionType.returnType.getValue(mModule, location);
-            val.set(location, retval);
+            val.set(location, v);
         } else {
-            LLVMBuildCall(mModule.builder, mValue, llvmArgs.ptr, llvmArgs.length, "");
             val = new VoidValue(mModule, location);
         }
         return val;
