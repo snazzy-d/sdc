@@ -176,43 +176,13 @@ class Function
         if (mod is null) {
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
-           
-        
-        
-        foreach (i, arg; type.argumentTypes) {
-            try {
-                if (i < argLocations.length) {
-                    args[i] = implicitCast(argLocations[i], args[i], arg);
-                } else {
-                    // Some arguments are hidden at the end (i.e. this), and thus don't have locations. 
-                    args[i] = implicitCast(location, args[i], arg);
-                }
-                if (arg.isRef) {
-                    args[i] = args[i].addressOf();
-                }
-            } catch (CompilerError error) {
-                if (i < argumentLocations.length) {
-                    error.more = new CompilerError(
-                        argumentLocations[i],
-                        format(`argument #%s of function "%s":`, i + 1, simpleName)
-                    );
-                }
-                throw error;
-            }
-        }
-        
-        LLVMValueRef[] llvmArgs;
-        foreach (arg; args) {
-            llvmArgs ~= arg.get();
-        }
-        
+        auto v = buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
+         
         Value val;
         if (type.returnType.dtype != DType.Void) {
-            auto retval = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "call");
             val = type.returnType.getValue(mod, location);
-            val.set(location, retval);
+            val.set(location, v);
         } else {
-            LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
             val = new VoidValue(mod, location);
         }
         return val;
@@ -233,7 +203,7 @@ LLVMValueRef buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, st
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
-    return LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "call");
+    return LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
 }
 
 private void checkArgumentListLength(FunctionType type, string functionName, Location callLocation, ref Location[] argLocations, Value[] args)
@@ -279,9 +249,9 @@ in
 body
 {
     foreach (i, arg; type.argumentTypes) {
+        args[i] = implicitCast(argLocations[i], args[i], arg);
         if (arg.isRef) {
             args[i] = args[i].addressOf();
         }
-        args[i] = implicitCast(argLocations[i], args[i], arg);
     }
 }
