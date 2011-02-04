@@ -16,7 +16,7 @@ Lexer
 -----
 * Scan and handle multiple encoding formats.  __[yes.]__ -- _in so far all code is treated as UTF-8 and its BOM is eaten; other BOMs are rejected._ __]__
 * Handle leading script lines.  __[yes.]__
-* Split source into tokens.  __[yes.]_ _
+* Split source into tokens.  __[yes.]__
 * Replace special tokens.  __[yes.]__
 * Process special token sequences.  _[no.]_
 
