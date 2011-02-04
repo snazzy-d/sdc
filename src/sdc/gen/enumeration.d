@@ -35,7 +35,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
         
         auto firstValue = base.getValue(mod, firstMember.location);
         //TODO: constInit, where art thou?
-        firstValue.initialise(firstValue.location, firstValue.init(firstValue.location));
+        firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
         type.addMember(extractIdentifier(firstMember.name), firstValue);
         
         foreach(i; 1..decl.memberList.members.length) {

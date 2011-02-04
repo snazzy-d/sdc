@@ -143,8 +143,8 @@ abstract class Value
     Value getProperty(Location loc, string name)
     {
         switch (name) {
-        case "init":
-            return init(loc);
+        case "getInit":
+            return getInit(loc);
         case "sizeof":
             return getSizeof(loc);
         default:
@@ -163,7 +163,7 @@ abstract class Value
     }
     
     Value call(Location location, Location[] argLocations, Value[] args) { fail("call"); assert(false); }
-    Value init(Location location) { fail("init"); assert(false); }
+    Value getInit(Location location) { fail("getInit"); assert(false); }
     Module getModule() { return mModule; }
     
     Value importToModule(Module mod)
@@ -448,7 +448,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     }
     
     
-    override Value init(Location location)
+    override Value getInit(Location location)
     {
         return new typeof(this)(mModule, location, 0);
     }
@@ -626,7 +626,7 @@ class FloatingPointValue(T, B) : Value
         return v;
     }
 
-    override Value init(Location location)
+    override Value getInit(Location location)
     {
         auto v = new typeof(this)(mModule, location);
         v.isKnown = true;
@@ -762,7 +762,7 @@ class PointerValue : Value
     override void set(Location location, Value val)
     {
         if (val.type.dtype == DType.NullPointer) {
-            set(location, init(location));
+            set(location, getInit(location));
         } else {
             setPreCallbacks();
             LLVMBuildStore(mModule.builder, val.get(), mValue);
@@ -816,7 +816,7 @@ class PointerValue : Value
         return v;
     }
     
-    override Value init(Location location)
+    override Value getInit(Location location)
     {
         auto v = new PointerValue(mModule, location, baseType);
         v.set(location, LLVMConstNull(v.mType.llvmType));
@@ -907,7 +907,7 @@ class ReferenceValue : Value
     }
     
     mixin MultiMixin!(UnaryReferenceImplementation, "inc", "dec", "dereference", 
-                      "getSizeof", "init");
+                      "getSizeof", "getInit");
     mixin MultiMixin!(BinaryReferenceImplementation, "add", "sub", "mul", "div", 
                       "eq", "neq", "gt", "lt", "lte", "index");
     
@@ -952,9 +952,9 @@ class ConstValue : Value
         mValue = base.mValue;
     }
     
-    override Value init(Location location)
+    override Value getInit(Location location)
     {
-        return base.init(location);
+        return base.getInit(location);
     }
         
     override void set(Location location, Value val)
@@ -1042,13 +1042,13 @@ class StructValue : Value
         setPostCallbacks();
     }
     
-    override Value init(Location location)
+    override Value getInit(Location location)
     {
         auto asStruct = enforce(cast(StructType) mType);
         auto v = new StructValue(mModule, location, asStruct);
         foreach (member; asStruct.memberPositions.keys) {
             auto m = v.getMember(location, member);
-            m.set(location, m.init(location));
+            m.set(location, m.getInit(location));
         }
         return v;
     }
@@ -1084,7 +1084,7 @@ class StructValue : Value
     override Value getSizeof(Location loc)
     {
         auto v = getSizeT(mModule).getValue(mModule, loc);
-        v.initialise(location, v.init(loc));
+        v.initialise(location, v.getInit(loc));
         auto asStruct = enforce(cast(StructType) mType);
         foreach (member; asStruct.members) {
             v = v.add(loc, member.getValue(mModule, loc).getSizeof(loc));

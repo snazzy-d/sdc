@@ -187,7 +187,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         }
         
         if (declarator.initialiser is null) {
-            var.initialise(decl.location, var.init(decl.location));
+            var.initialise(decl.location, var.getInit(decl.location));
         } else {
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
                 var.initialise(decl.location, LLVMGetUndef(type.llvmType));
