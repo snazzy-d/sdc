@@ -14,10 +14,9 @@ This list is incomplete. SDC is in a state of flux, and this is likely to be out
 
 Lexer
 -----
-* Add something to the README to indicate SDC isn't dead. __[yes.]__
 * Scan and handle multiple encoding formats.  __[yes.]__ -- _in so far all code is treated as UTF-8 and its BOM is eaten; other BOMs are rejected._ __]__
 * Handle leading script lines.  __[yes.]__
-* Split source into tokens.  __[yes.]_  _
+* Split source into tokens.  __[yes.]_ _
 * Replace special tokens.  __[yes.]__
 * Process special token sequences.  _[no.]_
 
@@ -54,6 +53,7 @@ Codegen
 * Structs.  _[partially.]_
 * Classes.  _[no.]_
 * Functions.  _[partially.]_
+* Function pointers. __[yes.]__
 * Local variables.  _[yes.]_
 * Global variables.  _[partially.]_
 * Alias declarations.  _[partially.]_
@@ -89,7 +89,8 @@ Codegen
 
 What Can It Compile?
 ====================
-Nothing practical. What follows is the a program featuring the most complex features SDC can currently handle.
+Nothing practical. What follows is the a program SDC can handle.
+More features have been implemented, but the example file has not been updated.
 
     module test;
 
