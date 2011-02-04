@@ -5,6 +5,8 @@
  */
 module sdc.gen.sdcfunction;
 
+import std.algorithm;
+import std.array;
 import std.string;
 
 import llvm.c.Core;
@@ -175,28 +177,7 @@ class Function
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
            
-        if (type.varargs) {
-            if (type.argumentTypes.length > args.length) {
-                throw new CompilerError(
-                    location, 
-                    format("expected at least %s arguments, got %s.", type.argumentTypes.length, args.length),
-                    new CompilerError(
-                        argumentListLocation,
-                        format(`parameters of "%s":`, simpleName)
-                    )
-                );
-             }
-        } else if (type.argumentTypes.length != args.length) {
-            location.column = location.wholeLine;
-            throw new CompilerError(
-                location, 
-                format("expected %s arguments, got %s.", type.argumentTypes.length, args.length),
-                    new CompilerError(
-                        argumentListLocation,
-                        format(`parameters of "%s":`, simpleName)
-                    )
-            );
-        }
+        
         
         foreach (i, arg; type.argumentTypes) {
             try {
@@ -247,7 +228,60 @@ class Function
     }
 }
 
-LLVMValueRef buildCall(Module mod, FunctionType type, Location[] argLocations, Value[] args)
+LLVMValueRef buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {
-    return null;
+    checkArgumentListLength(type, functionName, callLocation, argLocations, args);
+    normaliseArguments(mod, type, argLocations, args);
+    auto llvmArgs = array( map!"a.get"(args) );
+    return LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "call");
+}
+
+private void checkArgumentListLength(FunctionType type, string functionName, Location callLocation, ref Location[] argLocations, Value[] args)
+{
+    if (type.varargs) {
+        if (type.argumentTypes.length > args.length) {
+            throw new CompilerError(
+                callLocation, 
+                format("expected at least %s arguments, got %s.", type.argumentTypes.length, args.length),
+                new CompilerError(
+                    callLocation,
+                    format(`parameters of "%s":`, functionName)
+                )
+            );
+         }
+    } else if (type.argumentTypes.length != args.length) {
+        callLocation.column = callLocation.wholeLine;
+        throw new CompilerError(
+            callLocation, 
+            format("expected %s arguments, got %s.", type.argumentTypes.length, args.length),
+                new CompilerError(
+                    callLocation,
+                    format(`parameters of "%s":`, functionName)
+                )
+        );
+    }
+    if (argLocations.length != args.length) {
+        // Some arguments are hidden (e.g. this).
+        assert(argLocations.length < args.length);
+        argLocations ~= callLocation;
+    }
+}
+
+/** 
+ * Implicitly cast arguments to the respective parameter types.
+ * If a parameter is ref, then get the address of the respective argument.
+ */ 
+private void normaliseArguments(Module mod, FunctionType type, Location[] argLocations, Value[] args)
+in
+{
+    assert(args.length == argLocations.length);
+}
+body
+{
+    foreach (i, arg; type.argumentTypes) {
+        if (arg.isRef) {
+            args[i] = args[i].addressOf();
+        }
+        args[i] = implicitCast(argLocations[i], args[i], arg);
+    }
 }
