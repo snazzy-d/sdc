@@ -7,6 +7,7 @@
 module runner;
 
 import std.conv;
+import std.getopt;
 import std.file;
 import std.process;
 import std.stdio;
@@ -37,7 +38,7 @@ int getInt(string s)
     return parse!int(s);
 }
 
-bool test(string filename)
+bool test(string filename, string compiler)
 {
     static void malformed() { stderr.writeln("Malformed test."); }
     
@@ -77,7 +78,13 @@ bool test(string filename)
         }
     }
     
-    auto command = format(`%s -o=%s --optimise "%s"`, SDC, EXE_NAME, filename);
+    string command;
+    if (compiler == SDC) {
+        command = format(`%s -o=%s --optimise "%s"`, SDC, EXE_NAME, filename);
+    } else {
+        command = format(`%s "%s"`, compiler, filename);
+    }
+        
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
@@ -100,10 +107,12 @@ bool test(string filename)
 
 void main(string[] args)
 {
+    string compiler = SDC;
+    getopt(args, "compiler", &compiler);
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
-        writeln(test(testName) ? "SUCCEEDED" : "FAILED");
+        writeln(test(testName, compiler) ? "SUCCEEDED" : "FAILED");
         return;
     }
 	
@@ -112,7 +121,7 @@ void main(string[] args)
     int  passed = 0;
     while (exists(testName)) {
         write(testName ~ ":");
-        auto succeeded = test(testName);
+        auto succeeded = test(testName, compiler);
         passed = passed + (succeeded ? 1 : 0);
         writeln(succeeded ? "SUCCEEDED" : "FAILED");
         testName = getTestFilename(++testNumber);
