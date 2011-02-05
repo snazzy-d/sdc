@@ -6,14 +6,15 @@ extern(C) size_t strlen(const char* s);
 
 int main()
 {
-    char[] str = "test";
+    version (SDC) char[] str = "test";
+    else string str = "test";  
     if (str.length != 4) {
         return 1;
     }
     if (str[2] != 's') {
         return 2;
     }
-    char* p = str;
+    auto p = str.ptr;
     if(strlen(p) != str.length) {
         return 3;
     }
