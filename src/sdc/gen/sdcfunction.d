@@ -157,8 +157,24 @@ class Function
         LLVMDeleteFunction(llvmValue);
     }
     
-    void importToModule(Module mod)
+    Function importToModule(Module mod)
     {
+        auto fn = new Function(type);
+        
+        fn.simpleName = this.simpleName;
+        fn.mangledName = this.mangledName;
+        fn.argumentNames = this.argumentNames.dup;
+        fn.argumentLocations = this.argumentLocations.dup;
+        fn.argumentListLocation = this.argumentListLocation;
+        if (fn.parentAggregate !is null) {
+            fn.parentAggregate = this.parentAggregate.importToModule(mod);
+        }
+        fn.cfgEntry = this.cfgEntry;
+        fn.cfgTail = this.cfgTail;
+        fn.mod = null;
+        fn.add(mod);
+        
+        return fn;
     }
     
     Value addressOf(Location location)

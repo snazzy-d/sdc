@@ -721,6 +721,11 @@ class FunctionPointerType : PointerType
     {
         return new FunctionPointerValue(mod, location, functionType);
     }
+    
+    override string name()
+    {
+        return "function pointer";
+    }
 }
 
 /* InferredType means, as soon as we get enough information

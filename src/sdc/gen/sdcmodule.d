@@ -176,6 +176,8 @@ class Module
             } else if (tustore.storeType == StoreType.Type) {
                 checkAccess(tustore.type.access);
                 tustore = new Store(tustore.type.importToModule(this));
+            } else if (tustore.storeType == StoreType.Function) {
+                tustore = new Store(tustore.getFunction.importToModule(this));
             }
 
             if (store is null) {
