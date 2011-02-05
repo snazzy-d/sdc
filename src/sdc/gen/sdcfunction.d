@@ -164,7 +164,7 @@ class Function
     Value addressOf(Location location)
     {
         auto fptr = new FunctionPointerValue(mod, location, type);
-        fptr.set(location, llvmValue);
+        fptr.initialise(location, llvmValue);
         return fptr;
     }
     
@@ -181,7 +181,7 @@ class Function
         Value val;
         if (type.returnType.dtype != DType.Void) {
             val = type.returnType.getValue(mod, location);
-            val.set(location, v);
+            val.initialise(location, v);
         } else {
             val = new VoidValue(mod, location);
         }
@@ -251,6 +251,7 @@ body
     foreach (i, arg; type.argumentTypes) {
         args[i] = implicitCast(argLocations[i], args[i], arg);
         if (arg.isRef) {
+            args[i].errorIfNotLValue(argLocations[i]);
             args[i] = args[i].addressOf();
         }
     }

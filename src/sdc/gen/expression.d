@@ -100,10 +100,10 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
         auto condEndBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "condEnd");
         LLVMBuildCondBr(mod.builder, a.performCast(expression.location, new BoolType(mod)).get(), condTrueBB, condFalseBB);
         LLVMPositionBuilderAtEnd(mod.builder, condTrueBB);
-        v.set(expression.location, genExpression(expression.expression, mod));
+        v.initialise(expression.location, genExpression(expression.expression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condFalseBB);
-        v.set(expression.location, genConditionalExpression(expression.conditionalExpression, mod));
+        v.initialise(expression.location, genConditionalExpression(expression.conditionalExpression, mod));
         LLVMBuildBr(mod.builder, condEndBB);
         LLVMPositionBuilderAtEnd(mod.builder, condEndBB);
         
@@ -350,14 +350,14 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(expression.location, lhs);
+        tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.inc(expression.location));
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
-        tmp.set(expression.location, lhs);
+        tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.dec(expression.location));
         break;
@@ -375,7 +375,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         }
         if (mod.callingAggregate !is null) {
             auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-            p.set(expression.location, mod.callingAggregate.addressOf());
+            p.initialise(expression.location, mod.callingAggregate.addressOf());
             args ~= p;
         }
         

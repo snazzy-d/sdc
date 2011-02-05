@@ -206,6 +206,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 throw new CompilerPanic(declarator.initialiser.location, "unhandled initialiser type.");
             }
         }
+        var.lvalue = true;
         mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
     }
 }
@@ -248,8 +249,9 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             val = r;  
         } else {
             val = argType.getValue(mod, decl.location);
-            val.set(decl.location, LLVMGetParam(fn.llvmValue, i));
+            val.initialise(decl.location, LLVMGetParam(fn.llvmValue, i));
         }
+        val.lvalue = true;
         mod.currentScope.add(fn.argumentNames[i], new Store(val));
     }
     genBlockStatement(functionBody.statement, mod);
