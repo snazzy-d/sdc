@@ -712,7 +712,7 @@ class ArrayValue : StructValue
                                     auto ptr = getMember(location, "ptr");
                                     auto vl = [ptr.performCast(location, new PointerType(mModule, new VoidType(mModule))), val];
 
-                                    gcRealloc = gcRealloc.importToModule(mModule);
+                                    gcRealloc = gcRealloc.importToModule(mModule);  // !!!
                                     auto memptr = gcRealloc.call(location, [ptr.location, val.location], vl);
                                     ptr.set(location, memptr.performCast(location, ptr.type));
                                 });
@@ -722,7 +722,9 @@ class ArrayValue : StructValue
     
     override Value index(Location location, Value val)
     {
-        return getMember(location, "ptr").index(location, val);
+        auto v = getMember(location, "ptr").index(location, val);
+        v.lvalue = lvalue;
+        return v;
     }
     
     override Value importToModule(Module mod)
