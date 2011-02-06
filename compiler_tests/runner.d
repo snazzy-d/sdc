@@ -12,6 +12,7 @@ import std.file;
 import std.process;
 import std.stdio;
 import std.string;
+import std.algorithm;
 
 
 version (Windows) {
@@ -42,8 +43,9 @@ bool test(string filename, string compiler)
 {
     static void malformed() { stderr.writeln("Malformed test."); }
     
-    bool expectedToCompile;
-    int expectedRetval;
+    bool expectedToCompile = true;
+    int expectedRetval = 0;
+    string[] dependencies;
     
     assert(exists(filename));
     auto f = File(filename, "r");
@@ -57,20 +59,22 @@ bool test(string filename, string compiler)
             return false;
         }
         auto set = split(words[1], ":");
-        if (set.length == 0) {
+        if (set.length < 2) {
             malformed();
             return false;
         }
         auto var = set[0].idup;
+        auto val = set[1].idup;
         
         switch (var) {
         case "compiles":
-            auto val = set[1].idup;
             expectedToCompile = getBool(val);
             break;
         case "retval":
-            auto val = set[1].idup;
             expectedRetval = getInt(val);
+            break;
+         case "dependency":
+            dependencies ~= val;
             break;
         default:
             stderr.writeln("Bad command '" ~ var ~ "'.");
@@ -79,12 +83,13 @@ bool test(string filename, string compiler)
     }
     
     string command;
+    string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
     if (compiler == SDC) {
-        command = format(`%s -o=%s --optimise "%s"`, SDC, EXE_NAME, filename);
+        command = format(`%s -o=%s --optimise "%s" %s`, SDC, EXE_NAME, filename, cmdDeps);
     } else {
-        command = format(`%s "%s"`, compiler, filename);
+        command = format(`%s "%s" %s`, compiler, filename, cmdDeps);
     }
-        
+    
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
