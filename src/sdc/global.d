@@ -241,7 +241,7 @@ void loadConfig(ref string[] args)
     auto confRoot = parseJSON(conf);
     checkType(confRoot, JSON_TYPE.OBJECT, "no root object."); 
     
-    importPaths ~= getStringArray(confRoot, "defaultImportPaths");
+    importPaths ~= array( map!expandTilde(getStringArray(confRoot, "defaultImportPaths")) );
     if (args.length > 1) {
         args = args[0] ~ getStringArray(confRoot, "defaultFlags") ~ args[1 .. $];
     } else {
