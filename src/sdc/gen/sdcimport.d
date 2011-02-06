@@ -125,7 +125,7 @@ void genImport(Location location, ast.Import theImport, Module mod)
         } else {
             err = new CompilerError(
                 theImport.moduleName.location,
-                format(`module "%s" could not be found.`, name)
+                format(`module "%s" could not be found.`, impPath)
             );
         }
         
