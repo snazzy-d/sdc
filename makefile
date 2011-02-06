@@ -6,7 +6,7 @@ EXE=sdc
 
 CXX=g++
 CXXFLAGS=-m32
-PHOBOS2=/usr/lib32/libphobos2.a
+PHOBOS2=-lphobos2
 LIBLLVM=-lLLVM-2.8
 LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(LIBLLVM) libllvm-c-ext.a
 
