@@ -8,7 +8,7 @@ sdc: $(OBJS)
 	$(GDC) $(OBJS) -lLLVM-2.8 -o $(EXE)
 
 %.o: %.d $(SOURCE)
-	$(GDC) $(DFLAGS) $(MOREDFLAGS) -c $< -o $@
+	$(GDC) $(DFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(EXE)
