@@ -7,9 +7,8 @@ EXE=sdc
 CXX=g++
 CXXFLAGS=-m32
 PHOBOS2=/usr/lib32/libphobos2.a
-DRUNTIME=/usr/lib32/libdruntime.a
 LIBLLVM=-lLLVM-2.8
-LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(DRUNTIME) $(LIBLLVM) libllvm-c-ext.a
+LDFLAGS=`llvm-config --ldflags` $(PHOBOS2) $(LIBLLVM) libllvm-c-ext.a
 
 all:
 	$(DMD) -of$(OBJ) $(SOURCE) $(DFLAGS)
