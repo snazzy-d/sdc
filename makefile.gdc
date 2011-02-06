@@ -1,6 +1,6 @@
 GDC=gdc
-DFLAGS=-g -Wall -Werror -funittest -I./import -I./src
-SOURCE=$(shell ls src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d)
+DFLAGS=-g -Wall -Werror -funittest -I./import -Isrc
+SOURCE=$(wildcard src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d)
 OBJS=$(SOURCE:.d=.o)
 EXE=sdc
 
@@ -8,7 +8,7 @@ sdc: $(OBJS)
 	$(GDC) $(OBJS) -lLLVM-2.8 -o $(EXE)
 
 %.o: %.d $(SOURCE)
-	$(GDC) $(DFLAGS) -c $< -o $@
+	$(GDC) $(DFLAGS) $(MOREDFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(EXE)
