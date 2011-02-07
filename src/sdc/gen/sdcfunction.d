@@ -136,13 +136,13 @@ class Function
                 return;
             }
         }
+        this.mod = mod;
         mangledName = simpleName.idup;
         if (type.linkage == Linkage.ExternD) {
             mangleFunction(mangledName, this);
         }
         storeSpecial();
         llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
-        this.mod = mod;
     }
     
     /**

@@ -112,7 +112,9 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
-    auto fn = new Function(new FunctionType(retval, params, decl.parameterList.varargs));
+    auto fntype = new FunctionType(retval, params, decl.parameterList.varargs);
+    fntype.linkage = mod.currentLinkage;
+    auto fn = new Function(fntype);
     fn.simpleName = extractIdentifier(decl.name);
     fn.argumentNames = names;
     auto store = new Store(fn);
