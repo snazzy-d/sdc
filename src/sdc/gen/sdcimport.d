@@ -6,6 +6,8 @@
  */
 module sdc.gen.sdcimport;
 
+import std.algorithm;
+import std.array;
 import std.string;
 import file = std.file;
 import path = std.path;
@@ -25,7 +27,9 @@ import sdc.gen.sdcmodule;
 
 bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
-    return true;
+    string getName(ast.Import imp) { return extractQualifiedName(imp.moduleName); }
+    TranslationUnit[] imports = array( map!getTranslationUnit(map!getName(importDeclaration.importList.imports)) );
+    return count!"a.gModule is null"(imports) == 0;
 }
 
 ast.ImportDeclaration synthesiseImport(string modname)

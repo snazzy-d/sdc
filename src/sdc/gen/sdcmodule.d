@@ -166,6 +166,9 @@ class Module
                     throw new CompilerError("cannot access symbol '" ~ name ~ "', as it is declared private.");
                 }
             }
+            if (tu.gModule is null) {
+                return null;
+            }
             auto tustore = tu.gModule.globalScope.get(name);
             if (tustore is null) {
                 continue;
