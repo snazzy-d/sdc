@@ -23,6 +23,7 @@ import sdc.util;
 import sdc.global;
 import sdc.location;
 import sdc.extract.base;
+import sdc.gen.base;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.sdcfunction;

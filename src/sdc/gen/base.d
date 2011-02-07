@@ -6,6 +6,7 @@
 module sdc.gen.base;
 
 import std.array;
+import std.algorithm;
 import std.conv;
 import std.exception;
 import std.string;
@@ -78,9 +79,9 @@ void genModuleAndPackages(Module mod)
 }
 
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
-{
+{   
     auto resolutionList = list.dup;
-    int stillToGo, oldStillToGo = -1;
+    size_t stillToGo, oldStillToGo = -1;
     foreach (d; resolutionList) {
         d.parentName = mod.name;
         d.importedSymbol = false;
@@ -92,13 +93,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             genDeclarationDefinition(declDef, mod);
         }
         
-        stillToGo = 0;
-        foreach (i, declDef; resolutionList) with (declDef) {
-            if (buildStage == ast.BuildStage.Deferred || buildStage == ast.BuildStage.Unhandled ||
-                buildStage == ast.BuildStage.ReadyToExpand || buildStage == ast.BuildStage.ReadyToRecurse) {
-                stillToGo++;
-            }
-        }
+        stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
         
         // Let's figure out if we can leave.
         if (stillToGo == 0) {
