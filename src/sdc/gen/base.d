@@ -127,15 +127,6 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
         }
         oldStillToGo = stillToGo;
     } while (true);
-    
-    // Okay. Build ze functions!
-    foreach (declDef; mod.functionBuildList) {
-        if (declDef.buildStage != ast.BuildStage.ReadyForCodegen || declDef.importedSymbol) {
-            continue;
-        }
-        assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
-        genDeclaration(cast(ast.Declaration) declDef.node, mod);
-    }
 }
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
