@@ -447,8 +447,7 @@ class Store
         case Scope:
             return new Store(getScope());
         case Function:
-            getFunction().importToModule(mod);
-            return this;
+            return new Store(getFunction().importToModule(mod));
         case Template:
             return this;  
         }

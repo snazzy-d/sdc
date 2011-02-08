@@ -126,7 +126,7 @@ class Function
      * Assign this Function to the Module `mod`.
      * Function's can only be assigned to one Module at a time.   
      */
-    void add(Module mod)
+    void add(Module mod, string forceMangle = null)
     {
         if (this.mod !is null) {
             if (mod !is this.mod) {
@@ -138,8 +138,10 @@ class Function
         }
         this.mod = mod;
         mangledName = simpleName.idup;
-        if (type.linkage == Linkage.ExternD) {
+        if (type.linkage == Linkage.ExternD && forceMangle is null) {
             mangleFunction(mangledName, this);
+        } else if (forceMangle !is null) {
+            mangledName = forceMangle;
         }
         storeSpecial();
         llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
@@ -162,7 +164,6 @@ class Function
         auto fn = new Function(type);
         
         fn.simpleName = this.simpleName;
-        fn.mangledName = this.mangledName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
         fn.argumentListLocation = this.argumentListLocation;
@@ -172,7 +173,7 @@ class Function
         fn.cfgEntry = this.cfgEntry;
         fn.cfgTail = this.cfgTail;
         fn.mod = null;
-        fn.add(mod);
+        fn.add(mod, this.mangledName);
         
         return fn;
     }

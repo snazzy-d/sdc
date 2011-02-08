@@ -108,6 +108,7 @@ void mangleType(ref string mangledName, Type type)
 {        
     final switch (type.dtype) with (DType) {
     case Inferred:
+        break;
     case Complex:
     case None:
     case Scope:

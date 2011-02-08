@@ -47,6 +47,7 @@ import sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
+import sdc.gen.declaration;
 
 version = SDC_x86_default;
 
@@ -160,7 +161,18 @@ void realmain(string[] args)
         }
         gModule = genModule(aModule);
         gModule.verify();
-        
+    }
+    
+    foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+        // Okay. Build ze functions!
+        foreach (declDef; gModule.functionBuildList) {
+            if (declDef.buildStage != ast.BuildStage.ReadyForCodegen || declDef.importedSymbol) {
+                continue;
+            }
+            assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
+            genDeclaration(cast(ast.Declaration) declDef.node, gModule);
+        }
+            
         assert(!match(filename, extensionRegex).empty);
         auto asBitcode  = replace(filename, extensionRegex, "bc");
         auto asAssembly = replace(filename, extensionRegex, "s");
