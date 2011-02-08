@@ -7,7 +7,7 @@ test
 test.o
 .svn
 sdc.bin
-sdc
+./sdc
 *.ll
 a.out
 *.bc
