@@ -42,7 +42,6 @@ enum DType
     Real,
     Pointer,
     NullPointer,
-    FunctionPointer,
     Array,
     Const,
     Complex,
@@ -51,6 +50,7 @@ enum DType
     Class,
     Inferred,
     Scope,
+    Function,
 }
 
 Type dtypeToType(DType dtype, Module mod)
@@ -92,7 +92,6 @@ Type dtypeToType(DType dtype, Module mod)
         return new RealType(mod);
     case Pointer:
     case NullPointer:
-    case FunctionPointer:
     case Array:
     case Complex:
     case Struct:
@@ -100,6 +99,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Class:
     case Const:
     case Scope:
+    case Function:
         break;
     case Inferred:
         return new InferredType(mod);
@@ -501,6 +501,29 @@ class PointerType : Type
     override string name() { return base.name() ~ '*'; }
 }
 
+class FunctionTypeWrapper : Type
+{
+    FunctionType functionType;
+    
+    this(Module mod, FunctionType functionType)
+    {
+        super(mod);
+        this.functionType = functionType;
+        dtype = DType.Function;
+        mType = functionType.functionType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new FunctionWrapperValue(mod, location, functionType);
+    }
+    
+    override string name()
+    {
+        return "Steve";
+    }
+}
+
 class ConstType : Type
 {
     Type base;
@@ -702,30 +725,6 @@ class EnumType : Type
     }
     
     Value[string] members;
-}
-
-class FunctionPointerType : PointerType
-{
-    FunctionType functionType;
-    
-    this(Module mod, FunctionType functionType)
-    {
-        super(mod, null);
-        mType = functionType.functionType;
-        assert(mType);
-        dtype = DType.FunctionPointer;
-        this.functionType = functionType;
-    }
-    
-    override Value getValue(Module mod, Location location)
-    {
-        return new FunctionPointerValue(mod, location, functionType);
-    }
-    
-    override string name()
-    {
-        return "function pointer";
-    }
 }
 
 /* InferredType means, as soon as we get enough information

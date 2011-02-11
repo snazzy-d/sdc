@@ -10,6 +10,7 @@ import std.array;
 import std.string;
 
 import llvm.c.Core;
+import llvm.Ext;
 
 import sdc.compilererror;
 import sdc.global;
@@ -33,18 +34,20 @@ import sdc.gen.sdcmodule;
 class FunctionType
 {
     LLVMTypeRef functionType;
-    
     Linkage linkage;
     Type returnType;
     Type[] argumentTypes;
+    Type parentAggregate;
     bool varargs;
+    Module mod;
     
-    this(Type returnType, Type[] argumentTypes, bool varargs)
+    this(Module mod, Type returnType, Type[] argumentTypes, bool varargs)
     {
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.varargs = varargs;
         declare();
+        this.mod = mod;
     }
     
     /**
@@ -76,6 +79,18 @@ class FunctionType
             functionType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
         }
     }
+    
+    /**
+     * Create an equivalent FunctionType in the given Module.
+     */
+    FunctionType importToModule(Module mod)
+    {
+        auto fn = new FunctionType(mod, returnType, argumentTypes, varargs);
+        if (fn.parentAggregate !is null) {
+            fn.parentAggregate = parentAggregate.importToModule(mod);
+        }
+        return fn;
+    }
 }
 
 /**
@@ -89,7 +104,6 @@ class Function
     string[] argumentNames;
     Location[] argumentLocations;
     Location argumentListLocation;
-    Type parentAggregate;
     Module mod = null;
     BasicBlock cfgEntry;
     BasicBlock cfgTail;
@@ -163,13 +177,11 @@ class Function
     {
         auto fn = new Function(type);
         
+        fn.type = type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
         fn.argumentListLocation = this.argumentListLocation;
-        if (fn.parentAggregate !is null) {
-            fn.parentAggregate = this.parentAggregate.importToModule(mod);
-        }
         fn.cfgEntry = this.cfgEntry;
         fn.cfgTail = this.cfgTail;
         fn.mod = null;
@@ -180,7 +192,7 @@ class Function
     
     Value addressOf(Location location)
     {
-        auto fptr = new FunctionPointerValue(mod, location, type);
+        auto fptr = new PointerValue(mod, location, new FunctionTypeWrapper(mod, type));
         fptr.initialise(location, llvmValue);
         return fptr;
     }

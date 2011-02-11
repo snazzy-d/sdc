@@ -23,18 +23,6 @@ string startMangle()
     return "_D";
 }
 
-version (none) void mangleFunction(ref string mangledName, FunctionType type)
-{
-    mangleCallConvention(mangledName, type.linkage);
-    // TODO: mangle function attributes
-    foreach (paramType; type.argumentTypes) {
-        mangleType(mangledName, paramType);
-    }
-    // TODO: Variadic functions have a different terminator here.
-    mangledName ~= "Z";
-    mangleType(mangledName, type.returnType);
-}
-
 void mangleFunction(ref string mangledName, Function fn)
 {
     if (mangledName == "main") {
@@ -42,27 +30,32 @@ void mangleFunction(ref string mangledName, Function fn)
         return;
     }
     mangledName = startMangle();
-    if (fn.parentAggregate !is null) {
-        auto asStruct = enforce(cast(StructType) fn.parentAggregate);
+    if (fn.type.parentAggregate !is null) {
+        auto asStruct = enforce(cast(StructType) fn.type.parentAggregate);
         mangleQualifiedName(mangledName, asStruct.fullName);
     } else {
-        if (fn.mod.name is null) {
+        if (fn.type.mod.name is null) {
             throw new CompilerPanic("null module name.");
         }
         mangleQualifiedName(mangledName, fn.mod.name);
     }
     mangleLName(mangledName, fn.simpleName);
-    if (fn.parentAggregate !is null) {
+    if (fn.type.parentAggregate !is null) {
         mangledName ~= "M";
     }
-    mangleCallConvention(mangledName, fn.type.linkage);
+    mangleFunctionType(mangledName, fn.type);
+}
+
+void mangleFunctionType(ref string mangledName, FunctionType type)
+{
+    mangleCallConvention(mangledName, type.linkage);
     // TODO: mangle function attributes.
-    foreach (paramType; fn.type.argumentTypes) {
+    foreach (paramType; type.argumentTypes) {
         mangleType(mangledName, paramType);
     }
     // TODO: Variadic functions have a different terminator here.
     mangledName ~= "Z";
-    mangleType(mangledName, fn.type.returnType);
+    mangleType(mangledName, type.returnType);
 }
 
 void mangleQualifiedName(ref string mangledName, QualifiedName baseName)
@@ -162,7 +155,6 @@ void mangleType(ref string mangledName, Type type)
         mangledName ~= "v";
         break;
     case NullPointer:
-    case FunctionPointer:
     case Pointer:
         auto asPointer = cast(PointerType) type;
         assert(asPointer);
@@ -193,6 +185,11 @@ void mangleType(ref string mangledName, Type type)
         break;
     case Const:
         mangledName ~= "x";
+        break;
+    case Function:
+        auto asFunction = cast(FunctionTypeWrapper) type;
+        assert(asFunction);
+        mangleFunctionType(mangledName, asFunction.functionType);
         break;
     }
 }

@@ -721,7 +721,7 @@ class ArrayValue : StructValue
     }
     
     override Value index(Location location, Value val)
-    {
+    {   
         auto v = getMember(location, "ptr").index(location, val);
         v.lvalue = lvalue;
         return v;
@@ -1194,33 +1194,31 @@ class EnumValue : Value
     }+/
 }
 
-class FunctionPointerValue : PointerValue
+class FunctionWrapperValue : Value
 {
-    FunctionType functionType;
+    this(Module mod, Location location)
+    {
+        super(mod, location);
+    }
     
     this(Module mod, Location location, FunctionType functionType)
     {
-        auto ftype = new FunctionPointerType(mod, functionType);
-        super(mod, location, ftype);
-        mType = ftype;
-        this.functionType = functionType;
+        this(mod, location);
+        mType = new FunctionTypeWrapper(mod, functionType);
     }
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        if (mModule is null) {
-            throw new CompilerPanic(location, "attemped to call unassigned Function.");
-        }
-        auto v = buildCall(mModule, functionType, get(), "fptr", location, argLocations, args);
-           
+        auto ftype = enforce(cast(FunctionTypeWrapper) mType);
+        auto v = buildCall(mModule, ftype.functionType, mValue, "foo", location, argLocations, args);
         Value val;
-        if (functionType.returnType.dtype != DType.Void) {
-            val = functionType.returnType.getValue(mModule, location);
+        if (ftype.dtype != DType.Void) {
+            val = ftype.functionType.returnType.getValue(mModule, location);
             val.initialise(location, v);
         } else {
             val = new VoidValue(mModule, location);
         }
-        return val;
+        return val; 
     }
 }
 
@@ -1322,9 +1320,10 @@ Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure 
         args ~= astTypeToBackendType(param.type, mod, onFailure);
         args[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
     }
-    auto fn = new FunctionType(retval, args, varargs);
-    fn.declare();
-    return new FunctionPointerType(mod, fn);
+    auto ftype = new FunctionType(mod, retval, args, varargs);
+    ftype.declare();
+    auto fn = new FunctionTypeWrapper(mod, ftype);
+    return new PointerType(mod, fn);
 }
 
 Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)

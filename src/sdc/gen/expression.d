@@ -382,7 +382,8 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (lhs is null || lhs is mod.callingAggregate) {
             lhs = mod.expressionFunction.call(argList.location, argLocations, args);
         } else {
-            if (lhs.type.dtype == DType.FunctionPointer) {
+            if (lhs.type.dtype == DType.Pointer) {
+                // !!!
                 lhs = lhs.call(argList.location, argLocations, args);
             }
         }
