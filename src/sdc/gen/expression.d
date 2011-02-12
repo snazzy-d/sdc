@@ -337,15 +337,13 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
-    Value lhs;
-    if (suppressPrimary is null) {
-        lhs = genPrimaryExpression(expression.primaryExpression, mod);
-    } else {
-        lhs = suppressPrimary;
-    }
-    
+    Value lhs = suppressPrimary;
+        
     final switch (expression.type) {
-    case ast.PostfixType.None:
+    case ast.PostfixType.Primary:
+        auto asPrimary = enforce(cast(ast.PrimaryExpression) expression.firstNode);
+        lhs = genPrimaryExpression(asPrimary, mod);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
@@ -353,6 +351,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.inc(expression.location));
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
@@ -360,6 +359,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.dec(expression.location));
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Parens:
         Value[] args;
@@ -387,6 +387,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
                 lhs = lhs.call(argList.location, argLocations, args);
             }
         }
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Index:
         Value[] args;
@@ -397,9 +398,10 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             throw new CompilerPanic(expression.location, "slice argument lists must contain only one argument.");
         }
         lhs = lhs.index(lhs.location, args[0]);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Dot:
-        auto qname = cast(ast.QualifiedName) expression.firstNode;
+        auto qname = enforce(cast(ast.QualifiedName) expression.firstNode);
         mod.base = lhs;
         foreach (identifier; qname.identifiers) {
             if (mod.base.type.dtype == DType.Struct) {
@@ -408,9 +410,9 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             mod.base = genIdentifier(identifier, mod);
         }
         lhs = mod.base;
-        mod.base = null;
-        lhs = genPostfixExpression(cast(ast.PostfixExpression) expression.secondNode, mod, lhs);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         mod.callingAggregate = null;
+        mod.base = null;
         break;
     case ast.PostfixType.Slice:
         throw new CompilerPanic(expression.location, "unimplemented postfix expression type.");

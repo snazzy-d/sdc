@@ -218,8 +218,8 @@ class CastExpression : Node
 
 enum PostfixType
 {
-    None,
-    Dot,  // . ( Identifier )  // XXX: specs say a new expression can go here: DMD disagrees.
+    Primary,
+    Dot,  // . QualifiedName  // XXX: specs say a new expression can go here: DMD disagrees.
     PostfixInc,  // ++
     PostfixDec,  // --
     Parens,  // ( ArgumentList* )
@@ -227,12 +227,13 @@ enum PostfixType
     Slice,  // [ (AssignExpression .. AssignExpression)* ]
 }
 
+// PostfixExpression (. Identifier|++|--|(ArgumentList)|[ArgumentList]|[AssignExpression .. AssignExpression)
 class PostfixExpression : Node
 {
     PostfixType type;
-    PrimaryExpression primaryExpression;
-    Node firstNode;
-    Node secondNode;
+    PostfixExpression postfixExpression;  // Optional.
+    Node firstNode;  // Optional.
+    Node secondNode;  // Optional.
 }
 
 class ArgumentList : Node

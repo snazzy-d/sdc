@@ -20,7 +20,7 @@ class Node
 // ident(.ident)*
 class QualifiedName : Node
 {
-    bool leadingDot;
+    bool leadingDot = false;
     Identifier[] identifiers;
     
     QualifiedName dup()

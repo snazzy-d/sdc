@@ -205,16 +205,7 @@ class Function
         if (mod is null) {
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
-        auto v = buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
-         
-        Value val;
-        if (type.returnType.dtype != DType.Void) {
-            val = type.returnType.getValue(mod, location);
-            val.initialise(location, v);
-        } else {
-            val = new VoidValue(mod, location);
-        }
-        return val;
+        return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
     }
     
     private void storeSpecial()
@@ -227,12 +218,20 @@ class Function
     }
 }
 
-LLVMValueRef buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
+Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
-    return LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
+    auto v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
+    Value val;
+    if (type.returnType.dtype != DType.Void) {
+        val = type.returnType.getValue(mod, callLocation);
+        val.initialise(callLocation, v);
+    } else {
+        val = new VoidValue(mod, callLocation);
+    }
+    return val;
 }
 
 private void checkArgumentListLength(FunctionType type, string functionName, Location callLocation, ref Location[] argLocations, Value[] args)

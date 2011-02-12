@@ -1210,15 +1210,7 @@ class FunctionWrapperValue : Value
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
         auto ftype = enforce(cast(FunctionTypeWrapper) mType);
-        auto v = buildCall(mModule, ftype.functionType, mValue, "foo", location, argLocations, args);
-        Value val;
-        if (ftype.dtype != DType.Void) {
-            val = ftype.functionType.returnType.getValue(mModule, location);
-            val.initialise(location, v);
-        } else {
-            val = new VoidValue(mModule, location);
-        }
-        return val; 
+        return buildCall(mModule, ftype.functionType, mValue, "foo", location, argLocations, args);
     }
 }
 

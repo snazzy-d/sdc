@@ -133,7 +133,7 @@ void main(string[] args)
     }
     assert(passed <= testNumber);
     if (testNumber > 0) {
-        writefln("Summary: %s tests, %s pass%s, %s failure%s, %s%% pass rate",
+        writefln("Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate",
                  testNumber, passed, passed == 1 ? "" : "es", 
                  testNumber - passed, (testNumber - passed) == 1 ? "" : "s", 
                  (cast(real)passed / testNumber) * 100);
