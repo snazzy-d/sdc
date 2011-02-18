@@ -10,14 +10,12 @@ int ten()
     return 10;
 }
 
-alias int function() intFunction;  // Workaround parser bug for now.
-
-int addOne(intFunction fn)
+int addOne(int function() fn)
 {
     return fn() + 1;
 }
 
-intFunction tenptr()
+int function() tenptr()
 {
     return &ten;
 }

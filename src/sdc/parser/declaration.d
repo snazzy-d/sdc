@@ -107,26 +107,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     auto declaration = new VariableDeclaration();
     declaration.location = tstream.peek.location;
         
-    auto type = parseType(tstream);
-    if (tstream.peek.type == TokenType.Function) {
-        declaration.type = new Type();
-        declaration.type.type = TypeType.FunctionPointer;
-        declaration.type.node = parseFunctionPointerType(tstream, type);
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        declaration.type.suffixes ~= suffixes;
-    } else if (tstream.peek.type == TokenType.Delegate) {
-        declaration.type = new Type();
-        declaration.type.type = TypeType.Delegate;
-        declaration.type.node = parseDelegateType(tstream, type);
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        declaration.type.suffixes ~= suffixes;
-    } else if (tstream.peek.type == TokenType.OpenParen &&
-               tstream.lookahead(1).type == TokenType.Asterix) {
-        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
-    } else {
-        declaration.type = type;
-    }
-        
+    declaration.type = parseType(tstream);
     
     auto declarator = new Declarator();
     declarator.location = tstream.peek.location;
@@ -305,6 +286,21 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         type.node = parseType(tstream);
         match(tstream, TokenType.CloseParen);
+    }
+    
+    if (tstream.peek.type == TokenType.Function) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.FunctionPointer;
+        type.node = parseFunctionPointerType(tstream, initialType);
+    } else if (tstream.peek.type == TokenType.Delegate) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.Delegate;
+        type.node = parseDelegateType(tstream, type);
+    } else if (tstream.peek.type == TokenType.OpenParen &&
+               tstream.lookahead(1).type == TokenType.Asterix) {
+        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
     }
     
 PARSE_SUFFIXES:
