@@ -6,6 +6,7 @@
 module sdc.gen.aggregate;
 
 import std.conv;
+import std.exception;
 
 import sdc.util;
 import sdc.compilererror;

@@ -34,7 +34,6 @@ Value genExpression(ast.Expression expression, Module mod)
     if (expression.expression !is null) {
         return genExpression(expression.expression, mod);
     }
-    mod.expressionFunction = null;
     return v;
 }
 
@@ -304,11 +303,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.AddressOf:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        if (mod.expressionFunction !is null) {
-            val = mod.expressionFunction.addressOf(expression.unaryExpression.location);
-        } else {    
-            val = val.addressOf();
-        }
+        val = val.addressOf();
         break;
     case ast.UnaryPrefix.Dereference:
         val = genUnaryExpression(expression.unaryExpression, mod);
@@ -379,14 +374,8 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             args ~= p;
         }
         
-        if (lhs is null || lhs is mod.callingAggregate) {
-            lhs = mod.expressionFunction.call(argList.location, argLocations, args);
-        } else {
-            if (lhs.type.dtype == DType.Pointer) {
-                // !!!
-                lhs = lhs.call(argList.location, argLocations, args);
-            }
-        }
+        lhs = lhs.call(argList.location, argLocations, args);
+
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Index:
@@ -507,9 +496,11 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     } else if (store.storeType == StoreType.Type) {
         return store.type().getValue(mod, identifier.location);
     } else if (store.storeType == StoreType.Function) {
-        mod.expressionFunction = store.getFunction();
-        return null;
+        auto fn = store.getFunction();
+        auto wrapper = new FunctionWrapperValue(mod, identifier.location, fn.type);
+        wrapper.mValue = fn.llvmValue;
+        return wrapper;
     } else {
-        assert(false);
+        assert(false, "unhandled StoreType.");
     }
 }

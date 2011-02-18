@@ -50,7 +50,6 @@ class Module
     ast.Access currentAccess = ast.Access.Public;
     bool isAlias;  // ewwww
     bool inferringFunction;  // OH GOD
-    Function expressionFunction;  // WHAT THE FUCK IS WRONG WITH ME?
     TranslationUnit[] importedTranslationUnits;
     string arch;
 
@@ -222,7 +221,7 @@ class Module
      * Returns: the depth of the current scope.
      *          A value of zero means the current scope is global.
      */
-    int scopeDepth() @property
+    size_t scopeDepth() @property
     {
         return mScopeStack.length;
     }

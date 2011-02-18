@@ -673,7 +673,7 @@ class StructType : Type
     }
     
     Type[] members;
-    int[string] memberPositions;
+    size_t[string] memberPositions;
     Function[string] memberFunctions;
 }
 

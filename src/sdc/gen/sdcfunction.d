@@ -7,6 +7,7 @@ module sdc.gen.sdcfunction;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.string;
 
 import llvm.c.Core;
@@ -85,10 +86,14 @@ class FunctionType
      */
     FunctionType importToModule(Module mod)
     {
-        auto fn = new FunctionType(mod, returnType, argumentTypes, varargs);
+        Type importType(Type t) { return t.importToModule(mod); }
+        auto importedTypes = array( map!importType(argumentTypes) );    
+            
+        auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
         if (fn.parentAggregate !is null) {
             fn.parentAggregate = parentAggregate.importToModule(mod);
         }
+        assert(argumentTypes.length == fn.argumentTypes.length);
         return fn;
     }
 }
@@ -133,6 +138,13 @@ class Function
             auto m = mod;
             remove();
             add(m);
+            if (argumentName == "this") {
+                // Mangle the name, omitting the this parameter. 
+                auto args = type.argumentTypes;
+                type.argumentTypes = type.argumentTypes[0 .. $ - 1];  // HAX!
+                mangleFunction(mangledName, this);
+                type.argumentTypes = args;
+            }
         }
     }
     
@@ -248,7 +260,7 @@ private void checkArgumentListLength(FunctionType type, string functionName, Loc
             );
          }
     } else if (type.argumentTypes.length != args.length) {
-        callLocation.column = callLocation.wholeLine;
+        debugPrint(functionName);
         throw new CompilerError(
             callLocation, 
             format("expected %s arguments, got %s.", type.argumentTypes.length, args.length),

@@ -37,6 +37,9 @@ abstract class Value
     ast.Access access;
     bool lvalue = false;
     
+    ast.QualifiedName humanName;  // Optional.
+    string mangledName;  // Optional.
+    
     this(Module mod, Location loc)
     {
         mModule = mod;
@@ -1118,8 +1121,9 @@ class StructValue : Value
         assert(asStruct);
         
         if (auto fnp = name in asStruct.memberFunctions) {
-            mModule.expressionFunction = *fnp;
-            return this;
+            auto wrapper = new FunctionWrapperValue(mModule, location, fnp.type);
+            wrapper.mValue = fnp.llvmValue;
+            return wrapper;
         }
         
         auto t = new IntType(mModule);
@@ -1279,7 +1283,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         return null;
     }        
     
-    for (int i = type.suffixes.length - 1; i >= 0; i--) {
+    for (int i = cast(int) type.suffixes.length - 1; i >= 0; i--) {
         auto suffix = type.suffixes[i];
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
