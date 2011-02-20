@@ -441,7 +441,7 @@ DeleteExpression parseDeleteExpression(TokenStream tstream)
     throw new CompilerError(tstream.peek.location, "delete expressions are unsupported.");
 }
 
-PostfixExpression parsePostfixExpression(TokenStream tstream)
+PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
 {
     auto postfixExpr = new PostfixExpression();
     postfixExpr.location = tstream.peek.location;
@@ -450,34 +450,37 @@ PostfixExpression parsePostfixExpression(TokenStream tstream)
     case TokenType.DoublePlus:
         postfixExpr.type = PostfixType.PostfixInc;
         match(tstream, TokenType.DoublePlus);
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream);
+        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.DoubleDash:
         postfixExpr.type = PostfixType.PostfixDec;
         match(tstream, TokenType.DoubleDash);
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream);
+        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.OpenParen:
+        if (count == 0) {
+            goto default;
+        }
         postfixExpr.firstNode = parseArgumentList(tstream);
         postfixExpr.type = PostfixType.Parens;
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream);
+        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.OpenBracket:
         postfixExpr.firstNode = parseArgumentList(tstream, TokenType.OpenBracket, TokenType.CloseBracket);
         postfixExpr.type = PostfixType.Index;
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream);
+        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.Dot:
         postfixExpr.type = PostfixType.Dot;
         match(tstream, TokenType.Dot);
         postfixExpr.firstNode = parseQualifiedName(tstream);        
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream);
+        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     default:
         if (isPrimaryExpression(tstream)) {
             postfixExpr.firstNode = parsePrimaryExpression(tstream);
             postfixExpr.type = PostfixType.Primary;
-            postfixExpr.postfixExpression = parsePostfixExpression(tstream); 
+            postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1); 
         } else {
             postfixExpr = null;
         }
@@ -536,7 +539,7 @@ bool isPrimaryExpression(TokenStream tstream)
     case TokenType.CharacterLiteral:
         return true;
     case TokenType.OpenParen:
-        return false;
+        return true;
     case TokenType.Mixin:
         return true;
     default:
@@ -621,6 +624,7 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         primaryExpr.node = parseExpression(tstream);
         match(tstream, TokenType.CloseParen);
+        break;
     case TokenType.Mixin:
         primaryExpr.type = PrimaryType.MixinExpression;
         match(tstream, TokenType.Mixin);

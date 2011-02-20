@@ -866,6 +866,7 @@ class PointerValue : Value
         
         auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
+        v.lvalue = lvalue;
         return v;
     }
     
