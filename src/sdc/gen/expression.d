@@ -225,8 +225,8 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
 {
     Value val;
     if (expression.addExpression !is null) {
-        auto lhs = genAddExpression(expression.addExpression, mod);
-        val = genMulExpression(expression.mulExpression, mod);
+        auto lhs = genMulExpression(expression.mulExpression, mod);
+        val = genAddExpression(expression.addExpression, mod);
         binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.addOperation) {
@@ -250,8 +250,8 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
 {
     Value val;
     if (expression.mulExpression !is null) {
-        auto lhs = genMulExpression(expression.mulExpression, mod);
-        val = genPowExpression(expression.powExpression, mod);
+        auto lhs = genPowExpression(expression.powExpression, mod);
+        val = genMulExpression(expression.mulExpression, mod);
         binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.mulOperation) {
