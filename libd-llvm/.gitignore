@@ -6,8 +6,6 @@ add.d
 test
 test.o
 .svn
-sdc.bin
-sdc
 *.ll
 a.out
 *.bc
