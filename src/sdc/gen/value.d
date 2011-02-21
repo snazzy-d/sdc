@@ -1392,7 +1392,6 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
 
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
 {
-    auto name = "temporarilyUselessName (sorry Jakob!)";
     Scope baseScope;
     foreach (thing; type.segments) {
         if (!thing.isIdentifier) {
@@ -1400,10 +1399,11 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         }
         auto identifier = cast(ast.Identifier) thing.node;
         Store store;
+        auto name = extractIdentifier(identifier);
         if (baseScope !is null) {
-            store = baseScope.get(extractIdentifier(identifier));
+            store = baseScope.get(name);
         } else {
-            store = mod.search(extractIdentifier(identifier));
+            store = mod.search(name);
         }
         
         if (store is null) {
@@ -1465,7 +1465,6 @@ Value implicitCast(Location location, Value v, Type toType)
         }
         break;
     case DType.Complex: .. case DType.max:
-        debugPrint(to!string(toType.dtype));
         throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
     case DType.Const:
         return new ConstValue(v.getModule(), location, v);

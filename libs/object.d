@@ -8,6 +8,8 @@ version (D_LP64) {
     alias int   ptrdiff_t;
 }
 
+alias char[] string;
+
 extern (C) {
     void* malloc(size_t);
     void* realloc(void*, size_t);

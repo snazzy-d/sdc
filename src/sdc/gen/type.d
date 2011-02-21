@@ -614,6 +614,11 @@ class ArrayType : StructType
         return base;
     }
     
+    override Type importToModule(Module mod)
+    {
+        return new ArrayType(mod, base);
+    }
+    
     override string name() { return base.name() ~ "[]"; }
 }
 
@@ -656,6 +661,7 @@ class StructType : Type
     override Type importToModule(Module mod)
     {
         auto t = new StructType(mod);
+        t.fullName = fullName;
         foreach (name, index; memberPositions) {
             t.addMemberVar(name, members[index].importToModule(mod));
         }
