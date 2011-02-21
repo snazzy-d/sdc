@@ -1446,6 +1446,10 @@ Value implicitCast(Location location, Value v, Type toType)
         if (v.type.dtype == DType.NullPointer) {
             return v;
         } else if (v.type.dtype == DType.Pointer) {
+            if (toType.getBase().dtype == DType.Void) {
+                // All pointers are implicitly castable to void*.
+                return v.performCast(location, toType); 
+            }
             if (v.type.getBase().dtype == toType.getBase().dtype) {
                 return v;
             } else if (toType.getBase().dtype == DType.Const) {
