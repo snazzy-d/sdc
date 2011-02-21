@@ -89,54 +89,8 @@ Codegen
 
 What Can It Compile?
 ====================
-Nothing practical. What follows is the a program SDC can handle.
-More features have been implemented, but the example file has not been updated.
-
-    module test;
-
-    extern (C) void exit(int);  // extern (D) functions are mangled.
-
-    struct Person
-    {
-        int age;
-        
-        void growOlder()
-        {
-            age = this.age + 1;
-        }
-    }
-
-    void bump(int* p)
-    {
-        *p = *p + 1;
-        return;
-    }
-
-    int add(int a, int b)
-    {
-        return a + b;
-    }
-
-    /**
-     * Returns 42.
-     */
-    int main()
-    {
-        Person p;
-        p.age = 0;
-        p.growOlder();
-        if (p.age != 1) {
-            return 1;
-        }
-        p.age = p.age + 20;
-        int i;
-        while (i != 19) {
-            i++;
-        }
-        bump(&i);
-        exit(add(p.age, i + 1));
-        return 1;  // Never reached.
-    }
+See the compiler_tests directory for a sample of what is/should-be working.
+libs/object.d contains the current (temporary) object.d file for SDC.  
 
 Roadmap
 =======
