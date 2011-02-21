@@ -9,6 +9,7 @@ module sdc.gen.value;
 import std.algorithm;
 import std.conv;
 import std.exception;
+import std.range;
 import std.stdio;
 import std.string;
 
@@ -1284,8 +1285,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         return null;
     }        
     
-    for (int i = cast(int) type.suffixes.length - 1; i >= 0; i--) {
-        auto suffix = type.suffixes[i];
+    foreach (suffix; retro(type.suffixes)) {
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
         } else if (suffix.type == ast.TypeSuffixType.DynamicArray) {
@@ -1465,6 +1465,7 @@ Value implicitCast(Location location, Value v, Type toType)
         }
         break;
     case DType.Complex: .. case DType.max:
+        debugPrint(to!string(toType.dtype));
         throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
     case DType.Const:
         return new ConstValue(v.getModule(), location, v);
