@@ -324,8 +324,12 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {
-    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);
-    auto loc  = expression.location;
+    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);    
+    if (type.dtype == DType.Class) {
+        auto asClass = enforce(cast(ClassType) type);
+        type = asClass.structType;
+    }
+    auto loc  = expression.type.location - expression.location;
     auto size = type.getValue(mod, loc).getSizeof(loc);
     return gcAlloc.call(expression.location, [loc], [size]).performCast(loc, new PointerType(mod, type));
 }

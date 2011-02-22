@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -25,51 +25,18 @@ ClassDeclaration parseClassDeclaration(TokenStream tstream)
     return decl;
 }
 
-
-
 BaseClassList parseBaseClassList(TokenStream tstream)
 {
     auto list = new BaseClassList();
     list.location = tstream.peek.location;
     
     match(tstream, TokenType.Colon);
-    list.superClass = parseSuperClass(tstream);
+    list.superClass = parseQualifiedName(tstream);
     while (tstream.peek.type == TokenType.Comma) {
         match(tstream, TokenType.Comma);
-        list.interfaceClasses ~= parseInterfaceClass(tstream);
+        list.interfaceClasses ~= parseQualifiedName(tstream);
     }
     return list;
-}
-
-Protection parseProtection(TokenStream tstream)
-{
-    switch (tstream.peek.type) with (TokenType) {
-    case Private, Package, Public, Export:
-        throw new CompilerError(tstream.peek.location, "protected inheritance has entirely undefined semantics, and is therefore unsupported.");
-    default:
-        return Protection.None;
-    }
-    // Never reached.
-}
-
-SuperClass parseSuperClass(TokenStream tstream)
-{
-    auto sclass = new SuperClass();
-    sclass.location = tstream.peek.location;
-    
-    sclass.protection = parseProtection(tstream);
-    sclass.identifier = parseIdentifier(tstream);
-    return sclass;
-}
-
-InterfaceClass parseInterfaceClass(TokenStream tstream)
-{
-    auto iclass = new InterfaceClass();
-    iclass.location = tstream.peek.location;
-    
-    iclass.protection = parseProtection(tstream);
-    iclass.identifier = parseIdentifier(tstream);
-    return iclass;
 }
 
 ClassBody parseClassBody(TokenStream tstream)

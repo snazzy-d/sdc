@@ -550,32 +550,83 @@ class ConstType : Type
     override string name() { return "const(" ~ base.name() ~ ")"; }
 }
 
+struct Field
+{
+    string name;
+    Type type;
+}
+
+struct Method
+{
+    string name;
+    Function fn;
+}
+
 class ClassType : Type
 {
     ast.QualifiedName fullName;
+    StructType structType;
+    ClassType parent;  // Optional for object.Object.
     
-    this(Module mod)
+    Field[] fields;
+    Method[] methods;
+    
+    this(Module mod, ClassType parent)
     {
         super(mod);
         dtype = DType.Class;
+        this.parent = parent;
+        this.fields = fields;
+        this.methods = methods;
+        
+        structType = new StructType(mod);
+        structType.addMemberVar("__vptr", new PointerType(mod, new PointerType(mod, new VoidType(mod))));
+        structType.addMemberVar("__monitor", new PointerType(mod, new VoidType(mod)));
+        addParentsFields();
     }
     
-    void declare()
-    {
-        auto s = new StructType(mModule);
-        s.declare();
-        auto p = new PointerType(mModule, s);
-        mType = p.mType;
-    }  
-
     override Value getValue(Module mod, Location location)
     {
-        return new ClassValue(mod, location);
+        return new ClassValue(mod, location, this);
     }
     
     override string name()
     {
-        return extractQualifiedName(fullName);
+        return "class";
+    }
+    
+    void declare()
+    {
+        structType.declare();
+        mType = (new PointerType(mModule, structType)).llvmType;
+    }
+    
+    void addMemberVar(string name, Type t)
+    {
+        fields ~= Field(name, t);
+        structType.addMemberVar(name, t);
+    }
+    
+    void addMemberFunction(string name, Function fn)
+    {
+        methods ~= Method(name, fn);
+        mModule.globalScope.add(name, new Store(fn));
+    }
+    
+    protected void addParentsFields()
+    {
+        auto currentParent = parent;
+        while (currentParent !is null) {
+            addFields(currentParent.fields);
+            currentParent = currentParent.parent;
+        }
+    }
+    
+    protected void addFields(Field[] fields)
+    {
+        foreach (field; fields) {
+            structType.addMemberVar(field.name, field.type);
+        }
     }
 }
 

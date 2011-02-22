@@ -44,7 +44,7 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.TemplateDeclaration:
         return true;  // TODO
     case ast.DeclarationDefinitionType.ClassDeclaration:
-        return true;  // TODO
+        return canGenClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
     default:
         return false;
     }

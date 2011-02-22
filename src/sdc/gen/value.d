@@ -979,21 +979,54 @@ class ReferenceValue : Value
     }
 }
 
-class ClassValue : ReferenceValue
+class ClassValue : Value
 {
-    StructValue structValue;
-    
-    this(Module mod, Location location)
+    PointerValue v;   
+    this(Module mod, Location location, ClassType t)
     {
-        auto c = new ClassType(mod);
-        c.declare();
-        mType = c;
-        auto t = new StructType(mod);
-        t.declare();
-        structValue = new StructValue(mod, location, t);
-        //auto p = gcAlloc.call(location, [location], [structValue.getSizeof(location)]).performCast(location, c);
-        //setReferencePointer(location, p.get());
-        super(mod, location, structValue);
+        super(mod, location);
+        mType = t;
+        v = new PointerValue(mod, location, t.structType);
+        mValue = v.mValue;
+        v.lvalue = true;
+        lvalue = true;
+    }
+    
+    override Value getInit(Location location)
+    {
+        return new NullPointerValue(mModule, location);
+    }
+    
+    override void set(Location loc, Value val)
+    {
+        errorIfNotLValue(loc);
+        setPreCallbacks();
+        v.set(loc, val);
+        setPostCallbacks();
+    }
+    
+    override void set(Location loc, LLVMValueRef val)
+    {
+        errorIfNotLValue(loc);
+        setPreCallbacks();
+        v.set(loc, val);
+        setPostCallbacks();
+    }
+    
+    override void initialise(Location loc, Value val)
+    {
+        auto oldlvalue = lvalue;
+        lvalue = true;
+        v.set(loc, val);
+        lvalue = oldlvalue;
+    }
+    
+    override void initialise(Location loc, LLVMValueRef val)
+    {
+        auto oldlvalue = lvalue;
+        lvalue = true;
+        v.set(loc, val);
+        lvalue = oldlvalue;
     }
 }
 
@@ -1468,8 +1501,12 @@ Value implicitCast(Location location, Value v, Type toType)
             }
         }
         break;
-    case DType.Complex: .. case DType.max:
-        throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
+    case DType.Class:
+        if (v.type.dtype == DType.NullPointer) {
+            auto asClass = enforce(cast(ClassType) toType);
+            return v.performCast(location, new PointerType(v.mModule, asClass.structType)); 
+        }
+        return v;  // TMP
     case DType.Const:
         return new ConstValue(v.getModule(), location, v);
     default:
