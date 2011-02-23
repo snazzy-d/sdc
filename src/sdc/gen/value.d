@@ -1001,7 +1001,12 @@ class ClassValue : Value
     {
         errorIfNotLValue(loc);
         setPreCallbacks();
-        v.set(loc, val);
+        if (val.type.dtype == DType.Class) {
+            auto asClass = enforce(cast(ClassValue) val);
+            v = asClass.v;
+        } else {
+            v.set(loc, val);
+        }
         setPostCallbacks();
     }
     
@@ -1017,7 +1022,7 @@ class ClassValue : Value
     {
         auto oldlvalue = lvalue;
         lvalue = true;
-        v.set(loc, val);
+        set(loc, val);
         lvalue = oldlvalue;
     }
     
@@ -1025,8 +1030,13 @@ class ClassValue : Value
     {
         auto oldlvalue = lvalue;
         lvalue = true;
-        v.set(loc, val);
+        set(loc, val);
         lvalue = oldlvalue;
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        return v.getMember(location, name);
     }
 }
 

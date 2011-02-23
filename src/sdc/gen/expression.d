@@ -21,6 +21,7 @@ import sdc.location;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
+import sdc.gen.sdcclass;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdctemplate;
 import sdc.gen.type;
@@ -324,10 +325,11 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {
+    gcAlloc = gcAlloc.importToModule(mod);
     auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);    
     if (type.dtype == DType.Class) {
         auto asClass = enforce(cast(ClassType) type);
-        type = asClass.structType;
+        return newClass(mod, expression.location, asClass, expression.argumentList);
     }
     auto loc  = expression.type.location - expression.location;
     auto size = type.getValue(mod, loc).getSizeof(loc);

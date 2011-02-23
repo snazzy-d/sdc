@@ -5,14 +5,18 @@
  */
 module sdc.gen.sdcclass;
 
+import std.exception;
 import std.stdio;
 
 import sdc.compilererror;
+import sdc.global;
+import sdc.location;
 import ast = sdc.ast.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcfunction;
 import sdc.gen.type;
+import sdc.gen.value;
 import sdc.extract.base;
 
 
@@ -72,4 +76,12 @@ void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, Module mod)
     case ClassDeallocator:
         throw new CompilerPanic(bodyDecl.location, "unhandled body declaration type.");
     }
+}
+
+ClassValue newClass(Module mod, Location location, ClassType type, ast.ArgumentList argumentList)
+{
+    auto v = new ClassValue(mod, location, type);
+    auto size = type.structType.getValue(mod, location).getSizeof(location);
+    v.v = enforce(cast(PointerValue) gcAlloc.call(location, [location], [size]).performCast(location, v.v.type));
+    return v;
 }
