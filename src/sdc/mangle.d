@@ -31,8 +31,15 @@ void mangleFunction(ref string mangledName, Function fn)
     }
     mangledName = startMangle();
     if (fn.type.parentAggregate !is null) {
-        auto asStruct = enforce(cast(StructType) fn.type.parentAggregate);
-        mangleQualifiedName(mangledName, asStruct.fullName);
+        QualifiedName name;
+        if (fn.type.parentAggregate.dtype == DType.Struct) {
+            auto asStruct = enforce(cast(StructType) fn.type.parentAggregate);
+            name = asStruct.fullName;
+        } else {
+            auto asClass = enforce(cast(ClassType) fn.type.parentAggregate);
+            name = asClass.fullName;
+        }
+        mangleQualifiedName(mangledName, name);
     } else {
         if (fn.type.mod.name is null) {
             throw new CompilerPanic("null module name.");

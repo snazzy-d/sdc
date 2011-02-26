@@ -861,7 +861,7 @@ class PointerValue : Value
     
     override Value index(Location location, Value val)
     {
-        val = implicitCast(location, val, new IntType(mModule));
+        val = implicitCast(location, val, getSizeT(mModule));
         LLVMValueRef[] indices;
         indices ~= val.get();
         
@@ -981,7 +981,7 @@ class ReferenceValue : Value
 
 class ClassValue : Value
 {
-    PointerValue v;   
+    PointerValue v;
     this(Module mod, Location location, ClassType t)
     {
         super(mod, location);
@@ -997,13 +997,18 @@ class ClassValue : Value
         return new NullPointerValue(mModule, location);
     }
     
+    override LLVMValueRef get()
+    {
+        return v.get();
+    }
+    
     override void set(Location loc, Value val)
     {
         errorIfNotLValue(loc);
         setPreCallbacks();
         if (val.type.dtype == DType.Class) {
             auto asClass = enforce(cast(ClassValue) val);
-            v = asClass.v;
+            v.set(loc, asClass.v);
         } else {
             v.set(loc, val);
         }
@@ -1036,6 +1041,13 @@ class ClassValue : Value
     
     override Value getMember(Location location, string name)
     {
+        auto asClass = enforce(cast(ClassType) mType);
+        if (auto p = name in asClass.methodIndices) {
+            // *p + 1 because the first entry of the vtable contains a TypeInfo instance. 
+            auto fptr = v.getMember(location, "__vptr").index(location, newSizeT(mModule, location, *p + 1));
+            auto fntype = new PointerType(mModule, new FunctionTypeWrapper(mModule, asClass.methods[*p].fn.type));
+            return fptr.performCast(location, fntype);
+        }
         return v.getMember(location, name);
     }
 }

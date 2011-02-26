@@ -6,8 +6,10 @@
  */
 module sdc.gen.type;
 
+import std.algorithm;
 import std.conv;
 import std.string;
+import std.range;
 
 import llvm.c.Core;
 
@@ -570,6 +572,7 @@ class ClassType : Type
     
     Field[] fields;
     Method[] methods;
+    size_t[string] methodIndices; 
     
     this(Module mod, ClassType parent)
     {
@@ -583,6 +586,7 @@ class ClassType : Type
         structType.addMemberVar("__vptr", new PointerType(mod, new PointerType(mod, new VoidType(mod))));
         structType.addMemberVar("__monitor", new PointerType(mod, new VoidType(mod)));
         addParentsFields();
+        addParentsMethods();
     }
     
     override Value getValue(Module mod, Location location)
@@ -609,10 +613,15 @@ class ClassType : Type
     
     void addMemberFunction(string name, Function fn)
     {
-        methods ~= Method(name, fn);
+        if (auto p = name in methodIndices) {
+            methods[*p] = Method(name, fn);
+        } else {
+            addMethod(Method(name, fn));
+        }
         mModule.globalScope.add(name, new Store(fn));
     }
     
+    /// Add the parents' non-static fields, from least to most derived.
     protected void addParentsFields()
     {
         auto currentParent = parent;
@@ -622,11 +631,38 @@ class ClassType : Type
         }
     }
     
+    /// Add the parents' methods, from most to least derived.  
+    protected void addParentsMethods()
+    {
+        auto currentParent = parent;
+        ClassType[] parents;
+        while (currentParent !is null) {
+            parents ~= currentParent;
+            currentParent = currentParent.parent;
+        }
+        
+        foreach (cparent; retro(parents)) {
+            addMethods(cparent.methods);
+        }
+    }
+    
     protected void addFields(Field[] fields)
     {
+        this.fields ~= fields; 
         foreach (field; fields) {
             structType.addMemberVar(field.name, field.type);
         }
+    }
+    
+    protected void addMethods(Method[] methods)
+    {
+        foreach (method; methods) addMethod(method);
+    }
+    
+    protected void addMethod(Method method)
+    {
+        this.methods ~= method;
+        methodIndices[method.name] = methods.length - 1; 
     }
 }
 

@@ -7,8 +7,13 @@ module sdc.parser.sdcclass;
 
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.ast.base;
 import sdc.ast.sdcclass;
+import sdc.ast.declaration;
+import sdc.ast.sdcmodule;
 import sdc.parser.base;
+import sdc.parser.declaration;
+import sdc.extract.base;
 
 
 ClassDeclaration parseClassDeclaration(TokenStream tstream)
@@ -21,7 +26,7 @@ ClassDeclaration parseClassDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.Colon) {
         decl.baseClassList = parseBaseClassList(tstream);
     }
-    decl.classBody = parseClassBody(tstream);
+    decl.classBody = parseClassBody(tstream, extractIdentifier(decl.identifier));
     return decl;
 }
 
@@ -39,24 +44,67 @@ BaseClassList parseBaseClassList(TokenStream tstream)
     return list;
 }
 
-ClassBody parseClassBody(TokenStream tstream)
+ClassBody parseClassBody(TokenStream tstream, string name)
 {
     auto cbody = new ClassBody();
     cbody.location = tstream.peek.location;
     
     match(tstream, TokenType.OpenBrace);
     while (tstream.peek.type != TokenType.CloseBrace) {
-        cbody.classBodyDeclarations ~= parseClassBodyDeclaration(tstream);
+        cbody.classBodyDeclarations ~= parseClassBodyDeclaration(tstream, name);
     }
     match(tstream, TokenType.CloseBrace);
     return cbody;
 }
 
-ClassBodyDeclaration parseClassBodyDeclaration(TokenStream tstream)
+ClassBodyDeclaration parseClassBodyDeclaration(TokenStream tstream, string name)
 {
     auto decl = new ClassBodyDeclaration();
     decl.location = tstream.peek.location;
     
-    decl.node = parseDeclarationDefinition(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.This:
+        decl.type = ClassBodyDeclarationType.Constructor;
+        decl.node = parseConstructor(tstream, name);
+        break;
+    default:
+        decl.type = ClassBodyDeclarationType.Declaration;
+        decl.node = parseDeclarationDefinition(tstream);
+        break;
+    }
     return decl;
+}
+
+DeclarationDefinition parseConstructor(TokenStream tstream, string name)
+{
+    auto decldef = new DeclarationDefinition();
+    decldef.location = tstream.peek.location;
+    decldef.type = DeclarationDefinitionType.Declaration;
+    auto decl = new Declaration();
+    decl.location = tstream.peek.location;
+    decl.type = DeclarationType.Function;
+    auto fdecl = new FunctionDeclaration();
+    fdecl.location = tstream.peek.location;
+    fdecl.retval = new Type();
+    fdecl.retval.type = TypeType.UserDefined;
+    auto udefinedType = new UserDefinedType();
+    udefinedType.location = tstream.peek.location;
+    udefinedType.segments ~= new IdentifierOrTemplateInstance();
+    auto ident = new Identifier();
+    ident.location = tstream.peek.location;
+    ident.value = name;
+    udefinedType.segments[0].location = tstream.peek.location;
+    udefinedType.segments[0].isIdentifier = true;
+    udefinedType.segments[0].node = ident;
+    fdecl.retval.node = udefinedType;
+    fdecl.name = new Identifier();
+    fdecl.name.location = tstream.peek.location;
+    fdecl.name.value = "__ctor";
+    match(tstream, TokenType.This);
+    fdecl.parameterList = parseParameters(tstream);
+    fdecl.functionBody = parseFunctionBody(tstream);
+    decl.node = fdecl;
+    decldef.node = decl;
+    
+    return decldef;
 }

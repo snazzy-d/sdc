@@ -374,10 +374,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             argLocations ~= expr.location;
             mod.callingAggregate = oldAggregate;
         }
-        if (mod.callingAggregate !is null) {
+        if (mod.callingAggregate !is null && mod.callingAggregate.type.dtype == DType.Struct) {
             auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
             p.initialise(expression.location, mod.callingAggregate.addressOf());
             args ~= p;
+        } else if (mod.callingAggregate !is null) {
+            args ~= mod.callingAggregate;
         }
         
         lhs = lhs.call(argList.location, argLocations, args);
@@ -399,7 +401,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         auto qname = enforce(cast(ast.QualifiedName) expression.firstNode);
         mod.base = lhs;
         foreach (identifier; qname.identifiers) {
-            if (mod.base.type.dtype == DType.Struct) {
+            if (mod.base.type.dtype == DType.Struct || mod.base.type.dtype == DType.Class) {
                 mod.callingAggregate = mod.base;
             }
             mod.base = genIdentifier(identifier, mod);

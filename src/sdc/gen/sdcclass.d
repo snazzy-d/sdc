@@ -7,7 +7,9 @@ module sdc.gen.sdcclass;
 
 import std.exception;
 import std.stdio;
+import std.range;
 
+import sdc.util;
 import sdc.compilererror;
 import sdc.global;
 import sdc.location;
@@ -30,43 +32,79 @@ bool canGenClassDeclaration(ast.ClassDeclaration decl, Module mod)
 
 void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
 {
-    auto ctype = new ClassType(mod, null);
+    ClassType base;
+    if (decl.baseClassList !is null) {
+        auto store = mod.search(extractQualifiedName(decl.baseClassList.superClass));
+        if (store is null || store.storeType != StoreType.Type) {
+            assert(false);  // TODO
+        }
+        base = cast(ClassType) store.type;
+        if (base is null) {
+            assert(false);  // TODO
+        }
+    }
+    auto ctype = new ClassType(mod, base);
+    ctype.fullName = new ast.QualifiedName(); 
+    ctype.fullName.identifiers = mod.name.identifiers;
+    ctype.fullName.identifiers ~= decl.identifier;
     mod.currentScope.add(extractIdentifier(decl.identifier), new Store(ctype));
         
     auto currentScope = mod.currentScope;
     mod.currentScope = new Scope();
-        
+
+    ast.DeclarationDefinition[] methods;        
     foreach (bodyDecl; decl.classBody.classBodyDeclarations) {
-        genClassBodyDeclaration(bodyDecl, mod);
+        genClassBodyDeclaration(bodyDecl, mod, methods);
     }
     
-    Function[] functions;
+    
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
             ctype.addMemberVar(name, store.type);
         } else if (store.storeType == StoreType.Value) {
             ctype.addMemberVar(name, store.value.type);
         } else if (store.storeType == StoreType.Function) {
-            functions ~= store.getFunction();  
+            throw new CompilerPanic(decl.location, "generated function in initial class generation pass."); 
         } else {
             throw new CompilerError(decl.location, "invalid class declaration type.");
         }
     }
     ctype.declare();
+    
+    foreach (method; methods) {
+        genDeclarationDefinition(method, mod);
+    }
+    
+    Function[] functions;
+    foreach (name, store; mod.currentScope.mSymbolTable) {
+        if (store.storeType == StoreType.Function) {
+            functions ~= store.getFunction();
+        }
+    }
+    
     foreach (fn; functions) {
         fn.type.parentAggregate = ctype;
-        fn.addArgument(new PointerType(mod, ctype), "this");
+        fn.addArgument(ctype, "this");
         ctype.addMemberFunction(fn.simpleName, fn);
     }
     mod.currentScope = currentScope;
 }
 
-void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, Module mod)
+void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, Module mod, ref ast.DeclarationDefinition[] methods)
 {
     final switch (bodyDecl.type) with (ast.ClassBodyDeclarationType) {
     case Declaration:
-        genDeclarationDefinition(cast(ast.DeclarationDefinition) bodyDecl.node, mod);
     case Constructor:
+        auto asDecldef = enforce(cast(ast.DeclarationDefinition) bodyDecl.node);
+        if (asDecldef.type == ast.DeclarationDefinitionType.Declaration) {
+            auto asDecl = enforce(cast(ast.Declaration) asDecldef.node);
+            if (asDecl.type == ast.DeclarationType.Function) {
+                methods ~= asDecldef;
+                return;
+            }
+        }
+        genDeclarationDefinition(asDecldef, mod);
+        break;
     case Destructor:
     case StaticConstructor:
     case StaticDestructor:
@@ -83,5 +121,16 @@ ClassValue newClass(Module mod, Location location, ClassType type, ast.ArgumentL
     auto v = new ClassValue(mod, location, type);
     auto size = type.structType.getValue(mod, location).getSizeof(location);
     v.v = enforce(cast(PointerValue) gcAlloc.call(location, [location], [size]).performCast(location, v.v.type));
+    
+    // +1 for the TypeInfo at the beginning of the vtable.
+    auto vtablesize = newSizeT(mod, location, 0).getSizeof(location).mul(location, newSizeT(mod, location, type.methods.length + 1));    
+    auto vtablemem  = gcAlloc.call(location, [location], [vtablesize]).performCast(location, v.v.getMember(location, "__vptr").type);
+    v.v.getMember(location, "__vptr").set(location, vtablemem);
+     
+    foreach (i, method; type.methods) {
+        auto indexv = newSizeT(mod, location, i + 1);  // Skip the TypeInfo's vtable index.
+        v.v.getMember(location, "__vptr").index(location, indexv).set(location, type.methods[i].fn.addressOf(location).performCast(location, new PointerType(mod, new VoidType(mod))));
+    }
+    
     return v;
 }
