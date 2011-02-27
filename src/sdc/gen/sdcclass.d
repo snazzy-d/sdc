@@ -54,7 +54,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
 
     ast.DeclarationDefinition[] methods;        
     foreach (bodyDecl; decl.classBody.classBodyDeclarations) {
-        genClassBodyDeclaration(bodyDecl, mod, methods);
+        genClassBodyDeclaration(bodyDecl, ctype, mod, methods);
     }
     
     
@@ -90,7 +90,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     mod.currentScope = currentScope;
 }
 
-void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, Module mod, ref ast.DeclarationDefinition[] methods)
+void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, ClassType type, Module mod, ref ast.DeclarationDefinition[] methods)
 {
     final switch (bodyDecl.type) with (ast.ClassBodyDeclarationType) {
     case Declaration:
@@ -103,6 +103,7 @@ void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, Module mod, ref 
                 return;
             }
         }
+        asDecldef.parentType = type;
         genDeclarationDefinition(asDecldef, mod);
         break;
     case Destructor:
