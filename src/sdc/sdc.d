@@ -170,7 +170,7 @@ void realmain(string[] args)
                 continue;
             }
             assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
-            genDeclaration(cast(ast.Declaration) declDef.node, gModule);
+            genDeclaration(cast(ast.Declaration) declDef.node, declDef, gModule);
         }
             
         assert(!match(filename, extensionRegex).empty);

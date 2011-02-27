@@ -130,11 +130,13 @@ abstract class Type
     DType dtype;
     ast.Access access;
     bool isRef = false;
+    Scope typeScope;
     
     this(Module mod)
     {
         mModule = mod;
         access = mod.currentAccess;
+        typeScope = new Scope();
     }
     
     LLVMTypeRef llvmType()
@@ -741,8 +743,7 @@ class StructType : Type
     
     void addMemberFunction(string id, Function f)
     {
-        memberFunctions[id] = f;
-        mModule.globalScope.add(id, new Store(f));
+        memberFunctions[id] = f;    
     }
     
     override Type importToModule(Module mod)

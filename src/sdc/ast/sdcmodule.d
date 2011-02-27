@@ -13,6 +13,7 @@ import sdc.global;
 import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
+import gen = sdc.gen.type;
 
 
 class Module : Node
@@ -80,4 +81,5 @@ class DeclarationDefinition : Node
     BuildStage buildStage;
     bool importedSymbol;
     QualifiedName parentName;
+    gen.Type parentType;
 }

@@ -31,7 +31,7 @@ bool canGenAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     return b;
 }
 
-void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
+void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.AggregateType.Struct:
@@ -50,10 +50,11 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     type.fullName.identifiers ~= decl.name;
     
     auto currentScope = mod.currentScope;
-    mod.currentScope = new Scope();
+    mod.currentScope = type.typeScope;
     currentScope.add(name, new Store(mod.currentScope));
-    foreach (declDef; decl.structBody.declarations) {
-        genDeclarationDefinition(declDef, mod);
+    foreach (innerDeclDef; decl.structBody.declarations) {
+        innerDeclDef.parentType = type;
+        genDeclarationDefinition(innerDeclDef, mod);
     }
     Function[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {

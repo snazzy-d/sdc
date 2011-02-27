@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -271,7 +271,7 @@ void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
 
 void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 {
-    genDeclaration(statement.declaration, mod);
+    genDeclaration(statement.declaration, null, mod);
 }
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)

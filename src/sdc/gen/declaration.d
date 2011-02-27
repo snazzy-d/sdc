@@ -65,24 +65,24 @@ bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 }
 
 
-void declareDeclaration(ast.Declaration decl, Module mod)
+void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Function:
-        declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
+        declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.Alias:
         mod.isAlias = true;
-        declareDeclaration(cast(ast.Declaration) decl.node, mod);
+        declareDeclaration(cast(ast.Declaration) decl.node, declDef, mod);
         mod.isAlias = false;
         break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
-        declareDeclaration(asMixin.declarationCache, mod);
+        declareDeclaration(asMixin.declarationCache, declDef, mod);
         break;
     }
 }
@@ -99,7 +99,7 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 }
 
 /// Create and add the function, but generate no code.
-void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
+void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     auto retval = astTypeToBackendType(decl.retval, mod, OnFailure.DieWithError);
     Type[] params;
@@ -118,7 +118,13 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     fn.simpleName = extractIdentifier(decl.name);
     fn.argumentNames = names;
     auto store = new Store(fn);
-    mod.currentScope.add(fn.simpleName, store);
+    
+    // This is the important part: the function is added to the appropriate scope.
+    if (declDef.parentType !is null) {
+        declDef.parentType.typeScope.add(fn.simpleName, store);
+    } else {
+        mod.currentScope.add(fn.simpleName, store);
+    }
     
     if (fn.type.returnType.dtype == DType.Inferred) {
         auto inferrenceContext = mod.dup;
@@ -126,7 +132,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
         
         try {
             // Why in fuck's name am I doing this _here_? Oh well; TODO.
-            genFunctionDeclaration(decl, inferrenceContext);
+            genFunctionDeclaration(decl, declDef, inferrenceContext);
         } catch (InferredTypeFoundException e) {
             fn.type.returnType = e.type;
         }
@@ -155,21 +161,21 @@ void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
     decl.declarationCache = parseDeclaration(tstream);
 }
 
-void genDeclaration(ast.Declaration decl, Module mod)
+void genDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         genVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Function:
-        genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
+        genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.Alias:
         break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         assert(asMixin.declarationCache);
-        genDeclaration(asMixin.declarationCache, mod);
+        genDeclaration(asMixin.declarationCache, declDef, mod);
         break;
     }
 }
@@ -213,15 +219,21 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     }
 }
 
-void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
+void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     if (decl.functionBody is null) {
         // The function's code is defined elsewhere.
         return;
     }
     
+    // First, we find the previously stored function information.
     auto name = extractIdentifier(decl.name);
-    auto store = mod.globalScope.get(name);
+    Store store = null; 
+    if (declDef.parentType !is null) {
+        store = declDef.parentType.typeScope.get(name);   
+    }
+    if (store is null) store = mod.globalScope.get(name);
+
     if (store is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
@@ -230,6 +242,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     }
     auto fn = store.getFunction();
     
+    // Next, we generate the actual function body's code.
     auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
     genFunctionBody(decl.functionBody, decl, fn, mod);

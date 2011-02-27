@@ -206,11 +206,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         auto can = canGenDeclaration(decl, mod);        
         if (can) {
             if (decl.type != ast.DeclarationType.Function) {
-                declareDeclaration(decl, mod);
-                genDeclaration(decl, mod);
+                declareDeclaration(decl, declDef, mod);
+                genDeclaration(decl, declDef, mod);
                 declDef.buildStage = ast.BuildStage.Done;
             } else {
-                declareDeclaration(decl, mod);
+                declareDeclaration(decl, declDef, mod);
                 declDef.buildStage = ast.BuildStage.ReadyForCodegen;
                 mod.functionBuildList ~= declDef;
             }
@@ -225,7 +225,7 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
         if (can) {
-            genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
+            genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, declDef, mod);
             declDef.buildStage = ast.BuildStage.Done;
         } else {
             declDef.buildStage = ast.BuildStage.Deferred;
