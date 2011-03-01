@@ -232,7 +232,10 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     if (declDef.parentType !is null) {
         store = declDef.parentType.typeScope.get(name);   
     }
-    if (store is null) store = mod.globalScope.get(name);
+    
+    if (store is null) {
+        store = mod.globalScope.get(name);
+    }
 
     if (store is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");

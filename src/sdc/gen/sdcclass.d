@@ -72,11 +72,12 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     ctype.declare();
     
     foreach (method; methods) {
+        method.parentType = ctype;
         genDeclarationDefinition(method, mod);
     }
     
     Function[] functions;
-    foreach (name, store; mod.currentScope.mSymbolTable) {
+    foreach (name, store; ctype.typeScope.mSymbolTable) {
         if (store.storeType == StoreType.Function) {
             functions ~= store.getFunction();
         }
@@ -87,6 +88,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
         fn.addArgument(ctype, "this");
         ctype.addMemberFunction(fn.simpleName, fn);
     }
+    
     mod.currentScope = currentScope;
 }
 
@@ -119,19 +121,27 @@ void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, ClassType type, 
 
 ClassValue newClass(Module mod, Location location, ClassType type, ast.ArgumentList argumentList)
 {
+    // Allocate the underlying class struct. 
     auto v = new ClassValue(mod, location, type);
     auto size = type.structType.getValue(mod, location).getSizeof(location);
     v.v = enforce(cast(PointerValue) gcAlloc.call(location, [location], [size]).performCast(location, v.v.type));
     
-    // +1 for the TypeInfo at the beginning of the vtable.
+    
+    // Allocate the vtable.
+    // The vtable is methods.length + 1 for the TypeInfo at the beginning of the vtable.
     auto vtablesize = newSizeT(mod, location, 0).getSizeof(location).mul(location, newSizeT(mod, location, type.methods.length + 1));    
     auto vtablemem  = gcAlloc.call(location, [location], [vtablesize]).performCast(location, v.v.getMember(location, "__vptr").type);
     v.v.getMember(location, "__vptr").set(location, vtablemem);
      
+    // Populate the vtable.
     foreach (i, method; type.methods) {
         auto indexv = newSizeT(mod, location, i + 1);  // Skip the TypeInfo's vtable index.
+        // Generates code equivalent to "__vptr[i] = cast(void*) &methodFunction;". 
         v.v.getMember(location, "__vptr").index(location, indexv).set(location, type.methods[i].fn.addressOf(location).performCast(location, new PointerType(mod, new VoidType(mod))));
     }
+    
+    // Call the constructor.
+    // TODO
     
     return v;
 }
