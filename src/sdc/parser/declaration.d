@@ -541,6 +541,19 @@ ParameterList parseParameters(TokenStream tstream)
         if (tstream.peek.type == TokenType.Identifier) {
             parameter.identifier = parseIdentifier(tstream);
             parameter.location = parameter.identifier.location - parameter.location;
+            // Parse default argument (if any).
+            if (tstream.peek.type == TokenType.Assign) {
+                match(tstream, TokenType.Assign);
+                if (tstream.peek.type == TokenType.__File__) {
+                    match(tstream, TokenType.__File__);
+                    parameter.defaultArgumentFile = true;
+                } else if (tstream.peek.type == TokenType.__Line__) {
+                    match(tstream, TokenType.__Line__);
+                    parameter.defaultArgumentLine = true;
+                } else {
+                    parameter.defaultArgument = parseAssignExpression(tstream);
+                }
+            }
         }
         list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {

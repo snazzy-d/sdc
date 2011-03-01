@@ -216,6 +216,9 @@ class Parameter : Node
     ParameterAttribute attribute;
     Type type;
     Identifier identifier;  // Optional.
+    bool defaultArgumentFile = false;  // Optional.
+    bool defaultArgumentLine = false;  // Optional.
+    AssignExpression defaultArgument;  // Optional.
 }
 
 enum InitialiserType
