@@ -19,49 +19,55 @@ import sdc.gen.expression;
 
 void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
 {    
+    Type base;
+    if (decl.base is null) {
+        base = new IntType(mod);
+    } else {
+        base = astTypeToBackendType(decl.base, mod, OnFailure.DieWithError);
+    }
+    
+    auto type = new EnumType(mod, base);
+    type.fullName = mod.name.dup;
+    type.fullName.identifiers ~= decl.name;
+    
+    auto firstMember = decl.memberList.members[0];
+    if (firstMember.initialiser) {
+        throw new CompilerPanic(firstMember.initialiser.location, "enum member initialisers are unimplemented.");
+    }
+    
+    //auto firstValue = base.getValue(mod, firstMember.location);
+    auto firstValue = new Known!IntValue(mod, firstMember.location);
+    firstValue.setKnown(0);
+    Value previousValue = firstValue;
+    
+    //firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
+    type.addMember(extractIdentifier(firstMember.name), firstValue);
     if (decl.name !is null) {
-        Type base;
-        if (decl.base is null) {
-            base = new IntType(mod);
-        } else {
-            base = astTypeToBackendType(decl.base, mod, OnFailure.DieWithError);
-        }
-        
-        auto type = new EnumType(mod, base);
-        type.fullName = mod.name.dup;
-        type.fullName.identifiers ~= decl.name;
-        
-        auto firstMember = decl.memberList.members[0];
-        if (firstMember.initialiser) {
-            throw new CompilerPanic(firstMember.initialiser.location, "enum member initialisers are unimplemented.");
-        }
-        
-        //auto firstValue = base.getValue(mod, firstMember.location);
-        auto firstValue = new Known!IntValue(mod, firstMember.location);
-        firstValue.setKnown(0);
-        Value previousValue = firstValue;
-        
-        //firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
         type.addMember(extractIdentifier(firstMember.name), firstValue);
+    } else {
+        mod.currentScope.add(extractIdentifier(firstMember.name), new Store(firstValue));
+    }
+    
+    foreach(i; 1..decl.memberList.members.length) {
+        auto member = decl.memberList.members[i];
         
-        foreach(i; 1..decl.memberList.members.length) {
-            auto member = decl.memberList.members[i];
-            
-            if (member.initialiser) {
-                throw new CompilerPanic(member.initialiser.location, "enum member initialisers are unimplemented.");
-            }
-            
-            auto v = new Known!IntValue(mod, firstMember.location);
-            v.setKnown(1);
-            previousValue = previousValue.add(member.location, v);
-            
-            
-            type.addMember(extractIdentifier(member.name), v);
+        if (member.initialiser) {
+            throw new CompilerPanic(member.initialiser.location, "enum member initialisers are unimplemented.");
         }
         
+        auto v = new Known!IntValue(mod, firstMember.location);
+        v.setKnown(1);
+        previousValue = previousValue.add(member.location, v);
+        
+        if (decl.name !is null) {
+            type.addMember(extractIdentifier(member.name), v);
+        } else {
+            mod.currentScope.add(extractIdentifier(member.name), new Store(v));
+        }
+    }
+    
+    if (decl.name !is null) {
         auto name = extractIdentifier(decl.name);
         mod.currentScope.add(name, new Store(type));
-    } else {
-        throw new CompilerPanic(decl.location, "anonymous enums are unimplemented.");
     }
 }
