@@ -13,6 +13,9 @@ import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.base;
+import sdc.gen.expression;
+
+
 
 void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
 {    
@@ -33,9 +36,12 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
             throw new CompilerPanic(firstMember.initialiser.location, "enum member initialisers are unimplemented.");
         }
         
-        auto firstValue = base.getValue(mod, firstMember.location);
-        //TODO: constInit, where art thou?
-        firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
+        //auto firstValue = base.getValue(mod, firstMember.location);
+        auto firstValue = new Known!IntValue(mod, firstMember.location);
+        firstValue.setKnown(0);
+        Value previousValue = firstValue;
+        
+        //firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
         type.addMember(extractIdentifier(firstMember.name), firstValue);
         
         foreach(i; 1..decl.memberList.members.length) {
@@ -45,7 +51,12 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
                 throw new CompilerPanic(member.initialiser.location, "enum member initialisers are unimplemented.");
             }
             
-            //type.addMember(mod, v);
+            auto v = new Known!IntValue(mod, firstMember.location);
+            v.setKnown(1);
+            previousValue = previousValue.add(member.location, v);
+            
+            
+            type.addMember(extractIdentifier(member.name), v);
         }
         
         auto name = extractIdentifier(decl.name);

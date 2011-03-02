@@ -45,6 +45,8 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return true;  // TODO
     case ast.DeclarationDefinitionType.ClassDeclaration:
         return canGenClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
+    case ast.DeclarationDefinitionType.EnumDeclaration:
+        return true;  // TODO
     default:
         return false;
     }
