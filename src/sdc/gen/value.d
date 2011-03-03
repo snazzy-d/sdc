@@ -1722,7 +1722,7 @@ class Known(T) if (is(T : Value)) : T
             "override Value " ~ name ~  "(Location loc, Value val) {"
             "checkKnown(location, val);"
             ~ zeroCheck ~
-            "setKnown(getKnown()" ~ op ~ "getKnown(val));"
+            "setKnown(cast(KnownType) (getKnown()" ~ op ~ "getKnown(val)));"
             "return this;}"
         );
     }
