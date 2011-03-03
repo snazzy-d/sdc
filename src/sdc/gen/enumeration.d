@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Jakob Ovrum.
+ * Copyright 2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
