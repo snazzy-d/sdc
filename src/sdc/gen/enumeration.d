@@ -55,8 +55,6 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     foreach(i; 1..decl.memberList.members.length) {
         auto member = decl.memberList.members[i];
         
-
-        
         auto v = getKnown(mod, member.location, base);
         
         if (member.initialiser) {
