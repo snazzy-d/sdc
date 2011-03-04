@@ -35,11 +35,13 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     type.fullName.identifiers ~= decl.name;
     
     auto firstMember = decl.memberList.members[0];
-    if (firstMember.initialiser) {
-        throw new CompilerPanic(firstMember.initialiser.location, "enum member initialisers are unimplemented.");
-    }
     
-    auto firstValue = getKnown(mod, firstMember.location, base, 0);
+    
+    auto firstValue = getKnown(mod, firstMember.location, base);
+    if (firstMember.initialiser) {
+        auto initialiser = genAssignExpression(firstMember.initialiser, mod);
+        firstValue.set(firstMember.initialiser.location, initialiser);
+    }
     Value previousValue = firstValue;
     
     //firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
@@ -53,17 +55,23 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     foreach(i; 1..decl.memberList.members.length) {
         auto member = decl.memberList.members[i];
         
+
+        
+        auto v = getKnown(mod, member.location, base);
+        
         if (member.initialiser) {
-            throw new CompilerPanic(member.initialiser.location, "enum member initialisers are unimplemented.");
+            auto initialiser = genAssignExpression(member.initialiser, mod);
+            v.set(member.initialiser.location, initialiser);
+            previousValue = v;
+        } else {
+            auto one = new IntValue(mod, member.location, 1);
+            previousValue = previousValue.add(member.location, one);
         }
         
-        auto v = getKnown(mod, member.location, base, 1);
-        previousValue = previousValue.add(member.location, v);
-        
         if (decl.name !is null) {
-            type.addMember(extractIdentifier(member.name), v);
+            type.addMember(extractIdentifier(member.name), previousValue);
         } else {
-            mod.currentScope.add(extractIdentifier(member.name), new Store(v));
+            mod.currentScope.add(extractIdentifier(member.name), new Store(previousValue));
         }
     }
     
@@ -73,56 +81,44 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     }
 }
 
-Value getKnown(Module mod, Location location, Type base, int init)
+Value getKnown(Module mod, Location location, Type base)
 {
     switch (base.dtype) {
     case DType.Bool:
         auto v = new Known!BoolValue(mod, location);
-        v.setKnown(cast(bool) init);
         return v;
     case DType.Byte:
         auto v = new Known!ByteValue(mod, location);
-        v.setKnown(cast(byte) init);
         return v;
     case DType.Ubyte:
         auto v = new Known!UbyteValue(mod, location);
-        v.setKnown(cast(ubyte) init);
         return v;
     case DType.Short:
         auto v = new Known!ShortValue(mod, location);
-        v.setKnown(cast(short) init);
         return v;
     case DType.Ushort:
         auto v = new Known!UshortValue(mod, location);
-        v.setKnown(cast(ushort) init);
         return v;
     case DType.Int:
         auto v = new Known!IntValue(mod, location);
-        v.setKnown(init);
         return v;
     case DType.Uint:
         auto v = new Known!UintValue(mod, location);
-        v.setKnown(init);
         return v;
     case DType.Long:
         auto v = new Known!LongValue(mod, location);
-        v.setKnown(init);
         return v;
     case DType.Ulong:
         auto v = new Known!UlongValue(mod, location);
-        v.setKnown(init);
         return v;
     case DType.Char:
         auto v = new Known!CharValue(mod, location);
-        v.setKnown(cast(char) init);
         return v;
     case DType.Wchar:
         auto v = new Known!WcharValue(mod, location);
-        v.setKnown(cast(wchar) init);
         return v;
     case DType.Dchar:
         auto v = new Known!DcharValue(mod, location);
-        v.setKnown(init);
         return v;
     default:
         throw new CompilerError(location, format("cannot use type '%s' as enum base.", base.name));

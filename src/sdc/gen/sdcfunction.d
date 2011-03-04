@@ -292,7 +292,7 @@ body
         args[i] = implicitCast(argLocations[i], args[i], arg);
         if (arg.isRef) {
             args[i].errorIfNotLValue(argLocations[i]);
-            args[i] = args[i].addressOf();
+            args[i] = args[i].addressOf(argLocations[i]);
         }
     }
 }

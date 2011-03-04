@@ -150,8 +150,9 @@ abstract class Value
     }
     
     
-    Value addressOf()
+    Value addressOf(Location location)
     {
+        //errorIfNotLValue(location, "cannot take the address of an rvalue.");
         auto v = new PointerValue(mModule, location, mType);
         v.initialise(location, mValue);
         return v;
@@ -212,10 +213,10 @@ abstract class Value
         }
     }
     
-    void errorIfNotLValue(Location location)
+    void errorIfNotLValue(Location location, string msg = "cannot modify rvalue")
     {
         if (!lvalue) {
-            throw new CompilerError(location, "cannot modify rvalue.");
+            throw new CompilerError(location, msg);
         }
     }
     
@@ -662,7 +663,7 @@ class FloatingPointValue(T, B) : Value
         return newSizeT(mModule, loc, T.sizeof);
     }
     
-    override Value addressOf()
+    override Value addressOf(Location location)
     {
         auto v = new PointerValue(mModule, location, mType);
         v.initialise(location, mValue);
@@ -934,7 +935,7 @@ class ReferenceValue : Value
         mType = base.type;
         mValue = base.mValue;
         pointerToBase = new PointerValue(mod, location, base.type);
-        setReferencePointer(location, base.addressOf.get);
+        setReferencePointer(location, base.addressOf(location).get);
     }
     
     void setReferencePointer(Location loc, LLVMValueRef val)
