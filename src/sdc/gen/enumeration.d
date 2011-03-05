@@ -22,10 +22,20 @@ import sdc.gen.expression;
 
 
 void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
-{    
+{
+    auto firstMember = decl.memberList.members[0];    
     Type base;
+    Value initialiser;
+    
     if (decl.base is null) {
-        base = new IntType(mod);
+        if (decl.memberList.members[0].initialiser !is null) {
+            // Infer the type from the first initialiser.
+            initialiser = genAssignExpression(firstMember.initialiser, mod);
+            base = initialiser.type;
+        } else { 
+            // Otherwise assume int.
+            base = new IntType(mod);
+        }
     } else {
         base = astTypeToBackendType(decl.base, mod, OnFailure.DieWithError);
     }
@@ -34,12 +44,9 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     type.fullName = mod.name.dup;
     type.fullName.identifiers ~= decl.name;
     
-    auto firstMember = decl.memberList.members[0];
-    
-    
     auto firstValue = getKnown(mod, firstMember.location, base);
     if (firstMember.initialiser) {
-        auto initialiser = genAssignExpression(firstMember.initialiser, mod);
+        if (initialiser is null) initialiser = genAssignExpression(firstMember.initialiser, mod);
         firstValue.set(firstMember.initialiser.location, initialiser);
     }
     Value previousValue = firstValue;
@@ -58,7 +65,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
         auto v = getKnown(mod, member.location, base);
         
         if (member.initialiser) {
-            auto initialiser = genAssignExpression(member.initialiser, mod);
+            initialiser = genAssignExpression(member.initialiser, mod);
             v.set(member.initialiser.location, initialiser);
             previousValue = v;
         } else {
