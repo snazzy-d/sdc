@@ -1170,6 +1170,11 @@ class StructValue : Value
     
     override Value getMember(Location location, string name)  // !!!
     {
+        auto store = type.typeScope.get(name);
+        if (store !is null && store.storeType == StoreType.Type) {
+            return store.type.getValue(mModule, location);
+        }
+        
         auto prop = getProperty(location, name);
         if (prop !is null) {
             return prop;

@@ -59,7 +59,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     Function[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
-            type.addMemberVar(name, store.type);
+            type.addMemberType(name, store.type);
         } else if (store.storeType == StoreType.Value) {
             type.addMemberVar(name, store.value.type);
         } else if (store.storeType == StoreType.Function) {

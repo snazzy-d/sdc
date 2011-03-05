@@ -741,6 +741,11 @@ class StructType : Type
         members ~= t;
     }
     
+    void addMemberType(string id, Type t)
+    {
+        typeScope.add(id, new Store(t));
+    }
+    
     void addMemberFunction(string id, Function f)
     {
         memberFunctions[id] = f;    
