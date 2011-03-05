@@ -96,15 +96,23 @@ Roadmap
 =======
 This just me thinking outloud about what features I want, when.
 
+0.1
+---
+* druntime compiles
+* phobos compiles
+
+0.2
+---
+* inline assembler
+
+0.3
+---
+* CTFE (this may be required in 0.1, not sure)
+
 1.0
 ---
-* druntime compatibility
-* phobos compatibility
-
-2.0
----
 * dmd calling convention compatibility
-* inline assembler
+* self hosting
 
 SDC with DMD/Windows
 =======
