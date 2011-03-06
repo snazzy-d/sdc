@@ -63,7 +63,7 @@ MixinDeclaration parseMixinDeclaration(TokenStream tstream)
 
 /**
  * Non destructively determines if the next declaration
- * is a variable.
+ * is a variable, and summon an Elder God. 
  */
 bool isVariableDeclaration(TokenStream tstream)
 {
