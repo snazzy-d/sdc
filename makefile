@@ -6,7 +6,7 @@ OBJ=sdc.o
 EXE=bin/SDC
 
 CXX=g++
-CXXFLAGS=-m32
+CXXFLAGS=$(ARCHFLAG)
 PHOBOS2=-lphobos2
 LIBLLVM=-L-lLLVM-2.8
 LDFLAGS=$(LIBLLVM) libllvm-c-ext.a
