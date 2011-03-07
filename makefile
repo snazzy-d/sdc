@@ -1,5 +1,5 @@
 DMD=dmd
-DFLAGS=-w -debug -gc -unittest -Iimport
+DFLAGS=-m64 -w -debug -gc -unittest -Iimport
 SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d
 OBJ=sdc.o
 EXE=bin/SDC

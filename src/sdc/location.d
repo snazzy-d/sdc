@@ -14,9 +14,9 @@ import std.stdio;
 struct Location
 {
     string filename;
-    uint line = 1;
-    uint column = 1;
-    uint length = 0;
+    size_t line = 1;
+    size_t column = 1;
+    size_t length = 0;
     
     string toString()
     {
