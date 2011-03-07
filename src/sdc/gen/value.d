@@ -756,11 +756,11 @@ class StringValue : ArrayValue
             s ~= '\0';
         }
         
-        val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, s.length), "string");
+        val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, cast(uint) s.length), "string");
 
         LLVMSetLinkage(val, LLVMLinkage.Internal);
         LLVMSetGlobalConstant(val, true);
-        LLVMSetInitializer(val, LLVMConstString(s.ptr, s.length, true));
+        LLVMSetInitializer(val, LLVMConstString(s.ptr, cast(uint) s.length, true));
         
         auto ptr = getMember(location, "ptr");
         auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
@@ -867,7 +867,7 @@ class PointerValue : Value
         indices ~= val.get();
         
         auto v = baseType.getValue(mModule, location);
-        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
+        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, cast(uint) indices.length, "gep");
         v.lvalue = lvalue;
         return v;
     }
@@ -1198,7 +1198,7 @@ class StructValue : Value
         indices ~= LLVMConstInt(t.llvmType, index, false);
         
         auto i = asStruct.members[index].getValue(mModule, location);
-        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
         i.lvalue = true;
         return i;
     }

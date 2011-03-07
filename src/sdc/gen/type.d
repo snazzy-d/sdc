@@ -727,7 +727,7 @@ class StructType : Type
         foreach (member; members) {
             types ~= member.llvmType;
         }
-        mType = LLVMStructTypeInContext(mModule.context, types.ptr, types.length, false);
+        mType = LLVMStructTypeInContext(mModule.context, types.ptr, cast(uint) types.length, false);
     }
     
     override Value getValue(Module mod, Location location)

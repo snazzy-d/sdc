@@ -56,10 +56,8 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
-    debugPrint("Generating module '" ~ extractQualifiedName(mod.name) ~ "'...");
     genModuleAndPackages(mod);
     resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
-    debugPrint("...done.");
     return mod;
 }
 
@@ -138,7 +136,6 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
     declDef.buildStage = ast.BuildStage.Done;
     switch (declDef.type) {
     case ast.DeclarationDefinitionType.AttributeSpecifier:
-        debugPrint("attribute");
         auto specifier = cast(ast.AttributeSpecifier) declDef.node;
         assert(specifier);
         if (specifier.declarationBlock is null) {

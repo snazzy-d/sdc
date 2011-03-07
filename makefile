@@ -1,5 +1,6 @@
 DMD=dmd
-DFLAGS=-m64 -w -debug -gc -unittest -Iimport
+ARCHFLAG=-m32
+DFLAGS=$(ARCHFLAG) -w -debug -gc -unittest -Iimport
 SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d
 OBJ=sdc.o
 EXE=bin/SDC

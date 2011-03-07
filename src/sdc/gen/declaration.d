@@ -263,11 +263,11 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         if (argType.isRef) {
             auto dummy = argType.getValue(mod, decl.location);
             auto r = new ReferenceValue(mod, decl.location, dummy);
-            r.setReferencePointer(decl.location, LLVMGetParam(fn.llvmValue, i));
+            r.setReferencePointer(decl.location, LLVMGetParam(fn.llvmValue, cast(uint) i));
             val = r;  
         } else {
             val = argType.getValue(mod, decl.location);
-            val.initialise(decl.location, LLVMGetParam(fn.llvmValue, i));
+            val.initialise(decl.location, LLVMGetParam(fn.llvmValue, cast(uint) i));
         }
         val.lvalue = true;
         mod.currentScope.add(fn.argumentNames[i], new Store(val));

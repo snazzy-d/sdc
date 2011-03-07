@@ -75,9 +75,9 @@ class FunctionType
              * This will be then generated with the real return type.
              */
             // Will this work with undef? That would make more sense. TODO.
-            functionType = LLVMFunctionType(LLVMInt32Type(), params.ptr, params.length, varargs);
+            functionType = LLVMFunctionType(LLVMInt32Type(), params.ptr, cast(uint) params.length, varargs);
         } else {
-            functionType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
+            functionType = LLVMFunctionType(returnType.llvmType, params.ptr, cast(uint) params.length, varargs);
         }
     }
     
@@ -235,7 +235,7 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
-    auto v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
+    auto v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");
     Value val;
     if (type.returnType.dtype != DType.Void) {
         val = type.returnType.getValue(mod, callLocation);
