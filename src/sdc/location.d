@@ -46,7 +46,7 @@ struct Location
     }
     
     // When the column is 0, the whole line is assumed to be the location
-    immutable uint wholeLine = 0;
+    immutable size_t wholeLine = 0;
 }
 
 char[] readErrorLine(Location loc)
