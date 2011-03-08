@@ -3,6 +3,8 @@
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ *
+ * Fun fact: this module is named 'aglobal.d' to work around a template bug. 
  */
 module sdc.global;
 
