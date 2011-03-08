@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -14,6 +14,7 @@ import sdc.compilererror;
 import sdc.lexer;
 import sdc.source;
 import sdc.util;
+import sdc.global;
 import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.cfg;
@@ -228,6 +229,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     
     // First, we find the previously stored function information.
     auto name = extractIdentifier(decl.name);
+    verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
     Store store = null; 
     if (declDef.parentType !is null) {
         store = declDef.parentType.typeScope.get(name);   

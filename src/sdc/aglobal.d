@@ -22,6 +22,7 @@ import sdc.util;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.location;
+import sdc.terminal;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -62,9 +63,28 @@ shared int bits;
 shared string[] importPaths;
 shared string confLocation;  // For verbose compiles
 
-void verbosePrint(lazy string s)
+enum VerbosePrintColour
 {
-    if (verboseCompile) writeln(s);
+    Normal,
+    Red = ConsoleColour.Red,
+    Green = ConsoleColour.Green,
+    Blue = ConsoleColour.Blue,
+    Yellow = ConsoleColour.Yellow
+}
+
+int verboseIndent;
+void verbosePrint(lazy string s, VerbosePrintColour colour = VerbosePrintColour.Normal)
+{
+    if (!verboseCompile) return;
+
+    assert(verboseIndent >= 0);
+    foreach (i; 0 .. verboseIndent) write(" ");
+
+    if (colour == VerbosePrintColour.Normal) {
+        writeln(s);
+    } else {
+        writeColouredText(stdout, cast(ConsoleColour) colour, {writeln(s);});
+    }
 }
 
 bool isReserved(string s)

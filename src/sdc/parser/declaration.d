@@ -14,6 +14,7 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
+import sdc.global;
 import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.ast.declaration;
@@ -21,6 +22,7 @@ import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
 import sdc.parser.sdctemplate;
+import sdc.extract.base;
 
 
 Declaration parseDeclaration(TokenStream tstream)
@@ -162,6 +164,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         declaration.retval = parseType(tstream);
     }
     declaration.name = parseIdentifier(tstream);
+    verbosePrint("Parsing function '" ~ extractIdentifier(declaration.name) ~ "'.", VerbosePrintColour.Green);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration
     if(tstream.peek.type != TokenType.OpenParen) {

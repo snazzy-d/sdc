@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -11,11 +11,13 @@ import std.path;
 import std.conv;
 
 import sdc.util;
+import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.ast.all;
 import sdc.parser.all;
 import sdc.gen.sdcimport;
+import sdc.extract.base;
 
 
 Module parse(TokenStream tstream)
@@ -43,6 +45,11 @@ Module parseModule(TokenStream tstream)
     mod.tstream = tstream;
     match(tstream, TokenType.Begin);
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
+
+    auto name = extractQualifiedName(mod.moduleDeclaration.name);
+    verbosePrint("Parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
+    verboseIndent++;
+    
     while (tstream.peek.type != TokenType.End) {
         mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
     }
@@ -51,6 +58,10 @@ Module parseModule(TokenStream tstream)
     implicitObjectImport.type = DeclarationDefinitionType.ImportDeclaration;
     implicitObjectImport.node = synthesiseImport("object");
     mod.declarationDefinitions ~= implicitObjectImport;
+
+    verboseIndent--;
+    verbosePrint("Done parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
+
     return mod;
 }                                        
 

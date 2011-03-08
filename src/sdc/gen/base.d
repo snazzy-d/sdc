@@ -57,7 +57,16 @@ Module genModule(ast.Module astModule)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
     genModuleAndPackages(mod);
+
+    auto name = extractQualifiedName(mod.name);
+    verbosePrint("Generating module '" ~ name ~ "'.", VerbosePrintColour.Red);
+    verboseIndent++;
+
     resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+
+    verboseIndent--;
+    verbosePrint("Done generating '" ~ name ~ "'.", VerbosePrintColour.Red);
+
     return mod;
 }
 
