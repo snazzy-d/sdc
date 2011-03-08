@@ -106,6 +106,7 @@ void realmain(string[] args)
                "m64", () { arch = "x86-64"; },
                "c", &skipLink,
                "o", &outputName,
+               "v", () { verboseCompile = true; },
                "save-temps", &saveTemps
                );
     } catch (Exception e) {
@@ -121,6 +122,8 @@ void realmain(string[] args)
     if (skipLink && outputName != "" && args.length > 2) {
         throw new CompilerError("multiple modules cannot have the same output name, unless being linked into an executable.");
     }
+
+    verbosePrint(VERSION_STRING);
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
@@ -246,4 +249,5 @@ void usage()
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
+    writeln("  -v:                    compile with verbose output.");
 }

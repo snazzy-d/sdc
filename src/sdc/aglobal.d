@@ -15,6 +15,7 @@ import std.file;
 import std.json;
 import std.path;
 import std.string;
+import std.stdio;
 
 import sdc.compilererror;
 import sdc.util;
@@ -59,6 +60,11 @@ shared bool coloursEnabled = true;
 shared bool verboseCompile = false;
 shared int bits;
 shared string[] importPaths;
+
+void verbosePrint(lazy string s)
+{
+    if (verboseCompile) writeln(s);
+}
 
 bool isReserved(string s)
 {
