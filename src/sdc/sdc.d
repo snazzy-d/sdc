@@ -106,7 +106,7 @@ void realmain(string[] args)
                "m64", () { arch = "x86-64"; },
                "c", &skipLink,
                "o", &outputName,
-               "v", () { verboseCompile = true; },
+               "V", () { verboseCompile = true; },
                "save-temps", &saveTemps
                );
     } catch (Exception e) {
@@ -124,6 +124,7 @@ void realmain(string[] args)
     }
 
     verbosePrint(VERSION_STRING);
+    verbosePrint("Reading config file from '" ~ confLocation ~ "'.");
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
@@ -249,5 +250,5 @@ void usage()
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
-    writeln("  -v:                    compile with verbose output.");
+    writeln("  -V:                    compile with verbose output.");
 }

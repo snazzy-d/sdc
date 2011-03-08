@@ -60,6 +60,7 @@ shared bool coloursEnabled = true;
 shared bool verboseCompile = false;
 shared int bits;
 shared string[] importPaths;
+shared string confLocation;  // For verbose compiles
 
 void verbosePrint(lazy string s)
 {
@@ -247,6 +248,7 @@ void loadConfig(ref string[] args)
         return;
     }
     auto conf = cast(string) read(confs[0]);
+    confLocation = confs[0];
     
     auto confRoot = parseJSON(conf);
     checkType(confRoot, JSON_TYPE.OBJECT, "no root object."); 
