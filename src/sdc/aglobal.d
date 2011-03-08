@@ -56,6 +56,7 @@ class TranslationUnit
 shared bool isDebug = true;
 shared bool unittestsEnabled = false;
 shared bool coloursEnabled = true;
+shared bool verboseCompile = false;
 shared int bits;
 shared string[] importPaths;
 
