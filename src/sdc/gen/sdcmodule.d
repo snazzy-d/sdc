@@ -336,7 +336,45 @@ class Module
     {
         return mFailureList;
     }
-        
+
+    Value gcAlloc(Location location, Value n)
+    {
+        auto voidPointer = new PointerType(this, new VoidType(this));
+        auto sizeT = getSizeT(this);
+        auto allocType = new FunctionType(this, voidPointer, [sizeT], false);
+        allocType.linkage = ast.Linkage.ExternC;
+        allocType.declare();
+
+        LLVMValueRef mallocFn = LLVMGetNamedFunction(mod, "malloc");
+        if (mallocFn is null) {
+            auto fn = new Function(allocType);
+            fn.simpleName = "malloc";
+            fn.add(this);
+            mallocFn = fn.llvmValue;
+        }
+
+        return buildCall(this, allocType, mallocFn, "malloc", location, [n.location], [n]);
+    }
+
+    Value gcRealloc(Location location, Value p, Value n)
+    {
+        auto voidPointer = new PointerType(this, new VoidType(this));
+        auto sizeT = getSizeT(this);
+        auto reallocType = new FunctionType(this, voidPointer, [voidPointer, sizeT], false);
+        reallocType.linkage = ast.Linkage.ExternC;
+        reallocType.declare();
+
+        LLVMValueRef reallocFn = LLVMGetNamedFunction(mod, "realloc");
+        if (reallocFn is null) {
+            auto fn = new Function(reallocType);
+            fn.simpleName = "realloc";
+            fn.add(this);
+            reallocFn = fn.llvmValue;
+        }
+
+        return buildCall(this, reallocType, reallocFn, "realloc", location, [p.location, n.location], [p, n]);
+    }
+
     protected Scope[] mScopeStack;
     protected LookupFailure[] mFailureList;
     protected bool[string] mVersionIdentifiers;

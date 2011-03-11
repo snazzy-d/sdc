@@ -124,13 +124,13 @@ ClassValue newClass(Module mod, Location location, ClassType type, ast.ArgumentL
     // Allocate the underlying class struct. 
     auto v = new ClassValue(mod, location, type);
     auto size = type.structType.getValue(mod, location).getSizeof(location);
-    v.v = enforce(cast(PointerValue) gcAlloc.call(location, [location], [size]).performCast(location, v.v.type));
+    v.v = enforce(cast(PointerValue) mod.gcAlloc(location, size).performCast(location, v.v.type));
     
     
     // Allocate the vtable.
     // The vtable is methods.length + 1 for the TypeInfo at the beginning of the vtable.
     auto vtablesize = newSizeT(mod, location, 0).getSizeof(location).mul(location, newSizeT(mod, location, type.methods.length + 1));    
-    auto vtablemem  = gcAlloc.call(location, [location], [vtablesize]).performCast(location, v.v.getMember(location, "__vptr").type);
+    auto vtablemem  = mod.gcAlloc(location, vtablesize).performCast(location, v.v.getMember(location, "__vptr").type);
     v.v.getMember(location, "__vptr").set(location, vtablemem);
      
     // Populate the vtable.

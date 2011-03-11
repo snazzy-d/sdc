@@ -15,3 +15,7 @@ extern (C) {
     void* realloc(void*, size_t);
 }
 
+class Object
+{
+}
+

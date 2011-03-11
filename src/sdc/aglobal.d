@@ -308,8 +308,3 @@ private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
-
-
-// Runtime functions that the compiler needs to be able to call.
-Function gcAlloc;
-Function gcRealloc;

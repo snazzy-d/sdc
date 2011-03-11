@@ -169,7 +169,6 @@ class Function
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
         }
-        storeSpecial();
         llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
     }
     
@@ -218,15 +217,6 @@ class Function
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
         return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
-    }
-    
-    private void storeSpecial()
-    {
-        if (mangledName == "malloc" && gcAlloc is null) {
-            gcAlloc = this;
-        } else if (mangledName == "realloc" && gcRealloc is null) {
-            gcRealloc = this;
-        }
     }
 }
 

@@ -325,7 +325,6 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {
-    gcAlloc = gcAlloc.importToModule(mod);
     auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);    
     if (type.dtype == DType.Class) {
         auto asClass = enforce(cast(ClassType) type);
@@ -333,7 +332,7 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
     }
     auto loc  = expression.type.location - expression.location;
     auto size = type.getValue(mod, loc).getSizeof(loc);
-    return gcAlloc.call(expression.location, [loc], [size]).performCast(loc, new PointerType(mod, type));
+    return mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
