@@ -13,6 +13,7 @@ a.out
 .project
 *.s
 compiler_tests/runner
+*.bin
 
 #DMD/Windows
 *.exe
