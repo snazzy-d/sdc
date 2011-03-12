@@ -89,7 +89,9 @@ void test(string filename, string compiler)
     
     string command;
     string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
-    string exeName = "./" ~ filename ~ EXE_EXTENSION;
+    version (Windows) string exeName;
+    else string exeName = "./";
+    exeName ~= filename ~ EXE_EXTENSION;
     if (compiler == SDC) {
         command = format(`%s -o=%s --optimise "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
