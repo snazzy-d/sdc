@@ -105,12 +105,14 @@ class Module
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
         auto cmd = format(`llc -march=%s -o "%s" "%s"`, arch, toFilename, fromFilename);
+        verbosePrint(cmd);
         system(cmd);
     }
     
     void optimiseBitcode(string filename)
     {
         auto cmd = format("opt -std-compile-opts -o %s %s", filename, filename);
+        verbosePrint(cmd);
         system(cmd);
     }
     

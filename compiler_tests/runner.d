@@ -6,21 +6,23 @@
  */
 module runner;
 
+import std.algorithm;
+import std.concurrency;
 import std.conv;
-import std.getopt;
 import std.file;
+import std.getopt;
 import std.process;
+import std.range;
 import std.stdio;
 import std.string;
-import std.algorithm;
 
 
 version (Windows) {
     immutable SDC      = "sdc";  // Put SDC in your PATH.
-    immutable EXE_NAME = "a.exe";
+    immutable EXE_EXTENSION = ".exe";
 } else {
     immutable SDC      = "../sdc"; // Leaving this decision to the Unix crowd.
-    immutable EXE_NAME = "./a.out";
+    immutable EXE_EXTENSION = ".bin";
 }
 
 
@@ -39,9 +41,9 @@ int getInt(string s)
     return parse!int(s);
 }
 
-bool test(string filename, string compiler)
+void test(string filename, string compiler)
 {
-    static void malformed() { stderr.writeln("Malformed test."); }
+    auto managerTid = receiveOnly!Tid();
     
     bool expectedToCompile = true;
     int expectedRetval = 0;
@@ -55,13 +57,15 @@ bool test(string filename, string compiler)
         }
         auto words = split(line);
         if (words.length != 2) {
-            malformed();
-            return false;
+            stderr.writefln("%s: malformed test.", filename);
+            managerTid.send(filename, false);
+            return;
         }
         auto set = split(words[1], ":");
         if (set.length < 2) {
-            malformed();
-            return false;
+            stderr.writefln("%s: malformed test.", filename);
+            managerTid.send(filename, false);
+            return;
         }
         auto var = set[0].idup;
         auto val = set[1].idup;
@@ -77,15 +81,17 @@ bool test(string filename, string compiler)
             dependencies ~= val;
             break;
         default:
-            stderr.writeln("Bad command '" ~ var ~ "'.");
-            return false;
+            stderr.writefln("%s: invalid command.", filename);
+            managerTid.send(filename, false);
+            return;
         }
     }
     
     string command;
     string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
+    string exeName = "./" ~ filename ~ EXE_EXTENSION;
     if (compiler == SDC) {
-        command = format(`%s -o=%s --optimise "%s" %s`, SDC, EXE_NAME, filename, cmdDeps);
+        command = format(`%s -o=%s --optimise "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
         command = format(`%s "%s" %s`, compiler, filename, cmdDeps);
     }
@@ -93,45 +99,70 @@ bool test(string filename, string compiler)
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
-        stderr.writeln("Program expected to compile did not.");
-        return false;
+        stderr.writefln("%s: test expected to compile, did not.", filename);
+        managerTid.send(filename, false);
+        return;
     }
     if (!expectedToCompile && retval == 0) {
-        stderr.writeln("Program expected not to compile did.");
-        return false;
+        stderr.writefln("%s: test expected to not compile, did.", filename);
+        managerTid.send(filename, false);
+        return;
     }
     
-    retval = system(EXE_NAME);
+    retval = system(exeName);
     
     if (retval != expectedRetval  && expectedToCompile) {
-        stderr.writeln("Retval was '" ~ to!string(retval) ~ "', expected '" ~ to!string(expectedRetval) ~ "'.");
-        return false;
+        stderr.writefln("%s: expected retval %s, got %s", filename, expectedRetval, retval);
+        managerTid.send(filename, false);
+        return;
     }
-    return true;
+
+    managerTid.send(filename, true);
 }
 
 void main(string[] args)
 {
     string compiler = SDC;
-    getopt(args, "compiler", &compiler);
+    size_t jobCount = 1;
+    getopt(args, "compiler", &compiler, "j", &jobCount);
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
-        writeln(test(testName, compiler) ? "SUCCEEDED" : "FAILED");
+        auto job = spawn(&test, testName, compiler);
+        job.send(thisTid);
+        auto result = receiveOnly!(string, bool)();
+        writefln("%s: %s", result[0], result[1] ? "SUCCEEDED" : "FAILED");
         return;
     }
-	
-    int testNumber = 0;
-    auto testName = getTestFilename(testNumber);
-    int  passed = 0;
-    while (exists(testName)) {
-        write(testName ~ ":");
-        auto succeeded = test(testName, compiler);
-        passed = passed + (succeeded ? 1 : 0);
-        writeln(succeeded ? "SUCCEEDED" : "FAILED");
-        testName = getTestFilename(++testNumber);
+
+    // Figure out how many tests there are.
+    int testNumber = -1;
+    while (exists(getTestFilename(++testNumber))) {}
+    if (testNumber < 0) {
+        stderr.writeln("No tests found.");
+        return;
     }
-    assert(passed <= testNumber);
+    
+    const tests = array( map!getTestFilename(iota(0, testNumber)) );
+
+    size_t testIndex = 0;
+    int passed = 0;
+    while (testIndex < tests.length) {
+        Tid[] jobs;
+        // spawn $jobCount concurrent jobs. 
+        while (jobs.length < jobCount && testIndex < tests.length) {
+            jobs ~= spawn(&test, tests[testIndex], compiler);
+            jobs[$ - 1].send(thisTid);
+            testIndex++;
+        }
+
+        foreach (job; jobs) {
+            auto testResult = receiveOnly!(string, bool)();
+            passed = passed + testResult[1];
+            writefln("%s: %s", testResult[0], testResult[1] ? "SUCCEEDED" : "FAILED");
+        }
+    }
+
     if (testNumber > 0) {
         writefln("Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate",
                  testNumber, passed, passed == 1 ? "" : "es", 

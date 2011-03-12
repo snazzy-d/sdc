@@ -58,7 +58,7 @@ Throwable.TraceInfo nullTraceHandler()
 
 int main(string[] args)
 {
-    Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
+    //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError error) {
@@ -195,6 +195,7 @@ void realmain(string[] args)
         compileCommand ~= asObject;
         compileCommand ~= " " ~ asAssembly;
         
+        verbosePrint(compileCommand);
         system(compileCommand);
         assemblies ~= asObject;
         
@@ -220,6 +221,7 @@ void realmain(string[] args)
             linkCommand ~= `"` ~ assembly ~ `" `;
         }
         
+        verbosePrint(linkCommand);
         system(linkCommand);
         
         if (!saveTemps) {
