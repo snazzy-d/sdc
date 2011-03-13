@@ -15,6 +15,7 @@ import std.process;
 import std.range;
 import std.stdio;
 import std.string;
+version (linux) import core.sys.posix.unistd;
 
 
 version (Windows) {
@@ -95,7 +96,7 @@ void test(string filename, string compiler)
     if (compiler == SDC) {
         command = format(`%s -o=%s --optimise "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
-        command = format(`%s "%s" %s`, compiler, filename, cmdDeps);
+        command = format(`%s%s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
     
     
@@ -125,7 +126,8 @@ void test(string filename, string compiler)
 void main(string[] args)
 {
     string compiler = SDC;
-    size_t jobCount = 1;
+    version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
+    else size_t jobCount = 1;
     getopt(args, "compiler", &compiler, "j", &jobCount);
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
