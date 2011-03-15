@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -8,6 +8,7 @@ module sdc.gen.attribute;
 import std.conv;
 import std.string;
 
+import sdc.util;
 import sdc.compilererror;
 import ast = sdc.ast.all;
 import sdc.gen.base;
@@ -37,21 +38,6 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
         return false;
     }
     assert(false);
-}
-
-void declareAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod)
-{
-    throw new CompilerPanic("OH SHIT THINGS ARE GETTING REFACTORED, YO!");
-    version (none) {
-        auto oldLinkage = mod.currentLinkage;
-        genAttribute(attributeSpecifier.attribute, mod);
-        if (attributeSpecifier.declarationBlock !is null) {
-            foreach (declDef; attributeSpecifier.declarationBlock.declarationDefinitions) {
-                declareDeclarationDefinition(declDef, mod);
-            }
-            mod.currentLinkage = oldLinkage;
-        }
-    }
 }
 
 void genAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod)

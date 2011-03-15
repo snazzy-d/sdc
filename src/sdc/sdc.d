@@ -58,7 +58,7 @@ Throwable.TraceInfo nullTraceHandler()
 
 int main(string[] args)
 {
-    //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
+    Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError error) {
@@ -90,23 +90,23 @@ void realmain(string[] args)
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
-               "help|h", () { usage(); exit(0); },
-               "version|v", () { writeln(VERSION_STRING); exit(0); },
+               "help|h", { usage(); exit(0); },
+               "version|v",  { writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
-               "debug", () { isDebug = true; },
-               "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; },
-               "no-colour-print", (){ coloursEnabled = false; },
+               "debug", { isDebug = true; },
+               "release", { isDebug = false; },
+               "unittest", { unittestsEnabled = true; },
+               "no-colour-print", { coloursEnabled = false; },
                "I", (string, string path){ importPaths ~= path; },
                "optimise", &optimise,
                "gcc", &gcc,
                "arch", &arch,
-               "m32", () { arch = "x86"; },
-               "m64", () { arch = "x86-64"; },
+               "m32", { arch = "x86"; },
+               "m64", { arch = "x86-64"; },
                "c", &skipLink,
                "o", &outputName,
-               "V", () { verboseCompile = true; },
+               "V", { verboseCompile = true; },
                "save-temps", &saveTemps
                );
     } catch (Exception e) {

@@ -52,10 +52,9 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     auto currentScope = mod.currentScope;
     mod.currentScope = type.typeScope;
     currentScope.add(name, new Store(mod.currentScope));
-    foreach (innerDeclDef; decl.structBody.declarations) {
-        innerDeclDef.parentType = type;
-        genDeclarationDefinition(innerDeclDef, mod);
-    }
+    
+    resolveDeclarationDefinitionList(decl.structBody.declarations, mod, type);
+
     Function[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {

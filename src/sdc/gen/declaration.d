@@ -236,7 +236,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     }
     
     if (store is null) {
-        store = mod.globalScope.get(name);
+        store = mod.currentScope.get(name);
     }
 
     if (store is null) {

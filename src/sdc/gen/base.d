@@ -62,7 +62,7 @@ Module genModule(ast.Module astModule)
     verbosePrint("Generating module '" ~ name ~ "'.", VerbosePrintColour.Red);
     verboseIndent++;
 
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod, null);
 
     verboseIndent--;
     verbosePrint("Done generating '" ~ name ~ "'.", VerbosePrintColour.Red);
@@ -89,7 +89,7 @@ void genModuleAndPackages(Module mod)
     }
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
+void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, Type parentType)
 {
     auto resolutionList = list.dup;
     size_t stillToGo, oldStillToGo = -1;
@@ -101,6 +101,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     bool finalPass;
     do {
         foreach (declDef; resolutionList) {
+            declDef.parentType = parentType;
             genDeclarationDefinition(declDef, mod);
         }
         
@@ -144,7 +145,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 {
     declDef.buildStage = ast.BuildStage.Done;
     switch (declDef.type) {
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
+    case ast.DeclarationDefinitionType.AttributeSpecifier: 
         auto specifier = cast(ast.AttributeSpecifier) declDef.node;
         assert(specifier);
         if (specifier.declarationBlock is null) {

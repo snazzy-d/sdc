@@ -8,6 +8,7 @@ module sdc.parser.attribute;
 import std.string;
 
 import sdc.util;
+import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.parser.base;
@@ -19,8 +20,14 @@ AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
 {
     auto attributeSpecifier = new AttributeSpecifier();
     attributeSpecifier.location = tstream.peek.location;
+
+    auto name = tstream.peek.value;
+    verbosePrint("Parsing " ~ name ~ " attribute specifier.", VerbosePrintColour.Green);
+    verboseIndent++;
     attributeSpecifier.attribute = parseAttribute(tstream);
     attributeSpecifier.declarationBlock = parseDeclarationBlock(tstream);
+    verboseIndent--;
+    verbosePrint("Done parsing " ~ name ~ " attribute specifier.", VerbosePrintColour.Green);
     return attributeSpecifier;
 }
 
