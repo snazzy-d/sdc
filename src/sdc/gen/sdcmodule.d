@@ -48,7 +48,11 @@ class Module
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
-    bool isAlias;  // ewwww
+
+    // Modal section of ewwwwwwwwwwww, in the key of G
+    bool isAlias;
+    bool isStatic;
+
     bool inferringFunction;  // OH GOD
     TranslationUnit[] importedTranslationUnits;
     string arch;

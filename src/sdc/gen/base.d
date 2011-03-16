@@ -92,7 +92,15 @@ void genModuleAndPackages(Module mod)
 void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, Type parentType)
 {
     auto resolutionList = list.dup;
-    size_t stillToGo, oldStillToGo = -1;
+    size_t tmp, oldStillToGo;
+    size_t* stillToGo; 
+    if (parentType is null) {
+        stillToGo = &tmp;
+    } else {
+        stillToGo = &parentType.stillToGo;
+    }
+    assert(stillToGo);
+
     foreach (d; resolutionList) {
         d.parentName = mod.name;
         d.importedSymbol = false;
@@ -105,12 +113,12 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             genDeclarationDefinition(declDef, mod);
         }
         
-        stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
+        *stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
         
         // Let's figure out if we can leave.
-        if (stillToGo == 0) {
+        if (*stillToGo == 0) {
             break;
-        } else if (stillToGo == oldStillToGo) {
+        } else if (*stillToGo == oldStillToGo) {
             // Uh-oh.. nothing new was resolved... look for things we can expand.
             ast.DeclarationDefinition[] toAppend;
             foreach (declDef; resolutionList) {
@@ -137,7 +145,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                 }
             }
         }
-        oldStillToGo = stillToGo;
+        oldStillToGo = *stillToGo;
     } while (true);
 }
 
@@ -182,6 +190,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     if (buildStage != Unhandled && buildStage != Deferred) {
         return;
     }
+
+    auto oldLinkage = mod.currentLinkage;
+    auto oldStatic = mod.isStatic;
     
     foreach (attribute; declDef.attributes) {
         switch (attribute.type) with (ast.AttributeType) {
@@ -206,8 +217,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         case Public:
             mod.currentAccess = ast.Access.Public;
             break;
+        case Static:
+            mod.isStatic = true;
+            break;
         default:
-            throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
+            throw new CompilerPanic(attribute.location, "unhandled attribute type '" ~ to!string(attribute.type) ~ ".");
         }
     }
     
@@ -269,6 +283,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
+
+    mod.currentLinkage = oldLinkage;
+    mod.isStatic = oldStatic;
 }
 
 

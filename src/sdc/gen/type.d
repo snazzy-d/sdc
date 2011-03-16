@@ -131,6 +131,7 @@ abstract class Type
     ast.Access access;
     bool isRef = false;
     Scope typeScope;
+    size_t stillToGo;
     
     this(Module mod)
     {

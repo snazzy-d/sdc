@@ -43,22 +43,34 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
 void genAttributeSpecifier(ast.AttributeSpecifier attributeSpecifier, Module mod)
 {
     auto oldLinkage = mod.currentLinkage;
-    genAttribute(attributeSpecifier.attribute, mod);
+    auto oldStatic  = mod.isStatic;
+
+    switch (attributeSpecifier.attribute.type) with (ast.AttributeType) {
+    case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
+        mod.currentLinkage = cast(ast.Linkage) attributeSpecifier.attribute.type;
+        break;
+    case Static:
+        mod.isStatic = true;
+        break;
+    default:
+        throw new CompilerPanic(attributeSpecifier.attribute.location, format("unhandled attribute type '%s'.", to!string(attributeSpecifier.attribute.type)));
+    }
+
     if (attributeSpecifier.declarationBlock !is null) {
         foreach (declDef; attributeSpecifier.declarationBlock.declarationDefinitions) {
             genDeclarationDefinition(declDef, mod);
         }
+    }
+
+    switch (attributeSpecifier.attribute.type) with (ast.AttributeType) {
+    case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
         mod.currentLinkage = oldLinkage;
+        break;
+    case Static:
+        mod.isStatic = oldStatic;
+        break;
+    default:
+        throw new CompilerPanic(attributeSpecifier.attribute.location, format("unhandled attribute type '%s'.", to!string(attributeSpecifier.attribute.type)));
     }
 }
 
-void genAttribute(ast.Attribute attribute, Module mod)
-{
-    switch (attribute.type) with (ast.AttributeType) {
-    case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
-        mod.currentLinkage = cast(ast.Linkage) attribute.type;
-        break;
-    default:
-        throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
-    }
-}
