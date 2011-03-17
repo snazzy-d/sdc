@@ -39,6 +39,7 @@ class FunctionType
     Type returnType;
     Type[] argumentTypes;
     Type parentAggregate;
+    bool isStatic;
     bool varargs;
     Module mod;
     
@@ -47,6 +48,7 @@ class FunctionType
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.varargs = varargs;
+        this.isStatic = mod.isStatic;
         declare();
         this.mod = mod;
     }
@@ -137,14 +139,13 @@ class Function
         if (mod !is null) {
             auto m = mod;
             remove();
-            add(m);
+            Type[] args = type.argumentTypes;
             if (argumentName == "this") {
-                // Mangle the name, omitting the this parameter. 
-                auto args = type.argumentTypes;
+                // Omit the this parameter from mangling.
                 type.argumentTypes = type.argumentTypes[0 .. $ - 1];  // HAX!
-                mangleFunction(mangledName, this);
-                type.argumentTypes = args;
             }
+            add(m);
+            type.argumentTypes = args;
         }
     }
     
