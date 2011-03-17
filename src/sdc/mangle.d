@@ -47,7 +47,7 @@ void mangleFunction(ref string mangledName, Function fn)
         mangleQualifiedName(mangledName, fn.mod.name);
     }
     mangleLName(mangledName, fn.simpleName);
-    if (fn.type.parentAggregate !is null) {
+    if (fn.type.parentAggregate !is null && !fn.type.isStatic) {
         mangledName ~= "M";
     }
     mangleFunctionType(mangledName, fn.type);
