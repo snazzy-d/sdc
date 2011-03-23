@@ -9,6 +9,7 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
+import sdc.global;
 import sdc.compilererror;
 import sdc.extract.base;
 import ast = sdc.ast.all;
@@ -45,12 +46,17 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     }
     
     auto name = extractIdentifier(decl.name);
+    verbosePrint("Generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);
+    verboseIndent++;
+
+
     auto type = new StructType(mod);
     type.fullName = mod.name.dup;
     type.fullName.identifiers ~= decl.name;
     
     auto currentScope = mod.currentScope;
-    mod.currentScope = type.typeScope;
+    auto currentTypeScope = mod.typeScope;
+    mod.typeScope = mod.currentScope = type.typeScope;
     currentScope.add(name, new Store(mod.currentScope));
     
     resolveDeclarationDefinitionList(decl.structBody.declarations, mod, type);
@@ -68,6 +74,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
         }
     }
     mod.currentScope = currentScope;
+    mod.typeScope = currentTypeScope;
     type.declare();
     foreach (fn; functions) {
         fn.type.parentAggregate = type;
@@ -76,4 +83,8 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     }
     
     mod.currentScope.add(name, new Store(type));
+
+    verboseIndent--;
+    verbosePrint("Done generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);
 }
+

@@ -1462,7 +1462,10 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         if (baseScope !is null) {
             store = baseScope.get(name);
         } else {
-            store = mod.search(name);
+            if (mod.typeScope !is null) {
+                store = mod.typeScope.get(name);
+            }
+            if (store is null) store = mod.search(name);
         }
         
         if (store is null) {

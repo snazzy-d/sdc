@@ -56,6 +56,7 @@ class Module
     bool inferringFunction;  // OH GOD
     TranslationUnit[] importedTranslationUnits;
     string arch;
+    Scope typeScope;  // Boooooooooo
 
     this(ast.QualifiedName name)
     {

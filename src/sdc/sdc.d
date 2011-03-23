@@ -107,7 +107,7 @@ void realmain(string[] args)
                "c", &skipLink,
                "o", &outputName,
                "V", { verboseCompile = true; },
-               "save-temps", &saveTemps
+               "save-temps", &saveTemps,
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
