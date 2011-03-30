@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  * 
@@ -10,16 +10,20 @@ module sdc.gen.cfg;
 
 import std.array;
 import std.typecons;
+import std.conv;//
+
+import sdc.util;//
 
 
 /**
- * A BasicBlock is a consecutive sequence of code.
+ * A BasicBlock is a consecutive sequence of code, with no branches.
  */
 class BasicBlock
 {
-    bool isExitBlock = false;
-    BasicBlock[] children;
+    bool isExitBlock = false;  /// e.g. return, throw, assert(false), etc.
+    BasicBlock[] children;     /// Possible paths of control flow.
     
+    /// Can this block reach the target block, without passing through an exit block?
     bool canReachWithoutExit(BasicBlock target)
     {
         if (this is target) {

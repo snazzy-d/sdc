@@ -48,15 +48,25 @@ class Module
     Value callingAggregate;
     ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
+    ast.AttributeType currentTrustLevel = ast.AttributeType.atSystem;
 
     // Modal section of ewwwwwwwwwwww, in the key of G
     bool isAlias;
     bool isStatic;
+    bool isNoThrow;
 
     bool inferringFunction;  // OH GOD
     TranslationUnit[] importedTranslationUnits;
     string arch;
     Scope typeScope;  // Boooooooooo
+
+    invariant()
+    {
+        with (ast.AttributeType) {
+            auto trust = currentTrustLevel;
+            assert(trust == atSafe || trust == atTrusted || trust == atSystem);
+        }
+    }
 
     this(ast.QualifiedName name)
     {

@@ -7,6 +7,7 @@ module sdc.gen.statement;
 
 import std.conv;
 import std.exception;
+import core.runtime;
 
 import llvm.c.Core;
 
@@ -55,7 +56,7 @@ void genStatement(ast.Statement statement, Module mod)
         break;
     }
 }
-
+ 
 void genScopeStatement(ast.ScopeStatement statement, Module mod)
 {
     final switch (statement.type) {

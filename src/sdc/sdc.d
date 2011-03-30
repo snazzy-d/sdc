@@ -58,7 +58,7 @@ Throwable.TraceInfo nullTraceHandler()
 
 int main(string[] args)
 {
-    Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
+    //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError error) {

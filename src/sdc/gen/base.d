@@ -159,6 +159,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         if (specifier.declarationBlock is null) {
             throw new CompilerPanic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
         }
+        //genAttributeSpecifier(specifier, mod);
         auto list = specifier.declarationBlock.declarationDefinitions.dup;
         foreach (e; list) {
             e.attributes ~= specifier.attribute;
@@ -190,39 +191,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     if (buildStage != Unhandled && buildStage != Deferred) {
         return;
     }
-
-    auto oldLinkage = mod.currentLinkage;
-    auto oldStatic = mod.isStatic;
+    
+    mixin(saveAttributeString);
     
     foreach (attribute; declDef.attributes) {
-        switch (attribute.type) with (ast.AttributeType) {
-        case ExternC:
-            mod.currentLinkage = ast.Linkage.ExternC;
-            break;
-        case ExternD:
-            mod.currentLinkage = ast.Linkage.ExternD;
-            break;
-        case Private:
-            mod.currentAccess = ast.Access.Private;
-            break;
-        case Protected:
-            mod.currentAccess = ast.Access.Protected;
-            break;
-        case Package:
-            mod.currentAccess = ast.Access.Package;
-            break;
-        case Export:
-            mod.currentAccess = ast.Access.Export;
-            break;
-        case Public:
-            mod.currentAccess = ast.Access.Public;
-            break;
-        case Static:
-            mod.isStatic = true;
-            break;
-        default:
-            throw new CompilerPanic(attribute.location, "unhandled attribute type '" ~ to!string(attribute.type) ~ ".");
-        }
+        mixin(handleAttributeString);
     }
     
     switch (declDef.type) {
@@ -283,9 +256,8 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
-
-    mod.currentLinkage = oldLinkage;
-    mod.isStatic = oldStatic;
+    
+    mixin(restoreAttributeString);
 }
 
 

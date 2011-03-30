@@ -35,6 +35,10 @@ enum AttributeType
     atDisable = TokenType.atDisable,
     Pure = TokenType.Pure,
     Nothrow = TokenType.Nothrow,
+
+    atSafe = TokenType.atSafe,
+    atTrusted = TokenType.atTrusted,
+    atSystem = TokenType.atSystem,
     
     Align = TokenType.Align,
     Pragma = TokenType.Pragma,
@@ -75,7 +79,8 @@ TokenType.Abstract, TokenType.Const,
 TokenType.Scope, TokenType.__Gshared, TokenType.Shared,
 TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
 TokenType.Align, TokenType.Pragma, TokenType.Extern,
-TokenType.Pure, TokenType.Nothrow
+TokenType.Pure, TokenType.Nothrow,
+TokenType.atSafe, TokenType.atTrusted, TokenType.atSystem
 ];
 
 immutable ACCESS = [
