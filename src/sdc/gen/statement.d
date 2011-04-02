@@ -272,6 +272,7 @@ void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
 
 void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 {
+    declareDeclaration(statement.declaration, null, mod);
     genDeclaration(statement.declaration, null, mod);
 }
 
