@@ -10,9 +10,6 @@ module sdc.gen.cfg;
 
 import std.array;
 import std.typecons;
-import std.conv;//
-
-import sdc.util;//
 
 
 /**
