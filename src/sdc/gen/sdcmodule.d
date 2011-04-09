@@ -130,19 +130,6 @@ class Module
         verbosePrint(cmd);
         system(cmd);
     }
-    
-    /**
-     * Optimise the generated code in place.
-     */
-    @disable void optimise()
-    {
-        auto passManager = LLVMCreatePassManager();
-        scope (exit) LLVMDisposePassManager(passManager);
-        LLVMAddInstructionCombiningPass(passManager);
-        LLVMAddPromoteMemoryToRegisterPass(passManager);
-        LLVMAddInternalizePass(passManager, false);
-        LLVMRunPassManager(passManager, mod);
-    }
 
     void pushScope()
     {
