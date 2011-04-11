@@ -16,6 +16,7 @@ enum DeclarationType
     Variable,
     Function,
     Alias,
+    AliasThis,
     Mixin,
 }
 

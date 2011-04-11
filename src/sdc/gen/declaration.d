@@ -40,6 +40,8 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
     case ast.DeclarationType.Alias:
         b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
         break;
+    case ast.DeclarationType.AliasThis:
+    	return true;  // noooooooooooooooooooooooooooooo
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
@@ -80,6 +82,8 @@ void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef,
         declareDeclaration(cast(ast.Declaration) decl.node, declDef, mod);
         mod.isAlias = false;
         break;
+    case ast.DeclarationType.AliasThis:
+    	break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
@@ -173,12 +177,20 @@ void genDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Mod
         break;
     case ast.DeclarationType.Alias:
         break;
+    case ast.DeclarationType.AliasThis:
+    	genAliasThis(cast(ast.Identifier) decl.node, mod);
+    	break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         assert(asMixin.declarationCache);
         genDeclaration(asMixin.declarationCache, declDef, mod);
         break;
     }
+}
+
+void genAliasThis(ast.Identifier identifier, Module mod)
+{
+	mod.aggregate.aliasThises ~= extractIdentifier(identifier);
 }
 
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)

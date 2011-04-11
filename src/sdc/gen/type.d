@@ -132,6 +132,7 @@ abstract class Type
     bool isRef = false;
     Scope typeScope;
     size_t stillToGo;
+    string[] aliasThises;
     
     this(Module mod)
     {

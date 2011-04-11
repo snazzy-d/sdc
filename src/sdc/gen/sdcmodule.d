@@ -59,6 +59,7 @@ class Module
     TranslationUnit[] importedTranslationUnits;
     string arch;
     Scope typeScope;  // Boooooooooo
+    Type aggregate;
 
     invariant()
     {

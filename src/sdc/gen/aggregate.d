@@ -59,6 +59,8 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     mod.typeScope = mod.currentScope = type.typeScope;
     currentScope.add(name, new Store(mod.currentScope));
     
+    auto oldAggregate = mod.aggregate;
+    mod.aggregate = type;
     resolveDeclarationDefinitionList(decl.structBody.declarations, mod, type);
 
     Function[] functions;
@@ -75,6 +77,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     }
     mod.currentScope = currentScope;
     mod.typeScope = currentTypeScope;
+    mod.aggregate = oldAggregate;
     type.declare();
     foreach (fn; functions) {
         fn.type.parentAggregate = type;
