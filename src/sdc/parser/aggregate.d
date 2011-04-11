@@ -11,11 +11,11 @@ import sdc.util;
 import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.extract;
 import sdc.ast.base;
 import sdc.ast.aggregate;
 import sdc.parser.base;
 import sdc.parser.declaration;
-import sdc.extract.base;
 
 
 AggregateDeclaration parseAggregateDeclaration(TokenStream tstream)

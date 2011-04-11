@@ -22,7 +22,7 @@ import sdc.compilererror;
 import sdc.util;
 import sdc.global;
 import sdc.location;
-import sdc.extract.base;
+import sdc.extract;
 import sdc.gen.base;
 import sdc.gen.type;
 import sdc.gen.value;

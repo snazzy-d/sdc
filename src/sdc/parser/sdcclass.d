@@ -7,13 +7,13 @@ module sdc.parser.sdcclass;
 
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.extract;
 import sdc.ast.base;
 import sdc.ast.sdcclass;
 import sdc.ast.declaration;
 import sdc.ast.sdcmodule;
 import sdc.parser.base;
 import sdc.parser.declaration;
-import sdc.extract.base;
 
 
 ClassDeclaration parseClassDeclaration(TokenStream tstream)

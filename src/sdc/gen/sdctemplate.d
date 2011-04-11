@@ -11,7 +11,7 @@ import std.string;
 import std.exception;
 
 import sdc.compilererror;
-import sdc.extract.base;
+import sdc.extract;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;

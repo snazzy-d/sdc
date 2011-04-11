@@ -18,7 +18,7 @@ import sdc.location;
 import sdc.global;
 import sdc.source;
 import sdc.lexer;
-import sdc.extract.base;
+import sdc.extract;
 import ast = sdc.ast.all;
 import parser = sdc.parser.all;
 import sdc.gen.base;

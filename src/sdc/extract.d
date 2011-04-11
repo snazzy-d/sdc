@@ -4,7 +4,7 @@
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
-module sdc.extract.base;
+module sdc.extract;
 
 import std.conv;
 import std.utf;

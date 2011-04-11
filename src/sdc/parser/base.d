@@ -14,10 +14,10 @@ import sdc.util;
 import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.extract;
 import sdc.ast.all;
 import sdc.parser.all;
 import sdc.gen.sdcimport;
-import sdc.extract.base;
 
 
 Module parse(TokenStream tstream)

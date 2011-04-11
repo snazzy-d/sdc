@@ -13,13 +13,13 @@ import sdc.util;
 import sdc.compilererror;
 import sdc.global;
 import sdc.location;
+import sdc.extract;
 import ast = sdc.ast.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcfunction;
 import sdc.gen.type;
 import sdc.gen.value;
-import sdc.extract.base;
 
 
 bool canGenClassDeclaration(ast.ClassDeclaration decl, Module mod)

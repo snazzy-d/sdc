@@ -13,9 +13,9 @@ import std.string;
 
 import sdc.compilererror;
 import sdc.util;
+import sdc.extract;
 import sdc.global;
 import ast = sdc.ast.all;
-import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 import sdc.gen.sdcclass;

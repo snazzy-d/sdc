@@ -17,6 +17,7 @@ import sdc.source;
 import sdc.lexer;
 import sdc.util;
 import sdc.global;
+import sdc.extract;
 import ast = sdc.ast.all;
 import sdc.gen.base;
 import sdc.gen.cfg;
@@ -29,7 +30,7 @@ import sdc.gen.sdcpragma;
 import sdc.parser.declaration;
 import sdc.parser.expression;
 import sdc.parser.statement;
-import sdc.extract.base;
+
 
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)

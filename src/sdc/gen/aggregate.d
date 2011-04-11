@@ -10,8 +10,8 @@ import std.exception;
 
 import sdc.util;
 import sdc.global;
+import sdc.extract;
 import sdc.compilererror;
-import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;

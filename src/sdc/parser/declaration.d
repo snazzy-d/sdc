@@ -17,12 +17,12 @@ import sdc.util;
 import sdc.global;
 import sdc.tokenstream;
 import sdc.compilererror;
+import sdc.extract;
 import sdc.ast.declaration;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.parser.statement;
 import sdc.parser.sdctemplate;
-import sdc.extract.base;
 
 
 Declaration parseDeclaration(TokenStream tstream)

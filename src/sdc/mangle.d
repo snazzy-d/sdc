@@ -10,13 +10,13 @@ import std.exception;
 
 import sdc.util;
 import sdc.compilererror;
+import sdc.extract;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.sdcfunction;
 import sdc.ast.attribute;
 import sdc.ast.base;
-import sdc.extract.base;
 
 string startMangle()
 {
