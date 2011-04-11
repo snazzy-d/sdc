@@ -1503,40 +1503,40 @@ void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
 
 Value implicitCast(Location location, Value v, Type toType)
 {
-	Value[] aliasThisMatches;
-	foreach (aliasThis; v.type.aliasThises) {
-		// The type has an alias this declaration, so try it.
-		auto aliasValue = v.getMember(location, aliasThis);
-		if (aliasValue.type.dtype == DType.Function) {
-			// If the alias points to a function, call it.
-			auto asFunction = enforce(cast(FunctionTypeWrapper) aliasValue.type);
-			if (asFunction.functionType.parentAggregate !is v.type) {
-				throw new CompilerError(location, "alias this refers to non member function '" ~ aliasThis ~ "'.");
-			}
-			if (asFunction.functionType.argumentTypes.length != 0) {
-				auto address = v.addressOf(location);
-				if (asFunction.functionType.argumentTypes.length > 1 || asFunction.functionType.argumentTypes[0] != address.type) {
-					throw new CompilerError(location, "alias this refers to function with non this parameter.");
-				} 
-				aliasValue = aliasValue.call(location, [v.location], [v.addressOf(location)]);
-			} else {
-				aliasValue = aliasValue.call(location, null, null);
-			}
-		}
-		try { 
-			auto aliasV = implicitCast(location, aliasValue, toType);
-			aliasThisMatches ~= aliasV;
-		} catch (CompilerError) {
-			// Try other alias thises, or just the base type.
-		}
-	}
-	
-	if (aliasThisMatches.length > 1) {
-		throw new CompilerError(location, "multiple valid alias this declarations.");
-	} else if (aliasThisMatches.length == 1) {
-		return aliasThisMatches[0];
-	}
-	
+    Value[] aliasThisMatches;
+    foreach (aliasThis; v.type.aliasThises) {
+        // The type has an alias this declaration, so try it.
+        auto aliasValue = v.getMember(location, aliasThis);
+        if (aliasValue.type.dtype == DType.Function) {
+            // If the alias points to a function, call it.
+            auto asFunction = enforce(cast(FunctionTypeWrapper) aliasValue.type);
+            if (asFunction.functionType.parentAggregate !is v.type) {
+                throw new CompilerError(location, "alias this refers to non member function '" ~ aliasThis ~ "'.");
+            }
+            if (asFunction.functionType.argumentTypes.length != 0) {
+                auto address = v.addressOf(location);
+                if (asFunction.functionType.argumentTypes.length > 1 || asFunction.functionType.argumentTypes[0] != address.type) {
+                    throw new CompilerError(location, "alias this refers to function with non this parameter.");
+                } 
+                aliasValue = aliasValue.call(location, [v.location], [v.addressOf(location)]);
+            } else {
+                aliasValue = aliasValue.call(location, null, null);
+            }
+        }
+        try { 
+            auto aliasV = implicitCast(location, aliasValue, toType);
+            aliasThisMatches ~= aliasV;
+        } catch (CompilerError) {
+            // Try other alias thises, or just the base type.
+        }
+    }
+    
+    if (aliasThisMatches.length > 1) {
+        throw new CompilerError(location, "multiple valid alias this declarations.");
+    } else if (aliasThisMatches.length == 1) {
+        return aliasThisMatches[0];
+    }
+    
     switch(toType.dtype) {
     case DType.Pointer:
         if (v.type.dtype == DType.NullPointer) {
