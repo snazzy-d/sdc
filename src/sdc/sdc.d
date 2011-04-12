@@ -87,6 +87,7 @@ void realmain(string[] args)
     }
     
     loadConfig(args);
+    writeln(to!string(args));
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
@@ -102,8 +103,8 @@ void realmain(string[] args)
                "optimise", &optimise,
                "gcc", &gcc,
                "arch", &arch,
-               "m32", { arch = "x86"; },
                "m64", { arch = "x86-64"; },
+               "m32", { arch = "x86"; },
                "c", &skipLink,
                "o", &outputName,
                "V", { verboseCompile = true; },
