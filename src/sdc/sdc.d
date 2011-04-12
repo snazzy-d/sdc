@@ -87,7 +87,6 @@ void realmain(string[] args)
     }
     
     loadConfig(args);
-    writeln(to!string(args));
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
