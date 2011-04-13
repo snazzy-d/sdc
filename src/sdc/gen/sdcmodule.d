@@ -204,7 +204,7 @@ class Module
                  *  apply cross-module overload resolution."
                  */
                 throw new CompilerPanic("no cross-module overload resolution!");
-            }            
+            }
         }
         
     exit:

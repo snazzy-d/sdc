@@ -169,7 +169,6 @@ void genImport(Location location, ast.Import theImport, Module mod)
         );
     }
     
-    //addTranslationUnit(name, tu);
     mod.importedTranslationUnits ~= tu;
     
     tu.gModule = genModule(tu.aModule);
