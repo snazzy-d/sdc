@@ -55,13 +55,13 @@ class TranslationUnit
     bool compile = true;
 }
 
-shared bool isDebug = true;
-shared bool unittestsEnabled = false;
-shared bool coloursEnabled = true;
-shared bool verboseCompile = false;
-shared int bits;
-shared string[] importPaths;
-shared string confLocation;  // For verbose compiles
+bool isDebug = true;
+bool unittestsEnabled = false;
+bool coloursEnabled = true;
+bool verboseCompile = false;
+int bits;
+string[] importPaths;
+string confLocation;  // For verbose compiles
 
 enum VerbosePrintColour
 {
