@@ -46,7 +46,6 @@ class Module
     Function currentFunction;
     Value base;
     Value callingAggregate;
-    //ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
     ast.AttributeType currentTrustLevel = ast.AttributeType.atSystem;
 
