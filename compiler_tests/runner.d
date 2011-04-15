@@ -111,6 +111,11 @@ void test(string filename, string compiler)
         managerTid.send(filename, false);
         return;
     }
+    if (!expectedToCompile && retval != 0) {
+        // Program (correctly) failed to compile; no need to try and run the executable.  
+        managerTid.send(filename, true);
+        return;
+    }
     
     retval = system(exeName);
     
@@ -128,14 +133,15 @@ void main(string[] args)
     string compiler = SDC;
     version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
     else size_t jobCount = 1;
-    getopt(args, "compiler", &compiler, "j", &jobCount);
+    bool displayOnlyFailed = false;
+    getopt(args, "compiler", &compiler, "j", &jobCount, "only-failed", &displayOnlyFailed);
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
         auto job = spawn(&test, testName, compiler);
         job.send(thisTid);
         auto result = receiveOnly!(string, bool)();
-        writefln("%s: %s", result[0], result[1] ? "SUCCEEDED" : "FAILED");
+        if (!result[1] || !displayOnlyFailed) writeln(result[0], result[1] ? ": SUCCEEDED" : ": FAILED");
         return;
     }
 
@@ -163,7 +169,11 @@ void main(string[] args)
         foreach (job; jobs) {
             auto testResult = receiveOnly!(string, bool)();
             passed = passed + testResult[1];
-            writefln("%s: %s", testResult[0], testResult[1] ? "SUCCEEDED" : "FAILED");
+            if (testResult[1]) {
+                if (!displayOnlyFailed) writeln(testResult[0], ": SUCCEEDED");
+            } else {
+                writeln(testResult[0], ": FAILED");
+            }
         }
     }
 

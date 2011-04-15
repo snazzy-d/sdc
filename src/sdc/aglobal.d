@@ -5,7 +5,7 @@
  * See LICENCE or sdc.d for more details.
  *
  * Fun fact: this module is named 'aglobal.d' 
- * to ensure it is compiled first and work around a template bug. 
+ * to ensure it is compiled first and work around a DMD template bug. 
  */
 module sdc.global;
 

@@ -51,7 +51,11 @@ Module parseModule(TokenStream tstream)
     verboseIndent++;
     
     while (tstream.peek.type != TokenType.End) {
-        mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        if (startsLikeAttribute(tstream)) {
+            mod.declarationDefinitions ~= parseAttributeBlock(tstream);
+        } else {
+            mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        }
     }
     
     auto implicitObjectImport = new DeclarationDefinition();
@@ -64,6 +68,17 @@ Module parseModule(TokenStream tstream)
 
     return mod;
 }                                        
+
+DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
+{
+    auto attribute = parseAttribute(tstream);
+    auto block = parseDeclarationBlock(tstream);
+    foreach (declDef; block.declarationDefinitions) {
+        declDef.attributes ~= attribute;
+        declDef.node.attributes ~= attribute;
+    }
+    return block.declarationDefinitions;
+}
 
 ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
 {

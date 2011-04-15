@@ -10,11 +10,13 @@ import std.string;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.location;
+import sdc.ast.attribute;
 
 
 class Node
 {
     Location location;
+    Attribute[] attributes;
 }
 
 // ident(.ident)*
