@@ -95,10 +95,10 @@ void test(string filename, string compiler)
     exeName ~= filename ~ EXE_EXTENSION;
     if (compiler == SDC) {
         command = format(`%s -o=%s --optimise "%s" %s`, SDC, exeName, filename, cmdDeps);
-        version (linux) if (!expectedToCompile) command ~= " &>/dev/null";
     } else {
         command = format(`%s%s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
+    version (linux) if (!expectedToCompile) command ~= " &>/dev/null";
     
     
     auto retval = system(command);
