@@ -5,7 +5,10 @@
  */
 module sdc.ast.base;
 
+import std.algorithm;
+import std.range;
 import std.string;
+import std.exception;
 
 import sdc.compilererror;
 import sdc.tokenstream;
@@ -17,6 +20,26 @@ class Node
 {
     Location location;
     Attribute[] attributes;
+    
+    /** 
+     * Search the attributes list backwards for the first Linkage.
+     * Returns: The last linkage, or Linkage.ExternD if no Linkage is found.
+     */
+    @property Linkage linkage()
+    {
+        static assert(AttributeType.Extern != AttributeType.init);
+        
+        AttributeType attributeType(Attribute attr) { return attr.type; }
+        with (Linkage) { 
+            auto linkages = [ExternC, ExternCPlusPlus, ExternD, ExternWindows, ExternPascal, ExternSystem]; 
+            auto search = findAmong(retro(map!attributeType(attributes)), linkages);
+            if (search.length > 0) {
+                return enforce(cast(Linkage) search[0]);
+            } else {
+                return ExternD;
+            }
+        }  
+    }
 }
 
 // ident(.ident)*

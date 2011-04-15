@@ -9,6 +9,7 @@ module sdc.parser.base;
 import std.string;
 import std.path;
 import std.conv;
+import std.exception;
 
 import sdc.util;
 import sdc.global;
@@ -72,11 +73,24 @@ Module parseModule(TokenStream tstream)
 DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
 {
     auto attribute = parseAttribute(tstream);
+    
+    auto name = to!string(attribute.type);
+    verbosePrint("Parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+    verboseIndent++;
+    
     auto block = parseDeclarationBlock(tstream);
     foreach (declDef; block.declarationDefinitions) {
         declDef.attributes ~= attribute;
         declDef.node.attributes ~= attribute;
+        if (declDef.type == DeclarationDefinitionType.Declaration) {
+            auto asDecl = enforce(cast(Declaration) declDef.node);
+            asDecl.node.attributes ~= attribute;
+        }
     }
+    
+    verboseIndent--;
+    verbosePrint("Done parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+    
     return block.declarationDefinitions;
 }
 

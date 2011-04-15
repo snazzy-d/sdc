@@ -118,7 +118,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     }
     
     auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs);
-    fntype.linkage = mod.currentLinkage;
+    fntype.linkage = decl.linkage;
     auto fn = new Function(fntype);
     fn.simpleName = extractIdentifier(decl.name);
     fn.argumentNames = names;
