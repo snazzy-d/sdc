@@ -43,7 +43,6 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
 }
 
 enum saveAttributeString = q{
-    auto oldLinkage = mod.currentLinkage;
     auto oldStatic  = mod.isStatic;
     auto oldNoThrow = mod.isNoThrow;
     auto oldTrust   = mod.currentTrustLevel;
@@ -51,8 +50,7 @@ enum saveAttributeString = q{
 
 enum handleAttributeString = q{
     switch (attribute.type) with (ast.AttributeType) {
-    case ExternC, ExternCPlusPlus, ExternD, ExternPascal, ExternWindows, ExternSystem:
-        mod.currentLinkage = cast(ast.Linkage) attribute.type;
+    case ExternC,ExternD,ExternCPlusPlus,ExternWindows,ExternPascal,ExternSystem:
         break;
     case Static:
         mod.isStatic = true;
@@ -69,7 +67,6 @@ enum handleAttributeString = q{
 };
 
 enum restoreAttributeString = q{
-    mod.currentLinkage = oldLinkage;
     mod.isStatic = oldStatic;
     mod.isNoThrow = oldNoThrow;
     mod.currentTrustLevel = oldTrust;

@@ -46,7 +46,7 @@ class Module
     Function currentFunction;
     Value base;
     Value callingAggregate;
-    ast.Linkage currentLinkage = ast.Linkage.ExternD;
+    //ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
     ast.AttributeType currentTrustLevel = ast.AttributeType.atSystem;
 
@@ -314,7 +314,7 @@ class Module
         if (callingAggregate !is null) {
             mod.callingAggregate = callingAggregate.importToModule(mod);
         }
-        mod.currentLinkage = currentLinkage;
+        
         mod.currentAccess = currentAccess;
         mod.isAlias = isAlias;
         mod.importedTranslationUnits = mod.importedTranslationUnits.dup;
