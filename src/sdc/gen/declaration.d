@@ -98,6 +98,7 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     foreach (declarator; decl.declarators) {
         auto name = extractIdentifier(declarator.name);
         if (mod.isAlias) {
+            verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
             mod.currentScope.add(name, new Store(type));
         }
     }
@@ -117,8 +118,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
-    auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs);
-    fntype.linkage = decl.linkage;
+    auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs, decl);
     auto fn = new Function(fntype);
     fn.simpleName = extractIdentifier(decl.name);
     fn.argumentNames = names;

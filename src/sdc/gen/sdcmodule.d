@@ -50,8 +50,6 @@ class Module
 
     // Modal section of ewwwwwwwwwwww, in the key of G
     bool isAlias;
-    bool isStatic;
-    bool isNoThrow;
 
     bool inferringFunction;  // OH GOD
     TranslationUnit[] importedTranslationUnits;

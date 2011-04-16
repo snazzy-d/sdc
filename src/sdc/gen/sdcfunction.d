@@ -20,6 +20,7 @@ import sdc.mangle;
 import sdc.util;
 import sdc.extract;
 import sdc.ast.attribute;
+import sdc.ast.declaration : FunctionDeclaration;
 import sdc.gen.cfg;
 import sdc.gen.type;
 import sdc.gen.value;
@@ -43,12 +44,15 @@ class FunctionType
     bool varargs;
     Module mod;
     
-    this(Module mod, Type returnType, Type[] argumentTypes, bool varargs)
+    this(Module mod, Type returnType, Type[] argumentTypes, bool varargs, FunctionDeclaration astParent = null)
     {
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.varargs = varargs;
-        this.isStatic = mod.isStatic;
+        if (astParent !is null) {
+            this.linkage = astParent.linkage;
+            this.isStatic = astParent.searchAttributesBackwards(ast.AttributeType.Static);
+        }
         declare();
         this.mod = mod;
     }

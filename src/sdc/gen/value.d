@@ -1360,6 +1360,8 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         break;
     case Auto:
         break;
+    case Static:
+        break;
     default:
         throw new CompilerPanic(type.location, "unimplemented storage type.");
     }

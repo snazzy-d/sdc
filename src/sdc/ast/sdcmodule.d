@@ -32,7 +32,6 @@ class ModuleDeclaration : Node
 
 enum DeclarationDefinitionType
 {
-    AttributeSpecifier,
     ImportDeclaration,
     EnumDeclaration,
     ClassDeclaration,

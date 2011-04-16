@@ -39,8 +39,6 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return true;  // TODO
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         return canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
     case ast.DeclarationDefinitionType.TemplateDeclaration:
         return true;  // TODO
     case ast.DeclarationDefinitionType.ClassDeclaration:
@@ -93,12 +91,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
 {
     auto resolutionList = list.dup;
     size_t tmp, oldStillToGo;
-    size_t* stillToGo; 
-    if (parentType is null) {
-        stillToGo = &tmp;
-    } else {
-        stillToGo = &parentType.stillToGo;
-    }
+    size_t* stillToGo = parentType is null ? &tmp : &parentType.stillToGo;
     assert(stillToGo);
 
     foreach (d; resolutionList) {
@@ -153,18 +146,6 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 {
     declDef.buildStage = ast.BuildStage.Done;
     switch (declDef.type) {
-    case ast.DeclarationDefinitionType.AttributeSpecifier: 
-        auto specifier = cast(ast.AttributeSpecifier) declDef.node;
-        assert(specifier);
-        if (specifier.declarationBlock is null) {
-            throw new CompilerPanic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
-        }
-        //genAttributeSpecifier(specifier, mod);
-        auto list = specifier.declarationBlock.declarationDefinitions.dup;
-        foreach (e; list) {
-            e.attributes ~= specifier.attribute;
-        }
-        return list;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         auto decl = enforce(cast(ast.ConditionalDeclaration) declDef.node);
         bool cond = genCondition(decl.condition, mod);
@@ -190,12 +171,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     with (declDef) with (ast.BuildStage)
     if (buildStage != Unhandled && buildStage != Deferred) {
         return;
-    }
-    
-    mixin(saveAttributeString);
-    
-    foreach (attribute; declDef.attributes) {
-        mixin(handleAttributeString);
     }
     
     switch (declDef.type) {
@@ -234,14 +209,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
         break;
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
-        if (can) {
-            declDef.buildStage = ast.BuildStage.ReadyToExpand;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
-        }
-        break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         genConditionalDeclaration(declDef, cast(ast.ConditionalDeclaration) declDef.node, mod);
         break;
@@ -256,8 +223,6 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
-    
-    mixin(restoreAttributeString);
 }
 
 

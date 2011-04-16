@@ -55,7 +55,7 @@ class Node
         }
     }
     
-    protected AttributeType searchAttributesBackwards(AttributeType[] contains, AttributeType _default)
+    AttributeType searchAttributesBackwards(AttributeType[] contains, AttributeType _default)
     {
         auto search = findAmong(retro(map!attributeType(attributes)), contains);
         if (search.length > 0) {
@@ -63,6 +63,12 @@ class Node
         } else {
             return _default;
         } 
+    }
+    
+    bool searchAttributesBackwards(AttributeType needle)
+    {
+        auto search = find(retro(map!attributeType(attributes)), needle);
+        return search.length > 0;
     }
 }
 

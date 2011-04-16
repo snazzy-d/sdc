@@ -139,10 +139,7 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
                                                          tstream.lookahead(1).type == TokenType.Import)) {
         decldef.type = DeclarationDefinitionType.ImportDeclaration;
         decldef.node = parseImportDeclaration(tstream);
-    } else if (startsLikeAttribute(tstream)) {
-        decldef.type = DeclarationDefinitionType.AttributeSpecifier;
-        decldef.node = parseAttributeSpecifier(tstream);
-    }  else {
+    } else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
     }
