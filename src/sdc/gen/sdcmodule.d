@@ -47,7 +47,6 @@ class Module
     Value base;
     Value callingAggregate;
     ast.Access currentAccess = ast.Access.Public;
-    ast.AttributeType currentTrustLevel = ast.AttributeType.atSystem;
 
     // Modal section of ewwwwwwwwwwww, in the key of G
     bool isAlias;
@@ -59,14 +58,6 @@ class Module
     string arch;
     Scope typeScope;  // Boooooooooo
     Type aggregate;
-
-    invariant()
-    {
-        with (ast.AttributeType) {
-            auto trust = currentTrustLevel;
-            assert(trust == atSafe || trust == atTrusted || trust == atSystem);
-        }
-    }
 
     this(ast.QualifiedName name)
     {

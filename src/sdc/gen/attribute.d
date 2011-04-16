@@ -45,7 +45,6 @@ bool canGenAttribute(ast.Attribute attribute, Module mod)
 enum saveAttributeString = q{
     auto oldStatic  = mod.isStatic;
     auto oldNoThrow = mod.isNoThrow;
-    auto oldTrust   = mod.currentTrustLevel;
 };
 
 enum handleAttributeString = q{
@@ -59,7 +58,6 @@ enum handleAttributeString = q{
         mod.isNoThrow = true;
         break;
     case atSafe: case atTrusted: case atSystem:
-        mod.currentTrustLevel = attribute.type;
         break;
     default:
         throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
@@ -69,5 +67,4 @@ enum handleAttributeString = q{
 enum restoreAttributeString = q{
     mod.isStatic = oldStatic;
     mod.isNoThrow = oldNoThrow;
-    mod.currentTrustLevel = oldTrust;
 };
