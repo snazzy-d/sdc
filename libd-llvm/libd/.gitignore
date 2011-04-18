@@ -2,6 +2,7 @@
 *.o
 *.swp
 test.d
+testimp.d
 add.d
 test
 test.o
