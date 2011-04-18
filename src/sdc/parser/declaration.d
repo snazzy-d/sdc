@@ -44,7 +44,9 @@ Declaration parseDeclaration(TokenStream tstream)
 		        throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
 		    }
 		    declaration.type = DeclarationType.Alias;
-		    declaration.node = parseDeclaration(tstream);
+		    auto var = parseVariableDeclaration(tstream);
+		    var.isAlias = true;
+		    declaration.node = var;
         }
     } else if (tstream.peek.type == TokenType.Mixin) {
         declaration.type = DeclarationType.Mixin;

@@ -34,6 +34,7 @@ class MixinDeclaration : Node
 
 class VariableDeclaration : Node
 {
+    bool isAlias;
     Type type;
     Declarator[] declarators;
 }

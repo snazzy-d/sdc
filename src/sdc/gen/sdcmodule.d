@@ -48,9 +48,6 @@ class Module
     Value callingAggregate;
     ast.Access currentAccess = ast.Access.Public;
 
-    // Modal section of ewwwwwwwwwwww, in the key of G
-    bool isAlias;
-
     bool inferringFunction;  // OH GOD
     TranslationUnit[] importedTranslationUnits;
     string arch;
@@ -304,7 +301,6 @@ class Module
         }
         
         mod.currentAccess = currentAccess;
-        mod.isAlias = isAlias;
         mod.importedTranslationUnits = mod.importedTranslationUnits.dup;
         mod.arch = arch;
         

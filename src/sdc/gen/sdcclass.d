@@ -73,7 +73,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     
     foreach (method; methods) {
         method.parentType = ctype;
-        genDeclarationDefinition(method, mod);
+        genDeclarationDefinition(method, mod, 0);
     }
     
     Function[] functions;
@@ -106,7 +106,7 @@ void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, ClassType type, 
             }
         }
         asDecldef.parentType = type;
-        genDeclarationDefinition(asDecldef, mod);
+        genDeclarationDefinition(asDecldef, mod, 0);
         break;
     case Destructor:
     case StaticConstructor:

@@ -38,7 +38,7 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
         b = canGenFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Alias:
-        b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
+        b = canGenAliasDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.AliasThis:
         return true;  // noooooooooooooooooooooooooooooo
@@ -49,6 +49,11 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
         break;
     }
     return b;
+}
+
+bool canGenAliasDeclaration(ast.VariableDeclaration decl, Module mod)
+{
+    return canGenVariableDeclaration(decl, mod);
 }
 
 bool canGenVariableDeclaration(ast.VariableDeclaration decl, Module mod)
@@ -78,9 +83,7 @@ void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef,
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.Alias:
-        mod.isAlias = true;
-        declareDeclaration(cast(ast.Declaration) decl.node, declDef, mod);
-        mod.isAlias = false;
+        declareAliasDeclaration(cast(ast.VariableDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.AliasThis:
         break;
@@ -92,12 +95,17 @@ void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef,
     }
 }
 
+void declareAliasDeclaration(ast.VariableDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
+{
+    declareVariableDeclaration(decl, mod);
+}
+
 void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
     auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
     foreach (declarator; decl.declarators) {
         auto name = extractIdentifier(declarator.name);
-        if (mod.isAlias) {
+        if (decl.isAlias) {
             verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
             mod.currentScope.add(name, new Store(type));
         }

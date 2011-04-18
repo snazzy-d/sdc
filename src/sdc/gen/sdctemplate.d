@@ -94,7 +94,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
     
     foreach (declDef; tdecl.declDefs) {
         declDef.buildStage = ast.BuildStage.Unhandled;
-        genDeclarationDefinition(declDef, mod);
+        genDeclarationDefinition(declDef, mod, 0);
     }
     
     node.cache = new ScopeValue(mod, instance.location, theScope);

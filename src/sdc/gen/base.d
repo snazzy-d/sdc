@@ -103,7 +103,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     do {
         foreach (declDef; resolutionList) {
             declDef.parentType = parentType;
-            genDeclarationDefinition(declDef, mod);
+            genDeclarationDefinition(declDef, mod, *stillToGo);
         }
         
         *stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
@@ -166,7 +166,7 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
     assert(false);
 }
 
-void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
+void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, size_t stillToGo)
 {
     with (declDef) with (ast.BuildStage)
     if (buildStage != Unhandled && buildStage != Deferred) {
@@ -197,13 +197,21 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
-        auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-        if (can) {
-            genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, declDef, mod);
-            declDef.buildStage = ast.BuildStage.Done;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
+        auto asAggregate = cast(ast.AggregateDeclaration) declDef.node;
+        auto can = canGenAggregateDeclaration(asAggregate, mod);
+        if (!can) with (ast.BuildStage) {
+            if (declDef.buildStage == Unhandled) {
+                declDef.buildStage = Deferred;
+                break;
+            }
+            assert(asAggregate.structBody !is null);
+            if (stillToGo > 0 && stillToGo > asAggregate.structBody.declarations.length) {
+                declDef.buildStage = Deferred;
+                break;
+            }
         }
+        genAggregateDeclaration(asAggregate, declDef, mod);
+        declDef.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.ClassDeclaration:
         genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
