@@ -757,6 +757,7 @@ class StructType : Type
     {
         auto t = new StructType(mod);
         t.fullName = fullName;
+        t.aliasThises = aliasThises;
         foreach (name, index; memberPositions) {
             t.addMemberVar(name, members[index].importToModule(mod));
         }
@@ -764,6 +765,7 @@ class StructType : Type
             fn.importToModule(mod);
             t.addMemberFunction(name, fn);
         }
+        
         t.declare();
         return t;
     }
