@@ -5,7 +5,9 @@
  */
 module sdc.util;
 
+import std.conv;
 import std.stdio;
+import std.string;
 
 bool contains(T)(const(T)[] l, const T a)
 {
@@ -17,9 +19,14 @@ bool contains(T)(const(T)[] l, const T a)
     return false;
 }
 
-void debugPrint(lazy string msg)
+void debugPrint(T...)(lazy string msg, T vs) 
 {
-    debug writeln("DEBUG: ", msg);
+    debug writeln("DEBUG: ", format(msg, vs));
+}
+
+void debugPrint(T)(T arg)
+{
+    debugPrint("%s", to!string(arg));
 }
 
 void dbga() { debugPrint("A"); }
