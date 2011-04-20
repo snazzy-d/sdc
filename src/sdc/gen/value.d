@@ -1483,6 +1483,8 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
             return store.type;
         } else if (store.storeType == StoreType.Scope) {
             baseScope = store.getScope();
+        } else if (store.storeType == StoreType.Function) {
+            return new FunctionTypeWrapper(mod, store.getFunction().type);
         }
     }
     assert(false);
