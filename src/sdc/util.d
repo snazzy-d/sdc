@@ -21,7 +21,10 @@ bool contains(T)(const(T)[] l, const T a)
 
 void debugPrint(T...)(lazy string msg, T vs) 
 {
-    debug writeln("DEBUG: ", format(msg, vs));
+    debug {
+        write("DEBUG: ");
+        writefln(msg, vs);
+    }
 }
 
 void debugPrint(T)(T arg)
