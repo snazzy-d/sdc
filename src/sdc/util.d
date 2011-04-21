@@ -32,6 +32,13 @@ void debugPrint(T)(T arg)
     debugPrint("%s", to!string(arg));
 }
 
+void debugPrintMany(T...)(T args)
+{
+    foreach (arg; args) {
+        debugPrint("%s", to!string(arg));
+    }
+}
+
 void dbga() { debugPrint("A"); }
 void dbgb() { debugPrint("B"); }
 
