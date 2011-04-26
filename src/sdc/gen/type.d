@@ -511,6 +511,7 @@ class PointerType : Type
 class FunctionTypeWrapper : Type
 {
     FunctionType functionType;
+    Function functionValue;  // Optional.
     
     this(Module mod, FunctionType functionType)
     {
@@ -522,7 +523,11 @@ class FunctionTypeWrapper : Type
     
     override Value getValue(Module mod, Location location)
     {
-        return new FunctionWrapperValue(mod, location, functionType);
+        auto fwv = new FunctionWrapperValue(mod, location, functionType);
+        if (functionValue !is null) {
+            fwv.mValue = functionValue.llvmValue;
+        }
+        return fwv;
     }
     
     override string name()
