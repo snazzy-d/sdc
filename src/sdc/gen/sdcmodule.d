@@ -62,6 +62,7 @@ class Module
         this.name = name;
         context = LLVMGetGlobalContext();
         mod     = LLVMModuleCreateWithNameInContext(toStringz(extractQualifiedName(name)), context);
+        verbosePrint("Creating LLVM module '" ~ to!string(mod) ~ "' for module '" ~ extractQualifiedName(name) ~ "'.", VerbosePrintColour.Yellow);
         builder = LLVMCreateBuilderInContext(context);
         
         globalScope = new Scope();

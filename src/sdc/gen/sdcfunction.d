@@ -174,7 +174,7 @@ class Function
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
         }
-        verbosePrint("Adding function '" ~ mangledName ~ "' to LLVM module.", VerbosePrintColour.Yellow);
+        verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
         llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
     }
     
