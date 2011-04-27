@@ -53,7 +53,7 @@ class Module
     string arch;
     Scope typeScope;  // Boooooooooo
     Type aggregate;
-
+    
     this(ast.QualifiedName name)
     {
         if (name is null) {
@@ -61,8 +61,9 @@ class Module
         }
         this.name = name;
         context = LLVMGetGlobalContext();
-        mod     = LLVMModuleCreateWithNameInContext(toStringz(extractQualifiedName(name)), context);
-        verbosePrint("Creating LLVM module '" ~ to!string(mod) ~ "' for module '" ~ extractQualifiedName(name) ~ "'.", VerbosePrintColour.Yellow);
+        auto mname = extractQualifiedName(name);
+        mod     = LLVMModuleCreateWithNameInContext(toStringz(mname), context);
+        verbosePrint("Creating LLVM module '" ~ to!string(mod) ~ "' for module '" ~ mname ~ "'.", VerbosePrintColour.Yellow);
         builder = LLVMCreateBuilderInContext(context);
         
         globalScope = new Scope();
@@ -291,9 +292,8 @@ class Module
         mod.globalScope = globalScope.importToModule(mod);
         mod.currentScope = currentScope.importToModule(mod);
         mod.functionBuildList = functionBuildList.dup;
-        if (currentFunction !is null) {
-            currentFunction.importToModule(mod);
-        }
+        // This will be imported when the scope stack is imported.
+        mod.currentFunction = currentFunction;
         if (base !is null) {
             mod.base = base.importToModule(mod);
         }

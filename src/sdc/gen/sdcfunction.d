@@ -9,6 +9,7 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.string;
+import core.runtime;
 
 import llvm.c.Core;
 import llvm.Ext;
@@ -167,6 +168,7 @@ class Function
                 return;
             }
         }
+        
         this.mod = mod;
         mangledName = simpleName.idup;
         if (type.linkage == Linkage.ExternD && forceMangle is null) {
@@ -174,8 +176,15 @@ class Function
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
         }
+        auto mangledNamez = toStringz(mangledName);
+        
+        if (auto p = LLVMGetNamedFunction(mod.mod, mangledNamez)) {
+            llvmValue = p;
+            return;
+        }
+        
         verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
-        llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
+        llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.functionType);
     }
     
     /**
