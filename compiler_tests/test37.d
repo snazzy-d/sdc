@@ -7,6 +7,7 @@ import test37_import;
 alias int Integer;
 alias test37_import.S SS;
 alias foo bar;
+alias bar bas;
 
 int bazoooooooom()
 {
@@ -17,7 +18,7 @@ Integer main()
 {
     SS s;
     s.i = 30;
-    bar(&s.i);
+    bas(&s.i);
     return s;
 }
 

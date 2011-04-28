@@ -491,8 +491,7 @@ class Scope
     
     Store get(string name)
     {
-        auto p = name in mSymbolTable;
-        return p is null ? null : *p;
+        return mSymbolTable.get(name, null);
     }
     
     Scope importToModule(Module mod)
