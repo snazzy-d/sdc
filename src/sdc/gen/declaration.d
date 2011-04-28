@@ -53,7 +53,8 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
 
 bool canGenAliasDeclaration(ast.VariableDeclaration decl, Module mod)
 {
-    return canGenVariableDeclaration(decl, mod);
+    auto b = canGenVariableDeclaration(decl, mod);
+    return b;
 }
 
 bool canGenVariableDeclaration(ast.VariableDeclaration decl, Module mod)

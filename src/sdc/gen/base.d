@@ -51,9 +51,10 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     assert(false);
 }
 
-Module genModule(ast.Module astModule)
+Module genModule(ast.Module astModule, TranslationUnit tu)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
+    mod.translationUnit = tu;
     genModuleAndPackages(mod);
 
     auto name = extractQualifiedName(mod.name);
@@ -125,6 +126,11 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             if (toAppend.length > 0) {
                 resolutionList ~= toAppend;
             } else {
+                foreach (tu; getTranslationUnits()) {
+                    if (tu.gModule is null && tu.compile && tu !is mod.translationUnit) {
+                        tu.gModule = genModule(tu.aModule, tu);
+                    }
+                }
                 if (!finalPass) {
                     finalPass = true;
                     continue;

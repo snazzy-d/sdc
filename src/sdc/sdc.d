@@ -163,7 +163,7 @@ void realmain(string[] args)
         if (!compile) {
             continue;
         }
-        gModule = genModule(aModule);
+        gModule = genModule(aModule, translationUnit);
         gModule.verify();
     }
     

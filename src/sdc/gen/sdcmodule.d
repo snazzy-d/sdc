@@ -42,6 +42,7 @@ class Module
     LLVMBuilderRef builder;
     Scope globalScope;
     Scope currentScope;
+    TranslationUnit translationUnit;
     ast.DeclarationDefinition[] functionBuildList;
     Function currentFunction;
     Value base;
