@@ -82,7 +82,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     
     if (decl.name !is null) {
         auto name = extractIdentifier(decl.name);
-        mod.currentScope.add(name, new Store(type));
+        mod.currentScope.add(name, new Store(type, decl.name.location));
     }
 }
 

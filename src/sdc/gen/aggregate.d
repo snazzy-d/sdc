@@ -57,7 +57,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     auto currentScope = mod.currentScope;
     auto currentTypeScope = mod.typeScope;
     mod.typeScope = mod.currentScope = type.typeScope;
-    currentScope.add(name, new Store(mod.currentScope));
+    currentScope.add(name, new Store(mod.currentScope, decl.name.location));
     
     auto oldAggregate = mod.aggregate;
     mod.aggregate = type;
@@ -85,7 +85,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
         type.addMemberFunction(fn.simpleName, fn);
     }
     
-    mod.currentScope.add(name, new Store(type));
+    mod.currentScope.add(name, new Store(type, decl.name.location));
 
     verboseIndent--;
     verbosePrint("Done generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);

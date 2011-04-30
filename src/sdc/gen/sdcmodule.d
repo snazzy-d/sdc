@@ -171,9 +171,9 @@ class Module
                 tustore = new Store(tustore.value.importToModule(this));
             } else if (tustore.storeType == StoreType.Type) {
                 checkAccess(tustore.type.access);
-                tustore = new Store(tustore.type.importToModule(this));
+                tustore = new Store(tustore.type.importToModule(this), Location());
             } else if (tustore.storeType == StoreType.Function) {
-                tustore = new Store(tustore.getFunction.importToModule(this));
+                tustore = new Store(tustore.getFunction.importToModule(this), Location());
             }
 
             if (store is null) {
@@ -391,6 +391,7 @@ enum StoreType
 
 class Store
 {
+    Location location;
     StoreType storeType;
     Object object;
     
@@ -398,30 +399,35 @@ class Store
     {
         storeType = StoreType.Value;
         object = value;
+        location = value.location;
     }
     
-    this(Type type)
+    this(Type type, Location location)
     {
         storeType = StoreType.Type;
         object = type;
+        this.location = location;
     }
     
-    this(Scope _scope)
+    this(Scope _scope, Location location)
     {
         storeType = StoreType.Scope;
         object = _scope;
+        this.location = location;
     }
     
     this(ast.TemplateDeclaration _template)
     {
         storeType = StoreType.Template;
         object = _template;
+        location = _template.location;
     }
     
-    this(Function fn)
+    this(Function fn, Location location)
     {
         storeType = StoreType.Function;
         object = fn;
+        this.location = location;
     }
     
     Value value() @property
@@ -471,11 +477,11 @@ class Store
         case Value:
             return new Store(value.importToModule(mod));
         case Type:
-            return new Store(type.importToModule(mod));
+            return new Store(type.importToModule(mod), Location());
         case Scope:
-            return new Store(getScope());
+            return new Store(getScope(), Location());
         case Function:
-            return new Store(getFunction().importToModule(mod));
+            return new Store(getFunction().importToModule(mod), Location());
         case Template:
             return this;  
         }

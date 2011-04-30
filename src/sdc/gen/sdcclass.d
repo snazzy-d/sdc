@@ -47,7 +47,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     ctype.fullName = new ast.QualifiedName(); 
     ctype.fullName.identifiers = mod.name.identifiers;
     ctype.fullName.identifiers ~= decl.identifier;
-    mod.currentScope.add(extractIdentifier(decl.identifier), new Store(ctype));
+    mod.currentScope.add(extractIdentifier(decl.identifier), new Store(ctype, decl.location));
         
     auto currentScope = mod.currentScope;
     mod.currentScope = new Scope();

@@ -77,12 +77,12 @@ void genModuleAndPackages(Module mod)
             // Package.
             auto name = extractIdentifier(identifier);
             auto _scope = new Scope();
-            parentScope.add(name, new Store(_scope));
+            parentScope.add(name, new Store(_scope, mod.name.location));
             parentScope = _scope;
         } else {
             // Module.
             auto name = extractIdentifier(identifier);
-            auto store = new Store(mod.currentScope);
+            auto store = new Store(mod.currentScope, mod.name.location);
             parentScope.add(name, store);
         }
     }

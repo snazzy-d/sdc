@@ -108,7 +108,7 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         auto name = extractIdentifier(declarator.name);
         if (decl.isAlias) {
             verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
-            mod.currentScope.add(name, new Store(type));
+            mod.currentScope.add(name, new Store(type, declarator.name.location));
         }
     }
 }
@@ -131,7 +131,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     auto fn = new Function(fntype);
     fn.simpleName = extractIdentifier(decl.name);
     fn.argumentNames = names;
-    auto store = new Store(fn);
+    auto store = new Store(fn, decl.name.location);
     
     // This is the important part: the function is added to the appropriate scope.
     if (declDef.parentType !is null) {

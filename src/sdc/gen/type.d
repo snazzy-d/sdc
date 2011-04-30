@@ -627,7 +627,7 @@ class ClassType : Type
         } else {
             addMethod(Method(name, fn));
         }
-        mModule.globalScope.add(name, new Store(fn));
+        mModule.globalScope.add(name, new Store(fn, Location()));
     }
     
     /// Add the parents' non-static fields, from least to most derived.
@@ -750,7 +750,7 @@ class StructType : Type
     
     void addMemberType(string id, Type t)
     {
-        typeScope.add(id, new Store(t));
+        typeScope.add(id, new Store(t, Location()));
     }
     
     void addMemberFunction(string id, Function f)
