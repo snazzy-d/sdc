@@ -492,7 +492,19 @@ class Scope
 {
     void add(string name, Store store)
     {
+        if (auto p = name in mSymbolTable) {
+            throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
+        }
         mSymbolTable[name] = store;
+    }
+    
+    void redefine(string name, Store store)
+    {
+        if (name in mSymbolTable) {
+            mSymbolTable[name] = store;
+        } else {
+            throw new CompilerPanic(store.location, format("tried to redefine undefined store."));
+        }
     }
     
     Store get(string name)

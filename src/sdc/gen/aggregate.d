@@ -85,7 +85,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
         type.addMemberFunction(fn.simpleName, fn);
     }
     
-    mod.currentScope.add(name, new Store(type, decl.name.location));
+    mod.currentScope.redefine(name, new Store(type, decl.name.location));
 
     verboseIndent--;
     verbosePrint("Done generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);
