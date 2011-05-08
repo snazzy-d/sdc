@@ -750,7 +750,7 @@ class StructType : Type
     
     void addMemberType(string id, Type t)
     {
-        typeScope.add(id, new Store(t, Location()));
+        typeScope.redefine(id, new Store(t, Location()));
     }
     
     void addMemberFunction(string id, Function f)
