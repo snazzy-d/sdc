@@ -125,6 +125,8 @@ class Module
         auto newScope = new Scope();
         if (mScopeStack.length > 0) {
             newScope.parent = mScopeStack[$ - 1];
+        } else {
+            newScope.parent = globalScope;
         }
         mScopeStack ~= newScope;
         currentScope = mScopeStack[$ - 1];
@@ -398,6 +400,7 @@ class Store
     Location location;
     StoreType storeType;
     Object object;
+    Scope parentScope;
     
     this(Value value)
     {
@@ -499,18 +502,22 @@ class Scope
     void add(string name, Store store)
     {
         if (auto p = definedInParents(name)) {
-            throw new CompilerError(store.location, format("declaration of '%s' shadows declaration at '%s'.", name, p.location));
+            if (p.parentScope.parent !is null) {
+                throw new CompilerError(store.location, format("declaration of '%s' shadows declaration at '%s'.", name, p.location));
+            }
         }
         if (auto p = name in mSymbolTable) {
             throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
         }
         mSymbolTable[name] = store;
+        store.parentScope = this;
     }
     
     void redefine(string name, Store store)
     {
         if (name in mSymbolTable) {
             mSymbolTable[name] = store;
+            store.parentScope = this;
         } else {
             throw new CompilerPanic(store.location, format("tried to redefine undefined store."));
         }
@@ -537,6 +544,7 @@ class Scope
             if (auto p = name in current.mSymbolTable) {
                 return p;
             }
+            current = current.parent;
         }
         return null; 
     }
