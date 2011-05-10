@@ -157,11 +157,11 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
         bool cond = genCondition(decl.condition, mod);
         ast.DeclarationDefinition[] newTopLevels;
         if (cond) {
-            foreach (declDef_; decl.thenBlock.declarationDefinitions) {
+            foreach (declDef_; decl.thenBlock) {
                 newTopLevels ~= declDef_;
             }
         } else if (decl.elseBlock !is null) {
-            foreach (declDef_; decl.elseBlock.declarationDefinitions) {
+            foreach (declDef_; decl.elseBlock) {
                 newTopLevels ~= declDef_;
             }
         }

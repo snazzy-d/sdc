@@ -23,8 +23,8 @@ class ConditionalDeclaration : Node
 {
     ConditionalDeclarationType type;
     Condition condition;
-    DeclarationBlock thenBlock;  // Optional.
-    DeclarationBlock elseBlock;  // Optional.
+    DeclarationDefinition[] thenBlock;  // Optional.
+    DeclarationDefinition[] elseBlock;  // Optional.
     Node specification;  // Optional.
 }
 
