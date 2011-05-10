@@ -122,7 +122,11 @@ class Module
 
     void pushScope()
     {
-        mScopeStack ~= new Scope();
+        auto newScope = new Scope();
+        if (mScopeStack.length > 0) {
+            newScope.parent = mScopeStack[$ - 1];
+        }
+        mScopeStack ~= newScope;
         currentScope = mScopeStack[$ - 1];
     }
     
@@ -490,8 +494,13 @@ class Store
 
 class Scope
 {
+    Scope parent;
+    
     void add(string name, Store store)
     {
+        if (auto p = definedInParents(name)) {
+            throw new CompilerError(store.location, format("declaration of '%s' shadows declaration at '%s'.", name, p.location));
+        }
         if (auto p = name in mSymbolTable) {
             throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
         }
@@ -519,6 +528,17 @@ class Scope
             _scope.add(name, store.importToModule(mod));
         }
         return _scope;
+    }
+    
+    Store* definedInParents(string name)
+    {
+        Scope current = parent;
+        while (current !is null) {
+            if (auto p = name in current.mSymbolTable) {
+                return p;
+            }
+        }
+        return null; 
     }
     
     Store[string] mSymbolTable;
