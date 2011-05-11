@@ -86,13 +86,26 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Const: case TokenType.Auto:
     case TokenType.Scope: case TokenType.__Gshared:
     case TokenType.Shared: case TokenType.Immutable:
-    case TokenType.Inout: case TokenType.atDisable:
-    case TokenType.Pure: case TokenType.Nothrow:
-    case TokenType.atSafe: case TokenType.atTrusted:
-    case TokenType.atSystem:
+    case TokenType.Inout: case TokenType.Pure: 
+    case TokenType.Nothrow:
         // Simple keyword attribute.
         attribute.type = cast(AttributeType) tstream.peek.type;
         tstream.getToken();
+        break;
+    case TokenType.At:
+        match(tstream, TokenType.At);
+        if (tstream.peek.type != TokenType.Identifier) {
+            throw new CompilerError(tstream.peek.location, format("expected identifier, not %s.", tokenToString[tstream.peek.type]));
+        }
+        switch (tstream.peek.value) {
+        case "safe": attribute.type = AttributeType.atSafe; break;
+        case "trusted": attribute.type = AttributeType.atTrusted; break;
+        case "system": attribute.type = AttributeType.atSystem; break;
+        case "disable": attribute.type = AttributeType.atDisable; break;
+        default:
+            throw new CompilerError(tstream.peek.location, format("expected attribute, not @%s.", tstream.peek.value));
+        }
+        match(tstream, TokenType.Identifier);
         break;
     case TokenType.Align:
         attribute.type = AttributeType.Align;
@@ -115,7 +128,7 @@ Attribute parseAttribute(TokenStream tstream)
 
 bool startsLikeAttribute(TokenStream tstream)
 {
-    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type);
+    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
 }
 
 

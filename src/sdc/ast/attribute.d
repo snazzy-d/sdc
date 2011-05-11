@@ -32,13 +32,8 @@ enum AttributeType
     Shared = TokenType.Shared,
     Immutable = TokenType.Immutable,
     Inout = TokenType.Inout,
-    atDisable = TokenType.atDisable,
     Pure = TokenType.Pure,
     Nothrow = TokenType.Nothrow,
-
-    atSafe = TokenType.atSafe,
-    atTrusted = TokenType.atTrusted,
-    atSystem = TokenType.atSystem,
     
     Align = TokenType.Align,
     Pragma = TokenType.Pragma,
@@ -50,6 +45,11 @@ enum AttributeType
     ExternWindows,
     ExternPascal,
     ExternSystem,
+    
+    atSafe,
+    atTrusted,
+    atSystem,
+    atDisable,
 }
 
 enum Linkage
@@ -77,10 +77,9 @@ TokenType.Protected, TokenType.Public, TokenType.Export,
 TokenType.Static, TokenType.Final, TokenType.Override,
 TokenType.Abstract, TokenType.Const,
 TokenType.Scope, TokenType.__Gshared, TokenType.Shared,
-TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
+TokenType.Immutable, TokenType.Inout,
 TokenType.Align, TokenType.Pragma, TokenType.Extern,
 TokenType.Pure, TokenType.Nothrow,
-TokenType.atSafe, TokenType.atTrusted, TokenType.atSystem
 ];
 
 immutable ACCESS = [
