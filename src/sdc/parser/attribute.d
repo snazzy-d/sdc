@@ -31,6 +31,14 @@ AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
     return attributeSpecifier;
 }
 
+Attribute parseFunctionAttribute(TokenStream tstream)
+{
+    auto attribute = parseAttribute(tstream);
+    if (FUNCTION_ATTRIBUTES.contains(attribute.type) || MEMBER_FUNCTION_ATTRIBUTES.contains(attribute.type)) {
+        return attribute;
+    }
+    throw new CompilerError(attribute.location, "expected function attribute.");
+}
 
 Attribute parseAttribute(TokenStream tstream)
 {

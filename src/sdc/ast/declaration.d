@@ -9,6 +9,7 @@ import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
+import sdc.ast.attribute;
 
 
 enum DeclarationType
@@ -57,6 +58,7 @@ class FunctionDeclaration : Node
     Identifier name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
+    Attribute[] functionAttributes;  // Optional.
 }
 
 class FunctionBody : Node

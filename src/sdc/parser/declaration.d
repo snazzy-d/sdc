@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -20,6 +20,7 @@ import sdc.compilererror;
 import sdc.extract;
 import sdc.ast.declaration;
 import sdc.parser.base;
+import sdc.parser.attribute;
 import sdc.parser.expression;
 import sdc.parser.statement;
 import sdc.parser.sdctemplate;
@@ -183,6 +184,14 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     }
     
     declaration.parameterList = parseParameters(tstream);
+    
+    while (tstream.peek.type != TokenType.OpenBrace && tstream.peek.type != TokenType.Semicolon) {
+        declaration.functionAttributes ~= parseFunctionAttribute(tstream);
+        if (tstream.peek.type == TokenType.End) {
+            break;
+        }
+    }
+    
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);
     } else {

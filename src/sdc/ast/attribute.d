@@ -88,6 +88,18 @@ AttributeType.Public, AttributeType.Protected, AttributeType.Private,
 AttributeType.Package, AttributeType.Export
 ];
 
+immutable FUNCTION_ATTRIBUTES = [
+AttributeType.Pure, AttributeType.Nothrow, AttributeType.atProperty,
+AttributeType.atDisable, AttributeType.atSafe, AttributeType.atSystem,
+AttributeType.atTrusted
+];
+
+immutable MEMBER_FUNCTION_ATTRIBUTES = [
+AttributeType.Const, AttributeType.Immutable, AttributeType.Inout,
+AttributeType.Shared
+];
+
+
 // Attribute (:|DeclarationBlock)
 class AttributeSpecifier : Node
 {
