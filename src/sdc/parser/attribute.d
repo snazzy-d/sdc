@@ -102,6 +102,7 @@ Attribute parseAttribute(TokenStream tstream)
         case "trusted": attribute.type = AttributeType.atTrusted; break;
         case "system": attribute.type = AttributeType.atSystem; break;
         case "disable": attribute.type = AttributeType.atDisable; break;
+        case "property": attribute.type = AttributeType.atProperty; break;
         default:
             throw new CompilerError(tstream.peek.location, format("expected attribute, not @%s.", tstream.peek.value));
         }

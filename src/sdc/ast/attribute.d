@@ -50,6 +50,7 @@ enum AttributeType
     atTrusted,
     atSystem,
     atDisable,
+    atProperty
 }
 
 enum Linkage
