@@ -186,7 +186,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     declaration.parameterList = parseParameters(tstream);
     
     while (tstream.peek.type != TokenType.OpenBrace && tstream.peek.type != TokenType.Semicolon) {
-        declaration.functionAttributes ~= parseFunctionAttribute(tstream);
+        declaration.attributes ~= parseFunctionAttribute(tstream);
         if (tstream.peek.type == TokenType.End) {
             break;
         }

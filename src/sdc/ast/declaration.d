@@ -58,7 +58,6 @@ class FunctionDeclaration : Node
     Identifier name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
-    Attribute[] functionAttributes;  // Optional.
 }
 
 class FunctionBody : Node
