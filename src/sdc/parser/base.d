@@ -52,11 +52,7 @@ Module parseModule(TokenStream tstream)
     verboseIndent++;
     
     while (tstream.peek.type != TokenType.End) {
-        if (startsLikeAttribute(tstream)) {
-            mod.declarationDefinitions ~= parseAttributeBlock(tstream);
-        } else {
-            mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
-        }
+        mod.declarationDefinitions ~= parseAttributeBlock(tstream);
     }
     
     auto implicitObjectImport = new DeclarationDefinition();
@@ -70,26 +66,38 @@ Module parseModule(TokenStream tstream)
     return mod;
 }                                        
 
+/// Parses an attribute, if there is one, then parses a regular top level block.
 DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
 {
-    auto attribute = parseAttribute(tstream);
+    bool parsingAttribute = startsLikeAttribute(tstream.peek.type);
+    Attribute attribute;
+    string name;
+    if (parsingAttribute) {
+        attribute = parseAttribute(tstream);
     
-    auto name = to!string(attribute.type);
-    verbosePrint("Parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
-    verboseIndent++;
+        name = to!string(attribute.type);
+        verbosePrint("Parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+        verboseIndent++;
+    }
     
-    auto block = parseDeclarationBlock(tstream);
+    auto block = parseDeclarationBlock(tstream, parsingAttribute);
     foreach (declDef; block.declarationDefinitions) {
-        declDef.attributes ~= attribute;
-        declDef.node.attributes ~= attribute;
+        if (parsingAttribute) {
+            declDef.attributes ~= attribute;
+            declDef.node.attributes ~= attribute;
+        }
         if (declDef.type == DeclarationDefinitionType.Declaration) {
             auto asDecl = enforce(cast(Declaration) declDef.node);
-            asDecl.node.attributes ~= attribute;
+            if (parsingAttribute) {
+                asDecl.node.attributes ~= attribute;
+            }
         }
     }
     
-    verboseIndent--;
-    verbosePrint("Done parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+    if (parsingAttribute) {
+        verboseIndent--;
+        verbosePrint("Done parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+    }
     
     return block.declarationDefinitions;
 }

@@ -135,9 +135,9 @@ Attribute parseAttribute(TokenStream tstream)
 }
 
 
-bool startsLikeAttribute(TokenStream tstream)
+bool startsLikeAttribute(TokenType type)
 {
-    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
+    return contains(ATTRIBUTE_KEYWORDS, type) || type == TokenType.At;
 }
 
 
@@ -170,7 +170,7 @@ PragmaAttribute parsePragmaAttribute(TokenStream tstream)
     return pragmaAttribute;
 }
 
-DeclarationBlock parseDeclarationBlock(TokenStream tstream)
+DeclarationBlock parseDeclarationBlock(TokenStream tstream, bool attributeBlock = false)
 {
     auto declarationBlock = new DeclarationBlock();
     declarationBlock.location = tstream.peek.location;
@@ -178,16 +178,19 @@ DeclarationBlock parseDeclarationBlock(TokenStream tstream)
     if (tstream.peek.type == TokenType.OpenBrace) {
         match(tstream, TokenType.OpenBrace);
         while (tstream.peek.type != TokenType.CloseBrace) {
-            declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+            if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream);
+            else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
         }
         match(tstream, TokenType.CloseBrace);
     } else if (tstream.peek.type == TokenType.Colon) {
         match(tstream, TokenType.Colon);
-        while (tstream.peek.type != TokenType.End && tstream.peek.type != TokenType.CloseBrace) { 
-            declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        while (tstream.peek.type != TokenType.End && tstream.peek.type != TokenType.CloseBrace) {
+            if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream); 
+            else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
         }
     } else {
-        declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream);
+        else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
     }
     
     return declarationBlock;
