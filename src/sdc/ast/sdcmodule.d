@@ -41,7 +41,7 @@ enum DeclarationDefinitionType
     Constructor,
     Destructor,
     Invariant,
-    UnitTest,
+    Unittest,
     StaticConstructor,
     StaticDestructor,
     SharedStaticConstructor,
@@ -81,4 +81,9 @@ class DeclarationDefinition : Node
     bool importedSymbol;
     QualifiedName parentName;
     gen.Type parentType;
+}
+
+class Unittest : Node
+{
+    FunctionBody _body;
 }

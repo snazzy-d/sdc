@@ -140,6 +140,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Class) {
         decldef.type = DeclarationDefinitionType.ClassDeclaration;
         decldef.node = parseClassDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Unittest) {
+        decldef.type = DeclarationDefinitionType.Unittest;
+        decldef.node = parseUnittest(tstream);
     } else if (startsLikeConditional(tstream)) {
         decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
         decldef.node = parseConditionalDeclaration(tstream);
@@ -175,6 +178,14 @@ QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false
     }
     name.location = name.identifiers[$ - 1].location - startLocation;
     return name;
+}
+
+Unittest parseUnittest(TokenStream tstream)
+{
+    match(tstream, TokenType.Unittest);
+    auto unit = new Unittest();
+    unit._body = parseFunctionBody(tstream);
+    return unit;
 }
 
 T parseLiteral(T, TokenType E)(TokenStream tstream)

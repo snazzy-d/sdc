@@ -234,6 +234,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, siz
         genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
         break;
+    case ast.DeclarationDefinitionType.Unittest:
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
     }
