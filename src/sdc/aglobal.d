@@ -262,7 +262,8 @@ void loadConfig(ref string[] args)
     }
     else pragma(error, "please implement global.loadConfig for your platform.");
     
-    auto confs = array( filter!exists(map!expandTilde(confLocations)) );
+    bool existsWrapper(string s) { return exists(s); }  // WORKAROUND 2.053
+    auto confs = array( filter!existsWrapper(map!expandTilde(confLocations)) );
     if (confs.length == 0) {
         // Try to soldier on without a config file.
         return;
