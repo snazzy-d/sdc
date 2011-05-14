@@ -25,7 +25,7 @@ Parser
 * Parse module declarations.  __[yes.]__
 * Parse attribute declarations.  __[yes.]__
 * Parse import declarations.  __[yes.]__
-* Parse enum declarations.  _[partially.]_
+* Parse enum declarations.  __[yes.]__
 * Parse class declarations.  _[partially.]_
 * Parse interface declarations.  _[no.]_
 * Parse aggregate declarations.  _[partially.]_
@@ -33,7 +33,7 @@ Parser
 * Parse constructors.  _[no.]_
 * Parse destructors.  _[no.]_
 * Parse invariants.  _[no.]_
-* Parse unittests.  _[no.]_
+* Parse unittests.  __[yes.]__
 * Parse static constructors.  _[no.]_
 * Parse static destructors.  _[no.]_
 * Parse shared static constructors.  _[no.]_
@@ -49,13 +49,13 @@ Codegen
 -------
 * Import symbols from other modules.  __[yes.]__
 * Apply attributes.  _[partially.]_
-* Enums.  _[no.]_
+* Enums.  __[yes.]__
 * Structs.  _[partially.]_
-* Classes.  _[no.]_
+* Classes.  _[partially.]_
 * Functions.  _[partially.]_
 * Function pointers. __[yes.]__
-* Local variables.  _[yes.]_
-* Global variables.  _[partially.]_
+* Local variables.  __[yes.]__
+* Global variables.  __[yes.]__
 * Alias declarations.  _[partially.]_
 * Expressions.  _[partially.]_
 * Label statement.  _[no.]_
@@ -70,7 +70,7 @@ Codegen
 * Default statement.  _[no.]_
 * Continue statement.  _[no.]_
 * Break statement.  _[no.]_
-* Return statement.  _[partially.]_
+* Return statement.  __[yes.]__
 * Goto statement.  _[no.]_
 * With statement.  _[no.]_
 * Synchronized statement.  _[no.]_
@@ -113,6 +113,10 @@ This just me thinking outloud about what features I want, when.
 ---
 * dmd calling convention compatibility
 * self hosting
+
+2.0
+---
+* extern (C++)
 
 SDC with DMD/Windows
 =======
