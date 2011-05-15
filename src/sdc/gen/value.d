@@ -695,6 +695,7 @@ alias FloatingPointValue!(real, RealType) RealValue;
 class ArrayValue : StructValue
 {
     Type baseType;
+    bool suppressCallbacks;
     
     this(Module mod, Location location, Type baseType)
     {
@@ -713,6 +714,7 @@ class ArrayValue : StructValue
             mOldLength = v;
             v.addSetPostCallback((Value val)
                                 {
+                                    if (suppressCallbacks) return;
                                     assert(val.type.dtype == theSizeT.dtype);
                                     auto ptr = getMember(location, "ptr");
                                     auto vl = [ptr.performCast(location, new PointerType(mModule, new VoidType(mModule))), val];

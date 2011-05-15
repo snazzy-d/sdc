@@ -331,8 +331,20 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
         return newClass(mod, expression.location, asClass, expression.argumentList);
     }
     auto loc  = expression.type.location - expression.location;
-    auto size = type.getValue(mod, loc).getSizeof(loc);
-    return mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
+    if (expression.assignExpression is null) {
+        auto size = type.getValue(mod, loc).getSizeof(loc);
+        return mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
+    } else {
+        auto length = genAssignExpression(expression.assignExpression, mod).performCast(loc, getSizeT(mod));
+        auto size = type.getValue(mod, loc).getSizeof(loc).mul(loc, length);
+        auto array = new ArrayValue(mod, loc, type);
+        auto ptr = mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
+        array.suppressCallbacks = true;
+        array.getMember(loc, "length").initialise(loc, length);
+        array.getMember(loc, "ptr").initialise(loc, ptr);
+        array.suppressCallbacks = false;
+        return array;
+    }
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
