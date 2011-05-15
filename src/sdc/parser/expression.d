@@ -380,9 +380,6 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
         unaryExpr.unaryPrefix = UnaryPrefix.New;
         unaryExpr.newExpression = parseNewExpression(tstream);
         break;
-    case TokenType.Delete:
-        unaryExpr.deleteExpression = parseDeleteExpression(tstream);
-        break;
     default:
         unaryExpr.postfixExpression = parsePostfixExpression(tstream);
         break;
@@ -431,14 +428,6 @@ NewExpression parseNewExpression(TokenStream tstream)
         break;
     }
     return newExpr;
-}
-
-DeleteExpression parseDeleteExpression(TokenStream tstream)
-{
-    auto deleteExpr = new DeleteExpression();
-    deleteExpr.location = tstream.peek.location;
-    
-    throw new CompilerError(tstream.peek.location, "delete expressions are unsupported.");
 }
 
 PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
