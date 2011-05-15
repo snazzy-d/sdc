@@ -1,4 +1,4 @@
-/*===-- llvm-c/Target.h - Target Lib C Iface --------------------*- C++ -*-===*/
+/*===-- llvm-c/Target.h - Target Lib C Iface --------------------*- D -*-===*/
 /*                                                                            */
 /*                     The LLVM Compiler Infrastructure                       */
 /*                                                                            */
@@ -29,49 +29,58 @@ typedef  __LLVMOpaqueTargetData* LLVMTargetDataRef;
 struct __LLVMStructLayout {}
 typedef __LLVMStructLayout* LLVMStructLayoutRef;
 
-/+
 /* Declare all of the target-initialization functions that are available. */
-#define LLVM_TARGET(TargetName) \
-  void LLVMInitialize##TargetName##TargetInfo(void);
+/*
+#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##TargetInfo();
 #include "llvm/Config/Targets.def"
-#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
-  
-#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##Target(void);
+#undef LLVM_TARGET  // Explicit undef to make SWIG happier
+
+#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##Target();
 #include "llvm/Config/Targets.def"
-#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+#undef LLVM_TARGET  // Explicit undef to make SWIG happier
+*/
 
 /** LLVMInitializeAllTargetInfos - The main program should call this function if
     it wants access to all available targets that LLVM is configured to
     support. */
-static inline void LLVMInitializeAllTargetInfos(void) {
+/*
+static inline void LLVMInitializeAllTargetInfos() {
 #define LLVM_TARGET(TargetName) LLVMInitialize##TargetName##TargetInfo();
 #include "llvm/Config/Targets.def"
-#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+#undef LLVM_TARGET  // Explicit undef to make SWIG happier
 }
+*/
 
 /** LLVMInitializeAllTargets - The main program should call this function if it
     wants to link in all available targets that LLVM is configured to
     support. */
-static inline void LLVMInitializeAllTargets(void) {
+/*
+static inline void LLVMInitializeAllTargets() {
 #define LLVM_TARGET(TargetName) LLVMInitialize##TargetName##Target();
 #include "llvm/Config/Targets.def"
-#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
-}
-  
+#undef LLVM_TARGET  // Explicit undef to make SWIG happier
+}*/
+
 /** LLVMInitializeNativeTarget - The main program should call this function to
-    initialize the native target corresponding to the host.  This is useful 
+    initialize the native target corresponding to the host.  This is useful
     for JIT applications to ensure that the target gets linked in correctly. */
-static inline LLVMBool LLVMInitializeNativeTarget(void) {
-  /* If we have a native target, initialize it to ensure it is linked in. */
-#ifdef LLVM_NATIVE_TARGET
-  LLVM_NATIVE_TARGETINFO();
-  LLVM_NATIVE_TARGET();
+/*
+static inline LLVMBool LLVMInitializeNativeTarget() {
+  // If we have a native target, initialize it to ensure it is linked in.
+#ifdef LLVM_NATIVE_ARCH
+#define DoInit2(TARG) \
+  LLVMInitialize ## TARG ## Info ();          \
+  LLVMInitialize ## TARG ()
+#define DoInit(T) DoInit2(T)
+  DoInit(LLVM_NATIVE_ARCH);
   return 0;
+#undef DoInit
+#undef DoInit2
 #else
   return 1;
 #endif
 }
-+/
+*/
 
 /*===-- Target Data -------------------------------------------------------===*/
 

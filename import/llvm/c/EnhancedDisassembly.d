@@ -1,4 +1,4 @@
-/*===-- llvm-c/EnhancedDisassembly.h - Disassembler C Interface ---*- C -*-===*\
+/*===-- llvm-c/EnhancedDisassembly.h - Disassembler C Interface ---*- D -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -48,7 +48,7 @@ alias int function(ulong *value, uint regID,
  @typedef EDAssemblySyntax_t
  An assembly syntax for use in tokenizing instructions.
  */
-enum EDAssemblySyntax : uint {
+enum kEDAssemblySyntax : uint {
 /*! @constant kEDAssemblySyntaxX86Intel Intel syntax for i386 and x86_64. */
   X86Intel  = 0,
 /*! @constant kEDAssemblySyntaxX86ATT AT&T syntax for i386 and x86_64. */
@@ -94,8 +94,8 @@ alias void* EDOperandRef;
  @result 0 on success; -1 otherwise.
  */
 int EDGetDisassembler(EDDisassemblerRef* disassembler,
-                      const char* triple,
-                      EDAssemblySyntax syntax);
+                      /*const*/ const(char)* triple,
+                      kEDAssemblySyntax syntax);
 
 /*!
  @functiongroup Generic architectural queries
@@ -110,7 +110,7 @@ int EDGetDisassembler(EDDisassemblerRef* disassembler,
  @param regID The register identifier, as returned by EDRegisterTokenValue.
  @result 0 on success; -1 otherwise.
  */
-int EDGetRegisterName(const char** regName,
+int EDGetRegisterName(/*const*/ char** regName,
                       EDDisassemblerRef disassembler,
                       uint regID);
   
@@ -424,6 +424,7 @@ int EDEvaluateOperand(ulong* result,
                       EDRegisterReaderCallback regReader,
                       void* arg);
   
+
 /*!
  @typedef EDByteBlock_t
  Block-based interface to memory from which instructions may be read.
@@ -431,7 +432,7 @@ int EDEvaluateOperand(ulong* result,
  @param address The address of the byte to be read.
  @result 0 on success; -1 otherwise.
  */
-typedef int function(ubyte* byte_, ulong address) EDByteBlock_t;
+alias int function(ubyte* byte_, ulong address) EDByteBlock_t;
 
 /*!
  @typedef EDRegisterBlock_t

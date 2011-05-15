@@ -1,4 +1,4 @@
-/*===-- llvm-c/lto.h - LTO Public C Interface ---------------------*- C -*-===*\
+/*===-- llvm-c/lto.h - LTO Public C Interface ---------------------*- D -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -14,26 +14,28 @@
 \*===----------------------------------------------------------------------===*/
 module llvm.c.lto;
 
+private alias long off_t; //assumes __USE_LARGEFILE64 = 1
 
-const LTO_API_VERSION = 3;
+const LTO_API_VERSION = 4;
 
 enum lto_symbol_attributes {
-    ALIGNMENT_MASK         = 0x0000001F,    /* log2 of alignment */
-    PERMISSIONS_MASK       = 0x000000E0,    
-    PERMISSIONS_CODE       = 0x000000A0,    
-    PERMISSIONS_DATA       = 0x000000C0,    
-    PERMISSIONS_RODATA     = 0x00000080,    
-    DEFINITION_MASK        = 0x00000700,    
-    DEFINITION_REGULAR     = 0x00000100,    
-    DEFINITION_TENTATIVE   = 0x00000200,    
-    DEFINITION_WEAK        = 0x00000300,    
-    DEFINITION_UNDEFINED   = 0x00000400,    
-    DEFINITION_WEAKUNDEF   = 0x00000500,
-    SCOPE_MASK             = 0x00003800,    
-    SCOPE_INTERNAL         = 0x00000800,    
-    SCOPE_HIDDEN           = 0x00001000,    
-    SCOPE_PROTECTED        = 0x00002000,    
-    SCOPE_DEFAULT          = 0x00001800    
+    ALIGNMENT_MASK              = 0x0000001F, /* log2 of alignment */
+    PERMISSIONS_MASK            = 0x000000E0,    
+    PERMISSIONS_CODE            = 0x000000A0,    
+    PERMISSIONS_DATA            = 0x000000C0,    
+    PERMISSIONS_RODATA          = 0x00000080,    
+    DEFINITION_MASK             = 0x00000700,    
+    DEFINITION_REGULAR          = 0x00000100,    
+    DEFINITION_TENTATIVE        = 0x00000200,    
+    DEFINITION_WEAK             = 0x00000300,    
+    DEFINITION_UNDEFINED        = 0x00000400,    
+    DEFINITION_WEAKUNDEF        = 0x00000500,
+    SCOPE_MASK                  = 0x00003800,    
+    SCOPE_INTERNAL              = 0x00000800,    
+    SCOPE_HIDDEN                = 0x00001000,    
+    SCOPE_PROTECTED             = 0x00002000,    
+    SCOPE_DEFAULT               = 0x00001800,
+    SCOPE_DEFAULT_CAN_BE_HIDDEN = 0x00002800
 }
 
 enum lto_debug_model {
@@ -113,6 +115,12 @@ lto_module_create(/*const*/ char* path);
 extern lto_module_t
 lto_module_create_from_memory(/*const*/ void* mem, size_t length);
 
+/**
+ * Loads an object file from disk. The seek point of fd is not preserved.
+ * Returns NULL on error (check lto_get_error_message() for details).
+ */
+extern lto_module_t
+lto_module_create_from_fd(int fd, /*const*/ char* path, off_t size);
 
 /**
  * Frees all memory internally allocated by the module.
