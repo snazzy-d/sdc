@@ -118,6 +118,17 @@ This just me thinking outloud about what features I want, when.
 ---
 * extern (C++)
 
+
+Compiling SDC on Linux
+=======
+You'll need make and the latest DMD installed.
+Download the [Clang Binaries for Linux/x86](http://llvm.org/releases/download.html#2.9) copy every libLLVM*.a into a directory 'llvm' at the source directory's root.
+Make a directory named 'bin'.
+Run make.
+Copy bin/sdc into the root. Compile the runner using dmd, and run it to run the tests using SDC.
+
+You can build a 64 bit version of SDC using DMD, but it crashes when producing an error. It otherwise works, however.
+
 SDC with DMD/Windows
 =======
 (These instructions are from Jakob, so please don't contact me regarding them.)
