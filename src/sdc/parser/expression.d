@@ -5,7 +5,9 @@
  */
 module sdc.parser.expression;
 
+import std.array;
 import std.conv;
+import std.exception;
 import std.string;
 
 import sdc.util;
@@ -415,18 +417,14 @@ NewExpression parseNewExpression(TokenStream tstream)
         throw new CompilerError(tstream.peek.location - newExpr.location, "custom allocators are unsupported."); 
     }
     newExpr.type = parseType(tstream);
-    switch (tstream.peek.type) with (TokenType) {
-    case OpenParen:
+    
+    if (tstream.peek.type == TokenType.OpenParen) {
         newExpr.argumentList = parseArgumentList(tstream);
-        break;
-    case OpenBracket:
-        match(tstream, OpenBracket);
-        newExpr.assignExpression = parseAssignExpression(tstream);
-        match(tstream, CloseBracket);
-        break;
-    default:
-        break;
+    } else if (newExpr.type.suffixes.length > 0 && newExpr.type.suffixes[$ - 1].type == TypeSuffixType.StaticArray) {
+        newExpr.assignExpression = enforce(cast(AssignExpression) newExpr.type.suffixes[$ - 1].node);
+        newExpr.type.suffixes.popBack();
     }
+    
     return newExpr;
 }
 

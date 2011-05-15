@@ -364,7 +364,7 @@ TypeSuffix[] parseTypeSuffixes(TokenStream tstream, Placed placed)
                 suffix.node = parseType(tstream);
                 suffix.type = TypeSuffixType.AssociativeArray;
             } else {
-                suffix.node = parseExpression(tstream);
+                suffix.node = parseAssignExpression(tstream);
                 suffix.type = TypeSuffixType.StaticArray;
             }
             match(tstream, TokenType.CloseBracket);
