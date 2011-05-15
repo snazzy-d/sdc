@@ -356,16 +356,13 @@ TypeSuffix[] parseTypeSuffixes(TokenStream tstream, Placed placed)
         } else if (tstream.peek.type == TokenType.OpenBracket) {
             match(tstream, TokenType.OpenBracket);
             if (tstream.peek.type == TokenType.CloseBracket) {
-                suffix.type = TypeSuffixType.DynamicArray;
-            } else if (contains(PRIMITIVE_TYPES, tstream.peek.type) ||
-                       tstream.peek.type == TokenType.Identifier ||
-                       (tstream.peek.type == TokenType.Dot &&
-                        tstream.lookahead(1).type == TokenType.Identifier)) {
+                suffix.type = TypeSuffixType.Array;
+            } else if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
                 suffix.node = parseType(tstream);
-                suffix.type = TypeSuffixType.AssociativeArray;
+                suffix.type = TypeSuffixType.Array;
             } else {
                 suffix.node = parseAssignExpression(tstream);
-                suffix.type = TypeSuffixType.StaticArray;
+                suffix.type = TypeSuffixType.Array;
             }
             match(tstream, TokenType.CloseBracket);
         } else {

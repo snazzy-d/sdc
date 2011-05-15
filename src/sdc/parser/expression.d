@@ -420,9 +420,11 @@ NewExpression parseNewExpression(TokenStream tstream)
     
     if (tstream.peek.type == TokenType.OpenParen) {
         newExpr.argumentList = parseArgumentList(tstream);
-    } else if (newExpr.type.suffixes.length > 0 && newExpr.type.suffixes[$ - 1].type == TypeSuffixType.StaticArray) {
-        newExpr.assignExpression = enforce(cast(AssignExpression) newExpr.type.suffixes[$ - 1].node);
-        newExpr.type.suffixes.popBack();
+    } else if (newExpr.type.suffixes.length > 0 && newExpr.type.suffixes[$ - 1].type == TypeSuffixType.Array) {
+        if (newExpr.type.suffixes[$ - 1].node !is null && (cast(AssignExpression) newExpr.type.suffixes[$ - 1].node) !is null) {
+            newExpr.assignExpression = cast(AssignExpression) newExpr.type.suffixes[$ - 1].node;
+            newExpr.type.suffixes.popBack();
+        }
     }
     
     return newExpr;

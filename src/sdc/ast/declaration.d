@@ -123,9 +123,7 @@ class Type : Node
 enum TypeSuffixType
 {
     Pointer,
-    DynamicArray,
-    StaticArray,
-    AssociativeArray
+    Array,
 }
 
 class TypeSuffix : Node

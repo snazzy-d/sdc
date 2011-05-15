@@ -1349,7 +1349,7 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     foreach (suffix; retro(type.suffixes)) {
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
-        } else if (suffix.type == ast.TypeSuffixType.DynamicArray) {
+        } else if (suffix.type == ast.TypeSuffixType.Array) {
             t = new ArrayType(mod, t);
         } else {
             throw new CompilerPanic(type.location, "unimplemented type suffix.");
