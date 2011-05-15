@@ -1,4 +1,4 @@
-/*===-- IPO.h - Interprocedural Transformations C Interface -----*- C++ -*-===*\
+/*===-- IPO.h - Interprocedural Transformations C Interface -----*- D -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
