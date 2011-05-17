@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -387,6 +387,11 @@ class PragmaStatement : Node
 class MixinStatement : Node
 {
     AssignExpression expression;
+}
+
+class AsmStatement : Node
+{
+    Token[] tokens;
 }
 
 // TODO: asm foreachrange 

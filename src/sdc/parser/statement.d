@@ -75,6 +75,12 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Mixin) {
         statement.type = NonEmptyStatementType.MixinStatement;
         statement.node = parseMixinStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Asm) {
+        statement.type = NonEmptyStatementType.AsmStatement;
+        statement.node = parseAsmStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Throw) {
+        statement.type = NonEmptyStatementType.ThrowStatement;
+        statement.node = parseThrowStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -93,6 +99,17 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     }
     
     return statement;
+}
+
+ThrowStatement parseThrowStatement(TokenStream tstream)
+{
+    auto statement = new ThrowStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Throw);
+    statement.expression = parseExpression(tstream);
+    match(tstream, TokenType.Semicolon);
+    return statement; 
 }
 
 NoScopeNonEmptyStatement parseNoScopeNonEmptyStatement(TokenStream tstream)
@@ -281,5 +298,22 @@ MixinStatement parseMixinStatement(TokenStream tstream)
     statement.expression = parseAssignExpression(tstream);
     match(tstream, TokenType.CloseParen);
     match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+AsmStatement parseAsmStatement(TokenStream tstream)
+{
+    auto statement = new AsmStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Asm);
+    match(tstream, TokenType.OpenBrace);
+    while (tstream.peek.type != TokenType.CloseBrace) {
+        if (tstream.peek.type == TokenType.End) {
+            throw new CompilerError(tstream.peek.location, "unexpected EOF in asm statement.");
+        }
+        statement.tokens~=tstream.getToken();
+    }
+    match(tstream, TokenType.CloseBrace);
     return statement;
 }
