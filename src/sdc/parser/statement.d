@@ -81,6 +81,9 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Throw) {
         statement.type = NonEmptyStatementType.ThrowStatement;
         statement.node = parseThrowStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Try) {
+        statement.type = NonEmptyStatementType.TryStatement;
+        statement.node = parseTryStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -98,6 +101,18 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
         statement.node = parseExpressionStatement(tstream);
     }
     
+    return statement;
+}
+
+TryStatement parseTryStatement(TokenStream tstream)
+{
+    auto statement = new TryStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Try);
+    statement.statement = parseScopeStatement(tstream);
+    match(tstream, TokenType.Catch);
+    statement.catchStatement = parseNoScopeNonEmptyStatement(tstream);
     return statement;
 }
 

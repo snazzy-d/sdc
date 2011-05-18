@@ -129,6 +129,12 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.MixinStatement:
         genMixinStatement(cast(ast.MixinStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.ThrowStatement:
+        genThrowStatement(cast(ast.ThrowStatement) statement.node, mod);
+        break;
+    case ast.NonEmptyStatementType.TryStatement:
+        genTryStatement(cast(ast.TryStatement) statement.node, mod);
+        break;
     }
 }
 
@@ -298,6 +304,33 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
     
     val = implicitCast(val.location, val, t);
     LLVMBuildRet(mod.builder, val.get());
+}
+
+void genTryStatement(ast.TryStatement statement, Module mod)
+{
+    auto catchBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "catch");
+    auto outBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "out");
+    mod.exceptionTargetsStack ~= ExceptionTargets(outBB, catchBB);
+
+    genScopeStatement(statement.statement, mod);
+    mod.exceptionTargetsStack = mod.exceptionTargetsStack[0 .. $ - 1];
+    LLVMBuildBr(mod.builder, outBB);
+    
+    LLVMPositionBuilderAtEnd(mod.builder, catchBB);
+    genNoScopeNonEmptyStatement(statement.catchStatement, mod);
+    LLVMBuildBr(mod.builder, outBB);
+    
+    LLVMPositionBuilderAtEnd(mod.builder, outBB);
+}
+
+void genThrowStatement(ast.ThrowStatement statement, Module mod)
+{
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    auto expression = genExpression(statement.expression, mod);
+    if (expression.type.dtype != DType.Class) {
+        throw new CompilerError(expression.location, "can only throw class instances.");
+    }
+    LLVMBuildUnwind(mod.builder);
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)

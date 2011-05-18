@@ -330,6 +330,9 @@ class SynchronizedStatement : Node
 class TryStatement : Node
 {
     ScopeStatement statement;
+    //Catches catches;  // Optional
+    //FinallyStatement finallyStatement;
+    NoScopeNonEmptyStatement catchStatement;  // TMP
 }
 
 class Catches : Node

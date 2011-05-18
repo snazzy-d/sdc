@@ -32,6 +32,7 @@ import core.runtime;
 
 import llvm.Ext;
 import llvm.c.Core;
+import llvm.c.Initialization;
 
 import sdc.util;
 import sdc.source;
@@ -56,8 +57,13 @@ Throwable.TraceInfo nullTraceHandler()
     return null;
 }
 
+extern (C) void _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(LLVMPassRegistryRef);
+
 int main(string[] args)
 {
+    auto passRegistry = LLVMGetGlobalPassRegistry();
+    _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(passRegistry);  // TMP !!!
+    LLVMInitializeCodeGen(passRegistry);
     //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);

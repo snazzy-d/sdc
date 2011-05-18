@@ -240,7 +240,14 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
-    auto v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");
+    LLVMValueRef v;
+    if (mod.exceptionTargetsStack.length == 0) {
+        v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");
+    } else {
+        auto thenB  = mod.exceptionTargetsStack[$ - 1].thenBlock;
+        auto catchB = mod.exceptionTargetsStack[$ - 1].catchBlock;
+        v = LLVMBuildInvoke(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, thenB, catchB, "");
+    }
     Value val;
     if (type.returnType.dtype != DType.Void) {
         val = type.returnType.getValue(mod, callLocation);

@@ -50,6 +50,7 @@ class Module
     ast.Access currentAccess = ast.Access.Public;
 
     bool inferringFunction;  // OH GOD
+    ExceptionTargets[] exceptionTargetsStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;
     Scope typeScope;  // Boooooooooo
@@ -378,6 +379,12 @@ class Module
     protected bool[string] mTestedVersionIdentifiers;
     protected bool[string] mDebugIdentifiers;
     protected bool[string] mTestedDebugIdentifiers;
+}
+
+struct ExceptionTargets
+{
+    LLVMBasicBlockRef thenBlock;
+    LLVMBasicBlockRef catchBlock;
 }
 
 struct LookupFailure
