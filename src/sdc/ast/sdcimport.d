@@ -8,11 +8,19 @@ module sdc.ast.sdcimport;
 import sdc.ast.base;
 
 
-// static? import importList ;
+// static? import (\(Identifier\) stringliterallist | importList);
 class ImportDeclaration : Node
 {
     bool isStatic;
-    ImportList importList;
+    ImportList importList;  // Not if the below exist.
+    Language language = Language.D;  // Optional.
+    StringLiteral[] languageImports;  // Optional.
+}
+
+enum Language
+{
+    D,
+    Java,
 }
 
 enum ImportListType

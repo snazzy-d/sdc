@@ -55,6 +55,9 @@ ast.ImportDeclaration synthesiseImport(string modname)
 
 void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
+    if (importDeclaration.language != ast.Language.D) {
+        throw new CompilerPanic(importDeclaration.location, "import (Java) is unimplemented.");
+    }
     return genImportList(importDeclaration.location, importDeclaration.importList, mod);
 }
 
