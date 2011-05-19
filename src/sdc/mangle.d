@@ -193,6 +193,9 @@ void mangleType(ref string mangledName, Type type)
     case Const:
         mangledName ~= "x";
         break;
+    case Immutable:
+        mangledName ~= "y";
+        break;
     case Function:
         auto asFunction = cast(FunctionTypeWrapper) type;
         assert(asFunction);

@@ -47,6 +47,7 @@ enum DType
     NullPointer,
     Array,
     Const,
+    Immutable,
     Complex,
     Struct,
     Enum,
@@ -101,6 +102,7 @@ Type dtypeToType(DType dtype, Module mod)
     case Enum:
     case Class:
     case Const:
+    case Immutable:
     case Scope:
     case Function:
         break;
@@ -559,6 +561,31 @@ class ConstType : Type
     }
     
     override string name() { return "const(" ~ base.name() ~ ")"; }
+}
+
+class ImmutableType : Type
+{
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        dtype = DType.Immutable;
+        this.base = base;
+        mType = base.mType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ImmutableValue(mod, location, base.getValue(mod, location));
+    }
+    
+    override Type getBase()
+    {
+        return base;
+    }
+    
+    override string name() { return "immutable(" ~ base.name() ~ ")"; }
 }
 
 struct Field

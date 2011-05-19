@@ -1000,6 +1000,7 @@ class ClassValue : Value
     
     override LLVMValueRef get()
     {
+        dbga;
         return v.get();
     }
     
@@ -1050,6 +1051,11 @@ class ClassValue : Value
             return fptr.performCast(location, fntype);
         }
         return v.getMember(location, name);
+    }
+    
+    override Value getSizeof(Location location)
+    {
+        return v.getSizeof(location);
     }
 }
 
@@ -1109,8 +1115,76 @@ class ConstValue : Value
     {
         return base.importToModule(mod);
     }
+    
+    override Value getSizeof(Location loc)
+    {
+        return base.getSizeof(loc);
+    }
 }
-
+class ImmutableValue : Value
+{
+    Value base;
+    
+    this(Module mod, Location location, Value base)
+    {
+        //assert(false);
+        super(mod, location);
+        this.base = base;
+        mType = new ConstType(mod, base.type);
+        mValue = base.mValue;
+    }
+    
+    override Value getInit(Location location)
+    {
+        return base.getInit(location);
+    }
+        
+    override void set(Location location, Value val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void set(Location location, LLVMValueRef val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void initialise(Location location, Value val)
+    {
+        base.initialise(location, val);
+    }
+    
+    override void initialise(Location location, LLVMValueRef val)
+    {
+        base.initialise(location, val);
+    }
+    
+    override Value performCast(Location location, Type t)
+    {
+        return base.performCast(location, t);
+    }
+    
+    override LLVMValueRef get()
+    {
+        dbgb;
+        return base.get();
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        return new ImmutableValue(mModule, location, base.getMember(location, name));
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        return base.importToModule(mod);
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        return base.getSizeof(loc);
+    }
+}
 class NullPointerValue : PointerValue
 {
     this(Module mod, Location location)
@@ -1331,6 +1405,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         break;
     case ast.TypeType.ConstType:
         t = new ConstType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
+        break;
+    case ast.TypeType.ImmutableType:
+        t = new ImmutableType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
         break;
     case ast.TypeType.Typeof:
         t = genTypeof(cast(ast.TypeofType) type.node, mod);
@@ -1581,6 +1658,8 @@ Value implicitCast(Location location, Value v, Type toType)
         return v;  // TMP
     case DType.Const:
         return new ConstValue(v.getModule(), location, v);
+    case DType.Immutable:
+        return new ImmutableValue(v.getModule(), location, v);
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
@@ -1625,13 +1704,23 @@ bool canImplicitCast(Location location, Type from, Type to)
         }
         auto asConst = enforce(cast(ConstType) from);
         return canImplicitCast(location, asConst.base, to) && !hasMutableIndirection(to);
+    case Immutable:
+        if (to.isRef) {
+            throw new CompilerError(location, "cannot pass a immutable value as a ref parameter.");
+        }
+        auto asImmutable = enforce(cast(ImmutableType) from);
+        return canImplicitCast(location, asImmutable.base, to) && !hasMutableIndirection(to);
     default:
         return false;
     }
 }
 
+// incomplete
 bool hasMutableIndirection(Type t)
 {
+    if (t.dtype == DType.Class || t.dtype == DType.Array || t.dtype == DType.Pointer) {
+        return true;
+    }
     return false;
 }
 

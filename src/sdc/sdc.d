@@ -171,6 +171,7 @@ void realmain(string[] args)
         }
         gModule = genModule(aModule, translationUnit);
         gModule.verify();
+        verbosePrint(format("Module '%s' passes verification.", gModule.mod));
     }
     
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
