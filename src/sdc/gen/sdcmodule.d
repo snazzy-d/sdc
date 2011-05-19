@@ -109,7 +109,7 @@ class Module
     
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        auto cmd = format(`llc -march=%s -o "%s" "%s"`, arch, toFilename, fromFilename);
+        auto cmd = format(`llc %s -march=%s -o "%s" "%s"`, PIC ? "--relocation-model=pic" : "", arch, toFilename, fromFilename);
         verbosePrint(cmd);
         system(cmd);
     }

@@ -59,6 +59,7 @@ bool isDebug = true;
 bool unittestsEnabled = false;
 bool coloursEnabled = true;
 bool verboseCompile = false;
+bool PIC = false;
 int bits;
 string[] importPaths;
 string confLocation;  // For verbose compiles

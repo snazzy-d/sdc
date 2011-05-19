@@ -114,6 +114,7 @@ void realmain(string[] args)
                "o", &outputName,
                "V", { verboseCompile = true; },
                "save-temps", &saveTemps,
+               "pic", &PIC,
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -256,6 +257,7 @@ void usage()
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
     writeln("  --m32:                 synonym for '--arch=x86'.");
     writeln("  --m64:                 synonym for '--arch=x86-64'.");
+    writeln("  --pic:                 generate position independent code.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
