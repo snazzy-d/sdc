@@ -25,6 +25,7 @@ import sdc.gen.statement;
 import sdc.gen.expression;
 import sdc.gen.sdcfunction;
 import sdc.parser.declaration;
+import sdc.java.mangle;
 
 
 bool canGenDeclaration(ast.Declaration decl, Module mod)
@@ -129,7 +130,13 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     
     auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs, decl);
     auto fn = new Function(fntype);
-    fn.simpleName = extractIdentifier(decl.name);
+    if (decl.name.identifiers.length == 1) {
+        fn.simpleName = extractQualifiedName(decl.name);
+    } else {
+        // implementing java native function
+        fn.simpleName = javaMangle(decl.name);
+        fntype.linkage = ast.Linkage.ExternC; 
+    }
     fn.argumentNames = names;
     auto store = new Store(fn, decl.name.location);
     
@@ -249,7 +256,12 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     }
     
     // First, we find the previously stored function information.
-    auto name = extractIdentifier(decl.name);
+    string name;
+    if (decl.name.identifiers.length == 1) {
+        name = extractQualifiedName(decl.name);
+    } else {
+        name = javaMangle(decl.name);
+    }
     verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
     Store store = null; 
     if (declDef.parentType !is null) {

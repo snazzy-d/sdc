@@ -55,7 +55,7 @@ class ParameterList : Node
 class FunctionDeclaration : Node
 {
     Type retval;
-    Identifier name;
+    QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
 }

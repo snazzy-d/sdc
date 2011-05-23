@@ -175,8 +175,8 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     } else {
         declaration.retval = parseType(tstream);
     }
-    declaration.name = parseIdentifier(tstream);
-    verbosePrint("Parsing function '" ~ extractIdentifier(declaration.name) ~ "'.", VerbosePrintColour.Green);
+    declaration.name = parseQualifiedName(tstream);
+    verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration
     if(tstream.peek.type != TokenType.OpenParen) {

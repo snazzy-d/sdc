@@ -97,9 +97,10 @@ DeclarationDefinition parseConstructor(TokenStream tstream, string name)
     udefinedType.segments[0].isIdentifier = true;
     udefinedType.segments[0].node = ident;
     fdecl.retval.node = udefinedType;
-    fdecl.name = new Identifier();
+    fdecl.name = new QualifiedName();
     fdecl.name.location = tstream.peek.location;
-    fdecl.name.value = "__ctor";
+    fdecl.name.identifiers ~= new Identifier();
+    fdecl.name.identifiers[0].value = "__ctor";
     match(tstream, TokenType.This);
     fdecl.parameterList = parseParameters(tstream);
     fdecl.functionBody = parseFunctionBody(tstream);
