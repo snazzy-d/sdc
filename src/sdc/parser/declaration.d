@@ -127,16 +127,18 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     declarator.location = tstream.peek.location;
     declarator.name = parseIdentifier(tstream);
     
-    auto suffixes = parseTypeSuffixes(tstream, Placed.Insanely);
     if (tstream.peek.type == TokenType.Assign) {
         declarator.initialiser = parseInitialiser(tstream);
         declarator.location = declarator.initialiser.location - declarator.location;
     }
     declaration.declarators ~= declarator;
-    if (suffixes.length > 0 && tstream.peek.type != TokenType.Semicolon) {
-        throw new CompilerError(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix.");
+    
+    if (tstream.peek.type == TokenType.OpenBracket) {
+        throw new CompilerError(tstream.peek.location, "C style type suffixes are (and will remain) unsupported.",
+            new CompilerError("C style type suffixes: not even once.")
+        );
     }
-    declaration.type.suffixes ~= suffixes;
+
     if (!noSemicolon) {
         while (tstream.peek.type != TokenType.Semicolon) {
             // If there is no comma here, assume the user is missing a semicolon
@@ -316,20 +318,20 @@ Type parseType(TokenStream tstream)
     }
     
 PARSE_SUFFIXES:
-    type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+    type.suffixes = parseTypeSuffixes(tstream);
 
     if (tstream.peek.type == TokenType.Function) {
         auto initialType = type;
         type = new Type();
         type.type = TypeType.FunctionPointer;
         type.node = parseFunctionPointerType(tstream, initialType);
-        type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+        type.suffixes = parseTypeSuffixes(tstream);
     } else if (tstream.peek.type == TokenType.Delegate) {
         auto initialType = type;
         type = new Type();
         type.type = TypeType.Delegate;
         type.node = parseDelegateType(tstream, type);
-        type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+        type.suffixes = parseTypeSuffixes(tstream);
     }
     
     return type;
@@ -344,17 +346,14 @@ Type parseInferredType(TokenStream tstream)
     return type;
 }
 
-enum Placed { Sanely, Insanely }
-TypeSuffix[] parseTypeSuffixes(TokenStream tstream, Placed placed)
+TypeSuffix[] parseTypeSuffixes(TokenStream tstream)
 {
-    auto SUFFIX_STARTS = placed == Placed.Sanely ?
-                         [TokenType.Asterix, TokenType.OpenBracket] :
-                         [TokenType.OpenBracket];
+    auto SUFFIX_STARTS = [TokenType.Asterix, TokenType.OpenBracket];
         
     TypeSuffix[] suffixes;
     while (contains(SUFFIX_STARTS, tstream.peek.type)) {
         auto suffix = new TypeSuffix();
-        if (placed == Placed.Sanely && tstream.peek.type == TokenType.Asterix) {
+        if (tstream.peek.type == TokenType.Asterix) {
             match(tstream, TokenType.Asterix);
             suffix.type = TypeSuffixType.Pointer;
         } else if (tstream.peek.type == TokenType.OpenBracket) {
