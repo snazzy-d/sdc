@@ -4,10 +4,6 @@ extern (C):
 import core.vararg;
 
 
-/*
- * JNI Types
- */
-
 alias int jint;
 alias long jlong;
 alias byte jbyte;
@@ -53,7 +49,6 @@ alias _jfieldID *jfieldID;
 struct _jmethodID;
 alias _jmethodID *jmethodID;
 
-/* Return values from jobjectRefType */
 enum jobjectRefType {
      JNIInvalidRefType    = 0,
      JNILocalRefType      = 1,
@@ -61,17 +56,8 @@ enum jobjectRefType {
      JNIWeakGlobalRefType = 3 
 }
 
-
-/*
- * jboolean constants
- */
-
 enum JNI_FALSE = 0;
 enum JNI_TRUE = 1;
-
-/*
- * possible return values for JNI functions.
- */
 
 enum 
 {
@@ -84,17 +70,8 @@ enum
     JNI_EINVAL = -6,
 }
 
-/*
- * used in ReleaseScalarArrayElements
- */
-
 enum JNI_COMMIT = 1;
 enum JNI_ABORT = 2;
-
-/*
- * used in RegisterNatives to describe native method name, signature,
- * and function pointer.
- */
 
 struct JNINativeMethod {
     char *name;
@@ -447,22 +424,8 @@ struct JNINativeInterface_ {
     void* function(JNIEnv* env, jobject buf) GetDirectBufferAddress;
     jlong function(JNIEnv* env, jobject buf) GetDirectBufferCapacity;
 
-    /* New JNI 1.6 Features */
-
     jobjectRefType function(JNIEnv* env, jobject obj) GetObjectRefType;
 }
-
-/*
- * We use inlined functions for C++ so that programmers can write:
- *
- *    env.FindClass("java/lang/String")
- *
- * in C++ rather than:
- *
- *    (*env).FindClass(env, "java/lang/String")
- *
- * in C.
- */
 
 struct JNIEnv_ {
     JNINativeInterface_* functions;
@@ -502,11 +465,11 @@ struct JNIInvokeInterface_ {
     jint function(JavaVM *vm, void **penv, jint _version) GetEnv;
 
     jint function(JavaVM *vm, void **penv, void *args) AttachCurrentThreadAsDaemon;
-};
+}
 
 struct JavaVM_ {
     JNIInvokeInterface_* functions;
-};
+}
 
 jint 
 JNI_GetDefaultJavaVMInitArgs(void *args);
@@ -517,7 +480,6 @@ JNI_CreateJavaVM(JavaVM **pvm, void **penv, void *args);
 jint 
 JNI_GetCreatedJavaVMs(JavaVM **, jsize, jsize *);
 
-/* Defined by native libraries. */
 jint JNI_OnLoad(JavaVM *vm, void *reserved);
 
 void JNI_OnUnload(JavaVM *vm, void *reserved);
