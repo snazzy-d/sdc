@@ -311,23 +311,27 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     }
     
-    if (tstream.peek.type == TokenType.Function) {
-        auto initialType = type;
-        type = new Type();
-        type.type = TypeType.FunctionPointer;
-        type.node = parseFunctionPointerType(tstream, initialType);
-    } else if (tstream.peek.type == TokenType.Delegate) {
-        auto initialType = type;
-        type = new Type();
-        type.type = TypeType.Delegate;
-        type.node = parseDelegateType(tstream, type);
-    } else if (tstream.peek.type == TokenType.OpenParen &&
-               tstream.lookahead(1).type == TokenType.Asterix) {
+    if (tstream.peek.type == TokenType.OpenParen && tstream.lookahead(1).type == TokenType.Asterix) {
         throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
     }
     
 PARSE_SUFFIXES:
     type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+
+    if (tstream.peek.type == TokenType.Function) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.FunctionPointer;
+        type.node = parseFunctionPointerType(tstream, initialType);
+        type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+    } else if (tstream.peek.type == TokenType.Delegate) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.Delegate;
+        type.node = parseDelegateType(tstream, type);
+        type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+    }
+    
     return type;
 }
 

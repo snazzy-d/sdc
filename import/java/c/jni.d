@@ -450,7 +450,7 @@ struct JNINativeInterface_ {
     /* New JNI 1.6 Features */
 
     jobjectRefType function(JNIEnv* env, jobject obj) GetObjectRefType;
-};
+}
 
 /*
  * We use inlined functions for C++ so that programmers can write:
@@ -466,7 +466,7 @@ struct JNINativeInterface_ {
 
 struct JNIEnv_ {
     JNINativeInterface_* functions;
-};
+}
 
 struct JavaVMOption {
     char *optionString;
