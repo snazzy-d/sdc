@@ -11,6 +11,7 @@ module sdc.global;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.file;
 import std.json;
 import std.path;
@@ -169,6 +170,7 @@ void globalInit(string arch)
     case "arm":
         specifyAndReserve("LittleEndian");  // TODO: bi-endian archs
         bits = 32;
+        break;
     default:
         throw new CompilerError("Unknown arch string '" ~ arch ~ "'.");
     }
