@@ -14,6 +14,7 @@ import sdc.tokenstream;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.ast.attribute;
+import sdc.ast.declaration;
 
 
 AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
@@ -135,9 +136,12 @@ Attribute parseAttribute(TokenStream tstream)
 }
 
 
-bool startsLikeAttribute(TokenType type)
+bool startsLikeAttribute(TokenStream tstream)
 {
-    return contains(ATTRIBUTE_KEYWORDS, type) || type == TokenType.At;
+    if (contains(PAREN_TYPES, tstream.peek.type) && tstream.lookahead(1).type == TokenType.OpenParen) {
+        return false;
+    }
+    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
 }
 
 
