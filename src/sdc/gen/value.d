@@ -1062,6 +1062,11 @@ class ClassValue : Value
     }
 }
 
+mixin template BinaryReferenceWrapperImplementation(alias NAME)
+{
+    mixin("override Value " ~ NAME ~ "(Location loc, Value val) { return new typeof(this)(mModule, loc, base." ~ NAME ~ "(loc, val)); }");
+}
+
 class ConstValue : Value
 {
     Value base;
@@ -1128,6 +1133,9 @@ class ConstValue : Value
     {
         return base.isKnown;
     }
+    
+    mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
+                      "eq", "neq", "gt", "lt", "lte", "index");
 }
 class ImmutableValue : Value
 {
@@ -1174,7 +1182,6 @@ class ImmutableValue : Value
     
     override LLVMValueRef get()
     {
-        dbgb;
         return base.get();
     }
     
@@ -1197,6 +1204,9 @@ class ImmutableValue : Value
     {
         return base.isKnown;
     }
+    
+    mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
+                      "eq", "neq", "gt", "lt", "lte", "index");
 }
 class NullPointerValue : PointerValue
 {
