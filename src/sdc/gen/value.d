@@ -133,6 +133,7 @@ abstract class Value
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
+    Value mod(Location loc, Value val) { fail(loc, "modulo"); assert(false); }
         
         
     Value logicalOr(Location location, Value val)
@@ -441,6 +442,22 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         v.isKnown = this.isKnown && val.isKnown;
         if (v.isKnown) {
             mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " / val." ~ C ~ ");");
+        }
+        return v;
+    }
+    
+    override Value mod(Location location, Value val)
+    {
+        static if (SIGNED) {
+            auto result = LLVMBuildSRem(mModule.builder, this.get(), val.get(), "mod");
+        } else {
+            auto result = LLVMBuildURem(mModule.builder, this.get(), val.get(), "mod");
+        }
+        auto v = new typeof(this)(mModule, location);
+        v.initialise(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " % val." ~ C ~ ");");
         }
         return v;
     }
@@ -970,7 +987,7 @@ class ReferenceValue : Value
     mixin MultiMixin!(UnaryReferenceImplementation, "inc", "dec", "dereference", 
                       "getSizeof", "getInit");
     mixin MultiMixin!(BinaryReferenceImplementation, "add", "sub", "mul", "div", 
-                      "eq", "neq", "gt", "lt", "lte", "index");
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
     
     override Value getMember(Location loc, string name)
     {
@@ -1135,7 +1152,7 @@ class ConstValue : Value
     }
     
     mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
-                      "eq", "neq", "gt", "lt", "lte", "index");
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
 }
 class ImmutableValue : Value
 {
@@ -1206,7 +1223,7 @@ class ImmutableValue : Value
     }
     
     mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
-                      "eq", "neq", "gt", "lt", "lte", "index");
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
 }
 class NullPointerValue : PointerValue
 {
