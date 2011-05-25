@@ -49,7 +49,9 @@ abstract class Value
         mGlobal = mod.currentScope is mod.globalScope;
     }
     
-    bool isKnown = false;
+    @property bool isKnown() { return mIsKnown; }
+    @property void isKnown(bool b) { mIsKnown = b; }
+    
     union
     {
         bool knownBool;
@@ -226,6 +228,7 @@ abstract class Value
     protected bool mGlobal;
     protected void delegate(Value val)[] mSetPreCallbacks;
     protected void delegate(Value val)[] mSetPostCallbacks;
+    protected bool mIsKnown = false;
 }
 
 mixin template SimpleImportToModule()
@@ -355,7 +358,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
             lvalue = islvalue;
         } else {
             if (!val.isKnown) {
-                throw new CompilerError(location, "non-isKnown global initialiser.");
+                throw new CompilerError(val.location, "value is not known at compile time.");
             }
             initialise(location, LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
         }
@@ -1120,6 +1123,11 @@ class ConstValue : Value
     {
         return base.getSizeof(loc);
     }
+    
+    override bool isKnown()
+    {
+        return base.isKnown;
+    }
 }
 class ImmutableValue : Value
 {
@@ -1183,6 +1191,11 @@ class ImmutableValue : Value
     override Value getSizeof(Location loc)
     {
         return base.getSizeof(loc);
+    }
+    
+    override bool isKnown()
+    {
+        return base.isKnown;
     }
 }
 class NullPointerValue : PointerValue
