@@ -1,11 +1,13 @@
 GDC=gdc
-DFLAGS=-g -Wall -Werror -funittest -I./import -Isrc
-SOURCE=$(wildcard src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d)
+DFLAGS=-g -Wall -Werror -funittest -I./import -Isrc -m32
+SOURCE=$(wildcard src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d src/sdc/java/*.d)
 OBJS=$(SOURCE:.d=.o)
 EXE=sdc
+LLVMDIR=llvm
 
+LIBLLVM=$(LLVMDIR)/*.a
 sdc: $(OBJS)
-	$(GDC) $(OBJS) -lLLVM-2.8 -o $(EXE)
+	$(GDC) $(OBJS) -lstdc++ -ldl ${LIBLLVM} -m32 -o $(EXE)
 
 %.o: %.d $(SOURCE)
 	$(GDC) $(DFLAGS) -c $< -o $@
