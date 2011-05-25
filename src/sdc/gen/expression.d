@@ -263,8 +263,8 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
             val = lhs.div(expression.location, val);
             break;
         case ast.MulOperation.Mod:
-            throw new CompilerPanic(expression.location, "unimplemented mul operation.");
-            assert(false);
+            val = lhs.mod(expression.location, val);
+            break;
         }
     } else {
         val = genPowExpression(expression.powExpression, mod);
