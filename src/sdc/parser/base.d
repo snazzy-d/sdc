@@ -69,7 +69,7 @@ Module parseModule(TokenStream tstream)
 /// Parses an attribute, if there is one, then parses a regular top level block.
 DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
 {
-    bool parsingAttribute = startsLikeAttribute(tstream.peek.type);
+    bool parsingAttribute = startsLikeAttribute(tstream);
     Attribute attribute;
     string name;
     if (parsingAttribute) {

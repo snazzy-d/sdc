@@ -56,7 +56,7 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
     bool looping = tstream.peek.type == TokenType.OpenBrace;
     if (looping) match(tstream, TokenType.OpenBrace);
     do {
-        if (startsLikeAttribute(tstream.peek.type)) {
+        if (startsLikeAttribute(tstream)) {
             decl.thenBlock ~= parseAttributeBlock(tstream);
         } else {
             decl.thenBlock ~= parseDeclarationDefinition(tstream);
@@ -73,7 +73,7 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
         looping = tstream.peek.type == TokenType.OpenBrace;
         if (looping) match(tstream, TokenType.OpenBrace);
         do {
-            if (startsLikeAttribute(tstream.peek.type)) {
+            if (startsLikeAttribute(tstream)) {
                 decl.elseBlock ~= parseAttributeBlock(tstream);
             } else {
                 decl.elseBlock ~= parseDeclarationDefinition(tstream);
