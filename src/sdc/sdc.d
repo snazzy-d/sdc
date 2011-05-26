@@ -96,8 +96,7 @@ void realmain(string[] args)
     }
     
     loadConfig(args);
-    auto argsCopy = args.idup;
-    string[] arches;
+    auto argsCopy = args.dup;
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
@@ -112,9 +111,9 @@ void realmain(string[] args)
                "I", (string, string path){ importPaths ~= path; },
                "optimise", &optimise,
                "gcc", &gcc,
-               "arch", (string, string arg) { arches ~= arg; },
-               "m64", { arches ~= "x86-64"; },
-               "m32", { arches ~= "x86"; },
+               "arch", (string, string arg) { arch = arg; },
+               "m64", { arch = "x86-64"; },
+               "m32", { arch = "x86"; },
                "c", &skipLink,
                "o", &outputName,
                "V", { verboseCompile = true; },
@@ -124,28 +123,7 @@ void realmain(string[] args)
     } catch (Exception e) {
         throw new CompilerError(e.msg);
     }
-    string archfilter(string s) 
-    {
-        if (s == "--m32") {
-            return "x86";
-        } else if (s == "--m64") {
-            return "x86-64";
-        }
-        foreach (m; match(s, regex("--arch="))) {
-            return m.post;
-        }
-        return "?";
-    }
-    if (arches.length > 1) {
-        auto translatedArgs   = map!archfilter(argsCopy);
-        foreach (arg; retro(translatedArgs)) {
-            if (arg == "?") continue;
-            arch = arg;
-            break;
-        }
-    } else if (arches.length == 1) {
-        arch = arches[0];
-    }
+    writeln(arch);
     globalInit(arch);
     
     if (args.length == 1) {
