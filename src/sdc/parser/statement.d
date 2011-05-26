@@ -84,6 +84,12 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Try) {
         statement.type = NonEmptyStatementType.TryStatement;
         statement.node = parseTryStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Goto) {
+        statement.type = NonEmptyStatementType.GotoStatement;
+        statement.node = parseGotoStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
+        statement.type = NonEmptyStatementType.LabeledStatement;
+        statement.node = parseLabeledStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = NonEmptyStatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -101,6 +107,46 @@ NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
         statement.node = parseExpressionStatement(tstream);
     }
     
+    return statement;
+}
+
+GotoStatement parseGotoStatement(TokenStream tstream)
+{
+    auto statement = new GotoStatement();
+    auto startLocation = tstream.peek.location;
+    
+    match(tstream, TokenType.Goto);
+    switch (tstream.peek.type) {
+    case TokenType.Identifier:
+        statement.type = GotoStatementType.Identifier;
+        statement.identifier = parseIdentifier(tstream);
+        break;
+    case TokenType.Default:
+        statement.type = GotoStatementType.Default;
+        match(tstream, TokenType.Default);
+        break;
+    case TokenType.Case:
+        statement.type = GotoStatementType.Case;
+        if (tstream.peek.type != TokenType.Semicolon) {
+            statement.expression = parseExpression(tstream);
+        }
+        break;
+    default:
+        throw new CompilerError(tstream.peek.location, "expected identifier, case, or default.");
+    }
+    statement.location = tstream.peek.location - startLocation;
+    match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+LabeledStatement parseLabeledStatement(TokenStream tstream)
+{
+    auto statement = new LabeledStatement();
+    statement.location = tstream.lookahead(1).location - tstream.peek.location;
+    
+    statement.identifier = parseIdentifier(tstream);
+    match(tstream, TokenType.Colon);
+    statement.statement = parseNoScopeStatement(tstream);
     return statement;
 }
 

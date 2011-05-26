@@ -7,6 +7,7 @@ module sdc.gen.statement;
 
 import std.conv;
 import std.exception;
+import std.string;
 import core.runtime;
 
 import llvm.c.Core;
@@ -27,6 +28,7 @@ import sdc.gen.expression;
 import sdc.gen.value;
 import sdc.gen.type;
 import sdc.gen.sdcpragma;
+import sdc.gen.sdcfunction;
 import sdc.parser.declaration;
 import sdc.parser.expression;
 import sdc.parser.statement;
@@ -98,7 +100,7 @@ void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
 
 void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
 {
-    if (!mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
+    if (!mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         throw new CompilerError(statement.location, "statement is unreachable.");
     }
     switch (statement.type) {
@@ -135,7 +137,55 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     case ast.NonEmptyStatementType.TryStatement:
         genTryStatement(cast(ast.TryStatement) statement.node, mod);
         break;
+    case ast.NonEmptyStatementType.LabeledStatement:
+        genLabeledStatement(cast(ast.LabeledStatement) statement.node, mod);
+        break;
+    case ast.NonEmptyStatementType.GotoStatement:
+        genGotoStatement(cast(ast.GotoStatement) statement.node, mod);
+        break;
     }
+}
+
+void genGotoStatement(ast.GotoStatement statement, Module mod)
+{
+    auto parent = mod.currentFunction.cfgTail;
+    parent.fallsThrough = false;
+    final switch (statement.type) {
+    case ast.GotoStatementType.Identifier:
+        auto name = extractIdentifier(statement.identifier);
+        auto p = name in mod.currentFunction.labels;
+        if (p is null) {
+            throw new CompilerError(statement.identifier.location, format("undefined label '%s'.", name));
+        }
+        parent.children ~= p.block;
+        LLVMBuildBr(mod.builder, p.bb);
+        break;
+    case ast.GotoStatementType.Case:
+        throw new CompilerPanic(statement.location, "goto case is unimplemented.");
+    case ast.GotoStatementType.Default:
+        throw new CompilerPanic(statement.location, "goto default is unimplemented.");
+    }
+}
+
+void genLabeledStatement(ast.LabeledStatement statement, Module mod)
+{
+    auto block = new BasicBlock();
+    auto parent = mod.currentFunction.cfgTail;
+    parent.children ~= block;
+    mod.currentFunction.cfgTail = block;
+    
+    auto name = extractIdentifier(statement.identifier);
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
+    LLVMBuildBr(mod.builder, bb);
+    if (auto p = name in mod.currentFunction.labels) {
+        throw new CompilerError(statement.location, "redefinition of label '" ~ name ~ "'.",
+            new CompilerError(p.location, "first defined here.")
+        );
+    }
+    mod.currentFunction.labels[name] = Label(statement.location, block, bb);
+    
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
+    genNoScopeStatement(statement.statement, mod);
 }
 
 void genMixinStatement(ast.MixinStatement statement, Module mod)
@@ -178,7 +228,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.currentFunction.cfgTail = ifblock;
     genThenStatement(statement.thenStatement, mod);
     
-    if (!mod.currentFunction.cfgTail.isExitBlock) {
+    if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, endifBB);
     }
     mod.popScope();
@@ -192,7 +242,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
                 
         mod.currentFunction.cfgTail = elseblock;
         genElseStatement(statement.elseStatement, mod);
-        if (!mod.currentFunction.cfgTail.isExitBlock) {
+        if (mod.currentFunction.cfgTail.fallsThrough) {
             LLVMBuildBr(mod.builder, endifBB);
         }
         if (elseblock.children.length == 0) {
@@ -263,7 +313,7 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = looptop;
     genScopeStatement(statement.statement, mod);
-    if (!mod.currentFunction.cfgTail.isExitBlock) {
+    if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, looptopBB);
     }
             

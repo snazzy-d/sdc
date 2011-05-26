@@ -123,7 +123,6 @@ void realmain(string[] args)
     } catch (Exception e) {
         throw new CompilerError(e.msg);
     }
-    writeln(arch);
     globalInit(arch);
     
     if (args.length == 1) {

@@ -20,11 +20,21 @@ class BasicBlock
     bool isExitBlock = false;  /// e.g. return, throw, assert(false), etc.
     BasicBlock[] children;     /// Possible paths of control flow.
     
+    @property bool fallsThrough() {
+        if (isExitBlock) return false;
+        return mFallThrough;
+    }
+    
+    @property void fallsThrough(bool b)
+    {
+        mFallThrough = b;
+    }
+    
     /// Can this block reach the target block, without passing through an exit block?
-    bool canReachWithoutExit(BasicBlock target)
+    bool canReach(BasicBlock target)
     {
         if (this is target) {
-            return !isExitBlock;
+            return fallsThrough;
         }
         alias Tuple!(BasicBlock, "node", size_t, "childToSearch") Parent;
         Parent[] blockStack;
@@ -44,10 +54,12 @@ class BasicBlock
             if ((child in considered) !is null) {
                 continue;
             }
-            if (!child.isExitBlock) {
+            if (child.fallsThrough) {
                 blockStack ~= Parent(child, 0);            
             }
         } while (blockStack.length > 0);
         return false;
     }
+    
+    protected bool mFallThrough = true;
 }

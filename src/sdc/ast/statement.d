@@ -301,7 +301,7 @@ class ReturnStatement : Node
 }
 
 
-enum GotoStatementType { Identifier, Default, Case, CaseExpression }
+enum GotoStatementType { Identifier, Default, Case }
 
 class GotoStatement : Node
 {

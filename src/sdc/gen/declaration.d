@@ -308,7 +308,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         mod.currentScope.add(fn.argumentNames[i], new Store(val));
     }
     genBlockStatement(functionBody.statement, mod);
-    if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
+    if (mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else if (mod.inferringFunction) {

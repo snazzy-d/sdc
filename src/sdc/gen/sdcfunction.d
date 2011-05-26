@@ -119,6 +119,7 @@ class Function
     Module mod = null;
     BasicBlock cfgEntry;
     BasicBlock cfgTail;
+    Label[string] labels;
     
     LLVMValueRef llvmValue;
     
@@ -234,6 +235,8 @@ class Function
         return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
     }
 }
+
+struct Label { Location location; BasicBlock block; LLVMBasicBlockRef bb; }
 
 Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {
