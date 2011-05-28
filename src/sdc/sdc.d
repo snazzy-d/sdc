@@ -86,7 +86,7 @@ int main(string[] args)
 
 void realmain(string[] args)
 {
-    bool skipLink = false, optimise = false, saveTemps = false, dump = false;
+    bool skipLink = false, optimise = false, saveTemps = false;
     string outputName = "";
     string gcc = "gcc";
     version (SDC_x86_default) {
@@ -119,7 +119,6 @@ void realmain(string[] args)
                "V", { verboseCompile = true; },
                "save-temps", &saveTemps,
                "pic", &PIC,
-               "dump", &dump,
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -177,9 +176,6 @@ void realmain(string[] args)
             continue;
         }
         gModule = genModule(aModule, translationUnit);
-        if (dump) gModule.dump();
-        gModule.verify();
-        verbosePrint(format("Module '%s' passes verification.", gModule.mod));
     }
     
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
@@ -191,6 +187,8 @@ void realmain(string[] args)
             assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
             genDeclaration(cast(ast.Declaration) declDef.node, declDef, gModule);
         }
+        gModule.verify();
+        verbosePrint(format("Module '%s' passes verification.", gModule.mod));
             
         assert(!match(filename, extensionRegex).empty);
         auto asBitcode  = replace(filename, extensionRegex, "bc");
@@ -265,7 +263,6 @@ void usage()
     writeln("  --m32:                 synonym for '--arch=x86'.");
     writeln("  --m64:                 synonym for '--arch=x86-64'.");
     writeln("  --pic:                 generate position independent code.");
-    writeln("  --dump:                dump LLVM assembly for modules before verification.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
