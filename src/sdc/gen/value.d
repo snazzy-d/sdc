@@ -123,6 +123,8 @@ abstract class Value
     Value mul(Location loc, Value val) { fail(loc, "multiply"); assert(false); }
     Value div(Location loc, Value val) { fail(loc, "divide"); assert(false); }
     Value eq(Location loc, Value val) { fail(loc, "compare equality of"); assert(false); }
+    Value identity(Location loc, Value val) { return eq(loc, val); }
+    Value nidentity(Location loc, Value val) { return neq(loc, val); }
     Value neq(Location loc, Value val) { fail(loc, "compare non-equality of"); assert(false); }
     Value gt(Location loc, Value val) { fail(loc, "compare greater-than of"); assert(false); }
     Value lt(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
@@ -892,6 +894,17 @@ class PointerValue : Value
         return v;
     }
     
+    override Value eq(Location location, Value val)
+    {
+        auto retval = new BoolValue(mModule, location);
+        if (val.type.dtype == DType.NullPointer) {
+            retval.mValue = LLVMBuildIsNull(mModule.builder, get(), "is");
+        } else {
+            retval.mValue = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "is");
+        }
+        return retval;
+    }
+    
     override Value getInit(Location location)
     {
         auto v = new PointerValue(mModule, location, baseType);
@@ -1307,7 +1320,6 @@ class StructValue : Value
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-
         auto index = asStruct.memberPositions[name];
         indices ~= LLVMConstInt(t.llvmType, index, false);
         
@@ -1617,13 +1629,16 @@ void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
     if (lhs.type.dtype == rhs.type.dtype) {
         return;
     }
+    
+    if ((lhs.type.dtype == DType.Pointer && rhs.type.dtype == DType.NullPointer) ||
+        (rhs.type.dtype == DType.Pointer && lhs.type.dtype == DType.NullPointer)) {
+        return;
+    }
  
-    auto toDType = max(lhs.type.dtype, rhs.type.dtype);
-    auto t = dtypeToType(toDType, lhs.getModule());
     if (lhs.type.dtype > rhs.type.dtype) {
-        *rhs = implicitCast(location, *rhs, t);
+        *rhs = implicitCast(location, *rhs, lhs.type);
     } else {
-        *lhs = implicitCast(location, *lhs, t);
+        *lhs = implicitCast(location, *lhs, rhs.type);
     }
 }
 

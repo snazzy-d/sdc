@@ -43,8 +43,8 @@ enum DType
     Float,
     Double,
     Real,
-    Pointer,
     NullPointer,
+    Pointer,
     Array,
     Const,
     Immutable,
@@ -94,8 +94,8 @@ Type dtypeToType(DType dtype, Module mod)
         return new DoubleType(mod);
     case Real:
         return new RealType(mod);
-    case Pointer:
     case NullPointer:
+    case Pointer:
     case Array:
     case Complex:
     case Struct:
@@ -702,6 +702,12 @@ class ClassType : Type
     }
 }
 
+/*
+ * This is not the same as a default initialised void*.
+ * It's treated as a distinct type as D treats nulls 
+ * special (they can be implicitly converted to any pointer
+ * type). Just in case you wondering why this was here.
+ */  
 class NullPointerType : PointerType
 {
     this(Module mod)

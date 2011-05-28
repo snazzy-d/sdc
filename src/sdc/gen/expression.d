@@ -211,6 +211,16 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.lt(expression.location, rhs);
         break;
+    case ast.Comparison.Is:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
+        lhs = lhs.identity(expression.location, rhs);
+        break;
+    case ast.Comparison.NotIs:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
+        lhs = lhs.nidentity(expression.location, rhs);
+        break;
     default:
         throw new CompilerPanic(expression.location, "unhandled comparison expression.");
     }

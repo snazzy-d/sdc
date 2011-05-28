@@ -361,15 +361,28 @@ void genTryStatement(ast.TryStatement statement, Module mod)
     auto catchBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "catch");
     auto outBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "out");
     mod.exceptionTargetsStack ~= ExceptionTargets(outBB, catchBB);
+    
+    auto parent = mod.currentFunction.cfgTail;
+    auto tryblock = new BasicBlock();
+    auto catchblock = new BasicBlock();
+    auto outblock = new BasicBlock();
+    parent.children ~= tryblock;
+    tryblock.children ~= catchblock;
+    tryblock.children ~= outblock;
+    catchblock.children ~= outblock;
 
+    mod.currentFunction.cfgTail = tryblock;
     genScopeStatement(statement.statement, mod);
     mod.exceptionTargetsStack = mod.exceptionTargetsStack[0 .. $ - 1];
     LLVMBuildBr(mod.builder, outBB);
+    tryblock.isExitBlock = false;
     
+    mod.currentFunction.cfgTail = catchblock;
     LLVMPositionBuilderAtEnd(mod.builder, catchBB);
     genNoScopeNonEmptyStatement(statement.catchStatement, mod);
     LLVMBuildBr(mod.builder, outBB);
     
+    mod.currentFunction.cfgTail = outblock;
     LLVMPositionBuilderAtEnd(mod.builder, outBB);
 }
 
