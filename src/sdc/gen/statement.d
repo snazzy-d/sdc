@@ -358,31 +358,34 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
 
 void genTryStatement(ast.TryStatement statement, Module mod)
 {
+    auto parent = mod.currentFunction.cfgTail;
+    auto tryB   = new BasicBlock();
+    auto catchB = new BasicBlock();
+    auto outB   = new BasicBlock();
+    parent.children ~= tryB;
+    tryB.children ~= catchB;
+    
     auto catchBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "catch");
     auto outBB   = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "out");
-    mod.exceptionTargetsStack ~= ExceptionTargets(outBB, catchBB);
-    
-    auto parent = mod.currentFunction.cfgTail;
-    auto tryblock = new BasicBlock();
-    auto catchblock = new BasicBlock();
-    auto outblock = new BasicBlock();
-    parent.children ~= tryblock;
-    tryblock.children ~= catchblock;
-    tryblock.children ~= outblock;
-    catchblock.children ~= outblock;
+    mod.catchTargetStack ~= CatchTargets(catchBB, catchB);
 
-    mod.currentFunction.cfgTail = tryblock;
+    mod.currentFunction.cfgTail = tryB;
     genScopeStatement(statement.statement, mod);
-    mod.exceptionTargetsStack = mod.exceptionTargetsStack[0 .. $ - 1];
-    LLVMBuildBr(mod.builder, outBB);
-    tryblock.isExitBlock = false;
+    if (mod.currentFunction.cfgTail.fallsThrough) {
+        LLVMBuildBr(mod.builder, outBB);
+    }
+    mod.currentFunction.cfgTail.children ~= outB;
+    mod.catchTargetStack = mod.catchTargetStack[0 .. $ - 1];
     
-    mod.currentFunction.cfgTail = catchblock;
+    mod.currentFunction.cfgTail = catchB;
     LLVMPositionBuilderAtEnd(mod.builder, catchBB);
     genNoScopeNonEmptyStatement(statement.catchStatement, mod);
-    LLVMBuildBr(mod.builder, outBB);
+    if (mod.currentFunction.cfgTail.fallsThrough) {
+        LLVMBuildBr(mod.builder, outBB);
+    }
+    mod.currentFunction.cfgTail.children ~= outB;
     
-    mod.currentFunction.cfgTail = outblock;
+    mod.currentFunction.cfgTail = outB;
     LLVMPositionBuilderAtEnd(mod.builder, outBB);
 }
 

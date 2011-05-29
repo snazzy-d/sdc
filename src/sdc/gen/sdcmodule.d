@@ -27,6 +27,7 @@ import sdc.gen.base;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.sdcfunction;
+import sdc.gen.cfg;
 
 
 /**
@@ -50,7 +51,7 @@ class Module
     ast.Access currentAccess = ast.Access.Public;
 
     bool inferringFunction;  // OH GOD
-    ExceptionTargets[] exceptionTargetsStack;
+    CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;
     Scope typeScope;  // Boooooooooo
@@ -381,10 +382,10 @@ class Module
     protected bool[string] mTestedDebugIdentifiers;
 }
 
-struct ExceptionTargets
+struct CatchTargets
 {
-    LLVMBasicBlockRef thenBlock;
     LLVMBasicBlockRef catchBlock;
+    BasicBlock catchBB;
 }
 
 struct LookupFailure

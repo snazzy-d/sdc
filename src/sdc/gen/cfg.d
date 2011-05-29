@@ -9,7 +9,9 @@
 module sdc.gen.cfg;
 
 import std.array;
+import std.stdio;
 import std.typecons;
+import llvm.c.Core;
 
 
 /**
@@ -60,6 +62,6 @@ class BasicBlock
         } while (blockStack.length > 0);
         return false;
     }
-    
+
     protected bool mFallThrough = true;
 }

@@ -244,12 +244,22 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
     LLVMValueRef v;
-    if (mod.exceptionTargetsStack.length == 0) {
+    if (mod.catchTargetStack.length == 0) {
         v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");
     } else {
-        auto thenB  = mod.exceptionTargetsStack[$ - 1].thenBlock;
-        auto catchB = mod.exceptionTargetsStack[$ - 1].catchBlock;
+        // function call in a try block
+        auto catchB  = mod.catchTargetStack[$ - 1].catchBlock;
+        auto catchBB = mod.catchTargetStack[$ - 1].catchBB;
+        
+        auto thenB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "try");
         v = LLVMBuildInvoke(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, thenB, catchB, "");
+        LLVMPositionBuilderAtEnd(mod.builder, thenB);
+        
+        auto parent = mod.currentFunction.cfgTail;
+        auto newTry = new BasicBlock();
+        parent.children ~= newTry;
+        newTry.children ~= catchBB;
+        mod.currentFunction.cfgTail = newTry;
     }
     Value val;
     if (type.returnType.dtype != DType.Void) {
