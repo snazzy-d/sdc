@@ -96,6 +96,16 @@ void realmain(string[] args)
     }
     
     loadConfig(args);
+    foreach (i, arg; args) {
+        // I figure people are more used to '-m32' and friends, so let them use 'em.
+        if (arg == "--") {
+            break;
+        } else if (arg == "-m32") {
+            args[i] = "--m32";
+        } else if (arg == "-m64") {
+            args[i] = "--m64";
+        }
+    }
     auto argsCopy = args.dup;
     try {
         getopt(args,
@@ -260,11 +270,11 @@ void usage()
     writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
-    writeln("  --m32:                 synonym for '--arch=x86'.");
-    writeln("  --m64:                 synonym for '--arch=x86-64'.");
     writeln("  --pic:                 generate position independent code.");
+    writeln("  -m32:                  synonym for '--arch=x86'.");
+    writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
-    writeln("  -o:                    name of the output file.");
+    writeln("  -o:    s                name of the output file.");
     writeln("  -V:                    compile with verbose output.");
 }
