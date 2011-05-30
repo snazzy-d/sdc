@@ -324,8 +324,13 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genNewExpression(expression.newExpression, mod);
         break;
     case ast.UnaryPrefix.LogicalNot:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = val.logicalNot(expression.location);
+        break;
     case ast.UnaryPrefix.BitwiseNot:
-        throw new CompilerPanic(expression.location, "unimplemented unary expression.");
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = val.not(expression.location);
+        break;
     case ast.UnaryPrefix.None:
         val = genPostfixExpression(expression.postfixExpression, mod);
         break;
