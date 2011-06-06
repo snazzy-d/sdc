@@ -33,7 +33,7 @@ Value genExpression(ast.Expression expression, Module mod)
 {
     auto v = genAssignExpression(expression.assignExpression, mod);
     if (expression.expression !is null) {
-        return genExpression(expression.expression, mod);
+        v = genExpression(expression.expression, mod);
     }
     return v;
 }
@@ -253,7 +253,6 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
     } else {
         val = genMulExpression(expression.mulExpression, mod);
     }
-    
     return val;
 }
 
@@ -365,7 +364,7 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
     Value lhs = suppressPrimary;
-        
+    
     final switch (expression.type) {
     case ast.PostfixType.Primary:
         auto asPrimary = enforce(cast(ast.PrimaryExpression) expression.firstNode);

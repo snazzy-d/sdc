@@ -174,6 +174,9 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
     parent.children ~= block;
     mod.currentFunction.cfgTail = block;
     
+    if (mod.returnValueGatherLabelPass) {
+        mod.labels ~= statement.identifier;
+    }
     auto name = extractIdentifier(statement.identifier);
     auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
     LLVMBuildBr(mod.builder, bb);
@@ -342,14 +345,10 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
         return; 
     }
     
-    if (mod.inferringFunction && statement.expression is null) {
-        throw new InferredTypeFoundException(new VoidType(mod));
-    }
-    
     auto val = genExpression(statement.expression, mod);
     
-    if (mod.inferringFunction) {
-        throw new InferredTypeFoundException(val.type);
+    if (mod.returnValueGatherLabelPass) {
+        mod.returnTypes ~= ReturnTypeHolder(val.type, statement.location);
     }
     
     val = implicitCast(val.location, val, t);

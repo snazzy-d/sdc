@@ -12,6 +12,7 @@ import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.lexer;
+import sdc.location;
 import sdc.source;
 import sdc.util;
 import sdc.extract;
@@ -147,22 +148,6 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
         mod.currentScope.add(fn.simpleName, store);
     }
     
-    if (fn.type.returnType.dtype == DType.Inferred) {
-        auto inferrenceContext = mod.dup;
-        inferrenceContext.inferringFunction = true;
-        
-        try {
-            // Why in fuck's name am I doing this _here_? Oh well; TODO.
-            genFunctionDeclaration(decl, declDef, inferrenceContext);
-        } catch (InferredTypeFoundException e) {
-            fn.type.returnType = e.type;
-        }
-        
-        if (fn.type.returnType.dtype == DType.Inferred) {
-            throw new CompilerPanic(decl.location, "inferred return value not inferred.");
-        }
-    }
-    
     fn.type.declare();
     fn.add(mod);
 }
@@ -262,7 +247,12 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     } else {
         name = javaMangle(decl.name);
     }
-    verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+    
+    if (!mod.returnValueGatherLabelPass) {
+        verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+        verboseIndent++;
+    }
+    
     Store store = null; 
     if (declDef.parentType !is null) {
         store = declDef.parentType.typeScope.get(name);   
@@ -284,6 +274,11 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
     genFunctionBody(decl.functionBody, decl, fn, mod);
+    
+    if (!mod.returnValueGatherLabelPass) {
+        verboseIndent--;
+        verbosePrint("Done building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+    }
 }
 
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Function fn, Module mod)
@@ -311,8 +306,6 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     if (mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
-        } else if (mod.inferringFunction) {
-            throw new InferredTypeFoundException(new VoidType(mod));
         } else {
             throw new CompilerError(
                 decl.location, 

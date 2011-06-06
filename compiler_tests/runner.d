@@ -10,6 +10,7 @@ import std.algorithm;
 import std.concurrency;
 import std.conv;
 import std.file;
+alias std.file file;
 import std.getopt;
 import std.process;
 import std.range;
@@ -93,6 +94,9 @@ void test(string filename, string compiler)
     version (Windows) string exeName;
     else string exeName = "./";
     exeName ~= filename ~ EXE_EXTENSION;
+    if (file.exists(exeName)) {
+        file.remove(exeName);
+    }
     if (compiler == SDC) {
         command = format(`%s -o=%s --optimise "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {

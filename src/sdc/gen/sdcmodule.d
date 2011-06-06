@@ -50,7 +50,11 @@ class Module
     Value callingAggregate;
     ast.Access currentAccess = ast.Access.Public;
 
-    bool inferringFunction;  // OH GOD
+    bool returnValueGatherLabelPass;
+    ReturnTypeHolder[] returnTypes;
+    ast.Identifier[] labels;
+    
+    //bool inferringFunction;  // OH GOD
     CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;
@@ -184,7 +188,7 @@ class Module
                 tustore = new Store(tustore.getFunction.importToModule(this), Location());
             }
 
-            if (store is null) {
+            if (store is null) { 
                 store = tustore;
                 continue;
             }
@@ -291,7 +295,7 @@ class Module
      */
     Module dup() @property
     {
-
+        mDupCount++;
         auto ident = new ast.Identifier();
         ident.value = "dup";
         auto qual = new ast.QualifiedName();
@@ -311,7 +315,12 @@ class Module
         }
         
         mod.currentAccess = currentAccess;
-        mod.importedTranslationUnits = mod.importedTranslationUnits.dup;
+        mod.importedTranslationUnits = importedTranslationUnits.dup;
+        foreach (tu; mod.importedTranslationUnits) {
+            if (tu.gModule.mDupCount == 0) {
+                tu.gModule = tu.gModule.dup;
+            }
+        }
         mod.arch = arch;
         
         foreach (_scope; mScopeStack) {
@@ -322,6 +331,7 @@ class Module
         mod.mTestedVersionIdentifiers = mTestedVersionIdentifiers;
         mod.mDebugIdentifiers = mDebugIdentifiers;
         mod.mTestedDebugIdentifiers = mTestedDebugIdentifiers;
+        mDupCount--;
         
         return mod;
     }
@@ -380,6 +390,13 @@ class Module
     protected bool[string] mTestedVersionIdentifiers;
     protected bool[string] mDebugIdentifiers;
     protected bool[string] mTestedDebugIdentifiers;
+    protected int mDupCount;
+}
+
+struct ReturnTypeHolder
+{
+    Type returnType;
+    Location location;
 }
 
 struct CatchTargets
