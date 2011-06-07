@@ -31,8 +31,8 @@ class ConditionalDeclaration : Node
 class ConditionalStatement : Node
 {
     Condition condition;
-    NoScopeNonEmptyStatement thenStatement;
-    NoScopeNonEmptyStatement elseStatement;  // Optional.
+    Statement thenStatement;
+    Statement elseStatement;  // Optional.
 }
 
 enum ConditionType

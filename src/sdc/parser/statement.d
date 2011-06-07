@@ -16,98 +16,83 @@ import sdc.parser.declaration;
 import sdc.parser.conditional;
 import sdc.parser.sdcpragma;
 
-
 Statement parseStatement(TokenStream tstream)
 {
     auto statement = new Statement();
     statement.location = tstream.peek.location;
     
-    if (tstream.peek.type == TokenType.Semicolon) {
-        match(tstream, TokenType.Semicolon);
-        statement.type = StatementType.Empty;
-    } else if (tstream.peek.type == TokenType.OpenBrace) {
-        statement.type = StatementType.Scope;
-        statement.node = parseScopeStatement(tstream);
-    } else {
-        statement.type = StatementType.NonEmpty;
-        statement.node = parseNonEmptyStatement(tstream);
-    }
-    
-    return statement;
-}
-
-ScopeStatement parseScopeStatement(TokenStream tstream)
-{
-    auto statement = new ScopeStatement();
-    statement.location = tstream.peek.location;
-    
     if (tstream.peek.type == TokenType.OpenBrace) {
-        statement.type = ScopeStatementType.Block;
+        statement.type = StatementType.BlockStatement;
         statement.node = parseBlockStatement(tstream);
-    } else {
-        statement.type = ScopeStatementType.NonEmpty;
-        statement.node = parseNonEmptyStatement(tstream);
-    }
-    
-    return statement;
-}
-
-NonEmptyStatement parseNonEmptyStatement(TokenStream tstream)
-{
-    auto statement = new NonEmptyStatement();
-    statement.location = tstream.peek.location;
-    
-    if (tstream.peek.type == TokenType.If) {
-        statement.type = NonEmptyStatementType.IfStatement;
+    } else if (tstream.peek.type == TokenType.If) {
+        statement.type = StatementType.IfStatement;
         statement.node = parseIfStatement(tstream);   
     } else if (tstream.peek.type == TokenType.While) {
-        statement.type = NonEmptyStatementType.WhileStatement;
+        statement.type = StatementType.WhileStatement;
         statement.node = parseWhileStatement(tstream);
     } else if (tstream.peek.type == TokenType.Do) {
-        statement.type = NonEmptyStatementType.DoStatement;
+        statement.type = StatementType.DoStatement;
         statement.node = parseDoStatement(tstream);
     } else if (tstream.peek.type == TokenType.Return) {
-        statement.type = NonEmptyStatementType.ReturnStatement;
+        statement.type = StatementType.ReturnStatement;
         statement.node = parseReturnStatement(tstream);
     } else if (tstream.peek.type == TokenType.Pragma) {
-        statement.type = NonEmptyStatementType.PragmaStatement;
+        statement.type = StatementType.PragmaStatement;
         statement.node = parsePragmaStatement(tstream);
     } else if (tstream.peek.type == TokenType.Mixin) {
-        statement.type = NonEmptyStatementType.MixinStatement;
+        statement.type = StatementType.MixinStatement;
         statement.node = parseMixinStatement(tstream);
     } else if (tstream.peek.type == TokenType.Asm) {
-        statement.type = NonEmptyStatementType.AsmStatement;
+        statement.type = StatementType.AsmStatement;
         statement.node = parseAsmStatement(tstream);
     } else if (tstream.peek.type == TokenType.Throw) {
-        statement.type = NonEmptyStatementType.ThrowStatement;
+        statement.type = StatementType.ThrowStatement;
         statement.node = parseThrowStatement(tstream);
     } else if (tstream.peek.type == TokenType.Try) {
-        statement.type = NonEmptyStatementType.TryStatement;
+        statement.type = StatementType.TryStatement;
         statement.node = parseTryStatement(tstream);
     } else if (tstream.peek.type == TokenType.Goto) {
-        statement.type = NonEmptyStatementType.GotoStatement;
+        statement.type = StatementType.GotoStatement;
         statement.node = parseGotoStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
-        statement.type = NonEmptyStatementType.LabeledStatement;
+        statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
     } else if (startsLikeConditional(tstream)) {
-        statement.type = NonEmptyStatementType.ConditionalStatement;
+        statement.type = StatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
     } else if (tstream.lookahead(0).type == TokenType.Identifier &&
                tstream.lookahead(1).type == TokenType.Asterix &&
                tstream.lookahead(2).type == TokenType.Identifier) {
         // In D, this is always a declaration; unlike C.
-        statement.type = NonEmptyStatementType.DeclarationStatement;
+        statement.type = StatementType.DeclarationStatement;
         statement.node = parseDeclarationStatement(tstream);
     } else if (startsLikeDeclaration(tstream)) {
-        statement.type = NonEmptyStatementType.DeclarationStatement;
+        statement.type = StatementType.DeclarationStatement;
         statement.node = parseDeclarationStatement(tstream);
     } else {
-        statement.type = NonEmptyStatementType.ExpressionStatement;
+        statement.type = StatementType.ExpressionStatement;
         statement.node = parseExpressionStatement(tstream);
     }
     
     return statement;
+}
+
+BlockStatement parseBlockStatement(TokenStream tstream)
+{
+    auto block = new BlockStatement();
+    block.location = tstream.peek.location;
+    
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        match(tstream, TokenType.OpenBrace);
+        while (tstream.peek.type != TokenType.CloseBrace) {
+            block.statements ~= parseStatement(tstream);
+        }
+        match(tstream, TokenType.CloseBrace);
+    } else {
+        block.statements ~= parseStatement(tstream);
+    }
+    
+    return block;
 }
 
 GotoStatement parseGotoStatement(TokenStream tstream)
@@ -146,7 +131,7 @@ LabeledStatement parseLabeledStatement(TokenStream tstream)
     
     statement.identifier = parseIdentifier(tstream);
     match(tstream, TokenType.Colon);
-    statement.statement = parseNoScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     return statement;
 }
 
@@ -156,9 +141,9 @@ TryStatement parseTryStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     match(tstream, TokenType.Try);
-    statement.statement = parseScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     match(tstream, TokenType.Catch);
-    statement.catchStatement = parseNoScopeNonEmptyStatement(tstream);
+    statement.catchStatement = parseStatement(tstream);
     return statement;
 }
 
@@ -171,53 +156,6 @@ ThrowStatement parseThrowStatement(TokenStream tstream)
     statement.expression = parseExpression(tstream);
     match(tstream, TokenType.Semicolon);
     return statement; 
-}
-
-NoScopeNonEmptyStatement parseNoScopeNonEmptyStatement(TokenStream tstream)
-{
-    auto statement = new NoScopeNonEmptyStatement();
-    statement.location = tstream.peek.location;
-    
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        statement.type = NoScopeNonEmptyStatementType.Block;
-        statement.node = parseBlockStatement(tstream);
-    } else {
-        statement.type = NoScopeNonEmptyStatementType.NonEmpty;
-        statement.node = parseNonEmptyStatement(tstream);
-    }
-    return statement;
-}
-
-NoScopeStatement parseNoScopeStatement(TokenStream tstream)
-{
-    auto statement = new NoScopeStatement();
-    statement.location = tstream.peek.location;
-    
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        statement.type = NoScopeStatementType.Block;
-        statement.node = parseBlockStatement(tstream);
-    } else if (tstream.peek.type == TokenType.Semicolon) {
-        match(tstream, TokenType.Semicolon);
-        statement.type = NoScopeStatementType.Empty;
-    } else {
-        statement.type = NoScopeStatementType.NonEmpty;
-        statement.node = parseNonEmptyStatement(tstream);
-    }
-    return statement;
-}
-
-BlockStatement parseBlockStatement(TokenStream tstream)
-{
-    auto block = new BlockStatement();
-    block.location = tstream.peek.location;
-    
-    match(tstream, TokenType.OpenBrace);
-    while (tstream.peek.type != TokenType.CloseBrace) {
-        block.statements ~= parseStatement(tstream);
-    }
-    match(tstream, TokenType.CloseBrace);
-    
-    return block;
 }
 
 IfStatement parseIfStatement(TokenStream tstream)
@@ -260,7 +198,7 @@ ThenStatement parseThenStatement(TokenStream tstream)
 {
     auto statement = new ThenStatement();
     statement.location = tstream.peek.location;
-    statement.statement = parseScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     return statement;
 }
 
@@ -268,7 +206,7 @@ ElseStatement parseElseStatement(TokenStream tstream)
 {
     auto statement = new ElseStatement();
     statement.location = tstream.peek.location;
-    statement.statement = parseScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     return statement;
 }
 
@@ -281,7 +219,7 @@ WhileStatement parseWhileStatement(TokenStream tstream)
     match(tstream, TokenType.OpenParen);
     statement.expression = parseExpression(tstream);
     match(tstream, TokenType.CloseParen);
-    statement.statement = parseScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     return statement;
 }
 
@@ -291,7 +229,7 @@ DoStatement parseDoStatement(TokenStream tstream)
     auto statement = new DoStatement();
     statement.location = tstream.peek.location;
     match(tstream, TokenType.Do);
-    statement.statement = parseScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     match(tstream, TokenType.While);
     match(tstream, TokenType.OpenParen);
     statement.expression = parseExpression(tstream);
@@ -345,7 +283,7 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     statement.thePragma = parsePragma(tstream);
-    statement.statement = parseNoScopeStatement(tstream);
+    statement.statement = parseStatement(tstream);
     return statement;
 }
 

@@ -94,10 +94,10 @@ ConditionalStatement parseConditionalStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     statement.condition = parseCondition(tstream);
-    statement.thenStatement = parseNoScopeNonEmptyStatement(tstream);
+    statement.thenStatement = parseStatement(tstream);
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        statement.elseStatement = parseNoScopeNonEmptyStatement(tstream);
+        statement.elseStatement = parseStatement(tstream);
     }
     return statement;
 }

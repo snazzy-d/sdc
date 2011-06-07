@@ -48,58 +48,6 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 
 void genStatement(ast.Statement statement, Module mod)
 {
-    final switch (statement.type) {
-    case ast.StatementType.Empty:
-        break;
-    case ast.StatementType.NonEmpty:
-        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
-        break;
-    case ast.StatementType.Scope:
-        genScopeStatement(cast(ast.ScopeStatement) statement.node, mod);
-        break;
-    }
-}
- 
-void genScopeStatement(ast.ScopeStatement statement, Module mod)
-{
-    final switch (statement.type) {
-    case ast.ScopeStatementType.NonEmpty:
-        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
-        break;
-    case ast.ScopeStatementType.Block:
-        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
-        break;
-    }
-}
-
-void genNoScopeNonEmptyStatement(ast.NoScopeNonEmptyStatement statement, Module mod)
-{
-    final switch (statement.type) {
-    case ast.NoScopeNonEmptyStatementType.NonEmpty:
-        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
-        break;
-    case ast.NoScopeNonEmptyStatementType.Block:
-        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
-        break;
-    }
-}
-
-void genNoScopeStatement(ast.NoScopeStatement statement, Module mod)
-{
-    final switch (statement.type) with (ast.NoScopeStatementType) {
-    case NonEmpty:
-        genNonEmptyStatement(cast(ast.NonEmptyStatement) statement.node, mod);
-        break;
-    case Block:
-        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
-        break;
-    case Empty:
-        break;
-    }
-}
-
-void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
-{
     if (!mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         throw new CompilerError(statement.location, "statement is unreachable.");
     }
@@ -107,40 +55,43 @@ void genNonEmptyStatement(ast.NonEmptyStatement statement, Module mod)
     default:
         throw new CompilerPanic(statement.location, "unimplemented non empty statement type.");
         assert(false);
-    case ast.NonEmptyStatementType.IfStatement:
+    case ast.StatementType.BlockStatement:
+        genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
+        break;
+    case ast.StatementType.IfStatement:
         genIfStatement(cast(ast.IfStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.WhileStatement:
+    case ast.StatementType.WhileStatement:
         genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.ExpressionStatement:
+    case ast.StatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.DeclarationStatement:
+    case ast.StatementType.DeclarationStatement:
         genDeclarationStatement(cast(ast.DeclarationStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.ReturnStatement:
+    case ast.StatementType.ReturnStatement:
         genReturnStatement(cast(ast.ReturnStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.ConditionalStatement:
+    case ast.StatementType.ConditionalStatement:
         genConditionalStatement(cast(ast.ConditionalStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.PragmaStatement:
+    case ast.StatementType.PragmaStatement:
         genPragmaStatement(cast(ast.PragmaStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.MixinStatement:
+    case ast.StatementType.MixinStatement:
         genMixinStatement(cast(ast.MixinStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.ThrowStatement:
+    case ast.StatementType.ThrowStatement:
         genThrowStatement(cast(ast.ThrowStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.TryStatement:
+    case ast.StatementType.TryStatement:
         genTryStatement(cast(ast.TryStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.LabeledStatement:
+    case ast.StatementType.LabeledStatement:
         genLabeledStatement(cast(ast.LabeledStatement) statement.node, mod);
         break;
-    case ast.NonEmptyStatementType.GotoStatement:
+    case ast.StatementType.GotoStatement:
         genGotoStatement(cast(ast.GotoStatement) statement.node, mod);
         break;
     }
@@ -188,7 +139,7 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
     mod.currentFunction.labels[name] = Label(statement.location, block, bb);
     
     LLVMPositionBuilderAtEnd(mod.builder, bb);
-    genNoScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
 }
 
 void genMixinStatement(ast.MixinStatement statement, Module mod)
@@ -285,12 +236,12 @@ void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef
 
 void genThenStatement(ast.ThenStatement statement, Module mod)
 {
-    genScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
 }
 
 void genElseStatement(ast.ElseStatement statement, Module mod)
 {
-    genScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
 }
 
 void genWhileStatement(ast.WhileStatement statement, Module mod)
@@ -315,7 +266,7 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
     
     mod.currentFunction.cfgTail = looptop;
-    genScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, looptopBB);
     }
@@ -369,7 +320,7 @@ void genTryStatement(ast.TryStatement statement, Module mod)
     mod.catchTargetStack ~= CatchTargets(catchBB, catchB);
 
     mod.currentFunction.cfgTail = tryB;
-    genScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, outBB);
     }
@@ -378,7 +329,7 @@ void genTryStatement(ast.TryStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = catchB;
     LLVMPositionBuilderAtEnd(mod.builder, catchBB);
-    genNoScopeNonEmptyStatement(statement.catchStatement, mod);
+    genStatement(statement.catchStatement, mod);
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, outBB);
     }
@@ -401,10 +352,10 @@ void genThrowStatement(ast.ThrowStatement statement, Module mod)
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
 {
     if (genCondition(statement.condition, mod)) {
-        genNoScopeNonEmptyStatement(statement.thenStatement, mod);
+        genStatement(statement.thenStatement, mod);
     } else {
         if (statement.elseStatement !is null) {
-            genNoScopeNonEmptyStatement(statement.elseStatement, mod);
+            genStatement(statement.elseStatement, mod);
         }
     }
 }
@@ -412,5 +363,5 @@ void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
 void genPragmaStatement(ast.PragmaStatement statement, Module mod)
 {
     genPragma(statement.thePragma, mod);
-    genNoScopeStatement(statement.statement, mod);
+    genStatement(statement.statement, mod);
 }
