@@ -532,7 +532,9 @@ class Scope
             }
         }
         if (auto p = name in mSymbolTable) {
-            throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
+            if (p.storeType != StoreType.Scope) {
+                throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
+            }
         }
         mSymbolTable[name] = store;
         store.parentScope = this;
