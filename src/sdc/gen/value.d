@@ -249,6 +249,33 @@ mixin template SimpleImportToModule()
         auto v = new typeof(this)(mod, location);
         v.access = this.access;
         v.lvalue = this.lvalue;
+        if (this.isKnown) {
+            v.isKnown = true;
+            switch (this.type.dtype) with (DType) {
+            case Bool: v.knownBool = this.knownBool; break;
+            case Byte: v.knownByte = this.knownByte; break;
+            case Ubyte: v.knownUbyte = this.knownUbyte; break;
+            case Short: v.knownShort = this.knownShort; break;
+            case Ushort: v.knownUshort = this.knownUshort; break;
+            case Int: v.knownInt = this.knownInt; break;
+            case Uint: v.knownUint = this.knownUint; break;
+            case Long: v.knownLong = this.knownLong; break;
+            case Ulong: v.knownUlong = this.knownUlong; break;
+            case Float: v.knownFloat = this.knownFloat; break;
+            case Double: v.knownDouble = this.knownDouble; break;
+            case Real: v.knownReal = this.knownReal; break;
+            case Char: v.knownChar = this.knownChar; break;
+            case Dchar: v.knownDchar = this.knownDchar; break;
+            case Wchar: v.knownWchar = this.knownWchar; break;
+            default:
+                if (v.knownString.length > 0) {
+                    v.knownString = this.knownString;
+                } else {    
+                    v.isKnown = false;
+                }
+                break;
+            }
+        }
         return v;
     }
 }
@@ -729,6 +756,51 @@ class FloatingPointValue(T, B) : Value
 alias FloatingPointValue!(float, FloatType) FloatValue;
 alias FloatingPointValue!(double, DoubleType) DoubleValue;
 alias FloatingPointValue!(real, RealType) RealValue;
+
+class StaticArrayValue : Value
+{
+    StaticArrayType asStaticArray;
+    
+    this(Module mod, Location location, Type baseType, Value lengthValue)
+    {
+        super(mod, location);
+        if (!lengthValue.isKnown || lengthValue.type.dtype != DType.Int) {
+            // !!!
+            throw new CompilerError(location, "static arrays must be initialized with a known integer (temporary hack).");
+        } 
+        mType = asStaticArray = new StaticArrayType(mod, baseType, lengthValue.knownInt);
+        LLVMBuildAlloca(mod.builder, mType.llvmType, "static_array");
+    }
+    
+    override Value getSizeof(Location location)
+    {
+        // T[N].sizeof => T.sizeof * N
+        return newSizeT(mModule, location, asStaticArray.length).mul(location, asStaticArray.base.getValue(mModule, location).getSizeof(location));
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        auto v = super.getMember(location, name);
+        if (name == "length") {
+            return newSizeT(mModule, location, asStaticArray.length);
+        }
+        return v;
+    }
+    
+    override Value index(Location location, Value value)
+    {
+        auto t = new IntType(mModule);
+        
+        LLVMValueRef[] indices;
+        indices ~= LLVMConstInt(t.llvmType, 0, false);
+        indices ~= value.get();
+        
+        auto i = asStaticArray.base.getValue(mModule, location);
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
+        i.lvalue = true;
+        return i;
+    }
+}
 
 class ArrayValue : StructValue
 {
@@ -1311,7 +1383,7 @@ class StructValue : Value
         return v;
     }
     
-    override Value getMember(Location location, string name)  // !!!
+    override Value getMember(Location location, string name)
     {
         auto store = type.typeScope.get(name);
         if (store !is null && store.storeType == StoreType.Type) {

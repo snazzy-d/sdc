@@ -28,7 +28,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     Value initialiser;
     
     if (decl.base is null) {
-        if (decl.memberList.members[0].initialiser !is null) {
+        if (firstMember.initialiser !is null) {
             // Infer the type from the first initialiser.
             initialiser = genAssignExpression(firstMember.initialiser, mod);
             base = initialiser.type;
@@ -46,12 +46,14 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     
     auto firstValue = getKnown(mod, firstMember.location, base);
     if (firstMember.initialiser) {
-        if (initialiser is null) initialiser = genAssignExpression(firstMember.initialiser, mod);
+        if (initialiser is null) {
+            // If the base is explicit we won't have done this yet.
+            initialiser = genAssignExpression(firstMember.initialiser, mod);
+        }
         firstValue.set(firstMember.initialiser.location, initialiser);
     }
     Value previousValue = firstValue;
     
-    //firstValue.initialise(firstValue.location, firstValue.getInit(firstValue.location));
     type.addMember(extractIdentifier(firstMember.name), firstValue);
     if (decl.name !is null) {
         type.addMember(extractIdentifier(firstMember.name), firstValue);

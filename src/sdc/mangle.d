@@ -7,6 +7,7 @@ module sdc.mangle;
 
 import std.conv;
 import std.exception;
+import std.string;
 
 import sdc.util;
 import sdc.compilererror;
@@ -161,23 +162,29 @@ void mangleType(ref string mangledName, Type type)
     case Void:
         mangledName ~= "v";
         break;
+    case StaticArray:
+        auto asStaticArray = cast(StaticArrayType) type;
+        assert(asStaticArray !is null);
+        mangledName ~= format("G%s", asStaticArray.length);
+        mangleType(mangledName, asStaticArray.base);
+        break;
     case NullPointer:
     case Pointer:
         auto asPointer = cast(PointerType) type;
-        assert(asPointer);
+        assert(asPointer !is null);
         mangledName ~= "P";
         mangleType(mangledName, asPointer.base);
         break;
     case Array:
         auto asArray = cast(ArrayType) type;
-        assert(asArray);
+        assert(asArray !is null);
         mangledName ~= "A";
         mangleType(mangledName, asArray.base);
         break;
     case Struct:
         mangledName ~= "S";
         auto asStruct = cast(StructType) type;
-        assert(asStruct);
+        assert(asStruct !is null);
         mangleQualifiedName(mangledName, asStruct.fullName);
         break;
     case Enum:
@@ -187,7 +194,7 @@ void mangleType(ref string mangledName, Type type)
     case Class:
         mangledName ~= "C";
         auto asClass = cast(ClassType) type;
-        assert(asClass);
+        assert(asClass !is null);
         mangleQualifiedName(mangledName, asClass.fullName);
         break;
     case Const:
@@ -198,7 +205,7 @@ void mangleType(ref string mangledName, Type type)
         break;
     case Function:
         auto asFunction = cast(FunctionTypeWrapper) type;
-        assert(asFunction);
+        assert(asFunction !is null);
         mangleFunctionType(mangledName, asFunction.functionType);
         break;
     }

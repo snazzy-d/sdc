@@ -46,6 +46,7 @@ enum DType
     NullPointer,
     Pointer,
     Array,
+    StaticArray,
     Const,
     Immutable,
     Complex,
@@ -57,7 +58,7 @@ enum DType
     Function,
 }
 
-Type dtypeToType(DType dtype, Module mod)
+version (none) Type dtypeToType(DType dtype, Module mod)
 {
     final switch (dtype) with (DType) {
     case None:
@@ -749,6 +750,41 @@ class ArrayType : StructType
     }
     
     override string name() { return base.name() ~ "[]"; }
+}
+
+class StaticArrayType : Type
+{
+    Type base;
+    size_t length;
+    
+    this(Module mod, Type base, size_t length)
+    {
+        super(mod);
+        this.base = base;
+        this.length = length;
+        dtype = DType.StaticArray;
+        mType = LLVMArrayType(base.llvmType, cast(uint) length);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return null;
+    }
+    
+    override Type getBase()
+    {
+        return base;
+    }
+    
+    override Type importToModule(Module mod)
+    {
+        return new StaticArrayType(mod, base, length);
+    }
+    
+    override string name()
+    {
+        return base.name() ~ format("[%s]", length);
+    }
 }
 
 class StructType : Type
