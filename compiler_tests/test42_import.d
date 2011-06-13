@@ -1,6 +1,6 @@
 class Foo
 {
-    void foo()
+    void bar()
     {
     }
 }

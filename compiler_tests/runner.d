@@ -116,19 +116,8 @@ void test(string filename, string compiler)
         managerTid.send(filename, false);
         return;
     }
-    if (!expectedToCompile) {
-        switch (retval) {
-        case 1:
-            managerTid.send(filename, true);
-            break;
-        case 0:
-            stderr.writefln("%s: test expected to not compile, did.", filename);
-            managerTid.send(filename, false);
-            break;
-        default:
-            stderr.writefln("%s: test correctly failed to compile, but the compiler did not return 1.");
-            managerTid.send(filename, false);
-        }
+    if (!expectedToCompile && retval != 0) {
+        managerTid.send(filename, true);
         return;
     }
     
