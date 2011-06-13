@@ -116,15 +116,25 @@ void test(string filename, string compiler)
         managerTid.send(filename, false);
         return;
     }
-    if (!expectedToCompile && retval != 0) {
-        // Program (correctly) failed to compile; no need to try and run the executable.  
-        managerTid.send(filename, true);
+    if (!expectedToCompile) {
+        switch (retval) {
+        case 1:
+            managerTid.send(filename, true);
+            break;
+        case 0:
+            stderr.writefln("%s: test expected to not compile, did.", filename);
+            managerTid.send(filename, false);
+            break;
+        default:
+            stderr.writefln("%s: test correctly failed to compile, but the compiler did not return 1.");
+            managerTid.send(filename, false);
+        }
         return;
     }
     
     retval = system(exeName);
     
-    if (retval != expectedRetval  && expectedToCompile) {
+    if (retval != expectedRetval && expectedToCompile) {
         stderr.writefln("%s: expected retval %s, got %s", filename, expectedRetval, retval);
         managerTid.send(filename, false);
         return;
