@@ -1,29 +1,12 @@
 //T compiles:yes
-//T retval:0
+//T retval:42
 
-enum Foo { One, Two, Three }
-enum Foo1 { Four, }
-    
-enum Boolean : bool
-{
-    True = true,
-    False = false
-}
-
-enum constant = "foo";
-
+int foo() { return 42; }
 int main()
 {
-    Foo foo = Foo.One;
-    if(foo != Foo.One || foo != 0) {
-        return 1;
-    }
-    
-    Boolean boolean = Boolean.True;
-    if(!boolean) {
-        return 1;
-    }
-    
-    return 0;
+	int function()[] l;
+	l.length = 1;
+	l[0] = &foo;
+	return l[0]();
 }
 

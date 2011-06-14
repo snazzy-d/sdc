@@ -6,10 +6,12 @@
 module sdc.gen.aggregate;
 
 import std.conv;
+import std.exception;
 
 import sdc.util;
+import sdc.global;
+import sdc.extract;
 import sdc.compilererror;
-import sdc.extract.base;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -30,7 +32,7 @@ bool canGenAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     return b;
 }
 
-void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
+void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.AggregateType.Struct:
@@ -44,20 +46,27 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
     }
     
     auto name = extractIdentifier(decl.name);
+    verbosePrint("Generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);
+    verboseIndent++;
+
+
     auto type = new StructType(mod);
     type.fullName = mod.name.dup;
     type.fullName.identifiers ~= decl.name;
     
     auto currentScope = mod.currentScope;
-    mod.currentScope = new Scope();
-    currentScope.add(name, new Store(mod.currentScope));
-    foreach (declDef; decl.structBody.declarations) {
-        genDeclarationDefinition(declDef, mod);
-    }
+    auto currentTypeScope = mod.typeScope;
+    mod.typeScope = mod.currentScope = type.typeScope;
+    currentScope.add(name, new Store(mod.currentScope, decl.name.location));
+    
+    auto oldAggregate = mod.aggregate;
+    mod.aggregate = type;
+    resolveDeclarationDefinitionList(decl.structBody.declarations, mod, type);
+
     Function[] functions;
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
-            type.addMemberVar(name, store.type);
+            type.addMemberType(name, store.type);
         } else if (store.storeType == StoreType.Value) {
             type.addMemberVar(name, store.value.type);
         } else if (store.storeType == StoreType.Function) {
@@ -67,12 +76,18 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, Module mod)
         }
     }
     mod.currentScope = currentScope;
+    mod.typeScope = currentTypeScope;
+    mod.aggregate = oldAggregate;
     type.declare();
     foreach (fn; functions) {
-        fn.parentAggregate = type;
+        fn.type.parentAggregate = type;
         fn.addArgument(new PointerType(mod, type), "this");
         type.addMemberFunction(fn.simpleName, fn);
     }
     
-    mod.currentScope.add(name, new Store(type));
+    mod.currentScope.redefine(name, new Store(type, decl.name.location));
+
+    verboseIndent--;
+    verbosePrint("Done generating aggregate '" ~ name ~"'.", VerbosePrintColour.Red);
 }
+

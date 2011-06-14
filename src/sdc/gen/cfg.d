@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  * 
@@ -9,21 +9,34 @@
 module sdc.gen.cfg;
 
 import std.array;
+import std.stdio;
 import std.typecons;
+import llvm.c.Core;
 
 
 /**
- * A BasicBlock is a consecutive sequence of code.
+ * A BasicBlock is a consecutive sequence of code, with no branches.
  */
 class BasicBlock
 {
-    bool isExitBlock = false;
-    BasicBlock[] children;
+    bool isExitBlock = false;  /// e.g. return, throw, assert(false), etc.
+    BasicBlock[] children;     /// Possible paths of control flow.
     
-    bool canReachWithoutExit(BasicBlock target)
+    @property bool fallsThrough() {
+        if (isExitBlock) return false;
+        return mFallThrough;
+    }
+    
+    @property void fallsThrough(bool b)
+    {
+        mFallThrough = b;
+    }
+    
+    /// Can this block reach the target block, without passing through an exit block?
+    bool canReach(BasicBlock target)
     {
         if (this is target) {
-            return !isExitBlock;
+            return fallsThrough;
         }
         alias Tuple!(BasicBlock, "node", size_t, "childToSearch") Parent;
         Parent[] blockStack;
@@ -43,10 +56,12 @@ class BasicBlock
             if ((child in considered) !is null) {
                 continue;
             }
-            if (!child.isExitBlock) {
+            if (child.fallsThrough) {
                 blockStack ~= Parent(child, 0);            
             }
         } while (blockStack.length > 0);
         return false;
     }
+
+    protected bool mFallThrough = true;
 }

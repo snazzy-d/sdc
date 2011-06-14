@@ -41,9 +41,9 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         decl.memberList = parseEnumMembers(tstream);
         decl.location = decl.base? decl.base.location - enumToken.location : enumToken.location;
     } else {
-        auto list = new EnumMemberList;
-        auto member = parseEnumMember(tstream, true);
-        list.location = member.location;
+        decl.memberList = new EnumMemberList;
+        auto member = parseEnumMember(tstream);
+        decl.memberList.location = member.location;
 
         if (member.initialiser is null) {
             throw new CompilerError(member.location, "manifest constant declaration must have initialiser.");
@@ -54,7 +54,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         }
         tstream.getToken();
         
-        list.members ~= member;
+        decl.memberList.members ~= member;
     }
     return decl;
 }

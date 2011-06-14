@@ -23,7 +23,28 @@ ImportDeclaration parseImportDeclaration(TokenStream tstream)
         decl.isStatic = true;
     }
     match(tstream, TokenType.Import);
-    decl.importList = parseImportList(tstream);
+    if (tstream.peek.type == TokenType.OpenParen) {
+        match(tstream, TokenType.OpenParen);
+        auto ident = match(tstream, TokenType.Identifier);
+        switch (ident.value) {
+        case "Java":
+            decl.language = Language.Java;
+            break;
+        default:
+            throw new CompilerError(ident.location, format("expected 'Java', not '%s'.", ident.value)); 
+        }
+        match(tstream, TokenType.CloseParen);
+        do {
+            decl.languageImports ~= parseStringLiteral(tstream);
+            if (tstream.peek.type == TokenType.Comma) {
+                tstream.getToken();
+                continue;
+            }
+            break;
+        } while (true);
+    } else {
+        decl.importList = parseImportList(tstream);
+    }
     match(tstream, TokenType.Semicolon);
     return decl;
 }

@@ -1,12 +1,20 @@
 //T compiles:yes
-//T retval:42
+//T retval:33
+//T dependency:test22_import.d
 
-auto add(int a, int b)
+import test22_import;
+
+int begin()
 {
-    return a + b;
+    return 1 + tenptr()() + addOne(&twelve) + 8;
+}
+
+int twelve()
+{
+    return 12;
 }
 
 int main()
 {
-    return add(21, 21);
+    return start();
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -19,31 +19,8 @@ class ClassDeclaration : Node
 // (: <SuperClass>, <Interfaces>?)
 class BaseClassList : Node
 {
-    SuperClass superClass;  // Optional.
-    InterfaceClass[] interfaceClasses;
-}
-
-enum Protection
-{
-    None,
-    Private,
-    Package,
-    Public,
-    Export
-}
-
-// <Protection> <Identifier>
-class SuperClass : Node
-{
-    Protection protection;
-    Identifier identifier;
-}
-
-// <Protection> <Identifier>
-class InterfaceClass : Node
-{
-    Protection protection;
-    Identifier identifier;
+    QualifiedName superClass;  // Optional.
+    QualifiedName[] interfaceClasses;
 }
 
 // { ClassBodyDeclaration* }

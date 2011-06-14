@@ -52,10 +52,37 @@ ConditionalDeclaration parseConditionalDeclaration(TokenStream tstream)
     
     
     decl.condition = parseCondition(tstream);
-    decl.thenBlock = parseDeclarationBlock(tstream);
+    
+    bool looping = tstream.peek.type == TokenType.OpenBrace;
+    if (looping) match(tstream, TokenType.OpenBrace);
+    do {
+        if (startsLikeAttribute(tstream)) {
+            decl.thenBlock ~= parseAttributeBlock(tstream);
+        } else {
+            decl.thenBlock ~= parseDeclarationDefinition(tstream);
+        }
+        if (looping && tstream.peek.type == TokenType.CloseBrace) {
+            match(tstream, TokenType.CloseBrace);
+            looping = false;
+        }
+    } while (looping);
+    
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        decl.elseBlock = parseDeclarationBlock(tstream);
+        
+        looping = tstream.peek.type == TokenType.OpenBrace;
+        if (looping) match(tstream, TokenType.OpenBrace);
+        do {
+            if (startsLikeAttribute(tstream)) {
+                decl.elseBlock ~= parseAttributeBlock(tstream);
+            } else {
+                decl.elseBlock ~= parseDeclarationDefinition(tstream);
+            }
+            if (looping && tstream.peek.type == TokenType.CloseBrace) {
+                match(tstream, TokenType.CloseBrace);
+                looping = false;
+            }
+        } while (looping);
     }
     
     return decl;
@@ -67,10 +94,10 @@ ConditionalStatement parseConditionalStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     statement.condition = parseCondition(tstream);
-    statement.thenStatement = parseNoScopeNonEmptyStatement(tstream);
+    statement.thenStatement = parseStatement(tstream);
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        statement.elseStatement = parseNoScopeNonEmptyStatement(tstream);
+        statement.elseStatement = parseStatement(tstream);
     }
     return statement;
 }

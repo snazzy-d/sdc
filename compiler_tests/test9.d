@@ -6,8 +6,7 @@ extern(C) size_t strlen(const char* s);
 
 int main()
 {
-    version (SDC) char[] str = "test";
-    else string str = "test";  
+    string str = "test";  
     if (str.length != 4) {
         return 1;
     }

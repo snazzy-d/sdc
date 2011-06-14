@@ -6,7 +6,10 @@
  */
 module sdc.gen.type;
 
+import std.algorithm;
+import std.conv;
 import std.string;
+import std.range;
 
 import llvm.c.Core;
 
@@ -14,7 +17,7 @@ import sdc.global;
 import sdc.util;
 import sdc.compilererror;
 import sdc.location;
-import sdc.extract.base;
+import sdc.extract;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -40,20 +43,22 @@ enum DType
     Float,
     Double,
     Real,
-    Pointer,
     NullPointer,
-    FunctionPointer,
+    Pointer,
     Array,
+    StaticArray,
     Const,
+    Immutable,
     Complex,
     Struct,
     Enum,
     Class,
     Inferred,
     Scope,
+    Function,
 }
 
-Type dtypeToType(DType dtype, Module mod)
+version (none) Type dtypeToType(DType dtype, Module mod)
 {
     final switch (dtype) with (DType) {
     case None:
@@ -90,21 +95,22 @@ Type dtypeToType(DType dtype, Module mod)
         return new DoubleType(mod);
     case Real:
         return new RealType(mod);
-    case Pointer:
     case NullPointer:
-    case FunctionPointer:
+    case Pointer:
     case Array:
     case Complex:
     case Struct:
     case Enum:
     case Class:
     case Const:
+    case Immutable:
     case Scope:
+    case Function:
         break;
     case Inferred:
         return new InferredType(mod);
     }
-    throw new CompilerPanic("tried to get Type out of invalid DType.");
+    throw new CompilerPanic("tried to get Type out of invalid DType '" ~ to!string(dtype) ~ "'");
 }
 
 pure bool isComplexDType(DType dtype)
@@ -127,11 +133,15 @@ abstract class Type
     DType dtype;
     ast.Access access;
     bool isRef = false;
+    Scope typeScope;
+    size_t stillToGo;
+    string[] aliasThises;
     
     this(Module mod)
     {
         mModule = mod;
         access = mod.currentAccess;
+        typeScope = new Scope();
     }
     
     LLVMTypeRef llvmType()
@@ -501,6 +511,34 @@ class PointerType : Type
     override string name() { return base.name() ~ '*'; }
 }
 
+class FunctionTypeWrapper : Type
+{
+    FunctionType functionType;
+    Function functionValue;  // Optional.
+    
+    this(Module mod, FunctionType functionType)
+    {
+        super(mod);
+        this.functionType = functionType;
+        dtype = DType.Function;
+        mType = functionType.functionType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        auto fwv = new FunctionWrapperValue(mod, location, functionType);
+        if (functionValue !is null) {
+            fwv.mValue = functionValue.llvmValue;
+        }
+        return fwv;
+    }
+    
+    override string name()
+    {
+        return "Steve";
+    }
+}
+
 class ConstType : Type
 {
     Type base;
@@ -526,35 +564,151 @@ class ConstType : Type
     override string name() { return "const(" ~ base.name() ~ ")"; }
 }
 
+class ImmutableType : Type
+{
+    Type base;
+    
+    this(Module mod, Type base)
+    {
+        super(mod);
+        dtype = DType.Immutable;
+        this.base = base;
+        mType = base.mType;
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return new ImmutableValue(mod, location, base.getValue(mod, location));
+    }
+    
+    override Type getBase()
+    {
+        return base;
+    }
+    
+    override string name() { return "immutable(" ~ base.name() ~ ")"; }
+}
+
+struct Field
+{
+    string name;
+    Type type;
+}
+
+struct Method
+{
+    string name;
+    Function fn;
+}
+
 class ClassType : Type
 {
     ast.QualifiedName fullName;
+    StructType structType;
+    ClassType parent;  // Optional for object.Object.
     
-    this(Module mod)
+    Field[] fields;
+    Method[] methods;
+    size_t[string] methodIndices; 
+    
+    this(Module mod, ClassType parent)
     {
         super(mod);
         dtype = DType.Class;
+        this.parent = parent;
+        this.fields = fields;
+        this.methods = methods;
+        
+        structType = new StructType(mod);
+        structType.addMemberVar("__vptr", new PointerType(mod, new PointerType(mod, new VoidType(mod))));
+        structType.addMemberVar("__monitor", new PointerType(mod, new VoidType(mod)));
+        addParentsFields();
+        addParentsMethods();
     }
     
-    void declare()
-    {
-        auto s = new StructType(mModule);
-        s.declare();
-        auto p = new PointerType(mModule, s);
-        mType = p.mType;
-    }  
-
     override Value getValue(Module mod, Location location)
     {
-        return new ClassValue(mod, location);
+        return new ClassValue(mod, location, this);
     }
     
     override string name()
     {
-        return extractQualifiedName(fullName);
+        return "class";
+    }
+    
+    void declare()
+    {
+        structType.declare();
+        mType = (new PointerType(mModule, structType)).llvmType;
+    }
+    
+    void addMemberVar(string name, Type t)
+    {
+        fields ~= Field(name, t);
+        structType.addMemberVar(name, t);
+    }
+    
+    void addMemberFunction(string name, Function fn)
+    {
+        if (auto p = name in methodIndices) {
+            methods[*p] = Method(name, fn);
+        } else {
+            addMethod(Method(name, fn));
+        }
+        mModule.globalScope.add(name, new Store(fn, Location()));
+    }
+    
+    /// Add the parents' non-static fields, from least to most derived.
+    protected void addParentsFields()
+    {
+        auto currentParent = parent;
+        while (currentParent !is null) {
+            addFields(currentParent.fields);
+            currentParent = currentParent.parent;
+        }
+    }
+    
+    /// Add the parents' methods, from most to least derived.  
+    protected void addParentsMethods()
+    {
+        auto currentParent = parent;
+        ClassType[] parents;
+        while (currentParent !is null) {
+            parents ~= currentParent;
+            currentParent = currentParent.parent;
+        }
+        
+        foreach (cparent; retro(parents)) {
+            addMethods(cparent.methods);
+        }
+    }
+    
+    protected void addFields(Field[] fields)
+    {
+        this.fields ~= fields; 
+        foreach (field; fields) {
+            structType.addMemberVar(field.name, field.type);
+        }
+    }
+    
+    protected void addMethods(Method[] methods)
+    {
+        foreach (method; methods) addMethod(method);
+    }
+    
+    protected void addMethod(Method method)
+    {
+        this.methods ~= method;
+        methodIndices[method.name] = methods.length - 1; 
     }
 }
 
+/*
+ * This is not the same as a default initialised void*.
+ * It's treated as a distinct type as D treats nulls 
+ * special (they can be implicitly converted to any pointer
+ * type). Just in case you wondering why this was here.
+ */  
 class NullPointerType : PointerType
 {
     this(Module mod)
@@ -590,7 +744,47 @@ class ArrayType : StructType
         return base;
     }
     
+    override Type importToModule(Module mod)
+    {
+        return new ArrayType(mod, base);
+    }
+    
     override string name() { return base.name() ~ "[]"; }
+}
+
+class StaticArrayType : Type
+{
+    Type base;
+    size_t length;
+    
+    this(Module mod, Type base, size_t length)
+    {
+        super(mod);
+        this.base = base;
+        this.length = length;
+        dtype = DType.StaticArray;
+        mType = LLVMArrayType(base.llvmType, cast(uint) length);
+    }
+    
+    override Value getValue(Module mod, Location location)
+    {
+        return null;
+    }
+    
+    override Type getBase()
+    {
+        return base;
+    }
+    
+    override Type importToModule(Module mod)
+    {
+        return new StaticArrayType(mod, base, length);
+    }
+    
+    override string name()
+    {
+        return base.name() ~ format("[%s]", length);
+    }
 }
 
 class StructType : Type
@@ -609,7 +803,7 @@ class StructType : Type
         foreach (member; members) {
             types ~= member.llvmType;
         }
-        mType = LLVMStructTypeInContext(mModule.context, types.ptr, types.length, false);
+        mType = LLVMStructTypeInContext(mModule.context, types.ptr, cast(uint) types.length, false);
     }
     
     override Value getValue(Module mod, Location location)
@@ -623,15 +817,21 @@ class StructType : Type
         members ~= t;
     }
     
+    void addMemberType(string id, Type t)
+    {
+        typeScope.redefine(id, new Store(t, Location()));
+    }
+    
     void addMemberFunction(string id, Function f)
     {
-        memberFunctions[id] = f;
-        mModule.globalScope.add(id, new Store(f));
+        memberFunctions[id] = f;    
     }
     
     override Type importToModule(Module mod)
     {
         auto t = new StructType(mod);
+        t.fullName = fullName;
+        t.aliasThises = aliasThises;
         foreach (name, index; memberPositions) {
             t.addMemberVar(name, members[index].importToModule(mod));
         }
@@ -639,6 +839,7 @@ class StructType : Type
             fn.importToModule(mod);
             t.addMemberFunction(name, fn);
         }
+        
         t.declare();
         return t;
     }
@@ -649,7 +850,7 @@ class StructType : Type
     }
     
     Type[] members;
-    int[string] memberPositions;
+    size_t[string] memberPositions;
     Function[string] memberFunctions;
 }
 
@@ -702,30 +903,6 @@ class EnumType : Type
     }
     
     Value[string] members;
-}
-
-class FunctionPointerType : PointerType
-{
-    FunctionType functionType;
-    
-    this(Module mod, FunctionType functionType)
-    {
-        super(mod, null);
-        mType = functionType.functionType;
-        assert(mType);
-        dtype = DType.FunctionPointer;
-        this.functionType = functionType;
-    }
-    
-    override Value getValue(Module mod, Location location)
-    {
-        return new FunctionPointerValue(mod, location, functionType);
-    }
-    
-    override string name()
-    {
-        return "function pointer";
-    }
 }
 
 /* InferredType means, as soon as we get enough information

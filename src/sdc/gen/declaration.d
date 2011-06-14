@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -12,9 +12,11 @@ import llvm.c.Core;
 
 import sdc.compilererror;
 import sdc.lexer;
+import sdc.location;
 import sdc.source;
 import sdc.util;
-import sdc.extract.base;
+import sdc.extract;
+import sdc.global;
 import ast = sdc.ast.all;
 import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
@@ -24,6 +26,7 @@ import sdc.gen.statement;
 import sdc.gen.expression;
 import sdc.gen.sdcfunction;
 import sdc.parser.declaration;
+import sdc.java.mangle;
 
 
 bool canGenDeclaration(ast.Declaration decl, Module mod)
@@ -37,14 +40,22 @@ bool canGenDeclaration(ast.Declaration decl, Module mod)
         b = canGenFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Alias:
-        b = canGenDeclaration(cast(ast.Declaration) decl.node, mod);
+        b = canGenAliasDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
+    case ast.DeclarationType.AliasThis:
+        return true;  // noooooooooooooooooooooooooooooo
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
         b = canGenDeclaration(asMixin.declarationCache, mod);
         break;
     }
+    return b;
+}
+
+bool canGenAliasDeclaration(ast.VariableDeclaration decl, Module mod)
+{
+    auto b = canGenVariableDeclaration(decl, mod);
     return b;
 }
 
@@ -65,26 +76,31 @@ bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 }
 
 
-void declareDeclaration(ast.Declaration decl, Module mod)
+void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         declareVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Function:
-        declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
+        declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.Alias:
-        mod.isAlias = true;
-        declareDeclaration(cast(ast.Declaration) decl.node, mod);
-        mod.isAlias = false;
+        declareAliasDeclaration(cast(ast.VariableDeclaration) decl.node, declDef, mod);
+        break;
+    case ast.DeclarationType.AliasThis:
         break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
-        declareDeclaration(asMixin.declarationCache, mod);
+        declareDeclaration(asMixin.declarationCache, declDef, mod);
         break;
     }
+}
+
+void declareAliasDeclaration(ast.VariableDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
+{
+    declareVariableDeclaration(decl, mod);
 }
 
 void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
@@ -92,14 +108,15 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
     foreach (declarator; decl.declarators) {
         auto name = extractIdentifier(declarator.name);
-        if (mod.isAlias) {
-            mod.currentScope.add(name, new Store(type));
+        if (decl.isAlias) {
+            verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
+            mod.currentScope.add(name, new Store(type, declarator.name.location));
         }
     }
 }
 
 /// Create and add the function, but generate no code.
-void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
+void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     auto retval = astTypeToBackendType(decl.retval, mod, OnFailure.DieWithError);
     Type[] params;
@@ -112,28 +129,23 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
-    auto fntype = new FunctionType(retval, params, decl.parameterList.varargs);
-    fntype.linkage = mod.currentLinkage;
+    auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs, decl);
     auto fn = new Function(fntype);
-    fn.simpleName = extractIdentifier(decl.name);
+    if (decl.name.identifiers.length == 1) {
+        fn.simpleName = extractQualifiedName(decl.name);
+    } else {
+        // implementing java native function
+        fn.simpleName = javaMangle(decl.name);
+        fntype.linkage = ast.Linkage.ExternC; 
+    }
     fn.argumentNames = names;
-    auto store = new Store(fn);
-    mod.currentScope.add(fn.simpleName, store);
+    auto store = new Store(fn, decl.name.location);
     
-    if (fn.type.returnType.dtype == DType.Inferred) {
-        auto inferrenceContext = mod.dup;
-        inferrenceContext.inferringFunction = true;
-        
-        try {
-            // Why in fuck's name am I doing this _here_? Oh well; TODO.
-            genFunctionDeclaration(decl, inferrenceContext);
-        } catch (InferredTypeFoundException e) {
-            fn.type.returnType = e.type;
-        }
-        
-        if (fn.type.returnType.dtype == DType.Inferred) {
-            throw new CompilerPanic(decl.location, "inferred return value not inferred.");
-        }
+    // This is the important part: the function is added to the appropriate scope.
+    if (declDef.parentType !is null) {
+        declDef.parentType.typeScope.add(fn.simpleName, store);
+    } else {
+        mod.currentScope.add(fn.simpleName, store);
     }
     
     fn.type.declare();
@@ -155,23 +167,31 @@ void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
     decl.declarationCache = parseDeclaration(tstream);
 }
 
-void genDeclaration(ast.Declaration decl, Module mod)
+void genDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     final switch (decl.type) {
     case ast.DeclarationType.Variable:
         genVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Function:
-        genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
+        genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
         break;
     case ast.DeclarationType.Alias:
+        break;
+    case ast.DeclarationType.AliasThis:
+        genAliasThis(cast(ast.Identifier) decl.node, mod);
         break;
     case ast.DeclarationType.Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         assert(asMixin.declarationCache);
-        genDeclaration(asMixin.declarationCache, mod);
+        genDeclaration(asMixin.declarationCache, declDef, mod);
         break;
     }
+}
+
+void genAliasThis(ast.Identifier identifier, Module mod)
+{
+    mod.aggregate.aliasThises ~= extractIdentifier(identifier);
 }
 
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
@@ -213,15 +233,35 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     }
 }
 
-void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
+void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
     if (decl.functionBody is null) {
         // The function's code is defined elsewhere.
         return;
     }
     
-    auto name = extractIdentifier(decl.name);
-    auto store = mod.globalScope.get(name);
+    // First, we find the previously stored function information.
+    string name;
+    if (decl.name.identifiers.length == 1) {
+        name = extractQualifiedName(decl.name);
+    } else {
+        name = javaMangle(decl.name);
+    }
+    
+    if (!mod.returnValueGatherLabelPass) {
+        verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+        verboseIndent++;
+    }
+    
+    Store store = null; 
+    if (declDef.parentType !is null) {
+        store = declDef.parentType.typeScope.get(name);   
+    }
+    
+    if (store is null) {
+        store = mod.currentScope.get(name);
+    }
+
     if (store is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
@@ -230,9 +270,15 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
     }
     auto fn = store.getFunction();
     
+    // Next, we generate the actual function body's code.
     auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
     genFunctionBody(decl.functionBody, decl, fn, mod);
+    
+    if (!mod.returnValueGatherLabelPass) {
+        verboseIndent--;
+        verbosePrint("Done building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+    }
 }
 
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Function fn, Module mod)
@@ -247,21 +293,19 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         if (argType.isRef) {
             auto dummy = argType.getValue(mod, decl.location);
             auto r = new ReferenceValue(mod, decl.location, dummy);
-            r.setReferencePointer(decl.location, LLVMGetParam(fn.llvmValue, i));
+            r.setReferencePointer(decl.location, LLVMGetParam(fn.llvmValue, cast(uint) i));
             val = r;  
         } else {
             val = argType.getValue(mod, decl.location);
-            val.initialise(decl.location, LLVMGetParam(fn.llvmValue, i));
+            val.initialise(decl.location, LLVMGetParam(fn.llvmValue, cast(uint) i));
         }
         val.lvalue = true;
         mod.currentScope.add(fn.argumentNames[i], new Store(val));
     }
     genBlockStatement(functionBody.statement, mod);
-    if (mod.currentFunction.cfgEntry.canReachWithoutExit(mod.currentFunction.cfgTail)) {
+    if (mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
-        } else if (mod.inferringFunction) {
-            throw new InferredTypeFoundException(new VoidType(mod));
         } else {
             throw new CompilerError(
                 decl.location, 

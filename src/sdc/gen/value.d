@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -9,6 +9,7 @@ module sdc.gen.value;
 import std.algorithm;
 import std.conv;
 import std.exception;
+import std.range;
 import std.stdio;
 import std.string;
 
@@ -17,10 +18,10 @@ import llvm.Ext;
 
 import sdc.util;
 import sdc.mangle;
+import sdc.extract;
 import sdc.compilererror;
 import sdc.location;
 import sdc.global;
-import sdc.extract.base;
 import sdc.gen.cfg;
 import sdc.gen.expression;
 import sdc.gen.sdcmodule;
@@ -37,6 +38,9 @@ abstract class Value
     ast.Access access;
     bool lvalue = false;
     
+    ast.QualifiedName humanName;  // Optional.
+    string mangledName;  // Optional.
+    
     this(Module mod, Location loc)
     {
         mModule = mod;
@@ -45,7 +49,9 @@ abstract class Value
         mGlobal = mod.currentScope is mod.globalScope;
     }
     
-    bool isKnown = false;
+    @property bool isKnown() { return mIsKnown; }
+    @property void isKnown(bool b) { mIsKnown = b; }
+    
     union
     {
         bool knownBool;
@@ -57,7 +63,7 @@ abstract class Value
         uint knownUint;
         long knownLong;
         ulong knownUlong;
-        float knownFloat;
+        float knownFloat;  // Oh yes, we all float - and when you're down here with us, you'll float too!
         double knownDouble;
         real knownReal;
         char knownChar;
@@ -117,6 +123,8 @@ abstract class Value
     Value mul(Location loc, Value val) { fail(loc, "multiply"); assert(false); }
     Value div(Location loc, Value val) { fail(loc, "divide"); assert(false); }
     Value eq(Location loc, Value val) { fail(loc, "compare equality of"); assert(false); }
+    Value identity(Location loc, Value val) { return eq(loc, val); }
+    Value nidentity(Location loc, Value val) { return neq(loc, val); }
     Value neq(Location loc, Value val) { fail(loc, "compare non-equality of"); assert(false); }
     Value gt(Location loc, Value val) { fail(loc, "compare greater-than of"); assert(false); }
     Value lt(Location loc, Value val) { fail(loc, "compare less-than of"); assert(false); }
@@ -124,9 +132,11 @@ abstract class Value
     Value or(Location loc, Value val) { fail(loc, "or"); assert(false); }
     Value and(Location loc, Value val) { fail(loc, "and"); assert(false); }
     Value xor(Location loc, Value val) { fail(loc, "xor"); assert(false); }
+    Value not(Location loc) { fail(loc, "not"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
+    Value mod(Location loc, Value val) { fail(loc, "modulo"); assert(false); }
         
         
     Value logicalOr(Location location, Value val)
@@ -145,9 +155,17 @@ abstract class Value
         return a.and(location, b);
     }
     
-    
-    Value addressOf()
+    Value logicalNot(Location location)
     {
+        auto boolType = new BoolType(mModule);
+        auto a = this.performCast(location, boolType);
+        return a.not(location);
+    }
+    
+    
+    Value addressOf(Location location)
+    {
+        //errorIfNotLValue(location, "cannot take the address of an rvalue.");
         auto v = new PointerValue(mModule, location, mType);
         v.initialise(location, mValue);
         return v;
@@ -208,10 +226,10 @@ abstract class Value
         }
     }
     
-    void errorIfNotLValue(Location location)
+    void errorIfNotLValue(Location location, string msg = "cannot modify rvalue")
     {
         if (!lvalue) {
-            throw new CompilerError(location, "cannot modify rvalue.");
+            throw new CompilerError(location, msg);
         }
     }
     
@@ -221,6 +239,7 @@ abstract class Value
     protected bool mGlobal;
     protected void delegate(Value val)[] mSetPreCallbacks;
     protected void delegate(Value val)[] mSetPostCallbacks;
+    protected bool mIsKnown = false;
 }
 
 mixin template SimpleImportToModule()
@@ -230,6 +249,33 @@ mixin template SimpleImportToModule()
         auto v = new typeof(this)(mod, location);
         v.access = this.access;
         v.lvalue = this.lvalue;
+        if (this.isKnown) {
+            v.isKnown = true;
+            switch (this.type.dtype) with (DType) {
+            case Bool: v.knownBool = this.knownBool; break;
+            case Byte: v.knownByte = this.knownByte; break;
+            case Ubyte: v.knownUbyte = this.knownUbyte; break;
+            case Short: v.knownShort = this.knownShort; break;
+            case Ushort: v.knownUshort = this.knownUshort; break;
+            case Int: v.knownInt = this.knownInt; break;
+            case Uint: v.knownUint = this.knownUint; break;
+            case Long: v.knownLong = this.knownLong; break;
+            case Ulong: v.knownUlong = this.knownUlong; break;
+            case Float: v.knownFloat = this.knownFloat; break;
+            case Double: v.knownDouble = this.knownDouble; break;
+            case Real: v.knownReal = this.knownReal; break;
+            case Char: v.knownChar = this.knownChar; break;
+            case Dchar: v.knownDchar = this.knownDchar; break;
+            case Wchar: v.knownWchar = this.knownWchar; break;
+            default:
+                if (v.knownString.length > 0) {
+                    v.knownString = this.knownString;
+                } else {    
+                    v.isKnown = false;
+                }
+                break;
+            }
+        }
         return v;
     }
 }
@@ -350,7 +396,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
             lvalue = islvalue;
         } else {
             if (!val.isKnown) {
-                throw new CompilerError(location, "non-isKnown global initialiser.");
+                throw new CompilerError(val.location, "value is not known at compile time.");
             }
             initialise(location, LLVMConstInt(mType.llvmType, mixin("val." ~ C), !SIGNED));
         }
@@ -437,6 +483,22 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
+    override Value mod(Location location, Value val)
+    {
+        static if (SIGNED) {
+            auto result = LLVMBuildSRem(mModule.builder, this.get(), val.get(), "mod");
+        } else {
+            auto result = LLVMBuildURem(mModule.builder, this.get(), val.get(), "mod");
+        }
+        auto v = new typeof(this)(mModule, location);
+        v.initialise(location, result);
+        v.isKnown = this.isKnown && val.isKnown;
+        if (v.isKnown) {
+            mixin("v." ~ C ~ " = cast(" ~ T.stringof ~ ")(" ~ C ~ " % val." ~ C ~ ");");
+        }
+        return v;
+    }
+    
     override Value or(Location location, Value val)
     {
         auto result = LLVMBuildOr(mModule.builder, this.get(), val.get(), "or");
@@ -456,6 +518,14 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override Value xor(Location location, Value val)
     {
         auto result = LLVMBuildXor(mModule.builder, this.get(), val.get(), "xor");
+        auto v = new typeof(this)(mModule, location);
+        v.initialise(location, result);
+        return v;
+    }
+    
+    override Value not(Location location)
+    {
+        auto result = LLVMBuildNot(mModule.builder, this.get(), "not");
         auto v = new typeof(this)(mModule, location);
         v.initialise(location, result);
         return v;
@@ -658,7 +728,7 @@ class FloatingPointValue(T, B) : Value
         return newSizeT(mModule, loc, T.sizeof);
     }
     
-    override Value addressOf()
+    override Value addressOf(Location location)
     {
         auto v = new PointerValue(mModule, location, mType);
         v.initialise(location, mValue);
@@ -687,9 +757,55 @@ alias FloatingPointValue!(float, FloatType) FloatValue;
 alias FloatingPointValue!(double, DoubleType) DoubleValue;
 alias FloatingPointValue!(real, RealType) RealValue;
 
+class StaticArrayValue : Value
+{
+    StaticArrayType asStaticArray;
+    
+    this(Module mod, Location location, Type baseType, Value lengthValue)
+    {
+        super(mod, location);
+        if (!lengthValue.isKnown || lengthValue.type.dtype != DType.Int) {
+            // !!!
+            throw new CompilerError(location, "static arrays must be initialized with a known integer (temporary hack).");
+        } 
+        mType = asStaticArray = new StaticArrayType(mod, baseType, lengthValue.knownInt);
+        LLVMBuildAlloca(mod.builder, mType.llvmType, "static_array");
+    }
+    
+    override Value getSizeof(Location location)
+    {
+        // T[N].sizeof => T.sizeof * N
+        return newSizeT(mModule, location, asStaticArray.length).mul(location, asStaticArray.base.getValue(mModule, location).getSizeof(location));
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        auto v = super.getMember(location, name);
+        if (name == "length") {
+            return newSizeT(mModule, location, asStaticArray.length);
+        }
+        return v;
+    }
+    
+    override Value index(Location location, Value value)
+    {
+        auto t = new IntType(mModule);
+        
+        LLVMValueRef[] indices;
+        indices ~= LLVMConstInt(t.llvmType, 0, false);
+        indices ~= value.get();
+        
+        auto i = asStaticArray.base.getValue(mModule, location);
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
+        i.lvalue = true;
+        return i;
+    }
+}
+
 class ArrayValue : StructValue
 {
     Type baseType;
+    bool suppressCallbacks;
     
     this(Module mod, Location location, Type baseType)
     {
@@ -708,12 +824,11 @@ class ArrayValue : StructValue
             mOldLength = v;
             v.addSetPostCallback((Value val)
                                 {
+                                    if (suppressCallbacks) return;
                                     assert(val.type.dtype == theSizeT.dtype);
                                     auto ptr = getMember(location, "ptr");
                                     auto vl = [ptr.performCast(location, new PointerType(mModule, new VoidType(mModule))), val];
-
-                                    gcRealloc = gcRealloc.importToModule(mModule);  // !!!
-                                    auto memptr = gcRealloc.call(location, [ptr.location, val.location], vl);
+                                    auto memptr = mModule.gcRealloc(location, ptr, val);
                                     ptr.set(location, memptr.performCast(location, ptr.type));
                                 });
         }
@@ -721,7 +836,7 @@ class ArrayValue : StructValue
     }
     
     override Value index(Location location, Value val)
-    {
+    {   
         auto v = getMember(location, "ptr").index(location, val);
         v.lvalue = lvalue;
         return v;
@@ -751,11 +866,11 @@ class StringValue : ArrayValue
             s ~= '\0';
         }
         
-        val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, s.length), "string");
+        val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, cast(uint) s.length), "string");
 
         LLVMSetLinkage(val, LLVMLinkage.Internal);
         LLVMSetGlobalConstant(val, true);
-        LLVMSetInitializer(val, LLVMConstString(s.ptr, s.length, true));
+        LLVMSetInitializer(val, LLVMConstString(s.ptr, cast(uint) s.length, true));
         
         auto ptr = getMember(location, "ptr");
         auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
@@ -857,13 +972,25 @@ class PointerValue : Value
     
     override Value index(Location location, Value val)
     {
-        val = implicitCast(location, val, new IntType(mModule));
+        val = implicitCast(location, val, getSizeT(mModule));
         LLVMValueRef[] indices;
         indices ~= val.get();
         
         auto v = baseType.getValue(mModule, location);
-        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, indices.length, "gep");
+        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, cast(uint) indices.length, "gep");
+        v.lvalue = lvalue;
         return v;
+    }
+    
+    override Value eq(Location location, Value val)
+    {
+        auto retval = new BoolValue(mModule, location);
+        if (val.type.dtype == DType.NullPointer) {
+            retval.mValue = LLVMBuildIsNull(mModule.builder, get(), "is");
+        } else {
+            retval.mValue = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "is");
+        }
+        return retval;
     }
     
     override Value getInit(Location location)
@@ -929,7 +1056,7 @@ class ReferenceValue : Value
         mType = base.type;
         mValue = base.mValue;
         pointerToBase = new PointerValue(mod, location, base.type);
-        setReferencePointer(location, base.addressOf.get);
+        setReferencePointer(location, base.addressOf(location).get);
     }
     
     void setReferencePointer(Location loc, LLVMValueRef val)
@@ -961,7 +1088,7 @@ class ReferenceValue : Value
     mixin MultiMixin!(UnaryReferenceImplementation, "inc", "dec", "dereference", 
                       "getSizeof", "getInit");
     mixin MultiMixin!(BinaryReferenceImplementation, "add", "sub", "mul", "div", 
-                      "eq", "neq", "gt", "lt", "lte", "index");
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
     
     override Value getMember(Location loc, string name)
     {
@@ -974,22 +1101,88 @@ class ReferenceValue : Value
     }
 }
 
-class ClassValue : ReferenceValue
+class ClassValue : Value
 {
-    StructValue structValue;
-    
-    this(Module mod, Location location)
+    PointerValue v;
+    this(Module mod, Location location, ClassType t)
     {
-        auto c = new ClassType(mod);
-        c.declare();
-        mType = c;
-        auto t = new StructType(mod);
-        t.declare();
-        structValue = new StructValue(mod, location, t);
-        //auto p = gcAlloc.call(location, [location], [structValue.getSizeof(location)]).performCast(location, c);
-        //setReferencePointer(location, p.get());
-        super(mod, location, structValue);
+        super(mod, location);
+        mType = t;
+        v = new PointerValue(mod, location, t.structType);
+        mValue = v.mValue;
+        v.lvalue = true;
+        lvalue = true;
     }
+    
+    override Value getInit(Location location)
+    {
+        return new NullPointerValue(mModule, location);
+    }
+    
+    override LLVMValueRef get()
+    {
+        dbga;
+        return v.get();
+    }
+    
+    override void set(Location loc, Value val)
+    {
+        errorIfNotLValue(loc);
+        setPreCallbacks();
+        if (val.type.dtype == DType.Class) {
+            auto asClass = enforce(cast(ClassValue) val);
+            v.set(loc, asClass.v);
+        } else {
+            v.set(loc, val);
+        }
+        setPostCallbacks();
+    }
+    
+    override void set(Location loc, LLVMValueRef val)
+    {
+        errorIfNotLValue(loc);
+        setPreCallbacks();
+        v.set(loc, val);
+        setPostCallbacks();
+    }
+    
+    override void initialise(Location loc, Value val)
+    {
+        auto oldlvalue = lvalue;
+        lvalue = true;
+        set(loc, val);
+        lvalue = oldlvalue;
+    }
+    
+    override void initialise(Location loc, LLVMValueRef val)
+    {
+        auto oldlvalue = lvalue;
+        lvalue = true;
+        set(loc, val);
+        lvalue = oldlvalue;
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        auto asClass = enforce(cast(ClassType) mType);
+        if (auto p = name in asClass.methodIndices) {
+            // *p + 1 because the first entry of the vtable contains a TypeInfo instance. 
+            auto fptr = v.getMember(location, "__vptr").index(location, newSizeT(mModule, location, *p + 1));
+            auto fntype = new PointerType(mModule, new FunctionTypeWrapper(mModule, asClass.methods[*p].fn.type));
+            return fptr.performCast(location, fntype);
+        }
+        return v.getMember(location, name);
+    }
+    
+    override Value getSizeof(Location location)
+    {
+        return v.getSizeof(location);
+    }
+}
+
+mixin template BinaryReferenceWrapperImplementation(alias NAME)
+{
+    mixin("override Value " ~ NAME ~ "(Location loc, Value val) { return new typeof(this)(mModule, loc, base." ~ NAME ~ "(loc, val)); }");
 }
 
 class ConstValue : Value
@@ -1048,8 +1241,91 @@ class ConstValue : Value
     {
         return base.importToModule(mod);
     }
+    
+    override Value getSizeof(Location loc)
+    {
+        return base.getSizeof(loc);
+    }
+    
+    override bool isKnown()
+    {
+        return base.isKnown;
+    }
+    
+    mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
 }
-
+class ImmutableValue : Value
+{
+    Value base;
+    
+    this(Module mod, Location location, Value base)
+    {
+        //assert(false);
+        super(mod, location);
+        this.base = base;
+        mType = new ConstType(mod, base.type);
+        mValue = base.mValue;
+    }
+    
+    override Value getInit(Location location)
+    {
+        return base.getInit(location);
+    }
+        
+    override void set(Location location, Value val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void set(Location location, LLVMValueRef val)
+    {
+        throw new CompilerError(location, "cannot modify const value.");
+    }
+    
+    override void initialise(Location location, Value val)
+    {
+        base.initialise(location, val);
+    }
+    
+    override void initialise(Location location, LLVMValueRef val)
+    {
+        base.initialise(location, val);
+    }
+    
+    override Value performCast(Location location, Type t)
+    {
+        return base.performCast(location, t);
+    }
+    
+    override LLVMValueRef get()
+    {
+        return base.get();
+    }
+    
+    override Value getMember(Location location, string name)
+    {
+        return new ImmutableValue(mModule, location, base.getMember(location, name));
+    }
+    
+    override Value importToModule(Module mod)
+    {
+        return base.importToModule(mod);
+    }
+    
+    override Value getSizeof(Location loc)
+    {
+        return base.getSizeof(loc);
+    }
+    
+    override bool isKnown()
+    {
+        return base.isKnown;
+    }
+    
+    mixin MultiMixin!(BinaryReferenceWrapperImplementation, "add", "sub", "mul", "div", 
+                      "eq", "neq", "gt", "lt", "lte", "index", "mod");
+}
 class NullPointerValue : PointerValue
 {
     this(Module mod, Location location)
@@ -1107,8 +1383,13 @@ class StructValue : Value
         return v;
     }
     
-    override Value getMember(Location location, string name)  // !!!
+    override Value getMember(Location location, string name)
     {
+        auto store = type.typeScope.get(name);
+        if (store !is null && store.storeType == StoreType.Type) {
+            return store.type.getValue(mModule, location);
+        }
+        
         auto prop = getProperty(location, name);
         if (prop !is null) {
             return prop;
@@ -1118,20 +1399,20 @@ class StructValue : Value
         assert(asStruct);
         
         if (auto fnp = name in asStruct.memberFunctions) {
-            mModule.expressionFunction = *fnp;
-            return this;
+            auto wrapper = new FunctionWrapperValue(mModule, location, fnp.type);
+            wrapper.mValue = fnp.llvmValue;
+            return wrapper;
         }
         
         auto t = new IntType(mModule);
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-
         auto index = asStruct.memberPositions[name];
         indices ~= LLVMConstInt(t.llvmType, index, false);
         
         auto i = asStruct.members[index].getValue(mModule, location);
-        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, indices.length, "gep");
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
         i.lvalue = true;
         return i;
     }
@@ -1194,33 +1475,23 @@ class EnumValue : Value
     }+/
 }
 
-class FunctionPointerValue : PointerValue
+class FunctionWrapperValue : Value
 {
-    FunctionType functionType;
+    this(Module mod, Location location)
+    {
+        super(mod, location);
+    }
     
     this(Module mod, Location location, FunctionType functionType)
     {
-        auto ftype = new FunctionPointerType(mod, functionType);
-        super(mod, location, ftype);
-        mType = ftype;
-        this.functionType = functionType;
+        this(mod, location);
+        mType = new FunctionTypeWrapper(mod, functionType);
     }
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        if (mModule is null) {
-            throw new CompilerPanic(location, "attemped to call unassigned Function.");
-        }
-        auto v = buildCall(mModule, functionType, get(), "fptr", location, argLocations, args);
-           
-        Value val;
-        if (functionType.returnType.dtype != DType.Void) {
-            val = functionType.returnType.getValue(mModule, location);
-            val.initialise(location, v);
-        } else {
-            val = new VoidValue(mModule, location);
-        }
-        return val;
+        auto ftype = enforce(cast(FunctionTypeWrapper) mType);
+        return buildCall(mModule, ftype.functionType, mValue, "foo", location, argLocations, args);
     }
 }
 
@@ -1275,6 +1546,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     case ast.TypeType.ConstType:
         t = new ConstType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
         break;
+    case ast.TypeType.ImmutableType:
+        t = new ImmutableType(mod, astTypeToBackendType(cast(ast.Type) type.node, mod, onFailure));
+        break;
     case ast.TypeType.Typeof:
         t = genTypeof(cast(ast.TypeofType) type.node, mod);
         break;
@@ -1289,11 +1563,10 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         return null;
     }        
     
-    for (int i = type.suffixes.length - 1; i >= 0; i--) {
-        auto suffix = type.suffixes[i];
+    foreach (suffix; retro(type.suffixes)) {
         if (suffix.type == ast.TypeSuffixType.Pointer) {
             t = new PointerType(mod, t);
-        } else if (suffix.type == ast.TypeSuffixType.DynamicArray) {
+        } else if (suffix.type == ast.TypeSuffixType.Array) {
             t = new ArrayType(mod, t);
         } else {
             throw new CompilerPanic(type.location, "unimplemented type suffix.");
@@ -1305,6 +1578,8 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
         t = new ConstType(mod, t);
         break;
     case Auto:
+        break;
+    case Static:
         break;
     default:
         throw new CompilerPanic(type.location, "unimplemented storage type.");
@@ -1322,9 +1597,10 @@ Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure 
         args ~= astTypeToBackendType(param.type, mod, onFailure);
         args[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
     }
-    auto fn = new FunctionType(retval, args, varargs);
-    fn.declare();
-    return new FunctionPointerType(mod, fn);
+    auto ftype = new FunctionType(mod, retval, args, varargs);
+    ftype.declare();
+    auto fn = new FunctionTypeWrapper(mod, ftype);
+    return new PointerType(mod, fn);
 }
 
 Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)
@@ -1396,7 +1672,6 @@ Type primitiveTypeToBackendType(ast.PrimitiveType type, Module mod)
 
 Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailure onFailure)
 {
-    auto name = "temporarilyUselessName (sorry Jakob!)";
     Scope baseScope;
     foreach (thing; type.segments) {
         if (!thing.isIdentifier) {
@@ -1404,10 +1679,14 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         }
         auto identifier = cast(ast.Identifier) thing.node;
         Store store;
+        auto name = extractIdentifier(identifier);
         if (baseScope !is null) {
-            store = baseScope.get(extractIdentifier(identifier));
+            store = baseScope.get(name);
         } else {
-            store = mod.search(extractIdentifier(identifier));
+            if (mod.typeScope !is null) {
+                store = mod.typeScope.get(name);
+            }
+            if (store is null) store = mod.search(name);
         }
         
         if (store is null) {
@@ -1423,6 +1702,11 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
             return store.type;
         } else if (store.storeType == StoreType.Scope) {
             baseScope = store.getScope();
+        } else if (store.storeType == StoreType.Function) {
+            auto fn = store.getFunction();
+            auto ftw = new FunctionTypeWrapper(mod, fn.type);
+            ftw.functionValue = fn;
+            return ftw;
         }
     }
     assert(false);
@@ -1433,23 +1717,64 @@ void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
     if (lhs.type.dtype == rhs.type.dtype) {
         return;
     }
+    
+    if ((lhs.type.dtype == DType.Pointer && rhs.type.dtype == DType.NullPointer) ||
+        (rhs.type.dtype == DType.Pointer && lhs.type.dtype == DType.NullPointer)) {
+        return;
+    }
  
-    auto toDType = max(lhs.type.dtype, rhs.type.dtype);
-    auto t = dtypeToType(toDType, lhs.getModule());
     if (lhs.type.dtype > rhs.type.dtype) {
-        *rhs = implicitCast(location, *rhs, t);
+        *rhs = implicitCast(location, *rhs, lhs.type);
     } else {
-        *lhs = implicitCast(location, *lhs, t);
+        *lhs = implicitCast(location, *lhs, rhs.type);
     }
 }
 
 Value implicitCast(Location location, Value v, Type toType)
 {
+    Value[] aliasThisMatches;
+    foreach (aliasThis; v.type.aliasThises) {
+        // The type has an alias this declaration, so try it.
+        auto aliasValue = v.getMember(location, aliasThis);
+        if (aliasValue.type.dtype == DType.Function) {
+            // If the alias points to a function, call it.
+            auto asFunction = enforce(cast(FunctionTypeWrapper) aliasValue.type);
+            if (asFunction.functionType.parentAggregate !is v.type) {
+                throw new CompilerError(location, "alias this refers to non member function '" ~ aliasThis ~ "'.");
+            }
+            if (asFunction.functionType.argumentTypes.length != 0) {
+                auto address = v.addressOf(location);
+                if (asFunction.functionType.argumentTypes.length > 1 || asFunction.functionType.argumentTypes[0] != address.type) {
+                    throw new CompilerError(location, "alias this refers to function with non this parameter.");
+                } 
+                aliasValue = aliasValue.call(location, [v.location], [v.addressOf(location)]);
+            } else {
+                aliasValue = aliasValue.call(location, null, null);
+            }
+        }
+        try { 
+            auto aliasV = implicitCast(location, aliasValue, toType);
+            aliasThisMatches ~= aliasV;
+        } catch (CompilerError) {
+            // Try other alias thises, or just the base type.
+        }
+    }
+    
+    if (aliasThisMatches.length > 1) {
+        throw new CompilerError(location, "multiple valid alias this declarations.");
+    } else if (aliasThisMatches.length == 1) {
+        return aliasThisMatches[0];
+    }
+    
     switch(toType.dtype) {
     case DType.Pointer:
         if (v.type.dtype == DType.NullPointer) {
             return v;
         } else if (v.type.dtype == DType.Pointer) {
+            if (toType.dtype == DType.Pointer && toType.getBase().dtype == DType.Void) {
+                // All pointers are implicitly castable to void*.
+                return v.performCast(location, toType); 
+            }
             if (v.type.getBase().dtype == toType.getBase().dtype) {
                 return v;
             } else if (toType.getBase().dtype == DType.Const) {
@@ -1468,10 +1793,16 @@ Value implicitCast(Location location, Value v, Type toType)
             }
         }
         break;
-    case DType.Complex: .. case DType.max:
-        throw new CompilerPanic(location, "casts involving complex types are unimplemented.");
+    case DType.Class:
+        if (v.type.dtype == DType.NullPointer) {
+            auto asClass = enforce(cast(ClassType) toType);
+            return v.performCast(location, new PointerType(v.mModule, asClass.structType)); 
+        }
+        return v;  // TMP
     case DType.Const:
         return new ConstValue(v.getModule(), location, v);
+    case DType.Immutable:
+        return new ImmutableValue(v.getModule(), location, v);
     default:
         if (toType.dtype == v.type.dtype) {
             return v;
@@ -1516,12 +1847,200 @@ bool canImplicitCast(Location location, Type from, Type to)
         }
         auto asConst = enforce(cast(ConstType) from);
         return canImplicitCast(location, asConst.base, to) && !hasMutableIndirection(to);
+    case Immutable:
+        if (to.isRef) {
+            throw new CompilerError(location, "cannot pass a immutable value as a ref parameter.");
+        }
+        auto asImmutable = enforce(cast(ImmutableType) from);
+        return canImplicitCast(location, asImmutable.base, to) && !hasMutableIndirection(to);
     default:
         return false;
     }
 }
 
+// incomplete
 bool hasMutableIndirection(Type t)
 {
+    if (t.dtype == DType.Class || t.dtype == DType.Array || t.dtype == DType.Pointer) {
+        return true;
+    }
     return false;
+}
+
+/**
+ * Known creates a Value class that generates no code, or dies if it can't.
+ * All values and expressions are based on known values. This is useful for
+ * expressions in a constant context (enums, globals, initialisers, etc).
+ */
+class Known(T) if (is(T : Value)) : T
+{
+    static if (is(T == BoolValue)) {
+        alias bool KnownType;
+        enum KNOWN_STRING = "knownBool";
+    } else static if (is(T == ByteValue)) {
+        alias byte KnownType;
+        enum KNOWN_STRING = "knownByte";
+    } else static if (is(T == UbyteValue)) {
+        alias ubyte KnownType;
+        enum KNOWN_STRING = "knownUbyte";
+    } else static if (is(T == ShortValue)) {
+        alias short KnownType;
+        enum KNOWN_STRING = "knownShort";
+    } else static if (is(T == UshortValue)) {
+        alias ushort KnownType;
+        enum KNOWN_STRING = "knownUshort";
+    } else static if (is(T == IntValue)) {
+        alias int KnownType;
+        enum KNOWN_STRING = "knownInt";
+    } else static if (is(T == UintValue)) {
+        alias uint KnownType;
+        enum KNOWN_STRING = "knownUint";
+    } else static if (is(T == LongValue)) {
+        alias long KnownType;
+        enum KNOWN_STRING = "knownLong";
+    } else static if (is(T == UlongValue)) {
+        alias ulong KnownType;
+        enum KNOWN_STRING = "knownUlong";
+    } else static if (is(T == CharValue)) {
+        alias char KnownType;
+        enum KNOWN_STRING = "knownChar";
+    } else static if (is(T == WcharValue)) {
+        alias wchar KnownType;
+        enum KNOWN_STRING = "knownWchar";
+    } else static if (is(T == DcharValue)) {
+        alias dchar KnownType;
+        enum KNOWN_STRING = "knownDchar";
+    } else static if (is(T == FloatValue)) {
+        alias float KnownType;
+        enum KNOWN_STRING = "knownFloat";
+    } else static if (is(T == DoubleValue)) {
+        alias double KnownType;
+        enum KNOWN_STRING = "knownDouble";
+    } else static if (is(T == RealValue)) {
+        alias real KnownType;
+        enum KNOWN_STRING = "knownReal";
+    } else static if (is(T == StringValue)) {
+        alias string KnownType;
+        enum KNOWN_STRING = "knownString";
+    } else {
+        static assert(false);
+    }
+     
+    this(Module mod, Location location)
+    {
+        super(mod, location);
+        isKnown = true;
+    }
+    
+    override LLVMValueRef get()
+    {
+        auto t = mType.llvmType; 
+        static if (is(T == BoolValue)) {
+            return LLVMConstInt(t, knownBool, false);
+        } else static if (is(T == ByteValue)) {
+            return LLVMConstInt(t, knownByte, false);
+        } else static if (is(T == UbyteValue)) {
+            return LLVMConstInt(t, knownUbyte, true);
+        } else static if (is(T == ShortValue)) {
+            return LLVMConstInt(t, knownShort, false);
+        } else static if (is(T == UshortValue)) {
+            return LLVMConstInt(t, knownUshort, true); 
+        } else static if (is(T == IntValue)) {
+            return LLVMConstInt(t, knownInt, false);
+        } else static if (is(T == UintValue)) {
+            return LLVMConstInt(t, knownUint, true);
+        } else static if (is(T == LongValue)) {
+            return LLVMConstInt(t, knownLong, false);
+        } else static if (is(T == UlongValue)) {
+            return LLVMConstInt(t, knownUlong, true);
+        } else static if (is(T == CharValue)) {
+            return LLVMConstInt(t, knownChar, true);
+        } else static if (is(T == WcharValue)) {
+            return LLVMConstInt(t, knownWchar, true);
+        } else static if (is(T == DcharValue)) {
+            return LLVMConstInt(t, knownDchar, true);
+        } else static if (is(T == FloatValue)) {
+            return LLVMConstReal(t, knownFloat);
+        } else static if (is(T == DoubleValue)) {
+            return LLVMConstReal(t, knownDouble);
+        } else static if (is(T == RealValue)) {
+            return LLVMConstReal(t, knownReal); 
+        } else static if (is(T == StringValue)) {
+            return LLVMConstString(knownString.ptr, knownString.length, false);
+        } else {
+            static assert(false);
+        }
+    }
+    
+    override void set(Location location, Value val)
+    {
+        checkKnown(location, val);
+        setKnown(getKnown(val));
+    }
+    
+    override void set(Location location, LLVMValueRef val)
+    {
+        throw new CompilerError(location, "value not constant.");
+    }
+    
+    override Value inc(Location location)
+    {
+        throw new CompilerError(location, "cannot increment constant value.");
+    }
+    
+    override Value dec(Location location)
+    {
+        throw new CompilerError(location, "cannot decrement constant value.");
+    }
+    
+    mixin template BinaryOp(string name, string op)
+    {
+        static if (op == "/") {
+            enum zeroCheck = "if (getKnown(val) == 0) { throw new CompilerError(location, \"constant divide by zero.\"); }"; 
+        } else {
+            enum zeroCheck = "";
+        }
+        mixin( 
+            "override Value " ~ name ~  "(Location loc, Value val) {"
+            "checkKnown(location, val);"
+            ~ zeroCheck ~
+            "setKnown(cast(KnownType) (getKnown()" ~ op ~ "getKnown(val)));"
+            "return this;}"
+        );
+    }
+    
+    mixin BinaryOp!("add", "+");
+    mixin BinaryOp!("sub", "-");
+    mixin BinaryOp!("mul", "*");
+    mixin BinaryOp!("div", "/");
+    mixin BinaryOp!("eq", "==");
+    mixin BinaryOp!("neq", "!=");
+    mixin BinaryOp!("gt", ">");
+    mixin BinaryOp!("lt", "<");
+    mixin BinaryOp!("lte", "<=");
+    mixin BinaryOp!("or", "|");
+    mixin BinaryOp!("and", "&");
+    mixin BinaryOp!("xor", "^");
+    
+    KnownType getKnown()
+    {
+        return mixin(KNOWN_STRING);
+    }
+    
+    KnownType getKnown(Value val)
+    {
+        return mixin("val." ~ KNOWN_STRING);
+    }
+    
+    void setKnown(KnownType v)
+    {
+        mixin(KNOWN_STRING ~ " = v;");
+    }
+    
+    protected void checkKnown(Location location, Value val)
+    {
+        if (!val.isKnown) {
+            throw new CompilerError(location, "value not constant.");
+        }
+    }
 }

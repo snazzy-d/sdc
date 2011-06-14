@@ -11,7 +11,7 @@ import std.string;
 import std.exception;
 
 import sdc.compilererror;
-import sdc.extract.base;
+import sdc.extract;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -58,7 +58,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         final switch (instance.argument.type) with (ast.TemplateSingleArgumentType) if (node.cache is null) { 
         case BasicType:
             auto type = primitiveTypeToBackendType(enforce(cast(ast.PrimitiveType) instance.argument.node), mod);
-            theScope.add(parameterNames[0], new Store(type));
+            theScope.add(parameterNames[0], new Store(type, instance.identifier.location));
             break;
         case Identifier:
         case CharacterLiteral:
@@ -81,7 +81,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         foreach (i, argument; instance.arguments) final switch (argument.type) with (ast.TemplateArgumentType) {
         case Type:
             auto type = astTypeToBackendType(cast(ast.Type) argument.node, mod, OnFailure.DieWithError);
-            theScope.add(parameterNames[i], new Store(type));
+            theScope.add(parameterNames[i], new Store(type, argument.location));
             break;
         case AssignExpression:
         case Symbol:
@@ -94,7 +94,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
     
     foreach (declDef; tdecl.declDefs) {
         declDef.buildStage = ast.BuildStage.Unhandled;
-        genDeclarationDefinition(declDef, mod);
+        genDeclarationDefinition(declDef, mod, 0);
     }
     
     node.cache = new ScopeValue(mod, instance.location, theScope);

@@ -1,4 +1,4 @@
-/*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- C++ -*-===*\
+/*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- D -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|

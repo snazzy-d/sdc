@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -14,10 +14,13 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
+import sdc.global;
 import sdc.tokenstream;
 import sdc.compilererror;
+import sdc.extract;
 import sdc.ast.declaration;
 import sdc.parser.base;
+import sdc.parser.attribute;
 import sdc.parser.expression;
 import sdc.parser.statement;
 import sdc.parser.sdctemplate;
@@ -30,11 +33,22 @@ Declaration parseDeclaration(TokenStream tstream)
     
     if (tstream.peek.type == TokenType.Alias) {
         match(tstream, TokenType.Alias);
-        if (tstream.peek.type == TokenType.Alias) {
-            throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
+        if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.This) {
+        	// alias foo this;
+        	declaration.type = DeclarationType.AliasThis;
+        	declaration.node = parseIdentifier(tstream);
+        	match(tstream, TokenType.This);
+        	match(tstream, TokenType.Semicolon);
+        } else {
+        	// Normal alias declaration.
+		    if (tstream.peek.type == TokenType.Alias) {
+		        throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
+		    }
+		    declaration.type = DeclarationType.Alias;
+		    auto var = parseVariableDeclaration(tstream);
+		    var.isAlias = true;
+		    declaration.node = var;
         }
-        declaration.type = DeclarationType.Alias;
-        declaration.node = parseDeclaration(tstream);
     } else if (tstream.peek.type == TokenType.Mixin) {
         declaration.type = DeclarationType.Mixin;
         declaration.node = parseMixinDeclaration(tstream);
@@ -63,7 +77,7 @@ MixinDeclaration parseMixinDeclaration(TokenStream tstream)
 
 /**
  * Non destructively determines if the next declaration
- * is a variable.
+ * is a variable, and summon an Elder God. 
  */
 bool isVariableDeclaration(TokenStream tstream)
 {
@@ -107,41 +121,24 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     auto declaration = new VariableDeclaration();
     declaration.location = tstream.peek.location;
         
-    auto type = parseType(tstream);
-    if (tstream.peek.type == TokenType.Function) {
-        declaration.type = new Type();
-        declaration.type.type = TypeType.FunctionPointer;
-        declaration.type.node = parseFunctionPointerType(tstream, type);
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        declaration.type.suffixes ~= suffixes;
-    } else if (tstream.peek.type == TokenType.Delegate) {
-        declaration.type = new Type();
-        declaration.type.type = TypeType.Delegate;
-        declaration.type.node = parseDelegateType(tstream, type);
-        auto suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
-        declaration.type.suffixes ~= suffixes;
-    } else if (tstream.peek.type == TokenType.OpenParen &&
-               tstream.lookahead(1).type == TokenType.Asterix) {
-        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
-    } else {
-        declaration.type = type;
-    }
-        
+    declaration.type = parseType(tstream);
     
     auto declarator = new Declarator();
     declarator.location = tstream.peek.location;
     declarator.name = parseIdentifier(tstream);
     
-    auto suffixes = parseTypeSuffixes(tstream, Placed.Insanely);
     if (tstream.peek.type == TokenType.Assign) {
         declarator.initialiser = parseInitialiser(tstream);
         declarator.location = declarator.initialiser.location - declarator.location;
     }
     declaration.declarators ~= declarator;
-    if (suffixes.length > 0 && tstream.peek.type != TokenType.Semicolon) {
-        throw new CompilerError(tstream.peek.location, "with multiple declarations, no declaration can use a c-style type suffix.");
+    
+    if (tstream.peek.type == TokenType.OpenBracket) {
+        throw new CompilerError(tstream.peek.location, "C style type suffixes are (and will remain) unsupported.",
+            new CompilerError("C style type suffixes: not even once.")
+        );
     }
-    declaration.type.suffixes ~= suffixes;
+
     if (!noSemicolon) {
         while (tstream.peek.type != TokenType.Semicolon) {
             // If there is no comma here, assume the user is missing a semicolon
@@ -180,7 +177,8 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     } else {
         declaration.retval = parseType(tstream);
     }
-    declaration.name = parseIdentifier(tstream);
+    declaration.name = parseQualifiedName(tstream);
+    verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration
     if(tstream.peek.type != TokenType.OpenParen) {
@@ -188,10 +186,18 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     }
     
     declaration.parameterList = parseParameters(tstream);
+    
+    while (tstream.peek.type != TokenType.OpenBrace && tstream.peek.type != TokenType.Semicolon) {
+        declaration.attributes ~= parseFunctionAttribute(tstream);
+        if (tstream.peek.type == TokenType.End) {
+            break;
+        }
+    }
+    
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);
     } else {
-        if(tstream.peek.type != TokenType.Semicolon) {
+        if (tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(tstream.lookbehind(1).location, "function declaration");
         }
         tstream.getToken();
@@ -307,8 +313,27 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.CloseParen);
     }
     
+    if (tstream.peek.type == TokenType.OpenParen && tstream.lookahead(1).type == TokenType.Asterix) {
+        throw new CompilerError(tstream.peek.location, "C style pointer/array declaration syntax is unsupported.");
+    }
+    
 PARSE_SUFFIXES:
-    type.suffixes = parseTypeSuffixes(tstream, Placed.Sanely);
+    type.suffixes = parseTypeSuffixes(tstream);
+
+    if (tstream.peek.type == TokenType.Function) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.FunctionPointer;
+        type.node = parseFunctionPointerType(tstream, initialType);
+        type.suffixes = parseTypeSuffixes(tstream);
+    } else if (tstream.peek.type == TokenType.Delegate) {
+        auto initialType = type;
+        type = new Type();
+        type.type = TypeType.Delegate;
+        type.node = parseDelegateType(tstream, type);
+        type.suffixes = parseTypeSuffixes(tstream);
+    }
+    
     return type;
 }
 
@@ -321,32 +346,26 @@ Type parseInferredType(TokenStream tstream)
     return type;
 }
 
-enum Placed { Sanely, Insanely }
-TypeSuffix[] parseTypeSuffixes(TokenStream tstream, Placed placed)
+TypeSuffix[] parseTypeSuffixes(TokenStream tstream)
 {
-    auto SUFFIX_STARTS = placed == Placed.Sanely ?
-                         [TokenType.Asterix, TokenType.OpenBracket] :
-                         [TokenType.OpenBracket];
+    auto SUFFIX_STARTS = [TokenType.Asterix, TokenType.OpenBracket];
         
     TypeSuffix[] suffixes;
     while (contains(SUFFIX_STARTS, tstream.peek.type)) {
         auto suffix = new TypeSuffix();
-        if (placed == Placed.Sanely && tstream.peek.type == TokenType.Asterix) {
+        if (tstream.peek.type == TokenType.Asterix) {
             match(tstream, TokenType.Asterix);
             suffix.type = TypeSuffixType.Pointer;
         } else if (tstream.peek.type == TokenType.OpenBracket) {
             match(tstream, TokenType.OpenBracket);
             if (tstream.peek.type == TokenType.CloseBracket) {
-                suffix.type = TypeSuffixType.DynamicArray;
-            } else if (contains(PRIMITIVE_TYPES, tstream.peek.type) ||
-                       tstream.peek.type == TokenType.Identifier ||
-                       (tstream.peek.type == TokenType.Dot &&
-                        tstream.lookahead(1).type == TokenType.Identifier)) {
+                suffix.type = TypeSuffixType.Array;
+            } else if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
                 suffix.node = parseType(tstream);
-                suffix.type = TypeSuffixType.AssociativeArray;
+                suffix.type = TypeSuffixType.Array;
             } else {
-                suffix.node = parseExpression(tstream);
-                suffix.type = TypeSuffixType.StaticArray;
+                suffix.node = parseAssignExpression(tstream);
+                suffix.type = TypeSuffixType.Array;
             }
             match(tstream, TokenType.CloseBracket);
         } else {
@@ -545,6 +564,19 @@ ParameterList parseParameters(TokenStream tstream)
         if (tstream.peek.type == TokenType.Identifier) {
             parameter.identifier = parseIdentifier(tstream);
             parameter.location = parameter.identifier.location - parameter.location;
+            // Parse default argument (if any).
+            if (tstream.peek.type == TokenType.Assign) {
+                match(tstream, TokenType.Assign);
+                if (tstream.peek.type == TokenType.__File__) {
+                    match(tstream, TokenType.__File__);
+                    parameter.defaultArgumentFile = true;
+                } else if (tstream.peek.type == TokenType.__Line__) {
+                    match(tstream, TokenType.__Line__);
+                    parameter.defaultArgumentLine = true;
+                } else {
+                    parameter.defaultArgument = parseAssignExpression(tstream);
+                }
+            }
         }
         list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {

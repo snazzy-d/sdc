@@ -18,7 +18,7 @@ import sdc.location;
 import sdc.global;
 import sdc.source;
 import sdc.lexer;
-import sdc.extract.base;
+import sdc.extract;
 import ast = sdc.ast.all;
 import parser = sdc.parser.all;
 import sdc.gen.base;
@@ -55,6 +55,9 @@ ast.ImportDeclaration synthesiseImport(string modname)
 
 void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
+    if (importDeclaration.language != ast.Language.D) {
+        throw new CompilerPanic(importDeclaration.location, "import (Java) is unimplemented.");
+    }
     return genImportList(importDeclaration.location, importDeclaration.importList, mod);
 }
 
@@ -110,6 +113,10 @@ private string searchImport(string impPath)
 void genImport(Location location, ast.Import theImport, Module mod)
 {
     auto name = extractQualifiedName(theImport.moduleName);
+    auto moduleName = extractQualifiedName(mod.name);
+    if (name == moduleName) return;  // Ignore self imports. 
+
+    verbosePrint("Generating import '" ~ name ~ "'.");
     auto tu = getTranslationUnit(name);
     if (tu !is null) {
         if (!mod.importedTranslationUnits.contains(tu)) {
@@ -165,8 +172,7 @@ void genImport(Location location, ast.Import theImport, Module mod)
         );
     }
     
-    addTranslationUnit(name, tu);
     mod.importedTranslationUnits ~= tu;
     
-    tu.gModule = genModule(tu.aModule);
+    tu.gModule = genModule(tu.aModule, tu);
 }

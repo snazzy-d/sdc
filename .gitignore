@@ -2,6 +2,7 @@
 *.o
 *.swp
 test.d
+testimp.d
 add.d
 test
 test.o
@@ -15,6 +16,7 @@ a.out
 .project
 *.s
 compiler_tests/runner
+*.bin
 
 #DMD/Windows
 *.exe

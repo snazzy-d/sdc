@@ -23,16 +23,16 @@ class ConditionalDeclaration : Node
 {
     ConditionalDeclarationType type;
     Condition condition;
-    DeclarationBlock thenBlock;  // Optional.
-    DeclarationBlock elseBlock;  // Optional.
+    DeclarationDefinition[] thenBlock;  // Optional.
+    DeclarationDefinition[] elseBlock;  // Optional.
     Node specification;  // Optional.
 }
 
 class ConditionalStatement : Node
 {
     Condition condition;
-    NoScopeNonEmptyStatement thenStatement;
-    NoScopeNonEmptyStatement elseStatement;  // Optional.
+    Statement thenStatement;
+    Statement elseStatement;  // Optional.
 }
 
 enum ConditionType

@@ -3,21 +3,27 @@
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ *
+ * Fun fact: this module is named 'aglobal.d' 
+ * to ensure it is compiled first and work around a DMD template bug. 
  */
 module sdc.global;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.file;
 import std.json;
 import std.path;
 import std.string;
+import std.stdio;
 
 import sdc.compilererror;
 import sdc.util;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.location;
+import sdc.terminal;
 import ast = sdc.ast.all;
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
@@ -50,11 +56,38 @@ class TranslationUnit
     bool compile = true;
 }
 
-shared bool isDebug = true;
-shared bool unittestsEnabled = false;
-shared bool coloursEnabled = true;
-shared int bits;
-shared string[] importPaths;
+bool isDebug = true;
+bool unittestsEnabled = false;
+bool coloursEnabled = true;
+bool verboseCompile = false;
+bool PIC = false;
+int bits;
+string[] importPaths;
+string confLocation;  // For verbose compiles
+
+enum VerbosePrintColour
+{
+    Normal,
+    Red = ConsoleColour.Red,
+    Green = ConsoleColour.Green,
+    Blue = ConsoleColour.Blue,
+    Yellow = ConsoleColour.Yellow
+}
+
+int verboseIndent;
+void verbosePrint(lazy string s, VerbosePrintColour colour = VerbosePrintColour.Normal)
+{
+    if (!verboseCompile) return;
+
+    assert(verboseIndent >= 0);
+    foreach (i; 0 .. verboseIndent) write(" ");
+
+    if (colour == VerbosePrintColour.Normal) {
+        writeln(s);
+    } else {
+        writeColouredText(stdout, cast(ConsoleColour) colour, {writeln(s);});
+    }
+}
 
 bool isReserved(string s)
 {
@@ -137,6 +170,7 @@ void globalInit(string arch)
     case "arm":
         specifyAndReserve("LittleEndian");  // TODO: bi-endian archs
         bits = 32;
+        break;
     default:
         throw new CompilerError("Unknown arch string '" ~ arch ~ "'.");
     }
@@ -231,12 +265,14 @@ void loadConfig(ref string[] args)
     }
     else pragma(error, "please implement global.loadConfig for your platform.");
     
-    auto confs = array( filter!exists(map!expandTilde(confLocations)) );
+    bool existsWrapper(string s) { return exists(s); }  // WORKAROUND 2.053
+    auto confs = array( filter!existsWrapper(map!expandTilde(confLocations)) );
     if (confs.length == 0) {
         // Try to soldier on without a config file.
         return;
     }
     auto conf = cast(string) read(confs[0]);
+    confLocation = confs[0];
     
     auto confRoot = parseJSON(conf);
     checkType(confRoot, JSON_TYPE.OBJECT, "no root object."); 
@@ -276,8 +312,3 @@ private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;
 private __gshared TranslationUnit[string] translationUnits;
-
-
-// Runtime functions that the compiler needs to be able to call.
-Function gcAlloc;
-Function gcRealloc;

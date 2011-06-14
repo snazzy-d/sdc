@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -32,7 +32,6 @@ enum AttributeType
     Shared = TokenType.Shared,
     Immutable = TokenType.Immutable,
     Inout = TokenType.Inout,
-    atDisable = TokenType.atDisable,
     Pure = TokenType.Pure,
     Nothrow = TokenType.Nothrow,
     
@@ -46,6 +45,12 @@ enum AttributeType
     ExternWindows,
     ExternPascal,
     ExternSystem,
+    
+    atSafe,
+    atTrusted,
+    atSystem,
+    atDisable,
+    atProperty
 }
 
 enum Linkage
@@ -73,15 +78,27 @@ TokenType.Protected, TokenType.Public, TokenType.Export,
 TokenType.Static, TokenType.Final, TokenType.Override,
 TokenType.Abstract, TokenType.Const,
 TokenType.Scope, TokenType.__Gshared, TokenType.Shared,
-TokenType.Immutable, TokenType.Inout, TokenType.atDisable,
+TokenType.Immutable, TokenType.Inout,
 TokenType.Align, TokenType.Pragma, TokenType.Extern,
-TokenType.Pure, TokenType.Nothrow
+TokenType.Pure, TokenType.Nothrow,
 ];
 
 immutable ACCESS = [
 AttributeType.Public, AttributeType.Protected, AttributeType.Private,
 AttributeType.Package, AttributeType.Export
 ];
+
+immutable FUNCTION_ATTRIBUTES = [
+AttributeType.Pure, AttributeType.Nothrow, AttributeType.atProperty,
+AttributeType.atDisable, AttributeType.atSafe, AttributeType.atSystem,
+AttributeType.atTrusted
+];
+
+immutable MEMBER_FUNCTION_ATTRIBUTES = [
+AttributeType.Const, AttributeType.Immutable, AttributeType.Inout,
+AttributeType.Shared
+];
+
 
 // Attribute (:|DeclarationBlock)
 class AttributeSpecifier : Node

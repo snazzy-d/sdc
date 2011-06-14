@@ -7,32 +7,21 @@ module sdc.mangle;
 
 import std.conv;
 import std.exception;
+import std.string;
 
 import sdc.util;
 import sdc.compilererror;
+import sdc.extract;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.sdcfunction;
 import sdc.ast.attribute;
 import sdc.ast.base;
-import sdc.extract.base;
 
 string startMangle()
 {
     return "_D";
-}
-
-version (none) void mangleFunction(ref string mangledName, FunctionType type)
-{
-    mangleCallConvention(mangledName, type.linkage);
-    // TODO: mangle function attributes
-    foreach (paramType; type.argumentTypes) {
-        mangleType(mangledName, paramType);
-    }
-    // TODO: Variadic functions have a different terminator here.
-    mangledName ~= "Z";
-    mangleType(mangledName, type.returnType);
 }
 
 void mangleFunction(ref string mangledName, Function fn)
@@ -42,27 +31,39 @@ void mangleFunction(ref string mangledName, Function fn)
         return;
     }
     mangledName = startMangle();
-    if (fn.parentAggregate !is null) {
-        auto asStruct = enforce(cast(StructType) fn.parentAggregate);
-        mangleQualifiedName(mangledName, asStruct.fullName);
+    if (fn.type.parentAggregate !is null) {
+        QualifiedName name;
+        if (fn.type.parentAggregate.dtype == DType.Struct) {
+            auto asStruct = enforce(cast(StructType) fn.type.parentAggregate);
+            name = asStruct.fullName;
+        } else {
+            auto asClass = enforce(cast(ClassType) fn.type.parentAggregate);
+            name = asClass.fullName;
+        }
+        mangleQualifiedName(mangledName, name);
     } else {
-        if (fn.mod.name is null) {
+        if (fn.type.mod.name is null) {
             throw new CompilerPanic("null module name.");
         }
         mangleQualifiedName(mangledName, fn.mod.name);
     }
     mangleLName(mangledName, fn.simpleName);
-    if (fn.parentAggregate !is null) {
+    if (fn.type.parentAggregate !is null && !fn.type.isStatic) {
         mangledName ~= "M";
     }
-    mangleCallConvention(mangledName, fn.type.linkage);
+    mangleFunctionType(mangledName, fn.type);
+}
+
+void mangleFunctionType(ref string mangledName, FunctionType type)
+{
+    mangleCallConvention(mangledName, type.linkage);
     // TODO: mangle function attributes.
-    foreach (paramType; fn.type.argumentTypes) {
+    foreach (paramType; type.argumentTypes) {
         mangleType(mangledName, paramType);
     }
     // TODO: Variadic functions have a different terminator here.
     mangledName ~= "Z";
-    mangleType(mangledName, fn.type.returnType);
+    mangleType(mangledName, type.returnType);
 }
 
 void mangleQualifiedName(ref string mangledName, QualifiedName baseName)
@@ -161,24 +162,29 @@ void mangleType(ref string mangledName, Type type)
     case Void:
         mangledName ~= "v";
         break;
+    case StaticArray:
+        auto asStaticArray = cast(StaticArrayType) type;
+        assert(asStaticArray !is null);
+        mangledName ~= format("G%s", asStaticArray.length);
+        mangleType(mangledName, asStaticArray.base);
+        break;
     case NullPointer:
-    case FunctionPointer:
     case Pointer:
         auto asPointer = cast(PointerType) type;
-        assert(asPointer);
+        assert(asPointer !is null);
         mangledName ~= "P";
         mangleType(mangledName, asPointer.base);
         break;
     case Array:
         auto asArray = cast(ArrayType) type;
-        assert(asArray);
+        assert(asArray !is null);
         mangledName ~= "A";
         mangleType(mangledName, asArray.base);
         break;
     case Struct:
         mangledName ~= "S";
         auto asStruct = cast(StructType) type;
-        assert(asStruct);
+        assert(asStruct !is null);
         mangleQualifiedName(mangledName, asStruct.fullName);
         break;
     case Enum:
@@ -188,11 +194,19 @@ void mangleType(ref string mangledName, Type type)
     case Class:
         mangledName ~= "C";
         auto asClass = cast(ClassType) type;
-        assert(asClass);
+        assert(asClass !is null);
         mangleQualifiedName(mangledName, asClass.fullName);
         break;
     case Const:
         mangledName ~= "x";
+        break;
+    case Immutable:
+        mangledName ~= "y";
+        break;
+    case Function:
+        auto asFunction = cast(FunctionTypeWrapper) type;
+        assert(asFunction !is null);
+        mangleFunctionType(mangledName, asFunction.functionType);
         break;
     }
 }

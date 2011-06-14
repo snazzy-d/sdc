@@ -4,7 +4,7 @@
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
-module sdc.extract.base;
+module sdc.extract;
 
 import std.conv;
 import std.utf;
@@ -43,16 +43,18 @@ string extractIdentifier(Identifier identifier)
 
 int extractIntegerLiteral(IntegerLiteral literal)
 {
-    if (literal.value.length < 2) {
-        return parse!int(literal.value);
+    auto copy = literal.value.idup;  // parse advances the string
+    
+    if (copy.length < 2) {
+        return parse!int(copy);
     }
-    switch (literal.value[0 .. 2]) {
+    switch (copy[0 .. 2]) {
     case "0x":
-        return parse!int(literal.value[2 .. $], 16);
+        return parse!int(copy[2 .. $], 16);
     case "0b":
-        return parse!int(literal.value[2 .. $], 2);
+        return parse!int(copy[2 .. $], 2);
     default:
-        return parse!int(literal.value);
+        return parse!int(copy);
     }
 }
 

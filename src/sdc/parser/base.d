@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -9,10 +9,13 @@ module sdc.parser.base;
 import std.string;
 import std.path;
 import std.conv;
+import std.exception;
 
 import sdc.util;
+import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
+import sdc.extract;
 import sdc.ast.all;
 import sdc.parser.all;
 import sdc.gen.sdcimport;
@@ -43,16 +46,61 @@ Module parseModule(TokenStream tstream)
     mod.tstream = tstream;
     match(tstream, TokenType.Begin);
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
+
+    auto name = extractQualifiedName(mod.moduleDeclaration.name);
+    verbosePrint("Parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
+    verboseIndent++;
+    
     while (tstream.peek.type != TokenType.End) {
-        mod.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        mod.declarationDefinitions ~= parseAttributeBlock(tstream);
     }
     
     auto implicitObjectImport = new DeclarationDefinition();
     implicitObjectImport.type = DeclarationDefinitionType.ImportDeclaration;
     implicitObjectImport.node = synthesiseImport("object");
     mod.declarationDefinitions ~= implicitObjectImport;
+
+    verboseIndent--;
+    verbosePrint("Done parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
+
     return mod;
 }                                        
+
+/// Parses an attribute, if there is one, then parses a regular top level block.
+DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
+{
+    bool parsingAttribute = startsLikeAttribute(tstream);
+    Attribute attribute;
+    string name;
+    if (parsingAttribute) {
+        attribute = parseAttribute(tstream);
+    
+        name = to!string(attribute.type);
+        verbosePrint("Parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+        verboseIndent++;
+    }
+    
+    auto block = parseDeclarationBlock(tstream, parsingAttribute);
+    foreach (declDef; block.declarationDefinitions) {
+        if (parsingAttribute) {
+            declDef.attributes ~= attribute;
+            declDef.node.attributes ~= attribute;
+        }
+        if (declDef.type == DeclarationDefinitionType.Declaration) {
+            auto asDecl = enforce(cast(Declaration) declDef.node);
+            if (parsingAttribute) {
+                asDecl.node.attributes ~= attribute;
+            }
+        }
+    }
+    
+    if (parsingAttribute) {
+        verboseIndent--;
+        verbosePrint("Done parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+    }
+    
+    return block.declarationDefinitions;
+}
 
 ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
 {
@@ -92,6 +140,9 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Class) {
         decldef.type = DeclarationDefinitionType.ClassDeclaration;
         decldef.node = parseClassDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Unittest) {
+        decldef.type = DeclarationDefinitionType.Unittest;
+        decldef.node = parseUnittest(tstream);
     } else if (startsLikeConditional(tstream)) {
         decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
         decldef.node = parseConditionalDeclaration(tstream);
@@ -99,10 +150,7 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
                                                          tstream.lookahead(1).type == TokenType.Import)) {
         decldef.type = DeclarationDefinitionType.ImportDeclaration;
         decldef.node = parseImportDeclaration(tstream);
-    } else if (startsLikeAttribute(tstream)) {
-        decldef.type = DeclarationDefinitionType.AttributeSpecifier;
-        decldef.node = parseAttributeSpecifier(tstream);
-    }  else {
+    } else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
     }
@@ -130,6 +178,14 @@ QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false
     }
     name.location = name.identifiers[$ - 1].location - startLocation;
     return name;
+}
+
+Unittest parseUnittest(TokenStream tstream)
+{
+    match(tstream, TokenType.Unittest);
+    auto unit = new Unittest();
+    unit._body = parseFunctionBody(tstream);
+    return unit;
 }
 
 T parseLiteral(T, TokenType E)(TokenStream tstream)

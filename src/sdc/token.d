@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */ 
@@ -8,7 +8,7 @@ module sdc.token;
 import sdc.location;
 
 
-immutable string[182] tokenToString = [
+immutable string[178] tokenToString = [
 "none", "identifier", "string literal", "character literal",
 "integer literal", "float literal", "abstract", "alias", "align",
 "asm", "assert", "auto", "body", "bool", "break", "byte", "case",
@@ -26,13 +26,13 @@ immutable string[182] tokenToString = [
 "try", "typedef", "typeid", "typeof", "ubyte", "ucent", "uint",
 "ulong", "union", "unittest", "ushort", "version", "void", "volatile",
 "wchar", "while", "with", "__FILE__", "__LINE__", "__gshared",
-"__thread", "__traits", "@property", "@safe", "@trusted", "@system",
-"@disable",
+"__thread", "__traits",
 "/", "/=", ".", "..", "...", "&", "&=", "&&", "|", "|=", "||",
 "-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
 ">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
 "!<=", "!>", "!>=", "(", ")", "[", "]", "{", "}", "?", ",", ";",
 ":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "~", "~=",
+"@",
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
 
@@ -83,7 +83,6 @@ enum TokenType
     Version, Void, Volatile,
     Wchar, While, With,
     __File__, __Line__, __Gshared, __Thread, __Traits,
-    atProperty, atSafe, atTrusted, atSystem, atDisable,
     
     /// Symbols.
     Slash,             // /
@@ -145,6 +144,7 @@ enum TokenType
     DoubleCaret,            // ^^
     Tilde,                  // ~
     TildeAssign,            // ~=
+    At,                     // @
     
     opKirbyRape,            // (>^(>O_O)>
     Symbol,
@@ -279,11 +279,6 @@ static this()
         keywordToTokenType["__gshared"] = __Gshared;
         keywordToTokenType["__thread"] = __Thread;
         keywordToTokenType["__traits"] = __Traits;
-        keywordToTokenType["@property"] = atProperty;
-        keywordToTokenType["@safe"] = atSafe;
-        keywordToTokenType["@trusted"] = atTrusted;
-        keywordToTokenType["@system"] = atSystem;
-        keywordToTokenType["@disable"] = atDisable;
     }
 }
 

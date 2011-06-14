@@ -25,7 +25,7 @@ Parser
 * Parse module declarations.  __[yes.]__
 * Parse attribute declarations.  __[yes.]__
 * Parse import declarations.  __[yes.]__
-* Parse enum declarations.  _[partially.]_
+* Parse enum declarations.  __[yes.]__
 * Parse class declarations.  _[partially.]_
 * Parse interface declarations.  _[no.]_
 * Parse aggregate declarations.  _[partially.]_
@@ -33,7 +33,7 @@ Parser
 * Parse constructors.  _[no.]_
 * Parse destructors.  _[no.]_
 * Parse invariants.  _[no.]_
-* Parse unittests.  _[no.]_
+* Parse unittests.  __[yes.]__
 * Parse static constructors.  _[no.]_
 * Parse static destructors.  _[no.]_
 * Parse shared static constructors.  _[no.]_
@@ -49,13 +49,13 @@ Codegen
 -------
 * Import symbols from other modules.  __[yes.]__
 * Apply attributes.  _[partially.]_
-* Enums.  _[no.]_
+* Enums.  __[yes.]__
 * Structs.  _[partially.]_
-* Classes.  _[no.]_
+* Classes.  _[partially.]_
 * Functions.  _[partially.]_
 * Function pointers. __[yes.]__
-* Local variables.  _[yes.]_
-* Global variables.  _[partially.]_
+* Local variables.  __[yes.]__
+* Global variables.  __[yes.]__
 * Alias declarations.  _[partially.]_
 * Expressions.  _[partially.]_
 * Label statement.  _[no.]_
@@ -70,7 +70,7 @@ Codegen
 * Default statement.  _[no.]_
 * Continue statement.  _[no.]_
 * Break statement.  _[no.]_
-* Return statement.  _[partially.]_
+* Return statement.  __[yes.]__
 * Goto statement.  _[no.]_
 * With statement.  _[no.]_
 * Synchronized statement.  _[no.]_
@@ -89,68 +89,45 @@ Codegen
 
 What Can It Compile?
 ====================
-Nothing practical. What follows is the a program SDC can handle.
-More features have been implemented, but the example file has not been updated.
-
-    module test;
-
-    extern (C) void exit(int);  // extern (D) functions are mangled.
-
-    struct Person
-    {
-        int age;
-        
-        void growOlder()
-        {
-            age = this.age + 1;
-        }
-    }
-
-    void bump(int* p)
-    {
-        *p = *p + 1;
-        return;
-    }
-
-    int add(int a, int b)
-    {
-        return a + b;
-    }
-
-    /**
-     * Returns 42.
-     */
-    int main()
-    {
-        Person p;
-        p.age = 0;
-        p.growOlder();
-        if (p.age != 1) {
-            return 1;
-        }
-        p.age = p.age + 20;
-        int i;
-        while (i != 19) {
-            i++;
-        }
-        bump(&i);
-        exit(add(p.age, i + 1));
-        return 1;  // Never reached.
-    }
+See the compiler_tests directory for a sample of what is/should-be working.
+libs/object.d contains the current (temporary) object.d file for SDC.  
 
 Roadmap
 =======
 This just me thinking outloud about what features I want, when.
 
+0.1
+---
+* druntime compiles
+* phobos compiles
+
+0.2
+---
+* inline assembler
+
+0.3
+---
+* CTFE (this may be required in 0.1, not sure)
+
 1.0
 ---
-* druntime compatibility
-* phobos compatibility
+* dmd calling convention compatibility
+* self hosting
 
 2.0
 ---
-* dmd calling convention compatibility
-* inline assembler
+* extern (C++)
+
+
+Compiling SDC on Linux
+=======
+You'll need make and the latest DMD installed.
+Download the [Clang Binaries for Linux/x86](http://llvm.org/releases/download.html#2.9) copy every libLLVM*.a into a directory 'llvm' at the source directory's root.
+Make a directory named 'bin'.
+Run make.
+Copy bin/sdc into the root. Compile the runner using dmd, and run it to run the tests using SDC.
+
+You can build a 64 bit version of SDC using DMD, but it crashes when producing an error. It otherwise works, however.
 
 SDC with DMD/Windows
 =======

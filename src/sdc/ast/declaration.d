@@ -9,6 +9,7 @@ import sdc.tokenstream;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
+import sdc.ast.attribute;
 
 
 enum DeclarationType
@@ -16,6 +17,7 @@ enum DeclarationType
     Variable,
     Function,
     Alias,
+    AliasThis,
     Mixin,
 }
 
@@ -33,6 +35,7 @@ class MixinDeclaration : Node
 
 class VariableDeclaration : Node
 {
+    bool isAlias;
     Type type;
     Declarator[] declarators;
 }
@@ -52,7 +55,7 @@ class ParameterList : Node
 class FunctionDeclaration : Node
 {
     Type retval;
-    Identifier name;
+    QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
 }
@@ -120,9 +123,7 @@ class Type : Node
 enum TypeSuffixType
 {
     Pointer,
-    DynamicArray,
-    StaticArray,
-    AssociativeArray
+    Array,
 }
 
 class TypeSuffix : Node
@@ -216,6 +217,9 @@ class Parameter : Node
     ParameterAttribute attribute;
     Type type;
     Identifier identifier;  // Optional.
+    bool defaultArgumentFile = false;  // Optional.
+    bool defaultArgumentLine = false;  // Optional.
+    AssignExpression defaultArgument;  // Optional.
 }
 
 enum InitialiserType

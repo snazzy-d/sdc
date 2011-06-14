@@ -1,0 +1,7 @@
+struct Foo
+{
+    void bar()
+    {
+    }
+}
+

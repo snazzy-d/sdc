@@ -18,9 +18,10 @@ import sdc.source;
 import sdc.util;
 import sdc.lexer;
 import sdc.location;
+import sdc.extract;
 import sdc.compilererror;
-import sdc.extract.base;
 import ast = sdc.ast.all;
+import sdc.gen.sdcclass;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdctemplate;
 import sdc.gen.type;
@@ -32,9 +33,8 @@ Value genExpression(ast.Expression expression, Module mod)
 {
     auto v = genAssignExpression(expression.assignExpression, mod);
     if (expression.expression !is null) {
-        return genExpression(expression.expression, mod);
+        v = genExpression(expression.expression, mod);
     }
-    mod.expressionFunction = null;
     return v;
 }
 
@@ -211,6 +211,16 @@ Value genCmpExpression(ast.CmpExpression expression, Module mod)
         binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
         lhs = lhs.lt(expression.location, rhs);
         break;
+    case ast.Comparison.Is:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
+        lhs = lhs.identity(expression.location, rhs);
+        break;
+    case ast.Comparison.NotIs:
+        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
+        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
+        lhs = lhs.nidentity(expression.location, rhs);
+        break;
     default:
         throw new CompilerPanic(expression.location, "unhandled comparison expression.");
     }
@@ -226,8 +236,8 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
 {
     Value val;
     if (expression.addExpression !is null) {
-        auto lhs = genAddExpression(expression.addExpression, mod);
-        val = genMulExpression(expression.mulExpression, mod);
+        auto lhs = genMulExpression(expression.mulExpression, mod);
+        val = genAddExpression(expression.addExpression, mod);
         binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.addOperation) {
@@ -243,7 +253,6 @@ Value genAddExpression(ast.AddExpression expression, Module mod)
     } else {
         val = genMulExpression(expression.mulExpression, mod);
     }
-    
     return val;
 }
 
@@ -251,8 +260,8 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
 {
     Value val;
     if (expression.mulExpression !is null) {
-        auto lhs = genMulExpression(expression.mulExpression, mod);
-        val = genPowExpression(expression.powExpression, mod);
+        auto lhs = genPowExpression(expression.powExpression, mod);
+        val = genMulExpression(expression.mulExpression, mod);
         binaryOperatorImplicitCast(expression.location, &lhs, &val);
         
         final switch (expression.mulOperation) {
@@ -263,8 +272,8 @@ Value genMulExpression(ast.MulExpression expression, Module mod)
             val = lhs.div(expression.location, val);
             break;
         case ast.MulOperation.Mod:
-            throw new CompilerPanic(expression.location, "unimplemented mul operation.");
-            assert(false);
+            val = lhs.mod(expression.location, val);
+            break;
         }
     } else {
         val = genPowExpression(expression.powExpression, mod);
@@ -304,11 +313,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         break;
     case ast.UnaryPrefix.AddressOf:
         val = genUnaryExpression(expression.unaryExpression, mod);
-        if (mod.expressionFunction !is null) {
-            val = mod.expressionFunction.addressOf(expression.unaryExpression.location);
-        } else {    
-            val = val.addressOf();
-        }
+        val = val.addressOf(expression.location);
         break;
     case ast.UnaryPrefix.Dereference:
         val = genUnaryExpression(expression.unaryExpression, mod);
@@ -318,8 +323,13 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
         val = genNewExpression(expression.newExpression, mod);
         break;
     case ast.UnaryPrefix.LogicalNot:
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = val.logicalNot(expression.location);
+        break;
     case ast.UnaryPrefix.BitwiseNot:
-        throw new CompilerPanic(expression.location, "unimplemented unary expression.");
+        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = val.not(expression.location);
+        break;
     case ast.UnaryPrefix.None:
         val = genPostfixExpression(expression.postfixExpression, mod);
         break;
@@ -329,23 +339,37 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {
-    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);
-    auto loc  = expression.location;
-    auto size = type.getValue(mod, loc).getSizeof(loc);
-    return gcAlloc.call(expression.location, [loc], [size]).performCast(loc, new PointerType(mod, type));
+    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);    
+    if (type.dtype == DType.Class) {
+        auto asClass = enforce(cast(ClassType) type);
+        return newClass(mod, expression.location, asClass, expression.argumentList);
+    }
+    auto loc  = expression.type.location - expression.location;
+    if (expression.assignExpression is null) {
+        auto size = type.getValue(mod, loc).getSizeof(loc);
+        return mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
+    } else {
+        auto length = genAssignExpression(expression.assignExpression, mod).performCast(loc, getSizeT(mod));
+        auto size = type.getValue(mod, loc).getSizeof(loc).mul(loc, length);
+        auto array = new ArrayValue(mod, loc, type);
+        auto ptr = mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
+        array.suppressCallbacks = true;
+        array.getMember(loc, "length").initialise(loc, length);
+        array.getMember(loc, "ptr").initialise(loc, ptr);
+        array.suppressCallbacks = false;
+        return array;
+    }
 }
 
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
-    Value lhs;
-    if (suppressPrimary is null) {
-        lhs = genPrimaryExpression(expression.primaryExpression, mod);
-    } else {
-        lhs = suppressPrimary;
-    }
+    Value lhs = suppressPrimary;
     
     final switch (expression.type) {
-    case ast.PostfixType.None:
+    case ast.PostfixType.Primary:
+        auto asPrimary = enforce(cast(ast.PrimaryExpression) expression.firstNode);
+        lhs = genPrimaryExpression(asPrimary, mod);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixInc:
         auto val = lhs;
@@ -353,6 +377,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.inc(expression.location));
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixDec:
         auto val = lhs;
@@ -360,6 +385,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         tmp.initialise(expression.location, lhs);
         lhs = tmp;
         val.set(expression.location, val.dec(expression.location));
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Parens:
         Value[] args;
@@ -373,19 +399,17 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             argLocations ~= expr.location;
             mod.callingAggregate = oldAggregate;
         }
-        if (mod.callingAggregate !is null) {
+        if (mod.callingAggregate !is null && mod.callingAggregate.type.dtype == DType.Struct) {
             auto p = new PointerValue(mod, expression.location, mod.callingAggregate.type);
-            p.initialise(expression.location, mod.callingAggregate.addressOf());
+            p.initialise(expression.location, mod.callingAggregate.addressOf(expression.location));
             args ~= p;
+        } else if (mod.callingAggregate !is null) {
+            args ~= mod.callingAggregate;
         }
         
-        if (lhs is null || lhs is mod.callingAggregate) {
-            lhs = mod.expressionFunction.call(argList.location, argLocations, args);
-        } else {
-            if (lhs.type.dtype == DType.FunctionPointer) {
-                lhs = lhs.call(argList.location, argLocations, args);
-            }
-        }
+        lhs = lhs.call(argList.location, argLocations, args);
+
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Index:
         Value[] args;
@@ -396,20 +420,21 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             throw new CompilerPanic(expression.location, "slice argument lists must contain only one argument.");
         }
         lhs = lhs.index(lhs.location, args[0]);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Dot:
-        auto qname = cast(ast.QualifiedName) expression.firstNode;
+        auto qname = enforce(cast(ast.QualifiedName) expression.firstNode);
         mod.base = lhs;
         foreach (identifier; qname.identifiers) {
-            if (mod.base.type.dtype == DType.Struct) {
+            if (mod.base.type.dtype == DType.Struct || mod.base.type.dtype == DType.Class) {
                 mod.callingAggregate = mod.base;
             }
             mod.base = genIdentifier(identifier, mod);
         }
         lhs = mod.base;
-        mod.base = null;
-        lhs = genPostfixExpression(cast(ast.PostfixExpression) expression.secondNode, mod, lhs);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         mod.callingAggregate = null;
+        mod.base = null;
         break;
     case ast.PostfixType.Slice:
         throw new CompilerPanic(expression.location, "unimplemented postfix expression type.");
@@ -504,9 +529,11 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     } else if (store.storeType == StoreType.Type) {
         return store.type().getValue(mod, identifier.location);
     } else if (store.storeType == StoreType.Function) {
-        mod.expressionFunction = store.getFunction();
-        return null;
+        auto fn = store.getFunction();
+        auto wrapper = new FunctionWrapperValue(mod, identifier.location, fn.type);
+        wrapper.mValue = fn.llvmValue;
+        return wrapper;
     } else {
-        assert(false);
+        assert(false, "unhandled StoreType.");
     }
 }

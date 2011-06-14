@@ -192,7 +192,6 @@ class UnaryExpression : Node
     UnaryPrefix unaryPrefix;
     UnaryExpression unaryExpression;  // Optional.
     NewExpression newExpression;  // Optional.
-    DeleteExpression deleteExpression;  // Optional.
     CastExpression castExpression;  // Optional.
 }
 
@@ -201,12 +200,6 @@ class NewExpression : Node
     Type type;  // new *
     AssignExpression assignExpression;  // new blah[*]
     ArgumentList argumentList;  // new blah(*)
-}
-
-// delete UnaryExpression
-class DeleteExpression : Node
-{
-    UnaryExpression unaryExpression;
 }
 
 // cast ( Type ) UnaryExpression
@@ -218,8 +211,8 @@ class CastExpression : Node
 
 enum PostfixType
 {
-    None,
-    Dot,  // . ( Identifier )  // XXX: specs say a new expression can go here: DMD disagrees.
+    Primary,
+    Dot,  // . QualifiedName  // XXX: specs say a new expression can go here: DMD disagrees.
     PostfixInc,  // ++
     PostfixDec,  // --
     Parens,  // ( ArgumentList* )
@@ -227,12 +220,13 @@ enum PostfixType
     Slice,  // [ (AssignExpression .. AssignExpression)* ]
 }
 
+// PostfixExpression (. Identifier|++|--|(ArgumentList)|[ArgumentList]|[AssignExpression .. AssignExpression)
 class PostfixExpression : Node
 {
     PostfixType type;
-    PrimaryExpression primaryExpression;
-    Node firstNode;
-    Node secondNode;
+    PostfixExpression postfixExpression;  // Optional.
+    Node firstNode;  // Optional.
+    Node secondNode;  // Optional.
 }
 
 class ArgumentList : Node

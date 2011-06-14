@@ -13,9 +13,9 @@ import std.string;
 
 import sdc.compilererror;
 import sdc.util;
+import sdc.extract;
 import sdc.global;
 import ast = sdc.ast.all;
-import sdc.extract.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 import sdc.gen.sdcclass;
@@ -39,11 +39,11 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         return true;  // TODO
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         return canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        return canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
     case ast.DeclarationDefinitionType.TemplateDeclaration:
         return true;  // TODO
     case ast.DeclarationDefinitionType.ClassDeclaration:
+        return canGenClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
+    case ast.DeclarationDefinitionType.EnumDeclaration:
         return true;  // TODO
     default:
         return false;
@@ -51,11 +51,21 @@ bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
     assert(false);
 }
 
-Module genModule(ast.Module astModule)
+Module genModule(ast.Module astModule, TranslationUnit tu)
 {
     auto mod = new Module(astModule.moduleDeclaration.name);
+    mod.translationUnit = tu;
     genModuleAndPackages(mod);
-    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod);
+
+    auto name = extractQualifiedName(mod.name);
+    verbosePrint("Generating module '" ~ name ~ "'.", VerbosePrintColour.Red);
+    verboseIndent++;
+
+    resolveDeclarationDefinitionList(astModule.declarationDefinitions, mod, null);
+
+    verboseIndent--;
+    verbosePrint("Done generating '" ~ name ~ "'.", VerbosePrintColour.Red);
+
     return mod;
 }
 
@@ -67,21 +77,24 @@ void genModuleAndPackages(Module mod)
             // Package.
             auto name = extractIdentifier(identifier);
             auto _scope = new Scope();
-            parentScope.add(name, new Store(_scope));
+            parentScope.add(name, new Store(_scope, mod.name.location));
             parentScope = _scope;
         } else {
             // Module.
             auto name = extractIdentifier(identifier);
-            auto store = new Store(mod.currentScope);
+            auto store = new Store(mod.currentScope, mod.name.location);
             parentScope.add(name, store);
         }
     }
 }
 
-void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod)
-{   
+void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module mod, Type parentType)
+{
     auto resolutionList = list.dup;
-    size_t stillToGo, oldStillToGo = -1;
+    size_t tmp, oldStillToGo;
+    size_t* stillToGo = parentType is null ? &tmp : &parentType.stillToGo;
+    assert(stillToGo);
+
     foreach (d; resolutionList) {
         d.parentName = mod.name;
         d.importedSymbol = false;
@@ -90,15 +103,16 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     bool finalPass;
     do {
         foreach (declDef; resolutionList) {
-            genDeclarationDefinition(declDef, mod);
+            declDef.parentType = parentType;
+            genDeclarationDefinition(declDef, mod, *stillToGo);
         }
         
-        stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
+        *stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
         
         // Let's figure out if we can leave.
-        if (stillToGo == 0) {
+        if (*stillToGo == 0) {
             break;
-        } else if (stillToGo == oldStillToGo) {
+        } else if (*stillToGo == oldStillToGo) {
             // Uh-oh.. nothing new was resolved... look for things we can expand.
             ast.DeclarationDefinition[] toAppend;
             foreach (declDef; resolutionList) {
@@ -112,6 +126,11 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             if (toAppend.length > 0) {
                 resolutionList ~= toAppend;
             } else {
+                foreach (tu; getTranslationUnits()) {
+                    if (tu.gModule is null && tu.compile && tu !is mod.translationUnit) {
+                        tu.gModule = genModule(tu.aModule, tu);
+                    }
+                }
                 if (!finalPass) {
                     finalPass = true;
                     continue;
@@ -125,7 +144,7 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
                 }
             }
         }
-        oldStillToGo = stillToGo;
+        oldStillToGo = *stillToGo;
     } while (true);
 }
 
@@ -133,27 +152,16 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 {
     declDef.buildStage = ast.BuildStage.Done;
     switch (declDef.type) {
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        auto specifier = cast(ast.AttributeSpecifier) declDef.node;
-        assert(specifier);
-        if (specifier.declarationBlock is null) {
-            throw new CompilerPanic(declDef.location, "attempted to expand non declaration block containing attribute specifier.");
-        }
-        auto list = specifier.declarationBlock.declarationDefinitions.dup;
-        foreach (e; list) {
-            e.attributes ~= specifier.attribute;
-        }
-        return list;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         auto decl = enforce(cast(ast.ConditionalDeclaration) declDef.node);
         bool cond = genCondition(decl.condition, mod);
         ast.DeclarationDefinition[] newTopLevels;
         if (cond) {
-            foreach (declDef_; decl.thenBlock.declarationDefinitions) {
+            foreach (declDef_; decl.thenBlock) {
                 newTopLevels ~= declDef_;
             }
         } else if (decl.elseBlock !is null) {
-            foreach (declDef_; decl.elseBlock.declarationDefinitions) {
+            foreach (declDef_; decl.elseBlock) {
                 newTopLevels ~= declDef_;
             }
         }
@@ -164,39 +172,11 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
     assert(false);
 }
 
-void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
+void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, size_t stillToGo)
 {
     with (declDef) with (ast.BuildStage)
     if (buildStage != Unhandled && buildStage != Deferred) {
         return;
-    }
-    
-    foreach (attribute; declDef.attributes) {
-        switch (attribute.type) with (ast.AttributeType) {
-        case ExternC:
-            mod.currentLinkage = ast.Linkage.ExternC;
-            break;
-        case ExternD:
-            mod.currentLinkage = ast.Linkage.ExternD;
-            break;
-        case Private:
-            mod.currentAccess = ast.Access.Private;
-            break;
-        case Protected:
-            mod.currentAccess = ast.Access.Protected;
-            break;
-        case Package:
-            mod.currentAccess = ast.Access.Package;
-            break;
-        case Export:
-            mod.currentAccess = ast.Access.Export;
-            break;
-        case Public:
-            mod.currentAccess = ast.Access.Public;
-            break;
-        default:
-            throw new CompilerPanic(attribute.location, format("unhandled attribute type '%s'.", to!string(attribute.type)));
-        }
     }
     
     switch (declDef.type) {
@@ -206,11 +186,11 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         auto can = canGenDeclaration(decl, mod);        
         if (can) {
             if (decl.type != ast.DeclarationType.Function) {
-                declareDeclaration(decl, mod);
-                genDeclaration(decl, mod);
+                declareDeclaration(decl, declDef, mod);
+                genDeclaration(decl, declDef, mod);
                 declDef.buildStage = ast.BuildStage.Done;
             } else {
-                declareDeclaration(decl, mod);
+                declareDeclaration(decl, declDef, mod);
                 declDef.buildStage = ast.BuildStage.ReadyForCodegen;
                 mod.functionBuildList ~= declDef;
             }
@@ -223,25 +203,25 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
-        auto can = canGenAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-        if (can) {
-            genAggregateDeclaration(cast(ast.AggregateDeclaration) declDef.node, mod);
-            declDef.buildStage = ast.BuildStage.Done;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
+        auto asAggregate = cast(ast.AggregateDeclaration) declDef.node;
+        auto can = canGenAggregateDeclaration(asAggregate, mod);
+        if (!can) with (ast.BuildStage) {
+            if (declDef.buildStage == Unhandled) {
+                declDef.buildStage = Deferred;
+                break;
+            }
+            assert(asAggregate.structBody !is null);
+            if (stillToGo > 0 && stillToGo > asAggregate.structBody.declarations.length) {
+                declDef.buildStage = Deferred;
+                break;
+            }
         }
+        genAggregateDeclaration(asAggregate, declDef, mod);
+        declDef.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.ClassDeclaration:
         genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
-        break;
-    case ast.DeclarationDefinitionType.AttributeSpecifier:
-        auto can = canGenAttributeSpecifier(cast(ast.AttributeSpecifier) declDef.node, mod);
-        if (can) {
-            declDef.buildStage = ast.BuildStage.ReadyToExpand;
-        } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
-        }
         break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         genConditionalDeclaration(declDef, cast(ast.ConditionalDeclaration) declDef.node, mod);
@@ -252,6 +232,9 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
         break;
     case ast.DeclarationDefinitionType.TemplateDeclaration:
         genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
+    case ast.DeclarationDefinitionType.Unittest:
         declDef.buildStage = ast.BuildStage.Done;
         break;
     default:

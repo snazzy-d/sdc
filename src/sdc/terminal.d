@@ -91,6 +91,13 @@ version(Windows) {
 void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg)
 {
     if(coloursEnabled) {
+        scope (exit) {
+            version(Windows) {
+                SetConsoleTextAttribute(handle, termInfo.wAttributes);
+            } else {
+                pipe.write("\x1b[0m");
+            }
+        }
         version(Windows) {
             HANDLE handle;
             
@@ -111,12 +118,6 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
         }
         
         dg();
-        
-        version(Windows) {
-            SetConsoleTextAttribute(handle, termInfo.wAttributes);
-        } else {
-            pipe.write("\x1b[0m");
-        }
     } else {
         dg();
     }

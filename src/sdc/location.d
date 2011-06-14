@@ -14,12 +14,13 @@ import std.stdio;
 struct Location
 {
     string filename;
-    uint line = 1;
-    uint column = 1;
-    uint length = 0;
+    size_t line = 1;
+    size_t column = 1;
+    size_t length = 0;
     
     string toString()
     {
+        assert(&this != cast(void*) 0x1, "fluzzybumpkins");
         return format("%s(%s:%s)", filename, line, column);
     }
     
@@ -46,7 +47,7 @@ struct Location
     }
     
     // When the column is 0, the whole line is assumed to be the location
-    immutable uint wholeLine = 0;
+    immutable size_t wholeLine = 0;
 }
 
 char[] readErrorLine(Location loc)

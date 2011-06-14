@@ -22,11 +22,12 @@ import sdc.compilererror;
 import sdc.util;
 import sdc.global;
 import sdc.location;
-import sdc.extract.base;
+import sdc.extract;
 import sdc.gen.base;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.gen.sdcfunction;
+import sdc.gen.cfg;
 
 
 /**
@@ -42,18 +43,24 @@ class Module
     LLVMBuilderRef builder;
     Scope globalScope;
     Scope currentScope;
+    TranslationUnit translationUnit;
     ast.DeclarationDefinition[] functionBuildList;
     Function currentFunction;
     Value base;
     Value callingAggregate;
-    ast.Linkage currentLinkage = ast.Linkage.ExternD;
     ast.Access currentAccess = ast.Access.Public;
-    bool isAlias;  // ewwww
-    bool inferringFunction;  // OH GOD
-    Function expressionFunction;  // WHAT THE FUCK IS WRONG WITH ME?
+
+    bool returnValueGatherLabelPass;
+    ReturnTypeHolder[] returnTypes;
+    ast.Identifier[] labels;
+    
+    //bool inferringFunction;  // OH GOD
+    CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;
-
+    Scope typeScope;  // Boooooooooo
+    Type aggregate;
+    
     this(ast.QualifiedName name)
     {
         if (name is null) {
@@ -61,7 +68,9 @@ class Module
         }
         this.name = name;
         context = LLVMGetGlobalContext();
-        mod     = LLVMModuleCreateWithNameInContext(toStringz(extractQualifiedName(name)), context);
+        auto mname = extractQualifiedName(name);
+        mod     = LLVMModuleCreateWithNameInContext(toStringz(mname), context);
+        verbosePrint("Creating LLVM module '" ~ to!string(mod) ~ "' for module '" ~ mname ~ "'.", VerbosePrintColour.Yellow);
         builder = LLVMCreateBuilderInContext(context);
         
         globalScope = new Scope();
@@ -105,32 +114,27 @@ class Module
     
     void writeNativeAssemblyToFile(string fromFilename, string toFilename)
     {
-        auto cmd = format(`llc -march=%s -o "%s" "%s"`, arch, toFilename, fromFilename);
+        auto cmd = format(`llc %s -march=%s -o "%s" "%s"`, PIC ? "--relocation-model=pic" : "", arch, toFilename, fromFilename);
+        verbosePrint(cmd);
         system(cmd);
     }
     
     void optimiseBitcode(string filename)
     {
         auto cmd = format("opt -std-compile-opts -o %s %s", filename, filename);
+        verbosePrint(cmd);
         system(cmd);
-    }
-    
-    /**
-     * Optimise the generated code in place.
-     */
-    @disable void optimise()
-    {
-        auto passManager = LLVMCreatePassManager();
-        scope (exit) LLVMDisposePassManager(passManager);
-        LLVMAddInstructionCombiningPass(passManager);
-        LLVMAddPromoteMemoryToRegisterPass(passManager);
-        LLVMAddInternalizePass(passManager, false);
-        LLVMRunPassManager(passManager, mod);
     }
 
     void pushScope()
     {
-        mScopeStack ~= new Scope();
+        auto newScope = new Scope();
+        if (mScopeStack.length > 0) {
+            newScope.parent = mScopeStack[$ - 1];
+        } else {
+            newScope.parent = globalScope;
+        }
+        mScopeStack ~= newScope;
         currentScope = mScopeStack[$ - 1];
     }
     
@@ -179,12 +183,12 @@ class Module
                 tustore = new Store(tustore.value.importToModule(this));
             } else if (tustore.storeType == StoreType.Type) {
                 checkAccess(tustore.type.access);
-                tustore = new Store(tustore.type.importToModule(this));
+                tustore = new Store(tustore.type.importToModule(this), Location());
             } else if (tustore.storeType == StoreType.Function) {
-                tustore = new Store(tustore.getFunction.importToModule(this));
+                tustore = new Store(tustore.getFunction.importToModule(this), Location());
             }
 
-            if (store is null) {
+            if (store is null) { 
                 store = tustore;
                 continue;
             }
@@ -200,7 +204,7 @@ class Module
                  *  apply cross-module overload resolution."
                  */
                 throw new CompilerPanic("no cross-module overload resolution!");
-            }            
+            }
         }
         
     exit:
@@ -222,7 +226,7 @@ class Module
      * Returns: the depth of the current scope.
      *          A value of zero means the current scope is global.
      */
-    int scopeDepth() @property
+    size_t scopeDepth() @property
     {
         return mScopeStack.length;
     }
@@ -291,7 +295,7 @@ class Module
      */
     Module dup() @property
     {
-
+        mDupCount++;
         auto ident = new ast.Identifier();
         ident.value = "dup";
         auto qual = new ast.QualifiedName();
@@ -301,19 +305,22 @@ class Module
         mod.globalScope = globalScope.importToModule(mod);
         mod.currentScope = currentScope.importToModule(mod);
         mod.functionBuildList = functionBuildList.dup;
-        if (currentFunction !is null) {
-            currentFunction.importToModule(mod);
-        }
+        // This will be imported when the scope stack is imported.
+        mod.currentFunction = currentFunction;
         if (base !is null) {
             mod.base = base.importToModule(mod);
         }
         if (callingAggregate !is null) {
             mod.callingAggregate = callingAggregate.importToModule(mod);
         }
-        mod.currentLinkage = currentLinkage;
+        
         mod.currentAccess = currentAccess;
-        mod.isAlias = isAlias;
-        mod.importedTranslationUnits = mod.importedTranslationUnits.dup;
+        mod.importedTranslationUnits = importedTranslationUnits.dup;
+        foreach (tu; mod.importedTranslationUnits) {
+            if (tu.gModule.mDupCount == 0) {
+                tu.gModule = tu.gModule.dup;
+            }
+        }
         mod.arch = arch;
         
         foreach (_scope; mScopeStack) {
@@ -324,6 +331,7 @@ class Module
         mod.mTestedVersionIdentifiers = mTestedVersionIdentifiers;
         mod.mDebugIdentifiers = mDebugIdentifiers;
         mod.mTestedDebugIdentifiers = mTestedDebugIdentifiers;
+        mDupCount--;
         
         return mod;
     }
@@ -337,13 +345,64 @@ class Module
     {
         return mFailureList;
     }
-        
+
+    Value gcAlloc(Location location, Value n)
+    {
+        auto voidPointer = new PointerType(this, new VoidType(this));
+        auto sizeT = getSizeT(this);
+        auto allocType = new FunctionType(this, voidPointer, [sizeT], false);
+        allocType.linkage = ast.Linkage.ExternC;
+        allocType.declare();
+
+        LLVMValueRef mallocFn = LLVMGetNamedFunction(mod, "malloc");
+        if (mallocFn is null) {
+            auto fn = new Function(allocType);
+            fn.simpleName = "malloc";
+            fn.add(this);
+            mallocFn = fn.llvmValue;
+        }
+
+        return buildCall(this, allocType, mallocFn, "malloc", location, [n.location], [n]);
+    }
+
+    Value gcRealloc(Location location, Value p, Value n)
+    {
+        auto voidPointer = new PointerType(this, new VoidType(this));
+        auto sizeT = getSizeT(this);
+        auto reallocType = new FunctionType(this, voidPointer, [voidPointer, sizeT], false);
+        reallocType.linkage = ast.Linkage.ExternC;
+        reallocType.declare();
+
+        LLVMValueRef reallocFn = LLVMGetNamedFunction(mod, "realloc");
+        if (reallocFn is null) {
+            auto fn = new Function(reallocType);
+            fn.simpleName = "realloc";
+            fn.add(this);
+            reallocFn = fn.llvmValue;
+        }
+
+        return buildCall(this, reallocType, reallocFn, "realloc", location, [p.location, n.location], [p, n]);
+    }
+
     protected Scope[] mScopeStack;
     protected LookupFailure[] mFailureList;
     protected bool[string] mVersionIdentifiers;
     protected bool[string] mTestedVersionIdentifiers;
     protected bool[string] mDebugIdentifiers;
     protected bool[string] mTestedDebugIdentifiers;
+    protected int mDupCount;
+}
+
+struct ReturnTypeHolder
+{
+    Type returnType;
+    Location location;
+}
+
+struct CatchTargets
+{
+    LLVMBasicBlockRef catchBlock;
+    BasicBlock catchBB;
 }
 
 struct LookupFailure
@@ -363,37 +422,44 @@ enum StoreType
 
 class Store
 {
+    Location location;
     StoreType storeType;
     Object object;
+    Scope parentScope;
     
     this(Value value)
     {
         storeType = StoreType.Value;
         object = value;
+        location = value.location;
     }
     
-    this(Type type)
+    this(Type type, Location location)
     {
         storeType = StoreType.Type;
         object = type;
+        this.location = location;
     }
     
-    this(Scope _scope)
+    this(Scope _scope, Location location)
     {
         storeType = StoreType.Scope;
         object = _scope;
+        this.location = location;
     }
     
     this(ast.TemplateDeclaration _template)
     {
         storeType = StoreType.Template;
         object = _template;
+        location = _template.location;
     }
     
-    this(Function fn)
+    this(Function fn, Location location)
     {
         storeType = StoreType.Function;
         object = fn;
+        this.location = location;
     }
     
     Value value() @property
@@ -443,11 +509,11 @@ class Store
         case Value:
             return new Store(value.importToModule(mod));
         case Type:
-            return new Store(type.importToModule(mod));
+            return new Store(type.importToModule(mod), Location());
         case Scope:
-            return new Store(getScope());
+            return new Store(getScope(), Location());
         case Function:
-            return new Store(getFunction().importToModule(mod));
+            return new Store(getFunction().importToModule(mod), Location());
         case Template:
             return this;  
         }
@@ -456,15 +522,37 @@ class Store
 
 class Scope
 {
+    Scope parent;
+    
     void add(string name, Store store)
     {
+        if (auto p = definedInParents(name)) {
+            if (p.parentScope.parent !is null) {
+                throw new CompilerError(store.location, format("declaration of '%s' shadows declaration at '%s'.", name, p.location));
+            }
+        }
+        if (auto p = name in mSymbolTable) {
+            if (p.storeType != StoreType.Scope) {
+                throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
+            }
+        }
         mSymbolTable[name] = store;
+        store.parentScope = this;
+    }
+    
+    void redefine(string name, Store store)
+    {
+        if (name in mSymbolTable) {
+            mSymbolTable[name] = store;
+            store.parentScope = this;
+        } else {
+            throw new CompilerPanic(store.location, format("tried to redefine undefined store."));
+        }
     }
     
     Store get(string name)
     {
-        auto p = name in mSymbolTable;
-        return p is null ? null : *p;
+        return mSymbolTable.get(name, null);
     }
     
     Scope importToModule(Module mod)
@@ -474,6 +562,18 @@ class Scope
             _scope.add(name, store.importToModule(mod));
         }
         return _scope;
+    }
+    
+    Store* definedInParents(string name)
+    {
+        Scope current = parent;
+        while (current !is null) {
+            if (auto p = name in current.mSymbolTable) {
+                return p;
+            }
+            current = current.parent;
+        }
+        return null; 
     }
     
     Store[string] mSymbolTable;

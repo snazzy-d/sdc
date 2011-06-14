@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -8,22 +8,38 @@ module sdc.parser.attribute;
 import std.string;
 
 import sdc.util;
+import sdc.global;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.parser.base;
 import sdc.parser.expression;
 import sdc.ast.attribute;
+import sdc.ast.declaration;
 
 
 AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
 {
     auto attributeSpecifier = new AttributeSpecifier();
     attributeSpecifier.location = tstream.peek.location;
+
+    auto name = tstream.peek.value;
+    verbosePrint("Parsing " ~ name ~ " attribute specifier.", VerbosePrintColour.Green);
+    verboseIndent++;
     attributeSpecifier.attribute = parseAttribute(tstream);
     attributeSpecifier.declarationBlock = parseDeclarationBlock(tstream);
+    verboseIndent--;
+    verbosePrint("Done parsing " ~ name ~ " attribute specifier.", VerbosePrintColour.Green);
     return attributeSpecifier;
 }
 
+Attribute parseFunctionAttribute(TokenStream tstream)
+{
+    auto attribute = parseAttribute(tstream);
+    if (FUNCTION_ATTRIBUTES.contains(attribute.type) || MEMBER_FUNCTION_ATTRIBUTES.contains(attribute.type)) {
+        return attribute;
+    }
+    throw new CompilerError(attribute.location, "expected function attribute.");
+}
 
 Attribute parseAttribute(TokenStream tstream)
 {
@@ -79,11 +95,27 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Const: case TokenType.Auto:
     case TokenType.Scope: case TokenType.__Gshared:
     case TokenType.Shared: case TokenType.Immutable:
-    case TokenType.Inout: case TokenType.atDisable:
-    case TokenType.Pure: case TokenType.Nothrow:
+    case TokenType.Inout: case TokenType.Pure: 
+    case TokenType.Nothrow:
         // Simple keyword attribute.
         attribute.type = cast(AttributeType) tstream.peek.type;
         tstream.getToken();
+        break;
+    case TokenType.At:
+        match(tstream, TokenType.At);
+        if (tstream.peek.type != TokenType.Identifier) {
+            throw new CompilerError(tstream.peek.location, format("expected identifier, not %s.", tokenToString[tstream.peek.type]));
+        }
+        switch (tstream.peek.value) {
+        case "safe": attribute.type = AttributeType.atSafe; break;
+        case "trusted": attribute.type = AttributeType.atTrusted; break;
+        case "system": attribute.type = AttributeType.atSystem; break;
+        case "disable": attribute.type = AttributeType.atDisable; break;
+        case "property": attribute.type = AttributeType.atProperty; break;
+        default:
+            throw new CompilerError(tstream.peek.location, format("expected attribute, not @%s.", tstream.peek.value));
+        }
+        match(tstream, TokenType.Identifier);
         break;
     case TokenType.Align:
         attribute.type = AttributeType.Align;
@@ -106,7 +138,10 @@ Attribute parseAttribute(TokenStream tstream)
 
 bool startsLikeAttribute(TokenStream tstream)
 {
-    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type);
+    if (contains(PAREN_TYPES, tstream.peek.type) && tstream.lookahead(1).type == TokenType.OpenParen) {
+        return false;
+    }
+    return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
 }
 
 
@@ -139,7 +174,7 @@ PragmaAttribute parsePragmaAttribute(TokenStream tstream)
     return pragmaAttribute;
 }
 
-DeclarationBlock parseDeclarationBlock(TokenStream tstream)
+DeclarationBlock parseDeclarationBlock(TokenStream tstream, bool attributeBlock = false)
 {
     auto declarationBlock = new DeclarationBlock();
     declarationBlock.location = tstream.peek.location;
@@ -147,16 +182,19 @@ DeclarationBlock parseDeclarationBlock(TokenStream tstream)
     if (tstream.peek.type == TokenType.OpenBrace) {
         match(tstream, TokenType.OpenBrace);
         while (tstream.peek.type != TokenType.CloseBrace) {
-            declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+            if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream);
+            else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
         }
         match(tstream, TokenType.CloseBrace);
     } else if (tstream.peek.type == TokenType.Colon) {
         match(tstream, TokenType.Colon);
-        while (tstream.peek.type != TokenType.End && tstream.peek.type != TokenType.CloseBrace) { 
-            declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        while (tstream.peek.type != TokenType.End && tstream.peek.type != TokenType.CloseBrace) {
+            if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream); 
+            else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
         }
     } else {
-        declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
+        if (attributeBlock) declarationBlock.declarationDefinitions ~= parseAttributeBlock(tstream);
+        else declarationBlock.declarationDefinitions ~= parseDeclarationDefinition(tstream);
     }
     
     return declarationBlock;

@@ -7,17 +7,21 @@ module sdc.gen.sdcfunction;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.string;
+import core.runtime;
 
 import llvm.c.Core;
+import llvm.Ext;
 
 import sdc.compilererror;
 import sdc.global;
 import sdc.location;
 import sdc.mangle;
 import sdc.util;
+import sdc.extract;
 import sdc.ast.attribute;
-import sdc.extract.base;
+import sdc.ast.declaration : FunctionDeclaration;
 import sdc.gen.cfg;
 import sdc.gen.type;
 import sdc.gen.value;
@@ -33,18 +37,25 @@ import sdc.gen.sdcmodule;
 class FunctionType
 {
     LLVMTypeRef functionType;
-    
     Linkage linkage;
     Type returnType;
     Type[] argumentTypes;
+    Type parentAggregate;
+    bool isStatic;
     bool varargs;
+    Module mod;
     
-    this(Type returnType, Type[] argumentTypes, bool varargs)
+    this(Module mod, Type returnType, Type[] argumentTypes, bool varargs, FunctionDeclaration astParent = null)
     {
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.varargs = varargs;
+        if (astParent !is null) {
+            this.linkage = astParent.linkage;
+            this.isStatic = astParent.searchAttributesBackwards(ast.AttributeType.Static);
+        }
         declare();
+        this.mod = mod;
     }
     
     /**
@@ -71,10 +82,26 @@ class FunctionType
              * This will be then generated with the real return type.
              */
             // Will this work with undef? That would make more sense. TODO.
-            functionType = LLVMFunctionType(LLVMInt32Type(), params.ptr, params.length, varargs);
+            functionType = LLVMFunctionType(LLVMInt32Type(), params.ptr, cast(uint) params.length, varargs);
         } else {
-            functionType = LLVMFunctionType(returnType.llvmType, params.ptr, params.length, varargs);
+            functionType = LLVMFunctionType(returnType.llvmType, params.ptr, cast(uint) params.length, varargs);
         }
+    }
+    
+    /**
+     * Create an equivalent FunctionType in the given Module.
+     */
+    FunctionType importToModule(Module mod)
+    {
+        Type importType(Type t) { return t.importToModule(mod); }
+        auto importedTypes = array( map!importType(argumentTypes) );    
+            
+        auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
+        if (fn.parentAggregate !is null) {
+            fn.parentAggregate = parentAggregate.importToModule(mod);
+        }
+        assert(argumentTypes.length == fn.argumentTypes.length);
+        return fn;
     }
 }
 
@@ -89,10 +116,10 @@ class Function
     string[] argumentNames;
     Location[] argumentLocations;
     Location argumentListLocation;
-    Type parentAggregate;
     Module mod = null;
     BasicBlock cfgEntry;
     BasicBlock cfgTail;
+    Label[string] labels;
     
     LLVMValueRef llvmValue;
     
@@ -118,7 +145,13 @@ class Function
         if (mod !is null) {
             auto m = mod;
             remove();
+            Type[] args = type.argumentTypes;
+            if (argumentName == "this") {
+                // Omit the this parameter from mangling.
+                type.argumentTypes = type.argumentTypes[0 .. $ - 1];  // HAX!
+            }
             add(m);
+            type.argumentTypes = args;
         }
     }
     
@@ -136,6 +169,7 @@ class Function
                 return;
             }
         }
+        
         this.mod = mod;
         mangledName = simpleName.idup;
         if (type.linkage == Linkage.ExternD && forceMangle is null) {
@@ -143,8 +177,15 @@ class Function
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
         }
-        storeSpecial();
-        llvmValue = LLVMAddFunction(mod.mod, toStringz(mangledName), type.functionType);
+        auto mangledNamez = toStringz(mangledName);
+        
+        if (auto p = LLVMGetNamedFunction(mod.mod, mangledNamez)) {
+            llvmValue = p;
+            return;
+        }
+        
+        verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
+        llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.functionType);
     }
     
     /**
@@ -163,13 +204,11 @@ class Function
     {
         auto fn = new Function(type);
         
+        fn.type = type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
         fn.argumentListLocation = this.argumentListLocation;
-        if (fn.parentAggregate !is null) {
-            fn.parentAggregate = this.parentAggregate.importToModule(mod);
-        }
         fn.cfgEntry = this.cfgEntry;
         fn.cfgTail = this.cfgTail;
         fn.mod = null;
@@ -180,7 +219,7 @@ class Function
     
     Value addressOf(Location location)
     {
-        auto fptr = new FunctionPointerValue(mod, location, type);
+        auto fptr = new PointerValue(mod, location, new FunctionTypeWrapper(mod, type));
         fptr.initialise(location, llvmValue);
         return fptr;
     }
@@ -193,34 +232,43 @@ class Function
         if (mod is null) {
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
-        auto v = buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
-         
-        Value val;
-        if (type.returnType.dtype != DType.Void) {
-            val = type.returnType.getValue(mod, location);
-            val.initialise(location, v);
-        } else {
-            val = new VoidValue(mod, location);
-        }
-        return val;
-    }
-    
-    private void storeSpecial()
-    {
-        if (mangledName == "malloc" && gcAlloc is null) {
-            gcAlloc = this;
-        } else if (mangledName == "realloc" && gcRealloc is null) {
-            gcRealloc = this;
-        }
+        return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
     }
 }
 
-LLVMValueRef buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
+struct Label { Location location; BasicBlock block; LLVMBasicBlockRef bb; }
+
+Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
     auto llvmArgs = array( map!"a.get"(args) );
-    return LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, llvmArgs.length, "");
+    LLVMValueRef v;
+    if (mod.catchTargetStack.length == 0) {
+        v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");
+    } else {
+        // function call in a try block
+        auto catchB  = mod.catchTargetStack[$ - 1].catchBlock;
+        auto catchBB = mod.catchTargetStack[$ - 1].catchBB;
+        
+        auto thenB  = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "try");
+        v = LLVMBuildInvoke(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, thenB, catchB, "");
+        LLVMPositionBuilderAtEnd(mod.builder, thenB);
+        
+        auto parent = mod.currentFunction.cfgTail;
+        auto newTry = new BasicBlock();
+        parent.children ~= newTry;
+        newTry.children ~= catchBB;
+        mod.currentFunction.cfgTail = newTry;
+    }
+    Value val;
+    if (type.returnType.dtype != DType.Void) {
+        val = type.returnType.getValue(mod, callLocation);
+        val.initialise(callLocation, v);
+    } else {
+        val = new VoidValue(mod, callLocation);
+    }
+    return val;
 }
 
 private void checkArgumentListLength(FunctionType type, string functionName, Location callLocation, ref Location[] argLocations, Value[] args)
@@ -237,7 +285,7 @@ private void checkArgumentListLength(FunctionType type, string functionName, Loc
             );
          }
     } else if (type.argumentTypes.length != args.length) {
-        callLocation.column = callLocation.wholeLine;
+        debugPrint(functionName);
         throw new CompilerError(
             callLocation, 
             format("expected %s arguments, got %s.", type.argumentTypes.length, args.length),
@@ -269,7 +317,7 @@ body
         args[i] = implicitCast(argLocations[i], args[i], arg);
         if (arg.isRef) {
             args[i].errorIfNotLValue(argLocations[i]);
-            args[i] = args[i].addressOf();
+            args[i] = args[i].addressOf(argLocations[i]);
         }
     }
 }

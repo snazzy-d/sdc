@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */ 
@@ -103,7 +103,7 @@ TokenType nextLex(TokenStream tstream)
         return TokenType.End;
     }
     
-    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_' || tstream.source.peek == '@') {
+    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_') {
         bool lookaheadEOF;
         if (tstream.source.peek == 'r' || tstream.source.peek == 'q' || tstream.source.peek == 'x') {
             dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
@@ -342,6 +342,8 @@ bool lexSymbol(TokenStream tstream)
         return lexSingleSymbol(tstream, ':', TokenType.Colon);
     case '$':
         return lexSingleSymbol(tstream, '$', TokenType.Dollar);
+    case '@':
+        return lexSingleSymbol(tstream, '@', TokenType.At);
     case '=':
         return lexSymbolOrSymbolAssign(tstream, '=', TokenType.Assign, TokenType.DoubleAssign);
     case '*':

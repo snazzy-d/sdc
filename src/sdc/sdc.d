@@ -19,7 +19,10 @@
  */
 module sdc.sdc;
 
+import std.algorithm;
+import std.array;
 import std.conv;
+import std.range;
 import std.regex;
 import std.stdio;
 import std.string;
@@ -32,6 +35,7 @@ import core.runtime;
 
 import llvm.Ext;
 import llvm.c.Core;
+import llvm.c.Initialization;
 
 import sdc.util;
 import sdc.source;
@@ -41,8 +45,8 @@ import sdc.compilererror;
 import sdc.info;
 import sdc.global;
 import sdc.terminal;
+import sdc.extract;
 import ast = sdc.ast.all;
-import sdc.extract.base;
 import sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
@@ -56,9 +60,14 @@ Throwable.TraceInfo nullTraceHandler()
     return null;
 }
 
+extern (C) void _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(LLVMPassRegistryRef);
+
 int main(string[] args)
 {
-    Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
+    auto passRegistry = LLVMGetGlobalPassRegistry();
+    _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(passRegistry);  // TMP !!!
+    LLVMInitializeCodeGen(passRegistry);
+    //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError error) {
@@ -87,26 +96,39 @@ void realmain(string[] args)
     }
     
     loadConfig(args);
+    foreach (i, arg; args) {
+        // I figure people are more used to '-m32' and friends, so let them use 'em.
+        if (arg == "--") {
+            break;
+        } else if (arg == "-m32") {
+            args[i] = "--m32";
+        } else if (arg == "-m64") {
+            args[i] = "--m64";
+        }
+    }
+    auto argsCopy = args.dup;
     try {
         getopt(args,
                std.getopt.config.caseSensitive,
-               "help|h", () { usage(); exit(0); },
-               "version|v", () { writeln(VERSION_STRING); exit(0); },
+               "help|h", { usage(); exit(0); },
+               "version|v",  { writeln(VERSION_STRING); exit(0); },
                "version-identifier", (string option, string arg) { setVersion(arg); },
                "debug-identifier", (string option, string arg) { setDebug(arg); },
-               "debug", () { isDebug = true; },
-               "release", () { isDebug = false; },
-               "unittest", () { unittestsEnabled = true; },
-               "no-colour-print", (){ coloursEnabled = false; },
+               "debug", { isDebug = true; },
+               "release", { isDebug = false; },
+               "unittest", { unittestsEnabled = true; },
+               "no-colour-print", { coloursEnabled = false; },
                "I", (string, string path){ importPaths ~= path; },
                "optimise", &optimise,
                "gcc", &gcc,
-               "arch", &arch,
-               "m32", () { arch = "x86"; },
-               "m64", () { arch = "x86-64"; },
+               "arch", (string, string arg) { arch = arg; },
+               "m64", { arch = "x86-64"; },
+               "m32", { arch = "x86"; },
                "c", &skipLink,
                "o", &outputName,
-               "save-temps", &saveTemps
+               "V", { verboseCompile = true; },
+               "save-temps", &saveTemps,
+               "pic", &PIC,
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -121,6 +143,10 @@ void realmain(string[] args)
     if (skipLink && outputName != "" && args.length > 2) {
         throw new CompilerError("multiple modules cannot have the same output name, unless being linked into an executable.");
     }
+
+    verbosePrint(VERSION_STRING);
+    verbosePrint("Reading config file from '" ~ confLocation ~ "'.");
+    verbosePrint("Effective command line: '" ~ to!string(argsCopy) ~ "'.");
     
     string[] assemblies;
     foreach (arg; args[1 .. $]) {
@@ -159,8 +185,7 @@ void realmain(string[] args)
         if (!compile) {
             continue;
         }
-        gModule = genModule(aModule);
-        gModule.verify();
+        gModule = genModule(aModule, translationUnit);
     }
     
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
@@ -170,8 +195,10 @@ void realmain(string[] args)
                 continue;
             }
             assert(declDef.type == ast.DeclarationDefinitionType.Declaration);
-            genDeclaration(cast(ast.Declaration) declDef.node, gModule);
+            genDeclaration(cast(ast.Declaration) declDef.node, declDef, gModule);
         }
+        gModule.verify();
+        verbosePrint(format("Module '%s' passes verification.", gModule.mod));
             
         assert(!match(filename, extensionRegex).empty);
         auto asBitcode  = replace(filename, extensionRegex, "bc");
@@ -191,6 +218,7 @@ void realmain(string[] args)
         compileCommand ~= asObject;
         compileCommand ~= " " ~ asAssembly;
         
+        verbosePrint(compileCommand);
         system(compileCommand);
         assemblies ~= asObject;
         
@@ -216,6 +244,7 @@ void realmain(string[] args)
             linkCommand ~= `"` ~ assembly ~ `" `;
         }
         
+        verbosePrint(linkCommand);
         system(linkCommand);
         
         if (!saveTemps) {
@@ -241,9 +270,11 @@ void usage()
     writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
-    writeln("  --m32:                 synonym for '--arch=x86'.");
-    writeln("  --m64:                 synonym for '--arch=x86-64'.");
+    writeln("  --pic:                 generate position independent code.");
+    writeln("  -m32:                  synonym for '--arch=x86'.");
+    writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file.");
+    writeln("  -V:                    compile with verbose output.");
 }

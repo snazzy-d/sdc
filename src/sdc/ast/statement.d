@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -14,71 +14,7 @@ import sdc.ast.sdcpragma;
 
 enum StatementType
 {
-    Empty,
-    NonEmpty,
-    Scope
-}
-
-// ; | NonEmptyStatement | ScopeStatement
-class Statement : Node
-{
-    StatementType type;
-    Node node;  // Optional.
-}
-
-
-enum NoScopeNonEmptyStatementType
-{
-    NonEmpty,
-    Block
-}
-
-class NoScopeNonEmptyStatement : Node
-{
-    NoScopeNonEmptyStatementType type;
-    Node node;
-}
-
-
-enum NonEmptyOrScopeBlockStatementType { NonEmpty, ScopeBlock }
-
-class NonEmptyOrScopeBlockStatement : Node
-{
-    NonEmptyOrScopeBlockStatementType type;
-    Node node;
-}
-
-
-enum NoScopeStatementType
-{
-    Empty,
-    NonEmpty,
-    Block
-}
-
-class NoScopeStatement : Node
-{
-    NoScopeStatementType type;
-    Node node;
-}
-
-
-enum ScopeStatementType
-{
-    NonEmpty,
-    Block
-}
-
-// NonEmptyStatement | BlockStatement
-class ScopeStatement : Node
-{
-    ScopeStatementType type;
-    Node node;
-}
-
-
-enum NonEmptyStatementType
-{
+    BlockStatement,
     LabeledStatement,
     ExpressionStatement,
     DeclarationStatement,
@@ -110,14 +46,13 @@ enum NonEmptyStatementType
     TemplateMixin
 }
 
-class NonEmptyStatement : Node
+// ; | NonEmptyStatement | ScopeStatement
+class Statement : Node
 {
-    NonEmptyStatementType type;
-    Node node;
+    StatementType type;
+    Node node;  // Optional.
 }
 
-
-// { Statements? }
 class BlockStatement : Node
 {
     Statement[] statements;
@@ -128,7 +63,7 @@ class BlockStatement : Node
 class LabeledStatement : Node
 {
     Identifier identifier;
-    NoScopeStatement statement;
+    Statement statement;
 }
 
 
@@ -170,12 +105,12 @@ class IfCondition : Node
 
 class ThenStatement : Node
 {
-    ScopeStatement statement;
+    Statement statement;
 }
 
 class ElseStatement : Node
 {
-    ScopeStatement statement;
+    Statement statement;
 }
 
 
@@ -183,25 +118,25 @@ class ElseStatement : Node
 class WhileStatement : Node
 {
     Expression expression;
-    ScopeStatement statement;
+    Statement statement;
 }
 
 
 // do ScopeStatement while ( Expression )
 class DoStatement : Node
 {
-    ScopeStatement statement;
+    Statement statement;
     Expression expression;
 }
 
 
-// for (ForInitialise ForTest; ForType) ScopeStatement
+// for (ForInitialise ForTest; ForType) Statement
 class ForStatement : Node
 {
     ForInitialise initialise;
     ForTest test;
     ForIncrement increment;
-    ScopeStatement statement;
+    Statement statement;
 }
 
 enum ForInitialiseType { Empty, NoScopeNonEmpty }
@@ -229,12 +164,12 @@ class ForIncrement : Node
 }
 
 
-// foreach ( ForeachTypes ; Expression ) NonScopeNonEmptyStatement
+// foreach ( ForeachTypes ; Expression ) Statement
 class ForeachStatement : Node
 {
     ForeachType[] foreachTypes;
     Expression aggregate;
-    NoScopeNonEmptyStatement statement;
+    Statement statement;
 }
 
 enum ForeachTypeType { RefTypeIdentifier, TypeIdentifier, RefIdentifier, Identifier }
@@ -250,7 +185,7 @@ class ForeachType : Node
 class SwitchStatement : Node
 {
     Expression expression;
-    ScopeStatement statement;
+    Statement statement;
 }
 
 // case ArgumentList : Statement
@@ -279,7 +214,7 @@ class DefaultStatement : Node
 class FinalSwitchStatement : Node
 {
     Expression expression;
-    ScopeStatement statement;
+    Statement statement;
 }
 
 
@@ -301,7 +236,7 @@ class ReturnStatement : Node
 }
 
 
-enum GotoStatementType { Identifier, Default, Case, CaseExpression }
+enum GotoStatementType { Identifier, Default, Case }
 
 class GotoStatement : Node
 {
@@ -316,20 +251,23 @@ class WithStatement : Node
 {
     WithStatementType type;
     Node node;
-    ScopeStatement statement;
+    Statement statement;
 }
 
 
 class SynchronizedStatement : Node
 {
     Expression expression;  // Optional.
-    ScopeStatement statement;
+    Statement statement;
 }
 
 
 class TryStatement : Node
 {
-    ScopeStatement statement;
+    Statement statement;
+    //Catches catches;  // Optional
+    //FinallyStatement finallyStatement;
+    Statement catchStatement;  // TMP
 }
 
 class Catches : Node
@@ -341,7 +279,7 @@ class Catches : Node
 class Catch : Node
 {
     CatchParameter parameter;
-    NoScopeNonEmptyStatement statement;
+    Statement statement;
 }
 
 class CatchParameter : Node
@@ -353,13 +291,13 @@ class CatchParameter : Node
 // catch NoScopeNonEmptyStatement
 class LastCatch : Node
 {
-    NoScopeNonEmptyStatement statement;
+    Statement statement;
 }
 
 // finally NoScopeNonEmptyStatement
 class FinallyStatement : Node
 {
-    NoScopeNonEmptyStatement statement;
+    Statement statement;
 }
 
 
@@ -375,13 +313,13 @@ enum ScopeGuardStatementType { Exit, Success, Failure }
 class ScopeGuardStatement : Node
 {
     ScopeGuardStatementType type;
-    NonEmptyOrScopeBlockStatement statement;
+    Statement statement;
 }
 
 class PragmaStatement : Node
 {
     Pragma thePragma;
-    NoScopeStatement statement;
+    Statement statement;
 }
 
 class MixinStatement : Node
@@ -389,4 +327,9 @@ class MixinStatement : Node
     AssignExpression expression;
 }
 
-// TODO: asm foreachrange 
+class AsmStatement : Node
+{
+    Token[] tokens;
+}
+
+// TODO: foreachrange 
