@@ -1,0 +1,29 @@
+/*===-- llvm-c/Initialization.h - Initialization C Interface ------*- D -*-===*\
+|*                                                                            *|
+|*                     The LLVM Compiler Infrastructure                       *|
+|*                                                                            *|
+|* This file is distributed under the University of Illinois Open Source      *|
+|* License. See LICENSE.TXT for details.                                      *|
+|*                                                                            *|
+|*===----------------------------------------------------------------------===*|
+|*                                                                            *|
+|* This header declares the C interface to LLVM initialization routines,      *|
+|* which must be called before you can use the functionality provided by      *|
+|* the corresponding LLVM library.                                            *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
+module llvm.c.Initialization;
+extern (C):
+
+import llvm.c.Core;
+
+void LLVMInitializeCore(LLVMPassRegistryRef R);
+void LLVMInitializeTransformUtils(LLVMPassRegistryRef R);
+void LLVMInitializeScalarOpts(LLVMPassRegistryRef R);
+void LLVMInitializeInstCombine(LLVMPassRegistryRef R);
+void LLVMInitializeIPO(LLVMPassRegistryRef R);
+void LLVMInitializeInstrumentation(LLVMPassRegistryRef R);
+void LLVMInitializeAnalysis(LLVMPassRegistryRef R);
+void LLVMInitializeIPA(LLVMPassRegistryRef R);
+void LLVMInitializeCodeGen(LLVMPassRegistryRef R);
+void LLVMInitializeTarget(LLVMPassRegistryRef R);
