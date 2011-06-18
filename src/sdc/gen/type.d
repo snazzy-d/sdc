@@ -827,22 +827,7 @@ class StructType : Type
         memberFunctions[id] = f;    
     }
     
-    override Type importToModule(Module mod)
-    {
-        auto t = new StructType(mod);
-        t.fullName = fullName;
-        t.aliasThises = aliasThises;
-        foreach (name, index; memberPositions) {
-            t.addMemberVar(name, members[index].importToModule(mod));
-        }
-        foreach (name, fn; memberFunctions) {
-            fn.importToModule(mod);
-            t.addMemberFunction(name, fn);
-        }
-        
-        t.declare();
-        return t;
-    }
+    mixin ImportToModule!(Type, "mod");
     
     override string name()
     { 

@@ -63,3 +63,49 @@ template MultiMixin(alias A, T...)
         mixin MultiMixin!(A, T[1 .. $]);
     }
 }
+
+mixin template ImportToModule(T, string ARGS)
+{
+    override T importToModule(Module mod)
+    {
+        static typeof(this) cache = null;
+        if (cache !is null) {
+            return cache;
+        }
+        mixin("auto imprtd = new typeof(this)(" ~ ARGS ~ ");");
+        cache = imprtd;
+        foreach (member; __traits(allMembers, typeof(this))) { 
+            enum m = "imprtd." ~ member; 
+            static if (__traits(compiles, mixin(m ~ ".keys && " ~ m ~ ".values"))) {
+                foreach (k, v; mixin(member)) {
+                    static if (__traits(compiles, mixin(member ~ "[k].importToModule(mod)"))) {
+                        mixin(m ~ "[k] = " ~ member ~ "[k].importToModule(mod);");
+                    } else {
+                        mixin(m ~ "[k] = " ~ member ~ "[k];");
+                    }
+                }
+            } else static if (__traits(compiles, mixin(member ~ ".length && " ~ member ~ ".ptr")) && __traits(isScalar, mixin(member))) {
+                static if (__traits(compiles, mixin(member ~ "[0].importToModule(mod)"))) {
+                    mixin(m ~ " = new typeof(" ~ member ~ ")[" ~ member ~ ".length];");
+                    foreach (i, e; mixin(member)) {
+                        mixin(m ~ "[i] = " ~ member ~ "[i].importToModule(mod);");
+                    }  
+                } else {
+                    mixin(m ~ " = " ~ member ~ ".dup;");
+                } 
+            } else static if (__traits(compiles, mixin(m ~ " = " ~ member ~ ".importToModule(mod)"))) {
+                mixin("if (" ~ m ~ "!is null) " ~ m ~ " = " ~ member ~ ".importToModule(mod);");
+            } else static if (__traits(compiles, mixin(m ~ " = " ~ member))) {
+                mixin(m ~ " = " ~ member ~ ";");
+            } 
+        }
+        static if (__traits(compiles, imprtd.declare())) {
+            imprtd.declare();
+        }
+        static if (__traits(compiles, imprtd.add(mod, this.mangledName))) {
+            imprtd.mod = null;
+            imprtd.add(mod, this.mangledName);
+        }
+        return imprtd;
+    }
+}

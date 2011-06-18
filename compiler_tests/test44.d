@@ -1,4 +1,4 @@
-//T compiles:no
+//T compiles:yes
 //T retval:0
 
 struct S
