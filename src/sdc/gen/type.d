@@ -593,12 +593,22 @@ struct Field
 {
     string name;
     Type type;
+    
+    Field importToModule(Module mod)
+    {
+        return Field(name, type.importToModule(mod));
+    }
 }
 
 struct Method
 {
     string name;
     Function fn;
+    
+    Method importToModule(Module mod)
+    {
+        return Method(name, fn.importToModule(mod));
+    }
 }
 
 class ClassType : Type
@@ -701,6 +711,16 @@ class ClassType : Type
         this.methods ~= method;
         methodIndices[method.name] = methods.length - 1; 
     }
+    
+    protected ClassType importParent(Module mod)
+    {
+        if (parent is null) {
+            return null;
+        }
+        return cast(ClassType) parent.importToModule(mod);
+    }
+    
+    mixin ImportToModule!(Type, "mod, importParent(mod)");
 }
 
 /*
@@ -857,15 +877,7 @@ class EnumType : Type
         members[id] = v;
     }
     
-    override Type importToModule(Module mod)
-    {
-        auto t = new EnumType(mod, base);
-        t.fullName = fullName;
-        foreach(name, member; members) {
-            t.members[name] = member.importToModule(mod);
-        }
-        return t;
-    }
+    mixin ImportToModule!(Type, "mod, base");
     
     override Value getValue(Module mod, Location loc)
     {

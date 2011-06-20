@@ -8,6 +8,7 @@ module sdc.util;
 import std.conv;
 import std.stdio;
 import std.string;
+import sdc.gen.sdcmodule; 
 
 bool contains(T)(const(T)[] l, const T a)
 {
@@ -108,4 +109,13 @@ mixin template ImportToModule(T, string ARGS)
         }
         return imprtd;
     }
+}
+
+T[] importList(T)(T[] list, Module mod)
+{
+    auto output = new T[list.length];
+    foreach (i, e; list) {
+        output[i] = e.importToModule(mod);
+    }
+    return output;
 }

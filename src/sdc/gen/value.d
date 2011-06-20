@@ -1178,6 +1178,8 @@ class ClassValue : Value
     {
         return v.getSizeof(location);
     }
+    
+    mixin ImportToModule!(Value, "mod, location, cast(ClassType) mType.importToModule(mod)");
 }
 
 mixin template BinaryReferenceWrapperImplementation(alias NAME)
@@ -1428,10 +1430,7 @@ class StructValue : Value
         return v;
     }
     
-    override Value importToModule(Module mod)
-    {
-        return new StructValue(mod, location, cast(StructType) type.importToModule(mod));
-    }
+    mixin ImportToModule!(Value, "mod, location, cast(StructType) type.importToModule(mod)");
 }
 
 /* Why, genIdentifier, why!!! */
@@ -1469,10 +1468,7 @@ class EnumValue : Value
         return v;
     }
     
-    /+override Value importToModule(Module mod)
-    {
-        return new EnumValue(mod, location, cast(EnumType)(mType.importToModule(mod)));
-    }+/
+    mixin ImportToModule!(Value, "mod, location, cast(EnumType) mType.importToModule(mod)");
 }
 
 class FunctionWrapperValue : Value

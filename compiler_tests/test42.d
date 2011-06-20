@@ -6,7 +6,6 @@ import test42_import;
 int main()
 {
     auto foo = new Foo();
-    foo.bar();
     return 8;
 }
 

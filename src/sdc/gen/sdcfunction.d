@@ -88,6 +88,12 @@ class FunctionType
         }
     }
     
+    protected Type[] importArguments(Module mod)
+    {
+        Type importType(Type t) { return t.importToModule(mod); }
+        return array( map!importType(argumentTypes) );  
+    }
+    
     /**
      * Create an equivalent FunctionType in the given Module.
      */
