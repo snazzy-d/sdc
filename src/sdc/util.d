@@ -119,3 +119,11 @@ T[] importList(T)(T[] list, Module mod)
     }
     return output;
 }
+
+class ImportDummy(T)
+{
+    T importToModule(Module mod)
+    {
+        return T.init;
+    }
+}

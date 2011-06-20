@@ -131,6 +131,7 @@ bool isDebugIdentifierSet(string s)
 
 void addTranslationUnit(string key, TranslationUnit val)
 {
+    assert(val !is null);
     translationUnits[key] = val;
 }
 
