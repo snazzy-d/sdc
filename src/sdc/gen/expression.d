@@ -510,12 +510,14 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
             implicitBase = s.value;
         }
     }  
-    auto store = mod.search(name);
+    
+    Store store;    
+    if (implicitBase !is null) {
+        store = new Store(implicitBase.getMember(identifier.location, name));
+    }
 
     if (store is null) {
-        if (implicitBase !is null) {
-            store = new Store(implicitBase.getMember(identifier.location, name));
-        }
+        store = mod.search(name);
         if (store is null) {
             failure();
         }
