@@ -57,7 +57,6 @@ class Module
     CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;
-    Scope typeScope;  // Boooooooooo
     Type aggregate;
     
     this(ast.QualifiedName name)
