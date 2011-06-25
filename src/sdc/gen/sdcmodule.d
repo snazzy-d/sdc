@@ -54,7 +54,6 @@ class Module
     ReturnTypeHolder[] returnTypes;
     ast.Identifier[] labels;
     
-    //bool inferringFunction;  // OH GOD
     CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;
     string arch;

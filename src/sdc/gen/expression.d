@@ -339,7 +339,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {
-    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError);    
+    auto type = astTypeToBackendType(expression.type, mod, OnFailure.DieWithError); 
     if (type.dtype == DType.Class) {
         auto asClass = enforce(cast(ClassType) type);
         return newClass(mod, expression.location, asClass, expression.argumentList);
