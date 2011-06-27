@@ -1392,6 +1392,7 @@ class StructValue : Value
             return store.type.getValue(mModule, location);
         }
         
+        // Is it a built-in property?
         auto prop = getProperty(location, name);
         if (prop !is null) {
             return prop;
@@ -1400,6 +1401,7 @@ class StructValue : Value
         auto asStruct = cast(StructType) mType;
         assert(asStruct);
         
+        // Is it a member function?
         if (auto fnp = name in asStruct.memberFunctions) {
             auto wrapper = new FunctionWrapperValue(mModule, location, fnp.type);
             wrapper.mValue = fnp.llvmValue;
@@ -1410,10 +1412,14 @@ class StructValue : Value
         LLVMValueRef[] indices;
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         
-        auto index = asStruct.memberPositions[name];
-        indices ~= LLVMConstInt(t.llvmType, index, false);
+        // Actually look for a member in the instance, then.
+        size_t* index = name in asStruct.memberPositions;
+        if (index is null) {
+            throw new CompilerError(location, format("struct '%s' has no member '%s'.", asStruct.name(), name));
+        }
+        indices ~= LLVMConstInt(t.llvmType, *index, false);
         
-        auto i = asStruct.members[index].getValue(mModule, location);
+        auto i = asStruct.members[*index].getValue(mModule, location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
         i.lvalue = true;
         return i;

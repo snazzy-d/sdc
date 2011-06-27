@@ -509,20 +509,20 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
             }
             implicitBase = s.value;
         }
-    }  
-    
-    Store store;    
-    if (implicitBase !is null) {
-        store = new Store(implicitBase.getMember(identifier.location, name));
     }
-
+    
+    Store store;  
     if (store is null) {
         store = mod.search(name);
-        if (store is null) {
-            failure();
-        }
+    }  
+      
+    if (store is null && implicitBase !is null) {
+        store = new Store(implicitBase.getMember(identifier.location, name));
     }
     
+    if (store is null) {
+        failure();
+    }
  
     if (store.storeType == StoreType.Value) {
         return store.value();
