@@ -471,7 +471,12 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return new NullPointerValue(mod, expression.location);
     case ast.PrimaryType.BasicTypeDotIdentifier:
         auto v = primitiveTypeToBackendType(cast(ast.PrimitiveType) expression.node, mod).getValue(mod, expression.location);
-        return v.getMember(expression.location, extractIdentifier(cast(ast.Identifier) expression.secondNode));
+        auto name = extractIdentifier(cast(ast.Identifier) expression.secondNode);
+        auto member = v.getMember(expression.location, name);
+        if (member is null) {
+            throw new CompilerError(expression.location, format("type '%s' has no member '%s'.", v.type.name(), name));
+        }
+        return member;
     case ast.PrimaryType.MixinExpression:
         auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
         if (!v.isKnown || !isString(v.type)) {
@@ -500,7 +505,11 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     
     Value implicitBase;
     if (mod.base !is null) {
-        return mod.base.getMember(identifier.location, name);
+        auto member = mod.base.getMember(identifier.location, name);
+        if (member is null) {
+            throw new CompilerError(identifier.location, format("type '%s' has no member '%s'.", mod.base.type.name,  name));
+        }
+        return member;
     } else {
         auto s = mod.search("this");
         if (s !is null) {
@@ -511,14 +520,17 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         }
     }
     
-    Store store;  
+    Store store;
+    if (implicitBase !is null) {
+        auto member = implicitBase.getMember(identifier.location, name);
+        if (member !is null) {
+            store = new Store(member);
+        }
+    }
+    
     if (store is null) {
         store = mod.search(name);
     }  
-      
-    if (store is null && implicitBase !is null) {
-        store = new Store(implicitBase.getMember(identifier.location, name));
-    }
     
     if (store is null) {
         failure();

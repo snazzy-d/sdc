@@ -185,12 +185,7 @@ abstract class Value
     
     Value getMember(Location loc, string name)
     {
-        auto prop = getProperty(loc, name);
-        if (prop !is null) {
-            return prop;
-        }
-        fail(loc, "member access on");
-        assert(false);
+        return getProperty(loc, name);
     }
     
     Value call(Location location, Location[] argLocations, Value[] args) { fail("call"); assert(false); }
@@ -873,6 +868,7 @@ class StringValue : ArrayValue
         LLVMSetInitializer(val, LLVMConstString(s.ptr, cast(uint) s.length, true));
         
         auto ptr = getMember(location, "ptr");
+        assert(ptr !is null);
         auto castedVal = LLVMBuildBitCast(mod.builder, val, ptr.type.llvmType, "string_pointer");
         ptr.set(location, castedVal);
         
@@ -1236,7 +1232,11 @@ class ConstValue : Value
     
     override Value getMember(Location location, string name)
     {
-        return new ConstValue(mModule, location, base.getMember(location, name));
+        auto member = base.getMember(location, name);
+        if (member is null) {
+            return null;
+        }
+        return new ConstValue(mModule, location, member);
     }
     
     override Value importToModule(Module mod)
@@ -1307,7 +1307,11 @@ class ImmutableValue : Value
     
     override Value getMember(Location location, string name)
     {
-        return new ImmutableValue(mModule, location, base.getMember(location, name));
+        auto member = base.getMember(location, name);
+        if (member is null) {
+            return null;
+        }
+        return new ImmutableValue(mModule, location, member);
     }
     
     override Value importToModule(Module mod)
@@ -1380,6 +1384,7 @@ class StructValue : Value
         auto v = new StructValue(mModule, location, asStruct);
         foreach (member; asStruct.memberPositions.keys) {
             auto m = v.getMember(location, member);
+            assert(m !is null);
             m.set(location, m.getInit(location));
         }
         return v;
@@ -1415,7 +1420,7 @@ class StructValue : Value
         // Actually look for a member in the instance, then.
         size_t* index = name in asStruct.memberPositions;
         if (index is null) {
-            throw new CompilerError(location, format("struct '%s' has no member '%s'.", asStruct.name(), name));
+            return null;
         }
         indices ~= LLVMConstInt(t.llvmType, *index, false);
         
@@ -1461,9 +1466,7 @@ class EnumValue : Value
         if (auto p = name in asEnum.members) {
             return *p;
         } else {
-            throw new CompilerError(location,
-                format(`enum "%s" has no member "%s"`, mType.name(), name)
-            );
+            return null;
         }
     }
     
@@ -1512,7 +1515,7 @@ class ScopeValue : Value
     {
         auto store = _scope.get(name);
         if (store is null) {
-            throw new CompilerError(location, format("no member called '%s' in scope.", name)); 
+            return null;
         }
         if (store.storeType == StoreType.Scope) {
             return new ScopeValue(mModule, location, store.getScope());
@@ -1738,6 +1741,9 @@ Value implicitCast(Location location, Value v, Type toType)
     foreach (aliasThis; v.type.aliasThises) {
         // The type has an alias this declaration, so try it.
         auto aliasValue = v.getMember(location, aliasThis);
+        if (aliasValue is null) {
+            throw new CompilerPanic(location, "invalid alias this.");
+        }
         if (aliasValue.type.dtype == DType.Function) {
             // If the alias points to a function, call it.
             auto asFunction = enforce(cast(FunctionTypeWrapper) aliasValue.type);
