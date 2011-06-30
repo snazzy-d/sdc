@@ -6,6 +6,7 @@
 module sdc.ast.sdcclass;
 
 import sdc.ast.base;
+import sdc.ast.sdcmodule;
 
 
 // class <Identifier> <BaseClassList>? <ClassBody>
@@ -23,27 +24,8 @@ class BaseClassList : Node
     QualifiedName[] interfaceClasses;
 }
 
-// { ClassBodyDeclaration* }
+// { DeclarationDefinition* }
 class ClassBody : Node
 {
-    ClassBodyDeclaration[] classBodyDeclarations;
-}
-
-enum ClassBodyDeclarationType
-{
-    Declaration,
-    Constructor,
-    Destructor,
-    StaticConstructor,
-    StaticDestructor,
-    Invariant,
-    UnitTest,
-    ClassAllocator,
-    ClassDeallocator,
-}
-
-class ClassBodyDeclaration : Node
-{
-    ClassBodyDeclarationType type;
-    Node node;
+    DeclarationDefinition[] declarations;
 }

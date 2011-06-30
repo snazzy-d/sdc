@@ -51,32 +51,15 @@ ClassBody parseClassBody(TokenStream tstream, string name)
     
     match(tstream, TokenType.OpenBrace);
     while (tstream.peek.type != TokenType.CloseBrace) {
-        cbody.classBodyDeclarations ~= parseClassBodyDeclaration(tstream, name);
+        cbody.declarations ~= parseDeclarationDefinition(tstream);
     }
     match(tstream, TokenType.CloseBrace);
     return cbody;
 }
 
-ClassBodyDeclaration parseClassBodyDeclaration(TokenStream tstream, string name)
-{
-    auto decl = new ClassBodyDeclaration();
-    decl.location = tstream.peek.location;
-    
-    switch (tstream.peek.type) {
-    case TokenType.This:
-        decl.type = ClassBodyDeclarationType.Constructor;
-        decl.node = parseConstructor(tstream, name);
-        break;
-    default:
-        decl.type = ClassBodyDeclarationType.Declaration;
-        decl.node = parseDeclarationDefinition(tstream);
-        break;
-    }
-    return decl;
-}
-
 DeclarationDefinition parseConstructor(TokenStream tstream, string name)
 {
+    // All this shit is synthesising a function declaration.
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
     decldef.type = DeclarationDefinitionType.Declaration;

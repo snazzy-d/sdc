@@ -50,13 +50,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     mod.currentScope.add(extractIdentifier(decl.identifier), new Store(ctype, decl.location));
         
     auto currentScope = mod.currentScope;
-    mod.currentScope = new Scope();
-
-    ast.DeclarationDefinition[] methods;        
-    foreach (bodyDecl; decl.classBody.classBodyDeclarations) {
-        genClassBodyDeclaration(bodyDecl, ctype, mod, methods);
-    }
-    
+    mod.currentScope = new Scope();    
     
     foreach (name, store; mod.currentScope.mSymbolTable) {
         if (store.storeType == StoreType.Type) {
@@ -69,17 +63,18 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
             throw new CompilerError(decl.location, "invalid class declaration type.");
         }
     }
+    
+    auto oldAggregate = mod.aggregate;
+    mod.aggregate = ctype;
+    resolveDeclarationDefinitionList(decl.classBody.declarations, mod, ctype);
+    
     ctype.declare();
-    
-    foreach (method; methods) {
-        method.parentType = ctype;
-        genDeclarationDefinition(method, mod, 0);
-    }
-    
     Function[] functions;
     foreach (name, store; ctype.typeScope.mSymbolTable) {
         if (store.storeType == StoreType.Function) {
-            functions ~= store.getFunction();
+            functions ~= store.getFunction();  
+        } else {
+            throw new CompilerError(decl.location, "invalid aggregrate declaration type.");
         }
     }
     
@@ -90,33 +85,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     }
     
     mod.currentScope = currentScope;
-}
-
-void genClassBodyDeclaration(ast.ClassBodyDeclaration bodyDecl, ClassType type, Module mod, ref ast.DeclarationDefinition[] methods)
-{
-    final switch (bodyDecl.type) with (ast.ClassBodyDeclarationType) {
-    case Declaration:
-    case Constructor:
-        auto asDecldef = enforce(cast(ast.DeclarationDefinition) bodyDecl.node);
-        if (asDecldef.type == ast.DeclarationDefinitionType.Declaration) {
-            auto asDecl = enforce(cast(ast.Declaration) asDecldef.node);
-            if (asDecl.type == ast.DeclarationType.Function) {
-                methods ~= asDecldef;
-                return;
-            }
-        }
-        asDecldef.parentType = type;
-        genDeclarationDefinition(asDecldef, mod, 0);
-        break;
-    case Destructor:
-    case StaticConstructor:
-    case StaticDestructor:
-    case Invariant:
-    case UnitTest:
-    case ClassAllocator:
-    case ClassDeallocator:
-        throw new CompilerPanic(bodyDecl.location, "unhandled body declaration type.");
-    }
+    mod.aggregate = oldAggregate;
 }
 
 ClassValue newClass(Module mod, Location location, ClassType type, ast.ArgumentList argumentList)

@@ -1117,7 +1117,6 @@ class ClassValue : Value
     
     override LLVMValueRef get()
     {
-        dbga;
         return v.get();
     }
     

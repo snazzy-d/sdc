@@ -636,6 +636,12 @@ class ClassType : Type
         addParentsMethods();
     }
     
+    this(Module mod)
+    {
+        super(mod);
+        dtype = DType.Class;
+    }
+    
     override Value getValue(Module mod, Location location)
     {
         return new ClassValue(mod, location, this);
@@ -720,7 +726,28 @@ class ClassType : Type
         return cast(ClassType) parent.importToModule(mod);
     }
     
-    mixin ImportToModule!(Type, "mod, importParent(mod)");
+    override Type importToModule(Module mod)
+    {
+        static Type[Module] importCache;
+        if (auto p = mod in importCache) {
+            return *p;
+        }
+        
+        auto type = new ClassType(mod);
+        importCache[mod] = type;
+        
+        type.fullName = fullName;
+        if (parent !is null) type.parent = cast(ClassType) parent.importToModule(mod);
+        type.structType = cast(StructType) structType.importToModule(mod);
+        type.fields = importList(fields, mod);
+        type.declare();
+        type.methods = importList(methods, mod);
+        foreach (k, v; methodIndices) {
+            type.methodIndices[k] = v;
+        }
+        
+        return type; 
+    }
 }
 
 /*

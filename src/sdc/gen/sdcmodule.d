@@ -175,7 +175,7 @@ class Module
             if (tustore is null) {
                 continue;
             }
-            
+
             if (tustore.storeType == StoreType.Value) {
                 checkAccess(tustore.value.access);
                 tustore = new Store(tustore.value.importToModule(this));

@@ -100,7 +100,7 @@ class FunctionType
     FunctionType importToModule(Module mod)
     {
         Type importType(Type t) { return t.importToModule(mod); }
-        auto importedTypes = array( map!importType(argumentTypes) );    
+        auto importedTypes = array( map!importType(argumentTypes) );   
             
         auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
         if (fn.parentAggregate !is null) {
