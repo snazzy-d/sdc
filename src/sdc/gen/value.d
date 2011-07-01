@@ -1535,7 +1535,7 @@ enum OnFailure
 }
 
 Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
-{
+{   
     Type t;
     switch (type.type) {
     case ast.TypeType.Primitive:

@@ -143,6 +143,8 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Unittest) {
         decldef.type = DeclarationDefinitionType.Unittest;
         decldef.node = parseUnittest(tstream);
+    } else if (tstream.peek.type == TokenType.This) {
+        return parseConstructor(tstream, "this");
     } else if (startsLikeConditional(tstream)) {
         decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
         decldef.node = parseConditionalDeclaration(tstream);

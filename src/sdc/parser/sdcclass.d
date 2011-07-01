@@ -60,30 +60,26 @@ ClassBody parseClassBody(TokenStream tstream, string name)
 DeclarationDefinition parseConstructor(TokenStream tstream, string name)
 {
     // All this shit is synthesising a function declaration.
+    
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
     decldef.type = DeclarationDefinitionType.Declaration;
+    
     auto decl = new Declaration();
     decl.location = tstream.peek.location;
     decl.type = DeclarationType.Function;
+    
     auto fdecl = new FunctionDeclaration();
     fdecl.location = tstream.peek.location;
     fdecl.retval = new Type();
-    fdecl.retval.type = TypeType.UserDefined;
-    auto udefinedType = new UserDefinedType();
-    udefinedType.location = tstream.peek.location;
-    udefinedType.segments ~= new IdentifierOrTemplateInstance();
+    fdecl.retval.ctor = true;
+    
     auto ident = new Identifier();
-    ident.location = tstream.peek.location;
-    ident.value = name;
-    udefinedType.segments[0].location = tstream.peek.location;
-    udefinedType.segments[0].isIdentifier = true;
-    udefinedType.segments[0].node = ident;
-    fdecl.retval.node = udefinedType;
     fdecl.name = new QualifiedName();
     fdecl.name.location = tstream.peek.location;
     fdecl.name.identifiers ~= new Identifier();
     fdecl.name.identifiers[0].value = "__ctor";
+    
     match(tstream, TokenType.This);
     fdecl.parameterList = parseParameters(tstream);
     fdecl.functionBody = parseFunctionBody(tstream);

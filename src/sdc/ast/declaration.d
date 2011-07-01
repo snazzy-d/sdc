@@ -118,6 +118,7 @@ class Type : Node
     Node node;
     StorageType[] storageTypes;
     TypeSuffix[] suffixes;
+    bool ctor = false;
 }
 
 enum TypeSuffixType
