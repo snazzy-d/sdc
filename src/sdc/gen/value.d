@@ -1010,8 +1010,13 @@ class PointerValue : Value
     
     override Value call(Location location, Location[] argLocations, Value[] args)
     {
-        auto v = dereference(location);
-        return v.call(location, argLocations, args);
+        if (baseType.dtype == DType.Function) {
+            return buildCall(mModule, cast(FunctionType) baseType, LLVMBuildLoad(mModule.builder, mValue, "callload"), 
+                             "function pointer", location, argLocations, args);
+        } else {
+            auto v = dereference(location);
+            return v.call(location, argLocations, args);
+        }
     }
     
     override Value getSizeof(Location loc)
@@ -1163,7 +1168,7 @@ class ClassValue : Value
         if (auto p = name in asClass.methodIndices) {
             // *p + 1 because the first entry of the vtable contains a TypeInfo instance. 
             auto fptr = v.getMember(location, "__vptr").index(location, newSizeT(mModule, location, *p + 1));
-            auto fntype = new PointerType(mModule, new FunctionTypeWrapper(mModule, asClass.methods[*p].fn.type));
+            auto fntype = new PointerType(mModule, asClass.methods[*p].fn.type);
             return fptr.performCast(location, fntype);
         }
         return v.getMember(location, name);
@@ -1407,9 +1412,7 @@ class StructValue : Value
         
         // Is it a member function?
         if (auto fnp = name in asStruct.memberFunctions) {
-            auto wrapper = new FunctionWrapperValue(mModule, location, fnp.type);
-            wrapper.mValue = fnp.llvmValue;
-            return wrapper;
+            return new Functions(mModule, location, [*fnp]);
         }
         
         auto t = new IntType(mModule);
@@ -1477,26 +1480,6 @@ class EnumValue : Value
     }
     
     mixin ImportToModule!(Value, "mod, location, cast(EnumType) mType.importToModule(mod)");
-}
-
-class FunctionWrapperValue : Value
-{
-    this(Module mod, Location location)
-    {
-        super(mod, location);
-    }
-    
-    this(Module mod, Location location, FunctionType functionType)
-    {
-        this(mod, location);
-        mType = new FunctionTypeWrapper(mod, functionType);
-    }
-    
-    override Value call(Location location, Location[] argLocations, Value[] args)
-    {
-        auto ftype = enforce(cast(FunctionTypeWrapper) mType);
-        return buildCall(mModule, ftype.functionType, mValue, "foo", location, argLocations, args);
-    }
 }
 
 class ScopeValue : Value
@@ -1603,8 +1586,7 @@ Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure 
     }
     auto ftype = new FunctionType(mod, retval, args, varargs);
     ftype.declare();
-    auto fn = new FunctionTypeWrapper(mod, ftype);
-    return new PointerType(mod, fn);
+    return new PointerType(mod, ftype);
 }
 
 Type[] genParameterList(ast.ParameterList parameterList, Module mod, OnFailure onFailure)
@@ -1707,10 +1689,11 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
         } else if (store.storeType == StoreType.Scope) {
             baseScope = store.getScope();
         } else if (store.storeType == StoreType.Function) {
-            auto fn = store.getFunction();
-            auto ftw = new FunctionTypeWrapper(mod, fn.type);
-            ftw.functionValue = fn;
-            return ftw;
+            auto functions = store.getFunctions();
+            if (functions.length > 1) {
+                throw new CompilerPanic("Cannot retrieve type of overloaded function.");
+            }
+            return functions[0].type;
         }
     }
     assert(false);
@@ -1745,13 +1728,13 @@ Value implicitCast(Location location, Value v, Type toType)
         }
         if (aliasValue.type.dtype == DType.Function) {
             // If the alias points to a function, call it.
-            auto asFunction = enforce(cast(FunctionTypeWrapper) aliasValue.type);
-            if (asFunction.functionType.parentAggregate !is v.type) {
+            auto asFunction = enforce(cast(FunctionType) aliasValue.type);
+            if (asFunction.parentAggregate !is v.type) {
                 throw new CompilerError(location, "alias this refers to non member function '" ~ aliasThis ~ "'.");
             }
-            if (asFunction.functionType.argumentTypes.length != 0) {
+            if (asFunction.argumentTypes.length != 0) {
                 auto address = v.addressOf(location);
-                if (asFunction.functionType.argumentTypes.length > 1 || asFunction.functionType.argumentTypes[0] != address.type) {
+                if (asFunction.argumentTypes.length > 1 || asFunction.argumentTypes[0] != address.type) {
                     throw new CompilerError(location, "alias this refers to function with non this parameter.");
                 } 
                 aliasValue = aliasValue.call(location, [v.location], [v.addressOf(location)]);

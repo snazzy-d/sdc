@@ -69,7 +69,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
         } else if (store.storeType == StoreType.Value) {
             type.addMemberVar(name, store.value.type);
         } else if (store.storeType == StoreType.Function) {
-            functions ~= store.getFunction();  
+            functions ~= store.getFunctions();  
         } else {
             throw new CompilerError(decl.location, "invalid aggregrate declaration type.");
         }

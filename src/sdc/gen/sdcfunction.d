@@ -34,9 +34,8 @@ import sdc.gen.sdcmodule;
  * linkage (C, C++, D, etc) for calling convention
  * and mangling purposes.
  */
-class FunctionType
+class FunctionType : Type
 {
-    LLVMTypeRef functionType;
     Linkage linkage;
     Type returnType;
     Type[] argumentTypes;
@@ -47,6 +46,8 @@ class FunctionType
     
     this(Module mod, Type returnType, Type[] argumentTypes, bool varargs, FunctionDeclaration astParent = null)
     {
+        super(mod);
+        dtype = DType.Function;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.varargs = varargs;
@@ -82,22 +83,21 @@ class FunctionType
              * This will be then generated with the real return type.
              */
             // Will this work with undef? That would make more sense. TODO.
-            functionType = LLVMFunctionType(LLVMInt32Type(), params.ptr, cast(uint) params.length, varargs);
+            mType = LLVMFunctionType(LLVMInt32Type(), params.ptr, cast(uint) params.length, varargs);
         } else {
-            functionType = LLVMFunctionType(returnType.llvmType, params.ptr, cast(uint) params.length, varargs);
+            mType = LLVMFunctionType(returnType.llvmType, params.ptr, cast(uint) params.length, varargs);
         }
     }
     
-    protected Type[] importArguments(Module mod)
+    override Value getValue(Module mod, Location location)
     {
-        Type importType(Type t) { return t.importToModule(mod); }
-        return array( map!importType(argumentTypes) );  
+        throw new CompilerPanic(location, "attempted to getValue of a FunctionType.");
     }
     
     /**
      * Create an equivalent FunctionType in the given Module.
      */
-    FunctionType importToModule(Module mod)
+    override Type importToModule(Module mod)
     {
         Type importType(Type t) { return t.importToModule(mod); }
         auto importedTypes = array( map!importType(argumentTypes) );   
@@ -109,6 +109,18 @@ class FunctionType
         assert(argumentTypes.length == fn.argumentTypes.length);
         return fn;
     }
+    
+    override string name()
+    {
+        auto namestr = "function(";
+        foreach (i, param; argumentTypes) {
+            namestr ~= param.name();
+            if (i < argumentTypes.length - 1) {
+                namestr ~= ", ";
+            }
+        }
+        return namestr;
+    }
 }
 
 /**
@@ -116,6 +128,7 @@ class FunctionType
  */
 class Function
 {
+    Location location;
     FunctionType type;
     string simpleName;
     string mangledName;
@@ -191,7 +204,7 @@ class Function
         }
         
         verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
-        llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.functionType);
+        llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.mType);
     }
     
     /**
@@ -210,7 +223,7 @@ class Function
     {
         auto fn = new Function(type);
         
-        fn.type = type.importToModule(mod);
+        fn.type = cast(FunctionType) type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
@@ -225,7 +238,7 @@ class Function
     
     Value addressOf(Location location)
     {
-        auto fptr = new PointerValue(mod, location, new FunctionTypeWrapper(mod, type));
+        auto fptr = new PointerValue(mod, location, type);
         fptr.initialise(location, llvmValue);
         return fptr;
     }
@@ -239,6 +252,32 @@ class Function
             throw new CompilerPanic(location, "attemped to call unassigned Function.");
         }
         return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
+    }
+}
+
+class Functions : Value
+{
+    Function[] functions;
+    
+    this(Module mod, Location location, Function[] functions)
+    {
+        super(mod, location);
+        this.functions = functions;
+        mType = functions[0].type;
+    }
+    
+    override Value addressOf(Location location)
+    {
+        if (functions.length == 1) {
+            return functions[0].addressOf(location);
+        } else {
+            assert(false);
+        }
+    }
+    
+    override Value call(Location location, Location[] argumentLocations, Value[] arguments)
+    {
+        return resolveOverload(location, functions, arguments).call(location, argumentLocations, arguments);
     }
 }
 
@@ -326,4 +365,12 @@ body
             args[i] = args[i].addressOf(argLocations[i]);
         }
     }
+}
+
+Function resolveOverload(Location location, Function[] functions, Value[] args)
+{
+    if (functions.length == 1) {
+        return functions[0];
+    }
+    throw new CompilerPanic("Overloaded functions are not supported!");
 }

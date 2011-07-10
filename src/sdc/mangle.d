@@ -204,9 +204,9 @@ void mangleType(ref string mangledName, Type type)
         mangledName ~= "y";
         break;
     case Function:
-        auto asFunction = cast(FunctionTypeWrapper) type;
+        auto asFunction = cast(FunctionType) type;
         assert(asFunction !is null);
-        mangleFunctionType(mangledName, asFunction.functionType);
+        mangleFunctionType(mangledName, asFunction);
         break;
     }
 }

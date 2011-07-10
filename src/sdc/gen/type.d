@@ -511,34 +511,6 @@ class PointerType : Type
     override string name() { return base.name() ~ '*'; }
 }
 
-class FunctionTypeWrapper : Type
-{
-    FunctionType functionType;
-    Function functionValue;  // Optional.
-    
-    this(Module mod, FunctionType functionType)
-    {
-        super(mod);
-        this.functionType = functionType;
-        dtype = DType.Function;
-        mType = functionType.functionType;
-    }
-    
-    override Value getValue(Module mod, Location location)
-    {
-        auto fwv = new FunctionWrapperValue(mod, location, functionType);
-        if (functionValue !is null) {
-            fwv.mValue = functionValue.llvmValue;
-        }
-        return fwv;
-    }
-    
-    override string name()
-    {
-        return "Steve";
-    }
-}
-
 class ConstType : Type
 {
     Type base;

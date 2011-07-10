@@ -72,7 +72,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     Function[] functions;
     foreach (name, store; ctype.typeScope.mSymbolTable) {
         if (store.storeType == StoreType.Function) {
-            functions ~= store.getFunction();  
+            functions ~= store.getFunctions();  
         } else {
             throw new CompilerError(decl.location, "invalid aggregrate declaration type.");
         }

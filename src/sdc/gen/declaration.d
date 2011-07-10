@@ -7,6 +7,7 @@ module sdc.gen.declaration;
 
 import std.conv;
 import std.string;
+import std.exception;
 
 import llvm.c.Core;
 
@@ -110,7 +111,22 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         auto name = extractIdentifier(declarator.name);
         if (decl.isAlias) {
             verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
-            mod.currentScope.add(name, new Store(type, declarator.name.location));
+            if (type.dtype == DType.Function) {
+                // alias <function name> foo;
+                // !!! A complete look up should be performed, not this current hackish implementation.
+                auto asUserDefinedType = enforce(cast(ast.UserDefinedType) decl.type.node);
+                if (!asUserDefinedType.segments[$ - 1].isIdentifier) {
+                    throw new CompilerPanic(decl.location, "aliasing template functions is unimplemented.");
+                }
+                auto fnname = extractIdentifier(cast(ast.Identifier) asUserDefinedType.segments[$ - 1].node);
+                auto fn = mod.search(fnname);
+                if (fn is null) {
+                    throw new CompilerPanic(decl.location, "couldn't find aliased function.");
+                }
+                mod.currentScope.add(name, new Store(fn.getFunctions()));
+            } else {
+                mod.currentScope.add(name, new Store(type, declarator.name.location));
+            }
         }
     }
 }
@@ -268,12 +284,12 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     if (store.storeType != StoreType.Function) {
         throw new CompilerPanic(decl.location, "function '" ~ name ~ "' not stored as function.");
     }
-    auto fn = store.getFunction();
+    auto fn = store.getFunctions();
     
     // Next, we generate the actual function body's code.
-    auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
+    auto BB = LLVMAppendBasicBlockInContext(mod.context, fn[0].llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
-    genFunctionBody(decl.functionBody, decl, fn, mod);
+    genFunctionBody(decl.functionBody, decl, fn[0], mod);
     
     if (!mod.returnValueGatherLabelPass) {
         verboseIndent--;

@@ -24,6 +24,7 @@ import ast = sdc.ast.all;
 import sdc.gen.sdcclass;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdctemplate;
+import sdc.gen.sdcfunction;
 import sdc.gen.type;
 import sdc.gen.value;
 import sdc.parser.expression;
@@ -543,10 +544,8 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     } else if (store.storeType == StoreType.Type) {
         return store.type().getValue(mod, identifier.location);
     } else if (store.storeType == StoreType.Function) {
-        auto fn = store.getFunction();
-        auto wrapper = new FunctionWrapperValue(mod, identifier.location, fn.type);
-        wrapper.mValue = fn.llvmValue;
-        return wrapper;
+        auto functions = store.getFunctions();
+        return new Functions(mod, identifier.location, functions);
     } else {
         assert(false, "unhandled StoreType.");
     }

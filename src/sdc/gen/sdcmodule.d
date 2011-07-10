@@ -183,7 +183,7 @@ class Module
                 checkAccess(tustore.type.access);
                 tustore = new Store(tustore.type.importToModule(this), Location());
             } else if (tustore.storeType == StoreType.Function) {
-                tustore = new Store(tustore.getFunction.importToModule(this), Location());
+                tustore = new Store(importList(tustore.getFunctions(), this));
             }
 
             if (store is null) { 
@@ -423,6 +423,7 @@ class Store
     Location location;
     StoreType storeType;
     Object object;
+    Function[] functions;
     Scope parentScope;
     
     this(Value value)
@@ -456,8 +457,14 @@ class Store
     this(Function fn, Location location)
     {
         storeType = StoreType.Function;
-        object = fn;
+        addFunction(fn);
         this.location = location;
+    }
+    
+    this(Function[] functions)
+    {
+        storeType = StoreType.Function;
+        this.functions ~= functions;
     }
     
     Value value() @property
@@ -492,12 +499,16 @@ class Store
         return _template;
     }
     
-    Function getFunction() @property
+    void addFunction(Function fn)
     {
         assert(storeType == StoreType.Function);
-        auto fn = cast(Function) object;
-        assert(fn);
-        return fn;
+        functions ~= fn;
+    }
+    
+    Function[] getFunctions() @property
+    {
+        assert(storeType == StoreType.Function);
+        return functions;
     }
     
     Store importToModule(Module mod)
@@ -511,7 +522,7 @@ class Store
         case Scope:
             return new Store(getScope(), Location());
         case Function:
-            return new Store(getFunction().importToModule(mod), Location());
+            return new Store(importList(getFunctions(), mod));
         case Template:
             return this;  
         }
@@ -536,6 +547,15 @@ class Scope
         }
         mSymbolTable[name] = store;
         store.parentScope = this;
+    }
+    
+    void add(string name, Function fn)
+    {
+        if (auto p = name in mSymbolTable) {
+            p.addFunction(fn);
+        } else {
+            mSymbolTable[name] = new Store(fn, fn.location);
+        }
     }
     
     void redefine(string name, Store store)
