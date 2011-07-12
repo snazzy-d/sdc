@@ -5,10 +5,10 @@
  */ 
 module sdc.lexer;
 
+import std.ascii;
+import std.conv;
 import std.stdio;
 import std.string;
-import std.conv;
-import std.ctype;
 import std.uni;
 import std.c.time;
 
@@ -16,6 +16,8 @@ import sdc.source;
 import sdc.location;
 import sdc.tokenstream;
 import sdc.compilererror;
+
+alias std.ascii.isWhite isWhite;
 
 static import sdc.info;
 
@@ -53,7 +55,7 @@ Token currentLocationToken(TokenStream tstream)
 
 bool ishex(dchar c)
 {
-    return isdigit(c) || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f';
+    return isDigit(c) || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f';
 }
 
 pure bool isoctal(dchar c)
@@ -67,7 +69,7 @@ bool isdalpha(dchar c, Position position)
     if (position == Position.Start) {
         return isUniAlpha(c) || c == '_';
     } else {
-        return isUniAlpha(c) || c == '_' || isdigit(c);
+        return isUniAlpha(c) || c == '_' || isDigit(c);
     }
 }
 
@@ -124,7 +126,7 @@ TokenType nextLex(TokenStream tstream)
         return TokenType.StringLiteral;
     }
     
-    if (isdigit(tstream.source.peek)) {
+    if (isDigit(tstream.source.peek)) {
         return TokenType.Number;
     }
     
@@ -134,7 +136,7 @@ TokenType nextLex(TokenStream tstream)
 
 void skipWhitespace(TokenStream tstream)
 {
-    while (isspace(tstream.source.peek)) {
+    while (isWhite(tstream.source.peek)) {
         tstream.source.get();
         if (tstream.source.eof) break;
     }
@@ -219,7 +221,7 @@ bool lexIdentifier(TokenStream tstream)
     Mark m = tstream.source.save();
     tstream.source.get();
     
-    while (isUniAlpha(tstream.source.peek) || isdigit(tstream.source.peek) || tstream.source.peek == '_') {
+    while (isUniAlpha(tstream.source.peek) || isDigit(tstream.source.peek) || tstream.source.peek == '_') {
         tstream.source.get();
         if (tstream.source.eof) break;
     }
@@ -414,6 +416,7 @@ bool lexDot(TokenStream tstream)
         } else {
             type = TokenType.DoubleDot;
         }
+        break;
     default:
         break;
     }
@@ -877,7 +880,7 @@ bool lexNumber(TokenStream tstream)
                 if (src.lookahead(1, leof) == '.') {
                     break LOOP;  // '..' is a separate token.
                 }
-            // FALLTHROUGH
+                goto case;
             case 'i': case 'f': case 'F':
                 return lexReal(tstream);
             case 'b': case 'B':
@@ -901,7 +904,7 @@ bool lexNumber(TokenStream tstream)
             }
             break;
         case State.Decimal:  // Reading a decimal number.
-            if (!isdigit(src.peek)) {
+            if (!isDigit(src.peek)) {
                 if (src.peek == '_') {
                     // Ignore embedded '_'.
                     match(src, '_');
@@ -952,7 +955,7 @@ bool lexNumber(TokenStream tstream)
                 if (src.peek == 'i') {
                     return lexReal(tstream);
                 }
-                if (isdigit(src.peek)) {
+                if (isDigit(src.peek)) {
                     state = State.Octale;
                 } else {
                     break LOOP;
@@ -1014,7 +1017,7 @@ bool lexNumber(TokenStream tstream)
 bool lexReal(TokenStream tstream)
 in
 {
-    assert(tstream.source.peek == '.' || isdigit(tstream.source.peek));
+    assert(tstream.source.peek == '.' || isDigit(tstream.source.peek));
 }
 body
 {
@@ -1048,10 +1051,11 @@ body
                     hex++;
                     break;
                 }
+                break;
             case 1:  // Digits to the left of the decimal point.
             case 3:  // Digits to the right of the decimal point.
             case 7:  // Continuing exponent digits.
-                if (!isdigit(tstream.source.peek) && !(hex && ishex(tstream.source.peek))) {
+                if (!isDigit(tstream.source.peek) && !(hex && ishex(tstream.source.peek))) {
                     if (tstream.source.peek == '_') {
                         continue OUTER;
                     }
@@ -1064,7 +1068,7 @@ body
                     dblstate++;
                     break;
                 }
-                // FALLTHROUGH
+                goto case;
             case 4:  // No more digits to the right of the decimal point.
                 if ((tstream.source.peek == 'e' || tstream.source.peek == 'E') ||
                     hex && (tstream.source.peek == 'P' || tstream.source.peek == 'p')) {
@@ -1081,8 +1085,9 @@ body
                 if (tstream.source.peek == '-' || tstream.source.peek == '+') {
                     break;
                 }
+                break;
             case 6:  // First exponent digit expected.
-                if (!isdigit(tstream.source.peek)) {
+                if (!isDigit(tstream.source.peek)) {
                     throw new CompilerError(tstream.source.location, "exponent expected.");
                 } 
                 dblstate++;
