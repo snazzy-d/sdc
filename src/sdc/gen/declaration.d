@@ -257,21 +257,13 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
         return;
     }
     
-    // First, we find the functions name.
-    string name;
-    if (decl.name.identifiers.length == 1) {
-        name = extractQualifiedName(decl.name);
-    } else {
-        name = javaMangle(decl.name);
-    }
-    
-    if (!mod.returnValueGatherLabelPass) {
-        verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
-        verboseIndent++;
-    }
-
     if (decl.fn is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
+    }
+       
+    if (!mod.returnValueGatherLabelPass) {
+        verbosePrint("Building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
+        verboseIndent++;
     }
     
     // Next, we generate the actual function body's code.
@@ -281,7 +273,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     
     if (!mod.returnValueGatherLabelPass) {
         verboseIndent--;
-        verbosePrint("Done building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
+        verbosePrint("Done building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
     }
 }
 
