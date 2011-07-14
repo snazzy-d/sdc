@@ -269,7 +269,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     // Next, we generate the actual function body's code.
     auto BB = LLVMAppendBasicBlockInContext(mod.context, decl.fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
-    genFunctionBody(decl.functionBody, decl, decl.fn, mod);
+    genFunctionBody(decl.functionBody, decl, mod);
     
     if (!mod.returnValueGatherLabelPass) {
         verboseIndent--;
@@ -277,8 +277,9 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
     }
 }
 
-void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Function fn, Module mod)
+void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Module mod)
 {
+    auto fn = decl.fn;
     mod.pushScope();
     mod.currentFunction = fn;
     assert(mod.currentFunction);
