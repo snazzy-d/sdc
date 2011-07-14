@@ -10,6 +10,7 @@ import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
 import sdc.ast.attribute;
+import sdc.gen.sdcfunction;
 
 
 enum DeclarationType
@@ -58,6 +59,9 @@ class FunctionDeclaration : Node
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
+    
+    // Codegen shit.
+    Function fn;
 }
 
 class FunctionBody : Node

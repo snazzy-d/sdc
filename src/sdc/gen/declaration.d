@@ -161,8 +161,9 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     if (declDef.parentType !is null) {
         declDef.parentType.typeScope.add(fn.simpleName, store);
     } else {
-        mod.currentScope.add(fn.simpleName, store);
+        mod.currentScope.add(fn.simpleName, fn);
     }
+    decl.fn = fn;
     
     fn.type.declare();
     fn.add(mod);
@@ -256,7 +257,7 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
         return;
     }
     
-    // First, we find the previously stored function information.
+    // First, we find the functions name.
     string name;
     if (decl.name.identifiers.length == 1) {
         name = extractQualifiedName(decl.name);
@@ -268,28 +269,15 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
         verbosePrint("Building function '" ~ name ~ "'.", VerbosePrintColour.Yellow);
         verboseIndent++;
     }
-    
-    Store store = null; 
-    if (declDef.parentType !is null) {
-        store = declDef.parentType.typeScope.get(name);   
-    }
-    
-    if (store is null) {
-        store = mod.currentScope.get(name);
-    }
 
-    if (store is null) {
+    if (decl.fn is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
-    if (store.storeType != StoreType.Function) {
-        throw new CompilerPanic(decl.location, "function '" ~ name ~ "' not stored as function.");
-    }
-    auto fn = store.getFunctions();
     
     // Next, we generate the actual function body's code.
-    auto BB = LLVMAppendBasicBlockInContext(mod.context, fn[0].llvmValue, "entry");
+    auto BB = LLVMAppendBasicBlockInContext(mod.context, decl.fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
-    genFunctionBody(decl.functionBody, decl, fn[0], mod);
+    genFunctionBody(decl.functionBody, decl, decl.fn, mod);
     
     if (!mod.returnValueGatherLabelPass) {
         verboseIndent--;
