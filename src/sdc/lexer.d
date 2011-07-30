@@ -97,7 +97,7 @@ bool lexNext(TokenStream tstream)
     return false;
 }
 
-/// Return which TokenType to try an lex next. 
+/// Return which TokenType to try and lex next. 
 TokenType nextLex(TokenStream tstream)
 {
     skipWhitespace(tstream);
@@ -852,7 +852,7 @@ bool lexTokenString(TokenStream tstream)
 // This function was adapted from DMD.
 bool lexNumber(TokenStream tstream)
 {
-    enum State { Initial, Zero, Decimal, Octal, Octale, 
+    enum State { Initial, Zero, Decimal,
                  Hex, Binary, HexZero, BinaryZero }
     
     auto token = currentLocationToken(tstream);
@@ -886,14 +886,6 @@ bool lexNumber(TokenStream tstream)
             case 'b': case 'B':
                 state = State.BinaryZero;
                 break;
-            case '0': case '1': case '2': case '3': 
-            case '4': case '5': case '6': case '7':
-                state = State.Octal;
-                break;
-            case '_':
-                state = State.Octal;
-                match(src, '_');
-                continue;
             case 'L':
                 if (src.lookahead(1, leof) == 'i') {
                     return lexReal(tstream);
@@ -942,26 +934,6 @@ bool lexNumber(TokenStream tstream)
             }
             state = State.Hex;
             break;
-        case State.Octal:   // Reading an octal number.
-        case State.Octale:  // Reading an octal number with non-octal digits.
-            if (!isoctal(src.peek)) {
-                if (src.peek == '_') {
-                    match(src, '_');
-                    continue;
-                }
-                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
-                    return lexReal(tstream);
-                }
-                if (src.peek == 'i') {
-                    return lexReal(tstream);
-                }
-                if (isDigit(src.peek)) {
-                    state = State.Octale;
-                } else {
-                    break LOOP;
-                }
-            }
-            break;
         case State.BinaryZero:  // Reading the beginning of a binary number.
         case State.Binary:      // Reading a binary number.
             if (src.peek != '0' && src.peek != '1') {
@@ -982,11 +954,7 @@ bool lexNumber(TokenStream tstream)
         }
         src.get();
     }
-    
-    if (state == State.Octale) {
-        throw new CompilerError(src.location, format("octal digit expected, not '%s'.", src.peek));
-    }
-    
+        
     tstream.source.sync(src);
     
     // Parse trailing 'u', 'U', 'l' or 'L' in any combination.

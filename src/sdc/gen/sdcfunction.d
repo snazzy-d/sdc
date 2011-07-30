@@ -368,9 +368,28 @@ body
 }
 
 Function resolveOverload(Location location, Function[] functions, Value[] args)
+in { assert(functions.length > 0); }
+body
 {
+    bool implicit(Function fn) { return implicitMatches(fn, args); }
+    bool explicit(Function fn) { return explicitMatches(fn, args); }
+        
     if (functions.length == 1) {
         return functions[0];
     }
+    
     throw new CompilerPanic("Overloaded functions are not supported!");
+}
+
+private bool implicitMatches(Function fn, Value[] args)
+{
+    return false;
+}
+
+private bool explicitMatches(Function fn, Value[] args)
+{
+    Type getType(Value v) { return v.type; }
+    auto functionTypes = fn.type.argumentTypes;
+    auto argumentTypes = array( map!getType(args) );
+    return functionTypes == argumentTypes;
 }
