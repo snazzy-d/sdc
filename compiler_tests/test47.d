@@ -1,5 +1,5 @@
 //T compiles:yes
-//T retval:27
+//T retval:28
 
 int add(int a, int b)
 {

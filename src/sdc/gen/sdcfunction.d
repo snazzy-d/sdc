@@ -378,7 +378,12 @@ body
         return functions[0];
     }
     
-    throw new CompilerPanic("Overloaded functions are not supported!");
+    auto explicitMatches = array( filter!explicit(functions) );
+    if (explicitMatches.length == 1) {
+        return explicitMatches[0];
+    }
+    
+    throw new CompilerPanic("Failed to retrieve overloaded function.");
 }
 
 private bool implicitMatches(Function fn, Value[] args)
