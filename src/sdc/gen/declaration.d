@@ -5,6 +5,8 @@
  */
 module sdc.gen.declaration;
 
+import std.algorithm;
+import std.array;
 import std.conv;
 import std.string;
 import std.exception;
@@ -213,9 +215,19 @@ void genAliasThis(ast.Identifier identifier, Module mod)
 
 void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 {
-    foreach (declarator; decl.declarators) {
-        auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
-                
+    Value[] args;
+    
+    auto type = astTypeToBackendType(decl.type, mod, OnFailure.DieWithError);
+    if (type.dtype == DType.Pointer && type.getBase().dtype == DType.Function) {
+        Value getDefaultValue(Type t) { return t.getValue(mod, decl.location); }
+        
+        auto asPointer = enforce(cast(PointerType) type);
+        auto asFunction = enforce(cast(FunctionType) asPointer.base);
+        args = array( map!getDefaultValue(asFunction.argumentTypes) );
+        mod.functionPointerArguments = &args;     
+    }
+     
+    foreach (declarator; decl.declarators) {          
         Value var;
         if (type.dtype == DType.Inferred) {
             if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
@@ -248,6 +260,8 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         var.lvalue = true;
         mod.currentScope.add(extractIdentifier(declarator.name), new Store(var));
     }
+    
+    mod.functionPointerArguments = null;
 }
 
 void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)

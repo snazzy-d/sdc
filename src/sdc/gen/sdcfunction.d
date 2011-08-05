@@ -271,7 +271,11 @@ class Functions : Value
         if (functions.length == 1) {
             return functions[0].addressOf(location);
         } else {
-            assert(false);
+            if (mModule.functionPointerArguments is null) {
+                throw new CompilerError(location, "cannot infer type of overloaded function.");
+            } else {
+                return resolveOverload(location, functions, *mModule.functionPointerArguments).addressOf(location);
+            }
         }
     }
     

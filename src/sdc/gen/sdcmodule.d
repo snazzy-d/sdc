@@ -49,6 +49,7 @@ class Module
     Value base;
     Value callingAggregate;
     ast.Access currentAccess = ast.Access.Public;
+    Value[]* functionPointerArguments; 
 
     bool returnValueGatherLabelPass;
     ReturnTypeHolder[] returnTypes;
