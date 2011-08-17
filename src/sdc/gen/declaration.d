@@ -275,20 +275,16 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
        
-    if (!mod.returnValueGatherLabelPass) {
-        verbosePrint("Building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
-        verboseIndent++;
-    }
+    verbosePrint("Building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
+    verboseIndent++;
     
     // Next, we generate the actual function body's code.
     auto BB = LLVMAppendBasicBlockInContext(mod.context, decl.fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
     genFunctionBody(decl.functionBody, decl, mod);
     
-    if (!mod.returnValueGatherLabelPass) {
-        verboseIndent--;
-        verbosePrint("Done building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
-    }
+    verboseIndent--;
+    verbosePrint("Done building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
 }
 
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Module mod)

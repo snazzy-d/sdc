@@ -265,8 +265,11 @@ class SynchronizedStatement : Node
 class TryStatement : Node
 {
     Statement statement;
+    
+    // When you uncomment these, update sdc.gen.dryrun.labelGatherStatement!
     //Catches catches;  // Optional
     //FinallyStatement finallyStatement;
+    
     Statement catchStatement;  // TMP
 }
 

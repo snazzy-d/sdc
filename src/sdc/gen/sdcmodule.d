@@ -51,9 +51,7 @@ class Module
     ast.Access currentAccess = ast.Access.Public;
     Value[]* functionPointerArguments; 
 
-    bool returnValueGatherLabelPass;
-    ReturnTypeHolder[] returnTypes;
-    ast.Identifier[] labels;
+    //ReturnTypeHolder[] returnTypes;
     
     CatchTargets[] catchTargetStack;
     TranslationUnit[] importedTranslationUnits;

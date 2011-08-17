@@ -125,9 +125,6 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
     parent.children ~= block;
     mod.currentFunction.cfgTail = block;
     
-    if (mod.returnValueGatherLabelPass) {
-        mod.labels ~= statement.identifier;
-    }
     auto name = extractIdentifier(statement.identifier);
     auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
     LLVMBuildBr(mod.builder, bb);
@@ -297,10 +294,6 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
     }
     
     auto val = genExpression(statement.expression, mod);
-    
-    if (mod.returnValueGatherLabelPass) {
-        mod.returnTypes ~= ReturnTypeHolder(val.type, statement.location);
-    }
     
     val = implicitCast(val.location, val, t);
     LLVMBuildRet(mod.builder, val.get());
