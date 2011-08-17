@@ -53,6 +53,7 @@ Codegen
 * Structs.  _[partially.]_
 * Classes.  _[partially.]_
 * Functions.  _[partially.]_
+* Overloaded functions. __[yes.]__
 * Function pointers. __[yes.]__
 * Local variables.  __[yes.]__
 * Global variables.  __[yes.]__
