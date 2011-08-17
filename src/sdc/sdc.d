@@ -275,6 +275,6 @@ void usage()
     writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
-    writeln("  -o:                    name of the output file.");
+    writeln("  -o:                    name of the output file. (-o=filename)");
     writeln("  -V:                    compile with verbose output.");
 }
