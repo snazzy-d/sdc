@@ -24,6 +24,7 @@ import sdc.gen.base;
 import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
+import sdc.gen.dryrun;
 import sdc.gen.expression;
 import sdc.gen.value;
 import sdc.gen.type;
@@ -101,6 +102,7 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
 {
     auto parent = mod.currentFunction.cfgTail;
     parent.fallsThrough = false;
+    
     final switch (statement.type) {
     case ast.GotoStatementType.Identifier:
         auto name = extractIdentifier(statement.identifier);
