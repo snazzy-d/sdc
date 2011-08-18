@@ -140,6 +140,7 @@ class Function
     BasicBlock cfgEntry;
     BasicBlock cfgTail;
     Label[string] labels;
+    PendingGoto[] pendingGotos;
     
     LLVMValueRef llvmValue;
     
@@ -287,6 +288,7 @@ class Functions : Value
 }
 
 struct Label { Location location; BasicBlock block; LLVMBasicBlockRef bb; }
+struct PendingGoto { Location location; string label; LLVMBasicBlockRef insertAt; }
 
 Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {

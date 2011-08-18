@@ -108,7 +108,12 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
         auto name = extractIdentifier(statement.identifier);
         auto p = name in mod.currentFunction.labels;
         if (p is null) {
-            throw new CompilerError(statement.identifier.location, format("undefined label '%s'.", name));
+            auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name)); 
+            mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, bb);
+            LLVMBuildBr(mod.builder, bb);
+            LLVMPositionBuilderAtEnd(mod.builder, bb);
+            break;
+            //throw new CompilerError(statement.identifier.location, format("undefined label '%s'.", name));
         }
         parent.children ~= p.block;
         LLVMBuildBr(mod.builder, p.bb);

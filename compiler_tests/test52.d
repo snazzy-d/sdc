@@ -5,7 +5,9 @@ int main()
 {
     int i;
     i = 7;
-    goto _out;
+    if (i == 7) {
+        goto _out;
+    }
     i++;
     _out:
     return i;
