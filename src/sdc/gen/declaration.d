@@ -313,18 +313,9 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     assert(fn.currentBasicBlock !is null);
     genBlockStatement(functionBody.statement, mod);
     
-    // Resolve any forward gotos (i.e. we know the addresses of all labels now).
-    while (!mod.currentFunction.pendingGotos.empty) {
+    if (!mod.currentFunction.pendingGotos.empty) {
         auto pending = mod.currentFunction.pendingGotos.front;
-        mod.currentFunction.pendingGotos.popFront;
-        auto p = pending.label in mod.currentFunction.labels;
-        if (p is null) {
-            throw new CompilerError(pending.location, format("undefined label '%s'.", pending.label));
-        }
-        assert(pending.insertAt !is null);
-        LLVMPositionBuilderAtEnd(mod.builder, pending.insertAt);
-        LLVMBuildBr(mod.builder, p.bb);
-        pending.block.children ~= p.block;
+        throw new CompilerError(pending.location, format("undefined label '%s'.", pending.label));
     }
     
     // Check the CFG for connectivity.
