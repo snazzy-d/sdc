@@ -5,6 +5,8 @@
  */
 module sdc.gen.statement;
 
+import std.algorithm;
+import std.array;
 import std.conv;
 import std.exception;
 import std.string;
@@ -49,7 +51,7 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 void genStatement(ast.Statement statement, Module mod)
 {
     if (!mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
-        throw new CompilerError(statement.location, "statement is unreachable.");
+        warning(statement.location, "statement is unreachable.");
     }
     switch (statement.type) {
     default:
@@ -107,7 +109,7 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
         auto name = extractIdentifier(statement.identifier);
         auto p = name in mod.currentFunction.labels;
         if (p is null) {
-            mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, mod.currentFunction.currentBasicBlock);
+            mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, mod.currentFunction.currentBasicBlock, parent);
             break;
         }
         parent.children ~= p.block;
@@ -136,6 +138,23 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
         );
     }
     mod.currentFunction.labels[name] = Label(statement.location, block, bb);
+    
+    auto pendingGotos = mod.currentFunction.pendingGotos;
+    while (!pendingGotos.empty) {
+        auto pending = mod.currentFunction.pendingGotos.front;
+        if (pending.label == name) {
+            pendingGotos.popFront;
+            mod.currentFunction.pendingGotos.popFront;
+            LLVMPositionBuilderAtEnd(mod.builder, pending.insertAt);
+            auto exitsToBlock = find(pending.block.children, block);
+            if (exitsToBlock.empty) {
+                LLVMBuildBr(mod.builder, bb);
+            }
+            pending.block.children ~= block;
+        } else {
+            pendingGotos.popFront;
+        }
+    }
     
     LLVMPositionBuilderAtEnd(mod.builder, bb);
     mod.currentFunction.currentBasicBlock = bb;

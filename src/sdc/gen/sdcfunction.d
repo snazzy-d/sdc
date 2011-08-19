@@ -289,7 +289,7 @@ class Functions : Value
 }
 
 struct Label { Location location; BasicBlock block; LLVMBasicBlockRef bb; }
-struct PendingGoto { Location location; string label; LLVMBasicBlockRef insertAt; }
+struct PendingGoto { Location location; string label; LLVMBasicBlockRef insertAt; BasicBlock block; }
 
 Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string functionName, Location callLocation, Location[] argLocations, Value[] args)
 {
