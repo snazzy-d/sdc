@@ -24,7 +24,6 @@ import sdc.gen.base;
 import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.declaration;
-import sdc.gen.dryrun;
 import sdc.gen.expression;
 import sdc.gen.value;
 import sdc.gen.type;
@@ -108,12 +107,8 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
         auto name = extractIdentifier(statement.identifier);
         auto p = name in mod.currentFunction.labels;
         if (p is null) {
-            auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name)); 
-            mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, bb);
-            LLVMBuildBr(mod.builder, bb);
-            LLVMPositionBuilderAtEnd(mod.builder, bb);
+            mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, mod.currentFunction.currentBasicBlock);
             break;
-            //throw new CompilerError(statement.identifier.location, format("undefined label '%s'.", name));
         }
         parent.children ~= p.block;
         LLVMBuildBr(mod.builder, p.bb);
@@ -143,6 +138,7 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
     mod.currentFunction.labels[name] = Label(statement.location, block, bb);
     
     LLVMPositionBuilderAtEnd(mod.builder, bb);
+    mod.currentFunction.currentBasicBlock = bb;
     genStatement(statement.statement, mod);
 }
 
@@ -182,6 +178,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
     auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
+    mod.currentFunction.currentBasicBlock = ifBB;
     
     mod.currentFunction.cfgTail = ifblock;
     genThenStatement(statement.thenStatement, mod);
@@ -192,6 +189,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.popScope();
     
     LLVMPositionBuilderAtEnd(mod.builder, elseBB);
+    mod.currentFunction.currentBasicBlock = elseBB;
     if (statement.elseStatement !is null) {
         mod.pushScope();
         
@@ -219,6 +217,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     
     
     LLVMPositionBuilderAtEnd(mod.builder, endifBB);
+    mod.currentFunction.currentBasicBlock = endifBB;
 }
 
 void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
@@ -265,9 +264,11 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     LLVMBuildBr(mod.builder, looptopBB);
     mod.pushScope();
     LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
+    mod.currentFunction.currentBasicBlock = looptopBB;
     auto expr = genExpression(statement.expression, mod);
     LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
     LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
+    mod.currentFunction.currentBasicBlock = loopbodyBB;
     
     mod.currentFunction.cfgTail = looptop;
     genStatement(statement.statement, mod);
@@ -278,6 +279,7 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     mod.currentFunction.cfgTail = loopout;
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
+    mod.currentFunction.currentBasicBlock = loopendBB;
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
@@ -329,6 +331,7 @@ void genTryStatement(ast.TryStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = catchB;
     LLVMPositionBuilderAtEnd(mod.builder, catchBB);
+    mod.currentFunction.currentBasicBlock = catchBB;
     genStatement(statement.catchStatement, mod);
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, outBB);
@@ -337,6 +340,7 @@ void genTryStatement(ast.TryStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = outB;
     LLVMPositionBuilderAtEnd(mod.builder, outBB);
+    mod.currentFunction.currentBasicBlock = outBB;
 }
 
 void genThrowStatement(ast.ThrowStatement statement, Module mod)

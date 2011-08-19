@@ -309,7 +309,11 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         val.lvalue = true;
         mod.currentScope.add(fn.argumentNames[i], new Store(val));
     }
+    fn.currentBasicBlock = LLVMGetLastBasicBlock(fn.llvmValue);
+    assert(fn.currentBasicBlock !is null);
     genBlockStatement(functionBody.statement, mod);
+    
+    // Check the CFG for connectivity.
     if (mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
@@ -324,6 +328,19 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         }
     } else if (!mod.currentFunction.cfgTail.isExitBlock) {
         LLVMBuildRet(mod.builder, LLVMGetUndef(fn.type.returnType.llvmType));
+    }
+    
+    // Resolve any forward gotos (i.e. we know the addresses of all labels now).
+    while (!mod.currentFunction.pendingGotos.empty) {
+        auto pending = mod.currentFunction.pendingGotos.front;
+        mod.currentFunction.pendingGotos.popFront;
+        auto p = pending.label in mod.currentFunction.labels;
+        if (p is null) {
+            throw new CompilerError(pending.location, format("undefined label '%s'.", pending.label));
+        }
+        assert(pending.insertAt !is null);
+        LLVMPositionBuilderAtEnd(mod.builder, pending.insertAt);
+        LLVMBuildBr(mod.builder, p.bb);
     }
     
     mod.currentFunction = null;

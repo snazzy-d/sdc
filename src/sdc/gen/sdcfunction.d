@@ -139,6 +139,7 @@ class Function
     Module mod = null;
     BasicBlock cfgEntry;
     BasicBlock cfgTail;
+    LLVMBasicBlockRef currentBasicBlock;
     Label[string] labels;
     PendingGoto[] pendingGotos;
     
