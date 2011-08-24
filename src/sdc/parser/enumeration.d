@@ -78,13 +78,21 @@ EnumMemberList parseEnumMembers(TokenStream tstream)
     return list;
 }
 
-EnumMember parseEnumMember(TokenStream tstream)
+EnumMember parseEnumMember(TokenStream tstream, bool manifestConstant = false)
 {
     auto member = new EnumMember;
+    
+    if (tstream.lookahead(1).type != TokenType.Comma &&
+        tstream.lookahead(1).type != TokenType.Assign &&
+        tstream.lookahead(1).type != TokenType.CloseBrace) {
+        member.type = parseType(tstream);
+        
+        if (!manifestConstant) {
+            throw new CompilerError(member.type.location, "explicit type is only allowed for manifest constants.");
+        }
+    }
+     
     member.location = tstream.peek.location;
-    
-    // Check explicit type here!
-    
     member.name = parseIdentifier(tstream);
     
     if (tstream.peek.type == TokenType.Assign) {

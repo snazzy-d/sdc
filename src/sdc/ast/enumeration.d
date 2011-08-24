@@ -25,4 +25,5 @@ class EnumMember : Node
 {
     Identifier name;
     AssignExpression initialiser; // Optional
+    Type type; // Optional, only allowed for manifest constants
 }
