@@ -7,6 +7,8 @@ add.d
 test
 test.o
 .svn
+sdc.bin
+/sdc
 *.ll
 a.out
 *.bc
@@ -20,3 +22,7 @@ compiler_tests/runner
 *.exe
 *.map
 *.obj
+*.dll
+
+# As there is currently no good way to provide one in the repository
+/bin/sdc.conf
