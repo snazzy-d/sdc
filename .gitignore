@@ -21,3 +21,6 @@ compiler_tests/runner
 *.map
 *.obj
 *.dll
+
+# As there is currently no good way to provide one in the repository
+/bin/sdc.conf
