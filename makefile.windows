@@ -3,6 +3,7 @@ LLVMDIR ?= llvm
 
 DFLAGS=-w -debug -g -unittest -Iimport
 SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/java/*.d
+OBJ=bin\sdc.obj
 EXE=bin\sdc.exe
 
 LIBLLVM=$(LLVMDIR)\llvm-2.9.lib
@@ -12,3 +13,6 @@ all: $(EXE)
 $(EXE):
 	@mkdir -p bin
 	$(DMD) $(DFLAGS) -of"$@" $(SOURCE) "$(LIBLLVM)"
+
+clean:
+	rm $(EXE) $(OBJ)
