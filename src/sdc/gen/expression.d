@@ -400,11 +400,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (lhs.type.dtype == DType.Function) {
             auto asFunction = enforce(cast(FunctionType) lhs.type);
             functionParameters = asFunction.argumentTypes;
-        } else if (lhs.type.getBase().dtype == DType.Function) {
+        } else if (lhs.type.dtype == DType.Pointer &&
+                   lhs.type.getBase().dtype == DType.Function) {
             auto asFunction = enforce(cast(FunctionType) lhs.type.getBase());
             functionParameters = asFunction.argumentTypes;
         } else {
-            throw new CompilerPanic(expression.location, "couldn't retrieve parameter list of called function.");
+            throw new CompilerError(expression.location, format("attempt to call value of type '%s'", lhs.type.name()));
         }
         
         foreach (i, expr; argList.expressions) {
