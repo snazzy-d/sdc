@@ -405,7 +405,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             auto asFunction = enforce(cast(FunctionType) lhs.type.getBase());
             functionParameters = asFunction.argumentTypes;
         } else {
-            throw new CompilerError(expression.location, format("attempt to call value of type '%s'", lhs.type.name()));
+            throw new CompilerError(expression.location, format("cannot call value of type '%s'", lhs.type.name()));
         }
         
         foreach (i, expr; argList.expressions) {
