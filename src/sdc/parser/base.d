@@ -152,6 +152,10 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
                                                          tstream.lookahead(1).type == TokenType.Import)) {
         decldef.type = DeclarationDefinitionType.ImportDeclaration;
         decldef.node = parseImportDeclaration(tstream);
+    } else if (tstream.peek.type == TokenType.Static &&
+               tstream.lookahead(1).type == TokenType.Assert) {
+        decldef.type = DeclarationDefinitionType.StaticAssert;
+        decldef.node = parseStaticAssert(tstream);
     } else {
         decldef.type = DeclarationDefinitionType.Declaration;
         decldef.node = parseDeclaration(tstream);
@@ -180,6 +184,26 @@ QualifiedName parseQualifiedName(TokenStream tstream, bool allowLeadingDot=false
     }
     name.location = name.identifiers[$ - 1].location - startLocation;
     return name;
+}
+
+StaticAssert parseStaticAssert(TokenStream tstream)
+{
+    auto staticAssert = new StaticAssert();
+    auto firstToken = match(tstream, TokenType.Static);
+    match(tstream, TokenType.Assert);
+    match(tstream, TokenType.OpenParen);
+    staticAssert.condition = parseAssignExpression(tstream);
+    
+    if (tstream.peek.type == TokenType.Comma) {
+        tstream.getToken();
+        staticAssert.message = parseAssignExpression(tstream);
+    }
+    
+    auto lastToken = match(tstream, TokenType.CloseParen);
+    
+    staticAssert.location = lastToken.location - firstToken.location;
+    match(tstream, TokenType.Semicolon);
+    return staticAssert;
 }
 
 Unittest parseUnittest(TokenStream tstream)
