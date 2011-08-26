@@ -380,6 +380,30 @@ class Module
 
         return buildCall(this, reallocType, reallocFn, "realloc", location, [p.location, n.location], [p, n]);
     }
+    
+    void rtAssert(Location location, Value condition, Value message)
+    {
+        auto voidType = new VoidType(this);
+        auto boolType = new BoolType(this);
+        auto stringType = new ArrayType(this, new CharType(this));
+        auto assertType = new FunctionType(this, voidType, [boolType, stringType], false);
+        assertType.linkage = ast.Linkage.ExternC;
+        assertType.declare();
+
+        LLVMValueRef assertFn = LLVMGetNamedFunction(mod, "__d_assert");
+        if (assertFn is null) {
+            auto fn = new Function(assertType);
+            fn.simpleName = "__d_assert";
+            fn.add(this);
+            assertFn = fn.llvmValue;
+        }
+        
+        if (message is null) {
+            message = new StringValue(this, location, "assert failed");
+        }
+        
+        buildCall(this, assertType, assertFn, "__d_assert", location, [condition.location, message.location], [condition, message]);
+    }
 
     protected Scope[] mScopeStack;
     protected LookupFailure[] mFailureList;

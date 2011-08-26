@@ -531,6 +531,8 @@ bool isPrimaryExpression(TokenStream tstream)
         return true;
     case TokenType.Mixin:
         return true;
+    case TokenType.Assert:
+        return true;
     default:
         if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
             return true;
@@ -621,6 +623,10 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.node = parseAssignExpression(tstream);
         match(tstream, TokenType.CloseParen);
         break;
+    case TokenType.Assert:
+        primaryExpr.type = PrimaryType.AssertExpression;
+        primaryExpr.node = parseAssertExpression(tstream);
+        break;
     default:
         if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
             primaryExpr.type = PrimaryType.BasicTypeDotIdentifier;
@@ -635,3 +641,21 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     return primaryExpr;
 }
 
+AssertExpression parseAssertExpression(TokenStream tstream)
+{
+    auto assertExpr = new AssertExpression();
+    auto firstToken = match(tstream, TokenType.Assert);
+    match(tstream, TokenType.OpenParen);
+    
+    assertExpr.condition = parseAssignExpression(tstream);
+    
+    if (tstream.peek.type == TokenType.Comma) {
+        tstream.getToken();
+        assertExpr.message = parseAssignExpression(tstream);
+    }
+    
+    auto lastToken = match(tstream, TokenType.CloseParen);
+    assertExpr.location = lastToken.location - firstToken.location;
+    
+    return assertExpr;
+}

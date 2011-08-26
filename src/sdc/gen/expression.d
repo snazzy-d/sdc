@@ -512,6 +512,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         tstream.getToken();  // Skip BEGIN 
         auto expr = parseAssignExpression(tstream);
         return genAssignExpression(expr, mod);
+    case ast.PrimaryType.AssertExpression:
+        return genAssertExpression(cast(ast.AssertExpression) expression.node, mod);
     case ast.PrimaryType.TemplateInstance:
         return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     default:
@@ -573,4 +575,16 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
     } else {
         assert(false, "unhandled StoreType.");
     }
+}
+
+Value genAssertExpression(ast.AssertExpression assertExpr, Module mod)
+{
+    auto condition = genAssignExpression(assertExpr.condition, mod);
+    Value message;
+    if (assertExpr.message !is null) {
+        message = genAssignExpression(assertExpr.message, mod);
+    }
+    
+    mod.rtAssert(assertExpr.location, condition, message);
+    return new VoidValue(mod, assertExpr.location);
 }

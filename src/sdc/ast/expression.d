@@ -279,8 +279,8 @@ class PrimaryExpression : Node
 // assert ( AssertExpr (, AssertExpr)? )
 class AssertExpression : Node
 {
-    AssignExpression lhAssignExpression;
-    AssignExpression rhAssignExpression;  // Optional.
+    AssignExpression condition;
+    AssignExpression message;  // Optional.
 }
 
 // mixin ( AssertExpr )
