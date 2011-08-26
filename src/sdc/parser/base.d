@@ -202,7 +202,11 @@ StaticAssert parseStaticAssert(TokenStream tstream)
     auto lastToken = match(tstream, TokenType.CloseParen);
     
     staticAssert.location = lastToken.location - firstToken.location;
-    match(tstream, TokenType.Semicolon);
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(lastToken.location, "static assert");
+    }
+    tstream.getToken();
     return staticAssert;
 }
 
