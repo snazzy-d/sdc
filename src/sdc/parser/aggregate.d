@@ -60,7 +60,9 @@ StructBody parseStructBody(TokenStream tstream)
     
     match(tstream, TokenType.OpenBrace);
     while (tstream.peek.type != TokenType.CloseBrace) {
-        structBody.declarations ~= parseDeclarationDefinition(tstream);
+        foreach (declDef; parseAttributeBlock(tstream)) {
+            structBody.declarations ~= declDef;
+        }
     }
     match(tstream, TokenType.CloseBrace);
     
