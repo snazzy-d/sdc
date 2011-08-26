@@ -96,6 +96,9 @@ void genStatement(ast.Statement statement, Module mod)
     case ast.StatementType.GotoStatement:
         genGotoStatement(cast(ast.GotoStatement) statement.node, mod);
         break;
+    case ast.StatementType.StaticAssert:
+        genStaticAssert(cast(ast.StaticAssert) statement.node, mod);
+        break;
     }
 }
 
@@ -387,5 +390,8 @@ void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
 void genPragmaStatement(ast.PragmaStatement statement, Module mod)
 {
     genPragma(statement.thePragma, mod);
-    genStatement(statement.statement, mod);
+    
+    if (statement.statement !is null) {
+        genStatement(statement.statement, mod);
+    }
 }

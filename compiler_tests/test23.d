@@ -8,8 +8,7 @@ int foo()
 
 int main()
 {
-	void* p = cast(void*) &foo;  // Workaround parser bug for now.
-	auto fn = cast(int function()) p;  // This should be casted and called directly.
-	return fn();
+	void* p = &foo;
+	auto fn = (cast(int function())p)();
+	return fn;
 }
-

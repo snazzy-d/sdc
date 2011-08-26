@@ -70,7 +70,8 @@ int main(string[] args)
     //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
-    } catch (CompilerError error) {
+    } catch (CompilerError topError) {
+        auto error = topError;
         do {
             stderr.writeln(error.msg);
             
@@ -79,7 +80,11 @@ int main(string[] args)
             }
         } while((error = error.more) !is null);
         
-        return 1;
+        version(sdc_pass_on_error) {
+            throw topError;
+    	} else {
+            return 1;
+        }
     }
     return 0;
 }

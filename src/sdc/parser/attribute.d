@@ -141,6 +141,13 @@ bool startsLikeAttribute(TokenStream tstream)
     if (contains(PAREN_TYPES, tstream.peek.type) && tstream.lookahead(1).type == TokenType.OpenParen) {
         return false;
     }
+    if (tstream.peek.type == TokenType.Static) { // TODO: I have a feeling this doesn't belong here...
+        if (tstream.lookahead(1).type == TokenType.Assert ||
+            tstream.lookahead(1).type == TokenType.Import ||
+            tstream.lookahead(1).type == TokenType.If) {
+            return false;
+        }
+    }
     return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
 }
 

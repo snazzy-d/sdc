@@ -57,6 +57,9 @@ Statement parseStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Static && tstream.lookahead(1).type == TokenType.Assert) {
+        statement.type = StatementType.StaticAssert;
+        statement.node = parseStaticAssert(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = StatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);
@@ -283,7 +286,12 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     statement.thePragma = parsePragma(tstream);
-    statement.statement = parseStatement(tstream);
+    
+    if (tstream.peek.type == TokenType.Semicolon) {
+        tstream.getToken();
+    } else {
+        statement.statement = parseStatement(tstream);
+    }
     return statement;
 }
 
