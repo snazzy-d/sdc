@@ -49,7 +49,7 @@ void test(string filename, string compiler)
     
     bool expectedToCompile = true;
     int expectedRetval = 0;
-    string[] dependencies;
+    string[] dependencies = ["../libs/object.d"];
     
     assert(exists(filename));
     auto f = File(filename, "r");
