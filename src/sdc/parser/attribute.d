@@ -141,6 +141,23 @@ bool startsLikeAttribute(TokenStream tstream)
     if (contains(PAREN_TYPES, tstream.peek.type) && tstream.lookahead(1).type == TokenType.OpenParen) {
         return false;
     }
+    
+    // Do not handle non-attribute extern
+    if (tstream.peek.type == TokenType.Extern &&
+        tstream.lookahead(1).type != TokenType.OpenParen &&
+        tstream.lookahead(1).type != TokenType.OpenBrace &&
+        tstream.lookahead(1).type != TokenType.Colon) {
+        return false;
+    }
+    
+    // Do not handle non-attribute shared
+    if (tstream.peek.type == TokenType.Shared &&
+        tstream.lookahead(1).type != TokenType.OpenParen &&
+        tstream.lookahead(1).type != TokenType.OpenBrace &&
+        tstream.lookahead(1).type != TokenType.Colon) {
+        return false;
+    }
+    
     if (tstream.peek.type == TokenType.Static) { // TODO: I have a feeling this doesn't belong here...
         if (tstream.lookahead(1).type == TokenType.Assert ||
             tstream.lookahead(1).type == TokenType.Import ||

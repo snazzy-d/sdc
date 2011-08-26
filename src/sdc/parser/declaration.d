@@ -120,7 +120,12 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
 {
     auto declaration = new VariableDeclaration();
     declaration.location = tstream.peek.location;
-        
+    
+    if (tstream.peek.type == TokenType.Extern) {
+        tstream.getToken();
+        declaration.isExtern = true;
+    }
+    
     declaration.type = parseType(tstream);
     
     auto declarator = new Declarator();

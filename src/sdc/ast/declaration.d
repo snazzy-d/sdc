@@ -37,6 +37,7 @@ class MixinDeclaration : Node
 class VariableDeclaration : Node
 {
     bool isAlias;
+    bool isExtern;
     Type type;
     Declarator[] declarators;
 }
