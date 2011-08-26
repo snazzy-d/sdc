@@ -13,9 +13,19 @@ alias char[] string;
 extern (C) {
     void* malloc(size_t);
     void* realloc(void*, size_t);
+	
+    void exit(int code);
+    int printf(char* fmt, ...);
 }
 
 class Object
 {
 }
 
+extern(C) void __d_assert(bool condition, string message, int line, string filename)
+{
+    if(!condition) {
+        printf("assertion failed in %s(%i): %s\n".ptr, filename.ptr, line, message.ptr); // TODO: use stderr
+        exit(1);
+    }
+}
