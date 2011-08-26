@@ -136,14 +136,15 @@ SDC with DMD/Windows
 
 The following are required for LLVM to function on Windows:
 
-* [LLVM](http://llvm.org/) >= 2.7
-  * SDC requires the `llc` tool as well as the LLVM core libraries
+* [LLVM](http://llvm.org/) >= 2.9
+  * SDC requires the core libraries as a DLL, and the `llc` and `opt` tools
 * [MinGW](http://www.mingw.org/)
-  * SDC requires `gcc`
+  * SDC requires `gcc`, as well as GNU make for the makefile
 
-A copy of `llvm-2.8.dll`, `llvm-2.8.lib` and `llc.exe` can be downloaded from [here](http://filesmelt.com/dl/llvm-2.8-Win32-bin_.zip) for convenience.
-
+A copy of `llvm-2.9.dll` and `llvm-2.9.lib` in DMD-compatible OMF format can be downloaded from [here](https://github.com/downloads/JakobOvrum/SDC/llvm-2.9-Win32-DLL.rar) for convenience.
+For the LLVM tools, grab "LLVM Binaries for Mingw32/x86" on the [LLVM download page](http://llvm.org/releases/download.html).
 ### Setup
-Compile all source files in `sdc/import` and `sdc/src` to produce `sdc.exe`, the compiler driver. SDC uses the LLVM C API, so you need to link with LLVM (the included `llvm-2.8.lib` will work). Once successfully compiled and linked, make sure `sdc.exe`, LLVM's `llc.exe` and MinGW's `gcc.exe` can be found in your system PATH.
+Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
+When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
 
-Simply execute `dmd runner.d` to build the test-runner application found in `compiler_tests/`, then run it with `runner`.
+To run the tests, execute `dmd runner.d` to build the test-runner application found in `compiler_tests/`, then run it with `runner`.

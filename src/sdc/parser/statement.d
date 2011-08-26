@@ -57,6 +57,9 @@ Statement parseStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Static && tstream.lookahead(1).type == TokenType.Assert) {
+        statement.type = StatementType.StaticAssert;
+        statement.node = parseStaticAssert(tstream);
     } else if (startsLikeConditional(tstream)) {
         statement.type = StatementType.ConditionalStatement;
         statement.node = parseConditionalStatement(tstream);

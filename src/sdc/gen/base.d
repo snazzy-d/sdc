@@ -234,6 +234,10 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, siz
         genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
         declDef.buildStage = ast.BuildStage.Done;
         break;
+    case ast.DeclarationDefinitionType.StaticAssert:
+        genStaticAssert(cast(ast.StaticAssert)declDef.node, mod);
+        declDef.buildStage = ast.BuildStage.Done;
+        break;
     case ast.DeclarationDefinitionType.Unittest:
         declDef.buildStage = ast.BuildStage.Done;
         break;
@@ -310,6 +314,30 @@ bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
     if (!expr.isKnown) {
         throw new CompilerError(condition.expression.location, "expression inside of a static if must be known at compile time.");
     }
-    return expr.knownBool;
+    return expr.knownBool; // TODO: unsafe!!!
 }
 
+void genStaticAssert(ast.StaticAssert staticAssert, Module mod)
+{
+    static immutable unknownExprError = "expression inside of a static assert must be known at compile time."; 
+    auto condition = genAssignExpression(staticAssert.condition, mod);
+    if (!condition.isKnown) {
+        throw new CompilerError(condition.location, unknownExprError);
+    }
+    
+    string message;
+    if (staticAssert.message !is null) {
+        auto messageExpr = genAssignExpression(staticAssert.message, mod);
+        if(!messageExpr.isKnown) {
+            throw new CompilerError(condition.location, unknownExprError);
+        }
+        
+        message = messageExpr.knownString; // TODO: unsafe!!!
+    } else {
+        message = "static assert failed";
+    }
+    
+    if (!condition.knownBool) { // TODO: unsafe!!!
+        throw new CompilerError(staticAssert.location, message);
+    }
+}

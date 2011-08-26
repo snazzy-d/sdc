@@ -1,7 +1,7 @@
 DMD ?= dmd
 LLVMDIR ?= llvm
 
-DFLAGS=-w -debug -g -unittest -Iimport
+DFLAGS=-w -debug -g -unittest -Iimport $(FLAGS)
 SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/java/*.d
 OBJ=bin\sdc.obj
 EXE=bin\sdc.exe

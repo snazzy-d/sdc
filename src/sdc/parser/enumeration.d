@@ -42,7 +42,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         decl.location = decl.base? decl.base.location - enumToken.location : enumToken.location;
     } else {
         decl.memberList = new EnumMemberList;
-        auto member = parseEnumMember(tstream);
+        auto member = parseEnumMember(tstream, true);
         decl.memberList.location = member.location;
 
         if (member.initialiser is null) {
