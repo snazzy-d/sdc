@@ -283,7 +283,12 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     
     statement.thePragma = parsePragma(tstream);
-    statement.statement = parseStatement(tstream);
+    
+    if (tstream.peek.type == TokenType.Semicolon) {
+        tstream.getToken();
+    } else {
+        statement.statement = parseStatement(tstream);
+    }
     return statement;
 }
 

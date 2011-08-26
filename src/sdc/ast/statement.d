@@ -322,7 +322,7 @@ class ScopeGuardStatement : Node
 class PragmaStatement : Node
 {
     Pragma thePragma;
-    Statement statement;
+    Statement statement; // Optional
 }
 
 class MixinStatement : Node
