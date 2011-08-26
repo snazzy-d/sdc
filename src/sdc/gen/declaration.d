@@ -8,6 +8,7 @@ module sdc.gen.declaration;
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.stdio;
 import std.string;
 import std.exception;
 
@@ -319,6 +320,8 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     }
     
     // Check the CFG for connectivity.
+    auto file = File("cfg.dot", "w");
+    mod.currentFunction.cfgEntry.visualise(file);
     if (mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);

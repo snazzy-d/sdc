@@ -41,7 +41,7 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
     if (mod.currentFunction.cfgTail is null) {
         // Entry block.
-        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock();
+        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock("block");
     }
     foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
@@ -124,12 +124,13 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
 
 void genLabeledStatement(ast.LabeledStatement statement, Module mod)
 {
-    auto block = new BasicBlock();
+    auto name = extractIdentifier(statement.identifier);
+    
+    auto block = new BasicBlock(name);
     auto parent = mod.currentFunction.cfgTail;
     parent.children ~= block;
     mod.currentFunction.cfgTail = block;
     
-    auto name = extractIdentifier(statement.identifier);
     auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
     LLVMBuildBr(mod.builder, bb);
     if (auto p = name in mod.currentFunction.labels) {
@@ -189,8 +190,8 @@ void genIfStatement(ast.IfStatement statement, Module mod)
 {
     LLVMBasicBlockRef ifBB, elseBB;
     auto parent = mod.currentFunction.cfgTail;
-    auto ifblock = new BasicBlock();
-    auto ifout = new BasicBlock();
+    auto ifblock = new BasicBlock("if");
+    auto ifout = new BasicBlock("else");
     parent.children ~= ifblock;
     
     mod.pushScope();
@@ -212,7 +213,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     if (statement.elseStatement !is null) {
         mod.pushScope();
         
-        auto elseblock = new BasicBlock();
+        auto elseblock = new BasicBlock("elseblock");
         parent.children ~= elseblock;
                 
         mod.currentFunction.cfgTail = elseblock;
@@ -273,8 +274,8 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
     
     auto parent  = mod.currentFunction.cfgTail;
-    auto looptop = new BasicBlock();
-    auto loopout = new BasicBlock();
+    auto looptop = new BasicBlock("whiletop");
+    auto loopout = new BasicBlock("whileout");
     parent.children ~= looptop;
     parent.children ~= loopout;
     looptop.children ~= loopout;
@@ -330,9 +331,9 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
 void genTryStatement(ast.TryStatement statement, Module mod)
 {
     auto parent = mod.currentFunction.cfgTail;
-    auto tryB   = new BasicBlock();
-    auto catchB = new BasicBlock();
-    auto outB   = new BasicBlock();
+    auto tryB   = new BasicBlock("try");
+    auto catchB = new BasicBlock("catch");
+    auto outB   = new BasicBlock("tryout");
     parent.children ~= tryB;
     tryB.children ~= catchB;
     

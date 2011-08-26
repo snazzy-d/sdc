@@ -309,7 +309,7 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
         LLVMPositionBuilderAtEnd(mod.builder, thenB);
         
         auto parent = mod.currentFunction.cfgTail;
-        auto newTry = new BasicBlock();
+        auto newTry = new BasicBlock("try");
         parent.children ~= newTry;
         newTry.children ~= catchBB;
         mod.currentFunction.cfgTail = newTry;

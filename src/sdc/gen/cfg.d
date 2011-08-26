@@ -19,8 +19,14 @@ import llvm.c.Core;
  */
 class BasicBlock
 {
+    string name;
     bool isExitBlock = false;  /// e.g. return, throw, assert(false), etc.
     BasicBlock[] children;     /// Possible paths of control flow.
+    
+    this(string name)
+    {
+        this.name = name;
+    }
     
     @property bool fallsThrough() {
         if (isExitBlock) return false;
@@ -61,6 +67,26 @@ class BasicBlock
             }
         } while (blockStack.length > 0);
         return false;
+    }
+    
+    void visualise(File file, int accum = 0)
+    {
+        if (accum == 0) {
+            file.writeln("digraph G {");
+        }
+        if (children.length == 0) {
+            file.writeln(name, accum + 1, ";");
+        } else {
+            foreach (child; children) {
+                file.writeln(name, accum, " -> ", child.name, accum + 1, ";");
+            }
+            foreach (child; children) {
+                child.visualise(file, accum + 1);
+            }
+        }
+        if (accum == 0) {
+            file.writeln("\n}");
+        }
     }
 
     protected bool mFallThrough = true;
