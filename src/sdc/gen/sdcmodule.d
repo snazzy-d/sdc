@@ -404,7 +404,7 @@ class Module
             message = new StringValue(this, location, "assert failed");
         }
         
-        auto line = new IntValue(this, location, location.line);
+        auto line = new IntValue(this, location, cast(int)location.line);
         auto filename = new StringValue(this, location, location.filename);
         
         buildCall(this, assertType, assertFn, "__d_assert", location,
