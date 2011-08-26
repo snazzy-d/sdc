@@ -396,24 +396,24 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         auto argList = cast(ast.ArgumentList) expression.firstNode;
         assert(argList);
         
-        Type[] functionParameters;
+        FunctionType functionType;
         if (lhs.type.dtype == DType.Function) {
-            auto asFunction = enforce(cast(FunctionType) lhs.type);
-            functionParameters = asFunction.argumentTypes;
+            functionType = enforce(cast(FunctionType) lhs.type);
         } else if (lhs.type.getBase().dtype == DType.Function) {
-            auto asFunction = enforce(cast(FunctionType) lhs.type.getBase());
-            functionParameters = asFunction.argumentTypes;
+            functionType = enforce(cast(FunctionType) lhs.type.getBase());
         } else {
             throw new CompilerPanic(expression.location, "couldn't retrieve parameter list of called function.");
         }
         
         foreach (i, expr; argList.expressions) {
-            auto parameter = functionParameters[i];
-            Value[] values;
-            if (parameter.dtype == DType.Pointer && parameter.getBase().dtype == DType.Function) {
-                auto asFunction = enforce(cast(FunctionType) parameter.getBase());
-                values = array(map!((Type t){ return t.getValue(mod, expression.location); })(asFunction.argumentTypes));
-                mod.functionPointerArguments = &values;
+            if (!functionType.varargs && i < argList.expressions.length) {
+                auto parameter = functionType.argumentTypes[i];
+                Value[] values;
+                if (parameter.dtype == DType.Pointer && parameter.getBase().dtype == DType.Function) {
+                    auto asFunction = enforce(cast(FunctionType) parameter.getBase());
+                    values = array(map!((Type t){ return t.getValue(mod, expression.location); })(asFunction.argumentTypes));
+                    mod.functionPointerArguments = &values;
+                }
             }
             
             auto oldAggregate = mod.callingAggregate;
