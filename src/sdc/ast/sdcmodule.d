@@ -13,6 +13,7 @@ import sdc.global;
 import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
+import sdc.ast.expression; // StaticAssert
 import gen = sdc.gen.type;
 
 
@@ -81,6 +82,12 @@ class DeclarationDefinition : Node
     bool importedSymbol;
     QualifiedName parentName;
     gen.Type parentType;
+}
+
+class StaticAssert : Node
+{
+    AssignExpression condition;
+    AssignExpression message; // Optional
 }
 
 class Unittest : Node
