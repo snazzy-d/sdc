@@ -22,10 +22,10 @@ class Object
 {
 }
 
-extern(C) void __d_assert(bool condition, string message)
+extern(C) void __d_assert(bool condition, string message, int line, string filename)
 {
     if(!condition) {
-        printf("assert failed\n"); // TODO: use stderr
+        printf("assertion failed in %s(%i): %s\n".ptr, filename.ptr, line, message.ptr); // TODO: use stderr
         exit(1);
     }
 }

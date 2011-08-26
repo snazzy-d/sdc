@@ -381,12 +381,14 @@ class Module
         return buildCall(this, reallocType, reallocFn, "realloc", location, [p.location, n.location], [p, n]);
     }
     
+    // We should totally abstract these in-built references into something a bit neater
     void rtAssert(Location location, Value condition, Value message)
     {
         auto voidType = new VoidType(this);
         auto boolType = new BoolType(this);
         auto stringType = new ArrayType(this, new CharType(this));
-        auto assertType = new FunctionType(this, voidType, [boolType, stringType], false);
+        auto intType = new IntType(this);
+        auto assertType = new FunctionType(this, voidType, [boolType, stringType, intType, stringType], false);
         assertType.linkage = ast.Linkage.ExternC;
         assertType.declare();
 
@@ -402,7 +404,12 @@ class Module
             message = new StringValue(this, location, "assert failed");
         }
         
-        buildCall(this, assertType, assertFn, "__d_assert", location, [condition.location, message.location], [condition, message]);
+        auto line = new IntValue(this, location, location.line);
+        auto filename = new StringValue(this, location, location.filename);
+        
+        buildCall(this, assertType, assertFn, "__d_assert", location,
+                  [condition.location, message.location, line.location, filename.location],
+                  [condition, message, line, filename]);
     }
 
     protected Scope[] mScopeStack;
