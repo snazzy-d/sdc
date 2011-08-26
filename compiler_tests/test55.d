@@ -1,0 +1,1 @@
+//T compiles:yes//T retval:1int main(){	assert(false, "test 55 succeeded!");}
