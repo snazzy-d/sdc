@@ -507,6 +507,9 @@ ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.O
     while (tstream.peek.type != close) {
         list.expressions ~= parseAssignExpression(tstream);
         if (tstream.peek.type != close) {
+            if (tstream.peek.type != TokenType.Comma) {
+                throw new PairMismatchError(openToken.location, tstream.previous.location, "argument list", tokenToString[close]);
+            }
             match(tstream, TokenType.Comma);
         }
     }
@@ -632,8 +635,11 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         break;
     case TokenType.OpenParen:
         primaryExpr.type = PrimaryType.ParenExpression;
-        match(tstream, TokenType.OpenParen);
+        auto openToken = match(tstream, TokenType.OpenParen);
         primaryExpr.node = parseExpression(tstream);
+        if (tstream.peek.type != TokenType.CloseParen) {
+            throw new PairMismatchError(openToken.location, tstream.previous.location, "primary expression", ")");
+        }
         match(tstream, TokenType.CloseParen);
         break;
     case TokenType.Mixin:

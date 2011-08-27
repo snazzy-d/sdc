@@ -90,6 +90,19 @@ class MissingSemicolonError : CompilerError
     }
 }
 
+class PairMismatchError : CompilerError
+{
+    this(Location pairStart, Location loc, string type, string token)
+    {
+        loc.column += loc.length;
+        loc.length = token.length;
+        super(loc, format("expected '%s' to close %s.", token, type));
+        fixHint = token;
+        
+        more = new CompilerError(pairStart, format("%s started here.", type));
+    }
+}
+
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));
