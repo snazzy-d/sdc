@@ -251,8 +251,9 @@ bool lexSpecialToken(TokenStream tstream, Token token)
 {
     immutable string[12] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     immutable string[7] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    
-    if (token.value == "__DATE__") {
+ 
+    switch(token.value) {
+    case "__DATE__":
         auto thetime = time(null);
         auto tm = localtime(&thetime);
         token.type = TokenType.StringLiteral;
@@ -262,10 +263,12 @@ bool lexSpecialToken(TokenStream tstream, Token token)
                              1900 + tm.tm_year);
         tstream.addToken(token);
         return true;
-    } else if (token.value == "__EOF__") {
+
+    case "__EOF__":
         tstream.source.eof = true;
         return true;
-    } else if (token.value == "__TIME__") {
+
+    case "__TIME__":
         auto thetime = time(null);
         auto tm = localtime(&thetime);
         token.type = TokenType.StringLiteral;
@@ -273,7 +276,8 @@ bool lexSpecialToken(TokenStream tstream, Token token)
                              tm.tm_sec);
         tstream.addToken(token);
         return true;
-    } else if (token.value == "__TIMESTAMP__") {
+
+    case "__TIMESTAMP__":
         auto thetime = time(null);
         auto tm = localtime(&thetime);
         token.type = TokenType.StringLiteral;
@@ -283,18 +287,22 @@ bool lexSpecialToken(TokenStream tstream, Token token)
                              1900 + tm.tm_year);
         tstream.addToken(token);
         return true;
-    } else if (token.value == "__VENDOR__") {
+
+    case "__VENDOR__":
         token.type = TokenType.StringLiteral;
         token.value = sdc.info.VENDOR;
         tstream.addToken(token);
         return true;
-    } else if (token.value == "__VERSION__") {
+
+    case "__VERSION__":
         token.type = TokenType.IntegerLiteral;
         token.value = to!string(sdc.info.VERSION);
         tstream.addToken(token);
         return true;
+
+    default:
+        return false;
     }
-    return false;
 }
 
 bool lexSymbol(TokenStream tstream)
