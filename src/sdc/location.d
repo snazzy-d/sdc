@@ -10,7 +10,11 @@ import std.string;
 import std.stdio;
 
 
-// This was pretty much stolen wholesale from Daniel Keep. <3
+/**
+ * Struct representing a location in a source file.
+ *
+ * This was pretty much stolen wholesale from Daniel Keep. <3
+ */
 struct Location
 {
     string filename;
