@@ -11,7 +11,7 @@ import std.string;
 import std.exception;
 
 import sdc.compilererror;
-import sdc.tokenstream;
+import sdc.token;
 import sdc.location;
 import sdc.ast.attribute;
 

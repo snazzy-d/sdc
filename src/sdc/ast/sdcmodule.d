@@ -8,7 +8,7 @@ module sdc.ast.sdcmodule;
 import std.path;
 
 import sdc.compilererror;
-import sdc.tokenstream;
+import sdc.token;
 import sdc.global;
 import sdc.ast.base;
 import sdc.ast.declaration;
@@ -19,8 +19,6 @@ import gen = sdc.gen.type;
 
 class Module : Node
 {
-    TokenStream tstream;   // The token stream used to create this AST tree.
-    
     ModuleDeclaration moduleDeclaration;
     DeclarationDefinition[] declarationDefinitions;
 }

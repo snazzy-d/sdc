@@ -43,7 +43,6 @@ Module parseModule(TokenStream tstream)
 {
     auto mod = new Module();
     mod.location = tstream.peek.location;
-    mod.tstream = tstream;
     match(tstream, TokenType.Begin);
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
 

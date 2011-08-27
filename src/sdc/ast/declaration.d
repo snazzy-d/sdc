@@ -5,7 +5,7 @@
  */
 module sdc.ast.declaration;
 
-import sdc.tokenstream;
+import sdc.token;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
