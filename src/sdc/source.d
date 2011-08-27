@@ -20,6 +20,16 @@ class Source
     Location location;
     bool eof = false;
     
+    /**
+     * Open the given file and validate it as a utf8 source.
+     *
+     * Side-effects:
+     *   Puts all the other fields into known good states.
+     *
+     * Throws:
+     *   CompilerPanic if source BOM is not valid.
+     *   UtfException if source is not utf8.
+     */
     this(string filename)
     {
         source = cast(string) std.file.read(filename);
@@ -35,6 +45,12 @@ class Source
     
     this() {}
     
+    /**
+     * Sets the source to string and the current location.
+     *
+     * Throws:
+     *   UtfException if the source is not valid utf8.
+     */
     this(string s, Location location)
     {
         source = s;
@@ -45,6 +61,15 @@ class Source
         this.location = location;
     }
     
+    /**
+     * Validate that the current start of source has a valid utf8 BOM.
+     *
+     * Side-effects:
+     *   @source advanced to after valid utf8 BOM if found.
+     *
+     * Throws:
+     *   CompilerPanic if source if BOM is not valid.
+     */
     void checkBOM()
     {
         if (source.length >= 2 && source[0 .. 2] == [0xFE, 0xFF] ||
@@ -59,6 +84,9 @@ class Source
         }
     }
     
+    /**
+     * Used to skip the first script line in D sources.
+     */
     void skipScriptLine()
     {
         bool lookEOF = false; 
@@ -66,6 +94,18 @@ class Source
         }
     }
 
+    /**
+     * Get the next unicode character.
+     *
+     * Side-effects:
+     *   @eof set to true if we have reached the EOF.
+     *   @mChar is set to the returned character if not at EOF.
+     *   @mIndex advanced to the end of the given character.
+     *   @location updated to the current position if not at EOF.
+     *
+     * Returns:
+     *   Returns next unicode char or dchar.init at EOF.
+     */
     dchar get()
     {
         if (mIndex >= source.length) {
@@ -88,7 +128,16 @@ class Source
     {
         return mChar;
     }
-        
+
+    /**
+     * Return the unicode character @n chars forwards.
+     *
+     * Side-effects:
+     *   @lookaheadEOF set to true if we reached EOF, otherwise false.
+     *
+     * Returns:
+     *   Unicode char at @n or dchar.init at EOF.
+     */
     dchar lookahead(size_t n, out bool lookaheadEOF)
     {
         lookaheadEOF = false;
