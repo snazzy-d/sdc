@@ -156,6 +156,17 @@ enum TokenType
 
 
 /**
+ * Holds the type, the actual string and location within the source file.
+ */
+class Token
+{
+    TokenType type;
+    string value;
+    Location location;
+}
+
+
+/**
  * Go from a string identifier to a TokenType.
  *
  * Side-effects:
@@ -276,12 +287,4 @@ TokenType identifierType(string ident)
     case "__traits":        return TokenType.__Traits;
     default:                return TokenType.Identifier;
     }
-}
-
-
-class Token
-{
-    TokenType type;
-    string value;
-    Location location;
 }
