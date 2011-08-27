@@ -9,7 +9,6 @@ import std.path;
 
 import sdc.compilererror;
 import sdc.token;
-import sdc.global;
 import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
