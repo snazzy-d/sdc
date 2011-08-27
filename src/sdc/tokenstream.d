@@ -58,6 +58,11 @@ class TokenStream
         return mTokens[mIndex];
     }
     
+    Token previous() @property
+    {
+        return mTokens[mIndex - 1];
+    }
+    
     Token lookahead(size_t n)
     {
         if (n == 0) {

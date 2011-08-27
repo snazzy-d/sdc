@@ -411,7 +411,6 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value add(Location location, Value val)
     {
-
         auto result = LLVMBuildAdd(mModule.builder, this.get(), val.get(), "add");
         auto v = new typeof(this)(mModule, location);
         v.initialise(location, result);
