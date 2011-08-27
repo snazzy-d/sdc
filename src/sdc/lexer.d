@@ -25,13 +25,12 @@ TokenStream lex(Source source)
 {
     auto tstream = new TokenStream(source);
     
-    lexNext(tstream);
-    while (tstream.lastAdded.type != TokenType.End) {
+    do {
         if (!lexNext(tstream)) {
             throw new CompilerError(tstream.source.location, 
                   format("unexpected character: '%s'.", tstream.source.peek)); 
         }
-    }
+    } while (tstream.lastAdded.type != TokenType.End);
     
     return tstream;
 }
