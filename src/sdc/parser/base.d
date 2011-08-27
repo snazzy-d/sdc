@@ -18,7 +18,6 @@ import sdc.tokenstream;
 import sdc.extract;
 import sdc.ast.all;
 import sdc.parser.all;
-import sdc.gen.sdcimport;
 
 
 Module parse(TokenStream tstream)
