@@ -586,6 +586,8 @@ ParameterList parseParameters(TokenStream tstream)
         list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {
             break;
+        } else if (tstream.peek.type != TokenType.Comma) {
+            throw new PairMismatchError(openParen.location, tstream.previous.location, "parameter list", ")");
         }
         match(tstream, TokenType.Comma);
     }
