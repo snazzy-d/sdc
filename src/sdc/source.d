@@ -89,9 +89,13 @@ class Source
      */
     void skipScriptLine()
     {
-        bool lookEOF = false; 
-        if (peek == '#' && lookahead(1, lookEOF) == '!') while (get() != '\n' && !eof) {
-        }
+        bool lookEOF = false;
+
+        if (peek != '#' || lookahead(1, lookEOF) != '!')
+            return;
+
+        // We have a script line start, read the rest of the line.
+        while (get() != '\n' && !eof) {}
     }
 
     /**
