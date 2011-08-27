@@ -140,7 +140,6 @@ class Source
      */
     dchar lookahead(size_t n, out bool lookaheadEOF)
     {
-        lookaheadEOF = false;
         if (n == 0) return peek();
         
         size_t tmpIndex = mIndex;
