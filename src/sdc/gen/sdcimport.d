@@ -32,27 +32,6 @@ bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod
     return count!"a.gModule is null"(imports) == 0;
 }
 
-ast.ImportDeclaration synthesiseImport(string modname)
-{
-    with (ast) {
-        auto decl = new ImportDeclaration();
-        decl.importList = new ImportList();
-        decl.importList.type = ImportListType.SingleSimple;
-        auto imp = new Import();
-        
-        auto names = split(modname, ".");
-        auto qname = new QualifiedName();
-        foreach (name; names) {
-            auto iname = new Identifier();
-            iname.value = name;
-            qname.identifiers ~= iname;
-        }
-        imp.moduleName = qname;
-        decl.importList.imports ~= imp;
-        return decl;
-    }
-} 
-
 void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
     if (importDeclaration.language != ast.Language.D) {
