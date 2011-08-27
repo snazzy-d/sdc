@@ -85,38 +85,38 @@ enum TokenType
     __File__, __Line__, __Gshared, __Thread, __Traits,
     
     /// Symbols.
-    Slash,             // /
-    SlashAssign,       // /=
-    Dot,               // .
-    DoubleDot,         // ..
-    TripleDot,         // ...
-    Ampersand,         // &
-    AmpersandAssign,   // &=
-    DoubleAmpersand,   // &&
-    Pipe,              // |
-    PipeAssign,        // |=
-    DoublePipe,        // ||
-    Dash,              // -
-    DashAssign,        // -=
-    DoubleDash,        // --
-    Plus,              // +
-    PlusAssign,        // +=
-    DoublePlus,        // ++
-    Less,              // <
-    LessAssign,        // <=
-    DoubleLess,        // <<
-    DoubleLessAssign,  // <<=
-    LessGreater,       // <>
-    LessGreaterAssign, // <>= 
-    Greater,           // >
-    GreaterAssign,     // >=
-    DoubleGreaterAssign, // >>=
-    TripleGreaterAssign, // >>>=
-    DoubleGreater,       // >>
-    TripleGreater,       // >>>
-    Bang,                // !
-    BangAssign,          // !=
-    BangLessGreater,     // !<>
+    Slash,                  // /
+    SlashAssign,            // /=
+    Dot,                    // .
+    DoubleDot,              // ..
+    TripleDot,              // ...
+    Ampersand,              // &
+    AmpersandAssign,        // &=
+    DoubleAmpersand,        // &&
+    Pipe,                   // |
+    PipeAssign,             // |=
+    DoublePipe,             // ||
+    Dash,                   // -
+    DashAssign,             // -=
+    DoubleDash,             // --
+    Plus,                   // +
+    PlusAssign,             // +=
+    DoublePlus,             // ++
+    Less,                   // <
+    LessAssign,             // <=
+    DoubleLess,             // <<
+    DoubleLessAssign,       // <<=
+    LessGreater,            // <>
+    LessGreaterAssign,      // <>= 
+    Greater,                // >
+    GreaterAssign,          // >=
+    DoubleGreaterAssign,    // >>=
+    TripleGreaterAssign,    // >>>=
+    DoubleGreater,          // >>
+    TripleGreater,          // >>>
+    Bang,                   // !
+    BangAssign,             // !=
+    BangLessGreater,        // !<>
     BangLessGreaterAssign,  // !<>=
     BangLess,               // !<
     BangLessAssign,         // !<=
