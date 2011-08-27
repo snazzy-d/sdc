@@ -155,130 +155,126 @@ enum TokenType
 }
 
 
-__gshared TokenType[string] keywordToTokenType;
-
-
+/**
+ * Go from a string identifier to a TokenType.
+ *
+ * Side-effects:
+ *   None.
+ *
+ * Returns:
+ *   Always a TokenType, for unknown ones TokenType.Identifier.
+ */
 TokenType identifierType(string ident)
 {
-    synchronized {
-        if (ident in keywordToTokenType) {
-            return keywordToTokenType[ident];
-        } else {
-            return TokenType.Identifier;
-        }
-    }
-}
-
-static this()
-{
-    with (TokenType) {
-        keywordToTokenType["abstract"] = Abstract;
-        keywordToTokenType["alias"] = Alias;
-        keywordToTokenType["align"] = Align;
-        keywordToTokenType["asm"] = Asm;
-        keywordToTokenType["assert"] = Assert;
-        keywordToTokenType["auto"] = Auto;
-        keywordToTokenType["body"] = Body;
-        keywordToTokenType["bool"] = Bool;
-        keywordToTokenType["break"] = Break;
-        keywordToTokenType["byte"] = Byte;
-        keywordToTokenType["case"] = Case;
-        keywordToTokenType["cast"] = Cast;
-        keywordToTokenType["catch"] = Catch;
-        keywordToTokenType["cdouble"] = Cdouble;
-        keywordToTokenType["cent"] = Cent;
-        keywordToTokenType["cfloat"] = Cfloat;
-        keywordToTokenType["char"] = Char;
-        keywordToTokenType["class"] = Class;
-        keywordToTokenType["const"] = Const;
-        keywordToTokenType["continue"] = Continue;
-        keywordToTokenType["creal"] = Creal;
-        keywordToTokenType["dchar"] = Dchar;
-        keywordToTokenType["debug"] = Debug;
-        keywordToTokenType["default"] = Default;
-        keywordToTokenType["delegate"] = Delegate;
-        keywordToTokenType["delete"] = Delete;
-        keywordToTokenType["deprecated"] = Deprecated;
-        keywordToTokenType["do"] = Do;
-        keywordToTokenType["double"] = Double;
-        keywordToTokenType["else"] = Else;
-        keywordToTokenType["enum"] = Enum;
-        keywordToTokenType["export"] = Export;
-        keywordToTokenType["extern"] = Extern;
-        keywordToTokenType["false"] = False;
-        keywordToTokenType["final"] = Final;
-        keywordToTokenType["finally"] = Finally;
-        keywordToTokenType["float"] = Float;
-        keywordToTokenType["for"] = For;
-        keywordToTokenType["foreach"] = Foreach;
-        keywordToTokenType["foreach_reverse"] = ForeachReverse;
-        keywordToTokenType["function"] = Function;
-        keywordToTokenType["goto"] = Goto;
-        keywordToTokenType["idouble"] = Idouble;
-        keywordToTokenType["if"] = If;
-        keywordToTokenType["ifloat"] = Ifloat;
-        keywordToTokenType["immutable"] = Immutable;
-        keywordToTokenType["import"] = Import;
-        keywordToTokenType["in"] = In;
-        keywordToTokenType["inout"] = Inout;
-        keywordToTokenType["int"] = Int;
-        keywordToTokenType["interface"] = Interface;
-        keywordToTokenType["invariant"] = Invariant;
-        keywordToTokenType["ireal"] = Ireal;
-        keywordToTokenType["is"] = Is;
-        keywordToTokenType["lazy"] = Lazy;
-        keywordToTokenType["long"] = Long;
-        keywordToTokenType["macro"] = Macro;
-        keywordToTokenType["mixin"] = Mixin;
-        keywordToTokenType["module"] = Module;
-        keywordToTokenType["new"] = New;
-        keywordToTokenType["nothrow"] = Nothrow;
-        keywordToTokenType["null"] = Null;
-        keywordToTokenType["out"] = Out;
-        keywordToTokenType["override"] = Override;
-        keywordToTokenType["package"] = Package;
-        keywordToTokenType["pragma"] = Pragma;
-        keywordToTokenType["private"] = Private;
-        keywordToTokenType["protected"] = Protected;
-        keywordToTokenType["public"] = Public;
-        keywordToTokenType["pure"] = Pure;
-        keywordToTokenType["real"] = Real;
-        keywordToTokenType["ref"] = Ref;
-        keywordToTokenType["return"] = Return;
-        keywordToTokenType["scope"] = Scope;
-        keywordToTokenType["shared"] = Shared;
-        keywordToTokenType["short"] = Short;
-        keywordToTokenType["static"] = Static;
-        keywordToTokenType["struct"] = Struct;
-        keywordToTokenType["super"] = Super;
-        keywordToTokenType["switch"] = Switch;
-        keywordToTokenType["synchronized"] = Synchronized;
-        keywordToTokenType["template"] = Template;
-        keywordToTokenType["this"] = This;
-        keywordToTokenType["throw"] = Throw;
-        keywordToTokenType["true"] = True;
-        keywordToTokenType["try"] = Try;
-        keywordToTokenType["typedef"] = Typedef;
-        keywordToTokenType["typeid"] = Typeid;
-        keywordToTokenType["typeof"] = Typeof;
-        keywordToTokenType["ubyte"] = Ubyte;
-        keywordToTokenType["ucent"] = Ucent;
-        keywordToTokenType["uint"] = Uint;
-        keywordToTokenType["ulong"] = Ulong;
-        keywordToTokenType["union"] = Union;
-        keywordToTokenType["unittest"] = Unittest;
-        keywordToTokenType["ushort"] = Ushort;
-        keywordToTokenType["version"] = Version;
-        keywordToTokenType["void"] = Void;
-        keywordToTokenType["volatile"] = Volatile;
-        keywordToTokenType["wchar"] = Wchar;
-        keywordToTokenType["while"] = While;
-        keywordToTokenType["with"] = With;
-        keywordToTokenType["__FILE__"] = __File__;
-        keywordToTokenType["__LINE__"] = __Line__;
-        keywordToTokenType["__gshared"] = __Gshared;
-        keywordToTokenType["__thread"] = __Thread;
-        keywordToTokenType["__traits"] = __Traits;
+    switch(ident) {
+    case "abstract":        return TokenType.Abstract;
+    case "alias":           return TokenType.Alias;
+    case "align":           return TokenType.Align;
+    case "asm":             return TokenType.Asm;
+    case "assert":          return TokenType.Assert;
+    case "auto":            return TokenType.Auto;
+    case "body":            return TokenType.Body;
+    case "bool":            return TokenType.Bool;
+    case "break":           return TokenType.Break;
+    case "byte":            return TokenType.Byte;
+    case "case":            return TokenType.Case;
+    case "cast":            return TokenType.Cast;
+    case "catch":           return TokenType.Catch;
+    case "cdouble":         return TokenType.Cdouble;
+    case "cent":            return TokenType.Cent;
+    case "cfloat":          return TokenType.Cfloat;
+    case "char":            return TokenType.Char;
+    case "class":           return TokenType.Class;
+    case "const":           return TokenType.Const;
+    case "continue":        return TokenType.Continue;
+    case "creal":           return TokenType.Creal;
+    case "dchar":           return TokenType.Dchar;
+    case "debug":           return TokenType.Debug;
+    case "default":         return TokenType.Default;
+    case "delegate":        return TokenType.Delegate;
+    case "delete":          return TokenType.Delete;
+    case "deprecated":      return TokenType.Deprecated;
+    case "do":              return TokenType.Do;
+    case "double":          return TokenType.Double;
+    case "else":            return TokenType.Else;
+    case "enum":            return TokenType.Enum;
+    case "export":          return TokenType.Export;
+    case "extern":          return TokenType.Extern;
+    case "false":           return TokenType.False;
+    case "final":           return TokenType.Final;
+    case "finally":         return TokenType.Finally;
+    case "float":           return TokenType.Float;
+    case "for":             return TokenType.For;
+    case "foreach":         return TokenType.Foreach;
+    case "foreach_reverse": return TokenType.ForeachReverse;
+    case "function":        return TokenType.Function;
+    case "goto":            return TokenType.Goto;
+    case "idouble":         return TokenType.Idouble;
+    case "if":              return TokenType.If;
+    case "ifloat":          return TokenType.Ifloat;
+    case "immutable":       return TokenType.Immutable;
+    case "import":          return TokenType.Import;
+    case "in":              return TokenType.In;
+    case "inout":           return TokenType.Inout;
+    case "int":             return TokenType.Int;
+    case "interface":       return TokenType.Interface;
+    case "invariant":       return TokenType.Invariant;
+    case "ireal":           return TokenType.Ireal;
+    case "is":              return TokenType.Is;
+    case "lazy":            return TokenType.Lazy;
+    case "long":            return TokenType.Long;
+    case "macro":           return TokenType.Macro;
+    case "mixin":           return TokenType.Mixin;
+    case "module":          return TokenType.Module;
+    case "new":             return TokenType.New;
+    case "nothrow":         return TokenType.Nothrow;
+    case "null":            return TokenType.Null;
+    case "out":             return TokenType.Out;
+    case "override":        return TokenType.Override;
+    case "package":         return TokenType.Package;
+    case "pragma":          return TokenType.Pragma;
+    case "private":         return TokenType.Private;
+    case "protected":       return TokenType.Protected;
+    case "public":          return TokenType.Public;
+    case "pure":            return TokenType.Pure;
+    case "real":            return TokenType.Real;
+    case "ref":             return TokenType.Ref;
+    case "return":          return TokenType.Return;
+    case "scope":           return TokenType.Scope;
+    case "shared":          return TokenType.Shared;
+    case "short":           return TokenType.Short;
+    case "static":          return TokenType.Static;
+    case "struct":          return TokenType.Struct;
+    case "super":           return TokenType.Super;
+    case "switch":          return TokenType.Switch;
+    case "synchronized":    return TokenType.Synchronized;
+    case "template":        return TokenType.Template;
+    case "this":            return TokenType.This;
+    case "throw":           return TokenType.Throw;
+    case "true":            return TokenType.True;
+    case "try":             return TokenType.Try;
+    case "typedef":         return TokenType.Typedef;
+    case "typeid":          return TokenType.Typeid;
+    case "typeof":          return TokenType.Typeof;
+    case "ubyte":           return TokenType.Ubyte;
+    case "ucent":           return TokenType.Ucent;
+    case "uint":            return TokenType.Uint;
+    case "ulong":           return TokenType.Ulong;
+    case "union":           return TokenType.Union;
+    case "unittest":        return TokenType.Unittest;
+    case "ushort":          return TokenType.Ushort;
+    case "version":         return TokenType.Version;
+    case "void":            return TokenType.Void;
+    case "volatile":        return TokenType.Volatile;
+    case "wchar":           return TokenType.Wchar;
+    case "while":           return TokenType.While;
+    case "with":            return TokenType.With;
+    case "__FILE__":        return TokenType.__File__;
+    case "__LINE__":        return TokenType.__Line__;
+    case "__gshared":       return TokenType.__Gshared;
+    case "__thread":        return TokenType.__Thread;
+    case "__traits":        return TokenType.__Traits;
+    default:                return TokenType.Identifier;
     }
 }
 
