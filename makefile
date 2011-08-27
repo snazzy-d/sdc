@@ -1,3 +1,4 @@
+PLATFORM=$(shell uname -s)
 DMD=dmd
 ARCHFLAG=-m32
 LLVMDIR=llvm
@@ -8,7 +9,11 @@ EXE=bin/sdc
 
 PHOBOS2=-lphobos2
 LIBLLVM=$(LLVMDIR)/*.a
-LDFLAGS=-L-lstdc++ -L-ldl $(LIBLLVM)
+LDFLAGS=-L-lstdc++ $(LIBLLVM) 
+
+ifeq ($(PLATFORM),Linux)
+LDFLAGS+=-L-ldl
+endif
 
 all:
 	@mkdir -p bin
