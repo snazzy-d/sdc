@@ -22,6 +22,20 @@ alias std.ascii.isWhite isWhite;
 static import sdc.info;
 
 /**
+ * Tokenizes a string pretending to be at the given location.
+ *
+ * Throws:
+ *   CompilerError on errors.
+ *
+ * Returns:
+ *   A TokenStream filled with tokens.
+ */
+TokenStream lex(string src, Location loc)
+{
+    return lex(new Source(src, loc));
+}
+
+/**
  * Tokenizes a source file.
  *
  * Side-effects:

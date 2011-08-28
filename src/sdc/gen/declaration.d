@@ -17,7 +17,6 @@ import llvm.c.Core;
 import sdc.compilererror;
 import sdc.lexer;
 import sdc.location;
-import sdc.source;
 import sdc.util;
 import sdc.extract;
 import sdc.global;
@@ -188,9 +187,10 @@ void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(decl.location, "a mixin expression must be a string known at compile time.");
     }
-    auto source = new Source(val.knownString, val.location);
-    auto tstream = lex(source);
+
+    auto tstream = lex(val.knownString, val.location);
     tstream.getToken();  // Skip BEGIN
+
     decl.declarationCache = parseDeclaration(tstream);
 }
 
