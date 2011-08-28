@@ -14,14 +14,29 @@ import sdc.location;
 
 alias size_t Mark;
 
+/**
+ * Class for handling reading of D source code.
+ *
+ * The class works like a stream, @get and @peek will return the
+ * character at @location.
+ *
+ * Upon loading or getting source the ctor will validate the source
+ * code to make sure that it is UTF-8 and the BOM is valid.
+ */
 class Source
 {
+    /// Source code, validated UTF-8 by constructors.
     string source;
+    /// The location of the current character as returned by @get.
     Location location;
+    /// Have we reached EOF, if we have current = dchar.init.
     bool eof = false;
     
+    /// The unicode character at @location.
     private dchar mChar;
+    /// Pointer into the string for the next character.
     private size_t mIndex;
+
 
     /**
      * Open the given file and validate it as a UTF-8 source.
