@@ -65,6 +65,9 @@ class TokenStream
     
     Token lookbehind(size_t n)
     {
+        auto index = mIndex - n;
+        if (index < 0)
+            throw new CompilerPanic("Token array out of bounds access.");
         return mTokens[mIndex - n];
     }
     
