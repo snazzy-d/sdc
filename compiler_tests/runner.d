@@ -104,7 +104,8 @@ void test(string filename, string compiler)
     } else {
         command = format(`%s%s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
-    version (linux) if (!expectedToCompile) command ~= " &>/dev/null";
+    // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
+    version (linux) if (!expectedToCompile) command ~= " 2> /dev/null 1> /dev/null";
     
     
     auto retval = system(command);
