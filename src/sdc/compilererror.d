@@ -124,7 +124,7 @@ class PairMismatchError : CompilerError
         super(loc, format("expected '%s' to close %s.", token, type));
         fixHint = token;
         
-        more = new CompilerError(pairStart, format("%s started here.", type));
+        more = new CompilerErrorNote(pairStart, format("%s started here.", type));
     }
 }
 
