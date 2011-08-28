@@ -37,11 +37,23 @@ TokenStream lex(Source source)
 
 private:
 
+/**
+ * Match and advance if matched.
+ *
+ * Side-effects:
+ *   If @src.peek and @c matches, advances source to next character.
+ *
+ * Throws:
+ *   CompilerError if @src.peek did not match @c.
+ */
 void match(Source src, dchar c)
 {
-    if (src.peek != c) {
-        throw new CompilerError(src.location, format("expected '%s' got '%s'.", c, src.peek));
+    auto cur = src.peek;
+    if (cur != c) {
+        auto s = format("expected '%s' got '%s'.", c, cur);
+        throw new CompilerError(src.location, s);
     }
+    // Advance to the next character.
     src.get();
 }
 
