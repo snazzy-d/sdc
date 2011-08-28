@@ -14,7 +14,6 @@ import core.runtime;
 
 import llvm.c.Core;
 
-import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.source;
 import sdc.lexer;
