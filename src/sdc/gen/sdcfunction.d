@@ -268,7 +268,7 @@ class Function
                 loc = argumentLocations[error.argNumber];
                 message = format("parameter #%s of '%s'.", error.argNumber + 1, simpleName);
             }
-            error.more = new CompilerError(loc, message);
+            error.more = new CompilerErrorNote(loc, message);
             throw error;
         }
         return retVal;

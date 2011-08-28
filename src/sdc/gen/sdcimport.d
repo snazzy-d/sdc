@@ -1,6 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -119,11 +119,11 @@ void genImport(Location location, ast.Import theImport, Module mod)
             );
         }
         
-        err.more = new CompilerError(format(`tried path "%s"`, impPath));
+        err.more = new CompilerErrorNote(format(`tried path "%s"`, impPath));
         
         auto next = err.more;
         foreach (importPath; importPaths) {
-            next.more = new CompilerError(
+            next.more = new CompilerErrorNote(
                 format(`tried path "%s"`, importPath ~ path.sep ~ impPath)
             );
             next = next.more;

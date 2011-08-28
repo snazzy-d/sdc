@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */ 
@@ -75,6 +76,30 @@ class CompilerPanic : CompilerError
     string locationFormat()
     {
         return "%s: panic: %s";
+    }
+}
+
+class CompilerErrorNote : CompilerError
+{
+    this(string message)
+    {
+        super(message);
+    }
+    
+    this(Location loc, string message)
+    {
+        super(loc, message);
+    }
+    
+    protected override:
+    string errorFormat()
+    {
+        return "note: %s";
+    }
+    
+    string locationFormat()
+    {
+        return "%s: note: %s";
     }
 }
 
