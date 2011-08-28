@@ -20,6 +20,9 @@ class Source
     Location location;
     bool eof = false;
     
+    private dchar mChar;
+    private size_t mIndex;
+
     /**
      * Open the given file and validate it as a UTF-8 source.
      *
@@ -197,7 +200,4 @@ class Source
         this.mChar = src.mChar;
         this.eof = src.eof;
     }
-
-    private dchar mChar;
-    private size_t mIndex;
 }
