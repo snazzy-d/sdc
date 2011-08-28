@@ -1,6 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -29,9 +29,9 @@ struct Location
     }
     
     // Difference between two locations
-    // end - begin == begin .. end
-    Location opBinary(string op)(Location begin) if (op == "-")
-    {        
+    // end - begin == begin ... end
+    Location opBinary(string op)(ref Location begin) if (op == "-")
+    {
         assert(begin.filename == filename);
         assert(begin.line <= line);
         
@@ -50,6 +50,13 @@ struct Location
         return loc;
     }
     
+    void spanTo(ref Location end)
+    {
+        if (line <= end.line && column < end.column) {
+            this = end - this;
+        }
+    }
+    
     // When the column is 0, the whole line is assumed to be the location
     immutable size_t wholeLine = 0;
 }
@@ -59,8 +66,8 @@ char[] readErrorLine(Location loc)
     auto f = File(loc.filename);
     
     foreach(ulong n, char[] line; lines(f)) {
-        if(n == loc.line - 1) {
-            while(line[$-1] == '\n' || line[$-1] == '\r'){ 
+        if (n == loc.line - 1) {
+            while(line.length && (line[$-1] == '\n' || line[$-1] == '\r')) {
                 line = line[0 .. $ - 1];
             }
             return line;

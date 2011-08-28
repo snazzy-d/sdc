@@ -90,6 +90,37 @@ class MissingSemicolonError : CompilerError
     }
 }
 
+class PairMismatchError : CompilerError
+{
+    this(Location pairStart, Location loc, string type, string token)
+    {
+        loc.column += loc.length;
+        loc.length = token.length;
+        super(loc, format("expected '%s' to close %s.", token, type));
+        fixHint = token;
+        
+        more = new CompilerError(pairStart, format("%s started here.", type));
+    }
+}
+
+// For catching purposes
+class ArgumentMismatchError : CompilerError
+{
+    static immutable ptrdiff_t unspecified = -1;
+    ptrdiff_t argNumber = unspecified;
+    
+    this(Location loc, string message)
+    {
+        super(loc, message);
+    }
+    
+    this(Location loc, string message, ptrdiff_t argNumber)
+    {
+        this.argNumber = argNumber;
+        super(loc, message);
+    }
+}
+
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));

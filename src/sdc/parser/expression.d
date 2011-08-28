@@ -28,14 +28,15 @@ Expression parseExpression(TokenStream tstream)
         match(tstream, TokenType.Comma);
         expr.expression = parseExpression(tstream);
     }
+    expr.location.spanTo(tstream.previous.location);
     return expr;
 }
 
 AssignExpression parseAssignExpression(TokenStream tstream)
 {
     auto assignExpr = new AssignExpression();
-    assignExpr.location = tstream.peek.location;
     assignExpr.conditionalExpression = parseConditionalExpression(tstream);
+    assignExpr.location = assignExpr.conditionalExpression.location;
     switch (tstream.peek.type) {
     case TokenType.Assign:
         assignExpr.assignType = AssignType.Normal;
@@ -82,6 +83,7 @@ AssignExpression parseAssignExpression(TokenStream tstream)
     }
     tstream.getToken();
     assignExpr.assignExpression = parseAssignExpression(tstream);
+    assignExpr.location.spanTo(tstream.previous.location);
     return assignExpr;
 }
 
@@ -96,6 +98,8 @@ ConditionalExpression parseConditionalExpression(TokenStream tstream)
         match(tstream, TokenType.Colon);
         condExpr.conditionalExpression = parseConditionalExpression(tstream);
     }
+    
+    condExpr.location.spanTo(tstream.previous.location);
     return condExpr;
 }
 
@@ -110,6 +114,7 @@ OrOrExpression parseOrOrExpression(TokenStream tstream)
         orOrExpr.orOrExpression = parseOrOrExpression(tstream);
     }
     
+    orOrExpr.location.spanTo(tstream.previous.location);
     return orOrExpr;
 }
 
@@ -124,6 +129,7 @@ AndAndExpression parseAndAndExpression(TokenStream tstream)
         andAndExpr.andAndExpression = parseAndAndExpression(tstream);
     }
     
+    andAndExpr.location.spanTo(tstream.previous.location);
     return andAndExpr;
 }
 
@@ -138,6 +144,7 @@ OrExpression parseOrExpression(TokenStream tstream)
         orExpr.orExpression = parseOrExpression(tstream);
     }
     
+    orExpr.location.spanTo(tstream.previous.location);
     return orExpr;
 }
 
@@ -152,6 +159,7 @@ XorExpression parseXorExpression(TokenStream tstream)
         xorExpr.xorExpression = parseXorExpression(tstream);
     }
     
+    xorExpr.location.spanTo(tstream.previous.location);
     return xorExpr;
 }
 
@@ -166,6 +174,7 @@ AndExpression parseAndExpression(TokenStream tstream)
         andExpr.andExpression = parseAndExpression(tstream);
     }
     
+    andExpr.location.spanTo(tstream.previous.location);
     return andExpr;
 }
 
@@ -239,6 +248,7 @@ CmpExpression parseCmpExpression(TokenStream tstream)
     }
     tstream.getToken();
     cmpExpr.rhShiftExpression = parseShiftExpression(tstream);
+    cmpExpr.location.spanTo(tstream.previous.location);
     return cmpExpr;
 }
 
@@ -263,6 +273,7 @@ ShiftExpression parseShiftExpression(TokenStream tstream)
     }
     tstream.getToken();
     shiftExpr.shiftExpression = parseShiftExpression(tstream);
+    shiftExpr.location.spanTo(tstream.previous.location);
     return shiftExpr;
 }
 
@@ -287,6 +298,7 @@ AddExpression parseAddExpression(TokenStream tstream)
     }
     tstream.getToken();
     addExpr.addExpression = parseAddExpression(tstream);
+    addExpr.location.spanTo(tstream.previous.location);
     return addExpr;
 }
 
@@ -311,6 +323,8 @@ MulExpression parseMulExpression(TokenStream tstream)
     }
     tstream.getToken();    
     mulExpr.mulExpression = parseMulExpression(tstream);
+    
+    mulExpr.location.spanTo(tstream.previous.location);
     return mulExpr;
 }
 
@@ -325,6 +339,7 @@ PowExpression parsePowExpression(TokenStream tstream)
         powExpr.powExpression = parsePowExpression(tstream);
     }
     
+    powExpr.location.spanTo(tstream.previous.location);
     return powExpr;
 }
 
@@ -387,18 +402,19 @@ UnaryExpression parseUnaryExpression(TokenStream tstream)
         break;
     }
     
+    unaryExpr.location.spanTo(tstream.previous.location);
     return unaryExpr;
 }
 
 CastExpression parseCastExpression(TokenStream tstream)
 {
     auto castExpr = new CastExpression();
-    castExpr.location = tstream.peek.location;
-    match(tstream, TokenType.Cast);
+    auto castToken = match(tstream, TokenType.Cast);
     match(tstream, TokenType.OpenParen);
     castExpr.type = parseType(tstream);
     match(tstream, TokenType.CloseParen);
     castExpr.unaryExpression = parseUnaryExpression(tstream);
+    castExpr.location = castExpr.unaryExpression.location - castToken.location;
     return castExpr;
 }
 
@@ -427,6 +443,7 @@ NewExpression parseNewExpression(TokenStream tstream)
         }
     }
     
+    newExpr.location.spanTo(tstream.previous.location);
     return newExpr;
 }
 
@@ -476,6 +493,9 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
         break;
     }
     
+    if (postfixExpr !is null) {
+        postfixExpr.location.spanTo(tstream.previous.location);
+    }
     return postfixExpr;
 }
 
@@ -487,6 +507,9 @@ ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.O
     while (tstream.peek.type != close) {
         list.expressions ~= parseAssignExpression(tstream);
         if (tstream.peek.type != close) {
+            if (tstream.peek.type != TokenType.Comma) {
+                throw new PairMismatchError(openToken.location, tstream.previous.location, "argument list", tokenToString[close]);
+            }
             match(tstream, TokenType.Comma);
         }
     }
@@ -612,8 +635,11 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         break;
     case TokenType.OpenParen:
         primaryExpr.type = PrimaryType.ParenExpression;
-        match(tstream, TokenType.OpenParen);
+        auto openToken = match(tstream, TokenType.OpenParen);
         primaryExpr.node = parseExpression(tstream);
+        if (tstream.peek.type != TokenType.CloseParen) {
+            throw new PairMismatchError(openToken.location, tstream.previous.location, "primary expression", ")");
+        }
         match(tstream, TokenType.CloseParen);
         break;
     case TokenType.Mixin:
@@ -638,6 +664,7 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         }
     }
     
+    primaryExpr.location.spanTo(tstream.previous.location);
     return primaryExpr;
 }
 

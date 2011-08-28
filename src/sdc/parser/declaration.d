@@ -203,11 +203,12 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         declaration.functionBody = parseFunctionBody(tstream);
     } else {
         if (tstream.peek.type != TokenType.Semicolon) {
-            throw new MissingSemicolonError(tstream.lookbehind(1).location, "function declaration");
+            throw new MissingSemicolonError(tstream.previous.location, "function declaration");
         }
         tstream.getToken();
     }
     
+    declaration.location.spanTo(declaration.parameterList.location);
     return declaration;
 }
 
@@ -586,6 +587,8 @@ ParameterList parseParameters(TokenStream tstream)
         list.parameters ~= parameter;
         if (tstream.peek.type == TokenType.CloseParen) {
             break;
+        } else if (tstream.peek.type != TokenType.Comma) {
+            throw new PairMismatchError(openParen.location, tstream.previous.location, "parameter list", ")");
         }
         match(tstream, TokenType.Comma);
     }
