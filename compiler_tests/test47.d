@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:28
+//T known:yes
 
 int add(int a, int b)
 {

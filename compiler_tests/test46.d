@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:13
+//T known:yes
 
 class Test
 {

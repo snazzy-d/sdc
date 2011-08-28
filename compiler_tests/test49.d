@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:42
+//T known:yes
 
 int foo()
 {

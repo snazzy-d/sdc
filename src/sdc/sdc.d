@@ -228,8 +228,12 @@ void realmain(string[] args)
         assemblies ~= asObject;
         
         if (!saveTemps) {
-            file.remove(asBitcode);
-            file.remove(asAssembly);
+            if (file.exists(asBitcode)) {
+                file.remove(asBitcode);
+            }
+            if (file.exists(asAssembly)) {
+                file.remove(asAssembly);
+            }
         }
     }
     
@@ -254,7 +258,9 @@ void realmain(string[] args)
         
         if (!saveTemps) {
             foreach (assembly; assemblies) {
-                file.remove(assembly);
+                if (file.exists(assembly)) {
+                    file.remove(assembly);
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:41
+//T known:yes
 
 auto add(int a, int b)
 {

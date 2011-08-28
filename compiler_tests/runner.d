@@ -79,8 +79,10 @@ void test(string filename, string compiler)
         case "retval":
             expectedRetval = getInt(val);
             break;
-         case "dependency":
+        case "dependency":
             dependencies ~= val;
+            break;
+        case "known":
             break;
         default:
             stderr.writefln("%s: invalid command.", filename);
