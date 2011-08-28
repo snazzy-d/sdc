@@ -103,6 +103,24 @@ class PairMismatchError : CompilerError
     }
 }
 
+// For catching purposes
+class ArgumentMismatchError : CompilerError
+{
+    static immutable ptrdiff_t unspecified = -1;
+    ptrdiff_t argNumber = unspecified;
+    
+    this(Location loc, string message)
+    {
+        super(loc, message);
+    }
+    
+    this(Location loc, string message, ptrdiff_t argNumber)
+    {
+        this.argNumber = argNumber;
+        super(loc, message);
+    }
+}
+
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc, message));

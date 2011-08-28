@@ -226,6 +226,7 @@ class Function
     {
         auto fn = new Function(type);
         
+        fn.location = this.location;
         fn.type = cast(FunctionType) type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
@@ -249,12 +250,28 @@ class Function
     /**
      * Generate code to call this function.
      */
-    Value call(Location location, Location[] argLocations, Value[] args)
+    Value call(Location callLocation, Location[] argLocations, Value[] args)
     {
         if (mod is null) {
-            throw new CompilerPanic(location, "attemped to call unassigned Function.");
+            throw new CompilerPanic(callLocation, "attemped to call unassigned Function.");
         }
-        return buildCall(mod, type, llvmValue, simpleName, location, argLocations, args);
+        Value retVal;
+        try {
+            retVal = buildCall(mod, type, llvmValue, simpleName, callLocation, argLocations, args);
+        } catch(ArgumentMismatchError error) {
+            Location loc;
+            string message;
+            if (error.argNumber == ArgumentMismatchError.unspecified) {
+                loc = argumentListLocation;
+                message = format("parameters of '%s'.", simpleName); 
+            } else {
+                loc = argumentLocations[error.argNumber];
+                message = format("parameter #%s of '%s'.", error.argNumber + 1, simpleName);
+            }
+            error.more = new CompilerError(loc, message);
+            throw error;
+        }
+        return retVal;
     }
 }
 
@@ -328,25 +345,11 @@ private void checkArgumentListLength(FunctionType type, string functionName, Loc
 {
     if (type.varargs) {
         if (type.argumentTypes.length > args.length) {
-            throw new CompilerError(
-                callLocation, 
-                format("expected at least %s arguments, got %s.", type.argumentTypes.length, args.length),
-                new CompilerError(
-                    callLocation,
-                    format(`parameters of "%s":`, functionName)
-                )
-            );
+            throw new ArgumentMismatchError(callLocation, format("expected at least %s arguments, got %s.", type.argumentTypes.length, args.length));
          }
     } else if (type.argumentTypes.length != args.length) {
         debugPrint(functionName);
-        throw new CompilerError(
-            callLocation, 
-            format("expected %s arguments, got %s.", type.argumentTypes.length, args.length),
-                new CompilerError(
-                    callLocation,
-                    format(`parameters of "%s":`, functionName)
-                )
-        );
+        throw new ArgumentMismatchError(callLocation, format("expected %s arguments, got %s.", type.argumentTypes.length, args.length));
     }
     if (argLocations.length != args.length) {
         // Some arguments are hidden (e.g. this).
@@ -367,7 +370,11 @@ in
 body
 {
     foreach (i, arg; type.argumentTypes) {
-        args[i] = implicitCast(argLocations[i], args[i], arg);
+        try {
+            args[i] = implicitCast(argLocations[i], args[i], arg);
+        } catch(CompilerError error) {
+            throw new ArgumentMismatchError(error.location, error.msg, i);
+        }
         if (arg.isRef) {
             args[i].errorIfNotLValue(argLocations[i]);
             args[i] = args[i].addressOf(argLocations[i]);

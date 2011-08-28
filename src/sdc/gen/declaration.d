@@ -150,6 +150,13 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     
     auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs, decl);
     auto fn = new Function(fntype);
+    
+    fn.location = decl.location;
+    fn.argumentListLocation = decl.parameterList.location;
+    foreach(param; decl.parameterList.parameters) {
+        fn.argumentLocations ~= param.location;
+    }
+    
     if (decl.name.identifiers.length == 1) {
         fn.simpleName = extractQualifiedName(decl.name);
     } else {
