@@ -127,7 +127,8 @@ class Source
     {
         if (mIndex >= source.length) {
             eof = true;
-            return dchar.init;
+            mChar = dchar.init;
+            return mChar;
         }
         
         if (mChar == '\n') {
