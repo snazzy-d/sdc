@@ -21,17 +21,30 @@ alias std.ascii.isWhite isWhite;
 
 static import sdc.info;
 
+/**
+ * Tokenizes a source file.
+ *
+ * Side-effects:
+ *   Will advance the source location, on success this will be EOF.
+ *
+ * Throws:
+ *   CompilerError on errors.
+ *
+ * Returns:
+ *   A TokenStream filled with tokens.
+ */
 TokenStream lex(Source source)
 {
     auto tstream = new TokenStream(source);
-    
+
     do {
-        if (!lexNext(tstream)) {
-            throw new CompilerError(tstream.source.location, 
-                  format("unexpected character: '%s'.", tstream.source.peek)); 
-        }
+        if (lexNext(tstream))
+            continue;
+
+        auto s = format("unexpected character: '%s'.", tstream.source.peek);
+        throw new CompilerError(tstream.source.location, s);
     } while (tstream.lastAdded.type != TokenType.End);
-    
+
     return tstream;
 }
 
