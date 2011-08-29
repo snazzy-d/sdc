@@ -39,18 +39,18 @@ class FunctionType : Type
 {
     Linkage linkage;
     Type returnType;
-    Type[] argumentTypes;
+    Type[] parameterTypes;
     Type parentAggregate;
     bool isStatic;
     bool varargs;
     Module mod;
     
-    this(Module mod, Type returnType, Type[] argumentTypes, bool varargs, FunctionDeclaration astParent = null)
+    this(Module mod, Type returnType, Type[] parameterTypes, bool varargs, FunctionDeclaration astParent = null)
     {
         super(mod);
         dtype = DType.Function;
         this.returnType = returnType;
-        this.argumentTypes = argumentTypes;
+        this.parameterTypes = parameterTypes;
         this.varargs = varargs;
         if (astParent !is null) {
             this.linkage = astParent.linkage;
@@ -69,7 +69,7 @@ class FunctionType : Type
     void declare()
     {
         LLVMTypeRef[] params;
-        foreach (ref t; argumentTypes) {
+        foreach (ref t; parameterTypes) {
             auto type = t;
             if (t.isRef) {
                 type = new PointerType(type.mModule, type);
@@ -101,22 +101,22 @@ class FunctionType : Type
     override Type importToModule(Module mod)
     {
         Type importType(Type t) { return t.importToModule(mod); }
-        auto importedTypes = array( map!importType(argumentTypes) );   
+        auto importedTypes = array( map!importType(parameterTypes) );   
             
         auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
         if (fn.parentAggregate !is null) {
             fn.parentAggregate = parentAggregate.importToModule(mod);
         }
-        assert(argumentTypes.length == fn.argumentTypes.length);
+        assert(parameterTypes.length == fn.parameterTypes.length);
         return fn;
     }
     
     override string name()
     {
         auto namestr = "function(";
-        foreach (i, param; argumentTypes) {
+        foreach (i, param; parameterTypes) {
             namestr ~= param.name();
-            if (i < argumentTypes.length - 1) {
+            if (i < parameterTypes.length - 1) {
                 namestr ~= ", ";
             }
         }
@@ -154,10 +154,10 @@ class Function
      * Replace this function in place with a function that
      * is identical save for a single new argument.
      */
-    void addArgument(Type argumentType, string argumentName)
+    void addParameter(Type parameterType, string parameterName)
     {
-        type.argumentTypes ~= argumentType;
-        argumentNames ~= argumentName;
+        type.parameterTypes ~= parameterType;
+        argumentNames ~= parameterName;
         if (argumentLocations.length >= 1) {
             argumentLocations ~= argumentLocations[$ - 1];
         } else {
@@ -167,13 +167,13 @@ class Function
         if (mod !is null) {
             auto m = mod;
             remove();
-            Type[] args = type.argumentTypes;
-            if (argumentName == "this") {
+            Type[] args = type.parameterTypes;
+            if (parameterName == "this") {
                 // Omit the this parameter from mangling.
-                type.argumentTypes = type.argumentTypes[0 .. $ - 1];  // HAX!
+                type.parameterTypes = type.parameterTypes[0 .. $ - 1];  // HAX!
             }
             add(m);
-            type.argumentTypes = args;
+            type.parameterTypes = args;
         }
     }
     
@@ -344,12 +344,12 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
 private void checkArgumentListLength(FunctionType type, string functionName, Location callLocation, ref Location[] argLocations, Value[] args)
 {
     if (type.varargs) {
-        if (type.argumentTypes.length > args.length) {
-            throw new ArgumentMismatchError(callLocation, format("expected at least %s arguments, got %s.", type.argumentTypes.length, args.length));
+        if (type.parameterTypes.length > args.length) {
+            throw new ArgumentMismatchError(callLocation, format("expected at least %s arguments, got %s.", type.parameterTypes.length, args.length));
          }
-    } else if (type.argumentTypes.length != args.length) {
+    } else if (type.parameterTypes.length != args.length) {
         debugPrint(functionName);
-        throw new ArgumentMismatchError(callLocation, format("expected %s arguments, got %s.", type.argumentTypes.length, args.length));
+        throw new ArgumentMismatchError(callLocation, format("expected %s arguments, got %s.", type.parameterTypes.length, args.length));
     }
     if (argLocations.length != args.length) {
         // Some arguments are hidden (e.g. this).
@@ -369,7 +369,7 @@ in
 }
 body
 {
-    foreach (i, arg; type.argumentTypes) {
+    foreach (i, arg; type.parameterTypes) {
         try {
             args[i] = implicitCast(argLocations[i], args[i], arg);
         } catch(CompilerError error) {
@@ -409,7 +409,7 @@ private bool implicitMatches(Function fn, Value[] args)
 private bool explicitMatches(Function fn, Value[] args)
 {
     Type getType(Value v) { return v.type; }
-    auto functionTypes = fn.type.argumentTypes;
-    auto argumentTypes = array( map!getType(args) );
-    return functionTypes == argumentTypes;
+    auto functionTypes = fn.type.parameterTypes;
+    auto parameterTypes = array( map!getType(args) );
+    return functionTypes == parameterTypes;
 }

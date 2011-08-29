@@ -231,7 +231,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         
         auto asPointer = enforce(cast(PointerType) type);
         auto asFunction = enforce(cast(FunctionType) asPointer.base);
-        args = array( map!getDefaultValue(asFunction.argumentTypes) );
+        args = array( map!getDefaultValue(asFunction.parameterTypes) );
         mod.functionPointerArguments = &args;     
     }
      
@@ -303,7 +303,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     assert(mod.currentFunction);
     
     // Add parameters into the functions namespace.
-    foreach (i, argType; fn.type.argumentTypes) {
+    foreach (i, argType; fn.type.parameterTypes) {
         Value val;
         if (argType.isRef) {
             auto dummy = argType.getValue(mod, decl.location);

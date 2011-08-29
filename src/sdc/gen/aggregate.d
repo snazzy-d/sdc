@@ -79,7 +79,7 @@ void genAggregateDeclaration(ast.AggregateDeclaration decl, ast.DeclarationDefin
     type.declare();
     foreach (fn; functions) {
         fn.type.parentAggregate = type;
-        fn.addArgument(new PointerType(mod, type), "this");
+        fn.addParameter(new PointerType(mod, type), "this");
         type.addMemberFunction(fn.simpleName, fn);
     }
     

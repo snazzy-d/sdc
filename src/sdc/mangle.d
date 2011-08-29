@@ -58,7 +58,7 @@ void mangleFunctionType(ref string mangledName, FunctionType type)
 {
     mangleCallConvention(mangledName, type.linkage);
     // TODO: mangle function attributes.
-    foreach (paramType; type.argumentTypes) {
+    foreach (paramType; type.parameterTypes) {
         mangleType(mangledName, paramType);
     }
     // TODO: Variadic functions have a different terminator here.

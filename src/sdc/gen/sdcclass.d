@@ -80,7 +80,7 @@ void genClassDeclaration(ast.ClassDeclaration decl, Module mod)
     
     foreach (fn; functions) {
         fn.type.parentAggregate = ctype;
-        fn.addArgument(ctype, "this");
+        fn.addParameter(ctype, "this");
         ctype.addMemberFunction(fn.simpleName, fn);
     }
     

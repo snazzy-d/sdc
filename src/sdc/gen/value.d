@@ -1578,12 +1578,12 @@ Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure 
 {
     auto retval = astTypeToBackendType(type.retval, mod, onFailure);
     bool varargs = type.parameters.varargs;
-    Type[] args;
+    Type[] params;
     foreach (param; type.parameters.parameters) {
-        args ~= astTypeToBackendType(param.type, mod, onFailure);
-        args[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
+        params ~= astTypeToBackendType(param.type, mod, onFailure);
+        params[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
     }
-    auto ftype = new FunctionType(mod, retval, args, varargs);
+    auto ftype = new FunctionType(mod, retval, params, varargs);
     ftype.declare();
     return new PointerType(mod, ftype);
 }
@@ -1731,9 +1731,9 @@ Value implicitCast(Location location, Value v, Type toType)
             if (asFunction.parentAggregate !is v.type) {
                 throw new CompilerError(location, "alias this refers to non member function '" ~ aliasThis ~ "'.");
             }
-            if (asFunction.argumentTypes.length != 0) {
+            if (asFunction.parameterTypes.length != 0) {
                 auto address = v.addressOf(location);
-                if (asFunction.argumentTypes.length > 1 || asFunction.argumentTypes[0] != address.type) {
+                if (asFunction.parameterTypes.length > 1 || asFunction.parameterTypes[0] != address.type) {
                     throw new CompilerError(location, "alias this refers to function with non this parameter.");
                 } 
                 aliasValue = aliasValue.call(location, [v.location], [v.addressOf(location)]);
