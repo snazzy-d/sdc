@@ -634,13 +634,27 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.node = parseCharacterLiteral(tstream);
         break;
     case TokenType.OpenParen:
-        primaryExpr.type = PrimaryType.ParenExpression;
         auto openToken = match(tstream, TokenType.OpenParen);
-        primaryExpr.node = parseExpression(tstream);
+        bool isTypeExpression = startsLikeTypeExpression(tstream);
+        
+        if (isTypeExpression) {
+            primaryExpr.type = PrimaryType.ComplexTypeDotIdentifier;
+            primaryExpr.node = parseType(tstream);
+        } else {
+            primaryExpr.type = PrimaryType.ParenExpression;
+            primaryExpr.node = parseExpression(tstream);
+        }
+        
         if (tstream.peek.type != TokenType.CloseParen) {
             throw new PairMismatchError(openToken.location, tstream.previous.location, "primary expression", ")");
         }
+        
         match(tstream, TokenType.CloseParen);
+        
+        if(isTypeExpression) {
+            match(tstream, TokenType.Dot);
+            primaryExpr.secondNode = parseIdentifier(tstream);
+        }
         break;
     case TokenType.Mixin:
         primaryExpr.type = PrimaryType.MixinExpression;
@@ -685,4 +699,33 @@ AssertExpression parseAssertExpression(TokenStream tstream)
     assertExpr.location = lastToken.location - firstToken.location;
     
     return assertExpr;
+}
+
+// This is rather hacky.
+bool startsLikeTypeExpression(TokenStream tstream)
+{
+    // type qualifier?
+    if (contains(PAREN_TYPES, tstream.peek.type) && tstream.lookahead(1).type == TokenType.OpenParen) {
+        return true;
+    }
+    
+    if (contains(PRIMITIVE_TYPES, tstream.peek.type)) {
+        // pointer?
+        if (tstream.lookahead(1).type == TokenType.Asterix) {
+            return true;
+        }
+        
+        // array?
+        if (tstream.lookahead(1).type == TokenType.OpenBracket) {
+            return true;
+        }
+        
+        // TODO: template instantiations?
+    }
+    
+    if (tstream.peek.type == TokenType.Typeof) {
+        return true;
+    }
+    
+    return false;
 }
