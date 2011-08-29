@@ -1,22 +1,33 @@
+# Compiler output
 *.geany
 *.o
 *.swp
+*.ll
+*.bc
+*.s
+*.bin
+a.out
 test.d
 testimp.d
 add.d
 test
 test.o
+
+# SVN?!
 .svn
-sdc.bin
+
+# Local files
 /sdc
-*.ll
-a.out
-*.bc
+/sdc.bin
+/cfg.dot
+/bin
+
+# Eclipse
+build.rf
 .classpath
 .project
-*.s
-compiler_tests/runner
-*.bin
+.buildpath
+.dprojectoptions
 
 #DMD/Windows
 *.exe
