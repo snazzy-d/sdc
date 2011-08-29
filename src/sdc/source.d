@@ -101,7 +101,7 @@ class Source
     {
         bool lookEOF = false;
 
-        if (mChar != '#' || lookahead(1, lookEOF) != '!')
+        if (peek != '#' || lookahead(1, lookEOF) != '!')
             return;
 
         // We have a script line start, read the rest of the line.
@@ -138,7 +138,7 @@ class Source
         return mChar;
     }
     
-    dchar current() @property
+    dchar peek() @property
     {
         return mChar;
     }
@@ -154,7 +154,7 @@ class Source
      */
     dchar lookahead(size_t n, out bool lookaheadEOF)
     {
-        if (n == 0) return mChar;
+        if (n == 0) return peek();
         
         size_t tmpIndex = mIndex;
         foreach (i; 0 .. n) {
