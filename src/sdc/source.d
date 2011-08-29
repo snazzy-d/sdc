@@ -43,8 +43,6 @@ class Source
         location.column = 1;
     }
     
-    this() {}
-    
     /**
      * Sets the source to string and the current location.
      *
@@ -61,6 +59,18 @@ class Source
         this.location = location;
     }
     
+    /**
+     * Copy contructor, same as @dup.
+     */
+    this(Source src)
+    {
+        this.source = src.source;
+        this.location = src.location;
+        this.eof = src.eof;
+        this.mChar = src.mChar;
+        this.mIndex = src.mIndex;
+    }
+
     /**
      * Validate that the current start of source has a valid utf8 BOM.
      *
@@ -91,7 +101,7 @@ class Source
     {
         bool lookEOF = false;
 
-        if (peek != '#' || lookahead(1, lookEOF) != '!')
+        if (mChar != '#' || lookahead(1, lookEOF) != '!')
             return;
 
         // We have a script line start, read the rest of the line.
@@ -128,7 +138,7 @@ class Source
         return mChar;
     }
     
-    dchar peek() @property
+    dchar current() @property
     {
         return mChar;
     }
@@ -144,7 +154,7 @@ class Source
      */
     dchar lookahead(size_t n, out bool lookaheadEOF)
     {
-        if (n == 0) return peek();
+        if (n == 0) return mChar;
         
         size_t tmpIndex = mIndex;
         foreach (i; 0 .. n) {
@@ -173,13 +183,7 @@ class Source
     /// Make a new Source object in the same state as this one.
     Source dup() @property
     {
-        auto newSource = new Source();
-        newSource.source = this.source;
-        newSource.location = this.location;
-        newSource.eof = this.eof;
-        newSource.mChar = this.mChar;
-        newSource.mIndex = this.mIndex;
-        return newSource;
+        return new Source(this);
     }
     
     /// Synchronise this source with a duplicated one.
