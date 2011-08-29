@@ -21,14 +21,14 @@ class Source
     bool eof = false;
     
     /**
-     * Open the given file and validate it as a utf8 source.
+     * Open the given file and validate it as a UTF-8 source.
      *
      * Side-effects:
      *   Puts all the other fields into known good states.
      *
      * Throws:
      *   CompilerPanic if source BOM is not valid.
-     *   UtfException if source is not utf8.
+     *   UtfException if source is not UTF-8.
      */
     this(string filename)
     {
@@ -47,7 +47,7 @@ class Source
      * Sets the source to string and the current location.
      *
      * Throws:
-     *   UtfException if the source is not valid utf8.
+     *   UtfException if the source is not valid UTF-8.
      */
     this(string s, Location location)
     {
@@ -72,10 +72,10 @@ class Source
     }
 
     /**
-     * Validate that the current start of source has a valid utf8 BOM.
+     * Validate that the current start of source has a valid UTF-8 BOM.
      *
      * Side-effects:
-     *   @source advanced to after valid utf8 BOM if found.
+     *   @source advanced to after valid UTF-8 BOM if found.
      *
      * Throws:
      *   CompilerPanic if source if BOM is not valid.
