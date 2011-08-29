@@ -108,7 +108,9 @@ class Source
             return;
 
         // We have a script line start, read the rest of the line.
-        while (get() != '\n' && !eof) {}
+        do {
+            get();
+        } while (peek != '\n' && !eof);
     }
 
     /**
@@ -121,14 +123,16 @@ class Source
      *   @location updated to the current position if not at EOF.
      *
      * Returns:
-     *   Returns next unicode char or dchar.init at EOF.
+     *   Returns the unicode char at location or dchar.init at EOF.
      */
     dchar get()
     {
+        auto ret = mChar;
+
         if (mIndex >= source.length) {
             eof = true;
             mChar = dchar.init;
-            return mChar;
+            return ret;
         }
         
         if (mChar == '\n') {
@@ -139,7 +143,7 @@ class Source
         mChar = std.utf.decode(source, mIndex);
         location.column++;
         
-        return mChar;
+        return ret;
     }
     
     dchar peek() @property
