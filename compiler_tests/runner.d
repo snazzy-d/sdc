@@ -139,8 +139,9 @@ void test(string filename, string compiler)
 void main(string[] args)
 {
     string compiler = SDC;
-    version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
-    else size_t jobCount = 1;
+    // Unfortunately, SDC needs to get better at concurrent file access.
+    //version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
+    size_t jobCount = 1;
     bool displayOnlyFailed = false;
     getopt(args, "compiler", &compiler, "j", &jobCount, "only-failed", &displayOnlyFailed);
     if (args.length > 1) {
@@ -219,7 +220,7 @@ void main(string[] args)
 
     if (testNumber > 0) {
         writefln("Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate, "
-                 "regerssions %s, improvments %s",
+                 "%s regressions, %s improvements.",
                  testNumber, passed, passed == 1 ? "" : "es", 
                  testNumber - passed, (testNumber - passed) == 1 ? "" : "s", 
                  (cast(real)passed / testNumber) * 100,
