@@ -21,11 +21,8 @@ TemplateDeclaration parseTemplateDeclaration(TokenStream tstream)
     
     match(tstream, TokenType.Template);
     decl.templateIdentifier = parseIdentifier(tstream);
-    match(tstream, TokenType.OpenParen);
-    if (tstream.peek.type != TokenType.CloseParen) {
-        decl.parameterList = parseTemplateParameterList(tstream);
-    }
-    match(tstream, TokenType.CloseParen);
+    decl.parameterList = parseTemplateParameterList(tstream);
+    
     if (tstream.peek.type == TokenType.If) {
         decl.constraint = parseConstraint(tstream);
     }
@@ -40,14 +37,22 @@ TemplateDeclaration parseTemplateDeclaration(TokenStream tstream)
 TemplateParameterList parseTemplateParameterList(TokenStream tstream)
 {
     auto list = new TemplateParameterList();
-    list.location = tstream.peek.location;
+    auto openToken = match(tstream, TokenType.OpenParen);
     
-    list.parameters ~= parseTemplateParameter(tstream);
-    while (tstream.peek.type == TokenType.Comma) {
-        match(tstream, TokenType.Comma);
+    if (tstream.peek.type != TokenType.CloseParen) {
         list.parameters ~= parseTemplateParameter(tstream);
+        while (tstream.peek.type == TokenType.Comma) {
+            match(tstream, TokenType.Comma);
+            list.parameters ~= parseTemplateParameter(tstream);
+        }
+        
+        if (tstream.peek.type != TokenType.CloseParen) {
+            throw new PairMismatchError(openToken.location, tstream.previous.location, "template parameter list", ")");
+        }
     }
+    auto closeToken = tstream.getToken();
     
+    list.location = closeToken.location - openToken.location;
     return list;
 }
 
