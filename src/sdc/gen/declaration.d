@@ -29,6 +29,7 @@ import sdc.gen.value;
 import sdc.gen.statement;
 import sdc.gen.expression;
 import sdc.gen.sdcfunction;
+import sdc.gen.sdctemplate;
 import sdc.parser.declaration;
 import sdc.java.mangle;
 
@@ -36,19 +37,21 @@ import sdc.java.mangle;
 bool canGenDeclaration(ast.Declaration decl, Module mod)
 {
     bool b;
-    final switch (decl.type) {
-    case ast.DeclarationType.Variable:
+    final switch (decl.type) with(ast.DeclarationType) {
+    case Variable:
         b = canGenVariableDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
-    case ast.DeclarationType.Function:
+    case Function:
         b = canGenFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, mod);
         break;
-    case ast.DeclarationType.Alias:
+    case FunctionTemplate:
+        return true;
+    case Alias:
         b = canGenAliasDeclaration(cast(ast.VariableDeclaration) decl.node, mod);
         break;
-    case ast.DeclarationType.AliasThis:
+    case AliasThis:
         return true;  // noooooooooooooooooooooooooooooo
-    case ast.DeclarationType.Mixin:
+    case Mixin:
         auto asMixin = cast(ast.MixinDeclaration) decl.node;
         genMixinDeclaration(asMixin, mod);
         b = canGenDeclaration(asMixin.declarationCache, mod);
@@ -88,6 +91,8 @@ void declareDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef,
         break;
     case ast.DeclarationType.Function:
         declareFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
+        break;
+    case ast.DeclarationType.FunctionTemplate:
         break;
     case ast.DeclarationType.Alias:
         declareAliasDeclaration(cast(ast.VariableDeclaration) decl.node, declDef, mod);
@@ -202,6 +207,9 @@ void genDeclaration(ast.Declaration decl, ast.DeclarationDefinition declDef, Mod
         break;
     case ast.DeclarationType.Function:
         genFunctionDeclaration(cast(ast.FunctionDeclaration) decl.node, declDef, mod);
+        break;
+    case ast.DeclarationType.FunctionTemplate:
+        genTemplateDeclaration(cast(ast.TemplateDeclaration) decl.node, mod);
         break;
     case ast.DeclarationType.Alias:
         break;

@@ -20,6 +20,7 @@ import sdc.compilererror;
 import sdc.extract;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
+import sdc.ast.sdcmodule;
 import sdc.ast.sdctemplate;
 import sdc.parser.base;
 import sdc.parser.attribute;
@@ -58,8 +59,15 @@ Declaration parseDeclaration(TokenStream tstream)
         declaration.type = DeclarationType.Variable;
         declaration.node = parseVariableDeclaration(tstream);
     } else {
-        declaration.type = DeclarationType.Function;
-        declaration.node = parseFunctionDeclaration(tstream);
+        TemplateDeclaration templateDeclaration = null;
+        auto funcDeclaration = parseFunctionDeclaration(tstream, templateDeclaration);
+        if (templateDeclaration !is null) {
+            declaration.type = DeclarationType.FunctionTemplate;
+            declaration.node = templateDeclaration;
+        } else {
+            declaration.type = DeclarationType.Function;
+            declaration.node = funcDeclaration;
+        }
     }
     
     return declaration;
@@ -173,7 +181,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     return declaration;
 }
 
-FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
+FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDeclaration templateDeclaration)
 {
     auto declaration = new FunctionDeclaration();
     declaration.location = tstream.peek.location;
@@ -184,7 +192,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     } else {
         declaration.retval = parseType(tstream);
     }
-    declaration.name = parseQualifiedName(tstream);
+    declaration.name = parseQualifiedName(tstream); // TODO: WHAT!?
     verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration.
@@ -206,9 +214,11 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     }
     
     if (tstream.lookahead(i).type == TokenType.OpenParen) {
-        declaration.templateDeclaration = new TemplateDeclaration();
+        templateDeclaration = new TemplateDeclaration();
+        templateDeclaration.templateIdentifier = declaration.name.identifiers[0];
+        
         match(tstream, TokenType.OpenParen);
-        declaration.templateDeclaration.parameterList = parseTemplateParameterList(tstream);
+        templateDeclaration.parameterList = parseTemplateParameterList(tstream);
         match(tstream, TokenType.CloseParen); // TODO: move this into parseTemplateParameterList, like with parseParameters
     }
     
@@ -219,14 +229,14 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         declaration.attributes ~= attribute;
     }
     
-    if (declaration.templateDeclaration !is null && tstream.peek.type == TokenType.If) {
-        declaration.templateDeclaration.constraint = parseConstraint(tstream);
+    if (templateDeclaration !is null && tstream.peek.type == TokenType.If) {
+        templateDeclaration.constraint = parseConstraint(tstream);
     }
     
     if (tstream.peek.type == TokenType.OpenBrace) {
         declaration.functionBody = parseFunctionBody(tstream);
     } else {
-        if (declaration.templateDeclaration !is null) {
+        if (templateDeclaration !is null) {
             throw new CompilerError(tstream.previous.location, "function template must have a body.");
         } else if (tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(tstream.previous.location, "function declaration");   
@@ -236,8 +246,19 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     
     declaration.location.spanTo(declaration.parameterList.location);
     
-    if (declaration.templateDeclaration !is null) {
-        declaration.templateDeclaration.location = declaration.location;
+    if (templateDeclaration !is null) {
+        auto decl = new Declaration();
+        decl.type = DeclarationType.Function;
+        decl.node = declaration;
+        decl.location = declaration.location;
+        
+        auto declDef = new DeclarationDefinition();
+        declDef.type = DeclarationDefinitionType.Declaration;
+        declDef.node = decl;
+        declDef.location = declaration.location;
+        
+        templateDeclaration.declDefs = [declDef];
+        templateDeclaration.location = declaration.location;
     }
     
     return declaration;

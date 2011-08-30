@@ -18,6 +18,7 @@ enum DeclarationType
 {
     Variable,
     Function,
+    FunctionTemplate,
     Alias,
     AliasThis,
     Mixin,
@@ -61,7 +62,6 @@ class FunctionDeclaration : Node
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
-    TemplateDeclaration templateDeclaration; // Optional.
     
     // Codegen shit.
     Function fn;
