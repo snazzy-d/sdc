@@ -159,7 +159,6 @@ void genTemplateDeclaration(ast.TemplateDeclaration decl, Module mod)
     mod.currentScope.add(extractIdentifier(decl.templateIdentifier), new Store(decl));
 }
 
-
 class TemplateCacheNode
 {
     DType type = DType.None;

@@ -175,20 +175,21 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
 
 FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
 {
-    Type retval;
-       
+    auto declaration = new FunctionDeclaration();
+    declaration.location = tstream.peek.location;
+    
     if (tstream.peek.type == TokenType.Auto && tstream.lookahead(1).type == TokenType.Identifier) {
         // TODO: look for function attributes here, as well. Once we have function attributes, of course. :P
-        retval = parseInferredType(tstream);
+        declaration.retval = parseInferredType(tstream);
     } else {
-        retval = parseType(tstream);
+        declaration.retval = parseType(tstream);
     }
-    auto name = parseQualifiedName(tstream);
-    verbosePrint("Parsing function '" ~ extractQualifiedName(name) ~ "'.", VerbosePrintColour.Green);
+    declaration.name = parseQualifiedName(tstream);
+    verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration.
     if(tstream.peek.type != TokenType.OpenParen) {
-        throw new MissingSemicolonError(name.location, "declaration");
+        throw new MissingSemicolonError(declaration.name.location, "declaration");
     }
     
     // If the function has two parameter lists, this is a function template.
@@ -204,31 +205,28 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         }
     }
     
-    TemplateParameterList templateParameterList = null;
     if (tstream.lookahead(i).type == TokenType.OpenParen) {
+        declaration.templateDeclaration = new TemplateDeclaration();
         match(tstream, TokenType.OpenParen);
-        templateParameterList = parseTemplateParameterList(tstream);
+        declaration.templateDeclaration.parameterList = parseTemplateParameterList(tstream);
         match(tstream, TokenType.CloseParen); // TODO: move this into parseTemplateParameterList, like with parseParameters
     }
     
-    auto parameterList = parseParameters(tstream);
+    declaration.parameterList = parseParameters(tstream);
     
-    Attribute[] attributes;
     Attribute attribute;
     while((attribute = parseFunctionAttribute(tstream)) !is null) {
-        attributes ~= attribute;
+        declaration.attributes ~= attribute;
     }
     
-    Constraint constraint = null;
-    if (templateParameterList !is null && tstream.peek.type == TokenType.If) {
-        constraint = parseConstraint(tstream);
+    if (declaration.templateDeclaration !is null && tstream.peek.type == TokenType.If) {
+        declaration.templateDeclaration.constraint = parseConstraint(tstream);
     }
     
-    FunctionBody functionBody = null;
     if (tstream.peek.type == TokenType.OpenBrace) {
-        functionBody = parseFunctionBody(tstream);
+        declaration.functionBody = parseFunctionBody(tstream);
     } else {
-        if (templateParameterList !is null) {
+        if (declaration.templateDeclaration !is null) {
             throw new CompilerError(tstream.previous.location, "function template must have a body.");
         } else if (tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(tstream.previous.location, "function declaration");   
@@ -236,23 +234,12 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         tstream.getToken();
     }
     
-    FunctionDeclaration declaration;
-    if (templateParameterList !is null) {
-        auto decl = new FunctionTemplateDeclaration();
-        decl.templateParameterList = templateParameterList;
-        decl.constraint = constraint;
-        declaration = decl;
-    } else {
-        declaration = new FunctionDeclaration();
+    declaration.location.spanTo(declaration.parameterList.location);
+    
+    if (declaration.templateDeclaration !is null) {
+        declaration.templateDeclaration.location = declaration.location;
     }
     
-    declaration.retval = retval;
-    declaration.name = name;
-    declaration.parameterList = parameterList;
-    declaration.attributes = attributes;
-    declaration.functionBody = functionBody;
-    
-    declaration.location = declaration.parameterList.location - declaration.retval.location;
     return declaration;
 }
 

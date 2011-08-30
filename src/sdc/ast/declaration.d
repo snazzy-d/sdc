@@ -61,21 +61,10 @@ class FunctionDeclaration : Node
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
-    bool isTemplate = false;
+    TemplateDeclaration templateDeclaration; // Optional.
     
     // Codegen shit.
     Function fn;
-}
-
-class FunctionTemplateDeclaration : FunctionDeclaration
-{
-    TemplateParameterList templateParameterList;
-    Constraint constraint; // Optional
-    
-    this()
-    {
-        isTemplate = true;
-    }
 }
 
 class FunctionBody : Node
