@@ -10,6 +10,7 @@ import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.statement;
 import sdc.ast.attribute;
+import sdc.ast.sdctemplate;
 import sdc.gen.sdcfunction;
 
 
@@ -60,9 +61,21 @@ class FunctionDeclaration : Node
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
+    bool isTemplate = false;
     
     // Codegen shit.
     Function fn;
+}
+
+class FunctionTemplateDeclaration : FunctionDeclaration
+{
+    TemplateParameterList templateParameterList;
+    Constraint constraint; // Optional
+    
+    this()
+    {
+        isTemplate = true;
+    }
 }
 
 class FunctionBody : Node

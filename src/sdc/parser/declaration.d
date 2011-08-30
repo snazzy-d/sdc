@@ -1,6 +1,6 @@
 /**
  * Copyright 2010-2011 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2010-2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  *
@@ -20,6 +20,7 @@ import sdc.compilererror;
 import sdc.extract;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
+import sdc.ast.sdctemplate;
 import sdc.parser.base;
 import sdc.parser.attribute;
 import sdc.parser.expression;
@@ -174,40 +175,84 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
 
 FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
 {
-    auto declaration = new FunctionDeclaration();
-    declaration.location = tstream.peek.location;
-    
+    Type retval;
+       
     if (tstream.peek.type == TokenType.Auto && tstream.lookahead(1).type == TokenType.Identifier) {
         // TODO: look for function attributes here, as well. Once we have function attributes, of course. :P
-        declaration.retval = parseInferredType(tstream);
+        retval = parseInferredType(tstream);
     } else {
-        declaration.retval = parseType(tstream);
+        retval = parseType(tstream);
     }
-    declaration.name = parseQualifiedName(tstream);
-    verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
+    auto name = parseQualifiedName(tstream);
+    verbosePrint("Parsing function '" ~ extractQualifiedName(name) ~ "'.", VerbosePrintColour.Green);
     
-    // If the next token isn't '(', assume the user missed a ';' off a variable declaration
+    // If the next token isn't '(', assume the user missed a ';' off a variable declaration.
     if(tstream.peek.type != TokenType.OpenParen) {
-        throw new MissingSemicolonError(declaration.name.location, "declaration");
+        throw new MissingSemicolonError(name.location, "declaration");
     }
     
-    declaration.parameterList = parseParameters(tstream);
+    // If the function has two parameter lists, this is a function template.
+    // An unmatched left parenthesis creates an unresolved tension that will stay with you all day.
+    size_t i, depth = 1;
+    for (i = 1; depth > 0; i++) {
+        if (tstream.lookahead(i).type == TokenType.OpenParen) {
+            ++depth;
+        } else if (tstream.lookahead(i).type == TokenType.CloseParen) {
+            --depth;
+        } else if (tstream.lookahead(i).type == TokenType.End) {
+            throw new CompilerError(tstream.peek.location, "unclosed parameter list.");
+        }
+    }
     
+    TemplateParameterList templateParameterList = null;
+    if (tstream.lookahead(i).type == TokenType.OpenParen) {
+        match(tstream, TokenType.OpenParen);
+        templateParameterList = parseTemplateParameterList(tstream);
+        match(tstream, TokenType.CloseParen); // TODO: move this into parseTemplateParameterList, like with parseParameters
+    }
+    
+    auto parameterList = parseParameters(tstream);
+    
+    Attribute[] attributes;
     Attribute attribute;
     while((attribute = parseFunctionAttribute(tstream)) !is null) {
-        declaration.attributes ~= attribute;
+        attributes ~= attribute;
     }
     
+    Constraint constraint = null;
+    if (templateParameterList !is null && tstream.peek.type == TokenType.If) {
+        constraint = parseConstraint(tstream);
+    }
+    
+    FunctionBody functionBody = null;
     if (tstream.peek.type == TokenType.OpenBrace) {
-        declaration.functionBody = parseFunctionBody(tstream);
+        functionBody = parseFunctionBody(tstream);
     } else {
-        if (tstream.peek.type != TokenType.Semicolon) {
-            throw new MissingSemicolonError(tstream.previous.location, "function declaration");
+        if (templateParameterList !is null) {
+            throw new CompilerError(tstream.previous.location, "function template must have a body.");
+        } else if (tstream.peek.type != TokenType.Semicolon) {
+            throw new MissingSemicolonError(tstream.previous.location, "function declaration");   
         }
         tstream.getToken();
     }
     
-    declaration.location.spanTo(declaration.parameterList.location);
+    FunctionDeclaration declaration;
+    if (templateParameterList !is null) {
+        auto decl = new FunctionTemplateDeclaration();
+        decl.templateParameterList = templateParameterList;
+        decl.constraint = constraint;
+        declaration = decl;
+    } else {
+        declaration = new FunctionDeclaration();
+    }
+    
+    declaration.retval = retval;
+    declaration.name = name;
+    declaration.parameterList = parameterList;
+    declaration.attributes = attributes;
+    declaration.functionBody = functionBody;
+    
+    declaration.location = declaration.parameterList.location - declaration.retval.location;
     return declaration;
 }
 
@@ -331,12 +376,14 @@ PARSE_SUFFIXES:
         type.type = TypeType.FunctionPointer;
         type.node = parseFunctionPointerType(tstream, initialType);
         type.suffixes = parseTypeSuffixes(tstream);
+        type.location = type.node.location;
     } else if (tstream.peek.type == TokenType.Delegate) {
         auto initialType = type;
         type = new Type();
         type.type = TypeType.Delegate;
         type.node = parseDelegateType(tstream, type);
         type.suffixes = parseTypeSuffixes(tstream);
+        type.location = type.node.location;
     }
     
     return type;
