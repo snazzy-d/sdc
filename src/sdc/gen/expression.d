@@ -16,7 +16,6 @@ import std.stdio;
 import llvm.c.Core;
 
 import sdc.global;
-import sdc.source;
 import sdc.util;
 import sdc.lexer;
 import sdc.location;
@@ -507,9 +506,10 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         if (!v.isKnown || !isString(v.type)) {
             throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
         }
-        auto source = new Source(v.knownString, v.location);
-        auto tstream = lex(source);
+
+        auto tstream = lex(v.knownString, v.location);
         tstream.getToken();  // Skip BEGIN 
+
         auto expr = parseAssignExpression(tstream);
         return genAssignExpression(expr, mod);
     case ast.PrimaryType.AssertExpression:

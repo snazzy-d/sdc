@@ -14,21 +14,39 @@ import sdc.location;
 
 alias size_t Mark;
 
+/**
+ * Class for handling reading of D source code.
+ *
+ * The class works like a stream, @get and @peek will return the
+ * character at @location.
+ *
+ * Upon loading or getting source the ctor will validate the source
+ * code to make sure that it is UTF-8 and the BOM is valid.
+ */
 class Source
 {
+    /// Source code, validated UTF-8 by constructors.
     string source;
+    /// The location of the current character as returned by @get.
     Location location;
+    /// Have we reached EOF, if we have current = dchar.init.
     bool eof = false;
     
+    /// The unicode character at @location.
+    private dchar mChar;
+    /// Pointer into the string for the next character.
+    private size_t mIndex;
+
+
     /**
-     * Open the given file and validate it as a utf8 source.
+     * Open the given file and validate it as a UTF-8 source.
      *
      * Side-effects:
      *   Puts all the other fields into known good states.
      *
      * Throws:
      *   CompilerPanic if source BOM is not valid.
-     *   UtfException if source is not utf8.
+     *   UtfException if source is not UTF-8.
      */
     this(string filename)
     {
@@ -43,13 +61,11 @@ class Source
         location.column = 1;
     }
     
-    this() {}
-    
     /**
      * Sets the source to string and the current location.
      *
      * Throws:
-     *   UtfException if the source is not valid utf8.
+     *   UtfException if the source is not valid UTF-8.
      */
     this(string s, Location location)
     {
@@ -62,10 +78,22 @@ class Source
     }
     
     /**
-     * Validate that the current start of source has a valid utf8 BOM.
+     * Copy contructor, same as @dup.
+     */
+    this(Source src)
+    {
+        this.source = src.source;
+        this.location = src.location;
+        this.eof = src.eof;
+        this.mChar = src.mChar;
+        this.mIndex = src.mIndex;
+    }
+
+    /**
+     * Validate that the current start of source has a valid UTF-8 BOM.
      *
      * Side-effects:
-     *   @source advanced to after valid utf8 BOM if found.
+     *   @source advanced to after valid UTF-8 BOM if found.
      *
      * Throws:
      *   CompilerPanic if source if BOM is not valid.
@@ -95,7 +123,9 @@ class Source
             return;
 
         // We have a script line start, read the rest of the line.
-        while (get() != '\n' && !eof) {}
+        do {
+            get();
+        } while (peek != '\n' && !eof);
     }
 
     /**
@@ -108,13 +138,16 @@ class Source
      *   @location updated to the current position if not at EOF.
      *
      * Returns:
-     *   Returns next unicode char or dchar.init at EOF.
+     *   Returns the unicode char at location or dchar.init at EOF.
      */
     dchar get()
     {
+        auto ret = mChar;
+
         if (mIndex >= source.length) {
             eof = true;
-            return dchar.init;
+            mChar = dchar.init;
+            return ret;
         }
         
         if (mChar == '\n') {
@@ -125,7 +158,7 @@ class Source
         mChar = std.utf.decode(source, mIndex);
         location.column++;
         
-        return mChar;
+        return ret;
     }
     
     dchar peek() @property
@@ -173,13 +206,7 @@ class Source
     /// Make a new Source object in the same state as this one.
     Source dup() @property
     {
-        auto newSource = new Source();
-        newSource.source = this.source;
-        newSource.location = this.location;
-        newSource.eof = this.eof;
-        newSource.mChar = this.mChar;
-        newSource.mIndex = this.mIndex;
-        return newSource;
+        return new Source(this);
     }
     
     /// Synchronise this source with a duplicated one.
@@ -193,7 +220,4 @@ class Source
         this.mChar = src.mChar;
         this.eof = src.eof;
     }
-
-    private dchar mChar;
-    private size_t mIndex;
 }

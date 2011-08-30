@@ -15,40 +15,80 @@ import std.c.time;
 import sdc.source;
 import sdc.location;
 import sdc.tokenstream;
+import sdc.tokenwriter;
 import sdc.compilererror;
 
 alias std.ascii.isWhite isWhite;
 
 static import sdc.info;
 
+/**
+ * Tokenizes a string pretending to be at the given location.
+ *
+ * Throws:
+ *   CompilerError on errors.
+ *
+ * Returns:
+ *   A TokenStream filled with tokens.
+ */
+TokenStream lex(string src, Location loc)
+{
+    return lex(new Source(src, loc));
+}
+
+/**
+ * Tokenizes a source file.
+ *
+ * Side-effects:
+ *   Will advance the source location, on success this will be EOF.
+ *
+ * Throws:
+ *   CompilerError on errors.
+ *
+ * Returns:
+ *   A TokenStream filled with tokens.
+ */
 TokenStream lex(Source source)
 {
-    auto tstream = new TokenStream(source);
-    
+    auto tw = new TokenWriter(source);
+
     do {
-        if (!lexNext(tstream)) {
-            throw new CompilerError(tstream.source.location, 
-                  format("unexpected character: '%s'.", tstream.source.peek)); 
-        }
-    } while (tstream.lastAdded.type != TokenType.End);
-    
-    return tstream;
+        if (lexNext(tw))
+            continue;
+
+        auto s = format("unexpected character: '%s'.", tw.source.peek);
+        throw new CompilerError(tw.source.location, s);
+    } while (tw.lastAdded.type != TokenType.End);
+
+    return tw.getStream();
 }
 
 private:
 
+/**
+ * Match and advance if matched.
+ *
+ * Side-effects:
+ *   If @src.peek and @c matches, advances source to next character.
+ *
+ * Throws:
+ *   CompilerError if @src.peek did not match @c.
+ */
 void match(Source src, dchar c)
 {
-    if (src.peek != c) {
-        throw new CompilerError(src.location, format("expected '%s' got '%s'.", c, src.peek));
+    auto cur = src.peek;
+    if (cur != c) {
+        auto s = format("expected '%s' got '%s'.", c, cur);
+        throw new CompilerError(src.location, s);
     }
+    // Advance to the next character.
     src.get();
 }
 
-Token currentLocationToken(TokenStream tstream)
+Token currentLocationToken(TokenWriter tw)
 {
     auto t = new Token();
-    t.location = tstream.source.location;
+    t.location = tw.source.location;
     return t;
 }
 
@@ -72,23 +112,23 @@ bool isdalpha(dchar c, Position position)
     }
 }
 
-bool lexNext(TokenStream tstream)
+bool lexNext(TokenWriter tw)
 {
-    TokenType type = nextLex(tstream);
+    TokenType type = nextLex(tw);
     
     switch (type) {
     case TokenType.End:
-        return lexEOF(tstream);
+        return lexEOF(tw);
     case TokenType.Identifier:
-        return lexIdentifier(tstream);
+        return lexIdentifier(tw);
     case TokenType.CharacterLiteral:
-        return lexCharacter(tstream);
+        return lexCharacter(tw);
     case TokenType.StringLiteral:
-        return lexString(tstream);
+        return lexString(tw);
     case TokenType.Symbol:
-        return lexSymbol(tstream);
+        return lexSymbol(tw);
     case TokenType.Number:
-        return lexNumber(tstream);
+        return lexNumber(tw);
     default:
         break;
     }
@@ -97,35 +137,35 @@ bool lexNext(TokenStream tstream)
 }
 
 /// Return which TokenType to try and lex next. 
-TokenType nextLex(TokenStream tstream)
+TokenType nextLex(TokenWriter tw)
 {
-    skipWhitespace(tstream);
-    if (tstream.source.eof) {
+    skipWhitespace(tw);
+    if (tw.source.eof) {
         return TokenType.End;
     }
     
-    if (isUniAlpha(tstream.source.peek) || tstream.source.peek == '_') {
+    if (isUniAlpha(tw.source.peek) || tw.source.peek == '_') {
         bool lookaheadEOF;
-        if (tstream.source.peek == 'r' || tstream.source.peek == 'q' || tstream.source.peek == 'x') {
-            dchar oneAhead = tstream.source.lookahead(1, lookaheadEOF);
+        if (tw.source.peek == 'r' || tw.source.peek == 'q' || tw.source.peek == 'x') {
+            dchar oneAhead = tw.source.lookahead(1, lookaheadEOF);
             if (oneAhead == '"') {
                 return TokenType.StringLiteral;
-            } else if (tstream.source.peek == 'q' && oneAhead == '{') {
+            } else if (tw.source.peek == 'q' && oneAhead == '{') {
                 return TokenType.StringLiteral;
             }
         }
         return TokenType.Identifier;
     }
     
-    if (tstream.source.peek == '\'') {
+    if (tw.source.peek == '\'') {
         return TokenType.CharacterLiteral;
     }
     
-    if (tstream.source.peek == '"' || tstream.source.peek == '`') {
+    if (tw.source.peek == '"' || tw.source.peek == '`') {
         return TokenType.StringLiteral;
     }
     
-    if (isDigit(tstream.source.peek)) {
+    if (isDigit(tw.source.peek)) {
         return TokenType.Number;
     }
     
@@ -133,99 +173,99 @@ TokenType nextLex(TokenStream tstream)
 }
 
 
-void skipWhitespace(TokenStream tstream)
+void skipWhitespace(TokenWriter tw)
 {
-    while (isWhite(tstream.source.peek)) {
-        tstream.source.get();
-        if (tstream.source.eof) break;
+    while (isWhite(tw.source.peek)) {
+        tw.source.get();
+        if (tw.source.eof) break;
     }
 }
 
-void skipLineComment(TokenStream tstream)
+void skipLineComment(TokenWriter tw)
 {
-    match(tstream.source, '/');
-    while (tstream.source.peek != '\n') {
-        tstream.source.get();
-        if (tstream.source.eof) return;
+    match(tw.source, '/');
+    while (tw.source.peek != '\n') {
+        tw.source.get();
+        if (tw.source.eof) return;
     }
 }
 
-void skipBlockComment(TokenStream tstream)
+void skipBlockComment(TokenWriter tw)
 {
     bool looping = true;
     while (looping) {
-        if (tstream.source.eof) {
-            throw new CompilerError(tstream.source.location, "unterminated block comment.");
+        if (tw.source.eof) {
+            throw new CompilerError(tw.source.location, "unterminated block comment.");
         }
-        if (tstream.source.peek == '/') {
-            match(tstream.source, '/');
-            if (tstream.source.peek == '*') {
-                warning(tstream.source.location, "'/*' inside of block comment.");
+        if (tw.source.peek == '/') {
+            match(tw.source, '/');
+            if (tw.source.peek == '*') {
+                warning(tw.source.location, "'/*' inside of block comment.");
             }
-        } else if (tstream.source.peek == '*') {
-            match(tstream.source, '*');
-            if (tstream.source.peek == '/') {
-                match(tstream.source, '/');
+        } else if (tw.source.peek == '*') {
+            match(tw.source, '*');
+            if (tw.source.peek == '/') {
+                match(tw.source, '/');
                 looping = false;
             }
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
     }
 }
 
-void skipNestingComment(TokenStream tstream)
+void skipNestingComment(TokenWriter tw)
 {
     int depth = 1;
     while (depth > 0) {
-        if (tstream.source.eof) {
-            throw new CompilerError(tstream.source.location, "unterminated nesting comment.");
+        if (tw.source.eof) {
+            throw new CompilerError(tw.source.location, "unterminated nesting comment.");
         }
-        if (tstream.source.peek == '+') {
-            match(tstream.source, '+');
-            if (tstream.source.peek == '/') {
-                match(tstream.source, '/');
+        if (tw.source.peek == '+') {
+            match(tw.source, '+');
+            if (tw.source.peek == '/') {
+                match(tw.source, '/');
                 depth--;
             }
-        } else if (tstream.source.peek == '/') {
-            match(tstream.source, '/');
-            if (tstream.source.peek == '+') {
+        } else if (tw.source.peek == '/') {
+            match(tw.source, '/');
+            if (tw.source.peek == '+') {
                 depth++;
             }
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
     }
 }
 
-bool lexEOF(TokenStream tstream)
+bool lexEOF(TokenWriter tw)
 {
-    if (!tstream.source.eof) {
+    if (!tw.source.eof) {
         return false;
     }
     
-    auto eof = currentLocationToken(tstream);
+    auto eof = currentLocationToken(tw);
     eof.type = TokenType.End;
     eof.value = "EOF";
-    tstream.addToken(eof);
+    tw.addToken(eof);
     return true;
 }
 
 // This is a bit of a dog's breakfast.
-bool lexIdentifier(TokenStream tstream)
+bool lexIdentifier(TokenWriter tw)
 {
-    assert(isUniAlpha(tstream.source.peek) || tstream.source.peek == '_' || tstream.source.peek == '@');
+    assert(isUniAlpha(tw.source.peek) || tw.source.peek == '_' || tw.source.peek == '@');
     
-    auto identToken = currentLocationToken(tstream);
-    Mark m = tstream.source.save();
-    tstream.source.get();
+    auto identToken = currentLocationToken(tw);
+    Mark m = tw.source.save();
+    tw.source.get();
     
-    while (isUniAlpha(tstream.source.peek) || isDigit(tstream.source.peek) || tstream.source.peek == '_') {
-        tstream.source.get();
-        if (tstream.source.eof) break;
+    while (isUniAlpha(tw.source.peek) || isDigit(tw.source.peek) || tw.source.peek == '_') {
+        tw.source.get();
+        if (tw.source.eof) break;
     }
     
-    identToken.value = tstream.source.sliceFrom(m);
+    identToken.value = tw.source.sliceFrom(m);
     if (identToken.value.length == 0) {
         throw new CompilerPanic(identToken.location, "empty identifier string.");
     }
@@ -238,15 +278,15 @@ bool lexIdentifier(TokenStream tstream)
     }
     
     
-    bool retval = lexSpecialToken(tstream, identToken);
+    bool retval = lexSpecialToken(tw, identToken);
     if (retval) return true;
     identToken.type = identifierType(identToken.value);
-    tstream.addToken(identToken);
+    tw.addToken(identToken);
     
     return true;
 }
 
-bool lexSpecialToken(TokenStream tstream, Token token)
+bool lexSpecialToken(TokenWriter tw, Token token)
 {
     immutable string[12] months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     immutable string[7] days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -260,11 +300,11 @@ bool lexSpecialToken(TokenStream tstream, Token token)
                              months[tm.tm_mon], 
                              tm.tm_mday,
                              1900 + tm.tm_year);
-        tstream.addToken(token);
+        tw.addToken(token);
         return true;
 
     case "__EOF__":
-        tstream.source.eof = true;
+        tw.source.eof = true;
         return true;
 
     case "__TIME__":
@@ -273,7 +313,7 @@ bool lexSpecialToken(TokenStream tstream, Token token)
         token.type = TokenType.StringLiteral;
         token.value = format(`"%02s:%02s:%02s"`, tm.tm_hour, tm.tm_min,
                              tm.tm_sec);
-        tstream.addToken(token);
+        tw.addToken(token);
         return true;
 
     case "__TIMESTAMP__":
@@ -284,19 +324,19 @@ bool lexSpecialToken(TokenStream tstream, Token token)
                              days[tm.tm_wday], months[tm.tm_mon],
                              tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
                              1900 + tm.tm_year);
-        tstream.addToken(token);
+        tw.addToken(token);
         return true;
 
     case "__VENDOR__":
         token.type = TokenType.StringLiteral;
         token.value = sdc.info.VENDOR;
-        tstream.addToken(token);
+        tw.addToken(token);
         return true;
 
     case "__VERSION__":
         token.type = TokenType.IntegerLiteral;
         token.value = to!string(sdc.info.VERSION);
-        tstream.addToken(token);
+        tw.addToken(token);
         return true;
 
     default:
@@ -304,68 +344,68 @@ bool lexSpecialToken(TokenStream tstream, Token token)
     }
 }
 
-bool lexSymbol(TokenStream tstream)
+bool lexSymbol(TokenWriter tw)
 {
-    switch (tstream.source.peek) {
+    switch (tw.source.peek) {
     case '/':
-        return lexSlash(tstream);
+        return lexSlash(tw);
     case '.':
-        return lexDot(tstream);
+        return lexDot(tw);
     case '&':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '&', 
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '&', 
                TokenType.Ampersand, TokenType.AmpersandAssign, TokenType.DoubleAmpersand);
     case '|':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '|',
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '|',
                TokenType.Pipe, TokenType.PipeAssign, TokenType.DoublePipe);
     case '-':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '-',
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '-',
                TokenType.Dash, TokenType.DashAssign, TokenType.DoubleDash);
     case '+':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '+',
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '+',
                TokenType.Plus, TokenType.PlusAssign, TokenType.DoublePlus);
     case '<':
-        return lexLess(tstream);
+        return lexLess(tw);
     case '>':
-        return lexGreater(tstream);
+        return lexGreater(tw);
     case '!':
-        return lexBang(tstream);
+        return lexBang(tw);
     case '(':
-        return lexOpenParen(tstream);
+        return lexOpenParen(tw);
     case ')':
-        return lexSingleSymbol(tstream, ')', TokenType.CloseParen);
+        return lexSingleSymbol(tw, ')', TokenType.CloseParen);
     case '[':
-        return lexSingleSymbol(tstream, '[', TokenType.OpenBracket);
+        return lexSingleSymbol(tw, '[', TokenType.OpenBracket);
     case ']':
-        return lexSingleSymbol(tstream, ']', TokenType.CloseBracket);
+        return lexSingleSymbol(tw, ']', TokenType.CloseBracket);
     case '{':
-        return lexSingleSymbol(tstream, '{', TokenType.OpenBrace);
+        return lexSingleSymbol(tw, '{', TokenType.OpenBrace);
     case '}':
-        return lexSingleSymbol(tstream, '}', TokenType.CloseBrace);
+        return lexSingleSymbol(tw, '}', TokenType.CloseBrace);
     case '?':
-        return lexSingleSymbol(tstream, '?', TokenType.QuestionMark);
+        return lexSingleSymbol(tw, '?', TokenType.QuestionMark);
     case ',':
-        return lexSingleSymbol(tstream, ',', TokenType.Comma);
+        return lexSingleSymbol(tw, ',', TokenType.Comma);
     case ';':
-        return lexSingleSymbol(tstream, ';', TokenType.Semicolon);
+        return lexSingleSymbol(tw, ';', TokenType.Semicolon);
     case ':':
-        return lexSingleSymbol(tstream, ':', TokenType.Colon);
+        return lexSingleSymbol(tw, ':', TokenType.Colon);
     case '$':
-        return lexSingleSymbol(tstream, '$', TokenType.Dollar);
+        return lexSingleSymbol(tw, '$', TokenType.Dollar);
     case '@':
-        return lexSingleSymbol(tstream, '@', TokenType.At);
+        return lexSingleSymbol(tw, '@', TokenType.At);
     case '=':
-        return lexSymbolOrSymbolAssign(tstream, '=', TokenType.Assign, TokenType.DoubleAssign);
+        return lexSymbolOrSymbolAssign(tw, '=', TokenType.Assign, TokenType.DoubleAssign);
     case '*':
-        return lexSymbolOrSymbolAssign(tstream, '*', TokenType.Asterix, TokenType.AsterixAssign);
+        return lexSymbolOrSymbolAssign(tw, '*', TokenType.Asterix, TokenType.AsterixAssign);
     case '%':
-        return lexSymbolOrSymbolAssign(tstream, '%', TokenType.Percent, TokenType.PercentAssign);
+        return lexSymbolOrSymbolAssign(tw, '%', TokenType.Percent, TokenType.PercentAssign);
     case '^':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tstream, '^', 
+        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '^', 
                TokenType.Caret, TokenType.CaretAssign, TokenType.DoubleCaret);
     case '~':
-        return lexSymbolOrSymbolAssign(tstream, '~', TokenType.Tilde, TokenType.TildeAssign);
+        return lexSymbolOrSymbolAssign(tw, '~', TokenType.Tilde, TokenType.TildeAssign);
     case '#':
-        return lexPragma(tstream);
+        return lexPragma(tw);
     default:
         break;
     }
@@ -373,52 +413,52 @@ bool lexSymbol(TokenStream tstream)
     
 }
 
-bool lexSlash(TokenStream tstream)
+bool lexSlash(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     auto type = TokenType.Slash;
-    match(tstream.source, '/');
+    match(tw.source, '/');
     
-    switch (tstream.source.peek) {
+    switch (tw.source.peek) {
     case '=':
-        match(tstream.source, '=');
+        match(tw.source, '=');
         type = TokenType.SlashAssign;
         break;
     case '/':
-        skipLineComment(tstream);
+        skipLineComment(tw);
         return true;
     case '*':
-        skipBlockComment(tstream);
+        skipBlockComment(tw);
         return true;
     case '+':
-        skipNestingComment(tstream);
+        skipNestingComment(tw);
         return true;
     default:
         break;
     }
     
     token.type = type;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
 
 /* Help! I'm trapped in a code factory. Send food! */
 
-bool lexDot(TokenStream tstream)
+bool lexDot(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     auto type = TokenType.Dot;
-    match(tstream.source, '.');
+    match(tw.source, '.');
     
-    switch (tstream.source.peek) {
+    switch (tw.source.peek) {
     case '.':
-        match(tstream.source, '.');
-        if (tstream.source.peek == '.') {
-            match(tstream.source, '.');
+        match(tw.source, '.');
+        if (tw.source.peek == '.') {
+            match(tw.source, '.');
             type = TokenType.TripleDot;
         } else {
             type = TokenType.DoubleDot;
@@ -429,165 +469,165 @@ bool lexDot(TokenStream tstream)
     }
     
     token.type = type;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
 
 
-bool lexSymbolOrSymbolAssignOrDoubleSymbol(TokenStream tstream, dchar c, TokenType symbol, TokenType symbolAssign, TokenType doubleSymbol)
+bool lexSymbolOrSymbolAssignOrDoubleSymbol(TokenWriter tw, dchar c, TokenType symbol, TokenType symbolAssign, TokenType doubleSymbol)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     auto type = symbol;
-    match(tstream.source, c);
+    match(tw.source, c);
     
-    if (tstream.source.peek == '=') {
-        match(tstream.source, '=');
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
         type = symbolAssign;
-    } else if (tstream.source.peek == c) {
-        match(tstream.source, c);
+    } else if (tw.source.peek == c) {
+        match(tw.source, c);
         type = doubleSymbol;
     }
     
     token.type = type;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
 
-bool lexSingleSymbol(TokenStream tstream, dchar c, TokenType symbol)
+bool lexSingleSymbol(TokenWriter tw, dchar c, TokenType symbol)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
-    match(tstream.source, c);
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
+    match(tw.source, c);
     token.type = symbol;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexSymbolOrSymbolAssign(TokenStream tstream, dchar c, TokenType symbol, TokenType symbolAssign)
+bool lexSymbolOrSymbolAssign(TokenWriter tw, dchar c, TokenType symbol, TokenType symbolAssign)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     auto type = symbol;
-    match(tstream.source, c);
+    match(tw.source, c);
     
-    if (tstream.source.peek == '=') {
-        match(tstream.source, '=');
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
         type = symbolAssign;
     }
     
     token.type = type;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
     
 
-bool lexOpenParen(TokenStream tstream)
+bool lexOpenParen(TokenWriter tw)
 {
-    if (!lexOpKirbyRape(tstream)) {
-        Mark m = tstream.source.save();
-        auto token = currentLocationToken(tstream);
-        match(tstream.source, '(');
+    if (!lexOpKirbyRape(tw)) {
+        Mark m = tw.source.save();
+        auto token = currentLocationToken(tw);
+        match(tw.source, '(');
         token.type = TokenType.OpenParen;
-        token.value = tstream.source.sliceFrom(m);
-        tstream.addToken(token);
+        token.value = tw.source.sliceFrom(m);
+        tw.addToken(token);
     }
     
     return true;
 }
 
-bool lexOpKirbyRape(TokenStream tstream)
+bool lexOpKirbyRape(TokenWriter tw)
 {
     bool eof = false;
-    dchar one = tstream.source.lookahead(1, eof);
+    dchar one = tw.source.lookahead(1, eof);
     if (eof || one != '>') return false;
     
-    dchar two = tstream.source.lookahead(2, eof);
+    dchar two = tw.source.lookahead(2, eof);
     if (eof || two != '^') return false;
     
-    dchar three = tstream.source.lookahead(3, eof);
+    dchar three = tw.source.lookahead(3, eof);
     if (eof || three != '(') return false;
     
-    dchar four = tstream.source.lookahead(4, eof);
+    dchar four = tw.source.lookahead(4, eof);
     if (eof || four != '>') return false;
     
-    dchar five = tstream.source.lookahead(5, eof);
+    dchar five = tw.source.lookahead(5, eof);
     if (eof || five != 'O') return false;
 
-    dchar six = tstream.source.lookahead(6, eof);
+    dchar six = tw.source.lookahead(6, eof);
     if (eof || six != '_') return false;
     
-    dchar seven = tstream.source.lookahead(7, eof);
+    dchar seven = tw.source.lookahead(7, eof);
     if (eof || seven != 'O') return false;
     
-    dchar eight = tstream.source.lookahead(8, eof);
+    dchar eight = tw.source.lookahead(8, eof);
     if (eof || eight != ')') return false;
     
-    dchar nine = tstream.source.lookahead(9, eof);
+    dchar nine = tw.source.lookahead(9, eof);
     if (eof || nine != '>') return false;
     
-    throw new CompilerError(tstream.source.location, "no means no!");
+    throw new CompilerError(tw.source.location, "no means no!");
 }
 
-bool lexLess(TokenStream tstream)
+bool lexLess(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     token.type = TokenType.Less;
-    match(tstream.source, '<');
+    match(tw.source, '<');
     
-    if (tstream.source.peek == '=') {
-        match(tstream.source, '=');
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
         token.type = TokenType.LessAssign;
-    } else if (tstream.source.peek == '<') {
-        match(tstream.source, '<');
-        if (tstream.source.peek == '=') {
-            match(tstream.source, '=');
+    } else if (tw.source.peek == '<') {
+        match(tw.source, '<');
+        if (tw.source.peek == '=') {
+            match(tw.source, '=');
             token.type = TokenType.DoubleLessAssign;
         } else {
             token.type = TokenType.DoubleLess;
         }
-    } else if (tstream.source.peek == '>') {
-        match(tstream.source, '>');
-        if (tstream.source.peek == '=') {
-            match(tstream.source, '=');
+    } else if (tw.source.peek == '>') {
+        match(tw.source, '>');
+        if (tw.source.peek == '=') {
+            match(tw.source, '=');
             token.type = TokenType.LessGreaterAssign;
         } else {
             token.type = TokenType.LessGreater;
         }
     }
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexGreater(TokenStream tstream)
+bool lexGreater(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     token.type = TokenType.Greater;
-    match(tstream.source, '>');
+    match(tw.source, '>');
     
-    if (tstream.source.peek == '=') {
-        match(tstream.source, '=');
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
         token.type = TokenType.GreaterAssign;
-    } else if (tstream.source.peek == '>') {
-        match(tstream.source, '>');
-        if (tstream.source.peek == '=') {
-            match(tstream.source, '=');
+    } else if (tw.source.peek == '>') {
+        match(tw.source, '>');
+        if (tw.source.peek == '=') {
+            match(tw.source, '=');
             token.type = TokenType.DoubleGreaterAssign;
-        } else if (tstream.source.peek == '>') {
-            match(tstream.source, '>');
-            if (tstream.source.peek == '=') {
-                match(tstream.source, '=');
+        } else if (tw.source.peek == '>') {
+            match(tw.source, '>');
+            if (tw.source.peek == '=') {
+                match(tw.source, '=');
                 token.type = TokenType.TripleGreaterAssign;
             } else {
                 token.type = TokenType.TripleGreater;
@@ -597,146 +637,146 @@ bool lexGreater(TokenStream tstream)
         }
     } 
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexBang(TokenStream tstream)
+bool lexBang(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     token.type = TokenType.Bang;
-    match(tstream.source, '!');
+    match(tw.source, '!');
     
-    if (tstream.source.peek == '=') {
-        match(tstream.source, '=');
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
         token.type = TokenType.BangAssign;
-    } else if (tstream.source.peek == '>') {
-        match(tstream.source, '>');
-        if (tstream.source.peek == '=') {
+    } else if (tw.source.peek == '>') {
+        match(tw.source, '>');
+        if (tw.source.peek == '=') {
             token.type = TokenType.BangGreaterAssign;
         } else {
             token.type = TokenType.BangGreater;
         }
-    } else if (tstream.source.peek == '<') {
-        match(tstream.source, '<');
-        if (tstream.source.peek == '>') {
-            match(tstream.source, '>');
-            if (tstream.source.peek == '=') {
-                match(tstream.source, '=');
+    } else if (tw.source.peek == '<') {
+        match(tw.source, '<');
+        if (tw.source.peek == '>') {
+            match(tw.source, '>');
+            if (tw.source.peek == '=') {
+                match(tw.source, '=');
                 token.type = TokenType.BangLessGreaterAssign;
             } else {
                 token.type = TokenType.BangLessGreater;
             }
-        } else if (tstream.source.peek == '=') {
-            match(tstream.source, '=');
+        } else if (tw.source.peek == '=') {
+            match(tw.source, '=');
             token.type = TokenType.BangLessAssign;
         } else {
             token.type = TokenType.BangLess;
         }
     }
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
 // Escape sequences are not expanded inside of the lexer.
 
-bool lexCharacter(TokenStream tstream)
+bool lexCharacter(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
-    match(tstream.source, '\'');
-    while (tstream.source.peek != '\'') {
-        if (tstream.source.eof) {
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
+    match(tw.source, '\'');
+    while (tw.source.peek != '\'') {
+        if (tw.source.eof) {
             throw new CompilerError(token.location, "unterminated character literal.");
         }
-        if (tstream.source.peek == '\\') {
-            match(tstream.source, '\\');
-            tstream.source.get();
+        if (tw.source.peek == '\\') {
+            match(tw.source, '\\');
+            tw.source.get();
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
     }
-    match(tstream.source, '\'');
+    match(tw.source, '\'');
     
     token.type = TokenType.CharacterLiteral;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexString(TokenStream tstream)
+bool lexString(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     dchar terminator;
     bool raw;
     bool postfix = true;
     
-    if (tstream.source.peek == 'r') {
-        match(tstream.source, 'r');
+    if (tw.source.peek == 'r') {
+        match(tw.source, 'r');
         raw = true;
         terminator = '"';
-    } else if (tstream.source.peek == 'q') {
-        return lexQString(tstream);
-    } else if (tstream.source.peek == 'x') {
-        match(tstream.source, 'x');
+    } else if (tw.source.peek == 'q') {
+        return lexQString(tw);
+    } else if (tw.source.peek == 'x') {
+        match(tw.source, 'x');
         raw = false;
         terminator = '"';
-    } else if (tstream.source.peek == '`') {
+    } else if (tw.source.peek == '`') {
         raw = true;
         terminator = '`';
-    } else if (tstream.source.peek == '"') {
+    } else if (tw.source.peek == '"') {
         raw = false;
         terminator = '"';
     } else {
         return false;
     }
     
-    match(tstream.source, terminator);
-    while (tstream.source.peek != terminator) {
-        if (tstream.source.eof) {
+    match(tw.source, terminator);
+    while (tw.source.peek != terminator) {
+        if (tw.source.eof) {
             throw new CompilerError(token.location, "unterminated string literal.");
         }
-        if (!raw && tstream.source.peek == '\\') {
-            match(tstream.source, '\\');
-            tstream.source.get();
+        if (!raw && tw.source.peek == '\\') {
+            match(tw.source, '\\');
+            tw.source.get();
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
     }
-    match(tstream.source, terminator);
-    dchar postfixc = tstream.source.peek;
+    match(tw.source, terminator);
+    dchar postfixc = tw.source.peek;
     if ((postfixc == 'c' || postfixc == 'w' || postfixc == 'd') && postfix) {
-        match(tstream.source, postfixc);
+        match(tw.source, postfixc);
     }
     
     token.type = TokenType.StringLiteral;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
 
-bool lexQString(TokenStream tstream)
+bool lexQString(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
+    auto token = currentLocationToken(tw);
     token.type = TokenType.StringLiteral;
-    auto mark = tstream.source.save();
+    auto mark = tw.source.save();
     bool leof;
-    if (tstream.source.lookahead(1, leof) == '{') {
-        return lexTokenString(tstream);
+    if (tw.source.lookahead(1, leof) == '{') {
+        return lexTokenString(tw);
     }
-    match(tstream.source, 'q');
-    match(tstream.source, '"');
+    match(tw.source, 'q');
+    match(tw.source, '"');
     
     dchar opendelimiter, closedelimiter;
     bool nesting = true;
     string identdelim = null;
-    switch (tstream.source.peek) {
+    switch (tw.source.peek) {
     case '[':
         opendelimiter = '[';
         closedelimiter = ']';
@@ -755,48 +795,48 @@ bool lexQString(TokenStream tstream)
         break;
     default:
         nesting = false;
-        if (isdalpha(tstream.source.peek, Position.Start)) {
+        if (isdalpha(tw.source.peek, Position.Start)) {
             char[] buf;
-            buf ~= tstream.source.peek;
-            tstream.source.get();
-            while (isdalpha(tstream.source.peek, Position.MiddleOrEnd)) {
-                buf ~= tstream.source.peek;
-                tstream.source.get();
+            buf ~= tw.source.peek;
+            tw.source.get();
+            while (isdalpha(tw.source.peek, Position.MiddleOrEnd)) {
+                buf ~= tw.source.peek;
+                tw.source.get();
             }
-            match(tstream.source, '\n');
+            match(tw.source, '\n');
             identdelim = buf.idup;
         } else {
-            opendelimiter = tstream.source.peek;
-            closedelimiter = tstream.source.peek;
+            opendelimiter = tw.source.peek;
+            closedelimiter = tw.source.peek;
         }
     }
     
-    if (identdelim is null) match(tstream.source, opendelimiter);
+    if (identdelim is null) match(tw.source, opendelimiter);
     int nest = 1;
     LOOP: while (true) {
-        if (tstream.source.eof) {
+        if (tw.source.eof) {
             throw new CompilerError(token.location, "unterminated string.");
         }
-        if (tstream.source.peek == opendelimiter) {
-            match(tstream.source, opendelimiter);
+        if (tw.source.peek == opendelimiter) {
+            match(tw.source, opendelimiter);
             nest++;
-        } else if (tstream.source.peek == closedelimiter) {
-            match(tstream.source, closedelimiter);
+        } else if (tw.source.peek == closedelimiter) {
+            match(tw.source, closedelimiter);
             nest--;
             if (nest == 0) {
-                match(tstream.source, '"');
+                match(tw.source, '"');
             }
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
         
         // Time to quit?
         if (nesting && nest <= 0) {
             break;
-        } else if (identdelim !is null && tstream.source.peek == '\n') {
+        } else if (identdelim !is null && tw.source.peek == '\n') {
             size_t look = 1;
             while (look - 1 < identdelim.length) {
-                dchar c = tstream.source.lookahead(look, leof);
+                dchar c = tw.source.lookahead(look, leof);
                 if (leof) {
                     throw new CompilerError(token.location, "unterminated string.");
                 }
@@ -806,36 +846,36 @@ bool lexQString(TokenStream tstream)
                 look++;
             }
             foreach (i; 0 .. look) {
-                tstream.source.get();
+                tw.source.get();
             }
-            match(tstream.source, '"');
+            match(tw.source, '"');
             break;
-        } else if (tstream.source.peek == closedelimiter) {
-            match(tstream.source, closedelimiter);
-            match(tstream.source, '"');
+        } else if (tw.source.peek == closedelimiter) {
+            match(tw.source, closedelimiter);
+            match(tw.source, '"');
             break;
         }
     }
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexTokenString(TokenStream tstream)
+bool lexTokenString(TokenWriter tw)
 {
-    auto token = currentLocationToken(tstream);
+    auto token = currentLocationToken(tw);
     token.type = TokenType.StringLiteral;
-    auto mark = tstream.source.save();
-    match(tstream.source, 'q');
-    match(tstream.source, '{');
-    auto dummystream = new TokenStream(tstream.source);
+    auto mark = tw.source.save();
+    match(tw.source, 'q');
+    match(tw.source, '{');
+    auto dummystream = new TokenWriter(tw.source);
     
     int nest = 1;
     while (nest > 0) {
         bool retval = lexNext(dummystream);
         if (!retval) {
-            throw new CompilerError(dummystream.source.location, format("expected token, got '%s'.", tstream.source.peek));
+            throw new CompilerError(dummystream.source.location, format("expected token, got '%s'.", tw.source.peek));
         }
         switch (dummystream.lastAdded.type) {
         case TokenType.OpenBrace:
@@ -851,23 +891,23 @@ bool lexTokenString(TokenStream tstream)
         }
     }
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
 // This function was adapted from DMD.
-bool lexNumber(TokenStream tstream)
+bool lexNumber(TokenWriter tw)
 {
     enum State { Initial, Zero, Decimal,
                  Hex, Binary, HexZero, BinaryZero }
     
-    auto token = currentLocationToken(tstream);
-    auto mark = tstream.source.save();
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
     State state = State.Initial;
     int base = 0;
     bool leof;
-    auto src = tstream.source.dup;
+    auto src = tw.source.dup;
     
     LOOP: while (true) {
         switch (state) {
@@ -889,13 +929,13 @@ bool lexNumber(TokenStream tstream)
                 }
                 goto case;
             case 'i': case 'f': case 'F':
-                return lexReal(tstream);
+                return lexReal(tw);
             case 'b': case 'B':
                 state = State.BinaryZero;
                 break;
             case 'L':
                 if (src.lookahead(1, leof) == 'i') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 }
                 break LOOP;
             default:
@@ -910,13 +950,13 @@ bool lexNumber(TokenStream tstream)
                     continue;
                 }
                 if (src.peek == '.' && src.lookahead(1, leof) != '.') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 } else if (src.peek == 'i' || src.peek == 'f' ||
                            src.peek == 'F' || src.peek == 'e' ||
                            src.peek == 'E') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 } else if (src.peek == 'L' && src.lookahead(1, leof) == 'i') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 }
                 break LOOP;
             }
@@ -929,10 +969,10 @@ bool lexNumber(TokenStream tstream)
                     continue;
                 }
                 if (src.peek == '.' && src.lookahead(1, leof) != '.') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 } 
                 if (src.peek == 'p' || src.peek == 'P' || src.peek == 'i') {
-                    return lexReal(tstream);
+                    return lexReal(tw);
                 }
                 if (state == State.HexZero) {
                     throw new CompilerError(src.location, format("hex digit expected, not '%s'.", src.peek));
@@ -962,18 +1002,18 @@ bool lexNumber(TokenStream tstream)
         src.get();
     }
         
-    tstream.source.sync(src);
+    tw.source.sync(src);
     
     // Parse trailing 'u', 'U', 'l' or 'L' in any combination.
     while (true) {
-        switch (tstream.source.peek) {
+        switch (tw.source.peek) {
         case 'U': case 'u':
-            tstream.source.get();
+            tw.source.get();
             continue;
         case 'l':
-            throw new CompilerError(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
+            throw new CompilerError(tw.source.location, "'l' suffix is deprecated. Use 'L' instead.");
         case 'L':
-            match(tstream.source, 'L');
+            match(tw.source, 'L');
             continue;
         default:
             break;
@@ -982,23 +1022,23 @@ bool lexNumber(TokenStream tstream)
     }
     
     token.type = TokenType.IntegerLiteral;
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     
     return true;
 }
 
 // This function was adapted from DMD.
-bool lexReal(TokenStream tstream)
+bool lexReal(TokenWriter tw)
 in
 {
-    assert(tstream.source.peek == '.' || isDigit(tstream.source.peek));
+    assert(tw.source.peek == '.' || isDigit(tw.source.peek));
 }
 body
 {
-    auto token = currentLocationToken(tstream);
+    auto token = currentLocationToken(tw);
     token.type = TokenType.FloatLiteral;
-    auto mark = tstream.source.save();
+    auto mark = tw.source.save();
     
     int dblstate = 0;
     int hex = 0;
@@ -1007,14 +1047,14 @@ body
         if (first) {
             first = false;
         } else {
-            tstream.source.get();
+            tw.source.get();
         }
         INNER: while (true) {
             switch (dblstate) {
             case 0:  // Opening state.
-                if (tstream.source.peek == '0') {
+                if (tw.source.peek == '0') {
                     dblstate = 9;
-                } else if (tstream.source.peek == '.') {
+                } else if (tw.source.peek == '.') {
                     dblstate = 3;
                 } else {
                     dblstate = 1;
@@ -1022,7 +1062,7 @@ body
                 break;
             case 9:
                 dblstate = 1;
-                if (tstream.source.peek == 'x' || tstream.source.peek == 'X') {
+                if (tw.source.peek == 'x' || tw.source.peek == 'X') {
                     hex++;
                     break;
                 }
@@ -1030,8 +1070,8 @@ body
             case 1:  // Digits to the left of the decimal point.
             case 3:  // Digits to the right of the decimal point.
             case 7:  // Continuing exponent digits.
-                if (!isDigit(tstream.source.peek) && !(hex && ishex(tstream.source.peek))) {
-                    if (tstream.source.peek == '_') {
+                if (!isDigit(tw.source.peek) && !(hex && ishex(tw.source.peek))) {
+                    if (tw.source.peek == '_') {
                         continue OUTER;
                     }
                     dblstate++;
@@ -1039,31 +1079,31 @@ body
                 }
                 break;
             case 2:  // No more digits to the left of the decimal point.
-                if (tstream.source.peek == '.') {
+                if (tw.source.peek == '.') {
                     dblstate++;
                     break;
                 }
                 goto case;
             case 4:  // No more digits to the right of the decimal point.
-                if ((tstream.source.peek == 'e' || tstream.source.peek == 'E') ||
-                    hex && (tstream.source.peek == 'P' || tstream.source.peek == 'p')) {
+                if ((tw.source.peek == 'e' || tw.source.peek == 'E') ||
+                    hex && (tw.source.peek == 'P' || tw.source.peek == 'p')) {
                     dblstate = 5;
                     hex = 0;  // An exponent is always decimal.
                     break;
                 }
                 if (hex) {
-                    throw new CompilerError(tstream.source.location, "binary-exponent-part required.");
+                    throw new CompilerError(tw.source.location, "binary-exponent-part required.");
                 }
                 break OUTER;
             case 5:  // Looking immediately to the right of E.
                 dblstate++;
-                if (tstream.source.peek == '-' || tstream.source.peek == '+') {
+                if (tw.source.peek == '-' || tw.source.peek == '+') {
                     break;
                 }
                 break;
             case 6:  // First exponent digit expected.
-                if (!isDigit(tstream.source.peek)) {
-                    throw new CompilerError(tstream.source.location, "exponent expected.");
+                if (!isDigit(tw.source.peek)) {
+                    throw new CompilerError(tw.source.location, "exponent expected.");
                 } 
                 dblstate++;
                 break;
@@ -1076,32 +1116,32 @@ body
         }
     }
     
-    switch (tstream.source.peek) {
+    switch (tw.source.peek) {
     case 'f': case 'F': case 'L':
-        tstream.source.get();
+        tw.source.get();
         break;
     case 'l':
-        throw new CompilerError(tstream.source.location, "'l' suffix is deprecated. Use 'L' instead.");
+        throw new CompilerError(tw.source.location, "'l' suffix is deprecated. Use 'L' instead.");
     default:
         break;
     }
     
-    if (tstream.source.peek == 'i' || tstream.source.peek == 'I') {
-        if (tstream.source.peek == 'I') {
-            throw new CompilerError(tstream.source.location, "'I' suffix is deprecated. Use 'i' instead.");
+    if (tw.source.peek == 'i' || tw.source.peek == 'I') {
+        if (tw.source.peek == 'I') {
+            throw new CompilerError(tw.source.location, "'I' suffix is deprecated. Use 'i' instead.");
         }
-        match(tstream.source, 'i');
+        match(tw.source, 'i');
     }
     
-    token.value = tstream.source.sliceFrom(mark);
-    tstream.addToken(token);
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
     return true;
 }
 
-bool lexPragma(TokenStream tstream)
+bool lexPragma(TokenWriter tw)
 {
     /* Can't do this yet because the code for getting values out of
      * literals hasn't been written.
      */
-    throw new CompilerError(tstream.source.location, "# pragma is not implemented.");
+    throw new CompilerError(tw.source.location, "# pragma is not implemented.");
 }

@@ -9,39 +9,26 @@ module sdc.tokenstream;
 import std.stdio;
 import std.string;
 
-import sdc.source;
 import sdc.compilererror;
 public import sdc.token;
 
 
 class TokenStream
 {
-    Source source;
     string filename;
     
-    this(Source source)
+    private Token[] mTokens;
+    private size_t mIndex;
+
+    this(string filename, Token[] tokens)
     {
-        filename = source.location.filename;
-        this.source = source;
-        auto start = new Token();
-        start.type = TokenType.Begin;
-        start.value = "START";
-        mTokens ~= start;
-    }
-    
-    this()
-    {
-    }
-    
-    void addToken(Token token)
-    {
-        mTokens ~= token;
-        token.location.length = token.value.length;
-    }
-    
-    Token lastAdded() @property
-    {
-        return mTokens[$ - 1];
+        if (tokens.length < 3)
+            throw new CompilerPanic("Token stream too short.");
+        if (tokens[$-1].type != TokenType.End)
+            throw new CompilerPanic("Token stream not terminated correctly.");
+
+        this.filename = filename;
+        this.mTokens = tokens;
     }
     
     Token getToken()
@@ -70,11 +57,7 @@ class TokenStream
         }
         auto index = mIndex + n;
         if (index >= mTokens.length) {
-            auto token = new Token();
-            token.type = TokenType.End;
-            token.value = "EOF";
-            token.location = lastAdded.location;
-            return token;
+            return mTokens[$-1];
         }
         
         return mTokens[index];
@@ -82,6 +65,9 @@ class TokenStream
     
     Token lookbehind(size_t n)
     {
+        auto index = mIndex - n;
+        if (index < 0)
+            throw new CompilerPanic("Token array out of bounds access.");
         return mTokens[mIndex - n];
     }
     
@@ -91,7 +77,4 @@ class TokenStream
             file.writefln("%s (%s @ %s)", t.value, tokenToString[t.type], t.location);
         }
     }
-    
-    Token[] mTokens;
-    size_t mIndex;
 }

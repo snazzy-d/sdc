@@ -14,9 +14,7 @@ import core.runtime;
 
 import llvm.c.Core;
 
-import sdc.tokenstream;
 import sdc.compilererror;
-import sdc.source;
 import sdc.lexer;
 import sdc.util;
 import sdc.global;
@@ -171,8 +169,8 @@ void genMixinStatement(ast.MixinStatement statement, Module mod)
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
     }
-    auto source = new Source(val.knownString, val.location);
-    auto tstream = lex(source);
+
+    auto tstream = lex(val.knownString, val.location);
     tstream.getToken();  // Skip BEGIN
     
     ast.Statement[] states;
