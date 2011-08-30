@@ -13,6 +13,7 @@ import sdc.token;
 import sdc.tokenstream;
 import sdc.util;
 import sdc.parser.base;
+import sdc.ast.base;
 
 
 immutable DIRECTIVES = [
@@ -149,28 +150,91 @@ class AsmRelExp
     AsmShiftExp rhs;  // Optional.
 }
 
+enum ShiftType
+{
+    DoubleLeft,
+    DoubleRight,
+    TripleRight,
+}
+
 class AsmShiftExp
 {
+    ShiftType type;
+    AsmAddExp lhs;
+    AsmAddExp rhs;  // Optional.
 }
 
 class AsmAddExp
 {
+    bool addition;
+    AsmMulExp lhs;
+    AsmMulExp rhs;  // Optional.
+}
+
+enum MulType
+{
+    Multiply,
+    Divide,
+    Modulus,
 }
 
 class AsmMulExp
 {
+    MulType type;
+    AsmBrExp lhs;
+    AsmBrExp rhs;  // Optional.
 }
 
 class AsmBrExp
 {
+    // Either a una exp...
+    AsmUnaExp unaExp;
+    
+    // ...or br[exp]. 
+    AsmBrExp brExp;
+    AsmExp exp; 
+}
+
+enum UnaType
+{
+    Type,
+    Offset,
+    Seg,
+    Plus,
+    Minus,
+    LogicalNot,
+    BitwiseNot,
+    PrimaryExp,
 }
 
 class AsmUnaExp
 {
+    UnaType type;
+    SizePrefix prefix;  // Optional.
+    AsmExp exp;  // Optional.
+    AsmUnaExp unaExp;  // Optional.
+    AsmPrimaryExp primaryExp;  // Optional.
+}
+
+enum PrimaryType
+{
+    IntegerLiteral,
+    FloatLiteral,
+    __LOCAL_SIZE,
+    Dollar,
+    Register,
+    DotIdentifier,
 }
 
 class AsmPrimaryExp
 {
+    PrimaryType type;
+    // All of these are optional, depending on the value of type.
+    IntegerLiteral integerLiteral;
+    FloatLiteral floatLiteral;
+    string register;
+    Identifier identifier;
+    QualifiedName qualifiedName;
 }
 
 
