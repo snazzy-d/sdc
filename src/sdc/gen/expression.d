@@ -405,12 +405,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         }
         
         foreach (i, expr; argList.expressions) {
-            if (!functionType.varargs && i < argList.expressions.length) {
-                auto parameter = functionType.argumentTypes[i];
+            if (!functionType.varargs && i < functionType.parameterTypes.length) {
+                auto parameter = functionType.parameterTypes[i];
                 Value[] values;
                 if (parameter.dtype == DType.Pointer && parameter.getBase().dtype == DType.Function) {
                     auto asFunction = enforce(cast(FunctionType) parameter.getBase());
-                    values = array(map!((Type t){ return t.getValue(mod, expression.location); })(asFunction.argumentTypes));
+                    values = array(map!((Type t){ return t.getValue(mod, expression.location); })(asFunction.parameterTypes));
                     mod.functionPointerArguments = &values;
                 }
             }

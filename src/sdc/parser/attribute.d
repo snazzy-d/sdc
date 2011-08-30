@@ -32,13 +32,44 @@ AttributeSpecifier parseAttributeSpecifier(TokenStream tstream)
     return attributeSpecifier;
 }
 
+Attribute parseAtAttribute(TokenStream tstream)
+{
+    auto attribute = new Attribute();
+    auto atToken = match(tstream, TokenType.At);
+    if (tstream.peek.type != TokenType.Identifier) {
+        throw new CompilerError(tstream.peek.location, format("expected identifier, not %s.", tokenToString[tstream.peek.type]));
+    }
+    auto ident = tstream.getToken();
+    switch (ident.value) {
+        case "safe": attribute.type = AttributeType.atSafe; break;
+        case "trusted": attribute.type = AttributeType.atTrusted; break;
+        case "system": attribute.type = AttributeType.atSystem; break;
+        case "disable": attribute.type = AttributeType.atDisable; break;
+        case "property": attribute.type = AttributeType.atProperty; break;
+        default:
+            throw new CompilerError(ident.location, format("expected attribute, not @%s.", ident.value));
+    }
+    attribute.location = ident.location - atToken.location;
+    return attribute;
+}
+
 Attribute parseFunctionAttribute(TokenStream tstream)
 {
-    auto attribute = parseAttribute(tstream);
-    if (FUNCTION_ATTRIBUTES.contains(attribute.type) || MEMBER_FUNCTION_ATTRIBUTES.contains(attribute.type)) {
-        return attribute;
+    switch(tstream.peek.type) {
+        case TokenType.At:
+            return parseAtAttribute(tstream);
+        case TokenType.Pure, TokenType.Nothrow,
+             TokenType.Const, TokenType.Immutable,
+             TokenType.Inout, TokenType.Shared:
+            auto attribute = new Attribute();
+            auto token = tstream.getToken();
+            
+            attribute.location = token.location;
+            attribute.type = cast(AttributeType)token.type;
+            return attribute;
+        default:
     }
-    throw new CompilerError(attribute.location, "expected function attribute.");
+    return null;
 }
 
 Attribute parseAttribute(TokenStream tstream)
@@ -102,21 +133,7 @@ Attribute parseAttribute(TokenStream tstream)
         tstream.getToken();
         break;
     case TokenType.At:
-        match(tstream, TokenType.At);
-        if (tstream.peek.type != TokenType.Identifier) {
-            throw new CompilerError(tstream.peek.location, format("expected identifier, not %s.", tokenToString[tstream.peek.type]));
-        }
-        switch (tstream.peek.value) {
-        case "safe": attribute.type = AttributeType.atSafe; break;
-        case "trusted": attribute.type = AttributeType.atTrusted; break;
-        case "system": attribute.type = AttributeType.atSystem; break;
-        case "disable": attribute.type = AttributeType.atDisable; break;
-        case "property": attribute.type = AttributeType.atProperty; break;
-        default:
-            throw new CompilerError(tstream.peek.location, format("expected attribute, not @%s.", tstream.peek.value));
-        }
-        match(tstream, TokenType.Identifier);
-        break;
+        return parseAtAttribute(tstream);
     case TokenType.Align:
         attribute.type = AttributeType.Align;
         attribute.node = parseAlignAttribute(tstream);

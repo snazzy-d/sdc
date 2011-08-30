@@ -258,6 +258,7 @@ enum PrimaryType
     MixinExpression,
     ImportExpression,
     BasicTypeDotIdentifier,
+    ComplexTypeDotIdentifier,
     Typeof,
     TypeidExpression,
     IsExpression,

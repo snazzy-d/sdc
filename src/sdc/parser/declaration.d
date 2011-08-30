@@ -19,6 +19,7 @@ import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.extract;
 import sdc.ast.declaration;
+import sdc.ast.attribute;
 import sdc.parser.base;
 import sdc.parser.attribute;
 import sdc.parser.expression;
@@ -192,11 +193,9 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
     
     declaration.parameterList = parseParameters(tstream);
     
-    while (tstream.peek.type != TokenType.OpenBrace && tstream.peek.type != TokenType.Semicolon) {
-        declaration.attributes ~= parseFunctionAttribute(tstream);
-        if (tstream.peek.type == TokenType.End) {
-            break;
-        }
+    Attribute attribute;
+    while((attribute = parseFunctionAttribute(tstream)) !is null) {
+        declaration.attributes ~= attribute;
     }
     
     if (tstream.peek.type == TokenType.OpenBrace) {
