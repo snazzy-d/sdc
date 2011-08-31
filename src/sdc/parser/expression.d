@@ -472,8 +472,7 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
         postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.OpenBracket:
-        postfixExpr.firstNode = parseArgumentList(tstream, TokenType.OpenBracket, TokenType.CloseBracket);
-        postfixExpr.type = PostfixType.Index;
+        parseBracketPostfixExpression(tstream, postfixExpr);
         postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.Dot:
@@ -517,6 +516,57 @@ ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.O
     
     list.location = closeToken.location - openToken.location;
     return list;
+}
+
+/// Parse either a slice expression or an index argument list.
+void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
+{
+    auto openToken = match(tstream, TokenType.OpenBracket);
+    void mismatch(string type) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, type, "]");
+    }
+    
+    // slice whole
+    if (tstream.peek.type == TokenType.CloseBracket) {
+        tstream.getToken();
+        expr.type = PostfixType.Slice;
+        return;
+    }
+    
+    auto firstExpr = parseAssignExpression(tstream);
+    
+    // slice
+    if (tstream.peek.type == TokenType.DoubleDot) {
+        tstream.getToken();
+        expr.type = PostfixType.Slice;
+        expr.firstNode = firstExpr;
+        expr.secondNode = parseAssignExpression(tstream);
+        if (tstream.peek.type != TokenType.CloseBracket) {
+            mismatch("slice expression");
+        }
+        auto closeToken = tstream.getToken();
+        expr.location = closeToken.location - openToken.location;
+        return;
+    }
+    
+    // index argument list
+    auto list = new ArgumentList();
+    list.expressions ~= firstExpr;
+    
+    while (tstream.peek.type != TokenType.CloseBracket) {
+        list.expressions ~= parseAssignExpression(tstream);
+        if (tstream.peek.type != TokenType.CloseBracket) {
+            if (tstream.peek.type != TokenType.Comma) {
+                mismatch("index argument list");
+            }
+            match(tstream, TokenType.Comma);
+        }
+    }
+    auto closeToken = match(tstream, TokenType.CloseBracket);
+    list.location = closeToken.location - openToken.location;
+    
+    expr.type = PostfixType.Index;
+    expr.firstNode = list;
 }
 
 bool isPrimaryExpression(TokenStream tstream)
