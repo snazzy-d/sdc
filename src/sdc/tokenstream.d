@@ -49,6 +49,8 @@ class TokenStream
     
     Token previous() @property
     {
+        if (mIndex < 1)
+            throw new CompilerPanic("Token array out of bounds access.");
         return mTokens[mIndex - 1];
     }
     
