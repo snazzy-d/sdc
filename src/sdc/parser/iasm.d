@@ -320,7 +320,7 @@ Opcode parseOpcode(TokenStream tstream)
         throw new CompilerError(tstream.peek.location, format("expected instruction, not '%s'.", tstream.peek.value));
     }
     opcode.instruction = tstream.peek.value;
-    tstream.getToken();
+    tstream.get();
     return opcode;
 }
 
@@ -330,7 +330,7 @@ AsmExp parseAsmExp(TokenStream tstream)
     exp.location = tstream.peek.location;
     exp.logOrExp = parseAsmLogOrExp(tstream);
     if (tstream.peek.type == TokenType.QuestionMark) {
-        tstream.getToken();
+        tstream.get();
         exp.lhs = parseAsmExp(tstream);
         match(tstream, TokenType.Colon);
         exp.rhs = parseAsmExp(tstream);
@@ -344,7 +344,7 @@ T parseSimpleBinaryExp(T, TokenType OP, string parent)(TokenStream tstream)
     exp.location = tstream.peek.location;
     mixin("exp.lhs = " ~ parent ~ "(tstream);");
     if (tstream.peek.type == OP) {
-        tstream.getToken();
+        tstream.get();
         mixin("exp.rhs = " ~ parent ~ "(tstream);");
     } 
     return exp;
@@ -445,7 +445,7 @@ AsmBrExp parseAsmBrExp(TokenStream tstream)
     exp.location = tstream.peek.location;
     exp.unaExp = parseAsmUnaExp(tstream);
     if (tstream.peek.type == TokenType.OpenBracket) {
-        tstream.getToken();
+        tstream.get();
         exp.exp = parseAsmExp(tstream);
         match(tstream, TokenType.CloseBracket);
     }
@@ -467,36 +467,36 @@ AsmUnaExp parseAsmUnaExp(TokenStream tstream)
     case TokenType.Identifier:
         switch (tstream.peek.value) {
         case "near":
-            tstream.getToken();
+            tstream.get();
             exp.prefix = SizePrefix.Near;
             matchptr();
             break;
         case "far":
-            tstream.getToken();
+            tstream.get();
             exp.prefix = SizePrefix.Far;
             matchptr();
             break;
         case "word":
-            tstream.getToken();
+            tstream.get();
             exp.prefix = SizePrefix.Word;
             matchptr();
             break;
         case "dword":
-            tstream.getToken();
+            tstream.get();
             exp.prefix = SizePrefix.DWord;
             matchptr();
             break;
         case "qword":
-            tstream.getToken();
+            tstream.get();
             exp.prefix = SizePrefix.QWord;
             matchptr();
             break;
         case "offsetof":
-            tstream.getToken();
+            tstream.get();
             exp.type = UnaType.Offset;
             break;
         case "seg":
-            tstream.getToken();
+            tstream.get();
             exp.type = UnaType.Seg;
             break;
         default:
@@ -505,52 +505,52 @@ AsmUnaExp parseAsmUnaExp(TokenStream tstream)
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Byte:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Byte;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Short:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Short;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Int:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Int;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Float:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Float;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Double:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Double;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Real:
-        tstream.getToken();
+        tstream.get();
         exp.prefix = SizePrefix.Real;
         exp.exp = parseAsmExp(tstream);
         break;
     case TokenType.Plus:
-        tstream.getToken();
+        tstream.get();
         exp.type = UnaType.Plus;
         exp.unaExp = parseAsmUnaExp(tstream);
         break;
     case TokenType.Dash:
-        tstream.getToken();
+        tstream.get();
         exp.type = UnaType.Minus;
         exp.unaExp = parseAsmUnaExp(tstream);
         break;
     case TokenType.Bang:
-        tstream.getToken();
+        tstream.get();
         exp.type = UnaType.LogicalNot;
         exp.unaExp = parseAsmUnaExp(tstream);
         break;
     case TokenType.Tilde:
-        tstream.getToken();
+        tstream.get();
         exp.type = UnaType.BitwiseNot;
         exp.unaExp = parseAsmUnaExp(tstream);
         break;
@@ -568,13 +568,13 @@ AsmPrimaryExp parseAsmPrimaryExp(TokenStream tstream)
     exp.location = tstream.peek.location;
     if (tstream.peek.type == TokenType.Identifier) {
         if (tstream.peek.value == "__LOCAL_SIZE") {
-            tstream.getToken();
+            tstream.get();
             exp.type = PrimaryType.__LOCAL_SIZE;
         }
         if (X86_REGISTERS.contains(tstream.peek.value)) {
             exp.type = PrimaryType.Register;
             exp.register = tstream.peek.value;
-            tstream.getToken();
+            tstream.get();
         }
         exp.type = PrimaryType.DotIdentifier;
         if (tstream.lookahead(1).type == TokenType.Dot) {
@@ -583,7 +583,7 @@ AsmPrimaryExp parseAsmPrimaryExp(TokenStream tstream)
             exp.name = parseIdentifier(tstream);
         }
     } else if (tstream.peek.type == TokenType.Dollar) {
-        tstream.getToken();
+        tstream.get();
         exp.type = PrimaryType.Dollar;
     } else if (tstream.peek.type == TokenType.IntegerLiteral) {
         exp.type = PrimaryType.IntegerLiteral;
