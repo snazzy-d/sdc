@@ -37,7 +37,7 @@ ImportDeclaration parseImportDeclaration(TokenStream tstream)
         do {
             decl.languageImports ~= parseStringLiteral(tstream);
             if (tstream.peek.type == TokenType.Comma) {
-                tstream.getToken();
+                tstream.get();
                 continue;
             }
             break;

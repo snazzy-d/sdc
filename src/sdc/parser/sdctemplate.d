@@ -231,48 +231,48 @@ TemplateSingleArgument parseTemplateSingleArgument(TokenStream tstream)
     
     switch (tstream.peek.type) {
     case TokenType.Identifier:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.Identifier;
         argument.node = parseIdentifier(tstream);
         break;
     case TokenType.CharacterLiteral:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.CharacterLiteral;
         argument.node = parseCharacterLiteral(tstream);
         break;
     case TokenType.StringLiteral:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.StringLiteral;
         argument.node = parseStringLiteral(tstream);
         break;
     case TokenType.IntegerLiteral:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.IntegerLiteral;
         argument.node = parseIntegerLiteral(tstream);
         break;
     case TokenType.FloatLiteral:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.FloatLiteral;
         argument.node = parseFloatLiteral(tstream);
         break;
     case TokenType.True:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.True;
         break;
     case TokenType.False:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.False;
         break;
     case TokenType.Null:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.Null;
         break;
     case TokenType.__File__:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.__File__;
         break;
     case TokenType.__Line__:
-        tstream.getToken();
+        tstream.get();
         argument.type = TemplateSingleArgumentType.__Line__;
         break;
     default:

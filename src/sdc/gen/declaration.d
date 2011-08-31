@@ -189,7 +189,7 @@ void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
     }
 
     auto tstream = lex(val.knownString, val.location);
-    tstream.getToken();  // Skip BEGIN
+    tstream.get();  // Skip BEGIN
 
     decl.declarationCache = parseDeclaration(tstream);
 }

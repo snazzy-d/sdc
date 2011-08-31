@@ -33,7 +33,7 @@ class TokenStream
         this.mTokens = tokens;
     }
     
-    Token getToken()
+    Token get()
     {
         auto retval = mTokens[mIndex];
         if (mIndex < mTokens.length - 1) {

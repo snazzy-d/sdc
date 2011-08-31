@@ -39,7 +39,7 @@ Attribute parseAtAttribute(TokenStream tstream)
     if (tstream.peek.type != TokenType.Identifier) {
         throw new CompilerError(tstream.peek.location, format("expected identifier, not %s.", tokenToString[tstream.peek.type]));
     }
-    auto ident = tstream.getToken();
+    auto ident = tstream.get();
     switch (ident.value) {
         case "safe": attribute.type = AttributeType.atSafe; break;
         case "trusted": attribute.type = AttributeType.atTrusted; break;
@@ -62,7 +62,7 @@ Attribute parseFunctionAttribute(TokenStream tstream)
              TokenType.Const, TokenType.Immutable,
              TokenType.Inout, TokenType.Shared:
             auto attribute = new Attribute();
-            auto token = tstream.getToken();
+            auto token = tstream.get();
             
             attribute.location = token.location;
             attribute.type = cast(AttributeType)token.type;
@@ -111,7 +111,7 @@ Attribute parseAttribute(TokenStream tstream)
                 "unsupported extern linkage. Supported linkages are C, C++, D, Windows, Pascal, and System."
             );
         }
-        tstream.getToken();
+        tstream.get();
         match(tstream, TokenType.CloseParen);
         
         return attribute;
@@ -130,7 +130,7 @@ Attribute parseAttribute(TokenStream tstream)
     case TokenType.Nothrow:
         // Simple keyword attribute.
         attribute.type = cast(AttributeType) tstream.peek.type;
-        tstream.getToken();
+        tstream.get();
         break;
     case TokenType.At:
         return parseAtAttribute(tstream);

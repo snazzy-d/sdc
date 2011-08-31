@@ -256,7 +256,7 @@ ReturnStatement parseReturnStatement(TokenStream tstream)
             "return statement"
         );
     }
-    tstream.getToken();
+    tstream.get();
     return statement;
 }
 
@@ -276,7 +276,7 @@ ExpressionStatement parseExpressionStatement(TokenStream tstream)
     if(tstream.peek.type != TokenType.Semicolon) {
         throw new MissingSemicolonError(tstream.lookbehind(1).location, "expression");
     }
-    tstream.getToken();
+    tstream.get();
     return statement;
 }
 
@@ -288,7 +288,7 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
     statement.thePragma = parsePragma(tstream);
     
     if (tstream.peek.type == TokenType.Semicolon) {
-        tstream.getToken();
+        tstream.get();
     } else {
         statement.statement = parseStatement(tstream);
     }
@@ -319,7 +319,7 @@ AsmStatement parseAsmStatement(TokenStream tstream)
         if (tstream.peek.type == TokenType.End) {
             throw new CompilerError(tstream.peek.location, "unexpected EOF in asm statement.");
         }
-        statement.tokens~=tstream.getToken();
+        statement.tokens~=tstream.get();
     }
     match(tstream, TokenType.CloseBrace);
     return statement;

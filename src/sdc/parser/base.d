@@ -35,7 +35,7 @@ Token match(TokenStream tstream, TokenType type)
                 tstream.peek.value)
         );
     }
-    return tstream.getToken();
+    return tstream.get();
 }
 
 Module parseModule(TokenStream tstream)
@@ -111,7 +111,7 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
         if(tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(modDec.name.location, "module declaration");
         }
-        tstream.getToken();
+        tstream.get();
     } else {
         // Implicit module declaration.
         modDec.name = new QualifiedName();
@@ -193,7 +193,7 @@ StaticAssert parseStaticAssert(TokenStream tstream)
     staticAssert.condition = parseAssignExpression(tstream);
     
     if (tstream.peek.type == TokenType.Comma) {
-        tstream.getToken();
+        tstream.get();
         staticAssert.message = parseAssignExpression(tstream);
     }
     
@@ -204,7 +204,7 @@ StaticAssert parseStaticAssert(TokenStream tstream)
     if (tstream.peek.type != TokenType.Semicolon) {
         throw new MissingSemicolonError(lastToken.location, "static assert");
     }
-    tstream.getToken();
+    tstream.get();
     return staticAssert;
 }
 

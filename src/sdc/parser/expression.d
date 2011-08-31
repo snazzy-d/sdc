@@ -81,7 +81,7 @@ AssignExpression parseAssignExpression(TokenStream tstream)
     default:
         return assignExpr;
     }
-    tstream.getToken();
+    tstream.get();
     assignExpr.assignExpression = parseAssignExpression(tstream);
     assignExpr.location.spanTo(tstream.previous.location);
     return assignExpr;
@@ -246,7 +246,7 @@ CmpExpression parseCmpExpression(TokenStream tstream)
     default:
         return cmpExpr;
     }
-    tstream.getToken();
+    tstream.get();
     cmpExpr.rhShiftExpression = parseShiftExpression(tstream);
     cmpExpr.location.spanTo(tstream.previous.location);
     return cmpExpr;
@@ -271,7 +271,7 @@ ShiftExpression parseShiftExpression(TokenStream tstream)
     default:
         return shiftExpr;
     }
-    tstream.getToken();
+    tstream.get();
     shiftExpr.shiftExpression = parseShiftExpression(tstream);
     shiftExpr.location.spanTo(tstream.previous.location);
     return shiftExpr;
@@ -296,7 +296,7 @@ AddExpression parseAddExpression(TokenStream tstream)
     default:
         return addExpr;
     }
-    tstream.getToken();
+    tstream.get();
     addExpr.addExpression = parseAddExpression(tstream);
     addExpr.location.spanTo(tstream.previous.location);
     return addExpr;
@@ -321,7 +321,7 @@ MulExpression parseMulExpression(TokenStream tstream)
     default:
         return mulExpr;
     }
-    tstream.getToken();    
+    tstream.get();    
     mulExpr.mulExpression = parseMulExpression(tstream);
     
     mulExpr.location.spanTo(tstream.previous.location);
@@ -691,7 +691,7 @@ AssertExpression parseAssertExpression(TokenStream tstream)
     assertExpr.condition = parseAssignExpression(tstream);
     
     if (tstream.peek.type == TokenType.Comma) {
-        tstream.getToken();
+        tstream.get();
         assertExpr.message = parseAssignExpression(tstream);
     }
     

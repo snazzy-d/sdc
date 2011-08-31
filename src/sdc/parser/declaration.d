@@ -123,7 +123,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
     declaration.location = tstream.peek.location;
     
     if (tstream.peek.type == TokenType.Extern) {
-        tstream.getToken();
+        tstream.get();
         declaration.isExtern = true;
     }
     
@@ -155,7 +155,7 @@ VariableDeclaration parseVariableDeclaration(TokenStream tstream, bool noSemicol
                     throw new MissingSemicolonError(declarator.initialiser.node.location, "initialisation");
                 }
             }
-            tstream.getToken();
+            tstream.get();
             
             declarator = new Declarator();
             declarator.location = tstream.peek.location;
@@ -204,7 +204,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream)
         if (tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(tstream.previous.location, "function declaration");
         }
-        tstream.getToken();
+        tstream.get();
     }
     
     declaration.location.spanTo(declaration.parameterList.location);
@@ -263,7 +263,7 @@ Type parseType(TokenStream tstream)
                 default:
                     throw new CompilerPanic(tstream.peek.location, "unexpected storage type token preceding open paren.");
                 }
-                tstream.getToken();
+                tstream.get();
                 match(tstream, TokenType.OpenParen);
                 type.node = parseType(tstream);
                 match(tstream, TokenType.CloseParen);
@@ -271,7 +271,7 @@ Type parseType(TokenStream tstream)
             }
         }
         type.storageTypes ~= cast(StorageType) tstream.peek.type;
-        tstream.getToken();
+        tstream.get();
     }
     
     if (type.storageTypes.length > 0 &&
@@ -444,7 +444,7 @@ PrimitiveType parsePrimitiveType(TokenStream tstream)
     primitive.location = tstream.peek.location;
     enforce(contains(PRIMITIVE_TYPES, tstream.peek.type));
     primitive.type = cast(PrimitiveTypeType) tstream.peek.type;
-    tstream.getToken();
+    tstream.get();
     return primitive;
 }
 
@@ -537,7 +537,7 @@ ParameterList parseParameters(TokenStream tstream)
         
         if (tstream.peek.type == TokenType.TripleDot) {
             list.varargs = true;
-            tstream.getToken();
+            tstream.get();
             if (tstream.peek.type != TokenType.CloseParen) {
                 throw new CompilerError(tstream.peek.location, "varargs must appear last in the parameter list.");
             }
@@ -562,7 +562,7 @@ ParameterList parseParameters(TokenStream tstream)
             break;
         }
         if (parameter.attribute != ParameterAttribute.None) {
-            tstream.getToken();
+            tstream.get();
         }
                
         parameter.type = parseType(tstream);
