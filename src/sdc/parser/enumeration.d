@@ -24,7 +24,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         decl.name = parseIdentifier(tstream);
         
         if (tstream.peek.type == TokenType.Colon) {
-            tstream.getToken();
+            tstream.get();
             decl.base = parseType(tstream);
         }
         
@@ -34,7 +34,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
                tstream.peek.type == TokenType.Colon) {
                
         if (tstream.peek.type == TokenType.Colon) {
-            tstream.getToken();
+            tstream.get();
             decl.base = parseType(tstream);
         }
         
@@ -52,7 +52,7 @@ EnumDeclaration parseEnumDeclaration(TokenStream tstream)
         if (tstream.peek.type != TokenType.Semicolon) {
             throw new MissingSemicolonError(member.initialiser.location, "manifest constant declaration");
         }
-        tstream.getToken();
+        tstream.get();
         
         decl.memberList.members ~= member;
     }
@@ -69,7 +69,7 @@ EnumMemberList parseEnumMembers(TokenStream tstream)
         list.members ~= parseEnumMember(tstream);
         
         if (tstream.peek.type == TokenType.Comma) {
-            tstream.getToken();
+            tstream.get();
         }
     }
     
@@ -96,7 +96,7 @@ EnumMember parseEnumMember(TokenStream tstream, bool manifestConstant = false)
     member.name = parseIdentifier(tstream);
     
     if (tstream.peek.type == TokenType.Assign) {
-        tstream.getToken();
+        tstream.get();
         member.initialiser = parseAssignExpression(tstream);
         member.location = member.initialiser.location - member.location;
     }

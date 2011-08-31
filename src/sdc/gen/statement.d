@@ -171,7 +171,7 @@ void genMixinStatement(ast.MixinStatement statement, Module mod)
     }
 
     auto tstream = lex(val.knownString, val.location);
-    tstream.getToken();  // Skip BEGIN
+    tstream.get();  // Skip BEGIN
     
     ast.Statement[] states;
     do {

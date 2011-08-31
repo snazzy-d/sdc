@@ -508,7 +508,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         }
 
         auto tstream = lex(v.knownString, v.location);
-        tstream.getToken();  // Skip BEGIN 
+        tstream.get();  // Skip BEGIN 
 
         auto expr = parseAssignExpression(tstream);
         return genAssignExpression(expr, mod);
