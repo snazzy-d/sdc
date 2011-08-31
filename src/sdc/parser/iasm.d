@@ -77,7 +77,6 @@ class Opcode
     Location location;
     bool label = false;
     string instruction;
-    SizePrefix sizePrefix = SizePrefix.None;
 }
 
 enum OperandType
@@ -90,44 +89,49 @@ class Operand
     Location location;
 }
 
-class AsmExp
+class AsmExpNode
+{
+    Location location;
+}
+
+class AsmExp : AsmExpNode
 {
     AsmLogOrExp logOrExp;
     AsmExp lhs;  // Optional.
     AsmExp rhs;  // Optional.
 }
 
-class AsmLogOrExp
+class AsmLogOrExp : AsmExpNode
 {
     AsmLogAndExp lhs;
     AsmLogAndExp rhs;  // Optional.
 }
 
-class AsmLogAndExp
+class AsmLogAndExp : AsmExpNode
 {
     AsmOrExp lhs;
     AsmOrExp rhs;  // Optional.
 }
 
-class AsmOrExp
+class AsmOrExp : AsmExpNode
 {
     AsmXorExp lhs;
     AsmXorExp rhs;  // Optional.
 }
 
-class AsmXorExp
+class AsmXorExp : AsmExpNode
 {
     AsmAndExp lhs;
     AsmAndExp rhs;  // Optional.
 }
 
-class AsmAndExp
+class AsmAndExp : AsmExpNode
 {
     AsmEqualExp lhs;
     AsmEqualExp rhs;  // Optional.
 }
 
-class AsmEqualExp
+class AsmEqualExp : AsmExpNode
 {
     bool equal;
     AsmRelExp lhs;
@@ -143,7 +147,7 @@ enum RelType
     GTE,
 }
 
-class AsmRelExp
+class AsmRelExp : AsmExpNode
 {
     RelType type;
     AsmShiftExp lhs;
@@ -152,19 +156,20 @@ class AsmRelExp
 
 enum ShiftType
 {
+    None,
     DoubleLeft,
     DoubleRight,
     TripleRight,
 }
 
-class AsmShiftExp
+class AsmShiftExp : AsmExpNode
 {
     ShiftType type;
     AsmAddExp lhs;
     AsmAddExp rhs;  // Optional.
 }
 
-class AsmAddExp
+class AsmAddExp : AsmExpNode
 {
     bool addition;
     AsmMulExp lhs;
@@ -173,26 +178,23 @@ class AsmAddExp
 
 enum MulType
 {
+    None,
     Multiply,
     Divide,
     Modulus,
 }
 
-class AsmMulExp
+class AsmMulExp : AsmExpNode
 {
     MulType type;
     AsmBrExp lhs;
     AsmBrExp rhs;  // Optional.
 }
 
-class AsmBrExp
+class AsmBrExp : AsmExpNode
 {
-    // Either a una exp...
     AsmUnaExp unaExp;
-    
-    // ...or br[exp]. 
-    AsmBrExp brExp;
-    AsmExp exp; 
+    AsmExp exp;  // Optional.
 }
 
 enum UnaType
@@ -207,7 +209,7 @@ enum UnaType
     PrimaryExp,
 }
 
-class AsmUnaExp
+class AsmUnaExp : AsmExpNode
 {
     UnaType type;
     SizePrefix prefix;  // Optional.
@@ -226,18 +228,16 @@ enum PrimaryType
     DotIdentifier,
 }
 
-class AsmPrimaryExp
+class AsmPrimaryExp : AsmExpNode
 {
     PrimaryType type;
     // All of these are optional, depending on the value of type.
     IntegerLiteral integerLiteral;
     FloatLiteral floatLiteral;
     string register;
-    Identifier identifier;
+    Identifier name;
     QualifiedName qualifiedName;
 }
-
-
 
 enum DirectiveType
 {
@@ -321,71 +321,278 @@ Opcode parseOpcode(TokenStream tstream)
     }
     opcode.instruction = tstream.peek.value;
     tstream.getToken();
-    opcode.sizePrefix = parseSizePrefix(tstream);
     return opcode;
 }
 
-SizePrefix parseSizePrefix(TokenStream tstream)
+AsmExp parseAsmExp(TokenStream tstream)
 {
-    void parsePtr()
+    auto exp = new AsmExp();
+    exp.location = tstream.peek.location;
+    exp.logOrExp = parseAsmLogOrExp(tstream);
+    if (tstream.peek.type == TokenType.QuestionMark) {
+        tstream.getToken();
+        exp.lhs = parseAsmExp(tstream);
+        match(tstream, TokenType.Colon);
+        exp.rhs = parseAsmExp(tstream);
+    }
+    return exp;    
+}
+
+T parseSimpleBinaryExp(T, TokenType OP, string parent)(TokenStream tstream)
+{
+    auto exp = new T();
+    exp.location = tstream.peek.location;
+    mixin("exp.lhs = " ~ parent ~ "(tstream);");
+    if (tstream.peek.type == OP) {
+        tstream.getToken();
+        mixin("exp.rhs = " ~ parent ~ "(tstream);");
+    } 
+    return exp;
+}
+
+alias parseSimpleBinaryExp!(AsmLogOrExp, TokenType.DoublePipe, "parseAsmLogAndExp") parseAsmLogOrExp;
+alias parseSimpleBinaryExp!(AsmLogAndExp, TokenType.DoubleAmpersand, "parseAsmOrExp") parseAsmLogAndExp;
+alias parseSimpleBinaryExp!(AsmOrExp, TokenType.Pipe, "parseAsmXorExp") parseAsmOrExp;
+alias parseSimpleBinaryExp!(AsmXorExp, TokenType.Pipe, "parseAsmAndExp") parseAsmXorExp;
+alias parseSimpleBinaryExp!(AsmAndExp, TokenType.Ampersand, "parseAsmEqualExp") parseAsmAndExp;
+
+AsmEqualExp parseAsmEqualExp(TokenStream tstream)
+{
+    auto exp = new AsmEqualExp();
+    exp.location = tstream.peek.location;
+    exp.lhs = parseAsmRelExp(tstream);
+    if (tstream.peek.type == TokenType.DoubleAssign) {
+        exp.equal = true;
+        exp.rhs = parseAsmRelExp(tstream);
+    } else if (tstream.peek.type == TokenType.BangAssign) {
+        exp.equal = false;
+        exp.rhs = parseAsmRelExp(tstream);
+    }
+    return exp;
+}
+
+AsmRelExp parseAsmRelExp(TokenStream tstream)
+{
+    auto exp = new AsmRelExp();
+    exp.location = tstream.peek.location;
+    exp.lhs = parseAsmShiftExp(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.Less: exp.type = RelType.LT; break;
+    case TokenType.LessAssign: exp.type = RelType.LTE; break;
+    case TokenType.Greater: exp.type = RelType.GT; break;
+    case TokenType.GreaterAssign: exp.type = RelType.GTE; break;
+    default: break;
+    }
+    if (exp.type != RelType.None) {
+        exp.rhs = parseAsmShiftExp(tstream);
+    } 
+    return exp;
+}
+
+AsmShiftExp parseAsmShiftExp(TokenStream tstream)
+{
+    auto exp = new AsmShiftExp();
+    exp.location = tstream.peek.location;
+    exp.lhs = parseAsmAddExp(tstream);
+    switch (tstream.peek.type) {
+    case TokenType.DoubleLess: exp.type = ShiftType.DoubleLeft; break;
+    case TokenType.DoubleGreater: exp.type = ShiftType.DoubleRight; break;
+    case TokenType.TripleGreater: exp.type = ShiftType.TripleRight; break;
+    default: break;
+    }
+    if (exp.type != ShiftType.None) {
+        exp.rhs = parseAsmAddExp(tstream);
+    }
+    return exp;
+}
+
+AsmAddExp parseAsmAddExp(TokenStream tstream)
+{
+    auto exp = new AsmAddExp();
+    exp.location = tstream.peek.location;
+    exp.lhs = parseAsmMulExp(tstream);
+    if (tstream.peek.type == TokenType.Plus) {
+        exp.addition = true;
+        exp.rhs = parseAsmMulExp(tstream);
+    } else if (tstream.peek.type == TokenType.Dash) {
+        exp.addition = false;
+        exp.rhs = parseAsmMulExp(tstream);
+    }
+    return exp;
+}
+
+AsmMulExp parseAsmMulExp(TokenStream tstream)
+{
+    auto exp = new AsmMulExp();
+    exp.location = tstream.peek.location;
+    exp.lhs = parseAsmBrExp(tstream);
+    if (tstream.peek.type == TokenType.Asterix) {
+        exp.type = MulType.Multiply;
+    } else if (tstream.peek.type == TokenType.Slash) {
+        exp.type = MulType.Divide;
+    } else if (tstream.peek.type == TokenType.Percent) {
+        exp.type = MulType.Modulus;
+    }
+    if (exp.type != MulType.None) {
+        exp.rhs = parseAsmBrExp(tstream);
+    }
+    return exp;
+}
+
+AsmBrExp parseAsmBrExp(TokenStream tstream)
+{
+    auto exp = new AsmBrExp();
+    exp.location = tstream.peek.location;
+    exp.unaExp = parseAsmUnaExp(tstream);
+    if (tstream.peek.type == TokenType.OpenBracket) {
+        tstream.getToken();
+        exp.exp = parseAsmExp(tstream);
+        match(tstream, TokenType.CloseBracket);
+    }
+    return exp;
+}
+
+AsmUnaExp parseAsmUnaExp(TokenStream tstream)
+{
+    void matchptr()
     {
-        auto ident = match(tstream, TokenType.Identifier);
-        if (ident.value != "ptr") {
-            throw new CompilerError(ident.location, "expected 'ptr'.");
+        if (tstream.peek.type != TokenType.Identifier && tstream.peek.value == "ptr") {
+            throw new CompilerError(tstream.peek.location, "expected 'ptr'.");
         }
     }
     
+    auto exp = new AsmUnaExp();
+    exp.location = tstream.peek.location;
     switch (tstream.peek.type) {
     case TokenType.Identifier:
         switch (tstream.peek.value) {
         case "near":
             tstream.getToken();
-            parsePtr();
-            return SizePrefix.Near;
+            exp.prefix = SizePrefix.Near;
+            matchptr();
+            break;
         case "far":
             tstream.getToken();
-            parsePtr();
-            return SizePrefix.Far;
+            exp.prefix = SizePrefix.Far;
+            matchptr();
+            break;
         case "word":
             tstream.getToken();
-            parsePtr();
-            return SizePrefix.Word;
+            exp.prefix = SizePrefix.Word;
+            matchptr();
+            break;
         case "dword":
             tstream.getToken();
-            parsePtr();
-            return SizePrefix.DWord;
+            exp.prefix = SizePrefix.DWord;
+            matchptr();
+            break;
         case "qword":
             tstream.getToken();
-            parsePtr();
-            return SizePrefix.QWord;
+            exp.prefix = SizePrefix.QWord;
+            matchptr();
+            break;
+        case "offsetof":
+            tstream.getToken();
+            exp.type = UnaType.Offset;
+            break;
+        case "seg":
+            tstream.getToken();
+            exp.type = UnaType.Seg;
+            break;
         default:
-            return SizePrefix.None;
+            goto _parse_primary;
         }
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Byte:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Byte;
+        exp.prefix = SizePrefix.Byte;
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Short:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Short;
+        exp.prefix = SizePrefix.Short;
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Int:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Int;
+        exp.prefix = SizePrefix.Int;
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Float:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Float;
+        exp.prefix = SizePrefix.Float;
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Double:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Double;
+        exp.prefix = SizePrefix.Double;
+        exp.exp = parseAsmExp(tstream);
+        break;
     case TokenType.Real:
         tstream.getToken();
-        parsePtr();
-        return SizePrefix.Real;
+        exp.prefix = SizePrefix.Real;
+        exp.exp = parseAsmExp(tstream);
+        break;
+    case TokenType.Plus:
+        tstream.getToken();
+        exp.type = UnaType.Plus;
+        exp.unaExp = parseAsmUnaExp(tstream);
+        break;
+    case TokenType.Dash:
+        tstream.getToken();
+        exp.type = UnaType.Minus;
+        exp.unaExp = parseAsmUnaExp(tstream);
+        break;
+    case TokenType.Bang:
+        tstream.getToken();
+        exp.type = UnaType.LogicalNot;
+        exp.unaExp = parseAsmUnaExp(tstream);
+        break;
+    case TokenType.Tilde:
+        tstream.getToken();
+        exp.type = UnaType.BitwiseNot;
+        exp.unaExp = parseAsmUnaExp(tstream);
+        break;
     default:
-        return SizePrefix.None;
+    _parse_primary:
+        exp.primaryExp = parseAsmPrimaryExp(tstream);
+        break;
     }
+    return exp;
+}
+
+AsmPrimaryExp parseAsmPrimaryExp(TokenStream tstream)
+{
+    auto exp = new AsmPrimaryExp();
+    exp.location = tstream.peek.location;
+    if (tstream.peek.type == TokenType.Identifier) {
+        if (tstream.peek.value == "__LOCAL_SIZE") {
+            tstream.getToken();
+            exp.type = PrimaryType.__LOCAL_SIZE;
+        }
+        if (X86_REGISTERS.contains(tstream.peek.value)) {
+            exp.type = PrimaryType.Register;
+            exp.register = tstream.peek.value;
+            tstream.getToken();
+        }
+        exp.type = PrimaryType.DotIdentifier;
+        if (tstream.lookahead(1).type == TokenType.Dot) {
+            exp.qualifiedName = parseQualifiedName(tstream);
+        } else {
+            exp.name = parseIdentifier(tstream);
+        }
+    } else if (tstream.peek.type == TokenType.Dollar) {
+        tstream.getToken();
+        exp.type = PrimaryType.Dollar;
+    } else if (tstream.peek.type == TokenType.IntegerLiteral) {
+        exp.type = PrimaryType.IntegerLiteral;
+        exp.integerLiteral = parseIntegerLiteral(tstream);
+    } else if (tstream.peek.type == TokenType.FloatLiteral) {
+        exp.type = PrimaryType.FloatLiteral;
+        exp.floatLiteral = parseFloatLiteral(tstream);
+    } else {
+        throw new CompilerError(tstream.peek.location, "expected primary expression.");
+    }
+    return exp;
 }
