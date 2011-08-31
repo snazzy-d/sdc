@@ -24,6 +24,8 @@ class TokenStream
     {
         if (tokens.length < 3)
             throw new CompilerPanic("Token stream too short.");
+        if (tokens[0].type != TokenType.Begin)
+            throw new CompilerPanic("Token stream not started correctly.");
         if (tokens[$-1].type != TokenType.End)
             throw new CompilerPanic("Token stream not terminated correctly.");
 
