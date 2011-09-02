@@ -5,17 +5,11 @@
  */
 module sdc.ast.base;
 
-import std.algorithm;
-import std.range;
-import std.string;
-import std.exception;
 
 import sdc.compilererror;
 import sdc.token;
 import sdc.location;
 import sdc.ast.attribute;
-
-AttributeType attributeType(Attribute attr) { return attr.type; }
 
 class Node
 {
@@ -26,49 +20,45 @@ class Node
      * Search the attributes list backwards for the first Linkage.
      * Returns: The last linkage, or extern (D) if no Linkage is found.
      */
-    @property Linkage linkage()
+    Linkage linkage() @property pure
     {
-        with (AttributeType) {
-            auto linkages = [ExternC, ExternCPlusPlus, ExternD, ExternWindows, ExternPascal, ExternSystem]; 
-            return enforce(cast(Linkage) searchAttributesBackwards(linkages, ExternD));
-        }
+        return cast(Linkage)searchAttributesBackwards(LINKAGES, AttributeType.ExternD);
     }
     
     /** 
      * Search the attributes list backwards for the first trust level.
      * Returns: The last trust level, or @system if no trust is found.
      */
-    @property AttributeType trustLevel()
+    AttributeType trustLevel() @property pure
     {
-        with (AttributeType) return searchAttributesBackwards([atSafe, atTrusted, atSystem], atSystem);
+        return searchAttributesBackwards(TRUSTLEVELS, AttributeType.atSystem);
     }
     
     /** 
      * Search the attributes list backwards for the first access level.
      * Returns: The last access level, or public if no access level is found.
      */
-    @property Access access()
+    Access access() @property pure
     {
-        with (AttributeType) {
-            auto access = [Private, Package, Protected, Public, Export];
-            return enforce(cast(Access) searchAttributesBackwards(access, Public));
-        }
+        return cast(Access)searchAttributesBackwards(ACCESS, AttributeType.Public);
     }
     
-    AttributeType searchAttributesBackwards(AttributeType[] contains, AttributeType _default)
+    AttributeType searchAttributesBackwards(AttributeTypes contains,
+                                            AttributeType _default) pure
     {
-        auto search = findAmong(retro(map!attributeType(attributes)), contains);
-        if (search.length > 0) {
-            return search[0];
-        } else {
-            return _default;
-        } 
+        foreach_reverse(attr; attributes)
+            foreach(needle; contains)
+                if (attr.type == needle)
+                    return needle;
+        return _default;
     }
     
-    bool searchAttributesBackwards(AttributeType needle)
+    bool searchAttributesBackwards(AttributeType needle) pure
     {
-        auto search = find(retro(map!attributeType(attributes)), needle);
-        return search.length > 0;
+        foreach_reverse(attr; attributes)
+            if (attr.type == needle)
+                return true;
+        return false;
     }
 }
 
