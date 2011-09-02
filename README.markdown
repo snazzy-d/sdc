@@ -1,6 +1,6 @@
 SDC - The Stupid D Compiler
 ===========================
-This is the home of a [D2](http://www.digitalmars.com/d/2.0) compiler.
+This is the home of a [D](http://d-programming-language.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
 I don't know what I'm doing in terms of compiler writing. If you find some horrible design decision, that's most likely why.
 
@@ -39,7 +39,7 @@ Parser
 * Parse shared static constructors.  _[no.]_
 * Parse shared static destructors.  _[no.]_
 * Parse conditional declarations.  __[yes.]__
-* Parse static asserts.  _[no.]_
+* Parse static asserts.  __[yes.]__
 * Parse template declarations.  _[partially.]_
 * Parse template mixins.  _[no.]_
 * Parse mixin declarations.  _[partially.]_
