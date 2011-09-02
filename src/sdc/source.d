@@ -34,8 +34,10 @@ class Source
     
     /// The unicode character at @location.
     private dchar mChar;
-    /// Pointer into the string for the next character.
-    private size_t mIndex;
+    /// Index of the next character.
+    private size_t mNextIndex;
+    /// Index of the current character, used by @save & @sliceFrom.
+    private size_t mCurrentIndex;
 
 
     /**
@@ -86,7 +88,8 @@ class Source
         this.location = src.location;
         this.eof = src.eof;
         this.mChar = src.mChar;
-        this.mIndex = src.mIndex;
+        this.mNextIndex = src.mNextIndex;
+        this.mCurrentIndex = src.mCurrentIndex;
     }
 
     /**
@@ -134,7 +137,8 @@ class Source
      * Side-effects:
      *   @eof set to true if we have reached the EOF.
      *   @mChar is set to the returned character if not at EOF.
-     *   @mIndex advanced to the end of the given character.
+     *   @mNextIndex advanced to the end of the given character.
+     *   @mCurrentIndex is set to @mNextIndex.
      *   @location updated to the current position if not at EOF.
      *
      * Returns:
@@ -144,7 +148,7 @@ class Source
     {
         auto ret = mChar;
 
-        if (mIndex >= source.length) {
+        if (mNextIndex >= source.length) {
             eof = true;
             mChar = dchar.init;
             return ret;
@@ -155,7 +159,12 @@ class Source
             location.column = 0;
         }
         
-        mChar = std.utf.decode(source, mIndex);
+        // As UTF-8 chars have different sizes we can't
+        // just go mNextIndex - 1 for the previous one.
+        mCurrentIndex = mNextIndex;
+
+        // Get the next character.
+        mChar = std.utf.decode(source, mNextIndex);
         location.column++;
         
         return ret;
@@ -179,7 +188,7 @@ class Source
     {
         if (n == 0) return peek();
         
-        size_t tmpIndex = mIndex;
+        size_t tmpIndex = mNextIndex;
         foreach (i; 0 .. n) {
             dchar c = std.utf.decode(source, tmpIndex);
             if (tmpIndex >= source.length) {
@@ -195,12 +204,12 @@ class Source
     
     Mark save()
     {
-        return mIndex - 1;
+        return mCurrentIndex;
     }
     
     string sliceFrom(Mark mark)
     {
-        return source[mark .. mIndex - 1];
+        return source[mark .. mCurrentIndex];
     }
     
     /// Make a new Source object in the same state as this one.
@@ -215,9 +224,10 @@ class Source
         if (src.source !is this.source) {
             throw new Exception("attempted to sync different sources");
         }
-        this.location = src.location;
-        this.mIndex = src.mIndex;
+        this.mCurrentIndex = src.mCurrentIndex;
+        this.mNextIndex = src.mNextIndex;
         this.mChar = src.mChar;
+        this.location = src.location;
         this.eof = src.eof;
     }
 }
