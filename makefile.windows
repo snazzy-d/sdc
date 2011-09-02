@@ -1,12 +1,11 @@
-DMD ?= dmd
-LLVMDIR ?= llvm
+include makefile.common
 
-DFLAGS=-w -debug -g -unittest -Iimport $(FLAGS)
-SOURCE=src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/java/*.d
-OBJ=bin\sdc.obj
-EXE=bin\sdc.exe
+DFLAGS = -w -debug -g -unittest -Iimport $(FLAGS)
+SOURCE = $(SOURCE_WILDCARDS)
+OBJ = bin\sdc.obj
+EXE = bin\sdc.exe
 
-LIBLLVM=$(LLVMDIR)\llvm-2.9.lib
+LIBLLVM = $(LLVMDIR)\llvm-2.9.lib
 
 all: $(EXE)
 
