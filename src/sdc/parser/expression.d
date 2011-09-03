@@ -528,7 +528,7 @@ void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
     
     // slice whole
     if (tstream.peek.type == TokenType.CloseBracket) {
-        tstream.getToken();
+        tstream.get();
         expr.type = PostfixType.Slice;
         return;
     }
@@ -537,14 +537,14 @@ void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
     
     // slice
     if (tstream.peek.type == TokenType.DoubleDot) {
-        tstream.getToken();
+        tstream.get();
         expr.type = PostfixType.Slice;
         expr.firstNode = firstExpr;
         expr.secondNode = parseAssignExpression(tstream);
         if (tstream.peek.type != TokenType.CloseBracket) {
             mismatch("slice expression");
         }
-        auto closeToken = tstream.getToken();
+        auto closeToken = tstream.get();
         expr.location = closeToken.location - openToken.location;
         return;
     }
