@@ -962,6 +962,7 @@ class PointerValue : Value
     {
         auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildLoad(mModule.builder, mValue, "load");
+        v.lvalue = true;
         return v;
     }
     
