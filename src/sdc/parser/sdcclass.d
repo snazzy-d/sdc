@@ -63,7 +63,7 @@ DeclarationDefinition parseConstructor(TokenStream tstream, string name)
     
     auto decldef = new DeclarationDefinition();
     decldef.location = tstream.peek.location;
-    decldef.type = DeclarationDefinitionType.Declaration;
+    decldef.type = DeclarationDefinitionType.Constructor;
     
     auto decl = new Declaration();
     decl.location = tstream.peek.location;
