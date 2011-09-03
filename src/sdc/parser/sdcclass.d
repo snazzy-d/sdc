@@ -88,3 +88,38 @@ DeclarationDefinition parseConstructor(TokenStream tstream, string name)
     
     return decldef;
 }
+
+DeclarationDefinition parseDestructor(TokenStream tstream, string name)
+{
+    // All this shit is synthesising a function declaration.
+
+    auto decldef = new DeclarationDefinition();
+    decldef.location = tstream.peek.location;
+    decldef.type = DeclarationDefinitionType.Destructor;
+
+    auto decl = new Declaration();
+    decl.location = tstream.peek.location;
+    decl.type = DeclarationType.Function;
+
+    auto fdecl = new FunctionDeclaration();
+    fdecl.location = tstream.peek.location;
+    fdecl.retval = new Type();
+    fdecl.retval.dtor = true;
+
+    auto ident = new Identifier();
+    fdecl.name = new QualifiedName();
+    fdecl.name.location = tstream.peek.location;
+    fdecl.name.identifiers ~= new Identifier();
+    fdecl.name.identifiers[0].value = "__dtor";
+
+    match(tstream, TokenType.Tilde);
+    match(tstream, TokenType.This);
+    match(tstream, TokenType.OpenParen);
+    // XXX: Might want a slightly better message here
+    match(tstream, TokenType.CloseParen);
+    fdecl.functionBody = parseFunctionBody(tstream);
+    decl.node = fdecl;
+    decldef.node = decl;
+
+    return decldef;
+}
