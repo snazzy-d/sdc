@@ -312,7 +312,10 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         mType = new B(mod);
         if (mGlobal) {
             mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsint");
-            LLVMSetThreadLocal(mValue, true);
+            //TLS not implemented on Windows
+            version(Windows){} else {
+                LLVMSetThreadLocal(mValue, true);
+            }
         } else {
             mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "int");
         }
@@ -582,7 +585,10 @@ class FloatingPointValue(T, B) : Value
             mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "double");
         } else {
             mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlsdouble");
-            LLVMSetThreadLocal(mValue, true);
+            //TLS not implemented on Windows
+            version(Windows){} else {
+                LLVMSetThreadLocal(mValue, true);
+            }
         }
     }
     
@@ -891,7 +897,11 @@ class PointerValue : Value
             mValue = LLVMBuildAlloca(mod.builder, mType.llvmType, "pv");
         } else {
             mValue = LLVMAddGlobal(mod.mod, mType.llvmType, "tlspv");
-            LLVMSetThreadLocal(mValue, true);
+            
+            //TLS not implemented on Windows
+            version(Windows){} else {
+                LLVMSetThreadLocal(mValue, true);
+            }
         }
     }
     
@@ -1355,7 +1365,10 @@ class StructValue : Value
             mValue = LLVMBuildAlloca(mod.builder, type.llvmType, "struct");
         } else {
             mValue = LLVMAddGlobal(mod.mod, type.llvmType, "tlsstruct");
-            LLVMSetThreadLocal(mValue, true);
+            //TLS not implemented on Windows
+            version(Windows){} else {
+                LLVMSetThreadLocal(mValue, true);
+            }
             LLVMSetInitializer(mValue, LLVMGetUndef(type.llvmType));
         }
     }
