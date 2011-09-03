@@ -971,7 +971,19 @@ class PointerValue : Value
     override Value dereference(Location location)
     {
         auto v = baseType.getValue(mModule, location);
-        v.mValue = LLVMBuildLoad(mModule.builder, mValue, "load");
+        v.mValue = LLVMBuildLoad(mModule.builder, mValue, "dereference");
+        return v;
+    }
+    
+    override Value add(Location location, Value idx)
+    {
+        idx = implicitCast(location, idx, getPtrdiffT(mModule));
+       
+        auto idxVal = idx.get();
+        auto added = LLVMBuildGEP(mModule.builder, get(), &idxVal, 1, "ptradd");
+        
+        auto v = mType.getValue(mModule, location);
+        LLVMBuildStore(mModule.builder, added, v.mValue);
         return v;
     }
     
@@ -1439,7 +1451,7 @@ class StructValue : Value
         indices ~= LLVMConstInt(t.llvmType, *index, false);
         
         auto i = asStruct.members[*index].getValue(mModule, location);
-        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
+        i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "getMember");
         i.lvalue = true;
         return i;
     }
@@ -1717,8 +1729,8 @@ void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
         return;
     }
     
-    if ((lhs.type.dtype == DType.Pointer && rhs.type.dtype == DType.NullPointer) ||
-        (rhs.type.dtype == DType.Pointer && lhs.type.dtype == DType.NullPointer)) {
+    if (lhs.type.dtype == DType.Pointer || // pointer arithmetic
+        lhs.type.dtype == DType.NullPointer || rhs.type.dtype == DType.NullPointer) {
         return;
     }
  

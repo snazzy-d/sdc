@@ -297,6 +297,17 @@ Type getSizeT(Module mod)
     }
 }
 
+Type getPtrdiffT(Module mod)
+{
+    if (bits == 32) {
+        return new IntType(mod);
+    } else if (bits == 64) {
+        return new LongType(mod);
+    } else {
+        assert(false);
+    }
+}
+
 // Urgh
 Value newSizeT(Module mod, Location loc, ulong init)
 {
