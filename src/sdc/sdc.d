@@ -189,7 +189,10 @@ void realmain(string[] args)
     foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
         // Okay. Build ze functions!
         foreach (declDef; gModule.functionBuildList) {
-            if (declDef.buildStage != ast.BuildStage.ReadyForCodegen || declDef.importedSymbol) {
+            auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+            assert(info !is null);
+            
+            if (info.buildStage != ast.BuildStage.ReadyForCodegen || info.importedSymbol) {
                 continue;
             }
             assert(declDef.type == ast.DeclarationDefinitionType.Declaration);

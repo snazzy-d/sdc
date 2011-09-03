@@ -13,7 +13,6 @@ import sdc.ast.base;
 import sdc.ast.declaration;
 import sdc.ast.attribute;
 import sdc.ast.expression; // StaticAssert
-import gen = sdc.gen.type;
 
 
 class Module : Node
@@ -70,15 +69,6 @@ class DeclarationDefinition : Node
 {
     DeclarationDefinitionType type;
     Node node;
-    
-    /* The following are for codegen purposes.
-     * It's kinda icky, I know.
-     */
-    Attribute[] attributes;
-    BuildStage buildStage;
-    bool importedSymbol;
-    QualifiedName parentName;
-    gen.Type parentType;
 }
 
 class StaticAssert : Node

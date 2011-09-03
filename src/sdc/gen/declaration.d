@@ -21,6 +21,7 @@ import sdc.util;
 import sdc.extract;
 import sdc.global;
 import ast = sdc.ast.all;
+import sdc.gen.base;
 import sdc.gen.cfg;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
@@ -172,12 +173,15 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     auto store = new Store(fn, decl.name.location);
     
     // This is the important part: the function is added to the appropriate scope.
-    if (declDef.parentType !is null) {
-        declDef.parentType.typeScope.add(fn.simpleName, store);
+    auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+    assert(info !is null);
+    
+    if (info.parentType !is null) {
+        info.parentType.typeScope.add(fn.simpleName, store);
     } else {
         mod.currentScope.add(fn.simpleName, fn);
     }
-    decl.fn = fn;
+    decl.userData = fn;
     
     fn.type.declare();
     fn.add(mod);
@@ -287,25 +291,28 @@ void genFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinit
         return;
     }
     
-    if (decl.fn is null) {
+    if (decl.userData is null) {
         throw new CompilerPanic(decl.location, "attempted to gen undeclared function.");
     }
        
-    verbosePrint("Building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
+    auto fn = cast(Function) decl.userData;
+    assert(fn !is null);
+    verbosePrint("Building function '" ~ fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
     verboseIndent++;
     
     // Next, we generate the actual function body's code.
-    auto BB = LLVMAppendBasicBlockInContext(mod.context, decl.fn.llvmValue, "entry");
+    auto BB = LLVMAppendBasicBlockInContext(mod.context, fn.llvmValue, "entry");
     LLVMPositionBuilderAtEnd(mod.builder, BB);
     genFunctionBody(decl.functionBody, decl, mod);
     
     verboseIndent--;
-    verbosePrint("Done building function '" ~ decl.fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
+    verbosePrint("Done building function '" ~ fn.mangledName ~ "'.", VerbosePrintColour.Yellow);
 }
 
 void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl, Module mod)
 {
-    auto fn = decl.fn;
+    auto fn = cast(Function) decl.userData;
+    assert(fn !is null);
     mod.pushScope();
     mod.currentFunction = fn;
     assert(mod.currentFunction);

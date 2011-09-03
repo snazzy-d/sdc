@@ -38,9 +38,11 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         parameterNames ~= extractIdentifier(asType.identifier);
     }
     
-
-    if (tdecl.cacheTree is null) {
-        tdecl.cacheTree = new TemplateCacheNode();
+    
+    TemplateCacheNode cache;
+    if (tdecl.userData is null) {
+        cache = new TemplateCacheNode();
+        tdecl.userData = cache;
     }
     
     TemplateCacheNode node;
@@ -53,7 +55,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         if (parameterNames.length != 1) {
             throw new CompilerError(instance.location, format("template instantiated with 1 parameter, when it has %s required parameters.", parameterNames.length)); 
         }
-        node = retrieveCacheNodeFromSingleArgument(tdecl.cacheTree, instance.argument, mod);
+        node = retrieveCacheNodeFromSingleArgument(cache, instance.argument, mod);
         
         final switch (instance.argument.type) with (ast.TemplateSingleArgumentType) if (node.cache is null) { 
         case BasicType:
@@ -77,7 +79,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
         if (parameterNames.length != instance.arguments.length) {
             throw new CompilerError(instance.location, format("template instantiated with %s parameter, when it has %s required parameters.", instance.arguments.length, parameterNames.length)); 
         }
-        node = retrieveCacheNode(tdecl.cacheTree, instance.arguments, mod);
+        node = retrieveCacheNode(cache, instance.arguments, mod);
         foreach (i, argument; instance.arguments) final switch (argument.type) with (ast.TemplateArgumentType) {
         case Type:
             auto type = astTypeToBackendType(cast(ast.Type) argument.node, mod, OnFailure.DieWithError);
@@ -93,7 +95,13 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
     }
     
     foreach (declDef; tdecl.declDefs) {
-        declDef.buildStage = ast.BuildStage.Unhandled;
+        if (declDef.userData is null) {
+            declDef.userData = new DeclarationDefinitionInfo();
+        }
+        auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+        assert(info !is null);
+        
+        info.buildStage = ast.BuildStage.Unhandled;
         genDeclarationDefinition(declDef, mod, 0);
     }
     

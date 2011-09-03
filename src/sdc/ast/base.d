@@ -15,6 +15,7 @@ class Node
 {
     Location location;
     Attribute[] attributes;
+    Object userData;
     
     /** 
      * Search the attributes list backwards for the first Linkage.

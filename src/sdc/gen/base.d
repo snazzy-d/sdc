@@ -28,6 +28,15 @@ import sdc.gen.enumeration;
 import sdc.gen.sdctemplate;
 
 
+class DeclarationDefinitionInfo
+{
+    ast.Attribute[] attributes;
+    ast.BuildStage buildStage;
+    bool importedSymbol;
+    ast.QualifiedName parentName;
+    Type parentType;
+}
+
 bool canGenDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod)
 {
     switch (declDef.type) with (ast) {
@@ -96,18 +105,34 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
     assert(stillToGo);
 
     foreach (d; resolutionList) {
-        d.parentName = mod.name;
-        d.importedSymbol = false;
-        d.buildStage = ast.BuildStage.Unhandled;
+        if (d.userData is null) {
+            d.userData = new DeclarationDefinitionInfo();
+        }
+        auto info = cast(DeclarationDefinitionInfo) d.userData;
+        assert(info !is null);
+        info.parentName = mod.name;
+        info.importedSymbol = false;
+        info.buildStage = ast.BuildStage.Unhandled;
     }
     bool finalPass;
     do {
         foreach (declDef; resolutionList) {
-            declDef.parentType = parentType;
+            if (declDef.userData is null) {
+                declDef.userData = new DeclarationDefinitionInfo();
+            }
+            auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+            info.parentType = parentType;
             genDeclarationDefinition(declDef, mod, *stillToGo);
         }
         
-        *stillToGo = count!"a.buildStage < b"(resolutionList, ast.BuildStage.ReadyForCodegen);
+        bool evalBuildStage(ast.DeclarationDefinition a, ast.BuildStage b)
+        {
+            auto info = cast(DeclarationDefinitionInfo) a.userData;
+            assert(info !is null);
+            return info.buildStage < b;
+        }
+        
+        *stillToGo = count!evalBuildStage(resolutionList, ast.BuildStage.ReadyForCodegen);
         
         // Let's figure out if we can leave.
         if (*stillToGo == 0) {
@@ -116,11 +141,18 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
             // Uh-oh.. nothing new was resolved... look for things we can expand.
             ast.DeclarationDefinition[] toAppend;
             foreach (declDef; resolutionList) {
-                if (declDef.buildStage == ast.BuildStage.ReadyToExpand) {
+                auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+                if (info.buildStage == ast.BuildStage.ReadyToExpand) {
                     toAppend ~= expand(declDef, mod);
                 }
-                foreach (d; toAppend) if (d.buildStage != ast.BuildStage.DoneForever) {
-                    d.buildStage = ast.BuildStage.Unhandled;
+                foreach (d; toAppend) {
+                    if (d.userData is null) {
+                        d.userData = new DeclarationDefinitionInfo();
+                    }
+                    auto appendInfo = cast(DeclarationDefinitionInfo) d.userData;
+                    if (appendInfo.buildStage != ast.BuildStage.DoneForever) {
+                        appendInfo.buildStage = ast.BuildStage.Unhandled;
+                    }
                 }
             }
             if (toAppend.length > 0) {
@@ -150,7 +182,13 @@ void resolveDeclarationDefinitionList(ast.DeclarationDefinition[] list, Module m
 
 ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod)
 {
-    declDef.buildStage = ast.BuildStage.Done;
+    if (declDef.userData is null) {
+        declDef.userData = new DeclarationDefinitionInfo();
+    }
+    auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+    assert(info !is null);
+    
+    info.buildStage = ast.BuildStage.Done;
     switch (declDef.type) {
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         auto decl = enforce(cast(ast.ConditionalDeclaration) declDef.node);
@@ -174,7 +212,13 @@ ast.DeclarationDefinition[] expand(ast.DeclarationDefinition declDef, Module mod
 
 void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, size_t stillToGo)
 {
-    with (declDef) with (ast.BuildStage)
+    if (declDef.userData is null) {
+        declDef.userData = new DeclarationDefinitionInfo();
+    }
+    auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+    assert(info !is null);
+    
+    with (info) with (ast.BuildStage)
     if (buildStage != Unhandled && buildStage != Deferred) {
         return;
     }
@@ -188,58 +232,58 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, siz
             if (decl.type != ast.DeclarationType.Function) {
                 declareDeclaration(decl, declDef, mod);
                 genDeclaration(decl, declDef, mod);
-                declDef.buildStage = ast.BuildStage.Done;
+                info.buildStage = ast.BuildStage.Done;
             } else {
                 declareDeclaration(decl, declDef, mod);
-                declDef.buildStage = ast.BuildStage.ReadyForCodegen;
+                info.buildStage = ast.BuildStage.ReadyForCodegen;
                 mod.functionBuildList ~= declDef;
             }
         } else {
-            declDef.buildStage = ast.BuildStage.Deferred;
+            info.buildStage = ast.BuildStage.Deferred;
         }
         break;
     case ast.DeclarationDefinitionType.ImportDeclaration:
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         genImportDeclaration(cast(ast.ImportDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.AggregateDeclaration:
         auto asAggregate = cast(ast.AggregateDeclaration) declDef.node;
         auto can = canGenAggregateDeclaration(asAggregate, mod);
         if (!can) with (ast.BuildStage) {
-            if (declDef.buildStage == Unhandled) {
-                declDef.buildStage = Deferred;
+            if (info.buildStage == Unhandled) {
+                info.buildStage = Deferred;
                 break;
             }
             assert(asAggregate.structBody !is null);
             if (stillToGo > 0 && stillToGo > asAggregate.structBody.declarations.length) {
-                declDef.buildStage = Deferred;
+                info.buildStage = Deferred;
                 break;
             }
         }
         genAggregateDeclaration(asAggregate, declDef, mod);
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.ClassDeclaration:
         genClassDeclaration(cast(ast.ClassDeclaration) declDef.node, mod);
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.ConditionalDeclaration:
         genConditionalDeclaration(declDef, cast(ast.ConditionalDeclaration) declDef.node, mod);
         break;
     case ast.DeclarationDefinitionType.EnumDeclaration:
         genEnumDeclaration(cast(ast.EnumDeclaration) declDef.node, mod);
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.TemplateDeclaration:
         genTemplateDeclaration(cast(ast.TemplateDeclaration) declDef.node, mod);
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.StaticAssert:
         genStaticAssert(cast(ast.StaticAssert)declDef.node, mod);
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     case ast.DeclarationDefinitionType.Unittest:
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         break;
     default:
         throw new CompilerPanic(declDef.location, format("unhandled DeclarationDefinition '%s'", to!string(declDef.type)));
@@ -249,12 +293,18 @@ void genDeclarationDefinition(ast.DeclarationDefinition declDef, Module mod, siz
 
 void genConditionalDeclaration(ast.DeclarationDefinition declDef, ast.ConditionalDeclaration decl, Module mod)
 {
+    if (declDef.userData is null) {
+        declDef.userData = new DeclarationDefinitionInfo();
+    }
+    auto info = cast(DeclarationDefinitionInfo) declDef.userData;
+    assert(info !is null);
+    
     final switch (decl.type) {
     case ast.ConditionalDeclarationType.Block:    
-        declDef.buildStage = ast.BuildStage.ReadyToExpand;
+        info.buildStage = ast.BuildStage.ReadyToExpand;
         break;
     case ast.ConditionalDeclarationType.VersionSpecification:        
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         auto spec = cast(ast.VersionSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasVersionBeenTested(ident)) {
@@ -263,7 +313,7 @@ void genConditionalDeclaration(ast.DeclarationDefinition declDef, ast.Conditiona
         mod.setVersion(decl.location, ident);
         break;
     case ast.ConditionalDeclarationType.DebugSpecification:
-        declDef.buildStage = ast.BuildStage.Done;
+        info.buildStage = ast.BuildStage.Done;
         auto spec = cast(ast.DebugSpecification) decl.specification;
         auto ident = extractIdentifier(cast(ast.Identifier) spec.node);
         if (mod.hasDebugBeenTested(ident)) {
