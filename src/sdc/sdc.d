@@ -31,7 +31,6 @@ import std.path;
 import std.process : system;
 import file = std.file;
 import std.c.stdlib;
-import core.runtime;
 
 import llvm.Ext;
 import llvm.c.Core;
@@ -55,11 +54,6 @@ import sdc.gen.declaration;
 
 version = SDC_x86_default;
 
-Throwable.TraceInfo nullTraceHandler()
-{
-    return null;
-}
-
 extern (C) void _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(LLVMPassRegistryRef);
 
 int main(string[] args)
@@ -67,7 +61,6 @@ int main(string[] args)
     auto passRegistry = LLVMGetGlobalPassRegistry();
     _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(passRegistry);  // TMP !!!
     LLVMInitializeCodeGen(passRegistry);
-    //Runtime.traceHandler = &nullTraceHandler;  // Disable stack traces.
     try {
         realmain(args);
     } catch (CompilerError topError) {

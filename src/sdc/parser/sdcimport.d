@@ -30,8 +30,11 @@ ImportDeclaration parseImportDeclaration(TokenStream tstream)
         case "Java":
             decl.language = Language.Java;
             break;
+        case "C":
+            decl.language = Language.C;
+            break;
         default:
-            throw new CompilerError(ident.location, format("expected 'Java', not '%s'.", ident.value)); 
+            throw new CompilerError(ident.location, format("expected 'Java' or 'C', not '%s'.", ident.value)); 
         }
         match(tstream, TokenType.CloseParen);
         do {

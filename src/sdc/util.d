@@ -5,6 +5,7 @@
  */
 module sdc.util;
 
+import core.runtime;
 import std.conv;
 import std.stdio;
 import std.string;
@@ -127,3 +128,19 @@ class ImportDummy(T)
         return T.init;
     }
 }
+
+Throwable.TraceInfo nullTraceHandler()
+{
+    return null;
+}
+
+void disableStackTraces()
+{
+    Runtime.traceHandler = &nullTraceHandler;
+}
+
+void enableStackTraces()
+{
+    Runtime.traceHandler = &defaultTraceHandler;
+}
+

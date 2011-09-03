@@ -23,6 +23,7 @@ import ast = sdc.ast.all;
 import parser = sdc.parser.all;
 import sdc.gen.base;
 import sdc.gen.sdcmodule;
+version (xlang) import sdc.binder.c;
 
 
 bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
@@ -34,8 +35,17 @@ bool canGenImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod
 
 void genImportDeclaration(ast.ImportDeclaration importDeclaration, Module mod)
 {
-    if (importDeclaration.language != ast.Language.D) {
-        throw new CompilerPanic(importDeclaration.location, "import (Java) is unimplemented.");
+    version (xlang) {
+        if (importDeclaration.language == ast.Language.Java) {
+            throw new CompilerPanic(importDeclaration.location, "import (Java) is unimplemented.");
+        }
+        if (importDeclaration.language == ast.Language.C) {
+            foreach (imp; importDeclaration.languageImports) {
+                auto header = extractStringLiteral(imp);
+                bindC(mod, header);
+            }
+            return;
+        }
     }
     return genImportList(importDeclaration.location, importDeclaration.importList, mod);
 }
