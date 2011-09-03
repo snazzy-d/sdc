@@ -146,6 +146,20 @@ DeclarationDefinition parseDeclarationDefinition(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Tilde &&
                tstream.lookahead(1).type == TokenType.This) {
         return parseDestructor(tstream, "~this");
+    } else if (tstream.peek.type == TokenType.Static &&
+               tstream.lookahead(1).type == TokenType.This) {
+        return parseConstructor(tstream, "static this");
+    } else if (tstream.peek.type == TokenType.Static &&
+               tstream.lookahead(1).type == TokenType.Tilde) {
+        return parseDestructor(tstream, "static ~this");
+    } else if (tstream.peek.type == TokenType.Shared &&
+               tstream.lookahead(1).type == TokenType.Static &&
+               tstream.lookahead(2).type == TokenType.This) {
+        return parseConstructor(tstream, "shared static this");
+    } else if (tstream.peek.type == TokenType.Shared &&
+               tstream.lookahead(1).type == TokenType.Static &&
+               tstream.lookahead(2).type == TokenType.Tilde) {
+        return parseDestructor(tstream, "shared static ~this");
     } else if (startsLikeConditional(tstream)) {
         decldef.type = DeclarationDefinitionType.ConditionalDeclaration;
         decldef.node = parseConditionalDeclaration(tstream);
