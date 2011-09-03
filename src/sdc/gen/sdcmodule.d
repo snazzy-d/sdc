@@ -113,14 +113,16 @@ class Module
     {
         auto cmd = format(`llc %s -march=%s -o "%s" "%s"`, PIC ? "--relocation-model=pic" : "", arch, toFilename, fromFilename);
         verbosePrint(cmd);
-        system(cmd);
+        auto exitCode = system(cmd);
+        assert(exitCode == 0, "llc failed");
     }
     
     void optimiseBitcode(string filename)
     {
         auto cmd = format("opt -std-compile-opts -o %s %s", filename, filename);
         verbosePrint(cmd);
-        system(cmd);
+        auto exitCode = system(cmd);
+        assert(exitCode == 0, "opt failed");
     }
 
     void pushScope()
