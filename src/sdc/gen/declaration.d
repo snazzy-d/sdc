@@ -19,7 +19,7 @@ import sdc.lexer;
 import sdc.location;
 import sdc.util;
 import sdc.extract;
-import sdc.global;
+import sdc.aglobal;
 import ast = sdc.ast.all;
 import sdc.gen.base;
 import sdc.gen.cfg;

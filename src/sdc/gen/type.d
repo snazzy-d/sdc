@@ -13,7 +13,7 @@ import std.range;
 
 import llvm.c.Core;
 
-import sdc.global;
+import sdc.aglobal;
 import sdc.util;
 import sdc.compilererror;
 import sdc.location;

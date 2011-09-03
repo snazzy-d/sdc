@@ -8,7 +8,7 @@ module sdc.gen.attribute;
 import std.conv;
 import std.string;
 
-import sdc.global;
+import sdc.aglobal;
 import sdc.util;
 import sdc.compilererror;
 import ast = sdc.ast.all;

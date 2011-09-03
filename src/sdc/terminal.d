@@ -10,7 +10,7 @@ import std.stdio;
 import sdc.location;
 import sdc.compilererror;
 
-import sdc.global;
+import sdc.aglobal;
 
 
 version(Windows) {

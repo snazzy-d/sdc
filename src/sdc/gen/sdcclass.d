@@ -11,7 +11,7 @@ import std.range;
 
 import sdc.util;
 import sdc.compilererror;
-import sdc.global;
+import sdc.aglobal;
 import sdc.location;
 import sdc.extract;
 import ast = sdc.ast.all;

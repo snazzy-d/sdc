@@ -8,7 +8,7 @@ module sdc.parser.aggregate;
 import std.string;
 
 import sdc.util;
-import sdc.global;
+import sdc.aglobal;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.extract;

@@ -17,7 +17,7 @@ import llvm.c.Core;
 import sdc.compilererror;
 import sdc.lexer;
 import sdc.util;
-import sdc.global;
+import sdc.aglobal;
 import sdc.extract;
 import ast = sdc.ast.all;
 import sdc.gen.base;

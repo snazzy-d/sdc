@@ -20,7 +20,7 @@ import llvm.c.transforms.IPO;
 
 import sdc.compilererror;
 import sdc.util;
-import sdc.global;
+import sdc.aglobal;
 import sdc.location;
 import sdc.extract;
 import sdc.gen.base;
