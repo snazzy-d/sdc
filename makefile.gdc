@@ -1,9 +1,9 @@
-GDC=gdc
-DFLAGS=-g -Wall -Werror -funittest -I./import -Isrc -m32
-SOURCE=$(wildcard src/sdc/*.d src/sdc/ast/*.d src/sdc/parser/*.d src/sdc/gen/*.d src/sdc/extract/*.d src/sdc/java/*.d)
-OBJS=$(SOURCE:.d=.o)
-EXE=sdc
-LLVMDIR=llvm
+include makefile.common
+
+DFLAGS = -g -Wall -Werror -funittest -I./import -Isrc -m32
+SOURCE = $(wildcard $SOURCE_WILDCARDS)
+OBJS = $(SOURCE:.d=.o)
+EXE = sdc
 
 LIBLLVM=$(LLVMDIR)/*.a
 sdc: $(OBJS)

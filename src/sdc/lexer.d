@@ -63,7 +63,33 @@ TokenStream lex(Source source)
     return tw.getStream();
 }
 
+
 private:
+
+
+pure bool isHexLex(dchar c)
+{
+    return isDigit(c) || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f';
+}
+
+pure bool isOctalLex(dchar c)
+{
+    return c >= '0' && c <= '7';
+}
+
+enum Position {
+	Start,
+	MiddleOrEnd
+}
+
+pure bool isAlphaLex(dchar c, Position position)
+{
+    if (position == Position.Start) {
+        return isUniAlpha(c) || c == '_';
+    } else {
+        return isUniAlpha(c) || c == '_' || isDigit(c);
+    }
+}
 
 /**
  * Match and advance if matched.
@@ -90,26 +116,6 @@ Token currentLocationToken(TokenWriter tw)
     auto t = new Token();
     t.location = tw.source.location;
     return t;
-}
-
-bool ishex(dchar c)
-{
-    return isDigit(c) || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f';
-}
-
-pure bool isoctal(dchar c)
-{
-    return c >= '0' && c <= '7';
-}
-
-enum Position { Start, MiddleOrEnd }
-bool isdalpha(dchar c, Position position)
-{
-    if (position == Position.Start) {
-        return isUniAlpha(c) || c == '_';
-    } else {
-        return isUniAlpha(c) || c == '_' || isDigit(c);
-    }
 }
 
 bool lexNext(TokenWriter tw)
@@ -795,11 +801,11 @@ bool lexQString(TokenWriter tw)
         break;
     default:
         nesting = false;
-        if (isdalpha(tw.source.peek, Position.Start)) {
+        if (isAlphaLex(tw.source.peek, Position.Start)) {
             char[] buf;
             buf ~= tw.source.peek;
             tw.source.get();
-            while (isdalpha(tw.source.peek, Position.MiddleOrEnd)) {
+            while (isAlphaLex(tw.source.peek, Position.MiddleOrEnd)) {
                 buf ~= tw.source.peek;
                 tw.source.get();
             }
@@ -963,7 +969,7 @@ bool lexNumber(TokenWriter tw)
             break;
         case State.Hex:  // Reading a hexadecimal number.
         case State.HexZero:
-            if (!ishex(src.peek)) {
+            if (!isHexLex(src.peek)) {
                 if (src.peek == '_') {
                     match(src, '_');
                     continue;
@@ -1070,7 +1076,7 @@ body
             case 1:  // Digits to the left of the decimal point.
             case 3:  // Digits to the right of the decimal point.
             case 7:  // Continuing exponent digits.
-                if (!isDigit(tw.source.peek) && !(hex && ishex(tw.source.peek))) {
+                if (!isDigit(tw.source.peek) && !(hex && isHexLex(tw.source.peek))) {
                     if (tw.source.peek == '_') {
                         continue OUTER;
                     }

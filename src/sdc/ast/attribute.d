@@ -53,6 +53,8 @@ enum AttributeType
     atProperty
 }
 
+alias immutable(AttributeType)[] AttributeTypes;
+
 enum Linkage
 {
     ExternC = AttributeType.ExternC,
@@ -83,9 +85,19 @@ TokenType.Align, TokenType.Pragma, TokenType.Extern,
 TokenType.Pure, TokenType.Nothrow,
 ];
 
+immutable LINKAGES = [
+AttributeType.ExternC, AttributeType.ExternCPlusPlus, AttributeType.ExternD,
+AttributeType.ExternWindows, AttributeType.ExternPascal,
+AttributeType.ExternSystem
+];
+
 immutable ACCESS = [
 AttributeType.Public, AttributeType.Protected, AttributeType.Private,
 AttributeType.Package, AttributeType.Export
+];
+
+immutable TRUSTLEVELS = [
+AttributeType.atSafe, AttributeType.atTrusted, AttributeType.atSystem
 ];
 
 immutable FUNCTION_ATTRIBUTES = [
