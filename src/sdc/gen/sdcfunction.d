@@ -15,7 +15,7 @@ import llvm.c.Core;
 import llvm.Ext;
 
 import sdc.compilererror;
-import sdc.global;
+import sdc.aglobal;
 import sdc.location;
 import sdc.mangle;
 import sdc.util;

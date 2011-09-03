@@ -9,7 +9,7 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
-import sdc.global;
+import sdc.aglobal;
 import sdc.extract;
 import sdc.compilererror;
 import ast = sdc.ast.all;

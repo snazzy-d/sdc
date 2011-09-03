@@ -21,7 +21,7 @@ import sdc.mangle;
 import sdc.extract;
 import sdc.compilererror;
 import sdc.location;
-import sdc.global;
+import sdc.aglobal;
 import sdc.gen.cfg;
 import sdc.gen.expression;
 import sdc.gen.sdcmodule;

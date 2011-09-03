@@ -15,7 +15,7 @@ import path = std.path;
 import sdc.util;
 import sdc.compilererror;
 import sdc.location;
-import sdc.global;
+import sdc.aglobal;
 import sdc.source;
 import sdc.lexer;
 import sdc.extract;

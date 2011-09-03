@@ -7,7 +7,7 @@
  * Fun fact: this module is named 'aglobal.d' 
  * to ensure it is compiled first and work around a DMD template bug. 
  */
-module sdc.global;
+module sdc.aglobal;
 
 import std.algorithm;
 import std.array;

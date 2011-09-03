@@ -12,7 +12,7 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
-import sdc.global;
+import sdc.aglobal;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.extract;

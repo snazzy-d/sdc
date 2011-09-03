@@ -42,7 +42,7 @@ import sdc.tokenstream;
 import sdc.lexer;
 import sdc.compilererror;
 import sdc.info;
-import sdc.global;
+import sdc.aglobal;
 import sdc.terminal;
 import sdc.extract;
 import ast = sdc.ast.all;
