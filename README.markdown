@@ -30,8 +30,8 @@ Parser
 * Parse interface declarations.  _[no.]_
 * Parse aggregate declarations.  _[partially.]_
 * Parse declarations.  _[partially.]_
-* Parse constructors.  _[no.]_
-* Parse destructors.  _[no.]_
+* Parse constructors.  __[yes.]__
+* Parse destructors.  __[yes.]__
 * Parse invariants.  _[no.]_
 * Parse unittests.  __[yes.]__
 * Parse static constructors.  _[no.]_

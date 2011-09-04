@@ -175,13 +175,28 @@ bool startsLikeAttribute(TokenStream tstream)
         return false;
     }
     
-    if (tstream.peek.type == TokenType.Static) { // TODO: I have a feeling this doesn't belong here...
+    // Do not handle static ifs, asserts, imports, constructors and destructors.
+    // TODO: I have a feeling this doesn't belong here...
+    if (tstream.peek.type == TokenType.Static) {
         if (tstream.lookahead(1).type == TokenType.Assert ||
             tstream.lookahead(1).type == TokenType.Import ||
+            tstream.lookahead(1).type == TokenType.This ||
+            tstream.lookahead(1).type == TokenType.Tilde ||
             tstream.lookahead(1).type == TokenType.If) {
             return false;
         }
     }
+
+    // Do not handle shared static constructors and destructors.
+    // TODO: I have a feeling this doesn't belong here...
+    if (tstream.peek.type == TokenType.Shared &&
+        tstream.lookahead(1).type == TokenType.Static) {
+        if (tstream.lookahead(2).type == TokenType.This ||
+            tstream.lookahead(2).type == TokenType.Tilde) {
+            return false;
+        }
+    }
+
     return contains(ATTRIBUTE_KEYWORDS, tstream.peek.type) || tstream.peek.type == TokenType.At;
 }
 

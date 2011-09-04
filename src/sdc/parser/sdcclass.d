@@ -5,6 +5,9 @@
  */
 module sdc.parser.sdcclass;
 
+
+import std.string;
+
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.extract;
@@ -60,17 +63,40 @@ ClassBody parseClassBody(TokenStream tstream, string name)
 DeclarationDefinition parseConstructor(TokenStream tstream, string name)
 {
     // All this shit is synthesising a function declaration.
+    DeclarationDefinitionType type;
+    auto firstToken = tstream.peek;
+
+    // Handle static and shared static.
+    switch (tstream.peek.type) {
+    case TokenType.Shared:
+        match(tstream, TokenType.Shared);
+        match(tstream, TokenType.Static);
+        type = DeclarationDefinitionType.SharedStaticConstructor;
+        break;
+    case TokenType.Static:
+        match(tstream, TokenType.Static);
+        type = DeclarationDefinitionType.StaticConstructor;
+        break;
+    case TokenType.This:
+        type = DeclarationDefinitionType.Constructor;
+        break;
+    default:
+        auto str = format("Expected 'this', 'static this' or 'shared static "
+                          "this', got '%s'", firstToken.value);
+        throw new CompilerError(firstToken.location, str);
+    }
     
+    // Common for all constructors.
     auto decldef = new DeclarationDefinition();
-    decldef.location = tstream.peek.location;
-    decldef.type = DeclarationDefinitionType.Declaration;
+    decldef.location = tstream.peek.location - firstToken.location;
+    decldef.type = DeclarationDefinitionType.Constructor;
     
     auto decl = new Declaration();
-    decl.location = tstream.peek.location;
+    decl.location = tstream.peek.location - firstToken.location;
     decl.type = DeclarationType.Function;
     
     auto fdecl = new FunctionDeclaration();
-    fdecl.location = tstream.peek.location;
+    fdecl.location = tstream.peek.location - firstToken.location;
     fdecl.retval = new Type();
     fdecl.retval.ctor = true;
     
@@ -86,5 +112,64 @@ DeclarationDefinition parseConstructor(TokenStream tstream, string name)
     decl.node = fdecl;
     decldef.node = decl;
     
+    return decldef;
+}
+
+DeclarationDefinition parseDestructor(TokenStream tstream, string name)
+{
+    // All this shit is synthesising a function declaration.
+    DeclarationDefinitionType type;
+    auto firstToken = tstream.peek;
+
+    // Handle static and shared static.
+    switch (tstream.peek.type) {
+    case TokenType.Shared:
+        tstream.get();
+        match(tstream, TokenType.Static);
+        match(tstream, TokenType.Tilde);
+        type = DeclarationDefinitionType.SharedStaticDestructor;
+        break;
+    case TokenType.Static:
+        tstream.get();
+        match(tstream, TokenType.Tilde);
+        type = DeclarationDefinitionType.StaticDestructor;
+        break;
+    case TokenType.Tilde:
+        tstream.get();
+        type = DeclarationDefinitionType.Destructor;
+        break;
+    default:
+        auto str = format("Expected '~this', 'static ~this' or 'shared "
+                          "static ~this', got '%s'", firstToken.value);
+        throw new CompilerError(firstToken.location, str);
+    }
+
+    // Common for all destructors.
+    auto decldef = new DeclarationDefinition();
+    decldef.location = tstream.peek.location - firstToken.location;
+    decldef.type = type;
+
+    auto decl = new Declaration();
+    decl.location = tstream.peek.location - firstToken.location;
+    decl.type = DeclarationType.Function;
+
+    auto fdecl = new FunctionDeclaration();
+    fdecl.location = tstream.peek.location - firstToken.location;
+    fdecl.retval = new Type();
+    fdecl.retval.dtor = true;
+
+    auto ident = new Identifier();
+    fdecl.name = new QualifiedName();
+    fdecl.name.location = tstream.peek.location - tstream.previous.location;
+    fdecl.name.identifiers ~= new Identifier();
+    fdecl.name.identifiers[0].value = "__dtor";
+
+    match(tstream, TokenType.This);
+    match(tstream, TokenType.OpenParen);
+    match(tstream, TokenType.CloseParen);
+    fdecl.functionBody = parseFunctionBody(tstream);
+    decl.node = fdecl;
+    decldef.node = decl;
+
     return decldef;
 }
