@@ -975,7 +975,7 @@ class PointerValue : Value
         return v;
     }
     
-    override Value add(Location location, Value idx)
+    private final Value pointerArithmetic(Location location, Value idx)
     {
         idx = implicitCast(location, idx, getPtrdiffT(mModule));
        
@@ -985,6 +985,27 @@ class PointerValue : Value
         auto v = mType.getValue(mModule, location);
         LLVMBuildStore(mModule.builder, added, v.mValue);
         return v;
+    }
+    
+    override Value add(Location location, Value idx)
+    {
+        return pointerArithmetic(location, idx);
+    }
+    
+    override Value inc(Location location)
+    {
+        return pointerArithmetic(location, newPtrdiffT(mModule, location, 1));
+    }
+    
+    override Value sub(Location location, Value idx)
+    {
+        auto zero = newPtrdiffT(mModule, location, 0); // HACK
+        return pointerArithmetic(location, zero.sub(location, idx));
+    }
+    
+    override Value dec(Location location)
+    {
+        return pointerArithmetic(location, newPtrdiffT(mModule, location, -1));
     }
     
     override Value index(Location location, Value val)

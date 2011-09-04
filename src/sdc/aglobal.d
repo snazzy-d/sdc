@@ -320,6 +320,17 @@ Value newSizeT(Module mod, Location loc, ulong init)
     }
 }
 
+Value newPtrdiffT(Module mod, Location loc, long init)
+{
+    if (bits == 32) {
+        return new IntValue(mod, loc, cast(int)init);
+    } else if (bits == 64) {
+        return new LongValue(mod, loc, init);
+    } else {
+        assert(false);
+    }
+}
+
 private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;

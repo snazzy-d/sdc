@@ -47,7 +47,14 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
         return lhs;
     }
     auto rhs = genAssignExpression(expression.assignExpression, mod);
-    rhs = implicitCast(rhs.location, rhs, lhs.type);
+    
+    // Do implicit cast if this is not pointer arithmetic
+    if (expression.assignType != ast.AssignType.AddAssign &&
+        expression.assignType != ast.AssignType.SubAssign &&
+        lhs.type.dtype != DType.Pointer) {
+        rhs = implicitCast(rhs.location, rhs, lhs.type);
+    }
+    
     switch (expression.assignType) with (ast.AssignType) {
     case None:
         assert(false);
