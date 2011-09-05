@@ -290,6 +290,7 @@ class MixinExpression : Node
     AssignExpression assignExpression;
 }
 
+// import ( AssignExpression )
 class ImportExpression : Node
 {
     AssignExpression assignExpression;
