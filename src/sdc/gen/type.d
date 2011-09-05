@@ -753,7 +753,7 @@ class ArrayType : StructType
         declare();
     }
     
-    override Value getValue(Module mod, Location location)
+    override ArrayValue getValue(Module mod, Location location)
     {
         return new ArrayValue(mod, location, base);
     }

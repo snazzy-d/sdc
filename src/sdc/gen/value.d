@@ -1033,8 +1033,10 @@ class PointerValue : Value
     {
         auto arrayType = new ArrayType(mModule, baseType);
         auto v = arrayType.getValue(mModule, location);
-        v.getMember(location, "ptr").initialise(location, add(location, from));
-        v.getMember(location, "length").initialise(location, to.sub(location, from));
+        v.suppressCallbacks = true;
+        v.getMember(location, "ptr").set(location, add(location, from));
+        v.getMember(location, "length").set(location, to.sub(location, from));
+        v.suppressCallbacks = false;
         return v;
     }
     
