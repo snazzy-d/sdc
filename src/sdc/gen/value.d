@@ -442,7 +442,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value sub(Location location, Value val)
     {
-        auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "add");
+        auto result = LLVMBuildSub(mModule.builder, this.get(), val.get(), "sub");
         auto v = new typeof(this)(mModule, location);
         v.initialise(location, result);
         v.isKnown = this.isKnown && val.isKnown;
@@ -454,7 +454,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value mul(Location location, Value val)
     {
-        auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "add");
+        auto result = LLVMBuildMul(mModule.builder, this.get(), val.get(), "mul");
         auto v = new typeof(this)(mModule, location);
         v.initialise(location, result);
         v.isKnown = this.isKnown && val.isKnown;
@@ -467,9 +467,9 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override Value div(Location location, Value val)
     {
         static if (SIGNED) {
-            auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "add");
+            auto result = LLVMBuildSDiv(mModule.builder, this.get(), val.get(), "div");
         } else {
-            auto result = LLVMBuildUDiv(mModule.builder, this.get(), val.get(), "add");
+            auto result = LLVMBuildUDiv(mModule.builder, this.get(), val.get(), "div");
         }
         auto v = new typeof(this)(mModule, location);
         v.initialise(location, result);
@@ -999,7 +999,8 @@ class PointerValue : Value
     
     override Value sub(Location location, Value idx)
     {
-        auto zero = newPtrdiffT(mModule, location, 0); // HACK
+        idx = implicitCast(location, idx, getPtrdiffT(mModule));
+        auto zero = newPtrdiffT(mModule, location, 0);
         return pointerArithmetic(location, zero.sub(location, idx));
     }
     
