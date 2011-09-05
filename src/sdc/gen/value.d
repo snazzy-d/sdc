@@ -1642,14 +1642,14 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
 
 Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure onFailure)
 {
-    auto retval = astTypeToBackendType(type.retval, mod, onFailure);
+    auto returnType = astTypeToBackendType(type.returnType, mod, onFailure);
     bool varargs = type.parameters.varargs;
     Type[] params;
     foreach (param; type.parameters.parameters) {
         params ~= astTypeToBackendType(param.type, mod, onFailure);
         params[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
     }
-    auto ftype = new FunctionType(mod, retval, params, varargs);
+    auto ftype = new FunctionType(mod, returnType, params, varargs);
     ftype.declare();
     return new PointerType(mod, ftype);
 }

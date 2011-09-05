@@ -109,15 +109,15 @@ Condition parseCondition(TokenStream tstream)
     
     switch (tstream.peek.type) {
     case TokenType.Version:
-        condition.conditionType = ConditionType.Version;
+        condition.type = ConditionType.Version;
         condition.condition = parseVersionCondition(tstream);
         break;
     case TokenType.Debug:
-        condition.conditionType = ConditionType.Debug;
+        condition.type = ConditionType.Debug;
         condition.condition = parseDebugCondition(tstream);
         break;
     case TokenType.Static:
-        condition.conditionType = ConditionType.StaticIf;
+        condition.type = ConditionType.StaticIf;
         condition.condition = parseStaticIfCondition(tstream);
         break;
     default:

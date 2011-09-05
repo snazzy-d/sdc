@@ -326,7 +326,7 @@ void genConditionalDeclaration(ast.DeclarationDefinition declDef, ast.Conditiona
 
 bool genCondition(ast.Condition condition, Module mod)
 {
-    final switch (condition.conditionType) {
+    final switch (condition.type) {
     case ast.ConditionType.Version:
         return genVersionCondition(cast(ast.VersionCondition) condition.condition, mod);
     case ast.ConditionType.Debug:

@@ -57,7 +57,7 @@ class ParameterList : Node
     
 class FunctionDeclaration : Node
 {
-    Type retval;
+    Type returnType;
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
@@ -198,13 +198,13 @@ class TypeofType : Node
 
 class FunctionPointerType : Node
 {
-    Type retval;
+    Type returnType;
     ParameterList parameters;
 }
 
 class DelegateType : Node
 {
-    Type retval;
+    Type returnType;
     ParameterList parameters;
 }
 
@@ -236,6 +236,6 @@ enum InitialiserType
 class Initialiser : Node
 {
     InitialiserType type;
-    Node node;  // Optional.
+    Node node; // Optional.
 }
 

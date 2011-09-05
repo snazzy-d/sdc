@@ -44,7 +44,7 @@ enum ConditionType
 
 class Condition : Node
 {
-    ConditionType conditionType;
+    ConditionType type;
     Node condition;
 }
 
@@ -57,7 +57,7 @@ enum VersionConditionType
 class VersionCondition : Node
 {
     VersionConditionType type;
-    Identifier identifier;
+    Identifier identifier; // Optional
 }
 
 // version = foo
@@ -75,7 +75,7 @@ enum DebugConditionType
 class DebugCondition : Node
 {
     DebugConditionType type;
-    Identifier identifier;
+    Identifier identifier; // Optional
 }
 
 // debug = foo

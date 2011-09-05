@@ -127,13 +127,7 @@ class Attribute : Node
 
 class AlignAttribute : Node
 {
-    IntegerLiteral integerLiteral;  // Optional.
-}
-
-class PragmaAttribute : Node
-{
-    Identifier identifier;
-    ArgumentList argumentList;  // Optional.
+    IntegerLiteral alignment;  // Optional.
 }
 
 // DeclarationDefinition | { DeclarationDefinition* }

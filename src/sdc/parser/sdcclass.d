@@ -97,8 +97,8 @@ DeclarationDefinition parseConstructor(TokenStream tstream, string name)
     
     auto fdecl = new FunctionDeclaration();
     fdecl.location = tstream.peek.location - firstToken.location;
-    fdecl.retval = new Type();
-    fdecl.retval.ctor = true;
+    fdecl.returnType = new Type();
+    fdecl.returnType.ctor = true;
     
     auto ident = new Identifier();
     fdecl.name = new QualifiedName();
@@ -155,8 +155,8 @@ DeclarationDefinition parseDestructor(TokenStream tstream, string name)
 
     auto fdecl = new FunctionDeclaration();
     fdecl.location = tstream.peek.location - firstToken.location;
-    fdecl.retval = new Type();
-    fdecl.retval.dtor = true;
+    fdecl.returnType = new Type();
+    fdecl.returnType.dtor = true;
 
     auto ident = new Identifier();
     fdecl.name = new QualifiedName();

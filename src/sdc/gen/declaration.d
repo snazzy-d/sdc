@@ -74,12 +74,12 @@ bool canGenVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 
 bool canGenFunctionDeclaration(ast.FunctionDeclaration decl, Module mod)
 {
-    bool retval = astTypeToBackendType(decl.retval, mod, OnFailure.ReturnNull) !is null;
+    bool returnType = astTypeToBackendType(decl.returnType, mod, OnFailure.ReturnNull) !is null;
     foreach (parameter; decl.parameterList.parameters) {
         auto t = astTypeToBackendType(parameter.type, mod, OnFailure.ReturnNull);
-        retval = retval && t !is null;
+        returnType = returnType && t !is null;
     }
-    return retval;
+    return returnType;
 }
 
 
@@ -142,7 +142,7 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
 /// Create and add the function, but generate no code.
 void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDefinition declDef, Module mod)
 {
-    auto retval = astTypeToBackendType(decl.retval, mod, OnFailure.DieWithError);
+    auto returnType = astTypeToBackendType(decl.returnType, mod, OnFailure.DieWithError);
     Type[] params;
     string[] names;
     foreach (param; decl.parameterList.parameters) {
@@ -153,7 +153,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
-    auto fntype = new FunctionType(mod, retval, params, decl.parameterList.varargs, decl);
+    auto fntype = new FunctionType(mod, returnType, params, decl.parameterList.varargs, decl);
     auto fn = new Function(fntype);
     
     fn.location = decl.location;
@@ -349,7 +349,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             LLVMBuildRetVoid(mod.builder);
         } else {
             throw new CompilerError(
-                decl.retval.location, 
+                decl.returnType.location, 
                 format(`function "%s" expected to return a value of type "%s".`,
                     mod.currentFunction.simpleName, 
                     fn.type.returnType.name()

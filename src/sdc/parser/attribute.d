@@ -13,6 +13,7 @@ import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.parser.base;
 import sdc.parser.expression;
+import sdc.parser.sdcpragma;
 import sdc.ast.attribute;
 import sdc.ast.declaration;
 
@@ -139,6 +140,8 @@ Attribute parseAttribute(TokenStream tstream)
         attribute.node = parseAlignAttribute(tstream);
         break;
     case TokenType.Pragma:
+        attribute.type = AttributeType.Pragma;
+        attribute.node = parsePragma(tstream);
         break;
     case TokenType.Extern:
         return parseExtern();
@@ -208,26 +211,10 @@ AlignAttribute parseAlignAttribute(TokenStream tstream)
     match(tstream, TokenType.Align);
     if (tstream.peek.type == TokenType.OpenParen) {
         match(tstream, TokenType.OpenParen);
-        alignAttribute.integerLiteral = parseIntegerLiteral(tstream);
+        alignAttribute.alignment = parseIntegerLiteral(tstream);
         match(tstream, TokenType.CloseParen);
     }
     return alignAttribute;
-}
-
-
-PragmaAttribute parsePragmaAttribute(TokenStream tstream)
-{
-    auto pragmaAttribute = new PragmaAttribute();
-    pragmaAttribute.location = tstream.peek.location;
-    match(tstream, TokenType.Pragma);
-    match(tstream, TokenType.OpenParen);
-    pragmaAttribute.identifier = parseIdentifier(tstream);
-    if (tstream.peek.type == TokenType.Comma) {
-        match(tstream, TokenType.Comma);
-        pragmaAttribute.argumentList = parseArgumentList(tstream);
-    }
-    match(tstream, TokenType.CloseParen);
-    return pragmaAttribute;
 }
 
 DeclarationBlock parseDeclarationBlock(TokenStream tstream, bool attributeBlock = false)

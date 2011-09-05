@@ -188,9 +188,9 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
     
     if (tstream.peek.type == TokenType.Auto && tstream.lookahead(1).type == TokenType.Identifier) {
         // TODO: look for function attributes here, as well. Once we have function attributes, of course. :P
-        declaration.retval = parseInferredType(tstream);
+        declaration.returnType = parseInferredType(tstream);
     } else {
-        declaration.retval = parseType(tstream);
+        declaration.returnType = parseType(tstream);
     }
     declaration.name = parseQualifiedName(tstream); // TODO: WHAT!?
     verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
@@ -557,24 +557,24 @@ TypeofType parseTypeofType(TokenStream tstream)
     return type;
 }
 
-FunctionPointerType parseFunctionPointerType(TokenStream tstream, Type retval)
+FunctionPointerType parseFunctionPointerType(TokenStream tstream, Type returnType)
 {
     auto type = new FunctionPointerType();
     type.location = tstream.peek.location;
     
-    type.retval = retval;
+    type.returnType = returnType;
     match(tstream, TokenType.Function);
     type.parameters = parseParameters(tstream);
     
     return type;
 }
 
-DelegateType parseDelegateType(TokenStream tstream, Type retval)
+DelegateType parseDelegateType(TokenStream tstream, Type returnType)
 {
     auto type = new DelegateType();
     type.location = tstream.peek.location;
     
-    type.retval = retval;
+    type.returnType = returnType;
     match(tstream, TokenType.Delegate);
     type.parameters = parseParameters(tstream);
     
