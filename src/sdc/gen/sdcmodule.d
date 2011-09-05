@@ -569,12 +569,16 @@ class Scope
     {
         if (auto p = definedInParents(name)) {
             if (p.parentScope.parent !is null) {
-                throw new CompilerError(store.location, format("declaration of '%s' shadows declaration at '%s'.", name, p.location));
+                auto error = new CompilerError(store.location, format("declaration of '%s' shadows previous declaration.", name));
+                error.more = new CompilerErrorNote(p.location, "previous declaration here.");
+                throw error;
             }
         }
         if (auto p = name in mSymbolTable) {
             if (p.storeType != StoreType.Scope) {
-                throw new CompilerError(store.location, format("redefinition of '%s', defined at '%s'.", name, p.location));
+                auto error = new CompilerError(store.location, format("redefinition of '%s'.", name));
+                error.more = new CompilerErrorNote(p.location, "previous definition here.");
+                throw error;
             }
         }
         mSymbolTable[name] = store;
