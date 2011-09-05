@@ -609,6 +609,12 @@ bool isPrimaryExpression(TokenStream tstream)
         return true;
     case TokenType.Assert:
         return true;
+    case TokenType.Is:
+        return true;
+    case TokenType.Typeid:
+        return true;
+    case TokenType.Import:
+        return true;
     default:
         if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
             return true;
@@ -727,7 +733,7 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
             match(tstream, TokenType.Dot);
             primaryExpr.secondNode = parseIdentifier(tstream);
         } else {
-            throw new CompilerError(tstream.peek.location, "expected a primary expression.");
+            throw new CompilerPanic(tstream.peek.location, "unhandled primary expression.");
         }
     }
     
