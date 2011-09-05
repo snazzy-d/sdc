@@ -619,9 +619,14 @@ class ClassType : Type
         return new ClassValue(mod, location, this);
     }
     
+    override ast.QualifiedName getFullName()
+    {
+        return fullName;
+    }
+    
     override string name()
     {
-        return "class";
+        return "class " ~ extractQualifiedName(fullName);
     }
     
     void declare()
@@ -802,7 +807,7 @@ class StaticArrayType : Type
     
     override string name()
     {
-        return base.name() ~ format("[%s]", length);
+        return format("%s[%s]", base.name(), length);
     }
 }
 
@@ -848,9 +853,14 @@ class StructType : Type
     
     mixin ImportToModule!(Type, "mod");
     
+    override ast.QualifiedName getFullName()
+    {
+        return fullName;
+    }
+    
     override string name()
     { 
-        return extractQualifiedName(fullName);
+        return "struct " ~ extractQualifiedName(fullName);
     }
     
     Type[] members;
@@ -895,7 +905,7 @@ class EnumType : Type
     
     override string name()
     {
-        return extractQualifiedName(fullName);
+        return "enum " ~ extractQualifiedName(fullName);
     }
     
     Value[string] members;
