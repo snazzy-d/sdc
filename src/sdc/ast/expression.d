@@ -277,7 +277,7 @@ class PrimaryExpression : Node
     Node secondNode;  // Optional.
 }
 
-// assert ( AssertExpr (, AssertExpr)? )
+// assert ( AssignExpr (, AssignExpr)? )
 class AssertExpression : Node
 {
     AssignExpression condition;
