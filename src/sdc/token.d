@@ -163,6 +163,11 @@ class Token
     TokenType type;
     string value;
     Location location;
+    
+    override string toString()
+    {
+        return tokenToString[type];
+    }
 }
 
 
