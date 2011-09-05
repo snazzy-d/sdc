@@ -349,7 +349,7 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
             LLVMBuildRetVoid(mod.builder);
         } else {
             throw new CompilerError(
-                decl.location, 
+                decl.retval.location, 
                 format(`function "%s" expected to return a value of type "%s".`,
                     mod.currentFunction.simpleName, 
                     fn.type.returnType.name()
