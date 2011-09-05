@@ -216,10 +216,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
     if (tstream.lookahead(i).type == TokenType.OpenParen) {
         templateDeclaration = new TemplateDeclaration();
         templateDeclaration.templateIdentifier = declaration.name.identifiers[0];
-        
-        match(tstream, TokenType.OpenParen);
         templateDeclaration.parameterList = parseTemplateParameterList(tstream);
-        match(tstream, TokenType.CloseParen); // TODO: move this into parseTemplateParameterList, like with parseParameters
     }
     
     declaration.parameterList = parseParameters(tstream);
