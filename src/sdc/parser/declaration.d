@@ -366,6 +366,8 @@ Type parseType(TokenStream tstream)
         match(tstream, TokenType.OpenParen);
         type.node = parseType(tstream);
         match(tstream, TokenType.CloseParen);
+    } else {
+        throw new CompilerError(tstream.peek.location, format("expected type, not '%s'.", tstream.peek));
     }
     
     if (tstream.peek.type == TokenType.OpenParen && tstream.lookahead(1).type == TokenType.Asterix) {
