@@ -494,6 +494,9 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
     
     if (postfixExpr !is null) {
         postfixExpr.location.spanTo(tstream.previous.location);
+    } else if (count == 0) {
+        auto next = tstream.peek;
+        throw new CompilerError(next.location, format("expected expression, not '%s'.", next));
     }
     return postfixExpr;
 }
