@@ -55,6 +55,8 @@ void genStatement(ast.Statement statement, Module mod)
     default:
         throw new CompilerPanic(statement.location, "unimplemented statement type.");
         assert(false);
+    case ast.StatementType.EmptyStatement:
+        break;
     case ast.StatementType.BlockStatement:
         genBlockStatement(cast(ast.BlockStatement) statement.node, mod);
         break;

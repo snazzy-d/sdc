@@ -14,6 +14,7 @@ import sdc.ast.sdcpragma;
 
 enum StatementType
 {
+    EmptyStatement,
     BlockStatement,
     LabeledStatement,
     ExpressionStatement,

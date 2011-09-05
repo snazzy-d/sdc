@@ -21,7 +21,10 @@ Statement parseStatement(TokenStream tstream)
     auto statement = new Statement();
     statement.location = tstream.peek.location;
     
-    if (tstream.peek.type == TokenType.OpenBrace) {
+    if (tstream.peek.type == TokenType.Semicolon) {
+        statement.type = StatementType.EmptyStatement;
+        tstream.get();
+    } else if (tstream.peek.type == TokenType.OpenBrace) {
         statement.type = StatementType.BlockStatement;
         statement.node = parseBlockStatement(tstream);
     } else if (tstream.peek.type == TokenType.If) {
