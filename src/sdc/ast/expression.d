@@ -111,7 +111,7 @@ enum Comparison
 }
     
 
-// ShiftExpression ((== != !is is in !in etc)  ShiftExpression)?
+// CmpExpression ((== != !is is in !in etc)  CmpExpression)?
 class CmpExpression : Node
 {
     ShiftExpression lhShiftExpression;

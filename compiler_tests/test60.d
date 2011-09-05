@@ -1,5 +1,4 @@
 //T compiles:no
-//T has-passed:no
 // Issue #25.
 
 int func1() { return 2; }

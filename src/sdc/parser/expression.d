@@ -482,7 +482,7 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
         postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     default:
-        if (isPrimaryExpression(tstream)) {
+        if (count == 0 && isPrimaryExpression(tstream)) {
             postfixExpr.firstNode = parsePrimaryExpression(tstream);
             postfixExpr.type = PostfixType.Primary;
             postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1); 
