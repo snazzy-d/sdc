@@ -324,19 +324,19 @@ enum IsOperation
 enum IsSpecialisation
 {
     Type,
-    Struct,
-    Union,
-    Class,
-    Interface,
-    Enum,
-    Function,
-    Delegate,
-    Super,
-    Const,
-    Immutable,
-    Inout,
-    Shared,
-    Return,
+    Struct = TokenType.Struct,
+    Union = TokenType.Union,
+    Class = TokenType.Class,
+    Interface = TokenType.Interface,
+    Enum = TokenType.Enum,
+    Function = TokenType.Function,
+    Delegate = TokenType.Delegate,
+    Super = TokenType.Super,
+    Const = TokenType.Const,
+    Immutable = TokenType.Immutable,
+    Inout = TokenType.Inout,
+    Shared = TokenType.Shared,
+    Return = TokenType.Return,
 }
 
 class IsExpression : Node
@@ -344,7 +344,8 @@ class IsExpression : Node
     IsOperation operation;
     Type type;
     Identifier identifier;  // Optional.
-    IsSpecialisation specialisation;
+    IsSpecialisation specialisation; // Optional.
+    Type specialisationType; // Optional.
     // TODO: Template pararameters.
 }
 

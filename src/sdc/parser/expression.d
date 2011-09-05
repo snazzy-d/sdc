@@ -726,6 +726,10 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.type = PrimaryType.AssertExpression;
         primaryExpr.node = parseAssertExpression(tstream);
         break;
+    case TokenType.Is:
+        primaryExpr.type = PrimaryType.IsExpression;
+        primaryExpr.node = parseIsExpression(tstream);
+        break;
     default:
         if (contains([__traits(allMembers, PrimitiveTypeType)], to!string(tstream.peek.type))) {
             primaryExpr.type = PrimaryType.BasicTypeDotIdentifier;
@@ -787,4 +791,63 @@ bool startsLikeTypeExpression(TokenStream tstream)
     }
     
     return false;
+}
+
+IsExpression parseIsExpression(TokenStream tstream)
+{
+    auto expr = new IsExpression();
+    
+    match(tstream, TokenType.Is);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    
+    expr.type = parseType(tstream);
+    
+    if (tstream.peek.type == TokenType.CloseParen) {
+        auto closeToken = tstream.get();
+        expr.operation = IsOperation.SemanticCheck;
+        expr.location = closeToken.location - openToken.location;
+        return expr;
+    }
+    
+    if (tstream.peek.type == TokenType.Identifier) {
+        expr.identifier = parseIdentifier(tstream);
+        
+        if (tstream.peek.type == TokenType.CloseParen) {
+            auto closeToken = tstream.get();
+            expr.operation = IsOperation.SemanticCheck;
+            expr.location = closeToken.location - openToken.location;
+            return expr;
+        }
+    }
+    
+    if (tstream.peek.type == TokenType.DoubleAssign) {
+        expr.operation = IsOperation.ExplicitType;
+    } else if (tstream.peek.type == TokenType.Colon) {
+        expr.operation = IsOperation.ImplicitType;
+    } else {
+        throw new CompilerError(tstream.peek.location, format("expected '==' or ':', not '%s'.", tstream.peek));
+    }
+    tstream.get();
+    
+    switch(tstream.peek.type) with(TokenType) {
+        case Struct, Union, Class, Interface, Enum, Function, Delegate, Super, Return:
+            expr.specialisation = cast(IsSpecialisation)tstream.get().type;
+            break;
+        case Const, Immutable, Shared, Inout:
+            if (tstream.lookahead(1).type == TokenType.OpenParen) {
+                goto default;
+            }
+            goto case Struct;
+        default:
+            expr.specialisation = IsSpecialisation.Type;
+            expr.specialisationType = parseType(tstream);
+    }
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "is expression", ")");
+    }
+    
+    auto closeToken = tstream.get();
+    expr.location = closeToken.location - openToken.location;
+    return expr;
 }
