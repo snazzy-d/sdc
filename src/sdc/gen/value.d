@@ -135,6 +135,7 @@ abstract class Value
     Value not(Location loc) { fail(loc, "not"); assert(false); }
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
+    Value slice(Location loc, Value from, Value to) { fail(loc, "slice"); assert(false); }
     Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
     Value mod(Location loc, Value val) { fail(loc, "modulo"); assert(false); }
         
@@ -842,6 +843,13 @@ class ArrayValue : StructValue
         return v;
     }
     
+    override Value slice(Location location, Value from, Value to)
+    {
+        auto v = getMember(location, "ptr").slice(location, from, to);
+        v.lvalue = lvalue;
+        return v;
+    }
+    
     override Value importToModule(Module mod)
     {
         return new ArrayValue(mod, location, baseType.importToModule(mod));
@@ -1016,8 +1024,17 @@ class PointerValue : Value
         indices ~= val.get();
         
         auto v = baseType.getValue(mModule, location);
-        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, cast(uint) indices.length, "gep");
+        v.mValue = LLVMBuildGEP(mModule.builder, get(), indices.ptr, cast(uint) indices.length, "index");
         v.lvalue = lvalue;
+        return v;
+    }
+    
+    override Value slice(Location location, Value from, Value to)
+    {
+        auto arrayType = new ArrayType(mModule, baseType);
+        auto v = arrayType.getValue(mModule, location);
+        v.getMember(location, "ptr").initialise(location, add(location, from));
+        v.getMember(location, "length").initialise(location, to.sub(location, from));
         return v;
     }
     

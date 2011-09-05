@@ -468,8 +468,11 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         mod.base = null;
         break;
     case ast.PostfixType.Slice:
-        throw new CompilerPanic(expression.location, "unimplemented postfix expression type.");
-        assert(false);
+        auto from = genAssignExpression(cast(ast.AssignExpression)expression.firstNode, mod);
+        auto to = genAssignExpression(cast(ast.AssignExpression)expression.secondNode, mod);
+        lhs = lhs.slice(expression.location, from, to);
+        if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
+        break;
     }
     return lhs;
 }
