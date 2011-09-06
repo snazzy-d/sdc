@@ -26,6 +26,7 @@ import sdc.ast.all;
 ImportDeclaration synthesiseImport(string modname)
 {
     auto decl = new ImportDeclaration();
+    decl.isSynthetic = true;
     decl.importList = new ImportList();
     decl.importList.type = ImportListType.SingleSimple;
     auto imp = new Import();
