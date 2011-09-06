@@ -1,6 +1,6 @@
 /**
  * Copyright 2010 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2010-2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -57,6 +57,9 @@ Statement parseStatement(TokenStream tstream)
     } else if (tstream.peek.type == TokenType.Goto) {
         statement.type = StatementType.GotoStatement;
         statement.node = parseGotoStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Foreach) {
+        statement.type = StatementType.ForeachStatement;
+        statement.node = parseForeachStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
@@ -244,6 +247,80 @@ DoStatement parseDoStatement(TokenStream tstream)
     return statement;
 }
 
+ForeachStatement parseForeachStatement(TokenStream tstream)
+{
+    auto statement = new ForeachStatement();
+    statement.location = tstream.peek.location;
+    
+    match(tstream, TokenType.Foreach);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    
+    ForeachType parseForeachType()
+    {
+        auto type = new ForeachType();
+        type.location = tstream.peek.location;
+        
+        if (tstream.peek.type == TokenType.Ref) {
+            tstream.get();
+            type.isRef = true;
+        }
+        
+        if (tstream.peek.type == TokenType.Identifier &&
+           (tstream.lookahead(1).type == TokenType.Comma ||
+            tstream.lookahead(1).type == TokenType.Semicolon)) {
+            type.type = ForeachTypeType.Implicit;
+            type.identifier = parseIdentifier(tstream);
+        } else {
+            type.type = ForeachTypeType.Explicit;
+            type.explicitType = parseType(tstream);
+            type.identifier = parseIdentifier(tstream);
+        }
+        
+        type.location.spanTo(tstream.previous.location);
+        return type;
+    }
+    
+    do {
+        statement.foreachTypes ~= parseForeachType();
+        
+        if (tstream.peek.type == TokenType.Comma) {
+            tstream.get();
+        }
+    } while(tstream.peek.type != TokenType.Semicolon);
+    
+    match(tstream, TokenType.Semicolon);
+    
+    statement.expression = parseExpression(tstream);
+    
+    if (tstream.peek.type == TokenType.DoubleDot) {
+        tstream.get();
+        statement.form = ForeachForm.Range;
+        
+        if (statement.foreachTypes.length > 1) {
+            auto invalidArea = statement.foreachTypes[$-1].location - statement.foreachTypes[1].location;
+            throw new CompilerError(invalidArea, "range foreach must only have one foreach variable.");
+        }
+        
+        statement.rangeEnd = parseExpression(tstream);
+    } else {
+        statement.form = ForeachForm.Aggregate;
+    }
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "foreach statement", ")");
+    }
+    auto closeToken = tstream.get();
+    
+    statement.location = closeToken.location - openToken.location;
+    statement.statement = parseStatement(tstream);
+    if (statement.statement.type == StatementType.EmptyStatement) {
+        auto error = new CompilerError(statement.statement.location, "illegal empty statement.");
+        error.fixHint = "{}";
+        throw error;
+    }
+    
+    return statement;
+}
 
 ReturnStatement parseReturnStatement(TokenStream tstream)
 {

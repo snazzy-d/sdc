@@ -164,21 +164,26 @@ class ForIncrement : Node
     Node node;  // Optional.
 }
 
+// foreach ( ForeachTypes ; Expression (.. Expression)?) Statement
+enum ForeachForm { Aggregate, Range }
 
-// foreach ( ForeachTypes ; Expression ) Statement
 class ForeachStatement : Node
 {
+    ForeachForm form;
     ForeachType[] foreachTypes;
-    Expression aggregate;
+    Expression expression; // Aggregate or range start.
+    Expression rangeEnd; // Optional.
     Statement statement;
 }
 
-enum ForeachTypeType { RefTypeIdentifier, TypeIdentifier, RefIdentifier, Identifier }
+enum ForeachTypeType { Explicit, Implicit }
 
 class ForeachType : Node
 {
-    Type type;
+    ForeachTypeType type;
+    bool isRef;
     Identifier identifier;
+    Type explicitType; // Optional.
 }
 
 
@@ -335,5 +340,3 @@ class AsmStatement : Node
 {
     Token[] tokens;
 }
-
-// TODO: foreachrange 
