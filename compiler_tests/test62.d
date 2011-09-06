@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:0
+//T has-passed:no
 
 int main()
 {
