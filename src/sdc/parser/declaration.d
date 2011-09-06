@@ -230,20 +230,43 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
         templateDeclaration.constraint = parseConstraint(tstream);
     }
     
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        declaration.functionBody = parseFunctionBody(tstream);
-    } else {
-        if (templateDeclaration !is null) {
-            throw new CompilerError(tstream.previous.location, "function template must have a body.");
-        } else if (tstream.peek.type != TokenType.Semicolon) {
-            throw new MissingSemicolonError(tstream.previous.location, "function declaration");   
+    bool hasAnyContract = false;
+    contractLoop:
+    while (tstream.peek.type == TokenType.Body ||
+        tstream.peek.type == TokenType.In ||
+        tstream.peek.type == TokenType.Out) {
+        hasAnyContract = true;
+        switch(tstream.get().type) {
+            case TokenType.Body:
+                declaration.functionBody = parseFunctionBody(tstream);
+                break contractLoop; // Body must always be last.
+            case TokenType.In:
+                declaration.inContract = parseFunctionBody(tstream);
+                break;
+            case TokenType.Out:
+                declaration.outContract = parseFunctionBody(tstream);
+                break;
+            default:
+                assert(false);
         }
-        tstream.get();
+    }
+    
+    if (!hasAnyContract) {
+        if(tstream.peek.type == TokenType.OpenBrace) {
+            declaration.functionBody = parseFunctionBody(tstream);
+        } else if (tstream.peek.type != TokenType.Semicolon) {
+            throw new MissingSemicolonError(tstream.previous.location, "function declaration");
+        } else {
+            tstream.get(); // Function declaration without definition.
+        }
     }
     
     declaration.location.spanTo(declaration.parameterList.location);
     
     if (templateDeclaration !is null) {
+        if (declaration.functionBody is null) {
+            throw new CompilerError(tstream.previous.location, "function template must have a body.");
+        }
         auto decl = new Declaration();
         decl.type = DeclarationType.Function;
         decl.node = declaration;

@@ -61,6 +61,8 @@ class FunctionDeclaration : Node
     QualifiedName name;
     ParameterList parameterList;
     FunctionBody functionBody;  // Optional.
+    FunctionBody inContract; // Optional.
+    FunctionBody outContract; // Optional.
 }
 
 class FunctionBody : Node
