@@ -902,24 +902,23 @@ bool lexTokenString(TokenWriter tw)
     return true;
 }
 
+/* 
+ * Consume characters from the source from the characters array until you can't.
+ * Returns: the number of characters consumed, not counting underscores.
+ */
+size_t consume(TokenWriter tw, dchar[] characters...)
+{
+    size_t consumed;
+    while (characters.count(tw.source.peek) > 0) {
+        if (tw.source.peek != '_') consumed++;
+        tw.source.get();
+    }
+    return consumed;
+}
+
 /// Lex an integer literal and add the resulting token to tw. 
 bool lexNumber(TokenWriter tw)
-{
-    /* 
-     * Consume characters from the source from the characters array until you can't.
-     * Returns: the number of characters consumed, not counting underscores.
-     * Why does this return ulong and not size_t? DMD bug. Ask a stupid question...
-     */
-    ulong consume(dchar[] characters...)
-    {
-        ulong consumed;
-        while (characters.count(tw.source.peek) > 0) {
-            if (tw.source.peek != '_') consumed++;
-            tw.source.get();
-        }
-        return consumed;
-    }
-    
+{   
     auto token = currentLocationToken(tw);
     auto mark = tw.source.save();
     
@@ -928,14 +927,14 @@ bool lexNumber(TokenWriter tw)
         if (tw.source.peek == 'b' || tw.source.peek == 'B') {
             // Binary literal.
             tw.source.get();
-            auto consumed = consume('0', '1', '_');
+            auto consumed = consume(tw, '0', '1', '_');
             if (consumed == 0) {
                 throw new CompilerError(tw.source.location, "expected binary digit.");
             }
         } else if (tw.source.peek == 'x' || tw.source.peek == 'X') {
             // Hexadecimal literal.
             tw.source.get();
-            auto consumed = consume('0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            auto consumed = consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                     'a', 'b', 'c', 'd', 'e', 'f',
                     'A', 'B', 'C', 'D', 'E', 'F', '_');
             if (consumed == 0) {
@@ -951,7 +950,7 @@ bool lexNumber(TokenWriter tw)
     } else if (tw.source.peek == '1' || tw.source.peek == '2' || tw.source.peek == '3' || tw.source.peek == '4' || tw.source.peek == '5' ||
                tw.source.peek == '6' || tw.source.peek == '7' || tw.source.peek == '8' || tw.source.peek == '9') {
         tw.source.get();
-        consume('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
     } else {
         throw new CompilerError(tw.source.location, "expected integer literal.");
     }
@@ -973,111 +972,94 @@ bool lexNumber(TokenWriter tw)
     return true;
 }
 
-// This function was adapted from DMD.
+/// Lex a floating literal and add the resulting token to tw. 
 bool lexReal(TokenWriter tw)
-in
-{
-    assert(tw.source.peek == '.' || isDigit(tw.source.peek));
-}
-body
 {
     auto token = currentLocationToken(tw);
-    token.type = TokenType.FloatLiteral;
     auto mark = tw.source.save();
     
-    int dblstate = 0;
-    int hex = 0;
-    bool first = true;
-    OUTER: while (true) {
-        if (first) {
-            first = false;
+    if (tw.source.peek == '.') {
+        // .n 
+        tw.source.get();
+        if (!isDigit(tw.source.peek)) {
+            throw new CompilerError(tw.source.location, "expected digit after decimal point.");
+        }
+        tw.source.get();
+        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
+            tw.source.get();
+            goto _lex_real_out;
+        }
+    } else if (tw.source.peek == '0') {
+        tw.source.get();
+        if (tw.source.peek == 'x' || tw.source.peek == 'X') {
+            // 0xnP+
+            tw.source.get();
+            auto consumed = consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                    'a', 'b', 'c', 'd', 'e', 'f',
+                                    'A', 'B', 'C', 'D', 'E', 'F', '_');
+            if (consumed == 0) {
+                throw new CompilerError(tw.source.location, "expected at least one hexadecimal digit.");
+            }
+            if (tw.source.peek == 'p' || tw.source.peek == 'P') {
+                tw.source.get();
+                if (tw.source.peek == '+' || tw.source.peek == '-') {
+                    tw.source.get();
+                }
+                goto _lex_real_after_exp;
+            } else {
+                throw new CompilerError(tw.source.location, "expected exponent.");
+            }
         } else {
+            // 0.n
+            if (tw.source.peek == '.') goto _lex_real_decimal;
+            if (tw.source.peek != '0' && (isDigit(tw.source.peek) || tw.source.peek == '_')) {
+                tw.source.get();
+                consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+                _lex_real_decimal:
+                match(tw.source, '.');
+                consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+                if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
+                    tw.source.get();
+                    goto _lex_real_out;
+                }
+            } else {
+                throw new CompilerError(tw.source.location, "expected non-zero digit, underscore, or decimal point.");
+            }
+        }
+    } else if (isDigit(tw.source.peek)) {
+        // n.n
+        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        match(tw.source, '.');
+        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
+            tw.source.get();
+            goto _lex_real_out;
+        }
+    } else {
+        throw new CompilerError(tw.source.location, "expected floating point literal.");
+    }
+    
+    if (tw.source.peek == 'e' || tw.source.peek == 'E') {
+        tw.source.get();
+        if (tw.source.peek == '+' || tw.source.peek == '-') {
             tw.source.get();
         }
-        INNER: while (true) {
-            switch (dblstate) {
-            case 0:  // Opening state.
-                if (tw.source.peek == '0') {
-                    dblstate = 9;
-                } else if (tw.source.peek == '.') {
-                    dblstate = 3;
-                } else {
-                    dblstate = 1;
-                }
-                break;
-            case 9:
-                dblstate = 1;
-                if (tw.source.peek == 'x' || tw.source.peek == 'X') {
-                    hex++;
-                    break;
-                }
-                break;
-            case 1:  // Digits to the left of the decimal point.
-            case 3:  // Digits to the right of the decimal point.
-            case 7:  // Continuing exponent digits.
-                if (!isDigit(tw.source.peek) && !(hex && isHexLex(tw.source.peek))) {
-                    if (tw.source.peek == '_') {
-                        continue OUTER;
-                    }
-                    dblstate++;
-                    continue INNER;
-                }
-                break;
-            case 2:  // No more digits to the left of the decimal point.
-                if (tw.source.peek == '.') {
-                    dblstate++;
-                    break;
-                }
-                goto case;
-            case 4:  // No more digits to the right of the decimal point.
-                if ((tw.source.peek == 'e' || tw.source.peek == 'E') ||
-                    hex && (tw.source.peek == 'P' || tw.source.peek == 'p')) {
-                    dblstate = 5;
-                    hex = 0;  // An exponent is always decimal.
-                    break;
-                }
-                if (hex) {
-                    throw new CompilerError(tw.source.location, "binary-exponent-part required.");
-                }
-                break OUTER;
-            case 5:  // Looking immediately to the right of E.
-                dblstate++;
-                if (tw.source.peek == '-' || tw.source.peek == '+') {
-                    break;
-                }
-                break;
-            case 6:  // First exponent digit expected.
-                if (!isDigit(tw.source.peek)) {
-                    throw new CompilerError(tw.source.location, "exponent expected.");
-                } 
-                dblstate++;
-                break;
-            case 8:  // Past end of exponent digits.
-                break OUTER;
-            default:
-                assert(false);
-            }
-            break;
-        }
+    } else {
+        throw new CompilerError(tw.source.location, "expected exponent.");
     }
     
-    switch (tw.source.peek) {
-    case 'f': case 'F': case 'L':
+    if (!isDigit(tw.source.peek)) {
+        throw new CompilerError(tw.source.location, "expected digit.");
+    }
+    _lex_real_after_exp:
+    consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+    if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
         tw.source.get();
-        break;
-    case 'l':
-        throw new CompilerError(tw.source.location, "'l' suffix is deprecated. Use 'L' instead.");
-    default:
-        break;
     }
     
-    if (tw.source.peek == 'i' || tw.source.peek == 'I') {
-        if (tw.source.peek == 'I') {
-            throw new CompilerError(tw.source.location, "'I' suffix is deprecated. Use 'i' instead.");
-        }
-        match(tw.source, 'i');
-    }
-    
+    _lex_real_out:
+    token.type = TokenType.FloatLiteral;
     token.value = tw.source.sliceFrom(mark);
     tw.addToken(token);
     return true;
