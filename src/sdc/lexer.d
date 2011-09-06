@@ -5,10 +5,13 @@
  */ 
 module sdc.lexer;
 
+import std.algorithm;
+import std.array;
 import std.ascii;
 import std.conv;
 import std.stdio;
 import std.string;
+import std.utf;
 import std.uni;
 import std.c.time;
 
@@ -982,6 +985,7 @@ bool lexNumber(TokenWriter tw)
     
     token.type = TokenType.IntegerLiteral;
     token.value = tw.source.sliceFrom(mark);
+    token.value = toUTF8(array(filter!"a != '_'"(token.value)));
     tw.addToken(token);
     
     return true;
@@ -1076,6 +1080,7 @@ bool lexReal(TokenWriter tw)
     _lex_real_out:
     token.type = TokenType.FloatLiteral;
     token.value = tw.source.sliceFrom(mark);
+    token.value = toUTF8(array(filter!"a != '_'"(token.value)));
     tw.addToken(token);
     return true;
 }
