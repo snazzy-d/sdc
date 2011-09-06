@@ -902,135 +902,74 @@ bool lexTokenString(TokenWriter tw)
     return true;
 }
 
-// This function was adapted from DMD.
+/// Lex an integer literal and add the resulting token to tw. 
 bool lexNumber(TokenWriter tw)
 {
-    enum State { Initial, Zero, Decimal,
-                 Hex, Binary, HexZero, BinaryZero }
+    /* 
+     * Consume characters from the source from the characters array until you can't.
+     * Returns: the number of characters consumed, not counting underscores.
+     * Why does this return ulong and not size_t? DMD bug. Ask a stupid question...
+     */
+    ulong consume(dchar[] characters...)
+    {
+        ulong consumed;
+        while (characters.count(tw.source.peek) > 0) {
+            if (tw.source.peek != '_') consumed++;
+            tw.source.get();
+        }
+        return consumed;
+    }
     
     auto token = currentLocationToken(tw);
     auto mark = tw.source.save();
-    State state = State.Initial;
-    int base = 0;
-    bool leof;
-    auto src = tw.source.dup;
     
-    LOOP: while (true) {
-        switch (state) {
-        case State.Initial:
-            if (src.peek == '0') {
-                state = State.Zero;
-            } else {
-                state = State.Decimal;
-            }
-            break;
-        case State.Zero:
-            switch (src.peek) {
-            case 'x': case 'X':
-                state = State.HexZero;
-                break;
-            case '.':
-                if (src.lookahead(1, leof) == '.') {
-                    break LOOP;  // '..' is a separate token.
-                }
-                goto case;
-            case 'i': case 'f': case 'F':
-                return lexReal(tw);
-            case 'b': case 'B':
-                state = State.BinaryZero;
-                break;
-            case 'L':
-                if (src.lookahead(1, leof) == 'i') {
-                    return lexReal(tw);
-                }
-                break LOOP;
-            default:
-                break LOOP;
-            }
-            break;
-        case State.Decimal:  // Reading a decimal number.
-            if (!isDigit(src.peek)) {
-                if (src.peek == '_') {
-                    // Ignore embedded '_'.
-                    match(src, '_');
-                    continue;
-                }
-                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
-                    return lexReal(tw);
-                } else if (src.peek == 'i' || src.peek == 'f' ||
-                           src.peek == 'F' || src.peek == 'e' ||
-                           src.peek == 'E') {
-                    return lexReal(tw);
-                } else if (src.peek == 'L' && src.lookahead(1, leof) == 'i') {
-                    return lexReal(tw);
-                }
-                break LOOP;
-            }
-            break;
-        case State.Hex:  // Reading a hexadecimal number.
-        case State.HexZero:
-            if (!isHexLex(src.peek)) {
-                if (src.peek == '_') {
-                    match(src, '_');
-                    continue;
-                }
-                if (src.peek == '.' && src.lookahead(1, leof) != '.') {
-                    return lexReal(tw);
-                } 
-                if (src.peek == 'p' || src.peek == 'P' || src.peek == 'i') {
-                    return lexReal(tw);
-                }
-                if (state == State.HexZero) {
-                    throw new CompilerError(src.location, format("hex digit expected, not '%s'.", src.peek));
-                }
-                break LOOP;
-            }
-            state = State.Hex;
-            break;
-        case State.BinaryZero:  // Reading the beginning of a binary number.
-        case State.Binary:      // Reading a binary number.
-            if (src.peek != '0' && src.peek != '1') {
-                if (src.peek == '_') {
-                    match(src, '_');
-                    continue;
-                }
-                if (state == State.BinaryZero) {
-                    throw new CompilerError(src.location, format("binary digit expected, not '%s'.", src.peek));
-                } else {
-                    break LOOP;
-                }
-            }
-            state = State.Binary;
-            break;
-        default:
-            assert(false);
-        }
-        src.get();
-    }
-        
-    tw.source.sync(src);
-    
-    // Parse trailing 'u', 'U', 'l' or 'L' in any combination.
-    while (true) {
-        switch (tw.source.peek) {
-        case 'U': case 'u':
+    if (tw.source.peek == '0') {
+        tw.source.get();
+        if (tw.source.peek == 'b' || tw.source.peek == 'B') {
+            // Binary literal.
             tw.source.get();
-            continue;
-        case 'l':
-            throw new CompilerError(tw.source.location, "'l' suffix is deprecated. Use 'L' instead.");
-        case 'L':
-            match(tw.source, 'L');
-            continue;
-        default:
-            break;
+            auto consumed = consume('0', '1', '_');
+            if (consumed == 0) {
+                throw new CompilerError(tw.source.location, "expected binary digit.");
+            }
+        } else if (tw.source.peek == 'x' || tw.source.peek == 'X') {
+            // Hexadecimal literal.
+            tw.source.get();
+            auto consumed = consume('0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                    'a', 'b', 'c', 'd', 'e', 'f',
+                    'A', 'B', 'C', 'D', 'E', 'F', '_');
+            if (consumed == 0) {
+                throw new CompilerError(tw.source.location, "expected hexadecimal digit.");
+            }
+        } else if (tw.source.peek == '1' || tw.source.peek == '2' || tw.source.peek == '3' || tw.source.peek == '4' || tw.source.peek == '5' ||
+               tw.source.peek == '6' || tw.source.peek == '7') {
+            /* This used to be an octal literal, which are gone.
+             * DMD treats this as an error, so we do too.
+             */
+            throw new CompilerError(tw.source.location, "octal literals are unsupported.");
         }
-        break;
+    } else if (tw.source.peek == '1' || tw.source.peek == '2' || tw.source.peek == '3' || tw.source.peek == '4' || tw.source.peek == '5' ||
+               tw.source.peek == '6' || tw.source.peek == '7' || tw.source.peek == '8' || tw.source.peek == '9') {
+        tw.source.get();
+        consume('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+    } else {
+        throw new CompilerError(tw.source.location, "expected integer literal.");
+    }
+    
+    if (tw.source.peek == 'U' || tw.source.peek == 'u') {
+        tw.source.get();
+        if (tw.source.peek == 'L') tw.source.get();
+    } else if (tw.source.peek == 'L') {
+        tw.source.get();
+        if (tw.source.peek == 'U' || tw.source.peek == 'u') {
+            tw.source.get();
+        }
     }
     
     token.type = TokenType.IntegerLiteral;
     token.value = tw.source.sliceFrom(mark);
     tw.addToken(token);
-    
+               
     return true;
 }
 
