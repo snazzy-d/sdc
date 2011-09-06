@@ -928,6 +928,7 @@ bool lexNumber(TokenWriter tw)
     auto token = currentLocationToken(tw);
     auto src = new Source(tw.source);
     auto mark = src.save();
+    bool tmp;
     
     if (src.peek == '0') {
         src.get();
@@ -945,7 +946,7 @@ bool lexNumber(TokenWriter tw)
             auto consumed = consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                     'a', 'b', 'c', 'd', 'e', 'f',
                     'A', 'B', 'C', 'D', 'E', 'F', '_');
-            if (src.peek == '.' || src.peek == 'p' || src.peek == 'P') return lexReal(tw);
+            if ((src.peek == '.' && src.lookahead(1, tmp) != '.') || src.peek == 'p' || src.peek == 'P') return lexReal(tw);
             if (consumed == 0) {
                 throw new CompilerError(src.location, "expected hexadecimal digit.");
             }
@@ -955,15 +956,15 @@ bool lexNumber(TokenWriter tw)
              * DMD treats this as an error, so we do too.
              */
             throw new CompilerError(src.location, "octal literals are unsupported.");
-        } else if (src.peek == 'f' || src.peek == 'F' || src.peek == '.') {
+        } else if (src.peek == 'f' || src.peek == 'F' || (src.peek == '.' && src.lookahead(1, tmp) != '.')) {
             return lexReal(tw);
         }
     } else if (src.peek == '1' || src.peek == '2' || src.peek == '3' || src.peek == '4' || src.peek == '5' ||
                src.peek == '6' || src.peek == '7' || src.peek == '8' || src.peek == '9') {
         src.get();
-        if (src.peek == '.') return lexReal(tw);
+        if (src.peek == '.' && src.lookahead(1, tmp) != '.') return lexReal(tw);
         consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
-        if (src.peek == '.') return lexReal(tw);
+        if (src.peek == '.' && src.lookahead(1, tmp) != '.') return lexReal(tw);
     } else {
         throw new CompilerError(src.location, "expected integer literal.");
     }
