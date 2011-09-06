@@ -906,12 +906,12 @@ bool lexTokenString(TokenWriter tw)
  * Consume characters from the source from the characters array until you can't.
  * Returns: the number of characters consumed, not counting underscores.
  */
-size_t consume(TokenWriter tw, dchar[] characters...)
+size_t consume(Source src, dchar[] characters...)
 {
     size_t consumed;
-    while (characters.count(tw.source.peek) > 0) {
-        if (tw.source.peek != '_') consumed++;
-        tw.source.get();
+    while (characters.count(src.peek) > 0) {
+        if (src.peek != '_') consumed++;
+        src.get();
     }
     return consumed;
 }
@@ -920,41 +920,43 @@ size_t consume(TokenWriter tw, dchar[] characters...)
 bool lexNumber(TokenWriter tw)
 {   
     auto token = currentLocationToken(tw);
-    auto mark = tw.source.save();
+    auto src = new Source(tw.source);
+    auto mark = src.save();
     
-    if (tw.source.peek == '0') {
-        tw.source.get();
-        if (tw.source.peek == 'b' || tw.source.peek == 'B') {
+    if (src.peek == '0') {
+        src.get();
+        if (src.peek == 'b' || src.peek == 'B') {
             // Binary literal.
-            tw.source.get();
-            auto consumed = consume(tw, '0', '1', '_');
+            src.get();
+            auto consumed = consume(src, '0', '1', '_');
             if (consumed == 0) {
-                throw new CompilerError(tw.source.location, "expected binary digit.");
+                throw new CompilerError(src.location, "expected binary digit.");
             }
-        } else if (tw.source.peek == 'x' || tw.source.peek == 'X') {
+        } else if (src.peek == 'x' || src.peek == 'X') {
             // Hexadecimal literal.
-            tw.source.get();
-            auto consumed = consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            src.get();
+            auto consumed = consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                     'a', 'b', 'c', 'd', 'e', 'f',
                     'A', 'B', 'C', 'D', 'E', 'F', '_');
             if (consumed == 0) {
-                throw new CompilerError(tw.source.location, "expected hexadecimal digit.");
+                throw new CompilerError(src.location, "expected hexadecimal digit.");
             }
-        } else if (tw.source.peek == '1' || tw.source.peek == '2' || tw.source.peek == '3' || tw.source.peek == '4' || tw.source.peek == '5' ||
-               tw.source.peek == '6' || tw.source.peek == '7') {
+        } else if (src.peek == '1' || src.peek == '2' || src.peek == '3' || src.peek == '4' || src.peek == '5' ||
+               src.peek == '6' || src.peek == '7') {
             /* This used to be an octal literal, which are gone.
              * DMD treats this as an error, so we do too.
              */
-            throw new CompilerError(tw.source.location, "octal literals are unsupported.");
+            throw new CompilerError(src.location, "octal literals are unsupported.");
         }
-    } else if (tw.source.peek == '1' || tw.source.peek == '2' || tw.source.peek == '3' || tw.source.peek == '4' || tw.source.peek == '5' ||
-               tw.source.peek == '6' || tw.source.peek == '7' || tw.source.peek == '8' || tw.source.peek == '9') {
-        tw.source.get();
-        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+    } else if (src.peek == '1' || src.peek == '2' || src.peek == '3' || src.peek == '4' || src.peek == '5' ||
+               src.peek == '6' || src.peek == '7' || src.peek == '8' || src.peek == '9') {
+        src.get();
+        consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
     } else {
-        throw new CompilerError(tw.source.location, "expected integer literal.");
+        throw new CompilerError(src.location, "expected integer literal.");
     }
     
+    tw.source.sync(src);
     if (tw.source.peek == 'U' || tw.source.peek == 'u') {
         tw.source.get();
         if (tw.source.peek == 'L') tw.source.get();
@@ -968,7 +970,7 @@ bool lexNumber(TokenWriter tw)
     token.type = TokenType.IntegerLiteral;
     token.value = tw.source.sliceFrom(mark);
     tw.addToken(token);
-               
+    
     return true;
 }
 
@@ -985,7 +987,7 @@ bool lexReal(TokenWriter tw)
             throw new CompilerError(tw.source.location, "expected digit after decimal point.");
         }
         tw.source.get();
-        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
         if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
             tw.source.get();
             goto _lex_real_out;
@@ -995,7 +997,7 @@ bool lexReal(TokenWriter tw)
         if (tw.source.peek == 'x' || tw.source.peek == 'X') {
             // 0xnP+
             tw.source.get();
-            auto consumed = consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            auto consumed = consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                                     'a', 'b', 'c', 'd', 'e', 'f',
                                     'A', 'B', 'C', 'D', 'E', 'F', '_');
             if (consumed == 0) {
@@ -1015,10 +1017,10 @@ bool lexReal(TokenWriter tw)
             if (tw.source.peek == '.') goto _lex_real_decimal;
             if (tw.source.peek != '0' && (isDigit(tw.source.peek) || tw.source.peek == '_')) {
                 tw.source.get();
-                consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+                consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
                 _lex_real_decimal:
                 match(tw.source, '.');
-                consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+                consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
                 if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
                     tw.source.get();
                     goto _lex_real_out;
@@ -1029,9 +1031,9 @@ bool lexReal(TokenWriter tw)
         }
     } else if (isDigit(tw.source.peek)) {
         // n.n
-        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
         match(tw.source, '.');
-        consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
         if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
             tw.source.get();
             goto _lex_real_out;
@@ -1053,7 +1055,7 @@ bool lexReal(TokenWriter tw)
         throw new CompilerError(tw.source.location, "expected digit.");
     }
     _lex_real_after_exp:
-    consume(tw, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+    consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
     if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
         tw.source.get();
     }
