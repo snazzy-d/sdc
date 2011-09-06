@@ -24,7 +24,6 @@ struct Location
     
     string toString()
     {
-        assert(&this != cast(void*) 0x1, "fluzzybumpkins");
         return format("%s(%s:%s)", filename, line, column);
     }
     
