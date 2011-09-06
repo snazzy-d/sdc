@@ -146,13 +146,14 @@ void realmain(string[] args)
     verbosePrint("Reading config file from '" ~ confLocation ~ "'.");
     verbosePrint("Effective command line: '" ~ to!string(argsCopy) ~ "'.");
     
-    string[] assemblies;
+    struct Assembly { string filename; bool compiledByThisInstance; string canonical; } 
+    Assembly[] assemblies;
     foreach (arg; args[1 .. $]) {
         auto ext = getExt(arg);
         
         switch(ext){
         case "o":
-            assemblies ~= arg;
+            assemblies ~= Assembly(arg, false, "");
             break;
                 
         case "d", "di":
@@ -202,9 +203,14 @@ void realmain(string[] args)
         verbosePrint(format("Module '%s' passes verification.", gModule.mod));
             
         assert(!match(filename, extensionRegex).empty);
-        auto asBitcode  = replace(filename, extensionRegex, "bc");
-        auto asAssembly = replace(filename, extensionRegex, "s");
-        auto asObject   = replace(filename, extensionRegex, "o");
+        
+        
+        auto canonicalBitcode  = replace(filename, extensionRegex, "bc");
+        auto asBitcode  = temporaryFilename(".bc");
+        auto canonicalAssembly = replace(filename, extensionRegex, "s");
+        auto asAssembly = temporaryFilename(".s");
+        auto canonicalObject   = replace(filename, extensionRegex, "o");
+        auto asObject   = temporaryFilename(".o");
         gModule.arch = arch;
         gModule.writeBitcodeToFile(asBitcode);
         if (optimise) {
@@ -221,15 +227,15 @@ void realmain(string[] args)
         
         verbosePrint(compileCommand);
         system(compileCommand);
-        assemblies ~= asObject;
+        assemblies ~= Assembly(asObject, true, canonicalObject);
         
-        if (!saveTemps) {
-            if (file.exists(asBitcode)) {
-                file.remove(asBitcode);
-            }
-            if (file.exists(asAssembly)) {
-                file.remove(asAssembly);
-            }
+        if (file.exists(asBitcode)) {
+            if (saveTemps) file.copy(asBitcode, canonicalBitcode);
+            file.remove(asBitcode);
+        }
+        if (file.exists(asAssembly)) {
+            if (saveTemps) file.copy(asAssembly, canonicalAssembly);
+            file.remove(asAssembly);
         }
     }
     
@@ -246,17 +252,16 @@ void realmain(string[] args)
         }
         
         foreach (assembly; assemblies) {
-            linkCommand ~= `"` ~ assembly ~ `" `;
+            linkCommand ~= `"` ~ assembly.filename ~ `" `;
         }
         
         verbosePrint(linkCommand);
         system(linkCommand);
         
-        if (!saveTemps) {
-            foreach (assembly; assemblies) {
-                if (file.exists(assembly)) {
-                    file.remove(assembly);
-                }
+        foreach (assembly; assemblies) {
+            if (file.exists(assembly.filename) && assembly.compiledByThisInstance) {
+                if (saveTemps) file.copy(assembly.filename, assembly.canonical);
+                file.remove(assembly.filename);
             }
         }
     }

@@ -139,9 +139,8 @@ void test(string filename, string compiler)
 void main(string[] args)
 {
     string compiler = SDC;
-    // Unfortunately, SDC needs to get better at concurrent file access.
-    //version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
-    size_t jobCount = 1;
+    version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
+    else size_t jobCount = 1;
     bool displayOnlyFailed = false;
     getopt(args, "compiler", &compiler, "j", &jobCount, "only-failed", &displayOnlyFailed);
     if (args.length > 1) {
