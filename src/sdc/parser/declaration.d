@@ -236,14 +236,22 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
         tstream.peek.type == TokenType.In ||
         tstream.peek.type == TokenType.Out) {
         hasAnyContract = true;
-        switch(tstream.get().type) {
+        
+        auto token = tstream.get();
+        switch(token.type) {
             case TokenType.Body:
                 declaration.functionBody = parseFunctionBody(tstream);
                 break contractLoop; // Body must always be last.
             case TokenType.In:
+                if (declaration.inContract !is null) {
+                    throw new CompilerError(token.location, "function can only have one in contract.");
+                }
                 declaration.inContract = parseFunctionBody(tstream);
                 break;
             case TokenType.Out:
+                if (declaration.outContract !is null) {
+                    throw new CompilerError(token.location, "function can only have one out contract.");
+                }
                 declaration.outContract = parseFunctionBody(tstream);
                 break;
             default:
