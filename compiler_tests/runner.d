@@ -23,7 +23,7 @@ version (Windows) {
     immutable SDC      = "sdc";  // Put SDC in your PATH.
     immutable EXE_EXTENSION = ".exe";
 } else {
-    immutable SDC      = "../sdc"; // Leaving this decision to the Unix crowd.
+    immutable SDC      = "../bin/sdc"; // Leaving this decision to the Unix crowd.
     immutable EXE_EXTENSION = ".bin";
 }
 
