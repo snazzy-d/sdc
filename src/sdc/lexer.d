@@ -916,7 +916,10 @@ size_t consume(Source src, dchar[] characters...)
     return consumed;
 }
 
-/// Lex an integer literal and add the resulting token to tw. 
+/**
+ * Lex an integer literal and add the resulting token to tw.
+ * If it detects the number is floating point, it will call lexReal directly.
+ */ 
 bool lexNumber(TokenWriter tw)
 {   
     auto token = currentLocationToken(tw);
@@ -935,9 +938,11 @@ bool lexNumber(TokenWriter tw)
         } else if (src.peek == 'x' || src.peek == 'X') {
             // Hexadecimal literal.
             src.get();
+            if (src.peek == '.' || src.peek == 'p' || src.peek == 'P') return lexReal(tw);
             auto consumed = consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                     'a', 'b', 'c', 'd', 'e', 'f',
                     'A', 'B', 'C', 'D', 'E', 'F', '_');
+            if (src.peek == '.' || src.peek == 'p' || src.peek == 'P') return lexReal(tw);
             if (consumed == 0) {
                 throw new CompilerError(src.location, "expected hexadecimal digit.");
             }
@@ -947,13 +952,21 @@ bool lexNumber(TokenWriter tw)
              * DMD treats this as an error, so we do too.
              */
             throw new CompilerError(src.location, "octal literals are unsupported.");
+        } else if (src.peek == 'f' || src.peek == 'F') {
+            return lexReal(tw);
         }
     } else if (src.peek == '1' || src.peek == '2' || src.peek == '3' || src.peek == '4' || src.peek == '5' ||
                src.peek == '6' || src.peek == '7' || src.peek == '8' || src.peek == '9') {
         src.get();
+        if (src.peek == '.') return lexReal(tw);
         consume(src, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        if (src.peek == '.') return lexReal(tw);
     } else {
         throw new CompilerError(src.location, "expected integer literal.");
+    }
+    
+    if (src.peek == 'f' || src.peek == 'F' || src.peek == 'e' || src.peek == 'E') {
+        return lexReal(tw);
     }
     
     tw.source.sync(src);
