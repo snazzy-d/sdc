@@ -1,6 +1,6 @@
 /**
  * Copyright 2010-2011 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2010-2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -1031,6 +1031,9 @@ class PointerValue : Value
     
     override Value slice(Location location, Value from, Value to)
     {
+        from = implicitCast(location, from, getSizeT(mModule));
+        to = implicitCast(location, to, getSizeT(mModule));
+        
         auto arrayType = new ArrayType(mModule, baseType);
         auto v = arrayType.getValue(mModule, location);
         v.suppressCallbacks = true;
