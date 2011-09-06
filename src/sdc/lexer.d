@@ -955,7 +955,7 @@ bool lexNumber(TokenWriter tw)
              * DMD treats this as an error, so we do too.
              */
             throw new CompilerError(src.location, "octal literals are unsupported.");
-        } else if (src.peek == 'f' || src.peek == 'F') {
+        } else if (src.peek == 'f' || src.peek == 'F' || src.peek == '.') {
             return lexReal(tw);
         }
     } else if (src.peek == '1' || src.peek == '2' || src.peek == '3' || src.peek == '4' || src.peek == '5' ||
@@ -1064,17 +1064,14 @@ bool lexReal(TokenWriter tw)
         if (tw.source.peek == '+' || tw.source.peek == '-') {
             tw.source.get();
         }
-    } else {
-        throw new CompilerError(tw.source.location, "expected exponent.");
-    }
-    
-    if (!isDigit(tw.source.peek)) {
-        throw new CompilerError(tw.source.location, "expected digit.");
-    }
-    _lex_real_after_exp:
-    consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
-    if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
-        tw.source.get();
+        _lex_real_after_exp:
+        if (!isDigit(tw.source.peek)) {
+            throw new CompilerError(tw.source.location, "expected digit.");
+        }
+        consume(tw.source, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_');
+        if (tw.source.peek == 'L' || tw.source.peek == 'f' || tw.source.peek == 'F') {
+            tw.source.get();
+        }
     }
     
     _lex_real_out:
