@@ -12,7 +12,7 @@ import sdc.ast.base;
 class ImportDeclaration : Node
 {
     bool isStatic;
-    bool isSynthetic = false;
+    bool isSynthetic;
     ImportList importList;  // Not if the below exist.
     Language language = Language.D;  // Optional.
     StringLiteral[] languageImports;  // Optional.
