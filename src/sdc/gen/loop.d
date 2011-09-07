@@ -39,7 +39,6 @@ struct Loop
         looptop.children ~= looptop;
         
         LLVMBuildBr(mod.builder, topBB);
-        mod.pushScope();
     }
 
     void gen(scope void delegate() genTop, scope void delegate() genBody)
@@ -59,6 +58,5 @@ struct Loop
         mod.currentFunction.cfgTail = loopout;
         LLVMPositionBuilderAtEnd(mod.builder, endBB);
         mod.currentFunction.currentBasicBlock = endBB;
-        mod.popScope();
     }
 }

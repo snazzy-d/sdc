@@ -68,6 +68,9 @@ void genStatement(ast.Statement statement, Module mod)
     case ast.StatementType.WhileStatement:
         genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
         break;
+    case ast.StatementType.ForStatement:
+        genForStatement(cast(ast.ForStatement) statement.node, mod);
+        break;
     case ast.StatementType.ForeachStatement:
         auto asForeach = cast(ast.ForeachStatement) statement.node;
         if (asForeach.form == ast.ForeachForm.Range) {
@@ -297,7 +300,39 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
         genStatement(statement.statement, mod);
     }
     
+    mod.pushScope();
     loop.gen(&genTop, &genBody);
+    mod.popScope();
+}
+
+void genForStatement(ast.ForStatement statement, Module mod)
+{
+    mod.pushScope();
+    if (statement.initialise !is null) {
+        genStatement(statement.initialise, mod);
+    }
+    
+    auto loop = Loop(mod, "for");
+    
+    void genTop()
+    {
+        if (statement.test !is null) {
+            auto expr = genExpression(statement.test, mod);
+            expr = implicitCast(statement.test.location, expr, new BoolType(mod));
+            LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
+        }
+    }
+    
+    void genBody()
+    {
+        genStatement(statement.statement, mod);
+        if (statement.increment !is null) {
+            genExpression(statement.increment, mod);
+        }
+    }
+    
+    loop.gen(&genTop, &genBody);
+    mod.popScope();
 }
 
 // TODO: range interface and opApply
@@ -379,7 +414,9 @@ void genForeachStatement(ast.ForeachStatement statement, Module mod)
         indexValue.set(indexValue.location, indexValue.inc(indexValue.location));
     }
     
+    mod.pushScope();
     loop.gen(&genTop, &genBody);
+    mod.popScope();
 }
 
 void genForeachRangeStatement(ast.ForeachStatement statement, Module mod)
@@ -429,7 +466,9 @@ void genForeachRangeStatement(ast.ForeachStatement statement, Module mod)
         iteratorValue.set(iterator.location, iteratorValue.inc(iterator.location));
     }
     
+    mod.pushScope();
     loop.gen(&genTop, &genBody);
+    mod.popScope();
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
