@@ -30,6 +30,7 @@ import sdc.gen.value;
 import sdc.gen.type;
 import sdc.gen.sdcpragma;
 import sdc.gen.sdcfunction;
+import sdc.gen.loop;
 import sdc.parser.declaration;
 import sdc.parser.expression;
 import sdc.parser.statement;
@@ -275,38 +276,21 @@ void genElseStatement(ast.ElseStatement statement, Module mod)
 }
 
 void genWhileStatement(ast.WhileStatement statement, Module mod)
-{    
-    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
-    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
-    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
+{
+    auto loop = Loop(mod, "while");
     
-    auto parent  = mod.currentFunction.cfgTail;
-    auto looptop = new BasicBlock("whiletop");
-    auto loopout = new BasicBlock("whileout");
-    parent.children ~= looptop;
-    parent.children ~= loopout;
-    looptop.children ~= loopout;
-    looptop.children ~= looptop;
-
-    LLVMBuildBr(mod.builder, looptopBB);
-    mod.pushScope();
-    LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
-    mod.currentFunction.currentBasicBlock = looptopBB;
-    auto expr = genExpression(statement.expression, mod);
-    LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
-    LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
-    mod.currentFunction.currentBasicBlock = loopbodyBB;
-    
-    mod.currentFunction.cfgTail = looptop;
-    genStatement(statement.statement, mod);
-    if (mod.currentFunction.cfgTail.fallsThrough) {
-        LLVMBuildBr(mod.builder, looptopBB);
+    void genTop()
+    {
+        auto expr = genExpression(statement.expression, mod);
+        LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
-    mod.currentFunction.cfgTail = loopout;
-    mod.popScope();
-    LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
-    mod.currentFunction.currentBasicBlock = loopendBB;
+    void genBody()
+    {
+        genStatement(statement.statement, mod);
+    }
+    
+    loop.gen(&genTop, &genBody);
 }
 
 void genForeachStatement(ast.ForeachStatement statement, Module mod)
@@ -334,54 +318,31 @@ void genForeachStatement(ast.ForeachStatement statement, Module mod)
     iteratorValue.initialise(iterator.location, from);
     iteratorValue.lvalue = true;
     
-    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
-    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
-    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
+    auto loop = Loop(mod, "foreach");
     
-    auto parent  = mod.currentFunction.cfgTail;
-    auto looptop = new BasicBlock("foreachtop");
-    auto loopout = new BasicBlock("foreachout");
-    parent.children ~= looptop;
-    parent.children ~= loopout;
-    looptop.children ~= loopout;
-    looptop.children ~= looptop;
-    
-    LLVMBuildBr(mod.builder, looptopBB);
-    
-    // loop top
-    mod.pushScope();
-    LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
-    mod.currentFunction.currentBasicBlock = looptopBB;
-    Value exposedIterator;
-    if (iterator.isRef) {
-        exposedIterator = iteratorValue;
-    } else {
-        exposedIterator = iteratorType.getValue(mod, iterator.location);
-        exposedIterator.initialise(iterator.location, iteratorValue);
-        exposedIterator.lvalue = true;
-    }
-    mod.currentScope.add(extractIdentifier(iterator.identifier), new Store(exposedIterator));
-    
-    auto expr = iteratorValue.lt(iteratorValue.location, to);
-    LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
-    
-    // loop body
-    LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
-    mod.currentFunction.currentBasicBlock = loopbodyBB;
-    mod.currentFunction.cfgTail = looptop;
-    
-    genStatement(statement.statement, mod);
-    
-    iteratorValue.set(iterator.location, iteratorValue.inc(iterator.location));
-    if (mod.currentFunction.cfgTail.fallsThrough) {
-        LLVMBuildBr(mod.builder, looptopBB);
+    void genTop()
+    {
+        Value exposedIterator;
+        if (iterator.isRef) {
+            exposedIterator = iteratorValue;
+        } else {
+            exposedIterator = iteratorType.getValue(mod, iterator.location);
+            exposedIterator.initialise(iterator.location, iteratorValue);
+            exposedIterator.lvalue = true;
+        }
+        mod.currentScope.add(extractIdentifier(iterator.identifier), new Store(exposedIterator));
+        
+        auto expr = iteratorValue.lt(iteratorValue.location, to);
+        LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
-    // loop end
-    mod.currentFunction.cfgTail = loopout;
-    mod.popScope();
-    LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
-    mod.currentFunction.currentBasicBlock = loopendBB;
+    void genBody()
+    {
+        genStatement(statement.statement, mod);
+        iteratorValue.set(iterator.location, iteratorValue.inc(iterator.location));
+    }
+    
+    loop.gen(&genTop, &genBody);
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
