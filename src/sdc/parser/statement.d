@@ -65,6 +65,9 @@ Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
     } else if (tstream.peek.type == TokenType.Foreach) {
         statement.type = StatementType.ForeachStatement;
         statement.node = parseForeachStatement(tstream);
+    } else if (tstream.peek.type == TokenType.For) {
+        statement.type = StatementType.ForStatement;
+        statement.node = parseForStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
@@ -249,6 +252,37 @@ DoStatement parseDoStatement(TokenStream tstream)
     statement.expression = parseExpression(tstream);
     match(tstream, TokenType.CloseParen);
     match(tstream, TokenType.Semicolon);
+    return statement;
+}
+
+ForStatement parseForStatement(TokenStream tstream)
+{
+    auto forToken = match(tstream, TokenType.For);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    
+    auto statement = new ForStatement;
+    auto initialise = parseStatement(tstream, true);
+    if (initialise.type != StatementType.EmptyStatement) {
+        statement.initialise = initialise;
+    }
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        statement.test = parseExpression(tstream);
+    }
+    match(tstream, TokenType.Semicolon);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        statement.increment = parseExpression(tstream);
+    }
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "for loop", ")");
+    }
+    auto closeToken = tstream.get();
+    statement.location = closeToken.location - openToken.location;
+    
+    statement.statement = parseStatement(tstream);
+    
     return statement;
 }
 

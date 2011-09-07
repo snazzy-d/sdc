@@ -134,26 +134,10 @@ class DoStatement : Node
 // for (ForInitialise ForTest; ForType) Statement
 class ForStatement : Node
 {
-    ForInitialise initialise;
-    ForTest test;
-    ForIncrement increment;
+    Statement initialise; // Optional.
+    Expression test; // Optional.
+    Expression increment; // Optional.
     Statement statement;
-}
-
-enum ForInitialiseType { Empty, NoScopeNonEmpty }
-
-class ForInitialise : Node
-{
-    ForInitialiseType type;
-    Node node;  // Optional.
-}
-
-enum ForTestType { Empty, Expression }
-
-class ForTest : Node
-{
-    ForTestType type;
-    Node node;  // Optional.
 }
 
 enum ForIncrementType { Empty, Expression }

@@ -222,7 +222,7 @@ abstract class Value
         }
     }
     
-    void errorIfNotLValue(Location location, string msg = "cannot modify rvalue")
+    void errorIfNotLValue(Location location, string msg = "cannot modify rvalue.")
     {
         if (!lvalue) {
             throw new CompilerError(location, msg);
