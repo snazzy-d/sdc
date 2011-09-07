@@ -157,7 +157,7 @@ void enableStackTraces()
  */
 string temporaryFilename(string extension = "")
 {
-    version(Windows) {
+    version (Windows) {
         string prefix = getenv("TEMP") ~ '/';
     } else {
         string prefix = "/tmp/";
