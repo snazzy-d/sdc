@@ -527,7 +527,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
     case ast.PrimaryType.TemplateInstance:
         return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     default:
-        throw new CompilerPanic(expression.location, "unhandled primary expression type.");
+        throw new CompilerPanic(expression.location, format("unhandled primary expression type: '%s'", to!string(expression.type)));
     }
 }
 
