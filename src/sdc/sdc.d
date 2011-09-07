@@ -264,6 +264,11 @@ void realmain(string[] args)
                 file.remove(assembly.filename);
             }
         }
+    } else {
+        foreach (assembly; assemblies) if (assembly.compiledByThisInstance && file.exists(assembly.filename)) {
+            file.copy(assembly.filename, assembly.canonical);
+            file.remove(assembly.filename);
+        }
     }
 }
 
