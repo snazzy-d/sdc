@@ -758,7 +758,10 @@ AssertExpression parseAssertExpression(TokenStream tstream)
         assertExpr.message = parseAssignExpression(tstream);
     }
     
-    auto lastToken = match(tstream, TokenType.CloseParen);
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(firstToken.location, tstream.previous.location, "assert", ")");
+    }
+    auto lastToken = tstream.get();
     assertExpr.location = lastToken.location - firstToken.location;
     
     return assertExpr;
