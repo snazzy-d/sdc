@@ -16,12 +16,17 @@ import sdc.parser.declaration;
 import sdc.parser.conditional;
 import sdc.parser.sdcpragma;
 
-Statement parseStatement(TokenStream tstream)
+Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
 {
     auto statement = new Statement();
     statement.location = tstream.peek.location;
     
     if (tstream.peek.type == TokenType.Semicolon) {
+        if (!allowEmptyStatement) {
+            auto error = new CompilerError(tstream.peek.location, "illegal empty statement.");
+            error.fixHint = "{}";
+            throw error;
+        }
         statement.type = StatementType.EmptyStatement;
         tstream.get();
     } else if (tstream.peek.type == TokenType.OpenBrace) {
@@ -94,7 +99,7 @@ BlockStatement parseBlockStatement(TokenStream tstream)
     if (tstream.peek.type == TokenType.OpenBrace) {
         match(tstream, TokenType.OpenBrace);
         while (tstream.peek.type != TokenType.CloseBrace) {
-            block.statements ~= parseStatement(tstream);
+            block.statements ~= parseStatement(tstream, true);
         }
         match(tstream, TokenType.CloseBrace);
     } else {
@@ -313,11 +318,6 @@ ForeachStatement parseForeachStatement(TokenStream tstream)
     
     statement.location = closeToken.location - openToken.location;
     statement.statement = parseStatement(tstream);
-    if (statement.statement.type == StatementType.EmptyStatement) {
-        auto error = new CompilerError(statement.statement.location, "illegal empty statement.");
-        error.fixHint = "{}";
-        throw error;
-    }
     
     return statement;
 }
