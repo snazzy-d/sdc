@@ -1,5 +1,6 @@
 /**
  * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -65,6 +66,9 @@ void genStatement(ast.Statement statement, Module mod)
         break;
     case ast.StatementType.WhileStatement:
         genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
+        break;
+    case ast.StatementType.ForeachStatement:
+        genForeachStatement(cast(ast.ForeachStatement) statement.node, mod);
         break;
     case ast.StatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
@@ -298,7 +302,70 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, looptopBB);
     }
-            
+    
+    mod.currentFunction.cfgTail = loopout;
+    mod.popScope();
+    LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
+    mod.currentFunction.currentBasicBlock = loopendBB;
+}
+
+void genForeachStatement(ast.ForeachStatement statement, Module mod)
+{
+    if (statement.form == ast.ForeachForm.Aggregate) {
+        throw new CompilerPanic(statement.location, "aggregate foreach is unimplemented.");
+    }
+    
+    auto from = genExpression(statement.expression, mod);
+    auto to = genExpression(statement.rangeEnd, mod);
+    
+    auto foreachType = statement.foreachTypes[0];
+    if (foreachType.isRef) {
+        throw new CompilerPanic(foreachType.location, "ref iterator is unimplemented.");
+    }
+    
+    Type iteratorType;
+    if (foreachType.type == ast.ForeachTypeType.Explicit) {
+        iteratorType = astTypeToBackendType(foreachType.explicitType, mod, OnFailure.DieWithError);
+    } else {
+        iteratorType = from.type; // HACK: this should be the equivalent of true? from : to
+    }
+    
+    from = implicitCast(from.location, from, iteratorType);
+    to = implicitCast(to.location, to, iteratorType);
+    
+    auto iterator = iteratorType.getValue(mod, foreachType.location);
+    iterator.initialise(from.location, from);
+    iterator.lvalue = true;
+    
+    auto looptopBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
+    auto loopbodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
+    auto loopendBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
+    
+    auto parent  = mod.currentFunction.cfgTail;
+    auto looptop = new BasicBlock("foreachtop");
+    auto loopout = new BasicBlock("foreachout");
+    parent.children ~= looptop;
+    parent.children ~= loopout;
+    looptop.children ~= loopout;
+    looptop.children ~= looptop;
+    
+    LLVMBuildBr(mod.builder, looptopBB);
+    mod.pushScope();
+    mod.currentScope.add(extractIdentifier(foreachType.identifier), new Store(iterator));
+    LLVMPositionBuilderAtEnd(mod.builder, looptopBB);
+    mod.currentFunction.currentBasicBlock = looptopBB;
+    auto expr = iterator.lt(iterator.location, to);
+    LLVMBuildCondBr(mod.builder, expr.get(), loopbodyBB, loopendBB);
+    LLVMPositionBuilderAtEnd(mod.builder, loopbodyBB);
+    mod.currentFunction.currentBasicBlock = loopbodyBB;
+    
+    mod.currentFunction.cfgTail = looptop;
+    genStatement(statement.statement, mod);
+    iterator.set(statement.location, iterator.inc(statement.location));
+    if (mod.currentFunction.cfgTail.fallsThrough) {
+        LLVMBuildBr(mod.builder, looptopBB);
+    }
+    
     mod.currentFunction.cfgTail = loopout;
     mod.popScope();
     LLVMPositionBuilderAtEnd(mod.builder, loopendBB);
