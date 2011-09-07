@@ -69,7 +69,12 @@ void genStatement(ast.Statement statement, Module mod)
         genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
         break;
     case ast.StatementType.ForeachStatement:
-        genForeachStatement(cast(ast.ForeachStatement) statement.node, mod);
+        auto asForeach = cast(ast.ForeachStatement) statement.node;
+        if (asForeach.form == ast.ForeachForm.Range) {
+            genForeachRangeStatement(asForeach, mod);
+        } else {
+            genForeachStatement(asForeach, mod);
+        }
         break;
     case ast.StatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
@@ -293,11 +298,91 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     loop.gen(&genTop, &genBody);
 }
 
+// TODO: range interface and opApply
 void genForeachStatement(ast.ForeachStatement statement, Module mod)
 {
-    if (statement.form == ast.ForeachForm.Aggregate) {
-        throw new CompilerPanic(statement.location, "aggregate foreach is unimplemented.");
+    assert(statement.form == ast.ForeachForm.Aggregate);
+    
+    auto aggregate = genExpression(statement.expression, mod);
+    if (aggregate.type.dtype != DType.Array) {
+        throw new CompilerError(statement.expression.location, format("aggregate must be of array type, not '%s'.", aggregate.type.name()));
     }
+    
+    ast.ForeachType index = null;
+    ast.ForeachType iterator;
+    if (statement.foreachTypes.length == 2) {
+        index = statement.foreachTypes[0];
+        iterator = statement.foreachTypes[1];
+    } else if (statement.foreachTypes.length == 1) {
+        iterator = statement.foreachTypes[0];
+    } else {
+        auto invalidArea = statement.foreachTypes[$-1].location - statement.foreachTypes[2].location;
+        throw new CompilerError(invalidArea, "foreach over array cannot have more than two foreach variables.");
+    }
+    
+    Type indexType = index && index.type == ast.ForeachTypeType.Explicit?
+        astTypeToBackendType(index.explicitType, mod, OnFailure.DieWithError) : getSizeT(mod);
+        
+    auto indexValue = indexType.getValue(mod, index? index.location : statement.expression.location);
+    indexValue.initialise(indexValue.location, indexValue.getInit(indexValue.location));
+    indexValue.lvalue = true;
+    
+    Type iteratorType;
+    if (iterator.type == ast.ForeachTypeType.Explicit) {
+        iteratorType = astTypeToBackendType(iterator.explicitType, mod, OnFailure.DieWithError);
+        if (iterator.isRef && iteratorType.dtype != aggregate.type.getBase().dtype) { // TODO: full comparison
+            throw new CompilerError(iterator.explicitType.location, format("ref iterator over type '%s' must be of exact type '%s'.", aggregate.type.name(), aggregate.type.getBase().name()));
+        }
+    } else {
+        iteratorType = aggregate.type.getBase();
+    }
+    
+    auto aggregateLength = aggregate.getMember(statement.expression.location, "length");
+    
+    auto loop = Loop(mod, "foreach");
+    
+    void genTop()
+    {
+        if (index !is null) {
+            Value exposedIndex;
+            if (index.isRef) {
+                exposedIndex = indexValue;
+            } else {
+                exposedIndex = indexType.getValue(mod, index.location);
+                exposedIndex.initialise(index.location, indexValue);
+                exposedIndex.lvalue = true;
+            }
+            mod.currentScope.add(extractIdentifier(index.identifier), new Store(exposedIndex));
+        }
+        
+        auto expr = indexValue.lt(indexValue.location, aggregateLength);
+        LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
+    }
+    
+    void genBody()
+    {
+        auto iteratorValue = aggregate.index(statement.expression.location, indexValue);
+        
+        Value exposedIterator;
+        if (iterator.isRef) {
+            exposedIterator = iteratorValue;
+        } else {
+            exposedIterator = iteratorType.getValue(mod, iterator.location);
+            exposedIterator.initialise(iterator.location, implicitCast(iteratorValue.location, iteratorValue, iteratorType));
+        }
+        exposedIterator.lvalue = true;
+        mod.currentScope.add(extractIdentifier(iterator.identifier), new Store(exposedIterator));
+        
+        genStatement(statement.statement, mod);
+        indexValue.set(indexValue.location, indexValue.inc(indexValue.location));
+    }
+    
+    loop.gen(&genTop, &genBody);
+}
+
+void genForeachRangeStatement(ast.ForeachStatement statement, Module mod)
+{
+    assert(statement.form == ast.ForeachForm.Range);
     
     auto from = genExpression(statement.expression, mod);
     auto to = genExpression(statement.rangeEnd, mod);
