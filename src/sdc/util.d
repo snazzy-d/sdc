@@ -11,6 +11,7 @@ import std.file;
 import std.random;
 import std.stdio;
 import std.string;
+import std.process;
 import sdc.gen.sdcmodule; 
 
 bool contains(T)(const(T)[] l, const T a)
@@ -156,7 +157,11 @@ void enableStackTraces()
  */
 string temporaryFilename(string extension = "")
 {
-    string prefix = "/tmp/";
+    version(Windows) {
+        string prefix = getenv("TEMP") ~ '/';
+    } else {
+        string prefix = "/tmp/";
+    }
     string filename;
     do {
         filename = randomString(32);
