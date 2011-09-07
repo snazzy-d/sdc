@@ -256,6 +256,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
 void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
 { 
     auto expr = genExpression(condition.expression, mod);
+    expr = implicitCast(condition.expression.location, expr, new BoolType(mod));
     
     final switch (condition.type) {
     case ast.IfConditionType.ExpressionOnly:
@@ -287,6 +288,7 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     void genTop()
     {
         auto expr = genExpression(statement.expression, mod);
+        expr = implicitCast(statement.expression.location, expr, new BoolType(mod));
         LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
