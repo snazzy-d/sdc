@@ -34,8 +34,8 @@ Parser
 * Parse destructors.  __[yes.]__
 * Parse invariants.  _[no.]_
 * Parse unittests.  __[yes.]__
-* Parse static constructors.  _[no.]_
-* Parse static destructors.  _[no.]_
+* Parse static constructors.  __[yes.]__
+* Parse static destructors.  __[yes.]__
 * Parse shared static constructors.  _[no.]_
 * Parse shared static destructors.  _[no.]_
 * Parse conditional declarations.  __[yes.]__
@@ -59,7 +59,7 @@ Codegen
 * Global variables.  __[yes.]__
 * Alias declarations.  _[partially.]_
 * Expressions.  _[partially.]_
-* Label statement.  _[no.]_
+* Label statement.  __[yes.]__
 * If statement.  __[yes.]__
 * While statement.  __[yes.]__
 * Do statement.  _[no.]_
@@ -72,7 +72,7 @@ Codegen
 * Continue statement.  _[no.]_
 * Break statement.  _[no.]_
 * Return statement.  __[yes.]__
-* Goto statement.  _[no.]_
+* Goto statement.  _[partially.]_
 * With statement.  _[no.]_
 * Synchronized statement.  _[no.]_
 * Try statement.  _[no.]_
@@ -81,9 +81,9 @@ Codegen
 * Asm statement.  _[no.]_
 * Pragma statement.  _[no.]_
 * Mixin statement.  _[yes.]_
-* Foreach range statement.  _[no.]_
+* Foreach range statement.  __[yes.]__
 * Conditional statement.  __[yes.]__
-* Static assert.  _[no.]_
+* Static assert.  __[yes.]__
 * Template mixin.  _[no.]_
 * Templated scope. _[partially.]_
 
