@@ -765,6 +765,7 @@ alias FloatingPointValue!(real, RealType) RealValue;
 class StaticArrayValue : Value
 {
     StaticArrayType asStaticArray;
+    Type baseType;
     
     this(Module mod, Location location, Type baseType, Value lengthValue)
     {
@@ -773,6 +774,7 @@ class StaticArrayValue : Value
             // !!!
             throw new CompilerError(location, "static arrays must be initialized with a known integer (temporary hack).");
         } 
+        this.baseType = baseType;
         mType = asStaticArray = new StaticArrayType(mod, baseType, lengthValue.knownInt);
         LLVMBuildAlloca(mod.builder, mType.llvmType, "static_array");
     }
@@ -780,7 +782,7 @@ class StaticArrayValue : Value
     override Value getSizeof(Location location)
     {
         // T[N].sizeof => T.sizeof * N
-        return newSizeT(mModule, location, asStaticArray.length).mul(location, asStaticArray.base.getValue(mModule, location).getSizeof(location));
+        return newSizeT(mModule, location, asStaticArray.length).mul(location, baseType.getValue(mModule, location).getSizeof(location));
     }
     
     override Value getMember(Location location, string name)
@@ -800,7 +802,7 @@ class StaticArrayValue : Value
         indices ~= LLVMConstInt(t.llvmType, 0, false);
         indices ~= value.get();
         
-        auto i = asStaticArray.base.getValue(mModule, location);
+        auto i = baseType.getValue(mModule, location);
         i.mValue = LLVMBuildGEP(mModule.builder, mValue, indices.ptr, cast(uint) indices.length, "gep");
         i.lvalue = true;
         return i;
@@ -1907,14 +1909,12 @@ bool canImplicitCast(Location location, Type from, Type to)
         if (to.isRef) {
             throw new CompilerError(location, "cannot pass a const value as a ref parameter.");
         }
-        auto asConst = enforce(cast(ConstType) from);
-        return canImplicitCast(location, asConst.base, to) && !hasMutableIndirection(to);
+        return canImplicitCast(location, from.getBase(), to) && !hasMutableIndirection(to);
     case Immutable:
         if (to.isRef) {
             throw new CompilerError(location, "cannot pass a immutable value as a ref parameter.");
         }
-        auto asImmutable = enforce(cast(ImmutableType) from);
-        return canImplicitCast(location, asImmutable.base, to) && !hasMutableIndirection(to);
+        return canImplicitCast(location, from.getBase(), to) && !hasMutableIndirection(to);
     default:
         return false;
     }

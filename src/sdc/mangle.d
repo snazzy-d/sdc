@@ -32,15 +32,7 @@ void mangleFunction(ref string mangledName, Function fn)
     }
     mangledName = startMangle();
     if (fn.type.parentAggregate !is null) {
-        QualifiedName name;
-        if (fn.type.parentAggregate.dtype == DType.Struct) {
-            auto asStruct = enforce(cast(StructType) fn.type.parentAggregate);
-            name = asStruct.fullName;
-        } else {
-            auto asClass = enforce(cast(ClassType) fn.type.parentAggregate);
-            name = asClass.fullName;
-        }
-        mangleQualifiedName(mangledName, name);
+        mangleQualifiedName(mangledName, fn.type.parentAggregate.getFullName());
     } else {
         if (fn.type.mod.name is null) {
             throw new CompilerPanic("null module name.");
@@ -166,26 +158,20 @@ void mangleType(ref string mangledName, Type type)
         auto asStaticArray = cast(StaticArrayType) type;
         assert(asStaticArray !is null);
         mangledName ~= format("G%s", asStaticArray.length);
-        mangleType(mangledName, asStaticArray.base);
+        mangleType(mangledName, asStaticArray.getBase());
         break;
     case NullPointer:
     case Pointer:
-        auto asPointer = cast(PointerType) type;
-        assert(asPointer !is null);
         mangledName ~= "P";
-        mangleType(mangledName, asPointer.base);
+        mangleType(mangledName, type.getBase());
         break;
     case Array:
-        auto asArray = cast(ArrayType) type;
-        assert(asArray !is null);
         mangledName ~= "A";
-        mangleType(mangledName, asArray.base);
+        mangleType(mangledName, type.getBase());
         break;
     case Struct:
         mangledName ~= "S";
-        auto asStruct = cast(StructType) type;
-        assert(asStruct !is null);
-        mangleQualifiedName(mangledName, asStruct.fullName);
+        mangleQualifiedName(mangledName, type.getFullName());
         break;
     case Enum:
         mangledName ~= "E";
@@ -193,9 +179,7 @@ void mangleType(ref string mangledName, Type type)
         break;
     case Class:
         mangledName ~= "C";
-        auto asClass = cast(ClassType) type;
-        assert(asClass !is null);
-        mangleQualifiedName(mangledName, asClass.fullName);
+        mangleQualifiedName(mangledName, type.getFullName());
         break;
     case Const:
         mangledName ~= "x";

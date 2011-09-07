@@ -241,8 +241,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
     if (type.dtype == DType.Pointer && type.getBase().dtype == DType.Function) {
         Value getDefaultValue(Type t) { return t.getValue(mod, decl.location); }
         
-        auto asPointer = enforce(cast(PointerType) type);
-        auto asFunction = enforce(cast(FunctionType) asPointer.base);
+        auto asFunction = enforce(cast(FunctionType) type.getBase());
         args = array( map!getDefaultValue(asFunction.parameterTypes) );
         mod.functionPointerArguments = &args;     
     }

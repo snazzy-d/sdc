@@ -477,7 +477,7 @@ class DcharType : Type
 
 class PointerType : Type
 {
-    Type base;
+    private Type base;
     
     this(Module mod, Type base)
     {
@@ -513,7 +513,7 @@ class PointerType : Type
 
 class ConstType : Type
 {
-    Type base;
+    private Type base;
     
     this(Module mod, Type base)
     {
@@ -538,7 +538,7 @@ class ConstType : Type
 
 class ImmutableType : Type
 {
-    Type base;
+    private Type base;
     
     this(Module mod, Type base)
     {
@@ -591,7 +591,7 @@ class ClassType : Type
     
     Field[] fields;
     Method[] methods;
-    size_t[string] methodIndices; 
+    size_t[string] methodIndices;
     
     this(Module mod, ClassType parent)
     {
@@ -700,10 +700,10 @@ class ClassType : Type
         if (parent is null) {
             return null;
         }
-        return cast(ClassType) parent.importToModule(mod);
+        return parent.importToModule(mod);
     }
     
-    override Type importToModule(Module mod)
+    override ClassType importToModule(Module mod)
     {
         static Type[Module] importCache;
         if (auto p = mod in importCache) {
@@ -746,7 +746,7 @@ class NullPointerType : PointerType
 
 class ArrayType : StructType
 {
-    Type base;
+    private Type base;
     
     this(Module mod, Type base)
     {
@@ -778,7 +778,7 @@ class ArrayType : StructType
 
 class StaticArrayType : Type
 {
-    Type base;
+    private Type base;
     size_t length;
     
     this(Module mod, Type base, size_t length)
@@ -871,7 +871,7 @@ class StructType : Type
 class EnumType : Type
 {
     ast.QualifiedName fullName;
-    Type base;
+    private Type base;
     
     this(Module mod, Type base)
     {
