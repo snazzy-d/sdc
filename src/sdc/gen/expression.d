@@ -526,9 +526,18 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genAssertExpression(cast(ast.AssertExpression) expression.node, mod);
     case ast.PrimaryType.TemplateInstance:
         return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
+    case ast.PrimaryType.ComplexTypeDotIdentifier:
+        return genComplexTypeDotIdentifier(expression, mod);
     default:
         throw new CompilerPanic(expression.location, format("unhandled primary expression type: '%s'", to!string(expression.type)));
     }
+}
+
+Value genComplexTypeDotIdentifier(ast.PrimaryExpression expression, Module mod)
+{
+    auto typeval  = astTypeToBackendType(cast(ast.Type) expression.node, mod, OnFailure.DieWithError).getValue(mod, expression.location);
+    auto property = extractIdentifier(cast(ast.Identifier) expression.secondNode);
+    return typeval.getProperty(expression.location, property);
 }
 
 Value genIdentifier(ast.Identifier identifier, Module mod)

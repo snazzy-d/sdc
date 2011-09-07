@@ -136,8 +136,8 @@ abstract class Value
     Value dereference(Location loc) { fail(loc, "dereference"); assert(false); }
     Value index(Location loc, Value val) { fail(loc, "index"); assert(false); }
     Value slice(Location loc, Value from, Value to) { fail(loc, "slice"); assert(false); }
-    Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
     Value mod(Location loc, Value val) { fail(loc, "modulo"); assert(false); }
+    Value getSizeof(Location loc) { fail(loc, "getSizeof"); assert(false); }
         
         
     Value logicalOr(Location location, Value val)
@@ -295,12 +295,16 @@ class VoidValue : Value
     }
 }
 
-mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString)
+mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString, alias DOperator)
 {
-    mixin("override Value " ~ ComparisonString ~ "(Location location, Value val) {" ~
+    mixin("override Value " ~ ComparisonString ~ "(Location location, Value val) {"
         "auto v = LLVMBuildICmp(mModule.builder, ComparisonType, get(), val.get(), toStringz(ComparisonString));"
         "auto b = new BoolValue(mModule, location);"
         "b.initialise(location, v);"
+        "b.isKnown = isKnown && val.isKnown;"
+        "if (b.isKnown) {"
+        "    b.knownBool = knownBool " ~ DOperator ~ " val.knownBool;"
+        "}"
         "return b;"
     "}");
 }
@@ -534,16 +538,16 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return newSizeT(mModule, location, T.sizeof);
     }
     
-    mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq");
-    mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq");
+    mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq", "==");
+    mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq", "!=");
     static if (SIGNED) {
-        mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt");
-        mixin LLVMIntComparison!(LLVMIntPredicate.SLT, "lt");
-        mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SGT, "gt", ">");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SLT, "lt", "<");
+        mixin LLVMIntComparison!(LLVMIntPredicate.SLE, "lte", "<=");
     } else {
-        mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt");
-        mixin LLVMIntComparison!(LLVMIntPredicate.ULT, "lt");
-        mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte");
+        mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt", ">");
+        mixin LLVMIntComparison!(LLVMIntPredicate.ULT, "lt", "<");
+        mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte", "<=");
     }
     
     
