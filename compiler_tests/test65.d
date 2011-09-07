@@ -18,5 +18,13 @@ int main()
 		assert(str[j] == str2[(str2.length - j) - 1]);
 	}
 	
+	i = 0;
+	foreach(ref j; 1 .. 10)
+	{
+		i += j;
+		if(j == 5)
+			j = 8;
+	}
+	assert(i == 24);
 	return 0;
 }
