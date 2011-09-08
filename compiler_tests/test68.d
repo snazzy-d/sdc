@@ -1,6 +1,6 @@
 //T compiles:yes
 //T retval:6
-//T desc:Various cases for comments.
+//? desc:Various cases for comments.
 
 int main()
 {
