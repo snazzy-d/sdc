@@ -1,6 +1,6 @@
 //T compiles:yes
-//T retval:0
-//? desc:Various test-cases for comments.
+//T retval:6
+//? desc:Various cases for comments.
 
 int main()
 {
@@ -54,5 +54,5 @@ int main()
      /* return 36;
 +/
 
-        return 0;
+        return d;
 }
