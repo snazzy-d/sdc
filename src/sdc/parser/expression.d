@@ -749,7 +749,7 @@ AssertExpression parseAssertExpression(TokenStream tstream)
 {
     auto assertExpr = new AssertExpression();
     auto firstToken = match(tstream, TokenType.Assert);
-    match(tstream, TokenType.OpenParen);
+    auto openToken = match(tstream, TokenType.OpenParen);
     
     assertExpr.condition = parseAssignExpression(tstream);
     
@@ -759,7 +759,7 @@ AssertExpression parseAssertExpression(TokenStream tstream)
     }
     
     if (tstream.peek.type != TokenType.CloseParen) {
-        throw new PairMismatchError(firstToken.location, tstream.previous.location, "assert", ")");
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "assert", ")");
     }
     auto lastToken = tstream.get();
     assertExpr.location = lastToken.location - firstToken.location;
