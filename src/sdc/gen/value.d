@@ -295,7 +295,7 @@ class VoidValue : Value
     }
 }
 
-mixin template LLVMIntComparison(alias ComparisonType, alias ComparisonString, alias DOperator)
+mixin template LLVMIntComparison(LLVMIntPredicate ComparisonType, string ComparisonString, string DOperator)
 {
     mixin("override Value " ~ ComparisonString ~ "(Location location, Value val) {"
         "auto v = LLVMBuildICmp(mModule.builder, ComparisonType, get(), val.get(), toStringz(ComparisonString));"
@@ -1099,6 +1099,12 @@ class PointerValue : Value
     {
         return new PointerValue(mod, location, baseType.importToModule(mod));
     }
+    
+    mixin LLVMIntComparison!(LLVMIntPredicate.EQ, "eq", "==");
+    mixin LLVMIntComparison!(LLVMIntPredicate.NE, "neq", "!=");
+    mixin LLVMIntComparison!(LLVMIntPredicate.UGT, "gt", ">");
+    mixin LLVMIntComparison!(LLVMIntPredicate.ULT, "lt", "<");
+    mixin LLVMIntComparison!(LLVMIntPredicate.ULE, "lte", "<=");
 }
 
 mixin template ReferenceImplementation(alias SIGNATURE, alias CALL)

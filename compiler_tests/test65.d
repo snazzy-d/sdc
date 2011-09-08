@@ -19,6 +19,13 @@ int main()
 	}
 	
 	i = 0;
+	foreach(char* it; str.ptr .. str.ptr + str.length)
+	{
+		assert(*it == str[i]);
+		i++;
+	}
+	
+	i = 0;
 	foreach(ref j; 1 .. 10)
 	{
 		i += j;
