@@ -1841,15 +1841,18 @@ Value implicitCast(Location location, Value v, Type toType)
         if (v.type.dtype == DType.NullPointer) {
             return v;
         } else if (v.type.dtype == DType.Pointer) {
-            if (toType.dtype == DType.Pointer && toType.getBase().dtype == DType.Void) {
+            if (toType.getBase().dtype == DType.Void) {
                 // All pointers are implicitly castable to void*.
                 return v.performCast(location, toType); 
             }
-            if (v.type.getBase().dtype == toType.getBase().dtype) {
-                return v;
-            } else if (toType.getBase().dtype == DType.Const) {
+            
+            if (toType.getBase().dtype == DType.Const) {
                 return implicitCast(location, v, toType.getBase());
             }
+            
+            /+if (toType.getBase().dtype == v.type.getBase().dtype) {
+                return v;
+            }+/
         } else if (v.type.dtype == DType.Array) {
             if (v.type.getBase().dtype == toType.getBase().dtype) {
                 return v.getMember(location, "ptr");
@@ -1874,14 +1877,18 @@ Value implicitCast(Location location, Value v, Type toType)
     case DType.Immutable:
         return new ImmutableValue(v.getModule(), location, v);
     default:
-        if (toType.dtype == v.type.dtype) {
-            return v;
-        } else if (canImplicitCast(location, v.type, toType)) {
+        if (canImplicitCast(location, v.type, toType)) {
             return v.performCast(location, toType);
         }
         break;
     }
-    throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
+    
+    // TODO: do this earlier when equals() is better supported.
+    if (toType.equals(v.type)) {
+        return v;
+    } else {
+        throw new CompilerError(location, format("cannot implicitly cast '%s' to '%s'.", v.type.name(), toType.name()));
+    }
 }
 
 bool canImplicitCast(Location location, Type from, Type to)

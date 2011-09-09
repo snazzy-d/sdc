@@ -95,15 +95,36 @@ class FunctionType : Type
         throw new CompilerPanic(location, "attempted to getValue of a FunctionType.");
     }
     
+    // TODO: change this when opEquals doesn't suck anymore.
+    override bool equals(Type type)
+    {
+        auto fnType = cast(FunctionType) type;
+        if (fnType is null ||
+            linkage != fnType.linkage ||
+            !returnType.equals(fnType.returnType) ||
+            parameterTypes.length != fnType.parameterTypes.length) {
+            return false;
+        }
+        
+        foreach (i, param; parameterTypes) {
+            if (!param.equals(fnType.parameterTypes[i])) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     /**
      * Create an equivalent FunctionType in the given Module.
      */
-    override Type importToModule(Module mod)
+    override FunctionType importToModule(Module mod)
     {
         Type importType(Type t) { return t.importToModule(mod); }
         auto importedTypes = array( map!importType(parameterTypes) );   
             
         auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
+        fn.linkage = linkage;
         if (fn.parentAggregate !is null) {
             fn.parentAggregate = parentAggregate.importToModule(mod);
         }

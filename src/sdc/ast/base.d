@@ -76,6 +76,15 @@ class QualifiedName : Node
         qn.leadingDot = this.leadingDot;
         return qn;
     }
+    
+    override bool opEquals(Object o)
+    {
+        if (auto other = cast(QualifiedName) o) {
+            return identifiers == other.identifiers;
+        } else {
+            return false;
+        }
+    }
 }
 
 class Identifier : Node

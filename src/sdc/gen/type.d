@@ -181,6 +181,15 @@ abstract class Type
     
     abstract string name();
     
+    // Override this for complex types.
+    bool equals(Type other)
+    {
+        debug if(isComplexDType(dtype)) {
+            throw new CompilerPanic(format("complex type '%s' does not override Type.equals.", name()));
+        }
+        return dtype == other.dtype;
+    }
+    
     package   Module mModule;
     protected LLVMTypeRef mType;
 }
@@ -861,6 +870,15 @@ class StructType : Type
     override string name()
     { 
         return "struct " ~ extractQualifiedName(fullName);
+    }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Struct) {
+            return false;
+        }
+        
+        return fullName == other.getFullName();
     }
     
     Type[] members;
