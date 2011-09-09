@@ -517,7 +517,24 @@ class PointerType : Type
         return base;
     }
     
-    override string name() { return base.name() ~ '*'; }
+    override string name()
+    {
+        if (base.dtype == DType.Function) {
+            auto fnType = cast(FunctionType) getBase();
+            return fnType.toString(FunctionType.ToStringType.FunctionPointer);
+        } else {
+            return base.name() ~ '*';
+        }
+    }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Pointer) {
+            return false;
+        }
+        
+        return base.equals(other.getBase());
+    }
 }
 
 class ConstType : Type

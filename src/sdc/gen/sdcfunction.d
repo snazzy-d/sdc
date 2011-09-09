@@ -128,17 +128,42 @@ class FunctionType : Type
         return fn;
     }
     
-    override string name()
+    enum ToStringType
     {
-        auto namestr = "function(";
+        Function,
+        FunctionPointer,
+        Delegate
+    }
+    
+    /**
+     * Get the string representation of this function either as a function,
+     * function pointer or delegate.
+     */
+    string toString(ToStringType type)
+    {
+        auto namestr = returnType.name();
+        
+        if (type == ToStringType.FunctionPointer) {
+            namestr ~= " function";
+        } else if (type == ToStringType.Delegate) {
+            namestr ~= " delegate";
+        }
+        
+        if (linkage != Linkage.D) {
+            namestr ~= " " ~ linkageToString(linkage);
+        }
+        
+        namestr ~= "(";
         foreach (i, param; parameterTypes) {
             namestr ~= param.name();
             if (i < parameterTypes.length - 1) {
                 namestr ~= ", ";
             }
         }
-        return namestr;
+        return namestr ~ ")";
     }
+    
+    override string name() { return toString(ToStringType.Function); }
 }
 
 /**
@@ -458,6 +483,27 @@ LLVMCallConv linkageToCallConv(ast.Linkage linkage)
             throw new CompilerPanic("Pascal and C++ calling conventions are unsupported.");
         case Windows:
             return LLVMCallConv.X86Stdcall;
+        case System:
+            version(Windows)
+                goto case Windows;
+            else
+                goto case C;
+    }
+}
+
+string linkageToString(ast.Linkage linkage)
+{
+    final switch(linkage) with(ast.Linkage) {
+        case C:
+            return "C";
+        case D:
+            return "D";
+        case Pascal:
+            return "pascal";
+        case CPlusPlus:
+            return "C++";
+        case Windows:
+            return "stdcall";
         case System:
             version(Windows)
                 goto case Windows;
