@@ -9,6 +9,7 @@ module sdc.compilererror;
 import std.stdio;
 import std.string;
 
+import sdc.terminal;
 import sdc.location;
 
 class CompilerError : Exception
@@ -152,4 +153,5 @@ void errorMessageOnly(Location loc, string message)
 void warning(Location loc, string message)
 {
     stderr.writeln(format("%s: warning: %s", loc, message));
+    outputCaretDiagnostics(loc, null);
 }
