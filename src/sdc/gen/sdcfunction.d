@@ -1,5 +1,6 @@
 /**
  * Copyright 2011 Bernard Helyer.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -427,15 +428,20 @@ in
 }
 body
 {
-    foreach (i, arg; type.parameterTypes) {
-        try {
-            args[i] = implicitCast(argLocations[i], args[i], arg);
-        } catch(CompilerError error) {
-            throw new ArgumentMismatchError(error.location, error.msg, i);
-        }
-        if (arg.isRef) {
-            args[i].errorIfNotLValue(argLocations[i]);
-            args[i] = args[i].addressOf(argLocations[i]);
+    foreach (i, ref param; type.parameterTypes) {
+        auto arg = args[i];
+        if (param.isRef) {
+            if (!args[i].type.equals(param)) {
+                throw new CompilerError(argLocations[i], format("argument to ref parameter must be of exact type '%s', not '%s'.", param.name(), arg.type.name()));
+            }
+            arg.errorIfNotLValue(argLocations[i]);
+            args[i] = arg.addressOf(argLocations[i]);
+        } else {
+            try {
+                args[i] = implicitCast(argLocations[i], arg, param);
+            } catch(CompilerError error) {
+                throw new ArgumentMismatchError(error.location, error.msg, i);
+            }
         }
     }
 }
