@@ -870,8 +870,6 @@ class StringValue : ArrayValue
     {
         auto base = new CharType(mod);
         super(mod, location, base);
-        isKnown = true;
-        knownString = s;
         
         auto strLen = s.length;
         
@@ -879,6 +877,9 @@ class StringValue : ArrayValue
         if (s.length == 0 || s[$-1] != '\0') {
             s ~= '\0';
         }
+        
+        isKnown = true;
+        knownString = s[0..$-1]; // Null terminated, but null terminator not part of the array.
         
         val = LLVMAddGlobal(mod.mod, LLVMArrayType(base.llvmType, cast(uint) s.length), "string");
 
