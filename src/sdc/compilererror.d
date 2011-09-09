@@ -14,7 +14,6 @@ import sdc.location;
 class CompilerError : Exception
 {
     Location location;
-    bool hasLocation = false;
     
     CompilerError more; // Optional
     string fixHint; // Optional
@@ -34,7 +33,6 @@ class CompilerError : Exception
     {
         super(format(locationFormat(), loc, message));
         location = loc;
-        hasLocation = true;
     }
     
     this(Location loc, string message, CompilerError more)
