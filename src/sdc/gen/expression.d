@@ -1,6 +1,6 @@
 /**
  * Copyright 2010-2011 Bernard Helyer.
- * Copyright 2010 Jakob Ovrum.
+ * Copyright 2010-2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -40,6 +40,14 @@ Value genExpression(ast.Expression expression, Module mod)
     return v;
 }
 
+private bool isPointerArithmetic(Value lhs, Value rhs, ast.AssignType type)
+{
+    return (type == ast.AssignType.AddAssign ||
+        type == ast.AssignType.SubAssign) &&
+        lhs.type.dtype == DType.Pointer &&
+        isIntegerDType(rhs.type.dtype);
+}
+
 Value genAssignExpression(ast.AssignExpression expression, Module mod)
 {
     auto lhs = genConditionalExpression(expression.conditionalExpression, mod);
@@ -48,10 +56,7 @@ Value genAssignExpression(ast.AssignExpression expression, Module mod)
     }
     auto rhs = genAssignExpression(expression.assignExpression, mod);
     
-    // Do implicit cast if this is not pointer arithmetic
-    if (expression.assignType != ast.AssignType.AddAssign &&
-        expression.assignType != ast.AssignType.SubAssign &&
-        lhs.type.dtype != DType.Pointer) {
+    if (!isPointerArithmetic(lhs, rhs, expression.assignType)) {
         rhs = implicitCast(rhs.location, rhs, lhs.type);
     }
     
