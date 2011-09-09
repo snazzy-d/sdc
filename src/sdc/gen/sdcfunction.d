@@ -45,17 +45,13 @@ class FunctionType : Type
     bool varargs;
     Module mod;
     
-    this(Module mod, Type returnType, Type[] parameterTypes, bool varargs, FunctionDeclaration astParent = null)
+    this(Module mod, Type returnType, Type[] parameterTypes, bool varargs)
     {
         super(mod);
         dtype = DType.Function;
         this.returnType = returnType;
         this.parameterTypes = parameterTypes;
         this.varargs = varargs;
-        if (astParent !is null) {
-            this.linkage = astParent.linkage;
-            this.isStatic = astParent.searchAttributesBackwards(ast.AttributeType.Static);
-        }
         declare();
         this.mod = mod;
     }
@@ -236,6 +232,9 @@ class Function
         
         verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
         llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.mType);
+        if (type.linkage != Linkage.C) {
+            LLVMSetFunctionCallConv(llvmValue, linkageToCallConv(type.linkage));
+        }
     }
     
     /**
@@ -255,7 +254,7 @@ class Function
         auto fn = new Function(type);
         
         fn.location = this.location;
-        fn.type = cast(FunctionType) type.importToModule(mod);
+        fn.type = type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
@@ -359,6 +358,11 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
         newTry.children ~= catchBB;
         mod.currentFunction.cfgTail = newTry;
     }
+    
+    if (type.linkage != Linkage.C) {
+        LLVMSetInstructionCallConv(v, linkageToCallConv(type.linkage));
+    }
+    
     Value val;
     if (type.returnType.dtype != DType.Void) {
         val = type.returnType.getValue(mod, callLocation);
@@ -366,6 +370,7 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
     } else {
         val = new VoidValue(mod, callLocation);
     }
+    
     return val;
 }
 
@@ -440,4 +445,23 @@ private bool explicitMatches(Function fn, Value[] args)
     auto functionTypes = fn.type.parameterTypes;
     auto parameterTypes = array( map!getType(args) );
     return functionTypes == parameterTypes;
+}
+
+LLVMCallConv linkageToCallConv(ast.Linkage linkage)
+{
+    final switch(linkage) with(ast.Linkage) {
+        case C:
+            return LLVMCallConv.C;
+        case D:
+            return LLVMCallConv.Fast;
+        case Pascal, CPlusPlus:
+            throw new CompilerPanic("Pascal and C++ calling conventions are unsupported.");
+        case Windows:
+            return LLVMCallConv.X86Stdcall;
+        case System:
+            version(Windows)
+                goto case Windows;
+            else
+                goto case C;
+    }
 }

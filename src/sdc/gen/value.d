@@ -1665,6 +1665,7 @@ Type genFunctionPointerType(ast.FunctionPointerType type, Module mod, OnFailure 
         params[$ - 1].isRef = param.attribute == ast.ParameterAttribute.Ref;
     }
     auto ftype = new FunctionType(mod, returnType, params, varargs);
+    ftype.linkage = type.linkage;
     ftype.declare();
     return new PointerType(mod, ftype);
 }
