@@ -24,13 +24,9 @@ string startMangle()
     return "_D";
 }
 
-void mangleFunction(ref string mangledName, Function fn)
+string mangleFunction(Function fn)
 {
-    if (mangledName == "main") {
-        // TMP
-        return;
-    }
-    mangledName = startMangle();
+    auto mangledName = startMangle();
     if (fn.type.parentAggregate !is null) {
         mangleQualifiedName(mangledName, fn.type.parentAggregate.getFullName());
     } else {
@@ -44,6 +40,7 @@ void mangleFunction(ref string mangledName, Function fn)
         mangledName ~= "M";
     }
     mangleFunctionType(mangledName, fn.type);
+    return mangledName;
 }
 
 void mangleFunctionType(ref string mangledName, FunctionType type)

@@ -193,12 +193,19 @@ class Function
         }
         
         this.mod = mod;
-        mangledName = simpleName.idup;
+        
+        if (simpleName == "main") {
+            type.linkage = Linkage.C;
+        }
+        
         if (type.linkage == Linkage.D && forceMangle is null) {
-            mangleFunction(mangledName, this);
+            mangledName = mangleFunction(this);
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
+        } else {
+            mangledName = simpleName;
         }
+        
         auto mangledNamez = toStringz(mangledName);
         
         if (auto p = LLVMGetNamedFunction(mod.mod, mangledNamez)) {
