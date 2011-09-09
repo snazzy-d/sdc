@@ -194,7 +194,7 @@ class Function
         
         this.mod = mod;
         mangledName = simpleName.idup;
-        if (type.linkage == Linkage.ExternD && forceMangle is null) {
+        if (type.linkage == Linkage.D && forceMangle is null) {
             mangleFunction(mangledName, this);
         } else if (forceMangle !is null) {
             mangledName = forceMangle;

@@ -167,7 +167,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     } else {
         // implementing java native function
         fn.simpleName = javaMangle(decl.name);
-        fntype.linkage = ast.Linkage.ExternC; 
+        fntype.linkage = ast.Linkage.C;
     }
     fn.argumentNames = names;
     auto store = new Store(fn, decl.name.location);

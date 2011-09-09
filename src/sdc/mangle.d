@@ -73,26 +73,26 @@ void mangleLName(ref string mangledName, string name)
 void mangleCallConvention(ref string mangledName, Linkage convention)
 {
     final switch (convention) with (Linkage) {
-    case ExternC:
+    case C:
         mangledName ~= "U";
         break;
-    case ExternCPlusPlus:
+    case CPlusPlus:
         mangledName ~= "R";
         break;
-    case ExternD:
+    case D:
         mangledName ~= "F";
         break;
-    case ExternWindows:
+    case Windows:
         mangledName ~= "W";
         break;
-    case ExternPascal:
+    case Pascal:
         mangledName ~= "V";
         break;
-    case ExternSystem:
+    case System:
         version(Windows) {
-            goto case ExternWindows;
+            goto case Windows;
         } else {
-            goto case ExternC;
+            goto case C;
         }
     }
 }
