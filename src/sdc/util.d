@@ -132,7 +132,7 @@ class ImportDummy(T)
     }
 }
 
-Throwable.TraceInfo nullTraceHandler()
+Throwable.TraceInfo nullTraceHandler(void*)
 {
     return null;
 }

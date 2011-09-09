@@ -149,14 +149,14 @@ void realmain(string[] args)
     struct Assembly { string filename; bool compiledByThisInstance; string canonical; } 
     Assembly[] assemblies;
     foreach (arg; args[1 .. $]) {
-        auto ext = getExt(arg);
+        auto ext = extension(arg);
         
         switch(ext){
-        case "o":
+        case ".o":
             assemblies ~= Assembly(arg, false, "");
             break;
                 
-        case "d", "di":
+        case ".d", ".di":
             if (!file.exists(arg)) {
                 throw new CompilerError(format(`source "%s" could not be found.`, arg));
             }

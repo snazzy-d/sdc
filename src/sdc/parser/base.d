@@ -116,7 +116,7 @@ ModuleDeclaration parseModuleDeclaration(TokenStream tstream)
         // Implicit module declaration.
         modDec.name = new QualifiedName();
         auto ident = new Identifier();
-        ident.value = basename(tstream.filename, "." ~ getExt(tstream.filename));
+        ident.value = baseName(tstream.filename, extension(tstream.filename));
         modDec.name.identifiers ~= ident;
     }
     return modDec;
