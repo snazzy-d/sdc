@@ -560,6 +560,15 @@ class ConstType : Type
     }
     
     override string name() { return "const(" ~ base.name() ~ ")"; }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Const) {
+            return false;
+        }
+        
+        return base.equals(other.getBase());
+    }
 }
 
 class ImmutableType : Type
@@ -585,6 +594,15 @@ class ImmutableType : Type
     }
     
     override string name() { return "immutable(" ~ base.name() ~ ")"; }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Immutable) {
+            return false;
+        }
+        
+        return base.equals(other.getBase());
+    }
 }
 
 struct Field
@@ -751,6 +769,15 @@ class ClassType : Type
         
         return type; 
     }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Class) {
+            return false;
+        }
+        
+        return fullName == other.getFullName();
+    }
 }
 
 /*
@@ -799,7 +826,21 @@ class ArrayType : StructType
         return new ArrayType(mod, base);
     }
     
+    override ast.QualifiedName getFullName()
+    {
+        assert(false, "tried to getFullName() on array type.");
+    }
+    
     override string name() { return base.name() ~ "[]"; }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Array) {
+            return false;
+        }
+        
+        return base.equals(other.getBase());
+    }
 }
 
 class StaticArrayType : Type
@@ -834,6 +875,16 @@ class StaticArrayType : Type
     override string name()
     {
         return format("%s[%s]", base.name(), length);
+    }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.StaticArray) {
+            return false;
+        }
+        
+        auto asStaticArray = cast(StaticArrayType) other;
+        return length == asStaticArray.length && base.equals(other.getBase());
     }
 }
 
@@ -941,6 +992,15 @@ class EnumType : Type
     override string name()
     {
         return "enum " ~ extractQualifiedName(fullName);
+    }
+    
+    override bool equals(Type other)
+    {
+        if (other.dtype != DType.Enum) {
+            return false;
+        }
+        
+        return fullName == other.getFullName();
     }
     
     Value[string] members;
