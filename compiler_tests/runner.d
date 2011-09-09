@@ -178,7 +178,7 @@ void main(string[] args)
         return;
     }
     
-    const tests = array( map!getTestFilename(iota(0, testNumber)) );
+    auto tests = array( map!getTestFilename(iota(0, testNumber)) );
 
     size_t testIndex = 0;
     int passed = 0;
