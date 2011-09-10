@@ -24,13 +24,9 @@ string startMangle()
     return "_D";
 }
 
-void mangleFunction(ref string mangledName, Function fn)
+string mangleFunction(Function fn)
 {
-    if (mangledName == "main") {
-        // TMP
-        return;
-    }
-    mangledName = startMangle();
+    auto mangledName = startMangle();
     if (fn.type.parentAggregate !is null) {
         mangleQualifiedName(mangledName, fn.type.parentAggregate.getFullName());
     } else {
@@ -44,6 +40,7 @@ void mangleFunction(ref string mangledName, Function fn)
         mangledName ~= "M";
     }
     mangleFunctionType(mangledName, fn.type);
+    return mangledName;
 }
 
 void mangleFunctionType(ref string mangledName, FunctionType type)
@@ -73,26 +70,26 @@ void mangleLName(ref string mangledName, string name)
 void mangleCallConvention(ref string mangledName, Linkage convention)
 {
     final switch (convention) with (Linkage) {
-    case ExternC:
+    case C:
         mangledName ~= "U";
         break;
-    case ExternCPlusPlus:
+    case CPlusPlus:
         mangledName ~= "R";
         break;
-    case ExternD:
+    case D:
         mangledName ~= "F";
         break;
-    case ExternWindows:
+    case Windows:
         mangledName ~= "W";
         break;
-    case ExternPascal:
+    case Pascal:
         mangledName ~= "V";
         break;
-    case ExternSystem:
+    case System:
         version(Windows) {
-            goto case ExternWindows;
+            goto case Windows;
         } else {
-            goto case ExternC;
+            goto case C;
         }
     }
 }

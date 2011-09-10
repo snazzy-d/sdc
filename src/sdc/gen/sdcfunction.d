@@ -1,5 +1,6 @@
 /**
  * Copyright 2011 Bernard Helyer.
+ * Copyright 2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -45,17 +46,13 @@ class FunctionType : Type
     bool varargs;
     Module mod;
     
-    this(Module mod, Type returnType, Type[] parameterTypes, bool varargs, FunctionDeclaration astParent = null)
+    this(Module mod, Type returnType, Type[] parameterTypes, bool varargs)
     {
         super(mod);
         dtype = DType.Function;
         this.returnType = returnType;
         this.parameterTypes = parameterTypes;
         this.varargs = varargs;
-        if (astParent !is null) {
-            this.linkage = astParent.linkage;
-            this.isStatic = astParent.searchAttributesBackwards(ast.AttributeType.Static);
-        }
         declare();
         this.mod = mod;
     }
@@ -95,15 +92,36 @@ class FunctionType : Type
         throw new CompilerPanic(location, "attempted to getValue of a FunctionType.");
     }
     
+    // TODO: change this when opEquals doesn't suck anymore.
+    override bool equals(Type type)
+    {
+        auto fnType = cast(FunctionType) type;
+        if (fnType is null ||
+            linkage != fnType.linkage ||
+            !returnType.equals(fnType.returnType) ||
+            parameterTypes.length != fnType.parameterTypes.length) {
+            return false;
+        }
+        
+        foreach (i, param; parameterTypes) {
+            if (!param.equals(fnType.parameterTypes[i])) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     /**
      * Create an equivalent FunctionType in the given Module.
      */
-    override Type importToModule(Module mod)
+    override FunctionType importToModule(Module mod)
     {
         Type importType(Type t) { return t.importToModule(mod); }
         auto importedTypes = array( map!importType(parameterTypes) );   
             
         auto fn = new FunctionType(mod, returnType.importToModule(mod), importedTypes, varargs);
+        fn.linkage = linkage;
         if (fn.parentAggregate !is null) {
             fn.parentAggregate = parentAggregate.importToModule(mod);
         }
@@ -111,17 +129,42 @@ class FunctionType : Type
         return fn;
     }
     
-    override string name()
+    enum ToStringType
     {
-        auto namestr = "function(";
+        Function,
+        FunctionPointer,
+        Delegate
+    }
+    
+    /**
+     * Get the string representation of this function either as a function,
+     * function pointer or delegate.
+     */
+    string toString(ToStringType type)
+    {
+        auto namestr = returnType.name();
+        
+        if (type == ToStringType.FunctionPointer) {
+            namestr ~= " function";
+        } else if (type == ToStringType.Delegate) {
+            namestr ~= " delegate";
+        }
+        
+        if (linkage != Linkage.D) {
+            namestr ~= " " ~ linkageToString(linkage);
+        }
+        
+        namestr ~= "(";
         foreach (i, param; parameterTypes) {
             namestr ~= param.name();
             if (i < parameterTypes.length - 1) {
                 namestr ~= ", ";
             }
         }
-        return namestr;
+        return namestr ~ ")";
     }
+    
+    override string name() { return toString(ToStringType.Function); }
 }
 
 /**
@@ -193,12 +236,19 @@ class Function
         }
         
         this.mod = mod;
-        mangledName = simpleName.idup;
-        if (type.linkage == Linkage.ExternD && forceMangle is null) {
-            mangleFunction(mangledName, this);
+        
+        if (simpleName == "main") {
+            type.linkage = Linkage.C;
+        }
+        
+        if (type.linkage == Linkage.D && forceMangle is null) {
+            mangledName = mangleFunction(this);
         } else if (forceMangle !is null) {
             mangledName = forceMangle;
+        } else {
+            mangledName = simpleName;
         }
+        
         auto mangledNamez = toStringz(mangledName);
         
         if (auto p = LLVMGetNamedFunction(mod.mod, mangledNamez)) {
@@ -208,6 +258,9 @@ class Function
         
         verbosePrint("Adding function '" ~ mangledName ~ "' (" ~ to!string(cast(void*)this) ~ ") to LLVM module '" ~ to!string(mod.mod) ~ "'.", VerbosePrintColour.Yellow);
         llvmValue = LLVMAddFunction(mod.mod, mangledNamez, type.mType);
+        if (type.linkage != Linkage.C) {
+            LLVMSetFunctionCallConv(llvmValue, linkageToCallConv(type.linkage));
+        }
     }
     
     /**
@@ -227,7 +280,7 @@ class Function
         auto fn = new Function(type);
         
         fn.location = this.location;
-        fn.type = cast(FunctionType) type.importToModule(mod);
+        fn.type = type.importToModule(mod);
         fn.simpleName = this.simpleName;
         fn.argumentNames = this.argumentNames.dup;
         fn.argumentLocations = this.argumentLocations.dup;
@@ -331,6 +384,11 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
         newTry.children ~= catchBB;
         mod.currentFunction.cfgTail = newTry;
     }
+    
+    if (type.linkage != Linkage.C) {
+        LLVMSetInstructionCallConv(v, linkageToCallConv(type.linkage));
+    }
+    
     Value val;
     if (type.returnType.dtype != DType.Void) {
         val = type.returnType.getValue(mod, callLocation);
@@ -338,6 +396,7 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
     } else {
         val = new VoidValue(mod, callLocation);
     }
+    
     return val;
 }
 
@@ -369,15 +428,20 @@ in
 }
 body
 {
-    foreach (i, arg; type.parameterTypes) {
-        try {
-            args[i] = implicitCast(argLocations[i], args[i], arg);
-        } catch(CompilerError error) {
-            throw new ArgumentMismatchError(error.location, error.msg, i);
-        }
-        if (arg.isRef) {
-            args[i].errorIfNotLValue(argLocations[i]);
-            args[i] = args[i].addressOf(argLocations[i]);
+    foreach (i, ref param; type.parameterTypes) {
+        auto arg = args[i];
+        if (param.isRef) {
+            if (!args[i].type.equals(param)) {
+                throw new CompilerError(argLocations[i], format("argument to ref parameter must be of exact type '%s', not '%s'.", param.name(), arg.type.name()));
+            }
+            arg.errorIfNotLValue(argLocations[i]);
+            args[i] = arg.addressOf(argLocations[i]);
+        } else {
+            try {
+                args[i] = implicitCast(argLocations[i], arg, param);
+            } catch(CompilerError error) {
+                throw new ArgumentMismatchError(error.location, error.msg, i);
+            }
         }
     }
 }
@@ -412,4 +476,44 @@ private bool explicitMatches(Function fn, Value[] args)
     auto functionTypes = fn.type.parameterTypes;
     auto parameterTypes = array( map!getType(args) );
     return functionTypes == parameterTypes;
+}
+
+LLVMCallConv linkageToCallConv(ast.Linkage linkage)
+{
+    final switch(linkage) with(ast.Linkage) {
+        case C:
+            return LLVMCallConv.C;
+        case D:
+            return LLVMCallConv.Fast;
+        case Pascal, CPlusPlus:
+            throw new CompilerPanic("Pascal and C++ calling conventions are unsupported.");
+        case Windows:
+            return LLVMCallConv.X86Stdcall;
+        case System:
+            version(Windows)
+                goto case Windows;
+            else
+                goto case C;
+    }
+}
+
+string linkageToString(ast.Linkage linkage)
+{
+    final switch(linkage) with(ast.Linkage) {
+        case C:
+            return "C";
+        case D:
+            return "D";
+        case Pascal:
+            return "pascal";
+        case CPlusPlus:
+            return "C++";
+        case Windows:
+            return "stdcall";
+        case System:
+            version(Windows)
+                goto case Windows;
+            else
+                goto case C;
+    }
 }

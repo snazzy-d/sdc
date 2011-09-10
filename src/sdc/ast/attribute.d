@@ -57,12 +57,12 @@ alias immutable(AttributeType)[] AttributeTypes;
 
 enum Linkage
 {
-    ExternC = AttributeType.ExternC,
-    ExternCPlusPlus,
-    ExternD,
-    ExternWindows,
-    ExternPascal,
-    ExternSystem,
+    C = AttributeType.ExternC,
+    CPlusPlus = AttributeType.ExternCPlusPlus,
+    D = AttributeType.ExternD,
+    Windows = AttributeType.ExternWindows,
+    Pascal = AttributeType.ExternPascal,
+    System = AttributeType.ExternSystem,
 }
 
 enum Access

@@ -350,7 +350,7 @@ class Module
         auto voidPointer = new PointerType(this, new VoidType(this));
         auto sizeT = getSizeT(this);
         auto allocType = new FunctionType(this, voidPointer, [sizeT], false);
-        allocType.linkage = ast.Linkage.ExternC;
+        allocType.linkage = ast.Linkage.C;
         allocType.declare();
 
         LLVMValueRef mallocFn = LLVMGetNamedFunction(mod, "malloc");
@@ -369,7 +369,7 @@ class Module
         auto voidPointer = new PointerType(this, new VoidType(this));
         auto sizeT = getSizeT(this);
         auto reallocType = new FunctionType(this, voidPointer, [voidPointer, sizeT], false);
-        reallocType.linkage = ast.Linkage.ExternC;
+        reallocType.linkage = ast.Linkage.C;
         reallocType.declare();
 
         LLVMValueRef reallocFn = LLVMGetNamedFunction(mod, "realloc");
@@ -391,7 +391,7 @@ class Module
         auto stringType = new ArrayType(this, new CharType(this));
         auto intType = new IntType(this);
         auto assertType = new FunctionType(this, voidType, [boolType, stringType, intType, stringType], false);
-        assertType.linkage = ast.Linkage.ExternC;
+        assertType.linkage = ast.Linkage.C;
         assertType.declare();
 
         LLVMValueRef assertFn = LLVMGetNamedFunction(mod, "__d_assert");

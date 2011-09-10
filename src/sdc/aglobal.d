@@ -229,7 +229,7 @@ version(Windows) extern(Windows) private
     void* GetModuleHandleA(const char* modName);
     uint GetModuleFileNameA(void* mod, char* path, uint pathLen);
     import std.c.string : strlen;
-    import std.path : dirname;
+    import std.path : dirName;
 }
 
 void loadConfig(ref string[] args)
@@ -261,7 +261,7 @@ void loadConfig(ref string[] args)
     {
         char[256] filePath;
         GetModuleFileNameA(GetModuleHandleA(null), filePath.ptr, filePath.length);
-        string exeDirPath = cast(immutable)dirname(filePath.ptr[0..strlen(filePath.ptr)]);
+        string exeDirPath = cast(immutable)dirName(filePath.ptr[0..strlen(filePath.ptr)]);
         string[] confLocations = [exeDirPath ~ "\\sdc.conf"];
     }
     else pragma(error, "please implement global.loadConfig for your platform.");

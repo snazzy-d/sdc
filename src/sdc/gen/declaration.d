@@ -153,9 +153,11 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
         names ~= param.identifier !is null ? extractIdentifier(param.identifier) : "";
     }
     
-    auto fntype = new FunctionType(mod, returnType, params, decl.parameterList.varargs, decl);
-    auto fn = new Function(fntype);
+    auto fntype = new FunctionType(mod, returnType, params, decl.parameterList.varargs);
+    fntype.linkage = decl.linkage;
+    fntype.isStatic = decl.searchAttributesBackwards(ast.AttributeType.Static);
     
+    auto fn = new Function(fntype);
     fn.location = decl.location;
     fn.argumentListLocation = decl.parameterList.location;
     foreach(param; decl.parameterList.parameters) {
@@ -167,7 +169,7 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     } else {
         // implementing java native function
         fn.simpleName = javaMangle(decl.name);
-        fntype.linkage = ast.Linkage.ExternC; 
+        fntype.linkage = ast.Linkage.C;
     }
     fn.argumentNames = names;
     auto store = new Store(fn, decl.name.location);

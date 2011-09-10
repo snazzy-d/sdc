@@ -69,7 +69,7 @@ int main(string[] args)
         do {
             stderr.writeln(error.msg);
             
-            if(error.hasLocation) {
+            if(error.location.filename !is null) {
                 outputCaretDiagnostics(error.location, error.fixHint);
             }
         } while((error = error.more) !is null);
