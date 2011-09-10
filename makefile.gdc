@@ -1,6 +1,6 @@
 include makefile.common
 
-DFLAGS = -g -Wall -Werror -funittest -I./import -Isrc -m32
+DFLAGS = -g -Wall -Werror -funittest -I./import -Isrc -m32 -version=SDCCOMPILER
 SOURCE = $(wildcard $SOURCE_WILDCARDS)
 OBJS = $(SOURCE:.d=.o)
 EXE = sdc

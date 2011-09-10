@@ -1,6 +1,6 @@
 include makefile.common
 
-DFLAGS = -w -debug -g -unittest -Iimport -Isrc $(FLAGS)
+DFLAGS = -version=SDCCOMPILER -w -debug -g -unittest -Iimport -Isrc $(FLAGS)
 SOURCE = \
 	src/sdc/ast/*.d \
 	src/sdc/parser/*.d \

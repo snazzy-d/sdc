@@ -3,7 +3,7 @@ include makefile.common
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m32
 SOURCE = $(SOURCE_WILDCARDS)
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport -version=SDCCOMPILER
 OBJ = sdc.o
 EXE = bin/sdc
 
