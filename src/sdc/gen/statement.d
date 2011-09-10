@@ -217,7 +217,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.currentFunction.currentBasicBlock = ifBB;
     
     mod.currentFunction.cfgTail = ifblock;
-    genThenStatement(statement.thenStatement, mod);
+    genStatement(statement.thenStatement, mod);
     
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, endifBB);
@@ -233,7 +233,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
         parent.children ~= elseblock;
                 
         mod.currentFunction.cfgTail = elseblock;
-        genElseStatement(statement.elseStatement, mod);
+        genStatement(statement.elseStatement, mod);
         if (mod.currentFunction.cfgTail.fallsThrough) {
             LLVMBuildBr(mod.builder, endifBB);
         }
@@ -274,15 +274,6 @@ void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef
     LLVMBuildCondBr(mod.builder, expr.get(), ifBB, elseBB);
 }
 
-void genThenStatement(ast.ThenStatement statement, Module mod)
-{
-    genStatement(statement.statement, mod);
-}
-
-void genElseStatement(ast.ElseStatement statement, Module mod)
-{
-    genStatement(statement.statement, mod);
-}
 
 void genWhileStatement(ast.WhileStatement statement, Module mod)
 {

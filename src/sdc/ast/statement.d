@@ -85,8 +85,8 @@ class DeclarationStatement : Node
 class IfStatement : Node
 {
     IfCondition ifCondition;
-    ThenStatement thenStatement;
-    ElseStatement elseStatement;  // Optional.
+    Statement thenStatement;
+    Statement elseStatement;  // Optional.
 }
 
 enum IfConditionType
@@ -102,16 +102,6 @@ class IfCondition : Node
     IfConditionType type;
     Expression expression;
     Node node;  // Optional.
-}
-
-class ThenStatement : Node
-{
-    Statement statement;
-}
-
-class ElseStatement : Node
-{
-    Statement statement;
 }
 
 

@@ -178,16 +178,21 @@ ThrowStatement parseThrowStatement(TokenStream tstream)
 IfStatement parseIfStatement(TokenStream tstream)
 {
     auto statement = new IfStatement();
-    statement.location = tstream.peek.location;
     
-    match(tstream, TokenType.If);
-    match(tstream, TokenType.OpenParen);
+    auto startToken = match(tstream, TokenType.If);
+    auto openToken = match(tstream, TokenType.OpenParen);
     statement.ifCondition = parseIfCondition(tstream);
-    match(tstream, TokenType.CloseParen);
-    statement.thenStatement = parseThenStatement(tstream);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "if condition", ")");
+    }
+    auto closeToken = tstream.get();
+    
+    statement.location = closeToken.location - startToken.location;
+    statement.thenStatement = parseStatement(tstream);
     if (tstream.peek.type == TokenType.Else) {
         match(tstream, TokenType.Else);
-        statement.elseStatement = parseElseStatement(tstream);
+        statement.elseStatement = parseStatement(tstream);
     }
     
     return statement;
@@ -211,31 +216,19 @@ IfCondition parseIfCondition(TokenStream tstream)
     return condition;
 }
 
-ThenStatement parseThenStatement(TokenStream tstream)
-{
-    auto statement = new ThenStatement();
-    statement.location = tstream.peek.location;
-    statement.statement = parseStatement(tstream);
-    return statement;
-}
-
-ElseStatement parseElseStatement(TokenStream tstream)
-{
-    auto statement = new ElseStatement();
-    statement.location = tstream.peek.location;
-    statement.statement = parseStatement(tstream);
-    return statement;
-}
-
-
 WhileStatement parseWhileStatement(TokenStream tstream)
 {
     auto statement = new WhileStatement();
-    statement.location = tstream.peek.location;
     match(tstream, TokenType.While);
-    match(tstream, TokenType.OpenParen);
+    auto openToken = match(tstream, TokenType.OpenParen);
     statement.expression = parseExpression(tstream);
-    match(tstream, TokenType.CloseParen);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "while condition", ")");
+    }
+    auto closeToken = tstream.get();
+    
+    statement.location = closeToken.location - openToken.location;
     statement.statement = parseStatement(tstream);
     return statement;
 }
@@ -248,10 +241,18 @@ DoStatement parseDoStatement(TokenStream tstream)
     match(tstream, TokenType.Do);
     statement.statement = parseStatement(tstream);
     match(tstream, TokenType.While);
-    match(tstream, TokenType.OpenParen);
+    auto openToken = match(tstream, TokenType.OpenParen);
     statement.expression = parseExpression(tstream);
-    match(tstream, TokenType.CloseParen);
-    match(tstream, TokenType.Semicolon);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "while condition", ")");
+    }
+    tstream.get();
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "do-while statement");
+    }
+    tstream.get();
     return statement;
 }
 
