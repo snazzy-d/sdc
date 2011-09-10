@@ -14,6 +14,12 @@ import sdc.gen.expression;
 import sdc.gen.statement;
 import ast = sdc.ast.all;
 
+enum LoopStart
+{
+    Top,
+    Body
+}
+
 struct Loop
 {
     private:
@@ -23,7 +29,7 @@ struct Loop
     Module mod;
     LLVMBasicBlockRef topBB, bodyBB, endBB;
     
-    this(Module mod, string name)
+    this(Module mod, string name, LoopStart start = LoopStart.Top)
     {
         this.mod = mod;
         this.topBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
@@ -38,7 +44,7 @@ struct Loop
         looptop.children ~= loopout;
         looptop.children ~= looptop;
         
-        LLVMBuildBr(mod.builder, topBB);
+        LLVMBuildBr(mod.builder, start == LoopStart.Body? bodyBB : topBB);
     }
 
     void gen(scope void delegate() genTop, scope void delegate() genBody)
