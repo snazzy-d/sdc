@@ -204,7 +204,7 @@ class BreakStatement : Node
 
 class ReturnStatement : Node
 {
-    Expression expression;  // Optional.
+    Expression retval;  // Optional.
 }
 
 
@@ -299,7 +299,7 @@ class PragmaStatement : Node
 
 class MixinStatement : Node
 {
-    ConditionalExpression expression;
+    ConditionalExpression code;
 }
 
 class AsmStatement : Node

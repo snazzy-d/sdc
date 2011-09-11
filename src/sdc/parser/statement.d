@@ -422,7 +422,7 @@ ReturnStatement parseReturnStatement(TokenStream tstream)
     statement.location = tstream.peek.location;
     match(tstream, TokenType.Return);
     if (tstream.peek.type != TokenType.Semicolon) {
-        statement.expression = parseExpression(tstream);
+        statement.retval = parseExpression(tstream);
     }
     if (tstream.peek.type != TokenType.Semicolon) {
         throw new MissingSemicolonError(
@@ -472,13 +472,22 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
 MixinStatement parseMixinStatement(TokenStream tstream)
 {
     auto statement = new MixinStatement();
-    statement.location = tstream.peek.location;
     
-    match(tstream, TokenType.Mixin);
-    match(tstream, TokenType.OpenParen);
-    statement.expression = parseConditionalExpression(tstream);
-    match(tstream, TokenType.CloseParen);
-    match(tstream, TokenType.Semicolon);
+    auto startToken = match(tstream, TokenType.Mixin);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    statement.code = parseConditionalExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "mixin statement", ")");
+    }
+    auto closeToken = tstream.get();
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(closeToken.location, "mixin statement");
+    }
+    tstream.get();
+    
+    statement.location = closeToken.location - startToken.location;
     return statement;
 }
 

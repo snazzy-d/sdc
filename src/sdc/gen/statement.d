@@ -188,7 +188,7 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
 
 void genMixinStatement(ast.MixinStatement statement, Module mod)
 {
-    auto val = genConditionalExpression(statement.expression, mod);
+    auto val = genConditionalExpression(statement.code, mod);
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
     }
@@ -560,9 +560,9 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);
     } else {
-        auto retVal = genExpression(statement.expression, mod);
-        retVal = implicitCast(retVal.location, retVal, t);
-        LLVMBuildRet(mod.builder, retVal.get());
+        auto retval = genExpression(statement.retval, mod);
+        retval = implicitCast(retval.location, retval, t);
+        LLVMBuildRet(mod.builder, retval.get());
     }
     
     mod.currentFunction.cfgTail.isExitBlock = true;
