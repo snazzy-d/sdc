@@ -192,13 +192,13 @@ class FinalSwitchStatement : Node
 
 class ContinueStatement : Node
 {
-    Identifier identifier;  // Optional.
+    Identifier target;  // Optional.
 }
 
 
 class BreakStatement : Node
 {
-    Identifier identifier;  // Optional.
+    Identifier target;  // Optional.
 }
 
 

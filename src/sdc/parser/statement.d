@@ -68,6 +68,12 @@ Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
     } else if (tstream.peek.type == TokenType.For) {
         statement.type = StatementType.ForStatement;
         statement.node = parseForStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Break) {
+        statement.type = StatementType.BreakStatement;
+        statement.node = parseBreakStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Continue) {
+        statement.type = StatementType.ContinueStatement;
+        statement.node = parseContinueStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
@@ -354,6 +360,44 @@ ForeachStatement parseForeachStatement(TokenStream tstream)
     statement.location = closeToken.location - openToken.location;
     statement.statement = parseStatement(tstream);
     
+    return statement;
+}
+
+BreakStatement parseBreakStatement(TokenStream tstream)
+{
+    auto statement = new BreakStatement();
+    statement.location = tstream.peek.location;
+    match(tstream, TokenType.Break);
+    
+    if (tstream.peek.type == TokenType.Identifier) {
+        statement.target = parseIdentifier(tstream);
+        statement.location.spanTo(statement.target.location);
+    }
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "break statement");
+    }
+    tstream.get();
+
+    return statement;
+}
+
+ContinueStatement parseContinueStatement(TokenStream tstream)
+{
+    auto statement = new ContinueStatement();
+    statement.location = tstream.peek.location;
+    match(tstream, TokenType.Continue);
+    
+    if (tstream.peek.type == TokenType.Identifier) {
+        statement.target = parseIdentifier(tstream);
+        statement.location.spanTo(statement.target.location);
+    }
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "continue statement");
+    }
+    tstream.get();
+
     return statement;
 }
 
