@@ -121,29 +121,35 @@ BlockStatement parseBlockStatement(TokenStream tstream)
 GotoStatement parseGotoStatement(TokenStream tstream)
 {
     auto statement = new GotoStatement();
-    auto startLocation = tstream.peek.location;
+    statement.location = tstream.peek.location;
     
     match(tstream, TokenType.Goto);
     switch (tstream.peek.type) {
     case TokenType.Identifier:
         statement.type = GotoStatementType.Identifier;
-        statement.identifier = parseIdentifier(tstream);
+        statement.target = parseIdentifier(tstream);
         break;
     case TokenType.Default:
         statement.type = GotoStatementType.Default;
-        match(tstream, TokenType.Default);
+        tstream.get();
         break;
     case TokenType.Case:
         statement.type = GotoStatementType.Case;
+        tstream.get();
         if (tstream.peek.type != TokenType.Semicolon) {
-            statement.expression = parseExpression(tstream);
+            statement.caseTarget = parseExpression(tstream);
         }
         break;
     default:
         throw new CompilerError(tstream.peek.location, "expected identifier, case, or default.");
     }
-    statement.location = tstream.peek.location - startLocation;
-    match(tstream, TokenType.Semicolon);
+    statement.location.spanTo(tstream.previous.location);
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "goto statement");
+    }
+    tstream.get();
+    
     return statement;
 }
 

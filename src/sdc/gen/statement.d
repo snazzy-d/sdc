@@ -130,7 +130,7 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
     
     final switch (statement.type) {
     case ast.GotoStatementType.Identifier:
-        auto name = extractIdentifier(statement.identifier);
+        auto name = extractIdentifier(statement.target);
         auto p = name in mod.currentFunction.labels;
         if (p is null) {
             mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, mod.currentFunction.currentBasicBlock, parent);

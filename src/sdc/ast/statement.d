@@ -213,8 +213,8 @@ enum GotoStatementType { Identifier, Default, Case }
 class GotoStatement : Node
 {
     GotoStatementType type;
-    Identifier identifier;  // Optional.
-    Expression expression;  // Optional.
+    Identifier target;  // Optional.
+    Expression caseTarget;  // Optional.
 }
 
 enum WithStatementType { Expression, Symbol, TemplateInstance }
