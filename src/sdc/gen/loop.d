@@ -28,6 +28,7 @@ struct Loop
     public:
     Module mod;
     LLVMBasicBlockRef topBB, bodyBB, endBB;
+    LLVMBasicBlockRef continueTarget;
     
     this(Module mod, string name, LoopStart start = LoopStart.Top)
     {
@@ -35,8 +36,9 @@ struct Loop
         this.topBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
         this.bodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
         this.endBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
+        this.continueTarget = this.topBB;
         
-        auto parent  = mod.currentFunction.cfgTail;
+        auto parent = mod.currentFunction.cfgTail;
         looptop = new BasicBlock(name ~ "top");
         loopout = new BasicBlock(name ~ "out");
         parent.children ~= looptop;
@@ -49,6 +51,8 @@ struct Loop
 
     void gen(scope void delegate() genTop, scope void delegate() genBody)
     {
+        mod.pushLoop(&this);
+        
         LLVMPositionBuilderAtEnd(mod.builder, topBB);
         mod.currentFunction.currentBasicBlock = topBB;
         genTop();
@@ -64,5 +68,17 @@ struct Loop
         mod.currentFunction.cfgTail = loopout;
         LLVMPositionBuilderAtEnd(mod.builder, endBB);
         mod.currentFunction.currentBasicBlock = endBB;
+        
+        mod.popLoop();
+    }
+    
+    void genBreak()
+    {
+        LLVMBuildBr(mod.builder, endBB);
+    }
+    
+    void genContinue()
+    {
+        LLVMBuildBr(mod.builder, continueTarget);
     }
 }
