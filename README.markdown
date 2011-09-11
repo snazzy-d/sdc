@@ -36,8 +36,8 @@ Parser
 * Parse unittests.  __[yes.]__
 * Parse static constructors.  __[yes.]__
 * Parse static destructors.  __[yes.]__
-* Parse shared static constructors.  _[no.]_
-* Parse shared static destructors.  _[no.]_
+* Parse shared static constructors.  __[yes.]__
+* Parse shared static destructors.  __[yes.]__
 * Parse conditional declarations.  __[yes.]__
 * Parse static asserts.  __[yes.]__
 * Parse template declarations.  _[partially.]_
@@ -62,8 +62,8 @@ Codegen
 * Label statement.  __[yes.]__
 * If statement.  __[yes.]__
 * While statement.  __[yes.]__
-* Do statement.  _[no.]_
-* For statement.  _[no.]_
+* Do statement.  __[yes.]__
+* For statement.  __[yes.]__
 * Switch statement.  _[no.]_
 * Final switch statement.  _[no.]_
 * Case statement.  _[no.]_

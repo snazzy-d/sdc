@@ -56,7 +56,6 @@ void genStatement(ast.Statement statement, Module mod)
     switch (statement.type) {
     default:
         throw new CompilerPanic(statement.location, "unimplemented statement type.");
-        assert(false);
     case ast.StatementType.EmptyStatement:
         break;
     case ast.StatementType.BlockStatement:
@@ -67,6 +66,9 @@ void genStatement(ast.Statement statement, Module mod)
         break;
     case ast.StatementType.WhileStatement:
         genWhileStatement(cast(ast.WhileStatement) statement.node, mod);
+        break;
+    case ast.StatementType.DoStatement:
+        genDoStatement(cast(ast.DoStatement) statement.node, mod);
         break;
     case ast.StatementType.ForStatement:
         genForStatement(cast(ast.ForStatement) statement.node, mod);
@@ -217,7 +219,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.currentFunction.currentBasicBlock = ifBB;
     
     mod.currentFunction.cfgTail = ifblock;
-    genThenStatement(statement.thenStatement, mod);
+    genStatement(statement.thenStatement, mod);
     
     if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, endifBB);
@@ -233,7 +235,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
         parent.children ~= elseblock;
                 
         mod.currentFunction.cfgTail = elseblock;
-        genElseStatement(statement.elseStatement, mod);
+        genStatement(statement.elseStatement, mod);
         if (mod.currentFunction.cfgTail.fallsThrough) {
             LLVMBuildBr(mod.builder, endifBB);
         }
@@ -274,15 +276,6 @@ void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef
     LLVMBuildCondBr(mod.builder, expr.get(), ifBB, elseBB);
 }
 
-void genThenStatement(ast.ThenStatement statement, Module mod)
-{
-    genStatement(statement.statement, mod);
-}
-
-void genElseStatement(ast.ElseStatement statement, Module mod)
-{
-    genStatement(statement.statement, mod);
-}
 
 void genWhileStatement(ast.WhileStatement statement, Module mod)
 {
@@ -298,6 +291,27 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
     void genBody()
     {
         genStatement(statement.statement, mod);
+    }
+    
+    mod.pushScope();
+    loop.gen(&genTop, &genBody);
+    mod.popScope();
+}
+
+void genDoStatement(ast.DoStatement statement, Module mod)
+{
+    auto loop = Loop(mod, "do", LoopStart.Body);
+    
+    void genBody()
+    {
+        genStatement(statement.statement, mod);
+    }
+    
+    void genTop()
+    {
+        auto expr = genExpression(statement.expression, mod);
+        expr = implicitCast(statement.expression.location, expr, new BoolType(mod));
+        LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
     mod.pushScope();

@@ -85,8 +85,8 @@ class DeclarationStatement : Node
 class IfStatement : Node
 {
     IfCondition ifCondition;
-    ThenStatement thenStatement;
-    ElseStatement elseStatement;  // Optional.
+    Statement thenStatement;
+    Statement elseStatement;  // Optional.
 }
 
 enum IfConditionType
@@ -102,16 +102,6 @@ class IfCondition : Node
     IfConditionType type;
     Expression expression;
     Node node;  // Optional.
-}
-
-class ThenStatement : Node
-{
-    Statement statement;
-}
-
-class ElseStatement : Node
-{
-    Statement statement;
 }
 
 
@@ -138,14 +128,6 @@ class ForStatement : Node
     Expression test; // Optional.
     Expression increment; // Optional.
     Statement statement;
-}
-
-enum ForIncrementType { Empty, Expression }
-
-class ForIncrement : Node
-{
-    ForIncrementType type;
-    Node node;  // Optional.
 }
 
 // foreach ( ForeachTypes ; Expression (.. Expression)?) Statement
@@ -210,13 +192,13 @@ class FinalSwitchStatement : Node
 
 class ContinueStatement : Node
 {
-    Identifier identifier;  // Optional.
+    Identifier target;  // Optional.
 }
 
 
 class BreakStatement : Node
 {
-    Identifier identifier;  // Optional.
+    Identifier target;  // Optional.
 }
 
 
