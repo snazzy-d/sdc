@@ -516,8 +516,11 @@ void genBreakStatement(ast.BreakStatement statement, Module mod)
     }
     
     if (auto loop = mod.topLoop) {
-        mod.currentFunction.cfgTail.isExitBlock = true;
         loop.genBreak();
+        mod.currentFunction.cfgTail.isExitBlock = true;
+        mod.currentFunction.cfgTail = new BasicBlock("postbreak");
+        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postbreak");
+        LLVMPositionBuilderAtEnd(mod.builder, bb);
     } else {
         throw new CompilerError(statement.location, "break statement must be in a loop or switch statement.");
     }
@@ -530,8 +533,11 @@ void genContinueStatement(ast.ContinueStatement statement, Module mod)
     }
     
     if (auto loop = mod.topLoop) {
-        mod.currentFunction.cfgTail.isExitBlock = true;
         loop.genContinue();
+        mod.currentFunction.cfgTail.isExitBlock = true;
+        mod.currentFunction.cfgTail = new BasicBlock("postcontinue");
+        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postcontinue");
+        LLVMPositionBuilderAtEnd(mod.builder, bb);
     } else {
         throw new CompilerError(statement.location, "continue statement must be in a loop.");
     }
@@ -550,17 +556,19 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
-    mod.currentFunction.cfgTail.isExitBlock = true;
     auto t = mod.currentFunction.type.returnType;
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);
-        return; 
+    } else {
+        auto retVal = genExpression(statement.expression, mod);
+        retVal = implicitCast(retVal.location, retVal, t);
+        LLVMBuildRet(mod.builder, retVal.get());
     }
     
-    auto val = genExpression(statement.expression, mod);
-    
-    val = implicitCast(val.location, val, t);
-    LLVMBuildRet(mod.builder, val.get());
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    mod.currentFunction.cfgTail = new BasicBlock("postreturn");
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postreturn");
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
 }
 
 void genTryStatement(ast.TryStatement statement, Module mod)
@@ -600,12 +608,16 @@ void genTryStatement(ast.TryStatement statement, Module mod)
 
 void genThrowStatement(ast.ThrowStatement statement, Module mod)
 {
-    mod.currentFunction.cfgTail.isExitBlock = true;
     auto expression = genExpression(statement.expression, mod);
     if (expression.type.dtype != DType.Class) {
         throw new CompilerError(expression.location, "can only throw class instances.");
     }
     LLVMBuildUnwind(mod.builder);
+    
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    mod.currentFunction.cfgTail = new BasicBlock("postthrow");
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postthrow");
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)

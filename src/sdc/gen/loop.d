@@ -34,8 +34,8 @@ struct Loop
         this.mod = mod;
         this.topBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
         this.bodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
-        this.endBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
         this.incrementBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopincrement");
+        this.endBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
         
         this.loop = new BasicBlock(name);
         this.loopout = new BasicBlock(name ~ "out");
