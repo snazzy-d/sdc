@@ -56,7 +56,6 @@ void genStatement(ast.Statement statement, Module mod)
     switch (statement.type) {
     default:
         throw new CompilerPanic(statement.location, "unimplemented statement type.");
-        assert(false);
     case ast.StatementType.EmptyStatement:
         break;
     case ast.StatementType.BlockStatement:

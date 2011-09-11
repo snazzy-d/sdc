@@ -130,14 +130,6 @@ class ForStatement : Node
     Statement statement;
 }
 
-enum ForIncrementType { Empty, Expression }
-
-class ForIncrement : Node
-{
-    ForIncrementType type;
-    Node node;  // Optional.
-}
-
 // foreach ( ForeachTypes ; Expression (.. Expression)?) Statement
 enum ForeachForm { Aggregate, Range }
 
