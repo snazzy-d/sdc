@@ -299,8 +299,10 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
         genStatement(statement.statement, mod);
     }
     
+    void genIncrement() {}
+    
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -320,8 +322,10 @@ void genDoStatement(ast.DoStatement statement, Module mod)
         LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
+    void genIncrement() {}
+    
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -345,32 +349,19 @@ void genForStatement(ast.ForStatement statement, Module mod)
         }
     }
     
-    // For loops have an optional increment block so that it can be targeted by continue.
     void genBody()
-    {
-        LLVMBasicBlockRef incrementBB = null;
-        if (statement.increment !is null) {
-            incrementBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopincrement");
-            loop.continueTarget = incrementBB;
-        }
-        
+    {   
         genStatement(statement.statement, mod);
-        
+    }
+    
+    void genIncrement()
+    {
         if (statement.increment !is null) {
-            LLVMBuildBr(mod.builder, incrementBB);
-            
-            mod.currentFunction.currentBasicBlock = incrementBB;
-            auto parent = mod.currentFunction.cfgTail;
-            auto increment = new BasicBlock("increment");
-            parent.children ~= increment;
-            mod.currentFunction.cfgTail = increment;
-            
-            LLVMPositionBuilderAtEnd(mod.builder, incrementBB);
             genExpression(statement.increment, mod);
         }
     }
     
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -450,11 +441,15 @@ void genForeachStatement(ast.ForeachStatement statement, Module mod)
         mod.currentScope.add(extractIdentifier(iterator.identifier), new Store(exposedIterator));
         
         genStatement(statement.statement, mod);
+    }
+    
+    void genIncrement()
+    {
         indexValue.set(indexValue.location, indexValue.inc(indexValue.location));
     }
     
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -502,11 +497,15 @@ void genForeachRangeStatement(ast.ForeachStatement statement, Module mod)
     void genBody()
     {
         genStatement(statement.statement, mod);
-        iteratorValue.set(iterator.location, iteratorValue.inc(iterator.location));
+    }
+    
+    void genIncrement()
+    {
+        iteratorValue.set(iteratorValue.location, iteratorValue.inc(iteratorValue.location));
     }
     
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
