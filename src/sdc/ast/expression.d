@@ -17,22 +17,6 @@ class Expression : Node
     Expression expression;  // Optional.
 }
 
-version (none) {
-enum AssignType
-{
-    None,
-    Normal,
-}
-
-// ConditionalExpression ((= | += | *= | etc) AssignExpression)?
-class AssignExpression : Node
-{
-    ConditionalExpression conditionalExpression;
-    AssignType assignType;
-    AssignExpression assignExpression;  // Optional.
-}
-}
-
 // binaryExpression (? Expression : ConditionalExpression)?
 class ConditionalExpression : Node
 {
