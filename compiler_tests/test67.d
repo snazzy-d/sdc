@@ -19,5 +19,27 @@ int main()
 		assert(str[i] == str2[j]);
 		j++;
 	}
+	
+	// Break.
+	i = 0;
+	for(;;)
+	{
+		if(i == 10)
+			break;
+		else
+			++i;
+	}
+	assert(i == 10);
+	
+	// Continue.
+	i = 0, j = 0;
+	for(i = 0; i < 10; i++)
+	{
+		if(i > 5)
+			continue;
+		++j;
+	}
+	assert(i == 10);
+	assert(j == 6);
 	return 0;
 }

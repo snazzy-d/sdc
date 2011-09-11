@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:0
+//? desc:Test range foreach.
 
 int main()
 {
@@ -33,5 +34,27 @@ int main()
 			j = 8;
 	}
 	assert(i == 24);
+	
+	// Break.
+	i = 0;
+	foreach(j; 0 .. 10)
+	{
+		if (j == 5)
+			break;
+		
+		i++;
+	}
+	assert(i == 5);
+	
+	// Continue.
+	i = 0;
+	foreach(j; 0 .. 10)
+	{
+		if(j < 5)
+			continue;
+		
+		i++;
+	}
+	assert(i == 5);
 	return 0;
 }
