@@ -279,7 +279,7 @@ class FinallyStatement : Node
 // throw Expression
 class ThrowStatement : Node
 {
-    Expression expression;
+    Expression exception;
 }
 
 

@@ -179,11 +179,20 @@ TryStatement parseTryStatement(TokenStream tstream)
 ThrowStatement parseThrowStatement(TokenStream tstream)
 {
     auto statement = new ThrowStatement();
-    statement.location = tstream.peek.location;
     
-    match(tstream, TokenType.Throw);
-    statement.expression = parseExpression(tstream);
-    match(tstream, TokenType.Semicolon);
+    auto throwToken = match(tstream, TokenType.Throw);
+    if (tstream.peek.type == TokenType.Semicolon) { // Unlike C++.
+        throw new CompilerError(tstream.peek.location, "throw statement must specify an exception.");
+    }
+    
+    statement.exception = parseExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "throw statement");
+    }
+    tstream.get();
+    
+    statement.location = statement.exception.location - throwToken.location;
     return statement; 
 }
 

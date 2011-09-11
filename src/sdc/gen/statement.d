@@ -608,9 +608,9 @@ void genTryStatement(ast.TryStatement statement, Module mod)
 
 void genThrowStatement(ast.ThrowStatement statement, Module mod)
 {
-    auto expression = genExpression(statement.expression, mod);
-    if (expression.type.dtype != DType.Class) {
-        throw new CompilerError(expression.location, "can only throw class instances.");
+    auto exception = genExpression(statement.exception, mod);
+    if (exception.type.dtype != DType.Class) {
+        throw new CompilerError(exception.location, "can only throw class instances.");
     }
     LLVMBuildUnwind(mod.builder);
     
