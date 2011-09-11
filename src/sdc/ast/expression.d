@@ -28,8 +28,8 @@ class ConditionalExpression : Node
 // These are in order of least to greatest precedence.
 enum BinaryOperation
 {
-	None,
-	Assign,  // =
+    None,
+    Assign,  // =
     AddAssign,  // +=
     SubAssign,  // -=
     MulAssign,  // *=
@@ -43,11 +43,11 @@ enum BinaryOperation
     SignedShiftRightAssign,  // >>=
     UnsignedShiftRightAssign,  // >>>=
     PowAssign,  // ^^
-	LogicalOr,  // ||
-	LogicalAnd,  // &&
-	BitwiseOr,  // |
-	BitwiseXor,  // ^
-	BitwiseAnd,  // &
+    LogicalOr,  // ||
+    LogicalAnd,  // &&
+    BitwiseOr,  // |
+    BitwiseXor,  // ^
+    BitwiseAnd,  // &
     Equality,  // == 
     NotEquality,  // !=
     Is,  // is
