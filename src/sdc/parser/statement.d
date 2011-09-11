@@ -416,7 +416,7 @@ MixinStatement parseMixinStatement(TokenStream tstream)
     
     match(tstream, TokenType.Mixin);
     match(tstream, TokenType.OpenParen);
-    statement.expression = parseAssignExpression(tstream);
+    statement.expression = parseConditionalExpression(tstream);
     match(tstream, TokenType.CloseParen);
     match(tstream, TokenType.Semicolon);
     return statement;

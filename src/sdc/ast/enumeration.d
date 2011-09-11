@@ -24,6 +24,6 @@ class EnumMemberList : Node
 class EnumMember : Node
 {
     Identifier name;
-    AssignExpression initialiser; // Optional
+    ConditionalExpression initialiser; // Optional
     Type type; // Optional, only allowed for manifest constants
 }

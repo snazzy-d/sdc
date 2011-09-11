@@ -183,7 +183,7 @@ StaticIfCondition parseStaticIfCondition(TokenStream tstream)
     match(tstream, TokenType.Static);
     match(tstream, TokenType.If);
     match(tstream, TokenType.OpenParen);
-    condition.expression = parseAssignExpression(tstream);
+    condition.expression = parseConditionalExpression(tstream);
     match(tstream, TokenType.CloseParen);
     return condition;
 }

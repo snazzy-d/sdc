@@ -41,6 +41,14 @@ abstract class Value
     ast.QualifiedName humanName;  // Optional.
     string mangledName;  // Optional.
     
+    protected Module mModule;
+    protected Type mType;
+    package LLVMValueRef mValue;
+    protected bool mGlobal;
+    protected void delegate(Value val)[] mSetPreCallbacks;
+    protected void delegate(Value val)[] mSetPostCallbacks;
+    protected bool mIsKnown = false;
+    
     this(Module mod, Location loc)
     {
         mModule = mod;
@@ -228,14 +236,6 @@ abstract class Value
             throw new CompilerError(location, msg);
         }
     }
-    
-    protected Module mModule;
-    protected Type mType;
-    package LLVMValueRef mValue;
-    protected bool mGlobal;
-    protected void delegate(Value val)[] mSetPreCallbacks;
-    protected void delegate(Value val)[] mSetPostCallbacks;
-    protected bool mIsKnown = false;
 }
 
 mixin template SimpleImportToModule()

@@ -360,7 +360,7 @@ bool genDebugCondition(ast.DebugCondition condition, Module mod)
 
 bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 {
-    auto expr = genAssignExpression(condition.expression, mod);
+    auto expr = genConditionalExpression(condition.expression, mod);
     if (!expr.isKnown) {
         throw new CompilerError(condition.expression.location, "expression inside of a static if must be known at compile time.");
     }
@@ -370,14 +370,14 @@ bool genStaticIfCondition(ast.StaticIfCondition condition, Module mod)
 void genStaticAssert(ast.StaticAssert staticAssert, Module mod)
 {
     static immutable unknownExprError = "expression inside of a static assert must be known at compile time."; 
-    auto condition = genAssignExpression(staticAssert.condition, mod);
+    auto condition = genConditionalExpression(staticAssert.condition, mod);
     if (!condition.isKnown) {
         throw new CompilerError(condition.location, unknownExprError);
     }
     
     string message;
     if (staticAssert.message !is null) {
-        auto messageExpr = genAssignExpression(staticAssert.message, mod);
+        auto messageExpr = genConditionalExpression(staticAssert.message, mod);
         if(!messageExpr.isKnown) {
             throw new CompilerError(condition.location, unknownExprError);
         }

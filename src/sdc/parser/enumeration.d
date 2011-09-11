@@ -97,7 +97,7 @@ EnumMember parseEnumMember(TokenStream tstream, bool manifestConstant = false)
     
     if (tstream.peek.type == TokenType.Assign) {
         tstream.get();
-        member.initialiser = parseAssignExpression(tstream);
+        member.initialiser = parseConditionalExpression(tstream);
         member.location = member.initialiser.location - member.location;
     }
     

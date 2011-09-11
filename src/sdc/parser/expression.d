@@ -23,7 +23,7 @@ Expression parseExpression(TokenStream tstream)
 {
     auto expr = new Expression();
     expr.location = tstream.peek.location;
-    expr.assignExpression = parseAssignExpression(tstream);
+    expr.conditionalExpression = parseConditionalExpression(tstream);
     if (tstream.peek.type == TokenType.Comma) {
         match(tstream, TokenType.Comma);
         expr.expression = parseExpression(tstream);
@@ -32,66 +32,11 @@ Expression parseExpression(TokenStream tstream)
     return expr;
 }
 
-AssignExpression parseAssignExpression(TokenStream tstream)
-{
-    auto assignExpr = new AssignExpression();
-    assignExpr.conditionalExpression = parseConditionalExpression(tstream);
-    assignExpr.location = assignExpr.conditionalExpression.location;
-    switch (tstream.peek.type) {
-    case TokenType.Assign:
-        assignExpr.assignType = AssignType.Normal;
-        break;
-    case TokenType.PlusAssign:
-        assignExpr.assignType = AssignType.AddAssign;
-        break;
-    case TokenType.DashAssign:
-        assignExpr.assignType = AssignType.SubAssign;
-        break;
-    case TokenType.AsterixAssign:
-        assignExpr.assignType = AssignType.MulAssign;
-        break;
-    case TokenType.SlashAssign:
-        assignExpr.assignType = AssignType.DivAssign;
-        break;
-    case TokenType.PercentAssign:
-        assignExpr.assignType = AssignType.ModAssign;
-        break;
-    case TokenType.AmpersandAssign:
-        assignExpr.assignType = AssignType.AndAssign;
-        break;
-    case TokenType.PipeAssign:
-        assignExpr.assignType = AssignType.OrAssign;
-        break;
-    case TokenType.CaretAssign:
-        assignExpr.assignType = AssignType.XorAssign;
-        break;
-    case TokenType.TildeAssign:
-        assignExpr.assignType = AssignType.CatAssign;
-        break;
-    case TokenType.DoubleLessAssign:
-        assignExpr.assignType = AssignType.ShiftLeftAssign;
-        break;
-    case TokenType.DoubleGreaterAssign:
-        assignExpr.assignType = AssignType.SignedShiftRightAssign;
-        break;
-    case TokenType.TripleGreaterAssign:
-        assignExpr.assignType = AssignType.UnsignedShiftRightAssign;
-        break;
-        // TODO: Double caret assign.
-    default:
-        return assignExpr;
-    }
-    tstream.get();
-    assignExpr.assignExpression = parseAssignExpression(tstream);
-    assignExpr.location.spanTo(tstream.previous.location);
-    return assignExpr;
-}
-
 ConditionalExpression parseConditionalExpression(TokenStream tstream)
 {
     auto condExpr = new ConditionalExpression();
     condExpr.location = tstream.peek.location;
-    condExpr.orOrExpression = parseOrOrExpression(tstream);
+    condExpr.binaryExpression = parseBinaryExpression(tstream);
     if (tstream.peek.type == TokenType.QuestionMark) {
         match(tstream, TokenType.QuestionMark);
         condExpr.expression = parseExpression(tstream);
@@ -103,244 +48,124 @@ ConditionalExpression parseConditionalExpression(TokenStream tstream)
     return condExpr;
 }
 
-OrOrExpression parseOrOrExpression(TokenStream tstream)
+BinaryExpression parseBinaryExpression(TokenStream tstream)
 {
-    auto orOrExpr = new OrOrExpression();
-    orOrExpr.location = tstream.peek.location;
+    auto expression = new BinaryExpression();
+    expression.location = tstream.peek.location;
+    expression.lhs = parseUnaryExpression(tstream);
     
-    orOrExpr.andAndExpression = parseAndAndExpression(tstream);
-    if (tstream.peek.type == TokenType.DoublePipe) {
-        match(tstream, TokenType.DoublePipe);
-        orOrExpr.orOrExpression = parseOrOrExpression(tstream);
-    }
-    
-    orOrExpr.location.spanTo(tstream.previous.location);
-    return orOrExpr;
-}
-
-AndAndExpression parseAndAndExpression(TokenStream tstream)
-{
-    auto andAndExpr = new AndAndExpression();
-    andAndExpr.location = tstream.peek.location;
-    
-    andAndExpr.orExpression = parseOrExpression(tstream);
-    if (tstream.peek.type == TokenType.DoubleAmpersand) {
-        match(tstream, TokenType.DoubleAmpersand);
-        andAndExpr.andAndExpression = parseAndAndExpression(tstream);
-    }
-    
-    andAndExpr.location.spanTo(tstream.previous.location);
-    return andAndExpr;
-}
-
-OrExpression parseOrExpression(TokenStream tstream)
-{
-    auto orExpr = new OrExpression();
-    orExpr.location = tstream.peek.location;
-    
-    orExpr.xorExpression = parseXorExpression(tstream);
-    if (tstream.peek.type == TokenType.Pipe) {
-        match(tstream, TokenType.Pipe);
-        orExpr.orExpression = parseOrExpression(tstream);
-    }
-    
-    orExpr.location.spanTo(tstream.previous.location);
-    return orExpr;
-}
-
-XorExpression parseXorExpression(TokenStream tstream)
-{
-    auto xorExpr = new XorExpression();
-    xorExpr.location = tstream.peek.location;
-    
-    xorExpr.andExpression = parseAndExpression(tstream);
-    if (tstream.peek.type == TokenType.Caret) {
-        match(tstream, TokenType.Caret);
-        xorExpr.xorExpression = parseXorExpression(tstream);
-    }
-    
-    xorExpr.location.spanTo(tstream.previous.location);
-    return xorExpr;
-}
-
-AndExpression parseAndExpression(TokenStream tstream)
-{
-    auto andExpr = new AndExpression();
-    andExpr.location = tstream.peek.location;
-    
-    andExpr.cmpExpression = parseCmpExpression(tstream);
-    if (tstream.peek.type == TokenType.Ampersand) {
-        match(tstream, TokenType.Ampersand);
-        andExpr.andExpression = parseAndExpression(tstream);
-    }
-    
-    andExpr.location.spanTo(tstream.previous.location);
-    return andExpr;
-}
-
-CmpExpression parseCmpExpression(TokenStream tstream)
-{
-    auto cmpExpr = new CmpExpression();
-    cmpExpr.location = tstream.peek.location;
-    
-    cmpExpr.lhShiftExpression = parseShiftExpression(tstream);
     switch (tstream.peek.type) {
     case TokenType.Bang:
-        match(tstream, TokenType.Bang);
-        if (tstream.peek.type == TokenType.Is) {
-            cmpExpr.comparison = Comparison.NotIs;
-        } else if (tstream.peek.type == TokenType.In) {
-            cmpExpr.comparison = Comparison.NotIn;
+        if (tstream.lookahead(1).type == TokenType.Is) {
+            tstream.get();
+            expression.operation = BinaryOperation.NotIs;
+        } else if (tstream.lookahead(1).type == TokenType.In) {
+            tstream.get();
+            expression.operation = BinaryOperation.NotIn;
         } else {
-            throw new CompilerError(tstream.peek.location, format("expected 'is' or 'in', not '%s'.", tstream.peek.value));
+            goto default; 
         }
         break;
+    case TokenType.Assign:
+        expression.operation = BinaryOperation.Assign; break;
+    case TokenType.PlusAssign:
+        expression.operation = BinaryOperation.AddAssign; break;
+    case TokenType.DashAssign:
+        expression.operation = BinaryOperation.SubAssign; break;
+    case TokenType.AsterixAssign:
+        expression.operation = BinaryOperation.MulAssign; break;
+    case TokenType.SlashAssign:
+        expression.operation = BinaryOperation.DivAssign; break;
+    case TokenType.PercentAssign:
+        expression.operation = BinaryOperation.ModAssign; break;
+    case TokenType.AmpersandAssign:
+        expression.operation = BinaryOperation.AndAssign; break;
+    case TokenType.PipeAssign:
+        expression.operation = BinaryOperation.OrAssign; break;
+    case TokenType.CaretAssign:
+        expression.operation = BinaryOperation.XorAssign; break;
+    case TokenType.TildeAssign:
+        expression.operation = BinaryOperation.CatAssign; break;
+    case TokenType.DoubleLessAssign:
+        expression.operation = BinaryOperation.ShiftLeftAssign; break;
+    case TokenType.DoubleGreaterAssign:
+        expression.operation = BinaryOperation.SignedShiftRightAssign; break; 
+    case TokenType.TripleGreaterAssign:
+        expression.operation = BinaryOperation.UnsignedShiftRightAssign; break;
+//    case TokenType.DoubleCaretAssign:  TODO add to lexer
+//        expression.operation = BinaryOperation.PowAssign; break;
+    case TokenType.DoublePipe:
+        expression.operation = BinaryOperation.LogicalOr; break;
+    case TokenType.DoubleAmpersand:
+        expression.operation = BinaryOperation.LogicalAnd; break;
+    case TokenType.Pipe:
+        expression.operation = BinaryOperation.BitwiseOr; break;
+    case TokenType.Caret:
+        expression.operation = BinaryOperation.BitwiseXor; break;
+    case TokenType.Ampersand:
+        expression.operation = BinaryOperation.BitwiseAnd; break;
     case TokenType.DoubleAssign:
-        cmpExpr.comparison = Comparison.Equality;
-        break;
+        expression.operation = BinaryOperation.Equality; break;
     case TokenType.BangAssign:
-        cmpExpr.comparison = Comparison.NotEquality;
-        break;
+        expression.operation = BinaryOperation.NotEquality; break;
     case TokenType.Is:
-        cmpExpr.comparison = Comparison.Is;
-        break;
+        expression.operation = BinaryOperation.Is; break;
     case TokenType.In:
-        cmpExpr.comparison = Comparison.In;
-        break;
+        expression.operation = BinaryOperation.In; break;
     case TokenType.Less:
-        cmpExpr.comparison = Comparison.Less;
-        break;
+        expression.operation = BinaryOperation.Less; break;
     case TokenType.LessAssign:
-        cmpExpr.comparison = Comparison.LessEqual;
-        break;
+        expression.operation = BinaryOperation.LessEqual; break;
     case TokenType.Greater:
-        cmpExpr.comparison = Comparison.Greater;
-        break;
+        expression.operation = BinaryOperation.Greater; break;
     case TokenType.GreaterAssign:
-        cmpExpr.comparison = Comparison.GreaterEqual;
-        break;
+        expression.operation = BinaryOperation.GreaterEqual; break;
     case TokenType.BangLessGreaterAssign:
-        cmpExpr.comparison = Comparison.Unordered;
-        break;
+        expression.operation = BinaryOperation.Unordered; break;
     case TokenType.BangLessGreater:
-        cmpExpr.comparison = Comparison.UnorderedEqual;
-        break;
+        expression.operation = BinaryOperation.UnorderedEqual; break;
     case TokenType.LessGreater:
-        cmpExpr.comparison = Comparison.LessGreater;
-        break;
+        expression.operation = BinaryOperation.LessGreater; break;
     case TokenType.LessGreaterAssign:
-        cmpExpr.comparison = Comparison.LessEqualGreater;
-        break;
+        expression.operation = BinaryOperation.LessEqualGreater; break;
     case TokenType.BangGreater:
-        cmpExpr.comparison = Comparison.UnorderedLessEqual;
-        break;
+        expression.operation = BinaryOperation.UnorderedLessEqual; break;
     case TokenType.BangGreaterAssign:
-        cmpExpr.comparison = Comparison.UnorderedLess;
-        break;
+        expression.operation = BinaryOperation.UnorderedLess; break;
     case TokenType.BangLess:
-        cmpExpr.comparison = Comparison.UnorderedGreaterEqual;
-        break;
+        expression.operation = BinaryOperation.UnorderedGreaterEqual; break;
     case TokenType.BangLessAssign:
-        cmpExpr.comparison = Comparison.UnorderedGreater;
-        break;
-    default:
-        return cmpExpr;
-    }
-    tstream.get();
-    cmpExpr.rhShiftExpression = parseShiftExpression(tstream);
-    cmpExpr.location.spanTo(tstream.previous.location);
-    return cmpExpr;
-}
-
-ShiftExpression parseShiftExpression(TokenStream tstream)
-{
-    auto shiftExpr = new ShiftExpression();
-    shiftExpr.location = tstream.peek.location;
-    
-    shiftExpr.addExpression = parseAddExpression(tstream);
-    switch (tstream.peek.type) {
+        expression.operation = BinaryOperation.UnorderedGreater; break;
     case TokenType.DoubleLess:
-        shiftExpr.shift = Shift.Left;
-        break;
+        expression.operation = BinaryOperation.LeftShift; break;
     case TokenType.DoubleGreater:
-        shiftExpr.shift = Shift.SignedRight;
-        break;
+        expression.operation = BinaryOperation.SignedRightShift; break;
     case TokenType.TripleGreater:
-        shiftExpr.shift = Shift.UnsignedRight;
-        break;
-    default:
-        return shiftExpr;
-    }
-    tstream.get();
-    shiftExpr.shiftExpression = parseShiftExpression(tstream);
-    shiftExpr.location.spanTo(tstream.previous.location);
-    return shiftExpr;
-}
-
-AddExpression parseAddExpression(TokenStream tstream)
-{
-    auto addExpr = new AddExpression();
-    addExpr.location = tstream.peek.location;
-    
-    addExpr.mulExpression = parseMulExpression(tstream);
-    switch (tstream.peek.type) {
+        expression.operation = BinaryOperation.UnsignedRightShift; break;
     case TokenType.Plus:
-        addExpr.addOperation = AddOperation.Add;
-        break;
+        expression.operation = BinaryOperation.Addition; break;
     case TokenType.Dash:
-        addExpr.addOperation = AddOperation.Subtract;
-        break;
+        expression.operation = BinaryOperation.Subtraction; break;
     case TokenType.Tilde:
-        addExpr.addOperation = AddOperation.Concat;
-        break;
-    default:
-        return addExpr;
-    }
-    tstream.get();
-    addExpr.addExpression = parseAddExpression(tstream);
-    addExpr.location.spanTo(tstream.previous.location);
-    return addExpr;
-}
-
-MulExpression parseMulExpression(TokenStream tstream)
-{
-    auto mulExpr = new MulExpression();
-    mulExpr.location = tstream.peek.location;
-    
-    mulExpr.powExpression = parsePowExpression(tstream);
-    switch (tstream.peek.type) {
-    case TokenType.Asterix:
-        mulExpr.mulOperation = MulOperation.Mul;
-        break;
+        expression.operation = BinaryOperation.Concat; break;
     case TokenType.Slash:
-        mulExpr.mulOperation = MulOperation.Div;
-        break;
+        expression.operation = BinaryOperation.Division; break;
+    case TokenType.Asterix:
+        expression.operation = BinaryOperation.Multiplication; break;
     case TokenType.Percent:
-        mulExpr.mulOperation = MulOperation.Mod;
-        break;
+        expression.operation = BinaryOperation.Modulus; break;
+    case TokenType.DoubleCaret:
+        expression.operation = BinaryOperation.Pow; break;
     default:
-        return mulExpr;
+        expression.operation = BinaryOperation.None; break;
     }
-    tstream.get();    
-    mulExpr.mulExpression = parseMulExpression(tstream);
+    if (expression.operation != BinaryOperation.None) {
+        tstream.get();
+        expression.rhs = parseBinaryExpression(tstream);
+    } 
     
-    mulExpr.location.spanTo(tstream.previous.location);
-    return mulExpr;
-}
-
-PowExpression parsePowExpression(TokenStream tstream)
-{
-    auto powExpr = new PowExpression();
-    powExpr.location = tstream.peek.location;
-    
-    powExpr.unaryExpression = parseUnaryExpression(tstream);
-    if (tstream.peek.type == TokenType.DoubleCaret) {
-        match(tstream, TokenType.DoubleCaret);
-        powExpr.powExpression = parsePowExpression(tstream);
-    }
-    
-    powExpr.location.spanTo(tstream.previous.location);
-    return powExpr;
+    expression.location.spanTo(tstream.previous.location);
+    return expression;
 }
 
 UnaryExpression parseUnaryExpression(TokenStream tstream)
@@ -428,7 +253,7 @@ NewExpression parseNewExpression(TokenStream tstream)
         // new(
         match(tstream, TokenType.OpenParen);
         if (tstream.peek.type != TokenType.CloseParen) {
-            parseAssignExpression(tstream);
+            parseConditionalExpression(tstream);
         }
         throw new CompilerError(tstream.peek.location - newExpr.location, "custom allocators are unsupported."); 
     }
@@ -437,8 +262,8 @@ NewExpression parseNewExpression(TokenStream tstream)
     if (tstream.peek.type == TokenType.OpenParen) {
         newExpr.argumentList = parseArgumentList(tstream);
     } else if (newExpr.type.suffixes.length > 0 && newExpr.type.suffixes[$ - 1].type == TypeSuffixType.Array) {
-        if (newExpr.type.suffixes[$ - 1].node !is null && (cast(AssignExpression) newExpr.type.suffixes[$ - 1].node) !is null) {
-            newExpr.assignExpression = cast(AssignExpression) newExpr.type.suffixes[$ - 1].node;
+        if (newExpr.type.suffixes[$ - 1].node !is null && (cast(ConditionalExpression) newExpr.type.suffixes[$ - 1].node) !is null) {
+            newExpr.conditionalExpression = cast(ConditionalExpression) newExpr.type.suffixes[$ - 1].node;
             newExpr.type.suffixes.popBack();
         }
     }
@@ -507,7 +332,7 @@ ArgumentList parseArgumentList(TokenStream tstream, TokenType open = TokenType.O
     
     auto openToken = match(tstream, open);
     while (tstream.peek.type != close) {
-        list.expressions ~= parseAssignExpression(tstream);
+        list.expressions ~= parseConditionalExpression(tstream);
         if (tstream.peek.type != close) {
             if (tstream.peek.type != TokenType.Comma) {
                 throw new PairMismatchError(openToken.location, tstream.previous.location, "argument list", tokenToString[close]);
@@ -536,14 +361,14 @@ void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
         return;
     }
     
-    auto firstExpr = parseAssignExpression(tstream);
+    auto firstExpr = parseConditionalExpression(tstream);
     
     // slice
     if (tstream.peek.type == TokenType.DoubleDot) {
         tstream.get();
         expr.type = PostfixType.Slice;
         expr.firstNode = firstExpr;
-        expr.secondNode = parseAssignExpression(tstream);
+        expr.secondNode = parseConditionalExpression(tstream);
         if (tstream.peek.type != TokenType.CloseBracket) {
             mismatch("slice expression");
         }
@@ -557,7 +382,7 @@ void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
     list.expressions ~= firstExpr;
     
     while (tstream.peek.type != TokenType.CloseBracket) {
-        list.expressions ~= parseAssignExpression(tstream);
+        list.expressions ~= parseConditionalExpression(tstream);
         if (tstream.peek.type != TokenType.CloseBracket) {
             if (tstream.peek.type != TokenType.Comma) {
                 mismatch("index argument list");
@@ -719,7 +544,7 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
         primaryExpr.type = PrimaryType.MixinExpression;
         match(tstream, TokenType.Mixin);
         match(tstream, TokenType.OpenParen);
-        primaryExpr.node = parseAssignExpression(tstream);
+        primaryExpr.node = parseConditionalExpression(tstream);
         match(tstream, TokenType.CloseParen);
         break;
     case TokenType.Assert:
@@ -751,11 +576,11 @@ AssertExpression parseAssertExpression(TokenStream tstream)
     auto firstToken = match(tstream, TokenType.Assert);
     auto openToken = match(tstream, TokenType.OpenParen);
     
-    assertExpr.condition = parseAssignExpression(tstream);
+    assertExpr.condition = parseConditionalExpression(tstream);
     
     if (tstream.peek.type == TokenType.Comma) {
         tstream.get();
-        assertExpr.message = parseAssignExpression(tstream);
+        assertExpr.message = parseConditionalExpression(tstream);
     }
     
     if (tstream.peek.type != TokenType.CloseParen) {

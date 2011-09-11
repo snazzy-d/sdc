@@ -31,7 +31,7 @@ class Declaration : Node
 
 class MixinDeclaration : Node
 {
-    AssignExpression expression;
+    ConditionalExpression expression;
     Declaration declarationCache;
 }
 
@@ -226,7 +226,7 @@ class Parameter : Node
     Identifier identifier;  // Optional.
     bool defaultArgumentFile = false;  // Optional.
     bool defaultArgumentLine = false;  // Optional.
-    AssignExpression defaultArgument;  // Optional.
+    ConditionalExpression defaultArgument;  // Optional.
 }
 
 enum InitialiserType

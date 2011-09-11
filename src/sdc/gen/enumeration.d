@@ -30,7 +30,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     if (decl.base is null) {
         if (firstMember.initialiser !is null) {
             // Infer the type from the first initialiser.
-            initialiser = genAssignExpression(firstMember.initialiser, mod);
+            initialiser = genConditionalExpression(firstMember.initialiser, mod);
             base = initialiser.type;
         } else { 
             // Otherwise assume int.
@@ -48,7 +48,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
     if (firstMember.initialiser) {
         if (initialiser is null) {
             // If the base is explicit we won't have done this yet.
-            initialiser = genAssignExpression(firstMember.initialiser, mod);
+            initialiser = genConditionalExpression(firstMember.initialiser, mod);
         }
         firstValue.set(firstMember.initialiser.location, initialiser);
     }
@@ -67,7 +67,7 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
         auto v = getKnown(mod, member.location, base);
         
         if (member.initialiser) {
-            initialiser = genAssignExpression(member.initialiser, mod);
+            initialiser = genConditionalExpression(member.initialiser, mod);
             v.set(member.initialiser.location, initialiser);
             previousValue = v;
         } else {

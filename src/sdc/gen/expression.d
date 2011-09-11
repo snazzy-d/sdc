@@ -33,78 +33,29 @@ import sdc.parser.expression;
 
 Value genExpression(ast.Expression expression, Module mod)
 {
-    auto v = genAssignExpression(expression.assignExpression, mod);
+    auto v = genConditionalExpression(expression.conditionalExpression, mod);
     if (expression.expression !is null) {
         v = genExpression(expression.expression, mod);
     }
     return v;
 }
 
-private bool isPointerArithmetic(Value lhs, Value rhs, ast.AssignType type)
+bool isLeftAssociative(ast.BinaryOperation operator)
 {
-    return (type == ast.AssignType.AddAssign ||
-        type == ast.AssignType.SubAssign) &&
+    return operator != ast.BinaryOperation.Assign;
+}
+
+private bool isPointerArithmetic(Value lhs, Value rhs, ast.BinaryOperation operation)  // !!!
+{
+    return (operation == ast.BinaryOperation.AddAssign ||
+        operation == ast.BinaryOperation.SubAssign) &&
         lhs.type.dtype == DType.Pointer &&
         isIntegerDType(rhs.type.dtype);
 }
 
-Value genAssignExpression(ast.AssignExpression expression, Module mod)
-{
-    auto lhs = genConditionalExpression(expression.conditionalExpression, mod);
-    if (expression.assignType == ast.AssignType.None) {
-        return lhs;
-    }
-    auto rhs = genAssignExpression(expression.assignExpression, mod);
-    
-    if (!isPointerArithmetic(lhs, rhs, expression.assignType)) {
-        rhs = implicitCast(rhs.location, rhs, lhs.type);
-    }
-    
-    switch (expression.assignType) with (ast.AssignType) {
-    case None:
-        assert(false);
-    case Normal:
-        lhs.set(expression.location, rhs);
-        break;
-    case AddAssign:
-        lhs.set(expression.location, lhs.add(expression.location, rhs));
-        break;
-    case SubAssign:
-        lhs.set(expression.location, lhs.sub(expression.location, rhs));
-        break;
-    case MulAssign:
-        lhs.set(expression.location, lhs.mul(expression.location, rhs));
-        break;
-    case DivAssign:
-        lhs.set(expression.location, lhs.div(expression.location, rhs));
-        break;
-    case ModAssign:
-        throw new CompilerPanic(expression.location, "modulo assign is unimplemented.");
-    case AndAssign:
-        throw new CompilerPanic(expression.location, "and assign is unimplemented.");
-    case OrAssign:
-        throw new CompilerPanic(expression.location, "or assign is unimplemented.");
-    case XorAssign:
-        throw new CompilerPanic(expression.location, "xor assign is unimplemented.");
-    case CatAssign:
-        throw new CompilerPanic(expression.location, "cat assign is unimplemented.");
-    case ShiftLeftAssign:
-        throw new CompilerPanic(expression.location, "shift left assign is unimplemented.");
-    case SignedShiftRightAssign:
-        throw new CompilerPanic(expression.location, "signed shift assign is unimplemented.");
-    case UnsignedShiftRightAssign:
-        throw new CompilerPanic(expression.location, "unsigned shift assign is unimplemented.");
-    case PowAssign:
-        throw new CompilerPanic(expression.location, "pow assign is unimplemented.");
-    default:
-        throw new CompilerPanic(expression.location, "unimplemented assign expression type.");
-    }
-    return rhs;
-}
-
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
 {
-    auto a = genOrOrExpression(expression.orOrExpression, mod);
+    auto a = genBinaryExpression(expression.binaryExpression, mod);
     if (expression.expression !is null) {
         auto e = genExpression(expression.expression, mod.dup);
         auto v = e.type.getValue(mod, expression.location);
@@ -126,178 +77,266 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
     return a;
 }
 
-Value genOrOrExpression(ast.OrOrExpression expression, Module mod)
+struct ExpressionOrOperation 
 {
-    Value val;
-    if (expression.orOrExpression !is null) {
-        auto lhs = genOrOrExpression(expression.orOrExpression, mod);
-        val = genAndAndExpression(expression.andAndExpression, mod);
-        val = val.logicalOr(expression.location, lhs);
-    } else {
-        val = genAndAndExpression(expression.andAndExpression, mod);
+    ast.UnaryExpression expression;
+    ast.BinaryOperation operation;
+    Value value;
+    
+    this(ast.BinaryOperation operation)
+    {
+        this.operation = operation;
     }
-    return val;
+    
+    this(ast.UnaryExpression expression)
+    {
+        this.expression = expression;
+    }
+    
+    this(Value value)
+    {
+        this.value = value;
+    }
+    
+    bool isExpression() @property
+    {
+        return expression !is null;
+    }
+    
+    Value gen(Module mod)
+    in { assert(isExpression || value !is null); }
+    body
+    {
+        if (value !is null) {
+            return value;
+        }
+        return genUnaryExpression(expression, mod);
+    }
 }
 
-Value genAndAndExpression(ast.AndAndExpression expression, Module mod)
+Value genBinaryExpression(ast.BinaryExpression expression, Module mod)
 {
-    Value val;
-    if (expression.andAndExpression !is null) {
-        auto lhs = genAndAndExpression(expression.andAndExpression, mod);
-        val = genOrExpression(expression.orExpression, mod);
-        val = val.logicalAnd(expression.location, lhs);
-    } else {
-        val = genOrExpression(expression.orExpression, mod);
-    }
-    return val;
+    auto postfix = expressionsAsPostfix(expression);
+    ExpressionOrOperation[] valueStack;
+    foreach (element; postfix) {
+        if (element.isExpression) {
+            valueStack = element ~ valueStack;
+        } else {
+            if (valueStack.length < 2) {
+                throw new CompilerPanic(expression.location, "invalid expression made it to backend.");
+            }
+            auto rhs = valueStack.front;
+            valueStack.popFront;
+            auto lhs = valueStack.front;
+            valueStack.popFront;
+            
+            valueStack = ExpressionOrOperation(performOperation(mod, expression.location, element.operation, lhs, rhs)) ~ valueStack;
+        }
+    } 
+    
+    return valueStack.front.gen(mod);
 }
 
-Value genOrExpression(ast.OrExpression expression, Module mod)
+Value performOperation(Module mod, Location location, ast.BinaryOperation operation, ExpressionOrOperation lhsex, ExpressionOrOperation rhsex)
 {
-    Value val;
-    if (expression.orExpression !is null) {
-        auto lhs = genOrExpression(expression.orExpression, mod);
-        val = genXorExpression(expression.xorExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &val);
-        val = lhs.or(expression.location, val);
-    } else {
-        val = genXorExpression(expression.xorExpression, mod);
+    if (operation == ast.BinaryOperation.LogicalAnd || operation == ast.BinaryOperation.LogicalOr) {
+        return performLogical(mod, location, operation, lhsex, rhsex);
     }
-    return val;
+    Value lhs = lhsex.gen(mod), rhs = rhsex.gen(mod);
+    
+      
+    Value result = lhs;
+    if (operation == ast.BinaryOperation.Assign) {
+        if (!isPointerArithmetic(lhs, rhs, operation)) {
+            rhs = implicitCast(rhs.location, rhs, lhs.type);
+        }
+    } else if (operation != ast.BinaryOperation.None) {
+        binaryOperatorImplicitCast(location, &lhs, &rhs);
+    }
+    final switch (operation) with (ast.BinaryOperation) {
+    case None:
+        break;
+    case Assign:
+        lhs.set(location, rhs);
+        break;
+    case AddAssign:
+        lhs.set(location, lhs.add(location, rhs));
+        break;
+    case SubAssign:
+        lhs.set(location, lhs.sub(location, rhs));
+        break;
+    case MulAssign:
+        lhs.set(location, lhs.mul(location, rhs));
+        break;
+    case DivAssign:
+        lhs.set(location, lhs.div(location, rhs));
+        break;
+    case ModAssign:
+        lhs.set(location, lhs.mod(location, rhs));
+        break;
+    case AndAssign:
+        lhs.set(location, lhs.and(location, rhs));
+        break;
+    case OrAssign:
+        lhs.set(location, lhs.or(location, rhs));
+        break;
+    case XorAssign:
+        lhs.set(location, lhs.xor(location, rhs));
+        break;
+    case CatAssign:
+    case ShiftLeftAssign:
+    case SignedShiftRightAssign:
+    case UnsignedShiftRightAssign:
+    case PowAssign:
+        throw new CompilerPanic(location, "unimplemented short hand assign operator.");
+    case LogicalOr:
+        result = lhs.logicalOr(location, rhs);
+        break;
+    case LogicalAnd:
+        result = lhs.logicalAnd(location, rhs);
+        break;
+    case BitwiseOr:
+        result = lhs.or(location, rhs);
+        break;
+    case BitwiseXor:
+        result = lhs.xor(location, rhs);
+        break;
+    case BitwiseAnd:
+        result = lhs.and(location, rhs);
+        break;
+    case Equality:
+        result = lhs.eq(location, rhs);
+        break;
+    case NotEquality:
+        result = lhs.neq(location, rhs);
+        break;
+    case Is:
+    case NotIs:
+        throw new CompilerPanic(location, "is operator is unimplemented.");
+    case In:
+    case NotIn:
+        throw new CompilerPanic(location, "in operator is unimplemented.");
+    case Less:
+        result = lhs.lt(location, rhs);
+        break;
+    case LessEqual:
+        result = lhs.lte(location, rhs);
+        break;
+    case Greater:
+        result = lhs.gt(location, rhs);
+        break;
+    case GreaterEqual:
+    case Unordered:
+    case UnorderedEqual:
+    case LessGreater:
+    case LessEqualGreater:
+    case UnorderedLessEqual:
+    case UnorderedLess:
+    case UnorderedGreaterEqual:
+    case UnorderedGreater:
+        throw new CompilerPanic(location, "unimplemented comparison operator.");
+    case LeftShift:
+    case SignedRightShift:
+    case UnsignedRightShift:
+        throw new CompilerPanic(location, "shifts are unimplemented.");
+    case Addition:
+        result = lhs.add(location, rhs);
+        break;
+    case Subtraction:
+        result = lhs.sub(location, rhs);
+        break;
+    case Concat:
+        throw new CompilerPanic(location, "concat is unimplemented.");
+    case Division:
+        result = lhs.div(location, rhs);
+        break;
+    case Multiplication:
+        result = lhs.mul(location, rhs);
+        break;
+    case Modulus:
+        result = lhs.mod(location, rhs);
+        break;
+    case Pow:
+        throw new CompilerPanic(location, "pow is unimplemented.");
+    }
+    return result;
 }
 
-Value genXorExpression(ast.XorExpression expression, Module mod)
+Value performLogical(Module mod, Location location, ast.BinaryOperation operation, ExpressionOrOperation lhsex, ExpressionOrOperation rhsex)
+in
 {
-    Value val;
-    if (expression.xorExpression !is null) {
-        auto lhs = genXorExpression(expression.xorExpression, mod);
-        val = genAndExpression(expression.andExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &val);
-        val = lhs.xor(expression.location, val);
-    } else {
-        val = genAndExpression(expression.andExpression, mod);
-    }
-    return val;
+    assert(operation == ast.BinaryOperation.LogicalAnd || operation == ast.BinaryOperation.LogicalOr);
 }
-
-Value genAndExpression(ast.AndExpression expression, Module mod)
+body
 {
-    Value val;
-    if (expression.andExpression !is null) {
-        auto lhs = genAndExpression(expression.andExpression, mod);
-        val = genCmpExpression(expression.cmpExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &val);
-        val = lhs.and(expression.location, val);
+    auto lhs = lhsex.gen(mod);
+    if (operation == ast.BinaryOperation.LogicalOr) {
+        // If the lhs is true, don't evaluate the rhs.
+        auto asBool = lhs.performCast(location, new BoolType(mod)).get();
+        auto or   = LLVMAppendBasicBlock(mod.currentFunction.llvmValue, "or");
+        auto exit = LLVMAppendBasicBlock(mod.currentFunction.llvmValue, "orexit");
+        
+        LLVMBuildCondBr(mod.builder, asBool, exit, or);
+        LLVMPositionBuilderAtEnd(mod.builder, or);
+        lhs.logicalOr(location, rhsex.gen(mod));
+        LLVMBuildBr(mod.builder, exit);
+        LLVMPositionBuilderAtEnd(mod.builder, exit);
     } else {
-        val = genCmpExpression(expression.cmpExpression, mod);
-    }
-    return val;
-}
-
-Value genCmpExpression(ast.CmpExpression expression, Module mod)
-{
-    auto lhs = genShiftExpression(expression.lhShiftExpression, mod);
-    switch (expression.comparison) {
-    case ast.Comparison.None:
-        break;
-    case ast.Comparison.Equality:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.eq(expression.location, rhs);
-        break;
-    case ast.Comparison.NotEquality:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.neq(expression.location, rhs);
-        break;
-    case ast.Comparison.Greater:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.gt(expression.location, rhs);
-        break;
-    case ast.Comparison.LessEqual:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.lte(expression.location, rhs);
-        break;
-    case ast.Comparison.Less:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.lt(expression.location, rhs);
-        break;
-    case ast.Comparison.Is:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.identity(expression.location, rhs);
-        break;
-    case ast.Comparison.NotIs:
-        auto rhs = genShiftExpression(expression.rhShiftExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &rhs);
-        lhs = lhs.nidentity(expression.location, rhs);
-        break;
-    default:
-        throw new CompilerPanic(expression.location, "unhandled comparison expression.");
+        // If the lhs is false, don't evaluate the rhs.
+        auto asBool = lhs.performCast(location, new BoolType(mod)).get();
+        auto and  = LLVMAppendBasicBlock(mod.currentFunction.llvmValue, "and");
+        auto exit = LLVMAppendBasicBlock(mod.currentFunction.llvmValue, "andexit");
+        
+        LLVMBuildCondBr(mod.builder, asBool, and, exit);
+        LLVMPositionBuilderAtEnd(mod.builder, and);
+        lhs.logicalAnd(location, rhsex.gen(mod));
+        LLVMBuildBr(mod.builder, exit);
+        LLVMPositionBuilderAtEnd(mod.builder, exit);
     }
     return lhs;
 }
 
-Value genShiftExpression(ast.ShiftExpression expression, Module mod)
+ExpressionOrOperation[] expressionsAsPostfix(ast.BinaryExpression expression)
 {
-    return genAddExpression(expression.addExpression, mod);
-}
-
-Value genAddExpression(ast.AddExpression expression, Module mod)
-{
-    Value val;
-    if (expression.addExpression !is null) {
-        auto lhs = genMulExpression(expression.mulExpression, mod);
-        val = genAddExpression(expression.addExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &val);
-        
-        final switch (expression.addOperation) {
-        case ast.AddOperation.Add:
-            val = lhs.add(expression.location, val);
-            break;
-        case ast.AddOperation.Subtract:
-            val = lhs.sub(expression.location, val);
-            break;
-        case ast.AddOperation.Concat:
-            throw new CompilerPanic(expression.location, "unimplemented add operation.");
+    // Ladies and gentlemen, Mr. Edsger Dijkstra's shunting-yard algorithm! (polite applause)
+    ExpressionOrOperation[] infix = gatherExpressions(expression), postfix;
+    ast.BinaryOperation[] operationStack;
+    
+    foreach (element; infix) {
+        if (element.isExpression) {
+            postfix ~= element;
+            continue;
         }
-    } else {
-        val = genMulExpression(expression.mulExpression, mod);
-    }
-    return val;
-}
-
-Value genMulExpression(ast.MulExpression expression, Module mod)
-{
-    Value val;
-    if (expression.mulExpression !is null) {
-        auto lhs = genPowExpression(expression.powExpression, mod);
-        val = genMulExpression(expression.mulExpression, mod);
-        binaryOperatorImplicitCast(expression.location, &lhs, &val);
-        
-        final switch (expression.mulOperation) {
-        case ast.MulOperation.Mul:
-            val = lhs.mul(expression.location, val);
-            break;
-        case ast.MulOperation.Div:
-            val = lhs.div(expression.location, val);
-            break;
-        case ast.MulOperation.Mod:
-            val = lhs.mod(expression.location, val);
-            break;
+        while (!operationStack.empty) {
+            if ((isLeftAssociative(element.operation) && element.operation <= operationStack.front) ||
+                (!isLeftAssociative(element.operation) && element.operation < operationStack.front)) {
+                postfix ~= ExpressionOrOperation(operationStack.front);
+                operationStack.popFront;
+            } else {
+                break;
+            }
         }
-    } else {
-        val = genPowExpression(expression.powExpression, mod);
+        operationStack = element.operation ~ operationStack;    
     }
-    return val;
+    
+    foreach (operation; operationStack) {
+        postfix ~= ExpressionOrOperation(operation);
+    }
+    
+    return postfix;
 }
 
-Value genPowExpression(ast.PowExpression expression, Module mod)
+/// Gather all expressions and operations into a single list without evaluating them.
+ExpressionOrOperation[] gatherExpressions(ast.BinaryExpression expression)
 {
-    return genUnaryExpression(expression.unaryExpression, mod);
+    ExpressionOrOperation[] list;
+    while (expression.operation != ast.BinaryOperation.None) {
+        list ~= ExpressionOrOperation(expression.lhs);
+        list ~= ExpressionOrOperation(expression.operation);
+        expression = expression.rhs;
+    }
+    list ~= ExpressionOrOperation(expression.lhs);
+    return list;
 }
 
 Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
@@ -359,11 +398,11 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
         return newClass(mod, expression.location, asClass, expression.argumentList);
     }
     auto loc  = expression.type.location - expression.location;
-    if (expression.assignExpression is null) {
+    if (expression.conditionalExpression is null) {
         auto size = type.getValue(mod, loc).getSizeof(loc);
         return mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
     } else {
-        auto length = genAssignExpression(expression.assignExpression, mod).performCast(loc, getSizeT(mod));
+        auto length = genConditionalExpression(expression.conditionalExpression, mod).performCast(loc, getSizeT(mod));
         auto size = type.getValue(mod, loc).getSizeof(loc).mul(loc, length);
         auto array = new ArrayValue(mod, loc, type);
         auto ptr = mod.gcAlloc(loc, size).performCast(loc, new PointerType(mod, type));
@@ -429,7 +468,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             
             auto oldAggregate = mod.callingAggregate;
             mod.callingAggregate = null;       
-            args ~= genAssignExpression(expr, mod);
+            args ~= genConditionalExpression(expr, mod);
             argLocations ~= expr.location;
             mod.callingAggregate = oldAggregate;
             
@@ -450,7 +489,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     case ast.PostfixType.Index:
         Value[] args;
         foreach (expr; (cast(ast.ArgumentList) expression.firstNode).expressions) {
-            args ~= genAssignExpression(expr, mod);
+            args ~= genConditionalExpression(expr, mod);
         }
         if (args.length == 0 || args.length > 1) {
             throw new CompilerPanic(expression.location, "slice argument lists must contain only one argument.");
@@ -473,8 +512,8 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         mod.base = null;
         break;
     case ast.PostfixType.Slice:
-        auto from = genAssignExpression(cast(ast.AssignExpression)expression.firstNode, mod);
-        auto to = genAssignExpression(cast(ast.AssignExpression)expression.secondNode, mod);
+        auto from = genConditionalExpression(cast(ast.ConditionalExpression)expression.firstNode, mod);
+        auto to = genConditionalExpression(cast(ast.ConditionalExpression)expression.secondNode, mod);
         lhs = lhs.slice(expression.location, from, to);
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
@@ -517,7 +556,7 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         }
         return member;
     case ast.PrimaryType.MixinExpression:
-        auto v = genAssignExpression(enforce(cast(ast.AssignExpression) expression.node), mod);
+        auto v = genConditionalExpression(enforce(cast(ast.ConditionalExpression) expression.node), mod);
         if (!v.isKnown || !isString(v.type)) {
             throw new CompilerError(expression.node.location, "a mixin expression must be a string known at compile time.");
         }
@@ -525,8 +564,8 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         auto tstream = lex(v.knownString, v.location);
         tstream.get();  // Skip BEGIN 
 
-        auto expr = parseAssignExpression(tstream);
-        return genAssignExpression(expr, mod);
+        auto expr = parseConditionalExpression(tstream);
+        return genConditionalExpression(expr, mod);
     case ast.PrimaryType.AssertExpression:
         return genAssertExpression(cast(ast.AssertExpression) expression.node, mod);
     case ast.PrimaryType.TemplateInstance:
@@ -603,10 +642,10 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
 
 Value genAssertExpression(ast.AssertExpression assertExpr, Module mod)
 {
-    auto condition = genAssignExpression(assertExpr.condition, mod);
+    auto condition = genConditionalExpression(assertExpr.condition, mod);
     Value message;
     if (assertExpr.message !is null) {
-        message = genAssignExpression(assertExpr.message, mod);
+        message = genConditionalExpression(assertExpr.message, mod);
     }
     
     mod.rtAssert(assertExpr.location, condition, message);

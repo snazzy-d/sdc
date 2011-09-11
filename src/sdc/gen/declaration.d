@@ -194,7 +194,7 @@ void genMixinDeclaration(ast.MixinDeclaration decl, Module mod)
     if (decl.declarationCache !is null) {
         return;
     }
-    auto val = genAssignExpression(decl.expression, mod);
+    auto val = genConditionalExpression(decl.expression, mod);
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(decl.location, "a mixin expression must be a string known at compile time.");
     }
@@ -264,7 +264,7 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
             if (declarator.initialiser.type == ast.InitialiserType.Void) {
                 var.initialise(decl.location, LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
-                auto aexp = genAssignExpression(cast(ast.AssignExpression) declarator.initialiser.node, mod);
+                auto aexp = genConditionalExpression(cast(ast.ConditionalExpression) declarator.initialiser.node, mod);
                 if (type.dtype == DType.Inferred) {
                     type = aexp.type;
                     var = type.getValue(mod, decl.location);

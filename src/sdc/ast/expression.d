@@ -13,27 +13,15 @@ import sdc.ast.declaration;
 // AssignExpression (, Expression)?
 class Expression : Node
 {
-    AssignExpression assignExpression;
+    ConditionalExpression conditionalExpression;
     Expression expression;  // Optional.
 }
 
+version (none) {
 enum AssignType
 {
     None,
     Normal,
-    AddAssign,
-    SubAssign,
-    MulAssign,
-    DivAssign,
-    ModAssign,
-    AndAssign,
-    OrAssign,
-    XorAssign,
-    CatAssign,
-    ShiftLeftAssign,
-    SignedShiftRightAssign,
-    UnsignedShiftRightAssign,
-    PowAssign,
 }
 
 // ConditionalExpression ((= | += | *= | etc) AssignExpression)?
@@ -43,63 +31,49 @@ class AssignExpression : Node
     AssignType assignType;
     AssignExpression assignExpression;  // Optional.
 }
+}
 
-// OrOrExpression (? Expression : ConditionalExpression)?
+// binaryExpression (? Expression : ConditionalExpression)?
 class ConditionalExpression : Node
 {
-    OrOrExpression orOrExpression;
+    BinaryExpression binaryExpression;
     Expression expression;  // Optional.
     ConditionalExpression conditionalExpression;  // Optional.
 }
 
-// (OrOrExpression ||)? AndAndExpression
-class OrOrExpression : Node
+// These are in order of least to greatest precedence.
+enum BinaryOperation
 {
-    OrOrExpression orOrExpression;  // Optional.
-    AndAndExpression andAndExpression;
-}
-
-// (AndAndExpression &&)? OrExpression
-class AndAndExpression : Node
-{
-    AndAndExpression andAndExpression;  // Optional.
-    OrExpression orExpression;
-}
-
-// (OrExpression |)? XorExpression
-class OrExpression : Node
-{
-    OrExpression orExpression;  // Optional.
-    XorExpression xorExpression;
-}
-
-// (XorExpression ^)? AndExpression
-class XorExpression : Node
-{
-    XorExpression xorExpression;  // Optional.
-    AndExpression andExpression;
-}
-
-// (AndExpression &)? CmpExpression
-class AndExpression : Node
-{
-    AndExpression andExpression;  // Optional.
-    CmpExpression cmpExpression;
-}
-
-enum Comparison
-{
-    None,
-    Equality,
-    NotEquality,
-    Is,
-    NotIs,
-    In,
-    NotIn,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
+	None,
+	Assign,  // =
+    AddAssign,  // +=
+    SubAssign,  // -=
+    MulAssign,  // *=
+    DivAssign,  // /=
+    ModAssign,  // %=
+    AndAssign,  // &=
+    OrAssign,   // |=
+    XorAssign,  // ^=
+    CatAssign,  // ~=
+    ShiftLeftAssign,  // <<=
+    SignedShiftRightAssign,  // >>=
+    UnsignedShiftRightAssign,  // >>>=
+    PowAssign,  // ^^
+	LogicalOr,  // ||
+	LogicalAnd,  // &&
+	BitwiseOr,  // |
+	BitwiseXor,  // ^
+	BitwiseAnd,  // &
+    Equality,  // == 
+    NotEquality,  // !=
+    Is,  // is
+    NotIs,  // !is
+    In,  // in
+    NotIn,  // !in
+    Less,  // <
+    LessEqual,  // <=
+    Greater,  // >
+    GreaterEqual,  // >=
     Unordered,  // !<>=
     UnorderedEqual,  // !<>
     LessGreater,  // <>
@@ -108,67 +82,23 @@ enum Comparison
     UnorderedLess, // !>=
     UnorderedGreaterEqual,  // !<
     UnorderedGreater,  // !<=
-}
-    
-
-// CmpExpression ((== != !is is in !in etc)  CmpExpression)?
-class CmpExpression : Node
-{
-    ShiftExpression lhShiftExpression;
-    Comparison comparison;
-    ShiftExpression rhShiftExpression;  // Optional.
-}
-
-enum Shift
-{
-    Left,
-    SignedRight,
-    UnsignedRight
+    LeftShift,  // <<
+    SignedRightShift,  // >>
+    UnsignedRightShift,  // >>>
+    Addition,  // +
+    Subtraction,  // -
+    Concat,  // ~
+    Division,  // /
+    Multiplication,  // *
+    Modulus,  // %
+    Pow,  // ^^
 }
 
-// (ShiftExpression (<<|>>|>>>))? AddExpression
-class ShiftExpression : Node
+class BinaryExpression : Node
 {
-    ShiftExpression shiftExpression;  // Optional.
-    Shift shift;  // Optional.
-    AddExpression addExpression;
-}
-
-enum AddOperation
-{
-    Add,
-    Subtract,
-    Concat,
-}
-
-// (AddExpression (~|+|-))? MulExpression
-class AddExpression : Node
-{
-    AddExpression addExpression;  // Optional.
-    AddOperation addOperation;  // Optional.
-    MulExpression mulExpression;
-}
-
-enum MulOperation
-{
-    Mul,
-    Div,
-    Mod,
-}
-
-// (MulExpression (*|/|%))? PowExpression
-class MulExpression : Node
-{
-    MulExpression mulExpression;  // Optional.
-    MulOperation mulOperation;  // Optional.
-    PowExpression powExpression;
-}
-
-// UnaryExpression (^^ PowExpression)?
-class PowExpression : Node
-{
-    UnaryExpression unaryExpression;
-    PowExpression powExpression;  // Optional.
+	UnaryExpression lhs;
+	BinaryOperation operation;
+	BinaryExpression rhs;  // Optional.
 }
 
 enum UnaryPrefix
@@ -178,8 +108,8 @@ enum UnaryPrefix
     PrefixInc,  // ++
     PrefixDec,  // --
     Dereference,  // *
-    UnaryMinus,  // -
     UnaryPlus,  // +
+    UnaryMinus,  // -
     LogicalNot,  // !
     BitwiseNot,  // ~
     Cast,  // cast (type) unaryExpr
@@ -198,7 +128,7 @@ class UnaryExpression : Node
 class NewExpression : Node
 {
     Type type;  // new *
-    AssignExpression assignExpression;  // new blah[*]
+    ConditionalExpression conditionalExpression;  // new blah[*]
     ArgumentList argumentList;  // new blah(*)
 }
 
@@ -217,10 +147,10 @@ enum PostfixType
     PostfixDec,  // --
     Parens,  // ( ArgumentList* )
     Index,  // [ ArgumentList ]
-    Slice,  // [ (AssignExpression .. AssignExpression)* ]
+    Slice,  // [ (ConditionalExpression .. ConditionalExpression)* ]
 }
 
-// PostfixExpression (. Identifier|++|--|(ArgumentList)|[ArgumentList]|[AssignExpression .. AssignExpression)
+// PostfixExpression (. Identifier|++|--|(ArgumentList)|[ArgumentList]|[ConditionalExpression .. ConditionalExpression)
 class PostfixExpression : Node
 {
     PostfixType type;
@@ -231,7 +161,7 @@ class PostfixExpression : Node
 
 class ArgumentList : Node
 {
-    AssignExpression[] expressions;
+    ConditionalExpression[] expressions;
 }
 
 enum PrimaryType
@@ -280,20 +210,20 @@ class PrimaryExpression : Node
 // assert ( AssignExpr (, AssignExpr)? )
 class AssertExpression : Node
 {
-    AssignExpression condition;
-    AssignExpression message;  // Optional.
+    ConditionalExpression condition;
+    ConditionalExpression message;  // Optional.
 }
 
 // mixin ( AssertExpr )
 class MixinExpression : Node
 {
-    AssignExpression assignExpression;
+    ConditionalExpression conditionalExpression;
 }
 
-// import ( AssignExpression )
+// import ( ConditionalExpression )
 class ImportExpression : Node
 {
-    AssignExpression assignExpression;
+    ConditionalExpression conditionalExpression;
 }
 
 enum TypeofExpressionType
@@ -397,5 +327,5 @@ class TraitsArgument : Node
 {
     // Mutually exclusive.
     Type type;
-    AssignExpression assignExpression;
+    ConditionalExpression conditionalExpression;
 }

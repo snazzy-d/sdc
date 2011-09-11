@@ -79,7 +79,7 @@ MixinDeclaration parseMixinDeclaration(TokenStream tstream)
     decl.location = tstream.peek.location;
     match(tstream, TokenType.Mixin);
     match(tstream, TokenType.OpenParen);   
-    decl.expression = parseAssignExpression(tstream);
+    decl.expression = parseConditionalExpression(tstream);
     match(tstream, TokenType.CloseParen);
     match(tstream, TokenType.Semicolon); 
     return decl;
@@ -454,7 +454,7 @@ TypeSuffix[] parseTypeSuffixes(TokenStream tstream)
                 suffix.node = parseType(tstream);
                 suffix.type = TypeSuffixType.Array;
             } else {
-                suffix.node = parseAssignExpression(tstream);
+                suffix.node = parseConditionalExpression(tstream);
                 suffix.type = TypeSuffixType.Array;
             }
             match(tstream, TokenType.CloseBracket);
@@ -664,7 +664,7 @@ ParameterList parseParameters(TokenStream tstream)
                     match(tstream, TokenType.__Line__);
                     parameter.defaultArgumentLine = true;
                 } else {
-                    parameter.defaultArgument = parseAssignExpression(tstream);
+                    parameter.defaultArgument = parseConditionalExpression(tstream);
                 }
             }
         }
@@ -695,7 +695,7 @@ Initialiser parseInitialiser(TokenStream tstream)
         break;
     default:
         initialiser.type = InitialiserType.AssignExpression;
-        initialiser.node = parseAssignExpression(tstream);
+        initialiser.node = parseConditionalExpression(tstream);
         break;
     }
     

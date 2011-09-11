@@ -180,7 +180,7 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
 
 void genMixinStatement(ast.MixinStatement statement, Module mod)
 {
-    auto val = genAssignExpression(statement.expression, mod);
+    auto val = genConditionalExpression(statement.expression, mod);
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
     }

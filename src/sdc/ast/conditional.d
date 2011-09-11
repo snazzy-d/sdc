@@ -86,5 +86,5 @@ class DebugSpecification : Node
 
 class StaticIfCondition : Node
 {
-    AssignExpression expression;
+    ConditionalExpression expression;
 }

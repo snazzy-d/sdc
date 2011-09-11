@@ -207,11 +207,11 @@ StaticAssert parseStaticAssert(TokenStream tstream)
     auto firstToken = match(tstream, TokenType.Static);
     match(tstream, TokenType.Assert);
     match(tstream, TokenType.OpenParen);
-    staticAssert.condition = parseAssignExpression(tstream);
+    staticAssert.condition = parseConditionalExpression(tstream);
     
     if (tstream.peek.type == TokenType.Comma) {
         tstream.get();
-        staticAssert.message = parseAssignExpression(tstream);
+        staticAssert.message = parseConditionalExpression(tstream);
     }
     
     auto lastToken = match(tstream, TokenType.CloseParen);

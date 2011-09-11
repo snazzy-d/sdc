@@ -188,8 +188,8 @@ class CaseStatement : Node
 // case AssignExpression : .. case AssignExpression : Statement
 class CaseRangeStatement : Node
 {
-    AssignExpression firstExpression;
-    AssignExpression secondExpression;
+    ConditionalExpression firstExpression;
+    ConditionalExpression secondExpression;
     Statement statement;
 }
 
@@ -317,7 +317,7 @@ class PragmaStatement : Node
 
 class MixinStatement : Node
 {
-    AssignExpression expression;
+    ConditionalExpression expression;
 }
 
 class AsmStatement : Node

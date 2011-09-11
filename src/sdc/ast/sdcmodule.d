@@ -73,8 +73,8 @@ class DeclarationDefinition : Node
 
 class StaticAssert : Node
 {
-    AssignExpression condition;
-    AssignExpression message; // Optional
+    ConditionalExpression condition;
+    ConditionalExpression message; // Optional
 }
 
 class Unittest : Node

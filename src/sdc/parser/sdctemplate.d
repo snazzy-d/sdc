@@ -223,7 +223,7 @@ TemplateArgument parseTemplateArgument(TokenStream tstream)
         argument.node = parseType(tstream);
     } else {
         argument.type = TemplateArgumentType.AssignExpression;
-        argument.node = parseAssignExpression(tstream);
+        argument.node = parseConditionalExpression(tstream);
     }
     
     return argument;
