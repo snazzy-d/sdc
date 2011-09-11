@@ -425,10 +425,7 @@ ReturnStatement parseReturnStatement(TokenStream tstream)
         statement.retval = parseExpression(tstream);
     }
     if (tstream.peek.type != TokenType.Semicolon) {
-        throw new MissingSemicolonError(
-            tstream.lookbehind(1).location,
-            "return statement"
-        );
+        throw new MissingSemicolonError(tstream.previous.location, "return statement");
     }
     tstream.get();
     return statement;
