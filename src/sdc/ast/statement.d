@@ -25,7 +25,6 @@ enum StatementType
     ForStatement,
     ForeachStatement,
     SwitchStatement,
-    FinalSwitchStatement,
     CaseStatement,
     CaseRangeStatement,
     DefaultStatement,
@@ -153,40 +152,31 @@ class ForeachType : Node
 }
 
 
-// switch ( Expression ) ScopeStatement
+// ( final )? switch ( Expression ) ScopeStatement
 class SwitchStatement : Node
 {
-    Expression expression;
+    bool isFinal;
+    Expression controlExpression;
     Statement statement;
 }
 
-// case ArgumentList : Statement
-class CaseStatement : Node
+// Default statement and the two case statements.
+class SwitchSubStatement : Node
 {
-    ArgumentList argumentList;
-    Statement statement;
+    Statement[] statementList;
 }
 
-// case AssignExpression : .. case AssignExpression : Statement
-class CaseRangeStatement : Node
+// case ArgumentList : StatementList
+class CaseListStatement : SwitchSubStatement
 {
-    ConditionalExpression firstExpression;
-    ConditionalExpression secondExpression;
-    Statement statement;
+    ConditionalExpression[] cases;
 }
 
-// default : Statement
-class DefaultStatement : Node
+// case AssignExpression : .. case AssignExpression : StatementList
+class CaseRangeStatement : SwitchSubStatement
 {
-    Statement statement;
-}
-
-
-// final switch ( Expression ) Statement
-class FinalSwitchStatement : Node
-{
-    Expression expression;
-    Statement statement;
+    ConditionalExpression rangeBegin;
+    ConditionalExpression rangeEnd;
 }
 
 

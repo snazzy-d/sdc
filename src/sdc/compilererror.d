@@ -114,6 +114,18 @@ class MissingSemicolonError : CompilerError
     }
 }
 
+class MissingColonError : CompilerError
+{
+    this(Location loc, string type)
+    {
+        loc.column += loc.length;
+        loc.length = 1;
+        super(loc, format("missing ':' after %s.", type));
+        
+        fixHint = ":";
+    }
+}
+
 class PairMismatchError : CompilerError
 {
     this(Location pairStart, Location loc, string type, string token)

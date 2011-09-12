@@ -380,16 +380,20 @@ void parseBracketPostfixExpression(TokenStream tstream, PostfixExpression expr)
     // index argument list
     auto list = new ArgumentList();
     list.expressions ~= firstExpr;
+    if (tstream.peek.type == TokenType.Comma) {
+        tstream.get();
     
-    while (tstream.peek.type != TokenType.CloseBracket) {
-        list.expressions ~= parseConditionalExpression(tstream);
-        if (tstream.peek.type != TokenType.CloseBracket) {
-            if (tstream.peek.type != TokenType.Comma) {
-                mismatch("index argument list");
+        while (tstream.peek.type != TokenType.CloseBracket) {
+            list.expressions ~= parseConditionalExpression(tstream);
+            if (tstream.peek.type != TokenType.CloseBracket) {
+                if (tstream.peek.type != TokenType.Comma) {
+                    mismatch("index argument list");
+                }
+                tstream.get();
             }
-            match(tstream, TokenType.Comma);
         }
     }
+    
     auto closeToken = match(tstream, TokenType.CloseBracket);
     list.location = closeToken.location - openToken.location;
     

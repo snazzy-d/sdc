@@ -74,6 +74,14 @@ Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
     } else if (tstream.peek.type == TokenType.Continue) {
         statement.type = StatementType.ContinueStatement;
         statement.node = parseContinueStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Default) {
+        statement.type = StatementType.DefaultStatement;
+        statement.node = parseDefaultStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Case) {
+        statement.node = parseCaseStatement(tstream, statement.type);
+    } else if (tstream.peek.type == TokenType.Switch || tstream.peek.type == TokenType.Final) {
+        statement.type = StatementType.SwitchStatement;
+        statement.node = parseSwitchStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
@@ -413,6 +421,112 @@ ContinueStatement parseContinueStatement(TokenStream tstream)
     }
     tstream.get();
 
+    return statement;
+}
+
+SwitchStatement parseSwitchStatement(TokenStream tstream)
+{
+    auto statement = new SwitchStatement();
+    statement.location = tstream.peek.location;
+    
+    if (tstream.peek.type == TokenType.Final) {
+        statement.isFinal = true;
+        tstream.get();
+    }
+    
+    auto startToken = match(tstream, TokenType.Switch);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    
+    statement.controlExpression = parseExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "switch control expression", ")");
+    }
+    auto closeToken = tstream.get();
+    statement.location.spanTo(closeToken.location);
+    
+    statement.statement = parseStatement(tstream);
+    
+    return statement;
+}
+
+// Statement lists in case and default statements.
+Statement[] parseScopeStatementList(TokenStream tstream)
+{
+    Statement[] list;
+    
+    while (tstream.peek.type != TokenType.Case &&
+           tstream.peek.type != TokenType.Default &&
+           tstream.peek.type != TokenType.CloseBrace) {
+        list ~= parseStatement(tstream, true);
+    }
+    
+    return list;
+}
+
+SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType type)
+{
+    auto startToken = match(tstream, TokenType.Case);
+    auto firstExpression = parseConditionalExpression(tstream);
+    
+    SwitchSubStatement statement;
+    
+    if (tstream.peek.type == TokenType.DoubleDot) {
+        tstream.get();
+        
+        auto caseRange = new CaseRangeStatement();
+        caseRange.rangeBegin = firstExpression;
+        caseRange.rangeEnd = parseConditionalExpression(tstream);
+        
+        if (tstream.peek.type != TokenType.Colon) {
+            throw new MissingColonError(tstream.previous.location, "case range");
+        }
+        auto closeToken = tstream.get();
+        
+        caseRange.location = closeToken.location - startToken.location;
+        statement = caseRange;
+    } else {
+        auto caseList = new CaseListStatement();
+        caseList.cases ~= firstExpression;
+        if (tstream.peek.type == TokenType.Comma) {
+            tstream.get();
+        
+            while (tstream.peek.type != TokenType.Colon) {
+                caseList.cases ~= parseConditionalExpression(tstream);
+                if (tstream.peek.type != TokenType.Colon) {
+                    if (tstream.peek.type != TokenType.Comma) {
+                        throw new PairMismatchError(startToken.location, tstream.previous.location, "case list", ":");
+                    }
+                    tstream.get();
+                }
+            }
+        } else {
+            if (tstream.peek.type != TokenType.Colon) {
+                throw new MissingColonError(tstream.previous.location, "case expression");
+            }
+        }
+        auto closeToken = tstream.get();
+        
+        caseList.location = closeToken.location - startToken.location;
+        statement = caseList;
+    }
+    
+    statement.statementList = parseScopeStatementList(tstream);
+    return statement;
+}
+
+SwitchSubStatement parseDefaultStatement(TokenStream tstream)
+{
+    auto startToken = match(tstream, TokenType.Default);
+    
+    if (tstream.peek.type != TokenType.Colon) {
+        throw new MissingColonError(startToken.location, "switch default");
+    }
+    auto closeToken = tstream.get();
+    
+    auto statement = new SwitchSubStatement();
+    statement.location = closeToken.location - startToken.location;
+    statement.statementList = parseScopeStatementList(tstream);
     return statement;
 }
 
