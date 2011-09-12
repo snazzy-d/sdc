@@ -226,6 +226,7 @@ void skipBlockComment(TokenWriter tw)
 
 void skipNestingComment(TokenWriter tw)
 {
+    match(tw.source, '+');
     int depth = 1;
     while (depth > 0) {
         if (tw.source.eof) {
