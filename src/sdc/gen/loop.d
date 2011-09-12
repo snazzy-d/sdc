@@ -23,40 +23,60 @@ enum LoopStart
 struct Loop
 {
     private:
-    BasicBlock looptop, loopout;
+    BasicBlock loop, loopout;
     
     public:
     Module mod;
-    LLVMBasicBlockRef topBB, bodyBB, endBB;
+    LLVMBasicBlockRef topBB, bodyBB, endBB, incrementBB;
     
     this(Module mod, string name, LoopStart start = LoopStart.Top)
     {
         this.mod = mod;
         this.topBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "looptop");
         this.bodyBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopbody");
+        this.incrementBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopincrement");
         this.endBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "loopend");
         
-        auto parent  = mod.currentFunction.cfgTail;
-        looptop = new BasicBlock(name ~ "top");
-        loopout = new BasicBlock(name ~ "out");
-        parent.children ~= looptop;
+        this.loop = new BasicBlock(name);
+        this.loopout = new BasicBlock(name ~ "out");
+        
+        auto parent = mod.currentFunction.cfgTail;
+        parent.children ~= loop;
         parent.children ~= loopout;
-        looptop.children ~= loopout;
-        looptop.children ~= looptop;
+        loop.children ~= loopout;
+        loop.children ~= loop;
         
         LLVMBuildBr(mod.builder, start == LoopStart.Body? bodyBB : topBB);
     }
-
-    void gen(scope void delegate() genTop, scope void delegate() genBody)
+    
+    /**
+     * Generate loop.
+     * Params:
+     *   genTop = generate top. Must not fall through.
+     *   genBody = generate body.
+     *   genIncrement = generate increment. This is the continue target.
+     */
+    void gen(scope void delegate() genTop, scope void delegate() genBody, scope void delegate() genIncrement)
     {
+        mod.pushLoop(&this);
+        
         LLVMPositionBuilderAtEnd(mod.builder, topBB);
         mod.currentFunction.currentBasicBlock = topBB;
+        mod.currentFunction.cfgTail = loop;
         genTop();
+        
         LLVMPositionBuilderAtEnd(mod.builder, bodyBB);
         mod.currentFunction.currentBasicBlock = bodyBB;
-        
-        mod.currentFunction.cfgTail = looptop;
+        mod.currentFunction.cfgTail = loop;
         genBody();
+        if (mod.currentFunction.cfgTail.fallsThrough) {
+            LLVMBuildBr(mod.builder, incrementBB);
+        }
+        
+        LLVMPositionBuilderAtEnd(mod.builder, incrementBB);
+        mod.currentFunction.currentBasicBlock = incrementBB;
+        mod.currentFunction.cfgTail = loop;
+        genIncrement();
         if (mod.currentFunction.cfgTail.fallsThrough) {
             LLVMBuildBr(mod.builder, topBB);
         }
@@ -64,5 +84,17 @@ struct Loop
         mod.currentFunction.cfgTail = loopout;
         LLVMPositionBuilderAtEnd(mod.builder, endBB);
         mod.currentFunction.currentBasicBlock = endBB;
+        
+        mod.popLoop();
+    }
+    
+    void genBreak()
+    {
+        LLVMBuildBr(mod.builder, endBB);
+    }
+    
+    void genContinue()
+    {
+        LLVMBuildBr(mod.builder, incrementBB);
     }
 }

@@ -81,6 +81,12 @@ void genStatement(ast.Statement statement, Module mod)
             genForeachStatement(asForeach, mod);
         }
         break;
+    case ast.StatementType.BreakStatement:
+        genBreakStatement(cast(ast.BreakStatement) statement.node, mod);
+        break;
+    case ast.StatementType.ContinueStatement:
+        genContinueStatement(cast(ast.ContinueStatement) statement.node, mod);
+        break;
     case ast.StatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
         break;
@@ -124,7 +130,7 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
     
     final switch (statement.type) {
     case ast.GotoStatementType.Identifier:
-        auto name = extractIdentifier(statement.identifier);
+        auto name = extractIdentifier(statement.target);
         auto p = name in mod.currentFunction.labels;
         if (p is null) {
             mod.currentFunction.pendingGotos ~= PendingGoto(statement.location, name, mod.currentFunction.currentBasicBlock, parent);
@@ -182,7 +188,7 @@ void genLabeledStatement(ast.LabeledStatement statement, Module mod)
 
 void genMixinStatement(ast.MixinStatement statement, Module mod)
 {
-    auto val = genConditionalExpression(statement.expression, mod);
+    auto val = genConditionalExpression(statement.code, mod);
     if (!val.isKnown || !isString(val.type)) {
         throw new CompilerError(statement.location, "a mixin statement must be a string known at compile time.");
     }
@@ -206,13 +212,13 @@ void genMixinStatement(ast.MixinStatement statement, Module mod)
 
 void genIfStatement(ast.IfStatement statement, Module mod)
 {
-    LLVMBasicBlockRef ifBB, elseBB;
     auto parent = mod.currentFunction.cfgTail;
     auto ifblock = new BasicBlock("if");
     auto ifout = new BasicBlock("else");
     parent.children ~= ifblock;
     
     mod.pushScope();
+    LLVMBasicBlockRef ifBB, elseBB;
     genIfCondition(statement.ifCondition, mod, ifBB, elseBB);
     auto endifBB = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "endif");
     LLVMPositionBuilderAtEnd(mod.builder, ifBB);
@@ -258,7 +264,7 @@ void genIfStatement(ast.IfStatement statement, Module mod)
     mod.currentFunction.currentBasicBlock = endifBB;
 }
 
-void genIfCondition(ast.IfCondition condition, Module mod, ref LLVMBasicBlockRef ifBB, ref LLVMBasicBlockRef elseBB)
+void genIfCondition(ast.IfCondition condition, Module mod, out LLVMBasicBlockRef ifBB, out LLVMBasicBlockRef elseBB)
 { 
     auto expr = genExpression(condition.expression, mod);
     expr = implicitCast(condition.expression.location, expr, new BoolType(mod));
@@ -293,8 +299,10 @@ void genWhileStatement(ast.WhileStatement statement, Module mod)
         genStatement(statement.statement, mod);
     }
     
+    void genIncrement() {}
+    
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -314,8 +322,10 @@ void genDoStatement(ast.DoStatement statement, Module mod)
         LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
+    void genIncrement() {}
+    
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -334,22 +344,28 @@ void genForStatement(ast.ForStatement statement, Module mod)
             auto expr = genExpression(statement.test, mod);
             expr = implicitCast(statement.test.location, expr, new BoolType(mod));
             LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
+        } else {
+            LLVMBuildBr(mod.builder, loop.bodyBB);
         }
     }
     
     void genBody()
-    {
+    {   
         genStatement(statement.statement, mod);
+    }
+    
+    void genIncrement()
+    {
         if (statement.increment !is null) {
             genExpression(statement.increment, mod);
         }
     }
     
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
-// TODO: range interface and opApply
+// TODO: range interface and opApply.
 void genForeachStatement(ast.ForeachStatement statement, Module mod)
 {
     assert(statement.form == ast.ForeachForm.Aggregate);
@@ -425,11 +441,15 @@ void genForeachStatement(ast.ForeachStatement statement, Module mod)
         mod.currentScope.add(extractIdentifier(iterator.identifier), new Store(exposedIterator));
         
         genStatement(statement.statement, mod);
+    }
+    
+    void genIncrement()
+    {
         indexValue.set(indexValue.location, indexValue.inc(indexValue.location));
     }
     
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
 }
 
@@ -477,12 +497,50 @@ void genForeachRangeStatement(ast.ForeachStatement statement, Module mod)
     void genBody()
     {
         genStatement(statement.statement, mod);
-        iteratorValue.set(iterator.location, iteratorValue.inc(iterator.location));
+    }
+    
+    void genIncrement()
+    {
+        iteratorValue.set(iteratorValue.location, iteratorValue.inc(iteratorValue.location));
     }
     
     mod.pushScope();
-    loop.gen(&genTop, &genBody);
+    loop.gen(&genTop, &genBody, &genIncrement);
     mod.popScope();
+}
+
+void genBreakStatement(ast.BreakStatement statement, Module mod)
+{
+    if (statement.target !is null) {
+        throw new CompilerPanic(statement.location, "targeted break is unimplemented.");
+    }
+    
+    if (auto loop = mod.topLoop) {
+        loop.genBreak();
+        mod.currentFunction.cfgTail.isExitBlock = true;
+        mod.currentFunction.cfgTail = new BasicBlock("postbreak");
+        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postbreak");
+        LLVMPositionBuilderAtEnd(mod.builder, bb);
+    } else {
+        throw new CompilerError(statement.location, "break statement must be in a loop or switch statement.");
+    }
+}
+
+void genContinueStatement(ast.ContinueStatement statement, Module mod)
+{
+    if (statement.target !is null) {
+        throw new CompilerPanic(statement.location, "targeted continue is unimplemented.");
+    }
+    
+    if (auto loop = mod.topLoop) {
+        loop.genContinue();
+        mod.currentFunction.cfgTail.isExitBlock = true;
+        mod.currentFunction.cfgTail = new BasicBlock("postcontinue");
+        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postcontinue");
+        LLVMPositionBuilderAtEnd(mod.builder, bb);
+    } else {
+        throw new CompilerError(statement.location, "continue statement must be in a loop.");
+    }
 }
 
 void genExpressionStatement(ast.ExpressionStatement statement, Module mod)
@@ -498,17 +556,19 @@ void genDeclarationStatement(ast.DeclarationStatement statement, Module mod)
 
 void genReturnStatement(ast.ReturnStatement statement, Module mod)
 {
-    mod.currentFunction.cfgTail.isExitBlock = true;
     auto t = mod.currentFunction.type.returnType;
     if (t.dtype == DType.Void) {
         LLVMBuildRetVoid(mod.builder);
-        return; 
+    } else {
+        auto retval = genExpression(statement.retval, mod);
+        retval = implicitCast(retval.location, retval, t);
+        LLVMBuildRet(mod.builder, retval.get());
     }
     
-    auto val = genExpression(statement.expression, mod);
-    
-    val = implicitCast(val.location, val, t);
-    LLVMBuildRet(mod.builder, val.get());
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    mod.currentFunction.cfgTail = new BasicBlock("postreturn");
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postreturn");
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
 }
 
 void genTryStatement(ast.TryStatement statement, Module mod)
@@ -548,12 +608,16 @@ void genTryStatement(ast.TryStatement statement, Module mod)
 
 void genThrowStatement(ast.ThrowStatement statement, Module mod)
 {
-    mod.currentFunction.cfgTail.isExitBlock = true;
-    auto expression = genExpression(statement.expression, mod);
-    if (expression.type.dtype != DType.Class) {
-        throw new CompilerError(expression.location, "can only throw class instances.");
+    auto exception = genExpression(statement.exception, mod);
+    if (exception.type.dtype != DType.Class) {
+        throw new CompilerError(exception.location, "can only throw class instances.");
     }
     LLVMBuildUnwind(mod.builder);
+    
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    mod.currentFunction.cfgTail = new BasicBlock("postthrow");
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postthrow");
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)

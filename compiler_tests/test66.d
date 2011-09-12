@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:0
+//? desc:Test aggregate foreach.
 
 int main()
 {
@@ -48,5 +49,27 @@ int main()
 	}
 	assert(last == 'r');
 	
+	// Break.
+	foreach(ref c; mem[0..str.length])
+	{
+		if(c == 'o')
+			c = 'a';
+		else
+			break;
+	}
+	foreach(i; 0..3)
+		assert(mem[i] == 'a');
+	assert(mem[3] == 'b');
+	
+	// Continue.
+	count = 0;
+	foreach(c; str)
+	{
+		if (c != 'o')
+			continue;
+		
+		count++;
+	}
+	assert(count == 2);
 	return 0;
 }

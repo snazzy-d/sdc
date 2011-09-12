@@ -74,6 +74,14 @@ Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
     } else if (tstream.peek.type == TokenType.Continue) {
         statement.type = StatementType.ContinueStatement;
         statement.node = parseContinueStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Default) {
+        statement.type = StatementType.DefaultStatement;
+        statement.node = parseDefaultStatement(tstream);
+    } else if (tstream.peek.type == TokenType.Case) {
+        statement.node = parseCaseStatement(tstream, statement.type);
+    } else if (tstream.peek.type == TokenType.Switch || tstream.peek.type == TokenType.Final) {
+        statement.type = StatementType.SwitchStatement;
+        statement.node = parseSwitchStatement(tstream);
     } else if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Colon) {
         statement.type = StatementType.LabeledStatement;
         statement.node = parseLabeledStatement(tstream);
@@ -121,29 +129,35 @@ BlockStatement parseBlockStatement(TokenStream tstream)
 GotoStatement parseGotoStatement(TokenStream tstream)
 {
     auto statement = new GotoStatement();
-    auto startLocation = tstream.peek.location;
+    statement.location = tstream.peek.location;
     
     match(tstream, TokenType.Goto);
     switch (tstream.peek.type) {
     case TokenType.Identifier:
         statement.type = GotoStatementType.Identifier;
-        statement.identifier = parseIdentifier(tstream);
+        statement.target = parseIdentifier(tstream);
         break;
     case TokenType.Default:
         statement.type = GotoStatementType.Default;
-        match(tstream, TokenType.Default);
+        tstream.get();
         break;
     case TokenType.Case:
         statement.type = GotoStatementType.Case;
+        tstream.get();
         if (tstream.peek.type != TokenType.Semicolon) {
-            statement.expression = parseExpression(tstream);
+            statement.caseTarget = parseExpression(tstream);
         }
         break;
     default:
         throw new CompilerError(tstream.peek.location, "expected identifier, case, or default.");
     }
-    statement.location = tstream.peek.location - startLocation;
-    match(tstream, TokenType.Semicolon);
+    statement.location.spanTo(tstream.previous.location);
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "goto statement");
+    }
+    tstream.get();
+    
     return statement;
 }
 
@@ -173,11 +187,20 @@ TryStatement parseTryStatement(TokenStream tstream)
 ThrowStatement parseThrowStatement(TokenStream tstream)
 {
     auto statement = new ThrowStatement();
-    statement.location = tstream.peek.location;
     
-    match(tstream, TokenType.Throw);
-    statement.expression = parseExpression(tstream);
-    match(tstream, TokenType.Semicolon);
+    auto throwToken = match(tstream, TokenType.Throw);
+    if (tstream.peek.type == TokenType.Semicolon) { // Unlike C++.
+        throw new CompilerError(tstream.peek.location, "throw statement must specify an exception.");
+    }
+    
+    statement.exception = parseExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(tstream.previous.location, "throw statement");
+    }
+    tstream.get();
+    
+    statement.location = statement.exception.location - throwToken.location;
     return statement; 
 }
 
@@ -401,19 +424,122 @@ ContinueStatement parseContinueStatement(TokenStream tstream)
     return statement;
 }
 
+SwitchStatement parseSwitchStatement(TokenStream tstream)
+{
+    auto statement = new SwitchStatement();
+    statement.location = tstream.peek.location;
+    
+    if (tstream.peek.type == TokenType.Final) {
+        statement.isFinal = true;
+        tstream.get();
+    }
+    
+    auto startToken = match(tstream, TokenType.Switch);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    
+    statement.controlExpression = parseExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "switch control expression", ")");
+    }
+    auto closeToken = tstream.get();
+    statement.location.spanTo(closeToken.location);
+    
+    statement.statement = parseStatement(tstream);
+    
+    return statement;
+}
+
+// Statement lists in case and default statements.
+Statement[] parseScopeStatementList(TokenStream tstream)
+{
+    Statement[] list;
+    
+    while (tstream.peek.type != TokenType.Case &&
+           tstream.peek.type != TokenType.Default &&
+           tstream.peek.type != TokenType.CloseBrace) {
+        list ~= parseStatement(tstream, true);
+    }
+    
+    return list;
+}
+
+SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType type)
+{
+    auto startToken = match(tstream, TokenType.Case);
+    auto firstExpression = parseConditionalExpression(tstream);
+    
+    SwitchSubStatement statement;
+    
+    if (tstream.peek.type == TokenType.DoubleDot) {
+        tstream.get();
+        
+        auto caseRange = new CaseRangeStatement();
+        caseRange.rangeBegin = firstExpression;
+        caseRange.rangeEnd = parseConditionalExpression(tstream);
+        
+        if (tstream.peek.type != TokenType.Colon) {
+            throw new MissingColonError(tstream.previous.location, "case range");
+        }
+        auto closeToken = tstream.get();
+        
+        caseRange.location = closeToken.location - startToken.location;
+        statement = caseRange;
+    } else {
+        auto caseList = new CaseListStatement();
+        caseList.cases ~= firstExpression;
+        if (tstream.peek.type == TokenType.Comma) {
+            tstream.get();
+        
+            while (tstream.peek.type != TokenType.Colon) {
+                caseList.cases ~= parseConditionalExpression(tstream);
+                if (tstream.peek.type != TokenType.Colon) {
+                    if (tstream.peek.type != TokenType.Comma) {
+                        throw new PairMismatchError(startToken.location, tstream.previous.location, "case list", ":");
+                    }
+                    tstream.get();
+                }
+            }
+        } else {
+            if (tstream.peek.type != TokenType.Colon) {
+                throw new MissingColonError(tstream.previous.location, "case expression");
+            }
+        }
+        auto closeToken = tstream.get();
+        
+        caseList.location = closeToken.location - startToken.location;
+        statement = caseList;
+    }
+    
+    statement.statementList = parseScopeStatementList(tstream);
+    return statement;
+}
+
+SwitchSubStatement parseDefaultStatement(TokenStream tstream)
+{
+    auto startToken = match(tstream, TokenType.Default);
+    
+    if (tstream.peek.type != TokenType.Colon) {
+        throw new MissingColonError(startToken.location, "switch default");
+    }
+    auto closeToken = tstream.get();
+    
+    auto statement = new SwitchSubStatement();
+    statement.location = closeToken.location - startToken.location;
+    statement.statementList = parseScopeStatementList(tstream);
+    return statement;
+}
+
 ReturnStatement parseReturnStatement(TokenStream tstream)
 {
     auto statement = new ReturnStatement();
     statement.location = tstream.peek.location;
     match(tstream, TokenType.Return);
     if (tstream.peek.type != TokenType.Semicolon) {
-        statement.expression = parseExpression(tstream);
+        statement.retval = parseExpression(tstream);
     }
     if (tstream.peek.type != TokenType.Semicolon) {
-        throw new MissingSemicolonError(
-            tstream.lookbehind(1).location,
-            "return statement"
-        );
+        throw new MissingSemicolonError(tstream.previous.location, "return statement");
     }
     tstream.get();
     return statement;
@@ -457,13 +583,22 @@ PragmaStatement parsePragmaStatement(TokenStream tstream)
 MixinStatement parseMixinStatement(TokenStream tstream)
 {
     auto statement = new MixinStatement();
-    statement.location = tstream.peek.location;
     
-    match(tstream, TokenType.Mixin);
-    match(tstream, TokenType.OpenParen);
-    statement.expression = parseConditionalExpression(tstream);
-    match(tstream, TokenType.CloseParen);
-    match(tstream, TokenType.Semicolon);
+    auto startToken = match(tstream, TokenType.Mixin);
+    auto openToken = match(tstream, TokenType.OpenParen);
+    statement.code = parseConditionalExpression(tstream);
+    
+    if (tstream.peek.type != TokenType.CloseParen) {
+        throw new PairMismatchError(openToken.location, tstream.previous.location, "mixin statement", ")");
+    }
+    auto closeToken = tstream.get();
+    
+    if (tstream.peek.type != TokenType.Semicolon) {
+        throw new MissingSemicolonError(closeToken.location, "mixin statement");
+    }
+    tstream.get();
+    
+    statement.location = closeToken.location - startToken.location;
     return statement;
 }
 
