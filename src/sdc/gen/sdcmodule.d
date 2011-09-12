@@ -29,6 +29,7 @@ import sdc.gen.value;
 import sdc.gen.sdcfunction;
 import sdc.gen.cfg;
 import sdc.gen.loop;
+import sdc.gen.sdcswitch;
 
 
 /**
@@ -51,6 +52,7 @@ class Module
     Value callingAggregate;
     ast.Access currentAccess = ast.Access.Public;
     Value[]* functionPointerArguments;
+    Switch* currentSwitch;
 
     //ReturnTypeHolder[] returnTypes;
     

@@ -484,6 +484,7 @@ SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType typ
         auto closeToken = tstream.get();
         
         caseRange.location = closeToken.location - startToken.location;
+        type = StatementType.CaseRangeStatement;
         statement = caseRange;
     } else {
         auto caseList = new CaseListStatement();
@@ -508,6 +509,7 @@ SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType typ
         auto closeToken = tstream.get();
         
         caseList.location = closeToken.location - startToken.location;
+        type = StatementType.CaseStatement;
         statement = caseList;
     }
     

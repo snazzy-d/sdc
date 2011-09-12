@@ -30,12 +30,25 @@ import sdc.gen.value;
 import sdc.gen.type;
 import sdc.gen.sdcpragma;
 import sdc.gen.sdcfunction;
+import sdc.gen.sdcswitch;
 import sdc.gen.loop;
 import sdc.parser.declaration;
 import sdc.parser.expression;
 import sdc.parser.statement;
 
 
+// Called for return, break, continue and throw.
+// TODO: goto?
+private void declareExitBlock(string name, Module mod)
+{
+    name = "post" ~ name;
+    mod.currentFunction.cfgTail.isExitBlock = true;
+    mod.currentFunction.cfgTail = new BasicBlock(name);
+    
+    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
+    mod.currentFunction.currentBasicBlock = bb;
+}
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
@@ -86,6 +99,18 @@ void genStatement(ast.Statement statement, Module mod)
         break;
     case ast.StatementType.ContinueStatement:
         genContinueStatement(cast(ast.ContinueStatement) statement.node, mod);
+        break;
+    case ast.StatementType.SwitchStatement:
+        genSwitchStatement(cast(ast.SwitchStatement) statement.node, mod);
+        break;
+    case ast.StatementType.CaseStatement:
+        genCaseStatement(cast(ast.CaseListStatement) statement.node, mod);
+        break;
+    case ast.StatementType.CaseRangeStatement:
+        genCaseRangeStatement(cast(ast.CaseRangeStatement) statement.node, mod);
+        break;
+    case ast.StatementType.DefaultStatement:
+        genDefaultStatement(cast(ast.SwitchSubStatement) statement.node, mod);
         break;
     case ast.StatementType.ExpressionStatement:
         genExpressionStatement(cast(ast.ExpressionStatement) statement.node, mod);
@@ -517,10 +542,7 @@ void genBreakStatement(ast.BreakStatement statement, Module mod)
     
     if (auto loop = mod.topLoop) {
         loop.genBreak();
-        mod.currentFunction.cfgTail.isExitBlock = true;
-        mod.currentFunction.cfgTail = new BasicBlock("postbreak");
-        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postbreak");
-        LLVMPositionBuilderAtEnd(mod.builder, bb);
+        declareExitBlock("break", mod);
     } else {
         throw new CompilerError(statement.location, "break statement must be in a loop or switch statement.");
     }
@@ -534,10 +556,7 @@ void genContinueStatement(ast.ContinueStatement statement, Module mod)
     
     if (auto loop = mod.topLoop) {
         loop.genContinue();
-        mod.currentFunction.cfgTail.isExitBlock = true;
-        mod.currentFunction.cfgTail = new BasicBlock("postcontinue");
-        auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postcontinue");
-        LLVMPositionBuilderAtEnd(mod.builder, bb);
+        declareExitBlock("continue", mod);
     } else {
         throw new CompilerError(statement.location, "continue statement must be in a loop.");
     }
@@ -565,10 +584,7 @@ void genReturnStatement(ast.ReturnStatement statement, Module mod)
         LLVMBuildRet(mod.builder, retval.get());
     }
     
-    mod.currentFunction.cfgTail.isExitBlock = true;
-    mod.currentFunction.cfgTail = new BasicBlock("postreturn");
-    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postreturn");
-    LLVMPositionBuilderAtEnd(mod.builder, bb);
+    declareExitBlock("return", mod);
 }
 
 void genTryStatement(ast.TryStatement statement, Module mod)
@@ -614,10 +630,7 @@ void genThrowStatement(ast.ThrowStatement statement, Module mod)
     }
     LLVMBuildUnwind(mod.builder);
     
-    mod.currentFunction.cfgTail.isExitBlock = true;
-    mod.currentFunction.cfgTail = new BasicBlock("postthrow");
-    auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, "postthrow");
-    LLVMPositionBuilderAtEnd(mod.builder, bb);
+    declareExitBlock("throw", mod);
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)

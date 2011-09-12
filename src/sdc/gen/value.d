@@ -133,6 +133,10 @@ abstract class Value
 
     /// Retrieve the actual LLVM value that matches the Type. 
     LLVMValueRef get() { fail("get"); assert(false); }
+    
+    /// Retrieve a reference to this value as an LLVM constant.
+    LLVMValueRef getConstant() { fail("get constant"); assert(false); }
+    
     /// Set Value's value. Is affected by lvalue.
     void set(Location location, Value val) { fail("set (by Value)"); assert(false); }
     void set(Location location, LLVMValueRef val) { fail("set (by LLVMValueRef)"); assert(false); }
@@ -376,6 +380,10 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     
     override Value performCast(Location location, Type t)
     {
+        if (t.equals(mType)) {
+            return this;
+        }
+        
         auto v = t.getValue(mModule, location);
         if (isIntegerDType(t.dtype)) {
             if (t.dtype == DType.Bool) {
@@ -403,6 +411,16 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
     override LLVMValueRef get()
     {
         return LLVMBuildLoad(mModule.builder, mValue, "primitive");
+    }
+    
+    // TODO: merge with get()?
+    override LLVMValueRef getConstant()
+    {
+        if (!isKnown) {
+            return super.getConstant();
+        } else {
+            return LLVMConstInt(mType.llvmType, mixin(C), !SIGNED);
+        }
     }
     
     override void set(Location location, Value val)
