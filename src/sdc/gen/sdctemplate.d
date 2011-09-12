@@ -43,6 +43,8 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
     if (tdecl.userData is null) {
         cache = new TemplateCacheNode();
         tdecl.userData = cache;
+    } else {
+        cache = cast(TemplateCacheNode) tdecl.userData;
     }
     
     TemplateCacheNode node;
@@ -111,6 +113,7 @@ Value genTemplateInstance(ast.TemplateInstance instance, Module mod)
 
 TemplateCacheNode retrieveCacheNodeFromSingleArgument(TemplateCacheNode root, ast.TemplateSingleArgument argument, Module mod)
 {
+    assert(root !is null);
     final switch (argument.type) with (ast.TemplateSingleArgumentType) { 
     case BasicType:
         auto type = primitiveTypeToBackendType(enforce(cast(ast.PrimitiveType) argument.node), mod);
