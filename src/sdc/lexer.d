@@ -201,6 +201,7 @@ void skipLineComment(TokenWriter tw)
 
 void skipBlockComment(TokenWriter tw)
 {
+    match(tw.source, '*');
     bool looping = true;
     while (looping) {
         if (tw.source.eof) {
