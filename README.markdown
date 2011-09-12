@@ -126,7 +126,7 @@ You'll need make and the latest DMD installed.
 Download the [Clang Binaries for Linux/x86](http://llvm.org/releases/download.html#2.9) copy every libLLVM*.a into a directory 'llvm' at the source directory's root.
 Make a directory named 'bin'.
 Run make.
-Copy bin/sdc into the root. Compile the runner using dmd, and run it to run the tests using SDC.
+Copy bin/sdc into the root. Compile the runner using dmd, and run it to run the tests using SDC. You'll need LLVM's `llc` in your `$PATH`, and `opt` if you want to use `--optimise`. If you build a 64 bit SDC, be aware that DMD has some bugs that make it crash in certain situations.
 
 You can build a 64 bit version of SDC using DMD, but it crashes when producing an error. It otherwise works, however.
 
