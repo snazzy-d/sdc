@@ -45,12 +45,30 @@ bool isLeftAssociative(ast.BinaryOperation operator)
     return operator != ast.BinaryOperation.Assign;
 }
 
-private bool isPointerArithmetic(Value lhs, Value rhs, ast.BinaryOperation operation)  // !!!
+private bool isPointerArithmetic(Value lhs, Value rhs, ast.BinaryOperation operation)
 {
     return (operation == ast.BinaryOperation.AddAssign ||
         operation == ast.BinaryOperation.SubAssign) &&
         lhs.type.dtype == DType.Pointer &&
         isIntegerDType(rhs.type.dtype);
+}
+
+private bool undergoesIntegralPromotion(ast.BinaryOperation operation)
+{
+    switch (operation) with (ast.BinaryOperation) {
+    case AddAssign, SubAssign, MulAssign, DivAssign, ModAssign,
+         AndAssign, OrAssign, XorAssign,
+         ShiftLeftAssign, SignedShiftRightAssign, UnsignedShiftRightAssign,
+         BitwiseOr, BitwiseXor, BitwiseAnd, Less, LessEqual,
+         Greater, GreaterEqual, Unordered, UnorderedEqual, LessGreater,
+         LessEqualGreater, UnorderedLessEqual, UnorderedLess,
+         UnorderedGreaterEqual, UnorderedGreater, LeftShift, SignedRightShift,
+         UnsignedRightShift, Addition, Multiplication, Division, Subtraction,
+         Modulus:
+        return true;
+    default:
+        return false;
+    }   
 }
 
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
@@ -144,6 +162,16 @@ Value performOperation(Module mod, Location location, ast.BinaryOperation operat
     }
     Value lhs = lhsex.gen(mod), rhs = rhsex.gen(mod);
     
+    void integralPromotion(ref Value v)
+    {
+        if (isIntegerDType(v.type.dtype) && v.type.dtype < DType.Int) {
+            v = v.performCast(location, new IntType(mod));
+        }
+    }
+    if (undergoesIntegralPromotion(operation)) {
+        integralPromotion(lhs);
+        integralPromotion(rhs);
+    }
       
     Value result = lhs;
     if (operation == ast.BinaryOperation.Assign) {
@@ -160,28 +188,28 @@ Value performOperation(Module mod, Location location, ast.BinaryOperation operat
         lhs.set(location, rhs);
         break;
     case AddAssign:
-        lhs.set(location, lhs.add(location, rhs));
+        lhs.initialise(location, lhs.add(location, rhs));
         break;
     case SubAssign:
-        lhs.set(location, lhs.sub(location, rhs));
+        lhs.initialise(location, lhs.sub(location, rhs));
         break;
     case MulAssign:
-        lhs.set(location, lhs.mul(location, rhs));
+        lhs.initialise(location, lhs.mul(location, rhs));
         break;
     case DivAssign:
-        lhs.set(location, lhs.div(location, rhs));
+        lhs.initialise(location, lhs.div(location, rhs));
         break;
     case ModAssign:
-        lhs.set(location, lhs.mod(location, rhs));
+        lhs.initialise(location, lhs.mod(location, rhs));
         break;
     case AndAssign:
-        lhs.set(location, lhs.and(location, rhs));
+        lhs.initialise(location, lhs.and(location, rhs));
         break;
     case OrAssign:
-        lhs.set(location, lhs.or(location, rhs));
+        lhs.initialise(location, lhs.or(location, rhs));
         break;
     case XorAssign:
-        lhs.set(location, lhs.xor(location, rhs));
+        lhs.initialise(location, lhs.xor(location, rhs));
         break;
     case CatAssign:
     case ShiftLeftAssign:
