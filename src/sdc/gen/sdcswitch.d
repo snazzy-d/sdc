@@ -127,7 +127,7 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
         cases ~= value.getConstant();
     }
     
-    auto switchInst = LLVMBuildSwitch(mod.builder, controlExpression.get(), switch_.defaultClause.target, switch_.cases.length);
+    auto switchInst = LLVMBuildSwitch(mod.builder, controlExpression.get(), switch_.defaultClause.target, cast(uint)switch_.cases.length);
     foreach (i, value; cases) {
         LLVMAddCase(switchInst, value, switch_.cases[i].target);
     }
