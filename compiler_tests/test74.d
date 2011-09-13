@@ -36,6 +36,16 @@ int main()
 	}
 	assert(!didRun);
 	
+	switch(0) { // Should not cause any warnings.
+		case 0:
+			didRun = true;
+			break;
+		default:
+			break;
+	}
+	
+	assert(didRun);
+	
     assert(transmogrify(1) == 10);
 	assert(transmogrify(2) == 20);
 	assert(transmogrify(3) == 30);

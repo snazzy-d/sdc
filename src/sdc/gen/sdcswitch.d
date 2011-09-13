@@ -47,8 +47,9 @@ private class SwitchBreakTarget : BreakTarget
     private:
     LLVMBasicBlockRef breakTarget;
     
-    this(LLVMBasicBlockRef postSwitchBB)
+    this(BasicBlock postSwitch, LLVMBasicBlockRef postSwitchBB)
     {
+        super(postSwitch);    
         this.breakTarget = postSwitchBB;
     }
     
@@ -96,7 +97,7 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     mod.currentFunction.currentBasicBlock = switchBB;
     
     mod.pushScope();
-    mod.pushBreakTarget(new SwitchBreakTarget(postSwitchBB));
+    mod.pushBreakTarget(new SwitchBreakTarget(postSwitch, postSwitchBB));
     
     genStatement(statement.statement, mod);
     

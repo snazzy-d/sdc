@@ -22,8 +22,24 @@ enum LoopStart
 }
 
 // Target for a break or continue statement.
-interface BreakTarget
+abstract class BreakTarget
 {
+    private:
+    BasicBlock breakTargetBlock;
+    
+    protected:
+    this(BasicBlock breakTargetBlock)
+    {
+        this.breakTargetBlock = breakTargetBlock;
+    }
+    
+    public:
+    BasicBlock breakBlock() @property
+    {
+        return breakTargetBlock;
+    }
+    
+    abstract:
     void genBreak(Location location, Module mod);
     void genContinue(Location location, Module mod);
 }
@@ -33,8 +49,9 @@ private class LoopBreakTarget : BreakTarget
     private:
     LLVMBasicBlockRef breakTarget, continueTarget;
     
-    this(LLVMBasicBlockRef endBB, LLVMBasicBlockRef incrementBB)
+    this(BasicBlock loopout, LLVMBasicBlockRef endBB, LLVMBasicBlockRef incrementBB)
     {
+        super(loopout);
         this.breakTarget = endBB;
         this.continueTarget = incrementBB;
     }
@@ -89,7 +106,7 @@ struct Loop
      */
     void gen(scope void delegate() genTop, scope void delegate() genBody, scope void delegate() genIncrement)
     {
-        mod.pushBreakTarget(new LoopBreakTarget(endBB, incrementBB));
+        mod.pushBreakTarget(new LoopBreakTarget(loopout, endBB, incrementBB));
         
         LLVMPositionBuilderAtEnd(mod.builder, topBB);
         mod.currentFunction.currentBasicBlock = topBB;

@@ -62,7 +62,7 @@ class BasicBlock
         return false;
     }
     
-    void visualise(File file, int accum = 0)
+    void visualise(File file = stdout, int accum = 0)
     {
         if (accum == 0) {
             file.writeln("digraph G {");
