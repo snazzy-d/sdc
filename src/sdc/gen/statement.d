@@ -54,7 +54,7 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
     if (mod.currentFunction.cfgTail is null) {
         // Entry block.
-        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock("block");
+        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock("entry");
     }
     foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);

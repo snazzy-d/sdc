@@ -63,7 +63,7 @@ class BasicBlock
                 continue;
             }
             if (child.fallsThrough) {
-                blockStack ~= Parent(child, 0);            
+                blockStack ~= Parent(child, 0);
             }
         } while (blockStack.length > 0);
         return false;

@@ -79,11 +79,6 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
         throw new CompilerError(statement.location, "switch must have a default clause.");
     }
     
-    // Case statements cannot implicitly fall through, but default can.
-    if (mod.currentFunction.cfgTail.fallsThrough) {
-        LLVMBuildBr(mod.builder, postSwitchBB);
-    }
-    
     LLVMMoveBasicBlockAfter(postSwitchBB, mod.currentFunction.currentBasicBlock);
     
     LLVMPositionBuilderAtEnd(mod.builder, topBB);
@@ -161,16 +156,19 @@ void genDefaultStatement(ast.SwitchSubStatement statement, Module mod)
         );
     }
     
+    auto popTail = mod.currentFunction.cfgTail;
+    
     auto result = genSwitchSubStatement("default", statement, mod);
-    if (result.block.fallsThrough) {
+    if (mod.currentFunction.cfgTail.fallsThrough) {
         LLVMBuildBr(mod.builder, switch_.postSwitchBB);
-        result.block.children ~= switch_.postSwitch;
-        result.block.fallsThrough = false;
+        mod.currentFunction.cfgTail.fallsThrough = false;
+        mod.currentFunction.cfgTail.children ~= switch_.postSwitch;
     }
+    
+    mod.currentFunction.cfgTail = popTail;
     
     switch_.defaultClause = SwitchDefault(statement.location, result.llvmBlock);
 }
-
 
 void genCaseStatement(ast.CaseListStatement statement, Module mod)
 {
@@ -179,10 +177,14 @@ void genCaseStatement(ast.CaseListStatement statement, Module mod)
         throw new CompilerError(statement.location, "case statement must be in a switch statement.");
     }
     
+    auto popTail = mod.currentFunction.cfgTail;
+    
     auto result = genSwitchSubStatement("case", statement, mod);
     if (result.block.fallsThrough) { // TODO: better location here.
         throw new CompilerError(statement.location, "implicit fall-through is illegal, use 'goto case'.");
     }
+    
+    mod.currentFunction.cfgTail = popTail;
     
     foreach (switchCase; statement.cases) {
         switch_.cases ~= SwitchCase(switchCase, result.llvmBlock);
