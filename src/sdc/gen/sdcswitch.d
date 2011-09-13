@@ -30,6 +30,27 @@ struct SwitchDefault
     LLVMBasicBlockRef target;
 }
 
+struct PendingGotoCase
+{
+    Location location;
+    LLVMBasicBlockRef insertAt;
+    BasicBlock block;
+    Value explicitTarget; // Optional.
+}
+
+private void consumeFallThroughGotos(ref PendingGotoCase[] gotos, LLVMBasicBlockRef target, BasicBlock targetBlock, Module mod)
+{
+    auto bb = mod.currentFunction.currentBasicBlock;
+    while (gotos.length) {
+        auto gotoCase = gotos[$-1];
+        LLVMPositionBuilderAtEnd(mod.builder, gotoCase.insertAt);
+        LLVMBuildBr(mod.builder, target);
+        gotoCase.block.children ~= targetBlock;
+        gotos = gotos[0..$-1];
+    }
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
+}
+
 struct Switch
 {
     Type type; // Type of control expression.
@@ -39,6 +60,9 @@ struct Switch
     
     SwitchDefault defaultClause;
     SwitchCase[] cases;
+    PendingGotoCase[] pendingGotoCases; // Dealt with at each clause.
+    PendingGotoCase[] pendingTargetedGotoCases; // Dealt with at the end.
+    
     bool wasDefault = false; // Bah.
 }
 
@@ -109,7 +133,21 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     }
     
     if (!switch_.wasDefault) {
-        LLVMBuildBr(mod.builder, switch_.postSwitchBB);
+        LLVMBuildBr(mod.builder, postSwitchBB);
+    }
+    
+    if (switch_.pendingGotoCases.length > 0) {
+        auto msg = "no case statement following goto case.";
+        auto error = new CompilerError(switch_.pendingGotoCases[0].location, msg);
+        CompilerError next = error;
+        foreach (gotoCase; switch_.pendingGotoCases[1..$]) {
+            next = next.more = new CompilerError(gotoCase.location, msg);
+        }
+        throw error;
+    }
+    
+    if (switch_.pendingTargetedGotoCases.length > 0) {
+        throw new CompilerPanic(switch_.pendingTargetedGotoCases[0].location, "targeted goto case is unimplemented.");
     }
     
     LLVMMoveBasicBlockAfter(postSwitchBB, mod.currentFunction.currentBasicBlock);
@@ -161,6 +199,8 @@ SwitchSubStatement genSwitchSubStatement(string name, ast.SwitchSubStatement sta
     
     auto sub = new BasicBlock(name);
     switch_.switchTop.children ~= sub;
+    
+    consumeFallThroughGotos(switch_.pendingGotoCases, bb, sub, mod);
     
     LLVMPositionBuilderAtEnd(mod.builder, bb);
     mod.currentFunction.currentBasicBlock = bb;

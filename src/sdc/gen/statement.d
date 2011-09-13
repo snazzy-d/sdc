@@ -167,7 +167,23 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
         LLVMBuildBr(mod.builder, p.bb);
         break;
     case ast.GotoStatementType.Case:
-        throw new CompilerPanic(statement.location, "goto case is unimplemented.");
+        if (auto switch_ = mod.currentSwitch) {
+            auto pendingGotoCase = PendingGotoCase(statement.location, mod.currentFunction.currentBasicBlock, parent);
+            
+            if (statement.caseTarget is null) {
+                switch_.pendingGotoCases ~= pendingGotoCase;
+            } else {
+                auto v = genExpression(statement.caseTarget, mod);
+                v = implicitCast(v.location, v, switch_.type);
+                pendingGotoCase.explicitTarget = v;
+                switch_.pendingTargetedGotoCases ~= pendingGotoCase;
+            }
+            
+            genUnreachableBlock("gotocase", mod);
+        } else {
+            throw new CompilerError(statement.location, "goto case must be in a switch statement.");
+        }
+        break;
     case ast.GotoStatementType.Default:
         throw new CompilerPanic(statement.location, "goto default is unimplemented.");
     }
