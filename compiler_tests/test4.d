@@ -1,6 +1,6 @@
 //T compiles:yes
 //T retval:12
-//T has-passed:no
+//T has-passed:yes
 // Tests the casting of booleans to ints. 
 
 int main()
