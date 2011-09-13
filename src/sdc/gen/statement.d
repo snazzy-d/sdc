@@ -43,7 +43,10 @@ private void declareExitBlock(string name, Module mod)
 {
     name = "post" ~ name;
     mod.currentFunction.cfgTail.isExitBlock = true;
-    mod.currentFunction.cfgTail = new BasicBlock(name);
+    
+    auto block = new BasicBlock(name);
+    block.isUnreachableBlock = true;
+    mod.currentFunction.cfgTail = block;
     
     auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
     LLVMPositionBuilderAtEnd(mod.builder, bb);

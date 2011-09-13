@@ -39,6 +39,7 @@ struct Switch
     
     SwitchDefault defaultClause;
     SwitchCase[] cases;
+    bool wasDefault = false; // Bah.
 }
 
 private class SwitchBreakTarget : BreakTarget
@@ -106,6 +107,10 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
         throw new CompilerError(statement.location, "switch must have a default clause.");
     }
     
+    if (!switch_.wasDefault) {
+        LLVMBuildBr(mod.builder, switch_.postSwitchBB);
+    }
+    
     LLVMMoveBasicBlockAfter(postSwitchBB, mod.currentFunction.currentBasicBlock);
     
     LLVMPositionBuilderAtEnd(mod.builder, topBB);
@@ -147,7 +152,9 @@ SwitchSubStatement genSwitchSubStatement(string name, ast.SwitchSubStatement sta
     
     auto bb = LLVMAppendBasicBlockInContext(mod.context, mod.currentFunction.llvmValue, toStringz(name));
     
-    if (mod.currentFunction.cfgTail.fallsThrough) {
+    if (switch_.wasDefault) {
+        switch_.wasDefault = false;
+    } else {
         LLVMBuildBr(mod.builder, bb);
     }
     
@@ -186,11 +193,12 @@ void genDefaultStatement(ast.SwitchSubStatement statement, Module mod)
     auto popTail = mod.currentFunction.cfgTail;
     
     auto result = genSwitchSubStatement("default", statement, mod);
-    if (mod.currentFunction.cfgTail.fallsThrough) {
-        LLVMBuildBr(mod.builder, switch_.postSwitchBB);
-        mod.currentFunction.cfgTail.fallsThrough = false;
+    if (!mod.currentFunction.cfgTail.isUnreachableBlock) {
         mod.currentFunction.cfgTail.children ~= switch_.postSwitch;
     }
+    
+    LLVMBuildBr(mod.builder, switch_.postSwitchBB);
+    switch_.wasDefault = true;
     
     mod.currentFunction.cfgTail = popTail;
     
@@ -207,8 +215,9 @@ void genCaseStatement(ast.CaseListStatement statement, Module mod)
     auto popTail = mod.currentFunction.cfgTail;
     
     auto result = genSwitchSubStatement("case", statement, mod);
-    if (result.block.fallsThrough) { // TODO: better location here.
-        throw new CompilerError(statement.location, "implicit fall-through is illegal, use 'goto case'.");
+    auto tail = mod.currentFunction.cfgTail;
+    if (!tail.isUnreachableBlock) { // TODO: better location here.
+        throw new CompilerError(statement.location, "implicit fall-through is illegal, use 'goto case' for explicit fall-through.");
     }
     
     mod.currentFunction.cfgTail = popTail;

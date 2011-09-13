@@ -20,6 +20,7 @@ class BasicBlock
     string name;
     bool isExitBlock = false;  /// e.g. return, throw, assert(false), etc.
     BasicBlock[] children;     /// Possible paths of control flow.
+    bool isUnreachableBlock = false; /// Dummy block inserted *after* an exit block.
     
     this(string name)
     {
