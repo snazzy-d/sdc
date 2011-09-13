@@ -8,6 +8,7 @@ module sdc.gen.loop;
 import llvm.c.Core;
 
 import sdc.compilererror;
+import sdc.location;
 import sdc.gen.sdcmodule;
 import sdc.gen.cfg;
 import sdc.gen.expression;
@@ -18,6 +19,36 @@ enum LoopStart
 {
     Top,
     Body
+}
+
+// Target for a break or continue statement.
+interface BreakTarget
+{
+    void genBreak(Location location, Module mod);
+    void genContinue(Location location, Module mod);
+}
+
+private class LoopBreakTarget : BreakTarget
+{
+    private:
+    LLVMBasicBlockRef breakTarget, continueTarget;
+    
+    this(LLVMBasicBlockRef endBB, LLVMBasicBlockRef incrementBB)
+    {
+        this.breakTarget = endBB;
+        this.continueTarget = incrementBB;
+    }
+    
+    public override:
+    void genBreak(Location location, Module mod)
+    {
+        LLVMBuildBr(mod.builder, breakTarget);
+    }
+    
+    void genContinue(Location location, Module mod)
+    {
+        LLVMBuildBr(mod.builder, continueTarget);
+    }
 }
 
 struct Loop
@@ -58,7 +89,7 @@ struct Loop
      */
     void gen(scope void delegate() genTop, scope void delegate() genBody, scope void delegate() genIncrement)
     {
-        mod.pushLoop(&this);
+        mod.pushBreakTarget(new LoopBreakTarget(endBB, incrementBB));
         
         LLVMPositionBuilderAtEnd(mod.builder, topBB);
         mod.currentFunction.currentBasicBlock = topBB;
@@ -85,16 +116,6 @@ struct Loop
         LLVMPositionBuilderAtEnd(mod.builder, endBB);
         mod.currentFunction.currentBasicBlock = endBB;
         
-        mod.popLoop();
-    }
-    
-    void genBreak()
-    {
-        LLVMBuildBr(mod.builder, endBB);
-    }
-    
-    void genContinue()
-    {
-        LLVMBuildBr(mod.builder, incrementBB);
+        mod.popBreakTarget();
     }
 }

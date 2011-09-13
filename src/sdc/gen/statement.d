@@ -540,8 +540,8 @@ void genBreakStatement(ast.BreakStatement statement, Module mod)
         throw new CompilerPanic(statement.location, "targeted break is unimplemented.");
     }
     
-    if (auto loop = mod.topLoop) {
-        loop.genBreak();
+    if (auto target = mod.topBreakTarget) {
+        target.genBreak(statement.location, mod);
         declareExitBlock("break", mod);
     } else {
         throw new CompilerError(statement.location, "break statement must be in a loop or switch statement.");
@@ -554,8 +554,8 @@ void genContinueStatement(ast.ContinueStatement statement, Module mod)
         throw new CompilerPanic(statement.location, "targeted continue is unimplemented.");
     }
     
-    if (auto loop = mod.topLoop) {
-        loop.genContinue();
+    if (auto target = mod.topBreakTarget) {
+        target.genContinue(statement.location, mod);
         declareExitBlock("continue", mod);
     } else {
         throw new CompilerError(statement.location, "continue statement must be in a loop.");

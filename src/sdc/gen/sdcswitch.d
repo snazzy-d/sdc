@@ -16,6 +16,7 @@ import sdc.gen.expression;
 import sdc.gen.sdcmodule;
 import sdc.gen.type;
 import sdc.gen.value;
+import sdc.gen.loop; // For BreakTarget.
 
 struct SwitchCase
 {
@@ -38,6 +39,28 @@ struct Switch
     
     SwitchDefault defaultClause;
     SwitchCase[] cases;
+}
+
+private class SwitchBreakTarget : BreakTarget
+{
+    private:
+    LLVMBasicBlockRef breakTarget;
+    
+    this(LLVMBasicBlockRef postSwitchBB)
+    {
+        this.breakTarget = postSwitchBB;
+    }
+    
+    public override:
+    void genBreak(Location location, Module mod)
+    {
+        LLVMBuildBr(mod.builder, breakTarget);
+    }
+    
+    void genContinue(Location location, Module mod)
+    {
+        throw new CompilerError(location, "continue statement must be in a loop.");
+    }
 }
 
 void genSwitchStatement(ast.SwitchStatement statement, Module mod)
@@ -72,7 +95,11 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     mod.currentFunction.currentBasicBlock = switchBB;
     
     mod.pushScope();
+    mod.pushBreakTarget(new SwitchBreakTarget(postSwitchBB));
+    
     genStatement(statement.statement, mod);
+    
+    mod.popBreakTarget();
     mod.popScope();
     
     if (switch_.defaultClause.target is null) {
