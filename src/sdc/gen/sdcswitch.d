@@ -28,6 +28,7 @@ struct SwitchDefault
 {
     Location location;
     LLVMBasicBlockRef target;
+    BasicBlock block;
 }
 
 struct PendingGotoCase
@@ -53,6 +54,7 @@ private void consumeFallThroughGotos(ref PendingGotoCase[] gotos, LLVMBasicBlock
 
 struct Switch
 {
+    bool isFinal;
     Type type; // Type of control expression.
     BasicBlock switchTop;
     BasicBlock postSwitch;
@@ -62,6 +64,7 @@ struct Switch
     SwitchCase[] cases;
     PendingGotoCase[] pendingGotoCases; // Dealt with at each clause.
     PendingGotoCase[] pendingTargetedGotoCases; // Dealt with at the end.
+    PendingGotoCase[] pendingGotoDefaults; // Dealt with at the end.
     
     bool wasDefault = false; // Bah.
 }
@@ -109,7 +112,7 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     
     auto postSwitch = new BasicBlock("postswitch");
     
-    auto switch_ = Switch(switchType, top, postSwitch, postSwitchBB);
+    auto switch_ = Switch(statement.isFinal, switchType, top, postSwitch, postSwitchBB);
     
     auto popSwitch = mod.currentSwitch;
     mod.currentSwitch = &switch_;
@@ -144,6 +147,10 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
             next = next.more = new CompilerError(gotoCase.location, msg);
         }
         throw error;
+    }
+    
+    if (!switch_.isFinal) {
+        consumeFallThroughGotos(switch_.pendingGotoDefaults, switch_.defaultClause.target, switch_.defaultClause.block, mod);
     }
     
     if (switch_.pendingTargetedGotoCases.length > 0) {
@@ -243,7 +250,7 @@ void genDefaultStatement(ast.SwitchSubStatement statement, Module mod)
     
     mod.currentFunction.cfgTail = popTail;
     
-    switch_.defaultClause = SwitchDefault(statement.location, result.llvmBlock);
+    switch_.defaultClause = SwitchDefault(statement.location, result.llvmBlock, result.block);
 }
 
 void genCaseStatement(ast.CaseListStatement statement, Module mod)

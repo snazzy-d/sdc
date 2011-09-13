@@ -185,7 +185,22 @@ void genGotoStatement(ast.GotoStatement statement, Module mod)
         }
         break;
     case ast.GotoStatementType.Default:
-        throw new CompilerPanic(statement.location, "goto default is unimplemented.");
+        if (auto switch_ = mod.currentSwitch) {
+            if (switch_.isFinal) {
+                throw new CompilerError(statement.location, "final switch cannot have default statement.");
+            }
+            
+            if (switch_.defaultClause.target !is null) {
+                LLVMBuildBr(mod.builder, switch_.defaultClause.target);
+                parent.children ~= switch_.defaultClause.block;
+            } else {
+                switch_.pendingGotoDefaults ~= PendingGotoCase(statement.location, mod.currentFunction.currentBasicBlock, parent);
+            }
+            
+            genUnreachableBlock("gotodefault", mod);
+        } else {
+            throw new CompilerError(statement.location, "goto default must be in a switch statement.");
+        }
     }
 }
 
