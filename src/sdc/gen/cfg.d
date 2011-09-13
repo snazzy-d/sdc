@@ -10,8 +10,6 @@ module sdc.gen.cfg;
 
 import std.array;
 import std.stdio;
-import std.typecons;
-import llvm.c.Core;
 
 
 /**
@@ -41,31 +39,25 @@ class BasicBlock
     /// Can this block reach the target block, without passing through an exit block?
     bool canReach(BasicBlock target)
     {
-        if (this is target) {
-            return fallsThrough;
-        }
-        alias Tuple!(BasicBlock, "node", size_t, "childToSearch") Parent;
-        Parent[] blockStack;
         bool[BasicBlock] considered;
-        blockStack ~= Parent(this, 0);
-        do {
-            if (blockStack[$ - 1].node is target) {
+        BasicBlock[] Q;
+        Q ~= this;
+        considered[this] = true;
+        
+        while (!Q.empty) {
+            auto node = Q.front;
+            Q.popFront;
+            if (node is target) {
                 return true;
             }
-            considered[blockStack[$ - 1].node] = true;
-            if (blockStack[$ - 1].childToSearch >= blockStack[$ - 1].node.children.length) {
-                blockStack.popBack;
-                continue;
+            if (!node.isExitBlock) foreach (child; node.children) {
+                if (!(child in considered)) {
+                    Q ~= child;
+                    considered[child] = true;
+                }
             }
-            auto child = blockStack[$ - 1].node.children[blockStack[$ - 1].childToSearch];
-            blockStack[$ - 1].childToSearch++;
-            if ((child in considered) !is null) {
-                continue;
-            }
-            if (child.fallsThrough) {
-                blockStack ~= Parent(child, 0);
-            }
-        } while (blockStack.length > 0);
+        }
+        
         return false;
     }
     
