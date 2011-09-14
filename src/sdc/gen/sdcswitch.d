@@ -303,7 +303,7 @@ void genCaseStatement(ast.CaseListStatement statement, Module mod)
     
     auto result = genSwitchSubStatement("case", statement, mod);
     auto tail = mod.currentFunction.cfgTail;
-    if (!tail.isUnreachableBlock) {
+    if (statement.statementList.length != 0 && !tail.isUnreachableBlock) {
         throw new IllegalFallThroughError(statement);
     }
     

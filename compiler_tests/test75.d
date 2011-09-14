@@ -21,6 +21,7 @@ int transmogrify(int input)
 		case 4, 5, 6:
 			goto default;
 		case 7:
+		case 8:
 			output += 20;
 			break;
 		default:
@@ -46,6 +47,7 @@ int main()
 	assert(transmogrify(2) == 10);
 	assert(transmogrify(3) == 5);
 	assert(transmogrify(7) == 20);
+	assert(transmogrify(8) == 20);
 	
 	assert(transmogrify(4) == -1);
 	assert(transmogrify(5) == -1);
