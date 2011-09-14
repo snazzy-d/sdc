@@ -201,8 +201,15 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
             throw new CompilerPanic(end.location, "runtime switch cases are unimplemented.");
         }
         
-        //cases ~= begin.getConstant();
-        throw new CompilerPanic(end.location - begin.location, "range case is unimplemented.");
+        auto isInvalidRange = begin.gt(begin.location, end);
+        assert(isInvalidRange.isKnown, "greater-than doesn't handle isKnown");
+        if (isInvalidRange.knownBool) {
+            throw new CompilerError(begin.location,
+                format("first case %s is greater than last case %s.",
+                    begin.toKnownString(), end.toKnownString()
+                )
+            );
+        }
     }
     
     auto switchInst = LLVMBuildSwitch(mod.builder, controlExpression.get(), switch_.defaultClause.target, cast(uint)switch_.cases.length);

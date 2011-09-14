@@ -276,6 +276,25 @@ abstract class Value
             throw new CompilerError(location, msg);
         }
     }
+    
+    /**
+     * Override this to convert a known value to a string.
+     * Is allowed to assume that isKnown is true.
+     * Do not call directly - use toKnownString.
+     */
+    protected string getKnownAsString()
+    {
+        auto className = typeid(this).name;
+        throw new CompilerPanic(location, format("%s does not implement getKnownAsString().", className));
+    }
+    
+    final string toKnownString()
+    {
+        if (!isKnown) {
+            throw new CompilerPanic(location, "attempt to toKnownString() on non-isKnown value.");
+        }
+        return getKnownAsString();
+    }
 }
 
 mixin template SimpleImportToModule()
@@ -618,6 +637,11 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         initialise(location, val);
         isKnown = true;
         mixin(C ~ " = n;");
+    }
+    
+    override string getKnownAsString()
+    {
+        return to!string(mixin(C));
     }
 }
 

@@ -466,21 +466,59 @@ Statement[] parseScopeStatementList(TokenStream tstream)
 
 SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType type)
 {
+    CompilerError badRangeCase(string fixHint)
+    {
+        auto loc = tstream.previous.location;
+        loc.column += loc.length;
+        loc.length = 1;
+        auto error = new CompilerError(loc, "case range statement uses the form 'case begin: .. case end:'.");
+        error.fixHint = fixHint;
+        return error;
+    }
+    
     auto startToken = match(tstream, TokenType.Case);
     auto firstExpression = parseConditionalExpression(tstream);
     
-    SwitchSubStatement statement;
+    auto cases = [firstExpression];
     
     if (tstream.peek.type == TokenType.DoubleDot) {
+        throw badRangeCase(":");
+    }
+    
+    if (tstream.peek.type == TokenType.Comma) { // Case list.
+        tstream.get();
+        
+        while (tstream.peek.type != TokenType.Colon) {
+            cases ~= parseConditionalExpression(tstream);
+            if (tstream.peek.type != TokenType.Colon) {
+                if (tstream.peek.type != TokenType.Comma) {
+                    throw new PairMismatchError(startToken.location, tstream.previous.location, "case list", ":");
+                }
+                tstream.get();
+            }
+        }
+    } else { // Single case.
+        if (tstream.peek.type == TokenType.DoubleDot) {
+            throw badRangeCase(":");
+        }
+        
+        if (tstream.peek.type != TokenType.Colon) {
+            throw new MissingColonError(tstream.previous.location, "case expression");
+        }
+    }
+    auto firstCloseToken = tstream.get();
+    
+    SwitchSubStatement statement;
+    
+    if (tstream.peek.type == TokenType.DoubleDot) { // Range case.
+        if (cases.length > 1) {
+            auto loc = cases[$-1].location - cases[1].location;
+            throw new CompilerError(loc, "range case begin must only have one case.");
+        }
         auto rangeToken = tstream.get();
         
         if (tstream.peek.type != TokenType.Case) {
-            auto loc = rangeToken.location;
-            loc.length = 1;
-            loc.column += 2;
-            auto error = new CompilerError(loc, "case range statement uses the form 'case begin .. case end:'.");
-            error.fixHint = "case";
-            throw error;
+            throw badRangeCase("case");
         }
         tstream.get();
         
@@ -494,33 +532,14 @@ SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType typ
         auto closeToken = tstream.get();
         
         caseRange.location = closeToken.location - startToken.location;
-        type = StatementType.CaseRangeStatement;
         statement = caseRange;
+        type = StatementType.CaseRangeStatement;
     } else {
         auto caseList = new CaseListStatement();
-        caseList.cases ~= firstExpression;
-        if (tstream.peek.type == TokenType.Comma) {
-            tstream.get();
-        
-            while (tstream.peek.type != TokenType.Colon) {
-                caseList.cases ~= parseConditionalExpression(tstream);
-                if (tstream.peek.type != TokenType.Colon) {
-                    if (tstream.peek.type != TokenType.Comma) {
-                        throw new PairMismatchError(startToken.location, tstream.previous.location, "case list", ":");
-                    }
-                    tstream.get();
-                }
-            }
-        } else {
-            if (tstream.peek.type != TokenType.Colon) {
-                throw new MissingColonError(tstream.previous.location, "case expression");
-            }
-        }
-        auto closeToken = tstream.get();
-        
-        caseList.location = closeToken.location - startToken.location;
-        type = StatementType.CaseStatement;
+        caseList.cases = cases;
+        caseList.location = firstCloseToken.location - startToken.location;
         statement = caseList;
+        type = StatementType.CaseStatement;
     }
     
     statement.statementList = parseScopeStatementList(tstream);
