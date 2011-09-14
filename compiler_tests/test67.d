@@ -12,8 +12,8 @@ int main()
 	
 	assert(count == 10);
 	
-	int i = str.length - 1;
-	int j = 0;
+	size_t i = str.length - 1;
+	size_t j = 0;
 	for(; i > -1; i--)
 	{
 		assert(str[i] == str2[j]);
