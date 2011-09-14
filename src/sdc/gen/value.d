@@ -502,19 +502,34 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         return v;
     }
     
-    override Value inc(Location location)
+    static if(!is(T == bool)) override Value inc(Location location)
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
         v.initialise(location, this.add(location, one));
+        
+        if (isKnown) {
+            auto known = mixin(C);
+            ++known;
+            mixin("v." ~ C ~ " = known;");
+            v.isKnown = true;
+        }
+        
         return v;
     }
     
-    override Value dec(Location location)
+    static if(!is(T == bool)) override Value dec(Location location)
     {
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
         v.initialise(location, this.sub(location, one));
+        
+        if (isKnown) {
+            auto known = mixin(C);
+            --known;
+            mixin("v." ~ C ~ " = known;");
+            v.isKnown = true;
+        }
         return v;
     }
     
