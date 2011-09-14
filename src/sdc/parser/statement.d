@@ -472,6 +472,16 @@ SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType typ
     SwitchSubStatement statement;
     
     if (tstream.peek.type == TokenType.DoubleDot) {
+        auto rangeToken = tstream.get();
+        
+        if (tstream.peek.type != TokenType.Case) {
+            auto loc = rangeToken.location;
+            loc.length = 1;
+            loc.column += 2;
+            auto error = new CompilerError(loc, "case range statement uses the form 'case begin .. case end:'.");
+            error.fixHint = "case";
+            throw error;
+        }
         tstream.get();
         
         auto caseRange = new CaseRangeStatement();

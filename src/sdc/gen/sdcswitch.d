@@ -24,6 +24,20 @@ struct SwitchCase
     LLVMBasicBlockRef target;
 }
 
+struct SwitchRangeCase
+{
+    ast.ConditionalExpression begin, end;
+    LLVMBasicBlockRef target;
+}
+
+class IllegalFallThroughError : CompilerError
+{
+    this(ast.SwitchSubStatement statement)
+    {
+        super(statement.location, "implicit fall-through is illegal, use 'goto case' for explicit fall-through.");
+    }
+}
+
 struct SwitchDefault
 {
     Location location;
@@ -39,19 +53,6 @@ struct PendingGotoCase
     Value explicitTarget; // Optional.
 }
 
-private void consumeFallThroughGotos(ref PendingGotoCase[] gotos, LLVMBasicBlockRef target, BasicBlock targetBlock, Module mod)
-{
-    auto bb = mod.currentFunction.currentBasicBlock;
-    while (gotos.length) {
-        auto gotoCase = gotos[$-1];
-        LLVMPositionBuilderAtEnd(mod.builder, gotoCase.insertAt);
-        LLVMBuildBr(mod.builder, target);
-        gotoCase.block.children ~= targetBlock;
-        gotos = gotos[0..$-1];
-    }
-    LLVMPositionBuilderAtEnd(mod.builder, bb);
-}
-
 struct Switch
 {
     bool isFinal;
@@ -62,6 +63,7 @@ struct Switch
     
     SwitchDefault defaultClause;
     SwitchCase[] cases;
+    SwitchRangeCase[] ranges;
     PendingGotoCase[] pendingGotoCases; // Dealt with at each clause.
     PendingGotoCase[] pendingTargetedGotoCases; // Dealt with at the end.
     PendingGotoCase[] pendingGotoDefaults; // Dealt with at the end.
@@ -90,6 +92,19 @@ private class SwitchBreakTarget : BreakTarget
     {
         throw new CompilerError(location, "continue statement must be in a loop.");
     }
+}
+
+private void consumeFallThroughGotos(ref PendingGotoCase[] gotos, LLVMBasicBlockRef target, BasicBlock targetBlock, Module mod)
+{
+    auto bb = mod.currentFunction.currentBasicBlock;
+    while (gotos.length) {
+        auto gotoCase = gotos[$-1];
+        LLVMPositionBuilderAtEnd(mod.builder, gotoCase.insertAt);
+        LLVMBuildBr(mod.builder, target);
+        gotoCase.block.children ~= targetBlock;
+        gotos = gotos[0..$-1];
+    }
+    LLVMPositionBuilderAtEnd(mod.builder, bb);
 }
 
 void genSwitchStatement(ast.SwitchStatement statement, Module mod)
@@ -164,13 +179,30 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     mod.currentFunction.cfgTail = top;
     
     LLVMValueRef[] cases;
-    foreach(switchCase; switch_.cases) {
+    foreach (switchCase; switch_.cases) {
         auto value = genConditionalExpression(switchCase.case_, mod);
         value = implicitCast(value.location, value, switchType);
         if (!value.isKnown) {
             throw new CompilerPanic(value.location, "runtime switch cases are unimplemented.");
         }
         cases ~= value.getConstant();
+    }
+    
+    foreach (range; switch_.ranges) {
+        auto begin = genConditionalExpression(range.begin, mod);
+        begin = implicitCast(begin.location, begin, switchType);
+        if (!begin.isKnown) {
+            throw new CompilerPanic(begin.location, "runtime switch cases are unimplemented.");
+        }
+        
+        auto end = genConditionalExpression(range.end, mod);
+        end = implicitCast(end.location, end, switchType);
+        if (!end.isKnown) {
+            throw new CompilerPanic(end.location, "runtime switch cases are unimplemented.");
+        }
+        
+        //cases ~= begin.getConstant();
+        throw new CompilerPanic(end.location - begin.location, "range case is unimplemented.");
     }
     
     auto switchInst = LLVMBuildSwitch(mod.builder, controlExpression.get(), switch_.defaultClause.target, cast(uint)switch_.cases.length);
@@ -264,8 +296,8 @@ void genCaseStatement(ast.CaseListStatement statement, Module mod)
     
     auto result = genSwitchSubStatement("case", statement, mod);
     auto tail = mod.currentFunction.cfgTail;
-    if (!tail.isUnreachableBlock) { // TODO: better location here.
-        throw new CompilerError(statement.location, "implicit fall-through is illegal, use 'goto case' for explicit fall-through.");
+    if (!tail.isUnreachableBlock) {
+        throw new IllegalFallThroughError(statement);
     }
     
     mod.currentFunction.cfgTail = popTail;
@@ -277,9 +309,20 @@ void genCaseStatement(ast.CaseListStatement statement, Module mod)
 
 void genCaseRangeStatement(ast.CaseRangeStatement statement, Module mod)
 {
-    if (mod.currentSwitch is null) {
+    auto switch_ = mod.currentSwitch;
+    if (switch_ is null) {
         throw new CompilerError(statement.location, "case range statement must be in a switch statement.");
     }
     
-    throw new CompilerPanic(statement.location, "case range statements are unimplemented.");
+    auto popTail = mod.currentFunction.cfgTail;
+    
+    auto result = genSwitchSubStatement("caserange", statement, mod);
+    auto tail = mod.currentFunction.cfgTail;
+    if (!tail.isUnreachableBlock) {
+        throw new IllegalFallThroughError(statement);
+    }
+    
+    mod.currentFunction.cfgTail = popTail;
+    
+    switch_.ranges ~= SwitchRangeCase(statement.rangeBegin, statement.rangeEnd, result.llvmBlock);
 }
