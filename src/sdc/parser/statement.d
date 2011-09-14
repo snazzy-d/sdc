@@ -489,6 +489,10 @@ SwitchSubStatement parseCaseStatement(TokenStream tstream, out StatementType typ
         tstream.get();
         
         while (tstream.peek.type != TokenType.Colon) {
+            if (tstream.peek.type == TokenType.Case) {
+                throw new CompilerError(tstream.peek.location, "case list statment uses the form 'case a, b, c:'.");
+            }
+            
             cases ~= parseConditionalExpression(tstream);
             if (tstream.peek.type != TokenType.Colon) {
                 if (tstream.peek.type != TokenType.Comma) {
