@@ -1636,8 +1636,13 @@ class ScopeValue : Value
         }
         if (store.storeType == StoreType.Scope) {
             return new ScopeValue(mModule, location, store.getScope());
+        } else if (store.storeType == StoreType.Value) {
+            return _scope.get(name).value;
+        } else if (store.storeType == StoreType.Function) {
+            return new Functions(mModule, location, store.getFunctions());
+        } else {
+            assert(false, to!string(store.storeType));
         }
-        return _scope.get(name).value;
     }
     
     override Value importToModule(Module mod)
