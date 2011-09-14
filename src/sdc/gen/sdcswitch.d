@@ -174,18 +174,24 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
     
     LLVMMoveBasicBlockAfter(postSwitchBB, mod.currentFunction.currentBasicBlock);
     
+    // Build switch.
     LLVMPositionBuilderAtEnd(mod.builder, topBB);
     mod.currentFunction.currentBasicBlock = topBB;
     mod.currentFunction.cfgTail = top;
     
-    LLVMValueRef[] cases;
+    struct LlvmCase
+    {
+        LLVMValueRef value;
+        LLVMBasicBlockRef target;
+    }
+    LlvmCase[] cases;
     foreach (switchCase; switch_.cases) {
         auto value = genConditionalExpression(switchCase.case_, mod);
         value = implicitCast(value.location, value, switchType);
         if (!value.isKnown) {
             throw new CompilerPanic(value.location, "runtime switch cases are unimplemented.");
         }
-        cases ~= value.getConstant();
+        cases ~= LlvmCase(value.getConstant(), switchCase.target);
     }
     
     foreach (range; switch_.ranges) {
@@ -201,20 +207,39 @@ void genSwitchStatement(ast.SwitchStatement statement, Module mod)
             throw new CompilerPanic(end.location, "runtime switch cases are unimplemented.");
         }
         
-        auto isInvalidRange = begin.gt(begin.location, end);
-        assert(isInvalidRange.isKnown, "greater-than doesn't handle isKnown");
-        if (isInvalidRange.knownBool) {
+        auto cmp = begin.gt(begin.location, end);
+        assert(cmp.isKnown);
+        if (cmp.knownBool) {
             throw new CompilerError(begin.location,
                 format("first case %s is greater than last case %s.",
                     begin.toKnownString(), end.toKnownString()
                 )
             );
         }
+        cmp.lvalue = true;
+        
+        // Add all cases in the known range.
+        // Yes, I'm confused as well.
+        cases ~= LlvmCase(begin.getConstant(), range.target);
+        auto it = begin.inc(begin.location);
+        it.lvalue = true;
+        
+        assert(it.isKnown);
+        for (;;) {
+            cmp.set(cmp.location, it.lte(end.location, end));
+            assert(cmp.isKnown);
+            if (!cmp.knownBool) {
+                break;
+            }
+            
+            cases ~= LlvmCase(it.getConstant(), range.target);
+            it.set(it.location, it.inc(it.location));
+        }
     }
     
     auto switchInst = LLVMBuildSwitch(mod.builder, controlExpression.get(), switch_.defaultClause.target, cast(uint)switch_.cases.length);
-    foreach (i, value; cases) {
-        LLVMAddCase(switchInst, value, switch_.cases[i].target);
+    foreach (case_; cases) {
+        LLVMAddCase(switchInst, case_.value, case_.target);
     }
     
     LLVMPositionBuilderAtEnd(mod.builder, postSwitchBB);
