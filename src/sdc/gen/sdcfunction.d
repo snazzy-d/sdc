@@ -185,6 +185,8 @@ class Function
     LLVMBasicBlockRef currentBasicBlock;
     Label[string] labels;
     PendingGoto[] pendingGotos;
+    /// This function was rewritten from void main to int main.
+    bool convertedFromVoidMain;
     
     LLVMValueRef llvmValue;
     

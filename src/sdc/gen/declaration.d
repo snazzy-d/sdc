@@ -185,6 +185,11 @@ void declareFunctionDeclaration(ast.FunctionDeclaration decl, ast.DeclarationDef
     }
     decl.userData = fn;
     
+    if (fn.simpleName == "main" && fn.type.linkage == ast.Linkage.D) {
+        fn.type.returnType = new IntType(mod);
+        fn.convertedFromVoidMain = true;
+    }
+    
     fn.type.declare();
     fn.add(mod);
 }
@@ -347,13 +352,17 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
         if (fn.type.returnType.dtype == DType.Void) {
             LLVMBuildRetVoid(mod.builder);
         } else {
-            throw new CompilerError(
-                decl.returnType.location, 
-                format(`function "%s" expected to return a value of type "%s".`,
-                    mod.currentFunction.simpleName, 
-                    fn.type.returnType.name()
-                )
-            );
+            if (fn.convertedFromVoidMain) {
+                LLVMBuildRet(mod.builder, LLVMConstInt(LLVMInt32Type(), 0, false));
+            } else {
+                throw new CompilerError(
+                    decl.returnType.location, 
+                    format(`function "%s" expected to return a value of type "%s".`,
+                        mod.currentFunction.simpleName, 
+                        fn.type.returnType.name()
+                    )
+                );
+            }
         }
     } else if (!mod.currentFunction.cfgTail.isExitBlock) {
         LLVMBuildRet(mod.builder, LLVMGetUndef(fn.type.returnType.llvmType));
