@@ -480,7 +480,7 @@ void genForeachStatement(ast.ForeachStatement statement, Module mod)
             mod.currentScope.add(extractIdentifier(index.identifier), new Store(exposedIndex));
         }
         
-        auto expr = indexValue.lt(indexValue.location, aggregateLength);
+        auto expr = indexValue.lt(indexValue.location, aggregateLength.performCast(statement.location, indexType));
         LLVMBuildCondBr(mod.builder, expr.get(), loop.bodyBB, loop.endBB);
     }
     
