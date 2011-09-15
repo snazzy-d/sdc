@@ -2,7 +2,7 @@
 
 GDC ?= gdc
 DMD ?= dmd
-LLVMDIR ?= llvm64
+LLVMDIR ?= llvm
 SOURCE_WILDCARDS = \
 	src/sdc/*.d \
 	src/sdc/ast/*.d \
