@@ -32,7 +32,7 @@ class CompilerError : Exception
     
     this(Location loc, string message)
     {
-        super(format(locationFormat(), loc, message));
+        super(format(locationFormat(), loc.toString(), message));
         location = loc;
     }
     
@@ -159,11 +159,11 @@ class ArgumentMismatchError : CompilerError
 
 void errorMessageOnly(Location loc, string message)
 {
-    stderr.writeln(format("%s: error: %s", loc, message));
+    stderr.writeln(format("%s: error: %s", loc.toString(), message));
 }
 
 void warning(Location loc, string message)
 {
-    stderr.writeln(format("%s: warning: %s", loc, message));
+    stderr.writeln(format("%s: warning: %s", loc.toString(), message));
     outputCaretDiagnostics(loc, null);
 }
