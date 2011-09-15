@@ -20,7 +20,7 @@ int main()
 	assert(count == 2);
 	
 	char* mem = cast(char*)malloc(str.length);
-	foreach(int i, c; str)
+	foreach(size_t i, c; str)
 	{
 		mem[i] = c;
 	}
