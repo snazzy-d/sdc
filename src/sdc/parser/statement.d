@@ -108,21 +108,39 @@ Statement parseStatement(TokenStream tstream, bool allowEmptyStatement = false)
     return statement;
 }
 
+/**
+ * Parses either a single statement if the first token is not a opening
+ * brace, or all the statements after an opening brace. Expects a closing
+ * brace if the first token was an open brace.
+ *
+ * Throws:
+ *   CompilerError if braces don't match.
+ *   Propagates throws from @parseStatement.
+ * Returns:
+ *   Array of statements.
+ */
+Statement[] parseStatements(TokenStream tstream)
+{
+    Statement[] statements;
+
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        match(tstream, TokenType.OpenBrace);
+        while (tstream.peek.type != TokenType.CloseBrace) {
+            statements ~= parseStatement(tstream, true);
+        }
+        match(tstream, TokenType.CloseBrace);
+    } else {
+        statements = [parseStatement(tstream)];
+    }
+
+    return statements;
+}
+
 BlockStatement parseBlockStatement(TokenStream tstream)
 {
     auto block = new BlockStatement();
     block.location = tstream.peek.location;
-    
-    if (tstream.peek.type == TokenType.OpenBrace) {
-        match(tstream, TokenType.OpenBrace);
-        while (tstream.peek.type != TokenType.CloseBrace) {
-            block.statements ~= parseStatement(tstream, true);
-        }
-        match(tstream, TokenType.CloseBrace);
-    } else {
-        block.statements ~= parseStatement(tstream);
-    }
-    
+    block.statements = parseStatements(tstream);
     return block;
 }
 
