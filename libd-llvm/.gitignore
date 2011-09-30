@@ -16,6 +16,7 @@ sys.d
 
 # Assorted directories.
 /llvm
+/llvm32
 /llvm64
 /jni
 
