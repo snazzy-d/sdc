@@ -1,7 +1,7 @@
 include makefile.common
 
 PLATFORM = $(shell uname -s)
-ARCHFLAG ?= -m32
+ARCHFLAG ?= -m64
 SOURCE = $(SOURCE_WILDCARDS)
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport -version=SDCCOMPILER
 OBJ = sdc.o
