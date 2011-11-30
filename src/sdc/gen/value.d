@@ -63,7 +63,7 @@ abstract class Value
     /// Callbacks that are called before a set takes place.
     protected void delegate(Value val)[] mSetPreCallbacks;
     /// Callbacks that are called after a set takes place.
-    protected void delegate(Value va)[] mSetPostCallbacks;
+    protected void delegate(Value val)[] mSetPostCallbacks;
     protected bool mIsKnown = false;
     
     /// All Values should be able to be created with just a Module and a Location.
