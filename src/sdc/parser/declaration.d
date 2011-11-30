@@ -230,47 +230,20 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
         templateDeclaration.constraint = parseConstraint(tstream);
     }
     
-    bool hasAnyContract = false;
-    contractLoop:
-    while (tstream.peek.type == TokenType.Body ||
-        tstream.peek.type == TokenType.In ||
-        tstream.peek.type == TokenType.Out) {
-        hasAnyContract = true;
-        
-        auto token = tstream.get();
-        switch(token.type) {
-            case TokenType.Body:
-                declaration.functionBody = parseFunctionBody(tstream);
-                break contractLoop; // Body must always be last.
-            case TokenType.In:
-                if (declaration.inContract !is null) {
-                    throw new CompilerError(token.location, "function can only have one in contract.");
-                }
-                declaration.inContract = parseFunctionBody(tstream);
-                break;
-            case TokenType.Out:
-                if (declaration.outContract !is null) {
-                    throw new CompilerError(token.location, "function can only have one out contract.");
-                }
-                declaration.outContract = parseFunctionBody(tstream);
-                break;
-            default:
-                assert(false);
-        }
-    }
-    
-    if (!hasAnyContract) {
-        if(tstream.peek.type == TokenType.OpenBrace) {
-            declaration.functionBody = parseFunctionBody(tstream);
-        } else if (tstream.peek.type != TokenType.Semicolon) {
-            throw new MissingSemicolonError(tstream.previous.location, "function declaration");
-        } else {
-            tstream.get(); // Function declaration without definition.
-        }
-    }
-    
     declaration.location.spanTo(declaration.parameterList.location);
-    
+
+    if (tstream.peek.type == TokenType.OpenBrace) {
+                declaration.functionBody = parseFunctionBody(tstream);
+    } else if (tstream.peek.type == TokenType.Body ||
+               tstream.peek.type == TokenType.In ||
+               tstream.peek.type == TokenType.Out) {
+        parseContracts(tstream, declaration);
+    } else if (tstream.peek.type == TokenType.Semicolon) {
+        tstream.get(); // Function declaration without definition.
+    } else {
+        throw new MissingSemicolonError(tstream.previous.location, "function declaration");
+    }
+
     if (templateDeclaration !is null) {
         if (declaration.functionBody is null) {
             throw new CompilerError(tstream.previous.location, "function template must have a body.");
@@ -292,11 +265,68 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
     return declaration;
 }
 
+void parseContracts(TokenStream tstream, FunctionDeclaration declaration)
+{
+    while(tstream.peek.type == TokenType.Body ||
+          tstream.peek.type == TokenType.In ||
+          tstream.peek.type == TokenType.Out) {
+        auto contract = parseFunctionBody(tstream);
+
+        final switch (contract.bodyType) with (FunctionBodyType) {
+        case In:
+            declaration.inContract = contract;
+            break;
+        case Out:
+            declaration.outContract = contract;
+            break;
+        case Body:
+            declaration.functionBody = contract;
+            return; // Done
+        }
+    }
+
+    if (tstream.peek.type == TokenType.OpenBrace) {
+        throw new CompilerError(tstream.peek.location,
+            "expected 'body { ... }' after 'in' or 'out' not '{ ... }'.");
+    }
+
+    throw new CompilerError(declaration.location,
+        "must have a 'body { ... }' block if 'in' and/or 'out' are used.");
+}
+
 FunctionBody parseFunctionBody(TokenStream tstream)
 {
     auto functionBody = new FunctionBody();
     functionBody.location = tstream.peek.location;
-    functionBody.statement = parseBlockStatement(tstream);
+
+    auto startToken = tstream.peek;
+    switch (startToken.type) with (TokenType) {
+    case OpenBrace:
+        break;
+    case In:
+        functionBody.bodyType = FunctionBodyType.In;
+        tstream.get();
+        break;
+    case Out:
+        functionBody.bodyType = FunctionBodyType.Out;
+        tstream.get();
+        break;
+    case Body:
+        functionBody.bodyType = FunctionBodyType.Body;
+        tstream.get();
+        break;
+    default:
+        throw new CompilerError(tstream.peek.location,
+            "invalid function body type, expected 'in', 'out', 'body' or '{'.");
+    }
+
+    if (tstream.peek.type != TokenType.OpenBrace) {
+        throw new CompilerError(tstream.peek.location,
+            format("expected '{' after '%s' got '%s'.", startToken, tstream.peek));
+    }
+
+    functionBody.statements = parseStatements(tstream);
+
     return functionBody;
 }
 
