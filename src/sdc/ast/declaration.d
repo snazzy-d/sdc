@@ -65,10 +65,17 @@ class FunctionDeclaration : Node
     FunctionBody outContract; // Optional.
 }
 
+enum FunctionBodyType
+{
+	In,
+	Out,
+	Body,
+}
+
 class FunctionBody : Node
 {
-    BlockStatement statement;
-    // TODO
+    FunctionBodyType bodyType;
+    Statement[] statements;
 }
 
 enum TypeType

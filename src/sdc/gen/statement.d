@@ -54,10 +54,7 @@ private void genUnreachableBlock(string name, Module mod)
 
 void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 {
-    if (mod.currentFunction.cfgTail is null) {
-        // Entry block.
-        mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock("entry");
-    }
+    assert(mod.currentFunction.cfgTail !is null);
     foreach (i, statement; blockStatement.statements) {
         genStatement(statement, mod);
     }

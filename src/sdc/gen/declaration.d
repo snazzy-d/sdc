@@ -340,7 +340,12 @@ void genFunctionBody(ast.FunctionBody functionBody, ast.FunctionDeclaration decl
     }
     fn.currentBasicBlock = LLVMGetLastBasicBlock(fn.llvmValue);
     assert(fn.currentBasicBlock !is null);
-    genBlockStatement(functionBody.statement, mod);
+
+    assert(mod.currentFunction.cfgTail is null);
+    mod.currentFunction.cfgEntry = mod.currentFunction.cfgTail = new BasicBlock("entry");
+    foreach(statement; functionBody.statements) {
+        genStatement(statement, mod);
+    }
     
     if (!mod.currentFunction.pendingGotos.empty) {
         auto pending = mod.currentFunction.pendingGotos.front;
