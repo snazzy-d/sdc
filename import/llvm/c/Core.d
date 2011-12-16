@@ -56,7 +56,7 @@ alias __LLVMOpaqueModule* LLVMModuleRef;
  * class.
  */
 //struct __LLVMOpaqueType {}
-typedef /*__LLVMOpaqueType*/ int* LLVMTypeRef;
+alias /*__LLVMOpaqueType*/ int* LLVMTypeRef;
 
 /**
  * When building recursive types using LLVMRefineType, LLVMTypeRef values may
@@ -67,10 +67,10 @@ struct __LLVMOpaqueTypeHandle {}
 alias __LLVMOpaqueTypeHandle* LLVMTypeHandleRef;
 
 //struct __LLVMOpaqueValue {}
-typedef /*__LLVMOpaqueValue*/ int* LLVMValueRef;
+alias /*__LLVMOpaqueValue*/ int* LLVMValueRef;
 
 //struct __LLVMOpaqueBasicBlock {}
-typedef /*__LLVMOpaqueBasicBlock*/ int* LLVMBasicBlockRef;
+alias /*__LLVMOpaqueBasicBlock*/ int* LLVMBasicBlockRef;
 
 struct __LLVMOpaqueBuilder {}
 alias __LLVMOpaqueBuilder* LLVMBuilderRef;

@@ -751,7 +751,7 @@ class ClassType : Type
     {
         static Type[Module] importCache;
         if (auto p = mod in importCache) {
-            return *p;
+            return cast(ClassType) *p;
         }
         
         auto type = new ClassType(mod);

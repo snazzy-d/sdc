@@ -161,7 +161,7 @@ void realmain(string[] args)
             if (!file.exists(arg)) {
                 throw new CompilerError(format(`source "%s" could not be found.`, arg));
             }
-            if (!file.isfile(arg)) {
+            if (!file.isFile(arg)) {
                 throw new CompilerError(format(`source "%s" is not a file.`, arg));
             }
         

@@ -8,4 +8,5 @@ SOURCE_WILDCARDS = \
 	src/sdc/ast/*.d \
 	src/sdc/parser/*.d \
 	src/sdc/gen/*.d \
-	src/sdc/java/*.d
+	src/sdc/java/*.d \
+	src/sdc/interpreter/*.d

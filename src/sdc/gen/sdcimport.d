@@ -75,24 +75,24 @@ void genImportBind(ast.ImportBind importBind, Module mod)
 
 private string searchImport(string impPath)
 {
-    if (file.exists(impPath) && file.isfile(impPath)) {
+    if (file.exists(impPath) && file.isFile(impPath)) {
         return impPath;
     } else {
         auto impInterfacePath = impPath ~ 'i';
-        if (file.exists(impInterfacePath) && file.isfile(impInterfacePath)) {
+        if (file.exists(impInterfacePath) && file.isFile(impInterfacePath)) {
             return impInterfacePath;
         }
     }
     
     foreach (importPath; importPaths) {
         auto fullPath = importPath ~ path.sep ~ impPath;
-        if (file.exists(fullPath) && file.isfile(fullPath)) {
+        if (file.exists(fullPath) && file.isFile(fullPath)) {
             return fullPath;
         }
         
         fullPath ~= 'i';
         
-        if (file.exists(fullPath) && file.isfile(fullPath)) {
+        if (file.exists(fullPath) && file.isFile(fullPath)) {
             return fullPath;
         }
     }
