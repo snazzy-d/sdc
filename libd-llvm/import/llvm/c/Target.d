@@ -25,9 +25,9 @@ extern(C):
 enum LLVMByteOrdering { BigEndian, LittleEndian };
 
 struct __LLVMOpaqueTargetData {}
-typedef  __LLVMOpaqueTargetData* LLVMTargetDataRef;
+alias  __LLVMOpaqueTargetData* LLVMTargetDataRef;
 struct __LLVMStructLayout {}
-typedef __LLVMStructLayout* LLVMStructLayoutRef;
+alias __LLVMStructLayout* LLVMStructLayoutRef;
 
 /* Declare all of the target-initialization functions that are available. */
 /*
