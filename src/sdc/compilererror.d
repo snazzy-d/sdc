@@ -6,9 +6,11 @@
  */ 
 module sdc.compilererror;
 
+import std.algorithm;
 import std.stdio;
 import std.string;
 
+import sdc.aglobal;
 import sdc.terminal;
 import sdc.location;
 
@@ -162,8 +164,28 @@ void errorMessageOnly(Location loc, string message)
     stderr.writeln(format("%s: error: %s", loc.toString(), message));
 }
 
-void warning(Location loc, string message)
+void warning(Location loc, Warning id)
 {
-    stderr.writeln(format("%s: warning: %s", loc.toString(), message));
+    if (disableAllWarnings || disabledWarnings.count(id) > 0) {
+        return;
+    }
+    stderr.writefln("%s: warning (ID:%s): %s", loc.toString(), cast(uint) id, warningToMessage(id));
     outputCaretDiagnostics(loc, null);
+}
+
+enum Warning : uint
+{
+    NestedBlockComment,
+    UnreachableStatement,
+}
+
+private string warningToMessage(Warning id)
+{
+    final switch (id) with (Warning) {
+    case NestedBlockComment:
+        return "'/*' inside of block comment.";
+    case UnreachableStatement:
+        return "statement is unreachable.";
+    }
+    assert(false);
 }

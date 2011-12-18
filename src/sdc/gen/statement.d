@@ -63,7 +63,7 @@ void genBlockStatement(ast.BlockStatement blockStatement, Module mod)
 void genStatement(ast.Statement statement, Module mod)
 {
     if (!mod.currentFunction.cfgEntry.canReach(mod.currentFunction.cfgTail)) {
-        warning(statement.location, "statement is unreachable.");
+        warning(statement.location, Warning.UnreachableStatement);
     }
     switch (statement.type) {
     default:

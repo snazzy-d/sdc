@@ -210,7 +210,7 @@ void skipBlockComment(TokenWriter tw)
         if (tw.source.peek == '/') {
             match(tw.source, '/');
             if (tw.source.peek == '*') {
-                warning(tw.source.location, "'/*' inside of block comment.");
+                warning(tw.source.location, Warning.NestedBlockComment);
             }
         } else if (tw.source.peek == '*') {
             match(tw.source, '*');

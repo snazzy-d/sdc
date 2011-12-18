@@ -60,6 +60,8 @@ bool isDebug = true;
 bool unittestsEnabled = false;
 bool coloursEnabled = true;
 bool verboseCompile = false;
+bool disableAllWarnings = false;
+Warning[] disabledWarnings;
 bool PIC = false;
 int bits;
 string[] importPaths;
