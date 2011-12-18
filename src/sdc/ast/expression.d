@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -76,6 +76,29 @@ enum BinaryOperation
     Multiplication,  // *
     Modulus,  // %
     Pow,  // ^^
+}
+
+bool isLeftAssociative(BinaryOperation operator)
+{
+    return operator != BinaryOperation.Assign;
+}
+
+bool undergoesIntegralPromotion(BinaryOperation operation)
+{
+    switch (operation) with (BinaryOperation) {
+    case AddAssign, SubAssign, MulAssign, DivAssign, ModAssign,
+         AndAssign, OrAssign, XorAssign,
+         ShiftLeftAssign, SignedShiftRightAssign, UnsignedShiftRightAssign,
+         BitwiseOr, BitwiseXor, BitwiseAnd, Less, LessEqual,
+         Greater, GreaterEqual, Unordered, UnorderedEqual, LessGreater,
+         LessEqualGreater, UnorderedLessEqual, UnorderedLess,
+         UnorderedGreaterEqual, UnorderedGreater, LeftShift, SignedRightShift,
+         UnsignedRightShift, Addition, Multiplication, Division, Subtraction,
+         Modulus:
+        return true;
+    default:
+        return false;
+    }   
 }
 
 class BinaryExpression : Node

@@ -40,35 +40,12 @@ Value genExpression(ast.Expression expression, Module mod)
     return v;
 }
 
-bool isLeftAssociative(ast.BinaryOperation operator)
-{
-    return operator != ast.BinaryOperation.Assign;
-}
-
 private bool isPointerArithmetic(Value lhs, Value rhs, ast.BinaryOperation operation)
 {
     return (operation == ast.BinaryOperation.AddAssign ||
         operation == ast.BinaryOperation.SubAssign) &&
         lhs.type.dtype == DType.Pointer &&
         isIntegerDType(rhs.type.dtype);
-}
-
-private bool undergoesIntegralPromotion(ast.BinaryOperation operation)
-{
-    switch (operation) with (ast.BinaryOperation) {
-    case AddAssign, SubAssign, MulAssign, DivAssign, ModAssign,
-         AndAssign, OrAssign, XorAssign,
-         ShiftLeftAssign, SignedShiftRightAssign, UnsignedShiftRightAssign,
-         BitwiseOr, BitwiseXor, BitwiseAnd, Less, LessEqual,
-         Greater, GreaterEqual, Unordered, UnorderedEqual, LessGreater,
-         LessEqualGreater, UnorderedLessEqual, UnorderedLess,
-         UnorderedGreaterEqual, UnorderedGreater, LeftShift, SignedRightShift,
-         UnsignedRightShift, Addition, Multiplication, Division, Subtraction,
-         Modulus:
-        return true;
-    default:
-        return false;
-    }   
 }
 
 Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
@@ -168,7 +145,7 @@ Value performOperation(Module mod, Location location, ast.BinaryOperation operat
             v = v.performCast(location, new IntType(mod));
         }
     }
-    if (undergoesIntegralPromotion(operation)) {
+    if (ast.undergoesIntegralPromotion(operation)) {
         integralPromotion(lhs);
         integralPromotion(rhs);
     }
@@ -336,8 +313,8 @@ ExpressionOrOperation[] expressionsAsPostfix(ast.BinaryExpression expression)
             continue;
         }
         while (!operationStack.empty) {
-            if ((isLeftAssociative(element.operation) && element.operation <= operationStack.front) ||
-                (!isLeftAssociative(element.operation) && element.operation < operationStack.front)) {
+            if ((ast.isLeftAssociative(element.operation) && element.operation <= operationStack.front) ||
+                (!ast.isLeftAssociative(element.operation) && element.operation < operationStack.front)) {
                 postfix ~= ExpressionOrOperation(operationStack.front);
                 operationStack.popFront;
             } else {
