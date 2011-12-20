@@ -295,8 +295,8 @@ void usage()
     writeln("  --pic:                 generate position independent code.");
     writeln("  --nw:                  disable all warnings.");
     writeln("  --we:                  treat all warnings as errors.");
-    writeln("  --disable-warning:     disable a specific warning (see warning message for ID).");
-    writeln("  --warning-as-error:    treat a specific warning as an error. (ditto).");
+    writeln("  --disable-warning:     disable a specific warning.");
+    writeln("  --warning-as-error:    treat a specific warning as an error.");
     writeln("  -m32:                  synonym for '--arch=x86'.");
     writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
