@@ -124,7 +124,9 @@ void realmain(string[] args)
                "m64", { arch = "x86-64"; },
                "m32", { arch = "x86"; },
                "nw", &disableAllWarnings,
-               "disable-warning-id", (string, string arg) { disabledWarnings ~= cast(Warning) parse!uint(arg); },
+               "we", &treatWarningsAsErrors,
+               "disable-warning", (string, string arg) { disabledWarnings ~= cast(Warning) parse!uint(arg); },
+               "warning-as-error", (string, string arg) { errorWarnings ~= cast(Warning) parse!uint(arg); },
                "c", &skipLink,
                "o", &outputName,
                "V", { verboseCompile = true; },
@@ -292,7 +294,9 @@ void usage()
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
     writeln("  --pic:                 generate position independent code.");
     writeln("  --nw:                  disable all warnings.");
-    writeln("  --disable-warning-id:  disable a specific warning (see warning message for ID).");
+    writeln("  --we:                  treat all warnings as errors.");
+    writeln("  --disable-warning:     disable a specific warning (see warning message for ID).");
+    writeln("  --warning-as-error:    treat a specific warning as an error. (ditto).");
     writeln("  -m32:                  synonym for '--arch=x86'.");
     writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");

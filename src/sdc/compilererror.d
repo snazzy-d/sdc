@@ -169,6 +169,9 @@ void warning(Location loc, Warning id)
     if (disableAllWarnings || disabledWarnings.count(id) > 0) {
         return;
     }
+    if (treatWarningsAsErrors || errorWarnings.count(id) > 0) {
+        throw new CompilerError("treating warning as error.", new CompilerError(loc, warningToMessage(id)));
+    }
     stderr.writefln("%s: warning (ID:%s): %s", loc.toString(), cast(uint) id, warningToMessage(id));
     outputCaretDiagnostics(loc, null);
 }
