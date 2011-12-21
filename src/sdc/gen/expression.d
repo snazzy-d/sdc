@@ -72,67 +72,7 @@ Value genConditionalExpression(ast.ConditionalExpression expression, Module mod)
     return a;
 }
 
-struct ExpressionOrOperation 
-{
-    ast.UnaryExpression expression;
-    ast.BinaryOperation operation;
-    Value value;
-    
-    this(ast.BinaryOperation operation)
-    {
-        this.operation = operation;
-    }
-    
-    this(ast.UnaryExpression expression)
-    {
-        this.expression = expression;
-    }
-    
-    this(Value value)
-    {
-        this.value = value;
-    }
-    
-    bool isExpression() @property
-    {
-        return expression !is null;
-    }
-    
-    Value gen(Module mod)
-    in { assert(isExpression || value !is null); }
-    body
-    {
-        if (value !is null) {
-            return value;
-        }
-        return genUnaryExpression(expression, mod);
-    }
-}
-
-Value genBinaryExpression(ast.BinaryExpression expression, Module mod)
-{
-    auto postfix = expressionsAsPostfix(expression);
-    ExpressionOrOperation[] valueStack;
-    foreach (element; postfix) {
-        if (element.isExpression) {
-            valueStack = element ~ valueStack;
-        } else {
-            if (valueStack.length < 2) {
-                throw new CompilerPanic(expression.location, "invalid expression made it to backend.");
-            }
-            auto rhs = valueStack.front;
-            valueStack.popFront;
-            auto lhs = valueStack.front;
-            valueStack.popFront;
-            
-            valueStack = ExpressionOrOperation(performOperation(mod, expression.location, element.operation, lhs, rhs)) ~ valueStack;
-        }
-    } 
-    
-    return valueStack.front.gen(mod);
-}
-
-Value performOperation(Module mod, Location location, ast.BinaryOperation operation, ExpressionOrOperation lhsex, ExpressionOrOperation rhsex)
+Value performOperation(T)(Module mod, Location location, ast.BinaryOperation operation, T lhsex, T rhsex)
 {
     if (operation == ast.BinaryOperation.LogicalAnd || operation == ast.BinaryOperation.LogicalOr) {
         return performLogical(mod, location, operation, lhsex, rhsex);
@@ -267,7 +207,7 @@ Value performOperation(Module mod, Location location, ast.BinaryOperation operat
     return result;
 }
 
-Value performLogical(Module mod, Location location, ast.BinaryOperation operation, ExpressionOrOperation lhsex, ExpressionOrOperation rhsex)
+Value performLogical(T)(Module mod, Location location, ast.BinaryOperation operation, T lhsex, T rhsex)
 in
 {
     assert(operation == ast.BinaryOperation.LogicalAnd || operation == ast.BinaryOperation.LogicalOr);
@@ -299,49 +239,6 @@ body
         LLVMPositionBuilderAtEnd(mod.builder, exit);
     }
     return lhs;
-}
-
-ExpressionOrOperation[] expressionsAsPostfix(ast.BinaryExpression expression)
-{
-    // Ladies and gentlemen, Mr. Edsger Dijkstra's shunting-yard algorithm! (polite applause)
-    ExpressionOrOperation[] infix = gatherExpressions(expression), postfix;
-    ast.BinaryOperation[] operationStack;
-    
-    foreach (element; infix) {
-        if (element.isExpression) {
-            postfix ~= element;
-            continue;
-        }
-        while (!operationStack.empty) {
-            if ((ast.isLeftAssociative(element.operation) && element.operation <= operationStack.front) ||
-                (!ast.isLeftAssociative(element.operation) && element.operation < operationStack.front)) {
-                postfix ~= ExpressionOrOperation(operationStack.front);
-                operationStack.popFront;
-            } else {
-                break;
-            }
-        }
-        operationStack = element.operation ~ operationStack;    
-    }
-    
-    foreach (operation; operationStack) {
-        postfix ~= ExpressionOrOperation(operation);
-    }
-    
-    return postfix;
-}
-
-/// Gather all expressions and operations into a single list without evaluating them.
-ExpressionOrOperation[] gatherExpressions(ast.BinaryExpression expression)
-{
-    ExpressionOrOperation[] list;
-    while (expression.operation != ast.BinaryOperation.None) {
-        list ~= ExpressionOrOperation(expression.lhs);
-        list ~= ExpressionOrOperation(expression.operation);
-        expression = expression.rhs;
-    }
-    list ~= ExpressionOrOperation(expression.lhs);
-    return list;
 }
 
 Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
@@ -394,6 +291,9 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     }
     return val;
 }
+
+alias BinaryExpressionProcessor!(Value, Module, genUnaryExpression, performOperation) processor;
+alias processor.genBinaryExpression genBinaryExpression;
 
 Value genNewExpression(ast.NewExpression expression, Module mod)
 {

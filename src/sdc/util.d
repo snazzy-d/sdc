@@ -1,18 +1,22 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2011 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.util;
 
 import core.runtime;
+import std.array;
 import std.conv;
 import std.file;
 import std.random;
 import std.stdio;
 import std.string;
 import std.process;
-import sdc.gen.sdcmodule; 
+
+import sdc.compilererror;
+import sdc.ast.expression;
+import sdc.gen.sdcmodule;
 
 bool contains(T)(const(T)[] l, const T a)
 {
@@ -69,6 +73,7 @@ template MultiMixin(alias A, T...)
     }
 }
 
+// My lord, this has got to go.
 mixin template ImportToModule(T, string ARGS)
 {
     override T importToModule(Module mod)
@@ -192,4 +197,112 @@ string randomString(size_t length)
         str[i] = c;
     }
     return str.idup;    
+}
+
+
+template BinaryExpressionProcessor(V, M, alias F, alias G)
+{
+    struct ExpressionOrOperation
+    {
+        UnaryExpression expression;
+        BinaryOperation operation;
+        V userdata;
+        
+        this(BinaryOperation operation)
+        {
+            this.operation = operation;
+        }
+        
+        this(UnaryExpression expression)
+        {
+            this.expression = expression;
+        }
+        
+        this(V userdata)
+        {
+            this.userdata = userdata;
+        }
+        
+        bool isExpression() @property
+        {
+            return expression !is null;
+        }
+        
+        V gen(M manager)
+        in { assert(isExpression || userdata !is null); }
+        body
+        {
+            if (userdata !is null) {
+                return userdata;
+            }
+            return F(expression, manager);
+        }
+    }
+    
+    /// Gather all expressions and operations into a single list without evaluating them.
+    ExpressionOrOperation[] gatherExpressions(BinaryExpression expression)
+    {
+        ExpressionOrOperation[] list;
+        while (expression.operation != BinaryOperation.None) {
+            list ~= ExpressionOrOperation(expression.lhs);
+            list ~= ExpressionOrOperation(expression.operation);
+            expression = expression.rhs;
+        }
+        list ~= ExpressionOrOperation(expression.lhs);
+        return list;
+    }
+    
+    ExpressionOrOperation[] expressionsAsPostfix(BinaryExpression expression)
+    {
+        // Ladies and gentlemen, Mr. Edsger Dijkstra's shunting-yard algorithm! (polite applause)
+        ExpressionOrOperation[] infix = gatherExpressions(expression);
+        ExpressionOrOperation[] postfix;
+        BinaryOperation[] operationStack;
+        
+        foreach (element; infix) {
+            if (element.isExpression) {
+                postfix ~= element;
+                continue;
+            }
+            while (!operationStack.empty) {
+                if ((isLeftAssociative(element.operation) && element.operation <= operationStack.front) ||
+                    (!isLeftAssociative(element.operation) && element.operation < operationStack.front)) {
+                    postfix ~= ExpressionOrOperation(operationStack.front);
+                    operationStack.popFront;
+                } else {
+                    break;
+                }
+            }
+            operationStack = element.operation ~ operationStack;    
+        }
+        
+        foreach (operation; operationStack) {
+            postfix ~= ExpressionOrOperation(operation);
+        }
+        
+        return postfix;
+    }
+    
+    V genBinaryExpression(BinaryExpression expression, M mod)
+    {
+        auto postfix = expressionsAsPostfix(expression);
+        ExpressionOrOperation[] valueStack;
+        foreach (element; postfix) {
+            if (element.isExpression) {
+                valueStack = element ~ valueStack;
+            } else {
+                if (valueStack.length < 2) {
+                    throw new CompilerPanic(expression.location, "invalid expression made it to backend.");
+                }
+                auto rhs = valueStack.front;
+                valueStack.popFront;
+                auto lhs = valueStack.front;
+                valueStack.popFront;
+                
+                valueStack = ExpressionOrOperation(G(mod, expression.location, element.operation, lhs, rhs)) ~ valueStack;
+            }
+        } 
+        
+        return valueStack.front.gen(mod);
+    }
 }
