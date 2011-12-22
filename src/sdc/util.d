@@ -203,8 +203,9 @@ string randomString(size_t length)
  * Contains a function, genBinaryExpression.
  * 
  * The function handles converting the AST's infix representation
- * and handles fixity, calls a function F to create each side of
- * an expression and calls a function G to handle the whole expression.
+ * to postfix and handles fixity, calls a function F to create each
+ * side of an expression and calls a function G to handle the whole
+ * expression.
  * 
  * Params:
  *   V - the Value type that represents a single node in an expression.
