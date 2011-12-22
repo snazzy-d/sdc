@@ -199,7 +199,25 @@ string randomString(size_t length)
     return str.idup;    
 }
 
-
+/**
+ * Contains a function, genBinaryExpression.
+ * 
+ * The function handles converting the AST's infix representation
+ * and handles fixity, calls a function F to create each side of
+ * an expression and calls a function G to handle the whole expression.
+ * 
+ * Params:
+ *   V - the Value type that represents a single node in an expression.
+ *       see gen.Value and interpreter.i.Value.
+ *   M - a manager object that is passed to both F and G.
+ *       see gen.Module and interpreter.Interpreter.
+ *   F - a function of the form V function(UnaryExpression, M).
+ *       called on each terminal of an expression to get its value.
+ *   G - a function of the form V function(T)(M, Location, BinaryOperation, T, T),
+ *       where T is an ExpressionOrOperation that are Expressions, and thus
+ *       contain a V. They don't take a V, because the terminals cannot
+ *       be eagerly evaluated in all cases.
+ */
 template BinaryExpressionProcessor(V, M, alias F, alias G)
 {
     struct ExpressionOrOperation
