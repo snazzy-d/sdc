@@ -51,10 +51,10 @@ enum lto_codegen_model{
 
 
 /** opaque reference to a loaded object module */
-typedef /*struct LTOModule*/ void*         lto_module_t;
+alias /*struct LTOModule*/ void*         lto_module_t;
 
 /** opaque reference to a code generator */
-typedef /*struct LTOCodeGenerator*/ void*  lto_code_gen_t;
+alias /*struct LTOCodeGenerator*/ void*  lto_code_gen_t;
 
 extern(C):
 

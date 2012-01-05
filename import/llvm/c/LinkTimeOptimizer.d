@@ -19,7 +19,7 @@ extern(C):
 
 
   /// This provides a dummy type for pointers to the LTO object.
-typedef void* llvm_lto_t;
+alias void* llvm_lto_t;
 
   /// This provides a C-visible enumerator to manage status codes.
   /// This should map exactly onto the C++ enumerator LTOStatus.
