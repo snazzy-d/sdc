@@ -26,8 +26,8 @@ extern(C):
 void LLVMLinkInJIT();
 void LLVMLinkInInterpreter();
 
-typedef /*struct LLVMOpaqueGenericValue*/ void* LLVMGenericValueRef;
-typedef  /* struct LLVMOpaqueExecutionEngine*/ void* LLVMExecutionEngineRef;
+alias /*struct LLVMOpaqueGenericValue*/ void* LLVMGenericValueRef;
+alias /* struct LLVMOpaqueExecutionEngine*/ void* LLVMExecutionEngineRef;
 
 /*===-- Operations on generic values --------------------------------------===*/
 
