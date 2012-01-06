@@ -102,7 +102,7 @@ class SimpleValue(T, DType DTYPE) : Value
     
     protected T binary(string OP)()
     {
-        mixin("return cast(" ~ T.stringof ~ ")( val." ~ TypeToMember!T ~ OP ~ "val." ~ TypeToMember!T ~ ");");
+        return mixin("cast(" ~ T.stringof ~ ")( val." ~ TypeToMember!T ~ OP ~ "val." ~ TypeToMember!T ~ ")");
     }
     
     override Value toBool()
