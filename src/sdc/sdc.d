@@ -76,7 +76,7 @@ int main(string[] args)
         
         version(sdc_pass_on_error) {
             throw topError;
-    	} else {
+        } else {
             return 1;
         }
     }
