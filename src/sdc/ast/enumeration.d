@@ -1,5 +1,6 @@
 /**
  * Copyright 2010 Jakob Ovrum.
+ * Copyright 2012 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -16,6 +17,7 @@ class EnumDeclaration : Node
     EnumMemberList memberList;
 }
 
+// This exists so the member list has a unique location that spans braces and all members.
 class EnumMemberList : Node
 {
     EnumMember[] members;
