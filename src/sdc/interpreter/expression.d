@@ -6,8 +6,10 @@
 module sdc.interpreter.expression;
 
 import sdc.compilererror;
+import sdc.extract;
 import sdc.location;
 import sdc.util;
+import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.gen.type;
 import sdc.interpreter.base;
@@ -68,5 +70,15 @@ i.Value interpretPostfixExpression(PostfixExpression e, Interpreter interpreter)
 
 i.Value interpretPrimaryExpression(PrimaryExpression e, Interpreter interpreter)
 {
-    return nullVal;
+    i.Value val;
+    switch (e.type) {
+    case PrimaryType.IntegerLiteral:
+        auto asLiteral = cast(IntegerLiteral) e.node;
+        assert(asLiteral !is null);
+        val = new i.IntValue(extractIntegerLiteral(asLiteral));
+        break;
+    default:
+        throw new CompilerPanic(e.location, "can only interpret integer literal expressions.");
+    }
+    return val;
 }

@@ -15,6 +15,7 @@ import sdc.util;
 import sdc.ast.expression;
 import sdc.gen.type;
 import sdc.interpreter.expression;
+import gen = sdc.gen.value;
 
 
 class Interpreter
@@ -32,6 +33,12 @@ class Interpreter
     {
         this.location = location;
         return interpretExpression(expr, this);
+    }
+    
+    i.Value evaluate(Location location, ConditionalExpression expr)
+    {
+        this.location = location;
+        return interpretConditionalExpression(expr, this);
     }
 }
 
@@ -62,12 +69,10 @@ abstract class Value
     }
     DType type;
     _val val;
-
+    
+    abstract gen.Value toGenValue(gen.Module, Location);
     abstract Value toBool();
     abstract Value add(Value);
-    //Value sub(Value);
-    //Value mul(Value);
-    //Value div(Value);
 }
 
 template TypeToMember(T)
@@ -103,6 +108,11 @@ class SimpleValue(T, DType DTYPE) : Value
     protected T binary(string OP)()
     {
         return mixin("cast(" ~ T.stringof ~ ")( val." ~ TypeToMember!T ~ OP ~ "val." ~ TypeToMember!T ~ ")");
+    }
+    
+    override gen.Value toGenValue(gen.Module mod, Location loc)
+    {
+        return new gen.IntValue(mod, loc, val.Int);
     }
     
     override Value toBool()
