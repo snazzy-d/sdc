@@ -55,8 +55,8 @@ alias __LLVMOpaqueModule* LLVMModuleRef;
  * Each value in the LLVM IR has a type, an LLVMTypeRef. See the llvm::Type
  * class.
  */
-//struct __LLVMOpaqueType {}
-alias /*__LLVMOpaqueType*/ int* LLVMTypeRef;
+struct __LLVMOpaqueType {}
+alias __LLVMOpaqueType* LLVMTypeRef;
 
 /**
  * When building recursive types using LLVMRefineType, LLVMTypeRef values may
