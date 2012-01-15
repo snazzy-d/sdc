@@ -55,12 +55,10 @@ import sdc.gen.declaration;
 
 version = SDC_x86_default;
 
-extern (C) void _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(LLVMPassRegistryRef);
-
 int main(string[] args)
 {
     auto passRegistry = LLVMGetGlobalPassRegistry();
-    _Z18LLVMInitializeCoreP22LLVMOpaquePassRegistry(passRegistry);  // TMP !!!
+    LLVMInitializeCore(passRegistry);
     LLVMInitializeCodeGen(passRegistry);
     try {
         realmain(args);

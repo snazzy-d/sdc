@@ -660,10 +660,9 @@ void genThrowStatement(ast.ThrowStatement statement, Module mod)
     if (exception.type.dtype != DType.Class) {
         throw new CompilerError(exception.location, "can only throw class instances.");
     }
-    LLVMBuildUnwind(mod.builder);
-    
-    mod.currentFunction.cfgTail.isExitBlock = true;
-    genUnreachableBlock("throw", mod);
+    throw new CompilerPanic(statement.location, "throw not implemented for LLVM 3.0.");
+    //mod.currentFunction.cfgTail.isExitBlock = true;
+    //genUnreachableBlock("throw", mod);
 }
 
 void genConditionalStatement(ast.ConditionalStatement statement, Module mod)
