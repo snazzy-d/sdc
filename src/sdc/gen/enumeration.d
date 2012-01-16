@@ -38,6 +38,9 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
         }
         if (member.initialiser !is null) {
             members ~= interpreter.evaluate(member.location, member.initialiser); 
+            if (base is null) {
+                base = dtypeToType(members[$-1].type, mod);
+            }
         } else {
             if (j == 0) {
                 // If no explicit initialiser and this is the first member, use zero.

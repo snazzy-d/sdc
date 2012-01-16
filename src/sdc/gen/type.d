@@ -58,7 +58,7 @@ enum DType
     Function,
 }
 
-version (none) Type dtypeToType(DType dtype, Module mod)
+Type dtypeToType(DType dtype, Module mod)
 {
     final switch (dtype) with (DType) {
     case None:
@@ -98,6 +98,7 @@ version (none) Type dtypeToType(DType dtype, Module mod)
     case NullPointer:
     case Pointer:
     case Array:
+    case StaticArray:
     case Complex:
     case Struct:
     case Enum:
