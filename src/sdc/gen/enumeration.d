@@ -41,10 +41,10 @@ void genEnumDeclaration(ast.EnumDeclaration decl, Module mod)
         } else {
             if (j == 0) {
                 // If no explicit initialiser and this is the first member, use zero.
-                members ~= new i.IntValue(0);
+                members ~= i.Value.create(member.location, base, 0);
             } else {
                 // Otherwise, use the last member plus one.
-                members ~= new i.IntValue(members[$-1].val.Int + 1);  // HACK TEMP
+                members ~= members[$-1].add(new i.IntValue(1));
             }
         }
     }

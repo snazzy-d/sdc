@@ -1,5 +1,5 @@
 /**
- * Copyright 2011 Bernard Helyer.
+ * Copyright 2011-2012 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -70,6 +70,28 @@ abstract class Value
     DType type;
     _val val;
     
+    /**
+     * Create an i.Value of the given type.
+     * 
+     * Params:
+     *   location = the source code location for diagnostic purposes.
+     *   t = the type of i.Value to create.
+     *   init = the value to pass to the i.Value's constructor.
+     * Returns: the newly constructed value.
+     * Throws: CompilerError if unable to construct the type.
+     */
+    static Value create(T)(Location location, Type t, T init)
+    {
+        switch (t.dtype) {
+        case DType.Bool:
+            return new i.BoolValue(cast(bool) init);
+        case DType.Int:
+            return new i.IntValue(cast(int) init);
+        default:
+            throw new CompilerError(location, "unable to create type at compile time.");
+        }
+    }
+    
     abstract gen.Value toGenValue(gen.Module, Location);
     abstract Value toBool();
     abstract Value add(Value);
@@ -105,9 +127,9 @@ class SimpleValue(T, DType DTYPE) : Value
         type = DTYPE;
     }
     
-    protected T binary(string OP)()
+    protected T binary(string OP)(Value v)
     {
-        return mixin("cast(" ~ T.stringof ~ ")( val." ~ TypeToMember!T ~ OP ~ "val." ~ TypeToMember!T ~ ")");
+        return mixin("cast(" ~ T.stringof ~ ")( val." ~ TypeToMember!T ~ OP ~ "v.val." ~ TypeToMember!T ~ ")");
     }
     
     override gen.Value toGenValue(gen.Module mod, Location loc)
@@ -122,7 +144,7 @@ class SimpleValue(T, DType DTYPE) : Value
     
     override Value add(Value v)
     {
-        return new typeof(this)(binary!"+");
+        return new typeof(this)(binary!"+"(v));
     }
 }
 
