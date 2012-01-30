@@ -183,13 +183,13 @@ string randomString(size_t length)
         char c;
         switch (uniform(0, 3)) {
         case 0:
-            c = cast(char) uniform('0', '9' + 1);
+            c = uniform!("[]", char, char)('0', '9');
             break;
         case 1:
-            c = cast(char) uniform('a', 'z' + 1);
+            c = uniform!("[]", char, char)('a', 'z');
             break;
         case 2:
-            c = cast(char) uniform('A', 'Z' + 1);
+            c = uniform!("[]", char, char)('A', 'Z');
             break;
         default:
             assert(false);
