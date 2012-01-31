@@ -29,6 +29,17 @@ class Interpreter
         this.translationUnit = translationUnit;
     }
     
+    i.Value call(Location location, Expression fn, Expression[] arguments)
+    {
+        throw new CompilerPanic(location, "CTFE is unimplemented.");
+    }
+    
+    /// Convenience function for main driver.
+    i.Value callMain()
+    {
+        throw new CompilerPanic("CTFE is unimplemented.");
+    }
+    
     i.Value evaluate(Location location, Expression expr)
     {
         this.location = location;

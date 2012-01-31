@@ -52,6 +52,7 @@ import sdc.gen.base;
 import sdc.gen.sdcmodule;
 import sdc.gen.sdcimport;
 import sdc.gen.declaration;
+import sdc.interpreter.base;
 
 version = SDC_x86_default;
 
@@ -61,7 +62,8 @@ int main(string[] args)
     LLVMInitializeCore(passRegistry);
     LLVMInitializeCodeGen(passRegistry);
     try {
-        realmain(args);
+        int retval = realmain(args);
+        return retval;
     } catch (CompilerError topError) {
         auto error = topError;
         do {
@@ -78,12 +80,11 @@ int main(string[] args)
             return 1;
         }
     }
-    return 0;
 }
 
-void realmain(string[] args)
+int realmain(string[] args)
 {
-    bool skipLink = false, optimise = false, saveTemps = false;
+    bool skipLink = false, optimise = false, saveTemps = false, interpret = false;
     string outputName = "";
     string gcc = "gcc";
     version (SDC_x86_default) {
@@ -126,10 +127,11 @@ void realmain(string[] args)
                "disable-warning", (string, string arg) { disabledWarnings ~= cast(Warning) parse!uint(arg); },
                "warning-as-error", (string, string arg) { errorWarnings ~= cast(Warning) parse!uint(arg); },
                "c", &skipLink,
+               "run", &interpret,
                "o", &outputName,
                "V", { verboseCompile = true; },
                "save-temps", &saveTemps,
-               "pic", &PIC,
+               "pic", &PIC
                );
     } catch (Exception e) {
         throw new CompilerError(e.msg);
@@ -138,7 +140,7 @@ void realmain(string[] args)
     
     if (args.length == 1) {
         usage();
-        return;
+        return 1;
     }
     
     if (skipLink && outputName != "" && args.length > 2) {
@@ -182,8 +184,18 @@ void realmain(string[] args)
         }
     }
     
+    TranslationUnit[] tus = getTranslationUnits();
+    if (interpret && tus.length != 1) {
+        throw new CompilerError("with --run, exactly one module must be passed to SDC.");
+    } else if (interpret) {
+        assert(tus.length == 1);
+        auto interpreter = new Interpreter(tus[0]);
+        i.Value retval = interpreter.callMain();
+        return retval.val.Int;
+    }
+    
     auto extensionRegex = regex(r"d(i)?$", "i");
-    foreach (translationUnit; getTranslationUnits()) with (translationUnit) {
+    foreach (translationUnit; tus) with (translationUnit) {
         if (!compile) {
             continue;
         }
@@ -273,6 +285,8 @@ void realmain(string[] args)
             file.remove(assembly.filename);
         }
     }
+    
+    return 0;
 }
 
 void usage()
@@ -295,6 +309,7 @@ void usage()
     writeln("  --we:                  treat all warnings as errors.");
     writeln("  --disable-warning:     disable a specific warning.");
     writeln("  --warning-as-error:    treat a specific warning as an error.");
+    writeln("  --run:                 interpret, don't compile.");
     writeln("  -m32:                  synonym for '--arch=x86'.");
     writeln("  -m64:                  synonym for '--arch=x86-64'.");
     writeln("  -I:                    search path for import directives.");
