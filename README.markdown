@@ -100,15 +100,14 @@ This just me thinking outloud about what features I want, when.
 0.1
 ---
 * druntime compiles
-* phobos compiles
 
 0.2
 ---
-* inline assembler
+* phobos compiles
 
 0.3
 ---
-* CTFE (this may be required in 0.1, not sure)
+* inline assembler
 
 1.0
 ---
