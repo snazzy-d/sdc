@@ -14,7 +14,7 @@ This list is incomplete. SDC is in a state of flux, and this is likely to be out
 
 Lexer
 -----
-* Scan and handle multiple encoding formats.  __[yes.]__ -- _in so far all code is treated as UTF-8 and its BOM is eaten; other BOMs are rejected._ __]__
+* Scan and handle multiple encoding formats.  __[yes.]__ -- _in so far all code is treated as UTF-8 and its BOM is eaten; other BOMs are rejected._
 * Handle leading script lines.  __[yes.]__
 * Split source into tokens.  __[yes.]__
 * Replace special tokens.  __[yes.]__
@@ -133,12 +133,14 @@ SDC with DMD/Windows
 
 The following are required for LLVM to function on Windows:
 
-* [LLVM](http://llvm.org/) >= 2.9
+* [LLVM](http://llvm.org/) >= 3.0
   * SDC requires the core libraries as a DLL, and the `llc` and `opt` tools
 * [MinGW](http://www.mingw.org/)
-  * SDC requires `gcc`, as well as GNU make for the makefile
+  * SDC requires `gcc`, as well as GNU `make` for the makefile
 
-A copy of `llvm-2.9.dll` and `llvm-2.9.lib` in DMD-compatible OMF format can be downloaded from [here](https://github.com/downloads/JakobOvrum/SDC/llvm-2.9-Win32-DLL.rar) for convenience.
+~~~A copy of `llvm-2.9.dll` and `llvm-2.9.lib` in DMD-compatible OMF format can be downloaded from [here](https://github.com/downloads/JakobOvrum/SDC/llvm-2.9-Win32-DLL.rar) for convenience.~~~
+The above have not been updated for LLVM 3.0, unfortunately. I'll set the hounds on Jakob. :P  -B.
+
 For the LLVM tools, grab "LLVM Binaries for Mingw32/x86" on the [LLVM download page](http://llvm.org/releases/download.html).
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
