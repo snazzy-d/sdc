@@ -24,7 +24,8 @@ sys.d
 .svn
 
 # Local files
-/sdc
+/sdc/bin
+/sdc/obj
 /cfg.dot
 /bin
 
@@ -36,7 +37,6 @@ build.rf
 .dprojectoptions
 
 # MonoD
-sdc.sln
 sdc.userprefs
 sdc.pidb
 
