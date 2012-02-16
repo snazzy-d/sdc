@@ -8,7 +8,7 @@ OBJ = sdc.o
 EXE = bin/sdc
 
 PHOBOS2 = -lphobos2
-LIBLLVM = $(LLVMDIR)/*.a
+LIBLLVM = -L-L`llvm-config --libdir` `llvm-config --libs | sed 's/-l/-L-l/g' -`
 LDFLAGS = -L-lstdc++ $(LIBLLVM) 
 
 ifeq ($(PLATFORM),Linux)
