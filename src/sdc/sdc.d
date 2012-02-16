@@ -86,7 +86,8 @@ int realmain(string[] args)
 {
     bool skipLink = false, optimise = false, saveTemps = false, interpret = false;
     string outputName = "";
-    string gcc = "gcc";
+    version (OSX) string gcc = "clang";
+    else string gcc = "gcc";
     version (SDC_x86_default) {
         string arch = "x86";
     } else {
