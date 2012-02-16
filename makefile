@@ -25,9 +25,9 @@ clean:
 	@rm $(EXE)
 
 run: $(EXE)
-	./$(EXE) -Ilibs compiler_tests/test0.d -V
+	./$(EXE) -Ilibs tests/test0.d -V
 
 debug: $(EXE)
-	gdb --args ./$(EXE) -Ilibs compiler_tests/test0.d -V --no-colour-print
+	gdb --args ./$(EXE) -Ilibs tests/test0.d -V --no-colour-print
 
 .PHONY: clean run debug
