@@ -25,7 +25,6 @@ sys.d
 
 # Local files
 /sdc
-/sdc.bin
 /cfg.dot
 /bin
 
@@ -36,6 +35,11 @@ build.rf
 .buildpath
 .dprojectoptions
 
+# MonoD
+sdc.sln
+sdc.userprefs
+sdc.pidb
+
 #DMD/Windows
 *.exe
 *.map
@@ -45,3 +49,4 @@ build.rf
 
 # As there is currently no good way to provide one in the repository
 /bin/sdc.conf
+
