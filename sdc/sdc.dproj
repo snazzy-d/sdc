@@ -313,4 +313,7 @@
       </Properties>
     </MonoDevelop>
   </ProjectExtensions>
+  <ItemGroup>
+    <None Include="..\README.markdown" />
+  </ItemGroup>
 </Project>

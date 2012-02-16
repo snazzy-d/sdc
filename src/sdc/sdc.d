@@ -118,7 +118,6 @@ int realmain(string[] args)
                "unittest", { unittestsEnabled = true; },
                "no-colour-print", { coloursEnabled = false; },
                "I", (string, string path){ importPaths ~= path; },
-               "optimise", &optimise,
                "gcc", &gcc,
                "arch", (string, string arg) { arch = arg; },
                "m64", { arch = "x86-64"; },
@@ -129,6 +128,7 @@ int realmain(string[] args)
                "warning-as-error", (string, string arg) { errorWarnings ~= cast(Warning) parse!uint(arg); },
                "c", &skipLink,
                "run", &interpret,
+               "O", &optimise,
                "o", &outputName,
                "V", { verboseCompile = true; },
                "save-temps", &saveTemps,
@@ -301,7 +301,6 @@ void usage()
     writeln("  --release:             don't compile in debug mode (defaults off).");
     writeln("  --unittest:            compile in unittests (defaults off).");
     writeln("  --no-colour-print:     don't apply colour to diagnostic output.");
-    writeln("  --optimise:            optimise the output.");
     writeln("  --save-temps:          leave temporary files on disk.");
     writeln("  --gcc:                 set the command for running GCC.");
     writeln("  --arch:                set the architecture to generate code for. See llc(1).");
@@ -313,6 +312,7 @@ void usage()
     writeln("  --run:                 interpret, don't compile.");
     writeln("  -m32:                  synonym for '--arch=x86'.");
     writeln("  -m64:                  synonym for '--arch=x86-64'.");
+    writeln("  -O:                    optimise the output.");
     writeln("  -I:                    search path for import directives.");
     writeln("  -c:                    just compile, don't link.");
     writeln("  -o:                    name of the output file. (-o=filename)");
