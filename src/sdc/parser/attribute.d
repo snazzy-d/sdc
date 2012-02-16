@@ -103,7 +103,7 @@ Attribute parseAttribute(TokenStream tstream)
         case "Pascal":
             attribute.type = AttributeType.ExternPascal;
             break;
-        case "System":;
+        case "System":
             attribute.type = AttributeType.ExternSystem;
             break;
         default:

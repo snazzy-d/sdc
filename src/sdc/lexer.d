@@ -22,6 +22,7 @@ import sdc.tokenwriter;
 import sdc.compilererror;
 
 alias std.ascii.isWhite isWhite;
+alias std.uni.isAlpha isAlpha;
 
 static import sdc.info;
 
@@ -81,16 +82,16 @@ pure bool isOctalLex(dchar c)
 }
 
 enum Position {
-	Start,
-	MiddleOrEnd
+    Start,
+    MiddleOrEnd
 }
 
 pure bool isAlphaLex(dchar c, Position position)
 {
     if (position == Position.Start) {
-        return isUniAlpha(c) || c == '_';
+        return isAlpha(c) || c == '_';
     } else {
-        return isUniAlpha(c) || c == '_' || isDigit(c);
+        return isAlpha(c) || c == '_' || isDigit(c);
     }
 }
 
@@ -153,7 +154,7 @@ TokenType nextLex(TokenWriter tw)
         return TokenType.End;
     }
     
-    if (isUniAlpha(tw.source.peek) || tw.source.peek == '_') {
+    if (isAlpha(tw.source.peek) || tw.source.peek == '_') {
         bool lookaheadEOF;
         if (tw.source.peek == 'r' || tw.source.peek == 'q' || tw.source.peek == 'x') {
             dchar oneAhead = tw.source.lookahead(1, lookaheadEOF);
@@ -265,13 +266,13 @@ bool lexEOF(TokenWriter tw)
 // This is a bit of a dog's breakfast.
 bool lexIdentifier(TokenWriter tw)
 {
-    assert(isUniAlpha(tw.source.peek) || tw.source.peek == '_' || tw.source.peek == '@');
+    assert(isAlpha(tw.source.peek) || tw.source.peek == '_' || tw.source.peek == '@');
     
     auto identToken = currentLocationToken(tw);
     Mark m = tw.source.save();
     tw.source.get();
     
-    while (isUniAlpha(tw.source.peek) || isDigit(tw.source.peek) || tw.source.peek == '_') {
+    while (isAlpha(tw.source.peek) || isDigit(tw.source.peek) || tw.source.peek == '_') {
         tw.source.get();
         if (tw.source.eof) break;
     }
