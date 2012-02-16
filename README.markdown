@@ -7,7 +7,7 @@ I don't know what I'm doing in terms of compiler writing. If you find some horri
 The code is released under the GPL (see the LICENCE file for more details).
 Contact me at b.helyer@gmail.com
 
-_SDC currently does not build with 2.058 due to a bug with void delegates and getopt. I'm told Andrei's on it.
+_SDC currently does not build with 2.058 due to a bug with void delegates and getopt. I'm told Andrei's on it._
 
 Features
 ========
