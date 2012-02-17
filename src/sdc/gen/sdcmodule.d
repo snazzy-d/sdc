@@ -292,7 +292,7 @@ class Module
      * e.g. `int i; typeof(i++) j; assert(i == 0);`
      * 
      * WARNING: Do NOT generate code from a dup'd module --
-     *          THE CODE GENERATED WILL BE INVALID/INCORRECT.   :)
+     *          THE CODE GENERATED WILL BE INVALID/INCORRECT. =D
      *          Further more, all variables will be reset to their init.
      */
     Module dup() @property
