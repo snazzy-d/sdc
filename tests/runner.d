@@ -91,6 +91,7 @@ void test(string filename, string compiler)
             return;
         }
     }
+    f.close();
     
     string command;
     string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
