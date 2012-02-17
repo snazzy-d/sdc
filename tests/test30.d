@@ -3,12 +3,12 @@
 //T has-passed:no
 
 enum {
-	A = 42,
-	B = A
+    A = 42,
+    B = A
 }
 
 int main()
 {
-	return B;
+    return B;
 }
 
