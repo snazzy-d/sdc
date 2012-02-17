@@ -1,22 +1,23 @@
 //T compiles:yes
 //T retval:42
+//T has-passed:no
 
 enum A : byte
 {
-	Foo
+    Foo
 }
 
 enum B : long
 {
-	Bar
+    Bar
 }
 
 int main()
 {
-	if (A.Foo.sizeof < B.Bar.sizeof) {
-		return 42;
-	} else {
-		return 0;
-	}
+    if (A.Foo.sizeof < B.Bar.sizeof) {
+        return 42;
+    } else {
+        return 0;
+    }
 }
 

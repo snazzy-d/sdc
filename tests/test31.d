@@ -1,5 +1,6 @@
-//T compiles:no
+//T compiles:yes
 //T retval:42
+//T has-passed:no
 
 struct S
 {
