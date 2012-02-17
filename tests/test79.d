@@ -6,7 +6,7 @@ int main()
     int a;
     auto b = &a;
     auto c = b;
-    assert(b == c);
+    bool d = b == c;
     return 0;
 }
 
