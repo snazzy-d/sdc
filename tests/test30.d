@@ -1,4 +1,4 @@
-//T compiles:yes
+//T compiles:no
 //T retval:42
 
 enum {
