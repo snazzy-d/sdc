@@ -1147,9 +1147,9 @@ class PointerValue : Value
     {
         auto retval = new BoolValue(mModule, location);
         if (val.type.dtype == DType.NullPointer) {
-            retval.mValue = LLVMBuildIsNull(mModule.builder, get(), "is");
+            retval.initialise(location, LLVMBuildIsNull(mModule.builder, get(), "is"));
         } else {
-            retval.mValue = LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "is");
+            retval.initialise(location, LLVMBuildICmp(mModule.builder, LLVMIntPredicate.EQ, get(), val.get(), "is"));
         }
         return retval;
     }
