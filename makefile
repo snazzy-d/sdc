@@ -24,10 +24,13 @@ $(EXE): $(SOURCE)
 clean:
 	@rm $(EXE)
 
+doc:
+	$(DMD) -Dddoc -of$(EXE) $(SOURCE) $(DFLAGS) $(LDFLAGS)
+
 run: $(EXE)
 	./$(EXE) -Ilibs tests/test0.d -V
 
 debug: $(EXE)
 	gdb --args ./$(EXE) -Ilibs tests/test0.d -V --no-colour-print
 
-.PHONY: clean run debug
+.PHONY: clean run debug doc
