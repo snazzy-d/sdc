@@ -142,7 +142,12 @@ void main(string[] args)
     version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
     else size_t jobCount = 1;
     bool displayOnlyFailed = false;
-    getopt(args, "compiler", &compiler, "j", &jobCount, "only-failed", &displayOnlyFailed);
+    bool waitOnExit = false;
+    getopt(args,
+            "compiler", &compiler,
+            "j", &jobCount,
+            "only-failed", &displayOnlyFailed,
+            "wait-on-exit", &waitOnExit);
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
@@ -224,5 +229,10 @@ void main(string[] args)
                  testNumber - passed, (testNumber - passed) == 1 ? "" : "s", 
                  (cast(real)passed / testNumber) * 100,
                  regressions, improvments);
+    }
+    
+    if (waitOnExit) {
+        write("Press any key to exit...");
+        readln();
     }
 }
