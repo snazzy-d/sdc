@@ -19,11 +19,11 @@ import std.string;
 version (linux) import core.sys.posix.unistd;
 
 
+immutable SDC = "sdc";
+
 version (Windows) {
-    immutable SDC      = "sdc";  // Put SDC in your PATH.
     immutable EXE_EXTENSION = ".exe";
 } else {
-    immutable SDC      = "sdc"; // Leaving this decision to the Unix crowd.
     immutable EXE_EXTENSION = ".bin";
 }
 
