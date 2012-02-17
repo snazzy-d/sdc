@@ -315,5 +315,6 @@
   </ProjectExtensions>
   <ItemGroup>
     <None Include="..\README.markdown" />
+    <None Include="..\index.dd" />
   </ItemGroup>
 </Project>

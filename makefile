@@ -25,7 +25,7 @@ clean:
 	@rm $(EXE)
 
 doc:
-	$(DMD) -Dddoc -of$(EXE) $(SOURCE) $(DFLAGS) $(LDFLAGS)
+	$(DMD) -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
 
 run: $(EXE)
 	./$(EXE) -Ilibs tests/test0.d -V
