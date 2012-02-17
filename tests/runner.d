@@ -16,6 +16,7 @@ import std.process;
 import std.range;
 import std.stdio;
 import std.string;
+import core.stdc.stdlib;
 version (linux) import core.sys.posix.unistd;
 
 
@@ -148,7 +149,8 @@ void main(string[] args)
             "compiler", &compiler,
             "j", &jobCount,
             "only-failed", &displayOnlyFailed,
-            "wait-on-exit", &waitOnExit);
+            "wait-on-exit", &waitOnExit,
+            "help", {usage(); exit(0);});
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
@@ -236,4 +238,17 @@ void main(string[] args)
         write("Press any key to exit...");
         readln();
     }
+}
+
+/// Print usage to stdout.
+void usage()
+{
+    writeln("runner [options] [specific test]");
+    writeln("  run with no arguments to run test suite.");
+    writeln("    --compiler:     which compiler to run.");
+    writeln("    -j:             how many tests to do at once.");
+    writeln("                    (on Linux this will automatically be number of processors)");
+    writeln("    --only-failed:  only display failed tests.");
+    writeln("    --wait-on-exit: wait for user input before exiting.");
+    writeln("    --help:         display this message and exit.");
 }
