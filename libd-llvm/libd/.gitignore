@@ -37,8 +37,8 @@ build.rf
 .dprojectoptions
 
 # MonoD
-sdc.userprefs
-sdc.pidb
+*.userprefs
+*.pidb
 
 #DMD/Windows
 *.exe
