@@ -288,6 +288,7 @@ void loadConfig(ref string[] args)
     } else {
         args = args[0] ~ getStringArray(confRoot, "defaultFlags");
     }
+    args = array(map!expandTilde(args));
 }
 
 Type getSizeT(Module mod)
