@@ -220,7 +220,9 @@ void main(string[] args)
             } else if (regressed) {
                 writefln(", REGRESSION");
             } else {
-                writefln("");
+                if ((displayOnlyFailed && !testResult[1]) || !displayOnlyFailed) {
+                    writefln("");
+                }
             }
         }
     }
