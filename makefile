@@ -25,6 +25,7 @@ clean:
 	@rm $(EXE)
 
 doc:
+	@mkdir -p doc
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
 
 run: $(EXE)
