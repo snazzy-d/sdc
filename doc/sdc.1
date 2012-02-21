@@ -1,0 +1,86 @@
+.TH SDC 1 "21st of February, 2012" "version 0.0" "User Commands"
+.SH NAME
+sdc \- the stupid D compiler
+.SH SYNOPSIS
+sdc [options] files
+.SH DESCRIPTION
+SDC compiles programs written in the D programming language.
+.SH OPTIONS
+.IP "-h, --help"
+Print command information to stdout and exit with a value of 0.
+.IP "-v, --version"
+Print the version number to stdout and exit with a value of 0.
+.IP -O
+Optimise generated code using opt(1).
+.IP -I\fIpath\fR
+Add
+.I path
+to the list of directories where
+.I import
+looks for modules.
+.IP -c
+Compile code only, don't attempt to link.
+.IP -o=\fIfilename\fR
+Name of output. Invalid with use of -c.
+.IP -V
+Compile with verbose logging output. 
+Not useful unless you're trying to track down a compiler bug.
+.IP --version-identifier=\fIident\fR
+Set the version identifier 
+.I ident
+as active.
+.IP --debug-identifier=\fIident\fR
+Set the debug identifier
+.I ident
+as active.
+.IP --debug
+Compile the code in debug mode.
+.IP --release
+Compile the code in release mode. Bounds checks are disabled in unsafe code.
+.IP --unittest
+Compile in unittest blocks to run before the main function runs.
+.IP --no-colour-print
+Print diagnostics in black and white.
+.IP --gcc=\fIexecutable\fR
+Set
+.I executable
+as the command used when gcc(1) is invoked for compiling 
+assembly code and linking object files.
+.IP --arch=\fIident\fR
+Pass
+.I ident
+as the architecture string to pass to llc(1) when 
+compiling IR to native assembly.
+.IP --pic
+Generate position independent code, suitable for shared libraries.
+.IP --nw
+Disable the display of all warnings.
+.IP --we
+Treat all warnings as errors.
+.IP --disable-warning=\fIID\fR
+Disable warning number
+.I ID
+from displaying.
+.IP --warning-as-error=\fIID\fR
+Treat a warning with an ID of
+.I ID
+as an error.
+.IP --run
+Interpret the code using SDC's CTFE engine, don't compile it.
+.IP -m32
+Shorthand for --arch=x86.
+.IP -m64
+Shorthand for --arch=x86-64.
+.SH ENVIRONMENT
+.IP TEMP
+On windows, this is the directory temporary objects are stored in. 
+On *nix, this is ignored and /tmp is used.
+.SH BUGS
+Numerous. SDC is entirely uncomplete.
+.SH AUTHOR
+Bernard Helyer and Jakob Øvrum.
+.SH "SEE ALSO"
+.BR gcc (1),
+.BR llc (1),
+.BR opt (1)
+
