@@ -140,7 +140,8 @@ int realmain(string[] args)
     globalInit(arch);
     
     if (args.length == 1) {
-        usage();
+        stderr.writeln(args[0], ": error: no input files.");
+        stderr.writeln("try --help or man sdc.");
         return 1;
     }
     
