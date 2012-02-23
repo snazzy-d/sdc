@@ -5,6 +5,7 @@
  */
 module sdc.interpreter.base;
 
+import std.conv;
 import std.string;
 import std.traits;
 
@@ -18,7 +19,7 @@ import sdc.interpreter.expression;
 import gen = sdc.gen.value;
 
 
-class Interpreter
+final class Interpreter
 {
     /// The last location this interpreter was called from.
     Location location;
@@ -29,24 +30,24 @@ class Interpreter
         this.translationUnit = translationUnit;
     }
     
-    i.Value call(Location location, Expression fn, Expression[] arguments)
+    final i.Value call(Location location, Expression fn, Expression[] arguments)
     {
         throw new CompilerPanic(location, "CTFE is unimplemented.");
     }
     
     /// Convenience function for main driver.
-    i.Value callMain()
+    final i.Value callMain()
     {
         throw new CompilerPanic("CTFE is unimplemented.");
     }
     
-    i.Value evaluate(Location location, Expression expr)
+    final i.Value evaluate(Location location, Expression expr)
     {
         this.location = location;
         return interpretExpression(expr, this);
     }
     
-    i.Value evaluate(Location location, ConditionalExpression expr)
+    final i.Value evaluate(Location location, ConditionalExpression expr)
     {
         this.location = location;
         return interpretConditionalExpression(expr, this);
@@ -55,6 +56,25 @@ class Interpreter
 
 struct i
 {
+
+final class UserDefinedType
+{
+    i.Value[string] store;
+    
+    final void setMember(Location location, string id, i.Value val)
+    {
+        store[id] = val;
+    }
+    
+    final i.Value getMember(Location location, string id)
+    {
+        if (auto p = id in store) {
+            return *p;
+        } else {
+            throw new CompilerPanic(location, format("type has no member '%s'.", id));
+        }
+    }
+}
 
 abstract class Value
 {
@@ -77,6 +97,7 @@ abstract class Value
         real Real;
         Value Pointer;
         Value[] Array;
+        UserDefinedType TypeInstance;
     }
     DType type;
     _val val;
@@ -91,15 +112,19 @@ abstract class Value
      * Returns: the newly constructed value.
      * Throws: CompilerError if unable to construct the type.
      */
-    static Value create(T)(Location location, Type t, T init)
+    static Value create(T)(Location location, Interpreter interpreter, Type t, T init)
     {
         switch (t.dtype) {
         case DType.Bool:
             return new i.BoolValue(cast(bool) init);
+        case DType.Byte:
+            return new i.ByteValue(cast(byte) init);
         case DType.Int:
             return new i.IntValue(cast(int) init);
+        case DType.Long:
+            return new i.LongValue(cast(long) init);
         default:
-            throw new CompilerError(location, "unable to create type at compile time.");
+            throw new CompilerError(location, format("unable to create %s at compile time.", to!string(t.dtype)));
         }
     }
     
@@ -130,7 +155,7 @@ template TypeToMember(T)
     else static assert(false, "invalid type passed to TypeToMember.");
 }
 
-class SimpleValue(T, DType DTYPE) : Value
+class SimpleValue(T, DType DTYPE, string GEN) : Value
 {
     this(T init)
     {
@@ -145,7 +170,7 @@ class SimpleValue(T, DType DTYPE) : Value
     
     override gen.Value toGenValue(gen.Module mod, Location loc)
     {
-        return new gen.IntValue(mod, loc, val.Int);
+        return mixin("new gen." ~ GEN ~ "(mod, loc, getVal())");
     }
     
     override Value toBool()
@@ -157,9 +182,16 @@ class SimpleValue(T, DType DTYPE) : Value
     {
         return new typeof(this)(binary!"+"(v));
     }
+    
+    protected final T getVal()
+    {
+        return mixin("val." ~ TypeToMember!T);
+    }
 }
 
-alias SimpleValue!(int, DType.Int) IntValue;
-alias SimpleValue!(bool, DType.Bool) BoolValue;
+alias SimpleValue!(byte, DType.Byte, "ByteValue") ByteValue;
+alias SimpleValue!(int, DType.Int, "IntValue") IntValue;
+alias SimpleValue!(long, DType.Long, "LongValue") LongValue;
+alias SimpleValue!(bool, DType.Bool, "BoolValue") BoolValue;
 
 }  // struct i
