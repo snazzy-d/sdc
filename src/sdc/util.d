@@ -325,3 +325,13 @@ template BinaryExpressionProcessor(V, M, alias F, alias G)
         return valueStack.front.gen(mod);
     }
 }
+
+version (linux) void explode()
+{
+    import core.sys.posix.signal, core.sys.posix.sys.types, core.sys.posix.unistd;
+    kill(getpid(), SIGSEGV);
+}
+else void explode()
+{
+    assert(false);
+}
