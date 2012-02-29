@@ -124,10 +124,18 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need make and the latest DMD installed.
-Download the [Clang Binaries for Linux/x86](http://llvm.org/releases/download.html#2.9) copy every libLLVM*.a into a directory 'llvm' at the source directory's root.
-Make a directory named 'bin'.
-Run make.
-Copy bin/sdc into the root. Compile the runner using dmd, and run it to run the tests using SDC. You'll need LLVM's `llc` in your `$PATH`, and `opt` if you want to use `--optimise`.
+Install LLVM 3.0.
+Run `make`.
+Copy `bin/sdc` into your `$PATH` somewhere.
+You'll need to create a file, either `/etc/sdc.conf` or `~/.sdc.conf` (the latter may change to `~/.local/share/sdc/sdc.conf` at some point, so be warned) with contents like so:
+
+    {
+        "defaultImportPaths":["~/path/to/SDC/libs"],
+        "defaultFlags":["-m64", "--debug"]
+    }
+
+The last bit is optional, but SDC needs to know where to find `object.d` is the point.
+Then you can compile `runner.d` with `dmd` and run it to run the test suites. There will be a handful of failures, but the majority (> 95%) should pass. 
 
 SDC with DMD/Windows
 =======
@@ -141,7 +149,7 @@ The following are required for LLVM to function on Windows:
   * SDC requires `gcc`, as well as GNU `make` for the makefile
 
 ~~~A copy of `llvm-2.9.dll` and `llvm-2.9.lib` in DMD-compatible OMF format can be downloaded from [here](https://github.com/downloads/JakobOvrum/SDC/llvm-2.9-Win32-DLL.rar) for convenience.~~~
-The above have not been updated for LLVM 3.0, unfortunately. I'll set the hounds on Jakob. :P  -B.
+The above have not been updated for LLVM 3.0, unfortunately. Until then, you'll have to convert it with `implib` or so. Good luck! -B.
 
 For the LLVM tools, grab "LLVM Binaries for Mingw32/x86" on the [LLVM download page](http://llvm.org/releases/download.html).
 ### Setup
