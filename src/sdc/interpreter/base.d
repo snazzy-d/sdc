@@ -13,17 +13,20 @@ import sdc.aglobal;
 import sdc.compilererror;
 import sdc.location;
 import sdc.util;
+import sdc.ast.sdcmodule;
 import sdc.ast.expression;
+import sdc.ast.enumeration;
 import sdc.gen.type;
 import sdc.interpreter.expression;
+import sdc.interpreter.enumeration;
 import gen = sdc.gen.value;
-
 
 final class Interpreter
 {
     /// The last location this interpreter was called from.
     Location location;
     TranslationUnit translationUnit;
+    i.Store store;
     
     this(TranslationUnit translationUnit)
     {
@@ -52,10 +55,46 @@ final class Interpreter
         this.location = location;
         return interpretConditionalExpression(expr, this);
     }
+    
+    final void addTopLevels(Location location)
+    {
+        if (store !is null) {
+            // We've already done this.
+            return;
+        }
+        store = new i.Store();
+        
+        foreach (declDef; translationUnit.aModule.declarationDefinitions) {
+            switch (declDef.type) {
+            case DeclarationDefinitionType.EnumDeclaration:
+                auto asEnum = cast(EnumDeclaration) declDef.node;
+                assert(asEnum !is null);
+                interpretEnum(location, this, asEnum);
+                break;
+            default:
+                break;
+            }
+        }
+    }
 }
 
 struct i
 {
+
+final class Store
+{
+    i.Value[string] store;
+    
+    final void add(string id, i.Value v)
+    {
+        store[id] = v;
+    }
+    
+    final i.Value get(string id)
+    {
+        return store.get(id, null);
+    }
+}
 
 final class UserDefinedType
 {

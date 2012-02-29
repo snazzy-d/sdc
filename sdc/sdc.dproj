@@ -22,6 +22,11 @@
 -L-lLLVMXCoreCodeGen -L-lLLVMTableGen -L-lLLVMSystemZCodeGen -L-lLLVMSparcCodeGen -L-lLLVMPTXCodeGen -L-lLLVMPowerPCCodeGen -L-lLLVMPowerPCAsmPrinter -L-lLLVMMSP430CodeGen -L-lLLVMMSP430AsmPrinter -L-lLLVMMipsCodeGen -L-lLLVMMipsAsmPrinter -L-lLLVMMCJIT -L-lLLVMRuntimeDyld -L-lLLVMObject -L-lLLVMMCDisassembler -L-lLLVMXCoreDesc -L-lLLVMXCoreInfo -L-lLLVMSystemZDesc -L-lLLVMSystemZInfo -L-lLLVMSparcDesc -L-lLLVMSparcInfo -L-lLLVMPowerPCDesc -L-lLLVMPowerPCInfo -L-lLLVMPTXDesc -L-lLLVMPTXInfo -L-lLLVMPTXAsmPrinter -L-lLLVMMipsDesc -L-lLLVMMipsInfo -L-lLLVMMSP430Desc -L-lLLVMMSP430Info -L-lLLVMMBlazeDisassembler -L-lLLVMMBlazeAsmParser -L-lLLVMMBlazeCodeGen -L-lLLVMMBlazeDesc -L-lLLVMMBlazeAsmPrinter -L-lLLVMMBlazeInfo -L-lLLVMLinker -L-lLLVMipo -L-lLLVMInterpreter -L-lLLVMInstrumentation -L-lLLVMJIT -L-lLLVMExecutionEngine -L-lLLVMDebugInfo -L-lLLVMCppBackend -L-lLLVMCppBackendInfo -L-lLLVMCellSPUCodeGen -L-lLLVMCellSPUDesc -L-lLLVMCellSPUInfo -L-lLLVMCBackend -L-lLLVMCBackendInfo -L-lLLVMBlackfinCodeGen -L-lLLVMBlackfinDesc -L-lLLVMBlackfinInfo -L-lLLVMBitWriter -L-lLLVMX86Disassembler -L-lLLVMX86AsmParser -L-lLLVMX86CodeGen -L-lLLVMX86Desc -L-lLLVMX86AsmPrinter -L-lLLVMX86Utils -L-lLLVMX86Info -L-lLLVMAsmParser -L-lLLVMARMDisassembler -L-lLLVMARMAsmParser -L-lLLVMARMCodeGen -L-lLLVMARMDesc -L-lLLVMARMAsmPrinter -L-lLLVMARMInfo -L-lLLVMArchive -L-lLLVMBitReader -L-lLLVMAlphaCodeGen -L-lLLVMSelectionDAG -L-lLLVMAsmPrinter -L-lLLVMMCParser -L-lLLVMCodeGen -L-lLLVMScalarOpts -L-lLLVMInstCombine -L-lLLVMTransformUtils -L-lLLVMipa -L-lLLVMAnalysis -L-lLLVMTarget -L-lLLVMCore -L-lLLVMAlphaDesc -L-lLLVMAlphaInfo -L-lLLVMMC -L-lLLVMSupport</ExtraLinkerArguments>
     <Externalconsole>true</Externalconsole>
     <Commandlineparameters>/home/bernard/Projects/sdc/test.d</Commandlineparameters>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="Build" command="make" workingdir="/home/bernard/Projects/SDC" />
+      </CustomCommands>
+    </CustomCommands>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>bin\Release</OutputPath>
@@ -31,276 +36,277 @@
   <ItemGroup>
     <Compile Include="..\src\sdc\aglobal.d">
       <Link>src\sdc\aglobal.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/aglobal.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/aglobal.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\compilererror.d">
       <Link>src\sdc\compilererror.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/compilererror.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/compilererror.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\extract.d">
       <Link>src\sdc\extract.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/extract.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/extract.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\info.d">
       <Link>src\sdc\info.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/info.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/info.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\lexer.d">
       <Link>src\sdc\lexer.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/lexer.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/lexer.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\location.d">
       <Link>src\sdc\location.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/location.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/location.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\mangle.d">
       <Link>src\sdc\mangle.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/mangle.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/mangle.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\repl.d">
       <Link>src\sdc\repl.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/repl.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/repl.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\sdc.d">
       <Link>src\sdc\sdc.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdc.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdc.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\source.d">
       <Link>src\sdc\source.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/source.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/source.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\terminal.d">
       <Link>src\sdc\terminal.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/terminal.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/terminal.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\token.d">
       <Link>src\sdc\token.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/token.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/token.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\tokenstream.d">
       <Link>src\sdc\tokenstream.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/tokenstream.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/tokenstream.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\tokenwriter.d">
       <Link>src\sdc\tokenwriter.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/tokenwriter.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/tokenwriter.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\util.d">
       <Link>src\sdc\util.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/util.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/util.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\aggregate.d">
       <Link>src\sdc\ast\aggregate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/aggregate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/aggregate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\all.d">
       <Link>src\sdc\ast\all.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/all.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/all.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\attribute.d">
       <Link>src\sdc\ast\attribute.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/attribute.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/attribute.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\base.d">
       <Link>src\sdc\ast\base.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/base.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/base.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\conditional.d">
       <Link>src\sdc\ast\conditional.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/conditional.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/conditional.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\declaration.d">
       <Link>src\sdc\ast\declaration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/declaration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/declaration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\enumeration.d">
       <Link>src\sdc\ast\enumeration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/enumeration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/enumeration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\expression.d">
       <Link>src\sdc\ast\expression.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/expression.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/expression.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\manip.d">
       <Link>src\sdc\ast\manip.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/manip.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/manip.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\sdcclass.d">
       <Link>src\sdc\ast\sdcclass.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcclass.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcclass.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\sdcimport.d">
       <Link>src\sdc\ast\sdcimport.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcimport.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcimport.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\sdcmodule.d">
       <Link>src\sdc\ast\sdcmodule.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcmodule.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcmodule.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\sdcpragma.d">
       <Link>src\sdc\ast\sdcpragma.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcpragma.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcpragma.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\sdctemplate.d">
       <Link>src\sdc\ast\sdctemplate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdctemplate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdctemplate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\ast\statement.d">
       <Link>src\sdc\ast\statement.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/statement.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/statement.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\binder\c.d">
       <Link>src\sdc\binder\c.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/c.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/c.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\aggregate.d">
       <Link>src\sdc\gen\aggregate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.aggregate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.aggregate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\attribute.d">
       <Link>src\sdc\gen\attribute.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.attribute.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.attribute.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\base.d">
       <Link>src\sdc\gen\base.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.base.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.base.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\cfg.d">
       <Link>src\sdc\gen\cfg.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/cfg.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/cfg.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\declaration.d">
       <Link>src\sdc\gen\declaration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.declaration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.declaration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\enumeration.d">
       <Link>src\sdc\gen\enumeration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.enumeration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.enumeration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\expression.d">
       <Link>src\sdc\gen\expression.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.expression.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.expression.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\loop.d">
       <Link>src\sdc\gen\loop.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/loop.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/loop.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcclass.d">
       <Link>src\sdc\gen\sdcclass.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.sdcclass.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.sdcclass.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcfunction.d">
       <Link>src\sdc\gen\sdcfunction.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcfunction.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcfunction.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcimport.d">
       <Link>src\sdc\gen\sdcimport.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.sdcimport.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.sdcimport.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcmodule.d">
       <Link>src\sdc\gen\sdcmodule.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.sdcmodule.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.sdcmodule.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcpragma.d">
       <Link>src\sdc\gen\sdcpragma.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.sdcpragma.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.sdcpragma.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdcswitch.d">
       <Link>src\sdc\gen\sdcswitch.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/sdcswitch.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/sdcswitch.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\sdctemplate.d">
       <Link>src\sdc\gen\sdctemplate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.sdctemplate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.sdctemplate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\statement.d">
       <Link>src\sdc\gen\statement.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.gen.statement.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.gen.statement.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\type.d">
       <Link>src\sdc\gen\type.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/type.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/type.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\value.d">
       <Link>src\sdc\gen\value.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/value.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/value.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\gen\variable.d">
       <Link>src\sdc\gen\variable.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/variable.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/variable.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\interpreter\base.d">
       <Link>src\sdc\interpreter\base.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.interpreter.base.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.interpreter.base.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\interpreter\expression.d">
       <Link>src\sdc\interpreter\expression.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.interpreter.expression.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.interpreter.expression.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\java\classformat.d">
       <Link>src\sdc\java\classformat.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/classformat.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/classformat.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\java\mangle.d">
       <Link>src\sdc\java\mangle.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.java.mangle.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.java.mangle.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\aggregate.d">
       <Link>src\sdc\parser\aggregate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.aggregate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.aggregate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\all.d">
       <Link>src\sdc\parser\all.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.all.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.all.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\attribute.d">
       <Link>src\sdc\parser\attribute.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.attribute.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.attribute.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\base.d">
       <Link>src\sdc\parser\base.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.base.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.base.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\conditional.d">
       <Link>src\sdc\parser\conditional.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.conditional.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.conditional.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\declaration.d">
       <Link>src\sdc\parser\declaration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.declaration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.declaration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\enumeration.d">
       <Link>src\sdc\parser\enumeration.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.enumeration.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.enumeration.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\expression.d">
       <Link>src\sdc\parser\expression.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.expression.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.expression.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\iasm.d">
       <Link>src\sdc\parser\iasm.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/iasm.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/iasm.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\sdcclass.d">
       <Link>src\sdc\parser\sdcclass.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.sdcclass.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.sdcclass.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\sdcimport.d">
       <Link>src\sdc\parser\sdcimport.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.sdcimport.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.sdcimport.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\sdcpragma.d">
       <Link>src\sdc\parser\sdcpragma.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.sdcpragma.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.sdcpragma.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\sdctemplate.d">
       <Link>src\sdc\parser\sdctemplate.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.sdctemplate.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.sdctemplate.o</LastGenOutput>
     </Compile>
     <Compile Include="..\src\sdc\parser\statement.d">
       <Link>src\sdc\parser\statement.d</Link>
-      <LastGenOutput>/home/bernard/Projects/sdc/objs/Debug/src.sdc.parser.statement.o</LastGenOutput>
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.statement.o</LastGenOutput>
     </Compile>
+    <Compile Include="..\src\sdc\interpreter\enumeration.d" />
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>

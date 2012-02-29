@@ -5,6 +5,8 @@
  */
 module sdc.interpreter.expression;
 
+import std.conv;
+
 import sdc.compilererror;
 import sdc.extract;
 import sdc.location;
@@ -77,8 +79,18 @@ i.Value interpretPrimaryExpression(PrimaryExpression e, Interpreter interpreter)
         assert(asLiteral !is null);
         val = new i.IntValue(extractIntegerLiteral(asLiteral));
         break;
+    case PrimaryType.Identifier:
+        interpreter.addTopLevels(e.location);
+        auto ident = cast(Identifier) e.node;
+        assert(ident !is null);
+        string id = extractIdentifier(ident);
+        val = interpreter.store.get(id);
+        if (val is null) {
+            throw new CompilerError(e.location, "unknown identifier used in expression.");
+        }
+        break;
     default:
-        throw new CompilerPanic(e.location, "can only interpret integer literal expressions.");
+        throw new CompilerPanic(e.location, "unsupport CTFE expression type: " ~ to!string(e.type));
     }
     return val;
 }
