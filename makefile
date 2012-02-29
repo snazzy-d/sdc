@@ -5,7 +5,7 @@ ARCHFLAG ?= -m64
 SOURCE = $(SOURCE_WILDCARDS)
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport -version=SDCCOMPILER
 OBJ = sdc.o
-EXE = bin/sdc
+EXE = sdc/bin/Debug/sdc
 
 PHOBOS2 = -lphobos2
 LIBLLVM = -L-L`llvm-config --libdir` `llvm-config --libs | sed 's/-l/-L-l/g' -`

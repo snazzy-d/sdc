@@ -615,6 +615,12 @@ bool startsLikeTypeExpression(TokenStream tstream)
             return true;
         }
         
+        // (BasicType)?
+        if (tstream.lookahead(-1).type == TokenType.OpenParen && 
+            tstream.lookahead(1).type == TokenType.CloseParen) {
+            return true;
+        }
+        
         // TODO: template instantiations?
     }
     
