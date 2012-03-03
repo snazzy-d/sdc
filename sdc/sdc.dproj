@@ -321,5 +321,6 @@
     <None Include="..\README.markdown" />
     <None Include="..\index.dd" />
     <None Include="..\libs\object.d" />
+    <None Include="..\libs\std\stdio.d" />
   </ItemGroup>
 </Project>
