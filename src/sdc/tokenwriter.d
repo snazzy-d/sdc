@@ -70,8 +70,6 @@ class TokenWriter
      */
     final nothrow void changeCurrentLocation(string newFilename, size_t newLine)
     {
-        filename = newFilename;
-        //source.location = Location(newFilename, line);
         source.location.filename = newFilename;
         source.location.line = newLine;
     }
