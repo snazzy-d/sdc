@@ -13,7 +13,6 @@ alias char[] string;
 extern (C) {
     void* malloc(size_t);
     void* realloc(void*, size_t);
-	
     void exit(int code);
     int printf(char* fmt, ...);
 }

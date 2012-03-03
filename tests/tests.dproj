@@ -10,6 +10,7 @@
     <IncrementalLinking>true</IncrementalLinking>
     <UseDefaultCompiler>true</UseDefaultCompiler>
     <Compiler>DMD</Compiler>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

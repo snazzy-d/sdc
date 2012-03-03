@@ -320,5 +320,6 @@
   <ItemGroup>
     <None Include="..\README.markdown" />
     <None Include="..\index.dd" />
+    <None Include="..\libs\object.d" />
   </ItemGroup>
 </Project>
