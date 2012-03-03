@@ -39,6 +39,10 @@ class TokenWriter
         token.location.length = token.value.length;
     }
     
+    /**
+     * Remove the last token from the token list.
+     * No checking is performed, assumes you _know_ that you can remove a token.
+     */
     final void pop()
     {
         mTokens = mTokens[0 .. $-1];
