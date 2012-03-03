@@ -1,5 +1,5 @@
 /**
- * Copyright 2010 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -12,6 +12,7 @@ import std.string;
 import path = std.path;
 
 import sdc.compilererror;
+import sdc.token;
 import sdc.location;
 import sdc.ast.all;
 
@@ -44,17 +45,27 @@ string extractIdentifier(Identifier identifier)
 int extractIntegerLiteral(IntegerLiteral literal)
 {
     auto copy = literal.value.idup;  // parse advances the string
-    
-    if (copy.length < 2) {
-        return parse!int(copy);
+    return extractIntegerLiteral(copy);
+}
+
+int extractIntegerLiteral(Token t)
+{
+    assert(t.type == TokenType.IntegerLiteral);
+    return extractIntegerLiteral(t.value.idup);
+}
+
+int extractIntegerLiteral(string s)
+{
+    if (s.length < 2) {
+        return parse!int(s);
     }
-    switch (copy[0 .. 2]) {
+    switch (s[0 .. 2]) {
     case "0x":
-        return parse!int(copy[2 .. $], 16);
+        return parse!int(s[2 .. $], 16);
     case "0b":
-        return parse!int(copy[2 .. $], 2);
+        return parse!int(s[2 .. $], 2);
     default:
-        return parse!int(copy);
+        return parse!int(s);
     }
 }
 

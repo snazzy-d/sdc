@@ -19,7 +19,15 @@ version(Windows) {
 
 void outputCaretDiagnostics(Location loc, string fixHint)
 {
-    char[] line = readErrorLine(loc);
+    char[] line;
+    try {
+        line = readErrorLine(loc);
+    } catch (Exception) {
+        // People can rename the file to whatever using #line, so we can't die here.
+        stderr.writeln("warning: couldn't open " ~ loc.filename ~ " for reading.");
+        return;
+    }
+    
     if (loc.length == -1) {
         loc.length = line.length - loc.column;
     }

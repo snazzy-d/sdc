@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */ 
@@ -15,6 +15,7 @@ import std.utf;
 import std.uni;
 import std.c.time;
 
+import sdc.extract;
 import sdc.source;
 import sdc.location;
 import sdc.tokenstream;
@@ -906,7 +907,7 @@ bool lexTokenString(TokenWriter tw)
     return true;
 }
 
-/* 
+/** 
  * Consume characters from the source from the characters array until you can't.
  * Returns: the number of characters consumed, not counting underscores.
  */
@@ -1086,8 +1087,40 @@ bool lexReal(TokenWriter tw)
 
 bool lexPragma(TokenWriter tw)
 {
-    /* Can't do this yet because the code for getting values out of
-     * literals hasn't been written.
-     */
-    throw new CompilerError(tw.source.location, "# pragma is not implemented.");
+    match(tw.source, '#');
+    skipWhitespace(tw);
+    match(tw.source, 'l');
+    match(tw.source, 'i');
+    match(tw.source, 'n');
+    match(tw.source, 'e');
+    skipWhitespace(tw);
+    
+    lexNumber(tw);
+    Token Int = tw.lastAdded;
+    if (Int.type != TokenType.IntegerLiteral) {
+        throw new CompilerError(Int.location, "expected integer literal, not " ~ to!string(Int.type));
+    }
+    int lineNumber = extractIntegerLiteral(Int);
+    tw.pop();
+    
+    skipWhitespace(tw);
+    
+    // Why yes, these do use a magical kind of string literal. Thanks for noticing! >_<
+    match(tw.source, '"');
+    dchar[] buf;
+    while (tw.source.peek != '"') {
+        buf ~= tw.source.get();
+    }
+    match(tw.source, '"');
+    string filename = toUTF8(buf);
+        
+    assert(lineNumber >= 0);
+    if (lineNumber == 0) {
+        throw new CompilerError(tw.source.location, "line number must be greater than 0.");
+    }
+    tw.changeCurrentLocation(filename, lineNumber);
+    
+    skipWhitespace(tw);
+    
+    return true;
 }

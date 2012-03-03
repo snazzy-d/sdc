@@ -1,6 +1,6 @@
 /**
  * Copyright 2011 Jakob Bornecrantz.
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -9,6 +9,7 @@ module sdc.tokenwriter;
 
 import sdc.source;
 import sdc.tokenstream;
+import sdc.location;
 
 
 /**
@@ -32,13 +33,18 @@ class TokenWriter
         initTokenArray();
     }
     
-    void addToken(Token token)
+    final void addToken(Token token)
     {
         mTokens ~= token;
         token.location.length = token.value.length;
     }
     
-    Token lastAdded() @property
+    final void pop()
+    {
+        mTokens = mTokens[0 .. $-1];
+    }
+    
+    final Token lastAdded() @property
     {
         return mTokens[$ - 1];
     }
@@ -52,14 +58,25 @@ class TokenWriter
      * Side-effects:
      *   Remove all tokens from this writer, and reinitializes the writer.
      */
-    TokenStream getStream()
+    final TokenStream getStream()
     {
         auto tstream = new TokenStream(filename, mTokens);
         initTokenArray();
         return tstream;
     }
+    
+    /**
+     * Set the location to newFilename(line:1).
+     */
+    final nothrow void changeCurrentLocation(string newFilename, size_t newLine)
+    {
+        filename = newFilename;
+        //source.location = Location(newFilename, line);
+        source.location.filename = newFilename;
+        source.location.line = newLine;
+    }
 
-    private void initTokenArray()
+    private final void initTokenArray()
     {
         auto start = new Token();
         start.type = TokenType.Begin;

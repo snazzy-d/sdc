@@ -11,6 +11,7 @@
     <Compiler>DMD</Compiler>
     <BaseDirectory>..</BaseDirectory>
     <UseDefaultCompiler>true</UseDefaultCompiler>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -301,7 +302,9 @@
       <Link>src\sdc\parser\statement.d</Link>
       <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.parser.statement.o</LastGenOutput>
     </Compile>
-    <Compile Include="..\src\sdc\interpreter\enumeration.d" />
+    <Compile Include="..\src\sdc\interpreter\enumeration.d">
+      <LastGenOutput>/home/bernard/Projects/SDC/objs/Debug/src.sdc.interpreter.enumeration.o</LastGenOutput>
+    </Compile>
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>
