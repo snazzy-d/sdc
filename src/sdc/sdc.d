@@ -107,30 +107,37 @@ int realmain(string[] args)
     }
     auto argsCopy = args.dup;
     try {
+        // WORKAROUND 2.058
+        void disableWarning(string, string arg) { disabledWarnings ~= cast(Warning) parse!uint(arg); }
+        void warningAsError(string, string arg) { errorWarnings ~= cast(Warning) parse!uint(arg); }
+        void setArch(string, string arg) { arch = arg; }
+        void addImport(string, string arg) { importPaths ~= arg; }
+        void setVersionI(string, string arg) { setVersion(arg); }
+        void setDebugI(string, string arg) { setDebug(arg); }
         getopt(args,
                std.getopt.config.caseSensitive,
-               "help|h", { usage(); exit(0); },
-               "version|v",  { writeln(VERSION_STRING); exit(0); },
-               "version-identifier", (string option, string arg) { setVersion(arg); },
-               "debug-identifier", (string option, string arg) { setDebug(arg); },
-               "debug", { isDebug = true; },
-               "release", { isDebug = false; },
-               "unittest", { unittestsEnabled = true; },
-               "no-colour-print", { coloursEnabled = false; },
-               "I", (string, string path){ importPaths ~= path; },
+               "help|h", delegate { usage(); exit(0); },
+               "version|v",  delegate { writeln(VERSION_STRING); exit(0); },
+               "version-identifier", &setVersionI,
+               "debug-identifier", &setDebugI,
+               "debug", delegate { isDebug = true; },
+               "release", delegate { isDebug = false; },
+               "unittest", delegate { unittestsEnabled = true; },
+               "no-colour-print", delegate { coloursEnabled = false; },
+               "I", &addImport,
                "gcc", &gcc,
-               "arch", (string, string arg) { arch = arg; },
-               "m64", { arch = "x86-64"; },
-               "m32", { arch = "x86"; },
+               "arch", &setArch,
+               "m64", delegate { arch = "x86-64"; },
+               "m32", delegate { arch = "x86"; },
                "nw", &disableAllWarnings,
                "we", &treatWarningsAsErrors,
-               "disable-warning", (string, string arg) { disabledWarnings ~= cast(Warning) parse!uint(arg); },
-               "warning-as-error", (string, string arg) { errorWarnings ~= cast(Warning) parse!uint(arg); },
+               "disable-warning", &disableWarning,
+               "warning-as-error", &warningAsError,
                "c", &skipLink,
                "run", &interpret,
                "O", &optimise,
                "o", &outputName,
-               "V", { verboseCompile = true; },
+               "V", delegate { verboseCompile = true; },
                "save-temps", &saveTemps,
                "pic", &PIC
                );

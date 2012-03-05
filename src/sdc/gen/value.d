@@ -1438,7 +1438,6 @@ class ImmutableValue : Value
     
     this(Module mod, Location location, Value base)
     {
-        //assert(false);
         super(mod, location);
         this.base = base;
         mType = new ConstType(mod, base.type);
@@ -1742,6 +1741,9 @@ Type astTypeToBackendType(ast.Type type, Module mod, OnFailure onFailure)
     foreach (storageType; type.storageTypes) switch (storageType) with (ast.StorageType) {
     case Const:
         t = new ConstType(mod, t);
+        break;
+    case Immutable:
+        t = new ImmutableType(mod, t);
         break;
     case Auto:
         break;

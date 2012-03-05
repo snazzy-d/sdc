@@ -150,7 +150,7 @@ void main(string[] args)
             "j", &jobCount,
             "only-failed", &displayOnlyFailed,
             "wait-on-exit", &waitOnExit,
-            "help", {usage(); exit(0);});
+            "help", delegate {usage(); exit(0);});
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);

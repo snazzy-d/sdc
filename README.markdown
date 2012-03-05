@@ -7,7 +7,7 @@ I don't know what I'm doing in terms of compiler writing. If you find some horri
 The code is released under the GPL (see the LICENCE file for more details).
 Contact me at b.helyer@gmail.com
 
-_SDC currently does not build with 2.058 due to a bug with void delegates and getopt. I'm told Andrei's on it._
+Currently working with: DMD releases `2.057` and `2.058`.
 
 Features
 ========
@@ -20,7 +20,7 @@ Lexer
 * Handle leading script lines.  __[yes.]__
 * Split source into tokens.  __[yes.]__
 * Replace special tokens.  __[yes.]__
-* Process special token sequences.  _[no.]_
+* Process special token sequences.  __[yes.]__
 
 Parser
 ------

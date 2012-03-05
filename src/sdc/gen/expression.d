@@ -260,7 +260,7 @@ Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
     case ast.UnaryPrefix.UnaryMinus:
         val = genUnaryExpression(expression.unaryExpression, mod);
         auto zero = new IntValue(mod, expression.location, 0);
-        binaryOperatorImplicitCast(expression.location, &zero, &val);
+        binaryOperatorImplicitCast(expression.location, cast(Value*) &zero, &val);
         val = zero.sub(expression.location, val);
         break;
     case ast.UnaryPrefix.UnaryPlus:
