@@ -33,6 +33,7 @@ sys.d
 /cfg.dot
 /bin
 /tests/bin
+/tests/tdpl
 
 # Eclipse
 build.rf
