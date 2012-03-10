@@ -1228,7 +1228,7 @@ class ReferenceValue : Value
         mType = base.type;
         mValue = base.mValue;
         pointerToBase = new PointerValue(mod, location, base.type);
-        setReferencePointer(location, base.addressOf(location).get);
+        setReferencePointer(location, base.addressOf(location).get());
     }
     
     void setReferencePointer(Location loc, LLVMValueRef val)

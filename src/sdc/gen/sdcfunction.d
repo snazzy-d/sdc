@@ -367,7 +367,7 @@ Value buildCall(Module mod, FunctionType type, LLVMValueRef llvmValue, string fu
 {
     checkArgumentListLength(type, functionName, callLocation, argLocations, args);
     normaliseArguments(mod, type, argLocations, args);
-    auto llvmArgs = array( map!"a.get"(args) );
+    auto llvmArgs = array( map!"a.get()"(args) );
     LLVMValueRef v;
     if (mod.catchTargetStack.length == 0) {
         v = LLVMBuildCall(mod.builder, llvmValue, llvmArgs.ptr, cast(uint) llvmArgs.length, "");

@@ -69,7 +69,7 @@ class QualifiedName : Node
     bool leadingDot = false;
     Identifier[] identifiers;
     
-    QualifiedName dup()
+    QualifiedName dup() @property
     {
         auto qn = new QualifiedName();
         qn.identifiers = this.identifiers.dup;

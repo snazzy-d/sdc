@@ -145,7 +145,7 @@ abstract class Type
         typeScope = new Scope();
     }
     
-    LLVMTypeRef llvmType()
+    LLVMTypeRef llvmType() @property
     {
         return mType;
     }
@@ -180,7 +180,7 @@ abstract class Type
         return this;
     }
     
-    abstract string name();
+    abstract string name() @property;
     
     // Override this for complex types.
     bool equals(Type other)
