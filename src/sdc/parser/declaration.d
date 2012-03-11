@@ -37,20 +37,20 @@ Declaration parseDeclaration(TokenStream tstream)
     if (tstream.peek.type == TokenType.Alias) {
         match(tstream, TokenType.Alias);
         if (tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.This) {
-        	// alias foo this;
-        	declaration.type = DeclarationType.AliasThis;
-        	declaration.node = parseIdentifier(tstream);
-        	match(tstream, TokenType.This);
-        	match(tstream, TokenType.Semicolon);
+            // alias foo this;
+            declaration.type = DeclarationType.AliasThis;
+            declaration.node = parseIdentifier(tstream);
+            match(tstream, TokenType.This);
+            match(tstream, TokenType.Semicolon);
         } else {
-        	// Normal alias declaration.
-		    if (tstream.peek.type == TokenType.Alias) {
-		        throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
-		    }
-		    declaration.type = DeclarationType.Alias;
-		    auto var = parseVariableDeclaration(tstream);
-		    var.isAlias = true;
-		    declaration.node = var;
+            // Normal alias declaration.
+            if (tstream.peek.type == TokenType.Alias) {
+                throw new CompilerError(tstream.peek.location, "alias declarations cannot be the subject of an alias declaration.");
+            }
+            declaration.type = DeclarationType.Alias;
+            auto var = parseVariableDeclaration(tstream);
+            var.isAlias = true;
+            declaration.node = var;
         }
     } else if (tstream.peek.type == TokenType.Mixin) {
         declaration.type = DeclarationType.Mixin;
