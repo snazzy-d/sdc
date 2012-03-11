@@ -121,7 +121,7 @@ void declareVariableDeclaration(ast.VariableDeclaration decl, Module mod)
             verbosePrint("Adding alias '" ~ name ~ "' for " ~ type.name ~ ".", VerbosePrintColour.Green);
             if (type.dtype == DType.Function) {
                 // alias <function name> foo;
-                // !!! A complete look up should be performed, not this current hackish implementation.
+                // !!! TODO A complete look up should be performed, not this current hackish implementation.
                 auto asUserDefinedType = enforce(cast(ast.UserDefinedType) decl.type.node);
                 if (!asUserDefinedType.segments[$ - 1].isIdentifier) {
                     throw new CompilerPanic(decl.location, "aliasing template functions is unimplemented.");
