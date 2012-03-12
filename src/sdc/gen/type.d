@@ -160,6 +160,10 @@ abstract class Type
     }
     
     abstract Value getValue(Module mod, Location location);
+    Value getValue(Module mod, Location location, Value newBase)
+    {
+        throw new CompilerPanic(location, format("attempted to rebase a type (%s) without a base.", name));
+    }
     
     Type getBase()
     {
@@ -555,6 +559,11 @@ class ConstType : Type
         return new ConstValue(mod, location, base.getValue(mod, location));
     }
     
+    override Value getValue(Module mod, Location location, Value newBase)
+    {
+        return new ConstValue(mod, location, newBase);
+    }
+    
     override Type getBase()
     {
         return base;
@@ -587,6 +596,11 @@ class ImmutableType : Type
     override Value getValue(Module mod, Location location)
     {
         return new ImmutableValue(mod, location, base.getValue(mod, location));
+    }
+    
+    override Value getValue(Module mod, Location location, Value newValue)
+    {
+        return new ImmutableValue(mod, location, newValue);
     }
     
     override Type getBase()

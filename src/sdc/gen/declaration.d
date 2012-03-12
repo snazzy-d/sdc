@@ -252,10 +252,25 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
         args = array( map!getDefaultValue(asFunction.parameterTypes) );
         mod.functionPointerArguments = &args;     
     }
+    
+    static bool isInferred(Type t)
+    {
+        do {
+            if (t.dtype == DType.Inferred) {
+                return true;
+            }
+            try {
+                t = t.getBase();
+            } catch (CompilerPanic panic) {
+                break;
+            }
+        } while(t !is null);
+        return false;
+    }
      
     foreach (declarator; decl.declarators) {          
         Value var;
-        if (type.dtype == DType.Inferred) {
+        if (isInferred(type)) {
             if (declarator.initialiser is null || declarator.initialiser.type == ast.InitialiserType.Void) {
                 throw new CompilerError(decl.location, "not enough information to infer type.");
             }
@@ -270,10 +285,17 @@ void genVariableDeclaration(ast.VariableDeclaration decl, Module mod)
                 var.initialise(decl.location, LLVMGetUndef(type.llvmType));
             } else if (declarator.initialiser.type == ast.InitialiserType.AssignExpression) {
                 auto aexp = genConditionalExpression(cast(ast.ConditionalExpression) declarator.initialiser.node, mod);
+                
+                // Retype the variable if we're inferring it, as we should have enough info.
                 if (type.dtype == DType.Inferred) {
+                    // auto foo = bar;
                     type = aexp.type;
                     var = type.getValue(mod, decl.location);
+                } else if (isInferred(type)) {
+                    // e.g. const foo = bar;
+                    var = type.getValue(mod, decl.location, aexp.type.getValue(mod, decl.location));
                 }
+                
                 aexp = implicitCast(declarator.initialiser.location, aexp, type);
                 if (var is null) {
                     throw new CompilerPanic(decl.location, "inferred type ended up with no value at declaration point.");
