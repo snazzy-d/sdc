@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
  * 
  * This file is part of SDC.
@@ -72,7 +72,7 @@ int main(string[] args)
             if(error.location.filename !is null) {
                 outputCaretDiagnostics(error.location, error.fixHint);
             }
-        } while((error = error.more) !is null);
+        } while ((error = error.more) !is null);
         
         version(sdc_pass_on_error) {
             throw topError;
