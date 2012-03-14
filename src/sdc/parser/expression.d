@@ -586,7 +586,51 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
 
 void parseOpenBracketExpression(TokenStream tstream, PrimaryExpression expr)
 {
-    assert(false, "MAMBO");
+    auto firstToken = match(tstream, TokenType.OpenBracket);
+    
+    if (tstream.peek.type == TokenType.CloseBracket) {
+        // Empty brackets are empty arrays.
+        expr.type = PrimaryType.ArrayLiteral;
+        expr.node = new ArrayExpression();
+        auto lastToken = tstream.get();
+        expr.node.location = lastToken.location - firstToken.location;
+        return;
+    }
+    
+    // Both arrays and AAs start in the same way: 
+    auto firstExpression = parseConditionalExpression(tstream);
+    
+    // If the next token is a colon it's an associative array literal.
+    if (tstream.peek.type == TokenType.Colon) {
+        parseAssocArrayExpression(tstream, expr, firstExpression);
+        return;
+    }
+    
+    // Otherwise we're dealing with an array literal.
+    auto arrayExpression = new ArrayExpression();
+    arrayExpression.elements ~= firstExpression;
+      
+    while (true) {
+        if (tstream.peek.type == TokenType.Comma) {
+            tstream.get();
+        }
+        if (tstream.peek.type == TokenType.CloseBracket) {
+            break;
+        }
+        arrayExpression.elements ~= parseConditionalExpression(tstream);
+    }
+    
+    // Set the location to span the entire array.
+    auto lastToken = match(tstream, TokenType.CloseBracket);
+    arrayExpression.location = lastToken.location - firstToken.location;
+    
+    expr.type = PrimaryType.ArrayLiteral;
+    expr.node = arrayExpression;
+}
+
+void parseAssocArrayExpression(TokenStream tstream, PrimaryExpression expr, ConditionalExpression firstExpression)
+{
+    throw new CompilerPanic(tstream.peek.location, "Associative array literals are unsupported.");
 }
 
 AssertExpression parseAssertExpression(TokenStream tstream)

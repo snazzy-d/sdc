@@ -215,10 +215,10 @@ class PrimaryExpression : Node
     Node secondNode;  // Optional.
 }
 
-// [ ArgumentList? ]
+// [ (AssignExpr, )* ]
 class ArrayExpression : Node
 {
-    ArgumentList elements;
+    ConditionalExpression[] elements;
 }
 
 // [ KeyValuePair (, KeyValuePair)* ]
