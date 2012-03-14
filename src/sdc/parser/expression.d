@@ -297,9 +297,14 @@ PostfixExpression parsePostfixExpression(TokenStream tstream, int count = 0)
         postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
         break;
     case TokenType.OpenBracket:
-        parseBracketPostfixExpression(tstream, postfixExpr);
-        postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
-        break;
+        if (count > 0) {
+            parseBracketPostfixExpression(tstream, postfixExpr);
+            postfixExpr.postfixExpression = parsePostfixExpression(tstream, count + 1);
+            break;
+        } else {
+            goto default;
+        }
+        // Never reached.
     case TokenType.Dot:
         postfixExpr.type = PostfixType.Dot;
         match(tstream, TokenType.Dot);
@@ -434,6 +439,8 @@ bool isPrimaryExpression(TokenStream tstream)
         return true;
     case TokenType.OpenParen:
         return true;
+    case TokenType.OpenBracket:
+        return true;
     case TokenType.Mixin:
         return true;
     case TokenType.Assert:
@@ -544,6 +551,9 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
             primaryExpr.secondNode = parseIdentifier(tstream);
         }
         break;
+    case TokenType.OpenBracket:
+        parseOpenBracketExpression(tstream, primaryExpr);
+        break;
     case TokenType.Mixin:
         primaryExpr.type = PrimaryType.MixinExpression;
         match(tstream, TokenType.Mixin);
@@ -572,6 +582,11 @@ PrimaryExpression parsePrimaryExpression(TokenStream tstream)
     
     primaryExpr.location.spanTo(tstream.previous.location);
     return primaryExpr;
+}
+
+void parseOpenBracketExpression(TokenStream tstream, PrimaryExpression expr)
+{
+    assert(false, "MAMBO");
 }
 
 AssertExpression parseAssertExpression(TokenStream tstream)

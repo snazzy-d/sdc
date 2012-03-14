@@ -1,7 +1,8 @@
 /**
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
+ * TODO: AssignExpr has been replaced with ConditionalExpr. Update the comments.
  */
 module sdc.ast.expression;
 
@@ -103,9 +104,9 @@ bool undergoesIntegralPromotion(BinaryOperation operation)
 
 class BinaryExpression : Node
 {
-	UnaryExpression lhs;
-	BinaryOperation operation;
-	BinaryExpression rhs;  // Optional.
+    UnaryExpression lhs;
+    BinaryOperation operation;
+    BinaryExpression rhs;  // Optional.
 }
 
 enum UnaryPrefix
@@ -212,6 +213,25 @@ class PrimaryExpression : Node
      */
     Node node;
     Node secondNode;  // Optional.
+}
+
+// [ ArgumentList? ]
+class ArrayExpression : Node
+{
+    ArgumentList elements;
+}
+
+// [ KeyValuePair (, KeyValuePair)* ]
+class AssocArrayExpression : Node
+{
+    KeyValuePair[] elements;
+}
+
+// AssignExpr : AssignExpr
+class KeyValuePair : Node
+{
+    ConditionalExpression key;
+    ConditionalExpression value;
 }
 
 // assert ( AssignExpr (, AssignExpr)? )
