@@ -319,6 +319,47 @@ Value genNewExpression(ast.NewExpression expression, Module mod)
     }
 }
 
+/// Given an ArrayExpression create a new ArrayValue.
+ArrayValue newArray(Module mod, Location location, ast.ArrayExpression astArray)
+{
+    // Convert the list of ConditionalExpressions into Values.
+    Value[] elementValues;
+    foreach (element; astArray.elements) {
+        elementValues ~= genConditionalExpression(element, mod);
+    }
+    assert(astArray.elements.length == elementValues.length);
+    
+    // Determine base type of this array.
+    Type base;
+    if (elementValues.length > 0) {
+        base = elementValues[0].type;
+    } else {
+        throw new CompilerPanic(astArray.location, "these magical bastards are unimplemented.");
+    }
+    
+    auto array = new ArrayValue(mod, location, base);
+    auto length = newSizeT(mod, location, elementValues.length);
+    auto size = base.getValue(mod, location).getSizeof(location).mul(location, length);
+    auto ptr = mod.gcAlloc(location, size).performCast(location, new PointerType(mod, base));
+    
+    array.suppressCallbacks = true;  // Suppress automatic resizing.
+    array.getMember(location, "length").initialise(location, length);
+    array.getMember(location, "ptr").initialise(location, ptr);
+    
+    foreach (i, element; elementValues) {
+        auto indexValue = newSizeT(mod, location, i);
+        if (!canImplicitCast(location, element.type, base)) {
+            throw new CompilerError(astArray.elements[i].location, 
+                                    format("cannot implicitly cast from %s to %s.", element.type.name, base.name));
+        }
+        array.index(location, indexValue).initialise(location, element);
+    }
+    
+    array.suppressCallbacks = false;
+    
+    return array;
+}
+
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
     Value lhs = suppressPrimary;
@@ -477,6 +518,10 @@ Value genPrimaryExpression(ast.PrimaryExpression expression, Module mod)
         return genTemplateInstance(cast(ast.TemplateInstance) expression.node, mod);
     case ast.PrimaryType.ComplexTypeDotIdentifier:
         return genComplexTypeDotIdentifier(expression, mod);
+    case ast.PrimaryType.ArrayLiteral:
+        auto asArray = cast(ast.ArrayExpression) expression.node;
+        assert(asArray !is null);
+        return newArray(mod, asArray.location, asArray);
     default:
         throw new CompilerPanic(expression.location, format("unhandled primary expression type: '%s'", to!string(expression.type)));
     }
