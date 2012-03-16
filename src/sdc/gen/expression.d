@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * Copyright 2010-2011 Jakob Ovrum.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
@@ -360,6 +360,28 @@ ArrayValue newArray(Module mod, Location location, ast.ArrayExpression astArray)
     return array;
 }
 
+/** 
+ * If v is a function, call it with no arguments or with mod.ufcsBase if it's non-null.
+ * Returns: the return value of the function call, or v otherwise.
+ */
+Value callWithNoArgumentsMaybe(Module mod, Location location, Value v)
+{
+    if (v !is null && v.type.dtype == DType.Function) {
+        Location[] argLocations;
+        Value[] args;
+            
+        if (mod.ufcsBase !is null) {
+            argLocations ~= mod.ufcsBase.location;
+            args ~= mod.ufcsBase;
+        }
+        
+        mod.ufcsBase = null;    
+        return v.call(location, argLocations, args);
+    } else {
+        return v;
+    }
+}
+
 Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value suppressPrimary = null)
 {
     Value lhs = suppressPrimary;
@@ -390,7 +412,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         Value[] args;
         Location[] argLocations;
         auto argList = cast(ast.ArgumentList) expression.firstNode;
-        assert(argList);
+        assert(argList !is null);
         
         FunctionType functionType;
         if (lhs.type.dtype == DType.Function) {
@@ -426,9 +448,12 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
             args ~= p;
         } else if (mod.callingAggregate !is null) {
             args ~= mod.callingAggregate;
+        } else if (mod.ufcsBase !is null) {
+            args = mod.ufcsBase ~ args;
         }
         
         lhs = lhs.call(argList.location, argLocations, args);
+        mod.ufcsBase = null;
 
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
@@ -446,10 +471,11 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
     case ast.PostfixType.Dot:
         auto qname = enforce(cast(ast.QualifiedName) expression.firstNode);
         mod.base = lhs;
-        foreach (identifier; qname.identifiers) {
+        foreach (i, identifier; qname.identifiers) {
             if (mod.base.type.dtype == DType.Struct || mod.base.type.dtype == DType.Class) {
                 mod.callingAggregate = mod.base;
             }
+            mod.base = callWithNoArgumentsMaybe(mod, expression.location, mod.base);
             mod.base = genIdentifier(identifier, mod);
         }
         lhs = mod.base;
@@ -464,6 +490,8 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     }
+    
+    lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
     return lhs;
 }
 
@@ -536,18 +564,23 @@ Value genComplexTypeDotIdentifier(ast.PrimaryExpression expression, Module mod)
 
 Value genIdentifier(ast.Identifier identifier, Module mod)
 {
+    Store store;
     auto name = extractIdentifier(identifier);
     void failure() 
-    { 
-        throw new CompilerError(identifier.location, format("unknown identifier '%s'.", name));
+    {
+        if (mod.base !is null) {
+            throw new CompilerError(identifier.location, format("type '%s' has no member '%s'.", mod.base.type.name,  name));    
+        } else {
+            throw new CompilerError(identifier.location, format("unknown identifier '%s'.", name));
+        }
     }
-    
     
     Value implicitBase;
     if (mod.base !is null) {
         auto member = mod.base.getMember(identifier.location, name);
         if (member is null) {
-            throw new CompilerError(identifier.location, format("type '%s' has no member '%s'.", mod.base.type.name,  name));
+            mod.ufcsBase = mod.base;
+            goto _search;
         }
         return member;
     } else {
@@ -560,7 +593,6 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         }
     }
     
-    Store store;
     if (implicitBase !is null) {
         auto member = implicitBase.getMember(identifier.location, name);
         if (member !is null) {
@@ -568,6 +600,7 @@ Value genIdentifier(ast.Identifier identifier, Module mod)
         }
     }
     
+    _search:
     if (store is null) {
         store = mod.search(name);
     }  

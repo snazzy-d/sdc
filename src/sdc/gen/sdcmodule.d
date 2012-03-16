@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2011 Bernard Helyer.
+ * Copyright 2010-2012 Bernard Helyer.
  * This file is part of SDC. SDC is licensed under the GPL.
  * See LICENCE or sdc.d for more details.
  */
@@ -50,6 +50,7 @@ class Module
     Function currentFunction;
     Value base;
     Value callingAggregate;
+    Value ufcsBase;  /// Try to rewrite a.b() as b(a) if this is non-null.
     ast.Access currentAccess = ast.Access.Public;
     Value[]* functionPointerArguments;
     Switch* currentSwitch;

@@ -104,7 +104,7 @@ bool undergoesIntegralPromotion(BinaryOperation operation)
 
 class BinaryExpression : Node
 {
-    UnaryExpression lhs;
+    UnaryExpression v;
     BinaryOperation operation;
     BinaryExpression rhs;  // Optional.
 }

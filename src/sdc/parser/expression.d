@@ -52,7 +52,7 @@ BinaryExpression parseBinaryExpression(TokenStream tstream)
 {
     auto expression = new BinaryExpression();
     expression.location = tstream.peek.location;
-    expression.lhs = parseUnaryExpression(tstream);
+    expression.v = parseUnaryExpression(tstream);
     
     switch (tstream.peek.type) {
     case TokenType.Bang:

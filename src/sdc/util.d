@@ -263,11 +263,11 @@ template BinaryExpressionProcessor(V, M, alias F, alias G)
     {
         ExpressionOrOperation[] list;
         while (expression.operation != BinaryOperation.None) {
-            list ~= ExpressionOrOperation(expression.lhs);
+            list ~= ExpressionOrOperation(expression.v);
             list ~= ExpressionOrOperation(expression.operation);
             expression = expression.rhs;
         }
-        list ~= ExpressionOrOperation(expression.lhs);
+        list ~= ExpressionOrOperation(expression.v);
         return list;
     }
     
@@ -315,10 +315,10 @@ template BinaryExpressionProcessor(V, M, alias F, alias G)
                 }
                 auto rhs = valueStack.front;
                 valueStack.popFront;
-                auto lhs = valueStack.front;
+                auto v = valueStack.front;
                 valueStack.popFront;
                 
-                valueStack = ExpressionOrOperation(G(mod, expression.location, element.operation, lhs, rhs)) ~ valueStack;
+                valueStack = ExpressionOrOperation(G(mod, expression.location, element.operation, v, rhs)) ~ valueStack;
             }
         } 
         

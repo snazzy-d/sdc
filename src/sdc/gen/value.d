@@ -1881,21 +1881,21 @@ Type userDefinedTypeToBackendType(ast.UserDefinedType type, Module mod, OnFailur
     assert(false);
 }
 
-void binaryOperatorImplicitCast(Location location, Value* lhs, Value* rhs)
+void binaryOperatorImplicitCast(Location location, Value* v, Value* rhs)
 {    
-    if (lhs.type.dtype == rhs.type.dtype) {
+    if (v.type.dtype == rhs.type.dtype) {
         return;
     }
     
-    if (lhs.type.dtype == DType.Pointer || // pointer arithmetic
-        lhs.type.dtype == DType.NullPointer || rhs.type.dtype == DType.NullPointer) {
+    if (v.type.dtype == DType.Pointer || // pointer arithmetic
+        v.type.dtype == DType.NullPointer || rhs.type.dtype == DType.NullPointer) {
         return;
     }
  
-    if (lhs.type.dtype > rhs.type.dtype) {
-        *rhs = implicitCast(location, *rhs, lhs.type);
+    if (v.type.dtype > rhs.type.dtype) {
+        *rhs = implicitCast(location, *rhs, v.type);
     } else {
-        *lhs = implicitCast(location, *lhs, rhs.type);
+        *v = implicitCast(location, *v, rhs.type);
     }
 }
 

@@ -97,44 +97,44 @@ class AsmExpNode
 class AsmExp : AsmExpNode
 {
     AsmLogOrExp logOrExp;
-    AsmExp lhs;  // Optional.
+    AsmExp v;  // Optional.
     AsmExp rhs;  // Optional.
 }
 
 class AsmLogOrExp : AsmExpNode
 {
-    AsmLogAndExp lhs;
+    AsmLogAndExp v;
     AsmLogAndExp rhs;  // Optional.
 }
 
 class AsmLogAndExp : AsmExpNode
 {
-    AsmOrExp lhs;
+    AsmOrExp v;
     AsmOrExp rhs;  // Optional.
 }
 
 class AsmOrExp : AsmExpNode
 {
-    AsmXorExp lhs;
+    AsmXorExp v;
     AsmXorExp rhs;  // Optional.
 }
 
 class AsmXorExp : AsmExpNode
 {
-    AsmAndExp lhs;
+    AsmAndExp v;
     AsmAndExp rhs;  // Optional.
 }
 
 class AsmAndExp : AsmExpNode
 {
-    AsmEqualExp lhs;
+    AsmEqualExp v;
     AsmEqualExp rhs;  // Optional.
 }
 
 class AsmEqualExp : AsmExpNode
 {
     bool equal;
-    AsmRelExp lhs;
+    AsmRelExp v;
     AsmRelExp rhs;  // Optional.
 }
 
@@ -150,7 +150,7 @@ enum RelType
 class AsmRelExp : AsmExpNode
 {
     RelType type;
-    AsmShiftExp lhs;
+    AsmShiftExp v;
     AsmShiftExp rhs;  // Optional.
 }
 
@@ -165,14 +165,14 @@ enum ShiftType
 class AsmShiftExp : AsmExpNode
 {
     ShiftType type;
-    AsmAddExp lhs;
+    AsmAddExp v;
     AsmAddExp rhs;  // Optional.
 }
 
 class AsmAddExp : AsmExpNode
 {
     bool addition;
-    AsmMulExp lhs;
+    AsmMulExp v;
     AsmMulExp rhs;  // Optional.
 }
 
@@ -187,7 +187,7 @@ enum MulType
 class AsmMulExp : AsmExpNode
 {
     MulType type;
-    AsmBrExp lhs;
+    AsmBrExp v;
     AsmBrExp rhs;  // Optional.
 }
 
@@ -331,7 +331,7 @@ AsmExp parseAsmExp(TokenStream tstream)
     exp.logOrExp = parseAsmLogOrExp(tstream);
     if (tstream.peek.type == TokenType.QuestionMark) {
         tstream.get();
-        exp.lhs = parseAsmExp(tstream);
+        exp.v = parseAsmExp(tstream);
         match(tstream, TokenType.Colon);
         exp.rhs = parseAsmExp(tstream);
     }
@@ -342,7 +342,7 @@ T parseSimpleBinaryExp(T, TokenType OP, string parent)(TokenStream tstream)
 {
     auto exp = new T();
     exp.location = tstream.peek.location;
-    mixin("exp.lhs = " ~ parent ~ "(tstream);");
+    mixin("exp.v = " ~ parent ~ "(tstream);");
     if (tstream.peek.type == OP) {
         tstream.get();
         mixin("exp.rhs = " ~ parent ~ "(tstream);");
@@ -360,7 +360,7 @@ AsmEqualExp parseAsmEqualExp(TokenStream tstream)
 {
     auto exp = new AsmEqualExp();
     exp.location = tstream.peek.location;
-    exp.lhs = parseAsmRelExp(tstream);
+    exp.v = parseAsmRelExp(tstream);
     if (tstream.peek.type == TokenType.DoubleAssign) {
         exp.equal = true;
         exp.rhs = parseAsmRelExp(tstream);
@@ -375,7 +375,7 @@ AsmRelExp parseAsmRelExp(TokenStream tstream)
 {
     auto exp = new AsmRelExp();
     exp.location = tstream.peek.location;
-    exp.lhs = parseAsmShiftExp(tstream);
+    exp.v = parseAsmShiftExp(tstream);
     switch (tstream.peek.type) {
     case TokenType.Less: exp.type = RelType.LT; break;
     case TokenType.LessAssign: exp.type = RelType.LTE; break;
@@ -393,7 +393,7 @@ AsmShiftExp parseAsmShiftExp(TokenStream tstream)
 {
     auto exp = new AsmShiftExp();
     exp.location = tstream.peek.location;
-    exp.lhs = parseAsmAddExp(tstream);
+    exp.v = parseAsmAddExp(tstream);
     switch (tstream.peek.type) {
     case TokenType.DoubleLess: exp.type = ShiftType.DoubleLeft; break;
     case TokenType.DoubleGreater: exp.type = ShiftType.DoubleRight; break;
@@ -410,7 +410,7 @@ AsmAddExp parseAsmAddExp(TokenStream tstream)
 {
     auto exp = new AsmAddExp();
     exp.location = tstream.peek.location;
-    exp.lhs = parseAsmMulExp(tstream);
+    exp.v = parseAsmMulExp(tstream);
     if (tstream.peek.type == TokenType.Plus) {
         exp.addition = true;
         exp.rhs = parseAsmMulExp(tstream);
@@ -425,7 +425,7 @@ AsmMulExp parseAsmMulExp(TokenStream tstream)
 {
     auto exp = new AsmMulExp();
     exp.location = tstream.peek.location;
-    exp.lhs = parseAsmBrExp(tstream);
+    exp.v = parseAsmBrExp(tstream);
     if (tstream.peek.type == TokenType.Asterix) {
         exp.type = MulType.Multiply;
     } else if (tstream.peek.type == TokenType.Slash) {

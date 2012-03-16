@@ -52,7 +52,7 @@ i.Value interpretUnaryExpression(UnaryExpression e, Interpreter interpreter)
     }
 }
 
-i.Value performOperation(T)(Interpreter interpreter, Location location, BinaryOperation operation, T lhs, T rhs)
+i.Value performOperation(T)(Interpreter interpreter, Location location, BinaryOperation operation, T v, T rhs)
 {
     return nullVal;
 }
