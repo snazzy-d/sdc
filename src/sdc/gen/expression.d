@@ -241,52 +241,63 @@ body
     return lhs;
 }
 
-Value genUnaryExpression(ast.UnaryExpression expression, Module mod)
+Value genUnaryExpression(ast.UnaryExpression expression, Module mod, int depth = 0)
 {
     Value val;
     final switch (expression.unaryPrefix) {
     case ast.UnaryPrefix.PrefixDec:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val.set(expression.location, val.dec(expression.location));
         break;
     case ast.UnaryPrefix.PrefixInc:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val.set(expression.location, val.inc(expression.location));
         break;
     case ast.UnaryPrefix.Cast:
-        val = genUnaryExpression(expression.castExpression.unaryExpression, mod);
+        val = genUnaryExpression(expression.castExpression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val = val.performCast(expression.location, astTypeToBackendType(expression.castExpression.type, mod, OnFailure.DieWithError));
         break;
     case ast.UnaryPrefix.UnaryMinus:
         val = genUnaryExpression(expression.unaryExpression, mod);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         auto zero = new IntValue(mod, expression.location, 0);
         binaryOperatorImplicitCast(expression.location, cast(Value*) &zero, &val);
         val = zero.sub(expression.location, val);
         break;
     case ast.UnaryPrefix.UnaryPlus:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         break;
     case ast.UnaryPrefix.AddressOf:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
         val = val.addressOf(expression.location);
         break;
     case ast.UnaryPrefix.Dereference:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val = val.dereference(expression.location);
         break;
     case ast.UnaryPrefix.New:
         val = genNewExpression(expression.newExpression, mod);
         break;
     case ast.UnaryPrefix.LogicalNot:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val = val.logicalNot(expression.location);
         break;
     case ast.UnaryPrefix.BitwiseNot:
-        val = genUnaryExpression(expression.unaryExpression, mod);
+        val = genUnaryExpression(expression.unaryExpression, mod, depth + 1);
+        val = callWithNoArgumentsMaybe(mod, expression.location, val);
         val = val.not(expression.location);
         break;
     case ast.UnaryPrefix.None:
         val = genPostfixExpression(expression.postfixExpression, mod);
+        if (depth == 0) {
+            val = callWithNoArgumentsMaybe(mod, expression.location, val);
+        }
         break;
     }
     return val;
@@ -371,8 +382,8 @@ Value callWithNoArgumentsMaybe(Module mod, Location location, Value v)
         Value[] args;
             
         if (mod.ufcsBase !is null) {
-            argLocations ~= mod.ufcsBase.location;
-            args ~= mod.ufcsBase;
+            argLocations = mod.ufcsBase.location ~ argLocations;
+            args = mod.ufcsBase ~ args;
         }
         
         mod.ufcsBase = null;    
@@ -393,6 +404,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixInc:
+        lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
         tmp.initialise(expression.location, lhs);
@@ -401,6 +413,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.PostfixDec:
+        lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
         auto val = lhs;
         auto tmp = lhs.type.getValue(mod, lhs.location);
         tmp.initialise(expression.location, lhs);
@@ -458,6 +471,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         if (expression.postfixExpression !is null) lhs = genPostfixExpression(expression.postfixExpression, mod, lhs);
         break;
     case ast.PostfixType.Index:
+        lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
         Value[] args;
         foreach (expr; (cast(ast.ArgumentList) expression.firstNode).expressions) {
             args ~= genConditionalExpression(expr, mod);
@@ -484,6 +498,7 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         mod.base = null;
         break;
     case ast.PostfixType.Slice:
+        lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
         auto from = genConditionalExpression(cast(ast.ConditionalExpression)expression.firstNode, mod);
         auto to = genConditionalExpression(cast(ast.ConditionalExpression)expression.secondNode, mod);
         lhs = lhs.slice(expression.location, from, to);
@@ -491,7 +506,6 @@ Value genPostfixExpression(ast.PostfixExpression expression, Module mod, Value s
         break;
     }
     
-    lhs = callWithNoArgumentsMaybe(mod, expression.location, lhs);
     return lhs;
 }
 
