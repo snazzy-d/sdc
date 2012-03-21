@@ -92,7 +92,7 @@ Codegen
 
 What Can It Compile?
 ====================
-See the compiler_tests directory for a sample of what is/should-be working.
+See the tests directory for a sample of what is/should-be working.
 libs/object.d contains the current (temporary) object.d file for SDC.  
 
 Roadmap
@@ -156,4 +156,4 @@ For the LLVM tools, grab "LLVM Binaries for Mingw32/x86" on the [LLVM download p
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
 
-To run the tests, execute `dmd runner.d` to build the test-runner application found in `compiler_tests/`, then run it with `runner`.
+To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner`.
