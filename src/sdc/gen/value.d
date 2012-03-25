@@ -416,6 +416,8 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
             }
         } else if (isFPDtype(t.dtype)) {
             v.initialise(location, LLVMBuildUIToFP(mModule.builder, get(), t.llvmType, "cast"));
+        } else if (t.dtype == DType.Pointer) {
+            v.initialise(location, LLVMBuildIntToPtr(mModule.builder, get(), t.llvmType, "cast"));
         } else {
             throw new CompilerError(
                 location,
