@@ -507,6 +507,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
         v.initialise(location, this.add(location, one));
+        v.lvalue = lvalue;
         
         if (isKnown) {
             auto known = mixin(C);
@@ -523,6 +524,7 @@ class PrimitiveIntegerValue(T, B, alias C, bool SIGNED) : Value
         auto v = new typeof(this)(mModule, location);
         auto one = new typeof(this)(mModule, location, 1);
         v.initialise(location, this.sub(location, one));
+        v.lvalue = lvalue;
         
         if (isKnown) {
             auto known = mixin(C);
@@ -1080,6 +1082,7 @@ class PointerValue : Value
     {
         auto v = baseType.getValue(mModule, location);
         v.mValue = LLVMBuildLoad(mModule.builder, mValue, "dereference");
+        v.lvalue = true;
         return v;
     }
     
@@ -1091,6 +1094,7 @@ class PointerValue : Value
         auto added = LLVMBuildGEP(mModule.builder, get(), &idxVal, 1, "ptradd");
         
         auto v = mType.getValue(mModule, location);
+        v.lvalue = lvalue;
         LLVMBuildStore(mModule.builder, added, v.mValue);
         return v;
     }
