@@ -1,11 +1,11 @@
 module sdc.ast.expression2;
 
 import sdc.location;
-import sdc.ast.base;
+import sdc.ast.statement2;
 
-class Expression : Node {
+class Expression : Statement {
 	this(Location location) {
-		this.location = location;
+		super(location);
 	}
 }
 
@@ -22,7 +22,7 @@ class BinaryExpression : Expression {
 }
 
 /**
- * For || and &&
+ * || and &&
  */
 class LogicalBinaryExpression : BinaryExpression {
 	this(Location location, Expression lhs, Expression rhs) {
