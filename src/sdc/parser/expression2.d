@@ -90,11 +90,9 @@ Expression parseAssignExpression(TokenStream tstream) {
 		case TokenType.TripleGreaterAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.UnsignedShiftRightAssign))();
 			break;
-		/* Must be added to lexer
 		case TokenType.DoubleCaretAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.PowAssign))();
 			break;
-		*/
 		default :
 			// No assignement.
 			break;
