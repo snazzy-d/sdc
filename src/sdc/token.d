@@ -8,7 +8,7 @@ module sdc.token;
 import sdc.location;
 
 
-immutable string[178] tokenToString = [
+immutable string[179] tokenToString = [
 "none", "identifier", "string literal", "character literal",
 "integer literal", "float literal", "abstract", "alias", "align",
 "asm", "assert", "auto", "body", "bool", "break", "byte", "case",
@@ -31,7 +31,7 @@ immutable string[178] tokenToString = [
 "-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
 ">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
 "!<=", "!>", "!>=", "(", ")", "[", "]", "{", "}", "?", ",", ";",
-":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "~", "~=",
+":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "^^=", "~", "~=",
 "@",
 "(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
 ];
@@ -142,6 +142,7 @@ enum TokenType
     Caret,                  // ^
     CaretAssign,            // ^=
     DoubleCaret,            // ^^
+    DoubleCaretAssign,      // ^^
     Tilde,                  // ~
     TildeAssign,            // ~=
     At,                     // @
