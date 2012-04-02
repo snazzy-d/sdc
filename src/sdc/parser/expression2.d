@@ -1,13 +1,14 @@
 module sdc.parser.expression2;
 
 import sdc.tokenstream;
+import sdc.location;
 import sdc.ast.expression2;
 
 /**
  * Template used to parse basic BinaryExpressions.
  */
 auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias parseNext)(TokenStream tstream) if(is(BinaryExpressionType: BinaryExpression) && is(typeof(parseNext(tstream)) : Expression)) {
-	auto start = tstream.peek.location;
+	auto location = tstream.peek.location;
 	
 	Expression result = parseNext(tstream);
 	
@@ -15,7 +16,7 @@ auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias pars
 		tstream.get();
 		
 		auto rhs = parseNext(tstream);
-		auto location = start;
+		
 		location.spanTo(tstream.previous.location);
 		
 		result = new BinaryExpressionType(location, result, rhs);
@@ -32,111 +33,83 @@ alias parseBinaryExpression!(TokenType.Pipe, BitwiseBinaryExpression!(BinaryOper
 
 alias parseBinaryExpression!(TokenType.Caret, BitwiseBinaryExpression!(BinaryOperation.BitwiseXor), function Expression(TokenStream tstream) { return parseBitwiseAndExpression(tstream); }) parseBitwiseXorExpression;
 
-alias parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(TokenStream tstream) { return parseEqualExpression(tstream); }) parseBitwiseAndExpression;
+alias parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(TokenStream tstream) { return parseComparaisonExpression(tstream); }) parseBitwiseAndExpression;
 
 /**
- * Parse == and !=
- */
-auto parseEqualExpression(TokenStream tstream) {
-	auto start = tstream.peek.location;
-	
-	Expression result = parseComparaisonExpression(tstream);
-	
-	while(1) {
-		void processToken(BinaryExpressionType)() {
-			tstream.get();
-			
-			auto rhs = parseComparaisonExpression(tstream);
-			
-			auto location = start;
-			location.spanTo(tstream.previous.location);
-			
-			result = new BinaryExpressionType(location, result, rhs);
-		}
-		
-		switch(tstream.peek.type) {
-			case TokenType.DoubleAssign :
-				processToken!(EqualityBinaryExpression!(BinaryOperation.Equality))();
-				break;
-			case TokenType.BangAssign :
-				processToken!(EqualityBinaryExpression!(BinaryOperation.NotEquality))();
-				break;
-			default :
-				return result;
-		}
-	}
-}
-
-/**
- * Parse comparaisons
+ * Parse ==, != and comparaisons
  */
 auto parseComparaisonExpression(TokenStream tstream) {
-	auto start = tstream.peek.location;
+	auto location = tstream.peek.location;
 	
 	Expression result = parseShiftExpression(tstream);
 	
-	while(1) {
-		void processToken(BinaryExpressionType)() {
-			tstream.get();
-			
-			auto rhs = parseShiftExpression(tstream);
-			
-			auto location = start;
-			location.spanTo(tstream.previous.location);
-			
-			result = new BinaryExpressionType(location, result, rhs);
-		}
+	void processToken(BinaryExpressionType)() {
+		tstream.get();
 		
-		switch(tstream.peek.type) {
-			case TokenType.Less :
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.Less))();
-				break;
-			case TokenType.LessAssign :
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.LessEqual))();
-				break;
-			case TokenType.Greater:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.Greater))();
-				break;
-			case TokenType.GreaterAssign:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.GreaterEqual))();
-				break;
-			case TokenType.BangLessGreaterAssign:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.Unordered))();
-				break;
-			case TokenType.BangLessGreater:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.UnorderedEqual))();
-				break;
-			case TokenType.LessGreater:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.LessGreater))();
-				break;
-			case TokenType.LessGreaterAssign:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.LessEqualGreater))();
-				break;
-			case TokenType.BangGreater:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.UnorderedLessEqual))();
-				break;
-			case TokenType.BangGreaterAssign:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.UnorderedLess))();
-				break;
-			case TokenType.BangLess:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.UnorderedGreaterEqual))();
-				break;
-			case TokenType.BangLessAssign:
-				processToken!(ComparaisonBinaryExpression!(BinaryOperation.UnorderedGreater))();
-				break;
-			// TODO: Parse in and is expressions.
-			
-			default :
-				return result;
-		}
+		auto rhs = parseShiftExpression(tstream);
+		
+		location.spanTo(tstream.previous.location);
+		
+		result = new BinaryExpressionType(location, result, rhs);
 	}
+	
+	switch(tstream.peek.type) {
+		case TokenType.DoubleAssign :
+			processToken!(EqualityExpression!(BinaryOperation.Equality))();
+			break;
+		case TokenType.BangAssign :
+			processToken!(EqualityExpression!(BinaryOperation.NotEquality))();
+			break;
+		case TokenType.Less :
+			processToken!(ComparaisonExpression!(BinaryOperation.Less))();
+			break;
+		case TokenType.LessAssign :
+			processToken!(ComparaisonExpression!(BinaryOperation.LessEqual))();
+			break;
+		case TokenType.Greater:
+			processToken!(ComparaisonExpression!(BinaryOperation.Greater))();
+			break;
+		case TokenType.GreaterAssign:
+			processToken!(ComparaisonExpression!(BinaryOperation.GreaterEqual))();
+			break;
+		case TokenType.BangLessGreaterAssign:
+			processToken!(ComparaisonExpression!(BinaryOperation.Unordered))();
+			break;
+		case TokenType.BangLessGreater:
+			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedEqual))();
+			break;
+		case TokenType.LessGreater:
+			processToken!(ComparaisonExpression!(BinaryOperation.LessGreater))();
+			break;
+		case TokenType.LessGreaterAssign:
+			processToken!(ComparaisonExpression!(BinaryOperation.LessEqualGreater))();
+			break;
+		case TokenType.BangGreater:
+			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLessEqual))();
+			break;
+		case TokenType.BangGreaterAssign:
+			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLess))();
+			break;
+		case TokenType.BangLess:
+			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreaterEqual))();
+			break;
+		case TokenType.BangLessAssign:
+			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreater))();
+			break;
+			// TODO: Parse in and is expressions.
+		
+		default :
+			// We have no comparaison, so we just return.
+	}
+	
+	return result;
 }
 
 /**
  * Parse <<, >> and >>>
  */
 auto parseShiftExpression(TokenStream tstream) {
-	auto start = tstream.peek.location;
+	auto location = tstream.peek.location;
 	
 	Expression result = parseAddExpression(tstream);
 	
@@ -146,7 +119,6 @@ auto parseShiftExpression(TokenStream tstream) {
 			
 			auto rhs = parseAddExpression(tstream);
 			
-			auto location = start;
 			location.spanTo(tstream.previous.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
@@ -154,13 +126,13 @@ auto parseShiftExpression(TokenStream tstream) {
 		
 		switch(tstream.peek.type) {
 			case TokenType.DoubleLess :
-				processToken!(ShiftBinaryExpression!(BinaryOperation.LeftShift))();
+				processToken!(ShiftExpression!(BinaryOperation.LeftShift))();
 				break;
 			case TokenType.DoubleGreater :
-				processToken!(ShiftBinaryExpression!(BinaryOperation.SignedRightShift))();
+				processToken!(ShiftExpression!(BinaryOperation.SignedRightShift))();
 				break;
 			case TokenType.TripleGreater :
-				processToken!(ShiftBinaryExpression!(BinaryOperation.UnsignedRightShift))();
+				processToken!(ShiftExpression!(BinaryOperation.UnsignedRightShift))();
 				break;
 			default :
 				return result;
@@ -172,7 +144,7 @@ auto parseShiftExpression(TokenStream tstream) {
  * Parse +, - and ~
  */
 auto parseAddExpression(TokenStream tstream) {
-	auto start = tstream.peek.location;
+	auto location = tstream.peek.location;
 	
 	Expression result = parseMulExpression(tstream);
 	
@@ -182,7 +154,6 @@ auto parseAddExpression(TokenStream tstream) {
 			
 			auto rhs = parseMulExpression(tstream);
 			
-			auto location = start;
 			location.spanTo(tstream.previous.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
@@ -208,17 +179,16 @@ auto parseAddExpression(TokenStream tstream) {
  * Parse *, / and %
  */
 auto parseMulExpression(TokenStream tstream) {
-	auto start = tstream.peek.location;
+	auto location = tstream.peek.location;
 	
-	Expression result = parseUnaryExpression(tstream);
+	Expression result = parsePrefixExpression(tstream);
 	
 	while(1) {
 		void processToken(BinaryExpressionType)() {
 			tstream.get();
 			
-			auto rhs = parseUnaryExpression(tstream);
+			auto rhs = parsePrefixExpression(tstream);
 			
-			auto location = start;
 			location.spanTo(tstream.previous.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
@@ -240,7 +210,10 @@ auto parseMulExpression(TokenStream tstream) {
 	}
 }
 
-Expression parseUnaryExpression(TokenStream tstream) {
+/**
+ * Unary prefixes
+ */
+Expression parsePrefixExpression(TokenStream tstream) {
 	auto location = tstream.peek.location;
 	
 	Expression result;
@@ -248,7 +221,7 @@ Expression parseUnaryExpression(TokenStream tstream) {
 	void processToken(UnaryExpressionType)() {
 		tstream.get();
 		
-		result = parseUnaryExpression(tstream);
+		result = parsePrefixExpression(tstream);
 		location.spanTo(tstream.previous.location);
 		
 		result = new UnaryExpressionType(location, result);
@@ -256,7 +229,7 @@ Expression parseUnaryExpression(TokenStream tstream) {
 	
 	switch(tstream.peek.type) {
 		case TokenType.Ampersand :
-			processToken!AddressOfUnaryExpression();
+			processToken!AddressOfExpression();
 			break;
 		case TokenType.DoublePlus :
 			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixInc))();
@@ -265,7 +238,7 @@ Expression parseUnaryExpression(TokenStream tstream) {
 			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixDec))();
 			break;
 		case TokenType.Asterix :
-			processToken!DereferenceUnaryExpression();
+			processToken!DereferenceExpression();
 			break;
 		case TokenType.Plus :
 			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryPlus))();
@@ -274,23 +247,59 @@ Expression parseUnaryExpression(TokenStream tstream) {
 			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryMinus))();
 			break;
 		case TokenType.Bang :
-			processToken!NotUnaryExpression();
+			processToken!NotExpression();
 			break;
 		case TokenType.Tilde :
 			processToken!CompelementExpression();
 			break;
+			// TODO: new, cast.
 		default :
-			// TODO: parse postfix and ^^
-			assert(0);
+			result = parsePrimaryExpression(tstream);
+			result = parsePostfixExpression(tstream, location, result);
 	}
 	
-	// Ensure we do not return null.
+	// Ensure we do not screwed up.
 	assert(result);
 	
-	return result;
+	return parsePowExpression(tstream, location, result);
 }
 
-alias returnNull parsePostfixExpression;
+auto parsePowExpression(TokenStream tstream, Location location, Expression expression) {
+	while (tstream.peek.type == TokenType.DoubleCaret) {
+		tstream.get();
+		Expression power = parsePrefixExpression(tstream);
+		location.spanTo(tstream.previous.location);
+		expression = new OperationBinaryExpression!(BinaryOperation.Pow)(location, expression, power);
+	}
+	
+	return expression;
+}
+
+Expression parsePostfixExpression(TokenStream tstream, Location location, Expression expression) {
+	while(1) {
+		void processToken(UnaryExpressionType)() {
+			tstream.get();
+			
+			location.spanTo(tstream.previous.location);
+		
+			expression = new UnaryExpressionType(location, expression);
+		}
+		
+		switch(tstream.peek.type) {
+			case TokenType.DoublePlus :
+				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixInc))();
+				break;
+			case TokenType.DoubleDash :
+				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixDec))();
+				break;
+				// TODO: Dots, Calls, Indices, Slices.
+			default :
+				return expression;
+		}
+	}
+}
+
+alias returnNull parsePrimaryExpression;
 
 auto returnNull(TokenStream tstream) {
 	return null;

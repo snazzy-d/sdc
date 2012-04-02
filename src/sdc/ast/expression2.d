@@ -80,7 +80,7 @@ class BinaryExpression : Expression {
 /**
  * =
  */
-class AssignBinaryExpression : BinaryExpression {
+class AssignExpression : BinaryExpression {
 	this(Location location, Expression lhs, Expression rhs) {
 		super(location, BinaryOperation.Assign, lhs, rhs);
 	}
@@ -137,7 +137,7 @@ class BitwiseBinaryExpression(BinaryOperation operation) if(
 /**
  * == and !=
  */
-class EqualityBinaryExpression(BinaryOperation operation) if(
+class EqualityExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.Equality
 	|| operation == BinaryOperation.NotEquality
 ) : BinaryExpression {
@@ -149,7 +149,7 @@ class EqualityBinaryExpression(BinaryOperation operation) if(
 /**
  * is and !is
  */
-class IsBinaryExpression(BinaryOperation operation) if(
+class IsExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.In
 	|| operation == BinaryOperation.NotIn
 ) : BinaryExpression {
@@ -161,7 +161,7 @@ class IsBinaryExpression(BinaryOperation operation) if(
 /**
  * in and !in
  */
-class IsBinaryExpression(BinaryOperation operation) if(
+class IsExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.Is
 	|| operation == BinaryOperation.NotIs
 ) : BinaryExpression {
@@ -173,7 +173,7 @@ class IsBinaryExpression(BinaryOperation operation) if(
 /**
  * <, <=, >, >=, <>, <>=, !<, !<=, !>, !>=, !<> and !<>=
  */
-class ComparaisonBinaryExpression(BinaryOperation operation) if(
+class ComparaisonExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.Less
 	|| operation == BinaryOperation.LessEqual
 	|| operation == BinaryOperation.Greater
@@ -195,7 +195,7 @@ class ComparaisonBinaryExpression(BinaryOperation operation) if(
 /**
  * <<, >> and >>>
  */
-class ShiftBinaryExpression(BinaryOperation operation) if(
+class ShiftExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.LeftShift
 	|| operation == BinaryOperation.SignedRightShift
 	|| operation == BinaryOperation.UnsignedRightShift
@@ -223,10 +223,9 @@ class OperationBinaryExpression(BinaryOperation operation) if(
 }
 
 /**
- * Unary Expression types.
+ * Unary Prefix Expression types.
  */
-enum UnaryPrefix
-{
+enum UnaryPrefix {
 	None,
 	AddressOf,  // &
 	PrefixInc,  // ++
@@ -241,7 +240,7 @@ enum UnaryPrefix
 }
 
 
-class UnaryExpression : Expression {
+class PrefixUnaryExpression : Expression {
 	private Expression expression;
 	private UnaryPrefix operation;
 	
@@ -256,19 +255,19 @@ class UnaryExpression : Expression {
 /**
  * Unary &
  */
-class AddressOfUnaryExpression : UnaryExpression {
+class AddressOfExpression : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, UnaryPrefix.AddressOf, expression);
 	}
 }
 
 /**
- * ++ and --
+ * Prefixed ++ and --
  */
 class OpAssignUnaryExpression(UnaryPrefix operation) if(
 	operation == UnaryPrefix.PrefixInc
 	|| operation == UnaryPrefix.PrefixDec
-) : UnaryExpression {
+) : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, operation, expression);
 	}
@@ -277,7 +276,7 @@ class OpAssignUnaryExpression(UnaryPrefix operation) if(
 /**
  * Unary *
  */
-class DereferenceUnaryExpression : UnaryExpression {
+class DereferenceExpression : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, UnaryPrefix.Dereference, expression);
 	}
@@ -289,7 +288,7 @@ class DereferenceUnaryExpression : UnaryExpression {
 class OperationUnaryExpression(UnaryPrefix operation) if(
 	operation == UnaryPrefix.UnaryPlus
 	|| operation == UnaryPrefix.UnaryMinus
-) : UnaryExpression {
+) : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, operation, expression);
 	}
@@ -298,7 +297,7 @@ class OperationUnaryExpression(UnaryPrefix operation) if(
 /**
  * !
  */
-class NotUnaryExpression : UnaryExpression {
+class NotExpression : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, UnaryPrefix.LogicalNot, expression);
 	}
@@ -307,9 +306,46 @@ class NotUnaryExpression : UnaryExpression {
 /**
  * Unary ~
  */
-class CompelementExpression : UnaryExpression {
+class CompelementExpression : PrefixUnaryExpression {
 	this(Location location, Expression expression) {
 		super(location, UnaryPrefix.BitwiseNot, expression);
+	}
+}
+
+/**
+ * Unary Postfix Expression types.
+ */
+enum PostfixType {
+	Primary,
+	Dot,  // . QualifiedName  // XXX: specs say a new expression can go here: DMD disagrees.
+	PostfixInc,  // ++
+	PostfixDec,  // --
+	Parens,  // ( ArgumentList* )
+	Index,  // [ ArgumentList ]
+	Slice,  // [ (ConditionalExpression .. ConditionalExpression)* ]
+}
+
+class PostfixUnaryExpression : Expression {
+	private Expression expression;
+	private PostfixType operation;
+	
+	this(Location location, PostfixType operation, Expression expression) {
+		super(location);
+		
+		this.expression = expression;
+		this.operation = operation;
+	}
+}
+
+/**
+ * Postfixed ++ and --
+ */
+class OpAssignUnaryExpression(PostfixType operation) if(
+	operation == PostfixType.PostfixInc
+	|| operation == PostfixType.PostfixDec
+) : PostfixUnaryExpression {
+	this(Location location, Expression expression) {
+		super(location, operation, expression);
 	}
 }
 
