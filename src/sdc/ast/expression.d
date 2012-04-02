@@ -43,7 +43,7 @@ enum BinaryOperation
     ShiftLeftAssign,  // <<=
     SignedShiftRightAssign,  // >>=
     UnsignedShiftRightAssign,  // >>>=
-    PowAssign,  // ^^
+    PowAssign,  // ^^=
     LogicalOr,  // ||
     LogicalAnd,  // &&
     BitwiseOr,  // |
