@@ -27,15 +27,18 @@ Module parse(TokenStream tstream)
 
 Token match(TokenStream tstream, TokenType type)
 {
-    if (tstream.peek.type != type) {
+    auto token = tstream.get();
+    
+    if (token.type != type) {
         throw new CompilerError(
-            tstream.peek.location, 
+            token.location, 
             format("expected '%s', got '%s'.",
                 tokenToString[type],
-                tstream.peek.value)
+                token.value)
         );
     }
-    return tstream.get();
+    
+    return token;
 }
 
 Module parseModule(TokenStream tstream)
