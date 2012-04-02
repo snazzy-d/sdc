@@ -421,6 +421,6 @@ auto returnNull(TokenStream tstream) {
 }
 
 unittest {
-	parseConditionalExpression(null);
+	parseExpression(null);
 }
 
