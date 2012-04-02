@@ -2,7 +2,9 @@ module sdc.parser.expression2;
 
 import sdc.tokenstream;
 import sdc.location;
+import sdc.parser.base;
 import sdc.ast.expression2;
+
 
 /**
  * Template used to parse basic BinaryExpressions.
@@ -25,14 +27,127 @@ auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias pars
 	return result;
 }
 
+/**
+ * Parse Expression
+ */
+alias parseBinaryExpression!(TokenType.Comma, CommaExpression, function Expression(TokenStream tstream) { return parseAssignExpression(tstream); }) parseExpression;
+
+/**
+ * Parse assignement expressions.
+ */
+Expression parseAssignExpression(TokenStream tstream) {
+	auto location = tstream.peek.location;
+	
+	Expression result = parseConditionalExpression(tstream);
+	
+	void processToken(AssignExpressionType)() {
+		tstream.get();
+		
+		auto value = parseAssignExpression(tstream);
+		
+		location.spanTo(tstream.previous.location);
+		
+		result = new AssignExpressionType(location, result, value);
+	}
+	
+	switch(tstream.peek.type) {
+		case TokenType.Assign :
+			processToken!AssignExpression();
+			break;
+		case TokenType.PlusAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.AddAssign))();
+			break;
+		case TokenType.DashAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.SubAssign))();
+			break;
+		case TokenType.AsterixAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.MulAssign))();
+			break;
+		case TokenType.SlashAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.DivAssign))();
+			break;
+		case TokenType.PercentAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.ModAssign))();
+			break;
+		case TokenType.AmpersandAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.AndAssign))();
+			break;
+		case TokenType.PipeAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.OrAssign))();
+			break;
+		case TokenType.CaretAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.XorAssign))();
+			break;
+		case TokenType.TildeAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.CatAssign))();
+			break;
+		case TokenType.DoubleLessAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.ShiftLeftAssign))();
+			break;
+		case TokenType.DoubleGreaterAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.SignedShiftRightAssign))();
+			break;
+		case TokenType.TripleGreaterAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.UnsignedShiftRightAssign))();
+			break;
+		/* Must be added to lexer
+		case TokenType.DoubleCaretAssign :
+			processToken!(OpAssignBinaryExpression!(BinaryOperation.PowAssign))();
+			break;
+		*/
+		default :
+			// No assignement.
+			break;
+	}
+	
+	return result;
+}
+
+/**
+ * Parse ?:
+ */
+Expression parseConditionalExpression(TokenStream tstream) {
+	auto location = tstream.peek.location;
+	
+	Expression result = parseLogicalOrExpression(tstream);
+	
+	if(tstream.peek.type == TokenType.QuestionMark) {
+		tstream.get();
+		Expression ifTrue = parseExpression(tstream);
+		
+		match(tstream, TokenType.Colon);
+		Expression ifFalse = parseConditionalExpression(tstream);
+		
+		location.spanTo(tstream.previous.location);
+		result = new ConditionalExpression(location, result, ifTrue, ifFalse);
+	}
+	
+	return result;
+}
+
+/**
+ * Parse ||
+ */
 alias parseBinaryExpression!(TokenType.DoublePipe, LogicalBinaryExpression!(BinaryOperation.LogicalOr), function Expression(TokenStream tstream) { return parseLogicalAndExpression(tstream); }) parseLogicalOrExpression;
 
+/**
+ * Parse &&
+ */
 alias parseBinaryExpression!(TokenType.DoubleAmpersand, LogicalBinaryExpression!(BinaryOperation.LogicalAnd), function Expression(TokenStream tstream) { return parseBitwiseOrExpression(tstream); }) parseLogicalAndExpression;
 
+/**
+ * Parse |
+ */
 alias parseBinaryExpression!(TokenType.Pipe, BitwiseBinaryExpression!(BinaryOperation.BitwiseOr), function Expression(TokenStream tstream) { return parseBitwiseXorExpression(tstream); }) parseBitwiseOrExpression;
 
+/**
+ * Parse ^
+ */
 alias parseBinaryExpression!(TokenType.Caret, BitwiseBinaryExpression!(BinaryOperation.BitwiseXor), function Expression(TokenStream tstream) { return parseBitwiseAndExpression(tstream); }) parseBitwiseXorExpression;
 
+/**
+ * Parse &
+ */
 alias parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(TokenStream tstream) { return parseComparaisonExpression(tstream); }) parseBitwiseAndExpression;
 
 /**
@@ -97,9 +212,9 @@ auto parseComparaisonExpression(TokenStream tstream) {
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreater))();
 			break;
 			// TODO: Parse in and is expressions.
-		
 		default :
 			// We have no comparaison, so we just return.
+			break;
 	}
 	
 	return result;
@@ -218,13 +333,13 @@ Expression parsePrefixExpression(TokenStream tstream) {
 	
 	Expression result;
 	
-	void processToken(UnaryExpressionType)() {
+	void processToken(PrefixExpressionType)() {
 		tstream.get();
 		
 		result = parsePrefixExpression(tstream);
 		location.spanTo(tstream.previous.location);
 		
-		result = new UnaryExpressionType(location, result);
+		result = new PrefixExpressionType(location, result);
 	}
 	
 	switch(tstream.peek.type) {
@@ -277,12 +392,12 @@ auto parsePowExpression(TokenStream tstream, Location location, Expression expre
 
 Expression parsePostfixExpression(TokenStream tstream, Location location, Expression expression) {
 	while(1) {
-		void processToken(UnaryExpressionType)() {
+		void processToken(PostfixExpressionType)() {
 			tstream.get();
 			
 			location.spanTo(tstream.previous.location);
-		
-			expression = new UnaryExpressionType(location, expression);
+			
+			expression = new PostfixExpressionType(location, expression);
 		}
 		
 		switch(tstream.peek.type) {
@@ -306,6 +421,6 @@ auto returnNull(TokenStream tstream) {
 }
 
 unittest {
-	parseLogicalOrExpression(null);
+	parseConditionalExpression(null);
 }
 

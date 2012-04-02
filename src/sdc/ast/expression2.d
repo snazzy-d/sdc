@@ -10,10 +10,28 @@ class Expression : Statement {
 }
 
 /**
+ * Conditional expression of type ?:
+ */
+class ConditionalExpression : Expression {
+	Expression condition;
+	Expression ifTrue;
+	Expression ifFalse;
+	
+	this(Location location, Expression condition, Expression ifTrue, Expression ifFalse) {
+		super(location);
+		
+		this.condition = condition;
+		this.ifTrue = ifTrue;
+		this.ifFalse = ifFalse;
+	}
+}
+
+/**
  * Binary Expression types.
  */
 enum BinaryOperation {
 	None,
+	Comma,  // ,
 	Assign,  // =
 	AddAssign,  // +=
 	SubAssign,  // -=
@@ -78,6 +96,15 @@ class BinaryExpression : Expression {
 }
 
 /**
+ * ,
+ */
+class CommaExpression : BinaryExpression {
+	this(Location location, Expression lhs, Expression rhs) {
+		super(location, BinaryOperation.Comma, lhs, rhs);
+	}
+}
+
+/**
  * =
  */
 class AssignExpression : BinaryExpression {
@@ -100,7 +127,7 @@ class OpAssignBinaryExpression(BinaryOperation operation) if(
 	|| operation == BinaryOperation.XorAssign
 	|| operation == BinaryOperation.CatAssign
 	|| operation == BinaryOperation.ShiftLeftAssign
-	|| operation == BinaryOperation.ShiftRightAssign
+	|| operation == BinaryOperation.SignedShiftRightAssign
 	|| operation == BinaryOperation.UnsignedShiftRightAssign
 	|| operation == BinaryOperation.PowAssign
 ) : BinaryExpression {
