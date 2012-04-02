@@ -411,8 +411,7 @@ bool lexSymbol(TokenWriter tw)
     case '%':
         return lexSymbolOrSymbolAssign(tw, '%', TokenType.Percent, TokenType.PercentAssign);
     case '^':
-        return lexSymbolOrSymbolAssignOrDoubleSymbol(tw, '^', 
-               TokenType.Caret, TokenType.CaretAssign, TokenType.DoubleCaret);
+        return lexCaret(tw);
     case '~':
         return lexSymbolOrSymbolAssign(tw, '~', TokenType.Tilde, TokenType.TildeAssign);
     case '#':
@@ -714,6 +713,31 @@ bool lexCharacter(TokenWriter tw)
     match(tw.source, '\'');
     
     token.type = TokenType.CharacterLiteral;
+    token.value = tw.source.sliceFrom(mark);
+    tw.addToken(token);
+    return true;
+}
+
+bool lexCaret(TokenWriter tw)
+{
+    auto token = currentLocationToken(tw);
+    auto mark = tw.source.save();
+    token.type = TokenType.Caret;
+    match(tw.source, '^');
+    
+    if (tw.source.peek == '=') {
+        match(tw.source, '=');
+        token.type = TokenType.CaretAssign;
+    } else if (tw.source.peek == '^') {
+        match(tw.source, '^');
+        if (tw.source.peek == '=') {
+            match(tw.source, '=');
+            token.type = TokenType.DoubleCaretAssign;
+        } else {
+            token.type = TokenType.DoubleCaret;
+        }
+    } 
+    
     token.value = tw.source.sliceFrom(mark);
     tw.addToken(token);
     return true;
