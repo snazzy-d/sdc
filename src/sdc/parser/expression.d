@@ -92,8 +92,8 @@ BinaryExpression parseBinaryExpression(TokenStream tstream)
         expression.operation = BinaryOperation.SignedShiftRightAssign; break; 
     case TokenType.TripleGreaterAssign:
         expression.operation = BinaryOperation.UnsignedShiftRightAssign; break;
-//    case TokenType.DoubleCaretAssign:  TODO add to lexer
-//        expression.operation = BinaryOperation.PowAssign; break;
+    case TokenType.DoubleCaretAssign:
+        expression.operation = BinaryOperation.PowAssign; break;
     case TokenType.DoublePipe:
         expression.operation = BinaryOperation.LogicalOr; break;
     case TokenType.DoubleAmpersand:
