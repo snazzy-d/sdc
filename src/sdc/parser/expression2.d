@@ -5,7 +5,6 @@ import sdc.location;
 import sdc.parser.base;
 import sdc.ast.expression2;
 
-
 /**
  * Template used to parse basic BinaryExpressions.
  */
