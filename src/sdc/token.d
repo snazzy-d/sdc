@@ -142,7 +142,7 @@ enum TokenType
     Caret,                  // ^
     CaretAssign,            // ^=
     DoubleCaret,            // ^^
-    DoubleCaretAssign,      // ^^
+    DoubleCaretAssign,      // ^^=
     Tilde,                  // ~
     TildeAssign,            // ~=
     At,                     // @
