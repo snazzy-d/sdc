@@ -376,6 +376,10 @@ Expression parsePrefixExpression(TokenStream tstream) {
 	return parsePowExpression(tstream, location, result);
 }
 
+auto parsePrimaryExpression(TokenStream tstream) {
+	return null;
+}
+
 auto parsePowExpression(TokenStream tstream, Location location, Expression expression) {
 	while (tstream.peek.type == TokenType.DoubleCaret) {
 		tstream.get();
@@ -389,12 +393,26 @@ auto parsePowExpression(TokenStream tstream, Location location, Expression expre
 
 Expression parsePostfixExpression(TokenStream tstream, Location location, Expression expression) {
 	while(1) {
-		void processToken(PostfixExpressionType)() {
+		void processToken(PostfixExpressionType, TokenType endToken = TokenType.None)() {
 			tstream.get();
+			
+			static if(endToken != TokenType.None) {
+				Expression[] arguments;
+				
+				if(tstream.peek.type != endToken) {
+					arguments = parseArguments(tstream);
+				}
+				
+				match(tstream, endToken);
+			}
 			
 			location.spanTo(tstream.previous.location);
 			
-			expression = new PostfixExpressionType(location, expression);
+			static if(endToken == TokenType.None) {
+				expression = new PostfixExpressionType(location, expression);
+			} else {
+				expression = new PostfixExpressionType(location, expression, arguments);
+			}
 		}
 		
 		switch(tstream.peek.type) {
@@ -404,14 +422,32 @@ Expression parsePostfixExpression(TokenStream tstream, Location location, Expres
 			case TokenType.DoubleDash :
 				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixDec))();
 				break;
-				// TODO: Dots, Calls, Indices, Slices.
+			case TokenType.OpenParen :
+				processToken!(CallExpression, TokenType.CloseParen)();
+				break;
+			// case TokenType.OpenBracket :
+			//	processToken!(CallExpression, TokenType.CloseBracket)();
+			//	break;
+				// TODO: Dots, Indices, Slices.
 			default :
 				return expression;
 		}
 	}
 }
 
-alias returnNull parsePrimaryExpression;
+auto parseArguments(TokenStream tstream) {
+	Expression[] expressions = [parseAssignExpression(tstream)];
+	
+	while(tstream.peek.type == TokenType.Comma) {
+		tstream.get();
+		
+		expressions ~= parseAssignExpression(tstream);
+	}
+	
+	return expressions;
+}
+
+alias returnNull parseFoobar;
 
 auto returnNull(TokenStream tstream) {
 	return null;
