@@ -376,3 +376,16 @@ class OpAssignUnaryExpression(PostfixType operation) if(
 	}
 }
 
+/**
+ * Function call
+ */
+class CallExpression : PostfixUnaryExpression {
+	private Expression[] parameters;
+	
+	this(Location location, Expression expression, Expression[] parameters) {
+		super(location, PostfixType.Parens, expression);
+		
+		this.parameters = parameters;
+	}
+}
+

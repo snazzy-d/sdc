@@ -7,34 +7,52 @@ class Type : Node {
 	this(Location location) {
 		
 	}
+	
+	abstract Type makeConst() const;
+	abstract Type makeImmutable() const;
+	abstract Type makeMutable() const;
 }
 
 template isBuiltin(T) {
 	import std.traits;
 	
-	enum bool isBuiltin = isNumeric!T || isSomeChar!T || is(T : bool) || is(T == void);
+	enum bool isBuiltin = isNumeric!T || isSomeChar!T || is(T : bool) || is(Unqual!T == void);
 }
 
-template builtinType(T) if(isBuiltin!T) {
-	class BuiltinType : Type {
+template basicType(T) if(isBuiltin!T) {
+	pragma(msg, T.stringof);
+	
+	class BasicType : Type {
 		private this() {
 			super(Location.init);
 		}
+		
+		override Type makeConst() const {
+			return .basicType!(const T);
+		}
+		
+		override Type makeImmutable() const {
+			return .basicType!(immutable T);
+		}
+		
+		override Type makeMutable() const {
+			import std.traits;
+			return .basicType!(Unqual!T);
+		}
 	}
 	
-	immutable BuiltinType builtinType;
+	immutable BasicType basicType;
 	
 	static this() {
-		builtinType = new immutable(BuiltinType)();
+		basicType = new immutable(BasicType)();
 	}
 }
 
 unittest {
 	void foo(T)(T t) {
-		pragma(msg, T.stringof);
 	}
 	
-	foo(builtinType!int);
-	foo(builtinType!void);
+	foo(basicType!int);
+	foo(basicType!void);
 }
 
