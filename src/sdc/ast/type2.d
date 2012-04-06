@@ -2,6 +2,7 @@ module sdc.ast.type2;
 
 import sdc.location;
 import sdc.ast.base;
+import sdc.ast.expression2;
 
 class Type : Node {
 	this(Location location) {
@@ -96,14 +97,25 @@ template basicType(T) if(isBuiltin!T) {
 	}
 }
 
-class IdentifierType : SimpleStorageClassType {
-	// TODO: use identifier as objects to support template intances.
-	private string[] identifiers;
+/**
+ * Type defined by typeof
+ */
+class TypeofType : SimpleStorageClassType {
+	private Expression expression;
 	
-	this(Location location, string[] identifiers) {
+	this(Location location, Expression expression) {
 		super(location);
 		
-		this.identifiers = identifiers;
+		this.expression = expression;
+	}
+}
+
+/**
+ * Type defined by typeof(return)
+ */
+class ReturnType : SimpleStorageClassType {
+	this(Location location) {
+		super(location);
 	}
 }
 

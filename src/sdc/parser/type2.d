@@ -3,6 +3,7 @@ module sdc.parser.type2;
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base;
+import sdc.parser.expression2;
 import sdc.ast.type2;
 
 Type parseType(TokenStream tstream) {
@@ -10,6 +11,8 @@ Type parseType(TokenStream tstream) {
 }
 
 auto parseBasicType(TokenStream tstream) {
+	auto location = tstream.peek.location;
+	
 	auto processQualifier(alias qualifyType)() {
 		tstream.get();
 		
@@ -25,6 +28,7 @@ auto parseBasicType(TokenStream tstream) {
 	}
 	
 	switch(tstream.peek.type) {
+		// Types qualifiers
 		case TokenType.Const :
 			return processQualifier!(function(Type type) { return type.makeConst(); })();
 		case TokenType.Immutable :
@@ -33,14 +37,16 @@ auto parseBasicType(TokenStream tstream) {
 			return processQualifier!(function(Type type) { return type.makeMutable(); })();
 		case TokenType.Inout :
 			return processQualifier!(function(Type type) { return type.makeInout(); })();
+		
+		// Identified types
 		case TokenType.Identifier :
-			return parseIdentifierType(tstream, tstream.get().value);
 		case TokenType.Dot :
-			tstream.get();
-			return parseIdentifierType(tstream, "");
-		case TokenType.Typeof :
-			// TODO: Handle typeof.
 			assert(0);
+		case TokenType.Typeof :
+			tstream.get();
+			return parseTypeof(tstream, location);
+		
+		// Basic types
 		case TokenType.Bool :
 			return basicType!bool;
 		case TokenType.Byte :
@@ -89,23 +95,32 @@ auto parseBasicType(TokenStream tstream) {
 			return basicType!creal;	*/
 		case TokenType.Void :
 			return basicType!void;
+		
 		default :
 			// TODO: handle.
 			assert(0);
 	}
 }
 
-auto parseIdentifierType(TokenStream tstream, string name) {
-	string[] identifiers = [name];
-	auto location = tstream.peek.location;
+auto parseTypeof(TokenStream tstream, Location location) {
+	Type type;
 	
-	while(tstream.peek.type == TokenType.Dot) {
+	match(tstream, TokenType.OpenParen);
+	
+	if(tstream.peek.type == TokenType.Return) {
 		tstream.get();
-		identifiers ~= match(tstream, TokenType.Identifier).value;
+		location.spanTo(tstream.peek.location);
+		
+		type = new ReturnType(location);
+	} else {
+		auto e = parseExpression(tstream);
+		location.spanTo(tstream.peek.location);
+		
+		type = new TypeofType(location, e);
 	}
 	
-	location.spanTo(tstream.previous.location);
+	match(tstream, TokenType.CloseParen);
 	
-	return new IdentifierType(location, identifiers);
+	return type;
 }
 
