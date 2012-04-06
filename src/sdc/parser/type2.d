@@ -2,8 +2,9 @@ module sdc.parser.type2;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base;
+import sdc.parser.base : match;
 import sdc.parser.expression2;
+import sdc.parser.identifier2;
 import sdc.ast.type2;
 
 Type parseType(TokenStream tstream) {
@@ -40,6 +41,9 @@ auto parseBasicType(TokenStream tstream) {
 		
 		// Identified types
 		case TokenType.Identifier :
+			auto identifier = parseIdentifier(tstream);
+			location.spanTo(tstream.previous.location);
+			return new IdentifierType(location, identifier);
 		case TokenType.Dot :
 			assert(0);
 		case TokenType.Typeof :
@@ -102,8 +106,11 @@ auto parseBasicType(TokenStream tstream) {
 	}
 }
 
+/**
+ * Parse typeof(...)
+ */
 auto parseTypeof(TokenStream tstream, Location location) {
-	Type type;
+	QualifierType type;
 	
 	match(tstream, TokenType.OpenParen);
 	
@@ -120,6 +127,15 @@ auto parseTypeof(TokenStream tstream, Location location) {
 	}
 	
 	match(tstream, TokenType.CloseParen);
+	
+	if(tstream.peek.type == TokenType.Dot) {
+		tstream.get();
+		
+		auto identifier = parseQualifiedIdentifier(tstream, location, type);
+		location.spanTo(tstream.peek.location);
+		
+		type = new IdentifierType(location, identifier);
+	}
 	
 	return type;
 }

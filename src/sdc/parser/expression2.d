@@ -380,6 +380,9 @@ auto parsePrimaryExpression(TokenStream tstream) {
 	return null;
 }
 
+/**
+ * Parse ^^
+ */
 auto parsePowExpression(TokenStream tstream, Location location, Expression expression) {
 	while (tstream.peek.type == TokenType.DoubleCaret) {
 		tstream.get();
@@ -391,6 +394,9 @@ auto parsePowExpression(TokenStream tstream, Location location, Expression expre
 	return expression;
 }
 
+/**
+ * Parse postfix ++, --, (...), [...], .identifier
+ */
 Expression parsePostfixExpression(TokenStream tstream, Location location, Expression expression) {
 	while(1) {
 		void processToken(PostfixExpressionType, TokenType endToken = TokenType.None)() {
@@ -435,6 +441,9 @@ Expression parsePostfixExpression(TokenStream tstream, Location location, Expres
 	}
 }
 
+/**
+ * Parse function arguments
+ */
 auto parseArguments(TokenStream tstream) {
 	Expression[] expressions = [parseAssignExpression(tstream)];
 	

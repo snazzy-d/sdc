@@ -1,8 +1,9 @@
 module sdc.ast.type2;
 
 import sdc.location;
-import sdc.ast.base;
+import sdc.ast.base : Node;
 import sdc.ast.expression2;
+import sdc.ast.identifier2;
 
 class Type : Node {
 	this(Location location) {
@@ -98,9 +99,32 @@ template basicType(T) if(isBuiltin!T) {
 }
 
 /**
- * Type defined by typeof
+ * Any type that can be used as a qualifier
  */
-class TypeofType : SimpleStorageClassType {
+class QualifierType : SimpleStorageClassType, Qualifier {
+	this(Location location) {
+		super(location);
+	}
+}
+
+/**
+ * Type defined by an identifier
+ */
+class IdentifierType : QualifierType {
+	private Identifier identifier;
+	
+	this(Location location, Identifier identifier) {
+		super(location);
+		
+		this.identifier = identifier;
+	}
+}
+
+
+/**
+ * Type defined by typeof(Expression)
+ */
+class TypeofType : QualifierType {
 	private Expression expression;
 	
 	this(Location location, Expression expression) {
@@ -113,7 +137,7 @@ class TypeofType : SimpleStorageClassType {
 /**
  * Type defined by typeof(return)
  */
-class ReturnType : SimpleStorageClassType {
+class ReturnType : QualifierType {
 	this(Location location) {
 		super(location);
 	}
