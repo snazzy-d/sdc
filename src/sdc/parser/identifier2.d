@@ -25,6 +25,13 @@ auto parseIdentifier(TokenStream tstream) {
 }
 
 /**
+ * Parse dotted identifier (.identifier)
+ */
+auto parseDotIdentifier(TokenStream tstream, Location location) {
+	return parseQualifiedIdentifier(tstream, location, new ModuleQualifier(location));
+}
+
+/**
  * Parse any qualifier identifier (qualifier.identifier)
  */
 auto parseQualifiedIdentifier(TokenStream tstream, Location location, Qualifier qualifier) {

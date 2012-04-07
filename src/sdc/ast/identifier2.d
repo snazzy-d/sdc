@@ -33,3 +33,12 @@ class QualifiedIdentifier : Identifier {
 	}
 }
 
+/**
+ * Module qualifier (used for .identifier)
+ */
+class ModuleQualifier : Node, Qualifier {
+	this(Location location) {
+		this.location = location;
+	}
+}
+

@@ -1,9 +1,10 @@
 module sdc.ast.expression2;
 
 import sdc.location;
+import sdc.ast.identifier2;
 import sdc.ast.statement2;
 
-class Expression : Statement {
+class Expression : Statement, Qualifier {
 	this(Location location) {
 		super(location);
 	}
@@ -386,6 +387,79 @@ class CallExpression : PostfixUnaryExpression {
 		super(location, PostfixType.Parens, expression);
 		
 		this.parameters = parameters;
+	}
+}
+
+enum PrimaryType {
+	Identifier,
+	This,
+	Super,
+	Null,
+	True,
+	False,
+	Dollar,
+	__File__,
+	__Line__,
+	IntegerLiteral,
+	FloatLiteral,
+	CharacterLiteral,
+	StringLiteral,
+	ArrayLiteral,
+	AssocArrayLiteral,
+	FunctionLiteral,
+	AssertExpression,
+	MixinExpression,
+	ImportExpression,
+	BasicTypeDotIdentifier,
+	ComplexTypeDotIdentifier,
+	Typeof,
+	TypeidExpression,
+	IsExpression,
+	ParenExpression,
+	TraitsExpression,
+}
+
+/**
+ * Primary Expressions
+ */
+class PrimaryExpression : Expression {
+	private PrimaryType type;
+	
+	this(Location location, PrimaryType type) {
+		super(location);
+		
+		this.type = type;
+	}
+}
+
+/**
+ * Identifier expression
+ */
+class IdentifierExpression : PrimaryExpression {
+	Identifier identifier;
+	
+	this(Location location, Identifier identifier) {
+		super(location, PrimaryType.Identifier);
+		
+		this.identifier = identifier;
+	}
+}
+
+/**
+ * This
+ */
+class ThisExpression : PrimaryExpression {
+	this(Location location) {
+		super(location, PrimaryType.This);
+	}
+}
+
+/**
+ * Super
+ */
+class SuperExpression : PrimaryExpression {
+	this(Location location) {
+		super(location, PrimaryType.Super);
 	}
 }
 

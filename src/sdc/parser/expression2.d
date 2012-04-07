@@ -2,7 +2,9 @@ module sdc.parser.expression2;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base;
+import sdc.parser.base : match;
+import sdc.parser.identifier2;
+import sdc.parser.type2;
 import sdc.ast.expression2;
 
 /**
@@ -377,7 +379,47 @@ Expression parsePrefixExpression(TokenStream tstream) {
 }
 
 auto parsePrimaryExpression(TokenStream tstream) {
-	return null;
+	auto location = tstream.peek.location;
+	
+	switch(tstream.peek.type) {
+		// Identified expressions
+		case TokenType.Identifier :
+			auto identifier = parseIdentifier(tstream);
+			location.spanTo(tstream.previous.location);
+			return new IdentifierExpression(location, identifier);
+		case TokenType.Dot :
+			tstream.get();
+			auto identifier = parseDotIdentifier(tstream, location);
+			location.spanTo(tstream.previous.location);
+			return new IdentifierExpression(location, identifier);
+		case TokenType.Typeof :
+			tstream.get();
+			auto type = parseTypeof(tstream, location);
+			match(tstream, TokenType.Dot);
+			auto identifier = parseQualifiedIdentifier(tstream, location, type);
+			location.spanTo(tstream.peek.location);
+			return new IdentifierExpression(location, identifier);
+		case TokenType.This :
+			auto thisExpression = new ThisExpression(location);
+			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
+			location.spanTo(tstream.previous.location);
+			return new IdentifierExpression(location, identifier);
+		case TokenType.Super :
+			auto superExpression = new SuperExpression(location);
+			auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
+			location.spanTo(tstream.previous.location);
+			return new IdentifierExpression(location, identifier);
+		
+		// TODO: literals, dollar.
+		
+		case TokenType.OpenParen :
+			tstream.get();
+			auto expression = parseExpression(tstream);
+			match(tstream, TokenType.CloseParen);
+			return expression;
+		default:
+			assert(0);
+	}
 }
 
 /**
@@ -434,7 +476,7 @@ Expression parsePostfixExpression(TokenStream tstream, Location location, Expres
 			// case TokenType.OpenBracket :
 			//	processToken!(CallExpression, TokenType.CloseBracket)();
 			//	break;
-				// TODO: Dots, Indices, Slices.
+				// TODO: Indices, Slices.
 			default :
 				return expression;
 		}
@@ -460,9 +502,5 @@ alias returnNull parseFoobar;
 
 auto returnNull(TokenStream tstream) {
 	return null;
-}
-
-unittest {
-	parseExpression(null);
 }
 

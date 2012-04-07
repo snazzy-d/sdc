@@ -5,7 +5,7 @@ import sdc.ast.base : Node;
 import sdc.ast.expression2;
 import sdc.ast.identifier2;
 
-class Type : Node {
+class Type : Node, Qualifier {
 	this(Location location) {
 		this.location = location;
 	}
@@ -99,18 +99,9 @@ template basicType(T) if(isBuiltin!T) {
 }
 
 /**
- * Any type that can be used as a qualifier
- */
-class QualifierType : SimpleStorageClassType, Qualifier {
-	this(Location location) {
-		super(location);
-	}
-}
-
-/**
  * Type defined by an identifier
  */
-class IdentifierType : QualifierType {
+class IdentifierType : SimpleStorageClassType {
 	private Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
@@ -124,7 +115,7 @@ class IdentifierType : QualifierType {
 /**
  * Type defined by typeof(Expression)
  */
-class TypeofType : QualifierType {
+class TypeofType : SimpleStorageClassType {
 	private Expression expression;
 	
 	this(Location location, Expression expression) {
@@ -137,7 +128,7 @@ class TypeofType : QualifierType {
 /**
  * Type defined by typeof(return)
  */
-class ReturnType : QualifierType {
+class ReturnType : SimpleStorageClassType {
 	this(Location location) {
 		super(location);
 	}
