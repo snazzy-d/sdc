@@ -3,26 +3,13 @@ module sdc.ast.identifier2;
 import sdc.location;
 import sdc.ast.base : Node;
 
-class Identifier : Node {
+class Identifier : Node, Qualifier {
 	private string name;
 	
 	this(Location location, string name) {
 		this.location = location;
 		
 		this.name = name;
-	}
-}
-
-/**
- * A qualified identifier (qualifier.identifier)
- */
-class QualifiedIdentifier : Identifier {
-	private Qualifier qualifier;
-	
-	this(Location location, string name, Qualifier qualifier) {
-		super(location, name);
-		
-		this.qualifier = qualifier;
 	}
 }
 
@@ -34,13 +21,13 @@ interface Qualifier {
 }
 
 /**
- * An identifier used as qualifier
+ * A qualified identifier (qualifier.identifier)
  */
-class IdentifierQualifier : Node, Qualifier {
-	private Identifier qualifier;
+class QualifiedIdentifier : Identifier {
+	private Qualifier qualifier;
 	
-	this(Location location, Identifier qualifier) {
-		this.location = location;
+	this(Location location, string name, Qualifier qualifier) {
+		super(location, name);
 		
 		this.qualifier = qualifier;
 	}

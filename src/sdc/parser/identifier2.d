@@ -18,7 +18,7 @@ auto parseIdentifier(TokenStream tstream) {
 	
 	if(tstream.peek.type == TokenType.Dot) {
 		tstream.get();
-		identifier = parseQualifiedIdentifier(tstream, location, new IdentifierQualifier(location, identifier));
+		identifier = parseQualifiedIdentifier(tstream, location, identifier);
 	}
 	
 	return identifier;
@@ -34,10 +34,9 @@ auto parseQualifiedIdentifier(TokenStream tstream, Location location, Qualifier 
 	auto identifier = new QualifiedIdentifier(location, name, qualifier);
 	
 	while(tstream.peek.type == TokenType.Dot) {
-		qualifier = new IdentifierQualifier(location, identifier);
 		name = match(tstream, TokenType.Identifier).value;
 		location.spanTo(tstream.previous.location);
-		identifier = new QualifiedIdentifier(location, name, qualifier);
+		identifier = new QualifiedIdentifier(location, name, identifier);
 	}
 	
 	return identifier;
