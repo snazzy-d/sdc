@@ -32,7 +32,7 @@ string extractModulePath(QualifiedName qualifiedName)
 {
     string buf;
     foreach (identifier; qualifiedName.identifiers) {
-        buf ~= identifier.value ~ path.sep;
+        buf ~= identifier.value ~ path.dirSeparator;
     }
     return buf[0 .. $ - 1] ~ ".d";
 }
