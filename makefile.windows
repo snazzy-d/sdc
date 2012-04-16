@@ -1,8 +1,7 @@
 include makefile.common
 
 DFLAGS = -version=SDCCOMPILER -w -debug -g -unittest -Iimport -Isrc $(FLAGS)
-SOURCE = \
-	src/sdc/ast/*.d \
+SOURCE =src/sdc/ast/*.d \
 	src/sdc/parser/*.d \
 	src/sdc/gen/*.d \
 	src/sdc/java/*.d
@@ -16,7 +15,6 @@ LIBLLVM = $(LLVMDIR)\llvm-2.9.lib
 all: $(EXE)
 
 $(LIB): $(SOURCE)
-	@mkdir -p bin
 	$(DMD) -lib $(DFLAGS) "-of$@" $(SOURCE)
 
 $(EXE): $(LIB)

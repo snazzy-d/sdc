@@ -1,7 +1,7 @@
 /**
  * Copyright 2010-2011 Bernard Helyer.
  * Copyright 2010-2011 Jakob Ovrum.
- * This file is part of SDC. SDC is licensed under the GPL.
+ * This file is part of SDC.
  * See LICENCE or sdc.d for more details.
  *
  * Jakob Sez: "best module, A++ would edit again :V"

@@ -1,7 +1,7 @@
 /**
  * Copyright 2010 Bernard Helyer.
  * Copyright 2011 Jakob Ovrum.
- * This file is part of SDC. SDC is licensed under the GPL.
+ * This file is part of SDC.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.gen.sdcimport;
@@ -85,7 +85,7 @@ private string searchImport(string impPath)
     }
     
     foreach (importPath; importPaths) {
-        auto fullPath = importPath ~ path.sep ~ impPath;
+        auto fullPath = importPath ~ path.dirSeparator ~ impPath;
         if (file.exists(fullPath) && file.isFile(fullPath)) {
             return fullPath;
         }
@@ -134,7 +134,7 @@ void genImport(Location location, ast.Import theImport, Module mod)
         auto next = err.more;
         foreach (importPath; importPaths) {
             next.more = new CompilerErrorNote(
-                format(`tried path "%s"`, importPath ~ path.sep ~ impPath)
+                format(`tried path "%s"`, importPath ~ path.dirSeparator ~ impPath)
             );
             next = next.more;
         }

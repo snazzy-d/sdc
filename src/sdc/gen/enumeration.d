@@ -1,7 +1,7 @@
 /**
  * Copyright 2010 Jakob Ovrum.
  * Copyright 2011-2012 Bernard Helyer.
- * This file is part of SDC. SDC is licensed under the GPL.
+ * This file is part of SDC.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.gen.enumeration;

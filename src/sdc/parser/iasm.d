@@ -1,6 +1,6 @@
 /**
  * Copyright 2011 Bernard Helyer.
- * This file is part of SDC. SDC is licensed under the GPL.
+ * This file is part of SDC.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.parser.iasm;

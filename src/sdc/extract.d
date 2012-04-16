@@ -1,7 +1,7 @@
 /**
  * Copyright 2010-2012 Bernard Helyer.
  * Copyright 2010 Jakob Ovrum.
- * This file is part of SDC. SDC is licensed under the GPL.
+ * This file is part of SDC.
  * See LICENCE or sdc.d for more details.
  */
 module sdc.extract;
@@ -32,7 +32,7 @@ string extractModulePath(QualifiedName qualifiedName)
 {
     string buf;
     foreach (identifier; qualifiedName.identifiers) {
-        buf ~= identifier.value ~ path.sep;
+        buf ~= identifier.value ~ path.dirSeparator;
     }
     return buf[0 .. $ - 1] ~ ".d";
 }
