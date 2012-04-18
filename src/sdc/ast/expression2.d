@@ -4,7 +4,7 @@ import sdc.location;
 import sdc.ast.identifier2;
 import sdc.ast.statement2;
 
-class Expression : Statement, Qualifier {
+class Expression : Statement, Namespace {
 	this(Location location) {
 		super(location);
 	}

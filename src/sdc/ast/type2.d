@@ -5,7 +5,7 @@ import sdc.ast.base : Node;
 import sdc.ast.expression2;
 import sdc.ast.identifier2;
 
-class Type : Node, Qualifier {
+class Type : Node, Namespace {
 	this(Location location) {
 		this.location = location;
 	}
