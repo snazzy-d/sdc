@@ -12,11 +12,8 @@ class Type : Node {
 	}
 	
 	abstract Type makeMutable();
-	
 	abstract Type makeImmutable();
-	
 	abstract Type makeConst();
-	
 	abstract Type makeInout();
 }
 

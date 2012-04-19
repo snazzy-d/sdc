@@ -22,10 +22,29 @@ auto parseDeclarations(TokenStream tstream) {
 	
 	// TODO: handle storage classes.
 	
-	// storageClass identifier = expression is an auto declaration.
-	if(tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Assign) {
-		// TODO: handle auto declaration.
-		assert(0);
+	switch(tstream.peek.type) {
+		case TokenType.Identifier :
+			// storageClass identifier = expression is an auto declaration.
+			if(tstream.lookahead(1).type == TokenType.Assign) {
+				// TODO: handle auto declaration.
+			}
+			
+			assert(0);
+		
+		case TokenType.Class :
+			// TODO: handle class declaration.
+			assert(0);
+		
+		case TokenType.Struct :
+			// TODO: handle struct declaration.
+			assert(0);
+		
+		case TokenType.Enum :
+			// TODO: handle enum declaration.
+			assert(0);
+		
+		default :
+			// assert(0);
 	}
 	
 	// TODO: handle class, struct and templates declarations.

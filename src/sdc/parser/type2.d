@@ -199,11 +199,15 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 			case TokenType.Function :
 				auto parameters = parseParameters(tstream);
 				location.spanTo(tstream.previous.location);
+				
+				// TODO: parse postfix attributes.
 				return new FunctionType(location, type, parameters);
 			
 			case TokenType.Delegate :
 				auto parameters = parseParameters(tstream);
 				location.spanTo(tstream.previous.location);
+				
+				// TODO: parse postfix attributes and storage class.
 				return new DelegateType(location, type, parameters);
 			
 			default :
