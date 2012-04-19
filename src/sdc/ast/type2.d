@@ -2,10 +2,11 @@ module sdc.ast.type2;
 
 import sdc.location;
 import sdc.ast.base2;
+import sdc.ast.declaration2;
 import sdc.ast.expression2;
 import sdc.ast.identifier2;
 
-class Type : Node, Namespace {
+class Type : Node {
 	this(Location location) {
 		super(location);
 	}
@@ -67,41 +68,31 @@ template isBuiltin(T) {
 /**
  * All basics types and qualified basic types.
  */
-template basicType(T) if(isBuiltin!T) {
-	class BasicType : Type {
+class BasicType : SimpleStorageClassType, Namespace {
+	this(Location location) {
+		super(location);
+	}
+}
+
+import std.traits;
+template builtinType(T) if(isBuiltin!T && is(T == Unqual!T)) {
+	class BuiltinType : BasicType {
 		private this() {
 			super(Location.init);
 		}
-		
-		override Type makeConst() const {
-			return .basicType!(const T);
-		}
-		
-		override Type makeImmutable() const {
-			return .basicType!(immutable T);
-		}
-		
-		override Type makeMutable() const {
-			import std.traits;
-			return .basicType!(Unqual!T);
-		}
-		
-		override Type makeInout() const {
-			return .basicType!(inout T);
-		}
 	}
 	
-	immutable BasicType basicType;
+	immutable BuiltinType builtinType;
 	
 	static this() {
-		basicType = new immutable(BasicType)();
+		builtinType = new immutable(BuiltinType)();
 	}
 }
 
 /**
  * Type defined by an identifier
  */
-class IdentifierType : SimpleStorageClassType {
+class IdentifierType : BasicType {
 	private Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
@@ -115,7 +106,7 @@ class IdentifierType : SimpleStorageClassType {
 /**
  * Type defined by typeof(Expression)
  */
-class TypeofType : SimpleStorageClassType {
+class TypeofType : BasicType {
 	private Expression expression;
 	
 	this(Location location, Expression expression) {
@@ -128,7 +119,7 @@ class TypeofType : SimpleStorageClassType {
 /**
  * Type defined by typeof(return)
  */
-class ReturnType : SimpleStorageClassType {
+class ReturnType : BasicType {
 	this(Location location) {
 		super(location);
 	}
@@ -171,6 +162,63 @@ class PointerType : SuffixType {
 class SliceType : SuffixType {
 	this(Location location, Type qualified) {
 		super(location, TypeSuffixType.Slice, qualified);
+	}
+}
+
+/**
+ * Function types
+ */
+class FunctionType : SimpleStorageClassType {
+	Type returnType;
+	Parameter[] parameters;
+	
+	this(Location location, Type returnType, Parameter[] parameters) {
+		super(location);
+		
+		this.returnType = returnType;
+		this.parameters = parameters;
+	}
+}
+
+/**
+ * Delegate types
+ */
+class DelegateType : FunctionType {
+	this(Location location, Type returnType, Parameter[] parameters) {
+		super(location, returnType, parameters);
+	}
+}
+
+/**
+ * Function and delegate parameters.
+ */
+class Parameter : Node {
+	Type type;
+	
+	this(Location location, Type type) {
+		super(location);
+		
+		this.type = type;
+	}
+}
+
+class NamedParameter : Parameter {
+	string name;
+	
+	this(Location location, Type type, string name) {
+		super(location, type);
+		
+		this.name = name;
+	}
+}
+
+class ValueParameter : NamedParameter {
+	Expression value;
+	
+	this(Location location, Type type, string name, Expression value) {
+		super(location, type, name);
+		
+		this.value = value;
 	}
 }
 

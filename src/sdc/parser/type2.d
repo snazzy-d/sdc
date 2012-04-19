@@ -5,6 +5,7 @@ import sdc.location;
 import sdc.parser.base : match;
 import sdc.parser.expression2;
 import sdc.parser.identifier2;
+import sdc.ast.declaration2;
 import sdc.ast.expression2;
 import sdc.ast.type2;
 
@@ -56,10 +57,10 @@ auto parseBasicType(TokenStream tstream) {
 			auto type = parseTypeof(tstream, location);
 			if(tstream.peek.type == TokenType.Dot) {
 				tstream.get();
-		
+				
 				auto identifier = parseQualifiedIdentifier(tstream, location, type);
 				location.spanTo(tstream.peek.location);
-		
+				
 				type = new IdentifierType(location, identifier);
 			}
 			
@@ -82,58 +83,58 @@ auto parseBasicType(TokenStream tstream) {
 		// Basic types
 		case TokenType.Bool :
 			tstream.get();
-			return basicType!bool;
+			return builtinType!bool;
 		case TokenType.Byte :
 			tstream.get();
-			return basicType!byte;
+			return builtinType!byte;
 		case TokenType.Ubyte :
 			tstream.get();
-			return basicType!ubyte;
+			return builtinType!ubyte;
 		case TokenType.Short :
 			tstream.get();
-			return basicType!short;
+			return builtinType!short;
 		case TokenType.Ushort :
 			tstream.get();
-			return basicType!ushort;
+			return builtinType!ushort;
 		case TokenType.Int :
 			tstream.get();
-			return basicType!int;
+			return builtinType!int;
 		case TokenType.Uint :
 			tstream.get();
-			return basicType!uint;
+			return builtinType!uint;
 		case TokenType.Long :
 			tstream.get();
-			return basicType!long;
+			return builtinType!long;
 		case TokenType.Ulong :
 			tstream.get();
-			return basicType!ulong;
+			return builtinType!ulong;
 /*		case TokenType.Cent :
 			tstream.get();
-			return basicType!cent;
+			return builtinType!cent;
 		case TokenType.Ucent :
 			tstream.get();
-			return basicType!ucent;	*/
+			return builtinType!ucent;	*/
 		case TokenType.Char :
 			tstream.get();
-			return basicType!char;
+			return builtinType!char;
 		case TokenType.Wchar :
 			tstream.get();
-			return basicType!wchar;
+			return builtinType!wchar;
 		case TokenType.Dchar :
 			tstream.get();
-			return basicType!dchar;
+			return builtinType!dchar;
 		case TokenType.Float :
 			tstream.get();
-			return basicType!float;
+			return builtinType!float;
 		case TokenType.Double :
 			tstream.get();
-			return basicType!double;
+			return builtinType!double;
 		case TokenType.Real :
 			tstream.get();
-			return basicType!real;
+			return builtinType!real;
 		case TokenType.Void :
 			tstream.get();
-			return basicType!void;
+			return builtinType!void;
 		
 		default :
 			// TODO: handle.
@@ -146,7 +147,7 @@ auto parseBasicType(TokenStream tstream) {
  * Parse typeof(...)
  */
 auto parseTypeof(TokenStream tstream, Location location) {
-	Type type;
+	BasicType type;
 	
 	match(tstream, TokenType.OpenParen);
 	
@@ -196,12 +197,14 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				
 				break;
 			case TokenType.Function :
-				parseParameters(tstream, location);
-				assert(0);
+				auto parameters = parseParameters(tstream);
+				location.spanTo(tstream.previous.location);
+				return new FunctionType(location, type, parameters);
 			
 			case TokenType.Delegate :
-				parseParameters(tstream, location);
-				assert(0);
+				auto parameters = parseParameters(tstream);
+				location.spanTo(tstream.previous.location);
+				return new DelegateType(location, type, parameters);
 			
 			default :
 				return type;
@@ -212,7 +215,50 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 /**
  * Parse function and delegate parameters.
  */
-auto parseParameters(TokenStream tstream, Location location) {
+auto parseParameters(TokenStream tstream) {
+	match(tstream, TokenType.OpenParen);
 	
+	Parameter[] parameters;
+	
+	if(tstream.peek.type != TokenType.CloseParen) {
+		parameters ~= parseParameter(tstream);
+		
+		while(tstream.peek.type == TokenType.Comma) {
+			tstream.get();
+			
+			parameters ~= parseParameter(tstream);
+		}
+	}
+	
+	match(tstream, TokenType.CloseParen);
+	
+	return parameters;
+}
+
+auto parseParameter(TokenStream tstream) {
+	// TODO: parse storage class
+	// TODO: handle variadic functions
+	
+	auto type = parseType(tstream);
+	
+	if(tstream.peek.type == TokenType.Identifier) {
+		auto location = type.location;
+		
+		string name = tstream.get().value;
+		
+		if(tstream.peek.type == TokenType.Assign) {
+			tstream.get();
+			
+			auto expression = parseAssignExpression(tstream);
+			
+			location.spanTo(tstream.previous.location);
+			return new ValueParameter(location, type, name, expression);
+		}
+		
+		location.spanTo(tstream.previous.location);
+		return new NamedParameter(location, type, name);
+	}
+	
+	return new Parameter(type.location, type);
 }
 
