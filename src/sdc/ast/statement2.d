@@ -1,11 +1,11 @@
 module sdc.ast.statement2;
 
 import sdc.location;
-import sdc.ast.base;
+import sdc.ast.base2;
 
 class Statement : Node {
 	this(Location location) {
-		this.location = location;
+		super(location);
 	}
 }
 

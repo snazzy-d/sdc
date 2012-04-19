@@ -9,7 +9,8 @@ import sdc.ast.expression2;
 import sdc.ast.type2;
 
 Type parseType(TokenStream tstream) {
-	return parseBasicType(tstream);
+	auto base = parseBasicType(tstream);
+	return parseTypeSuffix(tstream, base);
 }
 
 auto parseBasicType(TokenStream tstream) {
@@ -130,30 +131,13 @@ auto parseBasicType(TokenStream tstream) {
 		case TokenType.Real :
 			tstream.get();
 			return basicType!real;
-/*		case TokenType.Ifloat :
-			tstream.get();
-			return basicType!ifloat;
-		case TokenType.Idouble :
-			tstream.get();
-			return basicType!idouble;
-		case TokenType.Ireal :
-			tstream.get();
-			return basicType!ireal;
-		case TokenType.Cfloat :
-			tstream.get();
-			return basicType!cfloat;
-		case TokenType.Cdouble :
-			tstream.get();
-			return basicType!cdouble;
-		case TokenType.Creal :
-			tstream.get();
-			return basicType!creal;	*/
 		case TokenType.Void :
 			tstream.get();
 			return basicType!void;
 		
 		default :
 			// TODO: handle.
+			// Erreur, basic type expected.
 			assert(0);
 	}
 }
@@ -181,5 +165,54 @@ auto parseTypeof(TokenStream tstream, Location location) {
 	match(tstream, TokenType.CloseParen);
 	
 	return type;
+}
+
+/**
+ * Parse *, [ ... ] and function/delegate types.
+ */
+auto parseTypeSuffix(TokenStream tstream, Type type) {
+	auto location = type.location;
+	
+	while(1) {
+		switch(tstream.peek.type) {
+			case TokenType.Asterix :
+				tstream.get();
+				location.spanTo(tstream.previous.location);
+				
+				type = new PointerType(location, type);
+				break;
+				
+			case TokenType.OpenBracket :
+				tstream.get();
+				if(tstream.peek.type == TokenType.CloseBracket) {
+					tstream.get();
+					location.spanTo(tstream.previous.location);
+					
+					type = new SliceType(location, type);
+				} else {
+					// TODO: figure out what to do with that. Associative array or static arrays ?
+					assert(0);
+				}
+				
+				break;
+			case TokenType.Function :
+				parseParameters(tstream, location);
+				assert(0);
+			
+			case TokenType.Delegate :
+				parseParameters(tstream, location);
+				assert(0);
+			
+			default :
+				return type;
+		}
+	}
+}
+
+/**
+ * Parse function and delegate parameters.
+ */
+auto parseParameters(TokenStream tstream, Location location) {
+	
 }
 

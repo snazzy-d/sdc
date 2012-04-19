@@ -1,13 +1,13 @@
 module sdc.ast.type2;
 
 import sdc.location;
-import sdc.ast.base : Node;
+import sdc.ast.base2;
 import sdc.ast.expression2;
 import sdc.ast.identifier2;
 
 class Type : Node, Namespace {
 	this(Location location) {
-		this.location = location;
+		super(location);
 	}
 	
 	abstract Type makeMutable();
@@ -131,6 +131,46 @@ class TypeofType : SimpleStorageClassType {
 class ReturnType : SimpleStorageClassType {
 	this(Location location) {
 		super(location);
+	}
+}
+
+/**
+ * Type suffixes
+ */
+enum TypeSuffixType {
+	Pointer,
+	StaticArray,
+	Slice,
+	Associative,
+}
+
+class SuffixType : SimpleStorageClassType {
+	TypeSuffixType type;
+	Type qualified;
+	
+	this(Location location, TypeSuffixType type, Type qualified) {
+		super(location);
+		
+		this.type = type;
+		this.qualified = qualified;
+	}
+}
+
+/**
+ * Pointer Types
+ */
+class PointerType : SuffixType {
+	this(Location location, Type qualified) {
+		super(location, TypeSuffixType.Pointer, qualified);
+	}
+}
+
+/**
+ * Slice Types
+ */
+class SliceType : SuffixType {
+	this(Location location, Type qualified) {
+		super(location, TypeSuffixType.Slice, qualified);
 	}
 }
 

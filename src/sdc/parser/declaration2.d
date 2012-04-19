@@ -11,16 +11,38 @@ import sdc.ast.identifier2;
 /**
  * Parse a declaration
  */
-auto parseDeclaration(TokenStream tstream) {
-	auto location = tstream.peek.location;
+auto parseDeclarations(TokenStream tstream) {
+	Declaration[] declarations;
 	
-	switch(tstream.peek.type) {
-		case TokenType.Alias :
+	// Parse alias declaration.
+	while(tstream.peek.type == TokenType.Alias) {
 			tstream.get();
-			return parseAlias(tstream, location);
-		default :
-			assert(0);
+			declarations ~= parseAlias(tstream, tstream.previous.location);
 	}
+	
+	// TODO: handle storage classes.
+	
+	// storageClass identifier = expression is an auto declaration.
+	if(tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.Assign) {
+		// TODO: handle auto declaration.
+		assert(0);
+	}
+	
+	// TODO: handle class, struct and templates declarations.
+	
+	auto type = parseType(tstream);
+	
+	string name = match(tstream, TokenType.Identifier).value;
+	auto identifier = new Identifier(tstream.previous.location, name);
+	
+	// Function declaration.
+	if(tstream.peek.type == TokenType.OpenParen) {
+		assert(0);
+	}
+	
+	// TODO: Variable declaration.
+	
+	return declarations;
 }
 
 /**

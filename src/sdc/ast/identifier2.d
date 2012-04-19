@@ -1,13 +1,13 @@
 module sdc.ast.identifier2;
 
 import sdc.location;
-import sdc.ast.base : Node;
+import sdc.ast.base2;
 
 class Identifier : Node, Namespace {
-	private string name;
+	string name;
 	
 	this(Location location, string name) {
-		this.location = location;
+		super(location);
 		
 		this.name = name;
 	}
@@ -21,10 +21,10 @@ interface Namespace {
 }
 
 /**
- * A qualified identifier (qualifier.identifier)
+ * A qualified identifier (namespace.identifier)
  */
 class QualifiedIdentifier : Identifier {
-	private Namespace namespace;
+	Namespace namespace;
 	
 	this(Location location, string name, Namespace namespace) {
 		super(location, name);
@@ -38,7 +38,7 @@ class QualifiedIdentifier : Identifier {
  */
 class ModuleNamespace : Node, Namespace {
 	this(Location location) {
-		this.location = location;
+		super(location);
 	}
 }
 

@@ -328,11 +328,11 @@ auto parseMulExpression(TokenStream tstream) {
  * Unary prefixes
  */
 Expression parsePrefixExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
-	
 	Expression result;
 	
 	void processToken(PrefixExpressionType)() {
+		auto location = tstream.peek.location;
+		
 		tstream.get();
 		
 		result = parsePrefixExpression(tstream);
@@ -369,13 +369,13 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			// TODO: new, cast.
 		default :
 			result = parsePrimaryExpression(tstream);
-			result = parsePostfixExpression(tstream, location, result);
+			result = parsePostfixExpression(tstream, result);
 	}
 	
 	// Ensure we do not screwed up.
 	assert(result);
 	
-	return parsePowExpression(tstream, location, result);
+	return parsePowExpression(tstream, result);
 }
 
 auto parsePrimaryExpression(TokenStream tstream) {
@@ -425,7 +425,9 @@ auto parsePrimaryExpression(TokenStream tstream) {
 /**
  * Parse ^^
  */
-auto parsePowExpression(TokenStream tstream, Location location, Expression expression) {
+auto parsePowExpression(TokenStream tstream, Expression expression) {
+	auto location = expression.location;
+	
 	while (tstream.peek.type == TokenType.DoubleCaret) {
 		tstream.get();
 		Expression power = parsePrefixExpression(tstream);
@@ -439,7 +441,9 @@ auto parsePowExpression(TokenStream tstream, Location location, Expression expre
 /**
  * Parse postfix ++, --, (...), [...], .identifier
  */
-Expression parsePostfixExpression(TokenStream tstream, Location location, Expression expression) {
+Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
+	auto location = expression.location;
+	
 	while(1) {
 		void processToken(PostfixExpressionType, TokenType endToken = TokenType.None)() {
 			tstream.get();
