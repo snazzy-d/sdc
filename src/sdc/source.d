@@ -7,7 +7,9 @@ module sdc.source;
 
 import std.file;
 import std.utf;
+import std.range;
 import std.string;
+import std.system;
 
 import sdc.compilererror;
 import sdc.location;
@@ -41,33 +43,30 @@ class Source
 
 
     /**
-     * Open the given file and validate it as a UTF-8 source.
+     * Open the given file and validate it as a Unicode source.
      *
      * Side-effects:
      *   Puts all the other fields into known good states.
      *
      * Throws:
-     *   CompilerPanic if source BOM is not valid.
-     *   UtfException if source is not UTF-8.
+     *   UtfException if source is not valid Unicode.
      */
     this(string filename)
     {
-        source = cast(string) std.file.read(filename);
-        checkBOM();
-        std.utf.validate(source);        
-        get();
-        skipScriptLine();
+        readSource(filename);
         
         location.filename = filename;
         location.line = 1;
         location.column = 1;
+        
+        this(source, location);
     }
     
     /**
      * Sets the source to string and the current location.
      *
      * Throws:
-     *   UtfException if the source is not valid UTF-8.
+     *   UtfException if the source is not valid Unicode.
      */
     this(string s, Location location)
     {
@@ -75,6 +74,7 @@ class Source
         std.utf.validate(source);
         
         get();
+        skipScriptLine();
         
         this.location = location;
     }
@@ -91,28 +91,17 @@ class Source
         this.mNextIndex = src.mNextIndex;
         this.mCurrentIndex = src.mCurrentIndex;
     }
-
+    
     /**
-     * Validate that the current start of source has a valid UTF-8 BOM.
-     *
-     * Side-effects:
-     *   @source advanced to after valid UTF-8 BOM if found.
+     * Reads the source file into a string.
      *
      * Throws:
-     *   CompilerPanic if source if BOM is not valid.
+     *   UtfException if the source is not valid Unicode.
      */
-    void checkBOM()
+    void readSource(string filename)
     {
-        if (source.length >= 2 && source[0 .. 2] == [0xFE, 0xFF] ||
-            source.length >= 2 && source[0 .. 2] == [0xFF, 0xFE] ||
-            source.length >= 4 && source[0 .. 4] == [0x00, 0x00, 0xFE, 0xFF] ||
-            source.length >= 4 && source[0 .. 4] == [0xFF, 0xFE, 0x00, 0x00]) {
-            
-            throw new CompilerPanic("only UTF-8 input is supported.");
-        }
-        if (source.length >= 3 && source[0 .. 3] == [0xEF, 0xBB, 0xBF]) {
-            source = source[3 .. $];
-        }
+        auto bts = cast(immutable(ubyte)[]) read(filename);
+        source = convertToUTF8(bts);
     }
     
     /**
@@ -231,3 +220,56 @@ class Source
         this.eof = src.eof;
     }
 }
+
+/// Given data, it looks at the BOM to detect which encoding, and converts
+/// the text from that encoding into UTF-8.
+string convertToUTF8(const(ubyte)[] data) {
+         if (data.startsWith(hex!"EFBBBF"))
+                // UTF-8 (toUTF8 is for validation purposes)
+                return toUTF8(cast(string) data[3 .. $].idup);
+    else if (data.startsWith(hex!"FEFF"))
+                // UTF-16 BE
+                return encimpl!(wchar, Endian.bigEndian)(data); 
+    else if (data.startsWith(hex!"FFFE"))
+                // UTF-16 LE
+                return encimpl!(wchar, Endian.littleEndian)(data); 
+    else if (data.startsWith(hex!"00FEFF"))
+                // UTF-32 BE
+                return encimpl!(dchar, Endian.bigEndian)(data);
+    else if (data.startsWith(hex!"FFFE00"))
+                // UTF-32 LE
+                return encimpl!(dchar, Endian.littleEndian)(data);
+    else        // ASCII
+                return toUTF8(cast(string)data.idup);
+}
+
+string encimpl(CType, Endian end)(const(ubyte)[] data) {
+    enum cpsize = CType.sizeof;
+    data = data[cpsize .. $];
+    CType[] res;
+    foreach(i; iota(0, data.length, cpsize)) {
+        auto buf = data[i .. i+cpsize].dup;
+        static if (end != endian) {
+            buf = buf.reverse;
+        }
+        res ~= *(cast(CType*)&buf);
+    }
+    return toUTF8(res);
+}
+
+// nice shorthand, rather than having to spell the array out
+template hex(string str) if (!(str.length % 2)) {
+    enum hex = mixin(calcHex(str));
+}
+
+string calcHex(string str) {
+    import std.range;
+    string r = "[";
+    foreach(i; iota(0, str.length, 2)) {
+        r ~= "0x" ~ str[i .. i+2] ~ ",";
+    }
+    r = r[0 .. $-1] ~ "]";
+    return r;
+}
+
+
