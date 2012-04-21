@@ -224,26 +224,26 @@ class Source
 /// Given data, it looks at the BOM to detect which encoding, and converts
 /// the text from that encoding into UTF-8.
 string convertToUTF8(const(ubyte)[] data) {
-         if (data.startsWith(hex!"EFBBBF"))
+         if (data.startsWith([0xEF, 0xBB, 0xBF]))
                 // UTF-8 (toUTF8 is for validation purposes)
                 return toUTF8(cast(string) data[3 .. $].idup);
-    else if (data.startsWith(hex!"FEFF"))
-                // UTF-16 BE
-                return encimpl!(wchar, Endian.bigEndian)(data); 
-    else if (data.startsWith(hex!"FFFE"))
-                // UTF-16 LE
-                return encimpl!(wchar, Endian.littleEndian)(data); 
-    else if (data.startsWith(hex!"00FEFF"))
+    else if (data.startsWith([0x00, 0x00, 0xFE, 0xFF]))
                 // UTF-32 BE
-                return encimpl!(dchar, Endian.bigEndian)(data);
-    else if (data.startsWith(hex!"FFFE00"))
+                return convertToUTF8Impl!(dchar, Endian.bigEndian)(data);
+    else if (data.startsWith([0xFF, 0xFE, 0x00, 0x00]))
                 // UTF-32 LE
-                return encimpl!(dchar, Endian.littleEndian)(data);
-    else        // ASCII
+                return convertToUTF8Impl!(dchar, Endian.littleEndian)(data);   
+    else if (data.startsWith([0xFE, 0xFF]))
+                // UTF-16 BE
+                return convertToUTF8Impl!(wchar, Endian.bigEndian)(data); 
+    else if (data.startsWith([0xFF, 0xFE]))
+                // UTF-16 LE
+                return convertToUTF8Impl!(wchar, Endian.littleEndian)(data); 
+   else         // ASCII
                 return toUTF8(cast(string)data.idup);
 }
 
-string encimpl(CType, Endian end)(const(ubyte)[] data) {
+string convertToUTF8Impl(CType, Endian end)(const(ubyte)[] data) {
     enum cpsize = CType.sizeof;
     data = data[cpsize .. $];
     CType[] res;
@@ -252,24 +252,9 @@ string encimpl(CType, Endian end)(const(ubyte)[] data) {
         static if (end != endian) {
             buf = buf.reverse;
         }
-        res ~= *(cast(CType*)&buf);
+        CType c = *(cast(CType*)buf);
+        res ~= c;
     }
     return toUTF8(res);
 }
-
-// nice shorthand, rather than having to spell the array out
-template hex(string str) if (!(str.length % 2)) {
-    enum hex = mixin(calcHex(str));
-}
-
-string calcHex(string str) {
-    import std.range;
-    string r = "[";
-    foreach(i; iota(0, str.length, 2)) {
-        r ~= "0x" ~ str[i .. i+2] ~ ",";
-    }
-    r = r[0 .. $-1] ~ "]";
-    return r;
-}
-
 
