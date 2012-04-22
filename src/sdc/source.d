@@ -252,9 +252,7 @@ string convertToUTF8Impl(CType, Endian end)(const(ubyte)[] data) {
         static if (end != endian) {
             buf = buf.reverse;
         }
-        CType c = *(cast(CType*)buf.ptr);
-        std.stdio.writeln(typeof(buf).stringof);
-        res ~= c;
+        res ~= *(cast(CType*)buf.ptr);
     }
     return toUTF8(res);
 }
