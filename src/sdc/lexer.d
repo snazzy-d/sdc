@@ -47,7 +47,8 @@ TokenStream lex(Source source)
         if (lexNext(tw))
             continue;
 
-        auto s = format("unexpected character: '%s'.", tw.source.peek);
+        auto s = format("unexpected character: '%s' (0x%x).", tw.source.peek,
+                                                    cast(int)tw.source.peek);
         throw new CompilerError(tw.source.location, s);
     } while (tw.lastAdded.type != TokenType.End);
 
