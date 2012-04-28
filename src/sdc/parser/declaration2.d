@@ -172,7 +172,11 @@ auto parseAggregate(TokenStream tstream) {
 	
 	Declaration[] declarations;
 	
-	match(tstream, TokenType.CloseBrace);
+	while(tstream.peek.type != TokenType.CloseBrace) {
+		declarations ~= parseDeclarations(tstream);
+	}
+	
+	tstream.get();
 	
 	return declarations;
 }
