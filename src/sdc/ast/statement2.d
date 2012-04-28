@@ -9,3 +9,16 @@ class Statement : Node {
 	}
 }
 
+/**
+ * Blocks
+ */
+class BlockStatement : Statement {
+	Statement[] statements;
+	
+	this(Location location, Statement[] statements) {
+		super(location);
+		
+		this.statements = statements;
+	}
+}
+

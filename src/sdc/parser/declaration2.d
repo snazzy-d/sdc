@@ -69,7 +69,7 @@ auto parseDeclarations(TokenStream tstream) {
 			declarations ~= new FunctionDeclaration(location, name, type, parameters);
 		} else {
 			// Function with body
-			auto fbody = parseStatement(tstream);
+			auto fbody = parseBlock(tstream);
 			
 			auto location = type.location;
 			location.spanTo(tstream.peek.location);
@@ -102,8 +102,6 @@ auto parseDeclarations(TokenStream tstream) {
 		
 		match(tstream, TokenType.Semicolon);
 	}
-	
-	// TODO: Variable declaration.
 	
 	return declarations;
 }
