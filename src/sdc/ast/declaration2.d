@@ -41,13 +41,13 @@ class DeclarationStatement : Statement, Declaration {
  * Alias of types
  */
 class AliasDeclaration : DeclarationStatement {
-	private Type type;
-	private Identifier identifier;
+	Type type;
+	string name;
 	
-	this(Location location, Identifier identifier, Type type) {
+	this(Location location, string name, Type type) {
 		super(location, DeclarationType.Alias);
 		
-		this.identifier = identifier;
+		this.name = name;
 		this.type = type;
 	}
 }
@@ -56,7 +56,7 @@ class AliasDeclaration : DeclarationStatement {
  * Alias this
  */
 class AliasThisDeclaration : DeclarationStatement {
-	private Identifier identifier;
+	Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
 		super(location, DeclarationType.AliasThis);

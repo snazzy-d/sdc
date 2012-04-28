@@ -90,7 +90,7 @@ template builtinType(T) if(isBuiltin!T && is(T == Unqual!T)) {
  * Type defined by an identifier
  */
 class IdentifierType : BasicType {
-	private Identifier identifier;
+	Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
 		super(location);

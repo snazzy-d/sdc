@@ -83,9 +83,9 @@ enum BinaryOperation {
 }
 
 class BinaryExpression : Expression {
-	private Expression lhs;
-	private Expression rhs;
-	private BinaryOperation operation;
+	Expression lhs;
+	Expression rhs;
+	BinaryOperation operation;
 	
 	this(Location location, BinaryOperation operation, Expression lhs, Expression rhs) {
 		super(location);
@@ -269,8 +269,8 @@ enum UnaryPrefix {
 
 
 class PrefixUnaryExpression : Expression {
-	private Expression expression;
-	private UnaryPrefix operation;
+	Expression expression;
+	UnaryPrefix operation;
 	
 	this(Location location, UnaryPrefix operation, Expression expression) {
 		super(location);
@@ -354,8 +354,8 @@ enum PostfixType {
 }
 
 class PostfixUnaryExpression : Expression {
-	private Expression expression;
-	private PostfixType operation;
+	Expression expression;
+	PostfixType operation;
 	
 	this(Location location, PostfixType operation, Expression expression) {
 		super(location);
@@ -381,7 +381,7 @@ class OpAssignUnaryExpression(PostfixType operation) if(
  * Function call
  */
 class CallExpression : PostfixUnaryExpression {
-	private Expression[] parameters;
+	Expression[] parameters;
 	
 	this(Location location, Expression expression, Expression[] parameters) {
 		super(location, PostfixType.Parens, expression);

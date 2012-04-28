@@ -81,11 +81,10 @@ auto parseAlias(TokenStream tstream, Location location) {
 	} else {
 		auto type = parseBasicType(tstream);
 		string name = match(tstream, TokenType.Identifier).value;
-		auto identifier = new Identifier(tstream.previous.location, name);
 		
 		location.spanTo(tstream.previous.location);
 		
-		declaration = new AliasDeclaration(location, identifier, type);
+		declaration = new AliasDeclaration(location, name, type);
 	}
 	
 	return declaration;
