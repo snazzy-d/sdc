@@ -256,7 +256,7 @@ auto parseParameter(TokenStream tstream) {
 			auto expression = parseAssignExpression(tstream);
 			
 			location.spanTo(tstream.previous.location);
-			return new ValueParameter(location, type, name, expression);
+			return new InitializedParameter(location, type, name, expression);
 		}
 		
 		location.spanTo(tstream.previous.location);

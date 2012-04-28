@@ -3,7 +3,9 @@ module sdc.parser.declaration2;
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
+import sdc.parser.expression2;
 import sdc.parser.identifier2;
+import sdc.parser.statement2;
 import sdc.parser.type2;
 import sdc.ast.declaration2;
 import sdc.ast.identifier2;
@@ -47,16 +49,58 @@ auto parseDeclarations(TokenStream tstream) {
 			// assert(0);
 	}
 	
-	// TODO: handle class, struct and templates declarations.
-	
 	auto type = parseType(tstream);
 	
 	string name = match(tstream, TokenType.Identifier).value;
-	auto identifier = new Identifier(tstream.previous.location, name);
 	
-	// Function declaration.
 	if(tstream.peek.type == TokenType.OpenParen) {
-		assert(0);
+		// Function declaration.
+		auto parameters = parseParameters(tstream);
+		
+		// TODO: parse member function attributes.
+		// TODO: parse contracts.
+		
+		if(tstream.peek.type == TokenType.Semicolon) {
+			tstream.get();
+			
+			auto location = type.location;
+			location.spanTo(tstream.peek.location);
+			
+			declarations ~= new FunctionDeclaration(location, name, type, parameters);
+		} else {
+			// Function with body
+			auto fbody = parseStatement(tstream);
+			
+			auto location = type.location;
+			location.spanTo(tstream.peek.location);
+			
+			declarations ~= new FunctionDefinition(location, name, type, parameters, fbody);
+		}
+	} else {
+		// Variables declaration.
+		auto location = type.location;
+		
+		void parseVariableDeclaration() {
+			if(tstream.peek.type == TokenType.Assign) {
+				tstream.get();
+				auto value = parseInitializer(tstream);
+			
+				location.spanTo(tstream.peek.location);
+			
+				declarations ~= new InitializedVariableDeclaration(location, name, value);
+			} else {
+				location.spanTo(tstream.peek.location);
+				declarations ~= new VariableDeclaration(location, name);
+			}
+		}
+		
+		parseVariableDeclaration();
+		while(tstream.peek.type == TokenType.Comma) {
+			name = match(tstream, TokenType.Identifier).value;
+			parseVariableDeclaration();
+		}
+		
+		match(tstream, TokenType.Semicolon);
 	}
 	
 	// TODO: Variable declaration.
@@ -88,5 +132,13 @@ auto parseAlias(TokenStream tstream, Location location) {
 	}
 	
 	return declaration;
+}
+
+/**
+ * Parse Initializer
+ */
+auto parseInitializer(TokenStream tstream) {
+	// TODO: parse array and string literals.
+	return parseAssignExpression(tstream);
 }
 

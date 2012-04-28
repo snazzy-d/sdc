@@ -209,7 +209,7 @@ class NamedParameter : Parameter {
 	}
 }
 
-class ValueParameter : NamedParameter {
+class InitializedParameter : NamedParameter {
 	Expression value;
 	
 	this(Location location, Type type, string name, Expression value) {
