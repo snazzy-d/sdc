@@ -10,6 +10,9 @@ enum DeclarationType {
 	Variable,
 	Function,
 	Template,
+	Struct,
+	Class,
+	Enum,
 	Alias,
 	AliasThis,
 	Mixin,
@@ -110,7 +113,7 @@ class FunctionDeclaration : DeclarationStatement {
 }
 
 /**
- * Function Declaration
+ * Function Definition
  */
 class FunctionDefinition : FunctionDeclaration {
 	Statement fbody;
@@ -119,6 +122,49 @@ class FunctionDefinition : FunctionDeclaration {
 		super(location, name, returnType, parameters);
 		
 		this.fbody = fbody;
+	}
+}
+
+/**
+ * Struct Declaration
+ */
+class StructDeclaration : DeclarationStatement {
+	string name;
+	
+	this(Location location, string name) {
+		super(location, DeclarationType.Struct);
+		
+		this.name = name;
+	}
+}
+
+/**
+ * Struct Definition
+ */
+class StructDefinition : StructDeclaration {
+	Declaration[] members;
+	
+	this(Location location, string name, Declaration[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
+/**
+ * Class Definition
+ */
+class ClassDefinition : DeclarationStatement {
+	string name;
+	Identifier[] bases;
+	Declaration[] members;
+	
+	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+		super(location, DeclarationType.Class);
+		
+		this.name = name;
+		this.bases = bases;
+		this.members = members;
 	}
 }
 

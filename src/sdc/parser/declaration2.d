@@ -24,6 +24,9 @@ auto parseDeclarations(TokenStream tstream) {
 	
 	// TODO: handle storage classes.
 	
+	string name;
+	auto location = tstream.peek.location;
+	
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
 			// storageClass identifier = expression is an auto declaration.
@@ -34,12 +37,45 @@ auto parseDeclarations(TokenStream tstream) {
 			assert(0);
 		
 		case TokenType.Class :
-			// TODO: handle class declaration.
-			assert(0);
+			tstream.get();
+			
+			name = match(tstream, TokenType.Identifier).value;
+			Identifier[] bases;
+			
+			if(tstream.peek.type == TokenType.Colon) {
+				do {
+					tstream.get();
+					bases ~= parseIdentifier(tstream);
+				} while(tstream.peek.type == TokenType.Comma);
+			}
+			
+			auto members = parseAggregate(tstream);
+			
+			location.spanTo(tstream.previous.location);
+				
+			declarations ~= new ClassDefinition(location, name, bases, members);
+			
+			break;
 		
 		case TokenType.Struct :
-			// TODO: handle struct declaration.
-			assert(0);
+			tstream.get();
+			name = match(tstream, TokenType.Identifier).value;
+			
+			if(tstream.peek.type == TokenType.Semicolon) {
+				location.spanTo(tstream.peek.location);
+				
+				declarations ~= new StructDeclaration(location, name);
+				
+				tstream.get();
+			} else {
+				auto members = parseAggregate(tstream);
+				
+				location.spanTo(tstream.previous.location);
+				
+				declarations ~= new StructDefinition(location, name, members);
+			}
+			
+			break;
 		
 		case TokenType.Enum :
 			// TODO: handle enum declaration.
@@ -51,7 +87,7 @@ auto parseDeclarations(TokenStream tstream) {
 	
 	auto type = parseType(tstream);
 	
-	string name = match(tstream, TokenType.Identifier).value;
+	name = match(tstream, TokenType.Identifier).value;
 	
 	if(tstream.peek.type == TokenType.OpenParen) {
 		// Function declaration.
@@ -61,25 +97,21 @@ auto parseDeclarations(TokenStream tstream) {
 		// TODO: parse contracts.
 		
 		if(tstream.peek.type == TokenType.Semicolon) {
-			tstream.get();
-			
-			auto location = type.location;
 			location.spanTo(tstream.peek.location);
 			
 			declarations ~= new FunctionDeclaration(location, name, type, parameters);
+			
+			tstream.get();
 		} else {
 			// Function with body
 			auto fbody = parseBlock(tstream);
 			
-			auto location = type.location;
 			location.spanTo(tstream.peek.location);
 			
 			declarations ~= new FunctionDefinition(location, name, type, parameters, fbody);
 		}
 	} else {
 		// Variables declaration.
-		auto location = type.location;
-		
 		void parseVariableDeclaration() {
 			if(tstream.peek.type == TokenType.Assign) {
 				tstream.get();
@@ -133,10 +165,23 @@ auto parseAlias(TokenStream tstream, Location location) {
 }
 
 /**
+ * Parse aggreagate (classes, structs)
+ */
+auto parseAggregate(TokenStream tstream) {
+	match(tstream, TokenType.OpenBrace);
+	
+	Declaration[] declarations;
+	
+	match(tstream, TokenType.CloseBrace);
+	
+	return declarations;
+}
+
+/**
  * Parse Initializer
  */
 auto parseInitializer(TokenStream tstream) {
-	// TODO: parse array and string literals.
+	// TODO: parse void initializer.
 	return parseAssignExpression(tstream);
 }
 
