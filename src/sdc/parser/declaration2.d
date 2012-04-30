@@ -120,7 +120,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 				
 				variables[name] = parseInitializer(tstream);
 			} else {
-				// Use default initializer instead of null.
+				// TODO: Use default initializer instead of null.
 				variables[name] = null;
 			}
 		}
@@ -141,9 +141,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 /**
  * Parse alias declaration
  */
-auto parseAlias(TokenStream tstream, Location location) {
-	Declaration declaration;
-	
+Declaration parseAlias(TokenStream tstream, Location location) {
 	// Alias this (find a better way to dectect it to allow more complx identifiers ?).
 	if(tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.This) {
 		auto identifier = parseIdentifier(tstream);
@@ -151,17 +149,15 @@ auto parseAlias(TokenStream tstream, Location location) {
 		match(tstream, TokenType.This);
 		location.spanTo(tstream.previous.location);
 		
-		declaration = new AliasThisDeclaration(location, identifier);
+		return new AliasThisDeclaration(location, identifier);
 	} else {
 		auto type = parseBasicType(tstream);
 		string name = match(tstream, TokenType.Identifier).value;
 		
 		location.spanTo(tstream.previous.location);
 		
-		declaration = new AliasDeclaration(location, name, type);
+		return new AliasDeclaration(location, name, type);
 	}
-	
-	return declaration;
 }
 
 /**
