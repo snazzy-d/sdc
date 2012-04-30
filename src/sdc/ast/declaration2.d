@@ -70,28 +70,17 @@ class AliasThisDeclaration : DeclarationStatement {
 }
 
 /**
- * Variable declaration
+ * Variables declaration
  */
-class VariableDeclaration : DeclarationStatement {
-	string name;
+class VariablesDeclaration : DeclarationStatement {
+	Type type;
+	Expression[string] variables;
 	
-	this(Location location, string name) {
+	this(Location location, Expression[string] variables, Type type) {
 		super(location, DeclarationType.Variable);
 		
-		this.name = name;
-	}
-}
-
-/**
- * Initialized variable declaration
- */
-class InitializedVariableDeclaration : VariableDeclaration {
-	Expression value;
-	
-	this(Location location, string name, Expression value) {
-		super(location, name);
-		
-		this.value = value;
+		this.type = type;
+		this.variables = variables;
 	}
 }
 
