@@ -183,11 +183,17 @@ auto parseAggregate(TokenStream tstream) {
 auto parseImport(TokenStream tstream) {
 	auto location = match(tstream, TokenType.Import).location;
 	
-	auto identifier = parseIdentifier(tstream);
+	Identifier[] modules = [parseIdentifier(tstream)];
+	while(tstream.peek.type == TokenType.Comma) {
+		tstream.get();
+		modules ~= parseIdentifier(tstream);
+	}
 	
 	match(tstream, TokenType.Semicolon);
 	
-	return null;
+	location.spanTo(tstream.previous.location);
+	
+	return new ImportDeclaration(location, modules);
 }
 
 /**

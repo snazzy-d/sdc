@@ -197,6 +197,7 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				
 				break;
 			case TokenType.Function :
+				tstream.get();
 				auto parameters = parseParameters(tstream);
 				location.spanTo(tstream.previous.location);
 				
@@ -204,6 +205,7 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				return new FunctionType(location, type, parameters);
 			
 			case TokenType.Delegate :
+				tstream.get();
 				auto parameters = parseParameters(tstream);
 				location.spanTo(tstream.previous.location);
 				

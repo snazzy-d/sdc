@@ -15,6 +15,7 @@ enum DeclarationType {
 	Enum,
 	Alias,
 	AliasThis,
+	Import,
 	Mixin,
 }
 
@@ -154,6 +155,20 @@ class ClassDefinition : DeclarationStatement {
 		this.name = name;
 		this.bases = bases;
 		this.members = members;
+	}
+}
+
+/**
+ * Import declaration
+ */
+class ImportDeclaration : DeclarationStatement {
+	string name;
+	Identifier[] modules;
+	
+	this(Location location, Identifier[] modules) {
+		super(location, DeclarationType.Import);
+		
+		this.modules = modules;
 	}
 }
 
