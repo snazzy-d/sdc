@@ -463,3 +463,16 @@ class SuperExpression : PrimaryExpression {
 	}
 }
 
+/**
+ * Integer literals
+ */
+class IntegerLiteral : PrimaryExpression {
+	int value;
+	
+	this(Location location, int value) {
+		super(location, PrimaryType.IntegerLiteral);
+		
+		this.value = value;
+	}
+}
+

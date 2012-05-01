@@ -425,7 +425,7 @@ Expression parsePrefixExpression(TokenStream tstream) {
 	return parsePowExpression(tstream, result);
 }
 
-auto parsePrimaryExpression(TokenStream tstream) {
+Expression parsePrimaryExpression(TokenStream tstream) {
 	auto location = tstream.peek.location;
 	
 	switch(tstream.peek.type) {
@@ -433,12 +433,14 @@ auto parsePrimaryExpression(TokenStream tstream) {
 		case TokenType.Identifier :
 			auto identifier = parseIdentifier(tstream);
 			location.spanTo(tstream.previous.location);
+			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.Dot :
 			tstream.get();
 			auto identifier = parseDotIdentifier(tstream, location);
 			location.spanTo(tstream.previous.location);
+			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.Typeof :
@@ -447,22 +449,25 @@ auto parsePrimaryExpression(TokenStream tstream) {
 			match(tstream, TokenType.Dot);
 			auto identifier = parseQualifiedIdentifier(tstream, location, type);
 			location.spanTo(tstream.peek.location);
+			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.This :
 			auto thisExpression = new ThisExpression(location);
 			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
 			location.spanTo(tstream.previous.location);
+			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.Super :
 			auto superExpression = new SuperExpression(location);
 			auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
 			location.spanTo(tstream.previous.location);
+			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.IntegerLiteral :
-			return null;
+			return new IntegerLiteral(location, parseIntegerLiteral(tstream));
 		
 		// TODO: literals, dollar.
 		
@@ -470,6 +475,7 @@ auto parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			auto expression = parseExpression(tstream);
 			match(tstream, TokenType.CloseParen);
+			
 			return expression;
 		
 		default:
@@ -562,9 +568,26 @@ auto parseArguments(TokenStream tstream) {
 	return expressions;
 }
 
-alias returnNull parseFoobar;
-
-auto returnNull(TokenStream tstream) {
-	return null;
+/**
+ * Parse integer literals
+ */
+auto parseIntegerLiteral(TokenStream tstream) {
+	string value = tstream.get().value;
+	
+	import std.conv;
+	if(value.length < 2) {
+		return parse!int(value);
+	}
+	
+	switch(value[0 .. 2]) {
+		case "0x" :
+			return parse!int(value, 16);
+		
+		case "0b" :
+			return parse!int(value, 2);
+		
+		default :
+			return parse!int(value);
+	}
 }
 
