@@ -55,45 +55,59 @@ Expression parseAssignExpression(TokenStream tstream) {
 		case TokenType.Assign :
 			processToken!AssignExpression();
 			break;
+		
 		case TokenType.PlusAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.AddAssign))();
 			break;
+		
 		case TokenType.DashAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.SubAssign))();
 			break;
+		
 		case TokenType.AsterixAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.MulAssign))();
 			break;
+		
 		case TokenType.SlashAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.DivAssign))();
 			break;
+		
 		case TokenType.PercentAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.ModAssign))();
 			break;
+		
 		case TokenType.AmpersandAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.AndAssign))();
 			break;
+		
 		case TokenType.PipeAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.OrAssign))();
 			break;
+		
 		case TokenType.CaretAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.XorAssign))();
 			break;
+		
 		case TokenType.TildeAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.CatAssign))();
 			break;
+		
 		case TokenType.DoubleLessAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.ShiftLeftAssign))();
 			break;
+		
 		case TokenType.DoubleGreaterAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.SignedShiftRightAssign))();
 			break;
+		
 		case TokenType.TripleGreaterAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.UnsignedShiftRightAssign))();
 			break;
+		
 		case TokenType.DoubleCaretAssign :
 			processToken!(OpAssignBinaryExpression!(BinaryOperation.PowAssign))();
 			break;
+		
 		default :
 			// No assignement.
 			break;
@@ -171,46 +185,61 @@ auto parseComparaisonExpression(TokenStream tstream) {
 		case TokenType.DoubleAssign :
 			processToken!(EqualityExpression!(BinaryOperation.Equality))();
 			break;
+		
 		case TokenType.BangAssign :
 			processToken!(EqualityExpression!(BinaryOperation.NotEquality))();
 			break;
+		
 		case TokenType.Less :
 			processToken!(ComparaisonExpression!(BinaryOperation.Less))();
 			break;
+		
 		case TokenType.LessAssign :
 			processToken!(ComparaisonExpression!(BinaryOperation.LessEqual))();
 			break;
+		
 		case TokenType.Greater:
 			processToken!(ComparaisonExpression!(BinaryOperation.Greater))();
 			break;
+		
 		case TokenType.GreaterAssign:
 			processToken!(ComparaisonExpression!(BinaryOperation.GreaterEqual))();
 			break;
+		
 		case TokenType.BangLessGreaterAssign:
 			processToken!(ComparaisonExpression!(BinaryOperation.Unordered))();
 			break;
+		
 		case TokenType.BangLessGreater:
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedEqual))();
 			break;
+		
 		case TokenType.LessGreater:
 			processToken!(ComparaisonExpression!(BinaryOperation.LessGreater))();
 			break;
+		
 		case TokenType.LessGreaterAssign:
 			processToken!(ComparaisonExpression!(BinaryOperation.LessEqualGreater))();
 			break;
+		
 		case TokenType.BangGreater:
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLessEqual))();
 			break;
+		
 		case TokenType.BangGreaterAssign:
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLess))();
 			break;
+		
 		case TokenType.BangLess:
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreaterEqual))();
 			break;
+		
 		case TokenType.BangLessAssign:
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreater))();
 			break;
-			// TODO: Parse in and is expressions.
+		
+		// TODO: Parse in and is expressions.
+		
 		default :
 			// We have no comparaison, so we just return.
 			break;
@@ -242,12 +271,15 @@ auto parseShiftExpression(TokenStream tstream) {
 			case TokenType.DoubleLess :
 				processToken!(ShiftExpression!(BinaryOperation.LeftShift))();
 				break;
+			
 			case TokenType.DoubleGreater :
 				processToken!(ShiftExpression!(BinaryOperation.SignedRightShift))();
 				break;
+			
 			case TokenType.TripleGreater :
 				processToken!(ShiftExpression!(BinaryOperation.UnsignedRightShift))();
 				break;
+			
 			default :
 				return result;
 		}
@@ -277,12 +309,15 @@ auto parseAddExpression(TokenStream tstream) {
 			case TokenType.Plus :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Addition))();
 				break;
+			
 			case TokenType.Dash :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Subtraction))();
 				break;
+			
 			case TokenType.Tilde :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Concat))();
 				break;
+			
 			default :
 				return result;
 		}
@@ -312,12 +347,15 @@ auto parseMulExpression(TokenStream tstream) {
 			case TokenType.Asterix :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Multiplication))();
 				break;
+			
 			case TokenType.Slash :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Division))();
 				break;
+			
 			case TokenType.Percent :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Modulus))();
 				break;
+			
 			default :
 				return result;
 		}
@@ -345,28 +383,37 @@ Expression parsePrefixExpression(TokenStream tstream) {
 		case TokenType.Ampersand :
 			processToken!AddressOfExpression();
 			break;
+		
 		case TokenType.DoublePlus :
 			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixInc))();
 			break;
+		
 		case TokenType.DoubleDash :
 			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixDec))();
 			break;
+		
 		case TokenType.Asterix :
 			processToken!DereferenceExpression();
 			break;
+		
 		case TokenType.Plus :
 			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryPlus))();
 			break;
+		
 		case TokenType.Dash :
 			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryMinus))();
 			break;
+		
 		case TokenType.Bang :
 			processToken!NotExpression();
 			break;
+		
 		case TokenType.Tilde :
 			processToken!CompelementExpression();
 			break;
-			// TODO: new, cast.
+		
+		// TODO: new, cast.
+		
 		default :
 			result = parsePrimaryExpression(tstream);
 			result = parsePostfixExpression(tstream, result);
@@ -387,11 +434,13 @@ auto parsePrimaryExpression(TokenStream tstream) {
 			auto identifier = parseIdentifier(tstream);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierExpression(location, identifier);
+		
 		case TokenType.Dot :
 			tstream.get();
 			auto identifier = parseDotIdentifier(tstream, location);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierExpression(location, identifier);
+		
 		case TokenType.Typeof :
 			tstream.get();
 			auto type = parseTypeof(tstream, location);
@@ -399,16 +448,21 @@ auto parsePrimaryExpression(TokenStream tstream) {
 			auto identifier = parseQualifiedIdentifier(tstream, location, type);
 			location.spanTo(tstream.peek.location);
 			return new IdentifierExpression(location, identifier);
+		
 		case TokenType.This :
 			auto thisExpression = new ThisExpression(location);
 			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierExpression(location, identifier);
+		
 		case TokenType.Super :
 			auto superExpression = new SuperExpression(location);
 			auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierExpression(location, identifier);
+		
+		case TokenType.IntegerLiteral :
+			return null;
 		
 		// TODO: literals, dollar.
 		
@@ -417,6 +471,7 @@ auto parsePrimaryExpression(TokenStream tstream) {
 			auto expression = parseExpression(tstream);
 			match(tstream, TokenType.CloseParen);
 			return expression;
+		
 		default:
 			assert(0);
 	}
@@ -471,16 +526,21 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 			case TokenType.DoublePlus :
 				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixInc))();
 				break;
+			
 			case TokenType.DoubleDash :
 				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixDec))();
 				break;
+			
 			case TokenType.OpenParen :
 				processToken!(CallExpression, TokenType.CloseParen)();
 				break;
+			
 			// case TokenType.OpenBracket :
 			//	processToken!(CallExpression, TokenType.CloseBracket)();
 			//	break;
-				// TODO: Indices, Slices.
+			
+			// TODO: Indices, Slices.
+			
 			default :
 				return expression;
 		}
