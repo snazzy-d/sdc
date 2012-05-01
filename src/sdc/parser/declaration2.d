@@ -16,9 +16,8 @@ import sdc.ast.identifier2;
  */
 Declaration parseDeclaration(TokenStream tstream) {
 	// Parse alias declaration.
-	while(tstream.peek.type == TokenType.Alias) {
-			tstream.get();
-			return parseAlias(tstream, tstream.previous.location);
+	if(tstream.peek.type == TokenType.Alias) {
+			return parseAlias(tstream);
 	}
 	
 	// TODO: handle storage classes.
@@ -78,8 +77,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			assert(0);
 		
 		case TokenType.Import :
-			// TODO: handle imports.
-			assert(0);
+			return parseImport(tstream);
 			
 		default :
 			// assert(0);
@@ -141,7 +139,9 @@ Declaration parseDeclaration(TokenStream tstream) {
 /**
  * Parse alias declaration
  */
-Declaration parseAlias(TokenStream tstream, Location location) {
+Declaration parseAlias(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Alias).location;
+	
 	// Alias this (find a better way to dectect it to allow more complx identifiers ?).
 	if(tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.This) {
 		auto identifier = parseIdentifier(tstream);
@@ -175,6 +175,19 @@ auto parseAggregate(TokenStream tstream) {
 	tstream.get();
 	
 	return declarations;
+}
+
+/**
+ * Parse import declaration
+ */
+auto parseImport(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Import).location;
+	
+	auto identifier = parseIdentifier(tstream);
+	
+	match(tstream, TokenType.Semicolon);
+	
+	return null;
 }
 
 /**

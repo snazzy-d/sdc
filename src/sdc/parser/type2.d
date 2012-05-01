@@ -83,58 +83,58 @@ auto parseBasicType(TokenStream tstream) {
 		// Basic types
 		case TokenType.Bool :
 			tstream.get();
-			return builtinType!bool;
+			return new BuiltinType!bool(location);
 		case TokenType.Byte :
 			tstream.get();
-			return builtinType!byte;
+			return new BuiltinType!byte(location);
 		case TokenType.Ubyte :
 			tstream.get();
-			return builtinType!ubyte;
+			return new BuiltinType!ubyte(location);
 		case TokenType.Short :
 			tstream.get();
-			return builtinType!short;
+			return new BuiltinType!short(location);
 		case TokenType.Ushort :
 			tstream.get();
-			return builtinType!ushort;
+			return new BuiltinType!ushort(location);
 		case TokenType.Int :
 			tstream.get();
-			return builtinType!int;
+			return new BuiltinType!int(location);
 		case TokenType.Uint :
 			tstream.get();
-			return builtinType!uint;
+			return new BuiltinType!uint(location);
 		case TokenType.Long :
 			tstream.get();
-			return builtinType!long;
+			return new BuiltinType!long(location);
 		case TokenType.Ulong :
 			tstream.get();
-			return builtinType!ulong;
+			return new BuiltinType!ulong(location);
 /*		case TokenType.Cent :
 			tstream.get();
-			return builtinType!cent;
+			return new BuiltinType!cent(location);
 		case TokenType.Ucent :
 			tstream.get();
-			return builtinType!ucent;	*/
+			return new BuiltinType!ucent(location);	*/
 		case TokenType.Char :
 			tstream.get();
-			return builtinType!char;
+			return new BuiltinType!char(location);
 		case TokenType.Wchar :
 			tstream.get();
-			return builtinType!wchar;
+			return new BuiltinType!wchar(location);
 		case TokenType.Dchar :
 			tstream.get();
-			return builtinType!dchar;
+			return new BuiltinType!dchar(location);
 		case TokenType.Float :
 			tstream.get();
-			return builtinType!float;
+			return new BuiltinType!float(location);
 		case TokenType.Double :
 			tstream.get();
-			return builtinType!double;
+			return new BuiltinType!double(location);
 		case TokenType.Real :
 			tstream.get();
-			return builtinType!real;
+			return new BuiltinType!real(location);
 		case TokenType.Void :
 			tstream.get();
-			return builtinType!void;
+			return new BuiltinType!void(location);
 		
 		default :
 			// TODO: handle.

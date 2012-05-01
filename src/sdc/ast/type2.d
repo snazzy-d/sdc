@@ -56,12 +56,6 @@ final:	// Check whenever these operation make sense.
 	}
 }
 
-template isBuiltin(T) {
-	import std.traits;
-	
-	enum bool isBuiltin = isNumeric!T || isSomeChar!T || is(Unqual!T == bool) || is(Unqual!T == void);
-}
-
 /**
  * All basics types and qualified basic types.
  */
@@ -72,17 +66,13 @@ class BasicType : SimpleStorageClassType, Namespace {
 }
 
 import std.traits;
-template builtinType(T) if(isBuiltin!T && is(T == Unqual!T)) {
-	class BuiltinType : BasicType {
-		private this() {
-			super(Location.init);
-		}
-	}
-	
-	immutable BuiltinType builtinType;
-	
-	static this() {
-		builtinType = new immutable(BuiltinType)();
+template isBuiltin(T) {
+	enum bool isBuiltin = isNumeric!T || isSomeChar!T || is(Unqual!T == bool) || is(Unqual!T == void);
+}
+
+class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
+	this(Location location) {
+		super(location);
 	}
 }
 

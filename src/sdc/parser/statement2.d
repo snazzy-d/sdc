@@ -6,6 +6,7 @@ import sdc.parser.base : match;
 import sdc.ast.statement2;
 
 auto parseStatement(TokenStream tstream) {
+	tstream.get();
 	return null;
 }
 
