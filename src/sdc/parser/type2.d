@@ -199,19 +199,21 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				break;
 			case TokenType.Function :
 				tstream.get();
-				auto parameters = parseParameters(tstream);
+				bool isVariadic;
+				auto parameters = parseParameters(tstream, isVariadic);
 				location.spanTo(tstream.previous.location);
 				
 				// TODO: parse postfix attributes.
-				return new FunctionType(location, type, parameters);
+				return new FunctionType(location, type, parameters, isVariadic);
 			
 			case TokenType.Delegate :
 				tstream.get();
-				auto parameters = parseParameters(tstream);
+				bool isVariadic;
+				auto parameters = parseParameters(tstream, isVariadic);
 				location.spanTo(tstream.previous.location);
 				
 				// TODO: parse postfix attributes and storage class.
-				return new DelegateType(location, type, parameters);
+				return new DelegateType(location, type, parameters, isVariadic);
 			
 			default :
 				return type;
@@ -222,7 +224,7 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 /**
  * Parse function and delegate parameters.
  */
-auto parseParameters(TokenStream tstream) {
+auto parseParameters(TokenStream tstream, out bool isVariadic) {
 	match(tstream, TokenType.OpenParen);
 	
 	Parameter[] parameters;
@@ -232,6 +234,12 @@ auto parseParameters(TokenStream tstream) {
 		
 		while(tstream.peek.type == TokenType.Comma) {
 			tstream.get();
+			
+			if(tstream.peek.type == TokenType.TripleDot) {
+				tstream.get();
+				isVariadic = true;
+				break;
+			}
 			
 			parameters ~= parseParameter(tstream);
 		}
@@ -244,7 +252,18 @@ auto parseParameters(TokenStream tstream) {
 
 auto parseParameter(TokenStream tstream) {
 	// TODO: parse storage class
-	// TODO: handle variadic functions
+	bool parseStorageClass = true;
+	while(parseStorageClass) {
+		switch(tstream.peek.type) {
+			case TokenType.Ref, TokenType.In, TokenType.Out :
+				tstream.get();
+				break;
+			
+			default :
+				parseStorageClass = false;
+				break;
+		}
+	}
 	
 	auto type = parseType(tstream);
 	

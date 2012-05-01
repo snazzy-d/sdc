@@ -158,12 +158,14 @@ class SliceType : SuffixType {
 class FunctionType : SimpleStorageClassType {
 	Type returnType;
 	Parameter[] parameters;
+	bool isVariadic;
 	
-	this(Location location, Type returnType, Parameter[] parameters) {
+	this(Location location, Type returnType, Parameter[] parameters, bool isVariadic) {
 		super(location);
 		
 		this.returnType = returnType;
 		this.parameters = parameters;
+		this.isVariadic = isVariadic;
 	}
 }
 
@@ -171,8 +173,8 @@ class FunctionType : SimpleStorageClassType {
  * Delegate types
  */
 class DelegateType : FunctionType {
-	this(Location location, Type returnType, Parameter[] parameters) {
-		super(location, returnType, parameters);
+	this(Location location, Type returnType, Parameter[] parameters, bool isVariadic) {
+		super(location, returnType, parameters, isVariadic);
 	}
 }
 

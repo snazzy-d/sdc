@@ -17,6 +17,7 @@ enum DeclarationType {
 	AliasThis,
 	Import,
 	Mixin,
+	Linkage,
 }
 
 interface Declaration {
@@ -169,6 +170,21 @@ class ImportDeclaration : DeclarationStatement {
 		super(location, DeclarationType.Import);
 		
 		this.modules = modules;
+	}
+}
+
+/**
+ * Linkage declaration
+ */
+class LinkageDeclaration : DeclarationStatement {
+	string linkage;
+	Declaration[] declarations;
+	
+	this(Location location, string linkage, Declaration[] declarations) {
+		super(location, DeclarationType.Linkage);
+		
+		this.linkage = linkage;
+		this.declarations = declarations;
 	}
 }
 

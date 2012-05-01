@@ -15,16 +15,55 @@ import sdc.ast.type2;
 /**
  * Parse a declaration
  */
+// TODO: handle linkage.
 Declaration parseDeclaration(TokenStream tstream) {
 	// Parse alias declaration.
 	if(tstream.peek.type == TokenType.Alias) {
 			return parseAlias(tstream);
 	}
 	
-	// TODO: handle storage classes.
-	// TODO: handle linkage.
-	
 	auto location = tstream.peek.location;
+	
+	// TODO: handle storage classes.
+	storageClassLoop : while(1) {
+		switch(tstream.peek.type) {
+			case TokenType.Static :
+				tstream.get();
+				break;
+			
+			case TokenType.Extern :
+				tstream.get();
+				match(tstream, TokenType.OpenParen);
+				string linkage = match(tstream, TokenType.Identifier).value;
+				match(tstream, TokenType.CloseParen);
+				
+				switch(tstream.peek.type) {
+					case TokenType.OpenBrace :
+						auto declarations = parseAggregate(tstream);
+						
+						location.spanTo(tstream.previous.location);
+						
+						return new LinkageDeclaration(location, linkage, declarations);
+					
+					case TokenType.Colon :
+						tstream.get();
+						auto declarations = parseAggregate!false(tstream);
+						
+						location.spanTo(tstream.previous.location);
+						
+						return new LinkageDeclaration(location, linkage, declarations);
+					
+					default :
+						// TODO: Change linkage and parse the next declaration.
+						break;
+				}
+				
+				break;
+			
+			default :
+				break storageClassLoop;
+		}
+	}
 	
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
@@ -75,9 +114,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			}
 		
 		case TokenType.Enum :
-			// TODO: handle enum declaration.
-			match(tstream, TokenType.Begin);
-			assert(0);
+			return parseEnum(tstream);
 		
 		case TokenType.Import :
 			return parseImport(tstream);
@@ -151,8 +188,10 @@ Declaration parseAlias(TokenStream tstream) {
 /**
  * Parse aggreagate (classes, structs)
  */
-auto parseAggregate(TokenStream tstream) {
-	match(tstream, TokenType.OpenBrace);
+auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
+	static if(globBraces) {
+		match(tstream, TokenType.OpenBrace);
+	}
 	
 	Declaration[] declarations;
 	
@@ -160,9 +199,69 @@ auto parseAggregate(TokenStream tstream) {
 		declarations ~= parseDeclaration(tstream);
 	}
 	
-	tstream.get();
+	static if(globBraces) {
+		tstream.get();
+	}
 	
 	return declarations;
+}
+
+/**
+ * Parse enums
+ */
+auto parseEnum(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Enum).location;
+	
+	switch(tstream.peek.type) {
+		case TokenType.Identifier :
+			string name = tstream.get().value;
+			
+			// Check if we are in case of manifest constant.
+			if(tstream.peek.type == TokenType.Assign) {
+				// Parse auto declaration.
+			}
+			
+			// TODO: named enums.
+			// TODO: handle name AND typed enums.
+			if(tstream.peek.type == TokenType.Colon) goto case TokenType.Colon;
+			
+			break;
+		
+		case TokenType.Colon :
+			tstream.get();
+			auto type = parseType(tstream);
+			
+			// TODO: typed enums.
+			break;
+		
+		case TokenType.OpenBrace :
+			break;
+		
+		default :
+			assert(0);
+	}
+	
+	match(tstream, TokenType.OpenBrace);
+	
+	while(tstream.peek.type != TokenType.OpenBrace) {
+		string name = match(tstream, TokenType.Identifier).value;
+		
+		if(tstream.peek.type == TokenType.Assign) {
+			tstream.get();
+			parseAssignExpression(tstream);
+		}
+		
+		if(tstream.peek.type == TokenType.Comma) {
+			tstream.get();
+		} else {
+			// If it is not a comma, then we abort the loop.
+			break;
+		}
+	}
+	
+	match(tstream, TokenType.CloseBrace);
+	
+	return null;
 }
 
 /**
@@ -191,9 +290,27 @@ auto parseFunctionDeclaration(TokenStream tstream, Location location, Type retur
 	string name = match(tstream, TokenType.Identifier).value;
 	
 	// Function declaration.
-	auto parameters = parseParameters(tstream);
+	bool isVariadic;
+	auto parameters = parseParameters(tstream, isVariadic);
 	
-	// TODO: parse member function attributes.
+	// TODO: parse function attributes
+	// Parse function attributes
+	functionAttributeLoop : while(1) {
+		switch(tstream.peek.type) {
+			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared :
+				tstream.get();
+				break;
+			
+			case TokenType.At :
+				tstream.get();
+				match(tstream, TokenType.Identifier);
+				break;
+			
+			default :
+				break functionAttributeLoop;
+		}
+	}
+	
 	// TODO: parse contracts.
 	
 	// Skip contracts
@@ -256,11 +373,20 @@ auto parseVersionDeclaration(TokenStream tstream) {
 			tstream.get();
 			string versionId = match(tstream, TokenType.Identifier).value;
 			match(tstream, TokenType.CloseParen);
-			parseAggregate(tstream);
+			
+			if(tstream.peek.type == TokenType.OpenBrace) {
+				parseAggregate(tstream);
+			} else {
+				parseDeclaration(tstream);
+			}
 			
 			if(tstream.peek.type == TokenType.Else) {
 				tstream.get();
-				parseAggregate(tstream);
+				if(tstream.peek.type == TokenType.OpenBrace) {
+					parseAggregate(tstream);
+				} else {
+					parseDeclaration(tstream);
+				}
 			}
 			
 			return null;
