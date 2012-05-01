@@ -137,6 +137,7 @@ auto parseBasicType(TokenStream tstream) {
 			return new BuiltinType!void(location);
 		
 		default :
+			match(tstream, TokenType.Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
 			assert(0);

@@ -80,14 +80,14 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return parseImport(tstream);
 			
 		default :
-			// assert(0);
+			break;
 	}
 	
 	auto type = parseType(tstream);
 	
-	name = match(tstream, TokenType.Identifier).value;
-	
-	if(tstream.peek.type == TokenType.OpenParen) {
+	if(tstream.lookahead(1).type == TokenType.OpenParen) {
+		name = match(tstream, TokenType.Identifier).value;
+		
 		// Function declaration.
 		auto parameters = parseParameters(tstream);
 		
@@ -113,6 +113,8 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		// Variables declaration.
 		void parseVariableDeclaration() {
+			name = match(tstream, TokenType.Identifier).value;
+			
 			if(tstream.peek.type == TokenType.Assign) {
 				tstream.get();
 				
@@ -125,7 +127,8 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		parseVariableDeclaration();
 		while(tstream.peek.type == TokenType.Comma) {
-			name = match(tstream, TokenType.Identifier).value;
+			tstream.get();
+			
 			parseVariableDeclaration();
 		}
 		
@@ -147,14 +150,14 @@ Declaration parseAlias(TokenStream tstream) {
 		auto identifier = parseIdentifier(tstream);
 		
 		match(tstream, TokenType.This);
-		location.spanTo(tstream.previous.location);
+		location.spanTo(match(tstream, TokenType.Semicolon).location);
 		
 		return new AliasThisDeclaration(location, identifier);
 	} else {
 		auto type = parseBasicType(tstream);
 		string name = match(tstream, TokenType.Identifier).value;
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(match(tstream, TokenType.Semicolon).location);
 		
 		return new AliasDeclaration(location, name, type);
 	}

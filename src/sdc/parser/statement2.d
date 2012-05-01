@@ -6,11 +6,16 @@ import sdc.parser.base : match;
 import sdc.ast.statement2;
 
 auto parseStatement(TokenStream tstream) {
-	tstream.get();
+	if(tstream.peek.type == TokenType.OpenBrace) {
+		parseBlock(tstream);
+	} else {
+		tstream.get();
+	}
+	
 	return null;
 }
 
-auto parseBlock(TokenStream tstream) {
+BlockStatement parseBlock(TokenStream tstream) {
 	match(tstream, TokenType.OpenBrace);
 	
 	auto location = tstream.previous.location;
