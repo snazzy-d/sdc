@@ -10,6 +10,7 @@ import sdc.parser.type2;
 import sdc.ast.declaration2;
 import sdc.ast.expression2;
 import sdc.ast.identifier2;
+import sdc.ast.type2;
 
 /**
  * Parse a declaration
@@ -21,8 +22,8 @@ Declaration parseDeclaration(TokenStream tstream) {
 	}
 	
 	// TODO: handle storage classes.
+	// TODO: handle linkage.
 	
-	string name;
 	auto location = tstream.peek.location;
 	
 	switch(tstream.peek.type) {
@@ -32,12 +33,13 @@ Declaration parseDeclaration(TokenStream tstream) {
 				// TODO: handle auto declaration.
 			}
 			
+			match(tstream, TokenType.Begin);
 			assert(0);
 		
 		case TokenType.Class :
 			tstream.get();
 			
-			name = match(tstream, TokenType.Identifier).value;
+			string name = match(tstream, TokenType.Identifier).value;
 			Identifier[] bases;
 			
 			if(tstream.peek.type == TokenType.Colon) {
@@ -55,7 +57,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		case TokenType.Struct :
 			tstream.get();
-			name = match(tstream, TokenType.Identifier).value;
+			string name = match(tstream, TokenType.Identifier).value;
 			
 			// Handle opaque structs.
 			if(tstream.peek.type == TokenType.Semicolon) {
@@ -74,6 +76,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		case TokenType.Enum :
 			// TODO: handle enum declaration.
+			match(tstream, TokenType.Begin);
 			assert(0);
 		
 		case TokenType.Import :
@@ -86,34 +89,13 @@ Declaration parseDeclaration(TokenStream tstream) {
 	auto type = parseType(tstream);
 	
 	if(tstream.lookahead(1).type == TokenType.OpenParen) {
-		name = match(tstream, TokenType.Identifier).value;
-		
-		// Function declaration.
-		auto parameters = parseParameters(tstream);
-		
-		// TODO: parse member function attributes.
-		// TODO: parse contracts.
-		
-		if(tstream.peek.type == TokenType.Semicolon) {
-			location.spanTo(tstream.peek.location);
-			
-			tstream.get();
-			
-			return new FunctionDeclaration(location, name, type, parameters);
-		} else {
-			// Function with body
-			auto fbody = parseBlock(tstream);
-			
-			location.spanTo(tstream.peek.location);
-			
-			return new FunctionDefinition(location, name, type, parameters, fbody);
-		}
+		return parseFunctionDeclaration(tstream, location, type);
 	} else {
 		Expression[string] variables;
 		
 		// Variables declaration.
 		void parseVariableDeclaration() {
-			name = match(tstream, TokenType.Identifier).value;
+			string name = match(tstream, TokenType.Identifier).value;
 			
 			if(tstream.peek.type == TokenType.Assign) {
 				tstream.get();
@@ -197,6 +179,66 @@ auto parseImport(TokenStream tstream) {
 	location.spanTo(tstream.previous.location);
 	
 	return new ImportDeclaration(location, modules);
+}
+
+/**
+ * Parse function declaration
+ */
+auto parseFunctionDeclaration(TokenStream tstream, Location location, Type returnType) {
+	string name = match(tstream, TokenType.Identifier).value;
+	
+	// Function declaration.
+	auto parameters = parseParameters(tstream);
+	
+	// TODO: parse member function attributes.
+	// TODO: parse contracts.
+	
+	// Skip contracts
+	switch(tstream.peek.type) {
+		case TokenType.In, TokenType.Out :
+			tstream.get();
+			parseBlock(tstream);
+			
+			switch(tstream.peek.type) {
+				case TokenType.In, TokenType.Out :
+					tstream.get();
+					parseBlock(tstream);
+					break;
+				
+				default :
+					break;
+			}
+			
+			break;
+		
+		default :
+			break;
+	}
+	
+	switch(tstream.peek.type) {
+		case TokenType.Semicolon :
+			location.spanTo(tstream.peek.location);
+			tstream.get();
+			
+			return new FunctionDeclaration(location, name, returnType, parameters);
+		
+		case TokenType.Body :
+			// Body without contract is just skipped.
+			tstream.get();
+			goto case TokenType.OpenBrace;
+		
+		case TokenType.OpenBrace :
+			auto fbody = parseBlock(tstream);
+			
+			location.spanTo(tstream.peek.location);
+			
+			return new FunctionDefinition(location, name, returnType, parameters, fbody);
+		
+		default :
+			// TODO: error.
+			match(tstream, TokenType.Begin);
+			assert(0);
+	}
 }
 
 /**
