@@ -581,10 +581,10 @@ auto parseIntegerLiteral(TokenStream tstream) {
 	
 	switch(value[0 .. 2]) {
 		case "0x" :
-			return parse!int(value, 16);
+			return parse!int(value[2 .. $], 16);
 		
 		case "0b" :
-			return parse!int(value, 2);
+			return parse!int(value[2 .. $], 2);
 		
 		default :
 			return parse!int(value);
