@@ -33,8 +33,8 @@ Declaration parseDeclaration(TokenStream tstream) {
 				// TODO: handle auto declaration.
 			}
 			
-			match(tstream, TokenType.Begin);
-			assert(0);
+			// If it is not an auto declaration, this identifier is a type.
+			break;
 		
 		case TokenType.Class :
 			tstream.get();
@@ -81,7 +81,10 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		case TokenType.Import :
 			return parseImport(tstream);
-			
+		
+		case TokenType.Version :
+			return parseVersionDeclaration(tstream);
+		
 		default :
 			break;
 	}
@@ -136,7 +139,7 @@ Declaration parseAlias(TokenStream tstream) {
 		
 		return new AliasThisDeclaration(location, identifier);
 	} else {
-		auto type = parseBasicType(tstream);
+		auto type = parseType(tstream);
 		string name = match(tstream, TokenType.Identifier).value;
 		
 		location.spanTo(match(tstream, TokenType.Semicolon).location);
@@ -209,6 +212,12 @@ auto parseFunctionDeclaration(TokenStream tstream, Location location, Type retur
 					break;
 			}
 			
+			match(tstream, TokenType.Body);
+			break;
+		
+		case TokenType.Body :
+			// Body without contract is just skipped.
+			tstream.get();
 			break;
 		
 		default :
@@ -222,11 +231,6 @@ auto parseFunctionDeclaration(TokenStream tstream, Location location, Type retur
 			
 			return new FunctionDeclaration(location, name, returnType, parameters);
 		
-		case TokenType.Body :
-			// Body without contract is just skipped.
-			tstream.get();
-			goto case TokenType.OpenBrace;
-		
 		case TokenType.OpenBrace :
 			auto fbody = parseBlock(tstream);
 			
@@ -237,6 +241,39 @@ auto parseFunctionDeclaration(TokenStream tstream, Location location, Type retur
 		default :
 			// TODO: error.
 			match(tstream, TokenType.Begin);
+			assert(0);
+	}
+}
+
+/**
+ * Parse Version Declaration
+ */
+auto parseVersionDeclaration(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Version).location;
+	
+	switch(tstream.peek.type) {
+		case TokenType.OpenParen :
+			tstream.get();
+			string versionId = match(tstream, TokenType.Identifier).value;
+			match(tstream, TokenType.CloseParen);
+			parseAggregate(tstream);
+			
+			if(tstream.peek.type == TokenType.Else) {
+				tstream.get();
+				parseAggregate(tstream);
+			}
+			
+			return null;
+		
+		case TokenType.Assign :
+			tstream.get();
+			string foobar = match(tstream, TokenType.Identifier).value;
+			match(tstream, TokenType.Semicolon);
+			
+			return null;
+		
+		default :
+			// TODO: error.
 			assert(0);
 	}
 }

@@ -173,12 +173,10 @@ int realmain(string[] args)
             
             // Test for the new ast
             static import sdc.parser.base2;
-            if(arg != "../libs/object.d") {
-		        import std.stdio;
-		        writeln("*****\nparsing : ", arg);
-		        sdc.parser.base2.parseModule(lex(new Source(arg)));
-		        writeln("*****\nparsing : ", arg, " finished !");
-            }
+	        import std.stdio;
+	        writeln("*****\nparsing : ", arg);
+	        sdc.parser.base2.parseModule(lex(new Source(arg)));
+	        writeln("parsing : ", arg, " finished !\n*****");
             
             translationUnit.source = new Source(arg);
             translationUnit.tstream = lex(translationUnit.source);
