@@ -65,14 +65,24 @@ Declaration parseDeclaration(TokenStream tstream) {
 		}
 	}
 	
+	Type type;
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
 			// storageClass identifier = expression is an auto declaration.
-			if(tstream.lookahead(1).type == TokenType.Assign) {
-				// TODO: handle auto declaration.
+			if(tstream.lookahead(1).type != TokenType.Assign) {
+				// If it is not an auto declaration, this identifier is a type.
+				goto default;
 			}
 			
-			// If it is not an auto declaration, this identifier is a type.
+			// TODO: handle auto declaration.
+			type = null;
+			break;
+			
+		case TokenType.Auto :
+			// TODO: handle auto declaration.
+			tstream.get();
+			type = null;
+			
 			break;
 		
 		case TokenType.Class :
@@ -123,10 +133,8 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return parseVersionDeclaration(tstream);
 		
 		default :
-			break;
+			type = parseType(tstream);
 	}
-	
-	auto type = parseType(tstream);
 	
 	if(tstream.lookahead(1).type == TokenType.OpenParen) {
 		return parseFunctionDeclaration(tstream, location, type);
