@@ -57,6 +57,15 @@ final:	// Check whenever these operation make sense.
 }
 
 /**
+ * Auto types
+ */
+class AutoType : SimpleStorageClassType {
+	this(Location location) {
+		super(location);
+	}
+}
+
+/**
  * All basics types and qualified basic types.
  */
 class BasicType : SimpleStorageClassType, Namespace {

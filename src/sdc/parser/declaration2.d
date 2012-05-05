@@ -74,14 +74,13 @@ Declaration parseDeclaration(TokenStream tstream) {
 				goto default;
 			}
 			
-			// TODO: handle auto declaration.
-			type = null;
+			location.spanTo(tstream.previous.location);
+			type = new AutoType(location);
 			break;
 			
 		case TokenType.Auto :
-			// TODO: handle auto declaration.
-			tstream.get();
-			type = null;
+			location.spanTo(tstream.get().location);
+			type = new AutoType(location);
 			
 			break;
 		
@@ -122,6 +121,14 @@ Declaration parseDeclaration(TokenStream tstream) {
 				
 				return new StructDefinition(location, name, members);
 			}
+		
+		case TokenType.Template :
+			// TODO: handle templates
+			assert(0);
+		
+		case TokenType.This :
+			// TODO: handle constructor
+			assert(0);
 		
 		case TokenType.Enum :
 			return parseEnum(tstream);
