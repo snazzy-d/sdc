@@ -111,6 +111,34 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return handleStorageClass!SynchronizedDeclaration();
 		
 		/*
+		 * Visibility declarations
+		 */
+		case TokenType.Private :
+			tstream.get();
+			
+			return handleStorageClass!PrivateDeclaration();
+		
+		case TokenType.Public :
+			tstream.get();
+			
+			return handleStorageClass!PublicDeclaration();
+		
+		case TokenType.Protected :
+			tstream.get();
+			
+			return handleStorageClass!ProtectedDeclaration();
+		
+		case TokenType.Package :
+			tstream.get();
+			
+			return handleStorageClass!PackageDeclaration();
+		
+		case TokenType.Export :
+			tstream.get();
+			
+			return handleStorageClass!ExportDeclaration();
+		
+		/*
 		 * Linkage
 		 */
 		case TokenType.Extern :

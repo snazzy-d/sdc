@@ -19,6 +19,7 @@ enum DeclarationType {
 	Mixin,
 	Linkage,
 	StorageClass,
+	Visibility,
 	Conditional,
 }
 
@@ -227,19 +228,14 @@ class ImportDeclaration : DeclarationStatement {
 	}
 }
 
-import sdc.token;
 enum StorageClass {
-	Abstract = TokenType.Abstract,
-	Const = TokenType.Const,
-	Deprecated = TokenType.Deprecated,
-	Immutable = TokenType.Immutable,
-	Inout = TokenType.Inout,
-	Shared = TokenType.Shared,
-	Nothrow = TokenType.Nothrow,
-	Override = TokenType.Override,
-	Pure = TokenType.Pure,
-	Static = TokenType.Static,
-	Synchronized = TokenType.Synchronized,
+	Abstract,
+	Deprecated,
+	Nothrow,
+	Override,
+	Pure,
+	Static,
+	Synchronized,
 }
 
 /**
@@ -262,6 +258,33 @@ alias StorageClassDeclaration!(StorageClass.Override) OverrideDeclaration;
 alias StorageClassDeclaration!(StorageClass.Pure) PureDeclaration;
 alias StorageClassDeclaration!(StorageClass.Static) StaticDeclaration;
 alias StorageClassDeclaration!(StorageClass.Synchronized) SynchronizedDeclaration;
+
+enum Visibility {
+	Public,
+	Private,
+	Protected,
+	Package,
+	Export,
+}
+
+/**
+ * Visibility class declaration
+ */
+class VisibilityDeclaration(Visibility visibility) : DeclarationStatement {
+	Declaration[] declarations;
+	
+	this(Location location, Declaration[] declarations) {
+		super(location, DeclarationType.StorageClass);
+		
+		this.declarations = declarations;
+	}
+}
+
+alias VisibilityDeclaration!(Visibility.Public) PublicDeclaration;
+alias VisibilityDeclaration!(Visibility.Private) PrivateDeclaration;
+alias VisibilityDeclaration!(Visibility.Protected) ProtectedDeclaration;
+alias VisibilityDeclaration!(Visibility.Package) PackageDeclaration;
+alias VisibilityDeclaration!(Visibility.Export) ExportDeclaration;
 
 /**
  * Linkage declaration

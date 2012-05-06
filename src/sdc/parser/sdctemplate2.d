@@ -40,7 +40,7 @@ auto parseTemplateParameters(TokenStream tstream) {
 auto parseTemplateParameter(TokenStream tstream) {
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
-			// Identifier followed by ":", "=", "," or ")" are untype alias parameters.
+			// Identifier followed by ":", "=", "," or ")" are type parameters.
 			auto nextType = tstream.lookahead(1).type;
 			if(nextType == TokenType.Colon || nextType == TokenType.Assign || nextType == TokenType.Comma || nextType == TokenType.CloseParen) {
 				tstream.get();
