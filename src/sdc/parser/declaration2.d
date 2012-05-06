@@ -3,9 +3,11 @@ module sdc.parser.declaration2;
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
+import sdc.parser.conditional2;
 import sdc.parser.expression2;
 import sdc.parser.identifier2;
 import sdc.parser.statement2;
+import sdc.parser.sdctemplate2;
 import sdc.parser.type2;
 import sdc.ast.declaration2;
 import sdc.ast.expression2;
@@ -15,7 +17,6 @@ import sdc.ast.type2;
 /**
  * Parse a declaration
  */
-// TODO: handle linkage.
 Declaration parseDeclaration(TokenStream tstream) {
 	// Parse alias declaration.
 	if(tstream.peek.type == TokenType.Alias) {
@@ -24,49 +25,34 @@ Declaration parseDeclaration(TokenStream tstream) {
 	
 	auto location = tstream.peek.location;
 	
-	// TODO: handle storage classes.
-	storageClassLoop : while(1) {
+	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
 		switch(tstream.peek.type) {
-			case TokenType.Static :
-				tstream.get();
-				break;
+			case TokenType.OpenBrace :
+				auto declarations = parseAggregate(tstream);
+				
+				location.spanTo(tstream.previous.location);
+				
+				return new StorageClassDeclaration(location, arguments, declarations);
 			
-			case TokenType.Extern :
+			case TokenType.Colon :
 				tstream.get();
-				match(tstream, TokenType.OpenParen);
-				string linkage = match(tstream, TokenType.Identifier).value;
-				match(tstream, TokenType.CloseParen);
+				auto declarations = parseAggregate!false(tstream);
 				
-				switch(tstream.peek.type) {
-					case TokenType.OpenBrace :
-						auto declarations = parseAggregate(tstream);
-						
-						location.spanTo(tstream.previous.location);
-						
-						return new LinkageDeclaration(location, linkage, declarations);
-					
-					case TokenType.Colon :
-						tstream.get();
-						auto declarations = parseAggregate!false(tstream);
-						
-						location.spanTo(tstream.previous.location);
-						
-						return new LinkageDeclaration(location, linkage, declarations);
-					
-					default :
-						// TODO: Change linkage and parse the next declaration.
-						break;
-				}
+				location.spanTo(tstream.previous.location);
 				
-				break;
+				return new StorageClassDeclaration(location, arguments, declarations);
 			
 			default :
-				break storageClassLoop;
+				return new StorageClassDeclaration(location, arguments, [parseDeclaration(tstream)]);
 		}
 	}
 	
 	Type type;
+	
 	switch(tstream.peek.type) {
+		/*
+		 * Auto declarations.
+		 */
 		case TokenType.Identifier :
 			// storageClass identifier = expression is an auto declaration.
 			if(tstream.lookahead(1).type != TokenType.Assign) {
@@ -84,6 +70,60 @@ Declaration parseDeclaration(TokenStream tstream) {
 			
 			break;
 		
+		/*
+		 * Storage classes
+		 */
+		case TokenType.Abstract :
+			tstream.get();
+			
+			return handleStorageClass!AbstractDeclaration();
+		
+		case TokenType.Deprecated :
+			tstream.get();
+			
+			return handleStorageClass!DeprecatedDeclaration();
+		
+		case TokenType.Nothrow :
+			tstream.get();
+			
+			return handleStorageClass!NothrowDeclaration();
+		
+		case TokenType.Override :
+			tstream.get();
+			
+			return handleStorageClass!OverrideDeclaration();
+		
+		case TokenType.Pure :
+			tstream.get();
+			
+			return handleStorageClass!PureDeclaration();
+		
+		case TokenType.Static :
+			tstream.get();
+			
+			// TODO: handle static if.
+			
+			return handleStorageClass!StaticDeclaration();
+		
+		case TokenType.Synchronized :
+			tstream.get();
+			
+			return handleStorageClass!SynchronizedDeclaration();
+		
+		/*
+		 * Linkage
+		 */
+		case TokenType.Extern :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			string linkage = match(tstream, TokenType.Identifier).value;
+			match(tstream, TokenType.CloseParen);
+			
+			return handleStorageClass!LinkageDeclaration(linkage);
+		
+		/*
+		 * Classes and struct declarations
+		 */
 		case TokenType.Class :
 			tstream.get();
 			
@@ -122,29 +162,55 @@ Declaration parseDeclaration(TokenStream tstream) {
 				return new StructDefinition(location, name, members);
 			}
 		
-		case TokenType.Template :
-			// TODO: handle templates
-			assert(0);
-		
+		/*
+		 * Constructors and destructors
+		 */
 		case TokenType.This :
-			// TODO: handle constructor
-			assert(0);
+			tstream.get();
+			
+			return parseFunction!(ConstructorDeclaration, ConstructorDefinition)(tstream, location);
 		
+		case TokenType.Tilde :
+			tstream.get();
+			match(tstream, TokenType.This);
+			
+			return parseFunction!(DestructorDeclaration, DestructorDefinition)(tstream, location);
+		
+		/*
+		 * Template
+		 */
+		case TokenType.Template :
+			return parseTemplate(tstream);
+		
+		/*
+		 * Enum
+		 */
 		case TokenType.Enum :
 			return parseEnum(tstream);
 		
+		/*
+		 * Import
+		 */
 		case TokenType.Import :
 			return parseImport(tstream);
 		
+		/*
+		 * Conditional compilation
+		 */
 		case TokenType.Version :
-			return parseVersionDeclaration(tstream);
+			return parseVersion!Declaration(tstream);
 		
+		/*
+		 * Variable and function declarations
+		 */
 		default :
 			type = parseType(tstream);
 	}
 	
 	if(tstream.lookahead(1).type == TokenType.OpenParen) {
-		return parseFunctionDeclaration(tstream, location, type);
+		string name = match(tstream, TokenType.Identifier).value;
+		
+		return parseFunction!(FunctionDeclaration, FunctionDefinition)(tstream, location, name, type);
 	} else {
 		Expression[string] variables;
 		
@@ -233,7 +299,7 @@ auto parseEnum(TokenStream tstream) {
 			
 			// Check if we are in case of manifest constant.
 			if(tstream.peek.type == TokenType.Assign) {
-				// Parse auto declaration.
+				assert(false, "Manifest constant must be parsed as auto declaration and not as enums.");
 			}
 			
 			// TODO: named enums.
@@ -301,9 +367,7 @@ auto parseImport(TokenStream tstream) {
 /**
  * Parse function declaration
  */
-auto parseFunctionDeclaration(TokenStream tstream, Location location, Type returnType) {
-	string name = match(tstream, TokenType.Identifier).value;
-	
+auto parseFunction(FunctionDeclarationType, FunctionDefinitionType, U... )(TokenStream tstream, Location location, U arguments) {
 	// Function declaration.
 	bool isVariadic;
 	auto parameters = parseParameters(tstream, isVariadic);
@@ -361,60 +425,18 @@ auto parseFunctionDeclaration(TokenStream tstream, Location location, Type retur
 			location.spanTo(tstream.peek.location);
 			tstream.get();
 			
-			return new FunctionDeclaration(location, name, returnType, parameters);
+			return new FunctionDeclarationType(location, arguments, parameters);
 		
 		case TokenType.OpenBrace :
 			auto fbody = parseBlock(tstream);
 			
 			location.spanTo(tstream.peek.location);
 			
-			return new FunctionDefinition(location, name, returnType, parameters, fbody);
+			return new FunctionDefinitionType(location, arguments, parameters, fbody);
 		
 		default :
 			// TODO: error.
 			match(tstream, TokenType.Begin);
-			assert(0);
-	}
-}
-
-/**
- * Parse Version Declaration
- */
-auto parseVersionDeclaration(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Version).location;
-	
-	switch(tstream.peek.type) {
-		case TokenType.OpenParen :
-			tstream.get();
-			string versionId = match(tstream, TokenType.Identifier).value;
-			match(tstream, TokenType.CloseParen);
-			
-			if(tstream.peek.type == TokenType.OpenBrace) {
-				parseAggregate(tstream);
-			} else {
-				parseDeclaration(tstream);
-			}
-			
-			if(tstream.peek.type == TokenType.Else) {
-				tstream.get();
-				if(tstream.peek.type == TokenType.OpenBrace) {
-					parseAggregate(tstream);
-				} else {
-					parseDeclaration(tstream);
-				}
-			}
-			
-			return null;
-		
-		case TokenType.Assign :
-			tstream.get();
-			string foobar = match(tstream, TokenType.Identifier).value;
-			match(tstream, TokenType.Semicolon);
-			
-			return null;
-		
-		default :
-			// TODO: error.
 			assert(0);
 	}
 }

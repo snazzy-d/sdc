@@ -18,6 +18,8 @@ enum DeclarationType {
 	Import,
 	Mixin,
 	Linkage,
+	StorageClass,
+	Conditional,
 }
 
 interface Declaration {
@@ -117,6 +119,58 @@ class FunctionDefinition : FunctionDeclaration {
 }
 
 /**
+ * Constructor Declaration
+ */
+class ConstructorDeclaration : DeclarationStatement {
+	Parameter[] parameters;
+	
+	this(Location location, Parameter[] parameters) {
+		super(location, DeclarationType.Function);
+		
+		this.parameters = parameters;
+	}
+}
+
+/**
+ * Constructor Definition
+ */
+class ConstructorDefinition : ConstructorDeclaration {
+	Statement fbody;
+	
+	this(Location location, Parameter[] parameters, Statement fbody) {
+		super(location, parameters);
+		
+		this.fbody = fbody;
+	}
+}
+
+/**
+ * Destructor Declaration
+ */
+class DestructorDeclaration : DeclarationStatement {
+	Parameter[] parameters;
+	
+	this(Location location, Parameter[] parameters) {
+		super(location, DeclarationType.Function);
+		
+		this.parameters = parameters;
+	}
+}
+
+/**
+ * Destructor Definition
+ */
+class DestructorDefinition : DestructorDeclaration {
+	Statement fbody;
+	
+	this(Location location, Parameter[] parameters, Statement fbody) {
+		super(location, parameters);
+		
+		this.fbody = fbody;
+	}
+}
+
+/**
  * Struct Declaration
  */
 class StructDeclaration : DeclarationStatement {
@@ -172,6 +226,42 @@ class ImportDeclaration : DeclarationStatement {
 		this.modules = modules;
 	}
 }
+
+import sdc.token;
+enum StorageClass {
+	Abstract = TokenType.Abstract,
+	Const = TokenType.Const,
+	Deprecated = TokenType.Deprecated,
+	Immutable = TokenType.Immutable,
+	Inout = TokenType.Inout,
+	Shared = TokenType.Shared,
+	Nothrow = TokenType.Nothrow,
+	Override = TokenType.Override,
+	Pure = TokenType.Pure,
+	Static = TokenType.Static,
+	Synchronized = TokenType.Synchronized,
+}
+
+/**
+ * Storage class declaration
+ */
+class StorageClassDeclaration(StorageClass storageClass) : DeclarationStatement {
+	Declaration[] declarations;
+	
+	this(Location location, Declaration[] declarations) {
+		super(location, DeclarationType.StorageClass);
+		
+		this.declarations = declarations;
+	}
+}
+
+alias StorageClassDeclaration!(StorageClass.Abstract) AbstractDeclaration;
+alias StorageClassDeclaration!(StorageClass.Deprecated) DeprecatedDeclaration;
+alias StorageClassDeclaration!(StorageClass.Nothrow) NothrowDeclaration;
+alias StorageClassDeclaration!(StorageClass.Override) OverrideDeclaration;
+alias StorageClassDeclaration!(StorageClass.Pure) PureDeclaration;
+alias StorageClassDeclaration!(StorageClass.Static) StaticDeclaration;
+alias StorageClassDeclaration!(StorageClass.Synchronized) SynchronizedDeclaration;
 
 /**
  * Linkage declaration
