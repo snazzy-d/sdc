@@ -2,25 +2,28 @@ module sdc.parser.sdctemplate2;
 
 import sdc.tokenstream;
 import sdc.location;
+import sdc.ast.sdctemplate2;
 import sdc.parser.base : match;
 import sdc.parser.declaration2;
+import sdc.parser.sdctemplate2;
 import sdc.parser.type2;
 
 auto parseTemplate(TokenStream tstream) {
 	auto location = match(tstream, TokenType.Template).location;
+	
 	string name = match(tstream, TokenType.Identifier).value;
-	
 	auto parameters = parseTemplateParameters(tstream);
+	auto declarations = parseAggregate(tstream);
 	
-	parseAggregate(tstream);
+	location.spanTo(tstream.previous.location);
 	
-	return null;
+	return new TemplateDeclaration(location, name, parameters, declarations);
 }
 
 auto parseTemplateParameters(TokenStream tstream) {
 	match(tstream, TokenType.OpenParen);
 	
-	typeof(null)[] parameters;
+	TemplateParameter[] parameters;
 	
 	if(tstream.peek.type != TokenType.CloseParen) {
 		parameters ~= parseTemplateParameter(tstream);
