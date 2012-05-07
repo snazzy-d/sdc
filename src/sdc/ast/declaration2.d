@@ -23,33 +23,23 @@ enum DeclarationType {
 	Conditional,
 }
 
-interface Declaration {
-	@property
-	DeclarationType type();
-}
-
 /**
  * Any declaration is a statement
  */
-class DeclarationStatement : Statement, Declaration {
-	private DeclarationType _type;
-	
-	@property
-	DeclarationType type() {
-		return _type;
-	}
+class Declaration : Statement {
+	DeclarationType type;
 	
 	this(Location location, DeclarationType type) {
 		super(location);
 		
-		_type = type;
+		this.type = type;
 	}
 }
 
 /**
  * Alias of types
  */
-class AliasDeclaration : DeclarationStatement {
+class AliasDeclaration : Declaration {
 	Type type;
 	string name;
 	
@@ -64,7 +54,7 @@ class AliasDeclaration : DeclarationStatement {
 /**
  * Alias this
  */
-class AliasThisDeclaration : DeclarationStatement {
+class AliasThisDeclaration : Declaration {
 	Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
@@ -77,7 +67,7 @@ class AliasThisDeclaration : DeclarationStatement {
 /**
  * Variables declaration
  */
-class VariablesDeclaration : DeclarationStatement {
+class VariablesDeclaration : Declaration {
 	Type type;
 	Expression[string] variables;
 	
@@ -92,7 +82,7 @@ class VariablesDeclaration : DeclarationStatement {
 /**
  * Function Declaration
  */
-class FunctionDeclaration : DeclarationStatement {
+class FunctionDeclaration : Declaration {
 	string name;
 	Type returnType;
 	Parameter[] parameters;
@@ -122,7 +112,7 @@ class FunctionDefinition : FunctionDeclaration {
 /**
  * Constructor Declaration
  */
-class ConstructorDeclaration : DeclarationStatement {
+class ConstructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
 	this(Location location, Parameter[] parameters) {
@@ -148,7 +138,7 @@ class ConstructorDefinition : ConstructorDeclaration {
 /**
  * Destructor Declaration
  */
-class DestructorDeclaration : DeclarationStatement {
+class DestructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
 	this(Location location, Parameter[] parameters) {
@@ -174,7 +164,7 @@ class DestructorDefinition : DestructorDeclaration {
 /**
  * Struct Declaration
  */
-class StructDeclaration : DeclarationStatement {
+class StructDeclaration : Declaration {
 	string name;
 	
 	this(Location location, string name) {
@@ -200,7 +190,7 @@ class StructDefinition : StructDeclaration {
 /**
  * Class Definition
  */
-class ClassDefinition : DeclarationStatement {
+class ClassDefinition : Declaration {
 	string name;
 	Identifier[] bases;
 	Declaration[] members;
@@ -217,7 +207,7 @@ class ClassDefinition : DeclarationStatement {
 /**
  * Import declaration
  */
-class ImportDeclaration : DeclarationStatement {
+class ImportDeclaration : Declaration {
 	string name;
 	Identifier[] modules;
 	
@@ -241,7 +231,7 @@ enum StorageClass {
 /**
  * Storage class declaration
  */
-class StorageClassDeclaration(StorageClass storageClass) : DeclarationStatement {
+class StorageClassDeclaration(StorageClass storageClass) : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, Declaration[] declarations) {
@@ -270,7 +260,7 @@ enum Visibility {
 /**
  * Visibility class declaration
  */
-class VisibilityDeclaration(Visibility visibility) : DeclarationStatement {
+class VisibilityDeclaration(Visibility visibility) : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, Declaration[] declarations) {
@@ -289,7 +279,7 @@ alias VisibilityDeclaration!(Visibility.Export) ExportDeclaration;
 /**
  * Linkage declaration
  */
-class LinkageDeclaration : DeclarationStatement {
+class LinkageDeclaration : Declaration {
 	string linkage;
 	Declaration[] declarations;
 	

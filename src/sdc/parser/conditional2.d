@@ -48,7 +48,7 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 			string versionId = match(tstream, TokenType.Identifier).value;
 			match(tstream, TokenType.Semicolon);
 			
-			return new VersionDefinition!ItemType(location, versionId);
+			return new VersionDefinition(location, versionId);
 		
 		default :
 			// TODO: error.

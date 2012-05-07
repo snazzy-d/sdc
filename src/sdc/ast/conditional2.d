@@ -4,20 +4,10 @@ import sdc.location;
 import sdc.ast.declaration2;
 import sdc.ast.statement2;
 
-private template ConditionalType(ItemType) {
-	static if(is(ItemType == Declaration)) {
-		alias DeclarationStatement ConditionalType;
-	} else static if(is(ItemType == Declaration)) {
-		alias Statement ConditionalType;
-	} else {
-		static assert(false, "Invalid type provided : " ~ ItemType.stringof);
-	}
-}
-
 /**
  * Version Conditional
  */
-class Version(ItemType) : ConditionalType!ItemType {
+class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
 	string versionId;
 	ItemType[] items;
 	
@@ -45,7 +35,7 @@ class VersionElse(ItemType) : Version!ItemType {
 /**
  * Version definition (ie version = FOOBAR)
  */
-class VersionDefinition(ItemType) : ConditionalType!ItemType {
+class VersionDefinition : Declaration {
 	string versionId;
 	
 	this(Location location, string versionId) {

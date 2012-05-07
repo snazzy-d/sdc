@@ -304,12 +304,14 @@ auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
 	
 	Declaration[] declarations;
 	
-	while(tstream.peek.type != TokenType.CloseBrace) {
+	auto tokenType = tstream.peek.type;
+	while(tokenType != TokenType.CloseBrace && tokenType != TokenType.End) {
 		declarations ~= parseDeclaration(tstream);
+		tokenType = tstream.peek.type;
 	}
 	
 	static if(globBraces) {
-		tstream.get();
+		match(tstream, TokenType.CloseBrace);
 	}
 	
 	return declarations;
