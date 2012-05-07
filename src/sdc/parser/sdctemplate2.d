@@ -40,38 +40,54 @@ auto parseTemplateParameters(TokenStream tstream) {
 	return parameters;
 }
 
-auto parseTemplateParameter(TokenStream tstream) {
+TemplateParameter parseTemplateParameter(TokenStream tstream) {
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
-			// Identifier followed by ":", "=", "," or ")" are type parameters.
-			auto nextType = tstream.lookahead(1).type;
-			if(nextType == TokenType.Colon || nextType == TokenType.Assign || nextType == TokenType.Comma || nextType == TokenType.CloseParen) {
-				tstream.get();
-				return null;
-			}
-			
-			auto type = parseType(tstream);
-			string name = match(tstream, TokenType.Identifier).value;
-			
 			// TODO: handle default parameter and specialisation.
 			
-			break;
+			switch(tstream.lookahead(1).type) {
+				// Identifier followed by ":", "=", "," or ")" are type parameters.
+				case TokenType.Colon, TokenType.Assign, TokenType.Comma, TokenType.CloseParen :
+					string name = tstream.peek.value;
+					auto location = tstream.get().location;
+					
+					return new TypeTemplateParameter(location, name);
+				
+				case TokenType.TripleDot :
+					string name = tstream.get().value;
+					auto location = tstream.get().location;
+					
+					return new TupleTemplateParameter(location, name);
+				
+				default :
+					break;
+			}
+			
+			// We have a value parameter.
+			goto default;
 		
 		case TokenType.Alias :
 			return parseAliasParameter(tstream);
 		
 		case TokenType.This :
-			tstream.get();
+			auto location = tstream.get().location;
 			string name = match(tstream, TokenType.Identifier).value;
 			
-			return null;
+			location.spanTo(tstream.previous.location);
+			
+			return new ThisTemplateParameter(location, name);
 		
 		default :
-			// TODO: handle error.
-			assert(0);
+			// We probably have a value parameter (or an error).
+			auto location = tstream.peek.location;
+			
+			auto type = parseType(tstream);
+			string name = match(tstream, TokenType.Identifier).value;
+			
+			location.spanTo(tstream.previous.location);
+			
+			return new ValueTemplateParameter(location, name, type);
 	}
-	
-	assert(0);
 }
 
 auto parseAliasParameter(TokenStream tstream) {

@@ -10,6 +10,7 @@ enum DeclarationType {
 	Variable,
 	Function,
 	Template,
+	TemplateParameter,
 	Struct,
 	Class,
 	Enum,
