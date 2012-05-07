@@ -90,7 +90,7 @@ TemplateParameter parseTemplateParameter(TokenStream tstream) {
 	}
 }
 
-auto parseAliasParameter(TokenStream tstream) {
+TemplateParameter parseAliasParameter(TokenStream tstream) {
 	auto location = match(tstream, TokenType.Alias).location;
 	
 	bool isTyped = false;
@@ -104,28 +104,19 @@ auto parseAliasParameter(TokenStream tstream) {
 		}
 	}
 	
-	auto getParameter(bool isTyped)(TokenStream tstream) {
-		static if(isTyped) {
-			auto type = parseType(tstream);
-		}
-		
-		match(tstream, TokenType.Identifier);
-		
-		if(tstream.peek.type == TokenType.Colon) {
-			
-		}
-		
-		if(tstream.peek.type == TokenType.Assign) {
-			
-		}
-		
-		return null;
-	}
-	
 	if(isTyped) {
-		return getParameter!true(tstream);
+		auto type = parseType(tstream);
+		string name = match(tstream, TokenType.Identifier).value;
+		
+		location.spanTo(tstream.previous.location);
+		
+		return new TypedAliasTemplateParameter(location, name, type);
 	} else {
-		return getParameter!false(tstream);
+		string name = match(tstream, TokenType.Identifier).value;
+		
+		location.spanTo(tstream.previous.location);
+		
+		return new AliasTemplateParameter(location, name);
 	}
 }
 

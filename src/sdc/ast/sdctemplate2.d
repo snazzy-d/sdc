@@ -96,3 +96,29 @@ class ValueTemplateParameter : TemplateParameter {
 	}
 }
 
+/**
+ * Alias template parameter
+ */
+class AliasTemplateParameter : TemplateParameter {
+	string name;
+	
+	this(Location location, string name) {
+		super(location, TemplateParameterType.Alias);
+		
+		this.name = name;
+	}
+}
+
+/**
+ * Typed alias template parameter
+ */
+class TypedAliasTemplateParameter : AliasTemplateParameter {
+	Type type;
+	
+	this(Location location, string name, Type type) {
+		super(location, name);
+		
+		this.type = type;
+	}
+}
+
