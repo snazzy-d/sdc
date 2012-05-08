@@ -150,6 +150,15 @@ Declaration parseDeclaration(TokenStream tstream) {
 			
 			return handleStorageClass!LinkageDeclaration(linkage);
 		
+		/**
+		 * Attributes
+		 */
+		case TokenType.At :
+			tstream.get();
+			string attribute = match(tstream, TokenType.Identifier).value;
+			
+			return handleStorageClass!AttributeDeclaration(attribute);
+		
 		/*
 		 * Class, interface and struct declaration
 		 */

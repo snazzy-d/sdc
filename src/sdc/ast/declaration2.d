@@ -20,6 +20,7 @@ enum DeclarationType {
 	Mixin,
 	Linkage,
 	StorageClass,
+	Attribute,
 	Visibility,
 	Conditional,
 }
@@ -288,6 +289,21 @@ class LinkageDeclaration : Declaration {
 		super(location, DeclarationType.Linkage);
 		
 		this.linkage = linkage;
+		this.declarations = declarations;
+	}
+}
+
+/**
+ * Attribute declaration
+ */
+class AttributeDeclaration : Declaration {
+	string attribute;
+	Declaration[] declarations;
+	
+	this(Location location, string attribute, Declaration[] declarations) {
+		super(location, DeclarationType.Attribute);
+		
+		this.attribute = attribute;
 		this.declarations = declarations;
 	}
 }
