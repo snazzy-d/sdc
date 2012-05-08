@@ -19,6 +19,7 @@ import sdc.ast.type2;
  */
 Declaration parseDeclaration(TokenStream tstream) {
 	// Parse alias declaration.
+	// TODO: move alias into the main switch.
 	if(tstream.peek.type == TokenType.Alias) {
 			return parseAlias(tstream);
 	}
@@ -51,7 +52,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 	
 	switch(tstream.peek.type) {
 		/*
-		 * Auto declarations.
+		 * Auto declaration
 		 */
 		case TokenType.Identifier :
 			// storageClass identifier = expression is an auto declaration.
@@ -71,7 +72,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			break;
 		
 		/*
-		 * Storage classes
+		 * Storage class
 		 */
 		case TokenType.Abstract :
 			tstream.get();
@@ -111,7 +112,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return handleStorageClass!SynchronizedDeclaration();
 		
 		/*
-		 * Visibility declarations
+		 * Visibility declaration
 		 */
 		case TokenType.Private :
 			tstream.get();
@@ -150,8 +151,12 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return handleStorageClass!LinkageDeclaration(linkage);
 		
 		/*
-		 * Classes and struct declarations
+		 * Class, interface and struct declaration
 		 */
+		case TokenType.Interface :
+			// TODO: handle interfaces a proper way.
+			goto case TokenType.Class;
+		
 		case TokenType.Class :
 			tstream.get();
 			
@@ -191,7 +196,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			}
 		
 		/*
-		 * Constructors and destructors
+		 * Constructor and destructor
 		 */
 		case TokenType.This :
 			tstream.get();
