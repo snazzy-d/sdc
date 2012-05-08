@@ -467,7 +467,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.IntegerLiteral :
-			return new IntegerLiteral(location, parseIntegerLiteral(tstream));
+			return parseIntegerLiteral(tstream);
 		
 		case TokenType.True :
 			tstream.get();
@@ -592,23 +592,89 @@ auto parseArguments(TokenStream tstream) {
 /**
  * Parse integer literals
  */
-auto parseIntegerLiteral(TokenStream tstream) {
-	string value = tstream.get().value;
+PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
+	auto location = tstream.peek.location;
+	string value = match(tstream, TokenType.IntegerLiteral).value;
 	
-	import std.conv;
-	if(value.length < 2) {
-		return parse!int(value);
-	}
+	assert(value.length > 0);
 	
-	switch(value[0 .. 2]) {
-		case "0x" :
-			return parse!int(value[2 .. $], 16);
+	bool isUnsigned, isLong;
+	switch(value[$ - 1]) {
+		case 'u', 'U' :
+			assert(value.length > 1);
+			isUnsigned = true;
+			
+			auto penultimo = value[$ - 2];
+			if(penultimo == 'l' || penultimo == 'L') {
+				isLong = true;
+				value = value[0 .. $ - 2];
+			} else {
+				value = value[0 .. $ - 1];
+			}
+			
+			break;
 		
-		case "0b" :
-			return parse!int(value[2 .. $], 2);
+		case 'l', 'L' :
+			assert(value.length > 1);
+			isLong = true;
+			
+			auto penultimo = value[$ - 2];
+			if(penultimo == 'u' || penultimo == 'U') {
+				isUnsigned = true;
+				value = value[0 .. $ - 2];
+			} else {
+				value = value[0 .. $ - 1];
+			}
+			
+			break;
 		
 		default :
+			break;
+	}
+	
+	IntegerLiteral!Type parse(Type)(string input) in {
+		assert(input.length > 0);
+	} body {
+		Type parsed;
+		
+		import std.conv;
+		if(value.length < 2) {
+			parsed = to!Type(value);
+		} else {
+			switch(value[0 .. 2]) {
+				case "0x", "0X" :
+					parsed = to!Type(value[2 .. $], 16);
+					break;
+				
+				case "0b", "0B" :
+					parsed = to!Type(value[2 .. $], 2);
+					break;
+				
+				default :
+					parsed = to!Type(value);
+					break;
+			}
+		}
+		
+		return new IntegerLiteral!Type(location, parsed);
+	}
+	
+	switch(isLong << 1 | isUnsigned) {
+		case 0b00 :
 			return parse!int(value);
+		
+		case 0b01 :
+			return parse!uint(value);
+		
+		case 0b10 :
+			return parse!long(value);
+		
+		case 0b11 :
+			return parse!ulong(value);
+		
+		default :
+			// We should never reach that point.
+			assert(0);
 	}
 }
 

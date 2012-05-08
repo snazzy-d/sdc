@@ -466,10 +466,11 @@ class SuperExpression : PrimaryExpression {
 /**
  * Integer literals
  */
-class IntegerLiteral : PrimaryExpression {
-	int value;
+import std.traits;
+class IntegerLiteral(T) if(isIntegral!T) : PrimaryExpression {
+	T value;
 	
-	this(Location location, int value) {
+	this(Location location, T value) {
 		super(location, PrimaryType.IntegerLiteral);
 		
 		this.value = value;
