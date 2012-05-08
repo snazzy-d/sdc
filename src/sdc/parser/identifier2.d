@@ -41,6 +41,7 @@ auto parseQualifiedIdentifier(TokenStream tstream, Location location, Namespace 
 	auto identifier = new QualifiedIdentifier(location, name, namespace);
 	
 	while(tstream.peek.type == TokenType.Dot) {
+		tstream.get();
 		name = match(tstream, TokenType.Identifier).value;
 		location.spanTo(tstream.previous.location);
 		identifier = new QualifiedIdentifier(location, name, identifier);
