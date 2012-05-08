@@ -481,6 +481,14 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			return new NullLiteral(location);
 		
+		case TokenType.__File__ :
+			tstream.get();
+			return new __File__Literal(location);
+		
+		case TokenType.__Line__ :
+			tstream.get();
+			return new __Line__Literal(location);
+		
 		// TODO: literals, dollar.
 		
 		case TokenType.OpenParen :

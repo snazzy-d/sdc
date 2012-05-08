@@ -111,6 +111,11 @@ Declaration parseDeclaration(TokenStream tstream) {
 			
 			return handleStorageClass!SynchronizedDeclaration();
 		
+		case TokenType.__Gshared :
+			tstream.get();
+			
+			return handleStorageClass!__GsharedDeclaration();
+		
 		/*
 		 * Visibility declaration
 		 */

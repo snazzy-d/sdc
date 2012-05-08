@@ -228,6 +228,7 @@ enum StorageClass {
 	Pure,
 	Static,
 	Synchronized,
+	__Gshared,
 }
 
 /**
@@ -250,6 +251,7 @@ alias StorageClassDeclaration!(StorageClass.Override) OverrideDeclaration;
 alias StorageClassDeclaration!(StorageClass.Pure) PureDeclaration;
 alias StorageClassDeclaration!(StorageClass.Static) StaticDeclaration;
 alias StorageClassDeclaration!(StorageClass.Synchronized) SynchronizedDeclaration;
+alias StorageClassDeclaration!(StorageClass.__Gshared) __GsharedDeclaration;
 
 enum Visibility {
 	Public,

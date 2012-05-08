@@ -498,3 +498,21 @@ class NullLiteral : PrimaryExpression {
 	}
 }
 
+/**
+ * __FILE__ literals
+ */
+class __File__Literal : PrimaryExpression {
+	this(Location location) {
+		super(location, PrimaryType.__File__);
+	}
+}
+
+/**
+ * __LINE__ literals
+ */
+class __Line__Literal : PrimaryExpression {
+	this(Location location) {
+		super(location, PrimaryType.__Line__);
+	}
+}
+
