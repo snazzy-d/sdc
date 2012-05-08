@@ -228,6 +228,9 @@ Declaration parseDeclaration(TokenStream tstream) {
 		case TokenType.Version :
 			return parseVersion!Declaration(tstream);
 		
+		case TokenType.Debug :
+			return parseVersion!Declaration(tstream);
+		
 		/*
 		 * Variable and function declarations
 		 */

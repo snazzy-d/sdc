@@ -13,7 +13,14 @@ import sdc.ast.statement2;
  * Parse Version Declaration
  */
 ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	auto location = match(tstream, TokenType.Version).location;
+	auto conditionalType = TokenType.Version;
+	
+	// TODO: handle debug properly.
+	if(tstream.peek.type == TokenType.Debug) {
+		conditionalType = TokenType.Debug;
+	}
+	
+	auto location = match(tstream, conditionalType).location;
 	
 	switch(tstream.peek.type) {
 		case TokenType.OpenParen :

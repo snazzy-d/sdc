@@ -137,6 +137,7 @@ auto parseBasicType(TokenStream tstream) {
 			return new BuiltinType!void(location);
 		
 		default :
+			match(tstream, TokenType.Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
 			assert(0);
@@ -255,6 +256,10 @@ auto parseParameter(TokenStream tstream) {
 	while(parseStorageClass) {
 		switch(tstream.peek.type) {
 			case TokenType.Ref, TokenType.In, TokenType.Out :
+				tstream.get();
+				break;
+			
+			case TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared :
 				tstream.get();
 				break;
 			
