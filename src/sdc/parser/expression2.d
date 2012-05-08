@@ -469,6 +469,14 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		case TokenType.IntegerLiteral :
 			return new IntegerLiteral(location, parseIntegerLiteral(tstream));
 		
+		case TokenType.True :
+			tstream.get();
+			return new BooleanLiteral(location, true);
+		
+		case TokenType.False :
+			tstream.get();
+			return new BooleanLiteral(location, false);
+		
 		// TODO: literals, dollar.
 		
 		case TokenType.OpenParen :
@@ -479,6 +487,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return expression;
 		
 		default:
+			match(tstream, TokenType.Begin);
 			assert(0);
 	}
 }

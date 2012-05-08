@@ -400,6 +400,7 @@ enum PrimaryType {
 	Dollar,
 	__File__,
 	__Line__,
+	BooleanLiteral,
 	IntegerLiteral,
 	FloatLiteral,
 	CharacterLiteral,
@@ -471,6 +472,19 @@ class IntegerLiteral : PrimaryExpression {
 	
 	this(Location location, int value) {
 		super(location, PrimaryType.IntegerLiteral);
+		
+		this.value = value;
+	}
+}
+
+/**
+ * Boolean literals
+ */
+class BooleanLiteral : PrimaryExpression {
+	bool value;
+	
+	this(Location location, bool value) {
+		super(location, PrimaryType.BooleanLiteral);
 		
 		this.value = value;
 	}
