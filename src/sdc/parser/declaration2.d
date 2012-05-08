@@ -409,7 +409,7 @@ auto parseFunction(FunctionDeclarationType, FunctionDefinitionType, U... )(Token
 	// Parse function attributes
 	functionAttributeLoop : while(1) {
 		switch(tstream.peek.type) {
-			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared :
+			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
 				tstream.get();
 				break;
 			
