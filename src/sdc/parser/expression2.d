@@ -471,11 +471,15 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		
 		case TokenType.True :
 			tstream.get();
-			return new BooleanLiteral(location, true);
+			return new BooleanLiteral!true(location);
 		
 		case TokenType.False :
 			tstream.get();
-			return new BooleanLiteral(location, false);
+			return new BooleanLiteral!false(location);
+		
+		case TokenType.Null :
+			tstream.get();
+			return new NullLiteral(location);
 		
 		// TODO: literals, dollar.
 		

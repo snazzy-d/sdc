@@ -245,6 +245,11 @@ Declaration parseDeclaration(TokenStream tstream) {
 		case TokenType.Debug :
 			return parseVersion!Declaration(tstream);
 		
+		case TokenType.Unittest :
+			tstream.get();
+			parseBlock(tstream);
+			return null;
+		
 		/*
 		 * Variable and function declarations
 		 */
