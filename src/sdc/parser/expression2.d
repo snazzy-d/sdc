@@ -481,6 +481,10 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			return new NullLiteral(location);
 		
+		case TokenType.StringLiteral :
+			string value = extractStringLiteral(tstream.get().value);
+			return new StringLiteral(location, value);
+		
 		case TokenType.__File__ :
 			tstream.get();
 			return new __File__Literal(location);
@@ -635,8 +639,6 @@ PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
 	auto parse(Type)(string input) in {
 		assert(input.length > 0);
 	} body {
-		Type parsed;
-		
 		import std.conv;
 		if(value.length < 2) {
 			return to!Type(value);
@@ -670,6 +672,30 @@ PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
 		} else {
 			return new IntegerLiteral!int(location, cast(int) integer);
 		}
+	}
+}
+
+string extractStringLiteral(string value) {
+	// TODO: refactor this to not depend on SDC's internals.
+	import sdc.extract;
+	import sdc.compilererror;
+	import std.string;
+	
+	switch(value[0]) {
+		case 'r', 'q':
+			return extractRawString(value[1..$]);
+		
+		case '`':
+			return extractRawString(value);
+		
+		case '"':
+			return extractString(Location.init, value[1..$]);
+		
+		case 'x':
+			throw new CompilerPanic(Location.init, "hex literals are unimplemented.");
+		
+		default:
+			throw new CompilerError(Location.init, format("unrecognised string prefix '%s'.", value[0]));
 	}
 }
 

@@ -478,6 +478,19 @@ class IntegerLiteral(T) if(isIntegral!T) : PrimaryExpression {
 }
 
 /**
+ * String literals
+ */
+class StringLiteral : PrimaryExpression {
+	string value;
+	
+	this(Location location, string value) {
+		super(location, PrimaryType.StringLiteral);
+		
+		this.value = value;
+	}
+}
+
+/**
  * Boolean literals
  */
 class BooleanLiteral(bool value) : PrimaryExpression {
