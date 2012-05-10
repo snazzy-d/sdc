@@ -632,49 +632,44 @@ PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
 			break;
 	}
 	
-	IntegerLiteral!Type parse(Type)(string input) in {
+	auto parse(Type)(string input) in {
 		assert(input.length > 0);
 	} body {
 		Type parsed;
 		
 		import std.conv;
 		if(value.length < 2) {
-			parsed = to!Type(value);
-		} else {
-			switch(value[0 .. 2]) {
-				case "0x", "0X" :
-					parsed = to!Type(value[2 .. $], 16);
-					break;
-				
-				case "0b", "0B" :
-					parsed = to!Type(value[2 .. $], 2);
-					break;
-				
-				default :
-					parsed = to!Type(value);
-					break;
-			}
+			return to!Type(value);
 		}
 		
-		return new IntegerLiteral!Type(location, parsed);
+		switch(value[0 .. 2]) {
+			case "0x", "0X" :
+				return to!Type(value[2 .. $], 16);
+			
+			case "0b", "0B" :
+				return to!Type(value[2 .. $], 2);
+			
+			default :
+				return to!Type(value);
+		}
 	}
 	
-	switch(isLong << 1 | isUnsigned) {
-		case 0b00 :
-			return parse!int(value);
+	if(isUnsigned) {
+		auto integer = parse!ulong(value);
 		
-		case 0b01 :
-			return parse!uint(value);
+		if(isLong || integer > uint.max) {
+			return new IntegerLiteral!ulong(location, integer);
+		} else {
+			return new IntegerLiteral!uint(location, cast(uint) integer);
+		}
+	} else {
+		auto integer = parse!long(value);
 		
-		case 0b10 :
-			return parse!long(value);
-		
-		case 0b11 :
-			return parse!ulong(value);
-		
-		default :
-			// We should never reach that point.
-			assert(0);
+		if(isLong || integer > int.max) {
+			return new IntegerLiteral!long(location, integer);
+		} else {
+			return new IntegerLiteral!int(location, cast(int) integer);
+		}
 	}
 }
 

@@ -193,6 +193,7 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 					type = new SliceType(location, type);
 				} else {
 					// TODO: figure out what to do with that. Associative array or static arrays ?
+					match(tstream, TokenType.Begin);
 					assert(0);
 				}
 				
