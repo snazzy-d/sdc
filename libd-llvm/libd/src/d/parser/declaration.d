@@ -188,7 +188,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Class, interface and struct declaration
 		 */
 		case TokenType.Interface :
-			return parseClass!true(tstream);
+			return parseInterface(tstream);
 		
 		case TokenType.Class :
 			return parseClass(tstream);
