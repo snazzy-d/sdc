@@ -309,15 +309,15 @@ auto parseAddExpression(TokenStream tstream) {
 		
 		switch(tstream.peek.type) {
 			case TokenType.Plus :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Addition))();
+				processToken!AdditionExpression();
 				break;
 			
 			case TokenType.Dash :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Subtraction))();
+				processToken!SubstractionExpression();
 				break;
 			
 			case TokenType.Tilde :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Concat))();
+				processToken!ConcatExpression();
 				break;
 			
 			default :

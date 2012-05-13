@@ -74,7 +74,7 @@ class VariablesDeclaration : Declaration {
 	Type type;
 	Expression[string] variables;
 	
-	this(Location location, Expression[string] variables, Type type) {
+	this(Location location, Type type, Expression[string] variables) {
 		super(location, DeclarationType.Variable);
 		
 		this.type = type;

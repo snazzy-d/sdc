@@ -98,7 +98,7 @@ TemplateParameter parseAliasParameter(TokenStream tstream) {
 	if(tstream.peek.type != TokenType.Identifier) {
 		isTyped = true;
 	} else {
-		// Identifier followed by ":", "=", "," or ")" are untype alias parameters.
+		// Identifier followed by ":", "=", "," or ")" are untyped alias parameters.
 		auto nextType = tstream.lookahead(1).type;
 		if(nextType != TokenType.Colon && nextType != TokenType.Assign && nextType != TokenType.Comma && nextType != TokenType.CloseParen) {
 			isTyped = true;

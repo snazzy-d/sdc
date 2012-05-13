@@ -211,16 +211,17 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return parseFunction!(DestructorDeclaration, DestructorDefinition)(tstream, location);
 		
 		/*
+		 * Enum
+		 */
+		case TokenType.Enum :
+			// TODO: handle case of manifest constant.
+			return parseEnum(tstream);
+		
+		/*
 		 * Template
 		 */
 		case TokenType.Template :
 			return parseTemplate(tstream);
-		
-		/*
-		 * Enum
-		 */
-		case TokenType.Enum :
-			return parseEnum(tstream);
 		
 		/*
 		 * Import
@@ -286,7 +287,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 		location.spanTo(tstream.peek.location);
 		match(tstream, TokenType.Semicolon);
 		
-		return new VariablesDeclaration(location, variables, type);
+		return new VariablesDeclaration(location, type, variables);
 	}
 }
 
@@ -312,64 +313,6 @@ Declaration parseAlias(TokenStream tstream) {
 		
 		return new AliasDeclaration(location, name, type);
 	}
-}
-
-/**
- * Parse enums
- */
-auto parseEnum(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Enum).location;
-	
-	switch(tstream.peek.type) {
-		case TokenType.Identifier :
-			string name = tstream.get().value;
-			
-			// Check if we are in case of manifest constant.
-			if(tstream.peek.type == TokenType.Assign) {
-				assert(false, "Manifest constant must be parsed as auto declaration and not as enums.");
-			}
-			
-			// TODO: named enums.
-			// TODO: handle name AND typed enums.
-			if(tstream.peek.type == TokenType.Colon) goto case TokenType.Colon;
-			
-			break;
-		
-		case TokenType.Colon :
-			tstream.get();
-			auto type = parseType(tstream);
-			
-			// TODO: typed enums.
-			break;
-		
-		case TokenType.OpenBrace :
-			break;
-		
-		default :
-			assert(0);
-	}
-	
-	match(tstream, TokenType.OpenBrace);
-	
-	while(tstream.peek.type != TokenType.OpenBrace) {
-		string name = match(tstream, TokenType.Identifier).value;
-		
-		if(tstream.peek.type == TokenType.Assign) {
-			tstream.get();
-			parseAssignExpression(tstream);
-		}
-		
-		if(tstream.peek.type == TokenType.Comma) {
-			tstream.get();
-		} else {
-			// If it is not a comma, then we abort the loop.
-			break;
-		}
-	}
-	
-	match(tstream, TokenType.CloseBrace);
-	
-	return null;
 }
 
 /**

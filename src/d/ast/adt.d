@@ -2,6 +2,7 @@ module d.ast.adt;
 
 import d.ast.declaration;
 import d.ast.identifier;
+import d.ast.type;
 
 import sdc.location;
 
@@ -62,6 +63,33 @@ class InterfaceDefinition : Declaration {
 		this.name = name;
 		this.bases = bases;
 		this.members = members;
+	}
+}
+
+/**
+ * Enum
+ */
+class Enum : Declaration {
+	VariablesDeclaration enumEntries;
+	Type type;
+	
+	this(Location location, Type type, VariablesDeclaration enumEntries) {
+		super(location, DeclarationType.Enum);
+		
+		this.enumEntries = enumEntries;
+	}
+}
+
+/**
+ * Named enum
+ */
+class NamedEnum : Enum {
+	string name;
+	
+	this(Location location, string name, Type type, VariablesDeclaration enumEntries) {
+		super(location, type, enumEntries);
+		
+		this.name = name;
 	}
 }
 
