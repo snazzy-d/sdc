@@ -10,6 +10,7 @@ import d.parser.conditional;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.statement;
+import d.parser.dfunction;
 import d.parser.dtemplate;
 import d.parser.type;
 
@@ -200,15 +201,10 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Constructor and destructor
 		 */
 		case TokenType.This :
-			tstream.get();
-			
-			return parseFunction!(ConstructorDeclaration, ConstructorDefinition)(tstream, location);
+			return parseConstructor(tstream);
 		
 		case TokenType.Tilde :
-			tstream.get();
-			match(tstream, TokenType.This);
-			
-			return parseFunction!(DestructorDeclaration, DestructorDefinition)(tstream, location);
+			return parseDestructor(tstream);
 		
 		/*
 		 * Enum
@@ -259,7 +255,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 	if(tstream.lookahead(1).type == TokenType.OpenParen) {
 		string name = match(tstream, TokenType.Identifier).value;
 		
-		return parseFunction!(FunctionDeclaration, FunctionDefinition)(tstream, location, name, type);
+		return parseFunction(tstream, location, name, type);
 	} else {
 		Expression[string] variables;
 		
@@ -332,83 +328,6 @@ auto parseImport(TokenStream tstream) {
 	location.spanTo(tstream.previous.location);
 	
 	return new ImportDeclaration(location, modules);
-}
-
-/**
- * Parse function declaration
- */
-auto parseFunction(FunctionDeclarationType, FunctionDefinitionType, U... )(TokenStream tstream, Location location, U arguments) {
-	// Function declaration.
-	bool isVariadic;
-	auto parameters = parseParameters(tstream, isVariadic);
-	
-	// TODO: parse function attributes
-	// Parse function attributes
-	functionAttributeLoop : while(1) {
-		switch(tstream.peek.type) {
-			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
-				tstream.get();
-				break;
-			
-			case TokenType.At :
-				tstream.get();
-				match(tstream, TokenType.Identifier);
-				break;
-			
-			default :
-				break functionAttributeLoop;
-		}
-	}
-	
-	// TODO: parse contracts.
-	
-	// Skip contracts
-	switch(tstream.peek.type) {
-		case TokenType.In, TokenType.Out :
-			tstream.get();
-			parseBlock(tstream);
-			
-			switch(tstream.peek.type) {
-				case TokenType.In, TokenType.Out :
-					tstream.get();
-					parseBlock(tstream);
-					break;
-				
-				default :
-					break;
-			}
-			
-			match(tstream, TokenType.Body);
-			break;
-		
-		case TokenType.Body :
-			// Body without contract is just skipped.
-			tstream.get();
-			break;
-		
-		default :
-			break;
-	}
-	
-	switch(tstream.peek.type) {
-		case TokenType.Semicolon :
-			location.spanTo(tstream.peek.location);
-			tstream.get();
-			
-			return new FunctionDeclarationType(location, arguments, parameters);
-		
-		case TokenType.OpenBrace :
-			auto fbody = parseBlock(tstream);
-			
-			location.spanTo(tstream.peek.location);
-			
-			return new FunctionDefinitionType(location, arguments, parameters, fbody);
-		
-		default :
-			// TODO: error.
-			match(tstream, TokenType.Begin);
-			assert(0);
-	}
 }
 
 /**
