@@ -1,9 +1,11 @@
 module d.parser.type;
 
 import d.ast.declaration;
+import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.parser.dfunction;
 import d.parser.expression;
 import d.parser.identifier;
 
@@ -222,76 +224,5 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				return type;
 		}
 	}
-}
-
-/**
- * Parse function and delegate parameters.
- */
-auto parseParameters(TokenStream tstream, out bool isVariadic) {
-	match(tstream, TokenType.OpenParen);
-	
-	Parameter[] parameters;
-	
-	if(tstream.peek.type != TokenType.CloseParen) {
-		parameters ~= parseParameter(tstream);
-		
-		while(tstream.peek.type == TokenType.Comma) {
-			tstream.get();
-			
-			if(tstream.peek.type == TokenType.TripleDot) {
-				tstream.get();
-				isVariadic = true;
-				break;
-			}
-			
-			parameters ~= parseParameter(tstream);
-		}
-	}
-	
-	match(tstream, TokenType.CloseParen);
-	
-	return parameters;
-}
-
-auto parseParameter(TokenStream tstream) {
-	// TODO: parse storage class
-	bool parseStorageClass = true;
-	while(parseStorageClass) {
-		switch(tstream.peek.type) {
-			case TokenType.Ref, TokenType.In, TokenType.Out, TokenType.Scope :
-				tstream.get();
-				break;
-			
-			case TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared :
-				tstream.get();
-				break;
-			
-			default :
-				parseStorageClass = false;
-				break;
-		}
-	}
-	
-	auto type = parseType(tstream);
-	
-	if(tstream.peek.type == TokenType.Identifier) {
-		auto location = type.location;
-		
-		string name = tstream.get().value;
-		
-		if(tstream.peek.type == TokenType.Assign) {
-			tstream.get();
-			
-			auto expression = parseAssignExpression(tstream);
-			
-			location.spanTo(tstream.previous.location);
-			return new InitializedParameter(location, type, name, expression);
-		}
-		
-		location.spanTo(tstream.previous.location);
-		return new NamedParameter(location, type, name);
-	}
-	
-	return new Parameter(type.location, type);
 }
 
