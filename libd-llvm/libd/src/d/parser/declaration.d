@@ -20,12 +20,6 @@ import sdc.parser.base : match;
  * Parse a declaration
  */
 Declaration parseDeclaration(TokenStream tstream) {
-	// Parse alias declaration.
-	// TODO: move alias into the main switch.
-	if(tstream.peek.type == TokenType.Alias) {
-			return parseAlias(tstream);
-	}
-	
 	auto location = tstream.peek.location;
 	
 	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
@@ -242,6 +236,12 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 */
 		case TokenType.Import :
 			return parseImport(tstream);
+		
+		/**
+		 * Alias
+		 */
+		case TokenType.Alias :
+			return parseAlias(tstream);
 		
 		/*
 		 * Conditional compilation
