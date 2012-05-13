@@ -251,6 +251,10 @@ class OperationBinaryExpression(BinaryOperation operation) if(
 	}
 }
 
+alias OperationBinaryExpression!(BinaryOperation.Addition) AdditionExpression;
+alias OperationBinaryExpression!(BinaryOperation.Subtraction) SubstractionExpression;
+alias OperationBinaryExpression!(BinaryOperation.Concat) ConcatExpression;
+
 /**
  * Unary Prefix Expression types.
  */
