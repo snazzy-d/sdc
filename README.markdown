@@ -9,6 +9,26 @@ Contact me at b.helyer@gmail.com
 
 Last tested with: DMD releases `2.057` and `2.058` on the 6th of March.
 
+Ast as lib branch
+=================
+
+You are in a special branch of SDC. The point of this branch is to provide tool to build and manipulate AST as lib for 3rd party tools. This lib aims to be used in other contexts than a compiler, for instance :
+* IDE support.
+* Static code analysis.
+* Toolchain for D (code formater, DI generation, documentation generation).
+* Open the door for D extentiosn such as AST macros using CTFE.
+* Provide way to easily test new language features.
+
+Indirect goals are :
+* Provide a parser that give an AST as close as possible of the source code, even if incorrect D code.
+* Validate the AST, dispatch storage classes.
+* Remove syntaxic sugar.
+* Resolve identifiers.
+* Interpret if no compile time construct is present/process compile time construct.
+* Introduce call to druntime in place of corresponding constructs.
+* Optimise ?
+* Provide data as a usable form for SDC.
+
 Features
 ========
 What follows is a very high level overview of what's done, and what's still to do.
