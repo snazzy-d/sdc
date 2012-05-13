@@ -14,11 +14,11 @@ import sdc.parser.base : match;
 /**
  * Parse class
  */
-auto parseClass(bool isInterface = false)(TokenStream tstream) {
-	static if(isInterface) {
-		auto location = match(tstream, TokenType.Interface).location;
-	} else {
+auto parsePolymorphic(bool isClass = true)(TokenStream tstream) {
+	static if(isClass) {
 		auto location = match(tstream, TokenType.Class).location;
+	} else {
+		auto location = match(tstream, TokenType.Interface).location;
 	}
 	
 	string name = match(tstream, TokenType.Identifier).value;
@@ -35,12 +35,15 @@ auto parseClass(bool isInterface = false)(TokenStream tstream) {
 	
 	location.spanTo(tstream.previous.location);
 	
-	static if(isInterface) {
-		return new InterfaceDefinition(location, name, bases, members);
-	} else {
+	static if(isClass) {
 		return new ClassDefinition(location, name, bases, members);
+	} else {
+		return new InterfaceDefinition(location, name, bases, members);
 	}
 }
+
+alias parsePolymorphic!true parseClass;
+alias parsePolymorphic!false parseInterface;
 
 /**
  * Parse struct
