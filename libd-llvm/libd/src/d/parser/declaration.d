@@ -5,6 +5,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
+import d.parser.adt;
 import d.parser.conditional;
 import d.parser.expression;
 import d.parser.identifier;
@@ -15,6 +16,29 @@ import d.parser.type;
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
+
+/**
+ * Parse a set of declarations.
+ */
+auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
+	static if(globBraces) {
+		match(tstream, TokenType.OpenBrace);
+	}
+	
+	Declaration[] declarations;
+	
+	auto tokenType = tstream.peek.type;
+	while(tokenType != TokenType.CloseBrace && tokenType != TokenType.End) {
+		declarations ~= parseDeclaration(tstream);
+		tokenType = tstream.peek.type;
+	}
+	
+	static if(globBraces) {
+		match(tstream, TokenType.CloseBrace);
+	}
+	
+	return declarations;
+}
 
 /**
  * Parse a declaration
@@ -164,46 +188,13 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Class, interface and struct declaration
 		 */
 		case TokenType.Interface :
-			// TODO: handle interfaces a proper way.
-			goto case TokenType.Class;
+			return parseClass!true(tstream);
 		
 		case TokenType.Class :
-			tstream.get();
-			
-			string name = match(tstream, TokenType.Identifier).value;
-			Identifier[] bases;
-			
-			if(tstream.peek.type == TokenType.Colon) {
-				do {
-					tstream.get();
-					bases ~= parseIdentifier(tstream);
-				} while(tstream.peek.type == TokenType.Comma);
-			}
-			
-			auto members = parseAggregate(tstream);
-			
-			location.spanTo(tstream.previous.location);
-				
-			return new ClassDefinition(location, name, bases, members);
+			return parseClass(tstream);
 		
 		case TokenType.Struct :
-			tstream.get();
-			string name = match(tstream, TokenType.Identifier).value;
-			
-			// Handle opaque structs.
-			if(tstream.peek.type == TokenType.Semicolon) {
-				location.spanTo(tstream.peek.location);
-				
-				tstream.get();
-				
-				return new StructDeclaration(location, name);
-			} else {
-				auto members = parseAggregate(tstream);
-				
-				location.spanTo(tstream.previous.location);
-				
-				return new StructDefinition(location, name, members);
-			}
+			return parseStruct(tstream);
 		
 		/*
 		 * Constructor and destructor
@@ -321,29 +312,6 @@ Declaration parseAlias(TokenStream tstream) {
 		
 		return new AliasDeclaration(location, name, type);
 	}
-}
-
-/**
- * Parse aggreagate (classes, structs)
- */
-auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
-	static if(globBraces) {
-		match(tstream, TokenType.OpenBrace);
-	}
-	
-	Declaration[] declarations;
-	
-	auto tokenType = tstream.peek.type;
-	while(tokenType != TokenType.CloseBrace && tokenType != TokenType.End) {
-		declarations ~= parseDeclaration(tstream);
-		tokenType = tstream.peek.type;
-	}
-	
-	static if(globBraces) {
-		match(tstream, TokenType.CloseBrace);
-	}
-	
-	return declarations;
 }
 
 /**

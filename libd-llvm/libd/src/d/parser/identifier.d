@@ -4,7 +4,7 @@ import d.ast.identifier;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base;
+import sdc.parser.base : match;
 
 /**
  * Parse Identifier
