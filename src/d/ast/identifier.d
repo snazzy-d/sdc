@@ -1,7 +1,8 @@
-module sdc.ast.identifier2;
+module d.ast.identifier;
+
+import d.ast.base;
 
 import sdc.location;
-import sdc.ast.base2;
 
 class Identifier : Node, Namespace {
 	string name;

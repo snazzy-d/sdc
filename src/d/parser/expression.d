@@ -1,11 +1,13 @@
-module sdc.parser.expression2;
+module d.parser.expression;
+
+import d.ast.expression;
+
+import d.parser.identifier;
+import d.parser.type;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.parser.identifier2;
-import sdc.parser.type2;
-import sdc.ast.expression2;
 
 /**
  * Template used to parse basic BinaryExpressions.

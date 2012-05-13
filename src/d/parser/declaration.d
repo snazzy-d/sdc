@@ -1,18 +1,20 @@
-module sdc.parser.declaration2;
+module d.parser.declaration;
+
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.type;
+
+import d.parser.conditional;
+import d.parser.expression;
+import d.parser.identifier;
+import d.parser.statement;
+import d.parser.dtemplate;
+import d.parser.type;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.parser.conditional2;
-import sdc.parser.expression2;
-import sdc.parser.identifier2;
-import sdc.parser.statement2;
-import sdc.parser.sdctemplate2;
-import sdc.parser.type2;
-import sdc.ast.declaration2;
-import sdc.ast.expression2;
-import sdc.ast.identifier2;
-import sdc.ast.type2;
 
 /**
  * Parse a declaration

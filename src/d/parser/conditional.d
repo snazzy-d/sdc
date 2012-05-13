@@ -1,13 +1,15 @@
-module sdc.parser.conditional2;
+module d.parser.conditional;
+
+import d.ast.conditional;
+import d.ast.declaration;
+import d.ast.statement;
+
+import d.parser.declaration;
+import d.parser.statement;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.parser.declaration2;
-import sdc.parser.statement2;
-import sdc.ast.conditional2;
-import sdc.ast.declaration2;
-import sdc.ast.statement2;
 
 /**
  * Parse Version Declaration

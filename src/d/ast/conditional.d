@@ -1,8 +1,9 @@
-module sdc.ast.conditional2;
+module d.ast.conditional;
+
+import d.ast.declaration;
+import d.ast.statement;
 
 import sdc.location;
-import sdc.ast.declaration2;
-import sdc.ast.statement2;
 
 /**
  * Version Conditional

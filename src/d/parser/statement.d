@@ -1,9 +1,10 @@
-module sdc.parser.statement2;
+module d.parser.statement;
+
+import d.ast.statement;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.ast.statement2;
 
 auto parseStatement(TokenStream tstream) {
 	if(tstream.peek.type == TokenType.OpenBrace) {

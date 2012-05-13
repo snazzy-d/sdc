@@ -1,4 +1,4 @@
-module sdc.ast.base2;
+module d.ast.base;
 
 import sdc.location;
 

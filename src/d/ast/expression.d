@@ -1,8 +1,9 @@
-module sdc.ast.expression2;
+module d.ast.expression;
+
+import d.ast.identifier;
+import d.ast.statement;
 
 import sdc.location;
-import sdc.ast.identifier2;
-import sdc.ast.statement2;
 
 class Expression : Statement, Namespace {
 	this(Location location) {

@@ -1,10 +1,11 @@
-module sdc.ast.type2;
+module d.ast.type;
+
+import d.ast.base;
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.identifier;
 
 import sdc.location;
-import sdc.ast.base2;
-import sdc.ast.declaration2;
-import sdc.ast.expression2;
-import sdc.ast.identifier2;
 
 class Type : Node {
 	this(Location location) {

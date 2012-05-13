@@ -172,8 +172,8 @@ int realmain(string[] args)
             translationUnit.filename = arg;
             
             // Test for the new ast
-            static import sdc.parser.base2;
-	        sdc.parser.base2.parseModule(lex(new Source(arg)));
+            static import d.parser.base;
+	        d.parser.base.parseModule(lex(new Source(arg)));
 	        
             translationUnit.source = new Source(arg);
             translationUnit.tstream = lex(translationUnit.source);

@@ -1,13 +1,15 @@
-module sdc.parser.type2;
+module d.parser.type;
+
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.type;
+
+import d.parser.expression;
+import d.parser.identifier;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.parser.expression2;
-import sdc.parser.identifier2;
-import sdc.ast.declaration2;
-import sdc.ast.expression2;
-import sdc.ast.type2;
 
 Type parseType(TokenStream tstream) {
 	auto base = parseBasicType(tstream);

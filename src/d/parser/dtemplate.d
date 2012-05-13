@@ -1,12 +1,13 @@
-module sdc.parser.sdctemplate2;
+module d.parser.dtemplate;
+
+import d.ast.dtemplate;
+
+import d.parser.declaration;
+import d.parser.type;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.ast.sdctemplate2;
 import sdc.parser.base : match;
-import sdc.parser.declaration2;
-import sdc.parser.sdctemplate2;
-import sdc.parser.type2;
 
 auto parseTemplate(TokenStream tstream) {
 	auto location = match(tstream, TokenType.Template).location;

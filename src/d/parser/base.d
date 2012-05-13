@@ -1,10 +1,12 @@
-module sdc.parser.base2;
+module d.parser.base;
+
+import d.ast.declaration;
+
+import d.parser.declaration;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
-import sdc.ast.declaration2;
-import sdc.parser.declaration2;
 
 auto parseModule(TokenStream tstream) {
 	match(tstream, TokenType.Begin);

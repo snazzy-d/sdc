@@ -1,7 +1,8 @@
-module sdc.ast.statement2;
+module d.ast.statement;
+
+import d.ast.base;
 
 import sdc.location;
-import sdc.ast.base2;
 
 class Statement : Node {
 	this(Location location) {

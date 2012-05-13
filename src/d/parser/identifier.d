@@ -1,9 +1,10 @@
-module sdc.parser.identifier2;
+module d.parser.identifier;
+
+import d.ast.identifier;
 
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base;
-import sdc.ast.identifier2;
 
 /**
  * Parse Identifier

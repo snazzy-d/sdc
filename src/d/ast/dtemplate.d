@@ -1,8 +1,9 @@
-module sdc.ast.sdctemplate2;
+module d.ast.dtemplate;
+
+import d.ast.declaration;
+import d.ast.type;
 
 import sdc.location;
-import sdc.ast.declaration2;
-import sdc.ast.type2;
 
 /**
  * Template declaration

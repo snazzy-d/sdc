@@ -1,10 +1,11 @@
-module sdc.ast.declaration2;
+module d.ast.declaration;
+
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.statement;
+import d.ast.type;
 
 import sdc.location;
-import sdc.ast.expression2;
-import sdc.ast.identifier2;
-import sdc.ast.statement2;
-import sdc.ast.type2;
 
 enum DeclarationType {
 	Variable,
