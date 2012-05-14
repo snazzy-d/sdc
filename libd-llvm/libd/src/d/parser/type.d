@@ -189,17 +189,7 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				break;
 				
 			case TokenType.OpenBracket :
-				tstream.get();
-				if(tstream.peek.type == TokenType.CloseBracket) {
-					tstream.get();
-					location.spanTo(tstream.previous.location);
-					
-					type = new SliceType(location, type);
-				} else {
-					// TODO: figure out what to do with that. Associative array or static arrays ?
-					match(tstream, TokenType.Begin);
-					assert(0);
-				}
+				type = parseBracket(tstream, type);
 				
 				break;
 			case TokenType.Function :
@@ -223,6 +213,27 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 			default :
 				return type;
 		}
+	}
+}
+
+Type parseBracket(TokenStream tstream, Type type) {
+	match(tstream, TokenType.OpenBracket);
+	auto location = type.location;
+	
+	switch(tstream.peek.type) {
+		case TokenType.CloseBracket :
+			location.spanTo(tstream.get().location);
+			return new SliceType(location, type);
+		
+		case TokenType.IntegerLiteral :
+			auto value = parseIntegerLiteral(tstream);
+			location.spanTo(match(tstream, TokenType.CloseBracket).location);
+			return new StaticArrayType(location, type, value);
+		
+		default :
+			auto keyType = parseType(tstream);
+			location.spanTo(match(tstream, TokenType.CloseBracket).location);
+			return new AssociativeArrayType(location, type, keyType);
 	}
 }
 

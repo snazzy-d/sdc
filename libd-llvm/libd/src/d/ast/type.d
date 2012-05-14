@@ -129,7 +129,7 @@ enum TypeSuffixType {
 	Pointer,
 	StaticArray,
 	Slice,
-	Associative,
+	AssociativeArray,
 }
 
 class SuffixType : SimpleStorageClassType {
@@ -145,7 +145,7 @@ class SuffixType : SimpleStorageClassType {
 }
 
 /**
- * Pointer Types
+ * Pointer types
  */
 class PointerType : SuffixType {
 	this(Location location, Type qualified) {
@@ -154,11 +154,37 @@ class PointerType : SuffixType {
 }
 
 /**
- * Slice Types
+ * Slice types
  */
 class SliceType : SuffixType {
 	this(Location location, Type qualified) {
 		super(location, TypeSuffixType.Slice, qualified);
+	}
+}
+
+/**
+ * Static array types
+ */
+class StaticArrayType : SuffixType {
+	Expression size;
+	
+	this(Location location, Type qualified, Expression size) {
+		super(location, TypeSuffixType.StaticArray, qualified);
+		
+		this.size = size;
+	}
+}
+
+/**
+ * Associative array types
+ */
+class AssociativeArrayType : SuffixType {
+	Type keyType;
+	
+	this(Location location, Type qualified, Type keyType) {
+		super(location, TypeSuffixType.AssociativeArray, qualified);
+		
+		this.keyType = keyType;
 	}
 }
 
