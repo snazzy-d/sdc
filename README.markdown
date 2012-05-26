@@ -7,7 +7,7 @@ I don't know what I'm doing in terms of compiler writing. If you find some horri
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at b.helyer@gmail.com
 
-Last tested with: DMD releases `2.057` and `2.058` on the 6th of March.
+Last tested with: DMD release `2.059` in May, 2012.
 
 Ast as lib branch
 =================
