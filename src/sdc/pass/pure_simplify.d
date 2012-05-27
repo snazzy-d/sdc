@@ -16,3 +16,9 @@ Module pureSimplify(Module ast)
 }
 
 private:
+
+/// Remove version blocks from this module.
+Module removeVersionBlocks(Module ast)
+{
+    return ast;
+}

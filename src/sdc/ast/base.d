@@ -10,6 +10,7 @@ import sdc.compilererror;
 import sdc.token;
 import sdc.location;
 import sdc.ast.attribute;
+import sdc.ast.visitor;
 
 class Node
 {
@@ -60,6 +61,11 @@ class Node
             if (attr.type == needle)
                 return true;
         return false;
+    }
+
+    void accept(AstVisitor visitor)
+    {
+        assert(false);
     }
 }
 
