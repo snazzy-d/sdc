@@ -38,7 +38,6 @@ void compile(string filename)
 {
     auto src = new Source(filename);
     TokenStream tstream = lex(src);
-    tstream.printTo(stdout);
     Module ast = parse(tstream);
     ast = pureSimplify(ast);
 }

@@ -1,6 +1,7 @@
 module sdc.pass.pure_simplify;
 
 import sdc.ast.all;
+import sdc.ast.visitor;
 
 /**
  * First pass after parsing.
@@ -12,6 +13,8 @@ import sdc.ast.all;
  */
 Module pureSimplify(Module ast)
 {
+    auto v = new NullAstVisitor();
+    ast.accept(v);
     return ast;
 }
 
