@@ -9,6 +9,7 @@ import sdc.token;
 import sdc.ast.base;
 import sdc.ast.expression;
 import sdc.ast.sdcmodule;
+import sdc.ast.visitor;
 
 
 enum AttributeType
@@ -117,21 +118,48 @@ class AttributeSpecifier : Node
 {
     Attribute attribute;
     DeclarationBlock declarationBlock;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        attribute.accept(visitor);
+        declarationBlock.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class Attribute : Node
 {
     AttributeType type;
     Node node;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        node.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class AlignAttribute : Node
 {
     IntegerLiteral alignment;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        alignment.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 // DeclarationDefinition | { DeclarationDefinition* }
 class DeclarationBlock : Node
 {
     DeclarationDefinition[] declarationDefinitions;
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (declDef; declarationDefinitions) {
+            declDef.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }

@@ -25,10 +25,13 @@ import sdc.tokenstream;
 import sdc.location;
 import sdc.terminal;
 import ast = sdc.ast.all;
+version (SDCMULTIPASS) {
+} else {
 import sdc.gen.sdcmodule;
 import sdc.gen.value;
 import sdc.gen.type;
 import sdc.gen.sdcfunction;
+}
 
 enum ModuleState
 {
@@ -44,7 +47,8 @@ enum TUSource
     Compilation,
 }
 
-class TranslationUnit
+version (SDCMULTIPASS) {
+} else class TranslationUnit
 {
     TUSource tusource;
     ModuleState state;
@@ -133,18 +137,21 @@ bool isDebugIdentifierSet(string s)
     return (s in debugIdentifiers) !is null;
 }
 
-void addTranslationUnit(string key, TranslationUnit val)
+version (SDCMULTIPASS) {
+} else void addTranslationUnit(string key, TranslationUnit val)
 {
     assert(val !is null);
     translationUnits[key] = val;
 }
 
-TranslationUnit getTranslationUnit(string key)
+version (SDCMULTIPASS) {
+} else TranslationUnit getTranslationUnit(string key)
 {
     return translationUnits.get(key, null);
 }
 
-TranslationUnit[] getTranslationUnits()
+version (SDCMULTIPASS) {
+} else TranslationUnit[] getTranslationUnits()
 {
     return translationUnits.values;
 }
@@ -291,6 +298,9 @@ void loadConfig(ref string[] args)
     args = array(map!expandTilde(args));
 }
 
+version (SDCMULTIPASS) {
+} else {
+
 Type getSizeT(Module mod)
 {
     if (bits == 32) {
@@ -336,7 +346,10 @@ Value newPtrdiffT(Module mod, Location loc, long init)
     }
 }
 
+}
+
 private shared bool[string] reservedVersionIdentifiers;
 private shared bool[string] versionIdentifiers;
 private shared bool[string] debugIdentifiers;
-private __gshared TranslationUnit[string] translationUnits;
+version (SDCMULTIPASS) {
+} else private __gshared TranslationUnit[string] translationUnits;
