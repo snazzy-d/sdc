@@ -274,12 +274,12 @@ class PrimaryExpression : Node
     /* What should be instantiated here depends 
      * on the above primary expression type.
      */
-    Node node;
+    Node node;  // Optional.
     Node secondNode;  // Optional.
 
     override void accept(AstVisitor visitor)
     {
-        node.accept(visitor);
+        if (node !is null) node.accept(visitor);
         if (secondNode !is null) secondNode.accept(visitor);
         visitor.visit(this);
     }
