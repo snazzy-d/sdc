@@ -192,7 +192,7 @@ class Type : Node
 
     override void accept(AstVisitor visitor)
     {
-        node.accept(visitor);
+        if (node !is null) node.accept(visitor);
         foreach (suffix; suffixes) {
             suffix.accept(visitor);
         }
