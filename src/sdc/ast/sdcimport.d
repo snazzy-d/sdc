@@ -47,14 +47,14 @@ class ImportList : Node
 {
     ImportListType type;
     Import[] imports;
-    ImportBinder binder;
+    ImportBinder binder;  // Optional.
 
     override void accept(AstVisitor visitor)
     {
         foreach (imp; imports) {
             imp.accept(visitor);
         }
-        binder.accept(visitor);
+        if (binder !is null) binder.accept(visitor);
         visitor.visit(this);
     }
 }
