@@ -16,8 +16,6 @@ import std.process;
 
 import sdc.compilererror;
 import sdc.ast.expression;
-version (SDCMULTIPASS) {
-} else import sdc.gen.sdcmodule;
 
 bool contains(T)(const(T)[] l, const T a)
 {

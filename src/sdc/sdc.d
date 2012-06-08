@@ -2,12 +2,10 @@
  * Entry point for the new multi-pass experiment.
  */
 module sdc.mpsdc;
-version (SDCMULTIPASS):
 
 import std.stdio : writeln, stderr, stdout;
 import std.file : exists;
 
-import sdc.aglobal : globalInit;
 import sdc.compilererror : CompilerError;
 import sdc.lexer : lex;
 import sdc.source : Source;
@@ -24,8 +22,6 @@ int main(string[] args)
         stderr.writeln("usage: sdc file");
         return 1;
     }
-
-    globalInit("x86");
 
     foreach (file; args[1..$]) {
         compile(file);

@@ -10,8 +10,6 @@ import std.stdio;
 import sdc.location;
 import sdc.compilererror;
 
-import sdc.aglobal;
-
 
 version(Windows) {
     import std.c.windows.windows;
@@ -98,6 +96,7 @@ version(Windows) {
 
 void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg)
 {
+    bool coloursEnabled = true;  // XXX: Fix me!
     if(coloursEnabled) {
         scope (exit) {
             version(Windows) {
