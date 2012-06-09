@@ -6,12 +6,12 @@ module sdc.mpsdc;
 import std.stdio : writeln, stderr, stdout;
 import std.file : exists;
 
-import sdc.compilererror : CompilerError;
-import sdc.lexer : lex;
-import sdc.source : Source;
-import sdc.tokenstream : TokenStream;
-import sdc.parser.base : parse;
-import sdc.ast.sdcmodule : Module;
+import sdc.compilererror;
+import sdc.lexer;
+import sdc.source;
+import sdc.tokenstream;
+import sdc.parser.base;
+import sdc.ast.sdcmodule;
 
 import sdc.pass.pure_simplify : pureSimplify;
 
