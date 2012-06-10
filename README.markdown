@@ -7,6 +7,28 @@ I don't know what I'm doing in terms of compiler writing. If you find some horri
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at b.helyer@gmail.com
 
+Last tested with: DMD release `2.059` in May, 2012.
+
+Ast as lib branch
+=================
+
+You are in a special branch of SDC. The point of this branch is to provide tool to build and manipulate AST as lib for 3rd party tools. This lib aims to be used in other contexts than a compiler, for instance :
+* IDE support.
+* Static code analysis.
+* Toolchain for D (code formater, DI generation, documentation generation).
+* Open the door for D extentiosn such as AST macros using CTFE.
+* Provide way to easily test new language features.
+
+Indirect goals are :
+* Provide a parser that give an AST as close as possible of the source code, even if incorrect D code.
+* Validate the AST, dispatch storage classes.
+* Remove syntaxic sugar.
+* Resolve identifiers.
+* Interpret if no compile time construct is present/process compile time construct.
+* Introduce call to druntime in place of corresponding constructs.
+* Optimise ?
+* Provide data as a usable form for SDC.
+=======
 Last tested with: DMD releases `2.059`.
 
 This branch may seem dead, but check out multi-pass for where work on a sane backend (tm) is going on.
@@ -125,7 +147,7 @@ This just me thinking outloud about what features I want, when.
 
 Compiling SDC on Linux
 =======
-You'll need make and the latest DMD installed.
+You'll need `make` and the latest DMD installed.
 Install LLVM 3.0.
 Run `make`.
 Copy `bin/sdc` into your `$PATH` somewhere.

@@ -11,6 +11,7 @@ import sdc.ast.expression;
 import sdc.ast.statement;
 import sdc.ast.attribute;
 import sdc.ast.sdctemplate;
+import sdc.ast.visitor;
 
 
 enum DeclarationType
@@ -27,12 +28,25 @@ class Declaration : Node
 {
     DeclarationType type;
     Node node;
+
+    override void accept(AstVisitor visitor)
+    {
+        node.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class MixinDeclaration : Node
 {
     ConditionalExpression expression;
     Declaration declarationCache;
+
+    override void accept(AstVisitor visitor)
+    {
+        expression.accept(visitor);
+        declarationCache.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class VariableDeclaration : Node
@@ -41,18 +55,42 @@ class VariableDeclaration : Node
     bool isExtern;
     Type type;
     Declarator[] declarators;
+
+    override void accept(AstVisitor visitor)
+    {
+        type.accept(visitor);
+        foreach (decl; declarators) {
+            decl.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
 
 class Declarator : Node
 {
     Identifier name;
     Initialiser initialiser;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        name.accept(visitor);
+        if (initialiser !is null) initialiser.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class ParameterList : Node
 {
     Parameter[] parameters;
     bool varargs = false;
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (param; parameters) {
+            param.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
     
 class FunctionDeclaration : Node
@@ -63,6 +101,17 @@ class FunctionDeclaration : Node
     FunctionBody functionBody;  // Optional.
     FunctionBody inContract; // Optional.
     FunctionBody outContract; // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        returnType.accept(visitor);
+        name.accept(visitor);
+        parameterList.accept(visitor);
+        if (functionBody !is null) functionBody.accept(visitor);
+        if (inContract !is null) inContract.accept(visitor);
+        if (outContract !is null) outContract.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 enum FunctionBodyType
@@ -76,6 +125,14 @@ class FunctionBody : Node
 {
     FunctionBodyType bodyType;
     Statement[] statements;
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (statement; statements) {
+            statement.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
 
 enum TypeType
@@ -132,6 +189,15 @@ class Type : Node
     TypeSuffix[] suffixes;
     bool ctor = false;
     bool dtor = false;
+
+    override void accept(AstVisitor visitor)
+    {
+        if (node !is null) node.accept(visitor);
+        foreach (suffix; suffixes) {
+            suffix.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
 
 enum TypeSuffixType
@@ -144,6 +210,12 @@ class TypeSuffix : Node
 {
     TypeSuffixType type;
     Node node;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        if (node !is null) node.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 enum PrimitiveTypeType
@@ -177,17 +249,36 @@ enum PrimitiveTypeType
 class PrimitiveType : Node
 {
     PrimitiveTypeType type;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class UserDefinedType : Node
 {
     IdentifierOrTemplateInstance[] segments;
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (segment; segments) {
+            segment.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
 
 class IdentifierOrTemplateInstance : Node
 {
     bool isIdentifier;
     Node node;
+
+    override void accept(AstVisitor visitor)
+    {
+        node.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 enum TypeofTypeType
@@ -203,18 +294,39 @@ class TypeofType : Node
     TypeofTypeType type;
     Expression expression;  // Optional.
     QualifiedName qualifiedName;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        if (expression !is null) expression.accept(visitor);
+        if (qualifiedName !is null) qualifiedName.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class FunctionPointerType : Node
 {
     Type returnType;
     ParameterList parameters;
+
+    override void accept(AstVisitor visitor)
+    {
+        returnType.accept(visitor);
+        parameters.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 class DelegateType : Node
 {
     Type returnType;
     ParameterList parameters;
+
+    override void accept(AstVisitor visitor)
+    {
+        returnType.accept(visitor);
+        parameters.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 enum ParameterAttribute
@@ -234,6 +346,14 @@ class Parameter : Node
     bool defaultArgumentFile = false;  // Optional.
     bool defaultArgumentLine = false;  // Optional.
     ConditionalExpression defaultArgument;  // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        type.accept(visitor);
+        if (identifier !is null) identifier.accept(visitor);
+        if (defaultArgument !is null) defaultArgument.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 enum InitialiserType
@@ -246,5 +366,11 @@ class Initialiser : Node
 {
     InitialiserType type;
     Node node; // Optional.
+
+    override void accept(AstVisitor visitor)
+    {
+        if (node !is null) node.accept(visitor);
+        visitor.visit(this);
+    }
 }
 

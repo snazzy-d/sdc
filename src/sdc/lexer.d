@@ -208,12 +208,15 @@ void skipBlockComment(TokenWriter tw)
         if (tw.source.eof) {
             throw new CompilerError(tw.source.location, "unterminated block comment.");
         }
+        /*
         if (tw.source.peek == '/') {
             match(tw.source, '/');
+            
             if (tw.source.peek == '*') {
                 warning(tw.source.location, Warning.NestedBlockComment);
             }
-        } else if (tw.source.peek == '*') {
+        } else */
+        if (tw.source.peek == '*') {
             match(tw.source, '*');
             if (tw.source.peek == '/') {
                 match(tw.source, '/');

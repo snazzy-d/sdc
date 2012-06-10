@@ -4,6 +4,7 @@
  * See LICENCE or sdc.d for more details.
  */
 module sdc.mangle;
+version (SDCCOMPILER):
 
 import std.conv;
 import std.exception;

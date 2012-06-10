@@ -12,7 +12,6 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
-import sdc.aglobal;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.extract;
@@ -49,8 +48,8 @@ Module parseModule(TokenStream tstream)
     mod.moduleDeclaration = parseModuleDeclaration(tstream);
 
     auto name = extractQualifiedName(mod.moduleDeclaration.name);
-    verbosePrint("Parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
-    verboseIndent++;
+
+
     
     while (tstream.peek.type != TokenType.End) {
         mod.declarationDefinitions ~= parseAttributeBlock(tstream);
@@ -61,8 +60,8 @@ Module parseModule(TokenStream tstream)
     implicitObjectImport.node = synthesiseImport("object");
     mod.declarationDefinitions ~= implicitObjectImport;
 
-    verboseIndent--;
-    verbosePrint("Done parsing module '" ~ name ~ "'.", VerbosePrintColour.Blue);
+
+
 
     return mod;
 }                                        
@@ -77,8 +76,8 @@ DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
         attribute = parseAttribute(tstream);
     
         name = to!string(attribute.type);
-        verbosePrint("Parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
-        verboseIndent++;
+
+
     }
     
     auto block = parseDeclarationBlock(tstream, parsingAttribute);
@@ -96,8 +95,8 @@ DeclarationDefinition[] parseAttributeBlock(TokenStream tstream)
     }
     
     if (parsingAttribute) {
-        verboseIndent--;
-        verbosePrint("Done parsing attribute '" ~ name ~ "'.", VerbosePrintColour.Green);
+
+
     }
     
     return block.declarationDefinitions;

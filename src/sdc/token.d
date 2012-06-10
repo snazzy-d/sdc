@@ -8,7 +8,7 @@ module sdc.token;
 import sdc.location;
 
 
-immutable string[179] tokenToString = [
+immutable string[181] tokenToString = [
 "none", "identifier", "string literal", "character literal",
 "integer literal", "float literal", "abstract", "alias", "align",
 "asm", "assert", "auto", "body", "bool", "break", "byte", "case",
@@ -19,21 +19,21 @@ immutable string[179] tokenToString = [
 "foreach", "foreach_reverse", "function", "goto", "idouble", "if",
 "ifloat", "immutable", "import", "in", "inout", "int", "interface",
 "invariant", "ireal", "is", "lazy", "long", "macro", "mixin", "module",
-"new", "nothrow", "null", "out", "override", "package", "pragma",
-"private", "protected", "public", "pure", "real", "ref", "return",
-"scope", "shared", "short", "static", "struct", "super",
+"mutable", "new", "nothrow", "null", "out", "override", "package",
+"pragma","private", "protected", "public", "pure", "real", "ref",
+"return","scope", "shared", "short", "static", "struct", "super",
 "switch", "synchronized", "template", "this", "throw", "true",
 "try", "typedef", "typeid", "typeof", "ubyte", "ucent", "uint",
-"ulong", "union", "unittest", "ushort", "version", "void", "volatile",
-"wchar", "while", "with", "__FILE__", "__LINE__", "__gshared",
-"__thread", "__traits",
+"ulong", "union", "unittest", "ushort", "version", "virtual", "void",
+"volatile","wchar", "while", "with", "__FILE__", "__LINE__",
+"__gshared", "__thread", "__traits",
 "/", "/=", ".", "..", "...", "&", "&=", "&&", "|", "|=", "||",
 "-", "-=", "--", "+", "+=", "++", "<", "<=", "<<", "<<=", "<>", "<>=",
 ">", ">=", ">>=", ">>>=", ">>", ">>>", "!", "!=", "!<>", "!<>=", "!<",
 "!<=", "!>", "!>=", "(", ")", "[", "]", "{", "}", "?", ",", ";",
 ":", "$", "=", "==", "*", "*=", "%", "%=", "^", "^=", "^^", "^^=", "~", "~=",
 "@",
-"(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF"
+"(>^(>O_O)>", "symbol", "number", "BEGIN", "EOF",
 ];
 
 /**
@@ -70,7 +70,7 @@ enum TokenType
     Idouble, If, Ifloat, Immutable, Import, In,
     Inout, Int, Interface, Invariant, Ireal, Is,
     Lazy, Long,
-    Macro, Mixin, Module,
+    Macro, Mixin, Module, Mutable,
     New, Nothrow, Null,
     Out, Override,
     Package, Pragma, Private, Protected, Public, Pure,
@@ -80,7 +80,7 @@ enum TokenType
     Template, This, Throw, True, Try, Typedef,
     Typeid, Typeof,
     Ubyte, Ucent, Uint, Ulong, Union, Unittest, Ushort,
-    Version, Void, Volatile,
+    Version, Virtual, Void, Volatile,
     Wchar, While, With,
     __File__, __Line__, __Gshared, __Thread, __Traits,
     

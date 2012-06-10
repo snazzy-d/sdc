@@ -8,7 +8,6 @@ module sdc.parser.aggregate;
 import std.string;
 
 import sdc.util;
-import sdc.aglobal;
 import sdc.compilererror;
 import sdc.tokenstream;
 import sdc.extract;
@@ -38,8 +37,8 @@ AggregateDeclaration parseAggregateDeclaration(TokenStream tstream)
     
     aggregate.name = parseIdentifier(tstream);
     auto name = extractIdentifier(aggregate.name);
-    verbosePrint("Parsing aggregate '" ~ name ~ "'.", VerbosePrintColour.Green);
-    verboseIndent++;
+
+
     
     if (tstream.peek.type == TokenType.Semicolon) {
         match(tstream, TokenType.Semicolon);
@@ -47,8 +46,8 @@ AggregateDeclaration parseAggregateDeclaration(TokenStream tstream)
         aggregate.structBody = parseStructBody(tstream);
     }
 
-    verboseIndent--;
-    verbosePrint("Done parsing aggregate '" ~ name ~ "'.", VerbosePrintColour.Green);
+
+
     
     return aggregate;
 }

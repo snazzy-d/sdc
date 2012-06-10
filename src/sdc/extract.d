@@ -108,7 +108,7 @@ dchar extractCharacterLiteral(CharacterLiteral literal)
     return c;
 }
 
-private:
+// private:
 string extractRawString(string s)
 {
     char terminator = s[0];
