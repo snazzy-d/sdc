@@ -10,6 +10,7 @@ import sdc.compilererror;
 import sdc.token;
 import sdc.location;
 import sdc.ast.attribute;
+import sdc.ast.visitor;
 
 class Node
 {
@@ -61,6 +62,11 @@ class Node
                 return true;
         return false;
     }
+
+    void accept(AstVisitor visitor)
+    {
+        //sassert(false);
+    }
 }
 
 // ident(.ident)*
@@ -85,11 +91,24 @@ class QualifiedName : Node
             return false;
         }
     }
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (ident; identifiers) {
+            ident.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }
 
 class Identifier : Node
 {
     string value;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class Literal : Node
@@ -99,33 +118,67 @@ class Literal : Node
 class IntegerLiteral : Literal
 {
     string value;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class FloatLiteral : Literal
 {
     string value;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class CharacterLiteral : Literal
 {
     string value;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class StringLiteral : Literal
 {
     string value;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class ArrayLiteral : Literal
 {
     Token[] tokens;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class AssocArrayLiteral : Literal
 {
     Token[] tokens;
+
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }
 
 class FunctionLiteral : Literal
 {
+    override void accept(AstVisitor visitor)
+    {
+        visitor.visit(this);
+    }
 }

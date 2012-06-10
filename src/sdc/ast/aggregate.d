@@ -7,6 +7,7 @@ module sdc.ast.aggregate;
 
 import sdc.ast.base;
 import sdc.ast.sdcmodule;
+import sdc.ast.visitor;
 
 
 enum AggregateType
@@ -21,10 +22,25 @@ class AggregateDeclaration : Node
     AggregateType type;
     Identifier name;
     StructBody structBody;  // Optional
+
+    override void accept(AstVisitor visitor)
+    {
+        name.accept(visitor);
+        structBody.accept(visitor);
+        visitor.visit(this);
+    }
 }
 
 // { StructBodyDeclaration* }
 class StructBody : Node
 {
     DeclarationDefinition[] declarations;
+
+    override void accept(AstVisitor visitor)
+    {
+        foreach (decl; declarations) {
+            decl.accept(visitor);
+        }
+        visitor.visit(this);
+    }
 }

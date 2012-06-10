@@ -3,13 +3,9 @@ include makefile.common
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
 SOURCE = $(SOURCE_WILDCARDS)
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport -version=SDCCOMPILER
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport
 OBJ = sdc.o
 EXE = bin/sdc
-
-PHOBOS2 = -lphobos2
-LIBLLVM = -L-L`llvm-config --libdir` `llvm-config --libs | sed 's/-L/-L-L/g' | sed 's/-l/-L-l/g' -`
-LDFLAGS = $(LIBLLVM) -L-lstdc++ 
 
 ifeq ($(PLATFORM),Linux)
 LDFLAGS += -L-ldl

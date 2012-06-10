@@ -147,7 +147,7 @@ This just me thinking outloud about what features I want, when.
 
 Compiling SDC on Linux
 =======
-You'll need make and the latest DMD installed.
+You'll need `make` and the latest DMD installed.
 Install LLVM 3.0.
 Run `make`.
 Copy `bin/sdc` into your `$PATH` somewhere.

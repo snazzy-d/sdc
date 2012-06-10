@@ -16,7 +16,6 @@ import std.process;
 
 import sdc.compilererror;
 import sdc.ast.expression;
-import sdc.gen.sdcmodule;
 
 bool contains(T)(const(T)[] l, const T a)
 {

@@ -14,7 +14,6 @@ import std.conv;
 import std.exception;
 
 import sdc.util;
-import sdc.aglobal;
 import sdc.tokenstream;
 import sdc.compilererror;
 import sdc.extract;
@@ -193,7 +192,7 @@ FunctionDeclaration parseFunctionDeclaration(TokenStream tstream, out TemplateDe
         declaration.returnType = parseType(tstream);
     }
     declaration.name = parseQualifiedName(tstream); // TODO: WHAT!?
-    verbosePrint("Parsing function '" ~ extractQualifiedName(declaration.name) ~ "'.", VerbosePrintColour.Green);
+
     
     // If the next token isn't '(', assume the user missed a ';' off a variable declaration.
     if(tstream.peek.type != TokenType.OpenParen) {
