@@ -20,7 +20,7 @@ import core.stdc.stdlib;
 version (linux) import core.sys.posix.unistd;
 
 
-immutable SDC = "sdc";
+immutable SDC = "../bin/sdc";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
@@ -105,11 +105,10 @@ void test(string filename, string compiler)
     if (compiler == SDC) {
         command = format(`%s -o=%s -O "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
-        command = format(`%s%s "%s" %s`, compiler, exeName, filename, cmdDeps);
+        command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
     version (linux) if (!expectedToCompile) command ~= " 2> /dev/null 1> /dev/null";
-    
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
