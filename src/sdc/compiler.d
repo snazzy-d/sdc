@@ -70,6 +70,17 @@ class Compiler
         if (mTokenStreams.length == 0) {
             throw new Exception("tried to parse before lexing.");
         }
+        
+        {
+            // Hack to check the custom parser.
+            import d.parser.dmodule;
+            foreach (i, ts; mTokenStreams) {
+                .parseModule(ts);
+            }
+            
+            lex();
+        }
+        
         mModules = new Module[mTokenStreams.length];
         foreach (i, ts; mTokenStreams) {
             mModules[i] = .parse(ts);

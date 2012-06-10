@@ -1,4 +1,4 @@
-module d.parser.base;
+module d.parser.dmodule;
 
 import d.ast.declaration;
 import d.ast.dmodule;
