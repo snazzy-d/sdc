@@ -28,6 +28,10 @@ Indirect goals are :
 * Introduce call to druntime in place of corresponding constructs.
 * Optimise ?
 * Provide data as a usable form for SDC.
+=======
+Last tested with: DMD releases `2.059`.
+
+This branch may seem dead, but check out multi-pass for where work on a sane backend (tm) is going on.
 
 Features
 ========
