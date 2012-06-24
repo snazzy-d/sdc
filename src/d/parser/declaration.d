@@ -121,10 +121,12 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return handleStorageClass!PureDeclaration();
 		
 		case TokenType.Static :
+			// Handle static if.
+			if(tstream.lookahead(1).type == TokenType.If) {
+				return parseStaticIf!Declaration(tstream);
+			}
+			
 			tstream.get();
-			
-			// TODO: handle static if.
-			
 			return handleStorageClass!StaticDeclaration();
 		
 		case TokenType.Synchronized :
@@ -186,7 +188,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return handleStorageClass!AttributeDeclaration(attribute);
 		
 		/*
-		 * Class, interface and struct declaration
+		 * Class, interface, struct and union declaration
 		 */
 		case TokenType.Interface :
 			return parseInterface(tstream);
@@ -196,6 +198,9 @@ Declaration parseDeclaration(TokenStream tstream) {
 		
 		case TokenType.Struct :
 			return parseStruct(tstream);
+		
+		case TokenType.Union :
+			return parseUnion(tstream);
 		
 		/*
 		 * Constructor and destructor

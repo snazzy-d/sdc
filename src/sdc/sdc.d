@@ -34,6 +34,14 @@ void compile(string filename)
 {
     auto src = new Source(filename);
     TokenStream tstream = lex(src);
+    
+    {
+    	import d.parser.dmodule;
+    	parseModule(tstream);
+    	
+    	tstream = lex(new Source(filename));
+    }
+    
     Module ast = parse(tstream);
     ast = pureSimplify(ast);
 }

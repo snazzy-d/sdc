@@ -45,6 +45,9 @@ auto parseBasicType(TokenStream tstream) {
 			return processQualifier!(function(Type type) { return type.makeMutable(); })();
 		case TokenType.Inout :
 			return processQualifier!(function(Type type) { return type.makeInout(); })();
+		case TokenType.Scope, TokenType.Ref :
+			// TODO: handle scope and ref.
+			return processQualifier!(function(Type type) { return type; })();
 		
 		// Identified types
 		case TokenType.Identifier :

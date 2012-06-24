@@ -5,6 +5,7 @@ import d.ast.declaration;
 import d.ast.statement;
 
 import d.parser.declaration;
+import d.parser.expression;
 import d.parser.statement;
 
 import sdc.tokenstream;
@@ -62,6 +63,41 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 		default :
 			// TODO: error.
 			assert(0);
+	}
+}
+
+/**
+ * Parse static if.
+ */
+ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
+	auto location = match(tstream, TokenType.Static).location;
+	match(tstream, TokenType.If);
+	match(tstream, TokenType.OpenParen);
+	
+	auto condition = parseExpression(tstream);
+	
+	match(tstream, TokenType.CloseParen);
+	
+	ItemType[] items;
+	if(tstream.peek.type == TokenType.OpenBrace) {
+		items = parseAggregate(tstream);
+	} else {
+		items = [parseDeclaration(tstream)];
+	}
+	
+	if(tstream.peek.type == TokenType.Else) {
+		tstream.get();
+		
+		ItemType[] elseItems;
+		if(tstream.peek.type == TokenType.OpenBrace) {
+			elseItems = parseAggregate(tstream);
+		} else {
+			elseItems = [parseDeclaration(tstream)];
+		}
+		
+		return null;
+	} else {
+		return null;
 	}
 }
 

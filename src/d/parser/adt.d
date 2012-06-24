@@ -7,6 +7,7 @@ import d.ast.identifier;
 import d.ast.type;
 
 import d.parser.declaration;
+import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.type;
@@ -50,27 +51,43 @@ alias parsePolymorphic!true parseClass;
 alias parsePolymorphic!false parseInterface;
 
 /**
- * Parse struct
+ * Parse struct or union
  */
-auto parseStruct(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Struct).location;
-	string name = match(tstream, TokenType.Identifier).value;
+auto parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenType.Struct || type == TokenType.Union) {
+	auto location = match(tstream, type).location;
+	string name;
 	
-	// Handle opaque structs.
-	if(tstream.peek.type == TokenType.Semicolon) {
-		location.spanTo(tstream.peek.location);
+	if(tstream.peek.type == TokenType.Identifier) {
+		name = tstream.get().value;
 		
-		tstream.get();
-		
-		return new StructDeclaration(location, name);
-	} else {
-		auto members = parseAggregate(tstream);
-		
-		location.spanTo(tstream.previous.location);
-		
-		return new StructDefinition(location, name, members);
+		switch(tstream.peek.type) {
+			// Handle opaque declarations.
+			case TokenType.Semicolon :
+				location.spanTo(tstream.peek.location);
+				
+				tstream.get();
+				
+				return new StructDeclaration(location, name);
+			
+			// Template structs
+			case TokenType.OpenParen :
+				parseTemplateParameters(tstream);
+				break;
+			
+			default :
+				break;
+		}
 	}
+	
+	auto members = parseAggregate(tstream);
+	
+	location.spanTo(tstream.previous.location);
+	
+	return new StructDefinition(location, name, members);
 }
+
+alias parseStructOrUnion!(TokenType.Struct) parseStruct;
+alias parseStructOrUnion!(TokenType.Union) parseUnion;
 
 /**
  * Parse enums

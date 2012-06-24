@@ -49,8 +49,6 @@ Module parseModule(TokenStream tstream)
 
     auto name = extractQualifiedName(mod.moduleDeclaration.name);
 
-
-    
     while (tstream.peek.type != TokenType.End) {
         mod.declarationDefinitions ~= parseAttributeBlock(tstream);
     }
@@ -59,9 +57,6 @@ Module parseModule(TokenStream tstream)
     implicitObjectImport.type = DeclarationDefinitionType.ImportDeclaration;
     implicitObjectImport.node = synthesiseImport("object");
     mod.declarationDefinitions ~= implicitObjectImport;
-
-
-
 
     return mod;
 }                                        

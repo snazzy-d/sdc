@@ -142,7 +142,7 @@ auto parseParameter(TokenStream tstream) {
 	bool parseStorageClass = true;
 	while(parseStorageClass) {
 		switch(tstream.peek.type) {
-			case TokenType.Ref, TokenType.In, TokenType.Out, TokenType.Scope :
+			case TokenType.In, TokenType.Out, TokenType.Lazy :
 				tstream.get();
 				break;
 			
