@@ -2,6 +2,8 @@ module d.parser.statement;
 
 import d.ast.statement;
 
+import d.parser.expression;
+
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
@@ -10,6 +12,10 @@ auto parseStatement(TokenStream tstream) {
 	if(tstream.peek.type == TokenType.OpenBrace) {
 		parseBlock(tstream);
 	} else {
+	/*
+		parseExpression(tstream);
+		match(tstream, TokenType.Semicolon);
+	*/
 		tstream.get();
 	}
 	
