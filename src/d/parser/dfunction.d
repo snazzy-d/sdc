@@ -2,9 +2,11 @@ module d.parser.dfunction;
 
 import d.ast.dfunction;
 
+import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.statement;
 import d.parser.type;
+import d.parser.util;
 
 import sdc.tokenstream;
 import sdc.location;
@@ -37,7 +39,20 @@ auto parseDestructor(TokenStream tstream) {
 auto parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, U... )(TokenStream tstream, Location location, U arguments) {
 	// Function declaration.
 	bool isVariadic;
+	bool isTemplate;
+	
+	// Check if we have a function template
+	if(findWhatComeAfterClosingToken!(TokenType.OpenParen)(tstream).type == TokenType.OpenParen) {
+		parseTemplateParameters(tstream);
+		isTemplate = true;
+	}
+	
 	auto parameters = parseParameters(tstream, isVariadic);
+	
+	// If it is a template, it can have a constraint.
+	if(isTemplate && tstream.peek.type == TokenType.If) {
+		parseConstraint(tstream);
+	}
 	
 	// TODO: parse function attributes
 	// Parse function attributes

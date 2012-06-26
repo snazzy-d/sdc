@@ -2,6 +2,7 @@ module d.ast.expression;
 
 import d.ast.identifier;
 import d.ast.statement;
+import d.ast.type;
 
 import sdc.location;
 
@@ -178,9 +179,9 @@ class EqualityExpression(BinaryOperation operation) if(
 /**
  * is and !is
  */
-class IsExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.In
-	|| operation == BinaryOperation.NotIn
+class BinaryIsExpression(BinaryOperation operation) if(
+	operation == BinaryOperation.Is
+	|| operation == BinaryOperation.NotIs
 ) : BinaryExpression {
 	this(Location location, Expression lhs, Expression rhs) {
 		super(location, operation, lhs, rhs);
@@ -190,9 +191,9 @@ class IsExpression(BinaryOperation operation) if(
 /**
  * in and !in
  */
-class IsExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.Is
-	|| operation == BinaryOperation.NotIs
+class InExpression(BinaryOperation operation) if(
+	operation == BinaryOperation.In
+	|| operation == BinaryOperation.NotIn
 ) : BinaryExpression {
 	this(Location location, Expression lhs, Expression rhs) {
 		super(location, operation, lhs, rhs);
@@ -412,6 +413,7 @@ enum PrimaryType {
 	ArrayLiteral,
 	AssocArrayLiteral,
 	FunctionLiteral,
+	DelegateLiteral,
 	AssertExpression,
 	MixinExpression,
 	ImportExpression,
@@ -532,6 +534,29 @@ class __File__Literal : PrimaryExpression {
 class __Line__Literal : PrimaryExpression {
 	this(Location location) {
 		super(location, PrimaryType.__Line__);
+	}
+}
+
+/**
+ * Delegate literals
+ */
+class DelegateLiteral : PrimaryExpression {
+	private Statement statement;
+	
+	this(Statement statement) {
+		super(statement.location, PrimaryType.DelegateLiteral);
+		
+		this.statement = statement;
+	}
+}
+
+class IsExpression : PrimaryExpression {
+	private Type type;
+	
+	this(Location location, Type type) {
+		super(location, PrimaryType.IsExpression);
+		
+		this.type = type;
 	}
 }
 
