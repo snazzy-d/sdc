@@ -25,10 +25,28 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 	
 	auto location = match(tstream, conditionalType).location;
 	
+	// TODO: refactor.
 	switch(tstream.peek.type) {
 		case TokenType.OpenParen :
 			tstream.get();
-			string versionId = match(tstream, TokenType.Identifier).value;
+			string versionId;
+			switch(tstream.peek.type) {
+				case TokenType.Identifier :
+					versionId = match(tstream, TokenType.Identifier).value;
+					break;
+				
+				case TokenType.Unittest :
+					// version unittest don't exist for debug
+					if(conditionalType == TokenType.Debug) goto default;
+					
+					tstream.get();
+					versionId = "unittest";
+					break;
+				
+				default :
+					assert(0);
+			}
+			
 			match(tstream, TokenType.CloseParen);
 			
 			ItemType[] items;

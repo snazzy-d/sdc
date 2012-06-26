@@ -696,7 +696,7 @@ PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
 	} else {
 		auto integer = parse!long(value);
 		
-		if(isLong || integer > int.max) {
+		if(isLong || integer > int.max || integer < int.min) {
 			return new IntegerLiteral!long(location, integer);
 		} else {
 			return new IntegerLiteral!int(location, cast(int) integer);
