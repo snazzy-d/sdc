@@ -3,6 +3,7 @@ module d.parser.expression;
 import d.ast.expression;
 
 import d.parser.identifier;
+import d.parser.statement;
 import d.parser.type;
 
 import sdc.tokenstream;
@@ -468,9 +469,6 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			
 			return new IdentifierExpression(location, identifier);
 		
-		case TokenType.IntegerLiteral :
-			return parseIntegerLiteral(tstream);
-		
 		case TokenType.True :
 			tstream.get();
 			return new BooleanLiteral!true(location);
@@ -483,9 +481,17 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			return new NullLiteral(location);
 		
+		case TokenType.IntegerLiteral :
+			return parseIntegerLiteral(tstream);
+		
 		case TokenType.StringLiteral :
 			string value = extractStringLiteral(tstream.get().value);
 			return new StringLiteral(location, value);
+		
+		// Delegates litterals.
+		case TokenType.OpenBrace :
+			auto block = parseBlock(tstream);
+			return new DelegateLiteral(block);
 		
 		case TokenType.__File__ :
 			tstream.get();
@@ -496,6 +502,9 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return new __Line__Literal(location);
 		
 		// TODO: literals, dollar.
+		
+		case TokenType.Is :
+			return parseIsExpression(tstream);
 		
 		case TokenType.OpenParen :
 			tstream.get();
@@ -578,6 +587,24 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 				return expression;
 		}
 	}
+}
+
+/**
+ * Parse unary is expression.
+ */
+auto parseIsExpression(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Is).location;
+	match(tstream, TokenType.OpenParen);
+	
+	auto type = parseType(tstream);
+	
+	// TODO: handle all is expression.
+	// Horrible hack to get around is expressions.
+	while(tstream.peek.type != TokenType.CloseParen) tstream.get();
+	
+	location.spanTo(match(tstream, TokenType.CloseParen).location);
+	
+	return new IsExpression(location, type);
 }
 
 /**

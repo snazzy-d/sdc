@@ -3,6 +3,7 @@ module d.parser.dtemplate;
 import d.ast.dtemplate;
 
 import d.parser.declaration;
+import d.parser.expression;
 import d.parser.type;
 
 import sdc.tokenstream;
@@ -89,6 +90,15 @@ TemplateParameter parseTemplateParameter(TokenStream tstream) {
 			
 			return new ValueTemplateParameter(location, name, type);
 	}
+}
+
+auto parseConstraint(TokenStream tstream) {
+	match(tstream, TokenType.If);
+	match(tstream, TokenType.OpenParen);
+	
+	parseExpression(tstream);
+	
+	match(tstream, TokenType.CloseParen);
 }
 
 TemplateParameter parseAliasParameter(TokenStream tstream) {
