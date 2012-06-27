@@ -39,12 +39,16 @@ auto parseBasicType(TokenStream tstream) {
 		// Types qualifiers
 		case TokenType.Const :
 			return processQualifier!(function(Type type) { return type.makeConst(); })();
+		
 		case TokenType.Immutable :
 			return processQualifier!(function(Type type) { return type.makeImmutable(); })();
+		
 		case TokenType.Mutable :
 			return processQualifier!(function(Type type) { return type.makeMutable(); })();
+		
 		case TokenType.Inout :
 			return processQualifier!(function(Type type) { return type.makeInout(); })();
+		
 		case TokenType.Scope, TokenType.Ref :
 			// TODO: handle scope and ref.
 			return processQualifier!(function(Type type) { return type; })();
@@ -54,11 +58,12 @@ auto parseBasicType(TokenStream tstream) {
 			auto identifier = parseIdentifier(tstream);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierType(location, identifier);
+		
 		case TokenType.Dot :
-			tstream.get();
-			auto identifier = parseDotIdentifier(tstream, location);
+			auto identifier = parseDotIdentifier(tstream);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierType(location, identifier);
+		
 		case TokenType.Typeof :
 			tstream.get();
 			auto type = parseTypeof(tstream, location);
@@ -72,6 +77,7 @@ auto parseBasicType(TokenStream tstream) {
 			}
 			
 			return type;
+		
 		case TokenType.This :
 			tstream.get();
 			auto thisExpression = new ThisExpression(location);
@@ -79,6 +85,7 @@ auto parseBasicType(TokenStream tstream) {
 			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
 			location.spanTo(tstream.previous.location);
 			return new IdentifierType(location, identifier);
+		
 		case TokenType.Super :
 			tstream.get();
 			auto superExpression = new SuperExpression(location);
@@ -91,54 +98,70 @@ auto parseBasicType(TokenStream tstream) {
 		case TokenType.Bool :
 			tstream.get();
 			return new BuiltinType!bool(location);
+		
 		case TokenType.Byte :
 			tstream.get();
 			return new BuiltinType!byte(location);
+		
 		case TokenType.Ubyte :
 			tstream.get();
 			return new BuiltinType!ubyte(location);
+		
 		case TokenType.Short :
 			tstream.get();
 			return new BuiltinType!short(location);
+		
 		case TokenType.Ushort :
 			tstream.get();
 			return new BuiltinType!ushort(location);
+		
 		case TokenType.Int :
 			tstream.get();
 			return new BuiltinType!int(location);
+		
 		case TokenType.Uint :
 			tstream.get();
 			return new BuiltinType!uint(location);
+		
 		case TokenType.Long :
 			tstream.get();
 			return new BuiltinType!long(location);
+		
 		case TokenType.Ulong :
 			tstream.get();
 			return new BuiltinType!ulong(location);
+		
 /*		case TokenType.Cent :
 			tstream.get();
 			return new BuiltinType!cent(location);
 		case TokenType.Ucent :
 			tstream.get();
 			return new BuiltinType!ucent(location);	*/
+		
 		case TokenType.Char :
 			tstream.get();
 			return new BuiltinType!char(location);
+		
 		case TokenType.Wchar :
 			tstream.get();
 			return new BuiltinType!wchar(location);
+		
 		case TokenType.Dchar :
 			tstream.get();
 			return new BuiltinType!dchar(location);
+		
 		case TokenType.Float :
 			tstream.get();
 			return new BuiltinType!float(location);
+		
 		case TokenType.Double :
 			tstream.get();
 			return new BuiltinType!double(location);
+		
 		case TokenType.Real :
 			tstream.get();
 			return new BuiltinType!real(location);
+		
 		case TokenType.Void :
 			tstream.get();
 			return new BuiltinType!void(location);
