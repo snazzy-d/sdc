@@ -15,14 +15,7 @@ auto parseIdentifier(TokenStream tstream) {
 	string name = match(tstream, TokenType.Identifier).value;
 	location.spanTo(tstream.previous.location);
 	
-	auto identifier = new Identifier(location, name);
-	
-	if(tstream.peek.type == TokenType.Dot) {
-		tstream.get();
-		identifier = parseQualifiedIdentifier(tstream, location, identifier);
-	}
-	
-	return identifier;
+	return parseBuiltIdentifier(tstream, location, new Identifier(location, name));
 }
 
 /**
@@ -40,15 +33,40 @@ auto parseQualifiedIdentifier(TokenStream tstream, Location location, Namespace 
 	string name = match(tstream, TokenType.Identifier).value;
 	location.spanTo(tstream.previous.location);
 	
-	auto identifier = new QualifiedIdentifier(location, name, namespace);
-	
-	while(tstream.peek.type == TokenType.Dot) {
-		tstream.get();
-		name = match(tstream, TokenType.Identifier).value;
-		location.spanTo(tstream.previous.location);
-		identifier = new QualifiedIdentifier(location, name, identifier);
+	return parseBuiltIdentifier(tstream, location, new QualifiedIdentifier(location, name, namespace));
+}
+
+/**
+ * Parse built identifier
+ */
+private
+auto parseBuiltIdentifier(TokenStream tstream, Location location, Identifier identifier) {
+	while(1) {
+		switch(tstream.peek.type) {
+			case TokenType.Dot :
+				tstream.get();
+				string name = match(tstream, TokenType.Identifier).value;
+				location.spanTo(tstream.previous.location);
+				
+				identifier = new QualifiedIdentifier(location, name, identifier);
+				break;
+			
+			// TODO: parse template instanciation.
+			case TokenType.Bang :
+				tstream.get();
+				if(tstream.peek.type == TokenType.OpenParen) {
+					// TODO: do something meaningful here.
+					while(tstream.get().type != TokenType.CloseParen) tstream.get();
+				} else {
+					// TODO: Parse different types of unique template argument.
+					match(tstream, TokenType.Identifier);
+				}
+				
+				break;
+			
+			default :
+				return identifier;
+		}
 	}
-	
-	return identifier;
 }
 
