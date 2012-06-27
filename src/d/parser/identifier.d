@@ -28,7 +28,8 @@ auto parseIdentifier(TokenStream tstream) {
 /**
  * Parse dotted identifier (.identifier)
  */
-auto parseDotIdentifier(TokenStream tstream, Location location) {
+auto parseDotIdentifier(TokenStream tstream) {
+	auto location = match(tstream, TokenType.Dot).location;
 	return parseQualifiedIdentifier(tstream, location, new ModuleNamespace(location));
 }
 

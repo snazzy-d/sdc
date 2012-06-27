@@ -440,8 +440,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.Dot :
-			tstream.get();
-			auto identifier = parseDotIdentifier(tstream, location);
+			auto identifier = parseDotIdentifier(tstream);
 			location.spanTo(tstream.previous.location);
 			
 			return new IdentifierExpression(location, identifier);
