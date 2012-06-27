@@ -22,6 +22,15 @@ auto parseTemplate(TokenStream tstream) {
 	return new TemplateDeclaration(location, name, parameters, declarations);
 }
 
+auto parseConstraint(TokenStream tstream) {
+	match(tstream, TokenType.If);
+	match(tstream, TokenType.OpenParen);
+	
+	parseExpression(tstream);
+	
+	match(tstream, TokenType.CloseParen);
+}
+
 auto parseTemplateParameters(TokenStream tstream) {
 	match(tstream, TokenType.OpenParen);
 	
@@ -45,15 +54,10 @@ auto parseTemplateParameters(TokenStream tstream) {
 TemplateParameter parseTemplateParameter(TokenStream tstream) {
 	switch(tstream.peek.type) {
 		case TokenType.Identifier :
-			// TODO: handle default parameter and specialisation.
-			
 			switch(tstream.lookahead(1).type) {
 				// Identifier followed by ":", "=", "," or ")" are type parameters.
 				case TokenType.Colon, TokenType.Assign, TokenType.Comma, TokenType.CloseParen :
-					string name = tstream.peek.value;
-					auto location = tstream.get().location;
-					
-					return new TypeTemplateParameter(location, name);
+					return parseTypeParameter(tstream);
 				
 				case TokenType.TripleDot :
 					string name = tstream.get().value;
@@ -62,11 +66,9 @@ TemplateParameter parseTemplateParameter(TokenStream tstream) {
 					return new TupleTemplateParameter(location, name);
 				
 				default :
-					break;
+					// We probably have a value parameter (or an error).
+					return parseValueParameter(tstream);
 			}
-			
-			// We have a value parameter.
-			goto default;
 		
 		case TokenType.Alias :
 			return parseAliasParameter(tstream);
@@ -81,24 +83,43 @@ TemplateParameter parseTemplateParameter(TokenStream tstream) {
 		
 		default :
 			// We probably have a value parameter (or an error).
-			auto location = tstream.peek.location;
-			
-			auto type = parseType(tstream);
-			string name = match(tstream, TokenType.Identifier).value;
-			
-			location.spanTo(tstream.previous.location);
-			
-			return new ValueTemplateParameter(location, name, type);
+			return parseValueParameter(tstream);
 	}
 }
 
-auto parseConstraint(TokenStream tstream) {
-	match(tstream, TokenType.If);
-	match(tstream, TokenType.OpenParen);
+auto parseTypeParameter(TokenStream tstream) {
+	string name = tstream.peek.value;
+	auto location = tstream.get().location;
 	
-	parseExpression(tstream);
+	switch(tstream.peek.type) {
+		// TODO: handle default parameter and specialisation.
+		case TokenType.Colon :
+			tstream.get();
+			parseType(tstream);
+			
+			if(tstream.peek.type == TokenType.Assign) goto case TokenType.Assign;
+			
+			goto default;
+		
+		case TokenType.Assign :
+			tstream.get();
+			parseType(tstream);
+			goto default;
+		
+		default :
+			return new TypeTemplateParameter(location, name);
+	}
+}
+
+auto parseValueParameter(TokenStream tstream) {
+	auto location = tstream.peek.location;
 	
-	match(tstream, TokenType.CloseParen);
+	auto type = parseType(tstream);
+	string name = match(tstream, TokenType.Identifier).value;
+	
+	location.spanTo(tstream.previous.location);
+	
+	return new ValueTemplateParameter(location, name, type);
 }
 
 TemplateParameter parseAliasParameter(TokenStream tstream) {

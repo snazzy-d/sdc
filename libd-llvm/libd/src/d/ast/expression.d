@@ -179,7 +179,7 @@ class EqualityExpression(BinaryOperation operation) if(
 /**
  * is and !is
  */
-class BinaryIsExpression(BinaryOperation operation) if(
+class IdentityExpression(BinaryOperation operation) if(
 	operation == BinaryOperation.Is
 	|| operation == BinaryOperation.NotIs
 ) : BinaryExpression {
