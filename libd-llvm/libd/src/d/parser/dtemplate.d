@@ -117,6 +117,18 @@ auto parseValueParameter(TokenStream tstream) {
 	auto type = parseType(tstream);
 	string name = match(tstream, TokenType.Identifier).value;
 	
+	if(tstream.peek.type == TokenType.Assign) {
+		tstream.get();
+		switch(tstream.peek.type) {
+			case TokenType.__File__, TokenType.__Line__ :
+				tstream.get();
+				break;
+			
+			default :
+				parseAssignExpression(tstream);
+		}
+	}
+	
 	location.spanTo(tstream.previous.location);
 	
 	return new ValueTemplateParameter(location, name, type);
