@@ -49,8 +49,8 @@ auto parseBasicType(TokenStream tstream) {
 		case TokenType.Inout :
 			return processQualifier!(function(Type type) { return type.makeInout(); })();
 		
-		case TokenType.Scope, TokenType.Ref :
-			// TODO: handle scope and ref.
+		case TokenType.Shared, TokenType.Scope, TokenType.Ref :
+			// TODO: handle shared, scope and ref.
 			return processQualifier!(function(Type type) { return type; })();
 		
 		// Identified types
