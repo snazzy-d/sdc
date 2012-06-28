@@ -20,7 +20,7 @@ import sdc.parser.base : match;
 /**
  * Parse class or interface
  */
-auto parsePolymorphic(bool isClass = true)(TokenStream tstream) {
+Declaration parsePolymorphic(bool isClass = true)(TokenStream tstream) {
 	static if(isClass) {
 		auto location = match(tstream, TokenType.Class).location;
 		alias ClassDefinition DefinitionType;
@@ -123,6 +123,7 @@ alias parseStructOrUnion!(TokenType.Union) parseUnion;
  */
 Enum parseEnum(TokenStream tstream) {
 	auto location = match(tstream, TokenType.Enum).location;
+	
 	string name;
 	Type type;
 	
