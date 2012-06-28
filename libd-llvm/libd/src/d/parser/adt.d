@@ -2,6 +2,7 @@ module d.parser.adt;
 
 import d.ast.adt;
 import d.ast.declaration;
+import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -22,8 +23,15 @@ import sdc.parser.base : match;
 auto parsePolymorphic(bool isClass = true)(TokenStream tstream) {
 	static if(isClass) {
 		auto location = match(tstream, TokenType.Class).location;
+		alias ClassDefinition DefinitionType;
 	} else {
 		auto location = match(tstream, TokenType.Interface).location;
+		alias InterfaceDefinition DefinitionType;
+	}
+	
+	TemplateParameter[] parameters;
+	if(tstream.peek.type == TokenType.OpenParen) {
+		parameters = parseTemplateParameters(tstream);
 	}
 	
 	string name = match(tstream, TokenType.Identifier).value;
@@ -36,14 +44,22 @@ auto parsePolymorphic(bool isClass = true)(TokenStream tstream) {
 		} while(tstream.peek.type == TokenType.Comma);
 	}
 	
+	if(parameters.ptr) {
+		if(tstream.peek.type == TokenType.If) {
+			parseConstraint(tstream);
+		}
+	}
+	
 	auto members = parseAggregate(tstream);
 	
 	location.spanTo(tstream.previous.location);
 	
-	static if(isClass) {
-		return new ClassDefinition(location, name, bases, members);
+	auto adt = new DefinitionType(location, name, bases, members);
+	
+	if(parameters.ptr) {
+		return new TemplateDeclaration(location, name, parameters, [adt]);
 	} else {
-		return new InterfaceDefinition(location, name, bases, members);
+		return adt;
 	}
 }
 
@@ -53,9 +69,11 @@ alias parsePolymorphic!false parseInterface;
 /**
  * Parse struct or union
  */
-auto parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenType.Struct || type == TokenType.Union) {
+Declaration parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenType.Struct || type == TokenType.Union) {
 	auto location = match(tstream, type).location;
+	
 	string name;
+	TemplateParameter[] parameters;
 	
 	if(tstream.peek.type == TokenType.Identifier) {
 		name = tstream.get().value;
@@ -71,7 +89,12 @@ auto parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenTyp
 			
 			// Template structs
 			case TokenType.OpenParen :
-				parseTemplateParameters(tstream);
+				parameters = parseTemplateParameters(tstream);
+				
+				if(tstream.peek.type == TokenType.If) {
+					parseConstraint(tstream);
+				}
+				
 				break;
 			
 			default :
@@ -83,7 +106,13 @@ auto parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenTyp
 	
 	location.spanTo(tstream.previous.location);
 	
-	return new StructDefinition(location, name, members);
+	auto adt = new StructDefinition(location, name, members);
+	
+	if(parameters.ptr) {
+		return new TemplateDeclaration(location, name, parameters, [adt]);
+	} else {
+		return adt;
+	}
 }
 
 alias parseStructOrUnion!(TokenType.Struct) parseStruct;
@@ -142,7 +171,7 @@ Enum parseEnum(TokenStream tstream) {
 		} else {
 			auto entryLocation = tstream.previous.location;
 			
-			if(previousName.length > 0) {
+			if(previousName) {
 				enumEntriesValues[entryName] = new AdditionExpression(entryLocation, enumEntriesValues[previousName], new IntegerLiteral!uint(entryLocation, 1));
 			} else {
 				enumEntriesValues[entryName] = new IntegerLiteral!uint(entryLocation, 0);
@@ -160,10 +189,10 @@ Enum parseEnum(TokenStream tstream) {
 	
 	auto enumEntries = new VariablesDeclaration(location, type, enumEntriesValues);
 	
-	if(name.length == 0) {
-		return new Enum(location, type, enumEntries);
-	} else {
+	if(name) {
 		return new NamedEnum(location, name, type, enumEntries);
+	} else {
+		return new Enum(location, type, enumEntries);
 	}
 }
 
