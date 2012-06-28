@@ -597,9 +597,32 @@ auto parseIsExpression(TokenStream tstream) {
 	
 	auto type = parseType(tstream);
 	
-	// TODO: handle all is expression.
-	// Horrible hack to get around is expressions.
-	while(tstream.peek.type != TokenType.CloseParen) tstream.get();
+	// Handle alias throw is expression.
+	if(tstream.peek.type == TokenType.Identifier) tstream.get();
+	
+	switch(tstream.peek.type) {
+		case TokenType.Colon :
+			tstream.get();
+			parseType(tstream);
+			break;
+		
+		case TokenType.DoubleAssign :
+			tstream.get();
+			
+			switch(tstream.peek.type) {
+				case TokenType.Struct, TokenType.Union, TokenType.Class, TokenType.Interface, TokenType.Enum, TokenType.Function, TokenType.Delegate, TokenType.Super, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Return :
+					tstream.get();
+					break;
+				
+				default :
+					parseType(tstream);
+			}
+			
+			break;
+		
+		default :
+			break;
+	}
 	
 	location.spanTo(match(tstream, TokenType.CloseParen).location);
 	
