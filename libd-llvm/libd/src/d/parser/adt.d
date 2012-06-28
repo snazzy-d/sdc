@@ -69,8 +69,16 @@ alias parsePolymorphic!false parseInterface;
 /**
  * Parse struct or union
  */
-Declaration parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == TokenType.Struct || type == TokenType.Union) {
-	auto location = match(tstream, type).location;
+Declaration parseMonomorphic(bool isStruct = true)(TokenStream tstream) {
+	static if(isStruct) {
+		auto location = match(tstream, TokenType.Struct).location;
+		alias StructDeclaration DeclarationType;
+		alias StructDefinition DefinitionType;
+	} else {
+		auto location = match(tstream, TokenType.Union).location;
+		alias UnionDeclaration DeclarationType;
+		alias UnionDefinition DefinitionType;
+	}
 	
 	string name;
 	TemplateParameter[] parameters;
@@ -85,7 +93,7 @@ Declaration parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == T
 				
 				tstream.get();
 				
-				return new StructDeclaration(location, name);
+				return new DeclarationType(location, name);
 			
 			// Template structs
 			case TokenType.OpenParen :
@@ -106,7 +114,7 @@ Declaration parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == T
 	
 	location.spanTo(tstream.previous.location);
 	
-	auto adt = new StructDefinition(location, name, members);
+	auto adt = new DefinitionType(location, name, members);
 	
 	if(parameters.ptr) {
 		return new TemplateDeclaration(location, name, parameters, [adt]);
@@ -115,8 +123,8 @@ Declaration parseStructOrUnion(TokenType type)(TokenStream tstream) if(type == T
 	}
 }
 
-alias parseStructOrUnion!(TokenType.Struct) parseStruct;
-alias parseStructOrUnion!(TokenType.Union) parseUnion;
+alias parseMonomorphic!true parseStruct;
+alias parseMonomorphic!false parseUnion;
 
 /**
  * Parse enums
