@@ -49,6 +49,11 @@ class ConstructorDeclaration : Declaration {
 		
 		this.parameters = parameters;
 	}
+	
+	@property
+	final string name() const {
+		return "__ctor";
+	}
 }
 
 /**
@@ -74,6 +79,11 @@ class DestructorDeclaration : Declaration {
 		super(location, DeclarationType.Function);
 		
 		this.parameters = parameters;
+	}
+	
+	@property
+	final string name() const {
+		return "__dtor";
 	}
 }
 
