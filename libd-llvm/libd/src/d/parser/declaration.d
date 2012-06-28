@@ -227,6 +227,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 						
 						// Auto manifest constant declaration.
 						case TokenType.Assign :
+							tstream.get();
 							location.spanTo(tstream.previous.location);
 							type = new AutoType(location);
 							
