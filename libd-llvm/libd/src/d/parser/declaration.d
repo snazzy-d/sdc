@@ -215,8 +215,39 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Enum
 		 */
 		case TokenType.Enum :
-			// TODO: handle case of manifest constant.
-			return parseEnum(tstream);
+			// Determine if we are in case of manifest constant or regular enum.
+			switch(tstream.lookahead(1).type) {
+				case TokenType.Colon, TokenType.OpenBrace :
+					return parseEnum(tstream);
+				
+				case TokenType.Identifier :
+					switch(tstream.lookahead(2).type) {
+						case TokenType.Colon, TokenType.OpenBrace :
+							return parseEnum(tstream);
+						
+						// Auto manifest constant declaration.
+						case TokenType.Assign :
+							location.spanTo(tstream.previous.location);
+							type = new AutoType(location);
+							
+							break;
+						
+						// We didn't recognize regular enums or manifest auto constant. Let's fallback to manifest typed constant.
+						default :
+							tstream.get();
+							type = parseType(tstream);
+							break;
+					}
+					
+					break;
+				
+				default :
+					tstream.get();
+					type = parseType(tstream);
+					break;
+			}
+			
+			break;
 		
 		/*
 		 * Template

@@ -124,7 +124,7 @@ Enum parseEnum(TokenStream tstream) {
 			break;
 		
 		default :
-			// TODO: handle typed manifest constants or fail.
+			// TODO: error.
 			match(tstream, TokenType.Begin);
 	}
 	
