@@ -77,7 +77,6 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	}
 	
 	// TODO: parse contracts.
-	
 	// Skip contracts
 	switch(tstream.peek.type) {
 		case TokenType.In, TokenType.Out :
@@ -131,7 +130,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	}
 	
 	if(tplParameters.ptr) {
-		return new TemplateDeclaration(location, "", tplParameters, [fun]);
+		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
 	} else {
 		return fun;
 	}
