@@ -13,6 +13,7 @@ enum DeclarationType {
 	Template,
 	TemplateParameter,
 	Struct,
+	Union,
 	Class,
 	Enum,
 	Alias,

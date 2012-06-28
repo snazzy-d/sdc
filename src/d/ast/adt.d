@@ -7,32 +7,6 @@ import d.ast.type;
 import sdc.location;
 
 /**
- * Struct Declaration
- */
-class StructDeclaration : Declaration {
-	string name;
-	
-	this(Location location, string name) {
-		super(location, DeclarationType.Struct);
-		
-		this.name = name;
-	}
-}
-
-/**
- * Struct Definition
- */
-class StructDefinition : StructDeclaration {
-	Declaration[] members;
-	
-	this(Location location, string name, Declaration[] members) {
-		super(location, name);
-		
-		this.members = members;
-	}
-}
-
-/**
  * Class Definition
  */
 class ClassDefinition : Declaration {
@@ -62,6 +36,58 @@ class InterfaceDefinition : Declaration {
 		
 		this.name = name;
 		this.bases = bases;
+		this.members = members;
+	}
+}
+
+/**
+ * Struct Declaration
+ */
+class StructDeclaration : Declaration {
+	string name;
+	
+	this(Location location, string name) {
+		super(location, DeclarationType.Struct);
+		
+		this.name = name;
+	}
+}
+
+/**
+ * Struct Definition
+ */
+class StructDefinition : StructDeclaration {
+	Declaration[] members;
+	
+	this(Location location, string name, Declaration[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
+/**
+ * Union Declaration
+ */
+class UnionDeclaration : Declaration {
+	string name;
+	
+	this(Location location, string name) {
+		super(location, DeclarationType.Union);
+		
+		this.name = name;
+	}
+}
+
+/**
+ * Union Definition
+ */
+class UnionDefinition : UnionDeclaration {
+	Declaration[] members;
+	
+	this(Location location, string name, Declaration[] members) {
+		super(location, name);
+		
 		this.members = members;
 	}
 }
