@@ -52,7 +52,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	auto parameters = parseParameters(tstream, isVariadic);
 	
 	// If it is a template, it can have a constraint.
-	if(tplParameters.ptr != null) {
+	if(tplParameters.ptr) {
 		if(tstream.peek.type == TokenType.If) {
 			parseConstraint(tstream);
 		}
