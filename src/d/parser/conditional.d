@@ -113,9 +113,9 @@ ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statemen
 			elseItems = [parseDeclaration(tstream)];
 		}
 		
-		return null;
+		return new StaticIfElse!ItemType(location, condition, items, elseItems);
 	} else {
-		return null;
+		return new StaticIf!ItemType(location, condition, items);
 	}
 }
 
