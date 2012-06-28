@@ -161,10 +161,6 @@ auto parseParameter(TokenStream tstream) {
 				tstream.get();
 				break;
 			
-			case TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared :
-				tstream.get();
-				break;
-			
 			default :
 				parseStorageClass = false;
 				break;
