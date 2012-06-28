@@ -8,6 +8,9 @@ import d.parser.statement;
 import d.parser.type;
 import d.parser.util;
 
+import d.ast.declaration;
+import d.ast.dtemplate;
+
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
@@ -36,22 +39,23 @@ auto parseDestructor(TokenStream tstream) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-auto parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, U... )(TokenStream tstream, Location location, U arguments) {
+Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, U... )(TokenStream tstream, Location location, U arguments) {
 	// Function declaration.
 	bool isVariadic;
-	bool isTemplate;
+	TemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
 	if(findWhatComeAfterClosingToken!(TokenType.OpenParen)(tstream).type == TokenType.OpenParen) {
-		parseTemplateParameters(tstream);
-		isTemplate = true;
+		tplParameters = parseTemplateParameters(tstream);
 	}
 	
 	auto parameters = parseParameters(tstream, isVariadic);
 	
 	// If it is a template, it can have a constraint.
-	if(isTemplate && tstream.peek.type == TokenType.If) {
-		parseConstraint(tstream);
+	if(tplParameters.ptr != null) {
+		if(tstream.peek.type == TokenType.If) {
+			parseConstraint(tstream);
+		}
 	}
 	
 	// TODO: parse function attributes
@@ -102,24 +106,34 @@ auto parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefini
 			break;
 	}
 	
+	FunctionDeclarationType fun;
+	
 	switch(tstream.peek.type) {
 		case TokenType.Semicolon :
 			location.spanTo(tstream.peek.location);
 			tstream.get();
 			
-			return new FunctionDeclarationType(location, arguments, parameters);
+			fun = new FunctionDeclarationType(location, arguments, parameters);
+			break;
 		
 		case TokenType.OpenBrace :
 			auto fbody = parseBlock(tstream);
 			
 			location.spanTo(tstream.peek.location);
 			
-			return new FunctionDefinitionType(location, arguments, parameters, fbody);
+			fun = new FunctionDefinitionType(location, arguments, parameters, fbody);
+			break;
 		
 		default :
 			// TODO: error.
 			match(tstream, TokenType.Begin);
 			assert(0);
+	}
+	
+	if(tplParameters.ptr) {
+		return new TemplateDeclaration(location, "", tplParameters, [fun]);
+	} else {
+		return fun;
 	}
 }
 
