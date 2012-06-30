@@ -45,7 +45,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	TemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
-	if(findWhatComeAfterClosingToken!(TokenType.OpenParen)(tstream).type == TokenType.OpenParen) {
+	if(lookAfterMatchingDelimiter!(TokenType.OpenParen)(tstream).type == TokenType.OpenParen) {
 		tplParameters = parseTemplateParameters(tstream);
 	}
 	
