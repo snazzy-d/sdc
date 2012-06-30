@@ -4,15 +4,17 @@ import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
 
-auto findWhatComeAfterClosingToken(TokenType openTokenType)(TokenStream tstream) {
+auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
 		alias TokenType.CloseBrace closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBracket) {
 		alias TokenType.CloseBracket closeTokenType;
+	} else static if(openTokenType == TokenType.Less) {
+		alias TokenType.Greater closeTokenType;
 	} else {
-		static assert(0, tokenToString[openTokenType] ~ " isn't a toke, that goes by pair. Use (, { or [");
+		static assert(0, tokenToString[openTokenType] ~ " isn't a toke, that goes by pair. Use (, {, [, <");
 	}
 	
 	assert(tstream.peek.type == openTokenType);
