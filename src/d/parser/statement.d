@@ -30,11 +30,13 @@ Statement parseStatement(TokenStream tstream) {
 		case TokenType.Return :
 			tstream.get();
 			parseExpression(tstream);
+			match(tstream, TokenType.Semicolon);
 			break;
 		
 		case TokenType.Throw :
 			tstream.get();
 			parseExpression(tstream);
+			match(tstream, TokenType.Semicolon);
 			break;
 		
 		default :
