@@ -450,7 +450,6 @@ enum PrimaryType {
 	Typeof,
 	TypeidExpression,
 	IsExpression,
-	ParenExpression,
 	TraitsExpression,
 }
 
@@ -578,6 +577,9 @@ class DelegateLiteral : PrimaryExpression {
 	}
 }
 
+/**
+ * is expression.
+ */
 class IsExpression : PrimaryExpression {
 	private Type type;
 	
@@ -585,6 +587,19 @@ class IsExpression : PrimaryExpression {
 		super(location, PrimaryType.IsExpression);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * typeid expression.
+ */
+class TypeidExpression : PrimaryExpression {
+	private Expression expression;
+	
+	this(Location location, Expression expression) {
+		super(location, PrimaryType.TypeidExpression);
+		
+		this.expression = expression;
 	}
 }
 

@@ -466,6 +466,7 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			
 			break;
 		
+		// Is it really a prefix expression or a primary one ? It seems like a quirk in the spec.
 		case TokenType.New :
 			auto location = tstream.get().location;
 			auto type = parseType(tstream);
@@ -518,31 +519,11 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		
 		case TokenType.This :
 			tstream.get();
-			auto thisExpression = new ThisExpression(location);
-			
-			if(tstream.peek.type == TokenType.Dot) {
-				tstream.get();
-				auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
-				location.spanTo(tstream.previous.location);
-				
-				return new IdentifierExpression(location, identifier);
-			}
-			
-			return thisExpression;
+			return new ThisExpression(location);
 		
 		case TokenType.Super :
 			tstream.get();
-			auto superExpression = new SuperExpression(location);
-			
-			if(tstream.peek.type == TokenType.Dot) {
-				tstream.get();
-				auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
-				location.spanTo(tstream.previous.location);
-				
-				return new IdentifierExpression(location, identifier);
-			}
-			
-			return superExpression;
+			return new SuperExpression(location);
 		
 		case TokenType.True :
 			tstream.get();
@@ -577,6 +558,14 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return new __Line__Literal(location);
 		
 		// TODO: literals, dollar.
+		
+		case TokenType.Typeid :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			auto expression = parseExpression(tstream);
+			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			
+			return new TypeidExpression(location, expression);
 		
 		case TokenType.Is :
 			return parseIsExpression(tstream);
@@ -650,6 +639,14 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 			
 			case TokenType.OpenParen :
 				processToken!(CallExpression, TokenType.CloseParen)();
+				break;
+			
+			case TokenType.Dot :
+				tstream.get();
+				auto identifier = parseQualifiedIdentifier(tstream, location, expression);
+				location.spanTo(tstream.previous.location);
+				
+				expression = new IdentifierExpression(location, identifier);
 				break;
 			
 			// case TokenType.OpenBracket :
