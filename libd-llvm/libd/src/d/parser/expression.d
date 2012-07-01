@@ -572,8 +572,24 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		
 		case TokenType.OpenParen :
 			tstream.get();
-			auto expression = parseExpression(tstream);
-			match(tstream, TokenType.CloseParen);
+			
+			Expression expression;
+			
+			import d.parser.util;
+			if(isType(tstream)) {
+				auto type = parseType(tstream);
+				match(tstream, TokenType.CloseParen);
+				
+				match(tstream, TokenType.Dot);
+				
+				auto identifier = parseQualifiedIdentifier(tstream, location, expression);
+				location.spanTo(tstream.previous.location);
+				
+				expression = new IdentifierExpression(location, identifier);
+			} else {
+				expression = parseExpression(tstream);
+				match(tstream, TokenType.CloseParen);
+			}
 			
 			return expression;
 		
