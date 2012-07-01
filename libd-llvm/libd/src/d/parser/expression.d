@@ -455,18 +455,32 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.This :
+			tstream.get();
 			auto thisExpression = new ThisExpression(location);
-			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
-			location.spanTo(tstream.previous.location);
 			
-			return new IdentifierExpression(location, identifier);
+			if(tstream.peek.type == TokenType.Dot) {
+				tstream.get();
+				auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
+				location.spanTo(tstream.previous.location);
+				
+				return new IdentifierExpression(location, identifier);
+			}
+			
+			return thisExpression;
 		
 		case TokenType.Super :
+			tstream.get();
 			auto superExpression = new SuperExpression(location);
-			auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
-			location.spanTo(tstream.previous.location);
 			
-			return new IdentifierExpression(location, identifier);
+			if(tstream.peek.type == TokenType.Dot) {
+				tstream.get();
+				auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
+				location.spanTo(tstream.previous.location);
+				
+				return new IdentifierExpression(location, identifier);
+			}
+			
+			return superExpression;
 		
 		case TokenType.True :
 			tstream.get();
