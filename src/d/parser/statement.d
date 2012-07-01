@@ -18,6 +18,11 @@ auto parseStatement(TokenStream tstream) {
 			parseExpression(tstream);
 			break;
 		
+		case TokenType.Throw :
+			tstream.get();
+			parseExpression(tstream);
+			break;
+		
 		default :
 			tstream.get();
 	}
