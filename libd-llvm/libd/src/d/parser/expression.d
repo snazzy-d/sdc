@@ -415,7 +415,33 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			processToken!CompelementExpression();
 			break;
 		
-		// TODO: new, cast.
+		case TokenType.Cast :
+			auto location = tstream.get().location;
+			match(tstream, TokenType.OpenParen);
+			
+			auto parseCast(CastType, U ...)(U params) {
+				match(tstream, TokenType.CloseParen);
+				
+				result = parsePrefixExpression(tstream);
+				location.spanTo(tstream.previous.location);
+				
+				result = new CastType(location, params, result);
+			}
+			
+			switch(tstream.peek.type) {
+				case TokenType.CloseParen :
+					parseCast!CastExpression(null);
+					break;
+				
+				default :
+					auto type = parseType(tstream);
+					parseCast!CastExpression(type);
+			}
+			
+			
+			break;
+		
+		// TODO: new.
 		
 		default :
 			result = parsePrimaryExpression(tstream);
