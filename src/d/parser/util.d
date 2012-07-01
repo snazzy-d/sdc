@@ -4,6 +4,10 @@ import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
 
+/**
+ * Tool to lookahead what is after the matching opening token.
+ * matchin tokens are (), [], <> and {}
+ */
 auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in {
 	assert(tstream.peek.type == openTokenType);
 } body {
@@ -43,5 +47,27 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in
 	}
 	
 	return tstream.lookahead(n);
+}
+
+/**
+ * Lookahead if what comes is a type.
+ */
+bool isType(TokenStream tstream) {
+	switch(tstream.peek.type) {
+		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Typeof :
+			return true;
+		
+		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Dchar, TokenType.Wchar, TokenType.Void :
+			switch(tstream.lookahead(1).type) {
+				case TokenType.Asterix, TokenType.OpenBracket :
+					return true;
+				
+				default :
+					return false;
+			}
+		
+		default :
+			return false;
+	}
 }
 

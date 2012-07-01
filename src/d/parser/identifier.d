@@ -53,13 +53,19 @@ auto parseBuiltIdentifier(TokenStream tstream, Location location, Identifier ide
 			
 			// TODO: parse template instanciation.
 			case TokenType.Bang :
-				tstream.get();
-				if(tstream.peek.type == TokenType.OpenParen) {
-					// TODO: do something meaningful here.
-					while(tstream.get().type != TokenType.CloseParen) tstream.get();
-				} else {
-					// TODO: Parse different types of unique template argument.
-					match(tstream, TokenType.Identifier);
+				switch(tstream.lookahead(1).type) {
+					case TokenType.OpenParen :
+						// TODO: do something meaningful here.
+						while(tstream.get().type != TokenType.CloseParen) tstream.get();
+						break;
+					
+					case TokenType.Identifier :
+						tstream.get();
+						tstream.get();
+						break;
+					
+					default :
+						return identifier;
 				}
 				
 				break;
