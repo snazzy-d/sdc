@@ -415,6 +415,7 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			processToken!CompelementExpression();
 			break;
 		
+		// TODO: parse qualifier casts.
 		case TokenType.Cast :
 			auto location = tstream.get().location;
 			match(tstream, TokenType.OpenParen);
@@ -441,7 +442,18 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			
 			break;
 		
-		// TODO: new.
+		case TokenType.New :
+			auto location = tstream.get().location;
+			auto type = parseType(tstream);
+			
+			match(tstream, TokenType.OpenParen);
+			auto arguments = parseArguments(tstream);
+			
+			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			
+			result = new NewExpression(location, type, arguments);
+			
+			break;
 		
 		default :
 			result = parsePrimaryExpression(tstream);
