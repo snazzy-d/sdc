@@ -8,10 +8,24 @@ import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
 
-auto parseStatement(TokenStream tstream) {
+Statement parseStatement(TokenStream tstream) {
 	switch(tstream.peek.type) {
 		case TokenType.OpenBrace :
 			return parseBlock(tstream);
+		
+		case TokenType.If :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			auto condition = parseExpression(tstream);
+			match(tstream, TokenType.CloseParen);
+			
+			parseStatement(tstream);
+			
+			if(tstream.peek.type == TokenType.Else) {
+				parseStatement(tstream);
+			}
+			
+			return null;
 		
 		case TokenType.Return :
 			tstream.get();
