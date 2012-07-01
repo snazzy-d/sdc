@@ -347,6 +347,19 @@ class CompelementExpression : PrefixUnaryExpression {
 }
 
 /**
+ * cast(type)
+ */
+class CastExpression : PrefixUnaryExpression {
+	Type type;
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, UnaryPrefix.Cast, expression);
+		
+		this.type = type;
+	}
+}
+
+/**
  * Unary Postfix Expression types.
  */
 enum PostfixType {
