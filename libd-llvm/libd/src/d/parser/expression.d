@@ -657,6 +657,28 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 				processToken!(CallExpression, TokenType.CloseParen)();
 				break;
 			
+			// TODO: Indices, Slices.
+			case TokenType.OpenBracket :
+				tstream.get();
+				auto arguments = parseArguments(tstream);
+				switch(tstream.peek.type) {
+					case TokenType.CloseBracket :
+						break;
+					
+					case TokenType.DoubleDot :
+						tstream.get();
+						auto second = parseArguments(tstream);
+						break;
+					
+					default :
+						match(tstream, TokenType.Begin);
+						break;
+				}
+				
+				match(tstream, TokenType.CloseBracket);
+				
+				break;
+			
 			case TokenType.Dot :
 				tstream.get();
 				auto identifier = parseQualifiedIdentifier(tstream, location, expression);
@@ -664,12 +686,6 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 				
 				expression = new IdentifierExpression(location, identifier);
 				break;
-			
-			// case TokenType.OpenBracket :
-			//	processToken!(CallExpression, TokenType.CloseBracket)();
-			//	break;
-			
-			// TODO: Indices, Slices.
 			
 			default :
 				return expression;
