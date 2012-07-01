@@ -241,7 +241,31 @@ auto parseComparaisonExpression(TokenStream tstream) {
 			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreater))();
 			break;
 		
-		// TODO: Parse in and is expressions.
+		case TokenType.Is :
+			processToken!(IdentityExpression!(BinaryOperation.Is))();
+			break;
+		
+		case TokenType.In :
+			processToken!(InExpression!(BinaryOperation.In))();
+			break;
+		
+		case TokenType.Bang :
+			tstream.get();
+			switch(tstream.peek.type) {
+				case TokenType.Is :
+					processToken!(IdentityExpression!(BinaryOperation.NotIs))();
+					break;
+				
+				case TokenType.In :
+					processToken!(InExpression!(BinaryOperation.NotIn))();
+					break;
+				
+				default :
+					match(tstream, TokenType.Begin);
+					break;
+			}
+			
+			break;
 		
 		default :
 			// We have no comparaison, so we just return.
