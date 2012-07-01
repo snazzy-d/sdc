@@ -360,6 +360,21 @@ class CastExpression : PrefixUnaryExpression {
 }
 
 /**
+ * new
+ */
+class NewExpression : PrefixUnaryExpression {
+	Type type;
+	Expression[] arguments;
+	
+	this(Location location, Type type, Expression[] arguments) {
+		super(location, UnaryPrefix.New, null);
+		
+		this.type = type;
+		this.arguments = arguments;
+	}
+}
+
+/**
  * Unary Postfix Expression types.
  */
 enum PostfixType {
