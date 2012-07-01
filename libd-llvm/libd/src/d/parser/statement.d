@@ -9,14 +9,17 @@ import sdc.location;
 import sdc.parser.base : match;
 
 auto parseStatement(TokenStream tstream) {
-	if(tstream.peek.type == TokenType.OpenBrace) {
-		parseBlock(tstream);
-	} else {
-	/*
-		parseExpression(tstream);
-		match(tstream, TokenType.Semicolon);
-	*/
-		tstream.get();
+	switch(tstream.peek.type) {
+		case TokenType.OpenBrace :
+			return parseBlock(tstream);
+		
+		case TokenType.Return :
+			tstream.get();
+			parseExpression(tstream);
+			break;
+		
+		default :
+			tstream.get();
 	}
 	
 	return null;

@@ -4,7 +4,9 @@ import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
 
-auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
+auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in {
+	assert(tstream.peek.type == openTokenType);
+} body {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
@@ -17,7 +19,6 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
 		static assert(0, tokenToString[openTokenType] ~ " isn't a toke, that goes by pair. Use (, {, [, <");
 	}
 	
-	assert(tstream.peek.type == openTokenType);
 	uint level = 1;
 	uint n = 1;
 	
