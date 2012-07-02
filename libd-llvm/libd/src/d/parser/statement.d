@@ -27,7 +27,7 @@ Statement parseStatement(TokenStream tstream) {
 				parseStatement(tstream);
 			}
 			
-			return null;
+			break;
 		
 		case TokenType.While :
 			tstream.get();
@@ -38,7 +38,7 @@ Statement parseStatement(TokenStream tstream) {
 			
 			parseStatement(tstream);
 			
-			return null;
+			break;
 		
 		case TokenType.Do :
 			tstream.get();
@@ -52,7 +52,7 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			
-			return null;
+			break;
 		
 		case TokenType.Return :
 			tstream.get();
@@ -66,6 +66,14 @@ Statement parseStatement(TokenStream tstream) {
 		case TokenType.Throw :
 			tstream.get();
 			parseExpression(tstream);
+			match(tstream, TokenType.Semicolon);
+			break;
+		
+		case TokenType.Mixin :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			parseExpression(tstream);
+			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			break;
 		
