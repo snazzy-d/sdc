@@ -371,7 +371,11 @@ auto parseImport(TokenStream tstream) {
  * Parse Initializer
  */
 auto parseInitializer(TokenStream tstream) {
-	// TODO: parse void initializer.
+	if(tstream.peek.type == TokenType.Void) {
+		tstream.get();
+		return null;
+	}
+	
 	return parseAssignExpression(tstream);
 }
 
