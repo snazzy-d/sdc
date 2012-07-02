@@ -2,6 +2,7 @@ module d.parser.statement;
 
 import d.ast.statement;
 
+import d.parser.conditional;
 import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
@@ -149,6 +150,9 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			break;
+		
+		case TokenType.Version, TokenType.Debug :
+			return parseVersion!Statement(tstream);
 		
 		default :
 			if(isDeclaration(tstream)) {
