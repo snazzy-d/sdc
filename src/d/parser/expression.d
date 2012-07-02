@@ -573,20 +573,29 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return parseIsExpression(tstream);
 		
 		case TokenType.OpenParen :
-			tstream.get();
-			
 			Expression expression;
-			if(isType(tstream)) {
-				auto type = parseType(tstream);
+			if(lookAfterMatchingDelimiter!(TokenType.OpenParen)(tstream).type == TokenType.Dot) {
+				tstream.get();
+				
+				import d.ast.identifier;
+				Namespace qualifier;
+				if(getTypeSize(tstream)) {
+					qualifier = parseType(tstream);
+				} else {
+					qualifier = parseExpression(tstream);
+				}
+				
 				match(tstream, TokenType.CloseParen);
 				
 				match(tstream, TokenType.Dot);
 				
-				auto identifier = parseQualifiedIdentifier(tstream, location, expression);
+				auto identifier = parseQualifiedIdentifier(tstream, location, qualifier);
 				location.spanTo(tstream.previous.location);
 				
 				expression = new IdentifierExpression(location, identifier);
 			} else {
+				tstream.get();
+				
 				expression = parseExpression(tstream);
 				match(tstream, TokenType.CloseParen);
 			}

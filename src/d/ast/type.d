@@ -7,7 +7,7 @@ import d.ast.identifier;
 
 import sdc.location;
 
-class Type : Node {
+class Type : Node, Namespace {
 	this(Location location) {
 		super(location);
 	}
@@ -69,7 +69,7 @@ class AutoType : SimpleStorageClassType {
 /**
  * All basics types and qualified basic types.
  */
-class BasicType : SimpleStorageClassType, Namespace {
+class BasicType : SimpleStorageClassType {
 	this(Location location) {
 		super(location);
 	}

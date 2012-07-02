@@ -50,24 +50,25 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in
 }
 
 /**
- * Lookahead if what comes is a type.
+ * Count how many tokens does the type to be parsed contains.
+ * return 0 if no type is parsed.
  */
-bool isType(TokenStream tstream) {
+uint getTypeSize(TokenStream tstream) {
 	switch(tstream.peek.type) {
 		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Typeof :
-			return true;
+			return 1;
 		
 		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Dchar, TokenType.Wchar, TokenType.Void :
 			switch(tstream.lookahead(1).type) {
 				case TokenType.Asterix, TokenType.OpenBracket :
-					return true;
+					return 1;
 				
 				default :
-					return false;
+					return 0;
 			}
 		
 		default :
-			return false;
+			return 0;
 	}
 }
 
