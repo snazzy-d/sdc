@@ -420,6 +420,7 @@ class CallExpression : PostfixUnaryExpression {
 
 enum PrimaryType {
 	Identifier,
+	New,
 	This,
 	Super,
 	Null,
@@ -445,7 +446,6 @@ enum PrimaryType {
 	TypeidExpression,
 	IsExpression,
 	TraitsExpression,
-	New,
 }
 
 /**
@@ -597,6 +597,19 @@ class IsExpression : PrimaryExpression {
 		super(location, PrimaryType.IsExpression);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * assert.
+ */
+class AssertExpression : PrimaryExpression {
+	private Expression[] arguments;
+	
+	this(Location location, Expression[] arguments) {
+		super(location, PrimaryType.AssertExpression);
+		
+		this.arguments = arguments;
 	}
 }
 

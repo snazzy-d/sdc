@@ -583,6 +583,16 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		case TokenType.Is :
 			return parseIsExpression(tstream);
 		
+		case TokenType.Assert :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			
+			auto arguments = parseArguments(tstream);
+			
+			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			
+			return new AssertExpression(location, arguments);
+		
 		case TokenType.OpenParen :
 			Expression expression;
 			if(lookAfterMatchingDelimiter!(TokenType.OpenParen)(tstream).type == TokenType.Dot) {
