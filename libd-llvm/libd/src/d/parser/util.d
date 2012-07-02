@@ -58,7 +58,11 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
  * Count how many tokens does the type to be parsed contains.
  * return 0 if no type is parsed.
  */
-uint getTypeSize(TokenStream tstream, uint n = 0) {
+uint getTypeSize(TokenStream tstream) {
+	return getTypeSize(tstream, 0);
+}
+
+private uint getTypeSize(TokenStream tstream, uint n) {
 	switch(tstream.lookahead(n).type) {
 		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared :
 			switch(tstream.lookahead(n + 1).type) {
@@ -124,7 +128,7 @@ private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
 				break;
 			
 			case TokenType.Dot :
-				if(tstream.lookahead(n + 1).type != TokenType.Identifier) return n;
+				if(tstream.lookahead(n + 1).type != TokenType.Identifier) return n + 1;
 				
 				n += 2;
 				break;
@@ -134,6 +138,19 @@ private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
 			default :
 				return n;
 		}
+	}
+}
+
+/**
+ * Check if we are facing a declaration.
+ */
+bool isDeclaration(TokenStream tstream) {
+	switch(tstream.peek.type) {
+		case TokenType.Auto :
+			return true;
+		
+		default :
+			return tstream.lookahead(getTypeSize(tstream)).type == TokenType.Identifier;
 	}
 }
 
