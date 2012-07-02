@@ -79,13 +79,14 @@ Statement parseStatement(TokenStream tstream) {
 			break;
 		
 		default :
-			uint typeSize = getTypeSize(tstream);
-			
-//*
-			tstream.get();
-/*/
-			match(tstream, TokenType.Begin);
-//*/
+			if(isDeclaration(tstream)) {
+				return parseDeclaration(tstream);
+			} else {
+				auto expression = parseExpression(tstream);
+				match(tstream, TokenType.Semicolon);
+				
+				return expression;
+			}
 	}
 	
 	return null;
