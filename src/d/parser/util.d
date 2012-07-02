@@ -122,6 +122,7 @@ private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
 			case TokenType.OpenBracket :
 				// TODO: check for slice.
 				uint candidate = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, n);
+				
 				if(tstream.lookahead(candidate).type != TokenType.CloseBracket) return n;
 				
 				n = candidate + 1;
