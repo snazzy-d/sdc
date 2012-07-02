@@ -56,6 +56,27 @@ Statement parseStatement(TokenStream tstream) {
 			
 			break;
 		
+		case TokenType.For :
+			tstream.get();
+			
+			match(tstream, TokenType.OpenParen);
+			
+			if(tstream.peek.type == TokenType.Semicolon) {
+				tstream.get();
+			} else {
+				parseStatement(tstream);
+			}
+			
+			parseExpression(tstream);
+			match(tstream, TokenType.Semicolon);
+			
+			parseExpression(tstream);
+			match(tstream, TokenType.CloseParen);
+			
+			parseStatement(tstream);
+			
+			break;
+		
 		case TokenType.Return :
 			tstream.get();
 			if(tstream.peek.type != TokenType.Semicolon) {
