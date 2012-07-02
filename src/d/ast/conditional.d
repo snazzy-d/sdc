@@ -14,7 +14,11 @@ class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarati
 	ItemType[] items;
 	
 	this(Location location, string versionId, ItemType[] items) {
-		super(location, DeclarationType.Conditional);
+		static if(is(ItemType == Statement)) {
+			super(location);
+		} else {
+			super(location, DeclarationType.Conditional);
+		}
 		
 		this.versionId = versionId;
 		this.items = items;
@@ -55,7 +59,11 @@ class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarat
 	ItemType[] items;
 	
 	this(Location location, Expression condition, ItemType[] items) {
-		super(location, DeclarationType.Conditional);
+		static if(is(ItemType == Statement)) {
+			super(location);
+		} else {
+			super(location, DeclarationType.Conditional);
+		}
 		
 		this.condition = condition;
 		this.items = items;

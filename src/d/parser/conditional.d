@@ -49,22 +49,12 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 			
 			match(tstream, TokenType.CloseParen);
 			
-			ItemType[] items;
-			if(tstream.peek.type == TokenType.OpenBrace) {
-				items = parseAggregate(tstream);
-			} else {
-				items = [parseDeclaration(tstream)];
-			}
+			ItemType[] items = parseItems!ItemType(tstream);
 			
 			if(tstream.peek.type == TokenType.Else) {
 				tstream.get();
 				
-				ItemType[] elseItems;
-				if(tstream.peek.type == TokenType.OpenBrace) {
-					elseItems = parseAggregate(tstream);
-				} else {
-					elseItems = [parseDeclaration(tstream)];
-				}
+				ItemType[] elseItems = parseItems!ItemType(tstream);
 				
 				return new VersionElse!ItemType(location, versionId, items, elseItems);
 			} else {
@@ -96,26 +86,44 @@ ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statemen
 	
 	match(tstream, TokenType.CloseParen);
 	
-	ItemType[] items;
-	if(tstream.peek.type == TokenType.OpenBrace) {
-		items = parseAggregate(tstream);
-	} else {
-		items = [parseDeclaration(tstream)];
-	}
+	ItemType[] items = parseItems!ItemType(tstream);
 	
 	if(tstream.peek.type == TokenType.Else) {
 		tstream.get();
 		
-		ItemType[] elseItems;
-		if(tstream.peek.type == TokenType.OpenBrace) {
-			elseItems = parseAggregate(tstream);
-		} else {
-			elseItems = [parseDeclaration(tstream)];
-		}
+		ItemType[] elseItems = parseItems!ItemType(tstream);
 		
 		return new StaticIfElse!ItemType(location, condition, items, elseItems);
 	} else {
 		return new StaticIf!ItemType(location, condition, items);
 	}
+}
+
+/**
+ * Parse the content of the conditionnal depending on if it is statement or declaration that are expected.
+ */
+private auto parseItems(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
+	ItemType[] items;
+	if(tstream.peek.type == TokenType.OpenBrace) {
+		static if(is(ItemType == Statement)) {
+			tstream.get();
+			
+			do {
+				items ~= parseStatement(tstream);
+			} while(tstream.peek.type != TokenType.CloseBrace);
+			
+			tstream.get();
+		} else {
+			items = parseAggregate(tstream);
+		}
+	} else {
+		static if(is(ItemType == Statement)) {
+			items = [parseStatement(tstream)];
+		} else {
+			items = [parseDeclaration(tstream)];
+		}
+	}
+	
+	return items;
 }
 
