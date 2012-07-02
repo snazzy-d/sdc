@@ -40,6 +40,20 @@ Statement parseStatement(TokenStream tstream) {
 			
 			return null;
 		
+		case TokenType.Do :
+			tstream.get();
+			
+			parseStatement(tstream);
+			
+			match(tstream, TokenType.While);
+			match(tstream, TokenType.OpenParen);
+			auto condition = parseExpression(tstream);
+			
+			match(tstream, TokenType.CloseParen);
+			match(tstream, TokenType.Semicolon);
+			
+			return null;
+		
 		case TokenType.Return :
 			tstream.get();
 			if(tstream.peek.type != TokenType.Semicolon) {
