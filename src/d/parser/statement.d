@@ -78,6 +78,27 @@ Statement parseStatement(TokenStream tstream) {
 			
 			break;
 		
+		case TokenType.Foreach :
+			tstream.get();
+			match(tstream, TokenType.OpenParen);
+			
+			// Hack hack hack HACK !
+			while(tstream.peek.type != TokenType.Semicolon) tstream.get();
+			
+			match(tstream, TokenType.Semicolon);
+			parseExpression(tstream);
+			
+			if(tstream.peek.type == TokenType.DoubleDot) {
+				tstream.get();
+				parseExpression(tstream);
+			}
+			
+			match(tstream, TokenType.CloseParen);
+			
+			parseStatement(tstream);
+			
+			break;
+		
 		case TokenType.Return :
 			tstream.get();
 			if(tstream.peek.type != TokenType.Semicolon) {
