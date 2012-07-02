@@ -463,7 +463,6 @@ Expression parsePrefixExpression(TokenStream tstream) {
 					parseCast!CastExpression(type);
 			}
 			
-			
 			break;
 		
 		// Is it really a prefix expression or a primary one ? It seems like a quirk in the spec.

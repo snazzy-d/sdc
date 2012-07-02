@@ -2,6 +2,7 @@ module d.parser.statement;
 
 import d.ast.statement;
 
+import d.parser.declaration;
 import d.parser.expression;
 
 import sdc.tokenstream;
@@ -17,6 +18,7 @@ Statement parseStatement(TokenStream tstream) {
 			tstream.get();
 			match(tstream, TokenType.OpenParen);
 			auto condition = parseExpression(tstream);
+			
 			match(tstream, TokenType.CloseParen);
 			
 			parseStatement(tstream);
@@ -29,7 +31,10 @@ Statement parseStatement(TokenStream tstream) {
 		
 		case TokenType.Return :
 			tstream.get();
-			parseExpression(tstream);
+			if(tstream.peek.type != TokenType.Semicolon) {
+				parseExpression(tstream);
+			}
+			
 			match(tstream, TokenType.Semicolon);
 			break;
 		
