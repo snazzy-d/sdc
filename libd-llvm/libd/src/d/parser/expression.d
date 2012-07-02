@@ -492,10 +492,14 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			auto type = parseType(tstream);
 			
-			match(tstream, TokenType.OpenParen);
-			auto arguments = parseArguments(tstream);
+			Expression[] arguments;
+			if(tstream.peek.type == TokenType.OpenParen) {
+				tstream.get();
+				arguments = parseArguments(tstream);
+				match(tstream, TokenType.CloseParen);
+			}
 			
-			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			location.spanTo(tstream.previous.location);
 			
 			return new NewExpression(location, type, arguments);
 		
