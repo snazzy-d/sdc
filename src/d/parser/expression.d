@@ -5,6 +5,7 @@ import d.ast.expression;
 import d.parser.identifier;
 import d.parser.statement;
 import d.parser.type;
+import d.parser.util;
 
 import sdc.tokenstream;
 import sdc.location;
@@ -560,8 +561,10 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		
 		case TokenType.Typeid :
 			tstream.get();
+			
 			match(tstream, TokenType.OpenParen);
 			auto expression = parseExpression(tstream);
+			
 			location.spanTo(match(tstream, TokenType.CloseParen).location);
 			
 			return new TypeidExpression(location, expression);
@@ -573,8 +576,6 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			
 			Expression expression;
-			
-			import d.parser.util;
 			if(isType(tstream)) {
 				auto type = parseType(tstream);
 				match(tstream, TokenType.CloseParen);
@@ -659,19 +660,24 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 			// TODO: Indices, Slices.
 			case TokenType.OpenBracket :
 				tstream.get();
-				auto arguments = parseArguments(tstream);
-				switch(tstream.peek.type) {
-					case TokenType.CloseBracket :
-						break;
+				
+				if(tstream.peek.type == TokenType.CloseBracket) {
+					// We have a slicing operation here.
+				} else {
+					auto arguments = parseArguments(tstream);
+					switch(tstream.peek.type) {
+						case TokenType.CloseBracket :
+							break;
 					
-					case TokenType.DoubleDot :
-						tstream.get();
-						auto second = parseArguments(tstream);
-						break;
+						case TokenType.DoubleDot :
+							tstream.get();
+							auto second = parseArguments(tstream);
+							break;
 					
-					default :
-						match(tstream, TokenType.Begin);
-						break;
+						default :
+							match(tstream, TokenType.Begin);
+							break;
+					}
 				}
 				
 				match(tstream, TokenType.CloseBracket);
