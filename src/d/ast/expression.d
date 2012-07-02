@@ -270,7 +270,7 @@ enum UnaryPrefix {
 	LogicalNot,  // !
 	BitwiseNot,  // ~
 	Cast,  // cast (type) unaryExpr
-	New,
+	Delete,
 }
 
 
@@ -360,17 +360,11 @@ class CastExpression : PrefixUnaryExpression {
 }
 
 /**
- * new
+ * delete
  */
-class NewExpression : PrefixUnaryExpression {
-	Type type;
-	Expression[] arguments;
-	
-	this(Location location, Type type, Expression[] arguments) {
-		super(location, UnaryPrefix.New, null);
-		
-		this.type = type;
-		this.arguments = arguments;
+class DeleteExpression : PrefixUnaryExpression {
+	this(Location location, Expression expression) {
+		super(location, UnaryPrefix.Delete, expression);
 	}
 }
 
@@ -451,6 +445,7 @@ enum PrimaryType {
 	TypeidExpression,
 	IsExpression,
 	TraitsExpression,
+	New,
 }
 
 /**
@@ -476,6 +471,21 @@ class IdentifierExpression : PrimaryExpression {
 		super(location, PrimaryType.Identifier);
 		
 		this.identifier = identifier;
+	}
+}
+
+/**
+ * new
+ */
+class NewExpression : PrimaryExpression {
+	Type type;
+	Expression[] arguments;
+	
+	this(Location location, Type type, Expression[] arguments) {
+		super(location, PrimaryType.New);
+		
+		this.type = type;
+		this.arguments = arguments;
 	}
 }
 

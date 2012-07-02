@@ -151,7 +151,12 @@ bool isDeclaration(TokenStream tstream) {
 			return true;
 		
 		default :
-			return tstream.lookahead(getTypeSize(tstream)).type == TokenType.Identifier;
+			uint typeSize = getTypeSize(tstream);
+			if(typeSize) {
+				return tstream.lookahead(typeSize).type == TokenType.Identifier;
+			}
+			
+			return false;
 	}
 }
 
