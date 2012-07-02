@@ -11,6 +11,12 @@ import sdc.parser.base : match;
 auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in {
 	assert(tstream.peek.type == openTokenType);
 } body {
+	return tstream.lookahead(getMatchingDelimiterIndex!openTokenType(tstream) + 1);
+}
+
+private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream, uint n = 0) in {
+	assert(tstream.lookahead(n).type == openTokenType);
+} body {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
@@ -24,9 +30,10 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in
 	}
 	
 	uint level = 1;
-	uint n = 1;
 	
 	while(level > 0) {
+		n++;
+		
 		switch(tstream.lookahead(n).type) {
 			case openTokenType :
 				level++;
@@ -42,33 +49,91 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in
 			default :
 				break;
 		}
-		
-		n++;
 	}
 	
-	return tstream.lookahead(n);
+	return n;
 }
 
 /**
  * Count how many tokens does the type to be parsed contains.
  * return 0 if no type is parsed.
  */
-uint getTypeSize(TokenStream tstream) {
-	switch(tstream.peek.type) {
-		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Typeof :
-			return 1;
-		
-		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Dchar, TokenType.Wchar, TokenType.Void :
-			switch(tstream.lookahead(1).type) {
-				case TokenType.Asterix, TokenType.OpenBracket :
-					return 1;
+uint getTypeSize(TokenStream tstream, uint n = 0) {
+	switch(tstream.lookahead(n).type) {
+		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared :
+			switch(tstream.lookahead(n + 1).type) {
+				case TokenType.OpenParen :
+					n = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, n + 1);
+					if(tstream.lookahead(n).type != TokenType.CloseParen) return 0;
+					
+					return getPostfixTypeSize(tstream, n + 1);
+				
+				case TokenType.Identifier :
+					if(tstream.lookahead(n + 2).type != TokenType.Assign) goto default;
+					
+					return n + 1;
 				
 				default :
-					return 0;
+					return getTypeSize(tstream, n + 1);
 			}
+		
+		case TokenType.Typeof :
+			if(tstream.lookahead(n + 1).type != TokenType.OpenParen) return 0;
+			n = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, n + 1);
+			if(tstream.lookahead(n).type != TokenType.CloseParen) return 0;
+			
+			return getPostfixTypeSize(tstream, n + 1);
+		
+		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Wchar, TokenType.Dchar, TokenType.Float, TokenType.Double, TokenType.Real, TokenType.Bool, TokenType.Void :
+			return getPostfixTypeSize(tstream, n + 1);
+		
+		case TokenType.Identifier :
+			return getPostfixTypeSize(tstream, n + 1);
+		
+		case TokenType.Dot :
+			if(tstream.lookahead(n + 1).type != TokenType.Identifier) return 0;
+			
+			return getPostfixTypeSize(tstream, n + 2);
+		
+		case TokenType.This, TokenType.Super :
+			if(tstream.lookahead(n + 1).type != TokenType.Dot) return 0;
+			if(tstream.lookahead(n + 2).type != TokenType.Identifier) return 0;
+			
+			return getPostfixTypeSize(tstream, n + 3);
 		
 		default :
 			return 0;
+	}
+}
+
+private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
+	assert(n > 0);
+} body {
+	while(1) {
+		switch(tstream.lookahead(n).type) {
+			case TokenType.Asterix :
+				n++;
+				break;
+			
+			case TokenType.OpenBracket :
+				// TODO: check for slice.
+				uint candidate = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, n);
+				if(tstream.lookahead(n).type != TokenType.CloseBracket) return n;
+				
+				n = candidate + 1;
+				break;
+			
+			case TokenType.Dot :
+				if(tstream.lookahead(n + 1).type != TokenType.Identifier) return n;
+				
+				n += 2;
+				break;
+			
+			// TODO: templates instanciation.
+			
+			default :
+				return n;
+		}
 	}
 }
 

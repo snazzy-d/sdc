@@ -78,10 +78,9 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.Semicolon);
 			break;
 		
-		case TokenType.Auto :
-			return parseDeclaration(tstream);
-		
 		default :
+			uint typeSize = getTypeSize(tstream);
+			
 //*
 			tstream.get();
 /*/
