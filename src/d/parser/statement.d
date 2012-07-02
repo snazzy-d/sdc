@@ -4,6 +4,7 @@ import d.ast.statement;
 
 import d.parser.declaration;
 import d.parser.expression;
+import d.parser.type;
 import d.parser.util;
 
 import sdc.tokenstream;
@@ -62,6 +63,34 @@ Statement parseStatement(TokenStream tstream) {
 			}
 			
 			match(tstream, TokenType.Semicolon);
+			break;
+		
+		case TokenType.Try :
+			tstream.get();
+			parseStatement(tstream);
+			
+			while(tstream.peek.type == TokenType.Catch) {
+				tstream.get();
+				
+				bool isLastCatch = true;
+				
+				if(tstream.peek.type == TokenType.OpenParen) {
+					tstream.get();
+					parseBasicType(tstream);
+					match(tstream, TokenType.CloseParen);
+					isLastCatch = false;
+				}
+				
+				parseStatement(tstream);
+				
+				if(isLastCatch) break;
+			}
+			
+			if(tstream.peek.type == TokenType.Finally) {
+				tstream.get();
+				parseStatement(tstream);
+			}
+			
 			break;
 		
 		case TokenType.Throw :
