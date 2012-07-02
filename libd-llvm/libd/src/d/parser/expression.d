@@ -466,6 +466,10 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			
 			break;
 		
+		case TokenType.Delete :
+			processToken!DeleteExpression();
+			break;
+		
 		default :
 			result = parsePrimaryExpression(tstream);
 			result = parsePostfixExpression(tstream, result);
@@ -610,6 +614,11 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return expression;
 		
 		default:
+			uint typeSize = getTypeSize(tstream);
+			if(typeSize > 2 && tstream.lookahead(typeSize - 2).type == TokenType.Dot && tstream.lookahead(typeSize - 1).type == TokenType.Identifier) {
+				
+			}
+			
 			match(tstream, TokenType.Begin);
 			assert(0);
 	}
