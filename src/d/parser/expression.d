@@ -466,20 +466,6 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			
 			break;
 		
-		// Is it really a prefix expression or a primary one ? It seems like a quirk in the spec.
-		case TokenType.New :
-			auto location = tstream.get().location;
-			auto type = parseType(tstream);
-			
-			match(tstream, TokenType.OpenParen);
-			auto arguments = parseArguments(tstream);
-			
-			location.spanTo(match(tstream, TokenType.CloseParen).location);
-			
-			result = new NewExpression(location, type, arguments);
-			
-			break;
-		
 		default :
 			result = parsePrimaryExpression(tstream);
 			result = parsePostfixExpression(tstream, result);
@@ -501,6 +487,17 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			location.spanTo(tstream.previous.location);
 			
 			return new IdentifierExpression(location, identifier);
+		
+		case TokenType.New :
+			tstream.get();
+			auto type = parseType(tstream);
+			
+			match(tstream, TokenType.OpenParen);
+			auto arguments = parseArguments(tstream);
+			
+			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			
+			return new NewExpression(location, type, arguments);
 		
 		case TokenType.Dot :
 			auto identifier = parseDotIdentifier(tstream);
