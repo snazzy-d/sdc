@@ -4,6 +4,7 @@ import d.ast.statement;
 
 import d.parser.declaration;
 import d.parser.expression;
+import d.parser.util;
 
 import sdc.tokenstream;
 import sdc.location;
@@ -77,8 +78,15 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.Semicolon);
 			break;
 		
+		case TokenType.Auto :
+			return parseDeclaration(tstream);
+		
 		default :
+//*
 			tstream.get();
+/*/
+			match(tstream, TokenType.Begin);
+//*/
 	}
 	
 	return null;

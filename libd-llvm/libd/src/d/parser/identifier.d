@@ -56,8 +56,7 @@ auto parseBuiltIdentifier(TokenStream tstream, Location location, Identifier ide
 				switch(tstream.lookahead(1).type) {
 					case TokenType.OpenParen :
 						// TODO: do something meaningful here.
-						while(tstream.peek.type != TokenType.CloseParen) tstream.get();
-						tstream.get();
+						while(tstream.previous.type != TokenType.CloseParen) tstream.get();
 						break;
 					
 					case TokenType.Identifier :
