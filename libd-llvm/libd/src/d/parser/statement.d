@@ -26,6 +26,7 @@ Statement parseStatement(TokenStream tstream) {
 			parseStatement(tstream);
 			
 			if(tstream.peek.type == TokenType.Else) {
+				tstream.get();
 				parseStatement(tstream);
 			}
 			
