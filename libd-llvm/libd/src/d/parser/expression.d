@@ -563,7 +563,13 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			
 			match(tstream, TokenType.OpenParen);
-			auto expression = parseExpression(tstream);
+			
+			Expression expression;
+			if(getTypeSize(tstream)) {
+				parseType(tstream);
+			} else {
+				expression = parseExpression(tstream);
+			}
 			
 			location.spanTo(match(tstream, TokenType.CloseParen).location);
 			
