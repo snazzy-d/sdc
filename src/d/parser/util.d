@@ -147,7 +147,7 @@ private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
  */
 bool isDeclaration(TokenStream tstream) {
 	switch(tstream.peek.type) {
-		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template :
+		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template, TokenType.Alias :
 			return true;
 		
 		default :
