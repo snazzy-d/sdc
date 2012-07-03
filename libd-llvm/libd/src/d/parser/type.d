@@ -15,7 +15,12 @@ import sdc.parser.base : match;
 
 Type parseType(TokenStream tstream) {
 	auto base = parseBasicType(tstream);
-	return parseTypeSuffix(tstream, base);
+	return parseTypeSuffix!true(tstream, base);
+}
+
+Type parseConfirmedType(TokenStream tstream) {
+	auto base = parseBasicType(tstream);
+	return parseTypeSuffix!false(tstream, base);
 }
 
 auto parseBasicType(TokenStream tstream) {
@@ -192,7 +197,7 @@ auto parseTypeof(TokenStream tstream, Location location) {
 /**
  * Parse *, [ ... ] and function/delegate types.
  */
-auto parseTypeSuffix(TokenStream tstream, Type type) {
+auto parseTypeSuffix(bool isGreedy)(TokenStream tstream, Type type) {
 	auto location = type.location;
 	
 	while(1) {
@@ -212,10 +217,19 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 			case TokenType.Dot :
 				if(tstream.lookahead(1).type != TokenType.Identifier) return type;
 				
+				static if(!isGreedy) {
+					import d.parser.util;
+					if(!getConfirmedTypeIndex(tstream)) {
+						return type;
+					}
+				}
+				
+				tstream.get();
 				auto identifier = parseQualifiedIdentifier(tstream, type.location, type);
 				location.spanTo(tstream.previous.location);
-				
+			
 				type = new IdentifierType(location, identifier);
+				
 				break;
 			
 			case TokenType.Function :
@@ -243,23 +257,34 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 }
 
 Type parseBracket(TokenStream tstream, Type type) {
-	match(tstream, TokenType.OpenBracket);
+	import d.parser.util;
+	
 	auto location = type.location;
 	
-	switch(tstream.peek.type) {
-		case TokenType.CloseBracket :
-			location.spanTo(tstream.get().location);
-			return new SliceType(location, type);
+	// -1 because we the match the opening [
+	auto matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream) - 1;
+	match(tstream, TokenType.OpenBracket);
+	
+	if(matchingBracket == 0) {
+		location.spanTo(tstream.get().location);
+		return new SliceType(location, type);
+	} else if(getConfirmedTypeIndex(tstream) == matchingBracket) {
+		auto keyType = parseType(tstream);
+		location.spanTo(match(tstream, TokenType.CloseBracket).location);
+		return new AssociativeArrayType(location, type, keyType);
+	} else if(getTypeIndex(tstream) == matchingBracket) {
+		// TODO: manage ambiguity.
+		auto keyType = parseType(tstream);
 		
-		case TokenType.IntegerLiteral :
-			auto value = parseIntegerLiteral(tstream);
-			location.spanTo(match(tstream, TokenType.CloseBracket).location);
-			return new StaticArrayType(location, type, value);
+		import sdc.terminal;
+		outputCaretDiagnostics(keyType.location, "ambiguity");
 		
-		default :
-			auto keyType = parseType(tstream);
-			location.spanTo(match(tstream, TokenType.CloseBracket).location);
-			return new AssociativeArrayType(location, type, keyType);
+		location.spanTo(match(tstream, TokenType.CloseBracket).location);
+		return new AssociativeArrayType(location, type, keyType);
+	} else {
+		auto value = parseExpression(tstream);
+		location.spanTo(match(tstream, TokenType.CloseBracket).location);
+		return new StaticArrayType(location, type, value);
 	}
 }
 
