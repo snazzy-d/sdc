@@ -4,9 +4,47 @@ import d.ast.base;
 
 import sdc.location;
 
+enum StatementType {
+	EmptyStatement,
+	BlockStatement,
+	LabeledStatement,
+	ExpressionStatement,
+	DeclarationStatement,
+	IfStatement,
+	WhileStatement,
+	DoStatement,
+	ForStatement,
+	ForeachStatement,
+	SwitchStatement,
+	CaseStatement,
+	CaseRangeStatement,
+	DefaultStatement,
+	ContinueStatement,
+	BreakStatement,
+	ReturnStatement,
+	GotoStatement,
+	WithStatement,
+	SynchronizedStatement,
+	TryStatement,
+	ScopeGuardStatement,
+	ThrowStatement,
+	AsmStatement,
+	PragmaStatement,
+	MixinStatement,
+	ForeachRangeStatement,
+	ConditionalStatement,
+	StaticAssert,
+	TemplateMixin,
+}
+
+
 class Statement : Node {
-	this(Location location) {
+	StatementType type;
+	
+	this(Location location, StatementType type) {
 		super(location);
+		
+		this.type = type;
 	}
 }
 
@@ -17,7 +55,7 @@ class BlockStatement : Statement {
 	Statement[] statements;
 	
 	this(Location location, Statement[] statements) {
-		super(location);
+		super(location, StatementType.BlockStatement);
 		
 		this.statements = statements;
 	}
