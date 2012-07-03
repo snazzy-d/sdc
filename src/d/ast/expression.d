@@ -8,7 +8,7 @@ import sdc.location;
 
 class Expression : Statement, Namespace {
 	this(Location location) {
-		super(location, StatementType.ExpressionStatement);
+		super(location, StatementType.Expression);
 	}
 }
 
