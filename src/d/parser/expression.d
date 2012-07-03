@@ -549,6 +549,10 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			string value = extractStringLiteral(tstream.get().value);
 			return new StringLiteral(location, value);
 		
+		case TokenType.CharacterLiteral :
+			string value = extractCharacterLiteral(tstream.get().value);
+			return new CharacterLiteral(location, value);
+		
 		// Delegates litterals.
 		case TokenType.OpenBrace :
 			auto block = parseBlock(tstream);
@@ -893,5 +897,9 @@ string extractStringLiteral(string value) {
 		default:
 			throw new CompilerError(Location.init, format("unrecognised string prefix '%s'.", value[0]));
 	}
+}
+
+string extractCharacterLiteral(string value) {
+	return value[1 .. $ - 1];
 }
 

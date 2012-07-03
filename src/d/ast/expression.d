@@ -535,6 +535,19 @@ class StringLiteral : PrimaryExpression {
 }
 
 /**
+ * Character literals
+ */
+class CharacterLiteral : PrimaryExpression {
+	string value;
+	
+	this(Location location, string value) {
+		super(location, PrimaryType.CharacterLiteral);
+		
+		this.value = value;
+	}
+}
+
+/**
  * Boolean literals
  */
 class BooleanLiteral(bool value) : PrimaryExpression {
