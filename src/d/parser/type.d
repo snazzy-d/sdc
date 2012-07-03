@@ -66,17 +66,7 @@ auto parseBasicType(TokenStream tstream) {
 		
 		case TokenType.Typeof :
 			tstream.get();
-			auto type = parseTypeof(tstream, location);
-			if(tstream.peek.type == TokenType.Dot) {
-				tstream.get();
-				
-				auto identifier = parseQualifiedIdentifier(tstream, location, type);
-				location.spanTo(tstream.peek.location);
-				
-				type = new IdentifierType(location, identifier);
-			}
-			
-			return type;
+			return parseTypeof(tstream, location);
 		
 		case TokenType.This :
 			tstream.get();
@@ -218,6 +208,16 @@ auto parseTypeSuffix(TokenStream tstream, Type type) {
 				type = parseBracket(tstream, type);
 				
 				break;
+			
+			case TokenType.Dot :
+				if(tstream.lookahead(1).type != TokenType.Identifier) return type;
+				
+				auto identifier = parseQualifiedIdentifier(tstream, type.location, type);
+				location.spanTo(tstream.previous.location);
+				
+				type = new IdentifierType(location, identifier);
+				break;
+			
 			case TokenType.Function :
 				tstream.get();
 				bool isVariadic;
