@@ -140,8 +140,36 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 				break;
 			
 			case TokenType.OpenBracket :
-				// TODO: check for slice.
-				index = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index) + 1;
+				// Type[anything] is a type.
+				uint matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index);
+				if(confirmed == index) {
+					index = confirmed = matchingBracket + 1;
+					break;
+				}
+				
+				// If it is a slice, return.
+				for(uint i = index + 1; i < matchingBracket; ++i) {
+					switch(tstream.lookahead(i).type) {
+						case TokenType.DoubleDot :
+							return index;
+						
+						case TokenType.OpenBracket :
+							i = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index) + 1;
+							break;
+						
+						default :
+							continue;
+					}
+				}
+				
+				index = matchingBracket + 1;
+				
+				// Associative arrays are confirmed types.
+				uint confirmedCandidate;
+				getTypeIndex(tstream, index + 1, confirmedCandidate);
+				if(confirmedCandidate == matchingBracket) {
+					confirmed = index;
+				}
 				
 				break;
 			
