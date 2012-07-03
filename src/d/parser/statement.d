@@ -174,11 +174,25 @@ Statement parseStatement(TokenStream tstream) {
 			break;
 		
 		case TokenType.Static :
-			if(tstream.lookahead(1).type == TokenType.If) {
-				return parseStaticIf!Statement(tstream);
+			switch(tstream.lookahead(1).type) {
+				case TokenType.If :
+					return parseStaticIf!Statement(tstream);
+				
+				case TokenType.Assert :
+					tstream.get();
+					tstream.get();
+					match(tstream, TokenType.OpenParen);
+					
+					parseArguments(tstream);
+					
+					match(tstream, TokenType.CloseParen);
+					match(tstream, TokenType.Semicolon);
+					
+					return null;
+				
+				default :
+					return parseDeclaration(tstream);
 			}
-			
-			return parseDeclaration(tstream);
 		
 		case TokenType.Version, TokenType.Debug :
 			return parseVersion!Statement(tstream);

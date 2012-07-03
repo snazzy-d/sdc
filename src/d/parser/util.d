@@ -200,7 +200,7 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
  */
 bool isDeclaration(TokenStream tstream) {
 	switch(tstream.peek.type) {
-		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template, TokenType.Alias :
+		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template, TokenType.Alias, TokenType.Extern :
 			return true;
 		
 		default :
