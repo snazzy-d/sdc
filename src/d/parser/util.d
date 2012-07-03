@@ -26,7 +26,7 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
 	} else static if(openTokenType == TokenType.Less) {
 		alias TokenType.Greater closeTokenType;
 	} else {
-		static assert(0, tokenToString[openTokenType] ~ " isn't a toke, that goes by pair. Use (, {, [, <");
+		static assert(0, tokenToString[openTokenType] ~ " isn't a token that goes by pair. Use (, {, [, <");
 	}
 	
 	uint level = 1;
@@ -51,6 +51,7 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
 		}
 	}
 	
+	assert(tstream.lookahead(n).type == closeTokenType);
 	return n;
 }
 
@@ -58,86 +59,102 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
  * Count how many tokens does the type to be parsed contains.
  * return 0 if no type is parsed.
  */
-uint getTypeSize(TokenStream tstream) {
-	return getTypeSize(tstream, 0);
+uint getTypeIndex(TokenStream tstream) {
+	uint confirmed;
+	return getTypeIndex(tstream, 0, confirmed);
 }
 
-private uint getTypeSize(TokenStream tstream, uint n) {
-	switch(tstream.lookahead(n).type) {
+/**
+ * Count how many tokens belong to a type with no ambiguity.
+ */
+uint getConfirmedTypeIndex(TokenStream tstream) {
+	uint confirmed;
+	getTypeIndex(tstream, 0, confirmed);
+	return confirmed;
+}
+
+private uint getTypeIndex(TokenStream tstream, uint index, out uint confirmed) {
+	switch(tstream.lookahead(index).type) {
 		case TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared :
-			switch(tstream.lookahead(n + 1).type) {
+			index++;
+			
+			switch(tstream.lookahead(index).type) {
 				case TokenType.OpenParen :
-					n = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, n + 1);
-					if(tstream.lookahead(n).type != TokenType.CloseParen) return 0;
+					confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index);
 					
-					return getPostfixTypeSize(tstream, n + 1);
+					return getPostfixTypeIndex(tstream, index, confirmed);
 				
 				case TokenType.Identifier :
-					if(tstream.lookahead(n + 2).type != TokenType.Assign) goto default;
+					if(tstream.lookahead(index + 1).type != TokenType.Assign) goto default;
 					
-					return n + 1;
+					return index;
 				
 				default :
-					return getTypeSize(tstream, n + 1);
+					confirmed = index;
+					return getTypeIndex(tstream, index, confirmed);
 			}
 		
 		case TokenType.Typeof :
-			if(tstream.lookahead(n + 1).type != TokenType.OpenParen) return 0;
-			n = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, n + 1);
-			if(tstream.lookahead(n).type != TokenType.CloseParen) return 0;
+			index++;
 			
-			return getPostfixTypeSize(tstream, n + 1);
+			if(tstream.lookahead(index).type != TokenType.OpenParen) return 0;
+			confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index) + 1;
+			
+			return getPostfixTypeIndex(tstream, index, confirmed);
 		
 		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Wchar, TokenType.Dchar, TokenType.Float, TokenType.Double, TokenType.Real, TokenType.Bool, TokenType.Void :
-			return getPostfixTypeSize(tstream, n + 1);
+			confirmed = ++index;
+			return getPostfixTypeIndex(tstream, index, confirmed);
 		
 		case TokenType.Identifier :
-			return getPostfixTypeSize(tstream, n + 1);
+			return getPostfixTypeIndex(tstream, index + 1, confirmed);
 		
 		case TokenType.Dot :
-			if(tstream.lookahead(n + 1).type != TokenType.Identifier) return 0;
+			if(tstream.lookahead(index + 1).type != TokenType.Identifier) return 0;
 			
-			return getPostfixTypeSize(tstream, n + 2);
+			return getPostfixTypeIndex(tstream, index + 2, confirmed);
 		
 		case TokenType.This, TokenType.Super :
-			if(tstream.lookahead(n + 1).type != TokenType.Dot) return 0;
-			if(tstream.lookahead(n + 2).type != TokenType.Identifier) return 0;
+			if(tstream.lookahead(index + 1).type != TokenType.Dot) return 0;
+			if(tstream.lookahead(index + 2).type != TokenType.Identifier) return 0;
 			
-			return getPostfixTypeSize(tstream, n + 3);
+			return getPostfixTypeIndex(tstream, index + 3, confirmed);
 		
 		default :
 			return 0;
 	}
 }
 
-private uint getPostfixTypeSize(TokenStream tstream, uint n) in {
-	assert(n > 0);
+private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confirmed) in {
+	assert(index > 0);
 } body {
 	while(1) {
-		switch(tstream.lookahead(n).type) {
+		switch(tstream.lookahead(index).type) {
 			case TokenType.Asterix :
-				n++;
+				// type* can only be a pointer to type.
+				if(confirmed == index) {
+					confirmed++;
+				}
+				
+				index++;
 				break;
 			
 			case TokenType.OpenBracket :
 				// TODO: check for slice.
-				uint candidate = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, n);
+				index = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index) + 1;
 				
-				if(tstream.lookahead(candidate).type != TokenType.CloseBracket) return n;
-				
-				n = candidate + 1;
 				break;
 			
 			case TokenType.Dot :
-				if(tstream.lookahead(n + 1).type != TokenType.Identifier) return n + 1;
+				if(tstream.lookahead(index + 1).type != TokenType.Identifier) return index;
 				
-				n += 2;
+				index += 2;
 				break;
 			
 			// TODO: templates instanciation.
 			
 			default :
-				return n;
+				return index;
 		}
 	}
 }
@@ -151,9 +168,9 @@ bool isDeclaration(TokenStream tstream) {
 			return true;
 		
 		default :
-			uint typeSize = getTypeSize(tstream);
-			if(typeSize) {
-				return tstream.lookahead(typeSize).type == TokenType.Identifier;
+			uint typeIndex = getTypeIndex(tstream);
+			if(typeIndex) {
+				return tstream.lookahead(typeIndex).type == TokenType.Identifier;
 			}
 			
 			return false;
