@@ -6,6 +6,16 @@ import d.ast.statement;
 
 import sdc.location;
 
+private template conditionalType(T) {
+	static if(is(T == Statement)) {
+		alias StatementType.ConditionalStatement conditionalType;
+	} else static if(is(T == Declaration)) {
+		alias DeclarationType.Conditional conditionalType;
+	} else {
+		static assert(false, "WTF are you thinking here ?");
+	}
+}
+
 /**
  * Version Conditional
  */
@@ -14,11 +24,7 @@ class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarati
 	ItemType[] items;
 	
 	this(Location location, string versionId, ItemType[] items) {
-		static if(is(ItemType == Statement)) {
-			super(location);
-		} else {
-			super(location, DeclarationType.Conditional);
-		}
+		super(location, conditionalType!ItemType);
 		
 		this.versionId = versionId;
 		this.items = items;
@@ -59,11 +65,7 @@ class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarat
 	ItemType[] items;
 	
 	this(Location location, Expression condition, ItemType[] items) {
-		static if(is(ItemType == Statement)) {
-			super(location);
-		} else {
-			super(location, DeclarationType.Conditional);
-		}
+		super(location, conditionalType!ItemType);
 		
 		this.condition = condition;
 		this.items = items;

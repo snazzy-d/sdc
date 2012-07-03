@@ -34,7 +34,7 @@ class Declaration : Statement {
 	DeclarationType type;
 	
 	this(Location location, DeclarationType type) {
-		super(location);
+		super(location, StatementType.DeclarationStatement);
 		
 		this.type = type;
 	}
