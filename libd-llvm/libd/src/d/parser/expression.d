@@ -553,7 +553,24 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			string value = extractCharacterLiteral(tstream.get().value);
 			return new CharacterLiteral(location, value);
 		
-		// Delegates litterals.
+		case TokenType.OpenBracket :
+			Expression[] keys, values;
+			do {
+				tstream.get();
+				auto value = parseAssignExpression(tstream);
+				
+				if(tstream.peek.type == TokenType.Colon) {
+					keys ~= value;
+					tstream.get();
+					values ~= parseAssignExpression(tstream);
+				} else {
+					values ~= value;
+				}
+			} while(tstream.peek.type == TokenType.Comma);
+			
+			location.spanTo(match(tstream, TokenType.CloseBracket).location);
+			return new ArrayLiteral(location, values);
+		
 		case TokenType.OpenBrace :
 			auto block = parseBlock(tstream);
 			return new DelegateLiteral(block);
@@ -566,7 +583,9 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			tstream.get();
 			return new __Line__Literal(location);
 		
-		// TODO: literals, dollar.
+		case TokenType.Dollar :
+			tstream.get();
+			return new DollarExpression(location);
 		
 		case TokenType.Typeid :
 			tstream.get();
