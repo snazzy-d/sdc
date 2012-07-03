@@ -13,6 +13,8 @@ import sdc.location;
 import sdc.parser.base : match;
 
 Statement parseStatement(TokenStream tstream) {
+	auto location = tstream.peek.location;
+	
 	switch(tstream.peek.type) {
 		case TokenType.OpenBrace :
 			return parseBlock(tstream);
@@ -24,14 +26,20 @@ Statement parseStatement(TokenStream tstream) {
 			
 			match(tstream, TokenType.CloseParen);
 			
-			parseStatement(tstream);
+			auto then = parseStatement(tstream);
 			
 			if(tstream.peek.type == TokenType.Else) {
 				tstream.get();
-				parseStatement(tstream);
+				auto elseStatement = parseStatement(tstream);
+				
+				location.spanTo(tstream.previous.location);
+				
+				return new IfElseStatement(location, condition, then, elseStatement);
 			}
 			
-			break;
+			location.spanTo(tstream.previous.location);
+			
+			return new IfStatement(location, condition, then);
 		
 		case TokenType.While :
 			tstream.get();

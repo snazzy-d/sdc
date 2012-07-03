@@ -8,11 +8,11 @@ import sdc.location;
 
 private template conditionalType(T) {
 	static if(is(T == Statement)) {
-		alias StatementType.ConditionalStatement conditionalType;
+		alias StatementType.Conditional conditionalType;
 	} else static if(is(T == Declaration)) {
 		alias DeclarationType.Conditional conditionalType;
 	} else {
-		static assert(false, "WTF are you thinking here ?");
+		static assert(false, "Conditional are only available for statements and declarations.");
 	}
 }
 
