@@ -109,6 +109,20 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.Semicolon);
 			break;
 		
+		case TokenType.Synchronized :
+			tstream.get();
+			if(tstream.peek.type == TokenType.OpenParen) {
+				tstream.get();
+				
+				parseExpression(tstream);
+				
+				match(tstream, TokenType.CloseParen);
+			}
+			
+			parseStatement(tstream);
+			
+			break;
+		
 		case TokenType.Try :
 			tstream.get();
 			parseStatement(tstream);
