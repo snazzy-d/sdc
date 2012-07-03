@@ -593,7 +593,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			match(tstream, TokenType.OpenParen);
 			
 			Expression expression;
-			if(getTypeSize(tstream)) {
+			if(getConfirmedTypeIndex(tstream)) {
 				parseType(tstream);
 			} else {
 				expression = parseExpression(tstream);
@@ -623,7 +623,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 				
 				import d.ast.identifier;
 				Namespace qualifier;
-				if(getTypeSize(tstream)) {
+				if(getConfirmedTypeIndex(tstream)) {
 					qualifier = parseType(tstream);
 				} else {
 					qualifier = parseExpression(tstream);
@@ -647,11 +647,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return expression;
 		
 		default:
-			uint typeSize = getTypeSize(tstream);
-			if(typeSize > 2 && tstream.lookahead(typeSize - 2).type == TokenType.Dot && tstream.lookahead(typeSize - 1).type == TokenType.Identifier) {
-				
-			}
-			
+			// TODO: Handle type.identifier expressions.
 			match(tstream, TokenType.Begin);
 			assert(0);
 	}
