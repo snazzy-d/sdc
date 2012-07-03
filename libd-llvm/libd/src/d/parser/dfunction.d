@@ -144,20 +144,27 @@ auto parseParameters(TokenStream tstream, out bool isVariadic) {
 	
 	Parameter[] parameters;
 	
-	if(tstream.peek.type != TokenType.CloseParen) {
-		parameters ~= parseParameter(tstream);
+	switch(tstream.peek.type) {
+		case TokenType.CloseParen :
+			break;
 		
-		while(tstream.peek.type == TokenType.Comma) {
+		case TokenType.TripleDot :
 			tstream.get();
-			
-			if(tstream.peek.type == TokenType.TripleDot) {
-				tstream.get();
-				isVariadic = true;
-				break;
-			}
-			
+			isVariadic = true;
+			break;
+		
+		default :
 			parameters ~= parseParameter(tstream);
-		}
+			
+			while(tstream.peek.type == TokenType.Comma) {
+				tstream.get();
+				
+				if(tstream.peek.type == TokenType.TripleDot) {
+					goto case TokenType.TripleDot;
+				}
+				
+				parameters ~= parseParameter(tstream);
+			}
 	}
 	
 	match(tstream, TokenType.CloseParen);
