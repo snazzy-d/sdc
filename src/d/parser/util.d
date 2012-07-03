@@ -8,15 +8,15 @@ import sdc.parser.base : match;
  * Tool to lookahead what is after the matching opening token.
  * matchin tokens are (), [], <> and {}
  */
-auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) in {
-	assert(tstream.peek.type == openTokenType);
-} body {
+auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
 	return tstream.lookahead(getMatchingDelimiterIndex!openTokenType(tstream) + 1);
 }
 
-private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream, uint n = 0) in {
-	assert(tstream.lookahead(n).type == openTokenType);
-} body {
+auto getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream) {
+	return getMatchingDelimiterIndex!openTokenType(tstream, 0);
+}
+
+private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream, uint n) {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
@@ -80,7 +80,7 @@ private uint getTypeIndex(TokenStream tstream, uint index, out uint confirmed) {
 			
 			switch(tstream.lookahead(index).type) {
 				case TokenType.OpenParen :
-					confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index);
+					confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index) + 1;
 					
 					return getPostfixTypeIndex(tstream, index, confirmed);
 				
@@ -140,12 +140,7 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 				break;
 			
 			case TokenType.OpenBracket :
-				// Type[anything] is a type.
 				uint matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index);
-				if(confirmed == index) {
-					index = confirmed = matchingBracket + 1;
-					break;
-				}
 				
 				// If it is a slice, return.
 				for(uint i = index + 1; i < matchingBracket; ++i) {
@@ -160,6 +155,12 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 						default :
 							continue;
 					}
+				}
+				
+				// Type[anything] is a type.
+				if(confirmed == index) {
+					confirmed = index = matchingBracket + 1;
+					break;
 				}
 				
 				index = matchingBracket + 1;
@@ -177,6 +178,13 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 				if(tstream.lookahead(index + 1).type != TokenType.Identifier) return index;
 				
 				index += 2;
+				break;
+			
+			case TokenType.Function, TokenType.Delegate :
+				// This is a function/delegate litteral.
+				if(tstream.lookahead(index + 1).type != TokenType.OpenParen) return index;
+				
+				confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index + 1) + 1;
 				break;
 			
 			// TODO: templates instanciation.

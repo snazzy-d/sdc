@@ -518,7 +518,7 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			auto type = parseTypeof(tstream, location);
 			match(tstream, TokenType.Dot);
 			auto identifier = parseQualifiedIdentifier(tstream, location, type);
-			location.spanTo(tstream.peek.location);
+			location.spanTo(tstream.previous.location);
 			
 			return new IdentifierExpression(location, identifier);
 		
@@ -590,11 +590,18 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		case TokenType.Typeid :
 			tstream.get();
 			
+			// -1 because we the match the opening (
+			auto matchingParen = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream) - 1;
 			match(tstream, TokenType.OpenParen);
 			
 			Expression expression;
-			if(getConfirmedTypeIndex(tstream)) {
+			if(getConfirmedTypeIndex(tstream) == matchingParen) {
 				parseType(tstream);
+			} else if(getTypeIndex(tstream) == matchingParen) {
+				auto type = parseType(tstream);
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(type.location, "ambiguity");
 			} else {
 				expression = parseExpression(tstream);
 			}
@@ -618,13 +625,24 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 		
 		case TokenType.OpenParen :
 			Expression expression;
-			if(lookAfterMatchingDelimiter!(TokenType.OpenParen)(tstream).type == TokenType.Dot) {
-				tstream.get();
-				
+			
+			// -1 because we the match the opening (
+			auto matchingParen = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream) - 1;
+			tstream.get();
+			
+			if(tstream.lookahead(matchingParen + 1).type == TokenType.Dot) {
 				import d.ast.identifier;
+				
 				Namespace qualifier;
-				if(getConfirmedTypeIndex(tstream)) {
+				if(getConfirmedTypeIndex(tstream) == matchingParen) {
 					qualifier = parseType(tstream);
+				} else if(getTypeIndex(tstream) == matchingParen) {
+					auto type = parseType(tstream);
+					
+					import sdc.terminal;
+					outputCaretDiagnostics(type.location, "ambiguity");
+					
+					qualifier = type;
 				} else {
 					qualifier = parseExpression(tstream);
 				}
@@ -638,8 +656,6 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 				
 				expression = new IdentifierExpression(location, identifier);
 			} else {
-				tstream.get();
-				
 				expression = parseExpression(tstream);
 				match(tstream, TokenType.CloseParen);
 			}
@@ -647,7 +663,17 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			return expression;
 		
 		default:
-			// TODO: Handle type.identifier expressions.
+			// Our last resort are type.identifier expressions.
+			if(getConfirmedTypeIndex(tstream)) {
+				auto type = parseConfirmedType(tstream);
+				match(tstream, TokenType.Dot);
+				
+				auto identifier = parseQualifiedIdentifier(tstream, location, type);
+				location.spanTo(tstream.previous.location);
+				
+				return new IdentifierExpression(location, identifier);
+			}
+			
 			match(tstream, TokenType.Begin);
 			assert(0);
 	}
