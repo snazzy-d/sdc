@@ -93,6 +93,45 @@ Declaration parseDeclaration(TokenStream tstream) {
 			break;
 		
 		/*
+		 * Type qualifiers
+		 */
+		case TokenType.Const :
+			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
+				tstream.get();
+				
+				return handleStorageClass!ConstDeclaration();
+			}
+			
+			goto default;
+		
+		case TokenType.Immutable :
+			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
+				tstream.get();
+				
+				return handleStorageClass!ImmutableDeclaration();
+			}
+			
+			goto default;
+		
+		case TokenType.Inout :
+			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
+				tstream.get();
+				
+				return handleStorageClass!InoutDeclaration();
+			}
+			
+			goto default;
+		
+		case TokenType.Shared :
+			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
+				tstream.get();
+				
+				return handleStorageClass!SharedDeclaration();
+			}
+			
+			goto default;
+		
+		/*
 		 * Storage class
 		 */
 		case TokenType.Abstract :

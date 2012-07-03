@@ -548,6 +548,19 @@ class CharacterLiteral : PrimaryExpression {
 }
 
 /**
+ * Array literals
+ */
+class ArrayLiteral : PrimaryExpression {
+	Expression[] values;
+	
+	this(Location location, Expression[] values) {
+		super(location, PrimaryType.ArrayLiteral);
+		
+		this.values = values;
+	}
+}
+
+/**
  * Boolean literals
  */
 class BooleanLiteral(bool value) : PrimaryExpression {
@@ -597,6 +610,15 @@ class DelegateLiteral : PrimaryExpression {
 		super(statement.location, PrimaryType.DelegateLiteral);
 		
 		this.statement = statement;
+	}
+}
+
+/**
+ * $
+ */
+class DollarExpression : PrimaryExpression {
+	this(Location location) {
+		super(location, PrimaryType.Dollar);
 	}
 }
 

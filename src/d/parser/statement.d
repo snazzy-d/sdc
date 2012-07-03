@@ -100,6 +100,14 @@ Statement parseStatement(TokenStream tstream) {
 			
 			break;
 		
+		case TokenType.Continue, TokenType.Break :
+			tstream.get();
+			
+			if(tstream.peek.type == TokenType.Identifier) tstream.get();
+			
+			match(tstream, TokenType.Semicolon);
+			break;
+		
 		case TokenType.Return :
 			tstream.get();
 			if(tstream.peek.type != TokenType.Semicolon) {
@@ -164,6 +172,13 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			break;
+		
+		case TokenType.Static :
+			if(tstream.lookahead(1).type == TokenType.If) {
+				return parseStaticIf!Statement(tstream);
+			}
+			
+			return parseDeclaration(tstream);
 		
 		case TokenType.Version, TokenType.Debug :
 			return parseVersion!Statement(tstream);

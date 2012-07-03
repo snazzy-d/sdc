@@ -98,6 +98,10 @@ class ImportDeclaration : Declaration {
 }
 
 enum StorageClass {
+	Const,
+	Immutable,
+	Inout,
+	Shared,
 	Abstract,
 	Deprecated,
 	Nothrow,
@@ -121,6 +125,10 @@ class StorageClassDeclaration(StorageClass storageClass) : Declaration {
 	}
 }
 
+alias StorageClassDeclaration!(StorageClass.Const) ConstDeclaration;
+alias StorageClassDeclaration!(StorageClass.Immutable) ImmutableDeclaration;
+alias StorageClassDeclaration!(StorageClass.Inout) InoutDeclaration;
+alias StorageClassDeclaration!(StorageClass.Shared) SharedDeclaration;
 alias StorageClassDeclaration!(StorageClass.Abstract) AbstractDeclaration;
 alias StorageClassDeclaration!(StorageClass.Deprecated) DeprecatedDeclaration;
 alias StorageClassDeclaration!(StorageClass.Nothrow) NothrowDeclaration;
