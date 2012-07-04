@@ -65,6 +65,7 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			
+			location.spanTo(tstream.previous.location);
 			return new DoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
@@ -72,21 +73,23 @@ Statement parseStatement(TokenStream tstream) {
 			
 			match(tstream, TokenType.OpenParen);
 			
+			Statement init;
 			if(tstream.peek.type == TokenType.Semicolon) {
-				tstream.get();
+				init = new BlockStatement(tstream.get().location, []);
 			} else {
-				parseStatement(tstream);
+				init = parseStatement(tstream);
 			}
 			
-			parseExpression(tstream);
+			auto condition = parseExpression(tstream);
 			match(tstream, TokenType.Semicolon);
 			
-			parseExpression(tstream);
+			auto increment = parseExpression(tstream);
 			match(tstream, TokenType.CloseParen);
 			
-			parseStatement(tstream);
+			auto statement = parseStatement(tstream);
 			
-			break;
+			location.spanTo(tstream.previous.location);
+			return new ForStatement(location, init, condition, increment, statement);
 		
 		case TokenType.Foreach :
 			tstream.get();
