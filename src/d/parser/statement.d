@@ -221,12 +221,12 @@ Statement parseStatement(TokenStream tstream) {
 					tstream.get();
 					match(tstream, TokenType.OpenParen);
 					
-					parseArguments(tstream);
+					auto arguments = parseArguments(tstream);
 					
 					match(tstream, TokenType.CloseParen);
-					match(tstream, TokenType.Semicolon);
 					
-					return null;
+					location.spanTo(match(tstream, TokenType.Semicolon).location);
+					return new StaticAssertStatement(location, arguments);
 				
 				default :
 					return parseDeclaration(tstream);

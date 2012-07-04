@@ -226,3 +226,16 @@ class ThrowStatement : Statement {
 	}
 }
 
+/**
+ * static assert statements
+ */
+class StaticAssertStatement : Statement {
+	Expression[] arguments;
+	
+	this(Location location, Expression[] arguments) {
+		super(location, StatementType.StaticAssert);
+		
+		this.arguments = arguments;
+	}
+}
+
