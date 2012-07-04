@@ -147,31 +147,44 @@ Statement parseStatement(TokenStream tstream) {
 		case TokenType.Try :
 			tstream.get();
 			
-			parseStatement(tstream);
+			auto statement = parseStatement(tstream);
 			
+			CatchBlock[] catches;
 			while(tstream.peek.type == TokenType.Catch) {
-				tstream.get();
-				
-				bool isLastCatch = true;
+				auto catchLocation = tstream.get().location;
 				
 				if(tstream.peek.type == TokenType.OpenParen) {
 					tstream.get();
-					parseBasicType(tstream);
+					auto type = parseBasicType(tstream);
+					string name;
+					
+					if(tstream.peek.type == TokenType.Identifier) {
+						name = tstream.get().value;
+					}
+					
 					match(tstream, TokenType.CloseParen);
-					isLastCatch = false;
+					
+					auto catchStatement = parseStatement(tstream);
+					
+					location.spanTo(tstream.previous.location);
+					catches ~= new CatchBlock(location, type, name, catchStatement);
+				} else {
+					// TODO: handle final catches ?
+					parseStatement(tstream);
+					break;
 				}
-				
-				parseStatement(tstream);
-				
-				if(isLastCatch) break;
 			}
 			
 			if(tstream.peek.type == TokenType.Finally) {
 				tstream.get();
-				parseStatement(tstream);
+				auto finallyStatement = parseStatement(tstream);
+				
+				location.spanTo(tstream.previous.location);
+				return new TryFinallyStatement(location, statement, [], finallyStatement);
 			}
 			
-			break;
+			location.spanTo(tstream.previous.location);
+			return new TryStatement(location, statement, []);
 		
 		case TokenType.Throw :
 			tstream.get();
@@ -223,7 +236,7 @@ Statement parseStatement(TokenStream tstream) {
 			}
 	}
 	
-	return null;
+	assert(0);
 }
 
 BlockStatement parseBlock(TokenStream tstream) {

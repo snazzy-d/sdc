@@ -2,6 +2,7 @@ module d.ast.statement;
 
 import d.ast.base;
 import d.ast.expression;
+import d.ast.type;
 
 import sdc.location;
 
@@ -149,6 +150,48 @@ class ReturnStatement : Statement {
 		super(location, StatementType.Return);
 		
 		this.value = value;
+	}
+}
+
+/**
+ * try statements
+ */
+class TryStatement : Statement {
+	Statement statement;
+	CatchBlock[] catches;
+	
+	this(Location location, Statement statement, CatchBlock[] catches) {
+		super(location, StatementType.Try);
+		
+		this.statement = statement;
+		this.catches = catches;
+	}
+}
+
+class CatchBlock : Node {
+	Type type;
+	string name;
+	Statement statement;
+	
+	this(Location location, Type type, string name, Statement statement) {
+		super(location);
+		
+		this.type = type;
+		this.name = name;
+		this.statement = statement;
+	}
+}
+
+/**
+ * try .. finally statements
+ */
+class TryFinallyStatement : TryStatement {
+	Statement finallyBlock;
+	
+	this(Location location, Statement statement, CatchBlock[] catches, Statement finallyBlock) {
+		super(location, statement, catches);
+		
+		this.finallyBlock = finallyBlock;
 	}
 }
 
