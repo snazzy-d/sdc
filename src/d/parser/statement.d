@@ -146,6 +146,7 @@ Statement parseStatement(TokenStream tstream) {
 		
 		case TokenType.Try :
 			tstream.get();
+			
 			parseStatement(tstream);
 			
 			while(tstream.peek.type == TokenType.Catch) {
@@ -174,9 +175,10 @@ Statement parseStatement(TokenStream tstream) {
 		
 		case TokenType.Throw :
 			tstream.get();
-			parseExpression(tstream);
-			match(tstream, TokenType.Semicolon);
-			break;
+			auto value = parseExpression(tstream);
+			
+			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			return new ThrowStatement(location, value);
 		
 		case TokenType.Mixin :
 			tstream.get();

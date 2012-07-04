@@ -140,13 +140,26 @@ class ForStatement : Statement {
 }
 
 /**
- * for statements
+ * return statements
  */
 class ReturnStatement : Statement {
 	Expression value;
 	
 	this(Location location, Expression value) {
 		super(location, StatementType.Return);
+		
+		this.value = value;
+	}
+}
+
+/**
+ * throw statements
+ */
+class ThrowStatement : Statement {
+	Expression value;
+	
+	this(Location location, Expression value) {
+		super(location, StatementType.Throw);
 		
 		this.value = value;
 	}
