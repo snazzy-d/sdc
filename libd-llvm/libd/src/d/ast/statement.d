@@ -141,6 +141,24 @@ class ForStatement : Statement {
 }
 
 /**
+ * break statements
+ */
+class BreakStatement : Statement {
+	this(Location location) {
+		super(location, StatementType.Break);
+	}
+}
+
+/**
+ * continue statements
+ */
+class ContinueStatement : Statement {
+	this(Location location) {
+		super(location, StatementType.Continue);
+	}
+}
+
+/**
  * return statements
  */
 class ReturnStatement : Statement {
