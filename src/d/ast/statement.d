@@ -13,7 +13,7 @@ enum StatementType {
 	Declaration,
 	If,
 	While,
-	Do,
+	DoWhile,
 	For,
 	Foreach,
 	Switch,
@@ -87,6 +87,36 @@ class IfElseStatement : IfStatement {
 		super(location, condition, then);
 		
 		this.elseStatement = elseStatement;
+	}
+}
+
+/**
+ * while statements
+ */
+class WhileStatement : Statement {
+	Expression condition;
+	Statement statement;
+	
+	this(Location location, Expression condition, Statement statement) {
+		super(location, StatementType.While);
+		
+		this.condition = condition;
+		this.statement = statement;
+	}
+}
+
+/**
+ * do .. while statements
+ */
+class DoWhileStatement : Statement {
+	Expression condition;
+	Statement statement;
+	
+	this(Location location, Expression condition, Statement statement) {
+		super(location, StatementType.DoWhile);
+		
+		this.condition = condition;
+		this.statement = statement;
 	}
 }
 
