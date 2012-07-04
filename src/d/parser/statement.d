@@ -1,6 +1,7 @@
 module d.parser.statement;
 
 import d.ast.statement;
+import d.ast.expression;
 
 import d.parser.conditional;
 import d.parser.declaration;
@@ -38,7 +39,6 @@ Statement parseStatement(TokenStream tstream) {
 			}
 			
 			location.spanTo(tstream.previous.location);
-			
 			return new IfStatement(location, condition, then);
 		
 		case TokenType.While :
@@ -63,9 +63,8 @@ Statement parseStatement(TokenStream tstream) {
 			auto condition = parseExpression(tstream);
 			
 			match(tstream, TokenType.CloseParen);
-			match(tstream, TokenType.Semicolon);
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(match(tstream, TokenType.Semicolon).location);
 			return new DoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
@@ -122,12 +121,14 @@ Statement parseStatement(TokenStream tstream) {
 		
 		case TokenType.Return :
 			tstream.get();
+			
+			Expression value;
 			if(tstream.peek.type != TokenType.Semicolon) {
-				parseExpression(tstream);
+				value = parseExpression(tstream);
 			}
 			
-			match(tstream, TokenType.Semicolon);
-			break;
+			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			return new ReturnStatement(location, value);
 		
 		case TokenType.Synchronized :
 			tstream.get();
