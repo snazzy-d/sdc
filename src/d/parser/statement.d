@@ -109,15 +109,25 @@ Statement parseStatement(TokenStream tstream) {
 			
 			parseStatement(tstream);
 			
-			break;
+			return null;
 		
-		case TokenType.Continue, TokenType.Break :
+		case TokenType.Break :
 			tstream.get();
 			
 			if(tstream.peek.type == TokenType.Identifier) tstream.get();
 			
-			match(tstream, TokenType.Semicolon);
-			break;
+			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			
+			return new BreakStatement(location);
+		
+		case TokenType.Continue :
+			tstream.get();
+			
+			if(tstream.peek.type == TokenType.Identifier) tstream.get();
+			
+			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			
+			return new ContinueStatement(location);
 		
 		case TokenType.Return :
 			tstream.get();
@@ -142,7 +152,7 @@ Statement parseStatement(TokenStream tstream) {
 			
 			parseStatement(tstream);
 			
-			break;
+			return null;
 		
 		case TokenType.Try :
 			tstream.get();
