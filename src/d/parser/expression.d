@@ -513,15 +513,6 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			
 			return new IdentifierExpression(location, identifier);
 		
-		case TokenType.Typeof :
-			tstream.get();
-			auto type = parseTypeof(tstream, location);
-			match(tstream, TokenType.Dot);
-			auto identifier = parseQualifiedIdentifier(tstream, location, type);
-			location.spanTo(tstream.previous.location);
-			
-			return new IdentifierExpression(location, identifier);
-		
 		case TokenType.This :
 			tstream.get();
 			return new ThisExpression(location);
