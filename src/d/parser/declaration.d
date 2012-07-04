@@ -314,7 +314,7 @@ Declaration parseDeclaration(TokenStream tstream) {
 			return parseVersion!Declaration(tstream);
 		
 		case TokenType.Debug :
-			return parseVersion!Declaration(tstream);
+			return parseDebug!Declaration(tstream);
 		
 		case TokenType.Unittest :
 			tstream.get();

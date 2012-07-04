@@ -58,6 +58,13 @@ class VersionDefinition : Declaration {
 }
 
 /**
+ * Debug ast alias
+ */
+alias Version Debug;
+alias VersionElse DebugElse;
+alias VersionDefinition DebugDefinition;
+
+/**
  * Static if Conditional
  */
 class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
