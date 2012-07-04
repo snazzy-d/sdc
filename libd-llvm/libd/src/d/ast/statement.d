@@ -139,3 +139,16 @@ class ForStatement : Statement {
 	}
 }
 
+/**
+ * for statements
+ */
+class ReturnStatement : Statement {
+	Expression value;
+	
+	this(Location location, Expression value) {
+		super(location, StatementType.Return);
+		
+		this.value = value;
+	}
+}
+
