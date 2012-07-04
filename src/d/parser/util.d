@@ -12,6 +12,10 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
 	return tstream.lookahead(getMatchingDelimiterIndex!openTokenType(tstream) + 1);
 }
 
+/**
+ * Return the index of the matching closing token (this index can be used with lookahead).
+ * matchin tokens are (), [], <> and {}
+ */
 auto getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream) {
 	return getMatchingDelimiterIndex!openTokenType(tstream, 0);
 }
@@ -71,6 +75,42 @@ uint getConfirmedTypeIndex(TokenStream tstream) {
 	uint confirmed;
 	getTypeIndex(tstream, 0, confirmed);
 	return confirmed;
+}
+
+/**
+ * Branch to the right code depending if we have a type, an expression or something ambiguous.
+ */
+auto proceedAsTypeOrExpression(alias handler)(TokenStream tstream, uint delimiter) {
+	uint confirmed;
+	uint typeIndex = getTypeIndex(tstream, 0, confirmed);
+	
+	import d.parser.type;
+	if(confirmed == delimiter) {
+		import d.ast.type;
+		
+		return handler(parseType(tstream));
+	} else if(typeIndex == delimiter) {
+		import d.ast.identifier;
+		import d.parser.identifier;
+		
+		Identifier identifier;
+		if(confirmed) {
+			auto type = parseConfirmedType(tstream);
+			match(tstream, TokenType.Dot);
+			
+			identifier = parseQualifiedIdentifier(tstream, type.location, type);
+		} else {
+			identifier = parseIdentifier(tstream);
+		}
+		
+		import sdc.terminal;
+		outputCaretDiagnostics(identifier.location, "ambiguity");
+		
+		return handler(identifier);
+	} else {
+		import d.parser.expression;
+		return handler(parseExpression(tstream));
+	}
 }
 
 private uint getTypeIndex(TokenStream tstream, uint index, out uint confirmed) {

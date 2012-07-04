@@ -594,21 +594,20 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			auto matchingParen = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream) - 1;
 			match(tstream, TokenType.OpenParen);
 			
-			Expression expression;
-			if(getConfirmedTypeIndex(tstream) == matchingParen) {
-				parseType(tstream);
-			} else if(getTypeIndex(tstream) == matchingParen) {
-				auto type = parseType(tstream);
+			return proceedAsTypeOrExpression!(delegate Expression(parsed) {
+				location.spanTo(match(tstream, TokenType.CloseParen).location);
 				
-				import sdc.terminal;
-				outputCaretDiagnostics(type.location, "ambiguity");
-			} else {
-				expression = parseExpression(tstream);
-			}
-			
-			location.spanTo(match(tstream, TokenType.CloseParen).location);
-			
-			return new TypeidExpression(location, expression);
+				alias typeof(parsed) caseType;
+				
+				import d.ast.type;
+				static if(is(caseType : Type)) {
+					return new StaticTypeidExpression(location, parsed);
+				} else static if(is(caseType : Expression)) {
+					return new TypeidExpression(location, parsed);
+				} else {
+					return new AmbiguousTypeidExpression(location, parsed);
+				}
+			})(tstream, matchingParen);
 		
 		case TokenType.Is :
 			return parseIsExpression(tstream);
@@ -633,22 +632,13 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			if(tstream.lookahead(matchingParen + 1).type == TokenType.Dot) {
 				import d.ast.identifier;
 				
-				Namespace qualifier;
-				if(getConfirmedTypeIndex(tstream) == matchingParen) {
-					qualifier = parseType(tstream);
-				} else if(getTypeIndex(tstream) == matchingParen) {
-					auto type = parseType(tstream);
-					
-					import sdc.terminal;
-					outputCaretDiagnostics(type.location, "ambiguity");
-					
-					qualifier = type;
-				} else {
-					qualifier = parseExpression(tstream);
-				}
+				
+				
+				Namespace qualifier = proceedAsTypeOrExpression!(delegate Namespace(parsed) {
+					return parsed;
+				})(tstream, matchingParen);
 				
 				match(tstream, TokenType.CloseParen);
-				
 				match(tstream, TokenType.Dot);
 				
 				auto identifier = parseQualifiedIdentifier(tstream, location, qualifier);

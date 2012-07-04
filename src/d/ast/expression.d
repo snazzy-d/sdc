@@ -661,3 +661,29 @@ class TypeidExpression : PrimaryExpression {
 	}
 }
 
+/**
+ * typeid expression with a type as argument.
+ */
+class StaticTypeidExpression : PrimaryExpression {
+	private Type type;
+	
+	this(Location location, Type type) {
+		super(location, PrimaryType.TypeidExpression);
+		
+		this.type = type;
+	}
+}
+
+/**
+ * ambiguous typeid expression.
+ */
+class AmbiguousTypeidExpression : PrimaryExpression {
+	private Identifier identifier;
+	
+	this(Location location, Identifier identifier) {
+		super(location, PrimaryType.TypeidExpression);
+		
+		this.identifier = identifier;
+	}
+}
+
