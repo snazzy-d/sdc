@@ -15,15 +15,31 @@ import sdc.parser.base : match;
 /**
  * Parse Version Declaration
  */
-ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	auto conditionalType = TokenType.Version;
-	
-	// TODO: handle debug properly.
-	if(tstream.peek.type == TokenType.Debug) {
-		conditionalType = TokenType.Debug;
+auto parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
+	return parseconditionalBlock!(true, ItemType)(tstream);
+}
+
+/**
+ * Parse Debug Declaration
+ */
+auto parseDebug(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
+	return parseconditionalBlock!(false, ItemType)(tstream);
+}
+
+private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tstream) {
+	static if(isVersion) {
+		alias TokenType.Version conditionalTokenType;
+		alias Version ConditionalType;
+		alias VersionElse ConditionalElseType;
+		alias VersionDefinition DefinitionType;
+	} else {
+		alias TokenType.Debug conditionalTokenType;
+		alias Debug ConditionalType;
+		alias DebugElse ConditionalElseType;
+		alias DebugDefinition DefinitionType;
 	}
 	
-	auto location = match(tstream, conditionalType).location;
+	auto location = match(tstream, conditionalTokenType).location;
 	
 	// TODO: refactor.
 	switch(tstream.peek.type) {
@@ -36,13 +52,15 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 					break;
 				
 				case TokenType.Unittest :
-					// version unittest don't exist for debug
-					if(conditionalType == TokenType.Debug) goto default;
+					static if(isVersion) {
+						tstream.get();
+						versionId = "unittest";
+						break;
+					} else {
+						// unittest isn't a special token for debug.
+						goto default;
+					}
 					
-					tstream.get();
-					versionId = "unittest";
-					break;
-				
 				default :
 					assert(0);
 			}
@@ -56,9 +74,9 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 				
 				ItemType[] elseItems = parseItems!ItemType(tstream);
 				
-				return new VersionElse!ItemType(location, versionId, items, elseItems);
+				return new ConditionalElseType!ItemType(location, versionId, items, elseItems);
 			} else {
-				return new Version!ItemType(location, versionId, items);
+				return new ConditionalType!ItemType(location, versionId, items);
 			}
 		
 		case TokenType.Assign :
@@ -66,7 +84,7 @@ ItemType parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement
 			string versionId = match(tstream, TokenType.Identifier).value;
 			match(tstream, TokenType.Semicolon);
 			
-			return new VersionDefinition(location, versionId);
+			return new DefinitionType(location, versionId);
 		
 		default :
 			// TODO: error.
@@ -102,7 +120,7 @@ ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statemen
 /**
  * Parse the content of the conditionnal depending on if it is statement or declaration that are expected.
  */
-private auto parseItems(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
+private auto parseItems(ItemType)(TokenStream tstream) {
 	ItemType[] items;
 	if(tstream.peek.type == TokenType.OpenBrace) {
 		static if(is(ItemType == Statement)) {

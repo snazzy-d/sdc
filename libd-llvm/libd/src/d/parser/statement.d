@@ -232,8 +232,11 @@ Statement parseStatement(TokenStream tstream) {
 					return parseDeclaration(tstream);
 			}
 		
-		case TokenType.Version, TokenType.Debug :
+		case TokenType.Version :
 			return parseVersion!Statement(tstream);
+		
+		case TokenType.Debug :
+			return parseDebug!Statement(tstream);
 		
 		default :
 			if(isDeclaration(tstream)) {
