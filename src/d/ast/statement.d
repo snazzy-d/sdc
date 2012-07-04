@@ -120,3 +120,22 @@ class DoWhileStatement : Statement {
 	}
 }
 
+/**
+ * for statements
+ */
+class ForStatement : Statement {
+	Statement init;
+	Expression condition;
+	Expression increment;
+	Statement statement;
+	
+	this(Location location, Statement init, Expression condition, Expression increment, Statement statement) {
+		super(location, StatementType.DoWhile);
+		
+		this.init = init;
+		this.condition = condition;
+		this.increment = increment;
+		this.statement = statement;
+	}
+}
+
