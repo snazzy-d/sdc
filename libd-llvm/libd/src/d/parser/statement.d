@@ -48,14 +48,15 @@ Statement parseStatement(TokenStream tstream) {
 			
 			match(tstream, TokenType.CloseParen);
 			
-			parseStatement(tstream);
+			auto statement = parseStatement(tstream);
 			
-			break;
+			location.spanTo(tstream.previous.location);
+			return new WhileStatement(location, condition, statement);
 		
 		case TokenType.Do :
 			tstream.get();
 			
-			parseStatement(tstream);
+			auto statement = parseStatement(tstream);
 			
 			match(tstream, TokenType.While);
 			match(tstream, TokenType.OpenParen);
@@ -64,7 +65,7 @@ Statement parseStatement(TokenStream tstream) {
 			match(tstream, TokenType.CloseParen);
 			match(tstream, TokenType.Semicolon);
 			
-			break;
+			return new DoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
 			tstream.get();
