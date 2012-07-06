@@ -623,8 +623,6 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 			if(tstream.lookahead(matchingParen + 1).type == TokenType.Dot) {
 				import d.ast.identifier;
 				
-				
-				
 				Namespace qualifier = proceedAsTypeOrExpression!(delegate Namespace(parsed) {
 					return parsed;
 				})(tstream, matchingParen);
