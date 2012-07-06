@@ -1,5 +1,8 @@
 module d.parser.util;
 
+import d.parser.base;
+import d.parser.type;
+
 import sdc.tokenstream;
 import sdc.location;
 import sdc.parser.base : match;
@@ -17,10 +20,10 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(TokenStream tstream) {
  * matchin tokens are (), [], <> and {}
  */
 auto getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream) {
-	return getMatchingDelimiterIndex!openTokenType(tstream, 0);
+	return getMatchingDelimiterIndex!openTokenType(TokenRange(tstream), 0);
 }
 
-private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstream, uint n) {
+private uint getMatchingDelimiterIndex(TokenType openTokenType, TokenRange)(TokenRange trange, uint n) {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
@@ -33,12 +36,17 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
 		static assert(0, tokenToString[openTokenType] ~ " isn't a token that goes by pair. Use (, {, [, <");
 	}
 	
+	for(uint i = n; i != 0; i--) {
+		trange.popFront();
+	}
+	
 	uint level = 1;
 	
 	while(level > 0) {
 		n++;
+		trange.popFront();
 		
-		switch(tstream.lookahead(n).type) {
+		switch(trange.front.type) {
 			case openTokenType :
 				level++;
 				break;
@@ -55,7 +63,7 @@ private uint getMatchingDelimiterIndex(TokenType openTokenType)(TokenStream tstr
 		}
 	}
 	
-	assert(tstream.lookahead(n).type == closeTokenType);
+	assert(trange.front.type == closeTokenType);
 	return n;
 }
 
@@ -84,29 +92,19 @@ auto proceedAsTypeOrExpression(alias handler)(TokenStream tstream, uint delimite
 	uint confirmed;
 	uint typeIndex = getTypeIndex(tstream, 0, confirmed);
 	
-	import d.parser.type;
 	if(confirmed == delimiter) {
-		import d.ast.type;
-		
 		return handler(parseType(tstream));
 	} else if(typeIndex == delimiter) {
 		import d.ast.identifier;
 		import d.parser.identifier;
 		
-		Identifier identifier;
-		if(confirmed) {
-			auto type = parseConfirmedType(tstream);
-			match(tstream, TokenType.Dot);
-			
-			identifier = parseQualifiedIdentifier(tstream, type.location, type);
-		} else {
-			identifier = parseIdentifier(tstream);
-		}
+		auto type = parseType(tstream);
 		
 		import sdc.terminal;
-		outputCaretDiagnostics(identifier.location, "ambiguity");
+		outputCaretDiagnostics(type.location, "ambiguity");
 		
-		return handler(identifier);
+		assert(0);
+		// return handler(identifier);
 	} else {
 		import d.parser.expression;
 		return handler(parseExpression(tstream));
@@ -120,7 +118,7 @@ private uint getTypeIndex(TokenStream tstream, uint index, out uint confirmed) {
 			
 			switch(tstream.lookahead(index).type) {
 				case TokenType.OpenParen :
-					confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index) + 1;
+					confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(TokenRange(tstream), index) + 1;
 					
 					return getPostfixTypeIndex(tstream, index, confirmed);
 				
@@ -138,7 +136,7 @@ private uint getTypeIndex(TokenStream tstream, uint index, out uint confirmed) {
 			index++;
 			
 			if(tstream.lookahead(index).type != TokenType.OpenParen) return 0;
-			confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index) + 1;
+			confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(TokenRange(tstream), index) + 1;
 			
 			return getPostfixTypeIndex(tstream, index, confirmed);
 		
@@ -180,7 +178,7 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 				break;
 			
 			case TokenType.OpenBracket :
-				uint matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index);
+				uint matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(TokenRange(tstream), index);
 				
 				// If it is a slice, return.
 				for(uint i = index + 1; i < matchingBracket; ++i) {
@@ -189,7 +187,7 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 							return index;
 						
 						case TokenType.OpenBracket :
-							i = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream, index) + 1;
+							i = getMatchingDelimiterIndex!(TokenType.OpenBracket)(TokenRange(tstream), index) + 1;
 							break;
 						
 						default :
@@ -224,7 +222,7 @@ private uint getPostfixTypeIndex(TokenStream tstream, uint index, ref uint confi
 				// This is a function/delegate litteral.
 				if(tstream.lookahead(index + 1).type != TokenType.OpenParen) return index;
 				
-				confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream, index + 1) + 1;
+				confirmed = index = getMatchingDelimiterIndex!(TokenType.OpenParen)(TokenRange(tstream), index + 1) + 1;
 				break;
 			
 			// TODO: templates instanciation.
