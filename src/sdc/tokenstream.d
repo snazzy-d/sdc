@@ -67,7 +67,7 @@ class TokenStream
     /**
      * Return the current token.
      */
-    Token peek() @property
+    auto peek() @property inout
     {
         return mTokens[mIndex];
     }
@@ -78,7 +78,7 @@ class TokenStream
      * Throws:
      *   CompilerPanic if accessing before the first token.
      */
-    Token previous() @property
+    auto previous() @property inout
     {
         if (mIndex < 1)
             throw new CompilerPanic("Token array out of bounds access.");
@@ -92,7 +92,7 @@ class TokenStream
      * Throws:
      *   CompilerPanic if accessing before the first token.
      */
-    Token lookahead(size_t n)
+    auto lookahead(size_t n) inout
     {
         if (n == 0) {
             return peek();
@@ -112,7 +112,7 @@ class TokenStream
      * Throws:
      *   CompilerPanic if accessing before the first token.
      */
-    Token lookbehind(size_t n)
+    auto lookbehind(size_t n) inout
     {
         auto index = mIndex - n;
         if (index < 0)
