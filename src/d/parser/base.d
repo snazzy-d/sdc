@@ -5,24 +5,29 @@ import sdc.tokenstream;
 template isTokenRange(T) {
 	import std.range;
 	
-	enum isTokenRange = isForwardRange!T && is(ElementType!T : Token);
+	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token));
 }
 
 struct TokenRange {
-	private TokenStream tstream;
+	private const TokenStream tstream;
 	private uint i;
 	
-	this(TokenStream tstream) {
+	this(const TokenStream tstream) {
 		this.tstream = tstream;
 	}
 	
+	private this(const TokenStream tstream, uint i) {
+		this.tstream = tstream;
+		this.i = i;
+	}
+	
 	@property
-	bool empty() {
+	bool empty() const {
 		return front.type == TokenType.End;
 	}
 	
 	@property
-	Token front() {
+	auto front() const {
 		return tstream.lookahead(i);
 	}
 	
@@ -31,8 +36,14 @@ struct TokenRange {
 	}
 	
 	@property
-	TokenRange save() {
-		return this;
+	auto save() const {
+		return TokenRange(tstream, i);
+	}
+	
+	auto opBinary(string op = "-")(ref const TokenRange rhs) const in {
+		assert(tstream is rhs.tstream, "range must be comparable.");
+	} body {
+		return i - rhs.i;
 	}
 }
 
