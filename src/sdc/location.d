@@ -22,14 +22,14 @@ struct Location
     size_t column = 1;
     size_t length = 0;
     
-    string toString()
+    string toString() const
     {
         return format("%s(%s:%s)", filename, line, column);
     }
     
     // Difference between two locations
     // end - begin == begin ... end
-    Location opBinary(string op)(ref Location begin) if (op == "-")
+    Location opBinary(string op)(ref const Location begin) const if (op == "-")
     {
         assert(begin.filename == filename);
         assert(begin.line <= line);
@@ -49,7 +49,7 @@ struct Location
         return loc;
     }
     
-    void spanTo(ref Location end)
+    void spanTo(ref const Location end)
     {
         if (line <= end.line && column < end.column) {
             this = end - this;
