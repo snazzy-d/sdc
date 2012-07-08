@@ -4,29 +4,29 @@ import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.statement;
 
+import d.parser.base;
 import d.parser.declaration;
 import d.parser.expression;
 import d.parser.statement;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
 /**
  * Parse Version Declaration
  */
-auto parseVersion(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	return parseconditionalBlock!(true, ItemType)(tstream);
+auto parseVersion(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+	return trange.parseconditionalBlock!(true, ItemType)();
 }
 
 /**
  * Parse Debug Declaration
  */
-auto parseDebug(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	return parseconditionalBlock!(false, ItemType)(tstream);
+auto parseDebug(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+	return trange.parseconditionalBlock!(false, ItemType)();
 }
 
-private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tstream) {
+private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref TokenRange trange) {
 	static if(isVersion) {
 		alias TokenType.Version conditionalTokenType;
 		alias Version ConditionalType;
@@ -39,21 +39,24 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tst
 		alias DebugDefinition DefinitionType;
 	}
 	
-	auto location = match(tstream, conditionalTokenType).location;
+	Location location = trange.front.location;
+	trange.match(conditionalTokenType);
 	
 	// TODO: refactor.
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.OpenParen :
-			tstream.get();
+			trange.popFront();
 			string versionId;
-			switch(tstream.peek.type) {
+			switch(trange.front.type) {
 				case TokenType.Identifier :
-					versionId = match(tstream, TokenType.Identifier).value;
+					versionId = trange.front.value;
+					trange.match(TokenType.Identifier);
+					
 					break;
 				
 				case TokenType.Unittest :
 					static if(isVersion) {
-						tstream.get();
+						trange.popFront();
 						versionId = "unittest";
 						break;
 					} else {
@@ -65,14 +68,14 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tst
 					assert(0);
 			}
 			
-			match(tstream, TokenType.CloseParen);
+			trange.match(TokenType.CloseParen);
 			
-			ItemType[] items = parseItems!ItemType(tstream);
+			ItemType[] items = trange.parseItems!ItemType();
 			
-			if(tstream.peek.type == TokenType.Else) {
-				tstream.get();
+			if(trange.front.type == TokenType.Else) {
+				trange.popFront();
 				
-				ItemType[] elseItems = parseItems!ItemType(tstream);
+				ItemType[] elseItems = trange.parseItems!ItemType();
 				
 				return new ConditionalElseType!ItemType(location, versionId, items, elseItems);
 			} else {
@@ -80,9 +83,10 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tst
 			}
 		
 		case TokenType.Assign :
-			tstream.get();
-			string versionId = match(tstream, TokenType.Identifier).value;
-			match(tstream, TokenType.Semicolon);
+			trange.popFront();
+			string versionId = trange.front.value;
+			trange.match(TokenType.Identifier);
+			trange.match(TokenType.Semicolon);
 			
 			return new DefinitionType(location, versionId);
 		
@@ -95,21 +99,22 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(TokenStream tst
 /**
  * Parse static if.
  */
-ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	auto location = match(tstream, TokenType.Static).location;
-	match(tstream, TokenType.If);
-	match(tstream, TokenType.OpenParen);
+ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+	auto location = trange.front.location;
+	trange.match(TokenType.Static);
+	trange.match(TokenType.If);
+	trange.match(TokenType.OpenParen);
 	
-	auto condition = parseExpression(tstream);
+	auto condition = trange.parseExpression();
 	
-	match(tstream, TokenType.CloseParen);
+	trange.match(TokenType.CloseParen);
 	
-	ItemType[] items = parseItems!ItemType(tstream);
+	ItemType[] items = trange.parseItems!ItemType();
 	
-	if(tstream.peek.type == TokenType.Else) {
-		tstream.get();
+	if(trange.front.type == TokenType.Else) {
+		trange.popFront();
 		
-		ItemType[] elseItems = parseItems!ItemType(tstream);
+		ItemType[] elseItems = trange.parseItems!ItemType();
 		
 		return new StaticIfElse!ItemType(location, condition, items, elseItems);
 	} else {
@@ -120,25 +125,25 @@ ItemType parseStaticIf(ItemType)(TokenStream tstream) if(is(ItemType == Statemen
 /**
  * Parse the content of the conditionnal depending on if it is statement or declaration that are expected.
  */
-private auto parseItems(ItemType)(TokenStream tstream) {
+private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
 	ItemType[] items;
-	if(tstream.peek.type == TokenType.OpenBrace) {
+	if(trange.front.type == TokenType.OpenBrace) {
 		static if(is(ItemType == Statement)) {
-			tstream.get();
+			trange.popFront();
 			
 			do {
-				items ~= parseStatement(tstream);
-			} while(tstream.peek.type != TokenType.CloseBrace);
+				items ~= trange.parseStatement();
+			} while(trange.front.type != TokenType.CloseBrace);
 			
-			tstream.get();
+			trange.popFront();
 		} else {
-			items = parseAggregate(tstream);
+			items = trange.parseAggregate();
 		}
 	} else {
 		static if(is(ItemType == Statement)) {
-			items = [parseStatement(tstream)];
+			items = [trange.parseStatement()];
 		} else {
-			items = [parseDeclaration(tstream)];
+			items = [trange.parseDeclaration()];
 		}
 	}
 	

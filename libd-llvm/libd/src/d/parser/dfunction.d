@@ -2,6 +2,7 @@ module d.parser.dfunction;
 
 import d.ast.dfunction;
 
+import d.parser.base;
 import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.statement;
@@ -11,27 +12,28 @@ import d.parser.util;
 import d.ast.declaration;
 import d.ast.dtemplate;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
 /**
  * Parse constructor.
  */
-auto parseConstructor(TokenStream tstream) {
-	auto location = match(tstream, TokenType.This).location;
+auto parseConstructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	auto location = trange.front.location;
+	trange.match(TokenType.This);
 	
-	return parseFunction!(ConstructorDeclaration, ConstructorDefinition)(tstream, location);
+	return trange.parseFunction!(ConstructorDeclaration, ConstructorDefinition)(location);
 }
 
 /**
  * Parse destructor.
  */
-auto parseDestructor(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Tilde).location;
-	match(tstream, TokenType.This);
+auto parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	auto location = trange.front.location;
+	trange.match(TokenType.Tilde);
+	trange.match(TokenType.This);
 	
-	return parseFunction!(DestructorDeclaration, DestructorDefinition)(tstream, location);
+	return trange.parseFunction!(DestructorDeclaration, DestructorDefinition)(location);
 }
 
 /**
@@ -39,36 +41,38 @@ auto parseDestructor(TokenStream tstream) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, U... )(TokenStream tstream, Location location, U arguments) {
+Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, TokenRange, U... )(ref TokenRange trange, Location location, U arguments) if(isTokenRange!TokenRange) {
 	// Function declaration.
 	bool isVariadic;
 	TemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
-	if(lookAfterMatchingDelimiter!(TokenType.OpenParen)(tstream).type == TokenType.OpenParen) {
-		tplParameters = parseTemplateParameters(tstream);
+	auto lookahead = trange.save;
+	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
+	if(lookahead.front.type == TokenType.OpenParen) {
+		tplParameters = trange.parseTemplateParameters();
 	}
 	
-	auto parameters = parseParameters(tstream, isVariadic);
+	auto parameters = trange.parseParameters(isVariadic);
 	
 	// If it is a template, it can have a constraint.
 	if(tplParameters.ptr) {
-		if(tstream.peek.type == TokenType.If) {
-			parseConstraint(tstream);
+		if(trange.front.type == TokenType.If) {
+			trange.parseConstraint();
 		}
 	}
 	
 	// TODO: parse function attributes
 	// Parse function attributes
 	functionAttributeLoop : while(1) {
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
-				tstream.get();
+				trange.popFront();
 				break;
 			
 			case TokenType.At :
-				tstream.get();
-				match(tstream, TokenType.Identifier);
+				trange.popFront();
+				trange.match(TokenType.Identifier);
 				break;
 			
 			default :
@@ -78,27 +82,27 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	
 	// TODO: parse contracts.
 	// Skip contracts
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.In, TokenType.Out :
-			tstream.get();
-			parseBlock(tstream);
+			trange.popFront();
+			trange.parseBlock();
 			
-			switch(tstream.peek.type) {
+			switch(trange.front.type) {
 				case TokenType.In, TokenType.Out :
-					tstream.get();
-					parseBlock(tstream);
+					trange.popFront();
+					trange.parseBlock();
 					break;
 				
 				default :
 					break;
 			}
 			
-			match(tstream, TokenType.Body);
+			trange.match(TokenType.Body);
 			break;
 		
 		case TokenType.Body :
 			// Body without contract is just skipped.
-			tstream.get();
+			trange.popFront();
 			break;
 		
 		default :
@@ -107,25 +111,25 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	
 	FunctionDeclarationType fun;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.Semicolon :
-			location.spanTo(tstream.peek.location);
-			tstream.get();
+			location.spanTo(trange.front.location);
+			trange.popFront();
 			
 			fun = new FunctionDeclarationType(location, arguments, parameters);
 			break;
 		
 		case TokenType.OpenBrace :
-			auto fbody = parseBlock(tstream);
+			auto fbody = trange.parseBlock();
 			
-			location.spanTo(tstream.peek.location);
+			location.spanTo(trange.front.location);
 			
 			fun = new FunctionDefinitionType(location, arguments, parameters, fbody);
 			break;
 		
 		default :
 			// TODO: error.
-			match(tstream, TokenType.Begin);
+			trange.match(TokenType.Begin);
 			assert(0);
 	}
 	
@@ -139,71 +143,69 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 /**
  * Parse function and delegate parameters.
  */
-auto parseParameters(TokenStream tstream, out bool isVariadic) {
-	match(tstream, TokenType.OpenParen);
+auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
+	trange.match(TokenType.OpenParen);
 	
 	Parameter[] parameters;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.CloseParen :
 			break;
 		
 		case TokenType.TripleDot :
-			tstream.get();
+			trange.popFront();
 			isVariadic = true;
 			break;
 		
 		default :
-			parameters ~= parseParameter(tstream);
+			parameters ~= trange.parseParameter();
 			
-			while(tstream.peek.type == TokenType.Comma) {
-				tstream.get();
+			while(trange.front.type == TokenType.Comma) {
+				trange.popFront();
 				
-				if(tstream.peek.type == TokenType.TripleDot) {
+				if(trange.front.type == TokenType.TripleDot) {
 					goto case TokenType.TripleDot;
 				}
 				
-				parameters ~= parseParameter(tstream);
+				parameters ~= trange.parseParameter();
 			}
 	}
 	
-	match(tstream, TokenType.CloseParen);
+	trange.match(TokenType.CloseParen);
 	
 	return parameters;
 }
 
-auto parseParameter(TokenStream tstream) {
+private auto parseParameter(TokenRange)(ref TokenRange trange) {
 	// TODO: parse storage class
-	bool parseStorageClass = true;
-	while(parseStorageClass) {
-		switch(tstream.peek.type) {
+	ParseStorageClassLoop: while(1) {
+		switch(trange.front.type) {
 			case TokenType.In, TokenType.Out, TokenType.Lazy :
-				tstream.get();
+				trange.popFront();
 				break;
 			
 			default :
-				parseStorageClass = false;
-				break;
+				break ParseStorageClassLoop;
 		}
 	}
 	
-	auto type = parseType(tstream);
+	auto type = trange.parseType();
 	
-	if(tstream.peek.type == TokenType.Identifier) {
+	if(trange.front.type == TokenType.Identifier) {
 		auto location = type.location;
 		
-		string name = tstream.get().value;
+		string name = trange.front.value;
+		trange.popFront();
 		
-		if(tstream.peek.type == TokenType.Assign) {
-			tstream.get();
+		if(trange.front.type == TokenType.Assign) {
+			trange.popFront();
 			
-			auto expression = parseAssignExpression(tstream);
+			auto expression = trange.parseAssignExpression();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(expression.location);
 			return new InitializedParameter(location, type, name, expression);
 		}
 		
-		location.spanTo(tstream.previous.location);
 		return new NamedParameter(location, type, name);
 	}
 	

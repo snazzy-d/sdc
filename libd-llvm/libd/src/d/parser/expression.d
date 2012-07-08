@@ -2,29 +2,29 @@ module d.parser.expression;
 
 import d.ast.expression;
 
+import d.parser.base;
 import d.parser.identifier;
 import d.parser.statement;
 import d.parser.type;
 import d.parser.util;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
 /**
  * Template used to parse basic BinaryExpressions.
  */
-auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias parseNext)(TokenStream tstream) if(is(BinaryExpressionType: BinaryExpression) && is(typeof(parseNext(tstream)) : Expression)) {
-	auto location = tstream.peek.location;
+private auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias parseNext, TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseNext(tstream);
+	Expression result = parseNext(trange);
 	
-	while(tstream.peek.type == tokenType) {
-		tstream.get();
+	while(trange.front.type == tokenType) {
+		trange.popFront();
 		
-		auto rhs = parseNext(tstream);
+		auto rhs = parseNext(trange);
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(rhs.location);
 		
 		result = new BinaryExpressionType(location, result, rhs);
 	}
@@ -35,27 +35,29 @@ auto parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias pars
 /**
  * Parse Expression
  */
-alias parseBinaryExpression!(TokenType.Comma, CommaExpression, function Expression(TokenStream tstream) { return parseAssignExpression(tstream); }) parseExpression;
+Expression parseExpression(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	return trange.parseBinaryExpression!(TokenType.Comma, CommaExpression, function Expression(ref TokenRange trange) { return trange.parseAssignExpression(); })();
+}
 
 /**
  * Parse assignement expressions.
  */
-Expression parseAssignExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+Expression parseAssignExpression(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseConditionalExpression(tstream);
+	Expression result = trange.parseConditionalExpression();
 	
 	void processToken(AssignExpressionType)() {
-		tstream.get();
+		trange.popFront();
 		
-		auto value = parseAssignExpression(tstream);
+		auto value = trange.parseAssignExpression();
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(value.location);
 		
 		result = new AssignExpressionType(location, result, value);
 	}
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.Assign :
 			processToken!AssignExpression();
 			break;
@@ -123,19 +125,19 @@ Expression parseAssignExpression(TokenStream tstream) {
 /**
  * Parse ?:
  */
-Expression parseConditionalExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private Expression parseConditionalExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseLogicalOrExpression(tstream);
+	Expression result = trange.parseLogicalOrExpression();
 	
-	if(tstream.peek.type == TokenType.QuestionMark) {
-		tstream.get();
-		Expression ifTrue = parseExpression(tstream);
+	if(trange.front.type == TokenType.QuestionMark) {
+		trange.popFront();
+		Expression ifTrue = trange.parseExpression();
 		
-		match(tstream, TokenType.Colon);
-		Expression ifFalse = parseConditionalExpression(tstream);
+		trange.match(TokenType.Colon);
+		Expression ifFalse = trange.parseConditionalExpression();
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(ifFalse.location);
 		result = new ConditionalExpression(location, result, ifTrue, ifFalse);
 	}
 	
@@ -145,47 +147,57 @@ Expression parseConditionalExpression(TokenStream tstream) {
 /**
  * Parse ||
  */
-alias parseBinaryExpression!(TokenType.DoublePipe, LogicalBinaryExpression!(BinaryOperation.LogicalOr), function Expression(TokenStream tstream) { return parseLogicalAndExpression(tstream); }) parseLogicalOrExpression;
+private auto parseLogicalOrExpression(TokenRange)(ref TokenRange trange) {
+	return trange.parseBinaryExpression!(TokenType.DoublePipe, LogicalBinaryExpression!(BinaryOperation.LogicalOr), function Expression(ref TokenRange trange) { return trange.parseLogicalAndExpression(); })();
+}
 
 /**
  * Parse &&
  */
-alias parseBinaryExpression!(TokenType.DoubleAmpersand, LogicalBinaryExpression!(BinaryOperation.LogicalAnd), function Expression(TokenStream tstream) { return parseBitwiseOrExpression(tstream); }) parseLogicalAndExpression;
+private auto parseLogicalAndExpression(TokenRange)(ref TokenRange trange) {
+	return trange.parseBinaryExpression!(TokenType.DoubleAmpersand, LogicalBinaryExpression!(BinaryOperation.LogicalAnd), function Expression(ref TokenRange trange) { return trange.parseBitwiseOrExpression(); })();
+}
 
 /**
  * Parse |
  */
-alias parseBinaryExpression!(TokenType.Pipe, BitwiseBinaryExpression!(BinaryOperation.BitwiseOr), function Expression(TokenStream tstream) { return parseBitwiseXorExpression(tstream); }) parseBitwiseOrExpression;
+private auto parseBitwiseOrExpression(TokenRange)(ref TokenRange trange) {
+	return trange.parseBinaryExpression!(TokenType.Pipe, BitwiseBinaryExpression!(BinaryOperation.BitwiseOr), function Expression(ref TokenRange trange) { return trange.parseBitwiseXorExpression(); })();
+}
 
 /**
  * Parse ^
  */
-alias parseBinaryExpression!(TokenType.Caret, BitwiseBinaryExpression!(BinaryOperation.BitwiseXor), function Expression(TokenStream tstream) { return parseBitwiseAndExpression(tstream); }) parseBitwiseXorExpression;
+private auto parseBitwiseXorExpression(TokenRange)(ref TokenRange trange) {
+	return trange.parseBinaryExpression!(TokenType.Caret, BitwiseBinaryExpression!(BinaryOperation.BitwiseXor), function Expression(ref TokenRange trange) { return trange.parseBitwiseAndExpression(); })();
+}
 
 /**
  * Parse &
  */
-alias parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(TokenStream tstream) { return parseComparaisonExpression(tstream); }) parseBitwiseAndExpression;
+private auto parseBitwiseAndExpression(TokenRange)(ref TokenRange trange) {
+	return trange.parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(ref TokenRange trange) { return trange.parseComparaisonExpression(); })();
+}
 
 /**
  * Parse ==, != and comparaisons
  */
-auto parseComparaisonExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private auto parseComparaisonExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseShiftExpression(tstream);
+	Expression result = trange.parseShiftExpression();
 	
 	void processToken(BinaryExpressionType)() {
-		tstream.get();
+		trange.popFront();
 		
-		auto rhs = parseShiftExpression(tstream);
+		auto rhs = trange.parseShiftExpression();
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(rhs.location);
 		
 		result = new BinaryExpressionType(location, result, rhs);
 	}
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.DoubleAssign :
 			processToken!(EqualityExpression!(BinaryOperation.Equality))();
 			break;
@@ -251,8 +263,8 @@ auto parseComparaisonExpression(TokenStream tstream) {
 			break;
 		
 		case TokenType.Bang :
-			tstream.get();
-			switch(tstream.peek.type) {
+			trange.popFront();
+			switch(trange.front.type) {
 				case TokenType.Is :
 					processToken!(IdentityExpression!(BinaryOperation.NotIs))();
 					break;
@@ -262,7 +274,7 @@ auto parseComparaisonExpression(TokenStream tstream) {
 					break;
 				
 				default :
-					match(tstream, TokenType.Begin);
+					trange.match(TokenType.Begin);
 					break;
 			}
 			
@@ -279,23 +291,23 @@ auto parseComparaisonExpression(TokenStream tstream) {
 /**
  * Parse <<, >> and >>>
  */
-auto parseShiftExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private auto parseShiftExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseAddExpression(tstream);
+	Expression result = trange.parseAddExpression();
 	
 	while(1) {
 		void processToken(BinaryExpressionType)() {
-			tstream.get();
+			trange.popFront();
 			
-			auto rhs = parseAddExpression(tstream);
+			auto rhs = trange.parseAddExpression();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(rhs.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
 		}
 		
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.DoubleLess :
 				processToken!(ShiftExpression!(BinaryOperation.LeftShift))();
 				break;
@@ -317,23 +329,23 @@ auto parseShiftExpression(TokenStream tstream) {
 /**
  * Parse +, - and ~
  */
-auto parseAddExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private auto parseAddExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parseMulExpression(tstream);
+	Expression result = trange.parseMulExpression();
 	
 	while(1) {
 		void processToken(BinaryExpressionType)() {
-			tstream.get();
+			trange.popFront();
 			
-			auto rhs = parseMulExpression(tstream);
+			auto rhs = trange.parseMulExpression();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(rhs.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
 		}
 		
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.Plus :
 				processToken!AdditionExpression();
 				break;
@@ -355,23 +367,23 @@ auto parseAddExpression(TokenStream tstream) {
 /**
  * Parse *, / and %
  */
-auto parseMulExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private auto parseMulExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	Expression result = parsePrefixExpression(tstream);
+	Expression result = trange.parsePrefixExpression();
 	
 	while(1) {
 		void processToken(BinaryExpressionType)() {
-			tstream.get();
+			trange.popFront();
 			
-			auto rhs = parsePrefixExpression(tstream);
+			auto rhs = trange.parsePrefixExpression();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(rhs.location);
 			
 			result = new BinaryExpressionType(location, result, rhs);
 		}
 		
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.Asterix :
 				processToken!(OperationBinaryExpression!(BinaryOperation.Multiplication))();
 				break;
@@ -393,21 +405,21 @@ auto parseMulExpression(TokenStream tstream) {
 /**
  * Unary prefixes
  */
-Expression parsePrefixExpression(TokenStream tstream) {
+private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 	Expression result;
 	
 	void processToken(PrefixExpressionType)() {
-		auto location = tstream.peek.location;
+		Location location = trange.front.location;
 		
-		tstream.get();
+		trange.popFront();
 		
-		result = parsePrefixExpression(tstream);
-		location.spanTo(tstream.previous.location);
+		result = trange.parsePrefixExpression();
+		location.spanTo(result.location);
 		
 		result = new PrefixExpressionType(location, result);
 	}
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.Ampersand :
 			processToken!AddressOfExpression();
 			break;
@@ -442,25 +454,26 @@ Expression parsePrefixExpression(TokenStream tstream) {
 		
 		// TODO: parse qualifier casts.
 		case TokenType.Cast :
-			auto location = tstream.get().location;
-			match(tstream, TokenType.OpenParen);
+			Location location = trange.front.location;
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
 			
 			auto parseCast(CastType, U ...)(U params) {
-				match(tstream, TokenType.CloseParen);
+				trange.match(TokenType.CloseParen);
 				
-				result = parsePrefixExpression(tstream);
-				location.spanTo(tstream.previous.location);
+				result = trange.parsePrefixExpression();
+				location.spanTo(result.location);
 				
 				result = new CastType(location, params, result);
 			}
 			
-			switch(tstream.peek.type) {
+			switch(trange.front.type) {
 				case TokenType.CloseParen :
 					parseCast!CastExpression(null);
 					break;
 				
 				default :
-					auto type = parseType(tstream);
+					auto type = trange.parseType();
 					parseCast!CastExpression(type);
 			}
 			
@@ -471,122 +484,133 @@ Expression parsePrefixExpression(TokenStream tstream) {
 			break;
 		
 		default :
-			result = parsePrimaryExpression(tstream);
-			result = parsePostfixExpression(tstream, result);
+			result = trange.parsePrimaryExpression();
+			result = trange.parsePostfixExpression(result);
 	}
 	
 	// Ensure we do not screwed up.
 	assert(result);
 	
-	return parsePowExpression(tstream, result);
+	return trange.parsePowExpression(result);
 }
 
-Expression parsePrimaryExpression(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		// Identified expressions
 		case TokenType.Identifier :
-			auto identifier = parseIdentifier(tstream);
-			location.spanTo(tstream.previous.location);
+			auto identifier = trange.parseIdentifier();
+			location.spanTo(identifier.location);
 			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.New :
-			tstream.get();
-			auto type = parseType(tstream);
+			trange.popFront();
+			auto type = trange.parseType();
 			
 			Expression[] arguments;
-			if(tstream.peek.type == TokenType.OpenParen) {
-				tstream.get();
-				arguments = parseArguments(tstream);
-				match(tstream, TokenType.CloseParen);
+			if(trange.front.type == TokenType.OpenParen) {
+				trange.popFront();
+				arguments = trange.parseArguments();
+				
+				location.spanTo(trange.front.location);
+				trange.match(TokenType.CloseParen);
+			} else {
+				location.spanTo(type.location);
 			}
-			
-			location.spanTo(tstream.previous.location);
 			
 			return new NewExpression(location, type, arguments);
 		
 		case TokenType.Dot :
-			auto identifier = parseDotIdentifier(tstream);
-			location.spanTo(tstream.previous.location);
+			auto identifier = trange.parseDotIdentifier();
+			location.spanTo(identifier.location);
 			
 			return new IdentifierExpression(location, identifier);
 		
 		case TokenType.This :
-			tstream.get();
+			trange.popFront();
 			return new ThisExpression(location);
 		
 		case TokenType.Super :
-			tstream.get();
+			trange.popFront();
 			return new SuperExpression(location);
 		
 		case TokenType.True :
-			tstream.get();
+			trange.popFront();
 			return new BooleanLiteral!true(location);
 		
 		case TokenType.False :
-			tstream.get();
+			trange.popFront();
 			return new BooleanLiteral!false(location);
 		
 		case TokenType.Null :
-			tstream.get();
+			trange.popFront();
 			return new NullLiteral(location);
 		
 		case TokenType.IntegerLiteral :
-			return parseIntegerLiteral(tstream);
+			return trange.parseIntegerLiteral();
 		
 		case TokenType.StringLiteral :
-			string value = extractStringLiteral(tstream.get().value);
+			string value = extractStringLiteral(trange.front.value);
+			trange.popFront();
+			
 			return new StringLiteral(location, value);
 		
 		case TokenType.CharacterLiteral :
-			string value = extractCharacterLiteral(tstream.get().value);
+			string value = extractCharacterLiteral(trange.front.value);
+			trange.popFront();
+			
 			return new CharacterLiteral(location, value);
 		
 		case TokenType.OpenBracket :
 			Expression[] keys, values;
 			do {
-				tstream.get();
-				auto value = parseAssignExpression(tstream);
+				trange.popFront();
+				auto value = trange.parseAssignExpression();
 				
-				if(tstream.peek.type == TokenType.Colon) {
+				if(trange.front.type == TokenType.Colon) {
 					keys ~= value;
-					tstream.get();
-					values ~= parseAssignExpression(tstream);
+					trange.popFront();
+					values ~= trange.parseAssignExpression();
 				} else {
 					values ~= value;
 				}
-			} while(tstream.peek.type == TokenType.Comma);
+			} while(trange.front.type == TokenType.Comma);
 			
-			location.spanTo(match(tstream, TokenType.CloseBracket).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.CloseBracket);
+			
 			return new ArrayLiteral(location, values);
 		
 		case TokenType.OpenBrace :
-			auto block = parseBlock(tstream);
+			auto block = trange.parseBlock();
+			
 			return new DelegateLiteral(block);
 		
 		case TokenType.__File__ :
-			tstream.get();
+			trange.popFront();
 			return new __File__Literal(location);
 		
 		case TokenType.__Line__ :
-			tstream.get();
+			trange.popFront();
 			return new __Line__Literal(location);
 		
 		case TokenType.Dollar :
-			tstream.get();
+			trange.popFront();
 			return new DollarExpression(location);
 		
 		case TokenType.Typeid :
-			tstream.get();
+			trange.popFront();
 			
-			// -1 because we the match the opening (
-			auto matchingParen = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream) - 1;
-			match(tstream, TokenType.OpenParen);
+			auto matchingParen = trange.save;
+			matchingParen.popMatchingDelimiter!(TokenType.OpenParen)();
 			
-			return proceedAsTypeOrExpression!(delegate Expression(parsed) {
-				location.spanTo(match(tstream, TokenType.CloseParen).location);
+			trange.match(TokenType.OpenParen);
+			
+			return trange.proceedAsTypeOrExpression!(delegate Expression(parsed) {
+				location.spanTo(trange.front.location);
+				trange.match(TokenType.CloseParen);
 				
 				alias typeof(parsed) caseType;
 				
@@ -598,62 +622,63 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 				} else {
 					return new AmbiguousTypeidExpression(location, parsed);
 				}
-			})(tstream, matchingParen);
+			})(matchingParen - trange - 1);
 		
 		case TokenType.Is :
-			return parseIsExpression(tstream);
+			return trange.parseIsExpression();
 		
 		case TokenType.Assert :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
 			
-			auto arguments = parseArguments(tstream);
+			auto arguments = trange.parseArguments();
 			
-			location.spanTo(match(tstream, TokenType.CloseParen).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.CloseParen);
 			
 			return new AssertExpression(location, arguments);
 		
 		case TokenType.OpenParen :
+			trange.popFront();
+			
+			auto matchingParen = trange.save;
+			matchingParen.popMatchingDelimiter!(TokenType.OpenParen)();
+			
 			Expression expression;
-			
-			// -1 because we the match the opening (
-			auto matchingParen = getMatchingDelimiterIndex!(TokenType.OpenParen)(tstream) - 1;
-			tstream.get();
-			
-			if(tstream.lookahead(matchingParen + 1).type == TokenType.Dot) {
+			if(matchingParen.front.type == TokenType.Dot) {
 				import d.ast.identifier;
 				
-				Namespace qualifier = proceedAsTypeOrExpression!(delegate Namespace(parsed) {
+				Namespace qualifier = trange.proceedAsTypeOrExpression!(delegate Namespace(parsed) {
 					return parsed;
-				})(tstream, matchingParen);
+				})(matchingParen - trange - 1);
 				
-				match(tstream, TokenType.CloseParen);
-				match(tstream, TokenType.Dot);
+				trange.match(TokenType.CloseParen);
+				trange.match(TokenType.Dot);
 				
-				auto identifier = parseQualifiedIdentifier(tstream, location, qualifier);
-				location.spanTo(tstream.previous.location);
+				auto identifier = trange.parseQualifiedIdentifier(location, qualifier);
+				location.spanTo(identifier.location);
 				
 				expression = new IdentifierExpression(location, identifier);
 			} else {
-				expression = parseExpression(tstream);
-				match(tstream, TokenType.CloseParen);
+				expression = trange.parseExpression();
+				trange.match(TokenType.CloseParen);
 			}
 			
 			return expression;
 		
 		default:
 			// Our last resort are type.identifier expressions.
-			if(getConfirmedTypeIndex(tstream)) {
-				auto type = parseConfirmedType(tstream);
-				match(tstream, TokenType.Dot);
+			if(trange.getConfirmedType()) {
+				auto type = trange.parseConfirmedType();
+				trange.match(TokenType.Dot);
 				
-				auto identifier = parseQualifiedIdentifier(tstream, location, type);
-				location.spanTo(tstream.previous.location);
+				auto identifier = trange.parseQualifiedIdentifier(location, type);
+				location.spanTo(identifier.location);
 				
 				return new IdentifierExpression(location, identifier);
 			}
 			
-			match(tstream, TokenType.Begin);
+			trange.match(TokenType.Begin);
 			assert(0);
 	}
 }
@@ -661,13 +686,13 @@ Expression parsePrimaryExpression(TokenStream tstream) {
 /**
  * Parse ^^
  */
-auto parsePowExpression(TokenStream tstream, Expression expression) {
-	auto location = expression.location;
+private auto parsePowExpression(TokenRange)(ref TokenRange trange, Expression expression) {
+	Location location = expression.location;
 	
-	while (tstream.peek.type == TokenType.DoubleCaret) {
-		tstream.get();
-		Expression power = parsePrefixExpression(tstream);
-		location.spanTo(tstream.previous.location);
+	while (trange.front.type == TokenType.DoubleCaret) {
+		trange.popFront();
+		Expression power = trange.parsePrefixExpression();
+		location.spanTo(power.location);
 		expression = new OperationBinaryExpression!(BinaryOperation.Pow)(location, expression, power);
 	}
 	
@@ -677,33 +702,34 @@ auto parsePowExpression(TokenStream tstream, Expression expression) {
 /**
  * Parse postfix ++, --, (...), [...], .identifier
  */
-Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
-	auto location = expression.location;
+private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Expression expression) {
+	Location location = expression.location;
 	
 	while(1) {
+		// TODO: refactor, it make no sense anymore.
 		void processToken(PostfixExpressionType, TokenType endToken = TokenType.None)() {
-			tstream.get();
-			
 			static if(endToken != TokenType.None) {
+				trange.popFront();
+				
 				Expression[] arguments;
 				
-				if(tstream.peek.type != endToken) {
-					arguments = parseArguments(tstream);
+				if(trange.front.type != endToken) {
+					arguments = trange.parseArguments();
 				}
 				
-				match(tstream, endToken);
-			}
-			
-			location.spanTo(tstream.previous.location);
-			
-			static if(endToken == TokenType.None) {
-				expression = new PostfixExpressionType(location, expression);
-			} else {
+				location.spanTo(trange.front.location);
+				trange.match(endToken);
+				
 				expression = new PostfixExpressionType(location, expression, arguments);
+			} else {
+				location.spanTo(trange.front.location);
+				trange.popFront();
+				
+				expression = new PostfixExpressionType(location, expression);
 			}
 		}
 		
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.DoublePlus :
 				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixInc))();
 				break;
@@ -718,35 +744,35 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 			
 			// TODO: Indices, Slices.
 			case TokenType.OpenBracket :
-				tstream.get();
+				trange.popFront();
 				
-				if(tstream.peek.type == TokenType.CloseBracket) {
+				if(trange.front.type == TokenType.CloseBracket) {
 					// We have a slicing operation here.
 				} else {
-					auto arguments = parseArguments(tstream);
-					switch(tstream.peek.type) {
+					auto arguments = trange.parseArguments();
+					switch(trange.front.type) {
 						case TokenType.CloseBracket :
 							break;
 					
 						case TokenType.DoubleDot :
-							tstream.get();
-							auto second = parseArguments(tstream);
+							trange.popFront();
+							auto second = trange.parseArguments();
 							break;
 					
 						default :
-							match(tstream, TokenType.Begin);
+							trange.match(TokenType.Begin);
 							break;
 					}
 				}
 				
-				match(tstream, TokenType.CloseBracket);
+				trange.match(TokenType.CloseBracket);
 				
 				break;
 			
 			case TokenType.Dot :
-				tstream.get();
-				auto identifier = parseQualifiedIdentifier(tstream, location, expression);
-				location.spanTo(tstream.previous.location);
+				trange.popFront();
+				auto identifier = trange.parseQualifiedIdentifier(location, expression);
+				location.spanTo(identifier.location);
 				
 				expression = new IdentifierExpression(location, identifier);
 				break;
@@ -760,31 +786,32 @@ Expression parsePostfixExpression(TokenStream tstream, Expression expression) {
 /**
  * Parse unary is expression.
  */
-auto parseIsExpression(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Is).location;
-	match(tstream, TokenType.OpenParen);
+private auto parseIsExpression(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Is);
+	trange.match(TokenType.OpenParen);
 	
-	auto type = parseType(tstream);
+	auto type = trange.parseType();
 	
 	// Handle alias throw is expression.
-	if(tstream.peek.type == TokenType.Identifier) tstream.get();
+	if(trange.front.type == TokenType.Identifier) trange.popFront();
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.Colon :
-			tstream.get();
-			parseType(tstream);
+			trange.popFront();
+			trange.parseType();
 			break;
 		
 		case TokenType.DoubleAssign :
-			tstream.get();
+			trange.popFront();
 			
-			switch(tstream.peek.type) {
+			switch(trange.front.type) {
 				case TokenType.Struct, TokenType.Union, TokenType.Class, TokenType.Interface, TokenType.Enum, TokenType.Function, TokenType.Delegate, TokenType.Super, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Return :
-					tstream.get();
+					trange.popFront();
 					break;
 				
 				default :
-					parseType(tstream);
+					trange.parseType();
 			}
 			
 			break;
@@ -793,7 +820,8 @@ auto parseIsExpression(TokenStream tstream) {
 			break;
 	}
 	
-	location.spanTo(match(tstream, TokenType.CloseParen).location);
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.CloseParen);
 	
 	return new IsExpression(location, type);
 }
@@ -801,13 +829,13 @@ auto parseIsExpression(TokenStream tstream) {
 /**
  * Parse function arguments
  */
-auto parseArguments(TokenStream tstream) {
-	Expression[] expressions = [parseAssignExpression(tstream)];
+auto parseArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Expression[] expressions = [trange.parseAssignExpression()];
 	
-	while(tstream.peek.type == TokenType.Comma) {
-		tstream.get();
+	while(trange.front.type == TokenType.Comma) {
+		trange.popFront();
 		
-		expressions ~= parseAssignExpression(tstream);
+		expressions ~= trange.parseAssignExpression();
 	}
 	
 	return expressions;
@@ -816,11 +844,13 @@ auto parseArguments(TokenStream tstream) {
 /**
  * Parse integer literals
  */
-PrimaryExpression parseIntegerLiteral(TokenStream tstream) {
-	auto location = tstream.peek.location;
-	string value = match(tstream, TokenType.IntegerLiteral).value;
+private PrimaryExpression parseIntegerLiteral(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
+	string value = trange.front.value;
 	assert(value.length > 0);
+	
+	trange.match(TokenType.IntegerLiteral);
 	
 	bool isUnsigned, isLong;
 	switch(value[$ - 1]) {

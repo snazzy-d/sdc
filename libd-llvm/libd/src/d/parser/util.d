@@ -1,11 +1,13 @@
 module d.parser.util;
 
 import d.parser.base;
+import d.parser.expression;
 import d.parser.type;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+
+import std.range;
 
 /**
  * Tool to lookahead what is after the matching opening token.
@@ -13,7 +15,7 @@ import sdc.parser.base : match;
  */
 auto lookAfterMatchingDelimiter(TokenType openTokenType)(const TokenStream tstream) {
 	auto trange = TokenRange(tstream);
-	trange.popMatchingDelimiter!(openTokenType, TokenRange)();
+	trange.popMatchingDelimiter!(openTokenType)();
 	
 	return trange.front;
 }
@@ -25,12 +27,16 @@ auto lookAfterMatchingDelimiter(TokenType openTokenType)(const TokenStream tstre
 auto getMatchingDelimiterIndex(TokenType openTokenType)(const TokenStream tstream) {
 	auto start = TokenRange(tstream);
 	auto end = start.save;
-	end.popMatchingDelimiter!(openTokenType, TokenRange)();
+	end.popMatchingDelimiter!(openTokenType)();
 	
 	return end - start - 1;
 }
 
-private void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange trange) {
+/**
+ * Pop a range of token until we pop the matchin delimiter.
+ * matchin tokens are (), [], <> and {}
+ */
+void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange trange) {
 	static if(openTokenType == TokenType.OpenParen) {
 		alias TokenType.CloseParen closeTokenType;
 	} else static if(openTokenType == TokenType.OpenBrace) {
@@ -73,43 +79,42 @@ private void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref Token
  * Count how many tokens does the type to be parsed contains.
  * return 0 if no type is parsed.
  */
-uint getTypeIndex(const TokenStream tstream) {
-	auto trange = TokenRange(tstream);
+uint getType(TokenRange)(ref const TokenRange trange) if(isTokenRange!TokenRange) {
 	auto start = trange.save;
+	auto lookahead = start.save;
 	
 	uint confirmed;
-	return trange.popType!TokenRange(start, confirmed);
+	return lookahead.popType!TokenRange(start, confirmed);
 }
 
 /**
  * Count how many tokens belong to a type with no ambiguity.
  */
-uint getConfirmedTypeIndex(const TokenStream tstream) {
-	auto trange = TokenRange(tstream);
+uint getConfirmedType(TokenRange)(ref const TokenRange trange) if(isTokenRange!TokenRange) {
 	auto start = trange.save;
+	auto lookahead = start.save;
 	
 	uint confirmed;
-	trange.popType!TokenRange(start, confirmed);
+	lookahead.popType!TokenRange(start, confirmed);
 	return confirmed;
 }
 
 /**
  * Branch to the right code depending if we have a type, an expression or something ambiguous.
  */
-auto proceedAsTypeOrExpression(alias handler)(TokenStream tstream, uint delimiter) {
-	auto trange = TokenRange(tstream);
-	const start = trange.save;
+auto proceedAsTypeOrExpression(alias handler, TokenRange)(ref TokenRange trange, uint delimiter) if(isTokenRange!TokenRange) {
+	auto lookahead = trange.save;
 	
 	uint confirmed;
-	uint typeIndex = trange.popType(start, confirmed);
+	uint typeIndex = lookahead.popType(trange, confirmed);
 	
 	if(confirmed == delimiter) {
-		return handler(parseType(tstream));
+		return handler(trange.parseType());
 	} else if(typeIndex == delimiter) {
 		import d.ast.identifier;
 		import d.parser.identifier;
 		
-		auto type = parseType(tstream);
+		auto type = trange.parseType();
 		
 		import sdc.terminal;
 		outputCaretDiagnostics(type.location, "ambiguity");
@@ -117,8 +122,7 @@ auto proceedAsTypeOrExpression(alias handler)(TokenStream tstream, uint delimite
 		// TODO: handle ambiguous case instead of type.
 		return handler(type);
 	} else {
-		import d.parser.expression;
-		return handler(parseExpression(tstream));
+		return handler(trange.parseExpression());
 	}
 }
 
@@ -129,11 +133,11 @@ private uint popType(TokenRange)(ref TokenRange trange, ref const TokenRange sta
 			
 			switch(trange.front.type) {
 				case TokenType.OpenParen :
-					trange.popMatchingDelimiter!(TokenType.OpenParen, TokenRange)();
+					trange.popMatchingDelimiter!(TokenType.OpenParen)();
 					
 					confirmed = trange - start;
 					
-					return getPostfixTypeIndex(trange, start, confirmed);
+					return trange.getPostfixTypeIndex(start, confirmed);
 				
 				case TokenType.Identifier :
 					auto lookahead = trange.save;
@@ -149,21 +153,21 @@ private uint popType(TokenRange)(ref TokenRange trange, ref const TokenRange sta
 		
 		case TokenType.Typeof :
 			trange.popFront();
-			trange.popMatchingDelimiter!(TokenType.OpenParen, TokenRange)();
+			trange.popMatchingDelimiter!(TokenType.OpenParen)();
 			
 			confirmed = trange - start;
 			
-			return getPostfixTypeIndex(trange, start, confirmed);
+			return trange.getPostfixTypeIndex(start, confirmed);
 		
 		case TokenType.Byte, TokenType.Ubyte, TokenType.Short, TokenType.Ushort, TokenType.Int, TokenType.Uint, TokenType.Long, TokenType.Ulong, TokenType.Char, TokenType.Wchar, TokenType.Dchar, TokenType.Float, TokenType.Double, TokenType.Real, TokenType.Bool, TokenType.Void :
 			trange.popFront();
 			confirmed = trange - start;
 			
-			return getPostfixTypeIndex(trange, start, confirmed);
+			return trange.getPostfixTypeIndex(start, confirmed);
 		
 		case TokenType.Identifier :
 			trange.popFront();
-			return getPostfixTypeIndex(trange, start, confirmed);
+			return trange.getPostfixTypeIndex(start, confirmed);
 		
 		case TokenType.Dot :
 			auto lookahead = trange.save;
@@ -171,7 +175,7 @@ private uint popType(TokenRange)(ref TokenRange trange, ref const TokenRange sta
 			if(lookahead.front.type != TokenType.Identifier) return 0;
 			
 			lookahead.popFront();
-			return getPostfixTypeIndex(lookahead, start, confirmed);
+			return lookahead.getPostfixTypeIndex(start, confirmed);
 		
 		case TokenType.This, TokenType.Super :
 			auto lookahead = trange.save;
@@ -182,7 +186,7 @@ private uint popType(TokenRange)(ref TokenRange trange, ref const TokenRange sta
 			if(lookahead.front.type != TokenType.Identifier) return 0;
 			
 			lookahead.popFront();
-			return getPostfixTypeIndex(trange, lookahead, confirmed);
+			return trange.getPostfixTypeIndex(lookahead, confirmed);
 		
 		default :
 			return 0;
@@ -205,7 +209,7 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 			
 			case TokenType.OpenBracket :
 				auto matchingBracket = trange.save;
-				matchingBracket.popMatchingDelimiter!(TokenType.OpenBracket, TokenRange)();
+				matchingBracket.popMatchingDelimiter!(TokenType.OpenBracket)();
 				
 				// If it is a slice, return.
 				auto lookahead = trange.save;
@@ -216,7 +220,7 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 							return trange - start;
 						
 						case TokenType.OpenBracket :
-							lookahead.popMatchingDelimiter!(TokenType.OpenBracket, TokenRange)();
+							lookahead.popMatchingDelimiter!(TokenType.OpenBracket)();
 							break;
 						
 						default :
@@ -262,7 +266,7 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 				lookahead.popFront();
 				if(lookahead.front.type != TokenType.Identifier) return trange - start;
 				
-				trange.popMatchingDelimiter!(TokenType.OpenParen, TokenRange)();
+				trange.popMatchingDelimiter!(TokenType.OpenParen)();
 				confirmed = trange - start;
 				break;
 			
@@ -277,15 +281,16 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 /**
  * Check if we are facing a declaration.
  */
-bool isDeclaration(const TokenStream tstream) {
-	switch(tstream.peek.type) {
+bool isDeclaration(TokenRange)(ref const TokenRange trange) if(isTokenRange!TokenRange) {
+	switch(trange.front.type) {
 		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template, TokenType.Alias, TokenType.Extern :
 			return true;
 		
 		default :
-			uint typeIndex = getTypeIndex(tstream);
-			if(typeIndex) {
-				return tstream.lookahead(typeIndex).type == TokenType.Identifier;
+			auto lookahead = trange.save;
+			uint confirmed;
+			if(lookahead.popType(trange, confirmed)) {
+				return lookahead.front.type == TokenType.Identifier;
 			}
 			
 			return false;

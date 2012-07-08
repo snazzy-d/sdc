@@ -3,46 +3,62 @@ module d.parser.dmodule;
 import d.ast.declaration;
 import d.ast.dmodule;
 
+import d.parser.base;
 import d.parser.declaration;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
 
-auto parseModule(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Begin).location;
+import std.array;
+
+// Temporary stub to hook sdc.
+auto parseModule()(TokenStream tstream) {
+	return TokenRange(tstream).parseModule();
+}
+
+/**
+ * Parse a whole module.
+ * This is the regular entry point in the parser
+ */
+auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Begin);
 	
 	ModuleDeclaration moduleDeclaration;
-	if(tstream.peek.type == TokenType.Module) {
-		moduleDeclaration = parseModuleDeclaration(tstream);
+	if(trange.front.type == TokenType.Module) {
+		moduleDeclaration = trange.parseModuleDeclaration();
 	} else {
 		// TODO: compute a correct declaration according to the filename.
 		moduleDeclaration = new ModuleDeclaration(location, "", [""]);
 	}
 	
 	Declaration[] declarations;
-	while(tstream.peek.type != TokenType.End) {
-		declarations ~= parseDeclaration(tstream);
+	while(trange.front.type != TokenType.End) {
+		declarations ~= trange.parseDeclaration();
 	}
 	
-	location.spanTo(tstream.previous.location);
-	tstream.get();
+	location.spanTo(declarations.back.location);
+	trange.popFront();
 	
 	return new Module(location, moduleDeclaration, declarations);
 }
 
-auto parseModuleDeclaration(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Module).location;
+private auto parseModuleDeclaration(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Module);
 	
 	string[] packages;
-	string name = match(tstream, TokenType.Identifier).value;
-	while(tstream.peek.type == TokenType.Dot) {
-		tstream.get();
+	string name = trange.front.value;
+	trange.match(TokenType.Identifier);
+	while(trange.front.type == TokenType.Dot) {
+		trange.popFront();
 		packages ~= name;
-		name = match(tstream, TokenType.Identifier).value;
+		name = trange.front.value;
+		trange.match(TokenType.Identifier);
 	}
 	
-	location.spanTo(match(tstream, TokenType.Semicolon).location);
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.Semicolon);
 	
 	return new ModuleDeclaration(location, name, packages);
 }
