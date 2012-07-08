@@ -1,7 +1,9 @@
 module d.parser.statement;
 
-import d.ast.statement;
+import d.ast.declaration;
 import d.ast.expression;
+import d.ast.statement;
+import d.ast.type;
 
 import d.parser.base;
 import d.parser.conditional;
@@ -13,7 +15,6 @@ import d.parser.util;
 import sdc.location;
 import sdc.token;
 
-import std.array;
 import std.range;
 
 Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
@@ -97,15 +98,57 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(statement.location);
 			return new ForStatement(location, init, condition, increment, statement);
 		
-		case TokenType.Foreach :
+		case TokenType.Foreach, TokenType.ForeachReverse :
 			trange.popFront();
 			trange.match(TokenType.OpenParen);
 			
-			// Hack hack hack HACK !
-			while(trange.front.type != TokenType.Semicolon) trange.popFront();
+			VariableDeclaration parseForeachListElement() {
+				Location elementLocation = trange.front.location;
+				
+				auto lookahead = trange.save;
+				Type type;
+				switch(trange.front.type) {
+					case TokenType.Ref :
+						lookahead.popFront();
+						
+						if(lookahead.front.type == TokenType.Identifier) goto case TokenType.Identifier;
+						
+						goto default;
+					
+					case TokenType.Identifier :
+						lookahead.popFront();
+						
+						if(lookahead.front.type == TokenType.Comma || lookahead.front.type == TokenType.Semicolon) {
+							if(trange.front.type == TokenType.Ref) {
+								trange.popFront();
+							}
+							
+							type = new AutoType(trange.front.location);
+							break;
+						}
+						
+						goto default;
+					
+					default :
+						type = trange.parseType();
+				}
+				
+				auto name = trange.front.value;
+				elementLocation.spanTo(trange.front.location);
+				
+				trange.match(TokenType.Identifier);
+				
+				return new VariableDeclaration(elementLocation, type, name, null);
+			}
+			
+			VariableDeclaration[] tupleElements = [parseForeachListElement()];
+			while(trange.front.type == TokenType.Comma) {
+				trange.popFront();
+				tupleElements ~= parseForeachListElement();
+			}
 			
 			trange.match(TokenType.Semicolon);
-			trange.parseExpression();
+			auto iterrated = trange.parseExpression();
 			
 			if(trange.front.type == TokenType.DoubleDot) {
 				trange.popFront();
@@ -114,9 +157,10 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			trange.match(TokenType.CloseParen);
 			
-			trange.parseStatement();
+			auto statement = trange.parseStatement();
+			location.spanTo(statement.location);
 			
-			return null;
+			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
 		case TokenType.Break :
 			trange.popFront();
@@ -161,9 +205,10 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				trange.match(TokenType.CloseParen);
 			}
 			
-			trange.parseStatement();
+			auto statement = trange.parseStatement();
+			location.spanTo(statement.location);
 			
-			return null;
+			return new SynchronizedStatement(location, statement);
 		
 		case TokenType.Try :
 			trange.popFront();

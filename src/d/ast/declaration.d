@@ -68,18 +68,43 @@ class AliasThisDeclaration : Declaration {
 	}
 }
 
+// TODO: create declaration aggregate and merge that in it.
 /**
  * Variables declaration
  */
 class VariablesDeclaration : Declaration {
-	Type type;
-	Expression[string] variables;
+	VariableDeclaration[] variables;
 	
-	this(Location location, Type type, Expression[string] variables) {
+	this(Location location, VariableDeclaration[] variables) {
+		super(location, DeclarationType.Variable);
+		
+		this.variables = variables;
+	}
+}
+
+/**
+ * Variable declaration
+ */
+class VariableDeclaration : Declaration {
+	Type type;
+	string name;
+	Expression value;
+	
+	this(Location location, Type type, string name, Expression value) {
 		super(location, DeclarationType.Variable);
 		
 		this.type = type;
-		this.variables = variables;
+		this.name = name;
+		this.value = value;
+	}
+}
+
+/**
+ * Used for type identifier = void;
+ */
+class VoidInitializer : Expression {
+	this(Location location) {
+		super(location);
 	}
 }
 

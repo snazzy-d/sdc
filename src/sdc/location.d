@@ -29,11 +29,10 @@ struct Location
     
     // Difference between two locations
     // end - begin == begin ... end
-    Location opBinary(string op)(ref const Location begin) const if (op == "-")
-    {
+    Location opBinary(string op)(ref const Location begin) const if (op == "-") in {
         assert(begin.filename == filename);
         assert(begin.line <= line);
-        
+    } body {
         Location loc;
         loc.filename = filename;
         loc.line = begin.line;
