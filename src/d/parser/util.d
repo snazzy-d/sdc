@@ -207,8 +207,7 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 				}
 				
 				// We now are sure to have a potential type.
-				import std.range;
-				scope(success) popFrontN(trange, matchingBracket - trange);
+				scope(success) trange.popFrontN(matchingBracket - trange);
 				
 				// Type[anything] is a type.
 				if((trange - start) == confirmed) {
@@ -233,17 +232,18 @@ private uint getPostfixTypeIndex(TokenRange)(ref TokenRange trange, ref const To
 				lookahead.popFront();
 				if(lookahead.front.type != TokenType.Identifier) return trange - start;
 				
-				trange.popFront();
-				trange.popFront();
+				trange.popFrontN(2);
 				break;
 			
 			case TokenType.Function, TokenType.Delegate :
 				// This is a function/delegate litteral.
 				auto lookahead = trange.save;
 				lookahead.popFront();
-				if(lookahead.front.type != TokenType.Identifier) return trange - start;
+				if(lookahead.front.type != TokenType.OpenParen) return trange - start;
 				
+				trange.popFront();
 				trange.popMatchingDelimiter!(TokenType.OpenParen)();
+				
 				confirmed = trange - start;
 				break;
 			
