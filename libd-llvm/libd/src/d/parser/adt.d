@@ -222,7 +222,7 @@ Enum parseEnum(TokenRange)(ref TokenRange trange) {
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.CloseBrace);
 	
-	auto enumEntries = new VariablesDeclaration(location, type, enumEntriesValues);
+	auto enumEntries = new VariablesDeclaration(location, []);
 	
 	if(name) {
 		return new NamedEnum(location, name, type, enumEntries);

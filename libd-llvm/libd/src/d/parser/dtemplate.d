@@ -10,7 +10,6 @@ import d.parser.type;
 import sdc.tokenstream;
 import sdc.location;
 
-import std.array;
 import std.range;
 
 auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {

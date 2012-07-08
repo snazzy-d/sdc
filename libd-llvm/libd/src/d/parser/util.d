@@ -10,29 +10,6 @@ import sdc.location;
 import std.range;
 
 /**
- * Tool to lookahead what is after the matching opening token.
- * matchin tokens are (), [], <> and {}
- */
-auto lookAfterMatchingDelimiter(TokenType openTokenType)(const TokenStream tstream) {
-	auto trange = TokenRange(tstream);
-	trange.popMatchingDelimiter!(openTokenType)();
-	
-	return trange.front;
-}
-
-/**
- * Return the index of the matching closing token (this index can be used with lookahead).
- * matchin tokens are (), [], <> and {}
- */
-auto getMatchingDelimiterIndex(TokenType openTokenType)(const TokenStream tstream) {
-	auto start = TokenRange(tstream);
-	auto end = start.save;
-	end.popMatchingDelimiter!(openTokenType)();
-	
-	return end - start - 1;
-}
-
-/**
  * Pop a range of token until we pop the matchin delimiter.
  * matchin tokens are (), [], <> and {}
  */

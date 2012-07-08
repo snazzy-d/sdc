@@ -367,21 +367,24 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		
 		return trange.parseFunction(location, name, type);
 	} else {
-		Expression[string] variables;
+		VariableDeclaration[] variables;
 		
 		// Variables declaration.
 		void parseVariableDeclaration() {
 			string name = trange.front.value;
+			Location variableLocation = trange.front.location;
 			trange.match(TokenType.Identifier);
 			
+			Expression value;
 			if(trange.front.type == TokenType.Assign) {
 				trange.popFront();
 				
-				variables[name] = trange.parseInitializer();
-			} else {
-				// TODO: Use default initializer instead of null.
-				variables[name] = null;
+				value = trange.parseInitializer();
+				
+				variableLocation.spanTo(value.location);
 			}
+			
+			variables ~= new VariableDeclaration(location, type, name, value);
 		}
 		
 		parseVariableDeclaration();
@@ -394,7 +397,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.Semicolon);
 		
-		return new VariablesDeclaration(location, type, variables);
+		return new VariablesDeclaration(location, variables);
 	}
 }
 
@@ -454,8 +457,11 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
  */
 private auto parseInitializer(TokenRange)(ref TokenRange trange) {
 	if(trange.front.type == TokenType.Void) {
+		auto location = trange.front.location;
+		
 		trange.popFront();
-		return null;
+		
+		return new VoidInitializer(location);
 	}
 	
 	return trange.parseAssignExpression();

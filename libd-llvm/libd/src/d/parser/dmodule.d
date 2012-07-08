@@ -9,8 +9,6 @@ import d.parser.declaration;
 import sdc.tokenstream;
 import sdc.location;
 
-import std.array;
-
 // Temporary stub to hook sdc.
 auto parseModule()(TokenStream tstream) {
 	return TokenRange(tstream).parseModule();
@@ -21,8 +19,8 @@ auto parseModule()(TokenStream tstream) {
  * This is the regular entry point in the parser
  */
 auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	Location location = trange.front.location;
 	trange.match(TokenType.Begin);
+	Location location = trange.front.location;
 	
 	ModuleDeclaration moduleDeclaration;
 	if(trange.front.type == TokenType.Module) {
@@ -37,8 +35,7 @@ auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) 
 		declarations ~= trange.parseDeclaration();
 	}
 	
-	location.spanTo(declarations.back.location);
-	trange.popFront();
+	location.spanTo(trange.front.location);
 	
 	return new Module(location, moduleDeclaration, declarations);
 }

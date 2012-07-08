@@ -1,6 +1,7 @@
 module d.ast.statement;
 
 import d.ast.base;
+import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
@@ -131,11 +132,28 @@ class ForStatement : Statement {
 	Statement statement;
 	
 	this(Location location, Statement init, Expression condition, Expression increment, Statement statement) {
-		super(location, StatementType.DoWhile);
+		super(location, StatementType.For);
 		
 		this.init = init;
 		this.condition = condition;
 		this.increment = increment;
+		this.statement = statement;
+	}
+}
+
+/**
+ * for statements
+ */
+class ForeachStatement : Statement {
+	VariableDeclaration[] tupleElements;
+	Expression iterrated;
+	Statement statement;
+	
+	this(Location location, VariableDeclaration[] tupleElements, Expression iterrated, Statement statement) {
+		super(location, StatementType.Foreach);
+		
+		this.tupleElements = tupleElements;
+		this.iterrated = iterrated;
 		this.statement = statement;
 	}
 }
@@ -168,6 +186,19 @@ class ReturnStatement : Statement {
 		super(location, StatementType.Return);
 		
 		this.value = value;
+	}
+}
+
+/**
+ * synchronized statements
+ */
+class SynchronizedStatement : Statement {
+	Statement statement;
+	
+	this(Location location, Statement statement) {
+		super(location, StatementType.Synchronized);
+		
+		this.statement = statement;
 	}
 }
 
