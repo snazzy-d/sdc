@@ -21,6 +21,10 @@ struct TokenRange {
 		this.i = i;
 	}
 	
+	// Disallow copy (save is made for that).
+	// @disable
+	// this(this);
+	
 	@property
 	bool empty() const {
 		return front.type == TokenType.End;
@@ -49,5 +53,23 @@ struct TokenRange {
 
 unittest {
 	static assert(isTokenRange!TokenRange);
+}
+
+void match(TokenRange)(ref TokenRange trange, TokenType type) if(isTokenRange!TokenRange) {
+	auto token = trange.front;
+	
+	if(token.type != type) {
+		import sdc.compilererror;
+		import std.conv, std.string;
+		
+		auto error = format("expected '%s', got '%s'.", tokenToString[type], token.value);
+		
+		import sdc.terminal;
+		outputCaretDiagnostics(token.location, error);
+		
+		throw new CompilerError(token.location, error);
+	}
+	
+	trange.popFront();
 }
 

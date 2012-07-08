@@ -2,108 +2,123 @@ module d.parser.dtemplate;
 
 import d.ast.dtemplate;
 
+import d.parser.base;
 import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
 import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
 
-auto parseTemplate(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Template).location;
+import std.array;
+import std.range;
+
+auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Template);
 	
-	string name = match(tstream, TokenType.Identifier).value;
-	auto parameters = parseTemplateParameters(tstream);
-	auto declarations = parseAggregate(tstream);
+	string name = trange.front.value;
+	trange.match(TokenType.Identifier);
 	
-	location.spanTo(tstream.previous.location);
+	auto parameters = trange.parseTemplateParameters();
+	auto declarations = trange.parseAggregate();
+	
+	location.spanTo(declarations.back.location);
 	
 	return new TemplateDeclaration(location, name, parameters, declarations);
 }
 
-auto parseConstraint(TokenStream tstream) {
-	match(tstream, TokenType.If);
-	match(tstream, TokenType.OpenParen);
+auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	trange.match(TokenType.If);
+	trange.match(TokenType.OpenParen);
 	
-	parseExpression(tstream);
+	trange.parseExpression();
 	
-	match(tstream, TokenType.CloseParen);
+	trange.match(TokenType.CloseParen);
 }
 
-auto parseTemplateParameters(TokenStream tstream) {
-	match(tstream, TokenType.OpenParen);
+auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	trange.match(TokenType.OpenParen);
 	
 	TemplateParameter[] parameters;
 	
-	if(tstream.peek.type != TokenType.CloseParen) {
-		parameters ~= parseTemplateParameter(tstream);
+	if(trange.front.type != TokenType.CloseParen) {
+		parameters ~= trange.parseTemplateParameter();
 		
-		while(tstream.peek.type != TokenType.CloseParen) {
-			match(tstream, TokenType.Comma);
+		while(trange.front.type != TokenType.CloseParen) {
+			trange.match(TokenType.Comma);
 			
-			parameters ~= parseTemplateParameter(tstream);
+			parameters ~= trange.parseTemplateParameter();
 		}
 	}
 	
-	match(tstream, TokenType.CloseParen);
+	trange.match(TokenType.CloseParen);
 	
 	return parameters;
 }
 
-TemplateParameter parseTemplateParameter(TokenStream tstream) {
-	switch(tstream.peek.type) {
+private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange trange) {
+	switch(trange.front.type) {
 		case TokenType.Identifier :
-			switch(tstream.lookahead(1).type) {
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			switch(lookahead.front.type) {
 				// Identifier followed by ":", "=", "," or ")" are type parameters.
 				case TokenType.Colon, TokenType.Assign, TokenType.Comma, TokenType.CloseParen :
-					return parseTypeParameter(tstream);
+					return trange.parseTypeParameter();
 				
 				case TokenType.TripleDot :
-					string name = tstream.get().value;
-					auto location = tstream.get().location;
+					string name = trange.front.value;
+					auto location = lookahead.front.location;
 					
+					trange.popFrontN(2);
 					return new TupleTemplateParameter(location, name);
 				
 				default :
 					// We probably have a value parameter (or an error).
-					return parseValueParameter(tstream);
+					return trange.parseValueParameter();
 			}
 		
 		case TokenType.Alias :
-			return parseAliasParameter(tstream);
+			return trange.parseAliasParameter();
 		
 		case TokenType.This :
-			auto location = tstream.get().location;
-			string name = match(tstream, TokenType.Identifier).value;
+			Location location = trange.front.location;
+			trange.popFront();
 			
-			location.spanTo(tstream.previous.location);
+			string name = trange.front.value;
+			location.spanTo(trange.front.location);
+			
+			trange.match(TokenType.Identifier);
 			
 			return new ThisTemplateParameter(location, name);
 		
 		default :
 			// We probably have a value parameter (or an error).
-			return parseValueParameter(tstream);
+			return trange.parseValueParameter();
 	}
 }
 
-auto parseTypeParameter(TokenStream tstream) {
-	string name = tstream.peek.value;
-	auto location = tstream.get().location;
+private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
+	string name = trange.front.value;
+	Location location = trange.front.location;
 	
-	switch(tstream.peek.type) {
+	trange.match(TokenType.Identifier);
+	
+	switch(trange.front.type) {
 		// TODO: handle default parameter and specialisation.
 		case TokenType.Colon :
-			tstream.get();
-			parseType(tstream);
+			trange.popFront();
+			trange.parseType();
 			
-			if(tstream.peek.type == TokenType.Assign) goto case TokenType.Assign;
+			if(trange.front.type == TokenType.Assign) goto case TokenType.Assign;
 			
 			goto default;
 		
 		case TokenType.Assign :
-			tstream.get();
-			parseType(tstream);
+			trange.popFront();
+			trange.parseType();
+			
 			goto default;
 		
 		default :
@@ -111,54 +126,65 @@ auto parseTypeParameter(TokenStream tstream) {
 	}
 }
 
-auto parseValueParameter(TokenStream tstream) {
-	auto location = tstream.peek.location;
+private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
 	
-	auto type = parseType(tstream);
-	string name = match(tstream, TokenType.Identifier).value;
+	auto type = trange.parseType();
+	string name = trange.front.value;
 	
-	if(tstream.peek.type == TokenType.Assign) {
-		tstream.get();
-		switch(tstream.peek.type) {
+	trange.match(TokenType.Identifier);
+	
+	if(trange.front.type == TokenType.Assign) {
+		trange.popFront();
+		switch(trange.front.type) {
 			case TokenType.__File__, TokenType.__Line__ :
-				tstream.get();
+				location.spanTo(trange.front.location);
+				
+				trange.popFront();
 				break;
 			
 			default :
-				parseAssignExpression(tstream);
+				auto expression = trange.parseAssignExpression();
+				location.spanTo(expression.location);
 		}
+	} else {
+		location.spanTo(type.location);
 	}
-	
-	location.spanTo(tstream.previous.location);
 	
 	return new ValueTemplateParameter(location, name, type);
 }
 
-TemplateParameter parseAliasParameter(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Alias).location;
+private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Alias);
 	
 	bool isTyped = false;
-	if(tstream.peek.type != TokenType.Identifier) {
+	if(trange.front.type != TokenType.Identifier) {
 		isTyped = true;
 	} else {
 		// Identifier followed by ":", "=", "," or ")" are untyped alias parameters.
-		auto nextType = tstream.lookahead(1).type;
+		auto lookahead = trange.save;
+		lookahead.popFront();
+		auto nextType = lookahead.front.type;
 		if(nextType != TokenType.Colon && nextType != TokenType.Assign && nextType != TokenType.Comma && nextType != TokenType.CloseParen) {
 			isTyped = true;
 		}
 	}
 	
 	if(isTyped) {
-		auto type = parseType(tstream);
-		string name = match(tstream, TokenType.Identifier).value;
+		auto type = trange.parseType();
+		string name = trange.front.value;
 		
-		location.spanTo(tstream.previous.location);
+		location.spanTo(trange.front.location);
+		
+		trange.match(TokenType.Identifier);
 		
 		return new TypedAliasTemplateParameter(location, name, type);
 	} else {
-		string name = match(tstream, TokenType.Identifier).value;
+		string name = trange.front.value;
+		location.spanTo(trange.front.location);
 		
-		location.spanTo(tstream.previous.location);
+		trange.match(TokenType.Identifier);
 		
 		return new AliasTemplateParameter(location, name);
 	}

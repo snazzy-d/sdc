@@ -6,6 +6,7 @@ import d.ast.identifier;
 import d.ast.type;
 
 import d.parser.adt;
+import d.parser.base;
 import d.parser.conditional;
 import d.parser.expression;
 import d.parser.identifier;
@@ -14,28 +15,27 @@ import d.parser.dfunction;
 import d.parser.dtemplate;
 import d.parser.type;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
+
+import std.array;
 
 /**
  * Parse a set of declarations.
  */
-auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
+auto parseAggregate(bool globBraces = true, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	static if(globBraces) {
-		match(tstream, TokenType.OpenBrace);
+		trange.match(TokenType.OpenBrace);
 	}
 	
 	Declaration[] declarations;
 	
-	auto tokenType = tstream.peek.type;
-	while(tokenType != TokenType.CloseBrace && tokenType != TokenType.End) {
-		declarations ~= parseDeclaration(tstream);
-		tokenType = tstream.peek.type;
+	while(trange.front.type != TokenType.CloseBrace) {
+		declarations ~= trange.parseDeclaration();
 	}
 	
 	static if(globBraces) {
-		match(tstream, TokenType.CloseBrace);
+		trange.match(TokenType.CloseBrace);
 	}
 	
 	return declarations;
@@ -44,50 +44,53 @@ auto parseAggregate(bool globBraces = true)(TokenStream tstream) {
 /**
  * Parse a declaration
  */
-Declaration parseDeclaration(TokenStream tstream) {
-	auto location = tstream.peek.location;
+Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
 	
-	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
-		switch(tstream.peek.type) {
+	// TODO: bug repport and workaround : if trange is used, dmd explode.
+	// To work around, the function is made static and all parameters passed manually. UFCS explode too.
+	static auto handleStorageClass(StorageClassDeclaration, U...)(ref TokenRange trange, ref Location location, U arguments) {
+		switch(trange.front.type) {
 			case TokenType.OpenBrace :
-				auto declarations = parseAggregate(tstream);
+				auto declarations = trange.parseAggregate();
 				
-				location.spanTo(tstream.previous.location);
+				location.spanTo(declarations.back.location);
 				
 				return new StorageClassDeclaration(location, arguments, declarations);
 			
 			case TokenType.Colon :
-				tstream.get();
-				auto declarations = parseAggregate!false(tstream);
+				trange.popFront();
+				auto declarations = trange.parseAggregate!false();
 				
-				location.spanTo(tstream.previous.location);
+				location.spanTo(declarations.back.location);
 				
 				return new StorageClassDeclaration(location, arguments, declarations);
 			
 			default :
-				return new StorageClassDeclaration(location, arguments, [parseDeclaration(tstream)]);
+				return new StorageClassDeclaration(location, arguments, [trange.parseDeclaration()]);
 		}
 	}
 	
 	Type type;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		/*
 		 * Auto declaration
 		 */
 		case TokenType.Identifier :
 			// storageClass identifier = expression is an auto declaration.
-			if(tstream.lookahead(1).type != TokenType.Assign) {
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type != TokenType.Assign) {
 				// If it is not an auto declaration, this identifier is a type.
 				goto default;
 			}
 			
-			location.spanTo(tstream.previous.location);
 			type = new AutoType(location);
 			break;
-			
+		
 		case TokenType.Auto :
-			location.spanTo(tstream.get().location);
+			trange.popFront();
 			type = new AutoType(location);
 			
 			break;
@@ -96,37 +99,57 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Type qualifiers
 		 */
 		case TokenType.Const :
-			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
-				tstream.get();
-				
-				return handleStorageClass!ConstDeclaration();
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type == TokenType.Identifier) {
+				lookahead.popFront();
+				if(lookahead.front.type == TokenType.Assign) {
+					trange.popFront();
+					
+					return handleStorageClass!ConstDeclaration(trange, location);
+				}
 			}
 			
 			goto default;
 		
 		case TokenType.Immutable :
-			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
-				tstream.get();
-				
-				return handleStorageClass!ImmutableDeclaration();
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type == TokenType.Identifier) {
+				lookahead.popFront();
+				if(lookahead.front.type == TokenType.Assign) {
+					trange.popFront();
+					
+					return handleStorageClass!ImmutableDeclaration(trange, location);
+				}
 			}
 			
 			goto default;
 		
 		case TokenType.Inout :
-			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
-				tstream.get();
-				
-				return handleStorageClass!InoutDeclaration();
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type == TokenType.Identifier) {
+				lookahead.popFront();
+				if(lookahead.front.type == TokenType.Assign) {
+					trange.popFront();
+					
+					return handleStorageClass!InoutDeclaration(trange, location);
+				}
 			}
 			
 			goto default;
 		
 		case TokenType.Shared :
-			if(tstream.lookahead(1).type == TokenType.Identifier && tstream.lookahead(2).type == TokenType.Assign) {
-				tstream.get();
-				
-				return handleStorageClass!SharedDeclaration();
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type == TokenType.Identifier) {
+				lookahead.popFront();
+				if(lookahead.front.type == TokenType.Assign) {
+					trange.popFront();
+					
+					return handleStorageClass!SharedDeclaration(trange, location);
+				}
 			}
 			
 			goto default;
@@ -135,155 +158,163 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Storage class
 		 */
 		case TokenType.Abstract :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!AbstractDeclaration();
+			return handleStorageClass!AbstractDeclaration(trange, location);
 		
 		case TokenType.Deprecated :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!DeprecatedDeclaration();
+			return handleStorageClass!DeprecatedDeclaration(trange, location);
 		
 		case TokenType.Nothrow :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!NothrowDeclaration();
+			return handleStorageClass!NothrowDeclaration(trange, location);
 		
 		case TokenType.Override :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!OverrideDeclaration();
+			return handleStorageClass!OverrideDeclaration(trange, location);
 		
 		case TokenType.Pure :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!PureDeclaration();
+			return handleStorageClass!PureDeclaration(trange, location);
 		
 		case TokenType.Static :
 			// Handle static if.
-			if(tstream.lookahead(1).type == TokenType.If) {
-				return parseStaticIf!Declaration(tstream);
+			// TODO: handle static assert.
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			if(lookahead.front.type == TokenType.If) {
+				return trange.parseStaticIf!Declaration();
 			}
 			
-			tstream.get();
-			return handleStorageClass!StaticDeclaration();
+			trange.popFront();
+			return handleStorageClass!StaticDeclaration(trange, location);
 		
 		case TokenType.Synchronized :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!SynchronizedDeclaration();
+			return handleStorageClass!SynchronizedDeclaration(trange, location);
 		
 		case TokenType.__Gshared :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!__GsharedDeclaration();
+			return handleStorageClass!__GsharedDeclaration(trange, location);
 		
 		/*
 		 * Visibility declaration
 		 */
 		case TokenType.Private :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!PrivateDeclaration();
+			return handleStorageClass!PrivateDeclaration(trange, location);
 		
 		case TokenType.Public :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!PublicDeclaration();
+			return handleStorageClass!PublicDeclaration(trange, location);
 		
 		case TokenType.Protected :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!ProtectedDeclaration();
+			return handleStorageClass!ProtectedDeclaration(trange, location);
 		
 		case TokenType.Package :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!PackageDeclaration();
+			return handleStorageClass!PackageDeclaration(trange, location);
 		
 		case TokenType.Export :
-			tstream.get();
+			trange.popFront();
 			
-			return handleStorageClass!ExportDeclaration();
+			return handleStorageClass!ExportDeclaration(trange, location);
 		
 		/*
 		 * Linkage
 		 */
 		case TokenType.Extern :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
-			string linkage = match(tstream, TokenType.Identifier).value;
-			match(tstream, TokenType.CloseParen);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
+			string linkage = trange.front.value;
+			trange.match(TokenType.Identifier);
+			trange.match(TokenType.CloseParen);
 			
-			return handleStorageClass!LinkageDeclaration(linkage);
+			return handleStorageClass!LinkageDeclaration(trange, location, linkage);
 		
 		/**
 		 * Attributes
 		 */
 		case TokenType.At :
-			tstream.get();
-			string attribute = match(tstream, TokenType.Identifier).value;
+			trange.popFront();
+			string attribute = trange.front.value;
+			trange.match(TokenType.Identifier);
 			
-			return handleStorageClass!AttributeDeclaration(attribute);
+			return handleStorageClass!AttributeDeclaration(trange, location, attribute);
 		
 		/*
 		 * Class, interface, struct and union declaration
 		 */
 		case TokenType.Interface :
-			return parseInterface(tstream);
+			return trange.parseInterface();
 		
 		case TokenType.Class :
-			return parseClass(tstream);
+			return trange.parseClass();
 		
 		case TokenType.Struct :
-			return parseStruct(tstream);
+			return trange.parseStruct();
 		
 		case TokenType.Union :
-			return parseUnion(tstream);
+			return trange.parseUnion();
 		
 		/*
 		 * Constructor and destructor
 		 */
 		case TokenType.This :
-			return parseConstructor(tstream);
+			return trange.parseConstructor();
 		
 		case TokenType.Tilde :
-			return parseDestructor(tstream);
+			return trange.parseDestructor();
 		
 		/*
 		 * Enum
 		 */
 		case TokenType.Enum :
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			
 			// Determine if we are in case of manifest constant or regular enum.
-			switch(tstream.lookahead(1).type) {
+			switch(lookahead.front.type) {
 				case TokenType.Colon, TokenType.OpenBrace :
-					return parseEnum(tstream);
+					return trange.parseEnum();
 				
 				case TokenType.Identifier :
-					switch(tstream.lookahead(2).type) {
+					lookahead.popFront();
+					switch(lookahead.front.type) {
 						case TokenType.Colon, TokenType.OpenBrace :
-							return parseEnum(tstream);
+							return trange.parseEnum();
 						
 						// Auto manifest constant declaration.
 						case TokenType.Assign :
-							tstream.get();
-							location.spanTo(tstream.previous.location);
+							trange.popFront();
 							type = new AutoType(location);
 							
 							break;
 						
 						// We didn't recognize regular enums or manifest auto constant. Let's fallback to manifest typed constant.
 						default :
-							tstream.get();
-							type = parseType(tstream);
+							trange.popFront();
+							type = trange.parseType();
 							break;
 					}
 					
 					break;
 				
 				default :
-					tstream.get();
-					type = parseType(tstream);
+					trange.popFront();
+					type = trange.parseType();
 					break;
 			}
 			
@@ -293,56 +324,60 @@ Declaration parseDeclaration(TokenStream tstream) {
 		 * Template
 		 */
 		case TokenType.Template :
-			return parseTemplate(tstream);
+			return trange.parseTemplate();
 		
 		/*
 		 * Import
 		 */
 		case TokenType.Import :
-			return parseImport(tstream);
+			return trange.parseImport();
 		
 		/**
 		 * Alias
 		 */
 		case TokenType.Alias :
-			return parseAlias(tstream);
+			return trange.parseAlias();
 		
 		/*
 		 * Conditional compilation
 		 */
 		case TokenType.Version :
-			return parseVersion!Declaration(tstream);
+			return trange.parseVersion!Declaration();
 		
 		case TokenType.Debug :
-			return parseDebug!Declaration(tstream);
+			return trange.parseDebug!Declaration();
 		
 		case TokenType.Unittest :
-			tstream.get();
-			parseBlock(tstream);
+			trange.popFront();
+			trange.parseBlock();
 			return null;
 		
 		/*
 		 * Variable and function declarations
 		 */
 		default :
-			type = parseType(tstream);
+			type = trange.parseType();
 	}
 	
-	if(tstream.lookahead(1).type == TokenType.OpenParen) {
-		string name = match(tstream, TokenType.Identifier).value;
+	auto lookahead = trange.save;
+	lookahead.popFront();
+	if(lookahead.front.type == TokenType.OpenParen) {
+		string name = trange.front.value;
+		trange.match(TokenType.Identifier);
 		
-		return parseFunction(tstream, location, name, type);
+		return trange.parseFunction(location, name, type);
 	} else {
 		Expression[string] variables;
 		
 		// Variables declaration.
 		void parseVariableDeclaration() {
-			string name = match(tstream, TokenType.Identifier).value;
+			string name = trange.front.value;
+			trange.match(TokenType.Identifier);
 			
-			if(tstream.peek.type == TokenType.Assign) {
-				tstream.get();
+			if(trange.front.type == TokenType.Assign) {
+				trange.popFront();
 				
-				variables[name] = parseInitializer(tstream);
+				variables[name] = trange.parseInitializer();
 			} else {
 				// TODO: Use default initializer instead of null.
 				variables[name] = null;
@@ -350,14 +385,14 @@ Declaration parseDeclaration(TokenStream tstream) {
 		}
 		
 		parseVariableDeclaration();
-		while(tstream.peek.type == TokenType.Comma) {
-			tstream.get();
+		while(trange.front.type == TokenType.Comma) {
+			trange.popFront();
 			
 			parseVariableDeclaration();
 		}
 		
-		location.spanTo(tstream.peek.location);
-		match(tstream, TokenType.Semicolon);
+		location.spanTo(trange.front.location);
+		trange.match(TokenType.Semicolon);
 		
 		return new VariablesDeclaration(location, type, variables);
 	}
@@ -366,42 +401,50 @@ Declaration parseDeclaration(TokenStream tstream) {
 /**
  * Parse alias declaration
  */
-Declaration parseAlias(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Alias).location;
+private Declaration parseAlias(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Alias);
 	
 	// Alias this (find a better way to dectect it to allow more complx identifiers ?).
-	if(tstream.peek.type == TokenType.Identifier && tstream.lookahead(1).type == TokenType.This) {
-		auto identifier = parseIdentifier(tstream);
-		
-		match(tstream, TokenType.This);
-		location.spanTo(match(tstream, TokenType.Semicolon).location);
-		
-		return new AliasThisDeclaration(location, identifier);
-	} else {
-		auto type = parseType(tstream);
-		string name = match(tstream, TokenType.Identifier).value;
-		
-		location.spanTo(match(tstream, TokenType.Semicolon).location);
-		
-		return new AliasDeclaration(location, name, type);
+	if(trange.front.type == TokenType.Identifier) {
+		auto lookahead = trange.save;
+		lookahead.popFront();
+		if(lookahead.front.type == TokenType.This) {
+			auto identifier = trange.parseIdentifier();
+			
+			trange.match(TokenType.This);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
+			return new AliasThisDeclaration(location, identifier);
+		}
 	}
+	
+	auto type = trange.parseType();
+	string name = trange.front.value;
+	trange.match(TokenType.Identifier);
+	
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.Semicolon);
+	
+	return new AliasDeclaration(location, name, type);
 }
 
 /**
  * Parse import declaration
  */
-auto parseImport(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Import).location;
+private auto parseImport(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Import);
 	
-	Identifier[] modules = [parseIdentifier(tstream)];
-	while(tstream.peek.type == TokenType.Comma) {
-		tstream.get();
-		modules ~= parseIdentifier(tstream);
+	Identifier[] modules = [trange.parseIdentifier()];
+	while(trange.front.type == TokenType.Comma) {
+		trange.popFront();
+		modules ~= trange.parseIdentifier();
 	}
 	
-	match(tstream, TokenType.Semicolon);
-	
-	location.spanTo(tstream.previous.location);
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.Semicolon);
 	
 	return new ImportDeclaration(location, modules);
 }
@@ -409,12 +452,12 @@ auto parseImport(TokenStream tstream) {
 /**
  * Parse Initializer
  */
-auto parseInitializer(TokenStream tstream) {
-	if(tstream.peek.type == TokenType.Void) {
-		tstream.get();
+private auto parseInitializer(TokenRange)(ref TokenRange trange) {
+	if(trange.front.type == TokenType.Void) {
+		trange.popFront();
 		return null;
 	}
 	
-	return parseAssignExpression(tstream);
+	return trange.parseAssignExpression();
 }
 

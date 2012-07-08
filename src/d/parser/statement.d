@@ -3,247 +3,266 @@ module d.parser.statement;
 import d.ast.statement;
 import d.ast.expression;
 
+import d.parser.base;
 import d.parser.conditional;
 import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 import d.parser.util;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
-Statement parseStatement(TokenStream tstream) {
-	auto location = tstream.peek.location;
+import std.array;
+import std.range;
+
+Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.OpenBrace :
-			return parseBlock(tstream);
+			return trange.parseBlock();
 		
 		case TokenType.If :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
-			auto condition = parseExpression(tstream);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
 			
-			match(tstream, TokenType.CloseParen);
+			auto condition = trange.parseExpression();
 			
-			auto then = parseStatement(tstream);
+			trange.match(TokenType.CloseParen);
 			
-			if(tstream.peek.type == TokenType.Else) {
-				tstream.get();
-				auto elseStatement = parseStatement(tstream);
+			auto then = trange.parseStatement();
+			
+			if(trange.front.type == TokenType.Else) {
+				trange.popFront();
+				auto elseStatement = trange.parseStatement();
 				
-				location.spanTo(tstream.previous.location);
+				location.spanTo(elseStatement.location);
 				
 				return new IfElseStatement(location, condition, then, elseStatement);
 			}
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(then.location);
 			return new IfStatement(location, condition, then);
 		
 		case TokenType.While :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
-			auto condition = parseExpression(tstream);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
+			auto condition = trange.parseExpression();
 			
-			match(tstream, TokenType.CloseParen);
+			trange.match(TokenType.CloseParen);
 			
-			auto statement = parseStatement(tstream);
+			auto statement = trange.parseStatement();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(statement.location);
 			return new WhileStatement(location, condition, statement);
 		
 		case TokenType.Do :
-			tstream.get();
+			trange.popFront();
 			
-			auto statement = parseStatement(tstream);
+			auto statement = trange.parseStatement();
 			
-			match(tstream, TokenType.While);
-			match(tstream, TokenType.OpenParen);
-			auto condition = parseExpression(tstream);
+			trange.match(TokenType.While);
+			trange.match(TokenType.OpenParen);
+			auto condition = trange.parseExpression();
 			
-			match(tstream, TokenType.CloseParen);
+			trange.match(TokenType.CloseParen);
 			
-			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
 			return new DoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
-			tstream.get();
+			trange.popFront();
 			
-			match(tstream, TokenType.OpenParen);
+			trange.match(TokenType.OpenParen);
 			
 			Statement init;
-			if(tstream.peek.type == TokenType.Semicolon) {
-				init = new BlockStatement(tstream.get().location, []);
+			if(trange.front.type == TokenType.Semicolon) {
+				init = new BlockStatement(trange.front.location, []);
+				trange.popFront();
 			} else {
-				init = parseStatement(tstream);
+				init = trange.parseStatement();
 			}
 			
-			auto condition = parseExpression(tstream);
-			match(tstream, TokenType.Semicolon);
+			auto condition = trange.parseExpression();
+			trange.match(TokenType.Semicolon);
 			
-			auto increment = parseExpression(tstream);
-			match(tstream, TokenType.CloseParen);
+			auto increment = trange.parseExpression();
+			trange.match(TokenType.CloseParen);
 			
-			auto statement = parseStatement(tstream);
+			auto statement = trange.parseStatement();
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(statement.location);
 			return new ForStatement(location, init, condition, increment, statement);
 		
 		case TokenType.Foreach :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
 			
 			// Hack hack hack HACK !
-			while(tstream.peek.type != TokenType.Semicolon) tstream.get();
+			while(trange.front.type != TokenType.Semicolon) trange.popFront();
 			
-			match(tstream, TokenType.Semicolon);
-			parseExpression(tstream);
+			trange.match(TokenType.Semicolon);
+			trange.parseExpression();
 			
-			if(tstream.peek.type == TokenType.DoubleDot) {
-				tstream.get();
-				parseExpression(tstream);
+			if(trange.front.type == TokenType.DoubleDot) {
+				trange.popFront();
+				trange.parseExpression();
 			}
 			
-			match(tstream, TokenType.CloseParen);
+			trange.match(TokenType.CloseParen);
 			
-			parseStatement(tstream);
+			trange.parseStatement();
 			
 			return null;
 		
 		case TokenType.Break :
-			tstream.get();
+			trange.popFront();
 			
-			if(tstream.peek.type == TokenType.Identifier) tstream.get();
+			if(trange.front.type == TokenType.Identifier) trange.popFront();
 			
-			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
 			
 			return new BreakStatement(location);
 		
 		case TokenType.Continue :
-			tstream.get();
+			trange.popFront();
 			
-			if(tstream.peek.type == TokenType.Identifier) tstream.get();
+			if(trange.front.type == TokenType.Identifier) trange.popFront();
 			
-			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
 			
 			return new ContinueStatement(location);
 		
 		case TokenType.Return :
-			tstream.get();
+			trange.popFront();
 			
 			Expression value;
-			if(tstream.peek.type != TokenType.Semicolon) {
-				value = parseExpression(tstream);
+			if(trange.front.type != TokenType.Semicolon) {
+				value = trange.parseExpression();
 			}
 			
-			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
 			return new ReturnStatement(location, value);
 		
 		case TokenType.Synchronized :
-			tstream.get();
-			if(tstream.peek.type == TokenType.OpenParen) {
-				tstream.get();
+			trange.popFront();
+			if(trange.front.type == TokenType.OpenParen) {
+				trange.popFront();
 				
-				parseExpression(tstream);
+				trange.parseExpression();
 				
-				match(tstream, TokenType.CloseParen);
+				trange.match(TokenType.CloseParen);
 			}
 			
-			parseStatement(tstream);
+			trange.parseStatement();
 			
 			return null;
 		
 		case TokenType.Try :
-			tstream.get();
+			trange.popFront();
 			
-			auto statement = parseStatement(tstream);
+			auto statement = trange.parseStatement();
 			
 			CatchBlock[] catches;
-			while(tstream.peek.type == TokenType.Catch) {
-				auto catchLocation = tstream.get().location;
+			while(trange.front.type == TokenType.Catch) {
+				auto catchLocation = trange.front.location;
+				trange.popFront();
 				
-				if(tstream.peek.type == TokenType.OpenParen) {
-					tstream.get();
-					auto type = parseBasicType(tstream);
+				if(trange.front.type == TokenType.OpenParen) {
+					trange.popFront();
+					auto type = trange.parseBasicType();
 					string name;
 					
-					if(tstream.peek.type == TokenType.Identifier) {
-						name = tstream.get().value;
+					if(trange.front.type == TokenType.Identifier) {
+						name = trange.front.value;
+						trange.popFront();
 					}
 					
-					match(tstream, TokenType.CloseParen);
+					trange.match(TokenType.CloseParen);
 					
-					auto catchStatement = parseStatement(tstream);
+					auto catchStatement = trange.parseStatement();
 					
-					location.spanTo(tstream.previous.location);
+					location.spanTo(catchStatement.location);
 					catches ~= new CatchBlock(location, type, name, catchStatement);
 				} else {
 					// TODO: handle final catches ?
-					parseStatement(tstream);
+					trange.parseStatement();
 					break;
 				}
 			}
 			
-			if(tstream.peek.type == TokenType.Finally) {
-				tstream.get();
-				auto finallyStatement = parseStatement(tstream);
+			if(trange.front.type == TokenType.Finally) {
+				trange.popFront();
+				auto finallyStatement = trange.parseStatement();
 				
-				location.spanTo(tstream.previous.location);
+				location.spanTo(finallyStatement.location);
 				return new TryFinallyStatement(location, statement, [], finallyStatement);
 			}
 			
-			location.spanTo(tstream.previous.location);
+			location.spanTo(catches.back.location);
 			return new TryStatement(location, statement, []);
 		
 		case TokenType.Throw :
-			tstream.get();
-			auto value = parseExpression(tstream);
+			trange.popFront();
+			auto value = trange.parseExpression();
 			
-			location.spanTo(match(tstream, TokenType.Semicolon).location);
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
 			return new ThrowStatement(location, value);
 		
 		case TokenType.Mixin :
-			tstream.get();
-			match(tstream, TokenType.OpenParen);
-			parseExpression(tstream);
-			match(tstream, TokenType.CloseParen);
-			match(tstream, TokenType.Semicolon);
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
+			trange.parseExpression();
+			trange.match(TokenType.CloseParen);
+			trange.match(TokenType.Semicolon);
 			break;
 		
 		case TokenType.Static :
-			switch(tstream.lookahead(1).type) {
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			
+			switch(lookahead.front.type) {
 				case TokenType.If :
-					return parseStaticIf!Statement(tstream);
+					return trange.parseStaticIf!Statement();
 				
 				case TokenType.Assert :
-					tstream.get();
-					tstream.get();
-					match(tstream, TokenType.OpenParen);
+					trange.popFrontN(2);
+					trange.match(TokenType.OpenParen);
 					
-					auto arguments = parseArguments(tstream);
+					auto arguments = trange.parseArguments();
 					
-					match(tstream, TokenType.CloseParen);
+					trange.match(TokenType.CloseParen);
 					
-					location.spanTo(match(tstream, TokenType.Semicolon).location);
+					location.spanTo(trange.front.location);
+					trange.match(TokenType.Semicolon);
+					
 					return new StaticAssertStatement(location, arguments);
 				
 				default :
-					return parseDeclaration(tstream);
+					return trange.parseDeclaration();
 			}
 		
 		case TokenType.Version :
-			return parseVersion!Statement(tstream);
+			return trange.parseVersion!Statement();
 		
 		case TokenType.Debug :
-			return parseDebug!Statement(tstream);
+			return trange.parseDebug!Statement();
 		
 		default :
-			if(isDeclaration(tstream)) {
-				return parseDeclaration(tstream);
+			if(trange.isDeclaration()) {
+				return trange.parseDeclaration();
 			} else {
-				auto expression = parseExpression(tstream);
-				match(tstream, TokenType.Semicolon);
+				auto expression = trange.parseExpression();
+				trange.match(TokenType.Semicolon);
 				
 				return expression;
 			}
@@ -252,20 +271,20 @@ Statement parseStatement(TokenStream tstream) {
 	assert(0);
 }
 
-BlockStatement parseBlock(TokenStream tstream) {
-	match(tstream, TokenType.OpenBrace);
+BlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
 	
-	auto location = tstream.previous.location;
+	trange.match(TokenType.OpenBrace);
 	
 	Statement[] statements;
 	
-	while(tstream.peek.type != TokenType.CloseBrace) {
-		statements ~= parseStatement(tstream);
+	while(trange.front.type != TokenType.CloseBrace) {
+		statements ~= trange.parseStatement();
 	}
 	
-	location.spanTo(tstream.peek.location);
+	location.spanTo(trange.front.location);
 	
-	tstream.get();
+	trange.popFront();
 	
 	return new BlockStatement(location, statements);
 }

@@ -7,52 +7,66 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
+import d.parser.base;
 import d.parser.declaration;
 import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.type;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
 /**
- * Parse class or interface
+ * Parse class
  */
-Declaration parsePolymorphic(bool isClass = true)(TokenStream tstream) {
+auto parseClass(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	return trange.parsePolymorphic!true();
+}
+
+/**
+ * Parse interface
+ */
+auto parseInterface(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	return trange.parsePolymorphic!false();
+}
+
+private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	
 	static if(isClass) {
-		auto location = match(tstream, TokenType.Class).location;
+		trange.match(TokenType.Class);
 		alias ClassDefinition DefinitionType;
 	} else {
-		auto location = match(tstream, TokenType.Interface).location;
+		trange.match(TokenType.Interface);
 		alias InterfaceDefinition DefinitionType;
 	}
 	
 	TemplateParameter[] parameters;
-	if(tstream.peek.type == TokenType.OpenParen) {
-		parameters = parseTemplateParameters(tstream);
+	if(trange.front.type == TokenType.OpenParen) {
+		parameters = trange.parseTemplateParameters();
 	}
 	
-	string name = match(tstream, TokenType.Identifier).value;
-	Identifier[] bases;
+	string name = trange.front.value;
+	trange.match(TokenType.Identifier);
 	
-	if(tstream.peek.type == TokenType.Colon) {
+	Identifier[] bases;
+	if(trange.front.type == TokenType.Colon) {
 		do {
-			tstream.get();
-			bases ~= parseIdentifier(tstream);
-		} while(tstream.peek.type == TokenType.Comma);
+			trange.popFront();
+			bases ~= trange.parseIdentifier();
+		} while(trange.front.type == TokenType.Comma);
 	}
 	
 	if(parameters.ptr) {
-		if(tstream.peek.type == TokenType.If) {
-			parseConstraint(tstream);
+		if(trange.front.type == TokenType.If) {
+			trange.parseConstraint();
 		}
 	}
 	
-	auto members = parseAggregate(tstream);
+	auto members = trange.parseAggregate();
 	
-	location.spanTo(tstream.previous.location);
+	location.spanTo(trange.front.location);
 	
 	auto adt = new DefinitionType(location, name, bases, members);
 	
@@ -63,19 +77,29 @@ Declaration parsePolymorphic(bool isClass = true)(TokenStream tstream) {
 	}
 }
 
-alias parsePolymorphic!true parseClass;
-alias parsePolymorphic!false parseInterface;
+/**
+ * Parse struct
+ */
+auto parseStruct(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	return trange.parseMonomorphic!true();
+}
 
 /**
- * Parse struct or union
+ * Parse union
  */
-Declaration parseMonomorphic(bool isStruct = true)(TokenStream tstream) {
+auto parseUnion(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	return trange.parseMonomorphic!false();
+}
+
+private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	
 	static if(isStruct) {
-		auto location = match(tstream, TokenType.Struct).location;
+		trange.match(TokenType.Struct);
 		alias StructDeclaration DeclarationType;
 		alias StructDefinition DefinitionType;
 	} else {
-		auto location = match(tstream, TokenType.Union).location;
+		trange.match(TokenType.Union);
 		alias UnionDeclaration DeclarationType;
 		alias UnionDefinition DefinitionType;
 	}
@@ -83,24 +107,25 @@ Declaration parseMonomorphic(bool isStruct = true)(TokenStream tstream) {
 	string name;
 	TemplateParameter[] parameters;
 	
-	if(tstream.peek.type == TokenType.Identifier) {
-		name = tstream.get().value;
+	if(trange.front.type == TokenType.Identifier) {
+		name = trange.front.value;
+		trange.popFront();
 		
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			// Handle opaque declarations.
 			case TokenType.Semicolon :
-				location.spanTo(tstream.peek.location);
+				location.spanTo(trange.front.location);
 				
-				tstream.get();
+				trange.popFront();
 				
 				return new DeclarationType(location, name);
 			
 			// Template structs
 			case TokenType.OpenParen :
-				parameters = parseTemplateParameters(tstream);
+				parameters = trange.parseTemplateParameters();
 				
-				if(tstream.peek.type == TokenType.If) {
-					parseConstraint(tstream);
+				if(trange.front.type == TokenType.If) {
+					trange.parseConstraint();
 				}
 				
 				break;
@@ -110,9 +135,9 @@ Declaration parseMonomorphic(bool isStruct = true)(TokenStream tstream) {
 		}
 	}
 	
-	auto members = parseAggregate(tstream);
+	auto members = trange.parseAggregate();
 	
-	location.spanTo(tstream.previous.location);
+	location.spanTo(trange.front.location);
 	
 	auto adt = new DefinitionType(location, name, members);
 	
@@ -123,27 +148,26 @@ Declaration parseMonomorphic(bool isStruct = true)(TokenStream tstream) {
 	}
 }
 
-alias parseMonomorphic!true parseStruct;
-alias parseMonomorphic!false parseUnion;
-
 /**
  * Parse enums
  */
-Enum parseEnum(TokenStream tstream) {
-	auto location = match(tstream, TokenType.Enum).location;
+Enum parseEnum(TokenRange)(ref TokenRange trange) {
+	Location location = trange.front.location;
+	trange.match(TokenType.Enum);
 	
 	string name;
 	Type type;
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		case TokenType.Identifier :
-			name = tstream.get().value;
+			name = trange.front.value;
+			trange.popFront();
 			
 			// Ensure we are not in case of manifest constant.
-			assert(tstream.peek.type != TokenType.Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
+			assert(trange.front.type != TokenType.Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
 			
 			// If we have a colon, we go to the apropriate case.
-			if(tstream.peek.type == TokenType.Colon) {
+			if(trange.front.type == TokenType.Colon) {
 				goto case TokenType.Colon;
 			}
 			
@@ -151,8 +175,8 @@ Enum parseEnum(TokenStream tstream) {
 			goto case TokenType.OpenBrace;
 		
 		case TokenType.Colon :
-			tstream.get();
-			type = parseType(tstream);
+			trange.popFront();
+			type = trange.parseType();
 			
 			break;
 		
@@ -163,23 +187,24 @@ Enum parseEnum(TokenStream tstream) {
 		
 		default :
 			// TODO: error.
-			match(tstream, TokenType.Begin);
+			trange.match(TokenType.Begin);
 	}
 	
-	match(tstream, TokenType.OpenBrace);
+	trange.match(TokenType.OpenBrace);
 	Expression[string] enumEntriesValues;
 	
 	string previousName;
-	while(tstream.peek.type != TokenType.CloseBrace) {
-		string entryName = match(tstream, TokenType.Identifier).value;
+	while(trange.front.type != TokenType.CloseBrace) {
+		string entryName = trange.front.value;
+		auto entryLocation = trange.front.location;
 		
-		if(tstream.peek.type == TokenType.Assign) {
-			tstream.get();
+		trange.match(TokenType.Identifier);
+		
+		if(trange.front.type == TokenType.Assign) {
+			trange.popFront();
 			
-			enumEntriesValues[entryName] = parseAssignExpression(tstream);
+			enumEntriesValues[entryName] = trange.parseAssignExpression();
 		} else {
-			auto entryLocation = tstream.previous.location;
-			
 			if(previousName) {
 				enumEntriesValues[entryName] = new AdditionExpression(entryLocation, enumEntriesValues[previousName], new IntegerLiteral!uint(entryLocation, 1));
 			} else {
@@ -188,13 +213,14 @@ Enum parseEnum(TokenStream tstream) {
 		}
 		
 		// If it is not a comma, then we abort the loop.
-		if(tstream.peek.type != TokenType.Comma) break;
+		if(trange.front.type != TokenType.Comma) break;
 		
-		tstream.get();
+		trange.popFront();
 		previousName = entryName;
 	}
 	
-	location.spanTo(match(tstream, TokenType.CloseBrace).location);
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.CloseBrace);
 	
 	auto enumEntries = new VariablesDeclaration(location, type, enumEntriesValues);
 	

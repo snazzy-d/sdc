@@ -5,42 +5,43 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.parser.base;
 import d.parser.dfunction;
 import d.parser.expression;
 import d.parser.identifier;
+import d.parser.util;
 
-import sdc.tokenstream;
 import sdc.location;
-import sdc.parser.base : match;
+import sdc.token;
 
-Type parseType(TokenStream tstream) {
-	auto base = parseBasicType(tstream);
-	return parseTypeSuffix!true(tstream, base);
+Type parseType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	auto base = trange.parseBasicType();
+	return trange.parseTypeSuffix!true(base);
 }
 
-Type parseConfirmedType(TokenStream tstream) {
-	auto base = parseBasicType(tstream);
-	return parseTypeSuffix!false(tstream, base);
+Type parseConfirmedType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	auto base = trange.parseBasicType();
+	return trange.parseTypeSuffix!false(base);
 }
 
-auto parseBasicType(TokenStream tstream) {
-	auto location = tstream.peek.location;
+auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	Location location = trange.front.location;
 	
 	auto processQualifier(alias qualifyType)() {
-		tstream.get();
+		trange.popFront();
 		
-		if(tstream.peek.type == TokenType.OpenParen) {
-			tstream.get();
-			auto type = parseType(tstream);
-			match(tstream, TokenType.CloseParen);
+		if(trange.front.type == TokenType.OpenParen) {
+			trange.popFront();
+			auto type = trange.parseType();
+			trange.match(TokenType.CloseParen);
 			
 			return qualifyType(type);
 		}
 		
-		return qualifyType(parseType(tstream));
+		return qualifyType(trange.parseType());
 	}
 	
-	switch(tstream.peek.type) {
+	switch(trange.front.type) {
 		// Types qualifiers
 		case TokenType.Const :
 			return processQualifier!(function(Type type) { return type.makeConst(); })();
@@ -60,109 +61,112 @@ auto parseBasicType(TokenStream tstream) {
 		
 		// Identified types
 		case TokenType.Identifier :
-			auto identifier = parseIdentifier(tstream);
-			location.spanTo(tstream.previous.location);
+			auto identifier = trange.parseIdentifier();
+			location.spanTo(identifier.location);
+			
 			return new IdentifierType(location, identifier);
 		
 		case TokenType.Dot :
-			auto identifier = parseDotIdentifier(tstream);
-			location.spanTo(tstream.previous.location);
+			auto identifier = trange.parseDotIdentifier();
+			location.spanTo(identifier.location);
+			
 			return new IdentifierType(location, identifier);
 		
 		case TokenType.Typeof :
-			tstream.get();
-			return parseTypeof(tstream, location);
+			return trange.parseTypeof();
 		
 		case TokenType.This :
-			tstream.get();
+			trange.popFront();
 			auto thisExpression = new ThisExpression(location);
-			match(tstream, TokenType.Dot);
-			auto identifier = parseQualifiedIdentifier(tstream, location, thisExpression);
-			location.spanTo(tstream.previous.location);
+			trange.match(TokenType.Dot);
+			auto identifier = trange.parseQualifiedIdentifier(location, thisExpression);
+			location.spanTo(identifier.location);
+			
 			return new IdentifierType(location, identifier);
 		
 		case TokenType.Super :
-			tstream.get();
+			trange.popFront();
 			auto superExpression = new SuperExpression(location);
-			match(tstream, TokenType.Dot);
-			auto identifier = parseQualifiedIdentifier(tstream, location, superExpression);
-			location.spanTo(tstream.previous.location);
+			trange.match(TokenType.Dot);
+			auto identifier = trange.parseQualifiedIdentifier(location, superExpression);
+			location.spanTo(identifier.location);
+			
 			return new IdentifierType(location, identifier);
 		
 		// Basic types
 		case TokenType.Bool :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!bool(location);
 		
 		case TokenType.Byte :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!byte(location);
 		
 		case TokenType.Ubyte :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!ubyte(location);
 		
 		case TokenType.Short :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!short(location);
 		
 		case TokenType.Ushort :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!ushort(location);
 		
 		case TokenType.Int :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!int(location);
 		
 		case TokenType.Uint :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!uint(location);
 		
 		case TokenType.Long :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!long(location);
 		
 		case TokenType.Ulong :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!ulong(location);
 		
 /*		case TokenType.Cent :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!cent(location);
 		case TokenType.Ucent :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!ucent(location);	*/
 		
 		case TokenType.Char :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!char(location);
 		
 		case TokenType.Wchar :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!wchar(location);
 		
 		case TokenType.Dchar :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!dchar(location);
 		
 		case TokenType.Float :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!float(location);
 		
 		case TokenType.Double :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!double(location);
 		
 		case TokenType.Real :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!real(location);
 		
 		case TokenType.Void :
-			tstream.get();
+			trange.popFront();
 			return new BuiltinType!void(location);
 		
 		default :
-			match(tstream, TokenType.Begin);
+			trange.match(TokenType.Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
 			assert(0);
@@ -172,24 +176,26 @@ auto parseBasicType(TokenStream tstream) {
 /**
  * Parse typeof(...)
  */
-auto parseTypeof(TokenStream tstream, Location location) {
+private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 	BasicType type;
 	
-	match(tstream, TokenType.OpenParen);
+	Location location = trange.front.location;
+	trange.match(TokenType.Typeof);
+	trange.match(TokenType.OpenParen);
 	
-	if(tstream.peek.type == TokenType.Return) {
-		tstream.get();
-		location.spanTo(tstream.peek.location);
+	if(trange.front.type == TokenType.Return) {
+		trange.popFront();
+		location.spanTo(trange.front.location);
 		
 		type = new ReturnType(location);
 	} else {
-		auto e = parseExpression(tstream);
-		location.spanTo(tstream.peek.location);
+		auto e = trange.parseExpression();
+		location.spanTo(trange.front.location);
 		
 		type = new TypeofType(location, e);
 	}
 	
-	match(tstream, TokenType.CloseParen);
+	trange.match(TokenType.CloseParen);
 	
 	return type;
 }
@@ -197,55 +203,59 @@ auto parseTypeof(TokenStream tstream, Location location) {
 /**
  * Parse *, [ ... ] and function/delegate types.
  */
-auto parseTypeSuffix(bool isGreedy)(TokenStream tstream, Type type) {
-	auto location = type.location;
+private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, Type type) {
+	Location location = type.location;
 	
 	while(1) {
-		switch(tstream.peek.type) {
+		switch(trange.front.type) {
 			case TokenType.Asterix :
-				tstream.get();
-				location.spanTo(tstream.previous.location);
+				location.spanTo(trange.front.location);
+				trange.popFront();
 				
 				type = new PointerType(location, type);
 				break;
 				
 			case TokenType.OpenBracket :
-				type = parseBracket(tstream, type);
-				
+				type = trange.parseBracket(type);
 				break;
 			
 			case TokenType.Dot :
-				if(tstream.lookahead(1).type != TokenType.Identifier) return type;
+				auto lookahead = trange.save;
+				lookahead.popFront();
+				if(lookahead.front.type != TokenType.Identifier) return type;
 				
 				static if(!isGreedy) {
 					import d.parser.util;
-					if(!getConfirmedTypeIndex(tstream)) {
+					if(!trange.getConfirmedType()) {
 						return type;
 					}
 				}
 				
-				tstream.get();
-				auto identifier = parseQualifiedIdentifier(tstream, type.location, type);
-				location.spanTo(tstream.previous.location);
-			
-				type = new IdentifierType(location, identifier);
+				trange.popFront();
+				auto identifier = trange.parseQualifiedIdentifier(type.location, type);
+				location.spanTo(identifier.location);
 				
+				type = new IdentifierType(location, identifier);
 				break;
 			
 			case TokenType.Function :
-				tstream.get();
+				trange.popFront();
 				bool isVariadic;
-				auto parameters = parseParameters(tstream, isVariadic);
-				location.spanTo(tstream.previous.location);
+				auto parameters = trange.parseParameters(isVariadic);
+				
+				// TODO: fix location.
+				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes.
 				return new FunctionType(location, type, parameters, isVariadic);
 			
 			case TokenType.Delegate :
-				tstream.get();
+				trange.popFront();
 				bool isVariadic;
-				auto parameters = parseParameters(tstream, isVariadic);
-				location.spanTo(tstream.previous.location);
+				auto parameters = trange.parseParameters(isVariadic);
+				
+				// TODO: fix location.
+				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes and storage class.
 				return new DelegateType(location, type, parameters, isVariadic);
@@ -256,35 +266,35 @@ auto parseTypeSuffix(bool isGreedy)(TokenStream tstream, Type type) {
 	}
 }
 
-Type parseBracket(TokenStream tstream, Type type) {
-	import d.parser.util;
-	
-	auto location = type.location;
+private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
+	Location location = type.location;
 	
 	// -1 because we the match the opening [
-	auto matchingBracket = getMatchingDelimiterIndex!(TokenType.OpenBracket)(tstream) - 1;
-	match(tstream, TokenType.OpenBracket);
+	auto matchingBracket = trange.save;
+	matchingBracket.popMatchingDelimiter!(TokenType.OpenBracket, TokenRange)();
 	
-	if(matchingBracket == 0) {
-		location.spanTo(tstream.get().location);
+	trange.match(TokenType.OpenBracket);
+	if((matchingBracket - trange) == 1) {
+		location.spanTo(trange.front.location);
+		trange.popFront();
+		
 		return new SliceType(location, type);
-	} else if(getConfirmedTypeIndex(tstream) == matchingBracket) {
-		auto keyType = parseType(tstream);
-		location.spanTo(match(tstream, TokenType.CloseBracket).location);
-		return new AssociativeArrayType(location, type, keyType);
-	} else if(getTypeIndex(tstream) == matchingBracket) {
-		// TODO: manage ambiguity.
-		auto keyType = parseType(tstream);
-		
-		import sdc.terminal;
-		outputCaretDiagnostics(keyType.location, "ambiguity");
-		
-		location.spanTo(match(tstream, TokenType.CloseBracket).location);
-		return new AssociativeArrayType(location, type, keyType);
-	} else {
-		auto value = parseExpression(tstream);
-		location.spanTo(match(tstream, TokenType.CloseBracket).location);
-		return new StaticArrayType(location, type, value);
 	}
+	
+	return trange.proceedAsTypeOrExpression!(delegate Type(parsed){
+		location.spanTo(trange.front.location);
+		trange.match(TokenType.CloseBracket);
+		
+		alias typeof(parsed) caseType;
+		
+		import d.ast.type;
+		static if(is(caseType : Type)) {
+			return new AssociativeArrayType(location, type, parsed);
+		} else static if(is(caseType : Expression)) {
+			return new StaticArrayType(location, type, parsed);
+		} else {
+			static assert(0);
+		}
+	})(matchingBracket - trange - 1);
 }
 
