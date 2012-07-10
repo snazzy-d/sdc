@@ -2,6 +2,9 @@ module d.parser.base;
 
 import sdc.tokenstream;
 
+public import sdc.location;
+public import sdc.token;
+
 template isTokenRange(T) {
 	import std.range;
 	

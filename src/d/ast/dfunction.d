@@ -6,8 +6,6 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
-import sdc.location;
-
 /**
  * Function Declaration
  */

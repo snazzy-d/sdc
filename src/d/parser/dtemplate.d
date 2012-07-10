@@ -7,9 +7,6 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
-import sdc.tokenstream;
-import sdc.location;
-
 import std.range;
 
 auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {

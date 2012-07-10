@@ -1,11 +1,10 @@
 module d.ast.declaration;
 
+import d.ast.base;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
-
-import sdc.location;
 
 enum DeclarationType {
 	Variable,

@@ -1,6 +1,6 @@
 module d.ast.base;
 
-import sdc.location;
+public import sdc.location;
 
 class Node {
 	Location location;

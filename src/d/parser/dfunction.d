@@ -12,9 +12,6 @@ import d.parser.util;
 import d.ast.declaration;
 import d.ast.dtemplate;
 
-import sdc.location;
-import sdc.token;
-
 /**
  * Parse constructor.
  */

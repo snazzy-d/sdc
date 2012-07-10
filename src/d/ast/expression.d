@@ -1,10 +1,10 @@
 module d.ast.expression;
 
+import d.ast.ambiguous;
+import d.ast.base;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
-
-import sdc.location;
 
 class Expression : Statement, Namespace {
 	this(Location location) {
@@ -678,12 +678,12 @@ class StaticTypeidExpression : PrimaryExpression {
  * ambiguous typeid expression.
  */
 class AmbiguousTypeidExpression : PrimaryExpression {
-	private Identifier identifier;
+	private TypeOrExpression parameter;
 	
-	this(Location location, Identifier identifier) {
+	this(Location location, TypeOrExpression parameter) {
 		super(location, PrimaryType.TypeidExpression);
 		
-		this.identifier = identifier;
+		this.parameter = parameter;
 	}
 }
 

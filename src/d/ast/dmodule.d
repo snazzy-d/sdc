@@ -3,8 +3,6 @@ module d.ast.dmodule;
 import d.ast.base;
 import d.ast.declaration;
 
-import sdc.location;
-
 /**
  * A D module
  */

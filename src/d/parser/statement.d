@@ -5,15 +5,12 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
+import d.parser.ambiguous : isDeclaration;
 import d.parser.base;
 import d.parser.conditional;
 import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
-import d.parser.util;
-
-import sdc.location;
-import sdc.token;
 
 import std.range;
 

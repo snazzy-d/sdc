@@ -15,11 +15,6 @@ import d.parser.dfunction;
 import d.parser.dtemplate;
 import d.parser.type;
 
-import sdc.location;
-import sdc.token;
-
-import std.array;
-
 /**
  * Parse a set of declarations.
  */
@@ -54,7 +49,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			case TokenType.OpenBrace :
 				auto declarations = trange.parseAggregate();
 				
-				location.spanTo(declarations.back.location);
+				location.spanTo(trange.front.location);
 				
 				return new StorageClassDeclaration(location, arguments, declarations);
 			
@@ -62,7 +57,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				trange.popFront();
 				auto declarations = trange.parseAggregate!false();
 				
-				location.spanTo(declarations.back.location);
+				location.spanTo(trange.front.location);
 				
 				return new StorageClassDeclaration(location, arguments, declarations);
 			

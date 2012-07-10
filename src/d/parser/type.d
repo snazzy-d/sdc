@@ -1,18 +1,17 @@
 module d.parser.type;
 
+import d.ast.ambiguous;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.dfunction;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
-
-import sdc.location;
-import sdc.token;
 
 Type parseType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto base = trange.parseBasicType();
@@ -281,7 +280,7 @@ private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
 		return new SliceType(location, type);
 	}
 	
-	return trange.proceedAsTypeOrExpression!(delegate Type(parsed){
+	return trange.parseTypeOrExpression!(delegate Type(parsed){
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.CloseBracket);
 		
@@ -293,7 +292,7 @@ private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
 		} else static if(is(caseType : Expression)) {
 			return new StaticArrayType(location, type, parsed);
 		} else {
-			static assert(0);
+			return new AmbiguousArrayType(location, type, parsed);
 		}
 	})(matchingBracket - trange - 1);
 }
