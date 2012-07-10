@@ -5,8 +5,6 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
-import sdc.location;
-
 enum StatementType {
 	Empty,
 	Block,

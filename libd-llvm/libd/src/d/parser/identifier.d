@@ -4,9 +4,6 @@ import d.ast.identifier;
 
 import d.parser.base;
 
-import sdc.location;
-import sdc.token;
-
 import std.range;
 
 /**

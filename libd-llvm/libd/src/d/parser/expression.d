@@ -2,14 +2,12 @@ module d.parser.expression;
 
 import d.ast.expression;
 
+import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.identifier;
 import d.parser.statement;
 import d.parser.type;
 import d.parser.util;
-
-import sdc.location;
-import sdc.token;
 
 /**
  * Template used to parse basic BinaryExpressions.
@@ -608,7 +606,7 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 			
 			trange.match(TokenType.OpenParen);
 			
-			return trange.proceedAsTypeOrExpression!(delegate Expression(parsed) {
+			return trange.parseTypeOrExpression!(delegate Expression(parsed) {
 				location.spanTo(trange.front.location);
 				trange.match(TokenType.CloseParen);
 				
@@ -648,7 +646,7 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 			if(matchingParen.front.type == TokenType.Dot) {
 				import d.ast.identifier;
 				
-				Namespace qualifier = trange.proceedAsTypeOrExpression!(delegate Namespace(parsed) {
+				Namespace qualifier = trange.parseTypeOrExpression!(delegate Namespace(parsed) {
 					return parsed;
 				})(matchingParen - trange - 1);
 				

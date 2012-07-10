@@ -1,11 +1,10 @@
 module d.ast.type;
 
+import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
-
-import sdc.location;
 
 class Type : Node, Namespace {
 	this(Location location) {
@@ -130,6 +129,7 @@ enum TypeSuffixType {
 	StaticArray,
 	Slice,
 	AssociativeArray,
+	AmbiguousArray,
 }
 
 class SuffixType : SimpleStorageClassType {
@@ -185,6 +185,19 @@ class AssociativeArrayType : SuffixType {
 		super(location, TypeSuffixType.AssociativeArray, qualified);
 		
 		this.keyType = keyType;
+	}
+}
+
+/**
+ * Associative array types
+ */
+class AmbiguousArrayType : SuffixType {
+	TypeOrExpression key;
+	
+	this(Location location, Type qualified, TypeOrExpression key) {
+		super(location, TypeSuffixType.AmbiguousArray, qualified);
+		
+		this.key = key;
 	}
 }
 

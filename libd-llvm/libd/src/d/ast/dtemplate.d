@@ -1,9 +1,8 @@
 module d.ast.dtemplate;
 
+import d.ast.base;
 import d.ast.declaration;
 import d.ast.type;
-
-import sdc.location;
 
 /**
  * Template declaration

@@ -14,9 +14,6 @@ import d.parser.expression;
 import d.parser.identifier;
 import d.parser.type;
 
-import sdc.location;
-import sdc.token;
-
 /**
  * Parse class
  */

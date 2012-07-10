@@ -9,9 +9,6 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.statement;
 
-import sdc.location;
-import sdc.token;
-
 /**
  * Parse Version Declaration
  */

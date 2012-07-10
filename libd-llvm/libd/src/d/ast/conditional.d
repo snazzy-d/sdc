@@ -1,10 +1,9 @@
 module d.ast.conditional;
 
+import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
-
-import sdc.location;
 
 private template conditionalType(T) {
 	static if(is(T == Statement)) {

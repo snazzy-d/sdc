@@ -7,7 +7,6 @@ import d.parser.base;
 import d.parser.declaration;
 
 import sdc.tokenstream;
-import sdc.location;
 
 // Temporary stub to hook sdc.
 auto parseModule()(TokenStream tstream) {
