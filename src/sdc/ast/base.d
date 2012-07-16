@@ -83,7 +83,7 @@ class QualifiedName : Node
         return qn;
     }
     
-    override bool opEquals(Object o)
+    override bool opEquals(const Object o) const
     {
         if (auto other = cast(QualifiedName) o) {
             return identifiers == other.identifiers;
