@@ -5,10 +5,16 @@ import d.ast.base;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+import d.ast.visitor;
 
 class Expression : Statement, Namespace {
 	this(Location location) {
 		super(location, StatementType.Expression);
+	}
+	
+	// TODO: make this abstract
+	void accept(ExpressionVisitor) {
+		throw new Exception("not implemented");
 	}
 }
 
@@ -531,6 +537,10 @@ class IntegerLiteral(T) if(isIntegral!T) : PrimaryExpression {
 		super(location, PrimaryType.IntegerLiteral);
 		
 		this.value = value;
+	}
+	
+	override void accept(ExpressionVisitor v) {
+		v.visit(this);
 	}
 }
 

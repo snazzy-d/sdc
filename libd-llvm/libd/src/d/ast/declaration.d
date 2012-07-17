@@ -5,6 +5,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+import d.ast.visitor;
 
 enum DeclarationType {
 	Variable,
@@ -36,6 +37,11 @@ class Declaration : Statement {
 		super(location, StatementType.Declaration);
 		
 		this.type = type;
+	}
+	
+	// TODO: make this abstract
+	void accept(DeclarationVisitor) {
+		throw new Exception("not implemented");
 	}
 }
 
