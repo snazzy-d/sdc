@@ -750,6 +750,8 @@ private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Exp
 					auto arguments = trange.parseArguments();
 					switch(trange.front.type) {
 						case TokenType.CloseBracket :
+							location.spanTo(trange.front.location);
+							expression = new IndexExpression(location, expression, arguments);
 							break;
 					
 						case TokenType.DoubleDot :
@@ -758,6 +760,7 @@ private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Exp
 							break;
 					
 						default :
+							// TODO: error message that make sense.
 							trange.match(TokenType.Begin);
 							break;
 					}
@@ -804,7 +807,7 @@ private auto parseIsExpression(TokenRange)(ref TokenRange trange) {
 			trange.popFront();
 			
 			switch(trange.front.type) {
-				case TokenType.Struct, TokenType.Union, TokenType.Class, TokenType.Interface, TokenType.Enum, TokenType.Function, TokenType.Delegate, TokenType.Super, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Return :
+				case TokenType.Struct, TokenType.Union, TokenType.Class, TokenType.Interface, TokenType.Enum, TokenType.Function, TokenType.Delegate, TokenType.Super, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Return, TokenType.Typedef :
 					trange.popFront();
 					break;
 				

@@ -29,9 +29,6 @@ auto parseTypeOrExpression(alias handler, TokenRange)(ref TokenRange trange, uin
 		auto type = speculative.parseType();
 		auto expression = trange.parseExpression();
 		
-		import sdc.terminal;
-		outputCaretDiagnostics(type.location, "ambiguity");
-		
 		// TODO: handle ambiguous case instead of type.
 		return handler(new TypeOrExpression(type, expression));
 	} else {

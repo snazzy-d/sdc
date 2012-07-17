@@ -418,6 +418,19 @@ class CallExpression : PostfixUnaryExpression {
 	}
 }
 
+/**
+ * Index expression : [index]
+ */
+class IndexExpression : PostfixUnaryExpression {
+	Expression[] parameters;
+	
+	this(Location location, Expression expression, Expression[] parameters) {
+		super(location, PostfixType.Index, expression);
+		
+		this.parameters = parameters;
+	}
+}
+
 enum PrimaryType {
 	Identifier,
 	New,
