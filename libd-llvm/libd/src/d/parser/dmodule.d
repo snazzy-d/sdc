@@ -8,11 +8,6 @@ import d.parser.declaration;
 
 import sdc.tokenstream;
 
-// Temporary stub to hook sdc.
-auto parseModule()(TokenStream tstream) {
-	return TokenRange(tstream).parseModule();
-}
-
 /**
  * Parse a whole module.
  * This is the regular entry point in the parser
