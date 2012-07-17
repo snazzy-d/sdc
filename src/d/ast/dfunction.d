@@ -5,6 +5,7 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
+import d.ast.visitor;
 
 /**
  * Function Declaration
@@ -33,6 +34,10 @@ class FunctionDefinition : FunctionDeclaration {
 		super(location, name, returnType, parameters);
 		
 		this.fbody = fbody;
+	}
+	
+	override void accept(DeclarationVisitor v) {
+		v.visit(this);
 	}
 }
 
