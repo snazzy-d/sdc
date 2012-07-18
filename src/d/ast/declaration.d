@@ -43,6 +43,10 @@ class Declaration : Statement {
 	void accept(DeclarationVisitor) {
 		throw new Exception("not implemented");
 	}
+	
+	override void accept(StatementVisitor v) {
+		v.visit(this);
+	}
 }
 
 /**
@@ -85,6 +89,10 @@ class VariablesDeclaration : Declaration {
 		
 		this.variables = variables;
 	}
+	
+	override void accept(DeclarationVisitor v) {
+		v.visit(this);
+	}
 }
 
 /**
@@ -101,6 +109,10 @@ class VariableDeclaration : Declaration {
 		this.type = type;
 		this.name = name;
 		this.value = value;
+	}
+	
+	override void accept(DeclarationVisitor v) {
+		v.visit(this);
 	}
 }
 

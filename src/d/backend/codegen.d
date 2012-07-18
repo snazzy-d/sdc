@@ -1,4 +1,4 @@
-module d.pass.codegen;
+module d.backend.codegen;
 
 import d.ast.visitor;
 import d.ast.dmodule;
@@ -11,6 +11,9 @@ auto codeGen(Module m) {
 	auto builder = LLVMCreateBuilder();
 	auto dmodule = LLVMModuleCreateWithName(toStringz(m.moduleDeclaration.packages.join(".") ~ "." ~ m.moduleDeclaration.name));
 	
+	// Dump module content on exit (for debug purpose).
+	scope(exit) LLVMDumpModule(dmodule);
+	
 	auto cg = new DeclarationGen(dmodule, builder);
 	foreach(decl; m.declarations) {
 		decl.accept(cg);
@@ -19,6 +22,7 @@ auto codeGen(Module m) {
 	return dmodule;
 }
 
+import d.ast.declaration;
 import d.ast.dfunction;
 
 class DeclarationGen : DeclarationVisitor {
@@ -39,10 +43,27 @@ class DeclarationGen : DeclarationVisitor {
 		auto basicBlock = LLVMAppendBasicBlock(fun, "entry");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		
-		f.fbody.accept(new StatementGen(builder));
+		f.fbody.accept(new StatementGen(builder, this));
 		
 		import llvm.c.Analysis;
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
+	}
+	
+	void visit(VariablesDeclaration decls) {
+		foreach(var; decls.variables) {
+			var.accept(this);
+		}
+	}
+	
+	void visit(VariableDeclaration var) {
+		auto expression = new ExpressiontGen(builder);
+		var.value.accept(expression);
+		
+		// Create an alloca for this variable.
+		auto alloca = LLVMBuildAlloca(builder, LLVMInt32Type(), var.name.toStringz());
+		
+		// Store the initial value into the alloca.
+		LLVMBuildStore(builder, expression.value, alloca);
 	}
 }
 
@@ -50,14 +71,20 @@ import d.ast.statement;
 
 class StatementGen : StatementVisitor {
 	private LLVMBuilderRef builder;
+	private DeclarationGen declarationGen;
 	
-	this(LLVMBuilderRef builder){
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen){
 		this.builder = builder;
+		this.declarationGen = declarationGen;
+	}
+	
+	void visit(Declaration d) {
+		d.accept(declarationGen);
 	}
 	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
-			s.accept(new StatementGen(builder));
+			s.accept(this);
 		}
 	}
 	
@@ -113,8 +140,7 @@ class ExpressiontGen : ExpressionVisitor {
 	}
 	
 	void visit(ConcatExpression concat) {
-		import std.stdio;
-		writeln("concat");
+		assert(0, "concat is not implemented.");
 	}
 	
 	void visit(MultiplicationExpression mul) {
@@ -128,12 +154,11 @@ class ExpressiontGen : ExpressionVisitor {
 	
 	void visit(ModulusExpression mod) {
 		// Check signed/unsigned.
-		handleBinaryOp!LLVMBuildSRem(div);
+		handleBinaryOp!LLVMBuildSRem(mod);
 	}
 	
 	void visit(PowExpression pow) {
-		import std.stdio;
-		writeln("pow");
+		assert(0, "pow is not implemented.");
 	}
 }
 

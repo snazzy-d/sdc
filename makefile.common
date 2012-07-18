@@ -8,6 +8,7 @@ SOURCE_WILDCARDS = \
 	src/sdc/parser/*.d \
 	src/sdc/pass/*.d \
 	src/d/ast/*.d \
+	src/d/backend/*.d \
 	src/d/parser/*.d \
 	src/d/pass/*.d \
 	src/util/*.d
