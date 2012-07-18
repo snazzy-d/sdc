@@ -84,6 +84,7 @@ void compile(string filename) {
 	
 	auto ast = trange.parse();
 	
-	
+	import d.pass.codegen;
+	codeGen(ast);
 }
 
