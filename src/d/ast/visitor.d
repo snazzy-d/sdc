@@ -7,6 +7,14 @@ interface ExpressionVisitor {
 	void visit(IntegerLiteral!uint);
 	void visit(IntegerLiteral!long);
 	void visit(IntegerLiteral!ulong);
+	
+	void visit(AdditionExpression);
+	void visit(SubstractionExpression);
+	void visit(ConcatExpression);
+	void visit(MultiplicationExpression);
+	void visit(DivisionExpression);
+	void visit(ModulusExpression);
+	void visit(PowExpression);
 }
 
 import d.ast.statement;

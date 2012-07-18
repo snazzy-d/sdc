@@ -256,11 +256,19 @@ class OperationBinaryExpression(BinaryOperation operation) if(
 	this(Location location, Expression lhs, Expression rhs) {
 		super(location, operation, lhs, rhs);
 	}
+	
+	override void accept(ExpressionVisitor v) {
+		v.visit(this);
+	}
 }
 
 alias OperationBinaryExpression!(BinaryOperation.Addition) AdditionExpression;
 alias OperationBinaryExpression!(BinaryOperation.Subtraction) SubstractionExpression;
 alias OperationBinaryExpression!(BinaryOperation.Concat) ConcatExpression;
+alias OperationBinaryExpression!(BinaryOperation.Multiplication) MultiplicationExpression;
+alias OperationBinaryExpression!(BinaryOperation.Division) DivisionExpression;
+alias OperationBinaryExpression!(BinaryOperation.Modulus) ModulusExpression;
+alias OperationBinaryExpression!(BinaryOperation.Pow) PowExpression;
 
 /**
  * Unary Prefix Expression types.

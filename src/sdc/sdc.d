@@ -85,6 +85,34 @@ void compile(string filename) {
 	auto ast = trange.parse();
 	
 	import d.pass.codegen;
-	codeGen(ast);
+	auto dmodule = codeGen(ast);
+	
+	// Dump module content.
+	import llvm.c.Core;
+	LLVMDumpModule(dmodule);
+	
+	// Let's run it !
+	import llvm.c.ExecutionEngine;
+	import std.stdio;
+	LLVMLinkInJIT();
+	LLVMLinkInInterpreter();
+	
+	LLVMExecutionEngineRef ee;
+	char* errorPtr;
+	int creationResult = LLVMCreateExecutionEngineForModule(&ee, dmodule, &errorPtr);
+	if(creationResult) {
+		import std.c.string;
+		writeln(errorPtr[0 .. strlen(errorPtr)]);
+		writeln("Cannot create execution engine ! Exiting...");
+		return;
+	}
+	
+	LLVMValueRef fun;
+	auto found = LLVMFindFunction(ee, cast(char*) "main".ptr, &fun);
+	
+	auto executionResult = LLVMRunFunction(ee, fun, 0, null);
+	auto returned = LLVMGenericValueToInt(executionResult, false);
+	
+	writeln("returned : ", returned);
 }
 

@@ -383,15 +383,15 @@ private auto parseMulExpression(TokenRange)(ref TokenRange trange) {
 		
 		switch(trange.front.type) {
 			case TokenType.Asterix :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Multiplication))();
+				processToken!MultiplicationExpression();
 				break;
 			
 			case TokenType.Slash :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Division))();
+				processToken!DivisionExpression();
 				break;
 			
 			case TokenType.Percent :
-				processToken!(OperationBinaryExpression!(BinaryOperation.Modulus))();
+				processToken!ModulusExpression();
 				break;
 			
 			default :
@@ -691,7 +691,7 @@ private auto parsePowExpression(TokenRange)(ref TokenRange trange, Expression ex
 		trange.popFront();
 		Expression power = trange.parsePrefixExpression();
 		location.spanTo(power.location);
-		expression = new OperationBinaryExpression!(BinaryOperation.Pow)(location, expression, power);
+		expression = new PowExpression(location, expression, power);
 	}
 	
 	return expression;
