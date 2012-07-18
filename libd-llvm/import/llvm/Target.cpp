@@ -7,11 +7,11 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Target/SubtargetFeature.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
 
 #include <cstdio>
 
@@ -34,7 +34,7 @@ namespace llvm
 
 extern "C" {
 
-LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple, const char** feats, size_t nfeats)
+LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple, const char** feats, size_t nfeats, int pic)
 {
     // based on LDC code
 
@@ -67,7 +67,7 @@ LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple
     }
 
     // create machine
-    TargetMachine* targetMachine = target->createTargetMachine(triple, twine.str());
+    TargetMachine* targetMachine = target->createTargetMachine(triple, cpu, twine.str(), pic ? Reloc::PIC_ : Reloc::Default, CodeModel::Default);
     if (!targetMachine)
         return NULL;
 
@@ -88,12 +88,12 @@ LLVMTargetDataRef LLVMTargetMachineData(LLVMTargetMachineRef TM)
 
 // stolen from LDC and modified
 // based on llc (from LLVM) code, University of Illinois Open Source License
-int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TMRef, LLVMModuleRef MRef, const char* filename, int opt, int pic)
+int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TMRef, LLVMModuleRef MRef, const char* filename, int opt) //, int pic)
 {
     TargetMachine* TM = unwrap(TMRef);
     Module* M = unwrap(MRef);
 
-    TargetMachine::setRelocationModel(pic ? Reloc::PIC_ : Reloc::Default);
+    //TargetMachine::setRelocationModel(pic ? Reloc::PIC_ : Reloc::Default);
 
 #if 0
     printf("trying to write native asm for target: %s\n", TM->getTarget().getName());
