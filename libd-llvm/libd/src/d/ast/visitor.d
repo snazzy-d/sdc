@@ -12,6 +12,7 @@ interface ExpressionVisitor {
 import d.ast.statement;
 
 interface StatementVisitor {
+	void visit(BlockStatement);
 	void visit(ReturnStatement);
 }
 

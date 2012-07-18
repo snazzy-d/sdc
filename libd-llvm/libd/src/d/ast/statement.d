@@ -66,6 +66,10 @@ class BlockStatement : Statement {
 		
 		this.statements = statements;
 	}
+	
+	override void accept(StatementVisitor v) {
+		v.visit(this);
+	}
 }
 
 /**
