@@ -43,29 +43,6 @@ class DeclarationGen : DeclarationVisitor {
 		
 		import llvm.c.Analysis;
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
-		
-		LLVMDumpModule(dmodule);
-		
-		
-		// Let's run it !
-		import llvm.c.ExecutionEngine;
-		import std.stdio;
-		LLVMLinkInInterpreter();
-		
-		LLVMExecutionEngineRef ee;
-		char* errorPtr;
-		int creationResult = LLVMCreateExecutionEngineForModule(&ee, dmodule, &errorPtr);
-		if(creationResult == 1) {
-			import std.c.string;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
-			writeln("Cannot create execution engine ! Exiting...");
-			return;
-		}
-		
-		auto executionResult = LLVMRunFunction(ee, fun, 0, null);
-		auto returned = LLVMGenericValueToInt(executionResult, false);
-		
-		writeln("returned : ", returned);
 	}
 }
 
@@ -85,7 +62,7 @@ class StatementGen : StatementVisitor {
 	}
 	
 	void visit(ReturnStatement f) {
-		auto expression = new ExpressiontGen();
+		auto expression = new ExpressiontGen(builder);
 		f.value.accept(expression);
 		
 		LLVMBuildRet(builder, expression.value);
@@ -95,7 +72,12 @@ class StatementGen : StatementVisitor {
 import d.ast.expression;
 
 class ExpressiontGen : ExpressionVisitor {
+	private LLVMBuilderRef builder;
 	LLVMValueRef value;
+	
+	this(LLVMBuilderRef builder) {
+		this.builder = builder;
+	}
 	
 	void visit(IntegerLiteral!int i32) {
 		value = LLVMConstInt(LLVMInt32Type(), i32.value, true);
@@ -111,6 +93,47 @@ class ExpressiontGen : ExpressionVisitor {
 	
 	void visit(IntegerLiteral!ulong i64) {
 		value = LLVMConstInt(LLVMInt64Type(), i64.value, false);
+	}
+	
+	private final void handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
+		e.lhs.accept(this);
+		auto lhs = value;
+		
+		e.rhs.accept(this);
+		
+		value = LLVMBuildOp(builder, lhs, value, "tmp");
+	}
+	
+	void visit(AdditionExpression add) {
+		handleBinaryOp!LLVMBuildAdd(add);
+	}
+	
+	void visit(SubstractionExpression sub) {
+		handleBinaryOp!LLVMBuildSub(sub);
+	}
+	
+	void visit(ConcatExpression concat) {
+		import std.stdio;
+		writeln("concat");
+	}
+	
+	void visit(MultiplicationExpression mul) {
+		handleBinaryOp!LLVMBuildMul(mul);
+	}
+	
+	void visit(DivisionExpression div) {
+		// Check signed/unsigned.
+		handleBinaryOp!LLVMBuildSDiv(div);
+	}
+	
+	void visit(ModulusExpression mod) {
+		// Check signed/unsigned.
+		handleBinaryOp!LLVMBuildSRem(div);
+	}
+	
+	void visit(PowExpression pow) {
+		import std.stdio;
+		writeln("pow");
 	}
 }
 
