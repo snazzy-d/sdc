@@ -20,6 +20,8 @@ interface ExpressionVisitor {
 import d.ast.statement;
 
 interface StatementVisitor {
+	void visit(Declaration);
+	
 	void visit(BlockStatement);
 	void visit(ReturnStatement);
 }
@@ -29,5 +31,7 @@ import d.ast.dfunction;
 
 interface DeclarationVisitor {
 	void visit(FunctionDefinition);
+	void visit(VariablesDeclaration);
+	void visit(VariableDeclaration);
 }
 
