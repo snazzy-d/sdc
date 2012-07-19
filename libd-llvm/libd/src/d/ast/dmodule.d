@@ -10,7 +10,7 @@ class Module : Node {
 	ModuleDeclaration moduleDeclaration;
 	Declaration[] declarations;
 	
-	this(Location lcoation, ModuleDeclaration moduleDeclaration, Declaration[] declarations) {
+	this(Location location, ModuleDeclaration moduleDeclaration, Declaration[] declarations) {
 		super(location);
 		
 		this.moduleDeclaration = moduleDeclaration;
