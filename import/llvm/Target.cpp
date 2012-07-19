@@ -34,6 +34,11 @@ namespace llvm
 
 extern "C" {
 
+// Require a binding because it is defined as static (so not linkable whith D code).
+LLVMBool LLVMInitializeNativeTarget2() {
+	return LLVMInitializeNativeTarget();
+}
+
 LLVMTargetMachineRef LLVMCreateTargetMachine(const char* cpu, const char* triple, const char** feats, size_t nfeats, int pic)
 {
     // based on LDC code

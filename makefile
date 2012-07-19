@@ -35,10 +35,10 @@ run: $(EXE)
 debug: $(EXE)
 	gdb --args ./$(EXE) -Ilibs tests/test0.d -V --no-colour-print
 
-llvmExt.o:
+llvmExt.o: import/llvm/Ext.cpp
 	g++ import/llvm/Ext.cpp -c -I$(LLVM_DIR) -o llvmExt.o -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 
-llvmTarget.o:
+llvmTarget.o: import/llvm/Target.cpp
 	g++ import/llvm/Target.cpp -c -I$(LLVM_DIR) -o llvmTarget.o -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 
 .PHONY: clean run debug doc

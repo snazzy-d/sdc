@@ -14,7 +14,7 @@ class Expression : Statement, Namespace {
 	
 	// TODO: make this abstract
 	void accept(ExpressionVisitor) {
-		throw new Exception("not implemented");
+		throw new Exception(typeid(this).toString() ~ " not implemented");
 	}
 }
 
@@ -498,6 +498,10 @@ class IdentifierExpression : PrimaryExpression {
 		super(location, PrimaryType.Identifier);
 		
 		this.identifier = identifier;
+	}
+	
+	override void accept(ExpressionVisitor v) {
+		v.visit(this);
 	}
 }
 

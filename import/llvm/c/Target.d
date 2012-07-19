@@ -81,6 +81,7 @@ static inline LLVMBool LLVMInitializeNativeTarget() {
 #endif
 }
 */
+LLVMBool LLVMInitializeNativeTarget2();
 
 /*===-- Target Data -------------------------------------------------------===*/
 
