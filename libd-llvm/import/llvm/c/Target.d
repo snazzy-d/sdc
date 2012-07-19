@@ -26,6 +26,8 @@ enum LLVMByteOrdering { BigEndian, LittleEndian };
 
 struct __LLVMOpaqueTargetData {}
 alias  __LLVMOpaqueTargetData* LLVMTargetDataRef;
+struct __LLVMOpaqueTargetLibraryInfotData {}
+alias  __LLVMOpaqueTargetLibraryInfotData* LLVMTargetLibraryInfoRef;
 struct __LLVMStructLayout {}
 alias __LLVMStructLayout* LLVMStructLayoutRef;
 
@@ -36,6 +38,13 @@ alias __LLVMStructLayout* LLVMStructLayoutRef;
 #undef LLVM_TARGET  // Explicit undef to make SWIG happier
 
 #define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##Target();
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  // Explicit undef to make SWIG happier
+*/
+
+/*
+#define LLVM_TARGET(TargetName) \
+  void LLVMInitialize##TargetName##TargetMC(void);
 #include "llvm/Config/Targets.def"
 #undef LLVM_TARGET  // Explicit undef to make SWIG happier
 */
@@ -67,21 +76,16 @@ static inline void LLVMInitializeAllTargets() {
 /*
 static inline LLVMBool LLVMInitializeNativeTarget() {
   // If we have a native target, initialize it to ensure it is linked in.
-#ifdef LLVM_NATIVE_ARCH
-#define DoInit2(TARG) \
-  LLVMInitialize ## TARG ## Info ();          \
-  LLVMInitialize ## TARG ()
-#define DoInit(T) DoInit2(T)
-  DoInit(LLVM_NATIVE_ARCH);
+#ifdef LLVM_NATIVE_TARGET
+  LLVM_NATIVE_TARGETINFO();
+  LLVM_NATIVE_TARGET();
+  LLVM_NATIVE_TARGETMC();
   return 0;
-#undef DoInit
-#undef DoInit2
 #else
   return 1;
 #endif
 }
 */
-LLVMBool LLVMInitializeNativeTarget2();
 
 /*===-- Target Data -------------------------------------------------------===*/
 
@@ -93,6 +97,11 @@ LLVMTargetDataRef LLVMCreateTargetData(/*const*/ char* StringRep);
     of the target data.
     See the method llvm::PassManagerBase::add. */
 void LLVMAddTargetData(LLVMTargetDataRef, LLVMPassManagerRef);
+
+/** Adds target library information to a pass manager. This does not take
+    ownership of the target library info.
+    See the method llvm::PassManagerBase::add. */
+void LLVMAddTargetLibraryInfo(LLVMTargetLibraryInfoRef, LLVMPassManagerRef);
 
 /** Converts target data to a target layout string. The string must be disposed
     with LLVMDisposeMessage.
@@ -150,12 +159,6 @@ uint LLVMElementAtOffset(LLVMTargetDataRef, LLVMTypeRef StructTy,
     See the method llvm::StructLayout::getElementContainingOffset. */
 ulong LLVMOffsetOfElement(LLVMTargetDataRef, LLVMTypeRef StructTy,
                                        uint Element);
-
-/** Struct layouts are speculatively cached. If a TargetDataRef is alive when
-    types are being refined and removed, this method must be called whenever a
-    struct type is removed to avoid a dangling pointer in this cache.
-    See the method llvm::TargetData::InvalidateStructLayoutInfo. */
-void LLVMInvalidateStructLayout(LLVMTargetDataRef, LLVMTypeRef StructTy);
 
 /** Deallocates a TargetData.
     See the destructor llvm::TargetData::~TargetData. */

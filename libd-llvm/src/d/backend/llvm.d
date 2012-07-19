@@ -4,8 +4,8 @@ import d.ast.dmodule;
 
 import llvm.c.Core;
 import llvm.c.ExecutionEngine;
-import llvm.Ext;
 import llvm.c.Target;
+import llvm.Ext;
 
 interface Backend {
 	void codeGen(Module[] mods);
@@ -13,8 +13,10 @@ interface Backend {
 
 class LLVMBackend : Backend {
 	this() {
-		LLVMInitializeNativeTarget2();
+		LLVMInitializeNativeTarget();
 		LLVMLinkInJIT();
+		
+		LLVMInitializeX86AsmPrinter();
 	}
 	
 	void codeGen(Module[] mods) {
@@ -41,6 +43,22 @@ class LLVMBackend : Backend {
 				return;
 			}
 			
+			/*
+			auto fpm = LLVMCreateFunctionPassManagerForModule(dmodule);
+			LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), fpm);
+			
+			import llvm.c.transforms.Scalar;
+			LLVMAddPromoteMemoryToRegisterPass(fpm);
+			LLVMAddBasicAliasAnalysisPass(fpm);
+			LLVMAddReassociatePass(fpm);
+			LLVMAddInstructionCombiningPass(fpm);
+			LLVMAddGVNPass(fpm);
+			LLVMAddCFGSimplificationPass(fpm);
+			
+			LLVMRunFunctionPassManager(fpm, fun);
+			LLVMDumpModule(dmodule);
+			//*/
+			
 			auto executionResult = LLVMRunFunction(ee, fun, 0, null);
 			auto returned = cast(int) LLVMGenericValueToInt(executionResult, true);
 			
@@ -48,10 +66,9 @@ class LLVMBackend : Backend {
 			
 			writeln("\nASM generated :");
 			char* foobar = null;
-			LLVMInitializeX86AsmPrinter();
-			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0);
+			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
 			
-			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0, true);
+			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
 		}
 	}
 }
