@@ -29,6 +29,8 @@ class DeclarationGen : DeclarationVisitor {
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
+	LLVMValueRef[string] variables;
+	
 	this(LLVMModuleRef dmodule, LLVMBuilderRef builder) {
 		this.builder = builder;
 		this.dmodule = dmodule;
@@ -40,7 +42,7 @@ class DeclarationGen : DeclarationVisitor {
 		auto funType = LLVMFunctionType(LLVMInt32Type(), null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, toStringz(f.name), funType);
 		
-		auto basicBlock = LLVMAppendBasicBlock(fun, "entry");
+		auto basicBlock = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		
 		f.fbody.accept(new StatementGen(builder, this));
@@ -56,14 +58,16 @@ class DeclarationGen : DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration var) {
-		auto expression = new ExpressiontGen(builder);
+		auto expression = new ExpressiontGen(builder, this);
 		var.value.accept(expression);
 		
 		// Create an alloca for this variable.
-		auto alloca = LLVMBuildAlloca(builder, LLVMInt32Type(), var.name.toStringz());
+		auto alloca = LLVMBuildAlloca(builder, LLVMInt32Type(), "");
 		
 		// Store the initial value into the alloca.
 		LLVMBuildStore(builder, expression.value, alloca);
+		
+		variables[var.name] = expression.value;
 	}
 }
 
@@ -89,7 +93,7 @@ class StatementGen : StatementVisitor {
 	}
 	
 	void visit(ReturnStatement f) {
-		auto expression = new ExpressiontGen(builder);
+		auto expression = new ExpressiontGen(builder, declarationGen);
 		f.value.accept(expression);
 		
 		LLVMBuildRet(builder, expression.value);
@@ -100,10 +104,13 @@ import d.ast.expression;
 
 class ExpressiontGen : ExpressionVisitor {
 	private LLVMBuilderRef builder;
+	private DeclarationGen declarationGen;
+	
 	LLVMValueRef value;
 	
-	this(LLVMBuilderRef builder) {
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen) {
 		this.builder = builder;
+		this.declarationGen = declarationGen;
 	}
 	
 	void visit(IntegerLiteral!int i32) {
@@ -128,7 +135,7 @@ class ExpressiontGen : ExpressionVisitor {
 		
 		e.rhs.accept(this);
 		
-		value = LLVMBuildOp(builder, lhs, value, "tmp");
+		value = LLVMBuildOp(builder, lhs, value, "");
 	}
 	
 	void visit(AdditionExpression add) {
@@ -159,6 +166,10 @@ class ExpressiontGen : ExpressionVisitor {
 	
 	void visit(PowExpression pow) {
 		assert(0, "pow is not implemented.");
+	}
+	
+	void visit(IdentifierExpression e) {
+		value = declarationGen.variables[e.identifier.name];
 	}
 }
 
