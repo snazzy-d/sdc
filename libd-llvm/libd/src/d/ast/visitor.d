@@ -3,6 +3,8 @@ module d.ast.visitor;
 import d.ast.expression;
 
 interface ExpressionVisitor {
+	void visit(IdentifierExpression);
+	
 	void visit(IntegerLiteral!int);
 	void visit(IntegerLiteral!uint);
 	void visit(IntegerLiteral!long);
