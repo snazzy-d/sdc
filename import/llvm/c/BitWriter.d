@@ -24,7 +24,7 @@ extern(C):
 /*===-- Operations on modules ---------------------------------------------===*/
 
 /** Writes a module to the specified path. Returns 0 on success. */
-int LLVMWriteBitcodeToFile(LLVMModuleRef M, /*const*/ const(char)* Path);
+int LLVMWriteBitcodeToFile(LLVMModuleRef M, /*const*/ char* Path);
 
 /** Writes a module to an open file descriptor. Returns 0 on success. */
 int LLVMWriteBitcodeToFD(LLVMModuleRef M, int FD, int ShouldClose,

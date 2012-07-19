@@ -30,7 +30,7 @@ extern(C):
  @param arg An anonymous argument for client use.
  @result 0 on success; -1 otherwise.
  */
-alias int function(ubyte *_byte, ulong address, void *arg) EDByteReaderCallback;
+alias int function(ubyte* byte_, ulong address, void* arg) EDByteReaderCallback;
 
 /*!
  @typedef EDRegisterReaderCallback
@@ -41,7 +41,7 @@ alias int function(ubyte *_byte, ulong address, void *arg) EDByteReaderCallback;
  @param arg An anonymous argument for client use.
  @result 0 if the register could be read; -1 otherwise.
  */
-alias int function(ulong *value, uint regID, 
+alias int function(ulong* value, uint regID, 
                                         void* arg) EDRegisterReaderCallback;
 
 /*!
@@ -55,6 +55,7 @@ enum kEDAssemblySyntax : uint {
   X86ATT    = 1,
   ARMUAL    = 2
 }
+alias uint EDAssemblySyntax_t;
 
 /*!
  @typedef EDDisassemblerRef
@@ -94,8 +95,8 @@ alias void* EDOperandRef;
  @result 0 on success; -1 otherwise.
  */
 int EDGetDisassembler(EDDisassemblerRef* disassembler,
-                      /*const*/ const(char)* triple,
-                      kEDAssemblySyntax syntax);
+                      /*const*/ char* triple,
+                      EDAssemblySyntax_t syntax);
 
 /*!
  @functiongroup Generic architectural queries
@@ -423,7 +424,6 @@ int EDEvaluateOperand(ulong* result,
                       EDOperandRef operand,
                       EDRegisterReaderCallback regReader,
                       void* arg);
-  
 
 /*!
  @typedef EDByteBlock_t

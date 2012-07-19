@@ -9,7 +9,7 @@ import std.string;
 
 auto codeGen(Module m) {
 	auto builder = LLVMCreateBuilder();
-	auto dmodule = LLVMModuleCreateWithName(toStringz(m.moduleDeclaration.packages.join(".") ~ "." ~ m.moduleDeclaration.name));
+	auto dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
 	
 	// Dump module content on exit (for debug purpose).
 	scope(exit) LLVMDumpModule(dmodule);
@@ -67,7 +67,11 @@ class DeclarationGen : DeclarationVisitor {
 		// Store the initial value into the alloca.
 		LLVMBuildStore(builder, expression.value, alloca);
 		
+		//*
 		variables[var.name] = expression.value;
+		/*/
+		variables[var.name] = alloca;
+		//*/
 	}
 }
 
@@ -169,7 +173,11 @@ class ExpressiontGen : ExpressionVisitor {
 	}
 	
 	void visit(IdentifierExpression e) {
+		//*
 		value = declarationGen.variables[e.identifier.name];
+		/*/
+		value = LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
+		//*/
 	}
 }
 

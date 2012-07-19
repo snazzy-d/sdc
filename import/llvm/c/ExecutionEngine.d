@@ -27,7 +27,7 @@ void LLVMLinkInJIT();
 void LLVMLinkInInterpreter();
 
 alias /*struct LLVMOpaqueGenericValue*/ void* LLVMGenericValueRef;
-alias /* struct LLVMOpaqueExecutionEngine*/ void* LLVMExecutionEngineRef;
+alias  /* struct LLVMOpaqueExecutionEngine*/ void* LLVMExecutionEngineRef;
 
 /*===-- Operations on generic values --------------------------------------===*/
 

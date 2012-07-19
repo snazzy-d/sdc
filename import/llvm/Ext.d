@@ -103,38 +103,82 @@ LLVMOSType LLVMTripleGetOS(LLVMTripleRef triple);
 struct LLVM_OpaqueTargetMachine {}
 alias LLVM_OpaqueTargetMachine* LLVMTargetMachineRef;
 
-LLVMTargetMachineRef LLVMCreateTargetMachine(char* cpu, char* triple, char** feats, size_t nfeats);
+LLVMTargetMachineRef LLVMCreateTargetMachine(char* cpu, char* triple, char** feats, size_t nfeats, int pic);
 void LLVMDisposeTargetMachine(LLVMTargetMachineRef machine);
 LLVMTargetDataRef LLVMTargetMachineData(LLVMTargetMachineRef TM);
 
 // Targets
 
+void LLVMInitializeX86TargetMC();
 void LLVMInitializeX86TargetInfo();
 void LLVMInitializeX86Target();
 void LLVMInitializeX86AsmPrinter();
+void LLVMInitializeX86AsmParser();
 
+void LLVMInitializePPCTargetMC();
 void LLVMInitializePPCTargetInfo();
 void LLVMInitializePPCTarget();
 void LLVMInitializePPCAsmPrinter();
+void LLVMInitializePPCAsmParser();
 
+void LLVMInitializeARMTargetMC();
 void LLVMInitializeARMTargetInfo();
 void LLVMInitializeARMTarget();
 void LLVMInitializeARMAsmPrinter();
+void LLVMInitializeARMAsmParser();
 
+void LLVMInitializeSparcTargetMC();
 void LLVMInitializeSparcTargetInfo();
 void LLVMInitializeSparcTarget();
 void LLVMInitializeSparcAsmPrinter();
+void LLVMInitializeSparcAsmParser();
+
+LLVMBool LLVMInitializeNativeTarget() {
+  // If we have a native target, initialize it to ensure it is linked in.
+    version(X86) {
+        LLVMInitializeX86TargetMC();
+        LLVMInitializeX86TargetInfo();
+        LLVMInitializeX86Target();
+    } else version(X86_64) {
+        LLVMInitializeX86TargetMC();
+        LLVMInitializeX86TargetInfo();
+        LLVMInitializeX86Target();
+    } else version(PPC) {
+        LLVMInitializePPCTargetMC();
+        LLVMInitializePPCTargetInfo();
+        LLVMInitializePPCTarget();
+    } else version(PPC64) {
+        LLVMInitializePPCTargetMC();
+        LLVMInitializePPCTargetInfo();
+        LLVMInitializePPCTarget();
+    } else version(ARM) {
+        LLVMInitializeARMTargetMC();
+        LLVMInitializeARMTargetInfo();
+        LLVMInitializeARMTarget();
+    } else version(SPARC) {
+        LLVMInitializeSparcTargetMC();
+        LLVMInitializeSparcTargetInfo();
+        LLVMInitializeSparcTarget();
+    } else version(SPARC64) {
+        LLVMInitializeSparcTargetMC();
+        LLVMInitializeSparcTargetInfo();
+        LLVMInitializeSparcTarget();
+    } else {
+        return 1;
+    }
+    return 0;
+}
 
 // TODO add the rest
 
 // Extra output functions
 int LLVMWriteAsmToFile(LLVMModuleRef M, char* path, char** errstr);
-int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TM, LLVMModuleRef M, char* path, int opt, int pic);
+int LLVMWriteNativeAsmToFile(LLVMTargetMachineRef TM, LLVMModuleRef M, char* path, int opt /*, int pic*/);
 
 // More optimization
 
 void LLVMAddInternalizePassWithExportList(LLVMPassManagerRef PM, char** exp, uint nexps);
-void LLVMAddTailDuplicationPass(LLVMPassManagerRef PM);
+//void LLVMAddTailDuplicationPass(LLVMPassManagerRef PM);
 void LLVMAddCorrelatedValuePropagationPass(LLVMPassManagerRef PM);
 
 // system utils

@@ -144,13 +144,14 @@ void LLVMAddInternalizePassWithExportList(LLVMPassManagerRef PM, const char* exp
 void LLVMAddCorrelatedValuePropagationPass(LLVMPassManagerRef PM)
 {
 	unwrap(PM)->add(createCorrelatedValuePropagationPass());
-}
+}*/
 
+/*
 void LLVMAddTailDuplicationPass(LLVMPassManagerRef PM)
 {
     unwrap(PM)->add(createTailDuplicationPass());
-}
-*/
+}*/
+
 // system stuff
 
 void LLVMPrintStackTraceOnErrorSignal()

@@ -13,9 +13,11 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 module llvm.c.Initialization;
-extern (C):
 
 import llvm.c.Core;
+
+extern(C):
+
 
 void LLVMInitializeCore(LLVMPassRegistryRef R);
 void LLVMInitializeTransformUtils(LLVMPassRegistryRef R);

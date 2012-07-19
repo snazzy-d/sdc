@@ -10,6 +10,7 @@ EXE = bin/sdc
 LIBLLVM = `llvm-config --libs | sed 's/-L/-L-L/g' | sed 's/-l/-L-l/g'`
 LLVM_DIR ?= `llvm-config --includedir`
 LLVM_OBJ = llvmExt.o llvmTarget.o
+LLVM_SRC = import/llvm/Ext.d
 
 LDFLAGS = $(LIBLLVM) -L-lstdc++
 
@@ -19,9 +20,9 @@ endif
 
 all: $(EXE)
 
-$(EXE): $(SOURCE) $(LLVM_OBJ)
+$(EXE): $(SOURCE) $(LLVM_SRC) $(LLVM_OBJ)
 	@mkdir -p bin
-	$(DMD) -of$(EXE) $(SOURCE) $(DFLAGS) $(LDFLAGS) $(LLVM_OBJ)
+	$(DMD) -of$(EXE) $(SOURCE) $(LLVM_SRC) $(DFLAGS) $(LDFLAGS) $(LLVM_OBJ)
 
 clean:
 	@rm $(EXE) $(LLVM_OBJ)
