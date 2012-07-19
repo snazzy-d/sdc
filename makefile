@@ -7,7 +7,7 @@ DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport
 OBJ = sdc.o
 EXE = bin/sdc
 
-LIBLLVM = `llvm-config --libs | sed 's/-L/-L-L/g' | sed 's/-l/-L-l/g' -`
+LIBLLVM = `llvm-config --libs | sed 's/-L/-L-L/g' | sed 's/-l/-L-l/g'`
 LLVM_DIR ?= `llvm-config --includedir`
 LLVM_OBJ = llvmExt.o llvmTarget.o
 
