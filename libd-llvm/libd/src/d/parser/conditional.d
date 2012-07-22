@@ -26,14 +26,14 @@ auto parseDebug(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref TokenRange trange) {
 	static if(isVersion) {
 		alias TokenType.Version conditionalTokenType;
-		alias Version ConditionalType;
-		alias VersionElse ConditionalElseType;
-		alias VersionDefinition DefinitionType;
+		alias Version!ItemType ConditionalType;
+		alias VersionElse!ItemType ConditionalElseType;
+		alias VersionDefinition!ItemType DefinitionType;
 	} else {
 		alias TokenType.Debug conditionalTokenType;
-		alias Debug ConditionalType;
-		alias DebugElse ConditionalElseType;
-		alias DebugDefinition DefinitionType;
+		alias Debug!ItemType ConditionalType;
+		alias DebugElse!ItemType ConditionalElseType;
+		alias DebugDefinition!ItemType DefinitionType;
 	}
 	
 	Location location = trange.front.location;
@@ -74,9 +74,9 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 				
 				ItemType[] elseItems = trange.parseItems!ItemType();
 				
-				return new ConditionalElseType!ItemType(location, versionId, items, elseItems);
+				return new ConditionalElseType(location, versionId, items, elseItems);
 			} else {
-				return new ConditionalType!ItemType(location, versionId, items);
+				return new ConditionalType(location, versionId, items);
 			}
 		
 		case TokenType.Assign :

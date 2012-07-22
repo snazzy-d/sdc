@@ -290,7 +290,8 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 					return new StaticAssertStatement(location, arguments);
 				
 				default :
-					return trange.parseDeclaration();
+					auto declaration = trange.parseDeclaration();
+					return new DeclarationStatement(declaration.location, declaration);
 			}
 		
 		case TokenType.Version :
@@ -301,7 +302,8 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		
 		default :
 			if(trange.isDeclaration()) {
-				return trange.parseDeclaration();
+				auto declaration = trange.parseDeclaration();
+				return new DeclarationStatement(declaration.location, declaration);
 			} else {
 				auto expression = trange.parseExpression();
 				trange.match(TokenType.Semicolon);
