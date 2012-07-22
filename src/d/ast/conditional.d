@@ -46,11 +46,11 @@ class VersionElse(ItemType) : Version!ItemType {
 /**
  * Version definition (ie version = FOOBAR)
  */
-class VersionDefinition : Declaration {
+class VersionDefinition(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
 	string versionId;
 	
 	this(Location location, string versionId) {
-		super(location, DeclarationType.Conditional);
+		super(location, conditionalType!ItemType);
 		
 		this.versionId = versionId;
 	}

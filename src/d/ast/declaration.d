@@ -3,9 +3,7 @@ module d.ast.declaration;
 import d.ast.base;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.statement;
 import d.ast.type;
-import d.ast.visitor;
 
 enum DeclarationType {
 	Variable,
@@ -30,22 +28,13 @@ enum DeclarationType {
 /**
  * Any declaration is a statement
  */
-class Declaration : Statement {
+class Declaration : Node {
 	DeclarationType type;
 	
 	this(Location location, DeclarationType type) {
-		super(location, StatementType.Declaration);
+		super(location);
 		
 		this.type = type;
-	}
-	
-	// TODO: make this abstract
-	void accept(DeclarationVisitor) {
-		throw new Exception("not implemented");
-	}
-	
-	override void accept(StatementVisitor v) {
-		v.visit(this);
 	}
 }
 
@@ -89,10 +78,6 @@ class VariablesDeclaration : Declaration {
 		
 		this.variables = variables;
 	}
-	
-	override void accept(DeclarationVisitor v) {
-		v.visit(this);
-	}
 }
 
 /**
@@ -109,10 +94,6 @@ class VariableDeclaration : Declaration {
 		this.type = type;
 		this.name = name;
 		this.value = value;
-	}
-	
-	override void accept(DeclarationVisitor v) {
-		v.visit(this);
 	}
 }
 

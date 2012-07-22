@@ -4,7 +4,6 @@ import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
-import d.ast.visitor;
 
 enum StatementType {
 	Empty,
@@ -48,11 +47,6 @@ class Statement : Node {
 		
 		this.type = type;
 	}
-	
-	// TODO: make this abstract
-	void accept(StatementVisitor) {
-		throw new Exception("not implemented");
-	}
 }
 
 /**
@@ -66,9 +60,18 @@ class BlockStatement : Statement {
 		
 		this.statements = statements;
 	}
+}
+
+/**
+ * Declarations
+ */
+class DeclarationStatement : Statement {
+	Declaration declaration;
 	
-	override void accept(StatementVisitor v) {
-		v.visit(this);
+	this(Location location, Declaration declaration) {
+		super(location, StatementType.Declaration);
+		
+		this.declaration = declaration;
 	}
 }
 
@@ -194,10 +197,6 @@ class ReturnStatement : Statement {
 		super(location, StatementType.Return);
 		
 		this.value = value;
-	}
-	
-	override void accept(StatementVisitor v) {
-		return v.visit(this);
 	}
 }
 
