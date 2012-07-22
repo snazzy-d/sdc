@@ -1,8 +1,10 @@
 module d.backend.codegen;
 
-import d.ast.visitor;
 import d.ast.dmodule;
 
+import util.visitor;
+
+import llvm.c.Analysis;
 import llvm.c.Core;
 
 import std.string;
@@ -16,7 +18,7 @@ auto codeGen(Module m) {
 	
 	auto cg = new DeclarationGen(dmodule, builder);
 	foreach(decl; m.declarations) {
-		decl.accept(cg);
+		cg.visit(decl);
 	}
 	
 	return dmodule;
@@ -25,7 +27,7 @@ auto codeGen(Module m) {
 import d.ast.declaration;
 import d.ast.dfunction;
 
-class DeclarationGen : DeclarationVisitor {
+class DeclarationGen {
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
@@ -36,33 +38,44 @@ class DeclarationGen : DeclarationVisitor {
 		this.dmodule = dmodule;
 	}
 	
+final:
+	void visit(Declaration d) {
+		this.dispatch(d);
+	}
+	
 	void visit(FunctionDefinition f) {
 		assert(f.name == "main", "Only main can be compiled !");
 		
 		auto funType = LLVMFunctionType(LLVMInt32Type(), null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, toStringz(f.name), funType);
 		
+		// Instruction block.
 		auto basicBlock = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		
-		f.fbody.accept(new StatementGen(builder, this));
+		(new StatementGen(builder, this)).visit(f.fbody);
 		
-		import llvm.c.Analysis;
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
 	
 	void visit(VariablesDeclaration decls) {
 		foreach(var; decls.variables) {
-			var.accept(this);
+			visit(var);
 		}
 	}
 	
 	void visit(VariableDeclaration var) {
-		auto expression = new ExpressiontGen(builder, this);
-		var.value.accept(expression);
+		auto expression = new ExpressionGen(builder, this);
+		expression.visit(var.value);
+		
+		// Backup current block
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 		
 		// Create an alloca for this variable.
 		auto alloca = LLVMBuildAlloca(builder, LLVMInt32Type(), "");
+		
+		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
 		// Store the initial value into the alloca.
 		LLVMBuildStore(builder, expression.value, alloca);
@@ -77,7 +90,7 @@ class DeclarationGen : DeclarationVisitor {
 
 import d.ast.statement;
 
-class StatementGen : StatementVisitor {
+class StatementGen {
 	private LLVMBuilderRef builder;
 	private DeclarationGen declarationGen;
 	
@@ -86,19 +99,24 @@ class StatementGen : StatementVisitor {
 		this.declarationGen = declarationGen;
 	}
 	
-	void visit(Declaration d) {
-		d.accept(declarationGen);
+final:
+	void visit(Statement s) {
+		this.dispatch(s);
+	}
+	
+	void visit(DeclarationStatement d) {
+		declarationGen.visit(d.declaration);
 	}
 	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
-			s.accept(this);
+			visit(s);
 		}
 	}
 	
 	void visit(ReturnStatement f) {
-		auto expression = new ExpressiontGen(builder, declarationGen);
-		f.value.accept(expression);
+		auto expression = new ExpressionGen(builder, declarationGen);
+		expression.visit(f.value);
 		
 		LLVMBuildRet(builder, expression.value);
 	}
@@ -106,7 +124,7 @@ class StatementGen : StatementVisitor {
 
 import d.ast.expression;
 
-class ExpressiontGen : ExpressionVisitor {
+class ExpressionGen {
 	private LLVMBuilderRef builder;
 	private DeclarationGen declarationGen;
 	
@@ -115,6 +133,11 @@ class ExpressiontGen : ExpressionVisitor {
 	this(LLVMBuilderRef builder, DeclarationGen declarationGen) {
 		this.builder = builder;
 		this.declarationGen = declarationGen;
+	}
+	
+final:
+	void visit(Expression e) {
+		this.dispatch(e);
 	}
 	
 	void visit(IntegerLiteral!int i32) {
@@ -133,11 +156,11 @@ class ExpressiontGen : ExpressionVisitor {
 		value = LLVMConstInt(LLVMInt64Type(), i64.value, false);
 	}
 	
-	private final void handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
-		e.lhs.accept(this);
+	private void handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
+		visit(e.lhs);
 		auto lhs = value;
 		
-		e.rhs.accept(this);
+		visit(e.rhs);
 		
 		value = LLVMBuildOp(builder, lhs, value, "");
 	}
