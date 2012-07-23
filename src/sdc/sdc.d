@@ -84,6 +84,9 @@ void compile(string filename) {
 	
 	auto ast = trange.parse();
 	
+	import d.pass.typecheck;
+	ast = typeCheck(ast);
+	
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
 	backend.codeGen([ast]);

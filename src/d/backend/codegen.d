@@ -64,6 +64,7 @@ final:
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
 	
+	// TODO: this should be gone way before codegen. Delete in the future when passes are ready.
 	void visit(VariablesDeclaration decls) {
 		foreach(var; decls.variables) {
 			visit(var);
@@ -156,8 +157,8 @@ final:
 		// TODO: generate phi to merge everything back.
 	}
 	
-	void visit(ReturnStatement f) {
-		LLVMBuildRet(builder, expressionGen.visit(f.value));
+	void visit(ReturnStatement r) {
+		LLVMBuildRet(builder, expressionGen.visit(r.value));
 	}
 }
 
@@ -222,7 +223,7 @@ final:
 		//*/
 	}
 	
-	auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
+	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
 		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
 			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
 		})(e);
