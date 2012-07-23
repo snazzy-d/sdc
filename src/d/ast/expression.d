@@ -6,6 +6,7 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
+// TODO: allow type change only for ambiguous types.
 class Expression : Statement, Namespace {
 	Type type;
 	
@@ -60,12 +61,13 @@ class BinaryExpression(string operator) : Expression {
 				break;
 			
 			case "&", "|", "^", "+", "-", "*", "/", "%" :
-				// TODO: pick the biggest type, and promote to ulong if both signed and unisgned are used.
+				// TODO: pick the biggest type, and promote to unsigned if both signed and unisgned are used.
 				type = new AutoType(location);
 				break;
 			
 			case "~" :
-				assert(0, "concatenation isn't supported.");
+				type = new AutoType(location);
+				break;
 			
 			default:
 				assert(0, "Something as gone really wrong and you'll pay for it with blood !");

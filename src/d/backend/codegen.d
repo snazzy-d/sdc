@@ -31,11 +31,17 @@ class DeclarationGen {
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
+	private ExpressionGen expressionGen;
+	private TypeGen typeGen;
+	
 	LLVMValueRef[string] variables;
 	
 	this(LLVMModuleRef dmodule, LLVMBuilderRef builder) {
 		this.builder = builder;
 		this.dmodule = dmodule;
+		
+		typeGen = new TypeGen();
+		expressionGen = new ExpressionGen(builder, this, typeGen);
 	}
 	
 final:
@@ -53,7 +59,7 @@ final:
 		auto basicBlock = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		
-		(new StatementGen(builder, this)).visit(f.fbody);
+		(new StatementGen(builder, this, expressionGen)).visit(f.fbody);
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
@@ -65,25 +71,21 @@ final:
 	}
 	
 	void visit(VariableDeclaration var) {
-		auto expression = new ExpressionGen(builder, this);
-		expression.visit(var.value);
-		
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 		
 		// Create an alloca for this variable.
-		auto type = new TypeGen();
-		type.visit(var.type);
-		auto alloca = LLVMBuildAlloca(builder, type.type, "");
+		auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), "");
 		
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
 		// Store the initial value into the alloca.
-		LLVMBuildStore(builder, expression.value, alloca);
+		auto value = expressionGen.visit(var.value);
+		LLVMBuildStore(builder, value, alloca);
 		
 		//*
-		variables[var.name] = expression.value;
+		variables[var.name] = value;
 		/*/
 		variables[var.name] = alloca;
 		//*/
@@ -94,11 +96,14 @@ import d.ast.statement;
 
 class StatementGen {
 	private LLVMBuilderRef builder;
-	private DeclarationGen declarationGen;
 	
-	this(LLVMBuilderRef builder, DeclarationGen declarationGen){
+	private DeclarationGen declarationGen;
+	private ExpressionGen expressionGen;
+	
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen, ExpressionGen expressionGen){
 		this.builder = builder;
 		this.declarationGen = declarationGen;
+		this.expressionGen = expressionGen;
 	}
 	
 final:
@@ -117,21 +122,18 @@ final:
 	}
 	
 	void visit(IfStatement ifs) {
-		auto expression = new ExpressionGen(builder, declarationGen);
-		expression.visit(ifs.condition);
-		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
 		auto thenBB = LLVMAppendBasicBlock(fun, "then");
 		auto elseBB = LLVMAppendBasicBlock(fun, "else");
 		auto mergeBB = LLVMAppendBasicBlock(fun, "merge");
 		
-		LLVMBuildCondBr(builder, expression.value, thenBB, elseBB);
+		LLVMBuildCondBr(builder, expressionGen.visit(ifs.condition), thenBB, elseBB);
 		
 		// Emit then value
 		LLVMPositionBuilderAtEnd(builder, thenBB);
 		
-		this.visit(ifs.then);
+		visit(ifs.then);
 		
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
@@ -155,10 +157,7 @@ final:
 	}
 	
 	void visit(ReturnStatement f) {
-		auto expression = new ExpressionGen(builder, declarationGen);
-		expression.visit(f.value);
-		
-		LLVMBuildRet(builder, expression.value);
+		LLVMBuildRet(builder, expressionGen.visit(f.value));
 	}
 }
 
@@ -166,121 +165,108 @@ import d.ast.expression;
 
 class ExpressionGen {
 	private LLVMBuilderRef builder;
+	
 	private DeclarationGen declarationGen;
+	private TypeGen typeGen;
 	
-	LLVMValueRef value;
-	
-	this(LLVMBuilderRef builder, DeclarationGen declarationGen) {
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen, TypeGen typeGen) {
 		this.builder = builder;
 		this.declarationGen = declarationGen;
+		this.typeGen = typeGen;
 	}
 	
 final:
-	void visit(Expression e) {
-		this.dispatch(e);
+	LLVMValueRef visit(Expression e) {
+		return this.dispatch(e);
 	}
 	
-	private void handleIntegerLiteral(bool signed)(IntegerLiteral!signed il) {
-		auto type = new TypeGen();
-		type.visit(il.type);
-		
-		value = LLVMConstInt(type.type, il.value, signed);
+	LLVMValueRef visit(IntegerLiteral!true il) {
+		return LLVMConstInt(typeGen.visit(il.type), il.value, true);
 	}
 	
-	void visit(IntegerLiteral!true il) {
-		handleIntegerLiteral!true(il);
+	LLVMValueRef visit(IntegerLiteral!false il) {
+		return LLVMConstInt(typeGen.visit(il.type), il.value, false);
 	}
 	
-	void visit(IntegerLiteral!false il) {
-		handleIntegerLiteral!false(il);
+	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
+		return LLVMBuildOp(builder, visit(e.lhs), visit(e.rhs), "");
 	}
 	
-	private void handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
-		visit(e.lhs);
-		auto lhs = value;
-		
-		visit(e.rhs);
-		
-		value = LLVMBuildOp(builder, lhs, value, "");
+	LLVMValueRef visit(AddExpression add) {
+		return handleBinaryOp!LLVMBuildAdd(add);
 	}
 	
-	void visit(AddExpression add) {
-		handleBinaryOp!LLVMBuildAdd(add);
+	LLVMValueRef visit(SubExpression sub) {
+		return handleBinaryOp!LLVMBuildSub(sub);
 	}
 	
-	void visit(SubExpression sub) {
-		handleBinaryOp!LLVMBuildSub(sub);
+	LLVMValueRef visit(MulExpression mul) {
+		return handleBinaryOp!LLVMBuildMul(mul);
 	}
 	
-	void visit(MulExpression mul) {
-		handleBinaryOp!LLVMBuildMul(mul);
-	}
-	
-	void visit(DivExpression div) {
+	LLVMValueRef visit(DivExpression div) {
 		// Check signed/unsigned.
-		handleBinaryOp!LLVMBuildSDiv(div);
+		return handleBinaryOp!LLVMBuildSDiv(div);
 	}
 	
-	void visit(ModExpression mod) {
+	LLVMValueRef visit(ModExpression mod) {
 		// Check signed/unsigned.
-		handleBinaryOp!LLVMBuildSRem(mod);
+		return handleBinaryOp!LLVMBuildSRem(mod);
 	}
 	
-	void visit(IdentifierExpression e) {
+	LLVMValueRef visit(IdentifierExpression e) {
 		//*
-		value = declarationGen.variables[e.identifier.name];
+		return declarationGen.variables[e.identifier.name];
 		/*/
-		value = LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
+		return LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
 		//*/
 	}
 	
-	void handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
-		handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
+	auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
+		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
 			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
 		})(e);
 	}
 	
 	// TODO: handled signed and unsigned !
-	void visit(LessExpression e) {
-		handleComparaison!(LLVMIntPredicate.ULT)(e);
+	LLVMValueRef visit(LessExpression e) {
+		return handleComparaison!(LLVMIntPredicate.ULT)(e);
 	}
 	
-	void visit(LessEqualExpression e) {
-		handleComparaison!(LLVMIntPredicate.ULE)(e);
+	LLVMValueRef visit(LessEqualExpression e) {
+		return handleComparaison!(LLVMIntPredicate.ULE)(e);
 	}
 	
-	void visit(GreaterExpression e) {
-		handleComparaison!(LLVMIntPredicate.UGT)(e);
+	LLVMValueRef visit(GreaterExpression e) {
+		return handleComparaison!(LLVMIntPredicate.UGT)(e);
 	}
 	
-	void visit(GreaterEqualExpression e) {
-		handleComparaison!(LLVMIntPredicate.UGE)(e);
+	LLVMValueRef visit(GreaterEqualExpression e) {
+		return handleComparaison!(LLVMIntPredicate.UGE)(e);
 	}
 }
 
 import d.ast.type;
 
 class TypeGen {
-	LLVMTypeRef type;
-	
-	void visit(Type t) {
-		this.dispatch(t);
+	LLVMTypeRef visit(Type t) {
+		return this.dispatch(t);
 	}
 	
-	void visit(BuiltinType!int) {
-		type = LLVMInt32Type();
+	LLVMTypeRef visit(BuiltinType!int) {
+		return LLVMInt32Type();
 	}
 	
-	void visit(BuiltinType!uint) {
-		type = LLVMInt32Type();
+	LLVMTypeRef visit(BuiltinType!uint) {
+		return LLVMInt32Type();
 	}
 	
-	void visit(BuiltinType!long) {
-		type = LLVMInt64Type();
+	LLVMTypeRef visit(BuiltinType!long) {
+		return LLVMInt64Type();
 	}
 	
-	void visit(BuiltinType!ulong) {
-		type = LLVMInt64Type();
+	LLVMTypeRef visit(BuiltinType!ulong) {
+		return LLVMInt64Type();
 	}
 }
 
