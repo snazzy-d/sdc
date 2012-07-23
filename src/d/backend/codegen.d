@@ -231,19 +231,27 @@ final:
 	
 	// TODO: handled signed and unsigned !
 	LLVMValueRef visit(LessExpression e) {
-		return handleComparaison!(LLVMIntPredicate.ULT)(e);
+		return handleComparaison!(LLVMIntPredicate.SLT)(e);
 	}
 	
 	LLVMValueRef visit(LessEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.ULE)(e);
+		return handleComparaison!(LLVMIntPredicate.SLE)(e);
 	}
 	
 	LLVMValueRef visit(GreaterExpression e) {
-		return handleComparaison!(LLVMIntPredicate.UGT)(e);
+		return handleComparaison!(LLVMIntPredicate.SGT)(e);
 	}
 	
 	LLVMValueRef visit(GreaterEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.UGE)(e);
+		return handleComparaison!(LLVMIntPredicate.SGE)(e);
+	}
+	
+	LLVMValueRef visit(PadExpression e) {
+		return LLVMBuildSExt(builder, visit(e.expression), typeGen.visit(e.type), "");
+	}
+	
+	LLVMValueRef visit(TruncateExpression e) {
+		return LLVMBuildTrunc(builder, visit(e.expression), typeGen.visit(e.type), "");
 	}
 }
 
