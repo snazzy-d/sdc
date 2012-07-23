@@ -61,55 +61,55 @@ Expression parseAssignExpression(TokenRange)(ref TokenRange trange) if(isTokenRa
 			break;
 		
 		case TokenType.PlusAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.AddAssign))();
+			processToken!AddAssignExpression();
 			break;
 		
 		case TokenType.DashAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.SubAssign))();
+			processToken!SubAssignExpression();
 			break;
 		
 		case TokenType.AsterixAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.MulAssign))();
+			processToken!MulAssignExpression();
 			break;
 		
 		case TokenType.SlashAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.DivAssign))();
+			processToken!DivAssignExpression();
 			break;
 		
 		case TokenType.PercentAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.ModAssign))();
+			processToken!ModAssignExpression();
 			break;
 		
 		case TokenType.AmpersandAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.AndAssign))();
+			processToken!BitwiseAndAssignExpression();
 			break;
 		
 		case TokenType.PipeAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.OrAssign))();
+			processToken!BitwiseOrAssignExpression();
 			break;
 		
 		case TokenType.CaretAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.XorAssign))();
+			processToken!BitwiseXorAssignExpression();
 			break;
 		
 		case TokenType.TildeAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.CatAssign))();
+			processToken!ConcatAssignExpression();
 			break;
 		
 		case TokenType.DoubleLessAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.ShiftLeftAssign))();
+			processToken!LeftShiftAssignExpression();
 			break;
 		
 		case TokenType.DoubleGreaterAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.SignedShiftRightAssign))();
+			processToken!SignedRightShiftAssignExpression();
 			break;
 		
 		case TokenType.TripleGreaterAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.UnsignedShiftRightAssign))();
+			processToken!UnsignedRightShiftAssignExpression();
 			break;
 		
 		case TokenType.DoubleCaretAssign :
-			processToken!(OpAssignBinaryExpression!(BinaryOperation.PowAssign))();
+			processToken!PowAssignExpression();
 			break;
 		
 		default :
@@ -146,35 +146,35 @@ private Expression parseConditionalExpression(TokenRange)(ref TokenRange trange)
  * Parse ||
  */
 private auto parseLogicalOrExpression(TokenRange)(ref TokenRange trange) {
-	return trange.parseBinaryExpression!(TokenType.DoublePipe, LogicalBinaryExpression!(BinaryOperation.LogicalOr), function Expression(ref TokenRange trange) { return trange.parseLogicalAndExpression(); })();
+	return trange.parseBinaryExpression!(TokenType.DoublePipe, LogicalOrExpression, function Expression(ref TokenRange trange) { return trange.parseLogicalAndExpression(); })();
 }
 
 /**
  * Parse &&
  */
 private auto parseLogicalAndExpression(TokenRange)(ref TokenRange trange) {
-	return trange.parseBinaryExpression!(TokenType.DoubleAmpersand, LogicalBinaryExpression!(BinaryOperation.LogicalAnd), function Expression(ref TokenRange trange) { return trange.parseBitwiseOrExpression(); })();
+	return trange.parseBinaryExpression!(TokenType.DoubleAmpersand, LogicalAndExpression, function Expression(ref TokenRange trange) { return trange.parseBitwiseOrExpression(); })();
 }
 
 /**
  * Parse |
  */
 private auto parseBitwiseOrExpression(TokenRange)(ref TokenRange trange) {
-	return trange.parseBinaryExpression!(TokenType.Pipe, BitwiseBinaryExpression!(BinaryOperation.BitwiseOr), function Expression(ref TokenRange trange) { return trange.parseBitwiseXorExpression(); })();
+	return trange.parseBinaryExpression!(TokenType.Pipe, BitwiseOrExpression, function Expression(ref TokenRange trange) { return trange.parseBitwiseXorExpression(); })();
 }
 
 /**
  * Parse ^
  */
 private auto parseBitwiseXorExpression(TokenRange)(ref TokenRange trange) {
-	return trange.parseBinaryExpression!(TokenType.Caret, BitwiseBinaryExpression!(BinaryOperation.BitwiseXor), function Expression(ref TokenRange trange) { return trange.parseBitwiseAndExpression(); })();
+	return trange.parseBinaryExpression!(TokenType.Caret, BitwiseXorExpression, function Expression(ref TokenRange trange) { return trange.parseBitwiseAndExpression(); })();
 }
 
 /**
  * Parse &
  */
 private auto parseBitwiseAndExpression(TokenRange)(ref TokenRange trange) {
-	return trange.parseBinaryExpression!(TokenType.Ampersand, BitwiseBinaryExpression!(BinaryOperation.BitwiseAnd), function Expression(ref TokenRange trange) { return trange.parseComparaisonExpression(); })();
+	return trange.parseBinaryExpression!(TokenType.Ampersand, BitwiseAndExpression, function Expression(ref TokenRange trange) { return trange.parseComparaisonExpression(); })();
 }
 
 /**
@@ -197,78 +197,78 @@ private auto parseComparaisonExpression(TokenRange)(ref TokenRange trange) {
 	
 	switch(trange.front.type) {
 		case TokenType.DoubleAssign :
-			processToken!(EqualityExpression!(BinaryOperation.Equality))();
+			processToken!EqualityExpression();
 			break;
 		
 		case TokenType.BangAssign :
-			processToken!(EqualityExpression!(BinaryOperation.NotEquality))();
-			break;
-		
-		case TokenType.Less :
-			processToken!(ComparaisonExpression!(BinaryOperation.Less))();
-			break;
-		
-		case TokenType.LessAssign :
-			processToken!(ComparaisonExpression!(BinaryOperation.LessEqual))();
+			processToken!NotEqualityExpression();
 			break;
 		
 		case TokenType.Greater:
-			processToken!(ComparaisonExpression!(BinaryOperation.Greater))();
+			processToken!GreaterExpression();
 			break;
 		
 		case TokenType.GreaterAssign:
-			processToken!(ComparaisonExpression!(BinaryOperation.GreaterEqual))();
+			processToken!GreaterEqualExpression();
+			break;
+		
+		case TokenType.Less :
+			processToken!LessExpression();
+			break;
+		
+		case TokenType.LessAssign :
+			processToken!LessEqualExpression();
 			break;
 		
 		case TokenType.BangLessGreaterAssign:
-			processToken!(ComparaisonExpression!(BinaryOperation.Unordered))();
+			processToken!UnorderedExpression();
 			break;
 		
 		case TokenType.BangLessGreater:
-			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedEqual))();
+			processToken!UnorderedEqualExpression();
 			break;
 		
 		case TokenType.LessGreater:
-			processToken!(ComparaisonExpression!(BinaryOperation.LessGreater))();
+			processToken!LessGreaterExpression();
 			break;
 		
 		case TokenType.LessGreaterAssign:
-			processToken!(ComparaisonExpression!(BinaryOperation.LessEqualGreater))();
+			processToken!LessEqualGreaterExpression();
 			break;
 		
 		case TokenType.BangGreater:
-			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLessEqual))();
+			processToken!UnorderedLessEqualExpression();
 			break;
 		
 		case TokenType.BangGreaterAssign:
-			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedLess))();
+			processToken!UnorderedLessExpression();
 			break;
 		
 		case TokenType.BangLess:
-			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreaterEqual))();
+			processToken!UnorderedGreaterEqualExpression();
 			break;
 		
 		case TokenType.BangLessAssign:
-			processToken!(ComparaisonExpression!(BinaryOperation.UnorderedGreater))();
+			processToken!UnorderedGreaterExpression();
 			break;
 		
 		case TokenType.Is :
-			processToken!(IdentityExpression!(BinaryOperation.Is))();
+			processToken!IdentityExpression();
 			break;
 		
 		case TokenType.In :
-			processToken!(InExpression!(BinaryOperation.In))();
+			processToken!InExpression();
 			break;
 		
 		case TokenType.Bang :
 			trange.popFront();
 			switch(trange.front.type) {
 				case TokenType.Is :
-					processToken!(IdentityExpression!(BinaryOperation.NotIs))();
+					processToken!NotIdentityExpression();
 					break;
 				
 				case TokenType.In :
-					processToken!(InExpression!(BinaryOperation.NotIn))();
+					processToken!NotInExpression();
 					break;
 				
 				default :
@@ -307,15 +307,15 @@ private auto parseShiftExpression(TokenRange)(ref TokenRange trange) {
 		
 		switch(trange.front.type) {
 			case TokenType.DoubleLess :
-				processToken!(ShiftExpression!(BinaryOperation.LeftShift))();
+				processToken!LeftShiftExpression();
 				break;
 			
 			case TokenType.DoubleGreater :
-				processToken!(ShiftExpression!(BinaryOperation.SignedRightShift))();
+				processToken!SignedRightShiftExpression();
 				break;
 			
 			case TokenType.TripleGreater :
-				processToken!(ShiftExpression!(BinaryOperation.UnsignedRightShift))();
+				processToken!UnsignedRightShiftExpression();
 				break;
 			
 			default :
@@ -345,11 +345,11 @@ private auto parseAddExpression(TokenRange)(ref TokenRange trange) {
 		
 		switch(trange.front.type) {
 			case TokenType.Plus :
-				processToken!AdditionExpression();
+				processToken!AddExpression();
 				break;
 			
 			case TokenType.Dash :
-				processToken!SubstractionExpression();
+				processToken!SubExpression();
 				break;
 			
 			case TokenType.Tilde :
@@ -383,15 +383,15 @@ private auto parseMulExpression(TokenRange)(ref TokenRange trange) {
 		
 		switch(trange.front.type) {
 			case TokenType.Asterix :
-				processToken!MultiplicationExpression();
+				processToken!MulExpression();
 				break;
 			
 			case TokenType.Slash :
-				processToken!DivisionExpression();
+				processToken!DivExpression();
 				break;
 			
 			case TokenType.Percent :
-				processToken!ModulusExpression();
+				processToken!ModExpression();
 				break;
 			
 			default :
@@ -845,7 +845,7 @@ auto parseArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 /**
  * Parse integer literals
  */
-private PrimaryExpression parseIntegerLiteral(TokenRange)(ref TokenRange trange) {
+private Expression parseIntegerLiteral(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	string value = trange.front.value;
@@ -911,17 +911,17 @@ private PrimaryExpression parseIntegerLiteral(TokenRange)(ref TokenRange trange)
 		auto integer = parse!ulong(value);
 		
 		if(isLong || integer > uint.max) {
-			return new IntegerLiteral!ulong(location, integer);
+			return makeIntegerLiteral(location, integer);
 		} else {
-			return new IntegerLiteral!uint(location, cast(uint) integer);
+			return makeIntegerLiteral(location, cast(uint) integer);
 		}
 	} else {
 		auto integer = parse!long(value);
 		
 		if(isLong || integer > int.max || integer < int.min) {
-			return new IntegerLiteral!long(location, integer);
+			return makeIntegerLiteral(location, integer);
 		} else {
-			return new IntegerLiteral!int(location, cast(int) integer);
+			return makeIntegerLiteral(location, cast(int) integer);
 		}
 	}
 }
