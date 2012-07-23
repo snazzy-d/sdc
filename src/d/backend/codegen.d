@@ -73,7 +73,9 @@ final:
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 		
 		// Create an alloca for this variable.
-		auto alloca = LLVMBuildAlloca(builder, LLVMInt32Type(), "");
+		auto type = new TypeGen();
+		type.visit(var.type);
+		auto alloca = LLVMBuildAlloca(builder, type.type, "");
 		
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
@@ -114,6 +116,44 @@ final:
 		}
 	}
 	
+	void visit(IfStatement ifs) {
+		auto expression = new ExpressionGen(builder, declarationGen);
+		expression.visit(ifs.condition);
+		
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		auto thenBB = LLVMAppendBasicBlock(fun, "then");
+		auto elseBB = LLVMAppendBasicBlock(fun, "else");
+		auto mergeBB = LLVMAppendBasicBlock(fun, "merge");
+		
+		LLVMBuildCondBr(builder, expression.value, thenBB, elseBB);
+		
+		// Emit then value
+		LLVMPositionBuilderAtEnd(builder, thenBB);
+		
+		this.visit(ifs.then);
+		
+		// Conclude that block.
+		LLVMBuildBr(builder, mergeBB);
+		
+		// Codegen of else can change the current block, so we put everything in order.
+		thenBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(elseBB, thenBB);
+		LLVMPositionBuilderAtEnd(builder, elseBB);
+		
+		// TODO: Codegen for else.
+		
+		// Conclude that block.
+		LLVMBuildBr(builder, mergeBB);
+		
+		// Codegen of else can change the current block, so we put everything in order.
+		elseBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
+		LLVMPositionBuilderAtEnd(builder, mergeBB);
+		
+		// TODO: generate phi to merge everything back.
+	}
+	
 	void visit(ReturnStatement f) {
 		auto expression = new ExpressionGen(builder, declarationGen);
 		expression.visit(f.value);
@@ -140,23 +180,22 @@ final:
 		this.dispatch(e);
 	}
 	
-	void visit(IntegerLiteral!int i32) {
-		value = LLVMConstInt(LLVMInt32Type(), i32.value, true);
+	private void handleIntegerLiteral(bool signed)(IntegerLiteral!signed il) {
+		auto type = new TypeGen();
+		type.visit(il.type);
+		
+		value = LLVMConstInt(type.type, il.value, signed);
 	}
 	
-	void visit(IntegerLiteral!uint i32) {
-		value = LLVMConstInt(LLVMInt32Type(), i32.value, false);
+	void visit(IntegerLiteral!true il) {
+		handleIntegerLiteral!true(il);
 	}
 	
-	void visit(IntegerLiteral!long i64) {
-		value = LLVMConstInt(LLVMInt64Type(), i64.value, true);
+	void visit(IntegerLiteral!false il) {
+		handleIntegerLiteral!false(il);
 	}
 	
-	void visit(IntegerLiteral!ulong i64) {
-		value = LLVMConstInt(LLVMInt64Type(), i64.value, false);
-	}
-	
-	private void handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
+	private void handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
 		visit(e.lhs);
 		auto lhs = value;
 		
@@ -165,34 +204,26 @@ final:
 		value = LLVMBuildOp(builder, lhs, value, "");
 	}
 	
-	void visit(AdditionExpression add) {
+	void visit(AddExpression add) {
 		handleBinaryOp!LLVMBuildAdd(add);
 	}
 	
-	void visit(SubstractionExpression sub) {
+	void visit(SubExpression sub) {
 		handleBinaryOp!LLVMBuildSub(sub);
 	}
 	
-	void visit(ConcatExpression concat) {
-		assert(0, "concat is not implemented.");
-	}
-	
-	void visit(MultiplicationExpression mul) {
+	void visit(MulExpression mul) {
 		handleBinaryOp!LLVMBuildMul(mul);
 	}
 	
-	void visit(DivisionExpression div) {
+	void visit(DivExpression div) {
 		// Check signed/unsigned.
 		handleBinaryOp!LLVMBuildSDiv(div);
 	}
 	
-	void visit(ModulusExpression mod) {
+	void visit(ModExpression mod) {
 		// Check signed/unsigned.
 		handleBinaryOp!LLVMBuildSRem(mod);
-	}
-	
-	void visit(PowExpression pow) {
-		assert(0, "pow is not implemented.");
 	}
 	
 	void visit(IdentifierExpression e) {
@@ -201,6 +232,55 @@ final:
 		/*/
 		value = LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
 		//*/
+	}
+	
+	void handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
+		handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
+			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
+		})(e);
+	}
+	
+	// TODO: handled signed and unsigned !
+	void visit(LessExpression e) {
+		handleComparaison!(LLVMIntPredicate.ULT)(e);
+	}
+	
+	void visit(LessEqualExpression e) {
+		handleComparaison!(LLVMIntPredicate.ULE)(e);
+	}
+	
+	void visit(GreaterExpression e) {
+		handleComparaison!(LLVMIntPredicate.UGT)(e);
+	}
+	
+	void visit(GreaterEqualExpression e) {
+		handleComparaison!(LLVMIntPredicate.UGE)(e);
+	}
+}
+
+import d.ast.type;
+
+class TypeGen {
+	LLVMTypeRef type;
+	
+	void visit(Type t) {
+		this.dispatch(t);
+	}
+	
+	void visit(BuiltinType!int) {
+		type = LLVMInt32Type();
+	}
+	
+	void visit(BuiltinType!uint) {
+		type = LLVMInt32Type();
+	}
+	
+	void visit(BuiltinType!long) {
+		type = LLVMInt64Type();
+	}
+	
+	void visit(BuiltinType!ulong) {
+		type = LLVMInt64Type();
 	}
 }
 

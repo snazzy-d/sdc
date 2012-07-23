@@ -7,8 +7,16 @@ import d.ast.statement;
 import d.ast.type;
 
 class Expression : Statement, Namespace {
+	Type type;
+	
 	this(Location location) {
+		this(location, new AutoType(location));
+	}
+	
+	this(Location location, Type type) {
 		super(location, StatementType.Expression);
+		
+		this.type = type;
 	}
 }
 
@@ -30,235 +38,111 @@ class ConditionalExpression : Expression {
 }
 
 /**
- * Binary Expression types.
+ * Binary Expressions.
  */
-enum BinaryOperation {
-	None,
-	Comma,  // ,
-	Assign,  // =
-	AddAssign,  // +=
-	SubAssign,  // -=
-	MulAssign,  // *=
-	DivAssign,  // /=
-	ModAssign,  // %=
-	AndAssign,  // &=
-	OrAssign,   // |=
-	XorAssign,  // ^=
-	CatAssign,  // ~=
-	ShiftLeftAssign,  // <<=
-	SignedShiftRightAssign,  // >>=
-	UnsignedShiftRightAssign,  // >>>=
-	PowAssign,  // ^^=
-	LogicalOr,  // ||
-	LogicalAnd,  // &&
-	BitwiseOr,  // |
-	BitwiseXor,  // ^
-	BitwiseAnd,  // &
-	Equality,  // == 
-	NotEquality,  // !=
-	Is,  // is
-	NotIs,  // !is
-	In,  // in
-	NotIn,  // !in
-	Less,  // <
-	LessEqual,  // <=
-	Greater,  // >
-	GreaterEqual,  // >=
-	Unordered,  // !<>=
-	UnorderedEqual,  // !<>
-	LessGreater,  // <>
-	LessEqualGreater,  // <>=
-	UnorderedLessEqual,  // !>
-	UnorderedLess, // !>=
-	UnorderedGreaterEqual,  // !<
-	UnorderedGreater,  // !<=
-	LeftShift,  // <<
-	SignedRightShift,  // >>
-	UnsignedRightShift,  // >>>
-	Addition,  // +
-	Subtraction,  // -
-	Concat,  // ~
-	Division,  // /
-	Multiplication,  // *
-	Modulus,  // %
-	Pow,  // ^^
-}
-
-class BinaryExpression : Expression {
+class BinaryExpression(string operator) : Expression {
 	Expression lhs;
 	Expression rhs;
-	BinaryOperation operation;
 	
-	this(Location location, BinaryOperation operation, Expression lhs, Expression rhs) {
-		super(location);
+	this(Location location, Expression lhs, Expression rhs) {
+		Type type;
+		switch(operator) {
+			case "," :
+				type = rhs.type;
+				break;
+			
+			case "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "~=", "<<=", ">>=", ">>>=", "^^=", "<<", ">>", ">>>", "^^" :
+				type = lhs.type;
+				break;
+			
+			case "||", "&&", "==", "!=", "is", "!is", "in", "!in", "<", "<=", ">", ">=", "<>", "<>=", "!<", "!<=", "!>", "!>=", "!<>", "!<>=" :
+				type = new BuiltinType!bool(location);
+				break;
+			
+			case "&", "|", "^", "+", "-", "*", "/", "%" :
+				// TODO: pick the biggest type, and promote to ulong if both signed and unisgned are used.
+				type = new AutoType(location);
+				break;
+			
+			case "~" :
+				assert(0, "concatenation isn't supported.");
+			
+			default:
+				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
+		}
+		
+		super(location, type);
 		
 		this.lhs = lhs;
 		this.rhs = rhs;
-		this.operation = operation;
 	}
 }
 
-/**
- * ,
- */
-class CommaExpression : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, BinaryOperation.Comma, lhs, rhs);
-	}
-}
+// XXX: Remove ?
+alias BinaryExpression!","  CommaExpression;
 
-/**
- * =
- */
-class AssignExpression : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, BinaryOperation.Assign, lhs, rhs);
-	}
-}
+alias BinaryExpression!"="  AssignExpression;
 
-/**
- * +=, -=, *=, /=, %=, &=, |=, ^=, ~=, <<=, >>=, >>>= and ^^=
- */
-class OpAssignBinaryExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.AddAssign
-	|| operation == BinaryOperation.SubAssign
-	|| operation == BinaryOperation.MulAssign
-	|| operation == BinaryOperation.DivAssign
-	|| operation == BinaryOperation.ModAssign
-	|| operation == BinaryOperation.AndAssign
-	|| operation == BinaryOperation.OrAssign
-	|| operation == BinaryOperation.XorAssign
-	|| operation == BinaryOperation.CatAssign
-	|| operation == BinaryOperation.ShiftLeftAssign
-	|| operation == BinaryOperation.SignedShiftRightAssign
-	|| operation == BinaryOperation.UnsignedShiftRightAssign
-	|| operation == BinaryOperation.PowAssign
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"+"  AddExpression;
+alias BinaryExpression!"-"  SubExpression;
+alias BinaryExpression!"~"  ConcatExpression;
+alias BinaryExpression!"*"  MulExpression;
+alias BinaryExpression!"/"  DivExpression;
+alias BinaryExpression!"%"  ModExpression;
+alias BinaryExpression!"^^" PowExpression;
 
-/**
- * || and &&
- */
-class LogicalBinaryExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.LogicalOr
-	|| operation == BinaryOperation.LogicalAnd
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"+="  AddAssignExpression;
+alias BinaryExpression!"-="  SubAssignExpression;
+alias BinaryExpression!"~="  ConcatAssignExpression;
+alias BinaryExpression!"*="  MulAssignExpression;
+alias BinaryExpression!"/="  DivAssignExpression;
+alias BinaryExpression!"%="  ModAssignExpression;
+alias BinaryExpression!"^^=" PowAssignExpression;
 
-/**
- * &, | and ^
- */
-class BitwiseBinaryExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.BitwiseOr
-	|| operation == BinaryOperation.BitwiseXor
-	|| operation == BinaryOperation.BitwiseAnd
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"||"  LogicalOrExpression;
+alias BinaryExpression!"&&"  LogicalAndExpression;
 
-/**
- * == and !=
- */
-class EqualityExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.Equality
-	|| operation == BinaryOperation.NotEquality
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"||=" LogicalOrAssignExpression;
+alias BinaryExpression!"&&=" LogicalAndAssignExpression;
 
-/**
- * is and !is
- */
-class IdentityExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.Is
-	|| operation == BinaryOperation.NotIs
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"|"   BitwiseOrExpression;
+alias BinaryExpression!"&"   BitwiseAndExpression;
+alias BinaryExpression!"^"   BitwiseXorExpression;
 
-/**
- * in and !in
- */
-class InExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.In
-	|| operation == BinaryOperation.NotIn
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"|="  BitwiseOrAssignExpression;
+alias BinaryExpression!"&="  BitwiseAndAssignExpression;
+alias BinaryExpression!"^="  BitwiseXorAssignExpression;
 
-/**
- * <, <=, >, >=, <>, <>=, !<, !<=, !>, !>=, !<> and !<>=
- */
-class ComparaisonExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.Less
-	|| operation == BinaryOperation.LessEqual
-	|| operation == BinaryOperation.Greater
-	|| operation == BinaryOperation.GreaterEqual
-	|| operation == BinaryOperation.Unordered
-	|| operation == BinaryOperation.UnorderedEqual
-	|| operation == BinaryOperation.LessGreater
-	|| operation == BinaryOperation.LessEqualGreater
-	|| operation == BinaryOperation.UnorderedLessEqual
-	|| operation == BinaryOperation.UnorderedLess
-	|| operation == BinaryOperation.UnorderedGreaterEqual
-	|| operation == BinaryOperation.UnorderedGreater
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"=="  EqualityExpression;
+alias BinaryExpression!"!="  NotEqualityExpression;
 
-/**
- * <<, >> and >>>
- */
-class ShiftExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.LeftShift
-	|| operation == BinaryOperation.SignedRightShift
-	|| operation == BinaryOperation.UnsignedRightShift
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"is"  IdentityExpression;
+alias BinaryExpression!"!is" NotIdentityExpression;
 
-/**
- * Binary +, -, ~, *, /, %, and ^^
- */
-class OperationBinaryExpression(BinaryOperation operation) if(
-	operation == BinaryOperation.Addition
-	|| operation == BinaryOperation.Subtraction
-	|| operation == BinaryOperation.Concat
-	|| operation == BinaryOperation.Multiplication
-	|| operation == BinaryOperation.Division
-	|| operation == BinaryOperation.Modulus
-	|| operation == BinaryOperation.Pow
-) : BinaryExpression {
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location, operation, lhs, rhs);
-	}
-}
+alias BinaryExpression!"in"  InExpression;
+alias BinaryExpression!"!in" NotInExpression;
 
-alias OperationBinaryExpression!(BinaryOperation.Addition) AdditionExpression;
-alias OperationBinaryExpression!(BinaryOperation.Subtraction) SubstractionExpression;
-alias OperationBinaryExpression!(BinaryOperation.Concat) ConcatExpression;
-alias OperationBinaryExpression!(BinaryOperation.Multiplication) MultiplicationExpression;
-alias OperationBinaryExpression!(BinaryOperation.Division) DivisionExpression;
-alias OperationBinaryExpression!(BinaryOperation.Modulus) ModulusExpression;
-alias OperationBinaryExpression!(BinaryOperation.Pow) PowExpression;
+alias BinaryExpression!"<<"  LeftShiftExpression;
+alias BinaryExpression!">>"  SignedRightShiftExpression;
+alias BinaryExpression!">>>" UnsignedRightShiftExpression;
+
+alias BinaryExpression!"<<="  LeftShiftAssignExpression;
+alias BinaryExpression!">>="  SignedRightShiftAssignExpression;
+alias BinaryExpression!">>>=" UnsignedRightShiftAssignExpression;
+
+alias BinaryExpression!">"   GreaterExpression;
+alias BinaryExpression!">="  GreaterEqualExpression;
+alias BinaryExpression!"<"   LessExpression;
+alias BinaryExpression!"<="  LessEqualExpression;
+
+alias BinaryExpression!"<>"   LessGreaterExpression;
+alias BinaryExpression!"<>="  LessEqualGreaterExpression;
+alias BinaryExpression!"!>"   UnorderedLessEqualExpression;
+alias BinaryExpression!"!>="  UnorderedLessExpression;
+alias BinaryExpression!"!<"   UnorderedGreaterEqualExpression;
+alias BinaryExpression!"!<="  UnorderedGreaterExpression;
+alias BinaryExpression!"!<>"  UnorderedEqualExpression;
+alias BinaryExpression!"!<>=" UnorderedExpression;
 
 /**
  * Unary Prefix Expression types.
@@ -435,57 +319,14 @@ class IndexExpression : PostfixUnaryExpression {
 	}
 }
 
-enum PrimaryType {
-	Identifier,
-	New,
-	This,
-	Super,
-	Null,
-	True,
-	False,
-	Dollar,
-	__File__,
-	__Line__,
-	IntegerLiteral,
-	FloatLiteral,
-	CharacterLiteral,
-	StringLiteral,
-	ArrayLiteral,
-	AssocArrayLiteral,
-	FunctionLiteral,
-	DelegateLiteral,
-	AssertExpression,
-	MixinExpression,
-	ImportExpression,
-	BasicTypeDotIdentifier,
-	ComplexTypeDotIdentifier,
-	Typeof,
-	TypeidExpression,
-	IsExpression,
-	TraitsExpression,
-}
-
-/**
- * Primary Expressions
- */
-class PrimaryExpression : Expression {
-	private PrimaryType type;
-	
-	this(Location location, PrimaryType type) {
-		super(location);
-		
-		this.type = type;
-	}
-}
-
 /**
  * Identifier expression
  */
-class IdentifierExpression : PrimaryExpression {
+class IdentifierExpression : Expression {
 	Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
-		super(location, PrimaryType.Identifier);
+		super(location);
 		
 		this.identifier = identifier;
 	}
@@ -494,12 +335,12 @@ class IdentifierExpression : PrimaryExpression {
 /**
  * new
  */
-class NewExpression : PrimaryExpression {
+class NewExpression : Expression {
 	Type type;
 	Expression[] arguments;
 	
 	this(Location location, Type type, Expression[] arguments) {
-		super(location, PrimaryType.New);
+		super(location);
 		
 		this.type = type;
 		this.arguments = arguments;
@@ -509,43 +350,53 @@ class NewExpression : PrimaryExpression {
 /**
  * This
  */
-class ThisExpression : PrimaryExpression {
+class ThisExpression : Expression {
 	this(Location location) {
-		super(location, PrimaryType.This);
+		super(location);
 	}
 }
 
 /**
  * Super
  */
-class SuperExpression : PrimaryExpression {
+class SuperExpression : Expression {
 	this(Location location) {
-		super(location, PrimaryType.Super);
+		super(location);
 	}
 }
 
 /**
  * Integer literals
  */
-import std.traits;
-class IntegerLiteral(T) if(isIntegral!T) : PrimaryExpression {
-	T value;
+class IntegerLiteral(bool isSigned) : Expression {
+	static if(isSigned) {
+		alias long ValueType;
+	} else {
+		alias ulong ValueType;
+	}
 	
-	this(Location location, T value) {
-		super(location, PrimaryType.IntegerLiteral);
+	ValueType value;
+	
+	this(Location location, ValueType value, Type type) {
+		super(location, type);
 		
 		this.value = value;
 	}
 }
 
+import std.traits;
+auto makeIntegerLiteral(T)(Location location, T value) if(isIntegral!T) {
+	return new IntegerLiteral!(isSigned!T)(location, value, new BuiltinType!T(location));
+}
+
 /**
  * String literals
  */
-class StringLiteral : PrimaryExpression {
+class StringLiteral : Expression {
 	string value;
 	
 	this(Location location, string value) {
-		super(location, PrimaryType.StringLiteral);
+		super(location);
 		
 		this.value = value;
 	}
@@ -554,11 +405,11 @@ class StringLiteral : PrimaryExpression {
 /**
  * Character literals
  */
-class CharacterLiteral : PrimaryExpression {
+class CharacterLiteral : Expression {
 	string value;
 	
 	this(Location location, string value) {
-		super(location, PrimaryType.CharacterLiteral);
+		super(location);
 		
 		this.value = value;
 	}
@@ -567,11 +418,11 @@ class CharacterLiteral : PrimaryExpression {
 /**
  * Array literals
  */
-class ArrayLiteral : PrimaryExpression {
+class ArrayLiteral : Expression {
 	Expression[] values;
 	
 	this(Location location, Expression[] values) {
-		super(location, PrimaryType.ArrayLiteral);
+		super(location);
 		
 		this.values = values;
 	}
@@ -580,51 +431,47 @@ class ArrayLiteral : PrimaryExpression {
 /**
  * Boolean literals
  */
-class BooleanLiteral(bool value) : PrimaryExpression {
+class BooleanLiteral(bool value) : Expression {
 	this(Location location) {
-		static if(value) {
-			super(location, PrimaryType.True);
-		} else {
-			super(location, PrimaryType.False);
-		}
+		super(location);
 	}
 }
 
 /**
  * Null literals
  */
-class NullLiteral : PrimaryExpression {
+class NullLiteral : Expression {
 	this(Location location) {
-		super(location, PrimaryType.Null);
+		super(location);
 	}
 }
 
 /**
  * __FILE__ literals
  */
-class __File__Literal : PrimaryExpression {
+class __File__Literal : Expression {
 	this(Location location) {
-		super(location, PrimaryType.__File__);
+		super(location);
 	}
 }
 
 /**
  * __LINE__ literals
  */
-class __Line__Literal : PrimaryExpression {
+class __Line__Literal : Expression {
 	this(Location location) {
-		super(location, PrimaryType.__Line__);
+		super(location);
 	}
 }
 
 /**
  * Delegate literals
  */
-class DelegateLiteral : PrimaryExpression {
+class DelegateLiteral : Expression {
 	private Statement statement;
 	
 	this(Statement statement) {
-		super(statement.location, PrimaryType.DelegateLiteral);
+		super(statement.location);
 		
 		this.statement = statement;
 	}
@@ -633,20 +480,20 @@ class DelegateLiteral : PrimaryExpression {
 /**
  * $
  */
-class DollarExpression : PrimaryExpression {
+class DollarExpression : Expression {
 	this(Location location) {
-		super(location, PrimaryType.Dollar);
+		super(location);
 	}
 }
 
 /**
  * is expression.
  */
-class IsExpression : PrimaryExpression {
+class IsExpression : Expression {
 	private Type type;
 	
 	this(Location location, Type type) {
-		super(location, PrimaryType.IsExpression);
+		super(location);
 		
 		this.type = type;
 	}
@@ -655,11 +502,11 @@ class IsExpression : PrimaryExpression {
 /**
  * assert.
  */
-class AssertExpression : PrimaryExpression {
+class AssertExpression : Expression {
 	private Expression[] arguments;
 	
 	this(Location location, Expression[] arguments) {
-		super(location, PrimaryType.AssertExpression);
+		super(location);
 		
 		this.arguments = arguments;
 	}
@@ -668,11 +515,11 @@ class AssertExpression : PrimaryExpression {
 /**
  * typeid expression.
  */
-class TypeidExpression : PrimaryExpression {
+class TypeidExpression : Expression {
 	private Expression expression;
 	
 	this(Location location, Expression expression) {
-		super(location, PrimaryType.TypeidExpression);
+		super(location);
 		
 		this.expression = expression;
 	}
@@ -681,11 +528,11 @@ class TypeidExpression : PrimaryExpression {
 /**
  * typeid expression with a type as argument.
  */
-class StaticTypeidExpression : PrimaryExpression {
+class StaticTypeidExpression : Expression {
 	private Type type;
 	
 	this(Location location, Type type) {
-		super(location, PrimaryType.TypeidExpression);
+		super(location);
 		
 		this.type = type;
 	}
@@ -694,11 +541,11 @@ class StaticTypeidExpression : PrimaryExpression {
 /**
  * ambiguous typeid expression.
  */
-class AmbiguousTypeidExpression : PrimaryExpression {
+class AmbiguousTypeidExpression : Expression {
 	private TypeOrExpression parameter;
 	
 	this(Location location, TypeOrExpression parameter) {
-		super(location, PrimaryType.TypeidExpression);
+		super(location);
 		
 		this.parameter = parameter;
 	}

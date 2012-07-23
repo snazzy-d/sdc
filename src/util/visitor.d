@@ -6,7 +6,7 @@ private U fastCast(U, T)(ref T t) if(is(T == class) && is(U : T)) {
 	return *(cast(U*) &t);
 }
 
-@trusted
+// XXX: is @trusted if visitor.visit is @safe .
 void dispatch(
 	alias unhandled = (t){
 		throw new Exception(typeid(t).toString() ~ " is not supported.");

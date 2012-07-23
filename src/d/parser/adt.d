@@ -203,9 +203,10 @@ Enum parseEnum(TokenRange)(ref TokenRange trange) {
 			enumEntriesValues[entryName] = trange.parseAssignExpression();
 		} else {
 			if(previousName) {
-				enumEntriesValues[entryName] = new AdditionExpression(entryLocation, enumEntriesValues[previousName], new IntegerLiteral!uint(entryLocation, 1));
+				// TODO: create a factory for integer literals.
+				enumEntriesValues[entryName] = new AddExpression(entryLocation, enumEntriesValues[previousName], makeIntegerLiteral(entryLocation, 1));
 			} else {
-				enumEntriesValues[entryName] = new IntegerLiteral!uint(entryLocation, 0);
+				enumEntriesValues[entryName] = makeIntegerLiteral(entryLocation, 0);
 			}
 		}
 		
