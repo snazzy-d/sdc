@@ -250,6 +250,32 @@ class CastExpression : PrefixUnaryExpression {
 }
 
 /**
+ * cast from a small type to a bigger one (int to long for instance).
+ */
+class PadExpression : PrefixUnaryExpression {
+	Type type;
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, UnaryPrefix.Cast, expression);
+		
+		this.type = type;
+	}
+}
+
+/**
+ * cast from a big type to a smaller one (long to int for instance).
+ */
+class TruncateExpression : PrefixUnaryExpression {
+	Type type;
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, UnaryPrefix.Cast, expression);
+		
+		this.type = type;
+	}
+}
+
+/**
  * delete
  */
 class DeleteExpression : PrefixUnaryExpression {

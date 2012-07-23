@@ -49,11 +49,9 @@ final:
 	}
 	
 	void visit(VariableDeclaration var) {
-		var.value = expressionVisitor.visit(var.value);
+		var.value = buildImplicitCast(var.location, var.type, expressionVisitor.visit(var.value));
 		
 		variables[var.name] = var;
-		
-		// TODO: set variable type according to expression type and check it.
 	}
 }
 
@@ -91,8 +89,6 @@ final:
 	
 	void visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
-		
-		// TODO: check if it make sense.
 	}
 }
 
@@ -168,10 +164,89 @@ final:
 	}
 	
 	Expression visit(CastExpression e) {
-		e.expression = visit(e.expression);
-		
-		// TODO: transform the cast in the right operation according to types.
-		return e;
+		return buildExplicitCast(e.location, e.type, visit(e.expression));
 	}
 }
 
+import d.ast.type;
+import sdc.location;
+
+private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
+	// TODO: make that a struct to avoid useless memory allocations.
+	class CastToBuiltinType(T) {
+		Expression visit(Expression e) {
+			return this.dispatch(e.type);
+		}
+		
+		private Expression handleBuiltinType(U)() {
+			static if(is(U == T)) {
+				// Casting to the same type is a noop.
+				return e;
+			} else static if(T.sizeof > U.sizeof) {
+				// pad.
+				return new PadExpression(location, type, e);
+			} else static if(T.sizeof == U.sizeof) {
+				throw new Exception("sign change is not supported");
+			} else static if(is(T == bool)) {
+				// Handle cast to bool
+				throw new Exception("cast to bool is not supported");
+			} else static if(isExplicit) {
+				static assert(T.sizeof < U.sizeof);
+				
+				return new TruncateExpression(location, type, e);
+			} else {
+				assert(0, "implicit cast from " ~ U.stringof ~ " to " ~ T.stringof ~ " is not allowed");
+			}
+		}
+		
+		Expression visit(BuiltinType!int t) {
+			return handleBuiltinType!int();
+		}
+		
+		Expression visit(BuiltinType!uint t) {
+			return handleBuiltinType!uint();
+		}
+		
+		Expression visit(BuiltinType!long t) {
+			return handleBuiltinType!long();
+		}
+		
+		Expression visit(BuiltinType!ulong t) {
+			return handleBuiltinType!ulong();
+		}
+	}
+	
+	// dito
+	class CastFrom {
+		Expression visit(Type t) {
+			return this.dispatch(t);
+		}
+		
+		private auto handleBuiltinType(T)() if(is(BuiltinType!T)) {
+			return (new CastToBuiltinType!T()).visit(e);
+		}
+		
+		Expression visit(BuiltinType!int t) {
+			return handleBuiltinType!int();
+		}
+		
+		Expression visit(BuiltinType!uint t) {
+			return handleBuiltinType!uint();
+		}
+		
+		Expression visit(BuiltinType!long t) {
+			return handleBuiltinType!long();
+		}
+		
+		Expression visit(BuiltinType!ulong t) {
+			return handleBuiltinType!ulong();
+		}
+	}
+	
+	// TODO: implement proper truncation, padding.
+	// TODO: handle destructive and non destructive casts.
+	return (new CastFrom()).visit(type);
+}
+
+alias buildCast!false buildImplicitCast;
+alias buildCast!true buildExplicitCast;
