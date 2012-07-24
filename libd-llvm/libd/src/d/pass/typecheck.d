@@ -71,6 +71,10 @@ final:
 		this.dispatch(s);
 	}
 	
+	void visit(ExpressionStatement e) {
+		expressionVisitor.visit(e.expression);
+	}
+	
 	void visit(DeclarationStatement d) {
 		declarationVisitor.visit(d.declaration);
 	}
@@ -121,6 +125,10 @@ final:
 		return e;
 	}
 	
+	Expression visit(AssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
 	Expression visit(AddExpression e) {
 		return handleBinaryExpression(e);
 	}
@@ -138,6 +146,14 @@ final:
 	}
 	
 	Expression visit(ModExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(EqualityExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(NotEqualityExpression e) {
 		return handleBinaryExpression(e);
 	}
 	
@@ -199,19 +215,39 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			}
 		}
 		
-		Expression visit(BuiltinType!int t) {
+		Expression visit(BuiltinType!bool) {
+			return handleBuiltinType!bool();
+		}
+		
+		Expression visit(BuiltinType!byte) {
+			return handleBuiltinType!byte();
+		}
+		
+		Expression visit(BuiltinType!ubyte) {
+			return handleBuiltinType!ubyte();
+		}
+		
+		Expression visit(BuiltinType!short) {
+			return handleBuiltinType!short();
+		}
+		
+		Expression visit(BuiltinType!ushort) {
+			return handleBuiltinType!ushort();
+		}
+		
+		Expression visit(BuiltinType!int) {
 			return handleBuiltinType!int();
 		}
 		
-		Expression visit(BuiltinType!uint t) {
+		Expression visit(BuiltinType!uint) {
 			return handleBuiltinType!uint();
 		}
 		
-		Expression visit(BuiltinType!long t) {
+		Expression visit(BuiltinType!long) {
 			return handleBuiltinType!long();
 		}
 		
-		Expression visit(BuiltinType!ulong t) {
+		Expression visit(BuiltinType!ulong) {
 			return handleBuiltinType!ulong();
 		}
 	}
@@ -226,27 +262,46 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			return (new CastToBuiltinType!T()).visit(e);
 		}
 		
-		Expression visit(BuiltinType!int t) {
+		Expression visit(BuiltinType!bool) {
+			return handleBuiltinType!bool();
+		}
+		
+		Expression visit(BuiltinType!byte) {
+			return handleBuiltinType!byte();
+		}
+		
+		Expression visit(BuiltinType!ubyte) {
+			return handleBuiltinType!ubyte();
+		}
+		
+		Expression visit(BuiltinType!short) {
+			return handleBuiltinType!short();
+		}
+		
+		Expression visit(BuiltinType!ushort) {
+			return handleBuiltinType!ushort();
+		}
+		
+		Expression visit(BuiltinType!int) {
 			return handleBuiltinType!int();
 		}
 		
-		Expression visit(BuiltinType!uint t) {
+		Expression visit(BuiltinType!uint) {
 			return handleBuiltinType!uint();
 		}
 		
-		Expression visit(BuiltinType!long t) {
+		Expression visit(BuiltinType!long) {
 			return handleBuiltinType!long();
 		}
 		
-		Expression visit(BuiltinType!ulong t) {
+		Expression visit(BuiltinType!ulong) {
 			return handleBuiltinType!ulong();
 		}
 	}
 	
-	// TODO: implement proper truncation, padding.
-	// TODO: handle destructive and non destructive casts.
 	return (new CastFrom()).visit(type);
 }
 
 alias buildCast!false buildImplicitCast;
 alias buildCast!true buildExplicitCast;
+

@@ -7,7 +7,7 @@ import d.ast.statement;
 import d.ast.type;
 
 // TODO: allow type change only for ambiguous types.
-class Expression : Statement, Namespace {
+class Expression : Node, Namespace {
 	Type type;
 	
 	this(Location location) {
@@ -15,7 +15,7 @@ class Expression : Statement, Namespace {
 	}
 	
 	this(Location location, Type type) {
-		super(location, StatementType.Expression);
+		super(location);
 		
 		this.type = type;
 	}
@@ -413,7 +413,7 @@ class IntegerLiteral(bool isSigned) : Expression {
 }
 
 import std.traits;
-auto makeIntegerLiteral(T)(Location location, T value) if(isIntegral!T) {
+auto makeIntegerLiteral(T)(Location location, T value) if(isIntegral!T || is(T : bool)) {
 	return new IntegerLiteral!(isSigned!T)(location, value, new BuiltinType!T(location));
 }
 
@@ -453,15 +453,6 @@ class ArrayLiteral : Expression {
 		super(location);
 		
 		this.values = values;
-	}
-}
-
-/**
- * Boolean literals
- */
-class BooleanLiteral(bool value) : Expression {
-	this(Location location) {
-		super(location);
 	}
 }
 

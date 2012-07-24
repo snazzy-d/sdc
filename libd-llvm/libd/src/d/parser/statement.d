@@ -291,7 +291,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				
 				default :
 					auto declaration = trange.parseDeclaration();
-					return new DeclarationStatement(declaration.location, declaration);
+					return new DeclarationStatement(declaration);
 			}
 		
 		case TokenType.Version :
@@ -303,12 +303,12 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		default :
 			if(trange.isDeclaration()) {
 				auto declaration = trange.parseDeclaration();
-				return new DeclarationStatement(declaration.location, declaration);
+				return new DeclarationStatement(declaration);
 			} else {
 				auto expression = trange.parseExpression();
 				trange.match(TokenType.Semicolon);
 				
-				return expression;
+				return new ExpressionStatement(expression);
 			}
 	}
 	
