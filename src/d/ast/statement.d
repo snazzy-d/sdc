@@ -63,17 +63,31 @@ class BlockStatement : Statement {
 }
 
 /**
+ * Expressions
+ */
+class ExpressionStatement : Statement {
+	Expression expression;
+	
+	this(Expression expression) {
+		super(expression.location, StatementType.Expression);
+		
+		this.expression = expression;
+	}
+}
+
+/**
  * Declarations
  */
 class DeclarationStatement : Statement {
 	Declaration declaration;
 	
-	this(Location location, Declaration declaration) {
-		super(location, StatementType.Declaration);
+	this(Declaration declaration) {
+		super(declaration.location, StatementType.Declaration);
 		
 		this.declaration = declaration;
 	}
 }
+
 
 /**
  * if statements

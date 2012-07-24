@@ -193,6 +193,15 @@ final:
 		return LLVMBuildOp(builder, visit(e.lhs), visit(e.rhs), "");
 	}
 	
+	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp, BinaryExpression)(BinaryExpression e) {
+		typeGen.visit(e.type);
+		if(typeGen.isSigned) {
+			return handleBinaryOp!LLVMSignedBuildOp(e);
+		} else {
+			return handleBinaryOp!LLVMUnsignedBuildOp(e);
+		}
+	}
+	
 	LLVMValueRef visit(AddExpression add) {
 		return handleBinaryOp!LLVMBuildAdd(add);
 	}
@@ -206,13 +215,11 @@ final:
 	}
 	
 	LLVMValueRef visit(DivExpression div) {
-		// Check signed/unsigned.
-		return handleBinaryOp!LLVMBuildSDiv(div);
+		return handleBinaryOp!(LLVMBuildSDiv, LLVMBuildUDiv)(div);
 	}
 	
 	LLVMValueRef visit(ModExpression mod) {
-		// Check signed/unsigned.
-		return handleBinaryOp!LLVMBuildSRem(mod);
+		return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(mod);
 	}
 	
 	LLVMValueRef visit(IdentifierExpression e) {
@@ -229,25 +236,49 @@ final:
 		})(e);
 	}
 	
+	private auto handleComparaison(LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate, BinaryExpression)(BinaryExpression e) {
+		typeGen.visit(e.type);
+		if(typeGen.isSigned) {
+			return handleComparaison!signedPredicate(e);
+		} else {
+			return handleComparaison!unsignedPredicate(e);
+		}
+	}
+	
+	LLVMValueRef visit(EqualityExpression e) {
+		return handleComparaison!(LLVMIntPredicate.EQ)(e);
+	}
+	
+	LLVMValueRef visit(NotEqualityExpression e) {
+		return handleComparaison!(LLVMIntPredicate.NE)(e);
+	}
+	
 	// TODO: handled signed and unsigned !
 	LLVMValueRef visit(LessExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLT)(e);
+		return handleComparaison!(LLVMIntPredicate.SLT, LLVMIntPredicate.ULT)(e);
 	}
 	
 	LLVMValueRef visit(LessEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLE)(e);
+		return handleComparaison!(LLVMIntPredicate.SLE, LLVMIntPredicate.ULE)(e);
 	}
 	
 	LLVMValueRef visit(GreaterExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGT)(e);
+		return handleComparaison!(LLVMIntPredicate.SGT, LLVMIntPredicate.UGT)(e);
 	}
 	
 	LLVMValueRef visit(GreaterEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGE)(e);
+		return handleComparaison!(LLVMIntPredicate.SGE, LLVMIntPredicate.UGE)(e);
 	}
 	
 	LLVMValueRef visit(PadExpression e) {
-		return LLVMBuildSExt(builder, visit(e.expression), typeGen.visit(e.type), "");
+		auto type = typeGen.visit(e.type);
+		
+		typeGen.visit(e.expression.type);
+		if(typeGen.isSigned) {
+			return LLVMBuildSExt(builder, visit(e.expression), type, "");
+		} else {
+			return LLVMBuildZExt(builder, visit(e.expression), type, "");
+		}
 	}
 	
 	LLVMValueRef visit(TruncateExpression e) {
@@ -258,23 +289,55 @@ final:
 import d.ast.type;
 
 class TypeGen {
+	bool isSigned;
+	
 	LLVMTypeRef visit(Type t) {
+		isSigned = true;
 		return this.dispatch(t);
 	}
 	
+	LLVMTypeRef visit(BuiltinType!bool) {
+		isSigned = false;
+		return LLVMInt1Type();
+	}
+	
+	LLVMTypeRef visit(BuiltinType!byte) {
+		isSigned = true;
+		return LLVMInt8Type();
+	}
+	
+	LLVMTypeRef visit(BuiltinType!ubyte) {
+		isSigned = false;
+		return LLVMInt8Type();
+	}
+	
+	LLVMTypeRef visit(BuiltinType!short) {
+		isSigned = true;
+		return LLVMInt16Type();
+	}
+	
+	LLVMTypeRef visit(BuiltinType!ushort) {
+		isSigned = false;
+		return LLVMInt16Type();
+	}
+	
 	LLVMTypeRef visit(BuiltinType!int) {
+		isSigned = true;
 		return LLVMInt32Type();
 	}
 	
 	LLVMTypeRef visit(BuiltinType!uint) {
+		isSigned = false;
 		return LLVMInt32Type();
 	}
 	
 	LLVMTypeRef visit(BuiltinType!long) {
+		isSigned = true;
 		return LLVMInt64Type();
 	}
 	
 	LLVMTypeRef visit(BuiltinType!ulong) {
+		isSigned = false;
 		return LLVMInt64Type();
 	}
 }
