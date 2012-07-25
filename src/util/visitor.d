@@ -8,7 +8,7 @@ private U fastCast(U, T)(ref T t) if(is(T == class) && is(U : T)) {
 
 // XXX: is @trusted if visitor.visit is @safe .
 auto dispatch(
-	alias unhandled = (t){
+	alias unhandled = function typeof(null)(t){
 		throw new Exception(typeid(t).toString() ~ " is not supported.");
 	}, V, T
 )(ref V visitor, ref T t) if(is(T == class)) {
@@ -29,9 +29,11 @@ auto dispatch(
 		}
 	}
 	
-	// TODO: allow unhandled to return something.
-	unhandled(t);
-	assert(0);
+	static if(is(typeof(return) == void)) {
+		unhandled(t);
+	} else {
+		return unhandled(t);
+	}
 }
 
 auto accept(T, V)(ref T t, ref V visitor) {

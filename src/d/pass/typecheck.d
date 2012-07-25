@@ -41,7 +41,7 @@ final:
 		statementVisitor.visit(fun.fbody);
 	}
 	
-	// TODO: this should be gone at this point.
+	// TODO: this should be gone at this point (but isn't because flatten pass isn't implemented).
 	void visit(VariablesDeclaration decls) {
 		foreach(var; decls.variables) {
 			visit(var);
@@ -118,9 +118,17 @@ final:
 		return il;
 	}
 	
-	private auto handleBinaryExpression(BinaryExpression)(BinaryExpression e) {
+	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
+		
+		import std.algorithm;
+		static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
+			e.type = getPromotedType(e.lhs.type, e.rhs.type);
+			
+			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
+			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+		}
 		
 		return e;
 	}
@@ -175,6 +183,8 @@ final:
 	
 	Expression visit(IdentifierExpression ie) {
 		ie.type = declarationVisitor.variables[ie.identifier.name].type;
+		
+		auto tid = typeid(declarationVisitor.variables[ie.identifier.name].type);
 		
 		return ie;
 	}
@@ -304,4 +314,57 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 
 alias buildCast!false buildImplicitCast;
 alias buildCast!true buildExplicitCast;
+
+Type getPromotedType(Type t1, Type t2) {
+	auto location = t1.location;
+	location.spanTo(t2.location);
+	
+	class T2Handler(T) {
+		Type visit(Type t) {
+			return this.dispatch!((Type t){ return new BuiltinType!T(location); })(t);
+		}
+		
+		static if(T.sizeof <= uint.sizeof) {
+			Type visit(BuiltinType!uint) {
+				return new BuiltinType!uint(location);
+			}
+		}
+		
+		static if(T.sizeof < long.sizeof) {
+			Type visit(BuiltinType!long) {
+				return new BuiltinType!long(location);
+			}
+		}
+		
+		static if(T.sizeof <= long.sizeof) {
+			Type visit(BuiltinType!ulong) {
+				return new BuiltinType!ulong(location);
+			}
+		}
+	}
+	
+	class T1Handler {
+		Type visit(Type t) {
+			return this.dispatch!((Type t){ return handleBuiltinType!int(); })(t);
+		}
+		
+		private auto handleBuiltinType(T)() if(is(BuiltinType!T)) {
+			return (new T2Handler!T()).visit(t2);
+		}
+		
+		Type visit(BuiltinType!uint) {
+			return handleBuiltinType!uint();
+		}
+		
+		Type visit(BuiltinType!long) {
+			return handleBuiltinType!long();
+		}
+		
+		Type visit(BuiltinType!ulong) {
+			return handleBuiltinType!ulong();
+		}
+	}
+	
+	return (new T1Handler()).visit(t1);
+}
 
