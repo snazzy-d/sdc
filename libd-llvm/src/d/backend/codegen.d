@@ -34,7 +34,12 @@ class DeclarationGen {
 	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
-	LLVMValueRef[string] variables;
+	struct VariableEntry {
+		LLVMValueRef value;
+		LLVMValueRef address;
+	}
+	
+	VariableEntry[string] variables;
 	
 	this(LLVMModuleRef dmodule, LLVMBuilderRef builder) {
 		this.builder = builder;
@@ -85,11 +90,7 @@ final:
 		auto value = expressionGen.visit(var.value);
 		LLVMBuildStore(builder, value, alloca);
 		
-		//*
-		variables[var.name] = value;
-		/*/
-		variables[var.name] = alloca;
-		//*/
+		variables[var.name] = VariableEntry(value, alloca);
 	}
 }
 
@@ -114,6 +115,10 @@ final:
 	
 	void visit(DeclarationStatement d) {
 		declarationGen.visit(d.declaration);
+	}
+	
+	void visit(ExpressionStatement e) {
+		expressionGen.visit(e.expression);
 	}
 	
 	void visit(BlockStatement b) {
@@ -189,6 +194,18 @@ final:
 		return LLVMConstInt(typeGen.visit(il.type), il.value, false);
 	}
 	
+	LLVMValueRef visit(AssignExpression e) {
+		auto value = visit(e.rhs);
+		
+		auto lhs = cast(IdentifierExpression) e.lhs;
+		auto variable = &(declarationGen.variables[lhs.identifier.name]);
+		variable.value = value;
+		
+		LLVMBuildStore(builder, value, variable.address);
+		
+		return value;
+	}
+	
 	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
 		return LLVMBuildOp(builder, visit(e.lhs), visit(e.rhs), "");
 	}
@@ -223,11 +240,7 @@ final:
 	}
 	
 	LLVMValueRef visit(IdentifierExpression e) {
-		//*
-		return declarationGen.variables[e.identifier.name];
-		/*/
-		return LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
-		//*/
+		return declarationGen.variables[e.identifier.name].value;
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
