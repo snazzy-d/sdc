@@ -52,7 +52,7 @@ class BinaryExpression(string operator) : Expression {
 				type = rhs.type;
 				break;
 			
-			case "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "~=", "<<=", ">>=", ">>>=", "^^=", "<<", ">>", ">>>", "^^" :
+			case "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "~=", "<<=", ">>=", ">>>=", "^^=", "<<", ">>", ">>>", "^^", "~" :
 				type = lhs.type;
 				break;
 			
@@ -61,11 +61,6 @@ class BinaryExpression(string operator) : Expression {
 				break;
 			
 			case "&", "|", "^", "+", "-", "*", "/", "%" :
-				// TODO: pick the biggest type, and promote to unsigned if both signed and unisgned are used.
-				type = new AutoType(location);
-				break;
-			
-			case "~" :
 				type = new AutoType(location);
 				break;
 			
