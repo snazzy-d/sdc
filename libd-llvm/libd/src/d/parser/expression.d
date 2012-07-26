@@ -423,11 +423,11 @@ private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 			break;
 		
 		case TokenType.DoublePlus :
-			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixInc))();
+			processToken!PreIncrementExpression();
 			break;
 		
 		case TokenType.DoubleDash :
-			processToken!(OpAssignUnaryExpression!(UnaryPrefix.PrefixDec))();
+			processToken!PreDecrementExpression();
 			break;
 		
 		case TokenType.Asterix :
@@ -435,11 +435,11 @@ private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 			break;
 		
 		case TokenType.Plus :
-			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryPlus))();
+			processToken!UnaryPlusExpression();
 			break;
 		
 		case TokenType.Dash :
-			processToken!(OperationUnaryExpression!(UnaryPrefix.UnaryMinus))();
+			processToken!UnaryMinusExpression();
 			break;
 		
 		case TokenType.Bang :
@@ -447,7 +447,7 @@ private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 			break;
 		
 		case TokenType.Tilde :
-			processToken!CompelementExpression();
+			processToken!ComplementExpression();
 			break;
 		
 		// TODO: parse qualifier casts.
