@@ -37,7 +37,7 @@ class LLVMBackend : Backend {
 			}
 			
 			LLVMValueRef fun;
-			auto notFound = LLVMFindFunction(ee, cast(char*) "main".ptr, &fun);
+			auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
 			if(notFound) {
 				writeln("No main, no gain.");
 				return;

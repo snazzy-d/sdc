@@ -87,6 +87,9 @@ void compile(string filename) {
 	import d.pass.typecheck;
 	ast = typeCheck(ast);
 	
+	import d.pass.main;
+	ast = buildMain(ast);
+	
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
 	backend.codeGen([ast]);
