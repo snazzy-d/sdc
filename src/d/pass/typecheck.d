@@ -201,7 +201,14 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 	// TODO: make that a struct to avoid useless memory allocations.
 	class CastToBuiltinType(T) {
 		Expression visit(Expression e) {
-			return this.dispatch(e.type);
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(e.type);
 		}
 		
 		private Expression handleBuiltinType(U)() {
@@ -265,7 +272,14 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 	// dito
 	class CastFrom {
 		Expression visit(Type t) {
-			return this.dispatch(t);
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
 		}
 		
 		private auto handleBuiltinType(T)() if(is(BuiltinType!T)) {

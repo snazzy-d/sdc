@@ -144,140 +144,57 @@ alias BinaryExpression!"!<>=" UnorderedExpression;
 /**
  * Unary Prefix Expression types.
  */
-enum UnaryPrefix {
-	None,
-	AddressOf,  // &
-	PrefixInc,  // ++
-	PrefixDec,  // --
-	Dereference,  // *
-	UnaryPlus,  // +
-	UnaryMinus,  // -
-	LogicalNot,  // !
-	BitwiseNot,  // ~
-	Cast,  // cast (type) unaryExpr
-	Delete,
-}
-
-
-class PrefixUnaryExpression : Expression {
+class PrefixUnaryExpression(string operation) : Expression {
 	Expression expression;
-	UnaryPrefix operation;
 	
-	this(Location location, UnaryPrefix operation, Expression expression) {
-		super(location);
+	this(Location location, Expression expression) {
+		Type type;
+		switch(operation) {
+			case "&", "*", "-" :
+				type = new AutoType(location);
+				break;
+			
+			case "++", "--", "+" :
+				type = expression.type;
+			
+			case "!" :
+				type = new BuiltinType!bool(location);
+			
+			default :
+				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
+		}
+		
+		this(location, new AutoType(location), expression);
+	}
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, type);
 		
 		this.expression = expression;
-		this.operation = operation;
 	}
 }
 
-/**
- * Unary &
- */
-class AddressOfExpression : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, UnaryPrefix.AddressOf, expression);
-	}
-}
+alias PrefixUnaryExpression!"&" AddressOfExpression;
+alias PrefixUnaryExpression!"*" DereferenceExpression;
 
-/**
- * Prefixed ++ and --
- */
-class OpAssignUnaryExpression(UnaryPrefix operation) if(
-	operation == UnaryPrefix.PrefixInc
-	|| operation == UnaryPrefix.PrefixDec
-) : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, operation, expression);
-	}
-}
+alias PrefixUnaryExpression!"++" PreIncrementExpression;
+alias PrefixUnaryExpression!"--" PreDecrementExpression;
 
-/**
- * Unary *
- */
-class DereferenceExpression : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, UnaryPrefix.Dereference, expression);
-	}
-}
+alias PrefixUnaryExpression!"+" UnaryPlusExpression;
+alias PrefixUnaryExpression!"-" UnaryMinusExpression;
 
-/**
- * Unary + and -
- */
-class OperationUnaryExpression(UnaryPrefix operation) if(
-	operation == UnaryPrefix.UnaryPlus
-	|| operation == UnaryPrefix.UnaryMinus
-) : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, operation, expression);
-	}
-}
+alias PrefixUnaryExpression!"!" LogicalNotExpression;
+alias PrefixUnaryExpression!"!" NotExpression;
 
-/**
- * !
- */
-class NotExpression : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, UnaryPrefix.LogicalNot, expression);
-	}
-}
+alias PrefixUnaryExpression!"~" BitwiseNotExpression;
+alias PrefixUnaryExpression!"~" ComplementExpression;
 
-/**
- * Unary ~
- */
-class CompelementExpression : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, UnaryPrefix.BitwiseNot, expression);
-	}
-}
+alias PrefixUnaryExpression!"cast" CastExpression;
+alias PrefixUnaryExpression!"pad" PadExpression;
+alias PrefixUnaryExpression!"trunc" TruncateExpression;
 
-/**
- * cast(type)
- */
-class CastExpression : PrefixUnaryExpression {
-	Type type;
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, UnaryPrefix.Cast, expression);
-		
-		this.type = type;
-	}
-}
-
-/**
- * cast from a small type to a bigger one (int to long for instance).
- */
-class PadExpression : PrefixUnaryExpression {
-	Type type;
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, UnaryPrefix.Cast, expression);
-		
-		this.type = type;
-	}
-}
-
-/**
- * cast from a big type to a smaller one (long to int for instance).
- */
-class TruncateExpression : PrefixUnaryExpression {
-	Type type;
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, UnaryPrefix.Cast, expression);
-		
-		this.type = type;
-	}
-}
-
-/**
- * delete
- */
-class DeleteExpression : PrefixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, UnaryPrefix.Delete, expression);
-	}
-}
+// FIXME: make this a statement.
+alias PrefixUnaryExpression!"delete" DeleteExpression;
 
 /**
  * Unary Postfix Expression types.
