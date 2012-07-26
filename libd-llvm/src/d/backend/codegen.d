@@ -55,9 +55,7 @@ final:
 	}
 	
 	void visit(FunctionDefinition f) {
-		assert(f.name == "main", "Only main can be compiled !");
-		
-		auto funType = LLVMFunctionType(LLVMInt32Type(), null, 0, false);
+		auto funType = LLVMFunctionType(typeGen.visit(f.returnType), null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, toStringz(f.name), funType);
 		
 		// Instruction block.
