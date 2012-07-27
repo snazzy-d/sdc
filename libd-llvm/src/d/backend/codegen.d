@@ -16,9 +16,14 @@ auto codeGen(Module m) {
 	// Dump module content on exit (for debug purpose).
 	scope(exit) LLVMDumpModule(dmodule);
 	
-	auto cg = new DeclarationGen(dmodule, builder);
+	auto fg = new FunctionGen(builder, dmodule);
 	foreach(decl; m.declarations) {
-		cg.visit(decl);
+		fg.visit(decl);
+	}
+	
+	auto dg = new DeclarationDefGen(builder, dmodule);
+	foreach(decl; m.declarations) {
+		dg.visit(decl);
 	}
 	
 	return dmodule;
@@ -26,6 +31,60 @@ auto codeGen(Module m) {
 
 import d.ast.declaration;
 import d.ast.dfunction;
+
+class FunctionGen {
+	private LLVMBuilderRef builder;
+	private LLVMModuleRef dmodule;
+	
+	private TypeGen typeGen;
+	
+	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
+		this.builder = builder;
+		this.dmodule = dmodule;
+		
+		typeGen = new TypeGen();
+	}
+	
+final:
+	void visit(Declaration d) {
+		this.dispatch!((Declaration d){})(d);
+	}
+	
+	void visit(FunctionDefinition fun) {
+		LLVMTypeRef[] parametersTypes;
+		parametersTypes.length = fun.parameters.length;
+		
+		foreach(i, p; fun.parameters) {
+			parametersTypes[i] = typeGen.visit(p.type);
+		}
+		
+		auto funType = LLVMFunctionType(typeGen.visit(fun.returnType), parametersTypes.ptr, cast(uint) parametersTypes.length, false);
+		LLVMAddFunction(dmodule, fun.name.toStringz(), funType);
+	}
+}
+
+class DeclarationDefGen {
+	private LLVMBuilderRef builder;
+	private LLVMModuleRef dmodule;
+	
+	private DeclarationGen declarationGen;
+	
+	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
+		this.builder = builder;
+		this.dmodule = dmodule;
+		
+		declarationGen = new DeclarationGen(builder, dmodule);
+	}
+	
+final:
+	void visit(Declaration d) {
+		this.dispatch(d);
+	}
+	
+	void visit(FunctionDefinition fun) {
+		declarationGen.visit(fun);
+	}
+}
 
 class DeclarationGen {
 	private LLVMBuilderRef builder;
@@ -41,7 +100,7 @@ class DeclarationGen {
 	
 	VariableEntry[string] variables;
 	
-	this(LLVMModuleRef dmodule, LLVMBuilderRef builder) {
+	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
 		this.builder = builder;
 		this.dmodule = dmodule;
 		
@@ -55,12 +114,35 @@ final:
 	}
 	
 	void visit(FunctionDefinition f) {
-		auto funType = LLVMFunctionType(typeGen.visit(f.returnType), null, 0, false);
-		auto fun = LLVMAddFunction(dmodule, toStringz(f.name), funType);
+		auto fun = LLVMGetNamedFunction(dmodule, f.name.toStringz());
 		
 		// Instruction block.
 		auto basicBlock = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
+		
+		variables.clear();
+		
+		LLVMValueRef[] params;
+		params.length = f.parameters.length;
+		LLVMGetParams(fun, params.ptr);
+		
+		// TODO: avoid computing that twice.
+		LLVMTypeRef[] paramTypes;
+		paramTypes.length = f.parameters.length;
+		
+		foreach(i, p; f.parameters) {
+			paramTypes[i] = typeGen.visit(p.type);
+		}
+		
+		foreach(i, p; f.parameters) {
+			if(auto asNamed = cast(NamedParameter) p) {
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], asNamed.name.toStringz());
+				auto value = params[i];
+				
+				LLVMBuildStore(builder, value, alloca);
+				variables[asNamed.name] = VariableEntry(value, alloca);
+			}
+		}
 		
 		(new StatementGen(builder, this, expressionGen)).visit(f.fbody);
 		
@@ -80,7 +162,7 @@ final:
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 		
 		// Create an alloca for this variable.
-		auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), "");
+		auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), var.name.toStringz());
 		
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
@@ -294,6 +376,18 @@ final:
 	
 	LLVMValueRef visit(TruncateExpression e) {
 		return LLVMBuildTrunc(builder, visit(e.expression), typeGen.visit(e.type), "");
+	}
+	
+	LLVMValueRef visit(CallExpression c) {
+		LLVMValueRef[] arguments;
+		arguments.length = c.arguments.length;
+		
+		foreach(i, arg; c.arguments) {
+			arguments[i] = visit(arg);
+		}
+		
+		auto name = toStringz((cast(IdentifierExpression) c.expression).identifier.name);
+		return LLVMBuildCall(builder, LLVMGetNamedFunction(declarationGen.dmodule, name), arguments.ptr, cast(uint) arguments.length, "");
 	}
 }
 
