@@ -8,9 +8,9 @@ module d.pass.typecheck;
 import d.ast.dmodule;
 
 Module typeCheck(Module m) {
-	auto cg = new DeclarationVisitor();
+	auto dv = new DeclarationDefVisitor();
 	foreach(decl; m.declarations) {
-		cg.visit(decl);
+		dv.visit(decl);
 	}
 	
 	return m;
@@ -20,6 +20,41 @@ import util.visitor;
 
 import d.ast.declaration;
 import d.ast.dfunction;
+
+class DeclarationDefVisitor {
+	private DeclarationVisitor declarationVisitor;
+	
+	this() {
+		declarationVisitor  = new DeclarationVisitor();
+	}
+	
+final:
+	void visit(Declaration d) {
+		this.dispatch(d);
+	}
+	
+	void visit(FunctionDefinition fun) {
+		declarationVisitor.variables.clear();
+		
+		class ParameterVisitor {
+			void visit(Parameter p) {
+				this.dispatch!((Parameter p){})(p);
+			}
+			
+			void visit(NamedParameter p) {
+				declarationVisitor.variables[p.name] = new VariableDeclaration(p.location, p.type, p.name, null);
+			}
+		}
+		
+		auto pv = new ParameterVisitor();
+		
+		foreach(p; fun.parameters) {
+			pv.visit(p);
+		}
+		
+		declarationVisitor.visit(fun);
+	}
+}
 
 class DeclarationVisitor {
 	private StatementVisitor statementVisitor;
@@ -191,6 +226,11 @@ final:
 	
 	Expression visit(CastExpression e) {
 		return buildExplicitCast(e.location, e.type, visit(e.expression));
+	}
+	
+	Expression visit(CallExpression c) {
+		// Do the appropriate thing.
+		return c;
 	}
 }
 
