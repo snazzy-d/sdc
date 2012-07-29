@@ -76,12 +76,63 @@ class BasicType : SimpleStorageClassType {
 
 import std.traits;
 template isBuiltin(T) {
-	enum bool isBuiltin = isNumeric!T || isSomeChar!T || is(Unqual!T == bool) || is(Unqual!T == void);
+	enum bool isBuiltin = isSomeChar!T || isFloatingPoint!T || is(Unqual!T == void);
 }
 
 class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
 	this(Location location) {
 		super(location);
+	}
+}
+
+/**
+ * Built in types.
+ */
+enum Integer {
+	Bool,
+	Byte,
+	Ubyte,
+	Short,
+	Ushort,
+	Int,
+	Uint,
+	Long,
+	Ulong,
+}
+
+template IntegerOf(T) {
+	static if(!is(T == Unqual!T)) {
+		enum IntegerOf = IntegerOf!(Unqual!T);
+	} else static if(is(T == bool)) {
+		enum IntegerOf = Integer.Bool;
+	} else static if(is(T == byte)) {
+		enum IntegerOf = Integer.Byte;
+	} else static if(is(T == ubyte)) {
+		enum IntegerOf = Integer.Ubyte;
+	} else static if(is(T == short)) {
+		enum IntegerOf = Integer.Short;
+	} else static if(is(T == ushort)) {
+		enum IntegerOf = Integer.Ushort;
+	} else static if(is(T == int)) {
+		enum IntegerOf = Integer.Int;
+	} else static if(is(T == uint)) {
+		enum IntegerOf = Integer.Uint;
+	} else static if(is(T == long)) {
+		enum IntegerOf = Integer.Long;
+	} else static if(is(T == ulong)) {
+		enum IntegerOf = Integer.Ulong;
+	} else {
+		static assert(0, T.stringof ~ " isn't a valid integer type.");
+	}
+}
+
+class IntegerType : BasicType {
+	Integer type;
+	
+	this(Location location, Integer type) {
+		super(location);
+		
+		this.type = type;
 	}
 }
 

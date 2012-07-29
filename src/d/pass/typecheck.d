@@ -159,7 +159,7 @@ final:
 		
 		import std.algorithm;
 		static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
-			e.type = getPromotedType(e.lhs.type, e.rhs.type);
+			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
 			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
@@ -239,7 +239,13 @@ import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
 	// TODO: make that a struct to avoid useless memory allocations.
-	class CastToBuiltinType(T) {
+	class CastToBuiltinType {
+		Integer t1type;
+		
+		this(Integer t1type) {
+			this.t1type = t1type;
+		}
+		
 		Expression visit(Expression e) {
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -272,40 +278,17 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			}
 		}
 		
-		Expression visit(BuiltinType!bool) {
-			return handleBuiltinType!bool();
-		}
-		
-		Expression visit(BuiltinType!byte) {
-			return handleBuiltinType!byte();
-		}
-		
-		Expression visit(BuiltinType!ubyte) {
-			return handleBuiltinType!ubyte();
-		}
-		
-		Expression visit(BuiltinType!short) {
-			return handleBuiltinType!short();
-		}
-		
-		Expression visit(BuiltinType!ushort) {
-			return handleBuiltinType!ushort();
-		}
-		
-		Expression visit(BuiltinType!int) {
-			return handleBuiltinType!int();
-		}
-		
-		Expression visit(BuiltinType!uint) {
-			return handleBuiltinType!uint();
-		}
-		
-		Expression visit(BuiltinType!long) {
-			return handleBuiltinType!long();
-		}
-		
-		Expression visit(BuiltinType!ulong) {
-			return handleBuiltinType!ulong();
+		Expression visit(IntegerType t) {
+			if(t1type == t.type) {
+				return e;
+			} else if(t1type > t.type) {
+				return new PadExpression(location, type, e);
+			} else static if(isExplicit) {
+				return new TruncateExpression(location, type, e);
+			} else {
+				import std.conv;
+				assert(0, "implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
+			}
 		}
 	}
 	
@@ -322,44 +305,8 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			})(t);
 		}
 		
-		private auto handleBuiltinType(T)() if(is(BuiltinType!T)) {
-			return (new CastToBuiltinType!T()).visit(e);
-		}
-		
-		Expression visit(BuiltinType!bool) {
-			return handleBuiltinType!bool();
-		}
-		
-		Expression visit(BuiltinType!byte) {
-			return handleBuiltinType!byte();
-		}
-		
-		Expression visit(BuiltinType!ubyte) {
-			return handleBuiltinType!ubyte();
-		}
-		
-		Expression visit(BuiltinType!short) {
-			return handleBuiltinType!short();
-		}
-		
-		Expression visit(BuiltinType!ushort) {
-			return handleBuiltinType!ushort();
-		}
-		
-		Expression visit(BuiltinType!int) {
-			return handleBuiltinType!int();
-		}
-		
-		Expression visit(BuiltinType!uint) {
-			return handleBuiltinType!uint();
-		}
-		
-		Expression visit(BuiltinType!long) {
-			return handleBuiltinType!long();
-		}
-		
-		Expression visit(BuiltinType!ulong) {
-			return handleBuiltinType!ulong();
+		Expression visit(IntegerType t) {
+			return (new CastToBuiltinType(t.type)).visit(e);
 		}
 	}
 	
@@ -369,53 +316,37 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 alias buildCast!false buildImplicitCast;
 alias buildCast!true buildExplicitCast;
 
-Type getPromotedType(Type t1, Type t2) {
-	auto location = t1.location;
-	location.spanTo(t2.location);
-	
-	class T2Handler(T) {
+Type getPromotedType(Location location, Type t1, Type t2) {
+	class T2Handler {
+		Integer t1type;
+		
+		this(Integer t1type) {
+			this.t1type = t1type;
+		}
+		
 		Type visit(Type t) {
-			return this.dispatch!((Type t){ return new BuiltinType!T(location); })(t);
+			return this.dispatch(t);
 		}
 		
-		static if(T.sizeof <= uint.sizeof) {
-			Type visit(BuiltinType!uint) {
-				return new BuiltinType!uint(location);
-			}
-		}
-		
-		static if(T.sizeof < long.sizeof) {
-			Type visit(BuiltinType!long) {
-				return new BuiltinType!long(location);
-			}
-		}
-		
-		static if(T.sizeof <= long.sizeof) {
-			Type visit(BuiltinType!ulong) {
-				return new BuiltinType!ulong(location);
-			}
+		Type visit(IntegerType t) {
+			import std.algorithm;
+			return new IntegerType(location, max(t1type, t.type));
 		}
 	}
 	
 	class T1Handler {
 		Type visit(Type t) {
-			return this.dispatch!((Type t){ return handleBuiltinType!int(); })(t);
+			return this.dispatch(t);
 		}
 		
-		private auto handleBuiltinType(T)() if(is(BuiltinType!T)) {
-			return (new T2Handler!T()).visit(t2);
-		}
-		
-		Type visit(BuiltinType!uint) {
-			return handleBuiltinType!uint();
-		}
-		
-		Type visit(BuiltinType!long) {
-			return handleBuiltinType!long();
-		}
-		
-		Type visit(BuiltinType!ulong) {
-			return handleBuiltinType!ulong();
+		Type visit(IntegerType t) {
+			final switch(t.type) {
+				case Integer.Bool, Integer.Byte, Integer.Ubyte, Integer.Short, Integer.Ushort, Integer.Int :
+					return (new T2Handler(Integer.Int)).visit(t2);
+					
+				case Integer.Uint, Integer.Long, Integer.Ulong :
+					return (new T2Handler(t.type)).visit(t2);
+			}
 		}
 	}
 	

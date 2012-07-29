@@ -95,39 +95,39 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		// Basic types
 		case TokenType.Bool :
 			trange.popFront();
-			return new BuiltinType!bool(location);
+			return new IntegerType(location, Integer.Bool);
 		
 		case TokenType.Byte :
 			trange.popFront();
-			return new BuiltinType!byte(location);
+			return new IntegerType(location, Integer.Byte);
 		
 		case TokenType.Ubyte :
 			trange.popFront();
-			return new BuiltinType!ubyte(location);
+			return new IntegerType(location, Integer.Ubyte);
 		
 		case TokenType.Short :
 			trange.popFront();
-			return new BuiltinType!short(location);
+			return new IntegerType(location, Integer.Short);
 		
 		case TokenType.Ushort :
 			trange.popFront();
-			return new BuiltinType!ushort(location);
+			return new IntegerType(location, Integer.Ushort);
 		
 		case TokenType.Int :
 			trange.popFront();
-			return new BuiltinType!int(location);
+			return new IntegerType(location, Integer.Int);
 		
 		case TokenType.Uint :
 			trange.popFront();
-			return new BuiltinType!uint(location);
+			return new IntegerType(location, Integer.Uint);
 		
 		case TokenType.Long :
 			trange.popFront();
-			return new BuiltinType!long(location);
+			return new IntegerType(location, Integer.Long);
 		
 		case TokenType.Ulong :
 			trange.popFront();
-			return new BuiltinType!ulong(location);
+			return new IntegerType(location, Integer.Ulong);
 		
 /*		case TokenType.Cent :
 			trange.popFront();
