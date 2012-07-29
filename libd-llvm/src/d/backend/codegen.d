@@ -401,49 +401,25 @@ class TypeGen {
 		return this.dispatch(t);
 	}
 	
-	LLVMTypeRef visit(BuiltinType!bool) {
-		isSigned = false;
-		return LLVMInt1Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!byte) {
-		isSigned = true;
-		return LLVMInt8Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!ubyte) {
-		isSigned = false;
-		return LLVMInt8Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!short) {
-		isSigned = true;
-		return LLVMInt16Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!ushort) {
-		isSigned = false;
-		return LLVMInt16Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!int) {
-		isSigned = true;
-		return LLVMInt32Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!uint) {
-		isSigned = false;
-		return LLVMInt32Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!long) {
-		isSigned = true;
-		return LLVMInt64Type();
-	}
-	
-	LLVMTypeRef visit(BuiltinType!ulong) {
-		isSigned = false;
-		return LLVMInt64Type();
+	LLVMTypeRef visit(IntegerType t) {
+		isSigned = cast(bool) (t.type % 2);
+		
+		final switch(t.type) {
+				case Integer.Bool :
+					return LLVMInt1Type();
+				
+				case Integer.Byte, Integer.Ubyte :
+					return LLVMInt8Type();
+				
+				case Integer.Short, Integer.Ushort :
+					return LLVMInt16Type();
+				
+				case Integer.Int, Integer.Uint :
+					return LLVMInt32Type();
+				
+				case Integer.Long, Integer.Ulong :
+					return LLVMInt64Type();
+		}
 	}
 }
 
