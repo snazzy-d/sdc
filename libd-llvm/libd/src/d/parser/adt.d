@@ -179,7 +179,7 @@ Enum parseEnum(TokenRange)(ref TokenRange trange) {
 		
 		case TokenType.OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = new BuiltinType!uint(location);
+			type = new IntegerType(location, IntegerOf!uint);
 			break;
 		
 		default :

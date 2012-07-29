@@ -57,7 +57,7 @@ class BinaryExpression(string operator) : Expression {
 				break;
 			
 			case "||", "&&", "==", "!=", "is", "!is", "in", "!in", "<", "<=", ">", ">=", "<>", "<>=", "!<", "!<=", "!>", "!>=", "!<>", "!<>=" :
-				type = new BuiltinType!bool(location);
+				type = new IntegerType(location, IntegerOf!bool);
 				break;
 			
 			case "&", "|", "^", "+", "-", "*", "/", "%" :
@@ -158,7 +158,7 @@ class PrefixUnaryExpression(string operation) : Expression {
 				type = expression.type;
 			
 			case "!" :
-				type = new BuiltinType!bool(location);
+				type = new IntegerType(location, IntegerOf!bool);
 			
 			default :
 				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
@@ -326,7 +326,7 @@ class IntegerLiteral(bool isSigned) : Expression {
 
 import std.traits;
 auto makeIntegerLiteral(T)(Location location, T value) if(isIntegral!T || is(T : bool)) {
-	return new IntegerLiteral!(isSigned!T)(location, value, new BuiltinType!T(location));
+	return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(location, IntegerOf!T));
 }
 
 /**

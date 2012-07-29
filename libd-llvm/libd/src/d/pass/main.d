@@ -40,12 +40,8 @@ class MainDetector {
 	}
 	
 	private auto handleMain(FunctionDefinition main) {
-		// Set the return type to int.
-		if(typeid({ return main.returnType; }()) !is typeid(BuiltinType!int)) {
-			main.returnType = new BuiltinType!int(main.returnType.location);
-			
-			// TODO: process function body to replace return; by return 0;
-		}
+		main.returnType = new IntegerType(main.returnType.location, IntegerOf!int);
+		// TODO: process function body to replace return; by return 0;
 		
 		main.name = "_Dmain";
 		
@@ -83,8 +79,8 @@ class ReturnTypeCheck {
 		return true;
 	}
 	
-	bool visit(BuiltinType!int) {
-		return true;
+	bool visit(IntegerType t) {
+		return t.type == IntegerOf!int;
 	}
 }
 
