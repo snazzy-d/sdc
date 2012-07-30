@@ -42,6 +42,7 @@ final:
 			}
 			
 			void visit(NamedParameter p) {
+				// FIXME: put the right init value instead of null. Null create NPE in that pass.
 				declarationVisitor.variables[p.name] = new VariableDeclaration(p.location, p.type, p.name, null);
 			}
 		}
@@ -61,6 +62,7 @@ class DeclarationVisitor {
 	private ExpressionVisitor expressionVisitor;
 	
 	VariableDeclaration[string] variables;
+	Type returnType;
 	
 	this() {
 		expressionVisitor = new ExpressionVisitor(this);
@@ -73,6 +75,7 @@ final:
 	}
 	
 	void visit(FunctionDefinition fun) {
+		returnType = fun.returnType;
 		statementVisitor.visit(fun.fbody);
 	}
 	
@@ -128,6 +131,10 @@ final:
 	
 	void visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
+		
+		if(typeid({ return r.value.type; }()) !is typeid(AutoType)) {
+			r.value = buildImplicitCast(r.location, declarationVisitor.returnType, r.value);
+		}
 	}
 }
 
@@ -151,6 +158,14 @@ final:
 	
 	Expression visit(IntegerLiteral!false il) {
 		return il;
+	}
+	
+	Expression visit(FloatLiteral fl) {
+		return fl;
+	}
+	
+	Expression visit(CharacterLiteral cl) {
+		return cl;
 	}
 	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
@@ -219,9 +234,36 @@ final:
 	Expression visit(IdentifierExpression ie) {
 		ie.type = declarationVisitor.variables[ie.identifier.name].type;
 		
-		auto tid = typeid(declarationVisitor.variables[ie.identifier.name].type);
-		
 		return ie;
+	}
+	
+	private auto handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
+		auto oldType = e.expression.type;
+		
+		e.expression = visit(e.expression);
+		
+		// If type as been update, we update the current expression type too.
+		if(oldType !is e.expression.type) {
+			e.type = e.expression.type;
+		}
+		
+		return e;
+	}
+	
+	Expression visit(PreIncrementExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(PreDecrementExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(PostIncrementExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(PostDecrementExpression e) {
+		return handleUnaryExpression(e);
 	}
 	
 	Expression visit(CastExpression e) {
@@ -229,7 +271,10 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		// Do the appropriate thing.
+		foreach(i, arg; c.arguments) {
+			c.arguments[i] = visit(arg);
+		}
+		
 		return c;
 	}
 }
@@ -239,7 +284,7 @@ import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
 	// TODO: make that a struct to avoid useless memory allocations.
-	class CastToBuiltinType {
+	final class CastToIntegerType {
 		Integer t1type;
 		
 		this(Integer t1type) {
@@ -257,27 +302,6 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			})(e.type);
 		}
 		
-		private Expression handleBuiltinType(U)() {
-			static if(is(U == T)) {
-				// Casting to the same type is a noop.
-				return e;
-			} else static if(T.sizeof > U.sizeof) {
-				// pad.
-				return new PadExpression(location, type, e);
-			} else static if(T.sizeof == U.sizeof) {
-				throw new Exception("sign change is not supported");
-			} else static if(is(T == bool)) {
-				// Handle cast to bool
-				throw new Exception("cast to bool is not supported");
-			} else static if(isExplicit) {
-				static assert(T.sizeof < U.sizeof);
-				
-				return new TruncateExpression(location, type, e);
-			} else {
-				assert(0, "implicit cast from " ~ U.stringof ~ " to " ~ T.stringof ~ " is not allowed");
-			}
-		}
-		
 		Expression visit(IntegerType t) {
 			if(t1type == t.type) {
 				return e;
@@ -287,13 +311,76 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				return new TruncateExpression(location, type, e);
 			} else {
 				import std.conv;
-				assert(0, "implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
+				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
 			}
 		}
 	}
 	
-	// dito
-	class CastFrom {
+	final class CastToFloatType {
+		Float t1type;
+		
+		this(Float t1type) {
+			this.t1type = t1type;
+		}
+		
+		Expression visit(Expression e) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(e.type);
+		}
+		
+		Expression visit(FloatType t) {
+			if(t1type == t.type) {
+				return e;
+			} else if(t1type > t.type) {
+				return new PadExpression(location, type, e);
+			} else static if(isExplicit) {
+				return new TruncateExpression(location, type, e);
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
+			}
+		}
+	}
+	
+	final class CastToCharacterType {
+		Character t1type;
+		
+		this(Character t1type) {
+			this.t1type = t1type;
+		}
+		
+		Expression visit(Expression e) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(e.type);
+		}
+		
+		Expression visit(CharacterType t) {
+			if(t1type == t.type) {
+				return e;
+			} else if(t1type > t.type) {
+				return new PadExpression(location, type, e);
+			} else static if(isExplicit) {
+				return new TruncateExpression(location, type, e);
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
+			}
+		}
+	}
+	
+	final class CastTo {
 		Expression visit(Type t) {
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -306,18 +393,26 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(IntegerType t) {
-			return (new CastToBuiltinType(t.type)).visit(e);
+			return (new CastToIntegerType(t.type)).visit(e);
+		}
+		
+		Expression visit(FloatType t) {
+			return (new CastToFloatType(t.type)).visit(e);
+		}
+		
+		Expression visit(CharacterType t) {
+			return (new CastToCharacterType(t.type)).visit(e);
 		}
 	}
 	
-	return (new CastFrom()).visit(type);
+	return (new CastTo()).visit(type);
 }
 
 alias buildCast!false buildImplicitCast;
 alias buildCast!true buildExplicitCast;
 
 Type getPromotedType(Location location, Type t1, Type t2) {
-	class T2Handler {
+	final class T2Handler {
 		Integer t1type;
 		
 		this(Integer t1type) {
@@ -334,19 +429,18 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		}
 	}
 	
-	class T1Handler {
+	final class T1Handler {
 		Type visit(Type t) {
 			return this.dispatch(t);
 		}
 		
 		Type visit(IntegerType t) {
-			final switch(t.type) {
-				case Integer.Bool, Integer.Byte, Integer.Ubyte, Integer.Short, Integer.Ushort, Integer.Int :
-					return (new T2Handler(Integer.Int)).visit(t2);
-					
-				case Integer.Uint, Integer.Long, Integer.Ulong :
-					return (new T2Handler(t.type)).visit(t2);
+			// Type smaller than int are promoted to int.
+			if(t.type <= Integer.Int) {
+				return (new T2Handler(Integer.Int)).visit(t2);
 			}
+			
+			return (new T2Handler(t.type)).visit(t2);
 		}
 	}
 	

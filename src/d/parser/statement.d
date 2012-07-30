@@ -135,7 +135,9 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				
 				trange.match(TokenType.Identifier);
 				
-				return new VariableDeclaration(elementLocation, type, name, null);
+				assert(0, "yada yada foreach ?");
+				
+				// return new VariableDeclaration(elementLocation, type, name, ARGUMENT?);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];

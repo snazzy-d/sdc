@@ -263,7 +263,14 @@ class ExpressionGen {
 	
 final:
 	LLVMValueRef visit(Expression e) {
-		return this.dispatch(e);
+		return this.dispatch!(function LLVMValueRef(Expression e) {
+			auto msg = typeid(e).toString() ~ " is not supported.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(e.location, msg);
+			
+			assert(0, msg);
+		})(e);
 	}
 	
 	LLVMValueRef visit(IntegerLiteral!true il) {
@@ -274,14 +281,71 @@ final:
 		return LLVMConstInt(typeGen.visit(il.type), il.value, false);
 	}
 	
-	LLVMValueRef visit(AssignExpression e) {
-		auto value = visit(e.rhs);
-		
-		auto lhs = cast(IdentifierExpression) e.lhs;
-		auto variable = &(declarationGen.variables[lhs.identifier.name]);
+	LLVMValueRef visit(FloatLiteral fl) {
+		return LLVMConstReal(typeGen.visit(fl.type), fl.value);
+	}
+	
+	// XXX: character types in backend ?
+	LLVMValueRef visit(CharacterLiteral cl) {
+		return LLVMConstInt(typeGen.visit(cl.type), cl.value[0], false);
+	}
+	
+	private void updateVariableValue(string name, LLVMValueRef value) {
+		auto variable = &(declarationGen.variables[name]);
 		variable.value = value;
 		
 		LLVMBuildStore(builder, value, variable.address);
+	}
+	
+	LLVMValueRef visit(AssignExpression e) {
+		auto value = visit(e.rhs);
+		auto lhs = cast(IdentifierExpression) e.lhs;
+		
+		updateVariableValue(lhs.identifier.name, value);
+		
+		return value;
+	}
+	
+	LLVMValueRef visit(PreIncrementExpression e) {
+		auto value = visit(e.expression);
+		auto lvalue = cast(IdentifierExpression) e.expression;
+		
+		value = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		
+		updateVariableValue(lvalue.identifier.name, value);
+		
+		return value;
+	}
+	
+	LLVMValueRef visit(PreDecrementExpression e) {
+		auto value = visit(e.expression);
+		auto lvalue = cast(IdentifierExpression) e.expression;
+		
+		value = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		
+		updateVariableValue(lvalue.identifier.name, value);
+		
+		return value;
+	}
+	
+	LLVMValueRef visit(PostIncrementExpression e) {
+		auto value = visit(e.expression);
+		auto lvalue = cast(IdentifierExpression) e.expression;
+		
+		auto updatedValue = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		
+		updateVariableValue(lvalue.identifier.name, updatedValue);
+		
+		return value;
+	}
+	
+	LLVMValueRef visit(PostDecrementExpression e) {
+		auto value = visit(e.expression);
+		auto lvalue = cast(IdentifierExpression) e.expression;
+		
+		auto updatedValue = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		
+		updateVariableValue(lvalue.identifier.name, updatedValue);
 		
 		return value;
 	}
@@ -346,7 +410,6 @@ final:
 		return handleComparaison!(LLVMIntPredicate.NE)(e);
 	}
 	
-	// TODO: handled signed and unsigned !
 	LLVMValueRef visit(LessExpression e) {
 		return handleComparaison!(LLVMIntPredicate.SLT, LLVMIntPredicate.ULT)(e);
 	}
@@ -386,7 +449,7 @@ final:
 			arguments[i] = visit(arg);
 		}
 		
-		auto name = toStringz((cast(IdentifierExpression) c.expression).identifier.name);
+		auto name = toStringz((cast(IdentifierExpression) c.callee).identifier.name);
 		return LLVMBuildCall(builder, LLVMGetNamedFunction(declarationGen.dmodule, name), arguments.ptr, cast(uint) arguments.length, "");
 	}
 }
@@ -396,9 +459,16 @@ import d.ast.type;
 class TypeGen {
 	bool isSigned;
 	
+final:
 	LLVMTypeRef visit(Type t) {
-		isSigned = true;
-		return this.dispatch(t);
+		return this.dispatch!(function LLVMTypeRef(Type t) {
+			auto msg = typeid(t).toString() ~ " is not supported.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(t.location, msg);
+			
+			assert(0, msg);
+		})(t);
 	}
 	
 	LLVMTypeRef visit(IntegerType t) {
@@ -419,6 +489,37 @@ class TypeGen {
 				
 				case Integer.Long, Integer.Ulong :
 					return LLVMInt64Type();
+		}
+	}
+	
+	LLVMTypeRef visit(FloatType t) {
+		isSigned = true;
+		
+		final switch(t.type) {
+				case Float.Float :
+					return LLVMFloatType();
+				
+				case Float.Double :
+					return LLVMDoubleType();
+				
+				case Float.Real :
+					return LLVMX86FP80Type();
+		}
+	}
+	
+	// XXX: character type in the backend ?
+	LLVMTypeRef visit(CharacterType t) {
+		isSigned = false;
+		
+		final switch(t.type) {
+				case Character.Char :
+					return LLVMInt8Type();
+				
+				case Character.Wchar :
+					return LLVMInt16Type();
+				
+				case Character.Dchar :
+					return LLVMInt32Type();
 		}
 	}
 }

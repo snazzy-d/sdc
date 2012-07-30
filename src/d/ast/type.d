@@ -15,6 +15,10 @@ class Type : Node, Namespace {
 	abstract Type makeImmutable();
 	abstract Type makeConst();
 	abstract Type makeInout();
+	
+	Expression initExpression(Location location) {
+		assert(0, "init not supported for this type " ~ typeid(this).toString());
+	}
 }
 
 class SimpleStorageClassType : Type {
@@ -76,7 +80,7 @@ class BasicType : SimpleStorageClassType {
 
 import std.traits;
 template isBuiltin(T) {
-	enum bool isBuiltin = isSomeChar!T || isFloatingPoint!T || is(Unqual!T == void);
+	enum bool isBuiltin = is(Unqual!T == void);
 }
 
 class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
@@ -86,7 +90,7 @@ class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
 }
 
 /**
- * Built in types.
+ * Built in integer types.
  */
 enum Integer {
 	Bool,
@@ -133,6 +137,88 @@ class IntegerType : BasicType {
 		super(location);
 		
 		this.type = type;
+	}
+	
+	override Expression initExpression(Location location) {
+		if(type % 2) {
+			return new IntegerLiteral!true(location, 0, this);
+		} else {
+			return new IntegerLiteral!false(location, 0, this);
+		}
+	}
+}
+
+/**
+ * Built in float types.
+ */
+enum Float {
+	Float,
+	Double,
+	Real,
+}
+
+template FloatOf(T) {
+	static if(!is(T == Unqual!T)) {
+		enum FloatOf = FloatOf!(Unqual!T);
+	} else static if(is(T == float)) {
+		enum FloatOf = Float.Float;
+	} else static if(is(T == double)) {
+		enum FloatOf = Float.Double;
+	} else static if(is(T == real)) {
+		enum FloatOf = Float.Real;
+	} else {
+		static assert(0, T.stringof ~ " isn't a valid float type.");
+	}
+}
+
+class FloatType : BasicType {
+	Float type;
+	
+	this(Location location, Float type) {
+		super(location);
+		
+		this.type = type;
+	}
+	
+	override Expression initExpression(Location location) {
+		return new FloatLiteral(location, float.nan, this);
+	}
+}
+
+/**
+ * Built in char types.
+ */
+enum Character {
+	Char,
+	Wchar,
+	Dchar,
+}
+
+template CharacterOf(T) {
+	static if(!is(T == Unqual!T)) {
+		enum CharacterOf = CharacterOf!(Unqual!T);
+	} else static if(is(T == char)) {
+		enum CharacterOf = Character.Char;
+	} else static if(is(T == wchar)) {
+		enum CharacterOf = Character.Wchar;
+	} else static if(is(T == dchar)) {
+		enum CharacterOf = Character.Dchar;
+	} else {
+		static assert(0, T.stringof ~ " isn't a valid character type.");
+	}
+}
+
+class CharacterType : BasicType {
+	Character type;
+	
+	this(Location location, Character type) {
+		super(location);
+		
+		this.type = type;
+	}
+	
+	override Expression initExpression(Location location) {
+		return new CharacterLiteral(location, [char.init], this);
 	}
 }
 

@@ -467,8 +467,7 @@ private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 			
 			switch(trange.front.type) {
 				case TokenType.CloseParen :
-					parseCast!CastExpression(null);
-					break;
+					assert(0, "cast() isn't supported.");
 				
 				default :
 					auto type = trange.parseType();
@@ -536,11 +535,11 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 		
 		case TokenType.True :
 			trange.popFront();
-			return makeIntegerLiteral(location, true);
+			return makeLiteral(location, true);
 		
 		case TokenType.False :
 			trange.popFront();
-			return makeIntegerLiteral(location, false);
+			return makeLiteral(location, false);
 		
 		case TokenType.Null :
 			trange.popFront();
@@ -550,16 +549,16 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 			return trange.parseIntegerLiteral();
 		
 		case TokenType.StringLiteral :
-			string value = extractStringLiteral(trange.front.value);
+			auto value = extractStringLiteral(trange.front.value);
 			trange.popFront();
 			
 			return new StringLiteral(location, value);
 		
 		case TokenType.CharacterLiteral :
-			string value = extractCharacterLiteral(trange.front.value);
+			auto value = extractCharacterLiteral(trange.front.value);
 			trange.popFront();
 			
-			return new CharacterLiteral(location, value);
+			return makeLiteral(location, value);
 		
 		case TokenType.OpenBracket :
 			Expression[] keys, values;
@@ -729,11 +728,11 @@ private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Exp
 		
 		switch(trange.front.type) {
 			case TokenType.DoublePlus :
-				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixInc))();
+				processToken!PostIncrementExpression();
 				break;
 			
 			case TokenType.DoubleDash :
-				processToken!(OpAssignUnaryExpression!(PostfixType.PostfixDec))();
+				processToken!PostDecrementExpression();
 				break;
 			
 			case TokenType.OpenParen :
@@ -911,17 +910,17 @@ private Expression parseIntegerLiteral(TokenRange)(ref TokenRange trange) {
 		auto integer = parse!ulong(value);
 		
 		if(isLong || integer > uint.max) {
-			return makeIntegerLiteral(location, integer);
+			return makeLiteral(location, integer);
 		} else {
-			return makeIntegerLiteral(location, cast(uint) integer);
+			return makeLiteral(location, cast(uint) integer);
 		}
 	} else {
 		auto integer = parse!long(value);
 		
 		if(isLong || integer > int.max || integer < int.min) {
-			return makeIntegerLiteral(location, integer);
+			return makeLiteral(location, integer);
 		} else {
-			return makeIntegerLiteral(location, cast(int) integer);
+			return makeLiteral(location, cast(int) integer);
 		}
 	}
 }
@@ -950,7 +949,7 @@ string extractStringLiteral(string value) {
 	}
 }
 
-string extractCharacterLiteral(string value) {
-	return value[1 .. $ - 1];
+char extractCharacterLiteral(string value) {
+	return value[1];
 }
 
