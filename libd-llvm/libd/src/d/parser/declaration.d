@@ -1,4 +1,4 @@
-module d.parser.declaration;
+	module d.parser.declaration;
 
 import d.ast.declaration;
 import d.ast.expression;
@@ -345,7 +345,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		case TokenType.Unittest :
 			trange.popFront();
 			trange.parseBlock();
-			return null;
+			assert(0, "unittest not supported");
 		
 		/*
 		 * Variable and function declarations
@@ -377,6 +377,8 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				value = trange.parseInitializer();
 				
 				variableLocation.spanTo(value.location);
+			} else {
+				value = type.initExpression(type.location);
 			}
 			
 			variables ~= new VariableDeclaration(location, type, name, value);

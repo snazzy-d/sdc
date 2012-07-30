@@ -204,9 +204,9 @@ Enum parseEnum(TokenRange)(ref TokenRange trange) {
 		} else {
 			if(previousName) {
 				// TODO: create a factory for integer literals.
-				enumEntriesValues[entryName] = new AddExpression(entryLocation, enumEntriesValues[previousName], makeIntegerLiteral(entryLocation, 1));
+				enumEntriesValues[entryName] = new AddExpression(entryLocation, enumEntriesValues[previousName], makeLiteral(entryLocation, 1));
 			} else {
-				enumEntriesValues[entryName] = makeIntegerLiteral(entryLocation, 0);
+				enumEntriesValues[entryName] = makeLiteral(entryLocation, 0);
 			}
 		}
 		

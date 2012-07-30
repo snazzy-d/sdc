@@ -149,6 +149,7 @@ class PrefixUnaryExpression(string operation) : Expression {
 	
 	this(Location location, Expression expression) {
 		Type type;
+		
 		switch(operation) {
 			case "&", "*", "-" :
 				type = new AutoType(location);
@@ -156,15 +157,17 @@ class PrefixUnaryExpression(string operation) : Expression {
 			
 			case "++", "--", "+" :
 				type = expression.type;
+				break;
 			
 			case "!" :
 				type = new IntegerType(location, IntegerOf!bool);
+				break;
 			
 			default :
-				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
+				assert(0, "Something as gone really wrong and you'll pay for it with bloodbloodblood !");
 		}
 		
-		this(location, new AutoType(location), expression);
+		this(location, type, expression);
 	}
 	
 	this(Location location, Type type, Expression expression) {
@@ -199,49 +202,45 @@ alias PrefixUnaryExpression!"delete" DeleteExpression;
 /**
  * Unary Postfix Expression types.
  */
-enum PostfixType {
-	Primary,
-	Dot,  // . QualifiedName  // XXX: specs say a new expression can go here: DMD disagrees.
-	PostfixInc,  // ++
-	PostfixDec,  // --
-	Parens,  // ( ArgumentList* )
-	Index,  // [ ArgumentList ]
-	Slice,  // [ (ConditionalExpression .. ConditionalExpression)* ]
-}
-
-class PostfixUnaryExpression : Expression {
+class PostfixUnaryExpression(string operation) : Expression {
 	Expression expression;
-	PostfixType operation;
 	
-	this(Location location, PostfixType operation, Expression expression) {
-		super(location);
+	this(Location location, Expression expression) {
+		Type type;
+		
+		switch(operation) {
+			case "++", "--" :
+				type = expression.type;
+				break;
+			
+			default :
+				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
+		}
+		
+		this(location, type, expression);
+	}
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, type);
 		
 		this.expression = expression;
-		this.operation = operation;
 	}
 }
 
-/**
- * Postfixed ++ and --
- */
-class OpAssignUnaryExpression(PostfixType operation) if(
-	operation == PostfixType.PostfixInc
-	|| operation == PostfixType.PostfixDec
-) : PostfixUnaryExpression {
-	this(Location location, Expression expression) {
-		super(location, operation, expression);
-	}
-}
+alias PostfixUnaryExpression!"++" PostIncrementExpression;
+alias PostfixUnaryExpression!"--" PostDecrementExpression;
 
 /**
  * Function call
  */
-class CallExpression : PostfixUnaryExpression {
+class CallExpression : Expression {
+	Expression callee;
 	Expression[] arguments;
 	
-	this(Location location, Expression expression, Expression[] arguments) {
-		super(location, PostfixType.Parens, expression);
+	this(Location location, Expression callee, Expression[] arguments) {
+		super(location);
 		
+		this.callee = callee;
 		this.arguments = arguments;
 	}
 }
@@ -249,12 +248,14 @@ class CallExpression : PostfixUnaryExpression {
 /**
  * Index expression : [index]
  */
-class IndexExpression : PostfixUnaryExpression {
+class IndexExpression : Expression {
+	Expression indexed;
 	Expression[] parameters;
 	
-	this(Location location, Expression expression, Expression[] parameters) {
-		super(location, PostfixType.Index, expression);
+	this(Location location, Expression indexed, Expression[] parameters) {
+		super(location);
 		
+		this.indexed = indexed;
 		this.parameters = parameters;
 	}
 }
@@ -317,26 +318,21 @@ class IntegerLiteral(bool isSigned) : Expression {
 	
 	ValueType value;
 	
-	this(Location location, ValueType value, Type type) {
+	this(Location location, ValueType value, IntegerType type) {
 		super(location, type);
 		
 		this.value = value;
 	}
 }
 
-import std.traits;
-auto makeIntegerLiteral(T)(Location location, T value) if(isIntegral!T || is(T : bool)) {
-	return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(location, IntegerOf!T));
-}
-
 /**
- * String literals
+ * Float literals
  */
-class StringLiteral : Expression {
-	string value;
+class FloatLiteral : Expression {
+	double value;
 	
-	this(Location location, string value) {
-		super(location);
+	this(Location location, real value, FloatType type) {
+		super(location, type);
 		
 		this.value = value;
 	}
@@ -346,6 +342,35 @@ class StringLiteral : Expression {
  * Character literals
  */
 class CharacterLiteral : Expression {
+	string value;
+	
+	this(Location location, string value, CharacterType type) {
+		super(location, type);
+		
+		this.value = value;
+	}
+}
+
+/**
+ * Factory of literals
+ */
+auto makeLiteral(T)(Location location, T value) {
+	import std.traits;
+	static if(isIntegral!T || is(Unqual!T == bool)) {
+		return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(location, IntegerOf!T));
+	} else static if(isFloatingPoint!T) {
+		return new FloatLiteral(location, value, new FloatType(location, FloatOf!T));
+	} else static if(isSomeChar!T) {
+		return new CharacterLiteral(location, [value], new CharacterType(location, CharacterOf!T));
+	} else {
+		static assert(0, "You can't make litteral for type " ~ T.stringof);
+	}
+}
+
+/**
+ * String literals
+ */
+class StringLiteral : Expression {
 	string value;
 	
 	this(Location location, string value) {

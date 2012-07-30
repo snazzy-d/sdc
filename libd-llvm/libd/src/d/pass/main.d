@@ -27,6 +27,7 @@ class MainDetector {
 		this.returnCheck = new ReturnTypeCheck();
 	}
 	
+final:
 	Declaration visit(Declaration d) {
 		return this.dispatch!(d => d)(d);
 	}
@@ -70,7 +71,7 @@ class MainDetector {
 	}
 }
 
-class ReturnTypeCheck {
+final class ReturnTypeCheck {
 	bool visit(Type t) {
 		return this.dispatch!(t => false)(t);
 	}

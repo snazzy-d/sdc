@@ -132,33 +132,34 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 /*		case TokenType.Cent :
 			trange.popFront();
 			return new BuiltinType!cent(location);
+		
 		case TokenType.Ucent :
 			trange.popFront();
 			return new BuiltinType!ucent(location);	*/
 		
 		case TokenType.Char :
 			trange.popFront();
-			return new BuiltinType!char(location);
+			return new CharacterType(location, Character.Char);
 		
 		case TokenType.Wchar :
 			trange.popFront();
-			return new BuiltinType!wchar(location);
+			return new CharacterType(location, Character.Wchar);
 		
 		case TokenType.Dchar :
 			trange.popFront();
-			return new BuiltinType!dchar(location);
+			return new CharacterType(location, Character.Dchar);
 		
 		case TokenType.Float :
 			trange.popFront();
-			return new BuiltinType!float(location);
+			return new FloatType(location, Float.Float);
 		
 		case TokenType.Double :
 			trange.popFront();
-			return new BuiltinType!double(location);
+			return new FloatType(location, Float.Double);
 		
 		case TokenType.Real :
 			trange.popFront();
-			return new BuiltinType!real(location);
+			return new FloatType(location, Float.Real);
 		
 		case TokenType.Void :
 			trange.popFront();
