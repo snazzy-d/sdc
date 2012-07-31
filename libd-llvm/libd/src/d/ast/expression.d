@@ -261,6 +261,19 @@ class IndexExpression : Expression {
 }
 
 /**
+ * Parenthese expression.
+ */
+class ParenExpression : Expression {
+	Expression expression;
+	
+	this(Location location, Expression expression) {
+		super(location, expression.type);
+		
+		this.expression = expression;
+	}
+}
+
+/**
  * Identifier expression
  */
 class IdentifierExpression : Expression {
@@ -307,7 +320,7 @@ class SuperExpression : Expression {
 }
 
 /**
- * Integer literals
+ * Integer literal
  */
 class IntegerLiteral(bool isSigned) : Expression {
 	static if(isSigned) {
@@ -326,7 +339,7 @@ class IntegerLiteral(bool isSigned) : Expression {
 }
 
 /**
- * Float literals
+ * Float literal
  */
 class FloatLiteral : Expression {
 	double value;
@@ -339,7 +352,7 @@ class FloatLiteral : Expression {
 }
 
 /**
- * Character literals
+ * Character literal
  */
 class CharacterLiteral : Expression {
 	string value;
@@ -352,7 +365,7 @@ class CharacterLiteral : Expression {
 }
 
 /**
- * Factory of literals
+ * Factory of literal
  */
 auto makeLiteral(T)(Location location, T value) {
 	import std.traits;
@@ -368,7 +381,7 @@ auto makeLiteral(T)(Location location, T value) {
 }
 
 /**
- * String literals
+ * String literal
  */
 class StringLiteral : Expression {
 	string value;
@@ -381,7 +394,7 @@ class StringLiteral : Expression {
 }
 
 /**
- * Array literals
+ * Array literal
  */
 class ArrayLiteral : Expression {
 	Expression[] values;
@@ -394,7 +407,7 @@ class ArrayLiteral : Expression {
 }
 
 /**
- * Null literals
+ * Null literal
  */
 class NullLiteral : Expression {
 	this(Location location) {
@@ -403,7 +416,7 @@ class NullLiteral : Expression {
 }
 
 /**
- * __FILE__ literals
+ * __FILE__ literal
  */
 class __File__Literal : Expression {
 	this(Location location) {
@@ -412,7 +425,7 @@ class __File__Literal : Expression {
 }
 
 /**
- * __LINE__ literals
+ * __LINE__ literal
  */
 class __Line__Literal : Expression {
 	this(Location location) {
@@ -421,7 +434,7 @@ class __Line__Literal : Expression {
 }
 
 /**
- * Delegate literals
+ * Delegate literal
  */
 class DelegateLiteral : Expression {
 	private Statement statement;
@@ -456,7 +469,7 @@ class IsExpression : Expression {
 }
 
 /**
- * assert.
+ * assert
  */
 class AssertExpression : Expression {
 	private Expression[] arguments;

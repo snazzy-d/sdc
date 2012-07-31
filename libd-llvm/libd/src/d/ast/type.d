@@ -249,7 +249,13 @@ class TypeofType : BasicType {
 	}
 	
 	override Expression initExpression(Location location) {
-		return new IdentifierExpression(location, new QualifiedIdentifier(location, "init", this));
+		// TODO: remove in the future.
+		scope(failure) {
+			import std.stdio;
+			writeln(typeid({ return expression; }()).toString() ~ " have no .init");
+		}
+		
+		return expression.type.initExpression(location);
 	}
 }
 
