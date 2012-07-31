@@ -90,7 +90,28 @@ class DeclarationStatement : Statement {
 
 
 /**
- * if statements
+ * if else statements.
+ */
+class IfElseStatement : Statement {
+	Expression condition;
+	Statement then;
+	Statement elseStatement;
+	
+	this(Location location, Expression condition, Statement then) {
+		this(location, condition, then, new BlockStatement(location, []));
+	}
+	
+	this(Location location, Expression condition, Statement then, Statement elseStatement) {
+		super(location, StatementType.If);
+		
+		this.condition = condition;
+		this.then = then;
+		this.elseStatement = elseStatement;
+	}
+}
+
+/**
+ * if statements with no else.
  */
 class IfStatement : Statement {
 	Expression condition;
@@ -101,19 +122,6 @@ class IfStatement : Statement {
 		
 		this.condition = condition;
 		this.then = then;
-	}
-}
-
-/**
- * if with else statement
- */
-class IfElseStatement : IfStatement {
-	Statement elseStatement;
-	
-	this(Location location, Expression condition, Statement then, Statement elseStatement) {
-		super(location, condition, then);
-		
-		this.elseStatement = elseStatement;
 	}
 }
 

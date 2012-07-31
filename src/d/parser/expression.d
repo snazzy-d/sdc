@@ -641,7 +641,6 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 			auto matchingParen = trange.save;
 			matchingParen.popMatchingDelimiter!(TokenType.OpenParen)();
 			
-			Expression expression;
 			if(matchingParen.front.type == TokenType.Dot) {
 				import d.ast.identifier;
 				
@@ -655,13 +654,15 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 				auto identifier = trange.parseQualifiedIdentifier(location, qualifier);
 				location.spanTo(identifier.location);
 				
-				expression = new IdentifierExpression(location, identifier);
+				return new IdentifierExpression(location, identifier);
 			} else {
-				expression = trange.parseExpression();
+				auto expression = trange.parseExpression();
+				
+				location.spanTo(trange.front.location);
 				trange.match(TokenType.CloseParen);
+				
+				return new ParenExpression(location, expression);
 			}
-			
-			return expression;
 		
 		default:
 			// Our last resort are type.identifier expressions.

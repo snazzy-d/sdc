@@ -13,8 +13,8 @@ auto codeGen(Module m) {
 	auto builder = LLVMCreateBuilder();
 	auto dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
 	
-	// Dump module content on exit (for debug purpose).
-	scope(exit) LLVMDumpModule(dmodule);
+	// Dump module content on failure (for debug purpose).
+	scope(failure) LLVMDumpModule(dmodule);
 	
 	auto fg = new FunctionGen(builder, dmodule);
 	foreach(decl; m.declarations) {
@@ -146,6 +146,7 @@ final:
 		
 		(new StatementGen(builder, this, expressionGen)).visit(f.fbody);
 		
+		LLVMBuildUnreachable(builder);
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
 	
@@ -207,7 +208,7 @@ final:
 		}
 	}
 	
-	void visit(IfStatement ifs) {
+	void visit(IfElseStatement ifs) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
 		auto thenBB = LLVMAppendBasicBlock(fun, "then");
@@ -216,7 +217,7 @@ final:
 		
 		LLVMBuildCondBr(builder, expressionGen.visit(ifs.condition), thenBB, elseBB);
 		
-		// Emit then value
+		// Emit then
 		LLVMPositionBuilderAtEnd(builder, thenBB);
 		
 		visit(ifs.then);
@@ -224,12 +225,13 @@ final:
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of else can change the current block, so we put everything in order.
+		// Codegen of then can change the current block, so we put everything in order.
 		thenBB = LLVMGetInsertBlock(builder);
 		LLVMMoveBasicBlockAfter(elseBB, thenBB);
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
-		// TODO: Codegen for else.
+		// Emit else
+		visit(ifs.elseStatement);
 		
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);

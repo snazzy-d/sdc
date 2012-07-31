@@ -140,20 +140,15 @@ final:
 		}
 	}
 	
-	void visit(IfStatement ifs) {
+	void visit(IfElseStatement ifs) {
 		ifs.condition = expressionVisitor.visit(ifs.condition);
 		
 		visit(ifs.then);
+		visit(ifs.elseStatement);
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = expressionVisitor.visit(r.value);
-		
-		// FIXME: hack because function names are not resolved (and so autotypes).
-		// They are assumed to be correct \o/
-		if(typeid({ return r.value.type; }()) !is typeid(AutoType)) {
-			r.value = buildImplicitCast(r.location, declarationVisitor.returnType, r.value);
-		}
+		r.value = buildImplicitCast(r.location, declarationVisitor.returnType, expressionVisitor.visit(r.value));
 	}
 }
 
@@ -292,6 +287,11 @@ final:
 	Expression visit(CallExpression c) {
 		foreach(i, arg; c.arguments) {
 			c.arguments[i] = visit(arg);
+		}
+		
+		//FIXME: get the right type.
+		if(typeid({ return c.type; }()) is typeid(AutoType)) {
+			c.type = new IntegerType(c.type.location, IntegerOf!int);
 		}
 		
 		return c;
