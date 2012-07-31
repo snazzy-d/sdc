@@ -240,12 +240,16 @@ class IdentifierType : BasicType {
  * Type defined by typeof(Expression)
  */
 class TypeofType : BasicType {
-	private Expression expression;
+	Expression expression;
 	
 	this(Location location, Expression expression) {
 		super(location);
 		
 		this.expression = expression;
+	}
+	
+	override Expression initExpression(Location location) {
+		return new IdentifierExpression(location, new QualifiedIdentifier(location, "init", this));
 	}
 }
 

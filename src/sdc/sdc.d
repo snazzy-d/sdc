@@ -5,7 +5,7 @@ module sdc.mpsdc;
 
 // TODO: move that into druntime.
 // Ensure that null pointers are detected.
-import util.nullpointererror;
+import etc.linux.nullpointererror;
 
 import std.stdio : writeln, stderr, stdout;
 import std.file : exists;

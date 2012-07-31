@@ -34,25 +34,6 @@ final:
 	}
 	
 	void visit(FunctionDefinition fun) {
-		declarationVisitor.variables.clear();
-		
-		class ParameterVisitor {
-			void visit(Parameter p) {
-				this.dispatch!((Parameter p){})(p);
-			}
-			
-			void visit(NamedParameter p) {
-				// FIXME: put the right init value instead of null. Null create NPE in that pass.
-				declarationVisitor.variables[p.name] = new VariableDeclaration(p.location, p.type, p.name, null);
-			}
-		}
-		
-		auto pv = new ParameterVisitor();
-		
-		foreach(p; fun.parameters) {
-			pv.visit(p);
-		}
-		
 		declarationVisitor.visit(fun);
 	}
 }
@@ -75,6 +56,24 @@ final:
 	}
 	
 	void visit(FunctionDefinition fun) {
+		scope(exit) variables.clear();
+		
+		final class ParameterVisitor {
+			void visit(Parameter p) {
+				this.dispatch!((Parameter p){})(p);
+			}
+			
+			void visit(NamedParameter p) {
+				variables[p.name] = new VariableDeclaration(p.location, p.type, p.name, p.type.initExpression(p.location));
+			}
+		}
+		
+		auto pv = new ParameterVisitor();
+		
+		foreach(p; fun.parameters) {
+			pv.visit(p);
+		}
+		
 		returnType = fun.returnType;
 		statementVisitor.visit(fun.fbody);
 	}
@@ -87,7 +86,25 @@ final:
 	}
 	
 	void visit(VariableDeclaration var) {
-		var.value = buildImplicitCast(var.location, var.type, expressionVisitor.visit(var.value));
+		var.value = expressionVisitor.visit(var.value);
+		
+		final class ResolveType {
+			Type visit(Type t) {
+				return this.dispatch!(t => t)(t);
+			}
+			
+			Type visit(AutoType t) {
+				return var.value.type;
+			}
+			
+			Type visit(TypeofType t) {
+				t.expression = expressionVisitor.visit(t.expression);
+				return t.expression.type;
+			}
+		}
+		
+		var.type = (new ResolveType()).visit(var.type);
+		var.value = buildImplicitCast(var.location, var.type, var.value);
 		
 		variables[var.name] = var;
 	}
@@ -132,6 +149,8 @@ final:
 	void visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
 		
+		// FIXME: hack because function names are not resolved (and so autotypes).
+		// They are assumed to be correct \o/
 		if(typeid({ return r.value.type; }()) !is typeid(AutoType)) {
 			r.value = buildImplicitCast(r.location, declarationVisitor.returnType, r.value);
 		}
