@@ -78,13 +78,6 @@ final:
 		statementVisitor.visit(fun.fbody);
 	}
 	
-	// TODO: this should be gone at this point (but isn't because flatten pass isn't implemented).
-	void visit(VariablesDeclaration decls) {
-		foreach(var; decls.variables) {
-			visit(var);
-		}
-	}
-	
 	void visit(VariableDeclaration var) {
 		var.value = expressionVisitor.visit(var.value);
 		

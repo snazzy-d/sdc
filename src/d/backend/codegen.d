@@ -150,13 +150,6 @@ final:
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
 	
-	// TODO: this should be gone way before codegen. Delete in the future when passes are ready.
-	void visit(VariablesDeclaration decls) {
-		foreach(var; decls.variables) {
-			visit(var);
-		}
-	}
-	
 	void visit(VariableDeclaration var) {
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
