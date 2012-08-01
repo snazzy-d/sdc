@@ -382,7 +382,9 @@ class CharacterLiteral : Expression {
  */
 auto makeLiteral(T)(Location location, T value) {
 	import std.traits;
-	static if(isIntegral!T || is(Unqual!T == bool)) {
+	static if(is(Unqual!T == bool)) {
+		return new BooleanLiteral(location, value);
+	} else static if(isIntegral!T) {
 		return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(location, IntegerOf!T));
 	} else static if(isFloatingPoint!T) {
 		return new FloatLiteral(location, value, new FloatType(location, FloatOf!T));

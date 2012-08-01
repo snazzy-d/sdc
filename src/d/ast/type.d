@@ -96,6 +96,10 @@ class BooleanType : BasicType {
 	this(Location location) {
 		super(location);
 	}
+	
+	override Expression initExpression(Location location) {
+		return makeLiteral(location, false);
+	}
 }
 
 /**
