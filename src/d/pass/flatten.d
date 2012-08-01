@@ -147,12 +147,14 @@ class StatementVisitor {
 	private DeclarationVisitor declarationVisitor;
 	private DeclarationFlatener declarationFlatener;
 	private StatementFlatener statementFlatener;
+	private ExpressionVisitor expressionVisitor;
 	
 	this(DeclarationVisitor declarationVisitor, DeclarationFlatener declarationFlatener) {
 		this.declarationVisitor = declarationVisitor;
 		this.declarationFlatener = declarationFlatener;
 		
-		this.statementFlatener = new StatementFlatener(this, declarationFlatener);
+		statementFlatener = new StatementFlatener(this, declarationFlatener);
+		expressionVisitor = new ExpressionVisitor();
 	}
 	
 final:
@@ -161,6 +163,8 @@ final:
 	}
 	
 	Statement visit(ExpressionStatement e) {
+		e.expression = expressionVisitor.visit(e.expression);
+		
 		return e;
 	}
 	
@@ -188,7 +192,22 @@ final:
 	}
 	
 	Statement visit(ReturnStatement r) {
+		r.value = expressionVisitor.visit(r.value);
+		
 		return r;
+	}
+}
+
+import d.ast.expression;
+
+class ExpressionVisitor {
+final:
+	Expression visit(Expression e) {
+		return this.dispatch!(e => e)(e);
+	}
+	
+	Expression visit(ParenExpression e) {
+		return e.expression;
 	}
 }
 
