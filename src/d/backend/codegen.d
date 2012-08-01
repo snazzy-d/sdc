@@ -202,13 +202,15 @@ final:
 	}
 	
 	void visit(IfElseStatement ifs) {
+		auto condition = expressionGen.visit(ifs.condition);
+		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
 		auto thenBB = LLVMAppendBasicBlock(fun, "then");
 		auto elseBB = LLVMAppendBasicBlock(fun, "else");
 		auto mergeBB = LLVMAppendBasicBlock(fun, "merge");
 		
-		LLVMBuildCondBr(builder, expressionGen.visit(ifs.condition), thenBB, elseBB);
+		LLVMBuildCondBr(builder, condition, thenBB, elseBB);
 		
 		// Emit then
 		LLVMPositionBuilderAtEnd(builder, thenBB);
@@ -378,6 +380,55 @@ final:
 		return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(mod);
 	}
 	
+	private auto handleLogicalBinary(string operation)(BinaryExpression!operation e) if(operation == "&&" || operation == "||") {
+		auto lhs = visit(e.lhs);
+		
+		auto lhsBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(lhsBB);
+		auto rhsBB = LLVMAppendBasicBlock(fun, "");
+		auto mergeBB = LLVMAppendBasicBlock(fun, "");
+		
+		static if(operation == "&&") {
+			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
+		} else {
+			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
+		}
+		
+		// Emit then
+		LLVMPositionBuilderAtEnd(builder, rhsBB);
+		
+		auto rhs = visit(e.rhs);
+		
+		// Conclude that block.
+		LLVMBuildBr(builder, mergeBB);
+		
+		// Codegen of then can change the current block, so we put everything in order.
+		rhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
+		LLVMPositionBuilderAtEnd(builder, mergeBB);
+		
+		//Generate phi to get the result.
+		auto phiNode = LLVMBuildPhi(builder, typeGen.visit(e.type), "");
+		
+		LLVMValueRef[2] incomingValues;
+		incomingValues[0] = lhs;
+		incomingValues[1] = rhs;
+		LLVMBasicBlockRef[2] incomingBlocks;
+		incomingBlocks[0] = lhsBB;
+		incomingBlocks[1] = rhsBB;
+		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
+		
+		return phiNode;
+	}
+	
+	LLVMValueRef visit(LogicalAndExpression e) {
+		return handleLogicalBinary(e);
+	}
+	
+	LLVMValueRef visit(LogicalOrExpression e) {
+		return handleLogicalBinary(e);
+	}
+	
 	LLVMValueRef visit(IdentifierExpression e) {
 		return declarationGen.variables[e.identifier.name].value;
 	}
@@ -466,13 +517,16 @@ final:
 		})(t);
 	}
 	
+	LLVMTypeRef visit(BooleanType t) {
+		isSigned = false;
+		
+		return LLVMInt1Type();
+	}
+	
 	LLVMTypeRef visit(IntegerType t) {
-		isSigned = cast(bool) (t.type % 2);
+		isSigned = !(t.type % 2);
 		
 		final switch(t.type) {
-				case Integer.Bool :
-					return LLVMInt1Type();
-				
 				case Integer.Byte, Integer.Ubyte :
 					return LLVMInt8Type();
 				

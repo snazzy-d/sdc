@@ -95,39 +95,39 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		// Basic types
 		case TokenType.Bool :
 			trange.popFront();
-			return new IntegerType(location, Integer.Bool);
+			return new BooleanType(location);
 		
 		case TokenType.Byte :
 			trange.popFront();
-			return new IntegerType(location, Integer.Byte);
+			return new IntegerType(location, IntegerOf!byte);
 		
 		case TokenType.Ubyte :
 			trange.popFront();
-			return new IntegerType(location, Integer.Ubyte);
+			return new IntegerType(location, IntegerOf!ubyte);
 		
 		case TokenType.Short :
 			trange.popFront();
-			return new IntegerType(location, Integer.Short);
+			return new IntegerType(location, IntegerOf!short);
 		
 		case TokenType.Ushort :
 			trange.popFront();
-			return new IntegerType(location, Integer.Ushort);
+			return new IntegerType(location, IntegerOf!ushort);
 		
 		case TokenType.Int :
 			trange.popFront();
-			return new IntegerType(location, Integer.Int);
+			return new IntegerType(location, IntegerOf!int);
 		
 		case TokenType.Uint :
 			trange.popFront();
-			return new IntegerType(location, Integer.Uint);
+			return new IntegerType(location, IntegerOf!uint);
 		
 		case TokenType.Long :
 			trange.popFront();
-			return new IntegerType(location, Integer.Long);
+			return new IntegerType(location, IntegerOf!long);
 		
 		case TokenType.Ulong :
 			trange.popFront();
-			return new IntegerType(location, Integer.Ulong);
+			return new IntegerType(location, IntegerOf!ulong);
 		
 /*		case TokenType.Cent :
 			trange.popFront();
@@ -139,15 +139,15 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		
 		case TokenType.Char :
 			trange.popFront();
-			return new CharacterType(location, Character.Char);
+			return new CharacterType(location, CharacterOf!char);
 		
 		case TokenType.Wchar :
 			trange.popFront();
-			return new CharacterType(location, Character.Wchar);
+			return new CharacterType(location, CharacterOf!wchar);
 		
 		case TokenType.Dchar :
 			trange.popFront();
-			return new CharacterType(location, Character.Dchar);
+			return new CharacterType(location, CharacterOf!dchar);
 		
 		case TokenType.Float :
 			trange.popFront();

@@ -180,7 +180,17 @@ final:
 		e.rhs = visit(e.rhs);
 		
 		import std.algorithm;
-		static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
+		static if(find(["&&", "||"], operation)) {
+			auto type = e.type;
+			
+			e.lhs = buildExplicitCast(e.lhs.location, type, e.lhs);
+			e.rhs = buildExplicitCast(e.rhs.location, type, e.rhs);
+		} else static if(find(["==", "!="], operation)) {
+			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
+			
+			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
+			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
+		} else static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
@@ -235,6 +245,14 @@ final:
 	}
 	
 	Expression visit(LessEqualExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LogicalAndExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LogicalOrExpression e) {
 		return handleBinaryExpression(e);
 	}
 	
@@ -296,6 +314,33 @@ import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
 	// TODO: make that a struct to avoid useless memory allocations.
+	final class CastToBooleanType {
+		Expression visit(Expression e) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(e.type);
+		}
+		
+		Expression visit(BooleanType t) {
+			// Cast bool to bool is a noop.
+			return e;
+		}
+		
+		Expression visit(IntegerType t) {
+			static if(isExplicit) {
+				return new NotEqualityExpression(location, e, makeLiteral(location, 0));
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ typeid(t).toString() ~ " to bool is not allowed");
+			}
+		}
+	}
+	
 	final class CastToIntegerType {
 		Integer t1type;
 		
@@ -402,6 +447,10 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				
 				assert(0, msg);
 			})(t);
+		}
+		
+		Expression visit(BooleanType t) {
+			return (new CastToBooleanType()).visit(e);
 		}
 		
 		Expression visit(IntegerType t) {
