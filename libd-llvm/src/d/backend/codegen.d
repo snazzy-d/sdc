@@ -264,6 +264,10 @@ final:
 		})(e);
 	}
 	
+	LLVMValueRef visit(BooleanLiteral bl) {
+		return LLVMConstInt(typeGen.visit(bl.type), bl.value, false);
+	}
+	
 	LLVMValueRef visit(IntegerLiteral!true il) {
 		return LLVMConstInt(typeGen.visit(il.type), il.value, true);
 	}
