@@ -159,6 +159,10 @@ final:
 		return this.dispatch(e);
 	}
 	
+	Expression visit(BooleanLiteral bl) {
+		return bl;
+	}
+	
 	Expression visit(IntegerLiteral!true il) {
 		return il;
 	}
@@ -359,6 +363,10 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			})(e.type);
 		}
 		
+		Expression visit(BooleanType t) {
+			return new PadExpression(location, type, e);
+		}
+		
 		Expression visit(IntegerType t) {
 			if(t1type == t.type) {
 				return e;
@@ -484,9 +492,16 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			return this.dispatch(t);
 		}
 		
+		Type visit(BooleanType t) {
+			import std.algorithm;
+			return new IntegerType(location, max(t1type, Integer.Int));
+		}
+		
 		Type visit(IntegerType t) {
 			import std.algorithm;
-			return new IntegerType(location, max(t1type, t.type));
+			// Type smaller than int are promoted to int.
+			auto t2type = max(t.type, Integer.Int);
+			return new IntegerType(location, max(t1type, t2type));
 		}
 	}
 	
@@ -495,12 +510,11 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			return this.dispatch(t);
 		}
 		
+		Type visit(BooleanType t) {
+			return (new T2Handler(Integer.Int)).visit(t2);
+		}
+		
 		Type visit(IntegerType t) {
-			// Type smaller than int are promoted to int.
-			if(t.type <= Integer.Int) {
-				return (new T2Handler(Integer.Int)).visit(t2);
-			}
-			
 			return (new T2Handler(t.type)).visit(t2);
 		}
 	}

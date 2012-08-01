@@ -80,7 +80,7 @@ class LLVMBackend : Backend {
 			char* foobar = null;
 			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
 			
-			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
+			// LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
 			/*
 			import sdc.util;
 			import std.string;
