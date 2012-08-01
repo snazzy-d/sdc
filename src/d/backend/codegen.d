@@ -142,7 +142,11 @@ final:
 		
 		(new StatementGen(builder, this, expressionGen)).visit(f.fbody);
 		
-		LLVMBuildUnreachable(builder);
+		// If the current block isn' concluded, it means that it is unreachable.
+		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			LLVMBuildUnreachable(builder);
+		}
+		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
 	
@@ -213,22 +217,29 @@ final:
 		
 		visit(ifs.then);
 		
-		// Conclude that block.
-		LLVMBuildBr(builder, mergeBB);
-		
 		// Codegen of then can change the current block, so we put everything in order.
 		thenBB = LLVMGetInsertBlock(builder);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(thenBB)) {
+			LLVMBuildBr(builder, mergeBB);
+		}
+		
+		// Put the else block after the generated stuff.
 		LLVMMoveBasicBlockAfter(elseBB, thenBB);
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
 		// Emit else
 		visit(ifs.elseStatement);
 		
-		// Conclude that block.
-		LLVMBuildBr(builder, mergeBB);
-		
 		// Codegen of else can change the current block, so we put everything in order.
 		elseBB = LLVMGetInsertBlock(builder);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(elseBB)) {
+			LLVMBuildBr(builder, mergeBB);
+		}
+		
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 	}

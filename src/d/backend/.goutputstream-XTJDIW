@@ -26,6 +26,17 @@ class LLVMBackend : Backend {
 			
 			auto dmodule = codeGen(mod);
 			
+			// Hack around the need of _tlsstart and _tlsend.
+			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
+			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
+			LLVMSetSection(_tlsstart, ".tdata");
+			
+			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
+			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
+			LLVMSetThreadLocal(_tlsend, true);
+			
+			LLVMDumpModule(dmodule);
+			
 			// Let's run it !
 			LLVMExecutionEngineRef ee;
 			char* errorPtr;
@@ -45,7 +56,7 @@ class LLVMBackend : Backend {
 			}
 			
 			/*
-			auto fpm = LLVMCreatePassManager();
+			auto fpm = LLVMCreateFunctionPassManagerForModule(dmodule);
 			LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), fpm);
 			
 			import llvm.c.transforms.Scalar;
@@ -56,24 +67,20 @@ class LLVMBackend : Backend {
 			LLVMAddGVNPass(fpm);
 			LLVMAddCFGSimplificationPass(fpm);
 			
-			LLVMRunPassManager (fpm, dmodule);
-			//*/
-			
+			LLVMRunFunctionPassManager(fpm, fun);
 			LLVMDumpModule(dmodule);
+			//*/
 			
 			auto executionResult = LLVMRunFunction(ee, fun, 0, null);
 			auto returned = cast(int) LLVMGenericValueToInt(executionResult, true);
 			
 			writeln("\nreturned : ", returned);
 			
-			/*
 			writeln("\nASM generated :");
 			char* foobar = null;
 			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
 			
-			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
-			//*/
-			
+			// LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
 			/*
 			import sdc.util;
 			import std.string;
@@ -81,16 +88,6 @@ class LLVMBackend : Backend {
 			
 			auto asAssembly = temporaryFilename(".s");
 			auto asObject   = temporaryFilename(".o");
-			
-			// Hack around the need of _tlsstart and _tlsend.
-			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
-			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetSection(_tlsstart, ".tdata");
-			
-			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
-			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetThreadLocal(_tlsend, true);
-			
 			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) toStringz(asAssembly), 0);
 			
 			auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
