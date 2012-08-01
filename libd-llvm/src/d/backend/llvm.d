@@ -44,7 +44,7 @@ class LLVMBackend : Backend {
 				return;
 			}
 			
-			/*
+			//*
 			auto fpm = LLVMCreatePassManager();
 			LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), fpm);
 			
