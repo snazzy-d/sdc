@@ -93,12 +93,7 @@ class DeclarationGen {
 	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
-	struct VariableEntry {
-		LLVMValueRef value;
-		LLVMValueRef address;
-	}
-	
-	VariableEntry[string] variables;
+	LLVMValueRef[string] variables;
 	
 	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
 		this.builder = builder;
@@ -116,11 +111,12 @@ final:
 	void visit(FunctionDefinition f) {
 		auto fun = LLVMGetNamedFunction(dmodule, f.name.toStringz());
 		
+		// Clear the variable table when the generation is finished.
+		scope(exit) variables.clear();
+		
 		// Instruction block.
 		auto basicBlock = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
-		
-		variables.clear();
 		
 		LLVMValueRef[] params;
 		params.length = f.parameters.length;
@@ -140,7 +136,7 @@ final:
 				auto value = params[i];
 				
 				LLVMBuildStore(builder, value, alloca);
-				variables[asNamed.name] = VariableEntry(value, alloca);
+				variables[asNamed.name] = alloca;
 			}
 		}
 		
@@ -164,7 +160,7 @@ final:
 		auto value = expressionGen.visit(var.value);
 		LLVMBuildStore(builder, value, alloca);
 		
-		variables[var.name] = VariableEntry(value, alloca);
+		variables[var.name] = alloca;
 	}
 }
 
@@ -235,8 +231,6 @@ final:
 		elseBB = LLVMGetInsertBlock(builder);
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
-		
-		// TODO: generate phi to merge everything back.
 	}
 	
 	void visit(ReturnStatement r) {
@@ -288,10 +282,7 @@ final:
 	}
 	
 	private void updateVariableValue(string name, LLVMValueRef value) {
-		auto variable = &(declarationGen.variables[name]);
-		variable.value = value;
-		
-		LLVMBuildStore(builder, value, variable.address);
+		LLVMBuildStore(builder, value, declarationGen.variables[name]);
 	}
 	
 	LLVMValueRef visit(AssignExpression e) {
@@ -430,7 +421,7 @@ final:
 	}
 	
 	LLVMValueRef visit(IdentifierExpression e) {
-		return declarationGen.variables[e.identifier.name].value;
+		return LLVMBuildLoad(builder, declarationGen.variables[e.identifier.name], "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
