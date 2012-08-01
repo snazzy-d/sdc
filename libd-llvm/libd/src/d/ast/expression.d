@@ -57,7 +57,7 @@ class BinaryExpression(string operator) : Expression {
 				break;
 			
 			case "||", "&&", "==", "!=", "is", "!is", "in", "!in", "<", "<=", ">", ">=", "<>", "<>=", "!<", "!<=", "!>", "!>=", "!<>", "!<>=" :
-				type = new IntegerType(location, IntegerOf!bool);
+				type = new BooleanType(location);
 				break;
 			
 			case "&", "|", "^", "+", "-", "*", "/", "%" :
@@ -160,7 +160,7 @@ class PrefixUnaryExpression(string operation) : Expression {
 				break;
 			
 			case "!" :
-				type = new IntegerType(location, IntegerOf!bool);
+				type = new BooleanType(location);
 				break;
 			
 			default :
@@ -316,6 +316,19 @@ class ThisExpression : Expression {
 class SuperExpression : Expression {
 	this(Location location) {
 		super(location);
+	}
+}
+
+/**
+ * Boolean literal
+ */
+class BooleanLiteral : Expression {
+	bool value;
+	
+	this(Location location, bool value) {
+		super(location, new BooleanType(location));
+		
+		this.value = value;
 	}
 }
 

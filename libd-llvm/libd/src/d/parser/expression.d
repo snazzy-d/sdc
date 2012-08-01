@@ -535,11 +535,11 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 		
 		case TokenType.True :
 			trange.popFront();
-			return makeLiteral(location, true);
+			return new BooleanLiteral(location, true);
 		
 		case TokenType.False :
 			trange.popFront();
-			return makeLiteral(location, false);
+			return new BooleanLiteral(location, false);
 		
 		case TokenType.Null :
 			trange.popFront();

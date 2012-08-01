@@ -90,10 +90,18 @@ class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
 }
 
 /**
+ * Boolean type.
+ */
+class BooleanType : BasicType {
+	this(Location location) {
+		super(location);
+	}
+}
+
+/**
  * Built in integer types.
  */
 enum Integer {
-	Bool,
 	Byte,
 	Ubyte,
 	Short,
@@ -107,8 +115,6 @@ enum Integer {
 template IntegerOf(T) {
 	static if(!is(T == Unqual!T)) {
 		enum IntegerOf = IntegerOf!(Unqual!T);
-	} else static if(is(T == bool)) {
-		enum IntegerOf = Integer.Bool;
 	} else static if(is(T == byte)) {
 		enum IntegerOf = Integer.Byte;
 	} else static if(is(T == ubyte)) {
