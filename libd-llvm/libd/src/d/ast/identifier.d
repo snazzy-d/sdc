@@ -1,6 +1,7 @@
 module d.ast.identifier;
 
 import d.ast.base;
+import d.ast.declaration;
 
 class Identifier : Node, Namespace {
 	string name;
@@ -10,12 +11,23 @@ class Identifier : Node, Namespace {
 		
 		this.name = name;
 	}
+	
+	override Declaration resolve(Scope s) {
+		assert(0, "resolve not implemented for" ~ typeid(this).toString());
+	}
 }
 
 /**
  * Anything that can qualify an identifier
  */
 interface Namespace {
+	Declaration resolve(Scope s);
+}
+
+/**
+ * A scope associate identifier with declarations.
+ */
+class Scope {
 	
 }
 
@@ -38,6 +50,10 @@ class QualifiedIdentifier : Identifier {
 class ModuleNamespace : Node, Namespace {
 	this(Location location) {
 		super(location);
+	}
+	
+	override Declaration resolve(Scope s) {
+		assert(0, "resolve not implemented for" ~ typeid(this).toString());
 	}
 }
 

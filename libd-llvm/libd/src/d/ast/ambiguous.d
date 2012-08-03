@@ -1,6 +1,7 @@
 module d.ast.ambiguous;
 
 import d.ast.base;
+import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -28,6 +29,19 @@ class TypeOrExpression : Node, Namespace {
 		
 		import sdc.terminal;
 		outputCaretDiagnostics(type.location, "Ambiguity : this can be type or expression.");
+	}
+	
+	override Declaration resolve(Scope s) {
+		auto typeDecl = type.resolve(s);
+		auto expressionDecl = expression.resolve(s);
+		
+		if(typeDecl) {
+			assert(!expressionDecl, "ambiguous stuff is ambiguous !");
+			
+			return typeDecl;
+		}
+		
+		return expressionDecl;
 	}
 }
 

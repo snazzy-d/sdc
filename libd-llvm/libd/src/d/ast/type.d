@@ -19,6 +19,10 @@ class Type : Node, Namespace {
 	Expression initExpression(Location location) {
 		assert(0, "init not supported for this type " ~ typeid(this).toString());
 	}
+	
+	override Declaration resolve(Scope s) {
+		assert(0, "resolve not implemented for" ~ typeid(this).toString());
+	}
 }
 
 class SimpleStorageClassType : Type {
@@ -244,7 +248,6 @@ class IdentifierType : BasicType {
 		this.identifier = identifier;
 	}
 }
-
 
 /**
  * Type defined by typeof(Expression)
