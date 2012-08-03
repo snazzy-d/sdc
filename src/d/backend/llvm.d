@@ -71,7 +71,7 @@ class LLVMBackend : Backend {
 			char* foobar = null;
 			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
 			
-			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 0);
+			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 1);
 			//*/
 			
 			/*
@@ -91,7 +91,7 @@ class LLVMBackend : Backend {
 			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 			LLVMSetThreadLocal(_tlsend, true);
 			
-			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) toStringz(asAssembly), 0);
+			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) toStringz(asAssembly), 1);
 			
 			auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
 			writeln(compileCommand);
