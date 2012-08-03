@@ -335,12 +335,15 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			return e;
 		}
 		
-		Expression visit(IntegerType t) {
-			static if(isExplicit) {
-				return new NotEqualityExpression(location, e, makeLiteral(location, 0));
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ typeid(t).toString() ~ " to bool is not allowed");
+		static if(isExplicit) {
+			Expression visit(IntegerType t) {
+				Expression zero = makeLiteral(location, 0);
+				auto type = getPromotedType(location, e.type, zero.type);
+				
+				zero = buildImplicitCast(location, type, zero);
+				e = buildImplicitCast(e.location, type, e);
+				
+				return new NotEqualityExpression(location, e, zero);
 			}
 		}
 	}
