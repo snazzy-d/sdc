@@ -34,7 +34,7 @@ class Symbol : Node {
 		
 		this.name = name;
 		
-		// Hack. Generate proper mangling.
+		// TODO: Generate proper mangling.
 		this.mangling = name;
 	}
 }
