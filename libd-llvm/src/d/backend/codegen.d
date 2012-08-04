@@ -58,7 +58,7 @@ final:
 		}
 		
 		auto funType = LLVMFunctionType(typeGen.visit(fun.returnType), parametersTypes.ptr, cast(uint) parametersTypes.length, false);
-		LLVMAddFunction(dmodule, fun.name.toStringz(), funType);
+		LLVMAddFunction(dmodule, fun.mangling.toStringz(), funType);
 	}
 }
 
@@ -85,7 +85,7 @@ final:
 	}
 	
 	void visit(FunctionSymbol f) {
-		auto fun = LLVMGetNamedFunction(dmodule, f.name.toStringz());
+		auto fun = LLVMGetNamedFunction(dmodule, f.mangling.toStringz());
 		
 		// Clear the variable table when the generation is finished.
 		scope(exit) variables.clear();
