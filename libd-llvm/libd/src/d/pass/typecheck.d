@@ -5,44 +5,29 @@
  */
 module d.pass.typecheck;
 
-import d.ast.dmodule;
+import d.ast.symbol;
 
-Module typeCheck(Module m) {
-	auto dv = new DeclarationDefVisitor();
-	foreach(decl; m.declarations) {
-		dv.visit(decl);
+import std.algorithm;
+import std.array;
+
+auto typeCheck(ModuleSymbol m) {
+	auto sv = new SymbolVisitor();
+	foreach(sym; m.symbols) {
+		sv.visit(sym);
 	}
 	
 	return m;
 }
 
-import util.visitor;
-
-import d.ast.declaration;
 import d.ast.dfunction;
 
-class DeclarationDefVisitor {
-	private DeclarationVisitor declarationVisitor;
-	
-	this() {
-		declarationVisitor  = new DeclarationVisitor();
-	}
-	
-final:
-	void visit(Declaration d) {
-		this.dispatch(d);
-	}
-	
-	void visit(FunctionDefinition fun) {
-		declarationVisitor.visit(fun);
-	}
-}
+import util.visitor;
 
-class DeclarationVisitor {
+class SymbolVisitor {
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
 	
-	VariableDeclaration[string] variables;
+	VariableSymbol[string] variables;
 	Type returnType;
 	
 	this() {
@@ -51,11 +36,11 @@ class DeclarationVisitor {
 	}
 	
 final:
-	void visit(Declaration d) {
-		this.dispatch(d);
+	void visit(Symbol s) {
+		this.dispatch(s);
 	}
 	
-	void visit(FunctionDefinition fun) {
+	void visit(FunctionSymbol fun) {
 		scope(exit) variables.clear();
 		
 		final class ParameterVisitor {
@@ -64,7 +49,7 @@ final:
 			}
 			
 			void visit(NamedParameter p) {
-				variables[p.name] = new VariableDeclaration(p.location, p.type, p.name, p.type.initExpression(p.location));
+				variables[p.name] = new VariableSymbol(p.location, p.type, p.name, p.type.initExpression(p.location));
 			}
 		}
 		
@@ -78,7 +63,7 @@ final:
 		statementVisitor.visit(fun.fbody);
 	}
 	
-	void visit(VariableDeclaration var) {
+	void visit(VariableSymbol var) {
 		var.value = expressionVisitor.visit(var.value);
 		
 		final class ResolveType {
@@ -106,11 +91,11 @@ final:
 import d.ast.statement;
 
 class StatementVisitor {
-	private DeclarationVisitor declarationVisitor;
+	private SymbolVisitor symbolVisitor;
 	private ExpressionVisitor expressionVisitor;
 	
-	this(DeclarationVisitor declarationVisitor, ExpressionVisitor expressionVisitor) {
-		this.declarationVisitor = declarationVisitor;
+	this(SymbolVisitor symbolVisitor, ExpressionVisitor expressionVisitor) {
+		this.symbolVisitor = symbolVisitor;
 		this.expressionVisitor = expressionVisitor;
 	}
 	
@@ -123,8 +108,8 @@ final:
 		expressionVisitor.visit(e.expression);
 	}
 	
-	void visit(DeclarationStatement d) {
-		declarationVisitor.visit(d.declaration);
+	void visit(SymbolStatement s) {
+		symbolVisitor.visit(s.symbol);
 	}
 	
 	void visit(BlockStatement b) {
@@ -141,17 +126,17 @@ final:
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = buildImplicitCast(r.location, declarationVisitor.returnType, expressionVisitor.visit(r.value));
+		r.value = buildImplicitCast(r.location, symbolVisitor.returnType, expressionVisitor.visit(r.value));
 	}
 }
 
 import d.ast.expression;
 
 class ExpressionVisitor {
-	private DeclarationVisitor declarationVisitor;
+	private SymbolVisitor symbolVisitor;
 	
-	this(DeclarationVisitor declarationVisitor) {
-		this.declarationVisitor = declarationVisitor;
+	this(SymbolVisitor symbolVisitor) {
+		this.symbolVisitor = symbolVisitor;
 	}
 	
 final:
@@ -261,7 +246,7 @@ final:
 	}
 	
 	Expression visit(IdentifierExpression ie) {
-		ie.type = declarationVisitor.variables[ie.identifier.name].type;
+		ie.type = symbolVisitor.variables[ie.identifier.name].type;
 		
 		return ie;
 	}

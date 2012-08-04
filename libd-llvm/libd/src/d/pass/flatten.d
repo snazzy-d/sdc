@@ -6,11 +6,13 @@ module d.pass.flatten;
 import d.ast.dmodule;
 import d.ast.symbol;
 
-Module flatten(Module m) {
+import std.algorithm;
+import std.array;
+
+auto flatten(Module m) {
 	auto dv = new DeclarationVisitor();
-	m.declarations = dv.declarationFlatener.visit(m.declarations);
 	
-	return m;
+	return new ModuleSymbol(m.moduleDeclaration, dv.declarationFlatener.visit(m.declarations));
 }
 
 import d.ast.declaration;
@@ -23,33 +25,24 @@ class DeclarationVisitor {
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
 	
-	// Figure out the right way ©.
-	private Scope s;
-	
 	this() {
-		s = new Scope();
-		
 		declarationFlatener = new DeclarationFlatener(this);
 		statementVisitor = new StatementVisitor(this, declarationFlatener);
 	}
 	
 final:
-	Declaration visit(Declaration d) {
+	Symbol visit(Declaration d) {
 		return this.dispatch(d);
 	}
 	
-	Declaration visit(FunctionDefinition fun) {
+	Symbol visit(FunctionDefinition fun) {
 		fun.fbody = statementVisitor.visit(fun.fbody);
 		
-		new FunctionSymbol(fun, s);
-		
-		return fun;
+		return new FunctionSymbol(fun);
 	}
 	
-	Declaration visit(VariableDeclaration var) {
-		new VariableSymbol(var, s);
-		
-		return var;
+	Symbol visit(VariableDeclaration var) {
+		return new VariableSymbol(var);
 	}
 }
 
@@ -63,7 +56,7 @@ class DeclarationFlatener {
 	}
 	
 final:
-	Declaration[] visit(Declaration[] decls) {
+	Symbol[] visit(Declaration[] decls) {
 		// Ensure we are reentrant.
 		auto oldWorkingSet = workingSet;
 		scope(exit) workingSet = oldWorkingSet;
@@ -74,16 +67,12 @@ final:
 			visit(decl);
 		}
 		
-		foreach(i, decl; workingSet) {
-			workingSet[i] = declarationVisitor.visit(decl);
-		}
-		
-		return workingSet;
+		return workingSet.map!(d => declarationVisitor.visit(d))().array();
 	}
 	
 	void visit(Declaration d) {
 		this.dispatch!((Declaration d) {
-			workingSet ~= declarationVisitor.visit(d);
+			workingSet ~= d;
 		})(d);
 	}
 	
@@ -121,10 +110,9 @@ final:
 		return e;
 	}
 	
-	Statement visit(DeclarationStatement d) {
-		d.declaration = declarationVisitor.visit(d.declaration);
-		
-		return d;
+	// Note: SymbolStatement have to be flatened before. This function assume it is done.
+	Statement visit(SymbolStatement s) {
+		return s;
 	}
 	
 	Statement visit(BlockStatement b) {
@@ -174,11 +162,7 @@ final:
 			visit(s);
 		}
 		
-		foreach(i, s; workingSet) {
-			workingSet[i] = statementVisitor.visit(s);
-		}
-		
-		return workingSet;
+		return workingSet.map!(s => statementVisitor.visit(s))().array();
 	}
 	
 	void visit(Statement s) {
@@ -188,18 +172,16 @@ final:
 	}
 	
 	void visit(DeclarationStatement ds) {
-		auto decls = declarationFlatener.visit([ds.declaration]);
+		auto syms = declarationFlatener.visit([ds.declaration]);
 		
-		if(decls.length == 1) {
-			ds.declaration = decls[0];
-			
-			workingSet ~= ds;
+		if(syms.length == 1) {
+			workingSet ~= new SymbolStatement(syms[0]);
 		} else {
 			Statement[] stmts;
-			stmts.length = decls.length;
+			stmts.length = syms.length;
 			
-			foreach(i, decl; decls) {
-				stmts[i] = new DeclarationStatement(decl);
+			foreach(i, sym; syms) {
+				stmts[i] = new SymbolStatement(sym);
 			}
 			
 			workingSet ~= stmts;

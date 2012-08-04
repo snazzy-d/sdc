@@ -3,6 +3,7 @@ module d.ast.statement;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
+import d.ast.symbol;
 import d.ast.type;
 
 enum StatementType {
@@ -88,6 +89,18 @@ class DeclarationStatement : Statement {
 	}
 }
 
+/**
+ * Symbols
+ */
+class SymbolStatement : Statement {
+	Symbol symbol;
+	
+	this(Symbol symbol) {
+		super(symbol.location, StatementType.Declaration);
+		
+		this.symbol = symbol;
+	}
+}
 
 /**
  * if else statements.
