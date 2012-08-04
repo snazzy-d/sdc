@@ -189,7 +189,7 @@ final:
 			
 			e.lhs = buildExplicitCast(e.lhs.location, type, e.lhs);
 			e.rhs = buildExplicitCast(e.rhs.location, type, e.rhs);
-		} else static if(find(["==", "!="], operation)) {
+		} else static if(find(["==", "!=", ">", ">=", "<", "<="], operation)) {
 			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);

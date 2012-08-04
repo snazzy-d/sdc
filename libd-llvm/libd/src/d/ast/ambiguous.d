@@ -4,6 +4,7 @@ import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
+import d.ast.symbol;
 import d.ast.type;
 
 class TypeOrExpression : Node, Namespace {
@@ -31,17 +32,17 @@ class TypeOrExpression : Node, Namespace {
 		outputCaretDiagnostics(type.location, "Ambiguity : this can be type or expression.");
 	}
 	
-	override Declaration resolve(Scope s) {
-		auto typeDecl = type.resolve(s);
-		auto expressionDecl = expression.resolve(s);
+	override Symbol resolve(Scope s) {
+		auto typeSym = type.resolve(s);
+		auto expressionSym = expression.resolve(s);
 		
-		if(typeDecl) {
-			assert(!expressionDecl, "ambiguous stuff is ambiguous !");
+		if(typeSym) {
+			assert(!expressionSym, "ambiguous stuff is ambiguous !");
 			
-			return typeDecl;
+			return typeSym;
 		}
 		
-		return expressionDecl;
+		return expressionSym;
 	}
 }
 
