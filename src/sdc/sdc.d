@@ -87,6 +87,9 @@ void compile(string filename) {
 	import d.pass.flatten;
 	auto tc = flatten(ast);
 	
+	import d.pass.identifier;
+	tc = resolveIdentifiers(tc);
+	
 	import d.pass.typecheck;
 	tc = typeCheck(tc);
 	
