@@ -49,7 +49,7 @@ final:
 			}
 			
 			void visit(NamedParameter p) {
-				variables[p.name] = new VariableSymbol(p.location, p.type, p.name, p.type.initExpression(p.location));
+				variables[p.name] = new VariableSymbol(p.location, p.type, p.name, p.type.initExpression(p.location), fun);
 			}
 		}
 		

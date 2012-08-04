@@ -9,22 +9,6 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-/**
- * A scope associate identifier with declarations.
- */
-class Scope {
-	Symbol[string] symbols;
-	
-	void addSymbol(Symbol s) {
-		symbols[s.name] = s;
-	}
-	
-	void addOverloadableSymbol(Symbol s) {
-		// TODO: handle that properly.
-		addSymbol(s);
-	}
-}
-
 class Symbol : Node {
 	string name;
 	string mangling;
@@ -39,9 +23,34 @@ class Symbol : Node {
 	}
 }
 
-class ModuleSymbol : Symbol {
+/**
+ * Any symbol that introduce its own scope.
+ */
+class ScopeSymbol : Symbol {
+	private Scope s;
+	
+	this(Location location, string name) {
+		super(location, name);
+		
+		this.s = new Scope();
+	}
+	
+	this(Location location, string name, ScopeSymbol parent) {
+		super(location, name);
+		
+		this.s = new NestedScope(parent.s);
+		
+		parent.s.addOverloadableSymbol(this);
+	}
+}
+
+class ModuleSymbol : ScopeSymbol {
 	ModuleDeclaration dmodule;
 	Symbol[] symbols;
+	
+	this(ModuleDeclaration dmodule) {
+		this(dmodule, []);
+	}
 	
 	this(ModuleDeclaration dmodule, Symbol[] symbols) {
 		super(dmodule.location, dmodule.name);
@@ -55,33 +64,63 @@ class VariableSymbol : Symbol {
 	Type type;
 	Expression value;
 	
-	this(VariableDeclaration variable) {
-		this(variable.location, variable.type, variable.name, variable.value);
+	this(VariableDeclaration variable, ScopeSymbol parent) {
+		this(variable.location, variable.type, variable.name, variable.value, parent);
 	}
 	
-	this(Location location, Type type, string name, Expression value) {
+	this(Location location, Type type, string name, Expression value, ScopeSymbol parent) {
 		super(location, name);
 		
 		this.type = type;
 		this.value = value;
 		
-		// s.addSymbol(this);
+		parent.s.addSymbol(this);
 	}
 }
 
-class FunctionSymbol : Symbol {
+class FunctionSymbol : ScopeSymbol {
 	Type returnType;
 	Parameter[] parameters;
 	Statement fbody;
 	
-	this(FunctionDefinition fun) {
-		super(fun.location, fun.name);
+	this(FunctionDefinition fun, ScopeSymbol parent) {
+		super(fun.location, fun.name, parent);
 		
 		returnType = fun.returnType;
 		parameters = fun.parameters;
 		fbody = fun.fbody;
-		
-		// s.addOverloadableSymbol(this);
+	}
+}
+
+/**
+ * A scope associate identifier with declarations.
+ */
+class Scope {
+	Symbol[string] symbols;
+	
+	void addSymbol(Symbol s) {
+		symbols[s.name] = s;
+	}
+	
+	void addOverloadableSymbol(Symbol s) {
+		// TODO: handle that properly.
+		addSymbol(s);
+	}
+	
+	Symbol resolve(string name) {
+		return symbols[name];
+	}
+}
+
+class NestedScope : Scope {
+	Scope parent;
+	
+	this(Scope parent) {
+		this.parent = parent;
+	}
+	
+	override Symbol resolve(string name) {
+		return symbols.get(name, parent.resolve(name));
 	}
 }
 
