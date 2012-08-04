@@ -3,12 +3,14 @@
  */
 module d.pass.main;
 
-import d.ast.dmodule;
+import d.ast.symbol;
 
-Module buildMain(Module m) {
+auto buildMain(ModuleSymbol m) {
 	auto md = new MainDetector();
-	foreach(i, decl; m.declarations) {
-		m.declarations[i] = md.visit(decl);
+	
+	// TODO: use map reduce ? This failed with 2.060 .
+	foreach(i, sym; m.symbols) {
+		m.symbols[i] = md.visit(sym);
 	}
 	
 	return m;
@@ -28,19 +30,11 @@ class MainDetector {
 	}
 	
 final:
-	Declaration visit(Declaration d) {
-		return this.dispatch!(d => d)(d);
+	Symbol visit(Symbol s) {
+		return this.dispatch!(s => s)(s);
 	}
 	
-	Declaration visit(FunctionDeclaration d) {
-		if(d.name == "main") {
-			throw new Exception("main declaration not supported.");
-		}
-		
-		return d;
-	}
-	
-	private auto handleMain(FunctionDefinition main) {
+	private auto handleMain(FunctionSymbol main) {
 		main.returnType = new IntegerType(main.returnType.location, IntegerOf!int);
 		// TODO: process function body to replace return; by return 0;
 		
@@ -49,12 +43,12 @@ final:
 		return main;
 	}
 	
-	Declaration visit(FunctionDefinition d) {
-		if(d.name == "main") {
-			if(returnCheck.visit(d.returnType)) {
-				switch(d.parameters.length) {
+	Symbol visit(FunctionSymbol s) {
+		if(s.name == "main") {
+			if(returnCheck.visit(s.returnType)) {
+				switch(s.parameters.length) {
 					case 0 :
-						return handleMain(d);
+						return handleMain(s);
 					
 					case 1 :
 						assert(0, "main vith argument not supported.");
@@ -67,7 +61,7 @@ final:
 			}
 		}
 		
-		return d;
+		return s;
 	}
 }
 
