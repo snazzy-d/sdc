@@ -293,6 +293,19 @@ class IdentifierExpression : Expression {
 }
 
 /**
+ * A resolved identifier expression.
+ */
+class SymbolExpression : Expression {
+	Symbol symbol;
+	
+	this(Location location, Symbol symbol) {
+		super(location);
+		
+		this.symbol = symbol;
+	}
+}
+
+/**
  * new
  */
 class NewExpression : Expression {

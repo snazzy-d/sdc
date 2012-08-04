@@ -5,6 +5,8 @@
  */
 module d.pass.typecheck;
 
+import d.pass.base;
+
 import d.ast.symbol;
 
 import std.algorithm;
@@ -12,23 +14,17 @@ import std.array;
 
 auto typeCheck(ModuleSymbol m) {
 	auto sv = new SymbolVisitor();
-	foreach(sym; m.symbols) {
-		sv.visit(sym);
-	}
 	
-	return m;
+	return sv.visit(m);
 }
 
 import d.ast.dfunction;
-
-import util.visitor;
 
 class SymbolVisitor {
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
 	
-	VariableSymbol[string] variables;
-	Type returnType;
+	ScopeSymbol parent;
 	
 	this() {
 		expressionVisitor = new ExpressionVisitor(this);
@@ -36,12 +32,25 @@ class SymbolVisitor {
 	}
 	
 final:
-	void visit(Symbol s) {
-		this.dispatch(s);
+	Symbol visit(Symbol s) {
+		return this.dispatch(s);
 	}
 	
-	void visit(FunctionSymbol fun) {
-		scope(exit) variables.clear();
+	ModuleSymbol visit(ModuleSymbol m) {
+		parent = m;
+		
+		foreach(sym; m.symbols) {
+			visit(sym);
+		}
+		
+		return m;
+	}
+	
+	Symbol visit(FunctionSymbol fun) {
+		auto oldParent = parent;
+		scope(exit) parent = oldParent;
+		
+		parent = fun;
 		
 		final class ParameterVisitor {
 			void visit(Parameter p) {
@@ -49,7 +58,7 @@ final:
 			}
 			
 			void visit(NamedParameter p) {
-				variables[p.name] = new VariableSymbol(p.location, p.type, p.name, p.type.initExpression(p.location), fun);
+				// variables[p.name] = new VariableSymbol(p.location, p.type, p.name, p.type.initExpression(p.location), fun);
 			}
 		}
 		
@@ -59,11 +68,12 @@ final:
 			pv.visit(p);
 		}
 		
-		returnType = fun.returnType;
 		statementVisitor.visit(fun.fbody);
+		
+		return fun;
 	}
 	
-	void visit(VariableSymbol var) {
+	Symbol visit(VariableSymbol var) {
 		var.value = expressionVisitor.visit(var.value);
 		
 		final class ResolveType {
@@ -84,7 +94,7 @@ final:
 		var.type = (new ResolveType()).visit(var.type);
 		var.value = buildImplicitCast(var.location, var.type, var.value);
 		
-		variables[var.name] = var;
+		return var;
 	}
 }
 
@@ -126,7 +136,8 @@ final:
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = buildImplicitCast(r.location, symbolVisitor.returnType, expressionVisitor.visit(r.value));
+		// TODO: handle that by splitting symbol visitor.
+		r.value = buildImplicitCast(r.location, (cast(FunctionSymbol) symbolVisitor.parent).returnType, expressionVisitor.visit(r.value));
 	}
 }
 
@@ -243,12 +254,6 @@ final:
 	
 	Expression visit(LogicalOrExpression e) {
 		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(IdentifierExpression ie) {
-		ie.type = symbolVisitor.variables[ie.identifier.name].type;
-		
-		return ie;
 	}
 	
 	private auto handleUnaryExpression(UnaryExpression)(UnaryExpression e) {

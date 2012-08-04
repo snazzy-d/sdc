@@ -27,7 +27,7 @@ class Symbol : Node {
  * Any symbol that introduce its own scope.
  */
 class ScopeSymbol : Symbol {
-	private Scope s;
+	Scope s;
 	
 	this(Location location, string name) {
 		super(location, name);
