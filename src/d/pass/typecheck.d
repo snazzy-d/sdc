@@ -98,6 +98,17 @@ final:
 	}
 }
 
+class SymbolTypeResolver {
+final:
+	Type visit(Symbol s) {
+		return this.dispatch(s);
+	}
+	
+	Type visit(VariableSymbol var) {
+		return var.type;
+	}
+}
+
 import d.ast.statement;
 
 class StatementVisitor {
@@ -145,9 +156,12 @@ import d.ast.expression;
 
 class ExpressionVisitor {
 	private SymbolVisitor symbolVisitor;
+	private SymbolTypeResolver symbolTypeResolver;
 	
 	this(SymbolVisitor symbolVisitor) {
 		this.symbolVisitor = symbolVisitor;
+		
+		this.symbolTypeResolver = new SymbolTypeResolver();
 	}
 	
 final:
@@ -300,6 +314,11 @@ final:
 		}
 		
 		return c;
+	}
+	
+	Expression visit(SymbolExpression e) {
+		e.type = symbolTypeResolver.visit(e.symbol);
+		return e;
 	}
 }
 
