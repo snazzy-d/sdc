@@ -2,6 +2,7 @@ module d.ast.identifier;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.symbol;
 
 class Identifier : Node, Namespace {
 	string name;
@@ -12,7 +13,7 @@ class Identifier : Node, Namespace {
 		this.name = name;
 	}
 	
-	override Declaration resolve(Scope s) {
+	override Symbol resolve(Scope s) {
 		assert(0, "resolve not implemented for" ~ typeid(this).toString());
 	}
 }
@@ -21,14 +22,7 @@ class Identifier : Node, Namespace {
  * Anything that can qualify an identifier
  */
 interface Namespace {
-	Declaration resolve(Scope s);
-}
-
-/**
- * A scope associate identifier with declarations.
- */
-class Scope {
-	
+	Symbol resolve(Scope s);
 }
 
 /**
@@ -52,7 +46,7 @@ class ModuleNamespace : Node, Namespace {
 		super(location);
 	}
 	
-	override Declaration resolve(Scope s) {
+	override Symbol resolve(Scope s) {
 		assert(0, "resolve not implemented for" ~ typeid(this).toString());
 	}
 }

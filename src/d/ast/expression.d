@@ -4,6 +4,7 @@ import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.identifier;
+import d.ast.symbol;
 import d.ast.statement;
 import d.ast.type;
 
@@ -21,7 +22,7 @@ class Expression : Node, Namespace {
 		this.type = type;
 	}
 	
-	override Declaration resolve(Scope s) {
+	override Symbol resolve(Scope s) {
 		assert(0, "resolve not implemented for" ~ typeid(this).toString());
 	}
 }

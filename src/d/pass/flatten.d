@@ -4,10 +4,11 @@
 module d.pass.flatten;
 
 import d.ast.dmodule;
+import d.ast.symbol;
 
 Module flatten(Module m) {
-	auto df = new DeclarationFlatener();
-	m.declarations = df.visit(m.declarations);
+	auto dv = new DeclarationVisitor();
+	m.declarations = dv.declarationFlatener.visit(m.declarations);
 	
 	return m;
 }
@@ -18,13 +19,47 @@ import d.ast.type;
 
 import util.visitor;
 
+class DeclarationVisitor {
+	private DeclarationFlatener declarationFlatener;
+	private StatementVisitor statementVisitor;
+	
+	// Figure out the right way ©.
+	private Scope s;
+	
+	this() {
+		s = new Scope();
+		
+		declarationFlatener = new DeclarationFlatener(this);
+		statementVisitor = new StatementVisitor(this, declarationFlatener);
+	}
+	
+final:
+	Declaration visit(Declaration d) {
+		return this.dispatch(d);
+	}
+	
+	Declaration visit(FunctionDefinition fun) {
+		fun.fbody = statementVisitor.visit(fun.fbody);
+		
+		new FunctionSymbol(fun, s);
+		
+		return fun;
+	}
+	
+	Declaration visit(VariableDeclaration var) {
+		new VariableSymbol(var, s);
+		
+		return var;
+	}
+}
+
 class DeclarationFlatener {
 	private DeclarationVisitor declarationVisitor;
 	
 	private Declaration[] workingSet;
 	
-	this() {
-		declarationVisitor  = new DeclarationVisitor(this);
+	this(DeclarationVisitor declarationVisitor) {
+		this.declarationVisitor = declarationVisitor;
 	}
 	
 final:
@@ -59,33 +94,62 @@ final:
 	}
 }
 
-class DeclarationVisitor {
+import d.ast.statement;
+
+class StatementVisitor {
+	private DeclarationVisitor declarationVisitor;
 	private DeclarationFlatener declarationFlatener;
-	private StatementVisitor statementVisitor;
+	private StatementFlatener statementFlatener;
+	private ExpressionVisitor expressionVisitor;
 	
-	this(DeclarationFlatener declarationFlatener) {
+	this(DeclarationVisitor declarationVisitor, DeclarationFlatener declarationFlatener) {
+		this.declarationVisitor = declarationVisitor;
 		this.declarationFlatener = declarationFlatener;
 		
-		statementVisitor = new StatementVisitor(this, declarationFlatener);
+		statementFlatener = new StatementFlatener(this, declarationFlatener);
+		expressionVisitor = new ExpressionVisitor();
 	}
 	
 final:
-	Declaration visit(Declaration d) {
-		return this.dispatch(d);
+	Statement visit(Statement s) {
+		return this.dispatch(s);
 	}
 	
-	Declaration visit(FunctionDefinition fun) {
-		fun.fbody = statementVisitor.visit(fun.fbody);
+	Statement visit(ExpressionStatement e) {
+		e.expression = expressionVisitor.visit(e.expression);
 		
-		return fun;
+		return e;
 	}
 	
-	Declaration visit(VariableDeclaration var) {
-		return var;
+	Statement visit(DeclarationStatement d) {
+		d.declaration = declarationVisitor.visit(d.declaration);
+		
+		return d;
+	}
+	
+	Statement visit(BlockStatement b) {
+		b.statements = statementFlatener.visit(b.statements);
+		
+		return b;
+	}
+	
+	Statement visit(IfElseStatement ifs) {
+		ifs.then = visit(ifs.then);
+		ifs.elseStatement = visit(ifs.elseStatement);
+		
+		return ifs;
+	}
+	
+	Statement visit(IfStatement ifs) {
+		return visit(new IfElseStatement(ifs.location, ifs.condition, ifs.then));
+	}
+	
+	Statement visit(ReturnStatement r) {
+		r.value = expressionVisitor.visit(r.value);
+		
+		return r;
 	}
 }
-
-import d.ast.statement;
 
 class StatementFlatener {
 	private DeclarationFlatener declarationFlatener;
@@ -140,61 +204,6 @@ final:
 			
 			workingSet ~= stmts;
 		}
-	}
-}
-
-class StatementVisitor {
-	private DeclarationVisitor declarationVisitor;
-	private DeclarationFlatener declarationFlatener;
-	private StatementFlatener statementFlatener;
-	private ExpressionVisitor expressionVisitor;
-	
-	this(DeclarationVisitor declarationVisitor, DeclarationFlatener declarationFlatener) {
-		this.declarationVisitor = declarationVisitor;
-		this.declarationFlatener = declarationFlatener;
-		
-		statementFlatener = new StatementFlatener(this, declarationFlatener);
-		expressionVisitor = new ExpressionVisitor();
-	}
-	
-final:
-	Statement visit(Statement s) {
-		return this.dispatch(s);
-	}
-	
-	Statement visit(ExpressionStatement e) {
-		e.expression = expressionVisitor.visit(e.expression);
-		
-		return e;
-	}
-	
-	Statement visit(DeclarationStatement d) {
-		d.declaration = declarationVisitor.visit(d.declaration);
-		
-		return d;
-	}
-	
-	Statement visit(BlockStatement b) {
-		b.statements = statementFlatener.visit(b.statements);
-		
-		return b;
-	}
-	
-	Statement visit(IfElseStatement ifs) {
-		ifs.then = visit(ifs.then);
-		ifs.elseStatement = visit(ifs.elseStatement);
-		
-		return ifs;
-	}
-	
-	Statement visit(IfStatement ifs) {
-		return visit(new IfElseStatement(ifs.location, ifs.condition, ifs.then));
-	}
-	
-	Statement visit(ReturnStatement r) {
-		r.value = expressionVisitor.visit(r.value);
-		
-		return r;
 	}
 }
 

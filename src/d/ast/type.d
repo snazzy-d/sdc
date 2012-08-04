@@ -5,6 +5,7 @@ import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
+import d.ast.symbol;
 
 class Type : Node, Namespace {
 	this(Location location) {
@@ -20,7 +21,7 @@ class Type : Node, Namespace {
 		assert(0, "init not supported for this type " ~ typeid(this).toString());
 	}
 	
-	override Declaration resolve(Scope s) {
+	override Symbol resolve(Scope s) {
 		assert(0, "resolve not implemented for" ~ typeid(this).toString());
 	}
 }
