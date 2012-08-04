@@ -1,5 +1,6 @@
 /**
  * This remove everything that isn't meaningfull for compilation from the AST.
+ * Additionnaly, declaration are replaced by symbols and scope are prepared.
  */
 module d.pass.flatten;
 
@@ -10,9 +11,12 @@ import std.algorithm;
 import std.array;
 
 auto flatten(Module m) {
-	auto dv = new DeclarationVisitor();
+	auto msym = new ModuleSymbol(m.moduleDeclaration);
+	auto dv = new DeclarationVisitor(msym);
 	
-	return new ModuleSymbol(m.moduleDeclaration, dv.declarationFlatener.visit(m.declarations));
+	msym.symbols = dv.declarationFlatener.visit(m.declarations);
+	
+	return msym;
 }
 
 import d.ast.declaration;
@@ -25,9 +29,13 @@ class DeclarationVisitor {
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
 	
-	this() {
+	private ScopeSymbol parent;
+	
+	this(ScopeSymbol parent) {
 		declarationFlatener = new DeclarationFlatener(this);
 		statementVisitor = new StatementVisitor(this, declarationFlatener);
+		
+		this.parent = parent;
 	}
 	
 final:
@@ -36,13 +44,20 @@ final:
 	}
 	
 	Symbol visit(FunctionDefinition fun) {
+		auto funsym = new FunctionSymbol(fun, parent);
+		
+		auto oldParent = parent;
+		scope(exit) parent = oldParent;
+		
+		parent = funsym;
+		
 		fun.fbody = statementVisitor.visit(fun.fbody);
 		
-		return new FunctionSymbol(fun);
+		return funsym;
 	}
 	
 	Symbol visit(VariableDeclaration var) {
-		return new VariableSymbol(var);
+		return new VariableSymbol(var, parent);
 	}
 }
 
