@@ -5,10 +5,13 @@ module d.pass.main;
 
 import d.ast.symbol;
 
+import std.algorithm;
+import std.array;
+
 auto buildMain(ModuleSymbol m) {
 	auto md = new MainDetector();
 	
-	// TODO: use map reduce ? This failed with 2.060 .
+	// TODO: use map reduce ? This failed with 2.060 with template delegate.
 	foreach(i, sym; m.symbols) {
 		m.symbols[i] = md.visit(sym);
 	}
@@ -38,7 +41,7 @@ final:
 		main.returnType = new IntegerType(main.returnType.location, IntegerOf!int);
 		// TODO: process function body to replace return; by return 0;
 		
-		main.name = "_Dmain";
+		main.mangling = "_Dmain";
 		
 		return main;
 	}
