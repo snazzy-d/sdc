@@ -1,6 +1,6 @@
 module d.backend.llvm;
 
-import d.ast.dmodule;
+import d.ast.symbol;
 
 import llvm.c.Core;
 import llvm.c.ExecutionEngine;
@@ -8,7 +8,7 @@ import llvm.c.Target;
 import llvm.Ext;
 
 interface Backend {
-	void codeGen(Module[] mods);
+	void codeGen(ModuleSymbol[] mods);
 }
 
 class LLVMBackend : Backend {
@@ -19,7 +19,7 @@ class LLVMBackend : Backend {
 		LLVMInitializeX86AsmPrinter();
 	}
 	
-	void codeGen(Module[] mods) {
+	void codeGen(ModuleSymbol[] mods) {
 		foreach(mod; mods) {
 			import d.backend.codegen;
 			import std.stdio;
