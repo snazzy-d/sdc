@@ -27,11 +27,15 @@ class Scope {
 
 class Symbol : Node {
 	string name;
+	string mangling;
 	
 	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
+		
+		// Hack. Generate proper mangling.
+		this.mangling = name;
 	}
 }
 
