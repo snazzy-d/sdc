@@ -89,6 +89,12 @@ class FunctionSymbol : ScopeSymbol {
 		returnType = fun.returnType;
 		parameters = fun.parameters;
 		fbody = fun.fbody;
+		
+		foreach(parameter; parameters) {
+			auto np = cast(NamedParameter) parameter;
+			// Hack hack hack
+			new VariableSymbol(parameter.location, parameter.type, np.name, makeLiteral(parameter.location, 0), this);
+		}
 	}
 }
 
