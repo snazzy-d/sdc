@@ -228,6 +228,8 @@ final:
 			c.arguments[i] = visit(arg);
 		}
 		
+		c.callee = visit(c.callee);
+		
 		return c;
 	}
 	
