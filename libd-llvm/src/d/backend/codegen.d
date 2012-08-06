@@ -318,53 +318,53 @@ final:
 	
 	LLVMValueRef visit(AssignExpression e) {
 		auto value = visit(e.rhs);
-		auto lhs = cast(IdentifierExpression) e.lhs;
+		auto lhs = cast(SymbolExpression) e.lhs;
 		
-		updateVariableValue(lhs.identifier.name, value);
+		updateVariableValue(lhs.symbol.name, value);
 		
 		return value;
 	}
 	
 	LLVMValueRef visit(PreIncrementExpression e) {
 		auto value = visit(e.expression);
-		auto lvalue = cast(IdentifierExpression) e.expression;
+		auto lvalue = cast(SymbolExpression) e.expression;
 		
 		value = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
 		
-		updateVariableValue(lvalue.identifier.name, value);
+		updateVariableValue(lvalue.symbol.name, value);
 		
 		return value;
 	}
 	
 	LLVMValueRef visit(PreDecrementExpression e) {
 		auto value = visit(e.expression);
-		auto lvalue = cast(IdentifierExpression) e.expression;
+		auto lvalue = cast(SymbolExpression) e.expression;
 		
 		value = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
 		
-		updateVariableValue(lvalue.identifier.name, value);
+		updateVariableValue(lvalue.symbol.name, value);
 		
 		return value;
 	}
 	
 	LLVMValueRef visit(PostIncrementExpression e) {
 		auto value = visit(e.expression);
-		auto lvalue = cast(IdentifierExpression) e.expression;
+		auto lvalue = cast(SymbolExpression) e.expression;
 		
 		auto updatedValue = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
 		
-		updateVariableValue(lvalue.identifier.name, updatedValue);
+		updateVariableValue(lvalue.symbol.name, updatedValue);
 		
 		return value;
 	}
 	
 	LLVMValueRef visit(PostDecrementExpression e) {
 		auto value = visit(e.expression);
-		auto lvalue = cast(IdentifierExpression) e.expression;
+		auto lvalue = cast(SymbolExpression) e.expression;
 		
 		auto updatedValue = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
 		
-		updateVariableValue(lvalue.identifier.name, updatedValue);
+		updateVariableValue(lvalue.symbol.name, updatedValue);
 		
 		return value;
 	}
@@ -451,8 +451,8 @@ final:
 		return handleLogicalBinary(e);
 	}
 	
-	LLVMValueRef visit(IdentifierExpression e) {
-		return LLVMBuildLoad(builder, symbolStatementGen.variables[e.identifier.name], "");
+	LLVMValueRef visit(SymbolExpression e) {
+		return LLVMBuildLoad(builder, symbolStatementGen.variables[e.symbol.name], "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -517,7 +517,7 @@ final:
 			arguments[i] = visit(arg);
 		}
 		
-		auto name = toStringz((cast(IdentifierExpression) c.callee).identifier.name);
+		auto name = toStringz((cast(SymbolExpression) c.callee).symbol.name);
 		return LLVMBuildCall(builder, LLVMGetNamedFunction(symbolStatementGen.dmodule, name), arguments.ptr, cast(uint) arguments.length, "");
 	}
 }
