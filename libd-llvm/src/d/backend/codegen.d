@@ -119,6 +119,8 @@ final:
 				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], asNamed.name.toStringz());
 				auto value = params[i];
 				
+				LLVMSetValueName(value, ("arg." ~ asNamed.name).toStringz());
+				
 				LLVMBuildStore(builder, value, alloca);
 				symbolStatementGen.variables[asNamed.name] = alloca;
 			}
