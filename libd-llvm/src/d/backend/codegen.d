@@ -98,9 +98,12 @@ final:
 		// Clear the variable table when the generation is finished.
 		scope(exit) symbolStatementGen.variables.clear();
 		
-		// Instruction block.
-		auto basicBlock = LLVMAppendBasicBlock(fun, "");
-		LLVMPositionBuilderAtEnd(builder, basicBlock);
+		// Alloca and instruction block.
+		auto allocaBB = LLVMAppendBasicBlock(fun, "");
+		auto bodyBB = LLVMAppendBasicBlock(fun, "body");
+		
+		// Handle parameters in the alloca block.
+		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		
 		LLVMValueRef[] params;
 		params.length = f.parameters.length;
@@ -126,12 +129,18 @@ final:
 			}
 		}
 		
+		// Generate function's body.
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		statementGen.visit(f.fbody);
 		
 		// If the current block isn' concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
 			LLVMBuildUnreachable(builder);
 		}
+		
+		// Branch from alloca block to function body.
+		LLVMPositionBuilderAtEnd(builder, allocaBB);
+		LLVMBuildBr(builder, bodyBB);
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 	}
@@ -260,6 +269,38 @@ final:
 		
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
+	}
+	
+	void visit(WhileStatement w) {
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		auto whileBB = LLVMAppendBasicBlock(fun, "while");
+		auto doBB = LLVMAppendBasicBlock(fun, "do");
+		auto doneBB = LLVMAppendBasicBlock(fun, "done");
+		
+		// Jump into the loop.
+		LLVMBuildBr(builder, whileBB);
+		LLVMPositionBuilderAtEnd(builder, whileBB);
+		
+		// Test and do or jump to done.
+		auto condition = expressionGen.visit(w.condition);
+		LLVMBuildCondBr(builder, condition, doBB, doneBB);
+		
+		// Emit then
+		LLVMPositionBuilderAtEnd(builder, doBB);
+		
+		visit(w.statement);
+		
+		// Codegen of then can change the current block, so we put everything in order.
+		doBB = LLVMGetInsertBlock(builder);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(doBB)) {
+			LLVMBuildBr(builder, whileBB);
+		}
+		
+		LLVMMoveBasicBlockAfter(doneBB, doBB);
+		LLVMPositionBuilderAtEnd(builder, doneBB);
 	}
 	
 	void visit(ReturnStatement r) {
@@ -464,7 +505,11 @@ final:
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate, BinaryExpression)(BinaryExpression e) {
-		typeGen.visit(e.type);
+		// TODO: implement type comparaison.
+		// assert(e.lhs.type == e.rhs.type);
+		
+		typeGen.visit(e.lhs.type);
+		
 		if(typeGen.isSigned) {
 			return handleComparaison!signedPredicate(e);
 		} else {
