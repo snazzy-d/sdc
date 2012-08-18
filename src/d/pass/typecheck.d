@@ -140,16 +140,16 @@ final:
 	}
 	
 	void visit(IfElseStatement ifs) {
-		ifs.condition = expressionVisitor.visit(ifs.condition);
+		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), expressionVisitor.visit(ifs.condition));
 		
 		visit(ifs.then);
 		visit(ifs.elseStatement);
 	}
 	
 	void visit(WhileStatement w) {
-		visit(w.statement);
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), expressionVisitor.visit(w.condition));
 		
-		w.condition = expressionVisitor.visit(w.condition);
+		visit(w.statement);
 	}
 	
 	void visit(ReturnStatement r) {
