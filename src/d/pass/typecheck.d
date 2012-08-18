@@ -146,6 +146,12 @@ final:
 		visit(ifs.elseStatement);
 	}
 	
+	void visit(WhileStatement w) {
+		visit(w.statement);
+		
+		w.condition = expressionVisitor.visit(w.condition);
+	}
+	
 	void visit(ReturnStatement r) {
 		// TODO: handle that by splitting symbol visitor.
 		r.value = buildImplicitCast(r.location, (cast(FunctionSymbol) symbolVisitor.parent).returnType, expressionVisitor.visit(r.value));

@@ -147,6 +147,13 @@ final:
 		return visit(new IfElseStatement(ifs.location, ifs.condition, ifs.then));
 	}
 	
+	Statement visit(WhileStatement w) {
+		w.statement = visit(w.statement);
+		w.condition = expressionVisitor.visit(w.condition);
+		
+		return w;
+	}
+	
 	Statement visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
 		
