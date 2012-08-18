@@ -93,6 +93,12 @@ final:
 		visit(ifs.elseStatement);
 	}
 	
+	void visit(WhileStatement w) {
+		visit(w.statement);
+		
+		w.condition = expressionVisitor.visit(w.condition);
+	}
+	
 	void visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
 	}
