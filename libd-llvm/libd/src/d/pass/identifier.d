@@ -99,6 +99,20 @@ final:
 		w.condition = expressionVisitor.visit(w.condition);
 	}
 	
+	void visit(DoWhileStatement w) {
+		visit(w.statement);
+		
+		w.condition = expressionVisitor.visit(w.condition);
+	}
+	
+	void visit(ForStatement f) {
+		visit(f.initialize);
+		visit(f.statement);
+		
+		f.condition = expressionVisitor.visit(f.condition);
+		f.increment = expressionVisitor.visit(f.increment);
+	}
+	
 	void visit(ReturnStatement r) {
 		r.value = expressionVisitor.visit(r.value);
 	}
