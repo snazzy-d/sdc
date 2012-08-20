@@ -271,36 +271,77 @@ final:
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 	}
 	
-	void visit(WhileStatement w) {
+	private void handleLoop(LoopStatement)(LoopStatement l) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto whileBB = LLVMAppendBasicBlock(fun, "while");
+		enum isFor = is(LoopStatement : ForStatement);
+		enum isDoWhile = is(LoopStatement : DoWhileStatement);
+		
+		static if(isFor) {
+			auto testBB = LLVMAppendBasicBlock(fun, "for");
+			auto continueBB = LLVMAppendBasicBlock(fun, "increment");
+		} else {
+			auto testBB = LLVMAppendBasicBlock(fun, "while");
+			alias testBB continueBB;
+		}
+		
 		auto doBB = LLVMAppendBasicBlock(fun, "do");
 		auto doneBB = LLVMAppendBasicBlock(fun, "done");
 		
+		static if(isDoWhile) {
+			alias doBB startBB;
+		} else {
+			alias testBB startBB;
+		}
+		
+		// Generate initialization if appropriate
+		static if(isFor) {
+			visit(l.initialize);
+		}
+		
 		// Jump into the loop.
-		LLVMBuildBr(builder, whileBB);
-		LLVMPositionBuilderAtEnd(builder, whileBB);
+		LLVMBuildBr(builder, startBB);
+		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
-		auto condition = expressionGen.visit(w.condition);
+		auto condition = expressionGen.visit(l.condition);
 		LLVMBuildCondBr(builder, condition, doBB, doneBB);
 		
-		// Emit then
+		// Build continue block or alias it to the test.
+		static if(isFor) {
+			LLVMPositionBuilderAtEnd(builder, continueBB);
+			expressionGen.visit(l.increment);
+			
+			LLVMBuildBr(builder, testBB);
+		}
+		
+		// Emit do
 		LLVMPositionBuilderAtEnd(builder, doBB);
 		
-		visit(w.statement);
+		visit(l.statement);
 		
 		// Codegen of then can change the current block, so we put everything in order.
 		doBB = LLVMGetInsertBlock(builder);
 		
 		// Conclude that block if it isn't already.
 		if(!LLVMGetBasicBlockTerminator(doBB)) {
-			LLVMBuildBr(builder, whileBB);
+			LLVMBuildBr(builder, continueBB);
 		}
 		
 		LLVMMoveBasicBlockAfter(doneBB, doBB);
 		LLVMPositionBuilderAtEnd(builder, doneBB);
+	}
+	
+	void visit(WhileStatement w) {
+		handleLoop(w);
+	}
+	
+	void visit(DoWhileStatement w) {
+		handleLoop(w);
+	}
+	
+	void visit(ForStatement f) {
+		handleLoop(f);
 	}
 	
 	void visit(ReturnStatement r) {

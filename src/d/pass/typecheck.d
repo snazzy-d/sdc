@@ -152,6 +152,20 @@ final:
 		visit(w.statement);
 	}
 	
+	void visit(DoWhileStatement w) {
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), expressionVisitor.visit(w.condition));
+		
+		visit(w.statement);
+	}
+	
+	void visit(ForStatement f) {
+		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), expressionVisitor.visit(f.condition));
+		f.increment = expressionVisitor.visit(f.increment);
+		
+		visit(f.initialize);
+		visit(f.statement);
+	}
+	
 	void visit(ReturnStatement r) {
 		// TODO: handle that by splitting symbol visitor.
 		r.value = buildImplicitCast(r.location, (cast(FunctionSymbol) symbolVisitor.parent).returnType, expressionVisitor.visit(r.value));

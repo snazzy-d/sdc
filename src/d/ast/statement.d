@@ -172,15 +172,15 @@ class DoWhileStatement : Statement {
  * for statements
  */
 class ForStatement : Statement {
-	Statement init;
+	Statement initialize;
 	Expression condition;
 	Expression increment;
 	Statement statement;
 	
-	this(Location location, Statement init, Expression condition, Expression increment, Statement statement) {
+	this(Location location, Statement initialize, Expression condition, Expression increment, Statement statement) {
 		super(location, StatementType.For);
 		
-		this.init = init;
+		this.initialize = initialize;
 		this.condition = condition;
 		this.increment = increment;
 		this.statement = statement;

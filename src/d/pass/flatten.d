@@ -125,6 +125,17 @@ final:
 		return e;
 	}
 	
+	Statement visit(DeclarationStatement d) {
+		// Ugly hack.
+		auto stmts = statementFlatener.visit([cast(Statement) d]);
+		
+		if(stmts.length == 1) {
+			return stmts[0];
+		}
+		
+		return new BlockStatement(d.location, stmts);
+	}
+	
 	// Note: SymbolStatement have to be flatened before. This function assume it is done.
 	Statement visit(SymbolStatement s) {
 		return s;
@@ -152,6 +163,22 @@ final:
 		w.condition = expressionVisitor.visit(w.condition);
 		
 		return w;
+	}
+	
+	Statement visit(DoWhileStatement w) {
+		w.statement = visit(w.statement);
+		w.condition = expressionVisitor.visit(w.condition);
+		
+		return w;
+	}
+	
+	Statement visit(ForStatement f) {
+		f.initialize = visit(f.initialize);
+		f.statement = visit(f.statement);
+		f.condition = expressionVisitor.visit(f.condition);
+		f.increment = expressionVisitor.visit(f.increment);
+		
+		return f;
 	}
 	
 	Statement visit(ReturnStatement r) {
