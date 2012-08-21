@@ -10,6 +10,6 @@ int main() {
 		b++;
 	}
 	
-    return b;
+	return b;
 }
 

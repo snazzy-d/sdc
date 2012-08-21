@@ -1,15 +1,11 @@
-//T compiles:yes
-//T retval:11
+//T compiles:no
 
 int main() {
-	int b;
-	
 	for(int a = 1; a < 10; a--) {
 		// TODO: +=
 		a = a + 3;
-		b = a;
 	}
 	
-	return b;
+	return a;
 }
 

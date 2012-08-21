@@ -8,6 +8,6 @@ int main() {
 		a--;
 	} while(a > 20);
 	
-    return a;
+	return a;
 }
 
