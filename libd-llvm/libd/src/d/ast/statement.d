@@ -6,47 +6,9 @@ import d.ast.expression;
 import d.ast.symbol;
 import d.ast.type;
 
-enum StatementType {
-	Empty,
-	Block,
-	Labeled,
-	Expression,
-	Declaration,
-	If,
-	While,
-	DoWhile,
-	For,
-	Foreach,
-	Switch,
-	Case,
-	CaseRange,
-	Default,
-	Continue,
-	Break,
-	Return,
-	Goto,
-	With,
-	Synchronized,
-	Try,
-	ScopeGuard,
-	Throw,
-	Asm,
-	Pragma,
-	Mixin,
-	ForeachRange,
-	Conditional,
-	StaticAssert,
-	TemplateMixin,
-}
-
-
 class Statement : Node {
-	StatementType type;
-	
-	this(Location location, StatementType type) {
+	this(Location location) {
 		super(location);
-		
-		this.type = type;
 	}
 }
 
@@ -57,7 +19,7 @@ class BlockStatement : Statement {
 	Statement[] statements;
 	
 	this(Location location, Statement[] statements) {
-		super(location, StatementType.Block);
+		super(location);
 		
 		this.statements = statements;
 	}
@@ -70,7 +32,7 @@ class ExpressionStatement : Statement {
 	Expression expression;
 	
 	this(Expression expression) {
-		super(expression.location, StatementType.Expression);
+		super(expression.location);
 		
 		this.expression = expression;
 	}
@@ -83,7 +45,7 @@ class DeclarationStatement : Statement {
 	Declaration declaration;
 	
 	this(Declaration declaration) {
-		super(declaration.location, StatementType.Declaration);
+		super(declaration.location);
 		
 		this.declaration = declaration;
 	}
@@ -96,7 +58,7 @@ class SymbolStatement : Statement {
 	Symbol symbol;
 	
 	this(Symbol symbol) {
-		super(symbol.location, StatementType.Declaration);
+		super(symbol.location);
 		
 		this.symbol = symbol;
 	}
@@ -115,7 +77,7 @@ class IfElseStatement : Statement {
 	}
 	
 	this(Location location, Expression condition, Statement then, Statement elseStatement) {
-		super(location, StatementType.If);
+		super(location);
 		
 		this.condition = condition;
 		this.then = then;
@@ -131,7 +93,7 @@ class IfStatement : Statement {
 	Statement then;
 	
 	this(Location location, Expression condition, Statement then) {
-		super(location, StatementType.If);
+		super(location);
 		
 		this.condition = condition;
 		this.then = then;
@@ -146,7 +108,7 @@ class WhileStatement : Statement {
 	Statement statement;
 	
 	this(Location location, Expression condition, Statement statement) {
-		super(location, StatementType.While);
+		super(location);
 		
 		this.condition = condition;
 		this.statement = statement;
@@ -161,7 +123,7 @@ class DoWhileStatement : Statement {
 	Statement statement;
 	
 	this(Location location, Expression condition, Statement statement) {
-		super(location, StatementType.DoWhile);
+		super(location);
 		
 		this.condition = condition;
 		this.statement = statement;
@@ -178,7 +140,7 @@ class ForStatement : Statement {
 	Statement statement;
 	
 	this(Location location, Statement initialize, Expression condition, Expression increment, Statement statement) {
-		super(location, StatementType.For);
+		super(location);
 		
 		this.initialize = initialize;
 		this.condition = condition;
@@ -196,7 +158,7 @@ class ForeachStatement : Statement {
 	Statement statement;
 	
 	this(Location location, VariableDeclaration[] tupleElements, Expression iterrated, Statement statement) {
-		super(location, StatementType.Foreach);
+		super(location);
 		
 		this.tupleElements = tupleElements;
 		this.iterrated = iterrated;
@@ -209,7 +171,7 @@ class ForeachStatement : Statement {
  */
 class BreakStatement : Statement {
 	this(Location location) {
-		super(location, StatementType.Break);
+		super(location);
 	}
 }
 
@@ -218,7 +180,7 @@ class BreakStatement : Statement {
  */
 class ContinueStatement : Statement {
 	this(Location location) {
-		super(location, StatementType.Continue);
+		super(location);
 	}
 }
 
@@ -229,7 +191,7 @@ class ReturnStatement : Statement {
 	Expression value;
 	
 	this(Location location, Expression value) {
-		super(location, StatementType.Return);
+		super(location);
 		
 		this.value = value;
 	}
@@ -242,7 +204,7 @@ class SynchronizedStatement : Statement {
 	Statement statement;
 	
 	this(Location location, Statement statement) {
-		super(location, StatementType.Synchronized);
+		super(location);
 		
 		this.statement = statement;
 	}
@@ -256,7 +218,7 @@ class TryStatement : Statement {
 	CatchBlock[] catches;
 	
 	this(Location location, Statement statement, CatchBlock[] catches) {
-		super(location, StatementType.Try);
+		super(location);
 		
 		this.statement = statement;
 		this.catches = catches;
@@ -297,7 +259,7 @@ class ThrowStatement : Statement {
 	Expression value;
 	
 	this(Location location, Expression value) {
-		super(location, StatementType.Throw);
+		super(location);
 		
 		this.value = value;
 	}
@@ -310,7 +272,7 @@ class StaticAssertStatement : Statement {
 	Expression[] arguments;
 	
 	this(Location location, Expression[] arguments) {
-		super(location, StatementType.StaticAssert);
+		super(location);
 		
 		this.arguments = arguments;
 	}

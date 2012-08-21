@@ -14,7 +14,7 @@ class ClassDefinition : Declaration {
 	Declaration[] members;
 	
 	this(Location location, string name, Identifier[] bases, Declaration[] members) {
-		super(location, DeclarationType.Class);
+		super(location);
 		
 		this.name = name;
 		this.bases = bases;
@@ -31,7 +31,7 @@ class InterfaceDefinition : Declaration {
 	Declaration[] members;
 	
 	this(Location location, string name, Identifier[] bases, Declaration[] members) {
-		super(location, DeclarationType.Class);
+		super(location);
 		
 		this.name = name;
 		this.bases = bases;
@@ -46,7 +46,7 @@ class StructDeclaration : Declaration {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, DeclarationType.Struct);
+		super(location);
 		
 		this.name = name;
 	}
@@ -72,7 +72,7 @@ class UnionDeclaration : Declaration {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, DeclarationType.Union);
+		super(location);
 		
 		this.name = name;
 	}
@@ -99,7 +99,7 @@ class Enum : Declaration {
 	Type type;
 	
 	this(Location location, Type type, VariablesDeclaration enumEntries) {
-		super(location, DeclarationType.Enum);
+		super(location);
 		
 		this.enumEntries = enumEntries;
 	}

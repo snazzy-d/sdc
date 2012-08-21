@@ -13,7 +13,7 @@ class TemplateDeclaration : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
-		super(location, DeclarationType.Template);
+		super(location);
 		
 		this.name = name;
 		this.parameters = parameters;
@@ -21,24 +21,12 @@ class TemplateDeclaration : Declaration {
 	}
 }
 
-enum TemplateParameterType {
-	Type,
-	Value,
-	Alias,
-	Tuple,
-	This,
-}
-
 /**
  * Super class for all templates parameters
  */
 class TemplateParameter : Declaration {
-	TemplateParameterType parameterType;
-	
-	this(Location location, TemplateParameterType parameterType) {
-		super(location, DeclarationType.TemplateParameter);
-		
-		this.parameterType = parameterType;
+	this(Location location) {
+		super(location);
 	}
 }
 
@@ -49,7 +37,7 @@ class TypeTemplateParameter : TemplateParameter {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, TemplateParameterType.Type);
+		super(location);
 		
 		this.name = name;
 	}
@@ -62,7 +50,7 @@ class ThisTemplateParameter : TemplateParameter {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, TemplateParameterType.This);
+		super(location);
 		
 		this.name = name;
 	}
@@ -75,7 +63,7 @@ class TupleTemplateParameter : TemplateParameter {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, TemplateParameterType.This);
+		super(location);
 		
 		this.name = name;
 	}
@@ -89,7 +77,7 @@ class ValueTemplateParameter : TemplateParameter {
 	Type type;
 	
 	this(Location location, string name, Type type) {
-		super(location, TemplateParameterType.This);
+		super(location);
 		
 		this.name = name;
 		this.type = type;
@@ -103,7 +91,7 @@ class AliasTemplateParameter : TemplateParameter {
 	string name;
 	
 	this(Location location, string name) {
-		super(location, TemplateParameterType.Alias);
+		super(location);
 		
 		this.name = name;
 	}

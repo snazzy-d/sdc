@@ -5,16 +5,6 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
 
-private template conditionalType(T) {
-	static if(is(T == Statement)) {
-		alias StatementType.Conditional conditionalType;
-	} else static if(is(T == Declaration)) {
-		alias DeclarationType.Conditional conditionalType;
-	} else {
-		static assert(false, "Conditional are only available for statements and declarations.");
-	}
-}
-
 /**
  * Version Conditional
  */
@@ -23,7 +13,7 @@ class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarati
 	ItemType[] items;
 	
 	this(Location location, string versionId, ItemType[] items) {
-		super(location, conditionalType!ItemType);
+		super(location);
 		
 		this.versionId = versionId;
 		this.items = items;
@@ -50,7 +40,7 @@ class VersionDefinition(ItemType) if(is(ItemType == Statement) || is(ItemType ==
 	string versionId;
 	
 	this(Location location, string versionId) {
-		super(location, conditionalType!ItemType);
+		super(location);
 		
 		this.versionId = versionId;
 	}
@@ -71,7 +61,7 @@ class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarat
 	ItemType[] items;
 	
 	this(Location location, Expression condition, ItemType[] items) {
-		super(location, conditionalType!ItemType);
+		super(location);
 		
 		this.condition = condition;
 		this.items = items;

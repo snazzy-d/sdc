@@ -5,36 +5,12 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-enum DeclarationType {
-	Variable,
-	Function,
-	Template,
-	TemplateParameter,
-	Struct,
-	Union,
-	Class,
-	Enum,
-	Alias,
-	AliasThis,
-	Import,
-	Mixin,
-	Linkage,
-	StorageClass,
-	Attribute,
-	Visibility,
-	Conditional,
-}
-
 /**
  * Any declaration is a statement
  */
 class Declaration : Node {
-	DeclarationType type;
-	
-	this(Location location, DeclarationType type) {
+	this(Location location) {
 		super(location);
-		
-		this.type = type;
 	}
 }
 
@@ -46,7 +22,7 @@ class AliasDeclaration : Declaration {
 	string name;
 	
 	this(Location location, string name, Type type) {
-		super(location, DeclarationType.Alias);
+		super(location);
 		
 		this.name = name;
 		this.type = type;
@@ -60,7 +36,7 @@ class AliasThisDeclaration : Declaration {
 	Identifier identifier;
 	
 	this(Location location, Identifier identifier) {
-		super(location, DeclarationType.AliasThis);
+		super(location);
 		
 		this.identifier = identifier;
 	}
@@ -74,7 +50,7 @@ class VariablesDeclaration : Declaration {
 	VariableDeclaration[] variables;
 	
 	this(Location location, VariableDeclaration[] variables) {
-		super(location, DeclarationType.Variable);
+		super(location);
 		
 		this.variables = variables;
 	}
@@ -89,7 +65,7 @@ class VariableDeclaration : Declaration {
 	Expression value;
 	
 	this(Location location, Type type, string name, Expression value) {
-		super(location, DeclarationType.Variable);
+		super(location);
 		
 		this.type = type;
 		this.name = name;
@@ -114,7 +90,7 @@ class ImportDeclaration : Declaration {
 	Identifier[] modules;
 	
 	this(Location location, Identifier[] modules) {
-		super(location, DeclarationType.Import);
+		super(location);
 		
 		this.modules = modules;
 	}
@@ -142,7 +118,7 @@ class StorageClassDeclaration(StorageClass storageClass) : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, Declaration[] declarations) {
-		super(location, DeclarationType.StorageClass);
+		super(location);
 		
 		this.declarations = declarations;
 	}
@@ -176,7 +152,7 @@ class VisibilityDeclaration(Visibility visibility) : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, Declaration[] declarations) {
-		super(location, DeclarationType.StorageClass);
+		super(location);
 		
 		this.declarations = declarations;
 	}
@@ -196,7 +172,7 @@ class LinkageDeclaration : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, string linkage, Declaration[] declarations) {
-		super(location, DeclarationType.Linkage);
+		super(location);
 		
 		this.linkage = linkage;
 		this.declarations = declarations;
@@ -211,7 +187,7 @@ class AttributeDeclaration : Declaration {
 	Declaration[] declarations;
 	
 	this(Location location, string attribute, Declaration[] declarations) {
-		super(location, DeclarationType.Attribute);
+		super(location);
 		
 		this.attribute = attribute;
 		this.declarations = declarations;

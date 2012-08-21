@@ -15,7 +15,7 @@ class FunctionDeclaration : Declaration {
 	Parameter[] parameters;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {
-		super(location, DeclarationType.Function);
+		super(location);
 		
 		this.name = name;
 		this.returnType = returnType;
@@ -43,7 +43,7 @@ class ConstructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
 	this(Location location, Parameter[] parameters) {
-		super(location, DeclarationType.Function);
+		super(location);
 		
 		this.parameters = parameters;
 	}
@@ -74,7 +74,7 @@ class DestructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
 	this(Location location, Parameter[] parameters) {
-		super(location, DeclarationType.Function);
+		super(location);
 		
 		this.parameters = parameters;
 	}
