@@ -203,7 +203,7 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 			return new InitializedParameter(location, type, name, expression);
 		}
 		
-		return new NamedParameter(location, type, name);
+		return new Parameter(location, type, name);
 	}
 	
 	return new Parameter(type.location, type);

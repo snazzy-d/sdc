@@ -3,8 +3,8 @@ module d.ast.expression;
 import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.identifier;
-import d.ast.symbol;
 import d.ast.statement;
 import d.ast.type;
 
@@ -293,7 +293,8 @@ class IdentifierExpression : Expression {
 }
 
 /**
- * A resolved identifier expression.
+ * Symbol expression.
+ * IdentifierExpression that as been resolved.
  */
 class SymbolExpression : Expression {
 	Symbol symbol;

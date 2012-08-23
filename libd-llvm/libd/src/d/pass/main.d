@@ -3,18 +3,15 @@
  */
 module d.pass.main;
 
-import d.ast.symbol;
+import d.ast.dmodule;
 
 import std.algorithm;
 import std.array;
 
-auto buildMain(ModuleSymbol m) {
+auto buildMain(Module m) {
 	auto md = new MainDetector();
 	
-	// TODO: use map reduce ? This failed with 2.060 with template delegate.
-	foreach(i, sym; m.symbols) {
-		m.symbols[i] = md.visit(sym);
-	}
+	m.declarations = m.declarations.map!((Declaration d){ return md.visit(d); }).array();
 	
 	return m;
 }
@@ -33,11 +30,11 @@ class MainDetector {
 	}
 	
 final:
-	Symbol visit(Symbol s) {
-		return this.dispatch!(s => s)(s);
+	Declaration visit(Declaration d) {
+		return this.dispatch!(d => d)(d);
 	}
 	
-	private auto handleMain(FunctionSymbol main) {
+	private auto handleMain(FunctionDefinition main) {
 		main.returnType = new IntegerType(main.returnType.location, IntegerOf!int);
 		// TODO: process function body to replace return; by return 0;
 		
@@ -46,12 +43,12 @@ final:
 		return main;
 	}
 	
-	Symbol visit(FunctionSymbol s) {
-		if(s.name == "main") {
-			if(returnCheck.visit(s.returnType)) {
-				switch(s.parameters.length) {
+	Declaration visit(FunctionDefinition fun) {
+		if(fun.name == "main") {
+			if(returnCheck.visit(fun.returnType)) {
+				switch(fun.parameters.length) {
 					case 0 :
-						return handleMain(s);
+						return handleMain(fun);
 					
 					case 1 :
 						assert(0, "main vith argument not supported.");
@@ -64,7 +61,7 @@ final:
 			}
 		}
 		
-		return s;
+		return fun;
 	}
 }
 

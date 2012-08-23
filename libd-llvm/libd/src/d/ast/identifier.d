@@ -2,7 +2,7 @@ module d.ast.identifier;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.symbol;
+import d.ast.dscope;
 
 class Identifier : Node, Namespace {
 	string name;

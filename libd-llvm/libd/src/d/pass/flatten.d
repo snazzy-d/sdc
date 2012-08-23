@@ -1,24 +1,21 @@
 /**
  * This remove everything that isn't meaningfull for compilation from the AST.
- * Additionnaly, declaration are replaced by symbols and scope are prepared.
  */
 module d.pass.flatten;
 
 import d.pass.base;
 
 import d.ast.dmodule;
-import d.ast.symbol;
 
 import std.algorithm;
 import std.array;
 
 auto flatten(Module m) {
-	auto msym = new ModuleSymbol(m.moduleDeclaration);
-	auto dv = new DeclarationVisitor(msym);
+	auto dv = new DeclarationVisitor();
 	
-	msym.symbols = dv.declarationFlatener.visit(m.declarations);
+	m.declarations = dv.declarationFlatener.visit(m.declarations);
 	
-	return msym;
+	return m;
 }
 
 import d.ast.declaration;
@@ -29,35 +26,24 @@ class DeclarationVisitor {
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
 	
-	private ScopeSymbol parent;
-	
-	this(ScopeSymbol parent) {
+	this() {
 		declarationFlatener = new DeclarationFlatener(this);
 		statementVisitor = new StatementVisitor(this, declarationFlatener);
-		
-		this.parent = parent;
 	}
 	
 final:
-	Symbol visit(Declaration d) {
+	Declaration visit(Declaration d) {
 		return this.dispatch(d);
 	}
 	
-	Symbol visit(FunctionDefinition fun) {
-		auto funsym = new FunctionSymbol(fun, parent);
-		
-		auto oldParent = parent;
-		scope(exit) parent = oldParent;
-		
-		parent = funsym;
-		
+	Declaration visit(FunctionDefinition fun) {
 		fun.fbody = statementVisitor.visit(fun.fbody);
 		
-		return funsym;
+		return fun;
 	}
 	
-	Symbol visit(VariableDeclaration var) {
-		return new VariableSymbol(var, parent);
+	Declaration visit(VariableDeclaration var) {
+		return var;
 	}
 }
 
@@ -71,7 +57,7 @@ class DeclarationFlatener {
 	}
 	
 final:
-	Symbol[] visit(Declaration[] decls) {
+	Declaration[] visit(Declaration[] decls) {
 		// Ensure we are reentrant.
 		auto oldWorkingSet = workingSet;
 		scope(exit) workingSet = oldWorkingSet;
@@ -82,7 +68,7 @@ final:
 			visit(decl);
 		}
 		
-		return workingSet.map!(d => declarationVisitor.visit(d))().array();
+		return workingSet.map!(d => declarationVisitor.visit(d)).array();
 	}
 	
 	void visit(Declaration d) {
@@ -125,20 +111,16 @@ final:
 		return e;
 	}
 	
-	Statement visit(DeclarationStatement d) {
-		// Ugly hack.
-		auto stmts = statementFlatener.visit([cast(Statement) d]);
+	// XXX: Statement is supposed to be flattened before.
+	// FIXME: it isn't always the case. This precondition have to be handled somehow.
+	Statement visit(DeclarationStatement ds) {
+		auto decls = declarationFlatener.visit([ds.declaration]);
 		
-		if(stmts.length == 1) {
-			return stmts[0];
-		}
+		assert(decls.length == 1, "flat flat");
 		
-		return new BlockStatement(d.location, stmts);
-	}
-	
-	// Note: SymbolStatement have to be flatened before. This function assume it is done.
-	Statement visit(SymbolStatement s) {
-		return s;
+		ds.declaration = decls[0];
+		
+		return ds;
 	}
 	
 	Statement visit(BlockStatement b) {
@@ -188,6 +170,7 @@ final:
 	}
 }
 
+// TODO: remove this and use BlockStatement to replace it. Use ScopeBlockStatement for explicit blocks statements.
 class StatementFlatener {
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
@@ -216,25 +199,14 @@ final:
 	
 	void visit(Statement s) {
 		this.dispatch!((Statement s) {
-			workingSet ~= statementVisitor.visit(s);
+			workingSet ~= s;
 		})(s);
 	}
 	
 	void visit(DeclarationStatement ds) {
-		auto syms = declarationFlatener.visit([ds.declaration]);
+		auto decls = declarationFlatener.visit([ds.declaration]);
 		
-		if(syms.length == 1) {
-			workingSet ~= new SymbolStatement(syms[0]);
-		} else {
-			Statement[] stmts;
-			stmts.length = syms.length;
-			
-			foreach(i, sym; syms) {
-				stmts[i] = new SymbolStatement(sym);
-			}
-			
-			workingSet ~= stmts;
-		}
+		workingSet ~= decls.map!(d => new DeclarationStatement(d)).array();
 	}
 }
 
@@ -358,9 +330,7 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		foreach(i, arg; c.arguments) {
-			c.arguments[i] = visit(arg);
-		}
+		c.arguments = c.arguments.map!(arg => visit(arg)).array();
 		
 		c.callee = visit(c.callee);
 		

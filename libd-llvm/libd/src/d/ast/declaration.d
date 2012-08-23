@@ -6,7 +6,7 @@ import d.ast.identifier;
 import d.ast.type;
 
 /**
- * Any declaration is a statement
+ * Any declaration.
  */
 class Declaration : Node {
 	this(Location location) {
@@ -15,16 +15,27 @@ class Declaration : Node {
 }
 
 /**
- * Alias of types
+ * A declaration that introduce a new symbol.
  */
-class AliasDeclaration : Declaration {
-	Type type;
+class Symbol : Declaration {
 	string name;
 	
-	this(Location location, string name, Type type) {
+	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
+	}
+}
+
+/**
+ * Alias of types
+ */
+class AliasDeclaration : Symbol {
+	Type type;
+	
+	this(Location location, string name, Type type) {
+		super(location, name);
+		
 		this.type = type;
 	}
 }
@@ -59,17 +70,20 @@ class VariablesDeclaration : Declaration {
 /**
  * Variable declaration
  */
-class VariableDeclaration : Declaration {
+class VariableDeclaration : Symbol {
 	Type type;
-	string name;
 	Expression value;
 	
+	string mangling;
+	bool isStatic;
+	
 	this(Location location, Type type, string name, Expression value) {
-		super(location);
+		super(location, name);
 		
 		this.type = type;
-		this.name = name;
 		this.value = value;
+		
+		this.mangling = name;
 	}
 }
 
