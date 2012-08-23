@@ -16,8 +16,10 @@ auto flatten(Module m) {
 	return pass.visit(m);
 }
 
+import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
+import d.ast.type;
 
 class FlattenPass {
 	private DeclarationVisitor declarationVisitor;
@@ -25,6 +27,7 @@ class FlattenPass {
 	private StatementVisitor statementVisitor;
 	private StatementFlatener statementFlatener;
 	private ExpressionVisitor expressionVisitor;
+	private TypeVisitor typeVisitor;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -32,6 +35,7 @@ class FlattenPass {
 		statementVisitor	= new StatementVisitor(this);
 		statementFlatener	= new StatementFlatener(this);
 		expressionVisitor	= new ExpressionVisitor(this);
+		typeVisitor			= new TypeVisitor(this);
 	}
 	
 final:
@@ -60,11 +64,14 @@ final:
 	auto visit(Expression e) {
 		return expressionVisitor.visit(e);
 	}
+	
+	auto visit(Type t) {
+		return typeVisitor.visit(t);
+	}
 }
 
 import d.ast.dfunction;
 import d.ast.dtemplate;
-import d.ast.type;
 
 class DeclarationVisitor {
 	private FlattenPass pass;
@@ -93,6 +100,8 @@ final:
 	
 	Declaration visit(VariableDeclaration var) {
 		var.isStatic = isStatic;
+		
+		var.type = pass.visit(var.type);
 		
 		return var;
 	}
@@ -140,8 +149,6 @@ final:
 		workingSet ~= decls;
 	}
 }
-
-import d.ast.statement;
 
 class StatementVisitor {
 	private FlattenPass pass;
@@ -263,8 +270,6 @@ final:
 		}
 	}
 }
-
-import d.ast.expression;
 
 class ExpressionVisitor {
 	private FlattenPass pass;
@@ -403,6 +408,25 @@ final:
 	
 	Expression visit(ParenExpression e) {
 		return e.expression;
+	}
+}
+
+class TypeVisitor {
+	private FlattenPass pass;
+	
+	this(FlattenPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Type visit(Type t) {
+		return this.dispatch!(t => t)(t);
+	}
+	
+	Type visit(TypeofType t) {
+		t.expression = pass.visit(t.expression);
+		
+		return t;
 	}
 }
 

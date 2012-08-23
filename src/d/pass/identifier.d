@@ -8,34 +8,38 @@ import d.pass.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
+import d.ast.identifier;
 
 import std.algorithm;
 import std.array;
 
 auto resolveIdentifiers(Module m) {
-	auto sv = new DeclarationVisitor();
+	auto pass = new IdentifierPass();
 	
-	return sv.visit(m);
+	return pass.visit(m);
 }
 
-import d.ast.dfunction;
+import d.ast.expression;
+import d.ast.declaration;
+import d.ast.statement;
+import d.ast.type;
 
-class DeclarationVisitor {
+class IdentifierPass {
+	private DeclarationVisitor declarationVisitor;
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
+	private TypeVisitor typeVisitor;
 	
-	Scope currentScope;
+	private Scope currentScope;
 	
 	this() {
-		expressionVisitor = new ExpressionVisitor(this);
-		statementVisitor = new StatementVisitor(this, expressionVisitor);
+		declarationVisitor	= new DeclarationVisitor(this);
+		statementVisitor	= new StatementVisitor(this);
+		expressionVisitor	= new ExpressionVisitor(this);
+		typeVisitor			= new TypeVisitor(this);
 	}
 	
 final:
-	Declaration visit(Declaration d) {
-		return this.dispatch(d);
-	}
-	
 	// XXX: Ugly hack to preregister symbols.
 	private void registerUnorderedDecls(Declaration[] decls) {
 		foreach(decl; decls) {
@@ -58,6 +62,39 @@ final:
 		return m;
 	}
 	
+	auto visit(Declaration decl) {
+		return declarationVisitor.visit(decl);
+	}
+	
+	auto visit(Statement stmt) {
+		return statementVisitor.visit(stmt);
+	}
+	
+	auto visit(Expression e) {
+		return expressionVisitor.visit(e);
+	}
+	
+	auto visit(Type t) {
+		return typeVisitor.visit(t);
+	}
+}
+
+import d.ast.dfunction;
+import d.ast.dtemplate;
+
+class DeclarationVisitor {
+	private IdentifierPass pass;
+	alias pass this;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Declaration visit(Declaration d) {
+		return this.dispatch(d);
+	}
+	
 	Declaration visit(FunctionDefinition fun) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -68,7 +105,7 @@ final:
 			currentScope.addSymbol(p);
 		}
 		
-		statementVisitor.visit(fun.fbody);
+		pass.visit(fun.fbody);
 		fun.dscope = currentScope;
 		
 		oldScope.addOverloadableSymbol(fun);
@@ -77,23 +114,28 @@ final:
 	}
 	
 	Declaration visit(VariableDeclaration var) {
-		var.value = expressionVisitor.visit(var.value);
+		var.value = pass.visit(var.value);
+		var.type = pass.visit(var.type);
 		
 		currentScope.addSymbol(var);
 		
 		return var;
 	}
+	
+	Declaration visit(TemplateDeclaration tpl) {
+		currentScope.addOverloadableSymbol(tpl);
+		
+		// No semantic is done on template declaration.
+		return tpl;
+	}
 }
 
-import d.ast.statement;
-
 class StatementVisitor {
-	private DeclarationVisitor declarationVisitor;
-	private ExpressionVisitor expressionVisitor;
+	private IdentifierPass pass;
+	alias pass this;
 	
-	this(DeclarationVisitor declarationVisitor, ExpressionVisitor expressionVisitor) {
-		this.declarationVisitor = declarationVisitor;
-		this.expressionVisitor = expressionVisitor;
+	this(IdentifierPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -102,28 +144,28 @@ final:
 	}
 	
 	void visit(DeclarationStatement d) {
-		d.declaration = declarationVisitor.visit(d.declaration);
+		d.declaration = pass.visit(d.declaration);
 	}
 	
 	void visit(ExpressionStatement e) {
-		expressionVisitor.visit(e.expression);
+		pass.visit(e.expression);
 	}
 	
 	void visit(BlockStatement b) {
-		auto oldScope = declarationVisitor.currentScope;
-		scope(exit) declarationVisitor.currentScope = oldScope;
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
 		
-		declarationVisitor.currentScope = new NestedScope(oldScope);
+		currentScope = new NestedScope(oldScope);
 		
 		foreach(s; b.statements) {
 			visit(s);
 		}
 		
-		b.dscope = declarationVisitor.currentScope;
+		b.dscope = currentScope;
 	}
 	
 	void visit(IfElseStatement ifs) {
-		ifs.condition = expressionVisitor.visit(ifs.condition);
+		ifs.condition = pass.visit(ifs.condition);
 		
 		visit(ifs.then);
 		visit(ifs.elseStatement);
@@ -132,42 +174,45 @@ final:
 	void visit(WhileStatement w) {
 		visit(w.statement);
 		
-		w.condition = expressionVisitor.visit(w.condition);
+		w.condition = pass.visit(w.condition);
 	}
 	
 	void visit(DoWhileStatement w) {
 		visit(w.statement);
 		
-		w.condition = expressionVisitor.visit(w.condition);
+		w.condition = pass.visit(w.condition);
 	}
 	
 	void visit(ForStatement f) {
-		auto oldScope = declarationVisitor.currentScope;
-		scope(exit) declarationVisitor.currentScope = oldScope;
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
 		
-		declarationVisitor.currentScope = new NestedScope(oldScope);
+		currentScope = new NestedScope(oldScope);
 		
 		visit(f.initialize);
 		visit(f.statement);
 		
-		f.condition = expressionVisitor.visit(f.condition);
-		f.increment = expressionVisitor.visit(f.increment);
+		f.condition = pass.visit(f.condition);
+		f.increment = pass.visit(f.increment);
 		
-		f.dscope = declarationVisitor.currentScope;
+		f.dscope = pass.currentScope;
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = expressionVisitor.visit(r.value);
+		r.value = pass.visit(r.value);
 	}
 }
 
-import d.ast.expression;
-
 class ExpressionVisitor {
-	private DeclarationVisitor declarationVisitor;
+	private IdentifierPass pass;
+	alias pass this;
 	
-	this(DeclarationVisitor declarationVisitor) {
-		this.declarationVisitor = declarationVisitor;
+	private IdentifierResolver identifierResolver;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+		
+		identifierResolver = new IdentifierResolver();
 	}
 	
 final:
@@ -295,9 +340,80 @@ final:
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		// TODO: resolve all kind of identifiers as appropriate expressions.
-		// TODO: output an apropriate error message instead of Range violation.
-		return new SymbolExpression(e.location, declarationVisitor.currentScope.resolve(e.identifier.name));
+		return new SymbolExpression(e.location, identifierResolver.resolve(e.identifier, currentScope));
+	}
+	
+	Expression visit(DefaultInitializer i) {
+		// Nothing to do, will go away at typecheck pass.
+		return i;
+	}
+}
+
+class TypeVisitor {
+	private IdentifierPass pass;
+	alias pass this;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Type visit(Type t) {
+		return this.dispatch!(t => t)(t);
+	}
+	
+	Type visit(TypeofType t) {
+		t.expression = pass.visit(t.expression);
+		
+		return t;
+	}
+}
+
+/**
+ * Resolve identifiers as symbols
+ */
+class IdentifierResolver {
+	NamespaceVisitor namespaceVisitor;
+	
+	Scope s;
+	
+	this() {
+		namespaceVisitor = new NamespaceVisitor();
+	}
+	
+final:
+	Symbol resolve(Identifier i, Scope newScope) {
+		auto oldScope = s;
+		scope(exit) s = oldScope;
+		
+		s = newScope;
+		
+		return this.dispatch(i);
+	}
+	
+	Symbol visit(Identifier i) {
+		return s.resolve(i.name);
+	}
+	
+	Symbol visit(QualifiedIdentifier qi) {
+		return namespaceVisitor.resolve(qi.namespace, s).resolve(qi.name);
+	}
+}
+
+/**
+ * Resolve namespaces's scope.
+ */
+class NamespaceVisitor {
+	Scope s;
+	
+final:
+	Scope resolve(Namespace ns, Scope newScope) {
+		auto oldScope = s;
+		scope(exit) s = oldScope;
+		
+		s = newScope;
+		
+		return this.dispatch(ns);
 	}
 }
 
