@@ -285,8 +285,8 @@ class ParenExpression : Expression {
 class IdentifierExpression : Expression {
 	Identifier identifier;
 	
-	this(Location location, Identifier identifier) {
-		super(location);
+	this(Identifier identifier) {
+		super(identifier.location);
 		
 		this.identifier = identifier;
 	}

@@ -491,16 +491,13 @@ private Expression parsePrefixExpression(TokenRange)(ref TokenRange trange) {
 	return trange.parsePowExpression(result);
 }
 
-private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
+Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
 	switch(trange.front.type) {
 		// Identified expressions
 		case TokenType.Identifier :
-			auto identifier = trange.parseIdentifier();
-			location.spanTo(identifier.location);
-			
-			return new IdentifierExpression(location, identifier);
+			return new IdentifierExpression(trange.parseIdentifier());
 		
 		case TokenType.New :
 			trange.popFront();
@@ -520,10 +517,7 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 			return new NewExpression(location, type, arguments);
 		
 		case TokenType.Dot :
-			auto identifier = trange.parseDotIdentifier();
-			location.spanTo(identifier.location);
-			
-			return new IdentifierExpression(location, identifier);
+			return new IdentifierExpression(trange.parseDotIdentifier());
 		
 		case TokenType.This :
 			trange.popFront();
@@ -651,10 +645,7 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 				trange.match(TokenType.CloseParen);
 				trange.match(TokenType.Dot);
 				
-				auto identifier = trange.parseQualifiedIdentifier(location, qualifier);
-				location.spanTo(identifier.location);
-				
-				return new IdentifierExpression(location, identifier);
+				return new IdentifierExpression(trange.parseQualifiedIdentifier(location, qualifier));
 			} else {
 				auto expression = trange.parseExpression();
 				
@@ -670,10 +661,7 @@ private Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) {
 				auto type = trange.parseConfirmedType();
 				trange.match(TokenType.Dot);
 				
-				auto identifier = trange.parseQualifiedIdentifier(location, type);
-				location.spanTo(identifier.location);
-				
-				return new IdentifierExpression(location, identifier);
+				return new IdentifierExpression(trange.parseQualifiedIdentifier(location, type));
 			}
 			
 			trange.match(TokenType.Begin);
@@ -772,10 +760,8 @@ private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Exp
 			
 			case TokenType.Dot :
 				trange.popFront();
-				auto identifier = trange.parseQualifiedIdentifier(location, expression);
-				location.spanTo(identifier.location);
 				
-				expression = new IdentifierExpression(location, identifier);
+				expression = new IdentifierExpression(trange.parseQualifiedIdentifier(location, expression));
 				break;
 			
 			default :

@@ -115,7 +115,8 @@ final:
 	LLVMValueRef visit(VariableDeclaration var) {
 		if(var.isStatic) {
 			auto globalVar = LLVMAddGlobal(dmodule, typeGen.visit(var.type), var.mangling.toStringz());
-			LLVMSetThreadLocal(globalVar, true);
+			// FIXME: interpreter don't support TLS for now.
+			// LLVMSetThreadLocal(globalVar, true);
 			
 			// Register the variable.
 			symbols[var] = globalVar;

@@ -19,11 +19,13 @@ class Declaration : Node {
  */
 class Symbol : Declaration {
 	string name;
+	string mangling;
 	
 	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
+		this.mangling = name;
 	}
 }
 
@@ -74,7 +76,6 @@ class VariableDeclaration : Symbol {
 	Type type;
 	Expression value;
 	
-	string mangling;
 	bool isStatic;
 	
 	this(Location location, Type type, string name, Expression value) {
@@ -82,8 +83,15 @@ class VariableDeclaration : Symbol {
 		
 		this.type = type;
 		this.value = value;
-		
-		this.mangling = name;
+	}
+}
+
+/**
+ * Used for type identifier;
+ */
+class DefaultInitializer : Expression {
+	this(Location location) {
+		super(location);
 	}
 }
 

@@ -110,9 +110,16 @@ final:
 	}
 	
 	void visit(BlockStatement b) {
+		auto oldScope = declarationVisitor.currentScope;
+		scope(exit) declarationVisitor.currentScope = oldScope;
+		
+		declarationVisitor.currentScope = new NestedScope(oldScope);
+		
 		foreach(s; b.statements) {
 			visit(s);
 		}
+		
+		b.dscope = declarationVisitor.currentScope;
 	}
 	
 	void visit(IfElseStatement ifs) {
@@ -135,11 +142,18 @@ final:
 	}
 	
 	void visit(ForStatement f) {
+		auto oldScope = declarationVisitor.currentScope;
+		scope(exit) declarationVisitor.currentScope = oldScope;
+		
+		declarationVisitor.currentScope = new NestedScope(oldScope);
+		
 		visit(f.initialize);
 		visit(f.statement);
 		
 		f.condition = expressionVisitor.visit(f.condition);
 		f.increment = expressionVisitor.visit(f.increment);
+		
+		f.dscope = declarationVisitor.currentScope;
 	}
 	
 	void visit(ReturnStatement r) {
@@ -282,6 +296,7 @@ final:
 	
 	Expression visit(IdentifierExpression e) {
 		// TODO: resolve all kind of identifiers as appropriate expressions.
+		// TODO: output an apropriate error message instead of Range violation.
 		return new SymbolExpression(e.location, declarationVisitor.currentScope.resolve(e.identifier.name));
 	}
 }

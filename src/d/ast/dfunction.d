@@ -14,16 +14,12 @@ class FunctionDeclaration : Symbol {
 	Type returnType;
 	Parameter[] parameters;
 	
-	string mangling;
-	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {
 		super(location, name);
 		
 		this.name = name;
 		this.returnType = returnType;
 		this.parameters = parameters;
-		
-		this.mangling = name;
 	}
 }
 

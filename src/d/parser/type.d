@@ -60,37 +60,29 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		
 		// Identified types
 		case TokenType.Identifier :
-			auto identifier = trange.parseIdentifier();
-			location.spanTo(identifier.location);
-			
-			return new IdentifierType(location, identifier);
+			return new IdentifierType(trange.parseIdentifier());
 		
 		case TokenType.Dot :
-			auto identifier = trange.parseDotIdentifier();
-			location.spanTo(identifier.location);
-			
-			return new IdentifierType(location, identifier);
+			return new IdentifierType(trange.parseDotIdentifier());
 		
 		case TokenType.Typeof :
 			return trange.parseTypeof();
 		
 		case TokenType.This :
-			trange.popFront();
 			auto thisExpression = new ThisExpression(location);
-			trange.match(TokenType.Dot);
-			auto identifier = trange.parseQualifiedIdentifier(location, thisExpression);
-			location.spanTo(identifier.location);
 			
-			return new IdentifierType(location, identifier);
+			trange.popFront();
+			trange.match(TokenType.Dot);
+			
+			return new IdentifierType(trange.parseQualifiedIdentifier(location, thisExpression));
 		
 		case TokenType.Super :
-			trange.popFront();
 			auto superExpression = new SuperExpression(location);
-			trange.match(TokenType.Dot);
-			auto identifier = trange.parseQualifiedIdentifier(location, superExpression);
-			location.spanTo(identifier.location);
 			
-			return new IdentifierType(location, identifier);
+			trange.popFront();
+			trange.match(TokenType.Dot);
+			
+			return new IdentifierType(trange.parseQualifiedIdentifier(location, superExpression));
 		
 		// Basic types
 		case TokenType.Bool :
@@ -232,10 +224,8 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				}
 				
 				trange.popFront();
-				auto identifier = trange.parseQualifiedIdentifier(type.location, type);
-				location.spanTo(identifier.location);
 				
-				type = new IdentifierType(location, identifier);
+				type = new IdentifierType(trange.parseQualifiedIdentifier(type.location, type));
 				break;
 			
 			case TokenType.Function :
