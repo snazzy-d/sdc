@@ -11,26 +11,68 @@ import std.algorithm;
 import std.array;
 
 auto flatten(Module m) {
-	auto dv = new DeclarationVisitor();
+	auto pass = new FlattenPass();
 	
-	m.declarations = dv.declarationFlatener.visit(m.declarations);
-	
-	return m;
+	return pass.visit(m);
 }
 
 import d.ast.declaration;
+import d.ast.statement;
+
+class FlattenPass {
+	private DeclarationVisitor declarationVisitor;
+	private DeclarationFlatener declarationFlatener;
+	private StatementVisitor statementVisitor;
+	private StatementFlatener statementFlatener;
+	private ExpressionVisitor expressionVisitor;
+	
+	this() {
+		declarationVisitor	= new DeclarationVisitor(this);
+		declarationFlatener	= new DeclarationFlatener(this);
+		statementVisitor	= new StatementVisitor(this);
+		statementFlatener	= new StatementFlatener(this);
+		expressionVisitor	= new ExpressionVisitor(this);
+	}
+	
+final:
+	Module visit(Module m) {
+		m.declarations = visit(m.declarations);
+		
+		return m;
+	}
+	
+	auto visit(Declaration decl) {
+		return declarationVisitor.visit(decl);
+	}
+	
+	auto visit(Declaration[] decls) {
+		return declarationFlatener.visit(decls);
+	}
+	
+	auto visit(Statement stmt) {
+		return statementVisitor.visit(stmt);
+	}
+	
+	auto visit(Statement[] stmts) {
+		return statementFlatener.visit(stmts);
+	}
+	
+	auto visit(Expression e) {
+		return expressionVisitor.visit(e);
+	}
+}
+
 import d.ast.dfunction;
+import d.ast.dtemplate;
 import d.ast.type;
 
 class DeclarationVisitor {
-	private DeclarationFlatener declarationFlatener;
-	private StatementVisitor statementVisitor;
+	private FlattenPass pass;
 	
 	bool isStatic = true;
 	
-	this() {
-		declarationFlatener = new DeclarationFlatener(this);
-		statementVisitor = new StatementVisitor(this, declarationFlatener);
+	this(FlattenPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -44,7 +86,7 @@ final:
 		
 		isStatic = false;
 		
-		fun.fbody = statementVisitor.visit(fun.fbody);
+		fun.fbody = pass.visit(fun.fbody);
 		
 		return fun;
 	}
@@ -54,15 +96,21 @@ final:
 		
 		return var;
 	}
+	
+	Declaration visit(TemplateDeclaration tpl) {
+		tpl.declarations = pass.visit(tpl.declarations);
+		
+		return tpl;
+	}
 }
 
 class DeclarationFlatener {
-	private DeclarationVisitor declarationVisitor;
+	private FlattenPass pass;
 	
 	private Declaration[] workingSet;
 	
-	this(DeclarationVisitor declarationVisitor) {
-		this.declarationVisitor = declarationVisitor;
+	this(FlattenPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -77,7 +125,7 @@ final:
 			visit(decl);
 		}
 		
-		return workingSet.map!(d => declarationVisitor.visit(d)).array();
+		return workingSet.map!(d => pass.visit(d)).array();
 	}
 	
 	void visit(Declaration d) {
@@ -96,17 +144,10 @@ final:
 import d.ast.statement;
 
 class StatementVisitor {
-	private DeclarationVisitor declarationVisitor;
-	private DeclarationFlatener declarationFlatener;
-	private StatementFlatener statementFlatener;
-	private ExpressionVisitor expressionVisitor;
+	private FlattenPass pass;
 	
-	this(DeclarationVisitor declarationVisitor, DeclarationFlatener declarationFlatener) {
-		this.declarationVisitor = declarationVisitor;
-		this.declarationFlatener = declarationFlatener;
-		
-		statementFlatener = new StatementFlatener(this, declarationFlatener);
-		expressionVisitor = new ExpressionVisitor();
+	this(FlattenPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -115,7 +156,7 @@ final:
 	}
 	
 	Statement visit(ExpressionStatement e) {
-		e.expression = expressionVisitor.visit(e.expression);
+		e.expression = pass.visit(e.expression);
 		
 		return e;
 	}
@@ -123,7 +164,7 @@ final:
 	// XXX: Statement is supposed to be flattened before.
 	// FIXME: it isn't always the case. This precondition have to be handled somehow.
 	Statement visit(DeclarationStatement ds) {
-		auto decls = declarationFlatener.visit([ds.declaration]);
+		auto decls = pass.visit([ds.declaration]);
 		
 		assert(decls.length == 1, "flat flat");
 		
@@ -133,7 +174,7 @@ final:
 	}
 	
 	Statement visit(BlockStatement b) {
-		b.statements = statementFlatener.visit(b.statements);
+		b.statements = pass.visit(b.statements);
 		
 		return b;
 	}
@@ -151,14 +192,14 @@ final:
 	
 	Statement visit(WhileStatement w) {
 		w.statement = visit(w.statement);
-		w.condition = expressionVisitor.visit(w.condition);
+		w.condition = pass.visit(w.condition);
 		
 		return w;
 	}
 	
 	Statement visit(DoWhileStatement w) {
 		w.statement = visit(w.statement);
-		w.condition = expressionVisitor.visit(w.condition);
+		w.condition = pass.visit(w.condition);
 		
 		return w;
 	}
@@ -166,14 +207,15 @@ final:
 	Statement visit(ForStatement f) {
 		f.initialize = visit(f.initialize);
 		f.statement = visit(f.statement);
-		f.condition = expressionVisitor.visit(f.condition);
-		f.increment = expressionVisitor.visit(f.increment);
+		
+		f.condition = pass.visit(f.condition);
+		f.increment = pass.visit(f.increment);
 		
 		return f;
 	}
 	
 	Statement visit(ReturnStatement r) {
-		r.value = expressionVisitor.visit(r.value);
+		r.value = pass.visit(r.value);
 		
 		return r;
 	}
@@ -181,14 +223,12 @@ final:
 
 // TODO: remove this and use BlockStatement to replace it. Use ScopeBlockStatement for explicit blocks statements.
 class StatementFlatener {
-	private DeclarationFlatener declarationFlatener;
-	private StatementVisitor statementVisitor;
+	private FlattenPass pass;
 	
 	private Statement[] workingSet;
 	
-	this(StatementVisitor statementVisitor, DeclarationFlatener declarationFlatener) {
-		this.statementVisitor = statementVisitor;
-		this.declarationFlatener = declarationFlatener;
+	this(FlattenPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -203,7 +243,7 @@ final:
 			visit(s);
 		}
 		
-		return workingSet.map!(s => statementVisitor.visit(s))().array();
+		return workingSet.map!(s => pass.visit(s))().array();
 	}
 	
 	void visit(Statement s) {
@@ -213,15 +253,26 @@ final:
 	}
 	
 	void visit(DeclarationStatement ds) {
-		auto decls = declarationFlatener.visit([ds.declaration]);
+		auto decls = pass.visit([ds.declaration]);
 		
-		workingSet ~= decls.map!(d => new DeclarationStatement(d)).array();
+		if(decls.length == 1) {
+			ds.declaration = decls[0];
+			workingSet ~= ds;
+		} else {
+			workingSet ~= decls.map!(d => new DeclarationStatement(d)).array();
+		}
 	}
 }
 
 import d.ast.expression;
 
 class ExpressionVisitor {
+	private FlattenPass pass;
+	
+	this(FlattenPass pass) {
+		this.pass = pass;
+	}
+	
 final:
 	Expression visit(Expression e) {
 		return this.dispatch(e);
