@@ -26,6 +26,8 @@ class DeclarationVisitor {
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
 	
+	bool isStatic = true;
+	
 	this() {
 		declarationFlatener = new DeclarationFlatener(this);
 		statementVisitor = new StatementVisitor(this, declarationFlatener);
@@ -37,12 +39,19 @@ final:
 	}
 	
 	Declaration visit(FunctionDefinition fun) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
 		fun.fbody = statementVisitor.visit(fun.fbody);
 		
 		return fun;
 	}
 	
 	Declaration visit(VariableDeclaration var) {
+		var.isStatic = isStatic;
+		
 		return var;
 	}
 }

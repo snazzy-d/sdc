@@ -2,6 +2,7 @@ module d.ast.statement;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.type;
 
@@ -16,6 +17,8 @@ class Statement : Node {
  */
 class BlockStatement : Statement {
 	Statement[] statements;
+	
+	Scope dscope;
 	
 	this(Location location, Statement[] statements) {
 		super(location);
@@ -124,6 +127,8 @@ class ForStatement : Statement {
 	Expression condition;
 	Expression increment;
 	Statement statement;
+	
+	Scope dscope;
 	
 	this(Location location, Statement initialize, Expression condition, Expression increment, Statement statement) {
 		super(location);

@@ -1,15 +1,17 @@
 module d.parser.identifier;
 
 import d.ast.identifier;
+import d.ast.dtemplate;
 
 import d.parser.base;
+import d.parser.dtemplate;
 
 import std.range;
 
 /**
  * Parse Identifier
  */
-auto parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Identifier parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	
 	string name = trange.front.value;
@@ -21,7 +23,7 @@ auto parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRan
 /**
  * Parse dotted identifier (.identifier)
  */
-auto parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Dot);
 	
@@ -42,14 +44,14 @@ auto parseQualifiedIdentifier(TokenRange)(ref TokenRange trange, Location locati
 /**
  * Parse built identifier
  */
-private auto parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Location location, Identifier identifier) {
+private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Location location, Identifier identifier) {
 	while(1) {
 		switch(trange.front.type) {
 			case TokenType.Dot :
 				trange.popFront();
 				string name = trange.front.value;
-				location.spanTo(trange.front.location);
 				
+				location.spanTo(trange.front.location);
 				trange.match(TokenType.Identifier);
 				
 				identifier = new QualifiedIdentifier(location, name, identifier);
@@ -57,22 +59,13 @@ private auto parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Location lo
 			
 			// TODO: parse template instanciation.
 			case TokenType.Bang :
-				auto lookahead = trange.save;
-				lookahead.popFront();
-				switch(lookahead.front.type) {
-					case TokenType.OpenParen :
-						// TODO: do something meaningful here.
-						while(trange.front.type != TokenType.CloseParen) trange.popFront();
-						trange.popFront();
-						break;
-					
-					case TokenType.Identifier :
-						trange.popFrontN(2);
-						break;
-					
-					default :
-						return identifier;
-				}
+				trange.popFront();
+				auto arguments = parseTemplateArguments(trange);
+				
+				// TODO: is likely incorrect.
+				location.spanTo(trange.front.location);
+				
+				identifier = new TemplateInstance(location, identifier, arguments);
 				
 				break;
 			

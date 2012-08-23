@@ -1,6 +1,11 @@
 module d.parser.dtemplate;
 
+import d.ast.ambiguous;
+import d.ast.base;
 import d.ast.dtemplate;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.type;
 
 import d.parser.base;
 import d.parser.declaration;
@@ -184,5 +189,31 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 		
 		return new AliasTemplateParameter(location, name);
 	}
+}
+
+auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	TemplateArgument[] arguments;
+	
+	switch(trange.front.type) {
+		case TokenType.OpenParen :
+			assert(0, "!() template instanciation isn't supported.");
+		
+		case TokenType.Identifier :
+			auto identifier = new Identifier(trange.front.location, trange.front.value);
+			arguments = [new AmbiguousTemplateArgument(new TypeOrExpression(new IdentifierType(identifier), new IdentifierExpression(identifier)))];
+			
+			trange.popFront();
+			break;
+		
+		case TokenType.True, TokenType.False, TokenType.Null, TokenType.IntegerLiteral, TokenType.StringLiteral, TokenType.CharacterLiteral, TokenType.__File__, TokenType.__Line__, TokenType.Is :
+			arguments = [new ValueTemplateArgument(trange.parsePrimaryExpression())];
+			break;
+		
+		default :
+			arguments = [new TypeTemplateArgument(trange.parseBasicType())];
+			break;
+	}
+	
+	return arguments;
 }
 

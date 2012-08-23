@@ -18,7 +18,7 @@ class Type : Node, Namespace {
 	abstract Type makeInout();
 	
 	Expression initExpression(Location location) {
-		assert(0, "init not supported for this type " ~ typeid(this).toString());
+		return new DefaultInitializer(location);
 	}
 	
 	override Symbol resolve(Scope s) {
@@ -243,8 +243,8 @@ class CharacterType : BasicType {
 class IdentifierType : BasicType {
 	Identifier identifier;
 	
-	this(Location location, Identifier identifier) {
-		super(location);
+	this(Identifier identifier) {
+		super(identifier.location);
 		
 		this.identifier = identifier;
 	}
