@@ -347,144 +347,19 @@ final:
 		
 		return e;
 	}
+	
+	// Will be remove by cast operation.
+	Expression visit(DefaultInitializer di) {
+		return di;
+	}
 }
 
 import d.ast.type;
 import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
-	// TODO: make that a struct to avoid useless memory allocations.
-	final class CastToBooleanType {
-		Expression visit(Expression e) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(e.type);
-		}
-		
-		Expression visit(BooleanType t) {
-			// Cast bool to bool is a noop.
-			return e;
-		}
-		
-		static if(isExplicit) {
-			Expression visit(IntegerType t) {
-				Expression zero = makeLiteral(location, 0);
-				auto type = getPromotedType(location, e.type, zero.type);
-				
-				zero = buildImplicitCast(location, type, zero);
-				e = buildImplicitCast(e.location, type, e);
-				
-				return new NotEqualityExpression(location, e, zero);
-			}
-		}
-	}
-	
-	final class CastToIntegerType {
-		Integer t1type;
-		
-		this(Integer t1type) {
-			this.t1type = t1type;
-		}
-		
-		Expression visit(Expression e) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(e.type);
-		}
-		
-		Expression visit(BooleanType t) {
-			return new PadExpression(location, type, e);
-		}
-		
-		Expression visit(IntegerType t) {
-			if(t1type == t.type) {
-				return e;
-			} else if(t1type > t.type) {
-				return new PadExpression(location, type, e);
-			} else static if(isExplicit) {
-				return new TruncateExpression(location, type, e);
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
-			}
-		}
-	}
-	
-	final class CastToFloatType {
-		Float t1type;
-		
-		this(Float t1type) {
-			this.t1type = t1type;
-		}
-		
-		Expression visit(Expression e) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(e.type);
-		}
-		
-		Expression visit(FloatType t) {
-			if(t1type == t.type) {
-				return e;
-			} else if(t1type > t.type) {
-				return new PadExpression(location, type, e);
-			} else static if(isExplicit) {
-				return new TruncateExpression(location, type, e);
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
-			}
-		}
-	}
-	
-	final class CastToCharacterType {
-		Character t1type;
-		
-		this(Character t1type) {
-			this.t1type = t1type;
-		}
-		
-		Expression visit(Expression e) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(e.type);
-		}
-		
-		Expression visit(CharacterType t) {
-			if(t1type == t.type) {
-				return e;
-			} else if(t1type > t.type) {
-				return new PadExpression(location, type, e);
-			} else static if(isExplicit) {
-				return new TruncateExpression(location, type, e);
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(t.type) ~ " to " ~ to!string(t1type) ~ " is not allowed");
-			}
-		}
-	}
-	
-	final class CastTo {
+	// TODO: use struct to avoid memory allocation.
+	final class CastFromBooleanType {
 		Expression visit(Type t) {
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -497,23 +372,150 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(BooleanType t) {
-			return (new CastToBooleanType()).visit(e);
+			return e;
 		}
 		
 		Expression visit(IntegerType t) {
-			return (new CastToIntegerType(t.type)).visit(e);
-		}
-		
-		Expression visit(FloatType t) {
-			return (new CastToFloatType(t.type)).visit(e);
-		}
-		
-		Expression visit(CharacterType t) {
-			return (new CastToCharacterType(t.type)).visit(e);
+			return new PadExpression(location, type, e);
 		}
 	}
 	
-	return (new CastTo()).visit(type);
+	final class CastFromIntegerType {
+		Integer fromType;
+		
+		this(Integer fromType) {
+			this.fromType = fromType;
+		}
+		
+		Expression visit(Type t) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
+		}
+		
+		static if(isExplicit) {
+			Expression visit(BooleanType t) {
+				Expression zero = makeLiteral(location, 0);
+				auto type = getPromotedType(location, e.type, zero.type);
+				
+				zero = buildImplicitCast(location, type, zero);
+				e = buildImplicitCast(e.location, type, e);
+				
+				return new NotEqualityExpression(location, e, zero);
+			}
+		}
+		
+		Expression visit(IntegerType t) {
+			if(fromType == t.type) {
+				return e;
+			} else if(t.type > fromType) {
+				return new PadExpression(location, type, e);
+			} else static if(isExplicit) {
+				return new TruncateExpression(location, type, e);
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+			}
+		}
+	}
+	
+	final class CastFromFloatType {
+		Float fromType;
+		
+		this(Float fromType) {
+			this.fromType = fromType;
+		}
+		
+		Expression visit(Type t) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
+		}
+		
+		Expression visit(FloatType t) {
+			if(fromType == t.type) {
+				return e;
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+			}
+		}
+	}
+	
+	final class CastFromCharacterType {
+		Character fromType;
+		
+		this(Character fromType) {
+			this.fromType = fromType;
+		}
+		
+		Expression visit(Type t) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
+		}
+		
+		Expression visit(CharacterType t) {
+			if(fromType == t.type) {
+				return e;
+			} else {
+				import std.conv;
+				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+			}
+		}
+	}
+	
+	final class Cast {
+		Expression visit(Expression e) {
+			return this.dispatch!(delegate Expression(Expression e) {
+				return this.dispatch!(function Expression(Type t) {
+					auto msg = typeid(t).toString() ~ " is not supported.";
+					
+					import sdc.terminal;
+					outputCaretDiagnostics(t.location, msg);
+					
+					assert(0, msg);
+				})(e.type);
+			})(e);
+		}
+		
+		Expression visit(DefaultInitializer di) {
+			return type.initExpression(di.location);
+		}
+		
+		Expression visit(BooleanType t) {
+			return (new CastFromBooleanType()).visit(type);
+		}
+		
+		Expression visit(IntegerType t) {
+			return (new CastFromIntegerType(t.type)).visit(type);
+		}
+		
+		Expression visit(FloatType t) {
+			return (new CastFromFloatType(t.type)).visit(type);
+		}
+		
+		Expression visit(CharacterType t) {
+			return (new CastFromCharacterType(t.type)).visit(type);
+		}
+	}
+	
+	return (new Cast()).visit(e);
 }
 
 alias buildCast!false buildImplicitCast;
