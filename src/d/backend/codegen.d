@@ -1,102 +1,77 @@
 module d.backend.codegen;
 
-import d.ast.symbol;
+import d.ast.dmodule;
 
 import util.visitor;
 
 import llvm.c.Analysis;
 import llvm.c.Core;
 
+import std.algorithm;
+import std.array;
 import std.string;
 
-auto codeGen(ModuleSymbol m) {
+auto codeGen(Module m) {
 	auto builder = LLVMCreateBuilder();
 	auto dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
 	
 	// Dump module content on failure (for debug purpose).
 	scope(failure) LLVMDumpModule(dmodule);
 	
-	auto sdg = new SymbolDeclarationGen(builder, dmodule);
-	foreach(sym; m.symbols) {
-		sdg.visit(sym);
-	}
-	
-	auto sg = new SymbolGen(builder, dmodule);
-	foreach(sym; m.symbols) {
-		sg.visit(sym);
+	auto sg = new DeclarationGen(builder, dmodule);
+	foreach(decl; m.declarations) {
+		sg.visit(decl);
 	}
 	
 	return dmodule;
 }
 
+import d.ast.declaration;
 import d.ast.dfunction;
 
-class SymbolDeclarationGen {
+class DeclarationGen {
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
 	private TypeGen typeGen;
-	
-	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
-		this.builder = builder;
-		this.dmodule = dmodule;
-		
-		typeGen = new TypeGen();
-	}
-	
-final:
-	void visit(Symbol s) {
-		this.dispatch(s);
-	}
-	
-	void visit(FunctionSymbol fun) {
-		LLVMTypeRef[] parametersTypes;
-		parametersTypes.length = fun.parameters.length;
-		
-		foreach(i, p; fun.parameters) {
-			parametersTypes[i] = typeGen.visit(p.type);
-		}
-		
-		auto funType = LLVMFunctionType(typeGen.visit(fun.returnType), parametersTypes.ptr, cast(uint) parametersTypes.length, false);
-		LLVMAddFunction(dmodule, fun.mangling.toStringz(), funType);
-	}
-	
-	void visit(VariableSymbol var) {
-		auto globalVar = LLVMAddGlobal(dmodule, typeGen.visit(var.type), var.mangling.toStringz());
-		LLVMSetThreadLocal(globalVar, true);
-	}
-}
-
-class SymbolGen {
-	private LLVMBuilderRef builder;
-	private LLVMModuleRef dmodule;
-	
-	private TypeGen typeGen;
-	private SymbolStatementGen symbolStatementGen;
 	private ExpressionGen expressionGen;
 	private StatementGen statementGen;
 	
+	private LLVMValueRef[Symbol] symbols;
 	
 	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
 		this.builder = builder;
 		this.dmodule = dmodule;
 		
 		typeGen = new TypeGen();
-		symbolStatementGen = new SymbolStatementGen(builder, dmodule, typeGen);
-		expressionGen = new ExpressionGen(builder, symbolStatementGen, typeGen);
-		statementGen = new StatementGen(builder, symbolStatementGen, expressionGen);
+		expressionGen = new ExpressionGen(builder, this, typeGen);
+		statementGen = new StatementGen(builder, this, expressionGen);
 	}
 	
 final:
-	void visit(Symbol s) {
-		this.dispatch(s);
+	LLVMValueRef visit(Declaration d) {
+		auto s = cast(Symbol) d;
+		assert(s);
+		
+		return visit(s);
 	}
 	
-	void visit(FunctionSymbol f) {
-		auto fun = LLVMGetNamedFunction(dmodule, f.mangling.toStringz());
+	LLVMValueRef visit(Symbol s) {
+		return symbols.get(s, this.dispatch(s));
+	}
+	
+	LLVMValueRef visit(FunctionDefinition f) {
+		// Ensure we are rentrant.
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		// Clear the variable table when the generation is finished.
-		scope(exit) symbolStatementGen.variables.clear();
+		auto parameterTypes = f.parameters.map!(p => typeGen.visit(p.type)).array();
+		
+		auto funType = LLVMFunctionType(typeGen.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
+		auto fun = LLVMAddFunction(dmodule, f.mangling.toStringz(), funType);
+		
+		// Register the function.
+		symbols[f] = fun;
 		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlock(fun, "");
@@ -109,24 +84,14 @@ final:
 		params.length = f.parameters.length;
 		LLVMGetParams(fun, params.ptr);
 		
-		// TODO: avoid computing that twice.
-		LLVMTypeRef[] paramTypes;
-		paramTypes.length = f.parameters.length;
-		
 		foreach(i, p; f.parameters) {
-			paramTypes[i] = typeGen.visit(p.type);
-		}
-		
-		foreach(i, p; f.parameters) {
-			if(auto asNamed = cast(NamedParameter) p) {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], asNamed.name.toStringz());
-				auto value = params[i];
-				
-				LLVMSetValueName(value, ("arg." ~ asNamed.name).toStringz());
-				
-				LLVMBuildStore(builder, value, alloca);
-				symbolStatementGen.variables[asNamed.name] = alloca;
-			}
+			auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
+			auto value = params[i];
+			
+			LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
+			
+			LLVMBuildStore(builder, value, alloca);
+			symbols[p] = alloca;
 		}
 		
 		// Generate function's body.
@@ -143,55 +108,42 @@ final:
 		LLVMBuildBr(builder, bodyBB);
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
+		
+		return fun;
 	}
 	
-	void visit(VariableSymbol var) {
-		auto globalVar = LLVMGetNamedGlobal(dmodule, var.mangling.toStringz());
-		
-		// Store the initial value into the alloca.
-		auto value = expressionGen.visit(var.value);
-		LLVMSetInitializer(globalVar, value);
-	}
-}
-
-class SymbolStatementGen {
-	private LLVMBuilderRef builder;
-	private LLVMModuleRef dmodule;
-	
-	private TypeGen typeGen;
-	private ExpressionGen expressionGen;
-	
-	LLVMValueRef[string] variables;
-	
-	this(LLVMBuilderRef builder, LLVMModuleRef dmodule, TypeGen typeGen) {
-		this.builder = builder;
-		this.dmodule = dmodule;
-		
-		this.typeGen = typeGen;
-		
-		expressionGen = new ExpressionGen(builder, this, typeGen);
-	}
-	
-final:
-	void visit(Symbol s) {
-		this.dispatch(s);
-	}
-	
-	void visit(VariableSymbol var) {
-		// Backup current block
-		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
-		
-		// Create an alloca for this variable.
-		auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), var.name.toStringz());
-		
-		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-		
-		// Store the initial value into the alloca.
-		auto value = expressionGen.visit(var.value);
-		LLVMBuildStore(builder, value, alloca);
-		
-		variables[var.name] = alloca;
+	LLVMValueRef visit(VariableDeclaration var) {
+		if(var.isStatic) {
+			auto globalVar = LLVMAddGlobal(dmodule, typeGen.visit(var.type), var.mangling.toStringz());
+			LLVMSetThreadLocal(globalVar, true);
+			
+			// Register the variable.
+			symbols[var] = globalVar;
+			
+			// Store the initial value into the alloca.
+			auto value = expressionGen.visit(var.value);
+			LLVMSetInitializer(globalVar, value);
+			
+			return globalVar;
+		} else {
+			// Backup current block
+			auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
+			
+			// Create an alloca for this variable.
+			auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), var.mangling.toStringz());
+			
+			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+			
+			// Register the variable.
+			symbols[var] = alloca;
+			
+			// Store the initial value into the alloca.
+			auto value = expressionGen.visit(var.value);
+			LLVMBuildStore(builder, value, alloca);
+			
+			return alloca;
+		}
 	}
 }
 
@@ -200,12 +152,12 @@ import d.ast.statement;
 class StatementGen {
 	private LLVMBuilderRef builder;
 	
-	private SymbolStatementGen symbolStatementGen;
+	private DeclarationGen declarationGen;
 	private ExpressionGen expressionGen;
 	
-	this(LLVMBuilderRef builder, SymbolStatementGen symbolStatementGen, ExpressionGen expressionGen){
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen, ExpressionGen expressionGen) {
 		this.builder = builder;
-		this.symbolStatementGen = symbolStatementGen;
+		this.declarationGen = declarationGen;
 		this.expressionGen = expressionGen;
 	}
 	
@@ -214,8 +166,8 @@ final:
 		this.dispatch(s);
 	}
 	
-	void visit(SymbolStatement s) {
-		symbolStatementGen.visit(s.symbol);
+	void visit(DeclarationStatement d) {
+		declarationGen.visit(d.declaration);
 	}
 	
 	void visit(ExpressionStatement e) {
@@ -354,12 +306,12 @@ import d.ast.expression;
 class ExpressionGen {
 	private LLVMBuilderRef builder;
 	
-	private SymbolStatementGen symbolStatementGen;
+	private DeclarationGen declarationGen;
 	private TypeGen typeGen;
 	
-	this(LLVMBuilderRef builder, SymbolStatementGen symbolStatementGen, TypeGen typeGen) {
+	this(LLVMBuilderRef builder, DeclarationGen declarationGen, TypeGen typeGen) {
 		this.builder = builder;
-		this.symbolStatementGen = symbolStatementGen;
+		this.declarationGen = declarationGen;
 		this.typeGen = typeGen;
 	}
 	
@@ -396,61 +348,48 @@ final:
 		return LLVMConstInt(typeGen.visit(cl.type), cl.value[0], false);
 	}
 	
-	private void updateVariableValue(string name, LLVMValueRef value) {
-		LLVMBuildStore(builder, value, symbolStatementGen.variables[name]);
+	private void updateVariableValue(Symbol s, LLVMValueRef value) {
+		LLVMBuildStore(builder, value, declarationGen.visit(s));
 	}
 	
 	LLVMValueRef visit(AssignExpression e) {
 		auto value = visit(e.rhs);
 		auto lhs = cast(SymbolExpression) e.lhs;
 		
-		updateVariableValue(lhs.symbol.name, value);
+		updateVariableValue(lhs.symbol, value);
 		
 		return value;
+	}
+	
+	private auto handleIncrement(alias LLVMIncrementOp, bool pre, IncrementExpression)(IncrementExpression e) {
+		auto preValue = visit(e.expression);
+		auto lvalue = cast(SymbolExpression) e.expression;
+		
+		auto postValue = LLVMIncrementOp(builder, preValue, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		
+		updateVariableValue(lvalue.symbol, postValue);
+		
+		static if(pre) {
+			return preValue;
+		} else {
+			return postValue;
+		}
 	}
 	
 	LLVMValueRef visit(PreIncrementExpression e) {
-		auto value = visit(e.expression);
-		auto lvalue = cast(SymbolExpression) e.expression;
-		
-		value = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
-		
-		updateVariableValue(lvalue.symbol.name, value);
-		
-		return value;
+		return handleIncrement!(LLVMBuildAdd, true)(e);
 	}
 	
 	LLVMValueRef visit(PreDecrementExpression e) {
-		auto value = visit(e.expression);
-		auto lvalue = cast(SymbolExpression) e.expression;
-		
-		value = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
-		
-		updateVariableValue(lvalue.symbol.name, value);
-		
-		return value;
+		return handleIncrement!(LLVMBuildSub, true)(e);
 	}
 	
 	LLVMValueRef visit(PostIncrementExpression e) {
-		auto value = visit(e.expression);
-		auto lvalue = cast(SymbolExpression) e.expression;
-		
-		auto updatedValue = LLVMBuildAdd(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
-		
-		updateVariableValue(lvalue.symbol.name, updatedValue);
-		
-		return value;
+		return handleIncrement!(LLVMBuildAdd, false)(e);
 	}
 	
 	LLVMValueRef visit(PostDecrementExpression e) {
-		auto value = visit(e.expression);
-		auto lvalue = cast(SymbolExpression) e.expression;
-		
-		auto updatedValue = LLVMBuildSub(builder, value, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
-		
-		updateVariableValue(lvalue.symbol.name, updatedValue);
-		
-		return value;
+		return handleIncrement!(LLVMBuildSub, false)(e);
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
@@ -536,7 +475,7 @@ final:
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		return LLVMBuildLoad(builder, symbolStatementGen.variables[e.symbol.name], "");
+		return LLVMBuildLoad(builder, declarationGen.visit(e.symbol), "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -605,8 +544,8 @@ final:
 			arguments[i] = visit(arg);
 		}
 		
-		auto name = toStringz((cast(SymbolExpression) c.callee).symbol.name);
-		return LLVMBuildCall(builder, LLVMGetNamedFunction(symbolStatementGen.dmodule, name), arguments.ptr, cast(uint) arguments.length, "");
+		auto symbol = (cast(SymbolExpression) c.callee).symbol;
+		return LLVMBuildCall(builder, declarationGen.visit(symbol), arguments.ptr, cast(uint) arguments.length, "");
 	}
 }
 

@@ -3,9 +3,9 @@ module d.ast.type;
 import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.symbol;
 
 class Type : Node, Namespace {
 	this(Location location) {

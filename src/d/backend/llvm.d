@@ -1,6 +1,6 @@
 module d.backend.llvm;
 
-import d.ast.symbol;
+import d.ast.dmodule;
 
 import llvm.c.Core;
 import llvm.c.ExecutionEngine;
@@ -8,7 +8,7 @@ import llvm.c.Target;
 import llvm.Ext;
 
 interface Backend {
-	void codeGen(ModuleSymbol[] mods);
+	void codeGen(Module[] mods);
 }
 
 class LLVMBackend : Backend {
@@ -19,7 +19,7 @@ class LLVMBackend : Backend {
 		LLVMInitializeX86AsmPrinter();
 	}
 	
-	void codeGen(ModuleSymbol[] mods) {
+	void codeGen(Module[] mods) {
 		foreach(mod; mods) {
 			import d.backend.codegen;
 			import std.stdio;
@@ -34,13 +34,6 @@ class LLVMBackend : Backend {
 				import std.c.string;
 				writeln(errorPtr[0 .. strlen(errorPtr)]);
 				writeln("Cannot create execution engine ! Exiting...");
-				return;
-			}
-			
-			LLVMValueRef fun;
-			auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
-			if(notFound) {
-				writeln("No main, no gain.");
 				return;
 			}
 			
@@ -60,6 +53,13 @@ class LLVMBackend : Backend {
 			//*/
 			
 			LLVMDumpModule(dmodule);
+			
+			LLVMValueRef fun;
+			auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
+			if(notFound) {
+				writeln("No main, no gain.");
+				return;
+			}
 			
 			auto executionResult = LLVMRunFunction(ee, fun, 0, null);
 			auto returned = cast(int) LLVMGenericValueToInt(executionResult, true);

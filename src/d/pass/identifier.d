@@ -1,22 +1,30 @@
+/**
+ * Prepare scope for identifiers resolution.
+ */
 module d.pass.identifier;
 
 import d.pass.base;
 
-import d.ast.symbol;
+import d.ast.declaration;
+import d.ast.dmodule;
+import d.ast.dscope;
 
-auto resolveIdentifiers(ModuleSymbol m) {
-	auto sv = new SymbolVisitor();
+import std.algorithm;
+import std.array;
+
+auto resolveIdentifiers(Module m) {
+	auto sv = new DeclarationVisitor();
 	
 	return sv.visit(m);
 }
 
 import d.ast.dfunction;
 
-class SymbolVisitor {
+class DeclarationVisitor {
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
 	
-	ScopeSymbol parent;
+	Scope currentScope;
 	
 	this() {
 		expressionVisitor = new ExpressionVisitor(this);
@@ -24,33 +32,54 @@ class SymbolVisitor {
 	}
 	
 final:
-	Symbol visit(Symbol s) {
-		return this.dispatch(s);
+	Declaration visit(Declaration d) {
+		return this.dispatch(d);
 	}
 	
-	ModuleSymbol visit(ModuleSymbol m) {
-		parent = m;
-		
-		foreach(sym; m.symbols) {
-			visit(sym);
+	// XXX: Ugly hack to preregister symbols.
+	private void registerUnorderedDecls(Declaration[] decls) {
+		foreach(decl; decls) {
+			if(auto s = cast(Symbol) decl) {
+				currentScope.addSymbol(s);
+			}
 		}
+	}
+	
+	Module visit(Module m) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = m.dscope;
+		
+		registerUnorderedDecls(m.declarations);
+		
+		m.declarations = m.declarations.map!(d => visit(d)).array();
 		
 		return m;
 	}
 	
-	Symbol visit(FunctionSymbol fun) {
-		auto oldParent = parent;
-		scope(exit) parent = oldParent;
+	Declaration visit(FunctionDefinition fun) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
 		
-		parent = fun;
+		currentScope = new NestedScope(oldScope);
+		
+		foreach(p; fun.parameters) {
+			currentScope.addSymbol(p);
+		}
 		
 		statementVisitor.visit(fun.fbody);
+		fun.dscope = currentScope;
+		
+		oldScope.addOverloadableSymbol(fun);
 		
 		return fun;
 	}
 	
-	Symbol visit(VariableSymbol var) {
+	Declaration visit(VariableDeclaration var) {
 		var.value = expressionVisitor.visit(var.value);
+		
+		currentScope.addSymbol(var);
 		
 		return var;
 	}
@@ -59,11 +88,11 @@ final:
 import d.ast.statement;
 
 class StatementVisitor {
-	private SymbolVisitor symbolVisitor;
+	private DeclarationVisitor declarationVisitor;
 	private ExpressionVisitor expressionVisitor;
 	
-	this(SymbolVisitor symbolVisitor, ExpressionVisitor expressionVisitor) {
-		this.symbolVisitor = symbolVisitor;
+	this(DeclarationVisitor declarationVisitor, ExpressionVisitor expressionVisitor) {
+		this.declarationVisitor = declarationVisitor;
 		this.expressionVisitor = expressionVisitor;
 	}
 	
@@ -72,12 +101,12 @@ final:
 		this.dispatch(s);
 	}
 	
-	void visit(ExpressionStatement e) {
-		expressionVisitor.visit(e.expression);
+	void visit(DeclarationStatement d) {
+		d.declaration = declarationVisitor.visit(d.declaration);
 	}
 	
-	void visit(SymbolStatement s) {
-		symbolVisitor.visit(s.symbol);
+	void visit(ExpressionStatement e) {
+		expressionVisitor.visit(e.expression);
 	}
 	
 	void visit(BlockStatement b) {
@@ -121,10 +150,10 @@ final:
 import d.ast.expression;
 
 class ExpressionVisitor {
-	private SymbolVisitor symbolVisitor;
+	private DeclarationVisitor declarationVisitor;
 	
-	this(SymbolVisitor symbolVisitor) {
-		this.symbolVisitor = symbolVisitor;
+	this(DeclarationVisitor declarationVisitor) {
+		this.declarationVisitor = declarationVisitor;
 	}
 	
 final:
@@ -244,9 +273,7 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		foreach(i, arg; c.arguments) {
-			c.arguments[i] = visit(arg);
-		}
+		c.arguments = c.arguments.map!(arg => visit(arg)).array();
 		
 		c.callee = visit(c.callee);
 		
@@ -254,8 +281,8 @@ final:
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		// TODO: check for staticness and create a global variable read if appropriate.
-		return new SymbolExpression(e.location, symbolVisitor.parent.s.resolve(e.identifier.name));
+		// TODO: resolve all kind of identifiers as appropriate expressions.
+		return new SymbolExpression(e.location, declarationVisitor.currentScope.resolve(e.identifier.name));
 	}
 }
 

@@ -2,6 +2,7 @@ module d.ast.dfunction;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
@@ -9,17 +10,20 @@ import d.ast.type;
 /**
  * Function Declaration
  */
-class FunctionDeclaration : Declaration {
-	string name;
+class FunctionDeclaration : Symbol {
 	Type returnType;
 	Parameter[] parameters;
 	
+	string mangling;
+	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {
-		super(location);
+		super(location, name);
 		
 		this.name = name;
 		this.returnType = returnType;
 		this.parameters = parameters;
+		
+		this.mangling = name;
 	}
 }
 
@@ -28,6 +32,7 @@ class FunctionDeclaration : Declaration {
  */
 class FunctionDefinition : FunctionDeclaration {
 	Statement fbody;
+	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, Statement fbody) {
 		super(location, name, returnType, parameters);
@@ -128,27 +133,21 @@ class DelegateType : FunctionType {
 /**
  * Function and delegate parameters.
  */
-class Parameter : Node {
+class Parameter : Symbol {
 	Type type;
 	
 	this(Location location, Type type) {
-		super(location);
+		this(location, type, "");
+	}
+	
+	this(Location location, Type type, string name) {
+		super(location, name);
 		
 		this.type = type;
 	}
 }
 
-class NamedParameter : Parameter {
-	string name;
-	
-	this(Location location, Type type, string name) {
-		super(location, type);
-		
-		this.name = name;
-	}
-}
-
-class InitializedParameter : NamedParameter {
+class InitializedParameter : Parameter {
 	Expression value;
 	
 	this(Location location, Type type, string name, Expression value) {

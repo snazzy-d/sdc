@@ -2,9 +2,9 @@ module d.ast.ambiguous;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.symbol;
 import d.ast.type;
 
 class TypeOrExpression : Node, Namespace {

@@ -3,7 +3,6 @@ module d.ast.statement;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
-import d.ast.symbol;
 import d.ast.type;
 
 class Statement : Node {
@@ -48,19 +47,6 @@ class DeclarationStatement : Statement {
 		super(declaration.location);
 		
 		this.declaration = declaration;
-	}
-}
-
-/**
- * Symbols
- */
-class SymbolStatement : Statement {
-	Symbol symbol;
-	
-	this(Symbol symbol) {
-		super(symbol.location);
-		
-		this.symbol = symbol;
 	}
 }
 
