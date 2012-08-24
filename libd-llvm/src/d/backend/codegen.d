@@ -370,10 +370,11 @@ final:
 		
 		updateVariableValue(lvalue.symbol, postValue);
 		
+		// PreIncrement return the value after it is incremented.
 		static if(pre) {
-			return preValue;
-		} else {
 			return postValue;
+		} else {
+			return preValue;
 		}
 	}
 	
@@ -431,12 +432,14 @@ final:
 		
 		auto lhsBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
-		auto rhsBB = LLVMAppendBasicBlock(fun, "");
-		auto mergeBB = LLVMAppendBasicBlock(fun, "");
 		
 		static if(operation == "&&") {
+			auto rhsBB = LLVMAppendBasicBlock(fun, "and_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlock(fun, "and_merge");
 			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
 		} else {
+			auto rhsBB = LLVMAppendBasicBlock(fun, "or_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlock(fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
 		}
 		
