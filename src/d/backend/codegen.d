@@ -26,6 +26,7 @@ auto codeGen(Module m) {
 	return dmodule;
 }
 
+import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dfunction;
 
@@ -145,6 +146,11 @@ final:
 			
 			return alloca;
 		}
+	}
+	
+	LLVMValueRef visit(StructDefinition sd) {
+		// Nothing to do with struct.
+		return null;
 	}
 }
 
@@ -551,6 +557,10 @@ final:
 		auto symbol = (cast(SymbolExpression) c.callee).symbol;
 		return LLVMBuildCall(builder, declarationGen.visit(symbol), arguments.ptr, cast(uint) arguments.length, "");
 	}
+	
+	LLVMValueRef visit(VoidInitializer v) {
+		return LLVMGetUndef(typeGen.visit(v.type));
+	}
 }
 
 import d.ast.type;
@@ -558,16 +568,18 @@ import d.ast.type;
 class TypeGen {
 	bool isSigned;
 	
+	private LLVMTypeRef[Type] types;
+	
 final:
 	LLVMTypeRef visit(Type t) {
-		return this.dispatch!(function LLVMTypeRef(Type t) {
+		return types.get(t, this.dispatch!(function LLVMTypeRef(Type t) {
 			auto msg = typeid(t).toString() ~ " is not supported.";
 			
 			import sdc.terminal;
 			outputCaretDiagnostics(t.location, msg);
 			
 			assert(0, msg);
-		})(t);
+		})(t));
 	}
 	
 	LLVMTypeRef visit(BooleanType t) {
@@ -623,6 +635,21 @@ final:
 				case Character.Dchar :
 					return LLVMInt32Type();
 		}
+	}
+	
+	LLVMTypeRef visit(StructDefinition.StructType t) {
+		LLVMTypeRef[] members;
+		
+		foreach(member; t.members) {
+			members ~= visit(member);
+		}
+		
+		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) t.outer.name.toStringz());
+		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
+		
+		types[t] = llvmStruct;
+		
+		return llvmStruct;
 	}
 }
 

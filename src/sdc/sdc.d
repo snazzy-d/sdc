@@ -85,20 +85,20 @@ void compile(string filename) {
 	auto ast = trange.parse();
 	
 	import d.pass.flatten;
-	auto tc = flatten(ast);
+	ast = flatten(ast);
 	//*
-	import d.pass.identifier;
-	tc = resolveIdentifiers(tc);
+	import d.pass.dscope;
+	ast = dscope(ast);
 	//*
 	import d.pass.typecheck;
-	tc = typeCheck(tc);
+	ast = typeCheck(ast);
 	//*
 	import d.pass.main;
-	tc = buildMain(tc);
+	ast = buildMain(ast);
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
-	backend.codeGen([tc]);
+	backend.codeGen([ast]);
 	//*/
 }
 

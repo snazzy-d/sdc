@@ -10,12 +10,14 @@ import d.ast.type;
 /**
  * Function Declaration
  */
-class FunctionDeclaration : Symbol {
+class FunctionDeclaration : ExpressionSymbol {
 	Type returnType;
 	Parameter[] parameters;
 	
+	Scope dscope;
+	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {
-		super(location, name);
+		super(location, name, returnType);
 		
 		this.name = name;
 		this.returnType = returnType;
@@ -28,7 +30,6 @@ class FunctionDeclaration : Symbol {
  */
 class FunctionDefinition : FunctionDeclaration {
 	Statement fbody;
-	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, Statement fbody) {
 		super(location, name, returnType, parameters);
@@ -129,25 +130,21 @@ class DelegateType : FunctionType {
 /**
  * Function and delegate parameters.
  */
-class Parameter : Symbol {
-	Type type;
-	
+class Parameter : ExpressionSymbol {
 	this(Location location, Type type) {
-		this(location, type, "");
+		this(location, "", type);
 	}
 	
-	this(Location location, Type type, string name) {
-		super(location, name);
-		
-		this.type = type;
+	this(Location location, string name, Type type) {
+		super(location, name, type);
 	}
 }
 
 class InitializedParameter : Parameter {
 	Expression value;
 	
-	this(Location location, Type type, string name, Expression value) {
-		super(location, type, name);
+	this(Location location, string name, Type type, Expression value) {
+		super(location, name, type);
 		
 		this.value = value;
 	}

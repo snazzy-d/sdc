@@ -13,8 +13,8 @@ class Identifier : Node, Namespace {
 		this.name = name;
 	}
 	
-	override Symbol resolve(Scope s) {
-		assert(0, "resolve not implemented for" ~ typeid(this).toString());
+	override Namespace resolve(Location location, string name) {
+		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
 	}
 }
 
@@ -22,7 +22,7 @@ class Identifier : Node, Namespace {
  * Anything that can qualify an identifier
  */
 interface Namespace {
-	Symbol resolve(Scope s);
+	Namespace resolve(Location location, string name);
 }
 
 /**
@@ -46,8 +46,8 @@ class ModuleNamespace : Node, Namespace {
 		super(location);
 	}
 	
-	override Symbol resolve(Scope s) {
-		assert(0, "resolve not implemented for" ~ typeid(this).toString());
+	override Symbol resolve(Location location, string name) {
+		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
 	}
 }
 
