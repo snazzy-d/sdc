@@ -2,6 +2,8 @@ module d.ast.adt;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
+import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
@@ -42,13 +44,9 @@ class InterfaceDefinition : Declaration {
 /**
  * Struct Declaration
  */
-class StructDeclaration : Declaration {
-	string name;
-	
+class StructDeclaration : Symbol {
 	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
+		super(location, name);
 	}
 }
 
@@ -58,10 +56,37 @@ class StructDeclaration : Declaration {
 class StructDefinition : StructDeclaration {
 	Declaration[] members;
 	
+	class StructType : BasicType {
+		Type[] members;
+	
+		this(Location location) {
+			super(location);
+		}
+	
+		override Expression initExpression(Location location) {
+			// FIXME: return the proper init.
+			return new VoidInitializer(location, this);
+		}
+		
+		override Namespace resolve(Location location, string name) {
+			return dscope.resolve(location, name);
+		}
+	}
+	
+	StructType type;
+	
+	Scope dscope;
+	
 	this(Location location, string name, Declaration[] members) {
 		super(location, name);
 		
 		this.members = members;
+		
+		type = new StructType(location);
+	}
+	
+	override Namespace resolve(Location location, string name) {
+		return dscope.resolve(location, name);
 	}
 }
 

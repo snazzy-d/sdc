@@ -374,7 +374,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			if(trange.front.type == TokenType.Assign) {
 				trange.popFront();
 				
-				value = trange.parseInitializer();
+				value = trange.parseInitializer(type);
 				
 				variableLocation.spanTo(value.location);
 			} else {
@@ -452,13 +452,13 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
 /**
  * Parse Initializer
  */
-private auto parseInitializer(TokenRange)(ref TokenRange trange) {
+private auto parseInitializer(TokenRange)(ref TokenRange trange, Type type) {
 	if(trange.front.type == TokenType.Void) {
 		auto location = trange.front.location;
 		
 		trange.popFront();
 		
-		return new VoidInitializer(location);
+		return new VoidInitializer(location, type);
 	}
 	
 	return trange.parseAssignExpression();

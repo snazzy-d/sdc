@@ -200,10 +200,10 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 			auto expression = trange.parseAssignExpression();
 			
 			location.spanTo(expression.location);
-			return new InitializedParameter(location, type, name, expression);
+			return new InitializedParameter(location, name, type, expression);
 		}
 		
-		return new Parameter(location, type, name);
+		return new Parameter(location, name, type);
 	}
 	
 	return new Parameter(type.location, type);

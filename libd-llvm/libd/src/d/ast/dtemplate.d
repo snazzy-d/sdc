@@ -10,15 +10,13 @@ import d.ast.type;
 /**
  * Template declaration
  */
-class TemplateDeclaration : Declaration {
-	string name;
+class TemplateDeclaration : Symbol {
 	TemplateParameter[] parameters;
 	Declaration[] declarations;
 	
 	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
-		super(location);
+		super(location, name);
 		
-		this.name = name;
 		this.parameters = parameters;
 		this.declarations = declarations;
 	}

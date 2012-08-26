@@ -7,43 +7,50 @@ module d.pass.typecheck;
 
 import d.pass.base;
 
+import d.ast.declaration;
 import d.ast.dmodule;
+import d.ast.dscope;
+import d.ast.identifier;
 
 import std.algorithm;
 import std.array;
 
 auto typeCheck(Module m) {
-	auto sv = new DeclarationVisitor();
+	auto pass = new TypecheckPass();
 	
-	return sv.visit(m);
+	return pass.visit(m);
 }
 
+import d.ast.expression;
 import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.dscope;
+import d.ast.statement;
+import d.ast.type;
 
-class DeclarationVisitor {
+class TypecheckPass {
+	private DeclarationVisitor declarationVisitor;
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
+	private TypeVisitor typeVisitor;
+	private IdentifierVisitor identifierVisitor;
+	private NamespaceVisitor namespaceVisitor;
+	private SymbolResolver symbolResolver;
 	
-	Scope currentScope;
+	private Scope currentScope;
+	private Type returnType;
+	private Type thisType;
 	
 	this() {
-		expressionVisitor = new ExpressionVisitor(this);
-		statementVisitor = new StatementVisitor(this, expressionVisitor);
+		declarationVisitor	= new DeclarationVisitor(this);
+		statementVisitor	= new StatementVisitor(this);
+		expressionVisitor	= new ExpressionVisitor(this);
+		typeVisitor			= new TypeVisitor(this);
+		identifierVisitor	= new IdentifierVisitor(this);
+		namespaceVisitor	= new NamespaceVisitor(this);
+		symbolResolver		= new SymbolResolver(this);
 	}
 	
 final:
-	Declaration visit(Declaration d) {
-		return this.dispatch(d);
-	}
-	
 	Module visit(Module m) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = m.dscope;
-		
 		foreach(decl; m.declarations) {
 			visit(decl);
 		}
@@ -51,39 +58,76 @@ final:
 		return m;
 	}
 	
+	auto visit(Declaration decl) {
+		return declarationVisitor.visit(decl);
+	}
+	
+	auto visit(Statement stmt) {
+		return statementVisitor.visit(stmt);
+	}
+	
+	auto visit(Expression e) {
+		return expressionVisitor.visit(e);
+	}
+	
+	auto visit(Type t) {
+		return typeVisitor.visit(t);
+	}
+	
+	auto visit(Identifier i) {
+		return identifierVisitor.resolve(i);
+	}
+	
+	auto visit(Namespace ns) {
+		return namespaceVisitor.visit(ns);
+	}
+}
+
+import d.ast.adt;
+import d.ast.dfunction;
+
+class DeclarationVisitor {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Declaration visit(Declaration d) {
+		return this.dispatch(d);
+	}
+	
 	Symbol visit(FunctionDefinition fun) {
+		// Prepare statement visitor for return type.
+		auto oldReturnType = returnType;
+		scope(exit) returnType = oldReturnType;
+		
+		returnType = fun.returnType = pass.visit(fun.returnType);
+		
+		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
 		currentScope = fun.dscope;
 		
-		// Prepare statement visitor for return type.
-		auto oldReturnType = statementVisitor.returnType;
-		scope(exit) statementVisitor.returnType = oldReturnType;
-		
-		statementVisitor.returnType = fun.returnType;
-		
 		// And visit.
-		statementVisitor.visit(fun.fbody);
+		pass.visit(fun.fbody);
 		
 		return fun;
 	}
 	
 	Symbol visit(VariableDeclaration var) {
-		var.value = expressionVisitor.visit(var.value);
+		var.value = pass.visit(var.value);
 		
 		final class ResolveType {
 			Type visit(Type t) {
-				return this.dispatch!(t => t)(t);
+				return pass.visit(this.dispatch!(t => t)(t));
 			}
 			
 			Type visit(AutoType t) {
 				return var.value.type;
-			}
-			
-			Type visit(TypeofType t) {
-				t.expression = expressionVisitor.visit(t.expression);
-				return t.expression.type;
 			}
 		}
 		
@@ -93,37 +137,43 @@ final:
 		return var;
 	}
 	
+	Declaration visit(FieldDeclaration f) {
+		return visit(cast(VariableDeclaration) f);
+	}
+	
+	Symbol visit(StructDefinition s) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = s.dscope;
+		
+		auto oldThisType = thisType;
+		scope(exit) thisType = oldThisType;
+		
+		thisType = s.type;
+		
+		s.members = s.members.map!(m => visit(m)).array();
+		
+		return s;
+	}
+	
 	Symbol visit(Parameter p) {
 		return p;
 	}
-}
-
-class DeclarationTypeResolver {
-final:
-	Type visit(Declaration d) {
-		return this.dispatch(d);
-	}
 	
-	Type visit(VariableDeclaration var) {
-		return var.type;
-	}
-	
-	Type visit(Parameter p) {
-		return p.type;
+	Symbol visit(AliasDeclaration a) {
+		return a;
 	}
 }
 
 import d.ast.statement;
 
 class StatementVisitor {
-	private DeclarationVisitor declarationVisitor;
-	private ExpressionVisitor expressionVisitor;
+	private TypecheckPass pass;
+	alias pass this;
 	
-	private Type returnType;
-	
-	this(DeclarationVisitor declarationVisitor, ExpressionVisitor expressionVisitor) {
-		this.declarationVisitor = declarationVisitor;
-		this.expressionVisitor = expressionVisitor;
+	this(TypecheckPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -132,62 +182,64 @@ final:
 	}
 	
 	void visit(ExpressionStatement e) {
-		expressionVisitor.visit(e.expression);
+		pass.visit(e.expression);
 	}
 	
 	void visit(DeclarationStatement d) {
-		declarationVisitor.visit(d.declaration);
+		pass.visit(d.declaration);
 	}
 	
 	void visit(BlockStatement b) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = b.dscope;
+		
 		foreach(s; b.statements) {
 			visit(s);
 		}
 	}
 	
 	void visit(IfElseStatement ifs) {
-		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), expressionVisitor.visit(ifs.condition));
+		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
 		
 		visit(ifs.then);
 		visit(ifs.elseStatement);
 	}
 	
 	void visit(WhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), expressionVisitor.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		visit(w.statement);
 	}
 	
 	void visit(DoWhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), expressionVisitor.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		visit(w.statement);
 	}
 	
 	void visit(ForStatement f) {
-		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), expressionVisitor.visit(f.condition));
-		f.increment = expressionVisitor.visit(f.increment);
+		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
+		f.increment = pass.visit(f.increment);
 		
 		visit(f.initialize);
 		visit(f.statement);
 	}
 	
 	void visit(ReturnStatement r) {
-		// TODO: handle that by splitting symbol visitor.
-		r.value = buildImplicitCast(r.location, returnType, expressionVisitor.visit(r.value));
+		r.value = buildImplicitCast(r.location, returnType, pass.visit(r.value));
 	}
 }
 
 import d.ast.expression;
 
 class ExpressionVisitor {
-	private DeclarationVisitor declarationVisitor;
-	private DeclarationTypeResolver declarationTypeResolver;
+	private TypecheckPass pass;
+	alias pass this;
 	
-	this(DeclarationVisitor declarationVisitor) {
-		this.declarationVisitor = declarationVisitor;
-		
-		this.declarationTypeResolver = new DeclarationTypeResolver();
+	this(TypecheckPass pass) {
+		this.pass = pass;
 	}
 	
 final:
@@ -297,14 +349,9 @@ final:
 	}
 	
 	private auto handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
-		auto oldType = e.expression.type;
-		
 		e.expression = visit(e.expression);
 		
-		// If type as been update, we update the current expression type too.
-		if(oldType !is e.expression.type) {
-			e.type = e.expression.type;
-		}
+		e.type = e.expression.type;
 		
 		return e;
 	}
@@ -330,11 +377,11 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		foreach(i, arg; c.arguments) {
-			c.arguments[i] = visit(arg);
-		}
+		c.arguments = c.arguments.map!(arg => visit(arg)).array();
 		
-		//FIXME: get the right type.
+		c.callee = visit(c.callee);
+		
+		// FIXME: get the right return type.
 		if(typeid({ return c.type; }()) is typeid(AutoType)) {
 			c.type = new IntegerType(c.type.location, IntegerOf!int);
 		}
@@ -342,8 +389,36 @@ final:
 		return c;
 	}
 	
+	Expression visit(IdentifierExpression ie) {
+		auto resolved = pass.visit(ie.identifier);
+		
+		if(auto e = cast(Expression) resolved) {
+			return visit(e);
+		}
+		
+		assert(0, ie.identifier.name ~ " isn't an expression. It is a " ~ typeid({ return cast(Object) resolved; }()).toString());
+	}
+	
+	Expression visit(MemberExpression me) {
+		me.expression = visit(me.expression);
+		me.type = pass.visit(me.field.type);
+		
+		return me;
+	}
+	
+	Expression visit(MethodExpression me) {
+		me.thisExpression = visit(me.thisExpression);
+		me.type = pass.visit(me.method.returnType);
+		
+		return me;
+	}
+	
+	Expression visit(ThisExpression te) {
+		return te;
+	}
+	
 	Expression visit(SymbolExpression e) {
-		e.type = declarationTypeResolver.visit(e.symbol);
+		e.type = pass.visit(e.symbol.type);
 		
 		return e;
 	}
@@ -355,6 +430,170 @@ final:
 }
 
 import d.ast.type;
+
+class TypeVisitor {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Type visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	Type visit(IdentifierType it) {
+		auto resolved = pass.visit(it.identifier);
+		
+		if(auto t = cast(Type) resolved) {
+			return visit(t);
+		}
+		
+		assert(0, it.identifier.name ~ " isn't an type.");
+	}
+	
+	Type visit(BooleanType t) {
+		return t;
+	}
+	
+	Type visit(IntegerType t) {
+		return t;
+	}
+	
+	Type visit(FloatType t) {
+		return t;
+	}
+	
+	Type visit(CharacterType t) {
+		return t;
+	}
+	
+	Type visit(TypeofType t) {
+		t.expression = pass.visit(t.expression);
+		
+		return t.expression.type;
+	}
+	
+	Type visit(StructDefinition.StructType st) {
+		Type[] members;
+		
+		foreach(member; st.outer.members) {
+			if(auto var = cast(VariableDeclaration) member) {
+				// TODO: check for staticness.
+				members ~= visit(var.type);
+			}
+		}
+		
+		st.members = members;
+		
+		return st;
+	}
+}
+
+import d.ast.base;
+
+/**
+ * Resolve identifiers as symbols
+ */
+class IdentifierVisitor {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Namespace resolve(Identifier i) {
+		return this.dispatch(i);
+	}
+	
+	Namespace visit(Identifier i) {
+		return symbolResolver.resolve(i.location, currentScope.resolveWithFallback(i.location, i.name));
+	}
+	
+	Namespace visit(QualifiedIdentifier qi) {
+		return pass.visit(qi.namespace).resolve(qi.location, qi.name);
+	}
+}
+
+/**
+ * Resolve namespaces.
+ */
+class NamespaceVisitor {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Namespace visit(Namespace ns) {
+		return this.dispatch(ns);
+	}
+	
+	Namespace visit(Identifier i) {
+		return pass.visit(i);
+	}
+	
+	Namespace visit(ThisExpression e) {
+		e.type = thisType;
+		
+		return e;
+	}
+}
+
+/**
+ * Resolve Symbol
+ */
+final class SymbolResolver {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	private Location location;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Namespace resolve(Location newLocation, Symbol s) {
+		auto oldLocation = location;
+		scope(exit) location = oldLocation;
+		
+		location = newLocation;
+		
+		return this.dispatch(s);
+	}
+	
+	Namespace visit(FunctionDefinition fun) {
+		return new SymbolExpression(location, fun);
+	}
+	
+	Namespace visit(VariableDeclaration var) {
+		return new SymbolExpression(location, var);
+	}
+	
+	Namespace visit(FieldDeclaration f) {
+		return new MemberExpression(location, new ThisExpression(location), f);
+	}
+	
+	Namespace visit(StructDefinition s) {
+		return s.type;
+	}
+	
+	Namespace visit(Parameter p) {
+		return new SymbolExpression(location, p);
+	}
+	
+	Namespace visit(AliasDeclaration a) {
+		return a.type;
+	}
+}
+
 import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {

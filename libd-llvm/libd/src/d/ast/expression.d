@@ -3,7 +3,7 @@ module d.ast.expression;
 import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dscope;
+import d.ast.dfunction;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
@@ -22,8 +22,18 @@ class Expression : Node, Namespace {
 		this.type = type;
 	}
 	
-	override Symbol resolve(Scope s) {
-		assert(0, "resolve not implemented for" ~ typeid(this).toString());
+	override Namespace resolve(Location location, string name) {
+		auto resolved = type.resolve(location, name);
+		
+		if(auto f = cast(FieldDeclaration) resolved) {
+			return new MemberExpression(location, this, f);
+		}
+		
+		if(auto f = cast(FunctionDefinition) resolved) {
+			return new MethodExpression(location, this, f);
+		}
+		
+		assert(0, name ~ " is not a field. Resolved : " ~ typeid({ return cast(Object) resolved; }()).toString());
 	}
 }
 
@@ -297,12 +307,42 @@ class IdentifierExpression : Expression {
  * IdentifierExpression that as been resolved.
  */
 class SymbolExpression : Expression {
-	Symbol symbol;
+	ExpressionSymbol symbol;
 	
-	this(Location location, Symbol symbol) {
-		super(location);
+	this(Location location, ExpressionSymbol symbol) {
+		super(location, symbol.type);
 		
 		this.symbol = symbol;
+	}
+}
+
+/**
+ * Member access.
+ */
+class MemberExpression : Expression {
+	Expression expression;
+	FieldDeclaration field;
+	
+	this(Location location, Expression expression, FieldDeclaration field) {
+		super(location, field.type);
+		
+		this.expression = expression;
+		this.field = field;
+	}
+}
+
+/**
+ * Method access.
+ */
+class MethodExpression : Expression {
+	Expression thisExpression;
+	FunctionDefinition method;
+	
+	this(Location location, Expression thisExpression, FunctionDefinition method) {
+		super(location, method.returnType);
+		
+		this.thisExpression = thisExpression;
+		this.method = method;
 	}
 }
 

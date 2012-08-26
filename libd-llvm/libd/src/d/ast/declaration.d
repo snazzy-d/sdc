@@ -16,8 +16,10 @@ class Declaration : Node {
 
 /**
  * A declaration that introduce a new symbol.
+ * Nothing inherit directly from Symbol.
+ * It is either a TypeSymbol or an ExpressionSymbol.
  */
-class Symbol : Declaration {
+private class Symbol : Declaration, Namespace {
 	string name;
 	string mangling;
 	
@@ -26,6 +28,33 @@ class Symbol : Declaration {
 		
 		this.name = name;
 		this.mangling = name;
+	}
+	
+	override Namespace resolve(Location location, string name) {
+		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
+	}
+}
+
+/**
+ * A Symbol that is a type.
+ */
+class TypeSymbol : Symbol {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
+
+/**
+ * A Symbol that is an expression.
+ */
+class ExpressionSymbol : Symbol {
+	Type type;
+	bool isStatic;
+	
+	this(Location location, string name, Type type) {
+		super(location, name);
+		
+		this.type = type;
 	}
 }
 
@@ -39,6 +68,10 @@ class AliasDeclaration : Symbol {
 		super(location, name);
 		
 		this.type = type;
+	}
+	
+	override Namespace resolve(Location location, string name) {
+		return type.resolve(location, name);
 	}
 }
 
@@ -72,17 +105,31 @@ class VariablesDeclaration : Declaration {
 /**
  * Variable declaration
  */
-class VariableDeclaration : Symbol {
-	Type type;
+class VariableDeclaration : ExpressionSymbol {
 	Expression value;
 	
-	bool isStatic;
-	
 	this(Location location, Type type, string name, Expression value) {
-		super(location, name);
+		super(location, name, type);
 		
-		this.type = type;
 		this.value = value;
+	}
+	
+	override Namespace resolve(Location location, string name) {
+		return type.resolve(location, name);
+	}
+}
+
+/**
+ * Field declaration.
+ * Simply a variable declaration with a field index.
+ */
+class FieldDeclaration : VariableDeclaration {
+	uint index;
+	
+	this(VariableDeclaration var, uint index) {
+		super(var.location, var.type, var.name, var.value);
+		
+		this.index = index;
 	}
 }
 
@@ -99,8 +146,8 @@ class DefaultInitializer : Expression {
  * Used for type identifier = void;
  */
 class VoidInitializer : Expression {
-	this(Location location) {
-		super(location);
+	this(Location location, Type type) {
+		super(location, type);
 	}
 }
 

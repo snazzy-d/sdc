@@ -32,17 +32,8 @@ class TypeOrExpression : Node, Namespace {
 		outputCaretDiagnostics(type.location, "Ambiguity : this can be type or expression.");
 	}
 	
-	override Symbol resolve(Scope s) {
-		auto typeSym = type.resolve(s);
-		auto expressionSym = expression.resolve(s);
-		
-		if(typeSym) {
-			assert(!expressionSym, "ambiguous stuff is ambiguous !");
-			
-			return typeSym;
-		}
-		
-		return expressionSym;
+	override Namespace resolve(Location location, string name) {
+		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
 	}
 }
 

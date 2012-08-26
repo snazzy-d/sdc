@@ -70,11 +70,14 @@ final:
 	}
 }
 
+import d.ast.adt;
 import d.ast.dfunction;
+import d.ast.dscope;
 import d.ast.dtemplate;
 
 class DeclarationVisitor {
 	private FlattenPass pass;
+	alias pass this;
 	
 	bool isStatic = true;
 	
@@ -88,6 +91,8 @@ final:
 	}
 	
 	Declaration visit(FunctionDefinition fun) {
+		fun.isStatic = isStatic;
+		
 		auto oldIsStatic = isStatic;
 		scope(exit) isStatic = oldIsStatic;
 		
@@ -106,15 +111,33 @@ final:
 		return var;
 	}
 	
+	Declaration visit(StructDefinition s) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
+		s.members = pass.visit(s.members);
+		
+		return s;
+	}
+	
 	Declaration visit(TemplateDeclaration tpl) {
 		tpl.declarations = pass.visit(tpl.declarations);
 		
 		return tpl;
 	}
+	
+	Declaration visit(AliasDeclaration a) {
+		a.type = pass.visit(a.type);
+		
+		return a;
+	}
 }
 
 class DeclarationFlatener {
 	private FlattenPass pass;
+	alias pass this;
 	
 	private Declaration[] workingSet;
 	
@@ -152,6 +175,7 @@ final:
 
 class StatementVisitor {
 	private FlattenPass pass;
+	alias pass this;
 	
 	this(FlattenPass pass) {
 		this.pass = pass;
@@ -231,6 +255,7 @@ final:
 // TODO: remove this and use BlockStatement to replace it. Use ScopeBlockStatement for explicit blocks statements.
 class StatementFlatener {
 	private FlattenPass pass;
+	alias pass this;
 	
 	private Statement[] workingSet;
 	
@@ -273,6 +298,7 @@ final:
 
 class ExpressionVisitor {
 	private FlattenPass pass;
+	alias pass this;
 	
 	this(FlattenPass pass) {
 		this.pass = pass;
@@ -390,6 +416,7 @@ final:
 	
 	Expression visit(CastExpression e) {
 		e.expression = visit(e.expression);
+		e.type = pass.visit(e.type);
 		
 		return e;
 	}
@@ -420,12 +447,36 @@ class TypeVisitor {
 	
 final:
 	Type visit(Type t) {
-		return this.dispatch!(t => t)(t);
+		return this.dispatch(t);
+	}
+	
+	Type visit(BooleanType t) {
+		return t;
+	}
+	
+	Type visit(IntegerType t) {
+		return t;
+	}
+	
+	Type visit(FloatType t) {
+		return t;
+	}
+	
+	Type visit(CharacterType t) {
+		return t;
 	}
 	
 	Type visit(TypeofType t) {
 		t.expression = pass.visit(t.expression);
 		
+		return t;
+	}
+	
+	Type visit(AutoType t) {
+		return t;
+	}
+	
+	Type visit(IdentifierType t) {
 		return t;
 	}
 }
