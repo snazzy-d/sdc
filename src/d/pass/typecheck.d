@@ -782,6 +782,7 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			static if(isExplicit) {
 				return new BitCastExpression(location, type, e);
 			} else if(auto toType = cast(VoidType) t.type) {
+				// TODO: it should implicitely cast if types are the same.
 				return new BitCastExpression(location, type, e);
 			} else {
 				assert(0, "invalid pointer cast.");
