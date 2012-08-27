@@ -133,13 +133,19 @@ final:
 		LLVMGetParams(fun, params.ptr);
 		
 		foreach(i, p; f.parameters) {
-			auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
 			auto value = params[i];
 			
-			LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
-			
-			LLVMBuildStore(builder, value, alloca);
-			exprSymbols[p] = alloca;
+			// XXX: avoid to test every iterations.
+			if(f.isStatic || i > 0) {
+				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
+				
+				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
+				
+				LLVMBuildStore(builder, value, alloca);
+				exprSymbols[p] = alloca;
+			} else {
+				LLVMSetValueName(value, p.name.toStringz());
+			}
 		}
 		
 		// Generate function's body.
@@ -436,6 +442,10 @@ final:
 		return addressOfGen.visit(e.expression);
 	}
 	
+	LLVMValueRef visit(DereferenceExpression e) {
+		return LLVMBuildLoad(builder, visit(e.expression), "");
+	}
+	
 	private auto handleIncrement(alias LLVMIncrementOp, bool pre, IncrementExpression)(IncrementExpression e) {
 		auto preValue = visit(e.expression);
 		auto lvalue = e.expression;
@@ -619,6 +629,10 @@ final:
 		return LLVMBuildTrunc(builder, visit(e.expression), pass.visit(e.type), "");
 	}
 	
+	LLVMValueRef visit(BitCastExpression e) {
+		return LLVMBuildBitCast(builder, visit(e.expression), pass.visit(e.type), "");
+	}
+	
 	LLVMValueRef visit(CallExpression c) {
 		LLVMValueRef[] arguments;
 		arguments.length = c.arguments.length;
@@ -742,6 +756,10 @@ final:
 				case Character.Dchar :
 					return LLVMInt32Type();
 		}
+	}
+	
+	LLVMTypeRef visit(VoidType t) {
+		return LLVMVoidType();
 	}
 	
 	LLVMTypeRef visit(PointerType t) {

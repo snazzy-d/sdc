@@ -219,6 +219,7 @@ alias PrefixUnaryExpression!"~" ComplementExpression;
 alias PrefixUnaryExpression!"cast" CastExpression;
 alias PrefixUnaryExpression!"pad" PadExpression;
 alias PrefixUnaryExpression!"trunc" TruncateExpression;
+alias PrefixUnaryExpression!"bit" BitCastExpression;
 
 // FIXME: make this a statement.
 alias PrefixUnaryExpression!"delete" DeleteExpression;
