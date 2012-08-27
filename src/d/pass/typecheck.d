@@ -268,6 +268,15 @@ final:
 		return cl;
 	}
 	
+	Expression visit(CommaExpression ce) {
+		ce.lhs = visit(ce.lhs);
+		ce.rhs = visit(ce.rhs);
+		
+		ce.type = ce.rhs.type;
+		
+		return ce;
+	}
+	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);

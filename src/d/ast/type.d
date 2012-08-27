@@ -31,7 +31,8 @@ class Type : Node, Namespace {
 				return initExpression(location);
 			
 			case "sizeof" :
-				return makeLiteral(location, getSize());
+				// FIXME: stop to cast to int when implicit cast will be able to handle the case.
+				return makeLiteral(location, cast(int) getSize());
 			
 			default :
 				assert(0, name ~ " cannot be resolved in type " ~ typeid(this).toString());
