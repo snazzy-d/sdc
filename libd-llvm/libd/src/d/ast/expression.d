@@ -37,6 +37,10 @@ class Expression : Node, Namespace {
 			return new MethodExpression(location, this, f);
 		}
 		
+		if(auto e = cast(Expression) resolved) {
+			return new CommaExpression(location, this, e);
+		}
+		
 		assert(0, name ~ " is not a field. Resolved : " ~ typeid({ return cast(Object) resolved; }()).toString());
 	}
 }
