@@ -200,8 +200,15 @@ final:
 	}
 	
 	void visit(ForStatement f) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = new NestedScope(oldScope);
+		
 		visit(f.initialize);
 		visit(f.statement);
+		
+		f.dscope = currentScope;
 	}
 	
 	void visit(ReturnStatement r) {

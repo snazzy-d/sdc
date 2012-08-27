@@ -221,6 +221,11 @@ final:
 	}
 	
 	void visit(ForStatement f) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = f.dscope;
+		
 		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
 		f.increment = pass.visit(f.increment);
 		
