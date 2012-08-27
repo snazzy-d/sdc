@@ -619,8 +619,7 @@ final:
 			arguments[i] = visit(arg);
 		}
 		
-		auto symbol = (cast(SymbolExpression) c.callee).symbol;
-		return LLVMBuildCall(builder, pass.visit(symbol), arguments.ptr, cast(uint) arguments.length, "");
+		return LLVMBuildCall(builder, addressOfGen.visit(c.callee), arguments.ptr, cast(uint) arguments.length, "");
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
