@@ -414,6 +414,14 @@ final:
 		return handleUnaryExpression(e);
 	}
 	
+	Expression visit(AddressOfExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(DereferenceExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
 	Expression visit(CastExpression e) {
 		e.expression = visit(e.expression);
 		e.type = pass.visit(e.type);
@@ -466,6 +474,10 @@ final:
 		return t;
 	}
 	
+	Type visit(VoidType t) {
+		return t;
+	}
+	
 	Type visit(TypeofType t) {
 		t.expression = pass.visit(t.expression);
 		
@@ -477,6 +489,12 @@ final:
 	}
 	
 	Type visit(IdentifierType t) {
+		return t;
+	}
+	
+	Type visit(PointerType t) {
+		t.type = visit(t.type);
+		
 		return t;
 	}
 }

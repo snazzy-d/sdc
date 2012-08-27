@@ -70,12 +70,12 @@ final class ReturnTypeCheck {
 		return this.dispatch!(t => false)(t);
 	}
 	
-	bool visit(BuiltinType!void) {
-		return true;
-	}
-	
 	bool visit(IntegerType t) {
 		return t.type == IntegerOf!int;
+	}
+	
+	bool visit(VoidType t) {
+		return true;
 	}
 }
 

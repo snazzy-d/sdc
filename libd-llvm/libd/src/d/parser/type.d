@@ -155,7 +155,7 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		
 		case TokenType.Void :
 			trange.popFront();
-			return new BuiltinType!void(location);
+			return new VoidType(location);
 		
 		default :
 			trange.match(TokenType.Begin);
