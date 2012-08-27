@@ -297,6 +297,29 @@ class IdentifierType : BasicType {
 }
 
 /**
+ * Symbol type.
+ * IdentifierType that as been resolved.
+ */
+class SymbolType : BasicType {
+	TypeSymbol symbol;
+	
+	this(Location location, TypeSymbol symbol) {
+		super(location);
+		
+		this.symbol = symbol;
+	}
+	
+	// FIXME: get the right initializer.
+	override Expression initExpression(Location location) {
+		return new VoidInitializer(location, this);
+	}
+	
+	override Namespace resolve(Location location, string name) {
+		return symbol.resolve(location, name);
+	}
+}
+
+/**
  * Type defined by typeof(Expression)
  */
 class TypeofType : BasicType {

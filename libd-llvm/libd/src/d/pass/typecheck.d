@@ -37,7 +37,8 @@ class TypecheckPass {
 	
 	private Scope currentScope;
 	private Type returnType;
-	private Type thisType;
+	
+	private TypeSymbol thisSymbol;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -147,10 +148,10 @@ final:
 		
 		currentScope = s.dscope;
 		
-		auto oldThisType = thisType;
-		scope(exit) thisType = oldThisType;
+		auto oldThisSymbol = thisSymbol;
+		scope(exit) thisSymbol = oldThisSymbol;
 		
-		thisType = s.type;
+		thisSymbol = s;
 		
 		s.members = s.members.map!(m => visit(m)).array();
 		
@@ -399,11 +400,11 @@ final:
 		assert(0, ie.identifier.name ~ " isn't an expression. It is a " ~ typeid({ return cast(Object) resolved; }()).toString());
 	}
 	
-	Expression visit(MemberExpression me) {
-		me.expression = visit(me.expression);
-		me.type = pass.visit(me.field.type);
+	Expression visit(FieldExpression fe) {
+		fe.expression = visit(fe.expression);
+		fe.type = pass.visit(fe.field.type);
 		
-		return me;
+		return fe;
 	}
 	
 	Expression visit(MethodExpression me) {
@@ -454,6 +455,10 @@ final:
 		assert(0, it.identifier.name ~ " isn't an type.");
 	}
 	
+	Type visit(SymbolType st) {
+		return st;
+	}
+	
 	Type visit(BooleanType t) {
 		return t;
 	}
@@ -474,21 +479,6 @@ final:
 		t.expression = pass.visit(t.expression);
 		
 		return t.expression.type;
-	}
-	
-	Type visit(StructDefinition.StructType st) {
-		Type[] members;
-		
-		foreach(member; st.outer.members) {
-			if(auto var = cast(VariableDeclaration) member) {
-				// TODO: check for staticness.
-				members ~= visit(var.type);
-			}
-		}
-		
-		st.members = members;
-		
-		return st;
 	}
 }
 
@@ -540,7 +530,7 @@ final:
 	}
 	
 	Namespace visit(ThisExpression e) {
-		e.type = thisType;
+		e.type = new SymbolType(e.location, thisSymbol);
 		
 		return e;
 	}
@@ -578,11 +568,11 @@ final:
 	}
 	
 	Namespace visit(FieldDeclaration f) {
-		return new MemberExpression(location, new ThisExpression(location), f);
+		return new FieldExpression(location, new ThisExpression(location), f);
 	}
 	
-	Namespace visit(StructDefinition s) {
-		return s.type;
+	Namespace visit(StructDefinition sd) {
+		return new SymbolType(location, sd);
 	}
 	
 	Namespace visit(Parameter p) {

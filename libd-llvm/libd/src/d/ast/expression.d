@@ -22,11 +22,15 @@ class Expression : Node, Namespace {
 		this.type = type;
 	}
 	
-	override Namespace resolve(Location location, string name) {
-		auto resolved = type.resolve(location, name);
+	protected Namespace resolveInExpression(Location location, string name) {
+		return type.resolve(location, name);
+	}
+	
+	override final Namespace resolve(Location location, string name) {
+		auto resolved = resolveInExpression(location, name);
 		
 		if(auto f = cast(FieldDeclaration) resolved) {
-			return new MemberExpression(location, this, f);
+			return new FieldExpression(location, this, f);
 		}
 		
 		if(auto f = cast(FunctionDefinition) resolved) {
@@ -314,12 +318,16 @@ class SymbolExpression : Expression {
 		
 		this.symbol = symbol;
 	}
+	
+	override Namespace resolveInExpression(Location location, string name) {
+		return symbol.resolve(location, name);
+	}
 }
 
 /**
- * Member access.
+ * Field access.
  */
-class MemberExpression : Expression {
+class FieldExpression : Expression {
 	Expression expression;
 	FieldDeclaration field;
 	

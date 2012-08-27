@@ -44,7 +44,7 @@ class InterfaceDefinition : Declaration {
 /**
  * Struct Declaration
  */
-class StructDeclaration : Symbol {
+class StructDeclaration : TypeSymbol {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -56,33 +56,12 @@ class StructDeclaration : Symbol {
 class StructDefinition : StructDeclaration {
 	Declaration[] members;
 	
-	class StructType : BasicType {
-		Type[] members;
-	
-		this(Location location) {
-			super(location);
-		}
-	
-		override Expression initExpression(Location location) {
-			// FIXME: return the proper init.
-			return new VoidInitializer(location, this);
-		}
-		
-		override Namespace resolve(Location location, string name) {
-			return dscope.resolve(location, name);
-		}
-	}
-	
-	StructType type;
-	
 	Scope dscope;
 	
 	this(Location location, string name, Declaration[] members) {
 		super(location, name);
 		
 		this.members = members;
-		
-		type = new StructType(location);
 	}
 	
 	override Namespace resolve(Location location, string name) {
