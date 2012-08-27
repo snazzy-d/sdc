@@ -29,7 +29,7 @@ Indirect goals are :
 * Optimise ?
 * Provide data as a usable form for SDC.
 =======
-Last tested with: DMD releases `2.059`.
+Last tested with: DMD releases `2.060`.
 
 This branch may seem dead, but check out multi-pass for where work on a sane backend (tm) is going on.
 
