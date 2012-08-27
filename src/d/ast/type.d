@@ -7,6 +7,8 @@ import d.ast.dscope;
 import d.ast.expression;
 import d.ast.identifier;
 
+import std.traits;
+
 class Type : Node, Namespace {
 	this(Location location) {
 		super(location);
@@ -92,17 +94,6 @@ class AutoType : SimpleStorageClassType {
  * All basics types and qualified basic types.
  */
 class BasicType : SimpleStorageClassType {
-	this(Location location) {
-		super(location);
-	}
-}
-
-import std.traits;
-template isBuiltin(T) {
-	enum bool isBuiltin = is(Unqual!T == void);
-}
-
-class BuiltinType(T) if(isBuiltin!T && is(Unqual!T == T)) : BasicType {
 	this(Location location) {
 		super(location);
 	}
@@ -285,6 +276,15 @@ class CharacterType : BasicType {
 }
 
 /**
+ * Void
+ */
+class VoidType : BasicType {
+	this(Location location) {
+		super(location);
+	}
+}
+
+/**
  * Type defined by an identifier
  */
 class IdentifierType : BasicType {
@@ -352,26 +352,13 @@ class ReturnType : BasicType {
 	}
 }
 
-/**
- * Type suffixes
- */
-enum TypeSuffixType {
-	Pointer,
-	StaticArray,
-	Slice,
-	AssociativeArray,
-	AmbiguousArray,
-}
-
 class SuffixType : SimpleStorageClassType {
-	TypeSuffixType type;
-	Type qualified;
+	Type type;
 	
-	this(Location location, TypeSuffixType type, Type qualified) {
+	this(Location location, Type type) {
 		super(location);
 		
 		this.type = type;
-		this.qualified = qualified;
 	}
 }
 
@@ -379,8 +366,8 @@ class SuffixType : SimpleStorageClassType {
  * Pointer types
  */
 class PointerType : SuffixType {
-	this(Location location, Type qualified) {
-		super(location, TypeSuffixType.Pointer, qualified);
+	this(Location location, Type type) {
+		super(location, type);
 	}
 }
 
@@ -388,8 +375,8 @@ class PointerType : SuffixType {
  * Slice types
  */
 class SliceType : SuffixType {
-	this(Location location, Type qualified) {
-		super(location, TypeSuffixType.Slice, qualified);
+	this(Location location, Type type) {
+		super(location, type);
 	}
 }
 
@@ -399,8 +386,8 @@ class SliceType : SuffixType {
 class StaticArrayType : SuffixType {
 	Expression size;
 	
-	this(Location location, Type qualified, Expression size) {
-		super(location, TypeSuffixType.StaticArray, qualified);
+	this(Location location, Type type, Expression size) {
+		super(location, type);
 		
 		this.size = size;
 	}
@@ -412,8 +399,8 @@ class StaticArrayType : SuffixType {
 class AssociativeArrayType : SuffixType {
 	Type keyType;
 	
-	this(Location location, Type qualified, Type keyType) {
-		super(location, TypeSuffixType.AssociativeArray, qualified);
+	this(Location location, Type type, Type keyType) {
+		super(location, type);
 		
 		this.keyType = keyType;
 	}
@@ -425,8 +412,8 @@ class AssociativeArrayType : SuffixType {
 class AmbiguousArrayType : SuffixType {
 	TypeOrExpression key;
 	
-	this(Location location, Type qualified, TypeOrExpression key) {
-		super(location, TypeSuffixType.AmbiguousArray, qualified);
+	this(Location location, Type type, TypeOrExpression key) {
+		super(location, type);
 		
 		this.key = key;
 	}

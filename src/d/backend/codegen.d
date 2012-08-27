@@ -416,6 +416,10 @@ final:
 		return visit(ce.rhs);
 	}
 	
+	LLVMValueRef visit(ThisExpression e) {
+		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+	}
+	
 	private void updateVariableValue(Expression e, LLVMValueRef value) {
 		LLVMBuildStore(builder, value, addressOfGen.visit(e));
 	}
@@ -426,6 +430,10 @@ final:
 		updateVariableValue(e.lhs, value);
 		
 		return value;
+	}
+	
+	LLVMValueRef visit(AddressOfExpression e) {
+		return addressOfGen.visit(e.expression);
 	}
 	
 	private auto handleIncrement(alias LLVMIncrementOp, bool pre, IncrementExpression)(IncrementExpression e) {
@@ -649,6 +657,10 @@ final:
 		
 		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
 	}
+	
+	LLVMValueRef visit(ThisExpression e) {
+		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
+	}
 }
 
 import d.ast.type;
@@ -730,6 +742,10 @@ final:
 				case Character.Dchar :
 					return LLVMInt32Type();
 		}
+	}
+	
+	LLVMTypeRef visit(PointerType t) {
+		return LLVMPointerType(visit(t.type), 0);
 	}
 }
 

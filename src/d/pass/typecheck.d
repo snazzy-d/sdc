@@ -112,6 +112,11 @@ final:
 		
 		currentScope = fun.dscope;
 		
+		// If it isn't a static method, add this.
+		if(!fun.isStatic) {
+			fun.parameters = new Parameter(fun.location, "this", new PointerType(fun.location, thisType)) ~ fun.parameters;
+		}
+		
 		// And visit.
 		pass.visit(fun.fbody);
 		
@@ -386,6 +391,26 @@ final:
 		return handleUnaryExpression(e);
 	}
 	
+	Expression visit(AddressOfExpression e) {
+		e = handleUnaryExpression(e);
+		
+		e.type = new PointerType(e.location, e.type);
+		
+		return e;
+	}
+	
+	Expression visit(DereferenceExpression e) {
+		e = handleUnaryExpression(e);
+		
+		if(auto pt = cast(PointerType) e.type) {
+			e.type = pt.type;
+			
+			return e;
+		}
+		
+		assert(0, typeid({ return e.type; }()).toString() ~ " is not a pointer type.");
+	}
+	
 	Expression visit(CastExpression e) {
 		return buildExplicitCast(e.location, e.type, visit(e.expression));
 	}
@@ -397,7 +422,7 @@ final:
 		
 		if(auto me = cast(MethodExpression) c.callee) {
 			c.callee = new SymbolExpression(me.location, me.method);
-			c.arguments = visit(me.thisExpression) ~ c.arguments;
+			c.arguments = new AddressOfExpression(me.location, visit(me.thisExpression)) ~ c.arguments;
 		}
 		
 		c.type = c.callee.type;
@@ -490,10 +515,20 @@ final:
 		return t;
 	}
 	
+	Type visit(VoidType t) {
+		return t;
+	}
+	
 	Type visit(TypeofType t) {
 		t.expression = pass.visit(t.expression);
 		
 		return t.expression.type;
+	}
+	
+	Type visit(PointerType t) {
+		t.type = visit(t.type);
+		
+		return t;
 	}
 }
 
