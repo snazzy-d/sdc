@@ -410,6 +410,12 @@ final:
 		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
 	}
 	
+	LLVMValueRef visit(CommaExpression ce) {
+		visit(ce.lhs);
+		
+		return visit(ce.rhs);
+	}
+	
 	private void updateVariableValue(Expression e, LLVMValueRef value) {
 		LLVMBuildStore(builder, value, addressOfGen.visit(e));
 	}
