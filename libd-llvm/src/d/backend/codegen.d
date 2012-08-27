@@ -101,8 +101,6 @@ final:
 			visit(es);
 		} else if(auto ts = cast(TypeSymbol) d) {
 			visit(ts);
-		} else {
-			assert(0, "Unexpected " ~ typeid(d).toString());
 		}
 	}
 	
