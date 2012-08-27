@@ -43,7 +43,7 @@ auto dispatch(
 	}
 }
 
-auto accept(T, V)(ref T t, ref V visitor) {
+auto accept(T, V)(T t, ref V visitor) if(is(T == class) || is(T == interface)) {
 	static if(is(typeof(visitor.visit(t)))) {
 		return visitor.visit(t);
 	} else {
