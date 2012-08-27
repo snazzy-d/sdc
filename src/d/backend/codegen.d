@@ -12,18 +12,75 @@ import std.array;
 import std.string;
 
 auto codeGen(Module m) {
-	auto builder = LLVMCreateBuilder();
-	auto dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
+	auto cg = new CodeGenPass();
 	
-	// Dump module content on failure (for debug purpose).
-	scope(failure) LLVMDumpModule(dmodule);
+	cg.visit(m);
 	
-	auto sg = new DeclarationGen(builder, dmodule);
-	foreach(decl; m.declarations) {
-		sg.visit(decl);
+	return cg.dmodule;
+}
+
+class CodeGenPass {
+	private DeclarationGen declarationGen;
+	private StatementGen statementGen;
+	private ExpressionGen expressionGen;
+	private AddressOfGen addressOfGen;
+	private TypeGen typeGen;
+	
+	private LLVMBuilderRef builder;
+	private LLVMModuleRef dmodule;
+	
+	private LLVMValueRef[ExpressionSymbol] exprSymbols;
+	private LLVMTypeRef[TypeSymbol] typeSymbols;
+	
+	bool isSigned;
+	
+	this() {
+		declarationGen	= new DeclarationGen(this);
+		statementGen	= new StatementGen(this);
+		expressionGen	= new ExpressionGen(this);
+		addressOfGen	= new AddressOfGen(this);
+		typeGen			= new TypeGen(this);
+		
+		builder = LLVMCreateBuilder();
 	}
 	
-	return dmodule;
+final:
+	Module visit(Module m) {
+		dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
+		
+		// Dump module content on failure (for debug purpose).
+		scope(failure) LLVMDumpModule(dmodule);
+		
+		foreach(decl; m.declarations) {
+			visit(decl);
+		}
+		
+		return m;
+	}
+	
+	auto visit(Declaration decl) {
+		return declarationGen.visit(decl);
+	}
+	
+	auto visit(ExpressionSymbol s) {
+		return declarationGen.visit(s);
+	}
+	
+	auto visit(TypeSymbol s) {
+		return declarationGen.visit(s);
+	}
+	
+	auto visit(Statement stmt) {
+		return statementGen.visit(stmt);
+	}
+	
+	auto visit(Expression e) {
+		return expressionGen.visit(e);
+	}
+	
+	auto visit(Type t) {
+		return typeGen.visit(t);
+	}
 }
 
 import d.ast.adt;
@@ -31,34 +88,26 @@ import d.ast.declaration;
 import d.ast.dfunction;
 
 class DeclarationGen {
-	private LLVMBuilderRef builder;
-	private LLVMModuleRef dmodule;
+	private CodeGenPass pass;
+	alias pass this;
 	
-	private TypeGen typeGen;
-	private ExpressionGen expressionGen;
-	private StatementGen statementGen;
-	
-	private LLVMValueRef[Symbol] symbols;
-	
-	this(LLVMBuilderRef builder, LLVMModuleRef dmodule) {
-		this.builder = builder;
-		this.dmodule = dmodule;
-		
-		typeGen = new TypeGen();
-		expressionGen = new ExpressionGen(builder, this, typeGen);
-		statementGen = new StatementGen(builder, this, expressionGen);
+	this(CodeGenPass pass) {
+		this.pass = pass;
 	}
 	
 final:
-	LLVMValueRef visit(Declaration d) {
-		auto s = cast(Symbol) d;
-		assert(s);
-		
-		return visit(s);
+	void visit(Declaration d) {
+		if(auto es = cast(ExpressionSymbol) d) {
+			visit(es);
+		} else if(auto ts = cast(TypeSymbol) d) {
+			visit(ts);
+		} else {
+			assert(0, "Unexpected " ~ typeid(d).toString());
+		}
 	}
 	
-	LLVMValueRef visit(Symbol s) {
-		return symbols.get(s, this.dispatch(s));
+	LLVMValueRef visit(ExpressionSymbol s) {
+		return exprSymbols.get(s, this.dispatch(s));
 	}
 	
 	LLVMValueRef visit(FunctionDefinition f) {
@@ -66,13 +115,13 @@ final:
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto parameterTypes = f.parameters.map!(p => typeGen.visit(p.type)).array();
+		auto parameterTypes = f.parameters.map!(p => pass.visit(p.type)).array();
 		
-		auto funType = LLVMFunctionType(typeGen.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
+		auto funType = LLVMFunctionType(pass.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
 		auto fun = LLVMAddFunction(dmodule, f.mangling.toStringz(), funType);
 		
 		// Register the function.
-		symbols[f] = fun;
+		exprSymbols[f] = fun;
 		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlock(fun, "");
@@ -92,12 +141,12 @@ final:
 			LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 			
 			LLVMBuildStore(builder, value, alloca);
-			symbols[p] = alloca;
+			exprSymbols[p] = alloca;
 		}
 		
 		// Generate function's body.
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		statementGen.visit(f.fbody);
+		pass.visit(f.fbody);
 		
 		// If the current block isn' concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
@@ -115,15 +164,15 @@ final:
 	
 	LLVMValueRef visit(VariableDeclaration var) {
 		if(var.isStatic) {
-			auto globalVar = LLVMAddGlobal(dmodule, typeGen.visit(var.type), var.mangling.toStringz());
+			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangling.toStringz());
 			// FIXME: interpreter don't support TLS for now.
 			// LLVMSetThreadLocal(globalVar, true);
 			
 			// Register the variable.
-			symbols[var] = globalVar;
+			exprSymbols[var] = globalVar;
 			
 			// Store the initial value into the alloca.
-			auto value = expressionGen.visit(var.value);
+			auto value = pass.visit(var.value);
 			LLVMSetInitializer(globalVar, value);
 			
 			return globalVar;
@@ -133,52 +182,64 @@ final:
 			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 			
 			// Create an alloca for this variable.
-			auto alloca = LLVMBuildAlloca(builder, typeGen.visit(var.type), var.mangling.toStringz());
+			auto alloca = LLVMBuildAlloca(builder, pass.visit(var.type), var.mangling.toStringz());
 			
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			
 			// Register the variable.
-			symbols[var] = alloca;
+			exprSymbols[var] = alloca;
 			
 			// Store the initial value into the alloca.
-			auto value = expressionGen.visit(var.value);
+			auto value = pass.visit(var.value);
 			LLVMBuildStore(builder, value, alloca);
 			
 			return alloca;
 		}
 	}
 	
-	LLVMValueRef visit(StructDefinition sd) {
-		// Nothing to do with struct.
-		return null;
+	LLVMTypeRef visit(TypeSymbol s) {
+		return typeSymbols.get(s, this.dispatch(s));
+	}
+	
+	LLVMTypeRef visit(StructDefinition sd) {
+		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) sd.name.toStringz());
+		typeSymbols[sd] = llvmStruct;
+		
+		LLVMTypeRef[] members;
+		
+		foreach(member; sd.members) {
+			if(auto f = cast(FieldDeclaration) member) {
+				members ~= pass.visit(f.type);
+			}
+		}
+		
+		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
+		
+		return llvmStruct;
 	}
 }
 
 import d.ast.statement;
 
 class StatementGen {
-	private LLVMBuilderRef builder;
+	private CodeGenPass pass;
+	alias pass this;
 	
-	private DeclarationGen declarationGen;
-	private ExpressionGen expressionGen;
-	
-	this(LLVMBuilderRef builder, DeclarationGen declarationGen, ExpressionGen expressionGen) {
-		this.builder = builder;
-		this.declarationGen = declarationGen;
-		this.expressionGen = expressionGen;
+	this(CodeGenPass pass) {
+		this.pass = pass;
 	}
-	
+		
 final:
 	void visit(Statement s) {
 		this.dispatch(s);
 	}
 	
 	void visit(DeclarationStatement d) {
-		declarationGen.visit(d.declaration);
+		pass.visit(d.declaration);
 	}
 	
 	void visit(ExpressionStatement e) {
-		expressionGen.visit(e.expression);
+		pass.visit(e.expression);
 	}
 	
 	void visit(BlockStatement b) {
@@ -188,7 +249,7 @@ final:
 	}
 	
 	void visit(IfElseStatement ifs) {
-		auto condition = expressionGen.visit(ifs.condition);
+		auto condition = pass.visit(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -263,13 +324,13 @@ final:
 		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
-		auto condition = expressionGen.visit(l.condition);
+		auto condition = pass.visit(l.condition);
 		LLVMBuildCondBr(builder, condition, doBB, doneBB);
 		
 		// Build continue block or alias it to the test.
 		static if(isFor) {
 			LLVMPositionBuilderAtEnd(builder, continueBB);
-			expressionGen.visit(l.increment);
+			pass.visit(l.increment);
 			
 			LLVMBuildBr(builder, testBB);
 		}
@@ -304,24 +365,20 @@ final:
 	}
 	
 	void visit(ReturnStatement r) {
-		LLVMBuildRet(builder, expressionGen.visit(r.value));
+		LLVMBuildRet(builder, pass.visit(r.value));
 	}
 }
 
 import d.ast.expression;
 
 class ExpressionGen {
-	private LLVMBuilderRef builder;
+	private CodeGenPass pass;
+	alias pass this;
 	
-	private DeclarationGen declarationGen;
-	private TypeGen typeGen;
-	
-	this(LLVMBuilderRef builder, DeclarationGen declarationGen, TypeGen typeGen) {
-		this.builder = builder;
-		this.declarationGen = declarationGen;
-		this.typeGen = typeGen;
+	this(CodeGenPass pass) {
+		this.pass = pass;
 	}
-	
+		
 final:
 	LLVMValueRef visit(Expression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
@@ -335,46 +392,45 @@ final:
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
-		return LLVMConstInt(typeGen.visit(bl.type), bl.value, false);
+		return LLVMConstInt(pass.visit(bl.type), bl.value, false);
 	}
 	
 	LLVMValueRef visit(IntegerLiteral!true il) {
-		return LLVMConstInt(typeGen.visit(il.type), il.value, true);
+		return LLVMConstInt(pass.visit(il.type), il.value, true);
 	}
 	
 	LLVMValueRef visit(IntegerLiteral!false il) {
-		return LLVMConstInt(typeGen.visit(il.type), il.value, false);
+		return LLVMConstInt(pass.visit(il.type), il.value, false);
 	}
 	
 	LLVMValueRef visit(FloatLiteral fl) {
-		return LLVMConstReal(typeGen.visit(fl.type), fl.value);
+		return LLVMConstReal(pass.visit(fl.type), fl.value);
 	}
 	
 	// XXX: character types in backend ?
 	LLVMValueRef visit(CharacterLiteral cl) {
-		return LLVMConstInt(typeGen.visit(cl.type), cl.value[0], false);
+		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
 	}
 	
-	private void updateVariableValue(Symbol s, LLVMValueRef value) {
-		LLVMBuildStore(builder, value, declarationGen.visit(s));
+	private void updateVariableValue(Expression e, LLVMValueRef value) {
+		LLVMBuildStore(builder, value, addressOfGen.visit(e));
 	}
 	
 	LLVMValueRef visit(AssignExpression e) {
 		auto value = visit(e.rhs);
-		auto lhs = cast(SymbolExpression) e.lhs;
 		
-		updateVariableValue(lhs.symbol, value);
+		updateVariableValue(e.lhs, value);
 		
 		return value;
 	}
 	
 	private auto handleIncrement(alias LLVMIncrementOp, bool pre, IncrementExpression)(IncrementExpression e) {
 		auto preValue = visit(e.expression);
-		auto lvalue = cast(SymbolExpression) e.expression;
+		auto lvalue = e.expression;
 		
-		auto postValue = LLVMIncrementOp(builder, preValue, LLVMConstInt(typeGen.visit(lvalue.type), 1, false), "");
+		auto postValue = LLVMIncrementOp(builder, preValue, LLVMConstInt(pass.visit(lvalue.type), 1, false), "");
 		
-		updateVariableValue(lvalue.symbol, postValue);
+		updateVariableValue(lvalue, postValue);
 		
 		// PreIncrement return the value after it is incremented.
 		static if(pre) {
@@ -405,8 +461,9 @@ final:
 	}
 	
 	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp, BinaryExpression)(BinaryExpression e) {
-		typeGen.visit(e.type);
-		if(typeGen.isSigned) {
+		pass.visit(e.type);
+		
+		if(isSigned) {
 			return handleBinaryOp!LLVMSignedBuildOp(e);
 		} else {
 			return handleBinaryOp!LLVMUnsignedBuildOp(e);
@@ -463,7 +520,7 @@ final:
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 		
 		//Generate phi to get the result.
-		auto phiNode = LLVMBuildPhi(builder, typeGen.visit(e.type), "");
+		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
 		
 		LLVMValueRef[2] incomingValues;
 		incomingValues[0] = lhs;
@@ -485,7 +542,11 @@ final:
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		return LLVMBuildLoad(builder, declarationGen.visit(e.symbol), "");
+		return LLVMBuildLoad(builder, pass.visit(e.symbol), "");
+	}
+	
+	LLVMValueRef visit(FieldExpression e) {
+		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -498,9 +559,9 @@ final:
 		// TODO: implement type comparaison.
 		// assert(e.lhs.type == e.rhs.type);
 		
-		typeGen.visit(e.lhs.type);
+		pass.visit(e.lhs.type);
 		
-		if(typeGen.isSigned) {
+		if(isSigned) {
 			return handleComparaison!signedPredicate(e);
 		} else {
 			return handleComparaison!unsignedPredicate(e);
@@ -532,10 +593,10 @@ final:
 	}
 	
 	LLVMValueRef visit(PadExpression e) {
-		auto type = typeGen.visit(e.type);
+		auto type = pass.visit(e.type);
 		
-		typeGen.visit(e.expression.type);
-		if(typeGen.isSigned) {
+		pass.visit(e.expression.type);
+		if(isSigned) {
 			return LLVMBuildSExt(builder, visit(e.expression), type, "");
 		} else {
 			return LLVMBuildZExt(builder, visit(e.expression), type, "");
@@ -543,7 +604,7 @@ final:
 	}
 	
 	LLVMValueRef visit(TruncateExpression e) {
-		return LLVMBuildTrunc(builder, visit(e.expression), typeGen.visit(e.type), "");
+		return LLVMBuildTrunc(builder, visit(e.expression), pass.visit(e.type), "");
 	}
 	
 	LLVMValueRef visit(CallExpression c) {
@@ -555,31 +616,62 @@ final:
 		}
 		
 		auto symbol = (cast(SymbolExpression) c.callee).symbol;
-		return LLVMBuildCall(builder, declarationGen.visit(symbol), arguments.ptr, cast(uint) arguments.length, "");
+		return LLVMBuildCall(builder, pass.visit(symbol), arguments.ptr, cast(uint) arguments.length, "");
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
-		return LLVMGetUndef(typeGen.visit(v.type));
+		return LLVMGetUndef(pass.visit(v.type));
+	}
+}
+
+class AddressOfGen {
+	private CodeGenPass pass;
+	alias pass this;
+	
+	this(CodeGenPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	LLVMValueRef visit(Expression e) {
+		return this.dispatch(e);
+	}
+	
+	LLVMValueRef visit(SymbolExpression e) {
+		return pass.visit(e.symbol);
+	}
+	
+	LLVMValueRef visit(FieldExpression e) {
+		auto ptr = visit(e.expression);
+		
+		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
 	}
 }
 
 import d.ast.type;
 
 class TypeGen {
-	bool isSigned;
+	private CodeGenPass pass;
+	alias pass this;
 	
-	private LLVMTypeRef[Type] types;
+	this(CodeGenPass pass) {
+		this.pass = pass;
+	}
 	
 final:
 	LLVMTypeRef visit(Type t) {
-		return types.get(t, this.dispatch!(function LLVMTypeRef(Type t) {
+		return this.dispatch!(function LLVMTypeRef(Type t) {
 			auto msg = typeid(t).toString() ~ " is not supported.";
 			
 			import sdc.terminal;
 			outputCaretDiagnostics(t.location, msg);
 			
 			assert(0, msg);
-		})(t));
+		})(t);
+	}
+	
+	LLVMTypeRef visit(SymbolType t) {
+		return pass.visit(t.symbol);
 	}
 	
 	LLVMTypeRef visit(BooleanType t) {
@@ -635,21 +727,6 @@ final:
 				case Character.Dchar :
 					return LLVMInt32Type();
 		}
-	}
-	
-	LLVMTypeRef visit(StructDefinition.StructType t) {
-		LLVMTypeRef[] members;
-		
-		foreach(member; t.members) {
-			members ~= visit(member);
-		}
-		
-		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) t.outer.name.toStringz());
-		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
-		
-		types[t] = llvmStruct;
-		
-		return llvmStruct;
 	}
 }
 
