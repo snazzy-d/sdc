@@ -18,7 +18,7 @@ class Type : Node, Namespace {
 	abstract Type makeInout();
 	
 	Expression initExpression(Location location) {
-		return new DefaultInitializer(location);
+		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
 	}
 	
 	uint getSize() {

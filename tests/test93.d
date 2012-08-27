@@ -4,6 +4,7 @@
 int main() {
 	alias int foo;
 	
-	return foo.sizeof;
+	// TODO: remove cast when implicit cast will be able to do without.
+	return cast(int) foo.sizeof;
 }
 
