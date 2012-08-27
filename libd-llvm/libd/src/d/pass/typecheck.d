@@ -37,8 +37,7 @@ class TypecheckPass {
 	
 	private Scope currentScope;
 	private Type returnType;
-	
-	private TypeSymbol thisSymbol;
+	private Type thisType;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -148,10 +147,10 @@ final:
 		
 		currentScope = s.dscope;
 		
-		auto oldThisSymbol = thisSymbol;
-		scope(exit) thisSymbol = oldThisSymbol;
+		auto oldThisType = thisType;
+		scope(exit) thisType = oldThisType;
 		
-		thisSymbol = s;
+		thisType = new SymbolType(s.location, s);
 		
 		s.members = s.members.map!(m => visit(m)).array();
 		
@@ -396,10 +395,12 @@ final:
 		
 		c.callee = visit(c.callee);
 		
-		// FIXME: get the right return type.
-		if(typeid({ return c.type; }()) is typeid(AutoType)) {
-			c.type = new IntegerType(c.type.location, IntegerOf!int);
+		if(auto me = cast(MethodExpression) c.callee) {
+			c.callee = new SymbolExpression(me.location, me.method);
+			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
+		
+		c.type = c.callee.type;
 		
 		return c;
 	}
@@ -544,7 +545,7 @@ final:
 	}
 	
 	Namespace visit(ThisExpression e) {
-		e.type = new SymbolType(e.location, thisSymbol);
+		e.type = thisType;
 		
 		return e;
 	}
