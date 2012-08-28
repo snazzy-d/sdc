@@ -19,12 +19,16 @@ class Type : Node, Namespace {
 	abstract Type makeConst();
 	abstract Type makeInout();
 	
-	Expression initExpression(Location location) {
-		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
+	bool opEqual(const Type t) const {
+		return false;
 	}
 	
 	uint getSize() {
 		return 0;
+	}
+	
+	Expression initExpression(Location location) {
+		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
 	}
 	
 	override Namespace resolve(Location location, string name) {
@@ -107,6 +111,14 @@ class BooleanType : BasicType {
 		super(location);
 	}
 	
+	override bool opEqual(const Type t) const {
+		return typeid(t) is typeid(typeof(this));
+	}
+	
+	bool opEqual(BooleanType t) const {
+		return true;
+	}
+	
 	override Expression initExpression(Location location) {
 		return makeLiteral(location, false);
 	}
@@ -171,6 +183,18 @@ class IntegerType : BasicType {
 		}
 	}
 	
+	override bool opEqual(const Type t) const {
+		if(auto i = cast(IntegerType) t) {
+			return this.opEqual(i);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const IntegerType t) const {
+		return type == t.type;
+	}
+	
 	override uint getSize() {
 		final switch(type) {
 			case Integer.Byte, Integer.Ubyte :
@@ -218,6 +242,18 @@ class FloatType : BasicType {
 		super(location);
 		
 		this.type = type;
+	}
+	
+	override bool opEqual(const Type t) const {
+		if(auto f = cast(IntegerType) t) {
+			return this.opEqual(f);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const FloatType t) const {
+		return type == t.type;
 	}
 	
 	override Expression initExpression(Location location) {
@@ -270,6 +306,18 @@ class CharacterType : BasicType {
 		this.type = type;
 	}
 	
+	override bool opEqual(const Type t) const {
+		if(auto c = cast(CharacterType) t) {
+			return this.opEqual(c);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const CharacterType t) const {
+		return type == t.type;
+	}
+	
 	override Expression initExpression(Location location) {
 		return new CharacterLiteral(location, [char.init], this);
 	}
@@ -308,6 +356,18 @@ class SymbolType : BasicType {
 		super(location);
 		
 		this.symbol = symbol;
+	}
+	
+	override bool opEqual(const Type t) const {
+		if(auto s = cast(SymbolType) t) {
+			return this.opEqual(s);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const SymbolType t) const {
+		return symbol is t.symbol;
 	}
 	
 	// FIXME: get the right initializer.
@@ -368,6 +428,18 @@ class SuffixType : SimpleStorageClassType {
 class PointerType : SuffixType {
 	this(Location location, Type type) {
 		super(location, type);
+	}
+	
+	override bool opEqual(const Type t) const {
+		if(auto p = cast(PointerType) t) {
+			return this.opEqual(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const PointerType t) const {
+		return type == t.type;
 	}
 }
 

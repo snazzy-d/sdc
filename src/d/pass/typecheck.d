@@ -711,23 +711,12 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(Type t) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(t);
+			return this.dispatch(t);
 		}
 		
 		Expression visit(FloatType t) {
-			if(fromType == t.type) {
-				return e;
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
-			}
+			import std.conv;
+			assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 		}
 	}
 	
@@ -739,23 +728,12 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(Type t) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(t);
+			return this.dispatch(t);
 		}
 		
 		Expression visit(CharacterType t) {
-			if(fromType == t.type) {
-				return e;
-			} else {
-				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
-			}
+			import std.conv;
+			assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 		}
 	}
 	
@@ -782,7 +760,6 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			static if(isExplicit) {
 				return new BitCastExpression(location, type, e);
 			} else if(auto toType = cast(VoidType) t.type) {
-				// TODO: it should implicitely cast if types are the same.
 				return new BitCastExpression(location, type, e);
 			} else {
 				assert(0, "invalid pointer cast.");
@@ -829,6 +806,8 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 	}
 	
+	if(e.type == type) return e;
+	
 	return (new Cast()).visit(e);
 }
 
@@ -871,6 +850,11 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(IntegerType t) {
 			return (new T2Handler(t.type)).visit(t2);
+		}
+		
+		Type visit(PointerType t) {
+			// FIXME: peform the right pointer promotion.
+			return t;
 		}
 	}
 	
