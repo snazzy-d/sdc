@@ -630,10 +630,10 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			return new AssertExpression(location, arguments);
 		
 		case TokenType.OpenParen :
-			trange.popFront();
-			
 			auto matchingParen = trange.save;
 			matchingParen.popMatchingDelimiter!(TokenType.OpenParen)();
+			
+			trange.popFront();
 			
 			if(matchingParen.front.type == TokenType.Dot) {
 				import d.ast.identifier;

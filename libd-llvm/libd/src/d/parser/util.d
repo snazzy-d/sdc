@@ -21,6 +21,7 @@ void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange tr
 		static assert(0, tokenToString[openTokenType] ~ " isn't a token that goes by pair. Use (, {, [, <");
 	}
 	
+	assert(trange.front.type == openTokenType);
 	uint level = 1;
 	
 	while(level > 0) {

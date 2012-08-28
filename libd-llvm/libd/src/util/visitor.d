@@ -37,9 +37,9 @@ auto dispatch(
 	
 	// Dispatch isn't possible.
 	static if(is(typeof(return) == void)) {
-		unhandled(o);
+		unhandled(t);
 	} else {
-		return unhandled(o);
+		return unhandled(t);
 	}
 }
 
