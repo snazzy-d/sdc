@@ -559,6 +559,8 @@ final:
 	}
 }
 
+import d.ast.ambiguous;
+
 /**
  * Resolve namespaces.
  */
@@ -572,7 +574,7 @@ class NamespaceVisitor {
 	
 final:
 	Namespace visit(Namespace ns) {
-		return this.dispatch(ns);
+		return this.dispatch!(ns => ns)(ns);
 	}
 	
 	Namespace visit(Identifier i) {
@@ -583,6 +585,11 @@ final:
 		e.type = thisType;
 		
 		return e;
+	}
+	
+	Namespace visit(TypeOrExpression toe) {
+		// FIXME: investigate expression too.
+		return pass.visit(toe.type);
 	}
 }
 
