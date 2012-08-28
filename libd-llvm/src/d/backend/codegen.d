@@ -564,7 +564,7 @@ final:
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		return LLVMBuildLoad(builder, pass.visit(e.symbol), "");
+		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -763,7 +763,11 @@ final:
 	}
 	
 	LLVMTypeRef visit(PointerType t) {
-		return LLVMPointerType(visit(t.type), 0);
+		auto pointed = visit(t.type);
+		
+		isSigned = false;
+		
+		return LLVMPointerType(pointed, 0);
 	}
 }
 
