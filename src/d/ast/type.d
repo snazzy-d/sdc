@@ -9,7 +9,7 @@ import d.ast.identifier;
 
 import std.traits;
 
-class Type : Node, Namespace {
+abstract class Type : Node {
 	this(Location location) {
 		super(location);
 	}
@@ -29,20 +29,6 @@ class Type : Node, Namespace {
 	
 	Expression initExpression(Location location) {
 		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
-	}
-	
-	override Namespace resolve(Location location, string name) {
-		switch(name) {
-			case "init" :
-				return initExpression(location);
-			
-			case "sizeof" :
-				// FIXME: stop to cast to int when implicit cast will be able to handle the case.
-				return makeLiteral(location, cast(int) getSize());
-			
-			default :
-				assert(0, name ~ " cannot be resolved in type " ~ typeid(this).toString());
-		}
 	}
 }
 
@@ -373,10 +359,6 @@ class SymbolType : BasicType {
 	// FIXME: get the right initializer.
 	override Expression initExpression(Location location) {
 		return new VoidInitializer(location, this);
-	}
-	
-	override Namespace resolve(Location location, string name) {
-		return symbol.resolve(location, name);
 	}
 }
 

@@ -90,6 +90,9 @@ void compile(string filename) {
 	import d.pass.dscope;
 	ast = dscope(ast);
 	//*
+	import d.pass.identifier;
+	ast = resolveIdentifiers(ast);
+	//*
 	import d.pass.typecheck;
 	ast = typeCheck(ast);
 	//*

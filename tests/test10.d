@@ -5,7 +5,7 @@
 int main()
 {
     int i = 12;
-    typeof(i) j;
-    typeof(i++) k;
-    return i;
+    typeof(i++) j;
+    
+    return i + j;
 }

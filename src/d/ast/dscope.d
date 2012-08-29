@@ -7,7 +7,7 @@ import d.ast.identifier;
 /**
  * A scope associate identifier with declarations.
  */
-class Scope : Namespace {
+class Scope {
 	Symbol[string] symbols;
 	
 	void addSymbol(Symbol s) {
@@ -20,12 +20,12 @@ class Scope : Namespace {
 	}
 	
 	// TODO; refactor that.
-	final Symbol resolve(Location location, string name) {
-		return symbols[name];
+	final Symbol resolve(string name) {
+		return symbols.get(name, null);
 	}
 	
-	Symbol resolveWithFallback(Location location, string name) {
-		return symbols[name];
+	Symbol resolveWithFallback(string name) {
+		return resolve(name);
 	}
 }
 
@@ -36,8 +36,8 @@ class NestedScope : Scope {
 		this.parent = parent;
 	}
 	
-	override Symbol resolveWithFallback(Location location, string name) {
-		return symbols.get(name, parent.resolveWithFallback(location, name));
+	override Symbol resolveWithFallback(string name) {
+		return symbols.get(name, parent.resolveWithFallback(name));
 	}
 }
 

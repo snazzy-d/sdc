@@ -1,7 +1,10 @@
 module d.parser.identifier;
 
+import d.ast.ambiguous;
 import d.ast.identifier;
 import d.ast.dtemplate;
+import d.ast.expression;
+import d.ast.type;
 
 import d.parser.base;
 import d.parser.dtemplate;
@@ -27,18 +30,36 @@ Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange
 	auto location = trange.front.location;
 	trange.match(TokenType.Dot);
 	
-	return trange.parseQualifiedIdentifier(location, new ModuleNamespace(location));
+	// FIXME: investigate why this don't compile.
+	// location.spanTo(trange.front.location);
+	
+	string name = trange.front.value;
+	trange.match(TokenType.Identifier);
+	
+	return trange.parseBuiltIdentifier(location, new DotIdentifier(location, name));
 }
 
 /**
  * Parse any qualifier identifier (qualifier.identifier)
  */
-auto parseQualifiedIdentifier(TokenRange)(ref TokenRange trange, Location location, Namespace namespace) if(isTokenRange!TokenRange) {
+auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Location location, Namespace ns) if(isTokenRange!TokenRange) {
 	string name = trange.front.value;
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
-	return trange.parseBuiltIdentifier(location, new QualifiedIdentifier(location, name, namespace));
+	static if(is(Namespace : Identifier)) {
+		alias IdentifierDotIdentifier QualifiedIdentifier;
+	} else static if(is(Namespace : Type)) {
+		alias TypeDotIdentifier QualifiedIdentifier;
+	} else static if(is(Namespace : Expression)) {
+		alias ExpressionDotIdentifier QualifiedIdentifier;
+	} else static if(is(Namespace : TypeOrExpression)) {
+		alias AmbiguousDotIdentifier QualifiedIdentifier;
+	} else {
+		static assert(0, "Namespace can only be an Identifier, a Type, an Expression or a TypeOrExpression. Not a " ~ Namespace.stringof);
+	}
+	
+	return trange.parseBuiltIdentifier(location, new QualifiedIdentifier(location, name, ns));
 }
 
 /**
@@ -54,7 +75,7 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				location.spanTo(trange.front.location);
 				trange.match(TokenType.Identifier);
 				
-				identifier = new QualifiedIdentifier(location, name, identifier);
+				identifier = new IdentifierDotIdentifier(location, name, identifier);
 				break;
 			
 			// TODO: parse template instanciation.
