@@ -31,11 +31,7 @@ class TypecheckPass {
 	private StatementVisitor statementVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private TypeVisitor typeVisitor;
-	private IdentifierVisitor identifierVisitor;
-	private NamespaceVisitor namespaceVisitor;
-	private SymbolResolver symbolResolver;
 	
-	private Scope currentScope;
 	private Type returnType;
 	private Type thisType;
 	
@@ -44,9 +40,6 @@ class TypecheckPass {
 		statementVisitor	= new StatementVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
-		identifierVisitor	= new IdentifierVisitor(this);
-		namespaceVisitor	= new NamespaceVisitor(this);
-		symbolResolver		= new SymbolResolver(this);
 	}
 	
 final:
@@ -73,14 +66,6 @@ final:
 	auto visit(Type t) {
 		return typeVisitor.visit(t);
 	}
-	
-	auto visit(Identifier i) {
-		return identifierVisitor.resolve(i);
-	}
-	
-	auto visit(Namespace ns) {
-		return namespaceVisitor.visit(ns);
-	}
 }
 
 import d.ast.adt;
@@ -106,12 +91,7 @@ final:
 		
 		returnType = fun.returnType = pass.visit(fun.returnType);
 		
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = fun.dscope;
-		
+		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
 		if(!fun.isStatic) {
 			fun.parameters = new Parameter(fun.location, "this", new PointerType(fun.location, thisType)) ~ fun.parameters;
@@ -126,18 +106,13 @@ final:
 	Symbol visit(VariableDeclaration var) {
 		var.value = pass.visit(var.value);
 		
-		final class ResolveType {
-			Type visit(Type t) {
-				return pass.visit(this.dispatch!(t => t)(t));
-			}
-			
-			Type visit(AutoType t) {
-				return var.value.type;
-			}
+		// If the type is infered, then we use the type of the value.
+		if(typeid({ return var.type; }()) is typeid(AutoType)) {
+			var.type = var.value.type;
+		} else {
+			var.type = pass.visit(var.type);
+			var.value = buildImplicitCast(var.location, var.type, var.value);
 		}
-		
-		var.type = (new ResolveType()).visit(var.type);
-		var.value = buildImplicitCast(var.location, var.type, var.value);
 		
 		return var;
 	}
@@ -147,11 +122,6 @@ final:
 	}
 	
 	Symbol visit(StructDefinition s) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = s.dscope;
-		
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
 		
@@ -195,11 +165,6 @@ final:
 	}
 	
 	void visit(BlockStatement b) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = b.dscope;
-		
 		foreach(s; b.statements) {
 			visit(s);
 		}
@@ -225,15 +190,11 @@ final:
 	}
 	
 	void visit(ForStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = f.dscope;
+		visit(f.initialize);
 		
 		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
 		f.increment = pass.visit(f.increment);
 		
-		visit(f.initialize);
 		visit(f.statement);
 	}
 	
@@ -253,7 +214,9 @@ class ExpressionVisitor {
 	}
 	
 final:
-	Expression visit(Expression e) {
+	Expression visit(Expression e) out(result) {
+		assert(result.type, "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.");
+	} body {
 		return this.dispatch(e);
 	}
 	
@@ -292,20 +255,28 @@ final:
 		
 		import std.algorithm;
 		static if(find(["&&", "||"], operation)) {
-			auto type = e.type;
+			e.type = new BooleanType(e.location);
 			
-			e.lhs = buildExplicitCast(e.lhs.location, type, e.lhs);
-			e.rhs = buildExplicitCast(e.rhs.location, type, e.rhs);
+			e.lhs = buildExplicitCast(e.lhs.location, e.type, e.lhs);
+			e.rhs = buildExplicitCast(e.rhs.location, e.type, e.rhs);
 		} else static if(find(["==", "!=", ">", ">=", "<", "<="], operation)) {
 			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
 			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
+			
+			e.type = new BooleanType(e.location);
 		} else static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
 			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+		} else static if(find(["="], operation)) {
+			e.type = e.lhs.type;
+			
+			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+		} else static if(find([","], operation)) {
+			e.type = e.rhs.type;
 		}
 		
 		return e;
@@ -402,6 +373,8 @@ final:
 	Expression visit(DereferenceExpression e) {
 		e = handleUnaryExpression(e);
 		
+		// TODO: handle function dereference.
+		
 		if(auto pt = cast(PointerType) e.type) {
 			e.type = pt.type;
 			
@@ -420,28 +393,22 @@ final:
 		
 		c.callee = visit(c.callee);
 		
+		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {
 			c.callee = new SymbolExpression(me.location, me.method);
 			c.arguments = new AddressOfExpression(me.location, visit(me.thisExpression)) ~ c.arguments;
 		}
 		
+		// XXX: can't this be visited before ?
 		c.type = c.callee.type;
 		
 		return c;
 	}
 	
-	Expression visit(IdentifierExpression ie) {
-		auto resolved = pass.visit(ie.identifier);
-		
-		if(auto e = cast(Expression) resolved) {
-			return visit(e);
-		}
-		
-		assert(0, ie.identifier.name ~ " isn't an expression. It is a " ~ typeid({ return cast(Object) resolved; }()).toString());
-	}
-	
 	Expression visit(FieldExpression fe) {
 		fe.expression = visit(fe.expression);
+		
+		// XXX: can't this be visited before ?
 		fe.type = pass.visit(fe.field.type);
 		
 		return fe;
@@ -449,16 +416,19 @@ final:
 	
 	Expression visit(MethodExpression me) {
 		me.thisExpression = visit(me.thisExpression);
+		
+		// XXX: can't this be visited before ?
 		me.type = pass.visit(me.method.returnType);
 		
 		return me;
 	}
 	
-	Expression visit(ThisExpression te) {
-		return te;
+	Expression visit(ThisExpression e) {
+		return e;
 	}
 	
 	Expression visit(SymbolExpression e) {
+		// XXX: Can't that calculation be doen before ?
 		e.type = pass.visit(e.symbol.type);
 		
 		return e;
@@ -485,18 +455,8 @@ final:
 		return this.dispatch(t);
 	}
 	
-	Type visit(IdentifierType it) {
-		auto resolved = pass.visit(it.identifier);
-		
-		if(auto t = cast(Type) resolved) {
-			return visit(t);
-		}
-		
-		assert(0, it.identifier.name ~ " isn't an type.");
-	}
-	
-	Type visit(SymbolType st) {
-		return st;
+	Type visit(SymbolType t) {
+		return t;
 	}
 	
 	Type visit(BooleanType t) {
@@ -520,124 +480,13 @@ final:
 	}
 	
 	Type visit(TypeofType t) {
-		t.expression = pass.visit(t.expression);
-		
-		return t.expression.type;
+		return pass.visit(t.expression).type;
 	}
 	
 	Type visit(PointerType t) {
 		t.type = visit(t.type);
 		
 		return t;
-	}
-}
-
-import d.ast.base;
-
-/**
- * Resolve identifiers as symbols
- */
-class IdentifierVisitor {
-	private TypecheckPass pass;
-	alias pass this;
-	
-	this(TypecheckPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Namespace resolve(Identifier i) {
-		return this.dispatch(i);
-	}
-	
-	Namespace visit(Identifier i) {
-		return symbolResolver.resolve(i.location, currentScope.resolveWithFallback(i.location, i.name));
-	}
-	
-	Namespace visit(QualifiedIdentifier qi) {
-		return pass.visit(qi.namespace).resolve(qi.location, qi.name);
-	}
-}
-
-import d.ast.ambiguous;
-
-/**
- * Resolve namespaces.
- */
-class NamespaceVisitor {
-	private TypecheckPass pass;
-	alias pass this;
-	
-	this(TypecheckPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Namespace visit(Namespace ns) {
-		return this.dispatch!(ns => ns)(ns);
-	}
-	
-	Namespace visit(Identifier i) {
-		return pass.visit(i);
-	}
-	
-	Namespace visit(ThisExpression e) {
-		e.type = thisType;
-		
-		return e;
-	}
-	
-	Namespace visit(TypeOrExpression toe) {
-		// FIXME: investigate expression too.
-		return pass.visit(toe.type);
-	}
-}
-
-/**
- * Resolve Symbol
- */
-final class SymbolResolver {
-	private TypecheckPass pass;
-	alias pass this;
-	
-	private Location location;
-	
-	this(TypecheckPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Namespace resolve(Location newLocation, Symbol s) {
-		auto oldLocation = location;
-		scope(exit) location = oldLocation;
-		
-		location = newLocation;
-		
-		return this.dispatch(s);
-	}
-	
-	Namespace visit(FunctionDefinition fun) {
-		return new SymbolExpression(location, fun);
-	}
-	
-	Namespace visit(VariableDeclaration var) {
-		return new SymbolExpression(location, var);
-	}
-	
-	Namespace visit(FieldDeclaration f) {
-		return new FieldExpression(location, new ThisExpression(location), f);
-	}
-	
-	Namespace visit(StructDefinition sd) {
-		return new SymbolType(location, sd);
-	}
-	
-	Namespace visit(Parameter p) {
-		return new SymbolExpression(location, p);
-	}
-	
-	Namespace visit(AliasDeclaration a) {
-		return a.type;
 	}
 }
 
@@ -776,20 +625,14 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 	
 	final class Cast {
 		Expression visit(Expression e) {
-			return this.dispatch!(delegate Expression(Expression e) {
-				return this.dispatch!(function Expression(Type t) {
-					auto msg = typeid(t).toString() ~ " is not supported.";
-					
-					import sdc.terminal;
-					outputCaretDiagnostics(t.location, msg);
-					
-					assert(0, msg);
-				})(e.type);
-			})(e);
-		}
-		
-		Expression visit(DefaultInitializer di) {
-			return type.initExpression(di.location);
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(e.type);
 		}
 		
 		Expression visit(BooleanType t) {
@@ -811,6 +654,11 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		Expression visit(PointerType t) {
 			return (new CastFromPointerTo(t.type)).visit(type);
 		}
+	}
+	
+	// Default initializer removal.
+	if(typeid(e) is typeid(DefaultInitializer)) {
+		return type.initExpression(e.location);
 	}
 	
 	if(e.type == type) return e;

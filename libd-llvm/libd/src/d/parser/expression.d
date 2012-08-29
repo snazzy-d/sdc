@@ -638,14 +638,14 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			if(matchingParen.front.type == TokenType.Dot) {
 				import d.ast.identifier;
 				
-				Namespace qualifier = trange.parseTypeOrExpression!(delegate Namespace(parsed) {
-					return parsed;
+				auto identifier = trange.parseTypeOrExpression!(delegate Identifier(parsed) {
+					trange.match(TokenType.CloseParen);
+					trange.match(TokenType.Dot);
+					
+					return trange.parseQualifiedIdentifier(location, parsed);
 				})(matchingParen - trange - 1);
 				
-				trange.match(TokenType.CloseParen);
-				trange.match(TokenType.Dot);
-				
-				return new IdentifierExpression(trange.parseQualifiedIdentifier(location, qualifier));
+				return new IdentifierExpression(identifier);
 			} else {
 				auto expression = trange.parseExpression();
 				

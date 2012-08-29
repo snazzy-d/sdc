@@ -8,12 +8,11 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-// TODO: allow type change only for ambiguous types.
-class Expression : Node, Namespace {
+abstract class Expression : Node {
 	Type type;
 	
 	this(Location location) {
-		this(location, new AutoType(location));
+		this(location, null);
 	}
 	
 	this(Location location, Type type) {
@@ -22,10 +21,7 @@ class Expression : Node, Namespace {
 		this.type = type;
 	}
 	
-	protected Namespace resolveInExpression(Location location, string name) {
-		return type.resolve(location, name);
-	}
-	
+	/*
 	override final Namespace resolve(Location location, string name) {
 		auto resolved = resolveInExpression(location, name);
 		
@@ -43,7 +39,11 @@ class Expression : Node, Namespace {
 		
 		assert(0, name ~ " is not a field. Resolved : " ~ typeid({ return cast(Object) resolved; }()).toString());
 	}
+	*/
 }
+
+// All expressions are final.
+final:
 
 /**
  * Conditional expression of type ?:
@@ -70,29 +70,7 @@ class BinaryExpression(string operator) : Expression {
 	Expression rhs;
 	
 	this(Location location, Expression lhs, Expression rhs) {
-		Type type;
-		switch(operator) {
-			case "," :
-				type = rhs.type;
-				break;
-			
-			case "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "~=", "<<=", ">>=", ">>>=", "^^=", "<<", ">>", ">>>", "^^", "~" :
-				type = lhs.type;
-				break;
-			
-			case "||", "&&", "==", "!=", "is", "!is", "in", "!in", "<", "<=", ">", ">=", "<>", "<>=", "!<", "!<=", "!>", "!>=", "!<>", "!<>=" :
-				type = new BooleanType(location);
-				break;
-			
-			case "&", "|", "^", "+", "-", "*", "/", "%" :
-				type = new AutoType(location);
-				break;
-			
-			default:
-				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
-		}
-		
-		super(location, type);
+		super(location);
 		
 		this.lhs = lhs;
 		this.rhs = rhs;
@@ -172,30 +150,7 @@ class PrefixUnaryExpression(string operation) : Expression {
 	Expression expression;
 	
 	this(Location location, Expression expression) {
-		Type type;
-		
-		switch(operation) {
-			case "&", "*", "-" :
-				type = new AutoType(location);
-				break;
-			
-			case "++", "--", "+" :
-				type = expression.type;
-				break;
-			
-			case "!" :
-				type = new BooleanType(location);
-				break;
-			
-			default :
-				assert(0, "Something as gone really wrong and you'll pay for it with bloodbloodblood !");
-		}
-		
-		this(location, type, expression);
-	}
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, type);
+		super(location);
 		
 		this.expression = expression;
 	}
@@ -216,10 +171,27 @@ alias PrefixUnaryExpression!"!" NotExpression;
 alias PrefixUnaryExpression!"~" BitwiseNotExpression;
 alias PrefixUnaryExpression!"~" ComplementExpression;
 
-alias PrefixUnaryExpression!"cast" CastExpression;
-alias PrefixUnaryExpression!"pad" PadExpression;
-alias PrefixUnaryExpression!"trunc" TruncateExpression;
-alias PrefixUnaryExpression!"bit" BitCastExpression;
+enum CastType {
+	Cast,
+	BitCast,
+	Pad,
+	Trunc,
+}
+
+class CastUnaryExpression(CastType T) : Expression {
+	Expression expression;
+	
+	this(Location location, Type type, Expression expression) {
+		super(location, type);
+		
+		this.expression = expression;
+	}
+}
+
+alias CastUnaryExpression!(CastType.Cast) CastExpression;
+alias CastUnaryExpression!(CastType.BitCast) BitCastExpression;
+alias CastUnaryExpression!(CastType.Pad) PadExpression;
+alias CastUnaryExpression!(CastType.Trunc) TruncateExpression;
 
 // FIXME: make this a statement.
 alias PrefixUnaryExpression!"delete" DeleteExpression;
@@ -231,22 +203,7 @@ class PostfixUnaryExpression(string operation) : Expression {
 	Expression expression;
 	
 	this(Location location, Expression expression) {
-		Type type;
-		
-		switch(operation) {
-			case "++", "--" :
-				type = expression.type;
-				break;
-			
-			default :
-				assert(0, "Something as gone really wrong and you'll pay for it with blood !");
-		}
-		
-		this(location, type, expression);
-	}
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, type);
+		super(location);
 		
 		this.expression = expression;
 	}
@@ -292,7 +249,7 @@ class ParenExpression : Expression {
 	Expression expression;
 	
 	this(Location location, Expression expression) {
-		super(location, expression.type);
+		super(location);
 		
 		this.expression = expression;
 	}
@@ -319,13 +276,9 @@ class SymbolExpression : Expression {
 	ExpressionSymbol symbol;
 	
 	this(Location location, ExpressionSymbol symbol) {
-		super(location, symbol.type);
+		super(location);
 		
 		this.symbol = symbol;
-	}
-	
-	override Namespace resolveInExpression(Location location, string name) {
-		return symbol.resolve(location, name);
 	}
 }
 
@@ -337,7 +290,7 @@ class FieldExpression : Expression {
 	FieldDeclaration field;
 	
 	this(Location location, Expression expression, FieldDeclaration field) {
-		super(location, field.type);
+		super(location);
 		
 		this.expression = expression;
 		this.field = field;
@@ -352,7 +305,7 @@ class MethodExpression : Expression {
 	FunctionDefinition method;
 	
 	this(Location location, Expression thisExpression, FunctionDefinition method) {
-		super(location, method.returnType);
+		super(location);
 		
 		this.thisExpression = thisExpression;
 		this.method = method;
@@ -363,13 +316,11 @@ class MethodExpression : Expression {
  * new
  */
 class NewExpression : Expression {
-	Type type;
 	Expression[] arguments;
 	
 	this(Location location, Type type, Expression[] arguments) {
-		super(location);
+		super(location, type);
 		
-		this.type = type;
 		this.arguments = arguments;
 	}
 }
@@ -547,12 +498,12 @@ class DollarExpression : Expression {
  * is expression.
  */
 class IsExpression : Expression {
-	private Type type;
+	private Type tested;
 	
-	this(Location location, Type type) {
+	this(Location location, Type tested) {
 		super(location);
 		
-		this.type = type;
+		this.tested = tested;
 	}
 }
 
@@ -586,12 +537,12 @@ class TypeidExpression : Expression {
  * typeid expression with a type as argument.
  */
 class StaticTypeidExpression : Expression {
-	private Type type;
+	private Type argument;
 	
-	this(Location location, Type type) {
+	this(Location location, Type argument) {
 		super(location);
 		
-		this.type = type;
+		this.argument = argument;
 	}
 }
 
@@ -599,12 +550,12 @@ class StaticTypeidExpression : Expression {
  * ambiguous typeid expression.
  */
 class AmbiguousTypeidExpression : Expression {
-	private TypeOrExpression parameter;
+	private TypeOrExpression argument;
 	
-	this(Location location, TypeOrExpression parameter) {
+	this(Location location, TypeOrExpression argument) {
 		super(location);
 		
-		this.parameter = parameter;
+		this.argument = argument;
 	}
 }
 

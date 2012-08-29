@@ -63,10 +63,6 @@ class StructDefinition : StructDeclaration {
 		
 		this.members = members;
 	}
-	
-	override Namespace resolve(Location location, string name) {
-		return dscope.resolve(location, name);
-	}
 }
 
 /**

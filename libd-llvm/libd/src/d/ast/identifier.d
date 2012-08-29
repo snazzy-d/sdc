@@ -1,10 +1,13 @@
 module d.ast.identifier;
 
+import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dscope;
+import d.ast.expression;
+import d.ast.type;
 
-class Identifier : Node, Namespace {
+class Identifier : Node {
 	string name;
 	
 	this(Location location, string name) {
@@ -12,42 +15,66 @@ class Identifier : Node, Namespace {
 		
 		this.name = name;
 	}
-	
-	override Namespace resolve(Location location, string name) {
-		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
-	}
 }
 
 /**
- * Anything that can qualify an identifier
+ * An identifier qualified by an identifier (identifier.identifier)
  */
-interface Namespace {
-	Namespace resolve(Location location, string name);
-}
-
-/**
- * A qualified identifier (namespace.identifier)
- */
-class QualifiedIdentifier : Identifier {
-	Namespace namespace;
+class IdentifierDotIdentifier : Identifier {
+	Identifier identifier;
 	
-	this(Location location, string name, Namespace namespace) {
+	this(Location location, string name, Identifier identifier) {
 		super(location, name);
 		
-		this.namespace = namespace;
+		this.identifier = identifier;
 	}
 }
 
 /**
- * Module qualifier (used for .identifier)
+ * An identifier qualified by a type (type.identifier)
  */
-class ModuleNamespace : Node, Namespace {
-	this(Location location) {
-		super(location);
-	}
+class TypeDotIdentifier : Identifier {
+	Type type;
 	
-	override Symbol resolve(Location location, string name) {
-		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
+	this(Location location, string name, Type type) {
+		super(location, name);
+		
+		this.type = type;
+	}
+}
+
+/**
+ * An identifier qualified by an expression (expression.identifier)
+ */
+class ExpressionDotIdentifier : Identifier {
+	Expression expression;
+	
+	this(Location location, string name, Expression expression) {
+		super(location, name);
+		
+		this.expression = expression;
+	}
+}
+
+/**
+ * An identifier qualified by an expression or a type (ambyguous.identifier)
+ */
+class AmbiguousDotIdentifier : Identifier {
+	TypeOrExpression qualifier;
+	
+	this(Location location, string name, TypeOrExpression qualifier) {
+		super(location, name);
+		
+		this.qualifier = qualifier;
+	}
+}
+
+/**
+ * A module level identifier (.identifier)
+ */
+class DotIdentifier : Identifier {
+	this(Location location, string name) {
+		super(location, name);
 	}
 }
 

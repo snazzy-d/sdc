@@ -19,7 +19,7 @@ class Declaration : Node {
  * Nothing inherit directly from Symbol.
  * It is either a TypeSymbol or an ExpressionSymbol.
  */
-private class Symbol : Declaration, Namespace {
+private class Symbol : Declaration {
 	string name;
 	string mangling;
 	
@@ -28,10 +28,6 @@ private class Symbol : Declaration, Namespace {
 		
 		this.name = name;
 		this.mangling = name;
-	}
-	
-	override Namespace resolve(Location location, string name) {
-		assert(0, "resolve is not implemented for namespace " ~ typeid(this).toString() ~ ".");
 	}
 }
 
@@ -61,17 +57,13 @@ class ExpressionSymbol : Symbol {
 /**
  * Alias of types
  */
-class AliasDeclaration : Symbol {
+class AliasDeclaration : TypeSymbol {
 	Type type;
 	
 	this(Location location, string name, Type type) {
 		super(location, name);
 		
 		this.type = type;
-	}
-	
-	override Namespace resolve(Location location, string name) {
-		return type.resolve(location, name);
 	}
 }
 
@@ -113,10 +105,6 @@ class VariableDeclaration : ExpressionSymbol {
 		
 		this.value = value;
 	}
-	
-	override Namespace resolve(Location location, string name) {
-		return type.resolve(location, name);
-	}
 }
 
 /**
@@ -137,8 +125,8 @@ class FieldDeclaration : VariableDeclaration {
  * Used for type identifier;
  */
 class DefaultInitializer : Expression {
-	this(Location location) {
-		super(location);
+	this(Type type) {
+		super(type.location, type);
 	}
 }
 

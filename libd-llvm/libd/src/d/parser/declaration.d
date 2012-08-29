@@ -378,7 +378,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				
 				variableLocation.spanTo(value.location);
 			} else {
-				value = new DefaultInitializer(type.location);
+				value = new DefaultInitializer(type);
 			}
 			
 			variables ~= new VariableDeclaration(location, type, name, value);
