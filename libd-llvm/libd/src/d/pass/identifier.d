@@ -467,12 +467,6 @@ final:
 		return visit(currentScope.resolveWithFallback(i.name));
 	}
 	
-	/*
-	Namespace visit(QualifiedIdentifier qi) {
-		return pass.visit(qi.namespace).resolve(qi.location, qi.name);
-	}
-	*/
-	
 	T visit(Symbol s) {
 		return this.dispatch(s);
 	}
