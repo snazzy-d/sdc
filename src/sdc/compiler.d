@@ -11,7 +11,6 @@ import sdc.lexer;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.ast.sdcmodule;
-import sdc.parser.base;
 
 
 /**
@@ -73,7 +72,7 @@ class Compiler
         
         mModules = new Module[mTokenStreams.length];
         foreach (i, ts; mTokenStreams) {
-            mModules[i] = .parse(ts);
+            // mModules[i] = .parse(ts);
         }
         return mModules;
     }
