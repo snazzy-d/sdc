@@ -23,10 +23,6 @@ abstract class Type : Identifiable {
 		return false;
 	}
 	
-	uint getSize() {
-		return 0;
-	}
-	
 	Expression initExpression(Location location) {
 		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
 	}
@@ -108,10 +104,6 @@ class BooleanType : BasicType {
 	override Expression initExpression(Location location) {
 		return makeLiteral(location, false);
 	}
-	
-	override uint getSize() {
-		return 1;
-	}
 }
 
 /**
@@ -180,22 +172,6 @@ class IntegerType : BasicType {
 	bool opEqual(const IntegerType t) const {
 		return type == t.type;
 	}
-	
-	override uint getSize() {
-		final switch(type) {
-			case Integer.Byte, Integer.Ubyte :
-				return 1;
-			
-			case Integer.Short, Integer.Ushort :
-				return 2;
-			
-			case Integer.Int, Integer.Uint :
-				return 4;
-			
-			case Integer.Long, Integer.Ulong :
-				return 8;
-		}
-	}
 }
 
 /**
@@ -244,19 +220,6 @@ class FloatType : BasicType {
 	
 	override Expression initExpression(Location location) {
 		return new FloatLiteral(location, float.nan, this);
-	}
-	
-	override uint getSize() {
-		final switch(type) {
-			case Float.Float :
-				return 4;
-			
-			case Float.Double :
-				return 8;
-			
-			case Float.Real :
-				return 10;
-		}
 	}
 }
 

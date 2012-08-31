@@ -32,6 +32,8 @@ class TypecheckPass {
 	private ExpressionVisitor expressionVisitor;
 	private TypeVisitor typeVisitor;
 	
+	private SizeofCalculator sizeofCalculator;
+	
 	private Type returnType;
 	private Type thisType;
 	
@@ -40,6 +42,7 @@ class TypecheckPass {
 		statementVisitor	= new StatementVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
+		sizeofCalculator	= new SizeofCalculator(this);
 	}
 	
 final:
@@ -375,14 +378,13 @@ final:
 		e = handleUnaryExpression(e);
 		
 		// TODO: handle function dereference.
-		
-		if(auto pt = cast(PointerType) e.type) {
+		if(auto pt = cast(PointerType) e.expression.type) {
 			e.type = pt.type;
 			
 			return e;
 		}
 		
-		assert(0, typeid({ return e.type; }()).toString() ~ " is not a pointer type.");
+		assert(0, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
 	}
 	
 	Expression visit(CastExpression e) {
@@ -434,6 +436,10 @@ final:
 		e.type = pass.visit(e.symbol.type);
 		
 		return e;
+	}
+	
+	Expression visit(SizeofExpression e) {
+		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
 	}
 	
 	Expression visit(DefferedExpression e) {
@@ -498,6 +504,69 @@ final:
 	}
 }
 
+class SizeofCalculator {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	uint visit(Type t) {
+		return this.dispatch!(function uint(Type t) {
+			assert(0, "size of type " ~ typeid(t).toString() ~ " is unknown.");
+		})(t);
+	}
+	
+	uint visit(BooleanType t) {
+		return 1;
+	}
+	
+	uint visit(IntegerType t) {
+		final switch(t.type) {
+			case Integer.Byte, Integer.Ubyte :
+				return 1;
+			
+			case Integer.Short, Integer.Ushort :
+				return 2;
+			
+			case Integer.Int, Integer.Uint :
+				return 4;
+			
+			case Integer.Long, Integer.Ulong :
+				return 8;
+		}
+	}
+	
+	uint visit(FloatType t) {
+		final switch(t.type) {
+			case Float.Float :
+				return 4;
+			
+			case Float.Double :
+				return 8;
+			
+			case Float.Real :
+				return 10;
+		}
+	}
+	
+	uint visit(SymbolType t) {
+		return visit(t.symbol);
+	}
+	
+	uint visit(TypeSymbol s) {
+		return this.dispatch!(function uint(TypeSymbol s) {
+			assert(0, "size of type designed by " ~ typeid(s).toString() ~ " is unknown.");
+		})(s);
+	}
+	
+	uint visit(AliasDeclaration a) {
+		return visit(a.type);
+	}
+}
+
 import sdc.location;
 
 private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
@@ -554,8 +623,11 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(IntegerType t) {
-			if(fromType == t.type) {
+			if(t.type == fromType) {
 				return e;
+			} else if(t.type >> 1 == fromType >> 1) {
+				// Same type except for signess.
+				return new BitCastExpression(location, type, e);
 			} else if(t.type > fromType) {
 				return new PadExpression(location, type, e);
 			} else static if(isExplicit) {

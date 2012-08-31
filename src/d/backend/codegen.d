@@ -221,6 +221,13 @@ final:
 		
 		return llvmStruct;
 	}
+	
+	LLVMTypeRef visit(AliasDeclaration a) {
+		auto llvmType = pass.visit(a.type);
+		typeSymbols[a] = llvmType;
+		
+		return llvmType;
+	}
 }
 
 import d.ast.statement;
