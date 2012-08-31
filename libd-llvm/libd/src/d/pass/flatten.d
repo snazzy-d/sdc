@@ -98,7 +98,7 @@ final:
 		
 		isStatic = false;
 		
-		fun.fbody = pass.visit(fun.fbody);
+		fun.fbody = statementVisitor.visit(fun.fbody);
 		
 		return fun;
 	}
@@ -204,7 +204,7 @@ final:
 		return ds;
 	}
 	
-	Statement visit(BlockStatement b) {
+	BlockStatement visit(BlockStatement b) {
 		b.statements = pass.visit(b.statements);
 		
 		return b;
