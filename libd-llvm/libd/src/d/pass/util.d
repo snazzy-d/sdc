@@ -6,14 +6,13 @@ import d.ast.expression;
 import sdc.location;
 
 final class DefferedExpression : Expression {
-	Expression expression;
-	
+	private Expression cause;
 	private Resolver resolver;
 	
-	this(Location location, Expression expression, Resolver resolver) {
+	this(Location location, Expression cause, Resolver resolver) {
 		super(location);
 		
-		this.expression = expression;
+		this.cause = cause;
 		this.resolver = resolver;
 	}
 	
@@ -41,11 +40,11 @@ auto resolveOrDeffer(alias test, alias resolve)(Location location, Expression e)
 	
 	return new DefferedExpression(location, e, new class() Resolver {
 		override bool test(DefferedExpression e) {
-			return testImpl(e.expression);
+			return testImpl(e.cause);
 		}
 		
 		override Expression resolve(DefferedExpression e) {
-			auto resolved = resolveImpl(e.expression);
+			auto resolved = resolveImpl(e.cause);
 			
 			if(auto re = cast(Expression) resolved) {
 				return re;
@@ -56,25 +55,24 @@ auto resolveOrDeffer(alias test, alias resolve)(Location location, Expression e)
 	});
 }
 
-auto handleDefferedExpression(alias process)(DefferedExpression e) if(is(typeof(process(e.expression)) : Expression)) {
-	e.expression = process(e.expression);
+Expression handleDefferedExpression(alias process)(DefferedExpression e) if(is(typeof(process(cast(Expression) e)) : Expression)) {
+	auto cause = e.cause;
+	e.cause = process(cause);
 	
-	auto resolved = e.resolve();
-	
-	if(resolved !is e) {
-		return process(resolved);
+	if(cause !is e.cause) {
+		return process(e.resolve());
 	}
 	
 	return new DefferedExpression(e.location, e, new class() Resolver {
 		override bool test(DefferedExpression e) {
-			auto cause = e.expression;
-			e.expression = process(cause);
+			auto cause = e.cause;
+			e.cause = process(cause);
 			
-			return (e.expression !is cause);
+			return (cause !is e.cause);
 		}
 		
 		override Expression resolve(DefferedExpression e) {
-			return e.expression;
+			return e.cause;
 		}
 	});
 }

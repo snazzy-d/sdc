@@ -33,6 +33,7 @@ class IdentifierPass {
 	
 	private TypeDotIdentifierVisitor typeDotIdentifierVisitor;
 	private ExpressionDotIdentifierVisitor expressionDotIdentifierVisitor;
+	private SymbolInTypeResolver symbolInTypeResolver;
 	
 	private Scope currentScope;
 	
@@ -45,6 +46,7 @@ class IdentifierPass {
 		
 		typeDotIdentifierVisitor		= new TypeDotIdentifierVisitor(this);
 		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
+		symbolInTypeResolver			= new SymbolInTypeResolver(this);
 	}
 	
 final:
@@ -492,18 +494,6 @@ final:
 		return visit(currentScope.resolveWithFallback(i.name));
 	}
 	
-	Identifiable visit(Symbol s) {
-		return this.dispatch(s);
-	}
-	
-	Identifiable visit(StructDefinition sd) {
-		return new SymbolType(location, sd);
-	}
-	
-	Identifiable visit(AliasDeclaration a) {
-		return new SymbolType(location, a);
-	}
-	
 	Identifiable visit(ExpressionDotIdentifier i) {
 		import sdc.terminal;
 		outputCaretDiagnostics(i.location, "expression.identifier");
@@ -537,6 +527,18 @@ final:
 		}
 	}
 	
+	Identifiable visit(Symbol s) {
+		return this.dispatch(s);
+	}
+	
+	Identifiable visit(StructDefinition sd) {
+		return new SymbolType(location, sd);
+	}
+	
+	Identifiable visit(AliasDeclaration a) {
+		return new SymbolType(location, a);
+	}
+	
 	Identifiable visit(FunctionDefinition fun) {
 		return new SymbolExpression(location, fun);
 	}
@@ -561,15 +563,13 @@ class TypeDotIdentifierVisitor {
 	private IdentifierPass pass;
 	alias pass this;
 	
-	private string name;
-	
 	this(IdentifierPass pass) {
 		this.pass = pass;
 	}
 	
 final:
 	Identifiable visit(TypeDotIdentifier i) {
-		if(Symbol s = resolve(i.type, i.name)) {
+		if(Symbol s = symbolInTypeResolver.resolve(i.type, i.name)) {
 			if(auto ts = cast(TypeSymbol) s) {
 				return new SymbolType(i.location, ts);
 			} else if(auto es = cast(ExpressionSymbol) s) {
@@ -584,20 +584,47 @@ final:
 				return i.type.initExpression(i.location);
 			
 			case "sizeof" :
-				return makeLiteral(i.location, i.type.getSize());
+				return new SizeofExpression(i.location, i.type);
 			
 			default :
 				assert(0, i.name ~ " can't be resolved in type.");
 		}
 	}
+}
+
+/**
+ * Resolve symbols in types.
+ */
+class SymbolInTypeResolver {
+	private IdentifierPass pass;
+	alias pass this;
 	
+	private string name;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+	}
+	
+final:
 	Symbol resolve(Type t, string newName) {
 		auto oldName = name;
 		scope(exit) name = oldName;
 		
 		name = newName;
 		
+		return visit(t);
+	}
+	
+	Symbol visit(Type t) {
 		return this.dispatch(t);
+	}
+	
+	Symbol visit(AliasDeclaration a) {
+		return visit(a.type);
+	}
+	
+	Symbol visit(IntegerType t) {
+		return null;
 	}
 	
 	Symbol visit(SymbolType t) {
@@ -638,7 +665,7 @@ final:
 			
 			expression = e;
 			
-			auto s = pass.typeDotIdentifierVisitor.resolve(e.type, i.name);
+			auto s = pass.symbolInTypeResolver.resolve(e.type, i.name);
 			
 			return this.dispatch!((s) {
 				auto resolved = pass.identifierVisitor.visit(s);

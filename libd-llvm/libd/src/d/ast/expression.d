@@ -539,3 +539,16 @@ class AmbiguousTypeidExpression : Expression {
 	}
 }
 
+/**
+ * type.sizeof
+ */
+class SizeofExpression : Expression {
+	Type argument;
+	
+	this(Location location, Type argument) {
+		super(location);
+		
+		this.argument = argument;
+	}
+}
+
