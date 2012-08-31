@@ -204,6 +204,7 @@ final:
 }
 
 import d.ast.expression;
+import d.pass.util;
 
 class ExpressionVisitor {
 	private TypecheckPass pass;
@@ -395,11 +396,10 @@ final:
 		
 		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {
-			c.callee = new SymbolExpression(me.location, me.method);
-			c.arguments = new AddressOfExpression(me.location, visit(me.thisExpression)) ~ c.arguments;
+			c.callee = visit(new SymbolExpression(me.location, me.method));
+			c.arguments = visit(new AddressOfExpression(me.location, visit(me.thisExpression))) ~ c.arguments;
 		}
 		
-		// XXX: can't this be visited before ?
 		c.type = c.callee.type;
 		
 		return c;
@@ -424,6 +424,8 @@ final:
 	}
 	
 	Expression visit(ThisExpression e) {
+		e.type = thisType;
+		
 		return e;
 	}
 	
@@ -432,6 +434,12 @@ final:
 		e.type = pass.visit(e.symbol.type);
 		
 		return e;
+	}
+	
+	Expression visit(DefferedExpression e) {
+		return handleDefferedExpression!(delegate Expression(Expression e) {
+			return visit(e);
+		})(e);
 	}
 	
 	// Will be remove by cast operation.

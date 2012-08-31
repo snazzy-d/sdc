@@ -9,7 +9,7 @@ import d.ast.identifier;
 
 import std.traits;
 
-abstract class Type : Node {
+abstract class Type : Identifiable {
 	this(Location location) {
 		super(location);
 	}

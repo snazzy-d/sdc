@@ -10,3 +10,12 @@ class Node {
 	}
 }
 
+/**
+ * Anything an identifier can resolve to.
+ */
+class Identifiable : Node {
+	this(Location location) {
+		super(location);
+	}
+}
+
