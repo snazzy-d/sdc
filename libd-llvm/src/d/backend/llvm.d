@@ -66,7 +66,7 @@ class LLVMBackend : Backend {
 			
 			writeln("\nreturned : ", returned);
 			
-			//*
+			/*
 			writeln("\nASM generated :");
 			char* foobar = null;
 			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
@@ -74,7 +74,7 @@ class LLVMBackend : Backend {
 			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 1);
 			//*/
 			
-			//*
+			/*
 			import sdc.util;
 			import std.string;
 			import std.process;
