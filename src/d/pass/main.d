@@ -18,16 +18,14 @@ auto buildMain(Module m) {
 
 import d.ast.declaration;
 import d.ast.dfunction;
+import d.ast.expression;
+import d.ast.statement;
 import d.ast.type;
 
 import util.visitor;
 
 class MainDetector {
-	private ReturnTypeCheck returnCheck;
-	
-	this() {
-		this.returnCheck = new ReturnTypeCheck();
-	}
+	private FunctionDefinition main;
 	
 final:
 	Declaration visit(Declaration d) {
@@ -35,8 +33,9 @@ final:
 	}
 	
 	private auto handleMain(FunctionDefinition main) {
-		main.returnType = new IntegerType(main.returnType.location, IntegerOf!int);
-		// TODO: process function body to replace return; by return 0;
+		this.main = main;
+		
+		visit(main.returnType);
 		
 		main.mangling = "_Dmain";
 		
@@ -45,37 +44,87 @@ final:
 	
 	Declaration visit(FunctionDefinition fun) {
 		if(fun.name == "main") {
-			if(returnCheck.visit(fun.returnType)) {
-				switch(fun.parameters.length) {
-					case 0 :
-						return handleMain(fun);
-					
-					case 1 :
-						assert(0, "main vith argument not supported.");
-					
-					default :
-						assert(0, "main must have no more than 1 argument.");
-				}
-			} else {
-				assert(0, "return of main must be void or int.");
+			switch(fun.parameters.length) {
+				case 0 :
+					return handleMain(fun);
+				
+				case 1 :
+					assert(0, "main vith argument not supported.");
+				
+				default :
+					assert(0, "main must have no more than 1 argument.");
 			}
 		}
 		
 		return fun;
 	}
+	
+	void visit(Type t) {
+		return this.dispatch!(function bool(Type t) {
+			assert(0, "return of main must be void or int.");
+		})(t);
+	}
+	
+	void visit(IntegerType t) {
+		assert(t.type == IntegerOf!int, "return type must be void or int.");
+	}
+	
+	void visit(VoidType t) {
+		auto retVal = makeLiteral(t.location, 0);
+		auto ret = new ReturnStatement(t.location, retVal);
+		
+		main.returnType = retVal.type;
+		
+		main.fbody = (new StatementVisitor()).visit(main.fbody);
+		main.fbody.statements ~= ret;
+	}
 }
 
-final class ReturnTypeCheck {
-	bool visit(Type t) {
-		return this.dispatch!(t => false)(t);
+class StatementVisitor {
+	
+final:
+	Statement visit(Statement stmt) {
+		return this.dispatch(stmt);
 	}
 	
-	bool visit(IntegerType t) {
-		return t.type == IntegerOf!int;
+	Statement visit(ExpressionStatement e) {
+		return e;
 	}
 	
-	bool visit(VoidType t) {
-		return true;
+	Statement visit(DeclarationStatement d) {
+		return d;
+	}
+	
+	BlockStatement visit(BlockStatement b) {
+		b.statements = b.statements.map!(s => visit(s)).array();
+		
+		return b;
+	}
+	
+	Statement visit(IfElseStatement ifs) {
+		ifs.then = visit(ifs.then);
+		ifs.elseStatement = visit(ifs.elseStatement);
+		
+		return ifs;
+	}
+	
+	Statement visit(WhileStatement w) {
+		w.statement = visit(w.statement);
+		
+		return w;
+	}
+	
+	Statement visit(DoWhileStatement w) {
+		w.statement = visit(w.statement);
+		
+		return w;
+	}
+	
+	Statement visit(ForStatement f) {
+		f.initialize = visit(f.initialize);
+		f.statement = visit(f.statement);
+		
+		return f;
 	}
 }
 

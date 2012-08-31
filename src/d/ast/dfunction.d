@@ -29,9 +29,9 @@ class FunctionDeclaration : ExpressionSymbol {
  * Function Definition
  */
 class FunctionDefinition : FunctionDeclaration {
-	Statement fbody;
+	BlockStatement fbody;
 	
-	this(Location location, string name, Type returnType, Parameter[] parameters, Statement fbody) {
+	this(Location location, string name, Type returnType, Parameter[] parameters, BlockStatement fbody) {
 		super(location, name, returnType, parameters);
 		
 		this.fbody = fbody;
