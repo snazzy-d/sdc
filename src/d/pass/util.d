@@ -56,22 +56,27 @@ auto resolveOrDeffer(alias test, alias resolve)(Location location, Expression e)
 }
 
 Expression handleDefferedExpression(alias process)(DefferedExpression e) if(is(typeof(process(cast(Expression) e)) : Expression)) {
-	auto cause = e.cause;
-	e.cause = process(cause);
+	e.cause = process(e.cause);
+	auto resolved = e.resolve();
 	
-	if(cause !is e.cause) {
-		return process(e.resolve());
+	if(resolved !is e) {
+		return process(resolved);
 	}
 	
 	return new DefferedExpression(e.location, e, new class() Resolver {
 		override bool test(DefferedExpression e) {
-			auto cause = e.cause;
-			e.cause = process(cause);
+			e.cause = process(e.cause);
 			
-			return (cause !is e.cause);
+			if(auto def = cast(DefferedExpression) e.cause) {
+				return def.resolver.test(def);
+			}
+			
+			// e isn't deffered anymore, we now are done.
+			return true;
 		}
 		
 		override Expression resolve(DefferedExpression e) {
+			// This have already been processed when testing.
 			return e.cause;
 		}
 	});
