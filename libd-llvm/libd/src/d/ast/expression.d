@@ -8,7 +8,7 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-abstract class Expression : Node {
+abstract class Expression : Identifiable {
 	Type type;
 	
 	this(Location location) {
@@ -20,26 +20,6 @@ abstract class Expression : Node {
 		
 		this.type = type;
 	}
-	
-	/*
-	override final Namespace resolve(Location location, string name) {
-		auto resolved = resolveInExpression(location, name);
-		
-		if(auto f = cast(FieldDeclaration) resolved) {
-			return new FieldExpression(location, this, f);
-		}
-		
-		if(auto f = cast(FunctionDefinition) resolved) {
-			return new MethodExpression(location, this, f);
-		}
-		
-		if(auto e = cast(Expression) resolved) {
-			return new CommaExpression(location, this, e);
-		}
-		
-		assert(0, name ~ " is not a field. Resolved : " ~ typeid({ return cast(Object) resolved; }()).toString());
-	}
-	*/
 }
 
 // All expressions are final.
