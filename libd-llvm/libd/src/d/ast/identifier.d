@@ -3,6 +3,7 @@ module d.ast.identifier;
 import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dtemplate;
 import d.ast.dscope;
 import d.ast.expression;
 import d.ast.type;
@@ -53,6 +54,19 @@ class ExpressionDotIdentifier : Identifier {
 		super(location, name);
 		
 		this.expression = expression;
+	}
+}
+
+/**
+ * An identifier qualified by a template (template!(...).identifier)
+ */
+class TemplateInstanceDotIdentifier : Identifier {
+	TemplateInstance templatenIstance;
+	
+	this(Location location, string name, TemplateInstance templatenIstance) {
+		super(location, name);
+		
+		this.templatenIstance = templatenIstance;
 	}
 }
 

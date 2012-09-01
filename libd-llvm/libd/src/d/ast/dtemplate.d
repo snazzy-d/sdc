@@ -3,6 +3,7 @@ module d.ast.dtemplate;
 import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -13,6 +14,8 @@ import d.ast.type;
 class TemplateDeclaration : Symbol {
 	TemplateParameter[] parameters;
 	Declaration[] declarations;
+	
+	Scope dscope;
 	
 	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, name);
@@ -25,9 +28,9 @@ class TemplateDeclaration : Symbol {
 /**
  * Super class for all templates parameters
  */
-class TemplateParameter : Declaration {
-	this(Location location) {
-		super(location);
+class TemplateParameter : TypeSymbol {
+	this(Location location, string name) {
+		super(location, name);
 	}
 }
 
@@ -35,12 +38,8 @@ class TemplateParameter : Declaration {
  * Types templates parameters
  */
 class TypeTemplateParameter : TemplateParameter {
-	string name;
-	
 	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
+		super(location, name);
 	}
 }
 
@@ -48,12 +47,8 @@ class TypeTemplateParameter : TemplateParameter {
  * This templates parameters
  */
 class ThisTemplateParameter : TemplateParameter {
-	string name;
-	
 	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
+		super(location, name);
 	}
 }
 
@@ -61,12 +56,8 @@ class ThisTemplateParameter : TemplateParameter {
  * Tuple templates parameters
  */
 class TupleTemplateParameter : TemplateParameter {
-	string name;
-	
 	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
+		super(location, name);
 	}
 }
 
@@ -74,13 +65,11 @@ class TupleTemplateParameter : TemplateParameter {
  * Value template parameters
  */
 class ValueTemplateParameter : TemplateParameter {
-	string name;
 	Type type;
 	
 	this(Location location, string name, Type type) {
-		super(location);
+		super(location, name);
 		
-		this.name = name;
 		this.type = type;
 	}
 }
@@ -89,12 +78,8 @@ class ValueTemplateParameter : TemplateParameter {
  * Alias template parameter
  */
 class AliasTemplateParameter : TemplateParameter {
-	string name;
-	
 	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
+		super(location, name);
 	}
 }
 
@@ -114,14 +99,12 @@ class TypedAliasTemplateParameter : AliasTemplateParameter {
 /**
  * Template instance
  */
-class TemplateInstance : Identifier {
+class TemplateInstance : Node {
 	Identifier identifier;
-	
 	TemplateArgument[] arguments;
 	
 	this(Location location, Identifier identifier, TemplateArgument[] arguments) {
-		// Eponymous trick.
-		super(location, identifier.name);
+		super(location);
 		
 		this.identifier = identifier;
 		this.arguments = arguments;

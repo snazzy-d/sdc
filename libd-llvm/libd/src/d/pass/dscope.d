@@ -135,12 +135,15 @@ final:
 		
 		currentScope = new NestedScope(oldScope);
 		
-		// TODO: template parameters.
-		// TODO: template scope.
+		foreach(p; tpl.parameters) {
+			currentScope.addSymbol(p);
+		}
 		
 		foreach(decl; tpl.declarations) {
 			pass.visit(decl);
 		}
+		
+		tpl.dscope = currentScope;
 		
 		return tpl;
 	}
