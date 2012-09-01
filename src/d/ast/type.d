@@ -368,7 +368,7 @@ class SuffixType : SimpleStorageClassType {
 }
 
 /**
- * Pointer types
+ * Pointer type
  */
 class PointerType : SuffixType {
 	this(Location location, Type type) {
@@ -384,6 +384,28 @@ class PointerType : SuffixType {
 	}
 	
 	bool opEqual(const PointerType t) const {
+		return type == t.type;
+	}
+}
+
+/**
+ * Reference type
+ * XXX: This is marked as suffic type but really is a prefix one.
+ */
+class ReferenceType : SuffixType {
+	this(Location location, Type type) {
+		super(location, type);
+	}
+	
+	override bool opEqual(const Type t) const {
+		if(auto p = cast(ReferenceType) t) {
+			return this.opEqual(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEqual(const ReferenceType t) const {
 		return type == t.type;
 	}
 }
