@@ -81,6 +81,7 @@ final:
 
 import d.ast.adt;
 import d.ast.dfunction;
+import d.ast.dtemplate;
 
 class DeclarationVisitor {
 	private IdentifierPass pass;
@@ -138,6 +139,18 @@ final:
 	
 	Symbol visit(AliasDeclaration a) {
 		return a;
+	}
+	
+	Declaration visit(TemplateDeclaration tpl) {
+		// Update scope.
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = tpl.dscope;
+		
+		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
+		
+		return tpl;
 	}
 }
 
@@ -516,7 +529,7 @@ final:
 		import sdc.terminal;
 		outputCaretDiagnostics(i.location, "identifier.identifier");
 		
-		auto resolved = visit(i.identifier);
+		auto resolved = resolve(i.identifier);
 		
 		if(auto t = cast(Type) resolved) {
 			return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, t));
@@ -525,6 +538,13 @@ final:
 		} else {
 			assert(0, "foobar is foobar");
 		}
+	}
+	
+	Identifiable visit(TemplateInstanceDotIdentifier i) {
+		import sdc.terminal;
+		outputCaretDiagnostics(i.location, "template.identifier");
+		
+		assert(0, "template instance is not handled.");
 	}
 	
 	Identifiable visit(Symbol s) {
@@ -537,6 +557,10 @@ final:
 	
 	Identifiable visit(AliasDeclaration a) {
 		return new SymbolType(location, a);
+	}
+	
+	Identifiable visit(TypeTemplateParameter p) {
+		return new SymbolType(location, p);
 	}
 	
 	Identifiable visit(FunctionDefinition fun) {

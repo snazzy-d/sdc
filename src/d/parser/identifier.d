@@ -83,10 +83,24 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
 				
-				// TODO: is likely incorrect.
+				// XXX: is likely incorrect.
 				location.spanTo(trange.front.location);
 				
-				identifier = new TemplateInstance(location, identifier, arguments);
+				auto instance = new TemplateInstance(location, identifier, arguments);
+				
+				if(trange.front.type == TokenType.Dot) {
+					trange.popFront();
+					
+					string name = trange.front.value;
+					
+					location.spanTo(trange.front.location);
+					trange.match(TokenType.Identifier);
+					
+					identifier = new TemplateInstanceDotIdentifier(location, name, instance);
+				} else {
+					// TODO: create s pecial node for that ?
+					identifier = new TemplateInstanceDotIdentifier(location, identifier.name, instance);
+				}
 				
 				break;
 			
