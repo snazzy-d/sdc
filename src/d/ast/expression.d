@@ -139,6 +139,8 @@ class PrefixUnaryExpression(string operation) : Expression {
 alias PrefixUnaryExpression!"&" AddressOfExpression;
 alias PrefixUnaryExpression!"*" DereferenceExpression;
 
+alias PrefixUnaryExpression!"ref" ReferenceOfExpression;
+
 alias PrefixUnaryExpression!"++" PreIncrementExpression;
 alias PrefixUnaryExpression!"--" PreDecrementExpression;
 

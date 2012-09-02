@@ -19,8 +19,12 @@ abstract class Type : Identifiable {
 	abstract Type makeConst();
 	abstract Type makeInout();
 	
-	bool opEqual(const Type t) const {
-		return false;
+	final override bool opEquals(Object o) {
+		return this.opEquals(cast(Type) o);
+	}
+	
+	bool opEquals(const Type t) const {
+		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
 	}
 	
 	Expression initExpression(Location location) {
@@ -93,11 +97,11 @@ class BooleanType : BasicType {
 		super(location);
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		return typeid(t) is typeid(typeof(this));
 	}
 	
-	bool opEqual(BooleanType t) const {
+	bool opEquals(BooleanType t) const {
 		return true;
 	}
 	
@@ -161,15 +165,15 @@ class IntegerType : BasicType {
 		}
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		if(auto i = cast(IntegerType) t) {
-			return this.opEqual(i);
+			return this.opEquals(i);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const IntegerType t) const {
+	bool opEquals(const IntegerType t) const {
 		return type == t.type;
 	}
 }
@@ -206,15 +210,15 @@ class FloatType : BasicType {
 		this.type = type;
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		if(auto f = cast(IntegerType) t) {
-			return this.opEqual(f);
+			return this.opEquals(f);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const FloatType t) const {
+	bool opEquals(const FloatType t) const {
 		return type == t.type;
 	}
 	
@@ -255,15 +259,15 @@ class CharacterType : BasicType {
 		this.type = type;
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		if(auto c = cast(CharacterType) t) {
-			return this.opEqual(c);
+			return this.opEquals(c);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const CharacterType t) const {
+	bool opEquals(const CharacterType t) const {
 		return type == t.type;
 	}
 	
@@ -278,6 +282,14 @@ class CharacterType : BasicType {
 class VoidType : BasicType {
 	this(Location location) {
 		super(location);
+	}
+	
+	override bool opEquals(const Type t) const {
+		return typeid(t) is typeid(VoidType);
+	}
+	
+	bool opEquals(const VoidType t) const {
+		return true;
 	}
 }
 
@@ -307,15 +319,15 @@ class SymbolType : BasicType {
 		this.symbol = symbol;
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		if(auto s = cast(SymbolType) t) {
-			return this.opEqual(s);
+			return this.opEquals(s);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const SymbolType t) const {
+	bool opEquals(const SymbolType t) const {
 		return symbol is t.symbol;
 	}
 	
@@ -375,15 +387,21 @@ class PointerType : SuffixType {
 		super(location, type);
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
+		import std.stdio;
+		writeln("compare pointer type.");
+		
 		if(auto p = cast(PointerType) t) {
-			return this.opEqual(p);
+			return this.opEquals(p);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const PointerType t) const {
+	bool opEquals(const PointerType t) const {
+		import std.stdio;
+		writeln("compare pointer type.");
+		
 		return type == t.type;
 	}
 }
@@ -397,15 +415,15 @@ class ReferenceType : SuffixType {
 		super(location, type);
 	}
 	
-	override bool opEqual(const Type t) const {
+	override bool opEquals(const Type t) const {
 		if(auto p = cast(ReferenceType) t) {
-			return this.opEqual(p);
+			return this.opEquals(p);
 		}
 		
 		return false;
 	}
 	
-	bool opEqual(const ReferenceType t) const {
+	bool opEquals(const ReferenceType t) const {
 		return type == t.type;
 	}
 }

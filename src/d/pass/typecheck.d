@@ -392,14 +392,17 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		c.arguments = c.arguments.map!(arg => visit(arg)).array();
-		
 		c.callee = visit(c.callee);
 		
 		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {
 			c.callee = visit(new SymbolExpression(me.location, me.method));
 			c.arguments = visit(new AddressOfExpression(me.location, visit(me.thisExpression))) ~ c.arguments;
+		}
+		
+		foreach(i, arg; c.arguments) {
+			// TODO: cast depending on function parameters types.
+			c.arguments[i] = buildImplicitCast(arg.location, arg.type, visit(arg));
 		}
 		
 		c.type = c.callee.type;
@@ -498,6 +501,12 @@ final:
 	}
 	
 	Type visit(PointerType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(ReferenceType t) {
 		t.type = visit(t.type);
 		
 		return t;
@@ -623,6 +632,7 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		}
 		
 		Expression visit(IntegerType t) {
+			// TODO: remove first if. Equal type should reach here.
 			if(t.type == fromType) {
 				return e;
 			} else if(t.type >> 1 == fromType >> 1) {
