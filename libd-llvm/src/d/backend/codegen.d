@@ -449,6 +449,10 @@ final:
 		return addressOfGen.visit(e.expression);
 	}
 	
+	LLVMValueRef visit(ReferenceOfExpression e) {
+		return addressOfGen.visit(e.expression);
+	}
+	
 	LLVMValueRef visit(DereferenceExpression e) {
 		return LLVMBuildLoad(builder, visit(e.expression), "");
 	}
@@ -773,6 +777,12 @@ final:
 		auto pointed = visit(t.type);
 		
 		isSigned = false;
+		
+		return LLVMPointerType(pointed, 0);
+	}
+	
+	LLVMTypeRef visit(ReferenceType t) {
+		auto pointed = visit(t.type);
 		
 		return LLVMPointerType(pointed, 0);
 	}
