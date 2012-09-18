@@ -508,27 +508,18 @@ final:
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
-		import sdc.terminal;
-		outputCaretDiagnostics(i.location, "expression.identifier");
-		
 		i.expression = pass.visit(i.expression);
 		
 		return expressionDotIdentifierVisitor.visit(i);
 	}
 	
 	Identifiable visit(TypeDotIdentifier i) {
-		import sdc.terminal;
-		outputCaretDiagnostics(i.location, "type.identifier");
-		
 		i.type = pass.visit(i.type);
 		
 		return typeDotIdentifierVisitor.visit(i);
 	}
 	
 	Identifiable visit(IdentifierDotIdentifier i) {
-		import sdc.terminal;
-		outputCaretDiagnostics(i.location, "identifier.identifier");
-		
 		auto resolved = resolve(i.identifier);
 		
 		if(auto t = cast(Type) resolved) {
@@ -536,7 +527,7 @@ final:
 		} else if(auto e = cast(Expression) resolved) {
 			return expressionDotIdentifierVisitor.visit(new ExpressionDotIdentifier(i.location, i.name, e));
 		} else {
-			assert(0, "foobar is foobar");
+			assert(0, "type or expression expected.");
 		}
 	}
 	

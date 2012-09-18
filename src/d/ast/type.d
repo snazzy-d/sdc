@@ -388,9 +388,6 @@ class PointerType : SuffixType {
 	}
 	
 	override bool opEquals(const Type t) const {
-		import std.stdio;
-		writeln("compare pointer type.");
-		
 		if(auto p = cast(PointerType) t) {
 			return this.opEquals(p);
 		}
@@ -399,9 +396,6 @@ class PointerType : SuffixType {
 	}
 	
 	bool opEquals(const PointerType t) const {
-		import std.stdio;
-		writeln("compare pointer type.");
-		
 		return type == t.type;
 	}
 }
