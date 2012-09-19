@@ -30,6 +30,10 @@ abstract class Type : Identifiable {
 	Expression initExpression(Location location) {
 		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
 	}
+	
+	override Type clone() const {
+		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
+	}
 }
 
 class SimpleStorageClassType : Type {
@@ -303,6 +307,11 @@ class IdentifierType : BasicType {
 		super(identifier.location);
 		
 		this.identifier = identifier;
+	}
+	
+	override IdentifierType clone() const {
+		// TODO: avoid cloning at all by improving const correctness.
+		return new IdentifierType(identifier.clone());
 	}
 }
 

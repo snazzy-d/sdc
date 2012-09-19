@@ -20,7 +20,7 @@ Identifier parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!To
 	string name = trange.front.value;
 	trange.match(TokenType.Identifier);
 	
-	return trange.parseBuiltIdentifier(location, new Identifier(location, name));
+	return trange.parseBuiltIdentifier(location, new BasicIdentifier(location, name));
 }
 
 /**
@@ -86,7 +86,7 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				// XXX: is likely incorrect.
 				location.spanTo(trange.front.location);
 				
-				auto instance = new TemplateInstance(location, identifier, arguments);
+				auto instance = new TemplateInstanciation(location, identifier, arguments);
 				
 				if(trange.front.type == TokenType.Dot) {
 					trange.popFront();
@@ -96,10 +96,10 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 					location.spanTo(trange.front.location);
 					trange.match(TokenType.Identifier);
 					
-					identifier = new TemplateInstanceDotIdentifier(location, name, instance);
+					identifier = new TemplateInstanciationDotIdentifier(location, name, instance);
 				} else {
 					// TODO: create s pecial node for that ?
-					identifier = new TemplateInstanceDotIdentifier(location, identifier.name, instance);
+					identifier = new TemplateInstanciationDotIdentifier(location, identifier.name, instance);
 				}
 				
 				break;

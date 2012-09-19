@@ -8,13 +8,32 @@ import d.ast.dscope;
 import d.ast.expression;
 import d.ast.type;
 
-class Identifier : Node {
+abstract class Identifier : Node {
 	string name;
 	
 	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
+	}
+	
+	override Identifier clone() const {
+		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
+	}
+}
+
+final:
+
+/**
+ * An identifier.
+ */
+class BasicIdentifier : Identifier {
+	this(Location location, string name) {
+		super(location, name);
+	}
+	
+	override BasicIdentifier clone() const {
+		return new BasicIdentifier(location, name);
 	}
 }
 
@@ -60,13 +79,13 @@ class ExpressionDotIdentifier : Identifier {
 /**
  * An identifier qualified by a template (template!(...).identifier)
  */
-class TemplateInstanceDotIdentifier : Identifier {
-	TemplateInstance templatenIstance;
+class TemplateInstanciationDotIdentifier : Identifier {
+	TemplateInstanciation templateInstanciation;
 	
-	this(Location location, string name, TemplateInstance templatenIstance) {
+	this(Location location, string name, TemplateInstanciation templateInstanciation) {
 		super(location, name);
 		
-		this.templatenIstance = templatenIstance;
+		this.templateInstanciation = templateInstanciation;
 	}
 }
 

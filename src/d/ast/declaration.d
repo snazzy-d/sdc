@@ -12,6 +12,10 @@ class Declaration : Node {
 	this(Location location) {
 		super(location);
 	}
+	
+	override Declaration clone() const {
+		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
+	}
 }
 
 /**
@@ -105,6 +109,10 @@ class VariableDeclaration : ExpressionSymbol {
 		
 		this.value = value;
 	}
+	
+	override VariableDeclaration clone() const {
+		return new VariableDeclaration(location, type.clone(), name, value.clone());
+	}
 }
 
 /**
@@ -127,6 +135,10 @@ class FieldDeclaration : VariableDeclaration {
 class DefaultInitializer : Expression {
 	this(Type type) {
 		super(type.location, type);
+	}
+	
+	override DefaultInitializer clone() const {
+		return new DefaultInitializer(type.clone());
 	}
 }
 
