@@ -394,16 +394,16 @@ final:
 	Expression visit(CallExpression c) {
 		c.callee = visit(c.callee);
 		
+		assert(c.callee.type, "callee must have a type.");
+		
 		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {
 			c.callee = visit(new SymbolExpression(me.location, me.method));
 			c.arguments = visit(new AddressOfExpression(me.location, visit(me.thisExpression))) ~ c.arguments;
 		}
 		
-		foreach(i, arg; c.arguments) {
-			// TODO: cast depending on function parameters types.
-			c.arguments[i] = buildImplicitCast(arg.location, arg.type, visit(arg));
-		}
+		// TODO: cast depending on function parameters types.
+		c.arguments = c.arguments.map!(a => visit(a)).map!(a => buildImplicitCast(a.location, a.type, a)).array();
 		
 		c.type = c.callee.type;
 		
