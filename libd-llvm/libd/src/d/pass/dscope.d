@@ -49,6 +49,25 @@ final:
 		return m;
 	}
 	
+	auto visit(TemplateInstance tpl, TemplateDeclaration tplDecl) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = new NestedScope(tplDecl.parentScope);
+		
+		foreach(i, p; tplDecl.parameters) {
+			currentScope.addSymbol(new AliasDeclaration(p.location, p.name, (cast(TypeTemplateArgument) tpl.arguments[i]).type));
+		}
+		
+		foreach(decl; tpl.declarations) {
+			visit(decl);
+		}
+		
+		tpl.dscope = currentScope;
+		
+		return tpl;
+	}
+	
 	auto visit(Declaration decl) {
 		return declarationVisitor.visit(decl);
 	}
@@ -130,20 +149,7 @@ final:
 	Declaration visit(TemplateDeclaration tpl) {
 		currentScope.addOverloadableSymbol(tpl);
 		
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = new NestedScope(oldScope);
-		
-		foreach(p; tpl.parameters) {
-			currentScope.addSymbol(p);
-		}
-		
-		foreach(decl; tpl.declarations) {
-			pass.visit(decl);
-		}
-		
-		tpl.dscope = currentScope;
+		tpl.parentScope = currentScope;
 		
 		return tpl;
 	}

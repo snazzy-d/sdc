@@ -79,6 +79,18 @@ final:
 	auto visit(Identifier i) {
 		return identifierVisitor.visit(i);
 	}
+	
+	auto visit(TemplateInstance tpl) {
+		// Update scope.
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = tpl.dscope;
+		
+		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
+		
+		return tpl;
+	}
 }
 
 import d.ast.adt;
@@ -144,16 +156,6 @@ final:
 	}
 	
 	Declaration visit(TemplateDeclaration tpl) {
-		/*
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = tpl.dscope;
-		
-		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
-		*/
-		
 		// No semantic is done on template declarations.
 		return tpl;
 	}
@@ -584,9 +586,13 @@ final:
 	}
 	
 	Identifiable visit(TemplateDeclaration tpl) {
-		// FIXME: update scopes.
+		// TODO: avoid allocating a new one each time.
+		import d.pass.dscope;
+		auto scopePass = new ScopePass();
 		
-		return new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array());
+		auto instance = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array()), tpl));
+		
+		return instance;
 	}
 	
 	Identifiable visit(TypeTemplateParameter p) {

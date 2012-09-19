@@ -15,7 +15,7 @@ class TemplateDeclaration : Symbol {
 	TemplateParameter[] parameters;
 	Declaration[] declarations;
 	
-	Scope dscope;
+	Scope parentScope;
 	
 	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, name);
