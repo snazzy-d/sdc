@@ -97,9 +97,9 @@ class TypedAliasTemplateParameter : AliasTemplateParameter {
 }
 
 /**
- * Template instance
+ * Template instanciation
  */
-class TemplateInstance : Node {
+class TemplateInstanciation : Node {
 	Identifier identifier;
 	TemplateArgument[] arguments;
 	
@@ -108,6 +108,24 @@ class TemplateInstance : Node {
 		
 		this.identifier = identifier;
 		this.arguments = arguments;
+	}
+}
+
+/**
+ * Template instance
+ */
+// XXX: Is it really identifiable ? Seems like we have a better design decision to make here.
+class TemplateInstance : Identifiable {
+	TemplateArgument[] arguments;
+	Declaration[] declarations;
+	
+	Scope dscope;
+	
+	this(Location location, TemplateArgument[] arguments, Declaration[] declarations) {
+		super(location);
+		
+		this.arguments = arguments;
+		this.declarations = declarations;
 	}
 }
 

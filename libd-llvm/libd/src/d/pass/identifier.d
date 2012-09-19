@@ -33,6 +33,7 @@ class IdentifierPass {
 	
 	private TypeDotIdentifierVisitor typeDotIdentifierVisitor;
 	private ExpressionDotIdentifierVisitor expressionDotIdentifierVisitor;
+	
 	private SymbolInTypeResolver symbolInTypeResolver;
 	
 	private Scope currentScope;
@@ -46,7 +47,8 @@ class IdentifierPass {
 		
 		typeDotIdentifierVisitor		= new TypeDotIdentifierVisitor(this);
 		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
-		symbolInTypeResolver			= new SymbolInTypeResolver(this);
+		
+		symbolInTypeResolver	= new SymbolInTypeResolver(this);
 	}
 	
 final:
@@ -75,7 +77,7 @@ final:
 	}
 	
 	auto visit(Identifier i) {
-		return identifierVisitor.resolve(i);
+		return identifierVisitor.visit(i);
 	}
 }
 
@@ -142,6 +144,7 @@ final:
 	}
 	
 	Declaration visit(TemplateDeclaration tpl) {
+		/*
 		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -149,7 +152,9 @@ final:
 		currentScope = tpl.dscope;
 		
 		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
+		*/
 		
+		// No semantic is done on template declarations.
 		return tpl;
 	}
 }
@@ -488,22 +493,32 @@ class IdentifierVisitor {
 	alias pass this;
 	
 	private Location location;
+	private TemplateArgument[] tplArgs;
 	
 	this(IdentifierPass pass) {
 		this.pass = pass;
 	}
 	
 final:
-	Identifiable resolve(Identifier i) {
+	Identifiable visit(Identifier i) {
+		if(tplArgs) {
+			auto oldTplArgs = tplArgs;
+			scope(exit) tplArgs = oldTplArgs;
+			
+			tplArgs = [];
+			
+			return this.dispatch(i);
+		}
+		
+		return this.dispatch(i);
+	}
+	
+	Identifiable visit(BasicIdentifier i) {
 		auto oldLocation = location;
 		scope(exit) location = oldLocation;
 		
 		location = i.location;
 		
-		return this.dispatch(i);
-	}
-	
-	Identifiable visit(Identifier i) {
 		return visit(currentScope.resolveWithFallback(i.name));
 	}
 	
@@ -520,7 +535,7 @@ final:
 	}
 	
 	Identifiable visit(IdentifierDotIdentifier i) {
-		auto resolved = resolve(i.identifier);
+		auto resolved = visit(i.identifier);
 		
 		if(auto t = cast(Type) resolved) {
 			return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, t));
@@ -531,13 +546,31 @@ final:
 		}
 	}
 	
-	Identifiable visit(TemplateInstanceDotIdentifier i) {
-		import sdc.terminal;
-		outputCaretDiagnostics(i.location, "template.identifier");
+	Identifiable visit(TemplateInstanciationDotIdentifier i) {
+		auto oldTplArgs = tplArgs;
+		scope(exit) tplArgs = oldTplArgs;
 		
-		assert(0, "template instance is not handled.");
+		tplArgs = i.templateInstanciation.arguments;
+		
+		TemplateInstance tpl;
+		
+		{
+			auto oldLocation = location;
+			scope(exit) location = oldLocation;
+		
+			location = i.templateInstanciation.identifier.location;
+			
+			tpl = cast(TemplateInstance) this.dispatch(i.templateInstanciation.identifier);
+		}
+		
+		if(tpl) {
+			return visit(tpl.dscope.resolve(i.name));
+		}
+		
+		assert(0, "Can't find template declaration " ~ i.templateInstanciation.identifier.name);
 	}
 	
+	// Symbols resolvers.
 	Identifiable visit(Symbol s) {
 		return this.dispatch(s);
 	}
@@ -548,6 +581,12 @@ final:
 	
 	Identifiable visit(AliasDeclaration a) {
 		return new SymbolType(location, a);
+	}
+	
+	Identifiable visit(TemplateDeclaration tpl) {
+		// FIXME: update scopes.
+		
+		return new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array());
 	}
 	
 	Identifiable visit(TypeTemplateParameter p) {
@@ -608,50 +647,6 @@ final:
 }
 
 /**
- * Resolve symbols in types.
- */
-class SymbolInTypeResolver {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	private string name;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Symbol resolve(Type t, string newName) {
-		auto oldName = name;
-		scope(exit) name = oldName;
-		
-		name = newName;
-		
-		return visit(t);
-	}
-	
-	Symbol visit(Type t) {
-		return this.dispatch(t);
-	}
-	
-	Symbol visit(AliasDeclaration a) {
-		return visit(a.type);
-	}
-	
-	Symbol visit(IntegerType t) {
-		return null;
-	}
-	
-	Symbol visit(SymbolType t) {
-		return this.dispatch(t.symbol);
-	}
-	
-	Symbol visit(StructDefinition s) {
-		return s.dscope.resolve(name);
-	}
-}
-
-/**
  * Resolve expression.identifier as type or expression.
  */
 class ExpressionDotIdentifierVisitor {
@@ -700,6 +695,50 @@ final:
 	
 	Identifiable visit(FunctionDefinition f) {
 		return new MethodExpression(location, expression, f);
+	}
+}
+
+/**
+ * Resolve symbols in types.
+ */
+class SymbolInTypeResolver {
+	private IdentifierPass pass;
+	alias pass this;
+	
+	private string name;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Symbol resolve(Type t, string newName) {
+		auto oldName = name;
+		scope(exit) name = oldName;
+		
+		name = newName;
+		
+		return visit(t);
+	}
+	
+	Symbol visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	Symbol visit(AliasDeclaration a) {
+		return visit(a.type);
+	}
+	
+	Symbol visit(IntegerType t) {
+		return null;
+	}
+	
+	Symbol visit(SymbolType t) {
+		return this.dispatch(t.symbol);
+	}
+	
+	Symbol visit(StructDefinition s) {
+		return s.dscope.resolve(name);
 	}
 }
 
