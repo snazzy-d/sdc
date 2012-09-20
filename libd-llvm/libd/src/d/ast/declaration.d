@@ -111,7 +111,11 @@ class VariableDeclaration : ExpressionSymbol {
 	}
 	
 	override VariableDeclaration clone() const {
-		return new VariableDeclaration(location, type.clone(), name, value.clone());
+		auto clone = new VariableDeclaration(location, type.clone(), name, value.clone());
+		
+		clone.isStatic = isStatic;
+		
+		return clone;
 	}
 }
 
