@@ -10,12 +10,6 @@ import d.ast.dmodule;
 import std.algorithm;
 import std.array;
 
-auto dscope(Module m) {
-	auto pass = new ScopePass();
-	
-	return pass.visit(m);
-}
-
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
