@@ -592,6 +592,8 @@ final:
 		
 		auto instance = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array()), tpl));
 		
+		tpl.instances ~= instance;
+		
 		return instance;
 	}
 	
