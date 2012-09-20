@@ -73,6 +73,7 @@ final:
 
 import d.ast.adt;
 import d.ast.dfunction;
+import d.ast.dtemplate;
 
 class DeclarationVisitor {
 	private TypecheckPass pass;
@@ -141,6 +142,15 @@ final:
 	
 	Symbol visit(AliasDeclaration a) {
 		return a;
+	}
+	
+	Symbol visit(TemplateDeclaration tpl) {
+		foreach(instance; tpl.instances) {
+			instance.declarations = instance.declarations.map!(d => visit(d)).array();
+		}
+		
+		// No semantic is done on templates declarations.
+		return tpl;
 	}
 }
 
@@ -473,6 +483,10 @@ final:
 	}
 	
 	Type visit(SymbolType t) {
+		if(auto aliasDecl = cast(AliasDeclaration) t.symbol) {
+			return visit(aliasDecl.type);
+		}
+		
 		return t;
 	}
 	
