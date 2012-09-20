@@ -5,6 +5,8 @@ module d.pass.identifier;
 
 import d.pass.base;
 
+import d.pass.dscope;
+
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
@@ -36,6 +38,8 @@ class IdentifierPass {
 	
 	private SymbolInTypeResolver symbolInTypeResolver;
 	
+	private ScopePass scopePass;
+	
 	private Scope currentScope;
 	
 	this() {
@@ -49,10 +53,14 @@ class IdentifierPass {
 		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
 		
 		symbolInTypeResolver	= new SymbolInTypeResolver(this);
+		
+		scopePass = new ScopePass();
 	}
 	
 final:
 	Module visit(Module m) {
+		m = scopePass.visit(m);
+		
 		foreach(decl; m.declarations) {
 			visit(decl);
 		}
@@ -586,15 +594,10 @@ final:
 	}
 	
 	Identifiable visit(TemplateDeclaration tpl) {
-		// TODO: avoid allocating a new one each time.
-		import d.pass.dscope;
-		auto scopePass = new ScopePass();
+		// FIXME: compute the right mangling.
+		string id = "Ti";
 		
-		auto instance = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array()), tpl));
-		
-		tpl.instances ~= instance;
-		
-		return instance;
+		return tpl.instances.get(id, tpl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array()), tpl)));
 	}
 	
 	Identifiable visit(TypeTemplateParameter p) {

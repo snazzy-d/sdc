@@ -87,9 +87,6 @@ void compile(string filename) {
 	import d.pass.flatten;
 	ast = flatten(ast);
 	//*
-	import d.pass.dscope;
-	ast = dscope(ast);
-	//*
 	import d.pass.identifier;
 	ast = resolveIdentifiers(ast);
 	//*
