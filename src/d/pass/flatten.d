@@ -29,6 +29,9 @@ class FlattenPass {
 	private ExpressionVisitor expressionVisitor;
 	private TypeVisitor typeVisitor;
 	
+	string linkage = "D";
+	bool isStatic = true;
+	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
 		declarationFlatener	= new DeclarationFlatener(this);
@@ -79,8 +82,6 @@ class DeclarationVisitor {
 	private FlattenPass pass;
 	alias pass this;
 	
-	bool isStatic = true;
-	
 	this(FlattenPass pass) {
 		this.pass = pass;
 	}
@@ -90,36 +91,52 @@ final:
 		return this.dispatch(d);
 	}
 	
-	Declaration visit(FunctionDefinition fun) {
-		fun.isStatic = isStatic;
+	Declaration visit(FunctionDeclaration d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		
+		return d;
+	}
+	
+	Declaration visit(FunctionDefinition d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		
+		auto oldLinkage = linkage;
+		scope(exit) linkage = oldLinkage;
+		
+		linkage = "D";
 		
 		auto oldIsStatic = isStatic;
 		scope(exit) isStatic = oldIsStatic;
 		
 		isStatic = false;
 		
-		fun.fbody = statementVisitor.visit(fun.fbody);
+		d.fbody = statementVisitor.visit(d.fbody);
 		
-		return fun;
+		return d;
 	}
 	
-	Declaration visit(VariableDeclaration var) {
-		var.isStatic = isStatic;
+	Declaration visit(VariableDeclaration d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
 		
-		var.type = pass.visit(var.type);
+		d.type = pass.visit(d.type);
 		
-		return var;
+		return d;
 	}
 	
-	Declaration visit(StructDefinition s) {
+	Declaration visit(StructDefinition d) {
+		d.linkage = linkage;
+		
 		auto oldIsStatic = isStatic;
 		scope(exit) isStatic = oldIsStatic;
 		
 		isStatic = false;
 		
-		s.members = pass.visit(s.members);
+		d.members = pass.visit(d.members);
 		
-		return s;
+		return d;
 	}
 	
 	Declaration visit(TemplateDeclaration tpl) {
@@ -157,19 +174,27 @@ final:
 			visit(decl);
 		}
 		
-		return workingSet.map!(d => pass.visit(d)).array();
+		return workingSet;
 	}
 	
 	void visit(Declaration d) {
 		this.dispatch!((Declaration d) {
-			workingSet ~= d;
+			workingSet ~= pass.visit(d);
 		})(d);
 	}
 	
-	void visit(VariablesDeclaration vars) {
-		auto decls = vars.variables;
+	void visit(VariablesDeclaration d) {
+		// XXX: hacking around some cast limitation.
+		workingSet ~= visit(d.variables.map!(function Declaration(Declaration d) { return d; }).array());
+	}
+	
+	void visit(LinkageDeclaration d) {
+		auto oldLinkage = linkage;
+		scope(exit) linkage = oldLinkage;
 		
-		workingSet ~= decls;
+		linkage = d.linkage;
+		
+		workingSet ~= visit(d.declarations);
 	}
 }
 
@@ -329,6 +354,10 @@ final:
 		return cl;
 	}
 	
+	Expression visit(StringLiteral e) {
+		return e;
+	}
+	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -484,10 +513,6 @@ final:
 		return t;
 	}
 	
-	Type visit(AutoType t) {
-		return t;
-	}
-	
 	Type visit(IdentifierType t) {
 		return t;
 	}
@@ -495,6 +520,16 @@ final:
 	Type visit(PointerType t) {
 		t.type = visit(t.type);
 		
+		return t;
+	}
+	
+	Type visit(SliceType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(AutoType t) {
 		return t;
 	}
 }

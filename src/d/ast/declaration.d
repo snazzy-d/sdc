@@ -21,6 +21,7 @@ class Declaration : Node {
  */
 private class Symbol : Declaration {
 	string name;
+	string linkage;
 	string mangling;
 	
 	this(Location location, string name) {

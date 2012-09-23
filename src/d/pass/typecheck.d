@@ -88,6 +88,12 @@ final:
 		return this.dispatch(d);
 	}
 	
+	Symbol visit(FunctionDeclaration d) {
+		d.returnType = pass.visit(d.returnType);
+		
+		return d;
+	}
+	
 	Symbol visit(FunctionDefinition fun) {
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;

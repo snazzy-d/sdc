@@ -118,6 +118,10 @@ final:
 		return this.dispatch(d);
 	}
 	
+	Symbol visit(FunctionDeclaration d) {
+		return d;
+	}
+	
 	Symbol visit(FunctionDefinition fun) {
 		fun.returnType = pass.visit(fun.returnType);
 		
@@ -274,6 +278,10 @@ final:
 	
 	Expression visit(CharacterLiteral cl) {
 		return cl;
+	}
+	
+	Expression visit(StringLiteral e) {
+		return e;
 	}
 	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
@@ -487,6 +495,12 @@ final:
 		return t;
 	}
 	
+	Type visit(SliceType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
 	Type visit(AutoType t) {
 		return t;
 	}
@@ -528,6 +542,9 @@ final:
 		scope(exit) location = oldLocation;
 		
 		location = i.location;
+		
+		import std.stdio;
+		writeln("identifier " ~ i.name ~ " resolved as " /* ~ typeid({ return pass.currentScope.resolveWithFallback(i.name); }()).toString()*/);
 		
 		return visit(currentScope.resolveWithFallback(i.name));
 	}
