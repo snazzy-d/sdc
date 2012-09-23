@@ -595,7 +595,7 @@ final:
 	
 	Identifiable visit(TemplateDeclaration tpl) {
 		// FIXME: compute the right mangling.
-		string id = "Ti";
+		string id = tplArgs.map!(arg => arg.mangle()).join();
 		
 		import d.pass.clone;
 		auto clone = new ClonePass();

@@ -138,6 +138,10 @@ class TemplateArgument : Node {
 	this(Location location) {
 		super(location);
 	}
+	
+	string mangle() const {
+		assert(0, "mangle not implemented for " ~ typeid(this).toString() ~ " .");
+	}
 }
 
 /**
@@ -150,6 +154,10 @@ class TypeTemplateArgument : TemplateArgument {
 		super(type.location);
 		
 		this.type = type;
+	}
+	
+	override string mangle() const {
+		return "T" ~ type.mangle();
 	}
 }
 
