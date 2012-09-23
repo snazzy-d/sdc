@@ -239,6 +239,8 @@ final:
 		ifs.then = visit(ifs.then);
 		ifs.elseStatement = visit(ifs.elseStatement);
 		
+		ifs.condition = pass.visit(ifs.condition);
+		
 		return ifs;
 	}
 	
