@@ -89,6 +89,12 @@ final:
 		return this.dispatch(d);
 	}
 	
+	Declaration visit(FunctionDeclaration d) {
+		currentScope.addOverloadableSymbol(d);
+		
+		return d;
+	}
+	
 	Declaration visit(FunctionDefinition fun) {
 		currentScope.addOverloadableSymbol(fun);
 		
