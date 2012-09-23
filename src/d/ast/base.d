@@ -8,10 +8,6 @@ class Node {
 	this(Location location) {
 		this.location = location;
 	}
-	
-	Node clone() const {
-		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
-	}
 }
 
 /**

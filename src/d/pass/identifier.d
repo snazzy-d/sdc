@@ -597,7 +597,10 @@ final:
 		// FIXME: compute the right mangling.
 		string id = "Ti";
 		
-		return tpl.instances.get(id, tpl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(d => d.clone()).array()), tpl)));
+		import d.pass.clone;
+		auto clone = new ClonePass();
+		
+		return tpl.instances.get(id, tpl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tpl)));
 	}
 	
 	Identifiable visit(TypeTemplateParameter p) {

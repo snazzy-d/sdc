@@ -16,10 +16,6 @@ abstract class Identifier : Node {
 		
 		this.name = name;
 	}
-	
-	override Identifier clone() const {
-		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
-	}
 }
 
 final:
@@ -30,10 +26,6 @@ final:
 class BasicIdentifier : Identifier {
 	this(Location location, string name) {
 		super(location, name);
-	}
-	
-	override BasicIdentifier clone() const {
-		return new BasicIdentifier(location, name);
 	}
 }
 
