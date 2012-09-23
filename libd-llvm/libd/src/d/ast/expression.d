@@ -20,10 +20,6 @@ abstract class Expression : Identifiable {
 		
 		this.type = type;
 	}
-	
-	override Expression clone() const {
-		assert(0, "clone isn't immplemented for " ~ typeid(this).toString());
-	}
 }
 
 // All expressions are final.
