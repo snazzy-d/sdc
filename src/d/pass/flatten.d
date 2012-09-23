@@ -475,6 +475,14 @@ final:
 	Expression visit(ParenExpression e) {
 		return e.expression;
 	}
+	
+	Expression visit(IndexExpression e) {
+		e.indexed = visit(e.indexed);
+		
+		e.parameters = e.parameters.map!(e => visit(e)).array();
+		
+		return e;
+	}
 }
 
 class TypeVisitor {
