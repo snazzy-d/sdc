@@ -61,6 +61,12 @@ final:
 	Module visit(Module m) {
 		m = scopePass.visit(m);
 		
+		// Update scope.
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = m.dscope;
+		
 		foreach(decl; m.declarations) {
 			visit(decl);
 		}
@@ -119,6 +125,8 @@ final:
 	}
 	
 	Symbol visit(FunctionDeclaration d) {
+		d.returnType = pass.visit(d.returnType);
+		
 		return d;
 	}
 	
@@ -429,6 +437,14 @@ final:
 		return e;
 	}
 	
+	Expression visit(IndexExpression e) {
+		e.indexed = visit(e.indexed);
+		
+		e.parameters = e.parameters.map!(e => visit(e)).array();
+		
+		return e;
+	}
+	
 	Expression visit(DefaultInitializer di) {
 		return di;
 	}
@@ -543,9 +559,6 @@ final:
 		
 		location = i.location;
 		
-		import std.stdio;
-		writeln("identifier " ~ i.name ~ " resolved as " /* ~ typeid({ return pass.currentScope.resolveWithFallback(i.name); }()).toString()*/);
-		
 		return visit(currentScope.resolveWithFallback(i.name));
 	}
 	
@@ -622,6 +635,10 @@ final:
 	
 	Identifiable visit(TypeTemplateParameter p) {
 		return new SymbolType(location, p);
+	}
+	
+	Identifiable visit(FunctionDeclaration fun) {
+		return new SymbolExpression(location, fun);
 	}
 	
 	Identifiable visit(FunctionDefinition fun) {

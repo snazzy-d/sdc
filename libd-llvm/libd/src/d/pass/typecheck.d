@@ -485,7 +485,14 @@ class TypeVisitor {
 	
 final:
 	Type visit(Type t) {
-		return this.dispatch(t);
+		return this.dispatch!(function Type(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
 	}
 	
 	Type visit(SymbolType t) {
