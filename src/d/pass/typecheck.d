@@ -398,7 +398,7 @@ final:
 	}
 	
 	Expression visit(CastExpression e) {
-		return buildExplicitCast(e.location, e.type, visit(e.expression));
+		return buildExplicitCast(e.location, pass.visit(e.type), visit(e.expression));
 	}
 	
 	Expression visit(CallExpression c) {
