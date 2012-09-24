@@ -461,6 +461,18 @@ class SliceType : SuffixType {
 	this(Location location, Type type) {
 		super(location, type);
 	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto p = cast(SliceType) t) {
+			return this.opEquals(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const SliceType t) const {
+		return type == t.type;
+	}
 }
 
 /**

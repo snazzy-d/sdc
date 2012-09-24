@@ -214,6 +214,8 @@ class CallExpression : Expression {
  */
 class IndexExpression : Expression {
 	Expression indexed;
+	
+	// TODO: this is argument, not parameters.
 	Expression[] parameters;
 	
 	this(Location location, Expression indexed, Expression[] parameters) {
@@ -408,7 +410,7 @@ class StringLiteral : Expression {
 	string value;
 	
 	this(Location location, string value) {
-		super(location);
+		super(location, new SliceType(location, new CharacterType(location, Character.Char)));
 		
 		this.value = value;
 	}

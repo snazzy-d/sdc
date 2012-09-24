@@ -260,6 +260,10 @@ final:
 		return cl;
 	}
 	
+	Expression visit(StringLiteral e) {
+		return e;
+	}
+	
 	Expression visit(CommaExpression ce) {
 		ce.lhs = visit(ce.lhs);
 		ce.rhs = visit(ce.rhs);
@@ -457,6 +461,20 @@ final:
 		return e;
 	}
 	
+	Expression visit(IndexExpression e) {
+		// TODO: check if it is valid.
+		e.indexed = visit(e.indexed);
+		
+		auto indexedType = cast(SliceType) e.indexed.type;
+		assert(indexedType);
+		
+		e.type = indexedType.type;
+		
+		e.parameters = e.parameters.map!(e => visit(e)).array();
+		
+		return e;
+	}
+	
 	Expression visit(SizeofExpression e) {
 		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
 	}
@@ -528,6 +546,12 @@ final:
 	}
 	
 	Type visit(PointerType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(SliceType t) {
 		t.type = visit(t.type);
 		
 		return t;
@@ -822,6 +846,11 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(IntegerType t) {
 			return (new T2Handler(t.type)).visit(t2);
+		}
+		
+		Type visit(CharacterType t) {
+			// Should check for RHS. But will fail on implicit cast if LHS isn't the right type for now.
+			return t;
 		}
 		
 		Type visit(PointerType t) {
