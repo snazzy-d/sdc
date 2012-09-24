@@ -424,7 +424,7 @@ final:
 	}
 	
 	LLVMValueRef visit(StringLiteral sl) {
-		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), "string literal")];
+		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), "str")];
 		
 		return LLVMConstStruct(fields.ptr, 2, false);
 	}

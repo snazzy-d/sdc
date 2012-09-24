@@ -773,16 +773,31 @@ final:
 		return this.dispatch(t);
 	}
 	
-	Symbol visit(AliasDeclaration a) {
-		return visit(a.type);
-	}
-	
 	Symbol visit(IntegerType t) {
 		return null;
 	}
 	
+	Symbol visit(SliceType t) {
+		switch(name) {
+			case "length" :
+				auto lt = new IntegerType(t.location, Integer.Ulong);
+				return new FieldDeclaration(new VariableDeclaration(t.location, lt, "length", new DefaultInitializer(lt)), 0);
+			
+			case "ptr" :
+				auto pt = new PointerType(t.location, t.type);
+				return new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
+			
+			default :
+				assert(0, name ~ " isn't a slice property.");
+		}
+	}
+	
 	Symbol visit(SymbolType t) {
 		return this.dispatch(t.symbol);
+	}
+	
+	Symbol visit(AliasDeclaration a) {
+		return visit(a.type);
 	}
 	
 	Symbol visit(StructDefinition s) {
