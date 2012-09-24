@@ -423,6 +423,12 @@ final:
 		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
 	}
 	
+	LLVMValueRef visit(StringLiteral sl) {
+		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), "string literal")];
+		
+		return LLVMConstStruct(fields.ptr, 2, false);
+	}
+	
 	LLVMValueRef visit(CommaExpression ce) {
 		visit(ce.lhs);
 		
@@ -580,6 +586,20 @@ final:
 	
 	LLVMValueRef visit(FieldExpression e) {
 		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+	}
+	
+	LLVMValueRef visit(IndexExpression e) {
+		assert(e.parameters.length == 1);
+		
+		auto indexed = addressOfGen.visit(e.indexed);
+		
+		// TODO: add bound checking.
+		auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), "length");
+		auto ptr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), "ptr");
+		
+		auto indice = visit(e.parameters[0]);
+		
+		return LLVMBuildLoad(builder, LLVMBuildInBoundsGEP(builder, ptr, &indice, 1, ""), "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -779,6 +799,14 @@ final:
 		isSigned = false;
 		
 		return LLVMPointerType(pointed, 0);
+	}
+	
+	LLVMTypeRef visit(SliceType t) {
+		isSigned = false;
+		
+		auto types = [LLVMInt64Type(), LLVMPointerType(visit(t.type), 0)];
+		
+		return LLVMStructType(types.ptr, 2, false);
 	}
 	
 	LLVMTypeRef visit(ReferenceType t) {
