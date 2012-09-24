@@ -108,6 +108,18 @@ final:
 		return exprSymbols.get(s, this.dispatch(s));
 	}
 	
+	LLVMValueRef visit(FunctionDeclaration d) {
+		auto parameterTypes = d.parameters.map!(p => pass.visit(p.type)).array();
+		
+		auto funType = LLVMFunctionType(pass.visit(d.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
+		auto fun = LLVMAddFunction(dmodule, d.mangling.toStringz(), funType);
+		
+		// Register the function.
+		exprSymbols[d] = fun;
+		
+		return fun;
+	}
+	
 	LLVMValueRef visit(FunctionDefinition f) {
 		// Ensure we are rentrant.
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);

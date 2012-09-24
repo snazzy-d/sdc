@@ -91,6 +91,9 @@ final:
 	Symbol visit(FunctionDeclaration d) {
 		d.returnType = pass.visit(d.returnType);
 		
+		// XXX: hack around function call madness.
+		d.type = d.returnType;
+		
 		return d;
 	}
 	
@@ -100,6 +103,9 @@ final:
 		scope(exit) returnType = oldReturnType;
 		
 		returnType = fun.returnType = pass.visit(fun.returnType);
+		
+		// XXX: hack around function call madness.
+		fun.type = fun.returnType;
 		
 		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
