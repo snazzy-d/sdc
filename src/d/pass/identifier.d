@@ -61,15 +61,15 @@ final:
 	Module visit(Module m) {
 		m = scopePass.visit(m);
 		
+		auto name = m.moduleDeclaration.name;
+		
 		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
 		currentScope = m.dscope;
 		
-		foreach(decl; m.declarations) {
-			visit(decl);
-		}
+		m.declarations = m.declarations.map!(d => visit(d)).array();
 		
 		return m;
 	}
@@ -130,19 +130,19 @@ final:
 		return d;
 	}
 	
-	Symbol visit(FunctionDefinition fun) {
-		fun.returnType = pass.visit(fun.returnType);
+	Symbol visit(FunctionDefinition d) {
+		d.returnType = pass.visit(d.returnType);
 		
 		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = fun.dscope;
+		currentScope = d.dscope;
 		
 		// And visit.
-		pass.visit(fun.fbody);
+		pass.visit(d.fbody);
 		
-		return fun;
+		return d;
 	}
 	
 	Symbol visit(VariableDeclaration var) {
@@ -156,15 +156,15 @@ final:
 		return visit(cast(VariableDeclaration) f);
 	}
 	
-	Symbol visit(StructDefinition s) {
+	Symbol visit(StructDefinition d) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = s.dscope;
+		currentScope = d.dscope;
 		
-		s.members = s.members.map!(m => visit(m)).array();
+		d.members = d.members.map!(m => visit(m)).array();
 		
-		return s;
+		return d;
 	}
 	
 	Symbol visit(Parameter p) {

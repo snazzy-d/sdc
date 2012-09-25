@@ -47,9 +47,7 @@ class TypecheckPass {
 	
 final:
 	Module visit(Module m) {
-		foreach(decl; m.declarations) {
-			visit(decl);
-		}
+		m.declarations = m.declarations.map!(d => visit(d)).array();
 		
 		return m;
 	}

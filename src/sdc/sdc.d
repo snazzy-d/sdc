@@ -93,6 +93,9 @@ void compile(string filename) {
 	import d.pass.typecheck;
 	ast = typeCheck(ast);
 	//*
+	import d.pass.mangle;
+	ast = mangle(ast);
+	//*
 	import d.pass.main;
 	ast = buildMain(ast);
 	//*

@@ -22,13 +22,13 @@ class Declaration : Node {
 private class Symbol : Declaration {
 	string name;
 	string linkage;
-	string mangling;
+	string mangle;
 	
 	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
-		this.mangling = name;
+		this.mangle = name;
 	}
 }
 

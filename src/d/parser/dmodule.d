@@ -21,7 +21,7 @@ auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) 
 		moduleDeclaration = trange.parseModuleDeclaration();
 	} else {
 		// TODO: compute a correct declaration according to the filename.
-		moduleDeclaration = new ModuleDeclaration(location, "", [""]);
+		moduleDeclaration = new ModuleDeclaration(location, "UnknownMonduleName", []);
 	}
 	
 	Declaration[] declarations;
