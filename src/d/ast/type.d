@@ -30,10 +30,6 @@ abstract class Type : Identifiable {
 	Expression initExpression(Location location) {
 		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
 	}
-	
-	string mangle() const {
-		assert(0, "mangle not implemented for " ~ typeid(this).toString() ~ " .");
-	}
 }
 
 class SimpleStorageClassType : Type {
@@ -179,34 +175,6 @@ class IntegerType : BasicType {
 	
 	bool opEquals(const IntegerType t) const {
 		return type == t.type;
-	}
-	
-	override string mangle() const {
-		final switch(type) {
-			case Integer.Byte :
-				return "g";
-			
-			case Integer.Ubyte :
-				return "h";
-			
-			case Integer.Short :
-				return "s";
-			
-			case Integer.Ushort :
-				return "t";
-			
-			case Integer.Int :
-				return "i";
-			
-			case Integer.Uint :
-				return "k";
-			
-			case Integer.Long :
-				return "l";
-			
-			case Integer.Ulong :
-				return "m";
-		}
 	}
 }
 

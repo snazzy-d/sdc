@@ -624,8 +624,11 @@ final:
 	}
 	
 	Identifiable visit(TemplateDeclaration tpl) {
-		// FIXME: compute the right mangling.
-		string id = tplArgs.map!(arg => arg.mangle()).join();
+		// FIXME: mangling is not always possible at this point. Delay to mangling pass if it make sense.
+		import d.pass.mangle;
+		auto mangler = new TypeMangler(null);
+		
+		string id = tplArgs.map!(delegate string(TemplateArgument arg) { return "T" ~ mangler.visit((cast(TypeTemplateArgument) arg).type); }).join();
 		
 		import d.pass.clone;
 		auto clone = new ClonePass();

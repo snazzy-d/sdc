@@ -95,7 +95,7 @@ final:
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
-		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => p.type.mangle()).join() ~ "Z" ~ d.returnType.mangle();
+		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		return d;
 	}
@@ -108,7 +108,7 @@ final:
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
-		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => p.type.mangle()).join() ~ "Z" ~ d.returnType.mangle();
+		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		// And visit.
 		pass.visit(d.fbody);
@@ -118,7 +118,7 @@ final:
 	
 	Symbol visit(VariableDeclaration d) {
 		if(d.isStatic) {
-			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ d.type.mangle();
+			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ pass.visit(d.type);
 		}
 		
 		return d;
@@ -143,7 +143,7 @@ final:
 	}
 	
 	Symbol visit(AliasDeclaration d) {
-		d.mangle = d.type.mangle();
+		d.mangle = pass.visit(d.type);
 		
 		return d;
 	}
@@ -235,38 +235,75 @@ final:
 	string visit(SymbolType t) {
 		return t.symbol.mangle;
 	}
-/*	
-	Type visit(BooleanType t) {
-		return t;
+	
+	string visit(BooleanType t) {
+		return "b";
 	}
 	
-	Type visit(IntegerType t) {
-		return t;
+	string visit(IntegerType t) {
+		final switch(t.type) {
+			case Integer.Byte :
+				return "g";
+			
+			case Integer.Ubyte :
+				return "h";
+			
+			case Integer.Short :
+				return "s";
+			
+			case Integer.Ushort :
+				return "t";
+			
+			case Integer.Int :
+				return "i";
+			
+			case Integer.Uint :
+				return "k";
+			
+			case Integer.Long :
+				return "l";
+			
+			case Integer.Ulong :
+				return "m";
+		}
 	}
 	
-	Type visit(FloatType t) {
-		return t;
+	string visit(FloatType t) {
+		final switch(t.type) {
+			case Float.Float :
+				return "f";
+			
+			case Float.Double :
+				return "d";
+			
+			case Float.Real :
+				return "e";
+		}
 	}
 	
-	Type visit(CharacterType t) {
-		return t;
+	string visit(CharacterType t) {
+		final switch(t.type) {
+			case Character.Char :
+				return "a";
+			
+			case Character.Wchar :
+				return "u";
+			
+			case Character.Dchar :
+				return "w";
+		}
 	}
 	
-	Type visit(VoidType t) {
-		return t;
+	string visit(VoidType t) {
+		return "v";
 	}
 	
-	Type visit(PointerType t) {
-		t.type = visit(t.type);
-		
-		return t;
+	string visit(PointerType t) {
+		return "P" ~ visit(t.type);
 	}
 	
-	Type visit(SliceType t) {
-		t.type = visit(t.type);
-		
-		return t;
+	string visit(SliceType t) {
+		return "A" ~ visit(t.type);
 	}
-*/
 }
 
