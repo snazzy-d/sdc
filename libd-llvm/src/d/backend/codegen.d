@@ -112,7 +112,7 @@ final:
 		auto parameterTypes = d.parameters.map!(p => pass.visit(p.type)).array();
 		
 		auto funType = LLVMFunctionType(pass.visit(d.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
-		auto fun = LLVMAddFunction(dmodule, d.mangling.toStringz(), funType);
+		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
 		
 		// Register the function.
 		exprSymbols[d] = fun;
@@ -128,7 +128,7 @@ final:
 		auto parameterTypes = f.parameters.map!(p => pass.visit(p.type)).array();
 		
 		auto funType = LLVMFunctionType(pass.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
-		auto fun = LLVMAddFunction(dmodule, f.mangling.toStringz(), funType);
+		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
 		exprSymbols[f] = fun;
@@ -180,7 +180,7 @@ final:
 	
 	LLVMValueRef visit(VariableDeclaration var) {
 		if(var.isStatic) {
-			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangling.toStringz());
+			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
 			// FIXME: interpreter don't support TLS for now.
 			// LLVMSetThreadLocal(globalVar, true);
 			
@@ -198,7 +198,7 @@ final:
 			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 			
 			// Create an alloca for this variable.
-			auto alloca = LLVMBuildAlloca(builder, pass.visit(var.type), var.mangling.toStringz());
+			auto alloca = LLVMBuildAlloca(builder, pass.visit(var.type), var.mangle.toStringz());
 			
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			
@@ -218,7 +218,7 @@ final:
 	}
 	
 	LLVMTypeRef visit(StructDefinition sd) {
-		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) sd.name.toStringz());
+		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) sd.mangle.toStringz());
 		typeSymbols[sd] = llvmStruct;
 		
 		LLVMTypeRef[] members;
