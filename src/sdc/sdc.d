@@ -84,15 +84,6 @@ void compile(string filename) {
 	
 	auto ast = trange.parse();
 	
-	import d.pass.flatten;
-	ast = flatten(ast);
-	//*
-	import d.pass.identifier;
-	ast = resolveIdentifiers(ast);
-	//*
-	import d.pass.typecheck;
-	ast = typeCheck(ast);
-	//*
 	import d.pass.mangle;
 	ast = mangle(ast);
 	//*
