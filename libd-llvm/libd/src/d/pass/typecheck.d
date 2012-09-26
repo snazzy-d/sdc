@@ -486,7 +486,7 @@ final:
 	Expression visit(DefferedExpression e) {
 		return handleDefferedExpression!(delegate Expression(Expression e) {
 			return visit(e);
-		})(e);
+		}, Expression)(e);
 	}
 	
 	// Will be remove by cast operation.
