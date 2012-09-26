@@ -7,7 +7,6 @@ import d.pass.base;
 
 import d.pass.dscope;
 
-import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
 import d.ast.identifier;
@@ -18,7 +17,8 @@ import std.array;
 auto resolveIdentifiers(Module m) {
 	auto pass = new IdentifierPass();
 	
-	return pass.visit(m);
+	import d.pass.flatten;
+	return pass.visit(flatten(m));
 }
 
 import d.ast.expression;

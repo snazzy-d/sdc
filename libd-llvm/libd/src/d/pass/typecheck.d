@@ -7,18 +7,18 @@ module d.pass.typecheck;
 
 import d.pass.base;
 
-import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
-import d.ast.identifier;
 
 import std.algorithm;
 import std.array;
+import std.range;
 
 auto typeCheck(Module m) {
 	auto pass = new TypecheckPass();
 	
-	return pass.visit(m);
+	import d.pass.identifier;
+	return pass.visit(resolveIdentifiers(m));
 }
 
 import d.ast.expression;
@@ -96,6 +96,8 @@ final:
 	}
 	
 	Symbol visit(FunctionDefinition fun) {
+		fun.parameters = fun.parameters.map!(p => this.dispatch(p)).array();
+		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
 		scope(exit) returnType = oldReturnType;
@@ -146,7 +148,9 @@ final:
 		return s;
 	}
 	
-	Symbol visit(Parameter p) {
+	Parameter visit(Parameter p) {
+		p.type = pass.visit(p.type);
+		
 		return p;
 	}
 	
@@ -426,8 +430,11 @@ final:
 			c.arguments = visit(new AddressOfExpression(me.location, visit(me.thisExpression))) ~ c.arguments;
 		}
 		
-		// TODO: cast depending on function parameters types.
-		c.arguments = c.arguments.map!(a => visit(a)).map!(a => buildImplicitCast(a.location, a.type, a)).array();
+		auto fun = cast(FunctionDeclaration) (cast(SymbolExpression) c.callee).symbol;
+		assert(fun, "You must call function, you fool !!!");
+		foreach(ref arg, ref param; lockstep(c.arguments, fun.parameters)) {
+			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
+		}
 		
 		c.type = c.callee.type;
 		
@@ -699,7 +706,12 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				return new TruncateExpression(location, type, e);
 			} else {
 				import std.conv;
-				assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+				auto msg = "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(e.location, msg);
+				
+				assert(0, msg);
 			}
 		}
 	}

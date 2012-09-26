@@ -7,10 +7,8 @@ import d.pass.base;
 
 import d.pass.dscope;
 
-import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
-import d.ast.identifier;
 
 import std.algorithm;
 import std.array;
@@ -19,7 +17,8 @@ import std.conv;
 auto mangle(Module m) {
 	auto pass = new ManglePass();
 	
-	return pass.visit(m);
+	import d.pass.typecheck;
+	return pass.visit(typeCheck(m));
 }
 
 import d.ast.expression;
