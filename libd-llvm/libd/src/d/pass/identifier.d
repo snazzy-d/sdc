@@ -36,6 +36,8 @@ class IdentifierPass {
 	private TypeDotIdentifierVisitor typeDotIdentifierVisitor;
 	private ExpressionDotIdentifierVisitor expressionDotIdentifierVisitor;
 	
+	private TemplateInstanciationDotIdentifierVisitor templateInstanciationDotIdentifierVisitor;
+	
 	private SymbolInTypeResolver symbolInTypeResolver;
 	
 	private ScopePass scopePass;
@@ -51,6 +53,8 @@ class IdentifierPass {
 		
 		typeDotIdentifierVisitor		= new TypeDotIdentifierVisitor(this);
 		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
+		
+		templateInstanciationDotIdentifierVisitor	= new TemplateInstanciationDotIdentifierVisitor(this);
 		
 		symbolInTypeResolver	= new SymbolInTypeResolver(this);
 		
@@ -533,7 +537,6 @@ class IdentifierVisitor {
 	alias pass this;
 	
 	private Location location;
-	private TemplateArgument[] tplArgs;
 	
 	this(IdentifierPass pass) {
 		this.pass = pass;
@@ -541,15 +544,6 @@ class IdentifierVisitor {
 	
 final:
 	Identifiable visit(Identifier i) {
-		if(tplArgs) {
-			auto oldTplArgs = tplArgs;
-			scope(exit) tplArgs = oldTplArgs;
-			
-			tplArgs = [];
-			
-			return this.dispatch(i);
-		}
-		
 		return this.dispatch(i);
 	}
 	
@@ -587,27 +581,7 @@ final:
 	}
 	
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {
-		auto oldTplArgs = tplArgs;
-		scope(exit) tplArgs = oldTplArgs;
-		
-		tplArgs = i.templateInstanciation.arguments;
-		
-		TemplateInstance tpl;
-		
-		{
-			auto oldLocation = location;
-			scope(exit) location = oldLocation;
-		
-			location = i.templateInstanciation.identifier.location;
-			
-			tpl = cast(TemplateInstance) this.dispatch(i.templateInstanciation.identifier);
-		}
-		
-		if(tpl) {
-			return visit(tpl.dscope.resolve(i.name));
-		}
-		
-		assert(0, "Can't find template declaration " ~ i.templateInstanciation.identifier.name);
+		return templateInstanciationDotIdentifierVisitor.resolve(i);
 	}
 	
 	// Symbols resolvers.
@@ -621,19 +595,6 @@ final:
 	
 	Identifiable visit(AliasDeclaration a) {
 		return new SymbolType(location, a);
-	}
-	
-	Identifiable visit(TemplateDeclaration tpl) {
-		// FIXME: mangling is not always possible at this point. Delay to mangling pass if it make sense.
-		import d.pass.mangle;
-		auto mangler = new TypeMangler(null);
-		
-		string id = tplArgs.map!(delegate string(TemplateArgument arg) { return "T" ~ mangler.visit((cast(TypeTemplateArgument) arg).type); }).join();
-		
-		import d.pass.clone;
-		auto clone = new ClonePass();
-		
-		return tpl.instances.get(id, tpl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tpl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tpl)));
 	}
 	
 	Identifiable visit(TypeTemplateParameter p) {
@@ -746,6 +707,46 @@ final:
 	
 	Identifiable visit(FunctionDefinition f) {
 		return new MethodExpression(location, expression, f);
+	}
+}
+
+/**
+ * Resolve identifier!(arguments).identifier as type or expression.
+ */
+class TemplateInstanciationDotIdentifierVisitor {
+	private IdentifierPass pass;
+	alias pass this;
+	
+	private Location location;
+	private Expression expression;
+	
+	this(IdentifierPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
+		auto tplDecl = this.dispatch(i.templateInstanciation.identifier);
+		
+		auto tplArgs = i.templateInstanciation.arguments;
+		
+		// FIXME: mangling is not always possible at this point. Delay to mangling pass if it make sense.
+		import d.pass.mangle;
+		auto mangler = new TypeMangler(null);
+		
+		string id = tplArgs.map!(delegate string(TemplateArgument arg) { return "T" ~ mangler.visit((cast(TypeTemplateArgument) arg).type); }).join();
+		
+		import d.pass.clone;
+		auto clone = new ClonePass();
+		
+		auto instance = tplDecl.instances.get(id, tplDecl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tplDecl)));
+		
+		// TODO: handle type.template and expression.template
+		return identifierVisitor.visit(instance.dscope.resolve(i.name));
+	}
+	
+	TemplateDeclaration visit(BasicIdentifier i) {
+		return cast(TemplateDeclaration) currentScope.resolveWithFallback(i.name);
 	}
 }
 
