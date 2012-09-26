@@ -5,18 +5,18 @@ import d.ast.expression;
 
 import sdc.location;
 
-final class DefferedExpression : Expression {
-	private Expression cause;
-	private Resolver resolver;
+final class Deffered(T) if (is(T == Expression)) : T {
+	private T cause;
+	private Resolver!T resolver;
 	
-	this(Location location, Expression cause, Resolver resolver) {
+	this(Location location, T cause, Resolver!T resolver) {
 		super(location);
 		
 		this.cause = cause;
 		this.resolver = resolver;
 	}
 	
-	Expression resolve() {
+	T resolve() {
 		if(resolver.test(this)) {
 			return resolver.resolve(this);
 		}
@@ -25,59 +25,64 @@ final class DefferedExpression : Expression {
 	}
 }
 
-private abstract class Resolver {
-	bool test(DefferedExpression e);
-	Expression resolve(DefferedExpression e);
+alias Deffered!Expression DefferedExpression;
+
+private abstract class Resolver(T) if (is(Deffered!T)) {
+	bool test(Deffered!T t);
+	T resolve(Deffered!T t);
 }
 
-auto resolveOrDeffer(alias test, alias resolve)(Location location, Expression e) if(is(typeof(test(e)) == bool) && is(typeof(resolve(e)) : Identifiable)) {
-	if(test(e)) {
-		return resolve(e);
+auto resolveOrDeffer(alias test, alias resolve, T)(Location location, T t) if(is(Deffered!T) && is(typeof(test(t)) == bool) && is(typeof(resolve(t)) : Identifiable)) {
+	if(test(t)) {
+		return resolve(t);
 	}
 	
 	alias test testImpl;
 	alias resolve resolveImpl;
 	
-	return new DefferedExpression(location, e, new class() Resolver {
-		override bool test(DefferedExpression e) {
-			return testImpl(e.cause);
+	return new Deffered!T(location, t, new class() Resolver!T {
+		override bool test(Deffered!T t) {
+			return testImpl(t.cause);
 		}
 		
-		override Expression resolve(DefferedExpression e) {
-			auto resolved = resolveImpl(e.cause);
+		override T resolve(Deffered!T t) {
+			auto resolved = resolveImpl(t.cause);
 			
-			if(auto re = cast(Expression) resolved) {
-				return re;
+			if(auto asT = cast(T) resolved) {
+				return asT;
 			}
 			
-			assert(0, "expression expected");
+			assert(0, typeid(T).toString() ~ " expected");
 		}
 	});
 }
 
-Expression handleDefferedExpression(alias process)(DefferedExpression e) if(is(typeof(process(cast(Expression) e)) : Expression)) {
-	e.cause = process(e.cause);
-	auto resolved = e.resolve();
+T handleDefferedExpression(alias process, T)(Deffered!T t) /* if(is(typeof(process(t.cause)) : T)) */ {
+	// XXX: For unknown reason, this don't seems to work as template constraint.
+	static assert(is(typeof(process(t.cause)): T));
 	
-	if(resolved !is e) {
+	t.cause = process(t.cause);
+	auto resolved = t.resolve();
+	
+	if(resolved !is t) {
 		return process(resolved);
 	}
 	
-	return new DefferedExpression(e.location, e, new class() Resolver {
-		override bool test(DefferedExpression e) {
-			e.cause = process(e.cause);
+	return new Deffered!T(t.location, t, new class() Resolver!T {
+		override bool test(Deffered!T t) {
+			T prev;
+			do {
+				prev = t.cause;
+				t.cause = process(t.cause);
+			} while(t.cause !is prev);
 			
-			if(auto def = cast(DefferedExpression) e.cause) {
-				return def.resolver.test(def);
-			}
-			
-			// e isn't deffered anymore, we now are done.
-			return true;
+			// if t isn't deffered anymore, we now are done.
+			return typeid({ return t.cause; }()) !is typeid(Deffered!T);
 		}
 		
-		override Expression resolve(DefferedExpression e) {
+		override T resolve(Deffered!T t) {
 			// This have already been processed when testing.
-			return e.cause;
+			return t.cause;
 		}
 	});
 }
