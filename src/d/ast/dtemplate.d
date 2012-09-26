@@ -116,8 +116,7 @@ class TemplateInstanciation : Node {
 /**
  * Template instance
  */
-// XXX: Is it really identifiable ? Seems like we have a better design decision to make here.
-class TemplateInstance : Identifiable {
+class TemplateInstance : Node {
 	TemplateArgument[] arguments;
 	Declaration[] declarations;
 	
