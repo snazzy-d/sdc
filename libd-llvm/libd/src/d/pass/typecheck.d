@@ -110,7 +110,10 @@ final:
 		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
 		if(!fun.isStatic) {
-			fun.parameters = new Parameter(fun.location, "this", new PointerType(fun.location, thisType)) ~ fun.parameters;
+			auto thisParameter = new Parameter(fun.location, "this", thisType);
+			thisParameter.isReference = true;
+			
+			fun.parameters = thisParameter ~ fun.parameters;
 		}
 		
 		// And visit.
@@ -402,6 +405,14 @@ final:
 		return e;
 	}
 	
+	Expression visit(ReferenceOfExpression e) {
+		e = handleUnaryExpression(e);
+		
+		e.type = e.type;
+		
+		return e;
+	}
+	
 	Expression visit(DereferenceExpression e) {
 		e = handleUnaryExpression(e);
 		
@@ -427,13 +438,15 @@ final:
 		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {
 			c.callee = visit(new SymbolExpression(me.location, me.method));
-			c.arguments = visit(new AddressOfExpression(me.location, visit(me.thisExpression))) ~ c.arguments;
+			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
 		auto fun = cast(FunctionDeclaration) (cast(SymbolExpression) c.callee).symbol;
 		assert(fun, "You must call function, you fool !!!");
 		foreach(ref arg, ref param; lockstep(c.arguments, fun.parameters)) {
 			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
+			
+			if(param.isReference) arg = new ReferenceOfExpression(arg.location, arg);
 		}
 		
 		c.type = c.callee.type;
@@ -563,12 +576,6 @@ final:
 	}
 	
 	Type visit(SliceType t) {
-		t.type = visit(t.type);
-		
-		return t;
-	}
-	
-	Type visit(ReferenceType t) {
 		t.type = visit(t.type);
 		
 		return t;
@@ -818,9 +825,7 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		return type.initExpression(e.location);
 	}
 	
-	if(e.type == type) return e;
-	
-	return (new Cast()).visit(e);
+	return (e.type == type)?e:(new Cast()).visit(e);
 }
 
 alias buildCast!false buildImplicitCast;

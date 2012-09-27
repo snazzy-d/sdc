@@ -58,14 +58,6 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 			// TODO: handle shared, scope and ref.
 			return processQualifier!(function(Type type) { return type; })();
 		
-		case TokenType.Ref :
-			trange.popFront();
-			
-			auto type = trange.parseBasicType();
-			location.spanTo(type.location);
-			
-			return new ReferenceType(location, type);
-		
 		// Identified types
 		case TokenType.Identifier :
 			return new IdentifierType(trange.parseIdentifier());

@@ -131,6 +131,8 @@ class DelegateType : FunctionType {
  * Function and delegate parameters.
  */
 class Parameter : ExpressionSymbol {
+	bool isReference;
+	
 	this(Location location, Type type) {
 		this(location, "", type);
 	}
