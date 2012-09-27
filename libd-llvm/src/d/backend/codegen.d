@@ -530,7 +530,11 @@ final:
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
-		return LLVMBuildOp(builder, visit(e.lhs), visit(e.rhs), "");
+		// XXX: should be useless, but order of evaluation of parameters is bugguy.
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		
+		return LLVMBuildOp(builder, lhs, rhs, "");
 	}
 	
 	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp, BinaryExpression)(BinaryExpression e) {
