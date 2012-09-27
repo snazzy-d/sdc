@@ -109,7 +109,15 @@ final:
 	}
 	
 	LLVMValueRef visit(FunctionDeclaration d) {
-		auto parameterTypes = d.parameters.map!(p => pass.visit(p.type)).array();
+		auto parameterTypes = d.parameters.map!((p) {
+			auto type = pass.visit(p.type);
+			
+			if(p.isReference) {
+				type = LLVMPointerType(type, 0);
+			}
+			
+			return type;
+		}).array();
 		
 		auto funType = LLVMFunctionType(pass.visit(d.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
 		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
@@ -125,7 +133,15 @@ final:
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto parameterTypes = f.parameters.map!(p => pass.visit(p.type)).array();
+		auto parameterTypes = f.parameters.map!((p) {
+			auto type = pass.visit(p.type);
+			
+			if(p.isReference) {
+				type = LLVMPointerType(type, 0);
+			}
+			
+			return type;
+		}).array();
 		
 		auto funType = LLVMFunctionType(pass.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
 		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
@@ -147,16 +163,17 @@ final:
 		foreach(i, p; f.parameters) {
 			auto value = params[i];
 			
-			// XXX: avoid to test every iterations.
-			if(f.isStatic || i > 0) {
+			if(p.isReference) {
+				LLVMSetValueName(value, p.name.toStringz());
+				
+				exprSymbols[p] = value;
+			} else {
 				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
 				
 				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 				
 				LLVMBuildStore(builder, value, alloca);
 				exprSymbols[p] = alloca;
-			} else {
-				LLVMSetValueName(value, p.name.toStringz());
 			}
 		}
 		
@@ -819,12 +836,6 @@ final:
 		auto types = [LLVMInt64Type(), LLVMPointerType(visit(t.type), 0)];
 		
 		return LLVMStructType(types.ptr, 2, false);
-	}
-	
-	LLVMTypeRef visit(ReferenceType t) {
-		auto pointed = visit(t.type);
-		
-		return LLVMPointerType(pointed, 0);
 	}
 }
 
