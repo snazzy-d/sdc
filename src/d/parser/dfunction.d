@@ -174,11 +174,19 @@ auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 }
 
 private auto parseParameter(TokenRange)(ref TokenRange trange) {
+	bool isReference;
+	
 	// TODO: parse storage class
 	ParseStorageClassLoop: while(1) {
 		switch(trange.front.type) {
 			case TokenType.In, TokenType.Out, TokenType.Lazy :
 				trange.popFront();
+				break;
+			
+			case TokenType.Ref :
+				trange.popFront();
+				isReference = true;
+				
 				break;
 			
 			default :
@@ -188,6 +196,7 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 	
 	auto type = trange.parseType();
 	
+	Parameter param;
 	if(trange.front.type == TokenType.Identifier) {
 		auto location = type.location;
 		
@@ -203,9 +212,13 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 			return new InitializedParameter(location, name, type, expression);
 		}
 		
-		return new Parameter(location, name, type);
+		param = new Parameter(location, name, type);
+	} else {
+		param = new Parameter(type.location, type);
 	}
 	
-	return new Parameter(type.location, type);
+	param.isReference = isReference;
+	
+	return param;
 }
 

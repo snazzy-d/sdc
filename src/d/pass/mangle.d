@@ -94,7 +94,7 @@ final:
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
-		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		return d;
 	}
@@ -107,7 +107,7 @@ final:
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
-		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+		d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		// And visit.
 		pass.visit(d.fbody);
