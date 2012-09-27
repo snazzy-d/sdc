@@ -196,6 +196,15 @@ final:
 		
 		workingSet ~= visit(d.declarations);
 	}
+	
+	void visit(StaticDeclaration d) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = true;
+		
+		workingSet ~= visit(d.declarations);
+	}
 }
 
 class StatementVisitor {
