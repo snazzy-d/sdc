@@ -181,9 +181,14 @@ final:
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		pass.visit(f.fbody);
 		
-		// If the current block isn' concluded, it means that it is unreachable.
+		// If the current block isn't concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			LLVMBuildUnreachable(builder);
+			// FIXME: provide the right AST in case of void function.
+			if(typeid({ return f.returnType; }()) is typeid(VoidType)) {
+				LLVMBuildRetVoid(builder);
+			} else {
+				LLVMBuildUnreachable(builder);
+			}
 		}
 		
 		// Branch from alloca block to function body.
