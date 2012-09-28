@@ -187,11 +187,11 @@ final:
 	}
 	
 	void visit(ExpressionStatement e) {
-		pass.visit(e.expression);
+		e.expression = pass.visit(e.expression);
 	}
 	
 	void visit(DeclarationStatement d) {
-		pass.visit(d.declaration);
+		d.declaration = pass.visit(d.declaration);
 	}
 	
 	void visit(BlockStatement b) {
@@ -446,7 +446,7 @@ final:
 		foreach(ref arg, ref param; lockstep(c.arguments, fun.parameters)) {
 			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
 			
-			if(param.isReference) arg = new ReferenceOfExpression(arg.location, arg);
+			if(param.isReference && typeid(arg) !is typeid(ReferenceOfExpression)) arg = new ReferenceOfExpression(arg.location, arg);
 		}
 		
 		c.type = c.callee.type;
@@ -503,8 +503,8 @@ final:
 		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
 	}
 	
-	Expression visit(DefferedExpression e) {
-		return handleDefferedExpression!(delegate Expression(Expression e) {
+	Expression visit(DeferredExpression e) {
+		return handleDeferredExpression!(delegate Expression(Expression e) {
 			return visit(e);
 		}, Expression)(e);
 	}

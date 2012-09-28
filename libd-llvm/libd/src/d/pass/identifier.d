@@ -131,11 +131,15 @@ final:
 	Symbol visit(FunctionDeclaration d) {
 		d.returnType = pass.visit(d.returnType);
 		
+		d.parameters = d.parameters.map!(p => visit(p)).array();
+		
 		return d;
 	}
 	
 	Symbol visit(FunctionDefinition d) {
 		d.returnType = pass.visit(d.returnType);
+		
+		d.parameters = d.parameters.map!(p => visit(p)).array();
 		
 		// Update scope.
 		auto oldScope = currentScope;
@@ -171,7 +175,9 @@ final:
 		return d;
 	}
 	
-	Symbol visit(Parameter p) {
+	Parameter visit(Parameter p) {
+		p.type = pass.visit(p.type);
+		
 		return p;
 	}
 	
@@ -673,10 +679,10 @@ class ExpressionDotIdentifierVisitor {
 	}
 	
 final:
-	Identifiable visit(ExpressionDotIdentifier i) {
-		return resolveOrDeffer!(function bool(Expression e) {
+	Expression visit(ExpressionDotIdentifier i) {
+		return resolveOrDefer!(function bool(Expression e) {
 			return e.type !is null;
-		}, delegate Identifiable(Expression e) {
+		}, delegate Expression(Expression e) {
 			auto oldLocation = location;
 			scope(exit) location = oldLocation;
 			
@@ -701,11 +707,11 @@ final:
 		})(i.location, i.expression);
 	}
 	
-	Identifiable visit(FieldDeclaration f) {
+	Expression visit(FieldDeclaration f) {
 		return new FieldExpression(location, expression, f);
 	}
 	
-	Identifiable visit(FunctionDefinition f) {
+	Expression visit(FunctionDefinition f) {
 		return new MethodExpression(location, expression, f);
 	}
 }
