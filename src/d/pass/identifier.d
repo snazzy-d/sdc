@@ -588,6 +588,16 @@ final:
 		}
 	}
 	
+	Identifiable visit(AmbiguousDotIdentifier i) {
+		if(auto type = pass.visit(i.qualifier.type)) {
+			return visit(new TypeDotIdentifier(i.location, i.name, type));
+		} else if(auto expression = pass.visit(i.qualifier.expression)) {
+			return visit(new ExpressionDotIdentifier(i.location, i.name, expression));
+		}
+		
+		assert(0, "Ambiguous can't be deambiguated.");
+	}
+	
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {
 		return templateInstanciationDotIdentifierVisitor.resolve(i);
 	}
