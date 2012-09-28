@@ -602,9 +602,11 @@ final:
 		LLVMValueRef[2] incomingValues;
 		incomingValues[0] = lhs;
 		incomingValues[1] = rhs;
+		
 		LLVMBasicBlockRef[2] incomingBlocks;
 		incomingBlocks[0] = lhsBB;
 		incomingBlocks[1] = rhsBB;
+		
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
 		
 		return phiNode;
@@ -623,7 +625,15 @@ final:
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		// FIXME: handle rvalues with LLVMBuildExtractValue.
+		try {
+			return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		} catch(Exception exp) {
+			import std.stdio;
+			writeln("Field expression isn't an lvalue.");
+			
+			return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
+		}
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
