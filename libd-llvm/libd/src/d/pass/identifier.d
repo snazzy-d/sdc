@@ -612,6 +612,7 @@ final:
 	}
 	
 	Identifiable visit(AliasDeclaration a) {
+		// TODO: ensure the alias has been processed and return the type directly.
 		return new SymbolType(location, a);
 	}
 	

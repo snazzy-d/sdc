@@ -436,6 +436,10 @@ class NullLiteral : Expression {
 	this(Location location) {
 		super(location);
 	}
+	
+	this(Location location, Type type) {
+		super(location, type);
+	}
 }
 
 /**

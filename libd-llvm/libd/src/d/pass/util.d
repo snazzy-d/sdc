@@ -68,8 +68,14 @@ auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(is(
 }
 
 auto handleDeferredExpression(alias process, T)(Deferred!T t) if(is(typeof(process(T.init)) : T)) {
-	t.cause = process(t.cause);
 	auto resolved = t.resolve();
+	
+	if(resolved !is t) {
+		return process(resolved);
+	}
+	
+	t.cause = process(t.cause);
+	resolved = t.resolve();
 	
 	if(resolved !is t) {
 		return process(resolved);

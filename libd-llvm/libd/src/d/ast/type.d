@@ -398,6 +398,10 @@ class PointerType : SuffixType {
 	bool opEquals(const PointerType t) const {
 		return type == t.type;
 	}
+	
+	override Expression initExpression(Location location) {
+		return new NullLiteral(location, this);
+	}
 }
 
 /**
