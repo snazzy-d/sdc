@@ -457,6 +457,10 @@ final:
 		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
 	}
 	
+	LLVMValueRef visit(NullLiteral nl) {
+		return LLVMConstNull(pass.visit(nl.type));
+	}
+	
 	LLVMValueRef visit(StringLiteral sl) {
 		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), "str")];
 		
@@ -473,14 +477,11 @@ final:
 		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 	}
 	
-	private void updateVariableValue(Expression e, LLVMValueRef value) {
-		LLVMBuildStore(builder, value, addressOfGen.visit(e));
-	}
-	
 	LLVMValueRef visit(AssignExpression e) {
+		auto ptr = addressOfGen.visit(e.lhs);
 		auto value = visit(e.rhs);
 		
-		updateVariableValue(e.lhs, value);
+		LLVMBuildStore(builder, value, ptr);
 		
 		return value;
 	}
@@ -497,13 +498,22 @@ final:
 		return LLVMBuildLoad(builder, visit(e.expression), "");
 	}
 	
-	private auto handleIncrement(alias LLVMIncrementOp, bool pre, IncrementExpression)(IncrementExpression e) {
-		auto preValue = visit(e.expression);
-		auto lvalue = e.expression;
+	private auto handleIncrement(bool pre, IncrementExpression)(IncrementExpression e, int step) {
+		auto ptr = addressOfGen.visit(e.expression);
 		
-		auto postValue = LLVMIncrementOp(builder, preValue, LLVMConstInt(pass.visit(lvalue.type), 1, false), "");
+		auto preValue = LLVMBuildLoad(builder, ptr, "");
+		auto type = e.expression.type;
 		
-		updateVariableValue(lvalue, postValue);
+		LLVMValueRef postValue;
+		
+		if(auto ptrType = cast(PointerType) type) {
+			auto indice = LLVMConstInt(LLVMInt64Type(), step, true);
+			postValue = LLVMBuildInBoundsGEP(builder, preValue, &indice, 1, "");
+		} else {
+			postValue = LLVMBuildAdd(builder, preValue, LLVMConstInt(pass.visit(type), step, true), "");
+		}
+		
+		LLVMBuildStore(builder, postValue, ptr);
 		
 		// PreIncrement return the value after it is incremented.
 		static if(pre) {
@@ -514,19 +524,19 @@ final:
 	}
 	
 	LLVMValueRef visit(PreIncrementExpression e) {
-		return handleIncrement!(LLVMBuildAdd, true)(e);
+		return handleIncrement!true(e, 1);
 	}
 	
 	LLVMValueRef visit(PreDecrementExpression e) {
-		return handleIncrement!(LLVMBuildSub, true)(e);
+		return handleIncrement!true(e, -1);
 	}
 	
 	LLVMValueRef visit(PostIncrementExpression e) {
-		return handleIncrement!(LLVMBuildAdd, false)(e);
+		return handleIncrement!false(e, 1);
 	}
 	
 	LLVMValueRef visit(PostDecrementExpression e) {
-		return handleIncrement!(LLVMBuildSub, false)(e);
+		return handleIncrement!false(e, -1);
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
@@ -640,14 +650,16 @@ final:
 		assert(e.parameters.length == 1);
 		
 		auto indexed = addressOfGen.visit(e.indexed);
-		
-		// TODO: add bound checking.
-		auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), "length");
-		auto ptr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), "ptr");
-		
 		auto indice = visit(e.parameters[0]);
 		
-		return LLVMBuildLoad(builder, LLVMBuildInBoundsGEP(builder, ptr, &indice, 1, ""), "");
+		if(typeid({ return e.indexed; }()) is typeid(SliceType)) {
+			// TODO: add bound checking.
+			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), "length");
+			
+			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), "ptr");
+		}
+		
+		return LLVMBuildLoad(builder, LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, ""), "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -753,6 +765,14 @@ final:
 	
 	LLVMValueRef visit(ThisExpression e) {
 		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
+	}
+	
+	LLVMValueRef visit(DereferenceExpression e) {
+		return pass.visit(e.expression);
+	}
+	
+	LLVMValueRef visit(BitCastExpression e) {
+		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
 	}
 }
 
