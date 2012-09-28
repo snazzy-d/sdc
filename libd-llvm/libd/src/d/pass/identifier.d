@@ -695,17 +695,22 @@ final:
 			
 			expression = e;
 			
-			auto s = pass.symbolInTypeResolver.resolve(e.type, i.name);
+			if(auto s = pass.symbolInTypeResolver.resolve(e.type, i.name)) {
+				return this.dispatch!((s) {
+					auto resolved = pass.identifierVisitor.visit(s);
+				
+					if(auto asExpr = cast(Expression) resolved) {
+						return new CommaExpression(i.location, e, asExpr);
+					}
+				
+					assert(0, "Don't know what to do with that !");
+				})(s);
+			} else if(auto asExpr = cast(Expression) pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type))) {
+				// expression.sizeof or similar stuffs.
+				return new CommaExpression(i.location, e, asExpr);
+			}
 			
-			return this.dispatch!((s) {
-				auto resolved = pass.identifierVisitor.visit(s);
-				
-				if(auto asExpr = cast(Expression) resolved) {
-					return new CommaExpression(i.location, e, asExpr);
-				}
-				
-				assert(0, "Don't know what to do with that !");
-			})(s);
+			assert(0, "Can't resolve identifier.");
 		})(i.location, i.expression);
 	}
 	
