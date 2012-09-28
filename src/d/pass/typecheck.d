@@ -270,7 +270,14 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) out(result) {
-		assert(result.type, "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.");
+		if(!result.type) {
+			auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(result.location, msg);
+			
+			assert(0, msg);
+		}
 	} body {
 		return this.dispatch(e);
 	}
@@ -308,6 +315,39 @@ final:
 		return ce;
 	}
 	
+	Expression visit(AssignExpression e) {
+		e.lhs = visit(e.lhs);
+		e.type = e.lhs.type;
+		
+		e.rhs = buildImplicitCast(e.rhs.location, e.type, visit(e.rhs));
+		
+		return e;
+	}
+	
+	private auto handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "-"], operation)) {
+		e.lhs = visit(e.lhs);
+		e.rhs = visit(e.rhs);
+		
+		if(auto pointerType = cast(PointerType) e.lhs.type) {
+			return visit(new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs])));
+		}
+		
+		e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
+		
+		e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
+		e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+		
+		return e;
+	}
+	
+	Expression visit(AddExpression e) {
+		return handleArithmeticExpression(e);
+	}
+	
+	Expression visit(SubExpression e) {
+		return handleArithmeticExpression(e);
+	}
+	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -325,32 +365,16 @@ final:
 			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
 			
 			e.type = new BooleanType(e.location);
-		} else static if(find(["&", "|", "^", "+", "-", "*", "/", "%"], operation)) {
+		} else static if(find(["&", "|", "^", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
 			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
-		} else static if(find(["="], operation)) {
-			e.type = e.lhs.type;
-			
 			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
 		} else static if(find([","], operation)) {
 			e.type = e.rhs.type;
 		}
 		
 		return e;
-	}
-	
-	Expression visit(AssignExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(AddExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(SubExpression e) {
-		return handleBinaryExpression(e);
 	}
 	
 	Expression visit(MulExpression e) {
@@ -397,7 +421,44 @@ final:
 		return handleBinaryExpression(e);
 	}
 	
-	private auto handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
+	private Expression handleIncrementExpression(UnaryExpression)(UnaryExpression e) {
+		e.expression = visit(e.expression);
+		e.type = e.expression.type;
+		
+		if(auto pointerType = cast(PointerType) e.expression.type) {
+			return e;
+		} else if(auto integerType = cast(IntegerType) e.expression.type) {
+			return e;
+		}
+		
+		assert(false, "Increment and decrement are performed on integers or pointer types.");
+	}
+	
+	Expression visit(PreIncrementExpression e) {
+		return handleIncrementExpression(e);
+	}
+	
+	Expression visit(PreDecrementExpression e) {
+		return handleIncrementExpression(e);
+	}
+	
+	Expression visit(PostIncrementExpression e) {
+		return handleIncrementExpression(e);
+	}
+	
+	Expression visit(PostDecrementExpression e) {
+		return handleIncrementExpression(e);
+	}
+	
+	Expression visit(AddressOfExpression e) {
+		e.expression = visit(e.expression);
+		
+		e.type = new PointerType(e.location, e.expression.type);
+		
+		return e;
+	}
+	
+	Expression visit(ReferenceOfExpression e) {
 		e.expression = visit(e.expression);
 		
 		e.type = e.expression.type;
@@ -405,40 +466,8 @@ final:
 		return e;
 	}
 	
-	Expression visit(PreIncrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PreDecrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PostIncrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PostDecrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(AddressOfExpression e) {
-		e = handleUnaryExpression(e);
-		
-		e.type = new PointerType(e.location, e.type);
-		
-		return e;
-	}
-	
-	Expression visit(ReferenceOfExpression e) {
-		e = handleUnaryExpression(e);
-		
-		e.type = e.type;
-		
-		return e;
-	}
-	
 	Expression visit(DereferenceExpression e) {
-		e = handleUnaryExpression(e);
+		e.expression = visit(e.expression);
 		
 		// TODO: handle function dereference.
 		if(auto pt = cast(PointerType) e.expression.type) {
@@ -455,17 +484,15 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		c.callee = visit(c.callee);
-		
-		assert(c.callee.type, "callee must have a type.");
+		auto callee = visit(c.callee);
 		
 		// XXX: is it the appropriate place to perform that ?
-		if(auto me = cast(MethodExpression) c.callee) {
-			c.callee = visit(new SymbolExpression(me.location, me.method));
+		if(auto me = cast(MethodExpression) callee) {
+			callee = visit(new SymbolExpression(me.location, me.method));
 			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
-		auto fun = cast(FunctionDeclaration) (cast(SymbolExpression) c.callee).symbol;
+		auto fun = cast(FunctionDeclaration) (cast(SymbolExpression) callee).symbol;
 		assert(fun, "You must call function, you fool !!!");
 		foreach(ref arg, ref param; lockstep(c.arguments, fun.parameters)) {
 			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
@@ -473,7 +500,8 @@ final:
 			if(param.isReference && typeid(arg) !is typeid(ReferenceOfExpression)) arg = new ReferenceOfExpression(arg.location, arg);
 		}
 		
-		c.type = c.callee.type;
+		c.callee = callee;
+		c.type = callee.type;
 		
 		return c;
 	}
@@ -504,9 +532,15 @@ final:
 	
 	Expression visit(SymbolExpression e) {
 		return resolveOrDefer!(delegate bool(Expression cause) {
-			return (e.symbol in pass.symbolTypes) !is null;
+			// Too restrictive for now.
+			// return (e.symbol in pass.symbolTypes) !is null;
+			
+			return typeid({ return e.symbol.type; }()) !is typeid(AutoType);
 		}, delegate Expression(Expression cause) {
-			e.type = pass.symbolTypes[e.symbol];
+			// ditto
+			// e.type = pass.symbolTypes[e.symbol];
+			
+			e.type = e.symbol.type;
 			
 			return e;
 		})(e.location, e);
@@ -565,6 +599,7 @@ final:
 	}
 	
 	Type visit(SymbolType t) {
+		// TODO: remove when indentifierpass is able to manage this.
 		if(auto aliasDecl = cast(AliasDeclaration) t.symbol) {
 			return visit(aliasDecl.type);
 		}
@@ -782,8 +817,26 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 			import std.conv;
 			assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 		}
+		
+		Expression visit(IntegerType t) {
+			Integer i;
+			final switch(fromType) {
+				case Character.Char :
+					i = Integer.Ubyte;
+					break;
+				
+				case Character.Wchar :
+					i = Integer.Ushort;
+					break;
+				
+				case Character.Dchar :
+					i = Integer.Uint;
+					break;
+			}
+			
+			return (new CastFromIntegerType(i)).visit(t);
+		}
 	}
-	
 	
 	final class CastFromPointerTo {
 		Type fromType;
