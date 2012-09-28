@@ -1,5 +1,4 @@
 //T compiles:yes
-//T has-passed:no
 //T retval:41
 
 auto add(int a, int b)

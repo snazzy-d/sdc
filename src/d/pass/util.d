@@ -5,7 +5,13 @@ import d.ast.expression;
 
 import sdc.location;
 
-final class Deferred(T) if (is(T == Expression)) : T {
+private template Base(T) {
+	static if(is(T : Expression)) {
+		alias Expression Base;
+	}
+}
+
+final class Deferred(T) if(is(Base!T == T)) : Base!T {
 	private T cause;
 	private Resolver!T resolver;
 	
@@ -32,7 +38,11 @@ private abstract class Resolver(T) if(is(Deferred!T)) {
 	T resolve(Deferred!T t);
 }
 
-auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(is(Deferred!T) && is(typeof(test(t)) == bool) && is(typeof(resolve(t)) : Identifiable)) {
+auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(!is(Base!T == T)) {
+	return resolveOrDefer!(test, resolve, Base!T)(location, t);
+}
+
+auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(is(Deferred!T) && is(typeof(test(t)) == bool) && is(typeof(resolve(t)) : T)) {
 	if(test(t)) {
 		return resolve(t);
 	}
@@ -57,10 +67,7 @@ auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(is(
 	});
 }
 
-T handleDeferredExpression(alias process, T)(Deferred!T t) /* if(is(typeof(process(t.cause)) : T)) */ {
-	// XXX: For unknown reason, this don't seems to work as template constraint.
-	static assert(is(typeof(process(t.cause)): T));
-	
+auto handleDeferredExpression(alias process, T)(Deferred!T t) if(is(typeof(process(T.init)) : T)) {
 	t.cause = process(t.cause);
 	auto resolved = t.resolve();
 	

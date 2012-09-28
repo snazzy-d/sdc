@@ -37,6 +37,8 @@ class TypecheckPass {
 	private Type returnType;
 	private Type thisType;
 	
+	private Type[ExpressionSymbol] symbolTypes;
+	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
@@ -92,20 +94,23 @@ final:
 		// XXX: hack around function call madness.
 		d.type = d.returnType;
 		
+		symbolTypes[d] = d.type;
+		
 		return d;
 	}
 	
 	Symbol visit(FunctionDefinition fun) {
 		fun.parameters = fun.parameters.map!(p => this.dispatch(p)).array();
 		
+		if(typeid({ return fun.returnType; }()) !is typeid(AutoType)) {
+			fun.returnType = pass.visit(fun.returnType);
+		}
+		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
 		scope(exit) returnType = oldReturnType;
 		
-		returnType = fun.returnType = pass.visit(fun.returnType);
-		
-		// XXX: hack around function call madness.
-		fun.type = fun.returnType;
+		returnType = fun.returnType;
 		
 		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
@@ -118,6 +123,15 @@ final:
 		
 		// And visit.
 		pass.visit(fun.fbody);
+		
+		if(typeid({ return fun.returnType; }()) is typeid(AutoType)) {
+			fun.returnType = returnType;
+		}
+		
+		// XXX: hack around function call madness.
+		fun.type = fun.returnType;
+		
+		symbolTypes[fun] = fun.type;
 		
 		return fun;
 	}
@@ -132,6 +146,8 @@ final:
 			var.type = pass.visit(var.type);
 			var.value = buildImplicitCast(var.location, var.type, var.value);
 		}
+		
+		symbolTypes[var] = var.type;
 		
 		return var;
 	}
@@ -152,7 +168,7 @@ final:
 	}
 	
 	Parameter visit(Parameter p) {
-		p.type = pass.visit(p.type);
+		symbolTypes[p] = p.type = pass.visit(p.type);
 		
 		return p;
 	}
@@ -231,7 +247,13 @@ final:
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = buildImplicitCast(r.location, returnType, pass.visit(r.value));
+		r.value = pass.visit(r.value);
+		
+		if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
+			returnType = r.value.type;
+		} else {
+			r.value = buildImplicitCast(r.location, returnType, r.value);
+		}
 	}
 }
 
@@ -481,10 +503,13 @@ final:
 	}
 	
 	Expression visit(SymbolExpression e) {
-		// XXX: Can't that calculation be doen before ?
-		e.type = pass.visit(e.symbol.type);
-		
-		return e;
+		return resolveOrDefer!(delegate bool(Expression cause) {
+			return (e.symbol in pass.symbolTypes) !is null;
+		}, delegate Expression(Expression cause) {
+			e.type = pass.symbolTypes[e.symbol];
+			
+			return e;
+		})(e.location, e);
 	}
 	
 	Expression visit(IndexExpression e) {
