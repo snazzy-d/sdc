@@ -71,12 +71,13 @@ final:	// Check whenever these operation make sense.
 	}
 }
 
-/**
- * Auto types
- */
-class AutoType : SimpleStorageClassType {
-	this(Location location) {
+class SuffixType : SimpleStorageClassType {
+	Type type;
+	
+	this(Location location, Type type) {
 		super(location);
+		
+		this.type = type;
 	}
 }
 
@@ -84,6 +85,15 @@ class AutoType : SimpleStorageClassType {
  * All basics types and qualified basic types.
  */
 class BasicType : SimpleStorageClassType {
+	this(Location location) {
+		super(location);
+	}
+}
+
+/**
+ * Auto types
+ */
+class AutoType : SimpleStorageClassType {
 	this(Location location) {
 		super(location);
 	}
@@ -366,16 +376,6 @@ class TypeofType : BasicType {
 class ReturnType : BasicType {
 	this(Location location) {
 		super(location);
-	}
-}
-
-class SuffixType : SimpleStorageClassType {
-	Type type;
-	
-	this(Location location, Type type) {
-		super(location);
-		
-		this.type = type;
 	}
 }
 
