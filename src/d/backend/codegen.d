@@ -462,7 +462,7 @@ final:
 	}
 	
 	LLVMValueRef visit(StringLiteral sl) {
-		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), "str")];
+		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), ".str")];
 		
 		return LLVMConstStruct(fields.ptr, 2, false);
 	}
@@ -647,19 +647,7 @@ final:
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
-		assert(e.parameters.length == 1);
-		
-		auto indexed = addressOfGen.visit(e.indexed);
-		auto indice = visit(e.parameters[0]);
-		
-		if(typeid({ return e.indexed; }()) is typeid(SliceType)) {
-			// TODO: add bound checking.
-			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), "length");
-			
-			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), "ptr");
-		}
-		
-		return LLVMBuildLoad(builder, LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, ""), "");
+		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 	}
 	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
@@ -773,6 +761,37 @@ final:
 	
 	LLVMValueRef visit(BitCastExpression e) {
 		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
+	}
+	
+	LLVMValueRef visit(IndexExpression e) {
+		assert(e.parameters.length == 1);
+		
+		auto indexed = visit(e.indexed);
+		auto indice = pass.visit(e.parameters[0]);
+		
+		if(typeid({ return e.indexed.type; }()) is typeid(SliceType)) {
+			// TODO: add bound checking.
+			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
+			
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64Type(), ""), length, "");
+			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+			
+			auto failBB = LLVMAppendBasicBlock(fun, "arrayBoundFail");
+			auto okBB = LLVMAppendBasicBlock(fun, "arrayBoundOK");
+			
+			LLVMBuildCondBr(builder, condition, okBB, failBB);
+			
+			// Emit bound check fail code.
+			LLVMPositionBuilderAtEnd(builder, failBB);
+			LLVMBuildUnreachable(builder);
+			
+			// And continue regular program flow.
+			LLVMPositionBuilderAtEnd(builder, okBB);
+			
+			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), ".ptr");
+		}
+		
+		return LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, "");
 	}
 }
 
