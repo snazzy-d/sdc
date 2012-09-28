@@ -182,6 +182,8 @@ final:
 	}
 	
 	Symbol visit(AliasDeclaration a) {
+		a.type = pass.visit(a.type);
+		
 		return a;
 	}
 	
