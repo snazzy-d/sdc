@@ -54,6 +54,7 @@ class LLVMBackend : Backend {
 			
 			LLVMDumpModule(dmodule);
 			
+			//*
 			LLVMValueRef fun;
 			auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
 			if(notFound) {
@@ -65,6 +66,7 @@ class LLVMBackend : Backend {
 			auto returned = cast(int) LLVMGenericValueToInt(executionResult, true);
 			
 			writeln("\nreturned : ", returned);
+			//*/
 			
 			/*
 			writeln("\nASM generated :");
