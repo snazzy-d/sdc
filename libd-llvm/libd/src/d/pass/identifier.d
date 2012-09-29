@@ -536,6 +536,12 @@ final:
 		return t;
 	}
 	
+	Type visit(StaticArrayType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
 	Type visit(FunctionType t) {
 		t.returnType = visit(t.returnType);
 		
