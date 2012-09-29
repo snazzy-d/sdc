@@ -109,17 +109,7 @@ final:
 	}
 	
 	LLVMValueRef visit(FunctionDeclaration d) {
-		auto parameterTypes = d.parameters.map!((p) {
-			auto type = pass.visit(p.type);
-			
-			if(p.isReference) {
-				type = LLVMPointerType(type, 0);
-			}
-			
-			return type;
-		}).array();
-		
-		auto funType = LLVMFunctionType(pass.visit(d.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
+		auto funType = LLVMGetElementType(pass.visit(d.type));
 		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
 		
 		// Register the function.
@@ -133,17 +123,7 @@ final:
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto parameterTypes = f.parameters.map!((p) {
-			auto type = pass.visit(p.type);
-			
-			if(p.isReference) {
-				type = LLVMPointerType(type, 0);
-			}
-			
-			return type;
-		}).array();
-		
-		auto funType = LLVMFunctionType(pass.visit(f.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, false);
+		auto funType = LLVMGetElementType(pass.visit(f.type));
 		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
@@ -157,8 +137,10 @@ final:
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		
 		LLVMValueRef[] params;
-		params.length = f.parameters.length;
+		LLVMTypeRef[] parameterTypes;
+		params.length = parameterTypes.length = f.parameters.length;
 		LLVMGetParams(fun, params.ptr);
+		LLVMGetParamTypes(funType, parameterTypes.ptr);
 		
 		foreach(i, p; f.parameters) {
 			auto value = params[i];
@@ -229,6 +211,7 @@ final:
 			
 			// Store the initial value into the alloca.
 			auto value = pass.visit(var.value);
+			assert(value);
 			LLVMBuildStore(builder, value, alloca);
 			
 			return alloca;
@@ -713,6 +696,14 @@ final:
 	}
 	
 	LLVMValueRef visit(CallExpression c) {
+		auto callee = addressOfGen.visit(c.callee);
+		
+		auto calleeType = LLVMTypeOf(callee);
+		assert(LLVMGetTypeKind(calleeType) == LLVMTypeKind.Pointer);
+		if(LLVMGetTypeKind(LLVMGetElementType(calleeType)) != LLVMTypeKind.Function) {
+			callee = LLVMBuildLoad(builder, callee, "");
+		}
+		
 		LLVMValueRef[] arguments;
 		arguments.length = c.arguments.length;
 		
@@ -720,7 +711,7 @@ final:
 			arguments[i] = visit(arg);
 		}
 		
-		return LLVMBuildCall(builder, addressOfGen.visit(c.callee), arguments.ptr, cast(uint) arguments.length, "");
+		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
@@ -883,17 +874,27 @@ final:
 	LLVMTypeRef visit(PointerType t) {
 		auto pointed = visit(t.type);
 		
-		isSigned = false;
-		
 		return LLVMPointerType(pointed, 0);
 	}
 	
 	LLVMTypeRef visit(SliceType t) {
-		isSigned = false;
-		
 		auto types = [LLVMInt64Type(), LLVMPointerType(visit(t.type), 0)];
 		
 		return LLVMStructType(types.ptr, 2, false);
+	}
+	
+	LLVMTypeRef visit(FunctionType t) {
+		auto parameterTypes = t.parameters.map!((p) {
+			auto type = visit(p.type);
+			
+			if(p.isReference) {
+				type = LLVMPointerType(type, 0);
+			}
+			
+			return type;
+		}).array();
+		
+		return LLVMPointerType(LLVMFunctionType(visit(t.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, t.isVariadic), 0);
 	}
 }
 

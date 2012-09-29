@@ -548,6 +548,12 @@ final:
 		return t;
 	}
 	
+	Type visit(FunctionType t) {
+		t.returnType = visit(t.returnType);
+		
+		return t;
+	}
+	
 	Type visit(AutoType t) {
 		return t;
 	}

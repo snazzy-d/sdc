@@ -91,49 +91,47 @@ final:
 	Symbol visit(FunctionDeclaration d) {
 		d.returnType = pass.visit(d.returnType);
 		
-		// XXX: hack around function call madness.
-		d.type = d.returnType;
+		d.type = new FunctionType(d.location, d.returnType, d.parameters, false);
 		
 		symbolTypes[d] = d.type;
 		
 		return d;
 	}
 	
-	Symbol visit(FunctionDefinition fun) {
-		fun.parameters = fun.parameters.map!(p => this.dispatch(p)).array();
+	Symbol visit(FunctionDefinition d) {
+		d.parameters = d.parameters.map!(p => this.dispatch(p)).array();
 		
-		if(typeid({ return fun.returnType; }()) !is typeid(AutoType)) {
-			fun.returnType = pass.visit(fun.returnType);
+		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
+			d.returnType = pass.visit(d.returnType);
 		}
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
 		scope(exit) returnType = oldReturnType;
 		
-		returnType = fun.returnType;
+		returnType = d.returnType;
 		
 		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
-		if(!fun.isStatic) {
-			auto thisParameter = new Parameter(fun.location, "this", thisType);
+		if(!d.isStatic) {
+			auto thisParameter = new Parameter(d.location, "this", thisType);
 			thisParameter.isReference = true;
 			
-			fun.parameters = thisParameter ~ fun.parameters;
+			d.parameters = thisParameter ~ d.parameters;
 		}
 		
 		// And visit.
-		pass.visit(fun.fbody);
+		pass.visit(d.fbody);
 		
-		if(typeid({ return fun.returnType; }()) is typeid(AutoType)) {
-			fun.returnType = returnType;
+		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
+			d.returnType = returnType;
 		}
 		
-		// XXX: hack around function call madness.
-		fun.type = fun.returnType;
+		d.type = new FunctionType(d.location, d.returnType, d.parameters, false);
 		
-		symbolTypes[fun] = fun.type;
+		symbolTypes[d] = d.type;
 		
-		return fun;
+		return d;
 	}
 	
 	Symbol visit(VariableDeclaration var) {
@@ -453,6 +451,15 @@ final:
 	Expression visit(AddressOfExpression e) {
 		e.expression = visit(e.expression);
 		
+		// For fucked up reasons, &funcname is a special case.
+		if(auto asSym = cast(SymbolExpression) e.expression) {
+			if(auto asDecl = cast(FunctionDeclaration) asSym.symbol) {
+				e.type = e.expression.type;
+				
+				return e;
+			}
+		}
+		
 		e.type = new PointerType(e.location, e.expression.type);
 		
 		return e;
@@ -492,16 +499,16 @@ final:
 			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
-		auto fun = cast(FunctionDeclaration) (cast(SymbolExpression) callee).symbol;
-		assert(fun, "You must call function, you fool !!!");
-		foreach(ref arg, ref param; lockstep(c.arguments, fun.parameters)) {
+		auto type = cast(FunctionType) callee.type;
+		assert(type, "You must call function, you fool !!!");
+		foreach(ref arg, ref param; lockstep(c.arguments, type.parameters)) {
 			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
 			
 			if(param.isReference && typeid(arg) !is typeid(ReferenceOfExpression)) arg = new ReferenceOfExpression(arg.location, arg);
 		}
 		
 		c.callee = callee;
-		c.type = callee.type;
+		c.type = type.returnType;
 		
 		return c;
 	}
@@ -639,6 +646,12 @@ final:
 	
 	Type visit(SliceType t) {
 		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(FunctionType t) {
+		t.returnType = visit(t.returnType);
 		
 		return t;
 	}

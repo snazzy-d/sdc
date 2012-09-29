@@ -17,7 +17,7 @@ class FunctionDeclaration : ExpressionSymbol {
 	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {
-		super(location, name, returnType);
+		super(location, name, new FunctionType(location, returnType, parameters, false));
 		
 		this.name = name;
 		this.returnType = returnType;
@@ -115,6 +115,30 @@ class FunctionType : SimpleStorageClassType {
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto p = cast(FunctionType) t) {
+			return this.opEquals(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const FunctionType t) const {
+		if(isVariadic != t.isVariadic) return false;
+		if(returnType != t.returnType) return false;
+		
+		import std.range;
+		foreach(p1, p2; lockstep(parameters, t.parameters)) {
+			if(p1.type != p2.type) return false;
+		}
+		
+		return true;
+	}
+	
+	override Expression initExpression(Location location) {
+		return new NullLiteral(location, this);
 	}
 }
 
