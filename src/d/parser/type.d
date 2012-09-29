@@ -237,7 +237,8 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes.
-				return new FunctionType(location, type, parameters, isVariadic);
+				type = new FunctionType(location, type, parameters, isVariadic);
+				break;
 			
 			case TokenType.Delegate :
 				trange.popFront();
@@ -248,7 +249,8 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes and storage class.
-				return new DelegateType(location, type, parameters, isVariadic);
+				type = new DelegateType(location, type, parameters, isVariadic);
+				break;
 			
 			default :
 				return type;
