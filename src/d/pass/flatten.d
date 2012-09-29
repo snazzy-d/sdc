@@ -121,6 +121,7 @@ final:
 		d.linkage = linkage;
 		d.isStatic = isStatic;
 		
+		d.value = pass.visit(d.value);
 		d.type = pass.visit(d.type);
 		
 		return d;
@@ -490,6 +491,10 @@ final:
 		
 		e.parameters = e.parameters.map!(e => visit(e)).array();
 		
+		return e;
+	}
+	
+	Expression visit(DefaultInitializer e) {
 		return e;
 	}
 }

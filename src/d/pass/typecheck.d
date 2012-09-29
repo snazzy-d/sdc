@@ -878,6 +878,42 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				assert(0, "invalid pointer cast.");
 			}
 		}
+		
+		static if(isExplicit) {
+			Expression visit(FunctionType t) {
+				return new BitCastExpression(location, type, e);
+			}
+		}
+	}
+	
+	
+	final class CastFromFunctionTo {
+		FunctionType fromType;
+		
+		this(FunctionType fromType) {
+			this.fromType = fromType;
+		}
+		
+		Expression visit(Type t) {
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
+		}
+		
+		Expression visit(PointerType t) {
+			static if(isExplicit) {
+				return new BitCastExpression(location, type, e);
+			} else if(auto toType = cast(VoidType) t.type) {
+				return new BitCastExpression(location, type, e);
+			} else {
+				assert(0, "invalid pointer cast.");
+			}
+		}
 	}
 	
 	final class Cast {
@@ -910,6 +946,10 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		
 		Expression visit(PointerType t) {
 			return (new CastFromPointerTo(t.type)).visit(type);
+		}
+		
+		Expression visit(FunctionType t) {
+			return (new CastFromFunctionTo(t)).visit(type);
 		}
 	}
 	
