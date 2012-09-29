@@ -109,13 +109,20 @@ final:
 	}
 	
 	LLVMValueRef visit(FunctionDeclaration d) {
-		auto funType = LLVMGetElementType(pass.visit(d.type));
-		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
+		auto funptrType = pass.visit(d.type);
+		
+		auto funType = LLVMGetElementType(funptrType);
+		auto fun = LLVMAddFunction(dmodule, d.funmangle.toStringz(), funType);
+		
+		// Experimental, unify function declaration and function variables.
+		auto var = LLVMAddGlobal(dmodule, funptrType, d.mangle.toStringz());
+		LLVMSetInitializer(var, fun);
+		LLVMSetGlobalConstant(var, true);
 		
 		// Register the function.
-		exprSymbols[d] = fun;
+		exprSymbols[d] = var;
 		
-		return fun;
+		return var;
 	}
 	
 	LLVMValueRef visit(FunctionDefinition f) {
@@ -123,11 +130,18 @@ final:
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto funType = LLVMGetElementType(pass.visit(f.type));
-		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+		auto funptrType = pass.visit(f.type);
+		
+		auto funType = LLVMGetElementType(funptrType);
+		auto fun = LLVMAddFunction(dmodule, f.funmangle.toStringz(), funType);
+		
+		// Experimental, unify function declaration and function variables.
+		auto var = LLVMAddGlobal(dmodule, funptrType, f.mangle.toStringz());
+		LLVMSetInitializer(var, fun);
+		LLVMSetGlobalConstant(var, true);
 		
 		// Register the function.
-		exprSymbols[f] = fun;
+		exprSymbols[f] = var;
 		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlock(fun, "");
@@ -166,7 +180,7 @@ final:
 		// If the current block isn't concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
 			// FIXME: provide the right AST in case of void function.
-			if(typeid({ return f.returnType; }()) is typeid(VoidType)) {
+			if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
 				LLVMBuildRetVoid(builder);
 			} else {
 				LLVMBuildUnreachable(builder);
@@ -179,7 +193,7 @@ final:
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 		
-		return fun;
+		return var;
 	}
 	
 	LLVMValueRef visit(VariableDeclaration var) {
@@ -696,13 +710,7 @@ final:
 	}
 	
 	LLVMValueRef visit(CallExpression c) {
-		auto callee = addressOfGen.visit(c.callee);
-		
-		auto calleeType = LLVMTypeOf(callee);
-		assert(LLVMGetTypeKind(calleeType) == LLVMTypeKind.Pointer);
-		if(LLVMGetTypeKind(LLVMGetElementType(calleeType)) != LLVMTypeKind.Function) {
-			callee = LLVMBuildLoad(builder, callee, "");
-		}
+		auto callee = visit(c.callee);
 		
 		LLVMValueRef[] arguments;
 		arguments.length = c.arguments.length;
