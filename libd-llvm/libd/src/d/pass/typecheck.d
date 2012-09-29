@@ -449,14 +449,14 @@ final:
 	}
 	
 	Expression visit(AddressOfExpression e) {
+		assert(typeid({ return e.expression; }()) !is typeid(AddressOfExpression), "Cannot take the address of an address.");
+		
 		e.expression = visit(e.expression);
 		
 		// For fucked up reasons, &funcname is a special case.
 		if(auto asSym = cast(SymbolExpression) e.expression) {
 			if(auto asDecl = cast(FunctionDeclaration) asSym.symbol) {
-				e.type = e.expression.type;
-				
-				return e;
+				return e.expression;
 			}
 		}
 		
