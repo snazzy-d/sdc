@@ -277,7 +277,14 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) {
-		return this.dispatch(e);
+		return this.dispatch!(function Expression(Expression e) {
+			auto msg = typeid(e).toString() ~ " not supported.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(e.location, msg);
+			
+			assert(0, msg);
+		})(e);
 	}
 	
 	Expression visit(BooleanLiteral bl) {
