@@ -96,16 +96,18 @@ final:
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
 		switch(d.linkage) {
 			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+				d.funmangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 				break;
 			
 			case "C" :
-				d.mangle = d.name;
+				d.funmangle = d.name;
 				break;
 			
 			default:
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
+		
+		d.mangle = "_D" ~ manglePrefix ~ "yF" ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		return d;
 	}
@@ -120,16 +122,18 @@ final:
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
 		switch(d.linkage) {
 			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+				d.funmangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 				break;
 			
 			case "C" :
-				d.mangle = d.name;
+				d.funmangle = d.name;
 				break;
 			
 			default:
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
+		
+		d.mangle = "_D" ~ manglePrefix ~ "yF" ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
 		
 		// And visit.
 		pass.visit(d.fbody);

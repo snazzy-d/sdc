@@ -14,6 +14,8 @@ class FunctionDeclaration : ExpressionSymbol {
 	Type returnType;
 	Parameter[] parameters;
 	
+	string funmangle;
+	
 	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters) {

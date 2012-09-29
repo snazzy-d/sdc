@@ -45,7 +45,7 @@ class LLVMBackend : Backend {
 			LLVMAddPromoteMemoryToRegisterPass(fpm);
 			LLVMAddBasicAliasAnalysisPass(fpm);
 			LLVMAddReassociatePass(fpm);
-			LLVMAddInstructionCombiningPass(fpm);
+			// LLVMAddInstructionCombiningPass(fpm); // Disabled. Add crazy align on empty structs.
 			LLVMAddGVNPass(fpm);
 			LLVMAddCFGSimplificationPass(fpm);
 			
