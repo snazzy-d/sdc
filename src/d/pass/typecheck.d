@@ -557,10 +557,15 @@ final:
 		// TODO: check if it is valid.
 		e.indexed = visit(e.indexed);
 		
-		auto indexedType = cast(SliceType) e.indexed.type;
-		assert(indexedType);
+		if(auto asSlice = cast(SliceType) e.indexed.type) {
+			e.type = asSlice.type;
+		} else if(auto asPointer = cast(PointerType) e.indexed.type) {
+			e.type = asPointer.type;
+		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
+			e.type = asStaticArray.type;
+		}
 		
-		e.type = indexedType.type;
+		assert(e.type, "Can't index " ~ typeid({ return e.indexed; }()).toString());
 		
 		e.parameters = e.parameters.map!(e => visit(e)).array();
 		
@@ -645,6 +650,12 @@ final:
 	}
 	
 	Type visit(SliceType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(StaticArrayType t) {
 		t.type = visit(t.type);
 		
 		return t;

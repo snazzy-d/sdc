@@ -436,6 +436,10 @@ class StaticArrayType : SuffixType {
 		
 		this.size = size;
 	}
+	
+	override Expression initExpression(Location location) {
+		return new VoidInitializer(location, this);
+	}
 }
 
 /**

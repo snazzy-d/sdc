@@ -757,10 +757,12 @@ final:
 	LLVMValueRef visit(IndexExpression e) {
 		assert(e.parameters.length == 1);
 		
+		auto indexedType = e.indexed.type;
+		
 		auto indexed = visit(e.indexed);
 		auto indice = pass.visit(e.parameters[0]);
 		
-		if(typeid({ return e.indexed.type; }()) is typeid(SliceType)) {
+		if(typeid(indexedType) is typeid(SliceType)) {
 			// TODO: add bound checking.
 			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
 			
@@ -780,6 +782,10 @@ final:
 			LLVMPositionBuilderAtEnd(builder, okBB);
 			
 			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), ".ptr");
+		} else if(typeid(indexedType) is typeid(StaticArrayType)) {
+			auto indices = [LLVMConstInt(LLVMInt64Type(), 0, false), indice];
+			
+			return LLVMBuildInBoundsGEP(builder, indexed, indices.ptr, 2, "");
 		}
 		
 		return LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, "");
@@ -881,6 +887,13 @@ final:
 		auto types = [LLVMInt64Type(), LLVMPointerType(visit(t.type), 0)];
 		
 		return LLVMStructType(types.ptr, 2, false);
+	}
+	
+	LLVMTypeRef visit(StaticArrayType t) {
+		auto type = visit(t.type);
+		auto size = pass.visit(t.size);
+		
+		return LLVMArrayType(type, cast(uint) LLVMConstIntGetZExtValue(size));
 	}
 	
 	LLVMTypeRef visit(FunctionType t) {
