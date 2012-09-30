@@ -18,7 +18,8 @@ auto typeCheck(Module m) {
 	auto pass = new TypecheckPass();
 	
 	import d.pass.identifier;
-	return pass.visit(resolveIdentifiers(m));
+	auto identifierPass = new IdentifierPass();
+	return pass.visit(identifierPass.visit([m])[0]);
 }
 
 import d.ast.expression;

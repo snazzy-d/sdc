@@ -14,12 +14,6 @@ import d.ast.identifier;
 import std.algorithm;
 import std.array;
 
-auto resolveIdentifiers(Module m) {
-	auto pass = new IdentifierPass();
-	
-	return pass.visit(m);
-}
-
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
@@ -61,9 +55,11 @@ class IdentifierPass {
 	}
 	
 final:
-	Module visit(Module m) {
-		m = scopePass.visit([m])[0];
-		
+	Module[] visit(Module[] modules) {
+		return scopePass.visit(modules).map!(m => visit(m)).array();
+	}
+	
+	private Module visit(Module m) {
 		auto name = m.moduleDeclaration.name;
 		
 		// Update scope.
@@ -573,13 +569,24 @@ final:
 		return this.dispatch(i);
 	}
 	
+	Symbol resolveBasicIdentifier(BasicIdentifier i) {
+		auto symbol = currentScope.search(i.name);
+		
+		if(symbol) {
+			return symbol;
+		}
+		
+		// No symbol have been found in the module, look for other modules.
+		assert(0, "Symbol " ~ i.name ~ " has not been found in the module.");
+	}
+	
 	Identifiable visit(BasicIdentifier i) {
 		auto oldLocation = location;
 		scope(exit) location = oldLocation;
 		
 		location = i.location;
 		
-		return visit(currentScope.resolveWithFallback(i.name));
+		return visit(resolveBasicIdentifier(i));
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
@@ -788,7 +795,7 @@ final:
 	}
 	
 	TemplateDeclaration visit(BasicIdentifier i) {
-		return cast(TemplateDeclaration) currentScope.resolveWithFallback(i.name);
+		return cast(TemplateDeclaration) identifierVisitor.resolveBasicIdentifier(i);
 	}
 }
 

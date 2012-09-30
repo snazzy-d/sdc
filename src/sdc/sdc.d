@@ -1,7 +1,7 @@
 /**
  * Entry point for the new multi-pass experiment.
  */
-module sdc.mpsdc;
+module sdc.sdc;
 
 // TODO: move that into druntime.
 // Ensure that null pointers are detected.

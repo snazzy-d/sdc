@@ -15,6 +15,8 @@ import d.ast.declaration;
 import d.ast.statement;
 import d.ast.type;
 
+import d.parser.base;
+
 class ScopePass {
 	private DeclarationVisitor declarationVisitor;
 	private StatementVisitor statementVisitor;
@@ -23,6 +25,8 @@ class ScopePass {
 	private Scope adtScope;
 	
 	private uint scopeIndex;
+	
+	private Module[] imported;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -43,7 +47,7 @@ final:
 		
 		currentScope = m.dscope;
 		
-		m.declarations = m.declarations.map!(d => visit(d)).array();
+		m.declarations = visit(m.declarations);
 		
 		return m;
 	}
@@ -58,11 +62,16 @@ final:
 			currentScope.addSymbol(new AliasDeclaration(p.location, p.name, (cast(TypeTemplateArgument) tpl.arguments[i]).type));
 		}
 		
-		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
+		tpl.declarations = visit(tpl.declarations);
 		
 		tpl.dscope = currentScope;
 		
 		return tpl;
+	}
+	
+	auto visit(Declaration[] decls) {
+		// XXX: array in the middle because each decl is passed 2 times without.
+		return decls.map!(d => visit(d)).array().filter!(e => typeid(e) !is typeid(ImportDeclaration)).array();
 	}
 	
 	auto visit(Declaration decl) {
@@ -142,7 +151,7 @@ final:
 		scopeIndex = 0;
 		adtScope = currentScope = new NestedScope(oldScope);
 		
-		s.members = s.members.map!(m => pass.visit(m)).array();
+		s.members = pass.visit(s.members);
 		
 		s.dscope = currentScope;
 		
@@ -164,6 +173,29 @@ final:
 	}
 	
 	Declaration visit(ImportDeclaration d) {
+		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
+		
+		Module[] modules;
+		
+		foreach(filename; filenames) {
+			import sdc.lexer;
+			import sdc.source;
+			import sdc.sdc;
+			import sdc.tokenstream;
+			
+			auto src = new Source(filename);
+			auto trange = TokenRange(lex(src));
+			
+			auto packages = filename[0 .. $-2].split("/");
+			auto ast = trange.parse(packages.back, packages[0 .. $-1]);
+			
+			modules ~= ast;
+		}
+		
+		imported ~= pass.visit(modules);
+		
+		currentScope.imports = imported;
+		
 		return d;
 	}
 }

@@ -2,6 +2,7 @@ module d.ast.dscope;
 
 import d.ast.base;
 import d.ast.declaration;
+import d.ast.dmodule;
 import d.ast.identifier;
 
 /**
@@ -9,6 +10,8 @@ import d.ast.identifier;
  */
 class Scope {
 	Symbol[string] symbols;
+	
+	Module[] imports;
 	
 	void addSymbol(Symbol s) {
 		symbols[s.name] = s;
@@ -19,12 +22,11 @@ class Scope {
 		addSymbol(s);
 	}
 	
-	// TODO; refactor that.
 	final Symbol resolve(string name) {
 		return symbols.get(name, null);
 	}
 	
-	Symbol resolveWithFallback(string name) {
+	Symbol search(string name) {
 		return resolve(name);
 	}
 }
@@ -36,8 +38,8 @@ class NestedScope : Scope {
 		this.parent = parent;
 	}
 	
-	override Symbol resolveWithFallback(string name) {
-		return symbols.get(name, parent.resolveWithFallback(name));
+	override Symbol search(string name) {
+		return symbols.get(name, parent.search(name));
 	}
 }
 
