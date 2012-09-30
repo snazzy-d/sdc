@@ -248,6 +248,11 @@ final:
 			}
 		}
 		
+		// If the struct have non members, then one is added automatically.
+		if(!members) {
+			members = [LLVMInt8Type()];
+		}
+		
 		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
 		
 		return llvmStruct;

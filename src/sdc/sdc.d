@@ -10,6 +10,8 @@ import etc.linux.memoryerror;
 import std.stdio : writeln, stderr, stdout;
 import std.file : exists;
 
+import std.array;
+
 import sdc.compilererror;
 import sdc.lexer;
 import sdc.source;
@@ -82,7 +84,8 @@ void compile(string filename) {
 	auto src = new Source(filename);
 	auto trange = TokenRange(lex(src));
 	
-	auto ast = trange.parse();
+	auto packages = filename[0 .. $-2].split("/");
+	auto ast = trange.parse(packages.back, packages[0 .. $-1]);
 	
 	import d.pass.mangle;
 	ast = mangle(ast);

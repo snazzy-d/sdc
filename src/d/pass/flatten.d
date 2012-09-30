@@ -10,12 +10,6 @@ import d.ast.dmodule;
 import std.algorithm;
 import std.array;
 
-auto flatten(Module m) {
-	auto pass = new FlattenPass();
-	
-	return pass.visit(m);
-}
-
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
@@ -42,7 +36,11 @@ class FlattenPass {
 	}
 	
 final:
-	Module visit(Module m) {
+	Module[] visit(Module[] modules) {
+		return modules.map!(m => visit(m)).array();
+	}
+	
+	private Module visit(Module m) {
 		m.declarations = visit(m.declarations);
 		
 		return m;

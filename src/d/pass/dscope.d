@@ -30,15 +30,20 @@ class ScopePass {
 	}
 	
 final:
-	Module visit(Module m) {
+	Module[] visit(Module[] modules) {
+		import d.pass.flatten;
+		auto flattenPass = new FlattenPass();
+		
+		return flattenPass.visit(modules).map!(m => visit(m)).array();
+	}
+	
+	private Module visit(Module m) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
 		currentScope = m.dscope;
 		
-		foreach(decl; m.declarations) {
-			visit(decl);
-		}
+		m.declarations = m.declarations.map!(d => visit(d)).array();
 		
 		return m;
 	}
@@ -53,9 +58,7 @@ final:
 			currentScope.addSymbol(new AliasDeclaration(p.location, p.name, (cast(TypeTemplateArgument) tpl.arguments[i]).type));
 		}
 		
-		foreach(decl; tpl.declarations) {
-			visit(decl);
-		}
+		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
 		
 		tpl.dscope = currentScope;
 		
@@ -158,6 +161,10 @@ final:
 		currentScope.addSymbol(a);
 		
 		return a;
+	}
+	
+	Declaration visit(ImportDeclaration d) {
+		return d;
 	}
 }
 

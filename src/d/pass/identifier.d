@@ -17,8 +17,7 @@ import std.array;
 auto resolveIdentifiers(Module m) {
 	auto pass = new IdentifierPass();
 	
-	import d.pass.flatten;
-	return pass.visit(flatten(m));
+	return pass.visit(m);
 }
 
 import d.ast.expression;
@@ -63,7 +62,7 @@ class IdentifierPass {
 	
 final:
 	Module visit(Module m) {
-		m = scopePass.visit(m);
+		m = scopePass.visit([m])[0];
 		
 		auto name = m.moduleDeclaration.name;
 		
