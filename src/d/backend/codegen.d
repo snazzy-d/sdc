@@ -11,10 +11,10 @@ import std.algorithm;
 import std.array;
 import std.string;
 
-auto codeGen(Module m) {
+auto codeGen(Module[] modules) {
 	auto cg = new CodeGenPass();
 	
-	cg.visit(m);
+	cg.visit(modules);
 	
 	return cg.dmodule;
 }
@@ -45,12 +45,16 @@ class CodeGenPass {
 	}
 	
 final:
-	Module visit(Module m) {
-		dmodule = LLVMModuleCreateWithName(m.location.filename.toStringz());
+	Module[] visit(Module[] modules) {
+		dmodule = LLVMModuleCreateWithName(modules[0].location.filename.toStringz());
 		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
+		return modules.map!(m => visit(m)).array();
+	}
+	
+	Module visit(Module m) {
 		foreach(decl; m.declarations) {
 			visit(decl);
 		}

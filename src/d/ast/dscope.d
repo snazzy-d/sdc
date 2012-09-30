@@ -35,6 +35,8 @@ class NestedScope : Scope {
 	Scope parent;
 	
 	this(Scope parent) {
+		this.imports = parent.imports;
+		
 		this.parent = parent;
 	}
 	

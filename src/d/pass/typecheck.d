@@ -14,14 +14,6 @@ import std.algorithm;
 import std.array;
 import std.range;
 
-auto typeCheck(Module m) {
-	auto pass = new TypecheckPass();
-	
-	import d.pass.identifier;
-	auto identifierPass = new IdentifierPass();
-	return pass.visit(identifierPass.visit([m])[0]);
-}
-
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
@@ -49,7 +41,19 @@ class TypecheckPass {
 	}
 	
 final:
-	Module visit(Module m) {
+	Module[] visit(Module[] modules) {
+		import d.pass.identifier;
+		auto identifierPass = new IdentifierPass();
+		
+		modules = identifierPass.visit(modules);
+		
+		// Set reference to null to allow garbage collection.
+		identifierPass = null;
+		
+		return modules.map!(m => visit(m)).array();
+	}
+	
+	private Module visit(Module m) {
 		m.declarations = m.declarations.map!(d => visit(d)).array();
 		
 		return m;

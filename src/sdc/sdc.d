@@ -85,17 +85,17 @@ void compile(string filename) {
 	auto trange = TokenRange(lex(src));
 	
 	auto packages = filename[0 .. $-2].split("/");
-	auto ast = trange.parse(packages.back, packages[0 .. $-1]);
+	auto ast = [trange.parse(packages.back, packages[0 .. $-1])];
 	
 	import d.pass.mangle;
 	ast = mangle(ast);
 	//*
 	import d.pass.main;
-	ast = buildMain(ast);
+	ast[0] = buildMain(ast[0]);
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
-	backend.codeGen([ast]);
+	backend.codeGen(ast);
 	//*/
 }
 
