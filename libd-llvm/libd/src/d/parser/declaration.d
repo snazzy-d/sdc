@@ -437,10 +437,24 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Import);
 	
-	Identifier[] modules = [trange.parseIdentifier()];
+	auto parseModuleName(TokenRange)(ref TokenRange trange) {
+		string[] mod = [trange.front.value];
+		trange.match(TokenType.Identifier);
+		while(trange.front.type == TokenType.Dot) {
+			trange.popFront();
+		
+			mod ~= trange.front.value;
+			trange.match(TokenType.Identifier);
+		}
+		
+		return mod;
+	}
+	
+	string[][] modules = [parseModuleName(trange)];
 	while(trange.front.type == TokenType.Comma) {
 		trange.popFront();
-		modules ~= trange.parseIdentifier();
+		
+		modules ~= parseModuleName(trange);
 	}
 	
 	location.spanTo(trange.front.location);

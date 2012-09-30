@@ -144,10 +144,9 @@ class VoidInitializer : Expression {
  * Import declaration
  */
 class ImportDeclaration : Declaration {
-	string name;
-	Identifier[] modules;
+	string[][] modules;
 	
-	this(Location location, Identifier[] modules) {
+	this(Location location, string[][] modules) {
 		super(location);
 		
 		this.modules = modules;

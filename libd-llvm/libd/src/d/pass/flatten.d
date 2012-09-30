@@ -149,6 +149,10 @@ final:
 		
 		return a;
 	}
+	
+	Declaration visit(ImportDeclaration d) {
+		return d;
+	}
 }
 
 class DeclarationFlatener {
