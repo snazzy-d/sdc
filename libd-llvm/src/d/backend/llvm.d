@@ -5,6 +5,11 @@ import d.ast.dmodule;
 import llvm.c.Core;
 import llvm.c.ExecutionEngine;
 import llvm.c.Target;
+
+import llvm.c.transforms.IPO;
+import llvm.c.transforms.PassManagerBuilder;
+import llvm.c.transforms.Scalar;
+
 import llvm.Ext;
 
 interface Backend {
@@ -26,7 +31,6 @@ class LLVMBackend : Backend {
 			
 			auto dmodule = codeGen(mod);
 			
-			// Let's run it !
 			LLVMExecutionEngineRef ee;
 			char* errorPtr;
 			auto creationError = LLVMCreateExecutionEngineForModule(&ee, dmodule, &errorPtr);
@@ -37,24 +41,21 @@ class LLVMBackend : Backend {
 				return;
 			}
 			
-			/*
-			auto fpm = LLVMCreatePassManager();
-			LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), fpm);
+			auto pmb = LLVMPassManagerBuilderCreate();
+			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
+			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
 			
-			import llvm.c.transforms.Scalar;
-			LLVMAddPromoteMemoryToRegisterPass(fpm);
-			LLVMAddBasicAliasAnalysisPass(fpm);
-			LLVMAddReassociatePass(fpm);
-			// LLVMAddInstructionCombiningPass(fpm); // Disabled. Add crazy align on empty structs.
-			LLVMAddGVNPass(fpm);
-			LLVMAddCFGSimplificationPass(fpm);
+			auto pm = LLVMCreatePassManager();
+			LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
+			LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), pm);
 			
-			LLVMRunPassManager (fpm, dmodule);
-			//*/
+			LLVMRunPassManager(pm, dmodule);
 			
+			// Dump module for debug purpose.
 			LLVMDumpModule(dmodule);
 			
 			//*
+			// Let's run it !
 			LLVMValueRef fun;
 			auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
 			if(notFound) {
@@ -68,10 +69,11 @@ class LLVMBackend : Backend {
 			writeln("\nreturned : ", returned);
 			//*/
 			
-			/*
-			writeln("\nASM generated :");
 			char* foobar = null;
 			auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
+			
+			/*
+			writeln("\nASM generated :");
 			
 			LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 1);
 			//*/
