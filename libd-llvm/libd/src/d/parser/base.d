@@ -7,8 +7,8 @@ public import sdc.token;
 
 import d.parser.dmodule;
 
-auto parse(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	return trange.parseModule();
+auto parse(TokenRange)(ref TokenRange trange, string name, string[] packages) if(isTokenRange!TokenRange) {
+	return trange.parseModule(name, packages);
 }
 
 template isTokenRange(T) {

@@ -12,16 +12,16 @@ import sdc.tokenstream;
  * Parse a whole module.
  * This is the regular entry point in the parser
  */
-auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseModule(TokenRange)(ref TokenRange trange, string name, string[] packages) if(isTokenRange!TokenRange) {
 	trange.match(TokenType.Begin);
 	Location location = trange.front.location;
 	
 	ModuleDeclaration moduleDeclaration;
 	if(trange.front.type == TokenType.Module) {
-		moduleDeclaration = trange.parseModuleDeclaration();
+		moduleDeclaration = trange.parseModuleDeclaration(name, packages);
 	} else {
 		// TODO: compute a correct declaration according to the filename.
-		moduleDeclaration = new ModuleDeclaration(location, "UnknownMonduleName", []);
+		moduleDeclaration = new ModuleDeclaration(location, name, packages);
 	}
 	
 	Declaration[] declarations;
@@ -34,7 +34,7 @@ auto parseModule(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) 
 	return new Module(location, moduleDeclaration, declarations);
 }
 
-private auto parseModuleDeclaration(TokenRange)(ref TokenRange trange) {
+private auto parseModuleDeclaration(TokenRange)(ref TokenRange trange, string expectedName, string[] expectedPackages) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Module);
 	
@@ -50,6 +50,9 @@ private auto parseModuleDeclaration(TokenRange)(ref TokenRange trange) {
 	
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Semicolon);
+	
+	assert(name == expectedName);
+	assert(packages == expectedPackages);
 	
 	return new ModuleDeclaration(location, name, packages);
 }
