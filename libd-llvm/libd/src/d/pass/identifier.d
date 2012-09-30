@@ -56,12 +56,12 @@ class IdentifierPass {
 	
 final:
 	Module[] visit(Module[] modules) {
-		return scopePass.visit(modules).map!(m => visit(m)).array();
+		modules = scopePass.visit(modules);
+		
+		return modules.map!(m => visit(m)).array();
 	}
 	
 	private Module visit(Module m) {
-		auto name = m.moduleDeclaration.name;
-		
 		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -576,8 +576,22 @@ final:
 			return symbol;
 		}
 		
+		foreach(mod; currentScope.imports) {
+			auto symInMod = mod.dscope.resolve(i.name);
+			
+			if(symInMod) {
+				if(symbol) {
+					assert(0, "Ambiguous symbol " ~ i.name);
+				}
+				
+				symbol = symInMod;
+			}
+		}
+		
 		// No symbol have been found in the module, look for other modules.
-		assert(0, "Symbol " ~ i.name ~ " has not been found in the module.");
+		assert(symbol, "Symbol " ~ i.name ~ " has not been found.");
+		
+		return symbol;
 	}
 	
 	Identifiable visit(BasicIdentifier i) {

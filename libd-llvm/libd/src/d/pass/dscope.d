@@ -38,7 +38,20 @@ final:
 		import d.pass.flatten;
 		auto flattenPass = new FlattenPass();
 		
-		return flattenPass.visit(modules).map!(m => visit(m)).array();
+		modules = flattenPass.visit(modules);
+		
+		// Set reference to null to allow garbage collection.
+		flattenPass = null;
+		
+		auto oldImported = imported;
+		scope(exit) imported = oldImported;
+		
+		imported = [];
+		
+		// Must be separated because ~ operator don't preserve order of execution.
+		modules = modules.map!(m => visit(m)).array();
+		
+		return modules ~ imported;
 	}
 	
 	private Module visit(Module m) {

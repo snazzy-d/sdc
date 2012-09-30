@@ -14,11 +14,10 @@ import std.algorithm;
 import std.array;
 import std.conv;
 
-auto mangle(Module m) {
+auto mangle(Module[] modules) {
 	auto pass = new ManglePass();
 	
-	import d.pass.typecheck;
-	return pass.visit(typeCheck(m));
+	return pass.visit(modules);
 }
 
 import d.ast.expression;
@@ -40,8 +39,23 @@ class ManglePass {
 	}
 	
 final:
-	Module visit(Module m) {
+	Module[] visit(Module[] modules) {
+		import d.pass.typecheck;
+		auto typecheckPass = new TypecheckPass();
+		
+		modules = typecheckPass.visit(modules);
+		
+		// Set reference to null to allow garbage collection.
+		typecheckPass = null;
+		
+		return modules.map!(m => visit(m)).array();
+	}
+	
+	private Module visit(Module m) {
 		auto name = m.moduleDeclaration.name;
+		
+		import std.stdio;
+		writeln("mangling ", name);
 		
 		manglePrefix = m.moduleDeclaration.packages.map!(s => to!string(s.length) ~ s).join() ~ to!string(name.length) ~ name;
 		
