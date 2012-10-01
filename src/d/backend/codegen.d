@@ -496,10 +496,6 @@ final:
 		return addressOfGen.visit(e.expression);
 	}
 	
-	LLVMValueRef visit(ReferenceOfExpression e) {
-		return addressOfGen.visit(e.expression);
-	}
-	
 	LLVMValueRef visit(DereferenceExpression e) {
 		return LLVMBuildLoad(builder, visit(e.expression), "");
 	}
@@ -725,7 +721,11 @@ final:
 		arguments.length = c.arguments.length;
 		
 		foreach(i, arg; c.arguments) {
-			arguments[i] = visit(arg);
+			if((cast(FunctionType) c.callee.type).parameters[i].isReference) {
+				arguments[i] = addressOfGen.visit(arg);
+			} else {
+				arguments[i] = visit(arg);
+			}
 		}
 		
 		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
