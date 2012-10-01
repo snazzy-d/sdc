@@ -52,12 +52,14 @@ final:
 	}
 	
 	private Module visit(Module m) {
-		auto name = m.moduleDeclaration.name;
+		manglePrefix = "";
+		auto current = m.parent;
+		while(current) {
+			manglePrefix = to!string(current.name.length) ~ current.name ~ manglePrefix;
+			current = current.parent;
+		}
 		
-		import std.stdio;
-		writeln("mangling ", name);
-		
-		manglePrefix = m.moduleDeclaration.packages.map!(s => to!string(s.length) ~ s).join() ~ to!string(name.length) ~ name;
+		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
 		m.declarations = m.declarations.map!(d => visit(d)).array();
 		

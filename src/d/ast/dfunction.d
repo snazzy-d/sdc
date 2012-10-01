@@ -138,10 +138,6 @@ class FunctionType : SimpleStorageClassType {
 		
 		return true;
 	}
-	
-	override Expression initExpression(Location location) {
-		return new NullLiteral(location, this);
-	}
 }
 
 /**
