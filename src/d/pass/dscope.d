@@ -4,11 +4,13 @@
 module d.pass.dscope;
 
 import d.pass.base;
+import d.pass.flatten;
 
 import d.ast.dmodule;
 
 import std.algorithm;
 import std.array;
+import std.range;
 
 import d.ast.expression;
 import d.ast.declaration;
@@ -21,48 +23,58 @@ class ScopePass {
 	private DeclarationVisitor declarationVisitor;
 	private StatementVisitor statementVisitor;
 	
+	private FlattenPass flattenPass;
+	
 	private Scope currentScope;
 	private Scope adtScope;
 	
 	private uint scopeIndex;
 	
-	private Module[] imported;
+	private Module[string] cachedModules;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
+		
+		flattenPass = new FlattenPass();
 	}
 	
 final:
 	Module[] visit(Module[] modules) {
-		import d.pass.flatten;
-		auto flattenPass = new FlattenPass();
-		
 		modules = flattenPass.visit(modules);
-		
-		// Set reference to null to allow garbage collection.
-		flattenPass = null;
-		
-		auto oldImported = imported;
-		scope(exit) imported = oldImported;
-		
-		imported = [];
 		
 		// Must be separated because ~ operator don't preserve order of execution.
 		modules = modules.map!(m => visit(m)).array();
 		
-		return modules ~ imported;
+		// XXX: dirty hack to get the right module as last one.
+		cachedModules.remove(getModuleName(modules.back));
+		
+		return cachedModules.values ~ modules.back;
+	}
+	
+	auto getModuleName(Module m) {
+		return (m.moduleDeclaration.packages  ~ m.moduleDeclaration.name).join(".");
 	}
 	
 	private Module visit(Module m) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		auto name = getModuleName(m);
 		
-		currentScope = m.dscope;
-		
-		m.declarations = visit(m.declarations);
-		
-		return m;
+		return cachedModules.get(name, {
+			auto oldScope = currentScope;
+			scope(exit) currentScope = oldScope;
+			
+			currentScope = m.dscope;
+			
+			cachedModules[name] = m;
+			
+			import std.stdio;
+			writeln(cachedModules);
+			
+			visit(new ImportDeclaration(Location.init, [["object"]]));
+			m.declarations = visit(m.declarations);
+			
+			return m;
+		}());
 	}
 	
 	auto visit(TemplateInstance tpl, TemplateDeclaration tplDecl) {
@@ -186,28 +198,28 @@ final:
 	}
 	
 	Declaration visit(ImportDeclaration d) {
+		auto names = d.modules.map!(pkg => pkg.join(".")).array();
 		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
 		
-		Module[] modules;
-		
-		foreach(filename; filenames) {
-			import sdc.lexer;
-			import sdc.source;
-			import sdc.sdc;
-			import sdc.tokenstream;
-			
-			auto src = new Source(filename);
-			auto trange = TokenRange(lex(src));
-			
-			auto packages = filename[0 .. $-2].split("/");
-			auto ast = trange.parse(packages.back, packages[0 .. $-1]);
-			
-			modules ~= ast;
+		Module[] addToScope;
+		foreach(name, filename; lockstep(names, filenames)) {
+			addToScope ~= pass.cachedModules.get(name, {
+				import sdc.lexer;
+				import sdc.source;
+				import sdc.sdc;
+				import sdc.tokenstream;
+				
+				auto src = new Source(filename);
+				auto trange = TokenRange(lex(src));
+				
+				auto packages = filename[0 .. $-2].split("/");
+				auto mod = trange.parse(packages.back, packages[0 .. $-1]);
+				
+				return pass.visit(pass.flattenPass.visit([mod]).back);
+			}());
 		}
 		
-		imported ~= pass.visit(modules);
-		
-		currentScope.imports = imported;
+		currentScope.imports ~= addToScope;
 		
 		return d;
 	}

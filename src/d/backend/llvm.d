@@ -12,6 +12,8 @@ import llvm.c.transforms.Scalar;
 
 import llvm.Ext;
 
+import std.array;
+
 interface Backend {
 	void codeGen(Module[] mods);
 }
@@ -100,7 +102,7 @@ class LLVMBackend : Backend {
 		writeln(compileCommand);
 		system(compileCommand);
 		
-		auto linkCommand = "gcc -o " ~ mods[0].location.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+		auto linkCommand = "gcc -o " ~ mods.back.location.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
 		writeln(linkCommand);
 		system(linkCommand);
 		//*/

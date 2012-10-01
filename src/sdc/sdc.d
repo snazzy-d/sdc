@@ -81,17 +81,17 @@ unittest {
 }
 
 void compile(string filename) {
-	auto src = new Source(filename);
-	auto trange = TokenRange(lex(src));
+	auto trange = TokenRange(lex(new Source(filename)));
+	auto object = TokenRange(lex(new Source("../libs/object.d")));
 	
 	auto packages = filename[0 .. $-2].split("/");
-	auto ast = [trange.parse(packages.back, packages[0 .. $-1])];
+	auto ast = [object.parse("object", []), trange.parse(packages.back, packages[0 .. $-1])];
 	
 	import d.pass.mangle;
 	ast = mangle(ast);
 	//*
 	import d.pass.main;
-	ast[0] = buildMain(ast[0]);
+	ast[0] = buildMain(ast.back);
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
