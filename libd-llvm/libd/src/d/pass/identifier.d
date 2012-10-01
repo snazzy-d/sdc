@@ -705,7 +705,7 @@ final:
 		
 		switch(i.name) {
 			case "init" :
-				return i.type.initExpression(i.location);
+				return new CastExpression(i.location, i.type, new DefaultInitializer(i.type)); // i.type.initExpression(i.location);
 			
 			case "sizeof" :
 				return new SizeofExpression(i.location, i.type);

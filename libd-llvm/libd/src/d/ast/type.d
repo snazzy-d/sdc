@@ -26,10 +26,6 @@ abstract class Type : Identifiable {
 	bool opEquals(const Type t) const {
 		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
 	}
-	
-	Expression initExpression(Location location) {
-		assert(0, "init expression isn't implemented for " ~ typeid(this).toString());
-	}
 }
 
 class SimpleStorageClassType : Type {
@@ -114,10 +110,6 @@ class BooleanType : BasicType {
 	bool opEquals(BooleanType t) const {
 		return true;
 	}
-	
-	override Expression initExpression(Location location) {
-		return makeLiteral(location, false);
-	}
 }
 
 /**
@@ -165,14 +157,6 @@ class IntegerType : BasicType {
 		super(location);
 		
 		this.type = type;
-	}
-	
-	override Expression initExpression(Location location) {
-		if(type % 2) {
-			return new IntegerLiteral!true(location, 0, this);
-		} else {
-			return new IntegerLiteral!false(location, 0, this);
-		}
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -231,10 +215,6 @@ class FloatType : BasicType {
 	bool opEquals(const FloatType t) const {
 		return type == t.type;
 	}
-	
-	override Expression initExpression(Location location) {
-		return new FloatLiteral(location, float.nan, this);
-	}
 }
 
 /**
@@ -279,10 +259,6 @@ class CharacterType : BasicType {
 	
 	bool opEquals(const CharacterType t) const {
 		return type == t.type;
-	}
-	
-	override Expression initExpression(Location location) {
-		return new CharacterLiteral(location, [char.init], this);
 	}
 }
 
@@ -340,11 +316,6 @@ class SymbolType : BasicType {
 	bool opEquals(const SymbolType t) const {
 		return symbol is t.symbol;
 	}
-	
-	// FIXME: get the right initializer.
-	override Expression initExpression(Location location) {
-		return new VoidInitializer(location, this);
-	}
 }
 
 /**
@@ -357,16 +328,6 @@ class TypeofType : BasicType {
 		super(location);
 		
 		this.expression = expression;
-	}
-	
-	override Expression initExpression(Location location) {
-		// TODO: remove in the future.
-		scope(failure) {
-			import std.stdio;
-			writeln(typeid({ return expression.type; }()).toString() ~ " have no .init");
-		}
-		
-		return expression.type.initExpression(location);
 	}
 }
 
@@ -397,10 +358,6 @@ class PointerType : SuffixType {
 	
 	bool opEquals(const PointerType t) const {
 		return type == t.type;
-	}
-	
-	override Expression initExpression(Location location) {
-		return new NullLiteral(location, this);
 	}
 }
 
@@ -435,10 +392,6 @@ class StaticArrayType : SuffixType {
 		super(location, type);
 		
 		this.size = size;
-	}
-	
-	override Expression initExpression(Location location) {
-		return new VoidInitializer(location, this);
 	}
 }
 

@@ -558,3 +558,15 @@ class SizeofExpression : Expression {
 	}
 }
 
+/**
+ * tuples. Also used for struct initialization.
+ */
+class TupleExpression : Expression {
+	Expression[] values;
+	
+	this(Location location, Expression[] values) {
+		super(location);
+		
+		this.values = values;
+	}
+}

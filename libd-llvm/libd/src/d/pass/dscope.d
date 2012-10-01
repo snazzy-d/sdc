@@ -53,7 +53,16 @@ final:
 	}
 	
 	auto getModuleName(Module m) {
-		return (m.moduleDeclaration.packages  ~ m.moduleDeclaration.name).join(".");
+		auto name = m.name;
+		if(m.parent) {
+			auto dpackage = m.parent;
+			while(dpackage) {
+				name = dpackage.name ~ "." ~ name;
+				dpackage = dpackage.parent;
+			}
+		}
+		
+		return name;
 	}
 	
 	private Module visit(Module m) {
@@ -66,9 +75,6 @@ final:
 			currentScope = m.dscope;
 			
 			cachedModules[name] = m;
-			
-			import std.stdio;
-			writeln(cachedModules);
 			
 			visit(new ImportDeclaration(Location.init, [["object"]]));
 			m.declarations = visit(m.declarations);

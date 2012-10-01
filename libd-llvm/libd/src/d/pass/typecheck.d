@@ -25,6 +25,8 @@ class TypecheckPass {
 	private ExpressionVisitor expressionVisitor;
 	private TypeVisitor typeVisitor;
 	
+	private DefaultInitializerVisitor defaultInitializerVisitor;
+	
 	private SizeofCalculator sizeofCalculator;
 	
 	private Type returnType;
@@ -37,6 +39,9 @@ class TypecheckPass {
 		statementVisitor	= new StatementVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
+		
+		defaultInitializerVisitor = new DefaultInitializerVisitor(this);
+		
 		sizeofCalculator	= new SizeofCalculator(this);
 	}
 	
@@ -663,6 +668,71 @@ final:
 	}
 }
 
+class DefaultInitializerVisitor {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	private Location location;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	Expression visit(Location targetLocation, Type t) {
+		auto oldLocation = location;
+		scope(exit) location = oldLocation;
+		
+		location = targetLocation;
+		
+		return this.dispatch!(function Expression(Type t) {
+			assert(0, "Type " ~ typeid(t).toString() ~ " has no initializer.");
+		})(t);
+	}
+	
+	Expression visit(BooleanType t) {
+		return makeLiteral(location, false);
+	}
+	
+	Expression visit(IntegerType t) {
+		if(t.type % 2) {
+			return new IntegerLiteral!true(location, 0, t);
+		} else {
+			return new IntegerLiteral!false(location, 0, t);
+		}
+	}
+	
+	Expression visit(FloatType t) {
+		return new FloatLiteral(location, float.nan, t);
+	}
+	
+	Expression visit(CharacterType t) {
+		return new CharacterLiteral(location, [char.init], t);
+	}
+	
+	Expression visit(PointerType t) {
+		return new NullLiteral(location, t);
+	}
+	
+	Expression visit(FunctionType t) {
+		return new NullLiteral(location, t);
+	}
+	
+	Expression visit(StaticArrayType t) {
+		return new VoidInitializer(location, t);
+	}
+	
+	Expression visit(SymbolType t) {
+		return this.dispatch(t.symbol);
+	}
+	
+	Expression visit(StructDefinition d) {
+		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
+		
+		return new TupleExpression(location, fields.map!(f => f.value).array());
+	}
+}
+
 class SizeofCalculator {
 	private TypecheckPass pass;
 	alias pass this;
@@ -961,7 +1031,7 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 	
 	// Default initializer removal.
 	if(typeid(e) is typeid(DefaultInitializer)) {
-		return type.initExpression(e.location);
+		return (new DefaultInitializerVisitor(null)).visit(e.location, type);
 	}
 	
 	return (e.type == type)?e:(new Cast()).visit(e);
