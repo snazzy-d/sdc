@@ -46,7 +46,7 @@ class CodeGenPass {
 	
 final:
 	Module[] visit(Module[] modules) {
-		dmodule = LLVMModuleCreateWithName(modules[0].location.filename.toStringz());
+		dmodule = LLVMModuleCreateWithName(modules.back.location.filename.toStringz());
 		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
