@@ -121,7 +121,7 @@ final:
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
 		
-		d.mangle = "_D" ~ manglePrefix ~ "yF" ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+		d.mangle = "_D" ~ manglePrefix ~ "y" ~ pass.visit(d.type);
 		
 		return d;
 	}
@@ -147,7 +147,7 @@ final:
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
 		
-		d.mangle = "_D" ~ manglePrefix ~ "yF" ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ pass.visit(d.returnType);
+		d.mangle = "_D" ~ manglePrefix ~ "y" ~ pass.visit(d.type);
 		
 		// And visit.
 		pass.visit(d.fbody);
@@ -343,6 +343,10 @@ final:
 	
 	string visit(SliceType t) {
 		return "A" ~ visit(t.type);
+	}
+	
+	string visit(FunctionType t) {
+		return "F" ~ t.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ visit(t.returnType);
 	}
 }
 
