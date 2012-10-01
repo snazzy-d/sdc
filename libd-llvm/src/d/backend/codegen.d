@@ -731,6 +731,12 @@ final:
 		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
 	}
 	
+	LLVMValueRef visit(TupleExpression e) {
+		auto fields = e.values.map!(v => visit(v)).array();
+		
+		return LLVMConstStruct(fields.ptr, cast(uint) fields.length, false);
+	}
+	
 	LLVMValueRef visit(VoidInitializer v) {
 		return LLVMGetUndef(pass.visit(v.type));
 	}
