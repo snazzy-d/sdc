@@ -470,14 +470,6 @@ final:
 		return e;
 	}
 	
-	Expression visit(ReferenceOfExpression e) {
-		e.expression = visit(e.expression);
-		
-		e.type = e.expression.type;
-		
-		return e;
-	}
-	
 	Expression visit(DereferenceExpression e) {
 		e.expression = visit(e.expression);
 		
@@ -508,8 +500,6 @@ final:
 		assert(type, "You must call function, you fool !!!");
 		foreach(ref arg, ref param; lockstep(c.arguments, type.parameters)) {
 			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
-			
-			if(param.isReference && typeid(arg) !is typeid(ReferenceOfExpression)) arg = new ReferenceOfExpression(arg.location, arg);
 		}
 		
 		c.callee = callee;
