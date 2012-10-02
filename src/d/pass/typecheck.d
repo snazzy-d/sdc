@@ -718,18 +718,31 @@ final:
 		return new NullLiteral(location, t);
 	}
 	
+	Expression visit(SliceType t) {
+		// Convoluted way to create the array due to compiler limitations.
+		Expression[] init = [new NullLiteral(location, t.type)];
+		init ~= makeLiteral(location, 0UL);
+		
+		return new TupleExpression(location, init);
+	}
+	
 	Expression visit(StaticArrayType t) {
 		return new VoidInitializer(location, t);
 	}
 	
 	Expression visit(SymbolType t) {
+		// TODO: add implicit cast
 		return this.dispatch(t.symbol);
 	}
 	
 	Expression visit(StructDefinition d) {
 		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
 		
-		return new TupleExpression(location, fields.map!(f => f.value).array());
+		// XXX: remove that mess when implicit cast is done for symbol initializer.
+		auto tuple = new TupleExpression(location, fields.map!(f => f.value).array());
+		tuple.type = new SymbolType(location, d);
+		
+		return tuple;
 	}
 }
 

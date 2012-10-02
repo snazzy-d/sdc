@@ -1,4 +1,4 @@
-//===-- llvm/LinkTimeOptimizer.h - LTO Public C Interface -------*- D -*-===//
+//===-- llvm/LinkTimeOptimizer.h - LTO Public C Interface -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,31 +12,40 @@
 // their implementation for performing LTO.
 //
 //===----------------------------------------------------------------------===//
-module llvm.c.LinkTimeOptimizer;
 
+module llvm.c.linkTimeOptimizer;
 
-extern(C):
+import llvm.c.core;
 
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCLinkTimeOptimizer Link Time Optimization
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
   /// This provides a dummy type for pointers to the LTO object.
-alias void* llvm_lto_t;
+  alias void* llvm_lto_t;
 
   /// This provides a C-visible enumerator to manage status codes.
   /// This should map exactly onto the C++ enumerator LTOStatus.
-enum llvm_lto_status {
-    LLVM_LTO_UNKNOWN,
-    LLVM_LTO_OPT_SUCCESS,
-    LLVM_LTO_READ_SUCCESS,
-    LLVM_LTO_READ_FAILURE,
-    LLVM_LTO_WRITE_FAILURE,
-    LLVM_LTO_NO_TARGET,
-    LLVM_LTO_NO_WORK,
-    LLVM_LTO_MODULE_MERGE_FAILURE,
-    LLVM_LTO_ASM_FAILURE,
+  enum llvm_lto_status {
+    UNKNOWN,
+    OPT_SUCCESS,
+    READ_SUCCESS,
+    READ_FAILURE,
+    WRITE_FAILURE,
+    NO_TARGET,
+    NO_WORK,
+    MODULE_MERGE_FAILURE,
+    ASM_FAILURE,
 
     //  Added C-specific error codes
-    LLVM_LTO_NULL_OBJECT
+    NULL_OBJECT
   }
+  alias llvm_lto_status llvm_lto_status_t;
  
   /// This provides C interface to initialize link time optimizer. This allows
   /// linker to use dlopen() interface to dynamically load LinkTimeOptimizer.
@@ -44,5 +53,11 @@ enum llvm_lto_status {
   extern llvm_lto_t llvm_create_optimizer();
   extern void llvm_destroy_optimizer(llvm_lto_t lto);
 
-  extern llvm_lto_status llvm_read_object_file(llvm_lto_t lto, /*const*/ char* input_filename);
-  extern llvm_lto_status llvm_optimize_modules(llvm_lto_t lto, /*const*/ char* output_filename);
+  extern llvm_lto_status_t llvm_read_object_file
+    (llvm_lto_t lto, const(char)* input_filename);
+  extern llvm_lto_status_t llvm_optimize_modules
+    (llvm_lto_t lto, const(char)* output_filename);
+
+/**
+ * @}
+ */

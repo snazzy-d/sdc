@@ -10,15 +10,22 @@
 |* This header declares the C interface to the PassManagerBuilder class.      *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.transforms.PassManagerBuilder;
 
-import llvm.c.Core;
+module llvm.c.transforms.passManagerBuilder;
 
-extern(C):
+import llvm.c.core;
 
-struct __LLVMOpaquePassManagerBuilder {}
-alias __LLVMOpaquePassManagerBuilder* LLVMPassManagerBuilderRef;
+extern(C) nothrow:
 
+struct __LLVMOpaquePassManagerBuilder {};
+alias __LLVMOpaquePassManagerBuilder *LLVMPassManagerBuilderRef;
+
+/**
+ * @defgroup LLVMCTransformsPassManagerBuilder Pass manager builder
+ * @ingroup LLVMCTransforms
+ *
+ * @{
+ */
 
 /** See llvm::PassManagerBuilder. */
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate();
@@ -69,3 +76,7 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   bool Internalize,
                                                   bool RunInliner);
+
+/**
+ * @}
+ */

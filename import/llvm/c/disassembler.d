@@ -11,14 +11,20 @@
 |* LLVM provides an implementation of this interface.                         *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.Disassembler;
 
-import llvm.c.Core;
+module llvm.c.disassembler;
 
-extern(C):
+import core.stdc.stdint : uint8_t, uint64_t;
+import core.stdc.stddef;
 
-//#include "llvm/Support/DataTypes.h"
-//#include <stddef.h>
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCDisassembler Disassembler
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
 /**
  * An opaque reference to a disassembler context.
@@ -42,9 +48,9 @@ alias void *LLVMDisasmContextRef;
  * TagType for that Triple.  If symbolic information is returned the function
  * returns 1, otherwise it returns 0.
  */
-alias int (*LLVMOpInfoCallback)(void *DisInfo, uint64_t PC,
-                                  uint64_t Offset, uint64_t Size,
-                                  int TagType, void *TagBuf);
+alias int function(void *DisInfo, uint64_t PC,
+                   uint64_t Offset, uint64_t Size,
+                   int TagType, void *TagBuf) LLVMOpInfoCallback;
 
 /**
  * The initial support in LLVM MC for the most general form of a relocatable
@@ -68,13 +74,13 @@ alias int (*LLVMOpInfoCallback)(void *DisInfo, uint64_t PC,
  */
 struct LLVMOpInfoSymbol1 {
   uint64_t Present;  /* 1 if this symbol is present */
-  const char *Name;  /* symbol name if not NULL */
+  const(char) *Name;  /* symbol name if not NULL */
   uint64_t Value;    /* symbol value if name is NULL */
 };
 
 struct LLVMOpInfo1 {
-  struct LLVMOpInfoSymbol1 AddSymbol;
-  struct LLVMOpInfoSymbol1 SubtractSymbol;
+  LLVMOpInfoSymbol1 AddSymbol;
+  LLVMOpInfoSymbol1 SubtractSymbol;
   uint64_t Value;
   uint64_t VariantKind;
 };
@@ -82,13 +88,13 @@ struct LLVMOpInfo1 {
 /**
  * The operand VariantKinds for symbolic disassembly.
  */
-#define LLVMDisassembler_VariantKind_None 0 /* all targets */
+enum LLVMDisassembler_VariantKind_None = 0; /* all targets */
 
 /**
  * The ARM target VariantKinds.
  */
-#define LLVMDisassembler_VariantKind_ARM_HI16 1 /* :upper16: */
-#define LLVMDisassembler_VariantKind_ARM_LO16 2 /* :lower16: */
+enum LLVMDisassembler_VariantKind_ARM_HI16 = 1; /* :upper16: */
+enum LLVMDisassembler_VariantKind_ARM_LO16 = 2; /* :lower16: */
 
 /**
  * The type for the symbol lookup function.  This may be called by the
@@ -102,32 +108,28 @@ struct LLVMOpInfo1 {
  * indirectly in ReferenceType along with ReferenceName if any, or that is set
  * to NULL.
  */
-typedef const char *(*LLVMSymbolLookupCallback)(void *DisInfo,
-                                                uint64_t ReferenceValue,
-						uint64_t *ReferenceType,
-						uint64_t ReferencePC,
-						const char **ReferenceName);
+alias const(char) *function(void *DisInfo,
+                            uint64_t ReferenceValue,
+                            uint64_t *ReferenceType,
+                            uint64_t ReferencePC,
+                            const(char) **ReferenceName) LLVMSymbolLookupCallback;
 /**
  * The reference types on input and output.
  */
 /* No input reference type or no output reference type. */
-#define LLVMDisassembler_ReferenceType_InOut_None 0
+enum LLVMDisassembler_ReferenceType_InOut_None = 0;
 
 /* The input reference is from a branch instruction. */
-#define LLVMDisassembler_ReferenceType_In_Branch 1
+enum LLVMDisassembler_ReferenceType_In_Branch = 1;
 /* The input reference is from a PC relative load instruction. */
-#define LLVMDisassembler_ReferenceType_In_PCrel_Load 2
+enum LLVMDisassembler_ReferenceType_In_PCrel_Load = 2;
 
 /* The output reference is to as symbol stub. */
-#define LLVMDisassembler_ReferenceType_Out_SymbolStub 1
+enum LLVMDisassembler_ReferenceType_Out_SymbolStub = 1;
 /* The output reference is to a symbol address in a literal pool. */
-#define LLVMDisassembler_ReferenceType_Out_LitPool_SymAddr 2
+enum LLVMDisassembler_ReferenceType_Out_LitPool_SymAddr = 2;
 /* The output reference is to a cstring address in a literal pool. */
-#define LLVMDisassembler_ReferenceType_Out_LitPool_CstrAddr 3
-
-#ifdef __cplusplus
-extern "C" {
-#endif /* !defined(__cplusplus) */
+enum LLVMDisassembler_ReferenceType_Out_LitPool_CstrAddr = 3;
 
 /**
  * Create a disassembler for the TripleName.  Symbolic disassembly is supported
@@ -136,7 +138,7 @@ extern "C" {
  * as NULL.  If successful, this returns a disassembler context.  If not, it
  * returns NULL.
  */
-LLVMDisasmContextRef LLVMCreateDisasm(const char *TripleName, void *DisInfo,
+LLVMDisasmContextRef LLVMCreateDisasm(const(char) *TripleName, void *DisInfo,
                                       int TagType, LLVMOpInfoCallback GetOpInfo,
                                       LLVMSymbolLookupCallback SymbolLookUp);
 
@@ -159,8 +161,6 @@ size_t LLVMDisasmInstruction(LLVMDisasmContextRef DC, uint8_t *Bytes,
                              uint64_t BytesSize, uint64_t PC,
                              char *OutString, size_t OutStringSize);
 
-#ifdef __cplusplus
-}
-#endif /* !defined(__cplusplus) */
-
-#endif /* !defined(LLVM_C_DISASSEMBLER_H) */
+/**
+ * @}
+ */

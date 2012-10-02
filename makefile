@@ -7,10 +7,9 @@ DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport
 OBJ = sdc.o
 EXE = bin/sdc
 
-LIBLLVM = `llvm-config --libs | sed 's/-L/-L-L/g' | sed 's/-l/-L-l/g'`
-LLVM_DIR ?= `llvm-config --includedir`
-LLVM_OBJ = llvmExt.o llvmTarget.o
-LLVM_SRC = import/llvm/Ext.d
+LIBLLVM = -L-L`llvm-config-3.1 --libdir` `llvm-config-3.1 --libs | sed 's/-l/-L-l/g'`
+LLVM_DIR ?= `llvm-config-3.1 --includedir`
+LLVM_SRC = import/llvm/c/target.d
 
 LDFLAGS = $(LIBLLVM) -L-lstdc++
 
@@ -22,10 +21,10 @@ all: $(EXE)
 
 $(EXE): $(SOURCE) $(LLVM_SRC) $(LLVM_OBJ)
 	@mkdir -p bin
-	$(DMD) -of$(EXE) $(SOURCE) $(LLVM_SRC) $(DFLAGS) $(LDFLAGS) $(LLVM_OBJ)
+	$(DMD) -of$(EXE) $(SOURCE) $(LLVM_SRC) $(DFLAGS) $(LDFLAGS)
 
 clean:
-	@rm $(EXE) $(LLVM_OBJ)
+	@rm $(EXE)
 
 doc:
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
@@ -35,11 +34,5 @@ run: $(EXE)
 
 debug: $(EXE)
 	gdb --args ./$(EXE) -Ilibs tests/test0.d -V --no-colour-print
-
-llvmExt.o: import/llvm/Ext.cpp
-	g++ import/llvm/Ext.cpp -c -I$(LLVM_DIR) -o llvmExt.o -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-
-llvmTarget.o: import/llvm/Target.cpp
-	g++ import/llvm/Target.cpp -c -I$(LLVM_DIR) -o llvmTarget.o -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
 
 .PHONY: clean run debug doc

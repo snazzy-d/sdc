@@ -2,15 +2,12 @@ module d.backend.llvm;
 
 import d.ast.dmodule;
 
-import llvm.c.Core;
-import llvm.c.ExecutionEngine;
-import llvm.c.Target;
+import llvm.c.core;
+import llvm.c.executionEngine;
+import llvm.c.target;
+import llvm.c.targetMachine;
 
-import llvm.c.transforms.IPO;
-import llvm.c.transforms.PassManagerBuilder;
-import llvm.c.transforms.Scalar;
-
-import llvm.Ext;
+import llvm.c.transforms.passManagerBuilder;
 
 import std.array;
 
@@ -20,9 +17,11 @@ interface Backend {
 
 class LLVMBackend : Backend {
 	this() {
-		LLVMInitializeNativeTarget();
-		LLVMLinkInJIT();
+		LLVMInitializeX86TargetInfo();
+		LLVMInitializeX86Target();
+		LLVMInitializeX86TargetMC();
 		
+		LLVMLinkInJIT();
 		LLVMInitializeX86AsmPrinter();
 	}
 	
@@ -34,7 +33,7 @@ class LLVMBackend : Backend {
 		
 		LLVMExecutionEngineRef ee;
 		char* errorPtr;
-		auto creationError = LLVMCreateExecutionEngineForModule(&ee, dmodule, &errorPtr);
+		auto creationError = LLVMCreateJITCompilerForModule(&ee, dmodule, 0, &errorPtr);
 		if(creationError) {
 			import std.c.string;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
@@ -58,7 +57,7 @@ class LLVMBackend : Backend {
 		//*
 		// Let's run it !
 		LLVMValueRef fun;
-		auto notFound = LLVMFindFunction(ee, cast(char*) "_Dmain".ptr, &fun);
+		auto notFound = LLVMFindFunction(ee, "_Dmain".ptr, &fun);
 		if(notFound) {
 			writeln("No main, no gain.");
 			return;
@@ -70,13 +69,12 @@ class LLVMBackend : Backend {
 		writeln("\nreturned : ", returned);
 		//*/
 		
-		char* foobar = null;
-		auto targetMachine = LLVMCreateTargetMachine(cast(char*) "x86-64".ptr, LLVMGetHostTriple(), &foobar, 0, false);
+		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), "x86_64-pc-linux-gnu".ptr, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
 		
 		/*
 		writeln("\nASM generated :");
 		
-		LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) "/dev/stdout".ptr, 1);
+		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
 		
 		/*
@@ -96,7 +94,7 @@ class LLVMBackend : Backend {
 		LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 		LLVMSetThreadLocal(_tlsend, true);
 		
-		LLVMWriteNativeAsmToFile(targetMachine, dmodule, cast(char*) toStringz(asAssembly), 1);
+		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asAssembly), LLVMCodeGenFileType.Assembly, &errorPtr);
 		
 		auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
 		writeln(compileCommand);

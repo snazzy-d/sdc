@@ -1,4 +1,4 @@
-/*===-- llvm-c/Analysis.h - Analysis Library C Interface --------*- D -*-===*\
+/*===-- llvm-c/Analysis.h - Analysis Library C Interface --------*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -15,11 +15,19 @@
 |* tools written in such languages.                                           *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.Analysis;
 
-import llvm.c.Core;
+module llvm.c.analysis;
 
-extern(C):
+import llvm.c.core;
+
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCAnalysis Analysis
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
 enum LLVMVerifierFailureAction {
   AbortProcess, /* verifier will print to stderr and abort() */
@@ -27,11 +35,12 @@ enum LLVMVerifierFailureAction {
   ReturnStatus  /* verifier will just return 1 */
 }
 
+
 /* Verifies that a module is valid, taking the specified action if not.
    Optionally returns a human-readable description of any invalid constructs.
    OutMessage must be disposed with LLVMDisposeMessage. */
 LLVMBool LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
-                          char** OutMessage);
+                          char **OutMessage);
 
 /* Verifies that a single function is valid, taking the specified action. Useful
    for debugging. */
@@ -41,3 +50,7 @@ LLVMBool LLVMVerifyFunction(LLVMValueRef Fn, LLVMVerifierFailureAction Action);
    Useful for debugging. */
 void LLVMViewFunctionCFG(LLVMValueRef Fn);
 void LLVMViewFunctionCFGOnly(LLVMValueRef Fn);
+
+/**
+ * @}
+ */

@@ -91,7 +91,7 @@ void compile(string filename) {
 	ast = mangle(ast);
 	//*
 	import d.pass.main;
-	ast[0] = buildMain(ast.back);
+	ast.back = buildMain(ast.back);
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
