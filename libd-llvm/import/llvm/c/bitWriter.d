@@ -1,4 +1,4 @@
-/*===-- llvm-c/BitWriter.h - BitWriter Library C Interface ------*- D -*-===*\
+/*===-- llvm-c/BitWriter.h - BitWriter Library C Interface ------*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -15,21 +15,33 @@
 |* tools written in such languages.                                           *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.BitWriter;
 
-import llvm.c.Core;
+module llvm.c.bitWriter;
 
-extern(C):
+import llvm.c.core;
+
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCBitWriter Bit Writer
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
 /*===-- Operations on modules ---------------------------------------------===*/
 
-/** Writes a module to the specified path. Returns 0 on success. */
-int LLVMWriteBitcodeToFile(LLVMModuleRef M, /*const*/ char* Path);
+/** Writes a module to the specified path. Returns 0 on success. */ 
+int LLVMWriteBitcodeToFile(LLVMModuleRef M, const(char) *Path);
 
 /** Writes a module to an open file descriptor. Returns 0 on success. */
 int LLVMWriteBitcodeToFD(LLVMModuleRef M, int FD, int ShouldClose,
                          int Unbuffered);
 
 /** Deprecated for LLVMWriteBitcodeToFD. Writes a module to an open file
-    descriptor. Returns 0 on success. Closes the Handle. */
+    descriptor. Returns 0 on success. Closes the Handle. */ 
 int LLVMWriteBitcodeToFileHandle(LLVMModuleRef M, int Handle);
+
+/**
+ * @}
+ */

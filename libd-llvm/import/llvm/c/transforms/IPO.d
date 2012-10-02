@@ -1,4 +1,4 @@
-/*===-- IPO.h - Interprocedural Transformations C Interface -----*- D -*-===*\
+/*===-- IPO.h - Interprocedural Transformations C Interface -----*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -11,11 +11,19 @@
 |* various interprocedural transformations of the LLVM IR.                    *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
+
 module llvm.c.transforms.IPO;
 
-import llvm.c.Core;
+import llvm.c.core;
 
-extern(C):
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCTransformsIPO Interprocedural transformations
+ * @ingroup LLVMCTransforms
+ *
+ * @{
+ */
 
 /** See llvm::createArgumentPromotionPass function. */
 void LLVMAddArgumentPromotionPass(LLVMPassManagerRef PM);
@@ -58,3 +66,7 @@ void LLVMAddStripDeadPrototypesPass(LLVMPassManagerRef PM);
 
 /** See llvm::createStripSymbolsPass function. */
 void LLVMAddStripSymbolsPass(LLVMPassManagerRef PM);
+
+/**
+ * @}
+ */

@@ -1,4 +1,4 @@
-/*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- D -*-===*\
+/*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -15,19 +15,28 @@
 |* tools written in such languages.                                           *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.ExecutionEngine;
 
-import llvm.c.Core;
-import llvm.c.Target;
+module llvm.c.enhancedDisassembly;
 
-extern(C):
+import llvm.c.core;
+import llvm.c.target;
 
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCExecutionEngine Execution Engine
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
 void LLVMLinkInJIT();
 void LLVMLinkInInterpreter();
 
-alias /*struct LLVMOpaqueGenericValue*/ void* LLVMGenericValueRef;
-alias  /* struct LLVMOpaqueExecutionEngine*/ void* LLVMExecutionEngineRef;
+struct __LLVMOpaqueGenericValue {};
+alias __LLVMOpaqueGenericValue *LLVMGenericValueRef;
+struct __LLVMOpaqueExecutionEngine {};
+alias __LLVMOpaqueExecutionEngine *LLVMExecutionEngineRef;
 
 /*===-- Operations on generic values --------------------------------------===*/
 
@@ -35,7 +44,7 @@ LLVMGenericValueRef LLVMCreateGenericValueOfInt(LLVMTypeRef Ty,
                                                 ulong N,
                                                 LLVMBool IsSigned);
 
-LLVMGenericValueRef LLVMCreateGenericValueOfPointer(void* P);
+LLVMGenericValueRef LLVMCreateGenericValueOfPointer(void *P);
 
 LLVMGenericValueRef LLVMCreateGenericValueOfFloat(LLVMTypeRef Ty, double N);
 
@@ -44,7 +53,7 @@ uint LLVMGenericValueIntWidth(LLVMGenericValueRef GenValRef);
 ulong LLVMGenericValueToInt(LLVMGenericValueRef GenVal,
                                          LLVMBool IsSigned);
 
-void* LLVMGenericValueToPointer(LLVMGenericValueRef GenVal);
+void *LLVMGenericValueToPointer(LLVMGenericValueRef GenVal);
 
 double LLVMGenericValueToFloat(LLVMTypeRef TyRef, LLVMGenericValueRef GenVal);
 
@@ -52,34 +61,34 @@ void LLVMDisposeGenericValue(LLVMGenericValueRef GenVal);
 
 /*===-- Operations on execution engines -----------------------------------===*/
 
-LLVMBool LLVMCreateExecutionEngineForModule(LLVMExecutionEngineRef* OutEE,
+LLVMBool LLVMCreateExecutionEngineForModule(LLVMExecutionEngineRef *OutEE,
                                             LLVMModuleRef M,
-                                            char** OutError);
+                                            char **OutError);
 
-LLVMBool LLVMCreateInterpreterForModule(LLVMExecutionEngineRef* OutInterp,
+LLVMBool LLVMCreateInterpreterForModule(LLVMExecutionEngineRef *OutInterp,
                                         LLVMModuleRef M,
-                                        char** OutError);
+                                        char **OutError);
 
-LLVMBool LLVMCreateJITCompilerForModule(LLVMExecutionEngineRef* OutJIT,
+LLVMBool LLVMCreateJITCompilerForModule(LLVMExecutionEngineRef *OutJIT,
                                         LLVMModuleRef M,
                                         uint OptLevel,
-                                        char** OutError);
+                                        char **OutError);
 
 /** Deprecated: Use LLVMCreateExecutionEngineForModule instead. */
-LLVMBool LLVMCreateExecutionEngine(LLVMExecutionEngineRef* OutEE,
+LLVMBool LLVMCreateExecutionEngine(LLVMExecutionEngineRef *OutEE,
                                    LLVMModuleProviderRef MP,
-                                   char** OutError);
+                                   char **OutError);
 
 /** Deprecated: Use LLVMCreateInterpreterForModule instead. */
-LLVMBool LLVMCreateInterpreter(LLVMExecutionEngineRef* OutInterp,
+LLVMBool LLVMCreateInterpreter(LLVMExecutionEngineRef *OutInterp,
                                LLVMModuleProviderRef MP,
-                               char** OutError);
+                               char **OutError);
 
 /** Deprecated: Use LLVMCreateJITCompilerForModule instead. */
 LLVMBool LLVMCreateJITCompiler(LLVMExecutionEngineRef *OutJIT,
                                LLVMModuleProviderRef MP,
                                uint OptLevel,
-                               char** OutError);
+                               char **OutError);
 
 void LLVMDisposeExecutionEngine(LLVMExecutionEngineRef EE);
 
@@ -88,12 +97,12 @@ void LLVMRunStaticConstructors(LLVMExecutionEngineRef EE);
 void LLVMRunStaticDestructors(LLVMExecutionEngineRef EE);
 
 int LLVMRunFunctionAsMain(LLVMExecutionEngineRef EE, LLVMValueRef F,
-                          uint ArgC, /*const*/ char*  /*const*/* ArgV,
-                          /*const*/ char*  /*const*/* EnvP);
+                          uint ArgC, const(char*) *ArgV,
+                          const(char*) *EnvP);
 
 LLVMGenericValueRef LLVMRunFunction(LLVMExecutionEngineRef EE, LLVMValueRef F,
                                     uint NumArgs,
-                                    LLVMGenericValueRef* Args);
+                                    LLVMGenericValueRef *Args);
 
 void LLVMFreeMachineCodeForFunction(LLVMExecutionEngineRef EE, LLVMValueRef F);
 
@@ -103,15 +112,15 @@ void LLVMAddModule(LLVMExecutionEngineRef EE, LLVMModuleRef M);
 void LLVMAddModuleProvider(LLVMExecutionEngineRef EE, LLVMModuleProviderRef MP);
 
 LLVMBool LLVMRemoveModule(LLVMExecutionEngineRef EE, LLVMModuleRef M,
-                          LLVMModuleRef* OutMod, char** OutError);
+                          LLVMModuleRef *OutMod, char **OutError);
 
 /** Deprecated: Use LLVMRemoveModule instead. */
 LLVMBool LLVMRemoveModuleProvider(LLVMExecutionEngineRef EE,
                                   LLVMModuleProviderRef MP,
-                                  LLVMModuleRef* OutMod, char** OutError);
+                                  LLVMModuleRef *OutMod, char **OutError);
 
-LLVMBool LLVMFindFunction(LLVMExecutionEngineRef EE, /*const*/ char* Name,
-                          LLVMValueRef* OutFn);
+LLVMBool LLVMFindFunction(LLVMExecutionEngineRef EE, const(char) *Name,
+                          LLVMValueRef *OutFn);
 
 void *LLVMRecompileAndRelinkFunction(LLVMExecutionEngineRef EE, LLVMValueRef Fn);
 
@@ -120,4 +129,8 @@ LLVMTargetDataRef LLVMGetExecutionEngineTargetData(LLVMExecutionEngineRef EE);
 void LLVMAddGlobalMapping(LLVMExecutionEngineRef EE, LLVMValueRef Global,
                           void* Addr);
 
-void* LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
+void *LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
+
+/**
+ * @}
+ */

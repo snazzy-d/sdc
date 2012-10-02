@@ -1,4 +1,4 @@
-/*===-- llvm-c/Initialization.h - Initialization C Interface ------*- D -*-===*\
+/*===-- llvm-c/Initialization.h - Initialization C Interface ------*- C -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -12,16 +12,26 @@
 |* the corresponding LLVM library.                                            *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.Initialization;
 
-import llvm.c.Core;
+module llvm.c.initialization;
 
-extern(C):
+import llvm.c.core;
 
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCInitialization Initialization Routines
+ * @ingroup LLVMC
+ *
+ * This module contains routines used to initialize the LLVM system.
+ *
+ * @{
+ */
 
 void LLVMInitializeCore(LLVMPassRegistryRef R);
 void LLVMInitializeTransformUtils(LLVMPassRegistryRef R);
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R);
+void LLVMInitializeVectorization(LLVMPassRegistryRef R);
 void LLVMInitializeInstCombine(LLVMPassRegistryRef R);
 void LLVMInitializeIPO(LLVMPassRegistryRef R);
 void LLVMInitializeInstrumentation(LLVMPassRegistryRef R);
@@ -29,3 +39,7 @@ void LLVMInitializeAnalysis(LLVMPassRegistryRef R);
 void LLVMInitializeIPA(LLVMPassRegistryRef R);
 void LLVMInitializeCodeGen(LLVMPassRegistryRef R);
 void LLVMInitializeTarget(LLVMPassRegistryRef R);
+
+/**
+ * @}
+ */

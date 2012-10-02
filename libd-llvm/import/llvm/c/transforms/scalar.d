@@ -1,4 +1,4 @@
-/*===-- Scalar.h - Scalar Transformation Library C Interface ----*- D -*-===*\
+/*===-- Scalar.h - Scalar Transformation Library C Interface ----*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -15,12 +15,19 @@
 |* tools written in such languages.                                           *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.transforms.Scalar;
 
-import llvm.c.Core;
+module llvm.c.transforms.scalar;
 
-extern(C):
+import llvm.c.core;
 
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCTransformsScalar Scalar transformations
+ * @ingroup LLVMCTransforms
+ *
+ * @{
+ */
 
 /** See llvm::createAggressiveDCEPass function. */
 void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM);
@@ -112,3 +119,7 @@ void LLVMAddTypeBasedAliasAnalysisPass(LLVMPassManagerRef PM);
 
 /** See llvm::createBasicAliasAnalysisPass function */
 void LLVMAddBasicAliasAnalysisPass(LLVMPassManagerRef PM);
+
+/**
+ * @}
+ */

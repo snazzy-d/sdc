@@ -1,4 +1,4 @@
-/*===-- llvm-c/BitReader.h - BitReader Library C Interface ------*- D -*-===*\
+/*===-- llvm-c/BitReader.h - BitReader Library C Interface ------*- C++ -*-===*\
 |*                                                                            *|
 |*                     The LLVM Compiler Infrastructure                       *|
 |*                                                                            *|
@@ -15,42 +15,53 @@
 |* tools written in such languages.                                           *|
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
-module llvm.c.BitReader;
 
-import llvm.c.Core;
+module llvm.c.bitReader;
 
-extern(C):
+import llvm.c.core;
 
+extern(C) nothrow:
+
+/**
+ * @defgroup LLVMCBitReader Bit Reader
+ * @ingroup LLVMC
+ *
+ * @{
+ */
 
 /* Builds a module from the bitcode in the specified memory buffer, returning a
    reference to the module via the OutModule parameter. Returns 0 on success.
-   Optionally returns a human-readable error message via OutMessage. */
+   Optionally returns a human-readable error message via OutMessage. */ 
 LLVMBool LLVMParseBitcode(LLVMMemoryBufferRef MemBuf,
-                          LLVMModuleRef* OutModule, char** OutMessage);
+                          LLVMModuleRef *OutModule, char **OutMessage);
 
 LLVMBool LLVMParseBitcodeInContext(LLVMContextRef ContextRef,
                                    LLVMMemoryBufferRef MemBuf,
-                                   LLVMModuleRef* OutModule, char** OutMessage);
+                                   LLVMModuleRef *OutModule, char **OutMessage);
 
 /** Reads a module from the specified path, returning via the OutMP parameter
     a module provider which performs lazy deserialization. Returns 0 on success.
-    Optionally returns a human-readable error message via OutMessage. */
+    Optionally returns a human-readable error message via OutMessage. */ 
 LLVMBool LLVMGetBitcodeModuleInContext(LLVMContextRef ContextRef,
                                        LLVMMemoryBufferRef MemBuf,
-                                       LLVMModuleRef* OutM,
-                                       char** OutMessage);
+                                       LLVMModuleRef *OutM,
+                                       char **OutMessage);
 
-LLVMBool LLVMGetBitcodeModule(LLVMMemoryBufferRef MemBuf, LLVMModuleRef* OutM,
-                              char** OutMessage);
+LLVMBool LLVMGetBitcodeModule(LLVMMemoryBufferRef MemBuf, LLVMModuleRef *OutM,
+                              char **OutMessage);
 
 
 /** Deprecated: Use LLVMGetBitcodeModuleInContext instead. */
 LLVMBool LLVMGetBitcodeModuleProviderInContext(LLVMContextRef ContextRef,
                                                LLVMMemoryBufferRef MemBuf,
-                                               LLVMModuleProviderRef* OutMP,
-                                               char** OutMessage);
+                                               LLVMModuleProviderRef *OutMP,
+                                               char **OutMessage);
 
 /** Deprecated: Use LLVMGetBitcodeModule instead. */
 LLVMBool LLVMGetBitcodeModuleProvider(LLVMMemoryBufferRef MemBuf,
-                                      LLVMModuleProviderRef* OutMP,
-                                      char** OutMessage);
+                                      LLVMModuleProviderRef *OutMP,
+                                      char **OutMessage);
+
+/**
+ * @}
+ */

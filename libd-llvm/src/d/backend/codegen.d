@@ -4,8 +4,8 @@ import d.ast.dmodule;
 
 import util.visitor;
 
-import llvm.c.Analysis;
-import llvm.c.Core;
+import llvm.c.analysis;
+import llvm.c.core;
 
 import std.algorithm;
 import std.array;
@@ -220,7 +220,8 @@ final:
 			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
 			
 			// Create an alloca for this variable.
-			auto alloca = LLVMBuildAlloca(builder, pass.visit(var.type), var.mangle.toStringz());
+			auto type = pass.visit(var.type);
+			auto alloca = LLVMBuildAlloca(builder, type, var.mangle.toStringz());
 			
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			
@@ -229,7 +230,7 @@ final:
 			
 			// Store the initial value into the alloca.
 			auto value = pass.visit(var.value);
-			assert(value);
+			
 			LLVMBuildStore(builder, value, alloca);
 			
 			return alloca;
@@ -250,11 +251,6 @@ final:
 			if(auto f = cast(FieldDeclaration) member) {
 				members ~= pass.visit(f.type);
 			}
-		}
-		
-		// If the struct have non members, then one is added automatically.
-		if(!members) {
-			members = [LLVMInt8Type()];
 		}
 		
 		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
@@ -733,6 +729,12 @@ final:
 	
 	LLVMValueRef visit(TupleExpression e) {
 		auto fields = e.values.map!(v => visit(v)).array();
+		
+		// Hack around the difference between struct and named struct in LLVM.
+		if(e.type) {
+			auto type = pass.visit(e.type);
+			return LLVMConstNamedStruct(type, fields.ptr, cast(uint) fields.length);
+		}
 		
 		return LLVMConstStruct(fields.ptr, cast(uint) fields.length, false);
 	}
