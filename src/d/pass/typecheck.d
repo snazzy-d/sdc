@@ -32,7 +32,7 @@ class TypecheckPass {
 	private Type returnType;
 	private Type thisType;
 	
-	private Type[ExpressionSymbol] symbolTypes;
+	private bool runAgain;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -101,9 +101,7 @@ final:
 	Symbol visit(FunctionDeclaration d) {
 		d.returnType = pass.visit(d.returnType);
 		
-		d.type = new FunctionType(d.location, d.returnType, d.parameters, false);
-		
-		symbolTypes[d] = d.type;
+		d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}
@@ -137,9 +135,7 @@ final:
 			d.returnType = returnType;
 		}
 		
-		d.type = new FunctionType(d.location, d.returnType, d.parameters, false);
-		
-		symbolTypes[d] = d.type;
+		d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}
@@ -152,10 +148,9 @@ final:
 			var.type = var.value.type;
 		} else {
 			var.type = pass.visit(var.type);
+			
 			var.value = buildImplicitCast(var.location, var.type, var.value);
 		}
-		
-		symbolTypes[var] = var.type;
 		
 		return var;
 	}
@@ -164,19 +159,28 @@ final:
 		return visit(cast(VariableDeclaration) f);
 	}
 	
-	Symbol visit(StructDefinition s) {
+	Symbol visit(StructDefinition d) {
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
 		
-		thisType = new SymbolType(s.location, s);
+		thisType = new SymbolType(d.location, d);
 		
-		s.members = s.members.map!(m => visit(m)).array();
+		d.members = d.members.map!(m => visit(m)).array();
 		
-		return s;
+		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
+		
+		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
+		tuple.type = thisType;
+		
+		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
+		initDecl.value = tuple;
+		initDecl.type = thisType;
+		
+		return d;
 	}
 	
 	Parameter visit(Parameter p) {
-		symbolTypes[p] = p.type = pass.visit(p.type);
+		p.type = pass.visit(p.type);
 		
 		return p;
 	}
@@ -278,7 +282,7 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) out(result) {
-		if(!result.type) {
+		if(!(pass.runAgain || result.type)) {
 			auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
 			
 			import sdc.terminal;
@@ -458,6 +462,20 @@ final:
 		return handleIncrementExpression(e);
 	}
 	
+	Expression visit(UnaryMinusExpression e) {
+		e.expression = visit(e.expression);
+		e.type = e.expression.type;
+		
+		return e;
+	}
+	
+	Expression visit(NotExpression e) {
+		e.type = new BooleanType(e.location);
+		e.expression = buildExplicitCast(e.location, e.type, visit(e.expression));
+		
+		return e;
+	}
+	
 	Expression visit(AddressOfExpression e) {
 		assert(typeid({ return e.expression; }()) !is typeid(AddressOfExpression), "Cannot take the address of an address.");
 		
@@ -503,8 +521,10 @@ final:
 		
 		auto type = cast(FunctionType) callee.type;
 		assert(type, "You must call function, you fool !!!");
-		foreach(ref arg, ref param; lockstep(c.arguments, type.parameters)) {
-			arg = buildImplicitCast(arg.location, param.type, pass.visit(arg));
+		
+		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
+		foreach(ref arg, param; lockstep(c.arguments, type.parameters)) {
+			arg = buildImplicitCast(arg.location, param.type, arg);
 		}
 		
 		c.callee = callee;
@@ -516,8 +536,7 @@ final:
 	Expression visit(FieldExpression fe) {
 		fe.expression = visit(fe.expression);
 		
-		// XXX: can't this be visited before ?
-		fe.type = pass.visit(fe.field.type);
+		fe.type = fe.field.type;
 		
 		return fe;
 	}
@@ -525,8 +544,7 @@ final:
 	Expression visit(MethodExpression me) {
 		me.thisExpression = visit(me.thisExpression);
 		
-		// XXX: can't this be visited before ?
-		me.type = pass.visit(me.method.returnType);
+		me.type = me.method.returnType;
 		
 		return me;
 	}
@@ -538,19 +556,9 @@ final:
 	}
 	
 	Expression visit(SymbolExpression e) {
-		return resolveOrDefer!(delegate bool(Expression cause) {
-			// Too restrictive for now.
-			// return (e.symbol in pass.symbolTypes) !is null;
-			
-			return typeid({ return e.symbol.type; }()) !is typeid(AutoType);
-		}, delegate Expression(Expression cause) {
-			// ditto
-			// e.type = pass.symbolTypes[e.symbol];
-			
-			e.type = e.symbol.type;
-			
-			return e;
-		})(e.location, e);
+		e.type = e.symbol.type;
+		
+		return e;
 	}
 	
 	Expression visit(IndexExpression e) {
@@ -736,13 +744,7 @@ final:
 	}
 	
 	Expression visit(StructDefinition d) {
-		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
-		
-		// XXX: remove that mess when implicit cast is done for symbol initializer.
-		auto tuple = new TupleExpression(location, fields.map!(f => f.value).array());
-		tuple.type = new SymbolType(location, d);
-		
-		return tuple;
+		return new SymbolExpression(location, cast(ExpressionSymbol) d.dscope.resolve("init"));
 	}
 }
 

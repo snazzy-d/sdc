@@ -26,6 +26,8 @@ class FlattenPass {
 	string linkage = "D";
 	bool isStatic = true;
 	
+	string[] versions = ["SDC", "D_LP64"];
+	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
 		declarationFlatener	= new DeclarationFlatener(this);
@@ -75,6 +77,7 @@ import d.ast.adt;
 import d.ast.dfunction;
 import d.ast.dscope;
 import d.ast.dtemplate;
+import d.ast.conditional;
 
 class DeclarationVisitor {
 	private FlattenPass pass;
@@ -207,6 +210,18 @@ final:
 		isStatic = true;
 		
 		workingSet ~= visit(d.declarations);
+	}
+	
+	void visit(Version!Declaration d) {
+		foreach(v; versions) {
+			if(d.versionId == v) {
+				workingSet ~= visit(d.items);
+				
+				return;
+			}
+		}
+		
+		workingSet ~= visit(d.elseItems);
 	}
 }
 
@@ -454,6 +469,14 @@ final:
 	}
 	
 	Expression visit(PostDecrementExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(UnaryMinusExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(NotExpression e) {
 		return handleUnaryExpression(e);
 	}
 	

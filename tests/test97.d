@@ -12,7 +12,6 @@ int main()
     int a = 25;
     int b = 2;
     
-    // XXX: Unary - when supported.
-    return add(0-12, add(add(a, b), add(b, a)));
+    return add(-12, add(add(a, b), add(b, a)));
 }
 

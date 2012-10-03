@@ -13,17 +13,19 @@ import d.ast.type;
 class FunctionDeclaration : ExpressionSymbol {
 	Type returnType;
 	Parameter[] parameters;
+	bool isVariadic;
 	
 	string funmangle;
 	
 	Scope dscope;
 	
-	this(Location location, string name, Type returnType, Parameter[] parameters) {
-		super(location, name, new FunctionType(location, returnType, parameters, false));
+	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {
+		super(location, name, new FunctionType(location, returnType, parameters, isVariadic));
 		
 		this.name = name;
 		this.returnType = returnType;
 		this.parameters = parameters;
+		this.isVariadic = isVariadic;
 	}
 }
 
@@ -33,8 +35,8 @@ class FunctionDeclaration : ExpressionSymbol {
 class FunctionDefinition : FunctionDeclaration {
 	BlockStatement fbody;
 	
-	this(Location location, string name, Type returnType, Parameter[] parameters, BlockStatement fbody) {
-		super(location, name, returnType, parameters);
+	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
+		super(location, name, returnType, parameters, isVariadic);
 		
 		this.fbody = fbody;
 	}
@@ -46,7 +48,7 @@ class FunctionDefinition : FunctionDeclaration {
 class ConstructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
-	this(Location location, Parameter[] parameters) {
+	this(Location location, Parameter[] parameters, bool isVariadic) {
 		super(location);
 		
 		this.parameters = parameters;
@@ -64,8 +66,8 @@ class ConstructorDeclaration : Declaration {
 class ConstructorDefinition : ConstructorDeclaration {
 	Statement fbody;
 	
-	this(Location location, Parameter[] parameters, Statement fbody) {
-		super(location, parameters);
+	this(Location location, Parameter[] parameters, bool isVariadic, Statement fbody) {
+		super(location, parameters, isVariadic);
 		
 		this.fbody = fbody;
 	}
@@ -77,7 +79,7 @@ class ConstructorDefinition : ConstructorDeclaration {
 class DestructorDeclaration : Declaration {
 	Parameter[] parameters;
 	
-	this(Location location, Parameter[] parameters) {
+	this(Location location, Parameter[] parameters, bool isVariadic) {
 		super(location);
 		
 		this.parameters = parameters;
@@ -95,8 +97,8 @@ class DestructorDeclaration : Declaration {
 class DestructorDefinition : DestructorDeclaration {
 	Statement fbody;
 	
-	this(Location location, Parameter[] parameters, Statement fbody) {
-		super(location, parameters);
+	this(Location location, Parameter[] parameters, bool isVariadic, Statement fbody) {
+		super(location, parameters, isVariadic);
 		
 		this.fbody = fbody;
 	}

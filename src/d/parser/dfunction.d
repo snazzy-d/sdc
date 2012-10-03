@@ -113,7 +113,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 			location.spanTo(trange.front.location);
 			trange.popFront();
 			
-			fun = new FunctionDeclarationType(location, arguments, parameters);
+			fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic);
 			break;
 		
 		case TokenType.OpenBrace :
@@ -121,7 +121,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 			
 			location.spanTo(trange.front.location);
 			
-			fun = new FunctionDefinitionType(location, arguments, parameters, fbody);
+			fun = new FunctionDefinitionType(location, arguments, parameters, isVariadic, fbody);
 			break;
 		
 		default :

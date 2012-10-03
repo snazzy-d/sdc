@@ -537,6 +537,15 @@ final:
 		return handleIncrement!false(e, -1);
 	}
 	
+	LLVMValueRef visit(UnaryMinusExpression e) {
+		return LLVMBuildSub(builder, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
+	}
+	
+	LLVMValueRef visit(NotExpression e) {
+		// Is it the right way ?
+		return LLVMBuildICmp(builder, LLVMIntPredicate.EQ, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
+	}
+	
 	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
 		// XXX: should be useless, but order of evaluation of parameters is bugguy.
 		auto lhs = visit(e.lhs);
@@ -638,7 +647,7 @@ final:
 			return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 		} catch(Exception exp) {
 			import std.stdio;
-			writeln("Field expression isn't an lvalue.");
+			writeln("FieldExpression isn't an lvalue.");
 			
 			return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
 		}
@@ -716,12 +725,22 @@ final:
 		LLVMValueRef[] arguments;
 		arguments.length = c.arguments.length;
 		
-		foreach(i, arg; c.arguments) {
-			if((cast(FunctionType) c.callee.type).parameters[i].isReference) {
-				arguments[i] = addressOfGen.visit(arg);
+		auto type = cast(FunctionType) c.callee.type;
+		uint i;
+		foreach(param; type.parameters) {
+			if(param.isReference) {
+				arguments[i] = addressOfGen.visit(c.arguments[i]);
 			} else {
-				arguments[i] = visit(arg);
+				arguments[i] = visit(c.arguments[i]);
 			}
+			
+			i++;
+		}
+		
+		// Handle variadic functions.
+		while(i < arguments.length) {
+			arguments[i] = visit(c.arguments[i]);
+			i++;
 		}
 		
 		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
