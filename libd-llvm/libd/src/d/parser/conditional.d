@@ -27,12 +27,10 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 	static if(isVersion) {
 		alias TokenType.Version conditionalTokenType;
 		alias Version!ItemType ConditionalType;
-		alias VersionElse!ItemType ConditionalElseType;
 		alias VersionDefinition!ItemType DefinitionType;
 	} else {
 		alias TokenType.Debug conditionalTokenType;
 		alias Debug!ItemType ConditionalType;
-		alias DebugElse!ItemType ConditionalElseType;
 		alias DebugDefinition!ItemType DefinitionType;
 	}
 	
@@ -68,16 +66,15 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 			trange.match(TokenType.CloseParen);
 			
 			ItemType[] items = trange.parseItems!ItemType();
+			ItemType[] elseItems;
 			
 			if(trange.front.type == TokenType.Else) {
 				trange.popFront();
 				
-				ItemType[] elseItems = trange.parseItems!ItemType();
-				
-				return new ConditionalElseType(location, versionId, items, elseItems);
-			} else {
-				return new ConditionalType(location, versionId, items);
+				elseItems = trange.parseItems!ItemType();
 			}
+			
+			return new ConditionalType(location, versionId, items, elseItems);
 		
 		case TokenType.Assign :
 			trange.popFront();

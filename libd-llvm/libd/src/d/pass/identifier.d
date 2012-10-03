@@ -395,6 +395,14 @@ final:
 		return handleUnaryExpression(e);
 	}
 	
+	Expression visit(UnaryMinusExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
+	Expression visit(NotExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
 	Expression visit(AddressOfExpression e) {
 		return handleUnaryExpression(e);
 	}

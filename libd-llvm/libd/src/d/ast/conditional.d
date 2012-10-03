@@ -11,24 +11,13 @@ import d.ast.statement;
 class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
 	string versionId;
 	ItemType[] items;
+	ItemType[] elseItems;
 	
-	this(Location location, string versionId, ItemType[] items) {
+	this(Location location, string versionId, ItemType[] items, ItemType[] elseItems) {
 		super(location);
 		
 		this.versionId = versionId;
 		this.items = items;
-	}
-}
-
-/**
- * Version Conditional with else
- */
-class VersionElse(ItemType) : Version!ItemType {
-	ItemType[] elseItems;
-	
-	this(Location location, string versionId, ItemType[] items, ItemType[] elseItems) {
-		super(location, versionId, items);
-		
 		this.elseItems = elseItems;
 	}
 }
@@ -50,7 +39,6 @@ class VersionDefinition(ItemType) if(is(ItemType == Statement) || is(ItemType ==
  * Debug ast alias
  */
 alias Version Debug;
-alias VersionElse DebugElse;
 alias VersionDefinition DebugDefinition;
 
 /**
