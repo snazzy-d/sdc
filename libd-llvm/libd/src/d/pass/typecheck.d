@@ -35,7 +35,16 @@ class TypecheckPass {
 	private Type returnType;
 	private Type thisType;
 	
+	private Type[ExpressionSymbol] resolvedTypes;
 	private bool runAgain;
+	
+	private static class UnresolvedType : Type {
+		this() {
+			super(Location.init);
+		}
+	}
+	
+	private UnresolvedType unresolvedType;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -49,6 +58,8 @@ class TypecheckPass {
 		
 		implicitCast	= new Cast!false(this);
 		explicitCast	= new Cast!true(this);
+		
+		unresolvedType	= new UnresolvedType();
 	}
 	
 final:
@@ -61,7 +72,21 @@ final:
 		// Set reference to null to allow garbage collection.
 		identifierPass = null;
 		
-		return modules.map!(m => visit(m)).array();
+		auto oldRunAgain = runAgain;
+		scope(exit) runAgain = oldRunAgain;
+		
+		runAgain = true;
+		auto resolvedCount = resolvedTypes.length;
+		
+		while(runAgain) {
+			runAgain = false;
+			modules = modules.map!(m => visit(m)).array();
+			
+			// TODO: ensure that this is making progress.
+			resolvedCount = resolvedTypes.length;
+		}
+		
+		return modules;
 	}
 	
 	private Module visit(Module m) {
@@ -107,7 +132,7 @@ final:
 	Symbol visit(FunctionDeclaration d) {
 		d.returnType = pass.visit(d.returnType);
 		
-		d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
+		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}
@@ -141,7 +166,7 @@ final:
 			d.returnType = returnType;
 		}
 		
-		d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
+		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}
@@ -157,6 +182,8 @@ final:
 			
 			var.value = implicitCast.build(var.location, var.type, var.value);
 		}
+		
+		resolvedTypes[var] = var.type;
 		
 		return var;
 	}
@@ -197,7 +224,7 @@ final:
 	}
 	
 	Parameter visit(Parameter p) {
-		p.type = pass.visit(p.type);
+		resolvedTypes[p] = p.type = pass.visit(p.type);
 		
 		return p;
 	}
@@ -299,7 +326,7 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) out(result) {
-		if(!(pass.runAgain || result.type)) {
+		if(!result.type) {
 			auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
 			
 			import sdc.terminal;
@@ -546,6 +573,12 @@ final:
 			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
+		if(runAgain && (typeid({ return callee.type; }()) is typeid(TypecheckPass.UnresolvedType))) {
+			c.type = callee.type;
+			
+			return c;
+		}
+		
 		auto type = cast(FunctionType) callee.type;
 		assert(type, "You must call function, you fool !!!");
 		
@@ -583,7 +616,17 @@ final:
 	}
 	
 	Expression visit(SymbolExpression e) {
-		e.type = e.symbol.type;
+		auto typePtr = e.symbol in resolvedTypes;
+		
+		if(typePtr) {
+			e.type = e.symbol.type;
+			
+			return e;
+		}
+		
+		runAgain = true;
+		
+		e.type = unresolvedType;
 		
 		return e;
 	}
@@ -878,10 +921,18 @@ class Cast(bool isExplicit) {
 		// fromFloat		= new FromFloat();
 		fromCharacter	= new FromCharacter();
 		fromPointer		= new FromPointer();
+		fromFunction	= new FromFunction();
 	}
 	
 final:
 	Expression build(Location castLocation, Type to, Expression e) {
+		if(runAgain) {
+			auto unresolvedTypeid = typeid(TypecheckPass.UnresolvedType);
+			
+			if(typeid(to) is unresolvedTypeid) return e;
+			if(typeid({ return e.type; }()) is unresolvedTypeid) return e;
+		}
+		
 		// Default initializer removal.
 		if(typeid(e) is typeid(DefaultInitializer)) {
 			return defaultInitializerVisitor.visit(e.location, to);
@@ -1086,10 +1137,6 @@ final:
 	class FromFunction {
 		FunctionType fromType;
 		
-		this(FunctionType fromType) {
-			this.fromType = fromType;
-		}
-		
 		Expression visit(FunctionType from, Type to) {
 			auto oldFromType = fromType;
 			scope(exit) fromType = oldFromType;
@@ -1123,6 +1170,12 @@ final:
 }
 
 Type getPromotedType(Location location, Type t1, Type t2) {
+	auto unresolvedTypeid = typeid(TypecheckPass.UnresolvedType);
+	
+	// If an unresolved type come here, the pass wil run again so we just skip.
+	if(typeid(t1) is unresolvedTypeid) return t1;
+	if(typeid(t2) is unresolvedTypeid) return t2;
+	
 	final class T2Handler {
 		Integer t1type;
 		
