@@ -29,6 +29,9 @@ class TypecheckPass {
 	
 	private SizeofCalculator sizeofCalculator;
 	
+	private Cast!false implicitCast;
+	private Cast!true explicitCast;
+	
 	private Type returnType;
 	private Type thisType;
 	
@@ -43,6 +46,9 @@ class TypecheckPass {
 		defaultInitializerVisitor = new DefaultInitializerVisitor(this);
 		
 		sizeofCalculator	= new SizeofCalculator(this);
+		
+		implicitCast	= new Cast!false(this);
+		explicitCast	= new Cast!true(this);
 	}
 	
 final:
@@ -149,7 +155,7 @@ final:
 		} else {
 			var.type = pass.visit(var.type);
 			
-			var.value = buildImplicitCast(var.location, var.type, var.value);
+			var.value = implicitCast.build(var.location, var.type, var.value);
 		}
 		
 		return var;
@@ -175,6 +181,17 @@ final:
 		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
 		initDecl.value = tuple;
 		initDecl.type = thisType;
+		
+		return d;
+	}
+	
+	Symbol visit(ClassDefinition d) {
+		auto oldThisType = thisType;
+		scope(exit) thisType = oldThisType;
+		
+		thisType = new SymbolType(d.location, d);
+		
+		d.members = d.members.map!(m => visit(m)).array();
 		
 		return d;
 	}
@@ -231,20 +248,20 @@ final:
 	}
 	
 	void visit(IfElseStatement ifs) {
-		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
+		ifs.condition = explicitCast.build(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
 		
 		visit(ifs.then);
 		visit(ifs.elseStatement);
 	}
 	
 	void visit(WhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
+		w.condition = explicitCast.build(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		visit(w.statement);
 	}
 	
 	void visit(DoWhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
+		w.condition = explicitCast.build(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		visit(w.statement);
 	}
@@ -252,7 +269,7 @@ final:
 	void visit(ForStatement f) {
 		visit(f.initialize);
 		
-		f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
+		f.condition = explicitCast.build(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
 		f.increment = pass.visit(f.increment);
 		
 		visit(f.statement);
@@ -264,7 +281,7 @@ final:
 		if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
 			returnType = r.value.type;
 		} else {
-			r.value = buildImplicitCast(r.location, returnType, r.value);
+			r.value = implicitCast.build(r.location, returnType, r.value);
 		}
 	}
 }
@@ -331,7 +348,7 @@ final:
 		e.lhs = visit(e.lhs);
 		e.type = e.lhs.type;
 		
-		e.rhs = buildImplicitCast(e.rhs.location, e.type, visit(e.rhs));
+		e.rhs = implicitCast.build(e.rhs.location, e.type, visit(e.rhs));
 		
 		return e;
 	}
@@ -341,13 +358,15 @@ final:
 		e.rhs = visit(e.rhs);
 		
 		if(auto pointerType = cast(PointerType) e.lhs.type) {
+			assert(cast(IntegerType) e.rhs.type, "Pointer +/- interger only.");
+			
 			return visit(new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs])));
 		}
 		
 		e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 		
-		e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
-		e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+		e.lhs = implicitCast.build(e.lhs.location, e.type, e.lhs);
+		e.rhs = implicitCast.build(e.rhs.location, e.type, e.rhs);
 		
 		return e;
 	}
@@ -359,7 +378,15 @@ final:
 	Expression visit(SubExpression e) {
 		return handleArithmeticExpression(e);
 	}
+	/*
+	Expression visit(AddAssignExpression e) {
+		return handleArithmeticExpression(e);
+	}
 	
+	Expression visit(SubAssignExpression e) {
+		return handleArithmeticExpression(e);
+	}
+	*/
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -368,20 +395,20 @@ final:
 		static if(find(["&&", "||"], operation)) {
 			e.type = new BooleanType(e.location);
 			
-			e.lhs = buildExplicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = buildExplicitCast(e.rhs.location, e.type, e.rhs);
+			e.lhs = explicitCast.build(e.lhs.location, e.type, e.lhs);
+			e.rhs = explicitCast.build(e.rhs.location, e.type, e.rhs);
 		} else static if(find(["==", "!=", ">", ">=", "<", "<="], operation)) {
 			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
-			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
-			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
+			e.lhs = implicitCast.build(e.lhs.location, type, e.lhs);
+			e.rhs = implicitCast.build(e.rhs.location, type, e.rhs);
 			
 			e.type = new BooleanType(e.location);
 		} else static if(find(["&", "|", "^", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
-			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
+			e.lhs = implicitCast.build(e.lhs.location, e.type, e.lhs);
+			e.rhs = implicitCast.build(e.rhs.location, e.type, e.rhs);
 		} else static if(find([","], operation)) {
 			e.type = e.rhs.type;
 		}
@@ -471,7 +498,7 @@ final:
 	
 	Expression visit(NotExpression e) {
 		e.type = new BooleanType(e.location);
-		e.expression = buildExplicitCast(e.location, e.type, visit(e.expression));
+		e.expression = explicitCast.build(e.location, e.type, visit(e.expression));
 		
 		return e;
 	}
@@ -507,7 +534,7 @@ final:
 	}
 	
 	Expression visit(CastExpression e) {
-		return buildExplicitCast(e.location, pass.visit(e.type), visit(e.expression));
+		return explicitCast.build(e.location, pass.visit(e.type), visit(e.expression));
 	}
 	
 	Expression visit(CallExpression c) {
@@ -524,7 +551,7 @@ final:
 		
 		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
 		foreach(ref arg, param; lockstep(c.arguments, type.parameters)) {
-			arg = buildImplicitCast(arg.location, param.type, arg);
+			arg = pass.implicitCast.build(arg.location, param.type, arg);
 		}
 		
 		c.callee = callee;
@@ -593,6 +620,18 @@ final:
 	// Will be remove by cast operation.
 	Expression visit(DefaultInitializer di) {
 		return di;
+	}
+	
+	Expression visit(AssertExpression e) {
+		e.arguments = e.arguments.map!(a => visit(a)).array();
+		
+		e.arguments[0] = explicitCast.build(e.location, new BooleanType(e.location), e.arguments[0]);
+		
+		assert(e.arguments.length == 1, "Assert with message isn't supported.");
+		
+		e.type = new VoidType(e.location);
+		
+		return e;
 	}
 }
 
@@ -746,6 +785,10 @@ final:
 	Expression visit(StructDefinition d) {
 		return new SymbolExpression(location, cast(ExpressionSymbol) d.dscope.resolve("init"));
 	}
+	
+	Expression visit(ClassDefinition d) {
+		return new NullLiteral(location, new SymbolType(d.location, d));
+	}
 }
 
 class SizeofCalculator {
@@ -813,9 +856,69 @@ final:
 
 import sdc.location;
 
-private Expression buildCast(bool isExplicit = false)(Location location, Type type, Expression e) {
-	// TODO: use struct to avoid memory allocation.
-	final class CastFromBooleanType {
+class Cast(bool isExplicit) {
+	private TypecheckPass pass;
+	alias pass this;
+	
+	private Location location;
+	private Type type;
+	private Expression expression;
+	
+	private FromBoolean fromBoolean;
+	private FromInteger fromInteger;
+	private FromCharacter fromCharacter;
+	private FromPointer fromPointer;
+	private FromFunction fromFunction;
+	
+	this(TypecheckPass pass) {
+		this.pass = pass;
+		
+		fromBoolean		= new FromBoolean();
+		fromInteger		= new FromInteger();
+		// fromFloat		= new FromFloat();
+		fromCharacter	= new FromCharacter();
+		fromPointer		= new FromPointer();
+	}
+	
+final:
+	Expression build(Location castLocation, Type to, Expression e) {
+		// Default initializer removal.
+		if(typeid(e) is typeid(DefaultInitializer)) {
+			return defaultInitializerVisitor.visit(e.location, to);
+		}
+		
+		// Nothing to cast.
+		if(e.type == to) return e;
+		
+		auto oldLocation = location;
+		scope(exit) location = oldLocation;
+		
+		location = castLocation;
+		
+		auto oldType = type;
+		scope(exit) type = oldType;
+		
+		type = to;
+		
+		auto oldExpression = expression;
+		scope(exit) expression = oldExpression;
+		
+		expression = e;
+		
+		return this.dispatch!(delegate Expression(Type t) {
+			auto msg = typeid(t).toString() ~ " is not supported.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(t.location, msg);
+			outputCaretDiagnostics(location, msg);
+			
+			outputCaretDiagnostics(to.location, "to " ~ typeid(to).toString());
+			
+			assert(0, msg);
+		})(e.type);
+	}
+	
+	class FromBoolean {
 		Expression visit(Type t) {
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -825,25 +928,26 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				
 				assert(0, msg);
 			})(t);
-		}
-		
-		Expression visit(BooleanType t) {
-			return e;
 		}
 		
 		Expression visit(IntegerType t) {
-			return new PadExpression(location, type, e);
+			return new PadExpression(location, t, expression);
 		}
 	}
 	
-	final class CastFromIntegerType {
+	Expression visit(BooleanType t) {
+		return fromBoolean.visit(type);
+	}
+	
+	class FromInteger {
 		Integer fromType;
 		
-		this(Integer fromType) {
-			this.fromType = fromType;
-		}
-		
-		Expression visit(Type t) {
+		Expression visit(Integer from, Type to) {
+			auto oldFromType = fromType;
+			scope(exit) fromType = oldFromType;
+			
+			fromType = from;
+			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
 				
@@ -851,75 +955,68 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				outputCaretDiagnostics(t.location, msg);
 				
 				assert(0, msg);
-			})(t);
+			})(to);
 		}
 		
 		static if(isExplicit) {
 			Expression visit(BooleanType t) {
 				Expression zero = makeLiteral(location, 0);
-				auto type = getPromotedType(location, e.type, zero.type);
+				auto type = getPromotedType(location, expression.type, zero.type);
 				
-				zero = buildImplicitCast(location, type, zero);
-				e = buildImplicitCast(e.location, type, e);
+				zero = pass.implicitCast.build(location, type, zero);
+				expression = pass.implicitCast.build(expression.location, type, expression);
 				
-				return new NotEqualityExpression(location, e, zero);
+				return new NotEqualityExpression(location, expression, zero);
 			}
 		}
 		
 		Expression visit(IntegerType t) {
-			// TODO: remove first if. Equal type should reach here.
-			if(t.type == fromType) {
-				return e;
-			} else if(t.type >> 1 == fromType >> 1) {
+			if(t.type >> 1 == fromType >> 1) {
 				// Same type except for signess.
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			} else if(t.type > fromType) {
-				return new PadExpression(location, type, e);
+				return new PadExpression(location, t, expression);
 			} else static if(isExplicit) {
-				return new TruncateExpression(location, type, e);
+				return new TruncateExpression(location, t, expression);
 			} else {
 				import std.conv;
 				auto msg = "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed";
 				
 				import sdc.terminal;
-				outputCaretDiagnostics(e.location, msg);
+				outputCaretDiagnostics(expression.location, msg);
 				
 				assert(0, msg);
 			}
 		}
 	}
 	
-	final class CastFromFloatType {
-		Float fromType;
-		
-		this(Float fromType) {
-			this.fromType = fromType;
-		}
-		
-		Expression visit(Type t) {
-			return this.dispatch(t);
-		}
-		
-		Expression visit(FloatType t) {
-			import std.conv;
-			assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
-		}
+	Expression visit(IntegerType t) {
+		return fromInteger.visit(t.type, type);
 	}
 	
-	final class CastFromCharacterType {
+	/*
+	Expression visit(FloatType t) {
+		return fromFloatType(t.type)).visit(type);
+	}
+	*/
+	
+	class FromCharacter {
 		Character fromType;
 		
-		this(Character fromType) {
-			this.fromType = fromType;
-		}
-		
-		Expression visit(Type t) {
-			return this.dispatch(t);
-		}
-		
-		Expression visit(CharacterType t) {
-			import std.conv;
-			assert(0, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+		Expression visit(Character from, Type to) {
+			auto oldFromType = fromType;
+			scope(exit) fromType = oldFromType;
+			
+			fromType = from;
+			
+			return this.dispatch!(function Expression(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(to);
 		}
 		
 		Expression visit(IntegerType t) {
@@ -938,18 +1035,23 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 					break;
 			}
 			
-			return (new CastFromIntegerType(i)).visit(t);
+			return fromInteger.visit(i, t);
 		}
 	}
 	
-	final class CastFromPointerTo {
+	Expression visit(CharacterType t) {
+		return fromCharacter.visit(t.type, type);
+	}
+	
+	class FromPointer {
 		Type fromType;
 		
-		this(Type fromType) {
-			this.fromType = fromType;
-		}
-		
-		Expression visit(Type t) {
+		Expression visit(Type from, Type to) {
+			auto oldFromType = fromType;
+			scope(exit) fromType = oldFromType;
+			
+			fromType = from;
+			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
 				
@@ -957,14 +1059,14 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				outputCaretDiagnostics(t.location, msg);
 				
 				assert(0, msg);
-			})(t);
+			})(to);
 		}
 		
 		Expression visit(PointerType t) {
 			static if(isExplicit) {
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			} else if(auto toType = cast(VoidType) t.type) {
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			} else {
 				assert(0, "invalid pointer cast.");
 			}
@@ -972,20 +1074,28 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 		
 		static if(isExplicit) {
 			Expression visit(FunctionType t) {
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			}
 		}
 	}
 	
+	Expression visit(PointerType t) {
+		return fromPointer.visit(t.type, type);
+	}
 	
-	final class CastFromFunctionTo {
+	class FromFunction {
 		FunctionType fromType;
 		
 		this(FunctionType fromType) {
 			this.fromType = fromType;
 		}
 		
-		Expression visit(Type t) {
+		Expression visit(FunctionType from, Type to) {
+			auto oldFromType = fromType;
+			scope(exit) fromType = oldFromType;
+			
+			fromType = from;
+			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
 				
@@ -993,67 +1103,24 @@ private Expression buildCast(bool isExplicit = false)(Location location, Type ty
 				outputCaretDiagnostics(t.location, msg);
 				
 				assert(0, msg);
-			})(t);
+			})(to);
 		}
 		
 		Expression visit(PointerType t) {
 			static if(isExplicit) {
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			} else if(auto toType = cast(VoidType) t.type) {
-				return new BitCastExpression(location, type, e);
+				return new BitCastExpression(location, t, expression);
 			} else {
 				assert(0, "invalid pointer cast.");
 			}
 		}
 	}
 	
-	final class Cast {
-		Expression visit(Expression e) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(e.type);
-		}
-		
-		Expression visit(BooleanType t) {
-			return (new CastFromBooleanType()).visit(type);
-		}
-		
-		Expression visit(IntegerType t) {
-			return (new CastFromIntegerType(t.type)).visit(type);
-		}
-		
-		Expression visit(FloatType t) {
-			return (new CastFromFloatType(t.type)).visit(type);
-		}
-		
-		Expression visit(CharacterType t) {
-			return (new CastFromCharacterType(t.type)).visit(type);
-		}
-		
-		Expression visit(PointerType t) {
-			return (new CastFromPointerTo(t.type)).visit(type);
-		}
-		
-		Expression visit(FunctionType t) {
-			return (new CastFromFunctionTo(t)).visit(type);
-		}
+	Expression visit(FunctionType t) {
+		return fromFunction.visit(t, type);
 	}
-	
-	// Default initializer removal.
-	if(typeid(e) is typeid(DefaultInitializer)) {
-		return (new DefaultInitializerVisitor(null)).visit(e.location, type);
-	}
-	
-	return (e.type == type)?e:(new Cast()).visit(e);
 }
-
-alias buildCast!false buildImplicitCast;
-alias buildCast!true buildExplicitCast;
 
 Type getPromotedType(Location location, Type t1, Type t2) {
 	final class T2Handler {
@@ -1095,11 +1162,6 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(CharacterType t) {
 			// Should check for RHS. But will fail on implicit cast if LHS isn't the right type for now.
-			return t;
-		}
-		
-		Type visit(PointerType t) {
-			// FIXME: peform the right pointer promotion.
 			return t;
 		}
 	}

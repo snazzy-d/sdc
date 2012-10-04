@@ -168,7 +168,7 @@ final:
 	}
 	
 	Declaration visit(StructDefinition d) {
-		currentScope.addOverloadableSymbol(d);
+		currentScope.addSymbol(d);
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -189,6 +189,28 @@ final:
 		d.members = init ~ pass.visit(d.members);
 		
 		currentScope.addSymbol(init);
+		
+		d.dscope = currentScope;
+		
+		return d;
+	}
+	
+	Declaration visit(ClassDefinition d) {
+		currentScope.addSymbol(d);
+		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		auto oldAdtScope = adtScope;
+		scope(exit) adtScope = oldAdtScope;
+		
+		auto oldScopeIndex = scopeIndex;
+		scope(exit) scopeIndex = oldScopeIndex;
+		
+		scopeIndex = 0;
+		adtScope = currentScope = new NestedScope(oldScope);
+		
+		d.members = pass.visit(d.members);
 		
 		d.dscope = currentScope;
 		

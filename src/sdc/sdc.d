@@ -95,7 +95,7 @@ void compile(string filename) {
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
-	backend.codeGen(ast);
+	backend.codeGen(ast[1 .. $]);
 	//*/
 }
 

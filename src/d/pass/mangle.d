@@ -183,6 +183,20 @@ final:
 		return d;
 	}
 	
+	Symbol visit(ClassDefinition d) {
+		// Update mangle prefix.
+		auto oldManglePrefix = manglePrefix;
+		scope(exit) manglePrefix = oldManglePrefix;
+		
+		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		
+		d.mangle = "C" ~ manglePrefix;
+		
+		d.members = d.members.map!(m => visit(m)).array();
+		
+		return d;
+	}
+	
 	Symbol visit(AliasDeclaration d) {
 		d.mangle = pass.visit(d.type);
 		

@@ -170,6 +170,17 @@ final:
 		return d;
 	}
 	
+	Symbol visit(ClassDefinition d) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = d.dscope;
+		
+		d.members = d.members.map!(m => visit(m)).array();
+		
+		return d;
+	}
+	
 	Parameter visit(Parameter p) {
 		p.type = pass.visit(p.type);
 		
@@ -329,6 +340,14 @@ final:
 		return handleBinaryExpression(e);
 	}
 	
+	Expression visit(AddAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(SubAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
 	Expression visit(MulExpression e) {
 		return handleBinaryExpression(e);
 	}
@@ -469,6 +488,12 @@ final:
 	
 	Expression visit(DefaultInitializer di) {
 		return di;
+	}
+	
+	Expression visit(AssertExpression e) {
+		e.arguments = e.arguments.map!(a => visit(a)).array();
+		
+		return e;
 	}
 }
 
