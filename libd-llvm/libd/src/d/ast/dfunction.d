@@ -104,7 +104,6 @@ class DestructorDefinition : DestructorDeclaration {
 	}
 }
 
-
 /**
  * Function types
  */

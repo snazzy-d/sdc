@@ -141,6 +141,19 @@ final:
 		return d;
 	}
 	
+	Declaration visit(ClassDefinition d) {
+		d.linkage = linkage;
+		
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
+		d.members = pass.visit(d.members);
+		
+		return d;
+	}
+	
 	Declaration visit(TemplateDeclaration tpl) {
 		tpl.declarations = pass.visit(tpl.declarations);
 		
@@ -406,6 +419,14 @@ final:
 		return handleBinaryExpression(e);
 	}
 	
+	Expression visit(AddAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(SubAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
 	Expression visit(MulExpression e) {
 		return handleBinaryExpression(e);
 	}
@@ -520,6 +541,12 @@ final:
 	}
 	
 	Expression visit(DefaultInitializer e) {
+		return e;
+	}
+	
+	Expression visit(AssertExpression e) {
+		e.arguments = e.arguments.map!(a => visit(a)).array();
+		
 		return e;
 	}
 }

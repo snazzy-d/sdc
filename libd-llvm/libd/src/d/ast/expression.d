@@ -497,7 +497,7 @@ class IsExpression : Expression {
  * assert
  */
 class AssertExpression : Expression {
-	private Expression[] arguments;
+	Expression[] arguments;
 	
 	this(Location location, Expression[] arguments) {
 		super(location);

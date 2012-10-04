@@ -104,7 +104,7 @@ class BooleanType : BasicType {
 	}
 	
 	override bool opEquals(const Type t) const {
-		return typeid(t) is typeid(typeof(this));
+		return typeid(t) is typeid(BooleanType);
 	}
 	
 	bool opEquals(BooleanType t) const {
