@@ -241,13 +241,13 @@ final:
 		return typeSymbols.get(s, this.dispatch(s));
 	}
 	
-	LLVMTypeRef visit(StructDefinition sd) {
-		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) sd.mangle.toStringz());
-		typeSymbols[sd] = llvmStruct;
+	LLVMTypeRef visit(StructDefinition d) {
+		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) d.mangle.toStringz());
+		typeSymbols[d] = llvmStruct;
 		
 		LLVMTypeRef[] members;
 		
-		foreach(member; sd.members) {
+		foreach(member; d.members) {
 			if(auto f = cast(FieldDeclaration) member) {
 				members ~= pass.visit(f.type);
 			}
@@ -256,6 +256,24 @@ final:
 		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
 		
 		return llvmStruct;
+	}
+	
+	LLVMTypeRef visit(ClassDefinition d) {
+		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) d.mangle.toStringz());
+		auto structPtr = LLVMPointerType(llvmStruct, 0);
+		typeSymbols[d] = structPtr;
+		
+		LLVMTypeRef[] members;
+		
+		foreach(member; d.members) {
+			if(auto f = cast(FieldDeclaration) member) {
+				members ~= pass.visit(f.type);
+			}
+		}
+		
+		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
+		
+		return structPtr;
 	}
 	
 	LLVMTypeRef visit(AliasDeclaration a) {
