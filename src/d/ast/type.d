@@ -14,10 +14,10 @@ abstract class Type : Identifiable {
 		super(location);
 	}
 	
-	abstract Type makeMutable();
-	abstract Type makeImmutable();
-	abstract Type makeConst();
-	abstract Type makeInout();
+	Type makeMutable() { assert(0); }
+	Type makeImmutable() { assert(0); }
+	Type makeConst() { assert(0); }
+	Type makeInout() { assert(0); }
 	
 	final override bool opEquals(Object o) {
 		return this.opEquals(cast(Type) o);
