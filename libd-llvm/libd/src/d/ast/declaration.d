@@ -19,7 +19,7 @@ class Declaration : Node {
  * Nothing inherit directly from Symbol.
  * It is either a TypeSymbol or an ExpressionSymbol.
  */
-private class Symbol : Declaration {
+class Symbol : Declaration {
 	string name;
 	string linkage;
 	string mangle;
