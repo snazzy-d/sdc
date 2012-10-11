@@ -28,3 +28,4 @@ extern(C) void __d_assert(bool condition, string message, int line, string filen
         exit(1);
     }
 }
+
