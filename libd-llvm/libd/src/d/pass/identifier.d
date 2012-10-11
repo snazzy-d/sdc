@@ -58,6 +58,11 @@ final:
 	Module[] visit(Module[] modules) {
 		modules = scopePass.visit(modules);
 		
+		version(GC_CRASH) {
+			import core.memory;
+			GC.collect();
+		}
+		
 		return modules.map!(m => visit(m)).array();
 	}
 	

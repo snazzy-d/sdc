@@ -35,16 +35,8 @@ class TypecheckPass {
 	private Type returnType;
 	private Type thisType;
 	
-	private Type[ExpressionSymbol] resolvedTypes;
+	private Type[Symbol] resolvedTypes;
 	private bool runAgain;
-	
-	private static class UnresolvedType : Type {
-		this() {
-			super(Location.init);
-		}
-	}
-	
-	private UnresolvedType unresolvedType;
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -58,8 +50,6 @@ class TypecheckPass {
 		
 		implicitCast	= new Cast!false(this);
 		explicitCast	= new Cast!true(this);
-		
-		unresolvedType	= new UnresolvedType();
 	}
 	
 final:
@@ -78,7 +68,16 @@ final:
 		runAgain = true;
 		auto resolvedCount = resolvedTypes.length;
 		
+		uint count;
 		while(runAgain) {
+			version(GC_CRASH) {
+				import core.memory;
+				GC.collect();
+			}
+			
+			import std.stdio;
+			writeln("typecheck count: ", count++);
+			
 			runAgain = false;
 			modules = modules.map!(m => visit(m)).array();
 			
@@ -125,11 +124,18 @@ class DeclarationVisitor {
 	}
 	
 final:
-	Declaration visit(Declaration d) {
+	Declaration visit(Declaration d) out(result) {
+		assert(result);
+		
+		if(auto asSym = cast(Symbol) result) {
+			assert(pass.runAgain || (asSym in pass.resolvedTypes));
+		}
+	} body {
 		return this.dispatch(d);
 	}
 	
 	Symbol visit(FunctionDeclaration d) {
+		// FIXME: check for null.
 		d.returnType = pass.visit(d.returnType);
 		
 		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
@@ -138,9 +144,15 @@ final:
 	}
 	
 	Symbol visit(FunctionDefinition d) {
-		d.parameters = d.parameters.map!(p => this.dispatch(p)).array();
+		// XXX: need array in the middle to avoid double evaluation of map.
+		auto parameters = d.parameters.map!(p => this.dispatch(p)).array.filter!(p => !!(p in pass.resolvedTypes)).array();
+		
+		if(parameters.length != d.parameters.length) return d;
+		
+		d.parameters = parameters;
 		
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
+			// FIXME: check for null.
 			d.returnType = pass.visit(d.returnType);
 		}
 		
@@ -174,21 +186,27 @@ final:
 	Symbol visit(VariableDeclaration var) {
 		var.value = pass.visit(var.value);
 		
+		Type type;
+		
 		// If the type is infered, then we use the type of the value.
 		if(typeid({ return var.type; }()) is typeid(AutoType)) {
-			var.type = var.value.type;
+			if(var.value.type) {
+				type = var.value.type;
+			}
 		} else {
-			var.type = pass.visit(var.type);
-			
-			var.value = implicitCast.build(var.location, var.type, var.value);
+			type = pass.visit(var.type);
 		}
 		
-		resolvedTypes[var] = var.type;
+		if(type) {
+			var.value = implicitCast.build(var.location, type, var.value);
+			
+			resolvedTypes[var] = var.type = type;
+		}
 		
 		return var;
 	}
 	
-	Declaration visit(FieldDeclaration f) {
+	Symbol visit(FieldDeclaration f) {
 		return visit(cast(VariableDeclaration) f);
 	}
 	
@@ -200,14 +218,31 @@ final:
 		
 		d.members = d.members.map!(m => visit(m)).array();
 		
-		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
-		
-		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
-		tuple.type = thisType;
+		// Check for early return.
+		foreach(m; d.members) {
+			if(auto asSym = cast(Symbol) m) {
+				if(!(asSym in resolvedTypes)) {
+					return d;
+				}
+			}
+		}
 		
 		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
-		initDecl.value = tuple;
-		initDecl.type = thisType;
+		assert(initDecl);
+		if(!(initDecl in resolvedTypes)) {
+			auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
+			
+			auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
+			
+			tuple.type = thisType;
+			
+			initDecl.value = tuple;
+			initDecl.type = thisType;
+			
+			resolvedTypes[initDecl] = thisType;
+		}
+		
+		resolvedTypes[d] = thisType;
 		
 		return d;
 	}
@@ -220,19 +255,29 @@ final:
 		
 		d.members = d.members.map!(m => visit(m)).array();
 		
+		resolvedTypes[d] = thisType;
+		
 		return d;
 	}
 	
 	Parameter visit(Parameter p) {
-		resolvedTypes[p] = p.type = pass.visit(p.type);
+		auto type = pass.visit(p.type);
+		
+		if(type) {
+			resolvedTypes[p] = p.type = pass.visit(p.type);
+		}
 		
 		return p;
 	}
 	
-	Symbol visit(AliasDeclaration a) {
-		a.type = pass.visit(a.type);
+	Symbol visit(AliasDeclaration d) {
+		auto type = pass.visit(d.type);
 		
-		return a;
+		if(type) {
+			resolvedTypes[d] = d.type = type;
+		}
+		
+		return d;
 	}
 	
 	Symbol visit(TemplateDeclaration tpl) {
@@ -326,7 +371,7 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) out(result) {
-		if(!result.type) {
+		if(!(pass.runAgain || result.type)) {
 			auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
 			
 			import sdc.terminal;
@@ -542,7 +587,11 @@ final:
 			}
 		}
 		
-		e.type = new PointerType(e.location, e.expression.type);
+		if(e.expression.type) {
+			e.type = new PointerType(e.location, e.expression.type);
+		} else {
+			e.type = null;
+		}
 		
 		return e;
 	}
@@ -573,8 +622,8 @@ final:
 			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
-		if(runAgain && (typeid({ return callee.type; }()) is typeid(TypecheckPass.UnresolvedType))) {
-			c.type = callee.type;
+		if(!callee.type) {
+			c.type = null;
 			
 			return c;
 		}
@@ -583,8 +632,16 @@ final:
 		assert(type, "You must call function, you fool !!!");
 		
 		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
+		
+		assert(c.arguments.length >= type.parameters.length);
 		foreach(ref arg, param; lockstep(c.arguments, type.parameters)) {
 			arg = pass.implicitCast.build(arg.location, param.type, arg);
+			
+			if(!arg.type) {
+				c.type = null;
+				
+				return c;
+			}
 		}
 		
 		c.callee = callee;
@@ -604,7 +661,12 @@ final:
 	Expression visit(MethodExpression me) {
 		me.thisExpression = visit(me.thisExpression);
 		
-		me.type = me.method.returnType;
+		if(auto typePtr = me.method in resolvedTypes) {
+			me.type = *typePtr;
+		} else {
+			runAgain = true;
+			me.type = null;
+		}
 		
 		return me;
 	}
@@ -616,17 +678,12 @@ final:
 	}
 	
 	Expression visit(SymbolExpression e) {
-		auto typePtr = e.symbol in resolvedTypes;
-		
-		if(typePtr) {
-			e.type = e.symbol.type;
-			
-			return e;
+		if(auto typePtr = e.symbol in resolvedTypes) {
+			e.type = *typePtr;
+		} else {
+			runAgain = true;
+			e.type = null;
 		}
-		
-		runAgain = true;
-		
-		e.type = unresolvedType;
 		
 		return e;
 	}
@@ -676,6 +733,11 @@ final:
 		
 		return e;
 	}
+	
+	Expression visit(TupleExpression e) {
+		// FIXME: validate tuple type.
+		return e;
+	}
 }
 
 import d.ast.type;
@@ -689,24 +751,27 @@ class TypeVisitor {
 	}
 	
 final:
-	Type visit(Type t) {
+	Type visit(Type t) out(result) {
+		assert(pass.runAgain || result, "A type must be returned.");
+	} body {
 		return this.dispatch!(function Type(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
-			})(t);
+			auto msg = typeid(t).toString() ~ " is not supported.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(t.location, msg);
+			
+			assert(0, msg);
+		})(t);
 	}
 	
 	Type visit(SymbolType t) {
-		// TODO: remove when indentifierpass is able to manage this.
-		if(auto aliasDecl = cast(AliasDeclaration) t.symbol) {
-			return visit(aliasDecl.type);
+		if(auto typePtr = t.symbol in resolvedTypes) {
+			return *typePtr;
 		}
 		
-		return t;
+		runAgain = true;
+		
+		return null;
 	}
 	
 	Type visit(BooleanType t) {
@@ -730,31 +795,45 @@ final:
 	}
 	
 	Type visit(TypeofType t) {
-		return pass.visit(t.expression).type;
+		t.expression = pass.visit(t.expression);
+		
+		return t.expression.type;
+	}
+	
+	auto handleSuffixType(T)(T t) {
+		auto type = visit(t.type);
+		
+		if(type) {
+			t.type = type;
+			
+			return t;
+		}
+		
+		return null;
 	}
 	
 	Type visit(PointerType t) {
-		t.type = visit(t.type);
-		
-		return t;
+		return handleSuffixType(t);
 	}
 	
 	Type visit(SliceType t) {
-		t.type = visit(t.type);
-		
-		return t;
+		return handleSuffixType(t);
 	}
 	
 	Type visit(StaticArrayType t) {
-		t.type = visit(t.type);
-		
-		return t;
+		return handleSuffixType(t);
 	}
 	
 	Type visit(FunctionType t) {
-		t.returnType = visit(t.returnType);
+		auto returnType = visit(t.returnType);
 		
-		return t;
+		if(returnType) {
+			t.returnType = returnType;
+			
+			return t;
+		}
+		
+		return null;
 	}
 }
 
@@ -769,7 +848,16 @@ class DefaultInitializerVisitor {
 	}
 	
 final:
-	Expression visit(Location targetLocation, Type t) {
+	Expression visit(Location targetLocation, Type t) out(result) {
+		if(!(pass.runAgain || result.type)) {
+			auto msg = "Type should have been set for default initializer " ~ typeid(result).toString() ~ " at this point.";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(result.location, msg);
+			
+			assert(0, msg);
+		}
+	} body {
 		auto oldLocation = location;
 		scope(exit) location = oldLocation;
 		
@@ -925,13 +1013,14 @@ class Cast(bool isExplicit) {
 	}
 	
 final:
-	Expression build(Location castLocation, Type to, Expression e) {
+	Expression build(Location castLocation, Type to, Expression e) out(result) {
+		assert(pass.runAgain || (result.type == to));
+	} body {
 		if(runAgain) {
-			auto unresolvedTypeid = typeid(TypecheckPass.UnresolvedType);
-			
-			if(typeid(to) is unresolvedTypeid) return e;
-			if(typeid({ return e.type; }()) is unresolvedTypeid) return e;
+			if(!(to && e.type)) return e;
 		}
+		
+		assert(to && e.type);
 		
 		// Default initializer removal.
 		if(typeid(e) is typeid(DefaultInitializer)) {
@@ -1170,11 +1259,8 @@ final:
 }
 
 Type getPromotedType(Location location, Type t1, Type t2) {
-	auto unresolvedTypeid = typeid(TypecheckPass.UnresolvedType);
-	
 	// If an unresolved type come here, the pass wil run again so we just skip.
-	if(typeid(t1) is unresolvedTypeid) return t1;
-	if(typeid(t2) is unresolvedTypeid) return t2;
+	if(!(t1 && t2)) return null;
 	
 	final class T2Handler {
 		Integer t1type;
@@ -1184,25 +1270,38 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		}
 		
 		Type visit(Type t) {
-			return this.dispatch(t);
+			return this.dispatch!(function Type(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
 		}
 		
 		Type visit(BooleanType t) {
-			import std.algorithm;
 			return new IntegerType(location, max(t1type, Integer.Int));
 		}
 		
 		Type visit(IntegerType t) {
-			import std.algorithm;
 			// Type smaller than int are promoted to int.
 			auto t2type = max(t.type, Integer.Int);
+			
 			return new IntegerType(location, max(t1type, t2type));
 		}
 	}
 	
 	final class T1Handler {
 		Type visit(Type t) {
-			return this.dispatch(t);
+			return this.dispatch!(function Type(Type t) {
+				auto msg = typeid(t).toString() ~ " is not supported.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(t.location, msg);
+				
+				assert(0, msg);
+			})(t);
 		}
 		
 		Type visit(BooleanType t) {

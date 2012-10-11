@@ -342,12 +342,12 @@ final:
 			visit(s);
 		}
 		
-		return workingSet.map!(s => pass.visit(s))().array();
+		return workingSet;
 	}
 	
 	void visit(Statement s) {
 		this.dispatch!((Statement s) {
-			workingSet ~= s;
+			workingSet ~= pass.visit(s);
 		})(s);
 	}
 	
