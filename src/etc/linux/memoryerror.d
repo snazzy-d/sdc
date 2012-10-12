@@ -10,7 +10,7 @@
  */
 module etc.linux.memoryerror;
 
-version(linux) {
+version(DMD) version(linux) {
 
 private :
 import core.sys.posix.signal;
@@ -69,14 +69,14 @@ version(X86_64) {
 }
 
 // Init
-
+//*
 shared static this() {
 	sigaction_t action;
 	action.sa_sigaction = &handleSignal;
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGSEGV, &action, null);
 }
-
+//*/
 // Sighandler space
 
 alias typeof({ucontext_t uc; return uc.uc_mcontext.gregs[0];}()) REG_TYPE;
