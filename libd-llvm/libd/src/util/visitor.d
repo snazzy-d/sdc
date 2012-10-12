@@ -1,6 +1,9 @@
 module util.visitor;
 
-private U fastCast(U, T)(T t) if(is(T == class) && is(U == class) && is(U : T)) {
+@trusted
+private U fastCast(U, T)(T t) if(is(T == class) && is(U == class) && is(U : T)) in {
+	assert(cast(U) t);
+} body {
 	return *(cast(U*) &t);
 }
 
@@ -21,7 +24,7 @@ auto dispatch(
 	auto tid = typeid(o);
 	
 	import std.traits;
-	foreach (visit; MemberFunctionsTuple!(V, "visit")) {
+	foreach(visit; MemberFunctionsTuple!(V, "visit")) {
 		alias ParameterTypeTuple!visit parameters;
 		
 		static if(parameters.length == 1) {
