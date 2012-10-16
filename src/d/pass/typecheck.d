@@ -164,7 +164,8 @@ final:
 		
 		// TODO: move that into an ADT pass.
 		// If it isn't a static method, add this.
-		if(!d.isStatic) {
+		// checking resolvedTypes Ensure that it isn't ran twice.
+		if(!d.isStatic && !(d in resolvedTypes)) {
 			auto thisParameter = new Parameter(d.location, "this", thisType);
 			thisParameter.isReference = true;
 			
@@ -201,6 +202,8 @@ final:
 			var.value = implicitCast.build(var.location, type, var.value);
 			
 			resolvedTypes[var] = var.type = type;
+		} else {
+			assert(runAgain);
 		}
 		
 		return var;
@@ -216,21 +219,10 @@ final:
 		
 		thisType = new SymbolType(d.location, d);
 		
-		d.members = d.members.map!(m => visit(m)).array();
-		
-		// Check for early return.
-		foreach(m; d.members) {
-			if(auto asSym = cast(Symbol) m) {
-				if(!(asSym in resolvedTypes)) {
-					return d;
-				}
-			}
-		}
-		
 		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
 		assert(initDecl);
 		if(!(initDecl in resolvedTypes)) {
-			auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
+			auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array.map!(f => visit(f)).array();
 			
 			auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 			
@@ -243,6 +235,18 @@ final:
 		}
 		
 		resolvedTypes[d] = thisType;
+		d.members = d.members.map!(m => visit(m)).array();
+		
+		// Check for early return.
+		/*
+		foreach(m; d.members) {
+			if(auto asSym = cast(Symbol) m) {
+				if(!(asSym in resolvedTypes)) {
+					return d;
+				}
+			}
+		}
+		*/
 		
 		return d;
 	}
@@ -284,6 +288,9 @@ final:
 		foreach(instance; tpl.instances) {
 			instance.declarations = instance.declarations.map!(d => visit(d)).array();
 		}
+		
+		// Template have no type.
+		resolvedTypes[tpl] = null;
 		
 		// No semantic is done on templates declarations.
 		return tpl;
@@ -614,21 +621,21 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		auto callee = visit(c.callee);
+		c.callee = visit(c.callee);
 		
 		// XXX: is it the appropriate place to perform that ?
-		if(auto me = cast(MethodExpression) callee) {
-			callee = visit(new SymbolExpression(me.location, me.method));
+		if(auto me = cast(MethodExpression) c.callee) {
+			c.callee = visit(new SymbolExpression(me.location, me.method));
 			c.arguments = visit(me.thisExpression) ~ c.arguments;
 		}
 		
-		if(!callee.type) {
+		if(!c.callee.type) {
 			c.type = null;
 			
 			return c;
 		}
 		
-		auto type = cast(FunctionType) callee.type;
+		auto type = cast(FunctionType) c.callee.type;
 		assert(type, "You must call function, you fool !!!");
 		
 		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
@@ -644,7 +651,6 @@ final:
 			}
 		}
 		
-		c.callee = callee;
 		c.type = type.returnType;
 		
 		return c;
@@ -914,7 +920,17 @@ final:
 	}
 	
 	Expression visit(StructDefinition d) {
-		return new SymbolExpression(location, cast(ExpressionSymbol) d.dscope.resolve("init"));
+		if(d in resolvedTypes) {
+			auto init = cast(ExpressionSymbol) d.dscope.resolve("init");
+			
+			if(init in resolvedTypes) {
+				return pass.visit(new SymbolExpression(location, init));
+			}
+		}
+		
+		runAgain = true;
+		
+		return new DefaultInitializer(new SymbolType(location, d));
 	}
 	
 	Expression visit(ClassDefinition d) {
@@ -1106,7 +1122,10 @@ final:
 				zero = pass.implicitCast.build(location, type, zero);
 				expression = pass.implicitCast.build(expression.location, type, expression);
 				
-				return new NotEqualityExpression(location, expression, zero);
+				auto res = new NotEqualityExpression(location, expression, zero);
+				res.type = t;
+				
+				return res;
 			}
 		}
 		

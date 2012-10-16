@@ -101,7 +101,8 @@ void compile(string filename) {
 	//*
 	import d.backend.llvm;
 	auto backend = new LLVMBackend();
-	backend.codeGen(ast[1 .. $]);
+	
+	backend.codeGen([ast.back]);
 	//*/
 }
 
