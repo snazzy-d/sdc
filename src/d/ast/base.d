@@ -8,6 +8,10 @@ class Node {
 	this(Location location) {
 		this.location = location;
 	}
+	
+	invariant() {
+		assert(location != Location.init);
+	}
 }
 
 /**

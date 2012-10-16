@@ -818,9 +818,6 @@ class TemplateInstanciationDotIdentifierVisitor {
 	private IdentifierPass pass;
 	alias pass this;
 	
-	private Location location;
-	private Expression expression;
-	
 	this(IdentifierPass pass) {
 		this.pass = pass;
 	}
@@ -840,9 +837,14 @@ final:
 		import d.pass.clone;
 		auto clone = new ClonePass();
 		
-		auto instance = tplDecl.instances.get(id, tplDecl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(location, tplArgs, tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tplDecl)));
+		auto instance = tplDecl.instances.get(id, tplDecl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(i.templateInstanciation.location, tplArgs, tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tplDecl)));
 		
 		// TODO: handle type.template and expression.template
+		auto oldLocation = identifierVisitor.location;
+		scope(exit) identifierVisitor.location = oldLocation;
+		
+		identifierVisitor.location = i.location;
+		
 		return identifierVisitor.visit(instance.dscope.resolve(i.name));
 	}
 	

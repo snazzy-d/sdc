@@ -81,7 +81,7 @@ final:
 			
 			cachedModules[name] = m;
 			
-			visit(new ImportDeclaration(Location.init, [["object"]]));
+			visit(new ImportDeclaration(m.location, [["object"]]));
 			m.declarations = visit(m.declarations);
 			
 			return m;
