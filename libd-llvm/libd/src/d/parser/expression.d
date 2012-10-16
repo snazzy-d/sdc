@@ -543,7 +543,7 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			return trange.parseIntegerLiteral();
 		
 		case TokenType.StringLiteral :
-			auto value = extractStringLiteral(trange.front.value);
+			auto value = extractStringLiteral(trange.front.location, trange.front.value);
 			trange.popFront();
 			
 			return new StringLiteral(location, value);
@@ -912,7 +912,7 @@ private Expression parseIntegerLiteral(TokenRange)(ref TokenRange trange) {
 	}
 }
 
-string extractStringLiteral(string value) {
+string extractStringLiteral(Location location, string value) {
 	// TODO: refactor this to not depend on SDC's internals.
 	import sdc.extract;
 	import sdc.compilererror;
@@ -926,13 +926,13 @@ string extractStringLiteral(string value) {
 			return extractRawString(value);
 		
 		case '"':
-			return extractString(Location.init, value[1..$]);
+			return extractString(location, value[1..$]);
 		
 		case 'x':
-			throw new CompilerPanic(Location.init, "hex literals are unimplemented.");
+			throw new CompilerPanic(location, "hex literals are unimplemented.");
 		
 		default:
-			throw new CompilerError(Location.init, format("unrecognised string prefix '%s'.", value[0]));
+			throw new CompilerError(location, format("unrecognised string prefix '%s'.", value[0]));
 	}
 }
 
