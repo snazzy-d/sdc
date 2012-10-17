@@ -135,8 +135,11 @@ final:
 	}
 	
 	Symbol visit(FunctionDeclaration d) {
-		// FIXME: check for null.
-		d.returnType = pass.visit(d.returnType);
+		auto ret = pass.visit(d.returnType);
+		
+		if(!ret) return d;
+		
+		d.returnType = ret;
 		
 		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
 		
@@ -152,8 +155,11 @@ final:
 		d.parameters = parameters;
 		
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
-			// FIXME: check for null.
-			d.returnType = pass.visit(d.returnType);
+			auto ret = pass.visit(d.returnType);
+			
+			if(!ret) return d;
+			
+			d.returnType = ret;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -911,7 +917,10 @@ final:
 		Expression[] init = [new NullLiteral(location, t.type)];
 		init ~= makeLiteral(location, 0UL);
 		
-		return new TupleExpression(location, init);
+		auto ret = new TupleExpression(location, init);
+		ret.type = t;
+		
+		return ret;
 	}
 	
 	Expression visit(StaticArrayType t) {
