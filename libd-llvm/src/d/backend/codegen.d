@@ -572,6 +572,19 @@ final:
 		return LLVMBuildOp(builder, lhs, rhs, "");
 	}
 	
+	private auto handleBinaryOpAssign(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
+		auto lhsPtr = addressOfGen.visit(e.lhs);
+		
+		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
+		auto rhs = visit(e.rhs);
+		
+		auto value = LLVMBuildOp(builder, lhs, rhs, "");
+		
+		LLVMBuildStore(builder, value, lhsPtr);
+		
+		return value;
+	}
+	
 	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp, BinaryExpression)(BinaryExpression e) {
 		pass.visit(e.type);
 		
@@ -588,6 +601,14 @@ final:
 	
 	LLVMValueRef visit(SubExpression sub) {
 		return handleBinaryOp!LLVMBuildSub(sub);
+	}
+	
+	LLVMValueRef visit(AddAssignExpression add) {
+		return handleBinaryOpAssign!LLVMBuildAdd(add);
+	}
+	
+	LLVMValueRef visit(SubAssignExpression sub) {
+		return handleBinaryOpAssign!LLVMBuildSub(sub);
 	}
 	
 	LLVMValueRef visit(MulExpression mul) {
