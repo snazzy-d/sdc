@@ -438,19 +438,38 @@ final:
 		return e;
 	}
 	
-	private auto handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "-"], operation)) {
+	private auto handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "+=", "-", "-="], operation)) {
+		enum isOpAssign = operation.length == 2;
+		
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
+		
+		// This will be processed at the next pass.
+		if(!(e.lhs.type && e.rhs.type)) return e;
 		
 		if(auto pointerType = cast(PointerType) e.lhs.type) {
 			assert(cast(IntegerType) e.rhs.type, "Pointer +/- interger only.");
 			
-			return visit(new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs])));
+			auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs]));
+			
+			static if(isOpAssign) {
+				// FIXME: introduce temporary.
+				auto ret = new AssignExpression(e.location, e.lhs, value);
+			} else {
+				alias value ret;
+			}
+			
+			return visit(ret);
 		}
 		
-		e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
+		static if(isOpAssign) {
+			e.type = e.lhs.type;
+		} else {
+			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
+			
+			e.lhs = implicitCast.build(e.lhs.location, e.type, e.lhs);
+		}
 		
-		e.lhs = implicitCast.build(e.lhs.location, e.type, e.lhs);
 		e.rhs = implicitCast.build(e.rhs.location, e.type, e.rhs);
 		
 		return e;
@@ -463,7 +482,7 @@ final:
 	Expression visit(SubExpression e) {
 		return handleArithmeticExpression(e);
 	}
-	/*
+	
 	Expression visit(AddAssignExpression e) {
 		return handleArithmeticExpression(e);
 	}
@@ -471,7 +490,7 @@ final:
 	Expression visit(SubAssignExpression e) {
 		return handleArithmeticExpression(e);
 	}
-	*/
+	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -1346,6 +1365,11 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(CharacterType t) {
 			// Should check for RHS. But will fail on implicit cast if LHS isn't the right type for now.
+			return t;
+		}
+		
+		Type visit(PointerType t) {
+			// FIXME: check RHS.
 			return t;
 		}
 	}
