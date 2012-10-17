@@ -82,7 +82,6 @@ class LLVMBackend : Backend {
 		import std.string;
 		import std.process;
 		
-		auto asAssembly = temporaryFilename(".s");
 		auto asObject   = temporaryFilename(".o");
 		
 		// Hack around the need of _tlsstart and _tlsend.
@@ -94,11 +93,7 @@ class LLVMBackend : Backend {
 		LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 		LLVMSetThreadLocal(_tlsend, true);
 		
-		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asAssembly), LLVMCodeGenFileType.Assembly, &errorPtr);
-		
-		auto compileCommand = "gcc -c -o " ~ asObject ~ " " ~ asAssembly;
-		writeln(compileCommand);
-		system(compileCommand);
+		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asObject), LLVMCodeGenFileType.Object, &errorPtr);
 		
 		auto linkCommand = "gcc -o " ~ mods.back.location.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
 		writeln(linkCommand);
