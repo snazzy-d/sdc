@@ -718,9 +718,13 @@ final:
 	}
 	
 	Expression visit(DeferredExpression e) {
-		return handleDeferredExpression!(delegate Expression(Expression e) {
+		auto ret = handleDeferredExpression!(delegate Expression(Expression e) {
 			return visit(e);
 		}, Expression)(e);
+		
+		if(!ret.type) runAgain = true;
+		
+		return ret;
 	}
 	
 	// Will be remove by cast operation.

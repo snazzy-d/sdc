@@ -27,7 +27,7 @@ final class Deferred(T) if(is(Base!T == T)) : Base!T {
 			return resolver.resolve(this);
 		}
 		
-		return this;
+		return null;
 	}
 }
 
@@ -56,13 +56,7 @@ auto resolveOrDefer(alias test, alias resolve, T)(Location location, T t) if(is(
 		}
 		
 		override T resolve(Deferred!T t) {
-			auto resolved = resolveImpl(t.cause);
-			
-			if(auto asT = cast(T) resolved) {
-				return asT;
-			}
-			
-			assert(0, typeid(T).toString() ~ " expected");
+			return resolveImpl(t.cause);
 		}
 	});
 }
@@ -74,9 +68,13 @@ auto handleDeferredExpression(alias process, T)(Deferred!T t) if(is(typeof(proce
 			auto cause = t.cause;
 			if(auto defCause = cast(Deferred!T) t.cause) {
 				defCause.cause = process(defCause.cause);
-				t.cause = defCause.resolve();
+				auto resolved = defCause.resolve();
 				
-				return t.cause !is defCause;
+				if(resolved) {
+					t.cause = resolved;
+				} else {
+					return false;
+				}
 			}
 			
 			return true;
@@ -87,21 +85,21 @@ auto handleDeferredExpression(alias process, T)(Deferred!T t) if(is(typeof(proce
 		}
 	}
 	
-	// Avoid useless nesting :
-	if(typeid({ return t.resolver; }()) is typeid(DeferedResolver)) {
-		return t;
-	}
-	
 	auto resolved = t.resolve();
 	
-	if(resolved !is t) {
+	// Avoid useless nesting :
+	if(typeid({ return t.resolver; }()) is typeid(DeferedResolver)) {
+		if(resolved) return resolved;
+		
+		return t;
+	} else if(resolved) {
 		return process(resolved);
 	}
 	
 	t.cause = process(t.cause);
 	resolved = t.resolve();
 	
-	if(resolved !is t) {
+	if(resolved) {
 		return process(resolved);
 	}
 	
