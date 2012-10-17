@@ -11,8 +11,7 @@ int main() {
 		a--;
 		
 		if(a % 3) {
-			// TODO: += operator.
-			b = b + 2;
+			b += 2;
 		}
 	}
 	
