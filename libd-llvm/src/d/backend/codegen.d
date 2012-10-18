@@ -26,6 +26,10 @@ class CodeGenPass {
 	private AddressOfGen addressOfGen;
 	private TypeGen typeGen;
 	
+	private DruntimeGen druntimeGen;
+	
+	private string moduleName;
+	
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
@@ -41,12 +45,15 @@ class CodeGenPass {
 		addressOfGen	= new AddressOfGen(this);
 		typeGen			= new TypeGen(this);
 		
+		druntimeGen		= new DruntimeGen(this);
+		
 		builder = LLVMCreateBuilder();
 	}
 	
 final:
 	Module[] visit(Module[] modules) {
-		dmodule = LLVMModuleCreateWithName(modules.back.location.filename.toStringz());
+		moduleName = modules.back.location.filename;
+		dmodule = LLVMModuleCreateWithName(moduleName.toStringz());
 		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
@@ -800,6 +807,33 @@ final:
 	LLVMValueRef visit(VoidInitializer v) {
 		return LLVMGetUndef(pass.visit(v.type));
 	}
+	
+	LLVMValueRef visit(AssertExpression e) {
+		auto test = visit(e.arguments[0]);
+		
+		auto testBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(testBB);
+		
+		auto failBB = LLVMAppendBasicBlock(fun, "assert_fail");
+		auto successBB = LLVMAppendBasicBlock(fun, "assert_success");
+		
+		LLVMBuildCondBr(builder, test, successBB, failBB);
+		
+		// Emit assert call
+		LLVMPositionBuilderAtEnd(builder, failBB);
+		
+		auto args = [LLVMConstInt(LLVMInt64Type(), 1, false), druntimeGen.getModuleName(), LLVMConstInt(LLVMInt32Type(), e.location.line, false)];
+		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 3, "");
+		
+		// Conclude that block.
+		LLVMBuildUnreachable(builder);
+		
+		// Now continue regular execution flow.
+		LLVMPositionBuilderAtEnd(builder, successBB);
+		
+		// XXX: should figure out what is the right value to return.
+		return null;
+	}
 }
 
 class AddressOfGen {
@@ -865,10 +899,14 @@ final:
 			LLVMPositionBuilderAtEnd(builder, okBB);
 			
 			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), ".ptr");
+		} else if(typeid(indexedType) is typeid(PointerType)) {
+			indexed = LLVMBuildLoad(builder, indexed, "");
 		} else if(typeid(indexedType) is typeid(StaticArrayType)) {
 			auto indices = [LLVMConstInt(LLVMInt64Type(), 0, false), indice];
 			
 			return LLVMBuildInBoundsGEP(builder, indexed, indices.ptr, 2, "");
+		} else {
+			assert(0, "Don't know how to index this.");
 		}
 		
 		return LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, "");
@@ -991,6 +1029,31 @@ final:
 		}).array();
 		
 		return LLVMPointerType(LLVMFunctionType(visit(t.returnType), parameterTypes.ptr, cast(uint) parameterTypes.length, t.isVariadic), 0);
+	}
+}
+
+class DruntimeGen {
+	private CodeGenPass pass;
+	alias pass this;
+	
+	private LLVMValueRef[string] cache;
+	
+	this(CodeGenPass pass) {
+		this.pass = pass;
+	}
+	
+final:
+	auto getAssert() {
+		// TODO: LLVMGetNamedFunction
+		return cache.get("_d_assert", cache["_d_assert"] = {
+			auto funType = LLVMFunctionType(LLVMVoidType(), [LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0), LLVMInt32Type()].ptr, 3, false);
+			
+			return LLVMAddFunction(pass.dmodule, "_d_assert".toStringz(), funType);
+		}());
+	}
+	
+	auto getModuleName() {
+		return cache.get("_d_module_name", cache["_d_module_name"] = LLVMBuildGlobalStringPtr(builder, moduleName.toStringz(), "_d_module_name"));
 	}
 }
 

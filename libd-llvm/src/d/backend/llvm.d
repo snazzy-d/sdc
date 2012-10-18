@@ -11,6 +11,9 @@ import llvm.c.transforms.passManagerBuilder;
 
 import std.array;
 
+// In order to JIT.
+extern(C) void _d_assert();
+
 interface Backend {
 	void codeGen(Module[] mods);
 }
@@ -57,6 +60,10 @@ class LLVMBackend : Backend {
 		//*
 		// Let's run it !
 		LLVMValueRef fun;
+		if(LLVMFindFunction(ee, "_d_assert".ptr, &fun)) {
+			LLVMAddGlobalMapping(ee, fun, &_d_assert);
+		}
+		
 		auto notFound = LLVMFindFunction(ee, "_Dmain".ptr, &fun);
 		if(notFound) {
 			writeln("No main, no gain.");
@@ -77,7 +84,7 @@ class LLVMBackend : Backend {
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
 		
-		/*
+		//*
 		import sdc.util;
 		import std.string;
 		import std.process;
