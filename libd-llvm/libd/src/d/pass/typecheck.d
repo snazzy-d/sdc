@@ -450,10 +450,14 @@ final:
 		if(auto pointerType = cast(PointerType) e.lhs.type) {
 			assert(cast(IntegerType) e.rhs.type, "Pointer +/- interger only.");
 			
-			auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs]));
+			// FIXME: introduce temporary.
+			static if(operation[0] == '+') {
+				auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs]));
+			} else {
+				auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [visit(new UnaryMinusExpression(e.location, e.rhs))]));
+			}
 			
 			static if(isOpAssign) {
-				// FIXME: introduce temporary.
 				auto ret = new AssignExpression(e.location, e.lhs, value);
 			} else {
 				alias value ret;

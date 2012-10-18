@@ -506,7 +506,10 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			Expression[] arguments;
 			if(trange.front.type == TokenType.OpenParen) {
 				trange.popFront();
-				arguments = trange.parseArguments();
+				
+				if(trange.front.type != TokenType.CloseParen) {
+					arguments = trange.parseArguments();
+				}
 				
 				location.spanTo(trange.front.location);
 				trange.match(TokenType.CloseParen);
