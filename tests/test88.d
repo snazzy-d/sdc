@@ -4,8 +4,7 @@
 int main() {
 	int a = 42;
 	
-	// TODO: unary minus.
-	int b = 0 - 14;
+	int b = -14;
 	
 	while(a) {
 		a--;

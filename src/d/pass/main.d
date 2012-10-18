@@ -73,7 +73,8 @@ final:
 		auto retVal = makeLiteral(t.location, 0);
 		auto ret = new ReturnStatement(t.location, retVal);
 		
-		main.returnType = retVal.type;
+		auto type = cast(FunctionType) main.type;
+		main.returnType = type.returnType = retVal.type;
 		
 		main.fbody = (new StatementVisitor()).visit(main.fbody);
 		main.fbody.statements ~= ret;
