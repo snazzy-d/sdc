@@ -491,6 +491,15 @@ final:
 		return e;
 	}
 	
+	Expression visit(SliceExpression e) {
+		e.indexed = visit(e.indexed);
+		
+		e.first = e.first.map!(e => visit(e)).array();
+		e.second = e.second.map!(e => visit(e)).array();
+		
+		return e;
+	}
+	
 	Expression visit(DefaultInitializer di) {
 		return di;
 	}

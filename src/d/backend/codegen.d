@@ -703,6 +703,24 @@ final:
 		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
 	}
 	
+	LLVMValueRef visit(SliceExpression e) {
+		assert(e.first.length == 1 && e.second.length == 1);
+		
+		auto indexed = addressOfGen.visit(e.indexed);
+		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64Type(), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64Type(), "");
+		
+		auto length = LLVMBuildSub(builder, second, first, "");
+		auto ptr = addressOfGen.computeIndice(e.indexed.type, indexed, first);
+		
+		auto slice = LLVMGetUndef(pass.visit(e.type));
+		
+		slice = LLVMBuildInsertValue(builder, slice, length, 0, "");
+		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
+		
+		return slice;
+	}
+	
 	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
 		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
 			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
@@ -871,14 +889,7 @@ final:
 		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
 	}
 	
-	LLVMValueRef visit(IndexExpression e) {
-		assert(e.arguments.length == 1);
-		
-		auto indexedType = e.indexed.type;
-		
-		auto indexed = visit(e.indexed);
-		auto indice = pass.visit(e.arguments[0]);
-		
+	LLVMValueRef computeIndice(Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
 		if(typeid(indexedType) is typeid(SliceType)) {
 			// TODO: add bound checking.
 			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
@@ -910,6 +921,15 @@ final:
 		}
 		
 		return LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, "");
+	}
+	
+	LLVMValueRef visit(IndexExpression e) {
+		assert(e.arguments.length == 1);
+		
+		auto indexed = visit(e.indexed);
+		auto indice = pass.visit(e.arguments[0]);
+		
+		return computeIndice(e.indexed.type, indexed, indice);
 	}
 }
 
