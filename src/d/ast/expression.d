@@ -214,13 +214,31 @@ class IndexExpression : Expression {
 	Expression indexed;
 	
 	// TODO: this is argument, not parameters.
-	Expression[] parameters;
+	Expression[] arguments;
 	
-	this(Location location, Expression indexed, Expression[] parameters) {
+	this(Location location, Expression indexed, Expression[] arguments) {
 		super(location);
 		
 		this.indexed = indexed;
-		this.parameters = parameters;
+		this.arguments = arguments;
+	}
+}
+
+/**
+ * Slice expression : [first .. second]
+ */
+class SliceExpression : Expression {
+	Expression indexed;
+	
+	Expression[] first;
+	Expression[] second;
+	
+	this(Location location, Expression indexed, Expression[] first, Expression[] second) {
+		super(location);
+		
+		this.indexed = indexed;
+		this.first = first;
+		this.second = second;
 	}
 }
 

@@ -737,7 +737,7 @@ final:
 		
 		assert(e.type, "Can't index " ~ typeid({ return e.indexed; }()).toString());
 		
-		e.parameters = e.parameters.map!(e => visit(e)).array();
+		e.arguments = e.arguments.map!(e => visit(e)).array();
 		
 		return e;
 	}

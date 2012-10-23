@@ -744,12 +744,16 @@ private Expression parsePostfixExpression(TokenRange)(ref TokenRange trange, Exp
 							location.spanTo(trange.front.location);
 							expression = new IndexExpression(location, expression, arguments);
 							break;
-					
+						
 						case TokenType.DoubleDot :
 							trange.popFront();
 							auto second = trange.parseArguments();
+							
+							location.spanTo(trange.front.location);
+							expression = new SliceExpression(location, expression, arguments, second);
+							
 							break;
-					
+						
 						default :
 							// TODO: error message that make sense.
 							trange.match(TokenType.Begin);

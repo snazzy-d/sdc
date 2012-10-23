@@ -535,7 +535,7 @@ final:
 	Expression visit(IndexExpression e) {
 		e.indexed = visit(e.indexed);
 		
-		e.parameters = e.parameters.map!(e => visit(e)).array();
+		e.arguments = e.arguments.map!(e => visit(e)).array();
 		
 		return e;
 	}
