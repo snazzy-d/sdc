@@ -872,12 +872,12 @@ final:
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
-		assert(e.parameters.length == 1);
+		assert(e.arguments.length == 1);
 		
 		auto indexedType = e.indexed.type;
 		
 		auto indexed = visit(e.indexed);
-		auto indice = pass.visit(e.parameters[0]);
+		auto indice = pass.visit(e.arguments[0]);
 		
 		if(typeid(indexedType) is typeid(SliceType)) {
 			// TODO: add bound checking.
