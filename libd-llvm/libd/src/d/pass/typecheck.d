@@ -742,6 +742,28 @@ final:
 		return e;
 	}
 	
+	Expression visit(SliceExpression e) {
+		// TODO: check if it is valid.
+		e.indexed = visit(e.indexed);
+		
+		if(auto asSlice = cast(SliceType) e.indexed.type) {
+			e.type = asSlice.type;
+		} else if(auto asPointer = cast(PointerType) e.indexed.type) {
+			e.type = asPointer.type;
+		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
+			e.type = asStaticArray.type;
+		}
+		
+		assert(e.type, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
+		
+		e.type = new SliceType(e.location, e.type);
+		
+		e.first = e.first.map!(e => visit(e)).array();
+		e.second = e.second.map!(e => visit(e)).array();
+		
+		return e;
+	}
+	
 	Expression visit(SizeofExpression e) {
 		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
 	}
