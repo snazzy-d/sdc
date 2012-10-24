@@ -216,7 +216,7 @@ final:
 			// Register the variable.
 			exprSymbols[var] = globalVar;
 			
-			// Store the initial value into the alloca.
+			// Store the initial value into the global variable.
 			auto value = pass.visit(var.value);
 			LLVMSetInitializer(globalVar, value);
 			
