@@ -48,8 +48,8 @@ class TypecheckPass {
 		
 		sizeofCalculator	= new SizeofCalculator(this);
 		
-		implicitCast	= new Cast!false(this);
-		explicitCast	= new Cast!true(this);
+		implicitCast		= new Cast!false(this);
+		explicitCast		= new Cast!true(this);
 	}
 	
 final:
@@ -182,6 +182,13 @@ final:
 		pass.visit(d.fbody);
 		
 		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
+			// Should be useless once return type inference is properly implemented.
+			if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
+				assert(runAgain);
+				
+				return d;
+			}
+			
 			d.returnType = returnType;
 		}
 		
@@ -230,29 +237,33 @@ final:
 		if(!(initDecl in resolvedTypes)) {
 			auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array.map!(f => visit(f)).array();
 			
-			auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
-			
-			tuple.type = thisType;
-			
-			initDecl.value = tuple;
-			initDecl.type = thisType;
-			
-			resolvedTypes[initDecl] = thisType;
+			if(fields.filter!(f => !!(f in pass.resolvedTypes)).count() == fields.length) {
+				auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
+				
+				tuple.type = thisType;
+				
+				initDecl.value = tuple;
+				initDecl.type = thisType;
+				
+				resolvedTypes[initDecl] = thisType;
+			}
 		}
 		
 		resolvedTypes[d] = thisType;
-		d.members = d.members.map!(m => visit(m)).array();
+		d.members = d.members.filter!(delegate bool(Declaration m) { return m !is initDecl; }).map!(m => visit(m)).array() ~ initDecl;
 		
-		// Check for early return.
-		/*
-		foreach(m; d.members) {
+		// Check if everything went well.
+		if(d.members.filter!((m) {
 			if(auto asSym = cast(Symbol) m) {
-				if(!(asSym in resolvedTypes)) {
-					return d;
-				}
+				return !!(asSym in pass.resolvedTypes);
 			}
+			
+			assert(0, "struct should contains only symbols at this point.");
+		}).count() != d.members.length) {
+			assert(runAgain);
+			
+			resolvedTypes.remove(d);
 		}
-		*/
 		
 		return d;
 	}
@@ -363,6 +374,9 @@ final:
 	void visit(ReturnStatement r) {
 		r.value = pass.visit(r.value);
 		
+		if(!r.value.type) return;
+		
+		// TODO: precompute autotype instead of managing it here.
 		if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
 			returnType = r.value.type;
 		} else {
@@ -384,13 +398,17 @@ class ExpressionVisitor {
 	
 final:
 	Expression visit(Expression e) out(result) {
-		if(!(pass.runAgain || result.type)) {
-			auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
+		if(!pass.runAgain) {
+			if(!result.type) {
+				auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(result.location, msg);
+				
+				assert(0, msg);
+			}
 			
-			import sdc.terminal;
-			outputCaretDiagnostics(result.location, msg);
-			
-			assert(0, msg);
+			assert(!(cast(AutoType) result.type));
 		}
 	} body {
 		return this.dispatch(e);
