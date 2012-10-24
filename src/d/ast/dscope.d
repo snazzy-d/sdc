@@ -5,6 +5,16 @@ import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.identifier;
 
+final class OverLoadSet : Symbol {
+	Symbol[] set;
+	
+	this(Location location, string name, Symbol[] set) {
+		super(location, name);
+		
+		this.set = set;
+	}
+}
+
 /**
  * A scope associate identifier with declarations.
  */
@@ -14,12 +24,22 @@ class Scope {
 	Module[] imports;
 	
 	void addSymbol(Symbol s) {
+		assert(!(s.name in symbols));
+		
 		symbols[s.name] = s;
 	}
 	
 	void addOverloadableSymbol(Symbol s) {
-		// TODO: handle that properly.
-		addSymbol(s);
+		auto setPtr = s.name in symbols;
+		
+		if(setPtr) {
+			if(auto set = cast(OverLoadSet) *setPtr) {
+				set.set ~= s;
+				return;
+			}
+		}
+		
+		addSymbol(new OverLoadSet(s.location, s.name, [s]));
 	}
 	
 	final Symbol resolve(string name) {

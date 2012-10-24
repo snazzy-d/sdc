@@ -693,6 +693,14 @@ final:
 		return this.dispatch(s);
 	}
 	
+	Identifiable visit(OverLoadSet s) {
+		if(s.set.length == 1) {
+			return this.dispatch(s.set[0]);
+		}
+		
+		assert(0, "overload set not implemented.");
+	}
+	
 	Identifiable visit(StructDefinition sd) {
 		return new SymbolType(location, sd);
 	}
@@ -741,6 +749,12 @@ class TypeDotIdentifierVisitor {
 final:
 	Identifiable visit(TypeDotIdentifier i) {
 		if(Symbol s = symbolInTypeResolver.resolve(i.type, i.name)) {
+			if(auto os = cast(OverLoadSet) s) {
+				assert(os.set.length == 1);
+				
+				s = os.set[0];
+			}
+			
 			if(auto ts = cast(TypeSymbol) s) {
 				return new SymbolType(i.location, ts);
 			} else if(auto es = cast(ExpressionSymbol) s) {
@@ -811,6 +825,14 @@ final:
 		})(i.location, i.expression);
 	}
 	
+	Expression visit(OverLoadSet s) {
+		if(s.set.length == 1) {
+			return this.dispatch(s.set[0]);
+		}
+		
+		assert(0, "overload set not implemented.");
+	}
+	
 	Expression visit(FieldDeclaration f) {
 		return new FieldExpression(location, expression, f);
 	}
@@ -833,7 +855,11 @@ class TemplateInstanciationDotIdentifierVisitor {
 	
 final:
 	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
-		auto tplDecl = this.dispatch(i.templateInstanciation.identifier);
+		auto overloadSet = this.dispatch(i.templateInstanciation.identifier);
+		assert(overloadSet.set.length == 1);
+		
+		auto tplDecl = cast(TemplateDeclaration) overloadSet.set[0];
+		assert(tplDecl);
 		
 		auto tplArgs = i.templateInstanciation.arguments;
 		
@@ -846,7 +872,12 @@ final:
 		import d.pass.clone;
 		auto clone = new ClonePass();
 		
-		auto instance = tplDecl.instances.get(id, tplDecl.instances[id] = pass.visit(scopePass.visit(new TemplateInstance(i.templateInstanciation.location, tplArgs, tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array()), tplDecl)));
+		auto instance = tplDecl.instances.get(id, {
+			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
+			auto instance = pass.visit(pass.scopePass.visit(new TemplateInstance(i.templateInstanciation.location, tplArgs, members), tplDecl));
+			
+			return tplDecl.instances[id] = instance;
+		}());
 		
 		// TODO: handle type.template and expression.template
 		auto oldLocation = identifierVisitor.location;
@@ -857,8 +888,8 @@ final:
 		return identifierVisitor.visit(instance.dscope.resolve(i.name));
 	}
 	
-	TemplateDeclaration visit(BasicIdentifier i) {
-		return cast(TemplateDeclaration) identifierVisitor.resolveBasicIdentifier(i);
+	OverLoadSet visit(BasicIdentifier i) {
+		return cast(OverLoadSet) identifierVisitor.resolveBasicIdentifier(i);
 	}
 }
 

@@ -10,7 +10,7 @@ class Node {
 	}
 	
 	invariant() {
-		assert(location != Location.init);
+		assert(location != Location.init, "node location must never be init");
 	}
 }
 
