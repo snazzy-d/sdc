@@ -383,6 +383,14 @@ final:
 			r.value = implicitCast.build(r.location, returnType, r.value);
 		}
 	}
+	
+	void visit(BreakStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
 }
 
 import d.ast.expression;

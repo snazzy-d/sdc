@@ -317,6 +317,14 @@ final:
 		
 		return r;
 	}
+	
+	Statement visit(BreakStatement s) {
+		return s;
+	}
+	
+	Statement visit(ContinueStatement s) {
+		return s;
+	}
 }
 
 // TODO: remove this and use BlockStatement to replace it. Use ScopeBlockStatement for explicit blocks statements.
