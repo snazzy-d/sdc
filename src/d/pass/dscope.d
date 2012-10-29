@@ -327,5 +327,13 @@ final:
 	void visit(ReturnStatement r) {
 		// Nothing needs to be done.
 	}
+	
+	void visit(BreakStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
 }
 

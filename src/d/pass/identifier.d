@@ -274,6 +274,14 @@ final:
 	void visit(ReturnStatement r) {
 		r.value = pass.visit(r.value);
 	}
+	
+	void visit(BreakStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
 }
 
 import d.ast.expression;

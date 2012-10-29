@@ -36,6 +36,9 @@ class CodeGenPass {
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	
+	LLVMBasicBlockRef continueBB;
+	LLVMBasicBlockRef breakBB;
+	
 	bool isSigned;
 	
 	this() {
@@ -369,16 +372,23 @@ final:
 		enum isFor = is(LoopStatement : ForStatement);
 		enum isDoWhile = is(LoopStatement : DoWhileStatement);
 		
+		auto oldContinueBB = continueBB;
+		scope(exit) continueBB = oldContinueBB;
+		
 		static if(isFor) {
 			auto testBB = LLVMAppendBasicBlock(fun, "for");
-			auto continueBB = LLVMAppendBasicBlock(fun, "increment");
+			continueBB = LLVMAppendBasicBlock(fun, "increment");
 		} else {
-			auto testBB = LLVMAppendBasicBlock(fun, "while");
-			alias testBB continueBB;
+			continueBB = LLVMAppendBasicBlock(fun, "while");
+			auto testBB = continueBB;
 		}
 		
 		auto doBB = LLVMAppendBasicBlock(fun, "do");
-		auto doneBB = LLVMAppendBasicBlock(fun, "done");
+		
+		auto oldBreakBB = breakBB;
+		scope(exit) breakBB = oldBreakBB;
+		
+		breakBB = LLVMAppendBasicBlock(fun, "done");
 		
 		static if(isDoWhile) {
 			alias doBB startBB;
@@ -397,7 +407,7 @@ final:
 		
 		// Test and do or jump to done.
 		auto condition = pass.visit(l.condition);
-		LLVMBuildCondBr(builder, condition, doBB, doneBB);
+		LLVMBuildCondBr(builder, condition, doBB, breakBB);
 		
 		// Build continue block or alias it to the test.
 		static if(isFor) {
@@ -420,8 +430,8 @@ final:
 			LLVMBuildBr(builder, continueBB);
 		}
 		
-		LLVMMoveBasicBlockAfter(doneBB, doBB);
-		LLVMPositionBuilderAtEnd(builder, doneBB);
+		LLVMMoveBasicBlockAfter(breakBB, doBB);
+		LLVMPositionBuilderAtEnd(builder, breakBB);
 	}
 	
 	void visit(WhileStatement w) {
@@ -438,6 +448,16 @@ final:
 	
 	void visit(ReturnStatement r) {
 		LLVMBuildRet(builder, pass.visit(r.value));
+	}
+	
+	void visit(BreakStatement s) {
+		assert(breakBB);
+		LLVMBuildBr(builder, breakBB);
+	}
+	
+	void visit(ContinueStatement s) {
+		assert(continueBB);
+		LLVMBuildBr(builder, continueBB);
 	}
 }
 
