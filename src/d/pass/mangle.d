@@ -371,7 +371,33 @@ final:
 	}
 	
 	string visit(FunctionType t) {
-		return "F" ~ t.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ visit(t.returnType);
+		string linkage;
+		switch(t.linkage) {
+			case "D" :
+				linkage = "F";
+				break;
+			
+			case "C" :
+				linkage = "U";
+				break;
+			
+			case "Windows" :
+				linkage = "W";
+				break;
+			
+			case "Pascal" :
+				linkage = "V";
+				break;
+			
+			case "C++" :
+				linkage = "R";
+				break;
+			
+			default:
+				assert(0, "Linkage " ~ t.linkage ~ " is not supported.");
+		}
+		
+		return linkage ~ t.parameters.map!(p => (p.isReference?"K":"") ~ pass.visit(p.type)).join() ~ "Z" ~ visit(t.returnType);
 	}
 }
 

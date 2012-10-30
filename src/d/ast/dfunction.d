@@ -20,7 +20,7 @@ class FunctionDeclaration : ExpressionSymbol {
 	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {
-		super(location, name, new FunctionType(location, returnType, parameters, isVariadic));
+		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
 		
 		this.name = name;
 		this.returnType = returnType;
@@ -112,12 +112,16 @@ class FunctionType : SimpleStorageClassType {
 	Parameter[] parameters;
 	bool isVariadic;
 	
-	this(Location location, Type returnType, Parameter[] parameters, bool isVariadic) {
+	string linkage;
+	
+	this(Location location, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
 		super(location);
 		
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
+		
+		this.linkage = linkage;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -131,6 +135,7 @@ class FunctionType : SimpleStorageClassType {
 	bool opEquals(const FunctionType t) const {
 		if(isVariadic != t.isVariadic) return false;
 		if(returnType != t.returnType) return false;
+		if(linkage != t.linkage) return false;
 		
 		import std.range;
 		foreach(p1, p2; lockstep(parameters, t.parameters)) {
@@ -145,8 +150,8 @@ class FunctionType : SimpleStorageClassType {
  * Delegate types
  */
 class DelegateType : FunctionType {
-	this(Location location, Type returnType, Parameter[] parameters, bool isVariadic) {
-		super(location, returnType, parameters, isVariadic);
+	this(Location location, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
+		super(location, linkage, returnType, parameters, isVariadic);
 	}
 }
 
