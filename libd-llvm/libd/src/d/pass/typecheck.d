@@ -141,7 +141,7 @@ final:
 		
 		d.returnType = ret;
 		
-		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
+		resolvedTypes[d] = d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}
@@ -192,7 +192,7 @@ final:
 			d.returnType = returnType;
 		}
 		
-		resolvedTypes[d] = d.type = new FunctionType(d.location, d.returnType, d.parameters, d.isVariadic);
+		resolvedTypes[d] = d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
 		
 		return d;
 	}

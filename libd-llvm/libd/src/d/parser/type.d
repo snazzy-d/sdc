@@ -237,7 +237,7 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes.
-				type = new FunctionType(location, type, parameters, isVariadic);
+				type = new FunctionType(location, "D", type, parameters, isVariadic);
 				break;
 			
 			case TokenType.Delegate :
@@ -249,7 +249,7 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes and storage class.
-				type = new DelegateType(location, type, parameters, isVariadic);
+				type = new DelegateType(location, "D", type, parameters, isVariadic);
 				break;
 			
 			default :
