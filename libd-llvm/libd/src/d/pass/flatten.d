@@ -505,6 +505,10 @@ final:
 		return handleUnaryExpression(e);
 	}
 	
+	Expression visit(UnaryPlusExpression e) {
+		return handleUnaryExpression(e);
+	}
+	
 	Expression visit(NotExpression e) {
 		return handleUnaryExpression(e);
 	}

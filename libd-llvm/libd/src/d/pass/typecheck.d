@@ -630,6 +630,19 @@ final:
 		return e;
 	}
 	
+	Expression visit(UnaryPlusExpression e) {
+		auto expression = visit(e.expression);
+		
+		if(expression.type) {
+			assert(cast(IntegerType) expression.type, "unary plus only apply to integers.");
+			
+			return expression;
+		}
+		
+		e.expression = expression;
+		return e;
+	}
+	
 	Expression visit(NotExpression e) {
 		e.type = new BooleanType(e.location);
 		e.expression = explicitCast.build(e.location, e.type, visit(e.expression));
