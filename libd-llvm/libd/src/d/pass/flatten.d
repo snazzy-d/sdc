@@ -306,8 +306,18 @@ final:
 		f.initialize = visit(f.initialize);
 		f.statement = visit(f.statement);
 		
-		f.condition = pass.visit(f.condition);
-		f.increment = pass.visit(f.increment);
+		if(f.condition) {
+			f.condition = pass.visit(f.condition);
+		} else {
+			f.condition = makeLiteral(f.location, true);
+		}
+		
+		if(f.increment) {
+			f.increment = pass.visit(f.increment);
+		} else {
+			// FIXME: should be some kind of NOOP.
+			f.increment = makeLiteral(f.location, true);
+		}
 		
 		return f;
 	}

@@ -84,10 +84,18 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				init = trange.parseStatement();
 			}
 			
-			auto condition = trange.parseExpression();
+			Expression condition;
+			if(trange.front.type != TokenType.Semicolon) {
+				condition = trange.parseExpression();
+			}
+			
 			trange.match(TokenType.Semicolon);
 			
-			auto increment = trange.parseExpression();
+			Expression increment;
+			if(trange.front.type != TokenType.CloseParen) {
+				increment = trange.parseExpression();
+			}
+			
 			trange.match(TokenType.CloseParen);
 			
 			auto statement = trange.parseStatement();
