@@ -689,7 +689,49 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
-		c.callee = visit(c.callee);
+		if(auto asPolysemous = cast(PolysemousExpression) c.callee) {
+			auto candidates = asPolysemous.expressions.filter!(delegate bool(Expression e) {
+				e = visit(e);
+				
+				if(e.type is null) {
+					return true;
+				}
+				
+				if(auto asFunType = cast(FunctionType) e.type) {
+					if(asFunType.isVariadic) {
+						return c.arguments.length >= asFunType.parameters.length;
+					} else {
+						return c.arguments.length == asFunType.parameters.length;
+					}
+				}
+				
+				// We only reach that point if some types needs more processing.
+				assert(pass.runAgain);
+				return true;
+			}).array();
+			
+			if(candidates.length == 1) {
+				c.callee = candidates[0];
+			} else if(candidates.length > 1) {
+				if(runAgain) {
+					// Remove excluded candidates if apropriate.
+					if(asPolysemous.expressions.length > candidates.length) {
+						c.callee = new PolysemousExpression(asPolysemous.location, candidates);
+					}
+					
+					c.type = null;
+					
+					return c;
+				}
+				
+				assert(0, "ambigusous function call.");
+			} else {
+				// No candidate.
+				assert(0, "No candidate for function call.");
+			}
+		} else {
+			c.callee = visit(c.callee);
+		}
 		
 		// XXX: is it the appropriate place to perform that ?
 		if(auto me = cast(MethodExpression) c.callee) {

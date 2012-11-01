@@ -707,10 +707,22 @@ final:
 	
 	Identifiable visit(OverLoadSet s) {
 		if(s.set.length == 1) {
-			return this.dispatch(s.set[0]);
+			return visit(s.set[0]);
 		}
 		
-		assert(0, "overload set not implemented.");
+		auto results = s.set.map!(s => visit(s)).array();
+		
+		Expression[] expressions;
+		foreach(result; results) {
+			if(auto asExpression = cast(Expression) result) {
+				expressions ~= asExpression;
+			} else {
+				// TODO: handle templates.
+				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
+			}
+		}
+		
+		return new PolysemousExpression(location, expressions);
 	}
 	
 	Identifiable visit(StructDefinition sd) {
@@ -820,6 +832,7 @@ final:
 			
 			if(auto s = pass.symbolInTypeResolver.resolve(e.type, i.name)) {
 				return this.dispatch!((s) {
+					// FIXME: really ? This may not be the thing to do (a better mecanism should be adopted for statics).
 					auto resolved = pass.identifierVisitor.visit(s);
 				
 					if(auto asExpr = cast(Expression) resolved) {
@@ -842,7 +855,19 @@ final:
 			return this.dispatch(s.set[0]);
 		}
 		
-		assert(0, "overload set not implemented.");
+		auto results = s.set.map!(s => this.dispatch(s)).array();
+		
+		Expression[] expressions;
+		foreach(result; results) {
+			if(auto asExpression = cast(Expression) result) {
+				expressions ~= asExpression;
+			} else {
+				// TODO: handle templates.
+				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
+			}
+		}
+		
+		return new PolysemousExpression(location, expressions);
 	}
 	
 	Expression visit(FieldDeclaration f) {
