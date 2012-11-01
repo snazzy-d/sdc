@@ -26,6 +26,20 @@ abstract class Expression : Identifiable {
 final:
 
 /**
+ * Expression that can in fact be several expressions.
+ * A good example is IdentifierExpression that resolve as overloaded functions.
+ */
+class PolysemousExpression : Expression {
+	Expression[] expressions;
+	
+	this(Location location, Expression[] expressions) {
+		super(location);
+		
+		this.expressions = expressions;
+	}
+}
+
+/**
  * Conditional expression of type ?:
  */
 class ConditionalExpression : Expression {
