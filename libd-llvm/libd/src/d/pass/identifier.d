@@ -331,6 +331,7 @@ final:
 	}
 	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
+		// FIXME: propagate polysemy.
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
 		
@@ -405,8 +406,15 @@ final:
 		return handleBinaryExpression(e);
 	}
 	
-	private auto handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
+	private Expression handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
 		e.expression = visit(e.expression);
+		
+		// Propagate polysemous expressions.
+		if(auto asPolysemous = cast(PolysemousExpression) e.expression) {
+			return new PolysemousExpression(e.location, asPolysemous.expressions.map!(delegate Expression(Expression e) {
+				return new UnaryExpression(asPolysemous.location, e);
+			}).array());
+		}
 		
 		return e;
 	}
@@ -449,8 +457,9 @@ final:
 	
 	private auto handleCastExpression(CastType T)(CastUnaryExpression!T e) {
 		e.type = pass.visit(e.type);
+		e.expression = visit(e.expression);
 		
-		return handleUnaryExpression(e);
+		return e;
 	}
 	
 	Expression visit(CastExpression e) {
@@ -472,7 +481,7 @@ final:
 			return asExpr;
 		}
 		
-		assert(0, e.identifier.name ~ " isn't an expression.");
+		return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 	}
 	
 	Expression visit(FieldExpression e) {
@@ -545,7 +554,7 @@ final:
 			return asType;
 		}
 		
-		assert(0, t.identifier.name ~ " isn't a type.");
+		return compilationCondition!Type(t.location, t.identifier.name ~ " isn't a type.");
 	}
 	
 	Type visit(SymbolType t) {
@@ -831,7 +840,7 @@ final:
 			expression = e;
 			
 			if(auto s = pass.symbolInTypeResolver.resolve(e.type, i.name)) {
-				return this.dispatch!((s) {
+				return this.dispatch!(delegate Expression(Symbol s) {
 					// FIXME: really ? This may not be the thing to do (a better mecanism should be adopted for statics).
 					auto resolved = pass.identifierVisitor.visit(s);
 				
@@ -839,14 +848,14 @@ final:
 						return new CommaExpression(i.location, e, asExpr);
 					}
 				
-					assert(0, "Don't know what to do with that !");
+					return compilationCondition!Expression(location, "Don't know what to do with that !");
 				})(s);
 			} else if(auto asExpr = cast(Expression) pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type))) {
 				// expression.sizeof or similar stuffs.
 				return new CommaExpression(i.location, e, asExpr);
 			}
 			
-			assert(0, "Can't resolve identifier.");
+			return compilationCondition!Expression(location, "Can't resolve identifier.");
 		})(i.location, i.expression);
 	}
 	
@@ -863,7 +872,7 @@ final:
 				expressions ~= asExpression;
 			} else {
 				// TODO: handle templates.
-				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
+				return compilationCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set.");
 			}
 		}
 		

@@ -67,6 +67,20 @@ final:	// Check whenever these operation make sense.
 	}
 }
 
+/**
+ * An Error occured but an Type is expected.
+ * Useful for speculative compilation.
+ */
+class ErrorType : SimpleStorageClassType {
+	string message;
+	
+	this(Location location, string message) {
+		super(location);
+		
+		this.message = message;
+	}
+}
+
 class SuffixType : SimpleStorageClassType {
 	Type type;
 	

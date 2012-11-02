@@ -26,6 +26,20 @@ abstract class Expression : Identifiable {
 final:
 
 /**
+ * An Error occured but an Expression is expected.
+ * Useful for speculative compilation.
+ */
+class ErrorExpression : Expression {
+	string message;
+	
+	this(Location location, string message) {
+		super(location);
+		
+		this.message = message;
+	}
+}
+
+/**
  * Expression that can in fact be several expressions.
  * A good example is IdentifierExpression that resolve as overloaded functions.
  */
@@ -36,6 +50,10 @@ class PolysemousExpression : Expression {
 		super(location);
 		
 		this.expressions = expressions;
+	}
+	
+	invariant() {
+		assert(expressions.length > 1);
 	}
 }
 

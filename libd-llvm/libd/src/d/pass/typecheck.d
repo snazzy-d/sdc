@@ -408,18 +408,26 @@ final:
 	Expression visit(Expression e) out(result) {
 		if(!pass.runAgain) {
 			if(!result.type) {
-				auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(result.location, msg);
-				
-				assert(0, msg);
+				if(!cast(PolysemousExpression) result) {
+					auto msg = "Type should have been set for expression " ~ typeid(result).toString() ~ " at this point.";
+					
+					import sdc.terminal;
+					outputCaretDiagnostics(result.location, msg);
+					
+					assert(0, msg);
+				}
 			}
 			
 			assert(!(cast(AutoType) result.type));
 		}
 	} body {
 		return this.dispatch(e);
+	}
+	
+	Expression visit(PolysemousExpression e) {
+		e.expressions = e.expressions.map!(e => visit(e)).array();
+		
+		return e;
 	}
 	
 	Expression visit(BooleanLiteral bl) {
@@ -464,7 +472,7 @@ final:
 		return e;
 	}
 	
-	private auto handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "+=", "-", "-="], operation)) {
+	private Expression handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "+=", "-", "-="], operation)) {
 		enum isOpAssign = operation.length == 2;
 		
 		e.lhs = visit(e.lhs);
@@ -474,7 +482,9 @@ final:
 		if(!(e.lhs.type && e.rhs.type)) return e;
 		
 		if(auto pointerType = cast(PointerType) e.lhs.type) {
-			assert(cast(IntegerType) e.rhs.type, "Pointer +/- interger only.");
+			if(typeid({ return e.rhs.type; }()) !is typeid(IntegerType)) {
+				return compilationCondition!Expression(e.rhs.location, "Pointer +/- interger only.");
+			}
 			
 			// FIXME: introduce temporary.
 			static if(operation[0] == '+') {
@@ -604,7 +614,7 @@ final:
 			return e;
 		}
 		
-		assert(false, "Increment and decrement are performed on integers or pointer types.");
+		return compilationCondition!Expression(e.location, "Increment and decrement are performed on integers or pointer types.");
 	}
 	
 	Expression visit(PreIncrementExpression e) {
@@ -634,7 +644,9 @@ final:
 		auto expression = visit(e.expression);
 		
 		if(expression.type) {
-			assert(cast(IntegerType) expression.type, "unary plus only apply to integers.");
+			if(typeid({ return expression.type; }()) !is typeid(IntegerType)) {
+				return compilationCondition!Expression(e.location, "unary plus only apply to integers.");
+			}
 			
 			return expression;
 		}
@@ -651,7 +663,9 @@ final:
 	}
 	
 	Expression visit(AddressOfExpression e) {
-		assert(typeid({ return e.expression; }()) !is typeid(AddressOfExpression), "Cannot take the address of an address.");
+		if(typeid({ return e.expression; }()) is typeid(AddressOfExpression)) {
+			return compilationCondition!Expression(e.location, "Cannot take the address of an address.");
+		}
 		
 		e.expression = visit(e.expression);
 		
@@ -681,7 +695,7 @@ final:
 			return e;
 		}
 		
-		assert(0, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
+		return compilationCondition!Expression(e.location, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
 	}
 	
 	Expression visit(CastExpression e) {
@@ -689,6 +703,8 @@ final:
 	}
 	
 	Expression visit(CallExpression c) {
+		c.callee = visit(c.callee);
+		
 		if(auto asPolysemous = cast(PolysemousExpression) c.callee) {
 			auto candidates = asPolysemous.expressions.filter!(delegate bool(Expression e) {
 				e = visit(e);
@@ -724,13 +740,11 @@ final:
 					return c;
 				}
 				
-				assert(0, "ambigusous function call.");
+				return compilationCondition!Expression(c.location, "ambigusous function call.");
 			} else {
 				// No candidate.
-				assert(0, "No candidate for function call.");
+				return compilationCondition!Expression(c.location, "No candidate for function call.");
 			}
-		} else {
-			c.callee = visit(c.callee);
 		}
 		
 		// XXX: is it the appropriate place to perform that ?
@@ -746,7 +760,9 @@ final:
 		}
 		
 		auto type = cast(FunctionType) c.callee.type;
-		assert(type, "You must call function, you fool !!!");
+		if(!type) {
+			return compilationCondition!Expression(c.location, "You must call function, you fool !!!");
+		}
 		
 		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
 		
@@ -816,7 +832,9 @@ final:
 			e.type = asStaticArray.type;
 		}
 		
-		assert(e.type, "Can't index " ~ typeid({ return e.indexed; }()).toString());
+		if(!e.type) {
+			return compilationCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
+		}
 		
 		e.arguments = e.arguments.map!(e => visit(e)).array();
 		
@@ -835,7 +853,9 @@ final:
 			e.type = asStaticArray.type;
 		}
 		
-		assert(e.type, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
+		if(!e.type) {
+			return compilationCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
+		}
 		
 		e.type = new SliceType(e.location, e.type);
 		
@@ -1005,8 +1025,8 @@ final:
 		
 		location = targetLocation;
 		
-		return this.dispatch!(function Expression(Type t) {
-			assert(0, "Type " ~ typeid(t).toString() ~ " has no initializer.");
+		return this.dispatch!(delegate Expression(Type t) {
+			return compilationCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
 		})(t);
 	}
 	
@@ -1278,12 +1298,7 @@ final:
 				return new TruncateExpression(location, t, expression);
 			} else {
 				import std.conv;
-				auto msg = "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(expression.location, msg);
-				
-				assert(0, msg);
+				return compilationCondition!Expression(expression.location, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 			}
 		}
 	}
@@ -1366,7 +1381,7 @@ final:
 			} else if(auto toType = cast(VoidType) t.type) {
 				return new BitCastExpression(location, t, expression);
 			} else {
-				assert(0, "invalid pointer cast.");
+				return compilationCondition!Expression(location, "invalid pointer cast.");
 			}
 		}
 		
@@ -1406,7 +1421,7 @@ final:
 			} else if(auto toType = cast(VoidType) t.type) {
 				return new BitCastExpression(location, t, expression);
 			} else {
-				assert(0, "invalid pointer cast.");
+				return compilationCondition!Expression(location, "invalid pointer cast.");
 			}
 		}
 	}
