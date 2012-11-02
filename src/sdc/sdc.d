@@ -30,11 +30,23 @@ int main(string[] args) {
 		stderr.writeln("usage: sdc file");
 		return 1;
 	}
-
-	foreach (file; args[1..$]) {
-		compile(file);
+	
+	try {
+		foreach (file; args[1..$]) {
+			compile(file);
+		}
+	} catch(CompilerError e) {
+		import sdc.terminal;
+		outputCaretDiagnostics(e.location, e.msg);
+		
+		debug {
+			import std.stdio;
+			writeln(e.toString());
+		}
+		
+		return 1;
 	}
-
+	
 	return 0;
 }
 
