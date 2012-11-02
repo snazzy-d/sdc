@@ -136,6 +136,7 @@ class FunctionType : SimpleStorageClassType {
 		if(isVariadic != t.isVariadic) return false;
 		if(returnType != t.returnType) return false;
 		if(linkage != t.linkage) return false;
+		if(parameters.length != t.parameters.length) return false;
 		
 		import std.range;
 		foreach(p1, p2; lockstep(parameters, t.parameters)) {

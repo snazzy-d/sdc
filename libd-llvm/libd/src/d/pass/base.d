@@ -26,6 +26,12 @@ struct CompilationCondition {
 		this.message = message;
 	}
 	
+	void error() in {
+		assert(outcome == Outcome.Throw);
+	} body {
+		outcome = Outcome.ErrorNode;
+	}
+	
 	invariant() {
 		assert(location != location.init);
 	}

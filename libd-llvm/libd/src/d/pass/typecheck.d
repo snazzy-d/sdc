@@ -1191,6 +1191,33 @@ final:
 	Expression build(Location castLocation, Type to, Expression e) out(result) {
 		assert(pass.runAgain || (result.type == to));
 	} body {
+		// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
+		if(auto asPolysemous = cast(PolysemousExpression) e) {
+			Expression[] casted;
+			foreach(candidate; asPolysemous.expressions) {
+				import sdc.compilererror;
+				try {
+					casted ~= build(castLocation, to, candidate);
+				} catch(CompilerError ce) {}
+			}
+			
+			if(casted.length == 1) {
+				return casted[0];
+			} else if(casted.length > 1 ){
+				if(runAgain) {
+					if(casted.length < asPolysemous.expressions.length) {
+						asPolysemous = new PolysemousExpression(asPolysemous.location, casted);
+					}
+					
+					return asPolysemous;
+				}
+				
+				return compilationCondition!Expression(e.location, "Ambiguous.");
+			} else {
+				return compilationCondition!Expression(e.location, "No match found.");
+			}
+		}
+		
 		if(runAgain) {
 			if(!(to && e.type)) return e;
 		}
@@ -1406,12 +1433,7 @@ final:
 			fromType = from;
 			
 			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+				return compilationCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
 			})(to);
 		}
 		
