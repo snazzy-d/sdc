@@ -310,6 +310,34 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		case TokenType.Debug :
 			return trange.parseDebug!Statement();
 		
+		case TokenType.Identifier :
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			
+			if(lookahead.front.type == TokenType.Colon) {
+				auto label = trange.front.value;
+				trange.popFrontN(2);
+				
+				auto statement = trange.parseStatement();
+				location.spanTo(statement.location);
+				
+				return new LabeledStatement(location, label, statement);
+			}
+			
+			// If it is not a labeled statement, then it is a declaration or an expression.
+			goto default;
+		
+		case TokenType.Goto :
+			trange.popFront();
+			
+			auto label = trange.front.value;
+			trange.match(TokenType.Identifier);
+			trange.match(TokenType.Semicolon);
+			
+			location.spanTo(trange.front.location);
+			
+			return new GotoStatement(location, label);
+		
 		default :
 			if(trange.isDeclaration()) {
 				auto declaration = trange.parseDeclaration();

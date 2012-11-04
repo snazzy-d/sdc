@@ -54,6 +54,21 @@ class DeclarationStatement : Statement {
 }
 
 /**
+ * Label: statement
+ */
+class LabeledStatement : Statement {
+	string label;
+	Statement statement;
+	
+	this(Location location, string label, Statement statement) {
+		super(location);
+		
+		this.label = label;
+		this.statement = statement;
+	}
+}
+
+/**
  * if else statements.
  */
 class IfElseStatement : Statement {
@@ -185,6 +200,19 @@ class ReturnStatement : Statement {
 		super(location);
 		
 		this.value = value;
+	}
+}
+
+/**
+ * goto statements
+ */
+class GotoStatement : Statement {
+	string label;
+	
+	this(Location location, string label) {
+		super(location);
+		
+		this.label = label;
 	}
 }
 
