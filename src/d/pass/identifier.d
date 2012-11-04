@@ -238,6 +238,10 @@ final:
 		}
 	}
 	
+	void visit(LabeledStatement s) {
+		visit(s.statement);
+	}
+	
 	void visit(IfElseStatement ifs) {
 		ifs.condition = pass.visit(ifs.condition);
 		
@@ -280,6 +284,10 @@ final:
 	}
 	
 	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(GotoStatement s) {
 		// Nothing needs to be done.
 	}
 }
@@ -981,7 +989,7 @@ final:
 				return new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
 			
 			default :
-				assert(0, name ~ " isn't a slice property.");
+				return null;
 		}
 	}
 	

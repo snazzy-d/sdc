@@ -275,6 +275,12 @@ final:
 		return b;
 	}
 	
+	Statement visit(LabeledStatement s) {
+		s.statement = visit(s.statement);
+		
+		return s;
+	}
+	
 	Statement visit(IfElseStatement ifs) {
 		ifs.then = visit(ifs.then);
 		ifs.elseStatement = visit(ifs.elseStatement);
@@ -333,6 +339,10 @@ final:
 	}
 	
 	Statement visit(ContinueStatement s) {
+		return s;
+	}
+	
+	Statement visit(GotoStatement s) {
 		return s;
 	}
 }

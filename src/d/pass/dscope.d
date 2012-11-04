@@ -299,6 +299,10 @@ final:
 		b.dscope = currentScope;
 	}
 	
+	void visit(LabeledStatement s) {
+		visit(s.statement);
+	}
+	
 	void visit(IfElseStatement ifs) {
 		visit(ifs.then);
 		visit(ifs.elseStatement);
@@ -333,6 +337,10 @@ final:
 	}
 	
 	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(GotoStatement s) {
 		// Nothing needs to be done.
 	}
 }

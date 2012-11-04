@@ -39,6 +39,8 @@ class CodeGenPass {
 	LLVMBasicBlockRef continueBB;
 	LLVMBasicBlockRef breakBB;
 	
+	LLVMBasicBlockRef[string] labels;
+	
 	bool isSigned;
 	
 	this() {
@@ -143,6 +145,12 @@ final:
 		// Ensure we are rentrant.
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		
+		auto oldLabels = labels;
+		scope(exit) labels = oldLabels;
+		
+		// FIXME: should be an empty AA.
+		labels = labels.dup;
 		
 		auto funptrType = pass.visit(f.type);
 		
@@ -317,6 +325,28 @@ final:
 		pass.visit(e.expression);
 	}
 	
+	private auto getLabel(string label) {
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		return labels.get(label, labels[label] = LLVMAppendBasicBlock(fun, toStringz("." ~ label)));
+	}
+	
+	void visit(LabeledStatement s) {
+		auto currentBB = LLVMGetInsertBlock(builder);
+		
+		auto labelBB = getLabel(s.label);
+		LLVMMoveBasicBlockAfter(labelBB, currentBB);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(currentBB)) {
+			LLVMBuildBr(builder, labelBB);
+		}
+		
+		LLVMPositionBuilderAtEnd(builder, labelBB);
+		
+		visit(s.statement);
+	}
+	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
@@ -458,6 +488,12 @@ final:
 	void visit(ContinueStatement s) {
 		assert(continueBB);
 		LLVMBuildBr(builder, continueBB);
+	}
+	
+	void visit(GotoStatement s) {
+		auto labelBB = getLabel(s.label);
+		
+		LLVMBuildBr(builder, labelBB);
 	}
 }
 
