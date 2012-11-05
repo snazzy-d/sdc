@@ -13,6 +13,7 @@ import std.array;
 
 // In order to JIT.
 extern(C) void _d_assert();
+extern(C) void _d_array_bounds();
 
 interface Backend {
 	void codeGen(Module[] mods);
