@@ -7,6 +7,8 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 
+import sdc.location;
+
 import std.algorithm;
 import std.array;
 import std.string;
@@ -28,13 +30,13 @@ class CodeGenPass {
 	
 	private DruntimeGen druntimeGen;
 	
-	private string moduleName;
-	
 	private LLVMBuilderRef builder;
 	private LLVMModuleRef dmodule;
 	
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
+	
+	private LLVMValueRef[string] stringLiterals;
 	
 	LLVMBasicBlockRef continueBB;
 	LLVMBasicBlockRef breakBB;
@@ -57,8 +59,7 @@ class CodeGenPass {
 	
 final:
 	Module[] visit(Module[] modules) {
-		moduleName = modules.back.location.filename;
-		dmodule = LLVMModuleCreateWithName(moduleName.toStringz());
+		dmodule = LLVMModuleCreateWithName(modules.back.location.filename.toStringz());
 		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
@@ -544,10 +545,34 @@ final:
 		return LLVMConstNull(pass.visit(nl.type));
 	}
 	
+	private auto buildDString(string str) in {
+		assert(str.length <= uint.max, "string length must be <= uint.max");
+	} body {
+		return stringLiterals.get(str, stringLiterals[str] = {
+			auto charArray = LLVMConstString(str.ptr, cast(uint) str.length, true);
+			
+			auto globalVar = LLVMAddGlobal(pass.dmodule, LLVMTypeOf(charArray), ".str".toStringz());
+			LLVMSetInitializer(globalVar, charArray);
+			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
+			LLVMSetGlobalConstant(globalVar, true);
+			
+			auto length = LLVMConstInt(LLVMInt64Type(), str.length, false);
+			
+			/*
+			// skip 0 termination.
+			auto indices = [LLVMConstInt(LLVMInt64Type(), 0, true), LLVMConstInt(LLVMInt64Type(), 0, true)];
+			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
+			/*/
+			// with 0 termination.
+			auto ptr = LLVMBuildGlobalStringPtr(pass.builder, str.toStringz(), ".cstr");
+			//*/
+			
+			return LLVMConstStruct([length, ptr].ptr, 2, false);
+		}());
+	}
+	
 	LLVMValueRef visit(StringLiteral sl) {
-		auto fields = [LLVMConstInt(LLVMInt64Type(), sl.value.length, false), LLVMBuildGlobalStringPtr(builder, sl.value.toStringz(), ".str")];
-		
-		return LLVMConstStruct(fields.ptr, 2, false);
+		return buildDString(sl.value);
 	}
 	
 	LLVMValueRef visit(CommaExpression ce) {
@@ -766,8 +791,11 @@ final:
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64Type(), "");
 		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64Type(), "");
 		
+		// To ensure bound check. Before ptr calculation for optimization purpose.
+		addressOfGen.computeIndice(e.location, e.indexed.type, indexed, second);
+		
 		auto length = LLVMBuildSub(builder, second, first, "");
-		auto ptr = addressOfGen.computeIndice(e.indexed.type, indexed, first);
+		auto ptr = addressOfGen.computeIndice(e.location, e.indexed.type, indexed, first);
 		
 		auto slice = LLVMGetUndef(pass.visit(e.type));
 		
@@ -896,8 +924,8 @@ final:
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		auto args = [LLVMConstInt(LLVMInt64Type(), 1, false), druntimeGen.getModuleName(), LLVMConstInt(LLVMInt32Type(), e.location.line, false)];
-		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 3, "");
+		auto args = [buildDString(e.location.filename), LLVMConstInt(LLVMInt32Type(), e.location.line, false)];
+		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 2, "");
 		
 		// Conclude that block.
 		LLVMBuildUnreachable(builder);
@@ -945,12 +973,11 @@ final:
 		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
 	}
 	
-	LLVMValueRef computeIndice(Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
+	LLVMValueRef computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
 		if(typeid(indexedType) is typeid(SliceType)) {
-			// TODO: add bound checking.
 			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64Type(), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64Type(), ""), length, ".boundCheck");
 			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 			
 			auto failBB = LLVMAppendBasicBlock(fun, "arrayBoundFail");
@@ -960,6 +987,10 @@ final:
 			
 			// Emit bound check fail code.
 			LLVMPositionBuilderAtEnd(builder, failBB);
+			
+			auto args = [expressionGen.buildDString(location.filename), LLVMConstInt(LLVMInt32Type(), location.line, false)];
+			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, 2, "");
+			
 			LLVMBuildUnreachable(builder);
 			
 			// And continue regular program flow.
@@ -985,7 +1016,7 @@ final:
 		auto indexed = visit(e.indexed);
 		auto indice = pass.visit(e.arguments[0]);
 		
-		return computeIndice(e.indexed.type, indexed, indice);
+		return computeIndice(e.location, e.indexed.type, indexed, indice);
 	}
 }
 
@@ -1119,17 +1150,19 @@ class DruntimeGen {
 	}
 	
 final:
-	auto getAssert() {
+	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
 		// TODO: LLVMGetNamedFunction
-		return cache.get("_d_assert", cache["_d_assert"] = {
-			auto funType = LLVMFunctionType(LLVMVoidType(), [LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0), LLVMInt32Type()].ptr, 3, false);
-			
-			return LLVMAddFunction(pass.dmodule, "_d_assert".toStringz(), funType);
+		return cache.get(name, cache[name] = {
+			return LLVMAddFunction(pass.dmodule, name.toStringz(), type);
 		}());
 	}
 	
-	auto getModuleName() {
-		return cache.get("_d_module_name", cache["_d_module_name"] = LLVMBuildGlobalStringPtr(builder, moduleName.toStringz(), "_d_module_name"));
+	auto getAssert() {
+		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
+	}
+	
+	auto getArrayBound() {
+		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
 	}
 }
 
