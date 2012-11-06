@@ -1205,6 +1205,10 @@ final:
 		}
 	}
 	
+	uint visit(EnumType t) {
+		return visit(t.type);
+	}
+	
 	uint visit(SymbolType t) {
 		return visit(t.symbol);
 	}
@@ -1554,6 +1558,14 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			auto t2type = max(t.type, Integer.Int);
 			
 			return new IntegerType(location, max(t1type, t2type));
+		}
+		
+		Type visit(EnumType t) {
+			if(auto asInt = cast(IntegerType) t.type) {
+				return visit(asInt);
+			}
+			
+			assert(0, "Enum are of type int.");
 		}
 	}
 	
