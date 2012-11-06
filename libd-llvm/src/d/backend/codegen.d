@@ -232,6 +232,10 @@ final:
 			auto value = pass.visit(var.value);
 			LLVMSetInitializer(globalVar, value);
 			
+			if(var.isConstant) {
+				LLVMSetGlobalConstant(globalVar, true);
+			}
+			
 			return globalVar;
 		} else {
 			// Backup current block
@@ -293,6 +297,16 @@ final:
 		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
 		
 		return structPtr;
+	}
+	
+	LLVMTypeRef visit(EnumDeclaration d) {
+		auto type = typeSymbols[d] = pass.visit(d.type);
+		
+		foreach(e; d.enumEntries) {
+			visit(e);
+		}
+		
+		return type;
 	}
 	
 	LLVMTypeRef visit(AliasDeclaration a) {
@@ -1124,6 +1138,10 @@ final:
 		return LLVMArrayType(type, cast(uint) LLVMConstIntGetZExtValue(size));
 	}
 	
+	LLVMTypeRef visit(EnumType t) {
+		return visit(t.type);
+	}
+	
 	LLVMTypeRef visit(FunctionType t) {
 		auto parameterTypes = t.parameters.map!((p) {
 			auto type = visit(p.type);
@@ -1158,10 +1176,12 @@ final:
 	}
 	
 	auto getAssert() {
+		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
 		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
 	}
 	
 	auto getArrayBound() {
+		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
 		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
 	}
 }
