@@ -118,7 +118,7 @@ final:
 		return d;
 	}
 	
-	Declaration visit(VariableDeclaration d) {
+	VariableDeclaration visit(VariableDeclaration d) {
 		d.linkage = linkage;
 		d.isStatic = isStatic;
 		
@@ -158,6 +158,22 @@ final:
 		tpl.declarations = pass.visit(tpl.declarations);
 		
 		return tpl;
+	}
+	
+	Declaration visit(EnumDeclaration d) {
+		d.type = pass.visit(d.type);
+		
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = true;
+		
+		foreach(ref e; d.enumEntries) {
+			e = visit(e);
+			e.isConstant = true;
+		}
+		
+		return d;
 	}
 	
 	Declaration visit(AliasDeclaration a) {
@@ -647,6 +663,12 @@ final:
 	}
 	
 	Type visit(StaticArrayType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
+	Type visit(EnumType t) {
 		t.type = visit(t.type);
 		
 		return t;

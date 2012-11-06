@@ -163,7 +163,7 @@ final:
 		return fun;
 	}
 	
-	Declaration visit(VariableDeclaration var) {
+	VariableDeclaration visit(VariableDeclaration var) {
 		if(adtScope is currentScope) {
 			var = new FieldDeclaration(var, scopeIndex++);
 		}
@@ -217,6 +217,23 @@ final:
 		adtScope = currentScope = new NestedScope(oldScope);
 		
 		d.members = pass.visit(d.members);
+		
+		d.dscope = currentScope;
+		
+		return d;
+	}
+	
+	Declaration visit(EnumDeclaration d) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		if(d.name) {
+			currentScope.addSymbol(d);
+			
+			currentScope = new NestedScope(oldScope);
+		}
+		
+		d.enumEntries = d.enumEntries.map!(e => visit(e)).array();
 		
 		d.dscope = currentScope;
 		
