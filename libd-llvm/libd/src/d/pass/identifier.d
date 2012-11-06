@@ -1013,6 +1013,12 @@ final:
 		}
 	}
 	
+	Symbol visit(EnumType t) {
+		auto s = t.declaration.dscope.resolve(name);
+		
+		return s?s:visit(t.type);
+	}
+	
 	Symbol visit(SymbolType t) {
 		return this.dispatch(t.symbol);
 	}
