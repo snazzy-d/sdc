@@ -220,6 +220,12 @@ final:
 	}
 	
 	LLVMValueRef visit(VariableDeclaration var) {
+		auto value = pass.visit(var.value);
+		
+		if(var.isEnum) {
+			return exprSymbols[var] = value;
+		}
+		
 		if(var.isStatic) {
 			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
 			// FIXME: interpreter don't support TLS for now.
@@ -229,12 +235,7 @@ final:
 			exprSymbols[var] = globalVar;
 			
 			// Store the initial value into the global variable.
-			auto value = pass.visit(var.value);
 			LLVMSetInitializer(globalVar, value);
-			
-			if(var.isConstant) {
-				LLVMSetGlobalConstant(globalVar, true);
-			}
 			
 			return globalVar;
 		} else {
@@ -252,8 +253,6 @@ final:
 			exprSymbols[var] = alloca;
 			
 			// Store the initial value into the alloca.
-			auto value = pass.visit(var.value);
-			
 			LLVMBuildStore(builder, value, alloca);
 			
 			return alloca;
@@ -779,7 +778,11 @@ final:
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		if(e.symbol.isEnum) {
+			return pass.visit(e.symbol);
+		} else {
+			return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		}
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -966,6 +969,8 @@ final:
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
+		assert(!e.symbol.isEnum, "enum have no address.");
+		
 		return pass.visit(e.symbol);
 	}
 	
