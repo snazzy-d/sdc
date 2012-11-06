@@ -298,11 +298,7 @@ final:
 			}
 			
 			VariableDeclaration previous;
-			uint value;
 			foreach(e; d.enumEntries) {
-				// FIXME: temporary hack when waiting for CTFE.
-				e.value = makeLiteral(e.location, value++);
-				
 				if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
 					if(previous) {
 						e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));

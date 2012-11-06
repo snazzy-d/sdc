@@ -47,7 +47,7 @@ class TypeSymbol : Symbol {
 class ExpressionSymbol : Symbol {
 	Type type;
 	bool isStatic;
-	bool isConstant;
+	bool isEnum;
 	
 	this(Location location, string name, Type type) {
 		super(location, name);
