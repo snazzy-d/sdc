@@ -170,7 +170,7 @@ final:
 		
 		foreach(ref e; d.enumEntries) {
 			e = visit(e);
-			e.isConstant = true;
+			e.isEnum = true;
 		}
 		
 		return d;
