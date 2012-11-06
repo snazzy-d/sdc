@@ -95,27 +95,36 @@ class UnionDefinition : UnionDeclaration {
 /**
  * Enum
  */
-class Enum : Declaration {
-	VariablesDeclaration enumEntries;
+class EnumDeclaration : TypeSymbol {
 	Type type;
+	VariableDeclaration[] enumEntries;
 	
-	this(Location location, Type type, VariablesDeclaration enumEntries) {
-		super(location);
+	Scope dscope;
+	
+	this(Location location, string name, Type type, VariableDeclaration[] enumEntries) {
+		super(location, name);
 		
+		this.type = new EnumType(type, this);
 		this.enumEntries = enumEntries;
 	}
 }
 
 /**
- * Named enum
+ * Enum type
  */
-class NamedEnum : Enum {
-	string name;
+class EnumType : BasicType {
+	Type type;
+	EnumDeclaration declaration;
 	
-	this(Location location, string name, Type type, VariablesDeclaration enumEntries) {
-		super(location, type, enumEntries);
+	this(Type type, EnumDeclaration declaration) {
+		super(type.location);
 		
-		this.name = name;
+		this.type = type;
+		this.declaration = declaration;
+	}
+	
+	override bool opEquals(const Type t) const {
+		return this is t;
 	}
 }
 

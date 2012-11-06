@@ -312,6 +312,10 @@ class SymbolExpression : Expression {
 		
 		this.symbol = symbol;
 	}
+	
+	invariant() {
+		assert(symbol);
+	}
 }
 
 /**

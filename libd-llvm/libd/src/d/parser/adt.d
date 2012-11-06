@@ -148,7 +148,7 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 /**
  * Parse enums
  */
-Enum parseEnum(TokenRange)(ref TokenRange trange) {
+Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	
@@ -187,45 +187,40 @@ Enum parseEnum(TokenRange)(ref TokenRange trange) {
 			trange.match(TokenType.Begin);
 	}
 	
-	trange.match(TokenType.OpenBrace);
-	Expression[string] enumEntriesValues;
+	assert(type, "type should have been set at this point.");
 	
-	string previousName;
+	trange.match(TokenType.OpenBrace);
+	VariableDeclaration[] enumEntries;
+	
 	while(trange.front.type != TokenType.CloseBrace) {
 		string entryName = trange.front.value;
 		auto entryLocation = trange.front.location;
 		
 		trange.match(TokenType.Identifier);
 		
+		Expression entryValue;
 		if(trange.front.type == TokenType.Assign) {
 			trange.popFront();
 			
-			enumEntriesValues[entryName] = trange.parseAssignExpression();
+			entryValue = trange.parseAssignExpression();
+			
+			// FIXME: don't work for whatever reason.
+			// entryLocation.spanTo(entryValue.location);
 		} else {
-			if(previousName) {
-				// TODO: create a factory for integer literals.
-				enumEntriesValues[entryName] = new AddExpression(entryLocation, enumEntriesValues[previousName], makeLiteral(entryLocation, 1));
-			} else {
-				enumEntriesValues[entryName] = makeLiteral(entryLocation, 0);
-			}
+			entryValue = new DefaultInitializer(type);
 		}
+		
+		enumEntries ~= new VariableDeclaration(entryLocation, type, entryName, entryValue);
 		
 		// If it is not a comma, then we abort the loop.
 		if(trange.front.type != TokenType.Comma) break;
 		
 		trange.popFront();
-		previousName = entryName;
 	}
 	
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.CloseBrace);
 	
-	auto enumEntries = new VariablesDeclaration(location, []);
-	
-	if(name) {
-		return new NamedEnum(location, name, type, enumEntries);
-	} else {
-		return new Enum(location, type, enumEntries);
-	}
+	return new EnumDeclaration(location, name, type, enumEntries);
 }
 

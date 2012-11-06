@@ -157,7 +157,7 @@ final:
 		return d;
 	}
 	
-	Symbol visit(VariableDeclaration d) {
+	VariableDeclaration visit(VariableDeclaration d) {
 		if(d.isStatic) {
 			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ pass.visit(d.type);
 		}
@@ -193,6 +193,20 @@ final:
 		d.mangle = "C" ~ manglePrefix;
 		
 		d.members = d.members.map!(m => visit(m)).array();
+		
+		return d;
+	}
+	
+	Symbol visit(EnumDeclaration d) {
+		// Update mangle prefix.
+		auto oldManglePrefix = manglePrefix;
+		scope(exit) manglePrefix = oldManglePrefix;
+		
+		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		
+		d.mangle = "E" ~ manglePrefix;
+		
+		d.enumEntries = d.enumEntries.map!(e => visit(e)).array();
 		
 		return d;
 	}
@@ -376,6 +390,10 @@ final:
 	
 	string visit(SliceType t) {
 		return "A" ~ visit(t.type);
+	}
+	
+	string visit(EnumType t) {
+		return t.declaration.mangle;
 	}
 	
 	string visit(FunctionType t) {

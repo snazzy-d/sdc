@@ -197,7 +197,7 @@ final:
 		return d;
 	}
 	
-	Symbol visit(VariableDeclaration var) {
+	VariableDeclaration visit(VariableDeclaration var) {
 		var.value = pass.visit(var.value);
 		
 		Type type;
@@ -277,6 +277,49 @@ final:
 		d.members = d.members.map!(m => visit(m)).array();
 		
 		resolvedTypes[d] = thisType;
+		
+		return d;
+	}
+	
+	Symbol visit(EnumDeclaration d) {
+		if(d in resolvedTypes) {
+			return d;
+		}
+		
+		auto type = pass.visit(d.type);
+		
+		if(type) {
+			if(auto asEnum = cast(EnumType) type) {
+				if(typeid({ return asEnum.type; }()) !is typeid(IntegerType)) {
+					assert(0, "enum are of integer type.");
+				}
+			} else {
+				assert(0, "enum must have an enum type !");
+			}
+			
+			VariableDeclaration previous;
+			uint value;
+			foreach(e; d.enumEntries) {
+				// FIXME: temporary hack when waiting for CTFE.
+				e.value = makeLiteral(e.location, value++);
+				
+				if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
+					if(previous) {
+						e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));
+					} else {
+						e.value = makeLiteral(e.location, 0);
+					}
+				}
+				
+				e.value = explicitCast.build(e.location, type, pass.visit(e.value));
+				
+				resolvedTypes[e] = e.type = type;
+				
+				previous = e;
+			}
+			
+			resolvedTypes[d] = d.type = type;
+		}
 		
 		return d;
 	}
@@ -710,6 +753,11 @@ final:
 		return explicitCast.build(e.location, pass.visit(e.type), visit(e.expression));
 	}
 	
+	Expression visit(BitCastExpression e) {
+		// XXX: Should something be done here ?
+		return e;
+	}
+	
 	Expression visit(CallExpression c) {
 		c.callee = visit(c.callee);
 		
@@ -991,6 +1039,10 @@ final:
 	}
 	
 	Type visit(StaticArrayType t) {
+		return handleSuffixType(t);
+	}
+	
+	Type visit(EnumType t) {
 		return handleSuffixType(t);
 	}
 	
@@ -1321,6 +1373,11 @@ final:
 				
 				return res;
 			}
+			
+			Expression visit(EnumType t) {
+				// If the cast is explicit, then try to cast from enum base type.
+				return new BitCastExpression(location, t, build(location, t.type, expression));
+			}
 		}
 		
 		Expression visit(IntegerType t) {
@@ -1459,6 +1516,11 @@ final:
 	Expression visit(FunctionType t) {
 		return fromFunction.visit(t, type);
 	}
+	
+	Expression visit(EnumType t) {
+		// Automagically promote to base type.
+		return build(location, type, new BitCastExpression(location, t.type, expression));
+	}
 }
 
 Type getPromotedType(Location location, Type t1, Type t2) {
@@ -1523,6 +1585,14 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		Type visit(PointerType t) {
 			// FIXME: check RHS.
 			return t;
+		}
+		
+		Type visit(EnumType t) {
+			if(auto asInt = cast(IntegerType) t.type) {
+				return visit(asInt);
+			}
+			
+			assert(0, "Enum are of type int.");
 		}
 	}
 	

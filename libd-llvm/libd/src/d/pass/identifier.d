@@ -153,7 +153,7 @@ final:
 		return d;
 	}
 	
-	Symbol visit(VariableDeclaration var) {
+	VariableDeclaration visit(VariableDeclaration var) {
 		var.type = pass.visit(var.type);
 		var.value = pass.visit(var.value);
 		
@@ -182,6 +182,17 @@ final:
 		currentScope = d.dscope;
 		
 		d.members = d.members.map!(m => visit(m)).array();
+		
+		return d;
+	}
+	
+	Symbol visit(EnumDeclaration d) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = d.dscope;
+		
+		d.enumEntries = d.enumEntries.map!(e => visit(e)).array();
 		
 		return d;
 	}
@@ -613,6 +624,12 @@ final:
 		return t;
 	}
 	
+	Type visit(EnumType t) {
+		t.type = visit(t.type);
+		
+		return t;
+	}
+	
 	Type visit(FunctionType t) {
 		t.returnType = visit(t.returnType);
 		
@@ -746,8 +763,11 @@ final:
 		return new SymbolType(location, sd);
 	}
 	
+	Identifiable visit(EnumDeclaration d) {
+		return new SymbolType(location, d);
+	}
+	
 	Identifiable visit(AliasDeclaration a) {
-		// TODO: ensure the alias has been processed and return the type directly.
 		return new SymbolType(location, a);
 	}
 	
@@ -851,11 +871,11 @@ final:
 				return this.dispatch!(delegate Expression(Symbol s) {
 					// FIXME: really ? This may not be the thing to do (a better mecanism should be adopted for statics).
 					auto resolved = pass.identifierVisitor.visit(s);
-				
+					
 					if(auto asExpr = cast(Expression) resolved) {
 						return new CommaExpression(i.location, e, asExpr);
 					}
-				
+					
 					return compilationCondition!Expression(location, "Don't know what to do with that !");
 				})(s);
 			} else if(auto asExpr = cast(Expression) pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type))) {
@@ -1003,6 +1023,10 @@ final:
 	
 	Symbol visit(StructDefinition s) {
 		return s.dscope.resolve(name);
+	}
+	
+	Symbol visit(EnumDeclaration d) {
+		return d.dscope.resolve(name);
 	}
 }
 

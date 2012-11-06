@@ -282,7 +282,8 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			
 			// Determine if we are in case of manifest constant or regular enum.
 			switch(lookahead.front.type) {
-				case TokenType.Colon, TokenType.OpenBrace :
+				case TokenType.Colon :
+				case TokenType.OpenBrace :
 					return trange.parseEnum();
 				
 				case TokenType.Identifier :

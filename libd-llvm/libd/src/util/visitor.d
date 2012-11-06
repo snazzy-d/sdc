@@ -14,7 +14,9 @@ auto dispatch(
 		// XXX: Bugguy for some reason.
 		// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
 	}, V, T
-)(ref V visitor, T t) if(is(T == class) || is(T == interface)) {
+)(ref V visitor, T t) if(is(T == class) || is(T == interface)) in {
+	assert(t, "You can't dispatch null");
+} body {
 	static if(is(T == class)) {
 		alias t o;
 	} else {
