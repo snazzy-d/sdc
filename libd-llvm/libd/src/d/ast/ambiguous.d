@@ -7,7 +7,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-class TypeOrExpression : Identifiable {
+class TypeOrExpression : Node {
 	Type type;
 	Expression expression;
 	

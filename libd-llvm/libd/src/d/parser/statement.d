@@ -219,6 +219,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			trange.popFront();
 			
 			Expression[] cases = trange.parseArguments();
+			
 			location.spanTo(trange.front.location);
 			trange.match(TokenType.Colon);
 			
