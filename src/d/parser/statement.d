@@ -169,6 +169,19 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
+		case TokenType.Return :
+			trange.popFront();
+			
+			Expression value;
+			if(trange.front.type != TokenType.Semicolon) {
+				value = trange.parseExpression();
+			}
+			
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
+			return new ReturnStatement(location, value);
+		
 		case TokenType.Break :
 			trange.popFront();
 			
@@ -189,18 +202,67 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			return new ContinueStatement(location);
 		
-		case TokenType.Return :
+		case TokenType.Switch :
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
+			
+			auto expression = trange.parseExpression();
+			
+			trange.match(TokenType.CloseParen);
+			
+			auto statement = trange.parseStatement();
+			location.spanTo(statement.location);
+			
+			return new SwitchStatement(location, expression, statement);
+		
+		case TokenType.Case :
 			trange.popFront();
 			
-			Expression value;
-			if(trange.front.type != TokenType.Semicolon) {
-				value = trange.parseExpression();
-			}
+			auto expression = trange.parseExpression();
 			
 			location.spanTo(trange.front.location);
+			trange.match(TokenType.Colon);
+			
+			return new CaseStatement(location, expression);
+		
+		case TokenType.Default :
+			// Other labeled statement will jump here !
+			auto label = trange.front.value;
+			trange.popFront();
+			trange.match(TokenType.Colon);
+			
+			Statement statement;
+			if(trange.front.type != TokenType.CloseBrace) {
+				statement = trange.parseStatement();
+				location.spanTo(statement.location);
+			} else {
+				location.spanTo(trange.front.location);
+				statement = new BlockStatement(location, []);
+			}
+			
+			return new LabeledStatement(location, label, statement);
+		
+		case TokenType.Identifier :
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			
+			if(lookahead.front.type == TokenType.Colon) {
+				goto case TokenType.Default;
+			}
+			
+			// If it is not a labeled statement, then it is a declaration or an expression.
+			goto default;
+		
+		case TokenType.Goto :
+			trange.popFront();
+			
+			auto label = trange.front.value;
+			trange.match(TokenType.Identifier);
 			trange.match(TokenType.Semicolon);
 			
-			return new ReturnStatement(location, value);
+			location.spanTo(trange.front.location);
+			
+			return new GotoStatement(location, label);
 		
 		case TokenType.Synchronized :
 			trange.popFront();
@@ -309,34 +371,6 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		
 		case TokenType.Debug :
 			return trange.parseDebug!Statement();
-		
-		case TokenType.Identifier :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			
-			if(lookahead.front.type == TokenType.Colon) {
-				auto label = trange.front.value;
-				trange.popFrontN(2);
-				
-				auto statement = trange.parseStatement();
-				location.spanTo(statement.location);
-				
-				return new LabeledStatement(location, label, statement);
-			}
-			
-			// If it is not a labeled statement, then it is a declaration or an expression.
-			goto default;
-		
-		case TokenType.Goto :
-			trange.popFront();
-			
-			auto label = trange.front.value;
-			trange.match(TokenType.Identifier);
-			trange.match(TokenType.Semicolon);
-			
-			location.spanTo(trange.front.location);
-			
-			return new GotoStatement(location, label);
 		
 		default :
 			if(trange.isDeclaration()) {

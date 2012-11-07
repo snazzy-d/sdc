@@ -8,6 +8,7 @@ int transmogrify(int input)
 	switch (input) {
 		default:
 			output = 0;
+			return output;
 		case 1:
 			output = 10;
 			break;
@@ -23,7 +24,7 @@ int transmogrify(int input)
 					break;
 			}
 			break;
-    }
+	}
 	return output;
 }
 
@@ -46,9 +47,10 @@ int main()
 	
 	assert(didRun);
 	
-    assert(transmogrify(1) == 10);
+	assert(transmogrify(1) == 10);
 	assert(transmogrify(2) == 20);
 	assert(transmogrify(3) == 30);
 	assert(transmogrify(4) == 0);
 	return transmogrify(128);
 }
+
