@@ -8,7 +8,7 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-abstract class Expression : Identifiable {
+abstract class Expression : Node {
 	Type type;
 	
 	this(Location location) {

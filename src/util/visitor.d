@@ -9,7 +9,7 @@ private U fastCast(U, T)(T t) if(is(T == class) && is(U == class) && is(U : T)) 
 
 // XXX: is @trusted if visitor.visit is @safe .
 auto dispatch(
-	alias unhandled = function typeof(null)(t) {
+	alias unhandled = function void(t) {
 		throw new Exception(typeid(t).toString() ~ " is not supported.");
 		// XXX: Bugguy for some reason.
 		// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
@@ -41,8 +41,10 @@ auto dispatch(
 	}
 	
 	// Dispatch isn't possible.
-	static if(is(typeof(return) == void)) {
+	enum returnVoid = is(typeof(return) == void);
+	static if(returnVoid || is(typeof(unhandled(t)) == void)) {
 		unhandled(t);
+		assert(returnVoid);
 	} else {
 		return unhandled(t);
 	}

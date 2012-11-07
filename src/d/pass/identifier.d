@@ -506,9 +506,11 @@ final:
 	Expression visit(IdentifierExpression e) {
 		auto resolved = pass.visit(e.identifier);
 		
-		if(auto asExpr = cast(Expression) resolved) {
+		if(auto asExpr = resolved.asExpression()) {
 			return asExpr;
 		}
+		
+		// TODO: ambiguous deambiguation.
 		
 		return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 	}
@@ -579,9 +581,11 @@ final:
 	Type visit(IdentifierType t) {
 		auto resolved = pass.visit(t.identifier);
 		
-		if(auto asType = cast(Type) resolved) {
+		if(auto asType = resolved.asType()) {
 			return asType;
 		}
+		
+		// TODO: ambiguous deambiguation.
 		
 		return compilationCondition!Type(t.location, t.identifier.name ~ " isn't a type.");
 	}
@@ -651,8 +655,110 @@ final:
 	}
 }
 
+import d.ast.ambiguous;
 import d.ast.base;
 import d.pass.util;
+
+/**
+ * Tagged union that define something designed by an identifier.
+ */
+struct Identifiable {
+	enum Tag {
+		Type,
+		Expression,
+		TypeOrExpression,
+		Symbol,
+	}
+	
+	Tag tag;
+	
+	union {
+		Type type;
+		Expression expression;
+		TypeOrExpression ambiguous;
+		Symbol symbol;
+	}
+	
+	@disable this();
+	
+	this(Type t) {
+		tag = Tag.Type;
+		type = t;
+	}
+	
+	this(Expression e) {
+		tag = Tag.Expression;
+		expression = e;
+	}
+	
+	this(TypeOrExpression a) {
+		tag = Tag.Type;
+		ambiguous = a;
+	}
+	
+	this(Symbol s) {
+		tag = Tag.Symbol;
+		symbol = s;
+	}
+	
+	auto asType() {
+		if(tag == Tag.Type) {
+			return type;
+		}
+		
+		return null;
+	}
+	
+	auto asExpression() {
+		if(tag == Tag.Expression) {
+			return expression;
+		}
+		
+		return null;
+	}
+	
+	auto asAmbiguous() {
+		if(tag == Tag.TypeOrExpression) {
+			return ambiguous;
+		}
+		
+		return null;
+	}
+	
+	auto asSymbol() {
+		if(tag == Tag.Symbol) {
+			return symbol;
+		}
+		
+		return null;
+	}
+	
+	invariant() {
+		final switch(tag) {
+			case Tag.Type :
+				assert(type);
+		 		break;
+			
+			case Tag.Expression :
+				assert(expression);
+				break;
+			
+			case Tag.TypeOrExpression :
+				assert(ambiguous);
+				break;
+			
+			case Tag.Symbol :
+				if(cast(TypeSymbol) symbol) {
+					assert(0, "TypeSymbol must be resolved as Type.");
+				} else if(cast(ExpressionSymbol) symbol) {
+					assert(0, "ExpressionSymbol must be resolved as Expression.");
+				}
+				
+				assert(symbol);
+				break;
+		}
+	}
+}
 
 /**
  * Resolve identifier as type or expression.
@@ -721,9 +827,9 @@ final:
 	Identifiable visit(IdentifierDotIdentifier i) {
 		auto resolved = visit(i.identifier);
 		
-		if(auto t = cast(Type) resolved) {
+		if(auto t = resolved.asType()) {
 			return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, t));
-		} else if(auto e = cast(Expression) resolved) {
+		} else if(auto e = resolved.asExpression()) {
 			return expressionDotIdentifierVisitor.visit(new ExpressionDotIdentifier(i.location, i.name, e));
 		} else {
 			assert(0, "type or expression expected.");
@@ -746,19 +852,47 @@ final:
 	
 	// Symbols resolvers.
 	Identifiable visit(Symbol s) {
-		return this.dispatch(s);
+		if(auto asType = cast(TypeSymbol) s) {
+			return Identifiable(this.dispatch(asType));
+		} else if(auto asExpression = cast(ExpressionSymbol) s) {
+			return Identifiable(this.dispatch(asExpression));
+		}
+		
+		// XXX: hac around overload set.
+		if(auto asOverloadSet = cast(OverLoadSet) s) {
+			return Identifiable(visit(asOverloadSet));
+		}
+		
+		return Identifiable(s);
 	}
 	
-	Identifiable visit(OverLoadSet s) {
+	Type visit(StructDefinition sd) {
+		return new SymbolType(location, sd);
+	}
+	
+	Type visit(EnumDeclaration d) {
+		return new SymbolType(location, d);
+	}
+	
+	Type visit(AliasDeclaration a) {
+		return new SymbolType(location, a);
+	}
+	
+	Type visit(TypeTemplateParameter p) {
+		return new SymbolType(location, p);
+	}
+	
+	Expression visit(OverLoadSet s) {
 		if(s.set.length == 1) {
-			return visit(s.set[0]);
+			// FIXME: actually check that this is an expression !
+			return visit(s.set[0]).asExpression();
 		}
 		
 		auto results = s.set.map!(s => visit(s)).array();
 		
 		Expression[] expressions;
 		foreach(result; results) {
-			if(auto asExpression = cast(Expression) result) {
+			if(auto asExpression = result.asExpression()) {
 				expressions ~= asExpression;
 			} else {
 				// TODO: handle templates.
@@ -769,39 +903,23 @@ final:
 		return new PolysemousExpression(location, expressions);
 	}
 	
-	Identifiable visit(StructDefinition sd) {
-		return new SymbolType(location, sd);
-	}
-	
-	Identifiable visit(EnumDeclaration d) {
-		return new SymbolType(location, d);
-	}
-	
-	Identifiable visit(AliasDeclaration a) {
-		return new SymbolType(location, a);
-	}
-	
-	Identifiable visit(TypeTemplateParameter p) {
-		return new SymbolType(location, p);
-	}
-	
-	Identifiable visit(FunctionDeclaration fun) {
+	Expression visit(FunctionDeclaration fun) {
 		return new SymbolExpression(location, fun);
 	}
 	
-	Identifiable visit(FunctionDefinition fun) {
+	Expression visit(FunctionDefinition fun) {
 		return new SymbolExpression(location, fun);
 	}
 	
-	Identifiable visit(VariableDeclaration var) {
+	Expression visit(VariableDeclaration var) {
 		return new SymbolExpression(location, var);
 	}
 	
-	Identifiable visit(FieldDeclaration f) {
+	Expression visit(FieldDeclaration f) {
 		return new FieldExpression(location, new ThisExpression(location), f);
 	}
 	
-	Identifiable visit(Parameter p) {
+	Expression visit(Parameter p) {
 		return new SymbolExpression(location, p);
 	}
 }
@@ -827,9 +945,9 @@ final:
 			}
 			
 			if(auto ts = cast(TypeSymbol) s) {
-				return new SymbolType(i.location, ts);
+				return Identifiable(new SymbolType(i.location, ts));
 			} else if(auto es = cast(ExpressionSymbol) s) {
-				return new SymbolExpression(i.location, es);
+				return Identifiable(new SymbolExpression(i.location, es));
 			} else {
 				assert(0, "what the hell is that symbol ???");
 			}
@@ -837,10 +955,10 @@ final:
 		
 		switch(i.name) {
 			case "init" :
-				return new CastExpression(i.location, i.type, new DefaultInitializer(i.type));
+				return Identifiable(new CastExpression(i.location, i.type, new DefaultInitializer(i.type)));
 			
 			case "sizeof" :
-				return new SizeofExpression(i.location, i.type);
+				return Identifiable(new SizeofExpression(i.location, i.type));
 			
 			default :
 				assert(0, i.name ~ " can't be resolved in type.");
@@ -863,8 +981,8 @@ class ExpressionDotIdentifierVisitor {
 	}
 	
 final:
-	Expression visit(ExpressionDotIdentifier i) {
-		return resolveOrDefer!(function bool(Expression e) {
+	Identifiable visit(ExpressionDotIdentifier i) {
+		return Identifiable(resolveOrDefer!(function bool(Expression e) {
 			return e.type !is null;
 		}, delegate Expression(Expression e) {
 			auto oldLocation = location;
@@ -887,19 +1005,19 @@ final:
 					
 					auto resolved = pass.identifierVisitor.visit(s);
 					
-					if(auto asExpr = cast(Expression) resolved) {
+					if(auto asExpr = resolved.asExpression()) {
 						return new CommaExpression(i.location, e, asExpr);
 					}
 					
 					return compilationCondition!Expression(location, "Don't know what to do with that !");
 				})(s);
-			} else if(auto asExpr = cast(Expression) pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type))) {
+			} else if(auto asExpr = pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).asExpression()) {
 				// expression.sizeof or similar stuffs.
 				return new CommaExpression(i.location, e, asExpr);
 			}
 			
 			return compilationCondition!Expression(location, "Can't resolve identifier.");
-		})(i.location, i.expression);
+		})(i.location, i.expression));
 	}
 	
 	Expression visit(OverLoadSet s) {
