@@ -537,15 +537,19 @@ final:
 		assert(switchInstr);
 		
 		auto currentBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(currentBB);
-		auto caseBB = LLVMAppendBasicBlock(fun, "case");
+		auto caseBB = getLabel("case");
+		labels.remove("case");
+		
+		LLVMMoveBasicBlockAfter(caseBB, currentBB);
 		
 		// Conclude that block if it isn't already.
 		if(!LLVMGetBasicBlockTerminator(currentBB)) {
 			LLVMBuildBr(builder, caseBB);
 		}
 		
-		LLVMAddCase(switchInstr, pass.visit(s.expression), caseBB);
+		foreach(e; s.cases) {
+			LLVMAddCase(switchInstr, pass.visit(e), caseBB);
+		}
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);
 	}
