@@ -301,7 +301,7 @@ final:
 	}
 	
 	void visit(CaseStatement s) {
-		s.expression = pass.visit(s.expression);
+		s.cases = s.cases.map!(e => pass.visit(e)).array();
 	}
 	
 	void visit(LabeledStatement s) {

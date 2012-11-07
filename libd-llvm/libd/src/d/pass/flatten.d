@@ -360,7 +360,7 @@ final:
 	}
 	
 	Statement visit(CaseStatement s) {
-		s.expression = pass.visit(s.expression);
+		s.cases = s.cases.map!(e => pass.visit(e)).array();
 		
 		return s;
 	}

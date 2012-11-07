@@ -218,12 +218,11 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		case TokenType.Case :
 			trange.popFront();
 			
-			auto expression = trange.parseExpression();
-			
+			Expression[] cases = trange.parseArguments();
 			location.spanTo(trange.front.location);
 			trange.match(TokenType.Colon);
 			
-			return new CaseStatement(location, expression);
+			return new CaseStatement(location, cases);
 		
 		case TokenType.Default :
 			// Other labeled statement will jump here !
@@ -256,8 +255,19 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 		case TokenType.Goto :
 			trange.popFront();
 			
-			auto label = trange.front.value;
-			trange.match(TokenType.Identifier);
+			string label;
+			switch(trange.front.type) {
+				case TokenType.Identifier :
+				case TokenType.Default :
+				case TokenType.Case :
+					label = trange.front.value;
+					trange.popFront();
+					break;
+				
+				default :
+					trange.match(TokenType.Identifier);
+			}
+			
 			trange.match(TokenType.Semicolon);
 			
 			location.spanTo(trange.front.location);
