@@ -291,12 +291,6 @@ final:
 		return b;
 	}
 	
-	Statement visit(LabeledStatement s) {
-		s.statement = visit(s.statement);
-		
-		return s;
-	}
-	
 	Statement visit(IfElseStatement ifs) {
 		ifs.then = visit(ifs.then);
 		ifs.elseStatement = visit(ifs.elseStatement);
@@ -358,12 +352,30 @@ final:
 		return s;
 	}
 	
+	Statement visit(SwitchStatement s) {
+		s.expression = pass.visit(s.expression);
+		s.statement = visit(s.statement);
+		
+		return s;
+	}
+	
+	Statement visit(CaseStatement s) {
+		s.expression = pass.visit(s.expression);
+		
+		return s;
+	}
+	
+	Statement visit(LabeledStatement s) {
+		s.statement = visit(s.statement);
+		
+		return s;
+	}
+	
 	Statement visit(GotoStatement s) {
 		return s;
 	}
 }
 
-// TODO: remove this and use BlockStatement to replace it. Use ScopeBlockStatement for explicit blocks statements.
 class StatementFlatener {
 	private FlattenPass pass;
 	alias pass this;

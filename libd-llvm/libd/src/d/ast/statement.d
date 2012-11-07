@@ -54,21 +54,6 @@ class DeclarationStatement : Statement {
 }
 
 /**
- * Label: statement
- */
-class LabeledStatement : Statement {
-	string label;
-	Statement statement;
-	
-	this(Location location, string label, Statement statement) {
-		super(location);
-		
-		this.label = label;
-		this.statement = statement;
-	}
-}
-
-/**
  * if else statements.
  */
 class IfElseStatement : Statement {
@@ -173,6 +158,19 @@ class ForeachStatement : Statement {
 }
 
 /**
+ * return statements
+ */
+class ReturnStatement : Statement {
+	Expression value;
+	
+	this(Location location, Expression value) {
+		super(location);
+		
+		this.value = value;
+	}
+}
+
+/**
  * break statements
  */
 class BreakStatement : Statement {
@@ -191,15 +189,45 @@ class ContinueStatement : Statement {
 }
 
 /**
- * return statements
+ * switch statements
  */
-class ReturnStatement : Statement {
-	Expression value;
+class SwitchStatement : Statement {
+	Expression expression;
+	Statement statement;
 	
-	this(Location location, Expression value) {
+	this(Location location, Expression expression, Statement statement) {
 		super(location);
 		
-		this.value = value;
+		this.expression = expression;
+		this.statement = statement;
+	}
+}
+
+/**
+ * case statements
+ */
+class CaseStatement : Statement {
+	Expression expression;
+	
+	this(Location location, Expression expression) {
+		super(location);
+		
+		this.expression = expression;
+	}
+}
+
+/**
+ * Label: statement
+ */
+class LabeledStatement : Statement {
+	string label;
+	Statement statement;
+	
+	this(Location location, string label, Statement statement) {
+		super(location);
+		
+		this.label = label;
+		this.statement = statement;
 	}
 }
 

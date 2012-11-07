@@ -257,10 +257,6 @@ final:
 		d.declaration = pass.visit(d.declaration);
 	}
 	
-	void visit(LabeledStatement s) {
-		visit(s.statement);
-	}
-	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
@@ -295,6 +291,18 @@ final:
 	}
 	
 	void visit(ContinueStatement s) {
+		// Nothing needs to be done.
+	}
+	
+	void visit(LabeledStatement s) {
+		visit(s.statement);
+	}
+	
+	void visit(SwitchStatement s) {
+		visit(s.statement);
+	}
+	
+	void visit(CaseStatement s) {
 		// Nothing needs to be done.
 	}
 	

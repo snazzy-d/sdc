@@ -249,10 +249,6 @@ final:
 		}
 	}
 	
-	void visit(LabeledStatement s) {
-		visit(s.statement);
-	}
-	
 	void visit(IfElseStatement ifs) {
 		ifs.condition = pass.visit(ifs.condition);
 		
@@ -296,6 +292,20 @@ final:
 	
 	void visit(ContinueStatement s) {
 		// Nothing needs to be done.
+	}
+	
+	void visit(SwitchStatement s) {
+		s.expression = pass.visit(s.expression);
+		
+		visit(s.statement);
+	}
+	
+	void visit(CaseStatement s) {
+		s.expression = pass.visit(s.expression);
+	}
+	
+	void visit(LabeledStatement s) {
+		visit(s.statement);
 	}
 	
 	void visit(GotoStatement s) {
@@ -870,6 +880,11 @@ final:
 			if(auto s = pass.symbolInTypeResolver.resolve(e.type, i.name)) {
 				return this.dispatch!(delegate Expression(Symbol s) {
 					// FIXME: really ? This may not be the thing to do (a better mecanism should be adopted for statics).
+					auto oldIdentifierVisitorLocation = pass.identifierVisitor.location;
+					scope(exit) pass.identifierVisitor.location = oldIdentifierVisitorLocation;
+					
+					pass.identifierVisitor.location = location;
+					
 					auto resolved = pass.identifierVisitor.visit(s);
 					
 					if(auto asExpr = cast(Expression) resolved) {
