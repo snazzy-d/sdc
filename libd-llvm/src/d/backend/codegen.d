@@ -43,6 +43,8 @@ class CodeGenPass {
 	
 	LLVMBasicBlockRef[string] labels;
 	
+	LLVMValueRef switchInstr;
+	
 	bool isSigned;
 	
 	this() {
@@ -339,28 +341,6 @@ final:
 		pass.visit(e.expression);
 	}
 	
-	private auto getLabel(string label) {
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
-		return labels.get(label, labels[label] = LLVMAppendBasicBlock(fun, toStringz("." ~ label)));
-	}
-	
-	void visit(LabeledStatement s) {
-		auto currentBB = LLVMGetInsertBlock(builder);
-		
-		auto labelBB = getLabel(s.label);
-		LLVMMoveBasicBlockAfter(labelBB, currentBB);
-		
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMBuildBr(builder, labelBB);
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, labelBB);
-		
-		visit(s.statement);
-	}
-	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
@@ -502,6 +482,94 @@ final:
 	void visit(ContinueStatement s) {
 		assert(continueBB);
 		LLVMBuildBr(builder, continueBB);
+	}
+	
+	void visit(SwitchStatement s) {
+		auto expression = pass.visit(s.expression);
+		
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		auto oldDefault = "default" in labels;
+		scope(exit) {
+			if(oldDefault) {
+				labels["default"] = *oldDefault;
+			} else {
+				labels.remove("default");
+			}
+		}
+		
+		auto defaultBB = labels["default"] = LLVMAppendBasicBlock(fun, "default");
+		auto startBB = LLVMAppendBasicBlock(fun, "switchstart");
+		
+		auto oldBreakBB = breakBB;
+		scope(exit) breakBB = oldBreakBB;
+		
+		breakBB = LLVMAppendBasicBlock(fun, "switchend");
+		
+		auto oldSwitchInstr = switchInstr;
+		scope(exit) switchInstr = oldSwitchInstr;
+		
+		switchInstr = LLVMBuildSwitch(builder, expression, defaultBB, 0);
+		
+		LLVMPositionBuilderAtEnd(builder, startBB);
+		
+		visit(s.statement);
+		
+		// Codegen of switch body can change the current block, so we put everything in order.
+		auto finalBB = LLVMGetInsertBlock(builder);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(finalBB)) {
+			LLVMBuildBr(builder, breakBB);
+		}
+		
+		// Conclude default block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(defaultBB)) {
+			LLVMPositionBuilderAtEnd(builder, defaultBB);
+			LLVMBuildUnreachable(builder);
+		}
+		
+		LLVMMoveBasicBlockAfter(breakBB, finalBB);
+		LLVMPositionBuilderAtEnd(builder, breakBB);
+	}
+	
+	void visit(CaseStatement s) {
+		assert(switchInstr);
+		
+		auto currentBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(currentBB);
+		auto caseBB = LLVMAppendBasicBlock(fun, "case");
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(currentBB)) {
+			LLVMBuildBr(builder, caseBB);
+		}
+		
+		LLVMAddCase(switchInstr, pass.visit(s.expression), caseBB);
+		
+		LLVMPositionBuilderAtEnd(builder, caseBB);
+	}
+	
+	private auto getLabel(string label) {
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		return labels.get(label, labels[label] = LLVMAppendBasicBlock(fun, toStringz("." ~ label)));
+	}
+	
+	void visit(LabeledStatement s) {
+		auto currentBB = LLVMGetInsertBlock(builder);
+		
+		auto labelBB = getLabel(s.label);
+		LLVMMoveBasicBlockAfter(labelBB, currentBB);
+		
+		// Conclude that block if it isn't already.
+		if(!LLVMGetBasicBlockTerminator(currentBB)) {
+			LLVMBuildBr(builder, labelBB);
+		}
+		
+		LLVMPositionBuilderAtEnd(builder, labelBB);
+		
+		visit(s.statement);
 	}
 	
 	void visit(GotoStatement s) {
