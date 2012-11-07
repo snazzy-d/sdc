@@ -207,12 +207,12 @@ class SwitchStatement : Statement {
  * case statements
  */
 class CaseStatement : Statement {
-	Expression expression;
+	Expression[] cases;
 	
-	this(Location location, Expression expression) {
+	this(Location location, Expression[] cases) {
 		super(location);
 		
-		this.expression = expression;
+		this.cases = cases;
 	}
 }
 

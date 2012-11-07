@@ -36,6 +36,7 @@ int main()
 	switch(0) {
 		default:
 			defaultRan = true;
+			break;
 		case 0:
 			goto default;
 	}
@@ -55,3 +56,4 @@ int main()
 	assert(transmogrify(128) == -1);
 	return 0;
 }
+
