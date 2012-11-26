@@ -131,17 +131,12 @@ final:
 		auto funptrType = pass.visit(d.type);
 		
 		auto funType = LLVMGetElementType(funptrType);
-		auto fun = LLVMAddFunction(dmodule, d.funmangle.toStringz(), funType);
-		
-		// Experimental, unify function declaration and function variables.
-		auto var = LLVMAddGlobal(dmodule, funptrType, d.mangle.toStringz());
-		LLVMSetInitializer(var, fun);
-		LLVMSetGlobalConstant(var, true);
+		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
 		
 		// Register the function.
-		exprSymbols[d] = var;
+		exprSymbols[d] = fun;
 		
-		return var;
+		return fun;
 	}
 	
 	LLVMValueRef visit(FunctionDefinition f) {
@@ -158,15 +153,10 @@ final:
 		auto funptrType = pass.visit(f.type);
 		
 		auto funType = LLVMGetElementType(funptrType);
-		auto fun = LLVMAddFunction(dmodule, f.funmangle.toStringz(), funType);
-		
-		// Experimental, unify function declaration and function variables.
-		auto var = LLVMAddGlobal(dmodule, funptrType, f.mangle.toStringz());
-		LLVMSetInitializer(var, fun);
-		LLVMSetGlobalConstant(var, true);
+		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
-		exprSymbols[f] = var;
+		exprSymbols[f] = fun;
 		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlock(fun, "");
@@ -218,7 +208,7 @@ final:
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
 		
-		return var;
+		return fun;
 	}
 	
 	LLVMValueRef visit(VariableDeclaration var) {
