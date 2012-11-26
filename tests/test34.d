@@ -18,7 +18,6 @@ struct A
 
 alias int bar;
 
-
 int main()
 {
 	S s;

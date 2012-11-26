@@ -107,7 +107,7 @@ class DestructorDefinition : DestructorDeclaration {
 /**
  * Function types
  */
-class FunctionType : SimpleStorageClassType {
+class FunctionType : Type {
 	Type returnType;
 	Parameter[] parameters;
 	bool isVariadic;

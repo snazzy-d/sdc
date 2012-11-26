@@ -10,5 +10,6 @@ SOURCE_WILDCARDS = \
 	src/d/backend/*.d \
 	src/d/parser/*.d \
 	src/d/pass/*.d \
+	src/d/processor/*.d \
 	src/util/*.d \
 	src/etc/linux/*.d

@@ -3,7 +3,7 @@ include makefile.common
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
 SOURCE = $(SOURCE_WILDCARDS)
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Iimport
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport
 OBJ = sdc.o
 EXE = bin/sdc
 
@@ -14,7 +14,7 @@ LLVM_SRC = import/llvm/c/target.d
 LDFLAGS = $(LIBLLVM) -L-lstdc++
 
 ifeq ($(PLATFORM),Linux)
-LDFLAGS += -L-ldl -L-lffi
+	LDFLAGS += -L-ldl -L-lffi
 endif
 
 all: $(EXE)

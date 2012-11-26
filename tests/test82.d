@@ -3,7 +3,7 @@
 
 int main()
 {
-	ubyte[123] arr;
+    ubyte[123] arr;
     auto p = &arr[0];
     *p++ = cast(ubyte) 'A';
     return arr[0];

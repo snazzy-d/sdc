@@ -10,26 +10,7 @@ import d.ast.identifier;
 import std.traits;
 
 abstract class Type : Node {
-	this(Location location) {
-		super(location);
-	}
-	
-	Type makeMutable() { assert(0); }
-	Type makeImmutable() { assert(0); }
-	Type makeConst() { assert(0); }
-	Type makeInout() { assert(0); }
-	
-	final override bool opEquals(Object o) {
-		return this.opEquals(cast(Type) o);
-	}
-	
-	bool opEquals(const Type t) const {
-		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
-	}
-}
-
-class SimpleStorageClassType : Type {
-	private uint storageClass = 0;
+	private uint qualifier = 0;
 	
 	enum MUTABLE = 0x00;
 	enum IMMUTABLE = 0x01;
@@ -42,32 +23,41 @@ class SimpleStorageClassType : Type {
 		super(location);
 	}
 	
-final:	// Check whenever these operation make sense.
-	override Type makeMutable() {
-		storageClass &= MASK;
+	bool opEquals(const Type t) const {
+		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
+	}
+
+final:
+	override bool opEquals(Object o) {
+		return this.opEquals(cast(Type) o);
+	}
+	
+	// Check whenever these operation make sense.
+	Type makeMutable() {
+		qualifier &= MASK;
 		return this;
 	}
 	
-	override Type makeImmutable() {
+	Type makeImmutable() {
 		makeMutable();
-		storageClass |= IMMUTABLE;
+		qualifier |= IMMUTABLE;
 		return this;
 	}
 	
-	override Type makeConst() {
+	Type makeConst() {
 		makeMutable();
-		storageClass |= CONST;
+		qualifier |= CONST;
 		return this;
 	}
 	
-	override Type makeInout() {
+	Type makeInout() {
 		makeMutable();
-		storageClass |= INOUT;
+		qualifier |= INOUT;
 		return this;
 	}
 }
 
-class SuffixType : SimpleStorageClassType {
+class SuffixType : Type {
 	Type type;
 	
 	this(Location location, Type type) {
@@ -80,7 +70,7 @@ class SuffixType : SimpleStorageClassType {
 /**
  * All basics types and qualified basic types.
  */
-class BasicType : SimpleStorageClassType {
+class BasicType : Type {
 	this(Location location) {
 		super(location);
 	}
@@ -93,7 +83,7 @@ class BasicType : SimpleStorageClassType {
 class ErrorType : BasicType {
 	string message;
 	
-	this(Location location, string message) {
+	this(Location location, string message = "") {
 		super(location);
 		
 		this.message = message;
@@ -103,7 +93,7 @@ class ErrorType : BasicType {
 /**
  * Auto types
  */
-class AutoType : SimpleStorageClassType {
+class AutoType : Type {
 	this(Location location) {
 		super(location);
 	}

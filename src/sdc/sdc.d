@@ -105,9 +105,14 @@ void compile(string filename) {
 	auto packages = filename[0 .. $-2].split("/");
 	auto ast = [object.parse("object", []), trange.parse(packages.back, packages[0 .. $-1])];
 	
-	import d.pass.mangle;
-	ast = mangle(ast);
-	//*
+	// Test the new scheduler system.
+	import d.processor.processor;
+	import d.pass.semantic;
+	import d.pass.dscope;
+	
+	auto semantic = new Processor!SemanticPass();
+	ast = semantic.process((new ScopePass()).visit(ast));
+	
 	import d.pass.main;
 	ast.back = buildMain(ast.back);
 	//*

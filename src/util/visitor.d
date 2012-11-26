@@ -13,8 +13,8 @@ auto dispatch(
 		throw new Exception(typeid(t).toString() ~ " is not supported.");
 		// XXX: Bugguy for some reason.
 		// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
-	}, V, T
-)(ref V visitor, T t) if(is(T == class) || is(T == interface)) in {
+	}, V, T, Args...
+)(ref V visitor, Args args, T t) if(is(T == class) || is(T == interface)) in {
 	assert(t, "You can't dispatch null");
 } body {
 	static if(is(T == class)) {
@@ -29,12 +29,13 @@ auto dispatch(
 	foreach(visit; MemberFunctionsTuple!(V, "visit")) {
 		alias ParameterTypeTuple!visit parameters;
 		
-		static if(parameters.length == 1) {
-			alias parameters[0] parameter;
+		static if(parameters.length == args.length + 1) {
+			alias parameters[args.length] parameter;
 			
+			// FIXME: ensure call is correctly done when args exists.
 			static if(is(parameter == class) && !__traits(isAbstractClass, parameter) && is(parameter : T)) {
 				if(tid is typeid(parameter)) {
-					return visitor.visit(fastCast!parameter(o));
+					return visitor.visit(args, fastCast!parameter(o));
 				}
 			}
 		}

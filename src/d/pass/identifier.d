@@ -1,663 +1,182 @@
-/**
- * This module crawl the AST to resolve identifiers.
- */
-module d.pass.identifier;
+module d.pass.identifier2;
 
 import d.pass.base;
+import d.pass.semantic;
 
-import d.pass.dscope;
-
-import d.ast.dmodule;
+import d.ast.adt;
+import d.ast.ambiguous;
+import d.ast.expression;
+import d.ast.declaration;
+import d.ast.dfunction;
+import d.ast.dtemplate;
 import d.ast.dscope;
 import d.ast.identifier;
+import d.ast.type;
+
+import sdc.location;
 
 import std.algorithm;
 import std.array;
 
-import d.ast.expression;
-import d.ast.declaration;
-import d.ast.statement;
-import d.ast.type;
-
-class IdentifierPass {
-	private DeclarationVisitor declarationVisitor;
-	private StatementVisitor statementVisitor;
-	private ExpressionVisitor expressionVisitor;
-	private TypeVisitor typeVisitor;
-	private IdentifierVisitor identifierVisitor;
+final class IdentifierVisitor {
+	private SemanticPass pass;
+	alias pass this;
 	
 	private TypeDotIdentifierVisitor typeDotIdentifierVisitor;
 	private ExpressionDotIdentifierVisitor expressionDotIdentifierVisitor;
-	
-	private TemplateInstanciationDotIdentifierVisitor templateInstanciationDotIdentifierVisitor;
-	
 	private SymbolInTypeResolver symbolInTypeResolver;
+	private TemplateDotIdentifierVisitor templateDotIdentifierVisitor;
 	
-	private ScopePass scopePass;
-	
-	private Scope currentScope;
-	
-	this() {
-		declarationVisitor	= new DeclarationVisitor(this);
-		statementVisitor	= new StatementVisitor(this);
-		expressionVisitor	= new ExpressionVisitor(this);
-		typeVisitor			= new TypeVisitor(this);
-		identifierVisitor	= new IdentifierVisitor(this);
+	this(SemanticPass pass) {
+		this.pass = pass;
 		
 		typeDotIdentifierVisitor		= new TypeDotIdentifierVisitor(this);
 		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
-		
-		templateInstanciationDotIdentifierVisitor	= new TemplateInstanciationDotIdentifierVisitor(this);
-		
-		symbolInTypeResolver	= new SymbolInTypeResolver(this);
-		
-		scopePass = new ScopePass();
+		symbolInTypeResolver			= new SymbolInTypeResolver(this);
+		templateDotIdentifierVisitor	= new TemplateDotIdentifierVisitor(this);
 	}
 	
-final:
-	Module[] visit(Module[] modules) {
-		modules = scopePass.visit(modules);
+	Identifiable visit(Identifier i) {
+		return this.dispatch(i);
+	}
+	
+	private Symbol resolveBasicIdentifier(BasicIdentifier i) {
+		auto symbol = currentScope.search(i.name);
 		
-		version(GC_CRASH) {
-			import core.memory;
-			GC.collect();
+		if(symbol) {
+			return symbol;
 		}
 		
-		return modules.map!(m => visit(m)).array();
-	}
-	
-	private Module visit(Module m) {
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = m.dscope;
-		
-		m.declarations = m.declarations.map!(d => visit(d)).array();
-		
-		return m;
-	}
-	
-	auto visit(Declaration decl) {
-		return declarationVisitor.visit(decl);
-	}
-	
-	auto visit(Statement stmt) {
-		return statementVisitor.visit(stmt);
-	}
-	
-	auto visit(Expression e) {
-		return expressionVisitor.visit(e);
-	}
-	
-	auto visit(Type t) {
-		return typeVisitor.visit(t);
-	}
-	
-	auto visit(Identifier i) {
-		return identifierVisitor.visit(i);
-	}
-	
-	auto visit(TemplateInstance tpl) {
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = tpl.dscope;
-		
-		tpl.declarations = tpl.declarations.map!(d => visit(d)).array();
-		
-		return tpl;
-	}
-}
-
-import d.ast.adt;
-import d.ast.dfunction;
-import d.ast.dtemplate;
-
-class DeclarationVisitor {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Declaration visit(Declaration d) {
-		return this.dispatch(d);
-	}
-	
-	Symbol visit(FunctionDeclaration d) {
-		d.returnType = pass.visit(d.returnType);
-		
-		d.parameters = d.parameters.map!(p => visit(p)).array();
-		
-		return d;
-	}
-	
-	Symbol visit(FunctionDefinition d) {
-		d.returnType = pass.visit(d.returnType);
-		
-		d.parameters = d.parameters.map!(p => visit(p)).array();
-		
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope;
-		
-		// And visit.
-		pass.visit(d.fbody);
-		
-		return d;
-	}
-	
-	VariableDeclaration visit(VariableDeclaration var) {
-		var.type = pass.visit(var.type);
-		var.value = pass.visit(var.value);
-		
-		return var;
-	}
-	
-	Declaration visit(FieldDeclaration f) {
-		return visit(cast(VariableDeclaration) f);
-	}
-	
-	Symbol visit(StructDefinition d) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope;
-		
-		d.members = d.members.map!(m => visit(m)).array();
-		
-		return d;
-	}
-	
-	Symbol visit(ClassDefinition d) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope;
-		
-		d.members = d.members.map!(m => visit(m)).array();
-		
-		return d;
-	}
-	
-	Symbol visit(EnumDeclaration d) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope;
-		
-		d.enumEntries = d.enumEntries.map!(e => visit(e)).array();
-		
-		return d;
-	}
-	
-	Parameter visit(Parameter p) {
-		p.type = pass.visit(p.type);
-		
-		return p;
-	}
-	
-	Symbol visit(AliasDeclaration a) {
-		a.type = pass.visit(a.type);
-		
-		return a;
-	}
-	
-	Declaration visit(TemplateDeclaration tpl) {
-		// No semantic is done on template declarations.
-		return tpl;
-	}
-}
-
-import d.ast.statement;
-
-class StatementVisitor {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	void visit(Statement s) {
-		this.dispatch(s);
-	}
-	
-	void visit(ExpressionStatement e) {
-		e.expression = pass.visit(e.expression);
-	}
-	
-	void visit(DeclarationStatement d) {
-		d.declaration = pass.visit(d.declaration);
-	}
-	
-	void visit(BlockStatement b) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = b.dscope;
-		
-		foreach(s; b.statements) {
-			visit(s);
-		}
-	}
-	
-	void visit(IfElseStatement ifs) {
-		ifs.condition = pass.visit(ifs.condition);
-		
-		visit(ifs.then);
-		visit(ifs.elseStatement);
-	}
-	
-	void visit(WhileStatement w) {
-		w.condition = pass.visit(w.condition);
-		
-		visit(w.statement);
-	}
-	
-	void visit(DoWhileStatement w) {
-		w.condition = pass.visit(w.condition);
-		
-		visit(w.statement);
-	}
-	
-	void visit(ForStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = f.dscope;
-		
-		visit(f.initialize);
-		
-		f.condition = pass.visit(f.condition);
-		f.increment = pass.visit(f.increment);
-		
-		visit(f.statement);
-	}
-	
-	void visit(ReturnStatement r) {
-		r.value = pass.visit(r.value);
-	}
-	
-	void visit(BreakStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(ContinueStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(SwitchStatement s) {
-		s.expression = pass.visit(s.expression);
-		
-		visit(s.statement);
-	}
-	
-	void visit(CaseStatement s) {
-		s.cases = s.cases.map!(e => pass.visit(e)).array();
-	}
-	
-	void visit(LabeledStatement s) {
-		visit(s.statement);
-	}
-	
-	void visit(GotoStatement s) {
-		// Nothing needs to be done.
-	}
-}
-
-import d.ast.expression;
-
-class ExpressionVisitor {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Expression visit(Expression e) {
-		return this.dispatch!(function Expression(Expression e) {
-			auto msg = typeid(e).toString() ~ " not supported.";
+		foreach(mod; currentScope.imports) {
+			auto symInMod = mod.dscope.resolve(i.name);
 			
-			import sdc.terminal;
-			outputCaretDiagnostics(e.location, msg);
-			
-			assert(0, msg);
-		})(e);
-	}
-	
-	Expression visit(BooleanLiteral bl) {
-		return bl;
-	}
-	
-	Expression visit(IntegerLiteral!true il) {
-		return il;
-	}
-	
-	Expression visit(IntegerLiteral!false il) {
-		return il;
-	}
-	
-	Expression visit(FloatLiteral fl) {
-		return fl;
-	}
-	
-	Expression visit(CharacterLiteral cl) {
-		return cl;
-	}
-	
-	Expression visit(StringLiteral e) {
-		return e;
-	}
-	
-	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
-		// FIXME: propagate polysemy.
-		e.lhs = visit(e.lhs);
-		e.rhs = visit(e.rhs);
-		
-		return e;
-	}
-	
-	Expression visit(CommaExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(AssignExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(AddExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(SubExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(AddAssignExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(SubAssignExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(MulExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(DivExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(ModExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(EqualityExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(NotEqualityExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(GreaterExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(GreaterEqualExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LessExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LessEqualExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LogicalAndExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LogicalOrExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	private Expression handleUnaryExpression(UnaryExpression)(UnaryExpression e) {
-		e.expression = visit(e.expression);
-		
-		// Propagate polysemous expressions.
-		if(auto asPolysemous = cast(PolysemousExpression) e.expression) {
-			return new PolysemousExpression(e.location, asPolysemous.expressions.map!(delegate Expression(Expression e) {
-				return new UnaryExpression(asPolysemous.location, e);
-			}).array());
+			if(symInMod) {
+				if(symbol) {
+					assert(0, "Ambiguous symbol " ~ i.name);
+				}
+				
+				symbol = symInMod;
+			}
 		}
 		
-		return e;
-	}
-	
-	Expression visit(PreIncrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PreDecrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PostIncrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(PostDecrementExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(UnaryMinusExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(UnaryPlusExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(NotExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(AddressOfExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	Expression visit(DereferenceExpression e) {
-		return handleUnaryExpression(e);
-	}
-	
-	private auto handleCastExpression(CastType T)(CastUnaryExpression!T e) {
-		e.type = pass.visit(e.type);
-		e.expression = visit(e.expression);
+		// No symbol have been found in the module, look for other modules.
+		assert(symbol, "Symbol " ~ i.name ~ " has not been found.");
 		
-		return e;
+		return symbol;
 	}
 	
-	Expression visit(CastExpression e) {
-		return handleCastExpression(e);
+	Identifiable visit(BasicIdentifier i) {
+		return visit(i.location, resolveBasicIdentifier(i));
 	}
 	
-	Expression visit(CallExpression e) {
-		e.arguments = e.arguments.map!(arg => visit(arg)).array();
+	Identifiable visit(IdentifierDotIdentifier i) {
+		auto resolved = visit(i.identifier);
 		
-		e.callee = visit(e.callee);
-		
-		return e;
+		if(auto t = resolved.asType()) {
+			return visit(new TypeDotIdentifier(i.location, i.name, t));
+		} else if(auto e = resolved.asExpression()) {
+			return visit(new ExpressionDotIdentifier(i.location, i.name, e));
+		} else {
+			assert(0, "type or expression expected.");
+		}
 	}
 	
-	Expression visit(IdentifierExpression e) {
-		auto resolved = pass.visit(e.identifier);
+	Identifiable visit(ExpressionDotIdentifier i) {
+		i.expression = pass.visit(i.expression);
 		
-		if(auto asExpr = resolved.asExpression()) {
-			return asExpr;
+		return expressionDotIdentifierVisitor.visit(i);
+	}
+	
+	Identifiable visit(TypeDotIdentifier i) {
+		i.type = pass.visit(i.type);
+		
+		return typeDotIdentifierVisitor.visit(i);
+	}
+	
+	Identifiable visit(AmbiguousDotIdentifier i) {
+		if(auto type = pass.visit(i.qualifier.type)) {
+			return visit(new TypeDotIdentifier(i.location, i.name, type));
+		} else if(auto expression = pass.visit(i.qualifier.expression)) {
+			return visit(new ExpressionDotIdentifier(i.location, i.name, expression));
 		}
 		
-		// TODO: ambiguous deambiguation.
-		
-		return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
+		assert(0, "Ambiguous can't be deambiguated.");
 	}
 	
-	Expression visit(FieldExpression e) {
-		e.expression = visit(e.expression);
-		
-		return e;
+	Identifiable visit(TemplateInstanciationDotIdentifier i) {
+		return templateDotIdentifierVisitor.resolve(i);
 	}
 	
-	Expression visit(MethodExpression e) {
-		e.thisExpression = visit(e.thisExpression);
-		
-		return e;
+	Identifiable visit(Location location, Symbol s) {
+		return this.dispatch(location, s);
 	}
 	
-	Expression visit(ThisExpression e) {
-		return e;
+	private auto getSymbolExpression(Location location, ExpressionSymbol s) {
+		return Identifiable(new SymbolExpression(location, cast(ExpressionSymbol) scheduler.require(pass, s)));
 	}
 	
-	Expression visit(SymbolExpression e) {
-		return e;
+	Identifiable visit(Location location, VariableDeclaration d) {
+		return getSymbolExpression(location, d);
 	}
 	
-	Expression visit(IndexExpression e) {
-		e.indexed = visit(e.indexed);
-		
-		e.arguments = e.arguments.map!(e => visit(e)).array();
-		
-		return e;
+	Identifiable visit(Location location, FunctionDeclaration d) {
+		return getSymbolExpression(location, d);
 	}
 	
-	Expression visit(SliceExpression e) {
-		e.indexed = visit(e.indexed);
-		
-		e.first = e.first.map!(e => visit(e)).array();
-		e.second = e.second.map!(e => visit(e)).array();
-		
-		return e;
+	Identifiable visit(Location location, FunctionDefinition d) {
+		return getSymbolExpression(location, d);
 	}
 	
-	Expression visit(DefaultInitializer di) {
-		return di;
+	Identifiable visit(Location location, Parameter d) {
+		return getSymbolExpression(location, d);
 	}
 	
-	Expression visit(AssertExpression e) {
-		e.arguments = e.arguments.map!(a => visit(a)).array();
+	Identifiable visit(Location location, FieldDeclaration d) {
+		return Identifiable(new FieldExpression(location, new ThisExpression(location), cast(FieldDeclaration) scheduler.require(pass, d)));
+	}
+	
+	Identifiable visit(Location location, OverLoadSet s) {
+		if(s.set.length == 1) {
+			return visit(location, s.set[0]);
+		}
 		
-		return e;
+		auto results = s.set.map!(delegate Identifiable(Symbol s) {
+			return visit(location, s);
+		}).array();
+		
+		Expression[] expressions;
+		foreach(result; results) {
+			if(auto asExpression = result.asExpression()) {
+				expressions ~= asExpression;
+			} else {
+				// TODO: handle templates.
+				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
+			}
+		}
+		
+		return Identifiable(new PolysemousExpression(location, expressions));
+		
+		assert(0);
+	}
+	
+	private auto getSymbolType(Location location, TypeSymbol s) {
+		return Identifiable(new SymbolType(location, cast(TypeSymbol) scheduler.require(pass, s)));
+	}
+	
+	Identifiable visit(Location location, StructDefinition d) {
+		return getSymbolType(location, d);
+	}
+	
+	Identifiable visit(Location location, EnumDeclaration d) {
+		return getSymbolType(location, d);
+	}
+	
+	Identifiable visit(Location location, AliasDeclaration d) {
+		d = cast(AliasDeclaration) scheduler.require(pass, d);
+		
+		return Identifiable(d.type);
 	}
 }
-
-import d.ast.type;
-
-class TypeVisitor {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Type visit(Type t) {
-		return this.dispatch(t);
-	}
-	
-	Type visit(IdentifierType t) {
-		auto resolved = pass.visit(t.identifier);
-		
-		if(auto asType = resolved.asType()) {
-			return asType;
-		}
-		
-		// TODO: ambiguous deambiguation.
-		
-		return compilationCondition!Type(t.location, t.identifier.name ~ " isn't a type.");
-	}
-	
-	Type visit(SymbolType t) {
-		return t;
-	}
-	
-	Type visit(BooleanType t) {
-		return t;
-	}
-	
-	Type visit(IntegerType t) {
-		return t;
-	}
-	
-	Type visit(FloatType t) {
-		return t;
-	}
-	
-	Type visit(CharacterType t) {
-		return t;
-	}
-	
-	Type visit(VoidType t) {
-		return t;
-	}
-	
-	Type visit(TypeofType t) {
-		t.expression = pass.visit(t.expression);
-		
-		return t;
-	}
-	
-	Type visit(PointerType t) {
-		t.type = visit(t.type);
-		
-		return t;
-	}
-	
-	Type visit(SliceType t) {
-		t.type = visit(t.type);
-		
-		return t;
-	}
-	
-	Type visit(StaticArrayType t) {
-		t.type = visit(t.type);
-		
-		return t;
-	}
-	
-	Type visit(EnumType t) {
-		t.type = visit(t.type);
-		
-		return t;
-	}
-	
-	Type visit(FunctionType t) {
-		t.returnType = visit(t.returnType);
-		
-		return t;
-	}
-	
-	Type visit(AutoType t) {
-		return t;
-	}
-}
-
-import d.ast.ambiguous;
-import d.ast.base;
-import d.pass.util;
 
 /**
  * Tagged union that define something designed by an identifier.
@@ -761,183 +280,18 @@ struct Identifiable {
 }
 
 /**
- * Resolve identifier as type or expression.
- */
-class IdentifierVisitor {
-	private IdentifierPass pass;
-	alias pass this;
-	
-	private Location location;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	Identifiable visit(Identifier i) {
-		return this.dispatch(i);
-	}
-	
-	Symbol resolveBasicIdentifier(BasicIdentifier i) {
-		auto symbol = currentScope.search(i.name);
-		
-		if(symbol) {
-			return symbol;
-		}
-		
-		foreach(mod; currentScope.imports) {
-			auto symInMod = mod.dscope.resolve(i.name);
-			
-			if(symInMod) {
-				if(symbol) {
-					assert(0, "Ambiguous symbol " ~ i.name);
-				}
-				
-				symbol = symInMod;
-			}
-		}
-		
-		// No symbol have been found in the module, look for other modules.
-		assert(symbol, "Symbol " ~ i.name ~ " has not been found.");
-		
-		return symbol;
-	}
-	
-	Identifiable visit(BasicIdentifier i) {
-		auto oldLocation = location;
-		scope(exit) location = oldLocation;
-		
-		location = i.location;
-		
-		return visit(resolveBasicIdentifier(i));
-	}
-	
-	Identifiable visit(ExpressionDotIdentifier i) {
-		i.expression = pass.visit(i.expression);
-		
-		return expressionDotIdentifierVisitor.visit(i);
-	}
-	
-	Identifiable visit(TypeDotIdentifier i) {
-		i.type = pass.visit(i.type);
-		
-		return typeDotIdentifierVisitor.visit(i);
-	}
-	
-	Identifiable visit(IdentifierDotIdentifier i) {
-		auto resolved = visit(i.identifier);
-		
-		if(auto t = resolved.asType()) {
-			return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, t));
-		} else if(auto e = resolved.asExpression()) {
-			return expressionDotIdentifierVisitor.visit(new ExpressionDotIdentifier(i.location, i.name, e));
-		} else {
-			assert(0, "type or expression expected.");
-		}
-	}
-	
-	Identifiable visit(AmbiguousDotIdentifier i) {
-		if(auto type = pass.visit(i.qualifier.type)) {
-			return visit(new TypeDotIdentifier(i.location, i.name, type));
-		} else if(auto expression = pass.visit(i.qualifier.expression)) {
-			return visit(new ExpressionDotIdentifier(i.location, i.name, expression));
-		}
-		
-		assert(0, "Ambiguous can't be deambiguated.");
-	}
-	
-	Identifiable visit(TemplateInstanciationDotIdentifier i) {
-		return templateInstanciationDotIdentifierVisitor.resolve(i);
-	}
-	
-	// Symbols resolvers.
-	Identifiable visit(Symbol s) {
-		if(auto asType = cast(TypeSymbol) s) {
-			return Identifiable(this.dispatch(asType));
-		} else if(auto asExpression = cast(ExpressionSymbol) s) {
-			return Identifiable(this.dispatch(asExpression));
-		}
-		
-		// XXX: hac around overload set.
-		if(auto asOverloadSet = cast(OverLoadSet) s) {
-			return Identifiable(visit(asOverloadSet));
-		}
-		
-		return Identifiable(s);
-	}
-	
-	Type visit(StructDefinition sd) {
-		return new SymbolType(location, sd);
-	}
-	
-	Type visit(EnumDeclaration d) {
-		return new SymbolType(location, d);
-	}
-	
-	Type visit(AliasDeclaration a) {
-		return new SymbolType(location, a);
-	}
-	
-	Type visit(TypeTemplateParameter p) {
-		return new SymbolType(location, p);
-	}
-	
-	Expression visit(OverLoadSet s) {
-		if(s.set.length == 1) {
-			// FIXME: actually check that this is an expression !
-			return visit(s.set[0]).asExpression();
-		}
-		
-		auto results = s.set.map!(s => visit(s)).array();
-		
-		Expression[] expressions;
-		foreach(result; results) {
-			if(auto asExpression = result.asExpression()) {
-				expressions ~= asExpression;
-			} else {
-				// TODO: handle templates.
-				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
-			}
-		}
-		
-		return new PolysemousExpression(location, expressions);
-	}
-	
-	Expression visit(FunctionDeclaration fun) {
-		return new SymbolExpression(location, fun);
-	}
-	
-	Expression visit(FunctionDefinition fun) {
-		return new SymbolExpression(location, fun);
-	}
-	
-	Expression visit(VariableDeclaration var) {
-		return new SymbolExpression(location, var);
-	}
-	
-	Expression visit(FieldDeclaration f) {
-		return new FieldExpression(location, new ThisExpression(location), f);
-	}
-	
-	Expression visit(Parameter p) {
-		return new SymbolExpression(location, p);
-	}
-}
-
-/**
  * Resolve type.identifier as type or expression.
  */
-class TypeDotIdentifierVisitor {
-	private IdentifierPass pass;
-	alias pass this;
+final class TypeDotIdentifierVisitor {
+	private IdentifierVisitor identifierVisitor;
+	alias identifierVisitor this;
 	
-	this(IdentifierPass pass) {
-		this.pass = pass;
+	this(IdentifierVisitor identifierVisitor) {
+		this.identifierVisitor = identifierVisitor;
 	}
 	
-final:
 	Identifiable visit(TypeDotIdentifier i) {
-		if(Symbol s = symbolInTypeResolver.resolve(i.type, i.name)) {
+		if(Symbol s = symbolInTypeResolver.visit(i.name, i.type)) {
 			if(auto os = cast(OverLoadSet) s) {
 				assert(os.set.length == 1);
 				
@@ -969,202 +323,158 @@ final:
 /**
  * Resolve expression.identifier as type or expression.
  */
-class ExpressionDotIdentifierVisitor {
-	private IdentifierPass pass;
-	alias pass this;
+final class ExpressionDotIdentifierVisitor {
+	private IdentifierVisitor identifierVisitor;
+	alias identifierVisitor this;
 	
-	private Location location;
-	private Expression expression;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
+	this(IdentifierVisitor identifierVisitor) {
+		this.identifierVisitor = identifierVisitor;
 	}
 	
-final:
 	Identifiable visit(ExpressionDotIdentifier i) {
-		return Identifiable(resolveOrDefer!(function bool(Expression e) {
-			return e.type !is null;
-		}, delegate Expression(Expression e) {
-			auto oldLocation = location;
-			scope(exit) location = oldLocation;
-			
-			location = i.location;
-			
-			auto oldExpression = expression;
-			scope(exit) expression = oldExpression;
-			
-			expression = e;
-			
-			if(auto s = pass.symbolInTypeResolver.resolve(e.type, i.name)) {
-				return this.dispatch!(delegate Expression(Symbol s) {
-					// FIXME: really ? This may not be the thing to do (a better mecanism should be adopted for statics).
-					auto oldIdentifierVisitorLocation = pass.identifierVisitor.location;
-					scope(exit) pass.identifierVisitor.location = oldIdentifierVisitorLocation;
-					
-					pass.identifierVisitor.location = location;
-					
-					auto resolved = pass.identifierVisitor.visit(s);
-					
-					if(auto asExpr = resolved.asExpression()) {
-						return new CommaExpression(i.location, e, asExpr);
-					}
-					
-					return compilationCondition!Expression(location, "Don't know what to do with that !");
-				})(s);
-			} else if(auto asExpr = pass.typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).asExpression()) {
-				// expression.sizeof or similar stuffs.
-				return new CommaExpression(i.location, e, asExpr);
-			}
-			
-			return compilationCondition!Expression(location, "Can't resolve identifier.");
-		})(i.location, i.expression));
-	}
-	
-	Expression visit(OverLoadSet s) {
-		if(s.set.length == 1) {
-			return this.dispatch(s.set[0]);
+		auto e = pass.visit(i.expression);
+		
+		if(auto s = symbolInTypeResolver.visit(i.name, e.type)) {
+			return visit(i.location, e, s);
+		} else if(auto asExpr = typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).asExpression()) {
+			// expression.sizeof or similar stuffs.
+			return Identifiable(new CommaExpression(i.location, e, asExpr));
 		}
 		
-		auto results = s.set.map!(s => this.dispatch(s)).array();
+		return Identifiable(compilationCondition!Expression(i.location, "Can't resolve identifier."));
+	}
+	
+	Identifiable visit(Location location, Expression e, Symbol s) {
+		return this.dispatch(location, e, s);
+	}
+	
+	Identifiable visit(Location location, Expression e, OverLoadSet s) {
+		if(s.set.length == 1) {
+			return this.dispatch(location, e, s.set[0]);
+		}
+		
+		assert(0);
+		
+		/*
+		auto results = s.set.map!(s => this.dispatch(location, e, s)).array();
 		
 		Expression[] expressions;
 		foreach(result; results) {
-			if(auto asExpression = cast(Expression) result) {
+			if(auto asExpression = result.asExpression()) {
 				expressions ~= asExpression;
 			} else {
 				// TODO: handle templates.
-				return compilationCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set.");
+				return Identifiable(compilationCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set."));
 			}
 		}
 		
-		return new PolysemousExpression(location, expressions);
+		return Identifiable(new PolysemousExpression(location, expressions));
+		*/
 	}
 	
-	Expression visit(FieldDeclaration f) {
-		return new FieldExpression(location, expression, f);
+	Identifiable visit(Location location, Expression e, FieldDeclaration d) {
+		return Identifiable(new FieldExpression(location, e, d));
 	}
 	
-	Expression visit(FunctionDefinition f) {
-		return new MethodExpression(location, expression, f);
+	Identifiable visit(Location location, Expression e, FunctionDefinition d) {
+		return Identifiable(new MethodExpression(location, e, d));
 	}
 }
 
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
-class TemplateInstanciationDotIdentifierVisitor {
-	private IdentifierPass pass;
-	alias pass this;
+final class TemplateDotIdentifierVisitor {
+	private IdentifierVisitor identifierVisitor;
+	alias identifierVisitor this;
 	
-	this(IdentifierPass pass) {
-		this.pass = pass;
+	this(IdentifierVisitor identifierVisitor) {
+		this.identifierVisitor = identifierVisitor;
 	}
 	
-final:
 	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
-		auto overloadSet = this.dispatch(i.templateInstanciation.identifier);
-		assert(overloadSet.set.length == 1);
-		
-		auto tplDecl = cast(TemplateDeclaration) overloadSet.set[0];
+		auto tplDecl = cast(TemplateDeclaration) this.dispatch(i.templateInstanciation.identifier);
 		assert(tplDecl);
 		
-		auto tplArgs = i.templateInstanciation.arguments;
+		auto instance = instanciate(i.templateInstanciation.location, tplDecl, i.templateInstanciation.arguments);
 		
-		// FIXME: mangling is not always possible at this point. Delay to mangling pass if it make sense.
-		import d.pass.mangle;
-		auto mangler = new TypeMangler(null);
-		
-		string id = tplArgs.map!(delegate string(TemplateArgument arg) { return "T" ~ mangler.visit((cast(TypeTemplateArgument) arg).type); }).join();
-		
-		import d.pass.clone;
-		auto clone = new ClonePass();
-		
-		auto instance = tplDecl.instances.get(id, {
-			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
-			auto instance = pass.visit(pass.scopePass.visit(new TemplateInstance(i.templateInstanciation.location, tplArgs, members), tplDecl));
-			
-			return tplDecl.instances[id] = instance;
-		}());
-		
-		// TODO: handle type.template and expression.template
-		auto oldLocation = identifierVisitor.location;
-		scope(exit) identifierVisitor.location = oldLocation;
-		
-		identifierVisitor.location = i.location;
-		
-		return identifierVisitor.visit(instance.dscope.resolve(i.name));
+		return identifierVisitor.visit(i.location, instance.dscope.resolve(i.name));
 	}
 	
-	OverLoadSet visit(BasicIdentifier i) {
-		return cast(OverLoadSet) identifierVisitor.resolveBasicIdentifier(i);
+	Symbol visit(BasicIdentifier i) {
+		return visit(identifierVisitor.resolveBasicIdentifier(i));
+	}
+	
+	Symbol visit(Symbol s) {
+		return this.dispatch(s);
+	}
+	
+	Symbol visit(OverLoadSet s) {
+		assert(s.set.length == 1);
+		
+		return visit(s.set[0]);
+	}
+	
+	Symbol visit(TemplateDeclaration s) {
+		return s;
 	}
 }
 
 /**
  * Resolve symbols in types.
  */
-class SymbolInTypeResolver {
-	private IdentifierPass pass;
-	alias pass this;
+final class SymbolInTypeResolver {
+	private IdentifierVisitor identifierVisitor;
+	alias identifierVisitor this;
 	
-	private string name;
-	
-	this(IdentifierPass pass) {
-		this.pass = pass;
+	this(IdentifierVisitor identifierVisitor) {
+		this.identifierVisitor = identifierVisitor;
 	}
 	
-final:
-	Symbol resolve(Type t, string newName) {
-		auto oldName = name;
-		scope(exit) name = oldName;
-		
-		name = newName;
-		
-		return visit(t);
+	Symbol visit(string name, Type t) {
+		return this.dispatch(name, t);
 	}
 	
-	Symbol visit(Type t) {
-		return this.dispatch(t);
-	}
-	
-	Symbol visit(IntegerType t) {
+	Symbol visit(string name, IntegerType t) {
 		return null;
 	}
 	
-	Symbol visit(SliceType t) {
+	Symbol visit(string name, SliceType t) {
 		switch(name) {
 			case "length" :
 				auto lt = new IntegerType(t.location, Integer.Ulong);
-				return new FieldDeclaration(new VariableDeclaration(t.location, lt, "length", new DefaultInitializer(lt)), 0);
+				auto s = new FieldDeclaration(new VariableDeclaration(t.location, lt, "length", new DefaultInitializer(lt)), 0);
+				return scheduler.register(s, pass.visit(s));
 			
 			case "ptr" :
 				auto pt = new PointerType(t.location, t.type);
-				return new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
+				auto s = new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
+				return scheduler.register(s, pass.visit(s));
 			
 			default :
 				return null;
 		}
 	}
 	
-	Symbol visit(EnumType t) {
+	Symbol visit(string name, EnumType t) {
 		auto s = t.declaration.dscope.resolve(name);
 		
-		return s?s:visit(t.type);
+		return s?s:visit(name, t.type);
 	}
 	
-	Symbol visit(SymbolType t) {
-		return this.dispatch(t.symbol);
+	Symbol visit(string name, SymbolType t) {
+		return this.dispatch(name, t.symbol);
 	}
 	
-	Symbol visit(AliasDeclaration a) {
-		return visit(a.type);
+	Symbol visit(string name, AliasDeclaration a) {
+		return visit(name, a.type);
 	}
 	
-	Symbol visit(StructDefinition s) {
+	Symbol visit(string name, StructDefinition s) {
 		return s.dscope.resolve(name);
 	}
 	
-	Symbol visit(EnumDeclaration d) {
+	Symbol visit(string name, EnumDeclaration d) {
 		return d.dscope.resolve(name);
 	}
 }
