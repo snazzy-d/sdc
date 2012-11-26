@@ -37,7 +37,7 @@ final:
 		
 		visit(main.returnType);
 		
-		main.funmangle = "_Dmain";
+		main.mangle = "_Dmain";
 		
 		return main;
 	}

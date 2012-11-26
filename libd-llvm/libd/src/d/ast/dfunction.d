@@ -15,8 +15,6 @@ class FunctionDeclaration : ExpressionSymbol {
 	Parameter[] parameters;
 	bool isVariadic;
 	
-	string funmangle;
-	
 	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {

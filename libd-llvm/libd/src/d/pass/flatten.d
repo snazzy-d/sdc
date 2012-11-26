@@ -95,6 +95,7 @@ final:
 	Declaration visit(FunctionDeclaration d) {
 		d.linkage = linkage;
 		d.isStatic = isStatic;
+		d.isEnum = true;
 		
 		return d;
 	}
@@ -102,6 +103,7 @@ final:
 	Declaration visit(FunctionDefinition d) {
 		d.linkage = linkage;
 		d.isStatic = isStatic;
+		d.isEnum = true;
 		
 		auto oldLinkage = linkage;
 		scope(exit) linkage = oldLinkage;
