@@ -112,14 +112,12 @@ class EnumDeclaration : TypeSymbol {
 /**
  * Enum type
  */
-class EnumType : BasicType {
-	Type type;
+class EnumType : SuffixType {
 	EnumDeclaration declaration;
 	
 	this(Type type, EnumDeclaration declaration) {
-		super(type.location);
+		super(type.location, type);
 		
-		this.type = type;
 		this.declaration = declaration;
 	}
 	
