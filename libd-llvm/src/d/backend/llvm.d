@@ -46,8 +46,14 @@ class LLVMBackend : Backend {
 		}
 		
 		auto pmb = LLVMPassManagerBuilderCreate();
-		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
+		
+		//*
+		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 		LLVMPassManagerBuilderSetOptLevel(pmb, 0);
+		/*/
+		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
+		LLVMPassManagerBuilderSetOptLevel(pmb, 3);
+		//*/
 		
 		auto pm = LLVMCreatePassManager();
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
