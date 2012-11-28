@@ -89,6 +89,10 @@ final:
 		
 		return clone;
 	}
+	
+	AliasDeclaration visit(AliasDeclaration d) {
+		return new AliasDeclaration(d.location, d.name, pass.visit(d.type));
+	}
 }
 
 import d.ast.statement;

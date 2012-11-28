@@ -169,12 +169,12 @@ class ValueTemplateArgument : TemplateArgument {
  * Template type argument
  */
 class AmbiguousTemplateArgument : TemplateArgument {
-	TypeOrExpression parameter;
+	TypeOrExpression argument;
 	
-	this(TypeOrExpression parameter) {
-		super(parameter.location);
+	this(TypeOrExpression argument) {
+		super(argument.location);
 		
-		this.parameter = parameter;
+		this.argument = argument;
 	}
 }
 

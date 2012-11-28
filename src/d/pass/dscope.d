@@ -94,12 +94,7 @@ final:
 		
 		currentScope = new NestedScope(tplDecl.parentScope);
 		
-		Declaration[] args;
-		foreach(i, p; tplDecl.parameters) {
-			args ~= new AliasDeclaration(p.location, p.name, (cast(TypeTemplateArgument) tpl.arguments[i]).type);
-		}
-		
-		tpl.declarations = visit(args ~ tpl.declarations);
+		tpl.declarations = visit(tpl.declarations);
 		
 		tpl.dscope = currentScope;
 		
