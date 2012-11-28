@@ -22,8 +22,10 @@ import d.processor.scheduler;
 import d.pass.caster;
 import d.pass.declaration;
 import d.pass.defaultinitializer;
+import d.pass.dtemplate;
 import d.pass.expression;
-import d.pass.identifier2;
+import d.pass.identifier;
+import d.pass.identifiable;
 import d.pass.mangler;
 import d.pass.sizeof;
 import d.pass.statement;
@@ -45,6 +47,8 @@ final class SemanticPass {
 	
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
+	
+	TemplateInstancier templateInstancier;
 	
 	static struct State {
 		Declaration declaration;
@@ -78,6 +82,8 @@ final class SemanticPass {
 		
 		sizeofCalculator	= new SizeofCalculator(this);
 		typeMangler			= new TypeMangler(this);
+		
+		templateInstancier	= new TemplateInstancier(this);
 	}
 	
 	Module visit(Module m) {
@@ -123,19 +129,6 @@ final class SemanticPass {
 		return typeVisitor.visit(t);
 	}
 	
-	// TODO: merge that into template instanciation code.
-	TemplateInstance visit(TemplateInstance tpl) {
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = tpl.dscope;
-		
-		tpl.declarations = cast(Declaration[]) scheduler.schedule(this, tpl.declarations, d => visit(d));
-		
-		return tpl;
-	}
-	
 	Identifiable visit(Identifier i) {
 		return identifierVisitor.visit(i);
 	}
@@ -148,29 +141,8 @@ final class SemanticPass {
 		return explicitCaster.build(location, to, value);
 	}
 	
-	auto instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
-		tplDecl = cast(TemplateDeclaration) scheduler.require(this, tplDecl);
-		
-		string id = arguments.map!(delegate string(TemplateArgument arg) { return "T" ~ typeMangler.visit((cast(TypeTemplateArgument) arg).type); }).join();
-		
-		return tplDecl.instances.get(id, {
-			auto oldManglePrefix = this.manglePrefix;
-			scope(exit) this.manglePrefix = oldManglePrefix;
-			
-			import std.conv;
-			auto tplMangle = "__T" ~ to!string(tplDecl.name.length) ~ tplDecl.name ~ id ~ "Z";
-			
-			this.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
-			
-			import d.pass.dscope;
-			import d.pass.clone;
-			auto clone = new ClonePass();
-			
-			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
-			auto instance = visit((new ScopePass()).visit(new TemplateInstance(location, arguments, members), tplDecl));
-			
-			return tplDecl.instances[id] = instance;
-		}());
+	TemplateInstance instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
+		return templateInstancier.instanciate(location, tplDecl, arguments);
 	}
 }
 

@@ -132,7 +132,7 @@ final class Scheduler {
 		while(tasks) {
 			// TODO: update dependancy.
 			import std.stdio;
-			writeln("Yield !");
+			writeln("Yield (waiting for child to complete) !");
 			
 			// Thread.sleep(dur!"seconds"(1));
 			Fiber.yield();

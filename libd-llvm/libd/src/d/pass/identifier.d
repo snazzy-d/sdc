@@ -1,6 +1,7 @@
-module d.pass.identifier2;
+module d.pass.identifier;
 
 import d.pass.base;
+import d.pass.identifiable;
 import d.pass.semantic;
 
 import d.ast.adt;
@@ -179,107 +180,6 @@ final class IdentifierVisitor {
 }
 
 /**
- * Tagged union that define something designed by an identifier.
- */
-struct Identifiable {
-	enum Tag {
-		Type,
-		Expression,
-		TypeOrExpression,
-		Symbol,
-	}
-	
-	Tag tag;
-	
-	union {
-		Type type;
-		Expression expression;
-		TypeOrExpression ambiguous;
-		Symbol symbol;
-	}
-	
-	@disable this();
-	
-	this(Type t) {
-		tag = Tag.Type;
-		type = t;
-	}
-	
-	this(Expression e) {
-		tag = Tag.Expression;
-		expression = e;
-	}
-	
-	this(TypeOrExpression a) {
-		tag = Tag.Type;
-		ambiguous = a;
-	}
-	
-	this(Symbol s) {
-		tag = Tag.Symbol;
-		symbol = s;
-	}
-	
-	auto asType() {
-		if(tag == Tag.Type) {
-			return type;
-		}
-		
-		return null;
-	}
-	
-	auto asExpression() {
-		if(tag == Tag.Expression) {
-			return expression;
-		}
-		
-		return null;
-	}
-	
-	auto asAmbiguous() {
-		if(tag == Tag.TypeOrExpression) {
-			return ambiguous;
-		}
-		
-		return null;
-	}
-	
-	auto asSymbol() {
-		if(tag == Tag.Symbol) {
-			return symbol;
-		}
-		
-		return null;
-	}
-	
-	invariant() {
-		final switch(tag) {
-			case Tag.Type :
-				assert(type);
-		 		break;
-			
-			case Tag.Expression :
-				assert(expression);
-				break;
-			
-			case Tag.TypeOrExpression :
-				assert(ambiguous);
-				break;
-			
-			case Tag.Symbol :
-				if(cast(TypeSymbol) symbol) {
-					assert(0, "TypeSymbol must be resolved as Type.");
-				} else if(cast(ExpressionSymbol) symbol) {
-					assert(0, "ExpressionSymbol must be resolved as Expression.");
-				}
-				
-				assert(symbol);
-				break;
-		}
-	}
-}
-
-/**
  * Resolve type.identifier as type or expression.
  */
 final class TypeDotIdentifierVisitor {
@@ -397,8 +297,22 @@ final class TemplateDotIdentifierVisitor {
 		assert(tplDecl);
 		
 		auto instance = instanciate(i.templateInstanciation.location, tplDecl, i.templateInstanciation.arguments);
+		if(auto s = instance.dscope.resolve(i.name)) {
+			return identifierVisitor.visit(i.location, s);
+		}
 		
-		return identifierVisitor.visit(i.location, instance.dscope.resolve(i.name));
+		// Let's try eponymous trick if the previous failed.
+		if(i.name != tplDecl.name) {
+			return identifierVisitor.visit(
+				new IdentifierDotIdentifier(
+					i.location,
+					i.name,
+					new TemplateInstanciationDotIdentifier(i.location, i.templateInstanciation.identifier.name, i.templateInstanciation)
+				)
+			);
+		}
+		
+		assert(0, i.name ~ " not found in template.");
 	}
 	
 	Symbol visit(BasicIdentifier i) {

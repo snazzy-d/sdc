@@ -71,13 +71,13 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, SymbolType t) {
-		return this.dispatch(location, t.symbol);
+		return this.dispatch(location, scheduler.require(pass, t.symbol));
 	}
 	
 	Expression visit(Location location, StructDefinition d) {
-		auto init = cast(ExpressionSymbol) d.dscope.resolve("init");
+		auto init = cast(VariableDeclaration) d.dscope.resolve("init");
 		
-		return pass.visit(new SymbolExpression(location, init));
+		return init.value;
 	}
 	/*
 	Expression visit(ClassDefinition d) {
