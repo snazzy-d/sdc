@@ -1,6 +1,14 @@
 //T compiles:yes
 //T retval:12
 
+int main() {
+    return Foo!Bar.baz + Foo!Fizz.get7();
+}
+
+template Foo(T) {
+    T Foo;
+}
+
 struct Fizz {
 	Qux!Bar buzz;
 	
@@ -9,19 +17,11 @@ struct Fizz {
 	}
 }
 
-template Foo(T) {
-    T Foo;
-}
-
 struct Bar {
 	Qux!int baz = 5;
 }
 
 template Qux(T) {
 	alias T Qux;
-}
-
-int main() {
-    return Foo!Bar.baz + Foo!Fizz.get7();
 }
 
