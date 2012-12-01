@@ -110,7 +110,8 @@ void compile(string filename) {
 	import d.pass.semantic;
 	import d.pass.dscope;
 	
-	auto semantic = new Processor!SemanticPass();
+	// FIXME: pass a real evaluator here.
+	auto semantic = new Processor!SemanticPass(null);
 	ast = semantic.process((new ScopePass()).visit(ast));
 	
 	import d.pass.main;

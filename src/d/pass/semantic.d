@@ -24,6 +24,7 @@ import d.pass.declaration;
 import d.pass.defaultinitializer;
 import d.pass.dtemplate;
 import d.pass.expression;
+import d.pass.evaluator;
 import d.pass.identifier;
 import d.pass.identifiable;
 import d.pass.mangler;
@@ -50,6 +51,8 @@ final class SemanticPass {
 	
 	TemplateInstancier templateInstancier;
 	
+	Evaluator evaluator;
+	
 	static struct State {
 		Declaration declaration;
 		
@@ -66,8 +69,9 @@ final class SemanticPass {
 	
 	Scheduler scheduler;
 	
-	this(Scheduler scheduler) {
+	this(Scheduler scheduler, Evaluator evaluator) {
 		this.scheduler = scheduler;
+		this.evaluator = evaluator;
 		
 		declarationVisitor	= new DeclarationVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
