@@ -16,9 +16,7 @@ import std.string;
 auto codeGen(Module[] modules) {
 	auto cg = new CodeGenPass();
 	
-	cg.visit(modules);
-	
-	return cg.dmodule;
+	return cg.visit(modules);
 }
 
 import d.ast.declaration;
@@ -29,15 +27,18 @@ import d.ast.type;
 import d.backend.declaration;
 import d.backend.statement;
 import d.backend.expression;
+import d.backend.string;
 import d.backend.type;
 
 final class CodeGenPass {
 	private DeclarationGen declarationGen;
 	private StatementGen statementGen;
+	private AddressOfGen addressOfGen;
+	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
-	ExpressionGen expressionGen;
-	AddressOfGen addressOfGen;
+	private StringGen stringGen;
+	
 	DruntimeGen druntimeGen;
 	
 	private LLVMContextRef context;
@@ -61,6 +62,8 @@ final class CodeGenPass {
 		addressOfGen	= new AddressOfGen(this);
 		typeGen			= new TypeGen(this);
 		
+		stringGen		= new StringGen(this);
+		
 		druntimeGen		= new DruntimeGen(this);
 		
 		// TODO: types in context.
@@ -68,13 +71,21 @@ final class CodeGenPass {
 		builder = LLVMCreateBuilderInContext(context);
 	}
 	
-	Module[] visit(Module[] modules) {
+	LLVMModuleRef visit(Module[] modules) {
+		//*
+		auto oldModule = dmodule;
+		scope(exit) dmodule = oldModule;
+		//*/
 		dmodule = LLVMModuleCreateWithNameInContext(modules.back.location.filename.toStringz(), context);
 		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
-		return modules.map!(m => visit(m)).array();
+		foreach(m; modules) {
+			visit(m);
+		}
+		
+		return dmodule;
 	}
 	
 	Module visit(Module m) {
@@ -105,8 +116,20 @@ final class CodeGenPass {
 		return expressionGen.visit(e);
 	}
 	
+	auto addressOf(Expression e) {
+		return addressOfGen.visit(e);
+	}
+	
+	auto computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
+		return addressOfGen.computeIndice(location, indexedType, indexed, indice);
+	}
+	
 	auto visit(Type t) {
 		return typeGen.visit(t);
+	}
+	
+	auto buildDString(string str) {
+		return stringGen.buildDString(str);
 	}
 }
 
