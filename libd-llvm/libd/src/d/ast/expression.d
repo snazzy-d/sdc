@@ -22,6 +22,19 @@ abstract class Expression : Node {
 	}
 }
 
+/**
+ * Any expression that have a value known at compile time.
+ */
+abstract class CompileTimeExpression : Expression {
+	this(Location location) {
+		super(location);
+	}
+	
+	this(Location location, Type type) {
+		super(location, type);
+	}
+}
+
 // All expressions are final.
 final:
 
@@ -29,7 +42,7 @@ final:
  * An Error occured but an Expression is expected.
  * Useful for speculative compilation.
  */
-class ErrorExpression : Expression {
+class ErrorExpression : CompileTimeExpression {
 	string message;
 	
 	this(Location location, string message) {
@@ -382,7 +395,7 @@ class SuperExpression : Expression {
 /**
  * Boolean literal
  */
-class BooleanLiteral : Expression {
+class BooleanLiteral : CompileTimeExpression {
 	bool value;
 	
 	this(Location location, bool value) {
@@ -395,7 +408,7 @@ class BooleanLiteral : Expression {
 /**
  * Integer literal
  */
-class IntegerLiteral(bool isSigned) : Expression {
+class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 	static if(isSigned) {
 		alias long ValueType;
 	} else {
@@ -414,7 +427,7 @@ class IntegerLiteral(bool isSigned) : Expression {
 /**
  * Float literal
  */
-class FloatLiteral : Expression {
+class FloatLiteral : CompileTimeExpression {
 	double value;
 	
 	this(Location location, real value, FloatType type) {
@@ -427,7 +440,7 @@ class FloatLiteral : Expression {
 /**
  * Character literal
  */
-class CharacterLiteral : Expression {
+class CharacterLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value, CharacterType type) {
@@ -458,7 +471,7 @@ auto makeLiteral(T)(Location location, T value) {
 /**
  * String literal
  */
-class StringLiteral : Expression {
+class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
@@ -484,7 +497,7 @@ class ArrayLiteral : Expression {
 /**
  * Null literal
  */
-class NullLiteral : Expression {
+class NullLiteral : CompileTimeExpression {
 	this(Location location) {
 		super(location);
 	}

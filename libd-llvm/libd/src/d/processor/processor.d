@@ -15,10 +15,10 @@ final class Processor(T) if(isPass!T) : AbstractProcessor {
 	
 	T pass;
 	
-	this() {
+	this(U...)(U args) {
 		scheduler = new Scheduler(this);
 		
-		pass = new T(scheduler);
+		pass = new T(scheduler, args);
 	}
 	
 	auto process(Module[] modules) {
