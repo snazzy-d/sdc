@@ -21,8 +21,6 @@ final class ExpressionGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	LLVMValueRef[string] stringLiterals;
-	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
@@ -63,32 +61,6 @@ final class ExpressionGen {
 		return LLVMConstNull(pass.visit(nl.type));
 	}
 	
-	private auto buildDString(string str) in {
-		assert(str.length <= uint.max, "string length must be <= uint.max");
-	} body {
-		return stringLiterals.get(str, stringLiterals[str] = {
-			auto charArray = LLVMConstString(str.ptr, cast(uint) str.length, true);
-			
-			auto globalVar = LLVMAddGlobal(pass.dmodule, LLVMTypeOf(charArray), ".str".toStringz());
-			LLVMSetInitializer(globalVar, charArray);
-			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
-			LLVMSetGlobalConstant(globalVar, true);
-			
-			auto length = LLVMConstInt(LLVMInt64Type(), str.length, false);
-			
-			/*
-			// skip 0 termination.
-			auto indices = [LLVMConstInt(LLVMInt64Type(), 0, true), LLVMConstInt(LLVMInt64Type(), 0, true)];
-			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
-			/*/
-			// with 0 termination.
-			auto ptr = LLVMBuildGlobalStringPtr(pass.builder, str.toStringz(), ".cstr");
-			//*/
-			
-			return LLVMConstStruct([length, ptr].ptr, 2, false);
-		}());
-	}
-	
 	LLVMValueRef visit(StringLiteral sl) {
 		return buildDString(sl.value);
 	}
@@ -100,11 +72,11 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
-		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
 	LLVMValueRef visit(AssignExpression e) {
-		auto ptr = addressOfGen.visit(e.lhs);
+		auto ptr = addressOf(e.lhs);
 		auto value = visit(e.rhs);
 		
 		LLVMBuildStore(builder, value, ptr);
@@ -113,7 +85,7 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(AddressOfExpression e) {
-		return addressOfGen.visit(e.expression);
+		return addressOf(e.expression);
 	}
 	
 	LLVMValueRef visit(DereferenceExpression e) {
@@ -121,7 +93,7 @@ final class ExpressionGen {
 	}
 	
 	private auto handleIncrement(bool pre, IncrementExpression)(IncrementExpression e, int step) {
-		auto ptr = addressOfGen.visit(e.expression);
+		auto ptr = addressOf(e.expression);
 		
 		auto preValue = LLVMBuildLoad(builder, ptr, "");
 		auto type = e.expression.type;
@@ -179,7 +151,7 @@ final class ExpressionGen {
 	}
 	
 	private auto handleBinaryOpAssign(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
-		auto lhsPtr = addressOfGen.visit(e.lhs);
+		auto lhsPtr = addressOf(e.lhs);
 		
 		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
 		auto rhs = visit(e.rhs);
@@ -286,14 +258,14 @@ final class ExpressionGen {
 		if(e.symbol.isEnum) {
 			return pass.visit(e.symbol);
 		} else {
-			return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+			return LLVMBuildLoad(builder, addressOf(e), "");
 		}
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
 		// FIXME: handle rvalues with LLVMBuildExtractValue.
 		try {
-			return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+			return LLVMBuildLoad(builder, addressOf(e), "");
 		} catch(Exception exp) {
 			import std.stdio;
 			writeln("FieldExpression isn't an lvalue.");
@@ -303,21 +275,21 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
-		return LLVMBuildLoad(builder, addressOfGen.visit(e), "");
+		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
 		
-		auto indexed = addressOfGen.visit(e.indexed);
+		auto indexed = addressOf(e.indexed);
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64Type(), "");
 		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64Type(), "");
 		
 		// To ensure bound check. Before ptr calculation for optimization purpose.
-		addressOfGen.computeIndice(e.location, e.indexed.type, indexed, second);
+		computeIndice(e.location, e.indexed.type, indexed, second);
 		
 		auto length = LLVMBuildSub(builder, second, first, "");
-		auto ptr = addressOfGen.computeIndice(e.location, e.indexed.type, indexed, first);
+		auto ptr = computeIndice(e.location, e.indexed.type, indexed, first);
 		
 		auto slice = LLVMGetUndef(pass.visit(e.type));
 		
@@ -399,7 +371,7 @@ final class ExpressionGen {
 		uint i;
 		foreach(param; type.parameters) {
 			if(param.isReference) {
-				arguments[i] = addressOfGen.visit(c.arguments[i]);
+				arguments[i] = addressOf(c.arguments[i]);
 			} else {
 				arguments[i] = visit(c.arguments[i]);
 			}
@@ -511,7 +483,7 @@ final class AddressOfGen {
 			// Emit bound check fail code.
 			LLVMPositionBuilderAtEnd(builder, failBB);
 			
-			auto args = [expressionGen.buildDString(location.filename), LLVMConstInt(LLVMInt32Type(), location.line, false)];
+			auto args = [buildDString(location.filename), LLVMConstInt(LLVMInt32Type(), location.line, false)];
 			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, 2, "");
 			
 			LLVMBuildUnreachable(builder);
