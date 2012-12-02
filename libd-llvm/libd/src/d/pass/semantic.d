@@ -148,5 +148,9 @@ final class SemanticPass {
 	TemplateInstance instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
 		return templateInstancier.instanciate(location, tplDecl, arguments);
 	}
+	
+	auto evaluate(Expression e) {
+		return evaluator.evaluate(e);
+	}
 }
 

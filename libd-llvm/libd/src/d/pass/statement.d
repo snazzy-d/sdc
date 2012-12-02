@@ -99,7 +99,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(CaseStatement s) {
-		s.cases = s.cases.map!(e => pass.visit(e)).array();
+		s.cases = s.cases.map!(e => cast(typeof(e)) pass.evaluate(pass.visit(e))).array();
 	}
 	
 	void visit(LabeledStatement s) {

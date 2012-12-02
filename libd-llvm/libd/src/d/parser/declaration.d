@@ -284,6 +284,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			switch(lookahead.front.type) {
 				case TokenType.Colon :
 				case TokenType.OpenBrace :
+					// FIXME: this is manifest constant !
 					return trange.parseEnum();
 				
 				case TokenType.Identifier :
