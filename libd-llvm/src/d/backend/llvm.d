@@ -1,5 +1,7 @@
 module d.backend.llvm;
 
+import d.backend.codegen;
+
 import d.ast.dmodule;
 
 import llvm.c.core;
@@ -11,38 +13,40 @@ import llvm.c.transforms.passManagerBuilder;
 
 import std.array;
 
-// In order to JIT.
-extern(C) void _d_assert();
-extern(C) void _d_array_bounds();
-
 interface Backend {
 	void codeGen(Module[] mods);
 }
 
-class LLVMBackend : Backend {
-	this() {
+final class LLVMBackend : Backend {
+	CodeGenPass pass;
+	
+	this(string name) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
 		
 		LLVMLinkInJIT();
 		LLVMInitializeX86AsmPrinter();
+		
+		pass = new CodeGenPass(name);
 	}
 	
 	void codeGen(Module[] mods) {
 		import d.backend.codegen;
 		import std.stdio;
 		
-		auto dmodule = codeGen(mods);
+		auto dmodule = pass.visit(mods);
 		
 		LLVMExecutionEngineRef ee;
 		char* errorPtr;
-		auto creationError = LLVMCreateJITCompilerForModule(&ee, dmodule, 0, &errorPtr);
+		auto creationError = LLVMCreateJITCompilerForModule(&ee, pass.dmodule, 0, &errorPtr);
 		if(creationError) {
 			import std.c.string;
+			import std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			writeln("Cannot create execution engine ! Exiting...");
-			return;
+			
+			assert(0);
 		}
 		
 		auto pmb = LLVMPassManagerBuilderCreate();
@@ -64,25 +68,6 @@ class LLVMBackend : Backend {
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
 		
-		//*
-		// Let's run it !
-		LLVMValueRef fun;
-		if(LLVMFindFunction(ee, "_d_assert".ptr, &fun)) {
-			LLVMAddGlobalMapping(ee, fun, &_d_assert);
-		}
-		
-		auto notFound = LLVMFindFunction(ee, "_Dmain".ptr, &fun);
-		if(notFound) {
-			writeln("No main, no gain.");
-			return;
-		}
-		
-		auto executionResult = LLVMRunFunction(ee, fun, 0, null);
-		auto returned = cast(int) LLVMGenericValueToInt(executionResult, true);
-		
-		writeln("\nreturned : ", returned);
-		//*/
-		
 		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), "x86_64-pc-linux-gnu".ptr, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
 		
 		/*
@@ -96,7 +81,7 @@ class LLVMBackend : Backend {
 		import std.string;
 		import std.process;
 		
-		auto asObject   = temporaryFilename(".o");
+		auto asObject = temporaryFilename(".o");
 		
 		// Hack around the need of _tlsstart and _tlsend.
 		auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");

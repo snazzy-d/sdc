@@ -1,25 +1,7 @@
 module d.backend.codegen;
 
-import d.ast.dmodule;
-
-import util.visitor;
-
-import llvm.c.analysis;
-import llvm.c.core;
-
-import sdc.location;
-
-import std.algorithm;
-import std.array;
-import std.string;
-
-auto codeGen(Module[] modules) {
-	auto cg = new CodeGenPass();
-	
-	return cg.visit(modules);
-}
-
 import d.ast.declaration;
+import d.ast.dmodule;
 import d.ast.statement;
 import d.ast.expression;
 import d.ast.type;
@@ -29,6 +11,18 @@ import d.backend.statement;
 import d.backend.expression;
 import d.backend.string;
 import d.backend.type;
+
+import util.visitor;
+
+import sdc.location;
+
+import llvm.c.analysis;
+import llvm.c.core;
+import llvm.c.executionEngine;
+
+import std.algorithm;
+import std.array;
+import std.string;
 
 final class CodeGenPass {
 	private DeclarationGen declarationGen;
@@ -55,7 +49,7 @@ final class CodeGenPass {
 	
 	bool isSigned;
 	
-	this() {
+	this(string name) {
 		declarationGen	= new DeclarationGen(this);
 		statementGen	= new StatementGen(this);
 		expressionGen	= new ExpressionGen(this);
@@ -69,15 +63,10 @@ final class CodeGenPass {
 		// TODO: types in context.
 		context = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(context);
+		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
 	}
 	
 	LLVMModuleRef visit(Module[] modules) {
-		//*
-		auto oldModule = dmodule;
-		scope(exit) dmodule = oldModule;
-		//*/
-		dmodule = LLVMModuleCreateWithNameInContext(modules.back.location.filename.toStringz(), context);
-		
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
@@ -130,6 +119,23 @@ final class CodeGenPass {
 	
 	auto buildDString(string str) {
 		return stringGen.buildDString(str);
+	}
+	
+	auto ctfe(Expression e, LLVMExecutionEngineRef executionEngine) {
+		auto funType = LLVMFunctionType(visit(e.type), null, 0, false);
+		
+		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
+		scope(exit) LLVMDeleteFunction(fun);
+		
+		auto bodyBB = LLVMAppendBasicBlock(fun, "");
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
+		
+		// Generate function's body.
+		LLVMBuildRet(builder, visit(e));
+		
+		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
+		
+		return LLVMRunFunction(executionEngine, fun, 0, null);
 	}
 }
 
