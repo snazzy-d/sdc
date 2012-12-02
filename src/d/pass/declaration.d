@@ -149,6 +149,10 @@ final class DeclarationVisitor {
 			d.type = pass.visit(d.type);
 		}
 		
+		if(d.isEnum) {
+			d.value = evaluate(d.value);
+		}
+		
 		d.value = implicitCast(d.location, d.type, d.value);
 		
 		if(d.isStatic) {
@@ -159,6 +163,10 @@ final class DeclarationVisitor {
 	}
 	
 	Symbol visit(FieldDeclaration d) {
+		// XXX: hacky !
+		auto oldIsEnum = d.isEnum;
+		scope(exit) d.isEnum = oldIsEnum;
+		
 		return visit(cast(VariableDeclaration) d);
 	}
 	
@@ -263,7 +271,7 @@ final class DeclarationVisitor {
 				}
 			}
 			
-			e.value = explicitCast(e.location, type, pass.visit(e.value));
+			e.value = explicitCast(e.location, type, pass.evaluate(pass.visit(e.value)));
 			e.type = type;
 			
 			scheduler.register(e, e);

@@ -110,16 +110,18 @@ void compile(string filename) {
 	import d.pass.semantic;
 	import d.pass.dscope;
 	
-	// FIXME: pass a real evaluator here.
-	auto semantic = new Processor!SemanticPass(null);
+	import d.backend.evaluator;
+	import d.backend.llvm;
+	auto backend	= new LLVMBackend(ast.back.location.filename);
+	auto evaluator	= new LLVMEvaluator(backend.pass);
+	
+	auto semantic = new Processor!SemanticPass(evaluator);
 	ast = semantic.process((new ScopePass()).visit(ast));
 	
 	import d.pass.main;
 	ast.back = buildMain(ast.back);
-	//*
-	import d.backend.llvm;
-	auto backend = new LLVMBackend();
 	
+	//*
 	backend.codeGen([ast.back]);
 	//*/
 }
