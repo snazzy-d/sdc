@@ -1,4 +1,5 @@
 //T compiles:yes
+//T has-passed:no
 //T retval:30
 //T dependency:test37_import.d
 

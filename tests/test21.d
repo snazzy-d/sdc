@@ -1,4 +1,5 @@
 //T compiles:yes
+//T has-passed:no
 //T retval:42
 
 int foo() { return 42; }

@@ -1,4 +1,5 @@
 //T compiles:no
+//T has-passed:no
 
 void foo(ref int i)
 {

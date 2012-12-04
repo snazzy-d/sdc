@@ -1,6 +1,6 @@
 //T compiles:yes
 //T retval:0
-//T has-passed:yes
+//T has-passed:no
 
 void main()
 {
