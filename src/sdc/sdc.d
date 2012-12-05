@@ -106,7 +106,6 @@ void compile(string filename) {
 	auto ast = [object.parse("object", []), trange.parse(packages.back, packages[0 .. $-1])];
 	
 	// Test the new scheduler system.
-	import d.processor.processor;
 	import d.pass.semantic;
 	import d.pass.dscope;
 	
@@ -115,7 +114,7 @@ void compile(string filename) {
 	auto backend	= new LLVMBackend(ast.back.location.filename);
 	auto evaluator	= new LLVMEvaluator(backend.pass);
 	
-	auto semantic = new Processor!SemanticPass(evaluator);
+	auto semantic = new SemanticPass(evaluator);
 	ast = semantic.process((new ScopePass()).visit(ast));
 	
 	import d.pass.main;

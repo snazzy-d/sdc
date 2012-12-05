@@ -190,7 +190,7 @@ final class DeclarationVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
-		auto fields = cast(FieldDeclaration[]) scheduler.schedule(pass, d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array(), m => visit(m));
+		auto fields = cast(FieldDeclaration[]) scheduler.schedule(d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array(), m => visit(m));
 		
 		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
 		assert(initDecl);
@@ -209,7 +209,7 @@ final class DeclarationVisitor {
 			return typeid(m) !is typeid(FieldDeclaration) && m !is initDecl;
 		}).array();
 		
-		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(pass, otherSymbols, m => visit(m)) ~ initDecl;
+		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m)) ~ initDecl;
 		
 		return d;
 	}
@@ -235,7 +235,7 @@ final class DeclarationVisitor {
 		
 		scheduler.register(d, d);
 		
-		d.members = cast(Declaration[]) scheduler.schedule(pass, d.members, m => visit(m));
+		d.members = cast(Declaration[]) scheduler.schedule(d.members, m => visit(m));
 		
 		return d;
 	}

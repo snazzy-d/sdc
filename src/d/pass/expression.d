@@ -375,7 +375,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(FieldExpression e) {
 		e.expression = visit(e.expression);
-		e.field = cast(FieldDeclaration) scheduler.require(pass, e.field);
+		e.field = cast(FieldDeclaration) scheduler.require(e.field);
 		
 		e.type = e.field.type;
 		
@@ -385,7 +385,7 @@ final class ExpressionVisitor {
 	// TODO: merge with fieldExpression.
 	Expression visit(MethodExpression e) {
 		e.thisExpression = visit(e.thisExpression);
-		e.method = cast(FunctionDefinition) scheduler.require(pass, e.method);
+		e.method = cast(FunctionDefinition) scheduler.require(e.method);
 		
 		e.type = e.method.type;
 		
@@ -467,7 +467,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(SymbolExpression e) {
-		auto s = cast(ExpressionSymbol) scheduler.require(pass, e.symbol);
+		auto s = cast(ExpressionSymbol) scheduler.require(e.symbol);
 		
 		e.symbol = s;
 		e.type = s.type;

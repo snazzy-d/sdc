@@ -83,12 +83,11 @@ final:
 		}
 		
 		// TODO: ambiguous deambiguation.
-		
 		return compilationCondition!Type(t.location, t.identifier.name ~ " isn't an expression.");
 	}
 	
 	Type visit(SymbolType t) {
-		t.symbol = cast(TypeSymbol) scheduler.require(pass, t.symbol);
+		t.symbol = cast(TypeSymbol) scheduler.require(t.symbol);
 		
 		return t;
 	}

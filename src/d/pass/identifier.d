@@ -113,7 +113,7 @@ final class IdentifierVisitor {
 	}
 	
 	private auto getSymbolExpression(Location location, ExpressionSymbol s) {
-		return Identifiable(new SymbolExpression(location, cast(ExpressionSymbol) scheduler.require(pass, s)));
+		return Identifiable(new SymbolExpression(location, cast(ExpressionSymbol) scheduler.require(s)));
 	}
 	
 	Identifiable visit(Location location, VariableDeclaration d) {
@@ -133,7 +133,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, FieldDeclaration d) {
-		return Identifiable(new FieldExpression(location, new ThisExpression(location), cast(FieldDeclaration) scheduler.require(pass, d)));
+		return Identifiable(new FieldExpression(location, new ThisExpression(location), cast(FieldDeclaration) scheduler.require(d)));
 	}
 	
 	Identifiable visit(Location location, OverLoadSet s) {
@@ -161,7 +161,7 @@ final class IdentifierVisitor {
 	}
 	
 	private auto getSymbolType(Location location, TypeSymbol s) {
-		return Identifiable(new SymbolType(location, cast(TypeSymbol) scheduler.require(pass, s)));
+		return Identifiable(new SymbolType(location, cast(TypeSymbol) scheduler.require(s)));
 	}
 	
 	Identifiable visit(Location location, StructDefinition d) {
@@ -173,7 +173,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, AliasDeclaration d) {
-		d = cast(AliasDeclaration) scheduler.require(pass, d);
+		d = cast(AliasDeclaration) scheduler.require(d);
 		
 		return Identifiable(d.type);
 	}

@@ -71,7 +71,7 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, SymbolType t) {
-		return this.dispatch(location, scheduler.require(pass, t.symbol));
+		return this.dispatch(location, scheduler.require(t.symbol));
 	}
 	
 	Expression visit(Location location, StructDefinition d) {

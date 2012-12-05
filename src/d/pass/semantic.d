@@ -4,21 +4,6 @@
 module d.pass.semantic;
 
 import d.pass.base;
-
-import d.ast.declaration;
-import d.ast.dmodule;
-import d.ast.dscope;
-import d.ast.dtemplate;
-import d.ast.expression;
-import d.ast.identifier;
-import d.ast.statement;
-import d.ast.type;
-
-import std.algorithm;
-import std.array;
-
-import d.processor.scheduler;
-
 import d.pass.caster;
 import d.pass.declaration;
 import d.pass.defaultinitializer;
@@ -32,7 +17,21 @@ import d.pass.sizeof;
 import d.pass.statement;
 import d.pass.type;
 
+import d.ast.declaration;
+import d.ast.dmodule;
+import d.ast.dscope;
+import d.ast.dtemplate;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.statement;
+import d.ast.type;
+
+import d.processor.scheduler;
+
 import sdc.location;
+
+import std.algorithm;
+import std.array;
 
 final class SemanticPass {
 	private DeclarationVisitor declarationVisitor;
@@ -67,10 +66,16 @@ final class SemanticPass {
 	State state;
 	alias state this;
 	
-	Scheduler scheduler;
+	Scheduler!SemanticPass scheduler;
 	
-	this(Scheduler scheduler, Evaluator evaluator) {
-		this.scheduler = scheduler;
+	enum Steps {
+		Parsed,
+		Flatened,
+		Populated,
+		Processed,
+	}
+	
+	this(Evaluator evaluator) {
 		this.evaluator = evaluator;
 		
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -88,6 +93,29 @@ final class SemanticPass {
 		typeMangler			= new TypeMangler(this);
 		
 		templateInstancier	= new TemplateInstancier(this);
+		
+		scheduler			= new Scheduler!SemanticPass(this);
+	}
+	
+	auto process(Module[] modules) {
+		Process[] allTasks;
+		foreach(m; modules) {
+			auto t = new Process();
+			t.init(m, d => visit(cast(Module) d));
+			
+			allTasks ~= t;
+		}
+		
+		auto tasks = allTasks;
+		while(tasks) {
+			tasks = tasks.filter!(t => t.result is null).array();
+			
+			foreach(t; tasks) {
+				t.call();
+			}
+		}
+		
+		return cast(Module[]) allTasks.map!(t => t.result).array();
 	}
 	
 	Module visit(Module m) {
@@ -112,7 +140,7 @@ final class SemanticPass {
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
-		m.declarations = cast(Declaration[]) scheduler.schedule(this, m.declarations, d => visit(d));
+		m.declarations = cast(Declaration[]) scheduler.schedule(m.declarations, d => visit(d));
 		
 		return m;
 	}
