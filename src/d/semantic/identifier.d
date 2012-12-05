@@ -1,8 +1,8 @@
-module d.pass.identifier;
+module d.semantic.identifier;
 
-import d.pass.base;
-import d.pass.identifiable;
-import d.pass.semantic;
+import d.semantic.base;
+import d.semantic.identifiable;
+import d.semantic.semantic;
 
 import d.ast.adt;
 import d.ast.ambiguous;

@@ -1,6 +1,6 @@
-module d.pass.evaluator;
+module d.semantic.evaluator;
 
-import d.pass.base;
+import d.semantic.base;
 
 import d.ast.expression;
 

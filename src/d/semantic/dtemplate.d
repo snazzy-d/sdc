@@ -1,8 +1,8 @@
-module d.pass.dtemplate;
+module d.semantic.dtemplate;
 
-import d.pass.base;
-import d.pass.identifiable;
-import d.pass.semantic;
+import d.semantic.base;
+import d.semantic.identifiable;
+import d.semantic.semantic;
 
 import d.ast.declaration;
 import d.ast.dtemplate;
@@ -51,13 +51,13 @@ final class TemplateInstancier {
 			
 			this.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
 			
-			import d.pass.clone;
+			import d.semantic.clone;
 			auto clone = new ClonePass();
 			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
 			
-			import d.pass.dscope;
+			import d.semantic.dscope;
 			auto scopePass = new ScopePass();
 			instance = scopePass.visit(instance, tplDecl);
 			

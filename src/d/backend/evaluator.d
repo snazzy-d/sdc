@@ -5,7 +5,7 @@ import d.backend.codegen;
 import d.ast.expression;
 import d.ast.type;
 
-import d.pass.evaluator;
+import d.semantic.evaluator;
 
 import util.visitor;
 

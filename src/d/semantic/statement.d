@@ -1,7 +1,7 @@
-module d.pass.statement;
+module d.semantic.statement;
 
-import d.pass.base;
-import d.pass.semantic;
+import d.semantic.base;
+import d.semantic.semantic;
 
 import d.ast.statement;
 import d.ast.type;

@@ -1,6 +1,6 @@
-module d.pass.typepromotion;
+module d.semantic.typepromotion;
 
-import d.pass.base;
+import d.semantic.base;
 
 import d.ast.type;
 import d.ast.adt; // For enum types.

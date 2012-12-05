@@ -1,4 +1,4 @@
-module d.pass.identifiable;
+module d.semantic.identifiable;
 
 import d.ast.type;
 import d.ast.expression;

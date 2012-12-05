@@ -1,21 +1,21 @@
 /**
  * This module crawl the AST to resolve identifiers and process types.
  */
-module d.pass.semantic;
+module d.semantic.semantic;
 
-import d.pass.base;
-import d.pass.caster;
-import d.pass.declaration;
-import d.pass.defaultinitializer;
-import d.pass.dtemplate;
-import d.pass.expression;
-import d.pass.evaluator;
-import d.pass.identifier;
-import d.pass.identifiable;
-import d.pass.mangler;
-import d.pass.sizeof;
-import d.pass.statement;
-import d.pass.type;
+import d.semantic.base;
+import d.semantic.caster;
+import d.semantic.declaration;
+import d.semantic.defaultinitializer;
+import d.semantic.dtemplate;
+import d.semantic.expression;
+import d.semantic.evaluator;
+import d.semantic.identifier;
+import d.semantic.identifiable;
+import d.semantic.mangler;
+import d.semantic.sizeof;
+import d.semantic.statement;
+import d.semantic.type;
 
 import d.ast.declaration;
 import d.ast.dmodule;
