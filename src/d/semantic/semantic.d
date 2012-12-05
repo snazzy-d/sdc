@@ -100,6 +100,8 @@ final class SemanticPass {
 	auto process(Module[] modules) {
 		Process[] allTasks;
 		foreach(m; modules) {
+			scheduler.register(m, m, Step.Populated);
+			
 			auto t = new Process();
 			t.init(m, d => visit(cast(Module) d));
 			

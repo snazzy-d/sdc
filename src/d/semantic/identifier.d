@@ -9,6 +9,7 @@ import d.ast.ambiguous;
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.dfunction;
+import d.ast.dmodule;
 import d.ast.dtemplate;
 import d.ast.dscope;
 import d.ast.identifier;
@@ -78,7 +79,12 @@ final class IdentifierVisitor {
 		} else if(auto e = resolved.asExpression()) {
 			return visit(new ExpressionDotIdentifier(i.location, i.name, e));
 		} else {
-			assert(0, "type or expression expected.");
+			auto s = resolved.asSymbol();
+			if(auto m = cast(Module) s) {
+				return visit(i.location, m.dscope.resolve(i.name));
+			}
+			
+			assert(0, "can't resolve " ~ i.name ~ ".");
 		}
 	}
 	
@@ -176,6 +182,12 @@ final class IdentifierVisitor {
 		d = cast(AliasDeclaration) scheduler.require(d);
 		
 		return Identifiable(d.type);
+	}
+	
+	Identifiable visit(Location location, Module m) {
+		m = cast(Module) scheduler.require(m, Step.Populated);
+		
+		return Identifiable(m);
 	}
 }
 
