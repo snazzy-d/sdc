@@ -33,19 +33,19 @@ final class Process : Fiber {
 
 template Scheduler(P) {
 private:
-	alias P.Steps Steps;
-	enum LastStep = EnumMembers!Steps[$ - 1];
+	alias P.Step Step;
+	enum LastStep = EnumMembers!Step[$ - 1];
 	
 	bool checkEnumElements() {
 		uint i;
-		foreach(s; EnumMembers!Steps) {
+		foreach(s; EnumMembers!Step) {
 			if(s != i++) return false;
 		}
 	
-		return true;
+		return i > 0;
 	}
 	
-	enum isPassEnum = is(Steps : uint) && checkEnumElements();
+	enum isPassEnum = is(Step : uint) && checkEnumElements();
 	enum isPass = is(typeof(P.init.state.declaration) : Declaration) && isPassEnum;
 	
 	static assert(isPass, "you can only schedule passes.");
@@ -55,15 +55,15 @@ private:
 	}
 	
 	struct Result {
-		Steps step;
-		Symbol result;
+		Symbol symbol;
+		Step step;
 	}
 	
 public:
 	final class Scheduler {
 		P pass;
 		
-		Symbol[Declaration] processed;
+		Result[Declaration] processed;
 		
 		this(P pass) {
 			this.pass = pass;
@@ -83,17 +83,25 @@ public:
 			return new Process();
 		}
 		
-		auto require(Declaration d, Steps step = LastStep) {
-			if(auto resultPtr = d in processed) {
-				return *resultPtr;
+		private Result requireResult(Declaration d, Step step) {
+			if(auto result = d in processed) {
+				if(result.step <= step) {
+					return *result;
+				} else if(result.symbol !is d) {
+					return processed[d] = requireResult(result.symbol, step);
+				}
 			}
 			
 			auto state = pass.state;
 			scope(exit) pass.state = state;
 			
 			while(true) {
-				if(auto resultPtr = d in processed) {
-					return *resultPtr;
+				if(auto result = d in processed) {
+					if(result.step <= step) {
+						return *result;
+					} else if(result.symbol !is d) {
+						return processed[d] = requireResult(result.symbol, step);
+					}
 				}
 				
 				import sdc.terminal;
@@ -108,14 +116,20 @@ public:
 			}
 		}
 		
-		auto register(R)(Declaration source, R result) if(is(R : Symbol)) {
+		auto require(Declaration d, Step step = LastStep) {
+			return requireResult(d, step).symbol;
+		}
+		
+		// TODO: remove the default value of step.
+		auto register(S)(Declaration source, S symbol, Step step) if(is(S : Symbol)) {
+			auto result = Result(symbol, step);
 			processed[source] = result;
 			
-			if(source !is result) {
-				processed[result] = result;
+			if(source !is symbol) {
+				processed[symbol] = result;
 			}
 			
-			return result;
+			return symbol;
 		}
 		
 		auto schedule(R)(R decls, ProcessDg dg) if(isDeclarationRange!R) {
@@ -141,7 +155,7 @@ public:
 				
 				foreach(t; oldTasks) {
 					if(t.result) {
-						register(t.source, t.result);
+						register(t.source, t.result, LastStep);
 					} else {
 						tasks ~= t;
 					}

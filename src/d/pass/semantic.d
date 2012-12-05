@@ -68,7 +68,7 @@ final class SemanticPass {
 	
 	Scheduler!SemanticPass scheduler;
 	
-	enum Steps {
+	enum Step {
 		Parsed,
 		Flatened,
 		Populated,
