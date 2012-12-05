@@ -23,7 +23,7 @@ final class TypeMangler {
 	}
 	
 	string visit(SymbolType t) {
-		return scheduler.require(pass, t.symbol).mangle;
+		return scheduler.require(t.symbol).mangle;
 	}
 	
 	string visit(BooleanType t) {
@@ -97,7 +97,7 @@ final class TypeMangler {
 	}
 	
 	string visit(EnumType t) {
-		return scheduler.require(pass, t.declaration).mangle;
+		return scheduler.require(t.declaration).mangle;
 	}
 	
 	string visit(FunctionType t) {

@@ -1,26 +1,17 @@
 module d.processor.scheduler;
 
-import d.processor.processor;
-
 import d.ast.base;
 import d.ast.declaration;
 
 import std.algorithm;
 import std.range;
+import std.traits;
 
 import core.thread;
 
-template isPass(P) {
-	enum isPass = is(typeof(P.init.state.declaration) : Declaration);
-}
-
-template isDeclarationRange(R) {
-	enum isDeclarationRange = isInputRange!R && is(ElementType!R : Declaration);
-}
-
 alias Symbol delegate(Declaration) ProcessDg;
 
-private final class Process : Fiber {
+final class Process : Fiber {
 	Declaration source;
 	Symbol result;
 	
@@ -40,111 +31,141 @@ private final class Process : Fiber {
 	}
 }
 
-final class Scheduler {
-	private AbstractProcessor processor;
+template Scheduler(P) {
+private:
+	alias P.Steps Steps;
+	enum LastStep = EnumMembers!Steps[$ - 1];
 	
-	Symbol[Declaration] processed;
+	bool checkEnumElements() {
+		uint i;
+		foreach(s; EnumMembers!Steps) {
+			if(s != i++) return false;
+		}
 	
-	this(AbstractProcessor processor) {
-		this.processor = processor;
+		return true;
 	}
 	
-	private Process getProcess() {
-		/*
-		if(pool) {
-			auto ret = pool[$ - 1];
-			
-			pool = pool[0 .. $ - 1];
-			pool.assumeSafeAppend();
-			
-			return ret;
-		}
-		*/
-		return new Process();
+	enum isPassEnum = is(Steps : uint) && checkEnumElements();
+	enum isPass = is(typeof(P.init.state.declaration) : Declaration) && isPassEnum;
+	
+	static assert(isPass, "you can only schedule passes.");
+	
+	template isDeclarationRange(R) {
+		enum isDeclarationRange = isInputRange!R && is(ElementType!R : Declaration);
 	}
 	
-	auto require(P)(P pass, Declaration d) if(isPass!P) {
-		if(auto resultPtr = d in processed) {
-			return *resultPtr;
+	struct Result {
+		Steps step;
+		Symbol result;
+	}
+	
+public:
+	final class Scheduler {
+		P pass;
+		
+		Symbol[Declaration] processed;
+		
+		this(P pass) {
+			this.pass = pass;
 		}
 		
-		auto state = pass.state;
-		scope(exit) pass.state = state;
+		private Process getProcess() {
+			/*
+			if(pool) {
+				auto ret = pool[$ - 1];
+				
+				pool = pool[0 .. $ - 1];
+				pool.assumeSafeAppend();
+				
+				return ret;
+			}
+			*/
+			return new Process();
+		}
 		
-		while(true) {
+		auto require(Declaration d, Steps step = LastStep) {
 			if(auto resultPtr = d in processed) {
 				return *resultPtr;
 			}
 			
-			import sdc.terminal;
-			outputCaretDiagnostics(state.declaration.location, state.declaration.toString() ~ " is waiting for...");
-			outputCaretDiagnostics(d.location, d.toString());
+			auto state = pass.state;
+			scope(exit) pass.state = state;
 			
-			import std.stdio;
-			writeln("Yield !");
-			
-			// Thread.sleep(dur!"seconds"(1));
-			Fiber.yield();
-		}
-	}
-	
-	auto register(R)(Declaration source, R result) if(is(R : Symbol)) {
-		processed[source] = result;
-		
-		if(source !is result) {
-			processed[result] = result;
-		}
-		
-		return result;
-	}
-	
-	auto schedule(P, R)(P pass, R decls, ProcessDg dg) if(isPass!P && isDeclarationRange!R) {
-		// Save state in order to restore it later.
-		auto state = pass.state;
-		scope(exit) pass.state = state;
-		
-		Process[] allTasks;
-		foreach(decl; decls) {
-			auto task = getProcess();
-			task.init(decl, dg);
-			
-			pass.state = state;
-			task.call();
-			
-			allTasks ~= task;
-		}
-		
-		auto tasks = allTasks;
-		void updateTasks() {
-			auto oldTasks = tasks;
-			tasks = [];
-			
-			foreach(t; oldTasks) {
-				if(t.result) {
-					register(t.source, t.result);
-				} else {
-					tasks ~= t;
+			while(true) {
+				if(auto resultPtr = d in processed) {
+					return *resultPtr;
 				}
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(state.declaration.location, state.declaration.toString() ~ " is waiting for...");
+				outputCaretDiagnostics(d.location, d.toString());
+				
+				import std.stdio;
+				writeln("Yield !");
+				
+				// Thread.sleep(dur!"seconds"(1));
+				Fiber.yield();
 			}
 		}
 		
-		updateTasks();
-		while(tasks) {
-			// TODO: update dependancy.
-			import std.stdio;
-			writeln("Yield (waiting for child to complete) !");
+		auto register(R)(Declaration source, R result) if(is(R : Symbol)) {
+			processed[source] = result;
 			
-			// Thread.sleep(dur!"seconds"(1));
-			Fiber.yield();
+			if(source !is result) {
+				processed[result] = result;
+			}
 			
-			foreach(t; tasks) {
-				if(t.result is null) t.call();
+			return result;
+		}
+		
+		auto schedule(R)(R decls, ProcessDg dg) if(isDeclarationRange!R) {
+			// Save state in order to restore it later.
+			auto state = pass.state;
+			scope(exit) pass.state = state;
+			
+			Process[] allTasks;
+			foreach(decl; decls) {
+				auto task = getProcess();
+				task.init(decl, dg);
+				
+				pass.state = state;
+				task.call();
+				
+				allTasks ~= task;
+			}
+			
+			auto tasks = allTasks;
+			void updateTasks() {
+				auto oldTasks = tasks;
+				tasks = [];
+				
+				foreach(t; oldTasks) {
+					if(t.result) {
+						register(t.source, t.result);
+					} else {
+						tasks ~= t;
+					}
+				}
 			}
 			
 			updateTasks();
+			while(tasks) {
+				// TODO: update dependancy.
+				import std.stdio;
+				writeln("Yield (waiting for child to complete) !");
+				
+				// Thread.sleep(dur!"seconds"(1));
+				Fiber.yield();
+				
+				foreach(t; tasks) {
+					if(t.result is null) t.call();
+				}
+				
+				updateTasks();
+			}
+			
+			return allTasks.map!(p => p.result).array();
 		}
-		
-		return allTasks.map!(p => p.result).array();
 	}
 }
 

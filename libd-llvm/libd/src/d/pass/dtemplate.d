@@ -23,7 +23,7 @@ final class TemplateInstancier {
 	}
 	
 	auto instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
-		tplDecl = cast(TemplateDeclaration) scheduler.require(pass, tplDecl);
+		tplDecl = cast(TemplateDeclaration) scheduler.require(tplDecl);
 		
 		Declaration[] argDecls;
 		uint i = 0;
@@ -67,7 +67,7 @@ final class TemplateInstancier {
 			
 			pass.currentScope = instance.dscope;
 			
-			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(pass, instance.declarations, d => pass.visit(d));
+			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(instance.declarations, d => pass.visit(d));
 			
 			return tplDecl.instances[id] = instance;
 		}());
