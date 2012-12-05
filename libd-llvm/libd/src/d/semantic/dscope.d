@@ -1,10 +1,10 @@
 /**
  * This prepare scopes for identifiers resolution.
  */
-module d.pass.dscope;
+module d.semantic.dscope;
 
-import d.pass.base;
-import d.pass.flatten;
+import d.semantic.base;
+import d.semantic.flatten;
 
 import d.ast.dmodule;
 

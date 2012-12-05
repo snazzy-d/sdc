@@ -1,9 +1,9 @@
 /**
  * This remove everything that isn't meaningfull for compilation from the AST.
  */
-module d.pass.flatten;
+module d.semantic.flatten;
 
-import d.pass.base;
+import d.semantic.base;
 
 import d.ast.dmodule;
 

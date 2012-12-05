@@ -1,7 +1,7 @@
-module d.pass.type;
+module d.semantic.type;
 
-import d.pass.base;
-import d.pass.semantic;
+import d.semantic.base;
+import d.semantic.semantic;
 
 import d.ast.adt;
 import d.ast.declaration;

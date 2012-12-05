@@ -1,8 +1,8 @@
-module d.pass.expression;
+module d.semantic.expression;
 
-import d.pass.base;
-import d.pass.semantic;
-import d.pass.typepromotion;
+import d.semantic.base;
+import d.semantic.semantic;
+import d.semantic.typepromotion;
 
 import d.ast.declaration;
 import d.ast.dfunction;

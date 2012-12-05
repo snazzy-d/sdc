@@ -1,7 +1,7 @@
-module d.pass.mangler;
+module d.semantic.mangler;
 
-import d.pass.base;
-import d.pass.semantic;
+import d.semantic.base;
+import d.semantic.semantic;
 
 import d.ast.adt;
 import d.ast.dfunction;

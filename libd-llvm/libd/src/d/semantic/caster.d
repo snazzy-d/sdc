@@ -1,8 +1,8 @@
-module d.pass.caster;
+module d.semantic.caster;
 
-import d.pass.base;
-import d.pass.semantic;
-import d.pass.typepromotion;
+import d.semantic.base;
+import d.semantic.semantic;
+import d.semantic.typepromotion;
 
 import d.ast.adt;
 import d.ast.declaration;

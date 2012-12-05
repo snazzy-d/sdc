@@ -1,4 +1,4 @@
-module d.pass.util;
+module d.semantic.util;
 
 import d.ast.base;
 import d.ast.expression;

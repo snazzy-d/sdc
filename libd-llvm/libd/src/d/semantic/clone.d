@@ -1,11 +1,11 @@
 /**
  * This module is used to clone AST.
  */
-module d.pass.clone;
+module d.semantic.clone;
 
-import d.pass.base;
+import d.semantic.base;
 
-import d.pass.dscope;
+import d.semantic.dscope;
 
 import d.ast.declaration;
 import d.ast.dmodule;
@@ -161,7 +161,7 @@ final:
 }
 
 import d.ast.base;
-import d.pass.util;
+import d.semantic.util;
 
 /**
  * Clone identifier.

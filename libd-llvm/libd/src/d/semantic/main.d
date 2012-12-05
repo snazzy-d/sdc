@@ -1,7 +1,7 @@
 /**
  * This pass handle the main function of a D program.
  */
-module d.pass.main;
+module d.semantic.main;
 
 import d.ast.dmodule;
 

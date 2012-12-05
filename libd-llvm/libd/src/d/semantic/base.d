@@ -1,4 +1,4 @@
-module d.pass.base;
+module d.semantic.base;
 
 public import util.visitor;
 
