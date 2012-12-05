@@ -18,6 +18,8 @@ final class DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
+	alias SemanticPass.Step Step;
+	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
@@ -34,7 +36,7 @@ final class DeclarationVisitor {
 	// TODO: merge function delcaration and definition.
 	Symbol visit(FunctionDeclaration d) {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p))).array();
+		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
 		d.returnType = pass.visit(d.returnType);
 		
@@ -65,7 +67,7 @@ final class DeclarationVisitor {
 	
 	Symbol visit(FunctionDefinition d) {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p))).array();
+		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
 		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
@@ -88,7 +90,7 @@ final class DeclarationVisitor {
 		// checking resolvedTypes Ensure that it isn't ran twice.
 		if(!d.isStatic) {
 			auto thisParameter = new Parameter(d.location, "this", thisType);
-			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter));
+			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
 			thisParameter.isReference = true;
 			
 			d.parameters = thisParameter ~ d.parameters;
@@ -202,8 +204,10 @@ final class DeclarationVisitor {
 		initDecl.type = thisType;
 		initDecl.mangle = "_D" ~ manglePrefix ~ to!string(initDecl.name.length) ~ initDecl.name ~ d.mangle;
 		
-		scheduler.register(initDecl, initDecl);
-		scheduler.register(d, d);
+		scheduler.register(initDecl, initDecl, Step.Processed);
+		
+		// XXX: Not quite right !
+		scheduler.register(d, d, Step.Processed);
 		
 		auto otherSymbols = d.members.filter!(delegate bool(Declaration m) {
 			return typeid(m) !is typeid(FieldDeclaration) && m !is initDecl;
@@ -233,7 +237,8 @@ final class DeclarationVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
-		scheduler.register(d, d);
+		// XXX: Not quite right !
+		scheduler.register(d, d, Step.Processed);
 		
 		d.members = cast(Declaration[]) scheduler.schedule(d.members, m => visit(m));
 		
@@ -259,7 +264,7 @@ final class DeclarationVisitor {
 		
 		d.mangle = "E" ~ manglePrefix;
 		
-		scheduler.register(d, d);
+		scheduler.register(d, d, Step.Processed);
 		
 		VariableDeclaration previous;
 		foreach(e; d.enumEntries) {
@@ -274,7 +279,7 @@ final class DeclarationVisitor {
 			e.value = explicitCast(e.location, type, pass.evaluate(pass.visit(e.value)));
 			e.type = type;
 			
-			scheduler.register(e, e);
+			scheduler.register(e, e, Step.Processed);
 			
 			previous = e;
 		}

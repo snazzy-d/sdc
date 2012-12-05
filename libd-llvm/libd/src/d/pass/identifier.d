@@ -358,12 +358,12 @@ final class SymbolInTypeResolver {
 			case "length" :
 				auto lt = new IntegerType(t.location, Integer.Ulong);
 				auto s = new FieldDeclaration(new VariableDeclaration(t.location, lt, "length", new DefaultInitializer(lt)), 0);
-				return scheduler.register(s, pass.visit(s));
+				return scheduler.register(s, pass.visit(s), Step.Processed);
 			
 			case "ptr" :
 				auto pt = new PointerType(t.location, t.type);
 				auto s = new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
-				return scheduler.register(s, pass.visit(s));
+				return scheduler.register(s, pass.visit(s), Step.Processed);
 			
 			default :
 				return null;

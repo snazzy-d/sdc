@@ -33,7 +33,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement d) {
-		d.declaration = scheduler.register(d.declaration, pass.visit(d.declaration));
+		d.declaration = scheduler.register(d.declaration, pass.visit(d.declaration), Step.Processed);
 	}
 	
 	void visit(ExpressionStatement d) {
