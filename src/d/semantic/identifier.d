@@ -361,7 +361,19 @@ final class SymbolInTypeResolver {
 		return this.dispatch(name, t);
 	}
 	
+	Symbol visit(string name, BooleanType t) {
+		return null;
+	}
+	
 	Symbol visit(string name, IntegerType t) {
+		return null;
+	}
+	
+	Symbol visit(string name, FloatType t) {
+		return null;
+	}
+	
+	Symbol visit(string name, CharacterType t) {
 		return null;
 	}
 	

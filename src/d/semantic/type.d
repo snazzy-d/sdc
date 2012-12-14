@@ -8,7 +8,7 @@ import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.type;
 
-class TypeVisitor {
+final class TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -16,7 +16,6 @@ class TypeVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Type visit(Type t) {
 		return this.dispatch(t);
 	}

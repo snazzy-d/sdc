@@ -54,6 +54,19 @@ final class SizeofCalculator {
 		}
 	}
 	
+	uint visit(CharacterType t) {
+		final switch(t.type) {
+			case Character.Char :
+				return 1;
+			
+			case Character.Wchar :
+				return 2;
+			
+			case Character.Dchar :
+				return 4;
+		}
+	}
+	
 	uint visit(EnumType t) {
 		return visit(t.type);
 	}

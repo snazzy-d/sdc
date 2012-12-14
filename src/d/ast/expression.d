@@ -408,6 +408,7 @@ class BooleanLiteral : CompileTimeExpression {
 /**
  * Integer literal
  */
+// XXX: remove template parameter here.
 class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 	static if(isSigned) {
 		alias long ValueType;

@@ -108,6 +108,7 @@ void compile(string filename) {
 	// Test the new scheduler system.
 	import d.semantic.semantic;
 	import d.semantic.dscope;
+	import d.semantic.flatten;
 	
 	import d.backend.evaluator;
 	import d.backend.llvm;

@@ -4,6 +4,7 @@ import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;
+import d.ast.conditional;
 import d.ast.dfunction;
 import d.ast.declaration;
 import d.ast.dtemplate;
@@ -13,6 +14,10 @@ import d.ast.type;
 import std.algorithm;
 import std.array;
 import std.conv;
+
+
+// TODO: change ast to allow any statement as function body, then remove that import.
+import d.ast.statement;
 
 final class DeclarationVisitor {
 	private SemanticPass pass;
@@ -104,7 +109,8 @@ final class DeclarationVisitor {
 			currentScope = d.dscope;
 			
 			// And visit.
-			pass.visit(d.fbody);
+			// TODO: change ast to allow any statement as function body;
+			d.fbody = cast(BlockStatement) pass.visit(d.fbody);
 		}
 		
 		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
@@ -297,6 +303,20 @@ final class DeclarationVisitor {
 		d.mangle = manglePrefix;
 		
 		return d;
+	}
+	
+	Symbol visit(StaticIfElse!Declaration d) {
+		d.condition = evaluate(explicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
+		
+		if((cast(BooleanLiteral) d.condition).value) {
+			assert(d.items.length == 1, "static if must have one and only one item");
+			
+			return scheduler.register(d.items[0], visit(d.items[0]), Step.Processed);
+		} else {
+			assert(d.elseItems.length == 1, "static else must have one and only one item");
+			
+			return scheduler.register(d.elseItems[0], visit(d.elseItems[0]), Step.Processed);
+		}
 	}
 }
 
