@@ -130,7 +130,7 @@ final class DeclarationGen {
 		if(var.isStatic) {
 			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
 			// FIXME: interpreter don't support TLS for now.
-			// LLVMSetThreadLocal(globalVar, true);
+			LLVMSetThreadLocal(globalVar, true);
 			
 			// Register the variable.
 			exprSymbols[var] = globalVar;

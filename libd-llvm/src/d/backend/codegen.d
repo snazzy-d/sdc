@@ -134,6 +134,7 @@ final class CodeGenPass {
 		LLVMBuildRet(builder, visit(e));
 		
 		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
+		LLVMDumpModule(dmodule);
 		
 		return LLVMRunFunction(executionEngine, fun, 0, null);
 	}

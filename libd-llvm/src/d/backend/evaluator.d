@@ -40,16 +40,6 @@ final class LLVMEvaluator : Evaluator {
 		return this.dispatch!(e => jit(e))(e);
 	}
 	
-	private CompileTimeExpression jit(Expression e) {
-		assert(cast(IntegerType) e.type, "Only able to JIT integers.");
-		
-		auto result = codeGen.ctfe(e, executionEngine);
-		
-		auto returned = cast(int) LLVMGenericValueToInt(result, true);
-		
-		return makeLiteral(e.location, returned);
-	}
-	
 	CompileTimeExpression visit(BooleanLiteral e) {
 		return e;
 	}
@@ -72,6 +62,32 @@ final class LLVMEvaluator : Evaluator {
 	
 	CompileTimeExpression visit(NullLiteral e) {
 		return e;
+	}
+	
+	// Actual JIT
+	private CompileTimeExpression jit(Expression e) {
+		if(auto t = cast(IntegerType) e.type) {
+			auto returned = jitInteger(e);
+			
+			if(t.type % 2) {
+				return new IntegerLiteral!false(e.location, returned, t);
+			} else {
+				return new IntegerLiteral!true(e.location, returned, t);
+			}
+		} else if(auto t = cast(BooleanType) e.type) {
+			auto returned = jitInteger(e);
+			
+			return new BooleanLiteral(e.location, !!returned);
+		}
+		
+		assert(0, "Only able to JIT integers and booleans.");
+	}
+	
+	private auto jitInteger(Expression e) {
+		auto result = codeGen.ctfe(e, executionEngine);
+		// XXX: dispose value ?
+		
+		return cast(int) LLVMGenericValueToInt(result, true);
 	}
 }
 
