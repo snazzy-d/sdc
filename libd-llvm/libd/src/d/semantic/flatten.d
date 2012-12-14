@@ -7,15 +7,15 @@ import d.semantic.base;
 
 import d.ast.dmodule;
 
-import std.algorithm;
-import std.array;
-
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
 import d.ast.type;
 
-class FlattenPass {
+import std.algorithm;
+import std.array;
+
+final class FlattenPass {
 	private DeclarationVisitor declarationVisitor;
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
@@ -37,7 +37,6 @@ class FlattenPass {
 		typeVisitor			= new TypeVisitor(this);
 	}
 	
-final:
 	Module[] visit(Module[] modules) {
 		return modules.map!(m => visit(m)).array();
 	}
@@ -185,6 +184,15 @@ final:
 	}
 	
 	Declaration visit(ImportDeclaration d) {
+		return d;
+	}
+	
+	Declaration visit(StaticIfElse!Declaration d) {
+		d.condition = pass.visit(d.condition);
+		
+		d.items = pass.visit(d.items);
+		d.elseItems = pass.visit(d.elseItems);
+		
 		return d;
 	}
 }
@@ -374,6 +382,15 @@ final:
 	}
 	
 	Statement visit(GotoStatement s) {
+		return s;
+	}
+	
+	Statement visit(StaticIfElse!Statement s) {
+		s.condition = pass.visit(s.condition);
+		
+		s.items = pass.visit(s.items);
+		s.elseItems = pass.visit(s.elseItems);
+		
 		return s;
 	}
 }

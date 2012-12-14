@@ -11,20 +11,32 @@ import d.ast.type;
  * Function Declaration
  */
 class FunctionDeclaration : ExpressionSymbol {
-	Type returnType;
+	Type returnType;		// TODO: remove this, redundant information.
 	Parameter[] parameters;
 	bool isVariadic;
 	
 	Scope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {
+		this(location, name, "D", returnType, parameters, isVariadic);
+	}
+	
+	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
 		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
 		
 		this.name = name;
+		this.linkage = linkage;
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
 	}
+	/*
+	invariant() {
+		auto funType = cast(FunctionType) type;
+		
+		assert(funType && funType.linkage == linkage);
+	}
+	*/
 }
 
 /**
@@ -34,7 +46,11 @@ class FunctionDefinition : FunctionDeclaration {
 	BlockStatement fbody;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		super(location, name, returnType, parameters, isVariadic);
+		this(location, name, "D", returnType, parameters, isVariadic, fbody);
+	}
+	
+	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
+		super(location, name, linkage, returnType, parameters, isVariadic);
 		
 		this.fbody = fbody;
 	}

@@ -12,6 +12,7 @@ import std.algorithm;
 import std.array;
 import std.range;
 
+import d.ast.conditional;
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.statement;
@@ -362,6 +363,16 @@ final:
 	
 	void visit(GotoStatement s) {
 		// Nothing needs to be done.
+	}
+	
+	void visit(StaticIfElse!Statement s) {
+		foreach(i; s.items) {
+			visit(i);
+		}
+		
+		foreach(i; s.elseItems) {
+			visit(i);
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import d.semantic.base;
 import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.defaultinitializer;
+import d.semantic.dmodule;
 import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
@@ -34,6 +35,7 @@ import std.algorithm;
 import std.array;
 
 final class SemanticPass {
+	private ModuleVisitor moduleVisitor;
 	private DeclarationVisitor declarationVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
@@ -42,7 +44,10 @@ final class SemanticPass {
 	
 	private Caster!false implicitCaster;
 	private Caster!true explicitCaster;
-	
+	/*
+	private DeclarationFlattener declarationFlatener;
+	private StatementFlattener statementFlatener;
+	*/
 	DefaultInitializerVisitor defaultInitializerVisitor;
 	
 	SizeofCalculator sizeofCalculator;
@@ -78,6 +83,7 @@ final class SemanticPass {
 	this(Evaluator evaluator) {
 		this.evaluator = evaluator;
 		
+		moduleVisitor		= new ModuleVisitor(this);
 		declarationVisitor	= new DeclarationVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
@@ -86,7 +92,10 @@ final class SemanticPass {
 		
 		implicitCaster		= new Caster!false(this);
 		explicitCaster		= new Caster!true(this);
-		
+		/*
+		declarationFlattener	= new DeclarationFlattener(this);
+		statementFlattener		= new StatementFlattener(this);
+		*/
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
 		sizeofCalculator	= new SizeofCalculator(this);
@@ -121,30 +130,7 @@ final class SemanticPass {
 	}
 	
 	Module visit(Module m) {
-		auto oldCurrentScope = currentScope;
-		scope(exit) currentScope = oldCurrentScope;
-		
-		currentScope = m.dscope;
-		
-		auto oldDeclaration = declaration;
-		scope(exit) declaration = oldDeclaration;
-		
-		declaration = m;
-		
-		import std.conv;
-		
-		manglePrefix = "";
-		auto current = m.parent;
-		while(current) {
-			manglePrefix = to!string(current.name.length) ~ current.name ~ manglePrefix;
-			current = current.parent;
-		}
-		
-		manglePrefix ~= to!string(m.name.length) ~ m.name;
-		
-		m.declarations = cast(Declaration[]) scheduler.schedule(m.declarations, d => visit(d));
-		
-		return m;
+		return moduleVisitor.visit(m);
 	}
 	
 	Symbol visit(Declaration d) {
@@ -155,8 +141,8 @@ final class SemanticPass {
 		return expressionVisitor.visit(e);
 	}
 	
-	void visit(Statement s) {
-		statementVisitor.visit(s);
+	Statement visit(Statement s) {
+		return statementVisitor.visit(s);
 	}
 	
 	Type visit(Type t) {
