@@ -101,7 +101,7 @@ final class ExpressionGen {
 		LLVMValueRef postValue;
 		
 		if(auto ptrType = cast(PointerType) type) {
-			auto indice = LLVMConstInt(LLVMInt64Type(), step, true);
+			auto indice = LLVMConstInt(LLVMInt64TypeInContext(context), step, true);
 			postValue = LLVMBuildInBoundsGEP(builder, preValue, &indice, 1, "");
 		} else {
 			postValue = LLVMBuildAdd(builder, preValue, LLVMConstInt(pass.visit(type), step, true), "");
@@ -282,8 +282,8 @@ final class ExpressionGen {
 		assert(e.first.length == 1 && e.second.length == 1);
 		
 		auto indexed = addressOf(e.indexed);
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64Type(), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64Type(), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(context), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(context), "");
 		
 		// To ensure bound check. Before ptr calculation for optimization purpose.
 		computeIndice(e.location, e.indexed.type, indexed, second);
@@ -397,7 +397,7 @@ final class ExpressionGen {
 			return LLVMConstNamedStruct(type, fields.ptr, cast(uint) fields.length);
 		}
 		
-		return LLVMConstStruct(fields.ptr, cast(uint) fields.length, false);
+		return LLVMConstStructInContext(context, fields.ptr, cast(uint) fields.length, false);
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
@@ -418,7 +418,7 @@ final class ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		auto args = [buildDString(e.location.filename), LLVMConstInt(LLVMInt32Type(), e.location.line, false)];
+		auto args = [buildDString(e.location.filename), LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false)];
 		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 2, "");
 		
 		// Conclude that block.
@@ -472,7 +472,7 @@ final class AddressOfGen {
 		if(typeid(indexedType) is typeid(SliceType)) {
 			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64Type(), ""), length, ".boundCheck");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64TypeInContext(context), ""), length, ".boundCheck");
 			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 			
 			auto failBB = LLVMAppendBasicBlock(fun, "arrayBoundFail");
@@ -483,7 +483,7 @@ final class AddressOfGen {
 			// Emit bound check fail code.
 			LLVMPositionBuilderAtEnd(builder, failBB);
 			
-			auto args = [buildDString(location.filename), LLVMConstInt(LLVMInt32Type(), location.line, false)];
+			auto args = [buildDString(location.filename), LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false)];
 			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, 2, "");
 			
 			LLVMBuildUnreachable(builder);
@@ -495,7 +495,7 @@ final class AddressOfGen {
 		} else if(typeid(indexedType) is typeid(PointerType)) {
 			indexed = LLVMBuildLoad(builder, indexed, "");
 		} else if(typeid(indexedType) is typeid(StaticArrayType)) {
-			auto indices = [LLVMConstInt(LLVMInt64Type(), 0, false), indice];
+			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(context), 0, false), indice];
 			
 			return LLVMBuildInBoundsGEP(builder, indexed, indices.ptr, 2, "");
 		} else {

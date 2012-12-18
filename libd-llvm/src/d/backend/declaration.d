@@ -115,8 +115,6 @@ final class DeclarationGen {
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		LLVMBuildBr(builder, bodyBB);
 		
-		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
-		
 		return fun;
 	}
 	
@@ -165,7 +163,7 @@ final class DeclarationGen {
 	}
 	
 	LLVMTypeRef visit(StructDefinition d) {
-		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) d.mangle.toStringz());
+		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) d.mangle.toStringz());
 		typeSymbols[d] = llvmStruct;
 		
 		LLVMTypeRef[] members;
@@ -182,7 +180,7 @@ final class DeclarationGen {
 	}
 	
 	LLVMTypeRef visit(ClassDefinition d) {
-		auto llvmStruct = LLVMStructCreateNamed(LLVMGetGlobalContext(), cast(char*) d.mangle.toStringz());
+		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) d.mangle.toStringz());
 		auto structPtr = LLVMPointerType(llvmStruct, 0);
 		typeSymbols[d] = structPtr;
 		
