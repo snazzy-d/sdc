@@ -39,7 +39,7 @@ final class TypeGen {
 	LLVMTypeRef visit(BooleanType t) {
 		isSigned = false;
 		
-		return LLVMInt1Type();
+		return LLVMInt1TypeInContext(context);
 	}
 	
 	LLVMTypeRef visit(IntegerType t) {
@@ -47,16 +47,16 @@ final class TypeGen {
 		
 		final switch(t.type) {
 				case Integer.Byte, Integer.Ubyte :
-					return LLVMInt8Type();
+					return LLVMInt8TypeInContext(context);
 				
 				case Integer.Short, Integer.Ushort :
-					return LLVMInt16Type();
+					return LLVMInt16TypeInContext(context);
 				
 				case Integer.Int, Integer.Uint :
-					return LLVMInt32Type();
+					return LLVMInt32TypeInContext(context);
 				
 				case Integer.Long, Integer.Ulong :
-					return LLVMInt64Type();
+					return LLVMInt64TypeInContext(context);
 		}
 	}
 	
@@ -65,13 +65,13 @@ final class TypeGen {
 		
 		final switch(t.type) {
 				case Float.Float :
-					return LLVMFloatType();
+					return LLVMFloatTypeInContext(context);
 				
 				case Float.Double :
-					return LLVMDoubleType();
+					return LLVMDoubleTypeInContext(context);
 				
 				case Float.Real :
-					return LLVMX86FP80Type();
+					return LLVMX86FP80TypeInContext(context);
 		}
 	}
 	
@@ -81,18 +81,18 @@ final class TypeGen {
 		
 		final switch(t.type) {
 				case Character.Char :
-					return LLVMInt8Type();
+					return LLVMInt8TypeInContext(context);
 				
 				case Character.Wchar :
-					return LLVMInt16Type();
+					return LLVMInt16TypeInContext(context);
 				
 				case Character.Dchar :
-					return LLVMInt32Type();
+					return LLVMInt32TypeInContext(context);
 		}
 	}
 	
 	LLVMTypeRef visit(VoidType t) {
-		return LLVMVoidType();
+		return LLVMVoidTypeInContext(context);
 	}
 	
 	LLVMTypeRef visit(PointerType t) {
@@ -102,9 +102,9 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(SliceType t) {
-		auto types = [LLVMInt64Type(), LLVMPointerType(visit(t.type), 0)];
+		auto types = [LLVMInt64TypeInContext(context), LLVMPointerType(visit(t.type), 0)];
 		
-		return LLVMStructType(types.ptr, 2, false);
+		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
 	
 	LLVMTypeRef visit(StaticArrayType t) {

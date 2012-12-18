@@ -41,9 +41,13 @@ final class LLVMBackend : Backend {
 		char* errorPtr;
 		auto creationError = LLVMCreateJITCompilerForModule(&ee, pass.dmodule, 0, &errorPtr);
 		if(creationError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+			
 			import std.c.string;
+			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+			
 			import std.stdio;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
+			writeln(error);
 			writeln("Cannot create execution engine ! Exiting...");
 			
 			assert(0);

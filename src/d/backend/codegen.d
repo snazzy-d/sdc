@@ -35,7 +35,7 @@ final class CodeGenPass {
 	
 	DruntimeGen druntimeGen;
 	
-	private LLVMContextRef context;
+	LLVMContextRef context;
 	
 	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
@@ -60,7 +60,6 @@ final class CodeGenPass {
 		
 		druntimeGen		= new DruntimeGen(this);
 		
-		// TODO: types in context.
 		context = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(context);
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
@@ -73,6 +72,8 @@ final class CodeGenPass {
 		foreach(m; modules) {
 			visit(m);
 		}
+		
+		checkModule();
 		
 		return dmodule;
 	}
@@ -122,6 +123,8 @@ final class CodeGenPass {
 	}
 	
 	auto ctfe(Expression e, LLVMExecutionEngineRef executionEngine) {
+		scope(failure) LLVMDumpModule(dmodule);
+		
 		auto funType = LLVMFunctionType(visit(e.type), null, 0, false);
 		
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
@@ -133,10 +136,21 @@ final class CodeGenPass {
 		// Generate function's body.
 		LLVMBuildRet(builder, visit(e));
 		
-		LLVMVerifyFunction(fun, LLVMVerifierFailureAction.PrintMessage);
-		LLVMDumpModule(dmodule);
+		checkModule();
 		
 		return LLVMRunFunction(executionEngine, fun, 0, null);
+	}
+	
+	auto checkModule() {
+		char* msg;
+		if(LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus, &msg)) {
+			scope(exit) LLVMDisposeMessage(msg);
+			
+			import std.c.string;
+			auto error = msg[0 .. strlen(msg)].idup;
+			
+			throw new Exception(error);
+		}
 	}
 }
 
@@ -160,12 +174,12 @@ final:
 	
 	auto getAssert() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
+		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 2, false));
 	}
 	
 	auto getArrayBound() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidType(), [LLVMStructType([LLVMInt64Type(), LLVMPointerType(LLVMInt8Type(), 0)].ptr, 2, false), LLVMInt32Type()].ptr, 2, false));
+		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 2, false));
 	}
 }
 
