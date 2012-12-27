@@ -98,6 +98,10 @@ final class TypeGen {
 	LLVMTypeRef visit(PointerType t) {
 		auto pointed = visit(t.type);
 		
+		if(LLVMGetTypeKind(pointed) == LLVMTypeKind.Void) {
+			pointed = LLVMInt8TypeInContext(context);
+		}
+		
 		return LLVMPointerType(pointed, 0);
 	}
 	
