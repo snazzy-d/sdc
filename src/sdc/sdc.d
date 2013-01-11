@@ -20,12 +20,6 @@ import sdc.tokenstream;
 import d.parser.base;
 
 int main(string[] args) {
-	version(GC_CRASH) {
-	} else {
-		import core.memory;
-		GC.disable();
-	}
-
 	if (args.length == 1) {
 		stderr.writeln("usage: sdc file");
 		return 1;

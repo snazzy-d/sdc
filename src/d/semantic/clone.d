@@ -140,6 +140,21 @@ final:
 		return new BlockStatement(s.location, statements);
 	}
 	
+	Statement visit(DeclarationStatement s) {
+		return new DeclarationStatement(pass.visit(s.declaration));
+	}
+	
+	Statement visit(ForStatement s) {
+		auto initialize = visit(s.initialize);
+		
+		auto condition = pass.visit(s.condition);
+		auto increment = pass.visit(s.increment);
+		
+		auto statement = visit(s.statement);
+		
+		return new ForStatement(s.location, initialize, condition, increment, statement);
+	}
+	
 	Statement visit(ReturnStatement s) {
 		return new ReturnStatement(s.location, pass.visit(s.value));
 	}
@@ -198,6 +213,78 @@ final:
 	
 	Expression visit(StringLiteral e) {
 		return new StringLiteral(e.location, e.value);
+	}
+	
+	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
+		return new BinaryExpression!operation(e.location, visit(e.lhs), visit(e.rhs));
+	}
+	
+	Expression visit(CommaExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(AssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(AddExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(SubExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(AddAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(SubAssignExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(MulExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(DivExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(ModExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(EqualityExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(NotEqualityExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(GreaterExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(GreaterEqualExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LessExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LessEqualExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LogicalAndExpression e) {
+		return handleBinaryExpression(e);
+	}
+	
+	Expression visit(LogicalOrExpression e) {
+		return handleBinaryExpression(e);
 	}
 	
 	Expression visit(CallExpression e) {

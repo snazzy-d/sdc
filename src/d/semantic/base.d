@@ -38,7 +38,8 @@ struct CompilationCondition {
 }
 
 auto compilationCondition(T)(Location location, string message) {
-	final switch(raiseCondition(CompilationCondition(location, message)).outcome) {
+	auto cond = CompilationCondition(location, message);
+	final switch(raiseCondition(cond).outcome) {
 		case Outcome.Throw :
 			throw new CompilerError(location, message);
 		

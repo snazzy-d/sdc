@@ -185,10 +185,10 @@ enum Warning : uint
 
 private string warningToMessage(Warning id)
 {
-    final switch (id) with (Warning) {
-    case NestedBlockComment:
+    final switch (id) /* with (Warning) */ {
+    case Warning.NestedBlockComment:
         return "'/*' inside of block comment.";
-    case UnreachableStatement:
+    case Warning.UnreachableStatement:
         return "statement is unreachable.";
     }
     assert(false);

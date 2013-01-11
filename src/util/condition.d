@@ -33,7 +33,8 @@ unittest {
 	}
 	
 	static auto test() {
-		return raiseCondition(Condition()).outcome;
+		auto cond = Condition();
+		return raiseCondition(cond).outcome;
 	}
 	
 	assert(test() == 0);

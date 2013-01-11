@@ -67,7 +67,8 @@ final class TemplateInstancier {
 			
 			pass.currentScope = instance.dscope;
 			
-			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(instance.declarations, d => pass.visit(d));
+			auto syms = cast(Symbol[]) instance.declarations;
+			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(syms, d => pass.visit(d));
 			
 			return tplDecl.instances[id] = instance;
 		}());

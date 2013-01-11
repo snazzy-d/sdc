@@ -4,6 +4,8 @@ import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.conditional;
+import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
@@ -19,77 +21,103 @@ final class StatementVisitor {
 		this.pass = pass;
 	}
 	
-	Statement visit(Statement s) {
-		return this.dispatch(s);
-	}
-	
-	Statement visit(BlockStatement b) {
+	BlockStatement flatten(BlockStatement b) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
+		// TODO: create instead of reusing and get rid of previous passes.
 		currentScope = b.dscope;
 		
+		auto oldFlattenedStmts = flattenedStmts;
+		scope(exit) flattenedStmts = oldFlattenedStmts;
+		
+		flattenedStmts = [];
+		
 		foreach(ref s; b.statements) {
-			s = visit(s);
+			visit(s);
 		}
+		
+		b.statements = flattenedStmts;
 		
 		return b;
 	}
 	
-	Statement visit(DeclarationStatement d) {
-		d.declaration = scheduler.register(d.declaration, pass.visit(d.declaration), Step.Processed);
-		
-		return d;
+	void visit(Statement s) {
+		return this.dispatch(s);
 	}
 	
-	Statement visit(ExpressionStatement s) {
+	void visit(BlockStatement b) {
+		flattenedStmts ~= flatten(b);
+	}
+	
+	void visit(DeclarationStatement d) {
+		auto s = cast(Symbol) d.declaration;
+		d.declaration = scheduler.register(s, pass.visit(s), Step.Processed);
+		
+		flattenedStmts ~= d;
+	}
+	
+	void visit(ExpressionStatement s) {
 		s.expression = pass.visit(s.expression);
 		
-		return s;
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(IfElseStatement ifs) {
+	private auto autoBlock(Statement s) {
+		if(auto b = cast(BlockStatement) s) {
+			return flatten(b);
+		}
+		
+		auto b = new BlockStatement(s.location, [s]);
+		b.dscope = new NestedScope(currentScope);
+		
+		return flatten(b);
+	}
+	
+	void visit(IfElseStatement ifs) {
 		ifs.condition = explicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
 		
-		ifs.then = visit(ifs.then);
-		ifs.elseStatement = visit(ifs.elseStatement);
+		ifs.then = autoBlock(ifs.then);
+		ifs.elseStatement = autoBlock(ifs.elseStatement);
 		
-		return ifs;
+		flattenedStmts ~= ifs;
 	}
 	
-	Statement visit(WhileStatement w) {
+	void visit(WhileStatement w) {
 		w.condition = explicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
-		w.statement = visit(w.statement);
+		w.statement = autoBlock(w.statement);
 		
-		return w;
+		flattenedStmts ~= w;
 	}
 	
-	Statement visit(DoWhileStatement w) {
+	void visit(DoWhileStatement w) {
 		w.condition = explicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
-		w.statement = visit(w.statement);
+		w.statement = autoBlock(w.statement);
 		
-		return w;
+		flattenedStmts ~= w;
 	}
 	
-	Statement visit(ForStatement f) {
+	void visit(ForStatement f) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
 		currentScope = f.dscope;
 		
-		f.initialize = visit(f.initialize);
+		// FIXME: if initialize is flattened into several statement, scope is wrong.
+		visit(f.initialize);
+		f.initialize = flattenedStmts[$ - 1];
 		
 		f.condition = explicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
 		f.increment = pass.visit(f.increment);
 		
-		f.statement = visit(f.statement);
+		f.statement = autoBlock(f.statement);
 		
-		return f;
+		flattenedStmts[$ - 1] = f;
 	}
 	
-	Statement visit(ReturnStatement r) {
+	void visit(ReturnStatement r) {
 		r.value = pass.visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
@@ -99,52 +127,56 @@ final class StatementVisitor {
 			r.value = implicitCast(r.location, returnType, r.value);
 		}
 		
-		return r;
+		flattenedStmts ~= r;
 	}
 	
-	Statement visit(BreakStatement s) {
-		return s;
+	void visit(BreakStatement s) {
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(ContinueStatement s) {
-		return s;
+	void visit(ContinueStatement s) {
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(SwitchStatement s) {
+	void visit(SwitchStatement s) {
 		s.expression = pass.visit(s.expression);
 		
-		s.statement = visit(s.statement);
+		s.statement = autoBlock(s.statement);
 		
-		return s;
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(CaseStatement s) {
+	void visit(CaseStatement s) {
 		s.cases = s.cases.map!(e => cast(typeof(e)) pass.evaluate(pass.visit(e))).array();
 		
-		return s;
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(LabeledStatement s) {
-		s.statement = visit(s.statement);
+	void visit(LabeledStatement s) {
+		auto labelIndex = flattenedStmts.length;
 		
-		return s;
+		visit(s.statement);
+		
+		s.statement = flattenedStmts[labelIndex];
+		
+		flattenedStmts[labelIndex] = s;
 	}
 	
-	Statement visit(GotoStatement s) {
-		return s;
+	void visit(GotoStatement s) {
+		flattenedStmts ~= s;
 	}
 	
-	Statement visit(StaticIfElse!Statement s) {
+	void visit(StaticIfElse!Statement s) {
 		s.condition = evaluate(explicitCast(s.condition.location, new BooleanType(s.condition.location), pass.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) s.condition).value) {
-			assert(s.items.length == 1, "static if must have one and only one item");
-			
-			return visit(s.items[0]);
+			foreach(item; s.items) {
+				visit(item);
+			}
 		} else {
-			assert(s.elseItems.length == 1, "static else must have one and only one item");
-			
-			return visit(s.elseItems[0]);
+			foreach(item; s.elseItems) {
+				visit(item);
+			}
 		}
 	}
 }

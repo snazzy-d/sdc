@@ -9,10 +9,10 @@ import std.traits;
 
 import core.thread;
 
-alias Symbol delegate(Declaration) ProcessDg;
+alias Symbol delegate(Symbol) ProcessDg;
 
 final class Process : Fiber {
-	Declaration source;
+	Symbol source;
 	Symbol result;
 	
 	this() {
@@ -21,8 +21,8 @@ final class Process : Fiber {
 		});
 	}
 	
-	void init(Declaration decl, ProcessDg dg) {
-		source = decl;
+	void init(Symbol s, ProcessDg dg) {
+		source = s;
 		result = null;
 		
 		reset(delegate void() {
@@ -46,12 +46,12 @@ private:
 	}
 	
 	enum isPassEnum = is(Step : uint) && checkEnumElements();
-	enum isPass = is(typeof(P.init.state.declaration) : Declaration) && isPassEnum;
+	enum isPass = is(typeof(P.init.state.symbol) : Symbol) && isPassEnum;
 	
 	static assert(isPass, "you can only schedule passes.");
 	
-	template isDeclarationRange(R) {
-		enum isDeclarationRange = isInputRange!R && is(ElementType!R : Declaration);
+	template isSymbolRange(R) {
+		enum isSymbolRange = isInputRange!R && is(ElementType!R : Symbol);
 	}
 	
 	struct Result {
@@ -63,13 +63,14 @@ public:
 	final class Scheduler {
 		P pass;
 		
-		Result[Declaration] processed;
+		Result[Symbol] processed;
+		Process[Symbol] processes;
 		
 		this(P pass) {
 			this.pass = pass;
 		}
 		
-		private Process getProcess() {
+		private Process getProcess(Symbol s, ProcessDg dg) {
 			/*
 			if(pool) {
 				auto ret = pool[$ - 1];
@@ -80,15 +81,20 @@ public:
 				return ret;
 			}
 			*/
-			return new Process();
+			auto p = new Process();
+			p.init(s, dg);
+			
+			processes[s] = p;
+			
+			return p;
 		}
 		
-		private Result requireResult(Declaration d, Step step) {
-			if(auto result = d in processed) {
+		private Result requireResult(Symbol s, Step step) {
+			if(auto result = s in processed) {
 				if(result.step <= step) {
 					return *result;
-				} else if(result.symbol !is d) {
-					return processed[d] = requireResult(result.symbol, step);
+				} else if(result.symbol !is s) {
+					return processed[s] = requireResult(result.symbol, step);
 				}
 			}
 			
@@ -96,17 +102,31 @@ public:
 			scope(exit) pass.state = state;
 			
 			while(true) {
-				if(auto result = d in processed) {
+				if(auto p = s in processes) {
+					if(p.state == Fiber.State.HOLD) {
+						p.call();
+						if(p.state == Fiber.State.TERM) {
+							processes.remove(s);
+						}
+					} else {
+						// XXX: remove that when removal is done properly.
+						assert(p.state == Fiber.State.TERM, "Fiber has not been started.");
+						
+						processes.remove(s);
+					}
+				}
+				
+				if(auto result = s in processed) {
 					if(result.step <= step) {
 						return *result;
-					} else if(result.symbol !is d) {
-						return processed[d] = requireResult(result.symbol, step);
+					} else if(result.symbol !is s) {
+						return processed[s] = requireResult(result.symbol, step);
 					}
 				}
 				
 				import sdc.terminal;
-				outputCaretDiagnostics(state.declaration.location, state.declaration.toString() ~ " is waiting for...");
-				outputCaretDiagnostics(d.location, d.toString());
+				outputCaretDiagnostics(state.symbol.location, state.symbol.toString() ~ " is waiting for...");
+				outputCaretDiagnostics(s.location, s.toString());
 				
 				import std.stdio;
 				writeln("Yield !");
@@ -116,12 +136,12 @@ public:
 			}
 		}
 		
-		auto require(Declaration d, Step step = LastStep) {
-			return requireResult(d, step).symbol;
+		auto require(Symbol s, Step step = LastStep) {
+			return requireResult(s, step).symbol;
 		}
 		
 		// TODO: remove the default value of step.
-		auto register(S)(Declaration source, S symbol, Step step) if(is(S : Symbol)) {
+		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) {
 			auto result = Result(symbol, step);
 			processed[source] = result;
 			
@@ -132,15 +152,14 @@ public:
 			return symbol;
 		}
 		
-		auto schedule(R)(R decls, ProcessDg dg) if(isDeclarationRange!R) {
+		auto schedule(R)(R syms, ProcessDg dg) if(isSymbolRange!R) {
 			// Save state in order to restore it later.
 			auto state = pass.state;
 			scope(exit) pass.state = state;
 			
 			Process[] allTasks;
-			foreach(decl; decls) {
-				auto task = getProcess();
-				task.init(decl, dg);
+			foreach(s; syms) {
+				auto task = getProcess(s, dg);
 				
 				pass.state = state;
 				task.call();
@@ -178,7 +197,7 @@ public:
 				updateTasks();
 			}
 			
-			return allTasks.map!(p => p.result).array();
+			return allTasks.map!(function Symbol(Process p) { return p.result; }).array();
 		}
 	}
 }

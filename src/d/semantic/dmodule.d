@@ -48,10 +48,10 @@ final class ModuleVisitor {
 		
 		currentScope = m.dscope;
 		
-		auto oldDeclaration = declaration;
-		scope(exit) declaration = oldDeclaration;
+		auto oldSymbol = symbol;
+		scope(exit) symbol = oldSymbol;
 		
-		declaration = m;
+		symbol = m;
 		
 		import std.conv;
 		
@@ -64,7 +64,8 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
-		m.declarations = cast(Declaration[]) scheduler.schedule(m.declarations, d => pass.visit(d));
+		auto syms = cast(Symbol[]) m.declarations;
+		m.declarations = cast(Declaration[]) scheduler.schedule(syms, d => pass.visit(d));
 		
 		return m;
 	}

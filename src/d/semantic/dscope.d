@@ -44,11 +44,6 @@ final:
 	Module[] visit(Module[] modules) {
 		modules = flattenPass.visit(modules);
 		
-		version(GC_CRASH) {
-			import core.memory;
-			GC.collect();
-		}
-		
 		// Must be separated because ~ operator don't preserve order of execution.
 		modules = modules.map!(m => visit(m)).array();
 		

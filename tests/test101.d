@@ -1,37 +1,36 @@
 //T compiles:yes
-//T has-passed:no
 //T retval:42
 
 int main() {
-	auto a = Foo!bool + Foo!byte + Foo!ushort + Foo!int + Foo!float;
+	auto a = foo!bool() + foo!byte() + foo!ushort() + foo!int() + foo!float();
 	assert(a == 10);
 	
-	a += Foo!char;
+	a += foo!char();
 	
-	auto b = Foo!long + Foo!double;
+	auto b = foo!long() + foo!double();
 	
 	assert(b == 30);
 	
     return a + b;
 }
 
-template Foo(T) {
-	static if(buzz(T.sizeof)) {
-		enum Foo = 15;
+uint foo(T)() {
+	static if(buzz(T.sizeof) > 10) {
+		uint ret = buzz(T.sizeof);
+		return ret;
 	} else {
-		enum Foo = 2;
+		uint ret = T.sizeof / 2;
+		return ret * 2;
 	}
 }
 
-bool buzz(size_t sizeof) {
-	if(sizeof > 4) {
-		return true;
-	} else {
-		return false;
+uint buzz(size_t sizeof) {
+	uint ret = 1;
+	for(uint i = 0; i < sizeof; ++i) {
+		// TODO: refactor when *= is supported.
+		ret = ret * 2;
 	}
-}
-
-struct Bar(T) {
-	T t;
+	
+	return ret;
 }
 
