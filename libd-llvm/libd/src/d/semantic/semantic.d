@@ -5,7 +5,6 @@ module d.semantic.semantic;
 
 import d.semantic.base;
 import d.semantic.caster;
-import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.dtemplate;
@@ -16,6 +15,7 @@ import d.semantic.identifiable;
 import d.semantic.mangler;
 import d.semantic.sizeof;
 import d.semantic.statement;
+import d.semantic.symbol;
 import d.semantic.type;
 
 import d.ast.declaration;
@@ -36,7 +36,7 @@ import std.array;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private DeclarationVisitor declarationVisitor;
+	private SymbolVisitor symbolVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
 	private TypeVisitor typeVisitor;
@@ -58,7 +58,7 @@ final class SemanticPass {
 	Evaluator evaluator;
 	
 	static struct State {
-		Declaration declaration;
+		Symbol symbol;
 		
 		Scope currentScope;
 		
@@ -66,6 +66,9 @@ final class SemanticPass {
 		Type thisType;
 		
 		string manglePrefix;
+		
+		Statement[] flattenedStmts;
+		Symbol[] flattenedSyms;
 	}
 	
 	State state;
@@ -84,7 +87,7 @@ final class SemanticPass {
 		this.evaluator = evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this);
-		declarationVisitor	= new DeclarationVisitor(this);
+		symbolVisitor		= new SymbolVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
@@ -133,16 +136,16 @@ final class SemanticPass {
 		return moduleVisitor.visit(m);
 	}
 	
-	Symbol visit(Declaration d) {
-		return declarationVisitor.visit(d);
+	Symbol visit(Symbol s) {
+		return symbolVisitor.visit(s);
 	}
 	
 	Expression visit(Expression e) {
 		return expressionVisitor.visit(e);
 	}
 	
-	Statement visit(Statement s) {
-		return statementVisitor.visit(s);
+	BlockStatement visit(BlockStatement s) {
+		return statementVisitor.flatten(s);
 	}
 	
 	Type visit(Type t) {
