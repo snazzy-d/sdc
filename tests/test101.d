@@ -3,13 +3,12 @@
 
 int main() {
 	auto a = foo!bool() + foo!byte() + foo!ushort() + foo!int() + foo!float();
-	assert(a == 10);
+	assert(a == 40);
 	
 	a += foo!char();
 	
 	auto b = foo!long() + foo!double();
-	
-	assert(b == 30);
+	assert(b == 512);
 	
     return a + b;
 }
@@ -20,7 +19,7 @@ uint foo(T)() {
 		return ret;
 	} else {
 		uint ret = T.sizeof / 2;
-		return ret * 2;
+		return (ret + 1) * 2;
 	}
 }
 

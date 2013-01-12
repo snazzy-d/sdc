@@ -24,7 +24,7 @@ class Scope {
 	Module[] imports;
 	
 	void addSymbol(Symbol s) {
-		assert(!(s.name in symbols));
+		assert(!(s.name in symbols), s.name ~ " is already present in scope.");
 		
 		symbols[s.name] = s;
 	}

@@ -25,8 +25,7 @@ final class StatementVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		// TODO: create instead of reusing and get rid of previous passes.
-		currentScope = b.dscope;
+		currentScope = new NestedScope(oldScope);
 		
 		auto oldFlattenedStmts = flattenedStmts;
 		scope(exit) flattenedStmts = oldFlattenedStmts;
@@ -50,11 +49,20 @@ final class StatementVisitor {
 		flattenedStmts ~= flatten(b);
 	}
 	
-	void visit(DeclarationStatement d) {
-		auto s = cast(Symbol) d.declaration;
-		d.declaration = scheduler.register(s, pass.visit(s), Step.Processed);
+	void visit(DeclarationStatement s) {
+		auto sym = cast(Symbol) s.declaration;
 		
-		flattenedStmts ~= d;
+		// XXX: uglyness :D
+		import d.semantic.dscope;
+		auto scopePass = new ScopePass();
+		scopePass.currentScope = currentScope;
+		
+		scopePass.visit(sym);
+		// XXX: end of uglyness.
+		
+		s.declaration = scheduler.register(sym, pass.visit(sym), Step.Processed);
+		
+		flattenedStmts ~= s;
 	}
 	
 	void visit(ExpressionStatement s) {
@@ -69,7 +77,6 @@ final class StatementVisitor {
 		}
 		
 		auto b = new BlockStatement(s.location, [s]);
-		b.dscope = new NestedScope(currentScope);
 		
 		return flatten(b);
 	}
@@ -103,7 +110,7 @@ final class StatementVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = f.dscope;
+		currentScope = new NestedScope(currentScope);
 		
 		// FIXME: if initialize is flattened into several statement, scope is wrong.
 		visit(f.initialize);

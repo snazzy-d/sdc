@@ -22,11 +22,10 @@ import d.parser.base;
 
 class ScopePass {
 	private DeclarationVisitor declarationVisitor;
-	private StatementVisitor statementVisitor;
 	
 	private FlattenPass flattenPass;
 	
-	private Scope currentScope;
+	Scope currentScope;
 	private Scope adtScope;
 	
 	private uint scopeIndex;
@@ -35,7 +34,6 @@ class ScopePass {
 	
 	this() {
 		declarationVisitor	= new DeclarationVisitor(this);
-		statementVisitor	= new StatementVisitor(this);
 		
 		flattenPass = new FlattenPass();
 	}
@@ -105,10 +103,6 @@ final:
 	auto visit(Declaration decl) {
 		return declarationVisitor.visit(decl);
 	}
-	
-	auto visit(Statement stmt) {
-		return statementVisitor.visit(stmt);
-	}
 }
 
 import d.ast.adt;
@@ -146,8 +140,6 @@ final:
 		foreach(p; fun.parameters) {
 			currentScope.addSymbol(p);
 		}
-		
-		pass.visit(fun.fbody);
 		
 		fun.dscope = currentScope;
 		
@@ -270,104 +262,6 @@ final:
 		currentScope.imports ~= addToScope;
 		
 		return d;
-	}
-}
-
-class StatementVisitor {
-	private ScopePass pass;
-	alias pass this;
-	
-	this(ScopePass pass) {
-		this.pass = pass;
-	}
-	
-final:
-	void visit(Statement s) {
-		this.dispatch(s);
-	}
-	
-	void visit(ExpressionStatement e) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(DeclarationStatement ds) {
-		pass.visit(ds.declaration);
-	}
-	
-	void visit(BlockStatement b) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = new NestedScope(oldScope);
-		
-		foreach(s; b.statements) {
-			visit(s);
-		}
-		
-		b.dscope = currentScope;
-	}
-	
-	void visit(IfElseStatement ifs) {
-		visit(ifs.then);
-		visit(ifs.elseStatement);
-	}
-	
-	void visit(WhileStatement w) {
-		visit(w.statement);
-	}
-	
-	void visit(DoWhileStatement w) {
-		visit(w.statement);
-	}
-	
-	void visit(ForStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = new NestedScope(oldScope);
-		
-		visit(f.initialize);
-		visit(f.statement);
-		
-		f.dscope = currentScope;
-	}
-	
-	void visit(ReturnStatement r) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(BreakStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(ContinueStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(SwitchStatement s) {
-		visit(s.statement);
-	}
-	
-	void visit(CaseStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(LabeledStatement s) {
-		visit(s.statement);
-	}
-	
-	void visit(GotoStatement s) {
-		// Nothing needs to be done.
-	}
-	
-	void visit(StaticIfElse!Statement s) {
-		foreach(i; s.items) {
-			visit(i);
-		}
-		
-		foreach(i; s.elseItems) {
-			visit(i);
-		}
 	}
 }
 
