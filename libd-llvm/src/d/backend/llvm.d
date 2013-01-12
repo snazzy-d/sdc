@@ -46,7 +46,6 @@ final class LLVMBackend : Backend {
 			import std.c.string;
 			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 			
-			import std.stdio;
 			writeln(error);
 			writeln("Cannot create execution engine ! Exiting...");
 			
@@ -59,6 +58,9 @@ final class LLVMBackend : Backend {
 		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 		LLVMPassManagerBuilderSetOptLevel(pmb, 0);
 		/*/
+		LLVMDumpModule(dmodule);
+		writeln("\n; Optimized as :");
+		
 		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
 		LLVMPassManagerBuilderSetOptLevel(pmb, 3);
 		//*/
