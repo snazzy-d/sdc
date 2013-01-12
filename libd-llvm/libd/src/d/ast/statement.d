@@ -18,8 +18,6 @@ class Statement : Node {
 class BlockStatement : Statement {
 	Statement[] statements;
 	
-	Scope dscope;
-	
 	this(Location location, Statement[] statements) {
 		super(location);
 		
@@ -127,8 +125,6 @@ class ForStatement : Statement {
 	Expression condition;
 	Expression increment;
 	Statement statement;
-	
-	Scope dscope;
 	
 	this(Location location, Statement initialize, Expression condition, Expression increment, Statement statement) {
 		super(location);
