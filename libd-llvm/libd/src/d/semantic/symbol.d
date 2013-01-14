@@ -66,6 +66,8 @@ final class SymbolVisitor {
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
 		
+		scheduler.register(d, d, Step.Processed);
+		
 		return d;
 	}
 	
@@ -137,6 +139,8 @@ final class SymbolVisitor {
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
 		
+		scheduler.register(d, d, Step.Processed);
+		
 		return d;
 	}
 	
@@ -156,15 +160,17 @@ final class SymbolVisitor {
 			d.type = pass.visit(d.type);
 		}
 		
+		d.value = implicitCast(d.location, d.type, d.value);
+		
 		if(d.isEnum) {
 			d.value = evaluate(d.value);
 		}
 		
-		d.value = implicitCast(d.location, d.type, d.value);
-		
 		if(d.isStatic) {
 			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ typeMangler.visit(d.type);
 		}
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}
@@ -173,6 +179,8 @@ final class SymbolVisitor {
 		// XXX: hacky !
 		auto oldIsEnum = d.isEnum;
 		scope(exit) d.isEnum = oldIsEnum;
+		
+		d.isEnum = true;
 		
 		return visit(cast(VariableDeclaration) d);
 	}
@@ -320,11 +328,15 @@ final class SymbolVisitor {
 	Symbol visit(AliasDeclaration d) {
 		d.type = pass.visit(d.type);
 		
+		scheduler.register(d, d, Step.Processed);
+		
 		return d;
 	}
 	
 	Symbol visit(TemplateDeclaration d) {
 		d.mangle = manglePrefix;
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}
