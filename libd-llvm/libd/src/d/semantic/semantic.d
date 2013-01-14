@@ -5,6 +5,7 @@ module d.semantic.semantic;
 
 import d.semantic.base;
 import d.semantic.caster;
+import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.dtemplate;
@@ -36,6 +37,7 @@ import std.array;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
+	private DeclarationVisitor declarationVisitor;
 	private SymbolVisitor symbolVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
@@ -44,10 +46,7 @@ final class SemanticPass {
 	
 	private Caster!false implicitCaster;
 	private Caster!true explicitCaster;
-	/*
-	private DeclarationFlattener declarationFlatener;
-	private StatementFlattener statementFlatener;
-	*/
+	
 	DefaultInitializerVisitor defaultInitializerVisitor;
 	
 	SizeofCalculator sizeofCalculator;
@@ -68,7 +67,7 @@ final class SemanticPass {
 		string manglePrefix;
 		
 		Statement[] flattenedStmts;
-		Symbol[] flattenedSyms;
+		Symbol[] flattenedDecls;
 	}
 	
 	State state;
@@ -87,6 +86,7 @@ final class SemanticPass {
 		this.evaluator = evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this);
+		declarationVisitor	= new DeclarationVisitor(this);
 		symbolVisitor		= new SymbolVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
@@ -95,10 +95,7 @@ final class SemanticPass {
 		
 		implicitCaster		= new Caster!false(this);
 		explicitCaster		= new Caster!true(this);
-		/*
-		declarationFlattener	= new DeclarationFlattener(this);
-		statementFlattener		= new StatementFlattener(this);
-		*/
+		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
 		sizeofCalculator	= new SizeofCalculator(this);
@@ -112,8 +109,6 @@ final class SemanticPass {
 	auto process(Module[] modules) {
 		Process[] allTasks;
 		foreach(m; modules) {
-			scheduler.register(m, m, Step.Populated);
-			
 			auto t = new Process();
 			t.init(m, d => visit(cast(Module) d));
 			
@@ -134,6 +129,10 @@ final class SemanticPass {
 	
 	Module visit(Module m) {
 		return moduleVisitor.visit(m);
+	}
+	
+	Symbol[] visit(Declaration[] decls) {
+		return declarationVisitor.flatten(decls);
 	}
 	
 	Symbol visit(Symbol s) {

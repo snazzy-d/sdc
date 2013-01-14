@@ -49,8 +49,11 @@ final class IdentifierVisitor {
 			return symbol;
 		}
 		
-		foreach(mod; currentScope.imports) {
-			auto symInMod = mod.dscope.resolve(i.name);
+		foreach(m; currentScope.imports) {
+			m = cast(Module) scheduler.require(m, Step.Populated);
+			assert(m);
+			
+			auto symInMod = m.dscope.resolve(i.name);
 			
 			if(symInMod) {
 				if(symbol) {
@@ -78,14 +81,15 @@ final class IdentifierVisitor {
 			return visit(new TypeDotIdentifier(i.location, i.name, t));
 		} else if(auto e = resolved.asExpression()) {
 			return visit(new ExpressionDotIdentifier(i.location, i.name, e));
-		} else {
-			auto s = resolved.asSymbol();
+		} else if(auto s = resolved.asSymbol()) {
+			s = scheduler.require(s, Step.Populated);
+			
 			if(auto m = cast(Module) s) {
 				return visit(i.location, m.dscope.resolve(i.name));
 			}
-			
-			assert(0, "can't resolve " ~ i.name ~ ".");
 		}
+		
+		assert(0, "can't resolve " ~ i.name ~ ".");
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
@@ -227,7 +231,12 @@ final class TypeDotIdentifierVisitor {
 				return Identifiable(new SizeofExpression(i.location, i.type));
 			
 			default :
-				assert(0, i.name ~ " can't be resolved in type.");
+				auto msg = i.name ~ " can't be resolved in type.";
+				
+				import sdc.terminal;
+				outputCaretDiagnostics(i.location, msg);
+				
+				assert(0, msg);
 		}
 	}
 }
@@ -394,8 +403,10 @@ final class SymbolInTypeResolver {
 		}
 	}
 	
+	// XXX: why is this needed and not for struct/classes ?
 	Symbol visit(string name, EnumType t) {
-		auto s = t.declaration.dscope.resolve(name);
+		auto d = cast(EnumDeclaration) scheduler.require(t.declaration, Step.Populated);
+		auto s = d.dscope.resolve(name);
 		
 		return s?s:visit(name, t.type);
 	}
@@ -409,10 +420,12 @@ final class SymbolInTypeResolver {
 	}
 	
 	Symbol visit(string name, StructDefinition s) {
+		s = cast(StructDefinition) scheduler.require(s, Step.Populated);
 		return s.dscope.resolve(name);
 	}
 	
 	Symbol visit(string name, EnumDeclaration d) {
+		d = cast(EnumDeclaration) scheduler.require(d, Step.Populated);
 		return d.dscope.resolve(name);
 	}
 }

@@ -5,6 +5,7 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
@@ -57,17 +58,16 @@ final class TemplateInstancier {
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
 			
-			import d.semantic.dscope;
-			auto scopePass = new ScopePass();
-			instance = scopePass.visit(instance, tplDecl);
 			
 			// Update scope.
 			auto oldScope = pass.currentScope;
 			scope(exit) pass.currentScope = oldScope;
 			
-			pass.currentScope = instance.dscope;
+			pass.currentScope = new NestedScope(oldScope);
 			
-			auto syms = cast(Symbol[]) instance.declarations;
+			auto syms = cast(Symbol[]) pass.visit(instance.declarations);
+			
+			instance.dscope = pass.currentScope;
 			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(syms, d => pass.visit(d));
 			
 			return tplDecl.instances[id] = instance;

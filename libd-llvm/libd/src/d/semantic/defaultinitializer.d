@@ -75,6 +75,7 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, StructDefinition d) {
+		d = cast(StructDefinition) scheduler.require(d, Step.Populated);
 		auto init = cast(VariableDeclaration) d.dscope.resolve("init");
 		
 		return init.value;

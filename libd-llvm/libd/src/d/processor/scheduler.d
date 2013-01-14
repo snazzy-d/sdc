@@ -91,7 +91,7 @@ public:
 		
 		private Result requireResult(Symbol s, Step step) {
 			if(auto result = s in processed) {
-				if(result.step <= step) {
+				if(result.step >= step) {
 					return *result;
 				} else if(result.symbol !is s) {
 					return processed[s] = requireResult(result.symbol, step);
@@ -105,19 +105,15 @@ public:
 				if(auto p = s in processes) {
 					if(p.state == Fiber.State.HOLD) {
 						p.call();
-						if(p.state == Fiber.State.TERM) {
-							processes.remove(s);
-						}
-					} else {
-						// XXX: remove that when removal is done properly.
-						assert(p.state == Fiber.State.TERM, "Fiber has not been started.");
-						
+					}
+					
+					if(p.state == Fiber.State.TERM) {
 						processes.remove(s);
 					}
 				}
 				
 				if(auto result = s in processed) {
-					if(result.step <= step) {
+					if(result.step >= step) {
 						return *result;
 					} else if(result.symbol !is s) {
 						return processed[s] = requireResult(result.symbol, step);
