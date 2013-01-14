@@ -70,7 +70,7 @@ public:
 			this.pass = pass;
 		}
 		
-		private Process getProcess(Symbol s, ProcessDg dg) {
+		private void runProcess(Symbol s, ProcessDg dg) {
 			/*
 			if(pool) {
 				auto ret = pool[$ - 1];
@@ -84,9 +84,11 @@ public:
 			auto p = new Process();
 			p.init(s, dg);
 			
-			processes[s] = p;
+			p.call();
 			
-			return p;
+			if(p.state == Fiber.State.HOLD) {
+				processes[s] = p;
+			}
 		}
 		
 		private Result requireResult(Symbol s, Step step) {
@@ -103,6 +105,9 @@ public:
 			
 			while(true) {
 				if(auto p = s in processes) {
+					import std.conv;
+					assert(p.state == Fiber.State.HOLD || p.state == Fiber.State.TERM, to!string(p.state));
+					
 					if(p.state == Fiber.State.HOLD) {
 						p.call();
 					}
@@ -154,46 +159,13 @@ public:
 			scope(exit) pass.state = state;
 			
 			Process[] allTasks;
-			foreach(s; syms) {
-				auto task = getProcess(s, dg);
+			foreach(s; syms.save) {
+				runProcess(s, dg);
 				
 				pass.state = state;
-				task.call();
-				
-				allTasks ~= task;
 			}
 			
-			auto tasks = allTasks;
-			void updateTasks() {
-				auto oldTasks = tasks;
-				tasks = [];
-				
-				foreach(t; oldTasks) {
-					if(t.result) {
-						register(t.source, t.result, LastStep);
-					} else {
-						tasks ~= t;
-					}
-				}
-			}
-			
-			updateTasks();
-			while(tasks) {
-				// TODO: update dependancy.
-				import std.stdio;
-				writeln("Yield (waiting for child to complete) !");
-				
-				// Thread.sleep(dur!"seconds"(1));
-				Fiber.yield();
-				
-				foreach(t; tasks) {
-					if(t.result is null) t.call();
-				}
-				
-				updateTasks();
-			}
-			
-			return allTasks.map!(function Symbol(Process p) { return p.result; }).array();
+			return syms.map!(s => require(s)).array();
 		}
 	}
 }
