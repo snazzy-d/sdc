@@ -388,7 +388,7 @@ final class ExpressionGen {
 		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
 	}
 	
-	LLVMValueRef visit(TupleExpression e) {
+	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
 		auto fields = e.values.map!(v => visit(v)).array();
 		
 		// Hack around the difference between struct and named struct in LLVM.
@@ -398,6 +398,14 @@ final class ExpressionGen {
 		}
 		
 		return LLVMConstStructInContext(context, fields.ptr, cast(uint) fields.length, false);
+	}
+	
+	LLVMValueRef visit(TupleExpression e) {
+		return handleTuple(e);
+	}
+	
+	LLVMValueRef visit(CompileTimeTupleExpression e) {
+		return handleTuple(e);
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
