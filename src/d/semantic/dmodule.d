@@ -53,8 +53,11 @@ final class ModuleVisitor {
 		
 		symbol = m;
 		
-		import std.conv;
+		auto syms = pass.visit(m.declarations);
 		
+		scheduler.register(m, m, Step.Populated);
+		
+		import std.conv;
 		manglePrefix = "";
 		auto current = m.parent;
 		while(current) {
@@ -64,7 +67,6 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
-		auto syms = cast(Symbol[]) m.declarations;
 		m.declarations = cast(Declaration[]) scheduler.schedule(syms, d => pass.visit(d));
 		
 		return m;

@@ -6,6 +6,7 @@ import d.semantic.semantic;
 import d.ast.adt;
 import d.ast.dfunction;
 import d.ast.declaration;
+import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
@@ -189,36 +190,51 @@ final class SymbolVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = d.dscope;
+		currentScope = d.dscope = new NestedScope(oldScope);
 		
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
 		
 		thisType = new SymbolType(d.location, d);
 		
-		auto fields = cast(FieldDeclaration[]) d.members.filter!(m => typeid(m) is typeid(FieldDeclaration)).array();
-		fields = cast(FieldDeclaration[]) scheduler.schedule(fields, f => visit(f));
+		FieldDeclaration[] fields;
+		Declaration[] otherMembers;
+		uint fieldIndex;
+		foreach(m; d.members) {
+			if(auto var = cast(VariableDeclaration) m) {
+				if(!var.isStatic) {
+					auto f = new FieldDeclaration(var, fieldIndex++);
+					currentScope.addSymbol(f);
+					fields ~= f;
+					
+					continue;
+				}
+			}
+			
+			otherMembers ~= m;
+		}
 		
-		auto initDecl = cast(VariableDeclaration) d.dscope.resolve("init");
-		assert(initDecl);
+		auto otherSymbols = pass.visit(otherMembers);
+		
+		// Create .init
+		fields = cast(FieldDeclaration[]) scheduler.schedule(fields, f => visit(f));
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = thisType;
 		
-		initDecl.value = tuple;
-		initDecl.type = thisType;
-		initDecl.mangle = "_D" ~ manglePrefix ~ to!string(initDecl.name.length) ~ initDecl.name ~ d.mangle;
+		auto init = new VariableDeclaration(d.location, thisType, "init", tuple);
+		init.isStatic = true;
+		init.mangle = "_D" ~ manglePrefix ~ to!string(init.name.length) ~ init.name ~ d.mangle;
 		
-		scheduler.register(initDecl, initDecl, Step.Processed);
+		d.dscope.addSymbol(init);
+		scheduler.register(init, init, Step.Processed);
 		
-		// XXX: Not quite right !
+		scheduler.register(d, d, Step.Populated);
+		
+		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
-		auto otherSymbols = cast(Symbol[]) d.members.filter!(delegate bool(Declaration m) {
-			return typeid(m) !is typeid(FieldDeclaration) && m !is initDecl;
-		}).array();
-		
-		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m)) ~ initDecl;
+		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m)) ~ init;
 		
 		return d;
 	}
@@ -235,18 +251,19 @@ final class SymbolVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = d.dscope;
+		currentScope = d.dscope = new NestedScope(oldScope);
 		
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
 		
 		thisType = new SymbolType(d.location, d);
 		
+		auto members = pass.visit(d.members);
+		
 		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);
 		
-		auto syms = cast(Symbol[]) d.members;
-		d.members = cast(Declaration[]) scheduler.schedule(syms, m => visit(m));
+		d.members = cast(Declaration[]) scheduler.schedule(members, m => visit(m));
 		
 		return d;
 	}
@@ -270,6 +287,12 @@ final class SymbolVisitor {
 		
 		d.mangle = "E" ~ manglePrefix;
 		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = d.dscope = new NestedScope(oldScope);
+		
+		// XXX: Big lie again !
 		scheduler.register(d, d, Step.Processed);
 		
 		VariableDeclaration previous;
@@ -285,6 +308,7 @@ final class SymbolVisitor {
 			e.value = explicitCast(e.location, type, pass.evaluate(pass.visit(e.value)));
 			e.type = type;
 			
+			d.dscope.addSymbol(e);
 			scheduler.register(e, e, Step.Processed);
 			
 			previous = e;

@@ -31,7 +31,3 @@ bool buzz(size_t sizeof) {
 	}
 }
 
-struct Bar(T) {
-	T t;
-}
-

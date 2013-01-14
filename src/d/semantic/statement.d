@@ -50,16 +50,11 @@ final class StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement s) {
-		auto sym = cast(Symbol) s.declaration;
+		// TODO: avoid allocating an array for that.
+		auto syms = pass.visit([s.declaration]);
+		assert(syms.length == 1);
 		
-		// XXX: uglyness :D
-		import d.semantic.dscope;
-		auto scopePass = new ScopePass();
-		scopePass.currentScope = currentScope;
-		
-		scopePass.visit(sym);
-		// XXX: end of uglyness.
-		
+		auto sym = syms[0];
 		s.declaration = scheduler.register(sym, pass.visit(sym), Step.Processed);
 		
 		flattenedStmts ~= s;
