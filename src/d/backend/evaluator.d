@@ -12,6 +12,9 @@ import util.visitor;
 import llvm.c.core;
 import llvm.c.executionEngine;
 
+import std.algorithm;
+import std.array;
+
 // In order to JIT.
 extern(C) void _d_assert();
 extern(C) void _d_array_bounds();
@@ -64,6 +67,10 @@ final class LLVMEvaluator : Evaluator {
 		return e;
 	}
 	
+	CompileTimeExpression visit(TupleExpression e) {
+		return new CompileTimeTupleExpression(e.location, e.values.map!(e => evaluate(e)).array());
+	}
+	
 	// Actual JIT
 	private CompileTimeExpression jit(Expression e) {
 		if(auto t = cast(IntegerType) e.type) {
@@ -80,7 +87,7 @@ final class LLVMEvaluator : Evaluator {
 			return new BooleanLiteral(e.location, !!returned);
 		}
 		
-		assert(0, "Only able to JIT integers and booleans.");
+		assert(0, "Only able to JIT integers and booleans, " ~ typeid(e).toString() ~ " given.");
 	}
 	
 	private auto jitInteger(Expression e) {

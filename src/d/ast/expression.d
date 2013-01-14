@@ -629,12 +629,25 @@ class SizeofExpression : Expression {
 /**
  * tuples. Also used for struct initialization.
  */
-class TupleExpression : Expression {
-	Expression[] values;
+template TupleExpressionImpl(bool isCompileTime = false) {
+	static if(isCompileTime) {
+		alias E = CompileTimeExpression;
+	} else {
+		alias E = Expression;
+	}
 	
-	this(Location location, Expression[] values) {
-		super(location);
+	class TupleExpressionImpl : E {
+		E[] values;
+	
+		this(Location location, E[] values) {
+			super(location);
 		
-		this.values = values;
+			this.values = values;
+		}
 	}
 }
+
+// XXX: required as long as 0 argument instanciation is not possible.
+alias TupleExpression = TupleExpressionImpl!false;
+alias CompileTimeTupleExpression = TupleExpressionImpl!true;
+
