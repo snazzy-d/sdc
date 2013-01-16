@@ -42,36 +42,47 @@ final class IdentifierVisitor {
 		return this.dispatch(i);
 	}
 	
-	private Symbol resolveBasicIdentifier(BasicIdentifier i) {
-		auto symbol = currentScope.search(i.name);
+	private Symbol resolveImportedSymbol(string name) {
+		auto dscope = currentScope;
 		
-		if(symbol) {
-			return symbol;
-		}
-		
-		foreach(m; currentScope.imports) {
-			m = cast(Module) scheduler.require(m, Step.Populated);
-			assert(m);
+		while(true) {
+			Symbol symbol;
 			
-			auto symInMod = m.dscope.resolve(i.name);
-			
-			if(symInMod) {
-				if(symbol) {
-					assert(0, "Ambiguous symbol " ~ i.name);
-				}
+			foreach(m; currentScope.imports) {
+				m = cast(Module) scheduler.require(m, Step.Populated);
+				assert(m);
 				
-				symbol = symInMod;
+				auto symInMod = m.dscope.resolve(name);
+				
+				if(symInMod) {
+					if(symbol) {
+						assert(0, "Ambiguous symbol " ~ name);
+					}
+					
+					symbol = symInMod;
+				}
+			}
+			
+			if(symbol) return symbol;
+			
+			if(auto nested = cast(NestedScope) dscope) {
+				dscope = nested.parent;
+			} else {
+				// No symbol have been found in the module, look for other modules.
+				assert(0, "Symbol " ~ name ~ " has not been found.");
 			}
 		}
+	}
+	
+	private Symbol resolveName(string name) {
+		auto symbol = currentScope.search(name);
 		
-		// No symbol have been found in the module, look for other modules.
-		assert(symbol, "Symbol " ~ i.name ~ " has not been found.");
-		
-		return symbol;
+		// I wish we had ?:
+		return symbol ? symbol : resolveImportedSymbol(name);
 	}
 	
 	Identifiable visit(BasicIdentifier i) {
-		return visit(i.location, resolveBasicIdentifier(i));
+		return visit(i.location, resolveName(i.name));
 	}
 	
 	Identifiable visit(IdentifierDotIdentifier i) {
@@ -337,7 +348,7 @@ final class TemplateDotIdentifierVisitor {
 	}
 	
 	Symbol visit(BasicIdentifier i) {
-		return visit(identifierVisitor.resolveBasicIdentifier(i));
+		return visit(identifierVisitor.resolveName(i.name));
 	}
 	
 	Symbol visit(Symbol s) {

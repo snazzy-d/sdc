@@ -101,7 +101,6 @@ void compile(string filename) {
 	
 	// Test the new scheduler system.
 	import d.semantic.semantic;
-	import d.semantic.dscope;
 	import d.semantic.flatten;
 	
 	import d.backend.evaluator;
@@ -110,7 +109,7 @@ void compile(string filename) {
 	auto evaluator	= new LLVMEvaluator(backend.pass);
 	
 	auto semantic = new SemanticPass(evaluator);
-	ast = semantic.process((new ScopePass()).visit(ast));
+	ast = semantic.process((new FlattenPass()).visit(ast));
 	
 	import d.semantic.main;
 	ast.back = buildMain(ast.back);

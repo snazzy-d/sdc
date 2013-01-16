@@ -6,6 +6,7 @@ import d.semantic.semantic;
 import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dfunction;
+import d.ast.dmodule;
 import d.ast.dscope;
 import d.ast.dtemplate;
 
@@ -105,6 +106,18 @@ final class DeclarationVisitor {
 		currentScope.addSymbol(d);
 		
 		flattenedDecls ~= d;
+	}
+	
+	void visit(ImportDeclaration d) {
+		auto names = d.modules.map!(pkg => pkg.join(".")).array();
+		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
+		
+		Module[] addToScope;
+		foreach(name; d.modules) {
+			addToScope ~= importModule(name);
+		}
+		
+		currentScope.imports ~= addToScope;
 	}
 }
 
