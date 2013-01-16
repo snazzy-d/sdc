@@ -183,6 +183,10 @@ class Parameter : ExpressionSymbol {
 	this(Location location, string name, Type type) {
 		super(location, name, type);
 	}
+	
+	invariant() {
+		assert(type !is null, "A parameter must have a type.");
+	}
 }
 
 class InitializedParameter : Parameter {

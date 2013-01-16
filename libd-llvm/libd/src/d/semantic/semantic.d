@@ -77,7 +77,6 @@ final class SemanticPass {
 	
 	enum Step {
 		Parsed,
-		Flatened,
 		Populated,
 		Processed,
 	}
@@ -107,6 +106,8 @@ final class SemanticPass {
 	}
 	
 	auto process(Module[] modules) {
+		moduleVisitor.preregister(modules);
+		
 		Process[] allTasks;
 		foreach(m; modules) {
 			auto t = new Process();
@@ -169,6 +170,10 @@ final class SemanticPass {
 	
 	auto evaluate(Expression e) {
 		return evaluator.evaluate(e);
+	}
+	
+	auto importModule(string[] pkgs) {
+		return moduleVisitor.importModule(pkgs);
 	}
 }
 

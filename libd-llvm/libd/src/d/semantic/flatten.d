@@ -41,7 +41,7 @@ final class FlattenPass {
 		return modules.map!(m => visit(m)).array();
 	}
 	
-	private Module visit(Module m) {
+	Module visit(Module m) {
 		m.declarations = visit(m.declarations);
 		
 		return m;

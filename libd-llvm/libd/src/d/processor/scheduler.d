@@ -141,7 +141,6 @@ public:
 			return requireResult(s, step).symbol;
 		}
 		
-		// TODO: remove the default value of step.
 		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) {
 			auto result = Result(symbol, step);
 			processed[source] = result;
@@ -153,7 +152,8 @@ public:
 			return symbol;
 		}
 		
-		auto schedule(R)(R syms, ProcessDg dg) if(isSymbolRange!R) {
+		// TODO: remove the default value of step.
+		auto schedule(R)(R syms, ProcessDg dg, Step step = LastStep) if(isSymbolRange!R) {
 			// Save state in order to restore it later.
 			auto state = pass.state;
 			scope(exit) pass.state = state;
@@ -165,7 +165,7 @@ public:
 				pass.state = state;
 			}
 			
-			return syms.map!(s => require(s)).array();
+			return syms.map!(s => require(s, step)).array();
 		}
 	}
 }
