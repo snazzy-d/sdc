@@ -68,7 +68,7 @@ final class TemplateInstancier {
 			auto syms = cast(Symbol[]) pass.visit(instance.declarations);
 			
 			instance.dscope = pass.currentScope;
-			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(syms, d => pass.visit(d));
+			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(syms, d => pass.visit(d), SemanticPass.Step.Processed);
 			
 			return tplDecl.instances[id] = instance;
 		}());

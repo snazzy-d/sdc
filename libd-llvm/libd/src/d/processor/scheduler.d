@@ -81,6 +81,8 @@ public:
 				return ret;
 			}
 			*/
+			register(s, s, P.Step.Parsed);
+			
 			auto p = new Process();
 			p.init(s, dg);
 			
@@ -152,8 +154,7 @@ public:
 			return symbol;
 		}
 		
-		// TODO: remove the default value of step.
-		auto schedule(R)(R syms, ProcessDg dg, Step step = LastStep) if(isSymbolRange!R) {
+		auto schedule(R)(R syms, ProcessDg dg, Step step = P.Step.Parsed) if(isSymbolRange!R) {
 			// Save state in order to restore it later.
 			auto state = pass.state;
 			scope(exit) pass.state = state;
