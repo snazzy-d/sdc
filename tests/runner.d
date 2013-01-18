@@ -109,7 +109,7 @@ void test(string filename, string compiler)
         command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
-    version (linux) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
+    version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
