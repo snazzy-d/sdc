@@ -225,7 +225,7 @@ final class SymbolVisitor {
 		auto otherSymbols = pass.visit(otherMembers);
 		
 		// Create .init
-		fields = cast(FieldDeclaration[]) scheduler.schedule(fields, f => visit(f));
+		fields = cast(FieldDeclaration[]) scheduler.schedule(fields, f => visit(f), Step.Processed);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = thisType;
@@ -242,7 +242,7 @@ final class SymbolVisitor {
 		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m)) ~ init;
+		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m), Step.Processed) ~ init;
 		
 		return d;
 	}
@@ -271,7 +271,7 @@ final class SymbolVisitor {
 		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) scheduler.schedule(members, m => visit(m));
+		d.members = cast(Declaration[]) scheduler.schedule(members, m => visit(m), Step.Processed);
 		
 		return d;
 	}

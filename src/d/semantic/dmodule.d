@@ -58,7 +58,7 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
-		m.declarations = cast(Declaration[]) scheduler.schedule(syms, d => pass.visit(d));
+		m.declarations = cast(Declaration[]) scheduler.schedule(syms, d => pass.visit(d), Step.Processed);
 		
 		scheduler.register(m, m, Step.Processed);
 		
@@ -85,14 +85,12 @@ final class ModuleVisitor {
 			
 			cachedModules[name] = mod;
 			
-			// Plan to visit the module, no requirement now.
-			pass.scheduler.register(mod, mod, SemanticPass.Step.Parsed);
 			pass.scheduler.schedule(mod.repeat(1), (s) {
 				auto m = cast(Module) s;
 				assert(m, "How come that this isn't a module ?");
 				
 				return visit((new FlattenPass()).visit(m));
-			}, SemanticPass.Step.Parsed);
+			});
 			
 			return mod;
 		}());
