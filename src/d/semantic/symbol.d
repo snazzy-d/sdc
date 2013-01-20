@@ -222,10 +222,9 @@ final class SymbolVisitor {
 			otherMembers ~= m;
 		}
 		
-		auto otherSymbols = pass.visit(otherMembers);
-		
 		// Create .init
-		fields = cast(FieldDeclaration[]) scheduler.schedule(fields, f => visit(f), Step.Processed);
+		scheduler.schedule(fields, f => visit(f));
+		fields = cast(FieldDeclaration[]) scheduler.require(fields, Step.Processed);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = thisType;
@@ -237,12 +236,14 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
+		auto otherSymbols = pass.visit(otherMembers);
+		
 		scheduler.register(d, d, Step.Populated);
 		
 		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.schedule(otherSymbols, m => visit(m), Step.Processed) ~ init;
+		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.require(otherSymbols) ~ init;
 		
 		return d;
 	}
@@ -271,7 +272,7 @@ final class SymbolVisitor {
 		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) scheduler.schedule(members, m => visit(m), Step.Processed);
+		d.members = cast(Declaration[]) scheduler.require(members);
 		
 		return d;
 	}

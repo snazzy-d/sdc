@@ -58,17 +58,15 @@ final class TemplateInstancier {
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
 			
-			
 			// Update scope.
 			auto oldScope = pass.currentScope;
 			scope(exit) pass.currentScope = oldScope;
 			
-			pass.currentScope = new NestedScope(oldScope);
+			pass.currentScope = instance.dscope = new NestedScope(oldScope);
 			
 			auto syms = cast(Symbol[]) pass.visit(instance.declarations);
 			
-			instance.dscope = pass.currentScope;
-			instance.declarations = cast(Declaration[]) pass.scheduler.schedule(syms, d => pass.visit(d), SemanticPass.Step.Processed);
+			instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
 			
 			return tplDecl.instances[id] = instance;
 		}());

@@ -54,8 +54,7 @@ final class StatementVisitor {
 		auto syms = pass.visit([s.declaration]);
 		assert(syms.length == 1);
 		
-		auto sym = syms[0];
-		s.declaration = scheduler.register(sym, pass.visit(sym), Step.Processed);
+		s.declaration = scheduler.require(syms)[0];
 		
 		flattenedStmts ~= s;
 	}
