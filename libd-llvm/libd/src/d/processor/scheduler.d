@@ -81,6 +81,8 @@ public:
 				return ret;
 			}
 			*/
+			assert(s !in processed, "You can't process the same item twice.");
+			
 			register(s, s, P.Step.Parsed);
 			
 			auto p = new Process();
@@ -93,6 +95,7 @@ public:
 			}
 		}
 		
+		// TODO: refactor the duplicated check and return construct.
 		private Result requireResult(Symbol s, Step step) {
 			if(auto result = s in processed) {
 				if(result.step >= step) {
@@ -107,8 +110,9 @@ public:
 			
 			while(true) {
 				if(auto p = s in processes) {
-					import std.conv;
-					assert(p.state == Fiber.State.HOLD || p.state == Fiber.State.TERM, to!string(p.state));
+					if(p.state == Fiber.State.EXEC) {
+						// TODO: Check for possible forward reference problem.
+					}
 					
 					if(p.state == Fiber.State.HOLD) {
 						p.call();
@@ -139,8 +143,13 @@ public:
 			}
 		}
 		
-		auto require(Symbol s, Step step = LastStep) {
+		// XXX: argument-less template. DMD don't allow overload of templated and non templated functions.
+		auto require()(Symbol s, Step step = LastStep) {
 			return requireResult(s, step).symbol;
+		}
+		
+		auto require(R)(R syms, Step step = LastStep) if(isSymbolRange!R) {
+			return syms.map!(s => require(s, step)).array();
 		}
 		
 		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) {
@@ -154,7 +163,7 @@ public:
 			return symbol;
 		}
 		
-		auto schedule(R)(R syms, ProcessDg dg, Step step = P.Step.Parsed) if(isSymbolRange!R) {
+		auto schedule(R)(R syms, ProcessDg dg) if(isSymbolRange!R) {
 			// Save state in order to restore it later.
 			auto state = pass.state;
 			scope(exit) pass.state = state;
@@ -166,7 +175,7 @@ public:
 				pass.state = state;
 			}
 			
-			return syms.map!(s => require(s, step)).array();
+			return require(syms, P.Step.Parsed);
 		}
 	}
 }

@@ -12,6 +12,7 @@ import d.ast.dtemplate;
 
 import std.algorithm;
 import std.array;
+import std.range;
 
 final class DeclarationVisitor {
 	private SemanticPass pass;
@@ -33,17 +34,24 @@ final class DeclarationVisitor {
 			visit(d);
 		}
 		
-		return flattenedDecls;
+		return scheduler.schedule(flattenedDecls, s => pass.visit(s));
 	}
 	
 	void visit(Declaration d) {
 		return this.dispatch(d);
 	}
 	
+	private void select(Symbol s) {
+		flattenedDecls ~= s;
+		
+		// XXX: the goal is to schedule as soon as possible.
+		// flattenedDecls ~= scheduler.schedule(s.repeat(1), s => pass.visit(s));
+	}
+	
 	void visit(FunctionDeclaration d) {
 		currentScope.addOverloadableSymbol(d);
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(FunctionDefinition d) {
@@ -58,25 +66,25 @@ final class DeclarationVisitor {
 			currentScope.addSymbol(p);
 		}
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(VariableDeclaration d) {
 		currentScope.addSymbol(d);
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(StructDefinition d) {
 		currentScope.addSymbol(d);
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(ClassDefinition d) {
 		currentScope.addSymbol(d);
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(EnumDeclaration d) {
@@ -91,7 +99,7 @@ final class DeclarationVisitor {
 			}
 		}
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(TemplateDeclaration d) {
@@ -99,13 +107,13 @@ final class DeclarationVisitor {
 		
 		d.parentScope = currentScope;
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(AliasDeclaration d) {
 		currentScope.addSymbol(d);
 		
-		flattenedDecls ~= d;
+		select(d);
 	}
 	
 	void visit(ImportDeclaration d) {

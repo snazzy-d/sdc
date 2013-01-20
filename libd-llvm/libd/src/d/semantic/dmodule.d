@@ -58,7 +58,7 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
-		m.declarations = cast(Declaration[]) scheduler.schedule(syms, d => pass.visit(d), Step.Processed);
+		m.declarations = cast(Declaration[]) scheduler.require(syms);
 		
 		scheduler.register(m, m, Step.Processed);
 		
