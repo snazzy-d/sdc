@@ -4,11 +4,14 @@ import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;
+import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.dmodule;
 import d.ast.dscope;
 import d.ast.dtemplate;
+import d.ast.expression;
+import d.ast.type;
 
 import std.algorithm;
 import std.array;
@@ -38,7 +41,7 @@ final class DeclarationVisitor {
 			scheduler.register(parent, parent, Step.Populated);
 		}
 		
-		return scheduler.schedule(flattenedDecls, s => pass.visit(s));
+		return flattenedDecls;
 	}
 	
 	void visit(Declaration d) {
@@ -46,10 +49,7 @@ final class DeclarationVisitor {
 	}
 	
 	private void select(Symbol s) {
-		flattenedDecls ~= s;
-		
-		// XXX: the goal is to schedule as soon as possible.
-		// flattenedDecls ~= scheduler.schedule(s.repeat(1), s => pass.visit(s));
+		flattenedDecls ~= scheduler.schedule(s.repeat(1), s => pass.visit(s));
 	}
 	
 	void visit(FunctionDeclaration d) {
@@ -130,6 +130,20 @@ final class DeclarationVisitor {
 		}
 		
 		currentScope.imports ~= addToScope;
+	}
+	
+	void visit(StaticIfElse!Declaration d) {
+		d.condition = evaluate(explicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
+		
+		if((cast(BooleanLiteral) d.condition).value) {
+			foreach(item; d.items) {
+				visit(item);
+			}
+		} else {
+			foreach(item; d.elseItems) {
+				visit(item);
+			}
+		}
 	}
 }
 
