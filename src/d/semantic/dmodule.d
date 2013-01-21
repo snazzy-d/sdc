@@ -44,9 +44,7 @@ final class ModuleVisitor {
 		symbol = m;
 		
 		// All modules implicitely import object.
-		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations);
-		
-		scheduler.register(m, m, Step.Populated);
+		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
 		
 		import std.conv;
 		manglePrefix = "";

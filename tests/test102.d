@@ -12,7 +12,7 @@ int main() {
 	
 	assert(b == 30);
 	
-    return a + b;
+	return a + b;
 }
 
 template Foo(T) {

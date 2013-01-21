@@ -236,9 +236,7 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
-		auto otherSymbols = pass.visit(otherMembers);
-		
-		scheduler.register(d, d, Step.Populated);
+		auto otherSymbols = pass.visit(otherMembers, d);
 		
 		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
@@ -267,7 +265,7 @@ final class SymbolVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
-		auto members = pass.visit(d.members);
+		auto members = pass.visit(d.members, d);
 		
 		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);
@@ -335,6 +333,7 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(TemplateDeclaration d) {
+		// XXX: compute a proper manglign for templates.
 		d.mangle = manglePrefix;
 		
 		scheduler.register(d, d, Step.Processed);

@@ -10,7 +10,7 @@ int main() {
 	auto b = foo!long() + foo!double();
 	assert(b == 512);
 	
-    return a + b;
+	return a + b;
 }
 
 uint foo(T)() {
