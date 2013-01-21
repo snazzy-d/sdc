@@ -57,6 +57,7 @@ final class SemanticPass {
 	Evaluator evaluator;
 	
 	static struct State {
+		// XXX: symbol will have to go at some point.
 		Symbol symbol;
 		
 		Scope currentScope;
@@ -132,8 +133,8 @@ final class SemanticPass {
 		return moduleVisitor.visit(m);
 	}
 	
-	Symbol[] visit(Declaration[] decls) {
-		return declarationVisitor.flatten(decls);
+	Symbol[] visit(Declaration[] decls, Symbol parent = null) {
+		return declarationVisitor.flatten(decls, parent);
 	}
 	
 	Symbol visit(Symbol s) {

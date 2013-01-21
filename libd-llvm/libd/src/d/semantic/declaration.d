@@ -24,7 +24,7 @@ final class DeclarationVisitor {
 		this.pass = pass;
 	}
 	
-	Symbol[] flatten(Declaration[] decls) {
+	Symbol[] flatten(Declaration[] decls, Symbol parent) {
 		auto oldFlattenedDecls = flattenedDecls;
 		scope(exit) flattenedDecls = oldFlattenedDecls;
 		
@@ -32,6 +32,10 @@ final class DeclarationVisitor {
 		
 		foreach(d; decls) {
 			visit(d);
+		}
+		
+		if(parent) {
+			scheduler.register(parent, parent, Step.Populated);
 		}
 		
 		return scheduler.schedule(flattenedDecls, s => pass.visit(s));

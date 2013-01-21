@@ -50,7 +50,7 @@ final class TemplateInstancier {
 			import std.conv;
 			auto tplMangle = "__T" ~ to!string(tplDecl.name.length) ~ tplDecl.name ~ id ~ "Z";
 			
-			this.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
+			pass.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
 			
 			import d.semantic.clone;
 			auto clone = new ClonePass();
@@ -64,6 +64,7 @@ final class TemplateInstancier {
 			
 			pass.currentScope = instance.dscope = new NestedScope(oldScope);
 			
+			// XXX: make template instance a symbol. Change the template mangling in the process.
 			auto syms = cast(Symbol[]) pass.visit(instance.declarations);
 			
 			instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
