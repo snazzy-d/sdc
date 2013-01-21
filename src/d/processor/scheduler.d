@@ -88,11 +88,7 @@ public:
 			auto p = new Process();
 			p.init(s, dg);
 			
-			p.call();
-			
-			if(p.state == Fiber.State.HOLD) {
-				processes[s] = p;
-			}
+			processes[s] = p;
 		}
 		
 		// TODO: refactor the duplicated check and return construct.
@@ -152,7 +148,12 @@ public:
 			return syms.map!(s => require(s, step)).array();
 		}
 		
-		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) {
+		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) in {
+			if(auto r = source in processed) {
+				import std.conv;
+				assert(r.step < step, "Trying to register symbol at step " ~ to!string(step) ~ " when it is already registered at step " ~ to!string(r.step) ~ ".");
+			}
+		} body {
 			auto result = Result(symbol, step);
 			processed[source] = result;
 			
