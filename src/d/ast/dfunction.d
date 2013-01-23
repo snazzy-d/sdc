@@ -15,8 +15,6 @@ class FunctionDeclaration : ExpressionSymbol {
 	Parameter[] parameters;
 	bool isVariadic;
 	
-	Scope dscope;
-	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {
 		this(location, name, "D", returnType, parameters, isVariadic);
 	}
@@ -44,6 +42,8 @@ class FunctionDeclaration : ExpressionSymbol {
  */
 class FunctionDefinition : FunctionDeclaration {
 	BlockStatement fbody;
+	
+	NestedScope dscope;
 	
 	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
 		this(location, name, "D", returnType, parameters, isVariadic, fbody);

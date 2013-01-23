@@ -14,7 +14,7 @@ class ClassDefinition : TypeSymbol {
 	Identifier[] bases;
 	Declaration[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, string name, Identifier[] bases, Declaration[] members) {
 		super(location, name);
@@ -32,7 +32,7 @@ class InterfaceDefinition : TypeSymbol {
 	Identifier[] bases;
 	Declaration[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, string name, Identifier[] bases, Declaration[] members) {
 		super(location, name);
@@ -57,7 +57,7 @@ class StructDeclaration : TypeSymbol {
 class StructDefinition : StructDeclaration {
 	Declaration[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, string name, Declaration[] members) {
 		super(location, name);
@@ -99,7 +99,7 @@ class EnumDeclaration : TypeSymbol {
 	Type type;
 	VariableDeclaration[] enumEntries;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, string name, Type type, VariableDeclaration[] enumEntries) {
 		super(location, name);

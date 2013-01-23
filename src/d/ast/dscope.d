@@ -19,9 +19,15 @@ final class OverLoadSet : Symbol {
  * A scope associate identifier with declarations.
  */
 class Scope {
+	Module dmodule;
+	
 	Symbol[string] symbols;
 	
 	Module[] imports;
+	
+	this(Module dmodule) {
+		this.dmodule = dmodule;
+	}
 	
 	void addSymbol(Symbol s) {
 		assert(!(s.name in symbols), s.name ~ " is already present in scope.");
@@ -55,13 +61,32 @@ class NestedScope : Scope {
 	Scope parent;
 	
 	this(Scope parent) {
-		this.imports = parent.imports;
+		super(parent.dmodule);
 		
 		this.parent = parent;
 	}
 	
 	override Symbol search(string name) {
 		return symbols.get(name, parent.search(name));
+	}
+	
+	final auto clone() {
+		auto clone = new NestedScope(parent);
+		
+		clone.symbols = symbols.dup;
+		clone.imports = imports;
+		
+		return clone;
+	}
+}
+
+final class SymbolScope : NestedScope {
+	Symbol symbol;
+	
+	this(Symbol symbol, Scope parent) {
+		super(parent);
+		
+		this.symbol = symbol;
 	}
 }
 

@@ -20,7 +20,7 @@ class Module : Symbol {
 		
 		this.declarations = declarations;
 		
-		dscope = new Scope();
+		dscope = new Scope(this);
 		
 		if(packages.length > 0) {
 			parent = new Package(location, packages.back, packages[0 .. $-1], dscope);
@@ -40,7 +40,7 @@ class Package : Symbol {
 	this(Location location, string name, string[] packages, Scope moduleScope) {
 		super(location, name);
 		
-		dscope = new Scope();
+		dscope = new Scope(moduleScope.dmodule);
 		
 		if(packages.length > 0) {
 			parent = new Package(location, packages.back, packages[0 .. $-1], moduleScope);

@@ -116,14 +116,14 @@ class TemplateInstanciation : Node {
 /**
  * Template instance
  */
-class TemplateInstance : Node {
+class TemplateInstance : Symbol {
 	TemplateArgument[] arguments;
 	Declaration[] declarations;
 	
 	Scope dscope;
 	
 	this(Location location, TemplateArgument[] arguments, Declaration[] declarations) {
-		super(location);
+		super(location, "");
 		
 		this.arguments = arguments;
 		this.declarations = declarations;

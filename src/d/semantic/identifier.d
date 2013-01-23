@@ -48,7 +48,7 @@ final class IdentifierVisitor {
 		while(true) {
 			Symbol symbol;
 			
-			foreach(m; currentScope.imports) {
+			foreach(m; dscope.imports) {
 				m = cast(Module) scheduler.require(m, Step.Populated);
 				assert(m);
 				
@@ -70,6 +70,10 @@ final class IdentifierVisitor {
 			} else {
 				// No symbol have been found in the module, look for other modules.
 				assert(0, "Symbol " ~ name ~ " has not been found.");
+			}
+			
+			if(auto nested = cast(SymbolScope) dscope) {
+				scheduler.require(nested.symbol, Step.Populated);
 			}
 		}
 	}

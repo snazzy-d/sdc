@@ -14,6 +14,7 @@ import sdc.location;
 
 import std.algorithm;
 import std.array;
+import std.range;
 
 final class TemplateInstancier {
 	private SemanticPass pass;
@@ -57,20 +58,25 @@ final class TemplateInstancier {
 			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
+			pass.scheduler.schedule(instance.repeat(1), i => visit(cast(TemplateInstance) i));
 			
-			// Update scope.
-			auto oldScope = pass.currentScope;
-			scope(exit) pass.currentScope = oldScope;
-			
-			pass.currentScope = instance.dscope = new NestedScope(oldScope);
-			
-			// XXX: make template instance a symbol. Change the template mangling in the process.
-			auto syms = cast(Symbol[]) pass.visit(instance.declarations);
-			
-			instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
-			
-			return tplDecl.instances[id] = instance;
+			return tplDecl.instances[id] = cast(TemplateInstance) pass.scheduler.require(instance, pass.Step.Populated);
 		}());
+	}
+	
+	auto visit(TemplateInstance instance) {
+		// Update scope.
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = instance.dscope = new SymbolScope(instance, oldScope);
+		
+		// XXX: make template instance a symbol. Change the template mangling in the process.
+		auto syms = cast(Symbol[]) pass.visit(instance.declarations, instance);
+		
+		instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
+		
+		return scheduler.register(instance, instance, Step.Processed);
 	}
 	
 	Identifiable visit(TemplateArgument arg) {
