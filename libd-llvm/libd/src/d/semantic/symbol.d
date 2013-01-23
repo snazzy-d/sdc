@@ -198,7 +198,7 @@ final class SymbolVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = d.dscope = new NestedScope(oldScope);
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
 		
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
@@ -258,7 +258,7 @@ final class SymbolVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = d.dscope = new NestedScope(oldScope);
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
 		
 		auto oldThisType = thisType;
 		scope(exit) thisType = oldThisType;
@@ -297,7 +297,7 @@ final class SymbolVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = d.dscope = new NestedScope(oldScope);
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
 		
 		// XXX: Big lie again !
 		scheduler.register(d, d, Step.Processed);
@@ -333,7 +333,7 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(TemplateDeclaration d) {
-		// XXX: compute a proper manglign for templates.
+		// XXX: compute a proper mangling for templates.
 		d.mangle = manglePrefix;
 		
 		scheduler.register(d, d, Step.Processed);

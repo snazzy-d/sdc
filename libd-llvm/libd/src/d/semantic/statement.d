@@ -25,7 +25,7 @@ final class StatementVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = new NestedScope(oldScope);
+		currentScope = (cast(NestedScope) oldScope).clone();
 		
 		auto oldFlattenedStmts = flattenedStmts;
 		scope(exit) flattenedStmts = oldFlattenedStmts;
@@ -70,9 +70,7 @@ final class StatementVisitor {
 			return flatten(b);
 		}
 		
-		auto b = new BlockStatement(s.location, [s]);
-		
-		return flatten(b);
+		return flatten(new BlockStatement(s.location, [s]));
 	}
 	
 	void visit(IfElseStatement ifs) {
@@ -104,7 +102,7 @@ final class StatementVisitor {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = new NestedScope(currentScope);
+		currentScope = (cast(NestedScope) oldScope).clone();
 		
 		// FIXME: if initialize is flattened into several statement, scope is wrong.
 		visit(f.initialize);

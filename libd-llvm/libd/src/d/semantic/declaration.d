@@ -61,6 +61,7 @@ final class DeclarationVisitor {
 	void visit(FunctionDefinition d) {
 		currentScope.addOverloadableSymbol(d);
 		
+		// XXX: move that to symbol pass.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
