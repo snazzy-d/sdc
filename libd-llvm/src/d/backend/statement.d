@@ -38,7 +38,7 @@ final class StatementGen {
 		}
 	}
 	
-	void visit(IfElseStatement ifs) {
+	void visit(IfStatement ifs) {
 		auto condition = pass.visit(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
@@ -66,8 +66,10 @@ final class StatementGen {
 		LLVMMoveBasicBlockAfter(elseBB, thenBB);
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
-		// Emit else
-		visit(ifs.elseStatement);
+		if(ifs.elseStatement) {
+			// Emit else
+			visit(ifs.elseStatement);
+		}
 		
 		// Codegen of else can change the current block, so we put everything in order.
 		elseBB = LLVMGetInsertBlock(builder);
