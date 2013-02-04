@@ -281,7 +281,14 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression e, Symbol s) {
-		return this.dispatch(location, e, s);
+		return this.dispatch!((s) {
+			auto msg = "Don't know how to dispatch that " ~ typeid(s).toString() ~ ".";
+			
+			import sdc.terminal;
+			outputCaretDiagnostics(s.location, msg);
+			
+			assert(0, msg);
+		})(location, e, s);
 	}
 	
 	Identifiable visit(Location location, Expression e, OverLoadSet s) {

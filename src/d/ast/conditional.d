@@ -69,4 +69,16 @@ class StaticIfElse(ItemType) : StaticIf!ItemType {
 	}
 }
 
+/**
+ * Mixins
+ */
+class Mixin(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration) || is(ItemType == Expression)) : ItemType {
+	Expression value;
+	
+	this(Location location, Expression value) {
+		super(location);
+		
+		this.value = value;
+	}
+}
 

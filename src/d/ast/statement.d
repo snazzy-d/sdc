@@ -52,16 +52,14 @@ class DeclarationStatement : Statement {
 }
 
 /**
- * if else statements.
+ * if statements.
  */
-class IfElseStatement : Statement {
+class IfStatement : Statement {
 	Expression condition;
 	Statement then;
-	Statement elseStatement;
 	
-	this(Location location, Expression condition, Statement then) {
-		this(location, condition, then, new BlockStatement(location, []));
-	}
+	// Nullable
+	Statement elseStatement;
 	
 	this(Location location, Expression condition, Statement then, Statement elseStatement) {
 		super(location);
@@ -69,21 +67,6 @@ class IfElseStatement : Statement {
 		this.condition = condition;
 		this.then = then;
 		this.elseStatement = elseStatement;
-	}
-}
-
-/**
- * if statements with no else.
- */
-class IfStatement : Statement {
-	Expression condition;
-	Statement then;
-	
-	this(Location location, Expression condition, Statement then) {
-		super(location);
-		
-		this.condition = condition;
-		this.then = then;
 	}
 }
 

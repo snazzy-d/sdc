@@ -7,7 +7,8 @@ DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport
 OBJ = sdc.o
 EXE = bin/sdc
 
-LIBLLVM = -L-L`llvm-config-3.1 --libdir` `llvm-config-3.1 --libs | sed 's/-l/-L-l/g'`
+LIBLLVM_DIR ?= `llvm-config-3.1 --libdir`
+LIBLLVM = -L-L$(LIBLLVM_DIR) `llvm-config-3.1 --libs | sed 's/-l/-L-l/g'`
 LLVM_DIR ?= `llvm-config-3.1 --includedir`
 LLVM_SRC = import/llvm/c/target.d
 

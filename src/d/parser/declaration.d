@@ -1,4 +1,4 @@
-	module d.parser.declaration;
+module d.parser.declaration;
 
 import d.ast.declaration;
 import d.ast.expression;
@@ -343,6 +343,9 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		
 		case TokenType.Debug :
 			return trange.parseDebug!Declaration();
+		
+		case TokenType.Mixin :
+			return trange.parseMixin!Declaration();
 		
 		case TokenType.Unittest :
 			trange.popFront();

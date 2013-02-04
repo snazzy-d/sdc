@@ -43,6 +43,11 @@ final class ModuleVisitor {
 		
 		symbol = m;
 		
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = true;
+		
 		// All modules implicitely import object.
 		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
 		
@@ -73,8 +78,6 @@ final class ModuleVisitor {
 			import sdc.sdc;
 			import sdc.tokenstream;
 			
-			import d.semantic.flatten;
-			
 			auto src = new Source(filename);
 			auto trange = TokenRange(lex(src));
 			
@@ -87,7 +90,7 @@ final class ModuleVisitor {
 				auto m = cast(Module) s;
 				assert(m, "How come that this isn't a module ?");
 				
-				return visit((new FlattenPass()).visit(m));
+				return visit(m);
 			});
 			
 			return mod;
