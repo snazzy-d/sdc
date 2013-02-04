@@ -105,6 +105,7 @@ class EnumDeclaration : TypeSymbol {
 		super(location, name);
 		
 		this.type = new EnumType(type, this);
+		
 		this.enumEntries = enumEntries;
 	}
 }

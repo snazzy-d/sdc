@@ -102,7 +102,7 @@ final:
 		return b;
 	}
 	
-	Statement visit(IfElseStatement ifs) {
+	Statement visit(IfStatement ifs) {
 		ifs.then = visit(ifs.then);
 		ifs.elseStatement = visit(ifs.elseStatement);
 		

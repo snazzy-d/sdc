@@ -16,6 +16,7 @@ class TemplateDeclaration : Symbol {
 	Declaration[] declarations;
 	
 	Scope parentScope;
+	bool isStatic;
 	
 	TemplateInstance[string] instances;
 	

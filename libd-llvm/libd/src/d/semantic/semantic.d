@@ -34,6 +34,7 @@ import sdc.location;
 
 import std.algorithm;
 import std.array;
+import std.bitmanip;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
@@ -56,6 +57,8 @@ final class SemanticPass {
 	
 	Evaluator evaluator;
 	
+	string[] versions = ["SDC", "D_LP64"];
+	
 	static struct State {
 		// XXX: symbol will have to go at some point.
 		Symbol symbol;
@@ -67,8 +70,18 @@ final class SemanticPass {
 		
 		string manglePrefix;
 		
+		string linkage = "D";
+		
+		mixin(bitfields!(
+			bool, "buildFields", 1,
+			bool, "isStatic", 1,
+			uint, "", 6
+		));
+		
 		Statement[] flattenedStmts;
 		Symbol[] flattenedDecls;
+		
+		uint fieldIndex;
 	}
 	
 	State state;
@@ -84,6 +97,8 @@ final class SemanticPass {
 	
 	this(Evaluator evaluator) {
 		this.evaluator = evaluator;
+		
+		isStatic	= true;
 		
 		moduleVisitor		= new ModuleVisitor(this);
 		declarationVisitor	= new DeclarationVisitor(this);
@@ -109,24 +124,12 @@ final class SemanticPass {
 	auto process(Module[] modules) {
 		moduleVisitor.preregister(modules);
 		
-		Process[] allTasks;
-		foreach(m; modules) {
-			auto t = new Process();
-			t.init(m, d => visit(cast(Module) d));
-			
-			allTasks ~= t;
-		}
+		scheduler.schedule(modules, d => visit(cast(Module) d));
+		modules = cast(Module[]) scheduler.require(modules);
 		
-		auto tasks = allTasks;
-		while(tasks) {
-			tasks = tasks.filter!(t => t.result is null).array();
-			
-			foreach(t; tasks) {
-				t.call();
-			}
-		}
+		scheduler.terminate();
 		
-		return cast(Module[]) allTasks.map!(t => t.result).array();
+		return modules;
 	}
 	
 	Module visit(Module m) {

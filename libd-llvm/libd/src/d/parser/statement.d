@@ -31,17 +31,18 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			auto then = trange.parseStatement();
 			
+			Statement elseStatement;
 			if(trange.front.type == TokenType.Else) {
 				trange.popFront();
-				auto elseStatement = trange.parseStatement();
+				
+				elseStatement = trange.parseStatement();
 				
 				location.spanTo(elseStatement.location);
-				
-				return new IfElseStatement(location, condition, then, elseStatement);
+			} else {
+				location.spanTo(then.location);
 			}
 			
-			location.spanTo(then.location);
-			return new IfStatement(location, condition, then);
+			return new IfStatement(location, condition, then, elseStatement);
 		
 		case TokenType.While :
 			trange.popFront();
@@ -344,12 +345,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			return new ThrowStatement(location, value);
 		
 		case TokenType.Mixin :
-			trange.popFront();
-			trange.match(TokenType.OpenParen);
-			trange.parseExpression();
-			trange.match(TokenType.CloseParen);
-			trange.match(TokenType.Semicolon);
-			break;
+			return trange.parseMixin!Statement();
 		
 		case TokenType.Static :
 			auto lookahead = trange.save;

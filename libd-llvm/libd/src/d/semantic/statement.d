@@ -52,11 +52,8 @@ final class StatementVisitor {
 	void visit(DeclarationStatement s) {
 		// TODO: avoid allocating an array for that.
 		auto syms = pass.visit([s.declaration]);
-		assert(syms.length == 1);
 		
-		s.declaration = scheduler.require(syms)[0];
-		
-		flattenedStmts ~= s;
+		flattenedStmts ~= scheduler.require(syms).map!(d => new DeclarationStatement(d)).array();
 	}
 	
 	void visit(ExpressionStatement s) {
@@ -73,11 +70,14 @@ final class StatementVisitor {
 		return flatten(new BlockStatement(s.location, [s]));
 	}
 	
-	void visit(IfElseStatement ifs) {
+	void visit(IfStatement ifs) {
 		ifs.condition = explicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
 		
 		ifs.then = autoBlock(ifs.then);
-		ifs.elseStatement = autoBlock(ifs.elseStatement);
+		
+		if(ifs.elseStatement) {
+			ifs.elseStatement = autoBlock(ifs.elseStatement);
+		}
 		
 		flattenedStmts ~= ifs;
 	}
@@ -108,8 +108,17 @@ final class StatementVisitor {
 		visit(f.initialize);
 		f.initialize = flattenedStmts[$ - 1];
 		
-		f.condition = explicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
-		f.increment = pass.visit(f.increment);
+		if(f.condition) {
+			f.condition = explicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
+		} else {
+			f.condition = makeLiteral(f.location, true);
+		}
+		
+		if(f.increment) {
+			f.increment = pass.visit(f.increment);
+		} else {
+			f.increment = makeLiteral(f.location, true);
+		}
 		
 		f.statement = autoBlock(f.statement);
 		
@@ -176,6 +185,28 @@ final class StatementVisitor {
 			foreach(item; s.elseItems) {
 				visit(item);
 			}
+		}
+	}
+	
+	void visit(Mixin!Statement s) {
+		auto value = evaluate(pass.visit(s.value));
+		
+		if(auto str = cast(StringLiteral) value) {
+			import sdc.lexer;
+			import sdc.sdc;
+			auto trange = TokenRange(lex(str.value, s.location));
+			
+			import d.parser.base;
+			match(trange, TokenType.Begin);
+			
+			while(trange.front.type != TokenType.End) {
+				import d.parser.statement;
+				visit(parseStatement(trange));
+			}
+			
+			match(trange, TokenType.End);
+		} else {
+			assert(0, "mixin parameter should evalutate as a string.");
 		}
 	}
 }

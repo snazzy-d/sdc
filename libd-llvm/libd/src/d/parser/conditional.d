@@ -95,6 +95,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
  */
 ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
 	auto location = trange.front.location;
+	
 	trange.match(TokenType.Static);
 	trange.match(TokenType.If);
 	trange.match(TokenType.OpenParen);
@@ -142,5 +143,22 @@ private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
 	}
 	
 	return items;
+}
+
+/**
+ * Parse mixins.
+ */
+auto parseMixin(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && is(Mixin!ItemType)) {
+	auto location = trange.front.location;
+	
+	trange.match(TokenType.Mixin);
+	trange.match(TokenType.OpenParen);
+	
+	auto expression = trange.parseExpression();
+	
+	trange.match(TokenType.CloseParen);
+	trange.match(TokenType.Semicolon);
+	
+	return new Mixin!ItemType(location, expression);
 }
 

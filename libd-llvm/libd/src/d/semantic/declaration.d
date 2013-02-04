@@ -53,12 +53,20 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(FunctionDeclaration d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		d.isEnum = true;
+		
 		currentScope.addOverloadableSymbol(d);
 		
 		select(d);
 	}
 	
 	void visit(FunctionDefinition d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		d.isEnum = true;
+		
 		currentScope.addOverloadableSymbol(d);
 		
 		// XXX: move that to symbol pass.
@@ -75,39 +83,77 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
+		if(buildFields && !isStatic) {
+			d = new FieldDeclaration(d, fieldIndex++);
+		}
+		
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		
 		currentScope.addSymbol(d);
 		
 		select(d);
 	}
 	
+	void visit(VariablesDeclaration d) {
+		foreach(var; d.variables) {
+			visit(var);
+		}
+	}
+	
 	void visit(StructDefinition d) {
+		d.linkage = linkage;
+		
 		currentScope.addSymbol(d);
 		
 		select(d);
 	}
 	
 	void visit(ClassDefinition d) {
+		d.linkage = linkage;
+		
 		currentScope.addSymbol(d);
 		
 		select(d);
 	}
 	
 	void visit(EnumDeclaration d) {
+		d.linkage = linkage;
+		
 		if(d.name) {
 			currentScope.addSymbol(d);
-		} else {
-			auto oldFlattenedDecls = flattenedDecls;
-			scope(exit) flattenedDecls = oldFlattenedDecls;
 			
+			select(d);
+		} else {
+			auto type = (cast(EnumType) d.type).type;
+			
+			// XXX: Code duplication with symbols. Refactor.
+			VariableDeclaration previous;
 			foreach(e; d.enumEntries) {
+				e.isEnum = true;
+				
+				if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
+					if(previous) {
+						e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));
+					} else {
+						e.value = makeLiteral(e.location, 0);
+					}
+				}
+				
+				e.value = new CastExpression(e.location, type, e.value);
+				e.type = type;
+				
+				previous = e;
+				
 				visit(e);
 			}
 		}
-		
-		select(d);
 	}
 	
 	void visit(TemplateDeclaration d) {
+		d.linkage = linkage;
+		d.isStatic = isStatic;
+		
 		currentScope.addOverloadableSymbol(d);
 		
 		d.parentScope = currentScope;
@@ -119,6 +165,28 @@ final class DeclarationVisitor {
 		currentScope.addSymbol(d);
 		
 		select(d);
+	}
+	
+	void visit(LinkageDeclaration d) {
+		auto oldLinkage = linkage;
+		scope(exit) linkage = oldLinkage;
+		
+		linkage = d.linkage;
+		
+		foreach(decl; d.declarations) {
+			visit(decl);
+		}
+	}
+	
+	void visit(StaticDeclaration d) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = true;
+		
+		foreach(decl; d.declarations) {
+			visit(decl);
+		}
 	}
 	
 	void visit(ImportDeclaration d) {
@@ -134,9 +202,9 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(StaticIfElse!Declaration d) {
-		d.condition = evaluate(explicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
+		auto condition = evaluate(explicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
 		
-		if((cast(BooleanLiteral) d.condition).value) {
+		if((cast(BooleanLiteral) condition).value) {
 			foreach(item; d.items) {
 				visit(item);
 			}
@@ -144,6 +212,48 @@ final class DeclarationVisitor {
 			foreach(item; d.elseItems) {
 				visit(item);
 			}
+		}
+	}
+	
+	void visit(Version!Declaration d) {
+		foreach(v; versions) {
+			if(d.versionId == v) {
+				foreach(item; d.items) {
+					visit(item);
+				}
+				
+				return;
+			}
+		}
+		
+		// Version has not been found.
+		foreach(item; d.elseItems) {
+			visit(item);
+		}
+	}
+	
+	void visit(Mixin!Declaration d) {
+		auto value = evaluate(pass.visit(d.value));
+		
+		// XXX: in order to avoid identifier resolution weirdness.
+		auto location = d.location;
+		
+		if(auto str = cast(StringLiteral) value) {
+			import sdc.lexer;
+			import sdc.sdc;
+			auto trange = TokenRange(lex(str.value, location));
+			
+			import d.parser.base;
+			match(trange, TokenType.Begin);
+			
+			while(trange.front.type != TokenType.End) {
+				import d.parser.declaration;
+				visit(parseDeclaration(trange));
+			}
+			
+			match(trange, TokenType.End);
+		} else {
+			assert(0, "mixin parameter should evalutate as a string.");
 		}
 	}
 }

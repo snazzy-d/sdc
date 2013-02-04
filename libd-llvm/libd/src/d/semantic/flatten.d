@@ -15,7 +15,7 @@ import d.ast.type;
 import std.algorithm;
 import std.array;
 
-final class FlattenPass {
+private final class FlattenPass {
 	private DeclarationVisitor declarationVisitor;
 	private DeclarationFlatener declarationFlatener;
 	private StatementVisitor statementVisitor;
@@ -195,6 +195,12 @@ final:
 		
 		return d;
 	}
+	
+	Declaration visit(Mixin!Declaration d) {
+		d.value = pass.visit(d.value);
+		
+		return d;
+	}
 }
 
 class DeclarationFlatener {
@@ -299,19 +305,6 @@ final:
 		b.statements = pass.visit(b.statements);
 		
 		return b;
-	}
-	
-	Statement visit(IfElseStatement ifs) {
-		ifs.then = visit(ifs.then);
-		ifs.elseStatement = visit(ifs.elseStatement);
-		
-		ifs.condition = pass.visit(ifs.condition);
-		
-		return ifs;
-	}
-	
-	Statement visit(IfStatement ifs) {
-		return visit(new IfElseStatement(ifs.location, ifs.condition, ifs.then));
 	}
 	
 	Statement visit(WhileStatement w) {

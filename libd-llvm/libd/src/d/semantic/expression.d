@@ -35,6 +35,10 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
+	Expression visit(ParenExpression e) {
+		return visit(e.expression);
+	}
+	
 	Expression visit(BooleanLiteral e) {
 		return e;
 	}

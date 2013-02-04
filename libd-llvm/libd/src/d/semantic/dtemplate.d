@@ -45,6 +45,10 @@ final class TemplateInstancier {
 		}).array().join();
 		
 		return tplDecl.instances.get(id, {
+			import d.semantic.clone;
+			auto clone = new ClonePass();
+			auto members = tplDecl.declarations.map!(d => clone.visit(d)).array();
+			
 			auto oldManglePrefix = this.manglePrefix;
 			scope(exit) this.manglePrefix = oldManglePrefix;
 			
@@ -53,9 +57,15 @@ final class TemplateInstancier {
 			
 			pass.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
 			
-			import d.semantic.clone;
-			auto clone = new ClonePass();
-			auto members = tplDecl.declarations.map!(delegate Declaration(Declaration d) { return clone.visit(d); }).array();
+			auto oldLinkage = pass.linkage;
+			scope(exit) pass.linkage = oldLinkage;
+			
+			pass.linkage = tplDecl.linkage;
+			
+			auto oldIsStatic = pass.isStatic;
+			scope(exit) pass.isStatic = oldIsStatic;
+			
+			pass.isStatic = tplDecl.isStatic;
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
 			pass.scheduler.schedule(instance.repeat(1), i => visit(cast(TemplateInstance) i));

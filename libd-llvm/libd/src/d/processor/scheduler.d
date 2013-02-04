@@ -66,29 +66,45 @@ public:
 		Result[Symbol] processed;
 		Process[Symbol] processes;
 		
+		private Process[] pool;
+		
 		this(P pass) {
 			this.pass = pass;
 		}
 		
 		private void runProcess(Symbol s, ProcessDg dg) {
-			/*
-			if(pool) {
-				auto ret = pool[$ - 1];
+			Process p;
+			
+			// XXX: it seems that if(pool) test for the pointer, not the content.
+			// Seems to me like a weird conflation of identity and value.
+			if(pool.length) {
+				p = pool[$ - 1];
 				
 				pool = pool[0 .. $ - 1];
 				pool.assumeSafeAppend();
-				
-				return ret;
+			} else {
+				p = new Process();
 			}
-			*/
+			
 			assert(s !in processed, "You can't process the same item twice.");
 			
 			register(s, s, P.Step.Parsed);
 			
-			auto p = new Process();
-			p.init(s, dg);
+			auto state = pass.state;
+			p.init(s, (s) {
+				pass.state = state;
+				return dg(s);
+			});
 			
 			processes[s] = p;
+		}
+		
+		void terminate() {
+			while(processes.length) {
+				foreach(s; processes.keys) {
+					require(s);
+				}
+			}
 		}
 		
 		// TODO: refactor the duplicated check and return construct.
@@ -116,6 +132,8 @@ public:
 					
 					if(p.state == Fiber.State.TERM) {
 						processes.remove(s);
+						
+						pool ~= *p;
 					}
 				}
 				

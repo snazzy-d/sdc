@@ -75,6 +75,21 @@ final class SymbolVisitor {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
+		auto oldLinkage = linkage;
+		scope(exit) linkage = oldLinkage;
+		
+		linkage = "D";
+		
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
+		auto oldBuildFields = buildFields;
+		scope(exit) buildFields = oldBuildFields;
+		
+		buildFields = false;
+		
 		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
 		scope(exit) manglePrefix = oldManglePrefix;
@@ -95,6 +110,8 @@ final class SymbolVisitor {
 		// If it isn't a static method, add this.
 		// checking resolvedTypes Ensure that it isn't ran twice.
 		if(!d.isStatic) {
+			assert(thisType, "function must be static or thisType must be defined.");
+			
 			auto thisParameter = new Parameter(d.location, "this", thisType);
 			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
 			thisParameter.isReference = true;
@@ -167,6 +184,7 @@ final class SymbolVisitor {
 		}
 		
 		if(d.isStatic) {
+			assert(d.linkage == "D");
 			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ typeMangler.visit(d.type);
 		}
 		
@@ -186,12 +204,18 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(StructDefinition d) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
 		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
 		scope(exit) manglePrefix = oldManglePrefix;
 		
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
+		assert(d.linkage == "D");
 		d.mangle = "S" ~ manglePrefix;
 		
 		// Update scope.
@@ -205,26 +229,29 @@ final class SymbolVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
+		auto oldFieldIndex = fieldIndex;
+		scope(exit) fieldIndex = oldFieldIndex;
+		
+		fieldIndex = 0;
+		
+		auto oldBuildFields = buildFields;
+		scope(exit) buildFields = oldBuildFields;
+		
+		buildFields = true;
+		
+		auto members = pass.visit(d.members, d);
+		
 		FieldDeclaration[] fields;
-		Declaration[] otherMembers;
-		uint fieldIndex;
-		foreach(m; d.members) {
-			if(auto var = cast(VariableDeclaration) m) {
-				if(!var.isStatic) {
-					auto f = new FieldDeclaration(var, fieldIndex++);
-					currentScope.addSymbol(f);
-					fields ~= f;
-					
-					continue;
-				}
+		auto otherSymbols = members.filter!((m) {
+			if(auto f = cast(FieldDeclaration) m) {
+				fields ~= f;
+				return false;
 			}
 			
-			otherMembers ~= m;
-		}
+			return true;
+		}).array();
 		
-		// Create .init
-		scheduler.schedule(fields, f => visit(f));
-		fields = cast(FieldDeclaration[]) scheduler.require(fields, Step.Processed);
+		fields = cast(FieldDeclaration[]) scheduler.require(fields);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = thisType;
@@ -236,8 +263,6 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
-		auto otherSymbols = pass.visit(otherMembers, d);
-		
 		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
@@ -247,12 +272,18 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(ClassDefinition d) {
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = false;
+		
 		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
 		scope(exit) manglePrefix = oldManglePrefix;
 		
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
+		assert(d.linkage == "D");
 		d.mangle = "C" ~ manglePrefix;
 		
 		auto oldScope = currentScope;
@@ -276,7 +307,14 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(EnumDeclaration d) {
+		assert(d.name, "anonymous enums must be flattened !");
+		
 		auto type = pass.visit(d.type);
+		
+		auto oldIsStatic = isStatic;
+		scope(exit) isStatic = oldIsStatic;
+		
+		isStatic = true;
 		
 		if(auto asEnum = cast(EnumType) type) {
 			if(typeid({ return asEnum.type; }()) !is typeid(IntegerType)) {
@@ -292,18 +330,13 @@ final class SymbolVisitor {
 		
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
+		assert(d.linkage == "D");
 		d.mangle = "E" ~ manglePrefix;
-		
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		
-		// XXX: Big lie again !
-		scheduler.register(d, d, Step.Processed);
 		
 		VariableDeclaration previous;
 		foreach(e; d.enumEntries) {
+			e.isEnum = true;
+			
 			if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
 				if(previous) {
 					e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));
@@ -312,15 +345,28 @@ final class SymbolVisitor {
 				}
 			}
 			
-			e.value = explicitCast(e.location, type, pass.evaluate(pass.visit(e.value)));
+			e.value = new CastExpression(e.location, type, e.value);
 			e.type = type;
-			
-			d.dscope.addSymbol(e);
-			scheduler.register(e, e, Step.Processed);
 			
 			previous = e;
 		}
-			
+		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
+		
+		foreach(e; d.enumEntries) {
+			d.dscope.addSymbol(e);
+		}
+		
+		scheduler.register(d, d, Step.Populated);
+		
+		scheduler.schedule(d.enumEntries, e => visit(e));
+		scheduler.require(d.enumEntries);
+		
+		scheduler.register(d, d, Step.Processed);
+		
 		return d;
 	}
 	

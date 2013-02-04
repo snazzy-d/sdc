@@ -93,6 +93,10 @@ final:
 		return clone;
 	}
 	
+	Parameter visit(Parameter d) {
+		return new Parameter(d.location, d.name, pass.visit(d.type));
+	}
+	
 	VariableDeclaration visit(VariableDeclaration d) {
 		auto clone = new VariableDeclaration(d.location, pass.visit(d.type), d.name, pass.visit(d.value));
 		
@@ -100,6 +104,10 @@ final:
 		clone.isEnum = d.isEnum;
 		
 		return clone;
+	}
+	
+	VariablesDeclaration visit(VariablesDeclaration d) {
+		return new VariablesDeclaration(d.location, d.variables.map!(var => visit(var)).array());
 	}
 	
 	AliasDeclaration visit(AliasDeclaration d) {
@@ -167,6 +175,10 @@ final:
 		
 		return new StaticIfElse!Statement(s.location, condition, items, elseItems);
 	}
+	
+	Statement visit(Mixin!Statement s) {
+		return new Mixin!Statement(s.location, pass.visit(s.value));
+	}
 }
 
 import d.ast.expression;
@@ -185,6 +197,10 @@ class ExpressionVisitor {
 final:
 	Expression visit(Expression e) {
 		return this.dispatch(e);
+	}
+	
+	Expression visit(ParenExpression e) {
+		return new ParenExpression(e.location, visit(e.expression));
 	}
 	
 	Expression visit(BooleanLiteral e) {
@@ -287,11 +303,14 @@ final:
 		return handleBinaryExpression(e);
 	}
 	
+	Expression visit(CastExpression e) {
+		return new CastExpression(e.location, pass.visit(e.type), visit(e.expression));
+	}
+	
 	Expression visit(CallExpression e) {
-		auto callee = visit(e.callee);
 		auto arguments = e.arguments.map!(a => visit(a)).array();
 		
-		return new CallExpression(e.location, callee, arguments);
+		return new CallExpression(e.location, visit(e.callee), arguments);
 	}
 	
 	Expression visit(IdentifierExpression e) {
