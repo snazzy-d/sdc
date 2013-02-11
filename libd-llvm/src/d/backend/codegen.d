@@ -141,6 +141,36 @@ final class CodeGenPass {
 		return LLVMRunFunction(executionEngine, fun, 0, null);
 	}
 	
+	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
+		assert(cast(SliceType) e.type, "this only CTFE strings.");
+	} body {
+		scope(failure) LLVMDumpModule(dmodule);
+		
+		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
+		
+		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
+		scope(exit) LLVMDeleteFunction(fun);
+		
+		auto bodyBB = LLVMAppendBasicBlock(fun, "");
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
+		
+		// Create a global variable that recieve the string.
+		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString".ptr);
+		scope(exit) LLVMDeleteGlobal(reciever);
+		
+		// Generate function's body.
+		LLVMBuildStore(builder, visit(e), reciever);
+		LLVMBuildRetVoid(builder);
+		
+		checkModule();
+		
+		string s;
+		LLVMAddGlobalMapping(executionEngine, reciever, &s);
+		LLVMRunFunction(executionEngine, fun, 0, null);
+		
+		return s.idup;
+	}
+	
 	auto checkModule() {
 		char* msg;
 		if(LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus, &msg)) {
