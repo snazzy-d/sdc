@@ -13,6 +13,9 @@ import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
 
+import d.parser.base;
+import d.parser.declaration;
+
 import std.algorithm;
 import std.array;
 import std.range;
@@ -243,15 +246,13 @@ final class DeclarationVisitor {
 			import sdc.sdc;
 			auto trange = TokenRange(lex(str.value, location));
 			
-			import d.parser.base;
-			match(trange, TokenType.Begin);
+			trange.match(TokenType.Begin);
 			
 			while(trange.front.type != TokenType.End) {
-				import d.parser.declaration;
-				visit(parseDeclaration(trange));
+				visit(trange.parseDeclaration());
 			}
 			
-			match(trange, TokenType.End);
+			trange.match(TokenType.End);
 		} else {
 			assert(0, "mixin parameter should evalutate as a string.");
 		}
