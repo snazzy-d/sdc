@@ -118,27 +118,7 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	private string jitString(Expression e) {
-		// XXX: run twice ! Most inneffiscient way :D
-		import d.ast.declaration;
-		import d.ast.adt;
-		
-		auto lt = new IntegerType(e.location, Integer.Ulong);
-		auto lf = new FieldDeclaration(new VariableDeclaration(e.location, lt, "length", new DefaultInitializer(lt)), 0);
-		auto lengthExpression = new FieldExpression(e.location, e, lf);
-		lengthExpression.type = lt;
-		
-		auto lengthResult = codeGen.ctfe(lengthExpression, executionEngine);
-		auto length = cast(size_t) LLVMGenericValueToInt(lengthResult, true);
-		
-		auto pt = new PointerType(e.location, new CharacterType(e.location, Character.Char));
-		auto pf = new FieldDeclaration(new VariableDeclaration(e.location, pt, "ptr", new DefaultInitializer(pt)), 1);
-		auto ptrExpression = new FieldExpression(e.location, e, pf);
-		ptrExpression.type = pt;
-		
-		auto ptrResult = codeGen.ctfe(ptrExpression, executionEngine);
-		auto ptr = cast(char*) LLVMGenericValueToPointer(ptrResult);
-		
-		return ptr[0 .. length].idup;
+		return codeGen.ctString(e, executionEngine);
 	}
 }
 
