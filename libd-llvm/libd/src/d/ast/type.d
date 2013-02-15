@@ -9,51 +9,95 @@ import d.ast.identifier;
 
 import std.traits;
 
+enum TypeQualifier {
+	Mutable,
+	Inout,
+	Const,
+	Shared,
+	ConstShared,
+	Immutable,
+}
+
+// XXX: operator overloading ?
+auto add(TypeQualifier actual, TypeQualifier added) {
+	if((actual == TypeQualifier.Shared && added == TypeQualifier.Const) ||
+			(added == TypeQualifier.Shared && actual == TypeQualifier.Const)) {
+		return TypeQualifier.ConstShared;
+	}
+	
+	import std.algorithm;
+	return max(actual, added);
+}
+
+unittest {
+	import std.traits;
+	foreach(q1; EnumMembers!TypeQualifier) {
+		assert(TypeQualifier.Mutable.add(q1) == q1);
+		assert(TypeQualifier.Immutable.add(q1) == TypeQualifier.Immutable);
+		
+		foreach(q2; EnumMembers!TypeQualifier) {
+			assert(q1.add(q2) == q2.add(q1));
+		}
+	}
+	
+	assert(TypeQualifier.Const.add(TypeQualifier.Immutable) == TypeQualifier.Immutable);
+	assert(TypeQualifier.Const.add(TypeQualifier.Inout) == TypeQualifier.Const);
+	assert(TypeQualifier.Const.add(TypeQualifier.Shared) == TypeQualifier.ConstShared);
+	assert(TypeQualifier.Const.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
+	
+	assert(TypeQualifier.Immutable.add(TypeQualifier.Inout) == TypeQualifier.Immutable);
+	assert(TypeQualifier.Immutable.add(TypeQualifier.Shared) == TypeQualifier.Immutable);
+	assert(TypeQualifier.Immutable.add(TypeQualifier.ConstShared) == TypeQualifier.Immutable);
+	
+	// assert(TypeQualifier.Inout.add(TypeQualifier.Shared) == TypeQualifier.ConstShared);
+	assert(TypeQualifier.Inout.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
+	
+	assert(TypeQualifier.Shared.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
+}
+
+bool canConvert(TypeQualifier from, TypeQualifier to) {
+	if(from == to) {
+		return true;
+	}
+	
+	final switch(to) with(TypeQualifier) {
+		case Mutable :
+		case Inout :
+		case Shared :
+		case Immutable :
+			// Some qualifier are not safely castable to.
+			return false;
+		
+		case Const :
+			return from == Mutable || from == Immutable || from == Inout;
+		
+		case ConstShared :
+			return from == Shared || from == Immutable;
+	}
+}
+
 abstract class Type : Node {
-	private uint qualifier = 0;
-	
-	enum MUTABLE = 0x00;
-	enum IMMUTABLE = 0x01;
-	enum CONST = 0x02;
-	enum INOUT = 0x03;
-	
-	enum MASK = ~0x03;
+	TypeQualifier qualifier;
 	
 	this(Location location) {
 		super(location);
 	}
 	
-	bool opEquals(const Type t) const {
+	bool opEquals(const Type t) const out(isEqual) {
+		if(isEqual) {
+			assert(qualifier == t.qualifier, "Type can't be equal with different qualifiers.");
+		}
+	} body {
 		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
 	}
 
 final:
 	override bool opEquals(Object o) {
-		return this.opEquals(cast(Type) o);
-	}
-	
-	// Check whenever these operation make sense.
-	Type makeMutable() {
-		qualifier &= MASK;
-		return this;
-	}
-	
-	Type makeImmutable() {
-		makeMutable();
-		qualifier |= IMMUTABLE;
-		return this;
-	}
-	
-	Type makeConst() {
-		makeMutable();
-		qualifier |= CONST;
-		return this;
-	}
-	
-	Type makeInout() {
-		makeMutable();
-		qualifier |= INOUT;
-		return this;
+		if(auto t = cast(Type) o) {
+			return opEquals(t);
+		}
+		
+		return false;
 	}
 }
 
@@ -112,7 +156,7 @@ class BooleanType : BasicType {
 	}
 	
 	bool opEquals(BooleanType t) const {
-		return true;
+		return qualifier == t.qualifier;
 	}
 }
 
@@ -172,7 +216,7 @@ class IntegerType : BasicType {
 	}
 	
 	bool opEquals(const IntegerType t) const {
-		return type == t.type;
+		return type == t.type && qualifier == t.qualifier;
 	}
 }
 
@@ -217,7 +261,7 @@ class FloatType : BasicType {
 	}
 	
 	bool opEquals(const FloatType t) const {
-		return type == t.type;
+		return type == t.type && qualifier == t.qualifier;
 	}
 }
 
@@ -262,7 +306,7 @@ class CharacterType : BasicType {
 	}
 	
 	bool opEquals(const CharacterType t) const {
-		return type == t.type;
+		return type == t.type && qualifier == t.qualifier;
 	}
 }
 
@@ -279,7 +323,7 @@ class VoidType : BasicType {
 	}
 	
 	bool opEquals(const VoidType t) const {
-		return true;
+		return qualifier == t.qualifier;
 	}
 }
 
@@ -318,7 +362,7 @@ class SymbolType : BasicType {
 	}
 	
 	bool opEquals(const SymbolType t) const {
-		return symbol is t.symbol;
+		return symbol is t.symbol && qualifier == t.qualifier;
 	}
 }
 
@@ -361,7 +405,7 @@ class PointerType : SuffixType {
 	}
 	
 	bool opEquals(const PointerType t) const {
-		return type == t.type;
+		return type == t.type && qualifier == t.qualifier;
 	}
 }
 
@@ -382,7 +426,7 @@ class SliceType : SuffixType {
 	}
 	
 	bool opEquals(const SliceType t) const {
-		return type == t.type;
+		return type == t.type && qualifier == t.qualifier;
 	}
 }
 

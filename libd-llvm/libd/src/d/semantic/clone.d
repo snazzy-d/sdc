@@ -337,7 +337,10 @@ class TypeVisitor {
 	
 final:
 	Type visit(Type t) {
-		return this.dispatch(t);
+		auto ret = this.dispatch(t);
+		ret.qualifier = t.qualifier;
+		
+		return ret;
 	}
 	
 	Type visit(BooleanType t) {
@@ -365,7 +368,7 @@ final:
 	}
 	
 	Type visit(FunctionType t) {
-		auto parameters = cast(Parameter[]) t.parameters;
+		auto parameters = cast(Parameter[]) t.parameters.map!(p => pass.visit(p)).array();
 		return new FunctionType(t.location, t.linkage, visit(t.returnType), parameters, t.isVariadic);
 	}
 	

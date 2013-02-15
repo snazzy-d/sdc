@@ -17,6 +17,11 @@ final class TypeVisitor {
 	}
 	
 	Type visit(Type t) {
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		qualifier = t.qualifier = t.qualifier.add(qualifier);
+		
 		return this.dispatch(t);
 	}
 	

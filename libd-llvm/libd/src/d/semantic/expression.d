@@ -369,6 +369,10 @@ final class ExpressionVisitor {
 		assert(c.arguments.length >= type.parameters.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, type.parameters)) {
+			if(param.isReference) {
+				assert(canConvert(arg.type.qualifier, param.type.qualifier), "Cannot pass ref");
+			}
+			
 			arg = pass.implicitCast(arg.location, param.type, arg);
 		}
 		

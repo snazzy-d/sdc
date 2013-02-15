@@ -26,37 +26,43 @@ Type parseConfirmedType(TokenRange)(ref TokenRange trange) if(isTokenRange!Token
 auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
-	auto processQualifier(alias qualifyType)() {
+	auto processQualifier(TypeQualifier qualifier)() {
 		trange.popFront();
 		
+		Type type;
 		if(trange.front.type == TokenType.OpenParen) {
 			trange.popFront();
-			auto type = trange.parseType();
+			type = trange.parseType();
 			trange.match(TokenType.CloseParen);
-			
-			return qualifyType(type);
+		} else {
+			type = trange.parseType();
 		}
 		
-		return qualifyType(trange.parseType());
+		type.qualifier = type.qualifier.add(qualifier);
+		
+		return type;
 	}
 	
 	switch(trange.front.type) {
 		// Types qualifiers
 		case TokenType.Const :
-			return processQualifier!(function(Type type) { return type.makeConst(); })();
+			return processQualifier!(TypeQualifier.Const)();
 		
 		case TokenType.Immutable :
-			return processQualifier!(function(Type type) { return type.makeImmutable(); })();
+			return processQualifier!(TypeQualifier.Immutable)();
 		
 		case TokenType.Mutable :
-			return processQualifier!(function(Type type) { return type.makeMutable(); })();
+			return processQualifier!(TypeQualifier.Mutable)();
 		
 		case TokenType.Inout :
-			return processQualifier!(function(Type type) { return type.makeInout(); })();
+			return processQualifier!(TypeQualifier.Mutable)();
 		
-		case TokenType.Shared, TokenType.Scope :
-			// TODO: handle shared, scope and ref.
-			return processQualifier!(function(Type type) { return type; })();
+		case TokenType.Shared :
+			return processQualifier!(TypeQualifier.Shared)();
+		
+		case TokenType.Scope :
+			// TODO: handle scope.
+			return processQualifier!(TypeQualifier.Mutable)();
 		
 		// Identified types
 		case TokenType.Identifier :

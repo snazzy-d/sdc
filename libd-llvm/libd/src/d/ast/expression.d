@@ -476,7 +476,10 @@ class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
-		super(location, new SliceType(location, new CharacterType(location, Character.Char)));
+		auto charType = new CharacterType(location, Character.Char);
+		charType.qualifier = TypeQualifier.Immutable;
+		
+		super(location, new SliceType(location, charType));
 		
 		this.value = value;
 	}
