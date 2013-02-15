@@ -13,12 +13,11 @@ import d.ast.type;
 import sdc.location;
 
 // FIXME: isn't reentrant at all.
-class Caster(bool isExplicit) {
+final class Caster(bool isExplicit) {
 	private SemanticPass pass;
 	alias pass this;
 	
 	private Location location;
-	private Type type;
 	private Expression expression;
 	
 	private FromBoolean fromBoolean;
@@ -38,10 +37,10 @@ class Caster(bool isExplicit) {
 		fromFunction	= new FromFunction();
 	}
 	
-final:
-	Expression build(Location castLocation, Type to, Expression e) out(result) {
+	// XXX: out contract disabled because it create memory corruption with dmd.
+	Expression build(Location castLocation, Type to, Expression e) /* out(result) {
 		assert(result.type == to);
-	} body {
+	} body */ {
 		/*
 		import sdc.terminal;
 		outputCaretDiagnostics(e.location, "Cast " ~ typeid(e).toString() ~ " to " ~ typeid(to).toString());
@@ -81,16 +80,15 @@ final:
 		
 		location = castLocation;
 		
-		auto oldType = type;
-		scope(exit) type = oldType;
-		
-		type = to;
-		
 		auto oldExpression = expression;
 		scope(exit) expression = oldExpression;
 		
 		expression = e;
 		
+		return castFrom(e.type, to);
+	}
+	
+	private Expression castFrom(Type from, Type to) {
 		return this.dispatch!(delegate Expression(Type t) {
 			auto msg = typeid(t).toString() ~ " is not supported.";
 			
@@ -101,11 +99,11 @@ final:
 			outputCaretDiagnostics(to.location, "to " ~ typeid(to).toString());
 			
 			assert(0, msg);
-		})(e.type);
+		})(to, from);
 	}
 	
 	class FromBoolean {
-		Expression visit(Type t) {
+		Expression visit(Type to) {
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
 				
@@ -113,26 +111,26 @@ final:
 				outputCaretDiagnostics(t.location, msg);
 				
 				assert(0, msg);
-			})(t);
+			})(to);
 		}
 		
-		Expression visit(IntegerType t) {
-			return new PadExpression(location, t, expression);
+		Expression visit(IntegerType to) {
+			return new PadExpression(location, to, expression);
 		}
 	}
 	
-	Expression visit(BooleanType t) {
-		return fromBoolean.visit(type);
+	Expression visit(Type to, BooleanType t) {
+		return fromBoolean.visit(to);
 	}
 	
 	class FromInteger {
-		Integer fromType;
+		Integer from;
 		
 		Expression visit(Integer from, Type to) {
-			auto oldFromType = fromType;
-			scope(exit) fromType = oldFromType;
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
 			
-			fromType = from;
+			this.from = from;
 			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -165,22 +163,22 @@ final:
 		}
 		
 		Expression visit(IntegerType t) {
-			if(t.type >> 1 == fromType >> 1) {
+			if(t.type >> 1 == from >> 1) {
 				// Same type except for signess.
 				return new BitCastExpression(location, t, expression);
-			} else if(t.type > fromType) {
+			} else if(t.type > from) {
 				return new PadExpression(location, t, expression);
 			} else static if(isExplicit) {
 				return new TruncateExpression(location, t, expression);
 			} else {
 				import std.conv;
-				return compilationCondition!Expression(expression.location, "Implicit cast from " ~ to!string(fromType) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+				return compilationCondition!Expression(expression.location, "Implicit cast from " ~ to!string(from) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 			}
 		}
 	}
 	
-	Expression visit(IntegerType t) {
-		return fromInteger.visit(t.type, type);
+	Expression visit(Type to, IntegerType t) {
+		return fromInteger.visit(t.type, to);
 	}
 	
 	/*
@@ -190,13 +188,13 @@ final:
 	*/
 	
 	class FromCharacter {
-		Character fromType;
+		Character from;
 		
 		Expression visit(Character from, Type to) {
-			auto oldFromType = fromType;
-			scope(exit) fromType = oldFromType;
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
 			
-			fromType = from;
+			this.from = from;
 			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -210,7 +208,7 @@ final:
 		
 		Expression visit(IntegerType t) {
 			Integer i;
-			final switch(fromType) {
+			final switch(from) {
 				case Character.Char :
 					i = Integer.Ubyte;
 					break;
@@ -226,20 +224,29 @@ final:
 			
 			return fromInteger.visit(i, t);
 		}
+		
+		Expression visit(CharacterType t) {
+			if(t.type == from) {
+				// We don't care about qualifier as characters are values types.
+				return new BitCastExpression(location, t, expression);
+			}
+			
+			return compilationCondition!Expression(location, "Invalid character cast.");
+		}
 	}
 	
-	Expression visit(CharacterType t) {
-		return fromCharacter.visit(t.type, type);
+	Expression visit(Type to, CharacterType t) {
+		return fromCharacter.visit(t.type, to);
 	}
 	
 	class FromPointer {
-		Type fromType;
+		Type from;
 		
 		Expression visit(Type from, Type to) {
-			auto oldFromType = fromType;
-			scope(exit) fromType = oldFromType;
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
 			
-			fromType = from;
+			this.from = from;
 			
 			return this.dispatch!(function Expression(Type t) {
 				auto msg = typeid(t).toString() ~ " is not supported.";
@@ -257,7 +264,25 @@ final:
 			} else if(auto toType = cast(VoidType) t.type) {
 				return new BitCastExpression(location, t, expression);
 			} else {
-				return compilationCondition!Expression(location, "invalid pointer cast.");
+				// Ugly hack :D
+				auto subCast = castFrom(from, t.type);
+				
+				// If subCast is a bitcast, then it is safe to cast pointers.
+				if(auto bt = cast(BitCastExpression) subCast) {
+					static if(isExplicit) {
+						enum isValid = true;
+					} else {
+						bool isValid = canConvert(from.qualifier, t.type.qualifier);
+					}
+					
+					if(isValid) {
+						bt.type = t;
+						
+						return bt;
+					}
+				}
+				
+				return compilationCondition!Expression(location, "Invalid pointer cast.");
 			}
 		}
 		
@@ -268,18 +293,18 @@ final:
 		}
 	}
 	
-	Expression visit(PointerType t) {
-		return fromPointer.visit(t.type, type);
+	Expression visit(Type to, PointerType t) {
+		return fromPointer.visit(t.type, to);
 	}
 	
 	class FromFunction {
-		FunctionType fromType;
+		FunctionType from;
 		
 		Expression visit(FunctionType from, Type to) {
-			auto oldFromType = fromType;
-			scope(exit) fromType = oldFromType;
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
 			
-			fromType = from;
+			this.from = from;
 			
 			return this.dispatch!(function Expression(Type t) {
 				return compilationCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
@@ -297,13 +322,13 @@ final:
 		}
 	}
 	
-	Expression visit(FunctionType t) {
-		return fromFunction.visit(t, type);
+	Expression visit(Type to, FunctionType t) {
+		return fromFunction.visit(t, to);
 	}
 	
-	Expression visit(EnumType t) {
+	Expression visit(Type to, EnumType t) {
 		// Automagically promote to base type.
-		return build(location, type, new BitCastExpression(location, t.type, expression));
+		return build(location, to, new BitCastExpression(location, t.type, expression));
 	}
 }
 

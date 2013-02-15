@@ -82,6 +82,8 @@ final class SemanticPass {
 		Symbol[] flattenedDecls;
 		
 		uint fieldIndex;
+		
+		TypeQualifier qualifier;
 	}
 	
 	State state;
@@ -153,6 +155,12 @@ final class SemanticPass {
 	}
 	
 	Type visit(Type t) {
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		// No qualifier is assumed to be mutable.
+		qualifier = TypeQualifier.Mutable;
+		
 		return typeVisitor.visit(t);
 	}
 	

@@ -8,13 +8,14 @@ version (D_LP64) {
     alias int   ptrdiff_t;
 }
 
-alias char[] string;
+alias immutable(char)[] string;
 
 extern (C) {
     void* malloc(size_t);
     void* realloc(void*, size_t);
     void exit(int code);
-    int printf(char* fmt, ...);
+	// XXX: change to const when proper type qualifier propagation is in place.
+    int printf(const char* fmt, ...);
 }
 
 class Object

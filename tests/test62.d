@@ -4,7 +4,7 @@
 int main()
 {
 	string msg = "hello, world!";
-	char* cmsg = msg.ptr;
+	auto cmsg = msg.ptr;
 	
 	string hello = msg[0..5];
 	assert(hello.length == 5);

@@ -3,10 +3,10 @@
 int main()
 {
 	string msg = "hello, world!";
-	char* cmsg = msg.ptr;
+	immutable char* cmsg = msg.ptr;
 	assert(*cmsg == 'h');
 	
-	char* cmsg2 = cmsg + 7;
+	const char* cmsg2 = cmsg + 7;
 	assert(*cmsg2 == 'w');
 	assert(cmsg2 != cmsg);
 	
@@ -24,7 +24,7 @@ int main()
 	
 	assert(cmsg2 > cmsg);
 	
-	char* cmsg3 = cmsg - 3;
+	const(char)* cmsg3 = cmsg - 3;
 	assert(cmsg3 < cmsg);
 	
 	cmsg3 = cmsg;
