@@ -5,7 +5,7 @@ import d.semantic.base;
 import d.ast.type;
 import d.ast.adt; // For enum types.
 
-import sdc.location;
+import d.location;
 
 import std.algorithm;
 

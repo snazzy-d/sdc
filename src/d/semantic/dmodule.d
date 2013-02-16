@@ -14,7 +14,7 @@ import d.parser.base;
 
 import d.processor.scheduler;
 
-import sdc.location;
+import d.location;
 
 import std.algorithm;
 import std.array;
@@ -73,20 +73,17 @@ final class ModuleVisitor {
 		auto filename = pkgs.join("/") ~ ".d";
 		
 		return cachedModules.get(name, {
-			import sdc.lexer;
-			import sdc.source;
-			import sdc.sdc;
-			import sdc.tokenstream;
+			import d.lexer;
 			
-			auto src = new Source(filename);
-			auto trange = TokenRange(lex(src));
+			auto fileSource = new FileSource(filename);
+			auto trange = lex!((line, index, length) => Location(fileSource, line, index, length))(fileSource.content);
 			
 			auto packages = filename[0 .. $-2].split("/");
 			auto mod = trange.parse(packages.back, packages[0 .. $-1]);
 			
 			cachedModules[name] = mod;
 			
-			pass.scheduler.schedule(mod.repeat(1), (s) {
+			pass.scheduler.schedule(only(mod), (s) {
 				auto m = cast(Module) s;
 				assert(m, "How come that this isn't a module ?");
 				

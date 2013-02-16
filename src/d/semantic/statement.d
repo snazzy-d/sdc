@@ -10,6 +10,9 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
+import d.parser.base;
+import d.parser.statement;
+
 import std.algorithm;
 import std.array;
 
@@ -192,19 +195,15 @@ final class StatementVisitor {
 		auto value = evaluate(pass.visit(s.value));
 		
 		if(auto str = cast(StringLiteral) value) {
-			import sdc.lexer;
-			import sdc.sdc;
-			auto trange = TokenRange(lex(str.value, s.location));
+			import d.lexer;
+			auto source = new MixinSource(s.location, str.value);
+			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0');
 			
-			import d.parser.base;
-			match(trange, TokenType.Begin);
+			trange.match(TokenType.Begin);
 			
 			while(trange.front.type != TokenType.End) {
-				import d.parser.statement;
-				visit(parseStatement(trange));
+				visit(trange.parseStatement());
 			}
-			
-			match(trange, TokenType.End);
 		} else {
 			assert(0, "mixin parameter should evalutate as a string.");
 		}

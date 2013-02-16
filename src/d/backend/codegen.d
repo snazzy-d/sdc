@@ -12,9 +12,9 @@ import d.backend.expression;
 import d.backend.string;
 import d.backend.type;
 
-import util.visitor;
+import d.location;
 
-import sdc.location;
+import util.visitor;
 
 import llvm.c.analysis;
 import llvm.c.core;

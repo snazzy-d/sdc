@@ -6,6 +6,7 @@ SOURCE_WILDCARDS = \
 	src/sdc/*.d \
 	src/sdc/ast/*.d \
 	src/sdc/pass/*.d \
+	src/d/*.d \
 	src/d/ast/*.d \
 	src/d/backend/*.d \
 	src/d/parser/*.d \

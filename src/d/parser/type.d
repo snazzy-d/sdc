@@ -1,6 +1,5 @@
 module d.parser.type;
 
-import d.ast.ambiguous;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.expression;
@@ -13,14 +12,9 @@ import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
 
-Type parseType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Type parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto base = trange.parseBasicType();
-	return trange.parseTypeSuffix!true(base);
-}
-
-Type parseConfirmedType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	auto base = trange.parseBasicType();
-	return trange.parseTypeSuffix!false(base);
+	return trange.parseTypeSuffix!mode(base);
 }
 
 auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
@@ -51,18 +45,11 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		case TokenType.Immutable :
 			return processQualifier!(TypeQualifier.Immutable)();
 		
-		case TokenType.Mutable :
-			return processQualifier!(TypeQualifier.Mutable)();
-		
 		case TokenType.Inout :
 			return processQualifier!(TypeQualifier.Mutable)();
 		
 		case TokenType.Shared :
 			return processQualifier!(TypeQualifier.Shared)();
-		
-		case TokenType.Scope :
-			// TODO: handle scope.
-			return processQualifier!(TypeQualifier.Mutable)();
 		
 		// Identified types
 		case TokenType.Identifier :
@@ -201,37 +188,20 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 /**
  * Parse *, [ ... ] and function/delegate types.
  */
-private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, Type type) {
+Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type type) if(isTokenRange!TokenRange) {
 	Location location = type.location;
 	
 	while(1) {
 		switch(trange.front.type) {
-			case TokenType.Asterix :
+			case TokenType.Star :
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
 				type = new PointerType(location, type);
 				break;
-				
+			
 			case TokenType.OpenBracket :
 				type = trange.parseBracket(type);
-				break;
-			
-			case TokenType.Dot :
-				auto lookahead = trange.save;
-				lookahead.popFront();
-				if(lookahead.front.type != TokenType.Identifier) return type;
-				
-				static if(!isGreedy) {
-					import d.parser.util;
-					if(!trange.getConfirmedType()) {
-						return type;
-					}
-				}
-				
-				trange.popFront();
-				
-				type = new IdentifierType(trange.parseQualifiedIdentifier(type.location, type));
 				break;
 			
 			case TokenType.Function :
@@ -258,6 +228,14 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 				type = new DelegateType(location, "D", type, parameters, isVariadic);
 				break;
 			
+			static if(mode == ParseMode.Greedy) {
+			case TokenType.Dot :
+				trange.popFront();
+				
+				type = new IdentifierType(trange.parseQualifiedIdentifier(type.location, type));
+				break;
+			}
+			
 			default :
 				return type;
 		}
@@ -267,19 +245,15 @@ private auto parseTypeSuffix(bool isGreedy, TokenRange)(ref TokenRange trange, T
 private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
 	Location location = type.location;
 	
-	// -1 because we the match the opening [
-	auto matchingBracket = trange.save;
-	matchingBracket.popMatchingDelimiter!(TokenType.OpenBracket, TokenRange)();
-	
 	trange.match(TokenType.OpenBracket);
-	if((matchingBracket - trange) == 1) {
+	if(trange.front.type == TokenType.CloseBracket) {
 		location.spanTo(trange.front.location);
 		trange.popFront();
 		
 		return new SliceType(location, type);
 	}
 	
-	return trange.parseTypeOrExpression!(delegate Type(parsed){
+	return trange.parseAmbiguous!(delegate Type(parsed) {
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.CloseBracket);
 		
@@ -291,8 +265,8 @@ private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
 		} else static if(is(caseType : Expression)) {
 			return new StaticArrayType(location, type, parsed);
 		} else {
-			return new AmbiguousArrayType(location, type, parsed);
+			return new IdentifierArrayType(location, type, parsed);
 		}
-	})(matchingBracket - trange - 1);
+	})();
 }
 

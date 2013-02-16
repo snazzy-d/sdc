@@ -3,7 +3,7 @@ module d.semantic.util;
 import d.ast.base;
 import d.ast.expression;
 
-import sdc.location;
+import d.location;
 
 private template Base(T) {
 	static if(is(T : Expression)) {

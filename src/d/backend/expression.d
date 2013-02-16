@@ -7,9 +7,9 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
-import util.visitor;
+import d.location;
 
-import sdc.location;
+import util.visitor;
 
 import llvm.c.core;
 
@@ -426,7 +426,7 @@ final class ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		auto args = [buildDString(e.location.filename), LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false)];
+		auto args = [buildDString(e.location.source.filename), LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false)];
 		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 2, "");
 		
 		// Conclude that block.
@@ -491,7 +491,7 @@ final class AddressOfGen {
 			// Emit bound check fail code.
 			LLVMPositionBuilderAtEnd(builder, failBB);
 			
-			auto args = [buildDString(location.filename), LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false)];
+			auto args = [buildDString(location.source.filename), LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false)];
 			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, 2, "");
 			
 			LLVMBuildUnreachable(builder);

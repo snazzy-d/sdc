@@ -10,7 +10,7 @@ import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
 
-import sdc.location;
+import d.location;
 
 import std.algorithm;
 import std.array;
@@ -97,14 +97,16 @@ final class TemplateInstancier {
 		return Identifiable(pass.visit(arg.type));
 	}
 	
-	Identifiable visit(AmbiguousTemplateArgument arg) {
+	Identifiable visit(IdentifierTemplateArgument arg) {
+		return pass.visit(arg.identifier);
+		/+
 		if(auto type = pass.visit(arg.argument.type)) {
 			return Identifiable(type);
 		} else if(auto expression = pass.visit(arg.argument.expression)) {
 			return Identifiable(expression);
 		}
-		
-		assert(0, "Ambiguous can't be deambiguated.");
+		+/
+		// assert(0, "Ambiguous can't be deambiguated.");
 	}
 }
 

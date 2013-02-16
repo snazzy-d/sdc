@@ -9,7 +9,7 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
-import sdc.location;
+import d.location;
 
 final class DefaultInitializerVisitor {
 	private SemanticPass pass;

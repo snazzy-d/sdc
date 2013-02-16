@@ -1,6 +1,5 @@
 module d.ast.dtemplate;
 
-import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dscope;
@@ -167,15 +166,15 @@ class ValueTemplateArgument : TemplateArgument {
 }
 
 /**
- * Template type argument
+ * Template identifier argument
  */
-class AmbiguousTemplateArgument : TemplateArgument {
-	TypeOrExpression argument;
+class IdentifierTemplateArgument : TemplateArgument {
+	Identifier identifier;
 	
-	this(TypeOrExpression argument) {
-		super(argument.location);
+	this(Identifier identifier) {
+		super(identifier.location);
 		
-		this.argument = argument;
+		this.identifier = identifier;
 	}
 }
 

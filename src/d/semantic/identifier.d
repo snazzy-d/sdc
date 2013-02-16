@@ -5,7 +5,6 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.adt;
-import d.ast.ambiguous;
 import d.ast.expression;
 import d.ast.declaration;
 import d.ast.dfunction;
@@ -15,7 +14,7 @@ import d.ast.dscope;
 import d.ast.identifier;
 import d.ast.type;
 
-import sdc.location;
+import d.location;
 
 import std.algorithm;
 import std.array;
@@ -117,16 +116,6 @@ final class IdentifierVisitor {
 		i.type = pass.visit(i.type);
 		
 		return typeDotIdentifierVisitor.visit(i);
-	}
-	
-	Identifiable visit(AmbiguousDotIdentifier i) {
-		if(auto type = pass.visit(i.qualifier.type)) {
-			return visit(new TypeDotIdentifier(i.location, i.name, type));
-		} else if(auto expression = pass.visit(i.qualifier.expression)) {
-			return visit(new ExpressionDotIdentifier(i.location, i.name, expression));
-		}
-		
-		assert(0, "Ambiguous can't be deambiguated.");
 	}
 	
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {

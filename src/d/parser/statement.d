@@ -5,7 +5,7 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
-import d.parser.ambiguous : isDeclaration;
+import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.conditional;
 import d.parser.declaration;
@@ -380,15 +380,16 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			return trange.parseDebug!Statement();
 		
 		default :
-			if(trange.isDeclaration()) {
-				auto declaration = trange.parseDeclaration();
-				return new DeclarationStatement(declaration);
-			} else {
-				auto expression = trange.parseExpression();
-				trange.match(TokenType.Semicolon);
+			return trange.parseDeclarationOrExpression!(delegate Statement(parsed) {
+				alias typeof(parsed) caseType;
 				
-				return new ExpressionStatement(expression);
-			}
+				static if(is(caseType : Expression)) {
+					trange.match(TokenType.Semicolon);
+					return new ExpressionStatement(parsed);
+				} else {
+					return new DeclarationStatement(parsed);
+				}
+			})();
 	}
 	
 	assert(0);

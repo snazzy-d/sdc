@@ -100,7 +100,7 @@ final class LLVMBackend : Backend {
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asObject), LLVMCodeGenFileType.Object, &errorPtr);
 		
-		auto linkCommand = "gcc -o " ~ mods.back.location.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+		auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
 		writeln(linkCommand);
 		system(linkCommand);
 		//*/

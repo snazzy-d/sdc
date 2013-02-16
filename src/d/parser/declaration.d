@@ -18,14 +18,14 @@ import d.parser.type;
 /**
  * Parse a set of declarations.
  */
-auto parseAggregate(bool globBraces = true, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) {
 	static if(globBraces) {
 		trange.match(TokenType.OpenBrace);
 	}
 	
 	Declaration[] declarations;
 	
-	while(trange.front.type != TokenType.CloseBrace) {
+	while(!trange.empty && trange.front.type != TokenType.CloseBrace) {
 		declarations ~= trange.parseDeclaration();
 	}
 	
@@ -39,56 +39,35 @@ auto parseAggregate(bool globBraces = true, TokenRange)(ref TokenRange trange) i
 /**
  * Parse a declaration
  */
-Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 	Location location = trange.front.location;
 	
-	// TODO: bug repport and workaround : if trange is used, dmd explode.
-	// To work around, the function is made static and all parameters passed manually. UFCS explode too.
-	static auto handleStorageClass(StorageClassDeclaration, U...)(ref TokenRange trange, ref Location location, U arguments) {
+	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
+		Declaration[] declarations;
 		switch(trange.front.type) {
 			case TokenType.OpenBrace :
-				auto declarations = trange.parseAggregate();
-				
-				location.spanTo(trange.front.location);
-				
-				return new StorageClassDeclaration(location, arguments, declarations);
+				declarations = trange.parseAggregate();
+				break;
 			
 			case TokenType.Colon :
 				trange.popFront();
-				auto declarations = trange.parseAggregate!false();
-				
-				location.spanTo(trange.front.location);
-				
-				return new StorageClassDeclaration(location, arguments, declarations);
+				declarations = trange.parseAggregate!false();
+				break;
 			
 			default :
-				return new StorageClassDeclaration(location, arguments, [trange.parseDeclaration()]);
+				declarations = [trange.parseDeclaration()];
+				break;
 		}
+		
+		location.spanTo(trange.front.location);
+		return new StorageClassDeclaration(location, arguments, declarations);
 	}
 	
-	Type type;
-	
 	switch(trange.front.type) {
-		/*
-		 * Auto declaration
-		 */
-		case TokenType.Identifier :
-			// storageClass identifier = expression is an auto declaration.
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			if(lookahead.front.type != TokenType.Assign) {
-				// If it is not an auto declaration, this identifier is a type.
-				goto default;
-			}
-			
-			type = new AutoType(location);
-			break;
-		
 		case TokenType.Auto :
 			trange.popFront();
-			type = new AutoType(location);
 			
-			break;
+			return trange.parseTypedDeclaration(location, new AutoType(location));
 		
 		/*
 		 * Type qualifiers
@@ -101,7 +80,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				if(lookahead.front.type == TokenType.Assign) {
 					trange.popFront();
 					
-					return handleStorageClass!ConstDeclaration(trange, location);
+					return handleStorageClass!ConstDeclaration();
 				}
 			}
 			
@@ -115,7 +94,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				if(lookahead.front.type == TokenType.Assign) {
 					trange.popFront();
 					
-					return handleStorageClass!ImmutableDeclaration(trange, location);
+					return handleStorageClass!ImmutableDeclaration();
 				}
 			}
 			
@@ -129,7 +108,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				if(lookahead.front.type == TokenType.Assign) {
 					trange.popFront();
 					
-					return handleStorageClass!InoutDeclaration(trange, location);
+					return handleStorageClass!InoutDeclaration();
 				}
 			}
 			
@@ -143,7 +122,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 				if(lookahead.front.type == TokenType.Assign) {
 					trange.popFront();
 					
-					return handleStorageClass!SharedDeclaration(trange, location);
+					return handleStorageClass!SharedDeclaration();
 				}
 			}
 			
@@ -155,27 +134,27 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		case TokenType.Abstract :
 			trange.popFront();
 			
-			return handleStorageClass!AbstractDeclaration(trange, location);
+			return handleStorageClass!AbstractDeclaration();
 		
 		case TokenType.Deprecated :
 			trange.popFront();
 			
-			return handleStorageClass!DeprecatedDeclaration(trange, location);
+			return handleStorageClass!DeprecatedDeclaration();
 		
 		case TokenType.Nothrow :
 			trange.popFront();
 			
-			return handleStorageClass!NothrowDeclaration(trange, location);
+			return handleStorageClass!NothrowDeclaration();
 		
 		case TokenType.Override :
 			trange.popFront();
 			
-			return handleStorageClass!OverrideDeclaration(trange, location);
+			return handleStorageClass!OverrideDeclaration();
 		
 		case TokenType.Pure :
 			trange.popFront();
 			
-			return handleStorageClass!PureDeclaration(trange, location);
+			return handleStorageClass!PureDeclaration();
 		
 		case TokenType.Static :
 			// Handle static if.
@@ -187,17 +166,17 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			}
 			
 			trange.popFront();
-			return handleStorageClass!StaticDeclaration(trange, location);
+			return handleStorageClass!StaticDeclaration();
 		
 		case TokenType.Synchronized :
 			trange.popFront();
 			
-			return handleStorageClass!SynchronizedDeclaration(trange, location);
+			return handleStorageClass!SynchronizedDeclaration();
 		
 		case TokenType.__Gshared :
 			trange.popFront();
 			
-			return handleStorageClass!__GsharedDeclaration(trange, location);
+			return handleStorageClass!__GsharedDeclaration();
 		
 		/*
 		 * Visibility declaration
@@ -205,27 +184,27 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		case TokenType.Private :
 			trange.popFront();
 			
-			return handleStorageClass!PrivateDeclaration(trange, location);
+			return handleStorageClass!PrivateDeclaration();
 		
 		case TokenType.Public :
 			trange.popFront();
 			
-			return handleStorageClass!PublicDeclaration(trange, location);
+			return handleStorageClass!PublicDeclaration();
 		
 		case TokenType.Protected :
 			trange.popFront();
 			
-			return handleStorageClass!ProtectedDeclaration(trange, location);
+			return handleStorageClass!ProtectedDeclaration();
 		
 		case TokenType.Package :
 			trange.popFront();
 			
-			return handleStorageClass!PackageDeclaration(trange, location);
+			return handleStorageClass!PackageDeclaration();
 		
 		case TokenType.Export :
 			trange.popFront();
 			
-			return handleStorageClass!ExportDeclaration(trange, location);
+			return handleStorageClass!ExportDeclaration();
 		
 		/*
 		 * Linkage
@@ -237,7 +216,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			trange.match(TokenType.Identifier);
 			trange.match(TokenType.CloseParen);
 			
-			return handleStorageClass!LinkageDeclaration(trange, location, linkage);
+			return handleStorageClass!LinkageDeclaration(linkage);
 		
 		/**
 		 * Attributes
@@ -247,7 +226,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 			string attribute = trange.front.value;
 			trange.match(TokenType.Identifier);
 			
-			return handleStorageClass!AttributeDeclaration(trange, location, attribute);
+			return handleStorageClass!AttributeDeclaration(attribute);
 		
 		/*
 		 * Class, interface, struct and union declaration
@@ -279,6 +258,8 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		case TokenType.Enum :
 			auto lookahead = trange.save;
 			lookahead.popFront();
+			
+			Type type;
 			
 			// Determine if we are in case of manifest constant or regular enum.
 			switch(lookahead.front.type) {
@@ -315,7 +296,8 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 					break;
 			}
 			
-			break;
+			assert(type);
+			return trange.parseTypedDeclaration(location, type);
 		
 		/*
 		 * Template
@@ -356,9 +338,21 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 		 * Variable and function declarations
 		 */
 		default :
-			type = trange.parseType();
+			return trange.parseTypedDeclaration(location);
 	}
 	
+	assert(0);
+}
+
+/**
+ * Parse type identifier ... declarations.
+ * Function/variables.
+ */
+private Declaration parseTypedDeclaration(R)(ref R trange, Location location) {
+	return trange.parseTypedDeclaration(location, trange.parseType());
+}
+
+private Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
@@ -406,7 +400,7 @@ Declaration parseDeclaration(TokenRange)(ref TokenRange trange) if(isTokenRange!
 /**
  * Parse alias declaration
  */
-private Declaration parseAlias(TokenRange)(ref TokenRange trange) {
+private Declaration parseAlias(R)(ref R trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
 	

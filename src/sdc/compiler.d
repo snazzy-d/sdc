@@ -7,7 +7,7 @@
  */
 module sdc.compiler;
 
-import sdc.lexer;
+// import sdc.lexer;
 import sdc.source;
 import sdc.tokenstream;
 import sdc.ast.sdcmodule;
@@ -54,7 +54,7 @@ class Compiler
         }
         mTokenStreams = new TokenStream[mSources.length];
         foreach (i, src; mSources) {
-            mTokenStreams[i] = .lex(src);
+            // mTokenStreams[i] = .lex(src);
         }
         return mTokenStreams;
     }

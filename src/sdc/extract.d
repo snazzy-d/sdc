@@ -13,10 +13,10 @@ import path = std.path;
 
 import sdc.compilererror;
 import sdc.token;
-import sdc.location;
 import sdc.ast.all;
 
-
+import d.location;
+/+
 string extractQualifiedName(QualifiedName qualifiedName)
 {
     string buf = qualifiedName.leadingDot ? "." : "";
@@ -107,7 +107,7 @@ dchar extractCharacterLiteral(CharacterLiteral literal)
     }
     return c;
 }
-
++/
 // private:
 string extractRawString(string s)
 {
@@ -166,15 +166,18 @@ dchar extractCharacter(Location loc, string s, ref size_t index)
         dchar escapeChar = decode(s, index);
         switch(escapeChar) {
         case 'x': // One byte hexadecimal
-            c = parse!uint(s[index..index+2], 16);
+        	auto cs = s[index..index+2];
+            c = parse!uint(cs, 16);
             index += 2;
             break;
         case 'u': // Two byte code point
-            c = parse!ushort(s[index..index+4], 16);
+        	auto cs = s[index..index+4];
+            c = parse!ushort(cs, 16);
             index += 4;
             break;
         case 'U': // Four byte code point
-            c = parse!uint(s[index..index+8], 16);
+        	auto cs = s[index..index+8];
+            c = parse!uint(cs, 16);
             index += 8;
             break;
         case '&': // Named entity
@@ -191,7 +194,9 @@ dchar extractCharacter(Location loc, string s, ref size_t index)
                     }
                  }
             }
-            c = parse!uint(s[index - 1 .. index + octalLength - 1], 8);
+            
+            auto cs = s[index - 1 .. index + octalLength - 1];
+            c = parse!uint(cs, 8);
             index += octalLength;
             break;
         case '\\', '"', '\'', '\?':
@@ -208,3 +213,4 @@ dchar extractCharacter(Location loc, string s, ref size_t index)
     
     return c;
 }
+

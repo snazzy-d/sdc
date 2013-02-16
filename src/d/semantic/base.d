@@ -5,10 +5,11 @@ public import util.visitor;
 import util.condition;
 
 import sdc.compilererror;
-import sdc.location;
 
 import d.ast.expression;
 import d.ast.type;
+
+import d.location;
 
 private enum Outcome {
 	Throw,

@@ -1,6 +1,5 @@
 module d.ast.type;
 
-import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dscope;
@@ -457,15 +456,15 @@ class AssociativeArrayType : SuffixType {
 }
 
 /**
- * Associative array types
+ * Associative or static array types
  */
-class AmbiguousArrayType : SuffixType {
-	TypeOrExpression key;
+class IdentifierArrayType : SuffixType {
+	Identifier identifier;
 	
-	this(Location location, Type type, TypeOrExpression key) {
+	this(Location location, Type type, Identifier identifier) {
 		super(location, type);
 		
-		this.key = key;
+		this.identifier = identifier;
 	}
 }
 

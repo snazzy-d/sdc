@@ -11,7 +11,8 @@ import std.stdio;
 import std.string;
 
 import sdc.terminal;
-import sdc.location;
+
+import d.location;
 
 class CompilerError : Exception
 {
@@ -78,7 +79,7 @@ class CompilerPanic : CompilerError
         return "%s: panic: %s";
     }
 }
-
+/+
 class CompilerErrorNote : CompilerError
 {
     this(string message)
@@ -157,7 +158,7 @@ class ArgumentMismatchError : CompilerError
         super(loc, message);
     }
 }
-
++/
 void errorMessageOnly(Location loc, string message)
 {
     stderr.writeln(format("%s: error: %s", loc.toString(), message));
