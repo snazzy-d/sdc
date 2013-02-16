@@ -5,8 +5,6 @@ module d.semantic.clone;
 
 import d.semantic.base;
 
-import d.semantic.dscope;
-
 import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dmodule;
