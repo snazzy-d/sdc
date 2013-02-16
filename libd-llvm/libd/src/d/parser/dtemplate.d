@@ -1,6 +1,5 @@
 module d.parser.dtemplate;
 
-import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.dtemplate;
 import d.ast.expression;
@@ -200,7 +199,7 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		
 		case TokenType.Identifier :
 			auto identifier = new BasicIdentifier(trange.front.location, trange.front.value);
-			arguments = [new AmbiguousTemplateArgument(new TypeOrExpression(new IdentifierType(identifier), new IdentifierExpression(identifier)))];
+			arguments = [new IdentifierTemplateArgument(identifier)];
 			
 			trange.popFront();
 			break;

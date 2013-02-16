@@ -1,6 +1,5 @@
 module d.ast.expression;
 
-import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dfunction;
@@ -606,10 +605,10 @@ class StaticTypeidExpression : Expression {
 /**
  * ambiguous typeid expression.
  */
-class AmbiguousTypeidExpression : Expression {
-	private TypeOrExpression argument;
+class IdentifierTypeidExpression : Expression {
+	private Identifier argument;
 	
-	this(Location location, TypeOrExpression argument) {
+	this(Location location, Identifier argument) {
 		super(location);
 		
 		this.argument = argument;

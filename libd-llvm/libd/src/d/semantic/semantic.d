@@ -30,7 +30,7 @@ import d.ast.type;
 
 import d.processor.scheduler;
 
-import sdc.location;
+import d.location;
 
 import std.algorithm;
 import std.array;

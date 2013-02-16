@@ -1,11 +1,14 @@
 module d.parser.base;
 
-import sdc.tokenstream;
-
-public import sdc.location;
-public import sdc.token;
+public import d.lexer;
+public import d.location;
 
 import d.parser.dmodule;
+
+enum ParseMode {
+	Greedy,
+	Reluctant,
+}
 
 auto parse(TokenRange)(ref TokenRange trange, string name, string[] packages) if(isTokenRange!TokenRange) {
 	return trange.parseModule(name, packages);
@@ -14,17 +17,17 @@ auto parse(TokenRange)(ref TokenRange trange, string name, string[] packages) if
 template isTokenRange(T) {
 	import std.range;
 	
-	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token));
+	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token!Location));
 }
 
-void match(TokenRange)(ref TokenRange trange, TokenType type) if(isTokenRange!TokenRange) {
+void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
 	auto token = trange.front;
 	
 	if(token.type != type) {
 		import sdc.compilererror;
 		import std.conv, std.string;
 		
-		auto error = format("expected '%s', got '%s'.", tokenToString[type], token.value);
+		auto error = format("expected '%s', got %s (%s).", to!string(type), token.value, to!string(token.type));
 		
 		import sdc.terminal;
 		outputCaretDiagnostics(token.location, error);

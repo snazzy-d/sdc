@@ -6,8 +6,6 @@ import d.ast.dmodule;
 import d.parser.base;
 import d.parser.declaration;
 
-import sdc.tokenstream;
-
 /**
  * Parse a whole module.
  * This is the regular entry point in the parser

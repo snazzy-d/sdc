@@ -242,17 +242,15 @@ final class DeclarationVisitor {
 		auto location = d.location;
 		
 		if(auto str = cast(StringLiteral) value) {
-			import sdc.lexer;
-			import sdc.sdc;
-			auto trange = TokenRange(lex(str.value, location));
+			import d.lexer;
+			auto source = new MixinSource(location, str.value);
+			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0');
 			
 			trange.match(TokenType.Begin);
 			
 			while(trange.front.type != TokenType.End) {
 				visit(trange.parseDeclaration());
 			}
-			
-			trange.match(TokenType.End);
 		} else {
 			assert(0, "mixin parameter should evalutate as a string.");
 		}

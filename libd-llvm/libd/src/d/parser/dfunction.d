@@ -63,7 +63,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 	// Parse function attributes
 	functionAttributeLoop : while(1) {
 		switch(trange.front.type) {
-			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Mutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
+			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
 				trange.popFront();
 				break;
 			

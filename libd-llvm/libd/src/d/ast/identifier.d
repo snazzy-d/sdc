@@ -1,6 +1,5 @@
 module d.ast.identifier;
 
-import d.ast.ambiguous;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dtemplate;
@@ -78,19 +77,6 @@ class TemplateInstanciationDotIdentifier : Identifier {
 		super(location, name);
 		
 		this.templateInstanciation = templateInstanciation;
-	}
-}
-
-/**
- * An identifier qualified by an expression or a type (ambyguous.identifier)
- */
-class AmbiguousDotIdentifier : Identifier {
-	TypeOrExpression qualifier;
-	
-	this(Location location, string name, TypeOrExpression qualifier) {
-		super(location, name);
-		
-		this.qualifier = qualifier;
 	}
 }
 

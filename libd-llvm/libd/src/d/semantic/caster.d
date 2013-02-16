@@ -10,7 +10,7 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
-import sdc.location;
+import d.location;
 
 // FIXME: isn't reentrant at all.
 final class Caster(bool isExplicit) {
