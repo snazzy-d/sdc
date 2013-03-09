@@ -80,6 +80,18 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 			stderr.writeln('\t', underline[0 .. index], fixHint);
 		});
 	}
+	
+	if(auto fileSource = cast(FileSource) loc.source) {
+		writeColouredText(stderr, ConsoleColour.Blue, {
+			stderr.writeln('\t', fileSource.filename, " line ", loc.line);
+		});
+	} else if(auto mixinSource = cast(MixinSource) loc.source) {
+		writeColouredText(stderr, ConsoleColour.Blue, {
+			stderr.writeln('\t', "Line ", loc.line, " expanded from mixin :");
+		});
+		
+		outputCaretDiagnostics(mixinSource.location, null);
+	}
 }
 
 version(Windows) {

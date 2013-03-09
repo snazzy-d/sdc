@@ -157,8 +157,9 @@ auto parseMixin(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 	auto expression = trange.parseExpression();
 	
 	trange.match(TokenType.CloseParen);
-	trange.match(TokenType.Semicolon);
+	location.spanTo(trange.front.location);
 	
+	trange.match(TokenType.Semicolon);
 	return new Mixin!ItemType(location, expression);
 }
 

@@ -757,9 +757,9 @@ Expression parsePostfixExpression(ParseMode mode, TokenRange)(ref TokenRange tra
 				break;
 			
 			case TokenType.DoubleMinus :
+				location.spanTo(trange.front.location);
 				trange.popFront();
 				
-				location.spanTo(trange.front.location);
 				e = new PostDecrementExpression(location, e);
 				
 				break;
@@ -772,9 +772,9 @@ Expression parsePostfixExpression(ParseMode mode, TokenRange)(ref TokenRange tra
 					arguments = trange.parseArguments();
 				}
 				
+				location.spanTo(trange.front.location);
 				trange.match(TokenType.CloseParen);
 				
-				location.spanTo(trange.front.location);
 				e = new CallExpression(location, e, arguments);
 				
 				break;
@@ -792,6 +792,7 @@ Expression parsePostfixExpression(ParseMode mode, TokenRange)(ref TokenRange tra
 						case TokenType.CloseBracket :
 							location.spanTo(trange.front.location);
 							e = new IndexExpression(location, e, arguments);
+							
 							break;
 						
 						case TokenType.DoubleDot :

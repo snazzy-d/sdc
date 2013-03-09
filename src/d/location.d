@@ -29,9 +29,10 @@ struct Location {
 		// assert(source is end.source, "locations must have the same source !");
 		
 		assert(line <= end.line);
-		assert(index + length <= end.index);
+		assert(index <= end.index);
+		assert(index + length <= end.index + end.length);
 	} body {
-		length = end.index - index;
+		length = end.index - index + end.length;
 	}
 }
 
