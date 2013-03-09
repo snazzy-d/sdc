@@ -10,7 +10,7 @@ enum ParseMode {
 	Reluctant,
 }
 
-auto parse(TokenRange)(ref TokenRange trange, string name, string[] packages) if(isTokenRange!TokenRange) {
+auto parse(R)(ref R trange, string name, string[] packages) if(isTokenRange!R) {
 	return trange.parseModule(name, packages);
 }
 
@@ -27,7 +27,7 @@ void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
 		import sdc.compilererror;
 		import std.conv, std.string;
 		
-		auto error = format("expected '%s', got %s (%s).", to!string(type), token.value, to!string(token.type));
+		auto error = format("expected '%s', got '%s'.", to!string(type), to!string(token.type));
 		
 		import sdc.terminal;
 		outputCaretDiagnostics(token.location, error);
