@@ -1,0 +1,3 @@
+[submodule "libd-llvm"]
+	path = libd-llvm
+	url = git://github.com/deadalnix/libd-llvm.git

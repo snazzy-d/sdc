@@ -7,14 +7,14 @@ module sdc.sdc;
 // Ensure that null pointers are detected.
 import etc.linux.memoryerror;
 
+import d.parser.base;
+
+import d.exception;
+
 import std.stdio : writeln, stderr, stdout;
 import std.file : exists;
 
 import std.array;
-
-import sdc.compilererror;
-
-import d.parser.base;
 
 int main(string[] args) {
 	if (args.length == 1) {
@@ -26,17 +26,15 @@ int main(string[] args) {
 		foreach (file; args[1..$]) {
 			compile(file);
 		}
-	} catch(CompilerError e) {
+	} catch(CompileException e) {
 		import sdc.terminal;
 		outputCaretDiagnostics(e.location, e.msg);
 		
-		throw e;
-/+		debug {
-			import std.stdio;
-			writeln(e.toString());
+		debug {
+			throw e;
+		} else {
+			return 1;
 		}
-		
-		return 1;+/
 	}
 	
 	return 0;
@@ -58,8 +56,8 @@ void compile(string filename) {
 	// Test the new scheduler system.
 	import d.semantic.semantic;
 	
-	import d.backend.evaluator;
-	import d.backend.llvm;
+	import d.llvm.evaluator;
+	import d.llvm.backend;
 	auto backend	= new LLVMBackend(ast.back.location.source.filename);
 	auto evaluator	= new LLVMEvaluator(backend.pass);
 	

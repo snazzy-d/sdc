@@ -1,18 +1,15 @@
-include makefile.common
-
+DMD ?= dmd
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
-SOURCE = $(SOURCE_WILDCARDS)
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport
-OBJ = sdc.o
+SOURCE = src/sdc/*.d src/etc/linux/*.d
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport -Ilibd-llvm/src -Ilibd-llvm/libd/src
 EXE = bin/sdc
 
-LIBLLVM_DIR ?= `llvm-config-3.1 --libdir`
-LIBLLVM = -L-L$(LIBLLVM_DIR) `llvm-config-3.1 --libs | sed 's/-l/-L-l/g'`
-LLVM_DIR ?= `llvm-config-3.1 --includedir`
-LLVM_SRC = import/llvm/c/target.d
+LLVM_CONFIG ?= llvm-config
+LLVM_LIB = -L-L`$(LLVM_CONFIG) --libdir` `$(LLVM_CONFIG) --libs | sed 's/-l/-L-l/g'`
+LIBD_LIB = -L-Llibd-llvm/libd/lib -L-ld -L-Llibd-llvm/lib -L-ld-llvm
 
-LDFLAGS = $(LIBLLVM) -L-lstdc++
+LDFLAGS = $(LIBD_LIB) $(LLVM_LIB) -L-lstdc++
 
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -L-ldl -L-lffi
@@ -20,9 +17,9 @@ endif
 
 all: $(EXE)
 
-$(EXE): $(SOURCE) $(LLVM_SRC) $(LLVM_OBJ)
+$(EXE): $(SOURCE)
 	@mkdir -p bin
-	$(DMD) -of$(EXE) $(SOURCE) $(LLVM_SRC) $(DFLAGS) $(LDFLAGS)
+	$(DMD) -of$(EXE) $(SOURCE) $(DFLAGS) $(LDFLAGS)
 
 clean:
 	@rm $(EXE)
