@@ -8,8 +8,6 @@ module sdc.terminal;
 import std.stdio;
 
 import d.location;
-import sdc.compilererror;
-
 
 version(Windows) {
 	import std.c.windows.windows;
@@ -60,7 +58,7 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 	}
 	
 	writeColouredText(stderr, ConsoleColour.Green, {
-		stderr.writeln('\t', line);
+		stderr.writeln(line);
 	});
 	
 	char[] underline;
@@ -72,22 +70,22 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 	}
 	
 	writeColouredText(stderr, ConsoleColour.Yellow, {
-		stderr.writeln('\t', underline);
+		stderr.writeln(underline);
 	});
 	
 	if(fixHint !is null) {
 		writeColouredText(stderr, ConsoleColour.Yellow, {
-			stderr.writeln('\t', underline[0 .. index], fixHint);
+			stderr.writeln(underline[0 .. index], fixHint);
 		});
 	}
 	
 	if(auto fileSource = cast(FileSource) loc.source) {
 		writeColouredText(stderr, ConsoleColour.Blue, {
-			stderr.writeln('\t', fileSource.filename, " line ", loc.line);
+			stderr.writeln(fileSource.filename, " line ", loc.line);
 		});
 	} else if(auto mixinSource = cast(MixinSource) loc.source) {
 		writeColouredText(stderr, ConsoleColour.Blue, {
-			stderr.writeln('\t', "Line ", loc.line, " expanded from mixin :");
+			stderr.writeln("Line ", loc.line, " expanded from mixin :");
 		});
 		
 		outputCaretDiagnostics(mixinSource.location, null);
