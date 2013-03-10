@@ -32,6 +32,7 @@ sys.d
 /sdc/obj
 /cfg.dot
 /bin
+/lib
 /tests/bin
 /tests/tdpl
 

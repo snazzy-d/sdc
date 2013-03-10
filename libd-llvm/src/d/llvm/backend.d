@@ -83,7 +83,7 @@ final class LLVMBackend : Backend {
 		//*/
 		
 		//*
-		import sdc.util;
+		import d.llvm.util;
 		import std.string;
 		import std.process;
 		

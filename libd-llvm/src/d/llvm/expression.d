@@ -7,6 +7,7 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.exception;
 import d.location;
 
 import util.visitor;
@@ -27,12 +28,7 @@ final class ExpressionGen {
 	
 	LLVMValueRef visit(Expression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
-			auto msg = typeid(e).toString() ~ " is not supported.";
-			
-			import sdc.terminal;
-			outputCaretDiagnostics(e.location, msg);
-			
-			assert(0, msg);
+			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
 		})(e);
 	}
 	

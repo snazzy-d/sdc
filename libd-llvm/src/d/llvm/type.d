@@ -6,6 +6,8 @@ import d.ast.adt;
 import d.ast.dfunction;
 import d.ast.type;
 
+import d.exception;
+
 import util.visitor;
 
 import llvm.c.core;
@@ -23,12 +25,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(Type t) {
 		return this.dispatch!(function LLVMTypeRef(Type t) {
-			auto msg = typeid(t).toString() ~ " is not supported.";
-			
-			import sdc.terminal;
-			outputCaretDiagnostics(t.location, msg);
-			
-			assert(0, msg);
+			throw new CompileException(t.location, typeid(t).toString() ~ " is not supported");
 		})(t);
 	}
 	
