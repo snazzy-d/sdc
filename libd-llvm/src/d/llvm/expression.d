@@ -1,6 +1,6 @@
-module d.backend.expression;
+module d.llvm.expression;
 
-import d.backend.codegen;
+import d.llvm.codegen;
 
 import d.ast.declaration;
 import d.ast.dfunction;

@@ -1,6 +1,6 @@
-module d.backend.statement;
+module d.llvm.statement;
 
-import d.backend.codegen;
+import d.llvm.codegen;
 
 import d.ast.statement;
 

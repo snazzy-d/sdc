@@ -1,6 +1,6 @@
-module d.backend.type;
+module d.llvm.type;
 
-import d.backend.codegen;
+import d.llvm.codegen;
 
 import d.ast.adt;
 import d.ast.dfunction;

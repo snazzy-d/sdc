@@ -1,6 +1,6 @@
-module d.backend.evaluator;
+module d.llvm.evaluator;
 
-import d.backend.codegen;
+import d.llvm.codegen;
 
 import d.ast.expression;
 import d.ast.type;

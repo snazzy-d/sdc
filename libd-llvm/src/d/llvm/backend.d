@@ -1,6 +1,6 @@
-module d.backend.llvm;
+module d.llvm.backend;
 
-import d.backend.codegen;
+import d.llvm.codegen;
 
 import d.ast.dmodule;
 
@@ -32,7 +32,7 @@ final class LLVMBackend : Backend {
 	}
 	
 	void codeGen(Module[] mods) {
-		import d.backend.codegen;
+		import d.llvm.codegen;
 		import std.stdio;
 		
 		auto dmodule = pass.visit(mods);
@@ -54,16 +54,16 @@ final class LLVMBackend : Backend {
 		
 		auto pmb = LLVMPassManagerBuilderCreate();
 		
-		//*
+		//+
 		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 		LLVMPassManagerBuilderSetOptLevel(pmb, 0);
-		/*/
+		/*+//*//+*/
 		LLVMDumpModule(dmodule);
 		writeln("\n; Optimized as :");
 		
 		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
 		LLVMPassManagerBuilderSetOptLevel(pmb, 3);
-		//*/
+		// +/
 		
 		auto pm = LLVMCreatePassManager();
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);

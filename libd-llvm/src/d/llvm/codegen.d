@@ -1,4 +1,4 @@
-module d.backend.codegen;
+module d.llvm.codegen;
 
 import d.ast.declaration;
 import d.ast.dmodule;
@@ -6,11 +6,11 @@ import d.ast.statement;
 import d.ast.expression;
 import d.ast.type;
 
-import d.backend.declaration;
-import d.backend.statement;
-import d.backend.expression;
-import d.backend.string;
-import d.backend.type;
+import d.llvm.declaration;
+import d.llvm.statement;
+import d.llvm.expression;
+import d.llvm.string;
+import d.llvm.type;
 
 import d.location;
 
