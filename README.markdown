@@ -1,118 +1,20 @@
 SDC - The Stupid D Compiler
 ===========================
-This is the home of a [D](http://d-programming-language.org/) compiler.
+This is the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
-I don't know what I'm doing in terms of compiler writing. If you find some horrible design decision, that's most likely why.
+
+This compiler is based on [libd](https://github.com/deadalnix/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/libd-llvm) for codegen and JIT CTFE.
 
 The code is released under the MIT license (see the LICENCE file for more details).
-Contact me at b.helyer@gmail.com
+Contact me at deadalnix@gmail.com
 
-Last tested with: DMD release `2.059` in May, 2012.
+Last tested with: DMD release `2.062` in Mar, 2013.
 
-Ast as lib branch
-=================
-
-You are in a special branch of SDC. The point of this branch is to provide tool to build and manipulate AST as lib for 3rd party tools. This lib aims to be used in other contexts than a compiler, for instance :
-* IDE support.
-* Static code analysis.
-* Toolchain for D (code formater, DI generation, documentation generation).
-* Open the door for D extentiosn such as AST macros using CTFE.
-* Provide way to easily test new language features.
-
-Indirect goals are :
-* Provide a parser that give an AST as close as possible of the source code, even if incorrect D code.
-* Validate the AST, dispatch storage classes.
-* Remove syntaxic sugar.
-* Resolve identifiers.
-* Interpret if no compile time construct is present/process compile time construct.
-* Introduce call to druntime in place of corresponding constructs.
-* Optimise ?
-* Provide data as a usable form for SDC.
-=======
-Last tested with: DMD releases `2.060`.
-
-This branch may seem dead, but check out multi-pass for where work on a sane backend (tm) is going on.
-
-Features
+Goals
 ========
-What follows is a very high level overview of what's done, and what's still to do.
-This list is incomplete. SDC is in a state of flux, and this is likely to be out of date.
+Right now, SDC is a work in progress and unusable for any production work. It intends to provide a D compiler as a library (libd) in order to improve overall D toolchain by enabling the possibility of develloping new tools.
 
-Lexer
------
-* Scan and handle multiple encoding formats.  __[yes.]__ 
-* Handle leading script lines.  __[yes.]__
-* Split source into tokens.  __[yes.]__
-* Replace special tokens.  __[yes.]__
-* Process special token sequences.  __[yes.]__
-
-Parser
-------
-* Parse module declarations.  __[yes.]__
-* Parse attribute declarations.  __[yes.]__
-* Parse import declarations.  __[yes.]__
-* Parse enum declarations.  __[yes.]__
-* Parse class declarations.  _[partially.]_
-* Parse interface declarations.  _[no.]_
-* Parse aggregate declarations.  _[partially.]_
-* Parse declarations.  _[partially.]_
-* Parse constructors.  __[yes.]__
-* Parse destructors.  __[yes.]__
-* Parse invariants.  _[no.]_
-* Parse unittests.  __[yes.]__
-* Parse static constructors.  __[yes.]__
-* Parse static destructors.  __[yes.]__
-* Parse shared static constructors.  __[yes.]__
-* Parse shared static destructors.  __[yes.]__
-* Parse conditional declarations.  __[yes.]__
-* Parse static asserts.  __[yes.]__
-* Parse template declarations.  _[partially.]_
-* Parse template mixins.  _[no.]_
-* Parse mixin declarations.  _[partially.]_
-* Parse statements.  _[partially.]_
-
-Codegen
--------
-* Import symbols from other modules.  __[yes.]__
-* Apply attributes.  _[partially.]_
-* Enums.  __[yes.]__
-* Structs.  _[partially.]_
-* Classes.  _[partially.]_
-* Functions.  _[partially.]_
-* Overloaded functions. __[yes.]__
-* Function pointers. __[yes.]__
-* Local variables.  __[yes.]__
-* Global variables.  __[yes.]__
-* Alias declarations.  _[partially.]_
-* Expressions.  _[partially.]_
-* Label statement.  __[yes.]__
-* If statement.  __[yes.]__
-* While statement.  __[yes.]__
-* Do statement.  __[yes.]__
-* For statement.  __[yes.]__
-* Switch statement.  _[no.]_
-* Final switch statement.  _[no.]_
-* Case statement.  _[no.]_
-* Case range statement.  _[no.]_
-* Default statement.  _[no.]_
-* Continue statement.  _[no.]_
-* Break statement.  _[no.]_
-* Return statement.  __[yes.]__
-* Goto statement.  _[partially.]_
-* With statement.  _[no.]_
-* Synchronized statement.  _[no.]_
-* Try statement.  _[no.]_
-* Scope guard statement.  _[no.]_
-* Throw statement.  _[no.]_
-* Asm statement.  _[no.]_
-* Pragma statement.  _[no.]_
-* Mixin statement.  _[yes.]_
-* Foreach range statement.  __[yes.]__
-* Conditional statement.  __[yes.]__
-* Static assert.  __[yes.]__
-* Template mixin.  _[no.]_
-* Templated scope. _[partially.]_
-
+SDC now support many very advanced feature of (static ifs, string mixins, CTFE) but not many basic one right now. This is a devellopement choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC is a solid base to build upon.
 
 What Can It Compile?
 ====================
@@ -125,20 +27,15 @@ This just me thinking outloud about what features I want, when.
 
 0.1
 ---
-* druntime compiles
+* Compile D style (writeln) hello world.
 
 0.2
 ---
-* phobos compiles
-
-0.3
----
-* inline assembler
+* Compile itself, which imply compile most of D.
 
 1.0
 ---
-* dmd calling convention compatibility
-* self hosting
+* Propose a stable API for 3rd party.
 
 2.0
 ---
@@ -148,34 +45,12 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.0.
+Install LLVM 3.1. Ensure that libd and libd-llvm provided as submodules are compiled properly.
 Run `make`.
-Copy `bin/sdc` into your `$PATH` somewhere.
-You'll need to create a file, either `/etc/sdc.conf` or `~/.sdc.conf` (the latter may change to `~/.local/share/sdc/sdc.conf` at some point, so be warned) with contents like so:
 
-    {
-        "defaultImportPaths":["~/path/to/SDC/libs"],
-        "defaultFlags":["-m64", "--debug"]
-    }
+Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
+SDC contains le lot of hardcoded PATH right now, so it hard to intégrate properly with the system. It expect object.d to be in ../libs/object.d
 
-The last bit is optional, but SDC needs to know where to find `object.d` is the point.
-Then you can compile `runner.d` with `dmd` and run it to run the test suites. There will be a handful of failures, but the majority (> 95%) should pass. 
-
-SDC with DMD/Windows
-=======
-(These instructions are from Jakob, so please don't contact me regarding them.)
-
-The following are required for LLVM to function on Windows:
-
-* [LLVM](http://llvm.org/) >= 3.0
-  * SDC requires the core libraries as a DLL, and the `llc` and `opt` tools
-* [MinGW](http://www.mingw.org/)
-  * SDC requires `gcc`, as well as GNU `make` for the makefile
-
-~~~A copy of `llvm-2.9.dll` and `llvm-2.9.lib` in DMD-compatible OMF format can be downloaded from [here](https://github.com/downloads/JakobOvrum/SDC/llvm-2.9-Win32-DLL.rar) for convenience.~~~
-The above have not been updated for LLVM 3.0, unfortunately. Until then, you'll have to convert it with `implib` or so. Good luck! -B.
-
-For the LLVM tools, grab "LLVM Binaries for Mingw32/x86" on the [LLVM download page](http://llvm.org/releases/download.html).
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
