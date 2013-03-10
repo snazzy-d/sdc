@@ -730,9 +730,6 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			}
 		
 		default:
-			import sdc.terminal;
-			outputCaretDiagnostics(trange.front.location, "try to parse type.identifier expression.");
-			
 			// Our last resort are type.identifier expressions.
 			auto type = trange.parseType!(ParseMode.Reluctant)();
 			trange.match(TokenType.Dot);

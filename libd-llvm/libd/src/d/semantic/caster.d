@@ -10,6 +10,7 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.exception;
 import d.location;
 
 // FIXME: isn't reentrant at all.
@@ -50,10 +51,10 @@ final class Caster(bool isExplicit) {
 		if(auto asPolysemous = cast(PolysemousExpression) e) {
 			Expression[] casted;
 			foreach(candidate; asPolysemous.expressions) {
-				import sdc.compilererror;
+				// Not ugly at all :D
 				try {
 					casted ~= build(castLocation, to, candidate);
-				} catch(CompilerError ce) {}
+				} catch(CompileException ce) {}
 			}
 			
 			if(casted.length == 1) {
@@ -89,28 +90,15 @@ final class Caster(bool isExplicit) {
 	}
 	
 	private Expression castFrom(Type from, Type to) {
-		return this.dispatch!(delegate Expression(Type t) {
-			auto msg = typeid(t).toString() ~ " is not supported.";
-			
-			import sdc.terminal;
-			outputCaretDiagnostics(t.location, msg);
-			outputCaretDiagnostics(location, msg);
-			
-			outputCaretDiagnostics(to.location, "to " ~ typeid(to).toString());
-			
-			assert(0, msg);
+		return this.dispatch!((t) {
+			throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 		})(to, from);
 	}
 	
 	class FromBoolean {
 		Expression visit(Type to) {
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+			return this.dispatch!((t) {
+				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
@@ -132,13 +120,8 @@ final class Caster(bool isExplicit) {
 			
 			this.from = from;
 			
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+			return this.dispatch!((t) {
+				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
@@ -196,13 +179,8 @@ final class Caster(bool isExplicit) {
 			
 			this.from = from;
 			
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+			return this.dispatch!((t) {
+				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
@@ -248,13 +226,8 @@ final class Caster(bool isExplicit) {
 			
 			this.from = from;
 			
-			return this.dispatch!(function Expression(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+			return this.dispatch!((t) {
+				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
@@ -306,7 +279,7 @@ final class Caster(bool isExplicit) {
 			
 			this.from = from;
 			
-			return this.dispatch!(function Expression(Type t) {
+			return this.dispatch!((t) {
 				return compilationCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
 			})(to);
 		}

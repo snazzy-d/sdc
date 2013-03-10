@@ -145,13 +145,6 @@ public:
 					}
 				}
 				
-				import sdc.terminal;
-				outputCaretDiagnostics(state.symbol.location, state.symbol.toString() ~ " is waiting for...");
-				outputCaretDiagnostics(s.location, s.toString());
-				
-				import std.stdio;
-				writeln("Yield !");
-				
 				// Thread.sleep(dur!"seconds"(1));
 				Fiber.yield();
 			}

@@ -5,6 +5,7 @@ import d.semantic.base;
 import d.ast.type;
 import d.ast.adt; // For enum types.
 
+import d.exception;
 import d.location;
 
 import std.algorithm;
@@ -22,12 +23,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(Type t) {
 			return this.dispatch!(function Type(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+				throw new CompileException(t.location, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
 		
@@ -47,19 +43,14 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				return visit(asInt);
 			}
 			
-			assert(0, "Enum are of type int.");
+			throw new CompileException(t.location, "Enum are of type int");
 		}
 	}
 	
 	final class T1Handler {
 		Type visit(Type t) {
 			return this.dispatch!(function Type(Type t) {
-				auto msg = typeid(t).toString() ~ " is not supported.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(t.location, msg);
-				
-				assert(0, msg);
+				throw new CompileException(t.location, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
 		
@@ -86,7 +77,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				return visit(asInt);
 			}
 			
-			assert(0, "Enum are of type int.");
+			throw new CompileException(t.location, "Enum are of type int");
 		}
 	}
 	

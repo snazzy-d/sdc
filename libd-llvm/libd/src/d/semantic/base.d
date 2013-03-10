@@ -4,11 +4,10 @@ public import util.visitor;
 
 import util.condition;
 
-import sdc.compilererror;
-
 import d.ast.expression;
 import d.ast.type;
 
+import d.exception;
 import d.location;
 
 private enum Outcome {
@@ -42,7 +41,7 @@ auto compilationCondition(T)(Location location, string message) {
 	auto cond = CompilationCondition(location, message);
 	final switch(raiseCondition(cond).outcome) {
 		case Outcome.Throw :
-			throw new CompilerError(location, message);
+			throw new CompileException(location, message);
 		
 		case Outcome.ErrorNode:
 			static if(is(T == Type)) {

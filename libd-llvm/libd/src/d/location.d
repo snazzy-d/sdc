@@ -15,18 +15,7 @@ struct Location {
 	}
 	
 	void spanTo(ref const Location end) in {
-		if(source !is end.source) {
-			import std.stdio;
-			writeln("source corrupted : ", cast(void*) source, " vs ", cast(void*) end.source);
-			/*
-			import sdc.terminal;
-			outputCaretDiagnostics(this, "this");
-			outputCaretDiagnostics(end, "end");
-			*/
-		}
-		
-		// FIXME: Source is often corrupted. This is likely a dmd bug :(
-		// assert(source is end.source, "locations must have the same source !");
+		assert(source is end.source, "locations must have the same source !");
 		
 		assert(line <= end.line);
 		assert(index <= end.index);
@@ -36,33 +25,6 @@ struct Location {
 	}
 }
 
-/*
-final class LocationContext {
-	Location[] locations;
-	
-	uint register(uint line, uint index, uint length) {
-		Location loc;
-		
-		loc.line = line;
-		loc.index = index;
-		loc.length = length;
-		
-		return register(loc);
-	}
-	
-	auto register(Location location) {
-		uint ret = cast(uint) locations.length;
-		locations ~= location;
-		
-		return ret;
-	}
-	
-	auto retrieve(uint i) inout {
-		return locations[i];
-	}
-}
-*/
-
 abstract class Source {
 	string content;
 	
@@ -70,9 +32,7 @@ abstract class Source {
 		this.content = content;
 	}
 	
-	string format(const Location location) const {
-		return content[location.index .. location.index + location.length];
-	}
+	abstract string format(const Location location) const;
 	
 	@property
 	abstract string filename() const;
@@ -84,8 +44,13 @@ final class FileSource : Source {
 	this(string filename) {
 		_filename = filename;
 		
-		import sdc.source;
-		super((new Source(filename)).source ~ '\0');
+		import std.file;
+		super(cast(string) read(filename) ~ '\0');
+	}
+	
+	override string format(const Location location) const {
+		import std.conv;
+		return _filename ~ ':' ~ to!string(location.line);
 	}
 	
 	@property
@@ -102,9 +67,8 @@ final class MixinSource : Source {
 		super(content);
 	}
 	
-	override string format(const Location location) const {
-		import std.conv;
-		return to!string(location.line) ~ " " ~ to!string(location.index) ~ " " ~ to!string(location.length);
+	override string format(const Location dummy) const {
+		return location.toString();
 	}
 	
 	@property

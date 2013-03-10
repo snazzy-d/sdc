@@ -10,22 +10,6 @@ alias isAlpha = std.ascii.isAlpha;
 alias isUniAlpha = std.uni.isAlpha;
 alias isWhite = std.ascii.isWhite;
 
-/+
-void main() {
-	import std.algorithm;
-	
-	auto data = "  256.3  bool 'a' int in t \rref kk_23 ééé//  sfkghsfkgöhsgfkjh \n hgééösqfjhg__'\\t' /*   0123é456789  */ & @ foobar||qux /* \r\n  */ reférence! "
-		~ " 0b101_101) (1)\0";
-	
-	auto trange = lex!((a, b, c) => a)(data);
-	
-	import std.stdio;
-	writeln(trange.save);
-}
-/*+//*//+*/
-pragma(msg, "compiling lexer");
-// +/
-
 enum TokenType {
 	Invalid = 0,
 	

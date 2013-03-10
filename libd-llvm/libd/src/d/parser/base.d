@@ -24,15 +24,12 @@ void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
 	auto token = trange.front;
 	
 	if(token.type != type) {
-		import sdc.compilererror;
+		import d.exception;
 		import std.conv, std.string;
 		
 		auto error = format("expected '%s', got '%s'.", to!string(type), to!string(token.type));
 		
-		import sdc.terminal;
-		outputCaretDiagnostics(token.location, error);
-		
-		throw new CompilerError(token.location, error);
+		throw new CompileException(token.location, error);
 	}
 	
 	trange.popFront();

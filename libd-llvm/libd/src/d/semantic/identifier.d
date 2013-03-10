@@ -14,6 +14,7 @@ import d.ast.dscope;
 import d.ast.identifier;
 import d.ast.type;
 
+import d.exception;
 import d.location;
 
 import std.algorithm;
@@ -67,7 +68,6 @@ final class IdentifierVisitor {
 			if(auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				// No symbol have been found in the module, look for other modules.
 				assert(0, "Symbol " ~ name ~ " has not been found.");
 			}
 			
@@ -103,7 +103,7 @@ final class IdentifierVisitor {
 			}
 		}
 		
-		assert(0, "can't resolve " ~ i.name ~ ".");
+		throw new CompileException(i.location, "Can't resolve " ~ i.name);
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
@@ -165,13 +165,11 @@ final class IdentifierVisitor {
 				expressions ~= asExpression;
 			} else {
 				// TODO: handle templates.
-				assert(0, typeid(result).toString() ~ " is not supported in overload set.");
+				throw new CompileException(result.location, typeid(result).toString() ~ " is not supported in overload set");
 			}
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		
-		assert(0);
 	}
 	
 	private auto getSymbolType(Location location, TypeSymbol s) {
@@ -223,7 +221,7 @@ final class TypeDotIdentifierVisitor {
 			} else if(auto es = cast(ExpressionSymbol) s) {
 				return Identifiable(new SymbolExpression(i.location, es));
 			} else {
-				assert(0, "what the hell is that symbol ???");
+				throw new CompileException(s.location, "What the hell is that symbol ???");
 			}
 		}
 		
@@ -235,12 +233,7 @@ final class TypeDotIdentifierVisitor {
 				return Identifiable(new SizeofExpression(i.location, i.type));
 			
 			default :
-				auto msg = i.name ~ " can't be resolved in type.";
-				
-				import sdc.terminal;
-				outputCaretDiagnostics(i.location, msg);
-				
-				assert(0, msg);
+				throw new CompileException(i.location, i.name ~ " can't be resolved in type");
 		}
 	}
 }
@@ -271,12 +264,7 @@ final class ExpressionDotIdentifierVisitor {
 	
 	Identifiable visit(Location location, Expression e, Symbol s) {
 		return this.dispatch!((s) {
-			auto msg = "Don't know how to dispatch that " ~ typeid(s).toString() ~ ".";
-			
-			import sdc.terminal;
-			outputCaretDiagnostics(s.location, msg);
-			
-			assert(0, msg);
+			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
 		})(location, e, s);
 	}
 	
@@ -344,7 +332,7 @@ final class TemplateDotIdentifierVisitor {
 			);
 		}
 		
-		assert(0, i.name ~ " not found in template.");
+		throw new CompileException(i.location, i.name ~ " not found in template");
 	}
 	
 	Symbol visit(BasicIdentifier i) {

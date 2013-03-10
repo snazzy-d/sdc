@@ -1,5 +1,6 @@
 module d.semantic.identifiable;
 
+import d.ast.base;
 import d.ast.type;
 import d.ast.expression;
 import d.ast.declaration;
@@ -17,10 +18,16 @@ struct Identifiable {
 	Tag tag;
 	
 	union {
+		// Always valid.
+		Node node;
+		
 		Type type;
 		Expression expression;
 		Symbol symbol;
 	}
+	
+	static assert(is(Type : Node) && is(Expression : Node) && is(Symbol : Node));
+	alias node this;
 	
 	@disable this();
 	
