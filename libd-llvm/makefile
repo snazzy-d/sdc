@@ -2,7 +2,7 @@ DMD ?= dmd
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
 SOURCE = src/d/llvm/*.d
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport -Ilibd/src
 LIBD_LLVM = lib/libd-llvm.a
 
 LLVM_SRC = import/llvm/c/target.d
