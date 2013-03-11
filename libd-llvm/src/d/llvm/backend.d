@@ -74,7 +74,13 @@ final class LLVMBackend : Backend {
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
 		
-		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), "x86_64-pc-linux-gnu".ptr, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
+		version(OX) {
+			auto triple = "x86_64-apple-darwin9".ptr;
+		} else {
+			auto triple = "x86_64-pc-linux-gnu".ptr;
+		}
+		
+		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
 		
 		/*
 		writeln("\nASM generated :");
@@ -100,7 +106,12 @@ final class LLVMBackend : Backend {
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asObject), LLVMCodeGenFileType.Object, &errorPtr);
 		
-		auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+		version(OSX) {
+			auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/usr/share/dmd/lib -lphobos2 -lpthread";
+		} else {
+			auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+		}
+		
 		writeln(linkCommand);
 		system(linkCommand);
 		//*/
