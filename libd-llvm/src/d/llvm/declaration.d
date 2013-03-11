@@ -36,28 +36,10 @@ final class DeclarationGen {
 		return exprSymbols.get(s, this.dispatch(s));
 	}
 	
-	LLVMValueRef visit(FunctionDeclaration d) {
-		auto funptrType = pass.visit(d.type);
-		
-		auto funType = LLVMGetElementType(funptrType);
-		auto fun = LLVMAddFunction(dmodule, d.mangle.toStringz(), funType);
-		
-		// Register the function.
-		exprSymbols[d] = fun;
-		
-		return fun;
-	}
-	
-	LLVMValueRef visit(FunctionDefinition f) {
+	LLVMValueRef visit(FunctionDeclaration f) {
 		// Ensure we are rentrant.
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-		
-		auto oldLabels = labels;
-		scope(exit) labels = oldLabels;
-		
-		// FIXME: should be an empty AA.
-		labels = labels.dup;
 		
 		auto funptrType = pass.visit(f.type);
 		
@@ -67,54 +49,62 @@ final class DeclarationGen {
 		// Register the function.
 		exprSymbols[f] = fun;
 		
-		// Alloca and instruction block.
-		auto allocaBB = LLVMAppendBasicBlock(fun, "");
-		auto bodyBB = LLVMAppendBasicBlock(fun, "body");
-		
-		// Handle parameters in the alloca block.
-		LLVMPositionBuilderAtEnd(builder, allocaBB);
-		
-		LLVMValueRef[] params;
-		LLVMTypeRef[] parameterTypes;
-		params.length = parameterTypes.length = f.parameters.length;
-		LLVMGetParams(fun, params.ptr);
-		LLVMGetParamTypes(funType, parameterTypes.ptr);
-		
-		foreach(i, p; f.parameters) {
-			auto value = params[i];
+		if(f.fbody) {
+			auto oldLabels = labels;
+			scope(exit) labels = oldLabels;
 			
-			if(p.isReference) {
-				LLVMSetValueName(value, p.name.toStringz());
+			// FIXME: should be an empty AA.
+			labels = labels.dup;
+			
+			// Alloca and instruction block.
+			auto allocaBB = LLVMAppendBasicBlock(fun, "");
+			auto bodyBB = LLVMAppendBasicBlock(fun, "body");
+			
+			// Handle parameters in the alloca block.
+			LLVMPositionBuilderAtEnd(builder, allocaBB);
+			
+			LLVMValueRef[] params;
+			LLVMTypeRef[] parameterTypes;
+			params.length = parameterTypes.length = f.parameters.length;
+			LLVMGetParams(fun, params.ptr);
+			LLVMGetParamTypes(funType, parameterTypes.ptr);
+			
+			foreach(i, p; f.parameters) {
+				auto value = params[i];
 				
-				exprSymbols[p] = value;
-			} else {
-				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
-				
-				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
-				
-				LLVMBuildStore(builder, value, alloca);
-				exprSymbols[p] = alloca;
+				if(p.isReference) {
+					LLVMSetValueName(value, p.name.toStringz());
+					
+					exprSymbols[p] = value;
+				} else {
+					auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
+					
+					LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
+					
+					LLVMBuildStore(builder, value, alloca);
+					exprSymbols[p] = alloca;
+				}
 			}
-		}
-		
-		// Generate function's body.
-		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		pass.visit(f.fbody);
-		
-		// If the current block isn't concluded, it means that it is unreachable.
-		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			// FIXME: provide the right AST in case of void function.
-			if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
-				LLVMBuildRetVoid(builder);
-			} else {
-				LLVMBuildUnreachable(builder);
+			
+			// Generate function's body.
+			LLVMPositionBuilderAtEnd(builder, bodyBB);
+			pass.visit(f.fbody);
+			
+			// If the current block isn't concluded, it means that it is unreachable.
+			if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+				// FIXME: provide the right AST in case of void function.
+				if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
+					LLVMBuildRetVoid(builder);
+				} else {
+					LLVMBuildUnreachable(builder);
+				}
 			}
+			
+			// Branch from alloca block to function body.
+			LLVMPositionBuilderAtEnd(builder, allocaBB);
+			LLVMBuildBr(builder, bodyBB);
 		}
-		
-		// Branch from alloca block to function body.
-		LLVMPositionBuilderAtEnd(builder, allocaBB);
-		LLVMBuildBr(builder, bodyBB);
-		
+			
 		return fun;
 	}
 	
