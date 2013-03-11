@@ -96,25 +96,19 @@ final:
 		d.isStatic = isStatic;
 		d.isEnum = true;
 		
-		return d;
-	}
-	
-	Declaration visit(FunctionDefinition d) {
-		d.linkage = linkage;
-		d.isStatic = isStatic;
-		d.isEnum = true;
-		
-		auto oldLinkage = linkage;
-		scope(exit) linkage = oldLinkage;
-		
-		linkage = "D";
-		
-		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
-		
-		isStatic = false;
-		
-		d.fbody = statementVisitor.visit(d.fbody);
+		if(d.fbody) {
+			auto oldLinkage = linkage;
+			scope(exit) linkage = oldLinkage;
+			
+			linkage = "D";
+			
+			auto oldIsStatic = isStatic;
+			scope(exit) isStatic = oldIsStatic;
+			
+			isStatic = false;
+			
+			d.fbody = statementVisitor.visit(d.fbody);
+		}
 		
 		return d;
 	}

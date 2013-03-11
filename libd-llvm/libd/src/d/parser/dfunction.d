@@ -11,6 +11,7 @@ import d.parser.util;
 
 import d.ast.declaration;
 import d.ast.dtemplate;
+import d.ast.statement;
 
 /**
  * Parse constructor.
@@ -19,7 +20,7 @@ auto parseConstructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRa
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction!(ConstructorDeclaration, ConstructorDefinition)(location);
+	return trange.parseFunction!(ConstructorDeclaration)(location);
 }
 
 /**
@@ -30,7 +31,7 @@ auto parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRan
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction!(DestructorDeclaration, DestructorDefinition)(location);
+	return trange.parseFunction!(DestructorDeclaration)(location);
 }
 
 /**
@@ -38,7 +39,7 @@ auto parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRan
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, FunctionDefinitionType = FunctionDefinition, TokenRange, U... )(ref TokenRange trange, Location location, U arguments) if(isTokenRange!TokenRange) {
+Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRange, U... )(ref TokenRange trange, Location location, U arguments) if(isTokenRange!TokenRange) {
 	// Function declaration.
 	bool isVariadic;
 	TemplateParameter[] tplParameters;
@@ -106,22 +107,18 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 			break;
 	}
 	
-	FunctionDeclarationType fun;
-	
+	BlockStatement fbody;
 	switch(trange.front.type) {
 		case TokenType.Semicolon :
 			location.spanTo(trange.front.location);
 			trange.popFront();
 			
-			fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic);
 			break;
 		
 		case TokenType.OpenBrace :
-			auto fbody = trange.parseBlock();
+			fbody = trange.parseBlock();
+			location.spanTo(fbody.location);
 			
-			location.spanTo(trange.front.location);
-			
-			fun = new FunctionDefinitionType(location, arguments, parameters, isVariadic, fbody);
 			break;
 		
 		default :
@@ -129,6 +126,8 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, Functio
 			trange.match(TokenType.Begin);
 			assert(0);
 	}
+	
+	auto fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic, fbody);
 	
 	if(tplParameters.ptr) {
 		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);

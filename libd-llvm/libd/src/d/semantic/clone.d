@@ -81,9 +81,9 @@ final:
 		return this.dispatch(d);
 	}
 	
-	FunctionDefinition visit(FunctionDefinition d) {
+	FunctionDeclaration visit(FunctionDeclaration d) {
 		auto parameters = cast(Parameter[]) d.parameters.map!(p => visit(p)).array();
-		auto clone = new FunctionDefinition(d.location, d.name, d.linkage, pass.visit(d.returnType), parameters, d.isVariadic, cast(BlockStatement) pass.visit(d.fbody));
+		auto clone = new FunctionDeclaration(d.location, d.name, d.linkage, pass.visit(d.returnType), parameters, d.isVariadic, d.fbody?(cast(BlockStatement) pass.visit(d.fbody)):null);
 		
 		clone.isStatic = d.isStatic;
 		clone.isEnum = d.isEnum;

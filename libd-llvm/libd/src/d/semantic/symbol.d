@@ -37,58 +37,9 @@ final class SymbolVisitor {
 		return this.dispatch(s);
 	}
 	
-	// TODO: merge function delcaration and definition.
 	Symbol visit(FunctionDeclaration d) {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
-		
-		d.returnType = pass.visit(d.returnType);
-		
-		d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
-		
-		// Update mangle prefix.
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
-		
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
-		
-		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
-		switch(d.linkage) {
-			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
-				break;
-			
-			case "C" :
-				d.mangle = d.name;
-				break;
-			
-			default:
-				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
-		}
-		
-		scheduler.register(d, d, Step.Processed);
-		
-		return d;
-	}
-	
-	Symbol visit(FunctionDefinition d) {
-		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
-		
-		auto oldLinkage = linkage;
-		scope(exit) linkage = oldLinkage;
-		
-		linkage = "D";
-		
-		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
-		
-		isStatic = false;
-		
-		auto oldBuildFields = buildFields;
-		scope(exit) buildFields = oldBuildFields;
-		
-		buildFields = false;
 		
 		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
@@ -119,7 +70,22 @@ final class SymbolVisitor {
 			d.parameters = thisParameter ~ d.parameters;
 		}
 		
-		{
+		if(d.fbody) {
+			auto oldLinkage = linkage;
+			scope(exit) linkage = oldLinkage;
+			
+			linkage = "D";
+			
+			auto oldIsStatic = isStatic;
+			scope(exit) isStatic = oldIsStatic;
+			
+			isStatic = false;
+			
+			auto oldBuildFields = buildFields;
+			scope(exit) buildFields = oldBuildFields;
+			
+			buildFields = false;
+			
 			// Update scope.
 			auto oldScope = currentScope;
 			scope(exit) currentScope = oldScope;

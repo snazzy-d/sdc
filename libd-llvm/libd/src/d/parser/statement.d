@@ -407,7 +407,6 @@ BlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 	}
 	
 	location.spanTo(trange.front.location);
-	
 	trange.popFront();
 	
 	return new BlockStatement(location, statements);

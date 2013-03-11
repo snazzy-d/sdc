@@ -24,15 +24,14 @@ import d.ast.type;
 
 import util.visitor;
 
-class MainDetector {
-	private FunctionDefinition main;
+final class MainDetector {
+	private FunctionDeclaration main;
 	
-final:
 	Declaration visit(Declaration d) {
 		return this.dispatch!(d => d)(d);
 	}
 	
-	private auto handleMain(FunctionDefinition main) {
+	private auto handleMain(FunctionDeclaration main) {
 		this.main = main;
 		
 		visit(main.returnType);
@@ -42,7 +41,7 @@ final:
 		return main;
 	}
 	
-	Declaration visit(FunctionDefinition fun) {
+	Declaration visit(FunctionDeclaration fun) {
 		if(fun.name == "main") {
 			switch(fun.parameters.length) {
 				case 0 :
@@ -81,9 +80,7 @@ final:
 	}
 }
 
-class StatementVisitor {
-	
-final:
+final class StatementVisitor {
 	Statement visit(Statement stmt) {
 		return this.dispatch(stmt);
 	}

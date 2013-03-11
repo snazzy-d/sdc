@@ -62,24 +62,16 @@ final class DeclarationVisitor {
 		
 		currentScope.addOverloadableSymbol(d);
 		
-		select(d);
-	}
-	
-	void visit(FunctionDefinition d) {
-		d.linkage = linkage;
-		d.isStatic = isStatic;
-		d.isEnum = true;
-		
-		currentScope.addOverloadableSymbol(d);
-		
-		// XXX: move that to symbol pass.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope = new NestedScope(oldScope);
-		
-		foreach(p; d.parameters) {
-			currentScope.addSymbol(p);
+		if(d.fbody) {
+			// XXX: move that to symbol pass.
+			auto oldScope = currentScope;
+			scope(exit) currentScope = oldScope;
+			
+			currentScope = d.dscope = new NestedScope(oldScope);
+			
+			foreach(p; d.parameters) {
+				currentScope.addSymbol(p);
+			}
 		}
 		
 		select(d);

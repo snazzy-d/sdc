@@ -393,7 +393,7 @@ final class ExpressionVisitor {
 	// TODO: merge with fieldExpression.
 	Expression visit(MethodExpression e) {
 		e.thisExpression = visit(e.thisExpression);
-		e.method = cast(FunctionDefinition) scheduler.require(e.method);
+		e.method = cast(FunctionDeclaration) scheduler.require(e.method);
 		
 		e.type = e.method.type;
 		

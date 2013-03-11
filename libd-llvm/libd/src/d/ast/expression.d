@@ -350,9 +350,9 @@ class FieldExpression : Expression {
  */
 class MethodExpression : Expression {
 	Expression thisExpression;
-	FunctionDefinition method;
+	FunctionDeclaration method;
 	
-	this(Location location, Expression thisExpression, FunctionDefinition method) {
+	this(Location location, Expression thisExpression, FunctionDeclaration method) {
 		super(location);
 		
 		this.thisExpression = thisExpression;

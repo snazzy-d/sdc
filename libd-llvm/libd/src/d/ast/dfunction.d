@@ -14,12 +14,15 @@ class FunctionDeclaration : ExpressionSymbol {
 	Type returnType;		// TODO: remove this, redundant information.
 	Parameter[] parameters;
 	bool isVariadic;
+	BlockStatement fbody;
 	
-	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic) {
-		this(location, name, "D", returnType, parameters, isVariadic);
+	NestedScope dscope;
+	
+	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
+		this(location, name, "D", returnType, parameters, isVariadic, fbody);
 	}
 	
-	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
+	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
 		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
 		
 		this.name = name;
@@ -27,6 +30,7 @@ class FunctionDeclaration : ExpressionSymbol {
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
+		this.fbody = fbody;
 	}
 	/*
 	invariant() {
@@ -38,34 +42,17 @@ class FunctionDeclaration : ExpressionSymbol {
 }
 
 /**
- * Function Definition
- */
-class FunctionDefinition : FunctionDeclaration {
-	BlockStatement fbody;
-	
-	NestedScope dscope;
-	
-	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		this(location, name, "D", returnType, parameters, isVariadic, fbody);
-	}
-	
-	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		super(location, name, linkage, returnType, parameters, isVariadic);
-		
-		this.fbody = fbody;
-	}
-}
-
-/**
  * Constructor Declaration
  */
 class ConstructorDeclaration : Declaration {
 	Parameter[] parameters;
+	BlockStatement fbody;
 	
-	this(Location location, Parameter[] parameters, bool isVariadic) {
+	this(Location location, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
 		super(location);
 		
 		this.parameters = parameters;
+		this.fbody = fbody;
 	}
 	
 	@property
@@ -75,46 +62,22 @@ class ConstructorDeclaration : Declaration {
 }
 
 /**
- * Constructor Definition
- */
-class ConstructorDefinition : ConstructorDeclaration {
-	Statement fbody;
-	
-	this(Location location, Parameter[] parameters, bool isVariadic, Statement fbody) {
-		super(location, parameters, isVariadic);
-		
-		this.fbody = fbody;
-	}
-}
-
-/**
  * Destructor Declaration
  */
 class DestructorDeclaration : Declaration {
 	Parameter[] parameters;
+	BlockStatement fbody;
 	
-	this(Location location, Parameter[] parameters, bool isVariadic) {
+	this(Location location, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
 		super(location);
 		
 		this.parameters = parameters;
+		this.fbody = fbody;
 	}
 	
 	@property
 	final string name() const {
 		return "__dtor";
-	}
-}
-
-/**
- * Destructor Definition
- */
-class DestructorDefinition : DestructorDeclaration {
-	Statement fbody;
-	
-	this(Location location, Parameter[] parameters, bool isVariadic, Statement fbody) {
-		super(location, parameters, isVariadic);
-		
-		this.fbody = fbody;
 	}
 }
 

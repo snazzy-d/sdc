@@ -138,10 +138,6 @@ final class IdentifierVisitor {
 		return getSymbolExpression(location, d);
 	}
 	
-	Identifiable visit(Location location, FunctionDefinition d) {
-		return getSymbolExpression(location, d);
-	}
-	
 	Identifiable visit(Location location, Parameter d) {
 		return getSymbolExpression(location, d);
 	}
@@ -296,7 +292,7 @@ final class ExpressionDotIdentifierVisitor {
 		return Identifiable(new FieldExpression(location, e, d));
 	}
 	
-	Identifiable visit(Location location, Expression e, FunctionDefinition d) {
+	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
 		return Identifiable(new MethodExpression(location, e, d));
 	}
 }
