@@ -48,10 +48,12 @@ final class ModuleVisitor {
 		
 		isStatic = true;
 		
-		// All modules implicitely import object.
-		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
+		// Update mangle prefix.
+		auto oldManglePrefix = manglePrefix;
+		scope(exit) manglePrefix = oldManglePrefix;
 		
 		import std.conv;
+		
 		manglePrefix = "";
 		auto current = m.parent;
 		while(current) {
@@ -60,6 +62,9 @@ final class ModuleVisitor {
 		}
 		
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
+		
+		// All modules implicitely import object.
+		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
 		
 		m.declarations = cast(Declaration[]) scheduler.require(syms);
 		
