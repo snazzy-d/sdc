@@ -270,6 +270,25 @@ final class ExpressionGen {
 		}
 	}
 	
+	LLVMValueRef visit(DelegateExpression e) {
+		auto type = cast(DelegateType) e.type;
+		assert(type);
+		
+		LLVMValueRef context;
+		if(type.context.isReference) {
+			context = addressOf(e.context);
+		} else {
+			context = visit(e.context);
+		}
+		
+		auto dg = LLVMGetUndef(pass.visit(e.type));
+		
+		dg = LLVMBuildInsertValue(builder, dg, visit(e.funptr), 0, "");
+		dg = LLVMBuildInsertValue(builder, dg, context, 1, "");
+		
+		return dg;
+	}
+	
 	LLVMValueRef visit(IndexExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
@@ -360,28 +379,43 @@ final class ExpressionGen {
 	LLVMValueRef visit(CallExpression c) {
 		auto callee = visit(c.callee);
 		
-		LLVMValueRef[] arguments;
-		arguments.length = c.arguments.length;
+		Parameter[] params;
+		LLVMValueRef[] args;
+		uint offset;
 		
-		auto type = cast(FunctionType) c.callee.type;
+		if(auto type = cast(DelegateType) c.callee.type) {
+			params = type.parameters;
+			
+			offset++;
+			args.length = c.arguments.length + 1;
+			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
+			
+			callee = LLVMBuildExtractValue(builder, callee, 0, "");
+		} else if(auto type = cast(FunctionType) c.callee.type) {
+			params = type.parameters;
+			args.length = c.arguments.length;
+		} else {
+			assert(0, "You can only call function and delegates !");
+		}
+		
 		uint i;
-		foreach(param; type.parameters) {
+		foreach(param; params) {
 			if(param.isReference) {
-				arguments[i] = addressOf(c.arguments[i]);
+				args[i + offset] = addressOf(c.arguments[i]);
 			} else {
-				arguments[i] = visit(c.arguments[i]);
+				args[i + offset] = visit(c.arguments[i]);
 			}
 			
 			i++;
 		}
 		
 		// Handle variadic functions.
-		while(i < arguments.length) {
-			arguments[i] = visit(c.arguments[i]);
+		while(i < c.arguments.length) {
+			args[i + offset] = visit(c.arguments[i]);
 			i++;
 		}
 		
-		return LLVMBuildCall(builder, callee, arguments.ptr, cast(uint) arguments.length, "");
+		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	
 	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
