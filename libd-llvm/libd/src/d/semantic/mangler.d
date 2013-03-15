@@ -100,34 +100,38 @@ final class TypeMangler {
 		return scheduler.require(t.declaration).mangle;
 	}
 	
-	string visit(FunctionType t) {
-		string linkage;
-		switch(t.linkage) {
+	private auto mangleParameter(Parameter p) {
+		return (p.isReference?"K":"") ~ visit(p.type);
+	}
+	
+	private auto mangleLinkage(string linkage) {
+		switch(linkage) {
 			case "D" :
-				linkage = "F";
-				break;
+				return "F";
 			
 			case "C" :
-				linkage = "U";
-				break;
+				return "U";
 			
 			case "Windows" :
-				linkage = "W";
-				break;
+				return "W";
 			
 			case "Pascal" :
-				linkage = "V";
-				break;
+				return "V";
 			
 			case "C++" :
-				linkage = "R";
-				break;
+				return "R";
 			
 			default:
-				assert(0, "Linkage " ~ t.linkage ~ " is not supported.");
+				assert(0, "Linkage " ~ linkage ~ " is not supported.");
 		}
-		
-		return linkage ~ t.parameters.map!(p => (p.isReference?"K":"") ~ visit(p.type)).join() ~ "Z" ~ visit(t.returnType);
+	}
+	
+	string visit(FunctionType t) {
+		return mangleLinkage(t.linkage) ~ t.parameters.map!(p => mangleParameter(p)).join() ~ "Z" ~ visit(t.returnType);
+	}
+	
+	string visit(DelegateType t) {
+		return "D" ~ mangleLinkage(t.linkage) ~ mangleParameter(t.context) ~ t.parameters.map!(p => mangleParameter(p)).join() ~ "Z" ~ visit(t.returnType);
 	}
 }
 

@@ -354,29 +354,28 @@ final class ExpressionVisitor {
 			}
 		}
 		
+		Parameter[] params;
 		// XXX: is it the appropriate place to perform that ?
-		if(auto me = cast(MethodExpression) c.callee) {
-			c.callee = visit(new SymbolExpression(me.location, me.method));
-			c.arguments = visit(me.thisExpression) ~ c.arguments;
-		}
-		
-		auto type = cast(FunctionType) c.callee.type;
-		if(!type) {
-			return compilationCondition!Expression(c.location, "You must call function, you fool !!!");
+		if(auto type = cast(DelegateType) c.callee.type) {
+			params = type.parameters;
+			c.type = type.returnType;
+		} else if(auto type = cast(FunctionType) c.callee.type) {
+			params = type.parameters;
+			c.type = type.returnType;
+		} else {
+			return compilationCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
 		}
 		
 		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
-		assert(c.arguments.length >= type.parameters.length);
+		assert(c.arguments.length >= params.length);
 		
-		foreach(ref arg, param; lockstep(c.arguments, type.parameters)) {
-			if(param.isReference) {
-				assert(canConvert(arg.type.qualifier, param.type.qualifier), "Cannot pass ref");
+		foreach(ref arg, param; lockstep(c.arguments, params)) {
+			if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+				return compilationCondition!Expression(arg.location, "Can't pass by ref.");
 			}
 			
 			arg = pass.implicitCast(arg.location, param.type, arg);
 		}
-		
-		c.type = type.returnType;
 		
 		return c;
 	}
@@ -390,14 +389,27 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
-	// TODO: merge with fieldExpression.
-	Expression visit(MethodExpression e) {
-		e.thisExpression = visit(e.thisExpression);
-		e.method = cast(FunctionDeclaration) scheduler.require(e.method);
+	// TODO: handle overload sets.
+	Expression visit(DelegateExpression e) {
+		e.funptr = visit(e.funptr);
 		
-		e.type = e.method.type;
+		if(auto funType = cast(FunctionType) e.funptr.type) {
+			if(funType.isVariadic || funType.parameters.length > 0) {
+				auto contextParam = funType.parameters[0];
+				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
+				
+				e.context = visit(e.context);
+				if(contextParam.isReference && !canConvert(e.context.type.qualifier, contextParam.type.qualifier)) {
+					return compilationCondition!Expression(e.context.location, "Can't pass by ref.");
+				}
+				
+				e.context = pass.implicitCast(e.context.location, contextParam.type, e.context);
+				
+				return e;
+			}
+		}
 		
-		return e;
+		return compilationCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
 	Expression visit(ThisExpression e) {

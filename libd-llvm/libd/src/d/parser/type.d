@@ -225,7 +225,7 @@ Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type typ
 				location.spanTo(trange.front.location);
 				
 				// TODO: parse postfix attributes and storage class.
-				type = new DelegateType(location, "D", type, parameters, isVariadic);
+				type = new DelegateType(location, "D", type, null, parameters, isVariadic);
 				break;
 			
 			static if(mode == ParseMode.Greedy) {

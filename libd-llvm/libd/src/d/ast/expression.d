@@ -346,17 +346,17 @@ class FieldExpression : Expression {
 }
 
 /**
- * Method access.
+ * Delegates expressions.
  */
-class MethodExpression : Expression {
-	Expression thisExpression;
-	FunctionDeclaration method;
+class DelegateExpression : Expression {
+	Expression context;
+	Expression funptr;
 	
-	this(Location location, Expression thisExpression, FunctionDeclaration method) {
+	this(Location location, Expression context, Expression funptr) {
 		super(location);
 		
-		this.thisExpression = thisExpression;
-		this.method = method;
+		this.context = context;
+		this.funptr = funptr;
 	}
 }
 

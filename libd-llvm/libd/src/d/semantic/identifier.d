@@ -293,7 +293,7 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
-		return Identifiable(new MethodExpression(location, e, d));
+		return Identifiable(new DelegateExpression(location, e, new SymbolExpression(location, d)));
 	}
 }
 
