@@ -65,7 +65,7 @@ final class SymbolVisitor {
 			
 			auto thisParameter = new Parameter(d.location, "this", thisType);
 			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
-			thisParameter.isReference = true;
+			thisParameter.isReference = isThisRef;
 			
 			d.parameters = thisParameter ~ d.parameters;
 		}
@@ -195,6 +195,11 @@ final class SymbolVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
+		auto oldIsThisRef = isThisRef;
+		scope(exit) isThisRef = oldIsThisRef;
+		
+		isThisRef = true;
+		
 		auto oldFieldIndex = fieldIndex;
 		scope(exit) fieldIndex = oldFieldIndex;
 		
@@ -261,6 +266,21 @@ final class SymbolVisitor {
 		scope(exit) thisType = oldThisType;
 		
 		thisType = new SymbolType(d.location, d);
+		
+		auto oldIsThisRef = isThisRef;
+		scope(exit) isThisRef = oldIsThisRef;
+		
+		isThisRef = false;
+		
+		auto oldFieldIndex = fieldIndex;
+		scope(exit) fieldIndex = oldFieldIndex;
+		
+		fieldIndex = 0;
+		
+		auto oldBuildFields = buildFields;
+		scope(exit) buildFields = oldBuildFields;
+		
+		buildFields = true;
 		
 		auto members = pass.flatten(d.members, d);
 		

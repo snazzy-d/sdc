@@ -1,7 +1,4 @@
-class Foo
-{
-    void bar()
-    {
-    }
+class Foo {
+	void bar() {}
 }
 

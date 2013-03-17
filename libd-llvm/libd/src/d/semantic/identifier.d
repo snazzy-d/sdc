@@ -176,6 +176,10 @@ final class IdentifierVisitor {
 		return getSymbolType(location, d);
 	}
 	
+	Identifiable visit(Location location, ClassDefinition d) {
+		return getSymbolType(location, d);
+	}
+	
 	Identifiable visit(Location location, EnumDeclaration d) {
 		return getSymbolType(location, d);
 	}
@@ -416,6 +420,11 @@ final class SymbolInTypeResolver {
 	
 	Symbol visit(string name, StructDefinition s) {
 		s = cast(StructDefinition) scheduler.require(s, Step.Populated);
+		return s.dscope.resolve(name);
+	}
+	
+	Symbol visit(string name, ClassDefinition s) {
+		s = cast(ClassDefinition) scheduler.require(s, Step.Populated);
 		return s.dscope.resolve(name);
 	}
 	
