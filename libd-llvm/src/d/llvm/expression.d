@@ -386,11 +386,13 @@ final class ExpressionGen {
 		if(auto type = cast(DelegateType) c.callee.type) {
 			params = type.parameters;
 			
+			auto fun = LLVMBuildExtractValue(builder, callee, 0, "");
+			
 			offset++;
 			args.length = c.arguments.length + 1;
 			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
 			
-			callee = LLVMBuildExtractValue(builder, callee, 0, "");
+			calee = fun;
 		} else if(auto type = cast(FunctionType) c.callee.type) {
 			params = type.parameters;
 			args.length = c.arguments.length;

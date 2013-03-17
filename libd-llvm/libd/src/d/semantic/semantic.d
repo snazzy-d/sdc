@@ -79,7 +79,6 @@ final class SemanticPass {
 		));
 		
 		Statement[] flattenedStmts;
-		Symbol[] flattenedDecls;
 		
 		uint fieldIndex;
 		
@@ -138,8 +137,12 @@ final class SemanticPass {
 		return moduleVisitor.visit(m);
 	}
 	
-	Symbol[] visit(Declaration[] decls, Symbol parent = null) {
+	Symbol[] flatten(Declaration[] decls, Symbol parent) {
 		return declarationVisitor.flatten(decls, parent);
+	}
+	
+	Symbol[] flatten(Declaration d) {
+		return declarationVisitor.flatten(d);
 	}
 	
 	Symbol visit(Symbol s) {
