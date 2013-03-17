@@ -53,8 +53,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement s) {
-		// TODO: avoid allocating an array for that.
-		auto syms = pass.visit([s.declaration]);
+		auto syms = pass.flatten(s.declaration);
 		
 		flattenedStmts ~= scheduler.require(syms).map!(d => new DeclarationStatement(d)).array();
 	}
@@ -177,7 +176,7 @@ final class StatementVisitor {
 		flattenedStmts ~= s;
 	}
 	
-	void visit(StaticIfElse!Statement s) {
+	void visit(StaticIf!Statement s) {
 		s.condition = evaluate(explicitCast(s.condition.location, new BooleanType(s.condition.location), pass.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) s.condition).value) {

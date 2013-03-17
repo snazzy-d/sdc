@@ -205,7 +205,7 @@ final class SymbolVisitor {
 		
 		buildFields = true;
 		
-		auto members = pass.visit(d.members, d);
+		auto members = pass.flatten(d.members, d);
 		
 		FieldDeclaration[] fields;
 		auto otherSymbols = members.filter!((m) {
@@ -262,7 +262,7 @@ final class SymbolVisitor {
 		
 		thisType = new SymbolType(d.location, d);
 		
-		auto members = pass.visit(d.members, d);
+		auto members = pass.flatten(d.members, d);
 		
 		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);

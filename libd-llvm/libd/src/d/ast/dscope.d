@@ -48,7 +48,7 @@ class Scope {
 		addSymbol(new OverLoadSet(s.location, s.name, [s]));
 	}
 	
-	final Symbol resolve(string name) {
+	Symbol resolve(string name) {
 		return symbols.get(name, null);
 	}
 	

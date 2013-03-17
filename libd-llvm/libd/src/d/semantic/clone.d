@@ -112,13 +112,13 @@ final:
 		return new AliasDeclaration(d.location, d.name, pass.visit(d.type));
 	}
 	
-	StaticIfElse!Declaration visit(StaticIfElse!Declaration d) {
+	StaticIf!Declaration visit(StaticIf!Declaration d) {
 		auto condition = pass.visit(d.condition);
 		
 		auto items = d.items.map!(i => visit(i)).array();
 		auto elseItems = d.elseItems.map!(i => visit(i)).array();
 		
-		return new StaticIfElse!Declaration(d.location, condition, items, elseItems);
+		return new StaticIf!Declaration(d.location, condition, items, elseItems);
 	}
 }
 
@@ -165,13 +165,13 @@ final:
 		return new ReturnStatement(s.location, pass.visit(s.value));
 	}
 	
-	Statement visit(StaticIfElse!Statement s) {
+	Statement visit(StaticIf!Statement s) {
 		auto condition = pass.visit(s.condition);
 		
 		auto items = s.items.map!(i => visit(i)).array();
 		auto elseItems = s.elseItems.map!(i => visit(i)).array();
 		
-		return new StaticIfElse!Statement(s.location, condition, items, elseItems);
+		return new StaticIf!Statement(s.location, condition, items, elseItems);
 	}
 	
 	Statement visit(Mixin!Statement s) {

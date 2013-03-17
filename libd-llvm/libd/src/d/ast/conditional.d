@@ -47,24 +47,13 @@ alias VersionDefinition DebugDefinition;
 class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
 	Expression condition;
 	ItemType[] items;
-	
-	this(Location location, Expression condition, ItemType[] items) {
+	ItemType[] elseItems;
+		
+	this(Location location, Expression condition, ItemType[] items, ItemType[] elseItems) {
 		super(location);
 		
 		this.condition = condition;
 		this.items = items;
-	}
-}
-
-/**
- * Static if Conditional with else
- */
-class StaticIfElse(ItemType) : StaticIf!ItemType {
-	ItemType[] elseItems;
-	
-	this(Location location, Expression condition, ItemType[] items, ItemType[] elseItems) {
-		super(location, condition, items);
-		
 		this.elseItems = elseItems;
 	}
 }
