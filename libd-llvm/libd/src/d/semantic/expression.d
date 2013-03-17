@@ -412,6 +412,14 @@ final class ExpressionVisitor {
 		return compilationCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
+	Expression visit(NewExpression e) {
+		assert(e.arguments.length == 0, "constructor not supported");
+		
+		e.type = pass.visit(e.type);
+		
+		return e;
+	}
+	
 	Expression visit(ThisExpression e) {
 		e.type = thisType;
 		

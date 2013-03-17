@@ -211,5 +211,10 @@ final:
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
 		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 2, false));
 	}
+	
+	auto getAllocMemory() {
+		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
+		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), [LLVMInt64TypeInContext(context)].ptr, 1, false));
+	}
 }
 

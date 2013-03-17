@@ -2,6 +2,7 @@ module d.llvm.expression;
 
 import d.llvm.codegen;
 
+import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.expression;
@@ -289,6 +290,22 @@ final class ExpressionGen {
 		return dg;
 	}
 	
+	LLVMValueRef visit(NewExpression e) {
+		assert(e.arguments.length == 0);
+		
+		auto type = pass.visit(e.type);
+		if(auto s = cast(SymbolType) e.type) {
+			if(cast(ClassDefinition) s.symbol) {
+				type = LLVMGetElementType(type);
+			}
+		}
+		
+		LLVMValueRef size = LLVMSizeOf(type);
+		
+		auto alloc = LLVMBuildCall(builder, druntimeGen.getAllocMemory(), &size, 1, "");
+		return LLVMBuildPointerCast(builder, alloc, LLVMPointerType(type, 0), "");
+	}
+	
 	LLVMValueRef visit(IndexExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
@@ -392,7 +409,7 @@ final class ExpressionGen {
 			args.length = c.arguments.length + 1;
 			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
 			
-			calee = fun;
+			callee = fun;
 		} else if(auto type = cast(FunctionType) c.callee.type) {
 			params = type.parameters;
 			args.length = c.arguments.length;
@@ -493,10 +510,23 @@ final class AddressOfGen {
 	LLVMValueRef visit(FieldExpression e) {
 		auto ptr = visit(e.expression);
 		
+		// Pointer auto dereference in D.
+		while(1) {
+			auto pointed = LLVMGetElementType(LLVMTypeOf(ptr));
+			auto kind = LLVMGetTypeKind(pointed);
+			if(kind != LLVMTypeKind.Pointer) {
+				assert(kind == LLVMTypeKind.Struct);
+				break;
+			}
+			
+			ptr = LLVMBuildLoad(builder, ptr, "");
+		}
+		
 		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
+		// FIXME: this is completely work, but will do the trick for now.
 		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
 	}
 	
