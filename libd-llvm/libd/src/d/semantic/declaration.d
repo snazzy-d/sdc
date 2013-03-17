@@ -39,7 +39,6 @@ final class DeclarationVisitor {
 	
 	enum CtUnitType : ubyte {
 		Symbols,
-		CtUnits,
 		StaticIf,
 		Mixin,
 	}
@@ -49,7 +48,6 @@ final class DeclarationVisitor {
 		CtUnitType type;
 		union {
 			Symbol[] symbols;
-			CtUnit[] ctUnits;
 			Mixin!Declaration mixinDecl;
 			struct {
 				// TODO: special declaration subtype here.
@@ -130,10 +128,6 @@ final class DeclarationVisitor {
 						cdUnits ~= flattenMixin(u, CtUnitLevel.Conditional);
 						break;
 					
-					case CtUnits :
-						cdUnits ~= flatten(u.ctUnits, CtUnitLevel.Conditional);
-						break;
-					
 					case Symbols :
 						assert(0, "invalid ctUnit");
 				}
@@ -154,10 +148,6 @@ final class DeclarationVisitor {
 				final switch(u.type) with(CtUnitType) {
 					case StaticIf :
 						cdUnits ~= flattenStaticIf(u, CtUnitLevel.Done);
-						break;
-					
-					case CtUnits :
-						cdUnits ~= flatten(u.ctUnits, CtUnitLevel.Done);
 						break;
 					
 					case Mixin :
@@ -191,13 +181,23 @@ final class DeclarationVisitor {
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);
 		
+		CtUnit[] items;
 		if((cast(BooleanLiteral) condition).value) {
 			poisonScope.resolveStaticIf(d, true);
-			return flatten(unit.items, to);
+			items = unit.items;
 		} else {
 			poisonScope.resolveStaticIf(d, false);
-			return flatten(unit.elseItems, to);
+			items = unit.elseItems;
 		}
+		
+		foreach(ref u; items) {
+			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
+				u.symbols = scheduler.schedule(u.symbols, s => pass.visit(s));
+				u.level = CtUnitLevel.Done;
+			}
+		}
+		
+		return flatten(items, to);
 	}
 	
 	private auto flattenMixin(CtUnit unit, CtUnitLevel to) in {
@@ -233,10 +233,13 @@ final class DeclarationVisitor {
 	
 	private void select(Symbol s) {
 		auto unit = &(ctUnits[$ - 1]);
-		assert(unit.level == CtUnitLevel.Done);
 		assert(unit.type == CtUnitType.Symbols);
 		
-		unit.symbols ~= scheduler.schedule(only(s), s => pass.visit(s));
+		if(unit.level == CtUnitLevel.Done) {
+			unit.symbols ~= scheduler.schedule(only(s), s => pass.visit(s));
+		} else {
+			unit.symbols ~= s;
+		}
 	}
 	
 	void visit(FunctionDeclaration d) {
@@ -381,10 +384,11 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(StaticIf!Declaration d) {
-		auto finalCtLevel = max(CtUnitLevel.Conditional, ctLevel);
-		scope(exit) ctLevel = finalCtLevel;
+		auto finalCtLevel = CtUnitLevel.Conditional;
+		auto oldCtLevel = ctLevel;
+		scope(exit) ctLevel = max(finalCtLevel, oldCtLevel);
 		
-		ctLevel = CtUnitLevel.Done;
+		ctLevel = CtUnitLevel.Conditional;
 		
 		auto finalCtUnits = ctUnits;
 		scope(exit) ctUnits = finalCtUnits;
@@ -402,6 +406,7 @@ final class DeclarationVisitor {
 		}
 		
 		ctUnits = [CtUnit()];
+		ctUnits[0].level = CtUnitLevel.Conditional;
 		
 		foreach(item; d.items) {
 			visit(item);
@@ -410,7 +415,7 @@ final class DeclarationVisitor {
 		unit.items = ctUnits;
 		
 		finalCtLevel = max(finalCtLevel, ctLevel);
-		ctLevel = CtUnitLevel.Done;
+		ctLevel = CtUnitLevel.Conditional;
 		
 		if(poisonScope) {
 			poisonScope.popStaticIf(d);
@@ -418,6 +423,7 @@ final class DeclarationVisitor {
 		}
 		
 		ctUnits = [CtUnit()];
+		ctUnits[0].level = CtUnitLevel.Conditional;
 		
 		foreach(item; d.elseItems) {
 			visit(item);
@@ -428,8 +434,14 @@ final class DeclarationVisitor {
 		finalCtLevel = max(finalCtLevel, ctLevel);
 		unit.level = finalCtLevel;
 		
+		auto previous = finalCtUnits[$ - 1];
+		assert(previous.type == CtUnitType.Symbols);
+		
+		auto next = CtUnit();
+		next.level = previous.level;
+		
 		finalCtUnits ~= unit;
-		finalCtUnits ~= CtUnit();
+		finalCtUnits ~= next;
 	}
 	
 	void visit(Version!Declaration d) {
