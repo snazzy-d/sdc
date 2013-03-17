@@ -82,7 +82,7 @@ final class TemplateInstancier {
 		currentScope = instance.dscope = new SymbolScope(instance, oldScope);
 		
 		// XXX: make template instance a symbol. Change the template mangling in the process.
-		auto syms = cast(Symbol[]) pass.visit(instance.declarations, instance);
+		auto syms = cast(Symbol[]) pass.flatten(instance.declarations, instance);
 		
 		instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
 		

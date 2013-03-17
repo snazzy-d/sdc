@@ -64,7 +64,7 @@ final class ModuleVisitor {
 		manglePrefix ~= to!string(m.name.length) ~ m.name;
 		
 		// All modules implicitely import object.
-		auto syms = pass.visit(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
+		auto syms = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
 		
 		m.declarations = cast(Declaration[]) scheduler.require(syms);
 		

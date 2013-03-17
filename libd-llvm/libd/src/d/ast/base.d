@@ -13,7 +13,8 @@ class Node {
 	}
 	
 	invariant() {
-		assert(location != Location.init, "node location must never be init");
+		// FIXME: reenable this when ct paradoxes know their location.
+		// assert(location != Location.init, "node location must never be init");
 	}
 }
 

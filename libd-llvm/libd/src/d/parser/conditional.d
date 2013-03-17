@@ -111,9 +111,9 @@ ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRa
 		
 		ItemType[] elseItems = trange.parseItems!ItemType();
 		
-		return new StaticIfElse!ItemType(location, condition, items, elseItems);
+		return new StaticIf!ItemType(location, condition, items, elseItems);
 	} else {
-		return new StaticIf!ItemType(location, condition, items);
+		return new StaticIf!ItemType(location, condition, items, []);
 	}
 }
 
