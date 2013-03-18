@@ -470,12 +470,18 @@ final class ExpressionGen {
 		auto failBB = LLVMAppendBasicBlock(fun, "assert_fail");
 		auto successBB = LLVMAppendBasicBlock(fun, "assert_success");
 		
-		LLVMBuildCondBr(builder, test, successBB, failBB);
+		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
+		
+		// We assume that assert fail is unlikely.
+		LLVMSetMetadata(br, profKindID, unlikelyBranch);
 		
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		auto args = [buildDString(e.location.source.filename), LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false)];
+		LLVMValueRef args[2];
+		args[0] = buildDString(e.location.source.filename);
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false);
+		
 		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 2, "");
 		
 		// Conclude that block.
@@ -548,13 +554,19 @@ final class AddressOfGen {
 			auto failBB = LLVMAppendBasicBlock(fun, "arrayBoundFail");
 			auto okBB = LLVMAppendBasicBlock(fun, "arrayBoundOK");
 			
-			LLVMBuildCondBr(builder, condition, okBB, failBB);
+			auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
+			
+			// We assume that bound check fail is unlikely.
+			LLVMSetMetadata(br, profKindID, unlikelyBranch);
 			
 			// Emit bound check fail code.
 			LLVMPositionBuilderAtEnd(builder, failBB);
 			
-			auto args = [buildDString(location.source.filename), LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false)];
-			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, 2, "");
+			LLVMValueRef args[2];
+			args[0] = buildDString(location.source.filename);
+			args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false);
+			
+			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, cast(uint) args.length, "");
 			
 			LLVMBuildUnreachable(builder);
 			

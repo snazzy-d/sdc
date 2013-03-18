@@ -49,6 +49,9 @@ final class CodeGenPass {
 	
 	bool isSigned;
 	
+	LLVMValueRef unlikelyBranch;
+	uint profKindID;
+	
 	this(string name) {
 		declarationGen	= new DeclarationGen(this);
 		statementGen	= new StatementGen(this);
@@ -63,6 +66,18 @@ final class CodeGenPass {
 		context = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(context);
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
+		
+		LLVMValueRef[3] branch_metadata;
+		
+		auto id = "branch_weights";
+		branch_metadata[0] = LLVMMDStringInContext(context, id.ptr, cast(uint) id.length);
+		branch_metadata[1] = LLVMConstInt(LLVMInt32TypeInContext(context), 65536, false);
+		branch_metadata[2] = LLVMConstInt(LLVMInt32TypeInContext(context), 0, false);
+		
+		unlikelyBranch = LLVMMDNodeInContext(context, branch_metadata.ptr, cast(uint) branch_metadata.length);
+		
+		id = "prof";
+		profKindID = LLVMGetMDKindIDInContext(context, id.ptr, cast(uint) id.length);
 	}
 	
 	LLVMModuleRef visit(Module[] modules) {

@@ -103,7 +103,9 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(SliceType t) {
-		auto types = [LLVMInt64TypeInContext(context), LLVMPointerType(visit(t.type), 0)];
+		LLVMTypeRef[2] types;
+		types[0] = LLVMInt64TypeInContext(context);
+		types[1] = LLVMPointerType(visit(t.type), 0);
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
@@ -145,7 +147,10 @@ final class TypeGen {
 		}
 		
 		auto fun = LLVMFunctionType(visit(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic);
-		auto types = [LLVMPointerType(fun, 0), params[0]];
+		
+		LLVMTypeRef[2] types;
+		types[0] = LLVMPointerType(fun, 0);
+		types[1] = params[0];
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
