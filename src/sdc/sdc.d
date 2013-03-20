@@ -7,68 +7,92 @@ module sdc.sdc;
 // Ensure that null pointers are detected.
 import etc.linux.memoryerror;
 
+import d.ast.dmodule;
+
+import d.llvm.evaluator;
+import d.llvm.backend;
+
 import d.parser.base;
 
-import d.exception;
+import d.semantic.semantic;
 
-import std.stdio : writeln, stderr, stdout;
-import std.file : exists;
+import d.exception;
+import d.location;
 
 import std.array;
+import std.file;
 
-int main(string[] args) {
-	if (args.length == 1) {
-		stderr.writeln("usage: sdc file");
-		return 1;
-	}
+final class SDC {
+	LLVMBackend backend;
+	LLVMEvaluator evaluator;
+	SemanticPass semantic;
 	
-	try {
-		foreach (file; args[1..$]) {
-			compile(file);
-		}
-	} catch(CompileException e) {
-		import sdc.terminal;
-		outputCaretDiagnostics(e.location, e.msg);
+	string[] includePath;
+	
+	Module[string[]] modules;
+	
+	this(string name, string[] includePath, uint optLevel) {
+		backend	= new LLVMBackend(name, optLevel);
+		evaluator = new LLVMEvaluator(backend.pass);
+		semantic = new SemanticPass(evaluator);
 		
-		debug {
-			throw e;
-		} else {
-			return 1;
-		}
+		this.includePath = ["../libs", "."] ~ includePath;
+		
+		compile(["object"]);
 	}
 	
-	return 0;
-}
-
-void compile(string filename) {
-	import std.stdio;
-	auto fileSource = new FileSource(filename);
-	auto trange = lex!((line, index, length) => Location(fileSource, line, index, length))(fileSource.content);
+	string[] compile(string filename) {
+		auto packages = filename[0 .. $ - 2].split("/").array();
+		compile(packages, new FileSource(filename));
+		
+		return packages;
+	}
 	
-	auto objectSource = new FileSource("../libs/object.d");
-	FileSource[16] objectSources;
-	objectSources[] = objectSource;
-	auto object = lex!((line, index, length) => Location(objectSource, line, index, length))(objectSource.content);
+	void compile(string[] packages) {
+		compile(packages, getFileSource(packages));
+	}
 	
-	auto packages = filename[0 .. $-2].split("/");
-	auto ast = [object.parse("object", []), trange.parse(packages.back, packages[0 .. $-1])];
+	void compile(string[] packages, FileSource source) {
+		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content);
+		
+		auto ast = trange.parse(packages[$ - 1], packages[0 .. $-1]);
+		semantic.schedule(ast);
+		modules[packages.idup] = ast;
+	}
 	
-	// Test the new scheduler system.
-	import d.semantic.semantic;
+	void buildMain(string[] packages) {
+		semantic.terminate();
+		
+		import d.semantic.main;
+		modules[packages.idup] = buildMain(modules[packages]);
+	}
 	
-	import d.llvm.evaluator;
-	import d.llvm.backend;
-	auto backend	= new LLVMBackend(ast.back.location.source.filename);
-	auto evaluator	= new LLVMEvaluator(backend.pass);
+	void codeGen(string objFile) {
+		semantic.terminate();
+		
+		foreach(mod; modules.values) {
+			backend.codeGen(mod);
+		}
+		
+		backend.emitObject(objFile);
+	}
 	
-	auto semantic = new SemanticPass(evaluator);
-	ast = semantic.process(ast);
+	void codeGen(string objFile, string executable) {
+		codeGen(objFile);
+		
+		backend.link(objFile, executable);
+	}
 	
-	import d.semantic.main;
-	ast.back = buildMain(ast.back);
-	
-	//*
-	backend.codeGen([ast.back]);
-	//*/
+	FileSource getFileSource(string[] packages) {
+		auto filename = "/" ~ packages.join("/") ~ ".d";
+		foreach(path; includePath) {
+			auto fullpath = path ~ filename;
+			if(exists(fullpath)) {
+				return new FileSource(fullpath);
+			}
+		}
+		
+		assert(0, "filenotfoundmalheur !");
+	}
 }
 

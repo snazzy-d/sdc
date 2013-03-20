@@ -1,7 +1,7 @@
 DMD ?= dmd
 PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
-SOURCE = src/sdc/*.d src/etc/linux/*.d
+SOURCE = src/sdc/*.d
 # Hack around http://d.puremagic.com/issues/show_bug.cgi?id=9571
 SOURCE += libd-llvm/libd/src/d/*.d libd-llvm/libd/src/d/*/*.d
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport -Ilibd-llvm/import -Ilibd-llvm/src -Ilibd-llvm/libd/src
