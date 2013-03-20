@@ -50,7 +50,7 @@ void test(string filename, string compiler)
     bool has = true;
     bool expectedToCompile = true;
     int expectedRetval = 0;
-    string[] dependencies = ["../libs/object.d"];
+    string[] dependencies;
     
     assert(exists(filename));
     auto f = File(filename, "r");
@@ -103,8 +103,7 @@ void test(string filename, string compiler)
         file.remove(exeName);
     }
     if (compiler == SDC) {
-        // command = format(`%s -o=%s -O "%s" %s`, SDC, exeName, filename, cmdDeps);
-        command = format(`%s %s`, SDC, filename);
+        command = format(`%s -o=%s "%s" %s`, SDC, exeName, filename, cmdDeps);
     } else {
         command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
