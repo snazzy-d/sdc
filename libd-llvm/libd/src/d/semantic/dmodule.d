@@ -10,8 +10,6 @@ import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.dscope;
 
-import d.parser.base;
-
 import d.processor.scheduler;
 
 import d.location;
@@ -24,10 +22,13 @@ final class ModuleVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
+	private FileSource delegate(string[]) sourceFactory;
+	
 	private Module[string] cachedModules;
 	
-	this(SemanticPass pass) {
+	this(SemanticPass pass, FileSource delegate(string[]) sourceFactory) {
 		this.pass = pass;
+		this.sourceFactory = sourceFactory;
 	}
 	
 	Module visit(Module m) {
@@ -73,20 +74,12 @@ final class ModuleVisitor {
 		return m;
 	}
 	
-	Module importModule(string[] pkgs) {
-		auto name = pkgs.join(".");
-		auto filename = pkgs.join("/") ~ ".d";
+	Module importModule(string[] packages) {
+		auto name = packages.join(".");
 		
 		return cachedModules.get(name, {
-			import d.lexer;
-			
-			auto fileSource = new FileSource(filename);
-			auto trange = lex!((line, index, length) => Location(fileSource, line, index, length))(fileSource.content);
-			
-			auto packages = filename[0 .. $-2].split("/");
-			auto mod = trange.parse(packages.back, packages[0 .. $-1]);
-			
-			cachedModules[name] = mod;
+			auto source = sourceFactory(packages);
+			auto mod = pass.parse(source, packages);
 			
 			pass.scheduler.schedule(only(mod), (s) {
 				auto m = cast(Module) s;
@@ -95,7 +88,7 @@ final class ModuleVisitor {
 				return visit(m);
 			});
 			
-			return mod;
+			return cachedModules[name] = mod;
 		}());
 	}
 	
