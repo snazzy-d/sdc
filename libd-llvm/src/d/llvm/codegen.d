@@ -191,7 +191,7 @@ final class CodeGenPass {
 	}
 }
 
-class DruntimeGen {
+final class DruntimeGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
@@ -201,7 +201,6 @@ class DruntimeGen {
 		this.pass = pass;
 	}
 	
-final:
 	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
 		// TODO: LLVMGetNamedFunction
 		return cache.get(name, cache[name] = {

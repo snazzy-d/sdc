@@ -1,8 +1,11 @@
 module d.llvm.backend;
 
 import d.llvm.codegen;
+import d.llvm.evaluator;
 
 import d.ast.dmodule;
+
+import d.semantic.backend;
 
 import llvm.c.core;
 import llvm.c.executionEngine;
@@ -16,12 +19,9 @@ import std.process;
 import std.stdio;
 import std.string;
 
-interface Backend {
-	void codeGen(Module mod);
-}
-
 final class LLVMBackend : Backend {
-	CodeGenPass pass;
+	private CodeGenPass pass;
+	private LLVMExecutionEngineRef executionEngine;
 	
 	uint optLevel;
 	
@@ -35,16 +35,8 @@ final class LLVMBackend : Backend {
 		
 		pass = new CodeGenPass(name);
 		
-		this.optLevel = optLevel;
-	}
-	
-	void codeGen(Module mod) {
-		pass.visit(mod);
-		auto dmodule = pass.dmodule;
-		
-		LLVMExecutionEngineRef ee;
 		char* errorPtr;
-		auto creationError = LLVMCreateJITCompilerForModule(&ee, pass.dmodule, 0, &errorPtr);
+		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, pass.dmodule, 0, &errorPtr);
 		if(creationError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
@@ -52,12 +44,25 @@ final class LLVMBackend : Backend {
 			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 			
 			writeln(error);
-			writeln("Cannot create execution engine ! Exiting...");
-			
-			assert(0);
+			assert(0, "Cannot create execution engine ! Exiting...");
 		}
 		
+		this.optLevel = optLevel;
+	}
+	
+	@property
+	auto evaluator() {
+		return new LLVMEvaluator(executionEngine, pass);
+	}
+	
+	void visit(Module mod) {
+		pass.visit(mod);
+	}
+	
+	void emitObject(string objFile) {
+		auto dmodule = pass.dmodule;
 		auto pmb = LLVMPassManagerBuilderCreate();
+		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
 		if(optLevel == 0) {
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
@@ -71,20 +76,15 @@ final class LLVMBackend : Backend {
 		}
 		
 		auto pm = LLVMCreatePassManager();
+		scope(exit) LLVMDisposePassManager(pm);
+		
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(ee), pm);
+		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(executionEngine), pm);
 		
 		LLVMRunPassManager(pm, dmodule);
 		
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
-	}
-	
-	void optimize(uint level) {
-		
-	}
-	
-	void emitObject(string objFile) {
 		
 		version(OX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
@@ -93,15 +93,13 @@ final class LLVMBackend : Backend {
 		}
 		
 		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
+		scope(exit) LLVMDisposeTargetMachine(targetMachine);
 		
 		/*
 		writeln("\nASM generated :");
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
-		
-		auto dmodule = pass.dmodule;
-		char* errorPtr;
 		
 		// Hack around the need of _tlsstart and _tlsend.
 		auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
@@ -112,6 +110,7 @@ final class LLVMBackend : Backend {
 		LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 		LLVMSetThreadLocal(_tlsend, true);
 		
+		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
 		if(linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
