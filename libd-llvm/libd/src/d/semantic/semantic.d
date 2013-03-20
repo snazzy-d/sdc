@@ -3,6 +3,7 @@
  */
 module d.semantic.semantic;
 
+import d.semantic.backend;
 import d.semantic.base;
 import d.semantic.caster;
 import d.semantic.declaration;
@@ -28,8 +29,11 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
+import d.parser.base;
+
 import d.processor.scheduler;
 
+import d.lexer;
 import d.location;
 
 import std.algorithm;
@@ -56,6 +60,7 @@ final class SemanticPass {
 	
 	TemplateInstancier templateInstancier;
 	
+	Backend backend;
 	Evaluator evaluator;
 	
 	string[] versions = ["SDC", "D_LP64"];
@@ -98,12 +103,13 @@ final class SemanticPass {
 		Processed,
 	}
 	
-	this(Evaluator evaluator) {
-		this.evaluator = evaluator;
+	this(Backend backend, Evaluator evaluator, FileSource delegate(string[]) sourceFactory) {
+		this.backend		= backend;
+		this.evaluator		= evaluator;
 		
 		isStatic	= true;
 		
-		moduleVisitor		= new ModuleVisitor(this);
+		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		declarationVisitor	= new DeclarationVisitor(this);
 		symbolVisitor		= new SymbolVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
@@ -122,20 +128,32 @@ final class SemanticPass {
 		templateInstancier	= new TemplateInstancier(this);
 		
 		scheduler			= new Scheduler!SemanticPass(this);
+		
+		importModule(["object"]);
 	}
 	
-	void schedule(Module mod) {
+	Module parse(S)(S source, string[] packages) if(is(S : Source)) {
+		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content);
+		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
+	}
+	
+	Module add(FileSource source, string[] packages) {
+		auto mod = parse(source, packages);
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), d => visit(cast(Module) d));
+		scheduler.schedule(only(mod), (d) {
+			auto m = moduleVisitor.visit(cast(Module) d);
+			
+			backend.visit(m);
+			
+			return m;
+		});
+		
+		return mod;
 	}
 	
 	void terminate() {
 		scheduler.terminate();
-	}
-	
-	Module visit(Module m) {
-		return moduleVisitor.visit(m);
 	}
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {
@@ -190,6 +208,44 @@ final class SemanticPass {
 	
 	auto importModule(string[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
+	}
+	
+	void buildMain(Module[] mods) {
+		import d.ast.dfunction;
+		auto candidates = mods.map!(m => m.declarations).joiner.map!((d) {
+			if(auto fun = cast(FunctionDeclaration) d) {
+				if(fun.name == "main") {
+					return fun;
+				}
+			}
+			
+			return null;
+		}).filter!(d => !!d).array();
+		
+		if(candidates.length == 1) {
+			auto main = candidates[0];
+			auto location = main.fbody.location;
+			
+			auto call = new CallExpression(location, new SymbolExpression(location, main), []);
+			
+			Statement[] fbody;
+			if(cast(VoidType) main.returnType) {
+				fbody ~= new ExpressionStatement(call);
+				fbody ~= new ReturnStatement(location, makeLiteral(location, 0));
+			} else {
+				fbody ~= new ReturnStatement(location, call);
+			}
+			
+			auto bootstrap = new FunctionDeclaration(main.location, "_Dmain", "C", new IntegerType(main.returnType.location, Integer.Int), [], false, new BlockStatement(location, fbody));
+			bootstrap.isStatic = true;
+			bootstrap.dscope = new NestedScope(new Scope(null));
+			
+			backend.visit(new Module(main.location, "main", [], [visit(bootstrap)]));
+		}
+		
+		if(candidates.length > 1) {
+			assert(0, "Several main functions");
+		}
 	}
 }
 

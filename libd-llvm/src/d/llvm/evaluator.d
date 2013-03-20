@@ -25,20 +25,9 @@ final class LLVMEvaluator : Evaluator {
 	
 	private LLVMExecutionEngineRef executionEngine;
 	
-	this(CodeGenPass codeGen) {
+	this(LLVMExecutionEngineRef executionEngine, CodeGenPass codeGen) {
 		this.codeGen = codeGen;
-		
-		char* errorPtr;
-		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, codeGen.dmodule, 0, &errorPtr);
-		if(creationError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-			
-			import std.c.string;
-			import std.stdio;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
-			
-			assert(0, "Cannot create execution engine ! Exiting...");
-		}
+		this.executionEngine = executionEngine;
 	}
 	
 	CompileTimeExpression evaluate(Expression e) {
