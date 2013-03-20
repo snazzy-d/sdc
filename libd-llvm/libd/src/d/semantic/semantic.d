@@ -35,6 +35,7 @@ import d.location;
 import std.algorithm;
 import std.array;
 import std.bitmanip;
+import std.range;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
@@ -123,15 +124,14 @@ final class SemanticPass {
 		scheduler			= new Scheduler!SemanticPass(this);
 	}
 	
-	auto process(Module[] modules) {
-		moduleVisitor.preregister(modules);
+	void schedule(Module mod) {
+		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(modules, d => visit(cast(Module) d));
-		modules = cast(Module[]) scheduler.require(modules);
-		
+		scheduler.schedule(only(mod), d => visit(cast(Module) d));
+	}
+	
+	void terminate() {
 		scheduler.terminate();
-		
-		return modules;
 	}
 	
 	Module visit(Module m) {

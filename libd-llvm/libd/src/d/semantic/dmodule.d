@@ -100,10 +100,8 @@ final class ModuleVisitor {
 	}
 	
 	// XXX: temporary hack to preregister modules
-	void preregister(Module[] modules) {
-		foreach(m; modules) {
-			cachedModules[getModuleName(m)] = m;
-		}
+	void preregister(Module mod) {
+		cachedModules[getModuleName(mod)] = mod;
 	}
 }
 
