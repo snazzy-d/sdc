@@ -9,70 +9,45 @@ import etc.linux.memoryerror;
 
 import d.ast.dmodule;
 
-import d.llvm.evaluator;
 import d.llvm.backend;
-
-import d.parser.base;
 
 import d.semantic.semantic;
 
-import d.exception;
 import d.location;
 
 import std.array;
 import std.file;
 
 final class SDC {
-	LLVMBackend backend;
-	LLVMEvaluator evaluator;
 	SemanticPass semantic;
+	LLVMBackend backend;
 	
 	string[] includePath;
 	
-	Module[string[]] modules;
-	
 	this(string name, string[] includePath, uint optLevel) {
-		backend	= new LLVMBackend(name, optLevel);
-		evaluator = new LLVMEvaluator(backend.pass);
-		semantic = new SemanticPass(evaluator);
-		
 		this.includePath = ["../libs", "."] ~ includePath;
 		
-		compile(["object"]);
+		backend	= new LLVMBackend(name, optLevel);
+		semantic = new SemanticPass(backend, backend.evaluator, &getFileSource);
 	}
 	
-	string[] compile(string filename) {
+	Module compile(string filename) {
 		auto packages = filename[0 .. $ - 2].split("/").array();
-		compile(packages, new FileSource(filename));
-		
-		return packages;
+		return semantic.add(new FileSource(filename), packages);
 	}
 	
-	void compile(string[] packages) {
-		compile(packages, getFileSource(packages));
+	Module compile(string[] packages) {
+		return semantic.add(getFileSource(packages), packages);
 	}
 	
-	void compile(string[] packages, FileSource source) {
-		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content);
-		
-		auto ast = trange.parse(packages[$ - 1], packages[0 .. $-1]);
-		semantic.schedule(ast);
-		modules[packages.idup] = ast;
-	}
-	
-	void buildMain(string[] packages) {
+	void buildMain(Module[] mods) {
 		semantic.terminate();
 		
-		import d.semantic.main;
-		modules[packages.idup] = buildMain(modules[packages]);
+		semantic.buildMain(mods);
 	}
 	
 	void codeGen(string objFile) {
 		semantic.terminate();
-		
-		foreach(mod; modules.values) {
-			backend.codeGen(mod);
-		}
 		
 		backend.emitObject(objFile);
 	}
