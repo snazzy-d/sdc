@@ -12,15 +12,20 @@ import llvm.c.targetMachine;
 import llvm.c.transforms.passManagerBuilder;
 
 import std.array;
+import std.process;
+import std.stdio;
+import std.string;
 
 interface Backend {
-	void codeGen(Module[] mods);
+	void codeGen(Module mod);
 }
 
 final class LLVMBackend : Backend {
 	CodeGenPass pass;
 	
-	this(string name) {
+	uint optLevel;
+	
+	this(string name, uint optLevel) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -29,13 +34,13 @@ final class LLVMBackend : Backend {
 		LLVMInitializeX86AsmPrinter();
 		
 		pass = new CodeGenPass(name);
+		
+		this.optLevel = optLevel;
 	}
 	
-	void codeGen(Module[] mods) {
-		import d.llvm.codegen;
-		import std.stdio;
-		
-		auto dmodule = pass.visit(mods);
+	void codeGen(Module mod) {
+		pass.visit(mod);
+		auto dmodule = pass.dmodule;
 		
 		LLVMExecutionEngineRef ee;
 		char* errorPtr;
@@ -54,16 +59,16 @@ final class LLVMBackend : Backend {
 		
 		auto pmb = LLVMPassManagerBuilderCreate();
 		
-		//+
-		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
-		LLVMPassManagerBuilderSetOptLevel(pmb, 0);
-		/*+//*//+*/
-		LLVMDumpModule(dmodule);
-		writeln("\n; Optimized as :");
+		if(optLevel == 0) {
+			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
+			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
+		} else {
+			LLVMDumpModule(dmodule);
+			writeln("\n; Optimized as :");
 		
-		LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
-		LLVMPassManagerBuilderSetOptLevel(pmb, 3);
-		// +/
+			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
+			LLVMPassManagerBuilderSetOptLevel(pmb, optLevel);
+		}
 		
 		auto pm = LLVMCreatePassManager();
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
@@ -73,6 +78,13 @@ final class LLVMBackend : Backend {
 		
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
+	}
+	
+	void optimize(uint level) {
+		
+	}
+	
+	void emitObject(string objFile) {
 		
 		version(OX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
@@ -88,12 +100,8 @@ final class LLVMBackend : Backend {
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
 		
-		//*
-		import d.llvm.util;
-		import std.string;
-		import std.process;
-		
-		auto asObject = temporaryFilename(".o");
+		auto dmodule = pass.dmodule;
+		char* errorPtr;
 		
 		// Hack around the need of _tlsstart and _tlsend.
 		auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
@@ -104,17 +112,26 @@ final class LLVMBackend : Backend {
 		LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 		LLVMSetThreadLocal(_tlsend, true);
 		
-		LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(asObject), LLVMCodeGenFileType.Object, &errorPtr);
-		
+		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
+		if(linkError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+			
+			import std.c.string;
+			writeln(errorPtr[0 .. strlen(errorPtr)]);
+			
+			assert(0, "Fail to link ! Exiting...");
+		}
+	}
+	
+	void link(string objFile, string executable) {
 		version(OSX) {
-			auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/usr/share/dmd/lib -lphobos2 -lpthread";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ " -L/usr/share/dmd/lib -lphobos2 -lpthread";
 		} else {
-			auto linkCommand = "gcc -o " ~ mods.back.location.source.filename ~ ".bin " ~ asObject ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
 		}
 		
 		writeln(linkCommand);
 		system(linkCommand);
-		//*/
 	}
 }
 

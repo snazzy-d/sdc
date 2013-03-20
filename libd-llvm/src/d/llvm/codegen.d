@@ -80,23 +80,15 @@ final class CodeGenPass {
 		profKindID = LLVMGetMDKindIDInContext(context, id.ptr, cast(uint) id.length);
 	}
 	
-	LLVMModuleRef visit(Module[] modules) {
+	Module visit(Module m) {
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
-		foreach(m; modules) {
-			visit(m);
-		}
-		
-		checkModule();
-		
-		return dmodule;
-	}
-	
-	Module visit(Module m) {
 		foreach(decl; m.declarations) {
 			visit(decl);
 		}
+		
+		checkModule();
 		
 		return m;
 	}
@@ -228,7 +220,7 @@ final:
 	}
 	
 	auto getAllocMemory() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
+		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
 		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), [LLVMInt64TypeInContext(context)].ptr, 1, false));
 	}
 }

@@ -31,12 +31,13 @@ final class LLVMEvaluator : Evaluator {
 		char* errorPtr;
 		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, codeGen.dmodule, 0, &errorPtr);
 		if(creationError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+			
 			import std.c.string;
 			import std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
-			writeln("Cannot create execution engine ! Exiting...");
 			
-			assert(0);
+			assert(0, "Cannot create execution engine ! Exiting...");
 		}
 	}
 	
