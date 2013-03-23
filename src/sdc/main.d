@@ -5,7 +5,10 @@ module sdc.main;
 
 import d.ast.dmodule;
 
+import d.exception;
+
 import sdc.sdc;
+import sdc.terminal;
 
 import etc.linux.memoryerror;
 
@@ -44,20 +47,25 @@ int main(string[] args) {
 	}
 	
 	auto sdc = new SDC(files[0], includePath, optLevel);
+	try {
+		Module[] mods;
+		foreach(file; files) {
+			mods ~= sdc.compile(file);
+		}
 	
-	Module[] mods;
-	foreach(file; files) {
-		mods ~= sdc.compile(file);
+		sdc.buildMain(mods);
+	
+		if(dontLink) {
+			sdc.codeGen(objFile);
+		} else {
+			sdc.codeGen(objFile, executable);
+		}
+	
+		return 0;
+	} catch(CompileException e) {
+		outputCaretDiagnostics(e.location, e.msg);
+		
+		throw e;
 	}
-	
-	sdc.buildMain(mods);
-	
-	if(dontLink) {
-		sdc.codeGen(objFile);
-	} else {
-		sdc.codeGen(objFile, executable);
-	}
-	
-	return 0;
 }
 
