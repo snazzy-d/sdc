@@ -1,6 +1,7 @@
 module d.semantic.expression;
 
 import d.semantic.base;
+import d.semantic.identifiable;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
@@ -483,15 +484,13 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		auto resolved = pass.visit(e.identifier);
-		
-		if(auto asExpr = resolved.asExpression()) {
-			return pass.visit(asExpr);
-		}
-		
-		// TODO: ambiguous deambiguation.
-		
-		return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
+		return pass.visit(e.identifier).apply!((identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return visit(identified);
+			} else {
+				return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
+			}
+		})();
 	}
 	
 	Expression visit(SymbolExpression e) {

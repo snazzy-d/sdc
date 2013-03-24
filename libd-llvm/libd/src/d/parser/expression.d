@@ -47,11 +47,11 @@ private Expression parseBinaryExpression(TokenType tokenType, BinaryExpressionTy
 /**
  * Parse assignement expressions.
  */
-Expression parseAssignExpression(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Expression parseAssignExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseAssignExpression(trange.parsePrefixExpression());
 }
 
-Expression parseAssignExpression(TokenRange)(ref TokenRange trange, Expression lhs) if(isTokenRange!TokenRange) {
+Expression parseAssignExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
 	lhs = trange.parseConditionalExpression(lhs);
 	Location location = lhs.location;
 	
@@ -66,60 +66,60 @@ Expression parseAssignExpression(TokenRange)(ref TokenRange trange, Expression l
 		lhs = new AssignExpressionType(location, lhs, rhs);
 	}
 	
-	switch(trange.front.type) {
-		case TokenType.Assign :
+	switch(trange.front.type) with(TokenType) {
+		case Assign :
 			processToken!AssignExpression();
 			break;
 		
-		case TokenType.PlusAssign :
+		case PlusAssign :
 			processToken!AddAssignExpression();
 			break;
 		
-		case TokenType.MinusAssign :
+		case MinusAssign :
 			processToken!SubAssignExpression();
 			break;
 		
-		case TokenType.StarAssign :
+		case StarAssign :
 			processToken!MulAssignExpression();
 			break;
 		
-		case TokenType.SlashAssign :
+		case SlashAssign :
 			processToken!DivAssignExpression();
 			break;
 		
-		case TokenType.PercentAssign :
+		case PercentAssign :
 			processToken!ModAssignExpression();
 			break;
 		
-		case TokenType.AmpersandAssign :
+		case AmpersandAssign :
 			processToken!BitwiseAndAssignExpression();
 			break;
 		
-		case TokenType.PipeAssign :
+		case PipeAssign :
 			processToken!BitwiseOrAssignExpression();
 			break;
 		
-		case TokenType.CaretAssign :
+		case CaretAssign :
 			processToken!BitwiseXorAssignExpression();
 			break;
 		
-		case TokenType.TildeAssign :
+		case TildeAssign :
 			processToken!ConcatAssignExpression();
 			break;
 		
-		case TokenType.DoubleLessAssign :
+		case DoubleLessAssign :
 			processToken!LeftShiftAssignExpression();
 			break;
 		
-		case TokenType.DoubleMoreAssign :
+		case DoubleMoreAssign :
 			processToken!SignedRightShiftAssignExpression();
 			break;
 		
-		case TokenType.TripleMoreAssign :
+		case TripleMoreAssign :
 			processToken!UnsignedRightShiftAssignExpression();
 			break;
 		
-		case TokenType.DoubleCaretAssign :
+		case DoubleCaretAssign :
 			processToken!PowAssignExpression();
 			break;
 		

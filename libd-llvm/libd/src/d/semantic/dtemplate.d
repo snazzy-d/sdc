@@ -33,15 +33,15 @@ final class TemplateInstancier {
 		// XXX: have to put array once again.
 		assert(tplDecl.parameters.length == arguments.length);
 		string id = arguments.map!(delegate string(TemplateArgument arg) {
-			auto identifiable = visit(arg);
-			
-			if(auto type = identifiable.asType()) {
-				argDecls ~= new AliasDeclaration(arg.location, tplDecl.parameters[i++].name, type);
-				
-				return "T" ~ pass.typeMangler.visit(type);
-			}
-			
-			assert(0, "Only type argument are supported.");
+			return visit(arg).apply!(delegate string(identified) {
+				static if(is(typeof(identified) : Type)) {
+					argDecls ~= new AliasDeclaration(arg.location, tplDecl.parameters[i++].name, identified);
+					
+					return "T" ~ pass.typeMangler.visit(identified);
+				} else {
+					assert(0, "Only type argument are supported.");
+				}
+			})();
 		}).array().join();
 		
 		return tplDecl.instances.get(id, {

@@ -17,7 +17,7 @@ import std.range;
 /**
  * Branch to the right code depending if we have a type, an expression or an identifier.
  */
-auto parseAmbiguous(alias handler, R)(ref R trange) if(isTokenRange!R) {
+typeof(handler(null)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenRange!R) {
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
 			auto i = trange.parseIdentifier();
@@ -90,29 +90,31 @@ auto parseAmbiguous(alias handler, R)(ref R trange) if(isTokenRange!R) {
 }
 
 auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRange!R) {
-	switch(trange.front.type) {
-		case TokenType.Auto, TokenType.Import, TokenType.Interface, TokenType.Class, TokenType.Struct, TokenType.Union, TokenType.Enum, TokenType.Template, TokenType.Alias, TokenType.Extern :
+	switch(trange.front.type) with(TokenType) {
+		case Import, Interface, Class, Struct, Union, Enum, Template, Alias, Extern :
+			// XXX: lolbug !
+			goto case Auto;
+			
+		case Auto, Static, Const, Immutable, Inout, Shared :
 			return handler(trange.parseDeclaration());
 		
 		default :
-			/+
-			// FIXME: don't parse twice :/
-			auto lookahead = trange.save;
-			
-			auto parsed = lookahead.parseAmbiguous!(delegate Object(parsed) {
-				alias typeof(parsed) caseType;
-				
-				static if(is(caseType : Expression)) {
-					return trange.parseExpression();
+			auto location = trange.front.location;
+			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
+				static if(is(typeof(parsed) : Type)) {
+					return trange.parseTypedDeclaration(location, parsed);
+				} else static if(is(typeof(parsed) : Expression)) {
+					return parsed;
 				} else {
-					if(lookahead.front.type == TokenType.Identifier) {
-						return trange.parseDeclaration();
+					if(trange.front.type == TokenType.Identifier) {
+						return trange.parseTypedDeclaration(location, new IdentifierType(parsed));
 					} else {
-						return trange.parseExpression();
+						return new IdentifierExpression(parsed);
 					}
 				}
 			})();
 			
+			// XXX: workaround lolbug (handler can't be passed down to subfunction).
 			if(auto d = cast(Declaration) parsed) {
 				return handler(d);
 			} else if(auto e = cast(Expression) parsed) {
@@ -120,20 +122,6 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			}
 			
 			assert(0);
-			+/
-			
-			// FIXME: lolbug workaround.
-			auto save = trange.save;
-			try {
-				return handler(trange.parseDeclaration());
-			} catch(Exception e) {
-				trange = save.save;
-				
-				import std.stdio;
-				writeln("declaration didn't worked, back on expression.");
-				
-				return handler(trange.parseExpression());
-			}
 	}
 }
 
@@ -200,12 +188,34 @@ auto apply(alias handler)(Ambiguous a) {
 	}
 }
 
-
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, TokenRange)(ref TokenRange trange, Identifier i) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Identifier i) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenBracket :
-			// Open Backet can be so many different things !
-			assert(0, "Not implemented");
+			trange.popFront();
+			
+			auto parsed = trange.parseAmbiguous!ambiguousHandler().apply!(delegate Object(parsed) {
+				auto location = i.location;
+				location.spanTo(trange.front.location);
+				
+				static if(is(typeof(parsed) : Type)) {
+					return new AssociativeArrayType(location, new IdentifierType(i), parsed);
+				} else static if(is(typeof(parsed) : Expression)) {
+					return new IdentifierBracketExpression(location, i, parsed);
+				} else {
+					return new IdentifierBracketIdentifier(location, i, parsed);
+				}
+			})();
+			
+			trange.match(CloseBracket);
+			
+			// XXX: workaround lolbug (handler can't be passed down to subfunction).
+			if(auto id = cast(d.ast.identifier.Identifier) parsed) {
+				return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
+			} else if(auto t = cast(Type) parsed) {
+				return trange.parseAmbiguousSuffix!handler(t);
+			}
+			
+			assert(0);	
 		
 		case Function :
 		case Delegate :
@@ -220,14 +230,31 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, TokenRange)(re
 		
 		// FIXME: Add binary operators.
 		case Star :
-			assert(0, "Can be a pointer or an expression, or many even a declaration. That is bad !");
+			assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
+		
+		case Assign :
+		case PlusAssign :
+		case MinusAssign :
+		case StarAssign :
+		case SlashAssign :
+		case PercentAssign :
+		case AmpersandAssign :
+		case PipeAssign :
+		case CaretAssign :
+		case TildeAssign :
+		case DoubleLessAssign :
+		case DoubleMoreAssign :
+		case TripleMoreAssign :
+		case DoubleCaretAssign :
+			auto e = trange.parseAssignExpression(new IdentifierExpression(i));
+			return trange.parseAmbiguousSuffix!handler(e);
 		
 		default :
 			return handler(i);
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, TokenRange)(ref TokenRange trange, Type t) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Type t) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenParen :
 			assert(0, "Constructor not implemented");
@@ -243,7 +270,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, TokenRange)(re
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, TokenRange)(ref TokenRange trange, Expression e) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Expression e) {
 	switch(trange.front.type) with(TokenType) {
 		case Dot :
 			trange.popFront();

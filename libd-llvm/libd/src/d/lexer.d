@@ -379,6 +379,9 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 				case '\\' :
 					return '\\';
 				
+				case '0' :
+					return '\0';
+				
 				case 'a' :
 					return '\a';
 				

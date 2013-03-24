@@ -89,3 +89,33 @@ class DotIdentifier : Identifier {
 	}
 }
 
+/**
+ * An identifier of the form identifier[identifier]
+ */
+class IdentifierBracketIdentifier : Identifier {
+	Identifier indexed;
+	Identifier index;
+	
+	this(Location location, Identifier indexed, Identifier index) {
+		super(location, indexed.name);
+		
+		this.indexed = indexed;
+		this.index = index;
+	}
+}
+
+/**
+ * An identifier of the form identifier[expression]
+ */
+class IdentifierBracketExpression : Identifier {
+	Identifier indexed;
+	Expression index;
+	
+	this(Location location, Identifier indexed, Expression index) {
+		super(location, indexed.name);
+		
+		this.indexed = indexed;
+		this.index = index;
+	}
+}
+

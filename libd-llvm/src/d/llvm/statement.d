@@ -182,10 +182,10 @@ final class StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto oldDefault = "default" in labels;
+		auto oldDefault = labels.get("default", null);
 		scope(exit) {
 			if(oldDefault) {
-				labels["default"] = *oldDefault;
+				labels["default"] = oldDefault;
 			} else {
 				labels.remove("default");
 			}

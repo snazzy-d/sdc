@@ -53,8 +53,8 @@ final class DeclarationGen {
 			auto oldLabels = labels;
 			scope(exit) labels = oldLabels;
 			
-			// FIXME: should be an empty AA.
-			labels = labels.dup;
+			// XXX: what is the way to flush an AA ?
+			labels = typeof(labels).init;
 			
 			// Alloca and instruction block.
 			auto allocaBB = LLVMAppendBasicBlock(fun, "");

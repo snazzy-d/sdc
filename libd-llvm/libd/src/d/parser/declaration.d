@@ -348,11 +348,14 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
  * Parse type identifier ... declarations.
  * Function/variables.
  */
-private Declaration parseTypedDeclaration(R)(ref R trange, Location location) {
+Declaration parseTypedDeclaration(R)(ref R trange, Location location) if(isTokenRange!R) {
 	return trange.parseTypedDeclaration(location, trange.parseType());
 }
 
-private Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type) {
+/**
+ * Parse a declaration when you already have its type.
+ */
+Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type) if(isTokenRange!R) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
