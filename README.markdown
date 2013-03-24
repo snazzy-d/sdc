@@ -51,6 +51,8 @@ Run `make`.
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
 SDC contains le lot of hardcoded PATH right now, so it hard to intégrate properly with the system. It expect object.d to be in ../libs/object.d
 
+SDC require LLVM 3.1 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.1` .
+
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
