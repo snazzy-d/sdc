@@ -1,6 +1,7 @@
 module d.semantic.type;
 
 import d.semantic.base;
+import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.adt;
@@ -80,14 +81,13 @@ final class TypeVisitor {
 	}
 	
 	Type visit(IdentifierType t) {
-		auto resolved = pass.visit(t.identifier);
-		
-		if(auto asType = resolved.asType()) {
-			return pass.visit(asType);
-		}
-		
-		// TODO: ambiguous deambiguation.
-		return compilationCondition!Type(t.location, t.identifier.name ~ " isn't an expression.");
+		return pass.visit(t.identifier).apply!((identified) {
+			static if(is(typeof(identified) : Type)) {
+				return visit(identified);
+			} else {
+				return compilationCondition!Type(t.location, t.identifier.name ~ " isn't an type.");
+			}
+		})();
 	}
 	
 	Type visit(SymbolType t) {

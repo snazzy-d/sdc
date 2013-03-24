@@ -9,18 +9,13 @@ import d.ast.declaration;
  * Tagged union that define something designed by an identifier.
  */
 struct Identifiable {
-	enum Tag {
-		Type,
-		Expression,
-		Symbol,
-	}
-	
-	Tag tag;
+	private Tag tag;
 	
 	union {
 		// Always valid.
 		Node node;
-		
+	
+	private :
 		Type type;
 		Expression expression;
 		Symbol symbol;
@@ -46,30 +41,6 @@ struct Identifiable {
 		symbol = s;
 	}
 	
-	auto asType() {
-		if(tag == Tag.Type) {
-			return type;
-		}
-		
-		return null;
-	}
-	
-	auto asExpression() {
-		if(tag == Tag.Expression) {
-			return expression;
-		}
-		
-		return null;
-	}
-	
-	auto asSymbol() {
-		if(tag == Tag.Symbol) {
-			return symbol;
-		}
-		
-		return null;
-	}
-	
 	invariant() {
 		final switch(tag) {
 			case Tag.Type :
@@ -90,6 +61,25 @@ struct Identifiable {
 				assert(symbol);
 				break;
 		}
+	}
+}
+
+private enum Tag {
+	Type,
+	Expression,
+	Symbol,
+}
+
+auto apply(alias handler)(Identifiable i) {
+	final switch(i.tag) with(Tag) {
+		case Type :
+			return handler(i.type);
+		
+		case Expression :
+			return handler(i.expression);
+		
+		case Symbol :
+			return handler(i.symbol);
 	}
 }
 

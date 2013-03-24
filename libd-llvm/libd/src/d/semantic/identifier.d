@@ -91,19 +91,21 @@ final class IdentifierVisitor {
 	Identifiable visit(IdentifierDotIdentifier i) {
 		auto resolved = visit(i.identifier);
 		
-		if(auto t = resolved.asType()) {
-			return visit(new TypeDotIdentifier(i.location, i.name, t));
-		} else if(auto e = resolved.asExpression()) {
-			return visit(new ExpressionDotIdentifier(i.location, i.name, e));
-		} else if(auto s = resolved.asSymbol()) {
-			s = scheduler.require(s, Step.Populated);
-			
-			if(auto m = cast(Module) s) {
-				return visit(i.location, m.dscope.resolve(i.name));
+		return resolved.apply!((identified) {
+			static if(is(typeof(identified) : Type)) {
+				return visit(new TypeDotIdentifier(i.location, i.name, identified));
+			} else static if(is(typeof(identified) : Expression)) {
+				return visit(new ExpressionDotIdentifier(i.location, i.name, identified));
+			} else {
+				identified = pass.scheduler.require(identified, pass.Step.Populated);
+				
+				if(auto m = cast(Module) identified) {
+					return visit(i.location, m.dscope.resolve(i.name));
+				}
+				
+				throw new CompileException(i.location, "Can't resolve " ~ i.name);
 			}
-		}
-		
-		throw new CompileException(i.location, "Can't resolve " ~ i.name);
+		})();
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
@@ -120,6 +122,22 @@ final class IdentifierVisitor {
 	
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {
 		return templateDotIdentifierVisitor.resolve(i);
+	}
+	
+	Identifiable visit(IdentifierBracketIdentifier i) {
+		assert(0, "Not implemented");
+	}
+	
+	Identifiable visit(IdentifierBracketExpression i) {
+		return visit(i.indexed).apply!(delegate Identifiable(identified) {
+			static if(is(typeof(identified) : Type)) {
+				return Identifiable(new StaticArrayType(i.location, identified, i.index));
+			} else static if(is(typeof(identified) : Expression)) {
+				return Identifiable(new IndexExpression(i.location, identified, [i.index]));
+			} else {
+				assert(0, "WTF ???");
+			}
+		})();
 	}
 	
 	Identifiable visit(Location location, Symbol s) {
@@ -157,12 +175,14 @@ final class IdentifierVisitor {
 		
 		Expression[] expressions;
 		foreach(result; results) {
-			if(auto asExpression = result.asExpression()) {
-				expressions ~= asExpression;
-			} else {
-				// TODO: handle templates.
-				throw new CompileException(result.location, typeid(result).toString() ~ " is not supported in overload set");
-			}
+			result.apply!((identified) {
+				static if(is(typeof(identified) : Expression)) {
+					expressions ~= identified;
+				} else {
+					// TODO: handle templates.
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				}
+			})();
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
@@ -254,12 +274,16 @@ final class ExpressionDotIdentifierVisitor {
 		
 		if(auto s = symbolInTypeResolver.visit(i.name, e.type)) {
 			return visit(i.location, e, s);
-		} else if(auto asExpr = typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).asExpression()) {
-			// expression.sizeof or similar stuffs.
-			return Identifiable(new CommaExpression(i.location, e, asExpr));
 		}
 		
-		return Identifiable(compilationCondition!Expression(i.location, "Can't resolve identifier."));
+		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
+			static if(is(typeof(identified) : Expression)) {
+				// expression.sizeof or similar stuffs.
+				return Identifiable(new CommaExpression(i.location, e, identified));
+			} else {
+				return Identifiable(compilationCondition!Expression(i.location, "Can't resolve identifier."));
+			}
+		})();
 	}
 	
 	Identifiable visit(Location location, Expression e, Symbol s) {
