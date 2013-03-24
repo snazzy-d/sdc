@@ -1,17 +1,10 @@
 DMD ?= dmd
-PLATFORM = $(shell uname -s)
 ARCHFLAG ?= -m64
-SOURCE = src/d/llvm/*.d
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport -Ilibd/src
-LIBD_LLVM = lib/libd-llvm.a
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
-LLVM_SRC = import/llvm/c/target.d
+LIBD_LLVM_ROOT = .
 
-all: $(LIBD_LLVM)
-
-$(LIBD_LLVM): $(SOURCE) $(LLVM_SRC)
-	@mkdir -p lib
-	$(DMD) -lib -of$(LIBD_LLVM) $(SOURCE) $(LLVM_SRC) $(DFLAGS)
+include makefile.common
 
 clean:
 	@rm $(LIBD_LLVM)

@@ -1,16 +1,10 @@
-include makefile.common
-
-PLATFORM = $(shell uname -s)
+DMD ?= dmd
 ARCHFLAG ?= -m64
-SOURCE = $(SOURCE_WILDCARDS)
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest -Isrc -Iimport
-LIBD = lib/libd.a
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
-all: $(LIBD)
+LIBD_ROOT = .
 
-$(LIBD): $(SOURCE)
-	@mkdir -p lib
-	$(DMD) -lib -of$(LIBD) $(SOURCE) $(DFLAGS)
+include makefile.common
 
 clean:
 	@rm $(LIBD)
