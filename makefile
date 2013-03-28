@@ -4,7 +4,7 @@ DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = -L-L`$(LLVM_CONFIG) --libdir` `$(LLVM_CONFIG) --libs | sed 's/-l/-L-l/g'`
-LIBD_LIB = -L-Llibd-llvm/libd/lib -L-ld -L-Llibd-llvm/lib -L-ld-llvm
+LIBD_LIB = -L-Llib -L-ld-llvm
 
 LDFLAGS = $(LIBD_LIB) $(LLVM_LIB) -L-lstdc++
 
