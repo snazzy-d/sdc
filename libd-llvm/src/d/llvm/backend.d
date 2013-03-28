@@ -86,7 +86,7 @@ final class LLVMBackend : Backend {
 		// Dump module for debug purpose.
 		LLVMDumpModule(dmodule);
 		
-		version(OX) {
+		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
 		} else {
 			auto triple = "x86_64-pc-linux-gnu".ptr;
@@ -101,14 +101,16 @@ final class LLVMBackend : Backend {
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
 		
-		// Hack around the need of _tlsstart and _tlsend.
-		auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
-		LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
-		LLVMSetSection(_tlsstart, ".tdata");
-		
-		auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
-		LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
-		LLVMSetThreadLocal(_tlsend, true);
+		version(linux) {
+			// Hack around the need of _tlsstart and _tlsend.
+			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
+			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
+			LLVMSetSection(_tlsstart, ".tdata");
+			
+			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
+			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
+			LLVMSetThreadLocal(_tlsend, true);
+		}
 		
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
