@@ -16,7 +16,9 @@ import std.array;
 import std.getopt;
 
 int main(string[] args) {
-	registerMemoryErrorHandler();
+	version(linux) {
+		registerMemoryErrorHandler();
+	}
 	
 	string[] includePath;
 	uint optLevel;
