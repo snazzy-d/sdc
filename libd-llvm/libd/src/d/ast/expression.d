@@ -567,12 +567,14 @@ class IsExpression : Expression {
  * assert
  */
 class AssertExpression : Expression {
-	Expression[] arguments;
+	Expression condition;
+	Expression message;
 	
-	this(Location location, Expression[] arguments) {
+	this(Location location, Expression condition, Expression message) {
 		super(location);
 		
-		this.arguments = arguments;
+		this.condition = condition;
+		this.message = message;
 	}
 }
 

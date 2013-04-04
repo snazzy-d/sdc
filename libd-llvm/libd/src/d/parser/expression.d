@@ -560,67 +560,67 @@ private Expression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, Toke
 	return trange.parsePowExpression(result);
 }
 
-Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 	Location location = trange.front.location;
 	
-	switch(trange.front.type) {
+	switch(trange.front.type) with(TokenType) {
 		// Identified expressions
-		case TokenType.Identifier :
+		case Identifier :
 			return new IdentifierExpression(trange.parseIdentifier());
 		
-		case TokenType.New :
+		case New :
 			trange.popFront();
 			auto type = trange.parseType();
 			
 			Expression[] arguments;
-			if(trange.front.type == TokenType.OpenParen) {
+			if(trange.front.type == OpenParen) {
 				trange.popFront();
 				
-				if(trange.front.type != TokenType.CloseParen) {
+				if(trange.front.type != CloseParen) {
 					arguments = trange.parseArguments();
 				}
 				
 				location.spanTo(trange.front.location);
-				trange.match(TokenType.CloseParen);
+				trange.match(CloseParen);
 			} else {
 				location.spanTo(type.location);
 			}
 			
 			return new NewExpression(location, type, arguments);
 		
-		case TokenType.Dot :
+		case Dot :
 			return new IdentifierExpression(trange.parseDotIdentifier());
 		
-		case TokenType.This :
+		case This :
 			trange.popFront();
 			return new ThisExpression(location);
 		
-		case TokenType.Super :
+		case Super :
 			trange.popFront();
 			return new SuperExpression(location);
 		
-		case TokenType.True :
+		case True :
 			trange.popFront();
 			return new BooleanLiteral(location, true);
 		
-		case TokenType.False :
+		case False :
 			trange.popFront();
 			return new BooleanLiteral(location, false);
 		
-		case TokenType.Null :
+		case Null :
 			trange.popFront();
 			return new NullLiteral(location);
 		
-		case TokenType.IntegerLiteral :
+		case IntegerLiteral :
 			return trange.parseIntegerLiteral();
 		
-		case TokenType.StringLiteral :
+		case StringLiteral :
 			auto str = trange.front.value;
 			trange.popFront();
 			
-			return new StringLiteral(location, str);
+			return new d.ast.expression.StringLiteral(location, str);
 		
-		case TokenType.CharacterLiteral :
+		case CharacterLiteral :
 			assert(trange.front.value.length == 1);
 			
 			auto value = trange.front.value[0];
@@ -628,54 +628,54 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 			
 			return makeLiteral(location, value);
 		
-		case TokenType.OpenBracket :
+		case OpenBracket :
 			Expression[] keys, values;
 			do {
 				trange.popFront();
 				auto value = trange.parseAssignExpression();
 				
-				if(trange.front.type == TokenType.Colon) {
+				if(trange.front.type == Colon) {
 					keys ~= value;
 					trange.popFront();
 					values ~= trange.parseAssignExpression();
 				} else {
 					values ~= value;
 				}
-			} while(trange.front.type == TokenType.Comma);
+			} while(trange.front.type == Comma);
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.CloseBracket);
+			trange.match(CloseBracket);
 			
 			return new ArrayLiteral(location, values);
 		
-		case TokenType.OpenBrace :
+		case OpenBrace :
 			auto block = trange.parseBlock();
 			
 			return new DelegateLiteral(block);
 		
-		case TokenType.Function :
-		case TokenType.Delegate :
+		case Function :
+		case Delegate :
 			assert(0, "not implemented");
 		
-		case TokenType.__File__ :
+		case __File__ :
 			trange.popFront();
 			return new __File__Literal(location);
 		
-		case TokenType.__Line__ :
+		case __Line__ :
 			trange.popFront();
 			return new __Line__Literal(location);
 		
-		case TokenType.Dollar :
+		case Dollar :
 			trange.popFront();
 			return new DollarExpression(location);
 		
-		case TokenType.Typeid :
+		case Typeid :
 			trange.popFront();
 			trange.match(TokenType.OpenParen);
 			
 			return trange.parseAmbiguous!(delegate Expression(parsed) {
 				location.spanTo(trange.front.location);
-				trange.match(TokenType.CloseParen);
+				trange.match(CloseParen);
 				
 				alias typeof(parsed) caseType;
 				
@@ -689,32 +689,37 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 				}
 			})();
 		
-		case TokenType.Is :
+		case Is :
 			return trange.parseIsExpression();
 		
-		case TokenType.Assert :
+		case Assert :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			
-			auto arguments = trange.parseArguments();
+			auto condition = trange.parseAssignExpression();
+			Expression message;
+			if(trange.front.type == Comma) {
+				trange.popFront();
+				message = trange.parseAssignExpression();
+			}
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
-			return new AssertExpression(location, arguments);
+			return new AssertExpression(location, condition, message);
 		
-		case TokenType.OpenParen :
+		case OpenParen :
 			auto matchingParen = trange.save;
-			matchingParen.popMatchingDelimiter!(TokenType.OpenParen)();
+			matchingParen.popMatchingDelimiter!OpenParen();
 			
 			trange.popFront();
 			
-			if(matchingParen.front.type == TokenType.Dot) {
+			if(matchingParen.front.type == Dot) {
 				import d.ast.identifier;
 				
-				auto identifier = trange.parseAmbiguous!(delegate Identifier(parsed) {
-					trange.match(TokenType.CloseParen);
-					trange.match(TokenType.Dot);
+				auto identifier = trange.parseAmbiguous!((parsed) {
+					trange.match(CloseParen);
+					trange.match(Dot);
 					
 					return trange.parseQualifiedIdentifier(location, parsed);
 				})();
@@ -724,7 +729,7 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 				auto expression = trange.parseExpression();
 				
 				location.spanTo(trange.front.location);
-				trange.match(TokenType.CloseParen);
+				trange.match(CloseParen);
 				
 				return new ParenExpression(location, expression);
 			}
@@ -732,7 +737,7 @@ Expression parsePrimaryExpression(TokenRange)(ref TokenRange trange) if(isTokenR
 		default:
 			// Our last resort are type.identifier expressions.
 			auto type = trange.parseType!(ParseMode.Reluctant)();
-			trange.match(TokenType.Dot);
+			trange.match(Dot);
 			
 			return new IdentifierExpression(trange.parseQualifiedIdentifier(location, type));
 	}

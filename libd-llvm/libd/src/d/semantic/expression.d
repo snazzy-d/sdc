@@ -472,11 +472,13 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AssertExpression e) {
-		e.arguments = e.arguments.map!(a => visit(a)).array();
+		auto c = visit(e.condition);
+		e.condition = explicitCast(c.location, new BooleanType(c.location), c);
 		
-		e.arguments[0] = explicitCast(e.location, new BooleanType(e.location), e.arguments[0]);
-		
-		assert(e.arguments.length == 1, "Assert with message isn't supported.");
+		if(e.message) {
+			// FIXME: cast to string.
+			e.message = evaluate(visit(e.message));
+		}
 		
 		e.type = new VoidType(e.location);
 		
