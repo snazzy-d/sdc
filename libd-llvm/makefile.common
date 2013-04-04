@@ -1,0 +1,17 @@
+# Common definitions
+
+LIBD_LLVM_IMPORTS = -I$(LIBD_LLVM_ROOT)/import -I$(LIBD_ROOT)/src
+LIBD_LLVM_SRC = \
+	$(LIBD_LLVM_ROOT)/src/d/llvm/*.d \
+	$(LIBD_LLVM_ROOT)/import/llvm/c/target.d
+
+LIBD_LLVM = lib/libd-llvm.a
+
+LIBD_ROOT = $(LIBD_LLVM_ROOT)/libd
+ALL_TARGET ?= $(LIBD_LLVM)
+
+include $(LIBD_LLVM_ROOT)/libd/makefile.common
+
+$(LIBD_LLVM): $(LIBD_LLVM_SRC)
+	@mkdir -p lib
+	$(DMD) -lib -of$(LIBD_LLVM) $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
