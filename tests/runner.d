@@ -125,10 +125,14 @@ void test(string filename, string compiler)
         managerTid.send(filename, true, has);
         return;
     }
+
+    assert(expectedToCompile);
+    command = exeName;
+    version (Posix) command ~= " 2> /dev/null 1> /dev/null";
+
+    retval = system(command);
     
-    retval = system(exeName);
-    
-    if (retval != expectedRetval && expectedToCompile) {
+    if (retval != expectedRetval) {
         stderr.writefln("%s: expected retval %s, got %s", filename, expectedRetval, retval);
         managerTid.send(filename, false, has);
         return;
