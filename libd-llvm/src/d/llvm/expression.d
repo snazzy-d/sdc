@@ -462,7 +462,7 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(AssertExpression e) {
-		auto test = visit(e.arguments[0]);
+		auto test = visit(e.condition);
 		
 		auto testBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(testBB);
@@ -478,11 +478,16 @@ final class ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		LLVMValueRef args[2];
-		args[0] = buildDString(e.location.source.filename);
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false);
+		LLVMValueRef args[3];
+		args[1] = buildDString(e.location.source.filename);
+		args[2] = LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false);
 		
-		LLVMBuildCall(builder, druntimeGen.getAssert(), args.ptr, 2, "");
+		if(e.message) {
+			args[0] = visit(e.message);
+			LLVMBuildCall(builder, druntimeGen.getAssertMessage(), args.ptr, 3, "");
+		} else {
+			LLVMBuildCall(builder, druntimeGen.getAssert(), &args[1], 2, "");
+		}
 		
 		// Conclude that block.
 		LLVMBuildUnreachable(builder);
