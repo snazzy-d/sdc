@@ -138,6 +138,19 @@ final class ExpressionVisitor {
 		return handleArithmeticExpression(e);
 	}
 	
+	Expression visit(ConcatExpression e) {
+		e.lhs = visit(e.lhs);
+		
+		if(auto sliceType = cast(SliceType) e.lhs.type) {
+			auto type = e.type = e.lhs.type;
+			e.rhs = implicitCast(e.rhs.location, type, visit(e.rhs));
+			
+			return e;
+		}
+		
+		return compilationCondition!Expression(e.location, "Concat slice only.");
+	}
+	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -162,6 +175,8 @@ final class ExpressionVisitor {
 			e.rhs = implicitCast(e.rhs.location, e.type, e.rhs);
 		} else static if(find([","], operation)) {
 			e.type = e.rhs.type;
+		} else {
+			static assert(0);
 		}
 		
 		return e;
