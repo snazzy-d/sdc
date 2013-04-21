@@ -6,10 +6,10 @@ import d.ast.statement;
 import d.ast.expression;
 import d.ast.type;
 
-import d.llvm.declaration;
-import d.llvm.statement;
 import d.llvm.expression;
+import d.llvm.statement;
 import d.llvm.string;
+import d.llvm.symbol;
 import d.llvm.type;
 
 import d.location;

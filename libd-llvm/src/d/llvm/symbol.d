@@ -1,4 +1,4 @@
-module d.llvm.declaration;
+module d.llvm.symbol;
 
 import d.llvm.codegen;
 
@@ -30,6 +30,8 @@ final class DeclarationGen {
 		} else if(auto ts = cast(TypeSymbol) d) {
 			visit(ts);
 		}
+		
+		assert(cast(Symbol) d, "Can only generate symbols.");
 	}
 	
 	LLVMValueRef visit(ExpressionSymbol s) {
