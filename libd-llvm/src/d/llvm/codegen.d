@@ -153,6 +153,10 @@ final class CodeGenPass {
 	} body {
 		scope(failure) LLVMDumpModule(dmodule);
 		
+		// Create a global variable that recieve the string.
+		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString".ptr);
+		scope(exit) LLVMDeleteGlobal(reciever);
+		
 		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
 		
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
@@ -160,10 +164,6 @@ final class CodeGenPass {
 		
 		auto bodyBB = LLVMAppendBasicBlock(fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
-		// Create a global variable that recieve the string.
-		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString".ptr);
-		scope(exit) LLVMDeleteGlobal(reciever);
 		
 		// Generate function's body.
 		LLVMBuildStore(builder, visit(e), reciever);
