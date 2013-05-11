@@ -198,6 +198,13 @@ final class ExpressionGen {
 		return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(mod);
 	}
 	
+	LLVMValueRef visit(ConcatExpression e) {
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		
+		assert(0, "Not implemented.");
+	}
+	
 	private auto handleLogicalBinary(string operation)(BinaryExpression!operation e) if(operation == "&&" || operation == "||") {
 		auto lhs = visit(e.lhs);
 		
