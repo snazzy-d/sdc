@@ -20,6 +20,8 @@ final class DeclarationGen {
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	
+	private LLVMValueRef[ClassDefinition] vtbls;
+	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
@@ -119,7 +121,6 @@ final class DeclarationGen {
 		
 		if(var.isStatic) {
 			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
-			// FIXME: interpreter don't support TLS for now.
 			LLVMSetThreadLocal(globalVar, true);
 			
 			// Register the variable.
@@ -177,7 +178,6 @@ final class DeclarationGen {
 		typeSymbols[d] = structPtr;
 		
 		LLVMTypeRef[] members;
-		
 		foreach(member; d.members) {
 			if(auto f = cast(FieldDeclaration) member) {
 				members ~= pass.visit(f.type);
@@ -186,7 +186,26 @@ final class DeclarationGen {
 		
 		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
 		
+		LLVMValueRef[] vtbl;
+		foreach(member; d.members) {
+			if (auto m = cast(MethodDeclaration) member) {
+				vtbl ~= visit(m);
+			}
+		}
+		
+		auto vtblData = LLVMConstStructInContext(context, vtbl.ptr, cast(uint) vtbl.length, false);
+		auto vtblPtr = LLVMAddGlobal(dmodule, LLVMTypeOf(vtblData), ("__vtbl_" ~ d.mangle).toStringz());
+		LLVMSetGlobalConstant(vtblPtr, true);
+		
+		LLVMSetInitializer(vtblPtr, vtblData);
+		
+		vtbls[d] = LLVMBuildPointerCast(builder, vtblPtr, members[0], "");
+		
 		return structPtr;
+	}
+	
+	LLVMValueRef getVtbl(ClassDefinition d) {
+		return vtbls[d];
 	}
 	
 	LLVMTypeRef visit(EnumDeclaration d) {

@@ -23,7 +23,7 @@ final class StringGen {
 		return stringLiterals.get(str, stringLiterals[str] = {
 			auto charArray = LLVMConstStringInContext(pass.context, str.ptr, cast(uint) str.length, true);
 			
-			auto globalVar = LLVMAddGlobal(pass.dmodule, LLVMTypeOf(charArray), ".str".toStringz());
+			auto globalVar = LLVMAddGlobal(pass.dmodule, LLVMTypeOf(charArray), ".str");
 			LLVMSetInitializer(globalVar, charArray);
 			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
 			LLVMSetGlobalConstant(globalVar, true);

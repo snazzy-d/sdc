@@ -278,6 +278,29 @@ final class ExpressionGen {
 		}
 	}
 	
+	LLVMValueRef visit(VirtualDispatchExpression e) {
+		auto type = cast(DelegateType) e.type;
+		assert(type);
+		
+		auto thisPtr = visit(e.expression);
+		
+		auto funPtrIndex = LLVMConstInt(LLVMInt64TypeInContext(context), e.method.index, false);
+		
+		auto vtblPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), "vtbl");
+		auto funPtr = LLVMBuildLoad(builder, LLVMBuildInBoundsGEP(builder, vtblPtr, &funPtrIndex, 1, ""), "");
+		
+		auto dg = LLVMGetUndef(pass.visit(e.type));
+		
+		// Cast funPtr to expected type.
+		auto funType = LLVMTypeOf(LLVMBuildExtractValue(builder, dg, 0, ""));
+		funPtr = LLVMBuildPointerCast(builder, funPtr, funType, "method");
+		
+		dg = LLVMBuildInsertValue(builder, dg, funPtr, 0, "");
+		dg = LLVMBuildInsertValue(builder, dg, thisPtr, 1, "");
+		
+		return dg;
+	}
+	
 	LLVMValueRef visit(DelegateExpression e) {
 		auto type = cast(DelegateType) e.type;
 		assert(type);
@@ -301,16 +324,26 @@ final class ExpressionGen {
 		assert(e.arguments.length == 0);
 		
 		auto type = pass.visit(e.type);
+		LLVMValueRef vtblValue;
 		if(auto s = cast(SymbolType) e.type) {
-			if(cast(ClassDefinition) s.symbol) {
+			if(auto cd = cast(ClassDefinition) s.symbol) {
 				type = LLVMGetElementType(type);
+				
+				vtblValue = getVtbl(cd);
 			}
 		}
 		
 		LLVMValueRef size = LLVMSizeOf(type);
 		
 		auto alloc = LLVMBuildCall(builder, druntimeGen.getAllocMemory(), &size, 1, "");
-		return LLVMBuildPointerCast(builder, alloc, LLVMPointerType(type, 0), "");
+		auto ptr = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(type, 0), "");
+		
+		if(vtblValue) {
+			auto vtblPtr = LLVMBuildStructGEP(builder, ptr, 0, "");
+			LLVMBuildStore(builder, vtblValue, vtblPtr);
+		}
+		
+		return ptr;
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {

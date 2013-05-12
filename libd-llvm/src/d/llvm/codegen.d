@@ -1,5 +1,6 @@
 module d.llvm.codegen;
 
+import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.statement;
@@ -103,6 +104,10 @@ final class CodeGenPass {
 	
 	auto visit(TypeSymbol s) {
 		return declarationGen.visit(s);
+	}
+	
+	auto getVtbl(ClassDefinition c) {
+		return declarationGen.getVtbl(c);
 	}
 	
 	auto visit(Statement stmt) {
