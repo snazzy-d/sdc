@@ -11,12 +11,12 @@ import d.ast.type;
  * Class Definition
  */
 class ClassDefinition : TypeSymbol {
-	Identifier[] bases;
+	Type[] bases;
 	Declaration[] members;
 	
 	SymbolScope dscope;
 	
-	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+	this(Location location, string name, Type[] bases, Declaration[] members) {
 		super(location, name);
 		
 		this.name = name;
@@ -29,12 +29,12 @@ class ClassDefinition : TypeSymbol {
  * Interface Definition
  */
 class InterfaceDefinition : TypeSymbol {
-	Identifier[] bases;
+	Type[] bases;
 	Declaration[] members;
 	
 	SymbolScope dscope;
 	
-	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+	this(Location location, string name, Type[] bases, Declaration[] members) {
 		super(location, name);
 		
 		this.bases = bases;

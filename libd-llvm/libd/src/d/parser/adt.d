@@ -4,7 +4,6 @@ import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dtemplate;
 import d.ast.expression;
-import d.ast.identifier;
 import d.ast.type;
 
 import d.parser.base;
@@ -47,11 +46,11 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	string name = trange.front.value;
 	trange.match(TokenType.Identifier);
 	
-	Identifier[] bases;
+	Type[] bases;
 	if(trange.front.type == TokenType.Colon) {
 		do {
 			trange.popFront();
-			bases ~= trange.parseIdentifier();
+			bases ~= new IdentifierType(trange.parseIdentifier());
 		} while(trange.front.type == TokenType.Comma);
 	}
 	

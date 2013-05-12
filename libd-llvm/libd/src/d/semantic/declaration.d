@@ -243,6 +243,10 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(FunctionDeclaration d) {
+		if(buildMethods && !isStatic) {
+			d = new MethodDeclaration(d, methodIndex++);
+		}
+		
 		d.linkage = linkage;
 		d.isStatic = isStatic;
 		d.isEnum = true;

@@ -428,6 +428,28 @@ final class ExpressionVisitor {
 		return compilationCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
+	Expression visit(VirtualDispatchExpression e) {
+		e.method = cast(MethodDeclaration) scheduler.require(e.method);
+		
+		if(auto funType = cast(FunctionType) e.method.type) {
+			if(funType.isVariadic || funType.parameters.length > 0) {
+				auto thisParam = funType.parameters[0];
+				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
+				
+				e.expression = visit(e.expression);
+				if(thisParam.isReference && !canConvert(e.expression.type.qualifier, thisParam.type.qualifier)) {
+					return compilationCondition!Expression(e.expression.location, "Can't pass by ref.");
+				}
+				
+				e.expression = pass.implicitCast(e.expression.location, thisParam.type, e.expression);
+				
+				return e;
+			}
+		}
+		
+		return compilationCondition!Expression(e.location, "Can't create delegate.");
+	}
+	
 	Expression visit(NewExpression e) {
 		assert(e.arguments.length == 0, "constructor not supported");
 		

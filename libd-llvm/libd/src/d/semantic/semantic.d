@@ -80,14 +80,16 @@ final class SemanticPass {
 		
 		mixin(bitfields!(
 			bool, "buildFields", 1,
+			bool, "buildMethods", 1,
 			bool, "isStatic", 1,
 			bool, "isThisRef", 1,
-			uint, "", 5
+			uint, "", 4
 		));
 		
 		Statement[] flattenedStmts;
 		
 		uint fieldIndex;
+		uint methodIndex;
 		
 		TypeQualifier qualifier;
 	}

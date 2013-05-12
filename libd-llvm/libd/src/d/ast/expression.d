@@ -361,6 +361,21 @@ class DelegateExpression : Expression {
 }
 
 /**
+ * Virtual dispatch.
+ */
+class VirtualDispatchExpression : Expression {
+	Expression expression;
+	MethodDeclaration method;
+	
+	this(Location location, Expression expression, MethodDeclaration method) {
+		super(location);
+		
+		this.expression = expression;
+		this.method = method;
+	}
+}
+
+/**
  * new
  */
 class NewExpression : Expression {

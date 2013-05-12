@@ -7,39 +7,7 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
-/**
- * Function Declaration
- */
-class FunctionDeclaration : ExpressionSymbol {
-	Type returnType;		// TODO: remove this, redundant information.
-	Parameter[] parameters;
-	bool isVariadic;
-	BlockStatement fbody;
-	
-	NestedScope dscope;
-	
-	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		this(location, name, "D", returnType, parameters, isVariadic, fbody);
-	}
-	
-	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
-		
-		this.name = name;
-		this.linkage = linkage;
-		this.returnType = returnType;
-		this.parameters = parameters;
-		this.isVariadic = isVariadic;
-		this.fbody = fbody;
-	}
-	/*
-	invariant() {
-		auto funType = cast(FunctionType) type;
-		
-		assert(funType && funType.linkage == linkage);
-	}
-	*/
-}
+// TODO: remove everything from this file and put it where it belongs.
 
 /**
  * Constructor Declaration

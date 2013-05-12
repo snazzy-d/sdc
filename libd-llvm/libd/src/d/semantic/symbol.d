@@ -1,6 +1,7 @@
 module d.semantic.symbol;
 
 import d.semantic.base;
+import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.adt;
@@ -9,6 +10,7 @@ import d.ast.declaration;
 import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
+import d.ast.identifier;
 import d.ast.type;
 
 import std.algorithm;
@@ -127,6 +129,10 @@ final class SymbolVisitor {
 		return d;
 	}
 	
+	Symbol visit(MethodDeclaration d) {
+		return visit(cast(FunctionDeclaration) d);
+	}
+	
 	Parameter visit(Parameter d) {
 		d.type = pass.visit(d.type);
 		
@@ -160,7 +166,7 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(FieldDeclaration d) {
-		// XXX: hacky !
+		// XXX: hacky ! We force CTFE that way.
 		auto oldIsEnum = d.isEnum;
 		scope(exit) d.isEnum = oldIsEnum;
 		
@@ -171,44 +177,40 @@ final class SymbolVisitor {
 	
 	Symbol visit(StructDefinition d) {
 		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldThisType = thisType;
+		auto oldIsThisRef = isThisRef;
+		auto oldBuildFields = buildFields;
+		auto oldBuildMethods = buildMethods;
+		auto oldFieldIndex = fieldIndex;
+		
+		scope(exit) {
+			isStatic = oldIsStatic;
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			thisType = oldThisType;
+			isThisRef = oldIsThisRef;
+			buildFields = oldBuildFields;
+			buildMethods = oldBuildMethods;
+			fieldIndex = oldFieldIndex;
+		}
 		
 		isStatic = false;
+		isThisRef = true;
+		buildFields = true;
+		buildMethods = false;
+		
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
+		thisType = new SymbolType(d.location, d);
 		
 		// Update mangle prefix.
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
-		
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		assert(d.linkage == "D");
 		d.mangle = "S" ~ manglePrefix;
 		
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		
-		auto oldThisType = thisType;
-		scope(exit) thisType = oldThisType;
-		
-		thisType = new SymbolType(d.location, d);
-		
-		auto oldIsThisRef = isThisRef;
-		scope(exit) isThisRef = oldIsThisRef;
-		
-		isThisRef = true;
-		
-		auto oldFieldIndex = fieldIndex;
-		scope(exit) fieldIndex = oldFieldIndex;
-		
 		fieldIndex = 0;
-		
-		auto oldBuildFields = buildFields;
-		scope(exit) buildFields = oldBuildFields;
-		
-		buildFields = true;
 		
 		auto members = pass.flatten(d.members, d);
 		
@@ -237,57 +239,106 @@ final class SymbolVisitor {
 		// XXX: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) fields ~ cast(Declaration[]) scheduler.require(otherSymbols) ~ init;
+		d.members = [init];
+		d.members ~= cast(Declaration[]) fields;
+		d.members ~= cast(Declaration[]) scheduler.require(otherSymbols);
 		
 		return d;
 	}
 	
 	Symbol visit(ClassDefinition d) {
 		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldThisType = thisType;
+		auto oldIsThisRef = isThisRef;
+		auto oldBuildFields = buildFields;
+		auto oldBuildMethods = buildMethods;
+		auto oldFieldIndex = fieldIndex;
+		auto oldMethodIndex = methodIndex;
+		
+		scope(exit) {
+			isStatic = oldIsStatic;
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			thisType = oldThisType;
+			isThisRef = oldIsThisRef;
+			buildFields = oldBuildFields;
+			buildMethods = oldBuildMethods;
+			fieldIndex = oldFieldIndex;
+			methodIndex = oldMethodIndex;
+		}
 		
 		isStatic = false;
+		isThisRef = false;
+		buildFields = true;
+		buildMethods = true;
+		
+		currentScope = d.dscope = new SymbolScope(d, oldScope);
+		thisType = new SymbolType(d.location, d);
 		
 		// Update mangle prefix.
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
-		
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		assert(d.linkage == "D");
 		d.mangle = "C" ~ manglePrefix;
 		
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		FieldDeclaration[] baseFields;
+		MethodDeclaration[] baseMethods;
 		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		
-		auto oldThisType = thisType;
-		scope(exit) thisType = oldThisType;
-		
-		thisType = new SymbolType(d.location, d);
-		
-		auto oldIsThisRef = isThisRef;
-		scope(exit) isThisRef = oldIsThisRef;
-		
-		isThisRef = false;
-		
-		auto oldFieldIndex = fieldIndex;
-		scope(exit) fieldIndex = oldFieldIndex;
-		
-		fieldIndex = 0;
-		
-		auto oldBuildFields = buildFields;
-		scope(exit) buildFields = oldBuildFields;
-		
-		buildFields = true;
+		methodIndex = 0;
+		if(d.mangle == "C6object6Object") {
+			auto vtblType = new PointerType(d.location, new PointerType(d.location, new VoidType(d.location)));
+			vtblType.qualifier = TypeQualifier.Immutable;
+			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
+			
+			fieldIndex = 1;
+		} else {
+			ClassDefinition baseClass;
+			foreach(base; d.bases) {
+				base = pass.visit(base);
+				auto type = cast(SymbolType) base;
+				
+				assert(type, "Base  must be a symbol.");
+				
+				baseClass = cast(ClassDefinition) type.symbol;
+				assert(baseClass, "Only classes are supported as base for now.");
+				
+				break;
+			}
+			
+			if(!baseClass) {
+				// TODO: Ensure we hook the good Object.
+				auto obj = cast(SymbolType) pass.visit(new BasicIdentifier(d.location, "Object"));
+				baseClass = cast(ClassDefinition) obj.symbol;
+			}
+			
+			foreach(m; baseClass.members) {
+				if(auto field = cast(FieldDeclaration) m) {
+					baseFields ~= field;
+					d.dscope.addSymbol(field);
+				} else if(auto method = cast(MethodDeclaration) m) {
+					baseMethods ~= method;
+					d.dscope.addOverloadableSymbol(method);
+				}
+			}
+			
+			baseFields.sort!((f1, f2) => f1.index < f2.index)();
+			fieldIndex = baseFields[$ - 1].index + 1;
+			
+			if(baseMethods.length) {
+				baseMethods.sort!((m1, m2) => m1.index < m2.index)();
+				methodIndex = baseMethods[$ - 1].index + 1;
+			}
+		}
 		
 		auto members = pass.flatten(d.members, d);
 		
-		// XXX: Not quite right !
 		scheduler.register(d, d, Step.Processed);
 		
-		d.members = cast(Declaration[]) scheduler.require(members);
+		d.members = cast(Declaration[]) baseFields;
+		d.members ~= cast(Declaration[]) baseMethods;
+		d.members ~= cast(Declaration[]) scheduler.require(members);
 		
 		return d;
 	}

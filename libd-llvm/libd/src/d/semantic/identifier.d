@@ -148,15 +148,15 @@ final class IdentifierVisitor {
 		return Identifiable(new SymbolExpression(location, cast(ExpressionSymbol) scheduler.require(s)));
 	}
 	
-	Identifiable visit(Location location, VariableDeclaration d) {
-		return getSymbolExpression(location, d);
-	}
-	
 	Identifiable visit(Location location, FunctionDeclaration d) {
 		return getSymbolExpression(location, d);
 	}
 	
 	Identifiable visit(Location location, Parameter d) {
+		return getSymbolExpression(location, d);
+	}
+	
+	Identifiable visit(Location location, VariableDeclaration d) {
 		return getSymbolExpression(location, d);
 	}
 	
@@ -323,6 +323,10 @@ final class ExpressionDotIdentifierVisitor {
 	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
 		return Identifiable(new DelegateExpression(location, e, new SymbolExpression(location, d)));
 	}
+	
+	Identifiable visit(Location location, Expression e, MethodDeclaration d) {
+		return Identifiable(new VirtualDispatchExpression(location, e, d));
+	}
 }
 
 /**
@@ -413,12 +417,12 @@ final class SymbolInTypeResolver {
 		switch(name) {
 			case "length" :
 				auto lt = new IntegerType(t.location, Integer.Ulong);
-				auto s = new FieldDeclaration(new VariableDeclaration(t.location, lt, "length", new DefaultInitializer(lt)), 0);
+				auto s = new FieldDeclaration(t.location, 0, lt, "length", new DefaultInitializer(lt));
 				return pass.visit(s);
 			
 			case "ptr" :
 				auto pt = new PointerType(t.location, t.type);
-				auto s = new FieldDeclaration(new VariableDeclaration(t.location, pt, "ptr", new DefaultInitializer(pt)), 1);
+				auto s = new FieldDeclaration(t.location, 1, pt, "ptr", new DefaultInitializer(pt));
 				return pass.visit(s);
 			
 			default :

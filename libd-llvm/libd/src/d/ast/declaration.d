@@ -1,8 +1,10 @@
 module d.ast.declaration;
 
 import d.ast.base;
+import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.identifier;
+import d.ast.statement;
 import d.ast.type;
 
 /**
@@ -116,8 +118,61 @@ class VariableDeclaration : ExpressionSymbol {
 class FieldDeclaration : VariableDeclaration {
 	uint index;
 	
+	this(Location location, uint index, Type type, string name, Expression value) {
+		super(location, type, name, value);
+		
+		this.index = index;
+	}
+	
 	this(VariableDeclaration var, uint index) {
-		super(var.location, var.type, var.name, var.value);
+		this(var.location, index, var.type, var.name, var.value);
+	}
+}
+
+/**
+ * Function Declaration
+ */
+class FunctionDeclaration : ExpressionSymbol {
+	Type returnType;		// TODO: remove this, redundant information.
+	Parameter[] parameters;
+	bool isVariadic;
+	BlockStatement fbody;
+	
+	import d.ast.dscope;
+	NestedScope dscope;
+	
+	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
+		this(location, name, "D", returnType, parameters, isVariadic, fbody);
+	}
+	
+	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
+		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
+		
+		this.name = name;
+		this.linkage = linkage;
+		this.returnType = returnType;
+		this.parameters = parameters;
+		this.isVariadic = isVariadic;
+		this.fbody = fbody;
+	}
+	/*
+	invariant() {
+		auto funType = cast(FunctionType) type;
+		
+		assert(funType && funType.linkage == linkage);
+	}
+	*/
+}
+
+/**
+ * Virtual method declaration.
+ * Simply a function declaration with its index in the vtable.
+ */
+class MethodDeclaration : FunctionDeclaration {
+	uint index;
+	
+	this(FunctionDeclaration fun, uint index) {
+		super(fun.location, fun.name, fun.linkage, fun.returnType, fun.parameters, fun.isVariadic, fun.fbody);
 		
 		this.index = index;
 	}
