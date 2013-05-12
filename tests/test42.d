@@ -7,7 +7,8 @@ import test42_import;
 
 int main() {
 	auto foo = new Foo();
-	foo.bar();
-	return 8;
+	foo.dummy = 8;
+	
+	return foo.bar();
 }
 

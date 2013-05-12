@@ -1,4 +1,8 @@
 class Foo {
-	void bar() {}
+	int dummy;
+	
+	int bar() {
+		return dummy;
+	}
 }
 
