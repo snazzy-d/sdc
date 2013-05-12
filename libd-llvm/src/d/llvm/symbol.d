@@ -11,6 +11,8 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 
+import std.algorithm;
+import std.array;
 import std.string;
 
 final class DeclarationGen {
@@ -193,11 +195,13 @@ final class DeclarationGen {
 			}
 		}
 		
-		auto vtblData = LLVMConstStructInContext(context, vtbl.ptr, cast(uint) vtbl.length, false);
-		auto vtblPtr = LLVMAddGlobal(dmodule, LLVMTypeOf(vtblData), ("__vtbl_" ~ d.mangle).toStringz());
-		LLVMSetGlobalConstant(vtblPtr, true);
+		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+		auto vtblStruct = LLVMStructCreateNamed(context, cast(char*) (d.mangle ~ "__vtbl").toStringz());
+		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
 		
-		LLVMSetInitializer(vtblPtr, vtblData);
+		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (d.mangle ~ "__vtblZ").toStringz());
+		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
+		LLVMSetGlobalConstant(vtblPtr, true);
 		
 		vtbls[d] = vtblPtr;
 		
