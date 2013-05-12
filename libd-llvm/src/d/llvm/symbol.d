@@ -199,7 +199,7 @@ final class DeclarationGen {
 		
 		LLVMSetInitializer(vtblPtr, vtblData);
 		
-		vtbls[d] = LLVMBuildPointerCast(builder, vtblPtr, members[0], "");
+		vtbls[d] = vtblPtr;
 		
 		return structPtr;
 	}
