@@ -288,7 +288,7 @@ final class SymbolVisitor {
 		
 		methodIndex = 0;
 		if(d.mangle == "C6object6Object") {
-			auto vtblType = new PointerType(d.location, new PointerType(d.location, new VoidType(d.location)));
+			auto vtblType = new PointerType(d.location, new VoidType(d.location));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
 			
