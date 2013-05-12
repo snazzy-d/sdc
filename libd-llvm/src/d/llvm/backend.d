@@ -78,8 +78,8 @@ final class LLVMBackend : Backend {
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(executionEngine), pm);
+		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		
 		LLVMRunPassManager(pm, dmodule);
 		
