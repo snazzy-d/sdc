@@ -64,7 +64,10 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	CompileTimeExpression visit(TupleExpression e) {
-		return new CompileTimeTupleExpression(e.location, e.values.map!(e => evaluate(e)).array());
+		auto ret = new CompileTimeTupleExpression(e.location, e.values.map!(e => evaluate(e)).array());
+		ret.type = e.type;
+		
+		return ret;
 	}
 	
 	CompileTimeExpression visit(BitCastExpression e) {

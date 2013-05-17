@@ -61,6 +61,10 @@ final class LLVMBackend : Backend {
 	
 	void emitObject(string objFile) {
 		auto dmodule = pass.dmodule;
+		
+		// Delete the garbage function.
+		LLVMDeleteFunction(LLVMGetNamedFunction(dmodule, ".garbage"));
+		
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
@@ -78,8 +82,8 @@ final class LLVMBackend : Backend {
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(executionEngine), pm);
+		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		
 		LLVMRunPassManager(pm, dmodule);
 		
