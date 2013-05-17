@@ -480,12 +480,8 @@ final class ExpressionGen {
 		auto fields = e.values.map!(v => visit(v)).array();
 		
 		// Hack around the difference between struct and named struct in LLVM.
-		if(e.type) {
-			auto type = pass.visit(e.type);
-			return LLVMConstNamedStruct(type, fields.ptr, cast(uint) fields.length);
-		}
-		
-		return LLVMConstStructInContext(context, fields.ptr, cast(uint) fields.length, false);
+		auto type = pass.visit(e.type);
+		return LLVMConstNamedStruct(type, fields.ptr, cast(uint) fields.length);
 	}
 	
 	LLVMValueRef visit(TupleExpression e) {
