@@ -68,6 +68,13 @@ final class CodeGenPass {
 		builder = LLVMCreateBuilderInContext(context);
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
 		
+		// Create a grabage function, as LLVM expect to have something.
+		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
+		auto fun = LLVMAddFunction(dmodule, ".garbage", funType);
+		auto basicBlock = LLVMAppendBasicBlock(fun, "");
+		LLVMPositionBuilderAtEnd(builder, basicBlock);
+		LLVMBuildRetVoid(builder);
+		
 		LLVMValueRef[3] branch_metadata;
 		
 		auto id = "branch_weights";
