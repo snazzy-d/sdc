@@ -17,3 +17,6 @@ all: $(ALL_TARGET)
 $(LIBD): $(LIBD_SRC)
 	@mkdir -p lib
 	$(DMD) -lib -of$(LIBD) $(LIBD_SRC) $(DFLAGS)
+	# gdc -c -o $(LIBD).o $(LIBD_SRC) -m64
+	# ar rcs $(LIBD) $(LIBD).o
+
