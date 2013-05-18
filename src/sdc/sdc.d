@@ -3,10 +3,6 @@
  */
 module sdc.sdc;
 
-// TODO: move that into druntime.
-// Ensure that null pointers are detected.
-import etc.linux.memoryerror;
-
 import d.ast.dmodule;
 
 import d.llvm.backend;

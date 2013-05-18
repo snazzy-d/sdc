@@ -4,9 +4,12 @@ DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = -L-L`$(LLVM_CONFIG) --libdir` `$(LLVM_CONFIG) --libs | sed 's/-l/-L-l/g'`
+# LLVM_LIB = `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --ldflags`
 LIBD_LIB = -L-Llib -L-ld-llvm
+# LIBD_LIB = -Llib -ld-llvm
 
 LDFLAGS = $(LIBD_LIB) $(LLVM_LIB) -L-lstdc++
+# LDFLAGS = $(LIBD_LIB) $(LLVM_LIB) -lstdc++
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
@@ -27,6 +30,7 @@ include libd-llvm/makefile.common
 $(SDC): $(SOURCE) $(LIBD_LLVM) $(LIBD_SRC)
 	@mkdir -p bin
 	$(DMD) -of$(SDC) $(SOURCE) $(LIBD_SRC) $(DFLAGS) $(LDFLAGS) $(IMPORTS) $(LIBD_LLVM_IMPORTS)
+	# gdc -o $(SDC) $(SOURCE) $(LIBD_SRC) -m64 $(LDFLAGS) $(IMPORTS) $(LIBD_LLVM_IMPORTS)
 
 clean:
 	rm -rf $(SDC) lib/*.a
