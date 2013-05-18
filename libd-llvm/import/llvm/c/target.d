@@ -42,6 +42,7 @@ extern(D) string LLVM_TARGET(string delegate(string) nothrow fun)
 {
   string ret;
   foreach (str; [
+  /*
                   "ARM",
                   "CellSPU",
                   "CppBackend",
@@ -52,8 +53,11 @@ extern(D) string LLVM_TARGET(string delegate(string) nothrow fun)
                   "PowerPC",
                   "PTX",
                   "Sparc",
+  */
                   "X86",
+  /*
                   "XCore",
+  */
                 ])
   {
     ret ~= fun(str) ~ "\n";
@@ -79,6 +83,7 @@ extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun)
 {
   string ret;
   foreach (str; [
+  /*
                   "ARM",
                   "CellSPU",
                   "Hexagon",
@@ -88,8 +93,11 @@ extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun)
                   "PowerPC",
                   "PTX",
                   "Sparc",
+  */
                   "X86",
+  /*
                   "XCore",
+  */
                 ])
   {
     ret ~= fun(str) ~ "\n";
@@ -106,9 +114,11 @@ extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun)
 {
   string ret;
   foreach (str; [
+  /*
                   "ARM",
                   "Mips",
                   "MBlaze",
+  */
                   "X86",
                 ])
   {
@@ -126,9 +136,11 @@ extern(D) string LLVM_ASM_DISASSEMBLER(string delegate(string) nothrow fun)
 {
   string ret;
   foreach (str; [
+  /*
                   "ARM",
                   "Mips",
                   "MBlaze",
+  */
                   "X86",
                 ])
   {
