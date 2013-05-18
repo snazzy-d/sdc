@@ -10,14 +10,15 @@ import d.exception;
 import sdc.sdc;
 import sdc.terminal;
 
-import etc.linux.memoryerror;
-
 import std.array;
 import std.getopt;
 
 int main(string[] args) {
-	version(linux) {
-		registerMemoryErrorHandler();
+	version(DigitalMars) {
+		version(linux) {
+			import etc.linux.memoryerror;
+			registerMemoryErrorHandler();
+		}
 	}
 	
 	string[] includePath;

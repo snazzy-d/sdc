@@ -15,3 +15,6 @@ include $(LIBD_LLVM_ROOT)/libd/makefile.common
 $(LIBD_LLVM): $(LIBD_LLVM_SRC)
 	@mkdir -p lib
 	$(DMD) -lib -of$(LIBD_LLVM) $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
+	# gdc -c -o $(LIBD_LLVM).o $(LIBD_LLVM_SRC) -m64 $(LIBD_LLVM_IMPORTS)
+	# ar rcs $(LIBD_LLVM) $(LIBD_LLVM).o
+
