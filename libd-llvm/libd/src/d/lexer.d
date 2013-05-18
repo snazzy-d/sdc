@@ -164,14 +164,16 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 		@property
 		auto save() inout {
 			// XXX: dmd bug, context pointer isn't copied properly
-			// return inout(Lexer)(t, r.save, line, index);
-			
-			// XXX: doing it manualy using black magic.
-			// Context pointer is the last element of the struct. Here in position 9.
-			auto ret = inout(Lexer)(t, r.save, line, index);
-			(cast(void**) &ret)[9] = (cast(void**) &this)[9];
-			
-			return ret;
+			version(DigitalMars) {
+				// XXX: doing it manualy using black magic.
+				// Context pointer is the last element of the struct. Here in position 9.
+				auto ret = inout(Lexer)(t, r.save, line, index);
+				(cast(void**) &ret)[9] = (cast(void**) &this)[9];
+				
+				return ret;
+			} else {
+				return inout(Lexer)(t, r.save, line, index);
+			}
 		}
 		
 		@property
