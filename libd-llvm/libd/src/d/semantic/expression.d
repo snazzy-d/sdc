@@ -398,7 +398,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(FieldExpression e) {
 		e.expression = visit(e.expression);
-		e.field = cast(FieldDeclaration) scheduler.require(e.field);
+		e.field = cast(FieldDeclaration) scheduler.require(e.field, Step.Signed);
 		
 		e.type = e.field.type;
 		
@@ -429,7 +429,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(VirtualDispatchExpression e) {
-		e.method = cast(MethodDeclaration) scheduler.require(e.method);
+		e.method = cast(MethodDeclaration) scheduler.require(e.method, Step.Signed);
 		
 		if(auto funType = cast(FunctionType) e.method.type) {
 			if(funType.isVariadic || funType.parameters.length > 0) {
@@ -533,7 +533,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(SymbolExpression e) {
-		auto s = cast(ExpressionSymbol) scheduler.require(e.symbol);
+		auto s = cast(ExpressionSymbol) scheduler.require(e.symbol, Step.Signed);
 		
 		e.symbol = s;
 		e.type = s.type;

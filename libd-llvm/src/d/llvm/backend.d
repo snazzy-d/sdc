@@ -59,7 +59,11 @@ final class LLVMBackend : Backend {
 		pass.visit(mod);
 	}
 	
-	void emitObject(string objFile) {
+	void emitObject(Module[] modules, string objFile) {
+		foreach(m; modules) {
+			visit(m);
+		}
+		
 		auto dmodule = pass.dmodule;
 		
 		// Delete the garbage function.
