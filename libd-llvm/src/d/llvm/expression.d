@@ -212,12 +212,12 @@ final class ExpressionGen {
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
 		
 		static if(operation == "&&") {
-			auto rhsBB = LLVMAppendBasicBlock(fun, "and_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlock(fun, "and_merge");
+			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "and_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "and_merge");
 			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
 		} else {
-			auto rhsBB = LLVMAppendBasicBlock(fun, "or_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlock(fun, "or_merge");
+			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "or_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
 		}
 		
@@ -502,8 +502,8 @@ final class ExpressionGen {
 		auto testBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(testBB);
 		
-		auto failBB = LLVMAppendBasicBlock(fun, "assert_fail");
-		auto successBB = LLVMAppendBasicBlock(fun, "assert_success");
+		auto failBB = LLVMAppendBasicBlockInContext(context, fun, "assert_fail");
+		auto successBB = LLVMAppendBasicBlockInContext(context, fun, "assert_success");
 		
 		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
 		
@@ -591,8 +591,8 @@ final class AddressOfGen {
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64TypeInContext(context), ""), length, ".boundCheck");
 			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 			
-			auto failBB = LLVMAppendBasicBlock(fun, "arrayBoundFail");
-			auto okBB = LLVMAppendBasicBlock(fun, "arrayBoundOK");
+			auto failBB = LLVMAppendBasicBlockInContext(context, fun, "arrayBoundFail");
+			auto okBB = LLVMAppendBasicBlockInContext(context, fun, "arrayBoundOK");
 			
 			auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
 			

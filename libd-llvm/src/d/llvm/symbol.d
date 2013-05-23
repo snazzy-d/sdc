@@ -63,8 +63,8 @@ final class DeclarationGen {
 			labels = typeof(labels).init;
 			
 			// Alloca and instruction block.
-			auto allocaBB = LLVMAppendBasicBlock(fun, "");
-			auto bodyBB = LLVMAppendBasicBlock(fun, "body");
+			auto allocaBB = LLVMAppendBasicBlockInContext(context, fun, "");
+			auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "body");
 			
 			// Handle parameters in the alloca block.
 			LLVMPositionBuilderAtEnd(builder, allocaBB);

@@ -71,7 +71,7 @@ final class CodeGenPass {
 		// Create a grabage function, as LLVM expect to have something.
 		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, ".garbage", funType);
-		auto basicBlock = LLVMAppendBasicBlock(fun, "");
+		auto basicBlock = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		LLVMBuildRetVoid(builder);
 		
@@ -149,7 +149,7 @@ final class CodeGenPass {
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
-		auto bodyBB = LLVMAppendBasicBlock(fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
@@ -174,7 +174,7 @@ final class CodeGenPass {
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
-		auto bodyBB = LLVMAppendBasicBlock(fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
