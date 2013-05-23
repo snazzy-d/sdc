@@ -144,13 +144,7 @@ final class SemanticPass {
 		auto mod = parse(source, packages);
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), (d) {
-			auto m = moduleVisitor.visit(cast(Module) d);
-			
-			backend.visit(m);
-			
-			return m;
-		});
+		scheduler.schedule(only(mod), d => moduleVisitor.visit(cast(Module) d));
 		
 		return mod;
 	}
