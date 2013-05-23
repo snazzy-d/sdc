@@ -102,6 +102,7 @@ final class SemanticPass {
 	enum Step {
 		Parsed,
 		Populated,
+		Signed,
 		Processed,
 	}
 	

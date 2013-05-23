@@ -43,23 +43,6 @@ final class SymbolVisitor {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
-		// Update mangle prefix.
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
-		
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
-		
-		// Compute return type.
-		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
-			d.returnType = pass.visit(d.returnType);
-		}
-		
-		// Prepare statement visitor for return type.
-		auto oldReturnType = returnType;
-		scope(exit) returnType = oldReturnType;
-		
-		returnType = d.returnType;
-		
 		// If it isn't a static method, add this.
 		// checking resolvedTypes Ensure that it isn't ran twice.
 		if(!d.isStatic) {
@@ -72,26 +55,44 @@ final class SymbolVisitor {
 			d.parameters = thisParameter ~ d.parameters;
 		}
 		
+		// Compute return type.
+		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
+			d.returnType = pass.visit(d.returnType);
+			
+			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
+			
+			scheduler.register(d, d, Step.Signed);
+		}
+		
+		// Prepare statement visitor for return type.
+		auto oldReturnType = returnType;
+		auto oldManglePrefix = manglePrefix;
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			returnType = oldReturnType;
+		}
+		
+		returnType = d.returnType;
+		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		
 		if(d.fbody) {
 			auto oldLinkage = linkage;
-			scope(exit) linkage = oldLinkage;
+			auto oldIsStatic = isStatic;
+			auto oldBuildFields = buildFields;
+			auto oldScope = currentScope;
+			scope(exit) {
+				linkage = oldLinkage;
+				isStatic = oldIsStatic;
+				buildFields = oldBuildFields;
+				currentScope = oldScope;
+			}
 			
 			linkage = "D";
 			
-			auto oldIsStatic = isStatic;
-			scope(exit) isStatic = oldIsStatic;
-			
 			isStatic = false;
-			
-			auto oldBuildFields = buildFields;
-			scope(exit) buildFields = oldBuildFields;
-			
 			buildFields = false;
 			
 			// Update scope.
-			auto oldScope = currentScope;
-			scope(exit) currentScope = oldScope;
-			
 			currentScope = d.dscope;
 			
 			// And visit.
@@ -106,9 +107,9 @@ final class SymbolVisitor {
 			}
 			
 			d.returnType = returnType;
+			
+			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
 		}
-		
-		d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
 		switch(d.linkage) {
