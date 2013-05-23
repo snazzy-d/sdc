@@ -51,13 +51,12 @@ int main(string[] args) {
 	
 	auto sdc = new SDC(files[0], includePath, optLevel);
 	try {
-		Module[] mods;
 		foreach(file; files) {
-			mods ~= sdc.compile(file);
+			sdc.compile(file);
 		}
-	
-		sdc.buildMain(mods);
-	
+		
+		sdc.buildMain();
+		
 		if(dontLink) {
 			sdc.codeGen(objFile);
 		} else {

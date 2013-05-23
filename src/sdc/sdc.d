@@ -20,6 +20,8 @@ final class SDC {
 	
 	string[] includePath;
 	
+	Module[] modules;
+	
 	this(string name, string[] includePath, uint optLevel) {
 		this.includePath = ["../libs", "."] ~ includePath;
 		
@@ -27,25 +29,25 @@ final class SDC {
 		semantic = new SemanticPass(backend, backend.evaluator, &getFileSource);
 	}
 	
-	Module compile(string filename) {
+	void compile(string filename) {
 		auto packages = filename[0 .. $ - 2].split("/").array();
-		return semantic.add(new FileSource(filename), packages);
+		modules ~= semantic.add(new FileSource(filename), packages);
 	}
 	
-	Module compile(string[] packages) {
-		return semantic.add(getFileSource(packages), packages);
+	void compile(string[] packages) {
+		modules ~= semantic.add(getFileSource(packages), packages);
 	}
 	
-	void buildMain(Module[] mods) {
+	void buildMain() {
 		semantic.terminate();
 		
-		semantic.buildMain(mods);
+		semantic.buildMain(modules);
 	}
 	
 	void codeGen(string objFile) {
 		semantic.terminate();
 		
-		backend.emitObject(objFile);
+		backend.emitObject(modules, objFile);
 	}
 	
 	void codeGen(string objFile, string executable) {

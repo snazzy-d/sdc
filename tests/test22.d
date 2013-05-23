@@ -4,17 +4,15 @@
 
 import test22_import;
 
-int begin()
-{
-    return 1 + tenptr()() + addOne(&twelve) + 8;
+int begin() {
+	return 1 + tenptr()() + addOne(&twelve) + 8;
 }
 
-int twelve()
-{
-    return 12;
+int twelve() {
+	return 12;
 }
 
-int main()
-{
-    return start();
+int main() {
+	return start();
 }
+

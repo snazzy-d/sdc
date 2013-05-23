@@ -145,7 +145,7 @@ final class IdentifierVisitor {
 	}
 	
 	private auto getSymbolExpression(Location location, ExpressionSymbol s) {
-		return Identifiable(new SymbolExpression(location, cast(ExpressionSymbol) scheduler.require(s)));
+		return Identifiable(new SymbolExpression(location, s));
 	}
 	
 	Identifiable visit(Location location, FunctionDeclaration d) {
@@ -161,7 +161,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, FieldDeclaration d) {
-		return Identifiable(new FieldExpression(location, new ThisExpression(location), cast(FieldDeclaration) scheduler.require(d)));
+		return Identifiable(new FieldExpression(location, new ThisExpression(location), d));
 	}
 	
 	Identifiable visit(Location location, OverLoadSet s) {
@@ -189,7 +189,7 @@ final class IdentifierVisitor {
 	}
 	
 	private auto getSymbolType(Location location, TypeSymbol s) {
-		return Identifiable(new SymbolType(location, cast(TypeSymbol) scheduler.require(s)));
+		return Identifiable(new SymbolType(location, s));
 	}
 	
 	Identifiable visit(Location location, StructDefinition d) {
@@ -205,14 +205,10 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, AliasDeclaration d) {
-		d = cast(AliasDeclaration) scheduler.require(d);
-		
 		return Identifiable(d.type);
 	}
 	
 	Identifiable visit(Location location, Module m) {
-		m = cast(Module) scheduler.require(m, Step.Populated);
-		
 		return Identifiable(m);
 	}
 }
