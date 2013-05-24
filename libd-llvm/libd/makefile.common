@@ -1,0 +1,22 @@
+# Common definitions
+
+LIBD_SRC = \
+	$(LIBD_ROOT)/src/d/*.d \
+	$(LIBD_ROOT)/src/d/ast/*.d \
+	$(LIBD_ROOT)/src/d/parser/*.d \
+	$(LIBD_ROOT)/src/d/semantic/*.d \
+	$(LIBD_ROOT)/src/d/processor/*.d \
+	$(LIBD_ROOT)/src/util/*.d
+
+LIBD = lib/libd.a
+
+ALL_TARGET ?= $(LIBD)
+
+all: $(ALL_TARGET)
+
+$(LIBD): $(LIBD_SRC)
+	@mkdir -p lib
+	$(DMD) -lib -of$(LIBD) $(LIBD_SRC) $(DFLAGS)
+	# gdc -c -o $(LIBD).o $(LIBD_SRC) -m64
+	# ar rcs $(LIBD) $(LIBD).o
+
