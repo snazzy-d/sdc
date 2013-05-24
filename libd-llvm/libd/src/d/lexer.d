@@ -321,7 +321,8 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 					return lexIdentifier(s);
 				} else if(c & 0x80) {
 					size_t l;
-					auto u = r.save.decodeFront(l);
+					auto save = r.save;
+					auto u = save.decodeFront(l);
 					
 					if(isUniAlpha(u)) {
 						char[4] encoded;
@@ -676,7 +677,8 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 				return lexIdentifier!s();
 			} else if(c & 0x80) {
 				size_t l;
-				auto u = r.save.decodeFront(l);
+				auto save = r.save;
+				auto u = save.decodeFront(l);
 				
 				if(isUniAlpha(u)) {
 					// Double decoding here, but shouldn't be a problem as it should be rare enough.
@@ -780,7 +782,8 @@ mixin template CharPumper(bool decode = true) {
 					// Check if if have an unicode character.
 					if(c & 0x80) {
 						size_t l;
-						auto u = r.save.decodeFront(l);
+						auto save = r.save;
+						auto u = save.decodeFront(l);
 						
 						if(condition(u)) {
 							while(l--) {
@@ -812,7 +815,8 @@ mixin template CharPumper(bool decode = true) {
 				// Check if if have an unicode character.
 				if(c & 0x80) {
 					size_t l;
-					auto u = r.save.decodeFront(l);
+					auto save = r.save;
+					auto u = save.decodeFront(l);
 					
 					if(condition(u)) {
 						heapBuffer.reserve(l);
