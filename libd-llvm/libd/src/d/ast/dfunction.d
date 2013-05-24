@@ -96,23 +96,13 @@ class FunctionType : Type {
 /**
  * Delegate types
  */
-class DelegateType : Type {
-	Type returnType;
+class DelegateType : FunctionType {
 	Parameter context;
-	Parameter[] parameters;
-	bool isVariadic;
-	
-	string linkage;
 	
 	this(Location location, string linkage, Type returnType, Parameter context, Parameter[] parameters, bool isVariadic) {
-		super(location);
+		super(location, linkage, returnType, parameters, isVariadic);
 		
-		this.returnType = returnType;
 		this.context = context;
-		this.parameters = parameters;
-		this.isVariadic = isVariadic;
-		
-		this.linkage = linkage;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -124,20 +114,10 @@ class DelegateType : Type {
 	}
 	
 	bool opEquals(const DelegateType t) const {
-		if(isVariadic != t.isVariadic) return false;
-		if(linkage != t.linkage) return false;
-		
-		if(returnType != t.returnType) return false;
 		if(context != t.context) return false;
 		
-		if(parameters.length != t.parameters.length) return false;
-		
-		import std.range;
-		foreach(p1, p2; lockstep(parameters, t.parameters)) {
-			if(p1.type != p2.type) return false;
-		}
-		
-		return true;
+		alias ftOpEquals = FunctionType.opEquals;
+		return ftOpEquals(t);
 	}
 }
 

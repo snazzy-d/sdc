@@ -10,6 +10,8 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.exception;
+
 import std.algorithm;
 import std.array;
 import std.range;
@@ -345,9 +347,10 @@ final class ExpressionVisitor {
 	
 	Expression visit(CallExpression c) {
 		c.callee = visit(c.callee);
+		c.arguments = c.arguments.map!(a => visit(a)).array();
 		
 		if(auto asPolysemous = cast(PolysemousExpression) c.callee) {
-			auto candidates = asPolysemous.expressions.filter!(delegate bool(Expression e) {
+			auto candidates = asPolysemous.expressions.filter!((e) {
 				if(auto asFunType = cast(FunctionType) e.type) {
 					if(asFunType.isVariadic) {
 						return c.arguments.length >= asFunType.parameters.length;
@@ -357,32 +360,73 @@ final class ExpressionVisitor {
 				}
 				
 				assert(0, "type is not a function type");
-			}).array();
+			}).map!(c => visit(c));
 			
-			if(candidates.length == 1) {
-				c.callee = candidates[0];
-			} else if(candidates.length > 1) {
-				// Multiple candidates.
-				return compilationCondition!Expression(c.location, "ambigusous function call.");
-			} else {
-				// No candidate.
+			enum MatchLevel {
+				Not,
+				TypeConvert,
+				QualifierConvert,
+				Exact,
+			}
+			
+			auto level = MatchLevel.Not;
+			Expression match;
+			CandidateLoop: foreach(candidate; candidates) {
+				auto type = cast(FunctionType) candidate.type;
+				assert(type, "We should have filtered function at this point.");
+				
+				auto candidateLevel = MatchLevel.Exact;
+				foreach(arg, param; lockstep(c.arguments, type.parameters)) {
+					try {
+						auto candidateArg = pass.implicitCast(arg.location, param.type, arg);
+						
+						// test if we can pass by ref.
+						if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+							candidateLevel = MatchLevel.Not;
+						} else if(candidateArg !is arg) {
+							// Match isn't exact.
+							if(typeid(candidateArg) is typeid(BitCastExpression)) {
+								// We have a bitcast.
+								// FIXME: actually wrong :D
+								candidateLevel = min(candidateLevel, MatchLevel.QualifierConvert);
+							} else {
+								candidateLevel = min(candidateLevel, MatchLevel.TypeConvert);
+							}
+						}
+					} catch(CompileException e) {
+						candidateLevel = MatchLevel.Not;
+					}
+					
+					// If we don't match, let's go to next candidate directly.
+					if(candidateLevel == MatchLevel.Not) {
+						continue CandidateLoop;
+					}
+				}
+				
+				if(candidateLevel > level) {
+					level = candidateLevel;
+					match = candidate;
+				} else if(candidateLevel == level) {
+					// Multiple candidates.
+					return compilationCondition!Expression(c.location, "ambigusous function call.");
+				}
+			}
+			
+			if(!match) {
 				return compilationCondition!Expression(c.location, "No candidate for function call.");
 			}
+			
+			c.callee = match;
 		}
 		
 		Parameter[] params;
-		// XXX: is it the appropriate place to perform that ?
-		if(auto type = cast(DelegateType) c.callee.type) {
-			params = type.parameters;
-			c.type = type.returnType;
-		} else if(auto type = cast(FunctionType) c.callee.type) {
+		if(auto type = cast(FunctionType) c.callee.type) {
 			params = type.parameters;
 			c.type = type.returnType;
 		} else {
 			return compilationCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
 		}
 		
-		c.arguments = c.arguments.map!(a => pass.visit(a)).array();
 		assert(c.arguments.length >= params.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, params)) {
@@ -410,6 +454,10 @@ final class ExpressionVisitor {
 		e.funptr = visit(e.funptr);
 		
 		if(auto funType = cast(FunctionType) e.funptr.type) {
+			if(typeid(funType) !is typeid(FunctionType)) {
+				return compilationCondition!Expression(e.location, "Can't create delegate.");
+			}
+			
 			if(funType.isVariadic || funType.parameters.length > 0) {
 				auto contextParam = funType.parameters[0];
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
