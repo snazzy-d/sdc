@@ -43,9 +43,9 @@ final class StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto thenBB = LLVMAppendBasicBlock(fun, "then");
-		auto elseBB = LLVMAppendBasicBlock(fun, "else");
-		auto mergeBB = LLVMAppendBasicBlock(fun, "merge");
+		auto thenBB = LLVMAppendBasicBlockInContext(context, fun, "then");
+		auto elseBB = LLVMAppendBasicBlockInContext(context, fun, "else");
+		auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "merge");
 		
 		LLVMBuildCondBr(builder, condition, thenBB, elseBB);
 		
@@ -93,19 +93,19 @@ final class StatementGen {
 		scope(exit) continueBB = oldContinueBB;
 		
 		static if(isFor) {
-			auto testBB = LLVMAppendBasicBlock(fun, "for");
-			continueBB = LLVMAppendBasicBlock(fun, "increment");
+			auto testBB = LLVMAppendBasicBlockInContext(context, fun, "for");
+			continueBB = LLVMAppendBasicBlockInContext(context, fun, "increment");
 		} else {
-			continueBB = LLVMAppendBasicBlock(fun, "while");
+			continueBB = LLVMAppendBasicBlockInContext(context, fun, "while");
 			auto testBB = continueBB;
 		}
 		
-		auto doBB = LLVMAppendBasicBlock(fun, "do");
+		auto doBB = LLVMAppendBasicBlockInContext(context, fun, "do");
 		
 		auto oldBreakBB = breakBB;
 		scope(exit) breakBB = oldBreakBB;
 		
-		breakBB = LLVMAppendBasicBlock(fun, "done");
+		breakBB = LLVMAppendBasicBlockInContext(context, fun, "done");
 		
 		static if(isDoWhile) {
 			alias doBB startBB;
@@ -191,13 +191,13 @@ final class StatementGen {
 			}
 		}
 		
-		auto defaultBB = labels["default"] = LLVMAppendBasicBlock(fun, "default");
-		auto startBB = LLVMAppendBasicBlock(fun, "switchstart");
+		auto defaultBB = labels["default"] = LLVMAppendBasicBlockInContext(context, fun, "default");
+		auto startBB = LLVMAppendBasicBlockInContext(context, fun, "switchstart");
 		
 		auto oldBreakBB = breakBB;
 		scope(exit) breakBB = oldBreakBB;
 		
-		breakBB = LLVMAppendBasicBlock(fun, "switchend");
+		breakBB = LLVMAppendBasicBlockInContext(context, fun, "switchend");
 		
 		auto oldSwitchInstr = switchInstr;
 		scope(exit) switchInstr = oldSwitchInstr;
@@ -250,7 +250,7 @@ final class StatementGen {
 	private auto getLabel(string label) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		return labels.get(label, labels[label] = LLVMAppendBasicBlock(fun, toStringz("." ~ label)));
+		return labels.get(label, labels[label] = LLVMAppendBasicBlockInContext(context, fun, toStringz("." ~ label)));
 	}
 	
 	void visit(LabeledStatement s) {
