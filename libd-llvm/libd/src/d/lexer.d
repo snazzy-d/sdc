@@ -164,6 +164,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 		@property
 		auto save() inout {
 			// XXX: dmd bug, context pointer isn't copied properly
+			// Seems fixed in 2.063
 			version(DigitalMars) {
 				// XXX: doing it manualy using black magic.
 				// Context pointer is the last element of the struct. Here in position 9.

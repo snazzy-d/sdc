@@ -1,6 +1,5 @@
 module d.semantic.declaration;
 
-import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;

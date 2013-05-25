@@ -1,6 +1,5 @@
 module d.semantic.defaultinitializer;
 
-import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;
@@ -23,7 +22,7 @@ final class DefaultInitializerVisitor {
 		assert(result.type);
 	} body {
 		return this.dispatch!(delegate Expression(Type t) {
-			return compilationCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
+			return pass.raiseCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
 		})(location, t);
 	}
 	

@@ -3,7 +3,7 @@
  */
 module d.semantic.clone;
 
-import d.semantic.base;
+import d.semantic.semantic;
 
 import d.ast.conditional;
 import d.ast.declaration;
@@ -14,10 +14,16 @@ import d.ast.identifier;
 import std.algorithm;
 import std.array;
 
-import d.ast.expression;
+import d.ast.adt;
+import d.ast.base;
 import d.ast.declaration;
+import d.ast.dfunction;
+import d.ast.dtemplate;
+import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
+
+final:
 
 class ClonePass {
 	private DeclarationVisitor declarationVisitor;
@@ -34,7 +40,6 @@ class ClonePass {
 		identifierVisitor	= new IdentifierVisitor(this);
 	}
 	
-final:
 	Module visit(Module m) {
 		assert(0, "Not implemented.");
 		// return new Module(m.location, visit(m.moduleDeclaration), m.declarations.map!(d => visit(d)).array());
@@ -61,10 +66,6 @@ final:
 	}
 }
 
-import d.ast.adt;
-import d.ast.dfunction;
-import d.ast.dtemplate;
-
 /**
  * Clone declaration.
  */
@@ -76,7 +77,6 @@ class DeclarationVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Declaration visit(Declaration d) {
 		return this.dispatch(d);
 	}
@@ -122,8 +122,6 @@ final:
 	}
 }
 
-import d.ast.statement;
-
 /**
  * Clone statement.
  */
@@ -135,7 +133,6 @@ class StatementVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Statement visit(Statement s) {
 		return this.dispatch(s);
 	}
@@ -179,8 +176,6 @@ final:
 	}
 }
 
-import d.ast.expression;
-
 /**
  * Clone expression.
  */
@@ -192,7 +187,6 @@ class ExpressionVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Expression visit(Expression e) {
 		return this.dispatch(e);
 	}
@@ -320,8 +314,6 @@ final:
 	}
 }
 
-import d.ast.type;
-
 /**
  * Clone type.
  */
@@ -333,7 +325,6 @@ class TypeVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Type visit(Type t) {
 		auto ret = this.dispatch(t);
 		ret.qualifier = t.qualifier;
@@ -379,9 +370,6 @@ final:
 	}
 }
 
-import d.ast.base;
-import d.semantic.util;
-
 /**
  * Clone identifier.
  */
@@ -393,7 +381,6 @@ class IdentifierVisitor {
 		this.pass = pass;
 	}
 	
-final:
 	Identifier visit(Identifier i) {
 		return this.dispatch(i);
 	}

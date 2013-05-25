@@ -1,5 +1,6 @@
 module d.ast.expression;
 
+import d.ast.adt;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dfunction;
@@ -18,6 +19,11 @@ abstract class Expression : Node {
 		super(location);
 		
 		this.type = type;
+	}
+	
+	@property
+	bool isLvalue() const {
+		return false;
 	}
 }
 
@@ -178,6 +184,13 @@ class PrefixUnaryExpression(string operation) : Expression {
 		
 		this.expression = expression;
 	}
+	
+	static if(operation == "*") {
+		@property
+		override bool isLvalue() const {
+			return true;
+		}
+	}
 }
 
 alias PrefixUnaryExpression!"&" AddressOfExpression;
@@ -297,6 +310,11 @@ class ParenExpression : Expression {
 		
 		this.expression = expression;
 	}
+	
+	@property
+	override bool isLvalue() const {
+		return expression.isLvalue;
+	}
 }
 
 /**
@@ -328,6 +346,11 @@ class SymbolExpression : Expression {
 	invariant() {
 		assert(symbol);
 	}
+	
+	@property
+	override bool isLvalue() const {
+		return !(symbol.isEnum);
+	}
 }
 
 /**
@@ -342,6 +365,11 @@ class FieldExpression : Expression {
 		
 		this.expression = expression;
 		this.field = field;
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return expression.isLvalue;
 	}
 }
 
@@ -386,6 +414,11 @@ class NewExpression : Expression {
 		
 		this.arguments = arguments;
 	}
+	
+	@property
+	override bool isLvalue() const {
+		return true;
+	}
 }
 
 /**
@@ -394,6 +427,17 @@ class NewExpression : Expression {
 class ThisExpression : Expression {
 	this(Location location) {
 		super(location);
+	}
+	
+	@property
+	override bool isLvalue() const {
+		if(auto st = cast(SymbolType) type) {
+			if(cast(StructDeclaration) st.symbol) {
+				return true;
+			}
+		}
+		
+		return false;
 	}
 }
 
