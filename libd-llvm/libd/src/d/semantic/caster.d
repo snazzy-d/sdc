@@ -1,6 +1,5 @@
 module d.semantic.caster;
 
-import d.semantic.base;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
@@ -60,9 +59,9 @@ final class Caster(bool isExplicit) {
 			if(casted.length == 1) {
 				return casted[0];
 			} else if(casted.length > 1 ) {
-				return compilationCondition!Expression(e.location, "Ambiguous.");
+				return pass.raiseCondition!Expression(e.location, "Ambiguous.");
 			} else {
-				return compilationCondition!Expression(e.location, "No match found.");
+				return pass.raiseCondition!Expression(e.location, "No match found.");
 			}
 		}
 		
@@ -155,7 +154,7 @@ final class Caster(bool isExplicit) {
 				return new TruncateExpression(location, t, expression);
 			} else {
 				import std.conv;
-				return compilationCondition!Expression(expression.location, "Implicit cast from " ~ to!string(from) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+				return pass.raiseCondition!Expression(expression.location, "Implicit cast from " ~ to!string(from) ~ " to " ~ to!string(t.type) ~ " is not allowed");
 			}
 		}
 	}
@@ -209,7 +208,7 @@ final class Caster(bool isExplicit) {
 				return new BitCastExpression(location, t, expression);
 			}
 			
-			return compilationCondition!Expression(location, "Invalid character cast.");
+			return pass.raiseCondition!Expression(location, "Invalid character cast.");
 		}
 	}
 	
@@ -255,7 +254,7 @@ final class Caster(bool isExplicit) {
 					}
 				}
 				
-				return compilationCondition!Expression(location, "Invalid pointer cast.");
+				return pass.raiseCondition!Expression(location, "Invalid pointer cast.");
 			}
 		}
 		
@@ -280,7 +279,7 @@ final class Caster(bool isExplicit) {
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				return compilationCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
+				return pass.raiseCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
 			})(to);
 		}
 		
@@ -290,7 +289,7 @@ final class Caster(bool isExplicit) {
 			} else if(auto toType = cast(VoidType) t.type) {
 				return new BitCastExpression(location, t, expression);
 			} else {
-				return compilationCondition!Expression(location, "invalid pointer cast.");
+				return pass.raiseCondition!Expression(location, "invalid pointer cast.");
 			}
 		}
 	}

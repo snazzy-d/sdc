@@ -1,6 +1,6 @@
 module d.semantic.typepromotion;
 
-import d.semantic.base;
+import d.semantic.semantic;
 
 import d.ast.type;
 import d.ast.adt; // For enum types.

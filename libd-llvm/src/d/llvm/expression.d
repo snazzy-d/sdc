@@ -267,15 +267,11 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		// FIXME: handle rvalues with LLVMBuildExtractValue.
-		try {
+		if(e.isLvalue) {
 			return LLVMBuildLoad(builder, addressOf(e), "");
-		} catch(Exception exp) {
-			import std.stdio;
-			writeln("FieldExpression isn't an lvalue.");
-			
-			return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
 		}
+		
+		return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
 	}
 	
 	LLVMValueRef visit(VirtualDispatchExpression e) {

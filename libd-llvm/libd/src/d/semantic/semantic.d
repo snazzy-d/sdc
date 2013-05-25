@@ -3,8 +3,9 @@
  */
 module d.semantic.semantic;
 
+public import util.visitor;
+
 import d.semantic.backend;
-import d.semantic.base;
 import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.defaultinitializer;
@@ -33,6 +34,7 @@ import d.parser.base;
 
 import d.processor.scheduler;
 
+import d.exception;
 import d.lexer;
 import d.location;
 
@@ -79,11 +81,12 @@ final class SemanticPass {
 		string linkage = "D";
 		
 		mixin(bitfields!(
+			bool, "buildErrorNode", 1,
 			bool, "buildFields", 1,
 			bool, "buildMethods", 1,
 			bool, "isStatic", 1,
 			bool, "isThisRef", 1,
-			uint, "", 4
+			uint, "", 3
 		));
 		
 		Statement[] flattenedStmts;
@@ -205,6 +208,20 @@ final class SemanticPass {
 	
 	auto importModule(string[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
+	}
+	
+	auto raiseCondition(T)(Location location, string message) {
+		if(buildErrorNode) {
+				static if(is(T == Type)) {
+					return new ErrorType(location, message);
+				} else static if(is(T == Expression)) {
+					return new ErrorExpression(location, message);
+				} else {
+					static assert(false, "compilationCondition only works for Types and Expressions.");
+				}
+		} else {
+			throw new CompileException(location, message);
+		}
 	}
 	
 	void buildMain(Module[] mods) {

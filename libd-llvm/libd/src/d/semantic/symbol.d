@@ -1,6 +1,5 @@
 module d.semantic.symbol;
 
-import d.semantic.base;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 

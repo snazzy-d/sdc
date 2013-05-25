@@ -1,6 +1,5 @@
 module d.semantic.identifier;
 
-import d.semantic.base;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
@@ -277,7 +276,7 @@ final class ExpressionDotIdentifierVisitor {
 				// expression.sizeof or similar stuffs.
 				return Identifiable(new CommaExpression(i.location, e, identified));
 			} else {
-				return Identifiable(compilationCondition!Expression(i.location, "Can't resolve identifier."));
+				return Identifiable(identifierVisitor.pass.raiseCondition!Expression(i.location, "Can't resolve identifier."));
 			}
 		})();
 	}
@@ -304,7 +303,7 @@ final class ExpressionDotIdentifierVisitor {
 				expressions ~= asExpression;
 			} else {
 				// TODO: handle templates.
-				return Identifiable(compilationCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set."));
+				return Identifiable(raiseCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set."));
 			}
 		}
 		

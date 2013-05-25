@@ -1,6 +1,5 @@
 module d.semantic.type;
 
-import d.semantic.base;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
@@ -85,7 +84,7 @@ final class TypeVisitor {
 			static if(is(typeof(identified) : Type)) {
 				return visit(identified);
 			} else {
-				return compilationCondition!Type(t.location, t.identifier.name ~ " isn't an type.");
+				return pass.raiseCondition!Type(t.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
 	}

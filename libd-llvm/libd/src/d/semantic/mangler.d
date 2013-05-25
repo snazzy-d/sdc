@@ -1,6 +1,5 @@
 module d.semantic.mangler;
 
-import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;
