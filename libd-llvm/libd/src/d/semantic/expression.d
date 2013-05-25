@@ -395,7 +395,7 @@ final class ExpressionVisitor {
 						auto candidateArg = pass.implicitCast(arg.location, param.type, arg);
 						
 						// test if we can pass by ref.
-						if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+						if(param.isReference && !(canConvert(arg.type.qualifier, param.type.qualifier) && arg.isLvalue)) {
 							candidateLevel = MatchLevel.Not;
 						} else if(candidateArg !is arg) {
 							// Match isn't exact.
@@ -412,7 +412,7 @@ final class ExpressionVisitor {
 					}
 					
 					// If we don't match, let's go to next candidate directly.
-					if(candidateLevel == MatchLevel.Not) {
+					if(candidateLevel < level || candidateLevel == MatchLevel.Not) {
 						continue CandidateLoop;
 					}
 				}
@@ -444,7 +444,7 @@ final class ExpressionVisitor {
 		assert(c.arguments.length >= params.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, params)) {
-			if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+			if(param.isReference && !(canConvert(arg.type.qualifier, param.type.qualifier) && arg.isLvalue)) {
 				return pass.raiseCondition!Expression(arg.location, "Can't pass by ref.");
 			}
 			
@@ -476,12 +476,12 @@ final class ExpressionVisitor {
 				auto contextParam = funType.parameters[0];
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
 				
-				e.context = visit(e.context);
-				if(contextParam.isReference && !canConvert(e.context.type.qualifier, contextParam.type.qualifier)) {
-					return pass.raiseCondition!Expression(e.context.location, "Can't pass by ref.");
+				auto arg = visit(e.context);
+				if(contextParam.isReference && !(canConvert(arg.type.qualifier, contextParam.type.qualifier) && arg.isLvalue)) {
+					return pass.raiseCondition!Expression(arg.location, "Can't pass by ref.");
 				}
 				
-				e.context = pass.implicitCast(e.context.location, contextParam.type, e.context);
+				e.context = pass.implicitCast(arg.location, contextParam.type, arg);
 				
 				return e;
 			}
@@ -498,12 +498,12 @@ final class ExpressionVisitor {
 				auto thisParam = funType.parameters[0];
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
 				
-				e.expression = visit(e.expression);
-				if(thisParam.isReference && !canConvert(e.expression.type.qualifier, thisParam.type.qualifier)) {
+				auto arg = visit(e.expression);
+				if(thisParam.isReference && !(canConvert(arg.type.qualifier, thisParam.type.qualifier) && arg.isLvalue)) {
 					return pass.raiseCondition!Expression(e.expression.location, "Can't pass by ref.");
 				}
 				
-				e.expression = pass.implicitCast(e.expression.location, thisParam.type, e.expression);
+				e.expression = pass.implicitCast(arg.location, thisParam.type, arg);
 				
 				return e;
 			}
