@@ -1,6 +1,5 @@
 module d.semantic.sizeof;
 
-import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.adt;

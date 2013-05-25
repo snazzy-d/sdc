@@ -3,7 +3,6 @@
  */
 module d.semantic.dmodule;
 
-import d.semantic.base;
 import d.semantic.semantic;
 
 import d.ast.declaration;

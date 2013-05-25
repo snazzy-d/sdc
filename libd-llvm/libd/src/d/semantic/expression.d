@@ -1,6 +1,5 @@
 module d.semantic.expression;
 
-import d.semantic.base;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
@@ -92,7 +91,7 @@ final class ExpressionVisitor {
 		
 		if(auto pointerType = cast(PointerType) e.lhs.type) {
 			if(typeid({ return e.rhs.type; }()) !is typeid(IntegerType)) {
-				return compilationCondition!Expression(e.rhs.location, "Pointer +/- interger only.");
+				return pass.raiseCondition!Expression(e.rhs.location, "Pointer +/- interger only.");
 			}
 			
 			// FIXME: introduce temporary.
@@ -150,7 +149,7 @@ final class ExpressionVisitor {
 			return e;
 		}
 		
-		return compilationCondition!Expression(e.location, "Concat slice only.");
+		return pass.raiseCondition!Expression(e.location, "Concat slice only.");
 	}
 	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
@@ -246,6 +245,11 @@ final class ExpressionVisitor {
 	}
 	
 	private auto handleIncrementExpression(UnaryExpression)(UnaryExpression e) {
+		// DMD don't understand that it has all infos already :(
+		static SemanticPass workaround;
+		auto oldWA = workaround;
+		scope(exit) workaround = oldWA;
+		
 		return handleUnaryExpression!(function Expression(UnaryExpression e) {
 			e.type = e.expression.type;
 		
@@ -254,8 +258,8 @@ final class ExpressionVisitor {
 			} else if(auto integerType = cast(IntegerType) e.expression.type) {
 				return e;
 			}
-		
-			return compilationCondition!Expression(e.location, "Increment and decrement are performed on integers or pointer types.");
+			
+			return workaround.raiseCondition!Expression(e.location, "Increment and decrement are performed on integers or pointer types.");
 		})(e);
 	}
 	
@@ -276,7 +280,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(UnaryMinusExpression e) {
-		return handleUnaryExpression!(function Expression(UnaryMinusExpression e) {
+		return handleUnaryExpression!((UnaryMinusExpression e) {
 			e.type = e.expression.type;
 			
 			return e;
@@ -284,9 +288,14 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(UnaryPlusExpression e) {
-		return handleUnaryExpression!(function Expression(UnaryPlusExpression e) {
+		// DMD don't understand that it has all infos already :(
+		static SemanticPass workaround;
+		auto oldWA = workaround;
+		scope(exit) workaround = oldWA;
+		
+		return handleUnaryExpression!((UnaryPlusExpression e) {
 			if(typeid({ return e.expression.type; }()) !is typeid(IntegerType)) {
-				return compilationCondition!Expression(e.location, "unary plus only apply to integers.");
+				return workaround.raiseCondition!Expression(e.location, "unary plus only apply to integers.");
 			}
 			
 			return e.expression;
@@ -295,7 +304,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(NotExpression e) {
 		// XXX: Hack around the fact that delegate cannot be passed as parameter here.
-		auto ue = handleUnaryExpression!(function Expression(NotExpression e) {
+		auto ue = handleUnaryExpression!((NotExpression e) {
 			e.type = new BooleanType(e.location);
 			
 			return e;
@@ -311,10 +320,10 @@ final class ExpressionVisitor {
 	Expression visit(AddressOfExpression e) {
 		// FIXME: explode polysemous expression for all unary expression.
 		if(typeid({ return e.expression; }()) is typeid(AddressOfExpression)) {
-			return compilationCondition!Expression(e.location, "Cannot take the address of an address.");
+			return pass.raiseCondition!Expression(e.location, "Cannot take the address of an address.");
 		}
 		
-		return handleUnaryExpression!(function Expression(AddressOfExpression e) {
+		return handleUnaryExpression!((AddressOfExpression e) {
 			// For fucked up reasons, &funcname is a special case.
 			if(auto asSym = cast(SymbolExpression) e.expression) {
 				if(auto asDecl = cast(FunctionDeclaration) asSym.symbol) {
@@ -329,6 +338,11 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(DereferenceExpression e) {
+		// DMD don't understand that it has all infos already :(
+		static SemanticPass workaround;
+		auto oldWA = workaround;
+		scope(exit) workaround = oldWA;
+		
 		return handleUnaryExpression!(function Expression(DereferenceExpression e) {
 			if(auto pt = cast(PointerType) e.expression.type) {
 				e.type = pt.type;
@@ -336,7 +350,7 @@ final class ExpressionVisitor {
 				return e;
 			}
 			
-			return compilationCondition!Expression(e.location, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
+			return workaround.raiseCondition!Expression(e.location, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
 		})(e);
 	}
 	
@@ -408,12 +422,12 @@ final class ExpressionVisitor {
 					match = candidate;
 				} else if(candidateLevel == level) {
 					// Multiple candidates.
-					return compilationCondition!Expression(c.location, "ambigusous function call.");
+					return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
 				}
 			}
 			
 			if(!match) {
-				return compilationCondition!Expression(c.location, "No candidate for function call.");
+				return pass.raiseCondition!Expression(c.location, "No candidate for function call.");
 			}
 			
 			c.callee = match;
@@ -424,14 +438,14 @@ final class ExpressionVisitor {
 			params = type.parameters;
 			c.type = type.returnType;
 		} else {
-			return compilationCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
+			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
 		}
 		
 		assert(c.arguments.length >= params.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, params)) {
 			if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
-				return compilationCondition!Expression(arg.location, "Can't pass by ref.");
+				return pass.raiseCondition!Expression(arg.location, "Can't pass by ref.");
 			}
 			
 			arg = pass.implicitCast(arg.location, param.type, arg);
@@ -455,7 +469,7 @@ final class ExpressionVisitor {
 		
 		if(auto funType = cast(FunctionType) e.funptr.type) {
 			if(typeid(funType) !is typeid(FunctionType)) {
-				return compilationCondition!Expression(e.location, "Can't create delegate.");
+				return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
 			}
 			
 			if(funType.isVariadic || funType.parameters.length > 0) {
@@ -464,7 +478,7 @@ final class ExpressionVisitor {
 				
 				e.context = visit(e.context);
 				if(contextParam.isReference && !canConvert(e.context.type.qualifier, contextParam.type.qualifier)) {
-					return compilationCondition!Expression(e.context.location, "Can't pass by ref.");
+					return pass.raiseCondition!Expression(e.context.location, "Can't pass by ref.");
 				}
 				
 				e.context = pass.implicitCast(e.context.location, contextParam.type, e.context);
@@ -473,7 +487,7 @@ final class ExpressionVisitor {
 			}
 		}
 		
-		return compilationCondition!Expression(e.location, "Can't create delegate.");
+		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
 	Expression visit(VirtualDispatchExpression e) {
@@ -486,7 +500,7 @@ final class ExpressionVisitor {
 				
 				e.expression = visit(e.expression);
 				if(thisParam.isReference && !canConvert(e.expression.type.qualifier, thisParam.type.qualifier)) {
-					return compilationCondition!Expression(e.expression.location, "Can't pass by ref.");
+					return pass.raiseCondition!Expression(e.expression.location, "Can't pass by ref.");
 				}
 				
 				e.expression = pass.implicitCast(e.expression.location, thisParam.type, e.expression);
@@ -495,7 +509,7 @@ final class ExpressionVisitor {
 			}
 		}
 		
-		return compilationCondition!Expression(e.location, "Can't create delegate.");
+		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
 	Expression visit(NewExpression e) {
@@ -522,7 +536,7 @@ final class ExpressionVisitor {
 		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
 			e.type = asStaticArray.type;
 		} else {
-			return compilationCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
 		}
 		
 		e.arguments = e.arguments.map!(e => visit(e)).array();
@@ -541,7 +555,7 @@ final class ExpressionVisitor {
 		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
 			e.type = asStaticArray.type;
 		} else {
-			return compilationCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
+			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
 		}
 		
 		e.type = new SliceType(e.location, e.type);
@@ -575,7 +589,7 @@ final class ExpressionVisitor {
 			static if(is(typeof(identified) : Expression)) {
 				return visit(identified);
 			} else {
-				return compilationCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
+				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 			}
 		})();
 	}
