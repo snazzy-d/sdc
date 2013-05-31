@@ -190,12 +190,20 @@ final class SemanticPass {
 		return identifierVisitor.visit(i);
 	}
 	
-	auto implicitCast(Location location, Type to, Expression value) {
+	Expression buildImplicitCast(Location location, Type to, Expression value) {
 		return implicitCaster.build(location, to, value);
 	}
 	
-	auto explicitCast(Location location, Type to, Expression value) {
+	Expression buildExplicitCast(Location location, Type to, Expression value) {
 		return explicitCaster.build(location, to, value);
+	}
+	
+	CastFlavor implicitCastFrom(Type from, Type to) {
+		return implicitCaster.castFrom(from, to);
+	}
+	
+	CastFlavor explicitCastFrom(Type from, Type to) {
+		return explicitCaster.castFrom(from, to);
 	}
 	
 	TemplateInstance instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
@@ -261,5 +269,15 @@ final class SemanticPass {
 			assert(0, "Several main functions");
 		}
 	}
+}
+
+enum CastFlavor {
+	Not,
+	Bool,
+	Trunc,
+	Pad,
+	Bit,
+	Qual,
+	Exact,
 }
 

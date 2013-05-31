@@ -175,7 +175,7 @@ final class DeclarationVisitor {
 		assert(unit.type == CtUnitType.StaticIf);
 	} body {
 		auto d = unit.staticIf;
-		auto condition = evaluate(explicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
+		auto condition = evaluate(buildExplicitCast(d.condition.location, new BooleanType(d.condition.location), pass.visit(d.condition)));
 		
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);

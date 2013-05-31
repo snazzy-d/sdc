@@ -2,6 +2,7 @@ module d.llvm.evaluator;
 
 import d.llvm.codegen;
 
+import d.ast.adt;
 import d.ast.expression;
 import d.ast.type;
 
@@ -82,7 +83,13 @@ final class LLVMEvaluator : Evaluator {
 	
 	// Actual JIT
 	private CompileTimeExpression jit(Expression e) {
-		if(auto t = cast(IntegerType) e.type) {
+		auto type = e.type;
+		
+		if(auto et = cast(EnumType) type) {
+			type = et.type;
+		}
+		
+		if(auto t = cast(IntegerType) type) {
 			auto returned = jitInteger(e);
 			
 			if(t.type % 2) {
@@ -90,7 +97,7 @@ final class LLVMEvaluator : Evaluator {
 			} else {
 				return new IntegerLiteral!true(e.location, returned, t);
 			}
-		} else if(cast(BooleanType) e.type) {
+		} else if(cast(BooleanType) type) {
 			auto returned = jitInteger(e);
 			
 			return new BooleanLiteral(e.location, !!returned);
@@ -102,7 +109,7 @@ final class LLVMEvaluator : Evaluator {
 			}
 		}
 		
-		assert(0, "Only able to JIT integers and booleans, " ~ typeid(e).toString() ~ " given.");
+		assert(0, "Only able to JIT integers and booleans, " ~ typeid({ return e.type; }()).toString() ~ " given.");
 	}
 	
 	private auto jitInteger(Expression e) {

@@ -72,7 +72,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(IfStatement ifs) {
-		ifs.condition = explicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
+		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(ifs.condition.location), pass.visit(ifs.condition));
 		
 		ifs.then = autoBlock(ifs.then);
 		
@@ -84,7 +84,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(WhileStatement w) {
-		w.condition = explicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		w.statement = autoBlock(w.statement);
 		
@@ -92,7 +92,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(DoWhileStatement w) {
-		w.condition = explicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, new BooleanType(w.condition.location), pass.visit(w.condition));
 		
 		w.statement = autoBlock(w.statement);
 		
@@ -110,7 +110,7 @@ final class StatementVisitor {
 		f.initialize = flattenedStmts[$ - 1];
 		
 		if(f.condition) {
-			f.condition = explicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
+			f.condition = buildExplicitCast(f.condition.location, new BooleanType(f.condition.location), pass.visit(f.condition));
 		} else {
 			f.condition = makeLiteral(f.location, true);
 		}
@@ -133,7 +133,7 @@ final class StatementVisitor {
 		if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
 			returnType = r.value.type;
 		} else {
-			r.value = implicitCast(r.location, returnType, r.value);
+			r.value = buildImplicitCast(r.location, returnType, r.value);
 		}
 		
 		flattenedStmts ~= r;
@@ -176,7 +176,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(StaticIf!Statement s) {
-		s.condition = evaluate(explicitCast(s.condition.location, new BooleanType(s.condition.location), pass.visit(s.condition)));
+		s.condition = evaluate(buildExplicitCast(s.condition.location, new BooleanType(s.condition.location), pass.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) s.condition).value) {
 			foreach(item; s.items) {
