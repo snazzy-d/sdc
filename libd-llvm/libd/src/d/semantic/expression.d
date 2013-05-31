@@ -439,6 +439,7 @@ final class ExpressionVisitor {
 					match = candidate;
 				} else if(candidateLevel == level) {
 					// Multiple candidates.
+					// TODO: check for specialisation.
 					return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
 				}
 			}

@@ -190,11 +190,11 @@ final class SemanticPass {
 		return identifierVisitor.visit(i);
 	}
 	
-	auto implicitCast(Location location, Type to, Expression value) {
+	Expression implicitCast(Location location, Type to, Expression value) {
 		return implicitCaster.build(location, to, value);
 	}
 	
-	auto explicitCast(Location location, Type to, Expression value) {
+	Expression explicitCast(Location location, Type to, Expression value) {
 		return explicitCaster.build(location, to, value);
 	}
 	

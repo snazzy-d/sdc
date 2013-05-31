@@ -12,13 +12,21 @@ import d.ast.type;
 import d.exception;
 import d.location;
 
+enum CastFlavor {
+	Not,
+	Bool,
+	Trunc,
+	Pad,
+	Bit,
+	Exact,
+}
+
 // FIXME: isn't reentrant at all.
 final class Caster(bool isExplicit) {
 	private SemanticPass pass;
 	alias pass this;
 	
 	private Location location;
-	private Expression expression;
 	
 	private FromBoolean fromBoolean;
 	private FromInteger fromInteger;
@@ -48,21 +56,35 @@ final class Caster(bool isExplicit) {
 		
 		// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
 		if(auto asPolysemous = cast(PolysemousExpression) e) {
-			Expression[] casted;
+			auto oldBuildErrorNode = buildErrorNode;
+			scope(exit) buildErrorNode = oldBuildErrorNode;
+			
+			buildErrorNode = true;
+			
+			Expression casted;
 			foreach(candidate; asPolysemous.expressions) {
-				// Not ugly at all :D
 				try {
-					casted ~= build(castLocation, to, candidate);
-				} catch(CompileException ce) {}
+					candidate = build(castLocation, to, candidate);
+				} catch(CompileException e) {
+					continue;
+				}
+				
+				if(cast(ErrorExpression) candidate) {
+					continue;
+				}
+				
+				if(casted) {
+					return pass.raiseCondition!Expression(e.location, "Ambiguous.");
+				}
+				
+				casted = candidate;
 			}
 			
-			if(casted.length == 1) {
-				return casted[0];
-			} else if(casted.length > 1 ) {
-				return pass.raiseCondition!Expression(e.location, "Ambiguous.");
-			} else {
-				return pass.raiseCondition!Expression(e.location, "No match found.");
+			if(casted) {
+				return casted;
 			}
+			
+			return pass.raiseCondition!Expression(e.location, "No match found.");
 		}
 		
 		assert(to && e.type);
@@ -72,48 +94,71 @@ final class Caster(bool isExplicit) {
 			return defaultInitializerVisitor.visit(e.location, to);
 		}
 		
-		// Nothing to cast.
-		if(e.type == to) return e;
-		
 		auto oldLocation = location;
 		scope(exit) location = oldLocation;
 		
 		location = castLocation;
 		
-		auto oldExpression = expression;
-		scope(exit) expression = oldExpression;
-		
-		expression = e;
-		
-		return castFrom(e.type, to);
+		final switch(castFrom(e.type, to)) with(CastFlavor) {
+			case Not :
+				return pass.raiseCondition!Expression(e.location, (isExplicit?"Explicit":"Implicit") ~ " cast from " ~ e.type.toString() ~ " to " ~ to.toString() ~ " is not allowed");
+			
+			case Bool :
+				Expression zero = makeLiteral(castLocation, 0);
+				auto type = getPromotedType(castLocation, e.type, zero.type);
+				
+				zero = pass.implicitCast(castLocation, type, zero);
+				e = pass.implicitCast(e.location, type, e);
+				
+				auto res = new NotEqualityExpression(castLocation, e, zero);
+				res.type = to;
+				
+				return res;
+			
+			case Trunc :
+				return new TruncateExpression(location, to, e);
+			
+			case Pad :
+				return new PadExpression(location, to, e);
+			
+			case Bit :
+				return new BitCastExpression(location, to, e);
+			
+			case Exact :
+				return e;
+		}
 	}
 	
-	private Expression castFrom(Type from, Type to) {
+	CastFlavor castFrom(Type from, Type to) {
+		if(from == to) {
+			return CastFlavor.Exact;
+		}
+		
 		return this.dispatch!((t) {
 			throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 		})(to, from);
 	}
 	
 	class FromBoolean {
-		Expression visit(Type to) {
+		CastFlavor visit(Type to) {
 			return this.dispatch!((t) {
 				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
-		Expression visit(IntegerType to) {
-			return new PadExpression(location, to, expression);
+		CastFlavor visit(IntegerType to) {
+			return CastFlavor.Pad;
 		}
 	}
 	
-	Expression visit(Type to, BooleanType t) {
+	CastFlavor visit(Type to, BooleanType t) {
 		return fromBoolean.visit(to);
 	}
 	
 	class FromInteger {
 		Integer from;
 		
-		Expression visit(Integer from, Type to) {
+		CastFlavor visit(Integer from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
@@ -125,46 +170,36 @@ final class Caster(bool isExplicit) {
 		}
 		
 		static if(isExplicit) {
-			Expression visit(BooleanType t) {
-				Expression zero = makeLiteral(location, 0);
-				auto type = getPromotedType(location, expression.type, zero.type);
-				
-				zero = pass.implicitCast(location, type, zero);
-				expression = pass.implicitCast(expression.location, type, expression);
-				
-				auto res = new NotEqualityExpression(location, expression, zero);
-				res.type = t;
-				
-				return res;
+			CastFlavor visit(BooleanType t) {
+				return CastFlavor.Bool;
 			}
 			
-			Expression visit(EnumType t) {
+			CastFlavor visit(EnumType t) {
 				// If the cast is explicit, then try to cast from enum base type.
-				return new BitCastExpression(location, t, build(location, t.type, expression));
+				return visit(from, t.type);
 			}
 		}
 		
-		Expression visit(IntegerType t) {
+		CastFlavor visit(IntegerType t) {
 			if(t.type >> 1 == from >> 1) {
 				// Same type except for signess.
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			} else if(t.type > from) {
-				return new PadExpression(location, t, expression);
+				return CastFlavor.Pad;
 			} else static if(isExplicit) {
-				return new TruncateExpression(location, t, expression);
+				return CastFlavor.Trunc;
 			} else {
-				import std.conv;
-				return pass.raiseCondition!Expression(expression.location, "Implicit cast from " ~ to!string(from) ~ " to " ~ to!string(t.type) ~ " is not allowed");
+				return CastFlavor.Not;
 			}
 		}
 	}
 	
-	Expression visit(Type to, IntegerType t) {
+	CastFlavor visit(Type to, IntegerType t) {
 		return fromInteger.visit(t.type, to);
 	}
 	
 	/*
-	Expression visit(FloatType t) {
+	CastFlavor visit(FloatType t) {
 		return fromFloatType(t.type)).visit(type);
 	}
 	*/
@@ -172,7 +207,7 @@ final class Caster(bool isExplicit) {
 	class FromCharacter {
 		Character from;
 		
-		Expression visit(Character from, Type to) {
+		CastFlavor visit(Character from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
@@ -183,7 +218,7 @@ final class Caster(bool isExplicit) {
 			})(to);
 		}
 		
-		Expression visit(IntegerType t) {
+		CastFlavor visit(IntegerType t) {
 			Integer i;
 			final switch(from) {
 				case Character.Char :
@@ -202,24 +237,23 @@ final class Caster(bool isExplicit) {
 			return fromInteger.visit(i, t);
 		}
 		
-		Expression visit(CharacterType t) {
+		CastFlavor visit(CharacterType t) {
 			if(t.type == from) {
-				// We don't care about qualifier as characters are values types.
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			}
 			
-			return pass.raiseCondition!Expression(location, "Invalid character cast.");
+			return CastFlavor.Not;
 		}
 	}
 	
-	Expression visit(Type to, CharacterType t) {
+	CastFlavor visit(Type to, CharacterType t) {
 		return fromCharacter.visit(t.type, to);
 	}
 	
 	class FromPointer {
 		Type from;
 		
-		Expression visit(Type from, Type to) {
+		CastFlavor visit(Type from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
@@ -230,77 +264,71 @@ final class Caster(bool isExplicit) {
 			})(to);
 		}
 		
-		Expression visit(PointerType t) {
+		CastFlavor visit(PointerType t) {
 			static if(isExplicit) {
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			} else if(auto toType = cast(VoidType) t.type) {
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			} else {
 				// Ugly hack :D
 				auto subCast = castFrom(from, t.type);
 				
-				// If subCast is a bitcast, then it is safe to cast pointers.
-				if(auto bt = cast(BitCastExpression) subCast) {
+				// If subCast is a bitcast or an exact match, then it is safe to cast pointers.
+				if(subCast >= CastFlavor.Bit) {
 					static if(isExplicit) {
-						enum isValid = true;
+						return CastFlavor.Bit;
 					} else {
-						bool isValid = canConvert(from.qualifier, t.type.qualifier);
-					}
-					
-					if(isValid) {
-						bt.type = t;
-						
-						return bt;
+						return canConvert(from.qualifier, t.type.qualifier) ? CastFlavor.Bit : CastFlavor.Not;
 					}
 				}
 				
-				return pass.raiseCondition!Expression(location, "Invalid pointer cast.");
+				return CastFlavor.Not;
 			}
 		}
 		
 		static if(isExplicit) {
-			Expression visit(FunctionType t) {
-				return new BitCastExpression(location, t, expression);
+			CastFlavor visit(FunctionType t) {
+				return CastFlavor.Bit;
 			}
 		}
 	}
 	
-	Expression visit(Type to, PointerType t) {
+	CastFlavor visit(Type to, PointerType t) {
 		return fromPointer.visit(t.type, to);
 	}
 	
 	class FromFunction {
 		FunctionType from;
 		
-		Expression visit(FunctionType from, Type to) {
+		CastFlavor visit(FunctionType from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				return pass.raiseCondition!Expression(t.location, typeid(t).toString() ~ " is not supported.");
+				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
 			})(to);
 		}
 		
-		Expression visit(PointerType t) {
+		CastFlavor visit(PointerType t) {
 			static if(isExplicit) {
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			} else if(auto toType = cast(VoidType) t.type) {
-				return new BitCastExpression(location, t, expression);
+				return CastFlavor.Bit;
 			} else {
-				return pass.raiseCondition!Expression(location, "invalid pointer cast.");
+				return CastFlavor.Not;
 			}
 		}
 	}
 	
-	Expression visit(Type to, FunctionType t) {
+	CastFlavor visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
 	}
 	
-	Expression visit(Type to, EnumType t) {
+	CastFlavor visit(Type to, EnumType t) {
 		// Automagically promote to base type.
-		return build(location, to, new BitCastExpression(location, t.type, expression));
+		return castFrom(t.type, to);
 	}
 }
 
