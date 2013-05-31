@@ -17,7 +17,8 @@ int main(string[] args) {
 	version(DigitalMars) {
 		version(linux) {
 			import etc.linux.memoryerror;
-			registerMemoryErrorHandler();
+			// druntime not containe the necessary symbol.
+			// registerMemoryErrorHandler();
 		}
 	}
 	
