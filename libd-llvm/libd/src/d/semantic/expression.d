@@ -359,6 +359,21 @@ final class ExpressionVisitor {
 		return explicitCast(e.location, to, visit(e.expression));
 	}
 	
+	private auto matchParameter(Expression arg, Parameter param) {
+		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
+		}
+		
+		arg = pass.implicitCast(arg.location, param.type, arg);
+		
+		// test if we can pass by ref.
+		if(param.isReference && !arg.isLvalue) {
+			return pass.raiseCondition!Expression(arg.location, "Argument isn't a lvalue.");
+		}
+		
+		return arg;
+	}
+	
 	Expression visit(CallExpression c) {
 		c.callee = visit(c.callee);
 		c.arguments = c.arguments.map!(a => visit(a)).array();
@@ -383,6 +398,12 @@ final class ExpressionVisitor {
 				Exact,
 			}
 			
+			// Ensure we build error instead of failing.
+			auto oldBuildErrorNode = buildErrorNode;
+			scope(exit) buildErrorNode = oldBuildErrorNode;
+			
+			buildErrorNode = true;
+			
 			auto level = MatchLevel.Not;
 			Expression match;
 			CandidateLoop: foreach(candidate; candidates) {
@@ -391,29 +412,25 @@ final class ExpressionVisitor {
 				
 				auto candidateLevel = MatchLevel.Exact;
 				foreach(arg, param; lockstep(c.arguments, type.parameters)) {
-					try {
-						auto candidateArg = pass.implicitCast(arg.location, param.type, arg);
-						
-						// test if we can pass by ref.
-						if(param.isReference && !(canConvert(arg.type.qualifier, param.type.qualifier) && arg.isLvalue)) {
-							candidateLevel = MatchLevel.Not;
-						} else if(candidateArg !is arg) {
-							// Match isn't exact.
-							if(typeid(candidateArg) is typeid(BitCastExpression)) {
-								// We have a bitcast.
-								// FIXME: actually wrong :D
-								candidateLevel = min(candidateLevel, MatchLevel.QualifierConvert);
-							} else {
-								candidateLevel = min(candidateLevel, MatchLevel.TypeConvert);
-							}
-						}
-					} catch(CompileException e) {
-						candidateLevel = MatchLevel.Not;
-					}
+					auto candidateArg = matchParameter(arg, param);
 					
-					// If we don't match, let's go to next candidate directly.
-					if(candidateLevel < level || candidateLevel == MatchLevel.Not) {
-						continue CandidateLoop;
+					// If candidateArg and arg are the same, we have an exact match.
+					if(candidateArg !is arg) {
+						if(typeid(candidateArg) is typeid(ErrorExpression)) {
+							// If the call is impossible, go to next candidate.
+							continue CandidateLoop;
+						} else if(typeid(candidateArg) is typeid(BitCastExpression)) {
+							// We have a bitcast.
+							// FIXME: actually wrong :D
+							candidateLevel = min(candidateLevel, MatchLevel.QualifierConvert);
+						} else {
+							candidateLevel = min(candidateLevel, MatchLevel.TypeConvert);
+						}
+						
+						// If the match level is too low, let's go to next candidate directly.
+						if(candidateLevel < level) {
+							continue CandidateLoop;
+						}
 					}
 				}
 				
@@ -444,11 +461,7 @@ final class ExpressionVisitor {
 		assert(c.arguments.length >= params.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, params)) {
-			if(param.isReference && !(canConvert(arg.type.qualifier, param.type.qualifier) && arg.isLvalue)) {
-				return pass.raiseCondition!Expression(arg.location, "Can't pass by ref.");
-			}
-			
-			arg = pass.implicitCast(arg.location, param.type, arg);
+			arg = matchParameter(arg, param);
 		}
 		
 		return c;
@@ -474,14 +487,9 @@ final class ExpressionVisitor {
 			
 			if(funType.isVariadic || funType.parameters.length > 0) {
 				auto contextParam = funType.parameters[0];
+				
+				e.context = matchParameter(e.context, contextParam);
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
-				
-				auto arg = visit(e.context);
-				if(contextParam.isReference && !(canConvert(arg.type.qualifier, contextParam.type.qualifier) && arg.isLvalue)) {
-					return pass.raiseCondition!Expression(arg.location, "Can't pass by ref.");
-				}
-				
-				e.context = pass.implicitCast(arg.location, contextParam.type, arg);
 				
 				return e;
 			}
@@ -496,14 +504,9 @@ final class ExpressionVisitor {
 		if(auto funType = cast(FunctionType) e.method.type) {
 			if(funType.isVariadic || funType.parameters.length > 0) {
 				auto thisParam = funType.parameters[0];
+				
+				e.expression = matchParameter(e.expression, thisParam);
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
-				
-				auto arg = visit(e.expression);
-				if(thisParam.isReference && !(canConvert(arg.type.qualifier, thisParam.type.qualifier) && arg.isLvalue)) {
-					return pass.raiseCondition!Expression(e.expression.location, "Can't pass by ref.");
-				}
-				
-				e.expression = pass.implicitCast(arg.location, thisParam.type, arg);
 				
 				return e;
 			}

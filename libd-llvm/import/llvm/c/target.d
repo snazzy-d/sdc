@@ -219,7 +219,7 @@ static LLVMBool LLVMInitializeNativeTarget() {
 /*===-- Target Data -------------------------------------------------------===*/
 
 /** Creates target data from a target layout string.
-    See the constructor llvm::TargetData::TargetData. */
+    See the constructor llvm::DataLayout::DataLayout. */
 LLVMTargetDataRef LLVMCreateTargetData(const(char) *StringRep);
 
 /** Adds target data information to a pass manager. This does not take ownership
@@ -234,48 +234,58 @@ void LLVMAddTargetLibraryInfo(LLVMTargetLibraryInfoRef, LLVMPassManagerRef);
 
 /** Converts target data to a target layout string. The string must be disposed
     with LLVMDisposeMessage.
-    See the constructor llvm::TargetData::TargetData. */
+    See the constructor llvm::DataLayout::DataLayout. */
 char *LLVMCopyStringRepOfTargetData(LLVMTargetDataRef);
 
 /** Returns the byte order of a target, either LLVMBigEndian or
     LLVMLittleEndian.
-    See the method llvm::TargetData::isLittleEndian. */
+    See the method llvm::DataLayout::isLittleEndian. */
 LLVMByteOrdering LLVMByteOrder(LLVMTargetDataRef);
 
 /** Returns the pointer size in bytes for a target.
     See the method llvm::TargetData::getPointerSize. */
 uint LLVMPointerSize(LLVMTargetDataRef);
 
+/** Returns the pointer size in bytes for a target for a specified
+    address space.
+    See the method llvm::DataLayout::getPointerSize. */
+uint LLVMPointerSizeForAS(LLVMTargetDataRef, uint AS);
+
 /** Returns the integer type that is the same size as a pointer on a target.
-    See the method llvm::TargetData::getIntPtrType. */
+    See the method llvm::DataLayout::getIntPtrType. */
 LLVMTypeRef LLVMIntPtrType(LLVMTargetDataRef);
 
+/** Returns the integer type that is the same size as a pointer on a target.
+    This version allows the address space to be specified.
+    See the method llvm::DataLayout::getIntPtrType. */
+LLVMTypeRef LLVMIntPtrTypeForAS(LLVMTargetDataRef, uint AS);
+
 /** Computes the size of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeSizeInBits. */
+    See the method llvm::DataLayout::getTypeSizeInBits. */
 ulong LLVMSizeOfTypeInBits(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the storage size of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeStoreSize. */
+    See the method llvm::DataLayout::getTypeStoreSize. */
 ulong LLVMStoreSizeOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the ABI size of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeAllocSize. */
+    See the method llvm::DataLayout::getTypeAllocSize. */
 ulong LLVMABISizeOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the ABI alignment of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeABISize. */
+    See the method llvm::DataLayout::getTypeABISize. */
 uint LLVMABIAlignmentOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the call frame alignment of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeABISize. */
+    See the method llvm::DataLayout::getTypeABISize. */
 uint LLVMCallFrameAlignmentOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the preferred alignment of a type in bytes for a target.
-    See the method llvm::TargetData::getTypeABISize. */
+    See the method llvm::DataLayout::getTypeABISize. */
 uint LLVMPreferredAlignmentOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the preferred alignment of a global variable in bytes for a target.
-    See the method llvm::TargetData::getPreferredAlignment. */
+    See the method llvm::DataLayout::getPreferredAlignment. */
 uint LLVMPreferredAlignmentOfGlobal(LLVMTargetDataRef,
                                         LLVMValueRef GlobalVar);
 
@@ -290,7 +300,7 @@ ulong LLVMOffsetOfElement(LLVMTargetDataRef, LLVMTypeRef StructTy,
                                        uint Element);
 
 /** Deallocates a TargetData.
-    See the destructor llvm::TargetData::~TargetData. */
+    See the destructor llvm::DataLayout::~DataLayout. */
 void LLVMDisposeTargetData(LLVMTargetDataRef);
 
 /**

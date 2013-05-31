@@ -66,8 +66,8 @@ final class LLVMBackend : Backend {
 		
 		auto dmodule = pass.dmodule;
 		
-		// Delete the garbage function.
-		LLVMDeleteFunction(LLVMGetNamedFunction(dmodule, ".garbage"));
+		// Delete the dummy function.
+		LLVMDeleteFunction(LLVMGetNamedFunction(dmodule, ".dummy"));
 		
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
@@ -78,7 +78,7 @@ final class LLVMBackend : Backend {
 		} else {
 			LLVMDumpModule(dmodule);
 			writeln("\n; Optimized as :");
-		
+			
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
 			LLVMPassManagerBuilderSetOptLevel(pmb, optLevel);
 		}

@@ -68,9 +68,9 @@ final class CodeGenPass {
 		builder = LLVMCreateBuilderInContext(context);
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
 		
-		// Create a grabage function, as LLVM expect to have something.
+		// Create a dummy function, as LLVM expect to always have something.
 		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
-		auto fun = LLVMAddFunction(dmodule, ".garbage", funType);
+		auto fun = LLVMAddFunction(dmodule, ".dummy", funType);
 		auto basicBlock = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		LLVMBuildRetVoid(builder);
@@ -149,6 +149,9 @@ final class CodeGenPass {
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		
 		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
@@ -157,7 +160,10 @@ final class CodeGenPass {
 		
 		checkModule();
 		
-		return LLVMRunFunction(executionEngine, fun, 0, null);
+		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
+		scope(exit) LLVMDisposeGenericValue(result);
+		
+		return LLVMGenericValueToInt(result, true);
 	}
 	
 	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
@@ -166,13 +172,16 @@ final class CodeGenPass {
 		scope(failure) LLVMDumpModule(dmodule);
 		
 		// Create a global variable that recieve the string.
-		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString".ptr);
+		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString");
 		scope(exit) LLVMDeleteGlobal(reciever);
 		
 		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
 		
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
+		
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);

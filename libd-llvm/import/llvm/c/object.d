@@ -18,7 +18,6 @@
 
 module llvm.c.object;
 
-import core.stdc.stdint : uint64_t;
 import llvm.c.core;
 
 extern(C) nothrow:
@@ -62,9 +61,9 @@ void LLVMMoveToNextSymbol(LLVMSymbolIteratorRef SI);
 
 // SectionRef accessors
 const(char) *LLVMGetSectionName(LLVMSectionIteratorRef SI);
-uint64_t LLVMGetSectionSize(LLVMSectionIteratorRef SI);
+ulong LLVMGetSectionSize(LLVMSectionIteratorRef SI);
 const(char) *LLVMGetSectionContents(LLVMSectionIteratorRef SI);
-uint64_t LLVMGetSectionAddress(LLVMSectionIteratorRef SI);
+ulong LLVMGetSectionAddress(LLVMSectionIteratorRef SI);
 LLVMBool LLVMGetSectionContainsSymbol(LLVMSectionIteratorRef SI,
                                  LLVMSymbolIteratorRef Sym);
 
@@ -78,15 +77,15 @@ void LLVMMoveToNextRelocation(LLVMRelocationIteratorRef RI);
 
 // SymbolRef accessors
 const(char) *LLVMGetSymbolName(LLVMSymbolIteratorRef SI);
-uint64_t LLVMGetSymbolAddress(LLVMSymbolIteratorRef SI);
-uint64_t LLVMGetSymbolFileOffset(LLVMSymbolIteratorRef SI);
-uint64_t LLVMGetSymbolSize(LLVMSymbolIteratorRef SI);
+ulong LLVMGetSymbolAddress(LLVMSymbolIteratorRef SI);
+ulong LLVMGetSymbolFileOffset(LLVMSymbolIteratorRef SI);
+ulong LLVMGetSymbolSize(LLVMSymbolIteratorRef SI);
 
 // RelocationRef accessors
-uint64_t LLVMGetRelocationAddress(LLVMRelocationIteratorRef RI);
-uint64_t LLVMGetRelocationOffset(LLVMRelocationIteratorRef RI);
+ulong LLVMGetRelocationAddress(LLVMRelocationIteratorRef RI);
+ulong LLVMGetRelocationOffset(LLVMRelocationIteratorRef RI);
 LLVMSymbolIteratorRef LLVMGetRelocationSymbol(LLVMRelocationIteratorRef RI);
-uint64_t LLVMGetRelocationType(LLVMRelocationIteratorRef RI);
+ulong LLVMGetRelocationType(LLVMRelocationIteratorRef RI);
 // NOTE: Caller takes ownership of returned string of the two
 // following functions.
 const(char) *LLVMGetRelocationTypeName(LLVMRelocationIteratorRef RI);

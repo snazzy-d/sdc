@@ -106,10 +106,7 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	private auto jitInteger(Expression e) {
-		auto result = codeGen.ctfe(e, executionEngine);
-		// XXX: dispose value ?
-		
-		return cast(int) LLVMGenericValueToInt(result, true);
+		return codeGen.ctfe(e, executionEngine);
 	}
 	
 	private string jitString(Expression e) {

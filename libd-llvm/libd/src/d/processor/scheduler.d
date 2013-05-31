@@ -15,10 +15,12 @@ final class Process : Fiber {
 	Symbol source;
 	Symbol result;
 	
+	enum StackSize = 32 * 4096;
+	
 	this() {
-		super({
+		super(function() {
 			assert(0, "You must initialize process before using it.");
-		});
+		}, StackSize);
 	}
 	
 	void init(Symbol s, ProcessDg dg) {
@@ -122,18 +124,19 @@ public:
 			
 			while(true) {
 				if(auto p = s in processes) {
-					if(p.state == Fiber.State.EXEC) {
+					auto f = *p;
+					if(f.state == Fiber.State.EXEC) {
 						// TODO: Check for possible forward reference problem.
 					}
 					
-					if(p.state == Fiber.State.HOLD) {
-						p.call();
+					if(f.state == Fiber.State.HOLD) {
+						f.call();
 					}
 					
-					if(p.state == Fiber.State.TERM) {
+					if(f.state == Fiber.State.TERM) {
 						processes.remove(s);
 						
-						pool ~= *p;
+						pool ~= f;
 					}
 				}
 				
