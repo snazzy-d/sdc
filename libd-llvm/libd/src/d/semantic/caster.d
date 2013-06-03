@@ -12,12 +12,15 @@ import d.ast.type;
 import d.exception;
 import d.location;
 
+import std.algorithm;
+
 enum CastFlavor {
 	Not,
 	Bool,
 	Trunc,
 	Pad,
 	Bit,
+	Qual,
 	Exact,
 }
 
@@ -122,6 +125,7 @@ final class Caster(bool isExplicit) {
 				return new PadExpression(location, to, e);
 			
 			case Bit :
+			case Qual :
 				return new BitCastExpression(location, to, e);
 			
 			case Exact :
@@ -135,14 +139,14 @@ final class Caster(bool isExplicit) {
 		}
 		
 		return this.dispatch!((t) {
-			throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+			return CastFlavor.Not;
 		})(to, from);
 	}
 	
 	class FromBoolean {
 		CastFlavor visit(Type to) {
 			return this.dispatch!((t) {
-				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+				return CastFlavor.Not;
 			})(to);
 		}
 		
@@ -165,7 +169,7 @@ final class Caster(bool isExplicit) {
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+				return CastFlavor.Not;
 			})(to);
 		}
 		
@@ -181,7 +185,9 @@ final class Caster(bool isExplicit) {
 		}
 		
 		CastFlavor visit(IntegerType t) {
-			if(t.type >> 1 == from >> 1) {
+			if(t.type == from) {
+				return CastFlavor.Qual;
+			} else if(t.type >> 1 == from >> 1) {
 				// Same type except for signess.
 				return CastFlavor.Bit;
 			} else if(t.type > from) {
@@ -214,34 +220,36 @@ final class Caster(bool isExplicit) {
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+				return CastFlavor.Not;
 			})(to);
 		}
 		
 		CastFlavor visit(IntegerType t) {
 			Integer i;
-			final switch(from) {
-				case Character.Char :
+			final switch(from) with(Character) {
+				case Char :
 					i = Integer.Ubyte;
 					break;
 				
-				case Character.Wchar :
+				case Wchar :
 					i = Integer.Ushort;
 					break;
 				
-				case Character.Dchar :
+				case Dchar :
 					i = Integer.Uint;
 					break;
 			}
 			
-			return fromInteger.visit(i, t);
+			// A best a bitcast.
+			return min(fromInteger.visit(i, t), CastFlavor.Bit);
 		}
 		
 		CastFlavor visit(CharacterType t) {
 			if(t.type == from) {
-				return CastFlavor.Bit;
+				return CastFlavor.Qual;
 			}
 			
+			// TODO: cast to upper char.
 			return CastFlavor.Not;
 		}
 	}
@@ -260,29 +268,49 @@ final class Caster(bool isExplicit) {
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+				return CastFlavor.Not;
 			})(to);
 		}
 		
 		CastFlavor visit(PointerType t) {
-			static if(isExplicit) {
-				return CastFlavor.Bit;
-			} else if(auto toType = cast(VoidType) t.type) {
-				return CastFlavor.Bit;
-			} else {
-				// Ugly hack :D
-				auto subCast = castFrom(from, t.type);
-				
-				// If subCast is a bitcast or an exact match, then it is safe to cast pointers.
-				if(subCast >= CastFlavor.Bit) {
-					static if(isExplicit) {
-						return CastFlavor.Bit;
-					} else {
-						return canConvert(from.qualifier, t.type.qualifier) ? CastFlavor.Bit : CastFlavor.Not;
-					}
+			// Cast to void* is kind of special.
+			if(auto v = cast(VoidType) t.type) {
+				static if(isExplicit) {
+					return CastFlavor.Bit;
+				} else if(canConvert(from.qualifier, t.type.qualifier)) {
+					return CastFlavor.Bit;
+				} else {
+					return CastFlavor.Not;
 				}
+			}
+					
+			auto subCast = castFrom(from, t.type);
+			
+			switch(subCast) with(CastFlavor) {
+				case Qual :
+					if(canConvert(from.qualifier, t.type.qualifier)) {
+						return Qual;
+					}
+					
+					goto default;
 				
-				return CastFlavor.Not;
+				case Exact :
+					return Qual;
+				
+				static if(isExplicit) {
+					default :
+						return Bit;
+				} else {
+					case Bit :
+						if(canConvert(from.qualifier, t.type.qualifier)) {
+							return subCast;
+						}
+						
+						return Not;
+					
+					default :
+						return Not;
+				}
 			}
 		}
 		
@@ -307,7 +335,7 @@ final class Caster(bool isExplicit) {
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				throw new CompileException(location, typeid(t).toString() ~ " is not supported");
+				return CastFlavor.Not;
 			})(to);
 		}
 		
