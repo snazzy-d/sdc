@@ -78,7 +78,7 @@ final class ExpressionVisitor {
 		e.lhs = visit(e.lhs);
 		e.type = e.lhs.type;
 		
-		e.rhs = implicitCast(e.rhs.location, e.type, visit(e.rhs));
+		e.rhs = buildImplicitCast(e.rhs.location, e.type, visit(e.rhs));
 		
 		return e;
 	}
@@ -115,10 +115,10 @@ final class ExpressionVisitor {
 		} else {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
-			e.lhs = implicitCast(e.lhs.location, e.type, e.lhs);
+			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
 		}
 		
-		e.rhs = implicitCast(e.rhs.location, e.type, e.rhs);
+		e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
 		
 		return e;
 	}
@@ -144,7 +144,7 @@ final class ExpressionVisitor {
 		
 		if(auto sliceType = cast(SliceType) e.lhs.type) {
 			auto type = e.type = e.lhs.type;
-			e.rhs = implicitCast(e.rhs.location, type, visit(e.rhs));
+			e.rhs = buildImplicitCast(e.rhs.location, type, visit(e.rhs));
 			
 			return e;
 		}
@@ -160,20 +160,20 @@ final class ExpressionVisitor {
 		static if(find(["&&", "||"], operation)) {
 			e.type = new BooleanType(e.location);
 			
-			e.lhs = explicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = explicitCast(e.rhs.location, e.type, e.rhs);
+			e.lhs = buildExplicitCast(e.lhs.location, e.type, e.lhs);
+			e.rhs = buildExplicitCast(e.rhs.location, e.type, e.rhs);
 		} else static if(find(["==", "!=", ">", ">=", "<", "<="], operation)) {
 			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
-			e.lhs = implicitCast(e.lhs.location, type, e.lhs);
-			e.rhs = implicitCast(e.rhs.location, type, e.rhs);
+			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
+			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
 			
 			e.type = new BooleanType(e.location);
 		} else static if(find(["&", "|", "^", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
-			e.lhs = implicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = implicitCast(e.rhs.location, e.type, e.rhs);
+			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
+			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
 		} else static if(find([","], operation)) {
 			e.type = e.rhs.type;
 		} else {
@@ -311,7 +311,7 @@ final class ExpressionVisitor {
 		})(e);
 		
 		if(auto ne = cast(NotExpression) ue) {
-			ne.expression = pass.explicitCast(ne.location, ne.type, ne.expression);
+			ne.expression = pass.buildExplicitCast(ne.location, ne.type, ne.expression);
 		}
 		
 		return ue;
@@ -356,15 +356,15 @@ final class ExpressionVisitor {
 	
 	Expression visit(CastExpression e) {
 		auto to = pass.visit(e.type);
-		return explicitCast(e.location, to, visit(e.expression));
+		return buildExplicitCast(e.location, to, visit(e.expression));
 	}
 	
-	private auto matchParameter(Expression arg, Parameter param) {
+	private auto buildArgument(Expression arg, Parameter param) {
 		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
 		
-		arg = pass.implicitCast(arg.location, param.type, arg);
+		arg = pass.buildImplicitCast(arg.location, param.type, arg);
 		
 		// test if we can pass by ref.
 		if(param.isReference && !arg.isLvalue) {
@@ -372,6 +372,43 @@ final class ExpressionVisitor {
 		}
 		
 		return arg;
+	}
+	
+	enum MatchLevel {
+		Not,
+		TypeConvert,
+		QualifierConvert,
+		Exact,
+	}
+	
+	private auto matchArgument(Expression arg, Parameter param) {
+		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+			return MatchLevel.Not;
+		}
+		
+		auto level = pass.implicitCastFrom(arg.type, param.type);
+		
+		// test if we can pass by ref.
+		if(param.isReference && !(level >= CastFlavor.Bit && arg.isLvalue)) {
+			return MatchLevel.Not;
+		}
+		
+		final switch(level) {
+			case CastFlavor.Not:
+				return MatchLevel.Not;
+			
+			case CastFlavor.Bool:
+			case CastFlavor.Trunc:
+			case CastFlavor.Pad:
+			case CastFlavor.Bit:
+				return MatchLevel.TypeConvert;
+			
+			case CastFlavor.Qual:
+				return MatchLevel.QualifierConvert;
+			
+			case CastFlavor.Exact:
+				return MatchLevel.Exact;
+		}
 	}
 	
 	Expression visit(CallExpression c) {
@@ -391,19 +428,6 @@ final class ExpressionVisitor {
 				assert(0, "type is not a function type");
 			}).map!(c => visit(c));
 			
-			enum MatchLevel {
-				Not,
-				TypeConvert,
-				QualifierConvert,
-				Exact,
-			}
-			
-			// Ensure we build error instead of failing.
-			auto oldBuildErrorNode = buildErrorNode;
-			scope(exit) buildErrorNode = oldBuildErrorNode;
-			
-			buildErrorNode = true;
-			
 			auto level = MatchLevel.Not;
 			Expression match;
 			CandidateLoop: foreach(candidate; candidates) {
@@ -412,25 +436,26 @@ final class ExpressionVisitor {
 				
 				auto candidateLevel = MatchLevel.Exact;
 				foreach(arg, param; lockstep(c.arguments, type.parameters)) {
-					auto candidateArg = matchParameter(arg, param);
+					auto argLevel = matchArgument(arg, param);
 					
-					// If candidateArg and arg are the same, we have an exact match.
-					if(candidateArg !is arg) {
-						if(typeid(candidateArg) is typeid(ErrorExpression)) {
-							// If the call is impossible, go to next candidate.
+					// If we don't match high enough.
+					if(argLevel < level) {
+						continue CandidateLoop;
+					}
+					
+					final switch(argLevel) with(MatchLevel) {
+						case Not :
+							// This function don't match, go to next one.
 							continue CandidateLoop;
-						} else if(typeid(candidateArg) is typeid(BitCastExpression)) {
-							// We have a bitcast.
-							// FIXME: actually wrong :D
-							candidateLevel = min(candidateLevel, MatchLevel.QualifierConvert);
-						} else {
-							candidateLevel = min(candidateLevel, MatchLevel.TypeConvert);
-						}
 						
-						// If the match level is too low, let's go to next candidate directly.
-						if(candidateLevel < level) {
-							continue CandidateLoop;
-						}
+						case TypeConvert :
+						case QualifierConvert :
+							candidateLevel = min(candidateLevel, argLevel);
+							continue;
+						
+						case Exact :
+							// Go to next argument
+							continue;
 					}
 				}
 				
@@ -462,7 +487,7 @@ final class ExpressionVisitor {
 		assert(c.arguments.length >= params.length);
 		
 		foreach(ref arg, param; lockstep(c.arguments, params)) {
-			arg = matchParameter(arg, param);
+			arg = buildArgument(arg, param);
 		}
 		
 		return c;
@@ -489,7 +514,7 @@ final class ExpressionVisitor {
 			if(funType.isVariadic || funType.parameters.length > 0) {
 				auto contextParam = funType.parameters[0];
 				
-				e.context = matchParameter(e.context, contextParam);
+				e.context = buildArgument(e.context, contextParam);
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
 				
 				return e;
@@ -506,7 +531,7 @@ final class ExpressionVisitor {
 			if(funType.isVariadic || funType.parameters.length > 0) {
 				auto thisParam = funType.parameters[0];
 				
-				e.expression = matchParameter(e.expression, thisParam);
+				e.expression = buildArgument(e.expression, thisParam);
 				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
 				
 				return e;
@@ -576,7 +601,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(AssertExpression e) {
 		auto c = visit(e.condition);
-		e.condition = explicitCast(c.location, new BooleanType(c.location), c);
+		e.condition = buildExplicitCast(c.location, new BooleanType(c.location), c);
 		
 		if(e.message) {
 			// FIXME: cast to string.

@@ -14,16 +14,6 @@ import d.location;
 
 import std.algorithm;
 
-enum CastFlavor {
-	Not,
-	Bool,
-	Trunc,
-	Pad,
-	Bit,
-	Qual,
-	Exact,
-}
-
 // FIXME: isn't reentrant at all.
 final class Caster(bool isExplicit) {
 	private SemanticPass pass;
@@ -110,8 +100,8 @@ final class Caster(bool isExplicit) {
 				Expression zero = makeLiteral(castLocation, 0);
 				auto type = getPromotedType(castLocation, e.type, zero.type);
 				
-				zero = pass.implicitCast(castLocation, type, zero);
-				e = pass.implicitCast(e.location, type, e);
+				zero = pass.buildImplicitCast(castLocation, type, zero);
+				e = pass.buildImplicitCast(e.location, type, e);
 				
 				auto res = new NotEqualityExpression(castLocation, e, zero);
 				res.type = to;

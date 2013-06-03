@@ -149,7 +149,7 @@ final class SymbolVisitor {
 			d.type = pass.visit(d.type);
 		}
 		
-		d.value = implicitCast(d.location, d.type, d.value);
+		d.value = buildImplicitCast(d.location, d.type, d.value);
 		
 		if(d.isEnum) {
 			d.value = evaluate(d.value);
