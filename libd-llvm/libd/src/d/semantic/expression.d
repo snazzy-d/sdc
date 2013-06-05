@@ -381,19 +381,40 @@ final class ExpressionVisitor {
 		Exact,
 	}
 	
+	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, Parameter param) {
 		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
 			return MatchLevel.Not;
 		}
 		
-		auto level = pass.implicitCastFrom(arg.type, param.type);
+		auto flavor = pass.implicitCastFrom(arg.type, param.type);
 		
 		// test if we can pass by ref.
-		if(param.isReference && !(level >= CastFlavor.Bit && arg.isLvalue)) {
+		if(param.isReference && !(flavor >= CastFlavor.Bit && arg.isLvalue)) {
 			return MatchLevel.Not;
 		}
 		
-		final switch(level) {
+		return matchLevel(flavor);
+	}
+	
+	// TODO: deduplicate.
+	private auto matchArgument(Type type, bool lvalue, Parameter param) {
+		if(param.isReference && !canConvert(type.qualifier, param.type.qualifier)) {
+			return MatchLevel.Not;
+		}
+		
+		auto flavor = pass.implicitCastFrom(type, param.type);
+		
+		// test if we can pass by ref.
+		if(param.isReference && !(flavor >= CastFlavor.Bit && lvalue)) {
+			return MatchLevel.Not;
+		}
+		
+		return matchLevel(flavor);
+	}
+	
+	private auto matchLevel(CastFlavor flavor) {
+		final switch(flavor) {
 			case CastFlavor.Not:
 				return MatchLevel.Not;
 			
@@ -463,9 +484,29 @@ final class ExpressionVisitor {
 					level = candidateLevel;
 					match = candidate;
 				} else if(candidateLevel == level) {
-					// Multiple candidates.
-					// TODO: check for specialisation.
-					return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
+					// Check for specialisation.
+					auto matchType = cast(FunctionType) match.type;
+					assert(matchType, "We should have filtered function at this point.");
+					
+					bool candidateFail;
+					bool matchFail;
+					foreach(param, matchParam; lockstep(type.parameters, matchType.parameters)) {
+						if(matchArgument(param.type, param.isReference, matchParam) == MatchLevel.Not) {
+							candidateFail = true;
+						}
+						
+						if(matchArgument(matchParam.type, matchParam.isReference, param) == MatchLevel.Not) {
+							matchFail = true;
+						}
+					}
+					
+					if(matchFail == candidateFail) {
+						return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
+					}
+					
+					if(matchFail) {
+						match = candidate;
+					}
 				}
 			}
 			
