@@ -1,20 +1,17 @@
 //T compiles:yes
 //T retval:42
-// Test exclusion of invalid ref overloads.
+// Test ref overloads.
 
 int main() {
-	return foo(0);
+	int i = -1;
+	return foo(i) + foo(30);
 }
 
 int foo(ref int i) {
-	return 3;
-}
-
-int foo(long l) {
-	return 13;
+	return i + 3;
 }
 
 int foo(int i) {
-	return 42;
+	return i + 10;
 }
 
