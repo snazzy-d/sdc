@@ -417,7 +417,7 @@ final class SymbolVisitor {
 	
 	Symbol visit(TemplateDeclaration d) {
 		// XXX: compute a proper mangling for templates.
-		d.mangle = manglePrefix;
+		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
 		scheduler.register(d, d, Step.Processed);
 		
