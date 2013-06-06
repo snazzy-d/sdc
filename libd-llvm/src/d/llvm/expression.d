@@ -278,13 +278,11 @@ final class ExpressionGen {
 		auto type = cast(DelegateType) e.type;
 		assert(type);
 		
-		auto cd = cast(ClassDefinition) (cast(SymbolType) e.expression.type).symbol;
-		assert(cd);
+		auto cd = (cast(ClassType) e.expression.type).dclass;
 		
 		auto thisPtr = visit(e.expression);
 		
-		auto vtblPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), "");
-		vtblPtr = LLVMBuildPointerCast(builder, vtblPtr, LLVMTypeOf(getVtbl(cd)), "vtbl");
+		auto vtblPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), "vtbl");
 		auto funPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtblPtr, e.method.index, ""), "");
 		
 		auto dg = LLVMGetUndef(pass.visit(e.type));
@@ -318,13 +316,11 @@ final class ExpressionGen {
 		assert(e.arguments.length == 0);
 		
 		auto type = pass.visit(e.type);
-		LLVMValueRef vtblValue;
-		if(auto s = cast(SymbolType) e.type) {
-			if(auto cd = cast(ClassDefinition) s.symbol) {
-				type = LLVMGetElementType(type);
-				
-				vtblValue = getVtbl(cd);
-			}
+		LLVMValueRef initValue;
+		if(auto ct = cast(ClassType) e.type) {
+			type = LLVMGetElementType(type);
+			
+			initValue = getClassInit(ct.dclass);
 		}
 		
 		LLVMValueRef size = LLVMSizeOf(type);
@@ -332,10 +328,9 @@ final class ExpressionGen {
 		auto alloc = LLVMBuildCall(builder, druntimeGen.getAllocMemory(), &size, 1, "");
 		auto ptr = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(type, 0), "");
 		
-		if(vtblValue) {
-			auto vtblPtr = LLVMBuildStructGEP(builder, ptr, 0, "");
-			vtblValue = LLVMBuildPointerCast(builder, vtblValue, LLVMGetElementType(LLVMTypeOf(vtblPtr)), "");
-			LLVMBuildStore(builder, vtblValue, vtblPtr);
+		if(initValue) {
+			initValue = LLVMBuildLoad(builder, initValue, "");
+			LLVMBuildStore(builder, initValue, ptr);
 		}
 		
 		return ptr;

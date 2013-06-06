@@ -344,6 +344,17 @@ final class Caster(bool isExplicit) {
 		return fromFunction.visit(t, to);
 	}
 	
+	CastFlavor visit(Type to, ClassType t) {
+		// Automagically promote to base type.
+		auto bases = (cast(ClassDeclaration) scheduler.require(t.dclass)).bases;
+		
+		if(bases.length > 0) {
+			return min(castFrom(bases[0], to), CastFlavor.Bit);
+		}
+		
+		return CastFlavor.Not;
+	}
+	
 	CastFlavor visit(Type to, EnumType t) {
 		// Automagically promote to base type.
 		return castFrom(t.type, to);

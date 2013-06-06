@@ -51,10 +51,7 @@ final class TemplateInstancier {
 			auto oldManglePrefix = this.manglePrefix;
 			scope(exit) this.manglePrefix = oldManglePrefix;
 			
-			import std.conv;
-			auto tplMangle = "__T" ~ to!string(tplDecl.name.length) ~ tplDecl.name ~ id ~ "Z";
-			
-			pass.manglePrefix = tplDecl.mangle ~ to!string(tplMangle.length) ~ tplMangle;
+			pass.manglePrefix = tplDecl.mangle ~ "T" ~ id ~ "Z";
 			
 			auto oldLinkage = pass.linkage;
 			scope(exit) pass.linkage = oldLinkage;

@@ -85,8 +85,9 @@ final class SemanticPass {
 			bool, "buildFields", 1,
 			bool, "buildMethods", 1,
 			bool, "isStatic", 1,
+			bool, "isOverride", 1,
 			bool, "isThisRef", 1,
-			uint, "", 3
+			uint, "", 2
 		));
 		
 		Statement[] flattenedStmts;

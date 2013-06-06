@@ -10,7 +10,7 @@ import d.ast.type;
 /**
  * Class Definition
  */
-class ClassDefinition : TypeSymbol {
+class ClassDeclaration : Symbol {
 	Type[] bases;
 	Declaration[] members;
 	

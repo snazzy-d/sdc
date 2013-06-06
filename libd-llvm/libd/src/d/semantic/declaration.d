@@ -243,7 +243,12 @@ final class DeclarationVisitor {
 	
 	void visit(FunctionDeclaration d) {
 		if(buildMethods && !isStatic) {
-			d = new MethodDeclaration(d, methodIndex++);
+			uint index = 0;
+			if(!isOverride) {
+				index = ++methodIndex;
+			}
+			
+			d = new MethodDeclaration(d, index);
 		}
 		
 		d.linkage = linkage;
@@ -294,12 +299,12 @@ final class DeclarationVisitor {
 		select(d);
 	}
 	
-	void visit(ClassDefinition d) {
-		d.linkage = linkage;
+	void visit(ClassDeclaration c) {
+		c.linkage = linkage;
 		
-		currentScope.addSymbol(d);
+		currentScope.addSymbol(c);
 		
-		select(d);
+		select(c);
 	}
 	
 	void visit(EnumDeclaration d) {
@@ -368,6 +373,17 @@ final class DeclarationVisitor {
 		scope(exit) isStatic = oldIsStatic;
 		
 		isStatic = true;
+		
+		foreach(decl; d.declarations) {
+			visit(decl);
+		}
+	}
+	
+	void visit(OverrideDeclaration d) {
+		auto oldIsOverride = isOverride;
+		scope(exit) isOverride = oldIsOverride;
+		
+		isOverride = true;
 		
 		foreach(decl; d.declarations) {
 			visit(decl);

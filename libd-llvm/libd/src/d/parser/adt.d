@@ -32,7 +32,7 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	
 	static if(isClass) {
 		trange.match(TokenType.Class);
-		alias ClassDefinition DefinitionType;
+		alias ClassDeclaration DefinitionType;
 	} else {
 		trange.match(TokenType.Interface);
 		alias InterfaceDefinition DefinitionType;
