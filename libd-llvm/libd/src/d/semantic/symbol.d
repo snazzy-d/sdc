@@ -77,11 +77,13 @@ final class SymbolVisitor {
 		if(d.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
+			auto oldIsOverride = isOverride;
 			auto oldBuildFields = buildFields;
 			auto oldScope = currentScope;
 			scope(exit) {
 				linkage = oldLinkage;
 				isStatic = oldIsStatic;
+				isOverride = oldIsOverride;
 				buildFields = oldBuildFields;
 				currentScope = oldScope;
 			}
@@ -89,6 +91,7 @@ final class SymbolVisitor {
 			linkage = "D";
 			
 			isStatic = false;
+			isOverride = false;
 			buildFields = false;
 			
 			// Update scope.
@@ -177,6 +180,7 @@ final class SymbolVisitor {
 	
 	Symbol visit(StructDefinition d) {
 		auto oldIsStatic = isStatic;
+		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
@@ -187,6 +191,7 @@ final class SymbolVisitor {
 		
 		scope(exit) {
 			isStatic = oldIsStatic;
+			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
@@ -197,6 +202,7 @@ final class SymbolVisitor {
 		}
 		
 		isStatic = false;
+		isOverride = false;
 		isThisRef = true;
 		buildFields = true;
 		buildMethods = false;
@@ -248,6 +254,7 @@ final class SymbolVisitor {
 	
 	Symbol visit(ClassDefinition d) {
 		auto oldIsStatic = isStatic;
+		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
@@ -259,6 +266,7 @@ final class SymbolVisitor {
 		
 		scope(exit) {
 			isStatic = oldIsStatic;
+			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
@@ -270,6 +278,7 @@ final class SymbolVisitor {
 		}
 		
 		isStatic = false;
+		isOverride = false;
 		isThisRef = false;
 		buildFields = true;
 		buildMethods = true;
