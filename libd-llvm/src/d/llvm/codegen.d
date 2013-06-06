@@ -113,8 +113,8 @@ final class CodeGenPass {
 		return declarationGen.visit(s);
 	}
 	
-	auto getVtbl(ClassDefinition c) {
-		return declarationGen.getVtbl(c);
+	auto getClassInit(ClassDefinition c) {
+		return declarationGen.getClassInit(c);
 	}
 	
 	auto visit(Statement stmt) {

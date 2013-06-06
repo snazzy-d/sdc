@@ -22,7 +22,7 @@ final class DeclarationGen {
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	
-	private LLVMValueRef[ClassDefinition] vtbls;
+	private LLVMValueRef[ClassDefinition] classInit;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -43,10 +43,6 @@ final class DeclarationGen {
 	}
 	
 	LLVMValueRef visit(FunctionDeclaration f) {
-		// Ensure we are rentrant.
-		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-		
 		auto funptrType = pass.visit(f.type);
 		
 		auto funType = LLVMGetElementType(funptrType);
@@ -56,62 +52,78 @@ final class DeclarationGen {
 		exprSymbols[f] = fun;
 		
 		if(f.fbody) {
-			auto oldLabels = labels;
-			scope(exit) labels = oldLabels;
-			
-			// XXX: what is the way to flush an AA ?
-			labels = typeof(labels).init;
-			
-			// Alloca and instruction block.
-			auto allocaBB = LLVMAppendBasicBlockInContext(context, fun, "");
-			auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "body");
-			
-			// Handle parameters in the alloca block.
-			LLVMPositionBuilderAtEnd(builder, allocaBB);
-			
-			LLVMValueRef[] params;
-			LLVMTypeRef[] parameterTypes;
-			params.length = parameterTypes.length = f.parameters.length;
-			LLVMGetParams(fun, params.ptr);
-			LLVMGetParamTypes(funType, parameterTypes.ptr);
-			
-			foreach(i, p; f.parameters) {
-				auto value = params[i];
-				
-				if(p.isReference) {
-					LLVMSetValueName(value, p.name.toStringz());
-					
-					exprSymbols[p] = value;
-				} else {
-					auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
-					
-					LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
-					
-					LLVMBuildStore(builder, value, alloca);
-					exprSymbols[p] = alloca;
-				}
-			}
-			
-			// Generate function's body.
-			LLVMPositionBuilderAtEnd(builder, bodyBB);
-			pass.visit(f.fbody);
-			
-			// If the current block isn't concluded, it means that it is unreachable.
-			if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-				// FIXME: provide the right AST in case of void function.
-				if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
-					LLVMBuildRetVoid(builder);
-				} else {
-					LLVMBuildUnreachable(builder);
-				}
-			}
-			
-			// Branch from alloca block to function body.
-			LLVMPositionBuilderAtEnd(builder, allocaBB);
-			LLVMBuildBr(builder, bodyBB);
+			genFunctionBody(f, fun);
 		}
 			
 		return fun;
+	}
+	
+	private void genFunctionBody(FunctionDeclaration f) {
+		genFunctionBody(f, exprSymbols[f]);
+	}
+	
+	private void genFunctionBody(FunctionDeclaration f, LLVMValueRef fun) {
+		// Alloca and instruction block.
+		auto allocaBB = LLVMAppendBasicBlockInContext(context, fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "body");
+		
+		// Ensure we are rentrant.
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		auto oldLabels = labels;
+		
+		scope(exit) {
+			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+			labels = oldLabels;
+		}
+		
+		// XXX: what is the way to flush an AA ?
+		labels = typeof(labels).init;
+		
+		// Handle parameters in the alloca block.
+		LLVMPositionBuilderAtEnd(builder, allocaBB);
+		
+		auto funType = LLVMGetElementType(LLVMTypeOf(fun));
+		
+		LLVMValueRef[] params;
+		LLVMTypeRef[] parameterTypes;
+		params.length = parameterTypes.length = f.parameters.length;
+		LLVMGetParams(fun, params.ptr);
+		LLVMGetParamTypes(funType, parameterTypes.ptr);
+		
+		foreach(i, p; f.parameters) {
+			auto value = params[i];
+			
+			if(p.isReference) {
+				LLVMSetValueName(value, p.name.toStringz());
+				
+				exprSymbols[p] = value;
+			} else {
+				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
+				
+				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
+				
+				LLVMBuildStore(builder, value, alloca);
+				exprSymbols[p] = alloca;
+			}
+		}
+		
+		// Generate function's body.
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
+		pass.visit(f.fbody);
+		
+		// If the current block isn't concluded, it means that it is unreachable.
+		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			// FIXME: provide the right AST in case of void function.
+			if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
+				LLVMBuildRetVoid(builder);
+			} else {
+				LLVMBuildUnreachable(builder);
+			}
+		}
+		
+		// Branch from alloca block to function body.
+		LLVMPositionBuilderAtEnd(builder, allocaBB);
+		LLVMBuildBr(builder, bodyBB);
 	}
 	
 	LLVMValueRef visit(VariableDeclaration var) {
@@ -179,19 +191,21 @@ final class DeclarationGen {
 		auto structPtr = LLVMPointerType(llvmStruct, 0);
 		typeSymbols[d] = structPtr;
 		
-		LLVMTypeRef[] members;
-		foreach(member; d.members) {
-			if(auto f = cast(FieldDeclaration) member) {
-				members ~= pass.visit(f.type);
-			}
-		}
-		
-		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
-		
-		LLVMValueRef[] vtbl;
+		// TODO: typeid instead of null.
+		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
+		LLVMValueRef[] fields = [null];
 		foreach(member; d.members) {
 			if (auto m = cast(MethodDeclaration) member) {
+				auto oldBody = m.fbody;
+				scope(exit) m.fbody = oldBody;
+				
+				m.fbody = null;
+				
 				vtbl ~= visit(m);
+			} else if(auto f = cast(FieldDeclaration) member) {
+				if(f.index > 0) {
+					fields ~= pass.visit(f.value);
+				}
 			}
 		}
 		
@@ -203,13 +217,28 @@ final class DeclarationGen {
 		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
 		LLVMSetGlobalConstant(vtblPtr, true);
 		
-		vtbls[d] = vtblPtr;
+		// Set vtbl.
+		fields[0] = vtblPtr;
+		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
+		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
+		
+		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (d.mangle ~ "__initZ").toStringz());
+		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
+		LLVMSetGlobalConstant(initPtr, true);
+		
+		classInit[d] = initPtr;
+		
+		foreach(member; d.members) {
+			if (auto m = cast(MethodDeclaration) member) {
+				genFunctionBody(m);
+			}
+		}
 		
 		return structPtr;
 	}
 	
-	LLVMValueRef getVtbl(ClassDefinition d) {
-		return vtbls[d];
+	LLVMValueRef getClassInit(ClassDefinition d) {
+		return classInit[d];
 	}
 	
 	LLVMTypeRef visit(EnumDeclaration d) {
