@@ -325,23 +325,49 @@ final class SymbolVisitor {
 			foreach(m; baseClass.members) {
 				if(auto field = cast(FieldDeclaration) m) {
 					baseFields ~= field;
+					fieldIndex = max(fieldIndex, field.index);
+					
 					d.dscope.addSymbol(field);
 				} else if(auto method = cast(MethodDeclaration) m) {
 					baseMethods ~= method;
-					d.dscope.addOverloadableSymbol(method);
+					methodIndex = max(methodIndex, method.index);
 				}
 			}
 			
-			baseFields.sort!((f1, f2) => f1.index < f2.index)();
-			fieldIndex = baseFields[$ - 1].index + 1;
-			
-			if(baseMethods.length) {
-				baseMethods.sort!((m1, m2) => m1.index < m2.index)();
-				methodIndex = baseMethods[$ - 1].index + 1;
-			}
+			fieldIndex++;
 		}
 		
 		auto members = pass.flatten(d.members, d);
+		MethodDeclaration[] candidates = baseMethods;
+		foreach(m; members) {
+			if(auto method = cast(MethodDeclaration) m) {
+				if(method.index == 0) {
+					foreach(ref candidate; candidates) {
+						if(candidate && candidate.name == method.name) {
+							method.index = candidate.index;
+							candidate = null;
+							break;
+						}
+					}
+					
+					if(method.index == 0) {
+						assert(0, "Override not found");
+					}
+					
+					continue;
+				}
+			}
+		}
+		
+		// Remaining candidates must be added to scope.
+		baseMethods.length = candidates.length;
+		uint i = 0;
+		foreach(candidate; candidates) {
+			if(candidate) {
+				d.dscope.addOverloadableSymbol(candidate);
+				baseMethods[i++] = candidate;
+			}
+		}
 		
 		scheduler.register(d, d, Step.Processed);
 		
