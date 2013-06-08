@@ -8,9 +8,9 @@ import d.ast.identifier;
 import d.ast.type;
 
 /**
- * Class Definition
+ * Class Declaration
  */
-class ClassDeclaration : Symbol {
+class ClassDeclaration : TypeSymbol {
 	Type[] bases;
 	Declaration[] members;
 	
@@ -26,9 +26,9 @@ class ClassDeclaration : Symbol {
 }
 
 /**
- * Interface Definition
+ * Interface Declaration
  */
-class InterfaceDefinition : TypeSymbol {
+class InterfaceDeclaration : TypeSymbol {
 	Type[] bases;
 	Declaration[] members;
 	
@@ -43,18 +43,9 @@ class InterfaceDefinition : TypeSymbol {
 }
 
 /**
- * Struct Declaration
- */
-class StructDeclaration : TypeSymbol {
-	this(Location location, string name) {
-		super(location, name);
-	}
-}
-
-/**
  * Struct Definition
  */
-class StructDefinition : StructDeclaration {
+class StructDeclaration : TypeSymbol {
 	Declaration[] members;
 	
 	SymbolScope dscope;
@@ -69,20 +60,7 @@ class StructDefinition : StructDeclaration {
 /**
  * Union Declaration
  */
-class UnionDeclaration : Declaration {
-	string name;
-	
-	this(Location location, string name) {
-		super(location);
-		
-		this.name = name;
-	}
-}
-
-/**
- * Union Definition
- */
-class UnionDefinition : UnionDeclaration {
+class UnionDeclaration : TypeSymbol {
 	Declaration[] members;
 	
 	this(Location location, string name, Declaration[] members) {
@@ -93,7 +71,7 @@ class UnionDefinition : UnionDeclaration {
 }
 
 /**
- * Enum
+ * Enum Declaration
  */
 class EnumDeclaration : TypeSymbol {
 	Type type;
@@ -104,26 +82,8 @@ class EnumDeclaration : TypeSymbol {
 	this(Location location, string name, Type type, VariableDeclaration[] enumEntries) {
 		super(location, name);
 		
-		this.type = new EnumType(type, this);
-		
+		this.type = type;
 		this.enumEntries = enumEntries;
-	}
-}
-
-/**
- * Enum type
- */
-class EnumType : SuffixType {
-	EnumDeclaration declaration;
-	
-	this(Type type, EnumDeclaration declaration) {
-		super(type.location, type);
-		
-		this.declaration = declaration;
-	}
-	
-	override bool opEquals(const Type t) const {
-		return this is t;
 	}
 }
 

@@ -66,22 +66,20 @@ final class SizeofCalculator {
 		}
 	}
 	
+	uint visit(AliasType t) {
+		return visit((cast(AliasDeclaration) scheduler.require(t.dalias)).type);
+	}
+	
+	uint visit(StructType t) {
+		assert(0, "Struct.sizeof is not implemented.");
+	}
+	
+	uint visit(ClassType t) {
+		assert(0, "Struct.sizeof is not implemented.");
+	}
+	
 	uint visit(EnumType t) {
-		return visit(t.type);
-	}
-	
-	uint visit(SymbolType t) {
-		return visit(t.symbol);
-	}
-	
-	uint visit(TypeSymbol s) {
-		return this.dispatch!(function uint(TypeSymbol s) {
-			assert(0, "size of type designed by " ~ typeid(s).toString() ~ " is unknown.");
-		})(s);
-	}
-	
-	uint visit(AliasDeclaration a) {
-		return visit(a.type);
+		return visit((cast(EnumDeclaration) scheduler.require(t.denum)).type);
 	}
 }
 

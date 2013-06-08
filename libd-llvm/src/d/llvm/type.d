@@ -21,11 +21,15 @@ final class TypeGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	private LLVMTypeRef[ClassDeclaration] classes;
-	private LLVMValueRef[ClassDeclaration] classInit;
+	private LLVMTypeRef[TypeSymbol] typeSymbols;
+	private LLVMValueRef[TypeSymbol] newInits;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
+	}
+	
+	LLVMValueRef getNewInit(TypeSymbol s) {
+		return newInits[s];
 	}
 	
 	LLVMTypeRef visit(Type t) {
@@ -34,22 +38,41 @@ final class TypeGen {
 		})(t);
 	}
 	
-	LLVMTypeRef visit(SymbolType t) {
-		return pass.visit(t.symbol);
+	LLVMTypeRef visit(AliasType t) {
+		return visit(t.dalias.type);
+	}
+	
+	LLVMTypeRef visit(StructType t) {
+		auto s = t.dstruct;
+		
+		if (auto st = s in typeSymbols) {
+			return *st;
+		}
+		
+		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(context, cast(char*) s.mangle.toStringz());
+		
+		LLVMTypeRef[] members;
+		
+		foreach(member; s.members) {
+			if(auto f = cast(FieldDeclaration) member) {
+				members ~= pass.visit(f.type);
+			}
+		}
+		
+		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
+		
+		return llvmStruct;
 	}
 	
 	LLVMTypeRef visit(ClassType t) {
-		return visit(t.dclass);
-	}
-	
-	LLVMTypeRef visit(ClassDeclaration c) {
-		if (auto t = c in classes) {
-			return *t;
+		auto c = t.dclass;
+		
+		if (auto ct = c in typeSymbols) {
+			return *ct;
 		}
 		
 		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) c.mangle.toStringz());
-		auto structPtr = LLVMPointerType(llvmStruct, 0);
-		classes[c] = structPtr;
+		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
 		// TODO: typeid instead of null.
 		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
@@ -86,13 +109,19 @@ final class TypeGen {
 		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
 		LLVMSetGlobalConstant(initPtr, true);
 		
-		classInit[c] = initPtr;
+		newInits[c] = initPtr;
 		
 		return structPtr;
 	}
 	
-	LLVMValueRef getClassInit(ClassDeclaration c) {
-		return classInit[c];
+	LLVMTypeRef visit(EnumType t) {
+		auto e = t.denum;
+		
+		if (auto et = e in typeSymbols) {
+			return *et;
+		}
+		
+		return typeSymbols[e] = visit(e.type);
 	}
 	
 	LLVMTypeRef visit(BooleanType t) {
@@ -177,10 +206,6 @@ final class TypeGen {
 		auto size = pass.visit(t.size);
 		
 		return LLVMArrayType(type, cast(uint) LLVMConstIntGetZExtValue(size));
-	}
-	
-	LLVMTypeRef visit(EnumType t) {
-		return visit(t.type);
 	}
 	
 	private auto buildParameterType(Parameter p) {

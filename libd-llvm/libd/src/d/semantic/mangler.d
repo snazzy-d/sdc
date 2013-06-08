@@ -21,14 +21,6 @@ final class TypeMangler {
 		return this.dispatch(t);
 	}
 	
-	string visit(SymbolType t) {
-		return scheduler.require(t.symbol).mangle;
-	}
-	
-	string visit(BooleanType t) {
-		return "b";
-	}
-	
 	string visit(IntegerType t) {
 		final switch(t.type) {
 			case Integer.Byte :
@@ -95,8 +87,24 @@ final class TypeMangler {
 		return "A" ~ visit(t.type);
 	}
 	
+	string visit(AliasType t) {
+		return scheduler.require(t.dalias).mangle;
+	}
+	
+	string visit(StructType t) {
+		return scheduler.require(t.dstruct).mangle;
+	}
+	
+	string visit(ClassType t) {
+		return scheduler.require(t.dclass).mangle;
+	}
+	
 	string visit(EnumType t) {
-		return scheduler.require(t.declaration).mangle;
+		return scheduler.require(t.denum).mangle;
+	}
+	
+	string visit(BooleanType t) {
+		return "b";
 	}
 	
 	private auto mangleParameter(Parameter p) {

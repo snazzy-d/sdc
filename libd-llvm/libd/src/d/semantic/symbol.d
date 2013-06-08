@@ -178,7 +178,16 @@ final class SymbolVisitor {
 		return visit(cast(VariableDeclaration) d);
 	}
 	
-	Symbol visit(StructDefinition d) {
+	Symbol visit(AliasDeclaration d) {
+		d.type = pass.visit(d.type);
+		d.mangle = typeMangler.visit(d.type);
+		
+		scheduler.register(d, d, Step.Processed);
+		
+		return d;
+	}
+	
+	Symbol visit(StructDeclaration d) {
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
@@ -208,7 +217,7 @@ final class SymbolVisitor {
 		buildMethods = false;
 		
 		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new SymbolType(d.location, d);
+		thisType = new StructType(d);
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
@@ -242,7 +251,7 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
-		// XXX: big lie :D
+		// FIXME: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
 		d.members = [init];
@@ -284,7 +293,7 @@ final class SymbolVisitor {
 		buildMethods = true;
 		
 		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new ClassType(d.location, d);
+		thisType = new ClassType(d);
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
@@ -364,6 +373,7 @@ final class SymbolVisitor {
 			}
 		}
 		
+		// FIXME: big lie :D
 		scheduler.register(d, d, Step.Processed);
 		
 		d.members = cast(Declaration[]) baseFields;
@@ -376,19 +386,16 @@ final class SymbolVisitor {
 	Symbol visit(EnumDeclaration d) {
 		assert(d.name, "anonymous enums must be flattened !");
 		
-		auto type = pass.visit(d.type);
-		
 		auto oldIsStatic = isStatic;
 		scope(exit) isStatic = oldIsStatic;
 		
 		isStatic = true;
 		
-		if(auto asEnum = cast(EnumType) type) {
-			if(typeid({ return asEnum.type; }()) !is typeid(IntegerType)) {
-				assert(0, "enum are of integer type.");
-			}
-		} else {
-			assert(0, "enum must have an enum type !");
+		d.type = pass.visit(d.type);
+		auto type = new EnumType(d);
+		
+		if(typeid({ return d.type; }()) !is typeid(IntegerType)) {
+			assert(0, "enum are of integer type.");
 		}
 		
 		// Update mangle prefix.
@@ -427,18 +434,10 @@ final class SymbolVisitor {
 			d.dscope.addSymbol(e);
 		}
 		
-		scheduler.register(d, d, Step.Populated);
+		scheduler.register(d, d, Step.Signed);
 		
 		scheduler.schedule(d.enumEntries, e => visit(e));
 		scheduler.require(d.enumEntries);
-		
-		scheduler.register(d, d, Step.Processed);
-		
-		return d;
-	}
-	
-	Symbol visit(AliasDeclaration d) {
-		d.type = pass.visit(d.type);
 		
 		scheduler.register(d, d, Step.Processed);
 		

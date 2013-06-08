@@ -170,7 +170,7 @@ final class Caster(bool isExplicit) {
 			
 			CastFlavor visit(EnumType t) {
 				// If the cast is explicit, then try to cast from enum base type.
-				return visit(from, t.type);
+				return visit(from, t.denum.type);
 			}
 		}
 		
@@ -315,6 +315,22 @@ final class Caster(bool isExplicit) {
 		return fromPointer.visit(t.type, to);
 	}
 	
+	CastFlavor visit(Type to, ClassType t) {
+		// Automagically promote to base type.
+		auto bases = (cast(ClassDeclaration) scheduler.require(t.dclass)).bases;
+		
+		if(bases.length == 1) {
+			return min(castFrom(bases[0], to), CastFlavor.Bit);
+		}
+		
+		return CastFlavor.Not;
+	}
+	
+	CastFlavor visit(Type to, EnumType t) {
+		// Automagically promote to base type.
+		return castFrom(t.denum.type, to);
+	}
+	
 	class FromFunction {
 		FunctionType from;
 		
@@ -342,22 +358,6 @@ final class Caster(bool isExplicit) {
 	
 	CastFlavor visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
-	}
-	
-	CastFlavor visit(Type to, ClassType t) {
-		// Automagically promote to base type.
-		auto bases = (cast(ClassDeclaration) scheduler.require(t.dclass)).bases;
-		
-		if(bases.length > 0) {
-			return min(castFrom(bases[0], to), CastFlavor.Bit);
-		}
-		
-		return CastFlavor.Not;
-	}
-	
-	CastFlavor visit(Type to, EnumType t) {
-		// Automagically promote to base type.
-		return castFrom(t.type, to);
 	}
 }
 

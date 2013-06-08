@@ -320,7 +320,7 @@ final class ExpressionGen {
 		if(auto ct = cast(ClassType) e.type) {
 			type = LLVMGetElementType(type);
 			
-			initValue = getClassInit(ct.dclass);
+			initValue = getNewInit(ct.dclass);
 		}
 		
 		LLVMValueRef size = LLVMSizeOf(type);

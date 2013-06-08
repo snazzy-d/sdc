@@ -113,12 +113,8 @@ final class CodeGenPass {
 		return declarationGen.visit(s);
 	}
 	
-	auto visit(ClassDeclaration c) {
-		return declarationGen.visit(c);
-	}
-	
-	auto getClassInit(ClassDeclaration c) {
-		return typeGen.getClassInit(c);
+	auto getNewInit(TypeSymbol s) {
+		return typeGen.getNewInit(s);
 	}
 	
 	auto visit(Statement stmt) {
