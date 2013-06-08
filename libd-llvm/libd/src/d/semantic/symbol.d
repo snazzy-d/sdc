@@ -252,7 +252,7 @@ final class SymbolVisitor {
 		return d;
 	}
 	
-	Symbol visit(ClassDefinition d) {
+	Symbol visit(ClassDeclaration d) {
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
@@ -284,7 +284,7 @@ final class SymbolVisitor {
 		buildMethods = true;
 		
 		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new SymbolType(d.location, d);
+		thisType = new ClassType(d.location, d);
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
@@ -303,23 +303,18 @@ final class SymbolVisitor {
 			
 			fieldIndex = 1;
 		} else {
-			ClassDefinition baseClass;
-			foreach(base; d.bases) {
-				base = pass.visit(base);
-				auto type = cast(SymbolType) base;
+			ClassDeclaration baseClass;
+			foreach(ref base; d.bases) {
+				auto type = cast(ClassType) pass.visit(base);
+				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
-				assert(type, "Base  must be a symbol.");
-				
-				baseClass = cast(ClassDefinition) type.symbol;
-				assert(baseClass, "Only classes are supported as base for now.");
-				
+				base = type;
+				baseClass = type.dclass;
 				break;
 			}
 			
 			if(!baseClass) {
-				// TODO: Ensure we hook the good Object.
-				auto obj = cast(SymbolType) pass.visit(new BasicIdentifier(d.location, "Object"));
-				baseClass = cast(ClassDefinition) obj.symbol;
+				baseClass = (cast(ClassType) pass.visit(new BasicIdentifier(d.location, "Object"))).dclass;
 			}
 			
 			foreach(m; baseClass.members) {

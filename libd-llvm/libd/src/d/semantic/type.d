@@ -94,5 +94,11 @@ final class TypeVisitor {
 		
 		return t;
 	}
+	
+	Type visit(ClassType t) {
+		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass);
+		
+		return t;
+	}
 }
 

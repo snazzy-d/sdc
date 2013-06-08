@@ -299,12 +299,12 @@ final class DeclarationVisitor {
 		select(d);
 	}
 	
-	void visit(ClassDefinition d) {
-		d.linkage = linkage;
+	void visit(ClassDeclaration c) {
+		c.linkage = linkage;
 		
-		currentScope.addSymbol(d);
+		currentScope.addSymbol(c);
 		
-		select(d);
+		select(c);
 	}
 	
 	void visit(EnumDeclaration d) {

@@ -195,8 +195,8 @@ final class IdentifierVisitor {
 		return getSymbolType(location, d);
 	}
 	
-	Identifiable visit(Location location, ClassDefinition d) {
-		return getSymbolType(location, d);
+	Identifiable visit(Location location, ClassDeclaration c) {
+		return Identifiable(new ClassType(location, c));
 	}
 	
 	Identifiable visit(Location location, EnumDeclaration d) {
@@ -446,14 +446,14 @@ final class SymbolInTypeResolver {
 		return s.dscope.resolve(name);
 	}
 	
-	Symbol visit(string name, ClassDefinition s) {
-		s = cast(ClassDefinition) scheduler.require(s, Step.Populated);
-		return s.dscope.resolve(name);
-	}
-	
 	Symbol visit(string name, EnumDeclaration d) {
 		d = cast(EnumDeclaration) scheduler.require(d, Step.Populated);
 		return d.dscope.resolve(name);
+	}
+	
+	Symbol visit(string name, ClassType t) {
+		auto c = cast(ClassDeclaration) scheduler.require(t.dclass, Step.Populated);
+		return c.dscope.resolve(name);
 	}
 }
 
