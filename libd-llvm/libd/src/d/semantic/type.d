@@ -69,8 +69,26 @@ final class TypeVisitor {
 		return handleSuffixType(t);
 	}
 	
+	Type visit(AliasType t) {
+		t.dalias = cast(AliasDeclaration) scheduler.require(t.dalias);
+		
+		// TODO: go for cannonical type and keep alias infos.
+		return t.dalias.type;
+	}
+	
+	Type visit(StructType t) {
+		t.dstruct = cast(StructDeclaration) scheduler.require(t.dstruct);
+		return t;
+	}
+	
+	Type visit(ClassType t) {
+		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass);
+		return t;
+	}
+	
 	Type visit(EnumType t) {
-		return handleSuffixType(t);
+		t.denum = cast(EnumDeclaration) scheduler.require(t.denum, Step.Signed);
+		return t;
 	}
 	
 	Type visit(FunctionType t) {
@@ -87,18 +105,6 @@ final class TypeVisitor {
 				return pass.raiseCondition!Type(t.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
-	}
-	
-	Type visit(SymbolType t) {
-		t.symbol = cast(TypeSymbol) scheduler.require(t.symbol);
-		
-		return t;
-	}
-	
-	Type visit(ClassType t) {
-		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass);
-		
-		return t;
 	}
 }
 

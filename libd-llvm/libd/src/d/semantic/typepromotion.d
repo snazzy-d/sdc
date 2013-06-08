@@ -39,7 +39,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		}
 		
 		Type visit(EnumType t) {
-			if(auto asInt = cast(IntegerType) t.type) {
+			if(auto asInt = cast(IntegerType) t.denum.type) {
 				return visit(asInt);
 			}
 			
@@ -73,7 +73,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		}
 		
 		Type visit(EnumType t) {
-			if(auto asInt = cast(IntegerType) t.type) {
+			if(auto asInt = cast(IntegerType) t.denum.type) {
 				return visit(asInt);
 			}
 			

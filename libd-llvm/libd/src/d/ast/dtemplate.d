@@ -30,7 +30,7 @@ class TemplateDeclaration : Symbol {
 /**
  * Super class for all templates parameters
  */
-class TemplateParameter : TypeSymbol {
+class TemplateParameter : Symbol {
 	this(Location location, string name) {
 		super(location, name);
 	}

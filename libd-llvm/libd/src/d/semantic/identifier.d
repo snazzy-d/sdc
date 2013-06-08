@@ -143,6 +143,10 @@ final class IdentifierVisitor {
 		return this.dispatch(location, s);
 	}
 	
+	Identifiable visit(Location location, TypeSymbol s) {
+		return this.dispatch(location, s);
+	}
+	
 	private auto getSymbolExpression(Location location, ExpressionSymbol s) {
 		return Identifiable(new SymbolExpression(location, s));
 	}
@@ -187,24 +191,20 @@ final class IdentifierVisitor {
 		return Identifiable(new PolysemousExpression(location, expressions));
 	}
 	
-	private auto getSymbolType(Location location, TypeSymbol s) {
-		return Identifiable(new SymbolType(location, s));
+	Identifiable visit(Location location, AliasDeclaration d) {
+		return Identifiable(new AliasType(d));
 	}
 	
-	Identifiable visit(Location location, StructDefinition d) {
-		return getSymbolType(location, d);
+	Identifiable visit(Location location, StructDeclaration d) {
+		return Identifiable(new StructType(d));
 	}
 	
 	Identifiable visit(Location location, ClassDeclaration c) {
-		return Identifiable(new ClassType(location, c));
+		return Identifiable(new ClassType(c));
 	}
 	
 	Identifiable visit(Location location, EnumDeclaration d) {
-		return getSymbolType(location, d);
-	}
-	
-	Identifiable visit(Location location, AliasDeclaration d) {
-		return Identifiable(d.type);
+		return Identifiable(new EnumType(d));
 	}
 	
 	Identifiable visit(Location location, Module m) {
@@ -232,7 +232,7 @@ final class TypeDotIdentifierVisitor {
 			}
 			
 			if(auto ts = cast(TypeSymbol) s) {
-				return Identifiable(new SymbolType(i.location, ts));
+				return identifierVisitor.visit(i.location, ts);
 			} else if(auto es = cast(ExpressionSymbol) s) {
 				return Identifiable(new SymbolExpression(i.location, es));
 			} else {
@@ -321,6 +321,22 @@ final class ExpressionDotIdentifierVisitor {
 	
 	Identifiable visit(Location location, Expression e, MethodDeclaration d) {
 		return Identifiable(new VirtualDispatchExpression(location, e, d));
+	}
+	
+	Identifiable visit(Location location, Expression e, AliasDeclaration d) {
+		return Identifiable(new AliasType(d));
+	}
+	
+	Identifiable visit(Location location, Expression e, StructDeclaration d) {
+		return Identifiable(new StructType(d));
+	}
+	
+	Identifiable visit(Location location, Expression e, ClassDeclaration c) {
+		return Identifiable(new ClassType(c));
+	}
+	
+	Identifiable visit(Location location, Expression e, EnumDeclaration d) {
+		return Identifiable(new EnumType(d));
 	}
 }
 
@@ -425,35 +441,25 @@ final class SymbolInTypeResolver {
 		}
 	}
 	
-	// XXX: why is this needed and not for struct/classes ?
-	Symbol visit(string name, EnumType t) {
-		auto d = cast(EnumDeclaration) scheduler.require(t.declaration, Step.Populated);
-		auto s = d.dscope.resolve(name);
-		
-		return s?s:visit(name, t.type);
+	Symbol visit(string name, AliasType t) {
+		return visit(name, t.dalias.type);
 	}
 	
-	Symbol visit(string name, SymbolType t) {
-		return this.dispatch(name, t.symbol);
-	}
-	
-	Symbol visit(string name, AliasDeclaration a) {
-		return visit(name, a.type);
-	}
-	
-	Symbol visit(string name, StructDefinition s) {
-		s = cast(StructDefinition) scheduler.require(s, Step.Populated);
+	Symbol visit(string name, StructType t) {
+		auto s = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Populated);
 		return s.dscope.resolve(name);
-	}
-	
-	Symbol visit(string name, EnumDeclaration d) {
-		d = cast(EnumDeclaration) scheduler.require(d, Step.Populated);
-		return d.dscope.resolve(name);
 	}
 	
 	Symbol visit(string name, ClassType t) {
 		auto c = cast(ClassDeclaration) scheduler.require(t.dclass, Step.Populated);
 		return c.dscope.resolve(name);
+	}
+	
+	Symbol visit(string name, EnumType t) {
+		auto e = cast(EnumDeclaration) scheduler.require(t.denum, Step.Populated);
+		auto s = e.dscope.resolve(name);
+		
+		return s?s:visit(name, t.denum.type);
 	}
 }
 
