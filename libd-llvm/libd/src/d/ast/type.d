@@ -1,5 +1,6 @@
 module d.ast.type;
 
+import d.ast.adt;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dscope;
@@ -342,6 +343,7 @@ class IdentifierType : BasicType {
 /**
  * Symbol type.
  * IdentifierType that as been resolved.
+ * Deprecated in favor of more precise types.
  */
 class SymbolType : BasicType {
 	TypeSymbol symbol;
@@ -362,6 +364,32 @@ class SymbolType : BasicType {
 	
 	bool opEquals(const SymbolType t) const {
 		return symbol is t.symbol && qualifier == t.qualifier;
+	}
+}
+
+/**
+ * Class type.
+ * Type created via a class declaration.
+ */
+class ClassType : BasicType {
+	ClassDeclaration dclass;
+	
+	this(Location location, ClassDeclaration dclass) {
+		super(location);
+		
+		this.dclass = dclass;
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto s = cast(ClassType) t) {
+			return this.opEquals(s);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const ClassType t) const {
+		return dclass is t.dclass && qualifier == t.qualifier;
 	}
 }
 

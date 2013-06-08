@@ -278,8 +278,7 @@ final class ExpressionGen {
 		auto type = cast(DelegateType) e.type;
 		assert(type);
 		
-		auto cd = cast(ClassDefinition) (cast(SymbolType) e.expression.type).symbol;
-		assert(cd);
+		auto cd = (cast(ClassType) e.expression.type).dclass;
 		
 		auto thisPtr = visit(e.expression);
 		
@@ -318,12 +317,10 @@ final class ExpressionGen {
 		
 		auto type = pass.visit(e.type);
 		LLVMValueRef initValue;
-		if(auto s = cast(SymbolType) e.type) {
-			if(auto cd = cast(ClassDefinition) s.symbol) {
-				type = LLVMGetElementType(type);
-				
-				initValue = getClassInit(cd);
-			}
+		if(auto ct = cast(ClassType) e.type) {
+			type = LLVMGetElementType(type);
+			
+			initValue = getClassInit(ct.dclass);
 		}
 		
 		LLVMValueRef size = LLVMSizeOf(type);

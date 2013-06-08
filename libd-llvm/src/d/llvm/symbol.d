@@ -5,6 +5,7 @@ import d.llvm.codegen;
 import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dfunction;
+import d.ast.type;
 
 import util.visitor;
 
@@ -22,8 +23,6 @@ final class DeclarationGen {
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	
-	private LLVMValueRef[ClassDefinition] classInit;
-	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
@@ -33,6 +32,8 @@ final class DeclarationGen {
 			visit(es);
 		} else if(auto ts = cast(TypeSymbol) d) {
 			visit(ts);
+		} else if(auto cd = cast(ClassDeclaration) d) {
+			visit(cd);
 		}
 		
 		assert(cast(Symbol) d, "Can only generate symbols.");
@@ -56,6 +57,10 @@ final class DeclarationGen {
 		}
 			
 		return fun;
+	}
+	
+	LLVMValueRef visit(MethodDeclaration m) {
+		return visit(cast(FunctionDeclaration) m);
 	}
 	
 	private void genFunctionBody(FunctionDeclaration f) {
@@ -186,59 +191,16 @@ final class DeclarationGen {
 		return llvmStruct;
 	}
 	
-	LLVMTypeRef visit(ClassDefinition d) {
-		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) d.mangle.toStringz());
-		auto structPtr = LLVMPointerType(llvmStruct, 0);
-		typeSymbols[d] = structPtr;
+	LLVMTypeRef visit(ClassDeclaration c) {
+		auto ret = pass.visit(new ClassType(c.location, c));
 		
-		// TODO: typeid instead of null.
-		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
-		LLVMValueRef[] fields = [null];
-		foreach(member; d.members) {
-			if (auto m = cast(MethodDeclaration) member) {
-				auto oldBody = m.fbody;
-				scope(exit) m.fbody = oldBody;
-				
-				m.fbody = null;
-				
-				vtbl ~= visit(m);
-			} else if(auto f = cast(FieldDeclaration) member) {
-				if(f.index > 0) {
-					fields ~= pass.visit(f.value);
-				}
-			}
-		}
-		
-		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
-		auto vtblStruct = LLVMStructCreateNamed(context, cast(char*) (d.mangle ~ "__vtbl").toStringz());
-		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
-		
-		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (d.mangle ~ "__vtblZ").toStringz());
-		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
-		LLVMSetGlobalConstant(vtblPtr, true);
-		
-		// Set vtbl.
-		fields[0] = vtblPtr;
-		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
-		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
-		
-		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (d.mangle ~ "__initZ").toStringz());
-		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
-		LLVMSetGlobalConstant(initPtr, true);
-		
-		classInit[d] = initPtr;
-		
-		foreach(member; d.members) {
+		foreach(member; c.members) {
 			if (auto m = cast(MethodDeclaration) member) {
 				genFunctionBody(m);
 			}
 		}
 		
-		return structPtr;
-	}
-	
-	LLVMValueRef getClassInit(ClassDefinition d) {
-		return classInit[d];
+		return ret;
 	}
 	
 	LLVMTypeRef visit(EnumDeclaration d) {

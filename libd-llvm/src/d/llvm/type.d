@@ -3,6 +3,7 @@ module d.llvm.type;
 import d.llvm.codegen;
 
 import d.ast.adt;
+import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.type;
 
@@ -14,10 +15,14 @@ import llvm.c.core;
 
 import std.algorithm;
 import std.array;
+import std.string;
 
 final class TypeGen {
 	private CodeGenPass pass;
 	alias pass this;
+	
+	private LLVMTypeRef[ClassDeclaration] classes;
+	private LLVMValueRef[ClassDeclaration] classInit;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -33,6 +38,63 @@ final class TypeGen {
 		return pass.visit(t.symbol);
 	}
 	
+	LLVMTypeRef visit(ClassType t) {
+		return visit(t.dclass);
+	}
+	
+	LLVMTypeRef visit(ClassDeclaration c) {
+		if (auto t = c in classes) {
+			return *t;
+		}
+		
+		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) c.mangle.toStringz());
+		auto structPtr = LLVMPointerType(llvmStruct, 0);
+		classes[c] = structPtr;
+		
+		// TODO: typeid instead of null.
+		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
+		LLVMValueRef[] fields = [null];
+		foreach(member; c.members) {
+			if (auto m = cast(MethodDeclaration) member) {
+				auto oldBody = m.fbody;
+				scope(exit) m.fbody = oldBody;
+				
+				m.fbody = null;
+				
+				vtbl ~= pass.visit(m);
+			} else if(auto f = cast(FieldDeclaration) member) {
+				if(f.index > 0) {
+					fields ~= pass.visit(f.value);
+				}
+			}
+		}
+		
+		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+		auto vtblStruct = LLVMStructCreateNamed(context, cast(char*) (c.mangle ~ "__vtbl").toStringz());
+		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
+		
+		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (c.mangle ~ "__vtblZ").toStringz());
+		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
+		LLVMSetGlobalConstant(vtblPtr, true);
+		
+		// Set vtbl.
+		fields[0] = vtblPtr;
+		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
+		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
+		
+		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (c.mangle ~ "__initZ").toStringz());
+		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
+		LLVMSetGlobalConstant(initPtr, true);
+		
+		classInit[c] = initPtr;
+		
+		return structPtr;
+	}
+	
+	LLVMValueRef getClassInit(ClassDeclaration c) {
+		return classInit[c];
+	}
+	
 	LLVMTypeRef visit(BooleanType t) {
 		isSigned = false;
 		
@@ -42,17 +104,17 @@ final class TypeGen {
 	LLVMTypeRef visit(IntegerType t) {
 		isSigned = !(t.type % 2);
 		
-		final switch(t.type) {
-				case Integer.Byte, Integer.Ubyte :
+		final switch(t.type) with(Integer) {
+				case Byte, Ubyte :
 					return LLVMInt8TypeInContext(context);
 				
-				case Integer.Short, Integer.Ushort :
+				case Short, Ushort :
 					return LLVMInt16TypeInContext(context);
 				
-				case Integer.Int, Integer.Uint :
+				case Int, Uint :
 					return LLVMInt32TypeInContext(context);
 				
-				case Integer.Long, Integer.Ulong :
+				case Long, Ulong :
 					return LLVMInt64TypeInContext(context);
 		}
 	}
@@ -60,14 +122,14 @@ final class TypeGen {
 	LLVMTypeRef visit(FloatType t) {
 		isSigned = true;
 		
-		final switch(t.type) {
-				case Float.Float :
+		final switch(t.type) with(Float) {
+				case Float :
 					return LLVMFloatTypeInContext(context);
 				
-				case Float.Double :
+				case Double :
 					return LLVMDoubleTypeInContext(context);
 				
-				case Float.Real :
+				case Real :
 					return LLVMX86FP80TypeInContext(context);
 		}
 	}
@@ -76,14 +138,14 @@ final class TypeGen {
 	LLVMTypeRef visit(CharacterType t) {
 		isSigned = false;
 		
-		final switch(t.type) {
-				case Character.Char :
+		final switch(t.type) with(Character) {
+				case Char :
 					return LLVMInt8TypeInContext(context);
 				
-				case Character.Wchar :
+				case Wchar :
 					return LLVMInt16TypeInContext(context);
 				
-				case Character.Dchar :
+				case Dchar :
 					return LLVMInt32TypeInContext(context);
 		}
 	}
