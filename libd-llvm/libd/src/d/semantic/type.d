@@ -8,6 +8,9 @@ import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.type;
 
+import std.algorithm;
+import std.array;
+
 final class TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -16,7 +19,9 @@ final class TypeVisitor {
 		this.pass = pass;
 	}
 	
-	Type visit(Type t) {
+	Type visit(Type t) /* out(result) {
+		assert(t.canonical, "Canonical type must be set.");
+	} body */ {
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
@@ -51,8 +56,14 @@ final class TypeVisitor {
 		return t.expression.type;
 	}
 	
-	auto handleSuffixType(T)(T t) {
+	auto handleSuffixType(T, A...)(T t, A args) if(is(T : SuffixType)) {
 		t.type = visit(t.type);
+		
+		if(t.type.canonical is t.type) {
+			t.canonical = t;
+		} else {
+			t.canonical = new T(t.canonical, args);
+		}
 		
 		return t;
 	}
@@ -66,35 +77,53 @@ final class TypeVisitor {
 	}
 	
 	Type visit(StaticArrayType t) {
-		return handleSuffixType(t);
+		t.size = pass.visit(t.size);
+		
+		return handleSuffixType(t, t.size);
 	}
 	
 	Type visit(AliasType t) {
 		t.dalias = cast(AliasDeclaration) scheduler.require(t.dalias);
+		t.canonical = t.dalias.type.canonical;
 		
-		// TODO: go for cannonical type and keep alias infos.
 		return t.dalias.type;
 	}
 	
 	Type visit(StructType t) {
 		t.dstruct = cast(StructDeclaration) scheduler.require(t.dstruct);
+		t.canonical = t;
+		
 		return t;
 	}
 	
 	Type visit(ClassType t) {
 		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass);
+		t.canonical = t;
+		
 		return t;
 	}
 	
 	Type visit(EnumType t) {
 		t.denum = cast(EnumDeclaration) scheduler.require(t.denum, Step.Signed);
+		t.canonical = t;
+		
 		return t;
 	}
 	
 	Type visit(FunctionType t) {
-		t.returnType = visit(t.returnType);
+		// Go to pass to reset qualifier accumulation.
+		t.returnType = pass.visit(t.returnType);
+		
+		t.parameters = cast(Parameter[]) t.parameters.map!(p => pass.visit(p)).array();
+		t.canonical = t;
 		
 		return t;
+	}
+	
+	Type visit(DelegateType t) {
+		t.context = cast(Parameter) pass.visit(t.context);
+		
+		return visit(cast(FunctionType) t);
 	}
 	
 	Type visit(IdentifierType t) {

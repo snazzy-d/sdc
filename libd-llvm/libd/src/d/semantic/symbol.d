@@ -58,7 +58,7 @@ final class SymbolVisitor {
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
 			d.returnType = pass.visit(d.returnType);
 			
-			d.type = new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic);
+			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
 			
 			scheduler.register(d, d, Step.Signed);
 		}
@@ -110,7 +110,7 @@ final class SymbolVisitor {
 			
 			d.returnType = returnType;
 			
-			d.type = new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic);
+			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
 		}
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
@@ -306,7 +306,7 @@ final class SymbolVisitor {
 		
 		methodIndex = 0;
 		if(d.mangle == "C6object6Object") {
-			auto vtblType = new PointerType(new VoidType());
+			auto vtblType = pass.visit(new PointerType(new VoidType()));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
 			

@@ -78,6 +78,7 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 
 abstract class Type {
 	TypeQualifier qualifier;
+	Type canonical;
 	
 	bool opEquals(const Type t) const out(isEqual) {
 		if(isEqual) {
@@ -85,6 +86,12 @@ abstract class Type {
 		}
 	} body {
 		assert(0, "comparaision isn't supported for type " ~ typeid(this).toString());
+	}
+	
+	// TODO: make that abstract
+	/* abstract */ string toUnqualString() const {
+		// assert(0, "Not implemented");
+		return typeid(this).toString();
 	}
 
 final:
@@ -95,9 +102,39 @@ final:
 		
 		return false;
 	}
+	
+	final override string toString() {
+		const t = this;
+		
+		return t.toString();
+	}
+	
+	final string toString() const {
+		auto s = toUnqualString();
+		
+		final switch(qualifier) with(TypeQualifier) {
+			case Mutable:
+				return s;
+			
+			case Inout:
+				return "inout(" ~ s ~ ")";
+			
+			case Const:
+				return "const(" ~ s ~ ")";
+			
+			case Shared:
+				return "shared(" ~ s ~ ")";
+			
+			case ConstShared:
+				assert(0, "const shared isn't supported");
+			
+			case Immutable:
+				return "immutable(" ~ s ~ ")";
+		}
+	}
 }
 
-class SuffixType : Type {
+abstract class SuffixType : Type {
 	Type type;
 	
 	this(Type type) {
@@ -108,8 +145,9 @@ class SuffixType : Type {
 /**
  * All basics types and qualified basic types.
  */
-class BasicType : Type {}
+abstract class BasicType : Type {}
 
+final:
 /**
  * An Error occured but an Type is expected.
  * Useful for speculative compilation.
@@ -133,12 +171,20 @@ class AutoType : Type {}
  * Boolean type.
  */
 class BooleanType : BasicType {
+	this() {
+		canonical = this;
+	}
+	
 	override bool opEquals(const Type t) const {
 		return typeid(t) is typeid(BooleanType);
 	}
 	
 	bool opEquals(BooleanType t) const {
 		return qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		return "bool";
 	}
 }
 
@@ -185,6 +231,8 @@ class IntegerType : BasicType {
 	
 	this(Integer type) {
 		this.type = type;
+		
+		canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -197,6 +245,34 @@ class IntegerType : BasicType {
 	
 	bool opEquals(const IntegerType t) const {
 		return type == t.type && qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		final switch(type) with(Integer) {
+			case Byte:
+				return "byte";
+			
+			case Ubyte:
+				return "ubyte";
+			
+			case Short:
+				return "short";
+			
+			case Ushort:
+				return "ushort";
+			
+			case Int:
+				return "int";
+			
+			case Uint:
+				return "uint";
+			
+			case Long:
+				return "long";
+			
+			case Ulong:
+				return "ulong";
+		}
 	}
 }
 
@@ -228,6 +304,8 @@ class FloatType : BasicType {
 	
 	this(Float type) {
 		this.type = type;
+		
+		canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -240,6 +318,19 @@ class FloatType : BasicType {
 	
 	bool opEquals(const FloatType t) const {
 		return type == t.type && qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		final switch(type) with(Float) {
+			case Float:
+				return "float";
+			
+			case Double:
+				return "double";
+			
+			case Real:
+				return "real";
+		}
 	}
 }
 
@@ -271,6 +362,8 @@ class CharacterType : BasicType {
 	
 	this(Character type) {
 		this.type = type;
+		
+		canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -284,18 +377,39 @@ class CharacterType : BasicType {
 	bool opEquals(const CharacterType t) const {
 		return type == t.type && qualifier == t.qualifier;
 	}
+	
+	override string toUnqualString() const {
+		final switch(type) with(Character) {
+			case Char:
+				return "char";
+			
+			case Wchar:
+				return "wchar";
+			
+			case Dchar:
+				return "dchar";
+		}
+	}
 }
 
 /**
  * Void
  */
 class VoidType : BasicType {
+	this() {
+		canonical = this;
+	}
+	
 	override bool opEquals(const Type t) const {
 		return typeid(t) is typeid(VoidType);
 	}
 	
 	bool opEquals(const VoidType t) const {
 		return qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		return "void";
 	}
 }
 
@@ -307,6 +421,95 @@ class IdentifierType : BasicType {
 	
 	this(Identifier identifier) {
 		this.identifier = identifier;
+	}
+}
+
+/**
+ * Pointer type
+ */
+class PointerType : SuffixType {
+	this(Type type) {
+		super(type);
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto p = cast(PointerType) t) {
+			return this.opEquals(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const PointerType t) const {
+		return type == t.type && qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		return ((qualifier == type.qualifier)? type.toUnqualString() : type.toString()) ~ "*";
+	}
+}
+
+/**
+ * Slice types
+ */
+class SliceType : SuffixType {
+	this(Type type) {
+		super(type);
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto p = cast(SliceType) t) {
+			return this.opEquals(p);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const SliceType t) const {
+		return type == t.type && qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		return ((qualifier == type.qualifier)? type.toUnqualString() : type.toString()) ~ "[]";
+	}
+}
+
+/**
+ * Static array types
+ */
+class StaticArrayType : SuffixType {
+	Expression size;
+	
+	this(Type type, Expression size) {
+		super(type);
+		
+		this.size = size;
+	}
+}
+
+/**
+ * Associative array types
+ */
+class AssociativeArrayType : Type {
+	Type keyType;
+	Type valueType;
+	
+	this(Type valueType, Type keyType) {
+		this.keyType = keyType;
+		this.valueType = valueType;
+	}
+}
+
+/**
+ * Associative or static array types
+ */
+class IdentifierArrayType : Type {
+	Identifier identifier;
+	Type type;
+	
+	this(Type type, Identifier identifier) {
+		this.identifier = identifier;
+		this.type = type;
 	}
 }
 
@@ -332,6 +535,10 @@ class AliasType : BasicType {
 	bool opEquals(const AliasType t) const {
 		return dalias is t.dalias && qualifier == t.qualifier;
 	}
+	
+	override string toUnqualString() const {
+		return dalias.name;
+	}
 }
 
 /**
@@ -343,6 +550,8 @@ class StructType : BasicType {
 	
 	this(StructDeclaration dstruct) {
 		this.dstruct = dstruct;
+		
+		// canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -356,6 +565,10 @@ class StructType : BasicType {
 	bool opEquals(const StructType t) const {
 		return dstruct is t.dstruct && qualifier == t.qualifier;
 	}
+	
+	override string toUnqualString() const {
+		return dstruct.name;
+	}
 }
 
 /**
@@ -367,6 +580,8 @@ class ClassType : BasicType {
 	
 	this(ClassDeclaration dclass) {
 		this.dclass = dclass;
+		
+		// canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -380,6 +595,10 @@ class ClassType : BasicType {
 	bool opEquals(const ClassType t) const {
 		return dclass is t.dclass && qualifier == t.qualifier;
 	}
+	
+	override string toUnqualString() const {
+		return dclass.name;
+	}
 }
 
 /**
@@ -391,6 +610,8 @@ class EnumType : BasicType {
 	
 	this(EnumDeclaration denum) {
 		this.denum = denum;
+		
+		// canonical = this;
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -403,6 +624,10 @@ class EnumType : BasicType {
 	
 	bool opEquals(const EnumType t) const {
 		return denum is t.denum && qualifier == t.qualifier;
+	}
+	
+	override string toUnqualString() const {
+		return denum.name;
 	}
 }
 
@@ -421,85 +646,4 @@ class TypeofType : BasicType {
  * Type defined by typeof(return)
  */
 class ReturnType : BasicType {}
-
-/**
- * Pointer type
- */
-class PointerType : SuffixType {
-	this(Type type) {
-		super(type);
-	}
-	
-	override bool opEquals(const Type t) const {
-		if(auto p = cast(PointerType) t) {
-			return this.opEquals(p);
-		}
-		
-		return false;
-	}
-	
-	bool opEquals(const PointerType t) const {
-		return type == t.type && qualifier == t.qualifier;
-	}
-}
-
-/**
- * Slice types
- */
-class SliceType : SuffixType {
-	this(Type type) {
-		super(type);
-	}
-	
-	override bool opEquals(const Type t) const {
-		if(auto p = cast(SliceType) t) {
-			return this.opEquals(p);
-		}
-		
-		return false;
-	}
-	
-	bool opEquals(const SliceType t) const {
-		return type == t.type && qualifier == t.qualifier;
-	}
-}
-
-/**
- * Static array types
- */
-class StaticArrayType : SuffixType {
-	Expression size;
-	
-	this(Type type, Expression size) {
-		super(type);
-		
-		this.size = size;
-	}
-}
-
-/**
- * Associative array types
- */
-class AssociativeArrayType : SuffixType {
-	Type keyType;
-	
-	this(Type type, Type keyType) {
-		super(type);
-		
-		this.keyType = keyType;
-	}
-}
-
-/**
- * Associative or static array types
- */
-class IdentifierArrayType : SuffixType {
-	Identifier identifier;
-	
-	this(Type type, Identifier identifier) {
-		super(type);
-		
-		this.identifier = identifier;
-	}
-}
 

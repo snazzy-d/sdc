@@ -62,6 +62,8 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(StringLiteral e) {
+		e.type = pass.visit(e.type);
+		
 		return e;
 	}
 	
@@ -323,6 +325,13 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Cannot take the address of an address.");
 		}
 		
+		// DMD don't understand that it has all infos already :(
+		static SemanticPass workaround;
+		auto oldWA = workaround;
+		scope(exit) workaround = oldWA;
+		
+		workaround = pass;
+		
 		return handleUnaryExpression!((AddressOfExpression e) {
 			// For fucked up reasons, &funcname is a special case.
 			if(auto asSym = cast(SymbolExpression) e.expression) {
@@ -331,7 +340,7 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			e.type = new PointerType(e.expression.type);
+			e.type = workaround.visit(new PointerType(e.expression.type));
 			
 			return e;
 		})(e);
@@ -342,6 +351,8 @@ final class ExpressionVisitor {
 		static SemanticPass workaround;
 		auto oldWA = workaround;
 		scope(exit) workaround = oldWA;
+		
+		workaround = pass;
 		
 		return handleUnaryExpression!(function Expression(DereferenceExpression e) {
 			if(auto pt = cast(PointerType) e.expression.type) {
@@ -599,11 +610,12 @@ final class ExpressionVisitor {
 	Expression visit(IndexExpression e) {
 		e.indexed = visit(e.indexed);
 		
-		if(auto asSlice = cast(SliceType) e.indexed.type) {
+		auto type = e.indexed.type;
+		if(auto asSlice = cast(SliceType) type) {
 			e.type = asSlice.type;
-		} else if(auto asPointer = cast(PointerType) e.indexed.type) {
+		} else if(auto asPointer = cast(PointerType) type) {
 			e.type = asPointer.type;
-		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
+		} else if(auto asStaticArray = cast(StaticArrayType) type) {
 			e.type = asStaticArray.type;
 		} else {
 			return pass.raiseCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
@@ -628,7 +640,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
 		}
 		
-		e.type = new SliceType(e.type);
+		e.type = pass.visit(new SliceType(e.type));
 		
 		e.first = e.first.map!(e => visit(e)).array();
 		e.second = e.second.map!(e => visit(e)).array();
