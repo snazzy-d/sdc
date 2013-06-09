@@ -146,7 +146,7 @@ class FunctionDeclaration : ExpressionSymbol {
 	}
 	
 	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		super(location, name, new FunctionType(location, linkage, returnType, parameters, isVariadic));
+		super(location, name, new FunctionType(linkage, returnType, parameters, isVariadic));
 		
 		this.name = name;
 		this.linkage = linkage;
@@ -182,8 +182,8 @@ class MethodDeclaration : FunctionDeclaration {
  * Used for type identifier;
  */
 class DefaultInitializer : Expression {
-	this(Type type) {
-		super(type.location, type);
+	this(Location location, Type type) {
+		super(location, type);
 	}
 }
 

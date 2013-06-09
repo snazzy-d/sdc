@@ -76,12 +76,8 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 	}
 }
 
-abstract class Type : Node {
+abstract class Type {
 	TypeQualifier qualifier;
-	
-	this(Location location) {
-		super(location);
-	}
 	
 	bool opEquals(const Type t) const out(isEqual) {
 		if(isEqual) {
@@ -104,9 +100,7 @@ final:
 class SuffixType : Type {
 	Type type;
 	
-	this(Location location, Type type) {
-		super(location);
-		
+	this(Type type) {
 		this.type = type;
 	}
 }
@@ -114,22 +108,18 @@ class SuffixType : Type {
 /**
  * All basics types and qualified basic types.
  */
-class BasicType : Type {
-	this(Location location) {
-		super(location);
-	}
-}
+class BasicType : Type {}
 
 /**
  * An Error occured but an Type is expected.
  * Useful for speculative compilation.
  */
 class ErrorType : BasicType {
+	Location location;
 	string message;
 	
 	this(Location location, string message = "") {
-		super(location);
-		
+		this.location = location;
 		this.message = message;
 	}
 }
@@ -137,20 +127,12 @@ class ErrorType : BasicType {
 /**
  * Auto types
  */
-class AutoType : Type {
-	this(Location location) {
-		super(location);
-	}
-}
+class AutoType : Type {}
 
 /**
  * Boolean type.
  */
 class BooleanType : BasicType {
-	this(Location location) {
-		super(location);
-	}
-	
 	override bool opEquals(const Type t) const {
 		return typeid(t) is typeid(BooleanType);
 	}
@@ -201,9 +183,7 @@ template IntegerOf(T) {
 class IntegerType : BasicType {
 	Integer type;
 	
-	this(Location location, Integer type) {
-		super(location);
-		
+	this(Integer type) {
 		this.type = type;
 	}
 	
@@ -246,9 +226,7 @@ template FloatOf(T) {
 class FloatType : BasicType {
 	Float type;
 	
-	this(Location location, Float type) {
-		super(location);
-		
+	this(Float type) {
 		this.type = type;
 	}
 	
@@ -291,9 +269,7 @@ template CharacterOf(T) {
 class CharacterType : BasicType {
 	Character type;
 	
-	this(Location location, Character type) {
-		super(location);
-		
+	this(Character type) {
 		this.type = type;
 	}
 	
@@ -314,10 +290,6 @@ class CharacterType : BasicType {
  * Void
  */
 class VoidType : BasicType {
-	this(Location location) {
-		super(location);
-	}
-	
 	override bool opEquals(const Type t) const {
 		return typeid(t) is typeid(VoidType);
 	}
@@ -334,8 +306,6 @@ class IdentifierType : BasicType {
 	Identifier identifier;
 	
 	this(Identifier identifier) {
-		super(identifier.location);
-		
 		this.identifier = identifier;
 	}
 }
@@ -348,8 +318,6 @@ class AliasType : BasicType {
 	AliasDeclaration dalias;
 	
 	this(AliasDeclaration dalias) {
-		super(dalias.location);
-		
 		this.dalias = dalias;
 	}
 	
@@ -374,8 +342,6 @@ class StructType : BasicType {
 	StructDeclaration dstruct;
 	
 	this(StructDeclaration dstruct) {
-		super(dstruct.location);
-		
 		this.dstruct = dstruct;
 	}
 	
@@ -400,8 +366,6 @@ class ClassType : BasicType {
 	ClassDeclaration dclass;
 	
 	this(ClassDeclaration dclass) {
-		super(dclass.location);
-		
 		this.dclass = dclass;
 	}
 	
@@ -426,8 +390,6 @@ class EnumType : BasicType {
 	EnumDeclaration denum;
 	
 	this(EnumDeclaration denum) {
-		super(denum.location);
-		
 		this.denum = denum;
 	}
 	
@@ -450,9 +412,7 @@ class EnumType : BasicType {
 class TypeofType : BasicType {
 	Expression expression;
 	
-	this(Location location, Expression expression) {
-		super(location);
-		
+	this(Expression expression) {
 		this.expression = expression;
 	}
 }
@@ -460,18 +420,14 @@ class TypeofType : BasicType {
 /**
  * Type defined by typeof(return)
  */
-class ReturnType : BasicType {
-	this(Location location) {
-		super(location);
-	}
-}
+class ReturnType : BasicType {}
 
 /**
  * Pointer type
  */
 class PointerType : SuffixType {
-	this(Location location, Type type) {
-		super(location, type);
+	this(Type type) {
+		super(type);
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -491,8 +447,8 @@ class PointerType : SuffixType {
  * Slice types
  */
 class SliceType : SuffixType {
-	this(Location location, Type type) {
-		super(location, type);
+	this(Type type) {
+		super(type);
 	}
 	
 	override bool opEquals(const Type t) const {
@@ -514,8 +470,8 @@ class SliceType : SuffixType {
 class StaticArrayType : SuffixType {
 	Expression size;
 	
-	this(Location location, Type type, Expression size) {
-		super(location, type);
+	this(Type type, Expression size) {
+		super(type);
 		
 		this.size = size;
 	}
@@ -527,8 +483,8 @@ class StaticArrayType : SuffixType {
 class AssociativeArrayType : SuffixType {
 	Type keyType;
 	
-	this(Location location, Type type, Type keyType) {
-		super(location, type);
+	this(Type type, Type keyType) {
+		super(type);
 		
 		this.keyType = keyType;
 	}
@@ -540,8 +496,8 @@ class AssociativeArrayType : SuffixType {
 class IdentifierArrayType : SuffixType {
 	Identifier identifier;
 	
-	this(Location location, Type type, Identifier identifier) {
-		super(location, type);
+	this(Type type, Identifier identifier) {
+		super(type);
 		
 		this.identifier = identifier;
 	}

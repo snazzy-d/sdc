@@ -310,7 +310,7 @@ class ExpressionVisitor {
 	}
 	
 	Expression visit(DefaultInitializer e) {
-		return new DefaultInitializer(pass.visit(e.type));
+		return new DefaultInitializer(e.location, pass.visit(e.type));
 	}
 }
 
@@ -333,11 +333,11 @@ class TypeVisitor {
 	}
 	
 	Type visit(BooleanType t) {
-		return new BooleanType(t.location);
+		return new BooleanType();
 	}
 	
 	private auto handleBasicType(BasicType)(BasicType t) {
-		return new BasicType(t.location, t.type);
+		return new BasicType(t.type);
 	}
 	
 	Type visit(IntegerType t) {
@@ -353,12 +353,12 @@ class TypeVisitor {
 	}
 	
 	Type visit(VoidType t) {
-		return new VoidType(t.location);
+		return new VoidType();
 	}
 	
 	Type visit(FunctionType t) {
 		auto parameters = cast(Parameter[]) t.parameters.map!(p => pass.visit(p)).array();
-		return new FunctionType(t.location, t.linkage, visit(t.returnType), parameters, t.isVariadic);
+		return new FunctionType(t.linkage, visit(t.returnType), parameters, t.isVariadic);
 	}
 	
 	Type visit(IdentifierType t) {
@@ -366,7 +366,7 @@ class TypeVisitor {
 	}
 	
 	Type visit(AutoType t) {
-		return new AutoType(t.location);
+		return new AutoType();
 	}
 }
 

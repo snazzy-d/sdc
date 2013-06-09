@@ -129,7 +129,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 								trange.popFront();
 							}
 							
-							type = new AutoType(trange.front.location);
+							type = new AutoType();
 							break;
 						}
 						

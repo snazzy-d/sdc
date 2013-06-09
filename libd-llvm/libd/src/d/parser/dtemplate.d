@@ -132,6 +132,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	auto type = trange.parseType();
 	string name = trange.front.value;
 	
+	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
 	if(trange.front.type == TokenType.Assign) {
@@ -147,8 +148,6 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 				auto expression = trange.parseAssignExpression();
 				location.spanTo(expression.location);
 		}
-	} else {
-		location.spanTo(type.location);
 	}
 	
 	return new ValueTemplateParameter(location, name, type);
@@ -209,7 +208,11 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			break;
 		
 		default :
-			arguments = [new TypeTemplateArgument(trange.parseBasicType())];
+			auto location = trange.front.location;
+			auto type = trange.parseBasicType();
+			
+			location.spanTo(trange.front.location);
+			arguments = [new TypeTemplateArgument(location, type)];
 			break;
 	}
 	

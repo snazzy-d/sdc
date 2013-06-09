@@ -67,7 +67,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		case TokenType.Auto :
 			trange.popFront();
 			
-			return trange.parseTypedDeclaration(location, new AutoType(location));
+			return trange.parseTypedDeclaration(location, new AutoType());
 		
 		/*
 		 * Type qualifiers
@@ -277,7 +277,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 						// Auto manifest constant declaration.
 						case TokenType.Assign :
 							trange.popFront();
-							type = new AutoType(location);
+							type = new AutoType();
 							
 							break;
 						
@@ -380,7 +380,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type)
 				
 				variableLocation.spanTo(value.location);
 			} else {
-				value = new DefaultInitializer(type);
+				value = new DefaultInitializer(location, type);
 			}
 			
 			variables ~= new VariableDeclaration(location, type, name, value);

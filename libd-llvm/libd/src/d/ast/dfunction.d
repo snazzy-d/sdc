@@ -59,9 +59,7 @@ class FunctionType : Type {
 	
 	string linkage;
 	
-	this(Location location, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
-		super(location);
-		
+	this(string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
@@ -99,8 +97,8 @@ class FunctionType : Type {
 class DelegateType : FunctionType {
 	Parameter context;
 	
-	this(Location location, string linkage, Type returnType, Parameter context, Parameter[] parameters, bool isVariadic) {
-		super(location, linkage, returnType, parameters, isVariadic);
+	this(string linkage, Type returnType, Parameter context, Parameter[] parameters, bool isVariadic) {
+		super(linkage, returnType, parameters, isVariadic);
 		
 		this.context = context;
 	}

@@ -102,7 +102,7 @@ final class TypeVisitor {
 			static if(is(typeof(identified) : Type)) {
 				return visit(identified);
 			} else {
-				return pass.raiseCondition!Type(t.location, t.identifier.name ~ " isn't an type.");
+				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
 	}

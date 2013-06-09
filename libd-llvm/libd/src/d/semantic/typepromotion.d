@@ -23,19 +23,19 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 		
 		Type visit(Type t) {
 			return this.dispatch!(function Type(Type t) {
-				throw new CompileException(t.location, typeid(t).toString() ~ " is not supported");
+				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
 		
 		Type visit(BooleanType t) {
-			return new IntegerType(location, max(t1type, Integer.Int));
+			return new IntegerType(max(t1type, Integer.Int));
 		}
 		
 		Type visit(IntegerType t) {
 			// Type smaller than int are promoted to int.
 			auto t2type = max(t.type, Integer.Int);
 			
-			return new IntegerType(location, max(t1type, t2type));
+			return new IntegerType(max(t1type, t2type));
 		}
 		
 		Type visit(EnumType t) {
@@ -43,14 +43,14 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				return visit(asInt);
 			}
 			
-			throw new CompileException(t.location, "Enum are of type int");
+			throw new CompileException(t.denum.location, "Enum are of type int");
 		}
 	}
 	
 	final class T1Handler {
 		Type visit(Type t) {
 			return this.dispatch!(function Type(Type t) {
-				throw new CompileException(t.location, typeid(t).toString() ~ " is not supported");
+				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
 		
@@ -77,7 +77,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				return visit(asInt);
 			}
 			
-			throw new CompileException(t.location, "Enum are of type int");
+			throw new CompileException(t.denum.location, "Enum are of type int");
 		}
 	}
 	
