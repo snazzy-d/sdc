@@ -593,7 +593,7 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 				location.spanTo(trange.front.location);
 				trange.match(CloseParen);
 			} else {
-				location.spanTo(type.location);
+				location.spanTo(trange.front.location);
 			}
 			
 			return new NewExpression(location, type, arguments);

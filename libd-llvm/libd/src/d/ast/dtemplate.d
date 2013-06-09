@@ -145,8 +145,8 @@ class TemplateArgument : Node {
 class TypeTemplateArgument : TemplateArgument {
 	Type type;
 	
-	this(Type type) {
-		super(type.location);
+	this(Location location, Type type) {
+		super(location);
 		
 		this.type = type;
 	}

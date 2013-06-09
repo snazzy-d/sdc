@@ -80,39 +80,39 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		// Basic types
 		case TokenType.Bool :
 			trange.popFront();
-			return new BooleanType(location);
+			return new BooleanType();
 		
 		case TokenType.Byte :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!byte);
+			return new IntegerType(IntegerOf!byte);
 		
 		case TokenType.Ubyte :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!ubyte);
+			return new IntegerType(IntegerOf!ubyte);
 		
 		case TokenType.Short :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!short);
+			return new IntegerType(IntegerOf!short);
 		
 		case TokenType.Ushort :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!ushort);
+			return new IntegerType(IntegerOf!ushort);
 		
 		case TokenType.Int :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!int);
+			return new IntegerType(IntegerOf!int);
 		
 		case TokenType.Uint :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!uint);
+			return new IntegerType(IntegerOf!uint);
 		
 		case TokenType.Long :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!long);
+			return new IntegerType(IntegerOf!long);
 		
 		case TokenType.Ulong :
 			trange.popFront();
-			return new IntegerType(location, IntegerOf!ulong);
+			return new IntegerType(IntegerOf!ulong);
 		
 /*		case TokenType.Cent :
 			trange.popFront();
@@ -124,31 +124,31 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		
 		case TokenType.Char :
 			trange.popFront();
-			return new CharacterType(location, CharacterOf!char);
+			return new CharacterType(CharacterOf!char);
 		
 		case TokenType.Wchar :
 			trange.popFront();
-			return new CharacterType(location, CharacterOf!wchar);
+			return new CharacterType(CharacterOf!wchar);
 		
 		case TokenType.Dchar :
 			trange.popFront();
-			return new CharacterType(location, CharacterOf!dchar);
+			return new CharacterType(CharacterOf!dchar);
 		
 		case TokenType.Float :
 			trange.popFront();
-			return new FloatType(location, Float.Float);
+			return new FloatType(Float.Float);
 		
 		case TokenType.Double :
 			trange.popFront();
-			return new FloatType(location, Float.Double);
+			return new FloatType(Float.Double);
 		
 		case TokenType.Real :
 			trange.popFront();
-			return new FloatType(location, Float.Real);
+			return new FloatType(Float.Real);
 		
 		case TokenType.Void :
 			trange.popFront();
-			return new VoidType(location);
+			return new VoidType();
 		
 		default :
 			trange.match(TokenType.Begin);
@@ -164,20 +164,15 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 	BasicType type;
 	
-	Location location = trange.front.location;
 	trange.match(TokenType.Typeof);
 	trange.match(TokenType.OpenParen);
 	
 	if(trange.front.type == TokenType.Return) {
 		trange.popFront();
-		location.spanTo(trange.front.location);
 		
-		type = new ReturnType(location);
+		type = new ReturnType();
 	} else {
-		auto e = trange.parseExpression();
-		location.spanTo(trange.front.location);
-		
-		type = new TypeofType(location, e);
+		type = new TypeofType(trange.parseExpression());
 	}
 	
 	trange.match(TokenType.CloseParen);
@@ -189,15 +184,12 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
  * Parse *, [ ... ] and function/delegate types.
  */
 Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type type) if(isTokenRange!TokenRange) {
-	Location location = type.location;
-	
 	while(1) {
 		switch(trange.front.type) {
 			case TokenType.Star :
-				location.spanTo(trange.front.location);
 				trange.popFront();
 				
-				type = new PointerType(location, type);
+				type = new PointerType(type);
 				break;
 			
 			case TokenType.OpenBracket :
@@ -209,11 +201,8 @@ Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type typ
 				bool isVariadic;
 				auto parameters = trange.parseParameters(isVariadic);
 				
-				// TODO: fix location.
-				location.spanTo(trange.front.location);
-				
 				// TODO: parse postfix attributes.
-				type = new FunctionType(location, "D", type, parameters, isVariadic);
+				type = new FunctionType("D", type, parameters, isVariadic);
 				break;
 			
 			case TokenType.Delegate :
@@ -221,19 +210,17 @@ Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type typ
 				bool isVariadic;
 				auto parameters = trange.parseParameters(isVariadic);
 				
-				// TODO: fix location.
-				location.spanTo(trange.front.location);
-				
 				// TODO: parse postfix attributes and storage class.
-				type = new DelegateType(location, "D", type, null, parameters, isVariadic);
+				type = new DelegateType("D", type, null, parameters, isVariadic);
 				break;
 			
 			static if(mode == ParseMode.Greedy) {
-			case TokenType.Dot :
-				trange.popFront();
-				
-				type = new IdentifierType(trange.parseQualifiedIdentifier(type.location, type));
-				break;
+				case TokenType.Dot :
+					trange.popFront();
+					
+					// TODO: Duplicate function and pass location explicitely.
+					type = new IdentifierType(trange.parseQualifiedIdentifier(trange.front.location, type));
+					break;
 			}
 			
 			default :
@@ -243,29 +230,25 @@ Type parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Type typ
 }
 
 private Type parseBracket(TokenRange)(ref TokenRange trange, Type type) {
-	Location location = type.location;
-	
 	trange.match(TokenType.OpenBracket);
 	if(trange.front.type == TokenType.CloseBracket) {
-		location.spanTo(trange.front.location);
 		trange.popFront();
 		
-		return new SliceType(location, type);
+		return new SliceType(type);
 	}
 	
 	return trange.parseAmbiguous!(delegate Type(parsed) {
-		location.spanTo(trange.front.location);
 		trange.match(TokenType.CloseBracket);
 		
 		alias typeof(parsed) caseType;
 		
 		import d.ast.type;
 		static if(is(caseType : Type)) {
-			return new AssociativeArrayType(location, type, parsed);
+			return new AssociativeArrayType(type, parsed);
 		} else static if(is(caseType : Expression)) {
-			return new StaticArrayType(location, type, parsed);
+			return new StaticArrayType(type, parsed);
 		} else {
-			return new IdentifierArrayType(location, type, parsed);
+			return new IdentifierArrayType(type, parsed);
 		}
 	})();
 }

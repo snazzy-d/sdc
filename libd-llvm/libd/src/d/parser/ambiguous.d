@@ -44,8 +44,9 @@ typeof(handler(null)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenR
 		case Double :
 		case Real :
 		case Void :
+			auto location = trange.front.location;
 			auto t = trange.parseType!(ParseMode.Reluctant)();
-			return trange.parseAmbiguousSuffix!handler(t);
+			return trange.parseAmbiguousSuffix!handler(location, t);
 		
 		case New :
 		case This :
@@ -198,7 +199,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 				location.spanTo(trange.front.location);
 				
 				static if(is(typeof(parsed) : Type)) {
-					return new AssociativeArrayType(location, new IdentifierType(i), parsed);
+					return new AssociativeArrayType(new IdentifierType(i), parsed);
 				} else static if(is(typeof(parsed) : Expression)) {
 					return new IdentifierBracketExpression(location, i, parsed);
 				} else {
@@ -212,7 +213,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 			if(auto id = cast(d.ast.identifier.Identifier) parsed) {
 				return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
 			} else if(auto t = cast(Type) parsed) {
-				return trange.parseAmbiguousSuffix!handler(t);
+				return trange.parseAmbiguousSuffix!handler(i.location, t);
 			}
 			
 			assert(0);	
@@ -220,7 +221,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 		case Function :
 		case Delegate :
 			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(new IdentifierType(i));
-			return trange.parseAmbiguousSuffix!handler(t);
+			return trange.parseAmbiguousSuffix!handler(i.location, t);
 		
 		case DoublePlus :
 		case DoubleMinus :
@@ -314,7 +315,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Type t) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, Type t) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenParen :
 			assert(0, "Constructor not implemented");
@@ -322,7 +323,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 		case Dot :
 			trange.popFront();
 			
-			auto i = trange.parseQualifiedIdentifier(t.location, t);
+			auto i = trange.parseQualifiedIdentifier(location, t);
 			return trange.parseAmbiguousSuffix!ambiguousHandler(i).apply!handler();
 		
 		default :

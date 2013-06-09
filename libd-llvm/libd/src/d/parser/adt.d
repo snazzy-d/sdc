@@ -176,7 +176,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 		
 		case TokenType.OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = new IntegerType(location, IntegerOf!uint);
+			type = new IntegerType(IntegerOf!uint);
 			break;
 		
 		default :
@@ -204,7 +204,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 			// FIXME: don't work for whatever reason.
 			// entryLocation.spanTo(entryValue.location);
 		} else {
-			entryValue = new DefaultInitializer(type);
+			entryValue = new DefaultInitializer(entryLocation, type);
 		}
 		
 		enumEntries ~= new VariableDeclaration(entryLocation, type, entryName, entryValue);

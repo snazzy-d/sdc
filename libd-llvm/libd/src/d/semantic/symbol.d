@@ -58,7 +58,7 @@ final class SymbolVisitor {
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
 			d.returnType = pass.visit(d.returnType);
 			
-			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
+			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
 			
 			scheduler.register(d, d, Step.Signed);
 		}
@@ -110,7 +110,7 @@ final class SymbolVisitor {
 			
 			d.returnType = returnType;
 			
-			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
+			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
 		}
 		
 		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
@@ -306,7 +306,7 @@ final class SymbolVisitor {
 		
 		methodIndex = 0;
 		if(d.mangle == "C6object6Object") {
-			auto vtblType = new PointerType(d.location, new VoidType(d.location));
+			auto vtblType = pass.visit(new PointerType(new VoidType()));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
 			
@@ -323,7 +323,16 @@ final class SymbolVisitor {
 			}
 			
 			if(!baseClass) {
-				baseClass = (cast(ClassType) pass.visit(new BasicIdentifier(d.location, "Object"))).dclass;
+				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
+					static if(is(typeof(parsed) : Type)) {
+						return cast(ClassType) parsed;
+					} else {
+						return null;
+					}
+				})();
+				
+				assert(baseType, "Can't find object.Object");
+				baseClass = baseType.dclass;
 			}
 			
 			foreach(m; baseClass.members) {

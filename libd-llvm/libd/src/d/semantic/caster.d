@@ -42,11 +42,6 @@ final class Caster(bool isExplicit) {
 	Expression build(Location castLocation, Type to, Expression e) /* out(result) {
 		assert(result.type == to);
 	} body */ {
-		/*
-		import sdc.terminal;
-		outputCaretDiagnostics(e.location, "Cast " ~ typeid(e).toString() ~ " to " ~ typeid(to).toString());
-		//*/
-		
 		// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
 		if(auto asPolysemous = cast(PolysemousExpression) e) {
 			auto oldBuildErrorNode = buildErrorNode;
@@ -273,7 +268,7 @@ final class Caster(bool isExplicit) {
 					return CastFlavor.Not;
 				}
 			}
-					
+			
 			auto subCast = castFrom(from, t.type);
 			
 			switch(subCast) with(CastFlavor) {

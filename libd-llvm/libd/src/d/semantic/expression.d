@@ -62,6 +62,8 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(StringLiteral e) {
+		e.type = pass.visit(e.type);
+		
 		return e;
 	}
 	
@@ -158,7 +160,7 @@ final class ExpressionVisitor {
 		
 		import std.algorithm;
 		static if(find(["&&", "||"], operation)) {
-			e.type = new BooleanType(e.location);
+			e.type = new BooleanType();
 			
 			e.lhs = buildExplicitCast(e.lhs.location, e.type, e.lhs);
 			e.rhs = buildExplicitCast(e.rhs.location, e.type, e.rhs);
@@ -168,7 +170,7 @@ final class ExpressionVisitor {
 			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
 			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
 			
-			e.type = new BooleanType(e.location);
+			e.type = new BooleanType();
 		} else static if(find(["&", "|", "^", "*", "/", "%"], operation)) {
 			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
 			
@@ -305,7 +307,7 @@ final class ExpressionVisitor {
 	Expression visit(NotExpression e) {
 		// XXX: Hack around the fact that delegate cannot be passed as parameter here.
 		auto ue = handleUnaryExpression!((NotExpression e) {
-			e.type = new BooleanType(e.location);
+			e.type = new BooleanType();
 			
 			return e;
 		})(e);
@@ -323,6 +325,13 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Cannot take the address of an address.");
 		}
 		
+		// DMD don't understand that it has all infos already :(
+		static SemanticPass workaround;
+		auto oldWA = workaround;
+		scope(exit) workaround = oldWA;
+		
+		workaround = pass;
+		
 		return handleUnaryExpression!((AddressOfExpression e) {
 			// For fucked up reasons, &funcname is a special case.
 			if(auto asSym = cast(SymbolExpression) e.expression) {
@@ -331,7 +340,7 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			e.type = new PointerType(e.location, e.expression.type);
+			e.type = workaround.visit(new PointerType(e.expression.type));
 			
 			return e;
 		})(e);
@@ -342,6 +351,8 @@ final class ExpressionVisitor {
 		static SemanticPass workaround;
 		auto oldWA = workaround;
 		scope(exit) workaround = oldWA;
+		
+		workaround = pass;
 		
 		return handleUnaryExpression!(function Expression(DereferenceExpression e) {
 			if(auto pt = cast(PointerType) e.expression.type) {
@@ -556,7 +567,7 @@ final class ExpressionVisitor {
 				auto contextParam = funType.parameters[0];
 				
 				e.context = buildArgument(e.context, contextParam);
-				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
+				e.type = new DelegateType(funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
 				
 				return e;
 			}
@@ -573,7 +584,7 @@ final class ExpressionVisitor {
 				auto thisParam = funType.parameters[0];
 				
 				e.expression = buildArgument(e.expression, thisParam);
-				e.type = new DelegateType(e.location, funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
+				e.type = new DelegateType(funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
 				
 				return e;
 			}
@@ -599,11 +610,12 @@ final class ExpressionVisitor {
 	Expression visit(IndexExpression e) {
 		e.indexed = visit(e.indexed);
 		
-		if(auto asSlice = cast(SliceType) e.indexed.type) {
+		auto type = e.indexed.type;
+		if(auto asSlice = cast(SliceType) type) {
 			e.type = asSlice.type;
-		} else if(auto asPointer = cast(PointerType) e.indexed.type) {
+		} else if(auto asPointer = cast(PointerType) type) {
 			e.type = asPointer.type;
-		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
+		} else if(auto asStaticArray = cast(StaticArrayType) type) {
 			e.type = asStaticArray.type;
 		} else {
 			return pass.raiseCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
@@ -628,7 +640,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
 		}
 		
-		e.type = new SliceType(e.location, e.type);
+		e.type = pass.visit(new SliceType(e.type));
 		
 		e.first = e.first.map!(e => visit(e)).array();
 		e.second = e.second.map!(e => visit(e)).array();
@@ -642,14 +654,14 @@ final class ExpressionVisitor {
 	
 	Expression visit(AssertExpression e) {
 		auto c = visit(e.condition);
-		e.condition = buildExplicitCast(c.location, new BooleanType(c.location), c);
+		e.condition = buildExplicitCast(c.location, new BooleanType(), c);
 		
 		if(e.message) {
 			// FIXME: cast to string.
 			e.message = evaluate(visit(e.message));
 		}
 		
-		e.type = new VoidType(e.location);
+		e.type = new VoidType();
 		
 		return e;
 	}

@@ -11,18 +11,11 @@ import d.ast.declaration;
 struct Identifiable {
 	private Tag tag;
 	
-	union {
-		// Always valid.
-		Node node;
-	
-	private :
+	private union {
 		Type type;
 		Expression expression;
 		Symbol symbol;
 	}
-	
-	static assert(is(Type : Node) && is(Expression : Node) && is(Symbol : Node));
-	alias node this;
 	
 	@disable this();
 	
