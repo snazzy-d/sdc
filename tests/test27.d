@@ -1,14 +1,12 @@
 //T compiles:yes
 //T retval:1
 
-enum Foo
-{
+enum Foo {
 	Bar,
-	Baz
+	Baz,
 }
 
-int main()
-{
+int main() {
 	return Foo.Baz;
 }
 

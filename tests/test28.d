@@ -1,14 +1,12 @@
 //T compiles:yes
 //T retval:1
 
-enum 
-{
+enum  {
 	Bar,
-	Baz
+	Baz,
 }
 
-int main()
-{
+int main() {
 	return Baz;
 }
 

@@ -1,18 +1,15 @@
 //T compiles:yes
 //T retval:42
-//T has-passed:no
+//T has-passed:yes
 
-struct S
-{
-    enum O
-    {
-        B = 21
-    }
+struct S {
+	enum O {
+		B = 21,
+	}
 }
 
-int main()
-{
-    S s;
-    return s.O.B + S.O.B;
+int main() {
+	S s;
+	return s.O.B + S.O.B;
 }
 
