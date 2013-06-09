@@ -341,29 +341,54 @@ class IdentifierType : BasicType {
 }
 
 /**
- * Symbol type.
- * IdentifierType that as been resolved.
- * Deprecated in favor of more precise types.
+ * Aliased type.
+ * Type created via an alias declaration.
  */
-class SymbolType : BasicType {
-	TypeSymbol symbol;
+class AliasType : BasicType {
+	AliasDeclaration dalias;
 	
-	this(Location location, TypeSymbol symbol) {
-		super(location);
+	this(AliasDeclaration dalias) {
+		super(dalias.location);
 		
-		this.symbol = symbol;
+		this.dalias = dalias;
 	}
 	
 	override bool opEquals(const Type t) const {
-		if(auto s = cast(SymbolType) t) {
+		if(auto a = cast(AliasType) t) {
+			return this.opEquals(a);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const AliasType t) const {
+		return dalias is t.dalias && qualifier == t.qualifier;
+	}
+}
+
+/**
+ * Struct type.
+ * Type created via a struct declaration.
+ */
+class StructType : BasicType {
+	StructDeclaration dstruct;
+	
+	this(StructDeclaration dstruct) {
+		super(dstruct.location);
+		
+		this.dstruct = dstruct;
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto s = cast(StructType) t) {
 			return this.opEquals(s);
 		}
 		
 		return false;
 	}
 	
-	bool opEquals(const SymbolType t) const {
-		return symbol is t.symbol && qualifier == t.qualifier;
+	bool opEquals(const StructType t) const {
+		return dstruct is t.dstruct && qualifier == t.qualifier;
 	}
 }
 
@@ -374,15 +399,15 @@ class SymbolType : BasicType {
 class ClassType : BasicType {
 	ClassDeclaration dclass;
 	
-	this(Location location, ClassDeclaration dclass) {
-		super(location);
+	this(ClassDeclaration dclass) {
+		super(dclass.location);
 		
 		this.dclass = dclass;
 	}
 	
 	override bool opEquals(const Type t) const {
-		if(auto s = cast(ClassType) t) {
-			return this.opEquals(s);
+		if(auto c = cast(ClassType) t) {
+			return this.opEquals(c);
 		}
 		
 		return false;
@@ -390,6 +415,32 @@ class ClassType : BasicType {
 	
 	bool opEquals(const ClassType t) const {
 		return dclass is t.dclass && qualifier == t.qualifier;
+	}
+}
+
+/**
+ * Enum type
+ * Type created via a enum declaration.
+ */
+class EnumType : BasicType {
+	EnumDeclaration denum;
+	
+	this(EnumDeclaration denum) {
+		super(denum.location);
+		
+		this.denum = denum;
+	}
+	
+	override bool opEquals(const Type t) const {
+		if(auto e = cast(EnumType) t) {
+			return this.opEquals(e);
+		}
+		
+		return false;
+	}
+	
+	bool opEquals(const EnumType t) const {
+		return denum is t.denum && qualifier == t.qualifier;
 	}
 }
 

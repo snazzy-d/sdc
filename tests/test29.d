@@ -1,22 +1,19 @@
 //T compiles:yes
 //T retval:42
 
-enum A : byte
-{
-    Foo
+enum A : byte {
+	Foo,
 }
 
-enum B : long
-{
-    Bar
+enum B : long {
+	Bar,
 }
 
-int main()
-{
-    if (A.Foo.sizeof < B.Bar.sizeof) {
-        return 42;
-    } else {
-        return 0;
-    }
+int main() {
+	if(A.Foo.sizeof < B.Bar.sizeof) {
+		return 42;
+	} else {
+		return 0;
+	}
 }
 

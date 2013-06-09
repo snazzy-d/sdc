@@ -291,7 +291,7 @@ final class DeclarationVisitor {
 		}
 	}
 	
-	void visit(StructDefinition d) {
+	void visit(StructDeclaration d) {
 		d.linkage = linkage;
 		
 		currentScope.addSymbol(d);
@@ -315,7 +315,7 @@ final class DeclarationVisitor {
 			
 			select(d);
 		} else {
-			auto type = (cast(EnumType) d.type).type;
+			auto type = d.type;
 			
 			// XXX: Code duplication with symbols. Refactor.
 			VariableDeclaration previous;

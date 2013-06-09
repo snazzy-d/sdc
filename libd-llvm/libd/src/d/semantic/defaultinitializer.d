@@ -49,10 +49,6 @@ final class DefaultInitializerVisitor {
 	Expression visit(Location location, PointerType t) {
 		return new NullLiteral(location, t);
 	}
-	
-	Expression visit(Location location, FunctionType t) {
-		return new NullLiteral(location, t);
-	}
 	/*
 	Expression visit(SliceType t) {
 		// Convoluted way to create the array due to compiler limitations.
@@ -69,20 +65,20 @@ final class DefaultInitializerVisitor {
 		return new VoidInitializer(location, t);
 	}
 	
-	Expression visit(Location location, SymbolType t) {
-		return this.dispatch(location, scheduler.require(t.symbol));
-	}
-	
-	Expression visit(Location location, StructDefinition d) {
-		d = cast(StructDefinition) scheduler.require(d, Step.Populated);
-		auto init = cast(VariableDeclaration) d.dscope.resolve("init");
+	Expression visit(Location location, StructType t) {
+		auto s = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Populated);
+		auto init = cast(VariableDeclaration) s.dscope.resolve("init");
 		
+		// XXX: Create a new node ?
 		return init.value;
 	}
-	/*
-	Expression visit(ClassDefinition d) {
-		return new NullLiteral(location, new SymbolType(d.location, d));
+	
+	Expression visit(Location location, ClassType t) {
+		return new NullLiteral(location, t);
 	}
-	*/
+	
+	Expression visit(Location location, FunctionType t) {
+		return new NullLiteral(location, t);
+	}
 }
 

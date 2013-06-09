@@ -2,12 +2,11 @@
 //T retval:42
 
 enum {
-    A = 42,
-    B = A
+	A = 42,
+	B = A,
 }
 
-int main()
-{
-    return B;
+int main() {
+	return B;
 }
 

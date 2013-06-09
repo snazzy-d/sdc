@@ -431,10 +431,8 @@ class ThisExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		if(auto st = cast(SymbolType) type) {
-			if(cast(StructDeclaration) st.symbol) {
-				return true;
-			}
+		if(cast(StructType) type) {
+			return true;
 		}
 		
 		return false;

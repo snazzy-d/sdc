@@ -21,7 +21,6 @@ final class DeclarationGen {
 	alias pass this;
 	
 	private LLVMValueRef[ExpressionSymbol] exprSymbols;
-	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -32,8 +31,6 @@ final class DeclarationGen {
 			visit(es);
 		} else if(auto ts = cast(TypeSymbol) d) {
 			visit(ts);
-		} else if(auto cd = cast(ClassDeclaration) d) {
-			visit(cd);
 		}
 		
 		assert(cast(Symbol) d, "Can only generate symbols.");
@@ -171,28 +168,27 @@ final class DeclarationGen {
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
-		return typeSymbols.get(s, this.dispatch(s));
+		return this.dispatch(s);
 	}
 	
-	LLVMTypeRef visit(StructDefinition d) {
-		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) d.mangle.toStringz());
-		typeSymbols[d] = llvmStruct;
+	LLVMTypeRef visit(AliasDeclaration a) {
+		return pass.visit(a.type);
+	}
+	
+	LLVMTypeRef visit(StructDeclaration s) {
+		auto ret = pass.visit(new StructType(s));
 		
-		LLVMTypeRef[] members;
-		
-		foreach(member; d.members) {
-			if(auto f = cast(FieldDeclaration) member) {
-				members ~= pass.visit(f.type);
+		foreach(member; s.members) {
+			if(typeid(member) !is typeid(FieldDeclaration)) {
+				visit(member);
 			}
 		}
 		
-		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
-		
-		return llvmStruct;
+		return ret;
 	}
 	
 	LLVMTypeRef visit(ClassDeclaration c) {
-		auto ret = pass.visit(new ClassType(c.location, c));
+		auto ret = pass.visit(new ClassType(c));
 		
 		foreach(member; c.members) {
 			if (auto m = cast(MethodDeclaration) member) {
@@ -203,21 +199,14 @@ final class DeclarationGen {
 		return ret;
 	}
 	
-	LLVMTypeRef visit(EnumDeclaration d) {
-		auto type = typeSymbols[d] = pass.visit(d.type);
+	LLVMTypeRef visit(EnumDeclaration e) {
+		auto type = pass.visit(new EnumType(e));
 		
-		foreach(e; d.enumEntries) {
-			visit(e);
+		foreach(entry; e.enumEntries) {
+			visit(entry);
 		}
 		
 		return type;
-	}
-	
-	LLVMTypeRef visit(AliasDeclaration a) {
-		auto llvmType = pass.visit(a.type);
-		typeSymbols[a] = llvmType;
-		
-		return llvmType;
 	}
 }
 

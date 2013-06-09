@@ -32,10 +32,10 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	
 	static if(isClass) {
 		trange.match(TokenType.Class);
-		alias ClassDeclaration DefinitionType;
+		alias DeclarationType = ClassDeclaration;
 	} else {
 		trange.match(TokenType.Interface);
-		alias InterfaceDefinition DefinitionType;
+		alias DeclarationType = InterfaceDeclaration;
 	}
 	
 	TemplateParameter[] parameters;
@@ -64,7 +64,7 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	
 	location.spanTo(trange.front.location);
 	
-	auto adt = new DefinitionType(location, name, bases, members);
+	auto adt = new DeclarationType(location, name, bases, members);
 	
 	if(parameters.ptr) {
 		return new TemplateDeclaration(location, name, parameters, [adt]);
@@ -92,12 +92,10 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 	
 	static if(isStruct) {
 		trange.match(TokenType.Struct);
-		alias StructDeclaration DeclarationType;
-		alias StructDefinition DefinitionType;
+		alias DeclarationType = StructDeclaration;
 	} else {
 		trange.match(TokenType.Union);
-		alias UnionDeclaration DeclarationType;
-		alias UnionDefinition DefinitionType;
+		alias DeclarationType = UnionDeclaration;
 	}
 	
 	string name;
@@ -114,7 +112,7 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 				
 				trange.popFront();
 				
-				return new DeclarationType(location, name);
+				assert(0, "Opaque declaration aren't supported.");
 			
 			// Template structs
 			case TokenType.OpenParen :
@@ -135,7 +133,7 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 	
 	location.spanTo(trange.front.location);
 	
-	auto adt = new DefinitionType(location, name, members);
+	auto adt = new DeclarationType(location, name, members);
 	
 	if(parameters.ptr) {
 		return new TemplateDeclaration(location, name, parameters, [adt]);

@@ -86,7 +86,7 @@ final class LLVMEvaluator : Evaluator {
 		auto type = e.type;
 		
 		if(auto et = cast(EnumType) type) {
-			type = et.type;
+			type = et.denum.type;
 		}
 		
 		if(auto t = cast(IntegerType) type) {
