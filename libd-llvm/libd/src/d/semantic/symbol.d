@@ -42,23 +42,22 @@ final class SymbolVisitor {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
-		// If it isn't a static method, add this.
-		// checking resolvedTypes Ensure that it isn't ran twice.
-		if(!d.isStatic) {
-			assert(thisType, "function must be static or thisType must be defined.");
-			
-			auto thisParameter = new Parameter(d.location, "this", thisType);
-			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
-			thisParameter.isReference = isThisRef;
-			
-			d.parameters = thisParameter ~ d.parameters;
-		}
-		
 		// Compute return type.
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
 			d.returnType = pass.visit(d.returnType);
 			
-			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			// If it isn't a static method, add this.
+			if(d.isStatic) {
+				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			} else {
+				assert(thisType, "function must be static or thisType must be defined.");
+				
+				auto thisParameter = new Parameter(d.location, "this", thisType);
+				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				thisParameter.isReference = isThisRef;
+				
+				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+			}
 			
 			scheduler.register(d, d, Step.Signed);
 		}
@@ -110,13 +109,24 @@ final class SymbolVisitor {
 			
 			d.returnType = returnType;
 			
-			d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			// If it isn't a static method, add this.
+			// TODO: Duplicated, find a way to solve that.
+			if(d.isStatic) {
+				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			} else {
+				assert(thisType, "function must be static or thisType must be defined.");
+				
+				auto thisParameter = new Parameter(d.location, "this", thisType);
+				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				thisParameter.isReference = isThisRef;
+				
+				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+			}
 		}
 		
-		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
 		switch(d.linkage) {
 			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
+				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
 				break;
 			
 			case "C" :

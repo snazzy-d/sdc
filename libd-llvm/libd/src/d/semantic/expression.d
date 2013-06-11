@@ -576,18 +576,14 @@ final class ExpressionVisitor {
 		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
 	}
 	
-	Expression visit(VirtualDispatchExpression e) {
-		e.method = cast(MethodDeclaration) scheduler.require(e.method, Step.Signed);
+	Expression visit(MethodExpression e) {
+		e.method = cast(FunctionDeclaration) scheduler.require(e.method, Step.Signed);
 		
-		if(auto funType = cast(FunctionType) e.method.type) {
-			if(funType.isVariadic || funType.parameters.length > 0) {
-				auto thisParam = funType.parameters[0];
-				
-				e.expression = buildArgument(e.expression, thisParam);
-				e.type = new DelegateType(funType.linkage, funType.returnType, thisParam, funType.parameters[1 .. $], funType.isVariadic);
-				
-				return e;
-			}
+		if(auto dgType = cast(DelegateType) e.method.type) {
+			e.expression = buildArgument(e.expression, dgType.context);
+			e.type = dgType;
+			
+			return e;
 		}
 		
 		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
