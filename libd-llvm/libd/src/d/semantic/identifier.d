@@ -318,11 +318,11 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
-		return Identifiable(new DelegateExpression(location, e, new SymbolExpression(location, d)));
+		return Identifiable(new MethodExpression(location, e, d));
 	}
 	
 	Identifiable visit(Location location, Expression e, MethodDeclaration d) {
-		return Identifiable(new VirtualDispatchExpression(location, e, d));
+		return Identifiable(new MethodExpression(location, e, d));
 	}
 	
 	Identifiable visit(Location location, Expression e, AliasDeclaration d) {

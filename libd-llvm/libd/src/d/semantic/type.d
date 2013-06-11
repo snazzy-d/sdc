@@ -90,14 +90,14 @@ final class TypeVisitor {
 	}
 	
 	Type visit(StructType t) {
-		t.dstruct = cast(StructDeclaration) scheduler.require(t.dstruct);
+		t.dstruct = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Signed);
 		t.canonical = t;
 		
 		return t;
 	}
 	
 	Type visit(ClassType t) {
-		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass);
+		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass, Step.Signed);
 		t.canonical = t;
 		
 		return t;

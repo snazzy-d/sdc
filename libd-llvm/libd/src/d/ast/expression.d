@@ -389,13 +389,13 @@ class DelegateExpression : Expression {
 }
 
 /**
- * Virtual dispatch.
+ * Methods resolved on expressions.
  */
-class VirtualDispatchExpression : Expression {
+class MethodExpression : Expression {
 	Expression expression;
-	MethodDeclaration method;
+	FunctionDeclaration method;
 	
-	this(Location location, Expression expression, MethodDeclaration method) {
+	this(Location location, Expression expression, FunctionDeclaration method) {
 		super(location);
 		
 		this.expression = expression;
