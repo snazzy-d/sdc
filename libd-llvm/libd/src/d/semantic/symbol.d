@@ -364,9 +364,14 @@ final class SymbolVisitor {
 		MethodDeclaration[] candidates = baseMethods;
 		foreach(m; members) {
 			if(auto method = cast(MethodDeclaration) m) {
+				// FIXME: Don't work now due to circular dependancy.
+				// method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
+				// So ugly hack :D
+				auto funType = cast(FunctionType) method.type;
+				method.type = new DelegateType(funType.linkage, funType.returnType, null, funType.parameters, funType.isVariadic);
 				if(method.index == 0) {
 					foreach(ref candidate; candidates) {
-						if(candidate && candidate.name == method.name) {
+						if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
 							method.index = candidate.index;
 							candidate = null;
 							break;
@@ -374,7 +379,7 @@ final class SymbolVisitor {
 					}
 					
 					if(method.index == 0) {
-						assert(0, "Override not found");
+						assert(0, "Override not found for " ~ method.name);
 					}
 					
 					continue;

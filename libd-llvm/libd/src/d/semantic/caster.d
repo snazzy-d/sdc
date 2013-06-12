@@ -13,6 +13,7 @@ import d.exception;
 import d.location;
 
 import std.algorithm;
+import std.range;
 
 // FIXME: isn't reentrant at all.
 final class Caster(bool isExplicit) {
@@ -26,6 +27,7 @@ final class Caster(bool isExplicit) {
 	private FromCharacter fromCharacter;
 	private FromPointer fromPointer;
 	private FromFunction fromFunction;
+	private FromDelegate fromDelegate;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
@@ -36,6 +38,7 @@ final class Caster(bool isExplicit) {
 		fromCharacter	= new FromCharacter();
 		fromPointer		= new FromPointer();
 		fromFunction	= new FromFunction();
+		fromDelegate	= new FromDelegate();
 	}
 	
 	// XXX: out contract disabled because it create memory corruption with dmd.
@@ -340,6 +343,32 @@ final class Caster(bool isExplicit) {
 			})(to);
 		}
 		
+		CastFlavor visit(FunctionType t) {
+			enum onFail = isExplicit ? CastFlavor.Bit : CastFlavor.Not;
+			
+			if(from.parameters.length != t.parameters.length) return onFail;
+			if(from.isVariadic != t.isVariadic) return onFail;
+			
+			if(from.linkage != t.linkage) return onFail;
+			
+			auto level = castFrom(from.returnType, t.returnType);
+			if(level < CastFlavor.Bit) return onFail;
+			
+			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
+				if(fromp.isReference != top.isReference) return onFail;
+				
+				auto levelp = castFrom(fromp.type, top.type);
+				if(levelp < CastFlavor.Bit) return onFail;
+				if(fromp.isReference && levelp < CastFlavor.Qual) return onFail;
+				
+				level = min(level, levelp);
+			}
+			
+			if (level < CastFlavor.Exact) return CastFlavor.Bit;
+			
+			return (from.qualifier == t.qualifier) ? CastFlavor.Exact : CastFlavor.Qual;
+		}
+		
 		CastFlavor visit(PointerType t) {
 			static if(isExplicit) {
 				return CastFlavor.Bit;
@@ -353,6 +382,51 @@ final class Caster(bool isExplicit) {
 	
 	CastFlavor visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
+	}
+	
+	class FromDelegate {
+		DelegateType from;
+		
+		CastFlavor visit(DelegateType from, Type to) {
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
+			
+			this.from = from;
+			
+			return this.dispatch!((t) {
+				return CastFlavor.Not;
+			})(to);
+		}
+		
+		CastFlavor visit(DelegateType t) {
+			enum onFail = isExplicit ? CastFlavor.Bit : CastFlavor.Not;
+			
+			if(from.parameters.length != t.parameters.length) return onFail;
+			if(from.isVariadic != t.isVariadic) return onFail;
+			
+			if(from.linkage != t.linkage) return onFail;
+			
+			auto level = castFrom(from.returnType, t.returnType);
+			if(level < CastFlavor.Bit) return onFail;
+			
+			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
+				if(fromp.isReference != top.isReference) return onFail;
+				
+				auto levelp = castFrom(fromp.type, top.type);
+				if(levelp < CastFlavor.Bit) return onFail;
+				if(fromp.isReference && levelp < CastFlavor.Qual) return onFail;
+				
+				level = min(level, levelp);
+			}
+			
+			if (level < CastFlavor.Exact) return CastFlavor.Bit;
+			
+			return (from.qualifier == t.qualifier) ? CastFlavor.Exact : CastFlavor.Qual;
+		}
+	}
+	
+	CastFlavor visit(Type to, DelegateType t) {
+		return fromDelegate.visit(t, to);
 	}
 }
 
