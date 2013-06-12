@@ -261,12 +261,13 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
-		// FIXME: big lie :D
-		scheduler.register(d, d, Step.Processed);
+		scheduler.register(d, d, Step.Signed);
 		
 		d.members = [init];
 		d.members ~= cast(Declaration[]) fields;
 		d.members ~= cast(Declaration[]) scheduler.require(otherSymbols);
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}
@@ -361,14 +362,13 @@ final class SymbolVisitor {
 		}
 		
 		auto members = pass.flatten(d.members, d);
+		
+		scheduler.register(d, d, Step.Signed);
+		
 		MethodDeclaration[] candidates = baseMethods;
 		foreach(m; members) {
 			if(auto method = cast(MethodDeclaration) m) {
-				// FIXME: Don't work now due to circular dependancy.
-				// method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
-				// So ugly hack :D
-				auto funType = cast(FunctionType) method.type;
-				method.type = new DelegateType(funType.linkage, funType.returnType, null, funType.parameters, funType.isVariadic);
+				method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
 				if(method.index == 0) {
 					foreach(ref candidate; candidates) {
 						if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
@@ -397,12 +397,11 @@ final class SymbolVisitor {
 			}
 		}
 		
-		// FIXME: big lie :D
-		scheduler.register(d, d, Step.Processed);
-		
 		d.members = cast(Declaration[]) baseFields;
 		d.members ~= cast(Declaration[]) baseMethods;
 		d.members ~= cast(Declaration[]) scheduler.require(members);
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}
