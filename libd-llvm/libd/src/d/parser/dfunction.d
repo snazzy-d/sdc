@@ -193,12 +193,11 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 		}
 	}
 	
+	auto location = trange.front.location;
 	auto type = trange.parseType();
 	
 	Parameter param;
 	if(trange.front.type == TokenType.Identifier) {
-		auto location = type.location;
-		
 		string name = trange.front.value;
 		trange.popFront();
 		
@@ -213,7 +212,8 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 		
 		param = new Parameter(location, name, type);
 	} else {
-		param = new Parameter(type.location, type);
+		location.spanTo(trange.front.location);
+		param = new Parameter(location, type);
 	}
 	
 	param.isReference = isReference;

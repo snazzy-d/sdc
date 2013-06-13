@@ -389,13 +389,13 @@ class DelegateExpression : Expression {
 }
 
 /**
- * Virtual dispatch.
+ * Methods resolved on expressions.
  */
-class VirtualDispatchExpression : Expression {
+class MethodExpression : Expression {
 	Expression expression;
-	MethodDeclaration method;
+	FunctionDeclaration method;
 	
-	this(Location location, Expression expression, MethodDeclaration method) {
+	this(Location location, Expression expression, FunctionDeclaration method) {
 		super(location);
 		
 		this.expression = expression;
@@ -455,7 +455,7 @@ class BooleanLiteral : CompileTimeExpression {
 	bool value;
 	
 	this(Location location, bool value) {
-		super(location, new BooleanType(location));
+		super(location, new BooleanType());
 		
 		this.value = value;
 	}
@@ -515,11 +515,11 @@ auto makeLiteral(T)(Location location, T value) {
 	static if(is(Unqual!T == bool)) {
 		return new BooleanLiteral(location, value);
 	} else static if(isIntegral!T) {
-		return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(location, IntegerOf!T));
+		return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(IntegerOf!T));
 	} else static if(isFloatingPoint!T) {
-		return new FloatLiteral(location, value, new FloatType(location, FloatOf!T));
+		return new FloatLiteral(location, value, new FloatType(FloatOf!T));
 	} else static if(isSomeChar!T) {
-		return new CharacterLiteral(location, [value], new CharacterType(location, CharacterOf!T));
+		return new CharacterLiteral(location, [value], new CharacterType(CharacterOf!T));
 	} else {
 		static assert(0, "You can't make litteral for type " ~ T.stringof);
 	}
@@ -532,10 +532,10 @@ class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
-		auto charType = new CharacterType(location, Character.Char);
+		auto charType = new CharacterType(Character.Char);
 		charType.qualifier = TypeQualifier.Immutable;
 		
-		super(location, new SliceType(location, charType));
+		super(location, new SliceType(charType));
 		
 		this.value = value;
 	}

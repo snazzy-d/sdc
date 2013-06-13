@@ -274,21 +274,36 @@ final class ExpressionGen {
 		return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
 	}
 	
-	LLVMValueRef visit(VirtualDispatchExpression e) {
+	LLVMValueRef visit(MethodExpression e) {
 		auto type = cast(DelegateType) e.type;
 		assert(type);
 		
-		auto cd = (cast(ClassType) e.expression.type).dclass;
+		LLVMValueRef thisValue;
+		if(type.context.isReference) {
+			thisValue = addressOf(e.expression);
+		} else {
+			thisValue = visit(e.expression);
+		}
 		
-		auto thisPtr = visit(e.expression);
+		LLVMValueRef dg;
+		if(auto m = cast(MethodDeclaration) e.method) {
+			auto cd = (cast(ClassType) e.expression.type).dclass;
+			assert(cd, "Virtual dispatch can only be done on classes.");
+			
+			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisValue, 0, ""), "vtbl");
+			auto fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
+			
+			dg = LLVMGetUndef(pass.visit(type));
+			
+			LLVMDumpValue(dg);
+			LLVMDumpValue(fun);
+			
+			dg = LLVMBuildInsertValue(builder, dg, fun, 0, "");
+		} else {
+			dg = pass.visit(e.method);
+		}
 		
-		auto vtblPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), "vtbl");
-		auto funPtr = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtblPtr, e.method.index, ""), "");
-		
-		auto dg = LLVMGetUndef(pass.visit(e.type));
-		
-		dg = LLVMBuildInsertValue(builder, dg, funPtr, 0, "");
-		dg = LLVMBuildInsertValue(builder, dg, thisPtr, 1, "");
+		dg = LLVMBuildInsertValue(builder, dg, thisValue, 1, "");
 		
 		return dg;
 	}

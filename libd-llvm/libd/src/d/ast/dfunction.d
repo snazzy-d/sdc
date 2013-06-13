@@ -59,9 +59,7 @@ class FunctionType : Type {
 	
 	string linkage;
 	
-	this(Location location, string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
-		super(location);
-		
+	this(string linkage, Type returnType, Parameter[] parameters, bool isVariadic) {
 		this.returnType = returnType;
 		this.parameters = parameters;
 		this.isVariadic = isVariadic;
@@ -78,11 +76,12 @@ class FunctionType : Type {
 	}
 	
 	bool opEquals(const FunctionType t) const {
+		if(parameters.length != t.parameters.length) return false;
 		if(isVariadic != t.isVariadic) return false;
+		
 		if(linkage != t.linkage) return false;
 		
 		if(returnType != t.returnType) return false;
-		if(parameters.length != t.parameters.length) return false;
 		
 		import std.range;
 		foreach(p1, p2; lockstep(parameters, t.parameters)) {
@@ -99,8 +98,8 @@ class FunctionType : Type {
 class DelegateType : FunctionType {
 	Parameter context;
 	
-	this(Location location, string linkage, Type returnType, Parameter context, Parameter[] parameters, bool isVariadic) {
-		super(location, linkage, returnType, parameters, isVariadic);
+	this(string linkage, Type returnType, Parameter context, Parameter[] parameters, bool isVariadic) {
+		super(linkage, returnType, parameters, isVariadic);
 		
 		this.context = context;
 	}

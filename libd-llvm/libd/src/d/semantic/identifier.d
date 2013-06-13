@@ -130,7 +130,7 @@ final class IdentifierVisitor {
 	Identifiable visit(IdentifierBracketExpression i) {
 		return visit(i.indexed).apply!(delegate Identifiable(identified) {
 			static if(is(typeof(identified) : Type)) {
-				return Identifiable(new StaticArrayType(i.location, identified, i.index));
+				return Identifiable(new StaticArrayType(identified, i.index));
 			} else static if(is(typeof(identified) : Expression)) {
 				return Identifiable(new IndexExpression(i.location, identified, [i.index]));
 			} else {
@@ -181,6 +181,8 @@ final class IdentifierVisitor {
 			result.apply!((identified) {
 				static if(is(typeof(identified) : Expression)) {
 					expressions ~= identified;
+				} else static if(is(typeof(identified) : Type)) {
+					assert(0, "Type can't be overloaded.");
 				} else {
 					// TODO: handle templates.
 					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
@@ -242,7 +244,7 @@ final class TypeDotIdentifierVisitor {
 		
 		switch(i.name) {
 			case "init" :
-				return Identifiable(new CastExpression(i.location, i.type, new DefaultInitializer(i.type)));
+				return Identifiable(new CastExpression(i.location, i.type, new DefaultInitializer(i.location, i.type)));
 			
 			case "sizeof" :
 				return Identifiable(new SizeofExpression(i.location, i.type));
@@ -316,11 +318,11 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
-		return Identifiable(new DelegateExpression(location, e, new SymbolExpression(location, d)));
+		return Identifiable(new MethodExpression(location, e, d));
 	}
 	
 	Identifiable visit(Location location, Expression e, MethodDeclaration d) {
-		return Identifiable(new VirtualDispatchExpression(location, e, d));
+		return Identifiable(new MethodExpression(location, e, d));
 	}
 	
 	Identifiable visit(Location location, Expression e, AliasDeclaration d) {
@@ -427,13 +429,17 @@ final class SymbolInTypeResolver {
 	Symbol visit(string name, SliceType t) {
 		switch(name) {
 			case "length" :
-				auto lt = new IntegerType(t.location, Integer.Ulong);
-				auto s = new FieldDeclaration(t.location, 0, lt, "length", new DefaultInitializer(lt));
+				// FIXME: pass explicit location.
+				auto location = Location.init;
+				auto lt = new IntegerType(Integer.Ulong);
+				auto s = new FieldDeclaration(location, 0, lt, "length", new DefaultInitializer(location, lt));
 				return pass.visit(s);
 			
 			case "ptr" :
-				auto pt = new PointerType(t.location, t.type);
-				auto s = new FieldDeclaration(t.location, 1, pt, "ptr", new DefaultInitializer(pt));
+				// FIXME: pass explicit location.
+				auto location = Location.init;
+				auto pt = new PointerType(t.type);
+				auto s = new FieldDeclaration(location, 1, pt, "ptr", new DefaultInitializer(location, pt));
 				return pass.visit(s);
 			
 			default :

@@ -102,11 +102,15 @@ public:
 		}
 		
 		void terminate() {
-			while(processes.length) {
-				foreach(s; processes.keys) {
-					require(s);
+			auto f = new Fiber({
+				while(processes.length) {
+					foreach(s; processes.keys) {
+						require(s);
+					}
 				}
-			}
+			});
+			
+			while(f.state != Fiber.State.TERM) f.call();
 		}
 		
 		// TODO: refactor the duplicated check and return construct.

@@ -42,23 +42,22 @@ final class SymbolVisitor {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
 		
-		// If it isn't a static method, add this.
-		// checking resolvedTypes Ensure that it isn't ran twice.
-		if(!d.isStatic) {
-			assert(thisType, "function must be static or thisType must be defined.");
-			
-			auto thisParameter = new Parameter(d.location, "this", thisType);
-			thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
-			thisParameter.isReference = isThisRef;
-			
-			d.parameters = thisParameter ~ d.parameters;
-		}
-		
 		// Compute return type.
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
 			d.returnType = pass.visit(d.returnType);
 			
-			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
+			// If it isn't a static method, add this.
+			if(d.isStatic) {
+				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			} else {
+				assert(thisType, "function must be static or thisType must be defined.");
+				
+				auto thisParameter = new Parameter(d.location, "this", thisType);
+				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				thisParameter.isReference = isThisRef;
+				
+				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+			}
 			
 			scheduler.register(d, d, Step.Signed);
 		}
@@ -110,13 +109,24 @@ final class SymbolVisitor {
 			
 			d.returnType = returnType;
 			
-			d.type = new FunctionType(d.location, d.linkage, d.returnType, d.parameters, d.isVariadic);
+			// If it isn't a static method, add this.
+			// TODO: Duplicated, find a way to solve that.
+			if(d.isStatic) {
+				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			} else {
+				assert(thisType, "function must be static or thisType must be defined.");
+				
+				auto thisParameter = new Parameter(d.location, "this", thisType);
+				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				thisParameter.isReference = isThisRef;
+				
+				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+			}
 		}
 		
-		auto paramsToMangle = d.isStatic?d.parameters:d.parameters[1 .. $];
 		switch(d.linkage) {
 			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ paramsToMangle.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
+				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
 				break;
 			
 			case "C" :
@@ -251,12 +261,13 @@ final class SymbolVisitor {
 		d.dscope.addSymbol(init);
 		scheduler.register(init, init, Step.Processed);
 		
-		// FIXME: big lie :D
-		scheduler.register(d, d, Step.Processed);
+		scheduler.register(d, d, Step.Signed);
 		
 		d.members = [init];
 		d.members ~= cast(Declaration[]) fields;
 		d.members ~= cast(Declaration[]) scheduler.require(otherSymbols);
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}
@@ -306,7 +317,7 @@ final class SymbolVisitor {
 		
 		methodIndex = 0;
 		if(d.mangle == "C6object6Object") {
-			auto vtblType = new PointerType(d.location, new VoidType(d.location));
+			auto vtblType = pass.visit(new PointerType(new VoidType()));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
 			
@@ -323,9 +334,19 @@ final class SymbolVisitor {
 			}
 			
 			if(!baseClass) {
-				baseClass = (cast(ClassType) pass.visit(new BasicIdentifier(d.location, "Object"))).dclass;
+				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
+					static if(is(typeof(parsed) : Type)) {
+						return cast(ClassType) parsed;
+					} else {
+						return null;
+					}
+				})();
+				
+				assert(baseType, "Can't find object.Object");
+				baseClass = baseType.dclass;
 			}
 			
+			baseClass = cast(ClassDeclaration) scheduler.require(baseClass);
 			foreach(m; baseClass.members) {
 				if(auto field = cast(FieldDeclaration) m) {
 					baseFields ~= field;
@@ -342,23 +363,27 @@ final class SymbolVisitor {
 		}
 		
 		auto members = pass.flatten(d.members, d);
+		
+		scheduler.register(d, d, Step.Signed);
+		
 		MethodDeclaration[] candidates = baseMethods;
 		foreach(m; members) {
 			if(auto method = cast(MethodDeclaration) m) {
-				if(method.index == 0) {
-					foreach(ref candidate; candidates) {
-						if(candidate && candidate.name == method.name) {
+				method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
+				foreach(ref candidate; candidates) {
+					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
+						if(method.index == 0) {
 							method.index = candidate.index;
 							candidate = null;
 							break;
+						} else {
+							assert(0, "Override not marked as override !");
 						}
 					}
-					
-					if(method.index == 0) {
-						assert(0, "Override not found");
-					}
-					
-					continue;
+				}
+				
+				if(method.index == 0) {
+					assert(0, "Override not found for " ~ method.name);
 				}
 			}
 		}
@@ -373,12 +398,11 @@ final class SymbolVisitor {
 			}
 		}
 		
-		// FIXME: big lie :D
-		scheduler.register(d, d, Step.Processed);
-		
 		d.members = cast(Declaration[]) baseFields;
 		d.members ~= cast(Declaration[]) baseMethods;
 		d.members ~= cast(Declaration[]) scheduler.require(members);
+		
+		scheduler.register(d, d, Step.Processed);
 		
 		return d;
 	}

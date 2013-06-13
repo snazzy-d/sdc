@@ -41,19 +41,35 @@ final class DeclarationGen {
 	}
 	
 	LLVMValueRef visit(FunctionDeclaration f) {
-		auto funptrType = pass.visit(f.type);
+		auto type = pass.visit(f.type);
 		
-		auto funType = LLVMGetElementType(funptrType);
-		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+		LLVMValueRef ret, fun;
+		if(LLVMGetTypeKind(type) == LLVMTypeKind.Struct) {
+			assert(LLVMCountStructElementTypes(type) == 2, "delegate must have 2 fields");
+			
+			LLVMTypeRef[2] types;
+			LLVMGetStructElementTypes(type, types.ptr);
+			
+			auto funType = LLVMGetElementType(types[0]);
+			ret = fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+			
+			if(typeid(f) !is typeid(MethodDeclaration)) {
+				ret = LLVMGetUndef(type);
+				ret = LLVMBuildInsertValue(builder, ret, fun, 0, "");
+			}
+		} else {
+			auto funType = LLVMGetElementType(type);
+			ret = fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+		}
 		
 		// Register the function.
-		exprSymbols[f] = fun;
+		exprSymbols[f] = ret;
 		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
 			
-		return fun;
+		return ret;
 	}
 	
 	LLVMValueRef visit(MethodDeclaration m) {
@@ -61,7 +77,12 @@ final class DeclarationGen {
 	}
 	
 	private void genFunctionBody(FunctionDeclaration f) {
-		genFunctionBody(f, exprSymbols[f]);
+		auto fun = exprSymbols[f];
+		if(LLVMGetTypeKind(LLVMTypeOf(fun)) == LLVMTypeKind.Struct) {
+			fun = LLVMBuildExtractValue(builder, fun, 0, "");
+		}
+		
+		genFunctionBody(f, fun);
 	}
 	
 	private void genFunctionBody(FunctionDeclaration f, LLVMValueRef fun) {
@@ -88,11 +109,17 @@ final class DeclarationGen {
 		
 		LLVMValueRef[] params;
 		LLVMTypeRef[] parameterTypes;
-		params.length = parameterTypes.length = f.parameters.length;
+		params.length = parameterTypes.length = LLVMCountParamTypes(funType);
 		LLVMGetParams(fun, params.ptr);
 		LLVMGetParamTypes(funType, parameterTypes.ptr);
 		
-		foreach(i, p; f.parameters) {
+		// XXX: This is kind of hacky, better can surely be done.
+		auto parameters = f.parameters;
+		if(auto dg = cast(DelegateType) f.type) {
+			parameters = dg.context ~ parameters;
+		}
+		
+		foreach(i, p; parameters) {
 			auto value = params[i];
 			
 			if(p.isReference) {

@@ -259,7 +259,7 @@ final class SemanticPass {
 				fbody ~= new ReturnStatement(location, call);
 			}
 			
-			auto bootstrap = new FunctionDeclaration(main.location, "_Dmain", "C", new IntegerType(main.returnType.location, Integer.Int), [], false, new BlockStatement(location, fbody));
+			auto bootstrap = new FunctionDeclaration(main.location, "_Dmain", "C", new IntegerType(Integer.Int), [], false, new BlockStatement(location, fbody));
 			bootstrap.isStatic = true;
 			bootstrap.dscope = new NestedScope(new Scope(null));
 			
