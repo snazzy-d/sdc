@@ -1,9 +1,12 @@
 module d.parser.declaration;
 
+import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
+
+import d.ir.expression;
 
 import d.parser.adt;
 import d.parser.base;
@@ -44,12 +47,12 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 	
 	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
 		Declaration[] declarations;
-		switch(trange.front.type) {
-			case TokenType.OpenBrace :
+		switch(trange.front.type) with(TokenType) {
+			case OpenBrace :
 				declarations = trange.parseAggregate();
 				break;
 			
-			case TokenType.Colon :
+			case Colon :
 				trange.popFront();
 				declarations = trange.parseAggregate!false();
 				break;
@@ -63,21 +66,21 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		return new StorageClassDeclaration(location, arguments, declarations);
 	}
 	
-	switch(trange.front.type) {
-		case TokenType.Auto :
+	switch(trange.front.type) with(TokenType) {
+		case Auto :
 			trange.popFront();
 			
-			return trange.parseTypedDeclaration(location, new AutoType());
+			return trange.parseTypedDeclaration(location, QualAstType(new AutoType()));
 		
 		/*
 		 * Type qualifiers
 		 */
-		case TokenType.Const :
+		case Const :
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == TokenType.Identifier) {
+			if(lookahead.front.type == Identifier) {
 				lookahead.popFront();
-				if(lookahead.front.type == TokenType.Assign) {
+				if(lookahead.front.type == Assign) {
 					trange.popFront();
 					
 					return handleStorageClass!ConstDeclaration();
@@ -86,12 +89,12 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			
 			goto default;
 		
-		case TokenType.Immutable :
+		case Immutable :
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == TokenType.Identifier) {
+			if(lookahead.front.type == Identifier) {
 				lookahead.popFront();
-				if(lookahead.front.type == TokenType.Assign) {
+				if(lookahead.front.type == Assign) {
 					trange.popFront();
 					
 					return handleStorageClass!ImmutableDeclaration();
@@ -100,12 +103,12 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			
 			goto default;
 		
-		case TokenType.Inout :
+		case Inout :
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == TokenType.Identifier) {
+			if(lookahead.front.type == Identifier) {
 				lookahead.popFront();
-				if(lookahead.front.type == TokenType.Assign) {
+				if(lookahead.front.type == Assign) {
 					trange.popFront();
 					
 					return handleStorageClass!InoutDeclaration();
@@ -114,12 +117,12 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			
 			goto default;
 		
-		case TokenType.Shared :
+		case Shared :
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == TokenType.Identifier) {
+			if(lookahead.front.type == Identifier) {
 				lookahead.popFront();
-				if(lookahead.front.type == TokenType.Assign) {
+				if(lookahead.front.type == Assign) {
 					trange.popFront();
 					
 					return handleStorageClass!SharedDeclaration();
@@ -131,49 +134,49 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		/*
 		 * Storage class
 		 */
-		case TokenType.Abstract :
+		case Abstract :
 			trange.popFront();
 			
 			return handleStorageClass!AbstractDeclaration();
 		
-		case TokenType.Deprecated :
+		case Deprecated :
 			trange.popFront();
 			
 			return handleStorageClass!DeprecatedDeclaration();
 		
-		case TokenType.Nothrow :
+		case Nothrow :
 			trange.popFront();
 			
 			return handleStorageClass!NothrowDeclaration();
 		
-		case TokenType.Override :
+		case Override :
 			trange.popFront();
 			
 			return handleStorageClass!OverrideDeclaration();
 		
-		case TokenType.Pure :
+		case Pure :
 			trange.popFront();
 			
 			return handleStorageClass!PureDeclaration();
 		
-		case TokenType.Static :
+		case Static :
 			// Handle static if.
 			// TODO: handle static assert.
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == TokenType.If) {
+			if(lookahead.front.type == If) {
 				return trange.parseStaticIf!Declaration();
 			}
 			
 			trange.popFront();
 			return handleStorageClass!StaticDeclaration();
 		
-		case TokenType.Synchronized :
+		case Synchronized :
 			trange.popFront();
 			
 			return handleStorageClass!SynchronizedDeclaration();
 		
-		case TokenType.__Gshared :
+		case __Gshared :
 			trange.popFront();
 			
 			return handleStorageClass!__GsharedDeclaration();
@@ -181,27 +184,27 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		/*
 		 * Visibility declaration
 		 */
-		case TokenType.Private :
+		case Private :
 			trange.popFront();
 			
 			return handleStorageClass!PrivateDeclaration();
 		
-		case TokenType.Public :
+		case Public :
 			trange.popFront();
 			
 			return handleStorageClass!PublicDeclaration();
 		
-		case TokenType.Protected :
+		case Protected :
 			trange.popFront();
 			
 			return handleStorageClass!ProtectedDeclaration();
 		
-		case TokenType.Package :
+		case Package :
 			trange.popFront();
 			
 			return handleStorageClass!PackageDeclaration();
 		
-		case TokenType.Export :
+		case Export :
 			trange.popFront();
 			
 			return handleStorageClass!ExportDeclaration();
@@ -209,75 +212,91 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		/*
 		 * Linkage
 		 */
-		case TokenType.Extern :
+		case Extern :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
-			string linkage = trange.front.value;
-			trange.match(TokenType.Identifier);
-			trange.match(TokenType.CloseParen);
+			trange.match(OpenParen);
+			string linkageStr = trange.front.value;
+			trange.match(Identifier);
+			
+			Linkage linkage;
+			switch(linkageStr) {
+				case "D" :
+					linkage = Linkage.D;
+					break;
+				
+				case "C" :
+					// TODO: C++
+					linkage = Linkage.C;
+					break;
+				
+				default:
+					assert(0, "Linkage not supported");
+			}		
+					
+			trange.match(CloseParen);
 			
 			return handleStorageClass!LinkageDeclaration(linkage);
 		
 		/**
 		 * Attributes
 		 */
-		case TokenType.At :
+		case At :
 			trange.popFront();
 			string attribute = trange.front.value;
-			trange.match(TokenType.Identifier);
+			trange.match(Identifier);
 			
 			return handleStorageClass!AttributeDeclaration(attribute);
 		
 		/*
 		 * Class, interface, struct and union declaration
 		 */
-		case TokenType.Interface :
+		case Interface :
 			return trange.parseInterface();
 		
-		case TokenType.Class :
+		case Class :
 			return trange.parseClass();
 		
-		case TokenType.Struct :
+		case Struct :
 			return trange.parseStruct();
 		
-		case TokenType.Union :
+		case Union :
 			return trange.parseUnion();
 		
 		/*
 		 * Constructor and destructor
 		 */
-		case TokenType.This :
+		case This :
 			return trange.parseConstructor();
 		
-		case TokenType.Tilde :
+		case Tilde :
 			return trange.parseDestructor();
 		
 		/*
 		 * Enum
 		 */
-		case TokenType.Enum :
+		case Enum :
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
-			Type type;
+			QualAstType type;
 			
 			// Determine if we are in case of manifest constant or regular enum.
 			switch(lookahead.front.type) {
-				case TokenType.Colon :
-				case TokenType.OpenBrace :
+				case Colon :
+				case OpenBrace :
 					// FIXME: this is manifest constant !
 					return trange.parseEnum();
 				
-				case TokenType.Identifier :
+				case Identifier :
 					lookahead.popFront();
 					switch(lookahead.front.type) {
-						case TokenType.Colon, TokenType.OpenBrace :
+						case Colon, OpenBrace :
 							return trange.parseEnum();
 						
 						// Auto manifest constant declaration.
-						case TokenType.Assign :
+						case Assign :
 							trange.popFront();
-							type = new AutoType();
+							type = QualAstType(new AutoType());
 							
 							break;
 						
@@ -296,40 +315,41 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 					break;
 			}
 			
-			assert(type);
+			assert(type.type);
 			return trange.parseTypedDeclaration(location, type);
 		
 		/*
 		 * Template
 		 */
-		case TokenType.Template :
-			return trange.parseTemplate();
+		case Template :
+			assert(0, "Template not implemented");
+			// return trange.parseTemplate();
 		
 		/*
 		 * Import
 		 */
-		case TokenType.Import :
+		case Import :
 			return trange.parseImport();
 		
 		/**
 		 * Alias
 		 */
-		case TokenType.Alias :
+		case Alias :
 			return trange.parseAlias();
 		
 		/*
 		 * Conditional compilation
 		 */
-		case TokenType.Version :
+		case Version :
 			return trange.parseVersion!Declaration();
 		
-		case TokenType.Debug :
+		case Debug :
 			return trange.parseDebug!Declaration();
 		
-		case TokenType.Mixin :
+		case Mixin :
 			return trange.parseMixin!Declaration();
 		
-		case TokenType.Unittest :
+		case Unittest :
 			trange.popFront();
 			trange.parseBlock();
 			assert(0, "unittest not supported");
@@ -355,14 +375,14 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location) if(isToken
 /**
  * Parse a declaration when you already have its type.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type) if(isTokenRange!R) {
+Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstType type) if(isTokenRange!R) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
 		string name = trange.front.value;
 		trange.match(TokenType.Identifier);
 		
-		return trange.parseFunction(location, name, type);
+		return trange.parseFunction(location, Linkage.D, ParamAstType(type), name);
 	} else {
 		VariableDeclaration[] variables;
 		
@@ -372,15 +392,13 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, Type type)
 			Location variableLocation = trange.front.location;
 			trange.match(TokenType.Identifier);
 			
-			Expression value;
+			AstExpression value;
 			if(trange.front.type == TokenType.Assign) {
 				trange.popFront();
 				
-				value = trange.parseInitializer(type);
+				value = trange.parseInitializer();
 				
 				variableLocation.spanTo(value.location);
-			} else {
-				value = new DefaultInitializer(location, type);
 			}
 			
 			variables ~= new VariableDeclaration(location, type, name, value);
@@ -468,13 +486,13 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
 /**
  * Parse Initializer
  */
-private auto parseInitializer(TokenRange)(ref TokenRange trange, Type type) {
+private auto parseInitializer(TokenRange)(ref TokenRange trange) {
 	if(trange.front.type == TokenType.Void) {
 		auto location = trange.front.location;
 		
 		trange.popFront();
 		
-		return new VoidInitializer(location, type);
+		return new VoidInitializer(location);
 	}
 	
 	return trange.parseAssignExpression();

@@ -17,22 +17,22 @@ import std.range;
 Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
-	switch(trange.front.type) {
-		case TokenType.OpenBrace :
+	switch(trange.front.type) with(TokenType) {
+		case OpenBrace :
 			return trange.parseBlock();
 		
-		case TokenType.If :
+		case If :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			
 			auto condition = trange.parseExpression();
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			auto then = trange.parseStatement();
 			
 			Statement elseStatement;
-			if(trange.front.type == TokenType.Else) {
+			if(trange.front.type == Else) {
 				trange.popFront();
 				
 				elseStatement = trange.parseStatement();
@@ -44,12 +44,12 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			return new IfStatement(location, condition, then, elseStatement);
 		
-		case TokenType.While :
+		case While :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			auto condition = trange.parseExpression();
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();
 			
@@ -61,75 +61,75 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			auto statement = trange.parseStatement();
 			
-			trange.match(TokenType.While);
-			trange.match(TokenType.OpenParen);
+			trange.match(While);
+			trange.match(OpenParen);
 			auto condition = trange.parseExpression();
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			return new DoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
 			trange.popFront();
 			
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			
 			Statement init;
-			if(trange.front.type == TokenType.Semicolon) {
+			if(trange.front.type == Semicolon) {
 				init = new BlockStatement(trange.front.location, []);
 				trange.popFront();
 			} else {
 				init = trange.parseStatement();
 			}
 			
-			Expression condition;
-			if(trange.front.type != TokenType.Semicolon) {
+			AstExpression condition;
+			if(trange.front.type != Semicolon) {
 				condition = trange.parseExpression();
 			}
 			
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
-			Expression increment;
-			if(trange.front.type != TokenType.CloseParen) {
+			AstExpression increment;
+			if(trange.front.type != CloseParen) {
 				increment = trange.parseExpression();
 			}
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();
 			
 			location.spanTo(statement.location);
 			return new ForStatement(location, init, condition, increment, statement);
 		
-		case TokenType.Foreach, TokenType.ForeachReverse :
+		case Foreach, ForeachReverse :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			
 			VariableDeclaration parseForeachListElement() {
 				Location elementLocation = trange.front.location;
 				
 				auto lookahead = trange.save;
-				Type type;
+				QualAstType type;
 				switch(trange.front.type) {
-					case TokenType.Ref :
+					case Ref :
 						lookahead.popFront();
 						
-						if(lookahead.front.type == TokenType.Identifier) goto case TokenType.Identifier;
+						if(lookahead.front.type == Identifier) goto case Identifier;
 						
 						goto default;
 					
-					case TokenType.Identifier :
+					case Identifier :
 						lookahead.popFront();
 						
-						if(lookahead.front.type == TokenType.Comma || lookahead.front.type == TokenType.Semicolon) {
-							if(trange.front.type == TokenType.Ref) {
+						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
+							if(trange.front.type == Ref) {
 								trange.popFront();
 							}
 							
-							type = new AutoType();
+							type = QualAstType(new AutoType());
 							break;
 						}
 						
@@ -142,7 +142,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				auto name = trange.front.value;
 				elementLocation.spanTo(trange.front.location);
 				
-				trange.match(TokenType.Identifier);
+				trange.match(Identifier);
 				
 				assert(0, "yada yada foreach ?");
 				
@@ -150,90 +150,90 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];
-			while(trange.front.type == TokenType.Comma) {
+			while(trange.front.type == Comma) {
 				trange.popFront();
 				tupleElements ~= parseForeachListElement();
 			}
 			
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			auto iterrated = trange.parseExpression();
 			
-			if(trange.front.type == TokenType.DoubleDot) {
+			if(trange.front.type == DoubleDot) {
 				trange.popFront();
 				trange.parseExpression();
 			}
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
 			return new ForeachStatement(location, tupleElements, iterrated, statement);
 		
-		case TokenType.Return :
+		case Return :
 			trange.popFront();
 			
-			Expression value;
-			if(trange.front.type != TokenType.Semicolon) {
+			AstExpression value;
+			if(trange.front.type != Semicolon) {
 				value = trange.parseExpression();
 			}
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			return new ReturnStatement(location, value);
 		
-		case TokenType.Break :
+		case Break :
 			trange.popFront();
 			
-			if(trange.front.type == TokenType.Identifier) trange.popFront();
+			if(trange.front.type == Identifier) trange.popFront();
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			return new BreakStatement(location);
 		
-		case TokenType.Continue :
+		case Continue :
 			trange.popFront();
 			
-			if(trange.front.type == TokenType.Identifier) trange.popFront();
+			if(trange.front.type == Identifier) trange.popFront();
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			return new ContinueStatement(location);
 		
-		case TokenType.Switch :
+		case Switch :
 			trange.popFront();
-			trange.match(TokenType.OpenParen);
+			trange.match(OpenParen);
 			
 			auto expression = trange.parseExpression();
 			
-			trange.match(TokenType.CloseParen);
+			trange.match(CloseParen);
 			
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
 			return new SwitchStatement(location, expression, statement);
 		
-		case TokenType.Case :
+		case Case :
 			trange.popFront();
 			
-			Expression[] cases = trange.parseArguments();
+			AstExpression[] cases = trange.parseArguments();
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Colon);
+			trange.match(Colon);
 			
 			return new CaseStatement(location, cases);
 		
-		case TokenType.Default :
+		case Default :
 			// Other labeled statement will jump here !
 			auto label = trange.front.value;
 			trange.popFront();
-			trange.match(TokenType.Colon);
+			trange.match(Colon);
 			
 			Statement statement;
-			if(trange.front.type != TokenType.CloseBrace) {
+			if(trange.front.type != CloseBrace) {
 				statement = trange.parseStatement();
 				location.spanTo(statement.location);
 			} else {
@@ -243,47 +243,47 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			return new LabeledStatement(location, label, statement);
 		
-		case TokenType.Identifier :
+		case Identifier :
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
-			if(lookahead.front.type == TokenType.Colon) {
-				goto case TokenType.Default;
+			if(lookahead.front.type == Colon) {
+				goto case Default;
 			}
 			
 			// If it is not a labeled statement, then it is a declaration or an expression.
 			goto default;
 		
-		case TokenType.Goto :
+		case Goto :
 			trange.popFront();
 			
 			string label;
 			switch(trange.front.type) {
-				case TokenType.Identifier :
-				case TokenType.Default :
-				case TokenType.Case :
+				case Identifier :
+				case Default :
+				case Case :
 					label = trange.front.value;
 					trange.popFront();
 					break;
 				
 				default :
-					trange.match(TokenType.Identifier);
+					trange.match(Identifier);
 			}
 			
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			location.spanTo(trange.front.location);
 			
 			return new GotoStatement(location, label);
 		
-		case TokenType.Synchronized :
+		case Synchronized :
 			trange.popFront();
-			if(trange.front.type == TokenType.OpenParen) {
+			if(trange.front.type == OpenParen) {
 				trange.popFront();
 				
 				trange.parseExpression();
 				
-				trange.match(TokenType.CloseParen);
+				trange.match(CloseParen);
 			}
 			
 			auto statement = trange.parseStatement();
@@ -291,27 +291,27 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			return new SynchronizedStatement(location, statement);
 		
-		case TokenType.Try :
+		case Try :
 			trange.popFront();
 			
 			auto statement = trange.parseStatement();
 			
 			CatchBlock[] catches;
-			while(trange.front.type == TokenType.Catch) {
+			while(trange.front.type == Catch) {
 				auto catchLocation = trange.front.location;
 				trange.popFront();
 				
-				if(trange.front.type == TokenType.OpenParen) {
+				if(trange.front.type == OpenParen) {
 					trange.popFront();
 					auto type = trange.parseBasicType();
 					string name;
 					
-					if(trange.front.type == TokenType.Identifier) {
+					if(trange.front.type == Identifier) {
 						name = trange.front.value;
 						trange.popFront();
 					}
 					
-					trange.match(TokenType.CloseParen);
+					trange.match(CloseParen);
 					
 					auto catchStatement = trange.parseStatement();
 					
@@ -324,7 +324,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				}
 			}
 			
-			if(trange.front.type == TokenType.Finally) {
+			if(trange.front.type == Finally) {
 				trange.popFront();
 				auto finallyStatement = trange.parseStatement();
 				
@@ -335,36 +335,36 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(catches.back.location);
 			return new TryStatement(location, statement, []);
 		
-		case TokenType.Throw :
+		case Throw :
 			trange.popFront();
 			auto value = trange.parseExpression();
 			
 			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
+			trange.match(Semicolon);
 			
 			return new ThrowStatement(location, value);
 		
-		case TokenType.Mixin :
+		case Mixin :
 			return trange.parseMixin!Statement();
 		
-		case TokenType.Static :
+		case Static :
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
 			switch(lookahead.front.type) {
-				case TokenType.If :
+				case If :
 					return trange.parseStaticIf!Statement();
 				
-				case TokenType.Assert :
+				case Assert :
 					trange.popFrontN(2);
-					trange.match(TokenType.OpenParen);
+					trange.match(OpenParen);
 					
 					auto arguments = trange.parseArguments();
 					
-					trange.match(TokenType.CloseParen);
+					trange.match(CloseParen);
 					
 					location.spanTo(trange.front.location);
-					trange.match(TokenType.Semicolon);
+					trange.match(Semicolon);
 					
 					return new StaticAssertStatement(location, arguments);
 				
@@ -373,18 +373,18 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 					return new DeclarationStatement(declaration);
 			}
 		
-		case TokenType.Version :
+		case Version :
 			return trange.parseVersion!Statement();
 		
-		case TokenType.Debug :
+		case Debug :
 			return trange.parseDebug!Statement();
 		
 		default :
 			return trange.parseDeclarationOrExpression!(delegate Statement(parsed) {
 				alias typeof(parsed) caseType;
 				
-				static if(is(caseType : Expression)) {
-					trange.match(TokenType.Semicolon);
+				static if(is(caseType : AstExpression)) {
+					trange.match(Semicolon);
 					return new ExpressionStatement(parsed);
 				} else {
 					return new DeclarationStatement(parsed);

@@ -1,6 +1,5 @@
 module d.ast.expression;
 
-import d.ast.adt;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dfunction;
@@ -8,319 +7,294 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-abstract class Expression : Node {
-	Type type;
-	
-	this(Location location) {
-		this(location, null);
-	}
-	
-	this(Location location, Type type) {
-		super(location);
-		
-		this.type = type;
-	}
-	
-	@property
-	bool isLvalue() const {
-		return false;
-	}
-}
-
-/**
- * Any expression that have a value known at compile time.
- */
-abstract class CompileTimeExpression : Expression {
+abstract class AstExpression : Node {
 	this(Location location) {
 		super(location);
 	}
 	
-	this(Location location, Type type) {
-		super(location, type);
+	final override string toString() {
+		const e = this;
+		return e.toString();
+	}
+	
+	string toString() const {
+		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
 
-// All expressions are final.
 final:
-
-/**
- * An Error occured but an Expression is expected.
- * Useful for speculative compilation.
- */
-class ErrorExpression : CompileTimeExpression {
-	string message;
-	
-	this(Location location, string message) {
-		super(location);
-		
-		this.message = message;
-	}
-}
-
-/**
- * Expression that can in fact be several expressions.
- * A good example is IdentifierExpression that resolve as overloaded functions.
- */
-class PolysemousExpression : Expression {
-	Expression[] expressions;
-	
-	this(Location location, Expression[] expressions) {
-		super(location);
-		
-		this.expressions = expressions;
-	}
-	
-	invariant() {
-		assert(expressions.length > 1);
-	}
-}
-
 /**
  * Conditional expression of type ?:
  */
-class ConditionalExpression : Expression {
-	Expression condition;
-	Expression ifTrue;
-	Expression ifFalse;
+class ConditionalExpression(T) if(is(T: AstExpression)) : T {
+	T condition;
+	T ifTrue;
+	T ifFalse;
 	
-	this(Location location, Expression condition, Expression ifTrue, Expression ifFalse) {
-		super(location);
+	this(U...)(Location location, U args, T condition, T ifTrue, T ifFalse) {
+		super(location, args);
 		
 		this.condition = condition;
 		this.ifTrue = ifTrue;
 		this.ifFalse = ifFalse;
 	}
+	
+	override string toString() const {
+		return condition.toString() ~ "? " ~ ifTrue.toString() ~ " : " ~ ifFalse.toString();
+	}
 }
+
+alias AstConditionalExpression = ConditionalExpression!AstExpression;
 
 /**
  * Binary Expressions.
  */
-class BinaryExpression(string operator) : Expression {
-	Expression lhs;
-	Expression rhs;
+enum BinaryOp {
+	Comma,
+	Assign,
+	Add,
+	Sub,
+	Concat,
+	Mul,
+	Div,
+	Mod,
+	Pow,
+	AddAssign,
+	SubAssign,
+	ConcatAssign,
+	MulAssign,
+	DivAssign,
+	ModAssign,
+	PowAssign,
+	LogicalOr,
+	LogicalAnd,
+	LogicalOrAssign,
+	LogicalAndAssign,
+	BitwiseOr,
+	BitwiseAnd,
+	BitwiseXor,
+	BitwiseOrAssign,
+	BitwiseAndAssign,
+	BitwiseXorAssign,
+	Equal,
+	NotEqual,
+	Identical,
+	NotIdentical,
+	In,
+	NotIn,
+	LeftShift,
+	SignedRightShift,
+	UnsignedRightShift,
+	LeftShiftAssign,
+	SignedRightShiftAssign,
+	UnsignedRightShiftAssign,
+	Greater,
+	GreaterEqual,
+	Less,
+	LessEqual,
 	
-	this(Location location, Expression lhs, Expression rhs) {
-		super(location);
+	// Weird float operators
+	LessGreater,
+	LessEqualGreater,
+	UnorderedLess,
+	UnorderedLessEqual,
+	UnorderedGreater,
+	UnorderedGreaterEqual,
+	Unordered,
+	UnorderedEqual,
+}
+
+class BinaryExpression(T) if(is(T: AstExpression)) : T {
+	T lhs;
+	T rhs;
+	
+	BinaryOp op;
+	
+	this(U...)(Location location, U args, BinaryOp op, T lhs, T rhs) {
+		super(location, args);
 		
 		this.lhs = lhs;
 		this.rhs = rhs;
+		
+		this.op = op;
+	}
+	
+	override string toString() const {
+		import std.conv;
+		return lhs.toString() ~ " " ~ to!string(op) ~ " " ~ rhs.toString();
 	}
 }
 
-// XXX: Remove ?
-alias BinaryExpression!","  CommaExpression;
-
-alias BinaryExpression!"="  AssignExpression;
-
-alias BinaryExpression!"+"  AddExpression;
-alias BinaryExpression!"-"  SubExpression;
-alias BinaryExpression!"~"  ConcatExpression;
-alias BinaryExpression!"*"  MulExpression;
-alias BinaryExpression!"/"  DivExpression;
-alias BinaryExpression!"%"  ModExpression;
-alias BinaryExpression!"^^" PowExpression;
-
-alias BinaryExpression!"+="  AddAssignExpression;
-alias BinaryExpression!"-="  SubAssignExpression;
-alias BinaryExpression!"~="  ConcatAssignExpression;
-alias BinaryExpression!"*="  MulAssignExpression;
-alias BinaryExpression!"/="  DivAssignExpression;
-alias BinaryExpression!"%="  ModAssignExpression;
-alias BinaryExpression!"^^=" PowAssignExpression;
-
-alias BinaryExpression!"||"  LogicalOrExpression;
-alias BinaryExpression!"&&"  LogicalAndExpression;
-
-alias BinaryExpression!"||=" LogicalOrAssignExpression;
-alias BinaryExpression!"&&=" LogicalAndAssignExpression;
-
-alias BinaryExpression!"|"   BitwiseOrExpression;
-alias BinaryExpression!"&"   BitwiseAndExpression;
-alias BinaryExpression!"^"   BitwiseXorExpression;
-
-alias BinaryExpression!"|="  BitwiseOrAssignExpression;
-alias BinaryExpression!"&="  BitwiseAndAssignExpression;
-alias BinaryExpression!"^="  BitwiseXorAssignExpression;
-
-alias BinaryExpression!"=="  EqualityExpression;
-alias BinaryExpression!"!="  NotEqualityExpression;
-
-alias BinaryExpression!"is"  IdentityExpression;
-alias BinaryExpression!"!is" NotIdentityExpression;
-
-alias BinaryExpression!"in"  InExpression;
-alias BinaryExpression!"!in" NotInExpression;
-
-alias BinaryExpression!"<<"  LeftShiftExpression;
-alias BinaryExpression!">>"  SignedRightShiftExpression;
-alias BinaryExpression!">>>" UnsignedRightShiftExpression;
-
-alias BinaryExpression!"<<="  LeftShiftAssignExpression;
-alias BinaryExpression!">>="  SignedRightShiftAssignExpression;
-alias BinaryExpression!">>>=" UnsignedRightShiftAssignExpression;
-
-alias BinaryExpression!">"   GreaterExpression;
-alias BinaryExpression!">="  GreaterEqualExpression;
-alias BinaryExpression!"<"   LessExpression;
-alias BinaryExpression!"<="  LessEqualExpression;
-
-alias BinaryExpression!"<>"   LessGreaterExpression;
-alias BinaryExpression!"<>="  LessEqualGreaterExpression;
-alias BinaryExpression!"!>"   UnorderedLessEqualExpression;
-alias BinaryExpression!"!>="  UnorderedLessExpression;
-alias BinaryExpression!"!<"   UnorderedGreaterEqualExpression;
-alias BinaryExpression!"!<="  UnorderedGreaterExpression;
-alias BinaryExpression!"!<>"  UnorderedEqualExpression;
-alias BinaryExpression!"!<>=" UnorderedExpression;
+alias AstBinaryExpression = BinaryExpression!AstExpression;
 
 /**
- * Unary Prefix Expression types.
+ * Unary Expression types.
  */
-class PrefixUnaryExpression(string operation) : Expression {
-	Expression expression;
+enum UnaryOp {
+	AddressOf,
+	Dereference,
+	PreInc,
+	PreDec,
+	PostInc,
+	PostDec,
+	Plus,
+	Minus,
+	Not,
+	Complement,
+}
+
+class UnaryExpression(T) if(is(T: AstExpression)) : T {
+	T expr;
 	
-	this(Location location, Expression expression) {
+	UnaryOp op;
+	
+	this(U...)(Location location, U args, UnaryOp op, T expression) {
+		super(location, args);
+		
+		this.expr = expr;
+		
+		this.op = op;
+	}
+	
+	override string toString() const {
+		import std.conv;
+		return to!string(op) ~ expr.toString();
+	}
+}
+
+alias AstUnaryExpression = UnaryExpression!AstExpression;
+
+class AstCastExpression : AstExpression {
+	QualAstType type;
+	AstExpression expr;
+	
+	this(Location location, QualAstType type, AstExpression expr) {
 		super(location);
 		
-		this.expression = expression;
+		this.expr = expr;
 	}
 	
-	static if(operation == "*") {
-		@property
-		override bool isLvalue() const {
-			return true;
-		}
+	override string toString() const {
+		return "cast(" ~ type.toString() ~ ") " ~ expr.toString();
 	}
 }
-
-alias PrefixUnaryExpression!"&" AddressOfExpression;
-alias PrefixUnaryExpression!"*" DereferenceExpression;
-
-alias PrefixUnaryExpression!"++" PreIncrementExpression;
-alias PrefixUnaryExpression!"--" PreDecrementExpression;
-
-alias PrefixUnaryExpression!"+" UnaryPlusExpression;
-alias PrefixUnaryExpression!"-" UnaryMinusExpression;
-
-alias PrefixUnaryExpression!"!" LogicalNotExpression;
-alias PrefixUnaryExpression!"!" NotExpression;
-
-alias PrefixUnaryExpression!"~" BitwiseNotExpression;
-alias PrefixUnaryExpression!"~" ComplementExpression;
-
-enum CastType {
-	Cast,
-	BitCast,
-	Pad,
-	Trunc,
-}
-
-class CastUnaryExpression(CastType T) : Expression {
-	Expression expression;
-	
-	this(Location location, Type type, Expression expression) {
-		super(location, type);
-		
-		this.expression = expression;
-	}
-}
-
-alias CastUnaryExpression!(CastType.Cast) CastExpression;
-alias CastUnaryExpression!(CastType.BitCast) BitCastExpression;
-alias CastUnaryExpression!(CastType.Pad) PadExpression;
-alias CastUnaryExpression!(CastType.Trunc) TruncateExpression;
-
-// FIXME: make this a statement.
-alias PrefixUnaryExpression!"delete" DeleteExpression;
-
-/**
- * Unary Postfix Expression types.
- */
-class PostfixUnaryExpression(string operation) : Expression {
-	Expression expression;
-	
-	this(Location location, Expression expression) {
-		super(location);
-		
-		this.expression = expression;
-	}
-}
-
-alias PostfixUnaryExpression!"++" PostIncrementExpression;
-alias PostfixUnaryExpression!"--" PostDecrementExpression;
 
 /**
  * Function call
  */
-class CallExpression : Expression {
-	Expression callee;
-	Expression[] arguments;
+class CallExpression(T) if(is(T: AstExpression)) : T {
+	T callee;
+	T[] arguments;
 	
-	this(Location location, Expression callee, Expression[] arguments) {
+	this(Location location, T callee, T[] arguments) {
 		super(location);
 		
 		this.callee = callee;
 		this.arguments = arguments;
+	}
+	
+	override string toString() const {
+		import std.algorithm, std.range;
+		return callee.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+	}
+}
+
+alias AstCallExpression = CallExpression!AstExpression;
+
+/**
+ * Constructor calls.
+ */
+class ConstructionExpression : AstExpression {
+	QualAstType type;
+	AstExpression[] arguments;
+	
+	this(Location location, QualAstType type, AstExpression[] arguments) {
+		super(location);
+		
+		this.type = type;
+		this.arguments = arguments;
+	}
+	
+	override string toString() const {
+		import std.algorithm, std.range;
+		return type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+	}
+}
+
+/**
+ * Indetifier calls.
+ */
+class IdentifierCallExpression : AstExpression {
+	Identifier callee;
+	AstExpression[] arguments;
+	
+	this(Location location, Identifier callee, AstExpression[] arguments) {
+		super(location);
+		
+		this.callee = callee;
+		this.arguments = arguments;
+	}
+	
+	override string toString() const {
+		import std.algorithm, std.range;
+		return callee.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 
 /**
  * Index expression : [index]
  */
-class IndexExpression : Expression {
-	Expression indexed;
+class IndexExpression(T) if(is(T: AstExpression)) : T {
+	T indexed;
+	T[] arguments;
 	
-	// TODO: this is argument, not parameters.
-	Expression[] arguments;
-	
-	this(Location location, Expression indexed, Expression[] arguments) {
-		super(location);
+	this(U...)(Location location, U args, T indexed, T[] arguments) {
+		super(location, args);
 		
 		this.indexed = indexed;
 		this.arguments = arguments;
 	}
 }
 
+alias AstIndexExpression = IndexExpression!AstExpression;
+
 /**
  * Slice expression : [first .. second]
  */
-class SliceExpression : Expression {
-	Expression indexed;
+class SliceExpression(T) if(is(T: AstExpression)) : T {
+	T sliced;
 	
-	Expression[] first;
-	Expression[] second;
+	T[] first;
+	T[] second;
 	
-	this(Location location, Expression indexed, Expression[] first, Expression[] second) {
+	this(U...)(Location location, U args, T sliced, T[] first, T[] second) {
 		super(location);
 		
-		this.indexed = indexed;
+		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
 	}
 }
 
+alias AstSliceExpression = SliceExpression!AstExpression;
+
 /**
  * Parenthese expression.
  */
-class ParenExpression : Expression {
-	Expression expression;
+class ParenExpression : AstExpression {
+	AstExpression expression;
 	
-	this(Location location, Expression expression) {
+	this(Location location, AstExpression expression) {
 		super(location);
 		
 		this.expression = expression;
-	}
-	
-	@property
-	override bool isLvalue() const {
-		return expression.isLvalue;
 	}
 }
 
 /**
  * Identifier expression
  */
-class IdentifierExpression : Expression {
+class IdentifierExpression : AstExpression {
 	Identifier identifier;
 	
 	this(Identifier identifier) {
@@ -328,249 +302,56 @@ class IdentifierExpression : Expression {
 		
 		this.identifier = identifier;
 	}
-}
-
-/**
- * Symbol expression.
- * IdentifierExpression that as been resolved.
- */
-class SymbolExpression : Expression {
-	ExpressionSymbol symbol;
 	
-	this(Location location, ExpressionSymbol symbol) {
-		super(location);
-		
-		this.symbol = symbol;
-	}
-	
-	invariant() {
-		assert(symbol);
-	}
-	
-	@property
-	override bool isLvalue() const {
-		return !(symbol.isEnum);
-	}
-}
-
-/**
- * Field access.
- */
-class FieldExpression : Expression {
-	Expression expression;
-	FieldDeclaration field;
-	
-	this(Location location, Expression expression, FieldDeclaration field) {
-		super(location);
-		
-		this.expression = expression;
-		this.field = field;
-	}
-	
-	@property
-	override bool isLvalue() const {
-		return expression.isLvalue;
-	}
-}
-
-/**
- * Delegates expressions.
- */
-class DelegateExpression : Expression {
-	Expression context;
-	Expression funptr;
-	
-	this(Location location, Expression context, Expression funptr) {
-		super(location);
-		
-		this.context = context;
-		this.funptr = funptr;
-	}
-}
-
-/**
- * Methods resolved on expressions.
- */
-class MethodExpression : Expression {
-	Expression expression;
-	FunctionDeclaration method;
-	
-	this(Location location, Expression expression, FunctionDeclaration method) {
-		super(location);
-		
-		this.expression = expression;
-		this.method = method;
+	override string toString() const {
+		return identifier.toString();
 	}
 }
 
 /**
  * new
  */
-class NewExpression : Expression {
-	Expression[] arguments;
+class NewExpression : AstExpression {
+	QualAstType type;
+	AstExpression[] arguments;
 	
-	this(Location location, Type type, Expression[] arguments) {
-		super(location, type);
+	this(Location location, QualAstType type, AstExpression[] arguments) {
+		super(location);
 		
+		this.type = type;
 		this.arguments = arguments;
 	}
 	
-	@property
-	override bool isLvalue() const {
-		return true;
-	}
-}
-
-/**
- * This
- */
-class ThisExpression : Expression {
-	this(Location location) {
-		super(location);
-	}
-	
-	@property
-	override bool isLvalue() const {
-		if(cast(StructType) type) {
-			return true;
-		}
-		
-		return false;
-	}
-}
-
-/**
- * Super
- */
-class SuperExpression : Expression {
-	this(Location location) {
-		super(location);
-	}
-}
-
-/**
- * Boolean literal
- */
-class BooleanLiteral : CompileTimeExpression {
-	bool value;
-	
-	this(Location location, bool value) {
-		super(location, new BooleanType());
-		
-		this.value = value;
-	}
-}
-
-/**
- * Integer literal
- */
-// XXX: remove template parameter here.
-class IntegerLiteral(bool isSigned) : CompileTimeExpression {
-	static if(isSigned) {
-		alias long ValueType;
-	} else {
-		alias ulong ValueType;
-	}
-	
-	ValueType value;
-	
-	this(Location location, ValueType value, IntegerType type) {
-		super(location, type);
-		
-		this.value = value;
-	}
-}
-
-/**
- * Float literal
- */
-class FloatLiteral : CompileTimeExpression {
-	double value;
-	
-	this(Location location, real value, FloatType type) {
-		super(location, type);
-		
-		this.value = value;
-	}
-}
-
-/**
- * Character literal
- */
-class CharacterLiteral : CompileTimeExpression {
-	string value;
-	
-	this(Location location, string value, CharacterType type) {
-		super(location, type);
-		
-		this.value = value;
-	}
-}
-
-/**
- * Factory of literal
- */
-auto makeLiteral(T)(Location location, T value) {
-	import std.traits;
-	static if(is(Unqual!T == bool)) {
-		return new BooleanLiteral(location, value);
-	} else static if(isIntegral!T) {
-		return new IntegerLiteral!(isSigned!T)(location, value, new IntegerType(IntegerOf!T));
-	} else static if(isFloatingPoint!T) {
-		return new FloatLiteral(location, value, new FloatType(FloatOf!T));
-	} else static if(isSomeChar!T) {
-		return new CharacterLiteral(location, [value], new CharacterType(CharacterOf!T));
-	} else {
-		static assert(0, "You can't make litteral for type " ~ T.stringof);
-	}
-}
-
-/**
- * String literal
- */
-class StringLiteral : CompileTimeExpression {
-	string value;
-	
-	this(Location location, string value) {
-		auto charType = new CharacterType(Character.Char);
-		charType.qualifier = TypeQualifier.Immutable;
-		
-		super(location, new SliceType(charType));
-		
-		this.value = value;
+	override string toString() const {
+		import std.algorithm, std.range;
+		return "new " ~ type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 
 /**
  * Array literal
  */
-class ArrayLiteral : Expression {
-	Expression[] values;
+class ArrayLiteral(T) if(is(T: AstExpression)) : T {
+	T[] values;
 	
-	this(Location location, Expression[] values) {
+	this(Location location, T[] values) {
 		super(location);
 		
 		this.values = values;
 	}
+	
+	override string toString() const {
+		import std.algorithm, std.range;
+		return "[" ~ values.map!(v => v.toString()).join(", ") ~ "]";
+	}
 }
 
-/**
- * Null literal
- */
-class NullLiteral : CompileTimeExpression {
-	this(Location location) {
-		super(location);
-	}
-	
-	this(Location location, Type type) {
-		super(location, type);
-	}
-}
+alias AstArrayLiteral = ArrayLiteral!AstExpression;
 
 /**
  * __FILE__ literal
  */
-class __File__Literal : Expression {
+class __File__Literal : AstExpression {
 	this(Location location) {
 		super(location);
 	}
@@ -579,7 +360,7 @@ class __File__Literal : Expression {
 /**
  * __LINE__ literal
  */
-class __Line__Literal : Expression {
+class __Line__Literal : AstExpression {
 	this(Location location) {
 		super(location);
 	}
@@ -588,7 +369,7 @@ class __Line__Literal : Expression {
 /**
  * Delegate literal
  */
-class DelegateLiteral : Expression {
+class DelegateLiteral : AstExpression {
 	private Statement statement;
 	
 	this(Statement statement) {
@@ -601,7 +382,7 @@ class DelegateLiteral : Expression {
 /**
  * $
  */
-class DollarExpression : Expression {
+class DollarExpression : AstExpression {
 	this(Location location) {
 		super(location);
 	}
@@ -610,10 +391,10 @@ class DollarExpression : Expression {
 /**
  * is expression.
  */
-class IsExpression : Expression {
-	private Type tested;
+class IsExpression : AstExpression {
+	QualAstType tested;
 	
-	this(Location location, Type tested) {
+	this(Location location, QualAstType tested) {
 		super(location);
 		
 		this.tested = tested;
@@ -623,11 +404,11 @@ class IsExpression : Expression {
 /**
  * assert
  */
-class AssertExpression : Expression {
-	Expression condition;
-	Expression message;
+class AssertExpression(T) if(is(T: AstExpression)) : T {
+	T condition;
+	T message;
 	
-	this(Location location, Expression condition, Expression message) {
+	this(Location location, T condition, T message) {
 		super(location);
 		
 		this.condition = condition;
@@ -635,13 +416,15 @@ class AssertExpression : Expression {
 	}
 }
 
+alias AstAssertExpression = AssertExpression!AstExpression;
+
 /**
  * typeid expression.
  */
-class TypeidExpression : Expression {
-	private Expression expression;
+class TypeidExpression : AstExpression {
+	AstExpression expression;
 	
-	this(Location location, Expression expression) {
+	this(Location location, AstExpression expression) {
 		super(location);
 		
 		this.expression = expression;
@@ -651,10 +434,10 @@ class TypeidExpression : Expression {
 /**
  * typeid expression with a type as argument.
  */
-class StaticTypeidExpression : Expression {
-	private Type argument;
+class StaticTypeidExpression : AstExpression {
+	QualAstType argument;
 	
-	this(Location location, Type argument) {
+	this(Location location, QualAstType argument) {
 		super(location);
 		
 		this.argument = argument;
@@ -664,8 +447,8 @@ class StaticTypeidExpression : Expression {
 /**
  * ambiguous typeid expression.
  */
-class IdentifierTypeidExpression : Expression {
-	private Identifier argument;
+class IdentifierTypeidExpression : AstExpression {
+	Identifier argument;
 	
 	this(Location location, Identifier argument) {
 		super(location);
@@ -673,42 +456,4 @@ class IdentifierTypeidExpression : Expression {
 		this.argument = argument;
 	}
 }
-
-/**
- * type.sizeof
- */
-class SizeofExpression : Expression {
-	Type argument;
-	
-	this(Location location, Type argument) {
-		super(location);
-		
-		this.argument = argument;
-	}
-}
-
-/**
- * tuples. Also used for struct initialization.
- */
-template TupleExpressionImpl(bool isCompileTime = false) {
-	static if(isCompileTime) {
-		alias E = CompileTimeExpression;
-	} else {
-		alias E = Expression;
-	}
-	
-	class TupleExpressionImpl : E {
-		E[] values;
-	
-		this(Location location, E[] values) {
-			super(location);
-		
-			this.values = values;
-		}
-	}
-}
-
-// XXX: required as long as 0 argument instanciation is not possible.
-alias TupleExpression = TupleExpressionImpl!false;
-alias CompileTimeTupleExpression = TupleExpressionImpl!true;
 

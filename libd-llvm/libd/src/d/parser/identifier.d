@@ -48,9 +48,9 @@ auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Loca
 	
 	static if(is(Namespace : Identifier)) {
 		alias IdentifierDotIdentifier QualifiedIdentifier;
-	} else static if(is(Namespace : Type)) {
+	} else static if(is(Namespace : QualAstType)) {
 		alias TypeDotIdentifier QualifiedIdentifier;
-	} else static if(is(Namespace : Expression)) {
+	} else static if(is(Namespace : AstExpression)) {
 		alias ExpressionDotIdentifier QualifiedIdentifier;
 	} else static if(is(Namespace : TypeOrExpression)) {
 		alias AmbiguousDotIdentifier QualifiedIdentifier;

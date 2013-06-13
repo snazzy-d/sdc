@@ -3,13 +3,17 @@ module d.semantic.type;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
-import d.ast.adt;
+import d.ast.base;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.type;
+
+import d.ir.type;
 
 import std.algorithm;
 import std.array;
+
+alias PointerType = d.ir.type.PointerType;
+alias SliceType = d.ir.type.SliceType;
 
 final class TypeVisitor {
 	private SemanticPass pass;
@@ -19,95 +23,40 @@ final class TypeVisitor {
 		this.pass = pass;
 	}
 	
-	Type visit(Type t) /* out(result) {
-		assert(t.canonical, "Canonical type must be set.");
-	} body */ {
+	QualType visit(QualAstType t) {
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
 		qualifier = t.qualifier = t.qualifier.add(qualifier);
 		
-		return this.dispatch(t);
+		return QualType(this.dispatch(t.type), qualifier);
 	}
 	
-	Type visit(BooleanType t) {
+	Type visit(BuiltinType t) {
 		return t;
 	}
-	
-	Type visit(IntegerType t) {
-		return t;
-	}
-	
-	Type visit(FloatType t) {
-		return t;
-	}
-	
-	Type visit(CharacterType t) {
-		return t;
-	}
-	
-	Type visit(VoidType t) {
-		return t;
-	}
-	
-	Type visit(TypeofType t) {
-		t.expression = pass.visit(t.expression);
+	/+
+	QualType visit(TypeofType t) {
+		auto e = pass.visit(t.expression);
 		
-		return t.expression.type;
+		return e.type;
+	}
+	+/
+	Type visit(AstPointerType t) {
+		return new PointerType(visit(t.pointed));
 	}
 	
-	auto handleSuffixType(T, A...)(T t, A args) if(is(T : SuffixType)) {
-		t.type = visit(t.type);
-		
-		if(t.type.canonical is t.type) {
-			t.canonical = t;
-		} else {
-			t.canonical = new T(t.canonical, args);
-		}
-		
-		return t;
+	Type visit(AstSliceType t) {
+		return new SliceType(visit(t.sliced));
 	}
-	
-	Type visit(PointerType t) {
-		return handleSuffixType(t);
-	}
-	
-	Type visit(SliceType t) {
-		return handleSuffixType(t);
-	}
-	
-	Type visit(StaticArrayType t) {
+	/+
+	Type visit(d.ast.type.ArrayType t) {
 		t.size = pass.visit(t.size);
 		
 		return handleSuffixType(t, t.size);
 	}
 	
-	Type visit(AliasType t) {
-		scheduler.require(t.dalias);
-		t.canonical = t.dalias.type.canonical;
-		
-		return t.dalias.type;
-	}
-	
-	Type visit(StructType t) {
-		t.canonical = t;
-		
-		return t;
-	}
-	
-	Type visit(ClassType t) {
-		t.canonical = t;
-		
-		return t;
-	}
-	
-	Type visit(EnumType t) {
-		t.canonical = t;
-		
-		return t;
-	}
-	
-	Type visit(FunctionType t) {
+	Type visit(AstFunctionType t) {
 		// Go to pass to reset qualifier accumulation.
 		t.returnType = pass.visit(t.returnType);
 		t.canonical = t;
@@ -115,18 +64,19 @@ final class TypeVisitor {
 		return t;
 	}
 	
-	Type visit(DelegateType t) {
+	Type visit(AstDelegateType t) {
 		return visit(cast(FunctionType) t);
 	}
 	
 	Type visit(IdentifierType t) {
 		return pass.visit(t.identifier).apply!((identified) {
-			static if(is(typeof(identified) : Type)) {
-				return visit(identified);
+			static if(is(typeof(identified) : QualType)) {
+				return identified;
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
 	}
+	+/
 }
 

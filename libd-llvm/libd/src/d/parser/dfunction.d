@@ -1,6 +1,7 @@
 module d.parser.dfunction;
 
 import d.ast.dfunction;
+import d.ast.type;
 
 import d.parser.base;
 import d.parser.dtemplate;
@@ -16,22 +17,24 @@ import d.ast.statement;
 /**
  * Parse constructor.
  */
-auto parseConstructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Declaration parseConstructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction!(ConstructorDeclaration)(location);
+	assert(0, "Constructor not implemented");
+	// return trange.parseFunction!(ConstructorDeclaration)(location);
 }
 
 /**
  * Parse destructor.
  */
-auto parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Declaration parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction!(DestructorDeclaration)(location);
+	assert(0, "Destructor not implemented");
+	// return trange.parseFunction!(DestructorDeclaration)(location);
 }
 
 /**
@@ -63,14 +66,14 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	// TODO: parse function attributes
 	// Parse function attributes
 	functionAttributeLoop : while(1) {
-		switch(trange.front.type) {
-			case TokenType.Pure, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Nothrow :
+		switch(trange.front.type) with(TokenType) {
+			case Pure, Const, Immutable, Inout, Shared, Nothrow :
 				trange.popFront();
 				break;
 			
-			case TokenType.At :
+			case At :
 				trange.popFront();
-				trange.match(TokenType.Identifier);
+				trange.match(Identifier);
 				break;
 			
 			default :
@@ -80,13 +83,13 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	
 	// TODO: parse contracts.
 	// Skip contracts
-	switch(trange.front.type) {
-		case TokenType.In, TokenType.Out :
+	switch(trange.front.type) with(TokenType) {
+		case In, Out :
 			trange.popFront();
 			trange.parseBlock();
 			
 			switch(trange.front.type) {
-				case TokenType.In, TokenType.Out :
+				case In, Out :
 					trange.popFront();
 					trange.parseBlock();
 					break;
@@ -95,10 +98,10 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 					break;
 			}
 			
-			trange.match(TokenType.Body);
+			trange.match(Body);
 			break;
 		
-		case TokenType.Body :
+		case Body :
 			// Body without contract is just skipped.
 			trange.popFront();
 			break;
@@ -108,14 +111,14 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	}
 	
 	BlockStatement fbody;
-	switch(trange.front.type) {
-		case TokenType.Semicolon :
+	switch(trange.front.type) with(TokenType) {
+		case Semicolon :
 			location.spanTo(trange.front.location);
 			trange.popFront();
 			
 			break;
 		
-		case TokenType.OpenBrace :
+		case OpenBrace :
 			fbody = trange.parseBlock();
 			location.spanTo(fbody.location);
 			
@@ -123,11 +126,13 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 		
 		default :
 			// TODO: error.
-			trange.match(TokenType.Begin);
+			trange.match(Begin);
 			assert(0);
 	}
 	
-	auto fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic, fbody);
+	// FIXME: fill names.
+	string[] names;
+	auto fun = new FunctionDeclarationType(location, arguments, parameters, names, isVariadic, fbody);
 	
 	if(tplParameters.ptr) {
 		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
@@ -142,13 +147,13 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 	trange.match(TokenType.OpenParen);
 	
-	Parameter[] parameters;
+	ParamAstType[] parameters;
 	
-	switch(trange.front.type) {
-		case TokenType.CloseParen :
+	switch(trange.front.type) with(TokenType) {
+		case CloseParen :
 			break;
 		
-		case TokenType.TripleDot :
+		case TripleDot :
 			trange.popFront();
 			isVariadic = true;
 			break;
@@ -156,11 +161,11 @@ auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 		default :
 			parameters ~= trange.parseParameter();
 			
-			while(trange.front.type == TokenType.Comma) {
+			while(trange.front.type == Comma) {
 				trange.popFront();
 				
-				if(trange.front.type == TokenType.TripleDot) {
-					goto case TokenType.TripleDot;
+				if(trange.front.type == TripleDot) {
+					goto case TripleDot;
 				}
 				
 				parameters ~= trange.parseParameter();
@@ -173,18 +178,18 @@ auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 }
 
 private auto parseParameter(TokenRange)(ref TokenRange trange) {
-	bool isReference;
+	bool isRef = false;
 	
 	// TODO: parse storage class
 	ParseStorageClassLoop: while(1) {
-		switch(trange.front.type) {
-			case TokenType.In, TokenType.Out, TokenType.Lazy :
+		switch(trange.front.type) with(TokenType) {
+			case In, Out, Lazy :
 				trange.popFront();
 				break;
 			
-			case TokenType.Ref :
+			case Ref :
 				trange.popFront();
-				isReference = true;
+				isRef = true;
 				
 				break;
 			
@@ -196,7 +201,7 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 	auto location = trange.front.location;
 	auto type = trange.parseType();
 	
-	Parameter param;
+	ParamAstType param;
 	if(trange.front.type == TokenType.Identifier) {
 		string name = trange.front.value;
 		trange.popFront();
@@ -207,16 +212,17 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 			auto expression = trange.parseAssignExpression();
 			
 			location.spanTo(expression.location);
-			return new InitializedParameter(location, name, type, expression);
+			assert(0, "Initialized parameter is not implemented");
+			// return new InitializedParameter(location, name, type, expression);
 		}
 		
-		param = new Parameter(location, name, type);
+		// param = new Parameter(location, name, type);
 	} else {
 		location.spanTo(trange.front.location);
-		param = new Parameter(location, type);
+		// param = new Parameter(location, type);
 	}
 	
-	param.isReference = isReference;
+	param.isRef = isRef;
 	
 	return param;
 }

@@ -4,7 +4,6 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.declaration;
-import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
@@ -22,7 +21,7 @@ final class TemplateInstancier {
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-	
+	/+
 	auto instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
 		scheduler.require(tplDecl);
 		
@@ -108,5 +107,6 @@ final class TemplateInstancier {
 		+/
 		// assert(0, "Ambiguous can't be deambiguated.");
 	}
+	+/
 }
 

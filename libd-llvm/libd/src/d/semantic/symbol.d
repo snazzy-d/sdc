@@ -3,14 +3,16 @@ module d.semantic.symbol;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
-import d.ast.adt;
+import d.ast.base;
 import d.ast.dfunction;
 import d.ast.declaration;
-import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
+
+import d.ir.symbol;
+import d.ir.type;
 
 import std.algorithm;
 import std.array;
@@ -30,15 +32,11 @@ final class SymbolVisitor {
 	}
 	
 	Symbol visit(Symbol s) {
-		auto oldSymbol = symbol;
-		scope(exit) symbol = oldSymbol;
-		
-		symbol = s;
-		
 		return this.dispatch(s);
 	}
 	
 	Symbol visit(FunctionDeclaration d) {
+		/+
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
 		foreach(p; d.parameters) {
 			this.dispatch(p);
@@ -139,27 +137,29 @@ final class SymbolVisitor {
 		
 		d.step = Step.Processed;
 		return d;
+		+/
+		
+		return null;
 	}
 	
-	Symbol visit(MethodDeclaration d) {
-		return visit(cast(FunctionDeclaration) d);
+	Symbol visit(Method d) {
+		return visit(cast(Function) d);
 	}
-	
+	/+
 	Parameter visit(Parameter d) {
 		d.type = pass.visit(d.type);
 		
 		d.step = Step.Processed;
 		return d;
 	}
-	
-	VariableDeclaration visit(VariableDeclaration d) {
+	+/
+	Variable visit(Variable d) {
 		d.value = pass.visit(d.value);
 		
 		// If the type is infered, then we use the type of the value.
-		if(cast(AutoType) d.type) {
+		// XXX: check for auto type in the declaration.
+		if(/+cast(AutoType) d.type+/ false) {
 			d.type = d.value.type;
-		} else {
-			d.type = pass.visit(d.type);
 		}
 		
 		d.value = buildImplicitCast(d.location, d.type, d.value);
@@ -169,7 +169,7 @@ final class SymbolVisitor {
 		}
 		
 		if(d.isStatic) {
-			assert(d.linkage == "D");
+			assert(d.linkage == Linkage.D, "I mangle only D !");
 			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ typeMangler.visit(d.type);
 		}
 		
@@ -177,16 +177,16 @@ final class SymbolVisitor {
 		return d;
 	}
 	
-	Symbol visit(FieldDeclaration d) {
+	Symbol visit(Field d) {
 		// XXX: hacky ! We force CTFE that way.
 		auto oldIsEnum = d.isEnum;
 		scope(exit) d.isEnum = oldIsEnum;
 		
 		d.isEnum = true;
 		
-		return visit(cast(VariableDeclaration) d);
+		return visit(cast(Variable) d);
 	}
-	
+	/+
 	Symbol visit(AliasDeclaration d) {
 		d.type = pass.visit(d.type);
 		d.mangle = typeMangler.visit(d.type);
@@ -472,5 +472,6 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
+	+/
 }
 

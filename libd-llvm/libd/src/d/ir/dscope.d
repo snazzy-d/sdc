@@ -1,9 +1,8 @@
-module d.ast.dscope;
+module d.ir.dscope;
 
 import d.ast.base;
-import d.ast.declaration;
-import d.ast.dmodule;
-import d.ast.identifier;
+
+import d.ir.symbol;
 
 final class OverLoadSet : Symbol {
 	Symbol[] set;

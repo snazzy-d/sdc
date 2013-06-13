@@ -3,15 +3,15 @@ module d.semantic.identifier;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
-import d.ast.adt;
-import d.ast.expression;
-import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.dmodule;
 import d.ast.dtemplate;
-import d.ast.dscope;
 import d.ast.identifier;
-import d.ast.type;
+
+import d.ir.dscope;
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.exception;
 import d.location;
@@ -88,18 +88,20 @@ final class IdentifierVisitor {
 	Identifiable visit(IdentifierDotIdentifier i) {
 		auto resolved = visit(i.identifier);
 		
-		return resolved.apply!((identified) {
-			static if(is(typeof(identified) : Type)) {
-				return visit(new TypeDotIdentifier(i.location, i.name, identified));
+		return resolved.apply!(delegate Identifiable(identified) {
+			static if(is(typeof(identified) : QualType)) {
+				// FIXME: put that way in order to compile, super wrong.
+				assert(0, "type dot identifier is't ready, buddy . . .");
+				// return visit(new TypeDotIdentifier(i.location, i.name, identified));
 			} else static if(is(typeof(identified) : Expression)) {
 				return visit(new ExpressionDotIdentifier(i.location, i.name, identified));
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
-				
+				/*
 				if(auto m = cast(Module) identified) {
 					return visit(i.location, m.dscope.resolve(i.name));
 				}
-				
+				*/
 				throw new CompileException(i.location, "Can't resolve " ~ i.name);
 			}
 		})();
@@ -110,13 +112,13 @@ final class IdentifierVisitor {
 		
 		return expressionDotIdentifierVisitor.visit(i);
 	}
-	
+	/+
 	Identifiable visit(TypeDotIdentifier i) {
 		i.type = pass.visit(i.type);
 		
 		return typeDotIdentifierVisitor.visit(i);
 	}
-	
+	+/
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {
 		return templateDotIdentifierVisitor.resolve(i);
 	}
@@ -127,10 +129,12 @@ final class IdentifierVisitor {
 	
 	Identifiable visit(IdentifierBracketExpression i) {
 		return visit(i.indexed).apply!(delegate Identifiable(identified) {
-			static if(is(typeof(identified) : Type)) {
-				return Identifiable(new StaticArrayType(identified, i.index));
+			static if(is(typeof(identified) : QualType)) {
+				assert(0, "This is a type. I don't like that.");
+				// return Identifiable(QualType(new StaticArrayType(identified, i.index)));
 			} else static if(is(typeof(identified) : Expression)) {
-				return Identifiable(new IndexExpression(i.location, identified, [i.index]));
+				assert(0, "This is an expression. I don't like that.");
+				// return Identifiable(new AstIndexExpression(i.location, identified, [i.index]));
 			} else {
 				assert(0, "WTF ???");
 			}
@@ -145,26 +149,26 @@ final class IdentifierVisitor {
 		return this.dispatch(location, s);
 	}
 	
-	private auto getSymbolExpression(Location location, ExpressionSymbol s) {
+	private auto getSymbolExpression(Location location, ValueSymbol s) {
 		return Identifiable(new SymbolExpression(location, s));
 	}
 	
-	Identifiable visit(Location location, FunctionDeclaration d) {
+	Identifiable visit(Location location, Function d) {
 		return getSymbolExpression(location, d);
 	}
-	
+	/+
 	Identifiable visit(Location location, Parameter d) {
 		return getSymbolExpression(location, d);
 	}
-	
-	Identifiable visit(Location location, VariableDeclaration d) {
+	+/
+	Identifiable visit(Location location, Variable d) {
 		return getSymbolExpression(location, d);
 	}
 	
-	Identifiable visit(Location location, FieldDeclaration d) {
+	Identifiable visit(Location location, Field d) {
 		return Identifiable(new FieldExpression(location, new ThisExpression(location), d));
 	}
-	
+	/+
 	Identifiable visit(Location location, OverLoadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, s.set[0]);
@@ -190,26 +194,27 @@ final class IdentifierVisitor {
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
 	}
-	
-	Identifiable visit(Location location, AliasDeclaration d) {
-		return Identifiable(new AliasType(d));
+	+/
+	Identifiable visit(Location location, TypeAlias a) {
+		return Identifiable(new AliasType(a));
 	}
 	
-	Identifiable visit(Location location, StructDeclaration d) {
-		return Identifiable(new StructType(d));
+	Identifiable visit(Location location, Struct s) {
+		return Identifiable(new StructType(s));
 	}
 	
-	Identifiable visit(Location location, ClassDeclaration c) {
+	Identifiable visit(Location location, Class c) {
 		return Identifiable(new ClassType(c));
 	}
 	
-	Identifiable visit(Location location, EnumDeclaration d) {
-		return Identifiable(new EnumType(d));
+	Identifiable visit(Location location, Enum e) {
+		return Identifiable(new EnumType(e));
 	}
-	
+	/*
 	Identifiable visit(Location location, Module m) {
 		return Identifiable(m);
 	}
+	*/
 }
 
 /**
@@ -224,7 +229,7 @@ final class TypeDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(TypeDotIdentifier i) {
-		if(Symbol s = symbolInTypeResolver.visit(i.name, i.type)) {
+		if(Symbol s = symbolInTypeResolver.visit(i.name, pass.visit(i.type))) {
 			if(auto os = cast(OverLoadSet) s) {
 				assert(os.set.length == 1);
 				
@@ -233,8 +238,8 @@ final class TypeDotIdentifierVisitor {
 			
 			if(auto ts = cast(TypeSymbol) s) {
 				return identifierVisitor.visit(i.location, ts);
-			} else if(auto es = cast(ExpressionSymbol) s) {
-				return Identifiable(new SymbolExpression(i.location, es));
+			} else if(auto vs = cast(ValueSymbol) s) {
+				return Identifiable(new SymbolExpression(i.location, vs));
 			} else {
 				throw new CompileException(s.location, "What the hell is that symbol ???");
 			}
@@ -242,10 +247,10 @@ final class TypeDotIdentifierVisitor {
 		
 		switch(i.name) {
 			case "init" :
-				return Identifiable(new CastExpression(i.location, i.type, new DefaultInitializer(i.location, i.type)));
+				assert(0, "init, yeah sure . . .");
 			
 			case "sizeof" :
-				return Identifiable(new SizeofExpression(i.location, i.type));
+				assert(0, "sizeof yourself !");
 			
 			default :
 				throw new CompileException(i.location, i.name ~ " can't be resolved in type");
@@ -271,6 +276,8 @@ final class ExpressionDotIdentifierVisitor {
 			return visit(i.location, e, s);
 		}
 		
+		assert(0, "giving up");
+		/+
 		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				// expression.sizeof or similar stuffs.
@@ -279,6 +286,7 @@ final class ExpressionDotIdentifierVisitor {
 				return Identifiable(identifierVisitor.pass.raiseCondition!Expression(i.location, "Can't resolve identifier."));
 			}
 		})();
+		+/
 	}
 	
 	Identifiable visit(Location location, Expression e, Symbol s) {
@@ -286,7 +294,7 @@ final class ExpressionDotIdentifierVisitor {
 			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
 		})(location, e, s);
 	}
-	
+	/+
 	Identifiable visit(Location location, Expression e, OverLoadSet s) {
 		if(s.set.length == 1) {
 			return this.dispatch(location, e, s.set[0]);
@@ -310,33 +318,33 @@ final class ExpressionDotIdentifierVisitor {
 		return Identifiable(new PolysemousExpression(location, expressions));
 		*/
 	}
-	
-	Identifiable visit(Location location, Expression e, FieldDeclaration d) {
-		return Identifiable(new FieldExpression(location, e, d));
+	+/
+	Identifiable visit(Location location, Expression e, Field f) {
+		return Identifiable(new FieldExpression(location, e, f));
 	}
 	
-	Identifiable visit(Location location, Expression e, FunctionDeclaration d) {
-		return Identifiable(new MethodExpression(location, e, d));
+	Identifiable visit(Location location, Expression e, Function f) {
+		return Identifiable(new MethodExpression(location, e, f));
 	}
 	
-	Identifiable visit(Location location, Expression e, MethodDeclaration d) {
-		return Identifiable(new MethodExpression(location, e, d));
+	Identifiable visit(Location location, Expression e, Method m) {
+		return Identifiable(new MethodExpression(location, e, m));
 	}
 	
-	Identifiable visit(Location location, Expression e, AliasDeclaration d) {
-		return Identifiable(new AliasType(d));
+	Identifiable visit(Location location, Expression _, TypeAlias a) {
+		return Identifiable(new AliasType(a));
 	}
 	
-	Identifiable visit(Location location, Expression e, StructDeclaration d) {
-		return Identifiable(new StructType(d));
+	Identifiable visit(Location location, Expression _, Struct s) {
+		return Identifiable(new StructType(s));
 	}
 	
-	Identifiable visit(Location location, Expression e, ClassDeclaration c) {
+	Identifiable visit(Location location, Expression _, Class c) {
 		return Identifiable(new ClassType(c));
 	}
 	
-	Identifiable visit(Location location, Expression e, EnumDeclaration d) {
-		return Identifiable(new EnumType(d));
+	Identifiable visit(Location location, Expression _, Enum e) {
+		return Identifiable(new EnumType(e));
 	}
 }
 
@@ -354,7 +362,7 @@ final class TemplateDotIdentifierVisitor {
 	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
 		auto tplDecl = cast(TemplateDeclaration) this.dispatch(i.templateInstanciation.identifier);
 		assert(tplDecl);
-		
+		/+
 		auto instance = instanciate(i.templateInstanciation.location, tplDecl, i.templateInstanciation.arguments);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return identifierVisitor.visit(i.location, s);
@@ -370,7 +378,7 @@ final class TemplateDotIdentifierVisitor {
 				)
 			);
 		}
-		
+		+/
 		throw new CompileException(i.location, i.name ~ " not found in template");
 	}
 	
@@ -381,7 +389,7 @@ final class TemplateDotIdentifierVisitor {
 	Symbol visit(Symbol s) {
 		return this.dispatch(s);
 	}
-	
+	/+
 	Symbol visit(OverLoadSet s) {
 		assert(s.set.length == 1);
 		
@@ -391,6 +399,7 @@ final class TemplateDotIdentifierVisitor {
 	Symbol visit(TemplateDeclaration s) {
 		return s;
 	}
+	+/
 }
 
 /**
@@ -404,23 +413,11 @@ final class SymbolInTypeResolver {
 		this.identifierVisitor = identifierVisitor;
 	}
 	
-	Symbol visit(string name, Type t) {
-		return this.dispatch(name, t);
+	Symbol visit(string name, QualType t) {
+		return this.dispatch(name, t.type);
 	}
 	
-	Symbol visit(string name, BooleanType t) {
-		return null;
-	}
-	
-	Symbol visit(string name, IntegerType t) {
-		return null;
-	}
-	
-	Symbol visit(string name, FloatType t) {
-		return null;
-	}
-	
-	Symbol visit(string name, CharacterType t) {
+	Symbol visit(string name, BuiltinType t) {
 		return null;
 	}
 	
@@ -429,15 +426,15 @@ final class SymbolInTypeResolver {
 			case "length" :
 				// FIXME: pass explicit location.
 				auto location = Location.init;
-				auto lt = new IntegerType(Integer.Ulong);
-				auto s = new FieldDeclaration(location, 0, lt, "length", new DefaultInitializer(location, lt));
+				auto lt = getBuiltin(TypeKind.Ulong);
+				auto s = new Field(location, 0, lt, "length", null);
 				return pass.visit(s);
 			
 			case "ptr" :
 				// FIXME: pass explicit location.
 				auto location = Location.init;
-				auto pt = new PointerType(t.type);
-				auto s = new FieldDeclaration(location, 1, pt, "ptr", new DefaultInitializer(location, pt));
+				auto pt = QualType(new PointerType(t.sliced));
+				auto s = new Field(location, 1, pt, "ptr", null);
 				return pass.visit(s);
 			
 			default :
@@ -468,7 +465,7 @@ final class SymbolInTypeResolver {
 		scheduler.require(e, Step.Populated);
 		
 		auto s = e.dscope.resolve(name);
-		return s?s:visit(name, t.denum.type);
+		return s?s:visit(name, QualType(t.denum.type));
 	}
 }
 

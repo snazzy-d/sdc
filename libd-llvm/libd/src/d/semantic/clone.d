@@ -8,16 +8,13 @@ import d.semantic.semantic;
 import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dmodule;
-import d.ast.dscope;
 import d.ast.identifier;
 
 import std.algorithm;
 import std.array;
 
-import d.ast.adt;
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.statement;
@@ -39,12 +36,12 @@ class ClonePass {
 		typeVisitor			= new TypeVisitor(this);
 		identifierVisitor	= new IdentifierVisitor(this);
 	}
-	
+	/+
 	Module visit(Module m) {
 		assert(0, "Not implemented.");
 		// return new Module(m.location, visit(m.moduleDeclaration), m.declarations.map!(d => visit(d)).array());
 	}
-	
+	+/
 	auto visit(Declaration decl) {
 		return declarationVisitor.visit(decl);
 	}
@@ -53,11 +50,11 @@ class ClonePass {
 		return statementVisitor.visit(stmt);
 	}
 	
-	auto visit(Expression e) {
+	auto visit(AstExpression e) {
 		return expressionVisitor.visit(e);
 	}
 	
-	auto visit(Type t) {
+	auto visit(QualAstType t) {
 		return typeVisitor.visit(t);
 	}
 	
@@ -80,7 +77,7 @@ class DeclarationVisitor {
 	Declaration visit(Declaration d) {
 		return this.dispatch(d);
 	}
-	
+	/+
 	FunctionDeclaration visit(FunctionDeclaration d) {
 		auto parameters = cast(Parameter[]) d.parameters.map!(p => visit(p)).array();
 		auto clone = new FunctionDeclaration(d.location, d.name, d.linkage, pass.visit(d.returnType), parameters, d.isVariadic, d.fbody?(cast(BlockStatement) pass.visit(d.fbody)):null);
@@ -107,7 +104,7 @@ class DeclarationVisitor {
 	VariablesDeclaration visit(VariablesDeclaration d) {
 		return new VariablesDeclaration(d.location, d.variables.map!(var => visit(var)).array());
 	}
-	
+	+/
 	AliasDeclaration visit(AliasDeclaration d) {
 		return new AliasDeclaration(d.location, d.name, pass.visit(d.type));
 	}
@@ -187,11 +184,11 @@ class ExpressionVisitor {
 		this.pass = pass;
 	}
 	
-	Expression visit(Expression e) {
+	AstExpression visit(AstExpression e) {
 		return this.dispatch(e);
 	}
-	
-	Expression visit(ParenExpression e) {
+	/+
+	AstExpression visit(ParenExpression e) {
 		return new ParenExpression(e.location, visit(e.expression));
 	}
 	
@@ -294,11 +291,11 @@ class ExpressionVisitor {
 	Expression visit(LogicalOrExpression e) {
 		return handleBinaryExpression(e);
 	}
-	
-	Expression visit(CastExpression e) {
-		return new CastExpression(e.location, pass.visit(e.type), visit(e.expression));
+	+/
+	AstExpression visit(AstCastExpression e) {
+		return new AstCastExpression(e.location, pass.visit(e.type), visit(e.expr));
 	}
-	
+	/+
 	Expression visit(CallExpression e) {
 		auto arguments = e.arguments.map!(a => visit(a)).array();
 		
@@ -312,6 +309,7 @@ class ExpressionVisitor {
 	Expression visit(DefaultInitializer e) {
 		return new DefaultInitializer(e.location, pass.visit(e.type));
 	}
+	+/
 }
 
 /**
@@ -325,13 +323,13 @@ class TypeVisitor {
 		this.pass = pass;
 	}
 	
-	Type visit(Type t) {
-		auto ret = this.dispatch(t);
+	QualAstType visit(QualAstType t) {
+		auto ret = this.dispatch(t.type);
 		ret.qualifier = t.qualifier;
 		
 		return ret;
 	}
-	
+	/+
 	Type visit(BooleanType t) {
 		return new BooleanType();
 	}
@@ -360,14 +358,15 @@ class TypeVisitor {
 		auto parameters = cast(Parameter[]) t.parameters.map!(p => pass.visit(p)).array();
 		return new FunctionType(t.linkage, visit(t.returnType), parameters, t.isVariadic);
 	}
-	
-	Type visit(IdentifierType t) {
-		return new IdentifierType(pass.visit(t.identifier));
+	+/
+	QualAstType visit(IdentifierType t) {
+		return QualAstType(new IdentifierType(pass.visit(t.identifier)));
 	}
-	
+	/+
 	Type visit(AutoType t) {
 		return new AutoType();
 	}
+	+/
 }
 
 /**

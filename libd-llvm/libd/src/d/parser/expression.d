@@ -2,6 +2,9 @@ module d.parser.expression;
 
 import d.ast.expression;
 
+import d.ir.expression;
+import d.ir.type;
+
 import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.identifier;
@@ -12,21 +15,21 @@ import d.parser.util;
 /**
  * Parse Expression
  */
-Expression parseExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) if(isTokenRange!R) {
 	auto lhs = trange.parsePrefixExpression!mode();
-	return trange.parseBinaryExpression!(
+	return trange.parseAstBinaryExpression!(
 		TokenType.Comma,
-		CommaExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.Comma,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseAssignExpression(e);
 		}
 	)(lhs);
 }
 
 /**
- * Template used to parse basic BinaryExpressions.
+ * Template used to parse basic AstBinaryExpressions.
  */
-private Expression parseBinaryExpression(TokenType tokenType, BinaryExpressionType, alias parseNext, R)(ref R trange, Expression lhs) {
+private AstExpression parseAstBinaryExpression(TokenType tokenType, BinaryOp op, alias parseNext, R)(ref R trange, AstExpression lhs) {
 	lhs = parseNext(trange, lhs);
 	Location location = lhs.location;
 	
@@ -38,7 +41,7 @@ private Expression parseBinaryExpression(TokenType tokenType, BinaryExpressionTy
 		
 		location.spanTo(rhs.location);
 		
-		lhs = new BinaryExpressionType(location, lhs, rhs);
+		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 	
 	return lhs;
@@ -47,15 +50,15 @@ private Expression parseBinaryExpression(TokenType tokenType, BinaryExpressionTy
 /**
  * Parse assignement expressions.
  */
-Expression parseAssignExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseAssignExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseAssignExpression(trange.parsePrefixExpression());
 }
 
-Expression parseAssignExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
+AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	lhs = trange.parseConditionalExpression(lhs);
 	Location location = lhs.location;
 	
-	void processToken(AssignExpressionType)() {
+	void processToken(BinaryOp op) {
 		trange.popFront();
 		
 		auto rhs = trange.parsePrefixExpression();
@@ -63,64 +66,64 @@ Expression parseAssignExpression(R)(ref R trange, Expression lhs) if(isTokenRang
 		
 		location.spanTo(rhs.location);
 		
-		lhs = new AssignExpressionType(location, lhs, rhs);
+		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 	
 	switch(trange.front.type) with(TokenType) {
 		case Assign :
-			processToken!AssignExpression();
+			processToken(BinaryOp.Assign);
 			break;
 		
 		case PlusAssign :
-			processToken!AddAssignExpression();
+			processToken(BinaryOp.AddAssign);
 			break;
 		
 		case MinusAssign :
-			processToken!SubAssignExpression();
+			processToken(BinaryOp.SubAssign);
 			break;
 		
 		case StarAssign :
-			processToken!MulAssignExpression();
+			processToken(BinaryOp.MulAssign);
 			break;
 		
 		case SlashAssign :
-			processToken!DivAssignExpression();
+			processToken(BinaryOp.DivAssign);
 			break;
 		
 		case PercentAssign :
-			processToken!ModAssignExpression();
+			processToken(BinaryOp.ModAssign);
 			break;
 		
 		case AmpersandAssign :
-			processToken!BitwiseAndAssignExpression();
+			processToken(BinaryOp.BitwiseAndAssign);
 			break;
 		
 		case PipeAssign :
-			processToken!BitwiseOrAssignExpression();
+			processToken(BinaryOp.BitwiseOrAssign);
 			break;
 		
 		case CaretAssign :
-			processToken!BitwiseXorAssignExpression();
+			processToken(BinaryOp.BitwiseXorAssign);
 			break;
 		
 		case TildeAssign :
-			processToken!ConcatAssignExpression();
+			processToken(BinaryOp.ConcatAssign);
 			break;
 		
 		case DoubleLessAssign :
-			processToken!LeftShiftAssignExpression();
+			processToken(BinaryOp.LeftShiftAssign);
 			break;
 		
 		case DoubleMoreAssign :
-			processToken!SignedRightShiftAssignExpression();
+			processToken(BinaryOp.SignedRightShiftAssign);
 			break;
 		
 		case TripleMoreAssign :
-			processToken!UnsignedRightShiftAssignExpression();
+			processToken(BinaryOp.UnsignedRightShiftAssign);
 			break;
 		
 		case DoubleCaretAssign :
-			processToken!PowAssignExpression();
+			processToken(BinaryOp.PowAssign);
 			break;
 		
 		default :
@@ -135,11 +138,11 @@ Expression parseAssignExpression(R)(ref R trange, Expression lhs) if(isTokenRang
  * Parse ?:
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseConditionalExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseConditionalExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseConditionalExpression(trange.parsePrefixExpression());
 }
 
-Expression parseConditionalExpression(R)(ref R trange, Expression condition) if(isTokenRange!R) {
+AstExpression parseConditionalExpression(R)(ref R trange, AstExpression condition) if(isTokenRange!R) {
 	condition = trange.parseLogicalOrExpression(condition);
 	
 	if(trange.front.type == TokenType.QuestionMark) {
@@ -152,7 +155,7 @@ Expression parseConditionalExpression(R)(ref R trange, Expression condition) if(
 		auto ifFalse = trange.parseConditionalExpression();
 		
 		location.spanTo(ifFalse.location);
-		return new ConditionalExpression(location, condition, ifTrue, ifFalse);
+		return new AstConditionalExpression(location, condition, ifTrue, ifFalse);
 	}
 	
 	return condition;
@@ -162,15 +165,15 @@ Expression parseConditionalExpression(R)(ref R trange, Expression condition) if(
  * Parse ||
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseLogicalOrExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseLogicalOrExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseLogicalOrExpression(trange.parsePrefixExpression());
 }
 
-auto parseLogicalOrExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
-	return trange.parseBinaryExpression!(
+auto parseLogicalOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+	return trange.parseAstBinaryExpression!(
 		TokenType.DoublePipe,
-		LogicalOrExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.LogicalOr,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseLogicalAndExpression(e);
 		}
 	)(lhs);
@@ -180,15 +183,15 @@ auto parseLogicalOrExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R
  * Parse &&
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseLogicalAndExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseLogicalAndExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseLogicalAndExpression(trange.parsePrefixExpression());
 }
 
-auto parseLogicalAndExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
-	return trange.parseBinaryExpression!(
+auto parseLogicalAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+	return trange.parseAstBinaryExpression!(
 		TokenType.DoubleAmpersand,
-		LogicalAndExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.LogicalAnd,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseBitwiseOrExpression(e);
 		}
 	)(lhs);
@@ -198,15 +201,15 @@ auto parseLogicalAndExpression(R)(ref R trange, Expression lhs) if(isTokenRange!
  * Parse |
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseBitwiseOrExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseOrExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseBitwiseOrExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseOrExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
-	return trange.parseBinaryExpression!(
+auto parseBitwiseOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+	return trange.parseAstBinaryExpression!(
 		TokenType.Pipe,
-		BitwiseOrExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.BitwiseOr,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseBitwiseXorExpression(e);
 		}
 	)(lhs);
@@ -216,15 +219,15 @@ auto parseBitwiseOrExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R
  * Parse ^
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseBitwiseXorExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseXorExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseBitwiseXorExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseXorExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
-	return trange.parseBinaryExpression!(
+auto parseBitwiseXorExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+	return trange.parseAstBinaryExpression!(
 		TokenType.Caret,
-		BitwiseXorExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.BitwiseXor,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseBitwiseAndExpression(e);
 		}
 	)(lhs);
@@ -234,15 +237,15 @@ auto parseBitwiseXorExpression(R)(ref R trange, Expression lhs) if(isTokenRange!
  * Parse &
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseBitwiseAndExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseAndExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseBitwiseAndExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseAndExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
-	return trange.parseBinaryExpression!(
+auto parseBitwiseAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+	return trange.parseAstBinaryExpression!(
 		TokenType.Ampersand,
-		BitwiseAndExpression,
-		function Expression(ref R trange, Expression e) {
+		BinaryOp.BitwiseAnd,
+		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseComparaisonExpression(e);
 		}
 	)(lhs);
@@ -252,97 +255,97 @@ auto parseBitwiseAndExpression(R)(ref R trange, Expression lhs) if(isTokenRange!
  * Parse ==, != and comparaisons
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseComparaisonExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseComparaisonExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseComparaisonExpression(trange.parsePrefixExpression());
 }
 
-Expression parseComparaisonExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
+AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	lhs = trange.parseShiftExpression(lhs);
 	Location location = lhs.location;
 	
-	void processToken(BinaryExpressionType)() {
+	void processToken(BinaryOp op) {
 		trange.popFront();
 		
 		auto rhs = trange.parseShiftExpression();
 		
 		location.spanTo(rhs.location);
-		lhs = new BinaryExpressionType(location, lhs, rhs);
+		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 	
 	switch(trange.front.type) with(TokenType) {
 		case DoubleAssign :
-			processToken!EqualityExpression();
+			processToken(BinaryOp.Equal);
 			break;
 		
 		case BangAssign :
-			processToken!NotEqualityExpression();
+			processToken(BinaryOp.NotEqual);
 			break;
 		
 		case More:
-			processToken!GreaterExpression();
+			processToken(BinaryOp.Greater);
 			break;
 		
 		case MoreAssign:
-			processToken!GreaterEqualExpression();
+			processToken(BinaryOp.GreaterEqual);
 			break;
 		
 		case Less :
-			processToken!LessExpression();
+			processToken(BinaryOp.Less);
 			break;
 		
 		case LessAssign :
-			processToken!LessEqualExpression();
+			processToken(BinaryOp.LessEqual);
 			break;
 		
 		case BangLessMoreAssign:
-			processToken!UnorderedExpression();
+			processToken(BinaryOp.Unordered);
 			break;
 		
 		case BangLessMore:
-			processToken!UnorderedEqualExpression();
+			processToken(BinaryOp.UnorderedEqual);
 			break;
 		
 		case LessMore:
-			processToken!LessGreaterExpression();
+			processToken(BinaryOp.LessGreater);
 			break;
 		
 		case LessMoreAssign:
-			processToken!LessEqualGreaterExpression();
+			processToken(BinaryOp.LessEqualGreater);
 			break;
 		
 		case BangMore:
-			processToken!UnorderedLessEqualExpression();
+			processToken(BinaryOp.UnorderedLessEqual);
 			break;
 		
 		case BangMoreAssign:
-			processToken!UnorderedLessExpression();
+			processToken(BinaryOp.UnorderedLess);
 			break;
 		
 		case BangLess:
-			processToken!UnorderedGreaterEqualExpression();
+			processToken(BinaryOp.UnorderedGreaterEqual);
 			break;
 		
 		case BangLessAssign:
-			processToken!UnorderedGreaterExpression();
+			processToken(BinaryOp.UnorderedGreater);
 			break;
 		
 		case Is :
-			processToken!IdentityExpression();
+			processToken(BinaryOp.Identical);
 			break;
 		
 		case In :
-			processToken!InExpression();
+			processToken(BinaryOp.In);
 			break;
 		
 		case Bang :
 			trange.popFront();
 			switch(trange.front.type) {
 				case Is :
-					processToken!NotIdentityExpression();
+					processToken(BinaryOp.NotIdentical);
 					break;
 				
 				case In :
-					processToken!NotInExpression();
+					processToken(BinaryOp.NotIn);
 					break;
 				
 				default :
@@ -364,35 +367,35 @@ Expression parseComparaisonExpression(R)(ref R trange, Expression lhs) if(isToke
  * Parse <<, >> and >>>
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseShiftExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseShiftExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseShiftExpression(trange.parsePrefixExpression());
 }
 
-Expression parseShiftExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
+AstExpression parseShiftExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	lhs = trange.parseAddExpression(lhs);
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryExpressionType)() {
+		void processToken(BinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parseAddExpression();
 			
 			location.spanTo(rhs.location);
-			lhs = new BinaryExpressionType(location, lhs, rhs);
+			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
 		switch(trange.front.type) with(TokenType) {
 			case DoubleLess :
-				processToken!LeftShiftExpression();
+				processToken(BinaryOp.LeftShift);
 				break;
 			
 			case DoubleMore :
-				processToken!SignedRightShiftExpression();
+				processToken(BinaryOp.SignedRightShift);
 				break;
 			
 			case TripleMore :
-				processToken!UnsignedRightShiftExpression();
+				processToken(BinaryOp.UnsignedRightShift);
 				break;
 			
 			default :
@@ -405,35 +408,35 @@ Expression parseShiftExpression(R)(ref R trange, Expression lhs) if(isTokenRange
  * Parse +, - and ~
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseAddExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseAddExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseAddExpression(trange.parsePrefixExpression());
 }
 
-Expression parseAddExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
+AstExpression parseAddExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	lhs = trange.parseMulExpression(lhs);
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryExpressionType)() {
+		void processToken(BinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parseMulExpression();
 			
 			location.spanTo(rhs.location);
-			lhs = new BinaryExpressionType(location, lhs, rhs);
+			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
 		switch(trange.front.type) with(TokenType) {
 			case Plus :
-				processToken!AddExpression();
+				processToken(BinaryOp.Add);
 				break;
 			
 			case Minus :
-				processToken!SubExpression();
+				processToken(BinaryOp.Sub);
 				break;
 			
 			case Tilde :
-				processToken!ConcatExpression();
+				processToken(BinaryOp.Concat);
 				break;
 			
 			default :
@@ -446,34 +449,34 @@ Expression parseAddExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R
  * Parse *, / and %
  */
 // FIXME: Should be private, but dmd don't like that.
-Expression parseMulExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseMulExpression(R)(ref R trange) if(isTokenRange!R) {
 	return trange.parseMulExpression(trange.parsePrefixExpression());
 }
 
-Expression parseMulExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R) {
+AstExpression parseMulExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryExpressionType)() {
+		void processToken(BinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parsePrefixExpression();
 			
 			location.spanTo(rhs.location);
-			lhs = new BinaryExpressionType(location, lhs, rhs);
+			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
-		switch(trange.front.type) {
-			case TokenType.Star :
-				processToken!MulExpression();
+		switch(trange.front.type) with(TokenType) {
+			case Star :
+				processToken(BinaryOp.Mul);
 				break;
 			
-			case TokenType.Slash :
-				processToken!DivExpression();
+			case Slash :
+				processToken(BinaryOp.Div);
 				break;
 			
-			case TokenType.Percent :
-				processToken!ModExpression();
+			case Percent :
+				processToken(BinaryOp.Mod);
 				break;
 			
 			default :
@@ -485,10 +488,10 @@ Expression parseMulExpression(R)(ref R trange, Expression lhs) if(isTokenRange!R
 /**
  * Unary prefixes
  */
-private Expression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) {
-	Expression result;
+private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) {
+	AstExpression result;
 	
-	void processToken(PrefixExpressionType)() {
+	void processToken(UnaryOp op) {
 		Location location = trange.front.location;
 		
 		trange.popFront();
@@ -497,40 +500,40 @@ private Expression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(r
 		result = trange.parsePrefixExpression();
 		
 		location.spanTo(result.location);
-		result = new PrefixExpressionType(location, result);
+		result = new AstUnaryExpression(location, op, result);
 	}
 	
 	switch(trange.front.type) with(TokenType) {
 		case Ampersand :
-			processToken!AddressOfExpression();
+			processToken(UnaryOp.AddressOf);
 			break;
 		
 		case DoublePlus :
-			processToken!PreIncrementExpression();
+			processToken(UnaryOp.PreInc);
 			break;
 		
 		case DoubleMinus :
-			processToken!PreDecrementExpression();
+			processToken(UnaryOp.PreDec);
 			break;
 		
 		case Star :
-			processToken!DereferenceExpression();
+			processToken(UnaryOp.Dereference);
 			break;
 		
 		case Plus :
-			processToken!UnaryPlusExpression();
+			processToken(UnaryOp.Plus);
 			break;
 		
 		case Minus :
-			processToken!UnaryMinusExpression();
+			processToken(UnaryOp.Minus);
 			break;
 		
 		case Bang :
-			processToken!NotExpression();
+			processToken(UnaryOp.Not);
 			break;
 		
 		case Tilde :
-			processToken!ComplementExpression();
+			processToken(UnaryOp.Complement);
 			break;
 		
 		// TODO: parse qualifier casts.
@@ -539,22 +542,18 @@ private Expression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(r
 			trange.popFront();
 			trange.match(OpenParen);
 			
-			auto parseCast(CastType, U...)(U params) {
-				trange.match(CloseParen);
-				
-				result = trange.parsePrefixExpression();
-				location.spanTo(result.location);
-				
-				result = new CastType(location, params, result);
-			}
-			
 			switch(trange.front.type) {
 				case CloseParen :
 					assert(0, "cast() isn't supported.");
 				
 				default :
 					auto type = trange.parseType();
-					parseCast!CastExpression(type);
+					trange.match(CloseParen);
+					
+					result = trange.parsePrefixExpression();
+					location.spanTo(result.location);
+					
+					result = new AstCastExpression(location, type, result);
 			}
 			
 			break;
@@ -570,7 +569,7 @@ private Expression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(r
 	return trange.parsePowExpression(result);
 }
 
-Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 	Location location = trange.front.location;
 	
 	switch(trange.front.type) with(TokenType) {
@@ -582,7 +581,7 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			trange.popFront();
 			auto type = trange.parseType();
 			
-			Expression[] arguments;
+			AstExpression[] arguments;
 			if(trange.front.type == OpenParen) {
 				trange.popFront();
 				
@@ -628,18 +627,18 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			auto str = trange.front.value;
 			trange.popFront();
 			
-			return new d.ast.expression.StringLiteral(location, str);
+			return new d.ir.expression.StringLiteral(location, str);
 		
 		case CharacterLiteral :
 			assert(trange.front.value.length == 1);
 			
-			auto value = trange.front.value[0];
+			auto value = trange.front.value[1 .. 1];
 			trange.popFront();
 			
-			return makeLiteral(location, value);
+			return new d.ir.expression.CharacterLiteral(location, value, TypeKind.Char);
 		
 		case OpenBracket :
-			Expression[] keys, values;
+			AstExpression[] keys, values;
 			do {
 				trange.popFront();
 				auto value = trange.parseAssignExpression();
@@ -656,7 +655,7 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			location.spanTo(trange.front.location);
 			trange.match(CloseBracket);
 			
-			return new ArrayLiteral(location, values);
+			return new AstArrayLiteral(location, values);
 		
 		case OpenBrace :
 			auto block = trange.parseBlock();
@@ -683,16 +682,16 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			trange.popFront();
 			trange.match(OpenParen);
 			
-			return trange.parseAmbiguous!(delegate Expression(parsed) {
+			return trange.parseAmbiguous!(delegate AstExpression(parsed) {
 				location.spanTo(trange.front.location);
 				trange.match(CloseParen);
 				
 				alias typeof(parsed) caseType;
 				
 				import d.ast.type;
-				static if(is(caseType : Type)) {
+				static if(is(caseType : QualAstType)) {
 					return new StaticTypeidExpression(location, parsed);
-				} else static if(is(caseType : Expression)) {
+				} else static if(is(caseType : AstExpression)) {
 					return new TypeidExpression(location, parsed);
 				} else {
 					return new IdentifierTypeidExpression(location, parsed);
@@ -707,7 +706,7 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			trange.match(OpenParen);
 			
 			auto condition = trange.parseAssignExpression();
-			Expression message;
+			AstExpression message;
 			if(trange.front.type == Comma) {
 				trange.popFront();
 				message = trange.parseAssignExpression();
@@ -716,7 +715,7 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			location.spanTo(trange.front.location);
 			trange.match(CloseParen);
 			
-			return new AssertExpression(location, condition, message);
+			return new AstAssertExpression(location, condition, message);
 		
 		case OpenParen :
 			auto matchingParen = trange.save;
@@ -756,74 +755,73 @@ Expression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 /**
  * Parse postfix ++, --, (...), [...], .identifier
  */
-Expression parsePostfixExpression(ParseMode mode, R)(ref R trange, Expression e) if(isTokenRange!R) {
+AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpression e) if(isTokenRange!R) {
 	Location location = e.location;
 	
 	while(1) {
-		switch(trange.front.type) {
-			case TokenType.DoublePlus :
+		switch(trange.front.type) with(TokenType) {
+			case DoublePlus :
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
-				e = new PostIncrementExpression(location, e);
+				e = new AstUnaryExpression(location, UnaryOp.PostInc, e);
 				break;
 			
-			case TokenType.DoubleMinus :
+			case DoubleMinus :
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
-				e = new PostDecrementExpression(location, e);
-				
+				e = new AstUnaryExpression(location, UnaryOp.PostDec, e);
 				break;
 			
-			case TokenType.OpenParen :
+			case OpenParen :
 				trange.popFront();
 				
-				Expression[] arguments;
-				if(trange.front.type != TokenType.CloseParen) {
+				AstExpression[] arguments;
+				if(trange.front.type != CloseParen) {
 					arguments = trange.parseArguments();
 				}
 				
 				location.spanTo(trange.front.location);
-				trange.match(TokenType.CloseParen);
+				trange.match(CloseParen);
 				
-				e = new CallExpression(location, e, arguments);
+				e = new AstCallExpression(location, e, arguments);
 				
 				break;
 			
 			// TODO: Indices, Slices.
-			case TokenType.OpenBracket :
+			case OpenBracket :
 				trange.popFront();
 				
-				if(trange.front.type == TokenType.CloseBracket) {
+				if(trange.front.type == CloseBracket) {
 					// We have a slicing operation here.
 					assert(0, "Not implemented");
 				} else {
 					auto arguments = trange.parseArguments();
 					switch(trange.front.type) {
-						case TokenType.CloseBracket :
+						case CloseBracket :
 							location.spanTo(trange.front.location);
-							e = new IndexExpression(location, e, arguments);
+							e = new AstIndexExpression(location, e, arguments);
 							
 							break;
 						
-						case TokenType.DoubleDot :
+						case DoubleDot :
 							trange.popFront();
 							auto second = trange.parseArguments();
 							
 							location.spanTo(trange.front.location);
-							e = new SliceExpression(location, e, arguments, second);
+							e = new AstSliceExpression(location, e, arguments, second);
 							
 							break;
 						
 						default :
 							// TODO: error message that make sense.
-							trange.match(TokenType.Begin);
+							trange.match(Begin);
 							break;
 					}
 				}
 				
-				trange.match(TokenType.CloseBracket);
+				trange.match(CloseBracket);
 				
 				break;
 			
@@ -844,17 +842,17 @@ Expression parsePostfixExpression(ParseMode mode, R)(ref R trange, Expression e)
 /**
  * Parse ^^
  */
-private Expression parsePowExpression(R)(ref R trange, Expression expression) {
-	Location location = expression.location;
+private AstExpression parsePowExpression(R)(ref R trange, AstExpression expr) {
+	Location location = expr.location;
 	
 	while (trange.front.type == TokenType.DoubleCaret) {
 		trange.popFront();
-		Expression power = trange.parsePrefixExpression();
+		AstExpression power = trange.parsePrefixExpression();
 		location.spanTo(power.location);
-		expression = new PowExpression(location, expression, power);
+		expr = new AstBinaryExpression(location, BinaryOp.Pow, expr, power);
 	}
 	
-	return expression;
+	return expr;
 }
 
 /**
@@ -902,8 +900,8 @@ private auto parseIsExpression(R)(ref R trange) {
 /**
  * Parse function arguments
  */
-Expression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
-	Expression[] expressions = [trange.parseAssignExpression()];
+AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
+	AstExpression[] expressions = [trange.parseAssignExpression()];
 	
 	while(trange.front.type == TokenType.Comma) {
 		trange.popFront();
@@ -917,7 +915,7 @@ Expression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
 /**
  * Parse integer literals
  */
-private Expression parseIntegerLiteral(R)(ref R trange) {
+private AstExpression parseIntegerLiteral(R)(ref R trange) {
 	Location location = trange.front.location;
 	
 	string value = trange.front.value;
@@ -983,17 +981,17 @@ private Expression parseIntegerLiteral(R)(ref R trange) {
 		auto integer = parse!ulong(value);
 		
 		if(isLong || integer > uint.max) {
-			return makeLiteral(location, integer);
+			return new IntegerLiteral!false(location, integer, TypeKind.Ulong);
 		} else {
-			return makeLiteral(location, cast(uint) integer);
+			return new IntegerLiteral!false(location, integer, TypeKind.Uint);
 		}
 	} else {
 		auto integer = parse!long(value);
 		
 		if(isLong || integer > int.max || integer < int.min) {
-			return makeLiteral(location, integer);
+			return new IntegerLiteral!true(location, integer, TypeKind.Long);
 		} else {
-			return makeLiteral(location, cast(int) integer);
+			return new IntegerLiteral!true(location, integer, TypeKind.Int);
 		}
 	}
 }

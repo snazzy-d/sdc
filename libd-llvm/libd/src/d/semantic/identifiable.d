@@ -1,9 +1,10 @@
 module d.semantic.identifiable;
 
 import d.ast.base;
-import d.ast.type;
-import d.ast.expression;
-import d.ast.declaration;
+
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 /**
  * Tagged union that define something designed by an identifier.
@@ -12,16 +13,20 @@ struct Identifiable {
 	private Tag tag;
 	
 	private union {
-		Type type;
+		QualType type;
 		Expression expression;
 		Symbol symbol;
 	}
 	
 	@disable this();
 	
-	this(Type t) {
+	this(QualType t) {
 		tag = Tag.Type;
 		type = t;
+	}
+	
+	this(Type t) {
+		this(QualType(t));
 	}
 	
 	this(Expression e) {
@@ -37,7 +42,7 @@ struct Identifiable {
 	invariant() {
 		final switch(tag) {
 			case Tag.Type :
-				assert(type);
+				assert(type.type);
 		 		break;
 			
 			case Tag.Expression :
@@ -47,7 +52,7 @@ struct Identifiable {
 			case Tag.Symbol :
 				if(cast(TypeSymbol) symbol) {
 					assert(0, "TypeSymbol must be resolved as Type.");
-				} else if(cast(ExpressionSymbol) symbol) {
+				} else if(cast(ValueSymbol) symbol) {
 					assert(0, "ExpressionSymbol must be resolved as Expression.");
 				}
 				

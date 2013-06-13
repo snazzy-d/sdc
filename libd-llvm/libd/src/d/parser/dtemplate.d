@@ -12,7 +12,7 @@ import d.parser.expression;
 import d.parser.type;
 
 import std.range;
-
+/+
 auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Template);
@@ -27,7 +27,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange
 	
 	return new TemplateDeclaration(location, name, parameters, declarations);
 }
-
++/
 auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	trange.match(TokenType.If);
 	trange.match(TokenType.OpenParen);
@@ -76,11 +76,13 @@ private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange tran
 				
 				default :
 					// We probably have a value parameter (or an error).
-					return trange.parseValueParameter();
+					assert(0, "Value parameter is not implemented");
+					// return trange.parseValueParameter();
 			}
 		
 		case TokenType.Alias :
-			return trange.parseAliasParameter();
+			assert(0, "Alias parameter is not implemented");
+			// return trange.parseAliasParameter();
 		
 		case TokenType.This :
 			Location location = trange.front.location;
@@ -95,7 +97,8 @@ private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange tran
 		
 		default :
 			// We probably have a value parameter (or an error).
-			return trange.parseValueParameter();
+			// return trange.parseValueParameter();
+			assert(0);
 	}
 }
 
@@ -125,7 +128,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 			return new TypeTemplateParameter(location, name);
 	}
 }
-
+/+
 private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
@@ -188,7 +191,7 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 		return new AliasTemplateParameter(location, name);
 	}
 }
-
++/
 auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	TemplateArgument[] arguments;
 	
@@ -202,11 +205,11 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			trange.popFront();
 			break;
-		
+		/+
 		case TokenType.True, TokenType.False, TokenType.Null, TokenType.IntegerLiteral, TokenType.StringLiteral, TokenType.CharacterLiteral, TokenType.__File__, TokenType.__Line__, TokenType.Is :
 			arguments = [new ValueTemplateArgument(trange.parsePrimaryExpression())];
 			break;
-		
+		+/
 		default :
 			auto location = trange.front.location;
 			auto type = trange.parseBasicType();

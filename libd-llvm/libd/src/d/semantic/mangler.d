@@ -2,9 +2,7 @@ module d.semantic.mangler;
 
 import d.semantic.semantic;
 
-import d.ast.adt;
-import d.ast.dfunction;
-import d.ast.type;
+import d.ir.type;
 
 import std.algorithm;
 import std.array;
@@ -17,74 +15,80 @@ final class TypeMangler {
 		this.pass = pass;
 	}
 	
-	string visit(Type t) {
-		return this.dispatch(t);
+	string visit(QualType t) {
+		return this.dispatch(t.type);
 	}
 	
-	string visit(IntegerType t) {
-		final switch(t.type) {
-			case Integer.Byte :
-				return "g";
+	string visit(BuiltinType t) {
+		final switch(t.kind) with(TypeKind) {
+			case None :
+				assert(0, "Not Implemented");
 			
-			case Integer.Ubyte :
-				return "h";
+			case Void :
+				return "v";
 			
-			case Integer.Short :
-				return "s";
+			case Bool :
+				return "b";
 			
-			case Integer.Ushort :
-				return "t";
-			
-			case Integer.Int :
-				return "i";
-			
-			case Integer.Uint :
-				return "k";
-			
-			case Integer.Long :
-				return "l";
-			
-			case Integer.Ulong :
-				return "m";
-		}
-	}
-	
-	string visit(FloatType t) {
-		final switch(t.type) {
-			case Float.Float :
-				return "f";
-			
-			case Float.Double :
-				return "d";
-			
-			case Float.Real :
-				return "e";
-		}
-	}
-	
-	string visit(CharacterType t) {
-		final switch(t.type) {
-			case Character.Char :
+			case Char :
 				return "a";
 			
-			case Character.Wchar :
+			case Wchar :
 				return "u";
 			
-			case Character.Dchar :
+			case Dchar :
 				return "w";
+			
+			case Ubyte :
+				return "h";
+			
+			case Ushort :
+				return "t";
+			
+			case Uint :
+				return "k";
+			
+			case Ulong :
+				return "m";
+			
+			case Ucent :
+				assert(0, "Not Implemented");
+			
+			case Byte :
+				return "g";
+			
+			case Short :
+				return "s";
+			
+			case Int :
+				return "i";
+			
+			case Long :
+				return "l";
+			
+			case Cent :
+				assert(0, "Not Implemented");
+			
+			case Float :
+				return "f";
+			
+			case Double :
+				return "d";
+			
+			case Real :
+				return "e";
+			
+			case Null :
+				assert(0, "Not Implemented");
 		}
-	}
-	
-	string visit(VoidType t) {
-		return "v";
 	}
 	
 	string visit(PointerType t) {
-		return "P" ~ visit(t.type);
+		return "P" ~ visit(t.pointed);
 	}
 	
 	string visit(SliceType t) {
-		return "A" ~ visit(t.type);
+		return "A" ~ visit(t.sliced);
 	}
 	
 	string visit(AliasType t) {
@@ -115,42 +119,41 @@ final class TypeMangler {
 		return e.mangle;
 	}
 	
-	string visit(BooleanType t) {
-		return "b";
+	private auto mangleParam(ParamType t) {
+		return (t.isRef?"K":"") ~ visit(QualType(t.type, t.qualifier));
 	}
 	
-	private auto mangleParameter(Parameter p) {
-		return (p.isReference?"K":"") ~ visit(p.type);
-	}
-	
-	private auto mangleLinkage(string linkage) {
-		switch(linkage) {
-			case "D" :
+	import d.ast.base;
+	private auto mangleLinkage(Linkage linkage) {
+		switch(linkage) with(Linkage) {
+			case D :
 				return "F";
 			
-			case "C" :
+			case C :
 				return "U";
-			
-			case "Windows" :
+			/+
+			case Windows :
 				return "W";
 			
-			case "Pascal" :
+			case Pascal :
 				return "V";
 			
-			case "C++" :
+			case CXX :
 				return "R";
-			
+			+/
 			default:
-				assert(0, "Linkage " ~ linkage ~ " is not supported.");
+				import std.conv;
+				assert(0, "Linkage " ~ to!string(linkage) ~ " is not supported.");
 		}
 	}
-	
+	/+
 	string visit(FunctionType t) {
-		return mangleLinkage(t.linkage) ~ t.parameters.map!(p => mangleParameter(p)).join() ~ "Z" ~ visit(t.returnType);
+		return mangleLinkage(t.linkage) ~ t.parameters.map!(p => mangleParam(p)).join() ~ "Z" ~ visit(t.returnType);
 	}
 	
 	string visit(DelegateType t) {
-		return "D" ~ mangleLinkage(t.linkage) ~ mangleParameter(t.context) ~ t.parameters.map!(p => mangleParameter(p)).join() ~ "Z" ~ visit(t.returnType);
+		return "D" ~ mangleLinkage(t.linkage) ~ mangleParameter(t.context) ~ t.parameters.map!(p => mangleParam(p)).join() ~ "Z" ~ visit(t.returnType);
 	}
+	+/
 }
 

@@ -1,10 +1,12 @@
 module d.parser.adt;
 
-import d.ast.adt;
 import d.ast.declaration;
 import d.ast.dtemplate;
 import d.ast.expression;
+import d.ast.identifier;
 import d.ast.type;
+
+import d.ir.type;
 
 import d.parser.base;
 import d.parser.declaration;
@@ -46,11 +48,11 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	string name = trange.front.value;
 	trange.match(TokenType.Identifier);
 	
-	Type[] bases;
+	Identifier[] bases;
 	if(trange.front.type == TokenType.Colon) {
 		do {
 			trange.popFront();
-			bases ~= new IdentifierType(trange.parseIdentifier());
+			bases ~= trange.parseIdentifier();
 		} while(trange.front.type == TokenType.Comma);
 	}
 	
@@ -150,41 +152,41 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 	trange.match(TokenType.Enum);
 	
 	string name;
-	Type type;
+	QualAstType type;
 	
-	switch(trange.front.type) {
-		case TokenType.Identifier :
+	switch(trange.front.type) with(TokenType) {
+		case Identifier :
 			name = trange.front.value;
 			trange.popFront();
 			
 			// Ensure we are not in case of manifest constant.
-			assert(trange.front.type != TokenType.Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
+			assert(trange.front.type != Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
 			
 			// If we have a colon, we go to the apropriate case.
-			if(trange.front.type == TokenType.Colon) {
-				goto case TokenType.Colon;
+			if(trange.front.type == Colon) {
+				goto case Colon;
 			}
 			
 			// If not, then it is time to parse the enum content.
-			goto case TokenType.OpenBrace;
+			goto case OpenBrace;
 		
-		case TokenType.Colon :
+		case Colon :
 			trange.popFront();
 			type = trange.parseType();
 			
 			break;
 		
-		case TokenType.OpenBrace :
+		case OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = new IntegerType(IntegerOf!uint);
+			type = QualAstType(new BuiltinType(TypeKind.Uint));
 			break;
 		
 		default :
 			// TODO: error.
-			trange.match(TokenType.Begin);
+			trange.match(Begin);
 	}
 	
-	assert(type, "type should have been set at this point.");
+	assert(type.type, "type should have been set at this point.");
 	
 	trange.match(TokenType.OpenBrace);
 	VariableDeclaration[] enumEntries;
@@ -195,7 +197,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 		
 		trange.match(TokenType.Identifier);
 		
-		Expression entryValue;
+		AstExpression entryValue;
 		if(trange.front.type == TokenType.Assign) {
 			trange.popFront();
 			
@@ -203,8 +205,6 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 			
 			// FIXME: don't work for whatever reason.
 			// entryLocation.spanTo(entryValue.location);
-		} else {
-			entryValue = new DefaultInitializer(entryLocation, type);
 		}
 		
 		enumEntries ~= new VariableDeclaration(entryLocation, type, entryName, entryValue);
