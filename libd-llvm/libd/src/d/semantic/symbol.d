@@ -346,6 +346,7 @@ final class SymbolVisitor {
 				baseClass = baseType.dclass;
 			}
 			
+			baseClass = cast(ClassDeclaration) scheduler.require(baseClass);
 			foreach(m; baseClass.members) {
 				if(auto field = cast(FieldDeclaration) m) {
 					baseFields ~= field;
@@ -369,20 +370,20 @@ final class SymbolVisitor {
 		foreach(m; members) {
 			if(auto method = cast(MethodDeclaration) m) {
 				method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
-				if(method.index == 0) {
-					foreach(ref candidate; candidates) {
-						if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
+				foreach(ref candidate; candidates) {
+					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
+						if(method.index == 0) {
 							method.index = candidate.index;
 							candidate = null;
 							break;
+						} else {
+							assert(0, "Override not marked as override !");
 						}
 					}
-					
-					if(method.index == 0) {
-						assert(0, "Override not found for " ~ method.name);
-					}
-					
-					continue;
+				}
+				
+				if(method.index == 0) {
+					assert(0, "Override not found for " ~ method.name);
 				}
 			}
 		}
