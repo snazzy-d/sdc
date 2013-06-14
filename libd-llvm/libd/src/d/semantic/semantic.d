@@ -103,12 +103,7 @@ final class SemanticPass {
 	
 	Scheduler!SemanticPass scheduler;
 	
-	enum Step {
-		Parsed,
-		Populated,
-		Signed,
-		Processed,
-	}
+	alias Step = d.ast.declaration.Step;
 	
 	this(Backend backend, Evaluator evaluator, FileSource delegate(string[]) sourceFactory) {
 		this.backend		= backend;

@@ -66,10 +66,10 @@ final class ModuleVisitor {
 		// All modules implicitely import object.
 		auto syms = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
 		
-		m.declarations = cast(Declaration[]) scheduler.require(syms);
+		scheduler.require(syms);
+		m.declarations = cast(Declaration[]) syms;
 		
-		scheduler.register(m, m, Step.Processed);
-		
+		m.step = Step.Processed;
 		return m;
 	}
 	

@@ -547,10 +547,11 @@ final class ExpressionVisitor {
 	
 	Expression visit(FieldExpression e) {
 		e.expression = visit(e.expression);
-		e.field = cast(FieldDeclaration) scheduler.require(e.field, Step.Signed);
+		
+		auto f = e.field;
+		scheduler.require(f, Step.Signed);
 		
 		e.type = e.field.type;
-		
 		return e;
 	}
 	
@@ -577,9 +578,10 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(MethodExpression e) {
-		e.method = cast(FunctionDeclaration) scheduler.require(e.method, Step.Signed);
+		auto m = e.method;
+		scheduler.require(e.method, Step.Signed);
 		
-		if(auto dgType = cast(DelegateType) e.method.type) {
+		if(auto dgType = cast(DelegateType) m.type) {
 			e.expression = buildArgument(e.expression, dgType.context);
 			e.type = dgType;
 			
@@ -673,11 +675,10 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(SymbolExpression e) {
-		auto s = cast(ExpressionSymbol) scheduler.require(e.symbol, Step.Signed);
+		auto s = e.symbol;
+		scheduler.require(s, Step.Signed);
 		
-		e.symbol = s;
 		e.type = s.type;
-		
 		return e;
 	}
 	

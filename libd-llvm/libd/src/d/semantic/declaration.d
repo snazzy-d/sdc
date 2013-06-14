@@ -72,7 +72,7 @@ final class DeclarationVisitor {
 		
 		auto ctus = flattenDecls(decls);
 		
-		scheduler.register(parent, parent, Step.Populated);
+		parent.step = Step.Populated;
 		
 		poisonScope.isPoisoning = true;
 		scope(exit) {
@@ -191,7 +191,7 @@ final class DeclarationVisitor {
 		
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
-				u.symbols = scheduler.schedule(u.symbols, s => pass.visit(s));
+				scheduler.schedule(u.symbols, s => pass.visit(s));
 				u.level = CtUnitLevel.Done;
 			}
 		}
@@ -235,10 +235,10 @@ final class DeclarationVisitor {
 		assert(unit.type == CtUnitType.Symbols);
 		
 		if(unit.level == CtUnitLevel.Done) {
-			unit.symbols ~= scheduler.schedule(only(s), s => pass.visit(s));
-		} else {
-			unit.symbols ~= s;
+			scheduler.schedule(only(s), s => pass.visit(s));
 		}
+		
+		unit.symbols ~= s;
 	}
 	
 	void visit(FunctionDeclaration d) {

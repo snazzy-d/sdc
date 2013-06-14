@@ -24,7 +24,7 @@ final class TemplateInstancier {
 	}
 	
 	auto instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
-		tplDecl = cast(TemplateDeclaration) scheduler.require(tplDecl);
+		scheduler.require(tplDecl);
 		
 		Declaration[] argDecls;
 		uint i = 0;
@@ -64,13 +64,15 @@ final class TemplateInstancier {
 			pass.isStatic = tplDecl.isStatic;
 			
 			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
-			pass.scheduler.schedule(instance.repeat(1), i => visit(cast(TemplateInstance) i));
+			pass.scheduler.schedule(only(instance), i => visit(cast(TemplateInstance) i));
 			
-			return tplDecl.instances[id] = cast(TemplateInstance) pass.scheduler.require(instance, pass.Step.Populated);
+			pass.scheduler.require(instance, pass.Step.Populated);
+			
+			return tplDecl.instances[id] = instance;
 		}());
 	}
 	
-	auto visit(TemplateInstance instance) {
+	TemplateInstance visit(TemplateInstance instance) {
 		// Update scope.
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -78,11 +80,13 @@ final class TemplateInstancier {
 		currentScope = instance.dscope = new SymbolScope(instance, oldScope);
 		
 		// XXX: make template instance a symbol. Change the template mangling in the process.
-		auto syms = cast(Symbol[]) pass.flatten(instance.declarations, instance);
+		auto syms = pass.flatten(instance.declarations, instance);
+		pass.scheduler.require(syms);
 		
-		instance.declarations = cast(Declaration[]) pass.scheduler.require(syms);
+		instance.declarations = cast(Declaration[]) syms;
+		instance.step = Step.Processed;
 		
-		return scheduler.register(instance, instance, Step.Processed);
+		return instance;
 	}
 	
 	Identifiable visit(TemplateArgument arg) {
