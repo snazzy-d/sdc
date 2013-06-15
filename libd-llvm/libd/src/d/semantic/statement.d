@@ -53,8 +53,9 @@ final class StatementVisitor {
 	
 	void visit(DeclarationStatement s) {
 		auto syms = pass.flatten(s.declaration);
+		scheduler.require(syms);
 		
-		flattenedStmts ~= scheduler.require(syms).map!(d => new DeclarationStatement(d)).array();
+		flattenedStmts ~= syms.map!(d => new DeclarationStatement(d)).array();
 	}
 	
 	void visit(ExpressionStatement s) {

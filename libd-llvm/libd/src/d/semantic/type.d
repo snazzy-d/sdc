@@ -83,28 +83,25 @@ final class TypeVisitor {
 	}
 	
 	Type visit(AliasType t) {
-		t.dalias = cast(AliasDeclaration) scheduler.require(t.dalias);
+		scheduler.require(t.dalias);
 		t.canonical = t.dalias.type.canonical;
 		
 		return t.dalias.type;
 	}
 	
 	Type visit(StructType t) {
-		t.dstruct = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Signed);
 		t.canonical = t;
 		
 		return t;
 	}
 	
 	Type visit(ClassType t) {
-		t.dclass = cast(ClassDeclaration) scheduler.require(t.dclass, Step.Signed);
 		t.canonical = t;
 		
 		return t;
 	}
 	
 	Type visit(EnumType t) {
-		t.denum = cast(EnumDeclaration) scheduler.require(t.denum, Step.Signed);
 		t.canonical = t;
 		
 		return t;
@@ -113,16 +110,12 @@ final class TypeVisitor {
 	Type visit(FunctionType t) {
 		// Go to pass to reset qualifier accumulation.
 		t.returnType = pass.visit(t.returnType);
-		
-		t.parameters = cast(Parameter[]) t.parameters.map!(p => pass.visit(p)).array();
 		t.canonical = t;
 		
 		return t;
 	}
 	
 	Type visit(DelegateType t) {
-		t.context = cast(Parameter) pass.visit(t.context);
-		
 		return visit(cast(FunctionType) t);
 	}
 	

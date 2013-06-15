@@ -88,19 +88,31 @@ final class TypeMangler {
 	}
 	
 	string visit(AliasType t) {
-		return scheduler.require(t.dalias).mangle;
+		auto a = t.dalias;
+		scheduler.require(a);
+		
+		return a.mangle;
 	}
 	
 	string visit(StructType t) {
-		return scheduler.require(t.dstruct).mangle;
+		auto s = t.dstruct;
+		scheduler.require(s);
+		
+		return s.mangle;
 	}
 	
 	string visit(ClassType t) {
-		return scheduler.require(t.dclass).mangle;
+		auto c = t.dclass;
+		scheduler.require(c);
+		
+		return c.mangle;
 	}
 	
 	string visit(EnumType t) {
-		return scheduler.require(t.denum).mangle;
+		auto e = t.denum;
+		scheduler.require(e);
+		
+		return e.mangle;
 	}
 	
 	string visit(BooleanType t) {

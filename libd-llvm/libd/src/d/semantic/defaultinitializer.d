@@ -66,7 +66,9 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, StructType t) {
-		auto s = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Populated);
+		auto s = t.dstruct;
+		scheduler.require(s, Step.Populated);
+		
 		auto init = cast(VariableDeclaration) s.dscope.resolve("init");
 		
 		// XXX: Create a new node ?

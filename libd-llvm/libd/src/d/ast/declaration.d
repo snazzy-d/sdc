@@ -16,6 +16,13 @@ class Declaration : Node {
 	}
 }
 
+enum Step {
+	Parsed,
+	Populated,
+	Signed,
+	Processed,
+}
+
 /**
  * A declaration that introduce a new symbol.
  * Nothing inherit directly from Symbol.
@@ -25,6 +32,19 @@ class Symbol : Declaration {
 	string name;
 	string linkage;
 	string mangle;
+	
+	private Step _step;
+	
+	final @property auto step() const {
+		return _step;
+	}
+	
+	final @property auto step(Step _step) in {
+		import std.conv;
+		assert(_step > this._step, "Wrong step update " ~ to!string(this._step) ~ " to " ~ to!string(_step) ~ ".");
+	} body {
+		return this._step = _step;
+	}
 	
 	this(Location location, string name) {
 		super(location);

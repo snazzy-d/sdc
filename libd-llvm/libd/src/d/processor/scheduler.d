@@ -56,16 +56,10 @@ private:
 		enum isSymbolRange = isInputRange!R && is(ElementType!R : Symbol);
 	}
 	
-	struct Result {
-		Symbol symbol;
-		Step step;
-	}
-	
 public:
 	final class Scheduler {
 		P pass;
 		
-		Result[Symbol] processed;
 		Process[Symbol] processes;
 		
 		private Process[] pool;
@@ -88,9 +82,7 @@ public:
 				p = new Process();
 			}
 			
-			assert(s !in processed, "You can't process the same item twice.");
-			
-			register(s, s, P.Step.Parsed);
+			assert(s.step == P.Step.Parsed, "Symbol processing laready started.");
 			
 			auto state = pass.state;
 			p.init(s, (s) {
@@ -113,20 +105,14 @@ public:
 			while(f.state != Fiber.State.TERM) f.call();
 		}
 		
-		// TODO: refactor the duplicated check and return construct.
-		private Result requireResult(Symbol s, Step step) {
-			if(auto result = s in processed) {
-				if(result.step >= step) {
-					return *result;
-				} else if(result.symbol !is s) {
-					return processed[s] = requireResult(result.symbol, step);
-				}
-			}
+		// XXX: argument-less template. DMD don't allow overload of templated and non templated functions.
+		void require()(Symbol s, Step step = LastStep) {
+			if(s.step >= step) return;
 			
 			auto state = pass.state;
 			scope(exit) pass.state = state;
 			
-			while(true) {
+			while(s.step < step) {
 				if(auto p = s in processes) {
 					auto f = *p;
 					if(f.state == Fiber.State.EXEC) {
@@ -144,45 +130,20 @@ public:
 					}
 				}
 				
-				if(auto result = s in processed) {
-					if(result.step >= step) {
-						return *result;
-					} else if(result.symbol !is s) {
-						return processed[s] = requireResult(result.symbol, step);
-					}
-				}
+				if(s.step >= step) return;
 				
 				// Thread.sleep(dur!"seconds"(1));
 				Fiber.yield();
 			}
 		}
 		
-		// XXX: argument-less template. DMD don't allow overload of templated and non templated functions.
-		auto require()(Symbol s, Step step = LastStep) {
-			return requireResult(s, step).symbol;
-		}
-		
-		auto require(R)(R syms, Step step = LastStep) if(isSymbolRange!R) {
-			return syms.map!(s => require(s, step)).array();
-		}
-		
-		auto register(S)(Symbol source, S symbol, Step step) if(is(S : Symbol)) in {
-			if(auto r = source in processed) {
-				import std.conv;
-				assert(r.step < step, "Trying to register symbol at step " ~ to!string(step) ~ " when it is already registered at step " ~ to!string(r.step) ~ ".");
+		void require(R)(R syms, Step step = LastStep) if(isSymbolRange!R) {
+			foreach(s; syms) {
+				require(s, step);
 			}
-		} body {
-			auto result = Result(symbol, step);
-			processed[source] = result;
-			
-			if(source !is symbol) {
-				processed[symbol] = result;
-			}
-			
-			return symbol;
 		}
 		
-		auto schedule(R)(R syms, ProcessDg dg) if(isSymbolRange!R) {
+		void schedule(R)(R syms, ProcessDg dg) if(isSymbolRange!R) {
 			// Save state in order to restore it later.
 			auto state = pass.state;
 			scope(exit) pass.state = state;
@@ -193,8 +154,6 @@ public:
 				
 				pass.state = state;
 			}
-			
-			return require(syms, P.Step.Parsed);
 		}
 	}
 }
