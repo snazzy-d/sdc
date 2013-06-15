@@ -1,6 +1,5 @@
 # Common definitions
 
-LIBD_LLVM_IMPORTS = -I$(LIBD_LLVM_ROOT)/import -I$(LIBD_ROOT)/src
 LIBD_LLVM_SRC = \
 	$(LIBD_LLVM_ROOT)/src/d/llvm/*.d \
 	$(LIBD_LLVM_ROOT)/import/llvm/c/target.d
@@ -12,9 +11,11 @@ ALL_TARGET ?= $(LIBD_LLVM)
 
 include $(LIBD_LLVM_ROOT)/libd/makefile.common
 
-$(LIBD_LLVM): $(LIBD_LLVM_SRC)
-	@mkdir -p lib
-	$(DMD) -lib -of$(LIBD_LLVM) $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
+LIBD_LLVM_IMPORTS = -I$(LIBD_LLVM_ROOT)/import $(LIBD_IMPORTS)
+
+$(LIBD_LLVM): $(LIBD_LLVM_SRC) $(LIBD_DEP_AST) $(LIBD_DEP_UTIL)
+	@mkdir -p lib obj
+	$(DMD) -c -ofobj/libd-llvm.o $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 	# gdc -c -o $(LIBD_LLVM).o $(LIBD_LLVM_SRC) -m64 $(LIBD_LLVM_IMPORTS)
-	# ar rcs $(LIBD_LLVM) $(LIBD_LLVM).o
+	ar rcs $(LIBD_LLVM) obj/libd-llvm.o
 

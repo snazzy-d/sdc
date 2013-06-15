@@ -40,7 +40,9 @@ final class SymbolVisitor {
 	
 	Symbol visit(FunctionDeclaration d) {
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		d.parameters = d.parameters.map!(p => pass.scheduler.register(p, this.dispatch(p), Step.Processed)).array();
+		foreach(p; d.parameters) {
+			this.dispatch(p);
+		}
 		
 		// Compute return type.
 		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
@@ -52,14 +54,13 @@ final class SymbolVisitor {
 			} else {
 				assert(thisType, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = new Parameter(d.location, "this", thisType);
-				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
 				thisParameter.isReference = isThisRef;
 				
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
 			}
 			
-			scheduler.register(d, d, Step.Signed);
+			d.step = Step.Signed;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -116,8 +117,7 @@ final class SymbolVisitor {
 			} else {
 				assert(thisType, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = new Parameter(d.location, "this", thisType);
-				thisParameter = pass.scheduler.register(thisParameter, this.dispatch(thisParameter), Step.Processed);
+				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
 				thisParameter.isReference = isThisRef;
 				
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
@@ -137,8 +137,7 @@ final class SymbolVisitor {
 				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
 		}
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -149,6 +148,7 @@ final class SymbolVisitor {
 	Parameter visit(Parameter d) {
 		d.type = pass.visit(d.type);
 		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -173,8 +173,7 @@ final class SymbolVisitor {
 			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ typeMangler.visit(d.type);
 		}
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -192,8 +191,7 @@ final class SymbolVisitor {
 		d.type = pass.visit(d.type);
 		d.mangle = typeMangler.visit(d.type);
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -249,7 +247,7 @@ final class SymbolVisitor {
 			return true;
 		}).array();
 		
-		fields = cast(FieldDeclaration[]) scheduler.require(fields);
+		scheduler.require(fields);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = thisType;
@@ -259,16 +257,16 @@ final class SymbolVisitor {
 		init.mangle = "_D" ~ manglePrefix ~ to!string(init.name.length) ~ init.name ~ d.mangle;
 		
 		d.dscope.addSymbol(init);
-		scheduler.register(init, init, Step.Processed);
+		init.step = Step.Processed;
 		
-		scheduler.register(d, d, Step.Signed);
+		d.step = Step.Signed;
 		
 		d.members = [init];
 		d.members ~= cast(Declaration[]) fields;
-		d.members ~= cast(Declaration[]) scheduler.require(otherSymbols);
+		scheduler.require(otherSymbols);
+		d.members ~= cast(Declaration[]) otherSymbols;
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -346,7 +344,7 @@ final class SymbolVisitor {
 				baseClass = baseType.dclass;
 			}
 			
-			baseClass = cast(ClassDeclaration) scheduler.require(baseClass);
+			scheduler.require(baseClass);
 			foreach(m; baseClass.members) {
 				if(auto field = cast(FieldDeclaration) m) {
 					baseFields ~= field;
@@ -364,12 +362,12 @@ final class SymbolVisitor {
 		
 		auto members = pass.flatten(d.members, d);
 		
-		scheduler.register(d, d, Step.Signed);
+		d.step = Step.Signed;
 		
 		MethodDeclaration[] candidates = baseMethods;
 		foreach(m; members) {
 			if(auto method = cast(MethodDeclaration) m) {
-				method = cast(MethodDeclaration) scheduler.require(method, Step.Signed);
+				scheduler.require(method, Step.Signed);
 				foreach(ref candidate; candidates) {
 					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
 						if(method.index == 0) {
@@ -400,10 +398,10 @@ final class SymbolVisitor {
 		
 		d.members = cast(Declaration[]) baseFields;
 		d.members ~= cast(Declaration[]) baseMethods;
-		d.members ~= cast(Declaration[]) scheduler.require(members);
+		scheduler.require(members);
+		d.members ~= cast(Declaration[]) members;
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -458,13 +456,12 @@ final class SymbolVisitor {
 			d.dscope.addSymbol(e);
 		}
 		
-		scheduler.register(d, d, Step.Signed);
+		d.step = Step.Signed;
 		
 		scheduler.schedule(d.enumEntries, e => visit(e));
 		scheduler.require(d.enumEntries);
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 	
@@ -472,8 +469,7 @@ final class SymbolVisitor {
 		// XXX: compute a proper mangling for templates.
 		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
 		
-		scheduler.register(d, d, Step.Processed);
-		
+		d.step = Step.Processed;
 		return d;
 	}
 }

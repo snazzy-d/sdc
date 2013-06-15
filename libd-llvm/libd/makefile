@@ -7,6 +7,6 @@ LIBD_ROOT = .
 include makefile.common
 
 clean:
-	@rm $(LIBD)
+	@rm -rf obj lib
 
 .PHONY: clean

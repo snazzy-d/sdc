@@ -315,8 +315,10 @@ final class Caster(bool isExplicit) {
 	
 	CastFlavor visit(Type to, ClassType t) {
 		// Automagically promote to base type.
-		auto bases = (cast(ClassDeclaration) scheduler.require(t.dclass)).bases;
+		auto c = t.dclass;
+		scheduler.require(c);
 		
+		auto bases = c.bases;
 		if(bases.length == 1) {
 			return min(castFrom(bases[0], to), CastFlavor.Bit);
 		}

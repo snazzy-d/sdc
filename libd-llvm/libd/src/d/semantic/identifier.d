@@ -48,11 +48,9 @@ final class IdentifierVisitor {
 			Symbol symbol;
 			
 			foreach(m; dscope.imports) {
-				m = cast(Module) scheduler.require(m, Step.Populated);
-				assert(m);
+				scheduler.require(m, Step.Populated);
 				
 				auto symInMod = m.dscope.resolve(name);
-				
 				if(symInMod) {
 					if(symbol) {
 						assert(0, "Ambiguous symbol " ~ name);
@@ -96,7 +94,7 @@ final class IdentifierVisitor {
 			} else static if(is(typeof(identified) : Expression)) {
 				return visit(new ExpressionDotIdentifier(i.location, i.name, identified));
 			} else {
-				identified = pass.scheduler.require(identified, pass.Step.Populated);
+				pass.scheduler.require(identified, pass.Step.Populated);
 				
 				if(auto m = cast(Module) identified) {
 					return visit(i.location, m.dscope.resolve(i.name));
@@ -452,19 +450,24 @@ final class SymbolInTypeResolver {
 	}
 	
 	Symbol visit(string name, StructType t) {
-		auto s = cast(StructDeclaration) scheduler.require(t.dstruct, Step.Populated);
+		auto s = t.dstruct;
+		scheduler.require(s, Step.Populated);
+		
 		return s.dscope.resolve(name);
 	}
 	
 	Symbol visit(string name, ClassType t) {
-		auto c = cast(ClassDeclaration) scheduler.require(t.dclass, Step.Populated);
+		auto c = t.dclass;
+		scheduler.require(c, Step.Populated);
+		
 		return c.dscope.resolve(name);
 	}
 	
 	Symbol visit(string name, EnumType t) {
-		auto e = cast(EnumDeclaration) scheduler.require(t.denum, Step.Populated);
-		auto s = e.dscope.resolve(name);
+		auto e = t.denum;
+		scheduler.require(e, Step.Populated);
 		
+		auto s = e.dscope.resolve(name);
 		return s?s:visit(name, t.denum.type);
 	}
 }

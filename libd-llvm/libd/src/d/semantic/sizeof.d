@@ -67,7 +67,10 @@ final class SizeofCalculator {
 	}
 	
 	uint visit(AliasType t) {
-		return visit((cast(AliasDeclaration) scheduler.require(t.dalias)).type);
+		auto a = t.dalias;
+		scheduler.require(a);
+		
+		return visit(a.type);
 	}
 	
 	uint visit(StructType t) {
@@ -79,7 +82,10 @@ final class SizeofCalculator {
 	}
 	
 	uint visit(EnumType t) {
-		return visit((cast(EnumDeclaration) scheduler.require(t.denum)).type);
+		auto e = t.denum;
+		scheduler.require(e);
+		
+		return visit(e.type);
 	}
 }
 
