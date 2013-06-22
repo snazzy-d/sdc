@@ -3,7 +3,7 @@
  */
 module sdc.sdc;
 
-import d.ast.dmodule;
+import d.ir.symbol;
 
 import d.llvm.backend;
 
