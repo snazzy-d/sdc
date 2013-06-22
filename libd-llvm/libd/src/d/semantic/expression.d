@@ -9,11 +9,17 @@ import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.ir.expression;
+import d.ir.type;
+
 import d.exception;
 
 import std.algorithm;
 import std.array;
 import std.range;
+
+alias BinaryExpression = d.ir.expression.BinaryExpression;
+alias UnaryExpression = d.ir.expression.UnaryExpression;
 
 final class ExpressionVisitor {
 	private SemanticPass pass;
@@ -23,18 +29,8 @@ final class ExpressionVisitor {
 		this.pass = pass;
 	}
 	
-	Expression visit(Expression e) out(result) {
-		assert(result.type, "type must be resolved for expression.");
-	} body {
+	Expression visit(AstExpression e) {
 		return this.dispatch(e);
-	}
-	
-	Expression visit(PolysemousExpression e) {
-		e.expressions = e.expressions.map!(e => visit(e)).array();
-		
-		e.type = new ErrorType(e.location);
-		
-		return e;
 	}
 	
 	Expression visit(ParenExpression e) {
@@ -62,29 +58,90 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(StringLiteral e) {
-		e.type = pass.visit(e.type);
-		
 		return e;
 	}
 	
-	Expression visit(CommaExpression e) {
-		e.lhs = visit(e.lhs);
-		e.rhs = visit(e.rhs);
+	Expression visit(AstBinaryExpression e) {
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		auto op = e.op;
 		
-		e.type = e.rhs.type;
+		QualType type;
+		final switch(op) with(BinaryOp) {
+			case Comma:
+				type = rhs.type;
+				break;
+			
+			case Assign :
+				type = lhs.type;
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				break;
+			
+			case Add :
+			case Sub :
+			case Concat :
+			case Mul :
+			case Div :
+			case Mod :
+			case Pow :
+			case AddAssign :
+			case SubAssign :
+			case ConcatAssign :
+			case MulAssign :
+			case DivAssign :
+			case ModAssign :
+			case PowAssign :
+				assert(0, "Not implemented.");
+			
+			case LogicalOr :
+			case LogicalAnd :
+				type = getBuiltin(TypeKind.Bool);
+				
+				lhs = buildImplicitCast(lhs.location, type, lhs);
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				
+				break;
+			
+			case LogicalOrAssign :
+			case LogicalAndAssign :
+			case BitwiseOr :
+			case BitwiseAnd :
+			case BitwiseXor :
+			case BitwiseOrAssign :
+			case BitwiseAndAssign :
+			case BitwiseXorAssign :
+			case Equal :
+			case NotEqual :
+			case Identical :
+			case NotIdentical :
+			case In :
+			case NotIn :
+			case LeftShift :
+			case SignedRightShift :
+			case UnsignedRightShift :
+			case LeftShiftAssign :
+			case SignedRightShiftAssign :
+			case UnsignedRightShiftAssign :
+			case Greater :
+			case GreaterEqual :
+			case Less :
+			case LessEqual :
+			
+			case LessGreater :
+			case LessEqualGreater :
+			case UnorderedLess :
+			case UnorderedLessEqual :
+			case UnorderedGreater :
+			case UnorderedGreaterEqual :
+			case Unordered :
+			case UnorderedEqual :
+				assert(0, "Not implemented.");
+		}
 		
-		return e;
+		return new BinaryExpression(e.location, type, op, lhs, rhs);
 	}
 	
-	Expression visit(AssignExpression e) {
-		e.lhs = visit(e.lhs);
-		e.type = e.lhs.type;
-		
-		e.rhs = buildImplicitCast(e.rhs.location, e.type, visit(e.rhs));
-		
-		return e;
-	}
-	
+	/+ /+
 	private Expression handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "+=", "-", "-="], operation)) {
 		enum isOpAssign = operation.length == 2;
 		
@@ -228,7 +285,40 @@ final class ExpressionVisitor {
 	Expression visit(LogicalOrExpression e) {
 		return handleBinaryExpression(e);
 	}
+	+/
 	
+	Expression visit(AstUnaryExpression e) {
+		auto expr = visit(e.expr);
+		auto op = e.op;
+		
+		QualType type;
+		final switch(op) with(UnaryOp) {
+			case AddressOf :
+			case Dereference :
+			case PreInc :
+			case PreDec :
+			case PostInc :
+			case PostDec :
+				assert(0, "Not implemented.");
+			
+			case Plus :
+			case Minus :
+				type = expr.type;
+				break;
+			
+			case Not :
+				type = getBuiltin(TypeKind.Bool);
+				expr = buildExplicitCast(expr.location, type, expr);
+				break;
+			
+			case Complement :
+				assert(0, "Not implemented.");
+		}
+		
+		return new UnaryExpression(e.location, type, op, expr);
+	}
+	
+	/+
 	private Expression handleUnaryExpression(alias fun, UnaryExpression)(UnaryExpression e) {
 		e.expression = visit(e.expression);
 		
@@ -364,12 +454,13 @@ final class ExpressionVisitor {
 			return workaround.raiseCondition!Expression(e.location, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
 		})(e);
 	}
+	+/
 	
-	Expression visit(CastExpression e) {
+	Expression visit(AstCastExpression e) {
 		auto to = pass.visit(e.type);
-		return buildExplicitCast(e.location, to, visit(e.expression));
+		return buildExplicitCast(e.location, to, visit(e.expr));
 	}
-	
+	/+
 	private auto buildArgument(Expression arg, Parameter param) {
 		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
@@ -384,14 +475,14 @@ final class ExpressionVisitor {
 		
 		return arg;
 	}
-	
+	+/
 	enum MatchLevel {
 		Not,
 		TypeConvert,
 		QualifierConvert,
 		Exact,
 	}
-	
+	/+
 	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, Parameter param) {
 		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
@@ -401,7 +492,7 @@ final class ExpressionVisitor {
 		auto flavor = pass.implicitCastFrom(arg.type, param.type);
 		
 		// test if we can pass by ref.
-		if(param.isReference && !(flavor >= CastFlavor.Bit && arg.isLvalue)) {
+		if(param.isReference && !(flavor >= CastKind.Bit && arg.isLvalue)) {
 			return MatchLevel.Not;
 		}
 		
@@ -417,33 +508,33 @@ final class ExpressionVisitor {
 		auto flavor = pass.implicitCastFrom(type, param.type);
 		
 		// test if we can pass by ref.
-		if(param.isReference && !(flavor >= CastFlavor.Bit && lvalue)) {
+		if(param.isReference && !(flavor >= CastKind.Bit && lvalue)) {
 			return MatchLevel.Not;
 		}
 		
 		return matchLevel(flavor);
 	}
-	
-	private auto matchLevel(CastFlavor flavor) {
-		final switch(flavor) {
-			case CastFlavor.Not:
+	+/
+	private auto matchLevel(CastKind flavor) {
+		final switch(flavor) with(CastKind) {
+			case Invalid :
 				return MatchLevel.Not;
 			
-			case CastFlavor.Bool:
-			case CastFlavor.Trunc:
-			case CastFlavor.Pad:
-			case CastFlavor.Bit:
+			case IntegralToBool :
+			case Trunc :
+			case Pad :
+			case Bit :
 				return MatchLevel.TypeConvert;
 			
-			case CastFlavor.Qual:
+			case Qual :
 				return MatchLevel.QualifierConvert;
 			
-			case CastFlavor.Exact:
+			case Exact :
 				return MatchLevel.Exact;
 		}
 	}
-	
-	Expression visit(CallExpression c) {
+	/+
+	Expression visit(AstCallExpression c) {
 		c.callee = visit(c.callee);
 		c.arguments = c.arguments.map!(a => visit(a)).array();
 		
@@ -544,7 +635,8 @@ final class ExpressionVisitor {
 		
 		return c;
 	}
-	
+	+/
+	/+
 	Expression visit(FieldExpression e) {
 		e.expression = visit(e.expression);
 		
@@ -673,7 +765,7 @@ final class ExpressionVisitor {
 			}
 		})();
 	}
-	
+	+/
 	Expression visit(SymbolExpression e) {
 		auto s = e.symbol;
 		scheduler.require(s, Step.Signed);
@@ -681,10 +773,11 @@ final class ExpressionVisitor {
 		e.type = s.type;
 		return e;
 	}
-	
+	/*
 	// Will be remove by cast operation.
 	Expression visit(DefaultInitializer di) {
 		return di;
 	}
+	*/
 }
 

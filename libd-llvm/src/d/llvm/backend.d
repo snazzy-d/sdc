@@ -3,7 +3,7 @@ module d.llvm.backend;
 import d.llvm.codegen;
 import d.llvm.evaluator;
 
-import d.ast.dmodule;
+import d.ir.symbol;
 
 import d.semantic.backend;
 

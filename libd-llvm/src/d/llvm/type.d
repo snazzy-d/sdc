@@ -2,10 +2,8 @@ module d.llvm.type;
 
 import d.llvm.codegen;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.type;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.exception;
 
@@ -32,6 +30,10 @@ final class TypeGen {
 		return newInits[s];
 	}
 	
+	LLVMTypeRef visit(QualType t) {
+		return visit(t.type);
+	}
+	
 	LLVMTypeRef visit(Type t) {
 		return this.dispatch!(function LLVMTypeRef(Type t) {
 			assert(0, t.toString() ~ " is not supported");
@@ -54,7 +56,7 @@ final class TypeGen {
 		LLVMTypeRef[] members;
 		
 		foreach(member; s.members) {
-			if(auto f = cast(FieldDeclaration) member) {
+			if(auto f = cast(Field) member) {
 				members ~= pass.visit(f.type);
 			}
 		}
@@ -78,14 +80,14 @@ final class TypeGen {
 		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
 		LLVMValueRef[] fields = [null];
 		foreach(member; c.members) {
-			if (auto m = cast(MethodDeclaration) member) {
+			if (auto m = cast(Method) member) {
 				auto oldBody = m.fbody;
 				scope(exit) m.fbody = oldBody;
 				
 				m.fbody = null;
 				
 				vtbl ~= pass.visit(m);
-			} else if(auto f = cast(FieldDeclaration) member) {
+			} else if(auto f = cast(Field) member) {
 				if(f.index > 0) {
 					fields ~= pass.visit(f.value);
 				}
@@ -123,7 +125,7 @@ final class TypeGen {
 		
 		return typeSymbols[e] = visit(e.type);
 	}
-	
+	/+
 	LLVMTypeRef visit(BooleanType t) {
 		isSigned = false;
 		
@@ -182,9 +184,9 @@ final class TypeGen {
 	LLVMTypeRef visit(VoidType t) {
 		return LLVMVoidTypeInContext(context);
 	}
-	
+	+/
 	LLVMTypeRef visit(PointerType t) {
-		auto pointed = visit(t.type);
+		auto pointed = visit(t.pointed);
 		
 		if(LLVMGetTypeKind(pointed) == LLVMTypeKind.Void) {
 			pointed = LLVMInt8TypeInContext(context);
@@ -196,11 +198,11 @@ final class TypeGen {
 	LLVMTypeRef visit(SliceType t) {
 		LLVMTypeRef[2] types;
 		types[0] = LLVMInt64TypeInContext(context);
-		types[1] = LLVMPointerType(visit(t.type), 0);
+		types[1] = LLVMPointerType(visit(t.sliced), 0);
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
-	
+	/+
 	LLVMTypeRef visit(StaticArrayType t) {
 		auto type = visit(t.type);
 		auto size = pass.visit(t.size);
@@ -241,5 +243,6 @@ final class TypeGen {
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
+	+/
 }
 

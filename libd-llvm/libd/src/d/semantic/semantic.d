@@ -10,7 +10,7 @@ import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
-import d.semantic.dtemplate;
+// import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.identifier;
@@ -21,14 +21,19 @@ import d.semantic.statement;
 import d.semantic.symbol;
 import d.semantic.type;
 
+import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
-import d.ast.dscope;
 import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+
+import d.ir.expression;
+import d.ir.dscope;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.parser.base;
 
@@ -42,6 +47,9 @@ import std.algorithm;
 import std.array;
 import std.bitmanip;
 import std.range;
+
+alias AstModule = d.ast.dmodule.Module;
+alias Module = d.ir.symbol.Module;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
@@ -60,7 +68,7 @@ final class SemanticPass {
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
 	
-	TemplateInstancier templateInstancier;
+	// TemplateInstancier templateInstancier;
 	
 	Backend backend;
 	Evaluator evaluator;
@@ -68,26 +76,22 @@ final class SemanticPass {
 	string[] versions = ["SDC", "D_LP64"];
 	
 	static struct State {
-		// XXX: symbol will have to go at some point.
-		Symbol symbol;
-		
 		Scope currentScope;
 		
-		Type returnType;
-		Type thisType;
+		QualType returnType;
+		QualType thisType;
 		
 		string manglePrefix;
 		
-		string linkage = "D";
-		
 		mixin(bitfields!(
+			Linkage, "linkage", 3,
 			bool, "buildErrorNode", 1,
 			bool, "buildFields", 1,
 			bool, "buildMethods", 1,
 			bool, "isStatic", 1,
 			bool, "isOverride", 1,
 			bool, "isThisRef", 1,
-			uint, "", 2
+			uint, "", 7
 		));
 		
 		Statement[] flattenedStmts;
@@ -103,7 +107,7 @@ final class SemanticPass {
 	
 	Scheduler!SemanticPass scheduler;
 	
-	alias Step = d.ast.declaration.Step;
+	alias Step = d.ir.symbol.Step;
 	
 	this(Backend backend, Evaluator evaluator, FileSource delegate(string[]) sourceFactory) {
 		this.backend		= backend;
@@ -127,25 +131,28 @@ final class SemanticPass {
 		sizeofCalculator	= new SizeofCalculator(this);
 		typeMangler			= new TypeMangler(this);
 		
-		templateInstancier	= new TemplateInstancier(this);
+		// templateInstancier	= new TemplateInstancier(this);
 		
 		scheduler			= new Scheduler!SemanticPass(this);
 		
 		importModule(["object"]);
 	}
 	
-	Module parse(S)(S source, string[] packages) if(is(S : Source)) {
+	AstModule parse(S)(S source, string[] packages) if(is(S : Source)) {
 		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	
 	Module add(FileSource source, string[] packages) {
 		auto mod = parse(source, packages);
+		/+
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), d => moduleVisitor.visit(cast(Module) d));
+		scheduler.schedule(only(mod), d => moduleVisitor.visit(cast(AstModule) d));
 		
 		return mod;
+		+/
+		assert(0);
 	}
 	
 	void terminate() {
@@ -164,7 +171,7 @@ final class SemanticPass {
 		return symbolVisitor.visit(s);
 	}
 	
-	Expression visit(Expression e) {
+	Expression visit(AstExpression e) {
 		return expressionVisitor.visit(e);
 	}
 	
@@ -172,7 +179,9 @@ final class SemanticPass {
 		return statementVisitor.flatten(s);
 	}
 	
-	Type visit(Type t) {
+	QualType visit(QualAstType t) {
+		// XXX: Forward qualifier from method to method in TypeVisitor.
+		// It will allow to get rid of some state.
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
@@ -186,38 +195,40 @@ final class SemanticPass {
 		return identifierVisitor.visit(i);
 	}
 	
-	Expression buildImplicitCast(Location location, Type to, Expression value) {
+	Expression buildImplicitCast(Location location, QualType to, Expression value) {
 		return implicitCaster.build(location, to, value);
 	}
 	
-	Expression buildExplicitCast(Location location, Type to, Expression value) {
+	Expression buildExplicitCast(Location location, QualType to, Expression value) {
 		return explicitCaster.build(location, to, value);
 	}
 	
-	CastFlavor implicitCastFrom(Type from, Type to) {
+	CastKind implicitCastFrom(QualType from, QualType to) {
 		return implicitCaster.castFrom(from, to);
 	}
 	
-	CastFlavor explicitCastFrom(Type from, Type to) {
+	CastKind explicitCastFrom(QualType from, QualType to) {
 		return explicitCaster.castFrom(from, to);
 	}
-	
+	/*
 	TemplateInstance instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
 		return templateInstancier.instanciate(location, tplDecl, arguments);
 	}
-	
+	*/
 	auto evaluate(Expression e) {
 		return evaluator.evaluate(e);
 	}
 	
 	auto importModule(string[] pkgs) {
-		return moduleVisitor.importModule(pkgs);
+		// FIXME
+		return null;
+		// return moduleVisitor.importModule(pkgs);
 	}
 	
 	auto raiseCondition(T)(Location location, string message) {
 		if(buildErrorNode) {
 				static if(is(T == Type)) {
-					return new ErrorType(location, message);
+					return QualType(new ErrorType(location, message));
 				} else static if(is(T == Expression)) {
 					return new ErrorExpression(location, message);
 				} else {
@@ -229,6 +240,7 @@ final class SemanticPass {
 	}
 	
 	void buildMain(Module[] mods) {
+		/+
 		import d.ast.dfunction;
 		auto candidates = mods.map!(m => m.declarations).joiner.map!((d) {
 			if(auto fun = cast(FunctionDeclaration) d) {
@@ -264,16 +276,7 @@ final class SemanticPass {
 		if(candidates.length > 1) {
 			assert(0, "Several main functions");
 		}
+		+/
 	}
-}
-
-enum CastFlavor {
-	Not,
-	Bool,
-	Trunc,
-	Pad,
-	Bit,
-	Qual,
-	Exact,
 }
 

@@ -2,22 +2,22 @@ module d.semantic.typepromotion;
 
 import d.semantic.semantic;
 
-import d.ast.type;
-import d.ast.adt; // For enum types.
+import d.ir.type;
 
 import d.exception;
 import d.location;
 
 import std.algorithm;
 
+// TODO: this is complete bullshit. Must be trashed and redone.
 Type getPromotedType(Location location, Type t1, Type t2) {
 	// If an unresolved type come here, the pass wil run again so we just skip.
 	if(!(t1 && t2)) return null;
 	
 	final class T2Handler {
-		Integer t1type;
+		TypeKind t1type;
 		
-		this(Integer t1type) {
+		this(TypeKind t1type) {
 			this.t1type = t1type;
 		}
 		
@@ -26,7 +26,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
-		
+		/*
 		Type visit(BooleanType t) {
 			return new IntegerType(max(t1type, Integer.Int));
 		}
@@ -37,10 +37,10 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			
 			return new IntegerType(max(t1type, t2type));
 		}
-		
+		*/
 		Type visit(EnumType t) {
-			if(auto asInt = cast(IntegerType) t.denum.type) {
-				return visit(asInt);
+			if(auto bt = cast(BuiltinType) t.denum.type) {
+				return visit(bt);
 			}
 			
 			throw new CompileException(t.denum.location, "Enum are of type int");
@@ -53,7 +53,7 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
-		
+		/*
 		Type visit(BooleanType t) {
 			return (new T2Handler(Integer.Int)).visit(t2);
 		}
@@ -66,15 +66,15 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			// Should check for RHS. But will fail on implicit cast if LHS isn't the right type for now.
 			return t;
 		}
-		
+		*/
 		Type visit(PointerType t) {
 			// FIXME: check RHS.
 			return t;
 		}
 		
 		Type visit(EnumType t) {
-			if(auto asInt = cast(IntegerType) t.denum.type) {
-				return visit(asInt);
+			if(auto bt = cast(BuiltinType) t.denum.type) {
+				return visit(bt);
 			}
 			
 			throw new CompileException(t.denum.location, "Enum are of type int");

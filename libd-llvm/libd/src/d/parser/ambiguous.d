@@ -100,11 +100,12 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			return handler(trange.parseDeclaration());
 		
 		default :
+			/+
 			auto location = trange.front.location;
 			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
-				static if(is(typeof(parsed) : Type)) {
+				static if(is(typeof(parsed) : QualAstType)) {
 					return trange.parseTypedDeclaration(location, parsed);
-				} else static if(is(typeof(parsed) : Expression)) {
+				} else static if(is(typeof(parsed) : AstExpression)) {
 					return parsed;
 				} else {
 					if(trange.front.type == TokenType.Identifier) {
@@ -118,10 +119,10 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			// XXX: workaround lolbug (handler can't be passed down to subfunction).
 			if(auto d = cast(Declaration) parsed) {
 				return handler(d);
-			} else if(auto e = cast(Expression) parsed) {
+			} else if(auto e = cast(AstExpression) parsed) {
 				return handler(e);
 			}
-			
+			+/
 			assert(0);
 	}
 }
@@ -139,8 +140,8 @@ struct Ambiguous {
 	
 	union {
 		Identifier i;
-		Expression e;
-		Type t;
+		AstExpression e;
+		QualAstType t;
 	}
 	
 	@disable this();
@@ -157,12 +158,12 @@ struct Ambiguous {
 		i = id;
 	}
 	
-	this(Expression exp) {
+	this(AstExpression exp) {
 		tag = Tag.Expression;
 		e = exp;
 	}
 	
-	this(Type type) {
+	this(QualAstType type) {
 		tag = Tag.Type;
 		t = type;
 	}
@@ -193,7 +194,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	switch(trange.front.type) with(TokenType) {
 		case OpenBracket :
 			trange.popFront();
-			
+			/+
 			auto parsed = trange.parseAmbiguous!ambiguousHandler().apply!(delegate Object(parsed) {
 				auto location = i.location;
 				location.spanTo(trange.front.location);
@@ -215,12 +216,12 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 			} else if(auto t = cast(Type) parsed) {
 				return trange.parseAmbiguousSuffix!handler(i.location, t);
 			}
-			
+			+/
 			assert(0);	
 		
 		case Function :
 		case Delegate :
-			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(new IdentifierType(i));
+			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(QualAstType(new IdentifierType(i)));
 			return trange.parseAmbiguousSuffix!handler(i.location, t);
 		
 		case DoublePlus :
@@ -315,7 +316,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, Type t) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, QualAstType t) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenParen :
 			assert(0, "Constructor not implemented");
@@ -331,7 +332,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Expression e) {
+private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstExpression e) {
 	switch(trange.front.type) with(TokenType) {
 		case Dot :
 			trange.popFront();

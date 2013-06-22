@@ -2,15 +2,16 @@ module d.semantic.declaration;
 
 import d.semantic.semantic;
 
-import d.ast.adt;
 import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.dmodule;
-import d.ast.dscope;
 import d.ast.dtemplate;
-import d.ast.expression;
-import d.ast.type;
+
+import d.ir.dscope;
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.parser.base;
 import d.parser.declaration;
@@ -23,7 +24,7 @@ final class DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	alias SemanticPass.Step Step;
+	alias Step = SemanticPass.Step;
 	
 	PoisonScope poisonScope;
 	
@@ -175,7 +176,7 @@ final class DeclarationVisitor {
 		assert(unit.type == CtUnitType.StaticIf);
 	} body {
 		auto d = unit.staticIf;
-		auto condition = evaluate(buildExplicitCast(d.condition.location, new BooleanType(), pass.visit(d.condition)));
+		auto condition = evaluate(buildExplicitCast(d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
 		
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);
@@ -242,47 +243,54 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(FunctionDeclaration d) {
+		// FIXME: create actual function from declaration !
+		Function f;
 		if(buildMethods && !isStatic) {
 			uint index = 0;
 			if(!isOverride) {
 				index = ++methodIndex;
 			}
 			
-			d = new MethodDeclaration(d, index);
+			f = new Method(f, index);
 		}
 		
-		d.linkage = linkage;
-		d.isStatic = isStatic;
-		d.isEnum = true;
+		f.linkage = linkage;
+		f.isStatic = isStatic;
+		f.isEnum = true;
 		
-		currentScope.addOverloadableSymbol(d);
+		currentScope.addOverloadableSymbol(f);
 		
-		if(d.fbody) {
+		if(f.fbody) {
 			// XXX: move that to symbol pass.
 			auto oldScope = currentScope;
 			scope(exit) currentScope = oldScope;
 			
-			currentScope = d.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new NestedScope(oldScope);
+			/+
+			auto params = (cast(FunctionType) f.type.type).paramTypes;
 			
 			foreach(p; d.parameters) {
 				currentScope.addSymbol(p);
 			}
+			+/
 		}
 		
-		select(d);
+		select(f);
 	}
 	
 	void visit(VariableDeclaration d) {
+		// FIXME: actually fill data.
+		Variable v;
 		if(buildFields && !isStatic) {
-			d = new FieldDeclaration(d, fieldIndex++);
+			v = new Field(v, fieldIndex++);
 		}
 		
-		d.linkage = linkage;
-		d.isStatic = isStatic;
+		v.linkage = linkage;
+		v.isStatic = isStatic;
 		
-		currentScope.addSymbol(d);
+		currentScope.addSymbol(v);
 		
-		select(d);
+		select(v);
 	}
 	
 	void visit(VariablesDeclaration d) {
@@ -292,14 +300,16 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(StructDeclaration d) {
-		d.linkage = linkage;
+		Struct s;
+		s.linkage = linkage;
 		
-		currentScope.addSymbol(d);
+		currentScope.addSymbol(s);
 		
-		select(d);
+		select(s);
 	}
 	
-	void visit(ClassDeclaration c) {
+	void visit(ClassDeclaration d) {
+		Class c;
 		c.linkage = linkage;
 		
 		currentScope.addSymbol(c);
@@ -308,15 +318,18 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(EnumDeclaration d) {
-		d.linkage = linkage;
+		Enum e;
+		e.linkage = linkage;
 		
-		if(d.name) {
-			currentScope.addSymbol(d);
+		if(e.name) {
+			currentScope.addSymbol(e);
 			
-			select(d);
+			select(e);
 		} else {
-			auto type = d.type;
+			auto type = e.type;
 			
+			assert(0, "Anonymous enum is dead and gone");
+			/+
 			// XXX: Code duplication with symbols. Refactor.
 			VariableDeclaration previous;
 			foreach(e; d.enumEntries) {
@@ -337,9 +350,10 @@ final class DeclarationVisitor {
 				
 				visit(e);
 			}
+			+/
 		}
 	}
-	
+	/+
 	void visit(TemplateDeclaration d) {
 		d.linkage = linkage;
 		d.isStatic = isStatic;
@@ -356,7 +370,7 @@ final class DeclarationVisitor {
 		
 		select(d);
 	}
-	
+	+/
 	void visit(LinkageDeclaration d) {
 		auto oldLinkage = linkage;
 		scope(exit) linkage = oldLinkage;
@@ -389,7 +403,7 @@ final class DeclarationVisitor {
 			visit(decl);
 		}
 	}
-	
+	/+
 	void visit(ImportDeclaration d) {
 		auto names = d.modules.map!(pkg => pkg.join(".")).array();
 		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
@@ -401,7 +415,7 @@ final class DeclarationVisitor {
 		
 		currentScope.imports ~= addToScope;
 	}
-	
+	+/
 	void visit(StaticIf!Declaration d) {
 		auto finalCtLevel = CtUnitLevel.Conditional;
 		auto oldCtLevel = ctLevel;

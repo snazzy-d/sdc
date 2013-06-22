@@ -4,10 +4,14 @@ import d.semantic.semantic;
 
 import d.ast.conditional;
 import d.ast.declaration;
-import d.ast.dscope;
 import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
+
+import d.ir.dscope;
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.parser.base;
 import d.parser.statement;
@@ -55,7 +59,7 @@ final class StatementVisitor {
 		auto syms = pass.flatten(s.declaration);
 		scheduler.require(syms);
 		
-		flattenedStmts ~= syms.map!(d => new DeclarationStatement(d)).array();
+		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
 	}
 	
 	void visit(ExpressionStatement s) {
@@ -73,7 +77,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(IfStatement ifs) {
-		ifs.condition = buildExplicitCast(ifs.condition.location, new BooleanType(), pass.visit(ifs.condition));
+		ifs.condition = buildExplicitCast(ifs.condition.location, getBuiltin(TypeKind.Bool), pass.visit(ifs.condition));
 		
 		ifs.then = autoBlock(ifs.then);
 		
@@ -85,7 +89,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(WhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(), pass.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
 		
 		w.statement = autoBlock(w.statement);
 		
@@ -93,7 +97,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(DoWhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, new BooleanType(), pass.visit(w.condition));
+		w.condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
 		
 		w.statement = autoBlock(w.statement);
 		
@@ -111,15 +115,15 @@ final class StatementVisitor {
 		f.initialize = flattenedStmts[$ - 1];
 		
 		if(f.condition) {
-			f.condition = buildExplicitCast(f.condition.location, new BooleanType(), pass.visit(f.condition));
+			f.condition = buildExplicitCast(f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
 		} else {
-			f.condition = makeLiteral(f.location, true);
+			f.condition = new BooleanLiteral(f.location, true);
 		}
 		
 		if(f.increment) {
 			f.increment = pass.visit(f.increment);
 		} else {
-			f.increment = makeLiteral(f.location, true);
+			f.increment = new BooleanLiteral(f.location, true);
 		}
 		
 		f.statement = autoBlock(f.statement);
@@ -128,15 +132,16 @@ final class StatementVisitor {
 	}
 	
 	void visit(ReturnStatement r) {
-		r.value = pass.visit(r.value);
+		auto value = pass.visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
-		if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
-			returnType = r.value.type;
+		if(typeid({ return pass.returnType.type; }()) is typeid(AutoType)) {
+			returnType = value.type;
 		} else {
-			r.value = buildImplicitCast(r.location, returnType, r.value);
+			value = buildImplicitCast(r.location, returnType, value);
 		}
 		
+		r.value = value;
 		flattenedStmts ~= r;
 	}
 	
@@ -177,7 +182,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(StaticIf!Statement s) {
-		s.condition = evaluate(buildExplicitCast(s.condition.location, new BooleanType(), pass.visit(s.condition)));
+		s.condition = evaluate(buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) s.condition).value) {
 			foreach(item; s.items) {

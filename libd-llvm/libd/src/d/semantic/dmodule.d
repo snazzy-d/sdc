@@ -7,7 +7,8 @@ import d.semantic.semantic;
 
 import d.ast.declaration;
 import d.ast.dmodule;
-import d.ast.dscope;
+
+import d.ir.symbol;
 
 import d.processor.scheduler;
 
@@ -16,6 +17,9 @@ import d.location;
 import std.algorithm;
 import std.array;
 import std.range; // for range.
+
+alias AstModule = d.ast.dmodule.Module;
+alias Module = d.ir.symbol.Module;
 
 final class ModuleVisitor {
 	private SemanticPass pass;
@@ -30,49 +34,43 @@ final class ModuleVisitor {
 		this.sourceFactory = sourceFactory;
 	}
 	
-	Module visit(Module m) {
-		auto name = getModuleName(m);
-		
+	Module visit(AstModule astm) {
 		auto oldCurrentScope = currentScope;
-		scope(exit) currentScope = oldCurrentScope;
-		
-		currentScope = m.dscope;
-		
-		auto oldSymbol = symbol;
-		scope(exit) symbol = oldSymbol;
-		
-		symbol = m;
-		
 		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
-		
-		isStatic = true;
-		
-		// Update mangle prefix.
 		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
+		scope(exit) {
+			currentScope = oldCurrentScope;
+			isStatic = oldIsStatic;
+			manglePrefix = oldManglePrefix;
+		}
+		
+		// FIXME: scope.
+		// currentScope = m.dscope;
+		isStatic = true;
+		manglePrefix = "";
 		
 		import std.conv;
-		
-		manglePrefix = "";
-		auto current = m.parent;
+		auto current = astm.parent;
 		while(current) {
 			manglePrefix = to!string(current.name.length) ~ current.name ~ manglePrefix;
 			current = current.parent;
 		}
 		
-		manglePrefix ~= to!string(m.name.length) ~ m.name;
+		manglePrefix ~= to!string(astm.name.length) ~ astm.name;
+		
+		// FIXME: actually create a module :D
+		Module m;
 		
 		// All modules implicitely import object.
-		auto syms = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ m.declarations, m);
+		m.members = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ astm.declarations, m);
+		m.step = Step.Populated;
 		
-		scheduler.require(syms);
-		m.declarations = cast(Declaration[]) syms;
+		scheduler.require(m.members);
 		
 		m.step = Step.Processed;
 		return m;
 	}
-	
+	/+
 	Module importModule(string[] packages) {
 		auto name = packages.join(".");
 		
@@ -90,7 +88,7 @@ final class ModuleVisitor {
 			return cachedModules[name] = mod;
 		}());
 	}
-	
+	+/
 	// XXX: temporary hack to preregister modules
 	void preregister(Module mod) {
 		cachedModules[getModuleName(mod)] = mod;

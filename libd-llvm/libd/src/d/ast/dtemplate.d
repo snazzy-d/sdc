@@ -2,7 +2,6 @@ module d.ast.dtemplate;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dscope;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -10,14 +9,9 @@ import d.ast.type;
 /**
  * Template declaration
  */
-class TemplateDeclaration : Symbol {
+class TemplateDeclaration : NamedDeclaration {
 	TemplateParameter[] parameters;
 	Declaration[] declarations;
-	
-	Scope parentScope;
-	bool isStatic;
-	
-	TemplateInstance[string] instances;
 	
 	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, name);
@@ -30,7 +24,7 @@ class TemplateDeclaration : Symbol {
 /**
  * Super class for all templates parameters
  */
-class TemplateParameter : Symbol {
+class TemplateParameter : NamedDeclaration {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -67,9 +61,9 @@ class TupleTemplateParameter : TemplateParameter {
  * Value template parameters
  */
 class ValueTemplateParameter : TemplateParameter {
-	Type type;
+	QualAstType type;
 	
-	this(Location location, string name, Type type) {
+	this(Location location, string name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -89,15 +83,16 @@ class AliasTemplateParameter : TemplateParameter {
  * Typed alias template parameter
  */
 class TypedAliasTemplateParameter : AliasTemplateParameter {
-	Type type;
+	QualAstType type;
 	
-	this(Location location, string name, Type type) {
+	this(Location location, string name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
 	}
 }
 
+// XXX: this is an identifier.
 /**
  * Template instanciation
  */
@@ -114,23 +109,6 @@ class TemplateInstanciation : Node {
 }
 
 /**
- * Template instance
- */
-class TemplateInstance : Symbol {
-	TemplateArgument[] arguments;
-	Declaration[] declarations;
-	
-	Scope dscope;
-	
-	this(Location location, TemplateArgument[] arguments, Declaration[] declarations) {
-		super(location, "");
-		
-		this.arguments = arguments;
-		this.declarations = declarations;
-	}
-}
-
-/**
  * Super class for all template arguments.
  */
 class TemplateArgument : Node {
@@ -143,15 +121,15 @@ class TemplateArgument : Node {
  * Template type argument
  */
 class TypeTemplateArgument : TemplateArgument {
-	Type type;
+	QualAstType type;
 	
-	this(Location location, Type type) {
+	this(Location location, QualAstType type) {
 		super(location);
 		
 		this.type = type;
 	}
 }
-
+/+
 /**
  * Template type argument
  */
@@ -164,7 +142,7 @@ class ValueTemplateArgument : TemplateArgument {
 		this.value = value;
 	}
 }
-
++/
 /**
  * Template identifier argument
  */

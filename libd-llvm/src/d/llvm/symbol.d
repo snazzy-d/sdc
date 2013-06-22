@@ -2,10 +2,8 @@ module d.llvm.symbol;
 
 import d.llvm.codegen;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.type;
+import d.ir.symbol;
+import d.ir.type;
 
 import util.visitor;
 
@@ -16,31 +14,29 @@ import std.algorithm;
 import std.array;
 import std.string;
 
-final class DeclarationGen {
+final class SymbolGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	private LLVMValueRef[ExpressionSymbol] exprSymbols;
+	private LLVMValueRef[ValueSymbol] valueSymbols;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
 	
-	void visit(Declaration d) {
-		if(auto es = cast(ExpressionSymbol) d) {
-			visit(es);
-		} else if(auto ts = cast(TypeSymbol) d) {
-			visit(ts);
+	void visit(Symbol s) {
+		if(auto v = cast(ValueSymbol) s) {
+			visit(v);
+		} else if(auto t = cast(TypeSymbol) s) {
+			visit(t);
 		}
-		
-		assert(cast(Symbol) d, "Can only generate symbols.");
 	}
 	
-	LLVMValueRef visit(ExpressionSymbol s) {
-		return exprSymbols.get(s, this.dispatch(s));
+	LLVMValueRef visit(ValueSymbol s) {
+		return valueSymbols.get(s, this.dispatch(s));
 	}
 	
-	LLVMValueRef visit(FunctionDeclaration f) {
+	LLVMValueRef visit(Function f) {
 		auto type = pass.visit(f.type);
 		
 		LLVMValueRef ret, fun;
@@ -53,7 +49,7 @@ final class DeclarationGen {
 			auto funType = LLVMGetElementType(types[0]);
 			ret = fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 			
-			if(typeid(f) !is typeid(MethodDeclaration)) {
+			if(typeid(f) !is typeid(Method)) {
 				ret = LLVMGetUndef(type);
 				ret = LLVMBuildInsertValue(builder, ret, fun, 0, "");
 			}
@@ -63,21 +59,21 @@ final class DeclarationGen {
 		}
 		
 		// Register the function.
-		exprSymbols[f] = ret;
-		
+		valueSymbols[f] = ret;
+		/+
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
-			
+		+/
 		return ret;
 	}
 	
-	LLVMValueRef visit(MethodDeclaration m) {
-		return visit(cast(FunctionDeclaration) m);
+	LLVMValueRef visit(Method m) {
+		return visit(cast(Function) m);
 	}
-	
-	private void genFunctionBody(FunctionDeclaration f) {
-		auto fun = exprSymbols[f];
+	/+
+	private void genFunctionBody(Function f) {
+		auto fun = valueSymbols[f];
 		if(LLVMGetTypeKind(LLVMTypeOf(fun)) == LLVMTypeKind.Struct) {
 			fun = LLVMBuildExtractValue(builder, fun, 0, "");
 		}
@@ -85,7 +81,7 @@ final class DeclarationGen {
 		genFunctionBody(f, fun);
 	}
 	
-	private void genFunctionBody(FunctionDeclaration f, LLVMValueRef fun) {
+	private void genFunctionBody(Function f, LLVMValueRef fun) {
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(context, fun, "");
 		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "body");
@@ -125,14 +121,14 @@ final class DeclarationGen {
 			if(p.isReference) {
 				LLVMSetValueName(value, p.name.toStringz());
 				
-				exprSymbols[p] = value;
+				valueSymbols[p] = value;
 			} else {
 				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
 				
 				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 				
 				LLVMBuildStore(builder, value, alloca);
-				exprSymbols[p] = alloca;
+				valueSymbols[p] = alloca;
 			}
 		}
 		
@@ -154,12 +150,12 @@ final class DeclarationGen {
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		LLVMBuildBr(builder, bodyBB);
 	}
-	
-	LLVMValueRef visit(VariableDeclaration var) {
+	+/
+	LLVMValueRef visit(Variable var) {
 		auto value = pass.visit(var.value);
 		
 		if(var.isEnum) {
-			return exprSymbols[var] = value;
+			return valueSymbols[var] = value;
 		}
 		
 		if(var.isStatic) {
@@ -167,7 +163,7 @@ final class DeclarationGen {
 			LLVMSetThreadLocal(globalVar, true);
 			
 			// Register the variable.
-			exprSymbols[var] = globalVar;
+			valueSymbols[var] = globalVar;
 			
 			// Store the initial value into the global variable.
 			LLVMSetInitializer(globalVar, value);
@@ -185,7 +181,7 @@ final class DeclarationGen {
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			
 			// Register the variable.
-			exprSymbols[var] = alloca;
+			valueSymbols[var] = alloca;
 			
 			// Store the initial value into the alloca.
 			LLVMBuildStore(builder, value, alloca);
@@ -198,15 +194,15 @@ final class DeclarationGen {
 		return this.dispatch(s);
 	}
 	
-	LLVMTypeRef visit(AliasDeclaration a) {
+	LLVMTypeRef visit(TypeAlias a) {
 		return pass.visit(a.type);
 	}
 	
-	LLVMTypeRef visit(StructDeclaration s) {
+	LLVMTypeRef visit(Struct s) {
 		auto ret = pass.visit(new StructType(s));
 		
 		foreach(member; s.members) {
-			if(typeid(member) !is typeid(FieldDeclaration)) {
+			if(typeid(member) !is typeid(Field)) {
 				visit(member);
 			}
 		}
@@ -214,25 +210,27 @@ final class DeclarationGen {
 		return ret;
 	}
 	
-	LLVMTypeRef visit(ClassDeclaration c) {
+	LLVMTypeRef visit(Class c) {
 		auto ret = pass.visit(new ClassType(c));
 		
 		foreach(member; c.members) {
-			if (auto m = cast(MethodDeclaration) member) {
+			if (auto m = cast(Method) member) {
+				/+
 				genFunctionBody(m);
+				+/
 			}
 		}
 		
 		return ret;
 	}
 	
-	LLVMTypeRef visit(EnumDeclaration e) {
+	LLVMTypeRef visit(Enum e) {
 		auto type = pass.visit(new EnumType(e));
-		
-		foreach(entry; e.enumEntries) {
+		/+
+		foreach(entry; e.entries) {
 			visit(entry);
 		}
-		
+		+/
 		return type;
 	}
 }

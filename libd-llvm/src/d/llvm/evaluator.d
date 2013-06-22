@@ -2,9 +2,8 @@ module d.llvm.evaluator;
 
 import d.llvm.codegen;
 
-import d.ast.adt;
-import d.ast.expression;
-import d.ast.type;
+import d.ir.expression;
+import d.ir.type;
 
 import d.semantic.evaluator;
 
@@ -70,7 +69,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		return ret;
 	}
-	
+	/+
 	CompileTimeExpression visit(BitCastExpression e) {
 		// XXX: hack to get enums work.
 		import d.ast.adt;
@@ -80,15 +79,15 @@ final class LLVMEvaluator : Evaluator {
 		
 		return jit(e);
 	}
-	
+	+/
 	// Actual JIT
 	private CompileTimeExpression jit(Expression e) {
-		auto type = e.type;
+		auto type = e.type.type;
 		
 		if(auto et = cast(EnumType) type) {
 			type = et.denum.type;
 		}
-		
+		/+
 		if(auto t = cast(IntegerType) type) {
 			auto returned = jitInteger(e);
 			
@@ -108,7 +107,7 @@ final class LLVMEvaluator : Evaluator {
 				return new StringLiteral(e.location, returned);
 			}
 		}
-		
+		+/
 		assert(0, "Only able to JIT integers and booleans, " ~ typeid({ return e.type; }()).toString() ~ " given.");
 	}
 	
