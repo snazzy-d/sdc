@@ -45,11 +45,11 @@ alias VersionDefinition DebugDefinition;
  * Static if Conditional
  */
 class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
-	Expression condition;
+	AstExpression condition;
 	ItemType[] items;
 	ItemType[] elseItems;
 		
-	this(Location location, Expression condition, ItemType[] items, ItemType[] elseItems) {
+	this(Location location, AstExpression condition, ItemType[] items, ItemType[] elseItems) {
 		super(location);
 		
 		this.condition = condition;
@@ -62,9 +62,9 @@ class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarat
  * Mixins
  */
 class Mixin(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration) || is(ItemType == Expression)) : ItemType {
-	Expression value;
+	AstExpression value;
 	
-	this(Location location, Expression value) {
+	this(Location location, AstExpression value) {
 		super(location);
 		
 		this.value = value;

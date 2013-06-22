@@ -1,7 +1,8 @@
 module d.processor.scheduler;
 
+// XXX: refactor.
 import d.ast.base;
-import d.ast.declaration;
+import d.ir.symbol;
 
 import std.algorithm;
 import std.range;
@@ -48,7 +49,7 @@ private:
 	}
 	
 	enum isPassEnum = is(Step : uint) && checkEnumElements();
-	enum isPass = is(typeof(P.init.state.symbol) : Symbol) && isPassEnum;
+	enum isPass = isPassEnum;
 	
 	static assert(isPass, "you can only schedule passes.");
 	

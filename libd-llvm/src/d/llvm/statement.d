@@ -24,20 +24,20 @@ final class StatementGen {
 		this.dispatch(s);
 	}
 	
-	void visit(DeclarationStatement d) {
-		pass.visit(d.declaration);
+	void visit(SymbolStatement s) {
+		pass.visit(s.symbol);
 	}
-	
+	/+
 	void visit(ExpressionStatement e) {
 		pass.visit(e.expression);
 	}
-	
+	+/
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
 		}
 	}
-	
+	/+
 	void visit(IfStatement ifs) {
 		auto condition = pass.visit(ifs.condition);
 		
@@ -166,7 +166,7 @@ final class StatementGen {
 	void visit(ReturnStatement r) {
 		LLVMBuildRet(builder, pass.visit(r.value));
 	}
-	
+	+/
 	void visit(BreakStatement s) {
 		assert(breakBB);
 		LLVMBuildBr(builder, breakBB);
@@ -176,7 +176,7 @@ final class StatementGen {
 		assert(continueBB);
 		LLVMBuildBr(builder, continueBB);
 	}
-	
+	/+
 	void visit(SwitchStatement s) {
 		auto expression = pass.visit(s.expression);
 		
@@ -246,7 +246,7 @@ final class StatementGen {
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);
 	}
-	
+	+/
 	private auto getLabel(string label) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		

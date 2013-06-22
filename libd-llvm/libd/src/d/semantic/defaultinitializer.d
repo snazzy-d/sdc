@@ -2,11 +2,8 @@ module d.semantic.defaultinitializer;
 
 import d.semantic.semantic;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.expression;
-import d.ast.type;
+import d.ir.expression;
+import d.ir.type;
 
 import d.location;
 
@@ -18,14 +15,15 @@ final class DefaultInitializerVisitor {
 		this.pass = pass;
 	}
 	
-	Expression visit(Location location, Type t) out(result) {
-		assert(result.type);
-	} body {
-		return this.dispatch!(delegate Expression(Type t) {
+	Expression visit(Location location, QualType t) {
+		auto e = this.dispatch!((t) {
 			return pass.raiseCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
-		})(location, t);
+		})(location, t.type);
+		
+		e.type.qualifier = t.qualifier;
+		return e;
 	}
-	
+	/*
 	Expression visit(Location location, BooleanType t) {
 		return makeLiteral(location, false);
 	}
@@ -45,9 +43,9 @@ final class DefaultInitializerVisitor {
 	Expression visit(Location location, CharacterType t) {
 		return new CharacterLiteral(location, [char.init], t);
 	}
-	
+	*/
 	Expression visit(Location location, PointerType t) {
-		return new NullLiteral(location, t);
+		return new NullLiteral(location);
 	}
 	/*
 	Expression visit(SliceType t) {
@@ -61,26 +59,28 @@ final class DefaultInitializerVisitor {
 		return ret;
 	}
 	*/
-	Expression visit(Location location, StaticArrayType t) {
+	/*
+	Expression visit(Location location, ArrayType t) {
 		return new VoidInitializer(location, t);
 	}
-	
+	*/
 	Expression visit(Location location, StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
 		
-		auto init = cast(VariableDeclaration) s.dscope.resolve("init");
+		import d.ir.symbol;
+		auto init = cast(Variable) s.dscope.resolve("init");
 		
 		// XXX: Create a new node ?
 		return init.value;
 	}
 	
 	Expression visit(Location location, ClassType t) {
-		return new NullLiteral(location, t);
+		return new NullLiteral(location);
 	}
 	
 	Expression visit(Location location, FunctionType t) {
-		return new NullLiteral(location, t);
+		return new NullLiteral(location);
 	}
 }
 

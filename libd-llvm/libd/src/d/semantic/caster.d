@@ -3,46 +3,38 @@ module d.semantic.caster;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.expression;
-import d.ast.type;
+import d.ast.base;
+
+import d.ir.expression;
+import d.ir.type;
 
 import d.exception;
 import d.location;
 
 import std.algorithm;
-import std.range;
 
-// FIXME: isn't reentrant at all.
 final class Caster(bool isExplicit) {
 	private SemanticPass pass;
 	alias pass this;
 	
 	private Location location;
 	
-	private FromBoolean fromBoolean;
-	private FromInteger fromInteger;
-	private FromCharacter fromCharacter;
+	private FromBuiltin fromBuiltin;
 	private FromPointer fromPointer;
-	private FromFunction fromFunction;
-	private FromDelegate fromDelegate;
+	// private FromFunction fromFunction;
+	// private FromDelegate fromDelegate;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
 		
-		fromBoolean		= new FromBoolean();
-		fromInteger		= new FromInteger();
-		// fromFloat		= new FromFloat();
-		fromCharacter	= new FromCharacter();
+		fromBuiltin		= new FromBuiltin();
 		fromPointer		= new FromPointer();
-		fromFunction	= new FromFunction();
-		fromDelegate	= new FromDelegate();
+		// fromFunction	= new FromFunction();
+		// fromDelegate	= new FromDelegate();
 	}
 	
 	// XXX: out contract disabled because it create memory corruption with dmd.
-	Expression build(Location castLocation, Type to, Expression e) /* out(result) {
+	Expression build(Location castLocation, QualType to, Expression e) /* out(result) {
 		assert(result.type == to);
 	} body */ {
 		// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
@@ -54,6 +46,7 @@ final class Caster(bool isExplicit) {
 			
 			Expression casted;
 			foreach(candidate; asPolysemous.expressions) {
+				// XXX: Remove that ! Controle flow with exceptions is crap.
 				try {
 					candidate = build(castLocation, to, candidate);
 				} catch(CompileException e) {
@@ -78,205 +71,171 @@ final class Caster(bool isExplicit) {
 			return pass.raiseCondition!Expression(e.location, "No match found.");
 		}
 		
-		assert(to && e.type);
-		
-		// Default initializer removal.
-		if(typeid(e) is typeid(DefaultInitializer)) {
-			return defaultInitializerVisitor.visit(e.location, to);
-		}
+		assert(to.type && e.type.type);
 		
 		auto oldLocation = location;
 		scope(exit) location = oldLocation;
 		
 		location = castLocation;
 		
-		final switch(castFrom(e.type, to)) with(CastFlavor) {
-			case Not :
-				return pass.raiseCondition!Expression(e.location, (isExplicit?"Explicit":"Implicit") ~ " cast from " ~ e.type.toString() ~ " to " ~ to.toString() ~ " is not allowed");
-			
-			case Bool :
-				Expression zero = makeLiteral(castLocation, 0);
-				auto type = getPromotedType(castLocation, e.type, zero.type);
-				
-				zero = pass.buildImplicitCast(castLocation, type, zero);
-				e = pass.buildImplicitCast(e.location, type, e);
-				
-				auto res = new NotEqualityExpression(castLocation, e, zero);
-				res.type = to;
-				
-				return res;
-			
-			case Trunc :
-				return new TruncateExpression(location, to, e);
-			
-			case Pad :
-				return new PadExpression(location, to, e);
-			
-			case Bit :
-			case Qual :
-				return new BitCastExpression(location, to, e);
-			
-			case Exact :
-				return e;
-		}
+		return new CastExpression(location, castFrom(e.type, to), to, e);
 	}
 	
-	CastFlavor castFrom(Type from, Type to) {
+	// FIXME: this shouldn't forward but bu the base.
+	CastKind castFrom(QualType from, QualType to) {
+		return castFrom(from.type, to.type);
+	}
+	
+	CastKind castFrom(Type from, Type to) {
 		if(from == to) {
-			return CastFlavor.Exact;
+			return CastKind.Exact;
 		}
 		
 		return this.dispatch!((t) {
-			return CastFlavor.Not;
+			return CastKind.Invalid;
 		})(to, from);
 	}
 	
-	class FromBoolean {
-		CastFlavor visit(Type to) {
+	class FromBuiltin {
+		CastKind visit(TypeKind from, Type to) {
 			return this.dispatch!((t) {
-				return CastFlavor.Not;
-			})(to);
+				return CastKind.Invalid;
+			})(from, to);
 		}
 		
-		CastFlavor visit(IntegerType to) {
-			return CastFlavor.Pad;
-		}
-	}
-	
-	CastFlavor visit(Type to, BooleanType t) {
-		return fromBoolean.visit(to);
-	}
-	
-	class FromInteger {
-		Integer from;
-		
-		CastFlavor visit(Integer from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
+		CastKind visit(TypeKind from, BuiltinType t) {
+			auto to = t.kind;
 			
-			this.from = from;
+			if(to == TypeKind.None) {
+				return CastKind.Invalid;
+			}
 			
-			return this.dispatch!((t) {
-				return CastFlavor.Not;
-			})(to);
+			if(from == to) {
+				return CastKind.Exact;
+			}
+			
+			final switch(from) with(TypeKind) {
+				case None:
+				case Void:
+					return CastKind.Invalid;
+				
+				case Bool:
+					if(isIntegral(to)) {
+						return CastKind.Pad;
+					}
+					
+					return CastKind.Invalid;
+				
+				case Char:
+					from = integralOfChar(from);
+					goto case Ubyte;
+				
+				case Wchar:
+					from = integralOfChar(from);
+					goto case Ushort;
+				
+				case Dchar:
+					from = integralOfChar(from);
+					goto case Uint;
+				
+				case Ubyte:
+				case Ushort:
+				case Uint:
+				case Ulong:
+				case Ucent:
+				case Byte:
+				case Short:
+				case Int:
+				case Long:
+				case Cent:
+					static if(isExplicit) {
+						if(to == Bool) {
+							return CastKind.IntegralToBool;
+						}
+					}
+					
+					if(!isIntegral(to)) {
+						return CastKind.Invalid;
+					}
+					
+					from = unsigned(from);
+					to = unsigned(to);
+					switch(to) {
+						case Ubyte:
+						case Ushort:
+						case Uint:
+						case Ulong:
+						case Ucent:
+							if(from == to) {
+								return CastKind.Bit;
+							} else if(from < to) {
+								return CastKind.Pad;
+							} else static if(isExplicit) {
+								return CastKind.Trunc;
+							} else {
+								return CastKind.Invalid;
+							}
+						
+						default:
+							assert(0);
+					}
+				
+				case Float:
+				case Double:
+				case Real:
+				case Null:
+					assert(0, "Not implemented");
+			}
 		}
 		
 		static if(isExplicit) {
-			CastFlavor visit(BooleanType t) {
-				return CastFlavor.Bool;
-			}
-			
-			CastFlavor visit(EnumType t) {
-				// If the cast is explicit, then try to cast from enum base type.
-				return visit(from, t.denum.type);
-			}
-		}
-		
-		CastFlavor visit(IntegerType t) {
-			if(t.type == from) {
-				return CastFlavor.Qual;
-			} else if(t.type >> 1 == from >> 1) {
-				// Same type except for signess.
-				return CastFlavor.Bit;
-			} else if(t.type > from) {
-				return CastFlavor.Pad;
-			} else static if(isExplicit) {
-				return CastFlavor.Trunc;
-			} else {
-				return CastFlavor.Not;
-			}
-		}
-	}
-	
-	CastFlavor visit(Type to, IntegerType t) {
-		return fromInteger.visit(t.type, to);
-	}
-	
-	/*
-	CastFlavor visit(FloatType t) {
-		return fromFloatType(t.type)).visit(type);
-	}
-	*/
-	
-	class FromCharacter {
-		Character from;
-		
-		CastFlavor visit(Character from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
-			
-			this.from = from;
-			
-			return this.dispatch!((t) {
-				return CastFlavor.Not;
-			})(to);
-		}
-		
-		CastFlavor visit(IntegerType t) {
-			Integer i;
-			final switch(from) with(Character) {
-				case Char :
-					i = Integer.Ubyte;
-					break;
+			CastKind visit(TypeKind from, EnumType t) {
+				if(isIntegral(from)) {
+					return visit(from, t.denum.type);
+				}
 				
-				case Wchar :
-					i = Integer.Ushort;
-					break;
-				
-				case Dchar :
-					i = Integer.Uint;
-					break;
+				return CastKind.Invalid;
 			}
-			
-			// A best a bitcast.
-			return min(fromInteger.visit(i, t), CastFlavor.Bit);
-		}
-		
-		CastFlavor visit(CharacterType t) {
-			if(t.type == from) {
-				return CastFlavor.Qual;
-			}
-			
-			// TODO: cast to upper char.
-			return CastFlavor.Not;
 		}
 	}
 	
-	CastFlavor visit(Type to, CharacterType t) {
-		return fromCharacter.visit(t.type, to);
+	CastKind visit(Type to, BuiltinType t) {
+		return fromBuiltin.visit(t.kind, to);
 	}
 	
 	class FromPointer {
-		Type from;
+		QualType from;
 		
-		CastFlavor visit(Type from, Type to) {
+		CastKind visit(QualType from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				return CastFlavor.Not;
+				return CastKind.Invalid;
 			})(to);
 		}
 		
-		CastFlavor visit(PointerType t) {
+		CastKind visit(PointerType t) {
 			// Cast to void* is kind of special.
-			if(auto v = cast(VoidType) t.type) {
-				static if(isExplicit) {
-					return CastFlavor.Bit;
-				} else if(canConvert(from.qualifier, t.type.qualifier)) {
-					return CastFlavor.Bit;
-				} else {
-					return CastFlavor.Not;
+			if(auto v = cast(BuiltinType) t.pointed.type) {
+				if(v.kind == TypeKind.Void) {
+					static if(isExplicit) {
+						return CastKind.Bit;
+					} else if(canConvert(from.qualifier, t.pointed.qualifier)) {
+						return CastKind.Bit;
+					} else {
+						return CastKind.Invalid;
+					}
 				}
 			}
 			
-			auto subCast = castFrom(from, t.type);
+			auto subCast = castFrom(from, t.pointed);
 			
-			switch(subCast) with(CastFlavor) {
+			switch(subCast) with(CastKind) {
 				case Qual :
-					if(canConvert(from.qualifier, t.type.qualifier)) {
+					if(canConvert(from.qualifier, t.pointed.qualifier)) {
 						return Qual;
 					}
 					
@@ -290,63 +249,63 @@ final class Caster(bool isExplicit) {
 						return Bit;
 				} else {
 					case Bit :
-						if(canConvert(from.qualifier, t.type.qualifier)) {
+						if(canConvert(from.qualifier, t.pointed.qualifier)) {
 							return subCast;
 						}
 						
-						return Not;
+						return Invalid;
 					
 					default :
-						return Not;
+						return Invalid;
 				}
 			}
 		}
 		
 		static if(isExplicit) {
-			CastFlavor visit(FunctionType t) {
-				return CastFlavor.Bit;
+			CastKind visit(FunctionType t) {
+				return CastKind.Bit;
 			}
 		}
 	}
 	
-	CastFlavor visit(Type to, PointerType t) {
-		return fromPointer.visit(t.type, to);
+	CastKind visit(Type to, PointerType t) {
+		return fromPointer.visit(t.pointed, to);
 	}
 	
-	CastFlavor visit(Type to, ClassType t) {
+	CastKind visit(Type to, ClassType t) {
 		// Automagically promote to base type.
 		auto c = t.dclass;
 		scheduler.require(c);
 		
-		auto bases = c.bases;
-		if(bases.length == 1) {
-			return min(castFrom(bases[0], to), CastFlavor.Bit);
+		// Stop at object.
+		if(c.base != c.base.base) {
+			return min(castFrom(new ClassType(c.base), to), CastKind.Bit);
 		}
 		
-		return CastFlavor.Not;
+		return CastKind.Invalid;
 	}
 	
-	CastFlavor visit(Type to, EnumType t) {
+	CastKind visit(Type to, EnumType t) {
 		// Automagically promote to base type.
 		return castFrom(t.denum.type, to);
 	}
-	
+	/+
 	class FromFunction {
 		FunctionType from;
 		
-		CastFlavor visit(FunctionType from, Type to) {
+		CastKind visit(FunctionType from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				return CastFlavor.Not;
+				return CastKind.Invalid;
 			})(to);
 		}
 		
-		CastFlavor visit(FunctionType t) {
-			enum onFail = isExplicit ? CastFlavor.Bit : CastFlavor.Not;
+		CastKind visit(FunctionType t) {
+			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
 			if(from.parameters.length != t.parameters.length) return onFail;
 			if(from.isVariadic != t.isVariadic) return onFail;
@@ -354,54 +313,56 @@ final class Caster(bool isExplicit) {
 			if(from.linkage != t.linkage) return onFail;
 			
 			auto level = castFrom(from.returnType, t.returnType);
-			if(level < CastFlavor.Bit) return onFail;
+			if(level < CastKind.Bit) return onFail;
 			
 			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
 				if(fromp.isReference != top.isReference) return onFail;
 				
 				auto levelp = castFrom(fromp.type, top.type);
-				if(levelp < CastFlavor.Bit) return onFail;
-				if(fromp.isReference && levelp < CastFlavor.Qual) return onFail;
+				if(levelp < CastKind.Bit) return onFail;
+				if(fromp.isReference && levelp < CastKind.Qual) return onFail;
 				
 				level = min(level, levelp);
 			}
 			
-			if (level < CastFlavor.Exact) return CastFlavor.Bit;
+			if (level < CastKind.Exact) return CastKind.Bit;
 			
-			return (from.qualifier == t.qualifier) ? CastFlavor.Exact : CastFlavor.Qual;
+			// FIXME: this must be done at upper level.
+			// return (from.qualifier == t.qualifier) ? CastKind.Exact : CastKind.Qual;
+			return CastKind.Exact;
 		}
 		
-		CastFlavor visit(PointerType t) {
+		CastKind visit(PointerType t) {
 			static if(isExplicit) {
-				return CastFlavor.Bit;
+				return CastKind.Bit;
 			} else if(auto toType = cast(VoidType) t.type) {
-				return CastFlavor.Bit;
+				return CastKind.Bit;
 			} else {
-				return CastFlavor.Not;
+				return CastKind.Invalid;
 			}
 		}
 	}
 	
-	CastFlavor visit(Type to, FunctionType t) {
+	CastKind visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
 	}
 	
 	class FromDelegate {
 		DelegateType from;
 		
-		CastFlavor visit(DelegateType from, Type to) {
+		CastKind visit(DelegateType from, Type to) {
 			auto oldFrom = this.from;
 			scope(exit) this.from = oldFrom;
 			
 			this.from = from;
 			
 			return this.dispatch!((t) {
-				return CastFlavor.Not;
+				return CastKind.Invalid;
 			})(to);
 		}
 		
-		CastFlavor visit(DelegateType t) {
-			enum onFail = isExplicit ? CastFlavor.Bit : CastFlavor.Not;
+		CastKind visit(DelegateType t) {
+			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
 			if(from.parameters.length != t.parameters.length) return onFail;
 			if(from.isVariadic != t.isVariadic) return onFail;
@@ -409,26 +370,29 @@ final class Caster(bool isExplicit) {
 			if(from.linkage != t.linkage) return onFail;
 			
 			auto level = castFrom(from.returnType, t.returnType);
-			if(level < CastFlavor.Bit) return onFail;
+			if(level < CastKind.Bit) return onFail;
 			
 			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
 				if(fromp.isReference != top.isReference) return onFail;
 				
 				auto levelp = castFrom(fromp.type, top.type);
-				if(levelp < CastFlavor.Bit) return onFail;
-				if(fromp.isReference && levelp < CastFlavor.Qual) return onFail;
+				if(levelp < CastKind.Bit) return onFail;
+				if(fromp.isReference && levelp < CastKind.Qual) return onFail;
 				
 				level = min(level, levelp);
 			}
 			
-			if (level < CastFlavor.Exact) return CastFlavor.Bit;
+			if (level < CastKind.Exact) return CastKind.Bit;
 			
-			return (from.qualifier == t.qualifier) ? CastFlavor.Exact : CastFlavor.Qual;
+			// FIXME: this must be done at upper level.
+			// return (from.qualifier == t.qualifier) ? CastKind.Exact : CastKind.Qual;
+			return CastKind.Exact;
 		}
 	}
 	
-	CastFlavor visit(Type to, DelegateType t) {
+	CastKind visit(Type to, DelegateType t) {
 		return fromDelegate.visit(t, to);
 	}
+	+/
 }
 

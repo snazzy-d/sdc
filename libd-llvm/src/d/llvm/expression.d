@@ -2,11 +2,9 @@ module d.llvm.expression;
 
 import d.llvm.codegen;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dfunction;
-import d.ast.expression;
-import d.ast.type;
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.exception;
 import d.location;
@@ -62,16 +60,23 @@ final class ExpressionGen {
 		return buildDString(sl.value);
 	}
 	
+	LLVMValueRef visit(BinaryExpression e) {
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		
+		assert(0, "Binary expression, sion, sion");
+	}
+	/+
 	LLVMValueRef visit(CommaExpression ce) {
 		visit(ce.lhs);
 		
 		return visit(ce.rhs);
 	}
-	
+	+/
 	LLVMValueRef visit(ThisExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
-	
+	/+
 	LLVMValueRef visit(AssignExpression e) {
 		auto ptr = addressOf(e.lhs);
 		auto value = visit(e.rhs);
@@ -80,7 +85,12 @@ final class ExpressionGen {
 		
 		return value;
 	}
+	+/
 	
+	LLVMValueRef visit(UnaryExpression e) {
+		assert(0, "Unary, ry, ry");
+	}
+	/+
 	LLVMValueRef visit(AddressOfExpression e) {
 		return addressOf(e.expression);
 	}
@@ -257,7 +267,7 @@ final class ExpressionGen {
 	LLVMValueRef visit(LogicalOrExpression e) {
 		return handleLogicalBinary(e);
 	}
-	
+	+/
 	LLVMValueRef visit(SymbolExpression e) {
 		if(e.symbol.isEnum) {
 			return pass.visit(e.symbol);
@@ -271,23 +281,23 @@ final class ExpressionGen {
 			return LLVMBuildLoad(builder, addressOf(e), "");
 		}
 		
-		return LLVMBuildExtractValue(builder, visit(e.expression), e.field.index, "");
+		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
 	
 	LLVMValueRef visit(MethodExpression e) {
-		auto type = cast(DelegateType) e.type;
+		auto type = cast(DelegateType) e.type.type;
 		assert(type);
 		
 		LLVMValueRef thisValue;
-		if(type.context.isReference) {
-			thisValue = addressOf(e.expression);
+		if(type.context.isRef) {
+			thisValue = addressOf(e.expr);
 		} else {
-			thisValue = visit(e.expression);
+			thisValue = visit(e.expr);
 		}
 		
 		LLVMValueRef dg;
-		if(auto m = cast(MethodDeclaration) e.method) {
-			auto cd = (cast(ClassType) e.expression.type).dclass;
+		if(auto m = cast(Method) e.method) {
+			auto cd = (cast(ClassType) e.expr.type.type).dclass;
 			assert(cd, "Virtual dispatch can only be done on classes.");
 			
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisValue, 0, ""), "vtbl");
@@ -309,24 +319,24 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(DelegateExpression e) {
-		auto type = cast(DelegateType) e.type;
+		auto type = cast(DelegateType) e.type.type;
 		assert(type);
 		
 		LLVMValueRef context;
-		if(type.context.isReference) {
+		if(type.context.isRef) {
 			context = addressOf(e.context);
 		} else {
 			context = visit(e.context);
 		}
 		
-		auto dg = LLVMGetUndef(pass.visit(e.type));
+		auto dg = LLVMGetUndef(pass.visit(type));
 		
 		dg = LLVMBuildInsertValue(builder, dg, visit(e.funptr), 0, "");
 		dg = LLVMBuildInsertValue(builder, dg, context, 1, "");
 		
 		return dg;
 	}
-	
+	/+
 	LLVMValueRef visit(NewExpression e) {
 		assert(e.arguments.length == 0);
 		
@@ -350,11 +360,11 @@ final class ExpressionGen {
 		
 		return ptr;
 	}
-	
+	+/
 	LLVMValueRef visit(IndexExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
-	
+	/+
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
 		
@@ -497,11 +507,11 @@ final class ExpressionGen {
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		return handleTuple(e);
 	}
-	
+	+/
 	LLVMValueRef visit(VoidInitializer v) {
 		return LLVMGetUndef(pass.visit(v.type));
 	}
-	
+	/+
 	LLVMValueRef visit(AssertExpression e) {
 		auto test = visit(e.condition);
 		
@@ -539,6 +549,7 @@ final class ExpressionGen {
 		// XXX: should figure out what is the right value to return.
 		return null;
 	}
+	+/
 }
 
 final class AddressOfGen {
@@ -560,7 +571,7 @@ final class AddressOfGen {
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		auto ptr = visit(e.expression);
+		auto ptr = visit(e.expr);
 		
 		// Pointer auto dereference in D.
 		while(1) {
@@ -581,7 +592,7 @@ final class AddressOfGen {
 		// FIXME: this is completely work, but will do the trick for now.
 		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
 	}
-	
+	/+
 	LLVMValueRef visit(DereferenceExpression e) {
 		return pass.visit(e.expression);
 	}
@@ -641,5 +652,6 @@ final class AddressOfGen {
 		
 		return computeIndice(e.location, e.indexed.type, indexed, indice);
 	}
+	+/
 }
 

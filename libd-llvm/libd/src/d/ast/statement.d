@@ -2,7 +2,6 @@ module d.ast.statement;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dscope;
 import d.ast.expression;
 import d.ast.type;
 
@@ -26,12 +25,12 @@ class BlockStatement : Statement {
 }
 
 /**
- * Expressions
+ * AstExpressions
  */
 class ExpressionStatement : Statement {
-	Expression expression;
+	AstExpression expression;
 	
-	this(Expression expression) {
+	this(AstExpression expression) {
 		super(expression.location);
 		
 		this.expression = expression;
@@ -52,16 +51,30 @@ class DeclarationStatement : Statement {
 }
 
 /**
+ * Declarations
+ */
+class SymbolStatement : Statement {
+	import d.ir.symbol;
+	Symbol symbol;
+	
+	this(Symbol symbol) {
+		super(symbol.location);
+		
+		this.symbol = symbol;
+	}
+}
+
+/**
  * if statements.
  */
 class IfStatement : Statement {
-	Expression condition;
+	AstExpression condition;
 	Statement then;
 	
 	// Nullable
 	Statement elseStatement;
 	
-	this(Location location, Expression condition, Statement then, Statement elseStatement) {
+	this(Location location, AstExpression condition, Statement then, Statement elseStatement) {
 		super(location);
 		
 		this.condition = condition;
@@ -74,10 +87,10 @@ class IfStatement : Statement {
  * while statements
  */
 class WhileStatement : Statement {
-	Expression condition;
+	AstExpression condition;
 	Statement statement;
 	
-	this(Location location, Expression condition, Statement statement) {
+	this(Location location, AstExpression condition, Statement statement) {
 		super(location);
 		
 		this.condition = condition;
@@ -89,10 +102,10 @@ class WhileStatement : Statement {
  * do .. while statements
  */
 class DoWhileStatement : Statement {
-	Expression condition;
+	AstExpression condition;
 	Statement statement;
 	
-	this(Location location, Expression condition, Statement statement) {
+	this(Location location, AstExpression condition, Statement statement) {
 		super(location);
 		
 		this.condition = condition;
@@ -105,11 +118,11 @@ class DoWhileStatement : Statement {
  */
 class ForStatement : Statement {
 	Statement initialize;
-	Expression condition;
-	Expression increment;
+	AstExpression condition;
+	AstExpression increment;
 	Statement statement;
 	
-	this(Location location, Statement initialize, Expression condition, Expression increment, Statement statement) {
+	this(Location location, Statement initialize, AstExpression condition, AstExpression increment, Statement statement) {
 		super(location);
 		
 		this.initialize = initialize;
@@ -124,10 +137,10 @@ class ForStatement : Statement {
  */
 class ForeachStatement : Statement {
 	VariableDeclaration[] tupleElements;
-	Expression iterrated;
+	AstExpression iterrated;
 	Statement statement;
 	
-	this(Location location, VariableDeclaration[] tupleElements, Expression iterrated, Statement statement) {
+	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, Statement statement) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
@@ -140,9 +153,9 @@ class ForeachStatement : Statement {
  * return statements
  */
 class ReturnStatement : Statement {
-	Expression value;
+	AstExpression value;
 	
-	this(Location location, Expression value) {
+	this(Location location, AstExpression value) {
 		super(location);
 		
 		this.value = value;
@@ -171,10 +184,10 @@ class ContinueStatement : Statement {
  * switch statements
  */
 class SwitchStatement : Statement {
-	Expression expression;
+	AstExpression expression;
 	Statement statement;
 	
-	this(Location location, Expression expression, Statement statement) {
+	this(Location location, AstExpression expression, Statement statement) {
 		super(location);
 		
 		this.expression = expression;
@@ -186,9 +199,9 @@ class SwitchStatement : Statement {
  * case statements
  */
 class CaseStatement : Statement {
-	Expression[] cases;
+	AstExpression[] cases;
 	
-	this(Location location, Expression[] cases) {
+	this(Location location, AstExpression[] cases) {
 		super(location);
 		
 		this.cases = cases;
@@ -252,11 +265,11 @@ class TryStatement : Statement {
 }
 
 class CatchBlock : Node {
-	Type type;
+	QualAstType type;
 	string name;
 	Statement statement;
 	
-	this(Location location, Type type, string name, Statement statement) {
+	this(Location location, QualAstType type, string name, Statement statement) {
 		super(location);
 		
 		this.type = type;
@@ -282,9 +295,9 @@ class TryFinallyStatement : TryStatement {
  * throw statements
  */
 class ThrowStatement : Statement {
-	Expression value;
+	AstExpression value;
 	
-	this(Location location, Expression value) {
+	this(Location location, AstExpression value) {
 		super(location);
 		
 		this.value = value;
@@ -295,9 +308,9 @@ class ThrowStatement : Statement {
  * static assert statements
  */
 class StaticAssertStatement : Statement {
-	Expression[] arguments;
+	AstExpression[] arguments;
 	
-	this(Location location, Expression[] arguments) {
+	this(Location location, AstExpression[] arguments) {
 		super(location);
 		
 		this.arguments = arguments;

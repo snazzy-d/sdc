@@ -2,9 +2,7 @@ module d.semantic.sizeof;
 
 import d.semantic.semantic;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.type;
+import d.ir.type;
 
 final class SizeofCalculator {
 	private SemanticPass pass;
@@ -14,55 +12,73 @@ final class SizeofCalculator {
 		this.pass = pass;
 	}
 	
+	uint visit(QualType t) {
+		return visit(t.type);
+	}
+	
 	uint visit(Type t) {
 		return this.dispatch!(function uint(Type t) {
 			assert(0, "size of type " ~ typeid(t).toString() ~ " is unknown.");
 		})(t);
 	}
 	
-	uint visit(BooleanType t) {
-		return 1;
-	}
-	
-	uint visit(IntegerType t) {
-		final switch(t.type) {
-			case Integer.Byte, Integer.Ubyte :
+	uint visit(BuiltinType t) {
+		final switch(t.kind) with(TypeKind) {
+			case None :
+			case Void :
+				assert(0, "Not Implemented");
+			
+			case Bool :
 				return 1;
 			
-			case Integer.Short, Integer.Ushort :
-				return 2;
-			
-			case Integer.Int, Integer.Uint :
-				return 4;
-			
-			case Integer.Long, Integer.Ulong :
-				return 8;
-		}
-	}
-	
-	uint visit(FloatType t) {
-		final switch(t.type) {
-			case Float.Float :
-				return 4;
-			
-			case Float.Double :
-				return 8;
-			
-			case Float.Real :
-				return 10;
-		}
-	}
-	
-	uint visit(CharacterType t) {
-		final switch(t.type) {
-			case Character.Char :
+			case Char :
 				return 1;
 			
-			case Character.Wchar :
+			case Wchar :
 				return 2;
 			
-			case Character.Dchar :
+			case Dchar :
 				return 4;
+			
+			case Ubyte :
+				return 1;
+			
+			case Ushort :
+				return 2;
+			
+			case Uint :
+				return 4;
+			
+			case Ulong :
+				return 8;
+			
+			case Ucent :
+				assert(0, "Not Implemented");
+			
+			case Byte :
+				return 1;
+			
+			case Short :
+				return 2;
+			
+			case Int :
+				return 4;
+			
+			case Long :
+				return 8;
+			
+			case Cent :
+				assert(0, "Not Implemented");
+			
+			case Float :
+				return 2;
+			
+			case Double :
+				return 4;
+			
+			case Real :
+			case Null :
+				assert(0, "Not Implemented");
 		}
 	}
 	

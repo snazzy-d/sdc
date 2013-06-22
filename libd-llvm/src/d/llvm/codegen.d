@@ -1,11 +1,10 @@
 module d.llvm.codegen;
 
-import d.ast.adt;
-import d.ast.declaration;
-import d.ast.dmodule;
 import d.ast.statement;
-import d.ast.expression;
-import d.ast.type;
+
+import d.ir.expression;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.llvm.expression;
 import d.llvm.statement;
@@ -26,7 +25,7 @@ import std.array;
 import std.string;
 
 final class CodeGenPass {
-	private DeclarationGen declarationGen;
+	private SymbolGen symbolGen;
 	private StatementGen statementGen;
 	private AddressOfGen addressOfGen;
 	private ExpressionGen expressionGen;
@@ -54,7 +53,7 @@ final class CodeGenPass {
 	uint profKindID;
 	
 	this(string name) {
-		declarationGen	= new DeclarationGen(this);
+		symbolGen		= new SymbolGen(this);
 		statementGen	= new StatementGen(this);
 		expressionGen	= new ExpressionGen(this);
 		addressOfGen	= new AddressOfGen(this);
@@ -92,7 +91,7 @@ final class CodeGenPass {
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
-		foreach(decl; m.declarations) {
+		foreach(decl; m.members) {
 			visit(decl);
 		}
 		
@@ -101,16 +100,16 @@ final class CodeGenPass {
 		return m;
 	}
 	
-	auto visit(Declaration decl) {
-		return declarationGen.visit(decl);
+	auto visit(Symbol s) {
+		return symbolGen.visit(s);
 	}
 	
-	auto visit(ExpressionSymbol s) {
-		return declarationGen.visit(s);
+	auto visit(ValueSymbol s) {
+		return symbolGen.visit(s);
 	}
 	
 	auto visit(TypeSymbol s) {
-		return declarationGen.visit(s);
+		return symbolGen.visit(s);
 	}
 	
 	auto getNewInit(TypeSymbol s) {
@@ -128,9 +127,13 @@ final class CodeGenPass {
 	auto addressOf(Expression e) {
 		return addressOfGen.visit(e);
 	}
-	
+	/+
 	auto computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
 		return addressOfGen.computeIndice(location, indexedType, indexed, indice);
+	}
+	+/
+	auto visit(QualType t) {
+		return typeGen.visit(t);
 	}
 	
 	auto visit(Type t) {
@@ -167,7 +170,7 @@ final class CodeGenPass {
 	}
 	
 	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
-		assert(cast(SliceType) e.type, "this only CTFE strings.");
+		assert(cast(SliceType) e.type.type, "this only CTFE strings.");
 	} body {
 		scope(failure) LLVMDumpModule(dmodule);
 		

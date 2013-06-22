@@ -3,7 +3,6 @@ module d.ast.identifier;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dtemplate;
-import d.ast.dscope;
 import d.ast.expression;
 import d.ast.type;
 
@@ -15,16 +14,28 @@ abstract class Identifier : Node {
 		
 		this.name = name;
 	}
+	
+	final override string toString() {
+		const i = this;
+		return i.toString();
+	}
+	
+	string toString() const {
+		assert(0, "toString not implement for " ~ typeid(this).toString());
+	}
 }
 
 final:
-
 /**
  * An identifier.
  */
 class BasicIdentifier : Identifier {
 	this(Location location, string name) {
 		super(location, name);
+	}
+	
+	override string toString() const {
+		return name;
 	}
 }
 
@@ -39,18 +50,26 @@ class IdentifierDotIdentifier : Identifier {
 		
 		this.identifier = identifier;
 	}
+	
+	override string toString() const {
+		return identifier.toString() ~ "." ~ name;
+	}
 }
 
 /**
  * An identifier qualified by a type (type.identifier)
  */
 class TypeDotIdentifier : Identifier {
-	Type type;
+	QualAstType type;
 	
-	this(Location location, string name, Type type) {
+	this(Location location, string name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
+	}
+	
+	override string toString() const {
+		return type.toString() ~ "." ~ name;
 	}
 }
 
@@ -58,12 +77,16 @@ class TypeDotIdentifier : Identifier {
  * An identifier qualified by an expression (expression.identifier)
  */
 class ExpressionDotIdentifier : Identifier {
-	Expression expression;
+	AstExpression expression;
 	
-	this(Location location, string name, Expression expression) {
+	this(Location location, string name, AstExpression expression) {
 		super(location, name);
 		
 		this.expression = expression;
+	}
+	
+	override string toString() const {
+		return expression.toString() ~ "." ~ name;
 	}
 }
 
@@ -87,6 +110,10 @@ class DotIdentifier : Identifier {
 	this(Location location, string name) {
 		super(location, name);
 	}
+	
+	override string toString() const {
+		return "." ~ name;
+	}
 }
 
 /**
@@ -102,6 +129,10 @@ class IdentifierBracketIdentifier : Identifier {
 		this.indexed = indexed;
 		this.index = index;
 	}
+	
+	override string toString() const {
+		return indexed.toString() ~ "[" ~ index.toString() ~ "]";
+	}
 }
 
 /**
@@ -109,13 +140,17 @@ class IdentifierBracketIdentifier : Identifier {
  */
 class IdentifierBracketExpression : Identifier {
 	Identifier indexed;
-	Expression index;
+	AstExpression index;
 	
-	this(Location location, Identifier indexed, Expression index) {
+	this(Location location, Identifier indexed, AstExpression index) {
 		super(location, indexed.name);
 		
 		this.indexed = indexed;
 		this.index = index;
+	}
+	
+	override string toString() const {
+		return indexed.toString() ~ "[" ~ index.toString() ~ "]";
 	}
 }
 

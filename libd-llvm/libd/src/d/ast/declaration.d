@@ -1,10 +1,8 @@
 module d.ast.declaration;
 
 import d.ast.base;
-import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.statement;
 import d.ast.type;
 
 /**
@@ -16,75 +14,23 @@ class Declaration : Node {
 	}
 }
 
-enum Step {
-	Parsed,
-	Populated,
-	Signed,
-	Processed,
-}
-
-/**
- * A declaration that introduce a new symbol.
- * Nothing inherit directly from Symbol.
- * It is either a TypeSymbol or an ExpressionSymbol.
- */
-class Symbol : Declaration {
+class NamedDeclaration : Declaration {
 	string name;
-	string linkage;
-	string mangle;
-	
-	private Step _step;
-	
-	final @property auto step() const {
-		return _step;
-	}
-	
-	final @property auto step(Step _step) in {
-		import std.conv;
-		assert(_step > this._step, "Wrong step update " ~ to!string(this._step) ~ " to " ~ to!string(_step) ~ ".");
-	} body {
-		return this._step = _step;
-	}
 	
 	this(Location location, string name) {
 		super(location);
 		
 		this.name = name;
-		this.mangle = name;
-	}
-}
-
-/**
- * A Symbol that is a type.
- */
-class TypeSymbol : Symbol {
-	this(Location location, string name) {
-		super(location, name);
-	}
-}
-
-/**
- * A Symbol that is an expression.
- */
-class ExpressionSymbol : Symbol {
-	Type type;
-	bool isStatic;
-	bool isEnum;
-	
-	this(Location location, string name, Type type) {
-		super(location, name);
-		
-		this.type = type;
 	}
 }
 
 /**
  * Alias of types
  */
-class AliasDeclaration : TypeSymbol {
-	Type type;
+class AliasDeclaration : NamedDeclaration {
+	QualAstType type;
 	
-	this(Location location, string name, Type type) {
+	this(Location location, string name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -101,118 +47,6 @@ class AliasThisDeclaration : Declaration {
 		super(location);
 		
 		this.identifier = identifier;
-	}
-}
-
-// TODO: create declaration aggregate and merge that in it.
-/**
- * Variables declaration
- */
-class VariablesDeclaration : Declaration {
-	VariableDeclaration[] variables;
-	
-	this(Location location, VariableDeclaration[] variables) {
-		super(location);
-		
-		this.variables = variables;
-	}
-}
-
-/**
- * Variable declaration
- */
-class VariableDeclaration : ExpressionSymbol {
-	Expression value;
-	
-	this(Location location, Type type, string name, Expression value) {
-		super(location, name, type);
-		
-		this.value = value;
-	}
-}
-
-/**
- * Field declaration.
- * Simply a variable declaration with a field index.
- */
-class FieldDeclaration : VariableDeclaration {
-	uint index;
-	
-	this(Location location, uint index, Type type, string name, Expression value) {
-		super(location, type, name, value);
-		
-		this.index = index;
-	}
-	
-	this(VariableDeclaration var, uint index) {
-		this(var.location, index, var.type, var.name, var.value);
-	}
-}
-
-/**
- * Function Declaration
- */
-class FunctionDeclaration : ExpressionSymbol {
-	Type returnType;		// TODO: remove this, redundant information.
-	Parameter[] parameters;
-	bool isVariadic;
-	BlockStatement fbody;
-	
-	import d.ast.dscope;
-	NestedScope dscope;
-	
-	this(Location location, string name, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		this(location, name, "D", returnType, parameters, isVariadic, fbody);
-	}
-	
-	this(Location location, string name, string linkage, Type returnType, Parameter[] parameters, bool isVariadic, BlockStatement fbody) {
-		super(location, name, new FunctionType(linkage, returnType, parameters, isVariadic));
-		
-		this.name = name;
-		this.linkage = linkage;
-		this.returnType = returnType;
-		this.parameters = parameters;
-		this.isVariadic = isVariadic;
-		this.fbody = fbody;
-	}
-	/*
-	invariant() {
-		auto funType = cast(FunctionType) type;
-		
-		assert(funType && funType.linkage == linkage);
-	}
-	*/
-}
-
-/**
- * Virtual method declaration.
- * Simply a function declaration with its index in the vtable.
- */
-class MethodDeclaration : FunctionDeclaration {
-	uint index;
-	
-	this(FunctionDeclaration fun, uint index) {
-		super(fun.location, fun.name, fun.linkage, fun.returnType, fun.parameters, fun.isVariadic, fun.fbody);
-		
-		this.index = index;
-	}
-}
-
-/**
- * Used for type identifier;
- */
-class DefaultInitializer : Expression {
-	this(Location location, Type type) {
-		super(location, type);
-	}
-}
-
-/**
- * Used for type identifier = void;
- */
-class VoidInitializer : Expression {
-	this(Location location, Type type) {
-		super(location, type);
 	}
 }
 
@@ -270,14 +104,6 @@ alias StorageClassDeclaration!(StorageClass.Static) StaticDeclaration;
 alias StorageClassDeclaration!(StorageClass.Synchronized) SynchronizedDeclaration;
 alias StorageClassDeclaration!(StorageClass.__Gshared) __GsharedDeclaration;
 
-enum Visibility {
-	Public,
-	Private,
-	Protected,
-	Package,
-	Export,
-}
-
 /**
  * Visibility class declaration
  */
@@ -301,10 +127,10 @@ alias VisibilityDeclaration!(Visibility.Export) ExportDeclaration;
  * Linkage declaration
  */
 class LinkageDeclaration : Declaration {
-	string linkage;
+	Linkage linkage;
 	Declaration[] declarations;
 	
-	this(Location location, string linkage, Declaration[] declarations) {
+	this(Location location, Linkage linkage, Declaration[] declarations) {
 		super(location);
 		
 		this.linkage = linkage;
@@ -324,6 +150,152 @@ class AttributeDeclaration : Declaration {
 		
 		this.attribute = attribute;
 		this.declarations = declarations;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// TODO: create declaration aggregate and merge that in it.
+/**
+ * Variables declaration
+ */
+class VariablesDeclaration : Declaration {
+	VariableDeclaration[] variables;
+	
+	this(Location location, VariableDeclaration[] variables) {
+		super(location);
+		
+		this.variables = variables;
+	}
+}
+
+/**
+ * Variable declaration
+ */
+class VariableDeclaration : NamedDeclaration {
+	QualAstType type;
+	AstExpression value;
+	
+	this(Location location, QualAstType type, string name, AstExpression value) {
+		super(location, name);
+		
+		this.type = type;
+		this.value = value;
+	}
+}
+
+class FunctionDeclaration : NamedDeclaration {
+	QualAstFunctionType type;
+	
+	string[] paramNames;
+	
+	import d.ast.statement;
+	BlockStatement fbody;
+	
+	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamAstType[] paramTypes, string[] paramNames, bool isVariadic, BlockStatement fbody) {
+		super(location, name);
+		
+		type = QualAstFunctionType(new AstFunctionType(linkage, returnType, paramTypes, isVariadic));
+		this.fbody = fbody;
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ * Struct Declaration
+ */
+class StructDeclaration : NamedDeclaration {
+	Declaration[] members;
+	
+	this(Location location, string name, Declaration[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
+/**
+ * Union Declaration
+ */
+class UnionDeclaration : NamedDeclaration {
+	Declaration[] members;
+	
+	this(Location location, string name, Declaration[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
+/**
+ * Class Declaration
+ */
+class ClassDeclaration : NamedDeclaration {
+	Identifier[] bases;
+	Declaration[] members;
+	
+	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+		super(location, name);
+		
+		this.bases = bases;
+		this.members = members;
+	}
+}
+
+/**
+ * Interface Declaration
+ */
+class InterfaceDeclaration : NamedDeclaration {
+	Identifier[] bases;
+	Declaration[] members;
+	
+	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+		super(location, name);
+		
+		this.bases = bases;
+		this.members = members;
+	}
+}
+
+/**
+ * Enum Declaration
+ */
+class EnumDeclaration : NamedDeclaration {
+	QualAstType type;
+	VariableDeclaration[] entries;
+	
+	this(Location location, string name, QualAstType type, VariableDeclaration[] entries) {
+		super(location, name);
+		
+		this.type = type;
+		this.entries = entries;
 	}
 }
 
