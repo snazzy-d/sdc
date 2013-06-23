@@ -31,10 +31,14 @@ final class SymbolVisitor {
 		this.pass = pass;
 	}
 	
+	Symbol visit(Declaration d, Symbol s) {
+		return this.dispatch(d, s);
+	}
+	
 	Symbol visit(Symbol s) {
 		return this.dispatch(s);
 	}
-	
+	/+
 	Symbol visit(FunctionDeclaration d) {
 		/+
 		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
@@ -186,15 +190,18 @@ final class SymbolVisitor {
 		
 		return visit(cast(Variable) d);
 	}
-	/+
-	Symbol visit(AliasDeclaration d) {
-		d.type = pass.visit(d.type);
-		d.mangle = typeMangler.visit(d.type);
+	+/
+	Symbol visit(Declaration d, TypeAlias a) {
+		auto ad = cast(AliasDeclaration) d;
+		assert(ad);
 		
-		d.step = Step.Processed;
-		return d;
+		a.type = pass.visit(ad.type);
+		a.mangle = typeMangler.visit(a.type);
+		
+		a.step = Step.Processed;
+		return a;
 	}
-	
+	/+
 	Symbol visit(StructDeclaration d) {
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;

@@ -191,14 +191,15 @@ final class DeclarationVisitor {
 			poisonScope.resolveStaticIf(d, false);
 			items = unit.elseItems;
 		}
-		
+		// FIXME
+		/+
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				scheduler.schedule(u.symbols, s => pass.visit(s));
 				u.level = CtUnitLevel.Done;
 			}
 		}
-		
+		+/
 		return flatten(items, to);
 	}
 	
@@ -233,17 +234,17 @@ final class DeclarationVisitor {
 		return this.dispatch(d);
 	}
 	
-	private void select(Symbol s) {
+	private void select(Declaration d, Symbol s) {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
 		if(unit.level == CtUnitLevel.Done) {
-			scheduler.schedule(only(s), s => pass.visit(s));
+			scheduler.schedule(only(s), s => pass.visit(d, s));
 		}
 		
 		unit.symbols ~= s;
 	}
-	
+	/+
 	void visit(FunctionDeclaration d) {
 		// FIXME: create actual function from declaration !
 		Function f;
@@ -355,6 +356,7 @@ final class DeclarationVisitor {
 			+/
 		}
 	}
+	+/
 	/+
 	void visit(TemplateDeclaration d) {
 		d.linkage = linkage;
@@ -366,13 +368,15 @@ final class DeclarationVisitor {
 		
 		select(d);
 	}
-	
-	void visit(AliasDeclaration d) {
-		currentScope.addSymbol(d);
-		
-		select(d);
-	}
 	+/
+	void visit(AliasDeclaration d) {
+		TypeAlias a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
+		
+		currentScope.addSymbol(a);
+		
+		select(d, a);
+	}
+	
 	void visit(LinkageDeclaration d) {
 		auto oldLinkage = linkage;
 		scope(exit) linkage = oldLinkage;

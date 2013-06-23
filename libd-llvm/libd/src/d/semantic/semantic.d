@@ -166,8 +166,8 @@ final class SemanticPass {
 		return declarationVisitor.flatten(d);
 	}
 	
-	Symbol visit(Symbol s) {
-		return symbolVisitor.visit(s);
+	Symbol visit(Declaration d, Symbol s) {
+		return symbolVisitor.visit(d, s);
 	}
 	
 	Expression visit(AstExpression e) {
