@@ -98,8 +98,6 @@ final class SemanticPass {
 		
 		uint fieldIndex;
 		uint methodIndex;
-		
-		TypeQualifier qualifier;
 	}
 	
 	State state;
@@ -179,14 +177,6 @@ final class SemanticPass {
 	}
 	
 	QualType visit(QualAstType t) {
-		// XXX: Forward qualifier from method to method in TypeVisitor.
-		// It will allow to get rid of some state.
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
-		
-		// No qualifier is assumed to be mutable.
-		qualifier = TypeQualifier.Mutable;
-		
 		return typeVisitor.visit(t);
 	}
 	

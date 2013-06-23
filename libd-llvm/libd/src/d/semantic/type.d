@@ -15,6 +15,7 @@ import std.array;
 alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
 alias FunctionType = d.ir.type.FunctionType;
+alias DelegateType = d.ir.type.DelegateType;
 
 final class TypeVisitor {
 	private SemanticPass pass;
@@ -25,15 +26,16 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(QualAstType t) {
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
-		
-		qualifier = t.qualifier = t.qualifier.add(qualifier);
-		
-		return QualType(this.dispatch(t.type), qualifier);
+		return visit(TypeQualifier.Mutable, t);
 	}
 	
-	Type visit(BuiltinType t) {
+	QualType visit(TypeQualifier q, QualAstType t) {
+		q = t.qualifier.add(q);
+		
+		return QualType(this.dispatch(q, t.type), q);
+	}
+	
+	Type visit(TypeQualifier q, BuiltinType t) {
 		return t;
 	}
 	/+
@@ -43,21 +45,21 @@ final class TypeVisitor {
 		return e.type;
 	}
 	+/
-	Type visit(AstPointerType t) {
-		return new PointerType(visit(t.pointed));
+	Type visit(TypeQualifier q, AstPointerType t) {
+		return new PointerType(visit(q, t.pointed));
 	}
 	
-	Type visit(AstSliceType t) {
-		return new SliceType(visit(t.sliced));
+	Type visit(TypeQualifier q, AstSliceType t) {
+		return new SliceType(visit(q, t.sliced));
 	}
 	/+
-	Type visit(d.ast.type.ArrayType t) {
-		t.size = pass.visit(t.size);
+	Type visit(TypeQualifier q, d.ast.type.ArrayType t) {
+		t.size = pass.visit(q, t.size);
 		
 		return handleSuffixType(t, t.size);
 	}
 	+/
-	Type visit(AstFunctionType t) {
+	Type visit(TypeQualifier q, AstFunctionType t) {
 		// Go to pass to reset qualifier accumulation.
 		auto returnType = ParamType(pass.visit(QualAstType(t.returnType.type)));
 		returnType.qualifier = t.returnType.qualifier;
@@ -72,11 +74,11 @@ final class TypeVisitor {
 		return new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic);
 	}
 	/+
-	Type visit(AstDelegateType t) {
+	Type visit(TypeQualifier q, AstDelegateType t) {
 		return visit(cast(FunctionType) t);
 	}
 	
-	Type visit(IdentifierType t) {
+	Type visit(TypeQualifier q, IdentifierType t) {
 		return pass.visit(t.identifier).apply!((identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return identified;
