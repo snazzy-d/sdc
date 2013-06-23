@@ -107,13 +107,14 @@ class Function : ValueSymbol {
 		this.paramNames = paramNames;
 		this.fbody = fbody;
 	}
-	
+	/+
 	invariant() {
 		auto funType = cast(FunctionType) type.type;
 		
 		assert(funType);
 		assert(funType.paramTypes.length == paramNames.length);
 	}
+	+/
 }
 
 final:

@@ -244,10 +244,9 @@ final class DeclarationVisitor {
 		
 		unit.symbols ~= s;
 	}
-	/+
+	
 	void visit(FunctionDeclaration d) {
-		// FIXME: create actual function from declaration !
-		Function f;
+		auto f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], d.fbody);
 		if(buildMethods && !isStatic) {
 			uint index = 0;
 			if(!isOverride) {
@@ -278,9 +277,9 @@ final class DeclarationVisitor {
 			+/
 		}
 		
-		select(f);
+		select(d, f);
 	}
-	
+	/+
 	void visit(VariableDeclaration d) {
 		// FIXME: actually fill data.
 		Variable v;

@@ -21,6 +21,8 @@ import std.conv;
 // TODO: change ast to allow any statement as function body, then remove that import.
 import d.ast.statement;
 
+alias FunctionType = d.ir.type.FunctionType;
+
 final class SymbolVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -38,31 +40,30 @@ final class SymbolVisitor {
 	Symbol visit(Symbol s) {
 		return this.dispatch(s);
 	}
-	/+
-	Symbol visit(FunctionDeclaration d) {
-		/+
-		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		foreach(p; d.parameters) {
-			this.dispatch(p);
-		}
+	
+	Symbol visit(Declaration d, Function f) {
+		auto fd = cast(FunctionDeclaration) d;
+		assert(fd);
 		
 		// Compute return type.
-		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
-			d.returnType = pass.visit(d.returnType);
+		if(typeid({ return fd.type.type.returnType; }()) !is typeid(AutoType)) {
+			// TODO: Handle more fine grained types.
+			f.type = pass.visit(QualAstType(fd.type.type));
 			
 			// If it isn't a static method, add this.
-			if(d.isStatic) {
-				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
-			} else {
+			if(!f.isStatic) {
+				assert(0);
+				/+
 				assert(thisType, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
 				thisParameter.isReference = isThisRef;
 				
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+				+/
 			}
 			
-			d.step = Step.Signed;
+			f.step = Step.Signed;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -73,15 +74,16 @@ final class SymbolVisitor {
 			returnType = oldReturnType;
 		}
 		
-		returnType = d.returnType;
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		returnType = (cast(FunctionType) f.type.type).returnType;
+		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
 		
-		if(d.fbody) {
+		if(f.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
 			auto oldIsOverride = isOverride;
 			auto oldBuildFields = buildFields;
 			auto oldScope = currentScope;
+			
 			scope(exit) {
 				linkage = oldLinkage;
 				isStatic = oldIsStatic;
@@ -90,20 +92,20 @@ final class SymbolVisitor {
 				currentScope = oldScope;
 			}
 			
-			linkage = "D";
+			linkage = Linkage.D;
 			
 			isStatic = false;
 			isOverride = false;
 			buildFields = false;
 			
 			// Update scope.
-			currentScope = d.dscope;
+			currentScope = f.dscope;
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			d.fbody = cast(BlockStatement) pass.visit(d.fbody);
+			f.fbody = cast(BlockStatement) pass.visit(f.fbody);
 		}
-		
+		/+
 		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
 			// Should be useless once return type inference is properly implemented.
 			if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
@@ -125,25 +127,24 @@ final class SymbolVisitor {
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
 			}
 		}
-		
-		switch(d.linkage) {
-			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
+		+/
+		switch(f.linkage) with(Linkage) {
+			/+
+			case D :
+				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?"F":"FM") ~ f.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
 				break;
-			
-			case "C" :
-				d.mangle = d.name;
+			+/
+			case C :
+				f.mangle = f.name;
 				break;
 			
 			default:
-				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
+				import std.conv;
+				assert(0, "Linkage " ~ to!string(f.linkage) ~ " is not supported.");
 		}
 		
-		d.step = Step.Processed;
-		return d;
-		+/
-		
-		return null;
+		f.step = Step.Processed;
+		return f;
 	}
 	
 	Symbol visit(Method d) {
@@ -156,7 +157,7 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
-	+/
+	
 	Variable visit(Variable d) {
 		d.value = pass.visit(d.value);
 		

@@ -136,9 +136,9 @@ final class StatementVisitor {
 		
 		// TODO: precompute autotype instead of managing it here.
 		if(typeid({ return pass.returnType.type; }()) is typeid(AutoType)) {
-			returnType = value.type;
+			returnType = ParamType(value.type);
 		} else {
-			value = buildImplicitCast(r.location, returnType, value);
+			value = buildImplicitCast(r.location, QualType(returnType.type, returnType.qualifier), value);
 		}
 		
 		r.value = value;

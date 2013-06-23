@@ -78,7 +78,7 @@ final class SemanticPass {
 	static struct State {
 		Scope currentScope;
 		
-		QualType returnType;
+		ParamType returnType;
 		QualType thisType;
 		
 		string manglePrefix;
