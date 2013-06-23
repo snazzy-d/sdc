@@ -47,12 +47,16 @@ class IdentifierType : AstType {
 class PointerType(T) if(is(T : AstType)) : T {
 	QualType!T pointed;
 	
-	this(QualType!T sliced) {
+	this(QualType!T pointed) {
 		this.pointed = pointed;
 	}
 	
 	override string toString(TypeQualifier qual) const {
 		return pointed.toString(qual) ~ "*";
+	}
+	
+	invariant() {
+		assert(pointed.type);
 	}
 }
 
@@ -70,6 +74,10 @@ class SliceType(T) if(is(T : AstType)) : T {
 	
 	override string toString(TypeQualifier qual) const {
 		return sliced.toString(qual) ~ "[]";
+	}
+	
+	invariant() {
+		assert(sliced.type);
 	}
 }
 

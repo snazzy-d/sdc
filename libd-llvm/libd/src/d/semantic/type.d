@@ -32,7 +32,9 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, QualAstType t) {
 		q = t.qualifier.add(q);
 		
-		return QualType(this.dispatch(q, t.type), q);
+		auto ret = QualType(this.dispatch(q, t.type), q);
+		
+		return ret;
 	}
 	
 	Type visit(TypeQualifier q, BuiltinType t) {
@@ -60,14 +62,11 @@ final class TypeVisitor {
 	}
 	+/
 	Type visit(TypeQualifier q, AstFunctionType t) {
-		// Go to pass to reset qualifier accumulation.
-		auto returnType = ParamType(pass.visit(QualAstType(t.returnType.type)));
-		returnType.qualifier = t.returnType.qualifier;
+		auto returnType = ParamType(visit(QualAstType(t.returnType.type, t.returnType.qualifier)));
 		returnType.isRef = t.returnType.isRef;
 		
-		auto paramTypes = t.paramTypes.map!(t => ParamType(pass.visit(QualAstType(t.type)))).array();
+		auto paramTypes = t.paramTypes.map!(t => ParamType(visit(QualAstType(t.type, t.qualifier)))).array();
 		foreach(i, ref p; paramTypes) {
-			p.qualifier = t.paramTypes[i].qualifier;
 			p.isRef = t.paramTypes[i].isRef;
 		}
 		
