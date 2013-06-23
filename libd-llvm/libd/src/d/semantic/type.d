@@ -14,6 +14,7 @@ import std.array;
 
 alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
+alias FunctionType = d.ir.type.FunctionType;
 
 final class TypeVisitor {
 	private SemanticPass pass;
@@ -55,15 +56,22 @@ final class TypeVisitor {
 		
 		return handleSuffixType(t, t.size);
 	}
-	
+	+/
 	Type visit(AstFunctionType t) {
 		// Go to pass to reset qualifier accumulation.
-		t.returnType = pass.visit(t.returnType);
-		t.canonical = t;
+		auto returnType = ParamType(pass.visit(QualAstType(t.returnType.type)));
+		returnType.qualifier = t.returnType.qualifier;
+		returnType.isRef = t.returnType.isRef;
 		
-		return t;
+		auto paramTypes = t.paramTypes.map!(t => ParamType(pass.visit(QualAstType(t.type)))).array();
+		foreach(i, ref p; paramTypes) {
+			p.qualifier = t.paramTypes[i].qualifier;
+			p.isRef = t.paramTypes[i].isRef;
+		}
+		
+		return new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic);
 	}
-	
+	/+
 	Type visit(AstDelegateType t) {
 		return visit(cast(FunctionType) t);
 	}
