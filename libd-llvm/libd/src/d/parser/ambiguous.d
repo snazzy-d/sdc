@@ -100,16 +100,16 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			return handler(trange.parseDeclaration());
 		
 		default :
-			/+
 			auto location = trange.front.location;
 			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
 				static if(is(typeof(parsed) : QualAstType)) {
-					return trange.parseTypedDeclaration(location, parsed);
+					assert(0, "Type isn't supported");
+					// return trange.parseTypedDeclaration(location, parsed);
 				} else static if(is(typeof(parsed) : AstExpression)) {
 					return parsed;
 				} else {
 					if(trange.front.type == TokenType.Identifier) {
-						return trange.parseTypedDeclaration(location, new IdentifierType(parsed));
+						return trange.parseTypedDeclaration(location, QualAstType(new IdentifierType(parsed)));
 					} else {
 						return new IdentifierExpression(parsed);
 					}
@@ -122,7 +122,7 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			} else if(auto e = cast(AstExpression) parsed) {
 				return handler(e);
 			}
-			+/
+			
 			assert(0);
 	}
 }

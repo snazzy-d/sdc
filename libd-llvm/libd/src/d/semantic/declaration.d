@@ -20,6 +20,8 @@ import std.algorithm;
 import std.array;
 import std.range;
 
+alias Module = d.ir.symbol.Module;
+
 final class DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -403,7 +405,7 @@ final class DeclarationVisitor {
 			visit(decl);
 		}
 	}
-	/+
+	
 	void visit(ImportDeclaration d) {
 		auto names = d.modules.map!(pkg => pkg.join(".")).array();
 		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
@@ -415,7 +417,7 @@ final class DeclarationVisitor {
 		
 		currentScope.imports ~= addToScope;
 	}
-	+/
+	
 	void visit(StaticIf!Declaration d) {
 		auto finalCtLevel = CtUnitLevel.Conditional;
 		auto oldCtLevel = ctLevel;

@@ -144,15 +144,14 @@ final class SemanticPass {
 	}
 	
 	Module add(FileSource source, string[] packages) {
-		auto mod = parse(source, packages);
-		/+
+		auto astm = parse(source, packages);
+		auto mod = moduleVisitor.modulize(astm);
+		
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), d => moduleVisitor.visit(cast(AstModule) d));
+		scheduler.schedule(only(mod), d => moduleVisitor.visit(astm, cast(Module) d));
 		
 		return mod;
-		+/
-		assert(0);
 	}
 	
 	void terminate() {
@@ -220,9 +219,7 @@ final class SemanticPass {
 	}
 	
 	auto importModule(string[] pkgs) {
-		// FIXME
-		return null;
-		// return moduleVisitor.importModule(pkgs);
+		return moduleVisitor.importModule(pkgs);
 	}
 	
 	auto raiseCondition(T)(Location location, string message) {
