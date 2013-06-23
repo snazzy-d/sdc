@@ -309,16 +309,15 @@ final class DeclarationVisitor {
 		
 		select(s);
 	}
-	
+	+/
 	void visit(ClassDeclaration d) {
-		Class c;
-		c.linkage = linkage;
+		Class c = new Class(d.location, d.name, []);
 		
 		currentScope.addSymbol(c);
 		
-		select(c);
+		select(d, c);
 	}
-	
+	/+
 	void visit(EnumDeclaration d) {
 		Enum e;
 		e.linkage = linkage;

@@ -11,6 +11,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
+import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -22,6 +23,7 @@ import std.conv;
 import d.ast.statement;
 
 alias FunctionType = d.ir.type.FunctionType;
+alias PointerType = d.ir.type.PointerType;
 
 final class SymbolVisitor {
 	private SemanticPass pass;
@@ -277,8 +279,11 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
-	
-	Symbol visit(ClassDeclaration d) {
+	+/
+	Symbol visit(Declaration d, Class c) {
+		auto cd = cast(ClassDeclaration) d;
+		assert(cd);
+		
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
@@ -309,40 +314,50 @@ final class SymbolVisitor {
 		buildFields = true;
 		buildMethods = true;
 		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new ClassType(d);
+		currentScope = c.dscope = new SymbolScope(c, oldScope);
+		thisType = QualType(new ClassType(c));
 		
 		// Update mangle prefix.
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
 		
-		assert(d.linkage == "D");
-		d.mangle = "C" ~ manglePrefix;
+		c.mangle = "C" ~ manglePrefix;
 		
-		FieldDeclaration[] baseFields;
-		MethodDeclaration[] baseMethods;
+		Field[] baseFields;
+		Method[] baseMethods;
 		
 		methodIndex = 0;
-		if(d.mangle == "C6object6Object") {
-			auto vtblType = pass.visit(new PointerType(new VoidType()));
+		if(c.mangle == "C6object6Object") {
+			auto vtblType = QualType(new PointerType(getBuiltin(TypeKind.Void)));
 			vtblType.qualifier = TypeQualifier.Immutable;
-			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
+			
+			// TODO: use defaultinit.
+			auto vtbl = new Field(cd.location, 0, vtblType, "__vtbl", null);
+			vtbl.step = Step.Processed;
+			
+			baseFields = [vtbl];
 			
 			fieldIndex = 1;
 		} else {
-			ClassDeclaration baseClass;
-			foreach(ref base; d.bases) {
-				auto type = cast(ClassType) pass.visit(base);
+			Class baseClass;
+			foreach(base; cd.bases) {
+				auto type = pass.visit(base).apply!(function ClassType(identified) {
+					static if(is(typeof(identified) : QualType)) {
+						return cast(ClassType) identified.type;
+					} else {
+						return null;
+					}
+				})();
+				
 				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
-				base = type;
 				baseClass = type.dclass;
 				break;
 			}
 			
 			if(!baseClass) {
 				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
-					static if(is(typeof(parsed) : Type)) {
-						return cast(ClassType) parsed;
+					static if(is(typeof(parsed) : QualType)) {
+						return cast(ClassType) parsed.type;
 					} else {
 						return null;
 					}
@@ -354,12 +369,12 @@ final class SymbolVisitor {
 			
 			scheduler.require(baseClass);
 			foreach(m; baseClass.members) {
-				if(auto field = cast(FieldDeclaration) m) {
+				if(auto field = cast(Field) m) {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
 					
-					d.dscope.addSymbol(field);
-				} else if(auto method = cast(MethodDeclaration) m) {
+					c.dscope.addSymbol(field);
+				} else if(auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
 				}
@@ -368,13 +383,13 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto members = pass.flatten(d.members, d);
+		auto members = pass.flatten(cd.members, c);
 		
-		d.step = Step.Signed;
+		c.step = Step.Signed;
 		
-		MethodDeclaration[] candidates = baseMethods;
+		Method[] candidates = baseMethods;
 		foreach(m; members) {
-			if(auto method = cast(MethodDeclaration) m) {
+			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				foreach(ref candidate; candidates) {
 					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
@@ -399,20 +414,20 @@ final class SymbolVisitor {
 		uint i = 0;
 		foreach(candidate; candidates) {
 			if(candidate) {
-				d.dscope.addOverloadableSymbol(candidate);
+				c.dscope.addOverloadableSymbol(candidate);
 				baseMethods[i++] = candidate;
 			}
 		}
 		
-		d.members = cast(Declaration[]) baseFields;
-		d.members ~= cast(Declaration[]) baseMethods;
+		c.members = cast(Symbol[]) baseFields;
+		c.members ~= baseMethods;
 		scheduler.require(members);
-		d.members ~= cast(Declaration[]) members;
+		c.members ~= members;
 		
-		d.step = Step.Processed;
-		return d;
+		c.step = Step.Processed;
+		return c;
 	}
-	
+	/+
 	Symbol visit(EnumDeclaration d) {
 		assert(d.name, "anonymous enums must be flattened !");
 		
