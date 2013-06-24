@@ -34,7 +34,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(ParenExpression e) {
-		return visit(e.expression);
+		return visit(e.expr);
 	}
 	
 	Expression visit(BooleanLiteral e) {
@@ -139,6 +139,37 @@ final class ExpressionVisitor {
 		}
 		
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
+	}
+	
+	Expression visit(AstUnaryExpression e) {
+		auto expr = visit(e.expr);
+		auto op = e.op;
+		
+		QualType type;
+		final switch(op) with(UnaryOp) {
+			case AddressOf :
+			case Dereference :
+			case PreInc :
+			case PreDec :
+			case PostInc :
+			case PostDec :
+				assert(0, "Not implemented.");
+			
+			case Plus :
+			case Minus :
+				type = expr.type;
+				break;
+			
+			case Not :
+				type = getBuiltin(TypeKind.Bool);
+				expr = buildExplicitCast(expr.location, type, expr);
+				break;
+			
+			case Complement :
+				assert(0, "Not implemented.");
+		}
+		
+		return new UnaryExpression(e.location, type, op, expr);
 	}
 	
 	/+ /+
@@ -285,40 +316,7 @@ final class ExpressionVisitor {
 	Expression visit(LogicalOrExpression e) {
 		return handleBinaryExpression(e);
 	}
-	+/
 	
-	Expression visit(AstUnaryExpression e) {
-		auto expr = visit(e.expr);
-		auto op = e.op;
-		
-		QualType type;
-		final switch(op) with(UnaryOp) {
-			case AddressOf :
-			case Dereference :
-			case PreInc :
-			case PreDec :
-			case PostInc :
-			case PostDec :
-				assert(0, "Not implemented.");
-			
-			case Plus :
-			case Minus :
-				type = expr.type;
-				break;
-			
-			case Not :
-				type = getBuiltin(TypeKind.Bool);
-				expr = buildExplicitCast(expr.location, type, expr);
-				break;
-			
-			case Complement :
-				assert(0, "Not implemented.");
-		}
-		
-		return new UnaryExpression(e.location, type, op, expr);
-	}
-	
-	/+
 	private Expression handleUnaryExpression(alias fun, UnaryExpression)(UnaryExpression e) {
 		e.expression = visit(e.expression);
 		
@@ -755,24 +753,17 @@ final class ExpressionVisitor {
 		
 		return e;
 	}
-	
+	+/
 	Expression visit(IdentifierExpression e) {
 		return pass.visit(e.identifier).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
-				return visit(identified);
+				return identified;
 			} else {
 				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 			}
 		})();
 	}
-	+/
-	Expression visit(SymbolExpression e) {
-		auto s = e.symbol;
-		scheduler.require(s, Step.Signed);
-		
-		e.type = s.type;
-		return e;
-	}
+	
 	/*
 	// Will be remove by cast operation.
 	Expression visit(DefaultInitializer di) {

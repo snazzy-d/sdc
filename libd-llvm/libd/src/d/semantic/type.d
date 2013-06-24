@@ -30,15 +30,11 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, QualAstType t) {
-		q = t.qualifier.add(q);
-		
-		auto ret = QualType(this.dispatch(q, t.type), q);
-		
-		return ret;
+		return this.dispatch(t.qualifier.add(q), t.type);
 	}
 	
-	Type visit(TypeQualifier q, BuiltinType t) {
-		return t;
+	QualType visit(TypeQualifier q, BuiltinType t) {
+		return QualType(t, q);
 	}
 	/+
 	QualType visit(TypeofType t) {
@@ -47,12 +43,12 @@ final class TypeVisitor {
 		return e.type;
 	}
 	+/
-	Type visit(TypeQualifier q, AstPointerType t) {
-		return new PointerType(visit(q, t.pointed));
+	QualType visit(TypeQualifier q, AstPointerType t) {
+		return QualType(new PointerType(visit(q, t.pointed)), q);
 	}
 	
-	Type visit(TypeQualifier q, AstSliceType t) {
-		return new SliceType(visit(q, t.sliced));
+	QualType visit(TypeQualifier q, AstSliceType t) {
+		return QualType(new SliceType(visit(q, t.sliced)), q);
 	}
 	/+
 	Type visit(TypeQualifier q, d.ast.type.ArrayType t) {
@@ -61,7 +57,7 @@ final class TypeVisitor {
 		return handleSuffixType(t, t.size);
 	}
 	+/
-	Type visit(TypeQualifier q, AstFunctionType t) {
+	QualType visit(TypeQualifier q, AstFunctionType t) {
 		auto returnType = ParamType(visit(QualAstType(t.returnType.type, t.returnType.qualifier)));
 		returnType.isRef = t.returnType.isRef;
 		
@@ -70,22 +66,21 @@ final class TypeVisitor {
 			p.isRef = t.paramTypes[i].isRef;
 		}
 		
-		return new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic);
+		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
 	}
 	/+
 	Type visit(TypeQualifier q, AstDelegateType t) {
 		return visit(cast(FunctionType) t);
 	}
-	
-	Type visit(TypeQualifier q, IdentifierType t) {
+	+/
+	QualType visit(TypeQualifier q, IdentifierType t) {
 		return pass.visit(t.identifier).apply!((identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return identified;
+				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
 	}
-	+/
 }
 

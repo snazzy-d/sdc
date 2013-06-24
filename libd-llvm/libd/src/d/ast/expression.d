@@ -119,6 +119,11 @@ class BinaryExpression(T) if(is(T: AstExpression)) : T {
 		this.op = op;
 	}
 	
+	invariant() {
+		assert(lhs);
+		assert(rhs);
+	}
+	
 	override string toString() const {
 		import std.conv;
 		return lhs.toString() ~ " " ~ to!string(op) ~ " " ~ rhs.toString();
@@ -148,12 +153,16 @@ class UnaryExpression(T) if(is(T: AstExpression)) : T {
 	
 	UnaryOp op;
 	
-	this(U...)(Location location, U args, UnaryOp op, T expression) {
+	this(U...)(Location location, U args, UnaryOp op, T expr) {
 		super(location, args);
 		
 		this.expr = expr;
 		
 		this.op = op;
+	}
+	
+	invariant() {
+		assert(expr);
 	}
 	
 	override string toString() const {
@@ -282,12 +291,12 @@ alias AstSliceExpression = SliceExpression!AstExpression;
  * Parenthese expression.
  */
 class ParenExpression : AstExpression {
-	AstExpression expression;
+	AstExpression expr;
 	
-	this(Location location, AstExpression expression) {
+	this(Location location, AstExpression expr) {
 		super(location);
 		
-		this.expression = expression;
+		this.expr = expr;
 	}
 }
 
