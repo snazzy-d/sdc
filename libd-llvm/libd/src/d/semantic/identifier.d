@@ -156,11 +156,11 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Function d) {
 		return getSymbolExpression(location, d);
 	}
-	/+
+	
 	Identifiable visit(Location location, Parameter d) {
 		return getSymbolExpression(location, d);
 	}
-	+/
+	
 	Identifiable visit(Location location, Variable d) {
 		return getSymbolExpression(location, d);
 	}
@@ -420,7 +420,7 @@ final class SymbolInTypeResolver {
 	Symbol visit(string name, BuiltinType t) {
 		return null;
 	}
-	
+	/+
 	Symbol visit(string name, SliceType t) {
 		switch(name) {
 			case "length" :
@@ -441,7 +441,7 @@ final class SymbolInTypeResolver {
 				return null;
 		}
 	}
-	
+	+/
 	Symbol visit(string name, AliasType t) {
 		return visit(name, t.dalias.type);
 	}

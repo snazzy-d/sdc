@@ -78,7 +78,7 @@ final class SemanticPass {
 	static struct State {
 		Scope currentScope;
 		
-		QualType returnType;
+		ParamType returnType;
 		QualType thisType;
 		
 		string manglePrefix;
@@ -98,8 +98,6 @@ final class SemanticPass {
 		
 		uint fieldIndex;
 		uint methodIndex;
-		
-		TypeQualifier qualifier;
 	}
 	
 	State state;
@@ -144,15 +142,14 @@ final class SemanticPass {
 	}
 	
 	Module add(FileSource source, string[] packages) {
-		auto mod = parse(source, packages);
-		/+
+		auto astm = parse(source, packages);
+		auto mod = moduleVisitor.modulize(astm);
+		
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), d => moduleVisitor.visit(cast(AstModule) d));
+		scheduler.schedule(only(mod), d => moduleVisitor.visit(astm, cast(Module) d));
 		
 		return mod;
-		+/
-		assert(0);
 	}
 	
 	void terminate() {
@@ -167,8 +164,8 @@ final class SemanticPass {
 		return declarationVisitor.flatten(d);
 	}
 	
-	Symbol visit(Symbol s) {
-		return symbolVisitor.visit(s);
+	Symbol visit(Declaration d, Symbol s) {
+		return symbolVisitor.visit(d, s);
 	}
 	
 	Expression visit(AstExpression e) {
@@ -180,14 +177,10 @@ final class SemanticPass {
 	}
 	
 	QualType visit(QualAstType t) {
-		// XXX: Forward qualifier from method to method in TypeVisitor.
-		// It will allow to get rid of some state.
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
-		
-		// No qualifier is assumed to be mutable.
-		qualifier = TypeQualifier.Mutable;
-		
+		return typeVisitor.visit(t);
+	}
+	
+	ParamType visit(ParamAstType t) {
 		return typeVisitor.visit(t);
 	}
 	
@@ -220,9 +213,7 @@ final class SemanticPass {
 	}
 	
 	auto importModule(string[] pkgs) {
-		// FIXME
-		return null;
-		// return moduleVisitor.importModule(pkgs);
+		return moduleVisitor.importModule(pkgs);
 	}
 	
 	auto raiseCondition(T)(Location location, string message) {

@@ -65,19 +65,20 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	
 	// TODO: parse function attributes
 	// Parse function attributes
-	functionAttributeLoop : while(1) {
+	FunctionAttributeLoop : while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Pure, Const, Immutable, Inout, Shared, Nothrow :
 				trange.popFront();
 				break;
 			
 			case At :
+				// FIXME: Do something with attributes.
 				trange.popFront();
 				trange.match(Identifier);
 				break;
 			
 			default :
-				break functionAttributeLoop;
+				break FunctionAttributeLoop;
 		}
 	}
 	
@@ -130,9 +131,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 			assert(0);
 	}
 	
-	// FIXME: fill names.
-	string[] names;
-	auto fun = new FunctionDeclarationType(location, arguments, parameters, names, isVariadic, fbody);
+	auto fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic, fbody);
 	
 	if(tplParameters.ptr) {
 		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
@@ -147,7 +146,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 	trange.match(TokenType.OpenParen);
 	
-	ParamAstType[] parameters;
+	ParamDecl[] parameters;
 	
 	switch(trange.front.type) with(TokenType) {
 		case CloseParen :
@@ -178,14 +177,13 @@ auto parseParameters(TokenRange)(ref TokenRange trange, out bool isVariadic) {
 }
 
 private auto parseParameter(TokenRange)(ref TokenRange trange) {
-	bool isRef = false;
+	bool isRef;
 	
 	// TODO: parse storage class
 	ParseStorageClassLoop: while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case In, Out, Lazy :
-				trange.popFront();
-				break;
+				assert(0, "Not implemented");
 			
 			case Ref :
 				trange.popFront();
@@ -199,9 +197,8 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 	}
 	
 	auto location = trange.front.location;
-	auto type = trange.parseType();
+	auto type = ParamAstType(trange.parseType(), isRef);
 	
-	ParamAstType param;
 	if(trange.front.type == TokenType.Identifier) {
 		string name = trange.front.value;
 		trange.popFront();
@@ -209,21 +206,16 @@ private auto parseParameter(TokenRange)(ref TokenRange trange) {
 		if(trange.front.type == TokenType.Assign) {
 			trange.popFront();
 			
-			auto expression = trange.parseAssignExpression();
+			auto expr = trange.parseAssignExpression();
 			
-			location.spanTo(expression.location);
-			assert(0, "Initialized parameter is not implemented");
-			// return new InitializedParameter(location, name, type, expression);
+			location.spanTo(expr.location);
+			return ParamDecl(location, type, name, expr);
 		}
 		
-		// param = new Parameter(location, name, type);
+		return ParamDecl(location, type, name);
 	} else {
 		location.spanTo(trange.front.location);
-		// param = new Parameter(location, type);
+		return ParamDecl(location, type);
 	}
-	
-	param.isRef = isRef;
-	
-	return param;
 }
 

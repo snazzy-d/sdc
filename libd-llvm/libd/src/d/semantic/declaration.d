@@ -20,6 +20,8 @@ import std.algorithm;
 import std.array;
 import std.range;
 
+alias Module = d.ir.symbol.Module;
+
 final class DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -189,14 +191,15 @@ final class DeclarationVisitor {
 			poisonScope.resolveStaticIf(d, false);
 			items = unit.elseItems;
 		}
-		
+		// FIXME
+		/+
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				scheduler.schedule(u.symbols, s => pass.visit(s));
 				u.level = CtUnitLevel.Done;
 			}
 		}
-		
+		+/
 		return flatten(items, to);
 	}
 	
@@ -231,20 +234,19 @@ final class DeclarationVisitor {
 		return this.dispatch(d);
 	}
 	
-	private void select(Symbol s) {
+	private void select(Declaration d, Symbol s) {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
 		if(unit.level == CtUnitLevel.Done) {
-			scheduler.schedule(only(s), s => pass.visit(s));
+			scheduler.schedule(only(s), s => pass.visit(d, s));
 		}
 		
 		unit.symbols ~= s;
 	}
 	
 	void visit(FunctionDeclaration d) {
-		// FIXME: create actual function from declaration !
-		Function f;
+		auto f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], d.fbody);
 		if(buildMethods && !isStatic) {
 			uint index = 0;
 			if(!isOverride) {
@@ -260,24 +262,9 @@ final class DeclarationVisitor {
 		
 		currentScope.addOverloadableSymbol(f);
 		
-		if(f.fbody) {
-			// XXX: move that to symbol pass.
-			auto oldScope = currentScope;
-			scope(exit) currentScope = oldScope;
-			
-			currentScope = f.dscope = new NestedScope(oldScope);
-			/+
-			auto params = (cast(FunctionType) f.type.type).paramTypes;
-			
-			foreach(p; d.parameters) {
-				currentScope.addSymbol(p);
-			}
-			+/
-		}
-		
-		select(f);
+		select(d, f);
 	}
-	
+	/+
 	void visit(VariableDeclaration d) {
 		// FIXME: actually fill data.
 		Variable v;
@@ -307,16 +294,15 @@ final class DeclarationVisitor {
 		
 		select(s);
 	}
-	
+	+/
 	void visit(ClassDeclaration d) {
-		Class c;
-		c.linkage = linkage;
+		Class c = new Class(d.location, d.name, []);
 		
 		currentScope.addSymbol(c);
 		
-		select(c);
+		select(d, c);
 	}
-	
+	/+
 	void visit(EnumDeclaration d) {
 		Enum e;
 		e.linkage = linkage;
@@ -353,6 +339,7 @@ final class DeclarationVisitor {
 			+/
 		}
 	}
+	+/
 	/+
 	void visit(TemplateDeclaration d) {
 		d.linkage = linkage;
@@ -364,13 +351,15 @@ final class DeclarationVisitor {
 		
 		select(d);
 	}
-	
-	void visit(AliasDeclaration d) {
-		currentScope.addSymbol(d);
-		
-		select(d);
-	}
 	+/
+	void visit(AliasDeclaration d) {
+		TypeAlias a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
+		
+		currentScope.addSymbol(a);
+		
+		select(d, a);
+	}
+	
 	void visit(LinkageDeclaration d) {
 		auto oldLinkage = linkage;
 		scope(exit) linkage = oldLinkage;
@@ -403,7 +392,7 @@ final class DeclarationVisitor {
 			visit(decl);
 		}
 	}
-	/+
+	
 	void visit(ImportDeclaration d) {
 		auto names = d.modules.map!(pkg => pkg.join(".")).array();
 		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
@@ -415,7 +404,7 @@ final class DeclarationVisitor {
 		
 		currentScope.imports ~= addToScope;
 	}
-	+/
+	
 	void visit(StaticIf!Declaration d) {
 		auto finalCtLevel = CtUnitLevel.Conditional;
 		auto oldCtLevel = ctLevel;

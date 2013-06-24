@@ -14,6 +14,8 @@ import std.array;
 
 alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
+alias FunctionType = d.ir.type.FunctionType;
+alias DelegateType = d.ir.type.DelegateType;
 
 final class TypeVisitor {
 	private SemanticPass pass;
@@ -24,16 +26,21 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(QualAstType t) {
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
-		
-		qualifier = t.qualifier = t.qualifier.add(qualifier);
-		
-		return QualType(this.dispatch(t.type), qualifier);
+		return visit(TypeQualifier.Mutable, t);
 	}
 	
-	Type visit(BuiltinType t) {
-		return t;
+	ParamType visit(ParamAstType t) {
+		auto qt = visit(QualAstType(t.type, t.qualifier));
+		
+		return ParamType(qt, t.isRef);
+	}
+	
+	QualType visit(TypeQualifier q, QualAstType t) {
+		return this.dispatch(t.qualifier.add(q), t.type);
+	}
+	
+	QualType visit(TypeQualifier q, BuiltinType t) {
+		return QualType(t, q);
 	}
 	/+
 	QualType visit(TypeofType t) {
@@ -42,41 +49,43 @@ final class TypeVisitor {
 		return e.type;
 	}
 	+/
-	Type visit(AstPointerType t) {
-		return new PointerType(visit(t.pointed));
+	QualType visit(TypeQualifier q, AstPointerType t) {
+		return QualType(new PointerType(visit(q, t.pointed)), q);
 	}
 	
-	Type visit(AstSliceType t) {
-		return new SliceType(visit(t.sliced));
+	QualType visit(TypeQualifier q, AstSliceType t) {
+		return QualType(new SliceType(visit(q, t.sliced)), q);
 	}
 	/+
-	Type visit(d.ast.type.ArrayType t) {
-		t.size = pass.visit(t.size);
+	Type visit(TypeQualifier q, d.ast.type.ArrayType t) {
+		t.size = pass.visit(q, t.size);
 		
 		return handleSuffixType(t, t.size);
 	}
-	
-	Type visit(AstFunctionType t) {
-		// Go to pass to reset qualifier accumulation.
-		t.returnType = pass.visit(t.returnType);
-		t.canonical = t;
+	+/
+	QualType visit(TypeQualifier q, AstFunctionType t) {
+		auto returnType = visit(t.returnType);
+		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		return t;
+		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
 	}
 	
-	Type visit(AstDelegateType t) {
-		return visit(cast(FunctionType) t);
+	QualType visit(TypeQualifier q, AstDelegateType t) {
+		auto returnType = visit(t.returnType);
+		auto context = visit(t.context);
+		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		
+		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), q);
 	}
 	
-	Type visit(IdentifierType t) {
+	QualType visit(TypeQualifier q, IdentifierType t) {
 		return pass.visit(t.identifier).apply!((identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return identified;
+				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
 		})();
 	}
-	+/
 }
 
