@@ -7,7 +7,7 @@ LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --ldflags`
 LIBD_LIB = -Llib -ld-llvm -ld
 
-LDFLAGS = -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++
+LDFLAGS = -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)

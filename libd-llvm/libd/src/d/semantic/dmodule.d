@@ -21,6 +21,9 @@ import std.range; // for range.
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
 
+alias AstPackage = d.ast.dmodule.Package;
+alias Package = d.ir.symbol.Package;
+
 final class ModuleVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -34,20 +37,20 @@ final class ModuleVisitor {
 		this.sourceFactory = sourceFactory;
 	}
 	
-	Module visit(AstModule astm) {
+	Module visit(AstModule astm, Module m) {
 		auto oldCurrentScope = currentScope;
 		auto oldIsStatic = isStatic;
 		auto oldManglePrefix = manglePrefix;
+		
 		scope(exit) {
 			currentScope = oldCurrentScope;
 			isStatic = oldIsStatic;
 			manglePrefix = oldManglePrefix;
 		}
 		
-		// FIXME: scope.
-		// currentScope = m.dscope;
 		isStatic = true;
 		manglePrefix = "";
+		currentScope = m.dscope;
 		
 		import std.conv;
 		auto current = astm.parent;
@@ -58,9 +61,6 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(astm.name.length) ~ astm.name;
 		
-		// FIXME: actually create a module :D
-		Module m;
-		
 		// All modules implicitely import object.
 		m.members = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
@@ -70,28 +70,61 @@ final class ModuleVisitor {
 		m.step = Step.Processed;
 		return m;
 	}
-	/+
+	
 	Module importModule(string[] packages) {
 		auto name = packages.join(".");
 		
 		return cachedModules.get(name, {
 			auto source = sourceFactory(packages);
-			auto mod = pass.parse(source, packages);
+			auto astm = pass.parse(source, packages);
+			auto mod = modulize(astm);
 			
 			pass.scheduler.schedule(only(mod), (s) {
 				auto m = cast(Module) s;
 				assert(m, "How come that this isn't a module ?");
 				
-				return visit(m);
+				return visit(astm, m);
 			});
 			
 			return cachedModules[name] = mod;
 		}());
 	}
-	+/
+	
 	// XXX: temporary hack to preregister modules
 	void preregister(Module mod) {
 		cachedModules[getModuleName(mod)] = mod;
+	}
+	
+	Module modulize(AstModule m) {
+		auto parent = modulize(m.parent);
+		
+		auto ret = new Module(m.location, m.name, parent);
+		
+		void prepareScope(Package p) {
+			if(p.parent) {
+				prepareScope(p.parent);
+				
+				p.parent.dscope.addSymbol(p);
+			}
+			
+			import d.ir.dscope;
+			p.dscope = new Scope(ret);
+		}
+		
+		prepareScope(ret);
+		ret.dscope.addSymbol(ret);
+		
+		return ret;
+	}
+	
+	Package modulize(AstPackage p) {
+		if(p is null) {
+			return null;
+		}
+		
+		auto parent = modulize(p.parent);
+		
+		return new Package(p.location, p.name, parent);
 	}
 }
 

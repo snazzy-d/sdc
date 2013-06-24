@@ -96,24 +96,28 @@ class Variable : ValueSymbol {
  * Function Declaration
  */
 class Function : ValueSymbol {
-	string[] paramNames;
+	Parameter[] params;
 	BlockStatement fbody;
 	
 	NestedScope dscope;
 	
-	this(Location location, QualType type, string name, string[] paramNames, BlockStatement fbody) {
+	this(Location location, QualType type, string name, Parameter[] params, BlockStatement fbody) {
 		super(location, name, type);
 		
-		this.paramNames = paramNames;
+		this.params = params;
 		this.fbody = fbody;
 	}
-	
+	/+
+	// Must disable, access step trigger invariant.
 	invariant() {
-		auto funType = cast(FunctionType) type.type;
-		
-		assert(funType);
-		assert(funType.paramTypes.length == paramNames.length);
+		if(step > Step.Parsed) {
+			auto funType = cast(FunctionType) type.type;
+			
+			assert(funType);
+			assert(funType.paramTypes.length == paramNames.length);
+		}
 	}
+	+/
 }
 
 final:
@@ -244,6 +248,22 @@ class Field : Variable {
 }
 
 /**
+ * function's parameters
+ */
+class Parameter : ValueSymbol {
+	// TODO: remove type from ValueSymbol
+	ParamType pt;
+	Expression value;
+	
+	this(Location location, ParamType type, string name, Expression value) {
+		super(location, name, QualType(type.type, type.qualifier));
+		
+		this.pt = type;
+		this.value = value;
+	}
+}
+
+/**
  * Virtual method
  * Simply a function declaration with its index in the vtable.
  */
@@ -251,7 +271,7 @@ class Method : Function {
 	uint index;
 	
 	this(Function fun, uint index) {
-		super(fun.location, fun.type, fun.name, fun.paramNames, fun.fbody);
+		super(fun.location, fun.type, fun.name, fun.params, fun.fbody);
 		
 		this.index = index;
 	}

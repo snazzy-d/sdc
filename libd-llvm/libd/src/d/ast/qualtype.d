@@ -56,9 +56,10 @@ struct ParamType(T) if(is(T : AstType)) {
 		int, "", 3,
 	));
 	
-	this(QualType!T t) {
+	this(QualType!T t, bool isRef) {
 		type = t.type;
 		qualifier = t.qualifier;
+		this.isRef = isRef;
 	}
 	
 	string toString(TypeQualifier qual = TypeQualifier.Mutable) const {

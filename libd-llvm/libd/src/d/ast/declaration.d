@@ -198,18 +198,36 @@ class VariableDeclaration : NamedDeclaration {
 	}
 }
 
-class FunctionDeclaration : NamedDeclaration {
-	QualAstFunctionType type;
+struct ParamDecl {
+	Location location;
+	ParamAstType type;
+	string name;
+	AstExpression value;
 	
-	string[] paramNames;
+	this(Location location, ParamAstType type, string name = "", AstExpression value = null) {
+		this.location = location;
+		this.type = type;
+		this.name = name;
+		this.value = value;
+	}
+}
+
+class FunctionDeclaration : NamedDeclaration {
+	ParamDecl[] params;
+	
+	ParamAstType returnType;
 	
 	import d.ast.statement;
 	BlockStatement fbody;
 	
-	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamAstType[] paramTypes, string[] paramNames, bool isVariadic, BlockStatement fbody) {
+	// XXX: Try to stick that in some pointer.
+	bool isVariadic;
+	
+	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, BlockStatement fbody) {
 		super(location, name);
 		
-		type = QualAstFunctionType(new AstFunctionType(linkage, returnType, paramTypes, isVariadic));
+		this.returnType = returnType;
+		this.params = params;
 		this.fbody = fbody;
 	}
 }

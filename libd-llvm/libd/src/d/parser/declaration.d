@@ -382,7 +382,8 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 		string name = trange.front.value;
 		trange.match(TokenType.Identifier);
 		
-		return trange.parseFunction(location, Linkage.D, ParamAstType(type), name);
+		// TODO: implement ref return.
+		return trange.parseFunction(location, Linkage.D, ParamAstType(type, false), name);
 	} else {
 		VariableDeclaration[] variables;
 		

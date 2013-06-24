@@ -11,6 +11,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
+import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -20,6 +21,9 @@ import std.conv;
 
 // TODO: change ast to allow any statement as function body, then remove that import.
 import d.ast.statement;
+
+alias FunctionType = d.ir.type.FunctionType;
+alias PointerType = d.ir.type.PointerType;
 
 final class SymbolVisitor {
 	private SemanticPass pass;
@@ -31,34 +35,48 @@ final class SymbolVisitor {
 		this.pass = pass;
 	}
 	
+	Symbol visit(Declaration d, Symbol s) {
+		return this.dispatch(d, s);
+	}
+	
 	Symbol visit(Symbol s) {
 		return this.dispatch(s);
 	}
 	
-	Symbol visit(FunctionDeclaration d) {
-		/+
-		// XXX: May yield, but is only resolved within function, so everything depending on this declaration happen after.
-		foreach(p; d.parameters) {
-			this.dispatch(p);
-		}
+	Symbol visit(Declaration d, Function f) {
+		auto fd = cast(FunctionDeclaration) d;
+		assert(fd);
+		
+		// XXX: maybe monad ?
+		auto params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
 		// Compute return type.
-		if(typeid({ return d.returnType; }()) !is typeid(AutoType)) {
-			d.returnType = pass.visit(d.returnType);
+		if(typeid({ return fd.returnType.type; }()) !is typeid(AutoType)) {
+			// TODO: Handle more fine grained types.
+			/*
+			f.type = pass.visit(QualAstType(fd.type.type));
+			auto funType = cast(FunctionType) f.type.type;
+			
+			assert(funType);
+			*/
 			
 			// If it isn't a static method, add this.
-			if(d.isStatic) {
-				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
-			} else {
+			if(!f.isStatic) {
+				assert(0);
+				/+
 				assert(thisType, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
 				thisParameter.isReference = isThisRef;
 				
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+				+/
 			}
 			
-			d.step = Step.Signed;
+			// XXX: completely hacked XD
+			f.type = QualType(new FunctionType(Linkage.D, pass.visit(fd.returnType), params.map!(p => p.pt).array(), fd.isVariadic));
+			
+			f.step = Step.Signed;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -69,15 +87,16 @@ final class SymbolVisitor {
 			returnType = oldReturnType;
 		}
 		
-		returnType = d.returnType;
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		returnType = (cast(FunctionType) f.type.type).returnType;
+		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
 		
-		if(d.fbody) {
+		if(f.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
 			auto oldIsOverride = isOverride;
 			auto oldBuildFields = buildFields;
 			auto oldScope = currentScope;
+			
 			scope(exit) {
 				linkage = oldLinkage;
 				isStatic = oldIsStatic;
@@ -86,20 +105,25 @@ final class SymbolVisitor {
 				currentScope = oldScope;
 			}
 			
-			linkage = "D";
+			linkage = Linkage.D;
 			
 			isStatic = false;
 			isOverride = false;
 			buildFields = false;
 			
 			// Update scope.
-			currentScope = d.dscope;
+			currentScope = f.dscope = new NestedScope(oldScope);
+			
+			// Register parameters.
+			foreach(p; params) {
+				f.dscope.addSymbol(p);
+			}
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			d.fbody = cast(BlockStatement) pass.visit(d.fbody);
+			f.fbody = cast(BlockStatement) pass.visit(f.fbody);
 		}
-		
+		/+
 		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
 			// Should be useless once return type inference is properly implemented.
 			if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
@@ -121,25 +145,24 @@ final class SymbolVisitor {
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
 			}
 		}
-		
-		switch(d.linkage) {
-			case "D" :
-				d.mangle = "_D" ~ manglePrefix ~ (d.isStatic?"F":"FM") ~ d.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
+		+/
+		switch(f.linkage) with(Linkage) {
+			/+
+			case D :
+				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?"F":"FM") ~ f.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
 				break;
-			
-			case "C" :
-				d.mangle = d.name;
+			+/
+			case C :
+				f.mangle = f.name;
 				break;
 			
 			default:
-				assert(0, "Linkage " ~ d.linkage ~ " is not supported.");
+				import std.conv;
+				assert(0, "Linkage " ~ to!string(f.linkage) ~ " is not supported.");
 		}
 		
-		d.step = Step.Processed;
-		return d;
-		+/
-		
-		return null;
+		f.step = Step.Processed;
+		return f;
 	}
 	
 	Symbol visit(Method d) {
@@ -152,7 +175,7 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
-	+/
+	
 	Variable visit(Variable d) {
 		d.value = pass.visit(d.value);
 		
@@ -186,15 +209,18 @@ final class SymbolVisitor {
 		
 		return visit(cast(Variable) d);
 	}
-	/+
-	Symbol visit(AliasDeclaration d) {
-		d.type = pass.visit(d.type);
-		d.mangle = typeMangler.visit(d.type);
+	+/
+	Symbol visit(Declaration d, TypeAlias a) {
+		auto ad = cast(AliasDeclaration) d;
+		assert(ad);
 		
-		d.step = Step.Processed;
-		return d;
+		a.type = pass.visit(ad.type);
+		a.mangle = typeMangler.visit(a.type);
+		
+		a.step = Step.Processed;
+		return a;
 	}
-	
+	/+
 	Symbol visit(StructDeclaration d) {
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
@@ -269,8 +295,11 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
-	
-	Symbol visit(ClassDeclaration d) {
+	+/
+	Symbol visit(Declaration d, Class c) {
+		auto cd = cast(ClassDeclaration) d;
+		assert(cd);
+		
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
@@ -301,40 +330,50 @@ final class SymbolVisitor {
 		buildFields = true;
 		buildMethods = true;
 		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new ClassType(d);
+		currentScope = c.dscope = new SymbolScope(c, oldScope);
+		thisType = QualType(new ClassType(c));
 		
 		// Update mangle prefix.
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
 		
-		assert(d.linkage == "D");
-		d.mangle = "C" ~ manglePrefix;
+		c.mangle = "C" ~ manglePrefix;
 		
-		FieldDeclaration[] baseFields;
-		MethodDeclaration[] baseMethods;
+		Field[] baseFields;
+		Method[] baseMethods;
 		
 		methodIndex = 0;
-		if(d.mangle == "C6object6Object") {
-			auto vtblType = pass.visit(new PointerType(new VoidType()));
+		if(c.mangle == "C6object6Object") {
+			auto vtblType = QualType(new PointerType(getBuiltin(TypeKind.Void)));
 			vtblType.qualifier = TypeQualifier.Immutable;
-			baseFields = [new FieldDeclaration(d.location, 0, vtblType, "__vtbl", null)];
+			
+			// TODO: use defaultinit.
+			auto vtbl = new Field(cd.location, 0, vtblType, "__vtbl", null);
+			vtbl.step = Step.Processed;
+			
+			baseFields = [vtbl];
 			
 			fieldIndex = 1;
 		} else {
-			ClassDeclaration baseClass;
-			foreach(ref base; d.bases) {
-				auto type = cast(ClassType) pass.visit(base);
+			Class baseClass;
+			foreach(base; cd.bases) {
+				auto type = pass.visit(base).apply!(function ClassType(identified) {
+					static if(is(typeof(identified) : QualType)) {
+						return cast(ClassType) identified.type;
+					} else {
+						return null;
+					}
+				})();
+				
 				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
-				base = type;
 				baseClass = type.dclass;
 				break;
 			}
 			
 			if(!baseClass) {
 				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
-					static if(is(typeof(parsed) : Type)) {
-						return cast(ClassType) parsed;
+					static if(is(typeof(parsed) : QualType)) {
+						return cast(ClassType) parsed.type;
 					} else {
 						return null;
 					}
@@ -346,12 +385,12 @@ final class SymbolVisitor {
 			
 			scheduler.require(baseClass);
 			foreach(m; baseClass.members) {
-				if(auto field = cast(FieldDeclaration) m) {
+				if(auto field = cast(Field) m) {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
 					
-					d.dscope.addSymbol(field);
-				} else if(auto method = cast(MethodDeclaration) m) {
+					c.dscope.addSymbol(field);
+				} else if(auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
 				}
@@ -360,13 +399,13 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto members = pass.flatten(d.members, d);
+		auto members = pass.flatten(cd.members, c);
 		
-		d.step = Step.Signed;
+		c.step = Step.Signed;
 		
-		MethodDeclaration[] candidates = baseMethods;
+		Method[] candidates = baseMethods;
 		foreach(m; members) {
-			if(auto method = cast(MethodDeclaration) m) {
+			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				foreach(ref candidate; candidates) {
 					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
@@ -391,20 +430,20 @@ final class SymbolVisitor {
 		uint i = 0;
 		foreach(candidate; candidates) {
 			if(candidate) {
-				d.dscope.addOverloadableSymbol(candidate);
+				c.dscope.addOverloadableSymbol(candidate);
 				baseMethods[i++] = candidate;
 			}
 		}
 		
-		d.members = cast(Declaration[]) baseFields;
-		d.members ~= cast(Declaration[]) baseMethods;
+		c.members = cast(Symbol[]) baseFields;
+		c.members ~= baseMethods;
 		scheduler.require(members);
-		d.members ~= cast(Declaration[]) members;
+		c.members ~= members;
 		
-		d.step = Step.Processed;
-		return d;
+		c.step = Step.Processed;
+		return c;
 	}
-	
+	/+
 	Symbol visit(EnumDeclaration d) {
 		assert(d.name, "anonymous enums must be flattened !");
 		
