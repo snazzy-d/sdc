@@ -180,6 +180,10 @@ final class SemanticPass {
 		return typeVisitor.visit(t);
 	}
 	
+	ParamType visit(ParamAstType t) {
+		return typeVisitor.visit(t);
+	}
+	
 	Identifiable visit(Identifier i) {
 		return identifierVisitor.visit(i);
 	}

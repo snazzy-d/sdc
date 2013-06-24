@@ -156,11 +156,11 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Function d) {
 		return getSymbolExpression(location, d);
 	}
-	/+
+	
 	Identifiable visit(Location location, Parameter d) {
 		return getSymbolExpression(location, d);
 	}
-	+/
+	
 	Identifiable visit(Location location, Variable d) {
 		return getSymbolExpression(location, d);
 	}

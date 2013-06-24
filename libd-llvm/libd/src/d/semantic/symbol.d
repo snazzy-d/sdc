@@ -47,10 +47,18 @@ final class SymbolVisitor {
 		auto fd = cast(FunctionDeclaration) d;
 		assert(fd);
 		
+		// XXX: maybe monad ?
+		auto params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		
 		// Compute return type.
-		if(typeid({ return fd.type.type.returnType; }()) !is typeid(AutoType)) {
+		if(typeid({ return fd.returnType.type; }()) !is typeid(AutoType)) {
 			// TODO: Handle more fine grained types.
+			/*
 			f.type = pass.visit(QualAstType(fd.type.type));
+			auto funType = cast(FunctionType) f.type.type;
+			
+			assert(funType);
+			*/
 			
 			// If it isn't a static method, add this.
 			if(!f.isStatic) {
@@ -64,6 +72,9 @@ final class SymbolVisitor {
 				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
 				+/
 			}
+			
+			// XXX: completely hacked XD
+			f.type = QualType(new FunctionType(Linkage.D, pass.visit(fd.returnType), params.map!(p => p.pt).array(), fd.isVariadic));
 			
 			f.step = Step.Signed;
 		}
@@ -101,7 +112,12 @@ final class SymbolVisitor {
 			buildFields = false;
 			
 			// Update scope.
-			currentScope = f.dscope;
+			currentScope = f.dscope = new NestedScope(oldScope);
+			
+			// Register parameters.
+			foreach(p; params) {
+				f.dscope.addSymbol(p);
+			}
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;

@@ -29,6 +29,12 @@ final class TypeVisitor {
 		return visit(TypeQualifier.Mutable, t);
 	}
 	
+	ParamType visit(ParamAstType t) {
+		auto qt = visit(QualAstType(t.type, t.qualifier));
+		
+		return ParamType(qt, t.isRef);
+	}
+	
 	QualType visit(TypeQualifier q, QualAstType t) {
 		return this.dispatch(t.qualifier.add(q), t.type);
 	}
@@ -58,21 +64,20 @@ final class TypeVisitor {
 	}
 	+/
 	QualType visit(TypeQualifier q, AstFunctionType t) {
-		auto returnType = ParamType(visit(QualAstType(t.returnType.type, t.returnType.qualifier)));
-		returnType.isRef = t.returnType.isRef;
-		
-		auto paramTypes = t.paramTypes.map!(t => ParamType(visit(QualAstType(t.type, t.qualifier)))).array();
-		foreach(i, ref p; paramTypes) {
-			p.isRef = t.paramTypes[i].isRef;
-		}
+		auto returnType = visit(t.returnType);
+		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
 		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
 	}
-	/+
-	Type visit(TypeQualifier q, AstDelegateType t) {
-		return visit(cast(FunctionType) t);
+	
+	QualType visit(TypeQualifier q, AstDelegateType t) {
+		auto returnType = visit(t.returnType);
+		auto context = visit(t.context);
+		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		
+		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), q);
 	}
-	+/
+	
 	QualType visit(TypeQualifier q, IdentifierType t) {
 		return pass.visit(t.identifier).apply!((identified) {
 			static if(is(typeof(identified) : QualType)) {

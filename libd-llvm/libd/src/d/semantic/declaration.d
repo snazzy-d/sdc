@@ -262,21 +262,6 @@ final class DeclarationVisitor {
 		
 		currentScope.addOverloadableSymbol(f);
 		
-		if(f.fbody) {
-			// XXX: move that to symbol pass.
-			auto oldScope = currentScope;
-			scope(exit) currentScope = oldScope;
-			
-			currentScope = f.dscope = new NestedScope(oldScope);
-			/+
-			auto params = (cast(FunctionType) f.type.type).paramTypes;
-			
-			foreach(p; d.parameters) {
-				currentScope.addSymbol(p);
-			}
-			+/
-		}
-		
 		select(d, f);
 	}
 	/+

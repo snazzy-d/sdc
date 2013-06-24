@@ -14,6 +14,9 @@ import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
 
+import std.algorithm;
+import std.array;
+
 QualAstType parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto base = trange.parseBasicType();
 	return trange.parseTypeSuffix!mode(base);
@@ -199,19 +202,21 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 			case TokenType.Function :
 				trange.popFront();
 				bool isVariadic;
-				auto parameters = trange.parseParameters(isVariadic);
+				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
 				// TODO: parse postfix attributes.
-				type = QualAstType(new AstFunctionType(Linkage.D, ParamAstType(type), parameters, isVariadic));
+				// TODO: ref return.
+				type = QualAstType(new AstFunctionType(Linkage.D, ParamAstType(type, false), parameters, isVariadic));
 				break;
 			
 			case TokenType.Delegate :
 				trange.popFront();
 				bool isVariadic;
-				auto parameters = trange.parseParameters(isVariadic);
+				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
 				// TODO: parse postfix attributes and storage class.
-				type = QualAstType(new AstDelegateType(Linkage.D, ParamAstType(type), ParamAstType.init, parameters, isVariadic));
+				// TODO: ref return.
+				type = QualAstType(new AstDelegateType(Linkage.D, ParamAstType(type, false), ParamAstType.init, parameters, isVariadic));
 				break;
 			
 			static if(mode == ParseMode.Greedy) {
