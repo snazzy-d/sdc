@@ -63,7 +63,7 @@ int main(string[] args) {
 		} else {
 			sdc.codeGen(objFile, executable);
 		}
-	
+		
 		return 0;
 	} catch(CompileException e) {
 		outputCaretDiagnostics(e.location, e.msg);
