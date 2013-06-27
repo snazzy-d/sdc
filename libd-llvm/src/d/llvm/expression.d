@@ -467,14 +467,14 @@ final class ExpressionGen {
 			return LLVMBuildZExt(builder, visit(e.expression), type, "");
 		}
 	}
-	
+	+/
 	LLVMValueRef visit(CallExpression c) {
 		auto callee = visit(c.callee);
 		
-		Parameter[] params;
+		// Parameter[] params;
 		LLVMValueRef[] args;
 		uint offset;
-		
+		/+
 		if(auto type = cast(DelegateType) c.callee.type) {
 			params = type.parameters;
 			
@@ -508,10 +508,10 @@ final class ExpressionGen {
 			args[i + offset] = visit(c.arguments[i]);
 			i++;
 		}
-		
+		+/
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
-	
+	/+
 	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
 		auto fields = e.values.map!(v => visit(v)).array();
 		
