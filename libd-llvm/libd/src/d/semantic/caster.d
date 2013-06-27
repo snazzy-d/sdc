@@ -106,12 +106,12 @@ final class Caster(bool isExplicit) {
 		CastKind visit(TypeKind from, BuiltinType t) {
 			auto to = t.kind;
 			
-			if(to == TypeKind.None) {
-				return CastKind.Invalid;
-			}
-			
 			if(from == to) {
 				return CastKind.Exact;
+			}
+			
+			if(to == TypeKind.None) {
+				return CastKind.Invalid;
 			}
 			
 			final switch(from) with(TypeKind) {
