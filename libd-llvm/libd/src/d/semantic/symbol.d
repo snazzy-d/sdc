@@ -147,11 +147,11 @@ final class SymbolVisitor {
 		}
 		+/
 		switch(f.linkage) with(Linkage) {
-			/+
 			case D :
-				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?"F":"FM") ~ f.parameters.map!(p => (p.isReference?"K":"") ~ pass.typeMangler.visit(p.type)).join() ~ "Z" ~ typeMangler.visit(d.returnType);
+				auto typeMangle = pass.typeMangler.visit(f.type);
+				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 				break;
-			+/
+			
 			case C :
 				f.mangle = f.name;
 				break;

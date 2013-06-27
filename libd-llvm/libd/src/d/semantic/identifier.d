@@ -94,7 +94,7 @@ final class IdentifierVisitor {
 				assert(0, "type dot identifier is't ready, buddy . . .");
 				// return visit(new TypeDotIdentifier(i.location, i.name, identified));
 			} else static if(is(typeof(identified) : Expression)) {
-				return visit(new ExpressionDotIdentifier(i.location, i.name, identified));
+				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				/*
@@ -108,8 +108,6 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
-		i.expression = pass.visit(i.expression);
-		
 		return expressionDotIdentifierVisitor.visit(i);
 	}
 	/+
@@ -168,12 +166,14 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Field d) {
 		return Identifiable(new FieldExpression(location, new ThisExpression(location), d));
 	}
-	/+
+	
 	Identifiable visit(Location location, OverLoadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, s.set[0]);
 		}
 		
+		assert(0, "Not implemented");
+		/+
 		auto results = s.set.map!(delegate Identifiable(Symbol s) {
 			return visit(location, s);
 		}).array();
@@ -193,8 +193,9 @@ final class IdentifierVisitor {
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
+		+/
 	}
-	+/
+	
 	Identifiable visit(Location location, TypeAlias a) {
 		return Identifiable(new AliasType(a));
 	}
@@ -270,13 +271,16 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
-		auto e = pass.visit(i.expression);
-		
-		if(auto s = symbolInTypeResolver.visit(i.name, e.type)) {
-			return visit(i.location, e, s);
+		return visit(i.location, i.name, pass.visit(i.expression));
+	}
+	
+	Identifiable visit(Location location, string name, Expression e) {
+		if(auto s = symbolInTypeResolver.visit(name, e.type)) {
+			return visit(location, e, s);
 		}
 		
-		assert(0, "giving up");
+		throw new CompileException(location, name ~ " can't be resolved in type " ~ e.type.toString());
+		// assert(0, "giving up");
 		/+
 		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
@@ -294,7 +298,7 @@ final class ExpressionDotIdentifierVisitor {
 			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
 		})(location, e, s);
 	}
-	/+
+	
 	Identifiable visit(Location location, Expression e, OverLoadSet s) {
 		if(s.set.length == 1) {
 			return this.dispatch(location, e, s.set[0]);
@@ -302,7 +306,7 @@ final class ExpressionDotIdentifierVisitor {
 		
 		assert(0);
 		
-		/*
+		/+
 		auto results = s.set.map!(s => this.dispatch(location, e, s)).array();
 		
 		Expression[] expressions;
@@ -316,9 +320,9 @@ final class ExpressionDotIdentifierVisitor {
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		*/
+		+/
 	}
-	+/
+	
 	Identifiable visit(Location location, Expression e, Field f) {
 		return Identifiable(new FieldExpression(location, e, f));
 	}
@@ -389,13 +393,13 @@ final class TemplateDotIdentifierVisitor {
 	Symbol visit(Symbol s) {
 		return this.dispatch(s);
 	}
-	/+
+	
 	Symbol visit(OverLoadSet s) {
 		assert(s.set.length == 1);
 		
 		return visit(s.set[0]);
 	}
-	
+	/+
 	Symbol visit(TemplateDeclaration s) {
 		return s;
 	}
@@ -420,7 +424,7 @@ final class SymbolInTypeResolver {
 	Symbol visit(string name, BuiltinType t) {
 		return null;
 	}
-	/+
+	
 	Symbol visit(string name, SliceType t) {
 		switch(name) {
 			case "length" :
@@ -428,20 +432,22 @@ final class SymbolInTypeResolver {
 				auto location = Location.init;
 				auto lt = getBuiltin(TypeKind.Ulong);
 				auto s = new Field(location, 0, lt, "length", null);
-				return pass.visit(s);
+				s.step = Step.Processed;
+				return s;
 			
 			case "ptr" :
 				// FIXME: pass explicit location.
 				auto location = Location.init;
 				auto pt = QualType(new PointerType(t.sliced));
 				auto s = new Field(location, 1, pt, "ptr", null);
-				return pass.visit(s);
+				s.step = Step.Processed;
+				return s;
 			
 			default :
 				return null;
 		}
 	}
-	+/
+	
 	Symbol visit(string name, AliasType t) {
 		return visit(name, t.dalias.type);
 	}

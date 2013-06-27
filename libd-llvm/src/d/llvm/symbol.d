@@ -60,18 +60,18 @@ final class SymbolGen {
 		
 		// Register the function.
 		valueSymbols[f] = ret;
-		/+
+		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
-		+/
+		
 		return ret;
 	}
 	
 	LLVMValueRef visit(Method m) {
 		return visit(cast(Function) m);
 	}
-	/+
+	
 	private void genFunctionBody(Function f) {
 		auto fun = valueSymbols[f];
 		if(LLVMGetTypeKind(LLVMTypeOf(fun)) == LLVMTypeKind.Struct) {
@@ -108,7 +108,7 @@ final class SymbolGen {
 		params.length = parameterTypes.length = LLVMCountParamTypes(funType);
 		LLVMGetParams(fun, params.ptr);
 		LLVMGetParamTypes(funType, parameterTypes.ptr);
-		
+		/+
 		// XXX: This is kind of hacky, better can surely be done.
 		auto parameters = f.parameters;
 		if(auto dg = cast(DelegateType) f.type) {
@@ -131,7 +131,7 @@ final class SymbolGen {
 				valueSymbols[p] = alloca;
 			}
 		}
-		
+		+/
 		// Generate function's body.
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		pass.visit(f.fbody);
@@ -150,7 +150,7 @@ final class SymbolGen {
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		LLVMBuildBr(builder, bodyBB);
 	}
-	+/
+	
 	LLVMValueRef visit(Variable var) {
 		auto value = pass.visit(var.value);
 		

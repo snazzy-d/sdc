@@ -24,7 +24,7 @@ abstract class Expression : AstExpression {
 alias ConditionalExpression = d.ast.expression.ConditionalExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
-
+alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 
 /**
@@ -187,8 +187,10 @@ class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
-		// At some point, pass the right type directly.
-		super(location, getBuiltin(TypeKind.None));
+		auto c = getBuiltin(TypeKind.Char);
+		c.qualifier = TypeQualifier.Immutable;
+		
+		super(location, QualType(new SliceType(c)));
 		
 		this.value = value;
 	}
@@ -232,6 +234,7 @@ class CastExpression : Expression {
 	this(Location location, CastKind kind, QualType type, Expression expr) {
 		super(location, type);
 		
+		this.kind = kind;
 		this.expr = expr;
 	}
 }

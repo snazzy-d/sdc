@@ -195,8 +195,8 @@ class CallExpression(T) if(is(T: AstExpression)) : T {
 	T callee;
 	T[] arguments;
 	
-	this(Location location, T callee, T[] arguments) {
-		super(location);
+	this(U...)(Location location, U args, T callee, T[] arguments) {
+		super(location, args);
 		
 		this.callee = callee;
 		this.arguments = arguments;

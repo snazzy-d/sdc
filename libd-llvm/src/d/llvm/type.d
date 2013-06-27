@@ -125,6 +125,70 @@ final class TypeGen {
 		
 		return typeSymbols[e] = visit(e.type);
 	}
+	
+	LLVMTypeRef visit(BuiltinType t) {
+		final switch(t.kind) with(TypeKind) {
+			case None :
+				assert(0, "Not Implemented");
+			
+			case Void :
+				return LLVMVoidTypeInContext(context);
+			
+			case Bool :
+				return LLVMInt1TypeInContext(context);
+			
+			case Char :
+				return LLVMInt8TypeInContext(context);
+			
+			case Wchar :
+				return LLVMInt16TypeInContext(context);
+			
+			case Dchar :
+				return LLVMInt32TypeInContext(context);
+			
+			case Ubyte :
+				return LLVMInt8TypeInContext(context);
+			
+			case Ushort :
+				return LLVMInt16TypeInContext(context);
+			
+			case Uint :
+				return LLVMInt32TypeInContext(context);
+			
+			case Ulong :
+				return LLVMInt64TypeInContext(context);
+			
+			case Ucent :
+				assert(0, "Not Implemented");
+			
+			case Byte :
+				return LLVMInt8TypeInContext(context);
+			
+			case Short :
+				return LLVMInt16TypeInContext(context);
+			
+			case Int :
+				return LLVMInt32TypeInContext(context);
+			
+			case Long :
+				return LLVMInt64TypeInContext(context);
+			
+			case Cent :
+				assert(0, "Not Implemented");
+			
+			case Float :
+				return LLVMFloatTypeInContext(context);
+			
+			case Double :
+				return LLVMDoubleTypeInContext(context);
+			
+			case Real :
+				return LLVMX86FP80TypeInContext(context);
+			
+			case Null :
+				return LLVMPointerType(LLVMInt8TypeInContext(context), 0);
+		}
+	}
 	/+
 	LLVMTypeRef visit(BooleanType t) {
 		isSigned = false;
@@ -209,11 +273,11 @@ final class TypeGen {
 		
 		return LLVMArrayType(type, cast(uint) LLVMConstIntGetZExtValue(size));
 	}
-	
-	private auto buildParameterType(Parameter p) {
-		auto type = visit(p.type);
+	+/
+	private auto buildParamType(ParamType pt) {
+		auto type = visit(pt.type);
 		
-		if(p.isReference) {
+		if(pt.isRef) {
 			type = LLVMPointerType(type, 0);
 		}
 		
@@ -221,11 +285,11 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(FunctionType t) {
-		auto params = t.parameters.map!(p => buildParameterType(p)).array();
+		auto params = t.paramTypes.map!(p => buildParamType(p)).array();
 		
-		return LLVMPointerType(LLVMFunctionType(visit(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic), 0);
+		return LLVMPointerType(LLVMFunctionType(buildParamType(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic), 0);
 	}
-	
+	/+
 	LLVMTypeRef visit(DelegateType t) {
 		LLVMTypeRef[] params;
 		params.length = t.parameters.length + 1;

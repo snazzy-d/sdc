@@ -162,11 +162,12 @@ final class StatementGen {
 	void visit(ForStatement f) {
 		handleLoop(f);
 	}
-	
-	void visit(ReturnStatement r) {
-		LLVMBuildRet(builder, pass.visit(r.value));
-	}
 	+/
+	void visit(ReturnStatement r) {
+		import d.ir.expression;
+		LLVMBuildRet(builder, pass.visit(cast(Expression) r.value));
+	}
+	
 	void visit(BreakStatement s) {
 		assert(breakBB);
 		LLVMBuildBr(builder, breakBB);
