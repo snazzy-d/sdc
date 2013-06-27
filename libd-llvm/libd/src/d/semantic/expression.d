@@ -626,7 +626,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
 		}
 		
-		assert(type.paramTypes.length >= args.length);
+		assert(args.length >= type.paramTypes.length);
 		
 		foreach(ref arg, pt; lockstep(args, type.paramTypes)) {
 			arg = buildArgument(arg, pt);
