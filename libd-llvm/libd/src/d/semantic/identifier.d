@@ -94,7 +94,7 @@ final class IdentifierVisitor {
 				assert(0, "type dot identifier is't ready, buddy . . .");
 				// return visit(new TypeDotIdentifier(i.location, i.name, identified));
 			} else static if(is(typeof(identified) : Expression)) {
-				return visit(new ExpressionDotIdentifier(i.location, i.name, identified));
+				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				/*
@@ -108,8 +108,6 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
-		i.expression = pass.visit(i.expression);
-		
 		return expressionDotIdentifierVisitor.visit(i);
 	}
 	/+
@@ -273,13 +271,15 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(ExpressionDotIdentifier i) {
-		auto e = pass.visit(i.expression);
-		
-		if(auto s = symbolInTypeResolver.visit(i.name, e.type)) {
-			return visit(i.location, e, s);
+		return visit(i.location, i.name, pass.visit(i.expression));
+	}
+	
+	Identifiable visit(Location location, string name, Expression e) {
+		if(auto s = symbolInTypeResolver.visit(name, e.type)) {
+			return visit(location, e, s);
 		}
 		
-		throw new CompileException(i.location, i.name ~ " can't be resolved in type " ~ e.type.toString());
+		throw new CompileException(location, name ~ " can't be resolved in type " ~ e.type.toString());
 		// assert(0, "giving up");
 		/+
 		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
