@@ -146,11 +146,11 @@ final class TypeMangler {
 				assert(0, "Linkage " ~ to!string(linkage) ~ " is not supported.");
 		}
 	}
-	/+
-	string visit(FunctionType t) {
-		return mangleLinkage(t.linkage) ~ t.parameters.map!(p => mangleParam(p)).join() ~ "Z" ~ visit(t.returnType);
-	}
 	
+	string visit(FunctionType t) {
+		return mangleLinkage(t.linkage) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
+	}
+	/+
 	string visit(DelegateType t) {
 		return "D" ~ mangleLinkage(t.linkage) ~ mangleParameter(t.context) ~ t.parameters.map!(p => mangleParam(p)).join() ~ "Z" ~ visit(t.returnType);
 	}
