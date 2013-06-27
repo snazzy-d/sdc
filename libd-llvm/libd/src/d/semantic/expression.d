@@ -4,6 +4,7 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
+import d.ast.base;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.expression;
@@ -20,6 +21,9 @@ import std.range;
 
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias UnaryExpression = d.ir.expression.UnaryExpression;
+alias CallExpression = d.ir.expression.CallExpression;
+
+alias FunctionType = d.ir.type.FunctionType;
 
 final class ExpressionVisitor {
 	private SemanticPass pass;
@@ -458,22 +462,22 @@ final class ExpressionVisitor {
 		auto to = pass.visit(e.type);
 		return buildExplicitCast(e.location, to, visit(e.expr));
 	}
-	/+
-	private auto buildArgument(Expression arg, Parameter param) {
-		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+	
+	private auto buildArgument(Expression arg, ParamType pt) {
+		if(pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
 		
-		arg = pass.buildImplicitCast(arg.location, param.type, arg);
+		arg = pass.buildImplicitCast(arg.location, QualType(pt.type, pt.qualifier), arg);
 		
 		// test if we can pass by ref.
-		if(param.isReference && !arg.isLvalue) {
+		if(pt.isRef && !arg.isLvalue) {
 			return pass.raiseCondition!Expression(arg.location, "Argument isn't a lvalue.");
 		}
 		
 		return arg;
 	}
-	+/
+	
 	enum MatchLevel {
 		Not,
 		TypeConvert,
@@ -531,11 +535,11 @@ final class ExpressionVisitor {
 				return MatchLevel.Exact;
 		}
 	}
-	/+
+	
 	Expression visit(AstCallExpression c) {
-		c.callee = visit(c.callee);
-		c.arguments = c.arguments.map!(a => visit(a)).array();
-		
+		auto callee = visit(c.callee);
+		auto args = c.arguments.map!(a => visit(a)).array();
+		/+
 		if(auto asPolysemous = cast(PolysemousExpression) c.callee) {
 			auto candidates = asPolysemous.expressions.filter!((e) {
 				if(auto asFunType = cast(FunctionType) e.type) {
@@ -616,24 +620,21 @@ final class ExpressionVisitor {
 			
 			c.callee = match;
 		}
-		
-		Parameter[] params;
-		if(auto type = cast(FunctionType) c.callee.type) {
-			params = type.parameters;
-			c.type = type.returnType;
-		} else {
+		+/
+		auto type = cast(FunctionType) callee.type.type;
+		if(!type) {
 			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
 		}
 		
-		assert(c.arguments.length >= params.length);
+		assert(type.paramTypes.length >= args.length);
 		
-		foreach(ref arg, param; lockstep(c.arguments, params)) {
-			arg = buildArgument(arg, param);
+		foreach(ref arg, pt; lockstep(args, type.paramTypes)) {
+			arg = buildArgument(arg, pt);
 		}
 		
-		return c;
+		return new CallExpression(c.location, QualType(type.returnType.type, type.returnType.qualifier), callee, args);
 	}
-	+/
+	
 	/+
 	Expression visit(FieldExpression e) {
 		e.expression = visit(e.expression);

@@ -24,7 +24,7 @@ abstract class Expression : AstExpression {
 alias ConditionalExpression = d.ast.expression.ConditionalExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
-
+alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 
 /**
