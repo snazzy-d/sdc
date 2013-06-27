@@ -150,6 +150,11 @@ class BuiltinType : Type {
 	this(TypeKind kind) {
 		this.kind = kind;
 	}
+	
+	override string toString(TypeQualifier qual) const {
+		import std.conv;
+		return to!string(kind);
+	}
 }
 
 QualType getBuiltin(TypeKind k) {

@@ -279,7 +279,8 @@ final class ExpressionDotIdentifierVisitor {
 			return visit(i.location, e, s);
 		}
 		
-		assert(0, "giving up");
+		throw new CompileException(i.location, i.name ~ " can't be resolved in type " ~ e.type.toString());
+		// assert(0, "giving up");
 		/+
 		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
@@ -423,7 +424,7 @@ final class SymbolInTypeResolver {
 	Symbol visit(string name, BuiltinType t) {
 		return null;
 	}
-	/+
+	
 	Symbol visit(string name, SliceType t) {
 		switch(name) {
 			case "length" :
@@ -431,20 +432,22 @@ final class SymbolInTypeResolver {
 				auto location = Location.init;
 				auto lt = getBuiltin(TypeKind.Ulong);
 				auto s = new Field(location, 0, lt, "length", null);
-				return pass.visit(s);
+				s.step = Step.Processed;
+				return s;
 			
 			case "ptr" :
 				// FIXME: pass explicit location.
 				auto location = Location.init;
 				auto pt = QualType(new PointerType(t.sliced));
 				auto s = new Field(location, 1, pt, "ptr", null);
-				return pass.visit(s);
+				s.step = Step.Processed;
+				return s;
 			
 			default :
 				return null;
 		}
 	}
-	+/
+	
 	Symbol visit(string name, AliasType t) {
 		return visit(name, t.dalias.type);
 	}

@@ -187,8 +187,10 @@ class StringLiteral : CompileTimeExpression {
 	string value;
 	
 	this(Location location, string value) {
-		// At some point, pass the right type directly.
-		super(location, getBuiltin(TypeKind.None));
+		auto c = getBuiltin(TypeKind.Char);
+		c.qualifier = TypeQualifier.Immutable;
+		
+		super(location, QualType(new SliceType(c)));
 		
 		this.value = value;
 	}
