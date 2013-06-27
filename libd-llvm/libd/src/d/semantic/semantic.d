@@ -51,6 +51,9 @@ import std.range;
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
 
+alias FunctionType = d.ir.type.FunctionType;
+alias CallExpression = d.ir.expression.CallExpression;
+
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	private DeclarationVisitor declarationVisitor;
@@ -231,43 +234,48 @@ final class SemanticPass {
 	}
 	
 	void buildMain(Module[] mods) {
-		/+
 		import d.ast.dfunction;
-		auto candidates = mods.map!(m => m.declarations).joiner.map!((d) {
-			if(auto fun = cast(FunctionDeclaration) d) {
+		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
+			if(auto fun = cast(Function) s) {
 				if(fun.name == "main") {
 					return fun;
 				}
 			}
 			
 			return null;
-		}).filter!(d => !!d).array();
+		}).filter!(s => !!s).array();
+		
+		if(candidates.length > 1) {
+			assert(0, "Several main functions");
+		}
 		
 		if(candidates.length == 1) {
 			auto main = candidates[0];
 			auto location = main.fbody.location;
 			
-			auto call = new CallExpression(location, new SymbolExpression(location, main), []);
+			auto type = cast(FunctionType) main.type.type;
+			auto returnType = cast(BuiltinType) type.returnType.type;
+			auto call = new CallExpression(location, QualType(returnType), new SymbolExpression(location, main), []);
 			
 			Statement[] fbody;
-			if(cast(VoidType) main.returnType) {
+			if(returnType && returnType.kind == TypeKind.Void) {
 				fbody ~= new ExpressionStatement(call);
-				fbody ~= new ReturnStatement(location, makeLiteral(location, 0));
+				fbody ~= new ReturnStatement(location, new IntegerLiteral!true(location, 0, TypeKind.Int));
 			} else {
 				fbody ~= new ReturnStatement(location, call);
 			}
 			
-			auto bootstrap = new FunctionDeclaration(main.location, "_Dmain", "C", new IntegerType(Integer.Int), [], false, new BlockStatement(location, fbody));
+			type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
+			auto bootstrap = new Function(main.location, QualType(type), "_Dmain", [], new BlockStatement(location, fbody));
 			bootstrap.isStatic = true;
-			bootstrap.dscope = new NestedScope(new Scope(null));
+			bootstrap.step = Step.Processed;
+			bootstrap.mangle = "_Dmain";
 			
-			backend.visit(new Module(main.location, "main", [], [visit(bootstrap)]));
+			auto m = new Module(main.location, "main", null);
+			m.members = [bootstrap];
+			
+			backend.visit(m);
 		}
-		
-		if(candidates.length > 1) {
-			assert(0, "Several main functions");
-		}
-		+/
 	}
 }
 
