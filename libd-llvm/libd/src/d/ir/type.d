@@ -152,8 +152,67 @@ class BuiltinType : Type {
 	}
 	
 	override string toString(TypeQualifier qual) const {
-		import std.conv;
-		return to!string(kind);
+		final switch (kind) with(TypeKind) {
+			case None :
+				assert(0, "Not Implemented");
+			
+			case Void :
+				return "void";
+			
+			case Bool :
+				return "bool";
+			
+			case Char :
+				return "char";
+			
+			case Wchar :
+				return "wchar";
+			
+			case Dchar :
+				return "dchar";
+			
+			case Ubyte :
+				return "ubyte";
+			
+			case Ushort :
+				return "ushort";
+			
+			case Uint :
+				return "uint";
+			
+			case Ulong :
+				return "ulong";
+			
+			case Ucent :
+				return "ucent";
+			
+			case Byte :
+				return "byte";
+			
+			case Short :
+				return "short";
+			
+			case Int :
+				return "int";
+			
+			case Long :
+				return "long";
+			
+			case Cent :
+				return "cent";
+			
+			case Float :
+				return "float";
+			
+			case Double :
+				return "double";
+			
+			case Real :
+				return "real";
+			
+			case Null :
+				return "typeof(null)";
+		}
 	}
 }
 
