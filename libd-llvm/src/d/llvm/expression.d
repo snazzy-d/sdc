@@ -428,7 +428,35 @@ final class ExpressionGen {
 	LLVMValueRef visit(GreaterEqualExpression e) {
 		return handleComparaison!(LLVMIntPredicate.SGE, LLVMIntPredicate.UGE)(e);
 	}
+	+/
 	
+	LLVMValueRef visit(CastExpression e) {
+		auto value = visit(e.expr);
+		auto type = pass.visit(e.type);
+		
+		final switch(e.kind) with(CastKind) {
+			case Invalid :
+				assert(0, "Invalid cast");
+			
+			case IntegralToBool :
+				assert(0, "Integral to bool cast not implemented");
+			
+			case Trunc :
+				return LLVMBuildTrunc(builder, value, type, "");
+			
+			case Pad :
+				assert(0, "Pas not implemented");
+			
+			case Bit :
+				return LLVMBuildBitCast(builder, value, type, "");
+			
+			case Qual :
+			case Exact :
+				return value;
+		}
+	}
+	
+	/+
 	LLVMValueRef visit(PadExpression e) {
 		auto type = pass.visit(e.type);
 		
@@ -438,14 +466,6 @@ final class ExpressionGen {
 		} else {
 			return LLVMBuildZExt(builder, visit(e.expression), type, "");
 		}
-	}
-	
-	LLVMValueRef visit(TruncateExpression e) {
-		return LLVMBuildTrunc(builder, visit(e.expression), pass.visit(e.type), "");
-	}
-	
-	LLVMValueRef visit(BitCastExpression e) {
-		return LLVMBuildBitCast(builder, visit(e.expression), pass.visit(e.type), "");
 	}
 	
 	LLVMValueRef visit(CallExpression c) {

@@ -234,6 +234,7 @@ class CastExpression : Expression {
 	this(Location location, CastKind kind, QualType type, Expression expr) {
 		super(location, type);
 		
+		this.kind = kind;
 		this.expr = expr;
 	}
 }
