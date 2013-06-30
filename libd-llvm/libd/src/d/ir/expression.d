@@ -27,6 +27,9 @@ alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 
+alias BinaryOp = d.ast.expression.BinaryOp;
+alias UnaryOp = d.ast.expression.UnaryOp;
+
 /**
  * Any expression that have a value known at compile time.
  */

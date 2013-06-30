@@ -66,6 +66,12 @@ bool isIntegral(TypeKind t) {
 	return (t >= TypeKind.Ubyte) && (t <= TypeKind.Cent);
 }
 
+bool isSigned(TypeKind t) in {
+	assert(isIntegral(t), "isSigned only apply to integral types");
+} body {
+	return signed(t) == t;
+}
+
 TypeKind unsigned(TypeKind t) in {
 	assert(isIntegral(t), "unsigned only apply to integral types");
 } body {
