@@ -138,43 +138,27 @@ final class TypeGen {
 				return LLVMInt1TypeInContext(context);
 			
 			case Char :
-				return LLVMInt8TypeInContext(context);
-			
-			case Wchar :
-				return LLVMInt16TypeInContext(context);
-			
-			case Dchar :
-				return LLVMInt32TypeInContext(context);
-			
 			case Ubyte :
-				return LLVMInt8TypeInContext(context);
-			
-			case Ushort :
-				return LLVMInt16TypeInContext(context);
-			
-			case Uint :
-				return LLVMInt32TypeInContext(context);
-			
-			case Ulong :
-				return LLVMInt64TypeInContext(context);
-			
-			case Ucent :
-				assert(0, "Not Implemented");
-			
 			case Byte :
 				return LLVMInt8TypeInContext(context);
 			
+			case Wchar :
+			case Ushort :
 			case Short :
 				return LLVMInt16TypeInContext(context);
 			
+			case Dchar :
+			case Uint :
 			case Int :
 				return LLVMInt32TypeInContext(context);
 			
+			case Ulong :
 			case Long :
 				return LLVMInt64TypeInContext(context);
 			
+			case Ucent :
 			case Cent :
-				assert(0, "Not Implemented");
+				return LLVMIntTypeInContext(context, 128);
 			
 			case Float :
 				return LLVMFloatTypeInContext(context);

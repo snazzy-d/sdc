@@ -10,9 +10,8 @@ import d.location;
 import std.algorithm;
 
 // TODO: this is complete bullshit. Must be trashed and redone.
-Type getPromotedType(Location location, Type t1, Type t2) {
-	// If an unresolved type come here, the pass wil run again so we just skip.
-	if(!(t1 && t2)) return null;
+QualType getPromotedType(Location location, Type t1, Type t2) {
+	assert(t1 && t2);
 	
 	final class T2Handler {
 		TypeKind t1type;
@@ -21,24 +20,17 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 			this.t1type = t1type;
 		}
 		
-		Type visit(Type t) {
-			return this.dispatch!(function Type(Type t) {
+		QualType visit(Type t) {
+			return this.dispatch!(function QualType(Type t) {
 				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
-		/*
-		Type visit(BooleanType t) {
-			return new IntegerType(max(t1type, Integer.Int));
+		
+		QualType visit(BuiltinType t) {
+			return getBuiltin(promoteBuiltin(t.kind, t1type));
 		}
 		
-		Type visit(IntegerType t) {
-			// Type smaller than int are promoted to int.
-			auto t2type = max(t.type, Integer.Int);
-			
-			return new IntegerType(max(t1type, t2type));
-		}
-		*/
-		Type visit(EnumType t) {
+		QualType visit(EnumType t) {
 			if(auto bt = cast(BuiltinType) t.denum.type) {
 				return visit(bt);
 			}
@@ -48,31 +40,22 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 	}
 	
 	final class T1Handler {
-		Type visit(Type t) {
-			return this.dispatch!(function Type(Type t) {
+		QualType visit(Type t) {
+			return this.dispatch!(function QualType(Type t) {
 				assert(0, typeid(t).toString() ~ " is not supported");
 			})(t);
 		}
-		/*
-		Type visit(BooleanType t) {
-			return (new T2Handler(Integer.Int)).visit(t2);
+		
+		QualType visit(BuiltinType t) {
+			return (new T2Handler(t.kind)).visit(t2);
 		}
 		
-		Type visit(IntegerType t) {
-			return (new T2Handler(t.type)).visit(t2);
-		}
-		
-		Type visit(CharacterType t) {
-			// Should check for RHS. But will fail on implicit cast if LHS isn't the right type for now.
-			return t;
-		}
-		*/
-		Type visit(PointerType t) {
+		QualType visit(PointerType t) {
 			// FIXME: check RHS.
-			return t;
+			return QualType(t);
 		}
 		
-		Type visit(EnumType t) {
+		QualType visit(EnumType t) {
 			if(auto bt = cast(BuiltinType) t.denum.type) {
 				return visit(bt);
 			}
@@ -82,5 +65,63 @@ Type getPromotedType(Location location, Type t1, Type t2) {
 	}
 	
 	return (new T1Handler()).visit(t1);
+}
+
+TypeKind promoteBuiltin(TypeKind t1, TypeKind t2) {
+	if(t1 > t2) swap(t1, t2);
+	
+	assert(t1 <= t2);
+	final switch(t1) with(TypeKind) {
+		case None :
+			assert(0, "Not Implemented");
+		
+		case Void :
+			assert(t2 == Void);
+			
+			return Void;
+		
+		case Bool :
+			return promoteBuiltin(Int, t2);
+		
+		case Char :
+		case Wchar :
+		case Dchar :
+			assert(0, "Not Implemented");
+		
+		case Ubyte :
+		case Ushort :
+			return promoteBuiltin(Int, t2);
+		
+		case Uint :
+			auto ret = promoteBuiltin(Int, t2);
+			return (ret == Int)? Uint : ret;
+		
+		case Ulong :
+			auto ret = promoteBuiltin(Long, t2);
+			return (ret == Long)? Ulong : ret;
+		
+		case Ucent :
+			auto ret = promoteBuiltin(Cent, t2);
+			return (ret == Cent)? Ucent : ret;
+		
+		case Byte :
+		case Short :
+			return promoteBuiltin(Int, t2);
+		
+		case Int :
+		case Long :
+		case Cent :
+			if(t2 <= Cent) {
+				return t2;
+			}
+			
+			assert(0, "Not Implemented");
+		
+		case Float :
+		case Double :
+		case Real :
+		case Null :
+			assert(0, "Not Implemented");
+	}
 }
 
