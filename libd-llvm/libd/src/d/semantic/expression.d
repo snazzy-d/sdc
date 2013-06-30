@@ -83,11 +83,20 @@ final class ExpressionVisitor {
 			
 			case Add :
 			case Sub :
-			case Concat :
+				// TODO: pointer arythmetic here.
+			
 			case Mul :
 			case Div :
 			case Mod :
 			case Pow :
+				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+				
+				lhs = buildImplicitCast(lhs.location, type, lhs);
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				
+				break;
+			
+			case Concat :
 			case AddAssign :
 			case SubAssign :
 			case ConcatAssign :
