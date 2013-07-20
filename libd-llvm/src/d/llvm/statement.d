@@ -29,11 +29,11 @@ final class StatementGen {
 	void visit(SymbolStatement s) {
 		pass.visit(s.symbol);
 	}
-	/+
+	
 	void visit(ExpressionStatement e) {
-		pass.visit(e.expression);
+		pass.visit(cast(Expression) e.expression);
 	}
-	+/
+	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
