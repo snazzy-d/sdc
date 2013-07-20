@@ -503,7 +503,16 @@ final class ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				assert(0, "Pas not implemented");
+				auto bt = cast(BuiltinType) e.expr.type.type;
+				assert(bt);
+				
+				auto k = bt.kind;
+				
+				if(k == TypeKind.Bool || !isSigned(k)) {
+					return LLVMBuildZExt(builder, value, type, "");
+				} else {
+					return LLVMBuildSExt(builder, value, type, "");
+				}
 			
 			case Bit :
 				return LLVMBuildBitCast(builder, value, type, "");
@@ -514,18 +523,6 @@ final class ExpressionGen {
 		}
 	}
 	
-	/+
-	LLVMValueRef visit(PadExpression e) {
-		auto type = pass.visit(e.type);
-		
-		pass.visit(e.expression.type);
-		if(isSigned) {
-			return LLVMBuildSExt(builder, visit(e.expression), type, "");
-		} else {
-			return LLVMBuildZExt(builder, visit(e.expression), type, "");
-		}
-	}
-	+/
 	LLVMValueRef visit(CallExpression c) {
 		auto callee = visit(c.callee);
 		
