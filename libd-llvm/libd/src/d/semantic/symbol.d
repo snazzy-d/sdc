@@ -117,6 +117,7 @@ final class SymbolVisitor {
 			
 			// Register parameters.
 			foreach(p; params) {
+				p.step = Step.Processed;
 				f.dscope.addSymbol(p);
 			}
 			

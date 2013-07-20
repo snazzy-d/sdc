@@ -134,6 +134,8 @@ public:
 				if(s.step >= step) return;
 				
 				// Thread.sleep(dur!"seconds"(1));
+				import std.stdio;
+				writeln("Yield !");
 				Fiber.yield();
 			}
 		}

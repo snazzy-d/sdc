@@ -148,6 +148,7 @@ final class IdentifierVisitor {
 	}
 	
 	private auto getSymbolExpression(Location location, ValueSymbol s) {
+		scheduler.require(s, Step.Signed);
 		return Identifiable(new SymbolExpression(location, s));
 	}
 	

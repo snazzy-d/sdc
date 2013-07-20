@@ -160,7 +160,7 @@ class BuiltinType : Type {
 	override string toString(TypeQualifier qual) const {
 		final switch (kind) with(TypeKind) {
 			case None :
-				assert(0, "Not Implemented");
+				return "__none__";
 			
 			case Void :
 				return "void";
