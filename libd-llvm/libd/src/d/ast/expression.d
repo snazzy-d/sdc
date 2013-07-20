@@ -180,6 +180,7 @@ class AstCastExpression : AstExpression {
 	this(Location location, QualAstType type, AstExpression expr) {
 		super(location);
 		
+		this.type = type;
 		this.expr = expr;
 	}
 	

@@ -123,10 +123,21 @@ final class ExpressionVisitor {
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
+				assert(0, "Not implemented.");
+			
 			case Equal :
 			case NotEqual :
 			case Identical :
 			case NotIdentical :
+				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+				
+				lhs = buildImplicitCast(lhs.location, type, lhs);
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				
+				type = getBuiltin(TypeKind.Bool);
+				
+				break;
+			
 			case In :
 			case NotIn :
 			case LeftShift :
@@ -135,10 +146,20 @@ final class ExpressionVisitor {
 			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
+				assert(0, "Not implemented.");
+			
 			case Greater :
 			case GreaterEqual :
 			case Less :
 			case LessEqual :
+				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+				
+				lhs = buildImplicitCast(lhs.location, type, lhs);
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				
+				type = getBuiltin(TypeKind.Bool);
+				
+				break;
 			
 			case LessGreater :
 			case LessEqualGreater :
@@ -466,7 +487,6 @@ final class ExpressionVisitor {
 		})(e);
 	}
 	+/
-	
 	Expression visit(AstCastExpression e) {
 		auto to = pass.visit(e.type);
 		return buildExplicitCast(e.location, to, visit(e.expr));
