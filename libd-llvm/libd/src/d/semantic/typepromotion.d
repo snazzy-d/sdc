@@ -11,6 +11,8 @@ import std.algorithm;
 
 // TODO: this is complete bullshit. Must be trashed and redone.
 QualType getPromotedType(Location location, Type t1, Type t2) {
+	t1 = t1.canonical;
+	t2 = t2.canonical;
 	assert(t1 && t2);
 	
 	final class T2Handler {
@@ -86,7 +88,7 @@ TypeKind promoteBuiltin(TypeKind t1, TypeKind t2) {
 		case Char :
 		case Wchar :
 		case Dchar :
-			assert(0, "Not Implemented");
+			return promoteBuiltin(Uint, t2);
 		
 		case Ubyte :
 		case Ushort :
