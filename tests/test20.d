@@ -7,10 +7,10 @@
 import test20_import;
 import test20_import2;
 
-int main()
-{
-    int a = importedFunction();
-    int b = anotherImportedFunction();
-    return a + b;
+int main() {
+	int a = importedFunction();
+	int b = anotherImportedFunction();
+	
+	return a + b;
 }
 
