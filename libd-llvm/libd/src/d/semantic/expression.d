@@ -183,14 +183,19 @@ final class ExpressionVisitor {
 		final switch(op) with(UnaryOp) {
 			case AddressOf :
 			case Dereference :
+				assert(0, "Not implemented.");
+			
 			case PreInc :
 			case PreDec :
 			case PostInc :
 			case PostDec :
-				assert(0, "Not implemented.");
+				// FIXME: check that type is integer or pointer.
+				type = expr.type;
+				break;
 			
 			case Plus :
 			case Minus :
+				// FIXME: check that type is integer.
 				type = expr.type;
 				break;
 			
@@ -247,35 +252,6 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
-	Expression visit(AddExpression e) {
-		return handleArithmeticExpression(e);
-	}
-	
-	Expression visit(SubExpression e) {
-		return handleArithmeticExpression(e);
-	}
-	
-	Expression visit(AddAssignExpression e) {
-		return handleArithmeticExpression(e);
-	}
-	
-	Expression visit(SubAssignExpression e) {
-		return handleArithmeticExpression(e);
-	}
-	
-	Expression visit(ConcatExpression e) {
-		e.lhs = visit(e.lhs);
-		
-		if(auto sliceType = cast(SliceType) e.lhs.type) {
-			auto type = e.type = e.lhs.type;
-			e.rhs = buildImplicitCast(e.rhs.location, type, visit(e.rhs));
-			
-			return e;
-		}
-		
-		return pass.raiseCondition!Expression(e.location, "Concat slice only.");
-	}
-	
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -307,110 +283,6 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
-	Expression visit(MulExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(DivExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(ModExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(EqualityExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(NotEqualityExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(GreaterExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(GreaterEqualExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LessExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LessEqualExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LogicalAndExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	Expression visit(LogicalOrExpression e) {
-		return handleBinaryExpression(e);
-	}
-	
-	private Expression handleUnaryExpression(alias fun, UnaryExpression)(UnaryExpression e) {
-		e.expression = visit(e.expression);
-		
-		// Propagate polysemous expressions.
-		if(auto asPolysemous = cast(PolysemousExpression) e.expression) {
-			auto ret = new PolysemousExpression(e.location, asPolysemous.expressions.map!(delegate Expression(Expression e) {
-				return fun(new UnaryExpression(asPolysemous.location, e));
-			}).array());
-			
-			ret.type = new ErrorType(ret.location);
-			
-			return ret;
-		}
-		
-		return fun(e);
-	}
-	
-	private auto handleIncrementExpression(UnaryExpression)(UnaryExpression e) {
-		// DMD don't understand that it has all infos already :(
-		static SemanticPass workaround;
-		auto oldWA = workaround;
-		scope(exit) workaround = oldWA;
-		
-		return handleUnaryExpression!(function Expression(UnaryExpression e) {
-			e.type = e.expression.type;
-		
-			if(auto pointerType = cast(PointerType) e.expression.type) {
-				return e;
-			} else if(auto integerType = cast(IntegerType) e.expression.type) {
-				return e;
-			}
-			
-			return workaround.raiseCondition!Expression(e.location, "Increment and decrement are performed on integers or pointer types.");
-		})(e);
-	}
-	
-	Expression visit(PreIncrementExpression e) {
-		return handleIncrementExpression(e);
-	}
-	
-	Expression visit(PreDecrementExpression e) {
-		return handleIncrementExpression(e);
-	}
-	
-	Expression visit(PostIncrementExpression e) {
-		return handleIncrementExpression(e);
-	}
-	
-	Expression visit(PostDecrementExpression e) {
-		return handleIncrementExpression(e);
-	}
-	
-	Expression visit(UnaryMinusExpression e) {
-		return handleUnaryExpression!((UnaryMinusExpression e) {
-			e.type = e.expression.type;
-			
-			return e;
-		})(e);
-	}
-	
 	Expression visit(UnaryPlusExpression e) {
 		// DMD don't understand that it has all infos already :(
 		static SemanticPass workaround;
@@ -424,21 +296,6 @@ final class ExpressionVisitor {
 			
 			return e.expression;
 		})(e);
-	}
-	
-	Expression visit(NotExpression e) {
-		// XXX: Hack around the fact that delegate cannot be passed as parameter here.
-		auto ue = handleUnaryExpression!((NotExpression e) {
-			e.type = new BooleanType();
-			
-			return e;
-		})(e);
-		
-		if(auto ne = cast(NotExpression) ue) {
-			ne.expression = pass.buildExplicitCast(ne.location, ne.type, ne.expression);
-		}
-		
-		return ue;
 	}
 	
 	Expression visit(AddressOfExpression e) {
@@ -793,12 +650,5 @@ final class ExpressionVisitor {
 			}
 		})();
 	}
-	
-	/*
-	// Will be remove by cast operation.
-	Expression visit(DefaultInitializer di) {
-		return di;
-	}
-	*/
 }
 
