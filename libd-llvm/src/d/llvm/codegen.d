@@ -47,8 +47,6 @@ final class CodeGenPass {
 	
 	LLVMValueRef switchInstr;
 	
-	bool isSigned;
-	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	

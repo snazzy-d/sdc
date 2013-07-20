@@ -4,6 +4,8 @@ import d.llvm.codegen;
 
 import d.ast.statement;
 
+import d.ir.expression;
+
 import util.visitor;
 
 import llvm.c.core;
@@ -27,19 +29,19 @@ final class StatementGen {
 	void visit(SymbolStatement s) {
 		pass.visit(s.symbol);
 	}
-	/+
+	
 	void visit(ExpressionStatement e) {
-		pass.visit(e.expression);
+		pass.visit(cast(Expression) e.expression);
 	}
-	+/
+	
 	void visit(BlockStatement b) {
 		foreach(s; b.statements) {
 			visit(s);
 		}
 	}
-	/+
+	
 	void visit(IfStatement ifs) {
-		auto condition = pass.visit(ifs.condition);
+		auto condition = pass.visit(cast(Expression) ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -82,7 +84,7 @@ final class StatementGen {
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 	}
-	
+	/+
 	private void handleLoop(LoopStatement)(LoopStatement l) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		

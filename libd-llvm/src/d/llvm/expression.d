@@ -60,45 +60,213 @@ final class ExpressionGen {
 		return buildDString(sl.value);
 	}
 	
-	LLVMValueRef visit(BinaryExpression e) {
+	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
+		// XXX: should be useless, but order of evaluation of parameters is bugguy.
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 		
-		assert(0, "Binary expression, sion, sion");
+		return LLVMBuildOp(builder, lhs, rhs, "");
 	}
-	/+
-	LLVMValueRef visit(CommaExpression ce) {
-		visit(ce.lhs);
+	
+	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
+		auto t = cast(BuiltinType) e.type.type;
+		assert(t);
 		
-		return visit(ce.rhs);
+		if(isSigned(t.kind)) {
+			return handleBinaryOp!LLVMSignedBuildOp(e);
+		} else {
+			return handleBinaryOp!LLVMUnsignedBuildOp(e);
+		}
 	}
-	+/
-	LLVMValueRef visit(ThisExpression e) {
-		return LLVMBuildLoad(builder, addressOf(e), "");
-	}
-	/+
-	LLVMValueRef visit(AssignExpression e) {
-		auto ptr = addressOf(e.lhs);
-		auto value = visit(e.rhs);
+	
+	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
+		auto lhsPtr = addressOf(e.lhs);
 		
-		LLVMBuildStore(builder, value, ptr);
+		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
+		auto rhs = visit(e.rhs);
+		
+		auto value = LLVMBuildOp(builder, lhs, rhs, "");
+		
+		LLVMBuildStore(builder, value, lhsPtr);
 		
 		return value;
 	}
-	+/
+	
+	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
+		static LLVMIntPredicate workaround;
+		
+		auto oldWorkaround = workaround;
+		scope(exit) workaround = oldWorkaround;
+		
+		workaround = predicate;
+		
+		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
+			return LLVMBuildICmp(builder, workaround, lhs, rhs, name);
+		})(e);
+	}
+	
+	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
+		auto t = cast(BuiltinType) e.lhs.type.type;
+		assert(t);
+		
+		if(isSigned(t.kind)) {
+			return handleComparaison(e, signedPredicate);
+		} else {
+			return handleComparaison(e, unsignedPredicate);
+		}
+	}
+	
+	LLVMValueRef visit(BinaryExpression e) {
+		final switch(e.op) with(BinaryOp) {
+			case Comma :
+				visit(e.lhs);
+				return visit(e.rhs);
+			
+			case Assign :
+				auto lhs = addressOf(e.lhs);
+				auto rhs = visit(e.rhs);
+				
+				return LLVMBuildStore(builder, rhs, lhs);
+			
+			case Add :
+				return handleBinaryOp!LLVMBuildAdd(e);
+			
+			case Sub :
+				return handleBinaryOp!LLVMBuildSub(e);
+				
+			case Concat :
+				assert(0, "Not implemented");
+			
+			case Mul :
+				return handleBinaryOp!LLVMBuildMul(e);
+			
+			case Div :
+				return handleBinaryOp!(LLVMBuildSDiv, LLVMBuildUDiv)(e);
+			
+			case Mod :
+				return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(e);
+			
+			case Pow :
+			case AddAssign :
+			case SubAssign :
+			case ConcatAssign :
+			case MulAssign :
+			case DivAssign :
+			case ModAssign :
+			case PowAssign :
+			case LogicalOr :
+			case LogicalAnd :
+			case LogicalOrAssign :
+			case LogicalAndAssign :
+			case BitwiseOr :
+			case BitwiseAnd :
+			case BitwiseXor :
+			case BitwiseOrAssign :
+			case BitwiseAndAssign :
+			case BitwiseXorAssign :
+				assert(0, "Not implemented");
+			
+			case Equal :
+				return handleComparaison(e, LLVMIntPredicate.EQ);
+			
+			case NotEqual :
+				return handleComparaison(e, LLVMIntPredicate.NE);
+			
+			case Identical :
+				return handleComparaison(e, LLVMIntPredicate.EQ);
+			
+			case NotIdentical :
+				return handleComparaison(e, LLVMIntPredicate.NE);
+			
+			case In :
+			case NotIn :
+			case LeftShift :
+			case SignedRightShift :
+			case UnsignedRightShift :
+			case LeftShiftAssign :
+			case SignedRightShiftAssign :
+			case UnsignedRightShiftAssign :
+				assert(0, "Not implemented");
+			
+			case Greater :
+				return handleComparaison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
+			
+			case GreaterEqual :
+				return handleComparaison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
+			
+			case Less :
+				return handleComparaison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
+			
+			case LessEqual :
+				return handleComparaison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
+			
+			case LessGreater :
+			case LessEqualGreater :
+			case UnorderedLess :
+			case UnorderedLessEqual :
+			case UnorderedGreater :
+			case UnorderedGreaterEqual :
+			case Unordered :
+			case UnorderedEqual :
+				assert(0, "Not implemented");
+		}
+	}
 	
 	LLVMValueRef visit(UnaryExpression e) {
-		assert(0, "Unary, ry, ry");
+		final switch(e.op) with(UnaryOp) {
+			case AddressOf :
+				return addressOf(e.expr);
+			
+			case Dereference :
+				return LLVMBuildLoad(builder, visit(e.expr), "");
+			
+			case PreInc :
+				auto ptr = addressOf(e.expr);
+				auto value = LLVMBuildAdd(builder, LLVMBuildLoad(builder, ptr, ""), LLVMConstInt(pass.visit(e.type), 1, true), "");
+				
+				LLVMBuildStore(builder, value, ptr);
+				return value;
+			
+			case PreDec :
+				auto ptr = addressOf(e.expr);
+				auto value = LLVMBuildSub(builder, LLVMBuildLoad(builder, ptr, ""), LLVMConstInt(pass.visit(e.type), 1, true), "");
+				
+				LLVMBuildStore(builder, value, ptr);
+				return value;
+			
+			case PostInc :
+				auto ptr = addressOf(e.expr);
+				auto value = LLVMBuildLoad(builder, ptr, "");
+				
+				LLVMBuildStore(builder, LLVMBuildAdd(builder, value, LLVMConstInt(pass.visit(e.type), 1, true), ""), ptr);
+				return value;
+			
+			case PostDec :
+				auto ptr = addressOf(e.expr);
+				auto value = LLVMBuildLoad(builder, ptr, "");
+				
+				LLVMBuildStore(builder, LLVMBuildSub(builder, value, LLVMConstInt(pass.visit(e.type), 1, true), ""), ptr);
+				return value;
+			
+			case Plus :
+				return visit(e.expr);
+			
+			case Minus :
+				return LLVMBuildSub(builder, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expr), "");
+			
+			case Not :
+				return LLVMBuildICmp(builder, LLVMIntPredicate.EQ, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expr), "");
+			
+			case Complement :
+				return LLVMBuildXor(builder, visit(e.expr), LLVMConstInt(pass.visit(e.type), -1, true), "");
+		}
 	}
+	
+	LLVMValueRef visit(ThisExpression e) {
+		return LLVMBuildLoad(builder, addressOf(e), "");
+	}
+	
 	/+
-	LLVMValueRef visit(AddressOfExpression e) {
-		return addressOf(e.expression);
-	}
-	
-	LLVMValueRef visit(DereferenceExpression e) {
-		return LLVMBuildLoad(builder, visit(e.expression), "");
-	}
-	
 	private auto handleIncrement(bool pre, IncrementExpression)(IncrementExpression e, int step) {
 		auto ptr = addressOf(e.expression);
 		
@@ -147,72 +315,6 @@ final class ExpressionGen {
 	LLVMValueRef visit(NotExpression e) {
 		// Is it the right way ?
 		return LLVMBuildICmp(builder, LLVMIntPredicate.EQ, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
-	}
-	
-	private auto handleBinaryOp(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
-		// XXX: should be useless, but order of evaluation of parameters is bugguy.
-		auto lhs = visit(e.lhs);
-		auto rhs = visit(e.rhs);
-		
-		return LLVMBuildOp(builder, lhs, rhs, "");
-	}
-	
-	private auto handleBinaryOpAssign(alias LLVMBuildOp, BinaryExpression)(BinaryExpression e) {
-		auto lhsPtr = addressOf(e.lhs);
-		
-		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
-		auto rhs = visit(e.rhs);
-		
-		auto value = LLVMBuildOp(builder, lhs, rhs, "");
-		
-		LLVMBuildStore(builder, value, lhsPtr);
-		
-		return value;
-	}
-	
-	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp, BinaryExpression)(BinaryExpression e) {
-		pass.visit(e.type);
-		
-		if(isSigned) {
-			return handleBinaryOp!LLVMSignedBuildOp(e);
-		} else {
-			return handleBinaryOp!LLVMUnsignedBuildOp(e);
-		}
-	}
-	
-	LLVMValueRef visit(AddExpression add) {
-		return handleBinaryOp!LLVMBuildAdd(add);
-	}
-	
-	LLVMValueRef visit(SubExpression sub) {
-		return handleBinaryOp!LLVMBuildSub(sub);
-	}
-	
-	LLVMValueRef visit(AddAssignExpression add) {
-		return handleBinaryOpAssign!LLVMBuildAdd(add);
-	}
-	
-	LLVMValueRef visit(SubAssignExpression sub) {
-		return handleBinaryOpAssign!LLVMBuildSub(sub);
-	}
-	
-	LLVMValueRef visit(MulExpression mul) {
-		return handleBinaryOp!LLVMBuildMul(mul);
-	}
-	
-	LLVMValueRef visit(DivExpression div) {
-		return handleBinaryOp!(LLVMBuildSDiv, LLVMBuildUDiv)(div);
-	}
-	
-	LLVMValueRef visit(ModExpression mod) {
-		return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(mod);
-	}
-	
-	LLVMValueRef visit(ConcatExpression e) {
-		auto lhs = visit(e.lhs);
-		auto rhs = visit(e.rhs);
-		
-		assert(0, "Not implemented.");
 	}
 	
 	private auto handleLogicalBinary(string operation)(BinaryExpression!operation e) if(operation == "&&" || operation == "||") {
@@ -385,49 +487,6 @@ final class ExpressionGen {
 		
 		return slice;
 	}
-	
-	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
-		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
-			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
-		})(e);
-	}
-	
-	private auto handleComparaison(LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate, BinaryExpression)(BinaryExpression e) {
-		// TODO: implement type comparaison.
-		// assert(e.lhs.type == e.rhs.type);
-		
-		pass.visit(e.lhs.type);
-		
-		if(isSigned) {
-			return handleComparaison!signedPredicate(e);
-		} else {
-			return handleComparaison!unsignedPredicate(e);
-		}
-	}
-	
-	LLVMValueRef visit(EqualityExpression e) {
-		return handleComparaison!(LLVMIntPredicate.EQ)(e);
-	}
-	
-	LLVMValueRef visit(NotEqualityExpression e) {
-		return handleComparaison!(LLVMIntPredicate.NE)(e);
-	}
-	
-	LLVMValueRef visit(LessExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLT, LLVMIntPredicate.ULT)(e);
-	}
-	
-	LLVMValueRef visit(LessEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLE, LLVMIntPredicate.ULE)(e);
-	}
-	
-	LLVMValueRef visit(GreaterExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGT, LLVMIntPredicate.UGT)(e);
-	}
-	
-	LLVMValueRef visit(GreaterEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGE, LLVMIntPredicate.UGE)(e);
-	}
 	+/
 	
 	LLVMValueRef visit(CastExpression e) {
@@ -445,7 +504,16 @@ final class ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				assert(0, "Pas not implemented");
+				auto bt = cast(BuiltinType) e.expr.type.type;
+				assert(bt);
+				
+				auto k = bt.kind;
+				
+				if(k == TypeKind.Bool || !isSigned(k)) {
+					return LLVMBuildZExt(builder, value, type, "");
+				} else {
+					return LLVMBuildSExt(builder, value, type, "");
+				}
 			
 			case Bit :
 				return LLVMBuildBitCast(builder, value, type, "");
@@ -456,48 +524,36 @@ final class ExpressionGen {
 		}
 	}
 	
-	/+
-	LLVMValueRef visit(PadExpression e) {
-		auto type = pass.visit(e.type);
-		
-		pass.visit(e.expression.type);
-		if(isSigned) {
-			return LLVMBuildSExt(builder, visit(e.expression), type, "");
-		} else {
-			return LLVMBuildZExt(builder, visit(e.expression), type, "");
-		}
-	}
-	+/
 	LLVMValueRef visit(CallExpression c) {
 		auto callee = visit(c.callee);
 		
-		// Parameter[] params;
+		ParamType[] paramTypes;
 		LLVMValueRef[] args;
-		uint offset;
-		/+
-		if(auto type = cast(DelegateType) c.callee.type) {
-			params = type.parameters;
+		uint firstarg;
+		
+		if(auto type = cast(DelegateType) c.callee.type.type) {
+			paramTypes = type.paramTypes;
 			
 			auto fun = LLVMBuildExtractValue(builder, callee, 0, "");
 			
-			offset++;
+			firstarg++;
 			args.length = c.arguments.length + 1;
 			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
 			
 			callee = fun;
-		} else if(auto type = cast(FunctionType) c.callee.type) {
-			params = type.parameters;
+		} else if(auto type = cast(FunctionType) c.callee.type.type) {
+			paramTypes = type.paramTypes;
 			args.length = c.arguments.length;
 		} else {
 			assert(0, "You can only call function and delegates !");
 		}
 		
 		uint i;
-		foreach(param; params) {
-			if(param.isReference) {
-				args[i + offset] = addressOf(c.arguments[i]);
+		foreach(t; paramTypes) {
+			if(t.isRef) {
+				args[i + firstarg] = addressOf(c.arguments[i]);
 			} else {
-				args[i + offset] = visit(c.arguments[i]);
+				args[i + firstarg] = visit(c.arguments[i]);
 			}
 			
 			i++;
@@ -505,10 +561,10 @@ final class ExpressionGen {
 		
 		// Handle variadic functions.
 		while(i < c.arguments.length) {
-			args[i + offset] = visit(c.arguments[i]);
+			args[i + firstarg] = visit(c.arguments[i]);
 			i++;
 		}
-		+/
+		
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	/+
