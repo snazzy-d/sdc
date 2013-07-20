@@ -527,33 +527,33 @@ final class ExpressionGen {
 	LLVMValueRef visit(CallExpression c) {
 		auto callee = visit(c.callee);
 		
-		// Parameter[] params;
+		ParamType[] paramTypes;
 		LLVMValueRef[] args;
-		uint offset;
-		/+
-		if(auto type = cast(DelegateType) c.callee.type) {
-			params = type.parameters;
+		uint firstarg;
+		
+		if(auto type = cast(DelegateType) c.callee.type.type) {
+			paramTypes = type.paramTypes;
 			
 			auto fun = LLVMBuildExtractValue(builder, callee, 0, "");
 			
-			offset++;
+			firstarg++;
 			args.length = c.arguments.length + 1;
 			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
 			
 			callee = fun;
-		} else if(auto type = cast(FunctionType) c.callee.type) {
-			params = type.parameters;
+		} else if(auto type = cast(FunctionType) c.callee.type.type) {
+			paramTypes = type.paramTypes;
 			args.length = c.arguments.length;
 		} else {
 			assert(0, "You can only call function and delegates !");
 		}
 		
 		uint i;
-		foreach(param; params) {
-			if(param.isReference) {
-				args[i + offset] = addressOf(c.arguments[i]);
+		foreach(t; paramTypes) {
+			if(t.isRef) {
+				args[i + firstarg] = addressOf(c.arguments[i]);
 			} else {
-				args[i + offset] = visit(c.arguments[i]);
+				args[i + firstarg] = visit(c.arguments[i]);
 			}
 			
 			i++;
@@ -561,10 +561,10 @@ final class ExpressionGen {
 		
 		// Handle variadic functions.
 		while(i < c.arguments.length) {
-			args[i + offset] = visit(c.arguments[i]);
+			args[i + firstarg] = visit(c.arguments[i]);
 			i++;
 		}
-		+/
+		
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	/+

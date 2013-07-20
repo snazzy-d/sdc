@@ -104,26 +104,27 @@ final class SymbolGen {
 		auto funType = LLVMGetElementType(LLVMTypeOf(fun));
 		
 		LLVMValueRef[] params;
-		LLVMTypeRef[] parameterTypes;
-		params.length = parameterTypes.length = LLVMCountParamTypes(funType);
+		LLVMTypeRef[] paramTypes;
+		params.length = paramTypes.length = LLVMCountParamTypes(funType);
 		LLVMGetParams(fun, params.ptr);
-		LLVMGetParamTypes(funType, parameterTypes.ptr);
+		LLVMGetParamTypes(funType, paramTypes.ptr);
+		
+		auto parameters = f.params;
 		/+
 		// XXX: This is kind of hacky, better can surely be done.
-		auto parameters = f.parameters;
 		if(auto dg = cast(DelegateType) f.type) {
 			parameters = dg.context ~ parameters;
 		}
-		
+		+/
 		foreach(i, p; parameters) {
 			auto value = params[i];
 			
-			if(p.isReference) {
+			if(p.pt.isRef) {
 				LLVMSetValueName(value, p.name.toStringz());
 				
 				valueSymbols[p] = value;
 			} else {
-				auto alloca = LLVMBuildAlloca(builder, parameterTypes[i], p.name.toStringz());
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], p.name.toStringz());
 				
 				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 				
@@ -131,7 +132,7 @@ final class SymbolGen {
 				valueSymbols[p] = alloca;
 			}
 		}
-		+/
+		
 		// Generate function's body.
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		pass.visit(f.fbody);
