@@ -22,8 +22,12 @@ import std.range;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
+alias IndexExpression = d.ir.expression.IndexExpression;
 
 alias FunctionType = d.ir.type.FunctionType;
+alias SliceType = d.ir.type.SliceType;
+alias PointerType = d.ir.type.PointerType;
+alias ArrayType = d.ir.type.ArrayType;
 
 final class ExpressionVisitor {
 	private SemanticPass pass;
@@ -581,26 +585,27 @@ final class ExpressionVisitor {
 		
 		return e;
 	}
-	
-	Expression visit(IndexExpression e) {
-		e.indexed = visit(e.indexed);
+	+/
+	Expression visit(AstIndexExpression e) {
+		auto indexed = visit(e.indexed);
 		
-		auto type = e.indexed.type;
-		if(auto asSlice = cast(SliceType) type) {
-			e.type = asSlice.type;
-		} else if(auto asPointer = cast(PointerType) type) {
-			e.type = asPointer.type;
-		} else if(auto asStaticArray = cast(StaticArrayType) type) {
-			e.type = asStaticArray.type;
+		auto type = indexed.type;
+		auto canon = type.type.canonical;
+		if(auto asSlice = cast(SliceType) canon) {
+			type.type = asSlice.sliced.type;
+		} else if(auto asPointer = cast(PointerType) canon) {
+			type.type = asPointer.pointed.type;
+		} else if(auto asArray = cast(ArrayType) canon) {
+			type.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ typeid({ return e.indexed; }()).toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ type.toString());
 		}
 		
-		e.arguments = e.arguments.map!(e => visit(e)).array();
+		auto arguments = e.arguments.map!(e => visit(e)).array();
 		
-		return e;
+		return new IndexExpression(e.location, type, indexed, arguments);
 	}
-	
+	/+
 	Expression visit(SliceExpression e) {
 		// TODO: check if it is valid.
 		e.indexed = visit(e.indexed);

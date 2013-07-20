@@ -50,11 +50,23 @@ final class TypeVisitor {
 	}
 	+/
 	QualType visit(TypeQualifier q, AstPointerType t) {
-		return QualType(new PointerType(visit(q, t.pointed)), q);
+		auto pointed = visit(q, t.pointed);
+		auto ret = new PointerType(pointed);
+		
+		ret.canonical = (pointed.type is pointed.type.canonical)
+			? ret : new PointerType(QualType(pointed.type.canonical, pointed.qualifier));
+		
+		return QualType(ret, q);
 	}
 	
 	QualType visit(TypeQualifier q, AstSliceType t) {
-		return QualType(new SliceType(visit(q, t.sliced)), q);
+		auto sliced = visit(q, t.sliced);
+		auto ret = new SliceType(sliced);
+		
+		ret.canonical = (sliced.type is sliced.type.canonical)
+			? ret : new SliceType(QualType(sliced.type.canonical, sliced.qualifier));
+		
+		return QualType(ret, q);
 	}
 	/+
 	Type visit(TypeQualifier q, d.ast.type.ArrayType t) {
@@ -67,6 +79,8 @@ final class TypeVisitor {
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
+		// TODO: canonical type.
+		
 		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
 	}
 	
@@ -74,6 +88,8 @@ final class TypeVisitor {
 		auto returnType = visit(t.returnType);
 		auto context = visit(t.context);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		
+		// TODO: canonical type.
 		
 		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), q);
 	}

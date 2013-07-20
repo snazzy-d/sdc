@@ -144,6 +144,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, TypeSymbol s) {
+		scheduler.require(s, Step.Signed);
 		return this.dispatch(location, s);
 	}
 	
@@ -198,7 +199,10 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
-		return Identifiable(new AliasType(a));
+		auto ret = new AliasType(a);
+		ret.canonical = a.type.type.canonical;
+		
+		return Identifiable(ret);
 	}
 	
 	Identifiable visit(Location location, Struct s) {

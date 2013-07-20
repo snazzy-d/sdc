@@ -154,6 +154,8 @@ class BuiltinType : Type {
 	TypeKind kind;
 	
 	this(TypeKind kind) {
+		super(this);
+		
 		this.kind = kind;
 	}
 	
@@ -235,6 +237,8 @@ class ErrorType : Type {
 	string message;
 	
 	this(Location location, string message = "") {
+		super(this);
+		
 		this.location = location;
 		this.message = message;
 	}
