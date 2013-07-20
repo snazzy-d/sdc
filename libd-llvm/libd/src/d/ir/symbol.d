@@ -85,7 +85,7 @@ class Package : Symbol {
 class Variable : ValueSymbol {
 	Expression value;
 	
-	this(Location location, QualType type, string name, Expression value) {
+	this(Location location, QualType type, string name, Expression value = null) {
 		super(location, name, type);
 		
 		this.value = value;

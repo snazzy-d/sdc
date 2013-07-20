@@ -103,8 +103,7 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			auto location = trange.front.location;
 			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
 				static if(is(typeof(parsed) : QualAstType)) {
-					assert(0, "Type isn't supported");
-					// return trange.parseTypedDeclaration(location, parsed);
+					return trange.parseTypedDeclaration(location, parsed);
 				} else static if(is(typeof(parsed) : AstExpression)) {
 					return parsed;
 				} else {

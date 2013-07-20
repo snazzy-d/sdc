@@ -264,10 +264,9 @@ final class DeclarationVisitor {
 		
 		select(d, f);
 	}
-	/+
+	
 	void visit(VariableDeclaration d) {
-		// FIXME: actually fill data.
-		Variable v;
+		Variable v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		if(buildFields && !isStatic) {
 			v = new Field(v, fieldIndex++);
 		}
@@ -277,7 +276,7 @@ final class DeclarationVisitor {
 		
 		currentScope.addSymbol(v);
 		
-		select(v);
+		select(d, v);
 	}
 	
 	void visit(VariablesDeclaration d) {
@@ -285,7 +284,7 @@ final class DeclarationVisitor {
 			visit(var);
 		}
 	}
-	
+	/+
 	void visit(StructDeclaration d) {
 		Struct s;
 		s.linkage = linkage;

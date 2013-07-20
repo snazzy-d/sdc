@@ -12,6 +12,7 @@ import d.ast.identifier;
 import d.ast.type;
 
 import d.ir.dscope;
+import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -48,7 +49,7 @@ final class SymbolVisitor {
 		assert(fd);
 		
 		// XXX: maybe monad ?
-		auto params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
 		// Compute return type.
 		if(typeid({ return fd.returnType.type; }()) !is typeid(AutoType)) {
@@ -175,31 +176,38 @@ final class SymbolVisitor {
 		d.step = Step.Processed;
 		return d;
 	}
-	
-	Variable visit(Variable d) {
-		d.value = pass.visit(d.value);
+	+/
+	Variable visit(Declaration d, Variable v) {
+		auto vd = cast(VariableDeclaration) d;
+		assert(vd);
 		
-		// If the type is infered, then we use the type of the value.
-		// XXX: check for auto type in the declaration.
-		if(/+cast(AutoType) d.type+/ false) {
-			d.type = d.value.type;
+		Expression value;
+		if(typeid({ return vd.type.type; }()) is typeid(AutoType)) {
+			value = pass.visit(vd.value);
+			v.type = value.type;
+		} else {
+			auto type = v.type = pass.visit(vd.type);
+			value = vd.value
+				? pass.visit(vd.value)
+				: defaultInitializerVisitor.visit(v.location, type);
+			value = buildImplicitCast(d.location, type, value);
 		}
 		
-		d.value = buildImplicitCast(d.location, d.type, d.value);
-		
-		if(d.isEnum) {
-			d.value = evaluate(d.value);
+		if(v.isEnum) {
+			value = evaluate(value);
 		}
 		
-		if(d.isStatic) {
-			assert(d.linkage == Linkage.D, "I mangle only D !");
-			d.mangle = "_D" ~ manglePrefix ~ to!string(d.name.length) ~ d.name ~ typeMangler.visit(d.type);
+		v.value = value;
+		
+		if(v.isStatic) {
+			assert(v.linkage == Linkage.D, "I mangle only D !");
+			v.mangle = "_D" ~ manglePrefix ~ to!string(v.name.length) ~ v.name ~ typeMangler.visit(v.type);
 		}
 		
-		d.step = Step.Processed;
-		return d;
+		v.step = Step.Processed;
+		return v;
 	}
-	
+	/+
 	Symbol visit(Field d) {
 		// XXX: hacky ! We force CTFE that way.
 		auto oldIsEnum = d.isEnum;
