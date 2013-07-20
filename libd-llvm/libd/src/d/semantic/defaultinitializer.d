@@ -18,32 +18,50 @@ final class DefaultInitializerVisitor {
 	Expression visit(Location location, QualType t) {
 		auto e = this.dispatch!((t) {
 			return pass.raiseCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
-		})(location, t.type);
+		})(location, t.type.canonical);
 		
 		e.type.qualifier = t.qualifier;
 		return e;
 	}
-	/*
-	Expression visit(Location location, BooleanType t) {
-		return makeLiteral(location, false);
-	}
 	
-	Expression visit(Location location, IntegerType t) {
-		if(t.type % 2) {
-			return new IntegerLiteral!true(location, 0, t);
-		} else {
-			return new IntegerLiteral!false(location, 0, t);
+	Expression visit(Location location, BuiltinType t) {
+		final switch(t.kind) with(TypeKind) {
+			case None :
+			case Void :
+				assert(0, "Not Implemented");
+			
+			case Bool :
+				return new BooleanLiteral(location, false);
+			
+			case Char :
+			case Wchar :
+			case Dchar :
+				return new CharacterLiteral(location, [char.init], t.kind);
+			
+			case Ubyte :
+			case Ushort :
+			case Uint :
+			case Ulong :
+			case Ucent :
+				return new IntegerLiteral!false(location, 0, t.kind);
+			
+			case Byte :
+			case Short :
+			case Int :
+			case Long :
+			case Cent :
+				return new IntegerLiteral!true(location, 0, t.kind);
+			
+			case Float :
+			case Double :
+			case Real :
+				return new FloatLiteral(location, float.nan, t.kind);
+			
+			case Null :
+				return new NullLiteral(location);
 		}
 	}
 	
-	Expression visit(Location location, FloatType t) {
-		return new FloatLiteral(location, float.nan, t);
-	}
-	
-	Expression visit(Location location, CharacterType t) {
-		return new CharacterLiteral(location, [char.init], t);
-	}
-	*/
 	Expression visit(Location location, PointerType t) {
 		return new NullLiteral(location);
 	}
