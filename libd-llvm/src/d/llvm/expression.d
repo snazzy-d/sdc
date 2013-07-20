@@ -92,6 +92,30 @@ final class ExpressionGen {
 		return value;
 	}
 	
+	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
+		static LLVMIntPredicate workaround;
+		
+		auto oldWorkaround = workaround;
+		scope(exit) workaround = oldWorkaround;
+		
+		workaround = predicate;
+		
+		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
+			return LLVMBuildICmp(builder, workaround, lhs, rhs, name);
+		})(e);
+	}
+	
+	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
+		auto t = cast(BuiltinType) e.lhs.type.type;
+		assert(t);
+		
+		if(isSigned(t.kind)) {
+			return handleComparaison(e, signedPredicate);
+		} else {
+			return handleComparaison(e, unsignedPredicate);
+		}
+	}
+	
 	LLVMValueRef visit(BinaryExpression e) {
 		final switch(e.op) with(BinaryOp) {
 			case Comma :
@@ -140,10 +164,20 @@ final class ExpressionGen {
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
+				assert(0, "Not implemented");
+			
 			case Equal :
+				return handleComparaison(e, LLVMIntPredicate.EQ);
+			
 			case NotEqual :
+				return handleComparaison(e, LLVMIntPredicate.NE);
+			
 			case Identical :
+				return handleComparaison(e, LLVMIntPredicate.EQ);
+			
 			case NotIdentical :
+				return handleComparaison(e, LLVMIntPredicate.NE);
+			
 			case In :
 			case NotIn :
 			case LeftShift :
@@ -152,10 +186,20 @@ final class ExpressionGen {
 			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
+				assert(0, "Not implemented");
+			
 			case Greater :
+				return handleComparaison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
+			
 			case GreaterEqual :
+				return handleComparaison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
+			
 			case Less :
+				return handleComparaison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
+			
 			case LessEqual :
+				return handleComparaison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
+			
 			case LessGreater :
 			case LessEqualGreater :
 			case UnorderedLess :
@@ -442,49 +486,6 @@ final class ExpressionGen {
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 		
 		return slice;
-	}
-	
-	private auto handleComparaison(LLVMIntPredicate predicate, BinaryExpression)(BinaryExpression e) {
-		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
-			return LLVMBuildICmp(builder, predicate, lhs, rhs, name);
-		})(e);
-	}
-	
-	private auto handleComparaison(LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate, BinaryExpression)(BinaryExpression e) {
-		// TODO: implement type comparaison.
-		// assert(e.lhs.type == e.rhs.type);
-		
-		pass.visit(e.lhs.type);
-		
-		if(isSigned) {
-			return handleComparaison!signedPredicate(e);
-		} else {
-			return handleComparaison!unsignedPredicate(e);
-		}
-	}
-	
-	LLVMValueRef visit(EqualityExpression e) {
-		return handleComparaison!(LLVMIntPredicate.EQ)(e);
-	}
-	
-	LLVMValueRef visit(NotEqualityExpression e) {
-		return handleComparaison!(LLVMIntPredicate.NE)(e);
-	}
-	
-	LLVMValueRef visit(LessExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLT, LLVMIntPredicate.ULT)(e);
-	}
-	
-	LLVMValueRef visit(LessEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SLE, LLVMIntPredicate.ULE)(e);
-	}
-	
-	LLVMValueRef visit(GreaterExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGT, LLVMIntPredicate.UGT)(e);
-	}
-	
-	LLVMValueRef visit(GreaterEqualExpression e) {
-		return handleComparaison!(LLVMIntPredicate.SGE, LLVMIntPredicate.UGE)(e);
 	}
 	+/
 	
