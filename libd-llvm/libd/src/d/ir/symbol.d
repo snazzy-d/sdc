@@ -236,14 +236,10 @@ class Enum : TypeSymbol {
 class Field : Variable {
 	uint index;
 	
-	this(Location location, uint index, QualType type, string name, Expression value) {
+	this(Location location, uint index, QualType type, string name, Expression value = null) {
 		super(location, type, name, value);
 		
 		this.index = index;
-	}
-	
-	this(Variable var, uint index) {
-		this(var.location, index, var.type, var.name, var.value);
 	}
 }
 
@@ -270,8 +266,8 @@ class Parameter : ValueSymbol {
 class Method : Function {
 	uint index;
 	
-	this(Function fun, uint index) {
-		super(fun.location, fun.type, fun.name, fun.params, fun.fbody);
+	this(Location location, uint index, QualType type, string name, Parameter[] params, BlockStatement fbody) {
+		super(location, type, name, params, fbody);
 		
 		this.index = index;
 	}

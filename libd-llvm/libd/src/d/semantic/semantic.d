@@ -82,7 +82,7 @@ final class SemanticPass {
 		Scope currentScope;
 		
 		ParamType returnType;
-		QualType thisType;
+		ParamType thisType;
 		
 		string manglePrefix;
 		
@@ -93,8 +93,6 @@ final class SemanticPass {
 			bool, "buildMethods", 1,
 			bool, "isStatic", 1,
 			bool, "isOverride", 1,
-			bool, "isThisRef", 1,
-			uint, "", 7
 		));
 		
 		Statement[] flattenedStmts;

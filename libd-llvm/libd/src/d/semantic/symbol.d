@@ -23,8 +23,9 @@ import std.conv;
 // TODO: change ast to allow any statement as function body, then remove that import.
 import d.ast.statement;
 
-alias FunctionType = d.ir.type.FunctionType;
 alias PointerType = d.ir.type.PointerType;
+alias FunctionType = d.ir.type.FunctionType;
+alias DelegateType = d.ir.type.DelegateType;
 
 final class SymbolVisitor {
 	private SemanticPass pass;
@@ -51,6 +52,17 @@ final class SymbolVisitor {
 		// XXX: maybe monad ?
 		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
+		// Prepare statement visitor for return type.
+		auto oldReturnType = returnType;
+		auto oldManglePrefix = manglePrefix;
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			returnType = oldReturnType;
+		}
+		
+		returnType = pass.visit(fd.returnType);
+		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
+		
 		// Compute return type.
 		if(typeid({ return fd.returnType.type; }()) !is typeid(AutoType)) {
 			// TODO: Handle more fine grained types.
@@ -62,34 +74,20 @@ final class SymbolVisitor {
 			*/
 			
 			// If it isn't a static method, add this.
-			if(!f.isStatic) {
-				assert(0);
-				/+
-				assert(thisType, "function must be static or thisType must be defined.");
+			if(f.isStatic) {
+				// XXX: completely hacked XD
+				f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+			} else {
+				assert(thisType.type, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
-				thisParameter.isReference = isThisRef;
+				auto thisParameter = new Parameter(f.location, thisType, "this", null);
 				
-				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
-				+/
+				f.type = QualType(new DelegateType(f.linkage, returnType, thisType, params.map!(p => p.pt).array(), fd.isVariadic));
+				params = thisParameter ~ params;
 			}
-			
-			// XXX: completely hacked XD
-			f.type = QualType(new FunctionType(Linkage.D, pass.visit(fd.returnType), params.map!(p => p.pt).array(), fd.isVariadic));
 			
 			f.step = Step.Signed;
 		}
-		
-		// Prepare statement visitor for return type.
-		auto oldReturnType = returnType;
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) {
-			manglePrefix = oldManglePrefix;
-			returnType = oldReturnType;
-		}
-		
-		returnType = (cast(FunctionType) f.type.type).returnType;
-		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
 		
 		if(f.fbody) {
 			auto oldLinkage = linkage;
@@ -208,17 +206,17 @@ final class SymbolVisitor {
 		v.step = Step.Processed;
 		return v;
 	}
-	/+
-	Symbol visit(Field d) {
+	
+	Symbol visit(Declaration d, Field f) {
 		// XXX: hacky ! We force CTFE that way.
-		auto oldIsEnum = d.isEnum;
-		scope(exit) d.isEnum = oldIsEnum;
+		auto oldIsEnum = f.isEnum;
+		scope(exit) f.isEnum = oldIsEnum;
 		
-		d.isEnum = true;
+		f.isEnum = true;
 		
-		return visit(cast(Variable) d);
+		return visit(d, cast(Variable) f);
 	}
-	+/
+	
 	Symbol visit(Declaration d, TypeAlias a) {
 		auto ad = cast(AliasDeclaration) d;
 		assert(ad);
@@ -229,14 +227,16 @@ final class SymbolVisitor {
 		a.step = Step.Processed;
 		return a;
 	}
-	/+
-	Symbol visit(StructDeclaration d) {
+	
+	Symbol visit(Declaration d, Struct s) {
+		auto sd = cast(StructDeclaration) d;
+		assert(sd);
+		
 		auto oldIsStatic = isStatic;
 		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldIsThisRef = isThisRef;
 		auto oldBuildFields = buildFields;
 		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
@@ -247,7 +247,6 @@ final class SymbolVisitor {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			isThisRef = oldIsThisRef;
 			buildFields = oldBuildFields;
 			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
@@ -255,26 +254,28 @@ final class SymbolVisitor {
 		
 		isStatic = false;
 		isOverride = false;
-		isThisRef = true;
 		buildFields = true;
 		buildMethods = false;
 		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		thisType = new StructType(d);
+		currentScope = s.dscope = new SymbolScope(s, oldScope);
+		
+		auto type = QualType(new StructType(s));
+		thisType = ParamType(type, true);
 		
 		// Update mangle prefix.
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		manglePrefix = manglePrefix ~ to!string(s.name.length) ~ s.name;
 		
-		assert(d.linkage == "D");
-		d.mangle = "S" ~ manglePrefix;
+		assert(s.linkage == Linkage.D);
+		s.mangle = "S" ~ manglePrefix;
 		
 		fieldIndex = 0;
 		
-		auto members = pass.flatten(d.members, d);
+		auto members = pass.flatten(sd.members, s);
+		s.step = Step.Populated;
 		
-		FieldDeclaration[] fields;
+		Field[] fields;
 		auto otherSymbols = members.filter!((m) {
-			if(auto f = cast(FieldDeclaration) m) {
+			if(auto f = cast(Field) m) {
 				fields ~= f;
 				return false;
 			}
@@ -285,26 +286,27 @@ final class SymbolVisitor {
 		scheduler.require(fields);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
-		tuple.type = thisType;
+		tuple.type = type;
 		
-		auto init = new VariableDeclaration(d.location, thisType, "init", tuple);
+		auto init = new Variable(d.location, type, "init", tuple);
 		init.isStatic = true;
-		init.mangle = "_D" ~ manglePrefix ~ to!string(init.name.length) ~ init.name ~ d.mangle;
+		init.mangle = "_D" ~ manglePrefix ~ to!string(init.name.length) ~ init.name ~ s.mangle;
 		
-		d.dscope.addSymbol(init);
+		s.dscope.addSymbol(init);
 		init.step = Step.Processed;
 		
-		d.step = Step.Signed;
+		s.members ~= init;
+		s.members ~= fields;
 		
-		d.members = [init];
-		d.members ~= cast(Declaration[]) fields;
+		s.step = Step.Signed;
+		
 		scheduler.require(otherSymbols);
-		d.members ~= cast(Declaration[]) otherSymbols;
+		s.members ~= otherSymbols;
 		
-		d.step = Step.Processed;
-		return d;
+		s.step = Step.Processed;
+		return s;
 	}
-	+/
+	
 	Symbol visit(Declaration d, Class c) {
 		auto cd = cast(ClassDeclaration) d;
 		assert(cd);
@@ -314,7 +316,6 @@ final class SymbolVisitor {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldIsThisRef = isThisRef;
 		auto oldBuildFields = buildFields;
 		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
@@ -326,7 +327,6 @@ final class SymbolVisitor {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			isThisRef = oldIsThisRef;
 			buildFields = oldBuildFields;
 			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
@@ -335,12 +335,11 @@ final class SymbolVisitor {
 		
 		isStatic = false;
 		isOverride = false;
-		isThisRef = false;
 		buildFields = true;
 		buildMethods = true;
 		
 		currentScope = c.dscope = new SymbolScope(c, oldScope);
-		thisType = QualType(new ClassType(c));
+		thisType = ParamType(new ClassType(c), false);
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
