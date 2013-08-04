@@ -1,5 +1,6 @@
 //T compiles:yes
 //T retval:33
+//T has-passed:yes
 //T dependency:test22_import.d
 
 import test22_import;
