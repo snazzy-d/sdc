@@ -675,11 +675,27 @@ final class AddressOfGen {
 	LLVMValueRef visit(DereferenceExpression e) {
 		return pass.visit(e.expression);
 	}
-	
-	LLVMValueRef visit(BitCastExpression e) {
-		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
-	}
 	+/
+	LLVMValueRef visit(CastExpression e) {
+		auto value = visit(e.expr);
+		auto type = pass.visit(e.type);
+		
+		final switch(e.kind) with(CastKind) {
+			case Invalid :
+			case IntegralToBool :
+			case Trunc :
+			case Pad :
+				assert(0, "Not an lvalue");
+			
+			case Bit :
+				return LLVMBuildBitCast(builder, value, LLVMPointerType(type, 0), "");
+			
+			case Qual :
+			case Exact :
+				return value;
+		}
+	}
+	
 	LLVMValueRef computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
 		indexedType = peelAlias(indexedType);
 		
