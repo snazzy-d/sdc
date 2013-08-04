@@ -80,7 +80,8 @@ final class Caster(bool isExplicit) {
 		
 		location = castLocation;
 		
-		return new CastExpression(location, castFrom(e.type, to), to, e);
+		auto kind = castFrom(e.type, to);
+		return (kind == CastKind.Exact) ? e : new CastExpression(location, kind, to, e);
 	}
 	
 	// FIXME: this shouldn't forward but bu the base.
