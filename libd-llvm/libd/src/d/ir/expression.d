@@ -181,6 +181,10 @@ class CharacterLiteral : CompileTimeExpression {
 	override string toString() const {
 		return "'" ~ value ~ "'";
 	}
+	
+	invariant() {
+		assert(value.length > 0);
+	}
 }
 
 /**

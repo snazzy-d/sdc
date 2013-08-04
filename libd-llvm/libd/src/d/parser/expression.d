@@ -632,7 +632,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 		case CharacterLiteral :
 			assert(trange.front.value.length == 1);
 			
-			auto value = trange.front.value[1 .. 1];
+			auto value = trange.front.value;
 			trange.popFront();
 			
 			return new d.ir.expression.CharacterLiteral(location, value, TypeKind.Char);

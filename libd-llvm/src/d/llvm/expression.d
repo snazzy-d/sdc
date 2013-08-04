@@ -508,7 +508,11 @@ final class ExpressionGen {
 				assert(bt);
 				
 				auto k = bt.kind;
+				if(isChar(k)) {
+					k = integralOfChar(k);
+				}
 				
+				assert(k == TypeKind.Bool || isIntegral(k));
 				if(k == TypeKind.Bool || !isSigned(k)) {
 					return LLVMBuildZExt(builder, value, type, "");
 				} else {
