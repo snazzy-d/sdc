@@ -1,6 +1,7 @@
 // Basic import testing
 //T compiles:yes
 //T retval:42
+//T has-passed:yes
 //T dependency:test20_import.d
 //T dependency:test20_import2.d
 

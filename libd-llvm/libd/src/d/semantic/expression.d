@@ -11,6 +11,7 @@ import d.ast.expression;
 import d.ast.type;
 
 import d.ir.expression;
+import d.ir.symbol;
 import d.ir.type;
 
 import d.exception;
@@ -115,8 +116,8 @@ final class ExpressionVisitor {
 			case LogicalAnd :
 				type = getBuiltin(TypeKind.Bool);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildExplicitCast(lhs.location, type, lhs);
+				rhs = buildExplicitCast(rhs.location, type, rhs);
 				
 				break;
 			
@@ -187,8 +188,23 @@ final class ExpressionVisitor {
 		QualType type;
 		final switch(op) with(UnaryOp) {
 			case AddressOf :
+				// For fucked up reasons, &funcname is a special case.
+				if(auto se = cast(SymbolExpression) expr) {
+					if(cast(Function) se.symbol) {
+						return expr;
+					}
+				}
+				
+				type = QualType(new PointerType(expr.type));
+				break;
+			
 			case Dereference :
-				assert(0, "Not implemented.");
+				if(auto pt = cast(PointerType) expr.type.type) {
+					type = pt.pointed;
+					break;
+				}
+				
+				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString());
 			
 			case PreInc :
 			case PreDec :
@@ -300,33 +316,6 @@ final class ExpressionVisitor {
 			}
 			
 			return e.expression;
-		})(e);
-	}
-	
-	Expression visit(AddressOfExpression e) {
-		// FIXME: explode polysemous expression for all unary expression.
-		if(typeid({ return e.expression; }()) is typeid(AddressOfExpression)) {
-			return pass.raiseCondition!Expression(e.location, "Cannot take the address of an address.");
-		}
-		
-		// DMD don't understand that it has all infos already :(
-		static SemanticPass workaround;
-		auto oldWA = workaround;
-		scope(exit) workaround = oldWA;
-		
-		workaround = pass;
-		
-		return handleUnaryExpression!((AddressOfExpression e) {
-			// For fucked up reasons, &funcname is a special case.
-			if(auto asSym = cast(SymbolExpression) e.expression) {
-				if(auto asDecl = cast(FunctionDeclaration) asSym.symbol) {
-					return e.expression;
-				}
-			}
-			
-			e.type = workaround.visit(new PointerType(e.expression.type));
-			
-			return e;
 		})(e);
 	}
 	

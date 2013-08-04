@@ -244,6 +244,22 @@ class CastExpression : Expression {
 		this.kind = kind;
 		this.expr = expr;
 	}
+	
+	@property
+	override bool isLvalue() const {
+		final switch(kind) with(CastKind) {
+			case Invalid :
+			case IntegralToBool :
+			case Trunc :
+			case Pad :
+				return false;
+			
+			case Bit :
+			case Qual :
+			case Exact :
+				return expr.isLvalue;
+		}
+	}
 }
 
 /**
