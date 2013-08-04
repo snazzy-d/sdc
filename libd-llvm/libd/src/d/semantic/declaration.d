@@ -246,14 +246,16 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(FunctionDeclaration d) {
-		auto f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], d.fbody);
-		if(buildMethods && !isStatic) {
+		Function f;
+		if(isStatic || !buildMethods) {
+			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], d.fbody);
+		} else {
 			uint index = 0;
 			if(!isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(f, index);
+			f = new Method(d.location, index, getBuiltin(TypeKind.None), d.name, [], d.fbody);
 		}
 		
 		f.linkage = linkage;
@@ -266,9 +268,11 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
-		Variable v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
-		if(buildFields && !isStatic) {
-			v = new Field(v, fieldIndex++);
+		Variable v;
+		if(isStatic || !buildFields) {
+			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
+		} else {
+			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
 		}
 		
 		v.linkage = linkage;
@@ -284,18 +288,19 @@ final class DeclarationVisitor {
 			visit(var);
 		}
 	}
-	/+
+	
 	void visit(StructDeclaration d) {
-		Struct s;
+		Struct s = new Struct(d.location, d.name, []);
 		s.linkage = linkage;
 		
 		currentScope.addSymbol(s);
 		
-		select(s);
+		select(d, s);
 	}
-	+/
+	
 	void visit(ClassDeclaration d) {
 		Class c = new Class(d.location, d.name, []);
+		c.linkage = linkage;
 		
 		currentScope.addSymbol(c);
 		

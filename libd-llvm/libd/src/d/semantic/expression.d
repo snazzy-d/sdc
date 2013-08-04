@@ -24,10 +24,11 @@ alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias IndexExpression = d.ir.expression.IndexExpression;
 
-alias FunctionType = d.ir.type.FunctionType;
-alias SliceType = d.ir.type.SliceType;
 alias PointerType = d.ir.type.PointerType;
+alias SliceType = d.ir.type.SliceType;
 alias ArrayType = d.ir.type.ArrayType;
+alias FunctionType = d.ir.type.FunctionType;
+alias DelegateType = d.ir.type.DelegateType;
 
 final class ExpressionVisitor {
 	private SemanticPass pass;
@@ -511,18 +512,27 @@ final class ExpressionVisitor {
 			c.callee = match;
 		}
 		+/
-		auto type = cast(FunctionType) callee.type.type;
-		if(!type) {
-			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, you fool !!!");
+		
+		auto type = callee.type.type;
+		ParamType[] paramTypes;
+		ParamType returnType;
+		if(auto f = cast(FunctionType) type) {
+			paramTypes = f.paramTypes;
+			returnType = f.returnType;
+		} else if(auto d = cast(DelegateType) type) {
+			paramTypes = d.paramTypes;
+			returnType = d.returnType;
+		} else {
+			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, not " ~ callee.type.toString());
 		}
 		
-		assert(args.length >= type.paramTypes.length);
+		assert(args.length >= paramTypes.length);
 		
-		foreach(ref arg, pt; lockstep(args, type.paramTypes)) {
+		foreach(ref arg, pt; lockstep(args, paramTypes)) {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new CallExpression(c.location, QualType(type.returnType.type, type.returnType.qualifier), callee, args);
+		return new CallExpression(c.location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
 	/+
@@ -579,13 +589,13 @@ final class ExpressionVisitor {
 		
 		return e;
 	}
-	
+	+/
 	Expression visit(ThisExpression e) {
-		e.type = thisType;
+		e.type = QualType(thisType.type, thisType.qualifier);
 		
 		return e;
 	}
-	+/
+	
 	Expression visit(AstIndexExpression e) {
 		auto indexed = visit(e.indexed);
 		

@@ -87,20 +87,25 @@ final class LLVMEvaluator : Evaluator {
 		if(auto et = cast(EnumType) type) {
 			type = et.denum.type;
 		}
-		/+
-		if(auto t = cast(IntegerType) type) {
-			auto returned = jitInteger(e);
-			
-			if(t.type % 2) {
-				return new IntegerLiteral!false(e.location, returned, t);
-			} else {
-				return new IntegerLiteral!true(e.location, returned, t);
+		
+		if(auto t = cast(BuiltinType) type) {
+			auto k = t.kind;
+			if(isIntegral(k)) {
+				auto returned = jitInteger(e);
+				
+				if(isSigned(k)) {
+					return new IntegerLiteral!true(e.location, returned, k);
+				} else {
+					return new IntegerLiteral!false(e.location, returned, k);
+				}
+			} else if(k == TypeKind.Bool) {
+				auto returned = jitInteger(e);
+				
+				return new BooleanLiteral(e.location, !!returned);
 			}
-		} else if(cast(BooleanType) type) {
-			auto returned = jitInteger(e);
-			
-			return new BooleanLiteral(e.location, !!returned);
-		} else if(auto t = cast(SliceType) e.type) {
+		}
+		/+
+		if(auto t = cast(SliceType) e.type) {
 			if(cast(CharacterType) t.type) {
 				auto returned = jitString(e);
 				
@@ -108,7 +113,7 @@ final class LLVMEvaluator : Evaluator {
 			}
 		}
 		+/
-		assert(0, "Only able to JIT integers and booleans, " ~ typeid({ return e.type; }()).toString() ~ " given.");
+		assert(0, "Only able to JIT integers and booleans, " ~ type.toString() ~ " given.");
 	}
 	
 	private auto jitInteger(Expression e) {

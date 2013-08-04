@@ -100,14 +100,14 @@ final class TypeMangler {
 	
 	string visit(StructType t) {
 		auto s = t.dstruct;
-		scheduler.require(s);
+		scheduler.require(s, Step.Signed);
 		
 		return s.mangle;
 	}
 	
 	string visit(ClassType t) {
 		auto c = t.dclass;
-		scheduler.require(c);
+		scheduler.require(c, Step.Signed);
 		
 		return c.mangle;
 	}
@@ -150,10 +150,9 @@ final class TypeMangler {
 	string visit(FunctionType t) {
 		return mangleLinkage(t.linkage) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
 	}
-	/+
+	
 	string visit(DelegateType t) {
-		return "D" ~ mangleLinkage(t.linkage) ~ mangleParameter(t.context) ~ t.parameters.map!(p => mangleParam(p)).join() ~ "Z" ~ visit(t.returnType);
+		return "D" ~ mangleLinkage(t.linkage) ~ mangleParam(t.context) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
 	}
-	+/
 }
 

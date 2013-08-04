@@ -126,7 +126,8 @@ final class ExpressionGen {
 				auto lhs = addressOf(e.lhs);
 				auto rhs = visit(e.rhs);
 				
-				return LLVMBuildStore(builder, rhs, lhs);
+				LLVMBuildStore(builder, rhs, lhs);
+				return rhs;
 			
 			case Add :
 				return handleBinaryOp!LLVMBuildAdd(e);
@@ -571,13 +572,12 @@ final class ExpressionGen {
 		
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
-	/+
+	
 	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
 		auto fields = e.values.map!(v => visit(v)).array();
 		
 		// Hack around the difference between struct and named struct in LLVM.
-		auto type = pass.visit(e.type);
-		return LLVMConstNamedStruct(type, fields.ptr, cast(uint) fields.length);
+		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
 	}
 	
 	LLVMValueRef visit(TupleExpression e) {
@@ -587,7 +587,7 @@ final class ExpressionGen {
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		return handleTuple(e);
 	}
-	+/
+	
 	LLVMValueRef visit(VoidInitializer v) {
 		return LLVMGetUndef(pass.visit(v.type));
 	}
@@ -669,7 +669,8 @@ final class AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
-		// FIXME: this is completely work, but will do the trick for now.
+		// FIXME: this won't completely work, but will do the trick for now.
+		// Assume that this is passed by ref, which is true for struct but not for classes.
 		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
 	}
 	/+

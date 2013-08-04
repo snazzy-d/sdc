@@ -273,17 +273,17 @@ final class TypeGen {
 		
 		return LLVMPointerType(LLVMFunctionType(buildParamType(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic), 0);
 	}
-	/+
+	
 	LLVMTypeRef visit(DelegateType t) {
 		LLVMTypeRef[] params;
-		params.length = t.parameters.length + 1;
-		params[0] = buildParameterType(t.context);
+		params.length = t.paramTypes.length + 1;
+		params[0] = buildParamType(t.context);
 		
-		foreach(i, p; t.parameters) {
-			params[i + 1] = buildParameterType(p);
+		foreach(i, pt; t.paramTypes) {
+			params[i + 1] = buildParamType(pt);
 		}
 		
-		auto fun = LLVMFunctionType(visit(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic);
+		auto fun = LLVMFunctionType(buildParamType(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic);
 		
 		LLVMTypeRef[2] types;
 		types[0] = LLVMPointerType(fun, 0);
@@ -291,6 +291,5 @@ final class TypeGen {
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
-	+/
 }
 

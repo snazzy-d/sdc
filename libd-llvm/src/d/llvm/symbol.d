@@ -110,21 +110,22 @@ final class SymbolGen {
 		LLVMGetParamTypes(funType, paramTypes.ptr);
 		
 		auto parameters = f.params;
-		/+
-		// XXX: This is kind of hacky, better can surely be done.
-		if(auto dg = cast(DelegateType) f.type) {
-			parameters = dg.context ~ parameters;
+		
+		uint offset = 0;
+		if(auto dg = cast(DelegateType) f.type.type) {
+			offset = 1;
+			LLVMSetValueName(params[0], "this");
 		}
-		+/
+		
 		foreach(i, p; parameters) {
-			auto value = params[i];
+			auto value = params[i + offset];
 			
 			if(p.pt.isRef) {
 				LLVMSetValueName(value, p.name.toStringz());
 				
 				valueSymbols[p] = value;
 			} else {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], p.name.toStringz());
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[i + offset], p.name.toStringz());
 				
 				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 				

@@ -62,6 +62,10 @@ struct ParamType(T) if(is(T : AstType)) {
 		this.isRef = isRef;
 	}
 	
+	this(T t, bool isRef) {
+		this(QualType!T(t), isRef);
+	}
+	
 	string toString(TypeQualifier qual = TypeQualifier.Mutable) const {
 		alias DMD_BUG_WORKAROUND = const(QualType!T);
 		auto ret = DMD_BUG_WORKAROUND(type, qualifier).toString(qual);
