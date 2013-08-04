@@ -116,6 +116,51 @@ final class ExpressionGen {
 		}
 	}
 	
+	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
+		auto lhs = visit(e.lhs);
+		
+		auto lhsBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(lhsBB);
+		
+		static if(shortCircuitOnTrue) {
+			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "or_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "or_merge");
+			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
+		} else {
+			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "and_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "and_merge");
+			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
+		}
+		
+		// Emit rhs
+		LLVMPositionBuilderAtEnd(builder, rhsBB);
+		
+		auto rhs = visit(e.rhs);
+		
+		// Conclude that block.
+		LLVMBuildBr(builder, mergeBB);
+		
+		// Codegen of then can change the current block, so we put everything in order.
+		rhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
+		LLVMPositionBuilderAtEnd(builder, mergeBB);
+		
+		// Generate phi to get the result.
+		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
+		
+		LLVMValueRef[2] incomingValues;
+		incomingValues[0] = lhs;
+		incomingValues[1] = rhs;
+		
+		LLVMBasicBlockRef[2] incomingBlocks;
+		incomingBlocks[0] = lhsBB;
+		incomingBlocks[1] = rhsBB;
+		
+		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
+		
+		return phiNode;
+	}
+	
 	LLVMValueRef visit(BinaryExpression e) {
 		final switch(e.op) with(BinaryOp) {
 			case Comma :
@@ -155,8 +200,14 @@ final class ExpressionGen {
 			case DivAssign :
 			case ModAssign :
 			case PowAssign :
+				assert(0, "Not implemented");
+			
 			case LogicalOr :
+				return handleLogicalBinary!true(e);
+			
 			case LogicalAnd :
+				return handleLogicalBinary!false(e);
+			
 			case LogicalOrAssign :
 			case LogicalAndAssign :
 			case BitwiseOr :
@@ -316,59 +367,6 @@ final class ExpressionGen {
 	LLVMValueRef visit(NotExpression e) {
 		// Is it the right way ?
 		return LLVMBuildICmp(builder, LLVMIntPredicate.EQ, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
-	}
-	
-	private auto handleLogicalBinary(string operation)(BinaryExpression!operation e) if(operation == "&&" || operation == "||") {
-		auto lhs = visit(e.lhs);
-		
-		auto lhsBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(lhsBB);
-		
-		static if(operation == "&&") {
-			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "and_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "and_merge");
-			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
-		} else {
-			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "or_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "or_merge");
-			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
-		}
-		
-		// Emit then
-		LLVMPositionBuilderAtEnd(builder, rhsBB);
-		
-		auto rhs = visit(e.rhs);
-		
-		// Conclude that block.
-		LLVMBuildBr(builder, mergeBB);
-		
-		// Codegen of then can change the current block, so we put everything in order.
-		rhsBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
-		LLVMPositionBuilderAtEnd(builder, mergeBB);
-		
-		//Generate phi to get the result.
-		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
-		
-		LLVMValueRef[2] incomingValues;
-		incomingValues[0] = lhs;
-		incomingValues[1] = rhs;
-		
-		LLVMBasicBlockRef[2] incomingBlocks;
-		incomingBlocks[0] = lhsBB;
-		incomingBlocks[1] = rhsBB;
-		
-		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
-		
-		return phiNode;
-	}
-	
-	LLVMValueRef visit(LogicalAndExpression e) {
-		return handleLogicalBinary(e);
-	}
-	
-	LLVMValueRef visit(LogicalOrExpression e) {
-		return handleLogicalBinary(e);
 	}
 	+/
 	LLVMValueRef visit(SymbolExpression e) {
