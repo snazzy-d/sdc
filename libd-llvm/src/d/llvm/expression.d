@@ -497,7 +497,7 @@ final class ExpressionGen {
 				assert(0, "Invalid cast");
 			
 			case IntegralToBool :
-				assert(0, "Integral to bool cast not implemented");
+				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value, LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 			
 			case Trunc :
 				return LLVMBuildTrunc(builder, value, type, "");
