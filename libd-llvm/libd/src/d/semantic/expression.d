@@ -115,8 +115,8 @@ final class ExpressionVisitor {
 			case LogicalAnd :
 				type = getBuiltin(TypeKind.Bool);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildExplicitCast(lhs.location, type, lhs);
+				rhs = buildExplicitCast(rhs.location, type, rhs);
 				
 				break;
 			
