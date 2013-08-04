@@ -198,6 +198,22 @@ final class Caster(bool isExplicit) {
 			}
 		}
 		
+		CastKind visit(TypeKind from, PointerType t) {
+			if(from == TypeKind.Null) {
+				return CastKind.Bit;
+			}
+			
+			return CastKind.Invalid;
+		}
+		
+		CastKind visit(TypeKind from, FunctionType t) {
+			if(from == TypeKind.Null) {
+				return CastKind.Bit;
+			}
+			
+			return CastKind.Invalid;
+		}
+		
 		static if(isExplicit) {
 			CastKind visit(TypeKind from, EnumType t) {
 				if(isIntegral(from)) {
