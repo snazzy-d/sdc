@@ -676,8 +676,10 @@ final class AddressOfGen {
 	LLVMValueRef visit(BitCastExpression e) {
 		return LLVMBuildBitCast(builder, visit(e.expression), LLVMPointerType(pass.visit(e.type), 0), "");
 	}
-	
+	+/
 	LLVMValueRef computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
+		indexedType = peelAlias(indexedType);
+		
 		if(typeid(indexedType) is typeid(SliceType)) {
 			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
 			
@@ -709,7 +711,7 @@ final class AddressOfGen {
 			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), ".ptr");
 		} else if(typeid(indexedType) is typeid(PointerType)) {
 			indexed = LLVMBuildLoad(builder, indexed, "");
-		} else if(typeid(indexedType) is typeid(StaticArrayType)) {
+		} else if(typeid(indexedType) is typeid(ArrayType)) {
 			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(context), 0, false), indice];
 			
 			return LLVMBuildInBoundsGEP(builder, indexed, indices.ptr, 2, "");
@@ -726,8 +728,7 @@ final class AddressOfGen {
 		auto indexed = visit(e.indexed);
 		auto indice = pass.visit(e.arguments[0]);
 		
-		return computeIndice(e.location, e.indexed.type, indexed, indice);
+		return computeIndice(e.location, e.indexed.type.type, indexed, indice);
 	}
-	+/
 }
 
