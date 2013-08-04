@@ -199,10 +199,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
-		auto ret = new AliasType(a);
-		ret.canonical = a.type.type.canonical;
-		
-		return Identifiable(ret);
+		return Identifiable(new AliasType(a));
 	}
 	
 	Identifiable visit(Location location, Struct s) {

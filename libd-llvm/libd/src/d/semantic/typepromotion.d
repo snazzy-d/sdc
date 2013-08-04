@@ -11,10 +11,6 @@ import std.algorithm;
 
 // TODO: this is complete bullshit. Must be trashed and redone.
 QualType getPromotedType(Location location, Type t1, Type t2) {
-	t1 = t1.canonical;
-	t2 = t2.canonical;
-	assert(t1 && t2);
-	
 	final class T2Handler {
 		TypeKind t1type;
 		
@@ -38,6 +34,10 @@ QualType getPromotedType(Location location, Type t1, Type t2) {
 			}
 			
 			throw new CompileException(t.denum.location, "Enum are of type int");
+		}
+		
+		QualType visit(AliasType t) {
+			return visit(t.dalias.type.type);
 		}
 	}
 	
@@ -63,6 +63,10 @@ QualType getPromotedType(Location location, Type t1, Type t2) {
 			}
 			
 			throw new CompileException(t.denum.location, "Enum are of type int");
+		}
+		
+		QualType visit(AliasType t) {
+			return visit(t.dalias.type.type);
 		}
 	}
 	

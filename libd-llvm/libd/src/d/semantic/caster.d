@@ -87,13 +87,20 @@ final class Caster(bool isExplicit) {
 	}
 	
 	CastKind castFrom(Type from, Type to) {
+		from = peelAlias(from);
+		to = peelAlias(to);
+		
 		if(from == to) {
 			return CastKind.Exact;
 		}
 		
-		return this.dispatch!((t) {
+		auto ret = this.dispatch!((t) {
 			return CastKind.Invalid;
 		})(to, from);
+		
+		assert(ret != CastKind.Invalid, "Can't cast " ~ from.toString() ~ " to " ~ to.toString());
+		
+		return ret;
 	}
 	
 	class FromBuiltin {

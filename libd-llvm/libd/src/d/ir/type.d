@@ -8,11 +8,7 @@ import d.ast.type;
 import d.ir.symbol;
 
 class Type : AstType {
-	Type canonical;
-	
-	protected this(Type canon = null) {
-		this.canonical = canon;
-	}
+	protected this() {}
 }
 
 alias QualType = d.ast.qualtype.QualType!Type;
@@ -154,8 +150,6 @@ class BuiltinType : Type {
 	TypeKind kind;
 	
 	this(TypeKind kind) {
-		super(this);
-		
 		this.kind = kind;
 	}
 	
@@ -237,8 +231,6 @@ class ErrorType : Type {
 	string message;
 	
 	this(Location location, string message = "") {
-		super(this);
-		
 		this.location = location;
 		this.message = message;
 	}
@@ -276,6 +268,25 @@ class AliasType : Type {
 	override string toString(TypeQualifier) const {
 		return dalias.name;
 	}
+}
+
+QualType peelAlias(QualType t) {
+	if(auto a = cast(AliasType) t.type) {
+		auto ret = peelAlias(a.dalias.type);
+		ret.qualifier = ret.qualifier.add(t.qualifier);
+		
+		return ret;
+	}
+	
+	return t;
+}
+
+Type peelAlias(Type t) {
+	if(auto a = cast(AliasType) t) {
+		return peelAlias(a.dalias.type).type;
+	}
+	
+	return t;
 }
 
 /**

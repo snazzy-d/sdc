@@ -589,21 +589,21 @@ final class ExpressionVisitor {
 	Expression visit(AstIndexExpression e) {
 		auto indexed = visit(e.indexed);
 		
-		auto type = indexed.type;
-		auto canon = type.type.canonical;
-		if(auto asSlice = cast(SliceType) canon) {
-			type.type = asSlice.sliced.type;
-		} else if(auto asPointer = cast(PointerType) canon) {
-			type.type = asPointer.pointed.type;
-		} else if(auto asArray = cast(ArrayType) canon) {
-			type.type = asArray.elementType.type;
+		auto qt = peelAlias(indexed.type);
+		auto type = qt.type;
+		if(auto asSlice = cast(SliceType) type) {
+			qt.type = asSlice.sliced.type;
+		} else if(auto asPointer = cast(PointerType) type) {
+			qt.type = asPointer.pointed.type;
+		} else if(auto asArray = cast(ArrayType) type) {
+			qt.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ type.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ qt.toString());
 		}
 		
 		auto arguments = e.arguments.map!(e => visit(e)).array();
 		
-		return new IndexExpression(e.location, type, indexed, arguments);
+		return new IndexExpression(e.location, qt, indexed, arguments);
 	}
 	/+
 	Expression visit(SliceExpression e) {
