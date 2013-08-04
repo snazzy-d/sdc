@@ -21,6 +21,7 @@ final class Caster(bool isExplicit) {
 	
 	private FromBuiltin fromBuiltin;
 	private FromPointer fromPointer;
+	private FromSlice fromSlice;
 	// private FromFunction fromFunction;
 	// private FromDelegate fromDelegate;
 	
@@ -29,6 +30,7 @@ final class Caster(bool isExplicit) {
 		
 		fromBuiltin		= new FromBuiltin();
 		fromPointer		= new FromPointer();
+		fromSlice		= new FromSlice();
 		// fromFunction	= new FromFunction();
 		// fromDelegate	= new FromDelegate();
 	}
@@ -277,6 +279,69 @@ final class Caster(bool isExplicit) {
 	
 	CastKind visit(Type to, PointerType t) {
 		return fromPointer.visit(t.pointed, to);
+	}
+	
+	class FromSlice {
+		QualType from;
+		
+		CastKind visit(QualType from, Type to) {
+			auto oldFrom = this.from;
+			scope(exit) this.from = oldFrom;
+			
+			this.from = from;
+			
+			return this.dispatch!((t) {
+				return CastKind.Invalid;
+			})(to);
+		}
+		
+		CastKind visit(SliceType t) {
+			// Cast to void* is kind of special.
+			if(auto v = cast(BuiltinType) t.sliced.type) {
+				if(v.kind == TypeKind.Void) {
+					static if(isExplicit) {
+						return CastKind.Bit;
+					} else if(canConvert(from.qualifier, t.sliced.qualifier)) {
+						return CastKind.Bit;
+					} else {
+						return CastKind.Invalid;
+					}
+				}
+			}
+			
+			auto subCast = castFrom(from, t.sliced);
+			
+			switch(subCast) with(CastKind) {
+				case Qual :
+					if(canConvert(from.qualifier, t.sliced.qualifier)) {
+						return Qual;
+					}
+					
+					goto default;
+				
+				case Exact :
+					return Qual;
+				
+				static if(isExplicit) {
+					default :
+						return Bit;
+				} else {
+					case Bit :
+						if(canConvert(from.qualifier, t.sliced.qualifier)) {
+							return subCast;
+						}
+						
+						return Invalid;
+					
+					default :
+						return Invalid;
+				}
+			}
+		}
+	}
+	
+	CastKind visit(Type to, SliceType t) {
+		return fromSlice.visit(t.sliced, to);
 	}
 	
 	CastKind visit(Type to, ClassType t) {
