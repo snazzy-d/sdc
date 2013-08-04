@@ -42,13 +42,14 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, BuiltinType t) {
 		return QualType(t, q);
 	}
-	/+
-	QualType visit(TypeofType t) {
-		auto e = pass.visit(t.expression);
+	
+	QualType visit(TypeQualifier q, TypeofType t) {
+		auto ret = pass.visit(t.expression).type;
+		ret.qualifier = ret.qualifier.add(q);
 		
-		return e.type;
+		return ret;
 	}
-	+/
+	
 	QualType visit(TypeQualifier q, AstPointerType t) {
 		return QualType(new PointerType(visit(q, t.pointed)), q);
 	}

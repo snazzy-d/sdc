@@ -344,6 +344,16 @@ final class Caster(bool isExplicit) {
 		return fromSlice.visit(t.sliced, to);
 	}
 	
+	CastKind visit(Type to, StructType t) {
+		if(auto s = cast(StructType) to) {
+			if(t.dstruct == s.dstruct) {
+				return CastKind.Exact;
+			}
+		}
+		
+		return CastKind.Invalid;
+	}
+	
 	CastKind visit(Type to, ClassType t) {
 		// Automagically promote to base type.
 		auto c = t.dclass;

@@ -133,9 +133,17 @@ public:
 				
 				if(s.step >= step) return;
 				
-				// Thread.sleep(dur!"seconds"(1));
 				import std.stdio;
+				writeln(s.name, " ", step);
+				try {
+					throw new Exception("Require call stack");
+				} catch(Exception e) {
+					writeln(e);
+				}
+				
 				writeln("Yield !");
+				
+				Thread.sleep(dur!"seconds"(1));
 				Fiber.yield();
 			}
 		}
