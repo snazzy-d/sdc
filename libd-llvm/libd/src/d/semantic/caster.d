@@ -22,7 +22,7 @@ final class Caster(bool isExplicit) {
 	private FromBuiltin fromBuiltin;
 	private FromPointer fromPointer;
 	private FromSlice fromSlice;
-	// private FromFunction fromFunction;
+	private FromFunction fromFunction;
 	// private FromDelegate fromDelegate;
 	
 	this(SemanticPass pass) {
@@ -31,7 +31,7 @@ final class Caster(bool isExplicit) {
 		fromBuiltin		= new FromBuiltin();
 		fromPointer		= new FromPointer();
 		fromSlice		= new FromSlice();
-		// fromFunction	= new FromFunction();
+		fromFunction	= new FromFunction();
 		// fromDelegate	= new FromDelegate();
 	}
 	
@@ -84,9 +84,18 @@ final class Caster(bool isExplicit) {
 		return (kind == CastKind.Exact) ? e : new CastExpression(location, kind, to, e);
 	}
 	
-	// FIXME: this shouldn't forward but bu the base.
+	// FIXME: handle qualifiers.
 	CastKind castFrom(QualType from, QualType to) {
 		return castFrom(from.type, to.type);
+	}
+	
+	CastKind castFrom(ParamType from, ParamType to) {
+		if(from.isRef != to.isRef) return CastKind.Invalid;
+		
+		auto k = castFrom(from.type, to.type);
+		if(from.isRef && k < CastKind.Qual) return CastKind.Invalid;
+		
+		return k;
 	}
 	
 	CastKind castFrom(Type from, Type to) {
@@ -388,7 +397,7 @@ final class Caster(bool isExplicit) {
 		// Automagically promote to base type.
 		return castFrom(t.denum.type, to);
 	}
-	/+
+	
 	class FromFunction {
 		FunctionType from;
 		
@@ -406,36 +415,32 @@ final class Caster(bool isExplicit) {
 		CastKind visit(FunctionType t) {
 			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
-			if(from.parameters.length != t.parameters.length) return onFail;
+			if(from.paramTypes.length != t.paramTypes.length) return onFail;
 			if(from.isVariadic != t.isVariadic) return onFail;
 			
 			if(from.linkage != t.linkage) return onFail;
 			
-			auto level = castFrom(from.returnType, t.returnType);
-			if(level < CastKind.Bit) return onFail;
+			auto k = castFrom(from.returnType.type, t.returnType.type);
+			if(k < CastKind.Bit) return onFail;
 			
-			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
-				if(fromp.isReference != top.isReference) return onFail;
+			import std.range;
+			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
+				// Parameters are contrevariant.
+				auto kp = castFrom(top, fromp);
+				if(kp < CastKind.Bit) return onFail;
 				
-				auto levelp = castFrom(fromp.type, top.type);
-				if(levelp < CastKind.Bit) return onFail;
-				if(fromp.isReference && levelp < CastKind.Qual) return onFail;
-				
-				level = min(level, levelp);
+				k = min(k, kp);
 			}
 			
-			if (level < CastKind.Exact) return CastKind.Bit;
-			
-			// FIXME: this must be done at upper level.
-			// return (from.qualifier == t.qualifier) ? CastKind.Exact : CastKind.Qual;
-			return CastKind.Exact;
+			return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
 		}
 		
 		CastKind visit(PointerType t) {
 			static if(isExplicit) {
 				return CastKind.Bit;
-			} else if(auto toType = cast(VoidType) t.type) {
-				return CastKind.Bit;
+			} else if(auto to = cast(BuiltinType) t.pointed.type) {
+				// FIXME: qualifier.
+				return (to.kind == TypeKind.Void) ? CastKind.Bit : CastKind.Invalid;
 			} else {
 				return CastKind.Invalid;
 			}
@@ -445,7 +450,7 @@ final class Caster(bool isExplicit) {
 	CastKind visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
 	}
-	
+	/+
 	class FromDelegate {
 		DelegateType from;
 		
