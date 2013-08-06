@@ -253,7 +253,7 @@ final class TypeDotIdentifierVisitor {
 				assert(0, "init, yeah sure . . .");
 			
 			case "sizeof" :
-				assert(0, "sizeof yourself !");
+				return Identifiable(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Ulong));
 			
 			default :
 				throw new CompileException(location, name ~ " can't be resolved in type");
