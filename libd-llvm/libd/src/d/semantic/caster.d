@@ -81,7 +81,17 @@ final class Caster(bool isExplicit) {
 		location = castLocation;
 		
 		auto kind = castFrom(e.type, to);
-		return (kind == CastKind.Exact) ? e : new CastExpression(location, kind, to, e);
+		
+		switch(kind) with(CastKind) {
+			case Exact :
+				return e;
+			
+			default :
+				return new CastExpression(location, kind, to, e);
+			
+			case Invalid :
+				return pass.raiseCondition!Expression(e.location, "Can't cast " ~ e.type.toString() ~ " to " ~ to.toString());
+		}
 	}
 	
 	// FIXME: handle qualifiers.
@@ -109,8 +119,6 @@ final class Caster(bool isExplicit) {
 		auto ret = this.dispatch!((t) {
 			return CastKind.Invalid;
 		})(to, from);
-		
-		assert(ret != CastKind.Invalid, "Can't cast " ~ from.toString() ~ " to " ~ to.toString());
 		
 		return ret;
 	}
