@@ -199,7 +199,12 @@ final class ExpressionVisitor {
 				break;
 			
 			case Dereference :
-				assert(0, "Not implemented.");
+				if(auto pt = cast(PointerType) expr.type.type) {
+					type = pt.pointed;
+					break;
+				}
+				
+				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString());
 			
 			case PreInc :
 			case PreDec :
