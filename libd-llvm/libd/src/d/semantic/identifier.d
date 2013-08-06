@@ -90,9 +90,7 @@ final class IdentifierVisitor {
 		
 		return resolved.apply!(delegate Identifiable(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				// FIXME: put that way in order to compile, super wrong.
-				assert(0, "type dot identifier is't ready, buddy . . .");
-				// return visit(new TypeDotIdentifier(i.location, i.name, identified));
+				return typeDotIdentifierVisitor.visit(i.location, i.name, identified);
 			} else static if(is(typeof(identified) : Expression)) {
 				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
 			} else {
@@ -110,13 +108,11 @@ final class IdentifierVisitor {
 	Identifiable visit(ExpressionDotIdentifier i) {
 		return expressionDotIdentifierVisitor.visit(i);
 	}
-	/+
+	
 	Identifiable visit(TypeDotIdentifier i) {
-		i.type = pass.visit(i.type);
-		
 		return typeDotIdentifierVisitor.visit(i);
 	}
-	+/
+	
 	Identifiable visit(TemplateInstanciationDotIdentifier i) {
 		return templateDotIdentifierVisitor.resolve(i);
 	}
@@ -232,7 +228,11 @@ final class TypeDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(TypeDotIdentifier i) {
-		if(Symbol s = symbolInTypeResolver.visit(i.name, pass.visit(i.type))) {
+		return visit(i.location, i.name, pass.visit(i.type));
+	}
+	
+	Identifiable visit(Location location, string name, QualType t) {
+		if(Symbol s = symbolInTypeResolver.visit(name, t)) {
 			if(auto os = cast(OverLoadSet) s) {
 				assert(os.set.length == 1);
 				
@@ -240,15 +240,15 @@ final class TypeDotIdentifierVisitor {
 			}
 			
 			if(auto ts = cast(TypeSymbol) s) {
-				return identifierVisitor.visit(i.location, ts);
+				return identifierVisitor.visit(location, ts);
 			} else if(auto vs = cast(ValueSymbol) s) {
-				return Identifiable(new SymbolExpression(i.location, vs));
+				return Identifiable(new SymbolExpression(location, vs));
 			} else {
 				throw new CompileException(s.location, "What the hell is that symbol ???");
 			}
 		}
 		
-		switch(i.name) {
+		switch(name) {
 			case "init" :
 				assert(0, "init, yeah sure . . .");
 			
@@ -256,7 +256,7 @@ final class TypeDotIdentifierVisitor {
 				assert(0, "sizeof yourself !");
 			
 			default :
-				throw new CompileException(i.location, i.name ~ " can't be resolved in type");
+				throw new CompileException(location, name ~ " can't be resolved in type");
 		}
 	}
 }
