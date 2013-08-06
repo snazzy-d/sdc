@@ -281,18 +281,15 @@ final class ExpressionDotIdentifierVisitor {
 			return visit(location, e, s);
 		}
 		
-		throw new CompileException(location, name ~ " can't be resolved in type " ~ e.type.toString());
-		// assert(0, "giving up");
-		/+
-		return typeDotIdentifierVisitor.visit(new TypeDotIdentifier(i.location, i.name, e.type)).apply!((identified) {
+		// Not found in expression, delegating to type.
+		return typeDotIdentifierVisitor.visit(location, name, e.type).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				// expression.sizeof or similar stuffs.
-				return Identifiable(new CommaExpression(i.location, e, identified));
+				return Identifiable(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
 			} else {
-				return Identifiable(identifierVisitor.pass.raiseCondition!Expression(i.location, "Can't resolve identifier."));
+				return Identifiable(identifierVisitor.pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name));
 			}
 		})();
-		+/
 	}
 	
 	Identifiable visit(Location location, Expression e, Symbol s) {
