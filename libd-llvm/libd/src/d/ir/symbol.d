@@ -212,16 +212,9 @@ class Enum : TypeSymbol {
 	
 	Scope dscope;
 	
-	struct Entry {
-		string name;
-		
-		import d.ast.expression;
-		CompileTimeExpression value;
-	}
+	Variable[] entries;
 	
-	Entry[] entries;
-	
-	this(Location location, string name, Type type, Entry[] entries) {
+	this(Location location, string name, Type type, Variable[] entries) {
 		super(location, name);
 		
 		this.type = type;

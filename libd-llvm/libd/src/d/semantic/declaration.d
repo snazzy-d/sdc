@@ -306,20 +306,20 @@ final class DeclarationVisitor {
 		
 		select(d, c);
 	}
-	/+
+	
 	void visit(EnumDeclaration d) {
-		Enum e;
-		e.linkage = linkage;
-		
-		if(e.name) {
+		if(d.name) {
+			auto e = new Enum(d.location, d.name, getBuiltin(TypeKind.None).type, []);
+			e.linkage = linkage;
+			
 			currentScope.addSymbol(e);
 			
-			select(e);
+			select(d, e);
 		} else {
-			auto type = e.type;
-			
 			assert(0, "Anonymous enum is dead and gone");
 			/+
+			auto type = e.type;
+			
 			// XXX: Code duplication with symbols. Refactor.
 			VariableDeclaration previous;
 			foreach(e; d.enumEntries) {
@@ -343,7 +343,6 @@ final class DeclarationVisitor {
 			+/
 		}
 	}
-	+/
 	/+
 	void visit(TemplateDeclaration d) {
 		d.linkage = linkage;

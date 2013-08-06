@@ -23,6 +23,8 @@ import std.conv;
 // TODO: change ast to allow any statement as function body, then remove that import.
 import d.ast.statement;
 
+alias BinaryExpression = d.ir.expression.BinaryExpression;
+
 alias PointerType = d.ir.type.PointerType;
 alias FunctionType = d.ir.type.FunctionType;
 alias DelegateType = d.ir.type.DelegateType;
@@ -451,67 +453,79 @@ final class SymbolVisitor {
 		c.step = Step.Processed;
 		return c;
 	}
-	/+
-	Symbol visit(EnumDeclaration d) {
-		assert(d.name, "anonymous enums must be flattened !");
+	
+	Symbol visit(Declaration d, Enum e) {
+		auto ed = cast(EnumDeclaration) d;
+		assert(ed);
+		
+		assert(e.name, "anonymous enums must be flattened !");
 		
 		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldBuildFields = buildFields;
+		
+		scope(exit) {
+			isStatic = oldIsStatic;
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			buildFields = oldBuildFields;
+		}
 		
 		isStatic = true;
+		buildFields = false;
 		
-		d.type = pass.visit(d.type);
-		auto type = new EnumType(d);
+		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		if(typeid({ return d.type; }()) !is typeid(IntegerType)) {
+		e.type = pass.visit(ed.type).type;
+		auto type = new EnumType(e);
+		
+		TypeKind kind;
+		if(auto t = cast(BuiltinType) e.type) {
+			assert(isIntegral(t.kind), "enum are of integer type.");
+			kind = t.kind;
+		} else {
 			assert(0, "enum are of integer type.");
 		}
 		
-		// Update mangle prefix.
-		auto oldManglePrefix = manglePrefix;
-		scope(exit) manglePrefix = oldManglePrefix;
+		manglePrefix = manglePrefix ~ to!string(e.name.length) ~ e.name;
 		
-		manglePrefix = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		assert(e.linkage == Linkage.D);
+		e.mangle = "E" ~ manglePrefix;
 		
-		assert(d.linkage == "D");
-		d.mangle = "E" ~ manglePrefix;
-		
-		VariableDeclaration previous;
-		foreach(e; d.enumEntries) {
-			e.isEnum = true;
+		Expression previous;
+		Expression one;
+		foreach(vd; ed.entries) {
+			Expression value;
 			
-			if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
+			if(vd.value) {
+				value = pass.visit(vd.value);
+			} else {
 				if(previous) {
-					e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));
+					if(!one) {
+						one = new IntegerLiteral!true(vd.location, 1, kind);
+					}
+					
+					value = new BinaryExpression(vd.location, QualType(e.type), BinaryOp.Add, previous, one);
 				} else {
-					e.value = makeLiteral(e.location, 0);
+					value = new IntegerLiteral!true(vd.location, 0, kind);
 				}
 			}
 			
-			e.value = new CastExpression(e.location, type, e.value);
-			e.type = type;
+			previous = value = evaluate(value);
+			auto v = new Variable(vd.location, QualType(type), vd.name, value);
 			
-			previous = e;
+			v.isStatic = true;
+			v.isEnum = true;
+			
+			e.dscope.addSymbol(v);
+			e.entries ~= v;
 		}
 		
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = d.dscope = new SymbolScope(d, oldScope);
-		
-		foreach(e; d.enumEntries) {
-			d.dscope.addSymbol(e);
-		}
-		
-		d.step = Step.Signed;
-		
-		scheduler.schedule(d.enumEntries, e => visit(e));
-		scheduler.require(d.enumEntries);
-		
-		d.step = Step.Processed;
-		return d;
+		e.step = Step.Processed;
+		return e;
 	}
-	
+	/+
 	Symbol visit(TemplateDeclaration d) {
 		// XXX: compute a proper mangling for templates.
 		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
