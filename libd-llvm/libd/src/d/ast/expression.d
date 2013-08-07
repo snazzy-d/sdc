@@ -338,6 +338,8 @@ class NewExpression : AstExpression {
 	}
 }
 
+alias AstNewExpression = NewExpression;
+
 /**
  * Array literal
  */

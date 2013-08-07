@@ -23,6 +23,7 @@ import std.range;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
+alias NewExpression = d.ir.expression.NewExpression;
 alias IndexExpression = d.ir.expression.IndexExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
@@ -553,15 +554,13 @@ final class ExpressionVisitor {
 		
 		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
 	}
-	
-	Expression visit(NewExpression e) {
+	+/
+	Expression visit(AstNewExpression e) {
 		assert(e.arguments.length == 0, "constructor not supported");
 		
-		e.type = pass.visit(e.type);
-		
-		return e;
+		return new NewExpression(e.location, pass.visit(e.type), []);
 	}
-	+/
+	
 	Expression visit(ThisExpression e) {
 		e.type = QualType(thisType.type, thisType.qualifier);
 		

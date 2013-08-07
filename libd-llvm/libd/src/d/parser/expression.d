@@ -595,7 +595,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 				location.spanTo(trange.front.location);
 			}
 			
-			return new NewExpression(location, type, arguments);
+			return new AstNewExpression(location, type, arguments);
 		
 		case Dot :
 			return new IdentifierExpression(trange.parseDotIdentifier());
