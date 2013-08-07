@@ -200,6 +200,7 @@ final class SymbolVisitor {
 		
 		v.value = value;
 		
+		v.mangle = v.name;
 		if(v.isStatic) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			v.mangle = "_D" ~ manglePrefix ~ to!string(v.name.length) ~ v.name ~ typeMangler.visit(v.type);
