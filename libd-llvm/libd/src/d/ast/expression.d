@@ -418,8 +418,8 @@ class AssertExpression(T) if(is(T: AstExpression)) : T {
 	T condition;
 	T message;
 	
-	this(Location location, T condition, T message) {
-		super(location);
+	this(U...)(Location location, U args, T condition, T message) {
+		super(location, args);
 		
 		this.condition = condition;
 		this.message = message;

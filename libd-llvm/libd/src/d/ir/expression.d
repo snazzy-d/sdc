@@ -26,6 +26,7 @@ alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
+alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 
 alias BinaryOp = d.ast.expression.BinaryOp;
 alias UnaryOp = d.ast.expression.UnaryOp;

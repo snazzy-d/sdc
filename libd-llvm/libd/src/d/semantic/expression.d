@@ -24,6 +24,7 @@ alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias IndexExpression = d.ir.expression.IndexExpression;
+alias AssertExpression = d.ir.expression.AssertExpression;
 
 alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
@@ -318,24 +319,6 @@ final class ExpressionVisitor {
 			return e.expression;
 		})(e);
 	}
-	
-	Expression visit(DereferenceExpression e) {
-		// DMD don't understand that it has all infos already :(
-		static SemanticPass workaround;
-		auto oldWA = workaround;
-		scope(exit) workaround = oldWA;
-		
-		workaround = pass;
-		
-		return handleUnaryExpression!(function Expression(DereferenceExpression e) {
-			if(auto pt = cast(PointerType) e.expression.type) {
-				e.type = pt.type;
-				
-				return e;
-			}
-			
-			return workaround.raiseCondition!Expression(e.location, typeid({ return e.expression.type; }()).toString() ~ " is not a pointer type.");
-		})(e);
 	}
 	+/
 	Expression visit(AstCastExpression e) {
@@ -630,21 +613,21 @@ final class ExpressionVisitor {
 	Expression visit(SizeofExpression e) {
 		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
 	}
-	
-	Expression visit(AssertExpression e) {
+	+/
+	Expression visit(AstAssertExpression e) {
 		auto c = visit(e.condition);
-		e.condition = buildExplicitCast(c.location, new BooleanType(), c);
+		c = buildExplicitCast(c.location, getBuiltin(TypeKind.Bool), c);
 		
+		Expression msg;
 		if(e.message) {
-			// FIXME: cast to string.
-			e.message = evaluate(visit(e.message));
+			msg = visit(e.message);
+			
+			// TODO: ensure that msg is a string.
 		}
 		
-		e.type = new VoidType();
-		
-		return e;
+		return new AssertExpression(e.location, getBuiltin(TypeKind.Void), c, msg);
 	}
-	+/
+	
 	Expression visit(IdentifierExpression e) {
 		return pass.visit(e.identifier).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
