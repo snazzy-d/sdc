@@ -129,6 +129,8 @@ public:
 						
 						pool ~= f;
 					}
+				} else {
+					assert(0, "Forward reference to " ~ s.name);
 				}
 				
 				if(s.step >= step) return;

@@ -493,33 +493,45 @@ final class SymbolVisitor {
 		assert(e.linkage == Linkage.D);
 		e.mangle = "E" ~ manglePrefix;
 		
+		foreach(vd; ed.entries) {
+			auto v = new Variable(vd.location, QualType(type), vd.name);
+			
+			v.isStatic = true;
+			v.isEnum = true;
+			v.step = Step.Processed;
+			
+			e.dscope.addSymbol(v);
+			e.entries ~= v;
+		}
+		
+		e.step = Step.Signed;
+		
 		Expression previous;
 		Expression one;
-		foreach(vd; ed.entries) {
-			Expression value;
+		import std.range;
+		foreach(v, vd; lockstep(e.entries, ed.entries)) {
+			v.step = Step.Signed;
+			scope(exit) v.step = Step.Processed;
 			
 			if(vd.value) {
-				value = pass.visit(vd.value);
+				v.value = pass.visit(vd.value);
 			} else {
 				if(previous) {
 					if(!one) {
 						one = new IntegerLiteral!true(vd.location, 1, kind);
 					}
 					
-					value = new BinaryExpression(vd.location, QualType(e.type), BinaryOp.Add, previous, one);
+					v.value = new BinaryExpression(vd.location, QualType(e.type), BinaryOp.Add, previous, one);
 				} else {
-					value = new IntegerLiteral!true(vd.location, 0, kind);
+					v.value = new IntegerLiteral!true(vd.location, 0, kind);
 				}
 			}
 			
-			previous = value = evaluate(value);
-			auto v = new Variable(vd.location, QualType(type), vd.name, value);
-			
-			v.isStatic = true;
-			v.isEnum = true;
-			
-			e.dscope.addSymbol(v);
-			e.entries ~= v;
+			previous = v.value;
+		}
+		
+		foreach(v; e.entries) {
+			v.value = pass.evaluate(v.value);
 		}
 		
 		e.step = Step.Processed;
