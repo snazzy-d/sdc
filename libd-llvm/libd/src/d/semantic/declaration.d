@@ -306,44 +306,44 @@ final class DeclarationVisitor {
 		
 		select(d, c);
 	}
-	/+
+	
 	void visit(EnumDeclaration d) {
-		Enum e;
-		e.linkage = linkage;
-		
-		if(e.name) {
+		if(d.name) {
+			auto e = new Enum(d.location, d.name, getBuiltin(TypeKind.None).type, []);
+			e.linkage = linkage;
+			
 			currentScope.addSymbol(e);
 			
-			select(e);
+			select(d, e);
 		} else {
-			auto type = e.type;
-			
-			assert(0, "Anonymous enum is dead and gone");
-			/+
 			// XXX: Code duplication with symbols. Refactor.
-			VariableDeclaration previous;
-			foreach(e; d.enumEntries) {
-				e.isEnum = true;
+			import d.ast.expression : AstExpression, AstBinaryExpression;
+			AstExpression previous;
+			AstExpression one;
+			foreach(vd; d.entries) {
+				auto v = new Variable(vd.location, getBuiltin(TypeKind.None), vd.name);
 				
-				if(typeid({ return e.value; }()) is typeid(DefaultInitializer)) {
+				if(!vd.value) {
 					if(previous) {
-						e.value = new AddExpression(e.location, new SymbolExpression(e.location, previous), makeLiteral(e.location, 1));
+						if(!one) {
+							one = new IntegerLiteral!true(vd.location, 1, TypeKind.Int);
+						}
+						
+						vd.value = new AstBinaryExpression(vd.location, BinaryOp.Add, previous, one);
 					} else {
-						e.value = makeLiteral(e.location, 0);
+						vd.value = new IntegerLiteral!true(vd.location, 0, TypeKind.Int);
 					}
 				}
 				
-				e.value = new CastExpression(e.location, type, e.value);
-				e.type = type;
+				v.isEnum = true;
+				previous = vd.value;
 				
-				previous = e;
+				currentScope.addSymbol(v);
 				
-				visit(e);
+				select(vd, v);
 			}
-			+/
 		}
 	}
-	+/
 	/+
 	void visit(TemplateDeclaration d) {
 		d.linkage = linkage;

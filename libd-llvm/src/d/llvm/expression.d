@@ -437,13 +437,13 @@ final class ExpressionGen {
 		
 		return dg;
 	}
-	/+
+	
 	LLVMValueRef visit(NewExpression e) {
 		assert(e.arguments.length == 0);
 		
 		auto type = pass.visit(e.type);
 		LLVMValueRef initValue;
-		if(auto ct = cast(ClassType) e.type) {
+		if(auto ct = cast(ClassType) e.type.type) {
 			type = LLVMGetElementType(type);
 			
 			initValue = getNewInit(ct.dclass);
@@ -461,7 +461,7 @@ final class ExpressionGen {
 		
 		return ptr;
 	}
-	+/
+	
 	LLVMValueRef visit(IndexExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
