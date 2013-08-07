@@ -3,13 +3,23 @@
 // Test virtual dispatch.
 
 int main() {
-	A a = new A();
+	A a = new B();
 	return a.foo();
 }
 
 class A {
+	int a = 15;
+	
 	int foo() {
-		return 42;
+		return a;
+	}
+}
+
+class B : A {
+	int b = 27;
+	
+	override int foo() {
+		return a + b;
 	}
 }
 

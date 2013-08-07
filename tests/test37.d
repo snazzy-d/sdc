@@ -10,16 +10,15 @@ alias test37_import.S SS;
 alias foo bar;
 alias bar bas;
 
-int bazoooooooom()
-{
-    return 2;
+int bazoooooooom() {
+	return 2;
 }
 
-Integer main()
-{
-    SS s;
-    s.i = 30;
-    bas(&s.i);
-    return s;
+Integer main() {
+	SS s;
+	s.i = 30;
+	bas(&s.i);
+	
+	return s;
 }
 

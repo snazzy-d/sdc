@@ -1,26 +1,25 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:17
 
-struct S
-{
-	A foo(bar b)
-	{
+struct S {
+	A foo(bar b) {
 		A a;
 		a.i = b;
+		
 		return a;
 	}
 }
 
-struct A
-{
+struct A {
 	int i;
 }
 
 alias int bar;
 
-int main()
-{
+int main() {
 	S s;
+	
 	return s.foo(16).i + 1;
 }
 
