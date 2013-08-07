@@ -1,7 +1,8 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:1
 
-enum  {
+enum {
 	Bar,
 	Baz,
 }

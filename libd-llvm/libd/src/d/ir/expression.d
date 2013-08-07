@@ -26,6 +26,7 @@ alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
+alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 
 alias BinaryOp = d.ast.expression.BinaryOp;
 alias UnaryOp = d.ast.expression.UnaryOp;
@@ -263,6 +264,24 @@ class CastExpression : Expression {
 }
 
 /**
+ * new
+ */
+class NewExpression : Expression {
+	Expression[] arguments;
+	
+	this(Location location, QualType type, Expression[] arguments) {
+		super(location, type);
+		
+		this.arguments = arguments;
+	}
+	
+	override string toString() const {
+		import std.algorithm, std.range;
+		return "new " ~ type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+	}
+}
+
+/**
  * Symbol expression.
  * IdentifierExpression that as been resolved.
  */
@@ -337,20 +356,6 @@ class MethodExpression : Expression {
 		
 		this.expr = expr;
 		this.method = method;
-	}
-}
-
-// XXX: Necessary ?
-/**
- * type.sizeof
- */
-class SizeofExpression : Expression {
-	QualType argument;
-	
-	this(Location location, QualType argument) {
-		super(location, getBuiltin(TypeKind.Ulong));
-		
-		this.argument = argument;
 	}
 }
 
