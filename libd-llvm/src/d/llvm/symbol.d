@@ -217,9 +217,7 @@ final class SymbolGen {
 		
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
-				/+
 				genFunctionBody(m);
-				+/
 			}
 		}
 		

@@ -167,17 +167,10 @@ final class SymbolVisitor {
 		return f;
 	}
 	
-	Symbol visit(Method d) {
-		return visit(cast(Function) d);
+	Symbol visit(Declaration d, Method m) {
+		return visit(d, cast(Function) m);
 	}
-	/+
-	Parameter visit(Parameter d) {
-		d.type = pass.visit(d.type);
-		
-		d.step = Step.Processed;
-		return d;
-	}
-	+/
+	
 	Variable visit(Declaration d, Variable v) {
 		auto vd = cast(VariableDeclaration) d;
 		assert(vd);
@@ -354,6 +347,9 @@ final class SymbolVisitor {
 		
 		methodIndex = 0;
 		if(c.mangle == "C6object6Object") {
+			// Object is its own base class.
+			c.base = c;
+			
 			auto vtblType = QualType(new PointerType(getBuiltin(TypeKind.Void)));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			
@@ -365,9 +361,8 @@ final class SymbolVisitor {
 			
 			fieldIndex = 1;
 		} else {
-			Class baseClass;
-			foreach(base; cd.bases) {
-				auto type = pass.visit(base).apply!(function ClassType(identified) {
+			foreach(i; cd.bases) {
+				auto type = pass.visit(i).apply!(function ClassType(identified) {
 					static if(is(typeof(identified) : QualType)) {
 						return cast(ClassType) identified.type;
 					} else {
@@ -377,11 +372,11 @@ final class SymbolVisitor {
 				
 				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
-				baseClass = type.dclass;
+				c.base = type.dclass;
 				break;
 			}
 			
-			if(!baseClass) {
+			if(!c.base) {
 				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
 					static if(is(typeof(parsed) : QualType)) {
 						return cast(ClassType) parsed.type;
@@ -391,11 +386,11 @@ final class SymbolVisitor {
 				})();
 				
 				assert(baseType, "Can't find object.Object");
-				baseClass = baseType.dclass;
+				c.base = baseType.dclass;
 			}
 			
-			scheduler.require(baseClass);
-			foreach(m; baseClass.members) {
+			scheduler.require(c.base);
+			foreach(m; c.base.members) {
 				if(auto field = cast(Field) m) {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
