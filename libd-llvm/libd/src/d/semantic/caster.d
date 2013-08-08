@@ -6,6 +6,7 @@ import d.semantic.typepromotion;
 import d.ast.base;
 
 import d.ir.expression;
+import d.ir.symbol;
 import d.ir.type;
 
 import d.exception;
@@ -388,14 +389,28 @@ final class Caster(bool isExplicit) {
 		return CastKind.Invalid;
 	}
 	
-	CastKind visit(Type to, ClassType t) {
-		// Automagically promote to base type.
-		auto c = t.dclass;
-		scheduler.require(c);
+	private auto castClass(Class from, Class to) {
+		if(from is to) {
+			return CastKind.Exact;
+		}
 		
 		// Stop at object.
-		if(c.base != c.base.base) {
-			return min(castFrom(new ClassType(c.base), to), CastKind.Bit);
+		while(from !is from.base) {
+			// Automagically promote to base type.
+			from = from.base;
+			
+			if(from is to) {
+				return CastKind.Bit;
+			}
+		}
+		
+		return CastKind.Invalid;
+	}
+	
+	CastKind visit(Type to, ClassType t) {
+		if(auto ct = cast(ClassType) to) {
+			scheduler.require(t.dclass, Step.Signed);
+			return castClass(t.dclass, ct.dclass);
 		}
 		
 		return CastKind.Invalid;
