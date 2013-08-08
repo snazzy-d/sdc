@@ -140,7 +140,6 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, TypeSymbol s) {
-		scheduler.require(s, Step.Signed);
 		return this.dispatch(location, s);
 	}
 	
@@ -149,20 +148,21 @@ final class IdentifierVisitor {
 		return Identifiable(new SymbolExpression(location, s));
 	}
 	
-	Identifiable visit(Location location, Function d) {
-		return getSymbolExpression(location, d);
+	Identifiable visit(Location location, Function f) {
+		return getSymbolExpression(location, f);
 	}
 	
-	Identifiable visit(Location location, Parameter d) {
-		return getSymbolExpression(location, d);
+	Identifiable visit(Location location, Parameter p) {
+		return getSymbolExpression(location, p);
 	}
 	
-	Identifiable visit(Location location, Variable d) {
-		return getSymbolExpression(location, d);
+	Identifiable visit(Location location, Variable v) {
+		return getSymbolExpression(location, v);
 	}
 	
-	Identifiable visit(Location location, Field d) {
-		return Identifiable(new FieldExpression(location, new ThisExpression(location), d));
+	Identifiable visit(Location location, Field f) {
+		scheduler.require(f, Step.Signed);
+		return Identifiable(new FieldExpression(location, new ThisExpression(location), f));
 	}
 	
 	Identifiable visit(Location location, OverLoadSet s) {
@@ -242,6 +242,7 @@ final class TypeDotIdentifierVisitor {
 			if(auto ts = cast(TypeSymbol) s) {
 				return identifierVisitor.visit(location, ts);
 			} else if(auto vs = cast(ValueSymbol) s) {
+				scheduler.require(s, Step.Signed);
 				return Identifiable(new SymbolExpression(location, vs));
 			} else {
 				throw new CompileException(s.location, "What the hell is that symbol ???");
@@ -323,14 +324,17 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression e, Field f) {
+		scheduler.require(f, Step.Signed);
 		return Identifiable(new FieldExpression(location, e, f));
 	}
 	
 	Identifiable visit(Location location, Expression e, Function f) {
+		scheduler.require(f, Step.Signed);
 		return Identifiable(new MethodExpression(location, e, f));
 	}
 	
 	Identifiable visit(Location location, Expression e, Method m) {
+		scheduler.require(m, Step.Signed);
 		return Identifiable(new MethodExpression(location, e, m));
 	}
 	
