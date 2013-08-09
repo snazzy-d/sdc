@@ -195,6 +195,7 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
+		scheduler.require(a);
 		return Identifiable(new AliasType(a));
 	}
 	
@@ -339,6 +340,7 @@ final class ExpressionDotIdentifierVisitor {
 	}
 	
 	Identifiable visit(Location location, Expression _, TypeAlias a) {
+		scheduler.require(a);
 		return Identifiable(new AliasType(a));
 	}
 	
