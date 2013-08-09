@@ -4,7 +4,7 @@
 int bar(int n) {
 	switch(n) {
 		case 0:
-			return 0; // Bad case !
+			return -9; // Bad case !
 		
 		case 25:
 			return 75;
@@ -39,6 +39,6 @@ int foo(int n) {
 }
 
 int main() {
-	return foo(0) + 42;
+	return foo(0) + foo(42) - foo(2);
 }
 

@@ -6,6 +6,7 @@ import d.semantic.typepromotion;
 import d.ast.base;
 
 import d.ir.expression;
+import d.ir.symbol;
 import d.ir.type;
 
 import d.exception;
@@ -23,7 +24,7 @@ final class Caster(bool isExplicit) {
 	private FromPointer fromPointer;
 	private FromSlice fromSlice;
 	private FromFunction fromFunction;
-	// private FromDelegate fromDelegate;
+	private FromDelegate fromDelegate;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
@@ -32,7 +33,7 @@ final class Caster(bool isExplicit) {
 		fromPointer		= new FromPointer();
 		fromSlice		= new FromSlice();
 		fromFunction	= new FromFunction();
-		// fromDelegate	= new FromDelegate();
+		fromDelegate	= new FromDelegate();
 	}
 	
 	// XXX: out contract disabled because it create memory corruption with dmd.
@@ -380,7 +381,7 @@ final class Caster(bool isExplicit) {
 	
 	CastKind visit(Type to, StructType t) {
 		if(auto s = cast(StructType) to) {
-			if(t.dstruct == s.dstruct) {
+			if(t.dstruct is s.dstruct) {
 				return CastKind.Exact;
 			}
 		}
@@ -388,14 +389,28 @@ final class Caster(bool isExplicit) {
 		return CastKind.Invalid;
 	}
 	
-	CastKind visit(Type to, ClassType t) {
-		// Automagically promote to base type.
-		auto c = t.dclass;
-		scheduler.require(c);
+	private auto castClass(Class from, Class to) {
+		if(from is to) {
+			return CastKind.Exact;
+		}
 		
 		// Stop at object.
-		if(c.base != c.base.base) {
-			return min(castFrom(new ClassType(c.base), to), CastKind.Bit);
+		while(from !is from.base) {
+			// Automagically promote to base type.
+			from = from.base;
+			
+			if(from is to) {
+				return CastKind.Bit;
+			}
+		}
+		
+		return CastKind.Invalid;
+	}
+	
+	CastKind visit(Type to, ClassType t) {
+		if(auto ct = cast(ClassType) to) {
+			scheduler.require(t.dclass, Step.Signed);
+			return castClass(t.dclass, ct.dclass);
 		}
 		
 		return CastKind.Invalid;
@@ -458,7 +473,7 @@ final class Caster(bool isExplicit) {
 	CastKind visit(Type to, FunctionType t) {
 		return fromFunction.visit(t, to);
 	}
-	/+
+	
 	class FromDelegate {
 		DelegateType from;
 		
@@ -476,35 +491,29 @@ final class Caster(bool isExplicit) {
 		CastKind visit(DelegateType t) {
 			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
-			if(from.parameters.length != t.parameters.length) return onFail;
+			if(from.paramTypes.length != t.paramTypes.length) return onFail;
 			if(from.isVariadic != t.isVariadic) return onFail;
 			
 			if(from.linkage != t.linkage) return onFail;
 			
-			auto level = castFrom(from.returnType, t.returnType);
-			if(level < CastKind.Bit) return onFail;
+			auto k = castFrom(from.returnType.type, t.returnType.type);
+			if(k < CastKind.Bit) return onFail;
 			
-			foreach(fromp, top; lockstep(from.parameters, t.parameters)) {
-				if(fromp.isReference != top.isReference) return onFail;
+			import std.range;
+			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
+				// Parameters are contrevariant.
+				auto kp = castFrom(top, fromp);
+				if(kp < CastKind.Bit) return onFail;
 				
-				auto levelp = castFrom(fromp.type, top.type);
-				if(levelp < CastKind.Bit) return onFail;
-				if(fromp.isReference && levelp < CastKind.Qual) return onFail;
-				
-				level = min(level, levelp);
+				k = min(k, kp);
 			}
 			
-			if (level < CastKind.Exact) return CastKind.Bit;
-			
-			// FIXME: this must be done at upper level.
-			// return (from.qualifier == t.qualifier) ? CastKind.Exact : CastKind.Qual;
-			return CastKind.Exact;
+			return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
 		}
 	}
 	
 	CastKind visit(Type to, DelegateType t) {
 		return fromDelegate.visit(t, to);
 	}
-	+/
 }
 

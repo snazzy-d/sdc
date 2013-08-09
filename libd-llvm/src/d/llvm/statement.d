@@ -179,9 +179,9 @@ final class StatementGen {
 		assert(continueBB);
 		LLVMBuildBr(builder, continueBB);
 	}
-	/+
+	
 	void visit(SwitchStatement s) {
-		auto expression = pass.visit(s.expression);
+		auto expression = pass.visit(cast(Expression) s.expression);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -244,12 +244,12 @@ final class StatementGen {
 		}
 		
 		foreach(e; s.cases) {
-			LLVMAddCase(switchInstr, pass.visit(e), caseBB);
+			LLVMAddCase(switchInstr, pass.visit(cast(Expression) e), caseBB);
 		}
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);
 	}
-	+/
+	
 	private auto getLabel(string label) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
