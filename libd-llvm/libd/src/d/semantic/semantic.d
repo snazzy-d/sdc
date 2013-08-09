@@ -169,6 +169,10 @@ final class SemanticPass {
 		return symbolVisitor.visit(d, s);
 	}
 	
+	Identifiable visit(Identifier i) {
+		return identifierVisitor.visit(i);
+	}
+	
 	Expression visit(AstExpression e) {
 		return expressionVisitor.visit(e);
 	}
@@ -183,10 +187,6 @@ final class SemanticPass {
 	
 	ParamType visit(ParamAstType t) {
 		return typeVisitor.visit(t);
-	}
-	
-	Identifiable visit(Identifier i) {
-		return identifierVisitor.visit(i);
 	}
 	
 	Expression buildImplicitCast(Location location, QualType to, Expression value) {

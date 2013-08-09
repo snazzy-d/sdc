@@ -381,7 +381,7 @@ final class Caster(bool isExplicit) {
 	
 	CastKind visit(Type to, StructType t) {
 		if(auto s = cast(StructType) to) {
-			if(t.dstruct == s.dstruct) {
+			if(t.dstruct is s.dstruct) {
 				return CastKind.Exact;
 			}
 		}
