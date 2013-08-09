@@ -6,7 +6,7 @@ struct Foo {
 	int i;
 }
 
-struct Bar 
+struct Bar {
 	static Qux baz() {
 		Foo f;
 		f.i = 42;

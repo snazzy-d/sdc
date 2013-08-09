@@ -1,7 +1,4 @@
-struct Foo
-{
-    void bar()
-    {
-    }
+struct Foo {
+	void bar() {}
 }
 
