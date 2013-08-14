@@ -589,7 +589,7 @@ final class ExpressionGen {
 	LLVMValueRef visit(VoidInitializer v) {
 		return LLVMGetUndef(pass.visit(v.type));
 	}
-	/+
+	
 	LLVMValueRef visit(AssertExpression e) {
 		auto test = visit(e.condition);
 		
@@ -627,7 +627,6 @@ final class ExpressionGen {
 		// XXX: should figure out what is the right value to return.
 		return null;
 	}
-	+/
 }
 
 final class AddressOfGen {
