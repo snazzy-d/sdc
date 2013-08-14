@@ -106,14 +106,17 @@ final class ExpressionGen {
 	}
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
-		auto t = cast(BuiltinType) e.lhs.type.type;
-		assert(t);
-		
-		if(isSigned(t.kind)) {
-			return handleComparaison(e, signedPredicate);
-		} else {
+		if (auto t = cast(BuiltinType) e.lhs.type.type) {
+			if(isSigned(t.kind)) {
+				return handleComparaison(e, signedPredicate);
+			} else {
+				return handleComparaison(e, unsignedPredicate);
+			}
+		} else if(cast(PointerType) e.lhs.type.type) {
 			return handleComparaison(e, unsignedPredicate);
 		}
+		
+		assert(0, "Don't know how to compare " ~ e.lhs.type.toString() ~ " with " ~ e.rhs.type.toString());
 	}
 	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
