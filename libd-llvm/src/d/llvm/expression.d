@@ -69,7 +69,7 @@ final class ExpressionGen {
 	}
 	
 	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
-		auto t = cast(BuiltinType) e.type.type;
+		auto t = cast(BuiltinType) peelAlias(e.type).type;
 		assert(t);
 		
 		if(isSigned(t.kind)) {
@@ -106,13 +106,14 @@ final class ExpressionGen {
 	}
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
-		if (auto t = cast(BuiltinType) e.lhs.type.type) {
+		auto type = peelAlias(e.lhs.type).type;
+		if (auto t = cast(BuiltinType) type) {
 			if(isSigned(t.kind)) {
 				return handleComparaison(e, signedPredicate);
 			} else {
 				return handleComparaison(e, unsignedPredicate);
 			}
-		} else if(cast(PointerType) e.lhs.type.type) {
+		} else if(cast(PointerType) type) {
 			return handleComparaison(e, unsignedPredicate);
 		}
 		
@@ -389,7 +390,7 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(MethodExpression e) {
-		auto type = cast(DelegateType) e.type.type;
+		auto type = cast(DelegateType) peelAlias(e.type).type;
 		assert(type);
 		
 		LLVMValueRef thisValue;
@@ -401,7 +402,7 @@ final class ExpressionGen {
 		
 		LLVMValueRef dg;
 		if(auto m = cast(Method) e.method) {
-			auto cd = (cast(ClassType) e.expr.type.type).dclass;
+			auto cd = (cast(ClassType) peelAlias(e.expr.type).type).dclass;
 			assert(cd, "Virtual dispatch can only be done on classes.");
 			
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisValue, 0, ""), "vtbl");
@@ -423,7 +424,7 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(DelegateExpression e) {
-		auto type = cast(DelegateType) e.type.type;
+		auto type = cast(DelegateType) peelAlias(e.type).type;
 		assert(type);
 		
 		LLVMValueRef context;
@@ -446,7 +447,7 @@ final class ExpressionGen {
 		
 		auto type = pass.visit(e.type);
 		LLVMValueRef initValue;
-		if(auto ct = cast(ClassType) e.type.type) {
+		if(auto ct = cast(ClassType) peelAlias(e.type).type) {
 			type = LLVMGetElementType(type);
 			
 			initValue = getNewInit(ct.dclass);
@@ -506,7 +507,7 @@ final class ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				auto bt = cast(BuiltinType) e.expr.type.type;
+				auto bt = cast(BuiltinType) peelAlias(e.expr.type).type;
 				assert(bt);
 				
 				auto k = bt.kind;
@@ -536,8 +537,8 @@ final class ExpressionGen {
 		ParamType[] paramTypes;
 		LLVMValueRef[] args;
 		uint firstarg;
-		
-		if(auto type = cast(DelegateType) c.callee.type.type) {
+		auto calleeType = peelAlias(c.callee.type).type;
+		if(auto type = cast(DelegateType) calleeType) {
 			paramTypes = type.paramTypes;
 			
 			auto fun = LLVMBuildExtractValue(builder, callee, 0, "");
@@ -547,7 +548,7 @@ final class ExpressionGen {
 			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
 			
 			callee = fun;
-		} else if(auto type = cast(FunctionType) c.callee.type.type) {
+		} else if(auto type = cast(FunctionType) calleeType) {
 			paramTypes = type.paramTypes;
 			args.length = c.arguments.length;
 		} else {
