@@ -91,7 +91,7 @@ final class ExpressionVisitor {
 			
 			case Add :
 			case Sub :
-				if(auto pt = cast(PointerType) lhs.type.type) {
+				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
 					// FIXME: check that rhs is an integer.
 					if(op == Sub) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
@@ -116,7 +116,7 @@ final class ExpressionVisitor {
 			
 			case AddAssign :
 			case SubAssign :
-				if(auto pt = cast(PointerType) lhs.type.type) {
+				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
 					// FIXME: check that rhs is an integer.
 					if(op == SubAssign) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
@@ -230,7 +230,7 @@ final class ExpressionVisitor {
 				break;
 			
 			case Dereference :
-				if(auto pt = cast(PointerType) expr.type.type) {
+				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
 					type = pt.pointed;
 					break;
 				}
@@ -241,7 +241,7 @@ final class ExpressionVisitor {
 			case PreDec :
 			case PostInc :
 			case PostDec :
-				if(auto pt = cast(PointerType) expr.type.type) {
+				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
 					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
 					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
 					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
@@ -482,7 +482,7 @@ final class ExpressionVisitor {
 		}
 		+/
 		
-		auto type = callee.type.type;
+		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;
 		ParamType returnType;
 		if(auto f = cast(FunctionType) type) {
