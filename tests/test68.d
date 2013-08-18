@@ -1,4 +1,5 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:6
 //? desc:Various cases for comments.
 

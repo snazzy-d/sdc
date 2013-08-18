@@ -1,8 +1,7 @@
 //T compiles:yes
 //T retval:0
 
-int main()
-{
+int main() {
 	string str = "foobar";
 	string str2 = "raboof";
 	
@@ -14,16 +13,14 @@ int main()
 	
 	ptrdiff_t i = str.length - 1;
 	ptrdiff_t j = 0;
-	for(; i > -1; i--)
-	{
+	for(; i > -1; i--) {
 		assert(str[i] == str2[j]);
 		j++;
 	}
 	
 	// Break.
 	i = 0;
-	for(;;)
-	{
+	for(;;) {
 		if(i == 10)
 			break;
 		else
@@ -34,8 +31,7 @@ int main()
 	// Continue.
 	i = 0;
 	j = 0;
-	for(i = 0; i < 10; i++)
-	{
+	for(i = 0; i < 10; i++) {
 		if(i > 5)
 			continue;
 		++j;
@@ -44,3 +40,4 @@ int main()
 	assert(j == 6);
 	return 0;
 }
+

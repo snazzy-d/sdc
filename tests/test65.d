@@ -3,11 +3,9 @@
 //T retval:0
 //? desc:Test range foreach.
 
-int main()
-{
+int main() {
 	int i = 0;
-	foreach(j; 1 .. 5)
-	{
+	foreach(j; 1 .. 5) {
 		i += j;
 	}
 	assert(i == 10);
@@ -15,21 +13,18 @@ int main()
 	string str = "foobar";
 	string str2 = "raboof";
 	
-	foreach(size_t j; 0 .. str.length)
-	{
+	foreach(size_t j; 0 .. str.length) {
 		assert(str[j] == str2[(str2.length - j) - 1]);
 	}
 	
 	i = 0;
-	foreach(char* it; str.ptr .. str.ptr + str.length)
-	{
+	foreach(char* it; str.ptr .. str.ptr + str.length) {
 		assert(*it == str[i]);
 		i++;
 	}
 	
 	i = 0;
-	foreach(ref j; 1 .. 10)
-	{
+	foreach(ref j; 1 .. 10) {
 		i += j;
 		if(j == 5)
 			j = 8;
@@ -38,8 +33,7 @@ int main()
 	
 	// Break.
 	i = 0;
-	foreach(j; 0 .. 10)
-	{
+	foreach(j; 0 .. 10) {
 		if (j == 5)
 			break;
 		
@@ -49,8 +43,7 @@ int main()
 	
 	// Continue.
 	i = 0;
-	foreach(j; 0 .. 10)
-	{
+	foreach(j; 0 .. 10) {
 		if(j < 5)
 			continue;
 		
@@ -59,3 +52,4 @@ int main()
 	assert(i == 5);
 	return 0;
 }
+

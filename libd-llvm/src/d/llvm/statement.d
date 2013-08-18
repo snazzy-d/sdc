@@ -84,7 +84,7 @@ final class StatementGen {
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 	}
-	/+
+	
 	private void handleLoop(LoopStatement)(LoopStatement l) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -125,13 +125,13 @@ final class StatementGen {
 		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
-		auto condition = pass.visit(l.condition);
+		auto condition = pass.visit(cast(Expression) l.condition);
 		LLVMBuildCondBr(builder, condition, doBB, breakBB);
 		
 		// Build continue block or alias it to the test.
 		static if(isFor) {
 			LLVMPositionBuilderAtEnd(builder, continueBB);
-			pass.visit(l.increment);
+			pass.visit(cast(Expression) l.increment);
 			
 			LLVMBuildBr(builder, testBB);
 		}
@@ -164,7 +164,7 @@ final class StatementGen {
 	void visit(ForStatement f) {
 		handleLoop(f);
 	}
-	+/
+	
 	void visit(ReturnStatement r) {
 		import d.ir.expression;
 		LLVMBuildRet(builder, pass.visit(cast(Expression) r.value));

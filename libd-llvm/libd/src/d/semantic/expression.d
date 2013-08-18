@@ -25,6 +25,7 @@ alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
 alias IndexExpression = d.ir.expression.IndexExpression;
+alias SliceExpression = d.ir.expression.SliceExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
 alias PointerType = d.ir.type.PointerType;
@@ -91,7 +92,17 @@ final class ExpressionVisitor {
 			
 			case Add :
 			case Sub :
-				// TODO: pointer arythmetic here.
+				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+					// FIXME: check that rhs is an integer.
+					if(op == Sub) {
+						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
+					}
+					
+					auto i = new IndexExpression(e.location, pt.pointed, lhs, [rhs]);
+					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
+				}
+				
+				goto case;
 			
 			case Mul :
 			case Div :
@@ -104,14 +115,33 @@ final class ExpressionVisitor {
 				
 				break;
 			
-			case Concat :
 			case AddAssign :
 			case SubAssign :
-			case ConcatAssign :
+				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+					// FIXME: check that rhs is an integer.
+					if(op == SubAssign) {
+						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
+					}
+					
+					auto i = new IndexExpression(e.location, pt.pointed, lhs, [rhs]);
+					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
+					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
+				}
+				
+				goto case;
+			
 			case MulAssign :
 			case DivAssign :
 			case ModAssign :
 			case PowAssign :
+				type = lhs.type;
+				
+				rhs = buildImplicitCast(rhs.location, type, rhs);
+				
+				break;
+			
+			case Concat :
+			case ConcatAssign :
 				assert(0, "Not implemented.");
 			
 			case LogicalOr :
@@ -201,7 +231,7 @@ final class ExpressionVisitor {
 				break;
 			
 			case Dereference :
-				if(auto pt = cast(PointerType) expr.type.type) {
+				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
 					type = pt.pointed;
 					break;
 				}
@@ -212,7 +242,15 @@ final class ExpressionVisitor {
 			case PreDec :
 			case PostInc :
 			case PostDec :
-				// FIXME: check that type is integer or pointer.
+				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
+					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
+					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
+					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
+					auto r = new BinaryExpression(e.location, expr.type, BinaryOp.Assign, expr, v);
+					
+					return (op == PreInc || op == PreDec)? r : new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, expr);
+				}
+				
 				type = expr.type;
 				break;
 			
@@ -233,48 +271,7 @@ final class ExpressionVisitor {
 		
 		return new UnaryExpression(e.location, type, op, expr);
 	}
-	
-	/+ /+
-	private Expression handleArithmeticExpression(string operation)(BinaryExpression!operation e) if(find(["+", "+=", "-", "-="], operation)) {
-		enum isOpAssign = operation.length == 2;
-		
-		e.lhs = visit(e.lhs);
-		e.rhs = visit(e.rhs);
-		
-		if(auto pointerType = cast(PointerType) e.lhs.type) {
-			if(typeid({ return e.rhs.type; }()) !is typeid(IntegerType)) {
-				return pass.raiseCondition!Expression(e.rhs.location, "Pointer +/- interger only.");
-			}
-			
-			// FIXME: introduce temporary.
-			static if(operation[0] == '+') {
-				auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [e.rhs]));
-			} else {
-				auto value = new AddressOfExpression(e.location, new IndexExpression(e.location, e.lhs, [visit(new UnaryMinusExpression(e.location, e.rhs))]));
-			}
-			
-			static if(isOpAssign) {
-				auto ret = new AssignExpression(e.location, e.lhs, value);
-			} else {
-				alias value ret;
-			}
-			
-			return visit(ret);
-		}
-		
-		static if(isOpAssign) {
-			e.type = e.lhs.type;
-		} else {
-			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
-			
-			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
-		}
-		
-		e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
-		
-		return e;
-	}
-	
+	/+
 	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
 		e.lhs = visit(e.lhs);
 		e.rhs = visit(e.rhs);
@@ -486,7 +483,7 @@ final class ExpressionVisitor {
 		}
 		+/
 		
-		auto type = callee.type.type;
+		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;
 		ParamType returnType;
 		if(auto f = cast(FunctionType) type) {
@@ -579,40 +576,36 @@ final class ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ qt.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString());
 		}
 		
 		auto arguments = e.arguments.map!(e => visit(e)).array();
 		
 		return new IndexExpression(e.location, qt, indexed, arguments);
 	}
-	/+
-	Expression visit(SliceExpression e) {
+	
+	Expression visit(AstSliceExpression e) {
 		// TODO: check if it is valid.
-		e.indexed = visit(e.indexed);
+		auto sliced = visit(e.sliced);
 		
-		if(auto asSlice = cast(SliceType) e.indexed.type) {
-			e.type = asSlice.type;
-		} else if(auto asPointer = cast(PointerType) e.indexed.type) {
-			e.type = asPointer.type;
-		} else if(auto asStaticArray = cast(StaticArrayType) e.indexed.type) {
-			e.type = asStaticArray.type;
+		auto qt = peelAlias(sliced.type);
+		auto type = qt.type;
+		if(auto asSlice = cast(SliceType) type) {
+			qt.type = asSlice.sliced.type;
+		} else if(auto asPointer = cast(PointerType) type) {
+			qt.type = asPointer.pointed.type;
+		} else if(auto asArray = cast(ArrayType) type) {
+			qt.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ typeid({ return e.indexed; }()).toString());
+			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString());
 		}
 		
-		e.type = pass.visit(new SliceType(e.type));
+		auto first = e.first.map!(e => visit(e)).array();
+		auto second = e.second.map!(e => visit(e)).array();
 		
-		e.first = e.first.map!(e => visit(e)).array();
-		e.second = e.second.map!(e => visit(e)).array();
-		
-		return e;
+		return new SliceExpression(e.location, QualType(new SliceType(qt)), sliced, first, second);
 	}
 	
-	Expression visit(SizeofExpression e) {
-		return makeLiteral(e.location, sizeofCalculator.visit(e.argument));
-	}
-	+/
 	Expression visit(AstAssertExpression e) {
 		auto c = visit(e.condition);
 		c = buildExplicitCast(c.location, getBuiltin(TypeKind.Bool), c);

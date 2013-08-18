@@ -125,11 +125,11 @@ final class CodeGenPass {
 	auto addressOf(Expression e) {
 		return addressOfGen.visit(e);
 	}
-	/+
+	
 	auto computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
 		return addressOfGen.computeIndice(location, indexedType, indexed, indice);
 	}
-	+/
+	
 	auto visit(QualType t) {
 		return typeGen.visit(t);
 	}
