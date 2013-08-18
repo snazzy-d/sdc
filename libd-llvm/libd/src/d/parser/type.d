@@ -251,7 +251,7 @@ private QualAstType parseBracket(TokenRange)(ref TokenRange trange, QualAstType 
 		static if(is(caseType : QualAstType)) {
 			return QualAstType(new AstAssociativeArrayType(type, parsed));
 		} else static if(is(caseType : AstExpression)) {
-			return QualAstType(new d.ast.type.ArrayType(type, parsed));
+			return QualAstType(new AstArrayType(type, parsed));
 		} else {
 			return QualAstType(new IdentifierArrayType(type, parsed));
 		}
