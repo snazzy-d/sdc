@@ -1,35 +1,32 @@
 //T compiles:yes
 //T retval:4
 
-class Foo
-{
-    void func1()
-    {}
+class Foo {
+	void func1() {}
+	
+	void func2()
+	body {}
+	
+	void func3()
+	in {}
+	body {}
+	
+	void func4()
+	out {}
+	body {}
 
-    void func2()
-    body {}
-
-    void func3()
-    in {}
-    body {}
-
-    void func4()
-    out {}
-    body {}
-
-    void func5()
-    out {}
-    in {}
-    body {}
-
-    void func6()
-    in {}
-    out {}
-    body {}
+	void func5()
+	out {}
+	in {}
+	body {}
+	
+	void func6()
+	in {}
+	out {}
+	body {}
 }
 
-void func1()
-{}
+void func1() {}
 
 void func2()
 body {}
@@ -52,8 +49,7 @@ in {}
 out {}
 body {}
 
-int main()
-{
-    return 4;
+int main() {
+	return 4;
 }
 

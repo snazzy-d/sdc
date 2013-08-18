@@ -1,6 +1,6 @@
 //T compiles:yes
-//T retval:58
 //T has-passed:yes
+//T retval:58
 
 int foo(int n) {
 	if (n == 17) {

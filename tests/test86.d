@@ -1,4 +1,5 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:42
 
 int foobar = 42;

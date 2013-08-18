@@ -1,12 +1,13 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:12
 
 int main() {
-    return Foo!Bar.baz + Foo!Fizz.get7();
+	return Foo!Bar.baz + Foo!Fizz.get7();
 }
 
 template Foo(T) {
-    T Foo;
+	T Foo;
 }
 
 struct Fizz {

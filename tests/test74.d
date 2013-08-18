@@ -1,9 +1,9 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:0
 //? desc:Test a basic switch.
 
-int transmogrify(int input)
-{
+int transmogrify(int input) {
 	int output;
 	switch (input) {
 		default:
@@ -17,8 +17,7 @@ int transmogrify(int input)
 			break;
 		case 3:
 			output = 0;
-			while(true)
-			{
+			while(true) {
 				++output;
 				if (output == 30)
 					break;
@@ -28,8 +27,7 @@ int transmogrify(int input)
 	return output;
 }
 
-int main()
-{
+int main() {
 	bool didRun = false;
 	switch(0) {
 		didRun = true;
