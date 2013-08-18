@@ -87,21 +87,27 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(IdentifierDotIdentifier i) {
-		auto resolved = visit(i.identifier);
-		
-		return resolved.apply!(delegate Identifiable(identified) {
+		return resolveInIdentifiable(i.location, visit(i.identifier), i.name);
+	}
+	
+	private Identifiable resolveInSymbol(Location location, Symbol s, string name) {
+		return resolveInIdentifiable(location, visit(location, s), name);
+	}
+	
+	private Identifiable resolveInIdentifiable(Location location, Identifiable i, string name) {
+		return i.apply!(delegate Identifiable(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return typeDotIdentifierVisitor.visit(i.location, i.name, identified);
+				return typeDotIdentifierVisitor.visit(location, name, identified);
 			} else static if(is(typeof(identified) : Expression)) {
-				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
+				return expressionDotIdentifierVisitor.visit(location, name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				
 				if(auto m = cast(Module) identified) {
-					return visit(i.location, m.dscope.resolve(i.name));
+					return visit(location, m.dscope.resolve(name));
 				}
 				
-				throw new CompileException(i.location, "Can't resolve " ~ i.name);
+				throw new CompileException(location, "Can't resolve " ~ name);
 			}
 		})();
 	}
@@ -378,18 +384,14 @@ final class TemplateDotIdentifierVisitor {
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return identifierVisitor.visit(i.location, s);
 		}
-		/+
+		
 		// Let's try eponymous trick if the previous failed.
-		if(i.name != tplDecl.name) {
-			return identifierVisitor.visit(
-				new IdentifierDotIdentifier(
-					i.location,
-					i.name,
-					new TemplateInstanciationDotIdentifier(i.location, i.templateInstanciation.identifier.name, i.templateInstanciation)
-				)
-			);
+		if(i.name != t.name) {
+			if(auto s = instance.dscope.resolve(t.name)) {
+				return identifierVisitor.resolveInSymbol(i.location, s, i.name);
+			}
 		}
-		+/
+		
 		throw new CompileException(i.location, i.name ~ " not found in template");
 	}
 }
