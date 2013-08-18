@@ -1,8 +1,8 @@
+//T has-passed:yes
 //T compiles:yes
 //T retval:0
 
-int main()
-{
+int main() {
 	string msg = "hello, world!";
 	auto cmsg = msg.ptr;
 	
@@ -18,3 +18,4 @@ int main()
 	
 	return 0;
 }
+

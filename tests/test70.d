@@ -1,9 +1,9 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:0
 //? desc:Test the do-while loop.
 
-int main()
-{
+int main() {
 	int i = 0;
 	do {
 		i++;
@@ -35,3 +35,4 @@ int main()
 	assert(j == 5);
 	return 0;
 }
+
