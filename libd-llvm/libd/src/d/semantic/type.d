@@ -16,6 +16,7 @@ alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
 alias FunctionType = d.ir.type.FunctionType;
 alias DelegateType = d.ir.type.DelegateType;
+alias ArrayType = d.ir.type.ArrayType;
 
 final class TypeVisitor {
 	private SemanticPass pass;
@@ -57,13 +58,16 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, AstSliceType t) {
 		return QualType(new SliceType(visit(q, t.sliced)), q);
 	}
-	/+
-	Type visit(TypeQualifier q, d.ast.type.ArrayType t) {
-		t.size = pass.visit(q, t.size);
+	
+	QualType visit(TypeQualifier q, AstArrayType t) {
+		auto elementType = visit(t.elementType);
 		
-		return handleSuffixType(t, t.size);
+		import d.ir.expression;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
+		
+		return QualType(new ArrayType(elementType, size));
 	}
-	+/
+	
 	QualType visit(TypeQualifier q, AstFunctionType t) {
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();

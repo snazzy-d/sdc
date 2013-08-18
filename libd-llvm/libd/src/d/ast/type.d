@@ -105,7 +105,7 @@ alias AstAssociativeArrayType = AssociativeArrayType!AstType;
 /**
  * Static array types
  */
-class ArrayType : AstType {
+class AstArrayType : AstType {
 	QualAstType elementType;
 	AstExpression size;
 	
