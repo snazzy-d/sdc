@@ -2,9 +2,8 @@ module d.llvm.statement;
 
 import d.llvm.codegen;
 
-import d.ast.statement;
-
 import d.ir.expression;
+import d.ir.statement;
 
 import util.visitor;
 
@@ -31,7 +30,7 @@ final class StatementGen {
 	}
 	
 	void visit(ExpressionStatement e) {
-		pass.visit(cast(Expression) e.expression);
+		pass.visit(e.expression);
 	}
 	
 	void visit(BlockStatement b) {
@@ -41,7 +40,7 @@ final class StatementGen {
 	}
 	
 	void visit(IfStatement ifs) {
-		auto condition = pass.visit(cast(Expression) ifs.condition);
+		auto condition = pass.visit(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -125,13 +124,13 @@ final class StatementGen {
 		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
-		auto condition = pass.visit(cast(Expression) l.condition);
+		auto condition = pass.visit(l.condition);
 		LLVMBuildCondBr(builder, condition, doBB, breakBB);
 		
 		// Build continue block or alias it to the test.
 		static if(isFor) {
 			LLVMPositionBuilderAtEnd(builder, continueBB);
-			pass.visit(cast(Expression) l.increment);
+			pass.visit(l.increment);
 			
 			LLVMBuildBr(builder, testBB);
 		}
@@ -167,7 +166,7 @@ final class StatementGen {
 	
 	void visit(ReturnStatement r) {
 		import d.ir.expression;
-		LLVMBuildRet(builder, pass.visit(cast(Expression) r.value));
+		LLVMBuildRet(builder, pass.visit(r.value));
 	}
 	
 	void visit(BreakStatement s) {
@@ -181,7 +180,7 @@ final class StatementGen {
 	}
 	
 	void visit(SwitchStatement s) {
-		auto expression = pass.visit(cast(Expression) s.expression);
+		auto expression = pass.visit(s.expression);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -244,7 +243,7 @@ final class StatementGen {
 		}
 		
 		foreach(e; s.cases) {
-			LLVMAddCase(switchInstr, pass.visit(cast(Expression) e), caseBB);
+			LLVMAddCase(switchInstr, pass.visit(e), caseBB);
 		}
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);

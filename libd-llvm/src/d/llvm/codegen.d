@@ -1,8 +1,7 @@
 module d.llvm.codegen;
 
-import d.ast.statement;
-
 import d.ir.expression;
+import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 

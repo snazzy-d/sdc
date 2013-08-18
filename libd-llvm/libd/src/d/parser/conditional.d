@@ -12,14 +12,14 @@ import d.parser.statement;
 /**
  * Parse Version Declaration
  */
-auto parseVersion(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+auto parseVersion(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
 	return trange.parseconditionalBlock!(true, ItemType)();
 }
 
 /**
  * Parse Debug Declaration
  */
-auto parseDebug(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+auto parseDebug(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
 	return trange.parseconditionalBlock!(false, ItemType)();
 }
 
@@ -93,7 +93,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 /**
  * Parse static if.
  */
-ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == Statement) || is(ItemType == Declaration))) {
+ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Static);
@@ -123,7 +123,7 @@ ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRa
 private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
 	ItemType[] items;
 	if(trange.front.type == TokenType.OpenBrace) {
-		static if(is(ItemType == Statement)) {
+		static if(is(ItemType == AstStatement)) {
 			trange.popFront();
 			
 			do {
@@ -135,7 +135,7 @@ private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
 			items = trange.parseAggregate();
 		}
 	} else {
-		static if(is(ItemType == Statement)) {
+		static if(is(ItemType == AstStatement)) {
 			items = [trange.parseStatement()];
 		} else {
 			items = [trange.parseDeclaration()];

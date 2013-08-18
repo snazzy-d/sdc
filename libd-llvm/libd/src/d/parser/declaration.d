@@ -322,8 +322,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		 * Template
 		 */
 		case Template :
-			assert(0, "Template not implemented");
-			// return trange.parseTemplate();
+			return trange.parseTemplate();
 		
 		/*
 		 * Import

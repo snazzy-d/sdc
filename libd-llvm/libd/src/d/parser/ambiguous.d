@@ -216,7 +216,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 				return trange.parseAmbiguousSuffix!handler(i.location, t);
 			}
 			+/
-			assert(0);	
+			assert(0);
 		
 		case Function :
 		case Delegate :

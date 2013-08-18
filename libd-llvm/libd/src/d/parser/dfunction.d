@@ -1,6 +1,8 @@
 module d.parser.dfunction;
 
 import d.ast.dfunction;
+import d.ast.declaration;
+import d.ast.statement;
 import d.ast.type;
 
 import d.parser.base;
@@ -9,10 +11,6 @@ import d.parser.expression;
 import d.parser.statement;
 import d.parser.type;
 import d.parser.util;
-
-import d.ast.declaration;
-import d.ast.dtemplate;
-import d.ast.statement;
 
 /**
  * Parse constructor.
@@ -111,7 +109,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 			break;
 	}
 	
-	BlockStatement fbody;
+	AstBlockStatement fbody;
 	switch(trange.front.type) with(TokenType) {
 		case Semicolon :
 			location.spanTo(trange.front.location);

@@ -6,7 +6,6 @@ import d.semantic.semantic;
 import d.ast.base;
 import d.ast.dfunction;
 import d.ast.declaration;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -85,7 +84,7 @@ final class SymbolVisitor {
 			f.step = Step.Signed;
 		}
 		
-		if(f.fbody) {
+		if(fd.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
 			auto oldIsOverride = isOverride;
@@ -117,7 +116,7 @@ final class SymbolVisitor {
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			f.fbody = cast(BlockStatement) pass.visit(f.fbody);
+			f.fbody = pass.visit(fd.fbody);
 		}
 		
 		if(isAuto) {
@@ -522,14 +521,14 @@ final class SymbolVisitor {
 		e.step = Step.Processed;
 		return e;
 	}
-	/+
-	Symbol visit(TemplateDeclaration d) {
+	
+	// TODO: consider doing it at declaration step.
+	Symbol visit(Declaration d, Template t) {
 		// XXX: compute a proper mangling for templates.
-		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
 		
-		d.step = Step.Processed;
-		return d;
+		t.step = Step.Processed;
+		return t;
 	}
-	+/
 }
 

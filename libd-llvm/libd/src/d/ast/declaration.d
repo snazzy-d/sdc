@@ -153,22 +153,6 @@ class AttributeDeclaration : Declaration {
 	}
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // TODO: create declaration aggregate and merge that in it.
 /**
  * Variables declaration
@@ -218,12 +202,12 @@ class FunctionDeclaration : NamedDeclaration {
 	ParamAstType returnType;
 	
 	import d.ast.statement;
-	BlockStatement fbody;
+	AstBlockStatement fbody;
 	
 	// XXX: Try to stick that in some pointer.
 	bool isVariadic;
 	
-	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, BlockStatement fbody) {
+	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		super(location, name);
 		
 		this.returnType = returnType;
@@ -232,19 +216,91 @@ class FunctionDeclaration : NamedDeclaration {
 	}
 }
 
+/**
+ * Template declaration
+ */
+class TemplateDeclaration : NamedDeclaration {
+	TemplateParameter[] parameters;
+	Declaration[] declarations;
+	
+	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
+		super(location, name);
+		
+		this.parameters = parameters;
+		this.declarations = declarations;
+	}
+}
 
+/**
+ * Super class for all templates parameters
+ */
+class TemplateParameter : NamedDeclaration {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
 
+/**
+ * Types templates parameters
+ */
+class TypeTemplateParameter : TemplateParameter {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
 
+/**
+ * This templates parameters
+ */
+class ThisTemplateParameter : TemplateParameter {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
 
+/**
+ * Tuple templates parameters
+ */
+class TupleTemplateParameter : TemplateParameter {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
 
+/**
+ * Value template parameters
+ */
+class ValueTemplateParameter : TemplateParameter {
+	QualAstType type;
+	
+	this(Location location, string name, QualAstType type) {
+		super(location, name);
+		
+		this.type = type;
+	}
+}
 
+/**
+ * Alias template parameter
+ */
+class AliasTemplateParameter : TemplateParameter {
+	this(Location location, string name) {
+		super(location, name);
+	}
+}
 
-
-
-
-
-
-
+/**
+ * Typed alias template parameter
+ */
+class TypedAliasTemplateParameter : AliasTemplateParameter {
+	QualAstType type;
+	
+	this(Location location, string name, QualAstType type) {
+		super(location, name);
+		
+		this.type = type;
+	}
+}
 
 /**
  * Struct Declaration

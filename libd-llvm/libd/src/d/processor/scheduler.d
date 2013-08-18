@@ -83,7 +83,7 @@ public:
 				p = new Process();
 			}
 			
-			assert(s.step == P.Step.Parsed, "Symbol processing laready started.");
+			assert(s.step == P.Step.Parsed, "Symbol processing already started.");
 			
 			auto state = pass.state;
 			p.init(s, (s) {

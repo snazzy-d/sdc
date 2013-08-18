@@ -4,9 +4,11 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.declaration;
-import d.ast.dtemplate;
-import d.ast.expression;
-import d.ast.type;
+import d.ast.identifier;
+
+import d.ir.dscope;
+import d.ir.symbol;
+import d.ir.type;
 
 import d.location;
 
@@ -21,68 +23,66 @@ final class TemplateInstancier {
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-	/+
-	auto instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
-		scheduler.require(tplDecl);
+	
+	auto instanciate(Location location, Template t, TemplateArgument[] args) {
+		scheduler.require(t);
 		
-		Declaration[] argDecls;
+		Symbol[] argSyms;
 		uint i = 0;
 		
 		// XXX: have to put array once again.
-		assert(tplDecl.parameters.length == arguments.length);
-		string id = arguments.map!(delegate string(TemplateArgument arg) {
-			return visit(arg).apply!(delegate string(identified) {
-				static if(is(typeof(identified) : Type)) {
-					argDecls ~= new AliasDeclaration(arg.location, tplDecl.parameters[i++].name, identified);
+		assert(t.parameters.length == args.length);
+		string id = args.map!(
+			arg => visit(arg).apply!(delegate string(identified) {
+				static if(is(typeof(identified) : QualType)) {
+					auto a = new TypeAlias(arg.location, t.parameters[i++].name, identified);
+					
+					a.mangle = pass.typeMangler.visit(a.type);
+					a.step = Step.Processed;
+					
+					argSyms ~= a;
 					
 					return "T" ~ pass.typeMangler.visit(identified);
 				} else {
 					assert(0, "Only type argument are supported.");
 				}
-			})();
-		}).array().join();
+			})
+		).array().join();
 		
-		return tplDecl.instances.get(id, {
-			import d.semantic.clone;
-			auto clone = new ClonePass();
-			auto members = tplDecl.declarations.map!(d => clone.visit(d)).array();
-			
-			auto oldManglePrefix = this.manglePrefix;
-			scope(exit) this.manglePrefix = oldManglePrefix;
-			
-			pass.manglePrefix = tplDecl.mangle ~ "T" ~ id ~ "Z";
-			
+		return t.instances.get(id, {
+			auto oldManglePrefix = pass.manglePrefix;
 			auto oldLinkage = pass.linkage;
-			scope(exit) pass.linkage = oldLinkage;
-			
-			pass.linkage = tplDecl.linkage;
-			
 			auto oldIsStatic = pass.isStatic;
-			scope(exit) pass.isStatic = oldIsStatic;
+			auto oldScope = pass.currentScope;
+			scope(exit) {
+				pass.manglePrefix = oldManglePrefix;
+				pass.linkage = oldLinkage;
+				pass.isStatic = oldIsStatic;
+				pass.currentScope = oldScope;
+			}
 			
-			pass.isStatic = tplDecl.isStatic;
+			auto instance = new TemplateInstance(location, t, []);
 			
-			auto instance = new TemplateInstance(location, arguments, argDecls ~ members);
+			pass.manglePrefix = t.mangle ~ "T" ~ id ~ "Z";
+			pass.linkage = t.linkage;
+			pass.isStatic = t.isStatic;
+			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.parentScope);
+			
+			foreach(s; argSyms) {
+				dscope.addSymbol(s);
+			}
+			
+			// XXX: that is doomed to explode fireworks style.
 			pass.scheduler.schedule(only(instance), i => visit(cast(TemplateInstance) i));
+			instance.members = argSyms ~ pass.flatten(t.members, instance);
 			
-			pass.scheduler.require(instance, pass.Step.Populated);
-			
-			return tplDecl.instances[id] = instance;
+			return t.instances[id] = instance;
 		}());
 	}
 	
 	TemplateInstance visit(TemplateInstance instance) {
-		// Update scope.
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		pass.scheduler.require(instance.members);
 		
-		currentScope = instance.dscope = new SymbolScope(instance, oldScope);
-		
-		// XXX: make template instance a symbol. Change the template mangling in the process.
-		auto syms = pass.flatten(instance.declarations, instance);
-		pass.scheduler.require(syms);
-		
-		instance.declarations = cast(Declaration[]) syms;
 		instance.step = Step.Processed;
 		
 		return instance;
@@ -107,6 +107,5 @@ final class TemplateInstancier {
 		+/
 		// assert(0, "Ambiguous can't be deambiguated.");
 	}
-	+/
 }
 
