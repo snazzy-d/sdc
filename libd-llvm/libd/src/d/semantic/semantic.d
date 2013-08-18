@@ -10,7 +10,7 @@ import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
-// import d.semantic.dtemplate;
+import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.identifier;
@@ -24,7 +24,6 @@ import d.semantic.type;
 import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.statement;
@@ -32,6 +31,7 @@ import d.ast.type;
 
 import d.ir.expression;
 import d.ir.dscope;
+import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -54,6 +54,10 @@ alias Module = d.ir.symbol.Module;
 alias FunctionType = d.ir.type.FunctionType;
 alias CallExpression = d.ir.expression.CallExpression;
 
+alias BlockStatement = d.ir.statement.BlockStatement;
+alias ExpressionStatement = d.ir.statement.ExpressionStatement;
+alias ReturnStatement = d.ir.statement.ReturnStatement;
+
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	private DeclarationVisitor declarationVisitor;
@@ -71,7 +75,7 @@ final class SemanticPass {
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
 	
-	// TemplateInstancier templateInstancier;
+	TemplateInstancier templateInstancier;
 	
 	Backend backend;
 	Evaluator evaluator;
@@ -130,7 +134,7 @@ final class SemanticPass {
 		sizeofCalculator	= new SizeofCalculator(this);
 		typeMangler			= new TypeMangler(this);
 		
-		// templateInstancier	= new TemplateInstancier(this);
+		templateInstancier	= new TemplateInstancier(this);
 		
 		scheduler			= new Scheduler!SemanticPass(this);
 		
@@ -177,7 +181,7 @@ final class SemanticPass {
 		return expressionVisitor.visit(e);
 	}
 	
-	BlockStatement visit(BlockStatement s) {
+	BlockStatement visit(AstBlockStatement s) {
 		return statementVisitor.flatten(s);
 	}
 	
@@ -200,15 +204,14 @@ final class SemanticPass {
 	CastKind implicitCastFrom(QualType from, QualType to) {
 		return implicitCaster.castFrom(from, to);
 	}
-	
 	CastKind explicitCastFrom(QualType from, QualType to) {
 		return explicitCaster.castFrom(from, to);
 	}
-	/*
-	TemplateInstance instanciate(Location location, TemplateDeclaration tplDecl, TemplateArgument[] arguments) {
-		return templateInstancier.instanciate(location, tplDecl, arguments);
+	
+	TemplateInstance instanciate(Location location, Template t, TemplateArgument[] args) {
+		return templateInstancier.instanciate(location, t, args);
 	}
-	*/
+	
 	auto evaluate(Expression e) {
 		return evaluator.evaluate(e);
 	}
@@ -219,13 +222,13 @@ final class SemanticPass {
 	
 	auto raiseCondition(T)(Location location, string message) {
 		if(buildErrorNode) {
-				static if(is(T == Type)) {
-					return QualType(new ErrorType(location, message));
-				} else static if(is(T == Expression)) {
-					return new ErrorExpression(location, message);
-				} else {
-					static assert(false, "compilationCondition only works for Types and Expressions.");
-				}
+			static if(is(T == Type)) {
+				return QualType(new ErrorType(location, message));
+			} else static if(is(T == Expression)) {
+				return new ErrorExpression(location, message);
+			} else {
+				static assert(false, "compilationCondition only works for Types and Expressions.");
+			}
 		} else {
 			throw new CompileException(location, message);
 		}

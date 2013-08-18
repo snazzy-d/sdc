@@ -71,10 +71,10 @@ final class SizeofCalculator {
 				assert(0, "Not Implemented");
 			
 			case Float :
-				return 2;
+				return 4;
 			
 			case Double :
-				return 4;
+				return 8;
 			
 			case Real :
 			case Null :

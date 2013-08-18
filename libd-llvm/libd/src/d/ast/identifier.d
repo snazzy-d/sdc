@@ -2,7 +2,6 @@ module d.ast.identifier;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
 
@@ -22,6 +21,15 @@ abstract class Identifier : Node {
 	
 	string toString() const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
+	}
+}
+
+/**
+ * Super class for all template arguments.
+ */
+class TemplateArgument : Node {
+	this(Location location) {
+		super(location);
 	}
 }
 
@@ -100,6 +108,60 @@ class TemplateInstanciationDotIdentifier : Identifier {
 		super(location, name);
 		
 		this.templateInstanciation = templateInstanciation;
+	}
+}
+
+/**
+ * Template instanciation
+ */
+class TemplateInstanciation : Node {
+	Identifier identifier;
+	TemplateArgument[] arguments;
+	
+	this(Location location, Identifier identifier, TemplateArgument[] arguments) {
+		super(location);
+		
+		this.identifier = identifier;
+		this.arguments = arguments;
+	}
+}
+
+/**
+ * Template type argument
+ */
+class TypeTemplateArgument : TemplateArgument {
+	QualAstType type;
+	
+	this(Location location, QualAstType type) {
+		super(location);
+		
+		this.type = type;
+	}
+}
+/+
+/**
+ * Template type argument
+ */
+class ValueTemplateArgument : TemplateArgument {
+	Expression value;
+	
+	this(Expression value) {
+		super(value.location);
+		
+		this.value = value;
+	}
+}
++/
+/**
+ * Template identifier argument
+ */
+class IdentifierTemplateArgument : TemplateArgument {
+	Identifier identifier;
+	
+	this(Identifier identifier) {
+		super(identifier.location);
+		
+		this.identifier = identifier;
 	}
 }
 

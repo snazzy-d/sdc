@@ -18,7 +18,7 @@ final class DefaultInitializerVisitor {
 	Expression visit(Location location, QualType t) {
 		auto e = this.dispatch!((t) {
 			return pass.raiseCondition!Expression(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
-		})(location, t.type);
+		})(location, peelAlias(t).type);
 		
 		e.type.qualifier = t.qualifier;
 		return e;

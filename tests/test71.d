@@ -1,7 +1,9 @@
+//T compiles:yes
+//T retval:0
+//T has-passed:yes
 //? desc:Test the while loop.
 
-int main()
-{
+int main() {
 	int i = 0;
 	while(i < 10)
 		i++;
@@ -10,8 +12,7 @@ int main()
 	
 	// Break.
 	i = 0;
-	while(i < 10)
-	{
+	while(i < 10) {
 		i++;
 		if(i == 5)
 			break;
@@ -21,8 +22,7 @@ int main()
 	// Continue.
 	i = 0;
 	int j = 0;
-	while(i < 10)
-	{
+	while(i < 10) {
 		i++;
 		if(i > 5)
 			continue;
@@ -31,3 +31,4 @@ int main()
 	assert(j == 5);
 	return 0;
 }
+

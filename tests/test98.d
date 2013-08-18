@@ -1,12 +1,11 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:42
 
 alias Fizz Buzz;
 
-struct Bar
-{
-	static auto baz()
-	{
+struct Bar {
+	static auto baz() {
 		Qux f;
 		f.i = 42;
 		return f;
@@ -17,14 +16,13 @@ struct Bar
 
 alias Foo Baz;
 
-struct Foo
-{
+struct Foo {
 	Buzz i;
 }
 
 alias int Fizz;
 
-int main()
-{
+int main() {
 	return Bar.baz().i;
 }
+

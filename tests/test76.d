@@ -3,10 +3,8 @@
 //T retval:0
 //? desc:Test case range statements.
 
-int transmogrify(int input)
-{
-	switch(input)
-	{
+int transmogrify(int input) {
+	switch(input) {
 		case 0:
 			return 1;
 		case 1: .. case 10:
@@ -22,8 +20,7 @@ int transmogrify(int input)
 	}
 }
 
-void main()
-{	
+void main() {
 	assert(transmogrify(0) == 1);
 	
 	foreach(i; 1 .. 11)

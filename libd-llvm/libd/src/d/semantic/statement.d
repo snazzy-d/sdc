@@ -10,6 +10,7 @@ import d.ast.type;
 
 import d.ir.dscope;
 import d.ir.expression;
+import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -19,6 +20,17 @@ import d.parser.statement;
 import std.algorithm;
 import std.array;
 
+alias BlockStatement = d.ir.statement.BlockStatement;
+alias ExpressionStatement = d.ir.statement.ExpressionStatement;
+alias IfStatement = d.ir.statement.IfStatement;
+alias WhileStatement = d.ir.statement.WhileStatement;
+alias DoWhileStatement = d.ir.statement.DoWhileStatement;
+alias ForStatement = d.ir.statement.ForStatement;
+alias ReturnStatement = d.ir.statement.ReturnStatement;
+alias SwitchStatement = d.ir.statement.SwitchStatement;
+alias CaseStatement = d.ir.statement.CaseStatement;
+alias LabeledStatement = d.ir.statement.LabeledStatement;
+
 final class StatementVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -27,7 +39,7 @@ final class StatementVisitor {
 		this.pass = pass;
 	}
 	
-	BlockStatement flatten(BlockStatement b) {
+	BlockStatement flatten(AstBlockStatement b) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
@@ -42,16 +54,14 @@ final class StatementVisitor {
 			visit(s);
 		}
 		
-		b.statements = flattenedStmts;
-		
-		return b;
+		return new BlockStatement(b.location, flattenedStmts);
 	}
 	
-	void visit(Statement s) {
+	void visit(AstStatement s) {
 		return this.dispatch(s);
 	}
 	
-	void visit(BlockStatement b) {
+	void visit(AstBlockStatement b) {
 		flattenedStmts ~= flatten(b);
 	}
 	
@@ -62,49 +72,45 @@ final class StatementVisitor {
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
 	}
 	
-	void visit(ExpressionStatement s) {
-		s.expression = pass.visit(s.expression);
-		
-		flattenedStmts ~= s;
+	void visit(AstExpressionStatement s) {
+		flattenedStmts ~= new ExpressionStatement(pass.visit(s.expression));
 	}
 	
-	private auto autoBlock(Statement s) {
-		if(auto b = cast(BlockStatement) s) {
+	private auto autoBlock(AstStatement s) {
+		if(auto b = cast(AstBlockStatement) s) {
 			return flatten(b);
 		}
 		
-		return flatten(new BlockStatement(s.location, [s]));
+		return flatten(new AstBlockStatement(s.location, [s]));
 	}
 	
-	void visit(IfStatement ifs) {
-		ifs.condition = buildExplicitCast(ifs.condition.location, getBuiltin(TypeKind.Bool), pass.visit(ifs.condition));
+	void visit(AstIfStatement s) {
+		auto condition = buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition));
+		auto then = autoBlock(s.then);
 		
-		ifs.then = autoBlock(ifs.then);
-		
-		if(ifs.elseStatement) {
-			ifs.elseStatement = autoBlock(ifs.elseStatement);
+		Statement elseStatement;
+		if(s.elseStatement) {
+			elseStatement = autoBlock(s.elseStatement);
 		}
 		
-		flattenedStmts ~= ifs;
+		flattenedStmts ~= new IfStatement(s.location, condition, then, elseStatement);
 	}
 	
-	void visit(WhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+	void visit(AstWhileStatement w) {
+		auto condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		auto statement = autoBlock(w.statement);
 		
-		w.statement = autoBlock(w.statement);
-		
-		flattenedStmts ~= w;
+		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
 	}
 	
-	void visit(DoWhileStatement w) {
-		w.condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+	void visit(AstDoWhileStatement w) {
+		auto condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		auto statement = autoBlock(w.statement);
 		
-		w.statement = autoBlock(w.statement);
-		
-		flattenedStmts ~= w;
+		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
 	}
 	
-	void visit(ForStatement f) {
+	void visit(AstForStatement f) {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
@@ -112,38 +118,45 @@ final class StatementVisitor {
 		
 		// FIXME: if initialize is flattened into several statement, scope is wrong.
 		visit(f.initialize);
-		f.initialize = flattenedStmts[$ - 1];
+		auto initialize = flattenedStmts[$ - 1];
 		
+		Expression condition;
 		if(f.condition) {
-			f.condition = buildExplicitCast(f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
+			condition = buildExplicitCast(f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
 		} else {
-			f.condition = new BooleanLiteral(f.location, true);
+			condition = new BooleanLiteral(f.location, true);
 		}
 		
+		Expression increment;
 		if(f.increment) {
-			f.increment = pass.visit(f.increment);
+			increment = pass.visit(f.increment);
 		} else {
-			f.increment = new BooleanLiteral(f.location, true);
+			increment = new BooleanLiteral(f.location, true);
 		}
 		
-		f.statement = autoBlock(f.statement);
+		auto statement = autoBlock(f.statement);
 		
-		flattenedStmts[$ - 1] = f;
+		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
 	}
 	
-	void visit(ReturnStatement r) {
+	void visit(AstReturnStatement r) {
 		auto value = pass.visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
-		if(typeid({ return pass.returnType.type; }()) is typeid(AutoType)) {
-			// TODO: auto ref return.
-			returnType = ParamType(value.type, false);
-		} else {
+		auto doCast = true;
+		if(auto bt = cast(BuiltinType) returnType.type) {
+			if(bt.kind == TypeKind.None) {
+				// TODO: auto ref return.
+				returnType = ParamType(value.type, false);
+				doCast = false;
+			}
+		}
+		
+		if(doCast) {
 			value = buildImplicitCast(r.location, QualType(returnType.type, returnType.qualifier), value);
 		}
 		
-		r.value = value;
-		flattenedStmts ~= r;
+		flattenedStmts ~= new ReturnStatement(r.location, value);
 	}
 	
 	void visit(BreakStatement s) {
@@ -154,38 +167,37 @@ final class StatementVisitor {
 		flattenedStmts ~= s;
 	}
 	
-	void visit(SwitchStatement s) {
-		s.expression = pass.visit(s.expression);
+	void visit(AstSwitchStatement s) {
+		auto expression = pass.visit(s.expression);
+		auto statement = autoBlock(s.statement);
 		
-		s.statement = autoBlock(s.statement);
-		
-		flattenedStmts ~= s;
+		flattenedStmts ~= new SwitchStatement(s.location, expression, statement);
 	}
 	
-	void visit(CaseStatement s) {
-		s.cases = s.cases.map!(e => cast(typeof(e)) pass.evaluate(pass.visit(e))).array();
+	void visit(AstCaseStatement s) {
+		auto cases = s.cases.map!(e => pass.evaluate(pass.visit(e))).array();
 		
-		flattenedStmts ~= s;
+		flattenedStmts ~= new CaseStatement(s.location, cases);
 	}
 	
-	void visit(LabeledStatement s) {
+	void visit(AstLabeledStatement s) {
 		auto labelIndex = flattenedStmts.length;
 		
 		visit(s.statement);
 		
-		s.statement = flattenedStmts[labelIndex];
+		auto statement = flattenedStmts[labelIndex];
 		
-		flattenedStmts[labelIndex] = s;
+		flattenedStmts[labelIndex] = new LabeledStatement(s.location, s.label, statement);
 	}
 	
 	void visit(GotoStatement s) {
 		flattenedStmts ~= s;
 	}
 	
-	void visit(StaticIf!Statement s) {
-		s.condition = evaluate(buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
+	void visit(StaticIf!AstStatement s) {
+		auto condition = evaluate(buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
 		
-		if((cast(BooleanLiteral) s.condition).value) {
+		if((cast(BooleanLiteral) condition).value) {
 			foreach(item; s.items) {
 				visit(item);
 			}
@@ -196,7 +208,7 @@ final class StatementVisitor {
 		}
 	}
 	
-	void visit(Mixin!Statement s) {
+	void visit(Mixin!AstStatement s) {
 		auto value = evaluate(pass.visit(s.value));
 		
 		if(auto str = cast(StringLiteral) value) {

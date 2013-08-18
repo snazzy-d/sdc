@@ -6,7 +6,6 @@ import d.semantic.semantic;
 import d.ast.base;
 import d.ast.dfunction;
 import d.ast.declaration;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -62,19 +61,13 @@ final class SymbolVisitor {
 			returnType = oldReturnType;
 		}
 		
-		returnType = pass.visit(fd.returnType);
 		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
+		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
+		
+		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : pass.visit(fd.returnType);
 		
 		// Compute return type.
-		if(typeid({ return fd.returnType.type; }()) !is typeid(AutoType)) {
-			// TODO: Handle more fine grained types.
-			/*
-			f.type = pass.visit(QualAstType(fd.type.type));
-			auto funType = cast(FunctionType) f.type.type;
-			
-			assert(funType);
-			*/
-			
+		if(!isAuto) {
 			// If it isn't a static method, add this.
 			if(f.isStatic) {
 				// XXX: completely hacked XD
@@ -91,7 +84,7 @@ final class SymbolVisitor {
 			f.step = Step.Signed;
 		}
 		
-		if(f.fbody) {
+		if(fd.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
 			auto oldIsOverride = isOverride;
@@ -123,31 +116,26 @@ final class SymbolVisitor {
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			f.fbody = cast(BlockStatement) pass.visit(f.fbody);
+			f.fbody = pass.visit(fd.fbody);
 		}
-		/+
-		if(typeid({ return d.returnType; }()) is typeid(AutoType)) {
-			// Should be useless once return type inference is properly implemented.
-			if(typeid({ return pass.returnType; }()) is typeid(AutoType)) {
-				assert(0, "can't infer return type");
-			}
-			
-			d.returnType = returnType;
-			
+		
+		if(isAuto) {
 			// If it isn't a static method, add this.
-			// TODO: Duplicated, find a way to solve that.
-			if(d.isStatic) {
-				d.type = pass.visit(new FunctionType(d.linkage, d.returnType, d.parameters, d.isVariadic));
+			if(f.isStatic) {
+				// XXX: completely hacked XD
+				f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 			} else {
-				assert(thisType, "function must be static or thisType must be defined.");
+				assert(thisType.type, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = this.dispatch(new Parameter(d.location, "this", thisType));
-				thisParameter.isReference = isThisRef;
+				auto thisParameter = new Parameter(f.location, thisType, "this", null);
 				
-				d.type = pass.visit(new DelegateType(d.linkage, d.returnType, thisParameter, d.parameters, d.isVariadic));
+				f.type = QualType(new DelegateType(f.linkage, returnType, thisType, params.map!(p => p.pt).array(), fd.isVariadic));
+				params = thisParameter ~ params;
 			}
+			
+			f.step = Step.Signed;
 		}
-		+/
+		
 		switch(f.linkage) with(Linkage) {
 			case D :
 				auto typeMangle = pass.typeMangler.visit(f.type);
@@ -533,14 +521,14 @@ final class SymbolVisitor {
 		e.step = Step.Processed;
 		return e;
 	}
-	/+
-	Symbol visit(TemplateDeclaration d) {
+	
+	// TODO: consider doing it at declaration step.
+	Symbol visit(Declaration d, Template t) {
 		// XXX: compute a proper mangling for templates.
-		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
 		
-		d.step = Step.Processed;
-		return d;
+		t.step = Step.Processed;
+		return t;
 	}
-	+/
 }
 

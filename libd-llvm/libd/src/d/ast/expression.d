@@ -382,9 +382,9 @@ class __Line__Literal : AstExpression {
  * Delegate literal
  */
 class DelegateLiteral : AstExpression {
-	private Statement statement;
+	private AstStatement statement;
 	
-	this(Statement statement) {
+	this(AstStatement statement) {
 		super(statement.location);
 		
 		this.statement = statement;

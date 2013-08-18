@@ -1,3 +1,4 @@
+//T has-passed:yes
 //T compiles:no
 
 int main() {

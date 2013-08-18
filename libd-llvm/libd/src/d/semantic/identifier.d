@@ -5,7 +5,6 @@ import d.semantic.semantic;
 
 import d.ast.dfunction;
 import d.ast.dmodule;
-import d.ast.dtemplate;
 import d.ast.identifier;
 
 import d.ir.dscope;
@@ -18,6 +17,8 @@ import d.location;
 
 import std.algorithm;
 import std.array;
+
+alias Module = d.ir.symbol.Module;
 
 final class IdentifierVisitor {
 	private SemanticPass pass;
@@ -86,21 +87,27 @@ final class IdentifierVisitor {
 	}
 	
 	Identifiable visit(IdentifierDotIdentifier i) {
-		auto resolved = visit(i.identifier);
-		
-		return resolved.apply!(delegate Identifiable(identified) {
+		return resolveInIdentifiable(i.location, visit(i.identifier), i.name);
+	}
+	
+	private Identifiable resolveInSymbol(Location location, Symbol s, string name) {
+		return resolveInIdentifiable(location, visit(location, s), name);
+	}
+	
+	private Identifiable resolveInIdentifiable(Location location, Identifiable i, string name) {
+		return i.apply!(delegate Identifiable(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return typeDotIdentifierVisitor.visit(i.location, i.name, identified);
+				return typeDotIdentifierVisitor.visit(location, name, identified);
 			} else static if(is(typeof(identified) : Expression)) {
-				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
+				return expressionDotIdentifierVisitor.visit(location, name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
-				/*
+				
 				if(auto m = cast(Module) identified) {
-					return visit(i.location, m.dscope.resolve(i.name));
+					return visit(location, m.dscope.resolve(name));
 				}
-				*/
-				throw new CompileException(i.location, "Can't resolve " ~ i.name);
+				
+				throw new CompileException(location, "Can't resolve " ~ name);
 			}
 		})();
 	}
@@ -170,18 +177,12 @@ final class IdentifierVisitor {
 			return visit(location, s.set[0]);
 		}
 		
-		assert(0, "Not implemented");
-		/+
-		auto results = s.set.map!(delegate Identifiable(Symbol s) {
-			return visit(location, s);
-		}).array();
-		
 		Expression[] expressions;
-		foreach(result; results) {
+		foreach(result; s.set.map!(s => visit(location, s))) {
 			result.apply!((identified) {
 				static if(is(typeof(identified) : Expression)) {
 					expressions ~= identified;
-				} else static if(is(typeof(identified) : Type)) {
+				} else static if(is(typeof(identified) : QualType)) {
 					assert(0, "Type can't be overloaded.");
 				} else {
 					// TODO: handle templates.
@@ -191,7 +192,6 @@ final class IdentifierVisitor {
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		+/
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
@@ -210,11 +210,14 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Enum e) {
 		return Identifiable(new EnumType(e));
 	}
-	/*
+	
+	Identifiable visit(Location location, Template t) {
+		return Identifiable(t);
+	}
+	
 	Identifiable visit(Location location, Module m) {
 		return Identifiable(m);
 	}
-	*/
 }
 
 /**
@@ -255,7 +258,7 @@ final class TypeDotIdentifierVisitor {
 				assert(0, "init, yeah sure . . .");
 			
 			case "sizeof" :
-				return Identifiable(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Ulong));
+				return Identifiable(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
 			
 			default :
 				throw new CompileException(location, name ~ " can't be resolved in type");
@@ -305,23 +308,21 @@ final class ExpressionDotIdentifierVisitor {
 			return this.dispatch(location, e, s.set[0]);
 		}
 		
-		assert(0);
-		
-		/+
-		auto results = s.set.map!(s => this.dispatch(location, e, s)).array();
-		
 		Expression[] expressions;
-		foreach(result; results) {
-			if(auto asExpression = result.asExpression()) {
-				expressions ~= asExpression;
-			} else {
-				// TODO: handle templates.
-				return Identifiable(raiseCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set."));
-			}
+		foreach(result; s.set.map!(s => visit(location, e, s))) {
+			result.apply!((identified) {
+				static if(is(typeof(identified) : Expression)) {
+					expressions ~= identified;
+				} static if(is(typeof(identified) : QualType)) {
+					assert(0, "Type can't be overloaded");
+				} else {
+					// TODO: handle templates.
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				}
+			})();
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		+/
 	}
 	
 	Identifiable visit(Location location, Expression e, Field f) {
@@ -369,46 +370,30 @@ final class TemplateDotIdentifierVisitor {
 	}
 	
 	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
-		auto tplDecl = cast(TemplateDeclaration) this.dispatch(i.templateInstanciation.identifier);
-		assert(tplDecl);
-		/+
-		auto instance = instanciate(i.templateInstanciation.location, tplDecl, i.templateInstanciation.arguments);
+		auto t = identifierVisitor.visit(i.templateInstanciation.identifier).apply!((identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				return cast(Template) identified;
+			} else {
+				return cast(Template) null;
+			}
+		})();
+		
+		assert(t);
+		
+		auto instance = instanciate(i.templateInstanciation.location, t, i.templateInstanciation.arguments);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return identifierVisitor.visit(i.location, s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
-		if(i.name != tplDecl.name) {
-			return identifierVisitor.visit(
-				new IdentifierDotIdentifier(
-					i.location,
-					i.name,
-					new TemplateInstanciationDotIdentifier(i.location, i.templateInstanciation.identifier.name, i.templateInstanciation)
-				)
-			);
+		if(i.name != t.name) {
+			if(auto s = instance.dscope.resolve(t.name)) {
+				return identifierVisitor.resolveInSymbol(i.location, s, i.name);
+			}
 		}
-		+/
+		
 		throw new CompileException(i.location, i.name ~ " not found in template");
 	}
-	
-	Symbol visit(BasicIdentifier i) {
-		return visit(identifierVisitor.resolveName(i.name));
-	}
-	
-	Symbol visit(Symbol s) {
-		return this.dispatch(s);
-	}
-	
-	Symbol visit(OverLoadSet s) {
-		assert(s.set.length == 1);
-		
-		return visit(s.set[0]);
-	}
-	/+
-	Symbol visit(TemplateDeclaration s) {
-		return s;
-	}
-	+/
 }
 
 /**

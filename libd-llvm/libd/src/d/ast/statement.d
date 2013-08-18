@@ -5,42 +5,47 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
-class Statement : Node {
+class AstStatement : Node {
 	this(Location location) {
 		super(location);
 	}
 }
 
+final:
 /**
  * Blocks
  */
-class BlockStatement : Statement {
-	Statement[] statements;
+class BlockStatement(S) if(is(S : AstStatement)) : S {
+	S[] statements;
 	
-	this(Location location, Statement[] statements) {
+	this(Location location, S[] statements) {
 		super(location);
 		
 		this.statements = statements;
 	}
 }
 
+alias AstBlockStatement = BlockStatement!AstStatement;
+
 /**
- * AstExpressions
+ * Expressions
  */
-class ExpressionStatement : Statement {
-	AstExpression expression;
+class ExpressionStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E expression;
 	
-	this(AstExpression expression) {
+	this(E expression) {
 		super(expression.location);
 		
 		this.expression = expression;
 	}
 }
 
+alias AstExpressionStatement = ExpressionStatement!(AstExpression, AstStatement);
+
 /**
  * Declarations
  */
-class DeclarationStatement : Statement {
+class DeclarationStatement : AstStatement {
 	Declaration declaration;
 	
 	this(Declaration declaration) {
@@ -51,30 +56,16 @@ class DeclarationStatement : Statement {
 }
 
 /**
- * Declarations
- */
-class SymbolStatement : Statement {
-	import d.ir.symbol;
-	Symbol symbol;
-	
-	this(Symbol symbol) {
-		super(symbol.location);
-		
-		this.symbol = symbol;
-	}
-}
-
-/**
  * if statements.
  */
-class IfStatement : Statement {
-	AstExpression condition;
-	Statement then;
+class IfStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E condition;
+	S then;
 	
 	// Nullable
-	Statement elseStatement;
+	S elseStatement;
 	
-	this(Location location, AstExpression condition, Statement then, Statement elseStatement) {
+	this(Location location, E condition, S then, S elseStatement) {
 		super(location);
 		
 		this.condition = condition;
@@ -83,29 +74,33 @@ class IfStatement : Statement {
 	}
 }
 
+alias AstIfStatement = IfStatement!(AstExpression, AstStatement);
+
 /**
  * while statements
  */
-class WhileStatement : Statement {
-	AstExpression condition;
-	Statement statement;
+class WhileStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E condition;
+	S statement;
 	
-	this(Location location, AstExpression condition, Statement statement) {
+	this(Location location, E condition, S statement) {
 		super(location);
 		
 		this.condition = condition;
 		this.statement = statement;
 	}
 }
+
+alias AstWhileStatement = WhileStatement!(AstExpression, AstStatement);
 
 /**
  * do .. while statements
  */
-class DoWhileStatement : Statement {
-	AstExpression condition;
-	Statement statement;
+class DoWhileStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E condition;
+	S statement;
 	
-	this(Location location, AstExpression condition, Statement statement) {
+	this(Location location, E condition, S statement) {
 		super(location);
 		
 		this.condition = condition;
@@ -113,16 +108,18 @@ class DoWhileStatement : Statement {
 	}
 }
 
+alias AstDoWhileStatement = DoWhileStatement!(AstExpression, AstStatement);
+
 /**
  * for statements
  */
-class ForStatement : Statement {
-	Statement initialize;
-	AstExpression condition;
-	AstExpression increment;
-	Statement statement;
+class ForStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	S initialize;
+	E condition;
+	E increment;
+	S statement;
 	
-	this(Location location, Statement initialize, AstExpression condition, AstExpression increment, Statement statement) {
+	this(Location location, S initialize, E condition, E increment, S statement) {
 		super(location);
 		
 		this.initialize = initialize;
@@ -132,15 +129,17 @@ class ForStatement : Statement {
 	}
 }
 
+alias AstForStatement = ForStatement!(AstExpression, AstStatement);
+
 /**
  * for statements
  */
-class ForeachStatement : Statement {
+class ForeachStatement : AstStatement {
 	VariableDeclaration[] tupleElements;
 	AstExpression iterrated;
-	Statement statement;
+	AstStatement statement;
 	
-	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, Statement statement) {
+	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterrated, AstStatement statement) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
@@ -152,42 +151,26 @@ class ForeachStatement : Statement {
 /**
  * return statements
  */
-class ReturnStatement : Statement {
-	AstExpression value;
+class ReturnStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E value;
 	
-	this(Location location, AstExpression value) {
+	this(Location location, E value) {
 		super(location);
 		
 		this.value = value;
 	}
 }
 
-/**
- * break statements
- */
-class BreakStatement : Statement {
-	this(Location location) {
-		super(location);
-	}
-}
-
-/**
- * continue statements
- */
-class ContinueStatement : Statement {
-	this(Location location) {
-		super(location);
-	}
-}
+alias AstReturnStatement = ReturnStatement!(AstExpression, AstStatement);
 
 /**
  * switch statements
  */
-class SwitchStatement : Statement {
-	AstExpression expression;
-	Statement statement;
+class SwitchStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E expression;
+	S statement;
 	
-	this(Location location, AstExpression expression, Statement statement) {
+	this(Location location, E expression, S statement) {
 		super(location);
 		
 		this.expression = expression;
@@ -195,27 +178,31 @@ class SwitchStatement : Statement {
 	}
 }
 
+alias AstSwitchStatement = SwitchStatement!(AstExpression, AstStatement);
+
 /**
  * case statements
  */
-class CaseStatement : Statement {
-	AstExpression[] cases;
+class CaseStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E[] cases;
 	
-	this(Location location, AstExpression[] cases) {
+	this(Location location, E[] cases) {
 		super(location);
 		
 		this.cases = cases;
 	}
 }
 
+alias AstCaseStatement = CaseStatement!(AstExpression, AstStatement);
+
 /**
  * Label: statement
  */
-class LabeledStatement : Statement {
+class LabeledStatement(S) if(is(S : AstStatement)) : S {
 	string label;
-	Statement statement;
+	S statement;
 	
-	this(Location location, string label, Statement statement) {
+	this(Location location, string label, S statement) {
 		super(location);
 		
 		this.label = label;
@@ -223,53 +210,48 @@ class LabeledStatement : Statement {
 	}
 }
 
-/**
- * goto statements
- */
-class GotoStatement : Statement {
-	string label;
-	
-	this(Location location, string label) {
-		super(location);
-		
-		this.label = label;
-	}
-}
+alias AstLabeledStatement = LabeledStatement!AstStatement;
 
 /**
  * synchronized statements
  */
-class SynchronizedStatement : Statement {
-	Statement statement;
+class SynchronizedStatement(S) if(is(S : AstStatement)) : S {
+	S statement;
 	
-	this(Location location, Statement statement) {
+	this(Location location, S statement) {
 		super(location);
 		
 		this.statement = statement;
 	}
 }
 
+alias AstSynchronizedStatement = SynchronizedStatement!AstStatement;
+
 /**
  * try statements
  */
-class TryStatement : Statement {
-	Statement statement;
+class TryStatement : AstStatement {
+	AstStatement statement;
 	CatchBlock[] catches;
 	
-	this(Location location, Statement statement, CatchBlock[] catches) {
+	// nullable
+	AstStatement finallyBlock;
+	
+	this(Location location, AstStatement statement, CatchBlock[] catches, AstStatement finallyBlock) {
 		super(location);
 		
 		this.statement = statement;
 		this.catches = catches;
+		this.finallyBlock = finallyBlock;
 	}
 }
 
 class CatchBlock : Node {
 	QualAstType type;
 	string name;
-	Statement statement;
+	AstStatement statement;
 	
-	this(Location location, QualAstType type, string name, Statement statement) {
+	this(Location location, QualAstType type, string name, AstStatement statement) {
 		super(location);
 		
 		this.type = type;
@@ -279,22 +261,9 @@ class CatchBlock : Node {
 }
 
 /**
- * try .. finally statements
- */
-class TryFinallyStatement : TryStatement {
-	Statement finallyBlock;
-	
-	this(Location location, Statement statement, CatchBlock[] catches, Statement finallyBlock) {
-		super(location, statement, catches);
-		
-		this.finallyBlock = finallyBlock;
-	}
-}
-
-/**
  * throw statements
  */
-class ThrowStatement : Statement {
+class ThrowStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
 	AstExpression value;
 	
 	this(Location location, AstExpression value) {
@@ -304,10 +273,12 @@ class ThrowStatement : Statement {
 	}
 }
 
+alias AstThrowStatement = ThrowStatement!(AstExpression, AstStatement);
+
 /**
  * static assert statements
  */
-class StaticAssertStatement : Statement {
+class StaticAssertStatement : AstStatement {
 	AstExpression[] arguments;
 	
 	this(Location location, AstExpression[] arguments) {

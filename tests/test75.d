@@ -1,9 +1,9 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:0
 //? desc:Test goto case multiple cases in case list.
 
-int transmogrify(int input)
-{
+int transmogrify(int input) {
 	int output = 0;
 	switch (input) {
 		case 0, 1:
@@ -30,8 +30,7 @@ int transmogrify(int input)
 	return output;
 }
 
-int main()
-{
+int main() {
 	bool defaultRan = false;
 	switch(0) {
 		default:
