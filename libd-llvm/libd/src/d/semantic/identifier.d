@@ -170,18 +170,12 @@ final class IdentifierVisitor {
 			return visit(location, s.set[0]);
 		}
 		
-		assert(0, "Not implemented");
-		/+
-		auto results = s.set.map!(delegate Identifiable(Symbol s) {
-			return visit(location, s);
-		}).array();
-		
 		Expression[] expressions;
-		foreach(result; results) {
+		foreach(result; s.set.map!(s => visit(location, s))) {
 			result.apply!((identified) {
 				static if(is(typeof(identified) : Expression)) {
 					expressions ~= identified;
-				} else static if(is(typeof(identified) : Type)) {
+				} else static if(is(typeof(identified) : QualType)) {
 					assert(0, "Type can't be overloaded.");
 				} else {
 					// TODO: handle templates.
@@ -191,7 +185,6 @@ final class IdentifierVisitor {
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		+/
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
@@ -305,23 +298,21 @@ final class ExpressionDotIdentifierVisitor {
 			return this.dispatch(location, e, s.set[0]);
 		}
 		
-		assert(0);
-		
-		/+
-		auto results = s.set.map!(s => this.dispatch(location, e, s)).array();
-		
 		Expression[] expressions;
-		foreach(result; results) {
-			if(auto asExpression = result.asExpression()) {
-				expressions ~= asExpression;
-			} else {
-				// TODO: handle templates.
-				return Identifiable(raiseCondition!Expression(location, typeid(result).toString() ~ " is not supported in overload set."));
-			}
+		foreach(result; s.set.map!(s => visit(location, e, s))) {
+			result.apply!((identified) {
+				static if(is(typeof(identified) : Expression)) {
+					expressions ~= identified;
+				} static if(is(typeof(identified) : QualType)) {
+					assert(0, "Type can't be overloaded");
+				} else {
+					// TODO: handle templates.
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				}
+			})();
 		}
 		
 		return Identifiable(new PolysemousExpression(location, expressions));
-		+/
 	}
 	
 	Identifiable visit(Location location, Expression e, Field f) {
