@@ -5,10 +5,10 @@ import d.node;
 
 // XXX: type qualifiers, refactor.
 import d.ast.base;
-import d.ast.statement;
 
 import d.ir.dscope;
 import d.ir.expression;
+import d.ir.statement;
 import d.ir.type;
 
 enum Step {

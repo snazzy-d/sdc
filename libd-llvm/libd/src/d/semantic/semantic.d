@@ -31,6 +31,7 @@ import d.ast.type;
 
 import d.ir.expression;
 import d.ir.dscope;
+import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -52,6 +53,10 @@ alias Module = d.ir.symbol.Module;
 
 alias FunctionType = d.ir.type.FunctionType;
 alias CallExpression = d.ir.expression.CallExpression;
+
+alias BlockStatement = d.ir.statement.BlockStatement;
+alias ExpressionStatement = d.ir.statement.ExpressionStatement;
+alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
@@ -176,7 +181,7 @@ final class SemanticPass {
 		return expressionVisitor.visit(e);
 	}
 	
-	BlockStatement visit(BlockStatement s) {
+	BlockStatement visit(AstBlockStatement s) {
 		return statementVisitor.flatten(s);
 	}
 	

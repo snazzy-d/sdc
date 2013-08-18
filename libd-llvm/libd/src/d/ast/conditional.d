@@ -8,7 +8,7 @@ import d.ast.statement;
 /**
  * Version Conditional
  */
-class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
+class Version(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) : ItemType {
 	string versionId;
 	ItemType[] items;
 	ItemType[] elseItems;
@@ -25,7 +25,7 @@ class Version(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarati
 /**
  * Version definition (ie version = FOOBAR)
  */
-class VersionDefinition(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
+class VersionDefinition(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) : ItemType {
 	string versionId;
 	
 	this(Location location, string versionId) {
@@ -44,7 +44,7 @@ alias VersionDefinition DebugDefinition;
 /**
  * Static if Conditional
  */
-class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration)) : ItemType {
+class StaticIf(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) : ItemType {
 	AstExpression condition;
 	ItemType[] items;
 	ItemType[] elseItems;
@@ -61,7 +61,7 @@ class StaticIf(ItemType) if(is(ItemType == Statement) || is(ItemType == Declarat
 /**
  * Mixins
  */
-class Mixin(ItemType) if(is(ItemType == Statement) || is(ItemType == Declaration) || is(ItemType == Expression)) : ItemType {
+class Mixin(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration) || is(ItemType == Expression)) : ItemType {
 	AstExpression value;
 	
 	this(Location location, AstExpression value) {

@@ -44,11 +44,16 @@ final class DeclarationVisitor {
 		Mixin,
 	}
 	
+	static struct SymbolUnit {
+		Declaration d;
+		Symbol s;
+	}
+	
 	static struct CtUnit {
 		CtUnitLevel level;
 		CtUnitType type;
 		union {
-			Symbol[] symbols;
+			SymbolUnit[] symbols;
 			Mixin!Declaration mixinDecl;
 			struct {
 				// TODO: special declaration subtype here.
@@ -84,11 +89,11 @@ final class DeclarationVisitor {
 			poisonScope.stack = [];
 		}
 		
-		return flatten(ctus)[0].symbols;
+		return flatten(ctus)[0].symbols.map!(su => su.s).array();
 	}
 	
 	Symbol[] flatten(Declaration d) {
-		return flatten(flattenDecls([d]))[0].symbols;
+		return flatten(flattenDecls([d]))[0].symbols.map!(su => su.s).array();
 	}
 	
 	private auto flattenDecls(Declaration[] decls) {
@@ -191,15 +196,17 @@ final class DeclarationVisitor {
 			poisonScope.resolveStaticIf(d, false);
 			items = unit.elseItems;
 		}
-		// FIXME
-		/+
+		
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
-				scheduler.schedule(u.symbols, s => pass.visit(s));
+				foreach(su; u.symbols) {
+					scheduler.schedule(only(su.s), s => pass.visit(su.d, s));
+				}
+				
 				u.level = CtUnitLevel.Done;
 			}
 		}
-		+/
+		
 		return flatten(items, to);
 	}
 	
@@ -242,20 +249,20 @@ final class DeclarationVisitor {
 			scheduler.schedule(only(s), s => pass.visit(d, s));
 		}
 		
-		unit.symbols ~= s;
+		unit.symbols ~= SymbolUnit(d, s);
 	}
 	
 	void visit(FunctionDeclaration d) {
 		Function f;
 		if(isStatic || !buildMethods) {
-			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], d.fbody);
+			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
 		} else {
 			uint index = 0;
 			if(!isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(d.location, index, getBuiltin(TypeKind.None), d.name, [], d.fbody);
+			f = new Method(d.location, index, getBuiltin(TypeKind.None), d.name, [], null);
 		}
 		
 		f.linkage = linkage;

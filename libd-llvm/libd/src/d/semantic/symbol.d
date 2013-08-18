@@ -84,7 +84,7 @@ final class SymbolVisitor {
 			f.step = Step.Signed;
 		}
 		
-		if(f.fbody) {
+		if(fd.fbody) {
 			auto oldLinkage = linkage;
 			auto oldIsStatic = isStatic;
 			auto oldIsOverride = isOverride;
@@ -116,7 +116,7 @@ final class SymbolVisitor {
 			
 			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			f.fbody = cast(BlockStatement) pass.visit(f.fbody);
+			f.fbody = pass.visit(fd.fbody);
 		}
 		
 		if(isAuto) {

@@ -109,7 +109,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 			break;
 	}
 	
-	BlockStatement fbody;
+	AstBlockStatement fbody;
 	switch(trange.front.type) with(TokenType) {
 		case Semicolon :
 			location.spanTo(trange.front.location);

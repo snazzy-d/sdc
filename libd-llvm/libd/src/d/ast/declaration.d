@@ -202,12 +202,12 @@ class FunctionDeclaration : NamedDeclaration {
 	ParamAstType returnType;
 	
 	import d.ast.statement;
-	BlockStatement fbody;
+	AstBlockStatement fbody;
 	
 	// XXX: Try to stick that in some pointer.
 	bool isVariadic;
 	
-	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, BlockStatement fbody) {
+	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		super(location, name);
 		
 		this.returnType = returnType;

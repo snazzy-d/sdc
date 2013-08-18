@@ -5,6 +5,8 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
+import d.ir.statement;
+
 import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.conditional;
@@ -14,7 +16,7 @@ import d.parser.type;
 
 import std.range;
 
-Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
 	switch(trange.front.type) with(TokenType) {
@@ -31,7 +33,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			auto then = trange.parseStatement();
 			
-			Statement elseStatement;
+			AstStatement elseStatement;
 			if(trange.front.type == Else) {
 				trange.popFront();
 				
@@ -42,7 +44,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				location.spanTo(then.location);
 			}
 			
-			return new IfStatement(location, condition, then, elseStatement);
+			return new AstIfStatement(location, condition, then, elseStatement);
 		
 		case While :
 			trange.popFront();
@@ -54,7 +56,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			auto statement = trange.parseStatement();
 			
 			location.spanTo(statement.location);
-			return new WhileStatement(location, condition, statement);
+			return new AstWhileStatement(location, condition, statement);
 		
 		case TokenType.Do :
 			trange.popFront();
@@ -70,16 +72,16 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
-			return new DoWhileStatement(location, condition, statement);
+			return new AstDoWhileStatement(location, condition, statement);
 		
 		case TokenType.For :
 			trange.popFront();
 			
 			trange.match(OpenParen);
 			
-			Statement init;
+			AstStatement init;
 			if(trange.front.type == Semicolon) {
-				init = new BlockStatement(trange.front.location, []);
+				init = new AstBlockStatement(trange.front.location, []);
 				trange.popFront();
 			} else {
 				init = trange.parseStatement();
@@ -102,7 +104,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			auto statement = trange.parseStatement();
 			
 			location.spanTo(statement.location);
-			return new ForStatement(location, init, condition, increment, statement);
+			return new AstForStatement(location, init, condition, increment, statement);
 		
 		case Foreach, ForeachReverse :
 			trange.popFront();
@@ -181,7 +183,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
-			return new ReturnStatement(location, value);
+			return new AstReturnStatement(location, value);
 		
 		case Break :
 			trange.popFront();
@@ -214,7 +216,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new SwitchStatement(location, expression, statement);
+			return new AstSwitchStatement(location, expression, statement);
 		
 		case Case :
 			trange.popFront();
@@ -224,7 +226,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(trange.front.location);
 			trange.match(Colon);
 			
-			return new CaseStatement(location, cases);
+			return new AstCaseStatement(location, cases);
 		
 		case Default :
 			// Other labeled statement will jump here !
@@ -232,16 +234,16 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			trange.popFront();
 			trange.match(Colon);
 			
-			Statement statement;
+			AstStatement statement;
 			if(trange.front.type != CloseBrace) {
 				statement = trange.parseStatement();
 				location.spanTo(statement.location);
 			} else {
 				location.spanTo(trange.front.location);
-				statement = new BlockStatement(location, []);
+				statement = new AstBlockStatement(location, []);
 			}
 			
-			return new LabeledStatement(location, label, statement);
+			return new AstLabeledStatement(location, label, statement);
 		
 		case Identifier :
 			auto lookahead = trange.save;
@@ -289,7 +291,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new SynchronizedStatement(location, statement);
+			return new AstSynchronizedStatement(location, statement);
 		
 		case Try :
 			trange.popFront();
@@ -324,6 +326,8 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 				}
 			}
 			
+			assert(0);
+			/+
 			if(trange.front.type == Finally) {
 				trange.popFront();
 				auto finallyStatement = trange.parseStatement();
@@ -334,6 +338,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			location.spanTo(catches.back.location);
 			return new TryStatement(location, statement, []);
+			+/
 		
 		case Throw :
 			trange.popFront();
@@ -342,10 +347,10 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
-			return new ThrowStatement(location, value);
+			return new AstThrowStatement(location, value);
 		
 		case Mixin :
-			return trange.parseMixin!Statement();
+			return trange.parseMixin!AstStatement();
 		
 		case Static :
 			auto lookahead = trange.save;
@@ -353,7 +358,7 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			
 			switch(lookahead.front.type) {
 				case If :
-					return trange.parseStaticIf!Statement();
+					return trange.parseStaticIf!AstStatement();
 				
 				case Assert :
 					trange.popFrontN(2);
@@ -374,18 +379,18 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 			}
 		
 		case Version :
-			return trange.parseVersion!Statement();
+			return trange.parseVersion!AstStatement();
 		
 		case Debug :
-			return trange.parseDebug!Statement();
+			return trange.parseDebug!AstStatement();
 		
 		default :
-			return trange.parseDeclarationOrExpression!(delegate Statement(parsed) {
+			return trange.parseDeclarationOrExpression!(delegate AstStatement(parsed) {
 				alias typeof(parsed) caseType;
 				
 				static if(is(caseType : AstExpression)) {
 					trange.match(Semicolon);
-					return new ExpressionStatement(parsed);
+					return new AstExpressionStatement(parsed);
 				} else {
 					return new DeclarationStatement(parsed);
 				}
@@ -395,12 +400,12 @@ Statement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!Toke
 	assert(0);
 }
 
-BlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstBlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
 	trange.match(TokenType.OpenBrace);
 	
-	Statement[] statements;
+	AstStatement[] statements;
 	
 	while(trange.front.type != TokenType.CloseBrace) {
 		statements ~= trange.parseStatement();
@@ -409,6 +414,6 @@ BlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 	location.spanTo(trange.front.location);
 	trange.popFront();
 	
-	return new BlockStatement(location, statements);
+	return new AstBlockStatement(location, statements);
 }
 
