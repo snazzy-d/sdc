@@ -6,7 +6,6 @@ import d.semantic.semantic;
 import d.ast.base;
 import d.ast.dfunction;
 import d.ast.declaration;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -522,14 +521,14 @@ final class SymbolVisitor {
 		e.step = Step.Processed;
 		return e;
 	}
-	/+
-	Symbol visit(TemplateDeclaration d) {
+	
+	// TODO: consider doing it at declaration step.
+	Symbol visit(Declaration d, Template t) {
 		// XXX: compute a proper mangling for templates.
-		d.mangle = manglePrefix ~ to!string(d.name.length) ~ d.name;
+		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
 		
-		d.step = Step.Processed;
-		return d;
+		t.step = Step.Processed;
+		return t;
 	}
-	+/
 }
 

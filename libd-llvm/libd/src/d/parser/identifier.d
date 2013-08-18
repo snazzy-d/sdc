@@ -1,7 +1,6 @@
 module d.parser.identifier;
 
 import d.ast.identifier;
-import d.ast.dtemplate;
 import d.ast.expression;
 import d.ast.type;
 

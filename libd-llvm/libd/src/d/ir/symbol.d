@@ -129,8 +129,44 @@ class Module : Package {
 	
 	this(Location location, string name, Package parent) {
 		super(location, name, parent);
+	}
+}
+
+/**
+ * Template
+ */
+class Template : Symbol {
+	import d.ast.declaration;
+	
+	TemplateParameter[] parameters;
+	Declaration[] members;
+	
+	Scope parentScope;
+	
+	TemplateInstance[string] instances;
+	
+	this(Location location, string name, Scope parentScope, TemplateParameter[] parameters, Declaration[] members) {
+		super(location, name);
 		
-		this.parent = parent;
+		this.parameters = parameters;
+		this.members = members;
+		
+		this.parentScope = parentScope;
+	}
+}
+
+/**
+* Template instance
+*/
+class TemplateInstance : Symbol {
+	Symbol[] members;
+	
+	Scope dscope;
+	
+	this(Location location, Template tpl, Symbol[] members) {
+		super(location, tpl.name);
+		
+		this.members = members;
 	}
 }
 
@@ -147,6 +183,9 @@ class TypeAlias : TypeSymbol {
 	}
 }
 
+/**
+ * Class
+ */
 class Class : TypeSymbol {
 	Class base;
 	Interface[] interfaces;
@@ -163,6 +202,9 @@ class Class : TypeSymbol {
 	}
 }
 
+/**
+ * Interface
+ */
 class Interface : TypeSymbol {
 	Interface[] bases;
 	Symbol[] members;
@@ -177,6 +219,9 @@ class Interface : TypeSymbol {
 	}
 }
 
+/**
+ * Struct
+ */
 class Struct : TypeSymbol {
 	Symbol[] members;
 	
@@ -190,7 +235,7 @@ class Struct : TypeSymbol {
 }
 
 /**
- * Union Declaration
+ * Union
  */
 class Union : TypeSymbol {
 	Symbol[] members;
@@ -205,7 +250,7 @@ class Union : TypeSymbol {
 }
 
 /**
- * Enum Declaration
+ * Enum
  */
 class Enum : TypeSymbol {
 	Type type;

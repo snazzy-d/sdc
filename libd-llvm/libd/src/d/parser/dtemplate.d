@@ -1,7 +1,7 @@
 module d.parser.dtemplate;
 
 import d.ast.base;
-import d.ast.dtemplate;
+import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
@@ -12,7 +12,7 @@ import d.parser.expression;
 import d.parser.type;
 
 import std.range;
-/+
+
 auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Template);
@@ -27,7 +27,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange
 	
 	return new TemplateDeclaration(location, name, parameters, declarations);
 }
-+/
+
 auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	trange.match(TokenType.If);
 	trange.match(TokenType.OpenParen);

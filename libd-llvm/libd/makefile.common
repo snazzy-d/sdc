@@ -26,7 +26,6 @@ LIBD_IMPORTS = -I$(LIBD_ROOT)/src
 
 DMD_SRC_BOGOUS = \
 	$(LIBD_ROOT)/src/d/parser/expression.d \
-	$(LIBD_ROOT)/src/d/semantic/clone.d \
 	$(LIBD_ROOT)/src/d/semantic/declaration.d \
 	$(LIBD_ROOT)/src/d/semantic/dmodule.d \
 	$(LIBD_ROOT)/src/d/semantic/dtemplate.d \
@@ -63,9 +62,6 @@ obj/parser.o: $(LIBD_DEP_PARSER)
 obj/processor.o: $(LIBD_DEP_PROCESSOR)
 	@mkdir -p obj
 	$(DMD) -c -of$@ $(LIBD_SRC_PROCESSOR) $(DFLAGS) $(LIBD_IMPORTS)
-
-obj/semantic/clone.o: obj/semantic/semantic.o
-	touch $@
 
 obj/semantic/declaration.o: obj/semantic/semantic.o
 	touch $@

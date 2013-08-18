@@ -6,7 +6,6 @@ import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dfunction;
 import d.ast.dmodule;
-import d.ast.dtemplate;
 
 import d.ir.dscope;
 import d.ir.expression;
@@ -66,18 +65,19 @@ final class DeclarationVisitor {
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {
 		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
 		auto oldPoisonScope = poisonScope;
-		scope(exit) poisonScope = oldPoisonScope;
+		scope(exit) {
+			currentScope = oldScope;
+			poisonScope = oldPoisonScope;
+		}
 		
 		currentScope = poisonScope = new PoisonScope(currentScope);
 		
 		auto ctus = flattenDecls(decls);
 		
 		parent.step = Step.Populated;
-		
 		poisonScope.isPoisoning = true;
+		
 		scope(exit) {
 			poisonScope.isPoisoning = false;
 			poisonScope.stackSize = 0;
@@ -344,18 +344,15 @@ final class DeclarationVisitor {
 			}
 		}
 	}
-	/+
+	
 	void visit(TemplateDeclaration d) {
-		d.linkage = linkage;
-		d.isStatic = isStatic;
+		Template t = new Template(d.location, d.name, currentScope, d.parameters, d.declarations);
 		
-		currentScope.addOverloadableSymbol(d);
+		currentScope.addOverloadableSymbol(t);
 		
-		d.parentScope = currentScope;
-		
-		select(d);
+		select(d, t);
 	}
-	+/
+	
 	void visit(AliasDeclaration d) {
 		TypeAlias a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
 		
