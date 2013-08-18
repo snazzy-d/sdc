@@ -19,6 +19,8 @@ import d.location;
 import std.algorithm;
 import std.array;
 
+alias Module = d.ir.symbol.Module;
+
 final class IdentifierVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -95,11 +97,11 @@ final class IdentifierVisitor {
 				return expressionDotIdentifierVisitor.visit(i.location, i.name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
-				/*
+				
 				if(auto m = cast(Module) identified) {
 					return visit(i.location, m.dscope.resolve(i.name));
 				}
-				*/
+				
 				throw new CompileException(i.location, "Can't resolve " ~ i.name);
 			}
 		})();
@@ -203,11 +205,10 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Enum e) {
 		return Identifiable(new EnumType(e));
 	}
-	/*
+	
 	Identifiable visit(Location location, Module m) {
 		return Identifiable(m);
 	}
-	*/
 }
 
 /**
