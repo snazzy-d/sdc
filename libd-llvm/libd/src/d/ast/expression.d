@@ -278,7 +278,7 @@ class SliceExpression(T) if(is(T: AstExpression)) : T {
 	T[] second;
 	
 	this(U...)(Location location, U args, T sliced, T[] first, T[] second) {
-		super(location);
+		super(location, args);
 		
 		this.sliced = sliced;
 		this.first = first;

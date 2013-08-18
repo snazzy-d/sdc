@@ -469,19 +469,19 @@ final class ExpressionGen {
 	LLVMValueRef visit(IndexExpression e) {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
-	/+
+	
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
 		
-		auto indexed = addressOf(e.indexed);
+		auto sliced = addressOf(e.sliced);
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(context), "");
 		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(context), "");
 		
 		// To ensure bound check. Before ptr calculation for optimization purpose.
-		computeIndice(e.location, e.indexed.type, indexed, second);
+		computeIndice(e.location, e.sliced.type.type, sliced, second);
 		
 		auto length = LLVMBuildSub(builder, second, first, "");
-		auto ptr = computeIndice(e.location, e.indexed.type, indexed, first);
+		auto ptr = computeIndice(e.location, e.sliced.type.type, sliced, first);
 		
 		auto slice = LLVMGetUndef(pass.visit(e.type));
 		
@@ -490,7 +490,6 @@ final class ExpressionGen {
 		
 		return slice;
 	}
-	+/
 	
 	LLVMValueRef visit(CastExpression e) {
 		auto value = visit(e.expr);
