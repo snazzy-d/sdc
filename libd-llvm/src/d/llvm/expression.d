@@ -345,57 +345,6 @@ final class ExpressionGen {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
-	/+
-	private auto handleIncrement(bool pre, IncrementExpression)(IncrementExpression e, int step) {
-		auto ptr = addressOf(e.expression);
-		
-		auto preValue = LLVMBuildLoad(builder, ptr, "");
-		auto type = e.expression.type;
-		
-		LLVMValueRef postValue;
-		
-		if(auto ptrType = cast(PointerType) type) {
-			auto indice = LLVMConstInt(LLVMInt64TypeInContext(context), step, true);
-			postValue = LLVMBuildInBoundsGEP(builder, preValue, &indice, 1, "");
-		} else {
-			postValue = LLVMBuildAdd(builder, preValue, LLVMConstInt(pass.visit(type), step, true), "");
-		}
-		
-		LLVMBuildStore(builder, postValue, ptr);
-		
-		// PreIncrement return the value after it is incremented.
-		static if(pre) {
-			return postValue;
-		} else {
-			return preValue;
-		}
-	}
-	
-	LLVMValueRef visit(PreIncrementExpression e) {
-		return handleIncrement!true(e, 1);
-	}
-	
-	LLVMValueRef visit(PreDecrementExpression e) {
-		return handleIncrement!true(e, -1);
-	}
-	
-	LLVMValueRef visit(PostIncrementExpression e) {
-		return handleIncrement!false(e, 1);
-	}
-	
-	LLVMValueRef visit(PostDecrementExpression e) {
-		return handleIncrement!false(e, -1);
-	}
-	
-	LLVMValueRef visit(UnaryMinusExpression e) {
-		return LLVMBuildSub(builder, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
-	}
-	
-	LLVMValueRef visit(NotExpression e) {
-		// Is it the right way ?
-		return LLVMBuildICmp(builder, LLVMIntPredicate.EQ, LLVMConstInt(pass.visit(e.type), 0, true), visit(e.expression), "");
-	}
-	+/
 	LLVMValueRef visit(SymbolExpression e) {
 		if(e.symbol.isEnum) {
 			return pass.visit(e.symbol);
@@ -696,11 +645,15 @@ final class AddressOfGen {
 		// Assume that this is passed by ref, which is true for struct but not for classes.
 		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
 	}
-	/+
-	LLVMValueRef visit(DereferenceExpression e) {
-		return pass.visit(e.expression);
+	
+	LLVMValueRef visit(UnaryExpression e) {
+		if(e.op == UnaryOp.Dereference) {
+			return pass.visit(e.expr);
+		}
+		
+		assert(0, "not an lvalue ??");
 	}
-	+/
+	
 	LLVMValueRef visit(CastExpression e) {
 		auto value = visit(e.expr);
 		auto type = pass.visit(e.type);

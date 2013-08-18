@@ -255,11 +255,19 @@ final class ExpressionVisitor {
 			case PostDec :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
 					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
-					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
+					
+					auto isPre = op == PreInc || op == PreDec;
+					
+					auto s = isPre
+						? new SymbolExpression(e.location, new Variable(e.location, expr.type, "", expr));
+						: expr;
+					
+					auto i = new IndexExpression(e.location, pt.pointed, s, [n]);
 					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
 					auto r = new BinaryExpression(e.location, expr.type, BinaryOp.Assign, expr, v);
 					
-					return (op == PreInc || op == PreDec)? r : new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, expr);
+					// FIXME: introduce temporary
+					return isPre ? r : new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, s);
 				}
 				
 				type = expr.type;
@@ -282,54 +290,7 @@ final class ExpressionVisitor {
 		
 		return new UnaryExpression(e.location, type, op, expr);
 	}
-	/+
-	private auto handleBinaryExpression(string operation)(BinaryExpression!operation e) {
-		e.lhs = visit(e.lhs);
-		e.rhs = visit(e.rhs);
-		
-		import std.algorithm;
-		static if(find(["&&", "||"], operation)) {
-			e.type = new BooleanType();
-			
-			e.lhs = buildExplicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = buildExplicitCast(e.rhs.location, e.type, e.rhs);
-		} else static if(find(["==", "!=", ">", ">=", "<", "<="], operation)) {
-			auto type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
-			
-			e.lhs = buildImplicitCast(e.lhs.location, type, e.lhs);
-			e.rhs = buildImplicitCast(e.rhs.location, type, e.rhs);
-			
-			e.type = new BooleanType();
-		} else static if(find(["&", "|", "^", "*", "/", "%"], operation)) {
-			e.type = getPromotedType(e.location, e.lhs.type, e.rhs.type);
-			
-			e.lhs = buildImplicitCast(e.lhs.location, e.type, e.lhs);
-			e.rhs = buildImplicitCast(e.rhs.location, e.type, e.rhs);
-		} else static if(find([","], operation)) {
-			e.type = e.rhs.type;
-		} else {
-			static assert(0);
-		}
-		
-		return e;
-	}
 	
-	Expression visit(UnaryPlusExpression e) {
-		// DMD don't understand that it has all infos already :(
-		static SemanticPass workaround;
-		auto oldWA = workaround;
-		scope(exit) workaround = oldWA;
-		
-		return handleUnaryExpression!((UnaryPlusExpression e) {
-			if(typeid({ return e.expression.type; }()) !is typeid(IntegerType)) {
-				return workaround.raiseCondition!Expression(e.location, "unary plus only apply to integers.");
-			}
-			
-			return e.expression;
-		})(e);
-	}
-	}
-	+/
 	Expression visit(AstCastExpression e) {
 		auto to = pass.visit(e.type);
 		return buildExplicitCast(e.location, to, visit(e.expr));
