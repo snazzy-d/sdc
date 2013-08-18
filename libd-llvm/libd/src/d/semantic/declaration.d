@@ -348,6 +348,9 @@ final class DeclarationVisitor {
 	void visit(TemplateDeclaration d) {
 		Template t = new Template(d.location, d.name, currentScope, d.parameters, d.declarations);
 		
+		t.isStatic = isStatic;
+		t.linkage = linkage;
+		
 		currentScope.addOverloadableSymbol(t);
 		
 		select(d, t);
