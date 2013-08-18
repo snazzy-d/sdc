@@ -213,6 +213,20 @@ final class ExpressionVisitor {
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
 	}
 	
+	private Expression handleAddressOf(Expression expr) {
+		// For fucked up reasons, &funcname is a special case.
+		if(auto se = cast(SymbolExpression) expr) {
+			if(cast(Function) se.symbol) {
+				return expr;
+			}
+		} else if(auto pe = cast(PolysemousExpression) expr) {
+			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
+			return pe;
+		}
+		
+		return new UnaryExpression(expr.location, QualType(new PointerType(expr.type)), UnaryOp.AddressOf, expr);
+	}
+	
 	Expression visit(AstUnaryExpression e) {
 		auto expr = visit(e.expr);
 		auto op = e.op;
@@ -220,15 +234,12 @@ final class ExpressionVisitor {
 		QualType type;
 		final switch(op) with(UnaryOp) {
 			case AddressOf :
-				// For fucked up reasons, &funcname is a special case.
-				if(auto se = cast(SymbolExpression) expr) {
-					if(cast(Function) se.symbol) {
-						return expr;
-					}
-				}
-				
+				return handleAddressOf(expr);
+				// It could have been so simple :(
+				/+
 				type = QualType(new PointerType(expr.type));
 				break;
+				+/
 			
 			case Dereference :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
