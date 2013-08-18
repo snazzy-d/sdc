@@ -92,6 +92,17 @@ final class ExpressionGen {
 		return value;
 	}
 	
+	private auto handleBinaryOpAssign(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
+		auto t = cast(BuiltinType) peelAlias(e.type).type;
+		assert(t);
+		
+		if(isSigned(t.kind)) {
+			return handleBinaryOpAssign!LLVMSignedBuildOp(e);
+		} else {
+			return handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
+		}
+	}
+	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
 		
@@ -184,9 +195,6 @@ final class ExpressionGen {
 			case Sub :
 				return handleBinaryOp!LLVMBuildSub(e);
 				
-			case Concat :
-				assert(0, "Not implemented");
-			
 			case Mul :
 				return handleBinaryOp!LLVMBuildMul(e);
 			
@@ -197,12 +205,27 @@ final class ExpressionGen {
 				return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(e);
 			
 			case Pow :
-			case AddAssign :
-			case SubAssign :
+				assert(0, "Not implemented");
+			
+			case Concat :
 			case ConcatAssign :
+				assert(0, "Not implemented");
+			
+			case AddAssign :
+				return handleBinaryOpAssign!LLVMBuildAdd(e);
+			
+			case SubAssign :
+				return handleBinaryOpAssign!LLVMBuildSub(e);
+				
 			case MulAssign :
+				return handleBinaryOpAssign!LLVMBuildMul(e);
+			
 			case DivAssign :
+				return handleBinaryOpAssign!(LLVMBuildSDiv, LLVMBuildUDiv)(e);
+			
 			case ModAssign :
+				return handleBinaryOpAssign!(LLVMBuildSRem, LLVMBuildURem)(e);
+			
 			case PowAssign :
 				assert(0, "Not implemented");
 			

@@ -213,6 +213,20 @@ final class ExpressionVisitor {
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
 	}
 	
+	private Expression handleAddressOf(Expression expr) {
+		// For fucked up reasons, &funcname is a special case.
+		if(auto se = cast(SymbolExpression) expr) {
+			if(cast(Function) se.symbol) {
+				return expr;
+			}
+		} else if(auto pe = cast(PolysemousExpression) expr) {
+			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
+			return pe;
+		}
+		
+		return new UnaryExpression(expr.location, QualType(new PointerType(expr.type)), UnaryOp.AddressOf, expr);
+	}
+	
 	Expression visit(AstUnaryExpression e) {
 		auto expr = visit(e.expr);
 		auto op = e.op;
@@ -220,15 +234,12 @@ final class ExpressionVisitor {
 		QualType type;
 		final switch(op) with(UnaryOp) {
 			case AddressOf :
-				// For fucked up reasons, &funcname is a special case.
-				if(auto se = cast(SymbolExpression) expr) {
-					if(cast(Function) se.symbol) {
-						return expr;
-					}
-				}
-				
+				return handleAddressOf(expr);
+				// It could have been so simple :(
+				/+
 				type = QualType(new PointerType(expr.type));
 				break;
+				+/
 			
 			case Dereference :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
@@ -345,17 +356,17 @@ final class ExpressionVisitor {
 		QualifierConvert,
 		Exact,
 	}
-	/+
+	
 	// TODO: deduplicate.
-	private auto matchArgument(Expression arg, Parameter param) {
-		if(param.isReference && !canConvert(arg.type.qualifier, param.type.qualifier)) {
+	private auto matchArgument(Expression arg, ParamType param) {
+		if(param.isRef && !canConvert(arg.type.qualifier, param.qualifier)) {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(arg.type, param.type);
+		auto flavor = pass.implicitCastFrom(arg.type, QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
-		if(param.isReference && !(flavor >= CastKind.Bit && arg.isLvalue)) {
+		if(param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
 			return MatchLevel.Not;
 		}
 		
@@ -363,21 +374,21 @@ final class ExpressionVisitor {
 	}
 	
 	// TODO: deduplicate.
-	private auto matchArgument(Type type, bool lvalue, Parameter param) {
-		if(param.isReference && !canConvert(type.qualifier, param.type.qualifier)) {
+	private auto matchArgument(ParamType type, ParamType param) {
+		if(param.isRef && !canConvert(type.qualifier, param.qualifier)) {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(type, param.type);
+		auto flavor = pass.implicitCastFrom(QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
-		if(param.isReference && !(flavor >= CastKind.Bit && lvalue)) {
+		if(param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
 			return MatchLevel.Not;
 		}
 		
 		return matchLevel(flavor);
 	}
-	+/
+	
 	private auto matchLevel(CastKind flavor) {
 		final switch(flavor) with(CastKind) {
 			case Invalid :
@@ -400,28 +411,28 @@ final class ExpressionVisitor {
 	Expression visit(AstCallExpression c) {
 		auto callee = visit(c.callee);
 		auto args = c.arguments.map!(a => visit(a)).array();
-		/+
-		if(auto asPolysemous = cast(PolysemousExpression) c.callee) {
+		
+		if(auto asPolysemous = cast(PolysemousExpression) callee) {
 			auto candidates = asPolysemous.expressions.filter!((e) {
-				if(auto asFunType = cast(FunctionType) e.type) {
+				if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
 					if(asFunType.isVariadic) {
-						return c.arguments.length >= asFunType.parameters.length;
+						return args.length >= asFunType.paramTypes.length;
 					} else {
-						return c.arguments.length == asFunType.parameters.length;
+						return args.length == asFunType.paramTypes.length;
 					}
 				}
 				
 				assert(0, "type is not a function type");
-			}).map!(c => visit(c));
+			});
 			
 			auto level = MatchLevel.Not;
 			Expression match;
 			CandidateLoop: foreach(candidate; candidates) {
-				auto type = cast(FunctionType) candidate.type;
+				auto type = cast(FunctionType) peelAlias(candidate.type).type;
 				assert(type, "We should have filtered function at this point.");
 				
 				auto candidateLevel = MatchLevel.Exact;
-				foreach(arg, param; lockstep(c.arguments, type.parameters)) {
+				foreach(arg, param; lockstep(args, type.paramTypes)) {
 					auto argLevel = matchArgument(arg, param);
 					
 					// If we don't match high enough.
@@ -450,17 +461,17 @@ final class ExpressionVisitor {
 					match = candidate;
 				} else if(candidateLevel == level) {
 					// Check for specialisation.
-					auto matchType = cast(FunctionType) match.type;
+					auto matchType = cast(FunctionType) peelAlias(match.type).type;
 					assert(matchType, "We should have filtered function at this point.");
 					
 					bool candidateFail;
 					bool matchFail;
-					foreach(param, matchParam; lockstep(type.parameters, matchType.parameters)) {
-						if(matchArgument(param.type, param.isReference, matchParam) == MatchLevel.Not) {
+					foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
+						if(matchArgument(param, matchParam) == MatchLevel.Not) {
 							candidateFail = true;
 						}
 						
-						if(matchArgument(matchParam.type, matchParam.isReference, param) == MatchLevel.Not) {
+						if(matchArgument(matchParam, param) == MatchLevel.Not) {
 							matchFail = true;
 						}
 					}
@@ -479,9 +490,8 @@ final class ExpressionVisitor {
 				return pass.raiseCondition!Expression(c.location, "No candidate for function call.");
 			}
 			
-			c.callee = match;
+			callee = match;
 		}
-		+/
 		
 		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;

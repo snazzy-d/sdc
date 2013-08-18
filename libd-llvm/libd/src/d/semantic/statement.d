@@ -135,10 +135,16 @@ final class StatementVisitor {
 		auto value = pass.visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
-		if(typeid({ return pass.returnType.type; }()) is typeid(AutoType)) {
-			// TODO: auto ref return.
-			returnType = ParamType(value.type, false);
-		} else {
+		auto doCast = true;
+		if(auto bt = cast(BuiltinType) returnType.type) {
+			if(bt.kind == TypeKind.None) {
+				// TODO: auto ref return.
+				returnType = ParamType(value.type, false);
+				doCast = false;
+			}
+		}
+		
+		if(doCast) {
 			value = buildImplicitCast(r.location, QualType(returnType.type, returnType.qualifier), value);
 		}
 		
