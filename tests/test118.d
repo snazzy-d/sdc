@@ -1,4 +1,5 @@
 //T compiles:no
+//T has-passed:yes
 // Test invalid override.
 
 int main() {

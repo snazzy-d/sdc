@@ -1,4 +1,5 @@
 //T compiles:yes
+//T has-passed:yes
 //T retval:42
 
 mixin("auto foo() { return 12; }");
