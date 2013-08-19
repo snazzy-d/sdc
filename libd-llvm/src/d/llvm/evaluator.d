@@ -82,7 +82,7 @@ final class LLVMEvaluator : Evaluator {
 	+/
 	// Actual JIT
 	private CompileTimeExpression jit(Expression e) {
-		auto type = e.type.type;
+		auto type = peelAlias(e.type).type;
 		
 		if(auto et = cast(EnumType) type) {
 			type = et.denum.type;
@@ -104,16 +104,18 @@ final class LLVMEvaluator : Evaluator {
 				return new BooleanLiteral(e.location, !!returned);
 			}
 		}
-		/+
-		if(auto t = cast(SliceType) e.type) {
-			if(cast(CharacterType) t.type) {
-				auto returned = jitString(e);
-				
-				return new StringLiteral(e.location, returned);
+		
+		if(auto t = cast(SliceType) type) {
+			if(auto c = cast(BuiltinType) peelAlias(t.sliced).type) {
+				if(c.kind == TypeKind.Char) {
+					auto returned = jitString(e);
+					
+					return new StringLiteral(e.location, returned);
+				}
 			}
 		}
-		+/
-		assert(0, "Only able to JIT integers and booleans, " ~ type.toString() ~ " given.");
+		
+		assert(0, "Only able to JIT integers, booleans and strings, " ~ type.toString() ~ " given.");
 	}
 	
 	private auto jitInteger(Expression e) {

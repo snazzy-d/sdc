@@ -173,66 +173,7 @@ final class TypeGen {
 				return LLVMPointerType(LLVMInt8TypeInContext(context), 0);
 		}
 	}
-	/+
-	LLVMTypeRef visit(BooleanType t) {
-		isSigned = false;
-		
-		return LLVMInt1TypeInContext(context);
-	}
 	
-	LLVMTypeRef visit(IntegerType t) {
-		isSigned = !(t.type % 2);
-		
-		final switch(t.type) with(Integer) {
-				case Byte, Ubyte :
-					return LLVMInt8TypeInContext(context);
-				
-				case Short, Ushort :
-					return LLVMInt16TypeInContext(context);
-				
-				case Int, Uint :
-					return LLVMInt32TypeInContext(context);
-				
-				case Long, Ulong :
-					return LLVMInt64TypeInContext(context);
-		}
-	}
-	
-	LLVMTypeRef visit(FloatType t) {
-		isSigned = true;
-		
-		final switch(t.type) with(Float) {
-				case Float :
-					return LLVMFloatTypeInContext(context);
-				
-				case Double :
-					return LLVMDoubleTypeInContext(context);
-				
-				case Real :
-					return LLVMX86FP80TypeInContext(context);
-		}
-	}
-	
-	// XXX: character type in the backend ?
-	LLVMTypeRef visit(CharacterType t) {
-		isSigned = false;
-		
-		final switch(t.type) with(Character) {
-				case Char :
-					return LLVMInt8TypeInContext(context);
-				
-				case Wchar :
-					return LLVMInt16TypeInContext(context);
-				
-				case Dchar :
-					return LLVMInt32TypeInContext(context);
-		}
-	}
-	
-	LLVMTypeRef visit(VoidType t) {
-		return LLVMVoidTypeInContext(context);
-	}
-	+/
 	LLVMTypeRef visit(PointerType t) {
 		auto pointed = visit(t.pointed);
 		
@@ -250,14 +191,13 @@ final class TypeGen {
 		
 		return LLVMStructTypeInContext(context, types.ptr, 2, false);
 	}
-	/+
-	LLVMTypeRef visit(StaticArrayType t) {
-		auto type = visit(t.type);
-		auto size = pass.visit(t.size);
+	
+	LLVMTypeRef visit(ArrayType t) {
+		auto type = visit(t.elementType);
 		
-		return LLVMArrayType(type, cast(uint) LLVMConstIntGetZExtValue(size));
+		return LLVMArrayType(type, cast(uint) t.size);
 	}
-	+/
+	
 	private auto buildParamType(ParamType pt) {
 		auto type = visit(pt.type);
 		

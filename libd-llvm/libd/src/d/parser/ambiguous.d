@@ -153,7 +153,7 @@ struct Ambiguous {
 	}
 	
 	this(Identifier id) {
-		tag = Tag.Expression;
+		tag = Tag.Identifier;
 		i = id;
 	}
 	
@@ -193,30 +193,26 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	switch(trange.front.type) with(TokenType) {
 		case OpenBracket :
 			trange.popFront();
-			/+
-			auto parsed = trange.parseAmbiguous!ambiguousHandler().apply!(delegate Object(parsed) {
+			
+			return trange.parseAmbiguous!ambiguousHandler().apply!((parsed) {
 				auto location = i.location;
 				location.spanTo(trange.front.location);
+				trange.match(CloseBracket);
 				
-				static if(is(typeof(parsed) : Type)) {
-					return new AssociativeArrayType(new IdentifierType(i), parsed);
-				} else static if(is(typeof(parsed) : Expression)) {
-					return new IdentifierBracketExpression(location, i, parsed);
+				static if(is(typeof(parsed) : QualAstType)) {
+					auto t = QualAstType(new AstAssociativeArrayType(QualAstType(new IdentifierType(i)), parsed));
+					return trange.parseAmbiguousSuffix!handler(i.location, t);
 				} else {
-					return new IdentifierBracketIdentifier(location, i, parsed);
+					static if(is(typeof(parsed) : AstExpression)) {
+						auto id = new IdentifierBracketExpression(location, i, parsed);
+					} else {
+						auto id = new IdentifierBracketIdentifier(location, i, parsed);
+					}
+					
+					// Use ambiguousHandler to avoid infinite recursion
+					return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
 				}
 			})();
-			
-			trange.match(CloseBracket);
-			
-			// XXX: workaround lolbug (handler can't be passed down to subfunction).
-			if(auto id = cast(d.ast.identifier.Identifier) parsed) {
-				return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
-			} else if(auto t = cast(Type) parsed) {
-				return trange.parseAmbiguousSuffix!handler(i.location, t);
-			}
-			+/
-			assert(0);
 		
 		case Function :
 		case Delegate :

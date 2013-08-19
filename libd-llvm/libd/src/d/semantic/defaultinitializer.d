@@ -77,11 +77,11 @@ final class DefaultInitializerVisitor {
 		return ret;
 	}
 	*/
-	/*
+	
 	Expression visit(Location location, ArrayType t) {
-		return new VoidInitializer(location, t);
+		return new VoidInitializer(location, QualType(t));
 	}
-	*/
+	
 	Expression visit(Location location, StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);

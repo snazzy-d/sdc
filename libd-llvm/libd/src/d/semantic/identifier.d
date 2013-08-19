@@ -130,12 +130,26 @@ final class IdentifierVisitor {
 	
 	Identifiable visit(IdentifierBracketExpression i) {
 		return visit(i.indexed).apply!(delegate Identifiable(identified) {
+			// TODO: deduplicate code form type and expression visitor.
 			static if(is(typeof(identified) : QualType)) {
-				assert(0, "This is a type. I don't like that.");
-				// return Identifiable(QualType(new StaticArrayType(identified, i.index)));
+				auto se = pass.buildImplicitCast(i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
+				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
+				
+				return Identifiable(QualType(new ArrayType(identified, size)));
 			} else static if(is(typeof(identified) : Expression)) {
-				assert(0, "This is an expression. I don't like that.");
-				// return Identifiable(new AstIndexExpression(i.location, identified, [i.index]));
+				auto qt = peelAlias(identified.type);
+				auto type = qt.type;
+				if(auto asSlice = cast(SliceType) type) {
+					qt = asSlice.sliced;
+				} else if(auto asPointer = cast(PointerType) type) {
+					qt = asPointer.pointed;
+				} else if(auto asArray = cast(ArrayType) type) {
+					qt = asArray.elementType;
+				} else {
+					return Identifiable(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString()));
+				}
+				
+				return Identifiable(new IndexExpression(i.location, qt, identified, [pass.visit(i.index)]));
 			} else {
 				assert(0, "WTF ???");
 			}

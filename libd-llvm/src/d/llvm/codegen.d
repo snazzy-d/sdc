@@ -167,7 +167,7 @@ final class CodeGenPass {
 	}
 	
 	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
-		assert(cast(SliceType) e.type.type, "this only CTFE strings.");
+		assert(cast(SliceType) peelAlias(e.type).type, "this only CTFE strings.");
 	} body {
 		scope(failure) LLVMDumpModule(dmodule);
 		

@@ -367,6 +367,10 @@ class VoidInitializer : Expression {
 	this(Location location) {
 		super(location, getBuiltin(TypeKind.None));
 	}
+	
+	this(Location location, QualType type) {
+		super(location, type);
+	}
 }
 
 /**

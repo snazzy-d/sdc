@@ -1,4 +1,5 @@
 //T compiles:no
+//T has-passed:yes
 // Test implicit override error.
 
 int main() {
