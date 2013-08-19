@@ -326,26 +326,6 @@ class FieldExpression : Expression {
 }
 
 /**
- * Delegates expressions.
- */
-class DelegateExpression : Expression {
-	Expression context;
-	Expression funptr;
-	
-	this(Location location, Expression context, Expression funptr) {
-		auto type = funptr.type;
-		auto funType = cast(FunctionType) type.type;
-		assert(funType, "funptr must be a function, " ~ type.toString() ~ " given.");
-		
-		auto dgType = QualType(new DelegateType(funType), type.qualifier);
-		super(location, dgType);
-		
-		this.context = context;
-		this.funptr = funptr;
-	}
-}
-
-/**
  * Methods resolved on expressions.
  */
 class MethodExpression : Expression {
