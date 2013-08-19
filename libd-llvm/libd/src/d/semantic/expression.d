@@ -553,11 +553,11 @@ final class ExpressionVisitor {
 		auto qt = peelAlias(indexed.type);
 		auto type = qt.type;
 		if(auto asSlice = cast(SliceType) type) {
-			qt.type = asSlice.sliced.type;
+			qt = asSlice.sliced;
 		} else if(auto asPointer = cast(PointerType) type) {
-			qt.type = asPointer.pointed.type;
+			qt = asPointer.pointed;
 		} else if(auto asArray = cast(ArrayType) type) {
-			qt.type = asArray.elementType.type;
+			qt = asArray.elementType;
 		} else {
 			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString());
 		}
