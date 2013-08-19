@@ -74,6 +74,18 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
+	private Expression getTemporaryLvalue(Expression value) {
+		auto pt = QualType(new PointerType(value.type));
+		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
+		auto s = new SymbolExpression(value.location, new Variable(value.location, pt, "", ptr));
+		
+		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, s);
+	}
+	
+	private Expression getTemporaryRvalue(Expression value) {
+		return new SymbolExpression(value.location, new Variable(value.location, value.type, "", value));
+	}
+	
 	Expression visit(AstBinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
@@ -254,20 +266,20 @@ final class ExpressionVisitor {
 			case PostInc :
 			case PostDec :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
+					expr = getTemporaryLvalue(expr);
+					
 					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
-					
-					auto isPre = op == PreInc || op == PreDec;
-					
-					auto s = isPre
-						? new SymbolExpression(e.location, new Variable(e.location, expr.type, "", expr));
-						: expr;
-					
-					auto i = new IndexExpression(e.location, pt.pointed, s, [n]);
+					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
 					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
 					auto r = new BinaryExpression(e.location, expr.type, BinaryOp.Assign, expr, v);
 					
-					// FIXME: introduce temporary
-					return isPre ? r : new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, s);
+					if(op == PreInc || op == PreDec) {
+						return r;
+					}
+					
+					auto l = getTemporaryRvalue(expr);
+					r = new BinaryExpression(e.location, expr.type, BinaryOp.Comma, l, r);
+					return new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, l);
 				}
 				
 				type = expr.type;
