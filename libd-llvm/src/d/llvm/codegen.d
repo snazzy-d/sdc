@@ -26,7 +26,6 @@ import std.string;
 final class CodeGenPass {
 	private SymbolGen symbolGen;
 	private StatementGen statementGen;
-	private AddressOfGen addressOfGen;
 	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
@@ -53,7 +52,6 @@ final class CodeGenPass {
 		symbolGen		= new SymbolGen(this);
 		statementGen	= new StatementGen(this);
 		expressionGen	= new ExpressionGen(this);
-		addressOfGen	= new AddressOfGen(this);
 		typeGen			= new TypeGen(this);
 		
 		stringGen		= new StringGen(this);
@@ -119,14 +117,6 @@ final class CodeGenPass {
 	
 	auto visit(Expression e) {
 		return expressionGen.visit(e);
-	}
-	
-	auto addressOf(Expression e) {
-		return addressOfGen.visit(e);
-	}
-	
-	auto computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
-		return addressOfGen.computeIndice(location, indexedType, indexed, indice);
 	}
 	
 	auto visit(QualType t) {
