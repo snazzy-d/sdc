@@ -74,16 +74,20 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
+	private Expression getTemporaryRvalue(Expression value) {
+		auto v = new Variable(value.location, value.type, "", value);
+		v.isEnum = true;
+		v.step = Step.Processed;
+		
+		return new SymbolExpression(value.location, v);
+	}
+	
 	private Expression getTemporaryLvalue(Expression value) {
 		auto pt = QualType(new PointerType(value.type));
 		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
-		auto s = new SymbolExpression(value.location, new Variable(value.location, pt, "", ptr));
+		auto v = getTemporaryRvalue(ptr);
 		
-		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, s);
-	}
-	
-	private Expression getTemporaryRvalue(Expression value) {
-		return new SymbolExpression(value.location, new Variable(value.location, value.type, "", value));
+		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
 	}
 	
 	Expression visit(AstBinaryExpression e) {
@@ -130,6 +134,8 @@ final class ExpressionVisitor {
 			case AddAssign :
 			case SubAssign :
 				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+					lhs = getTemporaryLvalue(lhs);
+					
 					// FIXME: check that rhs is an integer.
 					if(op == SubAssign) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
