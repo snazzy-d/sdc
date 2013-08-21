@@ -21,14 +21,22 @@ final class ExpressionGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
+	private AddressOfGen addressOfGen;
+	
 	this(CodeGenPass pass) {
 		this.pass = pass;
+		
+		addressOfGen = new AddressOfGen(pass);
 	}
 	
 	LLVMValueRef visit(Expression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
 			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
 		})(e);
+	}
+	
+	LLVMValueRef addressOf(Expression e) {
+		return addressOfGen.visit(e);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -395,25 +403,6 @@ final class ExpressionGen {
 		return dg;
 	}
 	
-	LLVMValueRef visit(DelegateExpression e) {
-		auto type = cast(DelegateType) peelAlias(e.type).type;
-		assert(type);
-		
-		LLVMValueRef context;
-		if(type.context.isRef) {
-			context = addressOf(e.context);
-		} else {
-			context = visit(e.context);
-		}
-		
-		auto dg = LLVMGetUndef(pass.visit(type));
-		
-		dg = LLVMBuildInsertValue(builder, dg, visit(e.funptr), 0, "");
-		dg = LLVMBuildInsertValue(builder, dg, context, 1, "");
-		
-		return dg;
-	}
-	
 	LLVMValueRef visit(NewExpression e) {
 		assert(e.arguments.length == 0);
 		
@@ -444,20 +433,42 @@ final class ExpressionGen {
 	
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
+		auto type = peelAlias(e.sliced.type).type;
 		
-		auto sliced = addressOf(e.sliced);
+		LLVMValueRef length, ptr;
+		if(typeid(type) is typeid(SliceType)) {
+			auto slice = visit(e.sliced);
+			
+			length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+			ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+		} else if(typeid(type) is typeid(PointerType)) {
+			ptr = visit(e.sliced);
+		} else if(auto asArray = cast(ArrayType) type) {
+			length = LLVMConstInt(LLVMInt64TypeInContext(context), asArray.size, false);
+			
+			auto zero = LLVMConstInt(LLVMInt64TypeInContext(context), 0, false);
+			ptr = LLVMBuildInBoundsGEP(builder, addressOfGen.visit(e.sliced), &zero, 1, "");
+		} else {
+			assert(0, "Don't know how to slice " ~ e.type.toString());
+		}
+		
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(context), "");
 		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(context), "");
 		
-		// To ensure bound check. Before ptr calculation for optimization purpose.
-		computeIndice(e.location, e.sliced.type.type, sliced, second);
+		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
+		if(length) {
+			condition = LLVMBuildAnd(builder, condition, LLVMBuildICmp(builder, LLVMIntPredicate.ULE, second, length, ""), "");
+		}
 		
-		auto length = LLVMBuildSub(builder, second, first, "");
-		auto ptr = computeIndice(e.location, e.sliced.type.type, sliced, first);
+		addressOfGen.genBoundCheck(e.location, condition);
+		
+		auto sub = LLVMBuildSub(builder, second, first, "");
+		
+		ptr = LLVMBuildInBoundsGEP(builder, ptr, &first, 1, "");
 		
 		auto slice = LLVMGetUndef(pass.visit(e.type));
 		
-		slice = LLVMBuildInsertValue(builder, slice, length, 0, "");
+		slice = LLVMBuildInsertValue(builder, slice, sub, 0, "");
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 		
 		return slice;
@@ -674,58 +685,78 @@ final class AddressOfGen {
 		}
 	}
 	
-	LLVMValueRef computeIndice(Location location, Type indexedType, LLVMValueRef indexed, LLVMValueRef indice) {
-		indexedType = peelAlias(indexedType);
-		
-		if(typeid(indexedType) is typeid(SliceType)) {
-			auto length = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 0, ""), ".length");
-			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, indice, LLVMInt64TypeInContext(context), ""), length, ".boundCheck");
-			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-			
-			auto failBB = LLVMAppendBasicBlockInContext(context, fun, "arrayBoundFail");
-			auto okBB = LLVMAppendBasicBlockInContext(context, fun, "arrayBoundOK");
-			
-			auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
-			
-			// We assume that bound check fail is unlikely.
-			LLVMSetMetadata(br, profKindID, unlikelyBranch);
-			
-			// Emit bound check fail code.
-			LLVMPositionBuilderAtEnd(builder, failBB);
-			
-			LLVMValueRef args[2];
-			args[0] = buildDString(location.source.filename);
-			args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false);
-			
-			LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, cast(uint) args.length, "");
-			
-			LLVMBuildUnreachable(builder);
-			
-			// And continue regular program flow.
-			LLVMPositionBuilderAtEnd(builder, okBB);
-			
-			indexed = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, indexed, 1, ""), ".ptr");
-		} else if(typeid(indexedType) is typeid(PointerType)) {
-			indexed = LLVMBuildLoad(builder, indexed, "");
-		} else if(typeid(indexedType) is typeid(ArrayType)) {
-			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(context), 0, false), indice];
-			
-			return LLVMBuildInBoundsGEP(builder, indexed, indices.ptr, 2, "");
-		} else {
-			assert(0, "Don't know how to index this.");
-		}
-		
-		return LLVMBuildInBoundsGEP(builder, indexed, &indice, 1, "");
-	}
-	
 	LLVMValueRef visit(IndexExpression e) {
 		assert(e.arguments.length == 1);
 		
-		auto indexed = visit(e.indexed);
-		auto indice = pass.visit(e.arguments[0]);
+		return computeIndexPtr(e.location, e.indexed, e.arguments[0]);
+	}
+	
+	auto computeIndexPtr(Location location, Expression indexed, Expression index) {
+		auto type = peelAlias(indexed.type).type;
 		
-		return computeIndice(e.location, e.indexed.type.type, indexed, indice);
+		if(typeid(type) is typeid(SliceType)) {
+			auto slice = pass.visit(indexed);
+			auto i = pass.visit(index);
+			
+			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+			
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(context), ""), length, "");
+			genBoundCheck(location, condition);
+			
+			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
+		} else if(typeid(type) is typeid(PointerType)) {
+			auto ptr = pass.visit(indexed);
+			auto i = pass.visit(index);
+			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
+		} else if(auto asArray = cast(ArrayType) type) {
+			auto ptr = visit(indexed);
+			auto i = pass.visit(index);
+			
+			auto condition = LLVMBuildICmp(
+				builder,
+				LLVMIntPredicate.ULT,
+				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(context), ""),
+				LLVMConstInt(LLVMInt64TypeInContext(context), asArray.size, false),
+				"",
+			);
+			
+			genBoundCheck(location, condition);
+			
+			LLVMValueRef indices[2];
+			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(context), 0, false);
+			indices[1] = i;
+			
+			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
+		}
+		
+		assert(0, "Don't know how to index " ~ indexed.type.toString());
+	}
+	
+	auto genBoundCheck(Location location, LLVMValueRef condition) {
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		auto failBB = LLVMAppendBasicBlockInContext(context, fun, "bound_fail");
+		auto okBB = LLVMAppendBasicBlockInContext(context, fun, "bound_ok");
+		
+		auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
+		
+		// We assume that bound check fail is unlikely.
+		LLVMSetMetadata(br, profKindID, unlikelyBranch);
+		
+		// Emit bound check fail code.
+		LLVMPositionBuilderAtEnd(builder, failBB);
+		
+		LLVMValueRef args[2];
+		args[0] = buildDString(location.source.filename);
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false);
+		
+		LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, cast(uint) args.length, "");
+		
+		LLVMBuildUnreachable(builder);
+		
+		// And continue regular program flow.
+		LLVMPositionBuilderAtEnd(builder, okBB);
 	}
 }
 

@@ -4,12 +4,14 @@
 // Test correct generation of temporary.
 
 int main() {
-	int[15] ii;
+	int[16] ii;
 	int i = 12;
 	
 	ii[++i] = i;
-	ii[i++] += i++;
+	ii[i++] += i;
 	
-	return ii[i - 2] + i;
+	(*(&ii[i--] - 1)) += 2;
+	
+	return ii[i] + i;
 }
 

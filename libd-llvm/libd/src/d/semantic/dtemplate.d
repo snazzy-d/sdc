@@ -98,14 +98,6 @@ final class TemplateInstancier {
 	
 	Identifiable visit(IdentifierTemplateArgument arg) {
 		return pass.visit(arg.identifier);
-		/+
-		if(auto type = pass.visit(arg.argument.type)) {
-			return Identifiable(type);
-		} else if(auto expression = pass.visit(arg.argument.expression)) {
-			return Identifiable(expression);
-		}
-		+/
-		// assert(0, "Ambiguous can't be deambiguated.");
 	}
 }
 

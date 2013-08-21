@@ -74,16 +74,20 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
+	private Expression getTemporaryRvalue(Expression value) {
+		auto v = new Variable(value.location, value.type, "", value);
+		v.isEnum = true;
+		v.step = Step.Processed;
+		
+		return new SymbolExpression(value.location, v);
+	}
+	
 	private Expression getTemporaryLvalue(Expression value) {
 		auto pt = QualType(new PointerType(value.type));
 		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
-		auto s = new SymbolExpression(value.location, new Variable(value.location, pt, "", ptr));
+		auto v = getTemporaryRvalue(ptr);
 		
-		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, s);
-	}
-	
-	private Expression getTemporaryRvalue(Expression value) {
-		return new SymbolExpression(value.location, new Variable(value.location, value.type, "", value));
+		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
 	}
 	
 	Expression visit(AstBinaryExpression e) {
@@ -130,6 +134,8 @@ final class ExpressionVisitor {
 			case AddAssign :
 			case SubAssign :
 				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+					lhs = getTemporaryLvalue(lhs);
+					
 					// FIXME: check that rhs is an integer.
 					if(op == SubAssign) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
@@ -488,53 +494,6 @@ final class ExpressionVisitor {
 		return new CallExpression(c.location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
-	/+
-	Expression visit(FieldExpression e) {
-		e.expression = visit(e.expression);
-		
-		auto f = e.field;
-		scheduler.require(f, Step.Signed);
-		
-		e.type = e.field.type;
-		return e;
-	}
-	
-	// TODO: handle overload sets.
-	Expression visit(DelegateExpression e) {
-		e.funptr = visit(e.funptr);
-		
-		if(auto funType = cast(FunctionType) e.funptr.type) {
-			if(typeid(funType) !is typeid(FunctionType)) {
-				return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
-			}
-			
-			if(funType.isVariadic || funType.parameters.length > 0) {
-				auto contextParam = funType.parameters[0];
-				
-				e.context = buildArgument(e.context, contextParam);
-				e.type = new DelegateType(funType.linkage, funType.returnType, contextParam, funType.parameters[1 .. $], funType.isVariadic);
-				
-				return e;
-			}
-		}
-		
-		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
-	}
-	
-	Expression visit(MethodExpression e) {
-		auto m = e.method;
-		scheduler.require(e.method, Step.Signed);
-		
-		if(auto dgType = cast(DelegateType) m.type) {
-			e.expression = buildArgument(e.expression, dgType.context);
-			e.type = dgType;
-			
-			return e;
-		}
-		
-		return pass.raiseCondition!Expression(e.location, "Can't create delegate.");
-	}
-	+/
 	Expression visit(AstNewExpression e) {
 		assert(e.arguments.length == 0, "constructor not supported");
 		
