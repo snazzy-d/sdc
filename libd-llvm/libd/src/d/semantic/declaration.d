@@ -2,6 +2,7 @@ module d.semantic.declaration;
 
 import d.semantic.semantic;
 
+import d.ast.base;
 import d.ast.conditional;
 import d.ast.declaration;
 import d.ast.dfunction;
@@ -21,7 +22,7 @@ import std.range;
 
 alias Module = d.ir.symbol.Module;
 
-final class DeclarationVisitor {
+struct DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -64,8 +65,26 @@ final class DeclarationVisitor {
 		}
 	}
 	
-	this(SemanticPass pass) {
+	import std.bitmanip;
+	private {
+		mixin(bitfields!(
+			Linkage, "linkage", 3,
+			bool, "isStatic", 1,
+			bool, "buildFields", 1,
+			bool, "buildMethods", 1,
+			bool, "isOverride", 1,
+			uint, "", 1,
+		));
+	}
+		
+	this(SemanticPass pass, Linkage linkage = Linkage.D, bool isStatic = true, bool buildFields = false, bool buildMethods = false) {
 		this.pass = pass;
+		this.linkage = linkage;
+		this.isStatic = isStatic;
+		this.buildFields = buildFields;
+		this.buildMethods = buildMethods;
+		
+		this.isOverride = false;
 	}
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {

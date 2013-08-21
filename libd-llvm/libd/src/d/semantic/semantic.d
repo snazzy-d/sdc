@@ -60,7 +60,6 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private DeclarationVisitor declarationVisitor;
 	private SymbolVisitor symbolVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
@@ -91,12 +90,8 @@ final class SemanticPass {
 		string manglePrefix;
 		
 		mixin(bitfields!(
-			Linkage, "linkage", 3,
 			bool, "buildErrorNode", 1,
-			bool, "buildFields", 1,
-			bool, "buildMethods", 1,
-			bool, "isStatic", 1,
-			bool, "isOverride", 1,
+			uint, "", 7,
 		));
 		
 		Statement[] flattenedStmts;
@@ -116,10 +111,7 @@ final class SemanticPass {
 		this.backend		= backend;
 		this.evaluator		= evaluator;
 		
-		isStatic	= true;
-		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		declarationVisitor	= new DeclarationVisitor(this);
 		symbolVisitor		= new SymbolVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
@@ -159,14 +151,6 @@ final class SemanticPass {
 	
 	void terminate() {
 		scheduler.terminate();
-	}
-	
-	Symbol[] flatten(Declaration[] decls, Symbol parent) {
-		return declarationVisitor.flatten(decls, parent);
-	}
-	
-	Symbol[] flatten(Declaration d) {
-		return declarationVisitor.flatten(d);
 	}
 	
 	Symbol visit(Declaration d, Symbol s) {

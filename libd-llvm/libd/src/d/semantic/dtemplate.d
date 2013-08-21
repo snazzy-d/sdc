@@ -51,21 +51,15 @@ final class TemplateInstancier {
 		
 		return t.instances.get(id, {
 			auto oldManglePrefix = pass.manglePrefix;
-			auto oldLinkage = pass.linkage;
-			auto oldIsStatic = pass.isStatic;
 			auto oldScope = pass.currentScope;
 			scope(exit) {
 				pass.manglePrefix = oldManglePrefix;
-				pass.linkage = oldLinkage;
-				pass.isStatic = oldIsStatic;
 				pass.currentScope = oldScope;
 			}
 			
 			auto instance = new TemplateInstance(location, t, []);
 			
 			pass.manglePrefix = t.mangle ~ "T" ~ id ~ "Z";
-			pass.linkage = t.linkage;
-			pass.isStatic = t.isStatic;
 			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.parentScope);
 			
 			foreach(s; argSyms) {
@@ -73,8 +67,11 @@ final class TemplateInstancier {
 			}
 			
 			// XXX: that is doomed to explode fireworks style.
+			import d.semantic.declaration;
+			auto dv = DeclarationVisitor(pass, t.linkage, t.isStatic);
+			
 			pass.scheduler.schedule(only(instance), i => visit(cast(TemplateInstance) i));
-			instance.members = argSyms ~ pass.flatten(t.members, instance);
+			instance.members = argSyms ~ dv.flatten(t.members, instance);
 			
 			return t.instances[id] = instance;
 		}());

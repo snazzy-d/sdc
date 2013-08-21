@@ -39,16 +39,13 @@ final class ModuleVisitor {
 	
 	Module visit(AstModule astm, Module m) {
 		auto oldCurrentScope = currentScope;
-		auto oldIsStatic = isStatic;
 		auto oldManglePrefix = manglePrefix;
 		
 		scope(exit) {
 			currentScope = oldCurrentScope;
-			isStatic = oldIsStatic;
 			manglePrefix = oldManglePrefix;
 		}
 		
-		isStatic = true;
 		manglePrefix = "";
 		currentScope = m.dscope;
 		
@@ -61,8 +58,11 @@ final class ModuleVisitor {
 		
 		manglePrefix ~= to!string(astm.name.length) ~ astm.name;
 		
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(pass);
+		
 		// All modules implicitely import object.
-		m.members = pass.flatten(new ImportDeclaration(m.location, [["object"]]) ~ astm.declarations, m);
+		m.members = dv.flatten(new ImportDeclaration(m.location, [["object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
 		
 		scheduler.require(m.members);

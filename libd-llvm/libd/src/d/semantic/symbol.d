@@ -1,5 +1,6 @@
 module d.semantic.symbol;
 
+import d.semantic.declaration;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
@@ -85,25 +86,8 @@ final class SymbolVisitor {
 		}
 		
 		if(fd.fbody) {
-			auto oldLinkage = linkage;
-			auto oldIsStatic = isStatic;
-			auto oldIsOverride = isOverride;
-			auto oldBuildFields = buildFields;
 			auto oldScope = currentScope;
-			
-			scope(exit) {
-				linkage = oldLinkage;
-				isStatic = oldIsStatic;
-				isOverride = oldIsOverride;
-				buildFields = oldBuildFields;
-				currentScope = oldScope;
-			}
-			
-			linkage = Linkage.D;
-			
-			isStatic = false;
-			isOverride = false;
-			buildFields = false;
+			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
 			currentScope = f.dscope = new NestedScope(oldScope);
@@ -216,30 +200,17 @@ final class SymbolVisitor {
 		auto sd = cast(StructDeclaration) d;
 		assert(sd);
 		
-		auto oldIsStatic = isStatic;
-		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldBuildFields = buildFields;
-		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
-			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			buildFields = oldBuildFields;
-			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
 		}
-		
-		isStatic = false;
-		isOverride = false;
-		buildFields = true;
-		buildMethods = false;
 		
 		currentScope = s.dscope = new SymbolScope(s, oldScope);
 		
@@ -254,7 +225,9 @@ final class SymbolVisitor {
 		
 		fieldIndex = 0;
 		
-		auto members = pass.flatten(sd.members, s);
+		auto dv = DeclarationVisitor(pass, s.linkage, false, true);
+		
+		auto members = dv.flatten(sd.members, s);
 		s.step = Step.Populated;
 		
 		Field[] fields;
@@ -295,32 +268,19 @@ final class SymbolVisitor {
 		auto cd = cast(ClassDeclaration) d;
 		assert(cd);
 		
-		auto oldIsStatic = isStatic;
-		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldBuildFields = buildFields;
-		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
 		auto oldMethodIndex = methodIndex;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
-			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			buildFields = oldBuildFields;
-			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
 			methodIndex = oldMethodIndex;
 		}
-		
-		isStatic = false;
-		isOverride = false;
-		buildFields = true;
-		buildMethods = true;
 		
 		currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
@@ -393,7 +353,9 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto members = pass.flatten(cd.members, c);
+		auto dv = DeclarationVisitor(pass, c.linkage, false, true, true);
+		
+		auto members = dv.flatten(cd.members, c);
 		
 		c.step = Step.Signed;
 		
@@ -444,20 +406,13 @@ final class SymbolVisitor {
 		
 		assert(e.name, "anonymous enums must be flattened !");
 		
-		auto oldIsStatic = isStatic;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
-		auto oldBuildFields = buildFields;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
-			buildFields = oldBuildFields;
 		}
-		
-		isStatic = true;
-		buildFields = false;
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		

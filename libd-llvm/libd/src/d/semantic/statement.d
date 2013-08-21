@@ -66,7 +66,10 @@ final class StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement s) {
-		auto syms = pass.flatten(s.declaration);
+		import d.ast.base;
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(pass, Linkage.D, false);
+		auto syms = dv.flatten(s.declaration);
 		scheduler.require(syms);
 		
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
