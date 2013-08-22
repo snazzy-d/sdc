@@ -195,13 +195,25 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	TemplateArgument[] arguments;
 	
-	switch(trange.front.type) {
-		case TokenType.OpenParen :
-			assert(0, "!() template instanciation isn't supported.");
+	switch(trange.front.type) with(TokenType) {
+		case OpenParen :
+			trange.popFront();
+			
+			if(trange.front.type != CloseParen) {
+				arguments ~= trange.parseTemplateArgument();
 		
-		case TokenType.Identifier :
+				while(trange.front.type != CloseParen) {
+					trange.match(Comma);
+					arguments ~= trange.parseTemplateArgument();
+				}
+			}
+			
+			trange.match(CloseParen);
+			break;
+		
+		case Identifier :
 			auto identifier = new BasicIdentifier(trange.front.location, trange.front.value);
-			arguments = [new IdentifierTemplateArgument(identifier)];
+			arguments ~= new IdentifierTemplateArgument(identifier);
 			
 			trange.popFront();
 			break;
@@ -215,10 +227,30 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto type = trange.parseBasicType();
 			
 			location.spanTo(trange.front.location);
-			arguments = [new TypeTemplateArgument(location, type)];
+			arguments ~= new TypeTemplateArgument(location, type);
 			break;
 	}
 	
 	return arguments;
+}
+
+auto parseTemplateArgument(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+	auto location = trange.front.location;
+	
+	import d.parser.ambiguous;
+	return trange.parseAmbiguous!(delegate TemplateArgument(parsed) {
+		import std.stdio;
+		
+		static if(is(typeof(parsed) : QualAstType)) {
+			location.spanTo(trange.front.location);
+			return new TypeTemplateArgument(location, parsed);
+		} else static if(is(typeof(parsed) : AstExpression)) {
+			writeln(typeid(parsed));
+			return new ValueTemplateArgument(parsed);
+		} else {
+			writeln(typeid(parsed));
+			return new IdentifierTemplateArgument(parsed);
+		}
+	})();
 }
 

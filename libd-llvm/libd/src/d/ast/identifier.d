@@ -138,20 +138,20 @@ class TypeTemplateArgument : TemplateArgument {
 		this.type = type;
 	}
 }
-/+
+
 /**
- * Template type argument
+ * Template value argument
  */
 class ValueTemplateArgument : TemplateArgument {
-	Expression value;
+	AstExpression value;
 	
-	this(Expression value) {
+	this(AstExpression value) {
 		super(value.location);
 		
 		this.value = value;
 	}
 }
-+/
+
 /**
  * Template identifier argument
  */
