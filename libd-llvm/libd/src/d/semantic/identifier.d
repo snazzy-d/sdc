@@ -422,11 +422,7 @@ final class SymbolInTypeResolver {
 	}
 	
 	Symbol visit(string name, QualType t) {
-		return this.dispatch(name, t.type);
-	}
-	
-	Symbol visit(string name, BuiltinType t) {
-		return null;
+		return this.dispatch!(t => null)(name, t.type);
 	}
 	
 	Symbol visit(string name, SliceType t) {
