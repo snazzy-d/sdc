@@ -40,7 +40,7 @@ auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRan
 auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	trange.match(TokenType.OpenParen);
 	
-	TemplateParameter[] parameters;
+	AstTemplateParameter[] parameters;
 	
 	if(trange.front.type != TokenType.CloseParen) {
 		parameters ~= trange.parseTemplateParameter();
@@ -57,7 +57,7 @@ auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!
 	return parameters;
 }
 
-private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange trange) {
+private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange trange) {
 	switch(trange.front.type) {
 		case TokenType.Identifier :
 			auto lookahead = trange.save;
@@ -72,7 +72,7 @@ private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange tran
 					auto location = lookahead.front.location;
 					
 					trange.popFrontN(2);
-					return new TupleTemplateParameter(location, name);
+					return new AstTupleTemplateParameter(location, name);
 				
 				default :
 					// We probably have a value parameter (or an error).
@@ -93,7 +93,7 @@ private TemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange tran
 			
 			trange.match(TokenType.Identifier);
 			
-			return new ThisTemplateParameter(location, name);
+			return new AstThisTemplateParameter(location, name);
 		
 		default :
 			// We probably have a value parameter (or an error).
@@ -108,24 +108,32 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	
 	trange.match(TokenType.Identifier);
 	
+	import d.ir.type;
+	auto defaultType = QualAstType(new BuiltinType(TypeKind.None));
 	switch(trange.front.type) {
-		// TODO: handle default parameter and specialisation.
 		case TokenType.Colon :
 			trange.popFront();
-			trange.parseType();
+			auto type = trange.parseType();
 			
-			if(trange.front.type == TokenType.Assign) goto case TokenType.Assign;
+			if(trange.front.type == TokenType.Assign) {
+				trange.popFront();
+				defaultType = trange.parseType();
+			}
 			
-			goto default;
+			location.spanTo(trange.front.location);
+			return new AstTypeTemplateParameter(location, name, type, defaultType);
 		
 		case TokenType.Assign :
 			trange.popFront();
-			trange.parseType();
+			defaultType = trange.parseType();
 			
 			goto default;
 		
 		default :
-			return new TypeTemplateParameter(location, name);
+			auto type = QualAstType(new IdentifierType(new BasicIdentifier(location, name)));
+			
+			location.spanTo(trange.front.location);
+			return new AstTypeTemplateParameter(location, name, type, defaultType);
 	}
 }
 /+

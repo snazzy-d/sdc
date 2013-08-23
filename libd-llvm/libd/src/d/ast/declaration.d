@@ -220,10 +220,10 @@ class FunctionDeclaration : NamedDeclaration {
  * Template declaration
  */
 class TemplateDeclaration : NamedDeclaration {
-	TemplateParameter[] parameters;
+	AstTemplateParameter[] parameters;
 	Declaration[] declarations;
 	
-	this(Location location, string name, TemplateParameter[] parameters, Declaration[] declarations) {
+	this(Location location, string name, AstTemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, name);
 		
 		this.parameters = parameters;
@@ -234,7 +234,7 @@ class TemplateDeclaration : NamedDeclaration {
 /**
  * Super class for all templates parameters
  */
-class TemplateParameter : NamedDeclaration {
+class AstTemplateParameter : NamedDeclaration {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -243,16 +243,22 @@ class TemplateParameter : NamedDeclaration {
 /**
  * Types templates parameters
  */
-class TypeTemplateParameter : TemplateParameter {
-	this(Location location, string name) {
+class AstTypeTemplateParameter : AstTemplateParameter {
+	QualAstType specialization;
+	QualAstType value;
+	
+	this(Location location, string name, QualAstType specialization, QualAstType value) {
 		super(location, name);
+		
+		this.specialization = specialization;
+		this.value = value;
 	}
 }
 
 /**
  * This templates parameters
  */
-class ThisTemplateParameter : TemplateParameter {
+class AstThisTemplateParameter : AstTemplateParameter {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -261,7 +267,7 @@ class ThisTemplateParameter : TemplateParameter {
 /**
  * Tuple templates parameters
  */
-class TupleTemplateParameter : TemplateParameter {
+class AstTupleTemplateParameter : AstTemplateParameter {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -270,7 +276,7 @@ class TupleTemplateParameter : TemplateParameter {
 /**
  * Value template parameters
  */
-class ValueTemplateParameter : TemplateParameter {
+class AstValueTemplateParameter : AstTemplateParameter {
 	QualAstType type;
 	
 	this(Location location, string name, QualAstType type) {
@@ -283,7 +289,7 @@ class ValueTemplateParameter : TemplateParameter {
 /**
  * Alias template parameter
  */
-class AliasTemplateParameter : TemplateParameter {
+class AstAliasTemplateParameter : AstTemplateParameter {
 	this(Location location, string name) {
 		super(location, name);
 	}
@@ -292,7 +298,7 @@ class AliasTemplateParameter : TemplateParameter {
 /**
  * Typed alias template parameter
  */
-class TypedAliasTemplateParameter : AliasTemplateParameter {
+class AstTypedAliasTemplateParameter : AstAliasTemplateParameter {
 	QualAstType type;
 	
 	this(Location location, string name, QualAstType type) {

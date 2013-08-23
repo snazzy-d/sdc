@@ -372,7 +372,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(TemplateDeclaration d) {
-		Template t = new Template(d.location, d.name, currentScope, d.parameters, d.declarations);
+		Template t = new Template(d.location, d.name, [], d.declarations);
 		
 		t.isStatic = isStatic;
 		t.linkage = linkage;

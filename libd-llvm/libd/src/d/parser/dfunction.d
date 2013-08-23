@@ -43,7 +43,7 @@ Declaration parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRange, U... )(ref TokenRange trange, Location location, U arguments) if(isTokenRange!TokenRange) {
 	// Function declaration.
 	bool isVariadic;
-	TemplateParameter[] tplParameters;
+	AstTemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
 	auto lookahead = trange.save;

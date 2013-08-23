@@ -477,10 +477,46 @@ final class SymbolVisitor {
 		return e;
 	}
 	
-	// TODO: consider doing it at declaration step.
 	Symbol visit(Declaration d, Template t) {
+		auto td = cast(TemplateDeclaration) d;
+		assert(td);
+		
 		// XXX: compute a proper mangling for templates.
 		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
+		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = t.dscope = new SymbolScope(t, oldScope);
+		
+		// Register parameter int the scope.
+		auto none = getBuiltin(TypeKind.None);
+		foreach(uint i, p; td.parameters) {
+			if(auto atp = cast(AstTypeTemplateParameter) p) {
+				auto tp = new TypeTemplateParameter(atp.location, atp.name, i, none, none);
+				currentScope.addSymbol(tp);
+				t.parameters ~= tp;
+			} else {
+				assert(0, "Only type parameters are supported.");
+			}
+		}
+		
+		t.step = Step.Populated;
+		
+		// TODO: find a way to make that clean.
+		foreach(i, p; td.parameters) {
+			if(auto atp = cast(AstTypeTemplateParameter) p) {
+				auto tp = cast(TypeTemplateParameter) t.parameters[i];
+				assert(tp);
+				
+				tp.specialization = pass.visit(atp.specialization);
+				tp.value = pass.visit(atp.value);
+				
+				tp.step = Step.Processed;
+			} else {
+				assert(0, "Only type parameters are supported.");
+			}
+		}
 		
 		t.step = Step.Processed;
 		return t;

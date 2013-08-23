@@ -34,15 +34,19 @@ final class TemplateInstancier {
 		assert(t.parameters.length == args.length);
 		string id = args.map!(
 			arg => visit(arg).apply!(delegate string(identified) {
+				auto p = t.parameters[i++];
+				
 				static if(is(typeof(identified) : QualType)) {
-					auto a = new TypeAlias(arg.location, t.parameters[i++].name, identified);
+					auto type = TypeMatcher(identified).visit(p);
 					
-					a.mangle = pass.typeMangler.visit(a.type);
+					auto a = new TypeAlias(arg.location, p.name, type);
+					
+					a.mangle = pass.typeMangler.visit(type);
 					a.step = Step.Processed;
 					
 					argSyms ~= a;
 					
-					return "T" ~ pass.typeMangler.visit(identified);
+					return "T" ~ a.mangle;
 				} else {
 					assert(0, "Only type argument are supported.");
 				}
@@ -60,7 +64,7 @@ final class TemplateInstancier {
 			auto instance = new TemplateInstance(location, t, []);
 			
 			pass.manglePrefix = t.mangle ~ "T" ~ id ~ "Z";
-			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.parentScope);
+			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.dscope);
 			
 			foreach(s; argSyms) {
 				dscope.addSymbol(s);
@@ -95,6 +99,64 @@ final class TemplateInstancier {
 	
 	Identifiable visit(IdentifierTemplateArgument arg) {
 		return pass.visit(arg.identifier);
+	}
+}
+
+struct TypeMatcher {
+	QualType matchee;
+	
+	this(QualType matchee) {
+		this.matchee = peelAlias(matchee);
+	}
+	
+	QualType visit(TemplateParameter p) {
+		return this.dispatch(p);
+	}
+	
+	QualType visit(TypeTemplateParameter p) {
+		return visit(peelAlias(p.specialization));
+	}
+	
+	QualType visit(QualType t) {
+		return this.dispatch(t.type);
+	}
+	
+	QualType visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	QualType visit(TemplatedType t) {
+		return matchee;
+	}
+	
+	QualType visit(PointerType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asPointer = cast(PointerType) m) {
+			return TypeMatcher(asPointer.pointed).visit(t.pointed);
+		}
+		
+		assert(0, matchee.toString() ~ " do not match");
+	}
+	
+	QualType visit(SliceType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asSlice = cast(SliceType) m) {
+			return TypeMatcher(asSlice.sliced).visit(t.sliced);
+		}
+		
+		assert(0, matchee.toString() ~ " do not match");
+	}
+	
+	QualType visit(ArrayType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asArray = cast(ArrayType) m) {
+			// TODO: match values.
+			assert(asArray.size == t.size, "array size do not match");
+			
+			return TypeMatcher(asArray.elementType).visit(t.elementType);
+		}
+		
+		assert(0, matchee.toString() ~ " do not match");
 	}
 }
 

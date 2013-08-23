@@ -232,6 +232,10 @@ final class IdentifierVisitor {
 	Identifiable visit(Location location, Module m) {
 		return Identifiable(m);
 	}
+	
+	Identifiable visit(Location location, TypeTemplateParameter t) {
+		return Identifiable(QualType(new TemplatedType(t)));
+	}
 }
 
 /**

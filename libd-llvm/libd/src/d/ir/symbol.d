@@ -120,6 +120,19 @@ class Function : ValueSymbol {
 	+/
 }
 
+/**
+ * Entry for template parameters
+ */
+class TemplateParameter : Symbol {
+	uint index;
+	
+	this(Location location, string name, uint index) {
+		super(location, name);
+		
+		this.index = index;
+	}
+}
+
 final:
 /**
  * Module
@@ -136,22 +149,35 @@ class Module : Package {
  * Template
  */
 class Template : Symbol {
-	import d.ast.declaration;
-	
 	TemplateParameter[] parameters;
+	
+	import d.ast.declaration;
 	Declaration[] members;
 	
-	Scope parentScope;
+	Scope dscope;
 	
 	TemplateInstance[string] instances;
 	
-	this(Location location, string name, Scope parentScope, TemplateParameter[] parameters, Declaration[] members) {
+	this(Location location, string name, TemplateParameter[] parameters, Declaration[] members) {
 		super(location, name);
 		
 		this.parameters = parameters;
 		this.members = members;
+	}
+}
+
+/**
+ * Template type parameter
+ */
+class TypeTemplateParameter : TemplateParameter {
+	QualType specialization;
+	QualType value;
+	
+	this(Location location, string name, uint index, QualType specialization, QualType value) {
+		super(location, name, index);
 		
-		this.parentScope = parentScope;
+		this.specialization = specialization;
+		this.value = value;
 	}
 }
 

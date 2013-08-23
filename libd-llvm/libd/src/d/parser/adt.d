@@ -39,7 +39,7 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 		alias DeclarationType = InterfaceDeclaration;
 	}
 	
-	TemplateParameter[] parameters;
+	AstTemplateParameter[] parameters;
 	if(trange.front.type == TokenType.OpenParen) {
 		parameters = trange.parseTemplateParameters();
 	}
@@ -100,7 +100,7 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 	}
 	
 	string name;
-	TemplateParameter[] parameters;
+	AstTemplateParameter[] parameters;
 	
 	if(trange.front.type == TokenType.Identifier) {
 		name = trange.front.value;
