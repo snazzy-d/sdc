@@ -1,6 +1,5 @@
 module d.parser.dfunction;
 
-import d.ast.dfunction;
 import d.ast.declaration;
 import d.ast.statement;
 import d.ast.type;

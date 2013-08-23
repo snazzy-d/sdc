@@ -5,7 +5,6 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.base;
-import d.ast.dfunction;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;

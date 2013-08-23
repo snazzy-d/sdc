@@ -5,7 +5,6 @@ import d.semantic.semantic;
 import d.ast.base;
 import d.ast.conditional;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.dmodule;
 
 import d.ir.dscope;

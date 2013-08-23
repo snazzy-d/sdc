@@ -219,7 +219,6 @@ final class SemanticPass {
 	}
 	
 	void buildMain(Module[] mods) {
-		import d.ast.dfunction;
 		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
 			if(auto fun = cast(Function) s) {
 				if(fun.name == "main") {

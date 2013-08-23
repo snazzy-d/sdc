@@ -6,7 +6,6 @@ import d.semantic.typepromotion;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 

@@ -3,7 +3,6 @@ module d.semantic.identifier;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 
-import d.ast.dfunction;
 import d.ast.dmodule;
 import d.ast.identifier;
 
