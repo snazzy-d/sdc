@@ -215,10 +215,13 @@ struct DeclarationVisitor {
 			items = unit.elseItems;
 		}
 		
+		// XXX: To ensure that pass is in the closure.
+		auto closuredPass = pass;
+		
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
-					scheduler.schedule(only(su.s), s => pass.visit(su.d, s));
+					scheduler.schedule(only(su.s), s => closuredPass.visit(su.d, s));
 				}
 				
 				u.level = CtUnitLevel.Done;
@@ -263,8 +266,11 @@ struct DeclarationVisitor {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
+		// XXX: To ensure that pass is in the closure.
+		auto closuredPass = pass;
+		
 		if(unit.level == CtUnitLevel.Done) {
-			scheduler.schedule(only(s), s => pass.visit(d, s));
+			scheduler.schedule(only(s), s => closuredPass.visit(d, s));
 		}
 		
 		unit.symbols ~= SymbolUnit(d, s);
