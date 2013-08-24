@@ -4,7 +4,7 @@ import d.ast.base;
 
 import d.ir.symbol;
 
-final class OverLoadSet : Symbol {
+final class OverloadSet : Symbol {
 	Symbol[] set;
 	
 	this(Location location, string name, Symbol[] set) {
@@ -38,13 +38,13 @@ class Scope {
 		auto setPtr = s.name in symbols;
 		
 		if(setPtr) {
-			if(auto set = cast(OverLoadSet) *setPtr) {
+			if(auto set = cast(OverloadSet) *setPtr) {
 				set.set ~= s;
 				return;
 			}
 		}
 		
-		addSymbol(new OverLoadSet(s.location, s.name, [s]));
+		addSymbol(new OverloadSet(s.location, s.name, [s]));
 	}
 	
 	Symbol resolve(string name) {

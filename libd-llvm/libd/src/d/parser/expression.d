@@ -1,6 +1,7 @@
 module d.parser.expression;
 
 import d.ast.expression;
+import d.ast.identifier;
 
 import d.ir.expression;
 import d.ir.type;
@@ -575,30 +576,18 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 	switch(trange.front.type) with(TokenType) {
 		// Identified expressions
 		case Identifier :
-			return new IdentifierExpression(trange.parseIdentifier());
+			return trange.parseIdentifierExpression(trange.parseIdentifier());
 		
 		case New :
 			trange.popFront();
 			auto type = trange.parseType();
+			auto args = trange.parseArguments!OpenParen();
 			
-			AstExpression[] arguments;
-			if(trange.front.type == OpenParen) {
-				trange.popFront();
-				
-				if(trange.front.type != CloseParen) {
-					arguments = trange.parseArguments();
-				}
-				
-				location.spanTo(trange.front.location);
-				trange.match(CloseParen);
-			} else {
-				location.spanTo(trange.front.location);
-			}
-			
-			return new AstNewExpression(location, type, arguments);
+			location.spanTo(trange.front.location);
+			return new AstNewExpression(location, type, args);
 		
 		case Dot :
-			return new IdentifierExpression(trange.parseDotIdentifier());
+			return trange.parseIdentifierExpression(trange.parseDotIdentifier());
 		
 		case This :
 			trange.popFront();
@@ -723,17 +712,14 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			
 			trange.popFront();
 			
+			// TODO: (...)()
 			if(matchingParen.front.type == Dot) {
-				import d.ast.identifier;
-				
-				auto identifier = trange.parseAmbiguous!((parsed) {
+				return trange.parseAmbiguous!((parsed) {
 					trange.match(CloseParen);
 					trange.match(Dot);
 					
-					return trange.parseQualifiedIdentifier(location, parsed);
+					return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, parsed));
 				})();
-				
-				return new IdentifierExpression(identifier);
 			} else {
 				auto expression = trange.parseExpression();
 				
@@ -748,7 +734,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			auto type = trange.parseType!(ParseMode.Reluctant)();
 			trange.match(Dot);
 			
-			return new IdentifierExpression(trange.parseQualifiedIdentifier(location, type));
+			return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, type));
 	}
 }
 
@@ -775,17 +761,10 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 				break;
 			
 			case OpenParen :
-				trange.popFront();
-				
-				AstExpression[] arguments;
-				if(trange.front.type != CloseParen) {
-					arguments = trange.parseArguments();
-				}
+				auto args = trange.parseArguments!OpenParen();
 				
 				location.spanTo(trange.front.location);
-				trange.match(CloseParen);
-				
-				e = new AstCallExpression(location, e, arguments);
+				e = new AstCallExpression(location, e, args);
 				
 				break;
 			
@@ -797,11 +776,11 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 					// We have a slicing operation here.
 					assert(0, "Not implemented");
 				} else {
-					auto arguments = trange.parseArguments();
+					auto args = trange.parseArguments();
 					switch(trange.front.type) {
 						case CloseBracket :
 							location.spanTo(trange.front.location);
-							e = new AstIndexExpression(location, e, arguments);
+							e = new AstIndexExpression(location, e, args);
 							
 							break;
 						
@@ -810,7 +789,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 							auto second = trange.parseArguments();
 							
 							location.spanTo(trange.front.location);
-							e = new AstSliceExpression(location, e, arguments, second);
+							e = new AstSliceExpression(location, e, args, second);
 							
 							break;
 						
@@ -829,7 +808,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 			case TokenType.Dot :
 				trange.popFront();
 				
-				e = new IdentifierExpression(trange.parseQualifiedIdentifier(location, e));
+				e = trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, e));
 				break;
 			}
 			
@@ -868,17 +847,17 @@ private auto parseIsExpression(R)(ref R trange) {
 	// Handle alias throw is expression.
 	if(trange.front.type == TokenType.Identifier) trange.popFront();
 	
-	switch(trange.front.type) {
-		case TokenType.Colon :
+	switch(trange.front.type) with(TokenType) {
+		case Colon :
 			trange.popFront();
 			trange.parseType();
 			break;
 		
-		case TokenType.DoubleAssign :
+		case DoubleAssign :
 			trange.popFront();
 			
 			switch(trange.front.type) {
-				case TokenType.Struct, TokenType.Union, TokenType.Class, TokenType.Interface, TokenType.Enum, TokenType.Function, TokenType.Delegate, TokenType.Super, TokenType.Const, TokenType.Immutable, TokenType.Inout, TokenType.Shared, TokenType.Return, TokenType.Typedef :
+				case Struct, Union, Class, Interface, Enum, Function, Delegate, Super, Const, Immutable, Inout, Shared, Return, Typedef :
 					assert(0, "Not implemented.");
 				
 				default :
@@ -898,18 +877,54 @@ private auto parseIsExpression(R)(ref R trange) {
 }
 
 /**
+ * Parse identifier expression
+ */
+AstExpression parseIdentifierExpression(R)(ref R trange, Identifier i) if(isTokenRange!R) {
+	if(trange.front.type != TokenType.OpenParen) {
+		return new IdentifierExpression(i);
+	}
+	
+	auto args = trange.parseArguments!(TokenType.OpenParen)();
+	
+	auto location = i.location;
+	location.spanTo(trange.front.location);
+	return new IdentifierCallExpression(location, i, args);
+}
+
+/**
  * Parse function arguments
  */
-AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
-	AstExpression[] expressions = [trange.parseAssignExpression()];
+AstExpression[] parseArguments(TokenType openTokenType, R)(ref R trange) if(isTokenRange!R) {
+	alias closeTokenType = MatchingDelimiter!openTokenType;
+	
+	trange.match(openTokenType);
+	
+	if(trange.front.type == closeTokenType) {
+		trange.match(closeTokenType);
+		return [];
+	}
+	
+	AstExpression[] args = [trange.parseAssignExpression()];
 	
 	while(trange.front.type == TokenType.Comma) {
 		trange.popFront();
 		
-		expressions ~= trange.parseAssignExpression();
+		args ~= trange.parseAssignExpression();
 	}
 	
-	return expressions;
+	trange.match(closeTokenType);
+	return args;
+}
+
+AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
+	AstExpression[] args = [trange.parseAssignExpression()];
+	while(trange.front.type == TokenType.Comma) {
+		trange.popFront();
+		
+		args ~= trange.parseAssignExpression();
+	}
+	
+	return args;
 }
 
 /**

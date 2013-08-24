@@ -11,6 +11,7 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
+import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -393,86 +394,132 @@ final class ExpressionVisitor {
 		auto args = c.arguments.map!(a => visit(a)).array();
 		
 		if(auto asPolysemous = cast(PolysemousExpression) callee) {
-			auto candidates = asPolysemous.expressions.filter!((e) {
-				if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
-					if(asFunType.isVariadic) {
-						return args.length >= asFunType.paramTypes.length;
-					} else {
-						return args.length == asFunType.paramTypes.length;
-					}
-				}
-				
-				assert(0, "type is not a function type");
-			});
-			
-			auto level = MatchLevel.Not;
-			Expression match;
-			CandidateLoop: foreach(candidate; candidates) {
-				auto type = cast(FunctionType) peelAlias(candidate.type).type;
-				assert(type, "We should have filtered function at this point.");
-				
-				auto candidateLevel = MatchLevel.Exact;
-				foreach(arg, param; lockstep(args, type.paramTypes)) {
-					auto argLevel = matchArgument(arg, param);
-					
-					// If we don't match high enough.
-					if(argLevel < level) {
-						continue CandidateLoop;
-					}
-					
-					final switch(argLevel) with(MatchLevel) {
-						case Not :
-							// This function don't match, go to next one.
-							continue CandidateLoop;
-						
-						case TypeConvert :
-						case QualifierConvert :
-							candidateLevel = min(candidateLevel, argLevel);
-							continue;
-						
-						case Exact :
-							// Go to next argument
-							continue;
-					}
-				}
-				
-				if(candidateLevel > level) {
-					level = candidateLevel;
-					match = candidate;
-				} else if(candidateLevel == level) {
-					// Check for specialisation.
-					auto matchType = cast(FunctionType) peelAlias(match.type).type;
-					assert(matchType, "We should have filtered function at this point.");
-					
-					bool candidateFail;
-					bool matchFail;
-					foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
-						if(matchArgument(param, matchParam) == MatchLevel.Not) {
-							candidateFail = true;
-						}
-						
-						if(matchArgument(matchParam, param) == MatchLevel.Not) {
-							matchFail = true;
-						}
-					}
-					
-					if(matchFail == candidateFail) {
-						return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
-					}
-					
-					if(matchFail) {
-						match = candidate;
-					}
-				}
-			}
-			
-			if(!match) {
-				return pass.raiseCondition!Expression(c.location, "No candidate for function call.");
-			}
-			
-			callee = match;
+			return handleOverloadCall(c.location, asPolysemous.expressions, args);
 		}
 		
+		return handleCall(c.location, callee, args);
+	}
+	
+	Expression visit(IdentifierCallExpression c) {
+		auto args = c.arguments.map!(a => visit(a)).array();
+		
+		return IdentifierVisitor(pass).visit(c.callee).apply!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return handleCall(c.location, identified, args);
+			} else {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto s = cast(OverloadSet) identified) {
+						return handleOverloadSetCall(c.location, c.callee.location, s, args);
+					}
+				}
+				
+				return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
+			}
+		})();
+	}
+	
+	private Expression handleOverloadSetCall(Location location, Location iloc, OverloadSet s, Expression[] args) {
+		auto iv = IdentifierVisitor(pass);
+		
+		Expression[] cds;
+		foreach(result; s.set.map!(s => iv.visit(iloc, s))) {
+			result.apply!((identified) {
+				static if(is(typeof(identified) : Expression)) {
+					cds ~= identified;
+				} else static if(is(typeof(identified) : QualType)) {
+					assert(0, "Type can't be overloaded");
+				} else {
+					// TODO: handle templates.
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				}
+			})();
+		}
+		
+		return handleOverloadCall(location, cds, args);
+	}
+	
+	private Expression handleOverloadCall(Location location, Expression[] candidates, Expression[] args) {
+		auto cds = candidates.filter!((e) {
+			if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
+				if(asFunType.isVariadic) {
+					return args.length >= asFunType.paramTypes.length;
+				} else {
+					return args.length == asFunType.paramTypes.length;
+				}
+			}
+			
+			assert(0, "type is not a function type");
+		});
+		
+		auto level = MatchLevel.Not;
+		Expression match;
+		CandidateLoop: foreach(candidate; cds) {
+			auto type = cast(FunctionType) peelAlias(candidate.type).type;
+			assert(type, "We should have filtered function at this point.");
+			
+			auto candidateLevel = MatchLevel.Exact;
+			foreach(arg, param; lockstep(args, type.paramTypes)) {
+				auto argLevel = matchArgument(arg, param);
+				
+				// If we don't match high enough.
+				if(argLevel < level) {
+					continue CandidateLoop;
+				}
+				
+				final switch(argLevel) with(MatchLevel) {
+					case Not :
+						// This function don't match, go to next one.
+						continue CandidateLoop;
+					
+					case TypeConvert :
+					case QualifierConvert :
+						candidateLevel = min(candidateLevel, argLevel);
+						continue;
+					
+					case Exact :
+						// Go to next argument
+						continue;
+				}
+			}
+			
+			if(candidateLevel > level) {
+				level = candidateLevel;
+				match = candidate;
+			} else if(candidateLevel == level) {
+				// Check for specialisation.
+				auto matchType = cast(FunctionType) peelAlias(match.type).type;
+				assert(matchType, "We should have filtered function at this point.");
+				
+				bool candidateFail;
+				bool matchFail;
+				foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
+					if(matchArgument(param, matchParam) == MatchLevel.Not) {
+						candidateFail = true;
+					}
+					
+					if(matchArgument(matchParam, param) == MatchLevel.Not) {
+						matchFail = true;
+					}
+				}
+				
+				if(matchFail == candidateFail) {
+					return pass.raiseCondition!Expression(location, "ambigusous function call.");
+				}
+				
+				if(matchFail) {
+					match = candidate;
+				}
+			}
+		}
+		
+		if(!match) {
+			return pass.raiseCondition!Expression(location, "No candidate for function call.");
+		}
+		
+		return handleCall(location, match, args);
+	}
+	
+	private Expression handleCall(Location location, Expression callee, Expression[] args) {
 		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;
 		ParamType returnType;
@@ -483,7 +530,7 @@ final class ExpressionVisitor {
 			paramTypes = d.paramTypes;
 			returnType = d.returnType;
 		} else {
-			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, not " ~ callee.type.toString());
+			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString());
 		}
 		
 		assert(args.length >= paramTypes.length);
@@ -492,7 +539,7 @@ final class ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new CallExpression(c.location, QualType(returnType.type, returnType.qualifier), callee, args);
+		return new CallExpression(location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
 	Expression visit(AstNewExpression e) {
@@ -568,9 +615,35 @@ final class ExpressionVisitor {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto s = cast(OverloadSet) identified) {
+						return buildPolysemous(e.location, s);
+					}
+				}
+				
 				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 			}
 		})();
+	}
+	
+	private Expression buildPolysemous(Location location, OverloadSet s) {
+		auto iv = IdentifierVisitor(pass);
+		
+		Expression[] expressions;
+		foreach(result; s.set.map!(s => iv.visit(location, s))) {
+			result.apply!((identified) {
+				static if(is(typeof(identified) : Expression)) {
+					expressions ~= identified;
+				} else static if(is(typeof(identified) : QualType)) {
+					assert(0, "Type can't be overloaded");
+				} else {
+					// TODO: handle templates.
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				}
+			})();
+		}
+		
+		return new PolysemousExpression(location, expressions);
 	}
 }
 

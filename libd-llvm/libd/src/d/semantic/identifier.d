@@ -177,26 +177,12 @@ struct IdentifierVisitor {
 		return Identifiable(new FieldExpression(location, new ThisExpression(location), f));
 	}
 	
-	Identifiable visit(Location location, OverLoadSet s) {
+	Identifiable visit(Location location, OverloadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, s.set[0]);
 		}
 		
-		Expression[] expressions;
-		foreach(result; s.set.map!(s => visit(location, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					expressions ~= identified;
-				} else static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded.");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
-		return Identifiable(new PolysemousExpression(location, expressions));
+		return Identifiable(s);
 	}
 	
 	Identifiable visit(Location location, TypeAlias a) {
@@ -246,7 +232,7 @@ struct TypeDotIdentifierVisitor {
 	
 	Identifiable visit(Location location, string name, QualType t) {
 		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
-			if(auto os = cast(OverLoadSet) s) {
+			if(auto os = cast(OverloadSet) s) {
 				assert(os.set.length == 1);
 				
 				s = os.set[0];
@@ -312,26 +298,12 @@ struct ExpressionDotIdentifierVisitor {
 		})(location, e, s);
 	}
 	
-	Identifiable visit(Location location, Expression e, OverLoadSet s) {
+	Identifiable visit(Location location, Expression e, OverloadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, e, s.set[0]);
 		}
 		
-		Expression[] expressions;
-		foreach(result; s.set.map!(s => visit(location, e, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					expressions ~= identified;
-				} static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
-		return Identifiable(new PolysemousExpression(location, expressions));
+		assert(0, "not implemented: return identifiable pack");
 	}
 	
 	Identifiable visit(Location location, Expression e, Field f) {

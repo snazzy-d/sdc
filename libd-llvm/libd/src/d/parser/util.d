@@ -5,21 +5,29 @@ import d.parser.expression;
 import d.parser.type;
 
 /**
+ * Get the matching delimiter
+ */
+template MatchingDelimiter(TokenType openTokenType) {
+	static if(openTokenType == TokenType.OpenParen) {
+		alias MatchingDelimiter = TokenType.CloseParen;
+	} else static if(openTokenType == TokenType.OpenBrace) {
+		alias MatchingDelimiter = TokenType.CloseBrace;
+	} else static if(openTokenType == TokenType.OpenBracket) {
+		alias MatchingDelimiter = TokenType.CloseBracket;
+	} else static if(openTokenType == TokenType.Less) {
+		alias MatchingDelimiter = TokenType.Greater;
+	} else {
+		import std.conv;
+		static assert(0, to!string(openTokenType) ~ " isn't a token that goes by pair. Use (, {, [, <");
+	}
+}
+
+/**
  * Pop a range of token until we pop the matchin delimiter.
  * matchin tokens are (), [], <> and {}
  */
 void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange trange) {
-	static if(openTokenType == TokenType.OpenParen) {
-		alias TokenType.CloseParen closeTokenType;
-	} else static if(openTokenType == TokenType.OpenBrace) {
-		alias TokenType.CloseBrace closeTokenType;
-	} else static if(openTokenType == TokenType.OpenBracket) {
-		alias TokenType.CloseBracket closeTokenType;
-	} else static if(openTokenType == TokenType.Less) {
-		alias TokenType.Greater closeTokenType;
-	} else {
-		static assert(0, tokenToString[openTokenType] ~ " isn't a token that goes by pair. Use (, {, [, <");
-	}
+	alias closeTokenType = MatchingDelimiter!openTokenType;
 	
 	assert(trange.front.type == openTokenType);
 	uint level = 1;
