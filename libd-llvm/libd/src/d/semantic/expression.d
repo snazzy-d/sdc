@@ -1,5 +1,6 @@
 module d.semantic.expression;
 
+import d.semantic.caster;
 import d.semantic.identifiable;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
@@ -102,7 +103,7 @@ final class ExpressionVisitor {
 			
 			case Assign :
 				type = lhs.type;
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				break;
 			
 			case Add :
@@ -125,8 +126,8 @@ final class ExpressionVisitor {
 			case Pow :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -153,7 +154,7 @@ final class ExpressionVisitor {
 			case PowAssign :
 				type = lhs.type;
 				
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -165,8 +166,8 @@ final class ExpressionVisitor {
 			case LogicalAnd :
 				type = getBuiltin(TypeKind.Bool);
 				
-				lhs = buildExplicitCast(lhs.location, type, lhs);
-				rhs = buildExplicitCast(rhs.location, type, rhs);
+				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -186,8 +187,8 @@ final class ExpressionVisitor {
 			case NotIdentical :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
 				
@@ -209,8 +210,8 @@ final class ExpressionVisitor {
 			case LessEqual :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
 				
@@ -298,7 +299,7 @@ final class ExpressionVisitor {
 			
 			case Not :
 				type = getBuiltin(TypeKind.Bool);
-				expr = buildExplicitCast(expr.location, type, expr);
+				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 			
 			case Complement :
@@ -310,7 +311,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(AstCastExpression e) {
 		auto to = pass.visit(e.type);
-		return buildExplicitCast(e.location, to, visit(e.expr));
+		return buildExplicitCast(pass, e.location, to, visit(e.expr));
 	}
 	
 	private auto buildArgument(Expression arg, ParamType pt) {
@@ -318,7 +319,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
 		
-		arg = pass.buildImplicitCast(arg.location, QualType(pt.type, pt.qualifier), arg);
+		arg = buildImplicitCast(pass, arg.location, QualType(pt.type, pt.qualifier), arg);
 		
 		// test if we can pass by ref.
 		if(pt.isRef && !arg.isLvalue) {
@@ -341,7 +342,7 @@ final class ExpressionVisitor {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(arg.type, QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, arg.type, QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
 		if(param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
@@ -357,7 +358,7 @@ final class ExpressionVisitor {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
 		if(param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
@@ -549,7 +550,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(AstAssertExpression e) {
 		auto c = visit(e.condition);
-		c = buildExplicitCast(c.location, getBuiltin(TypeKind.Bool), c);
+		c = buildExplicitCast(pass, c.location, getBuiltin(TypeKind.Bool), c);
 		
 		Expression msg;
 		if(e.message) {

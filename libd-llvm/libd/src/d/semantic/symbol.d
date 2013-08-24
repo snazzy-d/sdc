@@ -1,5 +1,6 @@
 module d.semantic.symbol;
 
+import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.identifiable;
 import d.semantic.semantic;
@@ -155,7 +156,7 @@ final class SymbolVisitor {
 			value = vd.value
 				? pass.visit(vd.value)
 				: defaultInitializerVisitor.visit(v.location, type);
-			value = buildImplicitCast(d.location, type, value);
+			value = buildImplicitCast(pass, d.location, type, value);
 		}
 		
 		if(v.isEnum) {
@@ -363,7 +364,7 @@ final class SymbolVisitor {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				foreach(ref candidate; candidates) {
-					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
+					if(candidate && candidate.name == method.name && implicitCastFrom(pass, method.type, candidate.type)) {
 						if(method.index == 0) {
 							method.index = candidate.index;
 							candidate = null;

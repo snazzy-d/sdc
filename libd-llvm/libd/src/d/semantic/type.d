@@ -62,8 +62,9 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, AstArrayType t) {
 		auto elementType = visit(t.elementType);
 		
+		import d.semantic.caster;
 		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
 		
 		return QualType(new ArrayType(elementType, size));
 	}

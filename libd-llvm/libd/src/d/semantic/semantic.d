@@ -66,9 +66,6 @@ final class SemanticPass {
 	private TypeVisitor typeVisitor;
 	private IdentifierVisitor identifierVisitor;
 	
-	private Caster!false implicitCaster;
-	private Caster!true explicitCaster;
-	
 	DefaultInitializerVisitor defaultInitializerVisitor;
 	
 	SizeofCalculator sizeofCalculator;
@@ -117,9 +114,6 @@ final class SemanticPass {
 		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
 		identifierVisitor	= new IdentifierVisitor(this);
-		
-		implicitCaster		= new Caster!false(this);
-		explicitCaster		= new Caster!true(this);
 		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
@@ -175,21 +169,6 @@ final class SemanticPass {
 	
 	ParamType visit(ParamAstType t) {
 		return typeVisitor.visit(t);
-	}
-	
-	Expression buildImplicitCast(Location location, QualType to, Expression value) {
-		return implicitCaster.build(location, to, value);
-	}
-	
-	Expression buildExplicitCast(Location location, QualType to, Expression value) {
-		return explicitCaster.build(location, to, value);
-	}
-	
-	CastKind implicitCastFrom(QualType from, QualType to) {
-		return implicitCaster.castFrom(from, to);
-	}
-	CastKind explicitCastFrom(QualType from, QualType to) {
-		return explicitCaster.castFrom(from, to);
 	}
 	
 	TemplateInstance instanciate(Location location, Template t, Identifiable[] args) {

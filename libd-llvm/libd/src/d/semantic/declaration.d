@@ -201,7 +201,9 @@ struct DeclarationVisitor {
 		assert(unit.type == CtUnitType.StaticIf);
 	} body {
 		auto d = unit.staticIf;
-		auto condition = evaluate(buildExplicitCast(d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
+		
+		import d.semantic.caster;
+		auto condition = evaluate(buildExplicitCast(pass, d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
 		
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);

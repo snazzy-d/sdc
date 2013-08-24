@@ -14,85 +14,80 @@ import d.location;
 
 import std.algorithm;
 
-final class Caster(bool isExplicit) {
-	private SemanticPass pass;
-	alias pass this;
-	
-	private Location location;
-	
-	private FromBuiltin fromBuiltin;
-	private FromPointer fromPointer;
-	private FromSlice fromSlice;
-	private FromFunction fromFunction;
-	private FromDelegate fromDelegate;
-	
-	this(SemanticPass pass) {
-		this.pass = pass;
+auto buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+	return build!false(pass, location, to, e);
+}
+
+auto buildExplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+	return build!true(pass, location, to, e);
+}
+
+CastKind implicitCastFrom(SemanticPass pass, QualType from, QualType to) {
+	return Caster!false(pass).castFrom(from, to);
+}
+
+CastKind explicitCastFrom(SemanticPass pass, QualType from, QualType to) {
+	return Caster!true(pass).castFrom(from, to);
+}
+
+private:
+
+Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType to, Expression e) {
+	// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
+	if(auto asPolysemous = cast(PolysemousExpression) e) {
+		auto oldBuildErrorNode = pass.buildErrorNode;
+		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
 		
-		fromBuiltin		= new FromBuiltin();
-		fromPointer		= new FromPointer();
-		fromSlice		= new FromSlice();
-		fromFunction	= new FromFunction();
-		fromDelegate	= new FromDelegate();
-	}
-	
-	// XXX: out contract disabled because it create memory corruption with dmd.
-	Expression build(Location castLocation, QualType to, Expression e) /* out(result) {
-		assert(result.type == to);
-	} body */ {
-		// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
-		if(auto asPolysemous = cast(PolysemousExpression) e) {
-			auto oldBuildErrorNode = buildErrorNode;
-			scope(exit) buildErrorNode = oldBuildErrorNode;
+		pass.buildErrorNode = true;
+		
+		Expression casted;
+		foreach(candidate; asPolysemous.expressions) {
+			// XXX: Remove that ! Controle flow with exceptions is crap.
+			try {
+				candidate = build!isExplicit(pass, location, to, candidate);
+			} catch(CompileException e) {
+				continue;
+			}
 			
-			buildErrorNode = true;
-			
-			Expression casted;
-			foreach(candidate; asPolysemous.expressions) {
-				// XXX: Remove that ! Controle flow with exceptions is crap.
-				try {
-					candidate = build(castLocation, to, candidate);
-				} catch(CompileException e) {
-					continue;
-				}
-				
-				if(cast(ErrorExpression) candidate) {
-					continue;
-				}
-				
-				if(casted) {
-					return pass.raiseCondition!Expression(e.location, "Ambiguous.");
-				}
-				
-				casted = candidate;
+			if(cast(ErrorExpression) candidate) {
+				continue;
 			}
 			
 			if(casted) {
-				return casted;
+				return pass.raiseCondition!Expression(location, "Ambiguous.");
 			}
 			
-			return pass.raiseCondition!Expression(e.location, "No match found.");
+			casted = candidate;
 		}
 		
-		assert(to.type && e.type.type);
-		
-		auto oldLocation = location;
-		scope(exit) location = oldLocation;
-		
-		location = castLocation;
-		
-		auto kind = castFrom(e.type, to);
-		
-		switch(kind) with(CastKind) {
-			case Exact :
-				return e;
-			
-			default :
-				return new CastExpression(location, kind, to, e);
-			
-			case Invalid :
-				return pass.raiseCondition!Expression(e.location, "Can't cast " ~ e.type.toString() ~ " to " ~ to.toString());
+		if(casted) {
+			return casted;
 		}
+		
+		return pass.raiseCondition!Expression(e.location, "No match found.");
+	}
+	
+	assert(to.type && e.type.type);
+	
+	auto kind = Caster!isExplicit(pass).castFrom(e.type, to);
+	switch(kind) with(CastKind) {
+		case Exact :
+			return e;
+		
+		default :
+			return new CastExpression(location, kind, to, e);
+		
+		case Invalid :
+			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString() ~ " to " ~ to.toString());
+	}
+}
+
+struct Caster(bool isExplicit) {
+	private SemanticPass pass;
+	alias pass this;
+	
+	this(SemanticPass pass) {
+		this.pass = pass;
 	}
 	
 	// FIXME: handle qualifiers.
@@ -124,7 +119,7 @@ final class Caster(bool isExplicit) {
 		return ret;
 	}
 	
-	class FromBuiltin {
+	struct FromBuiltin {
 		CastKind visit(TypeKind from, Type to) {
 			return this.dispatch!((t) {
 				return CastKind.Invalid;
@@ -244,24 +239,23 @@ final class Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, BuiltinType t) {
-		return fromBuiltin.visit(t.kind, to);
+		return FromBuiltin().visit(t.kind, to);
 	}
 	
-	class FromPointer {
-		QualType from;
+	struct FromPointer {
+		Caster caster;
 		
-		CastKind visit(QualType from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
-			
-			this.from = from;
-			
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(to);
+		this(Caster caster) {
+			this.caster = caster;
 		}
 		
-		CastKind visit(PointerType t) {
+		CastKind visit(QualType from, Type to) {
+			return this.dispatch!((t) {
+				return CastKind.Invalid;
+			})(from, to);
+		}
+		
+		CastKind visit(QualType from, PointerType t) {
 			// Cast to void* is kind of special.
 			if(auto v = cast(BuiltinType) t.pointed.type) {
 				if(v.kind == TypeKind.Void) {
@@ -275,7 +269,7 @@ final class Caster(bool isExplicit) {
 				}
 			}
 			
-			auto subCast = castFrom(from, t.pointed);
+			auto subCast = caster.castFrom(from, t.pointed);
 			
 			switch(subCast) with(CastKind) {
 				case Qual :
@@ -306,31 +300,30 @@ final class Caster(bool isExplicit) {
 		}
 		
 		static if(isExplicit) {
-			CastKind visit(FunctionType t) {
+			CastKind visit(QualType from, FunctionType t) {
 				return CastKind.Bit;
 			}
 		}
 	}
 	
 	CastKind visit(Type to, PointerType t) {
-		return fromPointer.visit(t.pointed, to);
+		return FromPointer(this).visit(t.pointed, to);
 	}
 	
-	class FromSlice {
-		QualType from;
+	struct FromSlice {
+		Caster caster;
 		
-		CastKind visit(QualType from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
-			
-			this.from = from;
-			
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(to);
+		this(Caster caster) {
+			this.caster = caster;
 		}
 		
-		CastKind visit(SliceType t) {
+		CastKind visit(QualType from, Type to) {
+			return this.dispatch!((t) {
+				return CastKind.Invalid;
+			})(from, to);
+		}
+		
+		CastKind visit(QualType from, SliceType t) {
 			// Cast to void* is kind of special.
 			if(auto v = cast(BuiltinType) t.sliced.type) {
 				if(v.kind == TypeKind.Void) {
@@ -344,7 +337,7 @@ final class Caster(bool isExplicit) {
 				}
 			}
 			
-			auto subCast = castFrom(from, t.sliced);
+			auto subCast = caster.castFrom(from, t.sliced);
 			
 			switch(subCast) with(CastKind) {
 				case Qual :
@@ -376,7 +369,7 @@ final class Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, SliceType t) {
-		return fromSlice.visit(t.sliced, to);
+		return FromSlice(this).visit(t.sliced, to);
 	}
 	
 	CastKind visit(Type to, StructType t) {
@@ -421,21 +414,20 @@ final class Caster(bool isExplicit) {
 		return castFrom(t.denum.type, to);
 	}
 	
-	class FromFunction {
-		FunctionType from;
+	struct FromFunction {
+		Caster caster;
 		
-		CastKind visit(FunctionType from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
-			
-			this.from = from;
-			
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(to);
+		this(Caster caster) {
+			this.caster = caster;
 		}
 		
-		CastKind visit(FunctionType t) {
+		CastKind visit(FunctionType from, Type to) {
+			return this.dispatch!((t) {
+				return CastKind.Invalid;
+			})(from, to);
+		}
+		
+		CastKind visit(FunctionType from, FunctionType t) {
 			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
 			if(from.paramTypes.length != t.paramTypes.length) return onFail;
@@ -443,13 +435,13 @@ final class Caster(bool isExplicit) {
 			
 			if(from.linkage != t.linkage) return onFail;
 			
-			auto k = castFrom(from.returnType.type, t.returnType.type);
+			auto k = caster.castFrom(from.returnType.type, t.returnType.type);
 			if(k < CastKind.Bit) return onFail;
 			
 			import std.range;
 			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
 				// Parameters are contrevariant.
-				auto kp = castFrom(top, fromp);
+				auto kp = caster.castFrom(top, fromp);
 				if(kp < CastKind.Bit) return onFail;
 				
 				k = min(k, kp);
@@ -458,7 +450,7 @@ final class Caster(bool isExplicit) {
 			return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
 		}
 		
-		CastKind visit(PointerType t) {
+		CastKind visit(FunctionType from, PointerType t) {
 			static if(isExplicit) {
 				return CastKind.Bit;
 			} else if(auto to = cast(BuiltinType) t.pointed.type) {
@@ -471,24 +463,23 @@ final class Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, FunctionType t) {
-		return fromFunction.visit(t, to);
+		return FromFunction(this).visit(t, to);
 	}
 	
-	class FromDelegate {
-		DelegateType from;
+	struct FromDelegate {
+		Caster caster;
 		
-		CastKind visit(DelegateType from, Type to) {
-			auto oldFrom = this.from;
-			scope(exit) this.from = oldFrom;
-			
-			this.from = from;
-			
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(to);
+		this(Caster caster) {
+			this.caster = caster;
 		}
 		
-		CastKind visit(DelegateType t) {
+		CastKind visit(DelegateType from, Type to) {
+			return this.dispatch!((t) {
+				return CastKind.Invalid;
+			})(from, to);
+		}
+		
+		CastKind visit(DelegateType from, DelegateType t) {
 			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 			
 			if(from.paramTypes.length != t.paramTypes.length) return onFail;
@@ -496,13 +487,13 @@ final class Caster(bool isExplicit) {
 			
 			if(from.linkage != t.linkage) return onFail;
 			
-			auto k = castFrom(from.returnType.type, t.returnType.type);
+			auto k = caster.castFrom(from.returnType.type, t.returnType.type);
 			if(k < CastKind.Bit) return onFail;
 			
 			import std.range;
 			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
 				// Parameters are contrevariant.
-				auto kp = castFrom(top, fromp);
+				auto kp = caster.castFrom(top, fromp);
 				if(kp < CastKind.Bit) return onFail;
 				
 				k = min(k, kp);
@@ -513,7 +504,7 @@ final class Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, DelegateType t) {
-		return fromDelegate.visit(t, to);
+		return FromDelegate(this).visit(t, to);
 	}
 }
 

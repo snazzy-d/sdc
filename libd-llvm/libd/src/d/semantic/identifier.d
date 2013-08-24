@@ -131,7 +131,8 @@ final class IdentifierVisitor {
 		return visit(i.indexed).apply!(delegate Identifiable(identified) {
 			// TODO: deduplicate code form type and expression visitor.
 			static if(is(typeof(identified) : QualType)) {
-				auto se = pass.buildImplicitCast(i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
+				import d.semantic.caster;
+				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
 				return Identifiable(QualType(new ArrayType(identified, size)));
