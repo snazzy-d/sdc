@@ -3,6 +3,7 @@ module d.semantic.symbol;
 import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.identifiable;
+import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -310,7 +311,7 @@ final class SymbolVisitor {
 			fieldIndex = 1;
 		} else {
 			foreach(i; cd.bases) {
-				auto type = pass.visit(i).apply!(function ClassType(identified) {
+				auto type = IdentifierVisitor(pass).visit(i).apply!(function ClassType(identified) {
 					static if(is(typeof(identified) : QualType)) {
 						return cast(ClassType) identified.type;
 					} else {
@@ -325,7 +326,7 @@ final class SymbolVisitor {
 			}
 			
 			if(!c.base) {
-				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
+				auto baseType = IdentifierVisitor(pass).visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
 					static if(is(typeof(parsed) : QualType)) {
 						return cast(ClassType) parsed.type;
 					} else {

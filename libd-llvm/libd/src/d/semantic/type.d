@@ -1,6 +1,7 @@
 module d.semantic.type;
 
 import d.semantic.identifiable;
+import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -85,7 +86,7 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, IdentifierType t) {
-		return pass.visit(t.identifier).apply!((identified) {
+		return IdentifierVisitor(pass).visit(t.identifier).apply!((identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {

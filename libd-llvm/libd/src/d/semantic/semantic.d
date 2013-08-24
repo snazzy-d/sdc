@@ -64,7 +64,6 @@ final class SemanticPass {
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
 	private TypeVisitor typeVisitor;
-	private IdentifierVisitor identifierVisitor;
 	
 	DefaultInitializerVisitor defaultInitializerVisitor;
 	
@@ -113,7 +112,6 @@ final class SemanticPass {
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
-		identifierVisitor	= new IdentifierVisitor(this);
 		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
@@ -149,10 +147,6 @@ final class SemanticPass {
 	
 	Symbol visit(Declaration d, Symbol s) {
 		return symbolVisitor.visit(d, s);
-	}
-	
-	Identifiable visit(Identifier i) {
-		return identifierVisitor.visit(i);
 	}
 	
 	Expression visit(AstExpression e) {

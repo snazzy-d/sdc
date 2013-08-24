@@ -2,6 +2,7 @@ module d.semantic.expression;
 
 import d.semantic.caster;
 import d.semantic.identifiable;
+import d.semantic.identifier;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
@@ -563,7 +564,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return pass.visit(e.identifier).apply!((identified) {
+		return IdentifierVisitor(pass).visit(e.identifier).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else {
