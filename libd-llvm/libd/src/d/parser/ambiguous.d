@@ -194,6 +194,13 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 		case OpenBracket :
 			trange.popFront();
 			
+			// This is a slice type
+			if(trange.front.type == CloseBracket) {
+				trange.popFront();
+				auto slice = QualAstType(new AstSliceType(QualAstType(new IdentifierType(i))));
+				return trange.parseAmbiguousSuffix!handler(i.location, slice);
+			}
+			
 			return trange.parseAmbiguous!ambiguousHandler().apply!((parsed) {
 				auto location = i.location;
 				location.spanTo(trange.front.location);
