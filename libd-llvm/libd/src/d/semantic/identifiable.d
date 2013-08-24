@@ -6,6 +6,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+// TODO: specify is symbol are packed into type/expression or not.
 /**
  * Tagged union that define something designed by an identifier.
  */

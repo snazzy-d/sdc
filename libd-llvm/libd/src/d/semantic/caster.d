@@ -83,6 +83,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 }
 
 struct Caster(bool isExplicit) {
+	// XXX: Used only to get to super class, should probably go away.
 	private SemanticPass pass;
 	alias pass this;
 	

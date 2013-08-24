@@ -19,6 +19,7 @@ import std.array;
 
 alias Module = d.ir.symbol.Module;
 
+// TODO: specify is symbol are packed into type/expression or not.
 final class IdentifierVisitor {
 	private SemanticPass pass;
 	alias pass this;
