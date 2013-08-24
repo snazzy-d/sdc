@@ -62,10 +62,15 @@ struct Identifiable {
 	}
 }
 
+unittest {
+	static assert(Identifiable.init.tag == Tag.Symbol);
+	static assert(Identifiable.init.symbol is null);
+}
+
 private enum Tag {
+	Symbol,
 	Type,
 	Expression,
-	Symbol,
 }
 
 auto apply(alias handler)(Identifiable i) {
