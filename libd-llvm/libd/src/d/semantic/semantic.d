@@ -192,7 +192,7 @@ final class SemanticPass {
 		return explicitCaster.castFrom(from, to);
 	}
 	
-	TemplateInstance instanciate(Location location, Template t, TemplateArgument[] args) {
+	TemplateInstance instanciate(Location location, Template t, Identifiable[] args) {
 		return templateInstancier.instanciate(location, t, args);
 	}
 	

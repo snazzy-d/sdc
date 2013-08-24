@@ -4,7 +4,6 @@ import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.declaration;
-import d.ast.identifier;
 
 import d.ir.dscope;
 import d.ir.symbol;
@@ -24,7 +23,7 @@ final class TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args) {
+	auto instanciate(Location location, Template t, Identifiable[] args) {
 		scheduler.require(t);
 		
 		Symbol[] argSyms;
@@ -33,13 +32,13 @@ final class TemplateInstancier {
 		// XXX: have to put array once again.
 		assert(t.parameters.length == args.length);
 		string id = args.map!(
-			arg => visit(arg).apply!(delegate string(identified) {
+			a => a.apply!(delegate string(identified) {
 				auto p = t.parameters[i++];
 				
 				static if(is(typeof(identified) : QualType)) {
 					auto type = TypeMatcher(identified).visit(p);
 					
-					auto a = new TypeAlias(arg.location, p.name, type);
+					auto a = new TypeAlias(p.location, p.name, type);
 					
 					a.mangle = pass.typeMangler.visit(type);
 					a.step = Step.Processed;
@@ -87,18 +86,6 @@ final class TemplateInstancier {
 		instance.step = Step.Processed;
 		
 		return instance;
-	}
-	
-	Identifiable visit(TemplateArgument arg) {
-		return this.dispatch(arg);
-	}
-	
-	Identifiable visit(TypeTemplateArgument arg) {
-		return Identifiable(pass.visit(arg.type));
-	}
-	
-	Identifiable visit(IdentifierTemplateArgument arg) {
-		return pass.visit(arg.identifier);
 	}
 }
 

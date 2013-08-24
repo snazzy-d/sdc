@@ -13,9 +13,9 @@ struct Identifiable {
 	private Tag tag;
 	
 	private union {
+		Symbol symbol;
 		QualType type;
 		Expression expression;
-		Symbol symbol;
 	}
 	
 	@disable this();

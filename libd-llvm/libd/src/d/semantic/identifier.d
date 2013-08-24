@@ -397,7 +397,17 @@ final class TemplateDotIdentifierVisitor {
 		
 		assert(t);
 		
-		auto instance = instanciate(i.templateInstanciation.location, t, i.templateInstanciation.arguments);
+		auto args = i.templateInstanciation.arguments.map!((a) {
+			if(auto ta = cast(TypeTemplateArgument) a) {
+				return Identifiable(identifierVisitor.pass.visit(ta.type));
+			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
+				return identifierVisitor.visit(ia.identifier);
+			}
+			
+			assert(0, typeid(a).toString() ~ " is not supported.");
+		}).array();
+		
+		auto instance = instanciate(i.templateInstanciation.location, t, args);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return identifierVisitor.visit(i.location, s);
 		}
