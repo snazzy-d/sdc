@@ -1,6 +1,5 @@
 module d.parser.dfunction;
 
-import d.ast.dfunction;
 import d.ast.declaration;
 import d.ast.statement;
 import d.ast.type;
@@ -43,7 +42,7 @@ Declaration parseDestructor(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRange, U... )(ref TokenRange trange, Location location, U arguments) if(isTokenRange!TokenRange) {
 	// Function declaration.
 	bool isVariadic;
-	TemplateParameter[] tplParameters;
+	AstTemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
 	auto lookahead = trange.save;

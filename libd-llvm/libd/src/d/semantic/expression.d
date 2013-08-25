@@ -1,15 +1,16 @@
 module d.semantic.expression;
 
-import d.semantic.identifiable;
+import d.semantic.caster;
+import d.semantic.identifier;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
 import d.ast.base;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.expression;
 import d.ast.type;
 
+import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -103,7 +104,7 @@ final class ExpressionVisitor {
 			
 			case Assign :
 				type = lhs.type;
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				break;
 			
 			case Add :
@@ -126,8 +127,8 @@ final class ExpressionVisitor {
 			case Pow :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -154,7 +155,7 @@ final class ExpressionVisitor {
 			case PowAssign :
 				type = lhs.type;
 				
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -166,8 +167,8 @@ final class ExpressionVisitor {
 			case LogicalAnd :
 				type = getBuiltin(TypeKind.Bool);
 				
-				lhs = buildExplicitCast(lhs.location, type, lhs);
-				rhs = buildExplicitCast(rhs.location, type, rhs);
+				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
@@ -187,8 +188,8 @@ final class ExpressionVisitor {
 			case NotIdentical :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
 				
@@ -210,8 +211,8 @@ final class ExpressionVisitor {
 			case LessEqual :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
-				lhs = buildImplicitCast(lhs.location, type, lhs);
-				rhs = buildImplicitCast(rhs.location, type, rhs);
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
 				
@@ -299,7 +300,7 @@ final class ExpressionVisitor {
 			
 			case Not :
 				type = getBuiltin(TypeKind.Bool);
-				expr = buildExplicitCast(expr.location, type, expr);
+				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 			
 			case Complement :
@@ -311,7 +312,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(AstCastExpression e) {
 		auto to = pass.visit(e.type);
-		return buildExplicitCast(e.location, to, visit(e.expr));
+		return buildExplicitCast(pass, e.location, to, visit(e.expr));
 	}
 	
 	private auto buildArgument(Expression arg, ParamType pt) {
@@ -319,7 +320,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
 		
-		arg = pass.buildImplicitCast(arg.location, QualType(pt.type, pt.qualifier), arg);
+		arg = buildImplicitCast(pass, arg.location, QualType(pt.type, pt.qualifier), arg);
 		
 		// test if we can pass by ref.
 		if(pt.isRef && !arg.isLvalue) {
@@ -342,7 +343,7 @@ final class ExpressionVisitor {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(arg.type, QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, arg.type, QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
 		if(param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
@@ -358,7 +359,7 @@ final class ExpressionVisitor {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = pass.implicitCastFrom(QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
 		
 		// test if we can pass by ref.
 		if(param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
@@ -392,86 +393,128 @@ final class ExpressionVisitor {
 		auto args = c.arguments.map!(a => visit(a)).array();
 		
 		if(auto asPolysemous = cast(PolysemousExpression) callee) {
-			auto candidates = asPolysemous.expressions.filter!((e) {
-				if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
-					if(asFunType.isVariadic) {
-						return args.length >= asFunType.paramTypes.length;
-					} else {
-						return args.length == asFunType.paramTypes.length;
-					}
-				}
-				
-				assert(0, "type is not a function type");
-			});
-			
-			auto level = MatchLevel.Not;
-			Expression match;
-			CandidateLoop: foreach(candidate; candidates) {
-				auto type = cast(FunctionType) peelAlias(candidate.type).type;
-				assert(type, "We should have filtered function at this point.");
-				
-				auto candidateLevel = MatchLevel.Exact;
-				foreach(arg, param; lockstep(args, type.paramTypes)) {
-					auto argLevel = matchArgument(arg, param);
-					
-					// If we don't match high enough.
-					if(argLevel < level) {
-						continue CandidateLoop;
-					}
-					
-					final switch(argLevel) with(MatchLevel) {
-						case Not :
-							// This function don't match, go to next one.
-							continue CandidateLoop;
-						
-						case TypeConvert :
-						case QualifierConvert :
-							candidateLevel = min(candidateLevel, argLevel);
-							continue;
-						
-						case Exact :
-							// Go to next argument
-							continue;
-					}
-				}
-				
-				if(candidateLevel > level) {
-					level = candidateLevel;
-					match = candidate;
-				} else if(candidateLevel == level) {
-					// Check for specialisation.
-					auto matchType = cast(FunctionType) peelAlias(match.type).type;
-					assert(matchType, "We should have filtered function at this point.");
-					
-					bool candidateFail;
-					bool matchFail;
-					foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
-						if(matchArgument(param, matchParam) == MatchLevel.Not) {
-							candidateFail = true;
-						}
-						
-						if(matchArgument(matchParam, param) == MatchLevel.Not) {
-							matchFail = true;
-						}
-					}
-					
-					if(matchFail == candidateFail) {
-						return pass.raiseCondition!Expression(c.location, "ambigusous function call.");
-					}
-					
-					if(matchFail) {
-						match = candidate;
-					}
-				}
-			}
-			
-			if(!match) {
-				return pass.raiseCondition!Expression(c.location, "No candidate for function call.");
-			}
-			
-			callee = match;
+			return handleOverloadCall(c.location, asPolysemous.expressions, args);
 		}
 		
+		return handleCall(c.location, callee, args);
+	}
+	
+	Expression visit(IdentifierCallExpression c) {
+		auto args = c.arguments.map!(a => visit(a)).array();
+		
+		return IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return handleCall(c.location, identified, args);
+			} else {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto s = cast(OverloadSet) identified) {
+						return handleOverloadSetCall(c.location, c.callee.location, s, args);
+					}
+				}
+				
+				return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
+			}
+		})(pass).visit(c.callee);
+	}
+	
+	private Expression handleOverloadSetCall(Location location, Location iloc, OverloadSet s, Expression[] args) {
+		auto iv = IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else static if(is(typeof(identified) : QualType)) {
+				assert(0, "Type can't be overloaded");
+			} else {
+				// TODO: handle templates.
+				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+			}
+		})(pass);
+		
+		auto cds = s.set.map!(s => iv.visit(iloc, s)).array();
+		return handleOverloadCall(location, cds, args);
+	}
+	
+	private Expression handleOverloadCall(Location location, Expression[] candidates, Expression[] args) {
+		auto cds = candidates.filter!((e) {
+			if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
+				if(asFunType.isVariadic) {
+					return args.length >= asFunType.paramTypes.length;
+				} else {
+					return args.length == asFunType.paramTypes.length;
+				}
+			}
+			
+			assert(0, "type is not a function type");
+		});
+		
+		auto level = MatchLevel.Not;
+		Expression match;
+		CandidateLoop: foreach(candidate; cds) {
+			auto type = cast(FunctionType) peelAlias(candidate.type).type;
+			assert(type, "We should have filtered function at this point.");
+			
+			auto candidateLevel = MatchLevel.Exact;
+			foreach(arg, param; lockstep(args, type.paramTypes)) {
+				auto argLevel = matchArgument(arg, param);
+				
+				// If we don't match high enough.
+				if(argLevel < level) {
+					continue CandidateLoop;
+				}
+				
+				final switch(argLevel) with(MatchLevel) {
+					case Not :
+						// This function don't match, go to next one.
+						continue CandidateLoop;
+					
+					case TypeConvert :
+					case QualifierConvert :
+						candidateLevel = min(candidateLevel, argLevel);
+						continue;
+					
+					case Exact :
+						// Go to next argument
+						continue;
+				}
+			}
+			
+			if(candidateLevel > level) {
+				level = candidateLevel;
+				match = candidate;
+			} else if(candidateLevel == level) {
+				// Check for specialisation.
+				auto matchType = cast(FunctionType) peelAlias(match.type).type;
+				assert(matchType, "We should have filtered function at this point.");
+				
+				bool candidateFail;
+				bool matchFail;
+				foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
+					if(matchArgument(param, matchParam) == MatchLevel.Not) {
+						candidateFail = true;
+					}
+					
+					if(matchArgument(matchParam, param) == MatchLevel.Not) {
+						matchFail = true;
+					}
+				}
+				
+				if(matchFail == candidateFail) {
+					return pass.raiseCondition!Expression(location, "ambigusous function call.");
+				}
+				
+				if(matchFail) {
+					match = candidate;
+				}
+			}
+		}
+		
+		if(!match) {
+			return pass.raiseCondition!Expression(location, "No candidate for function call.");
+		}
+		
+		return handleCall(location, match, args);
+	}
+	
+	private Expression handleCall(Location location, Expression callee, Expression[] args) {
 		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;
 		ParamType returnType;
@@ -482,7 +525,7 @@ final class ExpressionVisitor {
 			paramTypes = d.paramTypes;
 			returnType = d.returnType;
 		} else {
-			return pass.raiseCondition!Expression(c.location, "You must call function or delegates, not " ~ callee.type.toString());
+			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString());
 		}
 		
 		assert(args.length >= paramTypes.length);
@@ -491,7 +534,7 @@ final class ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new CallExpression(c.location, QualType(returnType.type, returnType.qualifier), callee, args);
+		return new CallExpression(location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
 	Expression visit(AstNewExpression e) {
@@ -550,7 +593,7 @@ final class ExpressionVisitor {
 	
 	Expression visit(AstAssertExpression e) {
 		auto c = visit(e.condition);
-		c = buildExplicitCast(c.location, getBuiltin(TypeKind.Bool), c);
+		c = buildExplicitCast(pass, c.location, getBuiltin(TypeKind.Bool), c);
 		
 		Expression msg;
 		if(e.message) {
@@ -563,13 +606,35 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return pass.visit(e.identifier).apply!((identified) {
+		return IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto s = cast(OverloadSet) identified) {
+						return buildPolysemous(e.location, s);
+					}
+				}
+				
 				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 			}
-		})();
+		})(pass).visit(e.identifier);
+	}
+	
+	private Expression buildPolysemous(Location location, OverloadSet s) {
+		auto iv = IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else static if(is(typeof(identified) : QualType)) {
+				assert(0, "Type can't be overloaded");
+			} else {
+				// TODO: handle templates.
+				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+			}
+		})(pass);
+		
+		auto exprs = s.set.map!(s => iv.visit(location, s)).array();
+		return new PolysemousExpression(location, exprs);
 	}
 }
 

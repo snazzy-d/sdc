@@ -1,9 +1,7 @@
 module d.semantic.identifier;
 
-import d.semantic.identifiable;
 import d.semantic.semantic;
 
-import d.ast.dfunction;
 import d.ast.dmodule;
 import d.ast.identifier;
 
@@ -20,25 +18,18 @@ import std.array;
 
 alias Module = d.ir.symbol.Module;
 
-final class IdentifierVisitor {
+// TODO: specify if symbol must be packed into type/expression or not.
+struct IdentifierVisitor(alias handler) {
 	private SemanticPass pass;
 	alias pass this;
 	
-	private TypeDotIdentifierVisitor typeDotIdentifierVisitor;
-	private ExpressionDotIdentifierVisitor expressionDotIdentifierVisitor;
-	private SymbolInTypeResolver symbolInTypeResolver;
-	private TemplateDotIdentifierVisitor templateDotIdentifierVisitor;
+	alias Ret = typeof(handler(null));
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
-		
-		typeDotIdentifierVisitor		= new TypeDotIdentifierVisitor(this);
-		expressionDotIdentifierVisitor	= new ExpressionDotIdentifierVisitor(this);
-		symbolInTypeResolver			= new SymbolInTypeResolver(this);
-		templateDotIdentifierVisitor	= new TemplateDotIdentifierVisitor(this);
 	}
 	
-	Identifiable visit(Identifier i) {
+	Ret visit(Identifier i) {
 		return this.dispatch(i);
 	}
 	
@@ -82,24 +73,24 @@ final class IdentifierVisitor {
 		return symbol ? symbol : resolveImportedSymbol(name);
 	}
 	
-	Identifiable visit(BasicIdentifier i) {
+	Ret visit(BasicIdentifier i) {
 		return visit(i.location, resolveName(i.name));
 	}
 	
-	Identifiable visit(IdentifierDotIdentifier i) {
-		return resolveInIdentifiable(i.location, visit(i.identifier), i.name);
+	Ret visit(IdentifierDotIdentifier i) {
+		return resolveInIdentifiable(i.location, IdentifierVisitor!identifiableHandler(pass).visit(i.identifier), i.name);
 	}
 	
-	private Identifiable resolveInSymbol(Location location, Symbol s, string name) {
-		return resolveInIdentifiable(location, visit(location, s), name);
+	private Ret resolveInSymbol(Location location, Symbol s, string name) {
+		return resolveInIdentifiable(location, IdentifierVisitor!identifiableHandler(pass).visit(location, s), name);
 	}
 	
-	private Identifiable resolveInIdentifiable(Location location, Identifiable i, string name) {
-		return i.apply!(delegate Identifiable(identified) {
+	private Ret resolveInIdentifiable(Location location, Identifiable i, string name) {
+		return i.apply!(delegate Ret(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return typeDotIdentifierVisitor.visit(location, name, identified);
+				return TypeDotIdentifierVisitor!handler(pass).visit(location, name, identified);
 			} else static if(is(typeof(identified) : Expression)) {
-				return expressionDotIdentifierVisitor.visit(location, name, identified);
+				return ExpressionDotIdentifierVisitor!handler(pass).visit(location, name, identified);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				
@@ -112,30 +103,31 @@ final class IdentifierVisitor {
 		})();
 	}
 	
-	Identifiable visit(ExpressionDotIdentifier i) {
-		return expressionDotIdentifierVisitor.visit(i);
+	Ret visit(ExpressionDotIdentifier i) {
+		return ExpressionDotIdentifierVisitor!handler(pass).visit(i);
 	}
 	
-	Identifiable visit(TypeDotIdentifier i) {
-		return typeDotIdentifierVisitor.visit(i);
+	Ret visit(TypeDotIdentifier i) {
+		return TypeDotIdentifierVisitor!handler(pass).visit(i);
 	}
 	
-	Identifiable visit(TemplateInstanciationDotIdentifier i) {
-		return templateDotIdentifierVisitor.resolve(i);
+	Ret visit(TemplateInstanciationDotIdentifier i) {
+		return TemplateDotIdentifierVisitor!handler(pass).resolve(i);
 	}
 	
-	Identifiable visit(IdentifierBracketIdentifier i) {
+	Ret visit(IdentifierBracketIdentifier i) {
 		assert(0, "Not implemented");
 	}
 	
-	Identifiable visit(IdentifierBracketExpression i) {
-		return visit(i.indexed).apply!(delegate Identifiable(identified) {
+	Ret visit(IdentifierBracketExpression i) {
+		return IdentifierVisitor!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
 			// TODO: deduplicate code form type and expression visitor.
 			static if(is(typeof(identified) : QualType)) {
-				auto se = pass.buildImplicitCast(i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
+				import d.semantic.caster;
+				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
-				return Identifiable(QualType(new ArrayType(identified, size)));
+				return handler(QualType(new ArrayType(identified, size)));
 			} else static if(is(typeof(identified) : Expression)) {
 				auto qt = peelAlias(identified.type);
 				auto type = qt.type;
@@ -146,122 +138,208 @@ final class IdentifierVisitor {
 				} else if(auto asArray = cast(ArrayType) type) {
 					qt = asArray.elementType;
 				} else {
-					return Identifiable(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString()));
+					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString()));
 				}
 				
-				return Identifiable(new IndexExpression(i.location, qt, identified, [pass.visit(i.index)]));
+				return handler(new IndexExpression(i.location, qt, identified, [pass.visit(i.index)]));
 			} else {
 				assert(0, "WTF ???");
 			}
 		})();
 	}
 	
-	Identifiable visit(Location location, Symbol s) {
+	Ret visit(Location location, Symbol s) {
 		return this.dispatch(location, s);
 	}
 	
-	Identifiable visit(Location location, TypeSymbol s) {
+	Ret visit(Location location, TypeSymbol s) {
 		return this.dispatch(location, s);
 	}
 	
 	private auto getSymbolExpression(Location location, ValueSymbol s) {
 		scheduler.require(s, Step.Signed);
-		return Identifiable(new SymbolExpression(location, s));
+		return handler(new SymbolExpression(location, s));
 	}
 	
-	Identifiable visit(Location location, Function f) {
+	Ret visit(Location location, Function f) {
 		return getSymbolExpression(location, f);
 	}
 	
-	Identifiable visit(Location location, Parameter p) {
+	Ret visit(Location location, Parameter p) {
 		return getSymbolExpression(location, p);
 	}
 	
-	Identifiable visit(Location location, Variable v) {
+	Ret visit(Location location, Variable v) {
 		return getSymbolExpression(location, v);
 	}
 	
-	Identifiable visit(Location location, Field f) {
+	Ret visit(Location location, Field f) {
 		scheduler.require(f, Step.Signed);
-		return Identifiable(new FieldExpression(location, new ThisExpression(location), f));
+		return handler(new FieldExpression(location, new ThisExpression(location), f));
 	}
 	
-	Identifiable visit(Location location, OverLoadSet s) {
+	Ret visit(Location location, OverloadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, s.set[0]);
 		}
 		
-		Expression[] expressions;
-		foreach(result; s.set.map!(s => visit(location, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					expressions ~= identified;
-				} else static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded.");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
-		return Identifiable(new PolysemousExpression(location, expressions));
+		return handler(s);
 	}
 	
-	Identifiable visit(Location location, TypeAlias a) {
+	Ret visit(Location location, TypeAlias a) {
 		scheduler.require(a);
-		return Identifiable(new AliasType(a));
+		return handler(QualType(new AliasType(a)));
 	}
 	
-	Identifiable visit(Location location, Struct s) {
-		return Identifiable(new StructType(s));
+	Ret visit(Location location, Struct s) {
+		return handler(QualType(new StructType(s)));
 	}
 	
-	Identifiable visit(Location location, Class c) {
-		return Identifiable(new ClassType(c));
+	Ret visit(Location location, Class c) {
+		return handler(QualType(new ClassType(c)));
 	}
 	
-	Identifiable visit(Location location, Enum e) {
-		return Identifiable(new EnumType(e));
+	Ret visit(Location location, Enum e) {
+		return handler(QualType(new EnumType(e)));
 	}
 	
-	Identifiable visit(Location location, Template t) {
+	Ret visit(Location location, Template t) {
+		return handler(t);
+	}
+	
+	Ret visit(Location location, Module m) {
+		return handler(m);
+	}
+	
+	Ret visit(Location location, TypeTemplateParameter t) {
+		return handler(QualType(new TemplatedType(t)));
+	}
+}
+
+private:
+enum Tag {
+	Symbol,
+	Expression,
+	Type,
+}
+
+struct Identifiable {
+	union {
+		Symbol sym;
+		Expression expr;
+		Type type;
+	}
+	
+	import d.ast.base : TypeQualifier;
+	
+	import std.bitmanip;
+	mixin(bitfields!(
+		Tag, "tag", 2,
+		TypeQualifier, "qual", 3,
+		uint, "", 3,
+	));
+	
+	@disable this();
+	
+	// For type inference.
+	this(typeof(null));
+	
+	this(Identifiable i) {
+		this = i;
+	}
+	
+	this(Symbol s) {
+		tag = Tag.Symbol;
+		sym = s;
+	}
+	
+	this(Expression e) {
+		tag = Tag.Expression;
+		expr = e;
+	}
+	
+	this(QualType qt) {
+		tag = Tag.Type;
+		qual = qt.qualifier;
+		type = qt.type;
+	}
+	/+
+	invariant() {
+		final switch(tag) with(Tag) {
+			case Type :
+				assert(type);
+				break;
+			
+			case Expression :
+				assert(expr);
+				break;
+			
+			case Symbol :
+				if(cast(TypeSymbol) sym) {
+					assert(0, "TypeSymbol must be resolved as Type.");
+				} else if(cast(ValueSymbol) sym) {
+					assert(0, "ExpressionSymbol must be resolved as Expression.");
+				}
+				
+				assert(sym);
+				break;
+		}
+	}
+	+/
+}
+
+Identifiable identifiableHandler(T)(T t) {
+	static if(is(T == typeof(null))) {
+		assert(0);
+	} else {
 		return Identifiable(t);
 	}
-	
-	Identifiable visit(Location location, Module m) {
-		return Identifiable(m);
+}
+
+auto apply(alias handler)(Identifiable i) {
+	final switch(i.tag) with(Tag) {
+		case Symbol :
+			return handler(i.sym);
+		
+		case Expression :
+			return handler(i.expr);
+		
+		case Type :
+			return handler(QualType(i.type, i.qual));
 	}
 }
 
 /**
  * Resolve type.identifier as type or expression.
  */
-final class TypeDotIdentifierVisitor {
-	private IdentifierVisitor identifierVisitor;
-	alias identifierVisitor this;
+struct TypeDotIdentifierVisitor(alias handler) {
+	private SemanticPass pass;
+	alias pass this;
 	
-	this(IdentifierVisitor identifierVisitor) {
-		this.identifierVisitor = identifierVisitor;
+	alias Ret = typeof(handler(null));
+		
+	this(SemanticPass pass) {
+		this.pass = pass;
 	}
 	
-	Identifiable visit(TypeDotIdentifier i) {
+	Ret visit(TypeDotIdentifier i) {
 		return visit(i.location, i.name, pass.visit(i.type));
 	}
 	
-	Identifiable visit(Location location, string name, QualType t) {
-		if(Symbol s = symbolInTypeResolver.visit(name, t)) {
-			if(auto os = cast(OverLoadSet) s) {
+	Ret visit(Location location, string name, QualType t) {
+		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
+			if(auto os = cast(OverloadSet) s) {
 				assert(os.set.length == 1);
 				
 				s = os.set[0];
 			}
 			
 			if(auto ts = cast(TypeSymbol) s) {
-				return identifierVisitor.visit(location, ts);
+				// XXX: Avoid recusrive instanciation (should work but do not).
+				return IdentifierVisitor!identifiableHandler(pass).visit(location, ts).apply!handler();
 			} else if(auto vs = cast(ValueSymbol) s) {
 				scheduler.require(s, Step.Signed);
-				return Identifiable(new SymbolExpression(location, vs));
+				return handler(new SymbolExpression(location, vs));
 			} else {
 				throw new CompileException(s.location, "What the hell is that symbol ???");
 			}
@@ -272,7 +350,7 @@ final class TypeDotIdentifierVisitor {
 				assert(0, "init, yeah sure . . .");
 			
 			case "sizeof" :
-				return Identifiable(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
+				return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
 			
 			default :
 				throw new CompileException(location, name ~ " can't be resolved in type");
@@ -283,108 +361,100 @@ final class TypeDotIdentifierVisitor {
 /**
  * Resolve expression.identifier as type or expression.
  */
-final class ExpressionDotIdentifierVisitor {
-	private IdentifierVisitor identifierVisitor;
-	alias identifierVisitor this;
+struct ExpressionDotIdentifierVisitor(alias handler) {
+	private SemanticPass pass;
+	alias pass this;
 	
-	this(IdentifierVisitor identifierVisitor) {
-		this.identifierVisitor = identifierVisitor;
+	alias Ret = typeof(handler(null));
+	
+	this(SemanticPass pass) {
+		this.pass = pass;
 	}
 	
-	Identifiable visit(ExpressionDotIdentifier i) {
+	Ret visit(ExpressionDotIdentifier i) {
 		return visit(i.location, i.name, pass.visit(i.expression));
 	}
 	
-	Identifiable visit(Location location, string name, Expression e) {
-		if(auto s = symbolInTypeResolver.visit(name, e.type)) {
+	Ret visit(Location location, string name, Expression e) {
+		if(auto s = SymbolInTypeResolver(pass).visit(name, e.type)) {
 			return visit(location, e, s);
 		}
 		
 		// Not found in expression, delegating to type.
-		return typeDotIdentifierVisitor.visit(location, name, e.type).apply!((identified) {
+		// XXX: Use apply here as we can't pass several contexts.
+		return TypeDotIdentifierVisitor!identifiableHandler(pass).visit(location, name, e.type).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				// expression.sizeof or similar stuffs.
-				return Identifiable(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
+				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
 			} else {
-				return Identifiable(identifierVisitor.pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name));
+				return handler(pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name));
 			}
 		})();
 	}
 	
-	Identifiable visit(Location location, Expression e, Symbol s) {
+	Ret visit(Location location, Expression e, Symbol s) {
 		return this.dispatch!((s) {
 			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
 		})(location, e, s);
 	}
 	
-	Identifiable visit(Location location, Expression e, OverLoadSet s) {
+	Ret visit(Location location, Expression e, OverloadSet s) {
 		if(s.set.length == 1) {
-			return this.dispatch(location, e, s.set[0]);
+			return visit(location, e, s.set[0]);
 		}
 		
-		Expression[] expressions;
-		foreach(result; s.set.map!(s => visit(location, e, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					expressions ~= identified;
-				} static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
-		return Identifiable(new PolysemousExpression(location, expressions));
+		assert(0, "not implemented: return identifiable pack");
 	}
 	
-	Identifiable visit(Location location, Expression e, Field f) {
+	Ret visit(Location location, Expression e, Field f) {
 		scheduler.require(f, Step.Signed);
-		return Identifiable(new FieldExpression(location, e, f));
+		return handler(new FieldExpression(location, e, f));
 	}
 	
-	Identifiable visit(Location location, Expression e, Function f) {
+	Ret visit(Location location, Expression e, Function f) {
 		scheduler.require(f, Step.Signed);
-		return Identifiable(new MethodExpression(location, e, f));
+		return handler(new MethodExpression(location, e, f));
 	}
 	
-	Identifiable visit(Location location, Expression e, Method m) {
+	Ret visit(Location location, Expression e, Method m) {
 		scheduler.require(m, Step.Signed);
-		return Identifiable(new MethodExpression(location, e, m));
+		return handler(new MethodExpression(location, e, m));
 	}
 	
-	Identifiable visit(Location location, Expression _, TypeAlias a) {
+	Ret visit(Location location, Expression _, TypeAlias a) {
 		scheduler.require(a);
-		return Identifiable(new AliasType(a));
+		return handler(QualType(new AliasType(a)));
 	}
 	
-	Identifiable visit(Location location, Expression _, Struct s) {
-		return Identifiable(new StructType(s));
+	Ret visit(Location location, Expression _, Struct s) {
+		return handler(QualType(new StructType(s)));
 	}
 	
-	Identifiable visit(Location location, Expression _, Class c) {
-		return Identifiable(new ClassType(c));
+	Ret visit(Location location, Expression _, Class c) {
+		return handler(QualType(new ClassType(c)));
 	}
 	
-	Identifiable visit(Location location, Expression _, Enum e) {
-		return Identifiable(new EnumType(e));
+	Ret visit(Location location, Expression _, Enum e) {
+		return handler(QualType(new EnumType(e)));
 	}
 }
 
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
-final class TemplateDotIdentifierVisitor {
-	private IdentifierVisitor identifierVisitor;
-	alias identifierVisitor this;
+struct TemplateDotIdentifierVisitor(alias handler) {
+	private SemanticPass pass;
+	alias pass this;
 	
-	this(IdentifierVisitor identifierVisitor) {
-		this.identifierVisitor = identifierVisitor;
+	alias Ret = typeof(handler(null));
+	
+	this(SemanticPass pass) {
+		this.pass = pass;
 	}
 	
-	Identifiable resolve(TemplateInstanciationDotIdentifier i) {
-		auto t = identifierVisitor.visit(i.templateInstanciation.identifier).apply!((identified) {
+	Ret resolve(TemplateInstanciationDotIdentifier i) {
+		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
+		auto t = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				return cast(Template) identified;
 			} else {
@@ -394,15 +464,28 @@ final class TemplateDotIdentifierVisitor {
 		
 		assert(t);
 		
-		auto instance = instanciate(i.templateInstanciation.location, t, i.templateInstanciation.arguments);
+		import d.semantic.dtemplate : TemplateArgument, argHandler;
+		auto iva = IdentifierVisitor!argHandler(pass);
+		auto args = i.templateInstanciation.arguments.map!((a) {
+			if(auto ta = cast(TypeTemplateArgument) a) {
+				return TemplateArgument(pass.visit(ta.type));
+			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
+				return iva.visit(ia.identifier);
+			}
+			
+			assert(0, typeid(a).toString() ~ " is not supported.");
+		}).array();
+		
+		auto iv = IdentifierVisitor!identifiableHandler(pass);
+		auto instance = instanciate(i.templateInstanciation.location, t, args);
 		if(auto s = instance.dscope.resolve(i.name)) {
-			return identifierVisitor.visit(i.location, s);
+			return iv.visit(i.location, s).apply!handler();
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		if(i.name != t.name) {
 			if(auto s = instance.dscope.resolve(t.name)) {
-				return identifierVisitor.resolveInSymbol(i.location, s, i.name);
+				return iv.resolveInSymbol(i.location, s, i.name).apply!handler();
 			}
 		}
 		
@@ -413,20 +496,16 @@ final class TemplateDotIdentifierVisitor {
 /**
  * Resolve symbols in types.
  */
-final class SymbolInTypeResolver {
-	private IdentifierVisitor identifierVisitor;
-	alias identifierVisitor this;
+struct SymbolInTypeResolver {
+	private SemanticPass pass;
+	alias pass this;
 	
-	this(IdentifierVisitor identifierVisitor) {
-		this.identifierVisitor = identifierVisitor;
+	this(SemanticPass pass) {
+		this.pass = pass;
 	}
 	
 	Symbol visit(string name, QualType t) {
-		return this.dispatch(name, t.type);
-	}
-	
-	Symbol visit(string name, BuiltinType t) {
-		return null;
+		return this.dispatch!(t => null)(name, t.type);
 	}
 	
 	Symbol visit(string name, SliceType t) {

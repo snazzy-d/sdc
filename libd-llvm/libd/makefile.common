@@ -57,7 +57,7 @@ obj/ir.o: $(LIBD_DEP_IR)
 obj/parser.o: $(LIBD_DEP_PARSER)
 	@mkdir -p obj
 	# workaround the previous workaroung that cause expression to be generated twice.
-	$(DMD) -c -of$@ `echo $(LIBD_SRC_PARSER) | sed 's/ /\n/g' | grep -v expression` $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of$@ $$(echo $(LIBD_SRC_PARSER) | sed 's/ /\n/g' | grep -v expression) $(DFLAGS) $(LIBD_IMPORTS)
 
 obj/processor.o: $(LIBD_DEP_PROCESSOR)
 	@mkdir -p obj

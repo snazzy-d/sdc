@@ -2,9 +2,9 @@ module d.semantic.declaration;
 
 import d.semantic.semantic;
 
+import d.ast.base;
 import d.ast.conditional;
 import d.ast.declaration;
-import d.ast.dfunction;
 import d.ast.dmodule;
 
 import d.ir.dscope;
@@ -21,7 +21,7 @@ import std.range;
 
 alias Module = d.ir.symbol.Module;
 
-final class DeclarationVisitor {
+struct DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -64,8 +64,26 @@ final class DeclarationVisitor {
 		}
 	}
 	
-	this(SemanticPass pass) {
+	import std.bitmanip;
+	private {
+		mixin(bitfields!(
+			Linkage, "linkage", 3,
+			bool, "isStatic", 1,
+			bool, "buildFields", 1,
+			bool, "buildMethods", 1,
+			bool, "isOverride", 1,
+			uint, "", 1,
+		));
+	}
+		
+	this(SemanticPass pass, Linkage linkage = Linkage.D, bool isStatic = true, bool buildFields = false, bool buildMethods = false) {
 		this.pass = pass;
+		this.linkage = linkage;
+		this.isStatic = isStatic;
+		this.buildFields = buildFields;
+		this.buildMethods = buildMethods;
+		
+		this.isOverride = false;
 	}
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {
@@ -183,7 +201,9 @@ final class DeclarationVisitor {
 		assert(unit.type == CtUnitType.StaticIf);
 	} body {
 		auto d = unit.staticIf;
-		auto condition = evaluate(buildExplicitCast(d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
+		
+		import d.semantic.caster;
+		auto condition = evaluate(buildExplicitCast(pass, d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
 		
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);
@@ -197,10 +217,13 @@ final class DeclarationVisitor {
 			items = unit.elseItems;
 		}
 		
+		// XXX: To ensure that pass is in the closure.
+		auto closuredPass = pass;
+		
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
-					scheduler.schedule(only(su.s), s => pass.visit(su.d, s));
+					scheduler.schedule(only(su.s), s => closuredPass.visit(su.d, s));
 				}
 				
 				u.level = CtUnitLevel.Done;
@@ -245,8 +268,11 @@ final class DeclarationVisitor {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
+		// XXX: To ensure that pass is in the closure.
+		auto closuredPass = pass;
+		
 		if(unit.level == CtUnitLevel.Done) {
-			scheduler.schedule(only(s), s => pass.visit(d, s));
+			scheduler.schedule(only(s), s => closuredPass.visit(d, s));
 		}
 		
 		unit.symbols ~= SymbolUnit(d, s);
@@ -353,7 +379,7 @@ final class DeclarationVisitor {
 	}
 	
 	void visit(TemplateDeclaration d) {
-		Template t = new Template(d.location, d.name, currentScope, d.parameters, d.declarations);
+		Template t = new Template(d.location, d.name, [], d.declarations);
 		
 		t.isStatic = isStatic;
 		t.linkage = linkage;

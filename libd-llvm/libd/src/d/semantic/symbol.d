@@ -1,10 +1,11 @@
 module d.semantic.symbol;
 
-import d.semantic.identifiable;
+import d.semantic.caster;
+import d.semantic.declaration;
+import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
-import d.ast.dfunction;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
@@ -85,25 +86,8 @@ final class SymbolVisitor {
 		}
 		
 		if(fd.fbody) {
-			auto oldLinkage = linkage;
-			auto oldIsStatic = isStatic;
-			auto oldIsOverride = isOverride;
-			auto oldBuildFields = buildFields;
 			auto oldScope = currentScope;
-			
-			scope(exit) {
-				linkage = oldLinkage;
-				isStatic = oldIsStatic;
-				isOverride = oldIsOverride;
-				buildFields = oldBuildFields;
-				currentScope = oldScope;
-			}
-			
-			linkage = Linkage.D;
-			
-			isStatic = false;
-			isOverride = false;
-			buildFields = false;
+			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
 			currentScope = f.dscope = new NestedScope(oldScope);
@@ -172,7 +156,7 @@ final class SymbolVisitor {
 			value = vd.value
 				? pass.visit(vd.value)
 				: defaultInitializerVisitor.visit(v.location, type);
-			value = buildImplicitCast(d.location, type, value);
+			value = buildImplicitCast(pass, d.location, type, value);
 		}
 		
 		if(v.isEnum) {
@@ -216,30 +200,17 @@ final class SymbolVisitor {
 		auto sd = cast(StructDeclaration) d;
 		assert(sd);
 		
-		auto oldIsStatic = isStatic;
-		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldBuildFields = buildFields;
-		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
-			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			buildFields = oldBuildFields;
-			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
 		}
-		
-		isStatic = false;
-		isOverride = false;
-		buildFields = true;
-		buildMethods = false;
 		
 		currentScope = s.dscope = new SymbolScope(s, oldScope);
 		
@@ -254,7 +225,9 @@ final class SymbolVisitor {
 		
 		fieldIndex = 0;
 		
-		auto members = pass.flatten(sd.members, s);
+		auto dv = DeclarationVisitor(pass, s.linkage, false, true);
+		
+		auto members = dv.flatten(sd.members, s);
 		s.step = Step.Populated;
 		
 		Field[] fields;
@@ -295,32 +268,19 @@ final class SymbolVisitor {
 		auto cd = cast(ClassDeclaration) d;
 		assert(cd);
 		
-		auto oldIsStatic = isStatic;
-		auto oldIsOverride = isOverride;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldBuildFields = buildFields;
-		auto oldBuildMethods = buildMethods;
 		auto oldFieldIndex = fieldIndex;
 		auto oldMethodIndex = methodIndex;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
-			isOverride = oldIsOverride;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			buildFields = oldBuildFields;
-			buildMethods = oldBuildMethods;
 			fieldIndex = oldFieldIndex;
 			methodIndex = oldMethodIndex;
 		}
-		
-		isStatic = false;
-		isOverride = false;
-		buildFields = true;
-		buildMethods = true;
 		
 		currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
@@ -350,13 +310,13 @@ final class SymbolVisitor {
 			fieldIndex = 1;
 		} else {
 			foreach(i; cd.bases) {
-				auto type = pass.visit(i).apply!(function ClassType(identified) {
+				auto type = IdentifierVisitor!(function ClassType(identified) {
 					static if(is(typeof(identified) : QualType)) {
 						return cast(ClassType) identified.type;
 					} else {
 						return null;
 					}
-				})();
+				})(pass).visit(i);
 				
 				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
@@ -365,13 +325,13 @@ final class SymbolVisitor {
 			}
 			
 			if(!c.base) {
-				auto baseType = pass.visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
+				auto baseType = IdentifierVisitor!(function ClassType(parsed) {
 					static if(is(typeof(parsed) : QualType)) {
 						return cast(ClassType) parsed.type;
 					} else {
 						return null;
 					}
-				})();
+				})(pass).visit(new BasicIdentifier(d.location, "Object"));
 				
 				assert(baseType, "Can't find object.Object");
 				c.base = baseType.dclass;
@@ -393,7 +353,9 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto members = pass.flatten(cd.members, c);
+		auto dv = DeclarationVisitor(pass, c.linkage, false, true, true);
+		
+		auto members = dv.flatten(cd.members, c);
 		
 		c.step = Step.Signed;
 		
@@ -402,7 +364,7 @@ final class SymbolVisitor {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				foreach(ref candidate; candidates) {
-					if(candidate && candidate.name == method.name && implicitCastFrom(method.type, candidate.type)) {
+					if(candidate && candidate.name == method.name && implicitCastFrom(pass, method.type, candidate.type)) {
 						if(method.index == 0) {
 							method.index = candidate.index;
 							candidate = null;
@@ -444,20 +406,13 @@ final class SymbolVisitor {
 		
 		assert(e.name, "anonymous enums must be flattened !");
 		
-		auto oldIsStatic = isStatic;
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
-		auto oldBuildFields = buildFields;
 		
 		scope(exit) {
-			isStatic = oldIsStatic;
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
-			buildFields = oldBuildFields;
 		}
-		
-		isStatic = true;
-		buildFields = false;
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
@@ -522,10 +477,46 @@ final class SymbolVisitor {
 		return e;
 	}
 	
-	// TODO: consider doing it at declaration step.
 	Symbol visit(Declaration d, Template t) {
+		auto td = cast(TemplateDeclaration) d;
+		assert(td);
+		
 		// XXX: compute a proper mangling for templates.
 		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
+		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = t.dscope = new SymbolScope(t, oldScope);
+		
+		// Register parameter int the scope.
+		auto none = getBuiltin(TypeKind.None);
+		foreach(uint i, p; td.parameters) {
+			if(auto atp = cast(AstTypeTemplateParameter) p) {
+				auto tp = new TypeTemplateParameter(atp.location, atp.name, i, none, none);
+				currentScope.addSymbol(tp);
+				t.parameters ~= tp;
+			} else {
+				assert(0, "Only type parameters are supported.");
+			}
+		}
+		
+		t.step = Step.Populated;
+		
+		// TODO: find a way to make that clean.
+		foreach(i, p; td.parameters) {
+			if(auto atp = cast(AstTypeTemplateParameter) p) {
+				auto tp = cast(TypeTemplateParameter) t.parameters[i];
+				assert(tp);
+				
+				tp.specialization = pass.visit(atp.specialization);
+				tp.value = pass.visit(atp.value);
+				
+				tp.step = Step.Processed;
+			} else {
+				assert(0, "Only type parameters are supported.");
+			}
+		}
 		
 		t.step = Step.Processed;
 		return t;

@@ -6,15 +6,11 @@ module d.semantic.semantic;
 public import util.visitor;
 
 import d.semantic.backend;
-import d.semantic.caster;
-import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
-import d.semantic.identifier;
-import d.semantic.identifiable;
 import d.semantic.mangler;
 import d.semantic.sizeof;
 import d.semantic.statement;
@@ -25,7 +21,6 @@ import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
-import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
@@ -60,15 +55,10 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private DeclarationVisitor declarationVisitor;
 	private SymbolVisitor symbolVisitor;
 	private ExpressionVisitor expressionVisitor;
 	private StatementVisitor statementVisitor;
 	private TypeVisitor typeVisitor;
-	private IdentifierVisitor identifierVisitor;
-	
-	private Caster!false implicitCaster;
-	private Caster!true explicitCaster;
 	
 	DefaultInitializerVisitor defaultInitializerVisitor;
 	
@@ -91,12 +81,8 @@ final class SemanticPass {
 		string manglePrefix;
 		
 		mixin(bitfields!(
-			Linkage, "linkage", 3,
 			bool, "buildErrorNode", 1,
-			bool, "buildFields", 1,
-			bool, "buildMethods", 1,
-			bool, "isStatic", 1,
-			bool, "isOverride", 1,
+			uint, "", 7,
 		));
 		
 		Statement[] flattenedStmts;
@@ -116,18 +102,11 @@ final class SemanticPass {
 		this.backend		= backend;
 		this.evaluator		= evaluator;
 		
-		isStatic	= true;
-		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		declarationVisitor	= new DeclarationVisitor(this);
 		symbolVisitor		= new SymbolVisitor(this);
 		expressionVisitor	= new ExpressionVisitor(this);
 		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
-		identifierVisitor	= new IdentifierVisitor(this);
-		
-		implicitCaster		= new Caster!false(this);
-		explicitCaster		= new Caster!true(this);
 		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
@@ -161,20 +140,8 @@ final class SemanticPass {
 		scheduler.terminate();
 	}
 	
-	Symbol[] flatten(Declaration[] decls, Symbol parent) {
-		return declarationVisitor.flatten(decls, parent);
-	}
-	
-	Symbol[] flatten(Declaration d) {
-		return declarationVisitor.flatten(d);
-	}
-	
 	Symbol visit(Declaration d, Symbol s) {
 		return symbolVisitor.visit(d, s);
-	}
-	
-	Identifiable visit(Identifier i) {
-		return identifierVisitor.visit(i);
 	}
 	
 	Expression visit(AstExpression e) {
@@ -191,21 +158,6 @@ final class SemanticPass {
 	
 	ParamType visit(ParamAstType t) {
 		return typeVisitor.visit(t);
-	}
-	
-	Expression buildImplicitCast(Location location, QualType to, Expression value) {
-		return implicitCaster.build(location, to, value);
-	}
-	
-	Expression buildExplicitCast(Location location, QualType to, Expression value) {
-		return explicitCaster.build(location, to, value);
-	}
-	
-	CastKind implicitCastFrom(QualType from, QualType to) {
-		return implicitCaster.castFrom(from, to);
-	}
-	CastKind explicitCastFrom(QualType from, QualType to) {
-		return explicitCaster.castFrom(from, to);
 	}
 	
 	TemplateInstance instanciate(Location location, Template t, TemplateArgument[] args) {
@@ -235,7 +187,6 @@ final class SemanticPass {
 	}
 	
 	void buildMain(Module[] mods) {
-		import d.ast.dfunction;
 		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
 			if(auto fun = cast(Function) s) {
 				if(fun.name == "main") {
