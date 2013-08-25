@@ -89,6 +89,11 @@ class ThisExpression : Expression {
 	override string toString() const {
 		return "this";
 	}
+	
+	@property
+	override bool isLvalue() const {
+		return true;
+	}
 }
 
 /**
@@ -105,6 +110,11 @@ class SuperExpression : Expression {
 	
 	override string toString() const {
 		return "super";
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return true;
 	}
 }
 

@@ -1,12 +1,11 @@
 module d.semantic.dtemplate;
 
-import d.semantic.identifiable;
 import d.semantic.semantic;
 
 import d.ast.declaration;
-import d.ast.identifier;
 
 import d.ir.dscope;
+import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -27,22 +26,56 @@ final class TemplateInstancier {
 	auto instanciate(Location location, Template t, TemplateArgument[] args) {
 		scheduler.require(t);
 		
-		Symbol[] argSyms;
-		uint i = 0;
+		assert(t.parameters.length >= args.length);
+		TemplateArgument[] resolvedArgs;
+		resolvedArgs.length = t.parameters.length;
 		
-		// XXX: have to put array once again.
-		assert(t.parameters.length == args.length);
-		string id = args.map!(
-			arg => visit(arg).apply!(delegate string(identified) {
+		uint i = 0;
+		foreach(a; args) {
+			a.apply!({
+				assert(0, "All passed argument must be defined.");
+			}, (identified) {
+				auto p = t.parameters[i++];
 				static if(is(typeof(identified) : QualType)) {
-					auto a = new TypeAlias(arg.location, t.parameters[i++].name, identified);
+					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
+				} else {
+					assert(0, "Only type argument are supported.");
+				}
+			})();
+		}
+		
+		// Match unspecified parameters.
+		foreach(a; resolvedArgs[i .. $]) {
+			a.apply!({
+				assert(0, "All passed argument must be defined.");
+			}, (identified) {
+				auto p = t.parameters[i++];
+				static if(is(typeof(identified) : QualType)) {
+					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
+				} else {
+					assert(0, "Only type argument are supported.");
+				}
+			})();
+		}
+		
+		i = 0;
+		Symbol[] argSyms;
+		// XXX: have to put array once again to avoid multiple map.
+		string id = resolvedArgs.map!(
+			a => a.apply!(function string() {
+				assert(0, "All passed argument must be defined.");
+			}, delegate string(identified) {
+				auto p = t.parameters[i++];
+				
+				static if(is(typeof(identified) : QualType)) {
+					auto a = new TypeAlias(p.location, p.name, identified);
 					
-					a.mangle = pass.typeMangler.visit(a.type);
+					a.mangle = pass.typeMangler.visit(identified);
 					a.step = Step.Processed;
 					
 					argSyms ~= a;
 					
-					return "T" ~ pass.typeMangler.visit(identified);
+					return "T" ~ a.mangle;
 				} else {
 					assert(0, "Only type argument are supported.");
 				}
@@ -51,30 +84,27 @@ final class TemplateInstancier {
 		
 		return t.instances.get(id, {
 			auto oldManglePrefix = pass.manglePrefix;
-			auto oldLinkage = pass.linkage;
-			auto oldIsStatic = pass.isStatic;
 			auto oldScope = pass.currentScope;
 			scope(exit) {
 				pass.manglePrefix = oldManglePrefix;
-				pass.linkage = oldLinkage;
-				pass.isStatic = oldIsStatic;
 				pass.currentScope = oldScope;
 			}
 			
 			auto instance = new TemplateInstance(location, t, []);
 			
 			pass.manglePrefix = t.mangle ~ "T" ~ id ~ "Z";
-			pass.linkage = t.linkage;
-			pass.isStatic = t.isStatic;
-			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.parentScope);
+			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.dscope);
 			
 			foreach(s; argSyms) {
 				dscope.addSymbol(s);
 			}
 			
 			// XXX: that is doomed to explode fireworks style.
+			import d.semantic.declaration;
+			auto dv = DeclarationVisitor(pass, t.linkage, t.isStatic);
+			
 			pass.scheduler.schedule(only(instance), i => visit(cast(TemplateInstance) i));
-			instance.members = argSyms ~ pass.flatten(t.members, instance);
+			instance.members = argSyms ~ dv.flatten(t.members, instance);
 			
 			return t.instances[id] = instance;
 		}());
@@ -87,17 +117,165 @@ final class TemplateInstancier {
 		
 		return instance;
 	}
-	
-	Identifiable visit(TemplateArgument arg) {
-		return this.dispatch(arg);
+}
+
+enum Tag {
+	Undefined,
+	Symbol,
+	Expression,
+	Type,
+}
+
+struct TemplateArgument {
+	union {
+		Symbol sym;
+		Expression expr;
+		Type type;
 	}
 	
-	Identifiable visit(TypeTemplateArgument arg) {
-		return Identifiable(pass.visit(arg.type));
+	import d.ast.base : TypeQualifier;
+	
+	import std.bitmanip;
+	mixin(bitfields!(
+		Tag, "tag", 2,
+		TypeQualifier, "qual", 3,
+		uint, "", 3,
+	));
+	
+	// For type inference.
+	this(typeof(null));
+	
+	this(TemplateArgument a) {
+		this = a;
 	}
 	
-	Identifiable visit(IdentifierTemplateArgument arg) {
-		return pass.visit(arg.identifier);
+	this(Symbol s) {
+		tag = Tag.Symbol;
+		sym = s;
+	}
+	
+	this(Expression e) {
+		tag = Tag.Expression;
+		expr = e;
+	}
+	
+	this(QualType qt) {
+		tag = Tag.Type;
+		qual = qt.qualifier;
+		type = qt.type;
+	}
+}
+
+unittest {
+	static assert(TemplateArgument.init.tag == Tag.Undefined);
+}
+
+TemplateArgument argHandler(T)(T t) {
+	static if(is(T == typeof(null))) {
+		assert(0);
+	} else {
+		return TemplateArgument(t);
+	}
+}
+
+auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
+	final switch(a.tag) with(Tag) {
+		case Undefined :
+			return undefinedHandler();
+		
+		case Symbol :
+			return handler(a.sym);
+		
+		case Expression :
+			return handler(a.expr);
+		
+		case Type :
+			return handler(QualType(a.type, a.qual));
+	}
+}
+
+struct TypeMatcher {
+	// XXX: used only in one place in caster, can probably be removed.
+	SemanticPass pass;
+	
+	TemplateArgument[] resolvedArgs;
+	QualType matchee;
+	
+	this(SemanticPass pass, TemplateArgument[] resolvedArgs, QualType matchee) {
+		this.pass = pass;
+		this.resolvedArgs = resolvedArgs;
+		this.matchee = peelAlias(matchee);
+	}
+	
+	bool visit(TemplateParameter p) {
+		return this.dispatch(p);
+	}
+	
+	bool visit(TypeTemplateParameter p) {
+		auto originalMatchee = matchee;
+		auto match = visit(peelAlias(p.specialization));
+		
+		resolvedArgs[p.index].apply!({
+			resolvedArgs[p.index] = TemplateArgument(originalMatchee);
+		}, (_) {})();
+		
+		return match;
+	}
+	
+	bool visit(QualType t) {
+		return this.dispatch(t.type);
+	}
+	
+	bool visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	bool visit(TemplatedType t) {
+		auto i = t.param.index;
+		return resolvedArgs[i].apply!({
+			resolvedArgs[i] = TemplateArgument(matchee);
+			return true;
+		}, delegate bool(identified) {
+			static if(is(typeof(identified) : QualType)) {
+				import d.semantic.caster;
+				import d.ir.expression;
+				return implicitCastFrom(pass, matchee, identified) == CastKind.Exact;
+			} else {
+				return false;
+			}
+		})();
+	}
+	
+	bool visit(PointerType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asPointer = cast(PointerType) m) {
+			matchee = asPointer.pointed;
+			return visit(t.pointed);
+		}
+		
+		return false;
+	}
+	
+	bool visit(SliceType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asSlice = cast(SliceType) m) {
+			matchee = asSlice.sliced;
+			return visit(t.sliced);
+		}
+		
+		return false;
+	}
+	
+	bool visit(ArrayType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asArray = cast(ArrayType) m) {
+			if(asArray.size == t.size) {
+				matchee = asArray.elementType;
+				return visit(t.elementType);
+			}
+		}
+		
+		return false;
 	}
 }
 

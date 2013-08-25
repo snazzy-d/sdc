@@ -1,6 +1,6 @@
 module d.semantic.type;
 
-import d.semantic.identifiable;
+import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -62,8 +62,9 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, AstArrayType t) {
 		auto elementType = visit(t.elementType);
 		
+		import d.semantic.caster;
 		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
 		
 		return QualType(new ArrayType(elementType, size));
 	}
@@ -84,13 +85,13 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, IdentifierType t) {
-		return pass.visit(t.identifier).apply!((identified) {
+		return IdentifierVisitor!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
-		})();
+		})(pass).visit(t.identifier);
 	}
 }
 

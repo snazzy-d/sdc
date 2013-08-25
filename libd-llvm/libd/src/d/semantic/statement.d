@@ -1,5 +1,6 @@
 module d.semantic.statement;
 
+import d.semantic.caster;
 import d.semantic.semantic;
 
 import d.ast.conditional;
@@ -66,7 +67,10 @@ final class StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement s) {
-		auto syms = pass.flatten(s.declaration);
+		import d.ast.base;
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(pass, Linkage.D, false);
+		auto syms = dv.flatten(s.declaration);
 		scheduler.require(syms);
 		
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
@@ -85,7 +89,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(AstIfStatement s) {
-		auto condition = buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition));
+		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition));
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -97,14 +101,14 @@ final class StatementVisitor {
 	}
 	
 	void visit(AstWhileStatement w) {
-		auto condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
 	}
 	
 	void visit(AstDoWhileStatement w) {
-		auto condition = buildExplicitCast(w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
@@ -122,7 +126,7 @@ final class StatementVisitor {
 		
 		Expression condition;
 		if(f.condition) {
-			condition = buildExplicitCast(f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
+			condition = buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
 		} else {
 			condition = new BooleanLiteral(f.location, true);
 		}
@@ -153,7 +157,7 @@ final class StatementVisitor {
 		}
 		
 		if(doCast) {
-			value = buildImplicitCast(r.location, QualType(returnType.type, returnType.qualifier), value);
+			value = buildImplicitCast(pass, r.location, QualType(returnType.type, returnType.qualifier), value);
 		}
 		
 		flattenedStmts ~= new ReturnStatement(r.location, value);
@@ -195,7 +199,7 @@ final class StatementVisitor {
 	}
 	
 	void visit(StaticIf!AstStatement s) {
-		auto condition = evaluate(buildExplicitCast(s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
+		auto condition = evaluate(buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) condition).value) {
 			foreach(item; s.items) {

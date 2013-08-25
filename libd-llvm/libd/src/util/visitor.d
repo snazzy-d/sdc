@@ -26,7 +26,14 @@ auto dispatch(
 	auto tid = typeid(o);
 	
 	import std.traits;
-	foreach(visit; MemberFunctionsTuple!(V, "visit")) {
+	static if(is(V == struct)) {
+		import std.typetuple;
+		alias Members = TypeTuple!(__traits(getOverloads, V, "visit"));
+	} else {
+		alias Members = MemberFunctionsTuple!(V, "visit");
+	}
+	
+	foreach(visit; Members) {
 		alias ParameterTypeTuple!visit parameters;
 		
 		static if(parameters.length == args.length + 1) {

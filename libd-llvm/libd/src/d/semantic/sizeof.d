@@ -82,6 +82,18 @@ final class SizeofCalculator {
 		}
 	}
 	
+	uint visit(PointerType t) {
+		return 8;
+	}
+	
+	uint visit(SliceType t) {
+		return 16;
+	}
+	
+	uint visit(ArrayType t) {
+		return cast(uint) (visit(t.elementType) * t.size);
+	}
+	
 	uint visit(AliasType t) {
 		auto a = t.dalias;
 		scheduler.require(a);
