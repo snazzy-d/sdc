@@ -19,7 +19,7 @@ import std.array;
 alias Module = d.ir.symbol.Module;
 
 // TODO: specify if symbol must be packed into type/expression or not.
-struct IdentifierVisitor(alias handler) {
+struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -158,7 +158,11 @@ struct IdentifierVisitor(alias handler) {
 	
 	private auto getSymbolExpression(Location location, ValueSymbol s) {
 		scheduler.require(s, Step.Signed);
-		return handler(new SymbolExpression(location, s));
+		static if(asAlias) {
+			return handler(s);
+		} else {
+			return handler(new SymbolExpression(location, s));
+		}
 	}
 	
 	Ret visit(Location location, Function f) {
@@ -465,7 +469,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		assert(t);
 		
 		import d.semantic.dtemplate : TemplateArgument, argHandler;
-		auto iva = IdentifierVisitor!argHandler(pass);
+		auto iva = IdentifierVisitor!(argHandler, true)(pass);
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if(auto ta = cast(TypeTemplateArgument) a) {
 				return TemplateArgument(pass.visit(ta.type));
