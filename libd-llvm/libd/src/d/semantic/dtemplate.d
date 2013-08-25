@@ -1,12 +1,11 @@
 module d.semantic.dtemplate;
 
-import d.semantic.identifier : Identifiable, apply;
-
 import d.semantic.semantic;
 
 import d.ast.declaration;
 
 import d.ir.dscope;
+import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -24,15 +23,18 @@ final class TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, Template t, Identifiable[] args) {
+	auto instanciate(Location location, Template t, TemplateArgument[] args) {
 		scheduler.require(t);
 		
 		assert(t.parameters.length >= args.length);
-		Identifiable[] resolvedArgs = t.parameters.map!(p => Identifiable.init).array();
+		TemplateArgument[] resolvedArgs;
+		resolvedArgs.length = t.parameters.length;
 		
 		uint i = 0;
 		foreach(a; args) {
-			a.apply!((identified) {
+			a.apply!({
+				assert(0, "All passed argument must be defined.");
+			}, (identified) {
 				auto p = t.parameters[i++];
 				static if(is(typeof(identified) : QualType)) {
 					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
@@ -44,7 +46,9 @@ final class TemplateInstancier {
 		
 		// Match unspecified parameters.
 		foreach(a; resolvedArgs[i .. $]) {
-			a.apply!((identified) {
+			a.apply!({
+				assert(0, "All passed argument must be defined.");
+			}, (identified) {
 				auto p = t.parameters[i++];
 				static if(is(typeof(identified) : QualType)) {
 					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
@@ -58,7 +62,9 @@ final class TemplateInstancier {
 		Symbol[] argSyms;
 		// XXX: have to put array once again to avoid multiple map.
 		string id = resolvedArgs.map!(
-			a => a.apply!(delegate string(identified) {
+			a => a.apply!(function string() {
+				assert(0, "All passed argument must be defined.");
+			}, delegate string(identified) {
 				auto p = t.parameters[i++];
 				
 				static if(is(typeof(identified) : QualType)) {
@@ -113,14 +119,89 @@ final class TemplateInstancier {
 	}
 }
 
+enum Tag {
+	Undefined,
+	Symbol,
+	Expression,
+	Type,
+}
+
+struct TemplateArgument {
+	union {
+		Symbol sym;
+		Expression expr;
+		Type type;
+	}
+	
+	import d.ast.base : TypeQualifier;
+	
+	import std.bitmanip;
+	mixin(bitfields!(
+		Tag, "tag", 2,
+		TypeQualifier, "qual", 3,
+		uint, "", 3,
+	));
+	
+	// For type inference.
+	this(typeof(null));
+	
+	this(TemplateArgument a) {
+		this = a;
+	}
+	
+	this(Symbol s) {
+		tag = Tag.Symbol;
+		sym = s;
+	}
+	
+	this(Expression e) {
+		tag = Tag.Expression;
+		expr = e;
+	}
+	
+	this(QualType qt) {
+		tag = Tag.Type;
+		qual = qt.qualifier;
+		type = qt.type;
+	}
+}
+
+unittest {
+	static assert(TemplateArgument.init.tag == Tag.Undefined);
+}
+
+TemplateArgument argHandler(T)(T t) {
+	static if(is(T == typeof(null))) {
+		assert(0);
+	} else {
+		return TemplateArgument(t);
+	}
+}
+
+auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
+	final switch(a.tag) with(Tag) {
+		case Undefined :
+			return undefinedHandler();
+		
+		case Symbol :
+			return handler(a.sym);
+		
+		case Expression :
+			return handler(a.expr);
+		
+		case Type :
+			return handler(QualType(a.type, a.qual));
+	}
+}
+
 struct TypeMatcher {
 	// XXX: used only in one place in caster, can probably be removed.
 	SemanticPass pass;
 	
-	Identifiable[] resolvedArgs;
+	TemplateArgument[] resolvedArgs;
 	QualType matchee;
 	
-	this(SemanticPass pass, Identifiable[] resolvedArgs, QualType matchee) {
+	this(SemanticPass pass, TemplateArgument[] resolvedArgs, QualType matchee) {
 		this.pass = pass;
 		this.resolvedArgs = resolvedArgs;
 		this.matchee = peelAlias(matchee);
@@ -134,13 +215,9 @@ struct TypeMatcher {
 		auto originalMatchee = matchee;
 		auto match = visit(peelAlias(p.specialization));
 		
-		resolvedArgs[p.index].apply!((identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				if(identified is null) {
-					resolvedArgs[p.index] = Identifiable(originalMatchee);
-				}
-			}
-		})();
+		resolvedArgs[p.index].apply!({
+			resolvedArgs[p.index] = TemplateArgument(originalMatchee);
+		}, (_) {})();
 		
 		return match;
 	}
@@ -155,20 +232,16 @@ struct TypeMatcher {
 	
 	bool visit(TemplatedType t) {
 		auto i = t.param.index;
-		return resolvedArgs[i].apply!(delegate bool(identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				if(identified is null) {
-					resolvedArgs[i] = Identifiable(matchee);
-					return true;
-				}
-				
-				return false;
-			} else static if(is(typeof(identified) : QualType)) {
+		return resolvedArgs[i].apply!({
+			resolvedArgs[i] = TemplateArgument(matchee);
+			return true;
+		}, delegate bool(identified) {
+			static if(is(typeof(identified) : QualType)) {
 				import d.semantic.caster;
 				import d.ir.expression;
 				return implicitCastFrom(pass, matchee, identified) == CastKind.Exact;
 			} else {
-				assert(0, "Expressions are not supported");
+				return false;
 			}
 		})();
 	}

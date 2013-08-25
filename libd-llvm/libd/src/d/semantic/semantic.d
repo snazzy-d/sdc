@@ -6,7 +6,6 @@ module d.semantic.semantic;
 public import util.visitor;
 
 import d.semantic.backend;
-import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.dtemplate;
@@ -22,7 +21,6 @@ import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
-import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
@@ -162,7 +160,7 @@ final class SemanticPass {
 		return typeVisitor.visit(t);
 	}
 	
-	TemplateInstance instanciate(Location location, Template t, Identifiable[] args) {
+	TemplateInstance instanciate(Location location, Template t, TemplateArgument[] args) {
 		return templateInstancier.instanciate(location, t, args);
 	}
 	

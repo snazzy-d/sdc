@@ -223,7 +223,7 @@ enum Tag {
 	Type,
 }
 
-public struct Identifiable {
+struct Identifiable {
 	union {
 		Symbol sym;
 		Expression expr;
@@ -296,8 +296,7 @@ Identifiable identifiableHandler(T)(T t) {
 	}
 }
 
-// XXX: temporary public. Remove public when refactoring is finished.
-public auto apply(alias handler)(Identifiable i) {
+auto apply(alias handler)(Identifiable i) {
 	final switch(i.tag) with(Tag) {
 		case Symbol :
 			return handler(i.sym);
@@ -465,18 +464,19 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		
 		assert(t);
 		
-		// XXX: should use different Identifiables.
-		auto iv = IdentifierVisitor!identifiableHandler(pass);
+		import d.semantic.dtemplate : TemplateArgument, argHandler;
+		auto iva = IdentifierVisitor!argHandler(pass);
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if(auto ta = cast(TypeTemplateArgument) a) {
-				return Identifiable(pass.visit(ta.type));
+				return TemplateArgument(pass.visit(ta.type));
 			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
-				return iv.visit(ia.identifier);
+				return iva.visit(ia.identifier);
 			}
 			
 			assert(0, typeid(a).toString() ~ " is not supported.");
 		}).array();
 		
+		auto iv = IdentifierVisitor!identifiableHandler(pass);
 		auto instance = instanciate(i.templateInstanciation.location, t, args);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return iv.visit(i.location, s).apply!handler();
