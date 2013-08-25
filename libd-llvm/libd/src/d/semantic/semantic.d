@@ -6,15 +6,12 @@ module d.semantic.semantic;
 public import util.visitor;
 
 import d.semantic.backend;
-import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
-import d.semantic.identifier;
-import d.semantic.identifiable;
 import d.semantic.mangler;
 import d.semantic.sizeof;
 import d.semantic.statement;

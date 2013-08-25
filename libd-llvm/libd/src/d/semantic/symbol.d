@@ -2,7 +2,6 @@ module d.semantic.symbol;
 
 import d.semantic.caster;
 import d.semantic.declaration;
-import d.semantic.identifiable;
 import d.semantic.identifier;
 import d.semantic.semantic;
 
@@ -311,13 +310,13 @@ final class SymbolVisitor {
 			fieldIndex = 1;
 		} else {
 			foreach(i; cd.bases) {
-				auto type = IdentifierVisitor(pass).visit(i).apply!(function ClassType(identified) {
+				auto type = IdentifierVisitor!(function ClassType(identified) {
 					static if(is(typeof(identified) : QualType)) {
 						return cast(ClassType) identified.type;
 					} else {
 						return null;
 					}
-				})();
+				})(pass).visit(i);
 				
 				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
 				
@@ -326,13 +325,13 @@ final class SymbolVisitor {
 			}
 			
 			if(!c.base) {
-				auto baseType = IdentifierVisitor(pass).visit(new BasicIdentifier(d.location, "Object")).apply!(function ClassType(parsed) {
+				auto baseType = IdentifierVisitor!(function ClassType(parsed) {
 					static if(is(typeof(parsed) : QualType)) {
 						return cast(ClassType) parsed.type;
 					} else {
 						return null;
 					}
-				})();
+				})(pass).visit(new BasicIdentifier(d.location, "Object"));
 				
 				assert(baseType, "Can't find object.Object");
 				c.base = baseType.dclass;

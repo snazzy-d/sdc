@@ -1,6 +1,7 @@
 module d.semantic.dtemplate;
 
-import d.semantic.identifiable;
+import d.semantic.identifier : Identifiable, apply;
+
 import d.semantic.semantic;
 
 import d.ast.declaration;

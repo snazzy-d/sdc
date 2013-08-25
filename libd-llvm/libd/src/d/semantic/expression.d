@@ -1,7 +1,6 @@
 module d.semantic.expression;
 
 import d.semantic.caster;
-import d.semantic.identifiable;
 import d.semantic.identifier;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
@@ -403,7 +402,7 @@ final class ExpressionVisitor {
 	Expression visit(IdentifierCallExpression c) {
 		auto args = c.arguments.map!(a => visit(a)).array();
 		
-		return IdentifierVisitor(pass).visit(c.callee).apply!(delegate Expression(identified) {
+		return IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else {
@@ -415,26 +414,22 @@ final class ExpressionVisitor {
 				
 				return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
 			}
-		})();
+		})(pass).visit(c.callee);
 	}
 	
 	private Expression handleOverloadSetCall(Location location, Location iloc, OverloadSet s, Expression[] args) {
-		auto iv = IdentifierVisitor(pass);
+		auto iv = IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else static if(is(typeof(identified) : QualType)) {
+				assert(0, "Type can't be overloaded");
+			} else {
+				// TODO: handle templates.
+				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+			}
+		})(pass);
 		
-		Expression[] cds;
-		foreach(result; s.set.map!(s => iv.visit(iloc, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					cds ~= identified;
-				} else static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
+		auto cds = s.set.map!(s => iv.visit(iloc, s)).array();
 		return handleOverloadCall(location, cds, args);
 	}
 	
@@ -611,7 +606,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return IdentifierVisitor(pass).visit(e.identifier).apply!((identified) {
+		return IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else {
@@ -623,27 +618,23 @@ final class ExpressionVisitor {
 				
 				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
 			}
-		})();
+		})(pass).visit(e.identifier);
 	}
 	
 	private Expression buildPolysemous(Location location, OverloadSet s) {
-		auto iv = IdentifierVisitor(pass);
+		auto iv = IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else static if(is(typeof(identified) : QualType)) {
+				assert(0, "Type can't be overloaded");
+			} else {
+				// TODO: handle templates.
+				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+			}
+		})(pass);
 		
-		Expression[] expressions;
-		foreach(result; s.set.map!(s => iv.visit(location, s))) {
-			result.apply!((identified) {
-				static if(is(typeof(identified) : Expression)) {
-					expressions ~= identified;
-				} else static if(is(typeof(identified) : QualType)) {
-					assert(0, "Type can't be overloaded");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
-				}
-			})();
-		}
-		
-		return new PolysemousExpression(location, expressions);
+		auto exprs = s.set.map!(s => iv.visit(location, s)).array();
+		return new PolysemousExpression(location, exprs);
 	}
 }
 

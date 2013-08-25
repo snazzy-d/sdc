@@ -1,6 +1,5 @@
 module d.semantic.type;
 
-import d.semantic.identifiable;
 import d.semantic.identifier;
 import d.semantic.semantic;
 
@@ -86,13 +85,13 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, IdentifierType t) {
-		return IdentifierVisitor(pass).visit(t.identifier).apply!((identified) {
+		return IdentifierVisitor!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
 			}
-		})();
+		})(pass).visit(t.identifier);
 	}
 }
 
