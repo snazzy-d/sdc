@@ -468,7 +468,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		
 		assert(t);
 		
-		import d.semantic.dtemplate : TemplateArgument, argHandler;
+		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument, argHandler;
 		auto iva = IdentifierVisitor!(argHandler, true)(pass);
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if(auto ta = cast(TypeTemplateArgument) a) {
@@ -481,7 +481,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		}).array();
 		
 		auto iv = IdentifierVisitor!identifiableHandler(pass);
-		auto instance = instanciate(i.templateInstanciation.location, t, args);
+		auto instance = TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return iv.visit(i.location, s).apply!handler();
 		}

@@ -15,7 +15,7 @@ import std.algorithm;
 import std.array;
 import std.range;
 
-final class TemplateInstancier {
+struct TemplateInstancier {
 	private SemanticPass pass;
 	alias pass this;
 	
