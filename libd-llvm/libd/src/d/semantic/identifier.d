@@ -457,17 +457,6 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 	}
 	
 	Ret resolve(TemplateInstanciationDotIdentifier i) {
-		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
-		auto t = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				return cast(Template) identified;
-			} else {
-				return cast(Template) null;
-			}
-		})();
-		
-		assert(t);
-		
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument, argHandler;
 		auto iva = IdentifierVisitor!(argHandler, true)(pass);
 		auto args = i.templateInstanciation.arguments.map!((a) {
@@ -480,15 +469,32 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 			assert(0, typeid(a).toString() ~ " is not supported.");
 		}).array();
 		
+		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
+		auto instance = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				if(auto t = cast(Template) identified) {
+					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args);
+				} else if(auto s = cast(OverloadSet) identified) {
+					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, s, args);
+				}
+			}
+			
+			return cast(TemplateInstance) null;
+		})();
+		
+		assert(instance);
+		
+		// XXX: it should be possible to use handler here.
+		// DMD doesn't like it.
 		auto iv = IdentifierVisitor!identifiableHandler(pass);
-		auto instance = TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args);
 		if(auto s = instance.dscope.resolve(i.name)) {
 			return iv.visit(i.location, s).apply!handler();
 		}
 		
 		// Let's try eponymous trick if the previous failed.
-		if(i.name != t.name) {
-			if(auto s = instance.dscope.resolve(t.name)) {
+		auto name = i.templateInstanciation.identifier.name;
+		if(i.name != name) {
+			if(auto s = instance.dscope.resolve(name)) {
 				return iv.resolveInSymbol(i.location, s, i.name).apply!handler();
 			}
 		}
