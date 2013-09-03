@@ -8,7 +8,6 @@ public import util.visitor;
 import d.semantic.backend;
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
-import d.semantic.dtemplate;
 import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.mangler;
@@ -65,8 +64,6 @@ final class SemanticPass {
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
 	
-	TemplateInstancier templateInstancier;
-	
 	Backend backend;
 	Evaluator evaluator;
 	
@@ -113,8 +110,6 @@ final class SemanticPass {
 		sizeofCalculator	= new SizeofCalculator(this);
 		typeMangler			= new TypeMangler(this);
 		
-		templateInstancier	= new TemplateInstancier(this);
-		
 		scheduler			= new Scheduler!SemanticPass(this);
 		
 		importModule(["object"]);
@@ -158,10 +153,6 @@ final class SemanticPass {
 	
 	ParamType visit(ParamAstType t) {
 		return typeVisitor.visit(t);
-	}
-	
-	TemplateInstance instanciate(Location location, Template t, TemplateArgument[] args) {
-		return templateInstancier.instanciate(location, t, args);
 	}
 	
 	auto evaluate(Expression e) {
