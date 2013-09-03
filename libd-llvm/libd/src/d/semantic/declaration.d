@@ -310,6 +310,7 @@ struct DeclarationVisitor {
 		
 		v.linkage = linkage;
 		v.isStatic = isStatic;
+		v.isEnum = d.isEnum;
 		
 		currentScope.addSymbol(v);
 		
