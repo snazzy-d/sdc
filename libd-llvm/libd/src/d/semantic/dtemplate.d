@@ -43,11 +43,27 @@ struct TemplateInstancier {
 				continue CandidateLoop;
 			}
 			
-			// FIXME: best match instead of first match.
-			match = t;
-			matchedArgs = cdArgs;
+			if(!match) {
+				match = t;
+				matchedArgs = cdArgs;
+				continue CandidateLoop;
+			}
 			
-			break;
+			auto asArg = t.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			bool t2match = matchArguments(match, asArg).length != 0;
+			
+			asArg = match.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			bool match2t = matchArguments(t, asArg).length != 0;
+			
+			if(t2match == match2t) {
+				assert(0, "Ambiguous template");
+			}
+			
+			if(t2match) {
+				match = t;
+				matchedArgs = cdArgs;
+				continue CandidateLoop;
+			}
 		}
 		
 		assert(match);
