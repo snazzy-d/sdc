@@ -15,7 +15,7 @@ import std.algorithm;
 import std.array;
 import std.range;
 
-final class TemplateInstancier {
+struct TemplateInstancier {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -23,45 +23,108 @@ final class TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args) {
-		scheduler.require(t);
+	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args) {
+		auto cds = s.set.filter!((t) {
+			if(auto asTemplate = cast(Template) t) {
+				return asTemplate.parameters.length >= args.length;
+			}
+			
+			assert(0, "this isn't a template");
+		});
 		
+		Template match;
+		TemplateArgument[] matchedArgs;
+		CandidateLoop: foreach(candidate; cds) {
+			auto t = cast(Template) candidate;
+			assert(t, "We should have ensured that we only have templates at this point.");
+			
+			auto cdArgs = matchArguments(t, args);
+			if(!cdArgs) {
+				continue CandidateLoop;
+			}
+			
+			if(!match) {
+				match = t;
+				matchedArgs = cdArgs;
+				continue CandidateLoop;
+			}
+			
+			auto asArg = t.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			bool t2match = matchArguments(match, asArg).length != 0;
+			
+			asArg = match.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			bool match2t = matchArguments(t, asArg).length != 0;
+			
+			if(t2match == match2t) {
+				assert(0, "Ambiguous template");
+			}
+			
+			if(t2match) {
+				match = t;
+				matchedArgs = cdArgs;
+				continue CandidateLoop;
+			}
+		}
+		
+		assert(match);
+		
+		return instanciateFromResolvedArgs(location, match, matchedArgs);
+	}
+	
+	auto instanciate(Location location, Template t, TemplateArgument[] args) {
+		return instanciateFromResolvedArgs(location, t, matchArguments(t, args));
+	}
+	
+	// FIXME: 0 arguments templates.
+	TemplateArgument[] matchArguments(Template t, TemplateArgument[] args) {
+		scheduler.require(t);
 		assert(t.parameters.length >= args.length);
-		TemplateArgument[] resolvedArgs;
-		resolvedArgs.length = t.parameters.length;
+		
+		TemplateArgument[] matchedArgs;
+		matchedArgs.length = t.parameters.length;
 		
 		uint i = 0;
 		foreach(a; args) {
-			a.apply!({
+			auto ct = a.apply!(function bool() {
 				assert(0, "All passed argument must be defined.");
 			}, (identified) {
 				auto p = t.parameters[i++];
 				static if(is(typeof(identified) : QualType)) {
-					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
+					return TypeMatcher(pass, matchedArgs, identified).visit(p);
 				} else {
-					assert(0, "Only type argument are supported.");
+					return false;
 				}
 			})();
+			
+			if(!ct) return [];
 		}
 		
 		// Match unspecified parameters.
-		foreach(a; resolvedArgs[i .. $]) {
-			a.apply!({
+		foreach(a; matchedArgs[i .. $]) {
+			auto ct = a.apply!(function bool() {
 				assert(0, "All passed argument must be defined.");
 			}, (identified) {
 				auto p = t.parameters[i++];
 				static if(is(typeof(identified) : QualType)) {
-					assert(TypeMatcher(pass, resolvedArgs, identified).visit(p), identified.toString() ~ " do not match");
+					return TypeMatcher(pass, matchedArgs, identified).visit(p);
 				} else {
-					assert(0, "Only type argument are supported.");
+					return false;
 				}
 			})();
+			
+			if(!ct) return [];
 		}
 		
-		i = 0;
+		return matchedArgs;
+	}
+	
+	auto instanciateFromResolvedArgs(Location location, Template t, TemplateArgument[] args) {
+		assert(t.parameters.length == args.length);
+		
+		auto i = 0;
 		Symbol[] argSyms;
 		// XXX: have to put array once again to avoid multiple map.
-		string id = resolvedArgs.map!(
+		string id = args.map!(
 			a => a.apply!(function string() {
 				assert(0, "All passed argument must be defined.");
 			}, delegate string(identified) {
@@ -103,14 +166,15 @@ final class TemplateInstancier {
 			import d.semantic.declaration;
 			auto dv = DeclarationVisitor(pass, t.linkage, t.isStatic);
 			
-			pass.scheduler.schedule(only(instance), i => visit(cast(TemplateInstance) i));
+			auto localPass = pass;
+			pass.scheduler.schedule(only(instance), i => visit(localPass, cast(TemplateInstance) i));
 			instance.members = argSyms ~ dv.flatten(t.members, instance);
 			
 			return t.instances[id] = instance;
 		}());
 	}
 	
-	TemplateInstance visit(TemplateInstance instance) {
+	static auto visit(SemanticPass pass, TemplateInstance instance) {
 		pass.scheduler.require(instance.members);
 		
 		instance.step = Step.Processed;
@@ -198,12 +262,12 @@ struct TypeMatcher {
 	// XXX: used only in one place in caster, can probably be removed.
 	SemanticPass pass;
 	
-	TemplateArgument[] resolvedArgs;
+	TemplateArgument[] matchedArgs;
 	QualType matchee;
 	
-	this(SemanticPass pass, TemplateArgument[] resolvedArgs, QualType matchee) {
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, QualType matchee) {
 		this.pass = pass;
-		this.resolvedArgs = resolvedArgs;
+		this.matchedArgs = matchedArgs;
 		this.matchee = peelAlias(matchee);
 	}
 	
@@ -215,8 +279,8 @@ struct TypeMatcher {
 		auto originalMatchee = matchee;
 		auto match = visit(peelAlias(p.specialization));
 		
-		resolvedArgs[p.index].apply!({
-			resolvedArgs[p.index] = TemplateArgument(originalMatchee);
+		matchedArgs[p.index].apply!({
+			matchedArgs[p.index] = TemplateArgument(originalMatchee);
 		}, (_) {})();
 		
 		return match;
@@ -232,8 +296,8 @@ struct TypeMatcher {
 	
 	bool visit(TemplatedType t) {
 		auto i = t.param.index;
-		return resolvedArgs[i].apply!({
-			resolvedArgs[i] = TemplateArgument(matchee);
+		return matchedArgs[i].apply!({
+			matchedArgs[i] = TemplateArgument(matchee);
 			return true;
 		}, delegate bool(identified) {
 			static if(is(typeof(identified) : QualType)) {

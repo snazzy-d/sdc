@@ -174,6 +174,8 @@ class VariableDeclaration : NamedDeclaration {
 	QualAstType type;
 	AstExpression value;
 	
+	bool isEnum = false;
+	
 	this(Location location, QualAstType type, string name, AstExpression value) {
 		super(location, name);
 		

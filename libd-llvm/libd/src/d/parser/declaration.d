@@ -316,7 +316,15 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			}
 			
 			assert(type.type);
-			return trange.parseTypedDeclaration(location, type);
+			// TODO: implement a correct way to pass declaration state down the parser.
+			auto vs = cast(VariablesDeclaration) trange.parseTypedDeclaration(location, type);
+			assert(vs);
+			
+			foreach(v; vs.variables) {
+				v.isEnum = true;
+			}
+			
+			return vs;
 		
 		/*
 		 * Template

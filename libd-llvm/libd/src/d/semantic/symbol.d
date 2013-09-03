@@ -159,6 +159,11 @@ final class SymbolVisitor {
 			value = buildImplicitCast(pass, d.location, type, value);
 		}
 		
+		// Sanity check.
+		if(vd.isEnum) {
+			assert(v.isEnum);
+		}
+		
 		if(v.isEnum) {
 			value = evaluate(value);
 		}
