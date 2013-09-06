@@ -72,10 +72,14 @@ struct TemplateInstancier {
 	}
 	
 	auto instanciate(Location location, Template t, TemplateArgument[] args) {
-		return instanciateFromResolvedArgs(location, t, matchArguments(t, args));
+		if(args.length > 0) {
+			args = matchArguments(t, args);
+			assert(args.length > 0, "no match");
+		}
+		
+		return instanciateFromResolvedArgs(location, t, args);
 	}
 	
-	// FIXME: 0 arguments templates.
 	TemplateArgument[] matchArguments(Template t, TemplateArgument[] args) {
 		scheduler.require(t);
 		assert(t.parameters.length >= args.length);
@@ -85,37 +89,31 @@ struct TemplateInstancier {
 		
 		uint i = 0;
 		foreach(a; args) {
-			auto ct = a.apply!(function bool() {
-				assert(0, "All passed argument must be defined.");
-			}, (identified) {
-				auto p = t.parameters[i++];
-				static if(is(typeof(identified) : QualType)) {
-					return TypeMatcher(pass, matchedArgs, identified).visit(p);
-				} else {
-					return false;
-				}
-			})();
-			
-			if(!ct) return [];
+			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return [];
+			}
 		}
 		
 		// Match unspecified parameters.
 		foreach(a; matchedArgs[i .. $]) {
-			auto ct = a.apply!(function bool() {
-				assert(0, "All passed argument must be defined.");
-			}, (identified) {
-				auto p = t.parameters[i++];
-				static if(is(typeof(identified) : QualType)) {
-					return TypeMatcher(pass, matchedArgs, identified).visit(p);
-				} else {
-					return false;
-				}
-			})();
-			
-			if(!ct) return [];
+			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return [];
+			}
 		}
 		
 		return matchedArgs;
+	}
+	
+	bool matchArgument(TemplateParameter p, TemplateArgument a, TemplateArgument[] matchedArgs) {
+		return a.apply!(function bool() {
+			assert(0, "All passed argument must be defined.");
+		}, (identified) {
+			static if(is(typeof(identified) : QualType)) {
+				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			} else {
+				return false;
+			}
+		})();
 	}
 	
 	auto instanciateFromResolvedArgs(Location location, Template t, TemplateArgument[] args) {
@@ -260,6 +258,8 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 
 struct TypeMatcher {
 	// XXX: used only in one place in caster, can probably be removed.
+	// XXX: it used to cast classes in a way that isn't useful here.
+	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
 	
 	TemplateArgument[] matchedArgs;
@@ -277,13 +277,32 @@ struct TypeMatcher {
 	
 	bool visit(TypeTemplateParameter p) {
 		auto originalMatchee = matchee;
-		auto match = visit(peelAlias(p.specialization));
+		auto originalMatched = matchedArgs[p.index];
+		matchedArgs[p.index] = TemplateArgument.init;
+		
+		if(!visit(peelAlias(p.specialization))) {
+			return false;
+		}
 		
 		matchedArgs[p.index].apply!({
 			matchedArgs[p.index] = TemplateArgument(originalMatchee);
 		}, (_) {})();
 		
-		return match;
+		return originalMatched.apply!({ return true; }, (o) {
+			static if(is(typeof(o) : QualType)) {
+				return matchedArgs[p.index].apply!({ return false; }, (m) {
+					static if(is(typeof(m) : QualType)) {
+						import d.semantic.caster;
+						import d.ir.expression;
+						return implicitCastFrom(pass, m, o) == CastKind.Exact;
+					} else {
+						return false;
+					}
+				})();
+			} else {
+				return false;
+			}
+		})();
 	}
 	
 	bool visit(QualType t) {
