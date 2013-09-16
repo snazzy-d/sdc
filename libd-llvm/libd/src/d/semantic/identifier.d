@@ -81,7 +81,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return resolveInIdentifiable(i.location, IdentifierVisitor!identifiableHandler(pass).visit(i.identifier), i.name);
 	}
 	
-	private Ret resolveInSymbol(Location location, Symbol s, string name) {
+	Ret resolveInSymbol(Location location, Symbol s, string name) {
 		return resolveInIdentifiable(location, IdentifierVisitor!identifiableHandler(pass).visit(location, s), name);
 	}
 	
@@ -94,7 +94,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				
-				if(auto m = cast(Module) identified) {
+				if(auto i = cast(TemplateInstance) identified) {
+					return visit(location, i.dscope.resolve(name));
+				} else if(auto m = cast(Module) identified) {
 					return visit(location, m.dscope.resolve(name));
 				}
 				
@@ -211,11 +213,16 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return handler(t);
 	}
 	
+	Ret visit(Location location, TemplateInstance i) {
+		return handler(i);
+	}
+	
 	Ret visit(Location location, Module m) {
 		return handler(m);
 	}
 	
 	Ret visit(Location location, TypeTemplateParameter t) {
+		import d.ir.dtemplate;
 		return handler(QualType(new TemplatedType(t)));
 	}
 }

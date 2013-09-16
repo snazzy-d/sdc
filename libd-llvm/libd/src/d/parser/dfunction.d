@@ -47,7 +47,9 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	// Check if we have a function template
 	auto lookahead = trange.save;
 	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
-	if(lookahead.front.type == TokenType.OpenParen) {
+	
+	bool isTemplate = lookahead.front.type == TokenType.OpenParen;
+	if(isTemplate) {
 		tplParameters = trange.parseTemplateParameters();
 	}
 	
@@ -130,7 +132,7 @@ Declaration parseFunction(FunctionDeclarationType = FunctionDeclaration, TokenRa
 	
 	auto fun = new FunctionDeclarationType(location, arguments, parameters, isVariadic, fbody);
 	
-	if(tplParameters.ptr) {
+	if(isTemplate) {
 		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
 	} else {
 		return fun;

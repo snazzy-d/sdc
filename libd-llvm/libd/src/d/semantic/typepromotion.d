@@ -11,7 +11,7 @@ import std.algorithm;
 
 // TODO: this is complete bullshit. Must be trashed and redone.
 QualType getPromotedType(Location location, Type t1, Type t2) {
-	final class T2Handler {
+	struct T2Handler {
 		TypeKind t1type;
 		
 		this(TypeKind t1type) {
@@ -41,7 +41,7 @@ QualType getPromotedType(Location location, Type t1, Type t2) {
 		}
 	}
 	
-	final class T1Handler {
+	struct T1Handler {
 		QualType visit(Type t) {
 			return this.dispatch!(function QualType(Type t) {
 				assert(0, typeid(t).toString() ~ " is not supported");
@@ -49,7 +49,7 @@ QualType getPromotedType(Location location, Type t1, Type t2) {
 		}
 		
 		QualType visit(BuiltinType t) {
-			return (new T2Handler(t.kind)).visit(t2);
+			return T2Handler(t.kind).visit(t2);
 		}
 		
 		QualType visit(PointerType t) {
@@ -70,7 +70,7 @@ QualType getPromotedType(Location location, Type t1, Type t2) {
 		}
 	}
 	
-	return (new T1Handler()).visit(t1);
+	return T1Handler().visit(t1);
 }
 
 TypeKind promoteBuiltin(TypeKind t1, TypeKind t2) {
