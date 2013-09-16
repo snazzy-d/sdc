@@ -77,39 +77,21 @@ struct TemplateInstancier {
 		return instanciateFromResolvedArgs(location, match, matchedArgs);
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args) {
+	auto instanciate(Location location, Template t, TemplateArgument[] args, Expression[] fargs = []) {
 		scheduler.require(t);
 		
 		TemplateArgument[] matchedArgs;
 		if(t.parameters.length > 0) {
 			matchedArgs.length = t.parameters.length;
 			
-			auto match = matchArguments(t, args, matchedArgs);
+			auto match = matchArguments(t, args, matchedArgs, fargs);
 			assert(match, "no match");
 		}
 		
 		return instanciateFromResolvedArgs(location, t, matchedArgs);
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args, Expression[] fargs) {
-		scheduler.require(t);
-		
-		TemplateArgument[] matchedArgs;
-		if(t.parameters.length > 0) {
-			matchedArgs.length = t.parameters.length;
-			
-			foreach(i, m; t.ifti) {
-				assert(TypeMatcher(pass, matchedArgs, fargs[i].type).visit(m), "no match");
-			}
-			
-			auto match = matchArguments(t, args, matchedArgs);
-			assert(match, "no match");
-		}
-		
-		return instanciateFromResolvedArgs(location, t, matchedArgs);
-	}
-	
-	bool matchArguments(Template t, TemplateArgument[] args, TemplateArgument[] matchedArgs) {
+	bool matchArguments(Template t, TemplateArgument[] args, TemplateArgument[] matchedArgs, Expression[] fargs = []) {
 		scheduler.require(t);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
@@ -117,6 +99,12 @@ struct TemplateInstancier {
 		uint i = 0;
 		foreach(a; args) {
 			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return false;
+			}
+		}
+		
+		foreach(j, a; fargs) {
+			if(!TypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
 				return false;
 			}
 		}
