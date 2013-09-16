@@ -393,7 +393,7 @@ final class ExpressionVisitor {
 		auto args = c.arguments.map!(a => visit(a)).array();
 		
 		if(auto asPolysemous = cast(PolysemousExpression) callee) {
-			return handleOverloadCall(c.location, asPolysemous.expressions, args);
+			callee = chooseOverload(c.location, asPolysemous.expressions, args);
 		}
 		
 		return handleCall(c.location, callee, args);
@@ -408,7 +408,11 @@ final class ExpressionVisitor {
 			} else {
 				static if(is(typeof(identified) : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
-						return handleOverloadSetCall(c.location, c.callee.location, s, args);
+						auto callee = chooseOverload(c.location, c.callee.location, s, args);
+						return handleCall(c.location, callee, args);
+					} else if(auto t = cast(Template) identified) {
+						auto callee = handleIFTI(c.location, c.callee.location, t, args);
+						return handleCall(c.location, callee, args);
 					}
 				}
 				
@@ -417,23 +421,44 @@ final class ExpressionVisitor {
 		})(pass).visit(c.callee);
 	}
 	
-	private Expression handleOverloadSetCall(Location location, Location iloc, OverloadSet s, Expression[] args) {
+	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
+		import d.semantic.dtemplate;
+		auto ti = TemplateInstancier(pass);
+		TemplateArgument[] targs;
+		targs.length = t.parameters.length;
+		
+		auto i = ti.instanciate(location, t, [], args);
+		scheduler.require(i);
+		
+		return IdentifierVisitor!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else {
+				return pass.raiseCondition!Expression(location, t.name ~ " isn't callable.");
+			}
+		})(pass).resolveInSymbol(location, i, t.name);
+	}
+	
+	private Expression chooseOverload(Location location, Location iloc, OverloadSet s, Expression[] args) {
 		auto iv = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else static if(is(typeof(identified) : QualType)) {
 				assert(0, "Type can't be overloaded");
 			} else {
-				// TODO: handle templates.
+				if(auto t = cast(Template) identified) {
+					return handleIFTI(location, iloc, t, args);
+				}
+				
 				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
 			}
 		})(pass);
 		
 		auto cds = s.set.map!(s => iv.visit(iloc, s)).array();
-		return handleOverloadCall(location, cds, args);
+		return chooseOverload(location, cds, args);
 	}
 	
-	private Expression handleOverloadCall(Location location, Expression[] candidates, Expression[] args) {
+	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
 		auto cds = candidates.filter!((e) {
 			if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
 				if(asFunType.isVariadic) {
@@ -511,7 +536,7 @@ final class ExpressionVisitor {
 			return pass.raiseCondition!Expression(location, "No candidate for function call.");
 		}
 		
-		return handleCall(location, match, args);
+		return match;
 	}
 	
 	private Expression handleCall(Location location, Expression callee, Expression[] args) {
