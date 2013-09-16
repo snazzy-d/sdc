@@ -523,6 +523,18 @@ final class SymbolVisitor {
 			}
 		}
 		
+		// TODO: support multiple IFTI.
+		foreach(m; t.members) {
+			if(auto fun = cast(FunctionDeclaration) m) {
+				if(fun.name != t.name) {
+					continue;
+				}
+				
+				t.ifti = fun.params.map!(p => pass.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
+				break;
+			}
+		}
+		
 		t.step = Step.Processed;
 		return t;
 	}

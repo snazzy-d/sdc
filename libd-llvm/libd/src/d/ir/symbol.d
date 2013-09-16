@@ -151,6 +151,8 @@ class Module : Package {
 class Template : Symbol {
 	TemplateParameter[] parameters;
 	
+	QualType[] ifti;
+	
 	import d.ast.declaration;
 	Declaration[] members;
 	
