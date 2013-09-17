@@ -104,7 +104,7 @@ struct TemplateInstancier {
 		}
 		
 		foreach(j, a; fargs) {
-			if(!TypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
+			if(!IftiTypeMatcher(matchedArgs, a.type).visit(t.ifti[j])) {
 				return false;
 			}
 		}
@@ -272,13 +272,13 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 }
 
 struct TypeMatcher {
+	TemplateArgument[] matchedArgs;
+	QualType matchee;
+	
 	// XXX: used only in one place in caster, can probably be removed.
 	// XXX: it used to cast classes in a way that isn't useful here.
 	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
-	
-	TemplateArgument[] matchedArgs;
-	QualType matchee;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, QualType matchee) {
 		this.pass = pass;
@@ -341,6 +341,77 @@ struct TypeMatcher {
 			} else {
 				return false;
 			}
+		})();
+	}
+	
+	bool visit(PointerType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asPointer = cast(PointerType) m) {
+			matchee = asPointer.pointed;
+			return visit(t.pointed);
+		}
+		
+		return false;
+	}
+	
+	bool visit(SliceType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asSlice = cast(SliceType) m) {
+			matchee = asSlice.sliced;
+			return visit(t.sliced);
+		}
+		
+		return false;
+	}
+	
+	bool visit(ArrayType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asArray = cast(ArrayType) m) {
+			if(asArray.size == t.size) {
+				matchee = asArray.elementType;
+				return visit(t.elementType);
+			}
+		}
+		
+		return false;
+	}
+	
+	bool visit(BuiltinType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asBuiltin = cast(BuiltinType) m) {
+			return t.kind == asBuiltin.kind;
+		}
+		
+		return false;
+	}
+}
+
+// XXX: Massive code duplication as static if somehow do not work here.
+// XXX: probable a dmd bug, but I have no time to investigate.
+struct IftiTypeMatcher {
+	TemplateArgument[] matchedArgs;
+	QualType matchee;
+	
+	this(TemplateArgument[] matchedArgs, QualType matchee) {
+		this.matchedArgs = matchedArgs;
+		this.matchee = peelAlias(matchee);
+	}
+	
+	bool visit(QualType t) {
+		return this.dispatch(t.type);
+	}
+	
+	bool visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	bool visit(TemplatedType t) {
+		auto i = t.param.index;
+		return matchedArgs[i].apply!({
+			matchedArgs[i] = TemplateArgument(matchee);
+			return true;
+		}, delegate bool(identified) {
+			return true;
 		})();
 	}
 	
