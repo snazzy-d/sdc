@@ -402,11 +402,37 @@ final class ExpressionVisitor {
 	Expression visit(IdentifierCallExpression c) {
 		auto args = c.arguments.map!(a => visit(a)).array();
 		
+		// XXX: massive duplication in the callback. DMD won't accept anything else :(
+		import d.ast.identifier;
+		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
+			return TemplateDotIdentifierVisitor!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				
+				static if(is(T : Expression)) {
+					return handleCall(c.location, identified, args);
+				} else {
+					static if(is(T : Symbol)) {
+						if(auto s = cast(OverloadSet) identified) {
+							auto callee = chooseOverload(c.location, c.callee.location, s, args);
+							return handleCall(c.location, callee, args);
+						} else if(auto t = cast(Template) identified) {
+							auto callee = handleIFTI(c.location, c.callee.location, t, args);
+							return handleCall(c.location, callee, args);
+						}
+					}
+					
+					return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
+				}
+			})(pass).resolve(tidi, args);
+		}
+		
 		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+			alias T = typeof(identified);
+			
+			static if(is(T : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else {
-				static if(is(typeof(identified) : Symbol)) {
+				static if(is(T : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
 						auto callee = chooseOverload(c.location, c.callee.location, s, args);
 						return handleCall(c.location, callee, args);

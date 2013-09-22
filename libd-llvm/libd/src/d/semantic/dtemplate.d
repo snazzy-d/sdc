@@ -24,7 +24,7 @@ struct TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args) {
+	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args, Expression[] fargs) {
 		auto cds = s.set.filter!((t) {
 			if(auto asTemplate = cast(Template) t) {
 				return asTemplate.parameters.length >= args.length;
@@ -41,7 +41,7 @@ struct TemplateInstancier {
 			
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;
-			if(!matchArguments(t, args, cdArgs)) {
+			if(!matchArguments(t, args, fargs, cdArgs)) {
 				continue CandidateLoop;
 			}
 			
@@ -55,12 +55,12 @@ struct TemplateInstancier {
 			dummy.length = t.parameters.length;
 			
 			auto asArg = match.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
-			bool match2t = matchArguments(t, asArg, dummy);
+			bool match2t = matchArguments(t, asArg, [], dummy);
 			
 			dummy = null;
 			dummy.length = match.parameters.length;
 			asArg = t.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
-			bool t2match = matchArguments(match, asArg, dummy);
+			bool t2match = matchArguments(match, asArg, [], dummy);
 			
 			if(t2match == match2t) {
 				assert(0, "Ambiguous template");
@@ -77,39 +77,21 @@ struct TemplateInstancier {
 		return instanciateFromResolvedArgs(location, match, matchedArgs);
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args) {
+	auto instanciate(Location location, Template t, TemplateArgument[] args, Expression[] fargs = []) {
 		scheduler.require(t);
 		
 		TemplateArgument[] matchedArgs;
 		if(t.parameters.length > 0) {
 			matchedArgs.length = t.parameters.length;
 			
-			auto match = matchArguments(t, args, matchedArgs);
+			auto match = matchArguments(t, args, fargs, matchedArgs);
 			assert(match, "no match");
 		}
 		
 		return instanciateFromResolvedArgs(location, t, matchedArgs);
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args, Expression[] fargs) {
-		scheduler.require(t);
-		
-		TemplateArgument[] matchedArgs;
-		if(t.parameters.length > 0) {
-			matchedArgs.length = t.parameters.length;
-			
-			foreach(i, m; t.ifti) {
-				assert(TypeMatcher(pass, matchedArgs, fargs[i].type).visit(m), "no match");
-			}
-			
-			auto match = matchArguments(t, args, matchedArgs);
-			assert(match, "no match");
-		}
-		
-		return instanciateFromResolvedArgs(location, t, matchedArgs);
-	}
-	
-	bool matchArguments(Template t, TemplateArgument[] args, TemplateArgument[] matchedArgs) {
+	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs, TemplateArgument[] matchedArgs) {
 		scheduler.require(t);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
@@ -117,6 +99,12 @@ struct TemplateInstancier {
 		uint i = 0;
 		foreach(a; args) {
 			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return false;
+			}
+		}
+		
+		foreach(j, a; fargs) {
+			if(!IftiTypeMatcher(matchedArgs, a.type).visit(t.ifti[j])) {
 				return false;
 			}
 		}
@@ -284,13 +272,13 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 }
 
 struct TypeMatcher {
+	TemplateArgument[] matchedArgs;
+	QualType matchee;
+	
 	// XXX: used only in one place in caster, can probably be removed.
 	// XXX: it used to cast classes in a way that isn't useful here.
 	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
-	
-	TemplateArgument[] matchedArgs;
-	QualType matchee;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, QualType matchee) {
 		this.pass = pass;
@@ -353,6 +341,77 @@ struct TypeMatcher {
 			} else {
 				return false;
 			}
+		})();
+	}
+	
+	bool visit(PointerType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asPointer = cast(PointerType) m) {
+			matchee = asPointer.pointed;
+			return visit(t.pointed);
+		}
+		
+		return false;
+	}
+	
+	bool visit(SliceType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asSlice = cast(SliceType) m) {
+			matchee = asSlice.sliced;
+			return visit(t.sliced);
+		}
+		
+		return false;
+	}
+	
+	bool visit(ArrayType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asArray = cast(ArrayType) m) {
+			if(asArray.size == t.size) {
+				matchee = asArray.elementType;
+				return visit(t.elementType);
+			}
+		}
+		
+		return false;
+	}
+	
+	bool visit(BuiltinType t) {
+		auto m = peelAlias(matchee).type;
+		if(auto asBuiltin = cast(BuiltinType) m) {
+			return t.kind == asBuiltin.kind;
+		}
+		
+		return false;
+	}
+}
+
+// XXX: Massive code duplication as static if somehow do not work here.
+// XXX: probable a dmd bug, but I have no time to investigate.
+struct IftiTypeMatcher {
+	TemplateArgument[] matchedArgs;
+	QualType matchee;
+	
+	this(TemplateArgument[] matchedArgs, QualType matchee) {
+		this.matchedArgs = matchedArgs;
+		this.matchee = peelAlias(matchee);
+	}
+	
+	bool visit(QualType t) {
+		return this.dispatch(t.type);
+	}
+	
+	bool visit(Type t) {
+		return this.dispatch(t);
+	}
+	
+	bool visit(TemplatedType t) {
+		auto i = t.param.index;
+		return matchedArgs[i].apply!({
+			matchedArgs[i] = TemplateArgument(matchee);
+			return true;
+		}, delegate bool(identified) {
+			return true;
 		})();
 	}
 	
