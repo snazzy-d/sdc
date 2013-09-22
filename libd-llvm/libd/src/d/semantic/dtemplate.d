@@ -24,7 +24,7 @@ struct TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args) {
+	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args, Expression[] fargs) {
 		auto cds = s.set.filter!((t) {
 			if(auto asTemplate = cast(Template) t) {
 				return asTemplate.parameters.length >= args.length;
@@ -41,7 +41,7 @@ struct TemplateInstancier {
 			
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;
-			if(!matchArguments(t, args, cdArgs)) {
+			if(!matchArguments(t, args, fargs, cdArgs)) {
 				continue CandidateLoop;
 			}
 			
@@ -55,12 +55,12 @@ struct TemplateInstancier {
 			dummy.length = t.parameters.length;
 			
 			auto asArg = match.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
-			bool match2t = matchArguments(t, asArg, dummy);
+			bool match2t = matchArguments(t, asArg, [], dummy);
 			
 			dummy = null;
 			dummy.length = match.parameters.length;
 			asArg = t.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
-			bool t2match = matchArguments(match, asArg, dummy);
+			bool t2match = matchArguments(match, asArg, [], dummy);
 			
 			if(t2match == match2t) {
 				assert(0, "Ambiguous template");
@@ -84,14 +84,14 @@ struct TemplateInstancier {
 		if(t.parameters.length > 0) {
 			matchedArgs.length = t.parameters.length;
 			
-			auto match = matchArguments(t, args, matchedArgs, fargs);
+			auto match = matchArguments(t, args, fargs, matchedArgs);
 			assert(match, "no match");
 		}
 		
 		return instanciateFromResolvedArgs(location, t, matchedArgs);
 	}
 	
-	bool matchArguments(Template t, TemplateArgument[] args, TemplateArgument[] matchedArgs, Expression[] fargs = []) {
+	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs, TemplateArgument[] matchedArgs) {
 		scheduler.require(t);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);

@@ -227,6 +227,66 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 }
 
+/**
+ * Resolve identifier!(arguments).identifier as type or expression.
+ */
+struct TemplateDotIdentifierVisitor(alias handler) {
+	private SemanticPass pass;
+	alias pass this;
+	
+	alias Ret = typeof(handler(null));
+	
+	this(SemanticPass pass) {
+		this.pass = pass;
+	}
+	
+	Ret resolve(TemplateInstanciationDotIdentifier i, Expression[] fargs = []) {
+		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument, argHandler;
+		auto iva = IdentifierVisitor!(argHandler, true)(pass);
+		auto args = i.templateInstanciation.arguments.map!((a) {
+			if(auto ta = cast(TypeTemplateArgument) a) {
+				return TemplateArgument(pass.visit(ta.type));
+			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
+				return iva.visit(ia.identifier);
+			}
+			
+			assert(0, typeid(a).toString() ~ " is not supported.");
+		}).array();
+		
+		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
+		auto instance = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				if(auto t = cast(Template) identified) {
+					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args, fargs);
+				} else if(auto s = cast(OverloadSet) identified) {
+					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, s, args, fargs);
+				}
+			}
+			
+			return cast(TemplateInstance) null;
+		})();
+		
+		assert(instance);
+		
+		// XXX: it should be possible to use handler here.
+		// DMD doesn't like it.
+		auto iv = IdentifierVisitor!identifiableHandler(pass);
+		if(auto s = instance.dscope.resolve(i.name)) {
+			return iv.visit(i.location, s).apply!handler();
+		}
+		
+		// Let's try eponymous trick if the previous failed.
+		auto name = i.templateInstanciation.identifier.name;
+		if(i.name != name) {
+			if(auto s = instance.dscope.resolve(name)) {
+				return iv.resolveInSymbol(i.location, s, i.name).apply!handler();
+			}
+		}
+		
+		throw new CompileException(i.location, i.name ~ " not found in template");
+	}
+}
+
 private:
 enum Tag {
 	Symbol,
@@ -447,66 +507,6 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 	
 	Ret visit(Location location, Expression _, Enum e) {
 		return handler(QualType(new EnumType(e)));
-	}
-}
-
-/**
- * Resolve identifier!(arguments).identifier as type or expression.
- */
-struct TemplateDotIdentifierVisitor(alias handler) {
-	private SemanticPass pass;
-	alias pass this;
-	
-	alias Ret = typeof(handler(null));
-	
-	this(SemanticPass pass) {
-		this.pass = pass;
-	}
-	
-	Ret resolve(TemplateInstanciationDotIdentifier i) {
-		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument, argHandler;
-		auto iva = IdentifierVisitor!(argHandler, true)(pass);
-		auto args = i.templateInstanciation.arguments.map!((a) {
-			if(auto ta = cast(TypeTemplateArgument) a) {
-				return TemplateArgument(pass.visit(ta.type));
-			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
-				return iva.visit(ia.identifier);
-			}
-			
-			assert(0, typeid(a).toString() ~ " is not supported.");
-		}).array();
-		
-		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
-		auto instance = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				if(auto t = cast(Template) identified) {
-					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args);
-				} else if(auto s = cast(OverloadSet) identified) {
-					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, s, args);
-				}
-			}
-			
-			return cast(TemplateInstance) null;
-		})();
-		
-		assert(instance);
-		
-		// XXX: it should be possible to use handler here.
-		// DMD doesn't like it.
-		auto iv = IdentifierVisitor!identifiableHandler(pass);
-		if(auto s = instance.dscope.resolve(i.name)) {
-			return iv.visit(i.location, s).apply!handler();
-		}
-		
-		// Let's try eponymous trick if the previous failed.
-		auto name = i.templateInstanciation.identifier.name;
-		if(i.name != name) {
-			if(auto s = instance.dscope.resolve(name)) {
-				return iv.resolveInSymbol(i.location, s, i.name).apply!handler();
-			}
-		}
-		
-		throw new CompileException(i.location, i.name ~ " not found in template");
 	}
 }
 
