@@ -280,7 +280,9 @@ struct DeclarationVisitor {
 	
 	void visit(FunctionDeclaration d) {
 		Function f;
-		if(isStatic || !buildMethods) {
+		if(d.name == "__ctor") {
+			f = new Constructor(d.location, getBuiltin(TypeKind.None), [], null);
+		} else if(isStatic || !buildMethods) {
 			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
 		} else {
 			uint index = 0;

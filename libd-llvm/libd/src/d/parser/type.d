@@ -9,7 +9,6 @@ import d.ir.type;
 
 import d.parser.ambiguous;
 import d.parser.base;
-import d.parser.dfunction;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
@@ -188,19 +187,21 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
  */
 QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, QualAstType type) if(isTokenRange!TokenRange) {
 	while(1) {
-		switch(trange.front.type) {
-			case TokenType.Star :
+		switch(trange.front.type) with(TokenType) {
+			case Star :
 				trange.popFront();
 				
 				type = QualAstType(new AstPointerType(type));
 				break;
 			
-			case TokenType.OpenBracket :
+			case OpenBracket :
 				type = trange.parseBracket(type);
 				break;
 			
-			case TokenType.Function :
+			case Function :
 				trange.popFront();
+				
+				import d.parser.declaration;
 				bool isVariadic;
 				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
@@ -209,8 +210,10 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 				type = QualAstType(new AstFunctionType(Linkage.D, ParamAstType(type, false), parameters, isVariadic));
 				break;
 			
-			case TokenType.Delegate :
+			case Delegate :
 				trange.popFront();
+				
+				import d.parser.declaration;
 				bool isVariadic;
 				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
