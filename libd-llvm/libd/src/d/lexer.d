@@ -1125,10 +1125,11 @@ auto getReturnOrBreak(string fun, string base) {
 }
 
 string lexerMixin(string base = "", string def = "lexIdentifier", string[string] ids = getLexerMap()) {
+	auto defaultFun = def;
 	string[string][char] nextLevel;
 	foreach(id, fun; ids) {
 		if(id == "") {
-			def = fun;
+			defaultFun = fun;
 		} else {
 			nextLevel[id[0]][id[1 .. $]] = fun;
 		}
@@ -1177,7 +1178,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	}
 	
 	ret ~= "
-			default :" ~ getReturnOrBreak(def, base) ~ "
+			default :" ~ getReturnOrBreak(defaultFun, base) ~ "
 		}
 		";
 	

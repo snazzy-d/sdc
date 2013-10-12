@@ -339,3 +339,12 @@ class Method : Function {
 	}
 }
 
+/**
+ * Constructor
+ */
+class Constructor : Function {
+	this(Location location, QualType type, Parameter[] params, BlockStatement fbody) {
+		super(location, type, "__ctor", params, fbody);
+	}
+}
+
