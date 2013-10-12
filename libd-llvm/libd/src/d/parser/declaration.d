@@ -14,7 +14,6 @@ import d.parser.conditional;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.statement;
-import d.parser.dfunction;
 import d.parser.dtemplate;
 import d.parser.type;
 
@@ -389,6 +388,9 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 		string name = trange.front.value;
 		trange.match(TokenType.Identifier);
 		
+		assert(name != "__ctor", "__ctor is a reserved name");
+		assert(name != "__dtor", "__dtor is a reserved name");
+		
 		// TODO: implement ref return.
 		return trange.parseFunction(location, Linkage.D, ParamAstType(type, false), name);
 	} else {
@@ -423,6 +425,209 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 		trange.match(TokenType.Semicolon);
 		
 		return new VariablesDeclaration(location, variables);
+	}
+}
+
+private Declaration parseConstructor(R)(ref R trange) {
+	auto location = trange.front.location;
+	trange.match(TokenType.This);
+	
+	import d.ir.type;
+	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), "__ctor");
+}
+
+private Declaration parseDestructor(R)(ref R trange) {
+	auto location = trange.front.location;
+	trange.match(TokenType.Tilde);
+	trange.match(TokenType.This);
+	
+	import d.ir.type;
+	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), "__dtor");
+}
+
+/**
+ * Parse function declaration, starting with parameters.
+ * This allow to parse function as well as constructor or any special function.
+ * Additionnal parameters are used to construct the function.
+ */
+private Declaration parseFunction(R)(ref R trange, Location location, Linkage linkage, ParamAstType returnType, string name) {
+	// Function declaration.
+	bool isVariadic;
+	AstTemplateParameter[] tplParameters;
+	
+	// Check if we have a function template
+	import d.parser.util;
+	auto lookahead = trange.save;
+	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
+	
+	bool isTemplate = lookahead.front.type == TokenType.OpenParen;
+	if(isTemplate) {
+		tplParameters = trange.parseTemplateParameters();
+	}
+	
+	auto parameters = trange.parseParameters(isVariadic);
+	
+	// If it is a template, it can have a constraint.
+	if(tplParameters.ptr) {
+		if(trange.front.type == TokenType.If) {
+			trange.parseConstraint();
+		}
+	}
+	
+	// TODO: parse function attributes
+	// Parse function attributes
+	FunctionAttributeLoop : while(1) {
+		switch(trange.front.type) with(TokenType) {
+			case Pure, Const, Immutable, Inout, Shared, Nothrow :
+				trange.popFront();
+				break;
+			
+			case At :
+				// FIXME: Do something with attributes.
+				trange.popFront();
+				trange.match(Identifier);
+				break;
+			
+			default :
+				break FunctionAttributeLoop;
+		}
+	}
+	
+	// TODO: parse contracts.
+	// Skip contracts
+	switch(trange.front.type) with(TokenType) {
+		case In, Out :
+			trange.popFront();
+			trange.parseBlock();
+			
+			switch(trange.front.type) {
+				case In, Out :
+					trange.popFront();
+					trange.parseBlock();
+					break;
+				
+				default :
+					break;
+			}
+			
+			trange.match(Body);
+			break;
+		
+		case Body :
+			// Body without contract is just skipped.
+			trange.popFront();
+			break;
+		
+		default :
+			break;
+	}
+	
+	import d.ast.statement;
+	AstBlockStatement fbody;
+	switch(trange.front.type) with(TokenType) {
+		case Semicolon :
+			location.spanTo(trange.front.location);
+			trange.popFront();
+			
+			break;
+		
+		case OpenBrace :
+			fbody = trange.parseBlock();
+			location.spanTo(fbody.location);
+			
+			break;
+		
+		default :
+			// TODO: error.
+			trange.match(Begin);
+			assert(0);
+	}
+	
+	auto fun = new FunctionDeclaration(location, linkage, returnType, name, parameters, isVariadic, fbody);
+	
+	if(isTemplate) {
+		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
+	} else {
+		return fun;
+	}
+}
+
+/**
+ * Parse function and delegate parameters.
+ */
+auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
+	trange.match(TokenType.OpenParen);
+	
+	ParamDecl[] parameters;
+	
+	switch(trange.front.type) with(TokenType) {
+		case CloseParen :
+			break;
+		
+		case TripleDot :
+			trange.popFront();
+			isVariadic = true;
+			break;
+		
+		default :
+			parameters ~= trange.parseParameter();
+			
+			while(trange.front.type == Comma) {
+				trange.popFront();
+				
+				if(trange.front.type == TripleDot) {
+					goto case TripleDot;
+				}
+				
+				parameters ~= trange.parseParameter();
+			}
+	}
+	
+	trange.match(TokenType.CloseParen);
+	
+	return parameters;
+}
+
+private auto parseParameter(R)(ref R trange) {
+	bool isRef;
+	
+	// TODO: parse storage class
+	ParseStorageClassLoop: while(1) {
+		switch(trange.front.type) with(TokenType) {
+			case In, Out, Lazy :
+				assert(0, "Not implemented");
+			
+			case Ref :
+				trange.popFront();
+				isRef = true;
+				
+				break;
+			
+			default :
+				break ParseStorageClassLoop;
+		}
+	}
+	
+	auto location = trange.front.location;
+	auto type = ParamAstType(trange.parseType(), isRef);
+	
+	if(trange.front.type == TokenType.Identifier) {
+		string name = trange.front.value;
+		trange.popFront();
+		
+		if(trange.front.type == TokenType.Assign) {
+			trange.popFront();
+			
+			auto expr = trange.parseAssignExpression();
+			
+			location.spanTo(expr.location);
+			return ParamDecl(location, type, name, expr);
+		}
+		
+		return ParamDecl(location, type, name);
+	} else {
+		location.spanTo(trange.front.location);
+		return ParamDecl(location, type);
 	}
 }
 
