@@ -93,5 +93,10 @@ final class TypeVisitor {
 			}
 		})(pass).visit(t.identifier);
 	}
+	
+	// XXX: Hack for struct constructor. Should go away.
+	QualType visit(TypeQualifier q, StructType t) {
+		return QualType(t, q);
+	}
 }
 

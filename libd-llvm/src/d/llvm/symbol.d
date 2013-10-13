@@ -39,46 +39,29 @@ final class SymbolGen {
 	LLVMValueRef visit(Function f) {
 		auto type = pass.visit(f.type);
 		
-		LLVMValueRef ret, fun;
-		if(LLVMGetTypeKind(type) == LLVMTypeKind.Struct) {
-			assert(LLVMCountStructElementTypes(type) == 2, "delegate must have 2 fields");
-			
-			LLVMTypeRef[2] types;
-			LLVMGetStructElementTypes(type, types.ptr);
-			
-			auto funType = LLVMGetElementType(types[0]);
-			ret = fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
-			
-			if(typeid(f) !is typeid(Method)) {
-				ret = LLVMGetUndef(type);
-				ret = LLVMBuildInsertValue(builder, ret, fun, 0, "");
-			}
-		} else {
-			auto funType = LLVMGetElementType(type);
-			ret = fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
-		}
+		auto funType = LLVMGetElementType(type);
+		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
-		valueSymbols[f] = ret;
+		valueSymbols[f] = fun;
 		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
 		
-		return ret;
+		return fun;
 	}
 	
 	LLVMValueRef visit(Method m) {
 		return visit(cast(Function) m);
 	}
 	
+	LLVMValueRef visit(Constructor c) {
+		return visit(cast(Function) c);
+	}
+	
 	private void genFunctionBody(Function f) {
-		auto fun = valueSymbols[f];
-		if(LLVMGetTypeKind(LLVMTypeOf(fun)) == LLVMTypeKind.Struct) {
-			fun = LLVMBuildExtractValue(builder, fun, 0, "");
-		}
-		
-		genFunctionBody(f, fun);
+		genFunctionBody(f, valueSymbols[f]);
 	}
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
@@ -89,10 +72,12 @@ final class SymbolGen {
 		// Ensure we are rentrant.
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		auto oldLabels = labels;
+		auto oldThisPtr = thisPtr;
 		
 		scope(exit) {
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			labels = oldLabels;
+			thisPtr = oldThisPtr;
 		}
 		
 		// XXX: what is the way to flush an AA ?
@@ -111,10 +96,12 @@ final class SymbolGen {
 		
 		auto parameters = f.params;
 		
+		thisPtr = null;
 		uint offset = 0;
-		if(auto dg = cast(DelegateType) f.type.type) {
+		if(!f.isStatic) {
 			offset = 1;
 			LLVMSetValueName(params[0], "this");
+			thisPtr = LLVMGetFirstParam(fun);
 		}
 		
 		foreach(i, p; parameters) {
@@ -187,6 +174,10 @@ final class SymbolGen {
 			
 			// Store the initial value into the alloca.
 			LLVMBuildStore(builder, value, alloca);
+			
+			if(var.name == "this") {
+				thisPtr = alloca;
+			}
 			
 			return alloca;
 		}

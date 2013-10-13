@@ -350,7 +350,8 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
-		return LLVMBuildLoad(builder, addressOf(e), "");
+		assert(thisPtr, "No this pointer");
+		return e.isLvalue ? LLVMBuildLoad(builder, thisPtr, "") : thisPtr;
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
@@ -380,24 +381,19 @@ final class ExpressionGen {
 			thisValue = visit(e.expr);
 		}
 		
-		LLVMValueRef dg;
+		LLVMValueRef fun;
 		if(auto m = cast(Method) e.method) {
 			auto cd = (cast(ClassType) peelAlias(e.expr.type).type).dclass;
 			assert(cd, "Virtual dispatch can only be done on classes.");
 			
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisValue, 0, ""), "vtbl");
-			auto fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
-			
-			dg = LLVMGetUndef(pass.visit(type));
-			
-			LLVMDumpValue(dg);
-			LLVMDumpValue(fun);
-			
-			dg = LLVMBuildInsertValue(builder, dg, fun, 0, "");
+			fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
 		} else {
-			dg = pass.visit(e.method);
+			fun = pass.visit(e.method);
 		}
 		
+		auto dg = LLVMGetUndef(pass.visit(type));
+		dg = LLVMBuildInsertValue(builder, dg, fun, 0, "");
 		dg = LLVMBuildInsertValue(builder, dg, thisValue, 1, "");
 		
 		return dg;
@@ -634,7 +630,8 @@ final class AddressOfGen {
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		auto ptr = visit(e.expr);
+		auto base = e.expr;
+		auto ptr = base.isLvalue ? visit(base) : pass.visit(base);
 		
 		// Pointer auto dereference in D.
 		while(1) {
@@ -652,9 +649,10 @@ final class AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {
-		// FIXME: this won't completely work, but will do the trick for now.
-		// Assume that this is passed by ref, which is true for struct but not for classes.
-		return LLVMGetFirstParam(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
+		assert(thisPtr, "no this pointer");
+		assert(e.isLvalue, "this is not an lvalue");
+		
+		return thisPtr;
 	}
 	
 	LLVMValueRef visit(UnaryExpression e) {
