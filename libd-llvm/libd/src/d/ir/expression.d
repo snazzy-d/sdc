@@ -92,7 +92,7 @@ class ThisExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return true;
+		return !(cast(ClassType) type.type);
 	}
 }
 
@@ -331,7 +331,7 @@ class FieldExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return expr.isLvalue;
+		return (cast(ClassType) expr.type.type) || expr.isLvalue;
 	}
 }
 
@@ -343,7 +343,9 @@ class MethodExpression : Expression {
 	Function method;
 	
 	this(Location location, Expression expr, Function method) {
-		super(location, method.type);
+		auto t = cast(FunctionType) method.type.type;
+		type = QualType(new DelegateType(t.linkage, t.returnType, t.paramTypes[0], t.paramTypes[1 .. $], t.isVariadic));
+		super(location, type);
 		
 		this.expr = expr;
 		this.method = method;

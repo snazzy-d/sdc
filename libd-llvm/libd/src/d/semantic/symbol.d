@@ -27,7 +27,6 @@ alias BinaryExpression = d.ir.expression.BinaryExpression;
 
 alias PointerType = d.ir.type.PointerType;
 alias FunctionType = d.ir.type.FunctionType;
-alias DelegateType = d.ir.type.DelegateType;
 
 final class SymbolVisitor {
 	private SemanticPass pass;
@@ -70,18 +69,15 @@ final class SymbolVisitor {
 		// Compute return type.
 		if(!isAuto) {
 			// If it isn't a static method, add this.
-			if(f.isStatic) {
-				// XXX: completely hacked XD
-				f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
-			} else {
+			if(!f.isStatic) {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
 				
-				f.type = QualType(new DelegateType(f.linkage, returnType, thisType, params.map!(p => p.pt).array(), fd.isVariadic));
 				params = thisParameter ~ params;
 			}
 			
+			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 			f.step = Step.Signed;
 		}
 		
@@ -105,18 +101,15 @@ final class SymbolVisitor {
 		
 		if(isAuto) {
 			// If it isn't a static method, add this.
-			if(f.isStatic) {
-				// XXX: completely hacked XD
-				f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
-			} else {
+			if(!f.isStatic) {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
 				
-				f.type = QualType(new DelegateType(f.linkage, returnType, thisType, params.map!(p => p.pt).array(), fd.isVariadic));
 				params = thisParameter ~ params;
 			}
 			
+			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 			f.step = Step.Signed;
 		}
 		
@@ -137,6 +130,64 @@ final class SymbolVisitor {
 		
 		f.step = Step.Processed;
 		return f;
+	}
+	
+	Symbol visit(Declaration d, Constructor c) {
+		auto fd = cast(FunctionDeclaration) d;
+		assert(fd);
+		
+		// XXX: maybe monad ?
+		auto params = c.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		
+		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
+		
+		assert(thisType.type, "Constructor ?");
+		if(thisType.isRef) {
+			// Struct constructors are implemented as static function returning the struct.
+			c.isStatic = true;
+			
+			returnType = ParamType(thisType.type, false);
+			
+			if(fd.fbody) {
+				import d.ast.statement;
+				AstStatement thisVar = new DeclarationStatement(new VariableDeclaration(c.location, QualAstType(thisType.type), "this", null));
+				AstStatement ret = new AstReturnStatement(c.location, new ThisExpression(c.location));
+				fd.fbody.statements = thisVar ~ fd.fbody.statements ~ ret;
+			}
+		} else {
+			returnType = ParamType(getBuiltin(TypeKind.Void), false);
+			
+			auto thisParameter = new Parameter(c.location, thisType, "this", null);
+			params = thisParameter ~ params;
+		}
+		
+		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+		c.step = Step.Signed;
+		
+		if(fd.fbody) {
+			auto oldScope = currentScope;
+			scope(exit) currentScope = oldScope;
+			
+			// Update scope.
+			currentScope = c.dscope = new NestedScope(oldScope);
+			
+			// Register parameters.
+			foreach(p; params) {
+				p.step = Step.Processed;
+				c.dscope.addSymbol(p);
+			}
+			
+			// And visit.
+			c.fbody = pass.visit(fd.fbody);
+		}
+		
+		assert(c.linkage == Linkage.D, "Linkage " ~ to!string(c.linkage) ~ " is not supported for constructors.");
+		
+		auto typeMangle = pass.typeMangler.visit(c.type);
+		c.mangle = "_D" ~ manglePrefix ~ (c.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
+		
+		c.step = Step.Processed;
+		return c;
 	}
 	
 	Symbol visit(Declaration d, Method m) {
@@ -368,15 +419,48 @@ final class SymbolVisitor {
 		foreach(m; members) {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
-				foreach(ref candidate; candidates) {
-					if(candidate && candidate.name == method.name && implicitCastFrom(pass, method.type, candidate.type)) {
-						if(method.index == 0) {
-							method.index = candidate.index;
-							candidate = null;
-							break;
-						} else {
-							assert(0, "Override not marked as override !");
+				
+				auto mt = cast(FunctionType) method.type.type;
+				auto rt = mt.returnType;
+				auto ats = mt.paramTypes[1 .. $];
+				
+				CandidatesLoop: foreach(ref candidate; candidates) {
+					if(!candidate || m.name != candidate.name) {
+						continue;
+					}
+					
+					auto ct = cast(FunctionType) candidate.type.type;
+					if(!ct || ct.isVariadic != mt.isVariadic) {
+						continue;
+					}
+					
+					auto crt = ct.returnType;
+					auto cts = ct.paramTypes[1 .. $];
+					if(ats.length != cts.length || rt.isRef != crt.isRef) {
+						continue;
+					}
+					
+					if(implicitCastFrom(pass, QualType(rt.type), QualType(crt.type)) < CastKind.Exact) {
+						continue;
+					}
+					
+					import std.range;
+					foreach(at, ct; lockstep(ats, cts)) {
+						if(at.isRef != ct.isRef) {
+							continue CandidatesLoop;
 						}
+						
+						if(implicitCastFrom(pass, QualType(ct.type), QualType(at.type)) < CastKind.Exact) {
+							continue CandidatesLoop;
+						}
+					}
+					
+					if(method.index == 0) {
+						method.index = candidate.index;
+						candidate = null;
+						break;
+					} else {
+						assert(0, "Override not marked as override !");
 					}
 				}
 				

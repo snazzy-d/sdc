@@ -168,7 +168,16 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	Ret visit(Location location, Function f) {
-		return getSymbolExpression(location, f);
+		scheduler.require(f, Step.Signed);
+		static if(asAlias) {
+			return handler(f);
+		} else {
+			return handler(
+				f.isStatic
+					? new SymbolExpression(location, f)
+					: new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f)
+			);
+		}
 	}
 	
 	Ret visit(Location location, Parameter p) {
@@ -181,7 +190,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	
 	Ret visit(Location location, Field f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new FieldExpression(location, new ThisExpression(location), f));
+		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
 	}
 	
 	Ret visit(Location location, OverloadSet s) {
