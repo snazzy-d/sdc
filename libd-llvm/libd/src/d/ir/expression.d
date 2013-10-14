@@ -278,17 +278,19 @@ class CastExpression : Expression {
  * new
  */
 class NewExpression : Expression {
-	Expression[] arguments;
+	Expression[] args;
+	Constructor ctor;
 	
-	this(Location location, QualType type, Expression[] arguments) {
+	this(Location location, QualType type, Constructor ctor, Expression[] args) {
 		super(location, type);
 		
-		this.arguments = arguments;
+		this.ctor = ctor;
+		this.args = args;
 	}
 	
 	override string toString() const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+		return "new " ~ type.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 

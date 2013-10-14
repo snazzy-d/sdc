@@ -85,12 +85,39 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return resolveInIdentifiable(location, IdentifierVisitor!identifiableHandler(pass).visit(location, s), name);
 	}
 	
+	Ret resolveInType(Location location, QualType t, string name) {
+		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
+			if(auto os = cast(OverloadSet) s) {
+				assert(os.set.length == 1);
+				
+				s = os.set[0];
+			}
+			
+			return visit(location, s);
+		}
+		
+		switch(name) {
+			case "init" :
+				assert(0, "init, yeah sure . . .");
+			
+			case "sizeof" :
+				return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
+			
+			default :
+				throw new CompileException(location, name ~ " can't be resolved in type " ~ t.toString());
+		}
+	}
+	
+	Ret resolveInExpression(Location location, Expression e, string name) {
+		return ExpressionDotIdentifierVisitor!handler(pass).visit(location, name, e);
+	}
+	
 	private Ret resolveInIdentifiable(Location location, Identifiable i, string name) {
 		return i.apply!(delegate Ret(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return TypeDotIdentifierVisitor!handler(pass).visit(location, name, identified);
+				return resolveInType(location, identified, name);
 			} else static if(is(typeof(identified) : Expression)) {
-				return ExpressionDotIdentifierVisitor!handler(pass).visit(location, name, identified);
+				return resolveInExpression(location, identified, name);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				
@@ -110,7 +137,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	Ret visit(TypeDotIdentifier i) {
-		return TypeDotIdentifierVisitor!handler(pass).visit(i);
+		return resolveInType(i.location, pass.visit(i.type), i.name);
 	}
 	
 	Ret visit(TemplateInstanciationDotIdentifier i) {
@@ -178,6 +205,10 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 					: new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f)
 			);
 		}
+	}
+	
+	Ret visit(Location location, Constructor c) {
+		return getSymbolExpression(location, c);
 	}
 	
 	Ret visit(Location location, Parameter p) {
@@ -390,55 +421,6 @@ auto apply(alias handler)(Identifiable i) {
 }
 
 /**
- * Resolve type.identifier as type or expression.
- */
-struct TypeDotIdentifierVisitor(alias handler) {
-	private SemanticPass pass;
-	alias pass this;
-	
-	alias Ret = typeof(handler(null));
-		
-	this(SemanticPass pass) {
-		this.pass = pass;
-	}
-	
-	Ret visit(TypeDotIdentifier i) {
-		return visit(i.location, i.name, pass.visit(i.type));
-	}
-	
-	Ret visit(Location location, string name, QualType t) {
-		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
-			if(auto os = cast(OverloadSet) s) {
-				assert(os.set.length == 1);
-				
-				s = os.set[0];
-			}
-			
-			if(auto ts = cast(TypeSymbol) s) {
-				// XXX: Avoid recusrive instanciation (should work but do not).
-				return IdentifierVisitor!identifiableHandler(pass).visit(location, ts).apply!handler();
-			} else if(auto vs = cast(ValueSymbol) s) {
-				scheduler.require(s, Step.Signed);
-				return handler(new SymbolExpression(location, vs));
-			} else {
-				throw new CompileException(s.location, "What the hell is that symbol ???");
-			}
-		}
-		
-		switch(name) {
-			case "init" :
-				assert(0, "init, yeah sure . . .");
-			
-			case "sizeof" :
-				return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
-			
-			default :
-				throw new CompileException(location, name ~ " can't be resolved in type");
-		}
-	}
-}
-
-/**
  * Resolve expression.identifier as type or expression.
  */
 struct ExpressionDotIdentifierVisitor(alias handler) {
@@ -462,7 +444,7 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 		
 		// Not found in expression, delegating to type.
 		// XXX: Use apply here as we can't pass several contexts.
-		return TypeDotIdentifierVisitor!identifiableHandler(pass).visit(location, name, e.type).apply!((identified) {
+		return IdentifierVisitor!identifiableHandler(pass).resolveInType(location, e.type, name).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				// expression.sizeof or similar stuffs.
 				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
@@ -572,7 +554,21 @@ struct SymbolInTypeResolver {
 		auto c = t.dclass;
 		scheduler.require(c, Step.Populated);
 		
-		return c.dscope.resolve(name);
+		auto s = c.dscope.resolve(name);
+		if(s) {
+			return s;
+		}
+		
+		while(c !is c.base) {
+			c = c.base;
+			
+			s = c.dscope.resolve(name);
+			if(s) {
+				return s;
+			}
+		}
+		
+		return null;
 	}
 	
 	Symbol visit(string name, EnumType t) {
@@ -580,7 +576,7 @@ struct SymbolInTypeResolver {
 		scheduler.require(e, Step.Populated);
 		
 		auto s = e.dscope.resolve(name);
-		return s?s:visit(name, QualType(t.denum.type));
+		return s ? s : visit(name, QualType(t.denum.type));
 	}
 }
 

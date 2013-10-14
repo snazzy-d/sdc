@@ -400,7 +400,7 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(NewExpression e) {
-		assert(e.arguments.length == 0);
+		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
 		LLVMValueRef initValue;
@@ -408,6 +408,11 @@ final class ExpressionGen {
 			type = LLVMGetElementType(type);
 			
 			initValue = getNewInit(ct.dclass);
+		}
+		
+		auto ctor = e.ctor;
+		if(ctor.isStatic) {
+			initValue = LLVMBuildCall(builder, pass.visit(ctor), args.ptr, cast(uint) args.length, "");
 		}
 		
 		LLVMValueRef size = LLVMSizeOf(type);
@@ -418,6 +423,14 @@ final class ExpressionGen {
 		if(initValue) {
 			initValue = LLVMBuildLoad(builder, initValue, "");
 			LLVMBuildStore(builder, initValue, ptr);
+		}
+		
+		if(!ctor.isStatic) {
+			auto fun = pass.visit(ctor);
+			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(fun)), "");
+			
+			args = castedPtr ~ args;
+			LLVMBuildCall(builder, fun, args.ptr, cast(uint) args.length, "");
 		}
 		
 		return ptr;

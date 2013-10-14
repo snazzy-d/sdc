@@ -18,7 +18,9 @@ extern (C) {
 	int printf(const char* fmt, ...);
 }
 
-class Object {}
+class Object {
+	this() {}
+}
 
 class Exception {}
 
