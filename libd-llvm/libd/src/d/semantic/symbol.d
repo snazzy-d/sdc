@@ -338,7 +338,7 @@ final class SymbolVisitor {
 			methodIndex = oldMethodIndex;
 		}
 		
-		currentScope = c.dscope = new SymbolScope(c, oldScope);
+		auto dscope = currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
 		
 		// Update mangle prefix.

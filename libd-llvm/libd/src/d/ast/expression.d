@@ -322,18 +322,18 @@ class IdentifierExpression : AstExpression {
  */
 class NewExpression : AstExpression {
 	QualAstType type;
-	AstExpression[] arguments;
+	AstExpression[] args;
 	
-	this(Location location, QualAstType type, AstExpression[] arguments) {
+	this(Location location, QualAstType type, AstExpression[] args) {
 		super(location);
 		
 		this.type = type;
-		this.arguments = arguments;
+		this.args = args;
 	}
 	
 	override string toString() const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+		return "new " ~ type.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 
