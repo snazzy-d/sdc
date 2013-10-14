@@ -605,9 +605,43 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstNewExpression e) {
-		assert(e.arguments.length == 0, "constructor not supported");
+		auto t = peelAlias(pass.visit(e.type));
+		assert(cast(ClassType) t.type, "Only classes for now.");
 		
-		return new NewExpression(e.location, pass.visit(e.type), []);
+		auto args = e.args.map!(a => visit(a)).array();
+		
+		auto ctor = IdentifierVisitor!(delegate Constructor(identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				auto ctor = cast(Constructor) identified;
+				assert(ctor);
+				
+				return ctor;
+			} else {
+				static if(is(typeof(identified) : Expression)) {
+					import std.stdio;
+					auto blob = cast(SymbolExpression) identified;
+					writeln(typeid({ return blob.symbol; }()).toString());
+				}
+				
+				assert(0, "Gimme some construtor !");
+			}
+		}, true)(pass).resolveInType(e.location, t, "__ctor");
+		
+		auto type = cast(FunctionType) peelAlias(ctor.type).type;
+		if(!type) {
+			return pass.raiseCondition!Expression(e.location, "Invalid constructor.");
+		}
+		
+		auto paramTypes = ctor.isStatic
+			? type.paramTypes
+			: type.paramTypes[1 .. $];
+		
+		assert(args.length >= paramTypes.length);
+		foreach(ref arg, pt; lockstep(args, paramTypes)) {
+			arg = buildArgument(arg, pt);
+		}
+		
+		return new NewExpression(e.location, t, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
