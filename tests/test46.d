@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:13
 
 class Test {
