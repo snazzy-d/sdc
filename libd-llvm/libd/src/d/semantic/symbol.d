@@ -73,7 +73,6 @@ final class SymbolVisitor {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
-				
 				params = thisParameter ~ params;
 			}
 			
@@ -105,7 +104,6 @@ final class SymbolVisitor {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
-				
 				params = thisParameter ~ params;
 			}
 			
@@ -141,25 +139,25 @@ final class SymbolVisitor {
 		
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
 		
-		auto thisParameter = new Parameter(c.location, ParamType(thisType.type, false), "this", null);
-		params = thisParameter ~ params;
-		
 		auto fbody = fd.fbody;
 		
+		auto ctorThis = thisType;
+		
 		assert(thisType.type, "Constructor ?");
-		if(thisType.isRef) {
+		if(ctorThis.isRef) {
+			ctorThis.isRef = false;
 			returnType = ParamType(thisType.type, false);
 			
-			c.isStatic = true;
-			c.params = params;
-			
-			if(fd.fbody) {
+			if(fbody) {
 				import d.ast.statement;
 				fbody.statements ~= new AstReturnStatement(c.location, new ThisExpression(c.location));
 			}
 		} else {
 			returnType = ParamType(getBuiltin(TypeKind.Void), false);
 		}
+		
+		auto thisParameter = new Parameter(c.location, ctorThis, "this", null);
+		params = thisParameter ~ params;
 		
 		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 		c.step = Step.Signed;
@@ -340,6 +338,7 @@ final class SymbolVisitor {
 		
 		auto dscope = currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
+		thisType.isFinal = true;
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
