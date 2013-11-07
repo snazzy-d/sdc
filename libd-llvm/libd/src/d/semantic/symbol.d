@@ -141,30 +141,30 @@ final class SymbolVisitor {
 		
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
 		
+		auto thisParameter = new Parameter(c.location, ParamType(thisType.type, false), "this", null);
+		params = thisParameter ~ params;
+		
+		auto fbody = fd.fbody;
+		
 		assert(thisType.type, "Constructor ?");
 		if(thisType.isRef) {
-			// Struct constructors are implemented as static function returning the struct.
-			c.isStatic = true;
-			
 			returnType = ParamType(thisType.type, false);
+			
+			c.isStatic = true;
+			c.params = params;
 			
 			if(fd.fbody) {
 				import d.ast.statement;
-				AstStatement thisVar = new DeclarationStatement(new VariableDeclaration(c.location, QualAstType(thisType.type), "this", null));
-				AstStatement ret = new AstReturnStatement(c.location, new ThisExpression(c.location));
-				fd.fbody.statements = thisVar ~ fd.fbody.statements ~ ret;
+				fbody.statements ~= new AstReturnStatement(c.location, new ThisExpression(c.location));
 			}
 		} else {
 			returnType = ParamType(getBuiltin(TypeKind.Void), false);
-			
-			auto thisParameter = new Parameter(c.location, thisType, "this", null);
-			params = thisParameter ~ params;
 		}
 		
 		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 		c.step = Step.Signed;
 		
-		if(fd.fbody) {
+		if(fbody) {
 			auto oldScope = currentScope;
 			scope(exit) currentScope = oldScope;
 			
@@ -178,7 +178,7 @@ final class SymbolVisitor {
 			}
 			
 			// And visit.
-			c.fbody = pass.visit(fd.fbody);
+			c.fbody = pass.visit(fbody);
 		}
 		
 		assert(c.linkage == Linkage.D, "Linkage " ~ to!string(c.linkage) ~ " is not supported for constructors.");

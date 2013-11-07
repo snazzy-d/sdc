@@ -435,7 +435,7 @@ final class ExpressionVisitor {
 				auto t = cast(StructType) identified.type;
 				assert(t, "Struct");
 				
-				auto callee = handleCtor(c.location, c.callee.location, t.dstruct, args);
+				auto callee = handleCtor(c.location, c.callee.location, t, args);
 				return handleCall(c.location, callee, args);
 			} else {
 				static if(is(T : Symbol)) {
@@ -453,14 +453,16 @@ final class ExpressionVisitor {
 		})(pass).visit(c.callee);
 	}
 	
-	private Expression handleCtor(Location location, Location iloc, Struct s, Expression[] args) {
+	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
-				return identified;
-			} else {
-				return pass.raiseCondition!Expression(location, s.name ~ " isn't callable.");
+			static if(is(typeof(identified) : Symbol)) {
+				if (auto c = cast(Constructor) identified) {
+					return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+				}
 			}
-		})(pass).resolveInSymbol(location, s, "__ctor");
+			
+			return pass.raiseCondition!Expression(location, type.dstruct.name ~ " isn't callable.");
+		}, true)(pass).resolveInSymbol(location, type.dstruct, "__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
