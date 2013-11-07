@@ -24,14 +24,6 @@ ALL_TARGET ?= $(LIBD)
 
 LIBD_IMPORTS = -I$(LIBD_ROOT)/src
 
-DMD_SRC_BOGOUS = \
-	$(LIBD_ROOT)/src/d/parser/expression.d \
-	$(LIBD_ROOT)/src/d/semantic/declaration.d \
-	$(LIBD_ROOT)/src/d/semantic/dmodule.d \
-	$(LIBD_ROOT)/src/d/semantic/dtemplate.d \
-	$(LIBD_ROOT)/src/d/semantic/semantic.d \
-	$(LIBD_ROOT)/src/d/semantic/statement.d
-
 all: $(ALL_TARGET)
 
 $(LIBD): obj/base.o obj/util.o obj/ast.o obj/ir.o obj/parser.o obj/processor.o $(LIBD_SEMANTIC_OBJ)
@@ -56,29 +48,11 @@ obj/ir.o: $(LIBD_DEP_IR)
 
 obj/parser.o: $(LIBD_DEP_PARSER)
 	@mkdir -p obj
-	# workaround the previous workaroung that cause expression to be generated twice.
-	$(DMD) -c -of$@ $$(echo $(LIBD_SRC_PARSER) | sed 's/ /\n/g' | grep -v expression) $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of$@ $(LIBD_SRC_PARSER) $(DFLAGS) $(LIBD_IMPORTS)
 
 obj/processor.o: $(LIBD_DEP_PROCESSOR)
 	@mkdir -p obj
 	$(DMD) -c -of$@ $(LIBD_SRC_PROCESSOR) $(DFLAGS) $(LIBD_IMPORTS)
-
-obj/semantic/declaration.o: obj/semantic/semantic.o
-	touch $@
-
-obj/semantic/dmodule.o: obj/semantic/semantic.o
-	touch $@
-
-obj/semantic/dtemplate.o: obj/semantic/semantic.o
-	touch $@
-
-obj/semantic/semantic.o: $(LIBD_DEP_SEMANTIC) $(LIBD_DEP_PARSER)
-	@mkdir -p obj/semantic
-	# workaround dmd bug : need parser/expression
-	$(DMD) -c -of$@ $(DMD_SRC_BOGOUS) $(DFLAGS) $(LIBD_IMPORTS)
-
-obj/semantic/statement.o: obj/semantic/semantic.o
-	touch $@
 
 obj/semantic/%.o: $(LIBD_ROOT)/src/d/semantic/%.d $(LIBD_DEP_SEMANTIC)
 	@mkdir -p obj/semantic

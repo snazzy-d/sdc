@@ -53,7 +53,8 @@ struct ParamType(T) if(is(T : AstType)) {
 		TypeQualifier, "qualifier", 3,
 		bool, "isRef", 1,
 		bool, "isScope", 1,
-		int, "", 3,
+		bool, "isFinal", 1,
+		int, "", 2,
 	));
 	
 	this(QualType!T t, bool isRef) {

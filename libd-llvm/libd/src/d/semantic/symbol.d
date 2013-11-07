@@ -73,7 +73,6 @@ final class SymbolVisitor {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
-				
 				params = thisParameter ~ params;
 			}
 			
@@ -105,7 +104,6 @@ final class SymbolVisitor {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
 				auto thisParameter = new Parameter(f.location, thisType, "this", null);
-				
 				params = thisParameter ~ params;
 			}
 			
@@ -141,30 +139,30 @@ final class SymbolVisitor {
 		
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
 		
+		auto fbody = fd.fbody;
+		
+		auto ctorThis = thisType;
+		
 		assert(thisType.type, "Constructor ?");
-		if(thisType.isRef) {
-			// Struct constructors are implemented as static function returning the struct.
-			c.isStatic = true;
-			
+		if(ctorThis.isRef) {
+			ctorThis.isRef = false;
 			returnType = ParamType(thisType.type, false);
 			
-			if(fd.fbody) {
+			if(fbody) {
 				import d.ast.statement;
-				AstStatement thisVar = new DeclarationStatement(new VariableDeclaration(c.location, QualAstType(thisType.type), "this", null));
-				AstStatement ret = new AstReturnStatement(c.location, new ThisExpression(c.location));
-				fd.fbody.statements = thisVar ~ fd.fbody.statements ~ ret;
+				fbody.statements ~= new AstReturnStatement(c.location, new ThisExpression(c.location));
 			}
 		} else {
 			returnType = ParamType(getBuiltin(TypeKind.Void), false);
-			
-			auto thisParameter = new Parameter(c.location, thisType, "this", null);
-			params = thisParameter ~ params;
 		}
+		
+		auto thisParameter = new Parameter(c.location, ctorThis, "this", null);
+		params = thisParameter ~ params;
 		
 		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 		c.step = Step.Signed;
 		
-		if(fd.fbody) {
+		if(fbody) {
 			auto oldScope = currentScope;
 			scope(exit) currentScope = oldScope;
 			
@@ -178,7 +176,7 @@ final class SymbolVisitor {
 			}
 			
 			// And visit.
-			c.fbody = pass.visit(fd.fbody);
+			c.fbody = pass.visit(fbody);
 		}
 		
 		assert(c.linkage == Linkage.D, "Linkage " ~ to!string(c.linkage) ~ " is not supported for constructors.");
@@ -340,6 +338,7 @@ final class SymbolVisitor {
 		
 		auto dscope = currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
+		thisType.isFinal = true;
 		
 		// Update mangle prefix.
 		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;

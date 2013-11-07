@@ -97,23 +97,34 @@ final class SymbolGen {
 		auto parameters = f.params;
 		
 		thisPtr = null;
-		uint offset = 0;
 		if(!f.isStatic) {
-			offset = 1;
-			LLVMSetValueName(params[0], "this");
-			thisPtr = LLVMGetFirstParam(fun);
+			auto type = (cast(FunctionType) f.type.type).paramTypes[0];
+			auto value = params[0];
+			
+			if(type.isRef || type.isFinal) {
+				LLVMSetValueName(value, "this");
+				thisPtr = LLVMGetFirstParam(fun);
+			} else {
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[0], "this");
+				LLVMSetValueName(value, "arg.this");
+				
+				LLVMBuildStore(builder, value, alloca);
+				thisPtr = alloca;
+			}
+			
+			params = params[1 .. $];
+			paramTypes = paramTypes[1 .. $];
 		}
 		
 		foreach(i, p; parameters) {
-			auto value = params[i + offset];
+			auto type = p.pt;
+			auto value = params[i];
 			
-			if(p.pt.isRef) {
+			if(type.isRef || type.isFinal) {
 				LLVMSetValueName(value, p.name.toStringz());
-				
 				valueSymbols[p] = value;
 			} else {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[i + offset], p.name.toStringz());
-				
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], p.name.toStringz());
 				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
 				
 				LLVMBuildStore(builder, value, alloca);
