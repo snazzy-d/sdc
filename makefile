@@ -38,10 +38,4 @@ clean:
 doc:
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
 
-run: $(SDC)
-	./$(SDC) -Ilibs tests/test0.d -V
-
-debug: $(SDC)
-	gdb --args ./$(SDC) -Ilibs tests/test0.d -V --no-colour-print
-
 .PHONY: clean run debug doc

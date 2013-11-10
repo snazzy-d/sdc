@@ -193,60 +193,40 @@ class AstCastExpression : AstExpression {
  */
 class CallExpression(T) if(is(T: AstExpression)) : T {
 	T callee;
-	T[] arguments;
+	T[] args;
 	
-	this(U...)(Location location, U args, T callee, T[] arguments) {
-		super(location, args);
+	this(U...)(Location location, U pargs, T callee, T[] args) {
+		super(location, pargs);
 		
 		this.callee = callee;
-		this.arguments = arguments;
+		this.args = args;
 	}
 	
 	override string toString() const {
 		import std.algorithm, std.range;
-		return callee.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+		return callee.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 
 alias AstCallExpression = CallExpression!AstExpression;
 
 /**
- * Constructor calls.
- */
-class ConstructionExpression : AstExpression {
-	QualAstType type;
-	AstExpression[] arguments;
-	
-	this(Location location, QualAstType type, AstExpression[] arguments) {
-		super(location);
-		
-		this.type = type;
-		this.arguments = arguments;
-	}
-	
-	override string toString() const {
-		import std.algorithm, std.range;
-		return type.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
-	}
-}
-
-/**
  * Indetifier calls.
  */
 class IdentifierCallExpression : AstExpression {
 	Identifier callee;
-	AstExpression[] arguments;
+	AstExpression[] args;
 	
-	this(Location location, Identifier callee, AstExpression[] arguments) {
+	this(Location location, Identifier callee, AstExpression[] args) {
 		super(location);
 		
 		this.callee = callee;
-		this.arguments = arguments;
+		this.args = args;
 	}
 	
 	override string toString() const {
 		import std.algorithm, std.range;
-		return callee.toString() ~ "(" ~ arguments.map!(a => a.toString()).join(", ") ~ ")";
+		return callee.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
 	}
 }
 

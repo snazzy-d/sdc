@@ -33,7 +33,6 @@ alias PointerType = d.ir.type.PointerType;
 alias SliceType = d.ir.type.SliceType;
 alias ArrayType = d.ir.type.ArrayType;
 alias FunctionType = d.ir.type.FunctionType;
-alias DelegateType = d.ir.type.DelegateType;
 
 final class ExpressionVisitor {
 	private SemanticPass pass;
@@ -390,17 +389,13 @@ final class ExpressionVisitor {
 	
 	Expression visit(AstCallExpression c) {
 		auto callee = visit(c.callee);
-		auto args = c.arguments.map!(a => visit(a)).array();
-		
-		if(auto asPolysemous = cast(PolysemousExpression) callee) {
-			callee = chooseOverload(c.location, asPolysemous.expressions, args);
-		}
+		auto args = c.args.map!(a => visit(a)).array();
 		
 		return handleCall(c.location, callee, args);
 	}
 	
 	Expression visit(IdentifierCallExpression c) {
-		auto args = c.arguments.map!(a => visit(a)).array();
+		auto args = c.args.map!(a => visit(a)).array();
 		
 		// XXX: massive duplication in the callback. DMD won't accept anything else :(
 		import d.ast.identifier;
@@ -435,7 +430,7 @@ final class ExpressionVisitor {
 				auto t = cast(StructType) identified.type;
 				assert(t, "Struct");
 				
-				auto callee = handleCtor(c.location, c.callee.location, t.dstruct, args);
+				auto callee = handleCtor(c.location, c.callee.location, t, args);
 				return handleCall(c.location, callee, args);
 			} else {
 				static if(is(T : Symbol)) {
@@ -453,14 +448,16 @@ final class ExpressionVisitor {
 		})(pass).visit(c.callee);
 	}
 	
-	private Expression handleCtor(Location location, Location iloc, Struct s, Expression[] args) {
+	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
-				return identified;
-			} else {
-				return pass.raiseCondition!Expression(location, s.name ~ " isn't callable.");
+			static if(is(typeof(identified) : Symbol)) {
+				if (auto c = cast(Constructor) identified) {
+					return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+				}
 			}
-		})(pass).resolveInSymbol(location, s, "__ctor");
+			
+			return pass.raiseCondition!Expression(location, type.dstruct.name ~ " isn't callable.");
+		}, true)(pass).resolveInSymbol(location, type.dstruct, "__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
@@ -510,7 +507,7 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			assert(0, "type is not a function type");
+			assert(0, e.type.toString() ~ " is not a function type");
 		});
 		
 		auto level = MatchLevel.Not;
@@ -582,15 +579,16 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression handleCall(Location location, Expression callee, Expression[] args) {
+		if(auto asPolysemous = cast(PolysemousExpression) callee) {
+			callee = chooseOverload(location, asPolysemous.expressions, args);
+		}
+		
 		auto type = peelAlias(callee.type).type;
 		ParamType[] paramTypes;
 		ParamType returnType;
 		if(auto f = cast(FunctionType) type) {
 			paramTypes = f.paramTypes;
 			returnType = f.returnType;
-		} else if(auto d = cast(DelegateType) type) {
-			paramTypes = d.paramTypes;
-			returnType = d.returnType;
 		} else {
 			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString());
 		}
