@@ -346,7 +346,8 @@ class MethodExpression : Expression {
 	
 	this(Location location, Expression expr, Function method) {
 		auto t = cast(FunctionType) method.type.type;
-		type = QualType(new DelegateType(t.linkage, t.returnType, t.paramTypes[0], t.paramTypes[1 .. $], t.isVariadic));
+		type = QualType(new DelegateType(t));
+		
 		super(location, type);
 		
 		this.expr = expr;

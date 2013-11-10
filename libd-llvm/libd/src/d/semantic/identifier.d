@@ -465,7 +465,14 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 			return visit(location, e, s.set[0]);
 		}
 		
-		assert(0, "not implemented: return identifiable pack");
+		return handler(new PolysemousExpression(location, s.set.map!(delegate Expression(s) {
+			if(auto f = cast(Function) s) {
+				pass.scheduler.require(f, Step.Signed);
+				return new MethodExpression(location, e, f);
+			}
+			
+			assert(0, "not implemented: template with context");
+		}).array()));
 	}
 	
 	Ret visit(Location location, Expression e, Field f) {
