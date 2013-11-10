@@ -19,6 +19,36 @@ abstract class AstType {
 alias QualAstType = QualType!AstType;
 alias ParamAstType = ParamType!AstType;
 
+/**
+ * Function types
+ */
+class FunctionType(T) if(is(T : AstType)) : T {
+	ParamType!T returnType;
+	ParamType!T[] paramTypes;
+	
+	import std.bitmanip;
+	mixin(bitfields!(
+		Linkage, "linkage", 3,
+		bool, "isVariadic", 1,
+		uint, "", 4,
+	));
+	
+	this(Linkage linkage, ParamType!T returnType, ParamType!T[] paramTypes, bool isVariadic) {
+		this.returnType = returnType;
+		this.paramTypes = paramTypes;
+		this.linkage = linkage;
+		this.isVariadic = isVariadic;
+	}
+	
+	override string toString(TypeQualifier qual) const {
+		import std.algorithm, std.range;
+		return returnType.toString(qual) ~ " function(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...)":")");
+	}
+}
+
+alias AstFunctionType = FunctionType!AstType;
+alias QualAstFunctionType = QualType!AstFunctionType;
+
 final:
 /**
  * Type inference
@@ -137,69 +167,26 @@ class IdentifierArrayType : AstType {
 }
 
 /**
- * Function types
- */
-class FunctionType(T) if(is(T : AstType)) : T {
-	ParamType!T returnType;
-	ParamType!T[] paramTypes;
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		Linkage, "linkage", 3,
-		bool, "isVariadic", 1,
-		uint, "", 4,
-	));
-	
-	this(Linkage linkage, ParamType!T returnType, ParamType!T[] paramTypes, bool isVariadic) {
-		this.returnType = returnType;
-		this.paramTypes = paramTypes;
-		this.linkage = linkage;
-		this.isVariadic = isVariadic;
-	}
-	
-	override string toString(TypeQualifier qual) const {
-		import std.algorithm, std.range;
-		return returnType.toString(qual) ~ " function(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...)":")");
-	}
-}
-
-alias AstFunctionType = FunctionType!AstType;
-alias QualAstFunctionType = QualType!AstFunctionType;
-
-/**
  * Delegate types
  */
-class DelegateType(T) if(is(T : AstType)) : T {
-	ParamType!T returnType;
+class DelegateType(T) if(is(T : AstType)) : FunctionType!T {
 	ParamType!T context;
-	ParamType!T[] paramTypes;
 	
-	import std.bitmanip;
-	mixin(bitfields!(
-		Linkage, "linkage", 3,
-		bool, "isVariadic", 1,
-		uint, "", 4,
-	));
-	
-	this(Linkage linkage,  ParamType!T returnType,  ParamType!T context, ParamType!T[] paramTypes, bool isVariadic) {
-		this.returnType = returnType;
+	this(Linkage linkage, ParamType!T returnType, ParamType!T context, ParamType!T[] paramTypes, bool isVariadic) {
+		super(linkage, returnType, paramTypes, isVariadic);
+		
 		this.context = context;
-		this.paramTypes = paramTypes;
-		this.linkage = linkage;
-		this.isVariadic = isVariadic;
 	}
 	
 	this(FunctionType!T t) {
-		returnType = t.returnType;
+		super(t.linkage, t.returnType, t.paramTypes[1 .. $], t.isVariadic);
+		
 		context = t.paramTypes[0];
-		paramTypes = t.paramTypes[1 .. $];
-		linkage = t.linkage;
-		isVariadic = t.isVariadic;
 	}
 	
 	override string toString(TypeQualifier qual) const {
 		import std.algorithm, std.range;
-		return returnType.toString(qual) ~ " delegate(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...)":")");
+		return returnType.toString(qual) ~ " delegate(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...) ":") ") ~ context.toString();
 	}
 }
 
