@@ -87,12 +87,6 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	
 	Ret resolveInType(Location location, QualType t, string name) {
 		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
-			if(auto os = cast(OverloadSet) s) {
-				assert(os.set.length == 1);
-				
-				s = os.set[0];
-			}
-			
 			return visit(location, s);
 		}
 		

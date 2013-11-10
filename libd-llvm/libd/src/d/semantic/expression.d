@@ -388,6 +388,13 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstCallExpression c) {
+		// TODO: check if we are in a constructor.
+		if(cast(ThisExpression) c.callee) {
+			import d.ast.identifier;
+			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, "__ctor", c.callee), c.args));
+			return new BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
+		}
+		
 		auto callee = visit(c.callee);
 		auto args = c.args.map!(a => visit(a)).array();
 		
@@ -450,9 +457,18 @@ final class ExpressionVisitor {
 	
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Symbol)) {
+			alias T = typeof(identified);
+			static if(is(T : Symbol)) {
 				if (auto c = cast(Constructor) identified) {
 					return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+				} else if(auto s = cast(OverloadSet) identified) {
+					return new PolysemousExpression(iloc, s.set.map!(delegate Expression(s) {
+						if (auto c = cast(Constructor) s) {
+							return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+						}
+						
+						assert(0, "not a constructor");
+					}).array());
 				}
 			}
 			
