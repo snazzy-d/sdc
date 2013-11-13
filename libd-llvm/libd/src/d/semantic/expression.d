@@ -619,43 +619,39 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstNewExpression e) {
-		auto t = peelAlias(pass.visit(e.type));
-		assert(cast(ClassType) t.type, "Only classes for now.");
-		
 		auto args = e.args.map!(a => visit(a)).array();
 		
-		auto ctor = IdentifierVisitor!(delegate Constructor(identified) {
+		auto type = pass.visit(e.type);
+		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
-				auto ctor = cast(Constructor) identified;
-				assert(ctor);
-				
-				return ctor;
-			} else {
-				static if(is(typeof(identified) : Expression)) {
-					import std.stdio;
-					auto blob = cast(SymbolExpression) identified;
-					writeln(typeid({ return blob.symbol; }()).toString());
+				if(auto c = cast(Constructor) identified) {
+					return new SymbolExpression(e.location, c);
+				} else if(auto s = cast(OverloadSet) identified) {
+					assert(0, "Constructor overlaod not supported.");
 				}
-				
-				assert(0, "Gimme some construtor !");
 			}
-		}, true)(pass).resolveInType(e.location, t, "__ctor");
+			
+			assert(0, "Gimme some construtor !");
+		}, true)(pass).resolveInType(e.location, type, "__ctor");
 		
-		auto type = cast(FunctionType) peelAlias(ctor.type).type;
-		if(!type) {
+		auto funType = cast(FunctionType) peelAlias(ctor.type).type;
+		if(!funType) {
 			return pass.raiseCondition!Expression(e.location, "Invalid constructor.");
 		}
 		
-		auto paramTypes = ctor.isStatic
-			? type.paramTypes
-			: type.paramTypes[1 .. $];
+		// First parameter is compiler magic.
+		auto paramTypes = funType.paramTypes[1 .. $];
 		
 		assert(args.length >= paramTypes.length);
 		foreach(ref arg, pt; lockstep(args, paramTypes)) {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new NewExpression(e.location, t, ctor, args);
+		if(!cast(ClassType) peelAlias(type).type) {
+			type = QualType(new PointerType(type));
+		}
+		
+		return new NewExpression(e.location, type, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
