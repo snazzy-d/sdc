@@ -53,15 +53,19 @@ final class TypeGen {
 		
 		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(context, cast(char*) s.mangle.toStringz());
 		
-		LLVMTypeRef[] members;
-		
+		LLVMTypeRef[] types;
 		foreach(member; s.members) {
 			if(auto f = cast(Field) member) {
-				members ~= pass.visit(f.type);
+				types ~= pass.visit(f.type);
 			}
 		}
 		
-		LLVMStructSetBody(llvmStruct, members.ptr, cast(uint) members.length, false);
+		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
+		
+		auto init = cast(Variable) s.dscope.resolve("init");
+		assert(init);
+		
+		newInits[s] = pass.visit(init);
 		
 		return llvmStruct;
 	}

@@ -400,37 +400,33 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(NewExpression e) {
+		auto ctor = visit(e.ctor);
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		LLVMValueRef initValue;
-		if(auto ct = cast(ClassType) peelAlias(e.type).type) {
-			type = LLVMGetElementType(type);
-			
-			initValue = getNewInit(ct.dclass);
-		}
-		
-		auto ctor = e.ctor;
-		if(ctor.isStatic) {
-			initValue = LLVMBuildCall(builder, pass.visit(ctor), args.ptr, cast(uint) args.length, "");
-		}
-		
 		LLVMValueRef size = LLVMSizeOf(type);
 		
 		auto alloc = LLVMBuildCall(builder, druntimeGen.getAllocMemory(), &size, 1, "");
-		auto ptr = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(type, 0), "");
+		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		
-		if(initValue) {
-			initValue = LLVMBuildLoad(builder, initValue, "");
-			LLVMBuildStore(builder, initValue, ptr);
-		}
-		
-		if(!ctor.isStatic) {
-			auto fun = pass.visit(ctor);
-			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(fun)), "");
+		auto dt = peelAlias(e.type).type;
+		if(auto pt = cast(PointerType) dt) {
+			auto st = cast(StructType) peelAlias(pt.pointed).type;
+			auto init = LLVMBuildLoad(builder, getNewInit(st.dstruct), "");
+			args = init ~ args;
+			
+			auto obj = LLVMBuildCall(builder, ctor, args.ptr, cast(uint) args.length, "");
+			LLVMBuildStore(builder, obj, ptr);
+		} else if(auto ct = cast(ClassType) dt) {
+			auto init = LLVMBuildLoad(builder, getNewInit(ct.dclass), "");
+			LLVMBuildStore(builder, init, ptr);
+			
+			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(ctor)), "");
 			
 			args = castedPtr ~ args;
-			LLVMBuildCall(builder, fun, args.ptr, cast(uint) args.length, "");
+			LLVMBuildCall(builder, ctor, args.ptr, cast(uint) args.length, "");
+		} else {
+			assert(0, "not implemented");
 		}
 		
 		return ptr;
