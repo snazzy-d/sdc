@@ -436,6 +436,12 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 			return visit(location, e, s);
 		}
 		
+		// XXX: probably bogus, should probably be done after delegating to type.
+		if(auto pt = cast(PointerType) peelAlias(e.type).type) {
+			e = new UnaryExpression(e.location, pt.pointed, UnaryOp.Dereference, e);
+			return visit(location, name, e);
+		}
+		
 		// Not found in expression, delegating to type.
 		// XXX: Use apply here as we can't pass several contexts.
 		return IdentifierVisitor!identifiableHandler(pass).resolveInType(location, e.type, name).apply!((identified) {
