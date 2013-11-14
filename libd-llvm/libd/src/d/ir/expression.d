@@ -279,9 +279,9 @@ class CastExpression : Expression {
  */
 class NewExpression : Expression {
 	Expression[] args;
-	Constructor ctor;
+	Expression ctor;
 	
-	this(Location location, QualType type, Constructor ctor, Expression[] args) {
+	this(Location location, QualType type, Expression ctor, Expression[] args) {
 		super(location, type);
 		
 		this.ctor = ctor;

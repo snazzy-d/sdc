@@ -87,12 +87,6 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	
 	Ret resolveInType(Location location, QualType t, string name) {
 		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
-			if(auto os = cast(OverloadSet) s) {
-				assert(os.set.length == 1);
-				
-				s = os.set[0];
-			}
-			
 			return visit(location, s);
 		}
 		
@@ -440,6 +434,12 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 	Ret visit(Location location, string name, Expression e) {
 		if(auto s = SymbolInTypeResolver(pass).visit(name, e.type)) {
 			return visit(location, e, s);
+		}
+		
+		// XXX: probably bogus, should probably be done after delegating to type.
+		if(auto pt = cast(PointerType) peelAlias(e.type).type) {
+			e = new UnaryExpression(e.location, pt.pointed, UnaryOp.Dereference, e);
+			return visit(location, name, e);
 		}
 		
 		// Not found in expression, delegating to type.

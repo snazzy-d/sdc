@@ -13,7 +13,7 @@ include $(LIBD_LLVM_ROOT)/libd/makefile.common
 
 LIBD_LLVM_IMPORTS = -I$(LIBD_LLVM_ROOT)/import $(LIBD_IMPORTS)
 
-$(LIBD_LLVM): $(LIBD_LLVM_SRC) $(LIBD_DEP_AST) $(LIBD_DEP_UTIL)
+$(LIBD_LLVM): $(LIBD_LLVM_SRC) $(LIBD_DEP_IR) $(LIBD_DEP_UTIL)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/libd-llvm.o $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 	# gdc -c -o $(LIBD_LLVM).o $(LIBD_LLVM_SRC) -m64 $(LIBD_LLVM_IMPORTS)
