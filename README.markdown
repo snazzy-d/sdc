@@ -8,13 +8,13 @@ This compiler is based on [libd](https://github.com/deadalnix/libd) for D code a
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC require DMD release `2.063` to compile.
+SDC require DMD release `2.065` to compile.
 
 Goals
 ========
 Right now, SDC is a work in progress and unusable for any production work. It intends to provide a D compiler as a library (libd) in order to improve overall D toolchain by enabling the possibility of develloping new tools.
 
-SDC now support many very advanced feature of (static ifs, string mixins, CTFE) but not many basic one right now. This is a devellopement choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC is a solid base to build upon.
+SDC now support many very advanced feature of (static ifs, string mixins, CTFE) but not many basic ones. This is a devellopement choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC is a solid base to build upon.
 
 What Can It Compile?
 ====================
@@ -45,13 +45,13 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.1. Ensure that libd and libd-llvm provided as submodules are compiled properly.
+Install LLVM 3.3. Ensure that libd and libd-llvm provided as submodules are compiled properly.
 Run `make`.
 
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
-SDC contains le lot of hardcoded PATH right now, so it hard to intégrate properly with the system. It expect object.d to be in ../libs/object.d
+SDC contains le lot of hardcoded PATH right now, so it hard to integrate properly with the system. It expect object.d to be in ../libs/object.d
 
-SDC require LLVM 3.1 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.1` .
+SDC require LLVM 3.3 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.3` .
 
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
