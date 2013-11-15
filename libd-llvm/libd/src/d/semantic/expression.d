@@ -392,6 +392,11 @@ final class ExpressionVisitor {
 		if(cast(ThisExpression) c.callee) {
 			import d.ast.identifier;
 			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, "__ctor", c.callee), c.args));
+			
+			if(thisType.isFinal) {
+				return call;
+			}
+			
 			return new BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
 		}
 		
@@ -627,7 +632,18 @@ final class ExpressionVisitor {
 				if(auto c = cast(Constructor) identified) {
 					return new SymbolExpression(e.location, c);
 				} else if(auto s = cast(OverloadSet) identified) {
-					assert(0, "Constructor overlaod not supported.");
+					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
+					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
+						if (auto c = cast(Constructor) s) {
+							pass.scheduler.require(c, Step.Signed);
+							return new MethodExpression(e.location, di, c);
+						}
+						
+						assert(0, "not a constructor");
+					}).array(), args);
+					
+					// XXX: find a clean way to achieve this.
+					return new SymbolExpression(e.location, (cast(MethodExpression) m).method);
 				}
 			}
 			
