@@ -523,7 +523,7 @@ final class ExpressionGen {
 		
 		ParamType[] paramTypes;
 		LLVMValueRef[] args;
-		uint firstarg;
+		uint firstarg = 0;
 		auto calleeType = peelAlias(c.callee.type).type;
 		if(auto type = cast(DelegateType) calleeType) {
 			paramTypes = type.paramTypes;
@@ -542,7 +542,7 @@ final class ExpressionGen {
 			assert(0, "You can only call function and delegates !");
 		}
 		
-		uint i;
+		uint i = 0;
 		foreach(t; paramTypes) {
 			if(t.isRef) {
 				args[i + firstarg] = addressOf(c.args[i]);

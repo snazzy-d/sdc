@@ -392,6 +392,11 @@ final class ExpressionVisitor {
 		if(cast(ThisExpression) c.callee) {
 			import d.ast.identifier;
 			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, "__ctor", c.callee), c.args));
+			
+			if(thisType.isFinal) {
+				return call;
+			}
+			
 			return new BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
 		}
 		
@@ -456,19 +461,21 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
+		auto di = pass.defaultInitializerVisitor.visit(iloc, QualType(type));
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto c = cast(Constructor) identified) {
-					return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+					return new MethodExpression(iloc, di, c);
 				} else if(auto s = cast(OverloadSet) identified) {
-					return new PolysemousExpression(iloc, s.set.map!(delegate Expression(s) {
+					return chooseOverload(iloc, s.set.map!(delegate Expression(s) {
 						if (auto c = cast(Constructor) s) {
-							return new MethodExpression(iloc, pass.defaultInitializerVisitor.visit(iloc, QualType(type)), c);
+							pass.scheduler.require(c, Step.Signed);
+							return new MethodExpression(iloc, di, c);
 						}
 						
 						assert(0, "not a constructor");
-					}).array());
+					}).array(), args);
 				}
 			}
 			
@@ -495,22 +502,20 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression chooseOverload(Location location, Location iloc, OverloadSet s, Expression[] args) {
-		auto iv = IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
-				return identified;
-			} else static if(is(typeof(identified) : QualType)) {
-				assert(0, "Type can't be overloaded");
-			} else {
-				if(auto t = cast(Template) identified) {
-					return handleIFTI(location, iloc, t, args);
-				}
+		return chooseOverload(location, s.set.map!((s) {
+			if(auto f = cast(Function) s) {
+				pass.scheduler.require(f, Step.Signed);
 				
-				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				// TODO: Factorize this construct somewhere.
+				return f.isStatic
+					? new SymbolExpression(location, f)
+					: new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f);
+			} else if(auto t = cast(Template) s) {
+				return handleIFTI(location, iloc, t, args);
 			}
-		})(pass);
-		
-		auto cds = s.set.map!(s => iv.visit(iloc, s)).array();
-		return chooseOverload(location, cds, args);
+			
+			throw new CompileException(s.location, typeid(s).toString() ~ " is not supported in overload set");
+		}).array(), args);
 	}
 	
 	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
@@ -627,7 +632,18 @@ final class ExpressionVisitor {
 				if(auto c = cast(Constructor) identified) {
 					return new SymbolExpression(e.location, c);
 				} else if(auto s = cast(OverloadSet) identified) {
-					assert(0, "Constructor overlaod not supported.");
+					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
+					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
+						if (auto c = cast(Constructor) s) {
+							pass.scheduler.require(c, Step.Signed);
+							return new MethodExpression(e.location, di, c);
+						}
+						
+						assert(0, "not a constructor");
+					}).array(), args);
+					
+					// XXX: find a clean way to achieve this.
+					return new SymbolExpression(e.location, (cast(MethodExpression) m).method);
 				}
 			}
 			

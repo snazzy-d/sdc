@@ -346,9 +346,9 @@ class MethodExpression : Expression {
 	
 	this(Location location, Expression expr, Function method) {
 		auto t = cast(FunctionType) method.type.type;
-		type = QualType(new DelegateType(t));
+		assert(t);
 		
-		super(location, type);
+		super(location, QualType(new DelegateType(t)));
 		
 		this.expr = expr;
 		this.method = method;
