@@ -7,6 +7,8 @@ import d.ir.symbol;
 
 import d.semantic.backend;
 
+import d.context;
+
 import llvm.c.core;
 import llvm.c.executionEngine;
 import llvm.c.target;
@@ -25,7 +27,7 @@ final class LLVMBackend : Backend {
 	
 	uint optLevel;
 	
-	this(string name, uint optLevel) {
+	this(Context context, string name, uint optLevel) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -33,7 +35,7 @@ final class LLVMBackend : Backend {
 		LLVMLinkInJIT();
 		LLVMInitializeX86AsmPrinter();
 		
-		pass = new CodeGenPass(name);
+		pass = new CodeGenPass(context, name);
 		
 		char* errorPtr;
 		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, pass.dmodule, 0, &errorPtr);

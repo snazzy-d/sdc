@@ -51,7 +51,7 @@ final class TypeGen {
 			return *st;
 		}
 		
-		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(context, cast(char*) s.mangle.toStringz());
+		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
 		
 		LLVMTypeRef[] types;
 		foreach(member; s.members) {
@@ -62,7 +62,8 @@ final class TypeGen {
 		
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
 		
-		auto init = cast(Variable) s.dscope.resolve("init");
+		import d.context;
+		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
 		assert(init);
 		
 		newInits[s] = pass.visit(init);
@@ -77,11 +78,11 @@ final class TypeGen {
 			return *ct;
 		}
 		
-		auto llvmStruct = LLVMStructCreateNamed(context, cast(char*) c.mangle.toStringz());
+		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
 		// TODO: typeid instead of null.
-		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(context), 0))];
+		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0))];
 		LLVMValueRef[] fields = [null];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
@@ -99,7 +100,7 @@ final class TypeGen {
 		}
 		
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
-		auto vtblStruct = LLVMStructCreateNamed(context, cast(char*) (c.mangle ~ "__vtbl").toStringz());
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) (c.mangle ~ "__vtbl").toStringz());
 		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
 		
 		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (c.mangle ~ "__vtblZ").toStringz());
@@ -136,45 +137,45 @@ final class TypeGen {
 				assert(0, "Not Implemented");
 			
 			case Void :
-				return LLVMVoidTypeInContext(context);
+				return LLVMVoidTypeInContext(llvmCtx);
 			
 			case Bool :
-				return LLVMInt1TypeInContext(context);
+				return LLVMInt1TypeInContext(llvmCtx);
 			
 			case Char :
 			case Ubyte :
 			case Byte :
-				return LLVMInt8TypeInContext(context);
+				return LLVMInt8TypeInContext(llvmCtx);
 			
 			case Wchar :
 			case Ushort :
 			case Short :
-				return LLVMInt16TypeInContext(context);
+				return LLVMInt16TypeInContext(llvmCtx);
 			
 			case Dchar :
 			case Uint :
 			case Int :
-				return LLVMInt32TypeInContext(context);
+				return LLVMInt32TypeInContext(llvmCtx);
 			
 			case Ulong :
 			case Long :
-				return LLVMInt64TypeInContext(context);
+				return LLVMInt64TypeInContext(llvmCtx);
 			
 			case Ucent :
 			case Cent :
-				return LLVMIntTypeInContext(context, 128);
+				return LLVMIntTypeInContext(llvmCtx, 128);
 			
 			case Float :
-				return LLVMFloatTypeInContext(context);
+				return LLVMFloatTypeInContext(llvmCtx);
 			
 			case Double :
-				return LLVMDoubleTypeInContext(context);
+				return LLVMDoubleTypeInContext(llvmCtx);
 			
 			case Real :
-				return LLVMX86FP80TypeInContext(context);
+				return LLVMX86FP80TypeInContext(llvmCtx);
 			
 			case Null :
-				return LLVMPointerType(LLVMInt8TypeInContext(context), 0);
+				return LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
 		}
 	}
 	
@@ -182,7 +183,7 @@ final class TypeGen {
 		auto pointed = visit(t.pointed);
 		
 		if(LLVMGetTypeKind(pointed) == LLVMTypeKind.Void) {
-			pointed = LLVMInt8TypeInContext(context);
+			pointed = LLVMInt8TypeInContext(llvmCtx);
 		}
 		
 		return LLVMPointerType(pointed, 0);
@@ -190,10 +191,10 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(SliceType t) {
 		LLVMTypeRef[2] types;
-		types[0] = LLVMInt64TypeInContext(context);
+		types[0] = LLVMInt64TypeInContext(llvmCtx);
 		types[1] = LLVMPointerType(visit(t.sliced), 0);
 		
-		return LLVMStructTypeInContext(context, types.ptr, 2, false);
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
 	}
 	
 	LLVMTypeRef visit(ArrayType t) {
@@ -233,7 +234,7 @@ final class TypeGen {
 		types[0] = LLVMPointerType(fun, 0);
 		types[1] = params[0];
 		
-		return LLVMStructTypeInContext(context, types.ptr, 2, false);
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
 	}
 }
 

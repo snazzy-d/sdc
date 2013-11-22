@@ -146,12 +146,12 @@ final class ExpressionGen {
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
 		
 		static if(shortCircuitOnTrue) {
-			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "or_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "or_merge");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
 		} else {
-			auto rhsBB = LLVMAppendBasicBlockInContext(context, fun, "and_short_circuit");
-			auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "and_merge");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_short_circuit");
+			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_merge");
 			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
 		}
 		
@@ -449,16 +449,16 @@ final class ExpressionGen {
 		} else if(typeid(type) is typeid(PointerType)) {
 			ptr = visit(e.sliced);
 		} else if(auto asArray = cast(ArrayType) type) {
-			length = LLVMConstInt(LLVMInt64TypeInContext(context), asArray.size, false);
+			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false);
 			
-			auto zero = LLVMConstInt(LLVMInt64TypeInContext(context), 0, false);
+			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOfGen.visit(e.sliced), &zero, 1, "");
 		} else {
 			assert(0, "Don't know how to slice " ~ e.type.toString());
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(context), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(context), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(llvmCtx), "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
@@ -587,8 +587,8 @@ final class ExpressionGen {
 		auto testBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(testBB);
 		
-		auto failBB = LLVMAppendBasicBlockInContext(context, fun, "assert_fail");
-		auto successBB = LLVMAppendBasicBlockInContext(context, fun, "assert_success");
+		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_fail");
+		auto successBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_success");
 		
 		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
 		
@@ -600,7 +600,7 @@ final class ExpressionGen {
 		
 		LLVMValueRef args[3];
 		args[1] = buildDString(e.location.source.filename);
-		args[2] = LLVMConstInt(LLVMInt32TypeInContext(context), e.location.line, false);
+		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), e.location.line, false);
 		
 		if(e.message) {
 			args[0] = visit(e.message);
@@ -707,7 +707,7 @@ final class AddressOfGen {
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(context), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
 			genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
@@ -723,15 +723,15 @@ final class AddressOfGen {
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(context), ""),
-				LLVMConstInt(LLVMInt64TypeInContext(context), asArray.size, false),
+				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""),
+				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false),
 				"",
 			);
 			
 			genBoundCheck(location, condition);
 			
 			LLVMValueRef indices[2];
-			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(context), 0, false);
+			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			indices[1] = i;
 			
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
@@ -743,8 +743,8 @@ final class AddressOfGen {
 	auto genBoundCheck(Location location, LLVMValueRef condition) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto failBB = LLVMAppendBasicBlockInContext(context, fun, "bound_fail");
-		auto okBB = LLVMAppendBasicBlockInContext(context, fun, "bound_ok");
+		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_fail");
+		auto okBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_ok");
 		
 		auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
 		
@@ -756,7 +756,7 @@ final class AddressOfGen {
 		
 		LLVMValueRef args[2];
 		args[0] = buildDString(location.source.filename);
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(context), location.line, false);
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
 		
 		LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, cast(uint) args.length, "");
 		

@@ -66,8 +66,8 @@ final class SymbolGen {
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
 		// Alloca and instruction block.
-		auto allocaBB = LLVMAppendBasicBlockInContext(context, fun, "");
-		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "body");
+		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
 		
 		// Ensure we are rentrant.
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
@@ -121,11 +121,12 @@ final class SymbolGen {
 			auto value = params[i];
 			
 			if(type.isRef || type.isFinal) {
-				LLVMSetValueName(value, p.name.toStringz());
+				LLVMSetValueName(value, p.mangle.toStringz());
 				valueSymbols[p] = value;
 			} else {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], p.name.toStringz());
-				LLVMSetValueName(value, ("arg." ~ p.name).toStringz());
+				auto name = p.name.toString(context);
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], name.toStringz());
+				LLVMSetValueName(value, ("arg." ~ name).toStringz());
 				
 				LLVMBuildStore(builder, value, alloca);
 				valueSymbols[p] = alloca;
@@ -186,7 +187,8 @@ final class SymbolGen {
 			// Store the initial value into the alloca.
 			LLVMBuildStore(builder, value, alloca);
 			
-			if(var.name == "this") {
+			import d.context;
+			if(var.name == BuiltinName!"this") {
 				thisPtr = alloca;
 			}
 			
