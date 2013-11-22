@@ -44,7 +44,7 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 		parameters = trange.parseTemplateParameters();
 	}
 	
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	Identifier[] bases;
@@ -98,12 +98,12 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 		trange.match(TokenType.Union);
 		alias DeclarationType = UnionDeclaration;
 	}
-	
-	string name;
+		
+	Name name;
 	AstTemplateParameter[] parameters;
 	
 	if(trange.front.type == TokenType.Identifier) {
-		name = trange.front.value;
+		name = trange.front.name;
 		trange.popFront();
 		
 		switch(trange.front.type) {
@@ -150,12 +150,12 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	
-	string name;
+	Name name;
 	QualAstType type;
 	
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
-			name = trange.front.value;
+			name = trange.front.name;
 			trange.popFront();
 			
 			// Ensure we are not in case of manifest constant.
@@ -191,7 +191,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 	VariableDeclaration[] enumEntries;
 	
 	while(trange.front.type != TokenType.CloseBrace) {
-		string entryName = trange.front.value;
+		auto entryName = trange.front.name;
 		auto entryLocation = trange.front.location;
 		
 		trange.match(TokenType.Identifier);

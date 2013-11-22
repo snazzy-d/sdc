@@ -19,7 +19,7 @@ enum Step {
 }
 
 class Symbol : Node {
-	string name;
+	Name name;
 	string mangle;
 	
 	import std.bitmanip;
@@ -34,7 +34,7 @@ class Symbol : Node {
 		uint, "", 4,
 	));
 	
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location);
 		
 		this.name = name;
@@ -45,7 +45,7 @@ class Symbol : Node {
  * Symbol that represent a type once resolved.
  */
 class TypeSymbol : Symbol {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 }
@@ -57,7 +57,7 @@ class TypeSymbol : Symbol {
 class ValueSymbol : Symbol {
 	QualType type;
 	
-	this(Location location, string name, QualType type) {
+	this(Location location, Name name, QualType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -72,7 +72,7 @@ class Package : Symbol {
 	
 	Scope dscope;
 	
-	this(Location location, string name, Package parent) {
+	this(Location location, Name name, Package parent) {
 		super(location, name);
 		
 		this.parent = parent;
@@ -85,7 +85,7 @@ class Package : Symbol {
 class Variable : ValueSymbol {
 	Expression value;
 	
-	this(Location location, QualType type, string name, Expression value = null) {
+	this(Location location, QualType type, Name name, Expression value = null) {
 		super(location, name, type);
 		
 		this.value = value;
@@ -101,7 +101,7 @@ class Function : ValueSymbol {
 	
 	NestedScope dscope;
 	
-	this(Location location, QualType type, string name, Parameter[] params, BlockStatement fbody) {
+	this(Location location, QualType type, Name name, Parameter[] params, BlockStatement fbody) {
 		super(location, name, type);
 		
 		this.params = params;
@@ -126,7 +126,7 @@ class Function : ValueSymbol {
 class TemplateParameter : Symbol {
 	uint index;
 	
-	this(Location location, string name, uint index) {
+	this(Location location, Name name, uint index) {
 		super(location, name);
 		
 		this.index = index;
@@ -140,7 +140,7 @@ final:
 class Module : Package {
 	Symbol[] members;
 	
-	this(Location location, string name, Package parent) {
+	this(Location location, Name name, Package parent) {
 		super(location, name, parent);
 	}
 }
@@ -160,7 +160,7 @@ class Template : Symbol {
 	
 	TemplateInstance[string] instances;
 	
-	this(Location location, string name, TemplateParameter[] parameters, Declaration[] members) {
+	this(Location location, Name name, TemplateParameter[] parameters, Declaration[] members) {
 		super(location, name);
 		
 		this.parameters = parameters;
@@ -175,7 +175,7 @@ class TypeTemplateParameter : TemplateParameter {
 	QualType specialization;
 	QualType value;
 	
-	this(Location location, string name, uint index, QualType specialization, QualType value) {
+	this(Location location, Name name, uint index, QualType specialization, QualType value) {
 		super(location, name, index);
 		
 		this.specialization = specialization;
@@ -204,7 +204,7 @@ class TemplateInstance : Symbol {
 class TypeAlias : TypeSymbol {
 	QualType type;
 	
-	this(Location location, string name, QualType type) {
+	this(Location location, Name name, QualType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -222,7 +222,7 @@ class Class : TypeSymbol {
 	
 	Scope dscope;
 	
-	this(Location location, string name, Symbol[] members) {
+	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
 		
 		this.name = name;
@@ -239,7 +239,7 @@ class Interface : TypeSymbol {
 	
 	Scope dscope;
 	
-	this(Location location, string name, Interface[] bases, Symbol[] members) {
+	this(Location location, Name name, Interface[] bases, Symbol[] members) {
 		super(location, name);
 		
 		this.bases = bases;
@@ -255,7 +255,7 @@ class Struct : TypeSymbol {
 	
 	Scope dscope;
 	
-	this(Location location, string name, Symbol[] members) {
+	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
 		
 		this.members = members;
@@ -270,7 +270,7 @@ class Union : TypeSymbol {
 	
 	Scope dscope;
 	
-	this(Location location, string name, Symbol[] members) {
+	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
 		
 		this.members = members;
@@ -287,7 +287,7 @@ class Enum : TypeSymbol {
 	
 	Variable[] entries;
 	
-	this(Location location, string name, Type type, Variable[] entries) {
+	this(Location location, Name name, Type type, Variable[] entries) {
 		super(location, name);
 		
 		this.type = type;
@@ -302,7 +302,7 @@ class Enum : TypeSymbol {
 class Field : Variable {
 	uint index;
 	
-	this(Location location, uint index, QualType type, string name, Expression value = null) {
+	this(Location location, uint index, QualType type, Name name, Expression value = null) {
 		super(location, type, name, value);
 		
 		this.index = index;
@@ -317,7 +317,7 @@ class Parameter : ValueSymbol {
 	ParamType pt;
 	Expression value;
 	
-	this(Location location, ParamType type, string name, Expression value) {
+	this(Location location, ParamType type, Name name, Expression value) {
 		super(location, name, QualType(type.type, type.qualifier));
 		
 		this.pt = type;
@@ -332,7 +332,7 @@ class Parameter : ValueSymbol {
 class Method : Function {
 	uint index;
 	
-	this(Location location, uint index, QualType type, string name, Parameter[] params, BlockStatement fbody) {
+	this(Location location, uint index, QualType type, Name name, Parameter[] params, BlockStatement fbody) {
 		super(location, type, name, params, fbody);
 		
 		this.index = index;
@@ -344,7 +344,8 @@ class Method : Function {
  */
 class Constructor : Function {
 	this(Location location, QualType type, Parameter[] params, BlockStatement fbody) {
-		super(location, type, "__ctor", params, fbody);
+		import d.context;
+		super(location, type, BuiltinName!"__ctor", params, fbody);
 	}
 }
 

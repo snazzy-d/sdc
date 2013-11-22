@@ -9,11 +9,11 @@ import d.ast.statement;
  * Version Conditional
  */
 class Version(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) : ItemType {
-	string versionId;
+	Name versionId;
 	ItemType[] items;
 	ItemType[] elseItems;
 	
-	this(Location location, string versionId, ItemType[] items, ItemType[] elseItems) {
+	this(Location location, Name versionId, ItemType[] items, ItemType[] elseItems) {
 		super(location);
 		
 		this.versionId = versionId;
@@ -26,9 +26,9 @@ class Version(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declar
  * Version definition (ie version = FOOBAR)
  */
 class VersionDefinition(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) : ItemType {
-	string versionId;
+	Name versionId;
 	
-	this(Location location, string versionId) {
+	this(Location location, Name versionId) {
 		super(location);
 		
 		this.versionId = versionId;

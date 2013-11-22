@@ -41,10 +41,11 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 	switch(trange.front.type) {
 		case TokenType.OpenParen :
 			trange.popFront();
-			string versionId;
+			
+			Name versionId;
 			switch(trange.front.type) {
 				case TokenType.Identifier :
-					versionId = trange.front.value;
+					versionId = trange.front.name;
 					trange.match(TokenType.Identifier);
 					
 					break;
@@ -52,7 +53,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 				case TokenType.Unittest :
 					static if(isVersion) {
 						trange.popFront();
-						versionId = "unittest";
+						versionId = BuiltinName!"unittest";
 						break;
 					} else {
 						// unittest isn't a special token for debug.
@@ -78,7 +79,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 		
 		case TokenType.Assign :
 			trange.popFront();
-			string versionId = trange.front.value;
+			auto versionId = trange.front.name;
 			trange.match(TokenType.Identifier);
 			trange.match(TokenType.Semicolon);
 			

@@ -6,9 +6,9 @@ import d.ast.expression;
 import d.ast.type;
 
 abstract class Identifier : Node {
-	string name;
+	Name name;
 	
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location);
 		
 		this.name = name;
@@ -38,13 +38,14 @@ final:
  * An identifier.
  */
 class BasicIdentifier : Identifier {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
-	
+	/+
 	override string toString() const {
 		return name;
 	}
+	+/
 }
 
 /**
@@ -53,15 +54,16 @@ class BasicIdentifier : Identifier {
 class IdentifierDotIdentifier : Identifier {
 	Identifier identifier;
 	
-	this(Location location, string name, Identifier identifier) {
+	this(Location location, Name name, Identifier identifier) {
 		super(location, name);
 		
 		this.identifier = identifier;
 	}
-	
+	/+
 	override string toString() const {
 		return identifier.toString() ~ "." ~ name;
 	}
+	+/
 }
 
 /**
@@ -70,15 +72,16 @@ class IdentifierDotIdentifier : Identifier {
 class TypeDotIdentifier : Identifier {
 	QualAstType type;
 	
-	this(Location location, string name, QualAstType type) {
+	this(Location location, Name name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
 	}
-	
+	/+
 	override string toString() const {
 		return type.toString() ~ "." ~ name;
 	}
+	+/
 }
 
 /**
@@ -87,15 +90,16 @@ class TypeDotIdentifier : Identifier {
 class ExpressionDotIdentifier : Identifier {
 	AstExpression expression;
 	
-	this(Location location, string name, AstExpression expression) {
+	this(Location location, Name name, AstExpression expression) {
 		super(location, name);
 		
 		this.expression = expression;
 	}
-	
+	/+
 	override string toString() const {
 		return expression.toString() ~ "." ~ name;
 	}
+	+/
 }
 
 /**
@@ -104,7 +108,7 @@ class ExpressionDotIdentifier : Identifier {
 class TemplateInstanciationDotIdentifier : Identifier {
 	TemplateInstanciation templateInstanciation;
 	
-	this(Location location, string name, TemplateInstanciation templateInstanciation) {
+	this(Location location, Name name, TemplateInstanciation templateInstanciation) {
 		super(location, name);
 		
 		this.templateInstanciation = templateInstanciation;
@@ -169,13 +173,14 @@ class IdentifierTemplateArgument : TemplateArgument {
  * A module level identifier (.identifier)
  */
 class DotIdentifier : Identifier {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
-	
+	/+
 	override string toString() const {
 		return "." ~ name;
 	}
+	+/
 }
 
 /**

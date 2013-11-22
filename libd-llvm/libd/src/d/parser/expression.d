@@ -613,18 +613,19 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			return trange.parseIntegerLiteral();
 		
 		case StringLiteral :
-			auto str = trange.front.value;
+			auto name = trange.front.name;
 			trange.popFront();
 			
-			return new d.ir.expression.StringLiteral(location, str);
+			// XXX: Use name for string once CTFE do not return node ?
+			return new d.ir.expression.StringLiteral(location, name.toString(trange.context));
 		
 		case CharacterLiteral :
-			assert(trange.front.value.length == 1);
+			auto str = trange.front.name.toString(trange.context);
+			assert(str.length == 1);
 			
-			auto value = trange.front.value;
 			trange.popFront();
 			
-			return new d.ir.expression.CharacterLiteral(location, value, TypeKind.Char);
+			return new d.ir.expression.CharacterLiteral(location, str, TypeKind.Char);
 		
 		case OpenBracket :
 			AstExpression[] keys, values;
@@ -933,7 +934,7 @@ AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
 private AstExpression parseIntegerLiteral(R)(ref R trange) {
 	Location location = trange.front.location;
 	
-	string value = trange.front.value;
+	auto value = trange.front.name.toString(trange.context);
 	assert(value.length > 0);
 	
 	trange.match(TokenType.IntegerLiteral);

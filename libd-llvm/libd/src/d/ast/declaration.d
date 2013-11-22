@@ -15,9 +15,9 @@ class Declaration : Node {
 }
 
 class NamedDeclaration : Declaration {
-	string name;
+	Name name;
 	
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location);
 		
 		this.name = name;
@@ -30,7 +30,7 @@ class NamedDeclaration : Declaration {
 class AliasDeclaration : NamedDeclaration {
 	QualAstType type;
 	
-	this(Location location, string name, QualAstType type) {
+	this(Location location, Name name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -54,9 +54,9 @@ class AliasThisDeclaration : Declaration {
  * Import declaration
  */
 class ImportDeclaration : Declaration {
-	string[][] modules;
+	Name[][] modules;
 	
-	this(Location location, string[][] modules) {
+	this(Location location, Name[][] modules) {
 		super(location);
 		
 		this.modules = modules;
@@ -142,10 +142,10 @@ class LinkageDeclaration : Declaration {
  * Attribute declaration
  */
 class AttributeDeclaration : Declaration {
-	string attribute;
+	Name attribute;
 	Declaration[] declarations;
 	
-	this(Location location, string attribute, Declaration[] declarations) {
+	this(Location location, Name attribute, Declaration[] declarations) {
 		super(location);
 		
 		this.attribute = attribute;
@@ -176,7 +176,7 @@ class VariableDeclaration : NamedDeclaration {
 	
 	bool isEnum = false;
 	
-	this(Location location, QualAstType type, string name, AstExpression value) {
+	this(Location location, QualAstType type, Name name, AstExpression value) {
 		super(location, name);
 		
 		this.type = type;
@@ -187,10 +187,10 @@ class VariableDeclaration : NamedDeclaration {
 struct ParamDecl {
 	Location location;
 	ParamAstType type;
-	string name;
+	Name name;
 	AstExpression value;
 	
-	this(Location location, ParamAstType type, string name = "", AstExpression value = null) {
+	this(Location location, ParamAstType type, Name name = Name.init, AstExpression value = null) {
 		this.location = location;
 		this.type = type;
 		this.name = name;
@@ -209,7 +209,7 @@ class FunctionDeclaration : NamedDeclaration {
 	// XXX: Try to stick that in some pointer.
 	bool isVariadic;
 	
-	this(Location location, Linkage linkage, ParamAstType returnType, string name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+	this(Location location, Linkage linkage, ParamAstType returnType, Name name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		super(location, name);
 		
 		this.returnType = returnType;
@@ -225,7 +225,7 @@ class TemplateDeclaration : NamedDeclaration {
 	AstTemplateParameter[] parameters;
 	Declaration[] declarations;
 	
-	this(Location location, string name, AstTemplateParameter[] parameters, Declaration[] declarations) {
+	this(Location location, Name name, AstTemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, name);
 		
 		this.parameters = parameters;
@@ -237,7 +237,7 @@ class TemplateDeclaration : NamedDeclaration {
  * Super class for all templates parameters
  */
 class AstTemplateParameter : NamedDeclaration {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 }
@@ -249,7 +249,7 @@ class AstTypeTemplateParameter : AstTemplateParameter {
 	QualAstType specialization;
 	QualAstType value;
 	
-	this(Location location, string name, QualAstType specialization, QualAstType value) {
+	this(Location location, Name name, QualAstType specialization, QualAstType value) {
 		super(location, name);
 		
 		this.specialization = specialization;
@@ -261,7 +261,7 @@ class AstTypeTemplateParameter : AstTemplateParameter {
  * This templates parameters
  */
 class AstThisTemplateParameter : AstTemplateParameter {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 }
@@ -270,7 +270,7 @@ class AstThisTemplateParameter : AstTemplateParameter {
  * Tuple templates parameters
  */
 class AstTupleTemplateParameter : AstTemplateParameter {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 }
@@ -281,7 +281,7 @@ class AstTupleTemplateParameter : AstTemplateParameter {
 class AstValueTemplateParameter : AstTemplateParameter {
 	QualAstType type;
 	
-	this(Location location, string name, QualAstType type) {
+	this(Location location, Name name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -292,7 +292,7 @@ class AstValueTemplateParameter : AstTemplateParameter {
  * Alias template parameter
  */
 class AstAliasTemplateParameter : AstTemplateParameter {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 }
@@ -303,7 +303,7 @@ class AstAliasTemplateParameter : AstTemplateParameter {
 class AstTypedAliasTemplateParameter : AstAliasTemplateParameter {
 	QualAstType type;
 	
-	this(Location location, string name, QualAstType type) {
+	this(Location location, Name name, QualAstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -316,7 +316,7 @@ class AstTypedAliasTemplateParameter : AstAliasTemplateParameter {
 class StructDeclaration : NamedDeclaration {
 	Declaration[] members;
 	
-	this(Location location, string name, Declaration[] members) {
+	this(Location location, Name name, Declaration[] members) {
 		super(location, name);
 		
 		this.members = members;
@@ -329,7 +329,7 @@ class StructDeclaration : NamedDeclaration {
 class UnionDeclaration : NamedDeclaration {
 	Declaration[] members;
 	
-	this(Location location, string name, Declaration[] members) {
+	this(Location location, Name name, Declaration[] members) {
 		super(location, name);
 		
 		this.members = members;
@@ -343,7 +343,7 @@ class ClassDeclaration : NamedDeclaration {
 	Identifier[] bases;
 	Declaration[] members;
 	
-	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+	this(Location location, Name name, Identifier[] bases, Declaration[] members) {
 		super(location, name);
 		
 		this.bases = bases;
@@ -358,7 +358,7 @@ class InterfaceDeclaration : NamedDeclaration {
 	Identifier[] bases;
 	Declaration[] members;
 	
-	this(Location location, string name, Identifier[] bases, Declaration[] members) {
+	this(Location location, Name name, Identifier[] bases, Declaration[] members) {
 		super(location, name);
 		
 		this.bases = bases;
@@ -373,7 +373,7 @@ class EnumDeclaration : NamedDeclaration {
 	QualAstType type;
 	VariableDeclaration[] entries;
 	
-	this(Location location, string name, QualAstType type, VariableDeclaration[] entries) {
+	this(Location location, Name name, QualAstType type, VariableDeclaration[] entries) {
 		super(location, name);
 		
 		this.type = type;

@@ -17,7 +17,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange
 	Location location = trange.front.location;
 	trange.match(TokenType.Template);
 	
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	auto parameters = trange.parseTemplateParameters();
@@ -68,7 +68,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 					return trange.parseTypeParameter();
 				
 				case TokenType.TripleDot :
-					string name = trange.front.value;
+					auto name = trange.front.name;
 					auto location = lookahead.front.location;
 					
 					trange.popFrontN(2);
@@ -88,7 +88,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 			Location location = trange.front.location;
 			trange.popFront();
 			
-			string name = trange.front.value;
+			auto name = trange.front.name;
 			location.spanTo(trange.front.location);
 			
 			trange.match(TokenType.Identifier);
@@ -103,7 +103,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 }
 
 private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	Location location = trange.front.location;
 	
 	trange.match(TokenType.Identifier);
@@ -141,7 +141,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	auto type = trange.parseType();
-	string name = trange.front.value;
+	string name = trange.front.name;
 	
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
@@ -183,7 +183,7 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 	
 	if(isTyped) {
 		auto type = trange.parseType();
-		string name = trange.front.value;
+		string name = trange.front.name;
 		
 		location.spanTo(trange.front.location);
 		
@@ -191,7 +191,7 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 		
 		return new TypedAliasTemplateParameter(location, name, type);
 	} else {
-		string name = trange.front.value;
+		string name = trange.front.name;
 		location.spanTo(trange.front.location);
 		
 		trange.match(TokenType.Identifier);
@@ -220,7 +220,7 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			break;
 		
 		case Identifier :
-			auto identifier = new BasicIdentifier(trange.front.location, trange.front.value);
+			auto identifier = new BasicIdentifier(trange.front.location, trange.front.name);
 			arguments ~= new IdentifierTemplateArgument(identifier);
 			
 			trange.popFront();

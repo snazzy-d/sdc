@@ -122,13 +122,15 @@ enum TokenType {
 	*/
 }
 
+import d.context;
+
 struct Token(Location) {
 	Location location;
 	TokenType type;
-	string value;
+	Name name;
 }
 
-auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
+auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 	alias Location = typeof(locationProvider(0, 0, 0));
 	alias Token = .Token!Location;
 	
@@ -137,6 +139,8 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 		
 		Token t;
 		R r;
+		
+		Context context;
 		
 		uint line = 1;
 		uint index;
@@ -168,7 +172,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			version(DigitalMars) {
 				// XXX: doing it manualy using black magic.
 				// Context pointer is the last element of the struct. Here in position 9.
-				auto ret = inout(Lexer)(t, r.save, line, index);
+				auto ret = inout(Lexer)(t, r.save, context, line, index);
 				(cast(void**) &ret)[9] = (cast(void**) &this)[9];
 				
 				return ret;
@@ -359,7 +363,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			pumpChars!isIdChar(r);
 			
 			t.location = locationProvider(l, begin, index - begin);
-			t.value = getValue();
+			t.name = getValue();
 			
 			return t;
 		}
@@ -444,10 +448,12 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			auto c = r.front;
 			
 			static if(s == "\"") {
+				mixin CharPumper!false;
+				
 				Pump: while(1) {
 					// TODO: check for unicode line break.
 					while(c != '\"' && c != '\r' && c != '\n') {
-						t.value ~= lexEscapeChar();
+						putChar(lexEscapeChar());
 						c = r.front;
 					}
 					
@@ -479,6 +485,8 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 				}
 				
 				t.location = locationProvider(l, begin, index - begin);
+				t.name = getValue();
+				
 				return t;
 			} else {
 				assert(0, "string literal using " ~ s ~ "not supported");
@@ -490,7 +498,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			t.type = TokenType.CharacterLiteral;
 			uint l = line, begin = index - 1;
 			
-			t.value = [lexEscapeChar()];
+			t.name = context.getName([lexEscapeChar()]);
 			
 			if(r.front != '\'') {
 				assert(0, "booya !");
@@ -591,7 +599,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			}
 			
 			t.location = locationProvider(l, begin, index - begin);
-			t.value = getValue();
+			t.name = getValue();
 			
 			return t;
 		}
@@ -667,7 +675,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			}
 			
 			t.location = locationProvider(l, begin, index - begin);
-			t.value = getValue();
+			t.name = getValue();
 			
 			return t;
 		}
@@ -694,7 +702,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			Token t;
 			t.type = type;
 			t.location = locationProvider(line, index - l, l);
-			t.value = s;
+			t.name = BuiltinName!s;
 			
 			return t;
 		}
@@ -707,7 +715,7 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 			Token t;
 			t.type = type;
 			t.location = locationProvider(line, index - l, l);
-			t.value = s;
+			t.name = BuiltinName!s;
 			
 			return t;
 		}
@@ -718,6 +726,8 @@ auto lex(alias locationProvider, R)(R r) if(isForwardRange!R) {
 	lexer.r = r.save;
 	lexer.t.type = TokenType.Begin;
 	lexer.t.location = locationProvider(0, 0, 0);
+	
+	lexer.context = context;
 	
 	// Pop #!
 	auto c = lexer.r.front;
@@ -863,15 +873,16 @@ mixin template CharPumper(bool decode = true) {
 		}
 	}
 	
-	string getValue() {
-		if(i < BufferSize) {
-			return buffer[0 .. i].idup;
-		} else {
-			return heapBuffer;
-		}
+	Name getValue() {
+		return context.getName(
+			(i < BufferSize)
+				? buffer[0 .. i].idup
+				: heapBuffer
+		);
 	}
 }
 
+public:
 auto getOperatorsMap() {
 	return [
 		"/"		: TokenType.Slash,
@@ -1051,6 +1062,7 @@ auto getKeywordsMap() {
 	];
 }
 
+private:
 auto getLexerMap() {
 	auto ret = [
 		// WhiteSpaces

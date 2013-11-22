@@ -199,10 +199,10 @@ alias AstCaseStatement = CaseStatement!(AstExpression, AstStatement);
  * Label: statement
  */
 class LabeledStatement(S) if(is(S : AstStatement)) : S {
-	string label;
+	Name label;
 	S statement;
 	
-	this(Location location, string label, S statement) {
+	this(Location location, Name label, S statement) {
 		super(location);
 		
 		this.label = label;
@@ -248,10 +248,10 @@ class TryStatement : AstStatement {
 
 class CatchBlock : Node {
 	QualAstType type;
-	string name;
+	Name name;
 	AstStatement statement;
 	
-	this(Location location, QualAstType type, string name, AstStatement statement) {
+	this(Location location, QualAstType type, Name name, AstStatement statement) {
 		super(location);
 		
 		this.type = type;

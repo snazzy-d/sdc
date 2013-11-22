@@ -245,7 +245,7 @@ struct DeclarationVisitor {
 		if(auto str = cast(StringLiteral) value) {
 			import d.lexer;
 			auto source = new MixinSource(location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0');
+			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
 			
 			trange.match(TokenType.Begin);
 			
@@ -280,7 +280,9 @@ struct DeclarationVisitor {
 	
 	void visit(FunctionDeclaration d) {
 		Function f;
-		if(d.name == "__ctor") {
+		
+		import d.context : BuiltinName;
+		if(d.name == BuiltinName!"__ctor") {
 			f = new Constructor(d.location, getBuiltin(TypeKind.None), [], null);
 		} else if(isStatic || !buildMethods) {
 			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
@@ -344,7 +346,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(EnumDeclaration d) {
-		if(d.name) {
+		if(d.name.isDefined) {
 			auto e = new Enum(d.location, d.name, getBuiltin(TypeKind.None).type, []);
 			e.linkage = linkage;
 			
@@ -434,9 +436,6 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(ImportDeclaration d) {
-		auto names = d.modules.map!(pkg => pkg.join(".")).array();
-		auto filenames = d.modules.map!(pkg => pkg.join("/") ~ ".d").array();
-		
 		Module[] addToScope;
 		foreach(name; d.modules) {
 			addToScope ~= importModule(name);
@@ -600,11 +599,11 @@ final class PoisonScope : Scope {
 		}
 	}
 	
-	void test(string name) {
+	void test(Name name) {
 		if(isPoisoned) {
 			auto p = name in symbols;
 			if(p && cast(Poison) *p) {
-				assert(0, name ~ " is poisoned");
+				assert(0, "poisoned");
 			}
 		}
 	}
@@ -645,7 +644,7 @@ final class PoisonScope : Scope {
 		}
 	}
 	
-	void resolveConditional(string name) {
+	void resolveConditional(Name name) {
 		auto p = name in symbols;
 		if(p) {
 			if(auto cs = cast(ConditionalSet) *p) {
@@ -659,13 +658,13 @@ final class PoisonScope : Scope {
 		}
 	}
 	
-	override Symbol resolve(string name) {
+	override Symbol resolve(Name name) {
 		resolveConditional(name);
 		
 		return parent.resolve(name);
 	}
 	
-	override Symbol search(string name) {
+	override Symbol search(Name name) {
 		resolveConditional(name);
 		
 		return parent.search(name);
@@ -673,11 +672,11 @@ final class PoisonScope : Scope {
 }
 
 final class Poison : Symbol {
-	this(Location location, string name) {
+	this(Location location, Name name) {
 		super(location, name);
 	}
 	
-	this(string name) {
+	this(Name name) {
 		super(Location.init, name);
 	}
 }
@@ -695,7 +694,7 @@ struct ConditionalEntry {
 final class ConditionalSet : Symbol {
 	ConditionalEntry[] set;
 	
-	this(Location location, string name, ConditionalEntry[] set) {
+	this(Location location, Name name, ConditionalEntry[] set) {
 		super(location, name);
 		
 		this.set = set;

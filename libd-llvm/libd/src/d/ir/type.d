@@ -264,10 +264,11 @@ class AliasType : Type {
 	this(TypeAlias dalias) {
 		this.dalias = dalias;
 	}
-	
+	/+
 	override string toString(TypeQualifier) const {
 		return dalias.name;
 	}
+	+/
 }
 
 QualType peelAlias(QualType t) {
@@ -299,10 +300,11 @@ class StructType : Type {
 	this(Struct dstruct) {
 		this.dstruct = dstruct;
 	}
-	
+	/+
 	override string toString(TypeQualifier) const {
 		return dstruct.name;
 	}
+	+/
 }
 
 /**
@@ -315,10 +317,11 @@ class ClassType : Type {
 	this(Class dclass) {
 		this.dclass = dclass;
 	}
-	
+	/+
 	override string toString(TypeQualifier) const {
 		return dclass.name;
 	}
+	+/
 }
 
 /**
@@ -331,9 +334,10 @@ class EnumType : Type {
 	this(Enum denum) {
 		this.denum = denum;
 	}
-	
+	/+
 	override string toString(TypeQualifier) const {
 		return denum.name;
 	}
+	+/
 }
 

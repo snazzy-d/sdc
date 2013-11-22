@@ -62,9 +62,9 @@ class ContinueStatement : Statement {
  * goto statements
  */
 class GotoStatement : Statement {
-	string label;
+	Name label;
 	
-	this(Location location, string label) {
+	this(Location location, Name label) {
 		super(location);
 		
 		this.label = label;

@@ -15,7 +15,7 @@ import std.range;
 Identifier parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	return trange.parseBuiltIdentifier(location, new BasicIdentifier(location, name));
@@ -31,7 +31,7 @@ Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange
 	// FIXME: investigate why this don't compile.
 	// location.spanTo(trange.front.location);
 	
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	return trange.parseBuiltIdentifier(location, new DotIdentifier(location, name));
@@ -41,7 +41,7 @@ Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange
  * Parse any qualifier identifier (qualifier.identifier)
  */
 auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Location location, Namespace ns) if(isTokenRange!TokenRange) {
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
@@ -68,7 +68,7 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 		switch(trange.front.type) {
 			case TokenType.Dot :
 				trange.popFront();
-				string name = trange.front.value;
+				auto name = trange.front.name;
 				
 				location.spanTo(trange.front.location);
 				trange.match(TokenType.Identifier);
@@ -89,7 +89,7 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				if(trange.front.type == TokenType.Dot) {
 					trange.popFront();
 					
-					string name = trange.front.value;
+					auto name = trange.front.name;
 					
 					location.spanTo(trange.front.location);
 					trange.match(TokenType.Identifier);

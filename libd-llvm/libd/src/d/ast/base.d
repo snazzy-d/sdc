@@ -1,5 +1,6 @@
 module d.ast.base;
 
+public import d.context;
 public import d.node;
 public import d.location;
 

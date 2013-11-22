@@ -33,6 +33,7 @@ import d.parser.base;
 
 import d.processor.scheduler;
 
+import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
@@ -64,10 +65,12 @@ final class SemanticPass {
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
 	
+	Context context;
+	
 	Backend backend;
 	Evaluator evaluator;
 	
-	string[] versions = ["SDC", "D_LP64"];
+	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
 	
 	static struct State {
 		Scope currentScope;
@@ -95,9 +98,10 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Backend backend, Evaluator evaluator, FileSource delegate(string[]) sourceFactory) {
-		this.backend		= backend;
-		this.evaluator		= evaluator;
+	this(Context context, Backend backend, Evaluator evaluator, FileSource delegate(Name[]) sourceFactory) {
+		this.context	= context;
+		this.backend	= backend;
+		this.evaluator	= evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		symbolVisitor		= new SymbolVisitor(this);
@@ -112,15 +116,15 @@ final class SemanticPass {
 		
 		scheduler			= new Scheduler!SemanticPass(this);
 		
-		importModule(["object"]);
+		importModule([BuiltinName!"object"]);
 	}
 	
-	AstModule parse(S)(S source, string[] packages) if(is(S : Source)) {
-		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content);
+	AstModule parse(S)(S source, Name[] packages) if(is(S : Source)) {
+		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	
-	Module add(FileSource source, string[] packages) {
+	Module add(FileSource source, Name[] packages) {
 		auto astm = parse(source, packages);
 		auto mod = moduleVisitor.modulize(astm);
 		
@@ -159,7 +163,7 @@ final class SemanticPass {
 		return evaluator.evaluate(e);
 	}
 	
-	auto importModule(string[] pkgs) {
+	auto importModule(Name[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
 	}
 	
@@ -180,7 +184,7 @@ final class SemanticPass {
 	void buildMain(Module[] mods) {
 		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
 			if(auto fun = cast(Function) s) {
-				if(fun.name == "main") {
+				if(fun.name == BuiltinName!"main") {
 					return fun;
 				}
 			}
@@ -209,12 +213,12 @@ final class SemanticPass {
 			}
 			
 			type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
-			auto bootstrap = new Function(main.location, QualType(type), "_Dmain", [], new BlockStatement(location, fbody));
+			auto bootstrap = new Function(main.location, QualType(type), BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 			bootstrap.isStatic = true;
 			bootstrap.step = Step.Processed;
 			bootstrap.mangle = "_Dmain";
 			
-			auto m = new Module(main.location, "main", null);
+			auto m = new Module(main.location, BuiltinName!"main", null);
 			m.members = [bootstrap];
 			
 			backend.visit(m);

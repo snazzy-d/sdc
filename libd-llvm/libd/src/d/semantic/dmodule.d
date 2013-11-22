@@ -12,6 +12,7 @@ import d.ir.symbol;
 
 import d.processor.scheduler;
 
+import d.context;
 import d.location;
 
 import std.algorithm;
@@ -28,11 +29,11 @@ final class ModuleVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	private FileSource delegate(string[]) sourceFactory;
+	private FileSource delegate(Name[]) sourceFactory;
 	
 	private Module[string] cachedModules;
 	
-	this(SemanticPass pass, FileSource delegate(string[]) sourceFactory) {
+	this(SemanticPass pass, FileSource delegate(Name[]) sourceFactory) {
 		this.pass = pass;
 		this.sourceFactory = sourceFactory;
 	}
@@ -52,17 +53,20 @@ final class ModuleVisitor {
 		import std.conv;
 		auto current = astm.parent;
 		while(current) {
-			manglePrefix = to!string(current.name.length) ~ current.name ~ manglePrefix;
+			auto name = current.name.toString(context);
+			manglePrefix = to!string(name.length) ~ name ~ manglePrefix;
 			current = current.parent;
 		}
 		
-		manglePrefix ~= to!string(astm.name.length) ~ astm.name;
+		auto name = astm.name.toString(context);
+		manglePrefix ~= to!string(name.length) ~ name;
 		
 		import d.semantic.declaration;
 		auto dv = DeclarationVisitor(pass);
 		
 		// All modules implicitely import object.
-		m.members = dv.flatten(new ImportDeclaration(m.location, [["object"]]) ~ astm.declarations, m);
+		import d.context;
+		m.members = dv.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
 		
 		scheduler.require(m.members);
@@ -71,8 +75,8 @@ final class ModuleVisitor {
 		return m;
 	}
 	
-	Module importModule(string[] packages) {
-		auto name = packages.join(".");
+	Module importModule(Name[] packages) {
+		auto name = packages.map!(p => p.toString(pass.context)).join(".");
 		
 		return cachedModules.get(name, {
 			auto source = sourceFactory(packages);
@@ -126,18 +130,18 @@ final class ModuleVisitor {
 		
 		return new Package(p.location, p.name, parent);
 	}
-}
-
-private auto getModuleName(Module m) {
-	auto name = m.name;
-	if(m.parent) {
-		auto dpackage = m.parent;
-		while(dpackage) {
-			name = dpackage.name ~ "." ~ name;
-			dpackage = dpackage.parent;
-		}
-	}
 	
-	return name;
+	private auto getModuleName(Module m) {
+		auto name = m.name.toString(context);
+		if(m.parent) {
+			auto dpackage = m.parent;
+			while(dpackage) {
+				name = dpackage.name.toString(context) ~ "." ~ name;
+				dpackage = dpackage.parent;
+			}
+		}
+	
+		return name;
+	}
 }
 

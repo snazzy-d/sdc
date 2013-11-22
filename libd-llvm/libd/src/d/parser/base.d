@@ -1,5 +1,6 @@
 module d.parser.base;
 
+public import d.context;
 public import d.lexer;
 public import d.location;
 
@@ -10,7 +11,7 @@ enum ParseMode {
 	Reluctant,
 }
 
-auto parse(R)(ref R trange, string name, string[] packages) if(isTokenRange!R) {
+auto parse(R)(ref R trange, Name name, Name[] packages) if(isTokenRange!R) {
 	return trange.parseModule(name, packages);
 }
 

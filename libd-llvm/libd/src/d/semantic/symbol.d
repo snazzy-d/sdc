@@ -61,7 +61,8 @@ final class SymbolVisitor {
 			returnType = oldReturnType;
 		}
 		
-		manglePrefix = manglePrefix ~ to!string(f.name.length) ~ f.name;
+		auto name = f.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
 		
 		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : pass.visit(fd.returnType);
@@ -72,7 +73,7 @@ final class SymbolVisitor {
 			if(!f.isStatic) {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = new Parameter(f.location, thisType, "this", null);
+				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
 				params = thisParameter ~ params;
 			}
 			
@@ -103,7 +104,7 @@ final class SymbolVisitor {
 			if(!f.isStatic) {
 				assert(thisType.type, "function must be static or thisType must be defined.");
 				
-				auto thisParameter = new Parameter(f.location, thisType, "this", null);
+				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
 				params = thisParameter ~ params;
 			}
 			
@@ -118,7 +119,7 @@ final class SymbolVisitor {
 				break;
 			
 			case C :
-				f.mangle = f.name;
+				f.mangle = f.name.toString(context);
 				break;
 			
 			default:
@@ -137,7 +138,8 @@ final class SymbolVisitor {
 		// XXX: maybe monad ?
 		auto params = c.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
-		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
+		auto name = c.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		auto fbody = fd.fbody;
 		
@@ -156,7 +158,7 @@ final class SymbolVisitor {
 			returnType = ParamType(getBuiltin(TypeKind.Void), false);
 		}
 		
-		auto thisParameter = new Parameter(c.location, ctorThis, "this", null);
+		auto thisParameter = new Parameter(c.location, ctorThis, BuiltinName!"this", null);
 		params = thisParameter ~ params;
 		
 		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
@@ -219,10 +221,11 @@ final class SymbolVisitor {
 		
 		v.value = value;
 		
-		v.mangle = v.name;
+		auto name = v.name.toString(context);
+		v.mangle = name;
 		if(v.isStatic) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
-			v.mangle = "_D" ~ manglePrefix ~ to!string(v.name.length) ~ v.name ~ typeMangler.visit(v.type);
+			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ typeMangler.visit(v.type);
 		}
 		
 		v.step = Step.Processed;
@@ -272,7 +275,8 @@ final class SymbolVisitor {
 		thisType = ParamType(type, true);
 		
 		// Update mangle prefix.
-		manglePrefix = manglePrefix ~ to!string(s.name.length) ~ s.name;
+		auto name = s.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		assert(s.linkage == Linkage.D);
 		s.mangle = "S" ~ manglePrefix;
@@ -299,9 +303,9 @@ final class SymbolVisitor {
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = type;
 		
-		auto init = new Variable(d.location, type, "init", tuple);
+		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
 		init.isStatic = true;
-		init.mangle = "_D" ~ manglePrefix ~ to!string(init.name.length) ~ init.name ~ s.mangle;
+		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
 		
 		s.dscope.addSymbol(init);
 		init.step = Step.Processed;
@@ -341,7 +345,8 @@ final class SymbolVisitor {
 		thisType.isFinal = true;
 		
 		// Update mangle prefix.
-		manglePrefix = manglePrefix ~ to!string(c.name.length) ~ c.name;
+		auto name = c.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		c.mangle = "C" ~ manglePrefix;
 		
@@ -357,7 +362,7 @@ final class SymbolVisitor {
 			vtblType.qualifier = TypeQualifier.Immutable;
 			
 			// TODO: use defaultinit.
-			auto vtbl = new Field(cd.location, 0, vtblType, "__vtbl", null);
+			auto vtbl = new Field(cd.location, 0, vtblType, BuiltinName!"__vtbl", null);
 			vtbl.step = Step.Processed;
 			
 			baseFields = [vtbl];
@@ -386,7 +391,7 @@ final class SymbolVisitor {
 					} else {
 						return null;
 					}
-				})(pass).visit(new BasicIdentifier(d.location, "Object"));
+				})(pass).visit(new BasicIdentifier(d.location, BuiltinName!"Object"));
 				
 				assert(baseType, "Can't find object.Object");
 				c.base = baseType.dclass;
@@ -464,7 +469,7 @@ final class SymbolVisitor {
 				}
 				
 				if(method.index == 0) {
-					assert(0, "Override not found for " ~ method.name);
+					assert(0, "Override not found for " ~ method.name.toString(context));
 				}
 			}
 		}
@@ -492,7 +497,7 @@ final class SymbolVisitor {
 		auto ed = cast(EnumDeclaration) d;
 		assert(ed);
 		
-		assert(e.name, "anonymous enums must be flattened !");
+		assert(e.name.isDefined, "anonymous enums must be flattened !");
 		
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
@@ -515,7 +520,8 @@ final class SymbolVisitor {
 			assert(0, "enum are of integer type.");
 		}
 		
-		manglePrefix = manglePrefix ~ to!string(e.name.length) ~ e.name;
+		auto name = e.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		assert(e.linkage == Linkage.D);
 		e.mangle = "E" ~ manglePrefix;
@@ -570,7 +576,8 @@ final class SymbolVisitor {
 		assert(td);
 		
 		// XXX: compute a proper mangling for templates.
-		t.mangle = manglePrefix ~ to!string(t.name.length) ~ t.name;
+		auto name = t.name.toString(context);
+		t.mangle = manglePrefix ~ to!string(name.length) ~ name;
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;

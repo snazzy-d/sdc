@@ -218,7 +218,7 @@ final class StatementVisitor {
 		if(auto str = cast(StringLiteral) value) {
 			import d.lexer;
 			auto source = new MixinSource(s.location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0');
+			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
 			
 			trange.match(TokenType.Begin);
 			

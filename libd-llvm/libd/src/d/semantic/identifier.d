@@ -10,6 +10,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context;
 import d.exception;
 import d.location;
 
@@ -33,7 +34,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return this.dispatch(i);
 	}
 	
-	private Symbol resolveImportedSymbol(string name) {
+	private Symbol resolveImportedSymbol(Name name) {
 		auto dscope = currentScope;
 		
 		while(true) {
@@ -45,7 +46,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 				auto symInMod = m.dscope.resolve(name);
 				if(symInMod) {
 					if(symbol) {
-						assert(0, "Ambiguous symbol " ~ name);
+						assert(0, "Ambiguous symbol " ~ name.toString(context));
 					}
 					
 					symbol = symInMod;
@@ -57,7 +58,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			if(auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				assert(0, "Symbol " ~ name ~ " has not been found.");
+				assert(0, "Symbol " ~ name.toString(context) ~ " has not been found.");
 			}
 			
 			if(auto nested = cast(SymbolScope) dscope) {
@@ -66,7 +67,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		}
 	}
 	
-	private Symbol resolveName(string name) {
+	private Symbol resolveName(Name name) {
 		auto symbol = currentScope.search(name);
 		
 		// I wish we had ?:
@@ -81,32 +82,29 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return resolveInIdentifiable(i.location, IdentifierVisitor!identifiableHandler(pass).visit(i.identifier), i.name);
 	}
 	
-	Ret resolveInSymbol(Location location, Symbol s, string name) {
+	Ret resolveInSymbol(Location location, Symbol s, Name name) {
 		return resolveInIdentifiable(location, IdentifierVisitor!identifiableHandler(pass).visit(location, s), name);
 	}
 	
-	Ret resolveInType(Location location, QualType t, string name) {
+	Ret resolveInType(Location location, QualType t, Name name) {
 		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
 			return visit(location, s);
 		}
 		
-		switch(name) {
-			case "init" :
-				assert(0, "init, yeah sure . . .");
-			
-			case "sizeof" :
-				return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
-			
-			default :
-				throw new CompileException(location, name ~ " can't be resolved in type " ~ t.toString());
+		if(name == BuiltinName!"init") {
+			assert(0, "init, yeah sure . . .");
+		} else if(name == BuiltinName!"sizeof") {
+			return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
 		}
+		
+		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString());
 	}
 	
-	Ret resolveInExpression(Location location, Expression e, string name) {
+	Ret resolveInExpression(Location location, Expression e, Name name) {
 		return ExpressionDotIdentifierVisitor!handler(pass).visit(location, name, e);
 	}
 	
-	private Ret resolveInIdentifiable(Location location, Identifiable i, string name) {
+	private Ret resolveInIdentifiable(Location location, Identifiable i, Name name) {
 		return i.apply!(delegate Ret(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return resolveInType(location, identified, name);
@@ -121,7 +119,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 					return visit(location, m.dscope.resolve(name));
 				}
 				
-				throw new CompileException(location, "Can't resolve " ~ name);
+				throw new CompileException(location, "Can't resolve " ~ name.toString(pass.context));
 			}
 		})();
 	}
@@ -317,7 +315,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 			}
 		}
 		
-		throw new CompileException(i.location, i.name ~ " not found in template");
+		throw new CompileException(i.location, i.name.toString(context) ~ " not found in template");
 	}
 }
 
@@ -431,7 +429,7 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 		return visit(i.location, i.name, pass.visit(i.expression));
 	}
 	
-	Ret visit(Location location, string name, Expression e) {
+	Ret visit(Location location, Name name, Expression e) {
 		if(auto s = SymbolInTypeResolver(pass).visit(name, e.type)) {
 			return visit(location, e, s);
 		}
@@ -449,7 +447,7 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 				// expression.sizeof or similar stuffs.
 				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
 			} else {
-				return handler(pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name));
+				return handler(pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name.toString(pass.context)));
 			}
 		})();
 	}
@@ -519,45 +517,42 @@ struct SymbolInTypeResolver {
 		this.pass = pass;
 	}
 	
-	Symbol visit(string name, QualType t) {
+	Symbol visit(Name name, QualType t) {
 		return this.dispatch!(t => null)(name, t.type);
 	}
 	
-	Symbol visit(string name, SliceType t) {
-		switch(name) {
-			case "length" :
-				// FIXME: pass explicit location.
-				auto location = Location.init;
-				auto lt = getBuiltin(TypeKind.Ulong);
-				auto s = new Field(location, 0, lt, "length", null);
-				s.step = Step.Processed;
-				return s;
-			
-			case "ptr" :
-				// FIXME: pass explicit location.
-				auto location = Location.init;
-				auto pt = QualType(new PointerType(t.sliced));
-				auto s = new Field(location, 1, pt, "ptr", null);
-				s.step = Step.Processed;
-				return s;
-			
-			default :
-				return null;
+	Symbol visit(Name name, SliceType t) {
+		if(name == BuiltinName!"length") {
+			// FIXME: pass explicit location.
+			auto location = Location.init;
+			auto lt = getBuiltin(TypeKind.Ulong);
+			auto s = new Field(location, 0, lt, BuiltinName!"length", null);
+			s.step = Step.Processed;
+			return s;
+		} else if(name == BuiltinName!"ptr") {
+			// FIXME: pass explicit location.
+			auto location = Location.init;
+			auto pt = QualType(new PointerType(t.sliced));
+			auto s = new Field(location, 1, pt, BuiltinName!"ptr", null);
+			s.step = Step.Processed;
+			return s;
 		}
+		
+		return null;
 	}
 	
-	Symbol visit(string name, AliasType t) {
+	Symbol visit(Name name, AliasType t) {
 		return visit(name, t.dalias.type);
 	}
 	
-	Symbol visit(string name, StructType t) {
+	Symbol visit(Name name, StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
 		
 		return s.dscope.resolve(name);
 	}
 	
-	Symbol visit(string name, ClassType t) {
+	Symbol visit(Name name, ClassType t) {
 		auto c = t.dclass;
 		scheduler.require(c, Step.Populated);
 		
@@ -578,7 +573,7 @@ struct SymbolInTypeResolver {
 		return null;
 	}
 	
-	Symbol visit(string name, EnumType t) {
+	Symbol visit(Name name, EnumType t) {
 		auto e = t.denum;
 		scheduler.require(e, Step.Populated);
 		

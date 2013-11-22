@@ -214,24 +214,19 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		case Extern :
 			trange.popFront();
 			trange.match(OpenParen);
-			string linkageStr = trange.front.value;
+			auto linkageName = trange.front.name;
 			trange.match(Identifier);
 			
 			Linkage linkage;
-			switch(linkageStr) {
-				case "D" :
-					linkage = Linkage.D;
-					break;
-				
-				case "C" :
-					// TODO: C++
-					linkage = Linkage.C;
-					break;
-				
-				default:
-					assert(0, "Linkage not supported");
+			if (linkageName == BuiltinName!"D") {
+				linkage = Linkage.D;
+			} else if (linkageName == BuiltinName!"C") {
+				// TODO: C++
+				linkage = Linkage.C;
+			} else {
+				assert(0, "Linkage not supported : " ~ linkageName.toString(trange.context));
 			}		
-					
+				
 			trange.match(CloseParen);
 			
 			return handleStorageClass!LinkageDeclaration(linkage);
@@ -241,7 +236,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		 */
 		case At :
 			trange.popFront();
-			string attribute = trange.front.value;
+			auto attribute = trange.front.name;
 			trange.match(Identifier);
 			
 			return handleStorageClass!AttributeDeclaration(attribute);
@@ -385,11 +380,11 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
-		string name = trange.front.value;
+		auto name = trange.front.name;
 		trange.match(TokenType.Identifier);
 		
-		assert(name != "__ctor", "__ctor is a reserved name");
-		assert(name != "__dtor", "__dtor is a reserved name");
+		// XXX: get the name :D
+		assert(!name.isReserved, "XXX is a reserved name");
 		
 		// TODO: implement ref return.
 		return trange.parseFunction(location, Linkage.D, ParamAstType(type, false), name);
@@ -398,7 +393,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 		
 		// Variables declaration.
 		void parseVariableDeclaration() {
-			string name = trange.front.value;
+			auto name = trange.front.name;
 			Location variableLocation = trange.front.location;
 			trange.match(TokenType.Identifier);
 			
@@ -432,8 +427,8 @@ private Declaration parseConstructor(R)(ref R trange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	import d.ir.type;
-	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), "__ctor");
+	import d.ir.type, d.context;
+	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__ctor");
 }
 
 private Declaration parseDestructor(R)(ref R trange) {
@@ -441,8 +436,8 @@ private Declaration parseDestructor(R)(ref R trange) {
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	import d.ir.type;
-	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), "__dtor");
+	import d.ir.type, d.context;
+	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__dtor");
 }
 
 /**
@@ -450,7 +445,7 @@ private Declaration parseDestructor(R)(ref R trange) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-private Declaration parseFunction(R)(ref R trange, Location location, Linkage linkage, ParamAstType returnType, string name) {
+private Declaration parseFunction(R)(ref R trange, Location location, Linkage linkage, ParamAstType returnType, Name name) {
 	// Function declaration.
 	bool isVariadic;
 	AstTemplateParameter[] tplParameters;
@@ -612,7 +607,7 @@ private auto parseParameter(R)(ref R trange) {
 	auto type = ParamAstType(trange.parseType(), isRef);
 	
 	if(trange.front.type == TokenType.Identifier) {
-		string name = trange.front.value;
+		auto name = trange.front.name;
 		trange.popFront();
 		
 		if(trange.front.type == TokenType.Assign) {
@@ -654,7 +649,7 @@ private Declaration parseAlias(R)(ref R trange) {
 	}
 	
 	auto type = trange.parseType();
-	string name = trange.front.value;
+	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	location.spanTo(trange.front.location);
@@ -671,19 +666,19 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
 	trange.match(TokenType.Import);
 	
 	auto parseModuleName(TokenRange)(ref TokenRange trange) {
-		string[] mod = [trange.front.value];
+		auto mod = [trange.front.name];
 		trange.match(TokenType.Identifier);
 		while(trange.front.type == TokenType.Dot) {
 			trange.popFront();
 		
-			mod ~= trange.front.value;
+			mod ~= trange.front.name;
 			trange.match(TokenType.Identifier);
 		}
 		
 		return mod;
 	}
 	
-	string[][] modules = [parseModuleName(trange)];
+	auto modules = [parseModuleName(trange)];
 	while(trange.front.type == TokenType.Comma) {
 		trange.popFront();
 		

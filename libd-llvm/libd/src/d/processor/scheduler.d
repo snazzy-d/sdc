@@ -130,7 +130,7 @@ public:
 						pool ~= f;
 					}
 				} else {
-					assert(0, "Forward reference to " ~ s.name);
+					assert(0, "Forward reference to " ~ s.name.toString(pass.context));
 				}
 				
 				if(s.step >= step) return;

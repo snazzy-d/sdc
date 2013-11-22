@@ -75,7 +75,7 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression getTemporaryRvalue(Expression value) {
-		auto v = new Variable(value.location, value.type, "", value);
+		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.isEnum = true;
 		v.step = Step.Processed;
 		
@@ -391,7 +391,7 @@ final class ExpressionVisitor {
 		// TODO: check if we are in a constructor.
 		if(cast(ThisExpression) c.callee) {
 			import d.ast.identifier;
-			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, "__ctor", c.callee), c.args));
+			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee), c.args));
 			
 			if(thisType.isFinal) {
 				return call;
@@ -428,7 +428,7 @@ final class ExpressionVisitor {
 						}
 					}
 					
-					return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
+					return pass.raiseCondition!Expression(c.location, c.callee.name.toString(pass.context) ~ " isn't callable.");
 				}
 			})(pass).resolve(tidi, args);
 		}
@@ -455,7 +455,7 @@ final class ExpressionVisitor {
 					}
 				}
 				
-				return pass.raiseCondition!Expression(c.location, c.callee.name ~ " isn't callable.");
+				return pass.raiseCondition!Expression(c.location, c.callee.name.toString(pass.context) ~ " isn't callable.");
 			}
 		})(pass).visit(c.callee);
 	}
@@ -479,8 +479,8 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			return pass.raiseCondition!Expression(location, type.dstruct.name ~ " isn't callable.");
-		}, true)(pass).resolveInSymbol(location, type.dstruct, "__ctor");
+			return pass.raiseCondition!Expression(location, type.dstruct.name.toString(pass.context) ~ " isn't callable.");
+		}, true)(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
@@ -496,7 +496,7 @@ final class ExpressionVisitor {
 			static if(is(typeof(identified) : Expression)) {
 				return identified;
 			} else {
-				return pass.raiseCondition!Expression(location, t.name ~ " isn't callable.");
+				return pass.raiseCondition!Expression(location, t.name.toString(pass.context) ~ " isn't callable.");
 			}
 		})(pass).resolveInSymbol(location, i, t.name);
 	}
@@ -648,7 +648,7 @@ final class ExpressionVisitor {
 			}
 			
 			assert(0, "Gimme some construtor !");
-		}, true)(pass).resolveInType(e.location, type, "__ctor");
+		}, true)(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
 		auto funType = cast(FunctionType) peelAlias(ctor.type).type;
 		if(!funType) {
@@ -743,7 +743,7 @@ final class ExpressionVisitor {
 					}
 				}
 				
-				return pass.raiseCondition!Expression(e.location, e.identifier.name ~ " isn't an expression.");
+				return pass.raiseCondition!Expression(e.location, e.identifier.name.toString(pass.context) ~ " isn't an expression.");
 			}
 		})(pass).visit(e.identifier);
 	}

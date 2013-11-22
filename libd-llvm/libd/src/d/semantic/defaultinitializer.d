@@ -86,8 +86,8 @@ final class DefaultInitializerVisitor {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
 		
-		import d.ir.symbol;
-		auto init = cast(Variable) s.dscope.resolve("init");
+		import d.ir.symbol, d.context;
+		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
 		
 		// XXX: Create a new node ?
 		return init.value;

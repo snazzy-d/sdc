@@ -141,7 +141,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 						type = trange.parseType();
 				}
 				
-				auto name = trange.front.value;
+				auto name = trange.front.name;
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
@@ -230,7 +230,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		
 		case Default :
 			// Other labeled statement will jump here !
-			auto label = trange.front.value;
+			auto label = trange.front.name;
 			trange.popFront();
 			trange.match(Colon);
 			
@@ -259,12 +259,12 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		case Goto :
 			trange.popFront();
 			
-			string label;
+			Name label;
 			switch(trange.front.type) {
 				case Identifier :
 				case Default :
 				case Case :
-					label = trange.front.value;
+					label = trange.front.name;
 					trange.popFront();
 					break;
 				
@@ -306,10 +306,10 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				if(trange.front.type == OpenParen) {
 					trange.popFront();
 					auto type = trange.parseBasicType();
-					string name;
 					
+					Name name;
 					if(trange.front.type == Identifier) {
-						name = trange.front.value;
+						name = trange.front.name;
 						trange.popFront();
 					}
 					

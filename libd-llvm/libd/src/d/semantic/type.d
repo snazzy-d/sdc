@@ -89,7 +89,7 @@ final class TypeVisitor {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
-				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name ~ " isn't an type.");
+				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
 			}
 		})(pass).visit(t.identifier);
 	}

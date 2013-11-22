@@ -7,7 +7,7 @@ import d.ir.symbol;
 final class OverloadSet : Symbol {
 	Symbol[] set;
 	
-	this(Location location, string name, Symbol[] set) {
+	this(Location location, Name name, Symbol[] set) {
 		super(location, name);
 		
 		this.set = set;
@@ -20,7 +20,7 @@ final class OverloadSet : Symbol {
 class Scope {
 	Module dmodule;
 	
-	Symbol[string] symbols;
+	Symbol[Name] symbols;
 	
 	Module[] imports;
 	
@@ -29,7 +29,7 @@ class Scope {
 	}
 	
 	void addSymbol(Symbol s) {
-		assert(!(s.name in symbols), s.name ~ " is already present in scope.");
+		assert(!(s.name in symbols), "Already present in scope.");
 		
 		symbols[s.name] = s;
 	}
@@ -47,11 +47,11 @@ class Scope {
 		addSymbol(new OverloadSet(s.location, s.name, [s]));
 	}
 	
-	Symbol resolve(string name) {
+	Symbol resolve(Name name) {
 		return symbols.get(name, null);
 	}
 	
-	Symbol search(string name) {
+	Symbol search(Name name) {
 		return resolve(name);
 	}
 }
@@ -65,7 +65,7 @@ class NestedScope : Scope {
 		this.parent = parent;
 	}
 	
-	override Symbol search(string name) {
+	override Symbol search(Name name) {
 		return symbols.get(name, parent.search(name));
 	}
 	

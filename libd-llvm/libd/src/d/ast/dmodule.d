@@ -10,7 +10,7 @@ import d.ast.declaration;
 class Package : NamedDeclaration {
 	Package parent;
 	
-	this(Location location, string name, string[] packages) {
+	this(Location location, Name name, Name[] packages) {
 		super(location, name);
 		
 		if(packages.length > 0) {
@@ -25,7 +25,7 @@ class Package : NamedDeclaration {
 class Module : Package {
 	Declaration[] declarations;
 	
-	this(Location location, string name, string[] packages, Declaration[] declarations) {
+	this(Location location, Name name, Name[] packages, Declaration[] declarations) {
 		super(location, name, packages);
 		
 		this.declarations = declarations;
