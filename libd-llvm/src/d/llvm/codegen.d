@@ -11,6 +11,7 @@ import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
 
+import d.context;
 import d.location;
 
 import util.visitor;
@@ -24,6 +25,8 @@ import std.array;
 import std.string;
 
 final class CodeGenPass {
+	Context context;
+	
 	private SymbolGen symbolGen;
 	private StatementGen statementGen;
 	private ExpressionGen expressionGen;
@@ -33,7 +36,7 @@ final class CodeGenPass {
 	
 	DruntimeGen druntimeGen;
 	
-	LLVMContextRef context;
+	LLVMContextRef llvmCtx;
 	
 	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
@@ -41,7 +44,7 @@ final class CodeGenPass {
 	LLVMBasicBlockRef continueBB;
 	LLVMBasicBlockRef breakBB;
 	
-	LLVMBasicBlockRef[string] labels;
+	LLVMBasicBlockRef[Name] labels;
 	
 	LLVMValueRef thisPtr;
 	
@@ -50,7 +53,9 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(string name) {
+	this(Context context, string name) {
+		this.context	= context;
+		
 		symbolGen		= new SymbolGen(this);
 		statementGen	= new StatementGen(this);
 		expressionGen	= new ExpressionGen(this);
@@ -60,28 +65,28 @@ final class CodeGenPass {
 		
 		druntimeGen		= new DruntimeGen(this);
 		
-		context = LLVMContextCreate();
-		builder = LLVMCreateBuilderInContext(context);
-		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), context);
+		llvmCtx = LLVMContextCreate();
+		builder = LLVMCreateBuilderInContext(llvmCtx);
+		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
 		// Create a dummy function, as LLVM expect to always have something.
-		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
+		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, ".dummy", funType);
-		auto basicBlock = LLVMAppendBasicBlockInContext(context, fun, "");
+		auto basicBlock = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, basicBlock);
 		LLVMBuildRetVoid(builder);
 		
 		LLVMValueRef[3] branch_metadata;
 		
 		auto id = "branch_weights";
-		branch_metadata[0] = LLVMMDStringInContext(context, id.ptr, cast(uint) id.length);
-		branch_metadata[1] = LLVMConstInt(LLVMInt32TypeInContext(context), 65536, false);
-		branch_metadata[2] = LLVMConstInt(LLVMInt32TypeInContext(context), 0, false);
+		branch_metadata[0] = LLVMMDStringInContext(llvmCtx, id.ptr, cast(uint) id.length);
+		branch_metadata[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false);
+		branch_metadata[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false);
 		
-		unlikelyBranch = LLVMMDNodeInContext(context, branch_metadata.ptr, cast(uint) branch_metadata.length);
+		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr, cast(uint) branch_metadata.length);
 		
 		id = "prof";
-		profKindID = LLVMGetMDKindIDInContext(context, id.ptr, cast(uint) id.length);
+		profKindID = LLVMGetMDKindIDInContext(llvmCtx, id.ptr, cast(uint) id.length);
 	}
 	
 	Module visit(Module m) {
@@ -144,7 +149,7 @@ final class CodeGenPass {
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
@@ -167,7 +172,7 @@ final class CodeGenPass {
 		auto reciever = LLVMAddGlobal(dmodule, visit(e.type), "__ctString");
 		scope(exit) LLVMDeleteGlobal(reciever);
 		
-		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(context), null, 0, false);
+		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), null, 0, false);
 		
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
@@ -175,7 +180,7 @@ final class CodeGenPass {
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		
-		auto bodyBB = LLVMAppendBasicBlockInContext(context, fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
@@ -223,22 +228,22 @@ final class DruntimeGen {
 	
 	auto getAssert() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 2, false));
+		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
 	}
 	
 	auto getAssertMessage() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_assert_msg", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 3, false));
+		return getNamedFunction("_d_assert_msg", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 3, false));
 	}
 	
 	auto getArrayBound() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidTypeInContext(context), [LLVMStructTypeInContext(context, [LLVMInt64TypeInContext(context), LLVMPointerType(LLVMInt8TypeInContext(context), 0)].ptr, 2, false), LLVMInt32TypeInContext(context)].ptr, 2, false));
+		return getNamedFunction("_d_array_bounds", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
 	}
 	
 	auto getAllocMemory() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
-		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(context), 0), [LLVMInt64TypeInContext(context)].ptr, 1, false));
+		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), [LLVMInt64TypeInContext(llvmCtx)].ptr, 1, false));
 	}
 }
 

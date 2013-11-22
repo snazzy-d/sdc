@@ -5,6 +5,8 @@ import d.llvm.codegen;
 import d.ir.expression;
 import d.ir.statement;
 
+import d.context;
+
 import util.visitor;
 
 import llvm.c.core;
@@ -44,9 +46,9 @@ final class StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto thenBB = LLVMAppendBasicBlockInContext(context, fun, "then");
-		auto elseBB = LLVMAppendBasicBlockInContext(context, fun, "else");
-		auto mergeBB = LLVMAppendBasicBlockInContext(context, fun, "merge");
+		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
+		auto elseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "else");
+		auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "merge");
 		
 		LLVMBuildCondBr(builder, condition, thenBB, elseBB);
 		
@@ -94,19 +96,19 @@ final class StatementGen {
 		scope(exit) continueBB = oldContinueBB;
 		
 		static if(isFor) {
-			auto testBB = LLVMAppendBasicBlockInContext(context, fun, "for");
-			continueBB = LLVMAppendBasicBlockInContext(context, fun, "increment");
+			auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "for");
+			continueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "increment");
 		} else {
-			continueBB = LLVMAppendBasicBlockInContext(context, fun, "while");
+			continueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "while");
 			auto testBB = continueBB;
 		}
 		
-		auto doBB = LLVMAppendBasicBlockInContext(context, fun, "do");
+		auto doBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "do");
 		
 		auto oldBreakBB = breakBB;
 		scope(exit) breakBB = oldBreakBB;
 		
-		breakBB = LLVMAppendBasicBlockInContext(context, fun, "done");
+		breakBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "done");
 		
 		static if(isDoWhile) {
 			alias doBB startBB;
@@ -184,22 +186,22 @@ final class StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		auto oldDefault = labels.get("default", null);
+		auto oldDefault = labels.get(BuiltinName!"default", null);
 		scope(exit) {
 			if(oldDefault) {
-				labels["default"] = oldDefault;
+				labels[BuiltinName!"default"] = oldDefault;
 			} else {
-				labels.remove("default");
+				labels.remove(BuiltinName!"default");
 			}
 		}
 		
-		auto defaultBB = labels["default"] = LLVMAppendBasicBlockInContext(context, fun, "default");
-		auto startBB = LLVMAppendBasicBlockInContext(context, fun, "switchstart");
+		auto defaultBB = labels[BuiltinName!"default"] = LLVMAppendBasicBlockInContext(llvmCtx, fun, "default");
+		auto startBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "switchstart");
 		
 		auto oldBreakBB = breakBB;
 		scope(exit) breakBB = oldBreakBB;
 		
-		breakBB = LLVMAppendBasicBlockInContext(context, fun, "switchend");
+		breakBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "switchend");
 		
 		auto oldSwitchInstr = switchInstr;
 		scope(exit) switchInstr = oldSwitchInstr;
@@ -232,8 +234,8 @@ final class StatementGen {
 		assert(switchInstr);
 		
 		auto currentBB = LLVMGetInsertBlock(builder);
-		auto caseBB = getLabel("case");
-		labels.remove("case");
+		auto caseBB = getLabel(BuiltinName!"case");
+		labels.remove(BuiltinName!"case");
 		
 		LLVMMoveBasicBlockAfter(caseBB, currentBB);
 		
@@ -249,10 +251,10 @@ final class StatementGen {
 		LLVMPositionBuilderAtEnd(builder, caseBB);
 	}
 	
-	private auto getLabel(string label) {
+	private auto getLabel(Name label) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		return labels.get(label, labels[label] = LLVMAppendBasicBlockInContext(context, fun, toStringz("." ~ label)));
+		return labels.get(label, labels[label] = LLVMAppendBasicBlockInContext(llvmCtx, fun, toStringz("." ~ label.toString(context))));
 	}
 	
 	void visit(LabeledStatement s) {
