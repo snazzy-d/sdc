@@ -228,6 +228,29 @@ class SynchronizedStatement(S) if(is(S : AstStatement)) : S {
 alias AstSynchronizedStatement = SynchronizedStatement!AstStatement;
 
 /**
+ * Scope statement
+ */
+enum ScopeKind {
+	Exit,
+	Success,
+	Failure,
+}
+
+class ScopeStatement(S) if(is(S : AstStatement)) : S {
+	ScopeKind kind;
+	S statement;
+	
+	this(Location location, ScopeKind kind, S statement) {
+		super(location);
+		
+		this.kind = kind;
+		this.statement = statement;
+	}
+}
+
+alias AstScopeStatement = ScopeStatement!AstStatement;
+
+/**
  * try statements
  */
 class TryStatement : AstStatement {

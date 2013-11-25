@@ -58,7 +58,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			location.spanTo(statement.location);
 			return new AstWhileStatement(location, condition, statement);
 		
-		case TokenType.Do :
+		case Do :
 			trange.popFront();
 			
 			auto statement = trange.parseStatement();
@@ -74,7 +74,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			return new AstDoWhileStatement(location, condition, statement);
 		
-		case TokenType.For :
+		case For :
 			trange.popFront();
 			
 			trange.match(OpenParen);
@@ -292,6 +292,31 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			location.spanTo(statement.location);
 			
 			return new AstSynchronizedStatement(location, statement);
+		
+		case Scope :
+			trange.popFront();
+			trange.match(OpenParen);
+			
+			auto name = trange.front.name;
+			trange.match(Identifier);
+			
+			ScopeKind kind;
+			if(name == BuiltinName!"exit") {
+				kind = ScopeKind.Exit;
+			} else if(name == BuiltinName!"success") {
+				kind = ScopeKind.Success;
+			} else if(name == BuiltinName!"failure") {
+				kind = ScopeKind.Failure;
+			} else {
+				assert(0, name.toString(trange.context) ~ " is not a valid scope identifier.");
+			}
+			
+			trange.match(CloseParen);
+			
+			auto statement = trange.parseStatement();
+			location.spanTo(statement.location);
+			
+			return new AstScopeStatement(location, kind, statement);
 		
 		case Try :
 			trange.popFront();
