@@ -22,6 +22,8 @@ alias SwitchStatement = d.ast.statement.SwitchStatement!(Expression, Statement);
 alias CaseStatement = d.ast.statement.CaseStatement!(CompileTimeExpression, Statement);
 alias LabeledStatement = d.ast.statement.LabeledStatement!Statement;
 alias SynchronizedStatement = d.ast.statement.SynchronizedStatement!Statement;
+alias ScopeStatement = d.ast.statement.ScopeStatement!Statement;
+alias ScopeKind = d.ast.statement.ScopeKind;
 alias ThrowStatement = d.ast.statement.ThrowStatement!(Expression, Statement);
 
 final:
