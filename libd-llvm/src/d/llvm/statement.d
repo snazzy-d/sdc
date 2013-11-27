@@ -35,10 +35,23 @@ final class StatementGen {
 		pass.visit(e.expression);
 	}
 	
+	void unwindTo(size_t level) {
+		while(unwindBlocks.length > level) {
+			auto s = unwindBlocks.back;
+			unwindBlocks.popBack();
+			
+			visit(s);
+		}
+	}
+	
 	void visit(BlockStatement b) {
+		auto level = unwindBlocks.length;
+		
 		foreach(s; b.statements) {
 			visit(s);
 		}
+		
+		unwindTo(level);
 	}
 	
 	void visit(IfStatement ifs) {
@@ -167,8 +180,13 @@ final class StatementGen {
 	}
 	
 	void visit(ReturnStatement r) {
-		import d.ir.expression;
-		LLVMBuildRet(builder, pass.visit(r.value));
+		auto ret = pass.visit(r.value);
+		
+		unwindTo(0);
+		
+		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			LLVMBuildRet(builder, ret);
+		}
 	}
 	
 	void visit(BreakStatement s) {
@@ -277,6 +295,11 @@ final class StatementGen {
 		auto labelBB = getLabel(s.label);
 		
 		LLVMBuildBr(builder, labelBB);
+	}
+	
+	void visit(ScopeStatement s) {
+		assert(s.kind == ScopeKind.Exit, "Only scope exit is supported");
+		unwindBlocks ~= s.statement;
 	}
 }
 

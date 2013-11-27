@@ -73,15 +73,18 @@ final class SymbolGen {
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		auto oldLabels = labels;
 		auto oldThisPtr = thisPtr;
+		auto oldUnwindBlocks = unwindBlocks;
 		
 		scope(exit) {
 			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 			labels = oldLabels;
 			thisPtr = oldThisPtr;
+			unwindBlocks = oldUnwindBlocks;
 		}
 		
 		// XXX: what is the way to flush an AA ?
 		labels = typeof(labels).init;
+		unwindBlocks = [];
 		
 		// Handle parameters in the alloca block.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);

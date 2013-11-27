@@ -47,8 +47,9 @@ final class CodeGenPass {
 	LLVMBasicBlockRef[Name] labels;
 	
 	LLVMValueRef thisPtr;
-	
 	LLVMValueRef switchInstr;
+	
+	Statement[] unwindBlocks;
 	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
