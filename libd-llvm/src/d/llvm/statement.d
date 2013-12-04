@@ -45,16 +45,19 @@ final class StatementGen {
 	}
 	
 	void visit(BlockStatement b) {
-		auto level = unwindBlocks.length;
+		auto oldUnwindBlocks = unwindBlocks;
 		
 		foreach(s; b.statements) {
 			visit(s);
 		}
 		
-		unwindTo(level);
+		unwindTo(oldUnwindBlocks.length);
 	}
 	
 	void visit(IfStatement ifs) {
+		auto oldUnwindBlocks = unwindBlocks;
+		scope(exit) unwindBlocks = oldUnwindBlocks;
+		
 		auto condition = pass.visit(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
@@ -69,6 +72,7 @@ final class StatementGen {
 		LLVMPositionBuilderAtEnd(builder, thenBB);
 		
 		visit(ifs.then);
+		unwindTo(oldUnwindBlocks.length);
 		
 		// Codegen of then can change the current block, so we put everything in order.
 		thenBB = LLVMGetInsertBlock(builder);
@@ -83,8 +87,11 @@ final class StatementGen {
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
 		if(ifs.elseStatement) {
+			unwindBlocks = oldUnwindBlocks;
+			
 			// Emit else
 			visit(ifs.elseStatement);
+			unwindTo(oldUnwindBlocks.length);
 		}
 		
 		// Codegen of else can change the current block, so we put everything in order.
@@ -100,13 +107,35 @@ final class StatementGen {
 	}
 	
 	private void handleLoop(LoopStatement)(LoopStatement l) {
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
 		enum isFor = is(LoopStatement : ForStatement);
 		enum isDoWhile = is(LoopStatement : DoWhileStatement);
 		
+		// Generate initialization if appropriate
+		static if(isFor) {
+			auto oldUnwindBlocks = unwindBlocks;
+			scope(exit) unwindBlocks = oldUnwindBlocks;
+			
+			visit(l.initialize);
+		}
+		
+		auto oldBreakUnwindBlocks = breakUnwindBlocks;
+		auto oldContinueUnwindBlocks = continueUnwindBlocks;
+		
+		auto oldBreakBB = breakBB;
 		auto oldContinueBB = continueBB;
-		scope(exit) continueBB = oldContinueBB;
+		
+		scope(exit) {
+			breakUnwindBlocks = oldBreakUnwindBlocks;
+			continueUnwindBlocks = oldContinueUnwindBlocks;
+			
+			breakBB = oldBreakBB;
+			continueBB = oldContinueBB;
+		}
+		
+		breakUnwindBlocks = unwindBlocks;
+		continueUnwindBlocks = unwindBlocks;
+		
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
 		static if(isFor) {
 			auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "for");
@@ -118,20 +147,12 @@ final class StatementGen {
 		
 		auto doBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "do");
 		
-		auto oldBreakBB = breakBB;
-		scope(exit) breakBB = oldBreakBB;
-		
 		breakBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "done");
 		
 		static if(isDoWhile) {
 			alias doBB startBB;
 		} else {
 			alias testBB startBB;
-		}
-		
-		// Generate initialization if appropriate
-		static if(isFor) {
-			visit(l.initialize);
 		}
 		
 		// Jump into the loop.
@@ -165,6 +186,10 @@ final class StatementGen {
 		
 		LLVMMoveBasicBlockAfter(breakBB, doBB);
 		LLVMPositionBuilderAtEnd(builder, breakBB);
+		
+		static if(isFor) {
+			unwindTo(oldUnwindBlocks.length);
+		}
 	}
 	
 	void visit(WhileStatement w) {
@@ -191,15 +216,33 @@ final class StatementGen {
 	
 	void visit(BreakStatement s) {
 		assert(breakBB);
-		LLVMBuildBr(builder, breakBB);
+		
+		unwindTo(breakUnwindBlocks.length);
+		
+		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			LLVMBuildBr(builder, breakBB);
+		}
 	}
 	
 	void visit(ContinueStatement s) {
 		assert(continueBB);
-		LLVMBuildBr(builder, continueBB);
+		
+		unwindTo(continueUnwindBlocks.length);
+		
+		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			LLVMBuildBr(builder, continueBB);
+		}
 	}
 	
 	void visit(SwitchStatement s) {
+		auto oldBreakUnwindBlocks = breakUnwindBlocks;
+		
+		scope(exit) {
+			breakUnwindBlocks = oldBreakUnwindBlocks;
+		}
+		
+		breakUnwindBlocks = unwindBlocks;
+		
 		auto expression = pass.visit(s.expression);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));

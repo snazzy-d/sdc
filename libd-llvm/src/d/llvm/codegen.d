@@ -50,6 +50,8 @@ final class CodeGenPass {
 	LLVMValueRef switchInstr;
 	
 	Statement[] unwindBlocks;
+	Statement[] breakUnwindBlocks;
+	Statement[] continueUnwindBlocks;
 	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
