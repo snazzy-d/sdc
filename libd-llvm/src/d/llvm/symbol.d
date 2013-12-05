@@ -56,10 +56,6 @@ final class SymbolGen {
 		return visit(cast(Function) m);
 	}
 	
-	LLVMValueRef visit(Constructor c) {
-		return visit(cast(Function) c);
-	}
-	
 	private void genFunctionBody(Function f) {
 		genFunctionBody(f, valueSymbols[f]);
 	}
