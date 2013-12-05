@@ -199,10 +199,6 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		}
 	}
 	
-	Ret visit(Location location, Constructor c) {
-		return getSymbolExpression(location, c);
-	}
-	
 	Ret visit(Location location, Parameter p) {
 		return getSymbolExpression(location, p);
 	}

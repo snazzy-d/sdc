@@ -46,10 +46,7 @@ final class SymbolVisitor {
 		return this.dispatch(s);
 	}
 	
-	Symbol visit(Declaration d, Function f) {
-		auto fd = cast(FunctionDeclaration) d;
-		assert(fd);
-		
+	Symbol handleFunction(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
 		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
@@ -131,14 +128,11 @@ final class SymbolVisitor {
 		return f;
 	}
 	
-	Symbol visit(Declaration d, Constructor c) {
-		auto fd = cast(FunctionDeclaration) d;
-		assert(fd);
-		
+	Symbol handleCtor(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
-		auto params = c.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
 		
-		auto name = c.name.toString(context);
+		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		auto fbody = fd.fbody;
@@ -152,46 +146,58 @@ final class SymbolVisitor {
 			
 			if(fbody) {
 				import d.ast.statement;
-				fbody.statements ~= new AstReturnStatement(c.location, new ThisExpression(c.location));
+				fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
 			}
 		} else {
 			returnType = ParamType(getBuiltin(TypeKind.Void), false);
 		}
 		
-		auto thisParameter = new Parameter(c.location, ctorThis, BuiltinName!"this", null);
+		auto thisParameter = new Parameter(f.location, ctorThis, BuiltinName!"this", null);
 		params = thisParameter ~ params;
 		
-		c.type = QualType(new FunctionType(c.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
-		c.step = Step.Signed;
+		f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+		f.step = Step.Signed;
 		
 		if(fbody) {
 			auto oldScope = currentScope;
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = c.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new NestedScope(oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				c.dscope.addSymbol(p);
+				f.dscope.addSymbol(p);
 			}
 			
 			// And visit.
-			c.fbody = pass.visit(fbody);
+			f.fbody = pass.visit(fbody);
 		}
 		
-		assert(c.linkage == Linkage.D, "Linkage " ~ to!string(c.linkage) ~ " is not supported for constructors.");
+		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");
 		
-		auto typeMangle = pass.typeMangler.visit(c.type);
-		c.mangle = "_D" ~ manglePrefix ~ (c.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
+		auto typeMangle = pass.typeMangler.visit(f.type);
+		f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 		
-		c.step = Step.Processed;
-		return c;
+		f.step = Step.Processed;
+		return f;
+	}
+	
+	Symbol visit(Declaration d, Function f) {
+		auto fd = cast(FunctionDeclaration) d;
+		assert(fd);
+		
+		return f.name.isReserved
+			? handleCtor(fd, f)
+			: handleFunction(fd, f);
 	}
 	
 	Symbol visit(Declaration d, Method m) {
-		return visit(d, cast(Function) m);
+		auto fd = cast(FunctionDeclaration) d;
+		assert(fd);
+		
+		return handleFunction(fd, m);
 	}
 	
 	Variable visit(Declaration d, Variable v) {

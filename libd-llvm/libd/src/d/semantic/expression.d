@@ -465,13 +465,13 @@ final class ExpressionVisitor {
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
-				if (auto c = cast(Constructor) identified) {
-					return new MethodExpression(iloc, di, c);
+				if (auto f = cast(Function) identified) {
+					return new MethodExpression(iloc, di, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					return chooseOverload(iloc, s.set.map!(delegate Expression(s) {
-						if (auto c = cast(Constructor) s) {
-							pass.scheduler.require(c, Step.Signed);
-							return new MethodExpression(iloc, di, c);
+						if (auto f = cast(Function) s) {
+							pass.scheduler.require(f, Step.Signed);
+							return new MethodExpression(iloc, di, f);
 						}
 						
 						assert(0, "not a constructor");
@@ -629,14 +629,14 @@ final class ExpressionVisitor {
 		auto type = pass.visit(e.type);
 		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
-				if(auto c = cast(Constructor) identified) {
-					return new SymbolExpression(e.location, c);
+				if(auto f = cast(Function) identified) {
+					return new SymbolExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
-						if (auto c = cast(Constructor) s) {
-							pass.scheduler.require(c, Step.Signed);
-							return new MethodExpression(e.location, di, c);
+						if (auto f = cast(Function) s) {
+							pass.scheduler.require(f, Step.Signed);
+							return new MethodExpression(e.location, di, f);
 						}
 						
 						assert(0, "not a constructor");

@@ -282,9 +282,7 @@ struct DeclarationVisitor {
 		Function f;
 		
 		import d.context : BuiltinName;
-		if(d.name == BuiltinName!"__ctor") {
-			f = new Constructor(d.location, getBuiltin(TypeKind.None), [], null);
-		} else if(isStatic || !buildMethods) {
+		if(isStatic || !buildMethods || d.name.isReserved) {
 			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
 		} else {
 			uint index = 0;

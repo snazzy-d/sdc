@@ -339,13 +339,3 @@ class Method : Function {
 	}
 }
 
-/**
- * Constructor
- */
-class Constructor : Function {
-	this(Location location, QualType type, Parameter[] params, BlockStatement fbody) {
-		import d.context;
-		super(location, type, BuiltinName!"__ctor", params, fbody);
-	}
-}
-
