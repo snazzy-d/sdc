@@ -323,7 +323,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			auto statement = trange.parseStatement();
 			
-			CatchBlock[] catches;
+			AstCatchBlock[] catches;
 			while(trange.front.type == Catch) {
 				auto catchLocation = trange.front.location;
 				trange.popFront();
@@ -343,27 +343,25 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					auto catchStatement = trange.parseStatement();
 					
 					location.spanTo(catchStatement.location);
-					catches ~= new CatchBlock(location, type, name, catchStatement);
+					catches ~= AstCatchBlock(location, type, name, catchStatement);
 				} else {
 					// TODO: handle final catches ?
 					trange.parseStatement();
-					break;
+					assert(0, "Final catches not implemented");
 				}
 			}
 			
-			assert(0);
-			/+
+			AstStatement finallyStatement;
 			if(trange.front.type == Finally) {
 				trange.popFront();
-				auto finallyStatement = trange.parseStatement();
+				finallyStatement = trange.parseStatement();
 				
 				location.spanTo(finallyStatement.location);
-				return new TryFinallyStatement(location, statement, [], finallyStatement);
+			} else {
+				location.spanTo(catches.back.location);
 			}
 			
-			location.spanTo(catches.back.location);
-			return new TryStatement(location, statement, []);
-			+/
+			return new AstTryStatement(location, statement, catches, finallyStatement);
 		
 		case Throw :
 			trange.popFront();
