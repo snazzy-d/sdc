@@ -32,6 +32,7 @@ alias SwitchStatement = d.ir.statement.SwitchStatement;
 alias CaseStatement = d.ir.statement.CaseStatement;
 alias LabeledStatement = d.ir.statement.LabeledStatement;
 alias ScopeStatement = d.ir.statement.ScopeStatement;
+alias ThrowStatement = d.ir.statement.ThrowStatement;
 
 final class StatementVisitor {
 	private SemanticPass pass;
@@ -201,6 +202,11 @@ final class StatementVisitor {
 	
 	void visit(AstScopeStatement s) {
 		flattenedStmts ~= new ScopeStatement(s.location, s.kind, autoBlock(s.statement));
+	}
+	
+	void visit(AstThrowStatement s) {
+		// TODO: Check that this is throwable
+		flattenedStmts ~= new ThrowStatement(s.location, pass.visit(s.value));
 	}
 	
 	void visit(StaticIf!AstStatement s) {
