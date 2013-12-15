@@ -251,6 +251,21 @@ class ScopeStatement(S) if(is(S : AstStatement)) : S {
 alias AstScopeStatement = ScopeStatement!AstStatement;
 
 /**
+ * throw statements
+ */
+class ThrowStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
+	E value;
+	
+	this(Location location, E value) {
+		super(location);
+		
+		this.value = value;
+	}
+}
+
+alias AstThrowStatement = ThrowStatement!(AstExpression, AstStatement);
+
+/**
  * try statements
  */
 class AstTryStatement : AstStatement {
@@ -269,15 +284,15 @@ class AstTryStatement : AstStatement {
 	}
 }
 
-struct CatchBlock(T, S) if(is(T : AstType) && is(S : AstStatement)) {
+struct CatchBlock(T, S) if(is(S : AstStatement)) {
 	Location location;
 	Name name;
 	
 	import d.ast.qualtype;
-	QualType!T type;
-	AstStatement statement;
+	T type;
+	S statement;
 	
-	this(Location location, QualAstType type, Name name, AstStatement statement) {
+	this(Location location, T type, Name name, S statement) {
 		this.location = location;
 		this.name = name;
 		this.type = type;
@@ -285,22 +300,8 @@ struct CatchBlock(T, S) if(is(T : AstType) && is(S : AstStatement)) {
 	}
 }
 
-alias AstCatchBlock = CatchBlock!(AstType, AstStatement);
-
-/**
- * throw statements
- */
-class ThrowStatement(E, S) if(is(E : AstExpression) && is(S : AstStatement)) : S {
-	E value;
-	
-	this(Location location, E value) {
-		super(location);
-		
-		this.value = value;
-	}
-}
-
-alias AstThrowStatement = ThrowStatement!(AstExpression, AstStatement);
+import d.ast.identifier;
+alias AstCatchBlock = CatchBlock!(d.ast.identifier.Identifier, AstStatement);
 
 /**
  * static assert statements

@@ -318,6 +318,15 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			return new AstScopeStatement(location, kind, statement);
 		
+		case Throw :
+			trange.popFront();
+			auto value = trange.parseExpression();
+			
+			location.spanTo(trange.front.location);
+			trange.match(Semicolon);
+			
+			return new AstThrowStatement(location, value);
+		
 		case Try :
 			trange.popFront();
 			
@@ -330,7 +339,9 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				
 				if(trange.front.type == OpenParen) {
 					trange.popFront();
-					auto type = trange.parseBasicType();
+					
+					import d.parser.identifier;
+					auto type = trange.parseIdentifier();
 					
 					Name name;
 					if(trange.front.type == Identifier) {
@@ -362,15 +373,6 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			}
 			
 			return new AstTryStatement(location, statement, catches, finallyStatement);
-		
-		case Throw :
-			trange.popFront();
-			auto value = trange.parseExpression();
-			
-			location.spanTo(trange.front.location);
-			trange.match(Semicolon);
-			
-			return new AstThrowStatement(location, value);
 		
 		case Mixin :
 			return trange.parseMixin!AstStatement();
