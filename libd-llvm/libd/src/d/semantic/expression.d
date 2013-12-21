@@ -732,6 +732,18 @@ final class ExpressionVisitor {
 		return new AssertExpression(e.location, getBuiltin(TypeKind.Void), c, msg);
 	}
 	
+	Expression visit(AstTypeidExpression e) {
+		assert(0, "Not implemented");
+	}
+	
+	Expression visit(AstStaticTypeidExpression e) {
+		assert(0, "Not implemented");
+	}
+	
+	Expression visit(IdentifierTypeidExpression e) {
+		assert(0, "Not implemented");
+	}
+	
 	Expression visit(IdentifierExpression e) {
 		return IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Expression)) {

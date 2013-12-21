@@ -410,30 +410,32 @@ class AssertExpression(T) if(is(T: AstExpression)) : T {
 alias AstAssertExpression = AssertExpression!AstExpression;
 
 /**
- * typeid expression.
+ * typeid(expression) expression.
  */
-class TypeidExpression : AstExpression {
-	AstExpression expression;
+class AstTypeidExpression : AstExpression {
+	AstExpression argument;
 	
-	this(Location location, AstExpression expression) {
-		super(location);
-		
-		this.expression = expression;
-	}
-}
-
-/**
- * typeid expression with a type as argument.
- */
-class StaticTypeidExpression : AstExpression {
-	QualAstType argument;
-	
-	this(Location location, QualAstType argument) {
+	this(Location location, AstExpression argument) {
 		super(location);
 		
 		this.argument = argument;
 	}
 }
+
+/**
+ * typeid(type) expression.
+ */
+class StaticTypeidExpression(T, E) if(is(E: AstExpression)) : E {
+	T argument;
+	
+	this(U...)(Location location, U args, T argument) {
+		super(location, args);
+		
+		this.argument = argument;
+	}
+}
+
+alias AstStaticTypeidExpression = StaticTypeidExpression!(QualAstType, AstExpression);
 
 /**
  * ambiguous typeid expression.

@@ -288,7 +288,6 @@ struct CatchBlock(T, S) if(is(S : AstStatement)) {
 	Location location;
 	Name name;
 	
-	import d.ast.qualtype;
 	T type;
 	S statement;
 	
