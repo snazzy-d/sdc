@@ -1,14 +1,14 @@
 module object;
 
 version (D_LP64) {
-	alias ulong size_t;
-	alias long  ptrdiff_t;
+	alias size_t = ulong;
+	alias ptrdiff_t = long;
 } else {
-	alias uint  size_t;
-	alias int   ptrdiff_t;
+	alias size_t = uint;
+	alias ptrdiff_t = int;
 }
 
-alias immutable(char)[] string;
+alias string = immutable(char)[];
 
 extern (C) {
 	void* malloc(size_t);
@@ -22,5 +22,10 @@ class Object {
 	this() {}
 }
 
-class Exception {}
+class TypeInfo {}
+class ClassInfo : TypeInfo {}
+
+class Throwable {}
+class Exception: Throwable {}
+class Error: Throwable {}
 

@@ -14,7 +14,7 @@ struct Bar {
 		return f;
 	}
 	
-	alias Foo Qux;
+	alias Qux = Foo;
 }
 
 int main() {

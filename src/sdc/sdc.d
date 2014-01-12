@@ -32,7 +32,7 @@ final class SDC {
 		context = new Context();
 		
 		backend	= new LLVMBackend(context, name, optLevel);
-		semantic = new SemanticPass(context, backend, backend.evaluator, &getFileSource);
+		semantic = new SemanticPass(context, backend.evaluator, &getFileSource);
 	}
 	
 	void compile(string filename) {
@@ -47,7 +47,7 @@ final class SDC {
 	void buildMain() {
 		semantic.terminate();
 		
-		semantic.buildMain(modules);
+		backend.visit(semantic.buildMain(modules));
 	}
 	
 	void codeGen(string objFile) {

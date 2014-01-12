@@ -5,10 +5,10 @@
 
 import test37_import;
 
-alias int Integer;
-alias test37_import.S SS;
-alias foo bar;
-alias bar bas;
+alias Integer = int;
+alias SS = test37_import.S;
+alias bar = foo;
+alias bas = bar;
 
 int bazoooooooom() {
 	return 2;

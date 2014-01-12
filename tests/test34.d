@@ -15,7 +15,7 @@ struct A {
 	int i;
 }
 
-alias int bar;
+alias bar = int;
 
 int main() {
 	S s;
