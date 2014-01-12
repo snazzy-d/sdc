@@ -183,8 +183,6 @@ final class ExpressionVisitor {
 			
 			case Equal :
 			case NotEqual :
-			case Identical :
-			case NotIdentical :
 				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
@@ -192,6 +190,12 @@ final class ExpressionVisitor {
 				
 				type = getBuiltin(TypeKind.Bool);
 				
+				break;
+			
+			case Identical :
+			case NotIdentical :
+				// TODO: validate types.
+				type = getBuiltin(TypeKind.Bool);
 				break;
 			
 			case In :
@@ -732,16 +736,38 @@ final class ExpressionVisitor {
 		return new AssertExpression(e.location, getBuiltin(TypeKind.Void), c, msg);
 	}
 	
+	private Expression handleTypeid(Location location, Expression e) {
+		// TODO: test for objects.
+		return handleTypeid(location, e.type);
+	}
+	
+	private Expression handleTypeid(Location location, QualType t) {
+		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
+		
+		import d.ast.identifier;
+		auto typeInfo = pass.object.getTypeInfo();
+		
+		return new StaticTypeidExpression(location, QualType(new ClassType(typeInfo)), t);
+	}
+	
 	Expression visit(AstTypeidExpression e) {
-		assert(0, "Not implemented");
+		return handleTypeid(e.location, pass.visit(e.argument));
 	}
 	
 	Expression visit(AstStaticTypeidExpression e) {
-		assert(0, "Not implemented");
+		return handleTypeid(e.location, pass.visit(e.argument));
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {
-		assert(0, "Not implemented");
+		return IdentifierVisitor!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			
+			static if(is(T : QualType) || is(T : Expression)) {
+				return handleTypeid(e.location, identified);
+			} else {
+				return pass.raiseCondition!Expression(e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context) ~ ".");
+			}
+		})(pass).visit(e.argument);
 	}
 	
 	Expression visit(IdentifierExpression e) {

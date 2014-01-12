@@ -14,5 +14,13 @@ final class ObjectReference {
 	auto getObject() {
 		return cast(Class) object.dscope.resolve(BuiltinName!"Object");
 	}
+	
+	auto getTypeInfo() {
+		return cast(Class) object.dscope.resolve(BuiltinName!"TypeInfo");
+	}
+	
+	auto getClassInfo() {
+		return cast(Class) object.dscope.resolve(BuiltinName!"ClassInfo");
+	}
 }
 
