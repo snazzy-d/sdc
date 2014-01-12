@@ -3,7 +3,7 @@
 //T retval:4
 
 int main() {
-	alias int foo;
+	alias foo = int;
 	
 	return foo.sizeof;
 }

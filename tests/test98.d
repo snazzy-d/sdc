@@ -2,7 +2,7 @@
 //T has-passed:yes
 //T retval:42
 
-alias Fizz Buzz;
+alias Buzz = Fizz;
 
 struct Bar {
 	static auto baz() {
@@ -11,16 +11,16 @@ struct Bar {
 		return f;
 	}
 	
-	alias Baz Qux;
+	alias Qux = Baz;
 }
 
-alias Foo Baz;
+alias Baz = Foo;
 
 struct Foo {
 	Buzz i;
 }
 
-alias int Fizz;
+alias Fizz = int;
 
 int main() {
 	return Bar.baz().i;

@@ -23,6 +23,6 @@ struct Bar {
 }
 
 template Qux(T) {
-	alias T Qux;
+	alias Qux = T;
 }
 
