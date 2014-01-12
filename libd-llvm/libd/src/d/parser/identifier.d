@@ -65,19 +65,24 @@ auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Loca
  */
 private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Location location, Identifier identifier) {
 	while(1) {
-		switch(trange.front.type) {
-			case TokenType.Dot :
+		switch(trange.front.type) with(TokenType) {
+			case Dot :
 				trange.popFront();
 				auto name = trange.front.name;
 				
 				location.spanTo(trange.front.location);
-				trange.match(TokenType.Identifier);
+				trange.match(Identifier);
 				
 				identifier = new IdentifierDotIdentifier(location, name, identifier);
 				break;
 			
-			// TODO: parse template instanciation.
-			case TokenType.Bang :
+			case Bang :
+				auto lookahead = trange.save;
+				lookahead.popFront();
+				if(lookahead.front.type == Is || lookahead.front.type == In) {
+					return identifier;
+				}
+				
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
 				
@@ -86,13 +91,13 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				
 				auto instance = new TemplateInstanciation(location, identifier, arguments);
 				
-				if(trange.front.type == TokenType.Dot) {
+				if(trange.front.type == Dot) {
 					trange.popFront();
 					
 					auto name = trange.front.name;
 					
 					location.spanTo(trange.front.location);
-					trange.match(TokenType.Identifier);
+					trange.match(Identifier);
 					
 					identifier = new TemplateInstanciationDotIdentifier(location, name, instance);
 				} else {

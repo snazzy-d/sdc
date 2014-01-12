@@ -318,19 +318,30 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			return new AstScopeStatement(location, kind, statement);
 		
+		case Throw :
+			trange.popFront();
+			auto value = trange.parseExpression();
+			
+			location.spanTo(trange.front.location);
+			trange.match(Semicolon);
+			
+			return new AstThrowStatement(location, value);
+		
 		case Try :
 			trange.popFront();
 			
 			auto statement = trange.parseStatement();
 			
-			CatchBlock[] catches;
+			AstCatchBlock[] catches;
 			while(trange.front.type == Catch) {
 				auto catchLocation = trange.front.location;
 				trange.popFront();
 				
 				if(trange.front.type == OpenParen) {
 					trange.popFront();
-					auto type = trange.parseBasicType();
+					
+					import d.parser.identifier;
+					auto type = trange.parseIdentifier();
 					
 					Name name;
 					if(trange.front.type == Identifier) {
@@ -343,36 +354,25 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					auto catchStatement = trange.parseStatement();
 					
 					location.spanTo(catchStatement.location);
-					catches ~= new CatchBlock(location, type, name, catchStatement);
+					catches ~= AstCatchBlock(location, type, name, catchStatement);
 				} else {
 					// TODO: handle final catches ?
 					trange.parseStatement();
-					break;
+					assert(0, "Final catches not implemented");
 				}
 			}
 			
-			assert(0);
-			/+
+			AstStatement finallyStatement;
 			if(trange.front.type == Finally) {
 				trange.popFront();
-				auto finallyStatement = trange.parseStatement();
+				finallyStatement = trange.parseStatement();
 				
 				location.spanTo(finallyStatement.location);
-				return new TryFinallyStatement(location, statement, [], finallyStatement);
+			} else {
+				location.spanTo(catches.back.location);
 			}
 			
-			location.spanTo(catches.back.location);
-			return new TryStatement(location, statement, []);
-			+/
-		
-		case Throw :
-			trange.popFront();
-			auto value = trange.parseExpression();
-			
-			location.spanTo(trange.front.location);
-			trange.match(Semicolon);
-			
-			return new AstThrowStatement(location, value);
+			return new AstTryStatement(location, statement, catches, finallyStatement);
 		
 		case Mixin :
 			return trange.parseMixin!AstStatement();

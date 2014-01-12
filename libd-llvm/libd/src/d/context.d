@@ -74,7 +74,10 @@ enum Prefill = [
 	// Main
 	"main", "_Dmain",
 	// Defined in object
-	"object", "size_t", "ptrdiff_t", "string", "Object", "Exception",
+	"object", "size_t", "ptrdiff_t", "string",
+	"Object",
+	"TypeInfo", "ClassInfo",
+	"Throwable", "Exception", "Error",
 ];
 
 auto getNames() {

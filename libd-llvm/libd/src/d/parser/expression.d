@@ -680,9 +680,9 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 				
 				import d.ast.type;
 				static if(is(caseType : QualAstType)) {
-					return new StaticTypeidExpression(location, parsed);
+					return new AstStaticTypeidExpression(location, parsed);
 				} else static if(is(caseType : AstExpression)) {
-					return new TypeidExpression(location, parsed);
+					return new AstTypeidExpression(location, parsed);
 				} else {
 					return new IdentifierTypeidExpression(location, parsed);
 				}

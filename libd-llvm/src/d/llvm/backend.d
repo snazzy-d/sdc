@@ -5,8 +5,6 @@ import d.llvm.evaluator;
 
 import d.ir.symbol;
 
-import d.semantic.backend;
-
 import d.context;
 
 import llvm.c.core;
@@ -21,7 +19,7 @@ import std.process;
 import std.stdio;
 import std.string;
 
-final class LLVMBackend : Backend {
+final class LLVMBackend {
 	private CodeGenPass pass;
 	private LLVMExecutionEngineRef executionEngine;
 	
@@ -59,6 +57,10 @@ final class LLVMBackend : Backend {
 	
 	void visit(Module mod) {
 		pass.visit(mod);
+	}
+	
+	void visit(Function f) {
+		pass.visit(f);
 	}
 	
 	void emitObject(Module[] modules, string objFile) {

@@ -26,6 +26,9 @@ alias ScopeStatement = d.ast.statement.ScopeStatement!Statement;
 alias ScopeKind = d.ast.statement.ScopeKind;
 alias ThrowStatement = d.ast.statement.ThrowStatement!(Expression, Statement);
 
+import d.ir.symbol;
+alias CatchBlock = d.ast.statement.CatchBlock!(Class, Statement);
+
 final:
 
 /**
@@ -70,6 +73,21 @@ class GotoStatement : Statement {
 		super(location);
 		
 		this.label = label;
+	}
+}
+
+/**
+ * try statements
+ */
+class TryStatement : Statement {
+	Statement statement;
+	CatchBlock[] catches;
+	
+	this(Location location, Statement statement, CatchBlock[] catches) {
+		super(location);
+		
+		this.statement = statement;
+		this.catches = catches;
 	}
 }
 

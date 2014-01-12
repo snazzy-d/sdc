@@ -220,21 +220,29 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return handler(s);
 	}
 	
+	private auto getSymbolType(T, S)(S s) {
+		scheduler.require(s, Step.Signed);
+		static if(asAlias) {
+			return handler(s);
+		} else {
+			return handler(QualType(new T(s)));
+		}
+	}
+	
 	Ret visit(Location location, TypeAlias a) {
-		scheduler.require(a);
-		return handler(QualType(new AliasType(a)));
+		return getSymbolType!AliasType(a);
 	}
 	
 	Ret visit(Location location, Struct s) {
-		return handler(QualType(new StructType(s)));
+		return getSymbolType!StructType(s);
 	}
 	
 	Ret visit(Location location, Class c) {
-		return handler(QualType(new ClassType(c)));
+		return getSymbolType!ClassType(c);
 	}
 	
 	Ret visit(Location location, Enum e) {
-		return handler(QualType(new EnumType(e)));
+		return getSymbolType!EnumType(e);
 	}
 	
 	Ret visit(Location location, Template t) {
@@ -251,7 +259,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	
 	Ret visit(Location location, TypeTemplateParameter t) {
 		import d.ir.dtemplate;
-		return handler(QualType(new TemplatedType(t)));
+		return getSymbolType!TemplatedType(t);
 	}
 }
 

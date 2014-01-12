@@ -28,6 +28,7 @@ alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 alias SliceExpression = d.ast.expression.SliceExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
+alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(QualType, Expression);
 
 alias BinaryOp = d.ast.expression.BinaryOp;
 alias UnaryOp = d.ast.expression.UnaryOp;
@@ -352,6 +353,19 @@ class MethodExpression : Expression {
 		
 		this.expr = expr;
 		this.method = method;
+	}
+}
+
+/**
+ * For classes, typeid is computed at runtime.
+ */
+class DynamicTypeidExpression : Expression {
+	Expression argument;
+	
+	this(Location location, QualType type, Expression argument) {
+		super(location, type);
+		
+		this.argument = argument;
 	}
 }
 

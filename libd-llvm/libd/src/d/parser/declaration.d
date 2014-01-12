@@ -633,29 +633,32 @@ private Declaration parseAlias(R)(ref R trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
-	// Alias this (find a better way to dectect it to allow more complx identifiers ?).
-	if(trange.front.type == TokenType.Identifier) {
-		auto lookahead = trange.save;
-		lookahead.popFront();
-		if(lookahead.front.type == TokenType.This) {
-			auto identifier = trange.parseIdentifier();
-			
-			trange.match(TokenType.This);
-			location.spanTo(trange.front.location);
-			trange.match(TokenType.Semicolon);
-			
-			return new AliasThisDeclaration(location, identifier);
-		}
-	}
-	
-	auto type = trange.parseType();
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
-	location.spanTo(trange.front.location);
-	trange.match(TokenType.Semicolon);
+	if(trange.front.type == TokenType.Assign) {
+		trange.popFront();
+		
+		auto type = trange.parseType();
+		location.spanTo(trange.front.location);
+		trange.match(TokenType.Semicolon);
+		
+		return new AliasDeclaration(location, name, type);
+	} else if(trange.front.type == TokenType.This) {
+		/+
+		auto identifier = trange.parseIdentifier();
+		
+		trange.popFront();
+		location.spanTo(trange.front.location);
+		trange.match(TokenType.Semicolon);
+		
+		return new AliasThisDeclaration(location, identifier);
+		+/
+	} else {
+		trange.match(TokenType.Begin);
+	}
 	
-	return new AliasDeclaration(location, name, type);
+	assert(0);
 }
 
 /**

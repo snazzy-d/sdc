@@ -32,6 +32,8 @@ alias SwitchStatement = d.ir.statement.SwitchStatement;
 alias CaseStatement = d.ir.statement.CaseStatement;
 alias LabeledStatement = d.ir.statement.LabeledStatement;
 alias ScopeStatement = d.ir.statement.ScopeStatement;
+alias ThrowStatement = d.ir.statement.ThrowStatement;
+alias CatchBlock = d.ir.statement.CatchBlock;
 
 final class StatementVisitor {
 	private SemanticPass pass;
@@ -201,6 +203,40 @@ final class StatementVisitor {
 	
 	void visit(AstScopeStatement s) {
 		flattenedStmts ~= new ScopeStatement(s.location, s.kind, autoBlock(s.statement));
+	}
+	
+	void visit(AstThrowStatement s) {
+		// TODO: Check that this is throwable
+		flattenedStmts ~= new ThrowStatement(s.location, pass.visit(s.value));
+	}
+	
+	void visit(AstTryStatement s) {
+		auto tryStmt = autoBlock(s.statement);
+		
+		import d.semantic.identifier;
+		auto iv = IdentifierVisitor!(function Class(identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				if(auto c = cast(Class) identified) {
+					return c;
+				}
+			}
+			
+			static if(is(typeof(identified.location))) {
+				import d.exception;
+				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
+			} else {
+				// for typeof(null)
+				assert(0);
+			}
+		}, true)(pass);
+		
+		CatchBlock[] catches = s.catches.map!(c => CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement))).array();
+		
+		if(s.finallyBlock) {
+			flattenedStmts ~= new ScopeStatement(s.finallyBlock.location, ScopeKind.Exit, autoBlock(s.finallyBlock));
+		}
+		
+		flattenedStmts ~= new TryStatement(s.location, tryStmt, catches);
 	}
 	
 	void visit(StaticIf!AstStatement s) {
