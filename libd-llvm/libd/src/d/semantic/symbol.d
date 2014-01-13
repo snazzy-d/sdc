@@ -595,6 +595,7 @@ final class SymbolVisitor {
 		foreach(uint i, p; td.parameters) {
 			if(auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, i, none, none);
+				tp.step = Step.Signed;
 				currentScope.addSymbol(tp);
 				t.parameters ~= tp;
 			} else {

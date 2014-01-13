@@ -125,6 +125,8 @@ struct TemplateInstancier {
 		}, (identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if(is(typeof(identified) : Symbol)) {
+				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
 			}
@@ -383,6 +385,37 @@ struct TypeMatcher {
 		}
 		
 		return false;
+	}
+}
+
+struct SymbolMatcher {
+	TemplateArgument[] matchedArgs;
+	Symbol matchee;
+	
+	// XXX: used only in one place in caster, can probably be removed.
+	// XXX: it used to cast classes in a way that isn't useful here.
+	// XXX: let's move it away when we have a context and cannonical types.
+	SemanticPass pass;
+	
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, Symbol matchee) {
+		this.pass = pass;
+		this.matchedArgs = matchedArgs;
+		this.matchee = matchee;
+	}
+	
+	bool visit(TemplateParameter p) {
+		return this.dispatch(p);
+	}
+	
+	bool visit(TypeTemplateParameter p) {
+		import d.semantic.identifier;
+		return IdentifierVisitor!(delegate bool(identified) {
+			static if(is(typeof(identified) : QualType)) {
+				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			} else {
+				return false;
+			}
+		})(pass).visit(p.location, matchee);
 	}
 }
 
