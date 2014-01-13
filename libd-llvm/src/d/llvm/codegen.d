@@ -72,13 +72,6 @@ final class CodeGenPass {
 		builder = LLVMCreateBuilderInContext(llvmCtx);
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
-		// Create a dummy function, as LLVM expect to always have something.
-		auto funType = LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), null, 0, false);
-		auto fun = LLVMAddFunction(dmodule, ".dummy", funType);
-		auto basicBlock = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
-		LLVMPositionBuilderAtEnd(builder, basicBlock);
-		LLVMBuildRetVoid(builder);
-		
 		LLVMValueRef[3] branch_metadata;
 		
 		auto id = "branch_weights";
@@ -149,8 +142,14 @@ final class CodeGenPass {
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
-		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		auto backupCurrentBB = LLVMGetInsertBlock(builder);
+		scope(exit) {
+			if(backupCurrentBB) {
+				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
+			} else {
+				LLVMClearInsertionPosition(builder);
+			}
+		}
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
@@ -180,8 +179,14 @@ final class CodeGenPass {
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
-		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-		scope(exit) LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		auto backupCurrentBB = LLVMGetInsertBlock(builder);
+		scope(exit) {
+			if(backupCurrentBB) {
+				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
+			} else {
+				LLVMClearInsertionPosition(builder);
+			}
+		}
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);

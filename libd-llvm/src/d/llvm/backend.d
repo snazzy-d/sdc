@@ -70,9 +70,6 @@ final class LLVMBackend {
 		
 		auto dmodule = pass.dmodule;
 		
-		// Delete the dummy function.
-		LLVMDeleteFunction(LLVMGetNamedFunction(dmodule, ".dummy"));
-		
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		

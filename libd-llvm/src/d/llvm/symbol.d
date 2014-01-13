@@ -66,13 +66,18 @@ final class SymbolGen {
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
 		
 		// Ensure we are rentrant.
-		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		auto backupCurrentBB = LLVMGetInsertBlock(builder);
 		auto oldLabels = labels;
 		auto oldThisPtr = thisPtr;
 		auto oldUnwindBlocks = unwindBlocks;
 		
 		scope(exit) {
-			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+			if(backupCurrentBB) {
+				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
+			} else {
+				LLVMClearInsertionPosition(builder);
+			}
+			
 			labels = oldLabels;
 			thisPtr = oldThisPtr;
 			unwindBlocks = oldUnwindBlocks;
