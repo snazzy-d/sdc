@@ -359,11 +359,29 @@ final class SymbolVisitor {
 		Field[] baseFields;
 		Method[] baseMethods;
 		
-		methodIndex = 0;
-		if(c.mangle == "C6object6Object") {
-			// Object is its own base class.
-			c.base = c;
+		foreach(i; cd.bases) {
+			auto type = IdentifierVisitor!(function ClassType(identified) {
+				static if(is(typeof(identified) : QualType)) {
+					return cast(ClassType) identified.type;
+				} else {
+					return null;
+				}
+			})(pass).visit(i);
 			
+			assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
+			
+			c.base = type.dclass;
+			break;
+		}
+		
+		if(!c.base) {
+			c.base = pass.object.getObject();
+		}
+		
+		methodIndex = 0;
+		
+		// object.Object, let's do some compiler magic.
+		if(c is c.base) {
 			auto vtblType = QualType(new PointerType(getBuiltin(TypeKind.Void)));
 			vtblType.qualifier = TypeQualifier.Immutable;
 			
@@ -375,35 +393,9 @@ final class SymbolVisitor {
 			
 			fieldIndex = 1;
 		} else {
-			foreach(i; cd.bases) {
-				auto type = IdentifierVisitor!(function ClassType(identified) {
-					static if(is(typeof(identified) : QualType)) {
-						return cast(ClassType) identified.type;
-					} else {
-						return null;
-					}
-				})(pass).visit(i);
-				
-				assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
-				
-				c.base = type.dclass;
-				break;
-			}
-			
-			if(!c.base) {
-				auto baseType = IdentifierVisitor!(function ClassType(parsed) {
-					static if(is(typeof(parsed) : QualType)) {
-						return cast(ClassType) parsed.type;
-					} else {
-						return null;
-					}
-				})(pass).visit(new BasicIdentifier(d.location, BuiltinName!"Object"));
-				
-				assert(baseType, "Can't find object.Object");
-				c.base = baseType.dclass;
-			}
-			
 			scheduler.require(c.base);
+			
+			fieldIndex = 0;
 			foreach(m; c.base.members) {
 				if(auto field = cast(Field) m) {
 					baseFields ~= field;

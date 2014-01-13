@@ -10,6 +10,7 @@ import d.semantic.dmodule;
 import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.mangler;
+import d.semantic.object;
 import d.semantic.sizeof;
 import d.semantic.statement;
 import d.semantic.symbol;
@@ -68,6 +69,8 @@ final class SemanticPass {
 	
 	Evaluator evaluator;
 	
+	ObjectReference object;
+	
 	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
 	
 	static struct State {
@@ -113,7 +116,10 @@ final class SemanticPass {
 		
 		scheduler			= new Scheduler!SemanticPass(this);
 		
-		importModule([BuiltinName!"object"]);
+		auto obj	= importModule([BuiltinName!"object"]);
+		object		= new ObjectReference(obj);
+		
+		scheduler.require(obj, Step.Populated);
 	}
 	
 	AstModule parse(S)(S source, Name[] packages) if(is(S : Source)) {
