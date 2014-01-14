@@ -737,16 +737,18 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression handleTypeid(Location location, Expression e) {
-		// TODO: test for objects.
+		if(auto c = cast(ClassType) peelAlias(e.type).type) {
+			auto classInfo = pass.object.getTypeInfo();
+			return new DynamicTypeidExpression(location, QualType(new ClassType(classInfo)), e);
+		}
+		
 		return handleTypeid(location, e.type);
 	}
 	
 	private Expression handleTypeid(Location location, QualType t) {
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
 		
-		import d.ast.identifier;
 		auto typeInfo = pass.object.getTypeInfo();
-		
 		return new StaticTypeidExpression(location, QualType(new ClassType(typeInfo)), t);
 	}
 	
