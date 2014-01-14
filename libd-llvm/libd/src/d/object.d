@@ -1,4 +1,4 @@
-module d.semantic.object;
+module d.object;
 
 import d.ir.symbol;
 

@@ -10,7 +10,6 @@ import d.semantic.dmodule;
 import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.mangler;
-import d.semantic.object;
 import d.semantic.sizeof;
 import d.semantic.statement;
 import d.semantic.symbol;
@@ -37,6 +36,7 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
+import d.object;
 
 import std.algorithm;
 import std.array;
