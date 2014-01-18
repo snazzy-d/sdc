@@ -32,7 +32,10 @@ final class SDC {
 		context = new Context();
 		
 		backend	= new LLVMBackend(context, name, optLevel);
-		semantic = new SemanticPass(context, backend.evaluator, &getFileSource);
+		semantic = new SemanticPass(context, backend.getEvaluator(), &getFileSource);
+		
+		// Review thet way this whole thing is built.
+		backend.getPass().object = semantic.object;
 	}
 	
 	void compile(string filename) {
