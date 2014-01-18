@@ -618,6 +618,23 @@ final class ExpressionGen {
 		// XXX: should figure out what is the right value to return.
 		return null;
 	}
+	
+	LLVMValueRef visit(DynamicTypeidExpression e) {
+		auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, visit(e.argument), 0, ""), "");
+		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");
+	}
+	
+	LLVMValueRef visit(StaticTypeidExpression e) {
+		if(auto ct = cast(ClassType) peelAlias(e.argument).type) {
+			// Ensure that the thing is generated.
+			auto c = ct.dclass; 
+			buildClassType(c);
+			
+			return getTypeInfo(c);
+		}
+		
+		assert(0, "Not implemented");
+	}
 }
 
 final class AddressOfGen {

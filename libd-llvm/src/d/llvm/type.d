@@ -21,6 +21,7 @@ final class TypeGen {
 	
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
 	private LLVMValueRef[TypeSymbol] newInits;
+	private LLVMValueRef[TypeSymbol] typeInfos;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -28,6 +29,10 @@ final class TypeGen {
 	
 	LLVMValueRef getNewInit(TypeSymbol s) {
 		return newInits[s];
+	}
+	
+	LLVMValueRef getTypeInfo(TypeSymbol s) {
+		return typeInfos[s];
 	}
 	
 	LLVMTypeRef visit(QualType t) {
@@ -72,8 +77,10 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(ClassType t) {
-		auto c = t.dclass;
-		
+		return buildClass(t.dclass);
+	}
+	
+	LLVMTypeRef buildClass(Class c) {
 		if (auto ct = c in typeSymbols) {
 			return *ct;
 		}
@@ -81,8 +88,13 @@ final class TypeGen {
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
-		// TODO: typeid instead of null.
-		auto vtbl = [LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0))];
+		auto classInfoClass = pass.object.getClassInfo();
+		auto classInfo = LLVMAddGlobal(dmodule, LLVMGetElementType(buildClass(classInfoClass)), cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
+		LLVMSetGlobalConstant(classInfo, true);
+		
+		typeInfos[c] = classInfo;
+		
+		auto vtbl = [classInfo];
 		LLVMValueRef[] fields = [null];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
@@ -117,6 +129,10 @@ final class TypeGen {
 		LLVMSetGlobalConstant(initPtr, true);
 		
 		newInits[c] = initPtr;
+		
+		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
+		// Also, we may want to do that in symbol and generate with the class.
+		LLVMSetInitializer(classInfo, LLVMGetInitializer(getNewInit(classInfoClass)));
 		
 		return structPtr;
 	}

@@ -22,6 +22,7 @@ import std.string;
 final class LLVMBackend {
 	private CodeGenPass pass;
 	private LLVMExecutionEngineRef executionEngine;
+	private LLVMEvaluator evaluator;
 	
 	uint optLevel;
 	
@@ -32,6 +33,8 @@ final class LLVMBackend {
 		
 		LLVMLinkInJIT();
 		LLVMInitializeX86AsmPrinter();
+		
+		this.optLevel = optLevel;
 		
 		pass = new CodeGenPass(context, name);
 		
@@ -47,12 +50,15 @@ final class LLVMBackend {
 			assert(0, "Cannot create execution engine ! Exiting...");
 		}
 		
-		this.optLevel = optLevel;
+		evaluator = new LLVMEvaluator(executionEngine, pass);
 	}
 	
-	@property
-	auto evaluator() {
-		return new LLVMEvaluator(executionEngine, pass);
+	auto getPass() {
+		return pass;
+	}
+	
+	auto getEvaluator() {
+		return evaluator;
 	}
 	
 	void visit(Module mod) {

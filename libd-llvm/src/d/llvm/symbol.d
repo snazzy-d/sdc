@@ -221,7 +221,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Class c) {
-		auto ret = pass.visit(new ClassType(c));
+		auto ret = pass.buildClassType(c);
 		
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {

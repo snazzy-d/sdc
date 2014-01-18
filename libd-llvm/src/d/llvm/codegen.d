@@ -13,6 +13,7 @@ import d.llvm.type;
 
 import d.context;
 import d.location;
+import d.object;
 
 import util.visitor;
 
@@ -35,6 +36,8 @@ final class CodeGenPass {
 	private StringGen stringGen;
 	
 	DruntimeGen druntimeGen;
+	
+	ObjectReference object;
 	
 	LLVMContextRef llvmCtx;
 	
@@ -114,6 +117,10 @@ final class CodeGenPass {
 		return typeGen.getNewInit(s);
 	}
 	
+	auto getTypeInfo(TypeSymbol s) {
+		return typeGen.getTypeInfo(s);
+	}
+	
 	auto visit(Statement stmt) {
 		return statementGen.visit(stmt);
 	}
@@ -128,6 +135,10 @@ final class CodeGenPass {
 	
 	auto visit(Type t) {
 		return typeGen.visit(t);
+	}
+	
+	auto buildClassType(Class c) {
+		return typeGen.buildClass(c);
 	}
 	
 	auto buildDString(string str) {
