@@ -358,7 +358,6 @@ final class SymbolVisitor {
 		
 		Field[] baseFields;
 		Method[] baseMethods;
-		
 		foreach(i; cd.bases) {
 			auto type = IdentifierVisitor!(function ClassType(identified) {
 				static if(is(typeof(identified) : QualType)) {
@@ -412,7 +411,6 @@ final class SymbolVisitor {
 		}
 		
 		auto dv = DeclarationVisitor(pass, c.linkage, false, true, true);
-		
 		auto members = dv.flatten(cd.members, c);
 		
 		c.step = Step.Signed;

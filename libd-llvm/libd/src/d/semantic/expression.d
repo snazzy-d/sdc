@@ -70,6 +70,10 @@ final class ExpressionVisitor {
 		return e;
 	}
 	
+	Expression visit(NullLiteral e) {
+		return e;
+	}
+	
 	Expression visit(StringLiteral e) {
 		return e;
 	}
@@ -124,7 +128,7 @@ final class ExpressionVisitor {
 			case Div :
 			case Mod :
 			case Pow :
-				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -183,19 +187,15 @@ final class ExpressionVisitor {
 			
 			case Equal :
 			case NotEqual :
-				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+			case Identical :
+			case NotIdentical :
+				type = getPromotedType(lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
 				
-				break;
-			
-			case Identical :
-			case NotIdentical :
-				// TODO: validate types.
-				type = getBuiltin(TypeKind.Bool);
 				break;
 			
 			case In :
@@ -212,7 +212,7 @@ final class ExpressionVisitor {
 			case GreaterEqual :
 			case Less :
 			case LessEqual :
-				type = getPromotedType(e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -377,8 +377,11 @@ final class ExpressionVisitor {
 			case Invalid :
 				return MatchLevel.Not;
 			
+			case Down :
 			case IntegralToBool :
 			case Trunc :
+				assert(0, "Not an implicit cast !");
+			
 			case Pad :
 			case Bit :
 				return MatchLevel.TypeConvert;
@@ -738,7 +741,7 @@ final class ExpressionVisitor {
 	
 	private Expression handleTypeid(Location location, Expression e) {
 		if(auto c = cast(ClassType) peelAlias(e.type).type) {
-			auto classInfo = pass.object.getTypeInfo();
+			auto classInfo = pass.object.getClassInfo();
 			return new DynamicTypeidExpression(location, QualType(new ClassType(classInfo)), e);
 		}
 		

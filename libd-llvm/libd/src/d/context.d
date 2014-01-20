@@ -78,6 +78,8 @@ enum Prefill = [
 	"Object",
 	"TypeInfo", "ClassInfo",
 	"Throwable", "Exception", "Error",
+	// Runtime
+	"__sd_class_downcast",
 ];
 
 auto getNames() {
