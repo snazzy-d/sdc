@@ -12,7 +12,7 @@ abstract class AstType {
 	}
 	
 	string toString(TypeQualifier) const {
-		assert(0, "Not implemented");
+		return typeid(this).toString();
 	}
 }
 

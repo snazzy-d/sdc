@@ -23,6 +23,8 @@ final class TypeGen {
 	private LLVMValueRef[TypeSymbol] newInits;
 	private LLVMValueRef[TypeSymbol] typeInfos;
 	
+	private Class classInfoClass;
+	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
@@ -81,6 +83,15 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef buildClass(Class c) {
+		// Ensure classInfo is built first.
+		if(!classInfoClass) {
+			classInfoClass = pass.object.getClassInfo();
+			
+			if(c !is classInfoClass) {
+				buildClass(classInfoClass);
+			}
+		}
+		
 		if (auto ct = c in typeSymbols) {
 			return *ct;
 		}
@@ -88,9 +99,9 @@ final class TypeGen {
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
-		auto classInfoClass = pass.object.getClassInfo();
 		auto classInfo = LLVMAddGlobal(dmodule, LLVMGetElementType(buildClass(classInfoClass)), cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
 		LLVMSetGlobalConstant(classInfo, true);
+		LLVMSetLinkage(classInfo, LLVMLinkage.LinkOnceODR);
 		
 		typeInfos[c] = classInfo;
 		
@@ -118,6 +129,7 @@ final class TypeGen {
 		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (c.mangle ~ "__vtblZ").toStringz());
 		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
 		LLVMSetGlobalConstant(vtblPtr, true);
+		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
 		
 		// Set vtbl.
 		fields[0] = vtblPtr;
@@ -127,12 +139,18 @@ final class TypeGen {
 		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (c.mangle ~ "__initZ").toStringz());
 		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
 		LLVMSetGlobalConstant(initPtr, true);
+		LLVMSetLinkage(initPtr, LLVMLinkage.LinkOnceODR);
 		
 		newInits[c] = initPtr;
 		
 		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
 		// Also, we may want to do that in symbol and generate with the class.
-		LLVMSetInitializer(classInfo, LLVMGetInitializer(getNewInit(classInfoClass)));
+		auto base = c.base;
+		buildClass(base);
+		auto classInfoData = LLVMGetInitializer(getNewInit(classInfoClass));
+		uint insertIndex = 1;
+		classInfoData = LLVMConstInsertValue(classInfoData, getTypeInfo(base), &insertIndex, 1);
+		LLVMSetInitializer(classInfo, classInfoData);
 		
 		return structPtr;
 	}

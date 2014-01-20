@@ -220,6 +220,14 @@ struct Caster(bool isExplicit) {
 			return CastKind.Invalid;
 		}
 		
+		CastKind visit(TypeKind from, ClassType t) {
+			if(from == TypeKind.Null) {
+				return CastKind.Bit;
+			}
+			
+			return CastKind.Invalid;
+		}
+		
 		CastKind visit(TypeKind from, FunctionType t) {
 			if(from == TypeKind.Null) {
 				return CastKind.Bit;
@@ -271,7 +279,6 @@ struct Caster(bool isExplicit) {
 			}
 			
 			auto subCast = caster.castFrom(from, t.pointed);
-			
 			switch(subCast) with(CastKind) {
 				case Qual :
 					if(canConvert(from.qualifier, t.pointed.qualifier)) {
@@ -388,13 +395,29 @@ struct Caster(bool isExplicit) {
 			return CastKind.Exact;
 		}
 		
+		auto upcast = from;
+		
 		// Stop at object.
-		while(from !is from.base) {
+		while(upcast !is upcast.base) {
 			// Automagically promote to base type.
-			from = from.base;
+			upcast = upcast.base;
 			
-			if(from is to) {
+			if(upcast is to) {
 				return CastKind.Bit;
+			}
+		}
+		
+		static if(isExplicit) {
+			auto downcast = to;
+			
+			// Stop at object.
+			while(downcast !is downcast.base) {
+				// Automagically promote to base type.
+				downcast = downcast.base;
+			
+				if(downcast is from) {
+					return CastKind.Down;
+				}
 			}
 		}
 		

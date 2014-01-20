@@ -24,9 +24,10 @@ final class LLVMBackend {
 	private LLVMExecutionEngineRef executionEngine;
 	private LLVMEvaluator evaluator;
 	
-	uint optLevel;
+	private uint optLevel;
+	private string linkerParams;
 	
-	this(Context context, string name, uint optLevel) {
+	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -35,6 +36,7 @@ final class LLVMBackend {
 		LLVMInitializeX86AsmPrinter();
 		
 		this.optLevel = optLevel;
+		this.linkerParams = linkerParams;
 		
 		pass = new CodeGenPass(context, name);
 		
@@ -121,10 +123,12 @@ final class LLVMBackend {
 			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
 			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
 			LLVMSetSection(_tlsstart, ".tdata");
+			LLVMSetLinkage(_tlsstart, LLVMLinkage.LinkOnceODR);
 			
 			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
 			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
 			LLVMSetThreadLocal(_tlsend, true);
+			LLVMSetLinkage(_tlsend, LLVMLinkage.LinkOnceODR);
 		}
 		
 		char* errorPtr;
@@ -141,9 +145,9 @@ final class LLVMBackend {
 	
 	void link(string objFile, string executable) {
 		version(OSX) {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ " -L/usr/share/dmd/lib -lphobos2 -lpthread";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt -L/usr/share/dmd/lib -lphobos2 -lpthread";
 		} else {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ " -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
 		}
 		
 		writeln(linkCommand);

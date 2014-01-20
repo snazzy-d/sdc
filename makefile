@@ -7,7 +7,7 @@ LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --ldflags`
 LIBD_LIB = -Llib -ld-llvm -ld
 
-LDFLAGS = -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
+LDFLAGS = -L../phobos/generated/linux/release/64 -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
@@ -15,14 +15,18 @@ ifeq ($(PLATFORM),Linux)
 endif
 
 IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
-SOURCE = src/sdc/*.d
+SOURCE = src/sdc/*.d src/util/*.d
 
 SDC = bin/sdc
 
 LIBD_LLVM_ROOT = libd-llvm
-ALL_TARGET = $(SDC)
+LIBSDRT_ROOT = libsdrt
+LIBSDRT_EXTRA_DEPS = $(SDC)
+
+ALL_TARGET = $(LIBSDRT)
 
 include libd-llvm/makefile.common
+include libsdrt/makefile.common
 
 $(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
 	@mkdir -p bin
@@ -33,7 +37,7 @@ obj/sdc.o: $(SOURCE)
 	$(DMD) -c -ofobj/sdc.o $(SOURCE) $(DFLAGS) $(IMPORTS)
 
 clean:
-	rm -rf obj lib bin
+	rm -rf obj lib $(SDC)
 
 doc:
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)

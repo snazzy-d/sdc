@@ -23,9 +23,16 @@ class Object {
 }
 
 class TypeInfo {}
-class ClassInfo : TypeInfo {}
+class ClassInfo : TypeInfo {
+	ClassInfo base;
+}
 
 class Throwable {}
 class Exception: Throwable {}
 class Error: Throwable {}
+
+// sdruntime
+extern(C) {
+	Object __sd_class_downcast(Object o, ClassInfo c);
+}
 

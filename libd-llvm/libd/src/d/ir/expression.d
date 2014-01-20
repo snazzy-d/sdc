@@ -238,6 +238,7 @@ class NullLiteral : CompileTimeExpression {
  */
 enum CastKind {
 	Invalid,
+	Down,
 	IntegralToBool,
 	Trunc,
 	Pad,
@@ -262,6 +263,7 @@ class CastExpression : Expression {
 	override bool isLvalue() const {
 		final switch(kind) with(CastKind) {
 			case Invalid :
+			case Down :
 			case IntegralToBool :
 			case Trunc :
 			case Pad :

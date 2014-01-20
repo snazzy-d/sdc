@@ -487,6 +487,14 @@ final class ExpressionGen {
 			case Invalid :
 				assert(0, "Invalid cast");
 			
+			case Down :
+				LLVMValueRef[2] args;
+				args[0] = LLVMBuildBitCast(builder, value, pass.visit(pass.object.getObject()), "");
+				args[1] = getTypeid(e.type);
+				
+				auto result = LLVMBuildCall(builder, pass.visit(pass.object.getClassDowncast()), args.ptr, 2, "");
+				return LLVMBuildBitCast(builder, result, type, "");
+			
 			case IntegralToBool :
 				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value, LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 			
@@ -624,8 +632,8 @@ final class ExpressionGen {
 		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");
 	}
 	
-	LLVMValueRef visit(StaticTypeidExpression e) {
-		if(auto ct = cast(ClassType) peelAlias(e.argument).type) {
+	private auto getTypeid(QualType t) {
+		if(auto ct = cast(ClassType) peelAlias(t).type) {
 			// Ensure that the thing is generated.
 			auto c = ct.dclass; 
 			buildClassType(c);
@@ -634,6 +642,10 @@ final class ExpressionGen {
 		}
 		
 		assert(0, "Not implemented");
+	}
+	
+	LLVMValueRef visit(StaticTypeidExpression e) {
+		return getTypeid(e.argument);
 	}
 }
 
@@ -695,6 +707,7 @@ final class AddressOfGen {
 		
 		final switch(e.kind) with(CastKind) {
 			case Invalid :
+			case Down :
 			case IntegralToBool :
 			case Trunc :
 			case Pad :

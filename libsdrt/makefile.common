@@ -1,0 +1,18 @@
+# Common definitions
+
+LIBSDRT_SRC = \
+	$(LIBSDRT_ROOT)/src/d/rt/*.d
+
+LIBSDRT = lib/libsdrt.a
+
+ALL_TARGET ?= $(LIBSDRT)
+
+LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
+
+all: $(ALL_TARGET)
+
+$(LIBSDRT): $(LIBSDRT_SRC) $(LIBSDRT_EXTRA_DEPS)
+	@mkdir -p lib obj
+	$(SDC) -c -o obj/libsdrt.o $(LIBSDRT_SRC) $(LIBSDRT_IMPORTS)
+	ar rcs $(LIBSDRT) obj/libsdrt.o
+
