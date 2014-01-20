@@ -1,7 +1,7 @@
 # Common definitions
 
-LIBSDRT_SRC = \
-	$(LIBSDRT_ROOT)/src/d/rt/*.d
+LIBSDRT_SRC = $(wildcard $(LIBSDRT_ROOT)/src/d/rt/*.d)
+LIBSDRT_OBJ = $(LIBSDRT_SRC:$(LIBSDRT_ROOT)/src/d/rt/%.d=obj/rt/%.o)
 
 LIBSDRT = lib/libsdrt.a
 
@@ -11,8 +11,11 @@ LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
 
 all: $(ALL_TARGET)
 
-$(LIBSDRT): $(LIBSDRT_SRC) $(LIBSDRT_EXTRA_DEPS)
-	@mkdir -p lib obj
-	$(SDC) -c -o obj/libsdrt.o $(LIBSDRT_SRC) $(LIBSDRT_IMPORTS)
-	ar rcs $(LIBSDRT) obj/libsdrt.o
+obj/rt/%.o: $(LIBSDRT_ROOT)/src/d/rt/%.d $(LIBSDRT_SRC) $(LIBSDRT_EXTRA_DEPS)
+	@mkdir -p obj/rt
+	$(SDC) -c -o $@ $< $(LIBSDRT_IMPORTS)
+
+$(LIBSDRT): $(LIBSDRT_OBJ)
+	@mkdir -p lib
+	ar rcs $(LIBSDRT) $^
 
