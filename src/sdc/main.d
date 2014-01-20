@@ -7,6 +7,7 @@ import d.ast.dmodule;
 
 import d.exception;
 
+import sdc.conf;
 import sdc.sdc;
 import sdc.terminal;
 
@@ -21,6 +22,8 @@ int main(string[] args) {
 			// registerMemoryErrorHandler();
 		}
 	}
+	
+	auto conf = buildConf();
 	
 	string[] includePath;
 	uint optLevel;
@@ -38,6 +41,10 @@ int main(string[] args) {
 		}
 	);
 	
+	foreach(path; includePath) {
+		conf["includePath"] ~= path;
+	}
+	
 	auto files = args[1 .. $];
 	
 	auto executable = "a.out";
@@ -50,17 +57,16 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], includePath, optLevel);
+	auto sdc = new SDC(files[0], conf, optLevel);
 	try {
 		foreach(file; files) {
 			sdc.compile(file);
 		}
 		
-		sdc.buildMain();
-		
 		if(dontLink) {
 			sdc.codeGen(objFile);
 		} else {
+			sdc.buildMain();
 			sdc.codeGen(objFile, executable);
 		}
 		

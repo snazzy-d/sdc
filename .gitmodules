@@ -1,3 +1,6 @@
 [submodule "libd-llvm"]
 	path = libd-llvm
 	url = git://github.com/deadalnix/libd-llvm.git
+[submodule "libsdrt"]
+	path = libsdrt
+	url = https://github.com/deadalnix/libsdrt.git

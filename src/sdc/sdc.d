@@ -12,6 +12,8 @@ import d.semantic.semantic;
 import d.context;
 import d.location;
 
+import util.json;
+
 import std.algorithm;
 import std.array;
 import std.file;
@@ -26,12 +28,12 @@ final class SDC {
 	
 	Module[] modules;
 	
-	this(string name, string[] includePath, uint optLevel) {
-		this.includePath = ["../libs", "."] ~ includePath;
+	this(string name, JSON conf, uint optLevel) {
+		includePath = conf["includePath"].array.map!(path => cast(string) path).array();
 		
 		context = new Context();
 		
-		backend	= new LLVMBackend(context, name, optLevel);
+		backend	= new LLVMBackend(context, name, optLevel, conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join());
 		semantic = new SemanticPass(context, backend.getEvaluator(), &getFileSource);
 		
 		// Review thet way this whole thing is built.
@@ -74,7 +76,7 @@ final class SDC {
 			}
 		}
 		
-		assert(0, "filenotfoundmalheur !");
+		assert(0, "filenotfoundmalheur ! " ~ filename);
 	}
 }
 
