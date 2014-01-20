@@ -32,7 +32,9 @@ auto parseModule(TokenRange)(ref TokenRange trange, Name name, Name[] packages) 
 		trange.match(TokenType.Semicolon);
 		
 		assert(current == name);
-		assert(parsedPackages == packages);
+		assert(parsedPackages == packages[$ - parsedPackages.length .. $]);
+		
+		packages = parsedPackages;
 	}
 	
 	Declaration[] declarations;
