@@ -426,7 +426,7 @@ final class ExpressionGen {
 		auto type = pass.visit(e.type);
 		LLVMValueRef size = LLVMSizeOf(type);
 		
-		auto alloc = LLVMBuildCall(builder, druntimeGen.getAllocMemory(), &size, 1, "");
+		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		
 		auto dt = peelAlias(e.type).type;
@@ -435,7 +435,7 @@ final class ExpressionGen {
 			auto init = LLVMBuildLoad(builder, getNewInit(st.dstruct), "");
 			args = init ~ args;
 			
-			auto obj = LLVMBuildCall(builder, ctor, args.ptr, cast(uint) args.length, "");
+			auto obj = buildCall(ctor, args);
 			LLVMBuildStore(builder, obj, ptr);
 		} else if(auto ct = cast(ClassType) dt) {
 			auto init = LLVMBuildLoad(builder, getNewInit(ct.dclass), "");
@@ -444,7 +444,7 @@ final class ExpressionGen {
 			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(ctor)), "");
 			
 			args = castedPtr ~ args;
-			LLVMBuildCall(builder, ctor, args.ptr, cast(uint) args.length, "");
+			buildCall(ctor, args);
 		} else {
 			assert(0, "not implemented");
 		}
@@ -512,7 +512,7 @@ final class ExpressionGen {
 				args[0] = LLVMBuildBitCast(builder, value, pass.visit(pass.object.getObject()), "");
 				args[1] = getTypeid(e.type);
 				
-				auto result = LLVMBuildCall(builder, pass.visit(pass.object.getClassDowncast()), args.ptr, 2, "");
+				auto result = buildCall(pass.visit(pass.object.getClassDowncast()), args[]);
 				return LLVMBuildBitCast(builder, result, type, "");
 			
 			case IntegralToBool :
@@ -544,6 +544,78 @@ final class ExpressionGen {
 			case Exact :
 				return value;
 		}
+	}
+	
+	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
+		// Check if we need to invoke.
+		foreach_reverse(ref b; unwindBlocks) {
+			if(b.kind == BlockKind.Success) {
+				continue;
+			}
+			
+			// We have a failure case.
+			auto currentBB = LLVMGetInsertBlock(builder);
+			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+			
+			if(!b.landingPadBB) {
+				auto landingPadBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "landingPad");
+				
+				LLVMPositionBuilderAtEnd(builder, landingPadBB);
+				
+				auto landingPad = LLVMBuildLandingPad(
+					builder,
+					LLVMStructTypeInContext(llvmCtx, [LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false),
+					pass.visit(pass.object.getPersonality()),
+					cast(uint) catchClauses.length,
+					"",
+				);
+				
+				if (!lpContext) {
+					// Backup current block
+					auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+					LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
+					
+					// Create an alloca for this variable.
+					lpContext = LLVMBuildAlloca(builder, LLVMTypeOf(landingPad), "lpContext");
+					
+					LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+				}
+				
+				// TODO: handle cleanup.
+				// For now assume always cleanup.
+				// This is inneffiscient, but works.
+				LLVMSetCleanup(landingPad, true);
+				
+				foreach_reverse(c; catchClauses) {
+					LLVMAddClause(landingPad, c);
+				}
+				
+				LLVMBuildStore(builder, landingPad, lpContext);
+				
+				
+				if(!b.unwindBB) {
+					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
+				}
+				
+				LLVMBuildBr(builder, b.unwindBB);
+				
+				LLVMPositionBuilderAtEnd(builder, currentBB);
+				b.landingPadBB = landingPadBB;
+			}
+			
+			auto landingPadBB = b.landingPadBB;
+			auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
+			
+			auto ret = LLVMBuildInvoke(builder, callee, args.ptr, cast(uint) args.length, thenBB, landingPadBB, "");
+			
+			LLVMMoveBasicBlockAfter(thenBB, currentBB);
+			
+			LLVMPositionBuilderAtEnd(builder, thenBB);
+			
+			return ret;
+		}
+		
+		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	
 	LLVMValueRef visit(CallExpression c) {
@@ -587,7 +659,7 @@ final class ExpressionGen {
 			i++;
 		}
 		
-		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
+		return buildCall(callee, args);
 	}
 	
 	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
@@ -632,9 +704,9 @@ final class ExpressionGen {
 		
 		if(e.message) {
 			args[0] = visit(e.message);
-			LLVMBuildCall(builder, druntimeGen.getAssertMessage(), args.ptr, 3, "");
+			buildCall(druntimeGen.getAssertMessage(), args[]);
 		} else {
-			LLVMBuildCall(builder, druntimeGen.getAssert(), &args[1], 2, "");
+			buildCall(druntimeGen.getAssert(), args[1 .. $]);
 		}
 		
 		// Conclude that block.
@@ -808,7 +880,7 @@ final class AddressOfGen {
 		args[0] = buildDString(location.source.filename);
 		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
 		
-		LLVMBuildCall(builder, druntimeGen.getArrayBound(), args.ptr, cast(uint) args.length, "");
+		buildCall(druntimeGen.getArrayBound(), args);
 		
 		LLVMBuildUnreachable(builder);
 		

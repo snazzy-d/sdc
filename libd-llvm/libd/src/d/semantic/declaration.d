@@ -306,8 +306,10 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
+		auto isEnum = d.isEnum;
+		
 		Variable v;
-		if(isStatic || !buildFields) {
+		if(isEnum || isStatic || !buildFields) {
 			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
@@ -316,7 +318,7 @@ struct DeclarationVisitor {
 		v.linkage = linkage;
 		v.visibility = visibility;
 		v.isStatic = isStatic;
-		v.isEnum = d.isEnum;
+		v.isEnum = isEnum;
 		
 		currentScope.addSymbol(v);
 		
@@ -554,8 +556,7 @@ struct DeclarationVisitor {
 }
 
 private :
-final class PoisonScope : Scope {
-	Scope parent;
+final class PoisonScope : NestedScope {
 	bool isPoisoning;
 	bool isPoisoned;
 	
@@ -563,9 +564,7 @@ final class PoisonScope : Scope {
 	ConditionalBranch[] stack;
 	
 	this(Scope parent) {
-		super(parent.dmodule);
-		
-		this.parent = parent;
+		super(parent);
 	}
 	
 	void pushStaticIf(StaticIf!Declaration d, bool branch) {

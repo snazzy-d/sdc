@@ -257,7 +257,7 @@ class Interface : TypeSymbol {
 class Struct : TypeSymbol {
 	Symbol[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);

@@ -61,6 +61,9 @@ final class SymbolGen {
 	}
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
+		// Function can be defined in several modules, so the optimizer can do its work.
+		LLVMSetLinkage(fun, LLVMLinkage.WeakODR);
+		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
@@ -69,7 +72,11 @@ final class SymbolGen {
 		auto backupCurrentBB = LLVMGetInsertBlock(builder);
 		auto oldLabels = labels;
 		auto oldThisPtr = thisPtr;
+		auto oldLpContext = lpContext;
+		auto oldCatchClauses = catchClauses;
 		auto oldUnwindBlocks = unwindBlocks;
+		auto oldBreakUnwindBlock = breakUnwindBlock;
+		auto oldContinueUnwindBlock = continueUnwindBlock;
 		
 		scope(exit) {
 			if(backupCurrentBB) {
@@ -80,11 +87,17 @@ final class SymbolGen {
 			
 			labels = oldLabels;
 			thisPtr = oldThisPtr;
+			lpContext = oldLpContext;
+			catchClauses = oldCatchClauses;
 			unwindBlocks = oldUnwindBlocks;
+			breakUnwindBlock = oldBreakUnwindBlock;
+			continueUnwindBlock = oldContinueUnwindBlock;
 		}
 		
 		// XXX: what is the way to flush an AA ?
 		labels = typeof(labels).init;
+		lpContext = null;
+		catchClauses = [];
 		unwindBlocks = [];
 		
 		// Handle parameters in the alloca block.

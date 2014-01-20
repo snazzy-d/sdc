@@ -63,9 +63,9 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, PointerType t) {
-		return new NullLiteral(location);
+		return new NullLiteral(location, QualType(t));
 	}
-	/*
+	/+
 	Expression visit(SliceType t) {
 		// Convoluted way to create the array due to compiler limitations.
 		Expression[] init = [new NullLiteral(location, t.type)];
@@ -76,8 +76,7 @@ final class DefaultInitializerVisitor {
 		
 		return ret;
 	}
-	*/
-	
+	+/
 	Expression visit(Location location, ArrayType t) {
 		return new VoidInitializer(location, QualType(t));
 	}
@@ -94,17 +93,11 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, ClassType t) {
-		auto ret = new NullLiteral(location);
-		ret.type = QualType(t);
-		
-		return ret;
+		return new NullLiteral(location, QualType(t));
 	}
 	
 	Expression visit(Location location, FunctionType t) {
-		auto ret = new NullLiteral(location);
-		ret.type = QualType(t);
-		
-		return ret;
+		return new NullLiteral(location, QualType(t));
 	}
 }
 

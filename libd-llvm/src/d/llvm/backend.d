@@ -117,7 +117,7 @@ final class LLVMBackend {
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
-		
+		/+
 		version(linux) {
 			// Hack around the need of _tlsstart and _tlsend.
 			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
@@ -130,7 +130,7 @@ final class LLVMBackend {
 			LLVMSetThreadLocal(_tlsend, true);
 			LLVMSetLinkage(_tlsend, LLVMLinkage.LinkOnceODR);
 		}
-		
+		// +/
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
 		if(linkError) {
@@ -145,9 +145,9 @@ final class LLVMBackend {
 	
 	void link(string objFile, string executable) {
 		version(OSX) {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt -L/usr/share/dmd/lib -lphobos2 -lpthread";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
 		} else {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt -L/opt/gdc/lib64 -lgphobos2 -lpthread -lrt";
+			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
 		}
 		
 		writeln(linkCommand);

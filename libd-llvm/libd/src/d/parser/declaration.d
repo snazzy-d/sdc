@@ -569,6 +569,10 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 					goto case TripleDot;
 				}
 				
+				if(trange.front.type == CloseParen) {
+					goto case CloseParen;
+				}
+				
 				parameters ~= trange.parseParameter();
 			}
 	}

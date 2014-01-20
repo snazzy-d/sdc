@@ -52,9 +52,27 @@ final class CodeGenPass {
 	LLVMValueRef thisPtr;
 	LLVMValueRef switchInstr;
 	
-	Statement[] unwindBlocks;
-	Statement[] breakUnwindBlocks;
-	Statement[] continueUnwindBlocks;
+	LLVMValueRef lpContext;
+	LLVMValueRef[] catchClauses;
+	
+	enum BlockKind {
+		Exit,
+		Success,
+		Failure,
+		Catch,
+	}
+	
+	struct Block {
+		BlockKind kind;
+		Statement statement;
+		LLVMBasicBlockRef landingPadBB;
+		LLVMBasicBlockRef unwindBB;
+	}
+	
+	Block[] unwindBlocks;
+	
+	size_t breakUnwindBlock;
+	size_t continueUnwindBlock;
 	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
@@ -139,6 +157,10 @@ final class CodeGenPass {
 	
 	auto buildClassType(Class c) {
 		return typeGen.buildClass(c);
+	}
+	
+	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
+		return expressionGen.buildCall(callee, args);
 	}
 	
 	auto buildDString(string str) {
@@ -263,6 +285,11 @@ final class DruntimeGen {
 	auto getAllocMemory() {
 		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
 		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), [LLVMInt64TypeInContext(llvmCtx)].ptr, 1, false));
+	}
+	
+	auto getEhTypeidFor() {
+		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
+		return getNamedFunction("llvm.eh.typeid.for", LLVMFunctionType(LLVMInt32TypeInContext(llvmCtx), [LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 1, false));
 	}
 }
 

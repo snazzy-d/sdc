@@ -225,7 +225,11 @@ class StringLiteral : CompileTimeExpression {
  */
 class NullLiteral : CompileTimeExpression {
 	this(Location location) {
-		super(location, getBuiltin(TypeKind.Null));
+		this(location, getBuiltin(TypeKind.Null));
+	}
+	
+	this(Location location, QualType t) {
+		super(location, t);
 	}
 	
 	override string toString(Context) const {

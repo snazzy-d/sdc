@@ -88,7 +88,10 @@ final class SymbolVisitor {
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				f.dscope.addSymbol(p);
+				
+				if (!p.name.isEmpty()) {
+					f.dscope.addSymbol(p);
+				}
 			}
 			
 			// And visit.
@@ -103,6 +106,13 @@ final class SymbolVisitor {
 				
 				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
 				params = thisParameter ~ params;
+			}
+			
+			// If nothing has been set, the function returns void.
+			if(auto t = cast(BuiltinType) returnType.type) {
+				if(t.kind == TypeKind.None) {
+					t.kind = TypeKind.Void;
+				}
 			}
 			
 			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
