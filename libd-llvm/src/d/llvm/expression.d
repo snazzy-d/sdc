@@ -245,9 +245,17 @@ final class ExpressionGen {
 			
 			case LogicalOrAssign :
 			case LogicalAndAssign :
+				assert(0, "Not implemented");
+			
 			case BitwiseOr :
+				return handleBinaryOp!LLVMBuildOr(e);
+			
 			case BitwiseAnd :
+				return handleBinaryOp!LLVMBuildAnd(e);
+			
 			case BitwiseXor :
+				return handleBinaryOp!LLVMBuildXor(e);
+			
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
@@ -267,9 +275,17 @@ final class ExpressionGen {
 			
 			case In :
 			case NotIn :
+				assert(0, "Not implemented");
+			
 			case LeftShift :
+				return handleBinaryOp!LLVMBuildShl(e);
+			
 			case SignedRightShift :
+				return handleBinaryOp!LLVMBuildAShr(e);
+			
 			case UnsignedRightShift :
+				return handleBinaryOp!LLVMBuildLShr(e);
+			
 			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
