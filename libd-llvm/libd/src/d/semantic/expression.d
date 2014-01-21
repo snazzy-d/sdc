@@ -177,9 +177,18 @@ final class ExpressionVisitor {
 			
 			case LogicalOrAssign :
 			case LogicalAndAssign :
+				assert(0, "Not implemented.");
+			
 			case BitwiseOr :
 			case BitwiseAnd :
 			case BitwiseXor :
+				type = getPromotedType(lhs.type.type, rhs.type.type);
+				
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				
+				break;
+			
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
@@ -200,9 +209,18 @@ final class ExpressionVisitor {
 			
 			case In :
 			case NotIn :
+				assert(0, "Not implemented.");
+			
 			case LeftShift :
 			case SignedRightShift :
 			case UnsignedRightShift :
+				type = lhs.type;
+				
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				
+				break;
+			
 			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
