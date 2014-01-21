@@ -178,8 +178,8 @@ struct TemplateInstancier {
 			}
 			
 			// XXX: that is doomed to explode fireworks style.
-			import d.semantic.declaration;
-			auto dv = DeclarationVisitor(pass, t.linkage, t.isStatic);
+			import d.semantic.declaration, d.ast.base;
+			auto dv = DeclarationVisitor(pass, t.isStatic);
 			
 			auto localPass = pass;
 			pass.scheduler.schedule(only(instance), i => visit(localPass, cast(TemplateInstance) i));

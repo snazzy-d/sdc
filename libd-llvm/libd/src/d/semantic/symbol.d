@@ -289,7 +289,7 @@ final class SymbolVisitor {
 		
 		fieldIndex = 0;
 		
-		auto dv = DeclarationVisitor(pass, s.linkage, false, true);
+		auto dv = DeclarationVisitor(pass, false, true);
 		
 		auto members = dv.flatten(sd.members, s);
 		s.step = Step.Populated;
@@ -410,7 +410,7 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto dv = DeclarationVisitor(pass, c.linkage, false, true, true);
+		auto dv = DeclarationVisitor(pass, false, true, true);
 		auto members = dv.flatten(cd.members, c);
 		
 		c.step = Step.Signed;

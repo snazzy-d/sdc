@@ -24,14 +24,14 @@ class Symbol : Node {
 	
 	import std.bitmanip;
 	mixin(bitfields!(
-		Visibility, "visibility", 3,
 		Linkage, "linkage", 3,
-		Step, "step", 2,
+		Visibility, "visibility", 3,
 		bool, "isStatic", 1,
 		bool, "isEnum", 1,
 		bool, "isFinal", 1,
 		bool, "isAbstract", 1,
 		uint, "", 4,
+		Step, "step", 2,
 	));
 	
 	this(Location location, Name name) {
