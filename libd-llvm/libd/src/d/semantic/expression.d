@@ -491,6 +491,7 @@ final class ExpressionVisitor {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
+					pass.scheduler.require(f, Step.Signed);
 					return new MethodExpression(iloc, di, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					return chooseOverload(iloc, s.set.map!(delegate Expression(s) {
@@ -655,6 +656,7 @@ final class ExpressionVisitor {
 		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
+					pass.scheduler.require(f, Step.Signed);
 					return new SymbolExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					auto di = pass.defaultInitializerVisitor.visit(e.location, type);

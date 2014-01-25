@@ -178,19 +178,19 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	private auto getSymbolExpression(Location location, ValueSymbol s) {
-		scheduler.require(s, Step.Signed);
 		static if(asAlias) {
 			return handler(s);
 		} else {
+			scheduler.require(s, Step.Signed);
 			return handler(new SymbolExpression(location, s));
 		}
 	}
 	
 	Ret visit(Location location, Function f) {
-		scheduler.require(f, Step.Signed);
 		static if(asAlias) {
 			return handler(f);
 		} else {
+			scheduler.require(f, Step.Signed);
 			return handler(
 				f.isStatic
 					? new SymbolExpression(location, f)
@@ -221,7 +221,6 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	private auto getSymbolType(T, S)(S s) {
-		scheduler.require(s, Step.Signed);
 		static if(asAlias) {
 			return handler(s);
 		} else {
@@ -230,6 +229,8 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	Ret visit(Location location, TypeAlias a) {
+		// XXX: get rid of peelAlias and then get rid of this.
+		scheduler.require(a);
 		return getSymbolType!AliasType(a);
 	}
 	
@@ -493,6 +494,7 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 	}
 	
 	Ret visit(Location location, Expression _, TypeAlias a) {
+		// XXX: get rid of peelAlias and then get rid of this.
 		scheduler.require(a);
 		return handler(QualType(new AliasType(a)));
 	}
@@ -546,6 +548,9 @@ struct SymbolInTypeResolver {
 	}
 	
 	Symbol visit(Name name, AliasType t) {
+		auto a = t.dalias;
+		scheduler.require(a, Step.Populated);
+		
 		return visit(name, t.dalias.type);
 	}
 	

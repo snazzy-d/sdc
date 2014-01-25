@@ -284,7 +284,7 @@ final class SymbolVisitor {
 		auto name = s.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
-		assert(s.linkage == Linkage.D);
+		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
 		
 		fieldIndex = 0;
@@ -304,7 +304,7 @@ final class SymbolVisitor {
 			return true;
 		}).array();
 		
-		scheduler.require(fields);
+		scheduler.require(fields, Step.Signed);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = type;
@@ -519,7 +519,7 @@ final class SymbolVisitor {
 		auto name = e.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
-		assert(e.linkage == Linkage.D);
+		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = "E" ~ manglePrefix;
 		
 		foreach(vd; ed.entries) {

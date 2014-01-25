@@ -136,7 +136,7 @@ public:
 				if(s.step >= step) return;
 				
 				import std.stdio;
-				writeln(s.name, " ", step);
+				writeln(s.name.toString(pass.context), " ", step);
 				try {
 					throw new Exception("Require call stack");
 				} catch(Exception e) {
