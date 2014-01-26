@@ -78,7 +78,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 			return new CastExpression(location, kind, to, e);
 		
 		case Invalid :
-			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString() ~ " to " ~ to.toString());
+			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context));
 	}
 }
 

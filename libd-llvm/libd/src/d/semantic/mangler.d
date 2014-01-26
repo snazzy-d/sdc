@@ -100,14 +100,14 @@ final class TypeMangler {
 	
 	string visit(StructType t) {
 		auto s = t.dstruct;
-		scheduler.require(s, Step.Signed);
+		scheduler.require(s, Step.Populated);
 		
 		return s.mangle;
 	}
 	
 	string visit(ClassType t) {
 		auto c = t.dclass;
-		scheduler.require(c, Step.Signed);
+		scheduler.require(c, Step.Populated);
 		
 		return c.mangle;
 	}

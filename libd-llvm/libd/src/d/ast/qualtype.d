@@ -18,8 +18,8 @@ struct QualType(T) if(is(T : AstType)) {
 		qualifier = qual;
 	}
 	
-	string toString(TypeQualifier qual = TypeQualifier.Mutable) const {
-		auto s = type.toString(qual);
+	string toString(Context ctx, TypeQualifier qual = TypeQualifier.Mutable) const {
+		auto s = type.toString(ctx, qual);
 		
 		if(qualifier == qual) return s;
 		
@@ -67,9 +67,9 @@ struct ParamType(T) if(is(T : AstType)) {
 		this(QualType!T(t), isRef);
 	}
 	
-	string toString(TypeQualifier qual = TypeQualifier.Mutable) const {
+	string toString(Context ctx, TypeQualifier qual = TypeQualifier.Mutable) const {
 		alias DMD_BUG_WORKAROUND = const(QualType!T);
-		auto ret = DMD_BUG_WORKAROUND(type, qualifier).toString(qual);
+		auto ret = DMD_BUG_WORKAROUND(type, qualifier).toString(ctx, qual);
 		
 		if(isRef) ret = "ref " ~ ret;
 		if(isScope) ret = "scope " ~ ret;

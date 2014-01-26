@@ -115,7 +115,7 @@ final class LLVMEvaluator : Evaluator {
 			}
 		}
 		
-		assert(0, "Only able to JIT integers, booleans and strings, " ~ type.toString() ~ " given.");
+		assert(0, "Only able to JIT integers, booleans and strings, " ~ type.toString(codeGen.context) ~ " given.");
 	}
 	
 	private auto jitInteger(Expression e) {

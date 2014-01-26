@@ -101,7 +101,10 @@ final class DefaultInitializerVisitor {
 	}
 	
 	Expression visit(Location location, FunctionType t) {
-		return new NullLiteral(location);
+		auto ret = new NullLiteral(location);
+		ret.type = QualType(t);
+		
+		return ret;
 	}
 }
 

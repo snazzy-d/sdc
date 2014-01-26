@@ -7,11 +7,11 @@ import d.ast.identifier;
 import d.ast.qualtype;
 
 abstract class AstType {
-	final override string toString() {
-		return toString(TypeQualifier.Mutable);
+	final string toString(Context ctx) {
+		return toString(ctx, TypeQualifier.Mutable);
 	}
 	
-	string toString(TypeQualifier) const {
+	string toString(Context, TypeQualifier) const {
 		return typeid(this).toString();
 	}
 }
@@ -40,9 +40,9 @@ class FunctionType(T) if(is(T : AstType)) : T {
 		this.isVariadic = isVariadic;
 	}
 	
-	override string toString(TypeQualifier qual) const {
+	override string toString(Context ctx, TypeQualifier qual) const {
 		import std.algorithm, std.range;
-		return returnType.toString(qual) ~ " function(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...)":")");
+		return returnType.toString(ctx, qual) ~ " function(" ~ paramTypes.map!(t => t.toString(ctx, qual)).join(", ") ~ (isVariadic?", ...)":")");
 	}
 }
 
@@ -65,9 +65,8 @@ class IdentifierType : AstType {
 		this.identifier = identifier;
 	}
 	
-	override string toString(TypeQualifier) const {
-		return "";
-		// return identifier.toString();
+	override string toString(Context ctx, TypeQualifier) const {
+		return identifier.toString(ctx);
 	}
 }
 
@@ -81,8 +80,8 @@ class PointerType(T) if(is(T : AstType)) : T {
 		this.pointed = pointed;
 	}
 	
-	override string toString(TypeQualifier qual) const {
-		return pointed.toString(qual) ~ "*";
+	override string toString(Context ctx, TypeQualifier qual) const {
+		return pointed.toString(ctx, qual) ~ "*";
 	}
 	
 	invariant() {
@@ -102,8 +101,8 @@ class SliceType(T) if(is(T : AstType)) : T {
 		this.sliced = sliced;
 	}
 	
-	override string toString(TypeQualifier qual) const {
-		return sliced.toString(qual) ~ "[]";
+	override string toString(Context ctx, TypeQualifier qual) const {
+		return sliced.toString(ctx, qual) ~ "[]";
 	}
 	
 	invariant() {
@@ -125,8 +124,8 @@ class AssociativeArrayType(T) if(is(T : AstType)) : T {
 		this.elementType = elementType;
 	}
 	
-	override string toString(TypeQualifier qual) const {
-		return elementType.toString(qual) ~ "[" ~ keyType.toString(qual) ~ "]";
+	override string toString(Context ctx, TypeQualifier qual) const {
+		return elementType.toString(ctx, qual) ~ "[" ~ keyType.toString(ctx, qual) ~ "]";
 	}
 }
 
@@ -144,8 +143,8 @@ class AstArrayType : AstType {
 		this.size = size;
 	}
 	
-	override string toString(TypeQualifier qual) const {
-		return elementType.toString(qual) ~ "[" ~ size.toString() ~ "]";
+	override string toString(Context ctx, TypeQualifier qual) const {
+		return elementType.toString(ctx, qual) ~ "[" ~ size.toString(ctx) ~ "]";
 	}
 }
 
@@ -161,8 +160,8 @@ class IdentifierArrayType : AstType {
 		this.identifier = identifier;
 	}
 	
-	override string toString(TypeQualifier qual) const {
-		return elementType.toString(qual) ~ "[" ~ identifier.toString() ~ "]";
+	override string toString(Context ctx, TypeQualifier qual) const {
+		return elementType.toString(ctx, qual) ~ "[" ~ identifier.toString(ctx) ~ "]";
 	}
 }
 
@@ -184,9 +183,9 @@ class DelegateType(T) if(is(T : AstType)) : FunctionType!T {
 		context = t.paramTypes[0];
 	}
 	
-	override string toString(TypeQualifier qual) const {
+	override string toString(Context ctx, TypeQualifier qual) const {
 		import std.algorithm, std.range;
-		return returnType.toString(qual) ~ " delegate(" ~ paramTypes.map!(t => t.toString(qual)).join(", ") ~ (isVariadic?", ...) ":") ") ~ context.toString();
+		return returnType.toString(ctx, qual) ~ " delegate(" ~ paramTypes.map!(t => t.toString(ctx, qual)).join(", ") ~ (isVariadic?", ...) ":") ") ~ context.toString(ctx);
 	}
 }
 
@@ -202,8 +201,8 @@ class TypeofType : AstType {
 		this.expression = expression;
 	}
 	
-	override string toString(TypeQualifier) const {
-		return "typeof(" ~ expression.toString() ~ ")";
+	override string toString(Context ctx, TypeQualifier) const {
+		return "typeof(" ~ expression.toString(ctx) ~ ")";
 	}
 }
 
@@ -211,7 +210,7 @@ class TypeofType : AstType {
  * Type defined by typeof(return)
  */
 class ReturnType : AstType {
-	override string toString(TypeQualifier) const {
+	override string toString(Context ctx, TypeQualifier) const {
 		return "typeof(return)";
 	}
 }

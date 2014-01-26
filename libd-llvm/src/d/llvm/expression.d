@@ -136,7 +136,7 @@ final class ExpressionGen {
 			return handleComparaison(e, unsignedPredicate);
 		}
 		
-		assert(0, "Don't know how to compare " ~ e.lhs.type.toString() ~ " with " ~ e.rhs.type.toString());
+		assert(0, "Don't know how to compare " ~ e.lhs.type.toString(context) ~ " with " ~ e.rhs.type.toString(context));
 	}
 	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
@@ -470,7 +470,7 @@ final class ExpressionGen {
 			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOfGen.visit(e.sliced), &zero, 1, "");
 		} else {
-			assert(0, "Don't know how to slice " ~ e.type.toString());
+			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 		
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
@@ -783,7 +783,7 @@ final class AddressOfGen {
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
 		}
 		
-		assert(0, "Don't know how to index " ~ indexed.type.toString());
+		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
 	}
 	
 	auto genBoundCheck(Location location, LLVMValueRef condition) {

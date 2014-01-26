@@ -107,21 +107,17 @@ alias StorageClassDeclaration!(StorageClass.__Gshared) __GsharedDeclaration;
 /**
  * Visibility class declaration
  */
-class VisibilityDeclaration(Visibility visibility) : Declaration {
+class VisibilityDeclaration : Declaration {
+	Visibility visibility;
 	Declaration[] declarations;
 	
-	this(Location location, Declaration[] declarations) {
+	this(Location location, Visibility visibility, Declaration[] declarations) {
 		super(location);
 		
+		this.visibility = visibility;
 		this.declarations = declarations;
 	}
 }
-
-alias VisibilityDeclaration!(Visibility.Public) PublicDeclaration;
-alias VisibilityDeclaration!(Visibility.Private) PrivateDeclaration;
-alias VisibilityDeclaration!(Visibility.Protected) ProtectedDeclaration;
-alias VisibilityDeclaration!(Visibility.Package) PackageDeclaration;
-alias VisibilityDeclaration!(Visibility.Export) ExportDeclaration;
 
 /**
  * Linkage declaration

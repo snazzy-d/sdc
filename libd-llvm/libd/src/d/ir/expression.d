@@ -87,7 +87,7 @@ class ThisExpression : Expression {
 		super(location, type);
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return "this";
 	}
 	
@@ -109,7 +109,7 @@ class SuperExpression : Expression {
 		super(location, type);
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return "super";
 	}
 	
@@ -131,7 +131,7 @@ class BooleanLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return value?"true":"false";
 	}
 }
@@ -156,7 +156,7 @@ class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		import std.conv;
 		return to!string(value);
 	}
@@ -191,7 +191,7 @@ class CharacterLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return "'" ~ value ~ "'";
 	}
 	
@@ -215,7 +215,7 @@ class StringLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return "\"" ~ value ~ "\"";
 	}
 }
@@ -228,7 +228,7 @@ class NullLiteral : CompileTimeExpression {
 		super(location, getBuiltin(TypeKind.Null));
 	}
 	
-	override string toString() const {
+	override string toString(Context) const {
 		return "null";
 	}
 }
@@ -257,6 +257,10 @@ class CastExpression : Expression {
 		
 		this.kind = kind;
 		this.expr = expr;
+	}
+	
+	override string toString(Context ctx) const {
+		return "cast(" ~ type.toString(ctx) ~ ") " ~ expr.toString(ctx);
 	}
 	
 	@property
@@ -291,9 +295,9 @@ class NewExpression : Expression {
 		this.args = args;
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
+		return "new " ~ type.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
 }
 
@@ -314,6 +318,10 @@ class SymbolExpression : Expression {
 		assert(symbol);
 	}
 	
+	override string toString(Context ctx) const {
+		return symbol.toString(ctx);
+	}
+	
 	@property
 	override bool isLvalue() const {
 		return !(symbol.isEnum);
@@ -332,6 +340,10 @@ class FieldExpression : Expression {
 		
 		this.expr = expr;
 		this.field = field;
+	}
+	
+	override string toString(Context ctx) const {
+		return expr.toString(ctx) ~ "." ~ field.name.toString(ctx);
 	}
 	
 	@property
@@ -356,6 +368,10 @@ class MethodExpression : Expression {
 		this.expr = expr;
 		this.method = method;
 	}
+	
+	override string toString(Context ctx) const {
+		return expr.toString(ctx) ~ "." ~ method.name.toString(ctx);
+	}
 }
 
 /**
@@ -369,6 +385,10 @@ class DynamicTypeidExpression : Expression {
 		
 		this.argument = argument;
 	}
+	
+	override string toString(Context ctx) const {
+		return "typeid(" ~ argument.toString(ctx) ~ ")";
+	}
 }
 
 /**
@@ -381,6 +401,10 @@ class VoidInitializer : Expression {
 	
 	this(Location location, QualType type) {
 		super(location, type);
+	}
+	
+	override string toString(Context) const {
+		return "void";
 	}
 }
 
