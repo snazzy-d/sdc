@@ -97,7 +97,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
 		}
 		
-		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString());
+		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
 	}
 	
 	Ret resolveInExpression(Location location, Expression e, Name name) {
@@ -159,7 +159,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 				} else if(auto asArray = cast(ArrayType) type) {
 					qt = asArray.elementType;
 				} else {
-					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString()));
+					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString(pass.context)));
 				}
 				
 				return handler(new IndexExpression(i.location, qt, identified, [pass.visit(i.index)]));

@@ -14,12 +14,7 @@ abstract class Identifier : Node {
 		this.name = name;
 	}
 	
-	final override string toString() {
-		const i = this;
-		return i.toString();
-	}
-	
-	string toString() const {
+	string toString(Context ctx) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -41,11 +36,10 @@ class BasicIdentifier : Identifier {
 	this(Location location, Name name) {
 		super(location, name);
 	}
-	/+
-	override string toString() const {
-		return name;
+	
+	override string toString(Context ctx) const {
+		return name.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -59,11 +53,10 @@ class IdentifierDotIdentifier : Identifier {
 		
 		this.identifier = identifier;
 	}
-	/+
-	override string toString() const {
-		return identifier.toString() ~ "." ~ name;
+	
+	override string toString(Context ctx) const {
+		return identifier.toString(ctx) ~ "." ~ name.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -77,11 +70,10 @@ class TypeDotIdentifier : Identifier {
 		
 		this.type = type;
 	}
-	/+
-	override string toString() const {
-		return type.toString() ~ "." ~ name;
+	
+	override string toString(Context ctx) const {
+		return type.toString(ctx) ~ "." ~ name.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -95,11 +87,10 @@ class ExpressionDotIdentifier : Identifier {
 		
 		this.expression = expression;
 	}
-	/+
-	override string toString() const {
-		return expression.toString() ~ "." ~ name;
+	
+	override string toString(Context ctx) const {
+		return expression.toString(ctx) ~ "." ~ name.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -176,11 +167,10 @@ class DotIdentifier : Identifier {
 	this(Location location, Name name) {
 		super(location, name);
 	}
-	/+
-	override string toString() const {
-		return "." ~ name;
+	
+	override string toString(Context ctx) const {
+		return "." ~ name.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -197,8 +187,8 @@ class IdentifierBracketIdentifier : Identifier {
 		this.index = index;
 	}
 	
-	override string toString() const {
-		return indexed.toString() ~ "[" ~ index.toString() ~ "]";
+	override string toString(Context ctx) const {
+		return indexed.toString(ctx) ~ "[" ~ index.toString(ctx) ~ "]";
 	}
 }
 
@@ -216,8 +206,8 @@ class IdentifierBracketExpression : Identifier {
 		this.index = index;
 	}
 	
-	override string toString() const {
-		return indexed.toString() ~ "[" ~ index.toString() ~ "]";
+	override string toString(Context ctx) const {
+		return indexed.toString(ctx) ~ "[" ~ index.toString(ctx) ~ "]";
 	}
 }
 

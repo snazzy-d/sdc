@@ -287,7 +287,7 @@ final class ExpressionVisitor {
 					break;
 				}
 				
-				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString());
+				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString(context));
 			
 			case PreInc :
 			case PreDec :
@@ -554,7 +554,7 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			assert(0, e.type.toString() ~ " is not a function type");
+			assert(0, e.type.toString(pass.context) ~ " is not a function type");
 		});
 		
 		auto level = MatchLevel.Not;
@@ -637,7 +637,7 @@ final class ExpressionVisitor {
 			paramTypes = f.paramTypes;
 			returnType = f.returnType;
 		} else {
-			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString());
+			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString(context));
 		}
 		
 		assert(args.length >= paramTypes.length);
@@ -715,7 +715,7 @@ final class ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt = asArray.elementType;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
 		auto arguments = e.arguments.map!(e => visit(e)).array();
@@ -736,7 +736,7 @@ final class ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString(context));
 		}
 		
 		auto first = e.first.map!(e => visit(e)).array();

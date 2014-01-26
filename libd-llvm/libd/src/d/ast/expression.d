@@ -11,12 +11,7 @@ abstract class AstExpression : Node {
 		super(location);
 	}
 	
-	final override string toString() {
-		const e = this;
-		return e.toString();
-	}
-	
-	string toString() const {
+	string toString(Context) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -38,8 +33,8 @@ class ConditionalExpression(T) if(is(T: AstExpression)) : T {
 		this.ifFalse = ifFalse;
 	}
 	
-	override string toString() const {
-		return condition.toString() ~ "? " ~ ifTrue.toString() ~ " : " ~ ifFalse.toString();
+	override string toString(Context ctx) const {
+		return condition.toString(ctx) ~ "? " ~ ifTrue.toString(ctx) ~ " : " ~ ifFalse.toString(ctx);
 	}
 }
 
@@ -123,9 +118,9 @@ class BinaryExpression(T) if(is(T: AstExpression)) : T {
 		assert(rhs);
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.conv;
-		return lhs.toString() ~ " " ~ to!string(op) ~ " " ~ rhs.toString();
+		return lhs.toString(ctx) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(ctx);
 	}
 }
 
@@ -164,9 +159,9 @@ class UnaryExpression(T) if(is(T: AstExpression)) : T {
 		assert(expr);
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.conv;
-		return to!string(op) ~ expr.toString();
+		return to!string(op) ~ expr.toString(ctx);
 	}
 }
 
@@ -183,8 +178,8 @@ class AstCastExpression : AstExpression {
 		this.expr = expr;
 	}
 	
-	override string toString() const {
-		return "cast(" ~ type.toString() ~ ") " ~ expr.toString();
+	override string toString(Context ctx) const {
+		return "cast(" ~ type.toString(ctx) ~ ") " ~ expr.toString(ctx);
 	}
 }
 
@@ -202,9 +197,9 @@ class CallExpression(T) if(is(T: AstExpression)) : T {
 		this.args = args;
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
-		return callee.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
+		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
 }
 
@@ -224,9 +219,9 @@ class IdentifierCallExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
-		return callee.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
+		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
 }
 
@@ -292,8 +287,8 @@ class IdentifierExpression : AstExpression {
 		this.identifier = identifier;
 	}
 	
-	override string toString() const {
-		return identifier.toString();
+	override string toString(Context ctx) const {
+		return identifier.toString(ctx);
 	}
 }
 
@@ -311,9 +306,9 @@ class NewExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString() ~ "(" ~ args.map!(a => a.toString()).join(", ") ~ ")";
+		return "new " ~ type.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
 }
 
@@ -331,9 +326,9 @@ class ArrayLiteral(T) if(is(T: AstExpression)) : T {
 		this.values = values;
 	}
 	
-	override string toString() const {
+	override string toString(Context ctx) const {
 		import std.algorithm, std.range;
-		return "[" ~ values.map!(v => v.toString()).join(", ") ~ "]";
+		return "[" ~ values.map!(v => v.toString(ctx)).join(", ") ~ "]";
 	}
 }
 

@@ -39,6 +39,10 @@ class Symbol : Node {
 		
 		this.name = name;
 	}
+	
+	string toString(Context ctx) const {
+		return name.toString(ctx);
+	}
 }
 
 /**
