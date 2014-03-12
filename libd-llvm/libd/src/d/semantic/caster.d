@@ -434,6 +434,13 @@ struct Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, EnumType t) {
+		// TODO: do a proper visitor
+		if(auto et = cast(EnumType) to) {
+			if (t.denum is et.denum) {
+				return CastKind.Exact;
+			}
+		}
+		
 		// Automagically promote to base type.
 		return castFrom(t.denum.type, to);
 	}
