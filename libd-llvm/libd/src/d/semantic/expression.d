@@ -157,7 +157,6 @@ final class ExpressionVisitor {
 			case ModAssign :
 			case PowAssign :
 				type = lhs.type;
-				
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
@@ -192,7 +191,10 @@ final class ExpressionVisitor {
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
-				assert(0, "Not implemented.");
+				type = lhs.type;
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				
+				break;
 			
 			case Equal :
 			case NotEqual :
