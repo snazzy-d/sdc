@@ -257,9 +257,13 @@ final class ExpressionGen {
 				return handleBinaryOp!LLVMBuildXor(e);
 			
 			case BitwiseOrAssign :
+				return handleBinaryOpAssign!LLVMBuildOr(e);
+			
 			case BitwiseAndAssign :
+				return handleBinaryOpAssign!LLVMBuildAnd(e);
+			
 			case BitwiseXorAssign :
-				assert(0, "Not implemented");
+				return handleBinaryOpAssign!LLVMBuildXor(e);
 			
 			case Equal :
 				return handleComparaison(e, LLVMIntPredicate.EQ);
