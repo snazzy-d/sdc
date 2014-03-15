@@ -43,7 +43,9 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstExpression e) {
-		return this.dispatch(e);
+		return this.dispatch!((e) {
+			return pass.raiseCondition!Expression(e.location, typeid(e).toString() ~ " is not supported");
+		})(e);
 	}
 	
 	Expression visit(ParenExpression e) {
@@ -128,7 +130,7 @@ final class ExpressionVisitor {
 			case Div :
 			case Mod :
 			case Pow :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -157,7 +159,6 @@ final class ExpressionVisitor {
 			case ModAssign :
 			case PowAssign :
 				type = lhs.type;
-				
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
@@ -182,7 +183,7 @@ final class ExpressionVisitor {
 			case BitwiseOr :
 			case BitwiseAnd :
 			case BitwiseXor :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -192,13 +193,16 @@ final class ExpressionVisitor {
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
-				assert(0, "Not implemented.");
+				type = lhs.type;
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				
+				break;
 			
 			case Equal :
 			case NotEqual :
 			case Identical :
 			case NotIdentical :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -230,7 +234,7 @@ final class ExpressionVisitor {
 			case GreaterEqual :
 			case Less :
 			case LessEqual :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -287,7 +291,7 @@ final class ExpressionVisitor {
 					break;
 				}
 				
-				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString());
+				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString(context));
 			
 			case PreInc :
 			case PreDec :
@@ -491,6 +495,7 @@ final class ExpressionVisitor {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
+					pass.scheduler.require(f, Step.Signed);
 					return new MethodExpression(iloc, di, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					return chooseOverload(iloc, s.set.map!(delegate Expression(s) {
@@ -553,7 +558,7 @@ final class ExpressionVisitor {
 				}
 			}
 			
-			assert(0, e.type.toString() ~ " is not a function type");
+			assert(0, e.type.toString(pass.context) ~ " is not a function type");
 		});
 		
 		auto level = MatchLevel.Not;
@@ -608,7 +613,7 @@ final class ExpressionVisitor {
 				}
 				
 				if(matchFail == candidateFail) {
-					return pass.raiseCondition!Expression(location, "ambigusous function call.");
+					return pass.raiseCondition!Expression(location, "ambiguous function call.");
 				}
 				
 				if(matchFail) {
@@ -636,7 +641,7 @@ final class ExpressionVisitor {
 			paramTypes = f.paramTypes;
 			returnType = f.returnType;
 		} else {
-			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString());
+			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString(context));
 		}
 		
 		assert(args.length >= paramTypes.length);
@@ -655,6 +660,7 @@ final class ExpressionVisitor {
 		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
+					pass.scheduler.require(f, Step.Signed);
 					return new SymbolExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
@@ -713,7 +719,7 @@ final class ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt = asArray.elementType;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
 		auto arguments = e.arguments.map!(e => visit(e)).array();
@@ -734,7 +740,7 @@ final class ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt.type = asArray.elementType.type;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString());
+			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString(context));
 		}
 		
 		auto first = e.first.map!(e => visit(e)).array();

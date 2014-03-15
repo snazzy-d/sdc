@@ -88,7 +88,10 @@ final class SymbolVisitor {
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				f.dscope.addSymbol(p);
+				
+				if (!p.name.isEmpty()) {
+					f.dscope.addSymbol(p);
+				}
 			}
 			
 			// And visit.
@@ -103,6 +106,13 @@ final class SymbolVisitor {
 				
 				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
 				params = thisParameter ~ params;
+			}
+			
+			// If nothing has been set, the function returns void.
+			if(auto t = cast(BuiltinType) returnType.type) {
+				if(t.kind == TypeKind.None) {
+					t.kind = TypeKind.Void;
+				}
 			}
 			
 			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
@@ -284,12 +294,12 @@ final class SymbolVisitor {
 		auto name = s.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
-		assert(s.linkage == Linkage.D);
+		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
 		
 		fieldIndex = 0;
 		
-		auto dv = DeclarationVisitor(pass, s.linkage, false, true);
+		auto dv = DeclarationVisitor(pass, false, true);
 		
 		auto members = dv.flatten(sd.members, s);
 		s.step = Step.Populated;
@@ -304,7 +314,7 @@ final class SymbolVisitor {
 			return true;
 		}).array();
 		
-		scheduler.require(fields);
+		scheduler.require(fields, Step.Signed);
 		
 		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
 		tuple.type = type;
@@ -410,7 +420,7 @@ final class SymbolVisitor {
 			fieldIndex++;
 		}
 		
-		auto dv = DeclarationVisitor(pass, c.linkage, false, true, true);
+		auto dv = DeclarationVisitor(pass, false, true, true);
 		auto members = dv.flatten(cd.members, c);
 		
 		c.step = Step.Signed;
@@ -519,7 +529,7 @@ final class SymbolVisitor {
 		auto name = e.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
-		assert(e.linkage == Linkage.D);
+		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = "E" ~ manglePrefix;
 		
 		foreach(vd; ed.entries) {

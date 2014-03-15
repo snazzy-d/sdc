@@ -7,7 +7,7 @@ int a = 10;
 
 int foo() {
 	a++;
-	scope(exit) a = a * 2;
+	scope(exit) a *= 2;
 	
 	return a++;
 }

@@ -153,7 +153,7 @@ class BuiltinType : Type {
 		this.kind = kind;
 	}
 	
-	override string toString(TypeQualifier qual) const {
+	override string toString(Context, TypeQualifier) const {
 		final switch (kind) with(TypeKind) {
 			case None :
 				return "__none__";
@@ -248,9 +248,9 @@ class ArrayType : Type {
 		this.size = size;
 	}
 	
-	override string toString(TypeQualifier qual) const {
+	override string toString(Context ctx, TypeQualifier qual) const {
 		import std.conv;
-		return elementType.toString(qual) ~ "[" ~ to!string(size) ~ "]";
+		return elementType.toString(ctx, qual) ~ "[" ~ to!string(size) ~ "]";
 	}
 }
 
@@ -264,11 +264,10 @@ class AliasType : Type {
 	this(TypeAlias dalias) {
 		this.dalias = dalias;
 	}
-	/+
-	override string toString(TypeQualifier) const {
-		return dalias.name;
+	
+	override string toString(Context ctx, TypeQualifier) const {
+		return dalias.name.toString(ctx);
 	}
-	+/
 }
 
 QualType peelAlias(QualType t) {
@@ -300,11 +299,10 @@ class StructType : Type {
 	this(Struct dstruct) {
 		this.dstruct = dstruct;
 	}
-	/+
-	override string toString(TypeQualifier) const {
-		return dstruct.name;
+	
+	override string toString(Context ctx, TypeQualifier) const {
+		return dstruct.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -317,11 +315,10 @@ class ClassType : Type {
 	this(Class dclass) {
 		this.dclass = dclass;
 	}
-	/+
-	override string toString(TypeQualifier) const {
-		return dclass.name;
+	
+	override string toString(Context ctx, TypeQualifier) const {
+		return dclass.toString(ctx);
 	}
-	+/
 }
 
 /**
@@ -334,10 +331,9 @@ class EnumType : Type {
 	this(Enum denum) {
 		this.denum = denum;
 	}
-	/+
-	override string toString(TypeQualifier) const {
-		return denum.name;
+	
+	override string toString(Context ctx, TypeQualifier) const {
+		return denum.toString(ctx);
 	}
-	+/
 }
 

@@ -24,20 +24,24 @@ class Symbol : Node {
 	
 	import std.bitmanip;
 	mixin(bitfields!(
-		Visibility, "visibility", 3,
 		Linkage, "linkage", 3,
-		Step, "step", 2,
+		Visibility, "visibility", 3,
 		bool, "isStatic", 1,
 		bool, "isEnum", 1,
 		bool, "isFinal", 1,
 		bool, "isAbstract", 1,
 		uint, "", 4,
+		Step, "step", 2,
 	));
 	
 	this(Location location, Name name) {
 		super(location);
 		
 		this.name = name;
+	}
+	
+	string toString(Context ctx) const {
+		return name.toString(ctx);
 	}
 }
 
@@ -253,7 +257,7 @@ class Interface : TypeSymbol {
 class Struct : TypeSymbol {
 	Symbol[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);

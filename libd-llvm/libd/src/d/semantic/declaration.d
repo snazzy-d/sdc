@@ -68,17 +68,19 @@ struct DeclarationVisitor {
 	private {
 		mixin(bitfields!(
 			Linkage, "linkage", 3,
+			Visibility, "visibility", 3,
 			bool, "isStatic", 1,
 			bool, "buildFields", 1,
 			bool, "buildMethods", 1,
 			bool, "isOverride", 1,
-			uint, "", 1,
+			uint, "", 6,
 		));
 	}
-		
-	this(SemanticPass pass, Linkage linkage = Linkage.D, bool isStatic = true, bool buildFields = false, bool buildMethods = false) {
+	
+	this(SemanticPass pass, bool isStatic = true, bool buildFields = false, bool buildMethods = false, Linkage linkage = Linkage.D, Visibility visibility = Visibility.Public) {
 		this.pass = pass;
 		this.linkage = linkage;
+		this.visibility = visibility;
 		this.isStatic = isStatic;
 		this.buildFields = buildFields;
 		this.buildMethods = buildMethods;
@@ -294,6 +296,7 @@ struct DeclarationVisitor {
 		}
 		
 		f.linkage = linkage;
+		f.visibility = visibility;
 		f.isStatic = isStatic;
 		f.isEnum = true;
 		
@@ -303,16 +306,19 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
+		auto isEnum = d.isEnum;
+		
 		Variable v;
-		if(isStatic || !buildFields) {
+		if(isEnum || isStatic || !buildFields) {
 			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
 		}
 		
 		v.linkage = linkage;
+		v.visibility = visibility;
 		v.isStatic = isStatic;
-		v.isEnum = d.isEnum;
+		v.isEnum = isEnum;
 		
 		currentScope.addSymbol(v);
 		
@@ -328,6 +334,7 @@ struct DeclarationVisitor {
 	void visit(StructDeclaration d) {
 		Struct s = new Struct(d.location, d.name, []);
 		s.linkage = linkage;
+		s.visibility = visibility;
 		
 		currentScope.addSymbol(s);
 		
@@ -337,6 +344,7 @@ struct DeclarationVisitor {
 	void visit(ClassDeclaration d) {
 		Class c = new Class(d.location, d.name, []);
 		c.linkage = linkage;
+		c.visibility = visibility;
 		
 		currentScope.addSymbol(c);
 		
@@ -347,6 +355,7 @@ struct DeclarationVisitor {
 		if(d.name.isDefined) {
 			auto e = new Enum(d.location, d.name, getBuiltin(TypeKind.None).type, []);
 			e.linkage = linkage;
+			e.visibility = visibility;
 			
 			currentScope.addSymbol(e);
 			
@@ -358,6 +367,7 @@ struct DeclarationVisitor {
 			AstExpression one;
 			foreach(vd; d.entries) {
 				auto v = new Variable(vd.location, getBuiltin(TypeKind.None), vd.name);
+				v.visibility = visibility;
 				
 				if(!vd.value) {
 					if(previous) {
@@ -386,6 +396,7 @@ struct DeclarationVisitor {
 		
 		t.isStatic = isStatic;
 		t.linkage = linkage;
+		t.visibility = visibility;
 		
 		currentScope.addOverloadableSymbol(t);
 		
@@ -427,6 +438,17 @@ struct DeclarationVisitor {
 		scope(exit) isOverride = oldIsOverride;
 		
 		isOverride = true;
+		
+		foreach(decl; d.declarations) {
+			visit(decl);
+		}
+	}
+	
+	void visit(VisibilityDeclaration d) {
+		auto oldVisibility = visibility;
+		scope(exit) visibility = oldVisibility;
+		
+		visibility = d.visibility;
 		
 		foreach(decl; d.declarations) {
 			visit(decl);
@@ -534,8 +556,7 @@ struct DeclarationVisitor {
 }
 
 private :
-final class PoisonScope : Scope {
-	Scope parent;
+final class PoisonScope : NestedScope {
 	bool isPoisoning;
 	bool isPoisoned;
 	
@@ -543,9 +564,7 @@ final class PoisonScope : Scope {
 	ConditionalBranch[] stack;
 	
 	this(Scope parent) {
-		super(parent.dmodule);
-		
-		this.parent = parent;
+		super(parent);
 	}
 	
 	void pushStaticIf(StaticIf!Declaration d, bool branch) {

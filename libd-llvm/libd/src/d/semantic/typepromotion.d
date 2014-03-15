@@ -10,7 +10,10 @@ import d.location;
 
 import std.algorithm;
 
-QualType getPromotedType(Type lhs, Type rhs) {
+QualType getPromotedType(SemanticPass pass, Location location, Type lhs, Type rhs) {
+	lhs = peelAlias(lhs);
+	rhs = peelAlias(rhs);
+	
 	return TypePromoter(rhs).visit(lhs);
 }
 
@@ -156,6 +159,14 @@ struct PointerHandler {
 	QualType visit(PointerType t) {
 		// Consider pointed.
 		return QualType(t);
+	}
+	
+	QualType visit(BuiltinType t) {
+		if (t.kind == TypeKind.Null) {
+			return QualType(new PointerType(QualType(pointed)));
+		}
+		
+		assert(0, typeid(t).toString() ~ " is not supported");
 	}
 }
 

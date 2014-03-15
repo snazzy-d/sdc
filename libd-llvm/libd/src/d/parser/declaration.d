@@ -185,28 +185,23 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		 */
 		case Private :
 			trange.popFront();
-			
-			return handleStorageClass!PrivateDeclaration();
-		
-		case Public :
-			trange.popFront();
-			
-			return handleStorageClass!PublicDeclaration();
-		
-		case Protected :
-			trange.popFront();
-			
-			return handleStorageClass!ProtectedDeclaration();
+			return handleStorageClass!VisibilityDeclaration(Visibility.Private);
 		
 		case Package :
 			trange.popFront();
-			
-			return handleStorageClass!PackageDeclaration();
+			return handleStorageClass!VisibilityDeclaration(Visibility.Package);
+		
+		case Protected :
+			trange.popFront();
+			return handleStorageClass!VisibilityDeclaration(Visibility.Protected);
+		
+		case Public :
+			trange.popFront();
+			return handleStorageClass!VisibilityDeclaration(Visibility.Public);
 		
 		case Export :
 			trange.popFront();
-			
-			return handleStorageClass!ExportDeclaration();
+			return handleStorageClass!VisibilityDeclaration(Visibility.Export);
 		
 		/*
 		 * Linkage
@@ -572,6 +567,10 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 				
 				if(trange.front.type == TripleDot) {
 					goto case TripleDot;
+				}
+				
+				if(trange.front.type == CloseParen) {
+					goto case CloseParen;
 				}
 				
 				parameters ~= trange.parseParameter();

@@ -43,7 +43,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(Type t) {
 		return this.dispatch!(function LLVMTypeRef(Type t) {
-			assert(0, t.toString() ~ " is not supported");
+			assert(0, typeid(t).toString() ~ " is not supported");
 		})(t);
 	}
 	

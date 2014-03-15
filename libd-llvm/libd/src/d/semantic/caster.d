@@ -78,7 +78,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 			return new CastExpression(location, kind, to, e);
 		
 		case Invalid :
-			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString() ~ " to " ~ to.toString());
+			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context));
 	}
 }
 
@@ -434,6 +434,13 @@ struct Caster(bool isExplicit) {
 	}
 	
 	CastKind visit(Type to, EnumType t) {
+		// TODO: do a proper visitor
+		if(auto et = cast(EnumType) to) {
+			if (t.denum is et.denum) {
+				return CastKind.Exact;
+			}
+		}
+		
 		// Automagically promote to base type.
 		return castFrom(t.denum.type, to);
 	}

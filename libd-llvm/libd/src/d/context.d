@@ -14,6 +14,11 @@ public:
 	}
 	
 	@property
+	bool isEmpty() const {
+		return this == BuiltinName!"";
+	}
+	
+	@property
 	bool isReserved() const {
 		return id < (Names.length - Prefill.length);
 	}
@@ -80,6 +85,8 @@ enum Prefill = [
 	"Throwable", "Exception", "Error",
 	// Runtime
 	"__sd_class_downcast",
+	"__sd_eh_throw",
+	"__sd_eh_personality",
 ];
 
 auto getNames() {

@@ -5,10 +5,10 @@ public import d.node;
 public import d.location;
 
 enum Visibility {
-	Public,
 	Private,
-	Protected,
 	Package,
+	Protected,
+	Public,
 	Export,
 }
 
