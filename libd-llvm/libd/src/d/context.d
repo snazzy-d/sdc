@@ -85,6 +85,8 @@ enum Prefill = [
 	"Throwable", "Exception", "Error",
 	// Runtime
 	"__sd_class_downcast",
+	"__sd_eh_throw",
+	"__sd_eh_personality",
 ];
 
 auto getNames() {
