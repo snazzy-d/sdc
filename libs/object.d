@@ -34,5 +34,7 @@ class Error: Throwable {}
 // sdruntime
 extern(C) {
 	Object __sd_class_downcast(Object o, ClassInfo c);
+	void __sd_eh_throw(Throwable t);
+	int __sd_eh_personality(int, int, ulong, void*, void*);
 }
 

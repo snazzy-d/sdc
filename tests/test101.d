@@ -27,8 +27,7 @@ uint foo(T)() {
 uint buzz(size_t sizeof) {
 	uint ret = 1;
 	for(uint i = 0; i < sizeof; ++i) {
-		// TODO: refactor when *= is supported.
-		ret = ret * 2;
+		ret *= 2;
 	}
 	
 	return ret;
