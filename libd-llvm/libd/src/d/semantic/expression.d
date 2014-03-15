@@ -611,7 +611,7 @@ final class ExpressionVisitor {
 				}
 				
 				if(matchFail == candidateFail) {
-					return pass.raiseCondition!Expression(location, "ambigusous function call.");
+					return pass.raiseCondition!Expression(location, "ambiguous function call.");
 				}
 				
 				if(matchFail) {

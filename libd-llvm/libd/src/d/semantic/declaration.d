@@ -554,8 +554,7 @@ struct DeclarationVisitor {
 }
 
 private :
-final class PoisonScope : Scope {
-	Scope parent;
+final class PoisonScope : NestedScope {
 	bool isPoisoning;
 	bool isPoisoned;
 	
@@ -563,9 +562,7 @@ final class PoisonScope : Scope {
 	ConditionalBranch[] stack;
 	
 	this(Scope parent) {
-		super(parent.dmodule);
-		
-		this.parent = parent;
+		super(parent);
 	}
 	
 	void pushStaticIf(StaticIf!Declaration d, bool branch) {

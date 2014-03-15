@@ -61,8 +61,8 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 				assert(0, "Symbol " ~ name.toString(context) ~ " has not been found.");
 			}
 			
-			if(auto nested = cast(SymbolScope) dscope) {
-				scheduler.require(nested.symbol, Step.Populated);
+			if(auto sscope = cast(SymbolScope) dscope) {
+				scheduler.require(sscope.symbol, Step.Populated);
 			}
 		}
 	}
