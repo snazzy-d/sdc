@@ -105,6 +105,13 @@ final class SymbolVisitor {
 				params = thisParameter ~ params;
 			}
 			
+			// If nothing has been set, the function returns void.
+			if(auto t = cast(BuiltinType) returnType.type) {
+				if(t.kind == TypeKind.None) {
+					t.kind = TypeKind.Void;
+				}
+			}
+			
 			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 			f.step = Step.Signed;
 		}
