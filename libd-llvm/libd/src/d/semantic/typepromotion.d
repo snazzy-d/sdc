@@ -157,6 +157,14 @@ struct PointerHandler {
 		// Consider pointed.
 		return QualType(t);
 	}
+	
+	QualType visit(BuiltinType t) {
+		if (t.kind == TypeKind.Null) {
+			return QualType(new PointerType(QualType(pointed)));
+		}
+		
+		assert(0, typeid(t).toString() ~ " is not supported");
+	}
 }
 
 struct ClassHandler {
