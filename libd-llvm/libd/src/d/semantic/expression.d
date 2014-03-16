@@ -43,7 +43,9 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstExpression e) {
-		return this.dispatch(e);
+		return this.dispatch!((e) {
+			return pass.raiseCondition!Expression(e.location, typeid(e).toString() ~ " is not supported");
+		})(e);
 	}
 	
 	Expression visit(ParenExpression e) {
