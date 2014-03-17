@@ -88,7 +88,10 @@ final class SymbolVisitor {
 			// Register parameters.
 			foreach(p; params) {
 				p.step = Step.Processed;
-				f.dscope.addSymbol(p);
+				
+				if (!p.name.isEmpty()) {
+					f.dscope.addSymbol(p);
+				}
 			}
 			
 			// And visit.

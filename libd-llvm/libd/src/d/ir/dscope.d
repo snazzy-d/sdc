@@ -29,6 +29,7 @@ class Scope {
 	}
 	
 	void addSymbol(Symbol s) {
+		assert(!s.name.isEmpty, "Symbol can't be added to scope as it has no name.");
 		assert(!(s.name in symbols), "Already present in scope.");
 		
 		symbols[s.name] = s;

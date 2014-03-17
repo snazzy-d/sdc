@@ -14,6 +14,11 @@ public:
 	}
 	
 	@property
+	bool isEmpty() const {
+		return this == BuiltinName!"";
+	}
+	
+	@property
 	bool isReserved() const {
 		return id < (Names.length - Prefill.length);
 	}
