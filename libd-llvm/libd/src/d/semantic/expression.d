@@ -130,7 +130,7 @@ final class ExpressionVisitor {
 			case Div :
 			case Mod :
 			case Pow :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -183,7 +183,7 @@ final class ExpressionVisitor {
 			case BitwiseOr :
 			case BitwiseAnd :
 			case BitwiseXor :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -202,7 +202,7 @@ final class ExpressionVisitor {
 			case NotEqual :
 			case Identical :
 			case NotIdentical :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -234,7 +234,7 @@ final class ExpressionVisitor {
 			case GreaterEqual :
 			case Less :
 			case LessEqual :
-				type = getPromotedType(lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);

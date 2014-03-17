@@ -10,7 +10,10 @@ import d.location;
 
 import std.algorithm;
 
-QualType getPromotedType(Type lhs, Type rhs) {
+QualType getPromotedType(SemanticPass pass, Location location, Type lhs, Type rhs) {
+	lhs = peelAlias(lhs);
+	rhs = peelAlias(rhs);
+	
 	return TypePromoter(rhs).visit(lhs);
 }
 
