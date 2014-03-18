@@ -306,8 +306,10 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
+		auto isEnum = d.isEnum;
+		
 		Variable v;
-		if(isStatic || !buildFields) {
+		if(isEnum || isStatic || !buildFields) {
 			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
@@ -316,7 +318,7 @@ struct DeclarationVisitor {
 		v.linkage = linkage;
 		v.visibility = visibility;
 		v.isStatic = isStatic;
-		v.isEnum = d.isEnum;
+		v.isEnum = isEnum;
 		
 		currentScope.addSymbol(v);
 		
