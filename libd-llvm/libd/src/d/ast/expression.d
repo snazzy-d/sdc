@@ -356,12 +356,34 @@ class __Line__Literal : AstExpression {
  * Delegate literal
  */
 class DelegateLiteral : AstExpression {
-	private AstStatement statement;
+	// FIXME: Use a FunctionDeclaration in there.
+	ParamDecl[] params;
+	AstStatement statement;
+	
+	this(Location location, ParamDecl[] params, AstStatement statement) {
+		super(location);
+		
+		this.params = params;
+		this.statement = statement;
+	}
 	
 	this(AstStatement statement) {
-		super(statement.location);
+		this(statement.location, [], statement);
+	}
+}
+
+/**
+ * Lambda expressions
+ */
+class Lambda : AstExpression {
+	ParamDecl[] params;
+	AstExpression value;
+	
+	this(Location location, ParamDecl[] params, AstExpression value) {
+		super(location);
 		
-		this.statement = statement;
+		this.params = params;
+		this.value = value;
 	}
 }
 

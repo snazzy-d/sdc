@@ -648,9 +648,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			return new AstArrayLiteral(location, values);
 		
 		case OpenBrace :
-			auto block = trange.parseBlock();
-			
-			return new DelegateLiteral(block);
+			return new DelegateLiteral(trange.parseBlock());
 		
 		case Function :
 		case Delegate :
@@ -711,23 +709,48 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			auto matchingParen = trange.save;
 			matchingParen.popMatchingDelimiter!OpenParen();
 			
-			trange.popFront();
-			
-			// TODO: (...)()
-			if(matchingParen.front.type == Dot) {
-				return trange.parseAmbiguous!((parsed) {
-					trange.match(CloseParen);
-					trange.match(Dot);
+			switch(matchingParen.front.type) {
+				case Dot:
+					trange.popFront();
+					return trange.parseAmbiguous!((parsed) {
+						trange.match(CloseParen);
+						trange.match(Dot);
+						
+						return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, parsed));
+					})();
+				
+				case OpenBrace:
+					import d.parser.declaration;
+					bool isVariadic;
+					auto params = trange.parseParameters(isVariadic);
+					assert(!isVariadic, "Variadic delegate literals not supported");
 					
-					return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, parsed));
-				})();
-			} else {
-				auto expression = trange.parseExpression();
+					auto block = trange.parseBlock();
+					location.spanTo(block.location);
+					
+					return new DelegateLiteral(location, params, block);
 				
-				location.spanTo(trange.front.location);
-				trange.match(CloseParen);
+				case AssignMore:
+					import d.parser.declaration;
+					bool isVariadic;
+					auto params = trange.parseParameters(isVariadic);
+					assert(!isVariadic, "Variadic lambda not supported");
+					
+					trange.match(AssignMore);
+					
+					auto value = trange.parseExpression();
+					location.spanTo(value.location);
+					
+					return new Lambda(location, params, value);
 				
-				return new ParenExpression(location, expression);
+				default:
+					trange.popFront();
+					auto expression = trange.parseExpression();
+					
+					location.spanTo(trange.front.location);
+					trange.match(CloseParen);
+					
+					return new ParenExpression(location, expression);
 			}
 		
 		default:
@@ -735,6 +758,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			auto type = trange.parseType!(ParseMode.Reluctant)();
 			trange.match(Dot);
 			
+			// FIXME: Or type() {} expressions.
 			return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, type));
 	}
 }
@@ -802,11 +826,10 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 				}
 				
 				trange.match(CloseBracket);
-				
 				break;
 			
 			static if(mode == ParseMode.Greedy) {
-			case TokenType.Dot :
+			case Dot :
 				trange.popFront();
 				
 				e = trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, e));
@@ -905,15 +928,9 @@ AstExpression[] parseArguments(TokenType openTokenType, R)(ref R trange) if(isTo
 		return [];
 	}
 	
-	AstExpression[] args = [trange.parseAssignExpression()];
-	
-	while(trange.front.type == TokenType.Comma) {
-		trange.popFront();
-		
-		args ~= trange.parseAssignExpression();
-	}
-	
+	auto args = trange.parseArguments();
 	trange.match(closeTokenType);
+	
 	return args;
 }
 
