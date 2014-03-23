@@ -39,12 +39,15 @@ struct __LLVMOpaqueGenericValue {};
 alias __LLVMOpaqueGenericValue* LLVMGenericValueRef;
 struct __LLVMOpaqueExecutionEngine {};
 alias __LLVMOpaqueExecutionEngine* LLVMExecutionEngineRef;
+struct __LLVMOpaqueMCJITMemoryManager {};
+alias __LLVMOpaqueMCJITMemoryManager* LLVMMCJITMemoryManagerRef;
 
 struct LLVMMCJITCompilerOptions {
   uint OptLevel;
   LLVMCodeModel CodeModel;
   LLVMBool NoFramePointerElim;
   LLVMBool EnableFastISel;
+  LLVMMCJITMemoryManagerRef MCJMM;
 }
 
 /*===-- Operations on generic values --------------------------------------===*/
@@ -165,6 +168,38 @@ void LLVMAddGlobalMapping(LLVMExecutionEngineRef EE, LLVMValueRef Global,
                           void* Addr);
 
 void *LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
+
+/*===-- Operations on memory managers -------------------------------------===*/
+
+alias LLVMMemoryManagerAllocateCodeSectionCallback = ubyte* function(
+  void* Opaque, size_t Size, uint Alignment, uint SectionID,
+  const(char)* SectionName);
+alias LLVMMemoryManagerAllocateDataSectionCallback = ubyte* function(
+  void* Opaque, size_t Size, uint Alignment, uint SectionID,
+  const(char)* SectionName, LLVMBool IsReadOnly);
+alias LLVMMemoryManagerFinalizeMemoryCallback = LLVMBool function(
+  void* Opaque, char** ErrMsg);
+alias LLVMMemoryManagerDestroyCallback = void function(void* Opaque);
+
+/**
+ * Create a simple custom MCJIT memory manager. This memory manager can
+ * intercept allocations in a module-oblivious way. This will return NULL
+ * if any of the passed functions are NULL.
+ *
+ * @param Opaque An opaque client object to pass back to the callbacks.
+ * @param AllocateCodeSection Allocate a block of memory for executable code.
+ * @param AllocateDataSection Allocate a block of memory for data.
+ * @param FinalizeMemory Set page permissions and flush cache. Return 0 on
+ *   success, 1 on error.
+ */
+LLVMMCJITMemoryManagerRef LLVMCreateSimpleMCJITMemoryManager(
+  void* Opaque,
+  LLVMMemoryManagerAllocateCodeSectionCallback AllocateCodeSection,
+  LLVMMemoryManagerAllocateDataSectionCallback AllocateDataSection,
+  LLVMMemoryManagerFinalizeMemoryCallback FinalizeMemory,
+  LLVMMemoryManagerDestroyCallback Destroy);
+
+void LLVMDisposeMCJITMemoryManager(LLVMMCJITMemoryManagerRef MM);
 
 /**
  * @}

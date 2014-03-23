@@ -172,6 +172,8 @@ enum LLVMAttribute {
        and the path forward agreed upon.
     LLVMAddressSafety = 1ULL << 32,
     LLVMStackProtectStrongAttribute = 1ULL<<33,
+    LLVMCold = 1ULL << 34,
+    LLVMOptimizeNone = 1ULL << 35,
     */
 }
 
@@ -226,6 +228,7 @@ enum LLVMOpcode {
   PtrToInt       = 39,
   IntToPtr       = 40,
   BitCast        = 41,
+  AddrSpaceCast  = 60,
 
   /* Other Operators */
   ICmp           = 42,
@@ -278,7 +281,7 @@ enum LLVMLinkage {
   LinkOnceAny, /**< Keep one copy of function when linking (inline)*/
   LinkOnceODR, /**< Same, but only replaced by something
                             equivalent. */
-  LinkOnceODRAutoHide, /**< Like LinkOnceODR, but possibly hidden. */
+  LinkOnceODRAutoHide, /**< Obsolete */
   WeakAny,     /**< Keep one copy of function when linking (weak) */
   WeakODR,     /**< Same, but only replaced by something
                             equivalent. */
@@ -305,6 +308,8 @@ enum LLVMCallConv {
   C           = 0,
   Fast        = 8,
   Cold        = 9,
+  WebKitJS    = 12,
+  AnyReg      = 13,
   X86Stdcall  = 64,
   X86Fastcall = 65,
 }
@@ -349,9 +354,9 @@ enum LLVMLandingPadClauseTy {
 enum LLVMThreadLocalMode {
   NotThreadLocal = 0,
   GeneralDynamic,
-  LLVMLocalDynamic,
-  LLVMInitialExec,
-  LLVMLocalExec,
+  LocalDynamic,
+  InitialExec,
+  LocalExec,
 }
 
 enum LLVMAtomicOrdering {
@@ -393,7 +398,7 @@ enum LLVMAtomicRMWBinOp {
            original using a signed comparison and return
            the old one */
     Min, /**< Sets the value if it's Smaller than the
-           original using a signed comparison and return 
+           original using a signed comparison and return
            the old one */
     UMax, /**< Sets the value if it's greater than the
             original using an unsigned comparison and return
@@ -417,8 +422,32 @@ void LLVMShutdown();
 
 /*===-- Error handling ----------------------------------------------------===*/
 
-void LLVMDisposeMessage(char *Message);
+char* LLVMCreateMessage(const(char)* Message);
+void LLVMDisposeMessage(char* Message);
 
+alias LLVMFatalErrorHandler = void function(const(char)* Reason);
+
+/**
+ * Install a fatal error handler. By default, if LLVM detects a fatal error, it
+ * will call exit(1). This may not be appropriate in many contexts. For example,
+ * doing exit(1) will bypass many crash reporting/tracing system tools. This
+ * function allows you to install a callback that will be invoked prior to the
+ * call to exit(1).
+ */
+void LLVMInstallFatalErrorHandler(LLVMFatalErrorHandler Handler);
+
+/**
+ * Reset the fatal error handler. This resets LLVM's fatal error handling
+ * behavior to the default.
+ */
+void LLVMResetFatalErrorHandler();
+
+/**
+ * Enable LLVM's built-in stack trace code. This intercepts the OS's crash
+ * signals and prints which component of LLVM you were in at the time if the
+ * crash.
+ */
+void LLVMEnablePrettyStackTrace();
 
 /**
  * @defgroup LLVMCCoreContext Contexts
@@ -464,7 +493,7 @@ uint LLVMGetMDKindID(const(char)* Name, uint SLen);
 /**
  * @defgroup LLVMCCoreModule Modules
  *
- * Modules represent the top-level structure in a LLVM program. An LLVM
+ * Modules represent the top-level structure in an LLVM program. An LLVM
  * module is effectively a translation unit or a collection of
  * translation units merged together.
  *
@@ -540,8 +569,16 @@ void LLVMDumpModule(LLVMModuleRef M);
  *
  * @see Module::print()
  */
-LLVMBool LLVMPrintModuleToFile(LLVMModuleRef M, const char *Filename,
-                               char **ErrorMessage);
+LLVMBool LLVMPrintModuleToFile(LLVMModuleRef M, const(char)* Filename,
+                               char** ErrorMessage);
+
+/**
+ * Return a string representation of the module. Use
+ * LLVMDisposeMessage to free the string.
+ *
+ * @see Module::print()
+ */
+char* LLVMPrintModuleToString(LLVMModuleRef M);
 
 /**
  * Set inline assembly for a module.
@@ -693,6 +730,21 @@ LLVMBool LLVMTypeIsSized(LLVMTypeRef Ty);
  * @see llvm::Type::getContext()
  */
 LLVMContextRef LLVMGetTypeContext(LLVMTypeRef Ty);
+
+/**
+ * Dump a representation of a type to stderr.
+ *
+ * @see llvm::Type::dump()
+ */
+void LLVMDumpType(LLVMTypeRef Val);
+
+/**
+ * Return a string representation of the type. Use
+ * LLVMDisposeMessage to free the string.
+ *
+ * @see llvm::Type::print()
+ */
+char* LLVMPrintTypeToString(LLVMTypeRef Val);
 
 /**
  * @defgroup LLVMCCoreTypeInt Integer Types
@@ -1045,7 +1097,7 @@ LLVMTypeRef LLVMX86MMXType();
  * hierarchy of classes within this type. Depending on the instance
  * obtained, not all APIs are available.
  *
- * Callers can determine the type of a LLVMValueRef by calling the
+ * Callers can determine the type of an LLVMValueRef by calling the
  * LLVMIsA* family of functions (e.g. LLVMIsAArgument()). These
  * functions are defined by a macro, so it isn't obvious which are
  * available by looking at the Doxygen source code. Instead, look at the
@@ -1060,79 +1112,83 @@ extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fu
 {
   string ret;
   foreach (str; [
-                  "Argument",
-                  "BasicBlock",
-                  "InlineAsm",
-                  "MDNode",
-                  "MDString",
-                  "User",
-                    "Constant",
-                      "BlockAddress",
-                      "ConstantAggregateZero",
-                      "ConstantArray",
-                      "ConstantExpr",
-                      "ConstantFP",
-                      "ConstantInt",
-                      "ConstantPointerNull",
-                      "ConstantStruct",
-                      "ConstantVector",
-                      "GlobalValue",
-                        "Function",
-                        "GlobalAlias",
-                        "GlobalVariable",
-                      "UndefValue",
-                    "Instruction",
-                      "BinaryOperator",
-                      "CallInst",
-                        "IntrinsicInst",
-                          "DbgInfoIntrinsic",
-                            "DbgDeclareInst",
-                          "MemIntrinsic",
-                            "MemCpyInst",
-                            "MemMoveInst",
-                            "MemSetInst",
-                      "CmpInst",
-                        "FCmpInst",
-                        "ICmpInst",
-                      "ExtractElementInst",
-                      "GetElementPtrInst",
-                      "InsertElementInst",
-                      "InsertValueInst",
-                      "LandingPadInst",
-                      "PHINode",
-                      "SelectInst",
-                      "ShuffleVectorInst",
-                      "StoreInst",
-                      "TerminatorInst",
-                        "BranchInst",
-                        "IndirectBrInst",
-                        "InvokeInst",
-                        "ReturnInst",
-                        "SwitchInst",
-                        "UnreachableInst",
-                        "ResumeInst",
-                    "UnaryInstruction",
-                      "AllocaInst",
-                      "CastInst",
-                        "BitCastInst",
-                        "FPExtInst",
-                        "FPToSIInst",
-                        "FPToUIInst",
-                        "FPTruncInst"
-                        "IntToPtrInst",
-                        "PtrToIntInst",
-                        "SExtInst",
-                        "SIToFPInst",
-                        "TruncInst",
-                        "UIToFPInst"
-                        "ZExtInst",
-                      "ExtractValueInst",
-                      "LoadInst",
-                      "VAArgInst"
-                ])
-  {
+    "Argument",
+    "BasicBlock",
+    "InlineAsm",
+    "MDNode",
+    "MDString",
+    "User",
+      "Constant",
+        "BlockAddress",
+        "ConstantAggregateZero",
+        "ConstantArray",
+        "ConstantDataSequential",
+          "ConstantDataArray",
+          "ConstantDataVector",
+        "ConstantExpr",
+        "ConstantFP",
+        "ConstantInt",
+        "ConstantPointerNull",
+        "ConstantStruct",
+        "ConstantVector",
+        "GlobalValue",
+          "Function",
+          "GlobalAlias",
+          "GlobalVariable",
+        "UndefValue",
+      "Instruction",
+        "BinaryOperator",
+        "CallInst",
+          "IntrinsicInst",
+            "DbgInfoIntrinsic",
+              "DbgDeclareInst",
+            "MemIntrinsic",
+              "MemCpyInst",
+              "MemMoveInst",
+              "MemSetInst",
+        "CmpInst",
+          "FCmpInst",
+          "ICmpInst",
+        "ExtractElementInst",
+        "GetElementPtrInst",
+        "InsertElementInst",
+        "InsertValueInst",
+        "LandingPadInst",
+        "PHINode",
+        "SelectInst",
+        "ShuffleVectorInst",
+        "StoreInst",
+        "TerminatorInst",
+          "BranchInst",
+          "IndirectBrInst",
+          "InvokeInst",
+          "ReturnInst",
+          "SwitchInst",
+          "UnreachableInst",
+          "ResumeInst",
+      "UnaryInstruction",
+        "AllocaInst",
+        "CastInst",
+          "AddrSpaceCastInst",
+          "BitCastInst",
+          "FPExtInst",
+          "FPToSIInst",
+          "FPToUIInst",
+          "FPTruncInst"
+          "IntToPtrInst",
+          "PtrToIntInst",
+          "SExtInst",
+          "SIToFPInst",
+          "TruncInst",
+          "UIToFPInst"
+          "ZExtInst",
+        "ExtractValueInst",
+        "LoadInst",
+        "VAArgInst"
+  ]) {
     ret ~= fun(str) ~ "\n";
   }
+
   return ret;
 }
 
@@ -1175,6 +1231,14 @@ void LLVMSetValueName(LLVMValueRef Val, const(char)* Name);
 void LLVMDumpValue(LLVMValueRef Val);
 
 /**
+ * Return a string representation of the value. Use
+ * LLVMDisposeMessage to free the string.
+ *
+ * @see llvm::Value::print()
+ */
+char* LLVMPrintValueToString(LLVMValueRef Val);
+
+/**
  * Replace all uses of a value with another one.
  *
  * @see llvm::Value::replaceAllUsesWith()
@@ -1194,7 +1258,7 @@ LLVMBool LLVMIsUndef(LLVMValueRef Val);
 /**
  * Convert value instances between types.
  *
- * Internally, a LLVMValueRef is "pinned" to a specific type. This
+ * Internally, an LLVMValueRef is "pinned" to a specific type. This
  * series of functions allows you to cast an instance to a specific
  * type.
  *
@@ -1216,7 +1280,7 @@ extern(D) mixin(LLVM_FOR_EACH_VALUE_SUBCLASS(delegate string(string name) {
  * This module defines functions that allow you to inspect the uses of a
  * LLVMValueRef.
  *
- * It is possible to obtain a LLVMUseRef for any LLVMValueRef instance.
+ * It is possible to obtain an LLVMUseRef for any LLVMValueRef instance.
  * Each LLVMUseRef (which corresponds to a llvm::Use instance) holds a
  * llvm::User and llvm::Value.
  *
@@ -1583,6 +1647,7 @@ LLVMValueRef LLVMConstFPToSI(LLVMValueRef ConstantVal, LLVMTypeRef ToType);
 LLVMValueRef LLVMConstPtrToInt(LLVMValueRef ConstantVal, LLVMTypeRef ToType);
 LLVMValueRef LLVMConstIntToPtr(LLVMValueRef ConstantVal, LLVMTypeRef ToType);
 LLVMValueRef LLVMConstBitCast(LLVMValueRef ConstantVal, LLVMTypeRef ToType);
+LLVMValueRef LLVMConstAddrSpaceCast(LLVMValueRef ConstantVal, LLVMTypeRef ToType);
 LLVMValueRef LLVMConstZExtOrBitCast(LLVMValueRef ConstantVal,
                                     LLVMTypeRef ToType);
 LLVMValueRef LLVMConstSExtOrBitCast(LLVMValueRef ConstantVal,
@@ -1638,8 +1703,33 @@ const(char)* LLVMGetSection(LLVMValueRef Global);
 void LLVMSetSection(LLVMValueRef Global, const(char)* Section);
 LLVMVisibility LLVMGetVisibility(LLVMValueRef Global);
 void LLVMSetVisibility(LLVMValueRef Global, LLVMVisibility Viz);
-uint LLVMGetAlignment(LLVMValueRef Global);
-void LLVMSetAlignment(LLVMValueRef Global, uint Bytes);
+
+/**
+ * @defgroup LLVMCCoreValueWithAlignment Values with alignment
+ *
+ * Functions in this group only apply to values with alignment, i.e.
+ * global variables, load and store instructions.
+ */
+
+/**
+ * Obtain the preferred alignment of the value.
+ * @see llvm::LoadInst::getAlignment()
+ * @see llvm::StoreInst::getAlignment()
+ * @see llvm::GlobalValue::getAlignment()
+ */
+uint LLVMGetAlignment(LLVMValueRef V);
+
+/**
+ * Set the preferred alignment of the value.
+ * @see llvm::LoadInst::setAlignment()
+ * @see llvm::StoreInst::setAlignment()
+ * @see llvm::GlobalValue::setAlignment()
+ */
+void LLVMSetAlignment(LLVMValueRef V, uint Bytes);
+
+/**
+ * @}
+ */
 
 /**
  * @defgroup LLVMCoreValueConstantGlobalVariable Global Variables
@@ -1819,7 +1909,7 @@ LLVMValueRef LLVMGetParam(LLVMValueRef Fn, uint Index);
 /**
  * Obtain the function to which this argument belongs.
  *
- * Unlike other functions in this group, this one takes a LLVMValueRef
+ * Unlike other functions in this group, this one takes an LLVMValueRef
  * that corresponds to a llvm::Attribute.
  *
  * The returned LLVMValueRef is the llvm::Function to which this
@@ -1844,7 +1934,7 @@ LLVMValueRef LLVMGetLastParam(LLVMValueRef Fn);
 /**
  * Obtain the next parameter to a function.
  *
- * This takes a LLVMValueRef obtained from LLVMGetFirstParam() (which is
+ * This takes an LLVMValueRef obtained from LLVMGetFirstParam() (which is
  * actually a wrapped iterator) and obtains the next parameter from the
  * underlying iterator.
  */
@@ -1993,12 +2083,12 @@ void LLVMGetMDNodeOperands(LLVMValueRef V, LLVMValueRef *Dest);
 LLVMValueRef LLVMBasicBlockAsValue(LLVMBasicBlockRef BB);
 
 /**
- * Determine whether a LLVMValueRef is itself a basic block.
+ * Determine whether an LLVMValueRef is itself a basic block.
  */
 LLVMBool LLVMValueIsBasicBlock(LLVMValueRef Val);
 
 /**
- * Convert a LLVMValueRef to a LLVMBasicBlockRef instance.
+ * Convert an LLVMValueRef to an LLVMBasicBlockRef instance.
  */
 LLVMBasicBlockRef LLVMValueAsBasicBlock(LLVMValueRef Val);
 
@@ -2155,7 +2245,7 @@ LLVMValueRef LLVMGetFirstInstruction(LLVMBasicBlockRef BB);
 /**
  * Obtain the last instruction in a basic block.
  *
- * The returned LLVMValueRef corresponds to a LLVM:Instruction.
+ * The returned LLVMValueRef corresponds to an LLVM:Instruction.
  */
 LLVMValueRef LLVMGetLastInstruction(LLVMBasicBlockRef BB);
 
@@ -2337,12 +2427,12 @@ void LLVMAddIncoming(LLVMValueRef PhiNode, LLVMValueRef *IncomingValues,
 uint LLVMCountIncoming(LLVMValueRef PhiNode);
 
 /**
- * Obtain an incoming value to a PHI node as a LLVMValueRef.
+ * Obtain an incoming value to a PHI node as an LLVMValueRef.
  */
 LLVMValueRef LLVMGetIncomingValue(LLVMValueRef PhiNode, uint Index);
 
 /**
- * Obtain an incoming value to a PHI node as a LLVMBasicBlockRef.
+ * Obtain an incoming value to a PHI node as an LLVMBasicBlockRef.
  */
 LLVMBasicBlockRef LLVMGetIncomingBlock(LLVMValueRef PhiNode, uint Index);
 
@@ -2533,6 +2623,8 @@ LLVMValueRef LLVMBuildIntToPtr(LLVMBuilderRef, LLVMValueRef Val,
                                LLVMTypeRef DestTy, const(char)* Name);
 LLVMValueRef LLVMBuildBitCast(LLVMBuilderRef, LLVMValueRef Val,
                               LLVMTypeRef DestTy, const(char)* Name);
+LLVMValueRef LLVMBuildAddrSpaceCast(LLVMBuilderRef, LLVMValueRef Val,
+                                    LLVMTypeRef DestTy, const(char)* Name);
 LLVMValueRef LLVMBuildZExtOrBitCast(LLVMBuilderRef, LLVMValueRef Val,
                                     LLVMTypeRef DestTy, const(char)* Name);
 LLVMValueRef LLVMBuildSExtOrBitCast(LLVMBuilderRef, LLVMValueRef Val,

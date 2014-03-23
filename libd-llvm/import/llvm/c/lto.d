@@ -27,7 +27,7 @@ extern(C) nothrow:
  * @{
  */
 
-enum LTO_API_VERSION = 4;
+enum LTO_API_VERSION = 5;
 
 enum lto_symbol_attributes {
     ALIGNMENT_MASK              = 0x0000001F, /* log2 of alignment */
@@ -249,9 +249,8 @@ lto_codegen_set_assembler_args(lto_code_gen_t cg, const(char) **args,
                                int nargs);
 
 /**
- * Adds to a list of all global symbols that must exist in the final
- * generated code.  If a function is not listed, it might be
- * inlined into every usage and optimized away.
+ * Tells LTO optimization passes that this symbol must be preserved
+ * because it is referenced by native code or a command line option.
  */
 extern void
 lto_codegen_add_must_preserve_symbol(lto_code_gen_t cg, const(char)* symbol);

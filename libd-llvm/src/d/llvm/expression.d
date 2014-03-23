@@ -592,7 +592,6 @@ final class ExpressionGen {
 				
 				LLVMBuildStore(builder, landingPad, lpContext);
 				
-				
 				if(!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
