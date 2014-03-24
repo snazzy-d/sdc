@@ -8,7 +8,6 @@ import std.utf;
 
 alias isAlpha = std.ascii.isAlpha;
 alias isUniAlpha = std.uni.isAlpha;
-alias isWhite = std.ascii.isWhite;
 
 enum TokenType {
 	Invalid = 0,
@@ -167,18 +166,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		
 		@property
 		auto save() inout {
-			// XXX: dmd bug, context pointer isn't copied properly
-			// Seems fixed in 2.063
-			version(DigitalMars) {
-				// XXX: doing it manualy using black magic.
-				// Context pointer is the last element of the struct. Here in position 9.
-				auto ret = inout(Lexer)(t, r.save, context, line, index);
-				(cast(void**) &ret)[9] = (cast(void**) &this)[9];
-				
-				return ret;
-			} else {
-				return inout(Lexer)(t, r.save, line, index);
-			}
+			return inout(Lexer)(t, r.save, context, line, index);
 		}
 		
 		@property
