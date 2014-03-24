@@ -34,7 +34,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return this.dispatch(i);
 	}
 	
-	private Symbol resolveImportedSymbol(Name name) {
+	private Symbol resolveImportedSymbol(Location location, Name name) {
 		auto dscope = currentScope;
 		
 		while(true) {
@@ -46,7 +46,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 				auto symInMod = m.dscope.resolve(name);
 				if(symInMod) {
 					if(symbol) {
-						assert(0, "Ambiguous symbol " ~ name.toString(context));
+						return pass.raiseCondition!Symbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
 					}
 					
 					symbol = symInMod;
@@ -58,7 +58,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			if(auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				assert(0, "Symbol " ~ name.toString(context) ~ " has not been found.");
+				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found.");
 			}
 			
 			if(auto sscope = cast(SymbolScope) dscope) {
@@ -67,15 +67,15 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		}
 	}
 	
-	private Symbol resolveName(Name name) {
+	private Symbol resolveName(Location location, Name name) {
 		auto symbol = currentScope.search(name);
 		
 		// I wish we had ?:
-		return symbol ? symbol : resolveImportedSymbol(name);
+		return symbol ? symbol : resolveImportedSymbol(location, name);
 	}
 	
 	Ret visit(BasicIdentifier i) {
-		return visit(i.location, resolveName(i.name));
+		return visit(i.location, resolveName(i.location, i.name));
 	}
 	
 	Ret visit(IdentifierDotIdentifier i) {
