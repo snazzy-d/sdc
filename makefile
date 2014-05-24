@@ -13,6 +13,9 @@ PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -ldl -lffi -lpthread -lm -lncurses
 endif
+ifeq ($(PLATFORM),Darwin)
+	LDFLAGS += -c++
+endif
 
 IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
 SOURCE = src/sdc/*.d src/util/*.d
