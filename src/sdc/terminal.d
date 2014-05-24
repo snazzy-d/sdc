@@ -13,9 +13,16 @@ version(Windows) {
 	import std.c.windows.windows;
 }
 
-void outputCaretDiagnostics(const Location loc, string fixHint) {
+void outputCaretDiagnostics(Location loc, string fixHint) {
 	uint start = loc.index;
 	auto content = loc.source.content;
+
+	// This is unexpected end of input.
+	if (start == content.length) {
+		// Find first non white char.
+		import std.ascii;
+		while(start > 0 && isWhite(content[--start])) {}
+	}
 	
 	FindStart: while(start > 0) {
 		switch(content[start]) {
@@ -29,7 +36,13 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 		}
 	}
 	
-	uint end = cast(uint) (loc.index + loc.length);
+	uint end = loc.index + loc.length;
+	
+	// This is unexpected end of input.
+	if(end > content.length) {
+		end = cast(uint) content.length;
+	}
+	
 	FindEnd: while(end < content.length) {
 		switch(content[end]) {
 			case '\n':
@@ -44,17 +57,10 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 	auto line = content[start .. end];
 	uint index = loc.index - start;
 	uint length = loc.length;
-	/*
-	while(line.length > 0 && (line[0] == ' ' || line[0] == '\t')) {
-		line = line[1..$];
-		
-		if(index > 0) {
-			index--;
-		}
-	}
-	*/
-	if(index + length > line.length) {
-		length = index - cast(uint) line.length;
+	
+	// Multi line location
+	if(index < line.length && index + length > line.length) {
+		length = cast(uint) line.length - index;
 	}
 	
 	writeColouredText(stderr, ConsoleColour.Green, {
@@ -63,7 +69,10 @@ void outputCaretDiagnostics(const Location loc, string fixHint) {
 	
 	char[] underline;
 	underline.length = index + length;
-	underline[0 .. index][] = ' ';
+	foreach(i; 0 .. index) {
+		underline[i] = (line[i] == '\t') ? '\t' : ' ';
+	}
+	
 	underline[index] = '^';
 	foreach(i; index + 1 .. index + length) {
 		underline[i] = '~';
