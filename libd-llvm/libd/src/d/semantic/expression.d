@@ -160,7 +160,6 @@ final class ExpressionVisitor {
 			case PowAssign :
 				type = lhs.type;
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
 				break;
 			
 			case Concat :
@@ -195,7 +194,6 @@ final class ExpressionVisitor {
 			case BitwiseXorAssign :
 				type = lhs.type;
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
 				break;
 			
 			case Equal :
@@ -208,7 +206,6 @@ final class ExpressionVisitor {
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
-				
 				break;
 			
 			case In :
@@ -240,7 +237,6 @@ final class ExpressionVisitor {
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = getBuiltin(TypeKind.Bool);
-				
 				break;
 			
 			case LessGreater :
@@ -775,7 +771,13 @@ final class ExpressionVisitor {
 	private Expression handleTypeid(Location location, QualType t) {
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
 		
-		auto typeInfo = pass.object.getTypeInfo();
+		Class typeInfo;
+		if(cast(ClassType) peelAlias(t).type) {
+			typeInfo = pass.object.getClassInfo();
+		} else {
+			typeInfo = pass.object.getTypeInfo();
+		}
+		
 		return new StaticTypeidExpression(location, QualType(new ClassType(typeInfo)), t);
 	}
 	

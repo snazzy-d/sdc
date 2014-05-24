@@ -139,6 +139,20 @@ class TemplateParameter : Symbol {
 
 final:
 /**
+ * An Error occured but a Symbol is expected.
+ * Useful for speculative compilation.
+ */
+class ErrorSymbol : Symbol {
+	string message;
+	
+	this(Location location, string message) {
+		super(location, BuiltinName!"");
+		
+		this.message = message;
+	}
+}
+
+/**
  * Module
  */
 class Module : Package {

@@ -48,13 +48,13 @@ final:
  * Useful for speculative compilation.
  */
 class ErrorExpression : CompileTimeExpression {
-    string message;
-
-    this(Location location, string message) {
-        super(location, getBuiltin(TypeKind.None));
-
-        this.message = message;
-    }
+	string message;
+	
+	this(Location location, string message) {
+		super(location, getBuiltin(TypeKind.None));
+		
+		this.message = message;
+	}
 }
 
 /**

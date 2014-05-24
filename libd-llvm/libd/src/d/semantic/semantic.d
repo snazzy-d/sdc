@@ -176,6 +176,8 @@ final class SemanticPass {
 				return QualType(new ErrorType(location, message));
 			} else static if(is(T == Expression)) {
 				return new ErrorExpression(location, message);
+			} else static if(is(T == Symbol)) {
+				return new ErrorSymbol(location, message);
 			} else {
 				static assert(false, "compilationCondition only works for Types and Expressions.");
 			}
