@@ -1,8 +1,8 @@
 //T compiles:yes
 //T has-passed:yes
-//T dependency:test41_import.d
+//T dependency:test0041_import.d
 //T retval:7
-import test41_import;
+import test0041_import;
 
 int main() {
 	Foo foo;

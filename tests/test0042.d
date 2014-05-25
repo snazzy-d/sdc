@@ -1,9 +1,9 @@
 //T compiles:yes
 //T has-passed:yes
-//T dependency:test42_import.d
+//T dependency:test0042_import.d
 //T retval:8
 
-import test42_import;
+import test0042_import;
 
 int main() {
 	auto foo = new Foo();

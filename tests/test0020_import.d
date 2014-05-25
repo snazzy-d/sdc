@@ -1,5 +1,5 @@
 // Basic import testing
-module test20_import;
+module test0020_import;
 
 int importedFunction() {
 	return 21;

@@ -1,4 +1,4 @@
-import test22;
+import test0022;
 
 int start() {
 	return begin() + 1;

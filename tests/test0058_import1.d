@@ -1,5 +1,5 @@
 // Name collision
-module test58_import1;
+module test0058_import1;
 
 int importedFunction() {
 	return 42;
