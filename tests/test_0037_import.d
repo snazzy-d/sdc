@@ -1,4 +1,4 @@
-import test37;
+import test_0037;
 
 struct S {
 	alias i this;

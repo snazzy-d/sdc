@@ -31,7 +31,7 @@ version (Windows) {
 
 string getTestFilename(int n)
 {
-    return "test" ~ to!string(n) ~ ".d";
+    return format("test_%04s.d",n);
 }
 
 bool getBool(string s)

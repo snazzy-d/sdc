@@ -3,19 +3,22 @@ GCC ?= gcc
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 
+PHOBOS_L ?=
+
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs`
 LIBD_LIB = -Llib -ld-llvm -ld
 
-LDFLAGS = -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
+#NOTE:llvm-3.3 requires adding -stdlib=libstdc++ : see http://mathematica.stackexchange.com/questions/34692/mathlink-linking-error-after-os-x-10-9-mavericks-upgrade
+LDFLAGS = -L$(PHOBOS_L) -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -ldl -lffi -lpthread -lm -lncurses
 endif
-ifeq ($(PLATFORM),Darwin)
-	LDFLAGS += -c++
-endif
+#ifeq ($(PLATFORM),Darwin)
+#	LDFLAGS += -c++
+#endif
 
 IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
 SOURCE = src/sdc/*.d src/util/*.d
