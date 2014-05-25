@@ -7,6 +7,6 @@ int foo() {
 }
 
 int main() {
-	return test49.foo();
+	return test_0049.foo();
 }
 
