@@ -31,7 +31,6 @@ version (Windows) {
 
 string getTestFilename(int n)
 {
-    //return "test" ~ to!string(n) ~ ".d";
     return format("test_%04s.d",n);
 }
 
@@ -110,8 +109,6 @@ void test(string filename, string compiler)
     }
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
     version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
-
-    //writeln("command:",command);//TEMP
     
     auto retval = system(command);
     if (expectedToCompile && retval != 0) {
@@ -193,7 +190,7 @@ void main(string[] args)
     }
     
     auto tests = array( map!getTestFilename(iota(0, testNumber)) );
-    
+
     size_t testIndex = 0;
     int passed = 0;
     int regressions = 0;
