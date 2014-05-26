@@ -219,13 +219,12 @@ struct DeclarationVisitor {
 			items = unit.elseItems;
 		}
 		
-		// XXX: To ensure that pass is in the closure.
-		auto closuredPass = pass;
-		
+		import d.semantic.symbol;
+		auto sv = SymbolVisitor(pass);
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
-					scheduler.schedule(only(su.s), s => closuredPass.visit(su.d, s));
+					sv.visit(su.d, su.s);
 				}
 				
 				u.level = CtUnitLevel.Done;
@@ -266,15 +265,12 @@ struct DeclarationVisitor {
 		return this.dispatch(d);
 	}
 	
-	private void select(Declaration d, Symbol s) {
+	private void select(D, S)(D d, S s) if(is(D : Declaration) && is(S : Symbol)) {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
-		// XXX: To ensure that pass is in the closure.
-		auto closuredPass = pass;
-		
 		if(unit.level == CtUnitLevel.Done) {
-			scheduler.schedule(only(s), s => closuredPass.visit(d, s));
+			scheduler.schedule(d, s);
 		}
 		
 		unit.symbols ~= SymbolUnit(d, s);

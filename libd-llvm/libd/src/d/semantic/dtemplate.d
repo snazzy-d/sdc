@@ -168,33 +168,12 @@ struct TemplateInstancier {
 				pass.currentScope = oldScope;
 			}
 			
-			auto instance = new TemplateInstance(location, t, []);
+			auto i = new TemplateInstance(location, t, argSyms);
+			i.mangle = t.mangle ~ "T" ~ id ~ "Z";
 			
-			pass.manglePrefix = t.mangle ~ "T" ~ id ~ "Z";
-			auto dscope = pass.currentScope = instance.dscope = new SymbolScope(instance, t.dscope);
-			
-			foreach(s; argSyms) {
-				dscope.addSymbol(s);
-			}
-			
-			// XXX: that is doomed to explode fireworks style.
-			import d.semantic.declaration, d.ast.base;
-			auto dv = DeclarationVisitor(pass, t.isStatic);
-			
-			auto localPass = pass;
-			pass.scheduler.schedule(only(instance), i => visit(localPass, cast(TemplateInstance) i));
-			instance.members = argSyms ~ dv.flatten(t.members, instance);
-			
-			return t.instances[id] = instance;
+			pass.scheduler.schedule(t, i);
+			return t.instances[id] = i;
 		}());
-	}
-	
-	static auto visit(SemanticPass pass, TemplateInstance instance) {
-		pass.scheduler.require(instance.members);
-		
-		instance.step = Step.Processed;
-		
-		return instance;
 	}
 }
 

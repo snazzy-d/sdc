@@ -304,6 +304,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		})();
 		
 		assert(instance);
+		scheduler.require(instance, Step.Populated);
 		
 		// XXX: it should be possible to use handler here.
 		// DMD doesn't like it.
