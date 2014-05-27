@@ -94,7 +94,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		if(name == BuiltinName!"init") {
 			assert(0, "init, yeah sure . . .");
 		} else if(name == BuiltinName!"sizeof") {
-			return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
+			import d.semantic.sizeof;
+			auto sv = SizeofVisitor(pass);
+			return handler(new IntegerLiteral!false(location, sv.visit(t), TypeKind.Uint));
 		}
 		
 		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));

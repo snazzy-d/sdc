@@ -4,7 +4,7 @@ import d.semantic.semantic;
 
 import d.ir.type;
 
-final class SizeofCalculator {
+struct SizeofVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
