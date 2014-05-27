@@ -34,7 +34,7 @@ alias SliceType = d.ir.type.SliceType;
 alias ArrayType = d.ir.type.ArrayType;
 alias FunctionType = d.ir.type.FunctionType;
 
-final class ExpressionVisitor {
+struct ExpressionVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -782,7 +782,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstTypeidExpression e) {
-		return handleTypeid(e.location, pass.visit(e.argument));
+		return handleTypeid(e.location, visit(e.argument));
 	}
 	
 	Expression visit(AstStaticTypeidExpression e) {

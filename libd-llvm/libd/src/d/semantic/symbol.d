@@ -116,7 +116,9 @@ struct SymbolAnalyzer {
 	
 	private void handleFunction(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
@@ -209,7 +211,9 @@ struct SymbolAnalyzer {
 	
 	private void handleCtor(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
@@ -277,14 +281,17 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(VariableDeclaration d, Variable v) {
+		import d.semantic.expression : ExpressionVisitor;
+		auto ev = ExpressionVisitor(pass);
+		
 		Expression value;
 		if(typeid({ return d.type.type; }()) is typeid(AutoType)) {
-			value = pass.visit(d.value);
+			value = ev.visit(d.value);
 			v.type = value.type;
 		} else {
 			auto type = v.type = pass.visit(d.type);
 			value = d.value
-				? pass.visit(d.value)
+				? ev.visit(d.value)
 				: defaultInitializerVisitor.visit(v.location, type);
 			value = buildImplicitCast(pass, d.location, type, value);
 		}
@@ -600,7 +607,9 @@ struct SymbolAnalyzer {
 			scope(exit) v.step = Step.Processed;
 			
 			if(vd.value) {
-				v.value = pass.visit(vd.value);
+				import d.semantic.expression;
+				auto ev = ExpressionVisitor(pass);
+				v.value = ev.visit(vd.value);
 			} else {
 				if(previous) {
 					if(!one) {

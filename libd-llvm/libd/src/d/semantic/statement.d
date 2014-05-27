@@ -82,7 +82,10 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstExpressionStatement s) {
-		flattenedStmts ~= new ExpressionStatement(pass.visit(s.expression));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		flattenedStmts ~= new ExpressionStatement(ev.visit(s.expression));
 	}
 	
 	private auto autoBlock(AstStatement s) {
@@ -94,7 +97,10 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstIfStatement s) {
-		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ev.visit(s.condition));
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -106,14 +112,20 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstWhileStatement w) {
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ev.visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
 	}
 	
 	void visit(AstDoWhileStatement w) {
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), pass.visit(w.condition));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ev.visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
@@ -129,16 +141,19 @@ struct StatementVisitor {
 		visit(f.initialize);
 		auto initialize = flattenedStmts[$ - 1];
 		
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
 		Expression condition;
 		if(f.condition) {
-			condition = buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), pass.visit(f.condition));
+			condition = buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), ev.visit(f.condition));
 		} else {
 			condition = new BooleanLiteral(f.location, true);
 		}
 		
 		Expression increment;
 		if(f.increment) {
-			increment = pass.visit(f.increment);
+			increment = ev.visit(f.increment);
 		} else {
 			increment = new BooleanLiteral(f.location, true);
 		}
@@ -149,7 +164,10 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstReturnStatement r) {
-		auto value = pass.visit(r.value);
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto value = ev.visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
 		auto doCast = true;
@@ -177,14 +195,20 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstSwitchStatement s) {
-		auto expression = pass.visit(s.expression);
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto expression = ev.visit(s.expression);
 		auto statement = autoBlock(s.statement);
 		
 		flattenedStmts ~= new SwitchStatement(s.location, expression, statement);
 	}
 	
 	void visit(AstCaseStatement s) {
-		auto cases = s.cases.map!(e => pass.evaluate(pass.visit(e))).array();
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto cases = s.cases.map!(e => pass.evaluate(ev.visit(e))).array();
 		
 		flattenedStmts ~= new CaseStatement(s.location, cases);
 	}
@@ -208,8 +232,11 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstThrowStatement s) {
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
 		// TODO: Check that this is throwable
-		flattenedStmts ~= new ThrowStatement(s.location, pass.visit(s.value));
+		flattenedStmts ~= new ThrowStatement(s.location, ev.visit(s.value));
 	}
 	
 	void visit(AstTryStatement s) {
@@ -242,7 +269,10 @@ struct StatementVisitor {
 	}
 	
 	void visit(StaticIf!AstStatement s) {
-		auto condition = evaluate(buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), pass.visit(s.condition)));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto condition = evaluate(buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ev.visit(s.condition)));
 		
 		if((cast(BooleanLiteral) condition).value) {
 			foreach(item; s.items) {
@@ -256,8 +286,10 @@ struct StatementVisitor {
 	}
 	
 	void visit(Mixin!AstStatement s) {
-		auto value = evaluate(pass.visit(s.value));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
 		
+		auto value = evaluate(ev.visit(s.value));
 		if(auto str = cast(StringLiteral) value) {
 			import d.lexer;
 			auto source = new MixinSource(s.location, str.value);

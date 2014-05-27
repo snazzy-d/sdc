@@ -45,7 +45,10 @@ final class TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, TypeofType t) {
-		auto ret = pass.visit(t.expression).type;
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto ret = ev.visit(t.expression).type;
 		ret.qualifier = ret.qualifier.add(q);
 		
 		return ret;
@@ -62,9 +65,11 @@ final class TypeVisitor {
 	QualType visit(TypeQualifier q, AstArrayType t) {
 		auto elementType = visit(t.elementType);
 		
-		import d.semantic.caster;
+		import d.semantic.caster, d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
 		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(TypeKind.Ulong), pass.visit(t.size)))).value;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(TypeKind.Ulong), ev.visit(t.size)))).value;
 		
 		return QualType(new ArrayType(elementType, size));
 	}

@@ -204,8 +204,10 @@ struct DeclarationVisitor {
 	} body {
 		auto d = unit.staticIf;
 		
-		import d.semantic.caster;
-		auto condition = evaluate(buildExplicitCast(pass, d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), pass.visit(d.condition)));
+		import d.semantic.caster, d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		
+		auto condition = evaluate(buildExplicitCast(pass, d.condition.location, QualType(new BuiltinType(TypeKind.Bool)), ev.visit(d.condition)));
 		
 		auto poisonScope = cast(PoisonScope) currentScope;
 		assert(poisonScope);
@@ -237,8 +239,11 @@ struct DeclarationVisitor {
 	private auto flattenMixin(CtUnit unit, CtUnitLevel to) in {
 		assert(unit.type == CtUnitType.Mixin);
 	} body {
+		import d.semantic.expression : ExpressionVisitor;
+		auto ev = ExpressionVisitor(pass);
+		
 		auto d = unit.mixinDecl;
-		auto value = evaluate(pass.visit(d.value));
+		auto value = evaluate(ev.visit(d.value));
 		
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;

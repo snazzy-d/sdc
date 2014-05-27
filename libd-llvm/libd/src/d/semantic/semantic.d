@@ -7,7 +7,6 @@ public import util.visitor;
 
 import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
-import d.semantic.expression;
 import d.semantic.evaluator;
 import d.semantic.mangler;
 import d.semantic.scheduler;
@@ -52,7 +51,6 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private ExpressionVisitor expressionVisitor;
 	private TypeVisitor typeVisitor;
 	
 	DefaultInitializerVisitor defaultInitializerVisitor;
@@ -97,7 +95,6 @@ final class SemanticPass {
 		this.evaluator	= evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		expressionVisitor	= new ExpressionVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
 		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
@@ -131,10 +128,6 @@ final class SemanticPass {
 	
 	void terminate() {
 		scheduler.terminate();
-	}
-	
-	Expression visit(AstExpression e) {
-		return expressionVisitor.visit(e);
 	}
 	
 	QualType visit(QualAstType t) {
