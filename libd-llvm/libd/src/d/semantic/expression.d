@@ -82,7 +82,7 @@ final class ExpressionVisitor {
 	
 	private Expression getTemporaryRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.isEnum = true;
+		v.isFinal = true;
 		v.step = Step.Processed;
 		
 		return new SymbolExpression(value.location, v);
