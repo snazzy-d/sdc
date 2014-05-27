@@ -12,7 +12,6 @@ import d.semantic.evaluator;
 import d.semantic.mangler;
 import d.semantic.scheduler;
 import d.semantic.sizeof;
-import d.semantic.statement;
 import d.semantic.type;
 
 import d.ast.base;
@@ -54,7 +53,6 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	private ExpressionVisitor expressionVisitor;
-	private StatementVisitor statementVisitor;
 	private TypeVisitor typeVisitor;
 	
 	DefaultInitializerVisitor defaultInitializerVisitor;
@@ -83,8 +81,6 @@ final class SemanticPass {
 			uint, "", 7,
 		));
 		
-		Statement[] flattenedStmts;
-		
 		uint fieldIndex;
 		uint methodIndex;
 	}
@@ -102,7 +98,6 @@ final class SemanticPass {
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		expressionVisitor	= new ExpressionVisitor(this);
-		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
 		
 		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
@@ -140,10 +135,6 @@ final class SemanticPass {
 	
 	Expression visit(AstExpression e) {
 		return expressionVisitor.visit(e);
-	}
-	
-	BlockStatement visit(AstBlockStatement s) {
-		return statementVisitor.flatten(s);
 	}
 	
 	QualType visit(QualAstType t) {

@@ -162,9 +162,11 @@ struct SymbolAnalyzer {
 				}
 			}
 			
-			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			f.fbody = pass.visit(fd.fbody);
+			// And flatten.
+			import d.semantic.statement;
+			auto sv = StatementVisitor(pass);
+			f.fbody = sv.flatten(fd.fbody);
 		}
 		
 		if(isAuto) {
@@ -248,8 +250,10 @@ struct SymbolAnalyzer {
 				f.dscope.addSymbol(p);
 			}
 			
-			// And visit.
-			f.fbody = pass.visit(fbody);
+			// And flatten.
+			import d.semantic.statement;
+			auto sv = StatementVisitor(pass);
+			f.fbody = sv.flatten(fd.fbody);
 		}
 		
 		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");

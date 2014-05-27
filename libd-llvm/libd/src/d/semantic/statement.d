@@ -35,9 +35,11 @@ alias ScopeStatement = d.ir.statement.ScopeStatement;
 alias ThrowStatement = d.ir.statement.ThrowStatement;
 alias CatchBlock = d.ir.statement.CatchBlock;
 
-final class StatementVisitor {
+struct StatementVisitor {
 	private SemanticPass pass;
 	alias pass this;
+	
+	private Statement[] flattenedStmts;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
