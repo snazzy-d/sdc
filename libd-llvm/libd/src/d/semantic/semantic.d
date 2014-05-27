@@ -5,7 +5,6 @@ module d.semantic.semantic;
 
 public import util.visitor;
 
-import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
 import d.semantic.evaluator;
 import d.semantic.mangler;
@@ -53,8 +52,6 @@ final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	private TypeVisitor typeVisitor;
 	
-	DefaultInitializerVisitor defaultInitializerVisitor;
-	
 	SizeofCalculator sizeofCalculator;
 	TypeMangler typeMangler;
 	
@@ -96,8 +93,6 @@ final class SemanticPass {
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		typeVisitor			= new TypeVisitor(this);
-		
-		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
 		
 		sizeofCalculator	= new SizeofCalculator(this);
 		typeMangler			= new TypeMangler(this);

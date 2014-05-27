@@ -486,7 +486,9 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
-		auto di = pass.defaultInitializerVisitor.visit(iloc, QualType(type));
+		import d.semantic.defaultinitializer;
+		auto div = DefaultInitializerVisitor(pass);
+		auto di = div.visit(iloc, QualType(type));
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -659,7 +661,9 @@ struct ExpressionVisitor {
 					pass.scheduler.require(f, Step.Signed);
 					return new SymbolExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
-					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
+					import d.semantic.defaultinitializer;
+					auto div = DefaultInitializerVisitor(pass);
+					auto di = div.visit(e.location, type);
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);

@@ -290,9 +290,14 @@ struct SymbolAnalyzer {
 			v.type = value.type;
 		} else {
 			auto type = v.type = pass.visit(d.type);
-			value = d.value
-				? ev.visit(d.value)
-				: defaultInitializerVisitor.visit(v.location, type);
+			if (d.value) {
+				value = ev.visit(d.value);
+			} else {
+				import d.semantic.defaultinitializer;
+				auto div = DefaultInitializerVisitor(pass);
+				value = div.visit(v.location, type);
+			}
+			
 			value = buildImplicitCast(pass, d.location, type, value);
 		}
 		
