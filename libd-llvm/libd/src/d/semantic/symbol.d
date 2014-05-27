@@ -28,14 +28,12 @@ alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias PointerType = d.ir.type.PointerType;
 alias FunctionType = d.ir.type.FunctionType;
 
-enum isSchedulable(D, S) = is(D : Declaration)
-	? is(S : Symbol) && !__traits(isAbstractClass, S)
-	: is(D : Template) && is(S : TemplateInstance);
+enum isSchedulable(D, S) = is(D : Declaration) && is(S : Symbol) && !__traits(isAbstractClass, S);
 
 struct SymbolVisitor {
 	private SemanticPass pass;
 	alias pass this;
-	
+
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
@@ -49,20 +47,21 @@ struct SymbolVisitor {
 			alias parameters = ParameterTypeTuple!visit;
 			static assert(parameters.length == 2);
 			
-			alias DeclType = parameters[0];
-			alias SymType  = parameters[1];
-			
-			static assert(isSchedulable!(DeclType, SymType));
-			if(tid is typeid(SymType)) {
-				auto decl = cast(DeclType) d;
-				assert(decl, "Unexpected declaration type " ~ typeid(DeclType).toString());
+			static if(isSchedulable!parameters) {
+				alias DeclType = parameters[0];
+				alias SymType  = parameters[1];
 				
-				scheduler.schedule(decl, () @trusted {
-					// Fast cast can be trusted in this case, we already did the check.
-					import util.fastcast;
-					return fastCast!SymType(s);
-				} ());
-				return;
+				if(tid is typeid(SymType)) {
+					auto decl = cast(DeclType) d;
+					assert(decl, "Unexpected declaration type " ~ typeid(DeclType).toString());
+					
+					scheduler.schedule(decl, () @trusted {
+						// Fast cast can be trusted in this case, we already did the check.
+						import util.fastcast;
+						return fastCast!SymType(s);
+					} ());
+					return;
+				}
 			}
 		}
 		

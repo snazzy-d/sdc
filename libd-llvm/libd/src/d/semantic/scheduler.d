@@ -88,7 +88,7 @@ final class Scheduler {
 		}
 	}
 	
-	void schedule(D, S)(D d, S s) if(isSchedulable!(D, S)) {
+	private Process getProcess() {
 		Process p;
 		
 		// XXX: it seems that if(pool) test for the pointer, not the content.
@@ -102,10 +102,25 @@ final class Scheduler {
 			p = new Process(pass);
 		}
 		
+		return p;
+	}
+	
+	void schedule(D, S)(D d, S s) if(isSchedulable!(D, S)) in {
 		assert(s.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
+	} body {
+		auto p = getProcess();
 		p.init(d, s);
 		
 		processes[s] = p;
+	}
+	
+	void schedule()(Template t, TemplateInstance i) in {
+		assert(i.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
+	} body {
+		auto p = getProcess();
+		p.init(t, i);
+		
+		processes[i] = p;
 	}
 }
 
@@ -123,7 +138,7 @@ final class Process : Fiber {
 		}, StackSize);
 	}
 	
-	void init(D, S)(D d, S s) if(isSchedulable!(D, S)) {
+	void init(D, S)(D d, S s) {
 		auto state = pass.state;
 		reset({
 			pass.state = state;
