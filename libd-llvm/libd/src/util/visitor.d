@@ -1,12 +1,5 @@
 module util.visitor;
 
-@trusted
-private U fastCast(U, T)(T t) if(is(T == class) && is(U == class) && is(U : T)) in {
-	assert(cast(U) t);
-} body {
-	return *(cast(U*) &t);
-}
-
 // XXX: is @trusted if visitor.visit is @safe .
 auto dispatch(
 	alias unhandled = function void(t) {
@@ -18,7 +11,7 @@ auto dispatch(
 	assert(t, "You can't dispatch null");
 } body {
 	static if(is(T == class)) {
-		alias t o;
+		alias o = t;
 	} else {
 		auto o = cast(Object) t;
 	}
@@ -34,15 +27,19 @@ auto dispatch(
 	}
 	
 	foreach(visit; Members) {
-		alias ParameterTypeTuple!visit parameters;
+		alias parameters = ParameterTypeTuple!visit;
 		
 		static if(parameters.length == args.length + 1) {
-			alias parameters[args.length] parameter;
+			alias parameter = parameters[args.length];
 			
 			// FIXME: ensure call is correctly done when args exists.
 			static if(is(parameter == class) && !__traits(isAbstractClass, parameter) && is(parameter : T)) {
 				if(tid is typeid(parameter)) {
-					return visitor.visit(args, fastCast!parameter(o));
+					return visitor.visit(args, () @trusted {
+						// Fast cast can be trusted in this case, we already did the check.
+						import util.fastcast;
+						return fastCast!parameter(o);
+					} ());
 				}
 			}
 		}

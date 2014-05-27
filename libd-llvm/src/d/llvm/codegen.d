@@ -6,7 +6,6 @@ import d.ir.symbol;
 import d.ir.type;
 
 import d.llvm.expression;
-import d.llvm.statement;
 import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
@@ -29,7 +28,6 @@ final class CodeGenPass {
 	Context context;
 	
 	private SymbolGen symbolGen;
-	private StatementGen statementGen;
 	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
@@ -44,13 +42,7 @@ final class CodeGenPass {
 	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
 	
-	LLVMBasicBlockRef continueBB;
-	LLVMBasicBlockRef breakBB;
-	
-	LLVMBasicBlockRef[Name] labels;
-	
 	LLVMValueRef thisPtr;
-	LLVMValueRef switchInstr;
 	
 	LLVMValueRef lpContext;
 	LLVMValueRef[] catchClauses;
@@ -81,7 +73,6 @@ final class CodeGenPass {
 		this.context	= context;
 		
 		symbolGen		= new SymbolGen(this);
-		statementGen	= new StatementGen(this);
 		expressionGen	= new ExpressionGen(this);
 		typeGen			= new TypeGen(this);
 		
@@ -137,10 +128,6 @@ final class CodeGenPass {
 	
 	auto getTypeInfo(TypeSymbol s) {
 		return typeGen.getTypeInfo(s);
-	}
-	
-	auto visit(Statement stmt) {
-		return statementGen.visit(stmt);
 	}
 	
 	auto visit(Expression e) {

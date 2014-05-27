@@ -34,7 +34,7 @@ alias SliceType = d.ir.type.SliceType;
 alias ArrayType = d.ir.type.ArrayType;
 alias FunctionType = d.ir.type.FunctionType;
 
-final class ExpressionVisitor {
+struct ExpressionVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -82,7 +82,7 @@ final class ExpressionVisitor {
 	
 	private Expression getTemporaryRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.isEnum = true;
+		v.isFinal = true;
 		v.step = Step.Processed;
 		
 		return new SymbolExpression(value.location, v);
@@ -486,7 +486,9 @@ final class ExpressionVisitor {
 	}
 	
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
-		auto di = pass.defaultInitializerVisitor.visit(iloc, QualType(type));
+		import d.semantic.defaultinitializer;
+		auto div = DefaultInitializerVisitor(pass);
+		auto di = div.visit(iloc, QualType(type));
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -659,7 +661,9 @@ final class ExpressionVisitor {
 					pass.scheduler.require(f, Step.Signed);
 					return new SymbolExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
-					auto di = pass.defaultInitializerVisitor.visit(e.location, type);
+					import d.semantic.defaultinitializer;
+					auto div = DefaultInitializerVisitor(pass);
+					auto di = div.visit(e.location, type);
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -782,7 +786,7 @@ final class ExpressionVisitor {
 	}
 	
 	Expression visit(AstTypeidExpression e) {
-		return handleTypeid(e.location, pass.visit(e.argument));
+		return handleTypeid(e.location, visit(e.argument));
 	}
 	
 	Expression visit(AstStaticTypeidExpression e) {

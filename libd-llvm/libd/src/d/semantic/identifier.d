@@ -94,7 +94,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		if(name == BuiltinName!"init") {
 			assert(0, "init, yeah sure . . .");
 		} else if(name == BuiltinName!"sizeof") {
-			return handler(new IntegerLiteral!false(location, sizeofCalculator.visit(t), TypeKind.Uint));
+			import d.semantic.sizeof;
+			auto sv = SizeofVisitor(pass);
+			return handler(new IntegerLiteral!false(location, sv.visit(t), TypeKind.Uint));
 		}
 		
 		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
@@ -144,8 +146,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return IdentifierVisitor!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
 			// TODO: deduplicate code form type and expression visitor.
 			static if(is(typeof(identified) : QualType)) {
-				import d.semantic.caster;
-				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), pass.visit(i.index));
+				import d.semantic.caster, d.semantic.expression;
+				auto ev = ExpressionVisitor(pass);
+				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), ev.visit(i.index));
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
 				return handler(QualType(new ArrayType(identified, size)));
@@ -162,7 +165,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString(pass.context)));
 				}
 				
-				return handler(new IndexExpression(i.location, qt, identified, [pass.visit(i.index)]));
+				import d.semantic.expression;
+				auto ev = ExpressionVisitor(pass);
+				return handler(new IndexExpression(i.location, qt, identified, [ev.visit(i.index)]));
 			} else {
 				assert(0, "WTF ???");
 			}
@@ -304,6 +309,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		})();
 		
 		assert(instance);
+		scheduler.require(instance, Step.Populated);
 		
 		// XXX: it should be possible to use handler here.
 		// DMD doesn't like it.
@@ -431,7 +437,9 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
 	}
 	
 	Ret visit(ExpressionDotIdentifier i) {
-		return visit(i.location, i.name, pass.visit(i.expression));
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		return visit(i.location, i.name, ev.visit(i.expression));
 	}
 	
 	Ret visit(Location location, Name name, Expression e) {

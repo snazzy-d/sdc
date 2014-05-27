@@ -15,9 +15,16 @@ import std.algorithm;
 import std.array;
 import std.string;
 
-final class StatementGen {
+struct StatementGen {
 	private CodeGenPass pass;
 	alias pass this;
+	
+	LLVMValueRef switchInstr;
+	
+	LLVMBasicBlockRef continueBB;
+	LLVMBasicBlockRef breakBB;
+	
+	LLVMBasicBlockRef[Name] labels;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;

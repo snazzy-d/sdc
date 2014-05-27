@@ -7,7 +7,7 @@ import d.ir.type;
 
 import d.location;
 
-final class DefaultInitializerVisitor {
+struct DefaultInitializerVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	

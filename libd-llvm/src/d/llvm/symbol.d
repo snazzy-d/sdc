@@ -70,7 +70,6 @@ final class SymbolGen {
 		
 		// Ensure we are rentrant.
 		auto backupCurrentBB = LLVMGetInsertBlock(builder);
-		auto oldLabels = labels;
 		auto oldThisPtr = thisPtr;
 		auto oldLpContext = lpContext;
 		auto oldCatchClauses = catchClauses;
@@ -85,7 +84,6 @@ final class SymbolGen {
 				LLVMClearInsertionPosition(builder);
 			}
 			
-			labels = oldLabels;
 			thisPtr = oldThisPtr;
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
@@ -95,7 +93,6 @@ final class SymbolGen {
 		}
 		
 		// XXX: what is the way to flush an AA ?
-		labels = typeof(labels).init;
 		lpContext = null;
 		catchClauses = [];
 		unwindBlocks = [];
@@ -152,7 +149,10 @@ final class SymbolGen {
 		
 		// Generate function's body.
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		pass.visit(f.fbody);
+		
+		import d.llvm.statement;
+		auto sg = StatementGen(pass);
+		sg.visit(f.fbody);
 		
 		// If the current block isn't concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {

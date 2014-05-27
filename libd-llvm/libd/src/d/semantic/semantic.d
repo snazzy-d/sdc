@@ -5,14 +5,9 @@ module d.semantic.semantic;
 
 public import util.visitor;
 
-import d.semantic.defaultinitializer;
 import d.semantic.dmodule;
-import d.semantic.expression;
 import d.semantic.evaluator;
-import d.semantic.mangler;
-import d.semantic.sizeof;
-import d.semantic.statement;
-import d.semantic.symbol;
+import d.semantic.scheduler;
 import d.semantic.type;
 
 import d.ast.base;
@@ -29,8 +24,6 @@ import d.ir.symbol;
 import d.ir.type;
 
 import d.parser.base;
-
-import d.processor.scheduler;
 
 import d.context;
 import d.exception;
@@ -55,15 +48,7 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private SymbolVisitor symbolVisitor;
-	private ExpressionVisitor expressionVisitor;
-	private StatementVisitor statementVisitor;
 	private TypeVisitor typeVisitor;
-	
-	DefaultInitializerVisitor defaultInitializerVisitor;
-	
-	SizeofCalculator sizeofCalculator;
-	TypeMangler typeMangler;
 	
 	Context context;
 	
@@ -86,8 +71,6 @@ final class SemanticPass {
 			uint, "", 7,
 		));
 		
-		Statement[] flattenedStmts;
-		
 		uint fieldIndex;
 		uint methodIndex;
 	}
@@ -95,7 +78,7 @@ final class SemanticPass {
 	State state;
 	alias state this;
 	
-	Scheduler!SemanticPass scheduler;
+	Scheduler scheduler;
 	
 	alias Step = d.ir.symbol.Step;
 	
@@ -104,17 +87,9 @@ final class SemanticPass {
 		this.evaluator	= evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		symbolVisitor		= new SymbolVisitor(this);
-		expressionVisitor	= new ExpressionVisitor(this);
-		statementVisitor	= new StatementVisitor(this);
 		typeVisitor			= new TypeVisitor(this);
 		
-		defaultInitializerVisitor	= new DefaultInitializerVisitor(this);
-		
-		sizeofCalculator	= new SizeofCalculator(this);
-		typeMangler			= new TypeMangler(this);
-		
-		scheduler			= new Scheduler!SemanticPass(this);
+		scheduler			= new Scheduler(this);
 		
 		auto obj	= importModule([BuiltinName!"object"]);
 		object		= new ObjectReference(obj);
@@ -133,25 +108,13 @@ final class SemanticPass {
 		
 		moduleVisitor.preregister(mod);
 		
-		scheduler.schedule(only(mod), d => moduleVisitor.visit(astm, cast(Module) d));
+		scheduler.schedule(astm, mod);
 		
 		return mod;
 	}
 	
 	void terminate() {
 		scheduler.terminate();
-	}
-	
-	Symbol visit(Declaration d, Symbol s) {
-		return symbolVisitor.visit(d, s);
-	}
-	
-	Expression visit(AstExpression e) {
-		return expressionVisitor.visit(e);
-	}
-	
-	BlockStatement visit(AstBlockStatement s) {
-		return statementVisitor.flatten(s);
 	}
 	
 	QualType visit(QualAstType t) {

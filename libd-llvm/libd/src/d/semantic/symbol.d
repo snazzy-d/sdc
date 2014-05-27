@@ -28,27 +28,97 @@ alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias PointerType = d.ir.type.PointerType;
 alias FunctionType = d.ir.type.FunctionType;
 
-final class SymbolVisitor {
+enum isSchedulable(D, S) = is(D : Declaration) && is(S : Symbol) && !__traits(isAbstractClass, S);
+
+struct SymbolVisitor {
+	private SemanticPass pass;
+	alias pass this;
+
+	this(SemanticPass pass) {
+		this.pass = pass;
+	}
+	
+	void visit(Declaration d, Symbol s) {
+		auto tid = typeid(s);
+		
+		import std.traits;
+		alias Members = TypeTuple!(__traits(getOverloads, SymbolAnalyzer, "analyze"));
+		foreach(visit; Members) {
+			alias parameters = ParameterTypeTuple!visit;
+			static assert(parameters.length == 2);
+			
+			static if(isSchedulable!parameters) {
+				alias DeclType = parameters[0];
+				alias SymType  = parameters[1];
+				
+				if(tid is typeid(SymType)) {
+					auto decl = cast(DeclType) d;
+					assert(decl, "Unexpected declaration type " ~ typeid(DeclType).toString());
+					
+					scheduler.schedule(decl, () @trusted {
+						// Fast cast can be trusted in this case, we already did the check.
+						import util.fastcast;
+						return fastCast!SymType(s);
+					} ());
+					return;
+				}
+			}
+		}
+		
+		assert(0, "Can't process " ~ tid.toString());
+	}
+}
+
+struct SymbolAnalyzer {
 	private SemanticPass pass;
 	alias pass this;
 	
-	alias SemanticPass.Step Step;
+	alias Step = SemanticPass.Step;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
-	Symbol visit(Declaration d, Symbol s) {
-		return this.dispatch(d, s);
+	void analyze(AstModule astm, Module m) {
+		auto oldCurrentScope = currentScope;
+		auto oldManglePrefix = manglePrefix;
+		
+		scope(exit) {
+			currentScope = oldCurrentScope;
+			manglePrefix = oldManglePrefix;
+		}
+		
+		manglePrefix = "";
+		currentScope = m.dscope;
+		
+		import std.conv;
+		auto current = astm.parent;
+		while(current) {
+			auto name = current.name.toString(context);
+			manglePrefix = to!string(name.length) ~ name ~ manglePrefix;
+			current = current.parent;
+		}
+		
+		auto name = astm.name.toString(context);
+		manglePrefix ~= to!string(name.length) ~ name;
+		
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(pass);
+		
+		// All modules implicitely import object.
+		import d.context;
+		m.members = dv.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
+		m.step = Step.Populated;
+		
+		scheduler.require(m.members);
+		m.step = Step.Processed;
 	}
 	
-	Symbol visit(Symbol s) {
-		return this.dispatch(s);
-	}
-	
-	Symbol handleFunction(FunctionDeclaration fd, Function f) {
+	private void handleFunction(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
@@ -94,9 +164,11 @@ final class SymbolVisitor {
 				}
 			}
 			
-			// And visit.
 			// TODO: change ast to allow any statement as function body;
-			f.fbody = pass.visit(fd.fbody);
+			// And flatten.
+			import d.semantic.statement;
+			auto sv = StatementVisitor(pass);
+			f.fbody = sv.flatten(fd.fbody);
 		}
 		
 		if(isAuto) {
@@ -121,7 +193,9 @@ final class SymbolVisitor {
 		
 		switch(f.linkage) with(Linkage) {
 			case D :
-				auto typeMangle = pass.typeMangler.visit(f.type);
+				import d.semantic.mangler;
+				auto mangler = TypeMangler(pass);
+				auto typeMangle = mangler.visit(f.type);
 				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 				break;
 			
@@ -135,12 +209,13 @@ final class SymbolVisitor {
 		}
 		
 		f.step = Step.Processed;
-		return f;
 	}
 	
-	Symbol handleCtor(FunctionDeclaration fd, Function f) {
+	private void handleCtor(FunctionDeclaration fd, Function f) {
 		// XXX: maybe monad ?
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(pass.visit(p.value)):null)).array();
+		import d.semantic.expression;
+		auto ev = ExpressionVisitor(pass);
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
@@ -181,53 +256,57 @@ final class SymbolVisitor {
 				f.dscope.addSymbol(p);
 			}
 			
-			// And visit.
-			f.fbody = pass.visit(fbody);
+			// And flatten.
+			import d.semantic.statement;
+			auto sv = StatementVisitor(pass);
+			f.fbody = sv.flatten(fd.fbody);
 		}
 		
 		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");
 		
-		auto typeMangle = pass.typeMangler.visit(f.type);
+		import d.semantic.mangler;
+		auto mangler = TypeMangler(pass);
+		auto typeMangle = mangler.visit(f.type);
 		f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 		
 		f.step = Step.Processed;
-		return f;
 	}
 	
-	Symbol visit(Declaration d, Function f) {
-		auto fd = cast(FunctionDeclaration) d;
-		assert(fd);
-		
-		return f.name.isReserved
-			? handleCtor(fd, f)
-			: handleFunction(fd, f);
+	void analyze(FunctionDeclaration d, Function f) {
+		if (f.name.isReserved) {
+			handleCtor(d, f);
+		} else {
+			handleFunction(d, f);
+		}
 	}
 	
-	Symbol visit(Declaration d, Method m) {
-		auto fd = cast(FunctionDeclaration) d;
-		assert(fd);
-		
-		return handleFunction(fd, m);
+	void analyze(FunctionDeclaration d, Method m) {
+		handleFunction(d, m);
 	}
 	
-	Variable visit(Declaration d, Variable v) {
-		auto vd = cast(VariableDeclaration) d;
-		assert(vd);
+	void analyze(VariableDeclaration d, Variable v) {
+		import d.semantic.expression : ExpressionVisitor;
+		auto ev = ExpressionVisitor(pass);
 		
 		Expression value;
-		if(typeid({ return vd.type.type; }()) is typeid(AutoType)) {
-			value = pass.visit(vd.value);
+		if(typeid({ return d.type.type; }()) is typeid(AutoType)) {
+			value = ev.visit(d.value);
 			v.type = value.type;
 		} else {
-			auto type = v.type = pass.visit(vd.type);
-			value = vd.value
-				? pass.visit(vd.value)
-				: defaultInitializerVisitor.visit(v.location, type);
+			auto type = v.type = pass.visit(d.type);
+			if (d.value) {
+				value = ev.visit(d.value);
+			} else {
+				import d.semantic.defaultinitializer;
+				auto div = DefaultInitializerVisitor(pass);
+				value = div.visit(v.location, type);
+			}
+			
 			value = buildImplicitCast(pass, d.location, type, value);
 		}
 		
 		// Sanity check.
-		if(vd.isEnum) {
+		if(d.isEnum) {
 			assert(v.isEnum);
 		}
 		
@@ -241,38 +320,36 @@ final class SymbolVisitor {
 		v.mangle = name;
 		if(v.isStatic) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
-			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ typeMangler.visit(v.type);
+			
+			import d.semantic.mangler;
+			auto mangler = TypeMangler(pass);
+			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangler.visit(v.type);
 		}
 		
 		v.step = Step.Processed;
-		return v;
 	}
 	
-	Symbol visit(Declaration d, Field f) {
+	void analyze(VariableDeclaration d, Field f) {
 		// XXX: hacky ! We force CTFE that way.
 		auto oldIsEnum = f.isEnum;
 		scope(exit) f.isEnum = oldIsEnum;
 		
 		f.isEnum = true;
 		
-		return visit(d, cast(Variable) f);
+		analyze(d, cast(Variable) f);
 	}
 	
-	Symbol visit(Declaration d, TypeAlias a) {
-		auto ad = cast(AliasDeclaration) d;
-		assert(ad);
+	void analyze(AliasDeclaration d, TypeAlias a) {
+		a.type = pass.visit(d.type);
 		
-		a.type = pass.visit(ad.type);
-		a.mangle = typeMangler.visit(a.type);
+		import d.semantic.mangler;
+		auto mangler = TypeMangler(pass);
+		a.mangle = mangler.visit(a.type);
 		
 		a.step = Step.Processed;
-		return a;
 	}
 	
-	Symbol visit(Declaration d, Struct s) {
-		auto sd = cast(StructDeclaration) d;
-		assert(sd);
-		
+	void analyze(StructDeclaration d, Struct s) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
@@ -301,7 +378,7 @@ final class SymbolVisitor {
 		
 		auto dv = DeclarationVisitor(pass, false, true);
 		
-		auto members = dv.flatten(sd.members, s);
+		auto members = dv.flatten(d.members, s);
 		s.step = Step.Populated;
 		
 		Field[] fields;
@@ -335,13 +412,9 @@ final class SymbolVisitor {
 		s.members ~= otherSymbols;
 		
 		s.step = Step.Processed;
-		return s;
 	}
 	
-	Symbol visit(Declaration d, Class c) {
-		auto cd = cast(ClassDeclaration) d;
-		assert(cd);
-		
+	void analyze(ClassDeclaration d, Class c) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
@@ -368,7 +441,7 @@ final class SymbolVisitor {
 		
 		Field[] baseFields;
 		Method[] baseMethods;
-		foreach(i; cd.bases) {
+		foreach(i; d.bases) {
 			auto type = IdentifierVisitor!(function ClassType(identified) {
 				static if(is(typeof(identified) : QualType)) {
 					return cast(ClassType) identified.type;
@@ -395,7 +468,7 @@ final class SymbolVisitor {
 			vtblType.qualifier = TypeQualifier.Immutable;
 			
 			// TODO: use defaultinit.
-			auto vtbl = new Field(cd.location, 0, vtblType, BuiltinName!"__vtbl", null);
+			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
 			vtbl.step = Step.Processed;
 			
 			baseFields = [vtbl];
@@ -421,7 +494,7 @@ final class SymbolVisitor {
 		}
 		
 		auto dv = DeclarationVisitor(pass, false, true, true);
-		auto members = dv.flatten(cd.members, c);
+		auto members = dv.flatten(d.members, c);
 		
 		c.step = Step.Signed;
 		
@@ -496,13 +569,9 @@ final class SymbolVisitor {
 		c.members ~= members;
 		
 		c.step = Step.Processed;
-		return c;
 	}
 	
-	Symbol visit(Declaration d, Enum e) {
-		auto ed = cast(EnumDeclaration) d;
-		assert(ed);
-		
+	void analyze(EnumDeclaration d, Enum e) {
 		assert(e.name.isDefined, "anonymous enums must be flattened !");
 		
 		auto oldManglePrefix = manglePrefix;
@@ -515,7 +584,7 @@ final class SymbolVisitor {
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		e.type = pass.visit(ed.type).type;
+		e.type = pass.visit(d.type).type;
 		auto type = new EnumType(e);
 		
 		TypeKind kind;
@@ -532,7 +601,7 @@ final class SymbolVisitor {
 		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = "E" ~ manglePrefix;
 		
-		foreach(vd; ed.entries) {
+		foreach(vd; d.entries) {
 			auto v = new Variable(vd.location, QualType(type), vd.name);
 			
 			v.isStatic = true;
@@ -548,12 +617,14 @@ final class SymbolVisitor {
 		Expression previous;
 		Expression one;
 		import std.range;
-		foreach(v, vd; lockstep(e.entries, ed.entries)) {
+		foreach(v, vd; lockstep(e.entries, d.entries)) {
 			v.step = Step.Signed;
 			scope(exit) v.step = Step.Processed;
 			
 			if(vd.value) {
-				v.value = pass.visit(vd.value);
+				import d.semantic.expression;
+				auto ev = ExpressionVisitor(pass);
+				v.value = ev.visit(vd.value);
 			} else {
 				if(previous) {
 					if(!one) {
@@ -574,13 +645,9 @@ final class SymbolVisitor {
 		}
 		
 		e.step = Step.Processed;
-		return e;
 	}
 	
-	Symbol visit(Declaration d, Template t) {
-		auto td = cast(TemplateDeclaration) d;
-		assert(td);
-		
+	void analyze(TemplateDeclaration d, Template t) {
 		// XXX: compute a proper mangling for templates.
 		auto name = t.name.toString(context);
 		t.mangle = manglePrefix ~ to!string(name.length) ~ name;
@@ -592,7 +659,7 @@ final class SymbolVisitor {
 		
 		// Register parameter int the scope.
 		auto none = getBuiltin(TypeKind.None);
-		foreach(uint i, p; td.parameters) {
+		foreach(uint i, p; d.parameters) {
 			if(auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, i, none, none);
 				tp.step = Step.Signed;
@@ -606,7 +673,7 @@ final class SymbolVisitor {
 		t.step = Step.Populated;
 		
 		// TODO: find a way to make that clean.
-		foreach(i, p; td.parameters) {
+		foreach(i, p; d.parameters) {
 			if(auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = cast(TypeTemplateParameter) t.parameters[i];
 				assert(tp);
@@ -633,7 +700,36 @@ final class SymbolVisitor {
 		}
 		
 		t.step = Step.Processed;
-		return t;
+	}
+	
+	void analyze(Template t, TemplateInstance i) {
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+		}
+		
+		manglePrefix = i.mangle;
+		auto dscope = currentScope = i.dscope = new SymbolScope(i, t.dscope);
+		
+		// Prefilled members are template arguments.
+		foreach(s; i.members) {
+			dscope.addSymbol(s);
+		}
+		
+		// XXX: that is doomed to explode fireworks style.
+		import d.semantic.declaration, d.ast.base;
+		auto dv = DeclarationVisitor(pass, t.isStatic);
+		
+		auto members = dv.flatten(t.members, i);
+		i.step = Step.Populated;
+		
+		scheduler.require(members);
+		i.members ~= members;
+		
+		i.step = Step.Processed;
 	}
 }
 
