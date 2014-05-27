@@ -148,7 +148,9 @@ struct TemplateInstancier {
 				static if(is(typeof(identified) : QualType)) {
 					auto a = new TypeAlias(p.location, p.name, identified);
 					
-					a.mangle = pass.typeMangler.visit(identified);
+					import d.semantic.mangler;
+					auto mangler = TypeMangler(pass);
+					a.mangle = mangler.visit(identified);
 					a.step = Step.Processed;
 					
 					argSyms ~= a;

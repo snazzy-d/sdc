@@ -193,7 +193,9 @@ struct SymbolAnalyzer {
 		
 		switch(f.linkage) with(Linkage) {
 			case D :
-				auto typeMangle = pass.typeMangler.visit(f.type);
+				import d.semantic.mangler;
+				auto mangler = TypeMangler(pass);
+				auto typeMangle = mangler.visit(f.type);
 				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 				break;
 			
@@ -262,7 +264,9 @@ struct SymbolAnalyzer {
 		
 		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");
 		
-		auto typeMangle = pass.typeMangler.visit(f.type);
+		import d.semantic.mangler;
+		auto mangler = TypeMangler(pass);
+		auto typeMangle = mangler.visit(f.type);
 		f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
 		
 		f.step = Step.Processed;
@@ -316,7 +320,10 @@ struct SymbolAnalyzer {
 		v.mangle = name;
 		if(v.isStatic) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
-			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ typeMangler.visit(v.type);
+			
+			import d.semantic.mangler;
+			auto mangler = TypeMangler(pass);
+			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangler.visit(v.type);
 		}
 		
 		v.step = Step.Processed;
@@ -334,7 +341,10 @@ struct SymbolAnalyzer {
 	
 	void analyze(AliasDeclaration d, TypeAlias a) {
 		a.type = pass.visit(d.type);
-		a.mangle = typeMangler.visit(a.type);
+		
+		import d.semantic.mangler;
+		auto mangler = TypeMangler(pass);
+		a.mangle = mangler.visit(a.type);
 		
 		a.step = Step.Processed;
 	}

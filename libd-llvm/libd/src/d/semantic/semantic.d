@@ -7,7 +7,6 @@ public import util.visitor;
 
 import d.semantic.dmodule;
 import d.semantic.evaluator;
-import d.semantic.mangler;
 import d.semantic.scheduler;
 import d.semantic.type;
 
@@ -51,8 +50,6 @@ final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	private TypeVisitor typeVisitor;
 	
-	TypeMangler typeMangler;
-	
 	Context context;
 	
 	Evaluator evaluator;
@@ -91,8 +88,6 @@ final class SemanticPass {
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
 		typeVisitor			= new TypeVisitor(this);
-		
-		typeMangler			= new TypeMangler(this);
 		
 		scheduler			= new Scheduler(this);
 		

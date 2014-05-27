@@ -7,7 +7,7 @@ import d.ir.type;
 import std.algorithm;
 import std.array;
 
-final class TypeMangler {
+struct TypeMangler {
 	private SemanticPass pass;
 	alias pass this;
 	
