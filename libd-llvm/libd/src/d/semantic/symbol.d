@@ -543,12 +543,17 @@ struct SymbolAnalyzer {
 						candidate = null;
 						break;
 					} else {
-						assert(0, "Override not marked as override !");
+						import d.exception;
+						throw new CompileException(
+							method.location,
+							method.name.toString(context) ~ " overrides a base class methode but is not marked override",
+						);
 					}
 				}
 				
 				if(method.index == 0) {
-					assert(0, "Override not found for " ~ method.name.toString(context));
+					import d.exception;
+					throw new CompileException(method.location, "Override not found for " ~ method.name.toString(context));
 				}
 			}
 		}
