@@ -85,7 +85,10 @@ struct TemplateInstancier {
 			matchedArgs.length = t.parameters.length;
 			
 			auto match = matchArguments(t, args, fargs, matchedArgs);
-			assert(match, "no match");
+			if (!match) {
+				import d.exception;
+				throw new CompileException(location, "No match");
+			}
 		}
 		
 		return instanciateFromResolvedArgs(location, t, matchedArgs);
