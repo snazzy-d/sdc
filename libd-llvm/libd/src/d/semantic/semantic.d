@@ -8,7 +8,6 @@ public import util.visitor;
 import d.semantic.dmodule;
 import d.semantic.evaluator;
 import d.semantic.scheduler;
-import d.semantic.type;
 
 import d.ast.base;
 import d.ast.declaration;
@@ -48,7 +47,6 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
-	private TypeVisitor typeVisitor;
 	
 	Context context;
 	
@@ -87,8 +85,6 @@ final class SemanticPass {
 		this.evaluator	= evaluator;
 		
 		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		typeVisitor			= new TypeVisitor(this);
-		
 		scheduler			= new Scheduler(this);
 		
 		auto obj	= importModule([BuiltinName!"object"]);
@@ -115,14 +111,6 @@ final class SemanticPass {
 	
 	void terminate() {
 		scheduler.terminate();
-	}
-	
-	QualType visit(QualAstType t) {
-		return typeVisitor.visit(t);
-	}
-	
-	ParamType visit(ParamAstType t) {
-		return typeVisitor.visit(t);
 	}
 	
 	auto evaluate(Expression e) {

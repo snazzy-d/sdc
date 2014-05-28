@@ -131,7 +131,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	Ret visit(TypeDotIdentifier i) {
-		return resolveInType(i.location, pass.visit(i.type), i.name);
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		return resolveInType(i.location, tv.visit(i.type), i.name);
 	}
 	
 	Ret visit(TemplateInstanciationDotIdentifier i) {
@@ -287,7 +289,9 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		auto iva = IdentifierVisitor!(argHandler, true)(pass);
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if(auto ta = cast(TypeTemplateArgument) a) {
-				return TemplateArgument(pass.visit(ta.type));
+				import d.semantic.type;
+				auto tv = TypeVisitor(pass);
+				return TemplateArgument(tv.visit(ta.type));
 			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
 				return iva.visit(ia.identifier);
 			}

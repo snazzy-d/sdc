@@ -332,8 +332,9 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(AstCastExpression e) {
-		auto to = pass.visit(e.type);
-		return buildExplicitCast(pass, e.location, to, visit(e.expr));
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		return buildExplicitCast(pass, e.location, tv.visit(e.type), visit(e.expr));
 	}
 	
 	private auto buildArgument(Expression arg, ParamType pt) {
@@ -653,8 +654,10 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
-		
-		auto type = pass.visit(e.type);
+
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		auto type = tv.visit(e.type);
 		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
@@ -790,7 +793,9 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(AstStaticTypeidExpression e) {
-		return handleTypeid(e.location, pass.visit(e.argument));
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		return handleTypeid(e.location, tv.visit(e.argument));
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {

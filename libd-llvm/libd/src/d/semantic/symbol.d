@@ -75,8 +75,15 @@ struct SymbolAnalyzer {
 	
 	alias Step = SemanticPass.Step;
 	
+	// TODO: see if we can make a union  of pass + visitors with the
+	// correct static checks in place to ensure it is safe and won't break.
+	import d.semantic.type;
+	private TypeVisitor tv;
+	
 	this(SemanticPass pass) {
 		this.pass = pass;
+		
+		tv = TypeVisitor(pass);
 	}
 	
 	void analyze(AstModule astm, Module m) {
@@ -118,7 +125,7 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
@@ -132,7 +139,7 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
 		
-		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : pass.visit(fd.returnType);
+		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
 		
 		// Compute return type.
 		if(!isAuto) {
@@ -215,7 +222,7 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
@@ -293,7 +300,7 @@ struct SymbolAnalyzer {
 			value = ev.visit(d.value);
 			v.type = value.type;
 		} else {
-			auto type = v.type = pass.visit(d.type);
+			auto type = v.type = tv.visit(d.type);
 			if (d.value) {
 				value = ev.visit(d.value);
 			} else {
@@ -340,7 +347,7 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(AliasDeclaration d, TypeAlias a) {
-		a.type = pass.visit(d.type);
+		a.type = tv.visit(d.type);
 		
 		import d.semantic.mangler;
 		auto mangler = TypeMangler(pass);
@@ -589,7 +596,7 @@ struct SymbolAnalyzer {
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		e.type = pass.visit(d.type).type;
+		e.type = tv.visit(d.type).type;
 		auto type = new EnumType(e);
 		
 		TypeKind kind;
@@ -683,8 +690,8 @@ struct SymbolAnalyzer {
 				auto tp = cast(TypeTemplateParameter) t.parameters[i];
 				assert(tp);
 				
-				tp.specialization = pass.visit(atp.specialization);
-				tp.value = pass.visit(atp.value);
+				tp.specialization = tv.visit(atp.specialization);
+				tp.value = tv.visit(atp.value);
 				
 				tp.step = Step.Processed;
 			} else {
@@ -699,7 +706,7 @@ struct SymbolAnalyzer {
 					continue;
 				}
 				
-				t.ifti = fun.params.map!(p => pass.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
+				t.ifti = fun.params.map!(p => tv.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
 				break;
 			}
 		}
