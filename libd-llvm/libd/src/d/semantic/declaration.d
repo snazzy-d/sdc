@@ -621,7 +621,7 @@ final class PoisonScope : NestedScope {
 		if(isPoisoned) {
 			auto p = name in symbols;
 			if(p && cast(Poison) *p) {
-				assert(0, "poisoned");
+				throw new Exception("poisoned");
 			}
 		}
 	}
@@ -667,7 +667,8 @@ final class PoisonScope : NestedScope {
 		if(p) {
 			if(auto cs = cast(ConditionalSet) *p) {
 				// Resolve conditonal and poison.
-				assert(0, "Conditionnal delcaration not handled.");
+				import d.exception;
+				throw new CompileException(cs.location, "Conditionnal delcaration not implemented");
 			}
 		} else if(isPoisoning) {
 			symbols[name] = new Poison(name);
