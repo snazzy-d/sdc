@@ -142,7 +142,10 @@ struct SymbolAnalyzer {
 		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
 		
 		// Compute return type.
-		if(!isAuto) {
+		if(isAuto) {
+			// Functions are always populated as resolution is order dependant.
+			f.step = Step.Populated;
+		} else {
 			// If it isn't a static method, add this.
 			if(!f.isStatic) {
 				assert(thisType.type, "function must be static or thisType must be defined.");
@@ -160,7 +163,7 @@ struct SymbolAnalyzer {
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = f.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new SymbolScope(f, oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {
@@ -255,7 +258,7 @@ struct SymbolAnalyzer {
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = f.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new SymbolScope(f, oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {

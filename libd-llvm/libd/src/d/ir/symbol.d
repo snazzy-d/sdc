@@ -103,7 +103,7 @@ class Function : ValueSymbol {
 	Parameter[] params;
 	BlockStatement fbody;
 	
-	NestedScope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, QualType type, Name name, Parameter[] params, BlockStatement fbody) {
 		super(location, name, type);
@@ -174,7 +174,7 @@ class Template : Symbol {
 	import d.ast.declaration;
 	Declaration[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	TemplateInstance[string] instances;
 	
@@ -238,7 +238,7 @@ class Class : TypeSymbol {
 	
 	Symbol[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
@@ -255,7 +255,7 @@ class Interface : TypeSymbol {
 	Interface[] bases;
 	Symbol[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
 		super(location, name);
@@ -286,7 +286,7 @@ class Struct : TypeSymbol {
 class Union : TypeSymbol {
 	Symbol[] members;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);
@@ -301,7 +301,7 @@ class Union : TypeSymbol {
 class Enum : TypeSymbol {
 	Type type;
 	
-	Scope dscope;
+	SymbolScope dscope;
 	
 	Variable[] entries;
 	
