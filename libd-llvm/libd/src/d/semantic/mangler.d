@@ -119,6 +119,10 @@ struct TypeMangler {
 		return e.mangle;
 	}
 	
+	string visit(ContextType t) {
+		return "M";
+	}
+	
 	private auto mangleParam(ParamType t) {
 		return (t.isRef?"K":"") ~ visit(QualType(t.type, t.qualifier));
 	}

@@ -841,5 +841,50 @@ struct ExpressionVisitor {
 		auto exprs = s.set.map!(s => iv.visit(location, s)).array();
 		return new PolysemousExpression(location, exprs);
 	}
+	
+	import d.ast.statement;
+	private auto handleDgs(Location location, Name name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+		auto d = new FunctionDeclaration(
+			location,
+			Linkage.D,
+			ParamAstType(new AutoType(), false),
+			name,
+			params,
+			isVariadic,
+			fbody,
+		);
+		
+		auto f = new Function(location, getBuiltin(TypeKind.None), name, [], null);
+		f.hasContext = true;
+		
+		import d.semantic.symbol;
+		auto sv = SymbolAnalyzer(pass);
+		sv.analyze(d, f);
+		scheduler.require(f);
+		
+		return new SymbolExpression(location, f);
+	}
+	
+	Expression visit(DelegateLiteral e) {
+		return handleDgs(
+			e.location,
+			// FIXME: generate name properly
+			context.getName("__dg"),
+			e.params,
+			e.isVariadic,
+			e.fbody,
+		);
+	}
+	
+	Expression visit(Lambda e) {
+		return handleDgs(
+			e.location,
+			// FIXME: generate name properly
+			context.getName("__lambda"),
+			e.params,
+			false,
+			new AstBlockStatement(e.value.location, [new AstReturnStatement(e.value.location, e.value)]),
+		);
+	}
 }
 

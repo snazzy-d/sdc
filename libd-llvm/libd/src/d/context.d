@@ -87,6 +87,10 @@ enum Prefill = [
 	"__sd_class_downcast",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
+	// Generated symbols
+	"__dg",
+	"__lambda",
+	"__ctx",
 ];
 
 auto getNames() {

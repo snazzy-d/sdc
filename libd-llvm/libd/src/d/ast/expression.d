@@ -356,19 +356,20 @@ class __Line__Literal : AstExpression {
  * Delegate literal
  */
 class DelegateLiteral : AstExpression {
-	// FIXME: Use a FunctionDeclaration in there.
 	ParamDecl[] params;
-	AstStatement statement;
+	bool isVariadic;
+	AstBlockStatement fbody;
 	
-	this(Location location, ParamDecl[] params, AstStatement statement) {
+	this(Location location, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		super(location);
 		
 		this.params = params;
-		this.statement = statement;
+		this.isVariadic = isVariadic;
+		this.fbody = fbody;
 	}
 	
-	this(AstStatement statement) {
-		this(statement.location, [], statement);
+	this(AstBlockStatement fbody) {
+		this(fbody.location, [], false, fbody);
 	}
 }
 

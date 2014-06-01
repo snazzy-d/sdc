@@ -30,7 +30,11 @@ class Scope {
 	
 	void addSymbol(Symbol s) {
 		assert(!s.name.isEmpty, "Symbol can't be added to scope as it has no name.");
-		assert(!(s.name in symbols), "Already present in scope.");
+		
+		if (s.name in symbols) {
+			import d.exception;
+			throw new CompileException(s.location, "Already in scope");
+		}
 		
 		symbols[s.name] = s;
 	}
@@ -71,6 +75,10 @@ class NestedScope : Scope {
 	}
 	
 	final auto clone() {
+		if (typeid(this) !is typeid(NestedScope)) {
+			return new NestedScope(this);
+		}
+		
 		auto clone = new NestedScope(parent);
 		
 		clone.symbols = symbols.dup;
@@ -80,13 +88,38 @@ class NestedScope : Scope {
 	}
 }
 
-final class SymbolScope : NestedScope {
+class SymbolScope : NestedScope {
 	Symbol symbol;
 	
 	this(Symbol symbol, Scope parent) {
 		super(parent);
 		
 		this.symbol = symbol;
+	}
+}
+
+final class ClosureScope : SymbolScope {
+	Variable[] capture;
+	
+	this(Symbol symbol, Scope parent) {
+		super(symbol, parent);
+	}
+	
+	override Symbol search(Name name) {
+		return symbols.get(name, {
+			auto s = parent.search(name);
+			if (s !is null && s.storage == Storage.Local && typeid(s) is typeid(Variable)) {
+				capture ~= () @trusted {
+					// Fast cast can be trusted in this case, we already did the check.
+					import util.fastcast;
+					return fastCast!Variable(s);
+				} ();
+				
+				s.storage = Storage.Capture;
+			}
+			
+			return s;
+		} ());
 	}
 }
 

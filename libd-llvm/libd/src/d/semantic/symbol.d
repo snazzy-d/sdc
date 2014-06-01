@@ -127,6 +127,12 @@ struct SymbolAnalyzer {
 		auto ev = ExpressionVisitor(pass);
 		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
+		// If this is a clusore, we add the context parameter.
+		if(f.hasContext) {
+			auto contextParameter = new Parameter(f.location, ParamType(new ContextType(), true), BuiltinName!"__ctx", null);
+			params = contextParameter ~ params;
+		}
+		
 		// If it has a this pointer, add it as parameter.
 		if(f.hasThis) {
 			assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
@@ -163,7 +169,9 @@ struct SymbolAnalyzer {
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = f.dscope = new SymbolScope(f, oldScope);
+			currentScope = f.dscope = f.hasContext
+				? new ClosureScope(f, oldScope)
+				: new SymbolScope(f, oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {
@@ -174,7 +182,6 @@ struct SymbolAnalyzer {
 				}
 			}
 			
-			// TODO: change ast to allow any statement as function body;
 			// And flatten.
 			import d.semantic.statement;
 			auto sv = StatementVisitor(pass);

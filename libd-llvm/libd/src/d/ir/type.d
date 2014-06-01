@@ -144,6 +144,11 @@ bool isFloat(TypeKind t) {
 
 final:
 /**
+ * Closure context pointer
+ */
+class ContextType : Type {}
+
+/**
  * builtin types
  */
 class BuiltinType : Type {

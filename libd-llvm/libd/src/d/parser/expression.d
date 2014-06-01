@@ -723,12 +723,11 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 					import d.parser.declaration;
 					bool isVariadic;
 					auto params = trange.parseParameters(isVariadic);
-					assert(!isVariadic, "Variadic delegate literals not supported");
 					
 					auto block = trange.parseBlock();
 					location.spanTo(block.location);
 					
-					return new DelegateLiteral(location, params, block);
+					return new DelegateLiteral(location, params, isVariadic, block);
 				
 				case AssignMore:
 					import d.parser.declaration;

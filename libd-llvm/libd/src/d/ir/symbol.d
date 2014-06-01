@@ -101,11 +101,11 @@ class Variable : ValueSymbol {
  */
 class Function : ValueSymbol {
 	Parameter[] params;
-	BlockStatement fbody;
+	Statement fbody;
 	
 	SymbolScope dscope;
 	
-	this(Location location, QualType type, Name name, Parameter[] params, BlockStatement fbody) {
+	this(Location location, QualType type, Name name, Parameter[] params, Statement fbody) {
 		super(location, name, type);
 		
 		this.params = params;

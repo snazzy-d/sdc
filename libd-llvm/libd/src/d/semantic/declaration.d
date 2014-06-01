@@ -27,6 +27,11 @@ enum AggregateType {
 	Class,
 }
 
+enum AddContext {
+	No,
+	Yes,
+}
+
 struct DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -77,8 +82,9 @@ struct DeclarationVisitor {
 			Visibility, "visibility", 3,
 			Storage, "storage", 2,
 			AggregateType, "aggregateType", 2,
+			AddContext, "addContext", 1,
 			bool, "isOverride", 1,
-			uint, "", 5,
+			uint, "", 4,
 		));
 	}
 	
@@ -89,6 +95,7 @@ struct DeclarationVisitor {
 		visibility = Visibility.Public;
 		storage = Storage.Local;
 		aggregateType = AggregateType.None;
+		addContext = AddContext.No;
 		isOverride = false;
 	}
 	
@@ -106,6 +113,8 @@ struct DeclarationVisitor {
 				storage = param;
 			} else static if(is(T == AggregateType)) {
 				aggregateType = param;
+			} else static if(is(T == AddContext)) {
+				addContext = param;
 			} else {
 				// FIXME: horrible use of stringof. typeid(T) is not availabel at compile time :(
 				static assert(0, T.stringof ~ " is not a valid initializer for DeclarationVisitor");
@@ -326,6 +335,7 @@ struct DeclarationVisitor {
 		f.storage = Storage.Enum;
 		
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
+		f.hasContext = isStatic ? false : !!addContext;
 		
 		currentScope.addOverloadableSymbol(f);
 		

@@ -46,11 +46,6 @@ struct StatementVisitor {
 	}
 	
 	BlockStatement flatten(AstBlockStatement b) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = (cast(NestedScope) oldScope).clone();
-		
 		auto oldFlattenedStmts = flattenedStmts;
 		scope(exit) flattenedStmts = oldFlattenedStmts;
 		
@@ -68,13 +63,18 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstBlockStatement b) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
 		flattenedStmts ~= flatten(b);
 	}
 	
 	void visit(DeclarationStatement s) {
 		import d.ast.base;
 		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(pass);
+		auto dv = DeclarationVisitor(pass, AddContext.Yes);
 		auto syms = dv.flatten(s.declaration);
 		scheduler.require(syms);
 		
@@ -89,6 +89,11 @@ struct StatementVisitor {
 	}
 	
 	private auto autoBlock(AstStatement s) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
 		if(auto b = cast(AstBlockStatement) s) {
 			return flatten(b);
 		}
