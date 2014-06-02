@@ -375,7 +375,8 @@ final class ExpressionGen {
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		if(e.symbol.isEnum) {
+		import d.ast.base;
+		if(e.symbol.storage == Storage.Enum) {
 			return pass.visit(e.symbol);
 		} else {
 			return LLVMBuildLoad(builder, addressOf(e), "");
@@ -753,7 +754,8 @@ final class AddressOfGen {
 	}
 	
 	LLVMValueRef visit(SymbolExpression e) {
-		assert(!e.symbol.isEnum, "enum have no address.");
+		import d.ast.base;
+		assert(!e.symbol.storage != Storage.Enum, "enum have no address.");
 		
 		return pass.visit(e.symbol);
 	}

@@ -328,7 +328,7 @@ class SymbolExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return !(symbol.isEnum);
+		return symbol.storage != Storage.Enum;
 	}
 }
 

@@ -375,11 +375,14 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
+		auto idLoc = trange.front.location;
 		auto name = trange.front.name;
 		trange.match(TokenType.Identifier);
 		
-		// XXX: get the name :D
-		assert(!name.isReserved, "XXX is a reserved name");
+		if (name.isReserved) {
+			import d.exception;
+			throw new CompileException(idLoc, name.toString(trange.context) ~ " is a reserved name");
+		}
 		
 		// TODO: implement ref return.
 		return trange.parseFunction(location, Linkage.D, ParamAstType(type, false), name);

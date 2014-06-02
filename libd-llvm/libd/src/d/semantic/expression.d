@@ -82,7 +82,7 @@ struct ExpressionVisitor {
 	
 	private Expression getTemporaryRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.isFinal = true;
+		v.storage = Storage.Enum;
 		v.step = Step.Processed;
 		
 		return new SymbolExpression(value.location, v);
@@ -332,8 +332,9 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(AstCastExpression e) {
-		auto to = pass.visit(e.type);
-		return buildExplicitCast(pass, e.location, to, visit(e.expr));
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		return buildExplicitCast(pass, e.location, tv.visit(e.type), visit(e.expr));
 	}
 	
 	private auto buildArgument(Expression arg, ParamType pt) {
@@ -535,9 +536,9 @@ struct ExpressionVisitor {
 				pass.scheduler.require(f, Step.Signed);
 				
 				// TODO: Factorize this construct somewhere.
-				return f.isStatic
-					? new SymbolExpression(location, f)
-					: new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f);
+				return f.hasThis
+					? new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f)
+					: new SymbolExpression(location, f);
 			} else if(auto t = cast(Template) s) {
 				return handleIFTI(location, iloc, t, args);
 			}
@@ -653,8 +654,10 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
-		
-		auto type = pass.visit(e.type);
+
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		auto type = tv.visit(e.type);
 		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
@@ -790,7 +793,9 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(AstStaticTypeidExpression e) {
-		return handleTypeid(e.location, pass.visit(e.argument));
+		import d.semantic.type;
+		auto tv = TypeVisitor(pass);
+		return handleTypeid(e.location, tv.visit(e.argument));
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {

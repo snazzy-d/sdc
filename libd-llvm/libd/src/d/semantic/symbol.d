@@ -75,8 +75,15 @@ struct SymbolAnalyzer {
 	
 	alias Step = SemanticPass.Step;
 	
+	// TODO: see if we can make a union  of pass + visitors with the
+	// correct static checks in place to ensure it is safe and won't break.
+	import d.semantic.type;
+	private TypeVisitor tv;
+	
 	this(SemanticPass pass) {
 		this.pass = pass;
+		
+		tv = TypeVisitor(pass);
 	}
 	
 	void analyze(AstModule astm, Module m) {
@@ -103,7 +110,7 @@ struct SymbolAnalyzer {
 		manglePrefix ~= to!string(name.length) ~ name;
 		
 		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(pass);
+		auto dv = DeclarationVisitor(pass, Storage.Static);
 		
 		// All modules implicitely import object.
 		import d.context;
@@ -118,7 +125,15 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		
+		// If it has a this pointer, add it as parameter.
+		if(f.hasThis) {
+			assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
+			
+			auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
+			params = thisParameter ~ params;
+		}
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
@@ -132,18 +147,13 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
 		
-		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : pass.visit(fd.returnType);
+		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
 		
 		// Compute return type.
-		if(!isAuto) {
-			// If it isn't a static method, add this.
-			if(!f.isStatic) {
-				assert(thisType.type, "function must be static or thisType must be defined.");
-				
-				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
-				params = thisParameter ~ params;
-			}
-			
+		if(isAuto) {
+			// Functions are always populated as resolution is order dependant.
+			f.step = Step.Populated;
+		} else {
 			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
 			f.step = Step.Signed;
 		}
@@ -153,7 +163,7 @@ struct SymbolAnalyzer {
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = f.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new SymbolScope(f, oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {
@@ -172,14 +182,6 @@ struct SymbolAnalyzer {
 		}
 		
 		if(isAuto) {
-			// If it isn't a static method, add this.
-			if(!f.isStatic) {
-				assert(thisType.type, "function must be static or thisType must be defined.");
-				
-				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
-				params = thisParameter ~ params;
-			}
-			
 			// If nothing has been set, the function returns void.
 			if(auto t = cast(BuiltinType) returnType.type) {
 				if(t.kind == TypeKind.None) {
@@ -196,7 +198,7 @@ struct SymbolAnalyzer {
 				import d.semantic.mangler;
 				auto mangler = TypeMangler(pass);
 				auto typeMangle = mangler.visit(f.type);
-				f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
+				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
 				break;
 			
 			case C :
@@ -215,7 +217,7 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, pass.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
@@ -248,7 +250,7 @@ struct SymbolAnalyzer {
 			scope(exit) currentScope = oldScope;
 			
 			// Update scope.
-			currentScope = f.dscope = new NestedScope(oldScope);
+			currentScope = f.dscope = new SymbolScope(f, oldScope);
 			
 			// Register parameters.
 			foreach(p; params) {
@@ -267,7 +269,7 @@ struct SymbolAnalyzer {
 		import d.semantic.mangler;
 		auto mangler = TypeMangler(pass);
 		auto typeMangle = mangler.visit(f.type);
-		f.mangle = "_D" ~ manglePrefix ~ (f.isStatic?typeMangle:("FM" ~ typeMangle[1 .. $]));
+		f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
 		
 		f.step = Step.Processed;
 	}
@@ -293,7 +295,7 @@ struct SymbolAnalyzer {
 			value = ev.visit(d.value);
 			v.type = value.type;
 		} else {
-			auto type = v.type = pass.visit(d.type);
+			auto type = v.type = tv.visit(d.type);
 			if (d.value) {
 				value = ev.visit(d.value);
 			} else {
@@ -307,10 +309,10 @@ struct SymbolAnalyzer {
 		
 		// Sanity check.
 		if(d.isEnum) {
-			assert(v.isEnum);
+			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.isEnum) {
+		if(v.storage == Storage.Enum) {
 			value = evaluate(value);
 		}
 		
@@ -318,7 +320,7 @@ struct SymbolAnalyzer {
 		
 		auto name = v.name.toString(context);
 		v.mangle = name;
-		if(v.isStatic) {
+		if(v.storage == Storage.Enum) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
@@ -331,16 +333,16 @@ struct SymbolAnalyzer {
 	
 	void analyze(VariableDeclaration d, Field f) {
 		// XXX: hacky ! We force CTFE that way.
-		auto oldIsEnum = f.isEnum;
-		scope(exit) f.isEnum = oldIsEnum;
+		auto oldStorage = f.storage;
+		scope(exit) f.storage = oldStorage;
 		
-		f.isEnum = true;
+		f.storage = Storage.Enum;
 		
 		analyze(d, cast(Variable) f);
 	}
 	
 	void analyze(AliasDeclaration d, TypeAlias a) {
-		a.type = pass.visit(d.type);
+		a.type = tv.visit(d.type);
 		
 		import d.semantic.mangler;
 		auto mangler = TypeMangler(pass);
@@ -376,7 +378,7 @@ struct SymbolAnalyzer {
 		
 		fieldIndex = 0;
 		
-		auto dv = DeclarationVisitor(pass, false, true);
+		auto dv = DeclarationVisitor(pass, AggregateType.Struct);
 		
 		auto members = dv.flatten(d.members, s);
 		s.step = Step.Populated;
@@ -397,7 +399,7 @@ struct SymbolAnalyzer {
 		tuple.type = type;
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
-		init.isStatic = true;
+		init.storage = Storage.Static;
 		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
 		
 		s.dscope.addSymbol(init);
@@ -493,7 +495,7 @@ struct SymbolAnalyzer {
 			fieldIndex++;
 		}
 		
-		auto dv = DeclarationVisitor(pass, false, true, true);
+		auto dv = DeclarationVisitor(pass, AggregateType.Class);
 		auto members = dv.flatten(d.members, c);
 		
 		c.step = Step.Signed;
@@ -543,12 +545,17 @@ struct SymbolAnalyzer {
 						candidate = null;
 						break;
 					} else {
-						assert(0, "Override not marked as override !");
+						import d.exception;
+						throw new CompileException(
+							method.location,
+							method.name.toString(context) ~ " overrides a base class methode but is not marked override",
+						);
 					}
 				}
 				
 				if(method.index == 0) {
-					assert(0, "Override not found for " ~ method.name.toString(context));
+					import d.exception;
+					throw new CompileException(method.location, "Override not found for " ~ method.name.toString(context));
 				}
 			}
 		}
@@ -584,7 +591,7 @@ struct SymbolAnalyzer {
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		e.type = pass.visit(d.type).type;
+		e.type = tv.visit(d.type).type;
 		auto type = new EnumType(e);
 		
 		TypeKind kind;
@@ -604,8 +611,7 @@ struct SymbolAnalyzer {
 		foreach(vd; d.entries) {
 			auto v = new Variable(vd.location, QualType(type), vd.name);
 			
-			v.isStatic = true;
-			v.isEnum = true;
+			v.storage = Storage.Enum;
 			v.step = Step.Processed;
 			
 			e.dscope.addSymbol(v);
@@ -678,8 +684,8 @@ struct SymbolAnalyzer {
 				auto tp = cast(TypeTemplateParameter) t.parameters[i];
 				assert(tp);
 				
-				tp.specialization = pass.visit(atp.specialization);
-				tp.value = pass.visit(atp.value);
+				tp.specialization = tv.visit(atp.specialization);
+				tp.value = tv.visit(atp.value);
 				
 				tp.step = Step.Processed;
 			} else {
@@ -694,7 +700,7 @@ struct SymbolAnalyzer {
 					continue;
 				}
 				
-				t.ifti = fun.params.map!(p => pass.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
+				t.ifti = fun.params.map!(p => tv.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
 				break;
 			}
 		}
@@ -721,7 +727,7 @@ struct SymbolAnalyzer {
 		
 		// XXX: that is doomed to explode fireworks style.
 		import d.semantic.declaration, d.ast.base;
-		auto dv = DeclarationVisitor(pass, t.isStatic);
+		auto dv = DeclarationVisitor(pass, t.storage);
 		
 		auto members = dv.flatten(t.members, i);
 		i.step = Step.Populated;

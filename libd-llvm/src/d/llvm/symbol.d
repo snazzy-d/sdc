@@ -111,11 +111,11 @@ final class SymbolGen {
 		auto parameters = f.params;
 		
 		thisPtr = null;
-		if(!f.isStatic) {
-			auto type = (cast(FunctionType) f.type.type).paramTypes[0];
+		if(f.hasThis) {
+			auto thisType = (cast(FunctionType) f.type.type).paramTypes[0];
 			auto value = params[0];
 			
-			if(type.isRef || type.isFinal) {
+			if(thisType.isRef || thisType.isFinal) {
 				LLVMSetValueName(value, "this");
 				thisPtr = LLVMGetFirstParam(fun);
 			} else {
@@ -172,11 +172,12 @@ final class SymbolGen {
 	LLVMValueRef visit(Variable var) {
 		auto value = pass.visit(var.value);
 		
-		if(var.isEnum) {
+		import d.ast.base;
+		if(var.storage == Storage.Enum) {
 			return valueSymbols[var] = value;
 		}
 		
-		if(var.isStatic) {
+		if(var.storage == Storage.Static) {
 			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
 			LLVMSetThreadLocal(globalVar, true);
 			
