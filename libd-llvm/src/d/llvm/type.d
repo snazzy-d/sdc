@@ -270,5 +270,12 @@ final class TypeGen {
 		
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
 	}
+	
+	LLVMTypeRef visit(ContextType t) {
+		auto closure = contexts[$ - 1];
+		return closure.context
+			? LLVMGetElementType(LLVMTypeOf(closure.context))
+			: LLVMInt8TypeInContext(llvmCtx);
+	}
 }
 

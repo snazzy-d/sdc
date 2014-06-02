@@ -786,6 +786,10 @@ final class AddressOfGen {
 		return thisPtr;
 	}
 	
+	LLVMValueRef visit(ContextExpression e) {
+		return contexts[$ - 1].context;
+	}
+	
 	LLVMValueRef visit(UnaryExpression e) {
 		if(e.op == UnaryOp.Dereference) {
 			return pass.visit(e.expr);

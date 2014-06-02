@@ -44,6 +44,13 @@ final class CodeGenPass {
 	
 	LLVMValueRef thisPtr;
 	
+	struct Closure {
+		uint[Variable] indices;
+		LLVMValueRef context;
+	}
+	
+	Closure[] contexts;
+	
 	LLVMValueRef lpContext;
 	LLVMValueRef[] catchClauses;
 	

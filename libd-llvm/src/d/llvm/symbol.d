@@ -82,11 +82,16 @@ final class SymbolGen {
 		auto backupCurrentBB = LLVMGetInsertBlock(builder);
 		auto oldLocals = locals;
 		auto oldThisPtr = thisPtr;
+		auto oldContexts = contexts;
 		auto oldLpContext = lpContext;
 		auto oldCatchClauses = catchClauses;
 		auto oldUnwindBlocks = unwindBlocks;
 		auto oldBreakUnwindBlock = breakUnwindBlock;
 		auto oldContinueUnwindBlock = continueUnwindBlock;
+		
+		LLVMValueRef oldContext = f.hasContext
+			? contexts[$ - 1].context
+			: null;
 		
 		scope(exit) {
 			if(backupCurrentBB) {
@@ -97,11 +102,16 @@ final class SymbolGen {
 			
 			locals = oldLocals;
 			thisPtr = oldThisPtr;
+			contexts = oldContexts;
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
 			unwindBlocks = oldUnwindBlocks;
 			breakUnwindBlock = oldBreakUnwindBlock;
 			continueUnwindBlock = oldContinueUnwindBlock;
+			
+			if (oldContext) {
+				contexts[$ - 1].context = oldContext;
+			}
 		}
 		
 		// XXX: what is the way to flush an AA ?
@@ -130,7 +140,7 @@ final class SymbolGen {
 			
 			if(thisType.isRef || thisType.isFinal) {
 				LLVMSetValueName(value, "this");
-				thisPtr = LLVMGetFirstParam(fun);
+				thisPtr = value;
 			} else {
 				auto alloca = LLVMBuildAlloca(builder, paramTypes[0], "this");
 				LLVMSetValueName(value, "arg.this");
@@ -141,6 +151,29 @@ final class SymbolGen {
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
+		}
+		
+		if (oldContext) {
+			auto ctxType = (cast(FunctionType) f.type.type).paramTypes[f.hasThis];
+			auto value = params[f.hasThis];
+			
+			if(ctxType.isRef || ctxType.isFinal) {
+				LLVMSetValueName(value, "__ctx");
+				contexts[$ - 1].context = value;
+			} else {
+				auto alloca = LLVMBuildAlloca(builder, paramTypes[f.hasThis], "__ctx");
+				LLVMSetValueName(value, "arg.__ctx");
+				
+				LLVMBuildStore(builder, value, alloca);
+				contexts[$ - 1].context = alloca;
+			}
+			
+			params = params[1 .. $];
+			paramTypes = paramTypes[1 .. $];
+			
+			contexts ~= Closure();
+		} else {
+			contexts = [Closure()];
 		}
 		
 		foreach(i, p; parameters) {
@@ -180,45 +213,105 @@ final class SymbolGen {
 		// Branch from alloca block to function body.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 		LLVMBuildBr(builder, bodyBB);
+		
+		// If we have a context, let's make it the right size.
+		if (auto context = contexts[$ - 1].context) {
+			auto size = LLVMSizeOf(LLVMGetElementType(LLVMTypeOf(context)));
+			
+			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Call) {
+				LLVMDumpValue(context);
+				
+				assert(LLVMGetInstructionOpcode(context) == LLVMOpcode.BitCast);
+				context = LLVMGetOperand(context, 0);
+			}
+			
+			LLVMDumpValue(context);
+			
+			LLVMReplaceAllUsesWith(LLVMGetOperand(context, 0), size);
+		}
 	}
 	
-	LLVMValueRef visit(Variable var) {
-		auto value = pass.visit(var.value);
+	LLVMValueRef visit(Variable v) {
+		auto value = pass.visit(v.value);
 		
 		import d.ast.base;
-		if(var.storage == Storage.Enum) {
-			return globals[var] = value;
+		if(v.storage == Storage.Enum) {
+			return globals[v] = value;
 		}
 		
-		auto type = pass.visit(var.type);
-		if(var.storage == Storage.Static) {
-			auto globalVar = LLVMAddGlobal(dmodule, type, var.mangle.toStringz());
+		auto type = pass.visit(v.type);
+		if(v.storage == Storage.Static) {
+			auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
 			LLVMSetThreadLocal(globalVar, true);
 			
 			// Store the initial value into the global variable.
 			LLVMSetInitializer(globalVar, value);
 			
 			// Register the variable.
-			return globals[var] = globalVar;
+			return globals[v] = globalVar;
 		}
 		
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
+		scope(success) {
+			// Sanity check
+			assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
+		}
 		
-		LLVMValueRef addr = LLVMBuildAlloca(builder, type, var.mangle.toStringz());
-
+		LLVMValueRef addr;
+		if(v.storage == Storage.Capture) {
+			// Try to find out if we have the variable in a closure.
+			foreach_reverse(closure; contexts[0 .. $ - 1]) {
+				if (auto indexPtr = v in closure.indices) {
+					addr = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
+					LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+					
+					// Register the variable.
+					return locals[v] = addr;
+				}
+			}
+			
+			auto closure = &contexts[$ - 1];
+			if (!closure.context) {
+				closure.indices[v] = 0;
+				auto alloc = buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
+				
+				closure.context = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0), "");
+				addr = LLVMBuildStructGEP(builder, closure.context, 0, v.mangle.toStringz());
+			} else {
+				auto context = closure.context;
+				auto contextType = LLVMGetElementType(LLVMTypeOf(context));
+				
+				auto index = LLVMCountStructElementTypes(contextType);
+				closure.indices[v] = index;
+				
+				LLVMTypeRef[] types;
+				types.length = index + 1;
+				LLVMGetStructElementTypes(contextType, types.ptr);
+				
+				types[$ - 1] = type;
+				contextType = LLVMStructTypeInContext(llvmCtx, types.ptr, index + 1, false);
+				LLVMValueRef size = LLVMSizeOf(contextType);
+				
+				closure.context = LLVMBuildPointerCast(builder, context, LLVMPointerType(contextType, 0), "");
+				addr = LLVMBuildStructGEP(builder, closure.context, index, v.mangle.toStringz());
+			}
+		} else {
+			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz());
+		}
+		
 		// Store the initial value into the alloca.
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		LLVMBuildStore(builder, value, addr);
 		
 		import d.context;
-		if(var.name == BuiltinName!"this") {
+		if(v.name == BuiltinName!"this") {
 			thisPtr = addr;
 		}
 		
 		// Register the variable.
-		return locals[var] = addr;
+		return locals[v] = addr;
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
