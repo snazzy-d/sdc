@@ -22,6 +22,27 @@ enum Linkage {
 	Java,
 }
 
+enum Storage {
+	Local,
+	Capture,
+	Static,
+	Enum,
+}
+
+@property
+bool isStatic(Storage s) {
+	return s > Storage.Capture;
+}
+
+unittest {
+	with(Storage) {
+		assert(Local.isStatic   == false);
+		assert(Capture.isStatic == false);
+		assert(Static.isStatic  == true);
+		assert(Enum.isStatic    == true);
+	}
+}
+
 enum TypeQualifier {
 	Mutable,
 	Inout,

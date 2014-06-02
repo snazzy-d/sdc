@@ -26,11 +26,11 @@ class Symbol : Node {
 	mixin(bitfields!(
 		Linkage, "linkage", 3,
 		Visibility, "visibility", 3,
-		bool, "isStatic", 1,
-		bool, "isEnum", 1,
-		bool, "isFinal", 1,
+		Storage, "storage", 2,
 		bool, "isAbstract", 1,
-		uint, "", 4,
+		bool, "hasThis", 1,
+		bool, "hasContext", 1,
+		uint, "", 3,
 		Step, "step", 2,
 	));
 	

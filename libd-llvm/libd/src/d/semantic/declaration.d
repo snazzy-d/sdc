@@ -21,6 +21,12 @@ import std.range;
 
 alias Module = d.ir.symbol.Module;
 
+enum AggregateType {
+	None,
+	Struct,
+	Class,
+}
+
 struct DeclarationVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -69,23 +75,42 @@ struct DeclarationVisitor {
 		mixin(bitfields!(
 			Linkage, "linkage", 3,
 			Visibility, "visibility", 3,
-			bool, "isStatic", 1,
-			bool, "buildFields", 1,
-			bool, "buildMethods", 1,
+			Storage, "storage", 2,
+			AggregateType, "aggregateType", 2,
 			bool, "isOverride", 1,
-			uint, "", 6,
+			uint, "", 5,
 		));
 	}
 	
-	this(SemanticPass pass, bool isStatic = true, bool buildFields = false, bool buildMethods = false, Linkage linkage = Linkage.D, Visibility visibility = Visibility.Public) {
+	this(SemanticPass pass) {
 		this.pass = pass;
-		this.linkage = linkage;
-		this.visibility = visibility;
-		this.isStatic = isStatic;
-		this.buildFields = buildFields;
-		this.buildMethods = buildMethods;
 		
-		this.isOverride = false;
+		linkage = Linkage.D;
+		visibility = Visibility.Public;
+		storage = Storage.Local;
+		aggregateType = AggregateType.None;
+		isOverride = false;
+	}
+	
+	this(P...)(SemanticPass pass, P params) {
+		this(pass);
+		
+		foreach(param; params) {
+			alias T = typeof(param);
+			
+			static if(is(T == Linkage)) {
+				linkage = param;
+			} else static if(is(T == Visibility)) {
+				visibility = param;
+			} else static if(is(T == Storage)) {
+				storage = param;
+			} else static if(is(T == AggregateType)) {
+				aggregateType = param;
+			} else {
+				// FIXME: horrible use of stringof. typeid(T) is not availabel at compile time :(
+				static assert(0, T.stringof ~ " is not a valid initializer for DeclarationVisitor");
+			}
+		}
 	}
 	
 	Symbol[] flatten(Declaration[] decls, Symbol parent) {
@@ -284,8 +309,8 @@ struct DeclarationVisitor {
 	void visit(FunctionDeclaration d) {
 		Function f;
 		
-		import d.context : BuiltinName;
-		if(isStatic || !buildMethods || d.name.isReserved) {
+		auto isStatic = storage.isStatic;
+		if(isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
 			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
 		} else {
 			uint index = 0;
@@ -298,8 +323,9 @@ struct DeclarationVisitor {
 		
 		f.linkage = linkage;
 		f.visibility = visibility;
-		f.isStatic = isStatic;
-		f.isEnum = true;
+		f.storage = Storage.Enum;
+		
+		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
 		
 		currentScope.addOverloadableSymbol(f);
 		
@@ -307,10 +333,10 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
-		auto isEnum = d.isEnum;
+		auto storage = d.isEnum ? Storage.Enum : this.storage;
 		
 		Variable v;
-		if(isEnum || isStatic || !buildFields) {
+		if(storage.isStatic || aggregateType == AggregateType.None) {
 			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
@@ -318,8 +344,7 @@ struct DeclarationVisitor {
 		
 		v.linkage = linkage;
 		v.visibility = visibility;
-		v.isStatic = isStatic;
-		v.isEnum = isEnum;
+		v.storage = storage;
 		
 		currentScope.addSymbol(v);
 		
@@ -336,6 +361,7 @@ struct DeclarationVisitor {
 		Struct s = new Struct(d.location, d.name, []);
 		s.linkage = linkage;
 		s.visibility = visibility;
+		s.storage = storage;
 		
 		currentScope.addSymbol(s);
 		
@@ -346,6 +372,7 @@ struct DeclarationVisitor {
 		Class c = new Class(d.location, d.name, []);
 		c.linkage = linkage;
 		c.visibility = visibility;
+		c.storage = storage;
 		
 		currentScope.addSymbol(c);
 		
@@ -382,7 +409,7 @@ struct DeclarationVisitor {
 					}
 				}
 				
-				v.isEnum = true;
+				v.storage = Storage.Enum;
 				previous = vd.value;
 				
 				currentScope.addSymbol(v);
@@ -395,9 +422,9 @@ struct DeclarationVisitor {
 	void visit(TemplateDeclaration d) {
 		Template t = new Template(d.location, d.name, [], d.declarations);
 		
-		t.isStatic = isStatic;
 		t.linkage = linkage;
 		t.visibility = visibility;
+		t.storage = storage;
 		
 		currentScope.addOverloadableSymbol(t);
 		
@@ -424,10 +451,10 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(StaticDeclaration d) {
-		auto oldIsStatic = isStatic;
-		scope(exit) isStatic = oldIsStatic;
+		auto oldStorage = storage;
+		scope(exit) storage = oldStorage;
 		
-		isStatic = true;
+		storage = Storage.Static;
 		
 		foreach(decl; d.declarations) {
 			visit(decl);

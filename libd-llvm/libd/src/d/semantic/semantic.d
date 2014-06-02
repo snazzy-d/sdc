@@ -168,7 +168,7 @@ final class SemanticPass {
 		
 		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
 		auto bootstrap = new Function(main.location, QualType(type), BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
-		bootstrap.isStatic = true;
+		bootstrap.storage = Storage.Enum;
 		bootstrap.step = Step.Processed;
 		bootstrap.mangle = "_Dmain";
 		

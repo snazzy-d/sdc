@@ -82,7 +82,7 @@ struct ExpressionVisitor {
 	
 	private Expression getTemporaryRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.isFinal = true;
+		v.storage = Storage.Enum;
 		v.step = Step.Processed;
 		
 		return new SymbolExpression(value.location, v);
@@ -536,9 +536,9 @@ struct ExpressionVisitor {
 				pass.scheduler.require(f, Step.Signed);
 				
 				// TODO: Factorize this construct somewhere.
-				return f.isStatic
-					? new SymbolExpression(location, f)
-					: new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f);
+				return f.hasThis
+					? new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f)
+					: new SymbolExpression(location, f);
 			} else if(auto t = cast(Template) s) {
 				return handleIFTI(location, iloc, t, args);
 			}

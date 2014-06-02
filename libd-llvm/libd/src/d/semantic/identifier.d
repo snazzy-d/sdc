@@ -199,9 +199,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		} else {
 			scheduler.require(f, Step.Signed);
 			return handler(
-				f.isStatic
-					? new SymbolExpression(location, f)
-					: new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f)
+				f.hasThis
+					? new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f)
+					: new SymbolExpression(location, f)
 			);
 		}
 	}
