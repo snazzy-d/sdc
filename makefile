@@ -2,6 +2,7 @@ DMD ?= dmd
 GCC ?= gcc
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
+# DFLAGS = $(ARCHFLAG) -w -O -release
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs`
@@ -12,11 +13,11 @@ ifdef LD_PATH
 	LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB) -lstdc++ -export-dynamic
+LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
-	LDFLAGS += -ldl -lffi -lpthread -lm -lncurses
+	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses
 endif
 ifeq ($(PLATFORM),Darwin)
 	LDFLAGS += -lc++
