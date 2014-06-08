@@ -74,7 +74,7 @@ struct StatementVisitor {
 	void visit(DeclarationStatement s) {
 		import d.ast.base;
 		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(pass, AddContext.Yes);
+		auto dv = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private);
 		auto syms = dv.flatten(s.declaration);
 		scheduler.require(syms);
 		
