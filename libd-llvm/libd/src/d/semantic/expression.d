@@ -416,6 +416,8 @@ struct ExpressionVisitor {
 	Expression getFrom(Location location, Function f) {
 		pass.scheduler.require(f, Step.Signed);
 		
+		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
+		
 		Expression ctx = f.hasThis
 			? new ThisExpression(location, QualType(thisType.type))
 			: f.hasContext
@@ -871,7 +873,7 @@ struct ExpressionVisitor {
 		sv.analyze(d, f);
 		scheduler.require(f);
 		
-		return new SymbolExpression(location, f);
+		return getFrom(location, f);
 	}
 	
 	Expression visit(DelegateLiteral e) {
