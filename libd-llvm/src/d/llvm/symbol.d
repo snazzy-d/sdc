@@ -18,7 +18,8 @@ final class SymbolGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	private LLVMValueRef[ValueSymbol] valueSymbols;
+	private LLVMValueRef[ValueSymbol] globals;
+	private LLVMValueRef[ValueSymbol] locals;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -33,7 +34,16 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(ValueSymbol s) {
-		return valueSymbols.get(s, this.dispatch(s));
+		import d.ast.base;
+		final switch(s.storage) with(Storage) {
+			case Enum:
+			case Static:
+				return globals.get(s, this.dispatch(s));
+			
+			case Local:
+			case Capture:
+				return locals.get(s, this.dispatch(s));
+		}
 	}
 	
 	LLVMValueRef visit(Function f) {
@@ -43,7 +53,7 @@ final class SymbolGen {
 		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
-		valueSymbols[f] = fun;
+		globals[f] = fun;
 		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
@@ -57,7 +67,7 @@ final class SymbolGen {
 	}
 	
 	private void genFunctionBody(Function f) {
-		genFunctionBody(f, valueSymbols[f]);
+		genFunctionBody(f, globals[f]);
 	}
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
@@ -70,6 +80,7 @@ final class SymbolGen {
 		
 		// Ensure we are rentrant.
 		auto backupCurrentBB = LLVMGetInsertBlock(builder);
+		auto oldLocals = locals;
 		auto oldThisPtr = thisPtr;
 		auto oldLpContext = lpContext;
 		auto oldCatchClauses = catchClauses;
@@ -84,6 +95,7 @@ final class SymbolGen {
 				LLVMClearInsertionPosition(builder);
 			}
 			
+			locals = oldLocals;
 			thisPtr = oldThisPtr;
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
@@ -93,6 +105,7 @@ final class SymbolGen {
 		}
 		
 		// XXX: what is the way to flush an AA ?
+		locals = null;
 		lpContext = null;
 		catchClauses = [];
 		unwindBlocks = [];
@@ -136,14 +149,14 @@ final class SymbolGen {
 			
 			if(type.isRef || type.isFinal) {
 				LLVMSetValueName(value, p.mangle.toStringz());
-				valueSymbols[p] = value;
+				locals[p] = value;
 			} else {
 				auto name = p.name.toString(context);
 				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], name.toStringz());
 				LLVMSetValueName(value, ("arg." ~ name).toStringz());
 				
 				LLVMBuildStore(builder, value, alloca);
-				valueSymbols[p] = alloca;
+				locals[p] = alloca;
 			}
 		}
 		
@@ -174,44 +187,38 @@ final class SymbolGen {
 		
 		import d.ast.base;
 		if(var.storage == Storage.Enum) {
-			return valueSymbols[var] = value;
+			return globals[var] = value;
 		}
 		
+		auto type = pass.visit(var.type);
 		if(var.storage == Storage.Static) {
-			auto globalVar = LLVMAddGlobal(dmodule, pass.visit(var.type), var.mangle.toStringz());
+			auto globalVar = LLVMAddGlobal(dmodule, type, var.mangle.toStringz());
 			LLVMSetThreadLocal(globalVar, true);
-			
-			// Register the variable.
-			valueSymbols[var] = globalVar;
 			
 			// Store the initial value into the global variable.
 			LLVMSetInitializer(globalVar, value);
 			
-			return globalVar;
-		} else {
-			// Backup current block
-			auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
-			
-			// Create an alloca for this variable.
-			auto type = pass.visit(var.type);
-			auto alloca = LLVMBuildAlloca(builder, type, var.mangle.toStringz());
-			
-			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-			
 			// Register the variable.
-			valueSymbols[var] = alloca;
-			
-			// Store the initial value into the alloca.
-			LLVMBuildStore(builder, value, alloca);
-			
-			import d.context;
-			if(var.name == BuiltinName!"this") {
-				thisPtr = alloca;
-			}
-			
-			return alloca;
+			return globals[var] = globalVar;
 		}
+		
+		// Backup current block
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
+		
+		LLVMValueRef addr = LLVMBuildAlloca(builder, type, var.mangle.toStringz());
+
+		// Store the initial value into the alloca.
+		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		LLVMBuildStore(builder, value, addr);
+		
+		import d.context;
+		if(var.name == BuiltinName!"this") {
+			thisPtr = addr;
+		}
+		
+		// Register the variable.
+		return locals[var] = addr;
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
