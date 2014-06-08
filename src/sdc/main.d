@@ -74,7 +74,12 @@ int main(string[] args) {
 	} catch(CompileException e) {
 		outputCaretDiagnostics(e.location, e.msg);
 		
-		throw e;
+		// Rethrow in debug, so we have the stack trace.
+		debug {
+			throw e;
+		} else {
+			return 1;
+		}
 	}
 }
 
