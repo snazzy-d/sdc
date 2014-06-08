@@ -197,12 +197,9 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		static if(asAlias) {
 			return handler(f);
 		} else {
-			scheduler.require(f, Step.Signed);
-			return handler(
-				f.hasThis
-					? new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f)
-					: new SymbolExpression(location, f)
-			);
+			import d.semantic.expression;
+			auto ev = ExpressionVisitor(pass);
+			return handler(ev.getFrom(location, f));
 		}
 	}
 	

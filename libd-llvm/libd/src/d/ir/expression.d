@@ -120,6 +120,24 @@ class SuperExpression : Expression {
 }
 
 /**
+ * Context
+ */
+class ContextExpression : Expression {
+	this(Location location) {
+		super(location, QualType(new ContextType()));
+	}
+	
+	override string toString(Context) const {
+		return "__ctx";
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return true;
+	}
+}
+
+/**
  * Boolean literal
  */
 class BooleanLiteral : CompileTimeExpression {

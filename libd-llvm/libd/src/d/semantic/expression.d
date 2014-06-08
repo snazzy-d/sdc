@@ -413,6 +413,20 @@ struct ExpressionVisitor {
 		}
 	}
 	
+	Expression getFrom(Location location, Function f) {
+		pass.scheduler.require(f, Step.Signed);
+		
+		Expression ctx = f.hasThis
+			? new ThisExpression(location, QualType(thisType.type))
+			: f.hasContext
+				? new ContextExpression(location)
+				: null;
+		
+		return ctx
+			? new MethodExpression(location, ctx, f)
+			: new SymbolExpression(location, f);
+	}
+	
 	Expression visit(AstCallExpression c) {
 		// TODO: check if we are in a constructor.
 		if(cast(ThisExpression) c.callee) {
@@ -533,12 +547,7 @@ struct ExpressionVisitor {
 	private Expression chooseOverload(Location location, Location iloc, OverloadSet s, Expression[] args) {
 		return chooseOverload(location, s.set.map!((s) {
 			if(auto f = cast(Function) s) {
-				pass.scheduler.require(f, Step.Signed);
-				
-				// TODO: Factorize this construct somewhere.
-				return f.hasThis
-					? new MethodExpression(location, new ThisExpression(location, QualType(pass.thisType.type)), f)
-					: new SymbolExpression(location, f);
+				return getFrom(location, f);
 			} else if(auto t = cast(Template) s) {
 				return handleIFTI(location, iloc, t, args);
 			}
