@@ -68,9 +68,6 @@ final class CodeGenPass {
 	
 	Block[] unwindBlocks;
 	
-	size_t breakUnwindBlock;
-	size_t continueUnwindBlock;
-	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	

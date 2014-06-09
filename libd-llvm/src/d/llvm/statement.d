@@ -21,6 +21,9 @@ struct StatementGen {
 	
 	LLVMValueRef switchInstr;
 	
+	size_t continueUnwindBlock;
+	size_t breakUnwindBlock;
+	
 	LLVMBasicBlockRef continueBB;
 	LLVMBasicBlockRef breakBB;
 	

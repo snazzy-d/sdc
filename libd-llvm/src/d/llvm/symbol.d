@@ -100,8 +100,6 @@ final class SymbolGen {
 		auto oldLpContext = lpContext;
 		auto oldCatchClauses = catchClauses;
 		auto oldUnwindBlocks = unwindBlocks;
-		auto oldBreakUnwindBlock = breakUnwindBlock;
-		auto oldContinueUnwindBlock = continueUnwindBlock;
 		
 		LLVMValueRef oldContext = f.hasContext
 			? contexts[$ - 1].context
@@ -120,8 +118,6 @@ final class SymbolGen {
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
 			unwindBlocks = oldUnwindBlocks;
-			breakUnwindBlock = oldBreakUnwindBlock;
-			continueUnwindBlock = oldContinueUnwindBlock;
 			
 			if (oldContext) {
 				contexts[$ - 1].context = oldContext;
