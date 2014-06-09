@@ -320,14 +320,14 @@ struct DeclarationVisitor {
 		
 		auto isStatic = storage.isStatic;
 		if(isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
-			f = new Function(d.location, getBuiltin(TypeKind.None), d.name, [], null);
+			f = new Function(d.location, null, d.name, [], null);
 		} else {
 			uint index = 0;
 			if(!isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(d.location, index, getBuiltin(TypeKind.None), d.name, [], null);
+			f = new Method(d.location, index, null, d.name, [], null);
 		}
 		
 		f.linkage = linkage;

@@ -57,14 +57,9 @@ class TypeSymbol : Symbol {
 /**
  * Symbol that represent a value once resolved.
  */
-// XXX: Store type here ?
-class ValueSymbol : Symbol {
-	QualType type;
-	
-	this(Location location, Name name, QualType type) {
+abstract class ValueSymbol : Symbol {
+	this(Location location, Name name) {
 		super(location, name);
-		
-		this.type = type;
 	}
 }
 
@@ -88,40 +83,34 @@ class Package : Symbol {
  */
 class Variable : ValueSymbol {
 	Expression value;
+	QualType type;
 	
 	this(Location location, QualType type, Name name, Expression value = null) {
-		super(location, name, type);
+		super(location, name);
 		
 		this.value = value;
+		this.type = type;
 	}
 }
 
 /**
- * Function Declaration
+ * Function
  */
 class Function : ValueSymbol {
+	FunctionType type;
+	
 	Parameter[] params;
 	Statement fbody;
 	
 	SymbolScope dscope;
 	
-	this(Location location, QualType type, Name name, Parameter[] params, Statement fbody) {
-		super(location, name, type);
+	this(Location location, FunctionType type, Name name, Parameter[] params, Statement fbody) {
+		super(location, name);
 		
+		this.type = type;
 		this.params = params;
 		this.fbody = fbody;
 	}
-	/+
-	// Must disable, access step trigger invariant.
-	invariant() {
-		if(step > Step.Parsed) {
-			auto funType = cast(FunctionType) type.type;
-			
-			assert(funType);
-			assert(funType.paramTypes.length == paramNames.length);
-		}
-	}
-	+/
 }
 
 /**
@@ -331,14 +320,13 @@ class Field : Variable {
  * function's parameters
  */
 class Parameter : ValueSymbol {
-	// TODO: remove type from ValueSymbol
-	ParamType pt;
+	ParamType type;
 	Expression value;
 	
 	this(Location location, ParamType type, Name name, Expression value) {
-		super(location, name, QualType(type.type, type.qualifier));
+		super(location, name);
 		
-		this.pt = type;
+		this.type = type;
 		this.value = value;
 	}
 }
@@ -350,7 +338,7 @@ class Parameter : ValueSymbol {
 class Method : Function {
 	uint index;
 	
-	this(Location location, uint index, QualType type, Name name, Parameter[] params, BlockStatement fbody) {
+	this(Location location, uint index, FunctionType type, Name name, Parameter[] params, BlockStatement fbody) {
 		super(location, type, name, params, fbody);
 		
 		this.index = index;

@@ -154,9 +154,9 @@ final class SemanticPass {
 		auto main = candidates[0];
 		auto location = main.fbody.location;
 		
-		auto type = cast(FunctionType) main.type.type;
+		auto type = main.type;
 		auto returnType = cast(BuiltinType) type.returnType.type;
-		auto call = new CallExpression(location, QualType(returnType), new SymbolExpression(location, main), []);
+		auto call = new CallExpression(location, QualType(returnType), new FunctionExpression(location, main), []);
 		
 		Statement[] fbody;
 		if(returnType && returnType.kind == TypeKind.Void) {
@@ -167,7 +167,7 @@ final class SemanticPass {
 		}
 		
 		type = new FunctionType(Linkage.C, ParamType(getBuiltin(TypeKind.Int), false), [], false);
-		auto bootstrap = new Function(main.location, QualType(type), BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
+		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;
