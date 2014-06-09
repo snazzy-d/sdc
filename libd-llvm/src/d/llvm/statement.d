@@ -38,8 +38,14 @@ struct StatementGen {
 		pass.visit(s.symbol);
 	}
 	
+	private auto genExpression(Expression e) {
+		import d.llvm.expression;
+		auto eg = ExpressionGen(pass);
+		return eg.visit(e);
+	}
+	
 	void visit(ExpressionStatement e) {
-		pass.visit(e.expression);
+		genExpression(e.expression);
 	}
 	
 	void rewindTo(size_t level) {
@@ -154,7 +160,7 @@ struct StatementGen {
 		auto oldUnwindBlocks = unwindBlocks;
 		scope(exit) unwindBlocks = oldUnwindBlocks;
 		
-		auto condition = pass.visit(ifs.condition);
+		auto condition = genExpression(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
@@ -256,13 +262,13 @@ struct StatementGen {
 		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
-		auto condition = pass.visit(l.condition);
+		auto condition = genExpression(l.condition);
 		LLVMBuildCondBr(builder, condition, doBB, breakBB);
 		
 		// Build continue block or alias it to the test.
 		static if(isFor) {
 			LLVMPositionBuilderAtEnd(builder, continueBB);
-			pass.visit(l.increment);
+			genExpression(l.increment);
 			
 			LLVMBuildBr(builder, testBB);
 		}
@@ -301,7 +307,7 @@ struct StatementGen {
 	}
 	
 	void visit(ReturnStatement r) {
-		auto ret = pass.visit(r.value);
+		auto ret = genExpression(r.value);
 		
 		rewindTo(0);
 		
@@ -339,8 +345,7 @@ struct StatementGen {
 		
 		breakUnwindBlock = unwindBlocks.length;
 		
-		auto expression = pass.visit(s.expression);
-		
+		auto expression = genExpression(s.expression);
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
 		auto oldDefault = labels.get(BuiltinName!"default", null);
@@ -402,7 +407,7 @@ struct StatementGen {
 		}
 		
 		foreach(e; s.cases) {
-			LLVMAddCase(switchInstr, pass.visit(e), caseBB);
+			LLVMAddCase(switchInstr, genExpression(e), caseBB);
 		}
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);
@@ -442,10 +447,11 @@ struct StatementGen {
 	}
 	
 	void visit(ThrowStatement s) {
-		auto value = LLVMBuildBitCast(builder, pass.visit(s.value), pass.visit(pass.object.getThrowable()), "");
+		import d.llvm.expression;
+		auto eg = ExpressionGen(pass);
+		auto value = LLVMBuildBitCast(builder, eg.visit(s.value), pass.visit(pass.object.getThrowable()), "");
 		
-		buildCall(pass.visit(pass.object.getThrow()), [value]);
-		
+		eg.buildCall(pass.visit(pass.object.getThrow()), [value]);
 		LLVMBuildUnreachable(builder);
 	}
 	
@@ -506,8 +512,10 @@ struct StatementGen {
 			auto catchBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "catch");
 			auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 			
+			import d.llvm.expression;
+			auto eg = ExpressionGen(pass);
 			auto typeinfo = LLVMBuildBitCast(builder, getTypeInfo(c.type), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), "");
-			auto tid = buildCall(druntimeGen.getEhTypeidFor(), [typeinfo]);
+			auto tid = eg.buildCall(druntimeGen.getEhTypeidFor(), [typeinfo]);
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, tid, cid, "");
 			LLVMBuildCondBr(builder, condition, catchBB, nextUnwindBB);
 			

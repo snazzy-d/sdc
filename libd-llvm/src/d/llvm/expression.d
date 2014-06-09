@@ -17,16 +17,12 @@ import std.algorithm;
 import std.array;
 import std.string;
 
-final class ExpressionGen {
+struct ExpressionGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	private AddressOfGen addressOfGen;
-	
 	this(CodeGenPass pass) {
 		this.pass = pass;
-		
-		addressOfGen = new AddressOfGen(pass);
 	}
 	
 	LLVMValueRef visit(Expression e) {
@@ -35,8 +31,9 @@ final class ExpressionGen {
 		})(e);
 	}
 	
-	LLVMValueRef addressOf(Expression e) {
-		return addressOfGen.visit(e);
+	private LLVMValueRef addressOf(Expression e) {
+		auto aog = AddressOfGen(pass);
+		return aog.visit(e);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -465,6 +462,32 @@ final class ExpressionGen {
 		return LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
+	auto genBoundCheck(Location location, LLVMValueRef condition) {
+		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+		
+		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_fail");
+		auto okBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_ok");
+		
+		auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
+		
+		// We assume that bound check fail is unlikely.
+		LLVMSetMetadata(br, profKindID, unlikelyBranch);
+		
+		// Emit bound check fail code.
+		LLVMPositionBuilderAtEnd(builder, failBB);
+		
+		LLVMValueRef args[2];
+		args[0] = buildDString(location.source.filename);
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
+		
+		buildCall(druntimeGen.getArrayBound(), args);
+		
+		LLVMBuildUnreachable(builder);
+		
+		// And continue regular program flow.
+		LLVMPositionBuilderAtEnd(builder, okBB);
+	}
+	
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
 		auto type = peelAlias(e.sliced.type).type;
@@ -481,7 +504,7 @@ final class ExpressionGen {
 			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false);
 			
 			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
-			ptr = LLVMBuildInBoundsGEP(builder, addressOfGen.visit(e.sliced), &zero, 1, "");
+			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
@@ -494,7 +517,7 @@ final class ExpressionGen {
 			condition = LLVMBuildAnd(builder, condition, LLVMBuildICmp(builder, LLVMIntPredicate.ULE, second, length, ""), "");
 		}
 		
-		addressOfGen.genBoundCheck(e.location, condition);
+		genBoundCheck(e.location, condition);
 		
 		auto sub = LLVMBuildSub(builder, second, first, "");
 		
@@ -749,7 +772,7 @@ final class ExpressionGen {
 	}
 }
 
-final class AddressOfGen {
+struct AddressOfGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
@@ -770,7 +793,14 @@ final class AddressOfGen {
 	
 	LLVMValueRef visit(FieldExpression e) {
 		auto base = e.expr;
-		auto ptr = base.isLvalue ? visit(base) : pass.visit(base);
+		
+		LLVMValueRef ptr;
+		if (base.isLvalue) {
+			ptr = visit(base);
+		} else {
+			auto eg = ExpressionGen(pass);
+			ptr = eg.visit(base);
+		}
 		
 		// Pointer auto dereference in D.
 		while(1) {
@@ -804,7 +834,8 @@ final class AddressOfGen {
 	
 	LLVMValueRef visit(UnaryExpression e) {
 		if(e.op == UnaryOp.Dereference) {
-			return pass.visit(e.expr);
+			auto eg = ExpressionGen(pass);
+			return eg.visit(e.expr);
 		}
 		
 		assert(0, "not an lvalue ??");
@@ -838,26 +869,27 @@ final class AddressOfGen {
 	}
 	
 	auto computeIndexPtr(Location location, Expression indexed, Expression index) {
+		auto eg = ExpressionGen(pass);
 		auto type = peelAlias(indexed.type).type;
 		
 		if(typeid(type) is typeid(SliceType)) {
-			auto slice = pass.visit(indexed);
-			auto i = pass.visit(index);
+			auto slice = eg.visit(indexed);
+			auto i = eg.visit(index);
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
-			genBoundCheck(location, condition);
+			eg.genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
 		} else if(typeid(type) is typeid(PointerType)) {
-			auto ptr = pass.visit(indexed);
-			auto i = pass.visit(index);
+			auto ptr = eg.visit(indexed);
+			auto i = eg.visit(index);
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
 		} else if(auto asArray = cast(ArrayType) type) {
 			auto ptr = visit(indexed);
-			auto i = pass.visit(index);
+			auto i = eg.visit(index);
 			
 			auto condition = LLVMBuildICmp(
 				builder,
@@ -867,7 +899,7 @@ final class AddressOfGen {
 				"",
 			);
 			
-			genBoundCheck(location, condition);
+			eg.genBoundCheck(location, condition);
 			
 			LLVMValueRef indices[2];
 			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
@@ -877,32 +909,6 @@ final class AddressOfGen {
 		}
 		
 		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
-	}
-	
-	auto genBoundCheck(Location location, LLVMValueRef condition) {
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
-		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_fail");
-		auto okBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_ok");
-		
-		auto br = LLVMBuildCondBr(builder, condition, okBB, failBB);
-		
-		// We assume that bound check fail is unlikely.
-		LLVMSetMetadata(br, profKindID, unlikelyBranch);
-		
-		// Emit bound check fail code.
-		LLVMPositionBuilderAtEnd(builder, failBB);
-		
-		LLVMValueRef args[2];
-		args[0] = buildDString(location.source.filename);
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
-		
-		buildCall(druntimeGen.getArrayBound(), args);
-		
-		LLVMBuildUnreachable(builder);
-		
-		// And continue regular program flow.
-		LLVMPositionBuilderAtEnd(builder, okBB);
 	}
 }
 

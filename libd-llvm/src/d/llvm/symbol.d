@@ -246,7 +246,9 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Variable v) {
-		auto value = pass.visit(v.value);
+		import d.llvm.expression;
+		auto eg = ExpressionGen(pass);
+		auto value = eg.visit(v.value);
 		
 		import d.ast.base;
 		if(v.storage == Storage.Enum) {
@@ -288,7 +290,7 @@ final class SymbolGen {
 			auto closure = &contexts[$ - 1];
 			if (!closure.context) {
 				closure.indices[v] = 0;
-				auto alloc = buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
+				auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
 				
 				closure.context = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0), "");
 				addr = LLVMBuildStructGEP(builder, closure.context, 0, v.mangle.toStringz());

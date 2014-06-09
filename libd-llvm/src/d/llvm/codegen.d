@@ -5,7 +5,6 @@ import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.llvm.expression;
 import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
@@ -28,7 +27,6 @@ final class CodeGenPass {
 	Context context;
 	
 	private SymbolGen symbolGen;
-	private ExpressionGen expressionGen;
 	private TypeGen typeGen;
 	
 	private StringGen stringGen;
@@ -80,7 +78,6 @@ final class CodeGenPass {
 		this.context	= context;
 		
 		symbolGen		= new SymbolGen(this);
-		expressionGen	= new ExpressionGen(this);
 		typeGen			= new TypeGen(this);
 		
 		stringGen		= new StringGen(this);
@@ -145,10 +142,6 @@ final class CodeGenPass {
 		return typeGen.getTypeInfo(s);
 	}
 	
-	auto visit(Expression e) {
-		return expressionGen.visit(e);
-	}
-	
 	auto visit(QualType t) {
 		return typeGen.visit(t);
 	}
@@ -159,10 +152,6 @@ final class CodeGenPass {
 	
 	auto buildClassType(Class c) {
 		return typeGen.buildClass(c);
-	}
-	
-	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
-		return expressionGen.buildCall(callee, args);
 	}
 	
 	auto buildDString(string str) {
@@ -190,7 +179,9 @@ final class CodeGenPass {
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
-		LLVMBuildRet(builder, visit(e));
+		import d.llvm.expression;
+		auto eg = ExpressionGen(this);
+		LLVMBuildRet(builder, eg.visit(e));
 		
 		checkModule();
 		
@@ -227,7 +218,9 @@ final class CodeGenPass {
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		// Generate function's body.
-		LLVMBuildStore(builder, visit(e), reciever);
+		import d.llvm.expression;
+		auto eg = ExpressionGen(this);
+		LLVMBuildStore(builder, eg.visit(e), reciever);
 		LLVMBuildRetVoid(builder);
 		
 		checkModule();
