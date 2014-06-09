@@ -374,10 +374,10 @@ final class ExpressionGen {
 		return e.isLvalue ? LLVMBuildLoad(builder, thisPtr, "") : thisPtr;
 	}
 	
-	LLVMValueRef visit(SymbolExpression e) {
+	LLVMValueRef visit(VariableExpression e) {
 		import d.ast.base;
-		if(e.symbol.storage == Storage.Enum) {
-			return pass.visit(e.symbol);
+		if(e.var.storage == Storage.Enum) {
+			return pass.visit(e.var);
 		} else {
 			return LLVMBuildLoad(builder, addressOf(e), "");
 		}
@@ -389,6 +389,14 @@ final class ExpressionGen {
 		}
 		
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
+	}
+	
+	LLVMValueRef visit(ParameterExpression e) {
+		return LLVMBuildLoad(builder, addressOf(e), "");
+	}
+	
+	LLVMValueRef visit(FunctionExpression e) {
+		return pass.visit(e.fun);
 	}
 	
 	LLVMValueRef visit(MethodExpression e) {
@@ -753,11 +761,11 @@ final class AddressOfGen {
 		return this.dispatch(e);
 	}
 	
-	LLVMValueRef visit(SymbolExpression e) {
+	LLVMValueRef visit(VariableExpression e) {
 		import d.ast.base;
-		assert(!e.symbol.storage != Storage.Enum, "enum have no address.");
+		assert(e.var.storage != Storage.Enum, "enum have no address.");
 		
-		return pass.visit(e.symbol);
+		return pass.visit(e.var);
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -777,6 +785,10 @@ final class AddressOfGen {
 		}
 		
 		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+	}
+	
+	LLVMValueRef visit(ParameterExpression e) {
+		return pass.visit(e.param);
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {

@@ -184,15 +184,6 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return this.dispatch(location, s);
 	}
 	
-	private auto getSymbolExpression(Location location, ValueSymbol s) {
-		static if(asAlias) {
-			return handler(s);
-		} else {
-			scheduler.require(s, Step.Signed);
-			return handler(new SymbolExpression(location, s));
-		}
-	}
-	
 	Ret visit(Location location, Function f) {
 		static if(asAlias) {
 			return handler(f);
@@ -203,12 +194,22 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		}
 	}
 	
-	Ret visit(Location location, Parameter p) {
-		return getSymbolExpression(location, p);
+	Ret visit(Location location, Variable v) {
+		static if(asAlias) {
+			return handler(v);
+		} else {
+			scheduler.require(v, Step.Signed);
+			return handler(new VariableExpression(location, v));
+		}
 	}
 	
-	Ret visit(Location location, Variable v) {
-		return getSymbolExpression(location, v);
+	Ret visit(Location location, Parameter p) {
+		static if(asAlias) {
+			return handler(p);
+		} else {
+			scheduler.require(p, Step.Signed);
+			return handler(new ParameterExpression(location, p));
+		}
 	}
 	
 	Ret visit(Location location, Field f) {
@@ -378,29 +379,9 @@ struct Identifiable {
 		qual = qt.qualifier;
 		type = qt.type;
 	}
-	/+
-	invariant() {
-		final switch(tag) with(Tag) {
-			case Type :
-				assert(type);
-				break;
-			
-			case Expression :
-				assert(expr);
-				break;
-			
-			case Symbol :
-				if(cast(TypeSymbol) sym) {
-					assert(0, "TypeSymbol must be resolved as Type.");
-				} else if(cast(ValueSymbol) sym) {
-					assert(0, "ExpressionSymbol must be resolved as Expression.");
-				}
-				
-				assert(sym);
-				break;
-		}
-	}
-	+/
+	
+	// TODO: add invariant when possible.
+	// bitfield cause infinite recursion now.
 }
 
 Identifiable identifiableHandler(T)(T t) {

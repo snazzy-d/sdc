@@ -121,12 +121,20 @@ final class CodeGenPass {
 		return symbolGen.visit(s);
 	}
 	
-	auto visit(ValueSymbol s) {
+	auto visit(TypeSymbol s) {
 		return symbolGen.visit(s);
 	}
 	
-	auto visit(TypeSymbol s) {
-		return symbolGen.visit(s);
+	auto visit(Variable v) {
+		return symbolGen.genCached(v);
+	}
+	
+	auto visit(Function f) {
+		return symbolGen.genCached(f);
+	}
+	
+	auto visit(Parameter p) {
+		return symbolGen.visit(p);
 	}
 	
 	auto getNewInit(TypeSymbol s) {

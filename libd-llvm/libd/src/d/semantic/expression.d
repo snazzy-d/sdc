@@ -85,7 +85,7 @@ struct ExpressionVisitor {
 		v.storage = Storage.Enum;
 		v.step = Step.Processed;
 		
-		return new SymbolExpression(value.location, v);
+		return new VariableExpression(value.location, v);
 	}
 	
 	private Expression getTemporaryLvalue(Expression value) {
@@ -255,10 +255,8 @@ struct ExpressionVisitor {
 	
 	private Expression handleAddressOf(Expression expr) {
 		// For fucked up reasons, &funcname is a special case.
-		if(auto se = cast(SymbolExpression) expr) {
-			if(cast(Function) se.symbol) {
-				return expr;
-			}
+		if(auto se = cast(FunctionExpression) expr) {
+			return expr;
 		} else if(auto pe = cast(PolysemousExpression) expr) {
 			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
 			return pe;
@@ -426,7 +424,7 @@ struct ExpressionVisitor {
 		
 		return ctx
 			? new MethodExpression(location, ctx, f)
-			: new SymbolExpression(location, f);
+			: new FunctionExpression(location, f);
 	}
 	
 	Expression visit(AstCallExpression c) {
@@ -669,11 +667,11 @@ struct ExpressionVisitor {
 		import d.semantic.type;
 		auto tv = TypeVisitor(pass);
 		auto type = tv.visit(e.type);
-		auto ctor = IdentifierVisitor!(delegate Expression(identified) {
+		auto ctor = IdentifierVisitor!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
-					return new SymbolExpression(e.location, f);
+					return new FunctionExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
 					import d.semantic.defaultinitializer;
 					auto div = DefaultInitializerVisitor(pass);
@@ -688,14 +686,14 @@ struct ExpressionVisitor {
 					}).array(), args);
 					
 					// XXX: find a clean way to achieve this.
-					return new SymbolExpression(e.location, (cast(MethodExpression) m).method);
+					return new FunctionExpression(e.location, (cast(MethodExpression) m).method);
 				}
 			}
 			
 			assert(0, "Gimme some construtor !");
 		}, true)(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
-		auto funType = cast(FunctionType) peelAlias(ctor.type).type;
+		auto funType = ctor.fun.type;
 		if(!funType) {
 			return pass.raiseCondition!Expression(e.location, "Invalid constructor.");
 		}
@@ -865,7 +863,7 @@ struct ExpressionVisitor {
 			fbody,
 		);
 		
-		auto f = new Function(location, getBuiltin(TypeKind.None), name, [], null);
+		auto f = new Function(location, null, name, [], null);
 		f.hasContext = true;
 		
 		import d.semantic.symbol;

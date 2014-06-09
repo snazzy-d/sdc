@@ -160,7 +160,7 @@ struct SymbolAnalyzer {
 			// Functions are always populated as resolution is order dependant.
 			f.step = Step.Populated;
 		} else {
-			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
 			f.step = Step.Signed;
 		}
 		
@@ -196,7 +196,7 @@ struct SymbolAnalyzer {
 				}
 			}
 			
-			f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
 			f.step = Step.Signed;
 		}
 		
@@ -249,7 +249,7 @@ struct SymbolAnalyzer {
 		auto thisParameter = new Parameter(f.location, ctorThis, BuiltinName!"this", null);
 		params = thisParameter ~ params;
 		
-		f.type = QualType(new FunctionType(f.linkage, returnType, params.map!(p => p.pt).array(), fd.isVariadic));
+		f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
 		f.step = Step.Signed;
 		
 		if(fbody) {
@@ -512,7 +512,7 @@ struct SymbolAnalyzer {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				
-				auto mt = cast(FunctionType) method.type.type;
+				auto mt = method.type;
 				auto rt = mt.returnType;
 				auto ats = mt.paramTypes[1 .. $];
 				
@@ -521,7 +521,7 @@ struct SymbolAnalyzer {
 						continue;
 					}
 					
-					auto ct = cast(FunctionType) candidate.type.type;
+					auto ct = candidate.type;
 					if(!ct || ct.isVariadic != mt.isVariadic) {
 						continue;
 					}

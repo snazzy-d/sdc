@@ -26,23 +26,40 @@ final class SymbolGen {
 	}
 	
 	void visit(Symbol s) {
-		if(auto v = cast(ValueSymbol) s) {
-			visit(v);
-		} else if(auto t = cast(TypeSymbol) s) {
+		if(auto t = cast(TypeSymbol) s) {
 			visit(t);
+		} else if(auto v = cast(Variable) s) {
+			genCached(v);
+		} else if(auto f = cast(Function) s) {
+			genCached(f);
 		}
 	}
 	
-	LLVMValueRef visit(ValueSymbol s) {
+	LLVMValueRef genCached(S)(S s) {
 		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
-				return globals.get(s, this.dispatch(s));
+				return globals.get(s, visit(s));
 			
 			case Local:
 			case Capture:
-				return locals.get(s, this.dispatch(s));
+				return locals.get(s, visit(s));
+		}
+	}
+	
+	void register(ValueSymbol s, LLVMValueRef v) {
+		import d.ast.base;
+		final switch(s.storage) with(Storage) {
+			case Enum:
+			case Static:
+				globals[s] = v;
+				return;
+			
+			case Local:
+			case Capture:
+				locals[s] = v;
+				return;
 		}
 	}
 	
@@ -53,7 +70,7 @@ final class SymbolGen {
 		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
-		globals[f] = fun;
+		register(f, fun);
 		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
@@ -62,12 +79,9 @@ final class SymbolGen {
 		return fun;
 	}
 	
-	LLVMValueRef visit(Method m) {
-		return visit(cast(Function) m);
-	}
-	
 	private void genFunctionBody(Function f) {
-		genFunctionBody(f, globals[f]);
+		auto fun = genCached(f);
+		genFunctionBody(f, fun);
 	}
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
@@ -135,7 +149,7 @@ final class SymbolGen {
 		
 		thisPtr = null;
 		if(f.hasThis) {
-			auto thisType = (cast(FunctionType) f.type.type).paramTypes[0];
+			auto thisType = f.type.paramTypes[0];
 			auto value = params[0];
 			
 			if(thisType.isRef || thisType.isFinal) {
@@ -154,7 +168,7 @@ final class SymbolGen {
 		}
 		
 		if (oldContext) {
-			auto ctxType = (cast(FunctionType) f.type.type).paramTypes[f.hasThis];
+			auto ctxType = f.type.paramTypes[f.hasThis];
 			auto value = params[f.hasThis];
 			
 			if(ctxType.isRef || ctxType.isFinal) {
@@ -177,7 +191,7 @@ final class SymbolGen {
 		}
 		
 		foreach(i, p; parameters) {
-			auto type = p.pt;
+			auto type = p.type;
 			auto value = params[i];
 			
 			if(type.isRef || type.isFinal) {
@@ -254,10 +268,9 @@ final class SymbolGen {
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
-		scope(success) {
-			// Sanity check
-			assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
-		}
+		
+		// Sanity check
+		scope(success) assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
 		
 		LLVMValueRef addr;
 		if(v.storage == Storage.Capture) {
@@ -312,6 +325,10 @@ final class SymbolGen {
 		
 		// Register the variable.
 		return locals[v] = addr;
+	}
+	
+	LLVMValueRef visit(Parameter p) {
+		return locals[p];
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
