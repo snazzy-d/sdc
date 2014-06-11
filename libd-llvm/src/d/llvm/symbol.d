@@ -169,13 +169,29 @@ final class SymbolGen {
 			
 			if(ctxType.isRef || ctxType.isFinal) {
 				LLVMSetValueName(value, "__ctx");
-				contexts[$ - 1].context = value;
 			} else {
 				auto alloca = LLVMBuildAlloca(builder, paramTypes[f.hasThis], "__ctx");
 				LLVMSetValueName(value, "arg.__ctx");
 				
 				LLVMBuildStore(builder, value, alloca);
-				contexts[$ - 1].context = alloca;
+				value = alloca;
+			}
+			
+			contexts[$ - 1].context = value;
+			
+			import d.ir.dscope;
+			auto s = cast(ClosureScope) f.dscope;
+			assert(s, "Function has context but do not have a closure scope");
+			
+			// Create enclosed variables.
+			foreach(v; s.capture.byKey()) {
+				// Try to find out if we have the variable in a closure.
+				foreach_reverse(closure; contexts) {
+					if (auto indexPtr = v in closure.indices) {
+						// Register the variable.
+						locals[v] = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
+					}
+				}
 			}
 			
 			params = params[1 .. $];
@@ -229,13 +245,9 @@ final class SymbolGen {
 			auto size = LLVMSizeOf(LLVMGetElementType(LLVMTypeOf(context)));
 			
 			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Call) {
-				LLVMDumpValue(context);
-				
 				assert(LLVMGetInstructionOpcode(context) == LLVMOpcode.BitCast);
 				context = LLVMGetOperand(context, 0);
 			}
-			
-			LLVMDumpValue(context);
 			
 			LLVMReplaceAllUsesWith(LLVMGetOperand(context, 0), size);
 		}
@@ -272,17 +284,6 @@ final class SymbolGen {
 		
 		LLVMValueRef addr;
 		if(v.storage == Storage.Capture) {
-			// Try to find out if we have the variable in a closure.
-			foreach_reverse(closure; contexts[0 .. $ - 1]) {
-				if (auto indexPtr = v in closure.indices) {
-					addr = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
-					LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-					
-					// Register the variable.
-					return locals[v] = addr;
-				}
-			}
-			
 			auto closure = &contexts[$ - 1];
 			if (!closure.context) {
 				closure.indices[v] = 0;
