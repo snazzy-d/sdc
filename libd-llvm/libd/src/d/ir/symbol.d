@@ -180,13 +180,26 @@ class Template : Symbol {
  */
 class TypeTemplateParameter : TemplateParameter {
 	QualType specialization;
-	QualType value;
+	QualType defaultValue;
 	
-	this(Location location, Name name, uint index, QualType specialization, QualType value) {
+	this(Location location, Name name, uint index, QualType specialization, QualType defaultValue) {
 		super(location, name, index);
 		
 		this.specialization = specialization;
-		this.value = value;
+		this.defaultValue = defaultValue;
+	}
+}
+
+/**
+ * Template value parameter
+ */
+class ValueTemplateParameter : TemplateParameter {
+	QualType type;
+	
+	this(Location location, Name name, uint index, QualType type) {
+		super(location, name, index);
+		
+		this.type = type;
 	}
 }
 

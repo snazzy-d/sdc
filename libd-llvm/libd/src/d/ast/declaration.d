@@ -244,13 +244,26 @@ class AstTemplateParameter : NamedDeclaration {
  */
 class AstTypeTemplateParameter : AstTemplateParameter {
 	QualAstType specialization;
-	QualAstType value;
+	QualAstType defaultValue;
 	
-	this(Location location, Name name, QualAstType specialization, QualAstType value) {
+	this(Location location, Name name, QualAstType specialization, QualAstType defaultValue) {
 		super(location, name);
 		
 		this.specialization = specialization;
-		this.value = value;
+		this.defaultValue = defaultValue;
+	}
+}
+
+/**
+ * Value template parameters
+ */
+class AstValueTemplateParameter : AstTemplateParameter {
+	QualAstType type;
+	
+	this(Location location, Name name, QualAstType type) {
+		super(location, name);
+		
+		this.type = type;
 	}
 }
 
@@ -269,19 +282,6 @@ class AstThisTemplateParameter : AstTemplateParameter {
 class AstTupleTemplateParameter : AstTemplateParameter {
 	this(Location location, Name name) {
 		super(location, name);
-	}
-}
-
-/**
- * Value template parameters
- */
-class AstValueTemplateParameter : AstTemplateParameter {
-	QualAstType type;
-	
-	this(Location location, Name name, QualAstType type) {
-		super(location, name);
-		
-		this.type = type;
 	}
 }
 

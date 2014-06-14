@@ -283,15 +283,26 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 	}
 	
 	Ret resolve(TemplateInstanciationDotIdentifier i, Expression[] fargs = []) {
-		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument, argHandler;
-		auto iva = IdentifierVisitor!(argHandler, true)(pass);
+		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
 		auto args = i.templateInstanciation.arguments.map!((a) {
-			if(auto ta = cast(TypeTemplateArgument) a) {
+			if(auto ia = cast(IdentifierTemplateArgument) a) {
+				return IdentifierVisitor!(identifiableHandler, true)(pass)
+					.visit(ia.identifier)
+					.apply!((identified) {
+						static if(is(typeof(identified) : Expression)) {
+							return TemplateArgument(pass.evaluate(identified));
+						} else {
+							return TemplateArgument(identified);
+						}
+					})();
+			} else if(auto ta = cast(TypeTemplateArgument) a) {
 				import d.semantic.type;
 				auto tv = TypeVisitor(pass);
 				return TemplateArgument(tv.visit(ta.type));
-			} else if(auto ia = cast(IdentifierTemplateArgument) a) {
-				return iva.visit(ia.identifier);
+			} else if(auto va = cast(ValueTemplateArgument) a) {
+				import d.semantic.expression;
+				auto ev = ExpressionVisitor(pass);
+				return TemplateArgument(pass.evaluate(ev.visit(va.value)));
 			}
 			
 			assert(0, typeid(a).toString() ~ " is not supported.");
