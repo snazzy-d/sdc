@@ -2,8 +2,6 @@ module d.semantic.mangler;
 
 import d.semantic.semantic;
 
-import d.ir.type;
-
 import std.algorithm;
 import std.array;
 
@@ -15,6 +13,7 @@ struct TypeMangler {
 		this.pass = pass;
 	}
 	
+	import d.ir.type;
 	string visit(QualType t) {
 		return this.dispatch(t.type);
 	}
@@ -157,6 +156,34 @@ struct TypeMangler {
 	
 	string visit(DelegateType t) {
 		return "D" ~ mangleLinkage(t.linkage) ~ mangleParam(t.context) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
+	}
+}
+
+struct ValueMangler {
+	private SemanticPass pass;
+	alias pass this;
+	
+	this(SemanticPass pass) {
+		this.pass = pass;
+	}
+	
+	import d.ir.expression, std.conv;
+	string visit(CompileTimeExpression e) {
+		return this.dispatch(e);
+	}
+	
+	string visit(BooleanLiteral e) {
+		return to!string(cast(ubyte) e.value);
+	}
+	
+	string visit(IntegerLiteral!true e) {
+		return e.value >= 0
+			? e.value.to!string()
+			: "N" ~ to!string(-e.value);
+	}
+	
+	string visit(IntegerLiteral!false e) {
+		return e.value.to!string();
 	}
 }
 

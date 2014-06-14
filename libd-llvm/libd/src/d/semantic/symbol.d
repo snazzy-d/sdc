@@ -672,33 +672,30 @@ struct SymbolAnalyzer {
 		
 		// Register parameter int the scope.
 		auto none = getBuiltin(TypeKind.None);
-		foreach(uint i, p; d.parameters) {
+		foreach_reverse(i, p; d.parameters) {
 			if(auto atp = cast(AstTypeTemplateParameter) p) {
-				auto tp = new TypeTemplateParameter(atp.location, atp.name, i, none, none);
-				tp.step = Step.Signed;
+				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
 				currentScope.addSymbol(tp);
-				t.parameters ~= tp;
+				
+				tp.specialization = tv.visit(atp.specialization);
+				tp.defaultValue = tv.visit(atp.defaultValue);
+				
+				tp.step = Step.Signed;
+				t.parameters = tp ~ t.parameters;
+			} else if(auto avp = cast(AstValueTemplateParameter) p) {
+				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none);
+				currentScope.addSymbol(vp);
+				
+				vp.type = tv.visit(avp.type);
+				
+				vp.step = Step.Signed;
+				t.parameters = vp ~ t.parameters;
 			} else {
-				assert(0, "Only type parameters are supported.");
+				assert(0, typeid(p).toString() ~ " template parameters are supported.");
 			}
 		}
 		
 		t.step = Step.Populated;
-		
-		// TODO: find a way to make that clean.
-		foreach(i, p; d.parameters) {
-			if(auto atp = cast(AstTypeTemplateParameter) p) {
-				auto tp = cast(TypeTemplateParameter) t.parameters[i];
-				assert(tp);
-				
-				tp.specialization = tv.visit(atp.specialization);
-				tp.value = tv.visit(atp.value);
-				
-				tp.step = Step.Processed;
-			} else {
-				assert(0, "Only type parameters are supported.");
-			}
-		}
 		
 		// TODO: support multiple IFTI.
 		foreach(m; t.members) {
