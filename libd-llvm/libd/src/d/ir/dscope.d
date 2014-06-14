@@ -99,7 +99,8 @@ class SymbolScope : NestedScope {
 }
 
 final class ClosureScope : SymbolScope {
-	Variable[] capture;
+	// XXX: Use a proper set :D
+	bool[Variable] capture;
 	
 	this(Symbol symbol, Scope parent) {
 		super(symbol, parent);
@@ -108,12 +109,12 @@ final class ClosureScope : SymbolScope {
 	override Symbol search(Name name) {
 		return symbols.get(name, {
 			auto s = parent.search(name);
-			if (s !is null && s.storage == Storage.Local && typeid(s) is typeid(Variable)) {
-				capture ~= () @trusted {
+			if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isStatic) {
+				capture[() @trusted {
 					// Fast cast can be trusted in this case, we already did the check.
 					import util.fastcast;
 					return fastCast!Variable(s);
-				} ();
+				} ()] = true;
 				
 				s.storage = Storage.Capture;
 			}

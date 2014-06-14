@@ -26,23 +26,40 @@ final class SymbolGen {
 	}
 	
 	void visit(Symbol s) {
-		if(auto v = cast(ValueSymbol) s) {
-			visit(v);
-		} else if(auto t = cast(TypeSymbol) s) {
+		if(auto t = cast(TypeSymbol) s) {
 			visit(t);
+		} else if(auto v = cast(Variable) s) {
+			genCached(v);
+		} else if(auto f = cast(Function) s) {
+			genCached(f);
 		}
 	}
 	
-	LLVMValueRef visit(ValueSymbol s) {
+	LLVMValueRef genCached(S)(S s) {
 		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
-				return globals.get(s, this.dispatch(s));
+				return globals.get(s, visit(s));
 			
 			case Local:
 			case Capture:
-				return locals.get(s, this.dispatch(s));
+				return locals.get(s, visit(s));
+		}
+	}
+	
+	void register(ValueSymbol s, LLVMValueRef v) {
+		import d.ast.base;
+		final switch(s.storage) with(Storage) {
+			case Enum:
+			case Static:
+				globals[s] = v;
+				return;
+			
+			case Local:
+			case Capture:
+				locals[s] = v;
+				return;
 		}
 	}
 	
@@ -53,7 +70,7 @@ final class SymbolGen {
 		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
 		
 		// Register the function.
-		globals[f] = fun;
+		register(f, fun);
 		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
@@ -62,12 +79,9 @@ final class SymbolGen {
 		return fun;
 	}
 	
-	LLVMValueRef visit(Method m) {
-		return visit(cast(Function) m);
-	}
-	
 	private void genFunctionBody(Function f) {
-		genFunctionBody(f, globals[f]);
+		auto fun = genCached(f);
+		genFunctionBody(f, fun);
 	}
 	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
@@ -86,8 +100,6 @@ final class SymbolGen {
 		auto oldLpContext = lpContext;
 		auto oldCatchClauses = catchClauses;
 		auto oldUnwindBlocks = unwindBlocks;
-		auto oldBreakUnwindBlock = breakUnwindBlock;
-		auto oldContinueUnwindBlock = continueUnwindBlock;
 		
 		LLVMValueRef oldContext = f.hasContext
 			? contexts[$ - 1].context
@@ -106,8 +118,6 @@ final class SymbolGen {
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
 			unwindBlocks = oldUnwindBlocks;
-			breakUnwindBlock = oldBreakUnwindBlock;
-			continueUnwindBlock = oldContinueUnwindBlock;
 			
 			if (oldContext) {
 				contexts[$ - 1].context = oldContext;
@@ -135,7 +145,7 @@ final class SymbolGen {
 		
 		thisPtr = null;
 		if(f.hasThis) {
-			auto thisType = (cast(FunctionType) f.type.type).paramTypes[0];
+			auto thisType = f.type.paramTypes[0];
 			auto value = params[0];
 			
 			if(thisType.isRef || thisType.isFinal) {
@@ -154,18 +164,34 @@ final class SymbolGen {
 		}
 		
 		if (oldContext) {
-			auto ctxType = (cast(FunctionType) f.type.type).paramTypes[f.hasThis];
+			auto ctxType = f.type.paramTypes[f.hasThis];
 			auto value = params[f.hasThis];
 			
 			if(ctxType.isRef || ctxType.isFinal) {
 				LLVMSetValueName(value, "__ctx");
-				contexts[$ - 1].context = value;
 			} else {
 				auto alloca = LLVMBuildAlloca(builder, paramTypes[f.hasThis], "__ctx");
 				LLVMSetValueName(value, "arg.__ctx");
 				
 				LLVMBuildStore(builder, value, alloca);
-				contexts[$ - 1].context = alloca;
+				value = alloca;
+			}
+			
+			contexts[$ - 1].context = value;
+			
+			import d.ir.dscope;
+			auto s = cast(ClosureScope) f.dscope;
+			assert(s, "Function has context but do not have a closure scope");
+			
+			// Create enclosed variables.
+			foreach(v; s.capture.byKey()) {
+				// Try to find out if we have the variable in a closure.
+				foreach_reverse(closure; contexts) {
+					if (auto indexPtr = v in closure.indices) {
+						// Register the variable.
+						locals[v] = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
+					}
+				}
 			}
 			
 			params = params[1 .. $];
@@ -177,7 +203,7 @@ final class SymbolGen {
 		}
 		
 		foreach(i, p; parameters) {
-			auto type = p.pt;
+			auto type = p.type;
 			auto value = params[i];
 			
 			if(type.isRef || type.isFinal) {
@@ -219,20 +245,18 @@ final class SymbolGen {
 			auto size = LLVMSizeOf(LLVMGetElementType(LLVMTypeOf(context)));
 			
 			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Call) {
-				LLVMDumpValue(context);
-				
 				assert(LLVMGetInstructionOpcode(context) == LLVMOpcode.BitCast);
 				context = LLVMGetOperand(context, 0);
 			}
-			
-			LLVMDumpValue(context);
 			
 			LLVMReplaceAllUsesWith(LLVMGetOperand(context, 0), size);
 		}
 	}
 	
 	LLVMValueRef visit(Variable v) {
-		auto value = pass.visit(v.value);
+		import d.llvm.expression;
+		auto eg = ExpressionGen(pass);
+		auto value = eg.visit(v.value);
 		
 		import d.ast.base;
 		if(v.storage == Storage.Enum) {
@@ -254,28 +278,16 @@ final class SymbolGen {
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
-		scope(success) {
-			// Sanity check
-			assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
-		}
+		
+		// Sanity check
+		scope(success) assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
 		
 		LLVMValueRef addr;
 		if(v.storage == Storage.Capture) {
-			// Try to find out if we have the variable in a closure.
-			foreach_reverse(closure; contexts[0 .. $ - 1]) {
-				if (auto indexPtr = v in closure.indices) {
-					addr = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
-					LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
-					
-					// Register the variable.
-					return locals[v] = addr;
-				}
-			}
-			
 			auto closure = &contexts[$ - 1];
 			if (!closure.context) {
 				closure.indices[v] = 0;
-				auto alloc = buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
+				auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
 				
 				closure.context = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0), "");
 				addr = LLVMBuildStructGEP(builder, closure.context, 0, v.mangle.toStringz());
@@ -312,6 +324,10 @@ final class SymbolGen {
 		
 		// Register the variable.
 		return locals[v] = addr;
+	}
+	
+	LLVMValueRef visit(Parameter p) {
+		return locals[p];
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {

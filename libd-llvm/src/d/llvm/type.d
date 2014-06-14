@@ -117,7 +117,9 @@ final class TypeGen {
 				vtbl ~= pass.visit(m);
 			} else if(auto f = cast(Field) member) {
 				if(f.index > 0) {
-					fields ~= pass.visit(f.value);
+					import d.llvm.expression;
+					auto eg = ExpressionGen(pass);
+					fields ~= eg.visit(f.value);
 				}
 			}
 		}

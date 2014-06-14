@@ -324,29 +324,24 @@ class NewExpression : Expression {
 }
 
 /**
- * Symbol expression.
- * IdentifierExpression that as been resolved.
+ * IdentifierExpression that as been resolved as a Variable.
  */
-class SymbolExpression : Expression {
-	ValueSymbol symbol;
+class VariableExpression : Expression {
+	Variable var;
 	
-	this(Location location, ValueSymbol symbol) {
-		super(location, symbol.type);
+	this(Location location, Variable var) {
+		super(location, var.type);
 		
-		this.symbol = symbol;
-	}
-	
-	invariant() {
-		assert(symbol);
+		this.var = var;
 	}
 	
 	override string toString(Context ctx) const {
-		return symbol.toString(ctx);
+		return var.name.toString(ctx);
 	}
 	
 	@property
 	override bool isLvalue() const {
-		return symbol.storage != Storage.Enum;
+		return var.storage != Storage.Enum;
 	}
 }
 
@@ -375,6 +370,23 @@ class FieldExpression : Expression {
 }
 
 /**
+ * IdentifierExpression that as been resolved as a Function.
+ */
+class FunctionExpression : Expression {
+	Function fun;
+	
+	this(Location location, Function fun) {
+		super(location, QualType(fun.type));
+		
+		this.fun = fun;
+	}
+	
+	override string toString(Context ctx) const {
+		return fun.name.toString(ctx);
+	}
+}
+
+/**
  * Methods resolved on expressions.
  */
 class MethodExpression : Expression {
@@ -382,10 +394,7 @@ class MethodExpression : Expression {
 	Function method;
 	
 	this(Location location, Expression expr, Function method) {
-		auto t = cast(FunctionType) method.type.type;
-		assert(t);
-		
-		super(location, QualType(new DelegateType(t)));
+		super(location, QualType(new DelegateType(method.type)));
 		
 		this.expr = expr;
 		this.method = method;
@@ -393,6 +402,28 @@ class MethodExpression : Expression {
 	
 	override string toString(Context ctx) const {
 		return expr.toString(ctx) ~ "." ~ method.name.toString(ctx);
+	}
+}
+
+/**
+ * IdentifierExpression that as been resolved as a Parameter.
+ */
+class ParameterExpression : Expression {
+	Parameter param;
+	
+	this(Location location, Parameter param) {
+		super(location, QualType(param.type.type, param.type.qualifier));
+		
+		this.param = param;
+	}
+	
+	override string toString(Context ctx) const {
+		return param.name.toString(ctx);
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return true;
 	}
 }
 

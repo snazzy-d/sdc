@@ -54,12 +54,21 @@ struct TemplateInstancier {
 			TemplateArgument[] dummy;
 			dummy.length = t.parameters.length;
 			
-			auto asArg = match.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			static buildArg(TemplateParameter p) {
+				if (auto tp = cast(TypeTemplateParameter) p) {
+					return TemplateArgument(tp.specialization);
+				}
+				
+				import d.exception;
+				throw new CompileException(p.location, typeid(p).toString() ~ " not implemented");
+			}
+			
+			auto asArg = match.parameters.map!buildArg.array();
 			bool match2t = matchArguments(t, asArg, [], dummy);
 			
 			dummy = null;
 			dummy.length = match.parameters.length;
-			asArg = t.parameters.map!(p => TemplateArgument((cast(TypeTemplateParameter) p).specialization)).array();
+			asArg = t.parameters.map!buildArg.array();
 			bool t2match = matchArguments(match, asArg, [], dummy);
 			
 			if(t2match == match2t) {
@@ -128,6 +137,8 @@ struct TemplateInstancier {
 		}, (identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if(is(typeof(identified) : Expression)) {
+				return ValueMatcher(pass, matchedArgs, identified).visit(p);
 			} else static if(is(typeof(identified) : Symbol)) {
 				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
@@ -152,13 +163,23 @@ struct TemplateInstancier {
 					auto a = new TypeAlias(p.location, p.name, identified);
 					
 					import d.semantic.mangler;
-					auto mangler = TypeMangler(pass);
-					a.mangle = mangler.visit(identified);
+					a.mangle = TypeMangler(pass).visit(identified);
 					a.step = Step.Processed;
 					
 					argSyms ~= a;
-					
 					return "T" ~ a.mangle;
+				} else static if(is(typeof(identified) : CompileTimeExpression)) {
+					auto v = new Variable(p.location, identified.type, p.name, identified);
+					
+					import d.ast.base;
+					v.storage = Storage.Enum;
+					
+					import d.semantic.mangler;
+					v.mangle = TypeMangler(pass).visit(identified.type) ~ ValueMangler(pass).visit(identified);
+					v.step = Step.Processed;
+					
+					argSyms ~= v;
+					return "V" ~ v.mangle;
 				} else {
 					assert(0, "Only type argument are supported.");
 				}
@@ -192,7 +213,7 @@ enum Tag {
 struct TemplateArgument {
 	union {
 		Symbol sym;
-		Expression expr;
+		CompileTimeExpression expr;
 		Type type;
 	}
 	
@@ -217,7 +238,7 @@ struct TemplateArgument {
 		sym = s;
 	}
 	
-	this(Expression e) {
+	this(CompileTimeExpression e) {
 		tag = Tag.Expression;
 		expr = e;
 	}
@@ -231,14 +252,6 @@ struct TemplateArgument {
 
 unittest {
 	static assert(TemplateArgument.init.tag == Tag.Undefined);
-}
-
-TemplateArgument argHandler(T)(T t) {
-	static if(is(T == typeof(null))) {
-		assert(0);
-	} else {
-		return TemplateArgument(t);
-	}
 }
 
 auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
@@ -372,13 +385,35 @@ struct TypeMatcher {
 	}
 }
 
-struct SymbolMatcher {
+struct ValueMatcher {
 	TemplateArgument[] matchedArgs;
-	Symbol matchee;
+	CompileTimeExpression matchee;
 	
 	// XXX: used only in one place in caster, can probably be removed.
 	// XXX: it used to cast classes in a way that isn't useful here.
 	// XXX: let's move it away when we have a context and cannonical types.
+	SemanticPass pass;
+	
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, CompileTimeExpression matchee) {
+		this.pass = pass;
+		this.matchedArgs = matchedArgs;
+		this.matchee = matchee;
+	}
+	
+	bool visit(TemplateParameter p) {
+		return this.dispatch(p);
+	}
+	
+	bool visit(ValueTemplateParameter p) {
+		matchedArgs[p.index] = TemplateArgument(matchee);
+		return IftiTypeMatcher(matchedArgs, matchee.type).visit(p.type);
+	}
+}
+
+struct SymbolMatcher {
+	TemplateArgument[] matchedArgs;
+	Symbol matchee;
+	
 	SemanticPass pass;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Symbol matchee) {
@@ -396,6 +431,17 @@ struct SymbolMatcher {
 		return IdentifierVisitor!(delegate bool(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			} else {
+				return false;
+			}
+		})(pass).visit(p.location, matchee);
+	}
+	
+	bool visit(ValueTemplateParameter p) {
+		import d.semantic.identifier;
+		return IdentifierVisitor!(delegate bool(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return ValueMatcher(pass, matchedArgs, pass.evaluate(identified)).visit(p);
 			} else {
 				return false;
 			}

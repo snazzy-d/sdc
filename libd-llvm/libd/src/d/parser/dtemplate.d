@@ -58,16 +58,16 @@ auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!
 }
 
 private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange trange) {
-	switch(trange.front.type) {
-		case TokenType.Identifier :
+	switch(trange.front.type) with(TokenType) {
+		case Identifier :
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			switch(lookahead.front.type) {
 				// Identifier followed by ":", "=", "," or ")" are type parameters.
-				case TokenType.Colon, TokenType.Assign, TokenType.Comma, TokenType.CloseParen :
+				case Colon, Assign, Comma, CloseParen :
 					return trange.parseTypeParameter();
 				
-				case TokenType.TripleDot :
+				case TripleDot :
 					auto name = trange.front.name;
 					auto location = lookahead.front.location;
 					
@@ -76,22 +76,21 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 				
 				default :
 					// We probably have a value parameter (or an error).
-					assert(0, "Value parameter is not implemented");
-					// return trange.parseValueParameter();
+					return trange.parseValueParameter();
 			}
 		
-		case TokenType.Alias :
+		case Alias :
 			assert(0, "Alias parameter is not implemented");
 			// return trange.parseAliasParameter();
 		
-		case TokenType.This :
+		case This :
 			Location location = trange.front.location;
 			trange.popFront();
 			
 			auto name = trange.front.name;
 			location.spanTo(trange.front.location);
 			
-			trange.match(TokenType.Identifier);
+			trange.match(Identifier);
 			
 			return new AstThisTemplateParameter(location, name);
 		
@@ -110,38 +109,38 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	
 	import d.ir.type;
 	auto defaultType = QualAstType(new BuiltinType(TypeKind.None));
-	switch(trange.front.type) {
-		case TokenType.Colon :
+	switch(trange.front.type) with(TokenType) {
+		case Colon :
 			trange.popFront();
-			auto type = trange.parseType();
+			auto specialization = trange.parseType();
 			
-			if(trange.front.type == TokenType.Assign) {
+			if(trange.front.type == Assign) {
 				trange.popFront();
 				defaultType = trange.parseType();
 			}
 			
 			location.spanTo(trange.front.location);
-			return new AstTypeTemplateParameter(location, name, type, defaultType);
+			return new AstTypeTemplateParameter(location, name, specialization, defaultType);
 		
-		case TokenType.Assign :
+		case Assign :
 			trange.popFront();
 			defaultType = trange.parseType();
 			
 			goto default;
 		
 		default :
-			auto type = QualAstType(new IdentifierType(new BasicIdentifier(location, name)));
+			auto specialization = QualAstType(new IdentifierType(new BasicIdentifier(location, name)));
 			
 			location.spanTo(trange.front.location);
-			return new AstTypeTemplateParameter(location, name, type, defaultType);
+			return new AstTypeTemplateParameter(location, name, specialization, defaultType);
 	}
 }
-/+
+
 private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	auto type = trange.parseType();
-	string name = trange.front.name;
+	auto name = trange.front.name;
 	
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
@@ -161,9 +160,9 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 		}
 	}
 	
-	return new ValueTemplateParameter(location, name, type);
+	return new AstValueTemplateParameter(location, name, type);
 }
-
+/+
 private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
@@ -225,11 +224,16 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			
 			trange.popFront();
 			break;
-		/+
-		case TokenType.True, TokenType.False, TokenType.Null, TokenType.IntegerLiteral, TokenType.StringLiteral, TokenType.CharacterLiteral, TokenType.__File__, TokenType.__Line__, TokenType.Is :
+		
+		case True, False, Null, IntegerLiteral, StringLiteral, CharacterLiteral, FloatLiteral, __File__, __Line__ :
 			arguments = [new ValueTemplateArgument(trange.parsePrimaryExpression())];
 			break;
+		
+		/+
+		case This :
+			// This can be passed as alias parameter.
 		+/
+		
 		default :
 			auto location = trange.front.location;
 			auto type = trange.parseBasicType();
