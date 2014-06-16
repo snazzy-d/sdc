@@ -123,8 +123,8 @@ class SuperExpression : Expression {
  * Context
  */
 class ContextExpression : Expression {
-	this(Location location) {
-		super(location, QualType(new ContextType()));
+	this(Location location, ContextType type) {
+		super(location, QualType(type));
 	}
 	
 	override string toString(Context) const {
