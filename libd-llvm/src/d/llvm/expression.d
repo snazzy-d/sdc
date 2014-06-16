@@ -400,19 +400,16 @@ struct ExpressionGen {
 		auto type = cast(DelegateType) peelAlias(e.type).type;
 		assert(type);
 		
-		LLVMValueRef thisValue;
-		if(type.context.isRef) {
-			thisValue = addressOf(e.expr);
-		} else {
-			thisValue = visit(e.expr);
-		}
+		auto ctxValue = type.context.isRef
+			? addressOf(e.expr)
+			: visit(e.expr);
 		
 		LLVMValueRef fun;
 		if(auto m = cast(Method) e.method) {
 			auto cd = (cast(ClassType) peelAlias(e.expr.type).type).dclass;
 			assert(cd, "Virtual dispatch can only be done on classes.");
 			
-			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisValue, 0, ""), "vtbl");
+			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, ctxValue, 0, ""), "vtbl");
 			fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
 		} else {
 			fun = pass.visit(e.method);
@@ -420,7 +417,7 @@ struct ExpressionGen {
 		
 		auto dg = LLVMGetUndef(pass.visit(type));
 		dg = LLVMBuildInsertValue(builder, dg, fun, 0, "");
-		dg = LLVMBuildInsertValue(builder, dg, thisValue, 1, "");
+		dg = LLVMBuildInsertValue(builder, dg, ctxValue, 1, "");
 		
 		return dg;
 	}
@@ -434,6 +431,7 @@ struct ExpressionGen {
 		
 		auto alloc = buildCall(druntimeGen.getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
+		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 		
 		auto dt = peelAlias(e.type).type;
 		if(auto pt = cast(PointerType) dt) {
@@ -829,7 +827,7 @@ struct AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ContextExpression e) {
-		return contexts[$ - 1].context;
+		return LLVMBuildPointerCast(builder, contexts[$ - 1].context, LLVMPointerType(contexts[$ - 1].type, 0), "");
 	}
 	
 	LLVMValueRef visit(UnaryExpression e) {

@@ -5,8 +5,6 @@ import d.ast.base;
 import d.ast.qualtype;
 import d.ast.type;
 
-import d.ir.symbol;
-
 class Type : AstType {
 	protected this() {}
 }
@@ -146,7 +144,14 @@ final:
 /**
  * Closure context pointer
  */
-class ContextType : Type {}
+class ContextType : Type {
+	import d.ir.symbol;
+	Function fun;
+	
+	this(Function fun) {
+		this.fun = fun;
+	}
+}
 
 /**
  * builtin types
@@ -264,6 +269,7 @@ class ArrayType : Type {
  * Type created via an alias declaration.
  */
 class AliasType : Type {
+	import d.ir.symbol;
 	TypeAlias dalias;
 	
 	this(TypeAlias dalias) {
@@ -299,6 +305,7 @@ Type peelAlias(Type t) {
  * Type created via a struct declaration.
  */
 class StructType : Type {
+	import d.ir.symbol;
 	Struct dstruct;
 	
 	this(Struct dstruct) {
@@ -315,6 +322,7 @@ class StructType : Type {
  * Type created via a class declaration.
  */
 class ClassType : Type {
+	import d.ir.symbol;
 	Class dclass;
 	
 	this(Class dclass) {
@@ -331,6 +339,7 @@ class ClassType : Type {
  * Type created via a enum declaration.
  */
 class EnumType : Type {
+	import d.ir.symbol;
 	Enum denum;
 	
 	this(Enum denum) {

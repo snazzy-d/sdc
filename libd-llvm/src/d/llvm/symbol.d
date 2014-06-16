@@ -101,10 +101,6 @@ final class SymbolGen {
 		auto oldCatchClauses = catchClauses;
 		auto oldUnwindBlocks = unwindBlocks;
 		
-		LLVMValueRef oldContext = f.hasContext
-			? contexts[$ - 1].context
-			: null;
-		
 		scope(exit) {
 			if(backupCurrentBB) {
 				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
@@ -118,10 +114,6 @@ final class SymbolGen {
 			lpContext = oldLpContext;
 			catchClauses = oldCatchClauses;
 			unwindBlocks = oldUnwindBlocks;
-			
-			if (oldContext) {
-				contexts[$ - 1].context = oldContext;
-			}
 		}
 		
 		// XXX: what is the way to flush an AA ?
@@ -163,43 +155,65 @@ final class SymbolGen {
 			paramTypes = paramTypes[1 .. $];
 		}
 		
-		if (oldContext) {
+		if (f.hasContext) {
 			auto ctxType = f.type.paramTypes[f.hasThis];
-			auto value = params[f.hasThis];
+			auto parentCtx = params[f.hasThis];
 			
-			if(ctxType.isRef || ctxType.isFinal) {
-				LLVMSetValueName(value, "__ctx");
-			} else {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[f.hasThis], "__ctx");
-				LLVMSetValueName(value, "arg.__ctx");
-				
-				LLVMBuildStore(builder, value, alloca);
-				value = alloca;
-			}
-			
-			contexts[$ - 1].context = value;
+			assert(ctxType.isRef || ctxType.isFinal);
+			LLVMSetValueName(parentCtx, "__ctx");
 			
 			import d.ir.dscope;
 			auto s = cast(ClosureScope) f.dscope;
 			assert(s, "Function has context but do not have a closure scope");
 			
-			// Create enclosed variables.
-			foreach(v; s.capture.byKey()) {
-				// Try to find out if we have the variable in a closure.
-				foreach_reverse(closure; contexts) {
+			auto closureCount = s.capture.length;
+			
+			// Try to find out if we have the variable in a closure.
+			auto value = parentCtx;
+			ClosureLoop: foreach_reverse(closure; contexts) {
+				value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(closure.context), "");
+				
+				// Create enclosed variables.
+				foreach(v; s.capture.byKey()) {
 					if (auto indexPtr = v in closure.indices) {
 						// Register the variable.
-						locals[v] = LLVMBuildStructGEP(builder, closure.context, *indexPtr, v.mangle.toStringz());
+						locals[v] = LLVMBuildStructGEP(builder, value, *indexPtr, v.mangle.toStringz());
+						
+						closureCount--;
+						if (!closureCount) {
+							break ClosureLoop;
+						}
 					}
 				}
+				
+				value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
 			}
+			
+			assert(closureCount == 0);
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 			
-			contexts ~= Closure();
+			// Chain closures.
+			auto closure = Closure();
+			closure.type = buildContextType(f);
+			closure.context = LLVMBuildAlloca(builder, closure.type, "");
+			
+			auto parentType = LLVMTypeOf(parentCtx);
+			closure.context = LLVMBuildPointerCast(
+				builder,
+				closure.context,
+				LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &parentType, 1, false), 0),
+				"",
+			);
+			
+			LLVMBuildStore(builder, parentCtx, LLVMBuildStructGEP(builder, closure.context, 0, ""));
+			contexts ~= closure;
 		} else {
-			contexts = [Closure()];
+			// Build closure for this function.
+			auto closure = Closure();
+			closure.type = buildContextType(f);
+			contexts = [closure];
 		}
 		
 		foreach(i, p; parameters) {
@@ -242,14 +256,30 @@ final class SymbolGen {
 		
 		// If we have a context, let's make it the right size.
 		if (auto context = contexts[$ - 1].context) {
-			auto size = LLVMSizeOf(LLVMGetElementType(LLVMTypeOf(context)));
+			auto ctxType = LLVMGetElementType(LLVMTypeOf(context));
 			
-			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Call) {
+			auto count = LLVMCountStructElementTypes(ctxType);
+			LLVMTypeRef[] types;
+			types.length = count;
+			LLVMGetStructElementTypes(ctxType, types.ptr);
+			
+			ctxType = contexts[$ - 1].type;
+			LLVMStructSetBody(ctxType, types.ptr, count, false);
+			
+			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Alloca) {
 				assert(LLVMGetInstructionOpcode(context) == LLVMOpcode.BitCast);
 				context = LLVMGetOperand(context, 0);
 			}
 			
-			LLVMReplaceAllUsesWith(LLVMGetOperand(context, 0), size);
+			LLVMPositionBuilderBefore(builder, context);
+			
+			import d.llvm.expression;
+			auto eg = ExpressionGen(pass);
+			
+			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
+			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+			
+			LLVMReplaceAllUsesWith(context, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
 		}
 	}
 	
@@ -285,30 +315,38 @@ final class SymbolGen {
 		LLVMValueRef addr;
 		if(v.storage == Storage.Capture) {
 			auto closure = &contexts[$ - 1];
+			
+			uint index = 0;
+			
+			// If we don't have a closure, make one.
 			if (!closure.context) {
-				closure.indices[v] = 0;
-				auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMConstInt(LLVMInt8TypeInContext(llvmCtx), 0, false)]);
-				
-				closure.context = LLVMBuildPointerCast(builder, alloc, LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0), "");
-				addr = LLVMBuildStructGEP(builder, closure.context, 0, v.mangle.toStringz());
+				auto alloca = LLVMBuildAlloca(builder, closure.type, "");
+				closure.context = LLVMBuildPointerCast(
+					builder,
+					alloca,
+					LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0),
+					"",
+				);
 			} else {
 				auto context = closure.context;
 				auto contextType = LLVMGetElementType(LLVMTypeOf(context));
-				
-				auto index = LLVMCountStructElementTypes(contextType);
-				closure.indices[v] = index;
+				index = LLVMCountStructElementTypes(contextType);
 				
 				LLVMTypeRef[] types;
 				types.length = index + 1;
 				LLVMGetStructElementTypes(contextType, types.ptr);
-				
 				types[$ - 1] = type;
-				contextType = LLVMStructTypeInContext(llvmCtx, types.ptr, index + 1, false);
-				LLVMValueRef size = LLVMSizeOf(contextType);
 				
-				closure.context = LLVMBuildPointerCast(builder, context, LLVMPointerType(contextType, 0), "");
-				addr = LLVMBuildStructGEP(builder, closure.context, index, v.mangle.toStringz());
+				closure.context = LLVMBuildPointerCast(
+					builder,
+					context,
+					LLVMPointerType(LLVMStructTypeInContext(llvmCtx, types.ptr, index + 1, false), 0),
+					"",
+				);
 			}
+			
+			closure.indices[v] = index;
+			addr = LLVMBuildStructGEP(builder, closure.context, index, v.mangle.toStringz());
 		} else {
 			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz());
 		}

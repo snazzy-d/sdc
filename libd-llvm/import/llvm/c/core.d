@@ -1867,6 +1867,25 @@ LLVMAttribute LLVMGetFunctionAttr(LLVMValueRef Fn);
 void LLVMRemoveFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 /**
+ * Add an attribute to a function's return value.
+ *
+ * @see llvm::Function::addAttribute()
+ */
+void LLVMAddReturnAttr(LLVMValueRef Fn, LLVMAttribute PA);
+
+/**
+ * Obtain an attribute from a function's return value.
+ *
+ * @see llvm::Function::getAttributes()
+ */
+LLVMAttribute LLVMGetReturnAttr(LLVMValueRef Fn);
+
+/**
+ * Remove an attribute from a function's return value.
+ */
+void LLVMRemoveReturnAttr(LLVMValueRef Fn, LLVMAttribute PA);
+
+/**
  * @defgroup LLVMCCoreValueFunctionParameters Function Parameters
  *
  * Functions in this group relate to arguments/parameters on functions.

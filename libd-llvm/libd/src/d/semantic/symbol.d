@@ -129,7 +129,9 @@ struct SymbolAnalyzer {
 		
 		// If this is a clusore, we add the context parameter.
 		if(f.hasContext) {
-			auto contextParameter = new Parameter(f.location, ParamType(new ContextType(), true), BuiltinName!"__ctx", null);
+			assert(ctxType, "ctxType must be defined if function has a context pointer.");
+			
+			auto contextParameter = new Parameter(f.location, ParamType(ctxType, true), BuiltinName!"__ctx", null);
 			params = contextParameter ~ params;
 		}
 		
@@ -166,12 +168,19 @@ struct SymbolAnalyzer {
 		
 		if(fd.fbody) {
 			auto oldScope = currentScope;
-			scope(exit) currentScope = oldScope;
+			auto oldCtxType = ctxType;
+			
+			scope(exit) {
+				currentScope = oldScope;
+				ctxType = oldCtxType;
+			}
 			
 			// Update scope.
 			currentScope = f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
 				: new SymbolScope(f, oldScope);
+			
+			ctxType = new ContextType(f);
 			
 			// Register parameters.
 			foreach(p; params) {
@@ -254,10 +263,17 @@ struct SymbolAnalyzer {
 		
 		if(fbody) {
 			auto oldScope = currentScope;
-			scope(exit) currentScope = oldScope;
+			auto oldCtxType = ctxType;
+			
+			scope(exit) {
+				currentScope = oldScope;
+				ctxType = oldCtxType;
+			}
 			
 			// Update scope.
 			currentScope = f.dscope = new SymbolScope(f, oldScope);
+			
+			ctxType = new ContextType(f);
 			
 			// Register parameters.
 			foreach(p; params) {
