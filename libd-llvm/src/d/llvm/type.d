@@ -23,6 +23,8 @@ final class TypeGen {
 	private LLVMValueRef[TypeSymbol] newInits;
 	private LLVMValueRef[TypeSymbol] typeInfos;
 	
+	private LLVMTypeRef[Function] funCtxTypes;
+	
 	private Class classInfoClass;
 	
 	this(CodeGenPass pass) {
@@ -273,11 +275,14 @@ final class TypeGen {
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
 	}
 	
+	LLVMTypeRef buildContextType(Function f) {
+		return funCtxTypes.get(f, {
+			return funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
+		}());
+	}
+	
 	LLVMTypeRef visit(ContextType t) {
-		auto closure = contexts[$ - 1];
-		return closure.context
-			? LLVMGetElementType(LLVMTypeOf(closure.context))
-			: LLVMInt8TypeInContext(llvmCtx);
+		return buildContextType(t.fun);
 	}
 }
 

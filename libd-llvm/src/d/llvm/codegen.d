@@ -45,6 +45,7 @@ final class CodeGenPass {
 	struct Closure {
 		uint[Variable] indices;
 		LLVMValueRef context;
+		LLVMTypeRef type;
 	}
 	
 	Closure[] contexts;
@@ -151,6 +152,10 @@ final class CodeGenPass {
 		return typeGen.buildClass(c);
 	}
 	
+	auto buildContextType(Function f) {
+		return typeGen.buildContextType(f);
+	}
+	
 	auto buildDString(string str) {
 		return stringGen.buildDString(str);
 	}
@@ -253,10 +258,13 @@ final class DruntimeGen {
 	}
 	
 	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
-		// TODO: LLVMGetNamedFunction
 		return cache.get(name, cache[name] = {
 			return LLVMAddFunction(pass.dmodule, name.toStringz(), type);
 		}());
+	}
+	
+	private auto getNamedFunction(string name, LLVMValueRef function(CodeGenPass) build) {
+		return cache.get(name, cache[name] = build(pass));
 	}
 	
 	auto getAssert() {
@@ -275,8 +283,15 @@ final class DruntimeGen {
 	}
 	
 	auto getAllocMemory() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
-		return getNamedFunction("_d_allocmemory", LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), [LLVMInt64TypeInContext(llvmCtx)].ptr, 1, false));
+		return getNamedFunction("_d_allocmemory", (p) {
+			auto arg = LLVMInt64TypeInContext(p.llvmCtx);
+			auto type = LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(p.llvmCtx), 0), &arg, 1, false);
+			auto fun = LLVMAddFunction(p.dmodule, "_d_allocmemory", type);
+			
+			// Trying to get the patch into LLVM
+			// LLVMAddReturnAttr(fun, LLVMAttribute.NoAlias);
+			return fun;
+		});
 	}
 	
 	auto getEhTypeidFor() {

@@ -419,7 +419,7 @@ struct ExpressionVisitor {
 		Expression ctx = f.hasThis
 			? new ThisExpression(location, QualType(thisType.type))
 			: f.hasContext
-				? new ContextExpression(location)
+				? new ContextExpression(location, ctxType)
 				: null;
 		
 		return ctx

@@ -62,6 +62,8 @@ final class SemanticPass {
 		ParamType returnType;
 		ParamType thisType;
 		
+		ContextType ctxType;
+		
 		string manglePrefix;
 		
 		mixin(bitfields!(
