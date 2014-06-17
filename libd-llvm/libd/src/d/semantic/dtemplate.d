@@ -169,19 +169,28 @@ struct TemplateInstancier {
 					argSyms ~= a;
 					return "T" ~ a.mangle;
 				} else static if(is(typeof(identified) : CompileTimeExpression)) {
-					auto v = new Variable(p.location, identified.type, p.name, identified);
+					auto a = new ValueAlias(p.location, p.name, identified);
 					
 					import d.ast.base;
-					v.storage = Storage.Enum;
+					a.storage = Storage.Enum;
 					
 					import d.semantic.mangler;
-					v.mangle = TypeMangler(pass).visit(identified.type) ~ ValueMangler(pass).visit(identified);
-					v.step = Step.Processed;
+					a.mangle = TypeMangler(pass).visit(identified.type) ~ ValueMangler(pass).visit(identified);
+					a.step = Step.Processed;
 					
-					argSyms ~= v;
-					return "V" ~ v.mangle;
+					argSyms ~= a;
+					return "V" ~ a.mangle;
+				} else static if(is(typeof(identified) : Symbol)) {
+					auto a = new SymbolAlias(p.location, p.name, identified);
+					
+					pass.scheduler.require(identified, Step.Populated);
+					a.mangle = identified.mangle;
+					a.step = Step.Processed;
+					
+					argSyms ~= a;
+					return "S" ~ a.mangle;
 				} else {
-					assert(0, "Only type argument are supported.");
+					assert(0, typeid(identified).toString() ~ " is not supported.");
 				}
 			})
 		).array().join();
@@ -287,6 +296,11 @@ struct TypeMatcher {
 	
 	bool visit(TemplateParameter p) {
 		return this.dispatch(p);
+	}
+	
+	bool visit(AliasTemplateParameter p) {
+		matchedArgs[p.index] = TemplateArgument(matchee);
+		return true;
 	}
 	
 	bool visit(TypeTemplateParameter p) {
@@ -404,8 +418,15 @@ struct ValueMatcher {
 		return this.dispatch(p);
 	}
 	
+	bool visit(AliasTemplateParameter p) {
+		matchedArgs[p.index] = TemplateArgument(matchee);
+		return true;
+	}
+	
 	bool visit(ValueTemplateParameter p) {
 		matchedArgs[p.index] = TemplateArgument(matchee);
+		
+		// TODO: If IFTI fails, go for cast.
 		return IftiTypeMatcher(matchedArgs, matchee.type).visit(p.type);
 	}
 }
@@ -424,6 +445,11 @@ struct SymbolMatcher {
 	
 	bool visit(TemplateParameter p) {
 		return this.dispatch(p);
+	}
+	
+	bool visit(AliasTemplateParameter p) {
+		matchedArgs[p.index] = TemplateArgument(matchee);
+		return true;
 	}
 	
 	bool visit(TypeTemplateParameter p) {

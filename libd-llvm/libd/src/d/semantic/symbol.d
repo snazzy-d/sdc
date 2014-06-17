@@ -2,7 +2,6 @@ module d.semantic.symbol;
 
 import d.semantic.caster;
 import d.semantic.declaration;
-import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -209,6 +208,7 @@ struct SymbolAnalyzer {
 			f.step = Step.Signed;
 		}
 		
+		// FIXME: Populated imply mangled. Mangled earlier.
 		switch(f.linkage) with(Linkage) {
 			case D :
 				import d.semantic.mangler;
@@ -335,7 +335,7 @@ struct SymbolAnalyzer {
 			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.storage == Storage.Enum) {
+		if(v.storage.isStatic) {
 			value = evaluate(value);
 		}
 		
@@ -343,7 +343,7 @@ struct SymbolAnalyzer {
 		
 		auto name = v.name.toString(context);
 		v.mangle = name;
-		if(v.storage == Storage.Enum) {
+		if(v.storage == Storage.Static) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
@@ -364,12 +364,43 @@ struct SymbolAnalyzer {
 		analyze(d, cast(Variable) f);
 	}
 	
-	void analyze(AliasDeclaration d, TypeAlias a) {
+	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
+		import d.semantic.identifier : IdentifierVisitor;
+		a.symbol = IdentifierVisitor!(function Symbol(identified) {
+			static if(is(typeof(identified) : Symbol)) {
+				return identified;
+			} else {
+				assert(0, "Not implemented");
+			}
+		}, true)(pass).visit(d.identifier);
+		
+		// Mangling
+		scheduler.require(a.symbol, Step.Populated);
+		a.mangle = a.symbol.mangle;
+		
+		a.step = Step.Signed;
+		
+		scheduler.require(a.symbol, Step.Processed);
+		a.step = Step.Processed;
+	}
+	
+	void analyze(TypeAliasDeclaration d, TypeAlias a) {
 		a.type = tv.visit(d.type);
 		
 		import d.semantic.mangler;
-		auto mangler = TypeMangler(pass);
-		a.mangle = mangler.visit(a.type);
+		a.mangle = TypeMangler(pass).visit(a.type);
+		
+		a.step = Step.Processed;
+	}
+	
+	void analyze(ValueAliasDeclaration d, ValueAlias a) {
+		import d.semantic.expression : ExpressionVisitor;
+		auto ev = ExpressionVisitor(pass);
+		
+		a.value = evaluate(ev.visit(d.value));
+		
+		import d.semantic.mangler;
+		a.mangle = TypeMangler(pass).visit(a.value.type) ~ ValueMangler(pass).visit(a.value);
 		
 		a.step = Step.Processed;
 	}
@@ -467,6 +498,7 @@ struct SymbolAnalyzer {
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {
+			import d.semantic.identifier : IdentifierVisitor;
 			auto type = IdentifierVisitor!(function ClassType(identified) {
 				static if(is(typeof(identified) : QualType)) {
 					return cast(ClassType) identified.type;
@@ -686,6 +718,8 @@ struct SymbolAnalyzer {
 		
 		currentScope = t.dscope = new SymbolScope(t, oldScope);
 		
+		t.parameters.length = d.parameters.length;
+		
 		// Register parameter int the scope.
 		auto none = getBuiltin(TypeKind.None);
 		foreach_reverse(i, p; d.parameters) {
@@ -697,7 +731,7 @@ struct SymbolAnalyzer {
 				tp.defaultValue = tv.visit(atp.defaultValue);
 				
 				tp.step = Step.Signed;
-				t.parameters = tp ~ t.parameters;
+				t.parameters[i] = tp;
 			} else if(auto avp = cast(AstValueTemplateParameter) p) {
 				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none);
 				currentScope.addSymbol(vp);
@@ -705,9 +739,15 @@ struct SymbolAnalyzer {
 				vp.type = tv.visit(avp.type);
 				
 				vp.step = Step.Signed;
-				t.parameters = vp ~ t.parameters;
+				t.parameters[i] = vp;
+			} else if(auto aap = cast(AstAliasTemplateParameter) p) {
+				auto ap = new AliasTemplateParameter(aap.location, aap.name, cast(uint) i);
+				currentScope.addSymbol(ap);
+				
+				ap.step = Step.Signed;
+				t.parameters[i] = ap;
 			} else {
-				assert(0, typeid(p).toString() ~ " template parameters are supported.");
+				assert(0, typeid(p).toString() ~ " template parameters are not supported.");
 			}
 		}
 		

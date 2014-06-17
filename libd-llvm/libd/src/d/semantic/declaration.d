@@ -423,7 +423,6 @@ struct DeclarationVisitor {
 				previous = vd.value;
 				
 				currentScope.addSymbol(v);
-				
 				select(vd, v);
 			}
 		}
@@ -437,15 +436,39 @@ struct DeclarationVisitor {
 		t.storage = storage;
 		
 		currentScope.addOverloadableSymbol(t);
-		
 		select(d, t);
 	}
 	
-	void visit(AliasDeclaration d) {
-		TypeAlias a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
+	void visit(IdentifierAliasDeclaration d) {
+		auto a = new SymbolAlias(d.location, d.name, null);
+		
+		a.linkage = linkage;
+		a.visibility = visibility;
+		a.storage = Storage.Enum;
 		
 		currentScope.addSymbol(a);
+		select(d, a);
+	}
+	
+	void visit(TypeAliasDeclaration d) {
+		auto a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
 		
+		a.linkage = linkage;
+		a.visibility = visibility;
+		a.storage = Storage.Enum;
+		
+		currentScope.addSymbol(a);
+		select(d, a);
+	}
+	
+	void visit(ValueAliasDeclaration d) {
+		auto a = new ValueAlias(d.location, d.name, null);
+		
+		a.linkage = linkage;
+		a.visibility = visibility;
+		a.storage = Storage.Enum;
+		
+		currentScope.addSymbol(a);
 		select(d, a);
 	}
 	

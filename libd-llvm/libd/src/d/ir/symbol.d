@@ -204,6 +204,28 @@ class ValueTemplateParameter : TemplateParameter {
 }
 
 /**
+ * Template alias parameter
+ */
+class AliasTemplateParameter : TemplateParameter {
+	this(Location location, Name name, uint index) {
+		super(location, name, index);
+	}
+}
+
+/**
+ * Template typed alias parameter
+ */
+class TypedAliasTemplateParameter : TemplateParameter {
+	QualType type;
+	
+	this(Location location, Name name, uint index, QualType type) {
+		super(location, name, index);
+		
+		this.type = type;
+	}
+}
+
+/**
 * Template instance
 */
 class TemplateInstance : Symbol {
@@ -219,6 +241,19 @@ class TemplateInstance : Symbol {
 }
 
 /**
+ * Alias of symbols
+ */
+class SymbolAlias : Symbol {
+	Symbol symbol;
+	
+	this(Location location, Name name, Symbol symbol) {
+		super(location, name);
+		
+		this.symbol = symbol;
+	}
+}
+
+/**
  * Alias of types
  */
 class TypeAlias : TypeSymbol {
@@ -228,6 +263,19 @@ class TypeAlias : TypeSymbol {
 		super(location, name);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * Alias of values
+ */
+class ValueAlias : ValueSymbol {
+	CompileTimeExpression value;
+	
+	this(Location location, Name name, CompileTimeExpression value) {
+		super(location, name);
+		
+		this.value = value;
 	}
 }
 

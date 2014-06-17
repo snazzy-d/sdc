@@ -641,11 +641,22 @@ private Declaration parseAlias(R)(ref R trange) {
 	if(trange.front.type == TokenType.Assign) {
 		trange.popFront();
 		
-		auto type = trange.parseType();
-		location.spanTo(trange.front.location);
-		trange.match(TokenType.Semicolon);
-		
-		return new AliasDeclaration(location, name, type);
+		import d.parser.ambiguous;
+		return trange.parseAmbiguous!(delegate Declaration(parsed) {
+			location.spanTo(trange.front.location);
+			trange.match(TokenType.Semicolon);
+			
+			alias type = typeof(parsed);
+			
+			import d.ast.type;
+			static if(is(type : QualAstType)) {
+				return new TypeAliasDeclaration(location, name, parsed);
+			} else static if(is(type : AstExpression)) {
+				return new ValueAliasDeclaration(location, name, parsed);
+			} else {
+				return new IdentifierAliasDeclaration(location, name, parsed);
+			}
+		})();
 	} else if(trange.front.type == TokenType.This) {
 		/+
 		auto identifier = trange.parseIdentifier();
