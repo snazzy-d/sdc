@@ -27,6 +27,7 @@ typeof(handler(null)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenR
 			auto i = trange.parseDotIdentifier();
 			return trange.parseAmbiguousSuffix!handler(i);
 		
+		// Types
 		case Typeof :
 		case Bool :
 		case Byte :
@@ -44,6 +45,12 @@ typeof(handler(null)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenR
 		case Double :
 		case Real :
 		case Void :
+		
+		// Type qualifiers
+		case Const :
+		case Immutable :
+		case Inout :
+		case Shared :
 			auto location = trange.front.location;
 			auto t = trange.parseType!(ParseMode.Reluctant)();
 			return trange.parseAmbiguousSuffix!handler(location, t);

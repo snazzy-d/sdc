@@ -217,12 +217,26 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
 	}
 	
+	Ret visit(Location location, ValueAlias a) {
+		static if(asAlias) {
+			return handler(a);
+		} else {
+			scheduler.require(a, Step.Signed);
+			return handler(a.value);
+		}
+	}
+	
 	Ret visit(Location location, OverloadSet s) {
 		if(s.set.length == 1) {
 			return visit(location, s.set[0]);
 		}
 		
 		return handler(s);
+	}
+	
+	Ret visit(Location location, SymbolAlias s) {
+		scheduler.require(s, Step.Signed);
+		return visit(location, s.symbol);
 	}
 	
 	private auto getSymbolType(T, S)(S s) {
