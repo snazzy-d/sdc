@@ -674,12 +674,12 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 				location.spanTo(trange.front.location);
 				trange.match(CloseParen);
 				
-				alias typeof(parsed) caseType;
+				alias type = typeof(parsed);
 				
 				import d.ast.type;
-				static if(is(caseType : QualAstType)) {
+				static if(is(type : QualAstType)) {
 					return new AstStaticTypeidExpression(location, parsed);
-				} else static if(is(caseType : AstExpression)) {
+				} else static if(is(type : AstExpression)) {
 					return new AstTypeidExpression(location, parsed);
 				} else {
 					return new IdentifierTypeidExpression(location, parsed);

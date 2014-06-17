@@ -80,8 +80,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 			}
 		
 		case Alias :
-			assert(0, "Alias parameter is not implemented");
-			// return trange.parseAliasParameter();
+			return trange.parseAliasParameter();
 		
 		case This :
 			Location location = trange.front.location;
@@ -162,8 +161,8 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	
 	return new AstValueTemplateParameter(location, name, type);
 }
-/+
-private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
+
+private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
@@ -182,23 +181,22 @@ private TemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange)
 	
 	if(isTyped) {
 		auto type = trange.parseType();
-		string name = trange.front.name;
+		auto name = trange.front.name;
 		
 		location.spanTo(trange.front.location);
-		
 		trange.match(TokenType.Identifier);
 		
-		return new TypedAliasTemplateParameter(location, name, type);
+		return new AstTypedAliasTemplateParameter(location, name, type);
 	} else {
-		string name = trange.front.name;
-		location.spanTo(trange.front.location);
+		auto name = trange.front.name;
 		
+		location.spanTo(trange.front.location);
 		trange.match(TokenType.Identifier);
 		
-		return new AliasTemplateParameter(location, name);
+		return new AstAliasTemplateParameter(location, name);
 	}
 }
-+/
+
 auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	TemplateArgument[] arguments;
 	

@@ -25,9 +25,22 @@ class NamedDeclaration : Declaration {
 }
 
 /**
- * Alias of types
+ * Identifier alias
  */
-class AliasDeclaration : NamedDeclaration {
+class IdentifierAliasDeclaration : NamedDeclaration {
+	Identifier identifier;
+	
+	this(Location location, Name name, Identifier identifier) {
+		super(location, name);
+		
+		this.identifier = identifier;
+	}
+}
+
+/**
+ * Type alias
+ */
+class TypeAliasDeclaration : NamedDeclaration {
 	QualAstType type;
 	
 	this(Location location, Name name, QualAstType type) {
@@ -36,6 +49,20 @@ class AliasDeclaration : NamedDeclaration {
 		this.type = type;
 	}
 }
+
+/**
+ * Value alias
+ */
+class ValueAliasDeclaration : NamedDeclaration {
+	AstExpression value;
+	
+	this(Location location, Name name, AstExpression value) {
+		super(location, name);
+		
+		this.value = value;
+	}
+}
+
 
 /**
  * Alias this
@@ -268,24 +295,6 @@ class AstValueTemplateParameter : AstTemplateParameter {
 }
 
 /**
- * This templates parameters
- */
-class AstThisTemplateParameter : AstTemplateParameter {
-	this(Location location, Name name) {
-		super(location, name);
-	}
-}
-
-/**
- * Tuple templates parameters
- */
-class AstTupleTemplateParameter : AstTemplateParameter {
-	this(Location location, Name name) {
-		super(location, name);
-	}
-}
-
-/**
  * Alias template parameter
  */
 class AstAliasTemplateParameter : AstTemplateParameter {
@@ -304,6 +313,24 @@ class AstTypedAliasTemplateParameter : AstAliasTemplateParameter {
 		super(location, name);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * This templates parameters
+ */
+class AstThisTemplateParameter : AstTemplateParameter {
+	this(Location location, Name name) {
+		super(location, name);
+	}
+}
+
+/**
+ * Tuple templates parameters
+ */
+class AstTupleTemplateParameter : AstTemplateParameter {
+	this(Location location, Name name) {
+		super(location, name);
 	}
 }
 
