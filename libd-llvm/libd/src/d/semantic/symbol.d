@@ -746,6 +746,14 @@ struct SymbolAnalyzer {
 				
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
+			} else if(auto atap = cast(AstTypedAliasTemplateParameter) p) {
+				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
+				currentScope.addSymbol(tap);
+				
+				tap.type = tv.visit(atap.type);
+				
+				tap.step = Step.Signed;
+				t.parameters[i] = tap;
 			} else {
 				assert(0, typeid(p).toString() ~ " template parameters are not supported.");
 			}
