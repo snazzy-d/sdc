@@ -418,12 +418,19 @@ struct ValueMatcher {
 		return this.dispatch(p);
 	}
 	
+	bool visit(ValueTemplateParameter p) {
+		matchedArgs[p.index] = TemplateArgument(matchee);
+		
+		// TODO: If IFTI fails, go for cast.
+		return IftiTypeMatcher(matchedArgs, matchee.type).visit(p.type);
+	}
+	
 	bool visit(AliasTemplateParameter p) {
 		matchedArgs[p.index] = TemplateArgument(matchee);
 		return true;
 	}
 	
-	bool visit(ValueTemplateParameter p) {
+	bool visit(TypedAliasTemplateParameter p) {
 		matchedArgs[p.index] = TemplateArgument(matchee);
 		
 		// TODO: If IFTI fails, go for cast.
@@ -450,6 +457,28 @@ struct SymbolMatcher {
 	bool visit(AliasTemplateParameter p) {
 		matchedArgs[p.index] = TemplateArgument(matchee);
 		return true;
+	}
+	
+	bool visit(TypedAliasTemplateParameter p) {
+		if(auto vs = cast(ValueSymbol) matchee) {
+			matchedArgs[p.index] = TemplateArgument(vs);
+			
+			import d.semantic.identifier;
+			return IdentifierVisitor!(delegate bool(identified) {
+				alias type = typeof(identified);
+				
+				// IdentifierVisitor must know the return value of the closure.
+				// To do so, it instanciate it with null as parameter.
+				static if(is(type : Expression) && !is(type == typeof(null))) {
+					// TODO: If IFTI fails, go for cast.
+					return IftiTypeMatcher(matchedArgs, identified.type).visit(p.type);
+				} else {
+					return false;
+				}
+			})(pass).visit(p.location, vs);
+		}
+		
+		return false;
 	}
 	
 	bool visit(TypeTemplateParameter p) {
@@ -487,7 +516,7 @@ struct IftiTypeMatcher {
 	}
 	
 	bool visit(QualType t) {
-		return this.dispatch(t.type);
+		return visit(t.type);
 	}
 	
 	bool visit(Type t) {
