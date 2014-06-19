@@ -306,7 +306,7 @@ class AstAliasTemplateParameter : AstTemplateParameter {
 /**
  * Typed alias template parameter
  */
-class AstTypedAliasTemplateParameter : AstAliasTemplateParameter {
+class AstTypedAliasTemplateParameter : AstTemplateParameter {
 	QualAstType type;
 	
 	this(Location location, Name name, QualAstType type) {
