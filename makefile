@@ -30,7 +30,7 @@ SDC = bin/sdc
 
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
-LIBSDRT_EXTRA_DEPS = $(SDC)
+LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
 
 ALL_TARGET = $(LIBSDRT)
 
@@ -44,6 +44,9 @@ $(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
 obj/sdc.o: $(SOURCE)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/sdc.o $(SOURCE) $(DFLAGS) $(IMPORTS)
+
+bin/sdc.conf:
+	echo "{\n\t\"includePath\": [\"$(PWD)/libs\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}" > $@
 
 clean:
 	rm -rf obj lib $(SDC)
