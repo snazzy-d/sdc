@@ -46,6 +46,14 @@ Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
 Install LLVM 3.3. Ensure that libd and libd-llvm provided as submodules are compiled properly.
+````
+git submodule init
+git submodule update
+cd libd-llvm
+git submodule init
+git submodule update
+````
+
 Run `make`.
 
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
