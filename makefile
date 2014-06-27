@@ -13,7 +13,11 @@ ifdef LD_PATH
 	LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
+ifdef STATICLINK
+	LDFLAGS += $(LIBD_LIB) $(LLVM_LIB) -l:libphobos2.a
+else
+	LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
+endif
 
 PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
