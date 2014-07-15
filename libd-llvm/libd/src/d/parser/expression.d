@@ -652,7 +652,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 		
 		case Function :
 		case Delegate :
-			assert(0, "not implemented");
+			assert(0, "Functions or Delegates not implemented ");
 		
 		case __File__ :
 			trange.popFront();
