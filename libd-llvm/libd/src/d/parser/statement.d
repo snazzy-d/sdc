@@ -80,11 +80,11 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(OpenParen);
 			
 			AstStatement init;
-			if(trange.front.type == Semicolon) {
+			if(trange.front.type != Semicolon) {
+				init = trange.parseStatement();
+			} else {
 				init = new AstBlockStatement(trange.front.location, []);
 				trange.popFront();
-			} else {
-				init = trange.parseStatement();
 			}
 			
 			AstExpression condition;
@@ -145,10 +145,10 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
-				
-				assert(0, "yada yada foreach ?");
-				
-				// return new VariableDeclaration(elementLocation, type, name, ARGUMENT?);
+	
+				assert(0, "foreach can't be parsed yet");
+
+				//return new VariableDeclaration(elementLocation, type, name, initExpression);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];

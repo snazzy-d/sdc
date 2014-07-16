@@ -21,7 +21,7 @@ struct TypeMangler {
 	string visit(BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
-				assert(0, "Not Implemented");
+				assert(0, "none should never be mangled");
 			
 			case Void :
 				return "v";
@@ -51,7 +51,7 @@ struct TypeMangler {
 				return "m";
 			
 			case Ucent :
-				assert(0, "Not Implemented");
+				assert(0, "mangle for ucent not Implemented");
 			
 			case Byte :
 				return "g";
@@ -66,7 +66,7 @@ struct TypeMangler {
 				return "l";
 			
 			case Cent :
-				assert(0, "Not Implemented");
+				assert(0, "mangle for cent not Implemented");
 			
 			case Float :
 				return "f";
@@ -78,7 +78,7 @@ struct TypeMangler {
 				return "e";
 			
 			case Null :
-				assert(0, "Not Implemented");
+				assert(0, "mangle for typeof(null) not Implemented");
 		}
 	}
 	

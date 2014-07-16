@@ -164,7 +164,7 @@ struct ExpressionVisitor {
 			
 			case Concat :
 			case ConcatAssign :
-				assert(0, "Not implemented.");
+				assert(0, "~,~= not implemented.");
 			
 			case LogicalOr :
 			case LogicalAnd :
@@ -177,7 +177,7 @@ struct ExpressionVisitor {
 			
 			case LogicalOrAssign :
 			case LogicalAndAssign :
-				assert(0, "Not implemented.");
+				assert(0, "||=, &&= Not implemented.");
 			
 			case BitwiseOr :
 			case BitwiseAnd :
@@ -210,7 +210,7 @@ struct ExpressionVisitor {
 			
 			case In :
 			case NotIn :
-				assert(0, "Not implemented.");
+				assert(0, "in and !in are not implemented.");
 			
 			case LeftShift :
 			case SignedRightShift :
@@ -225,7 +225,7 @@ struct ExpressionVisitor {
 			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
-				assert(0, "Not implemented.");
+				assert(0,"<<, >> and >>> are not implemented.");
 			
 			case Greater :
 			case GreaterEqual :
@@ -247,7 +247,7 @@ struct ExpressionVisitor {
 			case UnorderedGreaterEqual :
 			case Unordered :
 			case UnorderedEqual :
-				assert(0, "Not implemented.");
+				assert(0, "Unorderd comparisons are not implemented.");
 		}
 		
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
@@ -323,7 +323,7 @@ struct ExpressionVisitor {
 				break;
 			
 			case Complement :
-				assert(0, "Not implemented.");
+				assert(0, "unary ~ not implemented.");
 		}
 		
 		return new UnaryExpression(e.location, type, op, expr);

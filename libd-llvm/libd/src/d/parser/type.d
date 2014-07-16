@@ -156,7 +156,7 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 			trange.match(TokenType.Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
-			assert(0);
+			assert(0,"Expected BasicType");
 	}
 }
 

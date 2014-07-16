@@ -798,7 +798,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 				
 				if(trange.front.type == CloseBracket) {
 					// We have a slicing operation here.
-					assert(0, "Not implemented");
+					assert(0, "Slice experssoins can not be parsed yet");
 				} else {
 					auto args = trange.parseArguments();
 					switch(trange.front.type) {
