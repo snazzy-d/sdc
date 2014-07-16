@@ -35,10 +35,7 @@ int main(string[] args) {
 		"O", &optLevel,
 		"c", &dontLink,
 		"o", &outputFile,
-		"help|h", delegate() {
-			import std.stdio;
-			writeln("HELP !");
-		}
+		"help|h",&printHelp
 	);
 	
 	foreach(path; includePath) {
@@ -83,3 +80,10 @@ int main(string[] args) {
 	}
 }
 
+void printHelp() {
+	import std.stdio;
+	writeln("usage: sdc [-IOco] inputfile");
+	writeln("-o outfile | sets the outputfile to outfile");
+	writeln("-I includepaths ... | ");
+	writeln("-c | don't link");
+}

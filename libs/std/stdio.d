@@ -4,6 +4,5 @@ module std.stdio;
 
 void writeln(string s)
 {
-    printf(s);
-    printf("\n");
+    puts(s.ptr);
 }
