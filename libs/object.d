@@ -16,6 +16,7 @@ extern (C) {
 	void exit(int code);
 	// XXX: change to const when proper type qualifier propagation is in place.
 	int printf(const char* fmt, ...);
+	int puts(const char* s);
 }
 
 class Object {
