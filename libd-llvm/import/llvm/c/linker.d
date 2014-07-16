@@ -11,7 +11,7 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module llvm.c.initialization;
+module llvm.c.linker;
 
 import llvm.c.core;
 

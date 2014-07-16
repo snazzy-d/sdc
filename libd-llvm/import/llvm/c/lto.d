@@ -293,7 +293,7 @@ lto_codegen_debug_options(lto_code_gen_t cg, const(char) *);
  * FIXME: This doesn't really belong here.
  */
 extern void
-lto_initialize_disassembler(void);
+lto_initialize_disassembler();
 
 /**
  * @}
