@@ -16,7 +16,7 @@
 |*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module llvm.c.enhancedDisassembly;
+module llvm.c.executionEngine;
 
 import llvm.c.core;
 import llvm.c.target;
