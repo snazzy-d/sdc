@@ -207,8 +207,9 @@ struct Caster(bool isExplicit) {
 				case Float:
 				case Double:
 				case Real:
+					assert(0, "foating point casts are not implemented");
 				case Null:
-					assert(0, "Not implemented");
+					assert(0,"null casts not implemented");
 			}
 		}
 		

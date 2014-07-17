@@ -27,8 +27,9 @@ struct DefaultInitializerVisitor {
 	Expression visit(Location location, BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
+				assert(0,"none shall not be!");
 			case Void :
-				assert(0, "Not Implemented");
+				assert(0, "Void initializer not Implemented");
 			
 			case Bool :
 				return new BooleanLiteral(location, false);

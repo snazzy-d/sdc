@@ -77,7 +77,7 @@ struct BuiltinHandler {
 			return visit(bt);
 		}
 		
-		throw new CompileException(t.denum.location, "Enum are of type int");
+		throw new CompileException(t.denum.location, "Enums are of type int");
 	}
 	
 	QualType visit(AliasType t) {

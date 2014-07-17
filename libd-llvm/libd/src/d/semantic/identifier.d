@@ -92,7 +92,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 		}
 		
 		if(name == BuiltinName!"init") {
-			assert(0, "init, yeah sure . . .");
+			assert(0, "cannot resolve init yet");
 		} else if(name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			auto sv = SizeofVisitor(pass);
@@ -141,7 +141,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 	}
 	
 	Ret visit(IdentifierBracketIdentifier i) {
-		assert(0, "Not implemented");
+		assert(0, "can't resolve aaType yet");
 	}
 	
 	Ret visit(IdentifierBracketExpression i) {
@@ -171,7 +171,7 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 				auto ev = ExpressionVisitor(pass);
 				return handler(new IndexExpression(i.location, qt, identified, [ev.visit(i.index)]));
 			} else {
-				assert(0, "WTF ???");
+				assert(0, "It seems some weird index expression");
 			}
 		})();
 	}

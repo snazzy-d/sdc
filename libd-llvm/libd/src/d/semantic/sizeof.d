@@ -25,8 +25,9 @@ struct SizeofVisitor {
 	uint visit(BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
+				assert(0, "none shall never be!");
 			case Void :
-				assert(0, "Not Implemented");
+				assert(0, "void.sizeof not is Implemented");
 			
 			case Bool :
 				return 1;
@@ -53,7 +54,7 @@ struct SizeofVisitor {
 				return 8;
 			
 			case Ucent :
-				assert(0, "Not Implemented");
+				return 16
 			
 			case Byte :
 				return 1;
@@ -68,7 +69,7 @@ struct SizeofVisitor {
 				return 8;
 			
 			case Cent :
-				assert(0, "Not Implemented");
+				return 16;
 			
 			case Float :
 				return 4;
@@ -78,7 +79,7 @@ struct SizeofVisitor {
 			
 			case Real :
 			case Null :
-				assert(0, "Not Implemented");
+				assert(0, "real.sizeof or typeof(null).sizeof is not Implemented");
 		}
 	}
 	
@@ -87,7 +88,7 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(SliceType t) {
-		return 16;
+		return 2*8;
 	}
 	
 	uint visit(ArrayType t) {
@@ -102,11 +103,11 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(StructType t) {
-		assert(0, "Struct.sizeof is not implemented.");
+		assert(0, "struct.sizeof is not implemented.");
 	}
 	
 	uint visit(ClassType t) {
-		assert(0, "Struct.sizeof is not implemented.");
+		assert(0, "class.sizeof is not implemented.");
 	}
 	
 	uint visit(EnumType t) {

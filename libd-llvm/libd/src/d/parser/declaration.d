@@ -592,7 +592,7 @@ private auto parseParameter(R)(ref R trange) {
 	ParseStorageClassLoop: while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case In, Out, Lazy :
-				assert(0, "Not implemented");
+				assert(0, "storageclasses: in, out and lazy  are not yet implemented");
 			
 			case Ref :
 				trange.popFront();
