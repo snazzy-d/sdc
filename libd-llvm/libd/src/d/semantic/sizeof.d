@@ -54,7 +54,7 @@ struct SizeofVisitor {
 				return 8;
 			
 			case Ucent :
-				return 16
+				return 16;
 			
 			case Byte :
 				return 1;
