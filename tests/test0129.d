@@ -24,7 +24,7 @@ int main() {
 	assert(a == 12-b/2);
 
 	a += Qux!(int*, int);
-	assert(a == 20 - b/2);
+	assert(a == 24 - b);
 
 
 	return foo(a) + bar(5) + b;
