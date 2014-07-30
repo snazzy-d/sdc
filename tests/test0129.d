@@ -4,15 +4,15 @@
 // Test IFTI with explicit and implicit parameter.
 
 int foo()(int i) {
-return i + bar!int(13);
+	return i + bar!int(13);
 }
 
 template Qux(T : U*, U) {
-uint Qux = T.sizeof + U.sizeof;
+	uint Qux = T.sizeof + U.sizeof;
 }
 
 auto bar(T)(T t) {
-return t;
+	return t;
 }
 
 int main() {
