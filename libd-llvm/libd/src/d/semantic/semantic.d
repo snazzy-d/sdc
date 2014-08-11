@@ -151,7 +151,7 @@ final class SemanticPass {
 		}).filter!(s => !!s).array();
 		
 		assert(candidates.length < 2, "Several main functions");
-		assert(candidates.length == 1, "No main functoion");
+		assert(candidates.length == 1, "No main function");
 		
 		auto main = candidates[0];
 		auto location = main.fbody.location;
