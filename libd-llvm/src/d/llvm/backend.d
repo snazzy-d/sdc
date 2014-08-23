@@ -144,11 +144,7 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
-		version(OSX) {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
-		} else {
-			auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
-		}
+		auto linkCommand = "gcc -o " ~ executable ~ " " ~ objFile ~ linkerParams ~ " -lsdrt";
 		
 		writeln(linkCommand);
 		wait(spawnShell(linkCommand));
