@@ -151,7 +151,7 @@ final class LLVMBackend {
 		}
 		
 		writeln(linkCommand);
-		system(linkCommand);
+		wait(spawnShell(linkCommand));
 	}
 }
 
