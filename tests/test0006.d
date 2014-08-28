@@ -13,6 +13,8 @@ int main() {
 	uint ui;
 	long l;
 	ulong ul;
+	cent ce;
+	ucent uce;
 	float f;
 	double d;
 	real r;
