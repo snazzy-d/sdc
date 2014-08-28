@@ -38,6 +38,8 @@ typeof(handler(null)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenR
 		case Uint :
 		case Long :
 		case Ulong :
+		case Cent :
+		case Ucent :
 		case Char :
 		case Wchar :
 		case Dchar :
