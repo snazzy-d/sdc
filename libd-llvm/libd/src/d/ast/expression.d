@@ -112,12 +112,12 @@ class BinaryExpression(T) if(is(T: AstExpression)) : T {
 		
 		this.op = op;
 	}
-	
+	/+
 	invariant() {
 		assert(lhs);
 		assert(rhs);
 	}
-	
+	+/
 	override string toString(Context ctx) const {
 		import std.conv;
 		return lhs.toString(ctx) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(ctx);
@@ -154,11 +154,11 @@ class UnaryExpression(T) if(is(T: AstExpression)) : T {
 		
 		this.op = op;
 	}
-	
+	/+
 	invariant() {
 		assert(expr);
 	}
-	
+	+/
 	override string toString(Context ctx) const {
 		import std.conv;
 		return to!string(op) ~ expr.toString(ctx);
