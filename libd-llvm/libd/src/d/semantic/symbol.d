@@ -126,7 +126,7 @@ struct SymbolAnalyzer {
 		auto ev = ExpressionVisitor(pass);
 		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
-		// If this is a clusore, we add the context parameter.
+		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
 			assert(ctxType, "ctxType must be defined if function has a context pointer.");
 			
@@ -374,10 +374,16 @@ struct SymbolAnalyzer {
 			}
 		}, true)(pass).visit(d.identifier);
 		
+		process(a);
+	}
+	
+	void process(SymbolAlias a) {
 		// Mangling
 		scheduler.require(a.symbol, Step.Populated);
 		a.mangle = a.symbol.mangle;
 		
+		scheduler.require(a.symbol, Step.Signed);
+		a.hasContext = a.symbol.hasContext;
 		a.step = Step.Signed;
 		
 		scheduler.require(a.symbol, Step.Processed);
@@ -790,6 +796,7 @@ struct SymbolAnalyzer {
 		
 		// Prefilled members are template arguments.
 		foreach(s; i.members) {
+			assert(!s.hasContext, "Template with context are not supported");
 			dscope.addSymbol(s);
 		}
 		

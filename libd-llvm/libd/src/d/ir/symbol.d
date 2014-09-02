@@ -251,6 +251,13 @@ class SymbolAlias : Symbol {
 		
 		this.symbol = symbol;
 	}
+	/+
+	invariant() {
+		if (step >= Step.Signed) {
+			assert(symbol && hasContext == symbol.hasContext);
+		}
+	}
+	+/
 }
 
 /**

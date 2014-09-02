@@ -183,9 +183,9 @@ struct TemplateInstancier {
 				} else static if(is(typeof(identified) : Symbol)) {
 					auto a = new SymbolAlias(p.location, p.name, identified);
 					
-					pass.scheduler.require(identified, Step.Populated);
-					a.mangle = identified.mangle;
-					a.step = Step.Processed;
+					import d.semantic.symbol;
+					auto sa = SymbolAnalyzer(pass);
+					sa.process(a);
 					
 					argSyms ~= a;
 					return "S" ~ a.mangle;
