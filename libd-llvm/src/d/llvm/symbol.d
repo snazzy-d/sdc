@@ -162,6 +162,9 @@ final class SymbolGen {
 			assert(ctxType.isRef || ctxType.isFinal);
 			LLVMSetValueName(parentCtx, "__ctx");
 			
+			auto ctxTypeGen = pass.visit(ctxType.type);
+			contexts = contexts[0 .. contexts.countUntil!(c => c.type is ctxTypeGen)() + 1];
+			
 			import d.ir.dscope;
 			auto s = cast(ClosureScope) f.dscope;
 			assert(s, "Function has context but do not have a closure scope");

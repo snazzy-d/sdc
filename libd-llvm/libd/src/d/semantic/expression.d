@@ -415,16 +415,18 @@ struct ExpressionVisitor {
 		pass.scheduler.require(f, Step.Signed);
 		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
+		if (f.hasThis) {
+			return new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f);
+		}
 		
-		Expression ctx = f.hasThis
-			? new ThisExpression(location, QualType(thisType.type))
-			: f.hasContext
-				? new ContextExpression(location, ctxType)
-				: null;
+		if (f.hasContext) {
+			import d.semantic.closure;
+			auto cf = ContextFinder(pass);
+			
+			return new MethodExpression(location, new ContextExpression(location, cf.visit(f)), f);
+		}
 		
-		return ctx
-			? new MethodExpression(location, ctx, f)
-			: new FunctionExpression(location, f);
+		return new FunctionExpression(location, f);
 	}
 	
 	Expression visit(AstCallExpression c) {
