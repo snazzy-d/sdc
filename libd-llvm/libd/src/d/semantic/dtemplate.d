@@ -205,6 +205,7 @@ struct TemplateInstancier {
 			
 			auto i = new TemplateInstance(location, t, argSyms);
 			i.mangle = t.mangle ~ "T" ~ id ~ "Z";
+			i.storage = t.storage;
 			
 			pass.scheduler.schedule(t, i);
 			return t.instances[id] = i;

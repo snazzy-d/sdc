@@ -785,10 +785,12 @@ struct SymbolAnalyzer {
 	void analyze(Template t, TemplateInstance i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
+		auto oldCtxType = ctxType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
+			ctxType = oldCtxType;
 		}
 		
 		manglePrefix = i.mangle;
@@ -796,13 +798,27 @@ struct SymbolAnalyzer {
 		
 		// Prefilled members are template arguments.
 		foreach(s; i.members) {
-			assert(!s.hasContext, "Template with context are not supported");
+			if (s.hasContext) {
+				assert(t.storage >= Storage.Static, "template can only have one context");
+				
+				import d.semantic.closure;
+				auto cf = ContextFinder(pass);
+				ctxType = cf.visit(s);
+				
+				i.storage = Storage.Local;
+			}
+			
 			dscope.addSymbol(s);
 		}
 		
-		// XXX: that is doomed to explode fireworks style.
-		import d.semantic.declaration, d.ast.base;
-		auto dv = DeclarationVisitor(pass, t.storage);
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(
+			pass,
+			i.storage,
+			(i.storage >= Storage.Static)
+				? AddContext.No
+				: AddContext.Yes,
+		);
 		
 		auto members = dv.flatten(t.members, i);
 		i.step = Step.Populated;
