@@ -126,7 +126,7 @@ struct SymbolAnalyzer {
 		auto ev = ExpressionVisitor(pass);
 		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
 		
-		// If this is a clusore, we add the context parameter.
+		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
 			assert(ctxType, "ctxType must be defined if function has a context pointer.");
 			
@@ -374,10 +374,16 @@ struct SymbolAnalyzer {
 			}
 		}, true)(pass).visit(d.identifier);
 		
+		process(a);
+	}
+	
+	void process(SymbolAlias a) {
 		// Mangling
 		scheduler.require(a.symbol, Step.Populated);
 		a.mangle = a.symbol.mangle;
 		
+		scheduler.require(a.symbol, Step.Signed);
+		a.hasContext = a.symbol.hasContext;
 		a.step = Step.Signed;
 		
 		scheduler.require(a.symbol, Step.Processed);
@@ -779,10 +785,12 @@ struct SymbolAnalyzer {
 	void analyze(Template t, TemplateInstance i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
+		auto oldCtxType = ctxType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
+			ctxType = oldCtxType;
 		}
 		
 		manglePrefix = i.mangle;
@@ -790,12 +798,27 @@ struct SymbolAnalyzer {
 		
 		// Prefilled members are template arguments.
 		foreach(s; i.members) {
+			if (s.hasContext) {
+				assert(t.storage >= Storage.Static, "template can only have one context");
+				
+				import d.semantic.closure;
+				auto cf = ContextFinder(pass);
+				ctxType = cf.visit(s);
+				
+				i.storage = Storage.Local;
+			}
+			
 			dscope.addSymbol(s);
 		}
 		
-		// XXX: that is doomed to explode fireworks style.
-		import d.semantic.declaration, d.ast.base;
-		auto dv = DeclarationVisitor(pass, t.storage);
+		import d.semantic.declaration;
+		auto dv = DeclarationVisitor(
+			pass,
+			i.storage,
+			(i.storage >= Storage.Static)
+				? AddContext.No
+				: AddContext.Yes,
+		);
 		
 		auto members = dv.flatten(t.members, i);
 		i.step = Step.Populated;
