@@ -80,7 +80,7 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	private Expression getTemporaryRvalue(Expression value) {
+	private Expression getRvalue(Expression value) {
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.storage = Storage.Enum;
 		v.step = Step.Processed;
@@ -88,12 +88,19 @@ struct ExpressionVisitor {
 		return new VariableExpression(value.location, v);
 	}
 	
-	private Expression getTemporaryLvalue(Expression value) {
+	private Expression getLvalue(Expression value) {
 		auto pt = QualType(new PointerType(value.type));
 		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
-		auto v = getTemporaryRvalue(ptr);
+		auto v = getRvalue(ptr);
 		
 		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
+	}
+	
+	private Expression getTemporary(Expression value) {
+		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
+		v.step = Step.Processed;
+		
+		return new VariableExpression(value.location, v);
 	}
 	
 	Expression visit(AstBinaryExpression e) {
@@ -140,7 +147,7 @@ struct ExpressionVisitor {
 			case AddAssign :
 			case SubAssign :
 				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
-					lhs = getTemporaryLvalue(lhs);
+					lhs = getLvalue(lhs);
 					
 					// FIXME: check that rhs is an integer.
 					if(op == SubAssign) {
@@ -292,7 +299,7 @@ struct ExpressionVisitor {
 			case PostInc :
 			case PostDec :
 				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
-					expr = getTemporaryLvalue(expr);
+					expr = getLvalue(expr);
 					
 					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
 					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
@@ -303,7 +310,7 @@ struct ExpressionVisitor {
 						return r;
 					}
 					
-					auto l = getTemporaryRvalue(expr);
+					auto l = getRvalue(expr);
 					r = new BinaryExpression(e.location, expr.type, BinaryOp.Comma, l, r);
 					return new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, l);
 				}
@@ -502,10 +509,37 @@ struct ExpressionVisitor {
 		})(pass).visit(c.callee);
 	}
 	
+	// XXX: factorize with NewExpression
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
 		auto div = DefaultInitializerVisitor(pass);
 		auto di = div.visit(iloc, QualType(type));
+		
+		if (type.dstruct.hasContext) {
+			di = getTemporary(di);
+			auto f = new FieldExpression(
+				iloc,
+				di,
+				type.dstruct.members.map!(m => cast(Field) m).filter!(f => f !is null && f.index == 0).front,
+			);
+			
+			auto pt = cast(PointerType) f.type.type;
+			assert(pt);
+			
+			auto ct = cast(ContextType) pt.pointed.type;
+			assert(ct);
+			
+			auto assign = new BinaryExpression(
+				iloc,
+				f.type,
+				BinaryOp.Assign,
+				f,
+				new UnaryExpression(iloc, QualType(pt), UnaryOp.AddressOf, new ContextExpression(iloc, ct)),
+			);
+			
+			di = new BinaryExpression(iloc, di.type, BinaryOp.Comma, assign, di);
+		}
+		
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -663,6 +697,7 @@ struct ExpressionVisitor {
 		return new CallExpression(location, QualType(returnType.type, returnType.qualifier), callee, args);
 	}
 	
+	// XXX: factorize with handleCtor
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
 
