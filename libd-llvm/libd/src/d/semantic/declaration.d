@@ -373,6 +373,8 @@ struct DeclarationVisitor {
 		s.visibility = visibility;
 		s.storage = storage;
 		
+		s.hasContext = storage.isStatic ? false : !!addContext;
+		
 		currentScope.addSymbol(s);
 		
 		select(d, s);
@@ -383,6 +385,8 @@ struct DeclarationVisitor {
 		c.linkage = linkage;
 		c.visibility = visibility;
 		c.storage = storage;
+		
+		c.hasContext = storage.isStatic ? false : !!addContext;
 		
 		currentScope.addSymbol(c);
 		

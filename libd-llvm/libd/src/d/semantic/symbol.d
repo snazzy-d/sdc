@@ -424,8 +424,6 @@ struct SymbolAnalyzer {
 			fieldIndex = oldFieldIndex;
 		}
 		
-		currentScope = s.dscope = new SymbolScope(s, oldScope);
-		
 		auto type = QualType(new StructType(s));
 		thisType = ParamType(type, true);
 		
@@ -437,13 +435,26 @@ struct SymbolAnalyzer {
 		s.mangle = "S" ~ manglePrefix;
 		
 		fieldIndex = 0;
+		Field[] fields;
+		if (s.hasContext) {
+			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(s.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			currentScope = s.dscope = new ClosureScope(s, oldScope);
+			s.dscope.addSymbol(ctx);
+			
+			fieldIndex = 1;
+			fields = [ctx];
+		} else {
+			currentScope = s.dscope = new SymbolScope(s, oldScope);
+		}
 		
 		auto dv = DeclarationVisitor(pass, AggregateType.Struct);
 		
 		auto members = dv.flatten(d.members, s);
 		s.step = Step.Populated;
 		
-		Field[] fields;
 		auto otherSymbols = members.filter!((m) {
 			if(auto f = cast(Field) m) {
 				fields ~= f;

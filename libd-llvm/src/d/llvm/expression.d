@@ -827,19 +827,10 @@ struct AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ContextExpression e) {
-		auto type = pass.visit(e.type);
-		auto value = contexts[$ - 1].context;
-		foreach_reverse(i, c; contexts) {
-			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
-			
-			if (c.type is type) {
-				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
-			}
-			
-			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
-		}
+		auto type = cast(ContextType) e.type.type;
+		assert(type, "ContextExpression must be of ContextType");
 		
-		assert(0, "No context available.");
+		return pass.getContext(type.fun);
 	}
 	
 	LLVMValueRef visit(UnaryExpression e) {

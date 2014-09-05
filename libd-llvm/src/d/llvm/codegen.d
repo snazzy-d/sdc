@@ -42,14 +42,6 @@ final class CodeGenPass {
 	
 	LLVMValueRef thisPtr;
 	
-	struct Closure {
-		uint[Variable] indices;
-		LLVMValueRef context;
-		LLVMTypeRef type;
-	}
-	
-	Closure[] contexts;
-	
 	LLVMValueRef lpContext;
 	LLVMValueRef[] catchClauses;
 	
@@ -150,6 +142,10 @@ final class CodeGenPass {
 	
 	auto buildClassType(Class c) {
 		return typeGen.buildClass(c);
+	}
+	
+	auto getContext(Function f) {
+		return symbolGen.getContext(f);
 	}
 	
 	auto buildContextType(Function f) {
