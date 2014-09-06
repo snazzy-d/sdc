@@ -2,6 +2,7 @@ module d.llvm.symbol;
 
 import d.llvm.codegen;
 
+import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -12,6 +13,7 @@ import llvm.c.core;
 
 import std.algorithm;
 import std.array;
+import std.range;
 import std.string;
 
 final class SymbolGen {
@@ -20,6 +22,16 @@ final class SymbolGen {
 	
 	private LLVMValueRef[ValueSymbol] globals;
 	private LLVMValueRef[ValueSymbol] locals;
+	
+	struct Closure {
+		uint[Variable] indices;
+		LLVMValueRef context;
+		LLVMTypeRef type;
+	}
+	
+	Closure[] contexts;
+	
+	private Closure[][TypeSymbol] embededContexts;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
@@ -137,6 +149,7 @@ final class SymbolGen {
 		
 		thisPtr = null;
 		if(f.hasThis) {
+			// TODO: if this have a context, expand variables !
 			auto thisType = f.type.paramTypes[0];
 			auto value = params[0];
 			
@@ -151,6 +164,8 @@ final class SymbolGen {
 				thisPtr = alloca;
 			}
 			
+			buildEmbededCaptures(thisPtr, thisType.type);
+			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
@@ -163,36 +178,12 @@ final class SymbolGen {
 			LLVMSetValueName(parentCtx, "__ctx");
 			
 			auto ctxTypeGen = pass.visit(ctxType.type);
-			contexts = contexts[0 .. contexts.countUntil!(c => c.type is ctxTypeGen)() + 1];
+			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
-			import d.ir.dscope;
 			auto s = cast(ClosureScope) f.dscope;
 			assert(s, "Function has context but do not have a closure scope");
 			
-			auto closureCount = s.capture.length;
-			
-			// Try to find out if we have the variable in a closure.
-			auto value = parentCtx;
-			ClosureLoop: foreach_reverse(closure; contexts) {
-				value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(closure.context), "");
-				
-				// Create enclosed variables.
-				foreach(v; s.capture.byKey()) {
-					if (auto indexPtr = v in closure.indices) {
-						// Register the variable.
-						locals[v] = LLVMBuildStructGEP(builder, value, *indexPtr, v.mangle.toStringz());
-						
-						closureCount--;
-						if (!closureCount) {
-							break ClosureLoop;
-						}
-					}
-				}
-				
-				value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
-			}
-			
-			assert(closureCount == 0);
+			buildCapturedVariables(parentCtx, contexts, s);
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
@@ -286,6 +277,61 @@ final class SymbolGen {
 		}
 	}
 	
+	void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
+		auto st = cast(StructType) t;
+		if (st is null || !st.dstruct.hasContext) {
+			return;
+		}
+		
+		auto s = st.dstruct;
+		auto sc = cast(ClosureScope) s.dscope;
+		assert(sc, "Struct has context but no ClosureScope");
+		
+		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), ""), embededContexts[s], sc);
+	}
+	
+	void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, ClosureScope s) {
+		auto closureCount = s.capture.length;
+		
+		// Try to find out if we have the variable in a closure.
+		ClosureLoop: foreach_reverse(closure; contexts) {
+			root = LLVMBuildPointerCast(builder, root, LLVMTypeOf(closure.context), "");
+			
+			// Create enclosed variables.
+			foreach(v; s.capture.byKey()) {
+				if (auto indexPtr = v in closure.indices) {
+					// Register the variable.
+					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
+					
+					closureCount--;
+					if (!closureCount) {
+						break ClosureLoop;
+					}
+				}
+			}
+			
+			root = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, root, 0, ""), "");
+		}
+		
+		assert(closureCount == 0);
+	}
+	
+	LLVMValueRef getContext(Function f) {
+		auto type = pass.buildContextType(f);
+		auto value = contexts[$ - 1].context;
+		foreach_reverse(i, c; contexts) {
+			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
+			
+			if (c.type is type) {
+				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
+			}
+			
+			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
+		}
+		
+		assert(0, "No context available.");
+	}
+	
 	LLVMValueRef visit(Variable v) {
 		import d.llvm.expression;
 		auto eg = ExpressionGen(pass);
@@ -372,6 +418,10 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {
+		if (s.hasContext) {
+			embededContexts[s] = contexts;
+		}
+		
 		return this.dispatch(s);
 	}
 	
