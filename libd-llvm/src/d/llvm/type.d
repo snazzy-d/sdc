@@ -20,19 +20,15 @@ final class TypeGen {
 	alias pass this;
 	
 	private LLVMTypeRef[TypeSymbol] typeSymbols;
-	private LLVMValueRef[TypeSymbol] newInits;
 	private LLVMValueRef[TypeSymbol] typeInfos;
 	
+	private LLVMValueRef[Class] vtbls;
 	private LLVMTypeRef[Function] funCtxTypes;
 	
 	private Class classInfoClass;
 	
 	this(CodeGenPass pass) {
 		this.pass = pass;
-	}
-	
-	LLVMValueRef getNewInit(TypeSymbol s) {
-		return newInits[s];
 	}
 	
 	LLVMValueRef getTypeInfo(TypeSymbol s) {
@@ -54,8 +50,10 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(StructType t) {
-		auto s = t.dstruct;
-		
+		return buildStruct(t.dstruct);
+	}
+	
+	LLVMTypeRef buildStruct(Struct s) {
 		if (auto st = s in typeSymbols) {
 			return *st;
 		}
@@ -70,13 +68,6 @@ final class TypeGen {
 		}
 		
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
-		
-		import d.context;
-		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
-		assert(init);
-		
-		newInits[s] = pass.visit(init);
-		
 		return llvmStruct;
 	}
 	
@@ -101,7 +92,8 @@ final class TypeGen {
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
-		auto classInfo = LLVMAddGlobal(dmodule, LLVMGetElementType(buildClass(classInfoClass)), cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
+		auto classInfoStruct = LLVMGetElementType(buildClass(classInfoClass));
+		auto classInfo = LLVMAddGlobal(dmodule, classInfoStruct, cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
 		LLVMSetGlobalConstant(classInfo, true);
 		LLVMSetLinkage(classInfo, LLVMLinkage.LinkOnceODR);
 		
@@ -136,27 +128,23 @@ final class TypeGen {
 		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
 		
 		// Set vtbl.
-		fields[0] = vtblPtr;
+		vtbls[c] = fields[0] = vtblPtr;
 		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
 		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
 		
-		auto initPtr = LLVMAddGlobal(dmodule, llvmStruct, (c.mangle ~ "__initZ").toStringz());
-		LLVMSetInitializer(initPtr, LLVMConstNamedStruct(llvmStruct, fields.ptr, cast(uint) fields.length));
-		LLVMSetGlobalConstant(initPtr, true);
-		LLVMSetLinkage(initPtr, LLVMLinkage.LinkOnceODR);
-		
-		newInits[c] = initPtr;
-		
 		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
-		// Also, we may want to do that in symbol and generate with the class.
 		auto base = c.base;
 		buildClass(base);
-		auto classInfoData = LLVMGetInitializer(getNewInit(classInfoClass));
-		uint insertIndex = 1;
-		classInfoData = LLVMConstInsertValue(classInfoData, getTypeInfo(base), &insertIndex, 1);
-		LLVMSetInitializer(classInfo, classInfoData);
+		
+		LLVMValueRef[2] classInfoData = [getVtbl(classInfoClass), getTypeInfo(base)];
+		LLVMSetInitializer(classInfo, LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr, 2));
 		
 		return structPtr;
+	}
+	
+	
+	LLVMValueRef getVtbl(Class c) {
+		return vtbls[c];
 	}
 	
 	LLVMTypeRef visit(EnumType t) {

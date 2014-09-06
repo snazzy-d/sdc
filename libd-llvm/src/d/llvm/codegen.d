@@ -124,12 +124,12 @@ final class CodeGenPass {
 		return symbolGen.visit(p);
 	}
 	
-	auto getNewInit(TypeSymbol s) {
-		return typeGen.getNewInit(s);
-	}
-	
 	auto getTypeInfo(TypeSymbol s) {
 		return typeGen.getTypeInfo(s);
+	}
+	
+	auto getVtbl(Class c) {
+		return typeGen.getVtbl(c);
 	}
 	
 	auto visit(QualType t) {
@@ -138,6 +138,10 @@ final class CodeGenPass {
 	
 	auto visit(Type t) {
 		return typeGen.visit(t);
+	}
+	
+	auto buildStructType(Struct s) {
+		return typeGen.buildStruct(s);
 	}
 	
 	auto buildClassType(Class c) {
