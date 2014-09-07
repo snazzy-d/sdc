@@ -433,6 +433,10 @@ struct SymbolAnalyzer {
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		s.mangle = "S" ~ manglePrefix;
 		
+		auto dscope = currentScope = s.dscope = s.hasContext
+			? new ClosureScope(s, oldScope)
+			: new SymbolScope(s, oldScope);
+		
 		fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
@@ -440,13 +444,8 @@ struct SymbolAnalyzer {
 			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(s.location, ctxPtr));
 			ctx.step = Step.Processed;
 			
-			currentScope = s.dscope = new ClosureScope(s, oldScope);
-			s.dscope.addSymbol(ctx);
-			
 			fieldIndex = 1;
 			fields = [ctx];
-		} else {
-			currentScope = s.dscope = new SymbolScope(s, oldScope);
 		}
 		
 		auto dv = DeclarationVisitor(pass, AggregateType.Struct);
@@ -465,10 +464,9 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(fields, Step.Signed);
 		
-		auto tuple = new CompileTimeTupleExpression(d.location, fields.map!(f => cast(CompileTimeExpression) f.value).array());
-		tuple.type = type;
-		
+		auto tuple = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
 		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
+
 		init.storage = Storage.Static;
 		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
 		
@@ -501,7 +499,6 @@ struct SymbolAnalyzer {
 			methodIndex = oldMethodIndex;
 		}
 		
-		auto dscope = currentScope = c.dscope = new SymbolScope(c, oldScope);
 		thisType = ParamType(new ClassType(c), false);
 		thisType.isFinal = true;
 		
@@ -510,6 +507,10 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		c.mangle = "C" ~ manglePrefix;
+		
+		auto dscope = currentScope = c.dscope = c.hasContext
+			? new ClosureScope(c, oldScope)
+			: new SymbolScope(c, oldScope);
 		
 		Field[] baseFields;
 		Method[] baseMethods;
@@ -529,6 +530,7 @@ struct SymbolAnalyzer {
 			break;
 		}
 		
+		// If no inheritance is specified, inherit from object.
 		if(!c.base) {
 			c.base = pass.object.getObject();
 		}
@@ -564,6 +566,15 @@ struct SymbolAnalyzer {
 			}
 			
 			fieldIndex++;
+		}
+		
+		if (c.hasContext) {
+			// XXX: check for duplicate.
+			auto ctxPtr = QualType(new PointerType(QualType(ctxType)));
+			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			baseFields ~= ctx;
 		}
 		
 		auto dv = DeclarationVisitor(pass, AggregateType.Class);

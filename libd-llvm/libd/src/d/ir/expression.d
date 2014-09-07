@@ -145,7 +145,7 @@ class VtblExpression : Expression {
 	Class dclass;
 	
 	this(Location location, Class dclass) {
-		super(location, getBuiltin(TypeKind.None));
+		super(location, QualType(new PointerType(getBuiltin(TypeKind.Void))));
 		
 		this.dclass = dclass;
 	}
@@ -495,10 +495,10 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 	
 	class TupleExpressionImpl : E {
 		E[] values;
-	
-		this(Location location, E[] values) {
+		
+		this(Location location, QualType t, E[] values) {
 			// Implement type tuples.
-			super(location, QualType(null));
+			super(location, t);
 		
 			this.values = values;
 		}

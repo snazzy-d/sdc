@@ -351,3 +351,14 @@ class EnumType : Type {
 	}
 }
 
+/**
+ * Tuples
+ */
+class TupleType : Type {
+	QualType[] types;
+	
+	this(QualType[] types) {
+		this.types = types;
+	}
+}
+

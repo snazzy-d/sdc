@@ -272,5 +272,10 @@ final class TypeGen {
 	LLVMTypeRef visit(ContextType t) {
 		return buildContextType(t.fun);
 	}
+	
+	LLVMTypeRef visit(TupleType t) {
+		auto types = t.types.map!(t => visit(t)).array();
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, cast(uint) types.length, false);
+	}
 }
 

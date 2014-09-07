@@ -3,6 +3,7 @@ module d.semantic.defaultinitializer;
 import d.semantic.semantic;
 
 import d.ir.expression;
+import d.ir.symbol;
 import d.ir.type;
 
 import d.location;
@@ -95,11 +96,37 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return new VoidInitializer(location, QualType(t));
 	}
 	
+	private Expression getTemporary(Expression value) {
+		import d.context;
+		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
+		v.step = Step.Processed;
+		
+		return new VariableExpression(value.location, v);
+	}
+	
+	private static Expression fillContext(Location location, Field f, Expression v, Type t) {
+		auto pt = cast(PointerType) f.type.type;
+		assert(pt);
+		
+		auto ct = cast(ContextType) pt.pointed.type;
+		assert(ct);
+		
+		auto assign = new BinaryExpression(
+			location,
+			f.type,
+			BinaryOp.Assign,
+			new FieldExpression(location, v, f),
+			new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct)),
+		);
+		
+		return new BinaryExpression(location, QualType(t), BinaryOp.Comma, assign, v);
+	}
+	
 	E visit(Location location, StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
 		
-		import d.ir.symbol, d.context;
+		import d.context;
 		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
 		assert(init, "init must be defined");
 		
@@ -112,35 +139,14 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				v = getTemporary(v);
 				
 				import std.algorithm;
-				auto f = s.members.map!(m => cast(Field) m).filter!(f => f !is null && f.index == 0).front;
+				auto f = cast(Field) s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
+				assert(f, "Context must be a field");
 				
-				auto pt = cast(PointerType) f.type.type;
-				assert(pt);
-				
-				auto ct = cast(ContextType) pt.pointed.type;
-				assert(ct);
-				
-				auto assign = new BinaryExpression(
-					location,
-					f.type,
-					BinaryOp.Assign,
-					new FieldExpression(location, v, f),
-					new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct)),
-				);
-				
-				v = new BinaryExpression(location, QualType(t), BinaryOp.Comma, assign, v);
+				v = fillContext(location, f, v, t);
 			}
 		}
 		
 		return v;
-	}
-	
-	private Expression getTemporary(Expression value) {
-		import d.ir.symbol, d.context;
-		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.step = Step.Processed;
-		
-		return new VariableExpression(value.location, v);
 	}
 	
 	E visit(Location location, ClassType t) {
@@ -148,17 +154,27 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			auto c = t.dclass;
 			scheduler.require(c);
 			
-			import d.ir.symbol;
 			import std.algorithm, std.array;
 			auto fields = c.members.map!(m => cast(Field) m).filter!(f => !!f).map!(f => f.value).array();
 			
 			fields[0] = new VtblExpression(location, c);
-			return new TupleExpression(location, fields);
+			Expression v = new TupleExpression(location, QualType(new TupleType(fields.map!(f => f.type).array())), fields);
+			
+			if (c.hasContext) {
+				v = getTemporary(v);
+				
+				import d.context, std.algorithm;
+				foreach(f; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
+					assert(f, "Context must be a field");
+					v = fillContext(location, f, v, t);
+				}
+			}
+			
+			return v;
 		} else {
 			return new NullLiteral(location, QualType(t));
 		}
 	}
-	
 	E visit(Location location, FunctionType t) {
 		return new NullLiteral(location, QualType(t));
 	}

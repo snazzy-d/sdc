@@ -433,25 +433,19 @@ struct ExpressionGen {
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 		
-		auto init = visit(e.dinit);
+		auto thisArg = visit(e.dinit);
+		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));
+		bool isClass = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
+		if (isClass) {
+			auto thisPtr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(LLVMTypeOf(thisArg), 0), "");
+			LLVMBuildStore(builder, thisArg, thisPtr);
+			thisArg = LLVMBuildBitCast(builder, ptr, thisType, "");
+		}
 		
-		auto dt = peelAlias(e.type).type;
-		if(auto pt = cast(PointerType) dt) {
-			auto st = cast(StructType) peelAlias(pt.pointed).type;
-			args = init ~ args;
-			
-			auto obj = buildCall(ctor, args);
+		args = thisArg ~ args;
+		auto obj = buildCall(ctor, args);
+		if (!isClass) {
 			LLVMBuildStore(builder, obj, ptr);
-		} else if(auto ct = cast(ClassType) dt) {
-			auto initPtr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(LLVMTypeOf(init), 0), "");
-			LLVMBuildStore(builder, init, initPtr);
-			
-			auto castedPtr = LLVMBuildBitCast(builder, ptr, LLVMTypeOf(LLVMGetFirstParam(ctor)), "");
-			
-			args = castedPtr ~ args;
-			buildCall(ctor, args);
-		} else {
-			assert(0, "not implemented");
 		}
 		
 		return ptr;
@@ -694,13 +688,7 @@ struct ExpressionGen {
 	
 	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
 		auto fields = e.values.map!(v => visit(v)).array();
-		
-		if (e.type.type) {
-			// Hack around the difference between struct and named struct in LLVM.
-			return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
-		}
-		
-		return LLVMConstStructInContext(llvmCtx, fields.ptr, cast(uint) fields.length, 0);
+		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
 	}
 	
 	LLVMValueRef visit(TupleExpression e) {

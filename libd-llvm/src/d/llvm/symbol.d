@@ -277,20 +277,45 @@ final class SymbolGen {
 		}
 	}
 	
-	void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
-		auto st = cast(StructType) t;
-		if (st is null || !st.dstruct.hasContext) {
-			return;
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
+		if (auto st = cast(StructType) t) {
+			auto s = st.dstruct;
+			if (!s.hasContext) {
+				return;
+			}
+			
+			auto cs = cast(ClosureScope) s.dscope;
+			assert(cs, "Struct has context but no ClosureScope");
+			
+			buildEmbededCaptures(thisPtr, 0, embededContexts[s], cs);
+		} else if (auto ct = cast(ClassType) t) {
+			auto c = ct.dclass;
+			if (!c.hasContext) {
+				return;
+			}
+			
+			auto cs = cast(ClosureScope) c.dscope;
+			assert(cs, "Class has context but no ClosureScope");
+			
+			// Get the last field, but iterrate in the right direction as field come first in members.
+			import d.context;
+			Field f;
+			foreach(candidate; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
+				f = candidate;
+			}
+			
+			assert(f, "Class is marked as having context, but have no context.");
+			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], cs);
+		} else {
+			assert(0, typeid(t).toString() ~ " is not supported.");
 		}
-		
-		auto s = st.dstruct;
-		auto sc = cast(ClosureScope) s.dscope;
-		assert(sc, "Struct has context but no ClosureScope");
-		
-		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, 0, ""), ""), embededContexts[s], sc);
 	}
 	
-	void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, ClosureScope s) {
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, ClosureScope s) {
+		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""), ""), contexts, s);
+	}
+	
+	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, ClosureScope s) {
 		auto closureCount = s.capture.length;
 		
 		// Try to find out if we have the variable in a closure.
