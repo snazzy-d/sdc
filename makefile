@@ -20,7 +20,7 @@ ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses
 endif
 ifeq ($(PLATFORM),Darwin)
-	LDFLAGS += -lc++
+	LDFLAGS += -lc++ -lncurses
 endif
 
 IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
@@ -46,6 +46,7 @@ obj/sdc.o: $(SOURCE)
 	$(DMD) -c -ofobj/sdc.o $(SOURCE) $(DFLAGS) $(IMPORTS)
 
 bin/sdc.conf:
+	@mkdir -p bin
 	echo "{\n\t\"includePath\": [\"$(PWD)/libs\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}" > $@
 
 clean:
