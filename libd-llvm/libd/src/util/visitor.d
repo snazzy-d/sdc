@@ -1,13 +1,29 @@
 module util.visitor;
 
-// XXX: is @trusted if visitor.visit is @safe .
 auto dispatch(
 	alias unhandled = function void(t) {
 		throw new Exception(typeid(t).toString() ~ " is not supported.");
-		// XXX: Bugguy for some reason.
+		// XXX: Buggy for some reason.
 		// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
 	}, V, T, Args...
-)(ref V visitor, Args args, T t) if(is(T == class) || is(T == interface)) in {
+)(ref V visitor, Args args, T t) if(is(V == struct) && (is(T == class) || is(T == interface))) {
+	return dispatchImpl!(unhandled)(visitor, args, t);
+}
+
+auto dispatch(
+	alias unhandled = function void(t) {
+		throw new Exception(typeid(t).toString() ~ " is not supported.");
+		// XXX: Buggy for some reason.
+		// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
+	}, V, T, Args...
+)(V visitor, Args args, T t) if((is(V == class) || is(V == interface)) && (is(T == class) || is(T == interface))) {
+	return dispatchImpl!(unhandled)(visitor, args, t);
+}
+
+// XXX: is @trusted if visitor.visit is @safe .
+private auto dispatchImpl(
+	alias unhandled, V, T, Args...
+)(auto ref V visitor, Args args, T t) in {
 	assert(t, "You can't dispatch null");
 } body {
 	static if(is(T == class)) {
@@ -55,7 +71,15 @@ auto dispatch(
 	}
 }
 
-auto accept(T, V)(T t, ref V visitor) if(is(T == class) || is(T == interface)) {
+auto accept(T, V)(T t, ref V visitor) if(is(V == struct) && (is(T == class) || is(T == interface))) {
+	return acceptImpl(t, visitor);
+}
+
+auto accept(T, V)(T t, V visitor) if((is(V == class) || is(V == interface)) && (is(T == class) || is(T == interface))) {
+	return acceptImpl(t, visitor);
+}
+
+private auto acceptImpl(T, V)(T t, auto ref V visitor) {
 	static if(is(typeof(visitor.visit(t)))) {
 		return visitor.visit(t);
 	} else {
