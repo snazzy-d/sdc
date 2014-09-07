@@ -127,7 +127,7 @@ final class SemanticPass {
 		if(buildErrorNode) {
 			static if(is(T == Type)) {
 				return QualType(new ErrorType(location, message));
-			} else static if(is(T == Expression)) {
+			} else static if(is(T == Expression) || is(T == CompileTimeExpression)) {
 				return new ErrorExpression(location, message);
 			} else static if(is(T == Symbol)) {
 				return new ErrorSymbol(location, message);

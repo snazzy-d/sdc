@@ -138,6 +138,24 @@ class ContextExpression : Expression {
 }
 
 /**
+ * Virtual table
+ * XXX: This is highly dubious. Explore the alternatives and get rid of that.
+ */
+class VtblExpression : Expression {
+	Class dclass;
+	
+	this(Location location, Class dclass) {
+		super(location, getBuiltin(TypeKind.None));
+		
+		this.dclass = dclass;
+	}
+	
+	override string toString(Context c) const {
+		return dclass.toString(c) ~ ".__vtbl";
+	}
+}
+
+/**
  * Boolean literal
  */
 class BooleanLiteral : CompileTimeExpression {
@@ -307,12 +325,14 @@ class CastExpression : Expression {
  * new
  */
 class NewExpression : Expression {
-	Expression[] args;
+	Expression dinit;
 	Expression ctor;
+	Expression[] args;
 	
-	this(Location location, QualType type, Expression ctor, Expression[] args) {
+	this(Location location, QualType type, Expression dinit, Expression ctor, Expression[] args) {
 		super(location, type);
 		
+		this.dinit = dinit;
 		this.ctor = ctor;
 		this.args = args;
 	}
@@ -371,6 +391,7 @@ class FieldExpression : Expression {
 
 /**
  * IdentifierExpression that as been resolved as a Function.
+ * XXX: Deserve to be merged with VariableExpression somehow.
  */
 class FunctionExpression : Expression {
 	Function fun;
@@ -407,6 +428,7 @@ class MethodExpression : Expression {
 
 /**
  * IdentifierExpression that as been resolved as a Parameter.
+ * XXX: Deserve to be merged with VariableExpression somehow.
  */
 class ParameterExpression : Expression {
 	Parameter param;
@@ -447,7 +469,7 @@ class DynamicTypeidExpression : Expression {
 /**
  * Used for type identifier = void;
  */
-class VoidInitializer : Expression {
+class VoidInitializer : CompileTimeExpression {
 	this(Location location) {
 		super(location, getBuiltin(TypeKind.None));
 	}

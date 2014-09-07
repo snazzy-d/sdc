@@ -96,13 +96,6 @@ struct ExpressionVisitor {
 		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
 	}
 	
-	private Expression getTemporary(Expression value) {
-		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.step = Step.Processed;
-		
-		return new VariableExpression(value.location, v);
-	}
-	
 	Expression visit(AstBinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
@@ -512,34 +505,7 @@ struct ExpressionVisitor {
 	// XXX: factorize with NewExpression
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
-		auto div = DefaultInitializerVisitor(pass);
-		auto di = div.visit(iloc, QualType(type));
-		
-		if (type.dstruct.hasContext) {
-			di = getTemporary(di);
-			auto f = new FieldExpression(
-				iloc,
-				di,
-				type.dstruct.members.map!(m => cast(Field) m).filter!(f => f !is null && f.index == 0).front,
-			);
-			
-			auto pt = cast(PointerType) f.type.type;
-			assert(pt);
-			
-			auto ct = cast(ContextType) pt.pointed.type;
-			assert(ct);
-			
-			auto assign = new BinaryExpression(
-				iloc,
-				f.type,
-				BinaryOp.Assign,
-				f,
-				new UnaryExpression(iloc, QualType(pt), UnaryOp.AddressOf, new ContextExpression(iloc, ct)),
-			);
-			
-			di = new BinaryExpression(iloc, di.type, BinaryOp.Comma, assign, di);
-		}
-		
+		auto di = InstanceBuilder(pass).visit(iloc, QualType(type));
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -700,19 +666,16 @@ struct ExpressionVisitor {
 	// XXX: factorize with handleCtor
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
-
-		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		auto type = tv.visit(e.type);
+		
+		import d.semantic.type, d.semantic.defaultinitializer;
+		auto type = TypeVisitor(pass).visit(e.type);
+		auto di = NewBuilder(pass).visit(e.location, type);
 		auto ctor = IdentifierVisitor!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
 					return new FunctionExpression(e.location, f);
 				} else if(auto s = cast(OverloadSet) identified) {
-					import d.semantic.defaultinitializer;
-					auto div = DefaultInitializerVisitor(pass);
-					auto di = div.visit(e.location, type);
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -747,7 +710,7 @@ struct ExpressionVisitor {
 			type = QualType(new PointerType(type));
 		}
 		
-		return new NewExpression(e.location, type, ctor, args);
+		return new NewExpression(e.location, type, di, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
@@ -818,20 +781,21 @@ struct ExpressionVisitor {
 			return new DynamicTypeidExpression(location, QualType(new ClassType(classInfo)), e);
 		}
 		
-		return handleTypeid(location, e.type);
+		return getTypeInfo(location, e.type);
 	}
 	
-	private Expression handleTypeid(Location location, QualType t) {
-		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		
-		Class typeInfo;
-		if(cast(ClassType) peelAlias(t).type) {
-			typeInfo = pass.object.getClassInfo();
-		} else {
-			typeInfo = pass.object.getTypeInfo();
+	auto getTypeInfo(Location location, QualType t) {
+		if(auto ct = cast(ClassType) peelAlias(t).type) {
+			return getClassInfo(location, ct);
 		}
 		
-		return new StaticTypeidExpression(location, QualType(new ClassType(typeInfo)), t);
+		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
+		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getTypeInfo())), t);
+	}
+	
+	auto getClassInfo(Location location, ClassType t) {
+		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
+		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getClassInfo())), QualType(t));
 	}
 	
 	Expression visit(AstTypeidExpression e) {
@@ -840,15 +804,16 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstStaticTypeidExpression e) {
 		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		return handleTypeid(e.location, tv.visit(e.argument));
+		return getTypeInfo(e.location, TypeVisitor(pass).visit(e.argument));
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {
 		return IdentifierVisitor!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			
-			static if(is(T : QualType) || is(T : Expression)) {
+			static if(is(T : QualType)) {
+				return getTypeInfo(e.location, identified);
+			} else static if(is(T : Expression)) {
 				return handleTypeid(e.location, identified);
 			} else {
 				return pass.raiseCondition!Expression(e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context) ~ ".");

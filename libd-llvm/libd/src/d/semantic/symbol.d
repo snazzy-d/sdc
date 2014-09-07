@@ -323,8 +323,7 @@ struct SymbolAnalyzer {
 				value = ev.visit(d.value);
 			} else {
 				import d.semantic.defaultinitializer;
-				auto div = DefaultInitializerVisitor(pass);
-				value = div.visit(v.location, type);
+				value = InitBuilder(pass).visit(v.location, type);
 			}
 			
 			value = buildImplicitCast(pass, d.location, type, value);
@@ -466,7 +465,7 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(fields, Step.Signed);
 		
-		auto tuple = new TupleExpression(d.location, fields.map!(f => f.value).array());
+		auto tuple = new CompileTimeTupleExpression(d.location, fields.map!(f => cast(CompileTimeExpression) f.value).array());
 		tuple.type = type;
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
