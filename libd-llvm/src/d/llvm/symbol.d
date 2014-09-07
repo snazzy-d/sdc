@@ -430,7 +430,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Struct s) {
-		auto ret = pass.visit(new StructType(s));
+		auto ret = pass.buildStructType(s);
 		
 		foreach(member; s.members) {
 			if(typeid(member) !is typeid(Field)) {

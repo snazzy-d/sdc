@@ -32,35 +32,11 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	CompileTimeExpression evaluate(Expression e) {
+		if (auto ce = cast(CompileTimeExpression) e) {
+			return ce;
+		}
+		
 		return this.dispatch!(e => jit(e))(e);
-	}
-	
-	CompileTimeExpression visit(BooleanLiteral e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(IntegerLiteral!true e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(IntegerLiteral!false e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(FloatLiteral e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(CharacterLiteral e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(NullLiteral e) {
-		return e;
-	}
-	
-	CompileTimeExpression visit(StringLiteral e) {
-		return e;
 	}
 	
 	CompileTimeExpression visit(TupleExpression e) {
