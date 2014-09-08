@@ -853,8 +853,13 @@ struct ExpressionVisitor {
 		return new PolysemousExpression(location, exprs);
 	}
 	
+	// XXX: get rid of that import ?
 	import d.ast.statement;
-	private auto handleDgs(Location location, Name name, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+		// FIXME: can still collide with mixins, but that should rare enough for now.
+		import std.conv;
+		auto name = context.getName(prefix ~ to!string(location.line) ~ "_" ~ to!string(location.index));
+		
 		auto d = new FunctionDeclaration(
 			location,
 			Linkage.D,
@@ -877,24 +882,17 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(DelegateLiteral e) {
-		return handleDgs(
-			e.location,
-			// FIXME: generate name properly
-			context.getName("__dg"),
-			e.params,
-			e.isVariadic,
-			e.fbody,
-		);
+		return handleDgs(e.location, "__dg", e.params, e.isVariadic, e.fbody);
 	}
 	
 	Expression visit(Lambda e) {
+		auto v = e.value;
 		return handleDgs(
 			e.location,
-			// FIXME: generate name properly
-			context.getName("__lambda"),
+			"__lambda",
 			e.params,
 			false,
-			new AstBlockStatement(e.value.location, [new AstReturnStatement(e.value.location, e.value)]),
+			new AstBlockStatement(v.location, [new AstReturnStatement(v.location, v)]),
 		);
 	}
 }
