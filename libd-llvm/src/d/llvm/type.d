@@ -107,13 +107,11 @@ final class TypeGen {
 				scope(exit) m.fbody = oldBody;
 				
 				m.fbody = null;
-				
 				vtbl ~= pass.visit(m);
 			} else if(auto f = cast(Field) member) {
 				if(f.index > 0) {
 					import d.llvm.expression;
-					auto eg = ExpressionGen(pass);
-					fields ~= eg.visit(f.value);
+					fields ~= ExpressionGen(pass).visit(f.value);
 				}
 			}
 		}
@@ -149,7 +147,6 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(EnumType t) {
 		auto e = t.denum;
-		
 		if (auto et = e in typeSymbols) {
 			return *et;
 		}
@@ -207,7 +204,6 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(PointerType t) {
 		auto pointed = visit(t.pointed);
-		
 		if(LLVMGetTypeKind(pointed) == LLVMTypeKind.Void) {
 			pointed = LLVMInt8TypeInContext(llvmCtx);
 		}
@@ -225,13 +221,11 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(ArrayType t) {
 		auto type = visit(t.elementType);
-		
 		return LLVMArrayType(type, cast(uint) t.size);
 	}
 	
 	private auto buildParamType(ParamType pt) {
 		auto type = visit(pt.type);
-		
 		if(pt.isRef) {
 			type = LLVMPointerType(type, 0);
 		}
@@ -241,7 +235,6 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(FunctionType t) {
 		auto params = t.paramTypes.map!(p => buildParamType(p)).array();
-		
 		return LLVMPointerType(LLVMFunctionType(buildParamType(t.returnType), params.ptr, cast(uint) params.length, t.isVariadic), 0);
 	}
 	

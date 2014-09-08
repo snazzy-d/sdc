@@ -249,16 +249,12 @@ auto parseTemplateArgument(TokenRange)(ref TokenRange trange) if(isTokenRange!To
 	
 	import d.parser.ambiguous;
 	return trange.parseAmbiguous!(delegate TemplateArgument(parsed) {
-		import std.stdio;
-		
 		static if(is(typeof(parsed) : QualAstType)) {
 			location.spanTo(trange.front.location);
 			return new TypeTemplateArgument(location, parsed);
 		} else static if(is(typeof(parsed) : AstExpression)) {
-			writeln(typeid(parsed));
 			return new ValueTemplateArgument(parsed);
 		} else {
-			writeln(typeid(parsed));
 			return new IdentifierTemplateArgument(parsed);
 		}
 	})();

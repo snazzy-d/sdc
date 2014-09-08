@@ -76,14 +76,20 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Function f) {
+		auto name = f.mangle.toStringz();
+		auto fun = LLVMGetNamedFunction(dmodule, name);
+		assert(!fun, f.mangle ~ " is already defined.");
+		
 		auto type = pass.visit(f.type);
 		
-		auto funType = LLVMGetElementType(type);
-		auto fun = LLVMAddFunction(dmodule, f.mangle.toStringz(), funType);
+		// Type generation can have generated the signeture (it is required to generate virtual table).
+		fun = LLVMGetNamedFunction(dmodule, name);
+		if (!fun) {
+			fun = LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
+		}
 		
 		// Register the function.
 		register(f, fun);
-		
 		if(f.fbody) {
 			genFunctionBody(f, fun);
 		}
@@ -91,12 +97,9 @@ final class SymbolGen {
 		return fun;
 	}
 	
-	private void genFunctionBody(Function f) {
-		auto fun = genCached(f);
-		genFunctionBody(f, fun);
-	}
-	
 	private void genFunctionBody(Function f, LLVMValueRef fun) {
+		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle ~ " body is already defined.");
+		
 		// Function can be defined in several modules, so the optimizer can do its work.
 		LLVMSetLinkage(fun, LLVMLinkage.WeakODR);
 		
@@ -297,14 +300,9 @@ final class SymbolGen {
 			auto cs = cast(ClosureScope) c.dscope;
 			assert(cs, "Class has context but no ClosureScope");
 			
-			// Get the last field, but iterrate in the right direction as field come first in members.
 			import d.context;
-			Field f;
-			foreach(candidate; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
-				f = candidate;
-			}
+			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
 			
-			assert(f, "Class is marked as having context, but have no context.");
 			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], cs);
 		} else {
 			assert(0, typeid(t).toString() ~ " is not supported.");
@@ -471,7 +469,10 @@ final class SymbolGen {
 		
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
-				genFunctionBody(m);
+				auto fun = genCached(m);
+				if (LLVMCountBasicBlocks(fun) == 0) {
+					genFunctionBody(m, fun);
+				}
 			}
 		}
 		

@@ -189,9 +189,12 @@ struct IdentifierVisitor(alias handler, bool asAlias = false) {
 			return handler(f);
 		} else {
 			import d.semantic.expression;
-			auto ev = ExpressionVisitor(pass);
-			return handler(ev.getFrom(location, f));
+			return handler(ExpressionVisitor(pass).getFrom(location, f));
 		}
+	}
+	
+	Ret visit(Location location, Method m) {
+		return visit(location, cast(Function) m);
 	}
 	
 	Ret visit(Location location, Variable v) {

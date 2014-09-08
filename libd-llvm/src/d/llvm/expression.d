@@ -686,17 +686,20 @@ struct ExpressionGen {
 		return buildCall(callee, args);
 	}
 	
-	private auto handleTuple(bool isCT)(TupleExpressionImpl!isCT e) {
-		auto fields = e.values.map!(v => visit(v)).array();
-		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
-	}
-	
 	LLVMValueRef visit(TupleExpression e) {
-		return handleTuple(e);
+		auto tuple = LLVMGetUndef(pass.visit(e.type));
+		
+		uint i = 0;
+		foreach(v; e.values.map!(v => visit(v))) {
+			tuple = LLVMBuildInsertValue(builder, tuple, v, i++, "");
+		}
+		
+		return tuple;
 	}
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
-		return handleTuple(e);
+		auto fields = e.values.map!(v => visit(v)).array();
+		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
