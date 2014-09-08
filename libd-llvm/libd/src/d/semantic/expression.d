@@ -416,7 +416,9 @@ struct ExpressionVisitor {
 		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
 		if (f.hasThis) {
-			return new MethodExpression(location, new ThisExpression(location, QualType(thisType.type)), f);
+			auto type = f.type.paramTypes[0];
+			auto ctx = buildImplicitCast(pass, location, QualType(type.type, type.qualifier), new ThisExpression(location, QualType(thisType.type)));
+			return new MethodExpression(location, ctx, f);
 		}
 		
 		if (f.hasContext) {

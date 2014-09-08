@@ -124,7 +124,7 @@ struct SymbolAnalyzer {
 		// XXX: maybe monad ?
 		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
+		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value ? (ev.visit(p.value)) : null)).array();
 		
 		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
@@ -562,6 +562,8 @@ struct SymbolAnalyzer {
 				} else if(auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
+					
+					c.dscope.addOverloadableSymbol(method);
 				}
 			}
 			
@@ -582,7 +584,7 @@ struct SymbolAnalyzer {
 		
 		c.step = Step.Signed;
 		
-		Method[] candidates = baseMethods;
+		uint overloadCount = 0;
 		foreach(m; members) {
 			if(auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
@@ -591,8 +593,8 @@ struct SymbolAnalyzer {
 				auto rt = mt.returnType;
 				auto ats = mt.paramTypes[1 .. $];
 				
-				CandidatesLoop: foreach(ref candidate; candidates) {
-					if(!candidate || m.name != candidate.name) {
+				CandidatesLoop: foreach(ref candidate; baseMethods) {
+					if(!candidate || method.name != candidate.name) {
 						continue;
 					}
 					
@@ -624,6 +626,23 @@ struct SymbolAnalyzer {
 					
 					if(method.index == 0) {
 						method.index = candidate.index;
+						
+						// Remove candidate from scope.
+						auto os = cast(OverloadSet) dscope.resolve(method.name);
+						assert(os, "This must be an overload set");
+						
+						uint i = 0;
+						while (os.set[i] !is candidate) {
+							i++;
+						}
+						
+						foreach(s; os.set[i + 1 .. $]) {
+							os.set[i++] = s;
+						}
+						
+						os.set = os.set[0 .. i];
+						
+						overloadCount++;
 						candidate = null;
 						break;
 					} else {
@@ -642,14 +661,20 @@ struct SymbolAnalyzer {
 			}
 		}
 		
-		// Remaining candidates must be added to scope.
-		baseMethods.length = candidates.length;
-		uint i = 0;
-		foreach(candidate; candidates) {
-			if(candidate) {
-				c.dscope.addOverloadableSymbol(candidate);
-				baseMethods[i++] = candidate;
+		// Remove overlaoded base method.
+		if (overloadCount) {
+			uint i = 0;
+			while (baseMethods[i] !is null) {
+				i++;
 			}
+			
+			foreach(baseMethod; baseMethods[i + 1 .. $]) {
+				if(baseMethod) {
+					baseMethods[i++] = baseMethod;
+				}
+			}
+			
+			baseMethods = baseMethods[0 .. i];
 		}
 		
 		c.members = cast(Symbol[]) baseFields;

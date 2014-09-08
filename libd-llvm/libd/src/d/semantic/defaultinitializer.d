@@ -104,24 +104,6 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return new VariableExpression(value.location, v);
 	}
 	
-	private static Expression fillContext(Location location, Field f, Expression v, Type t) {
-		auto pt = cast(PointerType) f.type.type;
-		assert(pt);
-		
-		auto ct = cast(ContextType) pt.pointed.type;
-		assert(ct);
-		
-		auto assign = new BinaryExpression(
-			location,
-			f.type,
-			BinaryOp.Assign,
-			new FieldExpression(location, v, f),
-			new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct)),
-		);
-		
-		return new BinaryExpression(location, QualType(t), BinaryOp.Comma, assign, v);
-	}
-	
 	E visit(Location location, StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
@@ -142,7 +124,21 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				auto f = cast(Field) s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
 				assert(f, "Context must be a field");
 				
-				v = fillContext(location, f, v, t);
+				auto pt = cast(PointerType) f.type.type;
+				assert(pt);
+				
+				auto ct = cast(ContextType) pt.pointed.type;
+				assert(ct);
+				
+				auto assign = new BinaryExpression(
+					location,
+					f.type,
+					BinaryOp.Assign,
+					new FieldExpression(location, v, f),
+					new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct)),
+				);
+				
+				return new BinaryExpression(location, QualType(t), BinaryOp.Comma, assign, v);
 			}
 		}
 		
@@ -158,23 +154,27 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			auto fields = c.members.map!(m => cast(Field) m).filter!(f => !!f).map!(f => f.value).array();
 			
 			fields[0] = new VtblExpression(location, c);
-			Expression v = new TupleExpression(location, QualType(new TupleType(fields.map!(f => f.type).array())), fields);
-			
 			if (c.hasContext) {
-				v = getTemporary(v);
-				
-				import d.context, std.algorithm;
+				import d.context;
 				foreach(f; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
 					assert(f, "Context must be a field");
-					v = fillContext(location, f, v, t);
+					
+					auto pt = cast(PointerType) f.type.type;
+					assert(pt);
+					
+					auto ct = cast(ContextType) pt.pointed.type;
+					assert(ct);
+					
+					fields[f.index] = new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct));
 				}
 			}
 			
-			return v;
+			return new TupleExpression(location, QualType(new TupleType(fields.map!(f => f.type).array())), fields);
 		} else {
 			return new NullLiteral(location, QualType(t));
 		}
 	}
+	
 	E visit(Location location, FunctionType t) {
 		return new NullLiteral(location, QualType(t));
 	}
