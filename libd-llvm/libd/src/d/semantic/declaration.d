@@ -426,6 +426,18 @@ struct DeclarationVisitor {
 		select(d, a);
 	}
 	
+	void visit(AliasThisDeclaration d) {
+		assert(aggregateType != AggregateType.None, "alias this can only appear in aggregates.");
+		
+		// TODO: have a better scheme to do this in order to:
+		// - keep the location of the alias for error messages.
+		// - not redo identifier resolution all the time.
+		auto as = cast(AggregateScope) currentScope;
+		assert(as !is null, "Aggregate must have aggregate scope");
+		
+		as.aliasThis ~= d.name;
+	}
+	
 	void visit(LinkageDeclaration d) {
 		auto oldLinkage = linkage;
 		scope(exit) linkage = oldLinkage;

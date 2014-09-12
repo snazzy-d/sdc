@@ -203,40 +203,47 @@ class SymbolScope : NestedScope {
 	}
 }
 
-alias FunctionScope  = SymbolScopeImpl!(false, false);
-alias ClosureScope   = SymbolScopeImpl!(true,  false);
-alias AggregateScope = SymbolScopeImpl!(false, true);
-alias VoldemortScope = SymbolScopeImpl!(true,  true);
+class AggregateScope : SymbolScope {
+	Name[] aliasThis;
+
+	this(Symbol symbol, Scope parent) {
+		super(symbol, parent);
+	}
+}
+
+alias FunctionScope  = SymbolScope;
+
+alias ClosureScope   = CapturingScope!FunctionScope;
+alias VoldemortScope = CapturingScope!AggregateScope;
 
 private:
+
 final:
-class SymbolScopeImpl(bool isCapturing, bool isAggregate) : SymbolScope {
+class CapturingScope(S) if(is(S : SymbolScope)) : S {
+	// XXX: Use a proper set :D
+	bool[Variable] capture;
+	
 	this(Symbol symbol, Scope parent) {
 		super(symbol, parent);
 	}
 	
-	static if (isCapturing) {
-		// XXX: Use a proper set :D
-		bool[Variable] capture;
-		
-		override Symbol search(Name name) {
-			if (auto s = resolve(name)) {
-				return s;
-			}
-			
-			auto s = parent.search(name);
-			if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isStatic) {
-				capture[() @trusted {
-					// Fast cast can be trusted in this case, we already did the check.
-					import util.fastcast;
-					return fastCast!Variable(s);
-				} ()] = true;
-				
-				s.storage = Storage.Capture;
-			}
-			
+	override Symbol search(Name name) {
+		if (auto s = resolve(name)) {
 			return s;
 		}
+		
+		auto s = parent.search(name);
+		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isStatic) {
+			capture[() @trusted {
+				// Fast cast can be trusted in this case, we already did the check.
+				import util.fastcast;
+				return fastCast!Variable(s);
+			} ()] = true;
+			
+			s.storage = Storage.Capture;
+		}
+		
+		return s;
 	}
 }
 

@@ -68,12 +68,12 @@ class ValueAliasDeclaration : NamedDeclaration {
  * Alias this
  */
 class AliasThisDeclaration : Declaration {
-	Identifier identifier;
+	Name name;
 	
-	this(Location location, Identifier identifier) {
+	this(Location location, Name name) {
 		super(location);
 		
-		this.identifier = identifier;
+		this.name = name;
 	}
 }
 

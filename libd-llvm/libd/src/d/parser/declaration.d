@@ -658,19 +658,14 @@ private Declaration parseAlias(R)(ref R trange) {
 			}
 		})();
 	} else if(trange.front.type == TokenType.This) {
-		/+
-		auto identifier = trange.parseIdentifier();
-		
 		trange.popFront();
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.Semicolon);
 		
-		return new AliasThisDeclaration(location, identifier);
-		+/
-	} else {
-		trange.match(TokenType.Begin);
+		return new AliasThisDeclaration(location, name);
 	}
 	
+	trange.match(TokenType.Begin);
 	assert(0);
 }
 

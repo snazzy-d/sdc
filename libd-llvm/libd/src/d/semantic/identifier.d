@@ -463,6 +463,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 	}
 	
 	Ret resolve(Name name) {
+		auto type = expr.type;
 		return TypeDotIdentifierResolver!(delegate Ret(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Symbol)) {
@@ -474,17 +475,59 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			} else {
 				assert(0, "expression.type not implemented");
 			}
-		}, delegate Ret(r, type) {
-			alias T = typeof(type);
+		}, delegate Ret(r, t) {
+			alias T = typeof(t);
 			static if(is(T : PointerType)) {
-				auto t = type.pointed;
-				auto e = expr;
-				expr = new UnaryExpression(e.location, t, UnaryOp.Dereference, e);
-				return r.visit(t);
+				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
+				return r.visit(t.pointed);
 			} else {
-				return r.bailoutDefault(type);
+				static if (is(T : StructType)) {
+					auto aliasThis = t.dstruct.dscope.aliasThis;
+				} else static if (is(T : ClassType)) {
+					auto aliasThis = t.dclass.dscope.aliasThis;
+				}
+				
+				static if(is(typeof(aliasThis))) {
+					auto edir = ExpressionDotIdentifierResolver!identifiableHandler(pass, location, expr);
+					
+					auto oldBuildErrorNode = pass.buildErrorNode;
+					scope(exit) pass.buildErrorNode = oldBuildErrorNode;
+					
+					pass.buildErrorNode = true;
+
+					Identifiable[] candidates;
+					foreach (n; aliasThis) {
+						// TODO: refactor so we do not throw.
+						try {
+							candidates ~= edir.resolve(n);
+						} catch(CompileException e) {
+							continue;
+						}
+					}
+					
+					// XXX: AliasResolver ???
+					auto sr = SymbolResolver!identifiableHandler(pass);
+					
+					Ret[] results;
+					foreach(c; candidates) {
+						// TODO: refactor so we do not throw.
+						try {
+							results ~= sr.resolveInIdentifiable(location, c, name).apply!handler();
+						} catch(CompileException e) {
+							continue;
+						}
+					}
+					
+					if (results.length == 1) {
+						return results[0];
+					} else if (results.length > 1) {
+						assert(0, "WTF am I supposed to do here ?");
+					}
+				}
+				
+				return r.bailoutDefault(type.type);
 			}
-		})(pass, location, name).visit(expr.type);
+		})(pass, location, name).visit(type);
 	}
 	
 	Ret visit(Symbol s) {

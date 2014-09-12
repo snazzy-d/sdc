@@ -388,6 +388,10 @@ struct Caster(bool isExplicit) {
 			}
 		}
 		
+		if (t.dstruct.dscope.aliasThis.length > 0) {
+			assert(0, "alias this not implemented");
+		}
+		
 		return CastKind.Invalid;
 	}
 	
@@ -422,6 +426,10 @@ struct Caster(bool isExplicit) {
 			}
 		}
 		
+		if (from.dscope.aliasThis.length > 0) {
+			assert(0, "alias this not implemented");
+		}
+		
 		return CastKind.Invalid;
 	}
 	
@@ -429,6 +437,10 @@ struct Caster(bool isExplicit) {
 		if(auto ct = cast(ClassType) to) {
 			scheduler.require(t.dclass, Step.Signed);
 			return castClass(t.dclass, ct.dclass);
+		}
+		
+		if (t.dclass.dscope.aliasThis.length > 0) {
+			assert(0, "alias this not implemented");
 		}
 		
 		return CastKind.Invalid;
