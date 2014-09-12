@@ -14,6 +14,8 @@
 
 module llvm.c.core;
 
+public import llvm.c.support;
+
 extern(C) nothrow:
 
 /**
@@ -57,15 +59,13 @@ extern(C) nothrow:
  * @{
  */
 
-alias int LLVMBool;
-
 /* Opaque types. */
 
 /**
  * The top-level container for all LLVM global data. See the LLVMContext class.
  */
 struct __LLVMOpaqueContext {};
-alias __LLVMOpaqueContext *LLVMContextRef;
+alias LLVMContextRef = __LLVMOpaqueContext*;
 
 /**
  * The top-level container for all other LLVM Intermediate Representation (IR)
@@ -74,7 +74,7 @@ alias __LLVMOpaqueContext *LLVMContextRef;
  * @see llvm::Module
  */
 struct __LLVMOpaqueModule {};
-alias __LLVMOpaqueModule *LLVMModuleRef;
+alias LLVMModuleRef = __LLVMOpaqueModule*;
 
 /**
  * Each value in the LLVM IR has a type, an LLVMTypeRef.
@@ -82,7 +82,7 @@ alias __LLVMOpaqueModule *LLVMModuleRef;
  * @see llvm::Type
  */
 struct __LLVMOpaqueType {};
-alias __LLVMOpaqueType *LLVMTypeRef;
+alias LLVMTypeRef = __LLVMOpaqueType*;
 
 /**
  * Represents an individual value in LLVM IR.
@@ -90,7 +90,7 @@ alias __LLVMOpaqueType *LLVMTypeRef;
  * This models llvm::Value.
  */
 struct __LLVMOpaqueValue {};
-alias __LLVMOpaqueValue *LLVMValueRef;
+alias LLVMValueRef = __LLVMOpaqueValue*;
 
 /**
  * Represents a basic block of instructions in LLVM IR.
@@ -98,7 +98,7 @@ alias __LLVMOpaqueValue *LLVMValueRef;
  * This models llvm::BasicBlock.
  */
 struct __LLVMOpaqueBasicBlock {};
-alias __LLVMOpaqueBasicBlock *LLVMBasicBlockRef;
+alias LLVMBasicBlockRef = __LLVMOpaqueBasicBlock*;
 
 /**
  * Represents an LLVM basic block builder.
@@ -106,7 +106,7 @@ alias __LLVMOpaqueBasicBlock *LLVMBasicBlockRef;
  * This models llvm::IRBuilder.
  */
 struct __LLVMOpaqueBuilder {};
-alias __LLVMOpaqueBuilder *LLVMBuilderRef;
+alias LLVMBuilderRef = __LLVMOpaqueBuilder*;
 
 /**
  * Interface used to provide a module to JIT or interpreter.
@@ -114,19 +114,11 @@ alias __LLVMOpaqueBuilder *LLVMBuilderRef;
  * different type to keep binary compatibility.
  */
 struct __LLVMOpaqueModuleProvider {};
-alias __LLVMOpaqueModuleProvider *LLVMModuleProviderRef;
-
-/**
- * Used to provide a module to JIT or interpreter.
- *
- * @see llvm::MemoryBuffer
- */
-struct __LLVMOpaqueMemoryBuffer {};
-alias __LLVMOpaqueMemoryBuffer *LLVMMemoryBufferRef;
+alias LLVMModuleProviderRef = __LLVMOpaqueModuleProvider*;
 
 /** @see llvm::PassManagerBase */
 struct __LLVMOpaquePassManager {};
-alias __LLVMOpaquePassManager *LLVMPassManagerRef;
+alias LLVMPassManagerRef = __LLVMOpaquePassManager*;
 
 /** @see llvm::PassRegistry */
 struct __LLVMOpaquePassRegistry {};
@@ -137,7 +129,13 @@ alias __LLVMOpaquePassRegistry *LLVMPassRegistryRef;
  *
  * @see llvm::Use */
 struct __LLVMOpaqueUse {};
-alias __LLVMOpaqueUse *LLVMUseRef;
+alias LLVMUseRef = __LLVMOpaqueUse*;
+
+/**
+ * @see llvm::DiagnosticInfo
+ */
+struct __LLVMOpaqueDiagnosticInfo {};
+alias LLVMDiagnosticInfoRef = __LLVMOpaqueDiagnosticInfo*;
 
 enum LLVMAttribute {
     ZExt            = 1 << 0,
@@ -170,10 +168,14 @@ enum LLVMAttribute {
     /* FIXME: These attributes are currently not included in the C API as
        a temporary measure until the API/ABI impact to the C API is understood
        and the path forward agreed upon.
-    LLVMAddressSafety = 1ULL << 32,
-    LLVMStackProtectStrongAttribute = 1ULL<<33,
-    LLVMCold = 1ULL << 34,
-    LLVMOptimizeNone = 1ULL << 35,
+    AddressSafety = 1ULL << 32,
+    StackProtectStrongAttribute = 1ULL<<33,
+    Cold = 1ULL << 34,
+    OptimizeNone = 1ULL << 35,
+    InAllocaAttribute = 1ULL << 36,
+    NonNullAttribute = 1ULL << 37,
+    JumpTableAttribute = 1ULL << 38,
+    DereferenceableAttribute = 1ULL << 39,
     */
 }
 
@@ -289,8 +291,8 @@ enum LLVMLinkage {
   Internal,    /**< Rename collisions when linking (static
                                functions) */
   Private,     /**< Like Internal, but omit from symbol table */
-  DLLImport,   /**< Function to be imported from DLL */
-  DLLExport,   /**< Function to be accessible from DLL */
+  DLLImport,   /**< Obsolete */
+  DLLExport,   /**< Obsolete */
   ExternalWeak,/**< ExternalWeak linkage description */
   Ghost,       /**< Obsolete */
   Common,      /**< Tentative definitions */
@@ -302,6 +304,12 @@ enum LLVMVisibility {
   Default,   /**< The GV is visible */
   Hidden,    /**< The GV is hidden */
   Protected, /**< The GV is protected */
+}
+
+enum LLVMDLLStorageClass {
+  Default   = 0,
+  DLLImport = 1, /**< Function to be imported from DLL. */
+  DLLExport = 2, /**< Function to be accessible from DLL. */
 }
 
 enum LLVMCallConv {
@@ -408,6 +416,13 @@ enum LLVMAtomicRMWBinOp {
             the old one */
 }
 
+enum LLVMDiagnosticSeverity {
+    Error,
+    Warning,
+    Remark,
+    Note,
+}
+
 /**
  * @}
  */
@@ -461,6 +476,9 @@ void LLVMEnablePrettyStackTrace();
  * @{
  */
 
+alias LLVMDiagnosticHandler = void function(LLVMDiagnosticInfoRef, void*);
+alias LLVMYieldCallback = void function(LLVMContextRef, void*);
+
 /**
  * Create a new context.
  *
@@ -475,12 +493,42 @@ LLVMContextRef LLVMContextCreate();
 LLVMContextRef LLVMGetGlobalContext();
 
 /**
+ * Set the diagnostic handler for this context.
+ */
+void LLVMContextSetDiagnosticHandler(LLVMContextRef C,
+                                     LLVMDiagnosticHandler Handler,
+                                     void* DiagnosticContext);
+
+/**
+ * Set the yield callback function for this context.
+ *
+ * @see LLVMContext::setYieldCallback()
+ */
+void LLVMContextSetYieldCallback(LLVMContextRef C, LLVMYieldCallback Callback,
+                                 void* OpaqueHandle);
+
+/**
  * Destroy a context instance.
  *
  * This should be called for every call to LLVMContextCreate() or memory
  * will be leaked.
  */
 void LLVMContextDispose(LLVMContextRef C);
+
+/**
+ * Return a string representation of the DiagnosticInfo. Use
+ * LLVMDisposeMessage to free the string.
+ *
+ * @see DiagnosticInfo::print()
+ */
+char* LLVMGetDiagInfoDescription(LLVMDiagnosticInfoRef DI);
+
+/**
+ * Return an enum LLVMDiagnosticSeverity.
+ *
+ * @see DiagnosticInfo::getSeverity()
+ */
+LLVMDiagnosticSeverity LLVMGetDiagInfoSeverity(LLVMDiagnosticInfoRef DI);
 
 uint LLVMGetMDKindIDInContext(LLVMContextRef C, const(char)* Name,
                               uint SLen);
@@ -1132,9 +1180,10 @@ extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fu
         "ConstantStruct",
         "ConstantVector",
         "GlobalValue",
-          "Function",
           "GlobalAlias",
-          "GlobalVariable",
+          "GlobalObject",
+            "Function",
+            "GlobalVariable",
         "UndefValue",
       "Instruction",
         "BinaryOperator",
@@ -1703,6 +1752,10 @@ const(char)* LLVMGetSection(LLVMValueRef Global);
 void LLVMSetSection(LLVMValueRef Global, const(char)* Section);
 LLVMVisibility LLVMGetVisibility(LLVMValueRef Global);
 void LLVMSetVisibility(LLVMValueRef Global, LLVMVisibility Viz);
+LLVMDLLStorageClass LLVMGetDLLStorageClass(LLVMValueRef Global);
+void LLVMSetDLLStorageClass(LLVMValueRef Global, LLVMDLLStorageClass Class);
+LLVMBool LLVMHasUnnamedAddr(LLVMValueRef Global);
+void LLVMSetUnnamedAddr(LLVMValueRef Global, LLVMBool HasUnnamedAddr);
 
 /**
  * @defgroup LLVMCCoreValueWithAlignment Values with alignment
@@ -1713,6 +1766,7 @@ void LLVMSetVisibility(LLVMValueRef Global, LLVMVisibility Viz);
 
 /**
  * Obtain the preferred alignment of the value.
+ * @see llvm::AllocaInst::getAlignment()
  * @see llvm::LoadInst::getAlignment()
  * @see llvm::StoreInst::getAlignment()
  * @see llvm::GlobalValue::getAlignment()
@@ -1721,6 +1775,7 @@ uint LLVMGetAlignment(LLVMValueRef V);
 
 /**
  * Set the preferred alignment of the value.
+ * @see llvm::AllocaInst::setAlignment()
  * @see llvm::LoadInst::setAlignment()
  * @see llvm::StoreInst::setAlignment()
  * @see llvm::GlobalValue::setAlignment()
@@ -2697,7 +2752,9 @@ LLVMValueRef LLVMBuildIsNotNull(LLVMBuilderRef, LLVMValueRef Val,
                                 const(char)* Name);
 LLVMValueRef LLVMBuildPtrDiff(LLVMBuilderRef, LLVMValueRef LHS,
                               LLVMValueRef RHS, const(char)* Name);
-LLVMValueRef LLVMBuildAtomicRMW(LLVMBuilderRef B,LLVMAtomicRMWBinOp op,
+LLVMValueRef LLVMBuildFence(LLVMBuilderRef B, LLVMAtomicOrdering ordering,
+                            LLVMBool singleThread, const(char)* Name);
+LLVMValueRef LLVMBuildAtomicRMW(LLVMBuilderRef B, LLVMAtomicRMWBinOp op,
                                 LLVMValueRef PTR, LLVMValueRef Val,
                                 LLVMAtomicOrdering ordering,
                                 LLVMBool singleThread);
@@ -2827,16 +2884,13 @@ void LLVMDisposePassManager(LLVMPassManagerRef PM);
  * @{
  */
 
-/** Allocate and initialize structures needed to make LLVM safe for
-    multithreading. The return value indicates whether multithreaded
-    initialization succeeded. Must be executed in isolation from all
-    other LLVM api calls.
-    @see llvm::llvm_start_multithreaded */
+/** Deprecated: Multi-threading can only be enabled/disabled with the compile
+    time define LLVM_ENABLE_THREADS.  This function always returns
+    LLVMIsMultithreaded(). */
 LLVMBool LLVMStartMultithreaded();
 
-/** Deallocate structures necessary to make LLVM safe for multithreading.
-    Must be executed in isolation from all other LLVM api calls.
-    @see llvm::llvm_stop_multithreaded */
+/** Deprecated: Multi-threading can only be enabled/disabled with the compile
+    time define LLVM_ENABLE_THREADS. */
 void LLVMStopMultithreaded();
 
 /** Check whether LLVM is executing in thread-safe mode or not.

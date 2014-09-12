@@ -18,6 +18,26 @@ import llvm.c.core;
 extern(C) nothrow:
 
 /**
+ * @defgroup LLVMCSupportTypes Types and Enumerations
+ *
+ * @{
+ */
+
+alias LLVMBool = int;
+
+/**
+ * Used to pass regions of memory through LLVM interfaces.
+ *
+ * @see llvm::MemoryBuffer
+ */
+struct __LLVMOpaqueMemoryBuffer {};
+alias LLVMMemoryBufferRef = __LLVMOpaqueMemoryBuffer*;
+
+/**
+ * @}
+ */
+
+/**
  * This function permanently loads the dynamic library at the given path.
  * It is safe to call this function multiple times for the same library.
  *

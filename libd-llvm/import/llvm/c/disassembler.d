@@ -97,6 +97,16 @@ enum LLVMDisassembler_VariantKind_ARM_HI16 = 1; /* :upper16: */
 enum LLVMDisassembler_VariantKind_ARM_LO16 = 2; /* :lower16: */
 
 /**
+ * The ARM64 target VariantKinds.
+ */
+enum LLVMDisassembler_VariantKind_ARM64_PAGE       = 1; /* @page */
+enum LLVMDisassembler_VariantKind_ARM64_PAGEOFF    = 2; /* @pageoff */
+enum LLVMDisassembler_VariantKind_ARM64_GOTPAGE    = 3; /* @gotpage */
+enum LLVMDisassembler_VariantKind_ARM64_GOTPAGEOFF = 4; /* @gotpageoff */
+enum LLVMDisassembler_VariantKind_ARM64_TLVP       = 5; /* @tvlppage */
+enum LLVMDisassembler_VariantKind_ARM64_TLVOFF     = 6; /* @tvlppageoff */
+
+/**
  * The type for the symbol lookup function.  This may be called by the
  * disassembler for things like adding a comment for a PC plus a constant
  * offset load instruction to use a symbol name instead of a load address value.
@@ -108,11 +118,11 @@ enum LLVMDisassembler_VariantKind_ARM_LO16 = 2; /* :lower16: */
  * indirectly in ReferenceType along with ReferenceName if any, or that is set
  * to NULL.
  */
-alias const(char) *function(void *DisInfo,
-                            uint64_t ReferenceValue,
-                            uint64_t *ReferenceType,
-                            uint64_t ReferencePC,
-                            const(char) **ReferenceName) LLVMSymbolLookupCallback;
+alias LLVMSymbolLookupCallback = const(char) *function(void* DisInfo,
+                                                       uint64_t ReferenceValue,
+                                                       uint64_t *ReferenceType,
+                                                       uint64_t ReferencePC,
+                                                       const(char)** ReferenceName);
 /**
  * The reference types on input and output.
  */
@@ -123,6 +133,17 @@ enum LLVMDisassembler_ReferenceType_InOut_None = 0;
 enum LLVMDisassembler_ReferenceType_In_Branch = 1;
 /* The input reference is from a PC relative load instruction. */
 enum LLVMDisassembler_ReferenceType_In_PCrel_Load = 2;
+
+/* The input reference is from an ARM64::ADRP instruction. */
+enum LLVMDisassembler_ReferenceType_In_ARM64_ADRP = 0x100000001;
+/* The input reference is from an ARM64::ADDXri instruction. */
+enum LLVMDisassembler_ReferenceType_In_ARM64_ADDXri = 0x100000002;
+/* The input reference is from an ARM64::LDRXui instruction. */
+enum LLVMDisassembler_ReferenceType_In_ARM64_LDRXui = 0x100000003;
+/* The input reference is from an ARM64::LDRXl instruction. */
+enum LLVMDisassembler_ReferenceType_In_ARM64_LDRXl = 0x100000004;
+/* The input reference is from an ARM64::ADR instruction. */
+enum LLVMDisassembler_ReferenceType_In_ARM64_ADR = 0x100000005;
 
 /* The output reference is to as symbol stub. */
 enum LLVMDisassembler_ReferenceType_Out_SymbolStub = 1;
@@ -141,6 +162,9 @@ enum LLVMDisassembler_ReferenceType_Out_Objc_Message_Ref = 6;
 enum LLVMDisassembler_ReferenceType_Out_Objc_Selector_Ref = 7;
 /* The output reference is to a Objective-C class ref. */
 enum LLVMDisassembler_ReferenceType_Out_Objc_Class_Ref = 8;
+
+/* The output reference is to a C++ symbol name. */
+enum LLVMDisassembler_ReferenceType_DeMangled_Name = 9;
 
 /**
  * Create a disassembler for the TripleName.  Symbolic disassembly is supported

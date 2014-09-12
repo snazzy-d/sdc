@@ -24,9 +24,9 @@ import llvm.c.target;
 extern(C) nothrow:
 
 struct __LLVMOpaqueTargetMachine {};
-alias __LLVMOpaqueTargetMachine* LLVMTargetMachineRef;
+alias LLVMTargetMachineRef = __LLVMOpaqueTargetMachine*;
 struct __LLVMTarget {};
-alias __LLVMTarget* LLVMTargetRef;
+alias LLVMTargetRef = __LLVMTarget*;
 
 enum LLVMCodeGenOptLevel {
     None,
@@ -137,3 +137,5 @@ LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T, LLVMModuleR
   disposed with LLVMDisposeMessage. */
 char* LLVMGetDefaultTargetTriple();
 
+/** Adds the target-specific analysis passes to the pass manager. */
+void LLVMAddAnalysisPasses(LLVMTargetMachineRef T, LLVMPassManagerRef PM);
