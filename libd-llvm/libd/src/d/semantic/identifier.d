@@ -314,12 +314,10 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 					})();
 			} else if(auto ta = cast(TypeTemplateArgument) a) {
 				import d.semantic.type;
-				auto tv = TypeVisitor(pass);
-				return TemplateArgument(tv.visit(ta.type));
+				return TemplateArgument(TypeVisitor(pass).visit(ta.type));
 			} else if(auto va = cast(ValueTemplateArgument) a) {
 				import d.semantic.expression;
-				auto ev = ExpressionVisitor(pass);
-				return TemplateArgument(pass.evaluate(ev.visit(va.value)));
+				return TemplateArgument(pass.evaluate(ExpressionVisitor(pass).visit(va.value)));
 			}
 			
 			assert(0, typeid(a).toString() ~ " is not supported.");

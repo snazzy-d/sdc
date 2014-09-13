@@ -22,6 +22,8 @@ class Version(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declar
 	}
 }
 
+alias VersionDeclaration = Version!Declaration;
+
 /**
  * Version definition (ie version = FOOBAR)
  */
@@ -35,11 +37,13 @@ class VersionDefinition(ItemType) if(is(ItemType == AstStatement) || is(ItemType
 	}
 }
 
+alias VersionDefinitionDeclaration = VersionDefinition!Declaration;
+
 /**
  * Debug ast alias
  */
-alias Version Debug;
-alias VersionDefinition DebugDefinition;
+alias Debug = Version;
+alias DebugDefinition = VersionDefinition;
 
 /**
  * Static if Conditional
@@ -58,6 +62,8 @@ class StaticIf(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Decla
 	}
 }
 
+alias StaticIfDeclaration = StaticIf!Declaration;
+
 /**
  * Mixins
  */
@@ -70,4 +76,6 @@ class Mixin(ItemType) if(is(ItemType == AstStatement) || is(ItemType == Declarat
 		this.value = value;
 	}
 }
+
+alias MixinDeclaration = Mixin!Declaration;
 

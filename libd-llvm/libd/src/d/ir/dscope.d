@@ -1,17 +1,25 @@
 module d.ir.dscope;
 
 import d.ast.base;
+import d.ast.conditional;
 
 import d.ir.symbol;
 
+// XXX: move this to a more apropriate place ?
 final class OverloadSet : Symbol {
 	Symbol[] set;
+	bool isPoisoned;
 	
 	this(Location location, Name name, Symbol[] set) {
 		super(location, name);
-		
 		this.set = set;
 	}
+}
+
+struct ConditionalBranch {
+	// XXX: stick that bit in the pointer.
+	StaticIfDeclaration sif;
+	bool branch;
 }
 
 /**
@@ -24,27 +32,76 @@ class Scope {
 	
 	Module[] imports;
 	
+	bool isPoisoning;
+	
+	private bool isPoisoned;
+	private bool hasConditional;
+	
 	this(Module dmodule) {
 		this.dmodule = dmodule;
+	}
+	
+	Symbol search(Name name) {
+		return resolve(name);
+	}
+
+final:
+	Symbol resolve(Name name) {
+		if (auto sPtr = name in symbols) {
+			auto s = *sPtr;
+			if (isPoisoned && cast(Poison) s) {
+				return null;
+			}
+			
+			if (hasConditional) {
+				if (auto cs = cast(ConditionalSet) s) {
+					cs.isPoisoned = true;
+					return cs.selected;
+				}
+			}
+			
+			if (isPoisoning) {
+				if (auto os = cast(OverloadSet) s) {
+					os.isPoisoned = true;
+				}
+			}
+			
+			return s;
+		}
+		
+		if (isPoisoning) {
+			symbols[name] = new Poison(name);
+			isPoisoned = true;
+		}
+		
+		return null;
 	}
 	
 	void addSymbol(Symbol s) {
 		assert(!s.name.isEmpty, "Symbol can't be added to scope as it has no name.");
 		
-		if (s.name in symbols) {
+		if (auto sPtr = s.name in symbols) {
+			if(auto p = cast(Poison) *sPtr) {
+				import d.exception;
+				throw new CompileException(s.location, "Poisoned");
+			}
+			
 			import d.exception;
-			throw new CompileException(s.location, "Already in scope");
+			throw new CompileException(s.location, "Already defined");
 		}
 		
 		symbols[s.name] = s;
 	}
 	
 	void addOverloadableSymbol(Symbol s) {
-		auto setPtr = s.name in symbols;
-		
-		if(setPtr) {
-			if(auto set = cast(OverloadSet) *setPtr) {
-				set.set ~= s;
+		if(auto sPtr = s.name in symbols) {
+			if(auto os = cast(OverloadSet) *sPtr) {
+				if (os.isPoisoned) {
+					import d.exception;
+					throw new CompileException(s.location, "Poisoned");
+				}
+				
+				os.set ~= s;
 				return;
 			}
 		}
@@ -52,12 +109,57 @@ class Scope {
 		addSymbol(new OverloadSet(s.location, s.name, [s]));
 	}
 	
-	Symbol resolve(Name name) {
-		return symbols.get(name, null);
+	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches) in {
+		assert(cdBranches.length > 0, "No conditional branches supplied");
+	} body {
+		auto entry = ConditionalEntry(s, cdBranches);
+		if (auto csPtr = s.name in symbols) {
+			if(auto cs = cast(ConditionalSet) *csPtr) {
+				cs.set ~= entry;
+				return;
+			}
+			
+			import d.exception;
+			throw new CompileException(s.location, "Already defined");
+		}
+		
+		symbols[s.name] = new ConditionalSet(s.location, s.name, [entry]);
+		hasConditional = true;
 	}
 	
-	Symbol search(Name name) {
-		return resolve(name);
+	// XXX: Use of smarter data structure can probably improve things here :D
+	void resolveConditional(StaticIfDeclaration sif, bool branch) in {
+		assert(isPoisoning, "You must be in poisoning mode when resolving static ifs.");
+	} body {
+		foreach(s; symbols.values) {
+			if(auto cs = cast(ConditionalSet) s) {
+				ConditionalEntry[] newSet;
+				foreach(cd; cs.set) {
+					if(cd.cdBranches[0].sif is sif) {
+						// If this the right branch, then proceed. Otherwize forget.
+						if(cd.cdBranches[0].branch == branch) {
+							cd.cdBranches = cd.cdBranches[1 .. $];
+							if(cd.cdBranches.length) {
+								newSet ~= cd;
+							} else {
+								// FIXME: Check if it is an overloadable symbol.
+								assert(cs.selected is null, "overload ? bug ?");
+								if (cs.isPoisoned) {
+									import d.exception;
+									throw new CompileException(s.location, "Poisoned");
+								}
+
+								cs.selected = cd.entry;
+							}
+						}
+					} else {
+						newSet ~= cd;
+					}
+				}
+				
+				cs.set = newSet;
+			}
+		}
 	}
 }
 
@@ -66,12 +168,15 @@ class NestedScope : Scope {
 	
 	this(Scope parent) {
 		super(parent.dmodule);
-		
 		this.parent = parent;
 	}
 	
 	override Symbol search(Name name) {
-		return symbols.get(name, parent.search(name));
+		if (auto s = resolve(name)) {
+			return s;
+		}
+		
+		return parent.search(name);
 	}
 	
 	final auto clone() {
@@ -88,26 +193,37 @@ class NestedScope : Scope {
 	}
 }
 
+// XXX: Find a way to get a better handling of the symbol's type.
 class SymbolScope : NestedScope {
 	Symbol symbol;
 	
 	this(Symbol symbol, Scope parent) {
 		super(parent);
-		
 		this.symbol = symbol;
 	}
 }
 
-final class ClosureScope : SymbolScope {
-	// XXX: Use a proper set :D
-	bool[Variable] capture;
-	
+alias FunctionScope  = SymbolScopeImpl!(false, false);
+alias ClosureScope   = SymbolScopeImpl!(true,  false);
+alias AggregateScope = SymbolScopeImpl!(false, true);
+alias VoldemortScope = SymbolScopeImpl!(true,  true);
+
+private:
+final:
+class SymbolScopeImpl(bool isCapturing, bool isAggregate) : SymbolScope {
 	this(Symbol symbol, Scope parent) {
 		super(symbol, parent);
 	}
 	
-	override Symbol search(Name name) {
-		return symbols.get(name, {
+	static if (isCapturing) {
+		// XXX: Use a proper set :D
+		bool[Variable] capture;
+		
+		override Symbol search(Name name) {
+			if (auto s = resolve(name)) {
+				return s;
+			}
+			
 			auto s = parent.search(name);
 			if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isStatic) {
 				capture[() @trusted {
@@ -120,7 +236,34 @@ final class ClosureScope : SymbolScope {
 			}
 			
 			return s;
-		} ());
+		}
+	}
+}
+
+class Poison : Symbol {
+	this(Location location, Name name) {
+		super(location, name);
+	}
+	
+	this(Name name) {
+		super(Location.init, name);
+	}
+}
+
+struct ConditionalEntry {
+	Symbol entry;
+	ConditionalBranch[] cdBranches;
+}
+
+class ConditionalSet : Symbol {
+	ConditionalEntry[] set;
+	
+	Symbol selected;
+	bool isPoisoned;
+	
+	this(Location location, Name name, ConditionalEntry[] set) {
+		super(location, name);
+		this.set = set;
 	}
 }
 

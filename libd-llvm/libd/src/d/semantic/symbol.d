@@ -177,7 +177,7 @@ struct SymbolAnalyzer {
 			// Update scope.
 			currentScope = f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
-				: new SymbolScope(f, oldScope);
+				: new FunctionScope(f, oldScope);
 			
 			ctxType = new ContextType(f);
 			
@@ -271,7 +271,7 @@ struct SymbolAnalyzer {
 			}
 			
 			// Update scope.
-			currentScope = f.dscope = new SymbolScope(f, oldScope);
+			currentScope = f.dscope = new FunctionScope(f, oldScope);
 			
 			ctxType = new ContextType(f);
 			
@@ -434,8 +434,8 @@ struct SymbolAnalyzer {
 		s.mangle = "S" ~ manglePrefix;
 		
 		auto dscope = currentScope = s.dscope = s.hasContext
-			? new ClosureScope(s, oldScope)
-			: new SymbolScope(s, oldScope);
+			? new VoldemortScope(s, oldScope)
+			: new AggregateScope(s, oldScope);
 		
 		fieldIndex = 0;
 		Field[] fields;
@@ -509,8 +509,8 @@ struct SymbolAnalyzer {
 		c.mangle = "C" ~ manglePrefix;
 		
 		auto dscope = currentScope = c.dscope = c.hasContext
-			? new ClosureScope(c, oldScope)
-			: new SymbolScope(c, oldScope);
+			? new VoldemortScope(c, oldScope)
+			: new AggregateScope(c, oldScope);
 		
 		Field[] baseFields;
 		Method[] baseMethods;
@@ -867,11 +867,9 @@ struct SymbolAnalyzer {
 		);
 		
 		auto members = dv.flatten(t.members, i);
-		i.step = Step.Populated;
-		
 		scheduler.require(members);
-		i.members ~= members;
 		
+		i.members ~= members;
 		i.step = Step.Processed;
 	}
 }
