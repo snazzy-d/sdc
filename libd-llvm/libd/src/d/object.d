@@ -11,6 +11,10 @@ final class ObjectReference {
 		this.object = object;
 	}
 	
+	auto getSizeT() {
+		return cast(TypeAlias) object.dscope.resolve(BuiltinName!"size_t");
+	}
+	
 	auto getObject() {
 		return cast(Class) object.dscope.resolve(BuiltinName!"Object");
 	}
