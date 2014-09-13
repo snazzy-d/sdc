@@ -186,7 +186,7 @@ final class SymbolGen {
 			auto s = cast(ClosureScope) f.dscope;
 			assert(s, "Function has context but do not have a closure scope");
 			
-			buildCapturedVariables(parentCtx, contexts, s);
+			buildCapturedVariables(parentCtx, contexts, s.capture);
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
@@ -287,41 +287,41 @@ final class SymbolGen {
 				return;
 			}
 			
-			auto cs = cast(ClosureScope) s.dscope;
-			assert(cs, "Struct has context but no ClosureScope");
+			auto vs = cast(VoldemortScope) s.dscope;
+			assert(vs, "Struct has context but no VoldemortScope");
 			
-			buildEmbededCaptures(thisPtr, 0, embededContexts[s], cs);
+			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
 		} else if (auto ct = cast(ClassType) t) {
 			auto c = ct.dclass;
 			if (!c.hasContext) {
 				return;
 			}
 			
-			auto cs = cast(ClosureScope) c.dscope;
-			assert(cs, "Class has context but no ClosureScope");
+			auto vs = cast(VoldemortScope) c.dscope;
+			assert(vs, "Class has context but no VoldemortScope");
 			
 			import d.context;
 			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
 			
-			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], cs);
+			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], vs);
 		} else {
 			assert(0, typeid(t).toString() ~ " is not supported.");
 		}
 	}
 	
-	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, ClosureScope s) {
-		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""), ""), contexts, s);
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, VoldemortScope s) {
+		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""), ""), contexts, s.capture);
 	}
 	
-	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, ClosureScope s) {
-		auto closureCount = s.capture.length;
+	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, bool[Variable] capture) {
+		auto closureCount = capture.length;
 		
 		// Try to find out if we have the variable in a closure.
 		ClosureLoop: foreach_reverse(closure; contexts) {
 			root = LLVMBuildPointerCast(builder, root, LLVMTypeOf(closure.context), "");
 			
 			// Create enclosed variables.
-			foreach(v; s.capture.byKey()) {
+			foreach(v; capture.byKey()) {
 				if (auto indexPtr = v in closure.indices) {
 					// Register the variable.
 					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
