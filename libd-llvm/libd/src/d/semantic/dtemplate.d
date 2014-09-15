@@ -467,10 +467,7 @@ struct SymbolMatcher {
 			import d.semantic.identifier;
 			return SymbolPostProcessor!(delegate bool(identified) {
 				alias T = typeof(identified);
-				
-				// SymbolPostProcessor must know the return value of the closure.
-				// To do so, it instanciate it with null as parameter.
-				static if(is(T : Expression) && !is(T == typeof(null))) {
+				static if(is(T : Expression)) {
 					// TODO: If IFTI fails, go for cast.
 					return IftiTypeMatcher(matchedArgs, identified.type).visit(p.type);
 				} else {

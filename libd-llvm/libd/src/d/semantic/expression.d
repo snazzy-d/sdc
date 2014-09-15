@@ -453,6 +453,8 @@ struct ExpressionVisitor {
 	Expression visit(IdentifierCallExpression c) {
 		auto args = c.args.map!(a => visit(a)).array();
 		
+		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
+		
 		// XXX: massive duplication in the callback. DMD won't accept anything else :(
 		import d.ast.identifier;
 		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
@@ -717,7 +719,6 @@ struct ExpressionVisitor {
 	
 	Expression visit(ThisExpression e) {
 		e.type = QualType(thisType.type, thisType.qualifier);
-		
 		return e;
 	}
 	
