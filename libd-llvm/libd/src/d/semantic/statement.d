@@ -247,8 +247,8 @@ struct StatementVisitor {
 	void visit(AstTryStatement s) {
 		auto tryStmt = autoBlock(s.statement);
 		
-		import d.semantic.identifier;
-		auto iv = IdentifierVisitor!(function Class(identified) {
+		import d.semantic.identifier : AliasResolver;
+		auto iv = AliasResolver!(function Class(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto c = cast(Class) identified) {
 					return c;
@@ -262,7 +262,7 @@ struct StatementVisitor {
 				// for typeof(null)
 				assert(0);
 			}
-		}, true)(pass);
+		})(pass);
 		
 		CatchBlock[] catches = s.catches.map!(c => CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement))).array();
 		

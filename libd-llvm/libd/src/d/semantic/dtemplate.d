@@ -465,18 +465,18 @@ struct SymbolMatcher {
 			matchedArgs[p.index] = TemplateArgument(vs);
 			
 			import d.semantic.identifier;
-			return IdentifierVisitor!(delegate bool(identified) {
-				alias type = typeof(identified);
+			return SymbolPostProcessor!(delegate bool(identified) {
+				alias T = typeof(identified);
 				
-				// IdentifierVisitor must know the return value of the closure.
+				// SymbolPostProcessor must know the return value of the closure.
 				// To do so, it instanciate it with null as parameter.
-				static if(is(type : Expression) && !is(type == typeof(null))) {
+				static if(is(T : Expression) && !is(T == typeof(null))) {
 					// TODO: If IFTI fails, go for cast.
 					return IftiTypeMatcher(matchedArgs, identified.type).visit(p.type);
 				} else {
 					return false;
 				}
-			})(pass).visit(p.location, vs);
+			})(pass, p.location).visit(vs);
 		}
 		
 		return false;
@@ -484,24 +484,26 @@ struct SymbolMatcher {
 	
 	bool visit(TypeTemplateParameter p) {
 		import d.semantic.identifier;
-		return IdentifierVisitor!(delegate bool(identified) {
-			static if(is(typeof(identified) : QualType)) {
+		return SymbolPostProcessor!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if(is(T : QualType)) {
 				return TypeMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
 			}
-		})(pass).visit(p.location, matchee);
+		})(pass, p.location).visit(matchee);
 	}
 	
 	bool visit(ValueTemplateParameter p) {
 		import d.semantic.identifier;
-		return IdentifierVisitor!(delegate bool(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolPostProcessor!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return ValueMatcher(pass, matchedArgs, pass.evaluate(identified)).visit(p);
 			} else {
 				return false;
 			}
-		})(pass).visit(p.location, matchee);
+		})(pass, p.location).visit(matchee);
 	}
 }
 

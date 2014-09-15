@@ -19,277 +19,16 @@ import std.array;
 
 alias Module = d.ir.symbol.Module;
 
-// TODO: specify if symbol must be packed into type/expression or not.
-struct IdentifierVisitor(alias handler, bool asAlias = false) {
-	private SemanticPass pass;
-	alias pass this;
-	
-	alias Ret = typeof(handler(null));
-	
-	this(SemanticPass pass) {
-		this.pass = pass;
-	}
-	
-	Ret visit(Identifier i) {
-		return this.dispatch(i);
-	}
-	
-	private Symbol resolveImportedSymbol(Location location, Name name) {
-		auto dscope = currentScope;
-		
-		while(true) {
-			Symbol symbol;
-			
-			foreach(m; dscope.imports) {
-				scheduler.require(m, Step.Populated);
-				
-				auto symInMod = m.dscope.resolve(name);
-				if(symInMod) {
-					if(symbol) {
-						return pass.raiseCondition!Symbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
-					}
-					
-					symbol = symInMod;
-				}
-			}
-			
-			if(symbol) return symbol;
-			
-			if(auto nested = cast(NestedScope) dscope) {
-				dscope = nested.parent;
-			} else {
-				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found.");
-			}
-			
-			if(auto sscope = cast(SymbolScope) dscope) {
-				scheduler.require(sscope.symbol, Step.Populated);
-			}
-		}
-	}
-	
-	private Symbol resolveName(Location location, Name name) {
-		auto symbol = currentScope.search(name);
-		
-		// I wish we had ?:
-		return symbol ? symbol : resolveImportedSymbol(location, name);
-	}
-	
-	Ret visit(BasicIdentifier i) {
-		return visit(i.location, resolveName(i.location, i.name));
-	}
-	
-	Ret visit(IdentifierDotIdentifier i) {
-		return resolveInIdentifiable(i.location, IdentifierVisitor!identifiableHandler(pass).visit(i.identifier), i.name);
-	}
-	
-	Ret resolveInSymbol(Location location, Symbol s, Name name) {
-		return resolveInIdentifiable(location, IdentifierVisitor!identifiableHandler(pass).visit(location, s), name);
-	}
-	
-	Ret resolveInType(Location location, QualType t, Name name) {
-		if(Symbol s = SymbolInTypeResolver(pass).visit(name, t)) {
-			return visit(location, s);
-		}
-		
-		if(name == BuiltinName!"init") {
-			assert(0, "cannot resolve init yet");
-		} else if(name == BuiltinName!"sizeof") {
-			import d.semantic.sizeof;
-			auto sv = SizeofVisitor(pass);
-			return handler(new IntegerLiteral!false(location, sv.visit(t), TypeKind.Uint));
-		}
-		
-		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
-	}
-	
-	Ret resolveInExpression(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierVisitor!handler(pass).visit(location, name, e);
-	}
-	
-	private Ret resolveInIdentifiable(Location location, Identifiable i, Name name) {
-		return i.apply!(delegate Ret(identified) {
-			static if(is(typeof(identified) : QualType)) {
-				return resolveInType(location, identified, name);
-			} else static if(is(typeof(identified) : Expression)) {
-				return resolveInExpression(location, identified, name);
-			} else {
-				pass.scheduler.require(identified, pass.Step.Populated);
-				
-				if(auto i = cast(TemplateInstance) identified) {
-					return visit(location, i.dscope.resolve(name));
-				} else if(auto m = cast(Module) identified) {
-					return visit(location, m.dscope.resolve(name));
-				}
-				
-				throw new CompileException(location, "Can't resolve " ~ name.toString(pass.context));
-			}
-		})();
-	}
-	
-	Ret visit(ExpressionDotIdentifier i) {
-		return ExpressionDotIdentifierVisitor!handler(pass).visit(i);
-	}
-	
-	Ret visit(TypeDotIdentifier i) {
-		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		return resolveInType(i.location, tv.visit(i.type), i.name);
-	}
-	
-	Ret visit(TemplateInstanciationDotIdentifier i) {
-		return TemplateDotIdentifierVisitor!handler(pass).resolve(i);
-	}
-	
-	Ret visit(IdentifierBracketIdentifier i) {
-		assert(0, "can't resolve aaType yet");
-	}
-	
-	Ret visit(IdentifierBracketExpression i) {
-		return IdentifierVisitor!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
-			// TODO: deduplicate code form type and expression visitor.
-			static if(is(typeof(identified) : QualType)) {
-				import d.semantic.caster, d.semantic.expression;
-				auto ev = ExpressionVisitor(pass);
-				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), ev.visit(i.index));
-				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
-				
-				return handler(QualType(new ArrayType(identified, size)));
-			} else static if(is(typeof(identified) : Expression)) {
-				auto qt = peelAlias(identified.type);
-				auto type = qt.type;
-				if(auto asSlice = cast(SliceType) type) {
-					qt = asSlice.sliced;
-				} else if(auto asPointer = cast(PointerType) type) {
-					qt = asPointer.pointed;
-				} else if(auto asArray = cast(ArrayType) type) {
-					qt = asArray.elementType;
-				} else {
-					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString(pass.context)));
-				}
-				
-				import d.semantic.expression;
-				auto ev = ExpressionVisitor(pass);
-				return handler(new IndexExpression(i.location, qt, identified, [ev.visit(i.index)]));
-			} else {
-				assert(0, "It seems some weird index expression");
-			}
-		})();
-	}
-	
-	Ret visit(Location location, Symbol s) {
-		return this.dispatch(location, s);
-	}
-	
-	Ret visit(Location location, TypeSymbol s) {
-		return this.dispatch(location, s);
-	}
-	
-	Ret visit(Location location, Function f) {
-		static if(asAlias) {
-			return handler(f);
-		} else {
-			import d.semantic.expression;
-			return handler(ExpressionVisitor(pass).getFrom(location, f));
-		}
-	}
-	
-	Ret visit(Location location, Method m) {
-		return visit(location, cast(Function) m);
-	}
-	
-	Ret visit(Location location, Variable v) {
-		static if(asAlias) {
-			return handler(v);
-		} else {
-			scheduler.require(v, Step.Signed);
-			return handler(new VariableExpression(location, v));
-		}
-	}
-	
-	Ret visit(Location location, Parameter p) {
-		static if(asAlias) {
-			return handler(p);
-		} else {
-			scheduler.require(p, Step.Signed);
-			return handler(new ParameterExpression(location, p));
-		}
-	}
-	
-	Ret visit(Location location, Field f) {
-		scheduler.require(f, Step.Signed);
-		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
-	}
-	
-	Ret visit(Location location, ValueAlias a) {
-		static if(asAlias) {
-			return handler(a);
-		} else {
-			scheduler.require(a, Step.Signed);
-			return handler(a.value);
-		}
-	}
-	
-	Ret visit(Location location, OverloadSet s) {
-		if(s.set.length == 1) {
-			return visit(location, s.set[0]);
-		}
-		
-		return handler(s);
-	}
-	
-	Ret visit(Location location, SymbolAlias s) {
-		scheduler.require(s, Step.Signed);
-		return visit(location, s.symbol);
-	}
-	
-	private auto getSymbolType(T, S)(S s) {
-		static if(asAlias) {
-			return handler(s);
-		} else {
-			return handler(QualType(new T(s)));
-		}
-	}
-	
-	Ret visit(Location location, TypeAlias a) {
-		// XXX: get rid of peelAlias and then get rid of this.
-		scheduler.require(a);
-		return getSymbolType!AliasType(a);
-	}
-	
-	Ret visit(Location location, Struct s) {
-		return getSymbolType!StructType(s);
-	}
-	
-	Ret visit(Location location, Class c) {
-		return getSymbolType!ClassType(c);
-	}
-	
-	Ret visit(Location location, Enum e) {
-		return getSymbolType!EnumType(e);
-	}
-	
-	Ret visit(Location location, Template t) {
-		return handler(t);
-	}
-	
-	Ret visit(Location location, TemplateInstance i) {
-		return handler(i);
-	}
-	
-	Ret visit(Location location, Module m) {
-		return handler(m);
-	}
-	
-	Ret visit(Location location, TypeTemplateParameter t) {
-		import d.ir.dtemplate;
-		return getSymbolType!TemplatedType(t);
-	}
-}
+alias SymbolResolver(alias handler) = IdentifierResolver!(handler, false);
+alias AliasResolver(alias handler)  = IdentifierResolver!(handler, true);
+
+alias SymbolPostProcessor(alias handler) = IdentifierPostProcessor!(handler, false);
+alias AliasPostProcessor(alias handler)  = IdentifierPostProcessor!(handler, true);
 
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
-struct TemplateDotIdentifierVisitor(alias handler) {
+struct TemplateDotIdentifierResolver(alias handler) {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -303,7 +42,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if(auto ia = cast(IdentifierTemplateArgument) a) {
-				return IdentifierVisitor!(identifiableHandler, true)(pass)
+				return AliasResolver!identifiableHandler(pass)
 					.visit(ia.identifier)
 					.apply!((identified) {
 						static if(is(typeof(identified) : Expression)) {
@@ -324,7 +63,7 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		}).array();
 		
 		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
-		auto instance = IdentifierVisitor!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
+		auto instance = SymbolResolver!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto t = cast(Template) identified) {
 					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args, fargs);
@@ -339,18 +78,15 @@ struct TemplateDotIdentifierVisitor(alias handler) {
 		assert(instance);
 		scheduler.require(instance, Step.Populated);
 		
-		// XXX: it should be possible to use handler here.
-		// DMD doesn't like it.
-		auto iv = IdentifierVisitor!identifiableHandler(pass);
 		if(auto s = instance.dscope.resolve(i.name)) {
-			return iv.visit(i.location, s).apply!handler();
+			return SymbolPostProcessor!handler(pass, i.location).visit(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		auto name = i.templateInstanciation.identifier.name;
-		if(i.name != name) {
+		if(name != i.name) {
 			if(auto s = instance.dscope.resolve(name)) {
-				return iv.resolveInSymbol(i.location, s, i.name).apply!handler();
+				return SymbolResolver!identifiableHandler(pass).resolveInSymbol(i.location, s, i.name).apply!handler();
 			}
 		}
 		
@@ -432,98 +168,388 @@ auto apply(alias handler)(Identifiable i) {
 }
 
 /**
- * Resolve expression.identifier as type or expression.
+ * General entry point to resolve identifiers.
  */
-struct ExpressionDotIdentifierVisitor(alias handler) {
+struct IdentifierResolver(alias handler, bool asAlias) {
 	private SemanticPass pass;
 	alias pass this;
 	
 	alias Ret = typeof(handler(null));
+	alias SelfPostProcessor = IdentifierPostProcessor!(handler, asAlias);
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
-	Ret visit(ExpressionDotIdentifier i) {
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		return visit(i.location, i.name, ev.visit(i.expression));
+	Ret visit(Identifier i) {
+		return this.dispatch(i);
 	}
 	
-	Ret visit(Location location, Name name, Expression e) {
-		if(auto s = SymbolInTypeResolver(pass).visit(name, e.type)) {
-			return visit(location, e, s);
+	private Symbol resolveImportedSymbol(Location location, Name name) {
+		auto dscope = currentScope;
+		
+		while(true) {
+			Symbol symbol;
+			
+			foreach(m; dscope.imports) {
+				scheduler.require(m, Step.Populated);
+				
+				auto symInMod = m.dscope.resolve(name);
+				if(symInMod) {
+					if(symbol) {
+						return pass.raiseCondition!Symbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
+					}
+					
+					symbol = symInMod;
+				}
+			}
+			
+			if(symbol) return symbol;
+			
+			if(auto nested = cast(NestedScope) dscope) {
+				dscope = nested.parent;
+			} else {
+				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found.");
+			}
+			
+			if(auto sscope = cast(SymbolScope) dscope) {
+				scheduler.require(sscope.symbol, Step.Populated);
+			}
+		}
+	}
+	
+	private Symbol resolveName(Location location, Name name) {
+		auto symbol = currentScope.search(name);
+		
+		// I wish we had ?:
+		return symbol ? symbol : resolveImportedSymbol(location, name);
+	}
+	
+	Ret visit(BasicIdentifier i) {
+		return SelfPostProcessor(pass, i.location).visit(resolveName(i.location, i.name));
+	}
+	
+	Ret visit(IdentifierDotIdentifier i) {
+		return resolveInIdentifiable(i.location, SymbolResolver!identifiableHandler(pass).visit(i.identifier), i.name);
+	}
+	
+	Ret resolveInSymbol(Location location, Symbol s, Name name) {
+		return resolveInIdentifiable(location, SymbolPostProcessor!identifiableHandler(pass, location).visit(s), name);
+	}
+	
+	Ret resolveInType(Location location, QualType t, Name name) {
+		if(auto s = SymbolInTypeResolver(pass, name).visit(t)) {
+			return SelfPostProcessor(pass, location).visit(s);
+		}
+		
+		if(name == BuiltinName!"init") {
+			assert(0, "cannot resolve init yet");
+		} else if(name == BuiltinName!"sizeof") {
+			import d.semantic.sizeof;
+			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), TypeKind.Uint));
+		}
+		
+		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
+	}
+	
+	private Ret resolveInIdentifiable(Location location, Identifiable i, Name name) {
+		return i.apply!(delegate Ret(identified) {
+			static if(is(typeof(identified) : QualType)) {
+				return resolveInType(location, identified, name);
+			} else static if(is(typeof(identified) : Expression)) {
+				return ExpressionDotIdentifierResolver!handler(pass, location, identified).resolve(name);
+			} else {
+				pass.scheduler.require(identified, pass.Step.Populated);
+				auto spp = SelfPostProcessor(pass, location);
+				
+				if(auto i = cast(TemplateInstance) identified) {
+					return spp.visit(i.dscope.resolve(name));
+				} else if(auto m = cast(Module) identified) {
+					return spp.visit(m.dscope.resolve(name));
+				}
+				
+				throw new CompileException(location, "Can't resolve " ~ name.toString(pass.context));
+			}
+		})();
+	}
+	
+	Ret visit(ExpressionDotIdentifier i) {
+		import d.semantic.expression;
+		auto e = ExpressionVisitor(pass).visit(i.expression);
+		return ExpressionDotIdentifierResolver!handler(pass, i.location, e).resolve(i.name);
+	}
+	
+	Ret visit(TypeDotIdentifier i) {
+		import d.semantic.type;
+		return resolveInType(i.location, TypeVisitor(pass).visit(i.type), i.name);
+	}
+	
+	Ret visit(TemplateInstanciationDotIdentifier i) {
+		return TemplateDotIdentifierResolver!handler(pass).resolve(i);
+	}
+	
+	Ret visit(IdentifierBracketIdentifier i) {
+		assert(0, "can't resolve aaType yet");
+	}
+	
+	Ret visit(IdentifierBracketExpression i) {
+		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
+			// TODO: deduplicate code form type and expression visitor.
+			static if(is(typeof(identified) : QualType)) {
+				import d.semantic.caster, d.semantic.expression;
+				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), ExpressionVisitor(pass).visit(i.index));
+				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
+				
+				return handler(QualType(new ArrayType(identified, size)));
+			} else static if(is(typeof(identified) : Expression)) {
+				auto qt = peelAlias(identified.type);
+				auto type = qt.type;
+				if(auto asSlice = cast(SliceType) type) {
+					qt = asSlice.sliced;
+				} else if(auto asPointer = cast(PointerType) type) {
+					qt = asPointer.pointed;
+				} else if(auto asArray = cast(ArrayType) type) {
+					qt = asArray.elementType;
+				} else {
+					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString(pass.context)));
+				}
+				
+				import d.semantic.expression;
+				return handler(new IndexExpression(i.location, qt, identified, [ExpressionVisitor(pass).visit(i.index)]));
+			} else {
+				assert(0, "It seems some weird index expression");
+			}
+		})();
+	}
+}
+
+/**
+ * Post process resolved identifiers.
+ */
+struct IdentifierPostProcessor(alias handler, bool asAlias) {
+	private SemanticPass pass;
+	alias pass this;
+	
+	alias Ret = typeof(handler(null));
+	
+	private Location location;
+	
+	this(SemanticPass pass, Location location) {
+		this.pass = pass;
+		this.location = location;
+	}
+	
+	Ret visit(Symbol s) {
+		return this.dispatch(s);
+	}
+	
+	Ret visit(TypeSymbol s) {
+		return this.dispatch(s);
+	}
+	
+	Ret visit(ValueSymbol s) {
+		return this.dispatch(s);
+	}
+	
+	Ret visit(Function f) {
+		static if(asAlias) {
+			return handler(f);
+		} else {
+			import d.semantic.expression;
+			return handler(ExpressionVisitor(pass).getFrom(location, f));
+		}
+	}
+	
+	Ret visit(Method m) {
+		return visit(cast(Function) m);
+	}
+	
+	Ret visit(Variable v) {
+		static if(asAlias) {
+			return handler(v);
+		} else {
+			scheduler.require(v, Step.Signed);
+			return handler(new VariableExpression(location, v));
+		}
+	}
+	
+	Ret visit(Parameter p) {
+		static if(asAlias) {
+			return handler(p);
+		} else {
+			scheduler.require(p, Step.Signed);
+			return handler(new ParameterExpression(location, p));
+		}
+	}
+	
+	Ret visit(Field f) {
+		scheduler.require(f, Step.Signed);
+		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
+	}
+	
+	Ret visit(ValueAlias a) {
+		static if(asAlias) {
+			return handler(a);
+		} else {
+			scheduler.require(a, Step.Signed);
+			return handler(a.value);
+		}
+	}
+	
+	Ret visit(OverloadSet s) {
+		if(s.set.length == 1) {
+			return visit(s.set[0]);
+		}
+		
+		return handler(s);
+	}
+	
+	Ret visit(SymbolAlias s) {
+		scheduler.require(s, Step.Signed);
+		return visit(s.symbol);
+	}
+	
+	private auto getSymbolType(T, S)(S s) {
+		static if(asAlias) {
+			return handler(s);
+		} else {
+			return handler(QualType(new T(s)));
+		}
+	}
+	
+	Ret visit(TypeAlias a) {
+		// XXX: get rid of peelAlias and then get rid of this.
+		scheduler.require(a);
+		return getSymbolType!AliasType(a);
+	}
+	
+	Ret visit(Struct s) {
+		return getSymbolType!StructType(s);
+	}
+	
+	Ret visit(Class c) {
+		return getSymbolType!ClassType(c);
+	}
+	
+	Ret visit(Enum e) {
+		return getSymbolType!EnumType(e);
+	}
+	
+	Ret visit(Template t) {
+		return handler(t);
+	}
+	
+	Ret visit(TemplateInstance i) {
+		return handler(i);
+	}
+	
+	Ret visit(Module m) {
+		return handler(m);
+	}
+	
+	Ret visit(TypeTemplateParameter t) {
+		import d.ir.dtemplate;
+		return getSymbolType!TemplatedType(t);
+	}
+}
+
+/**
+ * Resolve expression.identifier as type or expression.
+ */
+struct ExpressionDotIdentifierResolver(alias handler) {
+	SemanticPass pass;
+	alias pass this;
+	
+	alias Ret = typeof(handler(null));
+		
+	Location location;
+	Expression expr;
+	
+	this(SemanticPass pass, Location location, Expression expr) {
+		this.pass = pass;
+		this.location = location;
+		this.expr = expr;
+	}
+	
+	Ret resolve(Name name) {
+		auto qt = peelAlias(expr.type);
+		if(auto s = SymbolInTypeResolver(pass, name).visit(qt)) {
+			return visit(s);
 		}
 		
 		// XXX: probably bogus, should probably be done after delegating to type.
-		if(auto pt = cast(PointerType) peelAlias(e.type).type) {
-			e = new UnaryExpression(e.location, pt.pointed, UnaryOp.Dereference, e);
-			return visit(location, name, e);
+		if (auto pt = cast(PointerType) qt.type) {
+			// Useless at this point, but priority is likely worng, so let's avoit the pitfall.
+			auto oldExpr = expr;
+			scope(exit) expr = oldExpr;
+			
+			expr = new UnaryExpression(expr.location, pt.pointed, UnaryOp.Dereference, expr);
+			return resolve(name);
 		}
 		
 		// Not found in expression, delegating to type.
 		// XXX: Use apply here as we can't pass several contexts.
-		return IdentifierVisitor!identifiableHandler(pass).resolveInType(location, e.type, name).apply!((identified) {
+		return SymbolResolver!identifiableHandler(pass).resolveInType(location, qt, name).apply!((identified) {
 			static if(is(typeof(identified) : Expression)) {
 				// expression.sizeof or similar stuffs.
-				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, e, identified));
+				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, expr, identified));
 			} else {
 				return handler(pass.raiseCondition!Expression(location, "Can't resolve identifier " ~ name.toString(pass.context)));
 			}
 		})();
 	}
 	
-	Ret visit(Location location, Expression e, Symbol s) {
+	Ret visit(Symbol s) {
 		return this.dispatch!((s) {
 			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
-		})(location, e, s);
+		})(s);
 	}
 	
-	Ret visit(Location location, Expression e, OverloadSet s) {
+	Ret visit(OverloadSet s) {
 		if(s.set.length == 1) {
-			return visit(location, e, s.set[0]);
+			return visit(s.set[0]);
 		}
 		
 		return handler(new PolysemousExpression(location, s.set.map!(delegate Expression(s) {
 			if(auto f = cast(Function) s) {
 				pass.scheduler.require(f, Step.Signed);
-				return new MethodExpression(location, e, f);
+				return new MethodExpression(location, expr, f);
 			}
 			
 			assert(0, "not implemented: template with context");
 		}).array()));
 	}
 	
-	Ret visit(Location location, Expression e, Field f) {
+	Ret visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new FieldExpression(location, e, f));
+		return handler(new FieldExpression(location, expr, f));
 	}
 	
-	Ret visit(Location location, Expression e, Function f) {
+	Ret visit(Function f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new MethodExpression(location, e, f));
+		return handler(new MethodExpression(location, expr, f));
 	}
 	
-	Ret visit(Location location, Expression e, Method m) {
+	Ret visit(Method m) {
 		scheduler.require(m, Step.Signed);
-		return handler(new MethodExpression(location, e, m));
+		return handler(new MethodExpression(location, expr, m));
 	}
 	
-	Ret visit(Location location, Expression _, TypeAlias a) {
+	Ret visit(TypeAlias a) {
 		// XXX: get rid of peelAlias and then get rid of this.
 		scheduler.require(a);
 		return handler(QualType(new AliasType(a)));
 	}
 	
-	Ret visit(Location location, Expression _, Struct s) {
+	Ret visit(Struct s) {
 		return handler(QualType(new StructType(s)));
 	}
 	
-	Ret visit(Location location, Expression _, Class c) {
+	Ret visit(Class c) {
 		return handler(QualType(new ClassType(c)));
 	}
 	
-	Ret visit(Location location, Expression _, Enum e) {
+	Ret visit(Enum e) {
 		return handler(QualType(new EnumType(e)));
 	}
 }
@@ -532,18 +558,21 @@ struct ExpressionDotIdentifierVisitor(alias handler) {
  * Resolve symbols in types.
  */
 struct SymbolInTypeResolver {
-	private SemanticPass pass;
+	SemanticPass pass;
 	alias pass this;
 	
-	this(SemanticPass pass) {
+	Name name;
+	
+	this(SemanticPass pass, Name name) {
 		this.pass = pass;
+		this.name = name;
 	}
 	
-	Symbol visit(Name name, QualType t) {
-		return this.dispatch!(t => null)(name, t.type);
+	Symbol visit(QualType t) {
+		return this.dispatch!(t => null)(t.type);
 	}
 	
-	Symbol visit(Name name, SliceType t) {
+	Symbol visit(SliceType t) {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
@@ -563,47 +592,47 @@ struct SymbolInTypeResolver {
 		return null;
 	}
 	
-	Symbol visit(Name name, AliasType t) {
+	Symbol visit(AliasType t) {
 		auto a = t.dalias;
 		scheduler.require(a, Step.Populated);
 		
-		return visit(name, t.dalias.type);
+		return visit(t.dalias.type);
 	}
 	
-	Symbol visit(Name name, StructType t) {
+	Symbol visit(StructType t) {
 		auto s = t.dstruct;
+		
 		scheduler.require(s, Step.Populated);
-		
-		return s.dscope.resolve(name);
-	}
-	
-	Symbol visit(Name name, ClassType t) {
-		auto c = t.dclass;
-		scheduler.require(c, Step.Populated);
-		
-		auto s = c.dscope.resolve(name);
-		if(s) {
-			return s;
-		}
-		
-		while(c !is c.base) {
-			c = c.base;
-			
-			s = c.dscope.resolve(name);
-			if(s) {
-				return s;
-			}
+		if(auto sym = s.dscope.resolve(name)) {
+			return sym;
 		}
 		
 		return null;
 	}
 	
-	Symbol visit(Name name, EnumType t) {
+	Symbol visit(ClassType t) {
+		return visit(t.dclass);
+	}
+	
+	Symbol visit(Class c) {
+		scheduler.require(c, Step.Populated);
+		if(auto s = c.dscope.resolve(name)) {
+			return s;
+		}
+		
+		if (c !is c.base) {
+			return visit(c.base);
+		}
+		
+		return null;
+	}
+	
+	Symbol visit(EnumType t) {
 		auto e = t.denum;
 		scheduler.require(e, Step.Populated);
 		
 		auto s = e.dscope.resolve(name);
-		return s ? s : visit(name, QualType(t.denum.type));
+		return s ? s : visit(QualType(t.denum.type));
 	}
 }
 

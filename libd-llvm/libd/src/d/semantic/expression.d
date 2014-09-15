@@ -456,7 +456,7 @@ struct ExpressionVisitor {
 		// XXX: massive duplication in the callback. DMD won't accept anything else :(
 		import d.ast.identifier;
 		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
-			return TemplateDotIdentifierVisitor!(delegate Expression(identified) {
+			return TemplateDotIdentifierResolver!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				
 				static if(is(T : Expression)) {
@@ -477,9 +477,8 @@ struct ExpressionVisitor {
 			})(pass).resolve(tidi, args);
 		}
 		
-		return IdentifierVisitor!(delegate Expression(identified) {
+		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			
 			static if(is(T : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else static if(is(T : QualType)) {
@@ -508,7 +507,7 @@ struct ExpressionVisitor {
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
 		auto di = InstanceBuilder(pass).visit(iloc, QualType(type));
-		return IdentifierVisitor!(delegate Expression(identified) {
+		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
@@ -527,7 +526,7 @@ struct ExpressionVisitor {
 			}
 			
 			return pass.raiseCondition!Expression(location, type.dstruct.name.toString(pass.context) ~ " isn't callable.");
-		}, true)(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
+		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
@@ -539,8 +538,9 @@ struct ExpressionVisitor {
 		auto i = ti.instanciate(location, t, [], args);
 		scheduler.require(i);
 		
-		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolResolver!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
 			} else {
 				return pass.raiseCondition!Expression(location, t.name.toString(pass.context) ~ " isn't callable.");
@@ -672,7 +672,7 @@ struct ExpressionVisitor {
 		import d.semantic.type, d.semantic.defaultinitializer;
 		auto type = TypeVisitor(pass).visit(e.type);
 		auto di = NewBuilder(pass).visit(e.location, type);
-		auto ctor = IdentifierVisitor!(delegate FunctionExpression(identified) {
+		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
@@ -693,7 +693,7 @@ struct ExpressionVisitor {
 			}
 			
 			assert(0, "Gimme some construtor !");
-		}, true)(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
+		})(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
 		auto funType = ctor.fun.type;
 		if(!funType) {
@@ -708,7 +708,7 @@ struct ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		if(!cast(ClassType) peelAlias(type).type) {
+		if(typeid({ return peelAlias(type).type; } ()) !is typeid(ClassType)) {
 			type = QualType(new PointerType(type));
 		}
 		
@@ -810,9 +810,8 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {
-		return IdentifierVisitor!(delegate Expression(identified) {
+		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			
 			static if(is(T : QualType)) {
 				return getTypeInfo(e.location, identified);
 			} else static if(is(T : Expression)) {
@@ -824,11 +823,12 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		return SymbolResolver!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
 			} else {
-				static if(is(typeof(identified) : Symbol)) {
+				static if(is(T : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
 						return buildPolysemous(e.location, s);
 					}
@@ -840,18 +840,19 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression buildPolysemous(Location location, OverloadSet s) {
-		auto iv = IdentifierVisitor!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
+		auto spp = SymbolPostProcessor!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if(is(T : Expression)) {
 				return identified;
-			} else static if(is(typeof(identified) : QualType)) {
+			} else static if(is(T : QualType)) {
 				assert(0, "Type can't be overloaded");
 			} else {
 				// TODO: handle templates.
 				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
 			}
-		})(pass);
+		})(pass, location);
 		
-		auto exprs = s.set.map!(s => iv.visit(location, s)).array();
+		auto exprs = s.set.map!(s => spp.visit(s)).array();
 		return new PolysemousExpression(location, exprs);
 	}
 	

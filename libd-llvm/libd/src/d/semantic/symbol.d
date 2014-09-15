@@ -364,14 +364,14 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
-		import d.semantic.identifier : IdentifierVisitor;
-		a.symbol = IdentifierVisitor!(function Symbol(identified) {
+		import d.semantic.identifier : AliasResolver;
+		a.symbol = AliasResolver!(function Symbol(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				return identified;
 			} else {
 				assert(0, "Not implemented");
 			}
-		}, true)(pass).visit(d.identifier);
+		})(pass).visit(d.identifier);
 		
 		process(a);
 	}
@@ -515,18 +515,23 @@ struct SymbolAnalyzer {
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {
-			import d.semantic.identifier : IdentifierVisitor;
-			auto type = IdentifierVisitor!(function ClassType(identified) {
-				static if(is(typeof(identified) : QualType)) {
-					return cast(ClassType) identified.type;
+			import d.semantic.identifier : AliasResolver;
+			c.base = AliasResolver!(function Class(identified) {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto c = cast(Class) identified) {
+						return c;
+					}
+				}
+				
+				static if(is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
 				} else {
-					return null;
+					// for typeof(null)
+					assert(0);
 				}
 			})(pass).visit(i);
 			
-			assert(type, "Only classes are supported as base for now, " ~ typeid(type).toString() ~ " given.");
-			
-			c.base = type.dclass;
 			break;
 		}
 		

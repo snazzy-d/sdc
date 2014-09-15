@@ -1,6 +1,5 @@
 module d.semantic.type;
 
-import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.base;
@@ -90,7 +89,8 @@ struct TypeVisitor {
 	}
 	
 	QualType visit(TypeQualifier q, IdentifierType t) {
-		return IdentifierVisitor!(delegate QualType(identified) {
+		import d.semantic.identifier;
+		return SymbolResolver!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				return QualType(identified.type, q.add(identified.qualifier));
 			} else {
