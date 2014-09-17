@@ -14,20 +14,20 @@ import d.location;
 
 import std.algorithm;
 
-auto buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+Expression buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
 	return build!false(pass, location, to, e);
 }
 
-auto buildExplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+Expression buildExplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
 	return build!true(pass, location, to, e);
 }
 
 CastKind implicitCastFrom(SemanticPass pass, QualType from, QualType to) {
-	return Caster!false(pass).castFrom(from, to);
+	return ImplicitCaster(pass).castFrom(from, to);
 }
 
 CastKind explicitCastFrom(SemanticPass pass, QualType from, QualType to) {
-	return Caster!true(pass).castFrom(from, to);
+	return ExplicitCaster(pass).castFrom(from, to);
 }
 
 private:
@@ -42,13 +42,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 		
 		Expression casted;
 		foreach(candidate; asPolysemous.expressions) {
-			// XXX: Remove that ! Controle flow with exceptions is crap.
-			try {
-				candidate = build!isExplicit(pass, location, to, candidate);
-			} catch(CompileException e) {
-				continue;
-			}
-			
+			candidate = build!isExplicit(pass, location, to, candidate);
 			if(cast(ErrorExpression) candidate) {
 				continue;
 			}
@@ -69,26 +63,105 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 	
 	assert(to.type && e.type.type);
 	
-	auto kind = Caster!isExplicit(pass).castFrom(e.type, to);
+	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
+		alias T = typeof(t);
+		static if (is(T : StructType)) {
+			auto aliasThis = t.dstruct.dscope.aliasThis;
+		} else static if (is(T : ClassType)) {
+			auto aliasThis = t.dclass.dscope.aliasThis;
+		}
+		
+		static if(is(typeof(aliasThis))) {
+			import d.semantic.identifier;
+			auto sr = SymbolResolver!((identified) {
+				alias U = typeof(identified);
+				static if (is(U : Expression)) {
+					e = identified;
+					return c.castFrom(identified.type, to);
+				} else {
+					return CastKind.Invalid;
+				}
+			})(pass);
+			
+			auto oldBuildErrorNode = pass.buildErrorNode;
+			scope(exit) pass.buildErrorNode = oldBuildErrorNode;
+			
+			pass.buildErrorNode = true;
+			
+			auto level = CastKind.Invalid;
+			Expression candidate;
+			foreach(n; aliasThis) {
+				auto oldExpr = e;
+				scope(exit) {
+					e = oldExpr;
+				}
+				
+				auto cLevel = CastKind.Invalid;
+				
+				// TODO: refactor so we do not throw.
+				try {
+					cLevel = sr.resolveInExpression(location, e, n);
+				} catch(CompileException e) {
+					continue;
+				}
+				
+				if (cLevel == CastKind.Invalid || cLevel < level) {
+					continue;
+				}
+				
+				if (candidate) {
+					assert(0, "Ambiguous alias this");
+				}
+				
+				level = cLevel;
+				candidate = e;
+			}
+			
+			if (candidate) {
+				e = candidate;
+				return level;
+			}
+		}
+		
+		return c.bailoutDefault(t);
+	})(pass).castFrom(e.type, to);
+	
 	switch(kind) with(CastKind) {
-		case Exact :
+		case Exact:
 			return e;
 		
-		default :
+		default:
 			return new CastExpression(location, kind, to, e);
 		
-		case Invalid :
+		case Invalid:
 			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context));
 	}
 }
 
-struct Caster(bool isExplicit) {
+alias ExplicitCaster = Caster!true;
+alias ImplicitCaster = Caster!false;
+
+struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	// XXX: Used only to get to super class, should probably go away.
 	private SemanticPass pass;
 	alias pass this;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
+	}
+	
+	enum hasBailoutOverride = !is(typeof(bailoutOverride) : typeof(null));
+	
+	CastKind bailout(T)(T t) if(is(T : Type)) {
+		static if (hasBailoutOverride) {
+			 return bailoutOverride(this, t);
+		} else {
+			return CastKind.Invalid;
+		}
+	}
+	
+	CastKind bailoutDefault(Type t) {
+		return CastKind.Invalid;
 	}
 	
 	// FIXME: handle qualifiers.
@@ -388,11 +461,7 @@ struct Caster(bool isExplicit) {
 			}
 		}
 		
-		if (t.dstruct.dscope.aliasThis.length > 0) {
-			assert(0, "alias this not implemented");
-		}
-		
-		return CastKind.Invalid;
+		return bailout(t);
 	}
 	
 	private auto castClass(Class from, Class to) {
@@ -426,24 +495,19 @@ struct Caster(bool isExplicit) {
 			}
 		}
 		
-		if (from.dscope.aliasThis.length > 0) {
-			assert(0, "alias this not implemented");
-		}
-		
 		return CastKind.Invalid;
 	}
 	
 	CastKind visit(Type to, ClassType t) {
 		if(auto ct = cast(ClassType) to) {
 			scheduler.require(t.dclass, Step.Signed);
-			return castClass(t.dclass, ct.dclass);
+			auto kind = castClass(t.dclass, ct.dclass);
+			if (kind > CastKind.Invalid) {
+				return kind;
+			}
 		}
 		
-		if (t.dclass.dscope.aliasThis.length > 0) {
-			assert(0, "alias this not implemented");
-		}
-		
-		return CastKind.Invalid;
+		return bailout(t);
 	}
 	
 	CastKind visit(Type to, EnumType t) {

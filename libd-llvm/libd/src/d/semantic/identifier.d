@@ -226,11 +226,6 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		return resolveInIdentifiable(i.location, SymbolResolver!identifiableHandler(pass).visit(i.identifier), i.name);
 	}
 	
-	// XXX: higly dubious, see how this can be removed.
-	Ret resolveInSymbol(Location location, Symbol s, Name name) {
-		return resolveInIdentifiable(location, SymbolPostProcessor!identifiableHandler(pass, location).visit(s), name);
-	}
-	
 	Ret resolveInType(Location location, QualType t, Name name) {
 		return TypeDotIdentifierResolver!((identified) {
 			alias T = typeof(identified);
@@ -242,13 +237,22 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		})(pass, location, name).visit(t);
 	}
 	
+	Ret resolveInExpression(Location location, Expression e, Name name) {
+		return ExpressionDotIdentifierResolver!handler(pass, location, e).resolve(name);
+	}
+	
+	// XXX: higly dubious, see how this can be removed.
+	Ret resolveInSymbol(Location location, Symbol s, Name name) {
+		return resolveInIdentifiable(location, SymbolPostProcessor!identifiableHandler(pass, location).visit(s), name);
+	}
+	
 	private Ret resolveInIdentifiable(Location location, Identifiable i, Name name) {
 		return i.apply!(delegate Ret(identified) {
 			alias T = typeof(identified);
 			static if(is(T : QualType)) {
 				return resolveInType(location, identified, name);
 			} else static if(is(T : Expression)) {
-				return ExpressionDotIdentifierResolver!handler(pass, location, identified).resolve(name);
+				return resolveInExpression(location, identified, name);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				auto spp = SelfPostProcessor(pass, location);
@@ -266,8 +270,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	
 	Ret visit(ExpressionDotIdentifier i) {
 		import d.semantic.expression;
-		auto e = ExpressionVisitor(pass).visit(i.expression);
-		return ExpressionDotIdentifierResolver!handler(pass, i.location, e).resolve(i.name);
+		return resolveInExpression(i.location, ExpressionVisitor(pass).visit(i.expression), i.name);
 	}
 	
 	Ret visit(TypeDotIdentifier i) {
