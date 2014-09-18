@@ -32,8 +32,7 @@ class Scope {
 	
 	Module[] imports;
 	
-	bool isPoisoning;
-	
+	private bool isPoisoning;
 	private bool isPoisoned;
 	private bool hasConditional;
 	
@@ -44,25 +43,21 @@ class Scope {
 	Symbol search(Name name) {
 		return resolve(name);
 	}
-
+	
 final:
 	Symbol resolve(Name name) {
 		if (auto sPtr = name in symbols) {
 			auto s = *sPtr;
-			if (isPoisoned && cast(Poison) s) {
-				return null;
-			}
-			
-			if (hasConditional) {
-				if (auto cs = cast(ConditionalSet) s) {
-					cs.isPoisoned = true;
-					return cs.selected;
-				}
-			}
-			
 			if (isPoisoning) {
 				if (auto os = cast(OverloadSet) s) {
 					os.isPoisoned = true;
+				} else if (isPoisoned && cast(Poison) s) {
+					return null;
+				} else if (hasConditional) {
+					if (auto cs = cast(ConditionalSet) s) {
+						cs.isPoisoned = true;
+						return cs.selected;
+					}
 				}
 			}
 			
@@ -160,6 +155,43 @@ final:
 				cs.set = newSet;
 			}
 		}
+	}
+	
+	void setPoisoningMode() in {
+		assert(isPoisoning == false, "poisoning mode is already on.");
+	} body {
+		isPoisoning = true;
+		
+		import std.stdio;
+		writeln(isPoisoning);
+	}
+	
+	void clearPoisoningMode() in {
+		assert(isPoisoning == true, "poisoning mode is not on.");
+	} body {
+		// XXX: Consider not removing tags on OverloadSet.
+		// That would allow to not pass over the AA most of the time.
+		foreach(n; symbols.keys) {
+			auto s = symbols[n];
+			if (auto os = cast(OverloadSet) s) {
+				os.isPoisoned = false;
+			} else if(isPoisoned && cast(Poison) s) {
+				symbols.remove(n);
+			} else if (hasConditional) {
+				if (auto cs = cast(ConditionalSet) s) {
+					assert(cs.set.length == 0, "Conditional symbols remains when clearing poisoning mode.");
+					if (cs.selected) {
+						symbols[n] = cs.selected;
+					} else {
+						symbols.remove(n);
+					}
+				}
+			}
+		}
+		
+		isPoisoning = false;
+		isPoisoned = false;
+		hasConditional = false;
 	}
 }
 

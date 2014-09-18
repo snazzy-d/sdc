@@ -89,10 +89,10 @@ struct DeclarationVisitor {
 		parent.step = Step.Populated;
 		
 		auto dscope = currentScope;
-		dscope.isPoisoning = true;
+		
+		dscope.setPoisoningMode();
 		scope(exit) {
-			dscope.isPoisoning = false;
-			// TODO: cleanup poisoning.
+			dscope.clearPoisoningMode();
 		}
 		
 		return flatten(ctus)[0].symbols.map!(su => su.s).array();
