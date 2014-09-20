@@ -68,7 +68,7 @@ struct TypeVisitor {
 		auto ev = ExpressionVisitor(pass);
 		
 		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, getBuiltin(TypeKind.Ulong), ev.visit(t.size)))).value;
+		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, pass.object.getSizeT().type, ev.visit(t.size)))).value;
 		
 		return QualType(new ArrayType(elementType, size));
 	}

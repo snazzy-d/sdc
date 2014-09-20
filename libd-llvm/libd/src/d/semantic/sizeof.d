@@ -84,11 +84,11 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(PointerType t) {
-		return 8;
+		return visit(pass.object.getSizeT().type);
 	}
 	
 	uint visit(SliceType t) {
-		return 2*8;
+		return visit(pass.object.getSizeT().type)*2;
 	}
 	
 	uint visit(ArrayType t) {

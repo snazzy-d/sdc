@@ -290,7 +290,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
 			static if(is(typeof(identified) : QualType)) {
 				import d.semantic.caster, d.semantic.expression;
-				auto se = buildImplicitCast(pass, i.index.location, getBuiltin(TypeKind.Ulong), ExpressionVisitor(pass).visit(i.index));
+				auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, ExpressionVisitor(pass).visit(i.index));
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
 				return handler(QualType(new ArrayType(identified, size)));
@@ -636,7 +636,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
-			auto lt = getBuiltin(TypeKind.Ulong);
+			auto lt = pass.object.getSizeT().type;
 			auto s = new Field(location, 0, lt, BuiltinName!"length", null);
 			s.step = Step.Processed;
 			return handler(s);
