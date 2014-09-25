@@ -82,7 +82,7 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, FileSource delegate(Name[]) sourceFactory) {
+	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory) {
 		this.context	= context;
 		this.evaluator	= evaluator;
 		
@@ -100,7 +100,7 @@ final class SemanticPass {
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	
-	Module add(FileSource source, Name[] packages) {
+	Module add(Source source, Name[] packages) {
 		auto astm = parse(source, packages);
 		auto mod = moduleVisitor.modulize(astm);
 		
