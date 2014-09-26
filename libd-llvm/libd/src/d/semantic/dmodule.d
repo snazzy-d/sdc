@@ -28,11 +28,11 @@ final class ModuleVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	private FileSource delegate(Name[]) sourceFactory;
+	private Source delegate(Name[]) sourceFactory;
 	
 	private Module[string] cachedModules;
 	
-	this(SemanticPass pass, FileSource delegate(Name[]) sourceFactory) {
+	this(SemanticPass pass, Source delegate(Name[]) sourceFactory) {
 		this.pass = pass;
 		this.sourceFactory = sourceFactory;
 	}
