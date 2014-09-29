@@ -80,18 +80,18 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(Location location, PointerType t) {
 		return new NullLiteral(location, QualType(t));
 	}
-	/+
-	Expression visit(SliceType t) {
-		// Convoluted way to create the array due to compiler limitations.
-		Expression[] init = [new NullLiteral(location, t.type)];
-		init ~= makeLiteral(location, 0UL);
-		
-		auto ret = new TupleExpression(location, init);
-		ret.type = t;
-		
-		return ret;
+	
+	E visit(Location location, SliceType t) {
+		auto sizeT = cast(BuiltinType) peelAlias(pass.object.getSizeT().type).type;
+		assert(sizeT !is null, "getSizeT().type.type does not cast to BuiltinType");
+		CompileTimeExpression[] init = [
+			new NullLiteral(location, t.sliced),
+			new IntegerLiteral!false(location, 0UL, sizeT.kind)
+		];
+		// XXX Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
+		return new CompileTimeTupleExpression(location, QualType(t), init);
 	}
-	+/
+
 	E visit(Location location, ArrayType t) {
 		return new VoidInitializer(location, QualType(t));
 	}
