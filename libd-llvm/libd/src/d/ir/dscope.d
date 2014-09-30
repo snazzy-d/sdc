@@ -161,9 +161,6 @@ final:
 		assert(isPoisoning == false, "poisoning mode is already on.");
 	} body {
 		isPoisoning = true;
-		
-		import std.stdio;
-		writeln(isPoisoning);
 	}
 	
 	void clearPoisoningMode() in {
