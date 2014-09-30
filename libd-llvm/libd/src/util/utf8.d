@@ -39,6 +39,7 @@ string convertToUTF8Impl(CType, Endian end)(const(ubyte)[] data) {
 			buf = buf.reverse;
 		}
 		res ~= *(cast(CType*)buf.ptr);
-	}	
+	}
 	return toUTF8(res);
 }
+
