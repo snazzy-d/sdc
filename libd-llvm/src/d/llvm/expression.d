@@ -766,7 +766,8 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(VtblExpression e) {
-		return pass.getVtbl(e.dclass);
+		// Vtbl do not have a known type in D, so we need to cast.
+		return LLVMBuildPointerCast(builder, pass.getVtbl(e.dclass), pass.visit(e.type), "");
 	}
 }
 
