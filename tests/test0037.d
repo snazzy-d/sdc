@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:30
 //T dependency:test0037_import.d
 
