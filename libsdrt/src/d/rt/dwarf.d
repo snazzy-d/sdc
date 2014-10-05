@@ -117,6 +117,11 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 	auto pcrel = *(cast(uintptr_t*) &p);
 	
 	uintptr_t result;
+
+	if (encoding.isOmit()) {
+		printf("Encoding specifies omit flag, should not read.\n".ptr);
+		exit(-1);
+	}
 	
 	switch (encoding.getFormat()) {
 		case Format.Uleb128:
@@ -167,13 +172,14 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			exit(-1);
 	}
 	
-	switch(encoding.getBase()) {
+	switch (encoding.getBase()) {
 		case Base.Absptr:
 		case Base.Aligned:
 			break;
 		
 		case Base.Pcrel:
 			result += pcrel;
+			break;
 		
 		case Base.Textrel:
 			auto txt = _Unwind_GetTextRelBase(ctx);
@@ -196,7 +202,7 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 	}
 	
 	if (encoding.isIndirect()) {
-		// result = *(_Unwind_Internal_Ptr *) result;
+		result = **cast(uintptr_t**)&result;
 	}
 	
 	return result;
