@@ -365,6 +365,55 @@ struct ExpressionGen {
 				return LLVMBuildXor(builder, visit(e.expr), LLVMConstInt(pass.visit(e.type), -1, true), "");
 		}
 	}
+
+	LLVMValueRef visit(TernaryExpression e) {
+		auto cond = visit(e.condition);
+		
+		auto condBB  = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(condBB);
+		
+		auto ifTrueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifTrue");
+		auto ifFalseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifFalse");
+		auto resultBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "result");
+		
+		LLVMBuildCondBr(builder, cond, ifTrueBB, ifFalseBB);
+		
+		// Emit ifTrue
+		LLVMPositionBuilderAtEnd(builder, ifTrueBB);
+		auto ifTrue = visit(e.ifTrue);
+		// Conclude that block.
+		LLVMBuildBr(builder, resultBB);
+		
+		// Codegen of then can change the current block, so we put everything in order.
+		ifTrueBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(ifFalseBB, ifTrueBB);
+		
+		// Emit ifFalse
+		LLVMPositionBuilderAtEnd(builder, ifFalseBB);
+		auto ifFalse = visit(e.ifFalse);
+		// Conclude that block.
+		LLVMBuildBr(builder, resultBB);
+		
+		// Codegen of then can change the current block, so we put everything in order.
+		ifFalseBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(resultBB, ifFalseBB);
+		
+		// Generate phi to get the result.
+		LLVMPositionBuilderAtEnd(builder, resultBB);
+		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
+		
+		LLVMValueRef[2] incomingValues;
+		incomingValues[0] = ifTrue;
+		incomingValues[1] = ifFalse;
+		
+		LLVMBasicBlockRef[2] incomingBlocks;
+		incomingBlocks[0] = ifTrueBB;
+		incomingBlocks[1] = ifFalseBB;
+		
+		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
+		
+		return phiNode;
+	}
 	
 	LLVMValueRef visit(ThisExpression e) {
 		assert(thisPtr, "No this pointer");
@@ -788,6 +837,10 @@ struct AddressOfGen {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
 		
 		return pass.visit(e.var);
+	}
+
+	LLVMValueRef visit(TernaryExpression e) {
+		throw new CompileException(e.location, "TernaryExpression as l-value is not supported.");
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
