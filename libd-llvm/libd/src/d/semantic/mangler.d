@@ -86,6 +86,12 @@ struct TypeMangler {
 		return "P" ~ visit(t.pointed);
 	}
 	
+	string visit(ArrayType t) {
+		import std.conv;
+		string size = to!string(t.size);
+		return "G" ~ size ~ visit(t.elementType);
+	}
+	
 	string visit(SliceType t) {
 		return "A" ~ visit(t.sliced);
 	}
