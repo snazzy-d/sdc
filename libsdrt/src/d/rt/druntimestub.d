@@ -14,7 +14,7 @@ void _d_assert_msg(string, string, int) {
 	exit(1);
 }
 
-void _d_array_bounds(string, int) {
+void _d_arraybounds(string, int) {
 	exit(1);
 }
 
