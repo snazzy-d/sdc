@@ -56,7 +56,7 @@ AstExpression parseAssignExpression(R)(ref R trange) if(isTokenRange!R) {
 }
 
 AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
-	lhs = trange.parseConditionalExpression(lhs);
+	lhs = trange.parseTernaryExpression(lhs);
 	Location location = lhs.location;
 	
 	void processToken(BinaryOp op) {
@@ -139,11 +139,11 @@ AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTok
  * Parse ?:
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseConditionalExpression(R)(ref R trange) if(isTokenRange!R) {
-	return trange.parseConditionalExpression(trange.parsePrefixExpression());
+AstExpression parseTernaryExpression(R)(ref R trange) if(isTokenRange!R) {
+	return trange.parseTernaryExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseConditionalExpression(R)(ref R trange, AstExpression condition) if(isTokenRange!R) {
+AstExpression parseTernaryExpression(R)(ref R trange, AstExpression condition) if(isTokenRange!R) {
 	condition = trange.parseLogicalOrExpression(condition);
 	
 	if(trange.front.type == TokenType.QuestionMark) {
@@ -153,10 +153,10 @@ AstExpression parseConditionalExpression(R)(ref R trange, AstExpression conditio
 		auto ifTrue = trange.parseExpression();
 		
 		trange.match(TokenType.Colon);
-		auto ifFalse = trange.parseConditionalExpression();
+		auto ifFalse = trange.parseTernaryExpression();
 		
 		location.spanTo(ifFalse.location);
-		return new AstConditionalExpression(location, condition, ifTrue, ifFalse);
+		return new AstTernaryExpression(location, condition, ifTrue, ifFalse);
 	}
 	
 	return condition;

@@ -21,6 +21,7 @@ import std.algorithm;
 import std.array;
 import std.range;
 
+alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
@@ -252,7 +253,20 @@ struct ExpressionVisitor {
 		
 		return new BinaryExpression(e.location, type, op, lhs, rhs);
 	}
-	
+
+	Expression visit(AstTernaryExpression e) {
+		auto condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
+		auto ifTrue = visit(e.ifTrue);
+		auto ifFalse = visit(e.ifFalse);
+		
+		auto exprType = getPromotedType(pass, e.location, ifTrue.type.type, ifFalse.type.type);
+		
+		ifTrue = buildExplicitCast(pass, ifTrue.location, exprType, ifTrue);
+		ifFalse = buildExplicitCast(pass, ifFalse.location, exprType, ifFalse);
+		
+		return new TernaryExpression(e.location, exprType, condition, ifTrue, ifFalse);
+	}
+
 	private Expression handleAddressOf(Expression expr) {
 		// For fucked up reasons, &funcname is a special case.
 		if(auto se = cast(FunctionExpression) expr) {

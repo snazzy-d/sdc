@@ -20,12 +20,12 @@ final:
 /**
  * Conditional expression of type ?:
  */
-class ConditionalExpression(T) if(is(T: AstExpression)) : T {
-	T condition;
-	T ifTrue;
-	T ifFalse;
+class TernaryExpression(E) if(is(E: AstExpression)) : E {
+	E condition;
+	E ifTrue;
+	E ifFalse;
 	
-	this(U...)(Location location, U args, T condition, T ifTrue, T ifFalse) {
+	this(U...)(Location location, U args, E condition, E ifTrue, E ifFalse) {
 		super(location, args);
 		
 		this.condition = condition;
@@ -38,7 +38,7 @@ class ConditionalExpression(T) if(is(T: AstExpression)) : T {
 	}
 }
 
-alias AstConditionalExpression = ConditionalExpression!AstExpression;
+alias AstTernaryExpression = TernaryExpression!AstExpression;
 
 /**
  * Binary Expressions.

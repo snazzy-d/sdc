@@ -259,7 +259,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 			return trange.parseAmbiguousSuffix!handler(e);
 		
 		case QuestionMark :
-			auto e = trange.parseConditionalExpression(new IdentifierExpression(i));
+			auto e = trange.parseTernaryExpression(new IdentifierExpression(i));
 			return trange.parseAmbiguousSuffix!handler(e);
 		
 		case DoublePipe :
