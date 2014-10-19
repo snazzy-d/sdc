@@ -22,7 +22,7 @@ alias ParamAstType = ParamType!AstType;
 /**
  * Function types
  */
-class FunctionType(T) if(is(T : AstType)) : T {
+class FunctionType(T) : T  if(is(T : AstType)){
 	ParamType!T returnType;
 	ParamType!T[] paramTypes;
 	
@@ -73,7 +73,7 @@ class IdentifierType : AstType {
 /**
  * Pointer type
  */
-class PointerType(T) if(is(T : AstType)) : T {
+class PointerType(T) : T  if(is(T : AstType)){
 	QualType!T pointed;
 	
 	this(QualType!T pointed) {
@@ -94,7 +94,7 @@ alias AstPointerType = PointerType!AstType;
 /**
  * Slice type
  */
-class SliceType(T) if(is(T : AstType)) : T {
+class SliceType(T) : T  if(is(T : AstType)){
 	QualType!T sliced;
 	
 	this(QualType!T sliced) {
@@ -115,7 +115,7 @@ alias AstSliceType = SliceType!AstType;
 /**
  * Associative array type
  */
-class AssociativeArrayType(T) if(is(T : AstType)) : T {
+class AssociativeArrayType(T) : T  if(is(T : AstType)){
 	QualType!T keyType;
 	QualType!T elementType;
 	
@@ -168,7 +168,7 @@ class IdentifierArrayType : AstType {
 /**
  * Delegate types
  */
-class DelegateType(T) if(is(T : AstType)) : FunctionType!T {
+class DelegateType(T) : FunctionType!T  if(is(T : AstType)){
 	ParamType!T context;
 	
 	this(Linkage linkage, ParamType!T returnType, ParamType!T context, ParamType!T[] paramTypes, bool isVariadic) {

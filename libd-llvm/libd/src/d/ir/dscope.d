@@ -248,7 +248,7 @@ alias VoldemortScope = CapturingScope!AggregateScope;
 private:
 
 final:
-class CapturingScope(S) if(is(S : SymbolScope)) : S {
+class CapturingScope(S) : S  if(is(S : SymbolScope)){
 	// XXX: Use a proper set :D
 	bool[Variable] capture;
 	
