@@ -20,7 +20,7 @@ final:
 /**
  * Conditional expression of type ?:
  */
-class TernaryExpression(E) if(is(E: AstExpression)) : E {
+class TernaryExpression(E) : E  if(is(E: AstExpression)){
 	E condition;
 	E ifTrue;
 	E ifFalse;
@@ -98,7 +98,7 @@ enum BinaryOp {
 	UnorderedEqual,
 }
 
-class BinaryExpression(T) if(is(T: AstExpression)) : T {
+class BinaryExpression(T) : T  if(is(T: AstExpression)){
 	T lhs;
 	T rhs;
 	
@@ -142,7 +142,7 @@ enum UnaryOp {
 	Complement,
 }
 
-class UnaryExpression(T) if(is(T: AstExpression)) : T {
+class UnaryExpression(T) : T  if(is(T: AstExpression)){
 	T expr;
 	
 	UnaryOp op;
@@ -186,7 +186,7 @@ class AstCastExpression : AstExpression {
 /**
  * Function call
  */
-class CallExpression(T) if(is(T: AstExpression)) : T {
+class CallExpression(T) : T  if(is(T: AstExpression)){
 	T callee;
 	T[] args;
 	
@@ -228,7 +228,7 @@ class IdentifierCallExpression : AstExpression {
 /**
  * Index expression : [index]
  */
-class IndexExpression(T) if(is(T: AstExpression)) : T {
+class IndexExpression(T) : T if(is(T: AstExpression)) {
 	T indexed;
 	T[] arguments;
 	
@@ -245,7 +245,7 @@ alias AstIndexExpression = IndexExpression!AstExpression;
 /**
  * Slice expression : [first .. second]
  */
-class SliceExpression(T) if(is(T: AstExpression)) : T {
+class SliceExpression(T) : T if(is(T: AstExpression)) {
 	T sliced;
 	
 	T[] first;
@@ -317,7 +317,7 @@ alias AstNewExpression = NewExpression;
 /**
  * Array literal
  */
-class ArrayLiteral(T) if(is(T: AstExpression)) : T {
+class ArrayLiteral(T) : T if(is(T: AstExpression)) {
 	T[] values;
 	
 	this(Location location, T[] values) {
@@ -413,7 +413,7 @@ class IsExpression : AstExpression {
 /**
  * assert
  */
-class AssertExpression(T) if(is(T: AstExpression)) : T {
+class AssertExpression(T) : T if(is(T: AstExpression)) {
 	T condition;
 	T message;
 	
@@ -443,7 +443,7 @@ class AstTypeidExpression : AstExpression {
 /**
  * typeid(type) expression.
  */
-class StaticTypeidExpression(T, E) if(is(E: AstExpression)) : E {
+class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 	T argument;
 	
 	this(U...)(Location location, U args, T argument) {
