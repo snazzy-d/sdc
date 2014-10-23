@@ -631,6 +631,16 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	Ret visit(QualType qt) {
 		return this.dispatch!(t => bailout(t))(qt.type);
 	}
+
+	Ret visit(ArrayType t) {
+		if(name == BuiltinName!"length") {
+			auto sizeT = cast(BuiltinType) peelAlias(pass.object.getSizeT().type).type;
+			assert(sizeT !is null);
+			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
+			return handler(s);
+		}
+		return bailout(t);
+	}
 	
 	Ret visit(SliceType t) {
 		if(name == BuiltinName!"length") {
