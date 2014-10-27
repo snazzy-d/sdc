@@ -27,6 +27,7 @@ template MatchingDelimiter(TokenType openTokenType) {
  * matchin tokens are (), [], <> and {}
  */
 void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange trange) {
+	auto startLocation = trange.front.location;
 	alias closeTokenType = MatchingDelimiter!openTokenType;
 	
 	assert(trange.front.type == openTokenType);
@@ -45,7 +46,8 @@ void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange tr
 				break;
 			
 			case TokenType.End :
-				assert(0);
+				import d.exception;
+				throw new CompileException(startLocation, "Matching delimiter not found");
 			
 			default :
 				break;
