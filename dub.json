@@ -5,9 +5,9 @@
 	"copyright": "Copyright © 2012 Amaury SECHET",
 	"authors": ["Amaury SECHET"],
 	"license" : "MIT",
-	"mainSourceFile" : "sdc/main.d",	
 	"importPaths" : ["libd-llvm/src","libd-llvm/libd/src","libd-llvm/import"],
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
-	}
+	},
+	"postBuildCommands":["cd libsdrt && make 2>/dev/null"]
 }
