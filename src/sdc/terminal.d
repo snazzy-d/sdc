@@ -128,13 +128,6 @@ version(Windows) {
 void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg) {
 	bool coloursEnabled = true;  // XXX: Fix me!
 	if(coloursEnabled) {
-		scope (exit) {
-			version(Windows) {
-				SetConsoleTextAttribute(handle, termInfo.wAttributes);
-			} else {
-				pipe.write("\x1b[0m");
-			}
-		}
 		version(Windows) {
 			HANDLE handle;
 			
@@ -152,6 +145,13 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
 			static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
 			ansiSequence[3] = cast(char)(colour + '0');
 			pipe.write(ansiSequence);
+		}
+		scope (exit) {
+			version(Windows) {
+				SetConsoleTextAttribute(handle, termInfo.wAttributes);
+			} else {
+				pipe.write("\x1b[0m");
+			}
 		}
 		
 		dg();
