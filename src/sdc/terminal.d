@@ -130,6 +130,11 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
 	if(coloursEnabled) {
 		version(Windows) {
 			HANDLE handle;
+			CONSOLE_SCREEN_BUFFER_INFO termInfo;
+			
+			scope (exit) {
+				SetConsoleTextAttribute(handle, termInfo.wAttributes);
+			}
 			
 			if(pipe == stderr) {
 				handle = GetStdHandle(STD_ERROR_HANDLE);
@@ -137,21 +142,13 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
 				handle = GetStdHandle(STD_OUTPUT_HANDLE);
 			}
 			
-			CONSOLE_SCREEN_BUFFER_INFO termInfo;
-			GetConsoleScreenBufferInfo(handle, &termInfo);
-			
+			GetConsoleScreenBufferInfo(handle, &termInfo);		
 			SetConsoleTextAttribute(handle, colour);
 		} else {
 			static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
 			ansiSequence[3] = cast(char)(colour + '0');
 			pipe.write(ansiSequence);
-		}
-		scope (exit) {
-			version(Windows) {
-				SetConsoleTextAttribute(handle, termInfo.wAttributes);
-			} else {
-				pipe.write("\x1b[0m");
-			}
+			pipe.write("\x1b[0m");
 		}
 		
 		dg();
