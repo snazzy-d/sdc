@@ -16,10 +16,10 @@ import std.algorithm;
 import std.array;
 
 // In order to JIT.
-extern(C) void _d_assert();
-extern(C) void _d_assert_msg();
-extern(C) void _d_arraybounds();
-extern(C) void* _d_allocmemory();
+extern(C) void _d_assert(string, int);
+extern(C) void _d_assert_msg(string, string, int);
+extern(C) void _d_arraybounds(string, int);
+extern(C) void* _d_allocmemory(size_t);
 
 final class LLVMEvaluator : Evaluator {
 	private CodeGenPass codeGen;
