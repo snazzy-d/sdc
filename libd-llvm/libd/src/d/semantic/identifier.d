@@ -639,6 +639,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
 			return handler(s);
 		}
+		
 		return bailout(t);
 	}
 	

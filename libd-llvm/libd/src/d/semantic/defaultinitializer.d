@@ -93,7 +93,15 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 
 	E visit(Location location, ArrayType t) {
-		return new VoidInitializer(location, QualType(t));
+		E[] elements;
+		elements.length = t.size;
+		elements[] = visit(location, t.elementType);
+		
+		static if (isCompileTime) {
+			return new CompileTimeTupleExpression(location, QualType(t), elements);
+		} else {
+			return new TupleExpression(location, QualType(t), elements);
+		}
 	}
 	
 	private Expression getTemporary(Expression value) {
