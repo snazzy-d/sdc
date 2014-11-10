@@ -437,10 +437,6 @@ struct ExpressionGen {
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
 	
-	LLVMValueRef visit(ParameterExpression e) {
-		return LLVMBuildLoad(builder, addressOf(e), "");
-	}
-	
 	LLVMValueRef visit(FunctionExpression e) {
 		return pass.visit(e.fun);
 	}
@@ -863,10 +859,6 @@ struct AddressOfGen {
 		}
 		
 		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
-	}
-	
-	LLVMValueRef visit(ParameterExpression e) {
-		return pass.visit(e.param);
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {

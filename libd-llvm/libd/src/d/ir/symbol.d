@@ -83,13 +83,33 @@ class Package : Symbol {
  */
 class Variable : ValueSymbol {
 	Expression value;
-	QualType type;
 	
-	this(Location location, QualType type, Name name, Expression value = null) {
+	QualType type;
+	bool isRef;
+	bool isFinal;
+	
+	this(Location location, QualType type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
 		super(location, name);
 		
-		this.value = value;
 		this.type = type;
+		this.value = value;
+		this.isRef = isRef;
+		this.isFinal = isFinal;
+	}
+	
+	this(Location location, ParamType type, Name name, Expression value = null) {
+		super(location, name);
+		
+		this.type = QualType(type.type, type.qualifier);
+		this.value = value;
+		this.isRef = type.isRef;
+		this.isFinal = type.isFinal;
+	}
+	
+final:
+	@property
+	auto paramType() {
+		return ParamType(type, isRef, isFinal);
 	}
 }
 
@@ -99,12 +119,12 @@ class Variable : ValueSymbol {
 class Function : ValueSymbol {
 	FunctionType type;
 	
-	Parameter[] params;
+	Variable[] params;
 	Statement fbody;
 	
 	FunctionScope dscope;
 	
-	this(Location location, FunctionType type, Name name, Parameter[] params, Statement fbody) {
+	this(Location location, FunctionType type, Name name, Variable[] params, Statement fbody) {
 		super(location, name);
 		
 		this.type = type;
@@ -385,28 +405,13 @@ class Field : Variable {
 }
 
 /**
- * function's parameters
- */
-class Parameter : ValueSymbol {
-	ParamType type;
-	Expression value;
-	
-	this(Location location, ParamType type, Name name, Expression value) {
-		super(location, name);
-		
-		this.type = type;
-		this.value = value;
-	}
-}
-
-/**
  * Virtual method
  * Simply a function declaration with its index in the vtable.
  */
 class Method : Function {
 	uint index;
 	
-	this(Location location, uint index, FunctionType type, Name name, Parameter[] params, BlockStatement fbody) {
+	this(Location location, uint index, FunctionType type, Name name, Variable[] params, BlockStatement fbody) {
 		super(location, type, name, params, fbody);
 		
 		this.index = index;

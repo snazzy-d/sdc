@@ -120,26 +120,25 @@ struct SymbolAnalyzer {
 		m.step = Step.Processed;
 	}
 	
-	private void handleFunction(FunctionDeclaration fd, Function f) {
-		// XXX: maybe monad ?
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value ? (ev.visit(p.value)) : null)).array();
+	void analyze(FunctionDeclaration fd, Function f) {
+		auto params = f.params = fd.params.map!((p) {
+			auto t = tv.visit(p.type);
+			
+			Expression v;
+			if (p.value) {
+				import d.semantic.expression;
+				v = ExpressionVisitor(pass).visit(p.value);
+			}
+			
+			return new Variable(p.location, t, p.name, v);
+		}).array();
 		
 		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
 			assert(ctxType, "ctxType must be defined if function has a context pointer.");
 			
-			auto contextParameter = new Parameter(f.location, ParamType(ctxType, true), BuiltinName!"__ctx", null);
+			auto contextParameter = new Variable(f.location, ParamType(ctxType, true), BuiltinName!"__ctx");
 			params = contextParameter ~ params;
-		}
-		
-		// If it has a this pointer, add it as parameter.
-		if(f.hasThis) {
-			assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
-			
-			auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
-			params = thisParameter ~ params;
 		}
 		
 		// Prepare statement visitor for return type.
@@ -152,20 +151,58 @@ struct SymbolAnalyzer {
 		
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
-		auto isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
 		
-		returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
+		auto fbody = fd.fbody;
+		bool isAuto = false;
 		
-		// Compute return type.
-		if(isAuto) {
-			// Functions are always populated as resolution is order dependant.
-			f.step = Step.Populated;
-		} else {
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
+		void buildType() {
+			f.type = new FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
 			f.step = Step.Signed;
 		}
 		
-		if(fd.fbody) {
+		immutable isCtor = f.name == BuiltinName!"__ctor";
+		if (isCtor) {
+			assert(f.hasThis && thisType.type, "Constructor must have a this pointer");
+			
+			auto ctorThis = thisType;
+			if (ctorThis.isRef) {
+				ctorThis.isRef = false;
+				returnType = ctorThis;
+				
+				if(fbody) {
+					import d.ast.statement;
+					fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
+				}
+			} else {
+				returnType = ParamType(getBuiltin(TypeKind.Void), false);
+			}
+			
+			auto thisParameter = new Variable(f.location, ctorThis, BuiltinName!"this");
+			params = thisParameter ~ params;
+			
+			buildType();
+		} else {
+			// If it has a this pointer, add it as parameter.
+			if (f.hasThis) {
+				assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
+				
+				auto thisParameter = new Variable(f.location, thisType, BuiltinName!"this");
+				params = thisParameter ~ params;
+			}
+			
+			isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
+			returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
+			
+			// Compute return type.
+			if(isAuto) {
+				// Functions are always populated as resolution is order dependant.
+				f.step = Step.Populated;
+			} else {
+				buildType();
+			}
+		}
+		
+		if (fbody) {
 			auto oldScope = currentScope;
 			auto oldCtxType = ctxType;
 			
@@ -192,11 +229,10 @@ struct SymbolAnalyzer {
 			
 			// And flatten.
 			import d.semantic.statement;
-			auto sv = StatementVisitor(pass);
-			f.fbody = sv.flatten(fd.fbody);
+			f.fbody = StatementVisitor(pass).flatten(fbody);
 		}
 		
-		if(isAuto) {
+		if (isAuto) {
 			// If nothing has been set, the function returns void.
 			if(auto t = cast(BuiltinType) returnType.type) {
 				if(t.kind == TypeKind.None) {
@@ -204,17 +240,16 @@ struct SymbolAnalyzer {
 				}
 			}
 			
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-			f.step = Step.Signed;
+			buildType();
 		}
 		
-		// FIXME: Populated imply mangled. Mangled earlier.
-		switch(f.linkage) with(Linkage) {
+		assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
+		
+		switch (f.linkage) with(Linkage) {
 			case D :
 				import d.semantic.mangler;
-				auto mangler = TypeMangler(pass);
-				auto typeMangle = mangler.visit(f.type);
-				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
+				auto typeMangle = TypeMangler(pass).visit(f.type);
+				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis ? typeMangle : ("FM" ~ typeMangle[1 .. $]));
 				break;
 			
 			case C :
@@ -229,84 +264,8 @@ struct SymbolAnalyzer {
 		f.step = Step.Processed;
 	}
 	
-	private void handleCtor(FunctionDeclaration fd, Function f) {
-		// XXX: maybe monad ?
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		auto params = f.params = fd.params.map!(p => new Parameter(p.location, tv.visit(p.type), p.name, p.value?(ev.visit(p.value)):null)).array();
-		
-		auto name = f.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
-		
-		auto fbody = fd.fbody;
-		
-		auto ctorThis = thisType;
-		
-		assert(thisType.type, "Constructor ?");
-		if(ctorThis.isRef) {
-			ctorThis.isRef = false;
-			returnType = ParamType(thisType.type, false);
-			
-			if(fbody) {
-				import d.ast.statement;
-				fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
-			}
-		} else {
-			returnType = ParamType(getBuiltin(TypeKind.Void), false);
-		}
-		
-		auto thisParameter = new Parameter(f.location, ctorThis, BuiltinName!"this", null);
-		params = thisParameter ~ params;
-		
-		f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-		f.step = Step.Signed;
-		
-		if(fbody) {
-			auto oldScope = currentScope;
-			auto oldCtxType = ctxType;
-			
-			scope(exit) {
-				currentScope = oldScope;
-				ctxType = oldCtxType;
-			}
-			
-			// Update scope.
-			currentScope = f.dscope = new FunctionScope(f, oldScope);
-			
-			ctxType = new ContextType(f);
-			
-			// Register parameters.
-			foreach(p; params) {
-				p.step = Step.Processed;
-				f.dscope.addSymbol(p);
-			}
-			
-			// And flatten.
-			import d.semantic.statement;
-			auto sv = StatementVisitor(pass);
-			f.fbody = sv.flatten(fd.fbody);
-		}
-		
-		assert(f.linkage == Linkage.D, "Linkage " ~ to!string(f.linkage) ~ " is not supported for constructors.");
-		
-		import d.semantic.mangler;
-		auto mangler = TypeMangler(pass);
-		auto typeMangle = mangler.visit(f.type);
-		f.mangle = "_D" ~ manglePrefix ~ (f.hasThis?typeMangle:("FM" ~ typeMangle[1 .. $]));
-		
-		f.step = Step.Processed;
-	}
-	
-	void analyze(FunctionDeclaration d, Function f) {
-		if (f.name.isReserved) {
-			handleCtor(d, f);
-		} else {
-			handleFunction(d, f);
-		}
-	}
-	
 	void analyze(FunctionDeclaration d, Method m) {
-		handleFunction(d, m);
+		analyze(d, cast(Function) m);
 	}
 	
 	void analyze(VariableDeclaration d, Variable v) {
@@ -323,7 +282,7 @@ struct SymbolAnalyzer {
 				value = ev.visit(d.value);
 			} else {
 				import d.semantic.defaultinitializer;
-				value = InitBuilder(pass).visit(v.location, type);
+				value = InitBuilder(pass, v.location).visit(type);
 			}
 			
 			value = buildImplicitCast(pass, d.location, type, value);

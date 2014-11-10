@@ -217,16 +217,21 @@ final class SymbolGen {
 			auto type = p.type;
 			auto value = params[i];
 			
-			if(type.isRef || type.isFinal) {
+			if (p.isRef || p.isFinal) {
+				import d.ast.base;
+				assert (p.storage == Storage.Local, "storage must be local");
+				
 				LLVMSetValueName(value, p.mangle.toStringz());
 				locals[p] = value;
 			} else {
-				auto name = p.name.toString(context);
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[i], name.toStringz());
-				LLVMSetValueName(value, ("arg." ~ name).toStringz());
+				import d.ast.base;
+				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
 				
-				LLVMBuildStore(builder, value, alloca);
-				locals[p] = alloca;
+				auto name = p.name.toString(context);
+				p.mangle = name;
+				
+				LLVMSetValueName(value, ("arg." ~ name).toStringz());
+				createVariableStorage(p, value);
 			}
 		}
 		
@@ -357,11 +362,16 @@ final class SymbolGen {
 		assert(0, "No context available.");
 	}
 	
-	LLVMValueRef visit(Variable v) {
+	LLVMValueRef visit(Variable v) in {
+		assert(!v.isRef && !v.isFinal);
+	} body {
 		import d.llvm.expression;
-		auto eg = ExpressionGen(pass);
-		auto value = eg.visit(v.value);
+		auto value = ExpressionGen(pass).visit(v.value);
 		
+		return createVariableStorage(v, value);
+	}
+	
+	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
 		import d.ast.base;
 		if(v.storage == Storage.Enum) {
 			return globals[v] = value;
@@ -436,10 +446,6 @@ final class SymbolGen {
 		
 		// Register the variable.
 		return locals[v] = addr;
-	}
-	
-	LLVMValueRef visit(Parameter p) {
-		return locals[p];
 	}
 	
 	LLVMTypeRef visit(TypeSymbol s) {

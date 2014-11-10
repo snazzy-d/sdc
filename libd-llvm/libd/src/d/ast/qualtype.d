@@ -52,15 +52,16 @@ struct ParamType(T) if(is(T : AstType)) {
 	mixin(bitfields!(
 		TypeQualifier, "qualifier", 3,
 		bool, "isRef", 1,
-		bool, "isScope", 1,
 		bool, "isFinal", 1,
+		bool, "isScope", 1,
 		int, "", 2,
 	));
 	
-	this(QualType!T t, bool isRef) {
+	this(QualType!T t, bool isRef, bool isFinal = false) {
 		type = t.type;
 		qualifier = t.qualifier;
 		this.isRef = isRef;
+		this.isFinal = isFinal;
 	}
 	
 	this(T t, bool isRef) {

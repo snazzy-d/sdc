@@ -120,10 +120,6 @@ final class CodeGenPass {
 		return symbolGen.genCached(f);
 	}
 	
-	auto visit(Parameter p) {
-		return symbolGen.visit(p);
-	}
-	
 	auto getTypeInfo(TypeSymbol s) {
 		return typeGen.getTypeInfo(s);
 	}

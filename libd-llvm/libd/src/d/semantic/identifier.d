@@ -367,15 +367,6 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		}
 	}
 	
-	Ret visit(Parameter p) {
-		static if(asAlias) {
-			return handler(p);
-		} else {
-			scheduler.require(p, Step.Signed);
-			return handler(new ParameterExpression(location, p));
-		}
-	}
-	
 	Ret visit(Field f) {
 		scheduler.require(f, Step.Signed);
 		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));
@@ -619,7 +610,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	Ret bailoutDefault(Type t) {
 		if(name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			return handler(InitBuilder(pass).visit(location, QualType(t)));
+			return handler(InitBuilder(pass, location).visit(QualType(t)));
 		} else if(name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), TypeKind.Uint));
@@ -639,6 +630,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
 			return handler(s);
 		}
+		
 		return bailout(t);
 	}
 	
