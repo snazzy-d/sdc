@@ -469,40 +469,9 @@ struct ExpressionVisitor {
 		
 		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
 		
-		// XXX: massive duplication in the callback. DMD won't accept anything else :(
-		import d.ast.identifier;
-		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
-			return TemplateDotIdentifierResolver!(delegate Expression(identified) {
-				alias T = typeof(identified);
-				
-				static if(is(T : Expression)) {
-					return handleCall(c.location, identified, args);
-				} else {
-					static if(is(T : Symbol)) {
-						if(auto s = cast(OverloadSet) identified) {
-							auto callee = chooseOverload(c.location, c.callee.location, s, args);
-							return handleCall(c.location, callee, args);
-						} else if(auto t = cast(Template) identified) {
-							auto callee = handleIFTI(c.location, c.callee.location, t, args);
-							return handleCall(c.location, callee, args);
-						}
-					}
-					
-					return pass.raiseCondition!Expression(c.location, c.callee.name.toString(pass.context) ~ " isn't callable.");
-				}
-			})(pass).resolve(tidi, args);
-		}
-		
-		return SymbolResolver!(delegate Expression(identified) {
-			alias T = typeof(identified);
+		Expression postProcess(T)(T identified) {
 			static if(is(T : Expression)) {
 				return handleCall(c.location, identified, args);
-			} else static if(is(T : QualType)) {
-				auto t = cast(StructType) identified.type;
-				assert(t, "Struct");
-				
-				auto callee = handleCtor(c.location, c.callee.location, t, args);
-				return handleCall(c.location, callee, args);
 			} else {
 				static if(is(T : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
@@ -512,17 +481,31 @@ struct ExpressionVisitor {
 						auto callee = handleIFTI(c.location, c.callee.location, t, args);
 						return handleCall(c.location, callee, args);
 					}
+				} else static if(is(T : QualType)) {
+					if (auto t = cast(StructType) identified.type) {
+						auto callee = handleCtor(c.location, c.callee.location, t, args);
+						return handleCall(c.location, callee, args);
+					}
 				}
 				
 				return pass.raiseCondition!Expression(c.location, c.callee.name.toString(pass.context) ~ " isn't callable.");
 			}
-		})(pass).visit(c.callee);
+		}
+		
+		import d.ast.identifier;
+		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
+			// XXX: For some reason this need to be passed a lambda.
+			return TemplateDotIdentifierResolver!(i => postProcess(i))(pass).resolve(tidi, args);
+		}
+		
+		// XXX: For some reason this need to be passed a lambda.
+		return SymbolResolver!((i => postProcess(i)))(pass).visit(c.callee);
 	}
 	
 	// XXX: factorize with NewExpression
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
-		auto di = InstanceBuilder(pass).visit(iloc, QualType(type));
+		auto di = InstanceBuilder(pass, iloc).visit(QualType(type));
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -687,7 +670,7 @@ struct ExpressionVisitor {
 		
 		import d.semantic.type, d.semantic.defaultinitializer;
 		auto type = TypeVisitor(pass).visit(e.type);
-		auto di = NewBuilder(pass).visit(e.location, type);
+		auto di = NewBuilder(pass, e.location).visit(type);
 		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {
