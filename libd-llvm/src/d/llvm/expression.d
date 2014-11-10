@@ -143,11 +143,11 @@ struct ExpressionGen {
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
 		
 		static if(shortCircuitOnTrue) {
-			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_short_circuit");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_rhs");
 			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
 		} else {
-			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_short_circuit");
+			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_rhs");
 			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "and_merge");
 			LLVMBuildCondBr(builder, lhs, rhsBB, mergeBB);
 		}
@@ -160,7 +160,7 @@ struct ExpressionGen {
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of then can change the current block, so we put everything in order.
+		// Codegen of lhs can change the current block, so we put everything in order.
 		rhsBB = LLVMGetInsertBlock(builder);
 		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
@@ -372,43 +372,43 @@ struct ExpressionGen {
 		auto condBB  = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(condBB);
 		
-		auto ifTrueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifTrue");
-		auto ifFalseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ifFalse");
-		auto resultBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "result");
+		auto lhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_lhs");
+		auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_rhs");
+		auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_merge");
 		
-		LLVMBuildCondBr(builder, cond, ifTrueBB, ifFalseBB);
+		LLVMBuildCondBr(builder, cond, lhsBB, rhsBB);
 		
-		// Emit ifTrue
-		LLVMPositionBuilderAtEnd(builder, ifTrueBB);
-		auto ifTrue = visit(e.ifTrue);
+		// Emit lhs
+		LLVMPositionBuilderAtEnd(builder, lhsBB);
+		auto lhs = visit(e.lhs);
 		// Conclude that block.
-		LLVMBuildBr(builder, resultBB);
+		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of then can change the current block, so we put everything in order.
-		ifTrueBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(ifFalseBB, ifTrueBB);
+		// Codegen of lhs can change the current block, so we put everything in order.
+		lhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(lhsBB, rhsBB);
 		
-		// Emit ifFalse
-		LLVMPositionBuilderAtEnd(builder, ifFalseBB);
-		auto ifFalse = visit(e.ifFalse);
+		// Emit rhs
+		LLVMPositionBuilderAtEnd(builder, rhsBB);
+		auto rhs = visit(e.rhs);
 		// Conclude that block.
-		LLVMBuildBr(builder, resultBB);
+		LLVMBuildBr(builder, mergeBB);
 		
-		// Codegen of then can change the current block, so we put everything in order.
-		ifFalseBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(resultBB, ifFalseBB);
+		// Codegen of rhs can change the current block, so we put everything in order.
+		rhsBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
 		
 		// Generate phi to get the result.
-		LLVMPositionBuilderAtEnd(builder, resultBB);
+		LLVMPositionBuilderAtEnd(builder, mergeBB);
 		auto phiNode = LLVMBuildPhi(builder, pass.visit(e.type), "");
 		
 		LLVMValueRef[2] incomingValues;
-		incomingValues[0] = ifTrue;
-		incomingValues[1] = ifFalse;
+		incomingValues[0] = lhs;
+		incomingValues[1] = rhs;
 		
 		LLVMBasicBlockRef[2] incomingBlocks;
-		incomingBlocks[0] = ifTrueBB;
-		incomingBlocks[1] = ifFalseBB;
+		incomingBlocks[0] = lhsBB;
+		incomingBlocks[1] = rhsBB;
 		
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr, incomingValues.length);
 		
