@@ -838,10 +838,6 @@ struct AddressOfGen {
 		
 		return pass.visit(e.var);
 	}
-
-	LLVMValueRef visit(TernaryExpression e) {
-		throw new CompileException(e.location, "TernaryExpression as l-value is not supported.");
-	}
 	
 	LLVMValueRef visit(FieldExpression e) {
 		auto base = e.expr;
