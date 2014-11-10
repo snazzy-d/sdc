@@ -19,16 +19,14 @@ auto voldemort() {
 	}
 	
 	auto basilisk(uint c) {
-		// XXX: SDC do not capture parameters for now. Refactor when apropriate.
-		auto d = c;
 		class GinnyWeasley : MarvoloRiddle {
 			this(uint b) {
-				a += d++;
+				a += c++;
 				this.b = b + a++;
 			}
 			
 			auto bar() {
-				return foo() + a + d;
+				return foo() + a + c;
 			}
 		}
 		
