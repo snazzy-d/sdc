@@ -323,7 +323,7 @@ struct SymbolAnalyzer {
 				value = ev.visit(d.value);
 			} else {
 				import d.semantic.defaultinitializer;
-				value = InitBuilder(pass).visit(v.location, type);
+				value = InitBuilder(pass, v.location).visit(type);
 			}
 			
 			value = buildImplicitCast(pass, d.location, type, value);

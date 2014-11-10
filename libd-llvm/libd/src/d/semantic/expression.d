@@ -505,7 +505,7 @@ struct ExpressionVisitor {
 	// XXX: factorize with NewExpression
 	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
-		auto di = InstanceBuilder(pass).visit(iloc, QualType(type));
+		auto di = InstanceBuilder(pass, iloc).visit(QualType(type));
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
@@ -670,7 +670,7 @@ struct ExpressionVisitor {
 		
 		import d.semantic.type, d.semantic.defaultinitializer;
 		auto type = TypeVisitor(pass).visit(e.type);
-		auto di = NewBuilder(pass).visit(e.location, type);
+		auto di = NewBuilder(pass, e.location).visit(type);
 		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if(is(typeof(identified) : Symbol)) {
 				if(auto f = cast(Function) identified) {

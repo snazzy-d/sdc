@@ -619,7 +619,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	Ret bailoutDefault(Type t) {
 		if(name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			return handler(InitBuilder(pass).visit(location, QualType(t)));
+			return handler(InitBuilder(pass, location).visit(QualType(t)));
 		} else if(name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), TypeKind.Uint));

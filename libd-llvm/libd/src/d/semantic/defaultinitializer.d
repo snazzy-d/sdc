@@ -25,20 +25,23 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	private SemanticPass pass;
 	alias pass this;
 	
-	this(SemanticPass pass) {
+	Location location;
+	
+	this(SemanticPass pass, Location location) {
 		this.pass = pass;
+		this.location = location;
 	}
 	
-	E visit(Location location, QualType t) {
+	E visit(QualType t) {
 		auto e = this.dispatch!((t) {
 			return pass.raiseCondition!E(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
-		})(location, peelAlias(t).type);
+		})(peelAlias(t).type);
 		
 		e.type.qualifier = t.qualifier;
 		return e;
 	}
 	
-	E visit(Location location, BuiltinType t) {
+	E visit(BuiltinType t) {
 		final switch(t.kind) with(TypeKind) {
 			case None :
 				assert(0,"none shall not be!");
@@ -77,25 +80,26 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		}
 	}
 	
-	E visit(Location location, PointerType t) {
+	E visit(PointerType t) {
 		return new NullLiteral(location, QualType(t));
 	}
 	
-	E visit(Location location, SliceType t) {
+	E visit(SliceType t) {
 		auto sizeT = cast(BuiltinType) peelAlias(pass.object.getSizeT().type).type;
 		assert(sizeT !is null, "getSizeT().type.type does not cast to BuiltinType");
 		CompileTimeExpression[] init = [
 			new NullLiteral(location, t.sliced),
 			new IntegerLiteral!false(location, 0UL, sizeT.kind)
 		];
-		// XXX Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
+		
+		// XXX: Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
 		return new CompileTimeTupleExpression(location, QualType(t), init);
 	}
 
-	E visit(Location location, ArrayType t) {
+	E visit(ArrayType t) {
 		E[] elements;
 		elements.length = t.size;
-		elements[] = visit(location, t.elementType);
+		elements[] = visit(t.elementType);
 		
 		static if (isCompileTime) {
 			return new CompileTimeTupleExpression(location, QualType(t), elements);
@@ -112,7 +116,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return new VariableExpression(value.location, v);
 	}
 	
-	E visit(Location location, StructType t) {
+	E visit(StructType t) {
 		auto s = t.dstruct;
 		scheduler.require(s, Step.Populated);
 		
@@ -153,7 +157,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return v;
 	}
 	
-	E visit(Location location, ClassType t) {
+	E visit(ClassType t) {
 		static if(isNew) {
 			auto c = t.dclass;
 			scheduler.require(c);
@@ -183,7 +187,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		}
 	}
 	
-	E visit(Location location, FunctionType t) {
+	E visit(FunctionType t) {
 		return new NullLiteral(location, QualType(t));
 	}
 }
