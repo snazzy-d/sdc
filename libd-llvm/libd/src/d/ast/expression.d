@@ -22,19 +22,19 @@ final:
  */
 class TernaryExpression(E) : E  if(is(E: AstExpression)){
 	E condition;
-	E ifTrue;
-	E ifFalse;
+	E lhs;
+	E rhs;
 	
-	this(U...)(Location location, U args, E condition, E ifTrue, E ifFalse) {
+	this(U...)(Location location, U args, E condition, E lhs, E rhs) {
 		super(location, args);
 		
 		this.condition = condition;
-		this.ifTrue = ifTrue;
-		this.ifFalse = ifFalse;
+		this.lhs = lhs;
+		this.rhs = rhs;
 	}
 	
 	override string toString(Context ctx) const {
-		return condition.toString(ctx) ~ "? " ~ ifTrue.toString(ctx) ~ " : " ~ ifFalse.toString(ctx);
+		return condition.toString(ctx) ~ "? " ~ lhs.toString(ctx) ~ " : " ~ rhs.toString(ctx);
 	}
 }
 

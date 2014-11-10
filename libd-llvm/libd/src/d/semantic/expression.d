@@ -256,15 +256,15 @@ struct ExpressionVisitor {
 
 	Expression visit(AstTernaryExpression e) {
 		auto condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
-		auto ifTrue = visit(e.ifTrue);
-		auto ifFalse = visit(e.ifFalse);
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
 		
-		auto exprType = getPromotedType(pass, e.location, ifTrue.type.type, ifFalse.type.type);
+		auto t = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 		
-		ifTrue = buildExplicitCast(pass, ifTrue.location, exprType, ifTrue);
-		ifFalse = buildExplicitCast(pass, ifFalse.location, exprType, ifFalse);
+		lhs = buildExplicitCast(pass, lhs.location, t, lhs);
+		rhs = buildExplicitCast(pass, rhs.location, t, rhs);
 		
-		return new TernaryExpression(e.location, exprType, condition, ifTrue, ifFalse);
+		return new TernaryExpression(e.location, t, condition, lhs, rhs);
 	}
 
 	private Expression handleAddressOf(Expression expr) {
