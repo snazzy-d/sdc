@@ -367,15 +367,6 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		}
 	}
 	
-	Ret visit(Parameter p) {
-		static if(asAlias) {
-			return handler(p);
-		} else {
-			scheduler.require(p, Step.Signed);
-			return handler(new ParameterExpression(location, p));
-		}
-	}
-	
 	Ret visit(Field f) {
 		scheduler.require(f, Step.Signed);
 		return handler(new FieldExpression(location, new ThisExpression(location, QualType(thisType.type)), f));

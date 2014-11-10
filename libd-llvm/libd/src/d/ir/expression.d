@@ -427,29 +427,6 @@ class MethodExpression : Expression {
 }
 
 /**
- * IdentifierExpression that as been resolved as a Parameter.
- * XXX: Deserve to be merged with VariableExpression somehow.
- */
-class ParameterExpression : Expression {
-	Parameter param;
-	
-	this(Location location, Parameter param) {
-		super(location, QualType(param.type.type, param.type.qualifier));
-		
-		this.param = param;
-	}
-	
-	override string toString(Context ctx) const {
-		return param.name.toString(ctx);
-	}
-	
-	@property
-	override bool isLvalue() const {
-		return true;
-	}
-}
-
-/**
  * For classes, typeid is computed at runtime.
  */
 class DynamicTypeidExpression : Expression {

@@ -122,15 +122,22 @@ struct SymbolAnalyzer {
 	
 	void analyze(FunctionDeclaration fd, Function f) {
 		auto params = f.params = fd.params.map!((p) {
-			import d.semantic.expression;
-			return new Parameter(p.location, tv.visit(p.type), p.name, p.value ? (ExpressionVisitor(pass).visit(p.value)) : null);
+			auto t = tv.visit(p.type);
+			
+			Expression v;
+			if (p.value) {
+				import d.semantic.expression;
+				v = ExpressionVisitor(pass).visit(p.value);
+			}
+			
+			return new Variable(p.location, t, p.name, v);
 		}).array();
 		
 		// If this is a closure, we add the context parameter.
 		if(f.hasContext) {
 			assert(ctxType, "ctxType must be defined if function has a context pointer.");
 			
-			auto contextParameter = new Parameter(f.location, ParamType(ctxType, true), BuiltinName!"__ctx", null);
+			auto contextParameter = new Variable(f.location, ParamType(ctxType, true), BuiltinName!"__ctx");
 			params = contextParameter ~ params;
 		}
 		
@@ -148,14 +155,19 @@ struct SymbolAnalyzer {
 		auto fbody = fd.fbody;
 		bool isAuto = false;
 		
+		void buildType() {
+			f.type = new FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
+			f.step = Step.Signed;
+		}
+		
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		if (isCtor) {
-			auto ctorThis = thisType;
-			
 			assert(f.hasThis && thisType.type, "Constructor must have a this pointer");
-			if(ctorThis.isRef) {
+			
+			auto ctorThis = thisType;
+			if (ctorThis.isRef) {
 				ctorThis.isRef = false;
-				returnType = ParamType(thisType.type, false);
+				returnType = ctorThis;
 				
 				if(fbody) {
 					import d.ast.statement;
@@ -165,17 +177,16 @@ struct SymbolAnalyzer {
 				returnType = ParamType(getBuiltin(TypeKind.Void), false);
 			}
 			
-			auto thisParameter = new Parameter(f.location, ctorThis, BuiltinName!"this", null);
+			auto thisParameter = new Variable(f.location, ctorThis, BuiltinName!"this");
 			params = thisParameter ~ params;
 			
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-			f.step = Step.Signed;
+			buildType();
 		} else {
 			// If it has a this pointer, add it as parameter.
 			if (f.hasThis) {
 				assert(thisType.type, "thisType must be defined if funtion has a this pointer.");
 				
-				auto thisParameter = new Parameter(f.location, thisType, BuiltinName!"this", null);
+				auto thisParameter = new Variable(f.location, thisType, BuiltinName!"this");
 				params = thisParameter ~ params;
 			}
 			
@@ -187,8 +198,7 @@ struct SymbolAnalyzer {
 				// Functions are always populated as resolution is order dependant.
 				f.step = Step.Populated;
 			} else {
-				f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-				f.step = Step.Signed;
+				buildType();
 			}
 		}
 		
@@ -230,9 +240,10 @@ struct SymbolAnalyzer {
 				}
 			}
 			
-			f.type = new FunctionType(f.linkage, returnType, params.map!(p => p.type).array(), fd.isVariadic);
-			f.step = Step.Signed;
+			buildType();
 		}
+		
+		assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
 		
 		switch (f.linkage) with(Linkage) {
 			case D :
@@ -242,7 +253,6 @@ struct SymbolAnalyzer {
 				break;
 			
 			case C :
-				assert(!isCtor, "C mangling is not supported for constructors.");
 				f.mangle = f.name.toString(context);
 				break;
 			
