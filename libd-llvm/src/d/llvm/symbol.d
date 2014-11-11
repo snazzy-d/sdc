@@ -350,6 +350,11 @@ final class SymbolGen {
 		auto type = pass.buildContextType(f);
 		auto value = contexts[$ - 1].context;
 		foreach_reverse(i, c; contexts) {
+			if (c.context is null) {
+				assert (c.type is type, "Failed to find the context pointer.");
+				return LLVMConstNull(LLVMPointerType(type, 0));
+			}
+			
 			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
 			
 			if (c.type is type) {
