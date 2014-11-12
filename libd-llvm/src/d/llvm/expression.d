@@ -514,7 +514,7 @@ struct ExpressionGen {
 		// Emit bound check fail code.
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		LLVMValueRef args[2];
+		LLVMValueRef[2] args;
 		args[0] = buildDString(location.source.filename);
 		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
 		
@@ -768,7 +768,7 @@ struct ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		LLVMValueRef args[3];
+		LLVMValueRef[3] args;
 		args[1] = buildDString(e.location.source.filename);
 		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), e.location.line, false);
 		
@@ -944,7 +944,7 @@ struct AddressOfGen {
 			
 			eg.genBoundCheck(location, condition);
 			
-			LLVMValueRef indices[2];
+			LLVMValueRef[2] indices;
 			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			indices[1] = i;
 			
