@@ -36,7 +36,8 @@ string convertToUTF8Impl(CType, Endian end)(const(ubyte)[] data) {
 	foreach(i; iota(0, data.length, cpsize)) {
 		auto buf = data[i .. i+cpsize].dup;
 		static if (end != endian) {
-			buf = buf.reverse;
+			import std.algorithm : reverse;
+			buf.reverse();
 		}
 		res ~= *(cast(CType*)buf.ptr);
 	}
