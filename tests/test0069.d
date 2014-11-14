@@ -1,5 +1,7 @@
 //T compiles:no
-//? desc:Disallow implicit conversion between function pointers of different calling convention.
+//T has-passed:yes
+
+// desc:Disallow implicit conversion between function pointers of different calling convention.
 
 extern(C) void foo(int a) {}
 

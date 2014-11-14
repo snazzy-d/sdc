@@ -29,12 +29,14 @@ int main(string[] args) {
 	uint optLevel;
 	bool dontLink;
 	string outputFile;
+	bool testMode;
 	getopt(
 		args, std.getopt.config.caseSensitive,
 		"I", &includePath,
 		"O", &optLevel,
 		"c", &dontLink,
 		"o", &outputFile,
+		"test", &testMode,
 		"help|h", delegate() {
 			import std.stdio;
 			writeln("HELP !");
@@ -44,7 +46,12 @@ int main(string[] args) {
 	foreach(path; includePath) {
 		conf["includePath"] ~= path;
 	}
-	
+
+	if (testMode) {
+		import sdc.tester;
+		return Tester(conf).runTests();
+	}
+
 	auto files = args[1 .. $];
 	
 	auto executable = "a.out";
