@@ -40,7 +40,7 @@ struct SymbolVisitor {
 	void visit(Declaration d, Symbol s) {
 		auto tid = typeid(s);
 		
-		import std.traits;
+		import std.traits, std.typetuple;
 		alias Members = TypeTuple!(__traits(getOverloads, SymbolAnalyzer, "analyze"));
 		foreach(visit; Members) {
 			alias parameters = ParameterTypeTuple!visit;

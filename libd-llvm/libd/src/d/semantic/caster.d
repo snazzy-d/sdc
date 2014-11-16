@@ -541,6 +541,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				auto kp = caster.castFrom(top, fromp);
 				if(kp < CastKind.Bit) return onFail;
 				
+				import std.algorithm;
 				k = min(k, kp);
 			}
 			
@@ -593,6 +594,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				auto kp = caster.castFrom(top, fromp);
 				if(kp < CastKind.Bit) return onFail;
 				
+				import std.algorithm;
 				k = min(k, kp);
 			}
 			
