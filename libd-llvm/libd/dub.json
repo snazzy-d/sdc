@@ -1,0 +1,11 @@
+{
+	"name": "libd",
+	"description": "Implementation of the D programming language as a library.",
+	"targetType": "sourceLibrary",
+	"copyright": "Copyright © 2012 Amaury SECHET",
+	"authors": ["Amaury SECHET"],
+	"license" : "MIT",
+	"dependencies": {
+	},
+	"targetName" : "d"
+}

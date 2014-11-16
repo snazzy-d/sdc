@@ -1,14 +1,20 @@
 //T compiles:yes
-//T has-passed:no
-//T retval:42
+//T has-passed:yes
+//T retval:43
 
 struct S {
 	int i;
-	int j;
-	long k;
-	int f() { return i + j; }
+	Sub s;
+
+	int f() { return i + this.j /+ + j +/; }
+
+	alias i this;
+	alias s this;
 	alias f this;
-	version (SDC) alias k this;  // DMD doesn't yet implement multiple alias this declarations.
+}
+
+struct Sub {
+	int j;
 }
 
 int foo(int i){
@@ -17,8 +23,8 @@ int foo(int i){
 
 int main() {
 	S s;
-	s.i = 21;
-	s.j = 21;
+	s.i = 13;
+	s.j = 17;
 	
-	return foo(s);
+	return foo(s) + s();
 }
