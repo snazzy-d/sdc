@@ -55,6 +55,10 @@ class ErrorExpression : CompileTimeExpression {
 		
 		this.message = message;
 	}
+	
+	override string toString(Context) const {
+		return "__error__(" ~ message ~ ")";
+	}
 }
 
 /**

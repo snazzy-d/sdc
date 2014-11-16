@@ -12,8 +12,6 @@ import d.ir.type;
 import d.exception;
 import d.location;
 
-import std.algorithm;
-
 Expression buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
 	return build!false(pass, location, to, e);
 }
@@ -65,65 +63,56 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
-		static if (is(T : StructType)) {
-			auto aliasThis = t.dstruct.dscope.aliasThis;
-		} else static if (is(T : ClassType)) {
-			auto aliasThis = t.dclass.dscope.aliasThis;
-		}
-		
-		static if(is(typeof(aliasThis))) {
-			import d.semantic.identifier;
-			auto sr = SymbolResolver!((identified) {
-				alias U = typeof(identified);
-				static if (is(U : Expression)) {
-					e = identified;
-					return c.castFrom(identified.type, to);
-				} else {
-					return CastKind.Invalid;
-				}
-			})(pass);
-			
-			auto oldBuildErrorNode = pass.buildErrorNode;
-			scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-			
-			pass.buildErrorNode = true;
+		static if (is(T : StructType) || is(T : ClassType)) {
+			static struct AliasThisResult {
+				Expression expr;
+				CastKind level;
+			}
 			
 			auto level = CastKind.Invalid;
-			Expression candidate;
-			foreach(n; aliasThis) {
-				auto oldExpr = e;
-				scope(exit) {
-					e = oldExpr;
+			enum InvalidResult = AliasThisResult(null, CastKind.Invalid);
+			
+			import d.semantic.aliasthis;
+			import std.algorithm;
+			auto results = AliasThisResolver!((identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					auto oldE = e;
+					scope(exit) e = oldE;
+					e = identified;
+					
+					auto cLevel = c.castFrom(identified.type, to);
+					if (cLevel == CastKind.Invalid || cLevel < level) {
+						return InvalidResult;
+					}
+					
+					level = cLevel;
+					return AliasThisResult(identified, cLevel);
+				} else {
+					return InvalidResult;
 				}
-				
-				auto cLevel = CastKind.Invalid;
-				
-				// TODO: refactor so we do not throw.
-				try {
-					cLevel = sr.resolveInExpression(location, e, n);
-				} catch(CompileException e) {
-					continue;
-				}
-				
-				if (cLevel == CastKind.Invalid || cLevel < level) {
-					continue;
-				}
-				
-				if (candidate) {
-					assert(0, "Ambiguous alias this");
-				}
-				
-				level = cLevel;
-				candidate = e;
+			})(pass).resolve(e, t).filter!(r => r.level == level);
+			
+			if (level == CastKind.Invalid) {
+				return CastKind.Invalid;
 			}
 			
-			if (candidate) {
-				e = candidate;
-				return level;
+			Expression candidate;
+			foreach(r; results) {
+				if (candidate !is null) {
+					return CastKind.Invalid;
+				}
+				
+				candidate = r.expr;
 			}
+			
+			assert(candidate, "if no candidate are found, level should be Invalid");
+			
+			e = candidate;
+			return level;
+		} else {
+			return CastKind.Invalid;
 		}
-		
-		return c.bailoutDefault(t);
 	})(pass).castFrom(e.type, to);
 	
 	switch(kind) with(CastKind) {

@@ -426,7 +426,7 @@ struct ExpressionVisitor {
 	}
 	
 	Expression getFrom(Location location, Function f) {
-		pass.scheduler.require(f, Step.Signed);
+		scheduler.require(f, Step.Signed);
 		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
 		if (f.hasThis) {
@@ -437,9 +437,7 @@ struct ExpressionVisitor {
 		
 		if (f.hasContext) {
 			import d.semantic.closure;
-			auto cf = ContextFinder(pass);
-			
-			return new MethodExpression(location, new ContextExpression(location, cf.visit(f)), f);
+			return new MethodExpression(location, new ContextExpression(location, ContextFinder(pass).visit(f)), f);
 		}
 		
 		return new FunctionExpression(location, f);
@@ -468,23 +466,21 @@ struct ExpressionVisitor {
 		auto args = c.args.map!(a => visit(a)).array();
 		
 		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
-		
 		Expression postProcess(T)(T identified) {
 			static if(is(T : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else {
 				static if(is(T : Symbol)) {
 					if(auto s = cast(OverloadSet) identified) {
-						auto callee = chooseOverload(c.location, c.callee.location, s, args);
-						return handleCall(c.location, callee, args);
+						return callOverloadSet(c.location, s, args);
 					} else if(auto t = cast(Template) identified) {
-						auto callee = handleIFTI(c.location, c.callee.location, t, args);
-						return handleCall(c.location, callee, args);
+						auto callee = handleIFTI(c.location, t, args);
+						return callCallable(c.location, callee, args);
 					}
 				} else static if(is(T : QualType)) {
 					if (auto t = cast(StructType) identified.type) {
 						auto callee = handleCtor(c.location, c.callee.location, t, args);
-						return handleCall(c.location, callee, args);
+						return callCallable(c.location, callee, args);
 					}
 				}
 				
@@ -503,20 +499,20 @@ struct ExpressionVisitor {
 	}
 	
 	// XXX: factorize with NewExpression
-	private Expression handleCtor(Location location, Location iloc, StructType type, Expression[] args) {
+	private Expression handleCtor(Location location, Location calleeLoc, StructType type, Expression[] args) {
 		import d.semantic.defaultinitializer;
-		auto di = InstanceBuilder(pass, iloc).visit(QualType(type));
+		auto di = InstanceBuilder(pass, calleeLoc).visit(QualType(type));
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if(is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
-					return new MethodExpression(iloc, di, f);
+					return new MethodExpression(calleeLoc, di, f);
 				} else if(auto s = cast(OverloadSet) identified) {
-					return chooseOverload(iloc, s.set.map!(delegate Expression(s) {
+					return chooseOverload(location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
-							return new MethodExpression(iloc, di, f);
+							return new MethodExpression(calleeLoc, di, f);
 						}
 						
 						assert(0, "not a constructor");
@@ -528,13 +524,12 @@ struct ExpressionVisitor {
 		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
-	private Expression handleIFTI(Location location, Location iloc, Template t, Expression[] args) {
+	private Expression handleIFTI(Location location, Template t, Expression[] args) {
 		import d.semantic.dtemplate;
-		auto ti = TemplateInstancier(pass);
 		TemplateArgument[] targs;
 		targs.length = t.parameters.length;
 		
-		auto i = ti.instanciate(location, t, [], args);
+		auto i = TemplateInstancier(pass).instanciate(location, t, [], args);
 		scheduler.require(i);
 		
 		return SymbolResolver!(delegate Expression(identified) {
@@ -547,20 +542,20 @@ struct ExpressionVisitor {
 		})(pass).resolveInSymbol(location, i, t.name);
 	}
 	
-	private Expression chooseOverload(Location location, Location iloc, OverloadSet s, Expression[] args) {
-		return chooseOverload(location, s.set.map!((s) {
+	private Expression callOverloadSet(Location location, OverloadSet s, Expression[] args) {
+		return callCallable(location, chooseOverload(location, s.set.map!((s) {
 			if(auto f = cast(Function) s) {
 				return getFrom(location, f);
 			} else if(auto t = cast(Template) s) {
-				return handleIFTI(location, iloc, t, args);
+				return handleIFTI(location, t, args);
 			}
 			
 			throw new CompileException(s.location, typeid(s).toString() ~ " is not supported in overload set");
-		}).array(), args);
+		}).array(), args), args);
 	}
 	
 	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
-		auto cds = candidates.filter!((e) {
+		auto cds = candidates.map!(e => findCallable(location, e, args)).filter!((e) {
 			if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
 				if(asFunType.isVariadic) {
 					return args.length >= asFunType.paramTypes.length;
@@ -640,20 +635,43 @@ struct ExpressionVisitor {
 		return match;
 	}
 	
-	private Expression handleCall(Location location, Expression callee, Expression[] args) {
+	private Expression findCallable(Location location, Expression callee, Expression[] args) {
 		if(auto asPolysemous = cast(PolysemousExpression) callee) {
-			callee = chooseOverload(location, asPolysemous.expressions, args);
+			return chooseOverload(location, asPolysemous.expressions, args);
 		}
 		
 		auto type = peelAlias(callee.type).type;
-		ParamType[] paramTypes;
-		ParamType returnType;
 		if(auto f = cast(FunctionType) type) {
-			paramTypes = f.paramTypes;
-			returnType = f.returnType;
-		} else {
-			return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString(context));
+			return callee;
 		}
+		
+		import d.semantic.aliasthis;
+		auto results = AliasThisResolver!((identified) {
+			alias T = typeof(identified);
+			static if (is(T : Expression)) {
+				return findCallable(location, identified, args);
+			} else {
+				return cast(Expression) null;
+			}
+		})(pass).resolve(callee).filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression)).array();
+		
+		if (results.length == 1) {
+			return results[0];
+		}
+		
+		return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString(context));
+	}
+	
+	private Expression handleCall(Location location, Expression callee, Expression[] args) {
+		return callCallable(location, findCallable(location, callee, args), args);
+	}
+	
+	private Expression callCallable(Location location, Expression callee, Expression[] args) {
+		auto f = cast(FunctionType) peelAlias(callee.type).type;
+		assert(f, "This method must be used with a callable");
+		
+		auto paramTypes = f.paramTypes;
+		auto returnType = f.returnType;
 		
 		assert(args.length >= paramTypes.length);
 		

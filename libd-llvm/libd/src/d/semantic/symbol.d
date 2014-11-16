@@ -812,8 +812,7 @@ struct SymbolAnalyzer {
 				assert(t.storage >= Storage.Static, "template can only have one context");
 				
 				import d.semantic.closure;
-				auto cf = ContextFinder(pass);
-				ctxType = cf.visit(s);
+				ctxType = ContextFinder(pass).visit(s);
 				
 				i.storage = Storage.Local;
 			}

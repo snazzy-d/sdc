@@ -143,6 +143,8 @@ struct Identifiable {
 	// bitfield cause infinite recursion now.
 }
 
+// XXX: probably a "feature" this can't be passed as alias this if private.
+public
 Identifiable identifiableHandler(T)(T t) {
 	return Identifiable(t);
 }
@@ -474,51 +476,30 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			static if(is(T : PointerType)) {
 				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
 				return r.visit(t.pointed);
-			} else {
-				static if (is(T : StructType)) {
-					auto aliasThis = t.dstruct.dscope.aliasThis;
-				} else static if (is(T : ClassType)) {
-					auto aliasThis = t.dclass.dscope.aliasThis;
+			} else static if (is(T : StructType) || is(T : ClassType)) {
+				import d.semantic.aliasthis;
+				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t);
+				
+				Ret[] results;
+				foreach(c; candidates) {
+					// TODO: refactor so we do not throw.
+					try {
+						results ~= SymbolResolver!identifiableHandler(pass)
+							.resolveInIdentifiable(location, c, name)
+							.apply!handler();
+					} catch(CompileException e) {
+						continue;
+					}
 				}
 				
-				static if(is(typeof(aliasThis))) {
-					auto edir = ExpressionDotIdentifierResolver!identifiableHandler(pass, location, expr);
-					
-					auto oldBuildErrorNode = pass.buildErrorNode;
-					scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-					
-					pass.buildErrorNode = true;
+				if (results.length == 1) {
+					return results[0];
+				} else if (results.length > 1) {
+					assert(0, "WTF am I supposed to do here ?");
+				}
 
-					Identifiable[] candidates;
-					foreach (n; aliasThis) {
-						// TODO: refactor so we do not throw.
-						try {
-							candidates ~= edir.resolve(n);
-						} catch(CompileException e) {
-							continue;
-						}
-					}
-					
-					// XXX: AliasResolver ???
-					auto sr = SymbolResolver!identifiableHandler(pass);
-					
-					Ret[] results;
-					foreach(c; candidates) {
-						// TODO: refactor so we do not throw.
-						try {
-							results ~= sr.resolveInIdentifiable(location, c, name).apply!handler();
-						} catch(CompileException e) {
-							continue;
-						}
-					}
-					
-					if (results.length == 1) {
-						return results[0];
-					} else if (results.length > 1) {
-						assert(0, "WTF am I supposed to do here ?");
-					}
-				}
-				
+				return r.bailoutDefault(type.type);
+			} else {
 				return r.bailoutDefault(type.type);
 			}
 		})(pass, location, name).visit(type);
