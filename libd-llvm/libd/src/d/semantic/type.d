@@ -21,87 +21,104 @@ struct TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	this(SemanticPass pass) {
+	TypeQualifier qualifier;
+	
+	this(SemanticPass pass, TypeQualifier qualifier = TypeQualifier.Mutable) {
 		this.pass = pass;
+		this.qualifier = qualifier;
+	}
+	
+	TypeVisitor withStorageClass(StorageClass stc) {
+		auto q = stc.hasQualifier
+			? qualifier.add(stc.qualifier)
+			: qualifier;
+		
+		return TypeVisitor(pass, q);
 	}
 	
 	QualType visit(QualAstType t) {
-		return visit(TypeQualifier.Mutable, t);
+		qualifier = qualifier.add(t.qualifier);
+		return this.dispatch(t.type);
 	}
 	
 	ParamType visit(ParamAstType t) {
 		auto qt = visit(QualAstType(t.type, t.qualifier));
-		
-		return ParamType(qt, t.isRef);
+		return ParamType(qt, t.isRef, t.isFinal);
 	}
 	
-	QualType visit(TypeQualifier q, QualAstType t) {
-		return this.dispatch(t.qualifier.add(q), t.type);
+	QualType visit(BuiltinType t) {
+		return QualType(t, qualifier);
 	}
 	
-	QualType visit(TypeQualifier q, BuiltinType t) {
-		return QualType(t, q);
-	}
-	
-	QualType visit(TypeQualifier q, TypeofType t) {
+	QualType visit(TypeofType t) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		auto ret = ExpressionVisitor(pass).visit(t.expression).type;
 		
-		auto ret = ev.visit(t.expression).type;
-		ret.qualifier = ret.qualifier.add(q);
-		
+		// FIXME: turtle down qualifier.
+		ret.qualifier = qualifier.add(ret.qualifier);
 		return ret;
 	}
 	
-	QualType visit(TypeQualifier q, AstPointerType t) {
-		return QualType(new PointerType(visit(q, t.pointed)), q);
+	QualType visit(AstPointerType t) {
+		return QualType(new PointerType(visit(t.pointed)), qualifier);
 	}
 	
-	QualType visit(TypeQualifier q, AstSliceType t) {
-		return QualType(new SliceType(visit(q, t.sliced)), q);
+	QualType visit(AstSliceType t) {
+		return QualType(new SliceType(visit(t.sliced)), qualifier);
 	}
 	
-	QualType visit(TypeQualifier q, AstArrayType t) {
+	QualType visit(AstArrayType t) {
 		auto elementType = visit(t.elementType);
 		
-		import d.semantic.caster, d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		import d.semantic.caster, d.semantic.expression, d.ir.expression;
+		auto size = cast(IntegerLiteral!false) evaluate(buildImplicitCast(
+			pass,
+			t.size.location,
+			pass.object.getSizeT().type,
+			ExpressionVisitor(pass).visit(t.size),
+		));
 		
-		import d.ir.expression;
-		auto size = (cast(IntegerLiteral!false) evaluate(buildImplicitCast(pass, t.size.location, pass.object.getSizeT().type, ev.visit(t.size)))).value;
+		assert(size);
 		
-		return QualType(new ArrayType(elementType, size));
+		return QualType(new ArrayType(elementType, size.value));
 	}
 	
-	QualType visit(TypeQualifier q, AstFunctionType t) {
+	QualType visit(AstFunctionType t) {
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		qualifier = TypeQualifier.Mutable;
+		
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), q);
+		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), oldQualifier);
 	}
 	
-	QualType visit(TypeQualifier q, AstDelegateType t) {
-		auto returnType = visit(t.returnType);
+	QualType visit(AstDelegateType t) {
 		auto context = visit(t.context);
+		
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
+		
+		qualifier = TypeQualifier.Mutable;
+		
+		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), q);
+		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), oldQualifier);
 	}
 	
-	QualType visit(TypeQualifier q, IdentifierType t) {
+	QualType visit(IdentifierType t) {
 		import d.semantic.identifier;
 		return SymbolResolver!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				return QualType(identified.type, q.add(identified.qualifier));
+				// FIXME: turtle down type qualifier
+				return identified;
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
 			}
 		})(pass).visit(t.identifier);
-	}
-	
-	// XXX: Hack for struct constructor. Should go away.
-	QualType visit(TypeQualifier q, StructType t) {
-		return QualType(t, q);
 	}
 }
 

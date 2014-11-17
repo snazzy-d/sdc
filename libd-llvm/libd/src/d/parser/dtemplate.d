@@ -13,7 +13,7 @@ import d.parser.type;
 
 import std.range;
 
-auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Template);
 	
@@ -25,7 +25,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange
 	
 	location.spanTo(declarations.back.location);
 	
-	return new TemplateDeclaration(location, name, parameters, declarations);
+	return new TemplateDeclaration(location, stc, name, parameters, declarations);
 }
 
 auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
