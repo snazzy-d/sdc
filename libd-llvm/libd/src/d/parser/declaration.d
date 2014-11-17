@@ -44,298 +44,22 @@ auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) 
 Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 	Location location = trange.front.location;
 	
-	auto handleStorageClass(StorageClassDeclaration, U...)(U arguments) {
-		Declaration[] declarations;
-		switch(trange.front.type) with(TokenType) {
-			case OpenBrace :
-				declarations = trange.parseAggregate();
-				break;
-			
-			case Colon :
-				trange.popFront();
-				declarations = trange.parseAggregate!false();
-				break;
-			
-			default :
-				declarations = [trange.parseDeclaration()];
-				break;
-		}
-		
-		location.spanTo(trange.front.location);
-		return new StorageClassDeclaration(location, arguments, declarations);
-	}
-	
+	// First, declarations that do not support storage classes.
 	switch(trange.front.type) with(TokenType) {
-		case Auto :
-			trange.popFront();
-			
-			return trange.parseTypedDeclaration(location, QualAstType(new AutoType()));
-		
-		/*
-		 * Type qualifiers
-		 */
-		case Const :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			if(lookahead.front.type == Identifier) {
-				lookahead.popFront();
-				if(lookahead.front.type == Assign) {
-					trange.popFront();
-					
-					return handleStorageClass!ConstDeclaration();
-				}
-			}
-			
-			goto default;
-		
-		case Immutable :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			if(lookahead.front.type == Identifier) {
-				lookahead.popFront();
-				if(lookahead.front.type == Assign) {
-					trange.popFront();
-					
-					return handleStorageClass!ImmutableDeclaration();
-				}
-			}
-			
-			goto default;
-		
-		case Inout :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			if(lookahead.front.type == Identifier) {
-				lookahead.popFront();
-				if(lookahead.front.type == Assign) {
-					trange.popFront();
-					
-					return handleStorageClass!InoutDeclaration();
-				}
-			}
-			
-			goto default;
-		
-		case Shared :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			if(lookahead.front.type == Identifier) {
-				lookahead.popFront();
-				if(lookahead.front.type == Assign) {
-					trange.popFront();
-					
-					return handleStorageClass!SharedDeclaration();
-				}
-			}
-			
-			goto default;
-		
-		/*
-		 * Storage class
-		 */
-		case Abstract :
-			trange.popFront();
-			
-			return handleStorageClass!AbstractDeclaration();
-		
-		case Deprecated :
-			trange.popFront();
-			
-			return handleStorageClass!DeprecatedDeclaration();
-		
-		case Nothrow :
-			trange.popFront();
-			
-			return handleStorageClass!NothrowDeclaration();
-		
-		case Override :
-			trange.popFront();
-			
-			return handleStorageClass!OverrideDeclaration();
-		
-		case Pure :
-			trange.popFront();
-			
-			return handleStorageClass!PureDeclaration();
-		
 		case Static :
 			// Handle static if.
-			// TODO: handle static assert.
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			if(lookahead.front.type == If) {
 				return trange.parseStaticIf!Declaration();
 			}
 			
-			trange.popFront();
-			return handleStorageClass!StaticDeclaration();
+			// TODO: handle static assert.
+			break;
 		
-		case Synchronized :
-			trange.popFront();
-			
-			return handleStorageClass!SynchronizedDeclaration();
-		
-		case __Gshared :
-			trange.popFront();
-			
-			return handleStorageClass!__GsharedDeclaration();
-		
-		/*
-		 * Visibility declaration
-		 */
-		case Private :
-			trange.popFront();
-			return handleStorageClass!VisibilityDeclaration(Visibility.Private);
-		
-		case Package :
-			trange.popFront();
-			return handleStorageClass!VisibilityDeclaration(Visibility.Package);
-		
-		case Protected :
-			trange.popFront();
-			return handleStorageClass!VisibilityDeclaration(Visibility.Protected);
-		
-		case Public :
-			trange.popFront();
-			return handleStorageClass!VisibilityDeclaration(Visibility.Public);
-		
-		case Export :
-			trange.popFront();
-			return handleStorageClass!VisibilityDeclaration(Visibility.Export);
-		
-		/*
-		 * Linkage
-		 */
-		case Extern :
-			trange.popFront();
-			trange.match(OpenParen);
-			auto linkageName = trange.front.name;
-			trange.match(Identifier);
-			
-			Linkage linkage;
-			if (linkageName == BuiltinName!"D") {
-				linkage = Linkage.D;
-			} else if (linkageName == BuiltinName!"C") {
-				// TODO: C++
-				linkage = Linkage.C;
-			} else {
-				assert(0, "Linkage not supported : " ~ linkageName.toString(trange.context));
-			}		
-				
-			trange.match(CloseParen);
-			
-			return handleStorageClass!LinkageDeclaration(linkage);
-		
-		/**
-		 * Attributes
-		 */
-		case At :
-			trange.popFront();
-			auto attribute = trange.front.name;
-			trange.match(Identifier);
-			
-			return handleStorageClass!AttributeDeclaration(attribute);
-		
-		/*
-		 * Class, interface, struct and union declaration
-		 */
-		case Interface :
-			return trange.parseInterface();
-		
-		case Class :
-			return trange.parseClass();
-		
-		case Struct :
-			return trange.parseStruct();
-		
-		case Union :
-			return trange.parseUnion();
-		
-		/*
-		 * Constructor and destructor
-		 */
-		case This :
-			return trange.parseConstructor();
-		
-		case Tilde :
-			return trange.parseDestructor();
-		
-		/*
-		 * Enum
-		 */
-		case Enum :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			
-			QualAstType type;
-			
-			// Determine if we are in case of manifest constant or regular enum.
-			switch(lookahead.front.type) {
-				case Colon :
-				case OpenBrace :
-					// FIXME: this is manifest constant !
-					return trange.parseEnum();
-				
-				case Identifier :
-					lookahead.popFront();
-					switch(lookahead.front.type) {
-						case Colon, OpenBrace :
-							return trange.parseEnum();
-						
-						// Auto manifest constant declaration.
-						case Assign :
-							trange.popFront();
-							type = QualAstType(new AutoType());
-							
-							break;
-						
-						// We didn't recognize regular enums or manifest auto constant. Let's fallback to manifest typed constant.
-						default :
-							trange.popFront();
-							type = trange.parseType();
-							break;
-					}
-					
-					break;
-				
-				default :
-					trange.popFront();
-					type = trange.parseType();
-					break;
-			}
-			
-			assert(type.type);
-			// TODO: implement a correct way to pass declaration state down the parser.
-			auto vs = cast(VariablesDeclaration) trange.parseTypedDeclaration(location, type);
-			assert(vs);
-			
-			foreach(v; vs.variables) {
-				v.isEnum = true;
-			}
-			
-			return vs;
-		
-		/*
-		 * Template
-		 */
-		case Template :
-			return trange.parseTemplate();
-		
-		/*
-		 * Import
-		 */
 		case Import :
 			return trange.parseImport();
 		
-		/**
-		 * Alias
-		 */
-		case Alias :
-			return trange.parseAlias();
-		
-		/*
-		 * Conditional compilation
-		 */
 		case Version :
 			return trange.parseVersion!Declaration();
 		
@@ -345,16 +69,245 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		case Mixin :
 			return trange.parseMixin!Declaration();
 		
+		default :
+			break;
+	}
+	
+	auto qualifier = TypeQualifier.Mutable;
+	StorageClass stc = defaultStorageClass;
+
+	StorageClassLoop: while(true) {
+		switch(trange.front.type) with(TokenType) {
+			case Const :
+				qualifier = TypeQualifier.Const;
+				goto HandleTypeQualifier;
+			
+			case Immutable :
+				qualifier = TypeQualifier.Immutable;
+				goto HandleTypeQualifier;
+			
+			case Inout :
+				qualifier = TypeQualifier.Inout;
+				goto HandleTypeQualifier;
+			
+			case Shared :
+				qualifier = TypeQualifier.Shared;
+				goto HandleTypeQualifier;
+			
+			HandleTypeQualifier: {
+				auto lookahead = trange.save;
+				lookahead.popFront();
+				if (lookahead.front.type == OpenParen) {
+					// This is a type not a storage class.
+					break StorageClassLoop;
+				}
+				
+				// We have a qualifier(type) name type of declaration.
+				stc.hasQualifier = true;
+				stc.qualifier = stc.qualifier.add(qualifier);
+				goto HandleStorageClass;
+			}
+			
+			case Abstract :
+				stc.isAbstract = true;
+				goto HandleStorageClass;
+			
+			case Deprecated :
+				stc.isDeprecated = true;
+				goto HandleStorageClass;
+			
+			case Nothrow :
+				stc.isNoThrow = true;
+				goto HandleStorageClass;
+			
+			case Override :
+				stc.isOverride = true;
+				goto HandleStorageClass;
+			
+			case Pure :
+				stc.isPure = true;
+				goto HandleStorageClass;
+			
+			case Static :
+				stc.isStatic = true;
+				goto HandleStorageClass;
+			
+			case Synchronized :
+				stc.isSynchronized = true;
+				goto HandleStorageClass;
+			
+			case __Gshared :
+				stc.isGshared = true;
+				goto HandleStorageClass;
+			
+			case Private :
+				stc.hasVisibility = true;
+				stc.visibility = Visibility.Private;
+				goto HandleStorageClass;
+			
+			case Package :
+				stc.hasVisibility = true;
+				stc.visibility = Visibility.Package;
+				goto HandleStorageClass;
+			
+			case Protected :
+				stc.hasVisibility = true;
+				stc.visibility = Visibility.Protected;
+				goto HandleStorageClass;
+			
+			case Public :
+				stc.hasVisibility = true;
+				stc.visibility = Visibility.Public;
+				goto HandleStorageClass;
+			
+			case Export :
+				stc.hasVisibility = true;
+				stc.visibility = Visibility.Export;
+				goto HandleStorageClass;
+			
+			HandleStorageClass:
+				trange.popFront();
+				break;
+			
+			case Extern :
+				trange.popFront();
+				trange.match(OpenParen);
+				auto linkageName = trange.front.name;
+				trange.match(Identifier);
+				
+				stc.hasLinkage = true;
+				if (linkageName == BuiltinName!"D") {
+					stc.linkage = Linkage.D;
+				} else if (linkageName == BuiltinName!"C") {
+					// TODO: C++
+					stc.linkage = Linkage.C;
+				} else if (linkageName == BuiltinName!"Windows") {
+					stc.linkage = Linkage.Windows;
+				} else if (linkageName == BuiltinName!"System") {
+					stc.linkage = Linkage.System;
+				} else if (linkageName == BuiltinName!"Pascal") {
+					stc.linkage = Linkage.Pascal;
+				} else if (linkageName == BuiltinName!"Java") {
+					stc.linkage = Linkage.Java;
+				} else {
+					assert(0, "Linkage not supported : " ~ linkageName.toString(trange.context));
+				}
+				
+				trange.match(CloseParen);
+				break;
+			
+			// Enum is a bit of a strange beast. half storage class, half declaration itself.
+			case Enum :
+				stc.isEnum = true;
+				
+				auto lookahead = trange.save;
+				lookahead.popFront();
+				
+				switch(lookahead.front.type) {
+					// enum : and enum { are special construct,
+					// not classic storage class declaration.
+					case Colon, OpenBrace :
+						return trange.parseEnum(stc);
+					
+					case Identifier :
+						lookahead.popFront();
+						switch(lookahead.front.type) {
+							// Named verion of the above.
+							case Colon, OpenBrace :
+								return trange.parseEnum(stc);
+							
+							default:
+								break;
+						}
+						
+						break;
+					
+					default :
+						break;
+				}
+				
+				goto HandleStorageClass;
+			
+			/**
+			 * Attributes
+			 */
+			/+
+			case At :
+				trange.popFront();
+				auto attribute = trange.front.name;
+				trange.match(Identifier);
+				
+				return handleStorageClass!AttributeDeclaration(attribute);
+			// +/
+			default:
+				break StorageClassLoop;
+		}
+		
+		switch(trange.front.type) with(TokenType) {
+			case Identifier:
+				auto lookahead = trange.save;
+				lookahead.popFront();
+				if (lookahead.front.type == Assign) {
+					return trange.parseTypedDeclaration(location, stc, QualAstType(new AutoType()));
+				}
+				
+				break StorageClassLoop;
+			
+			case Colon :
+				trange.popFront();
+				auto declarations = trange.parseAggregate!false();
+				
+				location.spanTo(trange.front.location);
+				return new GroupDeclaration(location, stc, declarations);
+			
+			case OpenBrace :
+				auto declarations = trange.parseAggregate();
+				
+				location.spanTo(trange.front.location);
+				return new GroupDeclaration(location, stc, declarations);
+			
+			default :
+				break;
+		}
+	}
+	
+	switch(trange.front.type) with(TokenType) {
+		// XXX: auto as a storage class ?
+		case Auto :
+			trange.popFront();
+			return trange.parseTypedDeclaration(location, stc, QualAstType(new AutoType()));
+		
+		case Interface :
+			return trange.parseInterface(stc);
+		
+		case Class :
+			return trange.parseClass(stc);
+		
+		case Struct :
+			return trange.parseStruct(stc);
+		
+		case Union :
+			return trange.parseUnion(stc);
+		
+		case This :
+			return trange.parseConstructor(stc);
+		
+		case Tilde :
+			return trange.parseDestructor(stc);
+		
+		case Template :
+			return trange.parseTemplate(stc);
+		
+		case Alias :
+			return trange.parseAlias(stc);
+		
 		case Unittest :
 			trange.popFront();
 			trange.parseBlock();
 			assert(0, "unittest not supported");
 		
-		/*
-		 * Variable and function declarations
-		 */
 		default :
-			return trange.parseTypedDeclaration(location);
+			return trange.parseTypedDeclaration(location, stc);
 	}
 	
 	assert(0);
@@ -364,14 +317,14 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
  * Parse type identifier ... declarations.
  * Function/variables.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location) if(isTokenRange!R) {
-	return trange.parseTypedDeclaration(location, trange.parseType());
+Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc) if(isTokenRange!R) {
+	return trange.parseTypedDeclaration(location, stc, trange.parseType());
 }
 
 /**
  * Parse a declaration when you already have its type.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstType type) if(isTokenRange!R) {
+Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc, QualAstType type) if(isTokenRange!R) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if(lookahead.front.type == TokenType.OpenParen) {
@@ -385,12 +338,11 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 		}
 		
 		// TODO: implement ref return.
-		return trange.parseFunction(location, Linkage.D, ParamAstType(type, false), name);
+		return trange.parseFunction(location, stc, ParamAstType(type, false), name);
 	} else {
-		VariableDeclaration[] variables;
+		Declaration[] variables;
 		
-		// Variables declaration.
-		void parseVariableDeclaration() {
+		while(true) {
 			auto name = trange.front.name;
 			Location variableLocation = trange.front.location;
 			trange.match(TokenType.Identifier);
@@ -398,44 +350,43 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, QualAstTyp
 			AstExpression value;
 			if(trange.front.type == TokenType.Assign) {
 				trange.popFront();
-				
 				value = trange.parseInitializer();
-				
 				variableLocation.spanTo(value.location);
 			}
 			
-			variables ~= new VariableDeclaration(location, type, name, value);
-		}
-		
-		parseVariableDeclaration();
-		while(trange.front.type == TokenType.Comma) {
-			trange.popFront();
+			variables ~= new VariableDeclaration(location, stc, type, name, value);
 			
-			parseVariableDeclaration();
+			if (trange.front.type != TokenType.Comma) {
+				break;
+			}
+			
+			trange.popFront();
 		}
 		
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.Semicolon);
 		
-		return new VariablesDeclaration(location, variables);
+		return new GroupDeclaration(location, stc, variables);
 	}
 }
 
-private Declaration parseConstructor(R)(ref R trange) {
+// XXX: one callsite, remove
+private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
 	import d.ir.type, d.context;
-	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__ctor");
+	return trange.parseFunction(location, stc, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__ctor");
 }
 
-private Declaration parseDestructor(R)(ref R trange) {
+// XXX: one callsite, remove
+private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
 	import d.ir.type, d.context;
-	return trange.parseFunction(location, Linkage.D, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__dtor");
+	return trange.parseFunction(location, stc, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__dtor");
 }
 
 /**
@@ -443,7 +394,7 @@ private Declaration parseDestructor(R)(ref R trange) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-private Declaration parseFunction(R)(ref R trange, Location location, Linkage linkage, ParamAstType returnType, Name name) {
+private Declaration parseFunction(R)(ref R trange, Location location, StorageClass stc, ParamAstType returnType, Name name) {
 	// Function declaration.
 	bool isVariadic;
 	AstTemplateParameter[] tplParameters;
@@ -467,22 +418,21 @@ private Declaration parseFunction(R)(ref R trange, Location location, Linkage li
 		}
 	}
 	
-	// TODO: parse function attributes
-	// Parse function attributes
-	FunctionAttributeLoop : while(1) {
+	// FIXME: do something with delegate attributes
+	DelegateAttributeLoop : while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Pure, Const, Immutable, Inout, Shared, Nothrow :
 				trange.popFront();
 				break;
-			
+			/+
 			case At :
 				// FIXME: Do something with attributes.
 				trange.popFront();
 				trange.match(Identifier);
 				break;
-			
+			+/
 			default :
-				break FunctionAttributeLoop;
+				break DelegateAttributeLoop;
 		}
 	}
 	
@@ -536,10 +486,10 @@ private Declaration parseFunction(R)(ref R trange, Location location, Linkage li
 			assert(0);
 	}
 	
-	auto fun = new FunctionDeclaration(location, linkage, returnType, name, parameters, isVariadic, fbody);
+	auto fun = new FunctionDeclaration(location, stc, returnType, name, parameters, isVariadic, fbody);
 	
 	if(isTemplate) {
-		return new TemplateDeclaration(location, fun.name, tplParameters, [fun]);
+		return new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun]);
 	} else {
 		return fun;
 	}
@@ -585,7 +535,8 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 	return parameters;
 }
 
-private auto parseParameter(R)(ref R trange) {
+private:
+auto parseParameter(R)(ref R trange) {
 	bool isRef;
 	
 	// TODO: parse storage class
@@ -631,7 +582,7 @@ private auto parseParameter(R)(ref R trange) {
 /**
  * Parse alias declaration
  */
-private Declaration parseAlias(R)(ref R trange) {
+Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
@@ -650,14 +601,15 @@ private Declaration parseAlias(R)(ref R trange) {
 			
 			import d.ast.type;
 			static if(is(type : QualAstType)) {
-				return new TypeAliasDeclaration(location, name, parsed);
+				return new TypeAliasDeclaration(location, stc, name, parsed);
 			} else static if(is(type : AstExpression)) {
-				return new ValueAliasDeclaration(location, name, parsed);
+				return new ValueAliasDeclaration(location, stc, name, parsed);
 			} else {
-				return new IdentifierAliasDeclaration(location, name, parsed);
+				return new IdentifierAliasDeclaration(location, stc, name, parsed);
 			}
 		})();
 	} else if(trange.front.type == TokenType.This) {
+		// FIXME: move this before storage class parsing.
 		trange.popFront();
 		location.spanTo(trange.front.location);
 		trange.match(TokenType.Semicolon);
@@ -672,7 +624,7 @@ private Declaration parseAlias(R)(ref R trange) {
 /**
  * Parse import declaration
  */
-private auto parseImport(TokenRange)(ref TokenRange trange) {
+auto parseImport(TokenRange)(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Import);
 	
@@ -705,7 +657,7 @@ private auto parseImport(TokenRange)(ref TokenRange trange) {
 /**
  * Parse Initializer
  */
-private auto parseInitializer(TokenRange)(ref TokenRange trange) {
+auto parseInitializer(TokenRange)(ref TokenRange trange) {
 	if(trange.front.type == TokenType.Void) {
 		auto location = trange.front.location;
 		

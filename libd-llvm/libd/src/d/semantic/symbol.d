@@ -277,7 +277,12 @@ struct SymbolAnalyzer {
 			value = ev.visit(d.value);
 			v.type = value.type;
 		} else {
-			auto type = v.type = tv.visit(d.type);
+			auto q = d.type.qualifier;
+			if (d.storageClass.hasQualifier) {
+				q = q.add(d.storageClass.qualifier);
+			}
+			
+			auto type = v.type = tv.visit(q, d.type);
 			if (d.value) {
 				value = ev.visit(d.value);
 			} else {
@@ -289,11 +294,11 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if(d.isEnum) {
+		if(d.storageClass.isEnum) {
 			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.storage.isStatic) {
+		if(v.storage.isNonLocal) {
 			value = evaluate(value);
 		}
 		
@@ -305,8 +310,7 @@ struct SymbolAnalyzer {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
-			auto mangler = TypeMangler(pass);
-			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangler.visit(v.type);
+			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ TypeMangler(pass).visit(v.type);
 		}
 		
 		v.step = Step.Processed;

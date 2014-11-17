@@ -17,18 +17,18 @@ import d.parser.type;
 /**
  * Parse class
  */
-auto parseClass(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	return trange.parsePolymorphic!true();
+auto parseClass(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+	return trange.parsePolymorphic!true(stc);
 }
 
 /**
  * Parse interface
  */
-auto parseInterface(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	return trange.parsePolymorphic!false();
+auto parseInterface(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+	return trange.parsePolymorphic!false(stc);
 }
 
-private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenRange trange) {
+private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
 	
 	static if(isClass) {
@@ -65,10 +65,10 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 	
 	location.spanTo(trange.front.location);
 	
-	auto adt = new DeclarationType(location, name, bases, members);
+	auto adt = new DeclarationType(location, stc, name, bases, members);
 	
 	if(parameters.ptr) {
-		return new TemplateDeclaration(location, name, parameters, [adt]);
+		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 	} else {
 		return adt;
 	}
@@ -77,18 +77,18 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 /**
  * Parse struct
  */
-auto parseStruct(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	return trange.parseMonomorphic!true();
+auto parseStruct(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+	return trange.parseMonomorphic!true(stc);
 }
 
 /**
  * Parse union
  */
-auto parseUnion(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
-	return trange.parseMonomorphic!false();
+auto parseUnion(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+	return trange.parseMonomorphic!false(stc);
 }
 
-private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref TokenRange trange) {
+private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
 	
 	static if(isStruct) {
@@ -134,10 +134,10 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 	
 	location.spanTo(trange.front.location);
 	
-	auto adt = new DeclarationType(location, name, members);
+	auto adt = new DeclarationType(location, stc, name, members);
 	
 	if(parameters.ptr) {
-		return new TemplateDeclaration(location, name, parameters, [adt]);
+		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 	} else {
 		return adt;
 	}
@@ -146,7 +146,9 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 /**
  * Parse enums
  */
-Declaration parseEnum(TokenRange)(ref TokenRange trange) {
+Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
+	assert(stc.isEnum == true);
+} body {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	
@@ -206,7 +208,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 			// entryLocation.spanTo(entryValue.location);
 		}
 		
-		enumEntries ~= new VariableDeclaration(entryLocation, type, entryName, entryValue);
+		enumEntries ~= new VariableDeclaration(entryLocation, stc, type, entryName, entryValue);
 		
 		// If it is not a comma, then we abort the loop.
 		if(trange.front.type != TokenType.Comma) break;
@@ -217,6 +219,6 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange) {
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.CloseBrace);
 	
-	return new EnumDeclaration(location, name, type, enumEntries);
+	return new EnumDeclaration(location, stc, name, type, enumEntries);
 }
 
