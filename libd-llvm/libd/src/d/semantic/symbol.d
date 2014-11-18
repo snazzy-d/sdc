@@ -3,6 +3,7 @@ module d.semantic.symbol;
 import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.semantic;
+import d.semantic.type;
 
 import d.ast.base;
 import d.ast.declaration;
@@ -74,15 +75,8 @@ struct SymbolAnalyzer {
 	
 	alias Step = SemanticPass.Step;
 	
-	// TODO: see if we can make a union  of pass + visitors with the
-	// correct static checks in place to ensure it is safe and won't break.
-	import d.semantic.type;
-	private TypeVisitor tv;
-	
 	this(SemanticPass pass) {
 		this.pass = pass;
-		
-		tv = TypeVisitor(pass);
 	}
 	
 	void analyze(AstModule astm, Module m) {
@@ -122,7 +116,7 @@ struct SymbolAnalyzer {
 	
 	void analyze(FunctionDeclaration fd, Function f) {
 		auto params = f.params = fd.params.map!((p) {
-			auto t = tv.visit(p.type);
+			auto t = TypeVisitor(pass).visit(p.type);
 			
 			Expression v;
 			if (p.value) {
@@ -191,7 +185,9 @@ struct SymbolAnalyzer {
 			}
 			
 			isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
-			returnType = isAuto ? ParamType(getBuiltin(TypeKind.None), false) : tv.visit(fd.returnType);
+			returnType = isAuto
+				? ParamType(getBuiltin(TypeKind.None), false)
+				: TypeVisitor(pass).visit(fd.returnType);
 			
 			// Compute return type.
 			if(isAuto) {
@@ -269,22 +265,21 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(VariableDeclaration d, Variable v) {
-		import d.semantic.expression : ExpressionVisitor;
-		auto ev = ExpressionVisitor(pass);
+		auto stc = d.storageClass;
 		
 		Expression value;
 		if(typeid({ return d.type.type; }()) is typeid(AutoType)) {
-			value = ev.visit(d.value);
+			// XXX: remove selective import when dmd is sane.
+			import d.semantic.expression : ExpressionVisitor;
+			value = ExpressionVisitor(pass).visit(d.value);
 			v.type = value.type;
 		} else {
-			auto q = d.type.qualifier;
-			if (d.storageClass.hasQualifier) {
-				q = q.add(d.storageClass.qualifier);
-			}
+			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 			
-			auto type = v.type = tv.visit(q, d.type);
 			if (d.value) {
-				value = ev.visit(d.value);
+				// XXX: remove selective import when dmd is sane.
+				import d.semantic.expression : ExpressionVisitor;
+				value = ExpressionVisitor(pass).visit(d.value);
 			} else {
 				import d.semantic.defaultinitializer;
 				value = InitBuilder(pass, v.location).visit(type);
@@ -294,7 +289,7 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if(d.storageClass.isEnum) {
+		if(stc.isEnum) {
 			assert(v.storage == Storage.Enum);
 		}
 		
@@ -302,6 +297,7 @@ struct SymbolAnalyzer {
 			value = evaluate(value);
 		}
 		
+		assert(value);
 		v.value = value;
 		
 		auto name = v.name.toString(context);
@@ -353,7 +349,7 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(TypeAliasDeclaration d, TypeAlias a) {
-		a.type = tv.visit(d.type);
+		a.type = TypeVisitor(pass).visit(d.type);
 		
 		import d.semantic.mangler;
 		a.mangle = TypeMangler(pass).visit(a.type);
@@ -362,10 +358,9 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
+		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		auto ev = ExpressionVisitor(pass);
-		
-		a.value = evaluate(ev.visit(d.value));
+		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
 		
 		import d.semantic.mangler;
 		a.mangle = TypeMangler(pass).visit(a.value.type) ~ ValueMangler(pass).visit(a.value);
@@ -666,7 +661,7 @@ struct SymbolAnalyzer {
 		
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
-		e.type = tv.visit(d.type).type;
+		e.type = TypeVisitor(pass).visit(d.type).type;
 		auto type = new EnumType(e);
 		
 		TypeKind kind;
@@ -747,8 +742,8 @@ struct SymbolAnalyzer {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
 				currentScope.addSymbol(tp);
 				
-				tp.specialization = tv.visit(atp.specialization);
-				tp.defaultValue = tv.visit(atp.defaultValue);
+				tp.specialization = TypeVisitor(pass).visit(atp.specialization);
+				tp.defaultValue = TypeVisitor(pass).visit(atp.defaultValue);
 				
 				tp.step = Step.Signed;
 				t.parameters[i] = tp;
@@ -756,7 +751,7 @@ struct SymbolAnalyzer {
 				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none);
 				currentScope.addSymbol(vp);
 				
-				vp.type = tv.visit(avp.type);
+				vp.type = TypeVisitor(pass).visit(avp.type);
 				
 				vp.step = Step.Signed;
 				t.parameters[i] = vp;
@@ -770,7 +765,7 @@ struct SymbolAnalyzer {
 				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
 				currentScope.addSymbol(tap);
 				
-				tap.type = tv.visit(atap.type);
+				tap.type = TypeVisitor(pass).visit(atap.type);
 				
 				tap.step = Step.Signed;
 				t.parameters[i] = tap;
@@ -788,7 +783,7 @@ struct SymbolAnalyzer {
 					continue;
 				}
 				
-				t.ifti = fun.params.map!(p => tv.visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
+				t.ifti = fun.params.map!(p => TypeVisitor(pass).visit(p.type)).map!(t => QualType(t.type, t.qualifier)).array();
 				break;
 			}
 		}
