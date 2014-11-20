@@ -30,16 +30,16 @@ enum Storage {
 }
 
 @property
-bool isStatic(Storage s) {
+bool isNonLocal(Storage s) {
 	return s > Storage.Capture;
 }
 
 unittest {
 	with(Storage) {
-		assert(Local.isStatic   == false);
-		assert(Capture.isStatic == false);
-		assert(Static.isStatic  == true);
-		assert(Enum.isStatic    == true);
+		assert(Local.isNonLocal   == false);
+		assert(Capture.isNonLocal == false);
+		assert(Static.isNonLocal  == true);
+		assert(Enum.isNonLocal    == true);
 	}
 }
 
@@ -74,19 +74,21 @@ unittest {
 		}
 	}
 	
-	assert(TypeQualifier.Const.add(TypeQualifier.Immutable) == TypeQualifier.Immutable);
-	assert(TypeQualifier.Const.add(TypeQualifier.Inout) == TypeQualifier.Const);
-	assert(TypeQualifier.Const.add(TypeQualifier.Shared) == TypeQualifier.ConstShared);
-	assert(TypeQualifier.Const.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
-	
-	assert(TypeQualifier.Immutable.add(TypeQualifier.Inout) == TypeQualifier.Immutable);
-	assert(TypeQualifier.Immutable.add(TypeQualifier.Shared) == TypeQualifier.Immutable);
-	assert(TypeQualifier.Immutable.add(TypeQualifier.ConstShared) == TypeQualifier.Immutable);
-	
-	// assert(TypeQualifier.Inout.add(TypeQualifier.Shared) == TypeQualifier.ConstShared);
-	assert(TypeQualifier.Inout.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
-	
-	assert(TypeQualifier.Shared.add(TypeQualifier.ConstShared) == TypeQualifier.ConstShared);
+	with(TypeQualifier) {
+		assert(Const.add(Immutable) == Immutable);
+		assert(Const.add(Inout) == Const);
+		assert(Const.add(Shared) == ConstShared);
+		assert(Const.add(ConstShared) == ConstShared);
+		
+		assert(Immutable.add(Inout) == Immutable);
+		assert(Immutable.add(Shared) == Immutable);
+		assert(Immutable.add(ConstShared) == Immutable);
+		
+		// assert(Inout.add(Shared) == ConstShared);
+		assert(Inout.add(ConstShared) == ConstShared);
+		
+		assert(Shared.add(ConstShared) == ConstShared);
+	}
 }
 
 bool canConvert(TypeQualifier from, TypeQualifier to) {

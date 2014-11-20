@@ -112,12 +112,13 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 			auto location = trange.front.location;
 			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
 				static if(is(typeof(parsed) : QualAstType)) {
-					return trange.parseTypedDeclaration(location, parsed);
+					return trange.parseTypedDeclaration(location, defaultStorageClass, parsed);
 				} else static if(is(typeof(parsed) : AstExpression)) {
 					return parsed;
 				} else {
+					// Identifier follow by another identifier is a declaration.
 					if(trange.front.type == TokenType.Identifier) {
-						return trange.parseTypedDeclaration(location, QualAstType(new IdentifierType(parsed)));
+						return trange.parseTypedDeclaration(location, defaultStorageClass, QualAstType(new IdentifierType(parsed)));
 					} else {
 						return new IdentifierExpression(parsed);
 					}

@@ -270,22 +270,25 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(FunctionDeclaration d) {
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+		
 		Function f;
 		
-		auto isStatic = storage.isStatic;
+		auto isStatic = storage.isNonLocal;
 		if(isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
 			f = new Function(d.location, null, d.name, [], null);
 		} else {
 			uint index = 0;
-			if(!isOverride) {
+			if (!isOverride && !stc.isOverride) {
 				index = ++methodIndex;
 			}
 			
 			f = new Method(d.location, index, null, d.name, [], null);
 		}
 		
-		f.linkage = linkage;
-		f.visibility = visibility;
+		f.linkage = getLinkage(stc);
+		f.visibility = getVisibility(stc);
 		f.storage = Storage.Enum;
 		
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
@@ -296,27 +299,22 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(VariableDeclaration d) {
-		auto storage = d.isEnum ? Storage.Enum : this.storage;
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
 		
 		Variable v;
-		if(storage.isStatic || aggregateType == AggregateType.None) {
+		if(storage.isNonLocal || aggregateType == AggregateType.None) {
 			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
 		}
 		
-		v.linkage = linkage;
-		v.visibility = visibility;
+		v.linkage = getLinkage(stc);
+		v.visibility = getVisibility(stc);
 		v.storage = storage;
 		
 		addSymbol(v);
 		select(d, v);
-	}
-	
-	void visit(VariablesDeclaration d) {
-		foreach(var; d.variables) {
-			visit(var);
-		}
 	}
 	
 	void visit(StructDeclaration d) {
@@ -325,7 +323,7 @@ struct DeclarationVisitor {
 		s.visibility = visibility;
 		s.storage = storage;
 		
-		s.hasContext = storage.isStatic ? false : !!addContext;
+		s.hasContext = storage.isNonLocal ? false : !!addContext;
 		
 		addSymbol(s);
 		select(d, s);
@@ -337,7 +335,7 @@ struct DeclarationVisitor {
 		c.visibility = visibility;
 		c.storage = storage;
 		
-		c.hasContext = storage.isStatic ? false : !!addContext;
+		c.hasContext = storage.isNonLocal ? false : !!addContext;
 		
 		addSymbol(c);
 		select(d, c);
@@ -438,48 +436,60 @@ struct DeclarationVisitor {
 		as.aliasThis ~= d.name;
 	}
 	
-	void visit(LinkageDeclaration d) {
-		auto oldLinkage = linkage;
-		scope(exit) linkage = oldLinkage;
-		
-		linkage = d.linkage;
-		
-		foreach(decl; d.declarations) {
-			visit(decl);
-		}
-	}
-	
-	void visit(StaticDeclaration d) {
+	void visit(GroupDeclaration d) {
 		auto oldStorage = storage;
-		scope(exit) storage = oldStorage;
-		
-		storage = Storage.Static;
-		
-		foreach(decl; d.declarations) {
-			visit(decl);
-		}
-	}
-	
-	void visit(OverrideDeclaration d) {
-		auto oldIsOverride = isOverride;
-		scope(exit) isOverride = oldIsOverride;
-		
-		isOverride = true;
-		
-		foreach(decl; d.declarations) {
-			visit(decl);
-		}
-	}
-	
-	void visit(VisibilityDeclaration d) {
 		auto oldVisibility = visibility;
-		scope(exit) visibility = oldVisibility;
+		auto oldLinkage = linkage;
+		auto oldIsOverride = isOverride;
+		scope(exit) {
+			storage = oldStorage;
+			visibility = oldVisibility;
+			linkage = oldLinkage;
+			isOverride = oldIsOverride;
+		}
 		
-		visibility = d.visibility;
+		auto stc = d.storageClass;
+		
+		storage = getStorage(stc);
+		// qualifier = getQualifier(stc);
+		visibility = getVisibility(stc);
+		linkage = getLinkage(stc);
+		
+		isOverride = isOverride || stc.isOverride;
 		
 		foreach(decl; d.declarations) {
 			visit(decl);
 		}
+	}
+	
+	private Storage getStorage(StorageClass stc) {
+		if (stc.isStatic && stc.isEnum) {
+			assert(0, "cannot be static AND enum");
+		} else if(stc.isStatic) {
+			return Storage.Static;
+		} else if(stc.isEnum) {
+			return Storage.Enum;
+		}
+		
+		return storage;
+	}
+	/+
+	private TypeQualifier getQualifier(StorageClass stc) {
+		return stc.hasQualifier
+			? qualifier.add(stc.qualifier)
+			: qualifier;
+	}
+	+/
+	private Visibility getVisibility(StorageClass stc) {
+		return stc.hasVisibility
+			? stc.visibility
+			: visibility;
+	}
+	
+	private Linkage getLinkage(StorageClass stc) {
+		return stc.hasLinkage
+			? stc.linkage
+			: linkage;
 	}
 	
 	void visit(ImportDeclaration d) {

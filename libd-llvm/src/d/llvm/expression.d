@@ -744,7 +744,19 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		auto fields = e.values.map!(v => visit(v)).array();
-		return LLVMConstNamedStruct(pass.visit(e.type), fields.ptr, cast(uint) fields.length);
+		auto t = pass.visit(e.type);
+		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
+			case Struct :
+				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
+			
+			case Array :
+				return LLVMConstArray(LLVMGetElementType(t), fields.ptr, cast(uint) fields.length);
+			
+			default :
+				break;
+		}
+		
+		assert(0, "Invalid type tuple.");
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {

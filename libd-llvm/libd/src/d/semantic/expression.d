@@ -6,7 +6,6 @@ import d.semantic.semantic;
 import d.semantic.typepromotion;
 
 import d.ast.base;
-import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
@@ -872,8 +871,7 @@ struct ExpressionVisitor {
 		return new PolysemousExpression(location, exprs);
 	}
 	
-	// XXX: get rid of that import ?
-	import d.ast.statement;
+	import d.ast.declaration, d.ast.statement;
 	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		// FIXME: can still collide with mixins, but that should rare enough for now.
 		import std.conv;
@@ -881,7 +879,7 @@ struct ExpressionVisitor {
 		
 		auto d = new FunctionDeclaration(
 			location,
-			Linkage.D,
+			defaultStorageClass,
 			ParamAstType(new AutoType(), false),
 			name,
 			params,

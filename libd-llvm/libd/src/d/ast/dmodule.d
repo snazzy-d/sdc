@@ -7,11 +7,14 @@ import d.ast.declaration;
 /**
  * A package delcaration
  */
-class Package : NamedDeclaration {
+class Package : Declaration {
 	Package parent;
+	Name name;
 	
 	this(Location location, Name name, Name[] packages) {
-		super(location, name);
+		super(location);
+		
+		this.name = name;
 		
 		if(packages.length > 0) {
 			parent = new Package(location, packages[$ - 1], packages[0 .. $-1]);
