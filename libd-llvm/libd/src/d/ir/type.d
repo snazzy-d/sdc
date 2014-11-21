@@ -45,7 +45,7 @@ bool isChar(TypeKind t) {
 }
 
 TypeKind integralOfChar(TypeKind t) in {
-	assert(isChar(t), "integralOfChar only apply to character types");
+	assert(isChar(t), "integralOfChar only applys to character types");
 } body {
 	return cast(TypeKind) (t + 3);
 }
@@ -61,13 +61,13 @@ bool isIntegral(TypeKind t) {
 }
 
 bool isSigned(TypeKind t) in {
-	assert(isIntegral(t), "isSigned only apply to integral types");
+	assert(isIntegral(t), "isSigned only applys to integral types");
 } body {
 	return signed(t) == t;
 }
 
 TypeKind unsigned(TypeKind t) in {
-	assert(isIntegral(t), "unsigned only apply to integral types");
+	assert(isIntegral(t), "unsigned only applys to integral types");
 } body {
 	switch(t) with(TypeKind) {
 		case Ubyte:
@@ -85,12 +85,12 @@ TypeKind unsigned(TypeKind t) in {
 			return cast(TypeKind) (t - 5);
 		
 		default:
-			assert(0, "unsigned only apply for integral types.");
+			assert(0, "unsigned only applys to integral types.");
 	}
 }
 
 TypeKind signed(TypeKind t) in {
-	assert(isIntegral(t), "signed only apply to integral types");
+	assert(isIntegral(t), "signed only applys to integral types");
 } body {
 	switch(t) with(TypeKind) {
 		case Ubyte:
@@ -108,7 +108,7 @@ TypeKind signed(TypeKind t) in {
 			return t;
 		
 		default:
-			assert(0, "signed only apply for integral types.");
+			assert(0, "signed only applys to integral types.");
 	}
 }
 
