@@ -611,10 +611,36 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
 			return handler(s);
 		}
+
+		return bailout(t);
+	}
+
+	Ret visit(BuiltinType t) {
+		if (name == BuiltinName!"max") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, true));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMax(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMax(t), t.kind));
+				}
+			}
+		} else if (name == BuiltinName!"min") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, false));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMin(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMin(t), t.kind));
+				}
+			}
+		}
 		
 		return bailout(t);
 	}
-	
+
 	Ret visit(SliceType t) {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
