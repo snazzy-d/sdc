@@ -228,6 +228,60 @@ class BuiltinType : Type {
 	}
 }
 
+ulong getMax(BuiltinType t) in {
+	assert(isIntegral(t.kind), "getMax only applys to integral types");
+} body {
+	if(t.kind == TypeKind.Ulong) {
+		// It's illegal to shift more than (sizeof(T)*8)-1 so I use a constant
+		return 18_446_744_073_709_551_615UL;
+	}
+
+	import d.semantic.sizeof;
+	auto size = SizeofVisitor().visit(t);
+
+	if (isSigned(t.kind)) {
+		return (1L << size * 8 - 1) - 1;
+	} else {
+		return (1UL << size * 8) - 1;
+	}
+}
+
+long getMin(BuiltinType t) in {
+	assert(isIntegral(t.kind), "getMin only applys to integral types");
+} body {
+	import d.semantic.sizeof;
+	auto size = SizeofVisitor().visit(t);
+
+	if (isSigned(t.kind)) {
+		return -(1UL << size * 8 - 1);
+	} else {
+		return 0;
+	}
+
+}
+
+unittest {
+	assert(new BuiltinType(TypeKind.Byte).getMax() == 127);
+	assert(new BuiltinType(TypeKind.Short).getMax() == 32767);
+	assert(new BuiltinType(TypeKind.Int).getMax() == 2147483647);
+	assert(new BuiltinType(TypeKind.Long).getMax() == 9223372036854775807);
+
+	assert(new BuiltinType(TypeKind.Ubyte).getMax() == 255);
+	assert(new BuiltinType(TypeKind.Ushort).getMax() == 65535);
+	assert(new BuiltinType(TypeKind.Uint).getMax() == 4294967295);
+	assert(new BuiltinType(TypeKind.Ulong).getMax() == 18446744073709551615UL);
+
+	assert(new BuiltinType(TypeKind.Byte).getMin() == -128);
+	assert(new BuiltinType(TypeKind.Short).getMin() == -32768);
+	assert(new BuiltinType(TypeKind.Int).getMin() == -2147483648);
+	assert(new BuiltinType(TypeKind.Long).getMin() == -9223372036854775808UL);
+
+	assert(new BuiltinType(TypeKind.Ubyte).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Ushort).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Uint).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Ulong).getMin() == 0);
+}
+
 QualType getBuiltin(TypeKind k) {
 	return QualType(new BuiltinType(k));
 }
