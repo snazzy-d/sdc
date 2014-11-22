@@ -231,33 +231,23 @@ class BuiltinType : Type {
 ulong getMax(BuiltinType t) in {
 	assert(isIntegral(t.kind), "getMax only applys to integral types");
 } body {
-	if(t.kind == TypeKind.Ulong) {
-		// It's illegal to shift more than (sizeof(T)*8)-1 so I use a constant
-		return 18_446_744_073_709_551_615UL;
-	}
-
+	auto base = t.kind.isSigned()
+		? 1UL << 7
+		: 1UL << 8;
+	
 	import d.semantic.sizeof;
-	auto size = SizeofVisitor().visit(t);
-
-	if (isSigned(t.kind)) {
-		return (1L << size * 8 - 1) - 1;
-	} else {
-		return (1UL << size * 8) - 1;
-	}
+	return (base << (SizeofVisitor().visit(t) - 1) * 8) - 1;
 }
 
 long getMin(BuiltinType t) in {
 	assert(isIntegral(t.kind), "getMin only applys to integral types");
 } body {
-	import d.semantic.sizeof;
-	auto size = SizeofVisitor().visit(t);
-
-	if (isSigned(t.kind)) {
-		return -(1UL << size * 8 - 1);
-	} else {
+	if (!t.kind.isSigned()) {
 		return 0;
 	}
-
+	
+	import d.semantic.sizeof;
+	return -(1UL << SizeofVisitor().visit(t) * 8 - 1);
 }
 
 unittest {
