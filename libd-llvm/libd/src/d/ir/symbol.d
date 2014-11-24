@@ -28,10 +28,11 @@ class Symbol : Node {
 		Visibility, "visibility", 3,
 		Storage, "storage", 2,
 		bool, "isAbstract", 1,
+		bool, "isProperty", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
-		uint, "", 3,
 		Step, "step", 2,
+		uint, "", 2,
 	));
 	
 	this(Location location, Name name) {

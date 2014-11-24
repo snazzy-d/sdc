@@ -86,8 +86,8 @@ final class SemanticPass {
 		this.context	= context;
 		this.evaluator	= evaluator;
 		
-		moduleVisitor		= new ModuleVisitor(this, sourceFactory);
-		scheduler			= new Scheduler(this);
+		moduleVisitor	= new ModuleVisitor(this, sourceFactory);
+		scheduler		= new Scheduler(this);
 		
 		auto obj	= importModule([BuiltinName!"object"]);
 		object		= new ObjectReference(obj);
