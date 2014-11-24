@@ -473,10 +473,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			}
 		}, delegate Ret(r, t) {
 			alias T = typeof(t);
-			static if(is(T : PointerType)) {
-				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
-				return r.visit(t.pointed);
-			} else static if (is(T : StructType) || is(T : ClassType)) {
+			static if (is(T : StructType) || is(T : ClassType)) {
 				import d.semantic.aliasthis;
 				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t);
 				
@@ -497,8 +494,25 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				} else if (results.length > 1) {
 					assert(0, "WTF am I supposed to do here ?");
 				}
-
-				return r.bailoutDefault(type.type);
+			}
+			
+			// UFCS
+			Symbol s;
+			try {
+				auto oldBuildErrorNode = pass.buildErrorNode;
+				scope(exit) pass.buildErrorNode = oldBuildErrorNode;
+				
+				pass.buildErrorNode = false;
+				s = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+			} catch(CompileException e) {}
+			
+			if (s) {
+				return visit(s);
+			}
+			
+			static if(is(T : PointerType)) {
+				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
+				return r.visit(t.pointed);
 			} else {
 				return r.bailoutDefault(type.type);
 			}
