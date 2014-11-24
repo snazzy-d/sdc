@@ -45,7 +45,7 @@ bool isChar(TypeKind t) {
 }
 
 TypeKind integralOfChar(TypeKind t) in {
-	assert(isChar(t), "integralOfChar only apply to character types");
+	assert(isChar(t), "integralOfChar only applys to character types");
 } body {
 	return cast(TypeKind) (t + 3);
 }
@@ -61,13 +61,13 @@ bool isIntegral(TypeKind t) {
 }
 
 bool isSigned(TypeKind t) in {
-	assert(isIntegral(t), "isSigned only apply to integral types");
+	assert(isIntegral(t), "isSigned only applys to integral types");
 } body {
 	return signed(t) == t;
 }
 
 TypeKind unsigned(TypeKind t) in {
-	assert(isIntegral(t), "unsigned only apply to integral types");
+	assert(isIntegral(t), "unsigned only applys to integral types");
 } body {
 	switch(t) with(TypeKind) {
 		case Ubyte:
@@ -85,12 +85,12 @@ TypeKind unsigned(TypeKind t) in {
 			return cast(TypeKind) (t - 5);
 		
 		default:
-			assert(0, "unsigned only apply for integral types.");
+			assert(0, "unsigned only applys to integral types.");
 	}
 }
 
 TypeKind signed(TypeKind t) in {
-	assert(isIntegral(t), "signed only apply to integral types");
+	assert(isIntegral(t), "signed only applys to integral types");
 } body {
 	switch(t) with(TypeKind) {
 		case Ubyte:
@@ -108,7 +108,7 @@ TypeKind signed(TypeKind t) in {
 			return t;
 		
 		default:
-			assert(0, "signed only apply for integral types.");
+			assert(0, "signed only applys to integral types.");
 	}
 }
 
@@ -226,6 +226,50 @@ class BuiltinType : Type {
 				return "typeof(null)";
 		}
 	}
+}
+
+ulong getMax(BuiltinType t) in {
+	assert(isIntegral(t.kind), "getMax only applys to integral types");
+} body {
+	auto base = t.kind.isSigned()
+		? 1UL << 7
+		: 1UL << 8;
+	
+	import d.semantic.sizeof;
+	return (base << (SizeofVisitor().visit(t) - 1) * 8) - 1;
+}
+
+long getMin(BuiltinType t) in {
+	assert(isIntegral(t.kind), "getMin only applys to integral types");
+} body {
+	if (!t.kind.isSigned()) {
+		return 0;
+	}
+	
+	import d.semantic.sizeof;
+	return -(1UL << SizeofVisitor().visit(t) * 8 - 1);
+}
+
+unittest {
+	assert(new BuiltinType(TypeKind.Byte).getMax() == 127);
+	assert(new BuiltinType(TypeKind.Short).getMax() == 32767);
+	assert(new BuiltinType(TypeKind.Int).getMax() == 2147483647);
+	assert(new BuiltinType(TypeKind.Long).getMax() == 9223372036854775807);
+
+	assert(new BuiltinType(TypeKind.Ubyte).getMax() == 255);
+	assert(new BuiltinType(TypeKind.Ushort).getMax() == 65535);
+	assert(new BuiltinType(TypeKind.Uint).getMax() == 4294967295);
+	assert(new BuiltinType(TypeKind.Ulong).getMax() == 18446744073709551615UL);
+
+	assert(new BuiltinType(TypeKind.Byte).getMin() == -128);
+	assert(new BuiltinType(TypeKind.Short).getMin() == -32768);
+	assert(new BuiltinType(TypeKind.Int).getMin() == -2147483648);
+	assert(new BuiltinType(TypeKind.Long).getMin() == -9223372036854775808UL);
+
+	assert(new BuiltinType(TypeKind.Ubyte).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Ushort).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Uint).getMin() == 0);
+	assert(new BuiltinType(TypeKind.Ulong).getMin() == 0);
 }
 
 QualType getBuiltin(TypeKind k) {

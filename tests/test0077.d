@@ -4,8 +4,8 @@
 
 void main() {
 	string str = "foobar";
-
-    // This is narrowing, but valid.
+	
+	// This is narrowing, but valid.
 	foreach(byte i, c; str) {}
 }
 

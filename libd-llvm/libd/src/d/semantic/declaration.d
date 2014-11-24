@@ -44,9 +44,12 @@ struct DeclarationVisitor {
 			Storage, "storage", 2,
 			AggregateType, "aggregateType", 2,
 			AddContext, "addContext", 1,
-			bool, "isOverride", 1,
 			CtUnitLevel, "ctLevel", 2,
-			uint, "", 2,
+			bool, "isOverride", 1,
+			bool, "isAbstract", 1,
+			bool, "isProperty", 1,
+			bool, "isNoGC", 1,
+			uint, "", 15,
 		));
 	}
 	
@@ -294,6 +297,9 @@ struct DeclarationVisitor {
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
 		f.hasContext = isStatic ? false : !!addContext;
 		
+		f.isAbstract = isAbstract || stc.isAbstract;
+		f.isProperty = isProperty || stc.isProperty;
+		
 		addOverloadableSymbol(f);
 		select(d, f);
 	}
@@ -440,12 +446,21 @@ struct DeclarationVisitor {
 		auto oldStorage = storage;
 		auto oldVisibility = visibility;
 		auto oldLinkage = linkage;
+		
 		auto oldIsOverride = isOverride;
+		auto oldIsAbstract = isAbstract;
+		auto oldIsProperty = isProperty;
+		auto oldIsNoGC     = isNoGC;
+		
 		scope(exit) {
 			storage = oldStorage;
 			visibility = oldVisibility;
 			linkage = oldLinkage;
+			
 			isOverride = oldIsOverride;
+			isAbstract = oldIsAbstract;
+			isProperty = oldIsProperty;
+			isNoGC     = oldIsNoGC;
 		}
 		
 		auto stc = d.storageClass;
@@ -456,6 +471,9 @@ struct DeclarationVisitor {
 		linkage = getLinkage(stc);
 		
 		isOverride = isOverride || stc.isOverride;
+		isAbstract = isAbstract || stc.isAbstract;
+		isProperty = isProperty || stc.isProperty;
+		isNoGC     = isNoGC     || stc.isNoGC;
 		
 		foreach(decl; d.declarations) {
 			visit(decl);

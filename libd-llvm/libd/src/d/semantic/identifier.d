@@ -473,10 +473,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			}
 		}, delegate Ret(r, t) {
 			alias T = typeof(t);
-			static if(is(T : PointerType)) {
-				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
-				return r.visit(t.pointed);
-			} else static if (is(T : StructType) || is(T : ClassType)) {
+			static if (is(T : StructType) || is(T : ClassType)) {
 				import d.semantic.aliasthis;
 				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t);
 				
@@ -497,8 +494,25 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				} else if (results.length > 1) {
 					assert(0, "WTF am I supposed to do here ?");
 				}
-
-				return r.bailoutDefault(type.type);
+			}
+			
+			// UFCS
+			Symbol s;
+			try {
+				auto oldBuildErrorNode = pass.buildErrorNode;
+				scope(exit) pass.buildErrorNode = oldBuildErrorNode;
+				
+				pass.buildErrorNode = false;
+				s = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+			} catch(CompileException e) {}
+			
+			if (s) {
+				return visit(s);
+			}
+			
+			static if(is(T : PointerType)) {
+				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
+				return r.visit(t.pointed);
 			} else {
 				return r.bailoutDefault(type.type);
 			}
@@ -518,8 +532,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		return handler(new PolysemousExpression(location, s.set.map!(delegate Expression(s) {
 			if(auto f = cast(Function) s) {
-				pass.scheduler.require(f, Step.Signed);
-				return new MethodExpression(location, expr, f);
+				return makeExpression(f);
 			}
 			
 			assert(0, "not implemented: template with context");
@@ -531,14 +544,34 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		return handler(new FieldExpression(location, expr, f));
 	}
 	
-	Ret visit(Function f) {
+	// XXX: dedup with ExpressionVisitor
+	private Expression makeExpression(Function f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new MethodExpression(location, expr, f));
+		auto e = new MethodExpression(location, expr, f);
+		
+		// If this is not a property, things are straigforward.
+		if (!f.isProperty) {
+			return e;
+		}
+		
+		switch(f.params.length - f.hasContext) {
+			case 1:
+				return new CallExpression(location, QualType(f.type.returnType.type, f.type.returnType.qualifier), e, []);
+			
+			case 2:
+				assert(0, "setter not supported)");
+			
+			default:
+				assert(0, "Invalid argument count for property " ~ f.name.toString(context));
+		}
+	}
+	
+	Ret visit(Function f) {
+		return handler(makeExpression(f));
 	}
 	
 	Ret visit(Method m) {
-		scheduler.require(m, Step.Signed);
-		return handler(new MethodExpression(location, expr, m));
+		return handler(makeExpression(m));
 	}
 	
 	Ret visit(TypeAlias a) {
@@ -611,10 +644,36 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			auto s = new IntegerLiteral!false(location, t.size, sizeT.kind);
 			return handler(s);
 		}
+
+		return bailout(t);
+	}
+
+	Ret visit(BuiltinType t) {
+		if (name == BuiltinName!"max") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, true));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMax(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMax(t), t.kind));
+				}
+			}
+		} else if (name == BuiltinName!"min") {
+			if (t.kind == TypeKind.Bool) {
+				return handler(new BooleanLiteral(location, false));
+			} else if (isIntegral(t.kind)) {
+				if (isSigned(t.kind)) {
+					return handler(new IntegerLiteral!true(location, getMin(t), t.kind));
+				} else {
+					return handler(new IntegerLiteral!false(location, getMin(t), t.kind));
+				}
+			}
+		}
 		
 		return bailout(t);
 	}
-	
+
 	Ret visit(SliceType t) {
 		if(name == BuiltinName!"length") {
 			// FIXME: pass explicit location.

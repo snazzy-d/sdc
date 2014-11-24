@@ -228,17 +228,21 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 				
 				goto HandleStorageClass;
 			
-			/**
-			 * Attributes
-			 */
-			/+
 			case At :
 				trange.popFront();
-				auto attribute = trange.front.name;
+				auto attr = trange.front.name;
 				trange.match(Identifier);
 				
-				return handleStorageClass!AttributeDeclaration(attribute);
-			// +/
+				if (attr == BuiltinName!"property") {
+					stc.isProperty = true;
+				} else if (attr == BuiltinName!"nogc") {
+					stc.isNoGC = true;
+				} else {
+					assert(0, "@" ~ attr.toString(trange.context) ~ " is not supported.");
+				}
+				
+				break;
+			
 			default:
 				break StorageClassLoop;
 		}
@@ -418,22 +422,32 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 		}
 	}
 	
-	// FIXME: do something with delegate attributes
-	DelegateAttributeLoop : while(1) {
+	while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Pure, Const, Immutable, Inout, Shared, Nothrow :
 				trange.popFront();
-				break;
-			/+
+				assert(0, "Not implemented");
+			
 			case At :
-				// FIXME: Do something with attributes.
 				trange.popFront();
+				auto attr = trange.front.name;
 				trange.match(Identifier);
-				break;
-			+/
+				
+				if (attr == BuiltinName!"property") {
+					stc.isProperty = true;
+				} else if (attr == BuiltinName!"nogc") {
+					stc.isNoGC = true;
+				} else {
+					assert(0, "@" ~ attr.toString(trange.context) ~ " is not supported.");
+				}
+				
+				continue;
+			
 			default :
-				break DelegateAttributeLoop;
+				break;
 		}
+		
+		break;
 	}
 	
 	// TODO: parse contracts.

@@ -424,22 +424,41 @@ struct ExpressionVisitor {
 		}
 	}
 	
+	// XXX: dedup with IdentifierVisitor
 	Expression getFrom(Location location, Function f) {
 		scheduler.require(f, Step.Signed);
 		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
+		
+		Expression e;
 		if (f.hasThis) {
 			auto type = f.type.paramTypes[0];
 			auto ctx = buildImplicitCast(pass, location, QualType(type.type, type.qualifier), new ThisExpression(location, QualType(thisType.type)));
-			return new MethodExpression(location, ctx, f);
-		}
-		
-		if (f.hasContext) {
+			e = new MethodExpression(location, ctx, f);
+		} else if (f.hasContext) {
 			import d.semantic.closure;
-			return new MethodExpression(location, new ContextExpression(location, ContextFinder(pass).visit(f)), f);
+			e = new MethodExpression(location, new ContextExpression(location, ContextFinder(pass).visit(f)), f);
+		} else {
+			e = new FunctionExpression(location, f);
 		}
 		
-		return new FunctionExpression(location, f);
+		assert(e);
+		
+		// If this is not a property, things are straigforward.
+		if (!f.isProperty) {
+			return e;
+		}
+		
+		switch(f.params.length - f.hasContext - f.hasThis) {
+			case 0:
+				return new CallExpression(location, QualType(f.type.returnType.type, f.type.returnType.qualifier), e, []);
+			
+			case 1:
+				assert(0, "setter not supported)");
+			
+			default:
+				assert(0, "Invalid argument count for property " ~ f.name.toString(context));
+		}
 	}
 	
 	Expression visit(AstCallExpression c) {
