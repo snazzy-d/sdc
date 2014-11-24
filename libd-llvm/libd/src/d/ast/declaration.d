@@ -205,8 +205,8 @@ class FunctionDeclaration : NamedDeclaration {
 		
 		this.returnType = returnType;
 		this.params = params;
-		this.fbody = fbody;
 		this.isVariadic = isVariadic;
+		this.fbody = fbody;
 	}
 }
 

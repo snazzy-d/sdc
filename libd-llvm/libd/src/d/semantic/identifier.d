@@ -532,8 +532,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		return handler(new PolysemousExpression(location, s.set.map!(delegate Expression(s) {
 			if(auto f = cast(Function) s) {
-				pass.scheduler.require(f, Step.Signed);
-				return new MethodExpression(location, expr, f);
+				return makeExpression(f);
 			}
 			
 			assert(0, "not implemented: template with context");
@@ -545,14 +544,34 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		return handler(new FieldExpression(location, expr, f));
 	}
 	
-	Ret visit(Function f) {
+	// XXX: dedup with ExpressionVisitor
+	private Expression makeExpression(Function f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new MethodExpression(location, expr, f));
+		auto e = new MethodExpression(location, expr, f);
+		
+		// If this is not a property, things are straigforward.
+		if (!f.isProperty) {
+			return e;
+		}
+		
+		switch(f.params.length - f.hasContext) {
+			case 1:
+				return new CallExpression(location, QualType(f.type.returnType.type, f.type.returnType.qualifier), e, []);
+			
+			case 2:
+				assert(0, "setter not supported)");
+			
+			default:
+				assert(0, "Invalid argument count for property " ~ f.name.toString(context));
+		}
+	}
+	
+	Ret visit(Function f) {
+		return handler(makeExpression(f));
 	}
 	
 	Ret visit(Method m) {
-		scheduler.require(m, Step.Signed);
-		return handler(new MethodExpression(location, expr, m));
+		return handler(makeExpression(m));
 	}
 	
 	Ret visit(TypeAlias a) {
