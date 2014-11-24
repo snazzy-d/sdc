@@ -1,6 +1,7 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:35
+// UFCS and getter @property
 
 @property
 int triple(int a) {
