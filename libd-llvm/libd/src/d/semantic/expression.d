@@ -22,7 +22,6 @@ import std.range;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
-alias UnaryExpression = d.ir.expression.UnaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
 alias IndexExpression = d.ir.expression.IndexExpression;
@@ -348,7 +347,7 @@ struct ExpressionVisitor {
 		return buildExplicitCast(pass, e.location, tv.visit(e.type), visit(e.expr));
 	}
 	
-	private auto buildArgument(Expression arg, ParamType pt) {
+	Expression buildArgument(Expression arg, ParamType pt) {
 		if(pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
@@ -357,6 +356,9 @@ struct ExpressionVisitor {
 		
 		// test if we can pass by ref.
 		if(pt.isRef && !arg.isLvalue) {
+			import std.stdio;
+			writeln(arg.toString(context), " is an lvalue ?\t", arg.isLvalue);
+			
 			return pass.raiseCondition!Expression(arg.location, "Argument isn't a lvalue.");
 		}
 		
