@@ -225,20 +225,23 @@ struct StatementVisitor {
 		
 		auto eDecl = f.tupleElements[$ - 1];
 		auto eLoc = eDecl.location;
-		Expression eVal = new IndexExpression(eLoc, et, iterated, [idxExpr]);
+		
+		import d.semantic.expression;
+		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
+		auto eType = eVal.type;
 		
 		if (typeid({ return eDecl.type.type; }()) !is typeid(AutoType)) {
 			import d.semantic.type;
-			et = TypeVisitor(pass).visit(QualAstType(eDecl.type.type, eDecl.type.qualifier));
-			eVal = buildImplicitCast(pass, eLoc, et, eVal);
+			eType = TypeVisitor(pass).visit(QualAstType(eDecl.type.type, eDecl.type.qualifier));
+			eVal = buildImplicitCast(pass, eLoc, eType, eVal);
 		}
 		
-		auto element = new Variable(eLoc, et, eDecl.name, eVal);
+		auto element = new Variable(eLoc, eType, eDecl.name, eVal);
 		element.isRef = eDecl.type.isRef;
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 		
-		auto assign = new BinaryExpression(loc, et, BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
+		auto assign = new BinaryExpression(loc, eType, BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
 		auto stmt = new BlockStatement(f.statement.location, [new ExpressionStatement(assign), autoBlock(f.statement)]);
 		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);

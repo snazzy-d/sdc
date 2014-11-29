@@ -255,21 +255,19 @@ class IdentifierCallExpression : AstExpression {
 }
 
 /**
- * Index expression : [index]
+ * Index expression : indexed[arguments]
  */
-class IndexExpression(T) : T if(is(T: AstExpression)) {
-	T indexed;
-	T[] arguments;
+class AstIndexExpression : AstExpression {
+	AstExpression indexed;
+	AstExpression[] arguments;
 	
-	this(U...)(Location location, U args, T indexed, T[] arguments) {
-		super(location, args);
+	this(Location location, AstExpression indexed, AstExpression[] arguments) {
+		super(location);
 		
 		this.indexed = indexed;
 		this.arguments = arguments;
 	}
 }
-
-alias AstIndexExpression = IndexExpression!AstExpression;
 
 /**
  * Slice expression : [first .. second]
