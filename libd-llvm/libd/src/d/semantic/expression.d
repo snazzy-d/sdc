@@ -307,23 +307,7 @@ struct ExpressionVisitor {
 			case PreDec :
 			case PostInc :
 			case PostDec :
-				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
-					expr = getLvalue(expr);
-					
-					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
-					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
-					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
-					auto r = new BinaryExpression(e.location, expr.type, BinaryOp.Assign, expr, v);
-					
-					if(op == PreInc || op == PreDec) {
-						return r;
-					}
-					
-					auto l = getRvalue(expr);
-					r = new BinaryExpression(e.location, expr.type, BinaryOp.Comma, l, r);
-					return new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, l);
-				}
-				
+				// FIXME: check that type is integer or pointer.
 				type = expr.type;
 				break;
 			
