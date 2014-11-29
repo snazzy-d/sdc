@@ -74,8 +74,7 @@ struct StatementVisitor {
 	void visit(DeclarationStatement s) {
 		import d.ast.base;
 		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private);
-		auto syms = dv.flatten(s.declaration);
+		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(s.declaration);
 		scheduler.require(syms);
 		
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
@@ -83,9 +82,7 @@ struct StatementVisitor {
 	
 	void visit(AstExpressionStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		flattenedStmts ~= new ExpressionStatement(ev.visit(s.expression));
+		flattenedStmts ~= new ExpressionStatement(ExpressionVisitor(pass).visit(s.expression));
 	}
 	
 	private auto autoBlock(AstStatement s) {
@@ -103,9 +100,7 @@ struct StatementVisitor {
 	
 	void visit(AstIfStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ev.visit(s.condition));
+		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(s.condition));
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -118,9 +113,7 @@ struct StatementVisitor {
 	
 	void visit(AstWhileStatement w) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ev.visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
@@ -128,9 +121,7 @@ struct StatementVisitor {
 	
 	void visit(AstDoWhileStatement w) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ev.visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
@@ -147,32 +138,150 @@ struct StatementVisitor {
 		auto initialize = flattenedStmts[$ - 1];
 		
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		Expression condition = f.condition
+			? buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(f.condition))
+			: new BooleanLiteral(f.location, true);
 		
-		Expression condition;
-		if(f.condition) {
-			condition = buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), ev.visit(f.condition));
-		} else {
-			condition = new BooleanLiteral(f.location, true);
+		Expression increment = f.increment
+			? ExpressionVisitor(pass).visit(f.increment)
+			: new BooleanLiteral(f.location, true);
+		
+		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, autoBlock(f.statement));
+	}
+	
+	void visit(ForeachStatement f) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
+		assert(!f.reverse, "foreach_reverse not supported at this point.");
+		
+		import d.semantic.expression;
+		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
+		
+		import d.semantic.identifier;
+		auto length = SymbolResolver!(delegate Expression (e) {
+			static if(is(typeof(e) : Expression)) {
+				return e;
+			} else {
+				return pass.raiseCondition!Expression(iterated.location, typeid(e).toString() ~ " is not a valid length.");
+			}
+		})(pass).resolveInExpression(iterated.location, iterated, BuiltinName!"length");
+		
+		Variable idx;
+		
+		auto loc = f.location;
+		switch(f.tupleElements.length) {
+			case 1 :
+				import d.semantic.defaultinitializer;
+				idx = new Variable(loc, length.type, BuiltinName!"", InitBuilder(pass, loc).visit(length.type));
+				
+				idx.step = Step.Processed;
+				break;
+			
+			case 2 :
+				import d.semantic.type;
+				auto idxDecl = f.tupleElements[0];
+				auto t = (typeid({ return idxDecl.type.type; }()) is typeid(AutoType))
+					? length.type
+					: TypeVisitor(pass).visit(idxDecl.type);
+				
+				auto idxLoc = idxDecl.location;
+				
+				import d.semantic.defaultinitializer;
+				idx = new Variable(idxLoc, t, idxDecl.name, InitBuilder(pass, idxLoc).visit(t));
+				
+				idx.step = Step.Processed;
+				currentScope.addSymbol(idx);
+				
+				break;
+			
+			default :
+				assert(0, "Wrong number of elements");
 		}
 		
-		Expression increment;
-		if(f.increment) {
-			increment = ev.visit(f.increment);
-		} else {
-			increment = new BooleanLiteral(f.location, true);
+		assert(idx);
+		
+		auto initialize = new SymbolStatement(idx);
+		auto idxExpr = new VariableExpression(idx.location, idx);
+		auto condition = new BinaryExpression(loc, getBuiltin(TypeKind.Bool), BinaryOp.Less, idxExpr, length);
+		auto increment = new UnaryExpression(loc, idxExpr.type, UnaryOp.PreInc, idxExpr);
+		
+		auto iType = peelAlias(iterated.type).type;
+		auto at = cast(ArrayType) iType;
+		auto st = cast(SliceType) iType;
+		
+		assert(at || st, "Only array and slice are supported for now.");
+		
+		QualType et;
+		if (at) {
+			et = at.elementType;
+		} else if (st) {
+			et = st.sliced;
 		}
 		
-		auto statement = autoBlock(f.statement);
+		auto eDecl = f.tupleElements[f.tupleElements.length - 1];
+		auto eLoc = eDecl.location;
+		Expression eVal = new IndexExpression(eLoc, et, iterated, [idxExpr]);
 		
-		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, statement);
+		if (typeid({ return eDecl.type.type; }()) !is typeid(AutoType)) {
+			import d.semantic.type;
+			et = TypeVisitor(pass).visit(eDecl.type);
+			eVal = buildImplicitCast(pass, eLoc, et, eVal);
+		}
+		
+		auto element = new Variable(eLoc, et, eDecl.name, eVal);
+		element.step = Step.Processed;
+		currentScope.addSymbol(element);
+		
+		auto assign = new BinaryExpression(loc, et, BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
+		auto stmt = new BlockStatement(f.statement.location, [new ExpressionStatement(assign), autoBlock(f.statement)]);
+		
+		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);
+	}
+	
+	void visit(ForeachRangeStatement f) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
+		assert(!f.reverse, "foreach_reverse not supported at this point.");
+		
+		import d.semantic.expression;
+		auto start = ExpressionVisitor(pass).visit(f.start);
+		auto stop  = ExpressionVisitor(pass).visit(f.stop);
+		
+		assert(f.tupleElements.length == 1, "Wrong number of elements");
+		auto iDecl = f.tupleElements[0];
+		
+		auto loc = f.location;
+		
+		import d.semantic.type, d.semantic.typepromotion;
+		auto type = (typeid({ return iDecl.type.type; }()) is typeid(AutoType))
+			? getPromotedType(pass, loc, start.type.type, stop.type.type)
+			: TypeVisitor(pass).visit(iDecl.type);
+		
+		start = buildImplicitCast(pass, start.location, type, start);
+		stop  = buildImplicitCast(pass, stop.location, type, stop);
+		
+		auto idx = new Variable(iDecl.location, type, iDecl.name, start);
+		
+		idx.step = Step.Processed;
+		currentScope.addSymbol(idx);
+		
+		auto initialize = new SymbolStatement(idx);
+		auto idxExpr = new VariableExpression(idx.location, idx);
+		auto condition = new BinaryExpression(loc, getBuiltin(TypeKind.Bool), BinaryOp.Less, idxExpr, stop);
+		auto increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
+		
+		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
 	
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto value = ev.visit(r.value);
+		auto value = ExpressionVisitor(pass).visit(r.value);
 		
 		// TODO: precompute autotype instead of managing it here.
 		auto doCast = true;
@@ -201,19 +310,14 @@ struct StatementVisitor {
 	
 	void visit(AstSwitchStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		auto expression = ExpressionVisitor(pass).visit(s.expression);
 		
-		auto expression = ev.visit(s.expression);
-		auto statement = autoBlock(s.statement);
-		
-		flattenedStmts ~= new SwitchStatement(s.location, expression, statement);
+		flattenedStmts ~= new SwitchStatement(s.location, expression, autoBlock(s.statement));
 	}
 	
 	void visit(AstCaseStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
-		auto cases = s.cases.map!(e => pass.evaluate(ev.visit(e))).array();
+		auto cases = s.cases.map!(e => pass.evaluate(ExpressionVisitor(pass).visit(e))).array();
 		
 		flattenedStmts ~= new CaseStatement(s.location, cases);
 	}
@@ -223,9 +327,7 @@ struct StatementVisitor {
 		
 		visit(s.statement);
 		
-		auto statement = flattenedStmts[labelIndex];
-		
-		flattenedStmts[labelIndex] = new LabeledStatement(s.location, s.label, statement);
+		flattenedStmts[labelIndex] = new LabeledStatement(s.location, s.label, flattenedStmts[labelIndex]);
 	}
 	
 	void visit(GotoStatement s) {
@@ -237,11 +339,9 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstThrowStatement s) {
-		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		
 		// TODO: Check that this is throwable
-		flattenedStmts ~= new ThrowStatement(s.location, ev.visit(s.value));
+		import d.semantic.expression;
+		flattenedStmts ~= new ThrowStatement(s.location, ExpressionVisitor(pass).visit(s.value));
 	}
 	
 	void visit(AstTryStatement s) {

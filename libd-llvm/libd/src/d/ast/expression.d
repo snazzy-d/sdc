@@ -112,12 +112,12 @@ class BinaryExpression(T) : T  if(is(T: AstExpression)){
 		
 		this.op = op;
 	}
-	/+
+	
 	invariant() {
 		assert(lhs);
 		assert(rhs);
 	}
-	+/
+	
 	override string toString(Context ctx) const {
 		import std.conv;
 		return lhs.toString(ctx) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(ctx);
@@ -142,30 +142,59 @@ enum UnaryOp {
 	Complement,
 }
 
-class UnaryExpression(T) : T  if(is(T: AstExpression)){
-	T expr;
-	
-	UnaryOp op;
-	
-	this(U...)(Location location, U args, UnaryOp op, T expr) {
-		super(location, args);
+string unarizeString(string s, UnaryOp op) {
+	final switch(op) with(UnaryOp) {
+		case AddressOf :
+			return "&" ~ s;
 		
-		this.expr = expr;
+		case Dereference :
+			return "*" ~ s;
 		
-		this.op = op;
-	}
-	/+
-	invariant() {
-		assert(expr);
-	}
-	+/
-	override string toString(Context ctx) const {
-		import std.conv;
-		return to!string(op) ~ expr.toString(ctx);
+		case PreInc :
+			return "++" ~ s;
+		
+		case PreDec :
+			return "--" ~ s;
+		
+		case PostInc :
+			return s ~ "++";
+		
+		case PostDec :
+			return s ~ "--";
+		
+		case Plus :
+			return "+" ~ s;
+		
+		case Minus :
+			return "-" ~ s;
+		
+		case Not :
+			return "!" ~ s;
+		
+		case Complement :
+			return "~" ~ s;
 	}
 }
 
-alias AstUnaryExpression = UnaryExpression!AstExpression;
+class AstUnaryExpression : AstExpression {
+	AstExpression expr;
+	UnaryOp op;
+	
+	this(Location location, UnaryOp op, AstExpression expr) {
+		super(location);
+		
+		this.expr = expr;
+		this.op = op;
+	}
+	
+	invariant() {
+		assert(expr);
+	}
+	
+	override string toString(Context ctx) const {
+		return unarizeString(expr.toString(ctx), op);
+	}
+}
 
 class AstCastExpression : AstExpression {
 	QualAstType type;

@@ -107,6 +107,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			return new AstForStatement(location, init, condition, increment, statement);
 		
 		case Foreach, ForeachReverse :
+			bool reverse = (trange.front.type == ForeachReverse);
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -117,25 +118,27 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				QualAstType type;
 				switch(trange.front.type) {
 					case Ref :
+						assert(0, "ref is not implemented");
+						/+
 						lookahead.popFront();
 						
 						if(lookahead.front.type == Identifier) goto case Identifier;
 						
 						goto default;
-					
+					+/
 					case Identifier :
 						lookahead.popFront();
-						
-						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
-							if(trange.front.type == Ref) {
-								trange.popFront();
-							}
-							
-							type = QualAstType(new AutoType());
-							break;
+						if(lookahead.front.type != Comma && lookahead.front.type != Semicolon) {
+							goto default;
 						}
 						
-						goto default;
+						if(trange.front.type == Ref) {
+							trange.popFront();
+							assert(0, "ref is not implemented");
+						}
+						
+						type = QualAstType(new AutoType());
+						break;
 					
 					default :
 						type = trange.parseType();
@@ -145,10 +148,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
-	
-				assert(0, "foreach can't be parsed yet");
-
-				//return new VariableDeclaration(elementLocation, type, name, initExpression);
+				return new VariableDeclaration(elementLocation, defaultStorageClass, type, name, null);
 			}
 			
 			VariableDeclaration[] tupleElements = [parseForeachListElement()];
@@ -160,9 +160,12 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(Semicolon);
 			auto iterrated = trange.parseExpression();
 			
-			if(trange.front.type == DoubleDot) {
+			bool isRange = trange.front.type == DoubleDot;
+			
+			AstExpression endOfRange;
+			if (isRange) {
 				trange.popFront();
-				trange.parseExpression();
+				endOfRange = trange.parseExpression();
 			}
 			
 			trange.match(CloseParen);
@@ -170,7 +173,9 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new ForeachStatement(location, tupleElements, iterrated, statement);
+			return isRange
+				? new ForeachRangeStatement(location, tupleElements, iterrated, endOfRange, statement, reverse)
+				: new ForeachStatement(location, tupleElements, iterrated, statement, reverse);
 		
 		case Return :
 			trange.popFront();
