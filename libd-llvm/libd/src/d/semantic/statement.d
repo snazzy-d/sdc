@@ -181,11 +181,13 @@ struct StatementVisitor {
 				break;
 			
 			case 2 :
-				import d.semantic.type;
 				auto idxDecl = f.tupleElements[0];
+				assert(!idxDecl.type.isRef, "index can't be ref");
+				
+				import d.semantic.type;
 				auto t = (typeid({ return idxDecl.type.type; }()) is typeid(AutoType))
 					? length.type
-					: TypeVisitor(pass).visit(idxDecl.type);
+					: TypeVisitor(pass).visit(QualAstType(idxDecl.type.type, idxDecl.type.qualifier));
 				
 				auto idxLoc = idxDecl.location;
 				
@@ -221,17 +223,18 @@ struct StatementVisitor {
 			et = st.sliced;
 		}
 		
-		auto eDecl = f.tupleElements[f.tupleElements.length - 1];
+		auto eDecl = f.tupleElements[$ - 1];
 		auto eLoc = eDecl.location;
 		Expression eVal = new IndexExpression(eLoc, et, iterated, [idxExpr]);
 		
 		if (typeid({ return eDecl.type.type; }()) !is typeid(AutoType)) {
 			import d.semantic.type;
-			et = TypeVisitor(pass).visit(eDecl.type);
+			et = TypeVisitor(pass).visit(QualAstType(eDecl.type.type, eDecl.type.qualifier));
 			eVal = buildImplicitCast(pass, eLoc, et, eVal);
 		}
 		
 		auto element = new Variable(eLoc, et, eDecl.name, eVal);
+		element.isRef = eDecl.type.isRef;
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 		
@@ -261,12 +264,12 @@ struct StatementVisitor {
 		import d.semantic.type, d.semantic.typepromotion;
 		auto type = (typeid({ return iDecl.type.type; }()) is typeid(AutoType))
 			? getPromotedType(pass, loc, start.type.type, stop.type.type)
-			: TypeVisitor(pass).visit(iDecl.type);
+			: TypeVisitor(pass).visit(QualAstType(iDecl.type.type, iDecl.type.qualifier));
 		
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
 		
-		auto idx = new Variable(iDecl.location, type, iDecl.name, start);
+		auto idx = new Variable(iDecl.location, ParamType(type, iDecl.type.isRef), iDecl.name, start);
 		
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
