@@ -368,17 +368,19 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Variable v) in {
-		assert(!v.isRef && !v.isFinal);
+		assert(!v.isFinal);
 	} body {
 		import d.llvm.expression;
-		auto value = ExpressionGen(pass).visit(v.value);
+		auto value = v.isRef
+			? AddressOfGen(pass).visit(v.value)
+			: ExpressionGen(pass).visit(v.value);
 		
 		return createVariableStorage(v, value);
 	}
 	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
 		import d.ast.base;
-		if(v.storage == Storage.Enum) {
+		if(v.isRef || v.storage == Storage.Enum) {
 			return globals[v] = value;
 		}
 		

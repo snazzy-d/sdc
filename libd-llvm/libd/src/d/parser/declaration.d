@@ -573,24 +573,21 @@ auto parseParameter(R)(ref R trange) {
 	auto location = trange.front.location;
 	auto type = ParamAstType(trange.parseType(), isRef);
 	
+	auto name = BuiltinName!"";
+	AstExpression value;
+	
 	if(trange.front.type == TokenType.Identifier) {
-		auto name = trange.front.name;
-		trange.popFront();
+		name = trange.front.name;
 		
+		trange.popFront();
 		if(trange.front.type == TokenType.Assign) {
 			trange.popFront();
-			
-			auto expr = trange.parseAssignExpression();
-			
-			location.spanTo(expr.location);
-			return ParamDecl(location, type, name, expr);
+			value = trange.parseAssignExpression();
 		}
-		
-		return ParamDecl(location, type, name);
-	} else {
-		location.spanTo(trange.front.location);
-		return ParamDecl(location, type);
 	}
+	
+	location.spanTo(trange.front.location);
+	return ParamDecl(location, type, name, value);
 }
 
 /**

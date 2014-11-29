@@ -111,47 +111,37 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.popFront();
 			trange.match(OpenParen);
 			
-			VariableDeclaration parseForeachListElement() {
+			ParamDecl parseForeachListElement() {
 				Location elementLocation = trange.front.location;
 				
-				auto lookahead = trange.save;
-				QualAstType type;
-				switch(trange.front.type) {
-					case Ref :
-						assert(0, "ref is not implemented");
-						/+
-						lookahead.popFront();
-						
-						if(lookahead.front.type == Identifier) goto case Identifier;
-						
-						goto default;
-					+/
-					case Identifier :
-						lookahead.popFront();
-						if(lookahead.front.type != Comma && lookahead.front.type != Semicolon) {
-							goto default;
-						}
-						
-						if(trange.front.type == Ref) {
-							trange.popFront();
-							assert(0, "ref is not implemented");
-						}
-						
-						type = QualAstType(new AutoType());
-						break;
-					
-					default :
-						type = trange.parseType();
+				bool isRef = trange.front.type == Ref;
+				if (isRef) {
+					trange.popFront();
 				}
+				
+				bool parseType = true;
+				// If we have an idientifer, check if the type is implicit.
+				if (trange.front.type == Identifier) {
+						auto lookahead = trange.save;
+						lookahead.popFront();
+						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
+							parseType = false;
+						}
+				}
+				
+				auto type = parseType
+					? trange.parseType()
+					: QualAstType(new AutoType());
 				
 				auto name = trange.front.name;
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
-				return new VariableDeclaration(elementLocation, defaultStorageClass, type, name, null);
+				
+				return ParamDecl(elementLocation, ParamAstType(type, isRef), name, null);
 			}
 			
-			VariableDeclaration[] tupleElements = [parseForeachListElement()];
+			ParamDecl[] tupleElements = [parseForeachListElement()];
 			while(trange.front.type == Comma) {
 				trange.popFront();
 				tupleElements ~= parseForeachListElement();

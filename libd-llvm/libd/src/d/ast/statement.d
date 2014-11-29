@@ -135,12 +135,12 @@ alias AstForStatement = ForStatement!(AstExpression, AstStatement);
  * foreach statements
  */
 class ForeachStatement : AstStatement {
-	VariableDeclaration[] tupleElements;
+	ParamDecl[] tupleElements;
 	AstExpression iterated;
 	AstStatement statement;
 	bool reverse;
 	
-	this(Location location, VariableDeclaration[] tupleElements, AstExpression iterated, AstStatement statement, bool reverse) {
+	this(Location location, ParamDecl[] tupleElements, AstExpression iterated, AstStatement statement, bool reverse) {
 		super(location);
 		
 		this.tupleElements = tupleElements;
@@ -154,13 +154,13 @@ class ForeachStatement : AstStatement {
  * foreach statements
  */
 class ForeachRangeStatement : AstStatement {
-	VariableDeclaration[] tupleElements;
+	ParamDecl[] tupleElements;
 	AstExpression start;
 	AstExpression stop;
 	AstStatement statement;
 	bool reverse;
 	
-	this(Location location, VariableDeclaration[] tupleElements, AstExpression start, AstExpression stop, AstStatement statement, bool reverse) {
+	this(Location location, ParamDecl[] tupleElements, AstExpression start, AstExpression stop, AstStatement statement, bool reverse) {
 		super(location);
 		
 		this.tupleElements = tupleElements;

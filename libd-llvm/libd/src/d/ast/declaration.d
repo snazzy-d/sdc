@@ -181,7 +181,7 @@ struct ParamDecl {
 	Name name;
 	AstExpression value;
 	
-	this(Location location, ParamAstType type, Name name = Name.init, AstExpression value = null) {
+	this(Location location, ParamAstType type, Name name, AstExpression value) {
 		this.location = location;
 		this.type = type;
 		this.name = name;
