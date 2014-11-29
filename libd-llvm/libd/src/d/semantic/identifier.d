@@ -285,33 +285,53 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	}
 	
 	Ret visit(IdentifierBracketIdentifier i) {
-		assert(0, "can't resolve aaType yet");
+		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(indexed) {
+			alias T = typeof(indexed);
+			static if(is(T : QualType)) {
+				return SymbolResolver!identifiableHandler(pass).visit(i.index).apply!(delegate Ret(index) {
+					alias U = typeof(index);
+					static if(is(U : QualType)) {
+						assert(0, "AA are not implemented");
+					} else static if(is(U : Expression)) {
+						// XXX: dedup with IdentifierBracketExpression
+						import d.semantic.caster, d.semantic.expression;
+						auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, index);
+						auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
+						
+						return handler(QualType(new ArrayType(indexed, size)));
+					} else {
+						assert(0, "Add meaningful error message.");
+					}
+				})();
+			} else static if(is(T : Expression)) {
+				return SymbolResolver!identifiableHandler(pass).visit(i.index).apply!(delegate Ret(index) {
+					alias U = typeof(index);
+					static if(is(U : Expression)) {
+						import d.semantic.expression;
+						return handler(ExpressionVisitor(pass).getIndex(i.location, indexed, index));
+					} else {
+						assert(0, "Add meaningful error message.");
+					}
+				})();
+			} else {
+				assert(0, "Add meaningful error message.");
+			}
+		})();
 	}
 	
 	Ret visit(IdentifierBracketExpression i) {
 		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
-			static if(is(typeof(identified) : QualType)) {
+			alias T = typeof(identified);
+			static if(is(T : QualType)) {
+				// XXX: dedup with IdentifierBracketExpression
 				import d.semantic.caster, d.semantic.expression;
 				auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, ExpressionVisitor(pass).visit(i.index));
 				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
 				
 				return handler(QualType(new ArrayType(identified, size)));
-			} else static if(is(typeof(identified) : Expression)) {
-				// TODO: deduplicate code from type and expression visitor.
-				auto qt = peelAlias(identified.type);
-				auto type = qt.type;
-				if(auto asSlice = cast(SliceType) type) {
-					qt = asSlice.sliced;
-				} else if(auto asPointer = cast(PointerType) type) {
-					qt = asPointer.pointed;
-				} else if(auto asArray = cast(ArrayType) type) {
-					qt = asArray.elementType;
-				} else {
-					return handler(pass.raiseCondition!Expression(i.location, "Can't index " ~ identified.type.toString(pass.context)));
-				}
-				
+			} else static if(is(T : Expression)) {
 				import d.semantic.expression;
-				return handler(new IndexExpression(i.location, qt, identified, [ExpressionVisitor(pass).visit(i.index)]));
+				return handler(ExpressionVisitor(pass).getIndex(i.location, identified, ExpressionVisitor(pass).visit(i.index)));
 			} else {
 				assert(0, "It seems some weird index expression");
 			}

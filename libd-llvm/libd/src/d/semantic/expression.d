@@ -307,23 +307,7 @@ struct ExpressionVisitor {
 			case PreDec :
 			case PostInc :
 			case PostDec :
-				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
-					expr = getLvalue(expr);
-					
-					Expression n = new IntegerLiteral!true(e.location, (op == PreInc || op == PostInc)? 1 : -1, TypeKind.Ulong);
-					auto i = new IndexExpression(e.location, pt.pointed, expr, [n]);
-					auto v = new UnaryExpression(e.location, expr.type, AddressOf, i);
-					auto r = new BinaryExpression(e.location, expr.type, BinaryOp.Assign, expr, v);
-					
-					if(op == PreInc || op == PreDec) {
-						return r;
-					}
-					
-					auto l = getRvalue(expr);
-					r = new BinaryExpression(e.location, expr.type, BinaryOp.Comma, l, r);
-					return new BinaryExpression(e.location, expr.type, BinaryOp.Comma, r, l);
-				}
-				
+				// FIXME: check that type is integer or pointer.
 				type = expr.type;
 				break;
 			
@@ -761,9 +745,7 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	Expression visit(AstIndexExpression e) {
-		auto indexed = visit(e.indexed);
-		
+	Expression getIndex(Location location, Expression indexed, Expression index) {
 		auto qt = peelAlias(indexed.type);
 		auto type = qt.type;
 		if(auto asSlice = cast(SliceType) type) {
@@ -773,12 +755,20 @@ struct ExpressionVisitor {
 		} else if(auto asArray = cast(ArrayType) type) {
 			qt = asArray.elementType;
 		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't index " ~ indexed.type.toString(context));
+			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
-		auto arguments = e.arguments.map!(e => visit(e)).array();
+		// XXX: remove multiple indices in ir.
+		return new IndexExpression(location, qt, indexed, [index]);
+	}
+	
+	Expression visit(AstIndexExpression e) {
+		auto indexed = visit(e.indexed);
 		
-		return new IndexExpression(e.location, qt, indexed, arguments);
+		auto arguments = e.arguments.map!(e => visit(e)).array();
+		assert(arguments.length == 1, "Multiple argument index are not supported");
+		
+		return getIndex(e.location, indexed, arguments[0]);
 	}
 	
 	Expression visit(AstSliceExpression e) {
