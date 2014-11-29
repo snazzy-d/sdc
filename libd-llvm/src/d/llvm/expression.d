@@ -952,9 +952,7 @@ struct AddressOfGen {
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
-		assert(e.arguments.length == 1);
-		
-		return computeIndexPtr(e.location, e.indexed, e.arguments[0]);
+		return computeIndexPtr(e.location, e.indexed, e.index);
 	}
 	
 	auto computeIndexPtr(Location location, Expression indexed, Expression index) {

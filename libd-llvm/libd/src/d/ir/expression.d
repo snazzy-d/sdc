@@ -24,7 +24,6 @@ abstract class Expression : AstExpression {
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
-alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 alias SliceExpression = d.ast.expression.SliceExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(QualType, Expression);
@@ -82,6 +81,21 @@ class UnaryExpression : Expression {
 	@property
 	override bool isLvalue() const {
 		return op == UnaryOp.Dereference;
+	}
+}
+
+/**
+ * Index expression : indexed[arguments]
+ */
+class IndexExpression : Expression {
+	Expression indexed;
+	Expression index;
+	
+	this(Location location, QualType type, Expression indexed, Expression index) {
+		super(location, type);
+		
+		this.indexed = indexed;
+		this.index = index;
 	}
 }
 

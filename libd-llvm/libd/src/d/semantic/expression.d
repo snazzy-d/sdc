@@ -23,7 +23,6 @@ alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
-alias IndexExpression = d.ir.expression.IndexExpression;
 alias SliceExpression = d.ir.expression.SliceExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
@@ -118,7 +117,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, pt.pointed, lhs, [rhs]);
+					auto i = new IndexExpression(e.location, pt.pointed, lhs, rhs);
 					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 				}
 				
@@ -146,7 +145,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, pt.pointed, lhs, [rhs]);
+					auto i = new IndexExpression(e.location, pt.pointed, lhs, rhs);
 					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
 				}
@@ -758,8 +757,7 @@ struct ExpressionVisitor {
 			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
-		// XXX: remove multiple indices in ir.
-		return new IndexExpression(location, qt, indexed, [index]);
+		return new IndexExpression(location, qt, indexed, index);
 	}
 	
 	Expression visit(AstIndexExpression e) {
