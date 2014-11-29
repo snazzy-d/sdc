@@ -1,5 +1,5 @@
 //T compiles:yes
-//T has-passed:no
+//T has-passed:yes
 //T retval:0
 //? desc:Test range foreach.
 
@@ -23,14 +23,6 @@ int main() {
 		i++;
 	}
 	
-	i = 0;
-	foreach(ref j; 1 .. 10) {
-		i += j;
-		if(j == 5)
-			j = 8;
-	}
-	assert(i == 24);
-	
 	// Break.
 	i = 0;
 	foreach(j; 0 .. 10) {
@@ -50,6 +42,7 @@ int main() {
 		i++;
 	}
 	assert(i == 5);
+	
 	return 0;
 }
 

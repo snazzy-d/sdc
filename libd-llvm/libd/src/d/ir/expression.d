@@ -23,7 +23,6 @@ abstract class Expression : AstExpression {
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
-alias UnaryExpression = d.ast.expression.UnaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias IndexExpression = d.ast.expression.IndexExpression!Expression;
 alias SliceExpression = d.ast.expression.SliceExpression!Expression;
@@ -58,6 +57,31 @@ class ErrorExpression : CompileTimeExpression {
 	
 	override string toString(Context) const {
 		return "__error__(" ~ message ~ ")";
+	}
+}
+
+class UnaryExpression : Expression {
+	Expression expr;
+	UnaryOp op;
+	
+	this(Location location, QualType type, UnaryOp op, Expression expr) {
+		super(location, type);
+		
+		this.expr = expr;
+		this.op = op;
+	}
+	
+	invariant() {
+		assert(expr);
+	}
+	
+	override string toString(Context ctx) const {
+		return unarizeString(expr.toString(ctx), op);
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return op == UnaryOp.Dereference;
 	}
 }
 

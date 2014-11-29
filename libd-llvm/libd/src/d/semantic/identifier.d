@@ -497,18 +497,13 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			}
 			
 			// UFCS
-			Symbol s;
 			try {
 				auto oldBuildErrorNode = pass.buildErrorNode;
 				scope(exit) pass.buildErrorNode = oldBuildErrorNode;
 				
 				pass.buildErrorNode = false;
-				s = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+				return visit(AliasResolver!identifiableHandler(pass).resolveName(location, name));
 			} catch(CompileException e) {}
-			
-			if (s) {
-				return visit(s);
-			}
 			
 			static if(is(T : PointerType)) {
 				expr = new UnaryExpression(expr.location, t.pointed, UnaryOp.Dereference, expr);
@@ -521,7 +516,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 	
 	Ret visit(Symbol s) {
 		return this.dispatch!((s) {
-			throw new CompileException(s.location, "Don't know how to dispatch that " ~ typeid(s).toString());
+			throw new CompileException(s.location, "Don't know how to dispatch " ~ typeid(s).toString());
 		})(s);
 	}
 	
@@ -530,13 +525,27 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			return visit(s.set[0]);
 		}
 		
-		return handler(new PolysemousExpression(location, s.set.map!(delegate Expression(s) {
-			if(auto f = cast(Function) s) {
-				return makeExpression(f);
-			}
+		Expression[] exprs;
+		foreach (sym; s.set) {
+			try {
+				if(auto f = cast(Function) sym) {
+					exprs ~= makeExpression(f);
+				} else {
+					assert(0, "not implemented: template with context");
+				}
+			} catch(CompileException e) {}
+		}
+		
+		switch(exprs.length) {
+			case 0 :
+				throw new CompileException(location, "No valid candidate in overload set");
 			
-			assert(0, "not implemented: template with context");
-		}).array()));
+			case 1 :
+				return handler(exprs[0]);
+			
+			default :
+				return handler(new PolysemousExpression(location, exprs));
+		}
 	}
 	
 	Ret visit(Field f) {
@@ -547,7 +556,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 	// XXX: dedup with ExpressionVisitor
 	private Expression makeExpression(Function f) {
 		scheduler.require(f, Step.Signed);
-		auto e = new MethodExpression(location, expr, f);
+		
+		import d.semantic.expression;
+		auto arg = ExpressionVisitor(pass).buildArgument(expr, f.type.paramTypes[0]);
+		auto e = new MethodExpression(location, arg, f);
 		
 		// If this is not a property, things are straigforward.
 		if (!f.isProperty) {

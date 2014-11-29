@@ -326,14 +326,30 @@ struct ExpressionGen {
 			
 			case PreInc :
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildAdd(builder, LLVMBuildLoad(builder, ptr, ""), LLVMConstInt(pass.visit(e.type), 1, true), "");
+				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto type = LLVMTypeOf(value);
+				
+				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
+					auto one = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 1, true);
+					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
+				} else {
+					value = LLVMBuildAdd(builder, value, LLVMConstInt(type, 1, true), "");
+				}
 				
 				LLVMBuildStore(builder, value, ptr);
 				return value;
 			
 			case PreDec :
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildSub(builder, LLVMBuildLoad(builder, ptr, ""), LLVMConstInt(pass.visit(e.type), 1, true), "");
+				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto type = LLVMTypeOf(value);
+				
+				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
+					auto one = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
+					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
+				} else {
+					value = LLVMBuildSub(builder, value, LLVMConstInt(type, 1, true), "");
+				}
 				
 				LLVMBuildStore(builder, value, ptr);
 				return value;
@@ -341,16 +357,34 @@ struct ExpressionGen {
 			case PostInc :
 				auto ptr = addressOf(e.expr);
 				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto ret = value;
+				auto type = LLVMTypeOf(value);
 				
-				LLVMBuildStore(builder, LLVMBuildAdd(builder, value, LLVMConstInt(pass.visit(e.type), 1, true), ""), ptr);
-				return value;
+				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
+					auto one = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 1, true);
+					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
+				} else {
+					value = LLVMBuildAdd(builder, value, LLVMConstInt(type, 1, true), "");
+				}
+				
+				LLVMBuildStore(builder, value, ptr);
+				return ret;
 			
 			case PostDec :
 				auto ptr = addressOf(e.expr);
 				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto ret = value;
+				auto type = LLVMTypeOf(value);
 				
-				LLVMBuildStore(builder, LLVMBuildSub(builder, value, LLVMConstInt(pass.visit(e.type), 1, true), ""), ptr);
-				return value;
+				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
+					auto one = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
+					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
+				} else {
+					value = LLVMBuildSub(builder, value, LLVMConstInt(type, 1, true), "");
+				}
+				
+				LLVMBuildStore(builder, value, ptr);
+				return ret;
 			
 			case Plus :
 				return visit(e.expr);
