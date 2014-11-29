@@ -3,7 +3,6 @@ module d.semantic.expression;
 import d.semantic.caster;
 import d.semantic.identifier;
 import d.semantic.semantic;
-import d.semantic.typepromotion;
 
 import d.ast.base;
 import d.ast.expression;
@@ -129,6 +128,7 @@ struct ExpressionVisitor {
 			case Div :
 			case Mod :
 			case Pow :
+				import d.semantic.typepromotion;
 				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
@@ -181,6 +181,7 @@ struct ExpressionVisitor {
 			case BitwiseOr :
 			case BitwiseAnd :
 			case BitwiseXor :
+				import d.semantic.typepromotion;
 				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
@@ -199,6 +200,7 @@ struct ExpressionVisitor {
 			case NotEqual :
 			case Identical :
 			case NotIdentical :
+				import d.semantic.typepromotion;
 				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
@@ -230,6 +232,7 @@ struct ExpressionVisitor {
 			case GreaterEqual :
 			case Less :
 			case LessEqual :
+				import d.semantic.typepromotion;
 				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
@@ -257,6 +260,7 @@ struct ExpressionVisitor {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 		
+		import d.semantic.typepromotion;
 		auto t = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
 		
 		lhs = buildExplicitCast(pass, lhs.location, t, lhs);

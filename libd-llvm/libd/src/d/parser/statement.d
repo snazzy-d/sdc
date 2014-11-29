@@ -160,9 +160,12 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(Semicolon);
 			auto iterrated = trange.parseExpression();
 			
-			if(trange.front.type == DoubleDot) {
+			bool isRange = trange.front.type == DoubleDot;
+			
+			AstExpression endOfRange;
+			if (isRange) {
 				trange.popFront();
-				trange.parseExpression();
+				endOfRange = trange.parseExpression();
 			}
 			
 			trange.match(CloseParen);
@@ -170,7 +173,9 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto statement = trange.parseStatement();
 			location.spanTo(statement.location);
 			
-			return new ForeachStatement(location, tupleElements, iterrated, statement, reverse);
+			return isRange
+				? new ForeachRangeStatement(location, tupleElements, iterrated, endOfRange, statement, reverse)
+				: new ForeachStatement(location, tupleElements, iterrated, statement, reverse);
 		
 		case Return :
 			trange.popFront();

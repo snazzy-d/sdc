@@ -151,6 +151,27 @@ class ForeachStatement : AstStatement {
 }
 
 /**
+ * foreach statements
+ */
+class ForeachRangeStatement : AstStatement {
+	VariableDeclaration[] tupleElements;
+	AstExpression start;
+	AstExpression stop;
+	AstStatement statement;
+	bool reverse;
+	
+	this(Location location, VariableDeclaration[] tupleElements, AstExpression start, AstExpression stop, AstStatement statement, bool reverse) {
+		super(location);
+		
+		this.tupleElements = tupleElements;
+		this.start = start;
+		this.stop = stop;
+		this.statement = statement;
+		this.reverse = reverse;
+	}
+}
+
+/**
  * return statements
  */
 class ReturnStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){

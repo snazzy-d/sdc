@@ -241,6 +241,44 @@ struct StatementVisitor {
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);
 	}
 	
+	void visit(ForeachRangeStatement f) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = (cast(NestedScope) oldScope).clone();
+		
+		assert(!f.reverse, "foreach_reverse not supported at this point.");
+		
+		import d.semantic.expression;
+		auto start = ExpressionVisitor(pass).visit(f.start);
+		auto stop  = ExpressionVisitor(pass).visit(f.stop);
+		
+		assert(f.tupleElements.length == 1, "Wrong number of elements");
+		auto iDecl = f.tupleElements[0];
+		
+		auto loc = f.location;
+		
+		import d.semantic.type, d.semantic.typepromotion;
+		auto type = (typeid({ return iDecl.type.type; }()) is typeid(AutoType))
+			? getPromotedType(pass, loc, start.type.type, stop.type.type)
+			: TypeVisitor(pass).visit(iDecl.type);
+		
+		start = buildImplicitCast(pass, start.location, type, start);
+		stop  = buildImplicitCast(pass, stop.location, type, stop);
+		
+		auto idx = new Variable(iDecl.location, type, iDecl.name, start);
+		
+		idx.step = Step.Processed;
+		currentScope.addSymbol(idx);
+		
+		auto initialize = new SymbolStatement(idx);
+		auto idxExpr = new VariableExpression(idx.location, idx);
+		auto condition = new BinaryExpression(loc, getBuiltin(TypeKind.Bool), BinaryOp.Less, idxExpr, stop);
+		auto increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
+		
+		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
+	}
+	
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(r.value);
