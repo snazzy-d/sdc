@@ -119,6 +119,14 @@ final class SemanticPass {
 		return evaluator.evaluate(e);
 	}
 	
+	auto evalIntegral(Expression e) {
+		return evaluator.evalIntegral(e);
+	}
+	
+	auto evalString(Expression e) {
+		return evaluator.evalString(e);
+	}
+	
 	auto importModule(Name[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
 	}

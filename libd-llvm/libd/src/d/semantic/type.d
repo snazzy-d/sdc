@@ -71,16 +71,14 @@ struct TypeVisitor {
 		auto elementType = visit(t.elementType);
 		
 		import d.semantic.caster, d.semantic.expression, d.ir.expression;
-		auto size = cast(IntegerLiteral!false) evaluate(buildImplicitCast(
+		auto size = evalIntegral(buildImplicitCast(
 			pass,
 			t.size.location,
 			pass.object.getSizeT().type,
 			ExpressionVisitor(pass).visit(t.size),
 		));
 		
-		assert(size);
-		
-		return QualType(new ArrayType(elementType, size.value));
+		return QualType(new ArrayType(elementType, size));
 	}
 	
 	QualType visit(AstFunctionType t) {
