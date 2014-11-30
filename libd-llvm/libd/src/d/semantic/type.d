@@ -21,7 +21,7 @@ struct TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	TypeQualifier qualifier;
+	private TypeQualifier qualifier;
 	
 	this(SemanticPass pass, TypeQualifier qualifier = TypeQualifier.Mutable) {
 		this.pass = pass;
@@ -54,9 +54,7 @@ struct TypeVisitor {
 		import d.semantic.expression;
 		auto ret = ExpressionVisitor(pass).visit(t.expression).type;
 		
-		// FIXME: turtle down qualifier.
-		ret.qualifier = qualifier.add(ret.qualifier);
-		return ret;
+		return TypeRequalifier(qualifier).visit(ret);
 	}
 	
 	QualType visit(AstPointerType t) {
@@ -111,12 +109,45 @@ struct TypeVisitor {
 		import d.semantic.identifier;
 		return SymbolResolver!(delegate QualType(identified) {
 			static if(is(typeof(identified) : QualType)) {
-				// FIXME: turtle down type qualifier
-				return identified;
+				return TypeRequalifier(qualifier).visit(identified);
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
 			}
 		})(pass).visit(t.identifier);
+	}
+}
+
+struct TypeRequalifier {
+	private TypeQualifier qualifier;
+	
+	this(TypeQualifier qualifier) {
+		this.qualifier = qualifier;
+	}
+	
+	QualType visit(QualType t) {
+		auto nq = t.qualifier.add(qualifier);
+		if (t.qualifier == nq) {
+			return t;
+		}
+		
+		qualifier = nq;
+		return QualType(this.dispatch(t.type), nq);
+	}
+	
+	Type visit(BuiltinType t) {
+		return t;
+	}
+	
+	Type visit(PointerType t) {
+		return new PointerType(visit(t.pointed));
+	}
+	
+	Type visit(SliceType t) {
+		return new SliceType(visit(t.sliced));
+	}
+	
+	Type visit(ArrayType t) {
+		return new SliceType(visit(t.elementType));
 	}
 }
 
