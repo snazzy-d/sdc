@@ -86,11 +86,11 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression getLvalue(Expression value) {
-		auto pt = QualType(new PointerType(value.type));
-		auto ptr = new UnaryExpression(value.location, pt, UnaryOp.AddressOf, value);
-		auto v = getRvalue(ptr);
+		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
+		v.isRef = true;
+		v.step = Step.Processed;
 		
-		return new UnaryExpression(value.location, value.type, UnaryOp.Dereference, v);
+		return new VariableExpression(value.location, v);
 	}
 	
 	Expression visit(AstBinaryExpression e) {
