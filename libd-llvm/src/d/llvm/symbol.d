@@ -380,8 +380,12 @@ final class SymbolGen {
 	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
 		import d.ast.base;
-		if(v.isRef || v.storage == Storage.Enum) {
+		if (v.storage == Storage.Enum) {
 			return globals[v] = value;
+		}
+		
+		if (v.isRef) {
+			return locals[v] = value;
 		}
 		
 		auto type = pass.visit(v.type);
