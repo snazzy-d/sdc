@@ -296,9 +296,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 						// XXX: dedup with IdentifierBracketExpression
 						import d.semantic.caster, d.semantic.expression;
 						auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, index);
-						auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
-						
-						return handler(QualType(new ArrayType(indexed, size)));
+						return handler(QualType(new ArrayType(indexed, pass.evalIntegral(se))));
 					} else {
 						assert(0, "Add meaningful error message.");
 					}
@@ -326,9 +324,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				// XXX: dedup with IdentifierBracketExpression
 				import d.semantic.caster, d.semantic.expression;
 				auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, ExpressionVisitor(pass).visit(i.index));
-				auto size = (cast(IntegerLiteral!false) pass.evaluate(se)).value;
-				
-				return handler(QualType(new ArrayType(identified, size)));
+				return handler(QualType(new ArrayType(identified, pass.evalIntegral(se))));
 			} else static if(is(T : Expression)) {
 				import d.semantic.expression;
 				return handler(ExpressionVisitor(pass).getIndex(i.location, identified, ExpressionVisitor(pass).visit(i.index)));

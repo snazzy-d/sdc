@@ -381,11 +381,14 @@ struct StatementVisitor {
 	
 	void visit(StaticIf!AstStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		auto condition = evalIntegral(buildExplicitCast(
+			pass,
+			s.condition.location,
+			getBuiltin(TypeKind.Bool),
+			ExpressionVisitor(pass).visit(s.condition),
+		));
 		
-		auto condition = evaluate(buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ev.visit(s.condition)));
-		
-		if((cast(BooleanLiteral) condition).value) {
+		if (condition) {
 			foreach(item; s.items) {
 				visit(item);
 			}
@@ -398,21 +401,15 @@ struct StatementVisitor {
 	
 	void visit(Mixin!AstStatement s) {
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
+		auto str = evalString(ExpressionVisitor(pass).visit(s.value));
 		
-		auto value = evaluate(ev.visit(s.value));
-		if(auto str = cast(StringLiteral) value) {
-			import d.lexer;
-			auto source = new MixinSource(s.location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
-			
-			trange.match(TokenType.Begin);
-			
-			while(trange.front.type != TokenType.End) {
-				visit(trange.parseStatement());
-			}
-		} else {
-			assert(0, "mixin parameter should evalutate as a string.");
+		import d.lexer;
+		auto source = new MixinSource(s.location, str);
+		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
+		
+		trange.match(TokenType.Begin);
+		while(trange.front.type != TokenType.End) {
+			visit(trange.parseStatement());
 		}
 	}
 }

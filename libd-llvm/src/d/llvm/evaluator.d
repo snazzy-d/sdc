@@ -66,27 +66,21 @@ final class LLVMEvaluator : Evaluator {
 		
 		if(auto t = cast(BuiltinType) type) {
 			auto k = t.kind;
-			if(isIntegral(k)) {
-				auto returned = jitInteger(e);
+			if (isIntegral(k)) {
+				auto returned = evalIntegral(e);
 				
-				if(isSigned(k)) {
-					return new IntegerLiteral!true(e.location, returned, k);
-				} else {
-					return new IntegerLiteral!false(e.location, returned, k);
-				}
-			} else if(k == TypeKind.Bool) {
-				auto returned = jitInteger(e);
-				
-				return new BooleanLiteral(e.location, !!returned);
+				return isSigned(k)
+					? new IntegerLiteral!true(e.location, returned, k)
+					: new IntegerLiteral!false(e.location, returned, k);
+			} else if (k == TypeKind.Bool) {
+				return new BooleanLiteral(e.location, !!evalIntegral(e));
 			}
 		}
 		
 		if(auto t = cast(SliceType) type) {
 			if(auto c = cast(BuiltinType) peelAlias(t.sliced).type) {
 				if(c.kind == TypeKind.Char) {
-					auto returned = jitString(e);
-					
-					return new StringLiteral(e.location, returned);
+					return new StringLiteral(e.location, evalString(e));
 				}
 			}
 		}
@@ -94,11 +88,11 @@ final class LLVMEvaluator : Evaluator {
 		assert(0, "Only able to JIT integers, booleans and strings, " ~ type.toString(codeGen.context) ~ " given.");
 	}
 	
-	private auto jitInteger(Expression e) {
+	ulong evalIntegral(Expression e) {
 		return codeGen.ctfe(e, executionEngine);
 	}
 	
-	private string jitString(Expression e) {
+	string evalString(Expression e) {
 		return codeGen.ctString(e, executionEngine);
 	}
 }

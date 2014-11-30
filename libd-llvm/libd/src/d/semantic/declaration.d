@@ -194,7 +194,7 @@ struct DeclarationVisitor {
 		auto d = unit.staticIf;
 		
 		import d.ir.expression, d.semantic.caster, d.semantic.expression;
-		auto condition = evaluate(buildExplicitCast(
+		auto condition = evalIntegral(buildExplicitCast(
 			pass,
 			d.condition.location,
 			QualType(new BuiltinType(TypeKind.Bool)),
@@ -202,7 +202,7 @@ struct DeclarationVisitor {
 		));
 		
 		CtUnit[] items;
-		if((cast(BooleanLiteral) condition).value) {
+		if(condition) {
 			currentScope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
@@ -210,12 +210,11 @@ struct DeclarationVisitor {
 			items = unit.elseItems;
 		}
 		
-		import d.semantic.symbol;
-		auto sv = SymbolVisitor(pass);
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
-					sv.visit(su.d, su.s);
+					import d.semantic.symbol;
+					SymbolVisitor(pass).visit(su.d, su.s);
 				}
 				
 				u.level = CtUnitLevel.Done;
@@ -231,30 +230,25 @@ struct DeclarationVisitor {
 		auto d = unit.mixinDecl;
 
 		import d.semantic.expression : ExpressionVisitor;
-		auto value = evaluate(ExpressionVisitor(pass).visit(d.value));
+		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
 		
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.ir.expression;
-		if(auto str = cast(StringLiteral) value) {
-			import d.lexer;
-			auto source = new MixinSource(location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
-			
-			import d.parser.base;
-			trange.match(TokenType.Begin);
-			
-			Declaration[] decls;
-			while(trange.front.type != TokenType.End) {
-				import d.parser.declaration;
-				decls ~= trange.parseDeclaration();
-			}
-			
-			return flatten(flattenDecls(decls), to);
-		} else {
-			assert(0, "mixin parameter should evalutate as a string.");
+		import d.lexer, d.ir.expression;
+		auto source = new MixinSource(location, str);
+		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
+		
+		import d.parser.base;
+		trange.match(TokenType.Begin);
+		
+		Declaration[] decls;
+		while(trange.front.type != TokenType.End) {
+			import d.parser.declaration;
+			decls ~= trange.parseDeclaration();
 		}
+		
+		return flatten(flattenDecls(decls), to);
 	}
 	
 	void visit(Declaration d) {
