@@ -106,8 +106,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	
 	trange.match(TokenType.Identifier);
 	
-	import d.ir.type;
-	auto defaultType = QualAstType(new BuiltinType(TypeKind.None));
+	auto defaultType = QualAstType(new BuiltinAstType(BuiltinType.None));
 	switch(trange.front.type) with(TokenType) {
 		case Colon :
 			trange.popFront();

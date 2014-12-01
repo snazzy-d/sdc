@@ -3,19 +3,12 @@ module d.semantic.type;
 import d.semantic.semantic;
 
 import d.ast.base;
-import d.ast.declaration;
 import d.ast.type;
 
 import d.ir.type;
 
-import std.algorithm;
-import std.array;
-
-alias PointerType = d.ir.type.PointerType;
-alias SliceType = d.ir.type.SliceType;
-alias FunctionType = d.ir.type.FunctionType;
-alias DelegateType = d.ir.type.DelegateType;
-alias ArrayType = d.ir.type.ArrayType;
+// XXX: module level for UFCS.
+import std.algorithm, std.array;
 
 struct TypeVisitor {
 	private SemanticPass pass;
@@ -28,46 +21,43 @@ struct TypeVisitor {
 		this.qualifier = qualifier;
 	}
 	
+	import d.ast.declaration;
 	TypeVisitor withStorageClass(StorageClass stc) {
-		auto q = stc.hasQualifier
-			? qualifier.add(stc.qualifier)
-			: qualifier;
-		
-		return TypeVisitor(pass, q);
+		return TypeVisitor(
+			pass,
+			stc.hasQualifier
+				? qualifier.add(stc.qualifier)
+				: qualifier,
+		);
 	}
 	
-	QualType visit(QualAstType t) {
-		qualifier = qualifier.add(t.qualifier);
-		return this.dispatch(t.type);
+	Type visit(AstType t) {
+		return this.dispatch(t);
+	}
+	
+	Type visit(QualAstType t) {
+		return visit(t.type).qualify(t.qualifier);
 	}
 	
 	ParamType visit(ParamAstType t) {
-		auto qt = visit(QualAstType(t.type, t.qualifier));
-		return ParamType(qt, t.isRef, t.isFinal);
+		return visit(t.type)
+			.qualify(t.qualifier)
+			.getParamType(t.isRef, t.isFinal);
 	}
 	
-	QualType visit(BuiltinType t) {
-		return QualType(t, qualifier);
+	Type visit(BuiltinAstType t) {
+		return Type.get(t.kind, qualifier);
 	}
 	
-	QualType visit(TypeofType t) {
-		import d.semantic.expression;
-		auto ret = ExpressionVisitor(pass).visit(t.expression).type;
-		
-		return TypeRequalifier(qualifier).visit(ret);
+	Type visit(AstPointerType t) {
+		return visit(t.pointed).getPointer(qualifier);
 	}
 	
-	QualType visit(AstPointerType t) {
-		return QualType(new PointerType(visit(t.pointed)), qualifier);
+	Type visit(AstSliceType t) {
+		return visit(t.sliced).getSlice(qualifier);
 	}
 	
-	QualType visit(AstSliceType t) {
-		return QualType(new SliceType(visit(t.sliced)), qualifier);
-	}
-	
-	QualType visit(AstArrayType t) {
-		auto elementType = visit(t.elementType);
-		
+	Type visit(AstArrayType t) {
 		import d.semantic.caster, d.semantic.expression, d.ir.expression;
 		auto size = evalIntegral(buildImplicitCast(
 			pass,
@@ -76,10 +66,10 @@ struct TypeVisitor {
 			ExpressionVisitor(pass).visit(t.size),
 		));
 		
-		return QualType(new ArrayType(elementType, size));
+		return visit(t.elementType).getArray(size, qualifier);
 	}
 	
-	QualType visit(AstFunctionType t) {
+	Type visit(AstFunctionType t) {
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
@@ -88,11 +78,12 @@ struct TypeVisitor {
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		return QualType(new FunctionType(t.linkage, returnType, paramTypes, t.isVariadic), oldQualifier);
+		alias FunctionType = d.ir.type.FunctionType;
+		return FunctionType(t.linkage, returnType, paramTypes, t.isVariadic).getType(oldQualifier);
 	}
 	
-	QualType visit(AstDelegateType t) {
-		auto context = visit(t.context);
+	Type visit(AstDelegateType t) {
+		auto contextType = visit(t.context);
 		
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
@@ -102,52 +93,24 @@ struct TypeVisitor {
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		return QualType(new DelegateType(t.linkage, returnType, context, paramTypes, t.isVariadic), oldQualifier);
+		alias FunctionType = d.ir.type.FunctionType;
+		return FunctionType(t.linkage, returnType, contextType, paramTypes, t.isVariadic).getType(oldQualifier);
 	}
 	
-	QualType visit(IdentifierType t) {
+	Type visit(IdentifierType t) {
 		import d.semantic.identifier;
-		return SymbolResolver!(delegate QualType(identified) {
-			static if(is(typeof(identified) : QualType)) {
-				return TypeRequalifier(qualifier).visit(identified);
+		return SymbolResolver!(delegate Type(identified) {
+			static if(is(typeof(identified) : Type)) {
+				return identified.qualify(qualifier);
 			} else {
 				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
 			}
 		})(pass).visit(t.identifier);
 	}
-}
-
-struct TypeRequalifier {
-	private TypeQualifier qualifier;
 	
-	this(TypeQualifier qualifier) {
-		this.qualifier = qualifier;
-	}
-	
-	QualType visit(QualType t) {
-		auto nq = t.qualifier.add(qualifier);
-		if (t.qualifier == nq) {
-			return t;
-		}
-		
-		qualifier = nq;
-		return QualType(this.dispatch(t.type), nq);
-	}
-	
-	Type visit(BuiltinType t) {
-		return t;
-	}
-	
-	Type visit(PointerType t) {
-		return new PointerType(visit(t.pointed));
-	}
-	
-	Type visit(SliceType t) {
-		return new SliceType(visit(t.sliced));
-	}
-	
-	Type visit(ArrayType t) {
-		return new SliceType(visit(t.elementType));
+	Type visit(TypeofType t) {
+		import d.semantic.expression;
+		return ExpressionVisitor(pass).visit(t.expression).type.qualify(qualifier);
 	}
 }
 
