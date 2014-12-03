@@ -151,12 +151,12 @@ final class SymbolGen {
 		auto parameters = f.params;
 		
 		thisPtr = null;
-		if(f.hasThis) {
+		if (f.hasThis) {
 			// TODO: if this have a context, expand variables !
-			auto thisType = f.type.paramTypes[0];
+			auto thisType = f.type.parameters[0];
 			auto value = params[0];
 			
-			if(thisType.isRef || thisType.isFinal) {
+			if (thisType.isRef || thisType.isFinal) {
 				LLVMSetValueName(value, "this");
 				thisPtr = value;
 			} else {
@@ -167,20 +167,20 @@ final class SymbolGen {
 				thisPtr = alloca;
 			}
 			
-			buildEmbededCaptures(thisPtr, thisType.type);
+			buildEmbededCaptures(thisPtr, thisType.getType());
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
 		
 		if (f.hasContext) {
-			auto ctxType = f.type.paramTypes[f.hasThis];
+			auto ctxType = f.type.parameters[f.hasThis];
 			auto parentCtx = params[f.hasThis];
 			
 			assert(ctxType.isRef || ctxType.isFinal);
 			LLVMSetValueName(parentCtx, "__ctx");
 			
-			auto ctxTypeGen = pass.visit(ctxType.type);
+			auto ctxTypeGen = pass.visit(ctxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
 			auto s = cast(ClosureScope) f.dscope;
@@ -286,8 +286,8 @@ final class SymbolGen {
 	}
 	
 	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
-		if (auto st = cast(StructType) t) {
-			auto s = st.dstruct;
+		if (t.kind == TypeKind.Struct) {
+			auto s = t.dstruct;
 			if (!s.hasContext) {
 				return;
 			}
@@ -296,8 +296,8 @@ final class SymbolGen {
 			assert(vs, "Struct has context but no VoldemortScope");
 			
 			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
-		} else if (auto ct = cast(ClassType) t) {
-			auto c = ct.dclass;
+		} else if (t.kind == TypeKind.Class) {
+			auto c = t.dclass;
 			if (!c.hasContext) {
 				return;
 			}
@@ -499,7 +499,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Enum e) {
-		auto type = pass.visit(new EnumType(e));
+		auto type = pass.buildEnumType(e);
 		/+
 		foreach(entry; e.entries) {
 			visit(entry);

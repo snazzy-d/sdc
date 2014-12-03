@@ -5,8 +5,6 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-import d.ir.type;
-
 import d.parser.base;
 import d.parser.declaration;
 import d.parser.dtemplate;
@@ -164,7 +162,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 			assert(trange.front.type != Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
 			
 			// If we have a colon, we go to the apropriate case.
-			if(trange.front.type == Colon) {
+			if (trange.front.type == Colon) {
 				goto case Colon;
 			}
 			
@@ -179,7 +177,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 		
 		case OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = QualAstType(new BuiltinType(TypeKind.Uint));
+			type = QualAstType(new BuiltinAstType(BuiltinType.Uint));
 			break;
 		
 		default :

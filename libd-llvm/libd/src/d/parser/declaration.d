@@ -21,7 +21,7 @@ import d.parser.type;
  * Parse a set of declarations.
  */
 auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) {
-	static if(globBraces) {
+	static if (globBraces) {
 		trange.match(TokenType.OpenBrace);
 	}
 	
@@ -31,7 +31,7 @@ auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) 
 		declarations ~= trange.parseDeclaration();
 	}
 	
-	static if(globBraces) {
+	static if (globBraces) {
 		trange.match(TokenType.CloseBrace);
 	}
 	
@@ -50,7 +50,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			// Handle static if.
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if(lookahead.front.type == If) {
+			if (lookahead.front.type == If) {
 				return trange.parseStaticIf!Declaration();
 			}
 			
@@ -331,7 +331,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc, QualAstType type) if(isTokenRange!R) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
-	if(lookahead.front.type == TokenType.OpenParen) {
+	if (lookahead.front.type == TokenType.OpenParen) {
 		auto idLoc = trange.front.location;
 		auto name = trange.front.name;
 		trange.match(TokenType.Identifier);
@@ -352,7 +352,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 			trange.match(TokenType.Identifier);
 			
 			AstExpression value;
-			if(trange.front.type == TokenType.Assign) {
+			if (trange.front.type == TokenType.Assign) {
 				trange.popFront();
 				value = trange.parseInitializer();
 				variableLocation.spanTo(value.location);
@@ -379,8 +379,8 @@ private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	import d.ir.type, d.context;
-	return trange.parseFunction(location, stc, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__ctor");
+	import d.context;
+	return trange.parseFunction(location, stc, ParamAstType(new BuiltinAstType(BuiltinType.None), false), BuiltinName!"__ctor");
 }
 
 // XXX: one callsite, remove
@@ -389,8 +389,8 @@ private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	import d.ir.type, d.context;
-	return trange.parseFunction(location, stc, ParamAstType(new BuiltinType(TypeKind.None), false), BuiltinName!"__dtor");
+	import d.context;
+	return trange.parseFunction(location, stc, ParamAstType(new BuiltinAstType(BuiltinType.None), false), BuiltinName!"__dtor");
 }
 
 /**
@@ -409,15 +409,15 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
 	
 	bool isTemplate = lookahead.front.type == TokenType.OpenParen;
-	if(isTemplate) {
+	if (isTemplate) {
 		tplParameters = trange.parseTemplateParameters();
 	}
 	
 	auto parameters = trange.parseParameters(isVariadic);
 	
 	// If it is a template, it can have a constraint.
-	if(tplParameters.ptr) {
-		if(trange.front.type == TokenType.If) {
+	if (tplParameters.ptr) {
+		if (trange.front.type == TokenType.If) {
 			trange.parseConstraint();
 		}
 	}
@@ -501,12 +501,9 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 	}
 	
 	auto fun = new FunctionDeclaration(location, stc, returnType, name, parameters, isVariadic, fbody);
-	
-	if(isTemplate) {
-		return new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun]);
-	} else {
-		return fun;
-	}
+	return isTemplate
+		? new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun])
+		: fun;
 }
 
 /**
@@ -532,11 +529,11 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 			while(trange.front.type == Comma) {
 				trange.popFront();
 				
-				if(trange.front.type == TripleDot) {
+				if (trange.front.type == TripleDot) {
 					goto case TripleDot;
 				}
 				
-				if(trange.front.type == CloseParen) {
+				if (trange.front.type == CloseParen) {
 					goto case CloseParen;
 				}
 				
@@ -576,11 +573,11 @@ auto parseParameter(R)(ref R trange) {
 	auto name = BuiltinName!"";
 	AstExpression value;
 	
-	if(trange.front.type == TokenType.Identifier) {
+	if (trange.front.type == TokenType.Identifier) {
 		name = trange.front.name;
 		
 		trange.popFront();
-		if(trange.front.type == TokenType.Assign) {
+		if (trange.front.type == TokenType.Assign) {
 			trange.popFront();
 			value = trange.parseAssignExpression();
 		}
@@ -600,7 +597,7 @@ Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
-	if(trange.front.type == TokenType.Assign) {
+	if (trange.front.type == TokenType.Assign) {
 		trange.popFront();
 		
 		import d.parser.ambiguous;
@@ -611,15 +608,15 @@ Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 			alias type = typeof(parsed);
 			
 			import d.ast.type;
-			static if(is(type : QualAstType)) {
+			static if (is(type : QualAstType)) {
 				return new TypeAliasDeclaration(location, stc, name, parsed);
-			} else static if(is(type : AstExpression)) {
+			} else static if (is(type : AstExpression)) {
 				return new ValueAliasDeclaration(location, stc, name, parsed);
 			} else {
 				return new IdentifierAliasDeclaration(location, stc, name, parsed);
 			}
 		})();
-	} else if(trange.front.type == TokenType.This) {
+	} else if (trange.front.type == TokenType.This) {
 		// FIXME: move this before storage class parsing.
 		trange.popFront();
 		location.spanTo(trange.front.location);
@@ -669,12 +666,13 @@ auto parseImport(TokenRange)(ref TokenRange trange) {
  * Parse Initializer
  */
 auto parseInitializer(TokenRange)(ref TokenRange trange) {
-	if(trange.front.type == TokenType.Void) {
+	if (trange.front.type == TokenType.Void) {
 		auto location = trange.front.location;
 		
 		trange.popFront();
 		
-		return new VoidInitializer(location);
+		import d.ir.type;
+		return new VoidInitializer(location, Type.get(BuiltinType.None));
 	}
 	
 	return trange.parseAssignExpression();

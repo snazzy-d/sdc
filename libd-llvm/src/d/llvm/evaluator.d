@@ -3,7 +3,6 @@ module d.llvm.evaluator;
 import d.llvm.codegen;
 
 import d.ir.expression;
-import d.ir.type;
 
 import d.semantic.evaluator;
 
@@ -40,52 +39,39 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	CompileTimeExpression visit(TupleExpression e) {
-		auto ret = new CompileTimeTupleExpression(e.location, e.type, e.values.map!(e => evaluate(e)).array());
-		ret.type = e.type;
-		
-		return ret;
+		return new CompileTimeTupleExpression(e.location, e.type, e.values.map!(e => evaluate(e)).array());
 	}
-	/+
-	CompileTimeExpression visit(BitCastExpression e) {
-		// XXX: hack to get enums work.
-		import d.ast.adt;
-		if(auto t = cast(EnumType) e.type) {
-			return evaluate(e.expression);
-		}
-		
-		return jit(e);
-	}
-	+/
+	
 	// Actual JIT
 	private CompileTimeExpression jit(Expression e) {
-		auto type = peelAlias(e.type).type;
+		auto t = e.type.getCanonical();
 		
-		if(auto et = cast(EnumType) type) {
-			type = et.denum.type;
+		import d.ir.type;
+		if (t.kind == TypeKind.Enum) {
+			t = t.denum.type;
 		}
 		
-		if(auto t = cast(BuiltinType) type) {
-			auto k = t.kind;
+		if (t.kind == TypeKind.Builtin) {
+			auto k = t.builtin;
 			if (isIntegral(k)) {
 				auto returned = evalIntegral(e);
 				
 				return isSigned(k)
 					? new IntegerLiteral!true(e.location, returned, k)
 					: new IntegerLiteral!false(e.location, returned, k);
-			} else if (k == TypeKind.Bool) {
+			} else if (k == BuiltinType.Bool) {
 				return new BooleanLiteral(e.location, !!evalIntegral(e));
 			}
 		}
 		
-		if(auto t = cast(SliceType) type) {
-			if(auto c = cast(BuiltinType) peelAlias(t.sliced).type) {
-				if(c.kind == TypeKind.Char) {
-					return new StringLiteral(e.location, evalString(e));
-				}
+		if (t.kind == TypeKind.Slice) {
+			auto et = t.getElement().getCanonical();
+			if (et.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char) {
+				return new StringLiteral(e.location, evalString(e));
 			}
 		}
 		
-		assert(0, "Only able to JIT integers, booleans and strings, " ~ type.toString(codeGen.context) ~ " given.");
+		assert(0, "Only able to JIT integers, booleans and strings, " ~ t.toString(codeGen.context) ~ " given.");
 	}
 	
 	ulong evalIntegral(Expression e) {

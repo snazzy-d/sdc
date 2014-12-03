@@ -26,9 +26,6 @@ alias NewExpression = d.ir.expression.NewExpression;
 alias SliceExpression = d.ir.expression.SliceExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
-alias PointerType = d.ir.type.PointerType;
-alias SliceType = d.ir.type.SliceType;
-alias ArrayType = d.ir.type.ArrayType;
 alias FunctionType = d.ir.type.FunctionType;
 
 struct ExpressionVisitor {
@@ -98,7 +95,7 @@ struct ExpressionVisitor {
 		auto rhs = visit(e.rhs);
 		auto op = e.op;
 		
-		QualType type;
+		Type type;
 		final switch(op) with(BinaryOp) {
 			case Comma:
 				type = rhs.type;
@@ -111,13 +108,14 @@ struct ExpressionVisitor {
 			
 			case Add :
 			case Sub :
-				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+				auto c = lhs.type.getCanonical();
+				if (c.kind == TypeKind.Pointer) {
 					// FIXME: check that rhs is an integer.
-					if(op == Sub) {
+					if (op == Sub) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, pt.pointed, lhs, rhs);
+					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
 					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 				}
 				
@@ -128,7 +126,7 @@ struct ExpressionVisitor {
 			case Mod :
 			case Pow :
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -137,15 +135,16 @@ struct ExpressionVisitor {
 			
 			case AddAssign :
 			case SubAssign :
-				if(auto pt = cast(PointerType) peelAlias(lhs.type).type) {
+				auto c = lhs.type.getCanonical();
+				if (c.kind == TypeKind.Pointer) {
 					lhs = getLvalue(lhs);
 					
 					// FIXME: check that rhs is an integer.
-					if(op == SubAssign) {
+					if (op == SubAssign) {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, pt.pointed, lhs, rhs);
+					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
 					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
 				}
@@ -162,11 +161,11 @@ struct ExpressionVisitor {
 			
 			case Concat :
 			case ConcatAssign :
-				assert(0, "~,~= not implemented.");
+				assert(0, "~ and ~= not implemented.");
 			
 			case LogicalOr :
 			case LogicalAnd :
-				type = getBuiltin(TypeKind.Bool);
+				type = Type.get(BuiltinType.Bool);
 				
 				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
@@ -175,13 +174,13 @@ struct ExpressionVisitor {
 			
 			case LogicalOrAssign :
 			case LogicalAndAssign :
-				assert(0, "||=, &&= Not implemented.");
+				assert(0, "||= and &&= Not implemented.");
 			
 			case BitwiseOr :
 			case BitwiseAnd :
 			case BitwiseXor :
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -200,12 +199,12 @@ struct ExpressionVisitor {
 			case Identical :
 			case NotIdentical :
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
-				type = getBuiltin(TypeKind.Bool);
+				type = Type.get(BuiltinType.Bool);
 				break;
 			
 			case In :
@@ -232,12 +231,12 @@ struct ExpressionVisitor {
 			case Less :
 			case LessEqual :
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
-				type = getBuiltin(TypeKind.Bool);
+				type = Type.get(BuiltinType.Bool);
 				break;
 			
 			case LessGreater :
@@ -255,12 +254,12 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(AstTernaryExpression e) {
-		auto condition = buildExplicitCast(pass, e.condition.location, getBuiltin(TypeKind.Bool), visit(e.condition));
+		auto condition = buildExplicitCast(pass, e.condition.location, Type.get(BuiltinType.Bool), visit(e.condition));
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 		
 		import d.semantic.typepromotion;
-		auto t = getPromotedType(pass, e.location, lhs.type.type, rhs.type.type);
+		auto t = getPromotedType(pass, e.location, lhs.type, rhs.type);
 		
 		lhs = buildExplicitCast(pass, lhs.location, t, lhs);
 		rhs = buildExplicitCast(pass, rhs.location, t, rhs);
@@ -270,37 +269,38 @@ struct ExpressionVisitor {
 
 	private Expression handleAddressOf(Expression expr) {
 		// For fucked up reasons, &funcname is a special case.
-		if(auto se = cast(FunctionExpression) expr) {
+		if (auto se = cast(FunctionExpression) expr) {
 			return expr;
-		} else if(auto pe = cast(PolysemousExpression) expr) {
+		} else if (auto pe = cast(PolysemousExpression) expr) {
 			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
 			return pe;
 		}
 		
-		return new UnaryExpression(expr.location, QualType(new PointerType(expr.type)), UnaryOp.AddressOf, expr);
+		return new UnaryExpression(expr.location, expr.type.getPointer(), UnaryOp.AddressOf, expr);
 	}
 	
 	Expression visit(AstUnaryExpression e) {
 		auto expr = visit(e.expr);
 		auto op = e.op;
 		
-		QualType type;
+		Type type;
 		final switch(op) with(UnaryOp) {
 			case AddressOf :
 				return handleAddressOf(expr);
 				// It could have been so simple :(
 				/+
-				type = QualType(new PointerType(expr.type));
+				type = expr.type.getPointer();
 				break;
 				+/
 			
 			case Dereference :
-				if(auto pt = cast(PointerType) peelAlias(expr.type).type) {
-					type = pt.pointed;
+				auto c = expr.type.getCanonical();
+				if (c.kind == TypeKind.Pointer) {
+					type = c.getElement();
 					break;
 				}
 				
-				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not " ~ expr.type.toString(context));
+				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not "/+ ~ expr.type.toString(context) +/);
 			
 			case PreInc :
 			case PreDec :
@@ -317,7 +317,7 @@ struct ExpressionVisitor {
 				break;
 			
 			case Not :
-				type = getBuiltin(TypeKind.Bool);
+				type = Type.get(BuiltinType.Bool);
 				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 			
@@ -330,22 +330,18 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
-		auto tv = TypeVisitor(pass);
-		return buildExplicitCast(pass, e.location, tv.visit(e.type), visit(e.expr));
+		return buildExplicitCast(pass, e.location, TypeVisitor(pass).visit(e.type), visit(e.expr));
 	}
 	
 	Expression buildArgument(Expression arg, ParamType pt) {
-		if(pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
+		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
 			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
 		}
 		
-		arg = buildImplicitCast(pass, arg.location, QualType(pt.type, pt.qualifier), arg);
+		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
 		
 		// test if we can pass by ref.
-		if(pt.isRef && !arg.isLvalue) {
-			import std.stdio;
-			writeln(arg.toString(context), " is an lvalue ?\t", arg.isLvalue);
-			
+		if (pt.isRef && !arg.isLvalue) {
 			return pass.raiseCondition!Expression(arg.location, "Argument isn't a lvalue.");
 		}
 		
@@ -361,14 +357,14 @@ struct ExpressionVisitor {
 	
 	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, ParamType param) {
-		if(param.isRef && !canConvert(arg.type.qualifier, param.qualifier)) {
+		if (param.isRef && !canConvert(arg.type.qualifier, param.qualifier)) {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = implicitCastFrom(pass, arg.type, QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, arg.type, param.getType());
 		
 		// test if we can pass by ref.
-		if(param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
+		if (param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
 			return MatchLevel.Not;
 		}
 		
@@ -377,14 +373,14 @@ struct ExpressionVisitor {
 	
 	// TODO: deduplicate.
 	private auto matchArgument(ParamType type, ParamType param) {
-		if(param.isRef && !canConvert(type.qualifier, param.qualifier)) {
+		if (param.isRef && !canConvert(type.qualifier, param.qualifier)) {
 			return MatchLevel.Not;
 		}
 		
-		auto flavor = implicitCastFrom(pass, QualType(type.type, type.qualifier), QualType(param.type, param.qualifier));
+		auto flavor = implicitCastFrom(pass, type.getType(), param.getType());
 		
 		// test if we can pass by ref.
-		if(param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
+		if (param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
 			return MatchLevel.Not;
 		}
 		
@@ -421,8 +417,13 @@ struct ExpressionVisitor {
 		
 		Expression e;
 		if (f.hasThis) {
-			auto type = f.type.paramTypes[0];
-			auto ctx = buildImplicitCast(pass, location, QualType(type.type, type.qualifier), new ThisExpression(location, QualType(thisType.type)));
+			auto ctx = buildImplicitCast(
+				pass,
+				location,
+				f.type.parameters[0].getType(),
+				new ThisExpression(location, thisType.getType()),
+			);
+			
 			e = new MethodExpression(location, ctx, f);
 		} else if (f.hasContext) {
 			import d.semantic.closure;
@@ -440,7 +441,7 @@ struct ExpressionVisitor {
 		
 		switch(f.params.length - f.hasContext - f.hasThis) {
 			case 0:
-				return new CallExpression(location, QualType(f.type.returnType.type, f.type.returnType.qualifier), e, []);
+				return new CallExpression(location, f.type.returnType.getType(), e, []);
 			
 			case 1:
 				assert(0, "setter not supported)");
@@ -452,11 +453,11 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstCallExpression c) {
 		// TODO: check if we are in a constructor.
-		if(cast(ThisExpression) c.callee) {
+		if (cast(ThisExpression) c.callee) {
 			import d.ast.identifier;
 			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee), c.args));
 			
-			if(thisType.isFinal) {
+			if (thisType.isFinal) {
 				return call;
 			}
 			
@@ -474,18 +475,19 @@ struct ExpressionVisitor {
 		
 		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
 		Expression postProcess(T)(T identified) {
-			static if(is(T : Expression)) {
+			static if (is(T : Expression)) {
 				return handleCall(c.location, identified, args);
 			} else {
-				static if(is(T : Symbol)) {
-					if(auto s = cast(OverloadSet) identified) {
+				static if (is(T : Symbol)) {
+					if (auto s = cast(OverloadSet) identified) {
 						return callOverloadSet(c.location, s, args);
-					} else if(auto t = cast(Template) identified) {
+					} else if (auto t = cast(Template) identified) {
 						auto callee = handleIFTI(c.location, t, args);
 						return callCallable(c.location, callee, args);
 					}
-				} else static if(is(T : QualType)) {
-					if (auto t = cast(StructType) identified.type) {
+				} else static if (is(T : Type)) {
+					auto t = identified.getCanonical();
+					if (t.kind == TypeKind.Struct) {
 						auto callee = handleCtor(c.location, c.callee.location, t, args);
 						return callCallable(c.location, callee, args);
 					}
@@ -496,7 +498,7 @@ struct ExpressionVisitor {
 		}
 		
 		import d.ast.identifier;
-		if(auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
+		if (auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
 			return TemplateDotIdentifierResolver!(i => postProcess(i))(pass).resolve(tidi, args);
 		}
@@ -506,16 +508,18 @@ struct ExpressionVisitor {
 	}
 	
 	// XXX: factorize with NewExpression
-	private Expression handleCtor(Location location, Location calleeLoc, StructType type, Expression[] args) {
+	private Expression handleCtor(Location location, Location calleeLoc, Type type, Expression[] args) in {
+		assert(type.kind == TypeKind.Struct);
+	} body {
 		import d.semantic.defaultinitializer;
-		auto di = InstanceBuilder(pass, calleeLoc).visit(QualType(type));
+		auto di = InstanceBuilder(pass, calleeLoc).visit(type);
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Symbol)) {
+			static if (is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
 					return new MethodExpression(calleeLoc, di, f);
-				} else if(auto s = cast(OverloadSet) identified) {
+				} else if (auto s = cast(OverloadSet) identified) {
 					return chooseOverload(location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -541,7 +545,7 @@ struct ExpressionVisitor {
 		
 		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Expression)) {
+			static if (is(T : Expression)) {
 				return identified;
 			} else {
 				return pass.raiseCondition!Expression(location, t.name.toString(pass.context) ~ " isn't callable.");
@@ -551,9 +555,9 @@ struct ExpressionVisitor {
 	
 	private Expression callOverloadSet(Location location, OverloadSet s, Expression[] args) {
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
-			if(auto f = cast(Function) s) {
+			if (auto f = cast(Function) s) {
 				return getFrom(location, f);
-			} else if(auto t = cast(Template) s) {
+			} else if (auto t = cast(Template) s) {
 				return handleIFTI(location, t, args);
 			}
 			
@@ -563,12 +567,12 @@ struct ExpressionVisitor {
 	
 	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
 		auto cds = candidates.map!(e => findCallable(location, e, args)).filter!((e) {
-			if(auto asFunType = cast(FunctionType) peelAlias(e.type).type) {
-				if(asFunType.isVariadic) {
-					return args.length >= asFunType.paramTypes.length;
-				} else {
-					return args.length == asFunType.paramTypes.length;
-				}
+			auto t = e.type.getCanonical();
+			if (t.kind == TypeKind.Function) {
+				auto ft = t.asFunctionType();
+				return ft.isVariadic
+					? args.length >= ft.parameters.length
+					: args.length == ft.parameters.length;
 			}
 			
 			assert(0, e.type.toString(pass.context) ~ " is not a function type");
@@ -577,15 +581,15 @@ struct ExpressionVisitor {
 		auto level = MatchLevel.Not;
 		Expression match;
 		CandidateLoop: foreach(candidate; cds) {
-			auto type = cast(FunctionType) peelAlias(candidate.type).type;
-			assert(type, "We should have filtered function at this point.");
+			auto t = candidate.type.getCanonical();
+			assert(t.kind == TypeKind.Function, "We should have filtered function at this point.");
 			
 			auto candidateLevel = MatchLevel.Exact;
-			foreach(arg, param; lockstep(args, type.paramTypes)) {
+			foreach(arg, param; lockstep(args, t.asFunctionType().parameters)) {
 				auto argLevel = matchArgument(arg, param);
 				
 				// If we don't match high enough.
-				if(argLevel < level) {
+				if (argLevel < level) {
 					continue CandidateLoop;
 				}
 				
@@ -605,37 +609,37 @@ struct ExpressionVisitor {
 				}
 			}
 			
-			if(candidateLevel > level) {
+			if (candidateLevel > level) {
 				level = candidateLevel;
 				match = candidate;
-			} else if(candidateLevel == level) {
+			} else if (candidateLevel == level) {
 				// Check for specialisation.
-				auto matchType = cast(FunctionType) peelAlias(match.type).type;
-				assert(matchType, "We should have filtered function at this point.");
+				auto mt = match.type.getCanonical();
+				assert(mt.kind == TypeKind.Function, "We should have filtered function at this point.");
 				
 				bool candidateFail;
 				bool matchFail;
-				foreach(param, matchParam; lockstep(type.paramTypes, matchType.paramTypes)) {
-					if(matchArgument(param, matchParam) == MatchLevel.Not) {
+				foreach(param, matchParam; lockstep(t.asFunctionType().parameters, mt.asFunctionType().parameters)) {
+					if (matchArgument(param, matchParam) == MatchLevel.Not) {
 						candidateFail = true;
 					}
 					
-					if(matchArgument(matchParam, param) == MatchLevel.Not) {
+					if (matchArgument(matchParam, param) == MatchLevel.Not) {
 						matchFail = true;
 					}
 				}
 				
-				if(matchFail == candidateFail) {
+				if (matchFail == candidateFail) {
 					return pass.raiseCondition!Expression(location, "ambiguous function call.");
 				}
 				
-				if(matchFail) {
+				if (matchFail) {
 					match = candidate;
 				}
 			}
 		}
 		
-		if(!match) {
+		if (!match) {
 			return pass.raiseCondition!Expression(location, "No candidate for function call.");
 		}
 		
@@ -643,12 +647,12 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression findCallable(Location location, Expression callee, Expression[] args) {
-		if(auto asPolysemous = cast(PolysemousExpression) callee) {
+		if (auto asPolysemous = cast(PolysemousExpression) callee) {
 			return chooseOverload(location, asPolysemous.expressions, args);
 		}
 		
-		auto type = peelAlias(callee.type).type;
-		if(auto f = cast(FunctionType) type) {
+		auto type = callee.type.getCanonical();
+		if (type.kind == TypeKind.Function) {
 			return callee;
 		}
 		
@@ -673,11 +677,12 @@ struct ExpressionVisitor {
 		return callCallable(location, findCallable(location, callee, args), args);
 	}
 	
-	private Expression callCallable(Location location, Expression callee, Expression[] args) {
-		auto f = cast(FunctionType) peelAlias(callee.type).type;
-		assert(f, "This method must be used with a callable");
+	private Expression callCallable(Location location, Expression callee, Expression[] args) in {
+		assert(callee.type.getCanonical().kind == TypeKind.Function);
+	} body {
+		auto f = callee.type.getCanonical().asFunctionType();
 		
-		auto paramTypes = f.paramTypes;
+		auto paramTypes = f.parameters;
 		auto returnType = f.returnType;
 		
 		assert(args.length >= paramTypes.length);
@@ -686,22 +691,25 @@ struct ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new CallExpression(location, QualType(returnType.type, returnType.qualifier), callee, args);
+		return new CallExpression(location, returnType.getType(), callee, args);
 	}
 	
 	// XXX: factorize with handleCtor
 	Expression visit(AstNewExpression e) {
 		auto args = e.args.map!(a => visit(a)).array();
 		
-		import d.semantic.type, d.semantic.defaultinitializer;
+		import d.semantic.type;
 		auto type = TypeVisitor(pass).visit(e.type);
+		
+		import d.semantic.defaultinitializer;
 		auto di = NewBuilder(pass, e.location).visit(type);
+		
 		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				if(auto f = cast(Function) identified) {
+			static if (is(typeof(identified) : Symbol)) {
+				if (auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
 					return new FunctionExpression(e.location, f);
-				} else if(auto s = cast(OverloadSet) identified) {
+				} else if (auto s = cast(OverloadSet) identified) {
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -720,44 +728,34 @@ struct ExpressionVisitor {
 		})(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
 		auto funType = ctor.fun.type;
-		if(!funType) {
-			return pass.raiseCondition!Expression(e.location, "Invalid constructor.");
-		}
 		
 		// First parameter is compiler magic.
-		auto paramTypes = funType.paramTypes[1 .. $];
+		auto parameters = funType.parameters[1 .. $];
 		
-		assert(args.length >= paramTypes.length);
-		foreach(ref arg, pt; lockstep(args, paramTypes)) {
+		assert(args.length >= parameters.length);
+		foreach(ref arg, pt; lockstep(args, parameters)) {
 			arg = buildArgument(arg, pt);
 		}
 		
-		if(typeid({ return peelAlias(type).type; } ()) !is typeid(ClassType)) {
-			type = QualType(new PointerType(type));
+		if (type.getCanonical().kind != TypeKind.Class) {
+			type = type.getPointer();
 		}
 		
 		return new NewExpression(e.location, type, di, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
-		e.type = QualType(thisType.type, thisType.qualifier);
+		e.type = thisType.getType();
 		return e;
 	}
 	
 	Expression getIndex(Location location, Expression indexed, Expression index) {
-		auto qt = peelAlias(indexed.type);
-		auto type = qt.type;
-		if(auto asSlice = cast(SliceType) type) {
-			qt = asSlice.sliced;
-		} else if(auto asPointer = cast(PointerType) type) {
-			qt = asPointer.pointed;
-		} else if(auto asArray = cast(ArrayType) type) {
-			qt = asArray.elementType;
-		} else {
-			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
+		auto t = indexed.type.getCanonical();
+		if (!t.hasElement) {
+			return pass.raiseCondition!Expression(location, "Can't index "/+ ~ indexed.type.toString(context) +/);
 		}
 		
-		return new IndexExpression(location, qt, indexed, index);
+		return new IndexExpression(location, t.getElement(), indexed, index);
 	}
 	
 	Expression visit(AstIndexExpression e) {
@@ -773,59 +771,54 @@ struct ExpressionVisitor {
 		// TODO: check if it is valid.
 		auto sliced = visit(e.sliced);
 		
-		auto qt = peelAlias(sliced.type);
-		auto type = qt.type;
-		if(auto asSlice = cast(SliceType) type) {
-			qt.type = asSlice.sliced.type;
-		} else if(auto asPointer = cast(PointerType) type) {
-			qt.type = asPointer.pointed.type;
-		} else if(auto asArray = cast(ArrayType) type) {
-			qt.type = asArray.elementType.type;
-		} else {
-			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ sliced.type.toString(context));
+		auto t = sliced.type.getCanonical();
+		if (!t.hasElement) {
+			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ t.toString(context));
 		}
 		
 		auto first = e.first.map!(e => visit(e)).array();
 		auto second = e.second.map!(e => visit(e)).array();
 		
-		return new SliceExpression(e.location, QualType(new SliceType(qt)), sliced, first, second);
+		return new SliceExpression(e.location, t.getElement().getSlice(), sliced, first, second);
 	}
 	
 	Expression visit(AstAssertExpression e) {
 		auto c = visit(e.condition);
-		c = buildExplicitCast(pass, c.location, getBuiltin(TypeKind.Bool), c);
+		c = buildExplicitCast(pass, c.location, Type.get(BuiltinType.Bool), c);
 		
 		Expression msg;
-		if(e.message) {
+		if (e.message) {
 			msg = visit(e.message);
 			
 			// TODO: ensure that msg is a string.
 		}
 		
-		return new AssertExpression(e.location, getBuiltin(TypeKind.Void), c, msg);
+		return new AssertExpression(e.location, Type.get(BuiltinType.Void), c, msg);
 	}
 	
 	private Expression handleTypeid(Location location, Expression e) {
-		if(auto c = cast(ClassType) peelAlias(e.type).type) {
+		auto c = e.type.getCanonical();
+		if (c.kind == TypeKind.Class) {
 			auto classInfo = pass.object.getClassInfo();
-			return new DynamicTypeidExpression(location, QualType(new ClassType(classInfo)), e);
+			return new DynamicTypeidExpression(location, Type.get(classInfo), e);
 		}
 		
 		return getTypeInfo(location, e.type);
 	}
 	
-	auto getTypeInfo(Location location, QualType t) {
-		if(auto ct = cast(ClassType) peelAlias(t).type) {
-			return getClassInfo(location, ct);
+	auto getTypeInfo(Location location, Type t) {
+		t = t.getCanonical();
+		if (t.kind == TypeKind.Class) {
+			return getClassInfo(location, t.dclass);
 		}
 		
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getTypeInfo())), t);
+		return new StaticTypeidExpression(location, Type.get(pass.object.getTypeInfo()), t);
 	}
 	
-	auto getClassInfo(Location location, ClassType t) {
+	auto getClassInfo(Location location, Class c) {
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		return new StaticTypeidExpression(location, QualType(new ClassType(pass.object.getClassInfo())), QualType(t));
+		return new StaticTypeidExpression(location, Type.get(pass.object.getClassInfo()), Type.get(c));
 	}
 	
 	Expression visit(AstTypeidExpression e) {
@@ -840,9 +833,9 @@ struct ExpressionVisitor {
 	Expression visit(IdentifierTypeidExpression e) {
 		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if(is(T : QualType)) {
+			static if (is(T : Type)) {
 				return getTypeInfo(e.location, identified);
-			} else static if(is(T : Expression)) {
+			} else static if (is(T : Expression)) {
 				return handleTypeid(e.location, identified);
 			} else {
 				return pass.raiseCondition!Expression(e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context) ~ ".");
@@ -853,11 +846,11 @@ struct ExpressionVisitor {
 	Expression visit(IdentifierExpression e) {
 		return SymbolResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Expression)) {
+			static if (is(T : Expression)) {
 				return identified;
 			} else {
-				static if(is(T : Symbol)) {
-					if(auto s = cast(OverloadSet) identified) {
+				static if (is(T : Symbol)) {
+					if (auto s = cast(OverloadSet) identified) {
 						return buildPolysemous(e.location, s);
 					}
 				}
@@ -870,9 +863,9 @@ struct ExpressionVisitor {
 	private Expression buildPolysemous(Location location, OverloadSet s) {
 		auto spp = SymbolPostProcessor!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Expression)) {
+			static if (is(T : Expression)) {
 				return identified;
-			} else static if(is(T : QualType)) {
+			} else static if (is(T : Type)) {
 				assert(0, "Type can't be overloaded");
 			} else {
 				// TODO: handle templates.
@@ -900,12 +893,11 @@ struct ExpressionVisitor {
 			fbody,
 		);
 		
-		auto f = new Function(location, null, name, [], null);
+		auto f = new Function(location, FunctionType.init, name, [], null);
 		f.hasContext = true;
 		
 		import d.semantic.symbol;
-		auto sv = SymbolAnalyzer(pass);
-		sv.analyze(d, f);
+		SymbolAnalyzer(pass).analyze(d, f);
 		scheduler.require(f);
 		
 		return getFrom(location, f);

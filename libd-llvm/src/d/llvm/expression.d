@@ -74,14 +74,9 @@ struct ExpressionGen {
 	}
 	
 	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
-		auto t = cast(BuiltinType) peelAlias(e.type).type;
-		assert(t);
-		
-		if(isSigned(t.kind)) {
-			return handleBinaryOp!LLVMSignedBuildOp(e);
-		} else {
-			return handleBinaryOp!LLVMUnsignedBuildOp(e);
-		}
+		return isSigned(e.type.getCanonical().builtin)
+			? handleBinaryOp!LLVMSignedBuildOp(e)
+			: handleBinaryOp!LLVMUnsignedBuildOp(e);
 	}
 	
 	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
@@ -98,14 +93,9 @@ struct ExpressionGen {
 	}
 	
 	private auto handleBinaryOpAssign(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
-		auto t = cast(BuiltinType) peelAlias(e.type).type;
-		assert(t);
-		
-		if(isSigned(t.kind)) {
-			return handleBinaryOpAssign!LLVMSignedBuildOp(e);
-		} else {
-			return handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
-		}
+		return isSigned(e.type.getCanonical().builtin)
+			? handleBinaryOpAssign!LLVMSignedBuildOp(e)
+			: handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
 	}
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
@@ -122,18 +112,18 @@ struct ExpressionGen {
 	}
 	
 	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
-		auto type = peelAlias(e.lhs.type).type;
-		if (auto t = cast(BuiltinType) type) {
-			if(isSigned(t.kind)) {
+		auto t = e.lhs.type.getCanonical();
+		if (t.kind == TypeKind.Builtin) {
+			if(isSigned(t.builtin)) {
 				return handleComparaison(e, signedPredicate);
 			} else {
 				return handleComparaison(e, unsignedPredicate);
 			}
-		} else if(cast(PointerType) type) {
+		} else if (t.kind == TypeKind.Pointer) {
 			return handleComparaison(e, unsignedPredicate);
 		}
 		
-		assert(0, "Don't know how to compare " ~ e.lhs.type.toString(context) ~ " with " ~ e.rhs.type.toString(context));
+		assert(0, "Don't know how to compare " ~ /+ e.lhs.type.toString(context) ~ +/" with "/+ ~ e.rhs.type.toString(context) +/);
 	}
 	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
@@ -476,17 +466,17 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(MethodExpression e) {
-		auto type = cast(DelegateType) peelAlias(e.type).type;
-		assert(type);
+		auto type = e.type.getCanonical().asFunctionType();
+		auto contexts = type.contexts;
 		
-		auto ctxValue = type.context.isRef
+		assert(contexts.length == 1, "Multiple contexts not implemented.");
+		auto ctxValue = contexts[0].isRef
 			? addressOf(e.expr)
 			: visit(e.expr);
 		
 		LLVMValueRef fun;
 		if(auto m = cast(Method) e.method) {
-			auto cd = (cast(ClassType) peelAlias(e.expr.type).type).dclass;
-			assert(cd, "Virtual dispatch can only be done on classes.");
+			assert(e.expr.type.getCanonical().dclass, "Virtual dispatch can only be done on classes.");
 			
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, ctxValue, 0, ""), "vtbl");
 			fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
@@ -562,23 +552,23 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(SliceExpression e) {
 		assert(e.first.length == 1 && e.second.length == 1);
-		auto type = peelAlias(e.sliced.type).type;
+		auto t = e.sliced.type.getCanonical();
 		
 		LLVMValueRef length, ptr;
-		if(typeid(type) is typeid(SliceType)) {
+		if (t.kind == TypeKind.Slice) {
 			auto slice = visit(e.sliced);
 			
 			length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-		} else if(typeid(type) is typeid(PointerType)) {
+		} else if (t.kind == TypeKind.Pointer) {
 			ptr = visit(e.sliced);
-		} else if(auto asArray = cast(ArrayType) type) {
-			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false);
+		} else if (t.kind == TypeKind.Array) {
+			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false);
 			
 			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
-			assert(0, "Don't know how to slice " ~ e.type.toString(context));
+			assert(0, "Don't know how to slice "/+ ~ e.type.toString(context) +/);
 		}
 		
 		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
@@ -626,20 +616,14 @@ struct ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				auto bt = cast(BuiltinType) peelAlias(e.expr.type).type;
-				assert(bt);
-				
-				auto k = bt.kind;
-				if(isChar(k)) {
+				auto k = e.expr.type.getCanonical().builtin;
+				if (isChar(k)) {
 					k = integralOfChar(k);
 				}
 				
-				assert(k == TypeKind.Bool || isIntegral(k));
-				if(k == TypeKind.Bool || !isSigned(k)) {
-					return LLVMBuildZExt(builder, value, type, "");
-				} else {
-					return LLVMBuildSExt(builder, value, type, "");
-				}
+				return (k == BuiltinType.Bool || !isSigned(k))
+					? LLVMBuildZExt(builder, value, type, "")
+					: LLVMBuildSExt(builder, value, type, "");
 			
 			case Bit :
 				return LLVMBuildBitCast(builder, value, type, "");
@@ -722,37 +706,28 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(CallExpression c) {
-		auto callee = visit(c.callee);
+		auto cType = c.callee.type.getCanonical().asFunctionType();
+		auto contexts = cType.contexts;
+		auto params = cType.parameters;
 		
-		ParamType[] paramTypes;
 		LLVMValueRef[] args;
-		uint firstarg = 0;
-		auto calleeType = peelAlias(c.callee.type).type;
-		if(auto type = cast(DelegateType) calleeType) {
-			paramTypes = type.paramTypes;
-			
-			auto fun = LLVMBuildExtractValue(builder, callee, 0, "");
-			
-			firstarg++;
-			args.length = c.args.length + 1;
-			args[0] = LLVMBuildExtractValue(builder, callee, 1, "");
-			
-			callee = fun;
-		} else if(auto type = cast(FunctionType) calleeType) {
-			paramTypes = type.paramTypes;
-			args.length = c.args.length;
-		} else {
-			assert(0, "You can only call function and delegates !");
+		args.length = contexts.length + c.args.length;
+		
+		auto callee = visit(c.callee);
+		foreach (i, ctx; contexts) {
+			args[i] = LLVMBuildExtractValue(builder, callee, cast(uint) (i + 1), "");
+		}
+		
+		auto firstarg = contexts.length;
+		if (firstarg) {
+			callee = LLVMBuildExtractValue(builder, callee, 0, "");
 		}
 		
 		uint i = 0;
-		foreach(t; paramTypes) {
-			if(t.isRef) {
-				args[i + firstarg] = addressOf(c.args[i]);
-			} else {
-				args[i + firstarg] = visit(c.args[i]);
-			}
-			
+		foreach(t; params) {
+			args[i + firstarg] = t.isRef
+				? addressOf(c.args[i])
+				: visit(c.args[i]);
 			i++;
 		}
 		
@@ -840,10 +815,11 @@ struct ExpressionGen {
 		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");
 	}
 	
-	private auto getTypeid(QualType t) {
-		if(auto ct = cast(ClassType) peelAlias(t).type) {
+	private LLVMValueRef getTypeid(Type t) {
+		t = t.getCanonical();
+		if (t.kind == TypeKind.Class) {
 			// Ensure that the thing is generated.
-			auto c = ct.dclass; 
+			auto c = t.dclass;
 			buildClassType(c);
 			
 			return getTypeInfo(c);
@@ -914,17 +890,15 @@ struct AddressOfGen {
 		return thisPtr;
 	}
 	
-	LLVMValueRef visit(ContextExpression e) {
-		auto type = cast(ContextType) e.type.type;
-		assert(type, "ContextExpression must be of ContextType");
-		
-		return pass.getContext(type.fun);
+	LLVMValueRef visit(ContextExpression e) in {
+		assert(e.type.kind == TypeKind.Context, "ContextExpression must be of ContextType");
+	} body {
+		return pass.getContext(e.type.context);
 	}
 	
 	LLVMValueRef visit(UnaryExpression e) {
 		if(e.op == UnaryOp.Dereference) {
-			auto eg = ExpressionGen(pass);
-			return eg.visit(e.expr);
+			return ExpressionGen(pass).visit(e.expr);
 		}
 		
 		assert(0, "not an lvalue ??");
@@ -956,37 +930,36 @@ struct AddressOfGen {
 	}
 	
 	auto computeIndexPtr(Location location, Expression indexed, Expression index) {
-		auto eg = ExpressionGen(pass);
-		auto type = peelAlias(indexed.type).type;
+		auto t = indexed.type.getCanonical();
 		
-		if(typeid(type) is typeid(SliceType)) {
-			auto slice = eg.visit(indexed);
-			auto i = eg.visit(index);
+		if (t.kind == TypeKind.Slice) {
+			auto slice = ExpressionGen(pass).visit(indexed);
+			auto i = ExpressionGen(pass).visit(index);
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
-			eg.genBoundCheck(location, condition);
+			ExpressionGen(pass).genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
-		} else if(typeid(type) is typeid(PointerType)) {
-			auto ptr = eg.visit(indexed);
-			auto i = eg.visit(index);
+		} else if (t.kind == TypeKind.Pointer) {
+			auto ptr = ExpressionGen(pass).visit(indexed);
+			auto i = ExpressionGen(pass).visit(index);
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
-		} else if(auto asArray = cast(ArrayType) type) {
+		} else if (t.kind == TypeKind.Array) {
 			auto ptr = visit(indexed);
-			auto i = eg.visit(index);
+			auto i = ExpressionGen(pass).visit(index);
 			
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
 				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""),
-				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), asArray.size, false),
+				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false),
 				"",
 			);
 			
-			eg.genBoundCheck(location, condition);
+			ExpressionGen(pass).genBoundCheck(location, condition);
 			
 			LLVMValueRef[2] indices;
 			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
@@ -995,7 +968,7 @@ struct AddressOfGen {
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
 		}
 		
-		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
+		assert(0, "Don't know how to index "/+ ~ indexed.type.toString(context) +/);
 	}
 }
 

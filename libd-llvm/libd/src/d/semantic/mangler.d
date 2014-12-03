@@ -2,8 +2,15 @@ module d.semantic.mangler;
 
 import d.semantic.semantic;
 
+import d.ir.symbol;
+import d.ir.type;
+
+// XXX: top level for UFCS
 import std.algorithm;
 import std.array;
+
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
 
 struct TypeMangler {
 	private SemanticPass pass;
@@ -13,13 +20,31 @@ struct TypeMangler {
 		this.pass = pass;
 	}
 	
-	import d.ir.type;
-	string visit(QualType t) {
-		return this.dispatch(t.type);
+	string visit(Type t) {
+		auto s = t.accept(this);
+		final switch(t.qualifier) with(TypeQualifier) {
+			case Mutable :
+				return s;
+			
+			case Inout :
+				return "Ng" ~ s;
+			
+			case Const :
+				return "x" ~ s;
+			
+			case Shared :
+				return "O" ~ s;
+			
+			case ConstShared :
+				return "xO" ~ s;
+			
+			case Immutable :
+				return "y" ~ s;
+		}
 	}
 	
 	string visit(BuiltinType t) {
-		final switch(t.kind) with(TypeKind) {
+		final switch(t) with(BuiltinType) {
 			case None :
 				assert(0, "none should never be mangled");
 			
@@ -38,35 +63,35 @@ struct TypeMangler {
 			case Dchar :
 				return "w";
 			
-			case Ubyte :
-				return "h";
-			
-			case Ushort :
-				return "t";
-			
-			case Uint :
-				return "k";
-			
-			case Ulong :
-				return "m";
-			
-			case Ucent :
-				assert(0, "mangle for ucent not Implemented");
-			
 			case Byte :
 				return "g";
+			
+			case Ubyte :
+				return "h";
 			
 			case Short :
 				return "s";
 			
+			case Ushort :
+				return "t";
+			
 			case Int :
 				return "i";
+			
+			case Uint :
+				return "k";
 			
 			case Long :
 				return "l";
 			
+			case Ulong :
+				return "m";
+			
 			case Cent :
-				assert(0, "mangle for cent not Implemented");
+				assert(0, "Mangling for cent is not implemented");
+			
+			case Ucent :
+				assert(0, "Mangling for ucent is not implemented");
 			
 			case Float :
 				return "f";
@@ -78,58 +103,63 @@ struct TypeMangler {
 				return "e";
 			
 			case Null :
-				assert(0, "mangle for typeof(null) not Implemented");
+				assert(0, "Mangling for typeof(null) is not Implemented");
 		}
 	}
 	
-	string visit(PointerType t) {
-		return "P" ~ visit(t.pointed);
+	string visitPointerOf(Type t) {
+		return "P" ~ visit(t);
 	}
 	
-	string visit(ArrayType t) {
+	string visitSliceOf(Type t) {
+		return "A" ~ visit(t);
+	}
+	
+	string visitArrayOf(uint size, Type t) {
 		import std.conv;
-		string size = to!string(t.size);
-		return "G" ~ size ~ visit(t.elementType);
+		return "G" ~ size.to!string() ~ visit(t);
 	}
 	
-	string visit(SliceType t) {
-		return "A" ~ visit(t.sliced);
-	}
-	
-	string visit(AliasType t) {
-		auto a = t.dalias;
-		scheduler.require(a);
-		
-		return a.mangle;
-	}
-	
-	string visit(StructType t) {
-		auto s = t.dstruct;
+	string visit(Struct s) {
 		scheduler.require(s, Step.Populated);
-		
 		return s.mangle;
 	}
 	
-	string visit(ClassType t) {
-		auto c = t.dclass;
+	string visit(Class c) {
 		scheduler.require(c, Step.Populated);
-		
 		return c.mangle;
 	}
 	
-	string visit(EnumType t) {
-		auto e = t.denum;
+	string visit(Enum e) {
 		scheduler.require(e);
-		
 		return e.mangle;
 	}
 	
-	string visit(ContextType t) {
+	string visit(TypeAlias a) {
+		scheduler.require(a);
+		return a.mangle;
+	}
+	
+	string visit(Interface i) {
+		scheduler.require(i, Step.Populated);
+		return i.mangle;
+	}
+	
+	string visit(Union u) {
+		scheduler.require(u, Step.Populated);
+		return u.mangle;
+	}
+	
+	string visit(Function f) {
 		return "M";
 	}
 	
+	string visit(Type[] seq) {
+		assert(0, "Not implemented.");
+	}
+	
 	private auto mangleParam(ParamType t) {
-		return (t.isRef?"K":"") ~ visit(QualType(t.type, t.qualifier));
+		return (t.isRef ? "K" : "") ~ visit(t.getType());
 	}
 	
 	import d.ast.base;
@@ -156,12 +186,16 @@ struct TypeMangler {
 		}
 	}
 	
-	string visit(FunctionType t) {
-		return mangleLinkage(t.linkage) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
+	string visit(FunctionType f) {
+		auto base = f.contexts.length ? "D" : "";
+		auto linkage = mangleLinkage(f.linkage);
+		auto args = f.parameters.map!(p => mangleParam(p)).join();
+		auto ret = mangleParam(f.returnType);
+		return base ~ linkage ~ args ~ "Z" ~ ret;
 	}
 	
-	string visit(DelegateType t) {
-		return "D" ~ mangleLinkage(t.linkage) ~ mangleParam(t.context) ~ t.paramTypes.map!(p => mangleParam(p)).join() ~ "Z" ~ mangleParam(t.returnType);
+	string visit(TypeTemplateParameter p) {
+		assert(0, "Can't mangle template type.");
 	}
 }
 

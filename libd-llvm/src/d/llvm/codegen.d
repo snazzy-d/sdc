@@ -128,20 +128,24 @@ final class CodeGenPass {
 		return typeGen.getVtbl(c);
 	}
 	
-	auto visit(QualType t) {
-		return typeGen.visit(t);
-	}
-	
 	auto visit(Type t) {
 		return typeGen.visit(t);
 	}
 	
+	auto visit(FunctionType t) {
+		return typeGen.visit(t);
+	}
+	
 	auto buildStructType(Struct s) {
-		return typeGen.buildStruct(s);
+		return typeGen.visit(s);
 	}
 	
 	auto buildClassType(Class c) {
-		return typeGen.buildClass(c);
+		return typeGen.visit(c);
+	}
+	
+	auto buildEnumType(Enum e) {
+		return typeGen.visit(e);
 	}
 	
 	auto getContext(Function f) {
@@ -149,7 +153,7 @@ final class CodeGenPass {
 	}
 	
 	auto buildContextType(Function f) {
-		return typeGen.buildContextType(f);
+		return typeGen.visit(f);
 	}
 	
 	auto buildDString(string str) {
@@ -190,7 +194,8 @@ final class CodeGenPass {
 	}
 	
 	auto ctString(Expression e, LLVMExecutionEngineRef executionEngine) in {
-		assert(cast(SliceType) peelAlias(e.type).type, "this only CTFE strings.");
+		// FIXME: newtype
+		// assert(cast(SliceType) peelAlias(e.type).type, "this only CTFE strings.");
 	} body {
 		scope(failure) LLVMDumpModule(dmodule);
 		

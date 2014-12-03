@@ -12,6 +12,9 @@ alias InitBuilder = DefaultInitializerVisitor!(true, false);
 alias InstanceBuilder = DefaultInitializerVisitor!(false, false);
 alias NewBuilder = DefaultInitializerVisitor!(false, true);
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 private:
 struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	static assert(!isCompileTime || !isNew);
@@ -32,79 +35,63 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		this.location = location;
 	}
 	
-	E visit(QualType t) {
-		auto e = this.dispatch!((t) {
-			return pass.raiseCondition!E(location, "Type " ~ typeid(t).toString() ~ " has no initializer.");
-		})(peelAlias(t).type);
+	E visit(Type t) {
+		auto e = t.accept(this);
+		e.type = e.type.qualify(t.qualifier);
 		
-		e.type.qualifier = t.qualifier;
 		return e;
 	}
 	
 	E visit(BuiltinType t) {
-		final switch(t.kind) with(TypeKind) {
+		final switch(t) with(BuiltinType) {
 			case None :
-				assert(0,"none shall not be!");
 			case Void :
-				assert(0, "Void initializer not Implemented");
+				import d.exception;
+				throw new CompileException(location, Type.get(t).toString(context));
 			
 			case Bool :
 				return new BooleanLiteral(location, false);
 			
-			case Char :
-			case Wchar :
-			case Dchar :
-				return new CharacterLiteral(location, [char.init], t.kind);
+			case Char, Wchar, Dchar :
+				return new CharacterLiteral(location, [char.init], t);
 			
-			case Ubyte :
-			case Ushort :
-			case Uint :
-			case Ulong :
-			case Ucent :
-				return new IntegerLiteral!false(location, 0, t.kind);
+			case Ubyte, Ushort, Uint, Ulong, Ucent :
+				return new IntegerLiteral!false(location, 0, t);
 			
-			case Byte :
-			case Short :
-			case Int :
-			case Long :
-			case Cent :
-				return new IntegerLiteral!true(location, 0, t.kind);
+			case Byte, Short, Int, Long, Cent :
+				return new IntegerLiteral!true(location, 0, t);
 			
-			case Float :
-			case Double :
-			case Real :
-				return new FloatLiteral(location, float.nan, t.kind);
+			case Float, Double, Real :
+				return new FloatLiteral(location, float.nan, t);
 			
 			case Null :
 				return new NullLiteral(location);
 		}
 	}
 	
-	E visit(PointerType t) {
-		return new NullLiteral(location, QualType(t));
+	E visitPointerOf(Type t) {
+		return new NullLiteral(location, t.getPointer());
 	}
 	
-	E visit(SliceType t) {
-		auto sizeT = cast(BuiltinType) peelAlias(pass.object.getSizeT().type).type;
-		assert(sizeT !is null, "getSizeT().type.type does not cast to BuiltinType");
+	E visitSliceOf(Type t) {
 		CompileTimeExpression[] init = [
-			new NullLiteral(location, t.sliced),
-			new IntegerLiteral!false(location, 0UL, sizeT.kind)
+			new NullLiteral(location, t),
+			new IntegerLiteral!false(location, 0UL, pass.object.getSizeT().type.builtin)
 		];
 		
 		// XXX: Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
-		return new CompileTimeTupleExpression(location, QualType(t), init);
+		return new CompileTimeTupleExpression(location, t.getSlice(), init);
 	}
-
-	E visit(ArrayType t) {
+	
+	E visitArrayOf(uint size, Type t) {
 		E[] elements;
-		elements.length = t.size;
-		elements[] = visit(t.elementType);
+		elements.length = size;
+		elements[] = visit(t);
 		
 		static if (isCompileTime) {
-			return new CompileTimeTupleExpression(location, QualType(t), elements);
+			return new CompileTimeTupleExpression(location, t.getArray(size), elements);
 		} else {
-			return new TupleExpression(location, QualType(t), elements);
+			return new TupleExpression(location, t.getArray(size), elements);
 		}
 	}
 	
@@ -116,8 +103,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return new VariableExpression(value.location, v);
 	}
 	
-	E visit(StructType t) {
-		auto s = t.dstruct;
+	E visit(Struct s) {
 		scheduler.require(s, Step.Populated);
 		
 		import d.context;
@@ -136,30 +122,26 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				auto f = cast(Field) s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
 				assert(f, "Context must be a field");
 				
-				auto pt = cast(PointerType) f.type.type;
-				assert(pt);
-				
-				auto ct = cast(ContextType) pt.pointed.type;
-				assert(ct);
+				auto ft = f.type;
+				assert(ft.kind == TypeKind.Pointer);
 				
 				auto assign = new BinaryExpression(
 					location,
-					f.type,
+					ft,
 					BinaryOp.Assign,
 					new FieldExpression(location, v, f),
-					new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct)),
+					new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.getElement().context)),
 				);
 				
-				return new BinaryExpression(location, QualType(t), BinaryOp.Comma, assign, v);
+				return new BinaryExpression(location, Type.get(s), BinaryOp.Comma, assign, v);
 			}
 		}
 		
 		return v;
 	}
 	
-	E visit(ClassType t) {
+	E visit(Class c) {
 		static if(isNew) {
-			auto c = t.dclass;
 			scheduler.require(c);
 			
 			import std.algorithm, std.array;
@@ -171,24 +153,60 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				foreach(f; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
 					assert(f, "Context must be a field");
 					
-					auto pt = cast(PointerType) f.type.type;
-					assert(pt);
+					auto ft = f.type;
+					assert(ft.kind == TypeKind.Pointer);
 					
-					auto ct = cast(ContextType) pt.pointed.type;
-					assert(ct);
-					
-					fields[f.index] = new UnaryExpression(location, QualType(pt), UnaryOp.AddressOf, new ContextExpression(location, ct));
+					fields[f.index] = new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.getElement().context));
 				}
 			}
 			
-			return new TupleExpression(location, QualType(new TupleType(fields.map!(f => f.type).array())), fields);
+			return new TupleExpression(location, Type.get(fields.map!(f => f.type).array()), fields);
 		} else {
-			return new NullLiteral(location, QualType(t));
+			return new NullLiteral(location, Type.get(c));
 		}
 	}
 	
-	E visit(FunctionType t) {
-		return new NullLiteral(location, QualType(t));
+	E visit(Enum e) {
+		assert(0, "Not implemented");
+	}
+	
+	E visit(TypeAlias a) {
+		auto e = visit(a.type);
+		e.type = Type.get(a);
+		
+		return e;
+	}
+	
+	E visit(Interface i) {
+		assert(0, "Not implemented");
+	}
+	
+	E visit(Union u) {
+		assert(0, "Not implemented");
+	}
+	
+	E visit(Function f) {
+		assert(0, "Not implemented");
+	}
+	
+	E visit(Type[] seq) {
+		import std.algorithm, std.array;
+		auto elements = seq.map!(t => visit(t)).array();
+		
+		static if (isCompileTime) {
+			return new CompileTimeTupleExpression(location, Type.get(seq), elements);
+		} else {
+			return new TupleExpression(location, Type.get(seq), elements);
+		}
+	}
+	
+	E visit(FunctionType f) {
+		assert(f.contexts.length == 0, "delegate initializer is not implemented.");
+		return new NullLiteral(location, f.getType());
+	}
+	
+	E visit(TypeTemplateParameter p) {
+		assert(0, "Template type have no initializer.");
 	}
 }
 

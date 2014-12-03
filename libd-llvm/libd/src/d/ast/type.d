@@ -6,6 +6,8 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.qualtype;
 
+public import d.builtintype;
+
 abstract class AstType {
 	final string toString(Context ctx) {
 		return toString(ctx, TypeQualifier.Mutable);
@@ -18,6 +20,14 @@ abstract class AstType {
 
 alias QualAstType = QualType!AstType;
 alias ParamAstType = ParamType!AstType;
+
+class BuiltinAstType : AstType {
+	BuiltinType kind;
+	
+	this(BuiltinType kind) {
+		this.kind = kind;
+	}
+}
 
 /**
  * Function types

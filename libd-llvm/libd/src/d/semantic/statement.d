@@ -100,7 +100,7 @@ struct StatementVisitor {
 	
 	void visit(AstIfStatement s) {
 		import d.semantic.expression;
-		auto condition = buildExplicitCast(pass, s.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(s.condition));
+		auto condition = buildExplicitCast(pass, s.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(s.condition));
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -113,7 +113,7 @@ struct StatementVisitor {
 	
 	void visit(AstWhileStatement w) {
 		import d.semantic.expression;
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
@@ -121,7 +121,7 @@ struct StatementVisitor {
 	
 	void visit(AstDoWhileStatement w) {
 		import d.semantic.expression;
-		auto condition = buildExplicitCast(pass, w.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(w.condition));
+		auto condition = buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition));
 		auto statement = autoBlock(w.statement);
 		
 		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
@@ -139,7 +139,7 @@ struct StatementVisitor {
 		
 		import d.semantic.expression;
 		Expression condition = f.condition
-			? buildExplicitCast(pass, f.condition.location, getBuiltin(TypeKind.Bool), ExpressionVisitor(pass).visit(f.condition))
+			? buildExplicitCast(pass, f.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(f.condition))
 			: new BooleanLiteral(f.location, true);
 		
 		Expression increment = f.increment
@@ -207,41 +207,32 @@ struct StatementVisitor {
 		
 		auto initialize = new SymbolStatement(idx);
 		auto idxExpr = new VariableExpression(idx.location, idx);
-		auto condition = new BinaryExpression(loc, getBuiltin(TypeKind.Bool), BinaryOp.Less, idxExpr, length);
+		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, length);
 		auto increment = new UnaryExpression(loc, idxExpr.type, UnaryOp.PreInc, idxExpr);
 		
-		auto iType = peelAlias(iterated.type).type;
-		auto at = cast(ArrayType) iType;
-		auto st = cast(SliceType) iType;
+		auto iType = iterated.type.getCanonical();
+		assert(iType.hasElement, "Only array and slice are supported for now.");
 		
-		assert(at || st, "Only array and slice are supported for now.");
-		
-		QualType et;
-		if (at) {
-			et = at.elementType;
-		} else if (st) {
-			et = st.sliced;
-		}
+		Type et = iType.getElement();
 		
 		auto eDecl = f.tupleElements[$ - 1];
 		auto eLoc = eDecl.location;
 		
 		import d.semantic.expression;
 		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
-		auto eType = eVal.type;
+		auto eType = eVal.type.getParamType(eDecl.type.isRef, false);
 		
 		if (typeid({ return eDecl.type.type; }()) !is typeid(AutoType)) {
 			import d.semantic.type;
-			eType = TypeVisitor(pass).visit(QualAstType(eDecl.type.type, eDecl.type.qualifier));
-			eVal = buildImplicitCast(pass, eLoc, eType, eVal);
+			eType = TypeVisitor(pass).visit(eDecl.type);
+			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
 		}
 		
 		auto element = new Variable(eLoc, eType, eDecl.name, eVal);
-		element.isRef = eDecl.type.isRef;
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 		
-		auto assign = new BinaryExpression(loc, eType, BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
+		auto assign = new BinaryExpression(loc, eType.getType(), BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
 		auto stmt = new BlockStatement(f.statement.location, [new ExpressionStatement(assign), autoBlock(f.statement)]);
 		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);
@@ -266,20 +257,19 @@ struct StatementVisitor {
 		
 		import d.semantic.type, d.semantic.typepromotion;
 		auto type = (typeid({ return iDecl.type.type; }()) is typeid(AutoType))
-			? getPromotedType(pass, loc, start.type.type, stop.type.type)
-			: TypeVisitor(pass).visit(QualAstType(iDecl.type.type, iDecl.type.qualifier));
+			? getPromotedType(pass, loc, start.type, stop.type)
+			: TypeVisitor(pass).visit(iDecl.type).getType();
 		
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
-		
-		auto idx = new Variable(iDecl.location, ParamType(type, iDecl.type.isRef), iDecl.name, start);
+		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
 		
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
 		
 		auto initialize = new SymbolStatement(idx);
 		auto idxExpr = new VariableExpression(idx.location, idx);
-		auto condition = new BinaryExpression(loc, getBuiltin(TypeKind.Bool), BinaryOp.Less, idxExpr, stop);
+		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, stop);
 		auto increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
@@ -291,16 +281,15 @@ struct StatementVisitor {
 		
 		// TODO: precompute autotype instead of managing it here.
 		auto doCast = true;
-		if(auto bt = cast(BuiltinType) returnType.type) {
-			if(bt.kind == TypeKind.None) {
-				// TODO: auto ref return.
-				returnType = ParamType(value.type, false);
-				doCast = false;
-			}
+		auto rt = returnType.getType();
+		if (rt.kind == TypeKind.Builtin && rt.builtin == BuiltinType.None) {
+			// TODO: auto ref return.
+			returnType = value.type.getParamType(false, false);
+			doCast = false;
 		}
 		
-		if(doCast) {
-			value = buildImplicitCast(pass, r.location, QualType(returnType.type, returnType.qualifier), value);
+		if (doCast) {
+			value = buildImplicitCast(pass, r.location, returnType.getType(), value);
 		}
 		
 		flattenedStmts ~= new ReturnStatement(r.location, value);
@@ -384,18 +373,16 @@ struct StatementVisitor {
 		auto condition = evalIntegral(buildExplicitCast(
 			pass,
 			s.condition.location,
-			getBuiltin(TypeKind.Bool),
+			Type.get(BuiltinType.Bool),
 			ExpressionVisitor(pass).visit(s.condition),
 		));
 		
-		if (condition) {
-			foreach(item; s.items) {
-				visit(item);
-			}
-		} else {
-			foreach(item; s.elseItems) {
-				visit(item);
-			}
+		auto items = condition
+			? s.items
+			: s.elseItems;
+		
+		foreach(item; items) {
+			visit(item);
 		}
 	}
 	

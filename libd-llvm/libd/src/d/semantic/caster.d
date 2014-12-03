@@ -12,25 +12,30 @@ import d.ir.type;
 import d.exception;
 import d.location;
 
-Expression buildImplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+Expression buildImplicitCast(SemanticPass pass, Location location, Type to, Expression e) {
 	return build!false(pass, location, to, e);
 }
 
-Expression buildExplicitCast(SemanticPass pass, Location location, QualType to, Expression e) {
+Expression buildExplicitCast(SemanticPass pass, Location location, Type to, Expression e) {
 	return build!true(pass, location, to, e);
 }
 
-CastKind implicitCastFrom(SemanticPass pass, QualType from, QualType to) {
-	return ImplicitCaster(pass).castFrom(from, to);
+CastKind implicitCastFrom(SemanticPass pass, Type from, Type to) {
+	return ImplicitCaster(pass, to).castFrom(from);
 }
 
-CastKind explicitCastFrom(SemanticPass pass, QualType from, QualType to) {
-	return ExplicitCaster(pass).castFrom(from, to);
+CastKind explicitCastFrom(SemanticPass pass, Type from, Type to) {
+	return ExplicitCaster(pass, to).castFrom(from);
 }
 
 private:
 
-Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType to, Expression e) {
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
+Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to, Expression e) in {
+	assert(e, "Expression must not be null");
+} body {
 	// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
 	if(auto asPolysemous = cast(PolysemousExpression) e) {
 		auto oldBuildErrorNode = pass.buildErrorNode;
@@ -41,29 +46,27 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 		Expression casted;
 		foreach(candidate; asPolysemous.expressions) {
 			candidate = build!isExplicit(pass, location, to, candidate);
-			if(cast(ErrorExpression) candidate) {
+			if (cast(ErrorExpression) candidate) {
 				continue;
 			}
 			
-			if(casted) {
+			if (casted) {
 				return pass.raiseCondition!Expression(location, "Ambiguous.");
 			}
 			
 			casted = candidate;
 		}
 		
-		if(casted) {
+		if (casted) {
 			return casted;
 		}
 		
 		return pass.raiseCondition!Expression(e.location, "No match found.");
 	}
 	
-	assert(to.type && e.type.type);
-	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
-		static if (is(T : StructType) || is(T : ClassType)) {
+		static if (is(T : Struct) || is(T : Class)) {
 			static struct AliasThisResult {
 				Expression expr;
 				CastKind level;
@@ -113,7 +116,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, QualType
 		} else {
 			return CastKind.Invalid;
 		}
-	})(pass).castFrom(e.type, to);
+	})(pass, to).castFrom(e.type);
 	
 	switch(kind) with(CastKind) {
 		case Exact:
@@ -135,326 +138,275 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	private SemanticPass pass;
 	alias pass this;
 	
-	this(SemanticPass pass) {
+	Type to;
+	
+	this(SemanticPass pass, Type to) {
 		this.pass = pass;
+		this.to = to;
 	}
 	
 	enum hasBailoutOverride = !is(typeof(bailoutOverride) : typeof(null));
 	
-	CastKind bailout(T)(T t) if(is(T : Type)) {
+	CastKind bailout(T)(T t) {
 		static if (hasBailoutOverride) {
-			 return bailoutOverride(this, t);
+			return bailoutOverride(this, t);
 		} else {
 			return CastKind.Invalid;
 		}
 	}
 	
-	CastKind bailoutDefault(Type t) {
+	CastKind bailoutDefault(T)(T t) {
 		return CastKind.Invalid;
-	}
-	
-	// FIXME: handle qualifiers.
-	CastKind castFrom(QualType from, QualType to) {
-		return castFrom(from.type, to.type);
 	}
 	
 	CastKind castFrom(ParamType from, ParamType to) {
 		if(from.isRef != to.isRef) return CastKind.Invalid;
 		
-		auto k = castFrom(from.type, to.type);
+		auto k = castFrom(from.getType(), to.getType());
 		if(from.isRef && k < CastKind.Qual) return CastKind.Invalid;
 		
 		return k;
 	}
 	
-	CastKind castFrom(Type from, Type to) {
-		from = peelAlias(from);
-		to = peelAlias(to);
+	// FIXME: handle qualifiers.
+	CastKind castFrom(Type from) {
+		from = from.getCanonical();
+		to = to.getCanonical();
 		
-		if(from == to) {
+		if (from == to) {
 			return CastKind.Exact;
 		}
 		
-		auto ret = this.dispatch!((t) {
-			return CastKind.Invalid;
-		})(to, from);
-		
-		return ret;
+		return from.accept(this);
 	}
 	
-	struct FromBuiltin {
-		CastKind visit(TypeKind from, Type to) {
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(from, to);
+	CastKind castFrom(Type from, Type to) {
+		auto oldTo = to;
+		scope(exit) to = oldTo;
+		
+		this.to = to;
+		
+		return castFrom(from);
+	}
+	
+	CastKind visit(BuiltinType t) {
+		if (isExplicit && isIntegral(t) && to.kind == TypeKind.Enum) {
+			to = to.denum.type.qualify(to.qualifier);
 		}
 		
-		CastKind visit(TypeKind from, BuiltinType t) {
-			auto to = t.kind;
-			
-			if(from == to) {
-				return CastKind.Exact;
+		if (t == BuiltinType.Null) {
+			if (to.kind == TypeKind.Pointer || to.kind == TypeKind.Class) {
+				return CastKind.Bit;
 			}
 			
-			if(to == TypeKind.None) {
+			if (to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
+				return CastKind.Bit;
+			}
+		}
+		
+		if (!to.kind == TypeKind.Builtin) {
+			return CastKind.Invalid;
+		}
+		
+		auto bt = to.builtin;
+		if (t == bt) {
+			return CastKind.Exact;
+		}
+		
+		final switch(t) with(BuiltinType) {
+			case None :
+			case Void :
 				return CastKind.Invalid;
-			}
 			
-			final switch(from) with(TypeKind) {
-				case None:
-				case Void:
+			case Bool :
+				if (isIntegral(bt)) {
+					return CastKind.Pad;
+				}
+				
+				return CastKind.Invalid;
+			
+			case Char :
+				t = integralOfChar(t);
+				goto case Ubyte;
+			
+			case Wchar :
+				t = integralOfChar(t);
+				goto case Ushort;
+			
+			case Dchar :
+				t = integralOfChar(t);
+				goto case Uint;
+			
+			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
+				if (isExplicit && bt == Bool) {
+					return CastKind.IntegralToBool;
+				}
+				
+				if (!isIntegral(bt)) {
 					return CastKind.Invalid;
+				}
 				
-				case Bool:
-					if(isIntegral(to)) {
-						return CastKind.Pad;
-					}
-					
-					return CastKind.Invalid;
-				
-				case Char:
-					from = integralOfChar(from);
-					goto case Ubyte;
-				
-				case Wchar:
-					from = integralOfChar(from);
-					goto case Ushort;
-				
-				case Dchar:
-					from = integralOfChar(from);
-					goto case Uint;
-				
-				case Ubyte:
-				case Ushort:
-				case Uint:
-				case Ulong:
-				case Ucent:
-				case Byte:
-				case Short:
-				case Int:
-				case Long:
-				case Cent:
-					static if(isExplicit) {
-						if(to == Bool) {
-							return CastKind.IntegralToBool;
+				t = unsigned(t);
+				bt = unsigned(bt);
+				switch(bt) {
+					case Ubyte, Ushort, Uint, Ulong, Ucent :
+						if (t == bt) {
+							return CastKind.Bit;
+						} else if (t < bt) {
+							return CastKind.Pad;
+						} else static if (isExplicit) {
+							return CastKind.Trunc;
+						} else {
+							return CastKind.Invalid;
 						}
-					}
 					
-					if(!isIntegral(to)) {
-						return CastKind.Invalid;
-					}
-					
-					from = unsigned(from);
-					to = unsigned(to);
-					switch(to) {
-						case Ubyte:
-						case Ushort:
-						case Uint:
-						case Ulong:
-						case Ucent:
-							if(from == to) {
-								return CastKind.Bit;
-							} else if(from < to) {
-								return CastKind.Pad;
-							} else static if(isExplicit) {
-								return CastKind.Trunc;
-							} else {
-								return CastKind.Invalid;
-							}
-						
-						default:
-							assert(0);
-					}
-				
-				case Float:
-				case Double:
-				case Real:
-					assert(0, "foating point casts are not implemented");
-				case Null:
-					assert(0,"null casts not implemented");
-			}
-		}
-		
-		CastKind visit(TypeKind from, PointerType t) {
-			if(from == TypeKind.Null) {
-				return CastKind.Bit;
-			}
-			
-			return CastKind.Invalid;
-		}
-		
-		CastKind visit(TypeKind from, ClassType t) {
-			if(from == TypeKind.Null) {
-				return CastKind.Bit;
-			}
-			
-			return CastKind.Invalid;
-		}
-		
-		CastKind visit(TypeKind from, FunctionType t) {
-			if(from == TypeKind.Null) {
-				return CastKind.Bit;
-			}
-			
-			return CastKind.Invalid;
-		}
-		
-		static if(isExplicit) {
-			CastKind visit(TypeKind from, EnumType t) {
-				if(isIntegral(from)) {
-					return visit(from, t.denum.type);
+					default:
+						assert(0);
 				}
-				
+			
+			case Float, Double, Real :
+				assert(0, "Floating point casts are not implemented");
+			
+			case Null :
 				return CastKind.Invalid;
-			}
 		}
 	}
 	
-	CastKind visit(Type to, BuiltinType t) {
-		return FromBuiltin().visit(t.kind, to);
-	}
-	
-	struct FromPointer {
-		Caster caster;
-		
-		this(Caster caster) {
-			this.caster = caster;
+	CastKind visitPointerOf(Type t) {
+		if (isExplicit && to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
+			return CastKind.Bit;
 		}
 		
-		CastKind visit(QualType from, Type to) {
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(from, to);
+		if (to.kind != TypeKind.Pointer) {
+			return CastKind.Invalid;
 		}
 		
-		CastKind visit(QualType from, PointerType t) {
-			// Cast to void* is kind of special.
-			if(auto v = cast(BuiltinType) t.pointed.type) {
-				if(v.kind == TypeKind.Void) {
-					static if(isExplicit) {
-						return CastKind.Bit;
-					} else if(canConvert(from.qualifier, t.pointed.qualifier)) {
-						return CastKind.Bit;
-					} else {
-						return CastKind.Invalid;
-					}
-				}
-			}
-			
-			auto subCast = caster.castFrom(from, t.pointed);
-			switch(subCast) with(CastKind) {
-				case Qual :
-					if(canConvert(from.qualifier, t.pointed.qualifier)) {
-						return Qual;
-					}
-					
-					goto default;
-				
-				case Exact :
+		auto e = to.getElement().getCanonical();
+		
+		// Cast to void* is kind of special.
+		if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {
+			return (isExplicit || canConvert(t.qualifier, to.qualifier))
+				? CastKind.Bit
+				: CastKind.Invalid;
+		}
+		
+		auto subCast = castFrom(t, e);
+		switch(subCast) with(CastKind) {
+			case Qual :
+				if (canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
-				
-				static if(isExplicit) {
-					default :
-						return Bit;
-				} else {
-					case Bit :
-						if(canConvert(from.qualifier, t.pointed.qualifier)) {
-							return subCast;
-						}
-						
-						return Invalid;
-					
-					default :
-						return Invalid;
 				}
-			}
-		}
-		
-		static if(isExplicit) {
-			CastKind visit(QualType from, FunctionType t) {
-				return CastKind.Bit;
+				
+				goto default;
+			
+			case Exact :
+				return Qual;
+			
+			static if (isExplicit) {
+				default :
+					return Bit;
+			} else {
+				case Bit :
+					if (canConvert(t.qualifier, e.qualifier)) {
+						return subCast;
+					}
+					
+					return Invalid;
+				
+				default :
+					return Invalid;
 			}
 		}
 	}
 	
-	CastKind visit(Type to, PointerType t) {
-		return FromPointer(this).visit(t.pointed, to);
-	}
-	
-	struct FromSlice {
-		Caster caster;
-		
-		this(Caster caster) {
-			this.caster = caster;
+	CastKind visitSliceOf(Type t) {
+		if (to.kind != TypeKind.Slice) {
+			return CastKind.Invalid;
 		}
 		
-		CastKind visit(QualType from, Type to) {
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(from, to);
-		}
+		auto e = to.getElement().getCanonical();
 		
-		CastKind visit(QualType from, SliceType t) {
-			// Cast to void* is kind of special.
-			if(auto v = cast(BuiltinType) t.sliced.type) {
-				if(v.kind == TypeKind.Void) {
-					static if(isExplicit) {
-						return CastKind.Bit;
-					} else if(canConvert(from.qualifier, t.sliced.qualifier)) {
-						return CastKind.Bit;
-					} else {
-						return CastKind.Invalid;
-					}
-				}
-			}
-			
-			auto subCast = caster.castFrom(from, t.sliced);
-			
-			switch(subCast) with(CastKind) {
-				case Qual :
-					if(canConvert(from.qualifier, t.sliced.qualifier)) {
-						return Qual;
-					}
-					
-					goto default;
-				
-				case Exact :
+		auto subCast = castFrom(t, e);
+		switch(subCast) with(CastKind) {
+			case Qual :
+				if (canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
-				
-				static if(isExplicit) {
-					default :
-						return Bit;
-				} else {
-					case Bit :
-						if(canConvert(from.qualifier, t.sliced.qualifier)) {
-							return subCast;
-						}
-						
-						return Invalid;
-					
-					default :
-						return Invalid;
 				}
+				
+				goto default;
+			
+			case Exact :
+				return Qual;
+			
+			static if (isExplicit) {
+				default :
+					return Bit;
+			} else {
+				case Bit :
+					if (canConvert(t.qualifier, e.qualifier)) {
+						return subCast;
+					}
+					
+					return Invalid;
+				
+				default :
+					return Invalid;
 			}
 		}
 	}
 	
-	CastKind visit(Type to, SliceType t) {
-		return FromSlice(this).visit(t.sliced, to);
+	CastKind visitArrayOf(uint size, Type t) {
+		if (to.kind != TypeKind.Array) {
+			return CastKind.Invalid;
+		}
+		
+		if (size != to.size) {
+			return CastKind.Invalid;
+		}
+		
+		auto e = to.getElement().getCanonical();
+		
+		auto subCast = castFrom(t, e);
+		switch(subCast) with(CastKind) {
+			case Qual :
+				if (canConvert(t.qualifier, e.qualifier)) {
+					return Qual;
+				}
+				
+				goto default;
+			
+			case Exact :
+				return Qual;
+			
+			static if (isExplicit) {
+				default :
+					return Bit;
+			} else {
+				case Bit :
+					if (canConvert(t.qualifier, e.qualifier)) {
+						return subCast;
+					}
+					
+					return Invalid;
+				
+				default :
+					return Invalid;
+			}
+		}
 	}
 	
-	CastKind visit(Type to, StructType t) {
-		if(auto s = cast(StructType) to) {
-			if(t.dstruct is s.dstruct) {
+	CastKind visit(Struct s) {
+		if (to.kind == TypeKind.Struct) {
+			if (to.dstruct is s) {
 				return CastKind.Exact;
 			}
 		}
 		
-		return bailout(t);
+		return bailout(s);
 	}
 	
 	private auto castClass(Class from, Class to) {
-		if(from is to) {
+		if (from is to) {
 			return CastKind.Exact;
 		}
 		
@@ -465,20 +417,20 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			// Automagically promote to base type.
 			upcast = upcast.base;
 			
-			if(upcast is to) {
+			if (upcast is to) {
 				return CastKind.Bit;
 			}
 		}
 		
-		static if(isExplicit) {
+		static if (isExplicit) {
 			auto downcast = to;
 			
 			// Stop at object.
 			while(downcast !is downcast.base) {
 				// Automagically promote to base type.
 				downcast = downcast.base;
-			
-				if(downcast is from) {
+				
+				if (downcast is from) {
 					return CastKind.Down;
 				}
 			}
@@ -487,123 +439,103 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return CastKind.Invalid;
 	}
 	
-	CastKind visit(Type to, ClassType t) {
-		if(auto ct = cast(ClassType) to) {
-			scheduler.require(t.dclass, Step.Signed);
-			auto kind = castClass(t.dclass, ct.dclass);
+	CastKind visit(Class c) {
+		if (to.kind == TypeKind.Class) {
+			scheduler.require(c, Step.Signed);
+			auto kind = castClass(c, to.dclass);
 			if (kind > CastKind.Invalid) {
 				return kind;
 			}
 		}
 		
-		return bailout(t);
+		return bailout(c);
 	}
 	
-	CastKind visit(Type to, EnumType t) {
-		// TODO: do a proper visitor
-		if(auto et = cast(EnumType) to) {
-			if (t.denum is et.denum) {
+	CastKind visit(Enum e) {
+		if (to.kind == TypeKind.Enum) {
+			if (e is to.denum) {
 				return CastKind.Exact;
 			}
 		}
 		
 		// Automagically promote to base type.
-		return castFrom(t.denum.type, to);
+		return castFrom(e.type);
 	}
 	
-	struct FromFunction {
-		Caster caster;
-		
-		this(Caster caster) {
-			this.caster = caster;
-		}
-		
-		CastKind visit(FunctionType from, Type to) {
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(from, to);
-		}
-		
-		CastKind visit(FunctionType from, FunctionType t) {
-			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
-			
-			if(from.paramTypes.length != t.paramTypes.length) return onFail;
-			if(from.isVariadic != t.isVariadic) return onFail;
-			
-			if(from.linkage != t.linkage) return onFail;
-			
-			auto k = caster.castFrom(from.returnType.type, t.returnType.type);
-			if(k < CastKind.Bit) return onFail;
-			
-			import std.range;
-			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
-				// Parameters are contrevariant.
-				auto kp = caster.castFrom(top, fromp);
-				if(kp < CastKind.Bit) return onFail;
-				
-				import std.algorithm;
-				k = min(k, kp);
-			}
-			
-			return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
-		}
-		
-		CastKind visit(FunctionType from, PointerType t) {
-			static if(isExplicit) {
+	CastKind visit(TypeAlias a) {
+		return castFrom(a.type);
+	}
+	
+	CastKind visit(Interface i) {
+		return CastKind.Invalid;
+	}
+	
+	CastKind visit(Union u) {
+		return CastKind.Invalid;
+	}
+	
+	CastKind visit(Function f) {
+		assert(0, "Cast to context type do not make any sense.");
+	}
+	
+	CastKind visit(Type[] seq) {
+		assert(0, "Cast to sequence type do not make any sense.");
+	}
+	
+	CastKind visit(FunctionType f) {
+		if (to.kind == TypeKind.Pointer && f.contexts.length == 0) {
+			auto e = to.getElement().getCanonical();
+			static if (isExplicit) {
 				return CastKind.Bit;
-			} else if(auto to = cast(BuiltinType) t.pointed.type) {
+			} else if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {
 				// FIXME: qualifier.
-				return (to.kind == TypeKind.Void) ? CastKind.Bit : CastKind.Invalid;
+				return CastKind.Bit;
 			} else {
 				return CastKind.Invalid;
 			}
 		}
-	}
-	
-	CastKind visit(Type to, FunctionType t) {
-		return FromFunction(this).visit(t, to);
-	}
-	
-	struct FromDelegate {
-		Caster caster;
 		
-		this(Caster caster) {
-			this.caster = caster;
+		if (to.kind != TypeKind.Function) {
+			return CastKind.Invalid;
 		}
 		
-		CastKind visit(DelegateType from, Type to) {
-			return this.dispatch!((t) {
-				return CastKind.Invalid;
-			})(from, to);
+		auto tf = to.asFunctionType();
+		
+		enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
+		
+		if (f.contexts.length != tf.contexts.length) return onFail;
+		if (f.parameters.length != tf.parameters.length) return onFail;
+		if (f.isVariadic != tf.isVariadic) return onFail;
+		
+		if (f.linkage != tf.linkage) return onFail;
+		
+		auto k = castFrom(f.returnType, tf.returnType);
+		if(k < CastKind.Bit) return onFail;
+		
+		import std.range;
+		foreach(fromc, toc; lockstep(f.contexts, tf.contexts)) {
+			// Contextx are covariant.
+			auto kc = castFrom(fromc, toc);
+			if(kc < CastKind.Bit) return onFail;
+			
+			import std.algorithm;
+			k = min(k, kc);
 		}
 		
-		CastKind visit(DelegateType from, DelegateType t) {
-			enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
+		foreach(fromp, top; lockstep(f.parameters, tf.parameters)) {
+			// Parameters are contrevariant.
+			auto kp = castFrom(top, fromp);
+			if(kp < CastKind.Bit) return onFail;
 			
-			if(from.paramTypes.length != t.paramTypes.length) return onFail;
-			if(from.isVariadic != t.isVariadic) return onFail;
-			
-			if(from.linkage != t.linkage) return onFail;
-			
-			auto k = caster.castFrom(from.returnType.type, t.returnType.type);
-			if(k < CastKind.Bit) return onFail;
-			
-			import std.range;
-			foreach(fromp, top; lockstep(from.paramTypes, t.paramTypes)) {
-				// Parameters are contrevariant.
-				auto kp = caster.castFrom(top, fromp);
-				if(kp < CastKind.Bit) return onFail;
-				
-				import std.algorithm;
-				k = min(k, kp);
-			}
-			
-			return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
+			import std.algorithm;
+			k = min(k, kp);
 		}
+		
+		return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
 	}
 	
-	CastKind visit(Type to, DelegateType t) {
-		return FromDelegate(this).visit(t, to);
+	CastKind visit(TypeTemplateParameter p) {
+		assert(0, "Not implemented.");
 	}
 }
 

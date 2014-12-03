@@ -4,7 +4,6 @@ import d.semantic.semantic;
 
 import d.ir.expression;
 import d.ir.symbol;
-import d.ir.type;
 
 import d.context;
 import d.exception;
@@ -21,30 +20,31 @@ struct AliasThisResolver(alias handler) {
 	}
 	
 	Ret[] resolve(Expression e) {
-		auto t = peelAlias(e.type).type;
+		auto t = e.type.getCanonical();
 		
-		if (auto st = cast(StructType) t) {
-			return resolve(e, st);
-		} else if (auto ct = cast(ClassType) t) {
-			return resolve(e, ct);
+		import d.ir.type;
+		if (t.kind == TypeKind.Struct) {
+			return resolve(e, t.dstruct);
+		} else if (t.kind == TypeKind.Class) {
+			return resolve(e, t.dclass);
 		}
 		
 		return [];
 	}
 	
-	Ret[] resolve(Expression e, StructType t) in {
-		assert(t is peelAlias(e.type).type);
+	Ret[] resolve(Expression e, Struct s) in {
+		assert(e.type.getCanonical().dstruct is s);
 	} body {
-		return resolve(e, t.dstruct.dscope.aliasThis);
+		return resolve(e, s.dscope.aliasThis);
 	}
 	
-	Ret[] resolve(Expression e, ClassType t) in {
-		assert(t is peelAlias(e.type).type);
+	Ret[] resolve(Expression e, Class c) in {
+		assert(e.type.getCanonical().dclass is c);
 	} body {
-		return resolve(e, t.dclass.dscope.aliasThis);
+		return resolve(e, c.dscope.aliasThis);
 	}
 	
-	Ret[] resolve(Expression e, Name[] aliases) {
+	private Ret[] resolve(Expression e, Name[] aliases) {
 		auto oldBuildErrorNode = pass.buildErrorNode;
 		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
 		

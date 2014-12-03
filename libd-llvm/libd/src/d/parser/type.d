@@ -5,7 +5,6 @@ import d.ast.expression;
 import d.ast.type;
 
 import d.ir.expression;
-import d.ir.type;
 
 import d.parser.ambiguous;
 import d.parser.base;
@@ -82,75 +81,75 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 		// Basic types
 		case TokenType.Void :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Void));
+			return QualAstType(new BuiltinAstType(BuiltinType.Void));
 		
 		case TokenType.Bool :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Bool));
+			return QualAstType(new BuiltinAstType(BuiltinType.Bool));
 		
 		case TokenType.Char :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Char));
+			return QualAstType(new BuiltinAstType(BuiltinType.Char));
 		
 		case TokenType.Wchar :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Wchar));
+			return QualAstType(new BuiltinAstType(BuiltinType.Wchar));
 		
 		case TokenType.Dchar :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Dchar));
+			return QualAstType(new BuiltinAstType(BuiltinType.Dchar));
 		
 		case TokenType.Ubyte :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Ubyte));
+			return QualAstType(new BuiltinAstType(BuiltinType.Ubyte));
 		
 		case TokenType.Ushort :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Ushort));
+			return QualAstType(new BuiltinAstType(BuiltinType.Ushort));
 		
 		case TokenType.Uint :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Uint));
+			return QualAstType(new BuiltinAstType(BuiltinType.Uint));
 		
 		case TokenType.Ulong :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Ulong));
+			return QualAstType(new BuiltinAstType(BuiltinType.Ulong));
 		
 		case TokenType.Ucent :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Ucent));
+			return QualAstType(new BuiltinAstType(BuiltinType.Ucent));
 		
 		case TokenType.Byte :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Byte));
+			return QualAstType(new BuiltinAstType(BuiltinType.Byte));
 		
 		case TokenType.Short :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Short));
+			return QualAstType(new BuiltinAstType(BuiltinType.Short));
 		
 		case TokenType.Int :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Int));
+			return QualAstType(new BuiltinAstType(BuiltinType.Int));
 		
 		case TokenType.Long :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Long));
+			return QualAstType(new BuiltinAstType(BuiltinType.Long));
 		
 		case TokenType.Cent :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Cent));
+			return QualAstType(new BuiltinAstType(BuiltinType.Cent));
 		
 		case TokenType.Float :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Float));
+			return QualAstType(new BuiltinAstType(BuiltinType.Float));
 		
 		case TokenType.Double :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Double));
+			return QualAstType(new BuiltinAstType(BuiltinType.Double));
 		
 		case TokenType.Real :
 			trange.popFront();
-			return QualAstType(new BuiltinType(TypeKind.Real));
+			return QualAstType(new BuiltinAstType(BuiltinType.Real));
 		
 		default :
 			trange.match(TokenType.Begin);
