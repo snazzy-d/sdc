@@ -58,7 +58,8 @@ struct Encoding {
 		
 		switch(encoding & 0x07) {
 			case Format.Absptr:
-				return size_t.sizeof;
+				// XXX: remove cast when VRP is in.
+				return cast(uint) size_t.sizeof;
 			
 			case Format.Udata2:
 				return 2;
