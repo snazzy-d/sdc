@@ -4,7 +4,6 @@ import d.semantic.caster;
 import d.semantic.identifier;
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.expression;
 import d.ast.type;
 
@@ -13,7 +12,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context;
 import d.exception;
+import d.location;
 
 import std.algorithm;
 import std.array;

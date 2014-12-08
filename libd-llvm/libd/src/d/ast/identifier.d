@@ -1,9 +1,12 @@
 module d.ast.identifier;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 abstract class Identifier : Node {
 	Name name;

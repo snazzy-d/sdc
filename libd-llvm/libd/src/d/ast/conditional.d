@@ -1,9 +1,11 @@
 module d.ast.conditional;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
+
+import d.context;
+import d.location;
 
 /**
  * Version Conditional

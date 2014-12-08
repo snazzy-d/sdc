@@ -1,8 +1,5 @@
 module d.semantic.scheduler;
 
-import d.ast.base;
-import d.ast.declaration;
-
 import d.ir.symbol;
 
 import d.semantic.semantic;
@@ -142,8 +139,7 @@ final class Process : Fiber {
 		auto state = pass.state;
 		reset({
 			pass.state = state;
-			auto sv = SymbolAnalyzer(pass);
-			sv.analyze(d, s);
+			SymbolAnalyzer(pass).analyze(d, s);
 		});
 	}
 }

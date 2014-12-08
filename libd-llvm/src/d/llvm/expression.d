@@ -445,12 +445,9 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(VariableExpression e) {
-		import d.ast.base;
-		if(e.var.storage == Storage.Enum) {
-			return pass.visit(e.var);
-		} else {
-			return LLVMBuildLoad(builder, addressOf(e), "");
-		}
+		return (e.var.storage == Storage.Enum)
+			? pass.visit(e.var)
+			: LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -850,10 +847,9 @@ struct AddressOfGen {
 		return this.dispatch(e);
 	}
 	
-	LLVMValueRef visit(VariableExpression e) {
-		import d.ast.base;
+	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
-		
+	} body {
 		return pass.visit(e.var);
 	}
 	

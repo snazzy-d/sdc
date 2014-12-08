@@ -1,10 +1,12 @@
 module d.ir.expression;
 
-import d.ast.base;
-import d.ast.expression;
-
 import d.ir.symbol;
 import d.ir.type;
+
+import d.ast.expression;
+
+import d.context;
+import d.location;
 
 abstract class Expression : AstExpression {
 	Type type;

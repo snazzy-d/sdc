@@ -1,7 +1,9 @@
 module d.ast.dmodule;
 
-import d.ast.base;
 import d.ast.declaration;
+
+import d.context;
+import d.location;
 
 // TODO: merge into declaration
 /**
