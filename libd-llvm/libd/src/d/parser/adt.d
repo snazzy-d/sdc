@@ -1,16 +1,16 @@
 module d.parser.adt;
 
-import d.ast.declaration;
-import d.ast.expression;
-import d.ast.identifier;
-import d.ast.type;
-
 import d.parser.base;
 import d.parser.declaration;
 import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.type;
+
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.type;
 
 /**
  * Parse class

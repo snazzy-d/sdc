@@ -1,8 +1,11 @@
 module d.ir.type;
 
-public import d.builtintype;
-
 import d.ir.symbol;
+
+public import d.base.builtintype;
+public import d.base.qualifier;
+
+import d.context;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -35,9 +38,6 @@ enum TypeKind : ubyte {
 	// Template type
 	Template,
 }
-
-// For TypeQualifier
-import d.ast.base;
 
 // XXX: Make more of this const, bitmanip do nto allow it for now.
 struct Type {
@@ -459,7 +459,7 @@ unittest {
 }
 
 unittest {
-	import d.context, d.ir.symbol;
+	import d.context, d.location, d.ir.symbol;
 	auto c = new Class(Location.init, BuiltinName!"", []);
 	auto tc = Type.get(c);
 	auto cc = Type.get(c, TypeQualifier.Const);

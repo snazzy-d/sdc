@@ -1,7 +1,10 @@
 module d.ast.qualtype;
 
-import d.ast.base;
 import d.ast.type;
+
+import d.base.qualifier;
+
+import d.context;
 
 struct QualType(T) if(is(T : AstType)) {
 	T type;

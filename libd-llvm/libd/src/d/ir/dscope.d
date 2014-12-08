@@ -1,9 +1,13 @@
 module d.ir.dscope;
 
-import d.ast.base;
+import d.ir.symbol;
+
 import d.ast.conditional;
 
-import d.ir.symbol;
+import d.base.qualifier;
+
+import d.context;
+import d.location;
 
 // XXX: move this to a more apropriate place ?
 final class OverloadSet : Symbol {

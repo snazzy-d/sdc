@@ -624,7 +624,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			
 			trange.popFront();
 			
-			import d.builtintype : BuiltinType;
+			import d.base.builtintype : BuiltinType;
 			return new d.ir.expression.CharacterLiteral(location, str, BuiltinType.Char);
 		
 		case OpenBracket :
@@ -1009,7 +1009,7 @@ private AstExpression parseIntegerLiteral(R)(ref R trange) {
 		}
 	}
 	
-	import d.builtintype : BuiltinType;
+	import d.base.builtintype : BuiltinType;
 	if(isUnsigned) {
 		auto integer = parse!ulong(value);
 		

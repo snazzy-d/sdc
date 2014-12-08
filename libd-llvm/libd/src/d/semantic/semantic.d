@@ -9,7 +9,6 @@ import d.semantic.dmodule;
 import d.semantic.evaluator;
 import d.semantic.scheduler;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
@@ -28,7 +27,6 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
-import d.object;
 
 import std.algorithm;
 import std.array;
@@ -51,6 +49,7 @@ final class SemanticPass {
 	
 	Evaluator evaluator;
 	
+	import d.object;
 	ObjectReference object;
 	
 	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];

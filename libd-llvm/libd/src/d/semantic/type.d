@@ -2,7 +2,6 @@ module d.semantic.type;
 
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.type;
 
 import d.ir.type;

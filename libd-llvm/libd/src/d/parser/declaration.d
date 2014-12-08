@@ -1,13 +1,5 @@
 module d.parser.declaration;
 
-import d.ast.base;
-import d.ast.declaration;
-import d.ast.expression;
-import d.ast.identifier;
-import d.ast.type;
-
-import d.ir.expression;
-
 import d.parser.adt;
 import d.parser.base;
 import d.parser.conditional;
@@ -16,6 +8,13 @@ import d.parser.identifier;
 import d.parser.statement;
 import d.parser.dtemplate;
 import d.parser.type;
+
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.type;
+
+import d.ir.expression;
 
 /**
  * Parse a set of declarations.
@@ -42,7 +41,7 @@ auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) 
  * Parse a declaration
  */
 Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	
 	// First, declarations that do not support storage classes.
 	switch(trange.front.type) with(TokenType) {

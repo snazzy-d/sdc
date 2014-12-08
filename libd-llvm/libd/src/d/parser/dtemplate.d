@@ -1,6 +1,5 @@
 module d.parser.dtemplate;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
@@ -14,7 +13,7 @@ import d.parser.type;
 import std.range;
 
 auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	trange.match(TokenType.Template);
 	
 	auto name = trange.front.name;
@@ -83,7 +82,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 			return trange.parseAliasParameter();
 		
 		case This :
-			Location location = trange.front.location;
+			auto location = trange.front.location;
 			trange.popFront();
 			
 			auto name = trange.front.name;
@@ -102,7 +101,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 
 private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	auto name = trange.front.name;
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	
 	trange.match(TokenType.Identifier);
 	
@@ -135,7 +134,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 }
 
 private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	
 	auto type = trange.parseType();
 	auto name = trange.front.name;
@@ -162,7 +161,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 }
 
 private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
 	bool isTyped = false;

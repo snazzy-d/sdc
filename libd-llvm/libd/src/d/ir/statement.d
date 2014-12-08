@@ -1,9 +1,11 @@
 module d.ir.statement;
 
-import d.ast.base;
+import d.ir.expression;
+
 import d.ast.statement;
 
-import d.ir.expression;
+import d.context;
+import d.location;
 
 class Statement : AstStatement {
 	this(Location location) {

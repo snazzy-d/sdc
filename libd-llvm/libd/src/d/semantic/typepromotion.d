@@ -64,7 +64,6 @@ struct TypePromoter {
 		
 		auto e = t1.getElement();
 		if (t.getCanonical().unqual() == e.getCanonical().unqual()) {
-			import d.ast.base;
 			if (canConvert(e.qualifier, t.qualifier)) {
 				return t.getPointer();
 			}

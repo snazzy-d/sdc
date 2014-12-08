@@ -2,7 +2,6 @@ module d.semantic.declaration;
 
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.conditional;
 import d.ast.declaration;
 
@@ -235,7 +234,7 @@ struct DeclarationVisitor {
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.lexer, d.ir.expression;
+		import d.lexer, d.location, d.ir.expression;
 		auto source = new MixinSource(location, str);
 		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
 		

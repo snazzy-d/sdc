@@ -1,9 +1,12 @@
 module d.ast.declaration;
 
-import d.ast.base;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 /**
  * Any declaration.

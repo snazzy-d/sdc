@@ -4,7 +4,6 @@ import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
@@ -14,6 +13,8 @@ import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+
+import d.context;
 
 import std.algorithm;
 import std.array;
@@ -100,7 +101,6 @@ struct SymbolAnalyzer {
 		
 		// All modules implicitely import object.
 		import d.semantic.declaration;
-		import d.context;
 		m.members = DeclarationVisitor(pass, Storage.Static)
 			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;

@@ -1,10 +1,13 @@
 module d.ast.expression;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 abstract class AstExpression : Node {
 	this(Location location) {

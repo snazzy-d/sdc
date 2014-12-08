@@ -1,12 +1,14 @@
 module d.ast.type;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 import d.ast.qualtype;
 
-public import d.builtintype;
+public import d.base.builtintype;
+public import d.base.qualifier;
+
+import d.context;
 
 abstract class AstType {
 	final string toString(Context ctx) {

@@ -1,4 +1,4 @@
-module d.builtintype;
+module d.base.builtintype;
 
 // Byte, Ubyte instead of Ubyte, Byte
 enum BuiltinType : ubyte {
