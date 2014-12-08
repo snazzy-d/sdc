@@ -8,6 +8,7 @@ auto foo(T, U)(T t, U u) {
 }
 
 int main() {
-	return foo('A', -28);
+	// XXX: remove cast when VRP is in.
+	return cast(int) foo('A', -28);
 }
 

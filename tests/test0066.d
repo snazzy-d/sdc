@@ -17,12 +17,12 @@ int main() {
 	}
 	assert(count == 2);
 	
-	char* mem = cast(char*)malloc(str.length);
+	char* mem = cast(char*) malloc(str.length);
 	foreach(size_t i, c; str) {
 		mem[i] = c;
 	}
 	
-	foreach(size_t i; 0..str.length) {
+	foreach(size_t i; 0 .. str.length) {
 		assert(mem[i] == str[i]);
 	}
 	
@@ -30,19 +30,19 @@ int main() {
 		c = 'o';
 	}
 	
-	foreach(i; 0..3) {
+	foreach(i; 0 .. 3) {
 		assert(mem[i] == 'o');
 	}
 	
 	// Break.
-	foreach(ref c; mem[0..str.length]) {
+	foreach(ref c; mem[0 .. str.length]) {
 		if(c == 'o')
 			c = 'a';
 		else
 			break;
 	}
 	
-	foreach(i; 0..3)
+	foreach(i; 0 .. 3)
 		assert(mem[i] == 'a');
 	
 	assert(mem[3] == 'b');
