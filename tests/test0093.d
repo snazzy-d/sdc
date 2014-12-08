@@ -4,7 +4,7 @@
 
 int main() {
 	alias foo = int;
-	
-	return foo.sizeof;
+	// XXX: Remove when RVP is in.
+	return cast(int) foo.sizeof;
 }
 

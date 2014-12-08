@@ -8,204 +8,110 @@ import d.ir.type;
 import d.exception;
 import d.location;
 
-import std.algorithm;
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
 
-QualType getPromotedType(SemanticPass pass, Location location, Type lhs, Type rhs) {
-	lhs = peelAlias(lhs);
-	rhs = peelAlias(rhs);
-	
-	return TypePromoter(rhs).visit(lhs);
+Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
+	return TypePromoter(pass, t1).visit(t2);
 }
 
 struct TypePromoter {
-	Type rhs;
+	// XXX: Used only to get to super class, should probably go away.
+	private SemanticPass pass;
+	alias pass this;
 	
-	this(Type rhs) {
-		this.rhs = rhs;
+	Type t1;
+	
+	this(SemanticPass pass, Type t1) {
+		this.pass = pass;
+		this.t1 = t1.getCanonical();
 	}
 	
-	QualType visit(Type t) {
-		return this.dispatch!(function QualType(Type t) {
-			assert(0, typeid(t).toString() ~ " is not supported");
-		})(t);
+	Type visit(Type t) {
+		return t.accept(this);
 	}
 	
-	QualType visit(BuiltinType t) {
-		return BuiltinHandler(t.kind).visit(rhs);
-	}
-	
-	QualType visit(PointerType t) {
-		return PointerHandler(t.pointed.type).visit(rhs);
-	}
-	
-	QualType visit(ClassType t) {
-		return ClassHandler(t.dclass).visit(rhs);
-	}
-	
-	QualType visit(EnumType t) {
-		if(auto bt = cast(BuiltinType) t.denum.type) {
-			return visit(bt);
+	Type visit(BuiltinType t) {
+		if (isIntegral(t) && t1.kind == TypeKind.Enum) {
+			t1 = t1.denum.type.qualify(t1.qualifier);
 		}
 		
-		throw new CompileException(t.denum.location, "Enum are of type int");
-	}
-	
-	QualType visit(AliasType t) {
-		return visit(t.dalias.type.type);
-	}
-}
-
-struct BuiltinHandler {
-	TypeKind lhs;
-	
-	this(TypeKind lhs) {
-		this.lhs = lhs;
-	}
-	
-	QualType visit(Type t) {
-		return this.dispatch!(function QualType(Type t) {
-			assert(0, typeid(t).toString() ~ " is not supported");
-		})(t);
-	}
-	
-	QualType visit(BuiltinType t) {
-		return getBuiltin(promoteBuiltin(t.kind, lhs));
-	}
-	
-	QualType visit(EnumType t) {
-		if(auto bt = cast(BuiltinType) t.denum.type) {
-			return visit(bt);
-		}
-		
-		throw new CompileException(t.denum.location, "Enums are of type int");
-	}
-	
-	QualType visit(AliasType t) {
-		return visit(t.dalias.type.type);
-	}
-}
-
-TypeKind promoteBuiltin(TypeKind t1, TypeKind t2) {
-	if(t1 > t2) swap(t1, t2);
-	
-	assert(t1 <= t2);
-	final switch(t1) with(TypeKind) {
-		case None :
-			assert(0, "Not Implemented");
-		
-		case Void :
-			assert(t2 == Void);
-			
-			return Void;
-		
-		case Bool :
-			return promoteBuiltin(Int, t2);
-		
-		case Char :
-		case Wchar :
-		case Dchar :
-			return promoteBuiltin(Uint, t2);
-		
-		case Ubyte :
-		case Ushort :
-			return promoteBuiltin(Int, t2);
-		
-		case Uint :
-			auto ret = promoteBuiltin(Int, t2);
-			return (ret == Int)? Uint : ret;
-		
-		case Ulong :
-			auto ret = promoteBuiltin(Long, t2);
-			return (ret == Long)? Ulong : ret;
-		
-		case Ucent :
-			auto ret = promoteBuiltin(Cent, t2);
-			return (ret == Cent)? Ucent : ret;
-		
-		case Byte :
-		case Short :
-			return promoteBuiltin(Int, t2);
-		
-		case Int :
-		case Long :
-		case Cent :
-			if(t2 <= Cent) {
-				return t2;
+		if (t == BuiltinType.Null) {
+			if (t1.kind == TypeKind.Pointer || t1.kind == TypeKind.Class) {
+				return t1;
 			}
 			
-			assert(0, "Not Implemented");
-		
-		case Float :
-		case Double :
-		case Real :
-		case Null :
-			assert(0, "Not Implemented");
-	}
-}
-
-struct PointerHandler {
-	Type pointed;
-	
-	this(Type pointed) {
-		this.pointed = pointed;
-	}
-	
-	QualType visit(Type t) {
-		return this.dispatch!(function QualType(Type t) {
-			assert(0, typeid(t).toString() ~ " is not supported");
-		})(t);
-	}
-	
-	QualType visit(PointerType t) {
-		// Consider pointed.
-		return QualType(t);
-	}
-	
-	QualType visit(BuiltinType t) {
-		if (t.kind == TypeKind.Null) {
-			return QualType(new PointerType(QualType(pointed)));
+			if (t1.kind == TypeKind.Function && t1.asFunctionType().contexts.length == 0) {
+				return t1;
+			}
 		}
 		
-		assert(0, typeid(t).toString() ~ " is not supported");
-	}
-}
-
-struct ClassHandler {
-	Class lhs;
-	
-	this(Class lhs) {
-		this.lhs = lhs;
-	}
-	
-	QualType visit(Type t) {
-		return this.dispatch!(function QualType(Type t) {
-			assert(0, typeid(t).toString() ~ " is not supported");
-		})(t);
-	}
-	
-	QualType visit(BuiltinType t) {
-		if(t.kind == TypeKind.Null) {
-			return QualType(new ClassType(lhs));
+		if (t1.kind != TypeKind.Builtin) {
+			assert(0, "Not Implemented.");
 		}
 		
-		assert(0, "Can't cast class to " ~ typeid(t).toString());
+		return Type.get(promoteBuiltin(t, t1.builtin));
 	}
 	
-	QualType visit(ClassType t) {
+	Type visitPointerOf(Type t) {
+		if (t1.kind == TypeKind.Builtin && t1.builtin == BuiltinType.Null) {
+			return t.getPointer();
+		}
+		
+		if (t1.kind != TypeKind.Pointer) {
+			assert(0, "Not Implemented.");
+		}
+		
+		auto e = t1.getElement();
+		if (t.getCanonical().unqual() == e.getCanonical().unqual()) {
+			import d.ast.base;
+			if (canConvert(e.qualifier, t.qualifier)) {
+				return t.getPointer();
+			}
+			
+			if (canConvert(t.qualifier, e.qualifier)) {
+				return e.getPointer();
+			}
+		}
+		
+		assert(0, "Not Implemented: use caster.");
+	}
+	
+	Type visitSliceOf(Type t) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visitArrayOf(uint size, Type t) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(Struct s) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(Class c) {
+		if (t1.kind == TypeKind.Builtin && t1.builtin == BuiltinType.Null) {
+			return Type.get(c);
+		}
+		
+		if (t1.kind != TypeKind.Class) {
+			assert(0, "Not Implemented.");
+		}
+		
+		auto r = t1.dclass;
+		
 		// Find a common superclass.
-		auto r = t.dclass;
-		
-		auto lup = lhs;
+		auto lup = c;
 		do {
 			// Avoid allocation when possible.
-			if(r is lup) {
-				return QualType(t);
+			if (r is lup) {
+				return t1;
 			}
 			
 			auto rup = r.base;
 			while(rup !is rup.base) {
 				if(rup is lup) {
-					return QualType(new ClassType(rup));
+					return Type.get(rup);
 				}
 				
 				rup = rup.base;
@@ -215,7 +121,100 @@ struct ClassHandler {
 		} while(lup !is lup.base);
 		
 		// lup must be Object by now.
-		return QualType(new ClassType(lup));
+		return Type.get(lup);
+	}
+	
+	Type visit(Enum e) {
+		return visit(e.type);
+	}
+	
+	Type visit(TypeAlias a) {
+		return visit(a.type);
+	}
+	
+	Type visit(Interface i) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(Union u) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(Function f) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(Type[] seq) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(FunctionType f) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Type visit(TypeTemplateParameter p) {
+		assert(0, "Not implemented.");
 	}
 }
+
+private:
+
+BuiltinType getBuiltinBase(BuiltinType t) {
+	if (t == BuiltinType.Bool) {
+		return BuiltinType.Int;
+	}
+	
+	if (isChar(t)) {
+		return integralOfChar(t);
+	}
+	
+	return t;
+}
+
+BuiltinType promoteBuiltin(BuiltinType t1, BuiltinType t2) {
+	t1 = getBuiltinBase(t1);
+	t2 = getBuiltinBase(t2);
+	
+	if (isIntegral(t1) && isIntegral(t2)) {
+		import std.algorithm;
+		return max(t1, t2, BuiltinType.Int);
+	}
+	
+	assert(0, "Not implemented.");
+}
+
+unittest { with(BuiltinType) {
+	foreach(t1; [Bool, Char, Wchar, Byte, Ubyte, Short, Ushort, Int]) {
+		foreach(t2; [Bool, Char, Wchar, Byte, Ubyte, Short, Ushort, Int]) {
+			assert(promoteBuiltin(t1, t2) == Int);
+		}
+	}
+	
+	foreach(t1; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint]) {
+		foreach(t2; [Dchar, Uint]) {
+			assert(promoteBuiltin(t1, t2) == Uint);
+			assert(promoteBuiltin(t2, t1) == Uint);
+		}
+	}
+	
+	foreach(t; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint, Long]) {
+		assert(promoteBuiltin(t, Long) == Long);
+		assert(promoteBuiltin(Long, t) == Long);
+	}
+	
+	foreach(t; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong]) {
+		assert(promoteBuiltin(t, Ulong) == Ulong);
+		assert(promoteBuiltin(Ulong, t) == Ulong);
+	}
+	
+	foreach(t; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent]) {
+		assert(promoteBuiltin(t, Cent) == Cent);
+		assert(promoteBuiltin(Cent, t) == Cent);
+	}
+	
+	foreach(t; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent]) {
+		assert(promoteBuiltin(t, Ucent) == Ucent);
+		assert(promoteBuiltin(Ucent, t) == Ucent);
+	}
+}}
 

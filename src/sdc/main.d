@@ -57,8 +57,8 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, optLevel);
 	try {
+		auto sdc = new SDC(files[0], conf, optLevel);
 		foreach(file; files) {
 			sdc.compile(file);
 		}

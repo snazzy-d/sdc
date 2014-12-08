@@ -5,7 +5,6 @@ import d.semantic.semantic;
 import d.ast.declaration;
 
 import d.ir.dscope;
-import d.ir.dtemplate;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -26,7 +25,7 @@ struct TemplateInstancier {
 	
 	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args, Expression[] fargs) {
 		auto cds = s.set.filter!((t) {
-			if(auto asTemplate = cast(Template) t) {
+			if (auto asTemplate = cast(Template) t) {
 				return asTemplate.parameters.length >= args.length;
 			}
 			
@@ -39,13 +38,15 @@ struct TemplateInstancier {
 			auto t = cast(Template) candidate;
 			assert(t, "We should have ensured that we only have templates at this point.");
 			
+			scheduler.require(t);
+			
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;
-			if(!matchArguments(t, args, fargs, cdArgs)) {
+			if (!matchArguments(t, args, fargs, cdArgs)) {
 				continue CandidateLoop;
 			}
 			
-			if(!match) {
+			if (!match) {
 				match = t;
 				matchedArgs = cdArgs;
 				continue CandidateLoop;
@@ -71,11 +72,11 @@ struct TemplateInstancier {
 			asArg = t.parameters.map!buildArg.array();
 			bool t2match = matchArguments(match, asArg, [], dummy);
 			
-			if(t2match == match2t) {
+			if (t2match == match2t) {
 				assert(0, "Ambiguous template");
 			}
 			
-			if(t2match) {
+			if (t2match) {
 				match = t;
 				matchedArgs = cdArgs;
 				continue CandidateLoop;
@@ -90,7 +91,7 @@ struct TemplateInstancier {
 		scheduler.require(t);
 		
 		TemplateArgument[] matchedArgs;
-		if(t.parameters.length > 0) {
+		if (t.parameters.length > 0) {
 			matchedArgs.length = t.parameters.length;
 			
 			auto match = matchArguments(t, args, fargs, matchedArgs);
@@ -103,27 +104,28 @@ struct TemplateInstancier {
 		return instanciateFromResolvedArgs(location, t, matchedArgs);
 	}
 	
-	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs, TemplateArgument[] matchedArgs) {
-		scheduler.require(t);
+private:
+	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs, TemplateArgument[] matchedArgs) in {
+		assert(t.step == Step.Processed);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
-		
+	} body {
 		uint i = 0;
 		foreach(a; args) {
-			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
 				return false;
 			}
 		}
 		
 		foreach(j, a; fargs) {
-			if(!IftiTypeMatcher(matchedArgs, a.type).visit(t.ifti[j])) {
+			if (!IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
 				return false;
 			}
 		}
 		
 		// Match unspecified parameters.
 		foreach(a; matchedArgs[i .. $]) {
-			if(!matchArgument(t.parameters[i++], a, matchedArgs)) {
+			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
 				return false;
 			}
 		}
@@ -135,11 +137,11 @@ struct TemplateInstancier {
 		return a.apply!(function bool() {
 			assert(0, "All passed argument must be defined.");
 		}, (identified) {
-			static if(is(typeof(identified) : QualType)) {
-				return TypeMatcher(pass, matchedArgs, identified).visit(p);
-			} else static if(is(typeof(identified) : Expression)) {
+			static if (is(typeof(identified) : Type)) {
+				return TypeParameterMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if (is(typeof(identified) : Expression)) {
 				return ValueMatcher(pass, matchedArgs, identified).visit(p);
-			} else static if(is(typeof(identified) : Symbol)) {
+			} else static if (is(typeof(identified) : Symbol)) {
 				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
@@ -147,9 +149,9 @@ struct TemplateInstancier {
 		})();
 	}
 	
-	auto instanciateFromResolvedArgs(Location location, Template t, TemplateArgument[] args) {
+	auto instanciateFromResolvedArgs(Location location, Template t, TemplateArgument[] args) in {
 		assert(t.parameters.length == args.length);
-		
+	} body {
 		auto i = 0;
 		Symbol[] argSyms;
 		// XXX: have to put array once again to avoid multiple map.
@@ -159,7 +161,7 @@ struct TemplateInstancier {
 			}, delegate string(identified) {
 				auto p = t.parameters[i++];
 				
-				static if(is(typeof(identified) : QualType)) {
+				static if (is(typeof(identified) : Type)) {
 					auto a = new TypeAlias(p.location, p.name, identified);
 					
 					import d.semantic.mangler;
@@ -168,7 +170,7 @@ struct TemplateInstancier {
 					
 					argSyms ~= a;
 					return "T" ~ a.mangle;
-				} else static if(is(typeof(identified) : CompileTimeExpression)) {
+				} else static if (is(typeof(identified) : CompileTimeExpression)) {
 					auto a = new ValueAlias(p.location, p.name, identified);
 					
 					import d.ast.base;
@@ -180,12 +182,11 @@ struct TemplateInstancier {
 					
 					argSyms ~= a;
 					return "V" ~ a.mangle;
-				} else static if(is(typeof(identified) : Symbol)) {
+				} else static if (is(typeof(identified) : Symbol)) {
 					auto a = new SymbolAlias(p.location, p.name, identified);
 					
 					import d.semantic.symbol;
-					auto sa = SymbolAnalyzer(pass);
-					sa.process(a);
+					SymbolAnalyzer(pass).process(a);
 					
 					argSyms ~= a;
 					return "S" ~ a.mangle;
@@ -232,8 +233,7 @@ struct TemplateArgument {
 	import std.bitmanip;
 	mixin(bitfields!(
 		Tag, "tag", 2,
-		TypeQualifier, "qual", 3,
-		uint, "", 3,
+		uint, "", 6,
 	));
 	
 	// For type inference.
@@ -253,10 +253,9 @@ struct TemplateArgument {
 		expr = e;
 	}
 	
-	this(QualType qt) {
+	this(Type t) {
 		tag = Tag.Type;
-		qual = qt.qualifier;
-		type = qt.type;
+		type = t;
 	}
 }
 
@@ -276,23 +275,26 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 			return handler(a.expr);
 		
 		case Type :
-			return handler(QualType(a.type, a.qual));
+			return handler(a.type);
 	}
 }
 
-struct TypeMatcher {
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
+struct TypeParameterMatcher {
 	TemplateArgument[] matchedArgs;
-	QualType matchee;
+	Type matchee;
 	
 	// XXX: used only in one place in caster, can probably be removed.
 	// XXX: it used to cast classes in a way that isn't useful here.
 	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
 	
-	this(SemanticPass pass, TemplateArgument[] matchedArgs, QualType matchee) {
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.pass = pass;
 		this.matchedArgs = matchedArgs;
-		this.matchee = peelAlias(matchee);
+		this.matchee = matchee.getCanonical();
 	}
 	
 	bool visit(TemplateParameter p) {
@@ -309,7 +311,7 @@ struct TypeMatcher {
 		auto originalMatched = matchedArgs[p.index];
 		matchedArgs[p.index] = TemplateArgument.init;
 		
-		if(!visit(peelAlias(p.specialization))) {
+		if (!StaticTypeMatcher(pass, matchedArgs, matchee).visit(p.specialization.getCanonical())) {
 			return false;
 		}
 		
@@ -318,11 +320,10 @@ struct TypeMatcher {
 		}, (_) {})();
 		
 		return originalMatched.apply!({ return true; }, (o) {
-			static if(is(typeof(o) : QualType)) {
+			static if (is(typeof(o) : Type)) {
 				return matchedArgs[p.index].apply!({ return false; }, (m) {
-					static if(is(typeof(m) : QualType)) {
+					static if (is(typeof(m) : Type)) {
 						import d.semantic.caster;
-						import d.ir.expression;
 						return implicitCastFrom(pass, m, o) == CastKind.Exact;
 					} else {
 						return false;
@@ -333,70 +334,118 @@ struct TypeMatcher {
 			}
 		})();
 	}
+}
+
+alias StaticTypeMatcher = TypeMatcher!false;
+alias IftiTypeMatcher = TypeMatcher!true;
+
+struct TypeMatcher(bool isIFTI) {
+	TemplateArgument[] matchedArgs;
+	Type matchee;
 	
-	bool visit(QualType t) {
-		return this.dispatch(t.type);
+	// XXX: used only in one place in caster, can probably be removed.
+	// XXX: it used to cast classes in a way that isn't useful here.
+	// XXX: let's move it away when we have a context and cannonical types.
+	SemanticPass pass;
+	
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
+		this.matchedArgs = matchedArgs;
+		this.matchee = matchee.getCanonical();
 	}
 	
 	bool visit(Type t) {
-		return this.dispatch(t);
+		return t.accept(this);
 	}
 	
-	bool visit(TemplatedType t) {
-		auto i = t.param.index;
+	bool visit(BuiltinType t) {
+		return (matchee.kind == TypeKind.Builtin)
+			? t == matchee.builtin
+			: false;
+	}
+	
+	bool visitPointerOf(Type t) {
+		if (matchee.kind != TypeKind.Pointer) {
+			return false;
+		}
+		
+		matchee = matchee.getElement().getCanonical();
+		return visit(t);
+	}
+	
+	bool visitSliceOf(Type t) {
+		if (matchee.kind != TypeKind.Slice) {
+			return false;
+		}
+		
+		matchee = matchee.getElement().getCanonical();
+		return visit(t);
+	}
+	
+	bool visitArrayOf(uint size, Type t) {
+		if (matchee.kind != TypeKind.Array) {
+			return false;
+		}
+		
+		if (matchee.size != size) {
+			return false;
+		}
+		
+		matchee = matchee.getElement().getCanonical();
+		return visit(t);
+	}
+	
+	bool visit(Struct s) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Class c) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Enum e) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(TypeAlias a) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Interface i) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Union u) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Function f) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(Type[] seq) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(FunctionType f) {
+		assert(0, "Not implemented.");
+	}
+	
+	bool visit(TypeTemplateParameter p) {
+		auto i = p.index;
 		return matchedArgs[i].apply!({
 			matchedArgs[i] = TemplateArgument(matchee);
 			return true;
 		}, delegate bool(identified) {
-			static if(is(typeof(identified) : QualType)) {
+			static if (is(typeof(identified) : Type)) {
 				import d.semantic.caster;
-				import d.ir.expression;
-				return implicitCastFrom(pass, matchee, identified) == CastKind.Exact;
+				auto castKind = implicitCastFrom(pass, matchee, identified);
+				return isIFTI
+					? castKind > CastKind.Invalid
+					: castKind == CastKind.Exact;
 			} else {
 				return false;
 			}
 		})();
-	}
-	
-	bool visit(PointerType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asPointer = cast(PointerType) m) {
-			matchee = asPointer.pointed;
-			return visit(t.pointed);
-		}
-		
-		return false;
-	}
-	
-	bool visit(SliceType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asSlice = cast(SliceType) m) {
-			matchee = asSlice.sliced;
-			return visit(t.sliced);
-		}
-		
-		return false;
-	}
-	
-	bool visit(ArrayType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asArray = cast(ArrayType) m) {
-			if(asArray.size == t.size) {
-				matchee = asArray.elementType;
-				return visit(t.elementType);
-			}
-		}
-		
-		return false;
-	}
-	
-	bool visit(BuiltinType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asBuiltin = cast(BuiltinType) m) {
-			return t.kind == asBuiltin.kind;
-		}
-		
-		return false;
 	}
 }
 
@@ -423,7 +472,7 @@ struct ValueMatcher {
 		matchedArgs[p.index] = TemplateArgument(matchee);
 		
 		// TODO: If IFTI fails, go for cast.
-		return IftiTypeMatcher(matchedArgs, matchee.type).visit(p.type);
+		return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(p.type);
 	}
 	
 	bool visit(AliasTemplateParameter p) {
@@ -435,7 +484,7 @@ struct ValueMatcher {
 		matchedArgs[p.index] = TemplateArgument(matchee);
 		
 		// TODO: If IFTI fails, go for cast.
-		return IftiTypeMatcher(matchedArgs, matchee.type).visit(p.type);
+		return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(p.type);
 	}
 }
 
@@ -461,15 +510,15 @@ struct SymbolMatcher {
 	}
 	
 	bool visit(TypedAliasTemplateParameter p) {
-		if(auto vs = cast(ValueSymbol) matchee) {
+		if (auto vs = cast(ValueSymbol) matchee) {
 			matchedArgs[p.index] = TemplateArgument(vs);
 			
 			import d.semantic.identifier;
 			return SymbolPostProcessor!(delegate bool(identified) {
 				alias T = typeof(identified);
-				static if(is(T : Expression)) {
+				static if (is(T : Expression)) {
 					// TODO: If IFTI fails, go for cast.
-					return IftiTypeMatcher(matchedArgs, identified.type).visit(p.type);
+					return IftiTypeMatcher(pass, matchedArgs, identified.type).visit(p.type);
 				} else {
 					return false;
 				}
@@ -483,8 +532,8 @@ struct SymbolMatcher {
 		import d.semantic.identifier;
 		return SymbolPostProcessor!(delegate bool(identified) {
 			alias T = typeof(identified);
-			static if(is(T : QualType)) {
-				return TypeMatcher(pass, matchedArgs, identified).visit(p);
+			static if (is(T : Type)) {
+				return TypeParameterMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
 			}
@@ -495,83 +544,12 @@ struct SymbolMatcher {
 		import d.semantic.identifier;
 		return SymbolPostProcessor!(delegate bool(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Expression)) {
+			static if (is(T : Expression)) {
 				return ValueMatcher(pass, matchedArgs, pass.evaluate(identified)).visit(p);
 			} else {
 				return false;
 			}
 		})(pass, p.location).visit(matchee);
-	}
-}
-
-// XXX: Massive code duplication as static if somehow do not work here.
-// XXX: probable a dmd bug, but I have no time to investigate.
-struct IftiTypeMatcher {
-	TemplateArgument[] matchedArgs;
-	QualType matchee;
-	
-	this(TemplateArgument[] matchedArgs, QualType matchee) {
-		this.matchedArgs = matchedArgs;
-		this.matchee = peelAlias(matchee);
-	}
-	
-	bool visit(QualType t) {
-		return visit(t.type);
-	}
-	
-	bool visit(Type t) {
-		return this.dispatch(t);
-	}
-	
-	bool visit(TemplatedType t) {
-		auto i = t.param.index;
-		return matchedArgs[i].apply!({
-			matchedArgs[i] = TemplateArgument(matchee);
-			return true;
-		}, delegate bool(identified) {
-			return true;
-		})();
-	}
-	
-	bool visit(PointerType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asPointer = cast(PointerType) m) {
-			matchee = asPointer.pointed;
-			return visit(t.pointed);
-		}
-		
-		return false;
-	}
-	
-	bool visit(SliceType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asSlice = cast(SliceType) m) {
-			matchee = asSlice.sliced;
-			return visit(t.sliced);
-		}
-		
-		return false;
-	}
-	
-	bool visit(ArrayType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asArray = cast(ArrayType) m) {
-			if(asArray.size == t.size) {
-				matchee = asArray.elementType;
-				return visit(t.elementType);
-			}
-		}
-		
-		return false;
-	}
-	
-	bool visit(BuiltinType t) {
-		auto m = peelAlias(matchee).type;
-		if(auto asBuiltin = cast(BuiltinType) m) {
-			return t.kind == asBuiltin.kind;
-		}
-		
-		return false;
 	}
 }
 

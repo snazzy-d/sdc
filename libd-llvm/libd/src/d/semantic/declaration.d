@@ -194,15 +194,15 @@ struct DeclarationVisitor {
 		auto d = unit.staticIf;
 		
 		import d.ir.expression, d.semantic.caster, d.semantic.expression;
-		auto condition = evaluate(buildExplicitCast(
+		auto condition = evalIntegral(buildExplicitCast(
 			pass,
 			d.condition.location,
-			QualType(new BuiltinType(TypeKind.Bool)),
+			Type.get(BuiltinType.Bool),
 			ExpressionVisitor(pass).visit(d.condition),
 		));
 		
 		CtUnit[] items;
-		if((cast(BooleanLiteral) condition).value) {
+		if(condition) {
 			currentScope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
@@ -210,12 +210,11 @@ struct DeclarationVisitor {
 			items = unit.elseItems;
 		}
 		
-		import d.semantic.symbol;
-		auto sv = SymbolVisitor(pass);
 		foreach(ref u; items) {
 			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
-					sv.visit(su.d, su.s);
+					import d.semantic.symbol;
+					SymbolVisitor(pass).visit(su.d, su.s);
 				}
 				
 				u.level = CtUnitLevel.Done;
@@ -231,30 +230,25 @@ struct DeclarationVisitor {
 		auto d = unit.mixinDecl;
 
 		import d.semantic.expression : ExpressionVisitor;
-		auto value = evaluate(ExpressionVisitor(pass).visit(d.value));
+		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
 		
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.ir.expression;
-		if(auto str = cast(StringLiteral) value) {
-			import d.lexer;
-			auto source = new MixinSource(location, str.value);
-			auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str.value ~ '\0', context);
-			
-			import d.parser.base;
-			trange.match(TokenType.Begin);
-			
-			Declaration[] decls;
-			while(trange.front.type != TokenType.End) {
-				import d.parser.declaration;
-				decls ~= trange.parseDeclaration();
-			}
-			
-			return flatten(flattenDecls(decls), to);
-		} else {
-			assert(0, "mixin parameter should evalutate as a string.");
+		import d.lexer, d.ir.expression;
+		auto source = new MixinSource(location, str);
+		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
+		
+		import d.parser.base;
+		trange.match(TokenType.Begin);
+		
+		Declaration[] decls;
+		while(trange.front.type != TokenType.End) {
+			import d.parser.declaration;
+			decls ~= trange.parseDeclaration();
 		}
+		
+		return flatten(flattenDecls(decls), to);
 	}
 	
 	void visit(Declaration d) {
@@ -280,14 +274,14 @@ struct DeclarationVisitor {
 		
 		auto isStatic = storage.isNonLocal;
 		if(isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
-			f = new Function(d.location, null, d.name, [], null);
+			f = new Function(d.location, FunctionType.init, d.name, [], null);
 		} else {
 			uint index = 0;
 			if (!isOverride && !stc.isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(d.location, index, null, d.name, [], null);
+			f = new Method(d.location, index, FunctionType.init, d.name, [], null);
 		}
 		
 		f.linkage = getLinkage(stc);
@@ -310,9 +304,9 @@ struct DeclarationVisitor {
 		
 		Variable v;
 		if(storage.isNonLocal || aggregateType == AggregateType.None) {
-			v = new Variable(d.location, getBuiltin(TypeKind.None), d.name);
+			v = new Variable(d.location, Type.get(BuiltinType.None), d.name);
 		} else {
-			v = new Field(d.location, fieldIndex++, getBuiltin(TypeKind.None), d.name);
+			v = new Field(d.location, fieldIndex++, Type.get(BuiltinType.None), d.name);
 		}
 		
 		v.linkage = getLinkage(stc);
@@ -324,7 +318,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(StructDeclaration d) {
-		Struct s = new Struct(d.location, d.name, []);
+		auto s = new Struct(d.location, d.name, []);
 		s.linkage = linkage;
 		s.visibility = visibility;
 		s.storage = storage;
@@ -336,7 +330,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(ClassDeclaration d) {
-		Class c = new Class(d.location, d.name, []);
+		auto c = new Class(d.location, d.name, []);
 		c.linkage = linkage;
 		c.visibility = visibility;
 		c.storage = storage;
@@ -349,7 +343,7 @@ struct DeclarationVisitor {
 	
 	void visit(EnumDeclaration d) {
 		if(d.name.isDefined) {
-			auto e = new Enum(d.location, d.name, getBuiltin(TypeKind.None).type, []);
+			auto e = new Enum(d.location, d.name, Type.get(BuiltinType.None), []);
 			e.linkage = linkage;
 			e.visibility = visibility;
 			
@@ -361,19 +355,19 @@ struct DeclarationVisitor {
 			AstExpression previous;
 			AstExpression one;
 			foreach(vd; d.entries) {
-				auto v = new Variable(vd.location, getBuiltin(TypeKind.None), vd.name);
+				auto v = new Variable(vd.location, Type.get(BuiltinType.None), vd.name);
 				v.visibility = visibility;
 				
 				if(!vd.value) {
 					import d.ir.expression;
 					if(previous) {
 						if(!one) {
-							one = new IntegerLiteral!true(vd.location, 1, TypeKind.Int);
+							one = new IntegerLiteral!true(vd.location, 1, BuiltinType.Int);
 						}
 						
 						vd.value = new AstBinaryExpression(vd.location, BinaryOp.Add, previous, one);
 					} else {
-						vd.value = new IntegerLiteral!true(vd.location, 0, TypeKind.Int);
+						vd.value = new IntegerLiteral!true(vd.location, 0, BuiltinType.Int);
 					}
 				}
 				
@@ -387,7 +381,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(TemplateDeclaration d) {
-		Template t = new Template(d.location, d.name, [], d.declarations);
+		auto t = new Template(d.location, d.name, [], d.declarations);
 		
 		t.linkage = linkage;
 		t.visibility = visibility;
@@ -409,7 +403,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(TypeAliasDeclaration d) {
-		auto a = new TypeAlias(d.location, d.name, getBuiltin(TypeKind.None));
+		auto a = new TypeAlias(d.location, d.name, Type.get(BuiltinType.None));
 		
 		a.linkage = linkage;
 		a.visibility = visibility;
@@ -483,9 +477,9 @@ struct DeclarationVisitor {
 	private Storage getStorage(StorageClass stc) {
 		if (stc.isStatic && stc.isEnum) {
 			assert(0, "cannot be static AND enum");
-		} else if(stc.isStatic) {
+		} else if (stc.isStatic) {
 			return Storage.Static;
-		} else if(stc.isEnum) {
+		} else if (stc.isEnum) {
 			return Storage.Enum;
 		}
 		

@@ -2,7 +2,11 @@ module d.semantic.sizeof;
 
 import d.semantic.semantic;
 
+import d.ir.symbol;
 import d.ir.type;
+
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
 
 struct SizeofVisitor {
 	private SemanticPass pass;
@@ -12,109 +16,73 @@ struct SizeofVisitor {
 		this.pass = pass;
 	}
 	
-	uint visit(QualType t) {
-		return visit(t.type);
-	}
-	
 	uint visit(Type t) {
-		return this.dispatch!(function uint(Type t) {
-			assert(0, "size of type " ~ typeid(t).toString() ~ " is unknown.");
-		})(t);
+		return t.accept(this);
 	}
 	
 	uint visit(BuiltinType t) {
-		final switch(t.kind) with(TypeKind) {
-			case None :
-				assert(0, "none shall never be!");
-			case Void :
-				assert(0, "void.sizeof not is Implemented");
-			
-			case Bool :
-				return 1;
-			
-			case Char :
-				return 1;
-			
-			case Wchar :
-				return 2;
-			
-			case Dchar :
-				return 4;
-			
-			case Ubyte :
-				return 1;
-			
-			case Ushort :
-				return 2;
-			
-			case Uint :
-				return 4;
-			
-			case Ulong :
-				return 8;
-			
-			case Ucent :
-				return 16;
-			
-			case Byte :
-				return 1;
-			
-			case Short :
-				return 2;
-			
-			case Int :
-				return 4;
-			
-			case Long :
-				return 8;
-			
-			case Cent :
-				return 16;
-			
-			case Float :
-				return 4;
-			
-			case Double :
-				return 8;
-			
-			case Real :
-			case Null :
-				assert(0, "real.sizeof or typeof(null).sizeof is not Implemented");
-		}
+		return (t == BuiltinType.Null)
+			? getPointerSize()
+			: getSize(t);
 	}
 	
-	uint visit(PointerType t) {
-		return visit(pass.object.getSizeT().type);
+	uint visitPointerOf(Type t) {
+		return getPointerSize();
 	}
 	
-	uint visit(SliceType t) {
-		return visit(pass.object.getSizeT().type)*2;
+	uint visitSliceOf(Type t) {
+		return 2 * getPointerSize();
 	}
 	
-	uint visit(ArrayType t) {
-		return cast(uint) (visit(t.elementType) * t.size);
+	uint visitArrayOf(uint size, Type t) {
+		return size * visit(t);
 	}
 	
-	uint visit(AliasType t) {
-		auto a = t.dalias;
-		scheduler.require(a);
-		
-		return visit(a.type);
-	}
-	
-	uint visit(StructType t) {
+	uint visit(Struct s) {
 		assert(0, "struct.sizeof is not implemented.");
 	}
 	
-	uint visit(ClassType t) {
-		assert(0, "class.sizeof is not implemented.");
+	uint visit(Class c) {
+		return getPointerSize();
 	}
 	
-	uint visit(EnumType t) {
-		auto e = t.denum;
+	uint visit(Enum e) {
 		scheduler.require(e);
-		
 		return visit(e.type);
+	}
+	
+	uint visit(TypeAlias a) {
+		scheduler.require(a);
+		return visit(a.type);
+	}
+	
+	uint visit(Interface i) {
+		assert(0, "interface.sizeof is not implemented.");
+	}
+	
+	uint visit(Union u) {
+		assert(0, "union.sizeof is not implemented.");
+	}
+	
+	uint visit(Function f) {
+		assert(0, "context.sizeof is not implemented.");
+	}
+	
+	uint visit(Type[] seq) {
+		assert(0, "sequence.sizeof is not implemented.");
+	}
+	
+	uint visit(FunctionType f) {
+		assert(f.contexts.length == 0, "delegate.sizeof is not implemented.");
+		return getPointerSize();
+	}
+	
+	uint visit(TypeTemplateParameter t) {
+		assert(0, "Template type have no size.");
+	}
+	
+	private uint getPointerSize() {
+		return visit(pass.object.getSizeT().type);
 	}
 }
 

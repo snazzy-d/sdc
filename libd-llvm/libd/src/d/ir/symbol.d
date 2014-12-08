@@ -85,11 +85,11 @@ class Package : Symbol {
 class Variable : ValueSymbol {
 	Expression value;
 	
-	QualType type;
+	Type type;
 	bool isRef;
 	bool isFinal;
 	
-	this(Location location, QualType type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
+	this(Location location, Type type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
 		super(location, name);
 		
 		this.type = type;
@@ -101,7 +101,7 @@ class Variable : ValueSymbol {
 	this(Location location, ParamType type, Name name, Expression value = null) {
 		super(location, name);
 		
-		this.type = QualType(type.type, type.qualifier);
+		this.type = type.getType();
 		this.value = value;
 		this.isRef = type.isRef;
 		this.isFinal = type.isFinal;
@@ -110,7 +110,7 @@ class Variable : ValueSymbol {
 final:
 	@property
 	auto paramType() {
-		return ParamType(type, isRef, isFinal);
+		return type.getParamType(isRef, isFinal);
 	}
 }
 
@@ -179,7 +179,7 @@ class Module : Package {
 class Template : Symbol {
 	TemplateParameter[] parameters;
 	
-	QualType[] ifti;
+	Type[] ifti;
 	
 	import d.ast.declaration;
 	Declaration[] members;
@@ -200,14 +200,18 @@ class Template : Symbol {
  * Template type parameter
  */
 class TypeTemplateParameter : TemplateParameter {
-	QualType specialization;
-	QualType defaultValue;
+	Type specialization;
+	Type defaultValue;
 	
-	this(Location location, Name name, uint index, QualType specialization, QualType defaultValue) {
+	this(Location location, Name name, uint index, Type specialization, Type defaultValue) {
 		super(location, name, index);
 		
 		this.specialization = specialization;
 		this.defaultValue = defaultValue;
+	}
+	
+	override string toString(Context context) const {
+		return name.toString(context) ~ " : " ~ specialization.toString(context) ~ " = " ~ defaultValue.toString(context);
 	}
 }
 
@@ -215,9 +219,9 @@ class TypeTemplateParameter : TemplateParameter {
  * Template value parameter
  */
 class ValueTemplateParameter : TemplateParameter {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, uint index, QualType type) {
+	this(Location location, Name name, uint index, Type type) {
 		super(location, name, index);
 		
 		this.type = type;
@@ -237,9 +241,9 @@ class AliasTemplateParameter : TemplateParameter {
  * Template typed alias parameter
  */
 class TypedAliasTemplateParameter : TemplateParameter {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, uint index, QualType type) {
+	this(Location location, Name name, uint index, Type type) {
 		super(location, name, index);
 		
 		this.type = type;
@@ -285,9 +289,9 @@ class SymbolAlias : Symbol {
  * Alias of types
  */
 class TypeAlias : TypeSymbol {
-	QualType type;
+	Type type;
 	
-	this(Location location, Name name, QualType type) {
+	this(Location location, Name name, Type type) {
 		super(location, name);
 		
 		this.type = type;
@@ -398,7 +402,7 @@ class Enum : TypeSymbol {
 class Field : Variable {
 	uint index;
 	
-	this(Location location, uint index, QualType type, Name name, Expression value = null) {
+	this(Location location, uint index, Type type, Name name, Expression value = null) {
 		super(location, type, name, value);
 		
 		this.index = index;

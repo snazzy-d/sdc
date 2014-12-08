@@ -19,7 +19,8 @@ uint foo(T)() {
 		uint ret = buzz(T.sizeof);
 		return ret;
 	} else {
-		uint ret = T.sizeof / 2;
+		// XXX: remove cast when VRP is in.
+		uint ret = cast(uint) (T.sizeof / 2);
 		return (ret + 1) * 2;
 	}
 }

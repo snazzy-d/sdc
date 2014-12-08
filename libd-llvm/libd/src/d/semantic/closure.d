@@ -13,23 +13,23 @@ struct ContextFinder {
 		this.pass = pass;
 	}
 	
-	ContextType visit(Symbol s) in {
+	Function visit(Symbol s) in {
 		assert(s.hasContext, "You can't find context of symbol that do not have context.");
 	} body {
 		return this.dispatch(s);
 	}
 	
-	ContextType visit(Function f) {
+	Function visit(Function f) {
 		scheduler.require(f, Step.Signed);
 		
 		// If we have a this pointer, then the context is next.
-		auto type = cast(ContextType) (f.type.paramTypes[f.hasThis].type);
-		assert(type, typeid(type).toString() ~ ": invalid type for a context.");
+		auto t = f.type.parameters[f.hasThis].getType();
+		assert(t.kind == TypeKind.Context, t.toString(context) ~ ": invalid type for a context.");
 		
-		return type;
+		return t.context;
 	}
 	
-	ContextType visit(SymbolAlias a) {
+	Function visit(SymbolAlias a) {
 		return visit(a.symbol);
 	}
 }
