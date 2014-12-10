@@ -36,7 +36,7 @@ string toString(BuiltinType t) {
 			return "dchar";
 		
 		case Byte :
-			return "bute";
+			return "byte";
 		
 		case Ubyte :
 			return "ubyte";
