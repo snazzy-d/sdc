@@ -281,7 +281,9 @@ struct StatementVisitor {
 		// TODO: precompute autotype instead of managing it here.
 		auto doCast = true;
 		auto rt = returnType.getType();
-		if (rt.kind == TypeKind.Builtin && rt.builtin == BuiltinType.None) {
+		
+		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
+		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
 			doCast = false;

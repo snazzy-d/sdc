@@ -5,6 +5,8 @@ import d.ir.symbol;
 public import d.base.builtintype;
 public import d.base.qualifier;
 
+import d.base.type;
+
 import d.context;
 
 // Conflict with Interface in object.di
@@ -39,52 +41,32 @@ enum TypeKind : ubyte {
 	Template,
 }
 
-// XXX: Make more of this const, bitmanip do nto allow it for now.
 struct Type {
 private:
-	union {
-		TypeDescriptor desc;
-		ulong raw_desc;
-	}
+	mixin TypeMixin!(TypeKind, Payload);
 	
-	Payload payload;
-	
-	this(TypeDescriptor d, inout Payload p = Payload.init) inout {
+	this(Desc d, inout Payload p = Payload.init) inout {
 		desc = d;
 		payload = p;
 	}
 	
-	this(TypeDescriptor d, inout Symbol s) inout {
-		this(d);
-		payload.sym = s;
+	import util.fastcast;
+	this(Desc d, inout Symbol s) inout {
+		this(d, fastCast!(inout Payload)(s));
 	}
 	
-	this(TypeDescriptor d, inout Type* n) inout {
-		this(d);
-		payload.next = n;
+	this(Desc d, inout Type* t) inout {
+		this(d, fastCast!(inout Payload)(t));
 	}
 	
-	this(TypeDescriptor d, inout ParamType* p) inout {
-		this(d);
-		payload.params = p;
-	}
-	
-	Type getConstructedType(TypeKind k, TypeQualifier q) {
-		auto t = qualify(q);
-		if (raw_desc & (-1L << TypeDescriptor.DataSize)) {
-			// XXX: Consider caching in context, and stick in payload
-			// instead of heap if it fit.
-			auto n = new Type(t.desc, t.payload);
-			return Type(TypeDescriptor(k, q), n);
-		}
-		
-		return Type(TypeDescriptor(k, q, t.raw_desc), t.payload);
+	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
+		return qualify(q).getConstructedMixin(k, q);
 	}
 	
 public:
 	auto accept(T)(ref T t) {
 		final switch(kind) with(TypeKind) {
-			case Builtin:
+			case Builtin :
 				return t.visit(builtin);
 			
 			case Struct :
@@ -127,16 +109,6 @@ public:
 			case Template :
 				return t.visit(dtemplate);
 		}
-	}
-	
-	@property
-	TypeKind kind() const {
-		return desc.kind;
-	}
-	
-	@property
-	TypeQualifier qualifier() const {
-		return desc.qualifier;
 	}
 	
 	Type qualify(TypeQualifier q) {
@@ -266,7 +238,7 @@ public:
 		
 		// XXX: Consider caching in context.
 		auto n = new Type(t.desc, t.payload);
-		return Type(TypeDescriptor(TypeKind.Array, q, size), n);
+		return Type(Desc(TypeKind.Array, q, size), n);
 	}
 	
 	bool hasElement() const {
@@ -276,14 +248,11 @@ public:
 	auto getElement() inout in {
 		assert(hasElement, "getElement called on a type with no element.");
 	} body {
-		if (desc.data == 0 || kind == TypeKind.Array) {
+		if (kind == TypeKind.Array) {
 			return *payload.next;
 		}
 		
-		Type t;
-		t.raw_desc = desc.data;
-		
-		return inout(Type)(t.desc, payload);
+		return getElementMixin();
 	}
 	
 	@property
@@ -304,14 +273,6 @@ public:
 		assert(kind == TypeKind.Function, "Not a function.");
 	} body {
 		return inout(FunctionType)(desc, payload.params);
-	}
-	
-	ParamType getParamType(bool isRef, bool isFinal) {
-		if (raw_desc & (0x03UL << 62)) {
-			assert(0, "ref and final flag not available.");
-		}
-		
-		return ParamType(desc.kind, desc.qualifier, isRef, isFinal, desc.data, payload);
 	}
 	
 	string toString(Context c, TypeQualifier q = TypeQualifier.Mutable) const {
@@ -343,8 +304,9 @@ public:
 	
 	string toUnqualString(Context c) const {
 		final switch(kind) with(TypeKind) {
-			case Builtin:
-				return .toString(builtin);
+			case Builtin :
+				import d.base.builtintype : toString;
+				return toString(builtin);
 			
 			case Struct :
 				return dstruct.name.toString(c);
@@ -398,43 +360,43 @@ public:
 static:
 	Type get(BuiltinType bt, TypeQualifier q = TypeQualifier.Mutable) {
 		Payload p;
-		return Type(TypeDescriptor(TypeKind.Builtin, q, bt), p);
+		return Type(Desc(TypeKind.Builtin, q, bt), p);
 	}
 	
 	Type get(Struct s, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Struct, q), s);
+		return Type(Desc(TypeKind.Struct, q), s);
 	}
 	
 	Type get(Class c, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Class, q), c);
+		return Type(Desc(TypeKind.Class, q), c);
 	}
 	
 	Type get(Enum e, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Enum, q), e);
+		return Type(Desc(TypeKind.Enum, q), e);
 	}
 	
 	Type get(TypeAlias a, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Alias, q), a);
+		return Type(Desc(TypeKind.Alias, q), a);
 	}
 	
 	Type get(Interface i, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Interface, q), i);
+		return Type(Desc(TypeKind.Interface, q), i);
 	}
 	
 	Type get(Union u, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Union, q), u);
+		return Type(Desc(TypeKind.Union, q), u);
 	}
 	
 	Type get(Type[] elements, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Sequence, q, elements.length), elements.ptr);
+		return Type(Desc(TypeKind.Sequence, q, elements.length), elements.ptr);
 	}
 	
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Template, q), p);
+		return Type(Desc(TypeKind.Template, q), p);
 	}
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Context, q), f);
+		return Type(Desc(TypeKind.Context, q), f);
 	}
 }
 
@@ -481,69 +443,23 @@ unittest {
 	assert(cc == csc.getElement());
 }
 
-struct ParamType {
-private:
-	import std.bitmanip;
-	mixin(bitfields!(
-		TypeKind, "kind", 4,
-		TypeQualifier, "qual", 3,
-		ulong, "data", 55,
-		bool, "dref", 1,
-		bool, "dfnl", 1,
-	));
-	
-	Payload payload;
-	
-	static assert(TypeDescriptor.sizeof == ulong.sizeof);
-	
-	this(TypeKind k, TypeQualifier q, bool isRef, bool isFinal, ulong d, inout Payload p) inout {
-		// unqual trick required for bitfield
-		auto unqual_this = cast(ParamType*) &this;
-		unqual_this.kind = k;
-		unqual_this.qual = q;
-		unqual_this.data = d;
-		unqual_this.dref = isRef;
-		unqual_this.dfnl = isFinal;
-		
-		payload = p;
-	}
+alias ParamType = Type.ParamType;
 
-public:
-	auto getType() inout {
-		return inout(Type)(TypeDescriptor(kind, qual, data), payload);
+string toString(const ParamType t, Context c) {
+	string s;
+	if (t.isRef && t.isFinal) {
+		s = "final ref ";
+	} else if (t.isRef) {
+		s = "ref ";
+	} else if (t.isFinal) {
+		s = "final ";
 	}
 	
-	auto getParamType(bool isRef, bool isFinal) inout {
-		return inout(ParamType)(kind, qual, isRef, isFinal, data, payload);
-	}
-	
-	@property
-	TypeQualifier qualifier() const {
-		return qual;
-	}
-	
-	@property
-	bool isRef() const {
-		return dref;
-	}
+	return s ~ t.getType().toString(c);
+}
 
-	@property
-	bool isFinal() const {
-		return dfnl;
-	}
-	
-	string toString(Context c) const {
-		string s;
-		if (isRef && isFinal) {
-			s = "final ref ";
-		} else if (isRef) {
-			s = "ref ";
-		} else if (isFinal) {
-			s = "final ";
-		}
-		
-		return s ~ getType().toString(c);
-	}
+inout(ParamType) getParamType(inout ParamType t, bool isRef, bool isFinal) {
+	return t.getType().getParamType(isRef, isFinal);
 }
 
 unittest {
@@ -572,7 +488,9 @@ private:
 	
 	ParamType* params;
 	
-	this(TypeDescriptor desc, inout ParamType* params) inout {
+	alias Desc = TypeDescriptor!TypeKind;
+	
+	this(Desc desc, inout ParamType* params) inout {
 		// /!\ Black magic ahead.
 		auto raw_desc = cast(ulong*) &desc;
 		
@@ -615,7 +533,8 @@ public:
 	
 	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
 		ulong d = *cast(ulong*) &this;
-		return Type(TypeDescriptor(TypeKind.Function, q, d), params);
+		auto p = Payload(cast(Type*) params);
+		return Type(Desc(TypeKind.Function, q, d), p);
 	}
 	
 	FunctionType getDelegate(ulong contextCount = 1) in {
@@ -697,23 +616,11 @@ unittest {
 
 private:
 
-struct TypeDescriptor {
-	enum DataSize = 57;
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		TypeKind, "kind", 4,
-		TypeQualifier, "qualifier", 3,
-		ulong, "data", DataSize,
-	));
-	
-	static assert(TypeDescriptor.sizeof == ulong.sizeof);
-	
-	this(TypeKind k, TypeQualifier q, ulong d = 0) {
-		kind = k;
-		qualifier = q;
-		data = d;
-	}
+// XXX: we put it as a UFCS property to avoid forward reference.
+@property
+inout(ParamType)* params(inout Payload p) {
+	import util.fastcast;
+	return cast(inout ParamType*) p.next;
 }
 
 union Payload {
@@ -731,7 +638,7 @@ union Payload {
 	Function context;
 	
 	// For function and delegates.
-	ParamType* params;
+	// ParamType* params;
 	
 	// For template instanciation.
 	TypeTemplateParameter dtemplate;
