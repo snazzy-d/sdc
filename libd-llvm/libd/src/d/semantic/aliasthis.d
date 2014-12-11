@@ -23,25 +23,17 @@ struct AliasThisResolver(alias handler) {
 		auto t = e.type.getCanonical();
 		
 		import d.ir.type;
-		if (t.kind == TypeKind.Struct) {
-			return resolve(e, t.dstruct);
-		} else if (t.kind == TypeKind.Class) {
-			return resolve(e, t.dclass);
+		if (!t.isAggregate) {
+			return [];
 		}
-		
-		return [];
+
+		return resolve(e, t.aggregate);
 	}
 	
-	Ret[] resolve(Expression e, Struct s) in {
-		assert(e.type.getCanonical().dstruct is s);
+	Ret[] resolve(Expression e, Aggregate a) in {
+		assert(e.type.getCanonical().aggregate is a);
 	} body {
-		return resolve(e, s.dscope.aliasThis);
-	}
-	
-	Ret[] resolve(Expression e, Class c) in {
-		assert(e.type.getCanonical().dclass is c);
-	} body {
-		return resolve(e, c.dscope.aliasThis);
+		return resolve(e, a.dscope.aliasThis);
 	}
 	
 	private Ret[] resolve(Expression e, Name[] aliases) {

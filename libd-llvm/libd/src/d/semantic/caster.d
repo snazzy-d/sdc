@@ -64,7 +64,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
-		static if (is(T : Struct) || is(T : Class)) {
+		static if (is(T : Aggregate)) {
 			static struct AliasThisResult {
 				Expression expr;
 				CastKind level;

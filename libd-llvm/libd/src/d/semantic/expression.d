@@ -24,7 +24,6 @@ alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
-alias SliceExpression = d.ir.expression.SliceExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
 alias FunctionType = d.ir.type.FunctionType;
@@ -753,7 +752,7 @@ struct ExpressionVisitor {
 	Expression getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
 		if (!t.hasElement) {
-			return pass.raiseCondition!Expression(location, "Can't index "/+ ~ indexed.type.toString(context) +/);
+			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
 		return new IndexExpression(location, t.getElement(), indexed, index);
@@ -777,8 +776,10 @@ struct ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ t.toString(context));
 		}
 		
-		auto first = e.first.map!(e => visit(e)).array();
-		auto second = e.second.map!(e => visit(e)).array();
+		assert(e.first.length == 1 && e.second.length == 1);
+		
+		auto first = visit(e.first[0]);
+		auto second = visit(e.second[0]);
 		
 		return new SliceExpression(e.location, t.getElement().getSlice(), sliced, first, second);
 	}

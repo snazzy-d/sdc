@@ -548,7 +548,6 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(SliceExpression e) {
-		assert(e.first.length == 1 && e.second.length == 1);
 		auto t = e.sliced.type.getCanonical();
 		
 		LLVMValueRef length, ptr;
@@ -568,8 +567,8 @@ struct ExpressionGen {
 			assert(0, "Don't know how to slice "/+ ~ e.type.toString(context) +/);
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(llvmCtx), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first), LLVMInt64TypeInContext(llvmCtx), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second), LLVMInt64TypeInContext(llvmCtx), "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
