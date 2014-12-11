@@ -145,6 +145,21 @@ class TemplateParameter : Symbol {
 	}
 }
 
+/**
+ * Superclass for struct, class and interface.
+ */
+abstract class Aggregate : TypeSymbol {
+	Symbol[] members;
+	
+	AggregateScope dscope;
+	
+	this(Location location, Name name, Symbol[] members) {
+		super(location, name);
+		
+		this.members = members;
+	}
+}
+
 final:
 /**
  * An Error occured but a Symbol is expected.
@@ -312,51 +327,36 @@ class ValueAlias : ValueSymbol {
 /**
  * Class
  */
-class Class : TypeSymbol {
+class Class : Aggregate {
 	Class base;
 	Interface[] interfaces;
 	
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.name = name;
-		this.members = members;
 	}
 }
 
 /**
  * Interface
  */
-class Interface : TypeSymbol {
+class Interface : Aggregate {
 	Interface[] bases;
-	Symbol[] members;
-	
-	AggregateScope dscope;
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.bases = bases;
-		this.members = members;
 	}
 }
 
 /**
  * Struct
  */
-class Struct : TypeSymbol {
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
+class Struct : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 

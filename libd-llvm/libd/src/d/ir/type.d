@@ -14,12 +14,12 @@ enum TypeKind : ubyte {
 	Builtin,
 	
 	// Symbols
+	Alias,
 	Struct,
 	Class,
-	Enum,
-	Alias,
 	Interface,
 	Union,
+	Enum,
 	
 	// Context
 	Context,
@@ -176,6 +176,17 @@ public:
 		assert(kind == TypeKind.Builtin);
 	} body {
 		return cast(BuiltinType) desc.data;
+	}
+	
+	bool isAggregate() const {
+		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Interface);
+	}
+	
+	@property
+	auto aggregate() inout in {
+		assert(isAggregate, "Not an aggregate type.");
+	} body {
+		return payload.agg;
 	}
 	
 	@property
@@ -462,6 +473,9 @@ unittest {
 	import d.context, d.location, d.ir.symbol;
 	auto c = new Class(Location.init, BuiltinName!"", []);
 	auto tc = Type.get(c);
+	assert(tc.isAggregate);
+	assert(tc.aggregate is c);
+	
 	auto cc = Type.get(c, TypeQualifier.Const);
 	auto csc = tc.getSlice(TypeQualifier.Const);
 	assert(cc == csc.getElement());
@@ -724,6 +738,7 @@ union Payload {
 	
 	// For simple construction
 	Symbol sym;
+	Aggregate agg;
 	ulong raw;
 };
 
