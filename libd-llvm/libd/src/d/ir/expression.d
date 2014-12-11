@@ -26,7 +26,6 @@ abstract class Expression : AstExpression {
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
-alias SliceExpression = d.ast.expression.SliceExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
@@ -98,6 +97,24 @@ class IndexExpression : Expression {
 		
 		this.indexed = indexed;
 		this.index = index;
+	}
+}
+
+/**
+ * Slice expression : [first .. second]
+ */
+class SliceExpression : Expression {
+	Expression sliced;
+	
+	Expression first;
+	Expression second;
+	
+	this(Location location, Type type, Expression sliced, Expression first, Expression second) {
+		super(location, type);
+		
+		this.sliced = sliced;
+		this.first = first;
+		this.second = second;
 	}
 }
 

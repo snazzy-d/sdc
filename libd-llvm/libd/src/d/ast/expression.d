@@ -275,22 +275,20 @@ class AstIndexExpression : AstExpression {
 /**
  * Slice expression : [first .. second]
  */
-class SliceExpression(T) : T if(is(T: AstExpression)) {
-	T sliced;
+class AstSliceExpression : AstExpression {
+	AstExpression sliced;
 	
-	T[] first;
-	T[] second;
+	AstExpression[] first;
+	AstExpression[] second;
 	
-	this(U...)(Location location, U args, T sliced, T[] first, T[] second) {
-		super(location, args);
+	this(Location location, AstExpression sliced, AstExpression[] first, AstExpression[] second) {
+		super(location);
 		
 		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
 	}
 }
-
-alias AstSliceExpression = SliceExpression!AstExpression;
 
 /**
  * Parenthese expression.
