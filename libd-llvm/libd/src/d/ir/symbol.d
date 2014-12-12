@@ -363,15 +363,9 @@ class Struct : Aggregate {
 /**
  * Union
  */
-class Union : TypeSymbol {
-	Symbol[] members;
-	
-	SymbolScope dscope;
-	
+class Union : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 

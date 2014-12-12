@@ -179,7 +179,7 @@ public:
 	}
 	
 	bool isAggregate() const {
-		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Interface);
+		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Union);
 	}
 	
 	@property
