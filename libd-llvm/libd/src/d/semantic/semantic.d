@@ -13,7 +13,6 @@ import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
 import d.ast.statement;
-import d.ast.type;
 
 import d.ir.expression;
 import d.ir.dscope;
@@ -176,7 +175,6 @@ final class SemanticPass {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		alias FunctionType = d.ir.type.FunctionType;
 		type = FunctionType(Linkage.C, Type.get(BuiltinType.Int).getParamType(false, false), [], false);
 		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;

@@ -91,13 +91,13 @@ private:
 				return t.visit(context);
 			
 			case Pointer :
-				return t.visitPointerOf(getElement());
+				return t.visitPointerOf(element);
 			
 			case Slice :
-				return t.visitSliceOf(getElement());
+				return t.visitSliceOf(element);
 			
 			case Array :
-				return t.visitArrayOf(size, getElement());
+				return t.visitArrayOf(size, element);
 			
 			case Sequence :
 				return t.visit(sequence);
@@ -132,13 +132,13 @@ public:
 				return Type(d, payload);
 			
 			case Pointer :
-				return getElement().qualify(nq).getPointer(nq);
+				return element.qualify(nq).getPointer(nq);
 			
 			case Slice :
-				return getElement().qualify(nq).getSlice(nq);
+				return element.qualify(nq).getSlice(nq);
 			
 			case Array :
-				return getElement().qualify(nq).getArray(size, nq);
+				return element.qualify(nq).getArray(size, nq);
 			
 			default :
 				assert(0, "Not implemented");
@@ -253,8 +253,9 @@ public:
 		return (kind >= TypeKind.Pointer) && (kind <= TypeKind.Array);
 	}
 	
-	auto getElement() inout in {
-		assert(hasElement, "getElement called on a type with no element.");
+	@property
+	auto element() inout in {
+		assert(hasElement, "element called on a type with no element.");
 	} body {
 		if (kind == TypeKind.Array) {
 			return *payload.next;
@@ -265,7 +266,7 @@ public:
 	
 	@property
 	uint size() const in {
-		assert(kind == TypeKind.Array, "only array have size.");
+		assert(kind == TypeKind.Array, "Only array have size.");
 	} body {
 		return cast(uint) desc.data;
 	}
@@ -275,12 +276,6 @@ public:
 		assert(kind == TypeKind.Sequence, "Not a sequence type.");
 	} body {
 		return payload.next[0 .. desc.data];
-	}
-	
-	auto asFunctionType() inout in {
-		assert(kind == TypeKind.Function, "Not a function.");
-	} body {
-		return inout(FunctionType)(desc, payload.params);
 	}
 	
 	string toString(Context c, TypeQualifier q = TypeQualifier.Mutable) const {
@@ -338,14 +333,14 @@ public:
 				return "__ctx";
 			
 			case Pointer :
-				return getElement().toString(c, qualifier) ~ "*";
+				return element.toString(c, qualifier) ~ "*";
 			
 			case Slice :
-				return getElement().toString(c, qualifier) ~ "[]";
+				return element.toString(c, qualifier) ~ "[]";
 			
 			case Array :
 				import std.conv;
-				return getElement().toString(c, qualifier) ~ "[" ~ to!string(size) ~ "]";
+				return element.toString(c, qualifier) ~ "[" ~ to!string(size) ~ "]";
 			
 			case Sequence :
 				import std.algorithm, std.range;
@@ -411,18 +406,18 @@ static:
 unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto pi = i.getPointer();
-	assert(i == pi.getElement());
+	assert(i == pi.element);
 	
 	auto ci = i.qualify(TypeQualifier.Const);
 	auto cpi = pi.qualify(TypeQualifier.Const);
-	assert(ci == cpi.getElement());
-	assert(i != cpi.getElement());
+	assert(ci == cpi.element);
+	assert(i != cpi.element);
 }
 
 unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto ai = i.getArray(42);
-	assert(i == ai.getElement());
+	assert(i == ai.element);
 	assert(ai.size == 42);
 }
 
@@ -430,13 +425,13 @@ unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto ci = Type.get(BuiltinType.Int, TypeQualifier.Const);
 	auto cpi = i.getPointer(TypeQualifier.Const);
-	assert(ci == cpi.getElement());
+	assert(ci == cpi.element);
 	
 	auto csi = i.getSlice(TypeQualifier.Const);
-	assert(ci == csi.getElement());
+	assert(ci == csi.element);
 	
 	auto cai = i.getArray(42, TypeQualifier.Const);
-	assert(ci == cai.getElement());
+	assert(ci == cai.element);
 }
 
 unittest {
@@ -448,7 +443,7 @@ unittest {
 	
 	auto cc = Type.get(c, TypeQualifier.Const);
 	auto csc = tc.getSlice(TypeQualifier.Const);
-	assert(cc == csc.getElement());
+	assert(cc == csc.element);
 }
 
 alias ParamType = Type.ParamType;
@@ -482,108 +477,7 @@ unittest {
 	assert(pt == pi);
 }
 
-struct FunctionType {
-private:
-	import std.bitmanip;
-	mixin(bitfields!(
-		Linkage, "lnk", 3,
-		bool, "variadic", 1,
-		bool, "dpure", 1,
-		ulong, "ctxCount", 3,
-		ulong, "paramCount", 50,
-		uint, "", 6, // Pad for TypeKind and qualifier
-	));
-	
-	ParamType* params;
-	
-	alias Desc = TypeDescriptor!TypeKind;
-	
-	this(Desc desc, inout ParamType* params) inout {
-		// /!\ Black magic ahead.
-		auto raw_desc = cast(ulong*) &desc;
-		
-		// Remove the TypeKind and qualifier
-		*raw_desc = (*raw_desc >> 7);
-		
-		// This should point to an area of memory that have
-		// the correct layout for the bitfield.
-		auto f = cast(FunctionType*) raw_desc;
-		
-		// unqual trick required for bitfield
-		auto unqual_this = cast(FunctionType*) &this;
-		unqual_this.lnk = f.lnk;
-		unqual_this.variadic = f.variadic;
-		unqual_this.dpure = f.dpure;
-		unqual_this.ctxCount = f.ctxCount;
-		unqual_this.paramCount = f.paramCount;
-		
-		this.params = params;
-	}
-
-public:
-	this(Linkage linkage, ParamType returnType, ParamType[] params, bool isVariadic) {
-		lnk = linkage;
-		variadic = isVariadic;
-		dpure = false;
-		ctxCount = 0;
-		paramCount = params.length;
-		this.params = (params ~ returnType).ptr;
-	}
-	
-	this(Linkage linkage, ParamType returnType, ParamType ctxType, ParamType[] params, bool isVariadic) {
-		lnk = linkage;
-		variadic = isVariadic;
-		dpure = false;
-		ctxCount = 1;
-		paramCount = params.length;
-		this.params = (ctxType ~ params ~ returnType).ptr;
-	}
-	
-	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
-		ulong d = *cast(ulong*) &this;
-		auto p = Payload(cast(Type*) params);
-		return Type(Desc(TypeKind.Function, q, d), p);
-	}
-	
-	FunctionType getDelegate(ulong contextCount = 1) in {
-		assert(contextCount <= paramCount + ctxCount);
-	} body {
-		auto t = this;
-		t.ctxCount = contextCount;
-		t.paramCount = paramCount + ctxCount - contextCount;
-		return t;
-	}
-	
-	@property
-	Linkage linkage() const {
-		return lnk;
-	}
-	
-	@property
-	bool isVariadic() const {
-		return variadic;
-	}
-	
-	@property
-	bool isPure() const {
-		return dpure;
-	}
-	
-	@property
-	auto returnType() inout {
-		return params[ctxCount + paramCount];
-	}
-	
-	@property
-	auto contexts() inout {
-		return params[0 .. ctxCount];
-	}
-	
-	@property
-	auto parameters() inout {
-		return params[ctxCount .. ctxCount + paramCount];
-	}
-}
+alias FunctionType = Type.FunctionType;
 
 unittest {
 	auto r = Type.get(BuiltinType.Void).getPointer().getParamType(false, false);

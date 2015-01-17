@@ -130,7 +130,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 					ft,
 					BinaryOp.Assign,
 					new FieldExpression(location, v, f),
-					new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.getElement().context)),
+					new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.element.context)),
 				);
 				
 				return new BinaryExpression(location, Type.get(s), BinaryOp.Comma, assign, v);
@@ -156,7 +156,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 					auto ft = f.type;
 					assert(ft.kind == TypeKind.Pointer);
 					
-					fields[f.index] = new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.getElement().context));
+					fields[f.index] = new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.element.context));
 				}
 			}
 			

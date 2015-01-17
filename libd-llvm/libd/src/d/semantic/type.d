@@ -31,56 +31,69 @@ struct TypeVisitor {
 	}
 	
 	Type visit(AstType t) {
-		return this.dispatch(t);
-	}
-	
-	Type visit(QualAstType t) {
-		return visit(t.type).qualify(t.qualifier);
+		return t.accept(this).qualify(t.qualifier);
 	}
 	
 	ParamType visit(ParamAstType t) {
-		return visit(t.type)
-			.qualify(t.qualifier)
-			.getParamType(t.isRef, t.isFinal);
+		return visit(t.getType()).getParamType(t.isRef, t.isFinal);
 	}
 	
-	Type visit(BuiltinAstType t) {
-		return Type.get(t.kind, qualifier);
+	Type visit(BuiltinType t) {
+		return Type.get(t, qualifier);
 	}
 	
-	Type visit(AstPointerType t) {
-		return visit(t.pointed).getPointer(qualifier);
+	import d.ast.identifier;
+	Type visit(Identifier i) {
+		import d.semantic.identifier;
+		return SymbolResolver!(delegate Type(identified) {
+			static if(is(typeof(identified) : Type)) {
+				return identified.qualify(qualifier);
+			} else {
+				return pass.raiseCondition!Type(i.location, i.name.toString(pass.context) ~ " isn't an type.");
+			}
+		})(pass).visit(i);
 	}
 	
-	Type visit(AstSliceType t) {
-		return visit(t.sliced).getSlice(qualifier);
+	Type visitPointerOf(AstType t) {
+		return visit(t).getPointer(qualifier);
 	}
 	
-	Type visit(AstArrayType t) {
+	Type visitSliceOf(AstType t) {
+		return visit(t).getSlice(qualifier);
+	}
+	
+	Type visitArrayOf(AstExpression size, AstType t) {
 		import d.semantic.caster, d.semantic.expression, d.ir.expression;
-		auto size = evalIntegral(buildImplicitCast(
+		auto s = evalIntegral(buildImplicitCast(
 			pass,
-			t.size.location,
+			size.location,
 			pass.object.getSizeT().type,
-			ExpressionVisitor(pass).visit(t.size),
+			ExpressionVisitor(pass).visit(size),
 		));
 		
-		return visit(t.elementType).getArray(size, qualifier);
+		return visit(t).getArray(s, qualifier);
 	}
 	
-	Type visit(AstFunctionType t) {
+	Type visitMapOf(AstType key, AstType t) {
+		visit(t);
+		visit(key);
+		assert(0, "Not implemented.");
+	}
+	
+	Type visit(FunctionAstType t) {
+		assert(t.contexts.length == 0, "Delegate are not supported.");
+		
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
 		qualifier = TypeQualifier.Mutable;
 		
 		auto returnType = visit(t.returnType);
-		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		auto paramTypes = t.parameters.map!(t => visit(t)).array();
 		
-		alias FunctionType = d.ir.type.FunctionType;
 		return FunctionType(t.linkage, returnType, paramTypes, t.isVariadic).getType(oldQualifier);
 	}
-	
+	/+
 	Type visit(AstDelegateType t) {
 		auto contextType = visit(t.context);
 		
@@ -92,24 +105,13 @@ struct TypeVisitor {
 		auto returnType = visit(t.returnType);
 		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
 		
-		alias FunctionType = d.ir.type.FunctionType;
 		return FunctionType(t.linkage, returnType, contextType, paramTypes, t.isVariadic).getType(oldQualifier);
 	}
-	
-	Type visit(IdentifierType t) {
-		import d.semantic.identifier;
-		return SymbolResolver!(delegate Type(identified) {
-			static if(is(typeof(identified) : Type)) {
-				return identified.qualify(qualifier);
-			} else {
-				return pass.raiseCondition!Type(t.identifier.location, t.identifier.name.toString(pass.context) ~ " isn't an type.");
-			}
-		})(pass).visit(t.identifier);
-	}
-	
-	Type visit(TypeofType t) {
+	+/
+	import d.ast.expression;
+	Type visit(AstExpression e) {
 		import d.semantic.expression;
-		return ExpressionVisitor(pass).visit(t.expression).type.qualify(qualifier);
+		return ExpressionVisitor(pass).visit(e).type.qualify(qualifier);
 	}
 }
 

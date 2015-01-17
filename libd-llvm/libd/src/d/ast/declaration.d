@@ -101,9 +101,9 @@ class IdentifierAliasDeclaration : NamedDeclaration {
  * Type alias
  */
 class TypeAliasDeclaration : NamedDeclaration {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, StorageClass storageClass, Name name, QualAstType type) {
+	this(Location location, StorageClass storageClass, Name name, AstType type) {
 		super(location, storageClass, name);
 		
 		this.type = type;
@@ -167,10 +167,10 @@ class GroupDeclaration : StorageClassDeclaration {
  * Variable declaration
  */
 class VariableDeclaration : NamedDeclaration {
-	QualAstType type;
+	AstType type;
 	AstExpression value;
 	
-	this(Location location, StorageClass storageClass, QualAstType type, Name name, AstExpression value) {
+	this(Location location, StorageClass storageClass, AstType type, Name name, AstExpression value) {
 		super(location, storageClass, name);
 		
 		this.type = type;
@@ -232,10 +232,10 @@ class TemplateDeclaration : NamedDeclaration {
  * Types templates parameters
  */
 class AstTypeTemplateParameter : AstTemplateParameter {
-	QualAstType specialization;
-	QualAstType defaultValue;
+	AstType specialization;
+	AstType defaultValue;
 	
-	this(Location location, Name name, QualAstType specialization, QualAstType defaultValue) {
+	this(Location location, Name name, AstType specialization, AstType defaultValue) {
 		super(location, name);
 		
 		this.specialization = specialization;
@@ -247,9 +247,9 @@ class AstTypeTemplateParameter : AstTemplateParameter {
  * Value template parameters
  */
 class AstValueTemplateParameter : AstTemplateParameter {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, Name name, QualAstType type) {
+	this(Location location, Name name, AstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -269,9 +269,9 @@ class AstAliasTemplateParameter : AstTemplateParameter {
  * Typed alias template parameter
  */
 class AstTypedAliasTemplateParameter : AstTemplateParameter {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, Name name, QualAstType type) {
+	this(Location location, Name name, AstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -356,10 +356,10 @@ class InterfaceDeclaration : NamedDeclaration {
  * Enum Declaration
  */
 class EnumDeclaration : NamedDeclaration {
-	QualAstType type;
+	AstType type;
 	VariableDeclaration[] entries;
 	
-	this(Location location, StorageClass storageClass, Name name, QualAstType type, VariableDeclaration[] entries) {
+	this(Location location, StorageClass storageClass, Name name, AstType type, VariableDeclaration[] entries) {
 		super(location, storageClass, name);
 		
 		this.type = type;

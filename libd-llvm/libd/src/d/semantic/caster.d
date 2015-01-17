@@ -279,7 +279,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		// Cast to void* is kind of special.
 		if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {
@@ -322,7 +322,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
@@ -362,7 +362,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
@@ -482,7 +482,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	
 	CastKind visit(FunctionType f) {
 		if (to.kind == TypeKind.Pointer && f.contexts.length == 0) {
-			auto e = to.getElement().getCanonical();
+			auto e = to.element.getCanonical();
 			static if (isExplicit) {
 				return CastKind.Bit;
 			} else if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {

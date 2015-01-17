@@ -66,9 +66,9 @@ class IdentifierDotIdentifier : Identifier {
  * An identifier qualified by a type (type.identifier)
  */
 class TypeDotIdentifier : Identifier {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, Name name, QualAstType type) {
+	this(Location location, Name name, AstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -128,9 +128,9 @@ class TemplateInstanciation : Node {
  * Template type argument
  */
 class TypeTemplateArgument : TemplateArgument {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, QualAstType type) {
+	this(Location location, AstType type) {
 		super(location);
 		
 		this.type = type;

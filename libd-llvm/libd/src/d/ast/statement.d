@@ -2,7 +2,6 @@ module d.ast.statement;
 
 import d.ast.declaration;
 import d.ast.expression;
-import d.ast.type;
 
 import d.base.node;
 

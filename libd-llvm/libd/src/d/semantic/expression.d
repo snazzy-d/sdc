@@ -26,8 +26,6 @@ alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
 
-alias FunctionType = d.ir.type.FunctionType;
-
 struct ExpressionVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -115,7 +113,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
+					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
 					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 				}
 				
@@ -144,7 +142,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
+					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
 					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
 				}
@@ -296,7 +294,7 @@ struct ExpressionVisitor {
 			case Dereference :
 				auto c = expr.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
-					type = c.getElement();
+					type = c.element;
 					break;
 				}
 				
@@ -755,7 +753,7 @@ struct ExpressionVisitor {
 			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
-		return new IndexExpression(location, t.getElement(), indexed, index);
+		return new IndexExpression(location, t.element, indexed, index);
 	}
 	
 	Expression visit(AstIndexExpression e) {
@@ -781,7 +779,7 @@ struct ExpressionVisitor {
 		auto first = visit(e.first[0]);
 		auto second = visit(e.second[0]);
 		
-		return new SliceExpression(e.location, t.getElement().getSlice(), sliced, first, second);
+		return new SliceExpression(e.location, t.element.getSlice(), sliced, first, second);
 	}
 	
 	Expression visit(AstAssertExpression e) {
@@ -888,7 +886,7 @@ struct ExpressionVisitor {
 		auto d = new FunctionDeclaration(
 			location,
 			defaultStorageClass,
-			ParamAstType(new AutoType(), false),
+			AstType.getAuto().getParamType(false, false),
 			name,
 			params,
 			isVariadic,

@@ -46,15 +46,13 @@ auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Loca
 	trange.match(TokenType.Identifier);
 	
 	static if(is(Namespace : Identifier)) {
-		alias IdentifierDotIdentifier QualifiedIdentifier;
-	} else static if(is(Namespace : QualAstType)) {
-		alias TypeDotIdentifier QualifiedIdentifier;
+		alias QualifiedIdentifier = IdentifierDotIdentifier;
+	} else static if(is(Namespace : AstType)) {
+		alias QualifiedIdentifier = TypeDotIdentifier;
 	} else static if(is(Namespace : AstExpression)) {
-		alias ExpressionDotIdentifier QualifiedIdentifier;
-	} else static if(is(Namespace : TypeOrExpression)) {
-		alias AmbiguousDotIdentifier QualifiedIdentifier;
+		alias QualifiedIdentifier = ExpressionDotIdentifier;
 	} else {
-		static assert(0, "Namespace can only be an Identifier, a Type, an Expression or a TypeOrExpression. Not a " ~ Namespace.stringof);
+		static assert(0, "Namespace can only be an Identifier, a AstType or an Expression. Not a " ~ Namespace.stringof);
 	}
 	
 	return trange.parseBuiltIdentifier(location, new QualifiedIdentifier(location, name, ns));

@@ -5,7 +5,7 @@ public import d.base.qualifier;
 
 // Because bitfields won't work with the current stringof semantic.
 // It is needed to import all that instanciate TypeDescriptor.
-import d.ir.type;
+import d.ast.type, d.ir.type;
 
 mixin template TypeMixin(K, Payload) {
 private:
@@ -18,8 +18,12 @@ private:
 	
 	Payload payload;
 	
+	static assert(K.Builtin == 0, K.stringof ~ " must have a member Builtin of value 0.");
+	static assert(K.Function != 0, K.stringof ~ " must have a Function kind.");
+	
 	static assert(Payload.sizeof == ulong.sizeof, "Payload must be the same size as ulong.");
 	static assert(is(typeof(Payload.init.next) == typeof(&this)), "Payload.next must be a pointer to the next type element.");
+	static assert(is(typeof(Payload.init.params) == ParamType*), "Payload.params must be a pointer to parameter's types.");
 	
 	auto getConstructedMixin(this T)(K k, TypeQualifier q) in {
 		assert(raw_desc != 0, "You can't construct type on None.");
@@ -122,11 +126,125 @@ private:
 		}
 	}
 	
+	alias FunctionType = FunctionTypeTpl!(typeof(this));
+	
+	struct FunctionTypeTpl(T) {
+	private:
+		enum Pad = ulong.sizeof * 8 - Desc.DataSize;
+		enum CountSize = ulong.sizeof * 8 - Pad - 8;
+		
+		import std.bitmanip;
+		mixin(bitfields!(
+			Linkage, "lnk", 3,
+			bool, "variadic", 1,
+			bool, "dpure", 1,
+			ulong, "ctxCount", 3,
+			ulong, "paramCount", CountSize,
+			uint, "", Pad, // Pad for TypeKind and qualifier
+		));
+		
+		ParamType* params;
+		
+		this(Desc desc, inout ParamType* params) inout {
+			// /!\ Black magic ahead.
+			auto raw_desc = cast(ulong*) &desc;
+			
+			// Remove the TypeKind and qualifier
+			*raw_desc = (*raw_desc >> Pad);
+			
+			// This should point to an area of memory that have
+			// the correct layout for the bitfield.
+			auto f = cast(FunctionType*) raw_desc;
+			
+			// unqual trick required for bitfield
+			auto unqual_this = cast(FunctionType*) &this;
+			unqual_this.lnk = f.lnk;
+			unqual_this.variadic = f.variadic;
+			unqual_this.dpure = f.dpure;
+			unqual_this.ctxCount = f.ctxCount;
+			unqual_this.paramCount = f.paramCount;
+			
+			this.params = params;
+		}
+	
+	public:
+		this(Linkage linkage, ParamType returnType, ParamType[] params, bool isVariadic) {
+			lnk = linkage;
+			variadic = isVariadic;
+			dpure = false;
+			ctxCount = 0;
+			paramCount = params.length;
+			this.params = (params ~ returnType).ptr;
+		}
+		
+		this(Linkage linkage, ParamType returnType, ParamType ctxType, ParamType[] params, bool isVariadic) {
+			lnk = linkage;
+			variadic = isVariadic;
+			dpure = false;
+			ctxCount = 1;
+			paramCount = params.length;
+			this.params = (ctxType ~ params ~ returnType).ptr;
+		}
+		
+		T getType(TypeQualifier q = TypeQualifier.Mutable) {
+			ulong d = *cast(ulong*) &this;
+			auto p = Payload(cast(T*) params);
+			return T(Desc(K.Function, q, d), p);
+		}
+		
+		FunctionType getDelegate(ulong contextCount = 1) in {
+			assert(contextCount <= paramCount + ctxCount);
+		} body {
+			auto t = this;
+			t.ctxCount = contextCount;
+			t.paramCount = paramCount + ctxCount - contextCount;
+			return t;
+		}
+		
+		@property
+		Linkage linkage() const {
+			return lnk;
+		}
+		
+		@property
+		bool isVariadic() const {
+			return variadic;
+		}
+		
+		@property
+		bool isPure() const {
+			return dpure;
+		}
+		
+		@property
+		auto returnType() inout {
+			return params[ctxCount + paramCount];
+		}
+		
+		@property
+		auto contexts() inout {
+			return params[0 .. ctxCount];
+		}
+		
+		@property
+		auto parameters() inout {
+			return params[ctxCount .. ctxCount + paramCount];
+		}
+	}
+	
 public:
 	mixin TypeAccessorMixin!K;
 	
 	auto getParamType(bool isRef, bool isFinal) inout {
 		return getPackedBitfield!ParamTuple(isRef, isFinal);
+	}
+	
+	auto asFunctionType() inout in {
+		assert(kind == K.Function, "Not a function.");
+	} body {
+		import std.traits;
+		alias T = Unqual!(typeof(this));
+		return inout(FunctionType!T)(desc, payload.params);
 	}
 }
 
@@ -194,8 +312,6 @@ private:
 enum EnumSize(E) = computeEnumSize!E();
 
 size_t computeEnumSize(E)() {
-	static assert(E.Builtin == 0, E.stringof ~ " must have a member Builtin of value 0.");
-	
 	size_t size = 0;
 	
 	import std.traits;
