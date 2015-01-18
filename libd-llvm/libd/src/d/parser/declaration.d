@@ -251,7 +251,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 				auto lookahead = trange.save;
 				lookahead.popFront();
 				if (lookahead.front.type == Assign) {
-					return trange.parseTypedDeclaration(location, stc, QualAstType(new AutoType()));
+					return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
 				}
 				
 				break StorageClassLoop;
@@ -278,7 +278,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 		// XXX: auto as a storage class ?
 		case Auto :
 			trange.popFront();
-			return trange.parseTypedDeclaration(location, stc, QualAstType(new AutoType()));
+			return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
 		
 		case Interface :
 			return trange.parseInterface(stc);
@@ -327,7 +327,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 /**
  * Parse a declaration when you already have its type.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc, QualAstType type) if(isTokenRange!R) {
+Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc, AstType type) if(isTokenRange!R) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if (lookahead.front.type == TokenType.OpenParen) {
@@ -341,7 +341,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 		}
 		
 		// TODO: implement ref return.
-		return trange.parseFunction(location, stc, ParamAstType(type, false), name);
+		return trange.parseFunction(location, stc, type.getParamType(false, false), name);
 	} else {
 		Declaration[] variables;
 		
@@ -379,7 +379,7 @@ private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
 	trange.match(TokenType.This);
 	
 	import d.context;
-	return trange.parseFunction(location, stc, ParamAstType(new BuiltinAstType(BuiltinType.None), false), BuiltinName!"__ctor");
+	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__ctor");
 }
 
 // XXX: one callsite, remove
@@ -389,7 +389,7 @@ private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
 	trange.match(TokenType.This);
 	
 	import d.context;
-	return trange.parseFunction(location, stc, ParamAstType(new BuiltinAstType(BuiltinType.None), false), BuiltinName!"__dtor");
+	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__dtor");
 }
 
 /**
@@ -567,7 +567,7 @@ auto parseParameter(R)(ref R trange) {
 	}
 	
 	auto location = trange.front.location;
-	auto type = ParamAstType(trange.parseType(), isRef);
+	auto type = trange.parseType().getParamType(isRef, false);
 	
 	auto name = BuiltinName!"";
 	AstExpression value;
@@ -604,12 +604,10 @@ Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 			location.spanTo(trange.front.location);
 			trange.match(TokenType.Semicolon);
 			
-			alias type = typeof(parsed);
-			
-			import d.ast.type;
-			static if (is(type : QualAstType)) {
+			alias T = typeof(parsed);
+			static if (is(T : AstType)) {
 				return new TypeAliasDeclaration(location, stc, name, parsed);
-			} else static if (is(type : AstExpression)) {
+			} else static if (is(T : AstExpression)) {
 				return new ValueAliasDeclaration(location, stc, name, parsed);
 			} else {
 				return new IdentifierAliasDeclaration(location, stc, name, parsed);

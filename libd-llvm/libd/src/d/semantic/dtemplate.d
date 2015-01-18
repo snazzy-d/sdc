@@ -364,7 +364,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	
@@ -373,7 +373,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	
@@ -386,7 +386,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	

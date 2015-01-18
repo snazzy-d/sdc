@@ -200,10 +200,10 @@ class AstUnaryExpression : AstExpression {
 }
 
 class AstCastExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression expr;
 	
-	this(Location location, QualAstType type, AstExpression expr) {
+	this(Location location, AstType type, AstExpression expr) {
 		super(location);
 		
 		this.type = type;
@@ -324,10 +324,10 @@ class IdentifierExpression : AstExpression {
  * new
  */
 class NewExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression[] args;
 	
-	this(Location location, QualAstType type, AstExpression[] args) {
+	this(Location location, AstType type, AstExpression[] args) {
 		super(location);
 		
 		this.type = type;
@@ -429,9 +429,9 @@ class DollarExpression : AstExpression {
  * is expression.
  */
 class IsExpression : AstExpression {
-	QualAstType tested;
+	AstType tested;
 	
-	this(Location location, QualAstType tested) {
+	this(Location location, AstType tested) {
 		super(location);
 		
 		this.tested = tested;
@@ -481,7 +481,7 @@ class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 	}
 }
 
-alias AstStaticTypeidExpression = StaticTypeidExpression!(QualAstType, AstExpression);
+alias AstStaticTypeidExpression = StaticTypeidExpression!(AstType, AstExpression);
 
 /**
  * ambiguous typeid expression.

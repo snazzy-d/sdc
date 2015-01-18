@@ -124,21 +124,21 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				if (trange.front.type == Identifier) {
 						auto lookahead = trange.save;
 						lookahead.popFront();
-						if(lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
+						if (lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
 							parseType = false;
 						}
 				}
 				
 				auto type = parseType
 					? trange.parseType()
-					: QualAstType(new AutoType());
+					: AstType.getAuto();
 				
 				auto name = trange.front.name;
 				elementLocation.spanTo(trange.front.location);
 				
 				trange.match(Identifier);
 				
-				return ParamDecl(elementLocation, ParamAstType(type, isRef), name, null);
+				return ParamDecl(elementLocation, type.getParamType(isRef, false), name, null);
 			}
 			
 			ParamDecl[] tupleElements = [parseForeachListElement()];

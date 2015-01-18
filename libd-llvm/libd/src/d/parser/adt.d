@@ -151,7 +151,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 	trange.match(TokenType.Enum);
 	
 	Name name;
-	QualAstType type;
+	AstType type;
 	
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
@@ -177,7 +177,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 		
 		case OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = QualAstType(new BuiltinAstType(BuiltinType.Uint));
+			type = AstType.get(BuiltinType.Uint);
 			break;
 		
 		default :
@@ -185,7 +185,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 			trange.match(Begin);
 	}
 	
-	assert(type.type, "type should have been set at this point.");
+	assert(!type.isAuto, "type should have been set at this point.");
 	
 	trange.match(TokenType.OpenBrace);
 	VariableDeclaration[] enumEntries;

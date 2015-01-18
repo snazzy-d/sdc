@@ -519,7 +519,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			} catch(CompileException e) {}
 			
 			if (t.kind == TypeKind.Pointer) {
-				auto pointed = t.getElement();
+				auto pointed = t.element;
 				expr = new UnaryExpression(expr.location, pointed, UnaryOp.Dereference, expr);
 				return r.visit(pointed);
 			} else {
