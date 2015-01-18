@@ -63,8 +63,7 @@ private:
 		return qualify(q).getConstructedMixin(k, q);
 	}
 	
-public:
-	auto accept(T)(ref T t) {
+	auto acceptImpl(T)(T t) {
 		final switch(kind) with(TypeKind) {
 			case Builtin :
 				return t.visit(builtin);
@@ -109,6 +108,15 @@ public:
 			case Template :
 				return t.visit(dtemplate);
 		}
+	}
+	
+public:
+	auto accept(T)(ref T t) if(is(T == struct)) {
+		return acceptImpl(&t);
+	}
+	
+	auto accept(T)(T t) if(is(T == class)) {
+		return acceptImpl(t);
 	}
 	
 	Type qualify(TypeQualifier q) {
