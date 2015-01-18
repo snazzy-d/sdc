@@ -240,7 +240,7 @@ AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 		return type.getSlice();
 	}
 	
-	return trange.parseAmbiguous!(delegate AstType(parsed) {
+	return trange.parseAmbiguous!((parsed) {
 		trange.match(TokenType.CloseBracket);
 		
 		alias T = typeof(parsed);
@@ -249,8 +249,7 @@ AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 		} else static if (is(T : AstExpression)) {
 			return type.getArray(parsed);
 		} else {
-			assert(0, "Not implemented.");
-			// return QualAstType(new IdentifierArrayType(type, parsed));
+			return type.getBracket(parsed);
 		}
 	})();
 }

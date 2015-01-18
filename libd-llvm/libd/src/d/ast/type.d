@@ -16,6 +16,7 @@ enum AstTypeKind : ubyte {
 	Slice,
 	Array,
 	Map,
+	Bracket,
 	
 	Function,
 	
@@ -49,6 +50,10 @@ private:
 		this(d, fastCast!(inout Payload)(m));
 	}
 	
+	this(Desc d, inout BracketPayload* b) inout {
+		this(d, fastCast!(inout Payload)(b));
+	}
+	
 	this(Desc d, inout AstType* t) inout {
 		this(d, fastCast!(inout Payload)(t));
 	}
@@ -78,6 +83,9 @@ private:
 			
 			case Map :
 				return t.visitMapOf(key, element);
+			
+			case Bracket :
+				return t.visitBracketOf(ikey, element);
 			
 			case Function :
 				return t.visit(asFunctionType());
@@ -150,8 +158,12 @@ public:
 		return AstType(Desc(AstTypeKind.Map, q), new MapPayload(this, key));
 	}
 	
+	AstType getBracket(Identifier ikey, TypeQualifier q = TypeQualifier.Mutable) {
+		return AstType(Desc(AstTypeKind.Bracket, q), new BracketPayload(this, ikey));
+	}
+	
 	bool hasElement() const {
-		return (kind >= AstTypeKind.Pointer) && (kind <= AstTypeKind.Map);
+		return (kind >= AstTypeKind.Pointer) && (kind <= AstTypeKind.Bracket);
 	}
 	
 	@property
@@ -174,9 +186,16 @@ public:
 	
 	@property
 	auto key() inout in {
-		assert(kind == AstTypeKind.Map, "Only maps have size.");
+		assert(kind == AstTypeKind.Map, "Only maps have key.");
 	} body {
 		return payload.map.key;
+	}
+	
+	@property
+	auto ikey() inout in {
+		assert(kind == AstTypeKind.Bracket, "Only bracket[identifier] have ikey.");
+	} body {
+		return payload.bracket.key;
 	}
 	
 	string toString(Context c) const {
@@ -223,6 +242,9 @@ public:
 			
 			case Map :
 				return element.toString(c) ~ "[" ~ key.toString(c) ~ "]";
+			
+			case Bracket :
+				return element.toString(c) ~ "[" ~ ikey.toString(c) ~ "]";
 			
 			case Function :
 				auto f = asFunctionType();
@@ -288,6 +310,10 @@ unittest {
 	t = AstType.get(i, TypeQualifier.Shared);
 	assert(t.identifier is i);
 	assert(t.qualifier is TypeQualifier.Shared);
+	
+	auto b = l.getBracket(i);
+	assert(b.ikey is i);
+	assert(b.element == l);
 }
 
 alias ParamAstType = AstType.ParamType;
@@ -330,6 +356,7 @@ union Payload {
 	
 	ArrayPayload* array;
 	MapPayload* map;
+	BracketPayload* bracket;
 	
 	AstExpression expr;
 }
@@ -342,5 +369,10 @@ struct ArrayPayload {
 struct MapPayload {
 	AstType type;
 	AstType key;
+}
+
+struct BracketPayload {
+	AstType type;
+	Identifier key;
 }
 
