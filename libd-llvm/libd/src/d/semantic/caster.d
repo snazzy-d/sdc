@@ -179,17 +179,17 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind castFrom(Type from, Type to) {
-		auto oldTo = to;
-		scope(exit) to = oldTo;
-		
 		this.to = to;
-		
 		return castFrom(from);
 	}
 	
 	CastKind visit(BuiltinType t) {
 		if (isExplicit && isIntegral(t) && to.kind == TypeKind.Enum) {
-			to = to.denum.type.qualify(to.qualifier);
+			to = to.denum.type.getCanonical().qualify(to.qualifier);
+			auto k = visit(t);
+			return (k == CastKind.Exact)
+				? CastKind.Bit
+				: k;
 		}
 		
 		// Can cast typeof(null) to class, pointer and function.
@@ -208,7 +208,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.IntToPtr;
 		}
 		
-		if (!to.kind == TypeKind.Builtin) {
+		if (to.kind != TypeKind.Builtin) {
 			return CastKind.Invalid;
 		}
 		
