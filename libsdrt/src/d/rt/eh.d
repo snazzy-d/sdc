@@ -177,7 +177,7 @@ private _Unwind_Reason_Code setupCatch(_Unwind_Context* ctx, _Unwind_Action acti
 }
 
 _Unwind_Reason_Code setupCleanup(_Unwind_Context* ctx, _Unwind_Action actions, _Unwind_Ptr landingPad, _Unwind_Exception* exceptionObject) {
-	// if we're merely in search phase, continue
+	// If we're merely in search phase, continue
 	if (actions & _Unwind_Action.SEARCH_PHASE) {
 		return _Unwind_Reason_Code.CONTINUE_UNWIND;
 	}
