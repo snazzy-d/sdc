@@ -1,10 +1,13 @@
 module d.ast.expression;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 abstract class AstExpression : Node {
 	this(Location location) {
@@ -197,10 +200,10 @@ class AstUnaryExpression : AstExpression {
 }
 
 class AstCastExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression expr;
 	
-	this(Location location, QualAstType type, AstExpression expr) {
+	this(Location location, AstType type, AstExpression expr) {
 		super(location);
 		
 		this.type = type;
@@ -272,22 +275,20 @@ class AstIndexExpression : AstExpression {
 /**
  * Slice expression : [first .. second]
  */
-class SliceExpression(T) : T if(is(T: AstExpression)) {
-	T sliced;
+class AstSliceExpression : AstExpression {
+	AstExpression sliced;
 	
-	T[] first;
-	T[] second;
+	AstExpression[] first;
+	AstExpression[] second;
 	
-	this(U...)(Location location, U args, T sliced, T[] first, T[] second) {
-		super(location, args);
+	this(Location location, AstExpression sliced, AstExpression[] first, AstExpression[] second) {
+		super(location);
 		
 		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
 	}
 }
-
-alias AstSliceExpression = SliceExpression!AstExpression;
 
 /**
  * Parenthese expression.
@@ -323,10 +324,10 @@ class IdentifierExpression : AstExpression {
  * new
  */
 class NewExpression : AstExpression {
-	QualAstType type;
+	AstType type;
 	AstExpression[] args;
 	
-	this(Location location, QualAstType type, AstExpression[] args) {
+	this(Location location, AstType type, AstExpression[] args) {
 		super(location);
 		
 		this.type = type;
@@ -428,9 +429,9 @@ class DollarExpression : AstExpression {
  * is expression.
  */
 class IsExpression : AstExpression {
-	QualAstType tested;
+	AstType tested;
 	
-	this(Location location, QualAstType tested) {
+	this(Location location, AstType tested) {
 		super(location);
 		
 		this.tested = tested;
@@ -480,7 +481,7 @@ class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 	}
 }
 
-alias AstStaticTypeidExpression = StaticTypeidExpression!(QualAstType, AstExpression);
+alias AstStaticTypeidExpression = StaticTypeidExpression!(AstType, AstExpression);
 
 /**
  * ambiguous typeid expression.

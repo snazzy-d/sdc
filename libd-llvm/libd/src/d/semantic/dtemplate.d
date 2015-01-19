@@ -172,8 +172,6 @@ private:
 					return "T" ~ a.mangle;
 				} else static if (is(typeof(identified) : CompileTimeExpression)) {
 					auto a = new ValueAlias(p.location, p.name, identified);
-					
-					import d.ast.base;
 					a.storage = Storage.Enum;
 					
 					import d.semantic.mangler;
@@ -227,8 +225,6 @@ struct TemplateArgument {
 		CompileTimeExpression expr;
 		Type type;
 	}
-	
-	import d.ast.base : TypeQualifier;
 	
 	import std.bitmanip;
 	mixin(bitfields!(
@@ -368,7 +364,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	
@@ -377,7 +373,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	
@@ -390,7 +386,7 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		matchee = matchee.getElement().getCanonical();
+		matchee = matchee.element.getCanonical();
 		return visit(t);
 	}
 	

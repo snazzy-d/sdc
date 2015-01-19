@@ -1,6 +1,6 @@
-module d.node;
+module d.base.node;
 
-import d.location;
+public import d.location;
 
 class Node {
 	Location location;

@@ -114,15 +114,13 @@ ubyte read_ubyte(ref const(ubyte)* p) {
 }
 
 uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encoding) {
-	// TODO: Implement cast from pointer to integral.
-	auto pcrel = *(cast(uintptr_t*) &p);
-	
-	uintptr_t result;
-
 	if (encoding.isOmit()) {
 		printf("Encoding specifies omit flag, should not read.\n".ptr);
 		exit(-1);
 	}
+	
+	auto pcrel = cast(uintptr_t) p;
+	uintptr_t result;
 	
 	switch (encoding.getFormat()) {
 		case Format.Uleb128:
@@ -184,17 +182,17 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 		
 		case Base.Textrel:
 			auto txt = _Unwind_GetTextRelBase(ctx);
-			result += *(cast(uintptr_t*) &txt);
+			result += cast(uintptr_t) txt;
 			break;
 		
 		case Base.Datarel:
 			auto data = _Unwind_GetDataRelBase(ctx);
-			result += *(cast(uintptr_t*) &data);
+			result += cast(uintptr_t) data;
 			break;
 		
 		case Base.Funcrel:
 			auto region = _Unwind_GetRegionStart(ctx);
-			result += *(cast(uintptr_t*) &region);
+			result += cast(uintptr_t) region;
 			break;
 		
 		default:
@@ -203,7 +201,7 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 	}
 	
 	if (encoding.isIndirect()) {
-		result = **cast(uintptr_t**)&result;
+		result = *(cast(uintptr_t*) result);
 	}
 	
 	return result;
@@ -238,7 +236,7 @@ auto parseLsdHeader(ref const(ubyte)* p, _Unwind_Context* ctx) {
 		infos.lpStart = infos.start;
 	} else {
 		auto encoded = read_encoded(p, ctx, encoding);
-		infos.lpStart = *(cast(void**) &encoded);
+		infos.lpStart = cast(void*) encoded;
 	}
 	
 	infos.typeEncoding = Encoding(*p++);

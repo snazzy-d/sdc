@@ -1,16 +1,16 @@
 module d.parser.adt;
 
-import d.ast.declaration;
-import d.ast.expression;
-import d.ast.identifier;
-import d.ast.type;
-
 import d.parser.base;
 import d.parser.declaration;
 import d.parser.dtemplate;
 import d.parser.expression;
 import d.parser.identifier;
 import d.parser.type;
+
+import d.ast.declaration;
+import d.ast.expression;
+import d.ast.identifier;
+import d.ast.type;
 
 /**
  * Parse class
@@ -151,7 +151,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 	trange.match(TokenType.Enum);
 	
 	Name name;
-	QualAstType type;
+	AstType type;
 	
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
@@ -177,7 +177,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 		
 		case OpenBrace :
 			// If no type is specified, uint is choosen by default.
-			type = QualAstType(new BuiltinAstType(BuiltinType.Uint));
+			type = AstType.get(BuiltinType.Uint);
 			break;
 		
 		default :
@@ -185,7 +185,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 			trange.match(Begin);
 	}
 	
-	assert(type.type, "type should have been set at this point.");
+	assert(!type.isAuto, "type should have been set at this point.");
 	
 	trange.match(TokenType.OpenBrace);
 	VariableDeclaration[] enumEntries;

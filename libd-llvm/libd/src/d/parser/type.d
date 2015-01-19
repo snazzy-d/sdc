@@ -1,6 +1,5 @@
 module d.parser.type;
 
-import d.ast.base;
 import d.ast.expression;
 import d.ast.type;
 
@@ -15,7 +14,7 @@ import d.parser.util;
 import std.algorithm;
 import std.array;
 
-QualAstType parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstType parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto base = trange.parseBasicType();
 	return trange.parseTypeSuffix!mode(base);
 }
@@ -24,135 +23,134 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 	auto processQualifier(TypeQualifier qualifier)() {
 		trange.popFront();
 		
-		QualAstType type;
-		if(trange.front.type == TokenType.OpenParen) {
+		if (trange.front.type == TokenType.OpenParen) {
 			trange.popFront();
-			type = trange.parseType();
+			auto type = trange.parseType();
 			trange.match(TokenType.CloseParen);
-		} else {
-			type = trange.parseType();
+			
+			return type.qualify(qualifier);
 		}
 		
-		return QualAstType(type.type, type.qualifier.add(qualifier));
+		return trange.parseType().qualify(qualifier);
 	}
 	
-	switch(trange.front.type) {
+	switch(trange.front.type) with(TokenType) {
 		// Types qualifiers
-		case TokenType.Const :
+		case Const :
 			return processQualifier!(TypeQualifier.Const)();
 		
-		case TokenType.Immutable :
+		case Immutable :
 			return processQualifier!(TypeQualifier.Immutable)();
 		
-		case TokenType.Inout :
+		case Inout :
 			return processQualifier!(TypeQualifier.Mutable)();
 		
-		case TokenType.Shared :
+		case Shared :
 			return processQualifier!(TypeQualifier.Shared)();
 		
 		// Identified types
-		case TokenType.Identifier :
-			return QualAstType(new IdentifierType(trange.parseIdentifier()));
+		case Identifier :
+			return AstType.get(trange.parseIdentifier());
 		
-		case TokenType.Dot :
-			return QualAstType(new IdentifierType(trange.parseDotIdentifier()));
+		case Dot :
+			return AstType.get(trange.parseDotIdentifier());
 		
-		case TokenType.Typeof :
+		case Typeof :
 			return trange.parseTypeof();
 		
-		case TokenType.This :
+		case This :
 			Location location = trange.front.location;
 			auto thisExpression = new ThisExpression(location);
 			
 			trange.popFront();
-			trange.match(TokenType.Dot);
+			trange.match(Dot);
 			
-			return QualAstType(new IdentifierType(trange.parseQualifiedIdentifier(location, thisExpression)));
+			return AstType.get(trange.parseQualifiedIdentifier(location, thisExpression));
 		
-		case TokenType.Super :
+		case Super :
 			Location location = trange.front.location;
 			auto superExpression = new SuperExpression(location);
 			
 			trange.popFront();
 			trange.match(TokenType.Dot);
 			
-			return QualAstType(new IdentifierType(trange.parseQualifiedIdentifier(location, superExpression)));
+			return AstType.get(trange.parseQualifiedIdentifier(location, superExpression));
 		
 		// Basic types
-		case TokenType.Void :
+		case Void :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Void));
+			return AstType.get(BuiltinType.Void);
 		
-		case TokenType.Bool :
+		case Bool :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Bool));
+			return AstType.get(BuiltinType.Bool);
 		
-		case TokenType.Char :
+		case Char :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Char));
+			return AstType.get(BuiltinType.Char);
 		
-		case TokenType.Wchar :
+		case Wchar :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Wchar));
+			return AstType.get(BuiltinType.Wchar);
 		
-		case TokenType.Dchar :
+		case Dchar :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Dchar));
+			return AstType.get(BuiltinType.Dchar);
 		
-		case TokenType.Ubyte :
+		case Ubyte :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Ubyte));
+			return AstType.get(BuiltinType.Ubyte);
 		
-		case TokenType.Ushort :
+		case Ushort :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Ushort));
+			return AstType.get(BuiltinType.Ushort);
 		
-		case TokenType.Uint :
+		case Uint :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Uint));
+			return AstType.get(BuiltinType.Uint);
 		
-		case TokenType.Ulong :
+		case Ulong :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Ulong));
+			return AstType.get(BuiltinType.Ulong);
 		
-		case TokenType.Ucent :
+		case Ucent :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Ucent));
+			return AstType.get(BuiltinType.Ucent);
 		
-		case TokenType.Byte :
+		case Byte :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Byte));
+			return AstType.get(BuiltinType.Byte);
 		
-		case TokenType.Short :
+		case Short :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Short));
+			return AstType.get(BuiltinType.Short);
 		
-		case TokenType.Int :
+		case Int :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Int));
+			return AstType.get(BuiltinType.Int);
 		
-		case TokenType.Long :
+		case Long :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Long));
+			return AstType.get(BuiltinType.Long);
 		
-		case TokenType.Cent :
+		case Cent :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Cent));
+			return AstType.get(BuiltinType.Cent);
 		
-		case TokenType.Float :
+		case Float :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Float));
+			return AstType.get(BuiltinType.Float);
 		
-		case TokenType.Double :
+		case Double :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Double));
+			return AstType.get(BuiltinType.Double);
 		
-		case TokenType.Real :
+		case Real :
 			trange.popFront();
-			return QualAstType(new BuiltinAstType(BuiltinType.Real));
+			return AstType.get(BuiltinType.Real);
 		
 		default :
-			trange.match(TokenType.Begin);
+			trange.match(Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
 			assert(0,"Expected BasicType");
@@ -163,34 +161,28 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
  * Parse typeof(...)
  */
 private auto parseTypeof(TokenRange)(ref TokenRange trange) {
-	AstType type;
-	
 	trange.match(TokenType.Typeof);
 	trange.match(TokenType.OpenParen);
 	
+	scope(success) trange.match(TokenType.CloseParen);
+	
 	if(trange.front.type == TokenType.Return) {
 		trange.popFront();
-		
-		type = new ReturnType();
-	} else {
-		type = new TypeofType(trange.parseExpression());
+		return AstType.getTypeOfReturn();
 	}
 	
-	trange.match(TokenType.CloseParen);
-	
-	return QualAstType(type);
+	return AstType.getTypeOf(trange.parseExpression());
 }
 
 /**
  * Parse *, [ ... ] and function/delegate types.
  */
-QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, QualAstType type) if(isTokenRange!TokenRange) {
+AstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, AstType type) if(isTokenRange!TokenRange) {
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Star :
 				trange.popFront();
-				
-				type = QualAstType(new AstPointerType(type));
+				type = type.getPointer();
 				break;
 			
 			case OpenBracket :
@@ -202,11 +194,11 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 				
 				import d.parser.declaration;
 				bool isVariadic;
-				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
+				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
 				// TODO: parse postfix attributes.
 				// TODO: ref return.
-				type = QualAstType(new AstFunctionType(Linkage.D, ParamAstType(type, false), parameters, isVariadic));
+				type = FunctionAstType(Linkage.D, type.getParamType(false, false), params, isVariadic).getType();
 				break;
 			
 			case Delegate :
@@ -214,11 +206,14 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 				
 				import d.parser.declaration;
 				bool isVariadic;
-				auto parameters = trange.parseParameters(isVariadic).map!(d => d.type).array();
+				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
+				
+				// TODO: fully typed delegates.
+				auto ctx = AstType.get(BuiltinType.Void).getPointer().getParamType(false, false);
 				
 				// TODO: parse postfix attributes and storage class.
 				// TODO: ref return.
-				type = QualAstType(new AstDelegateType(Linkage.D, ParamAstType(type, false), ParamAstType.init, parameters, isVariadic));
+				type = FunctionAstType(Linkage.D, type.getParamType(false, false), ctx, params, isVariadic).getType();
 				break;
 			
 			static if(mode == ParseMode.Greedy) {
@@ -226,7 +221,7 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 					trange.popFront();
 					
 					// TODO: Duplicate function and pass location explicitely.
-					type = QualAstType(new IdentifierType(trange.parseQualifiedIdentifier(trange.front.location, type)));
+					type = AstType.get(trange.parseQualifiedIdentifier(trange.front.location, type));
 					break;
 			}
 			
@@ -236,26 +231,24 @@ QualAstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, Q
 	}
 }
 
-private QualAstType parseBracket(TokenRange)(ref TokenRange trange, QualAstType type) {
+private:
+AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 	trange.match(TokenType.OpenBracket);
 	if(trange.front.type == TokenType.CloseBracket) {
 		trange.popFront();
-		
-		return QualAstType(new AstSliceType(type));
+		return type.getSlice();
 	}
 	
-	return trange.parseAmbiguous!(delegate QualAstType(parsed) {
+	return trange.parseAmbiguous!((parsed) {
 		trange.match(TokenType.CloseBracket);
 		
-		alias typeof(parsed) caseType;
-		
-		import d.ast.type;
-		static if(is(caseType : QualAstType)) {
-			return QualAstType(new AstAssociativeArrayType(type, parsed));
-		} else static if(is(caseType : AstExpression)) {
-			return QualAstType(new AstArrayType(type, parsed));
+		alias T = typeof(parsed);
+		static if (is(T : AstType)) {
+			return type.getMap(parsed);
+		} else static if (is(T : AstExpression)) {
+			return type.getArray(parsed);
 		} else {
-			return QualAstType(new IdentifierArrayType(type, parsed));
+			return type.getBracket(parsed);
 		}
 	})();
 }

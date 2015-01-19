@@ -1,10 +1,12 @@
 module d.ir.expression;
 
-import d.ast.base;
-import d.ast.expression;
-
 import d.ir.symbol;
 import d.ir.type;
+
+import d.ast.expression;
+
+import d.context;
+import d.location;
 
 abstract class Expression : AstExpression {
 	Type type;
@@ -24,7 +26,6 @@ abstract class Expression : AstExpression {
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias CallExpression = d.ast.expression.CallExpression!Expression;
-alias SliceExpression = d.ast.expression.SliceExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
@@ -96,6 +97,24 @@ class IndexExpression : Expression {
 		
 		this.indexed = indexed;
 		this.index = index;
+	}
+}
+
+/**
+ * Slice expression : [first .. second]
+ */
+class SliceExpression : Expression {
+	Expression sliced;
+	
+	Expression first;
+	Expression second;
+	
+	this(Location location, Type type, Expression sliced, Expression first, Expression second) {
+		super(location, type);
+		
+		this.sliced = sliced;
+		this.first = first;
+		this.second = second;
 	}
 }
 
@@ -321,8 +340,10 @@ class NullLiteral : CompileTimeExpression {
  */
 enum CastKind {
 	Invalid,
+	IntToPtr,
+	PtrToInt,
 	Down,
-	IntegralToBool,
+	IntToBool,
 	Trunc,
 	Pad,
 	Bit,
@@ -341,17 +362,19 @@ class CastExpression : Expression {
 		this.kind = kind;
 		this.expr = expr;
 	}
-	/+
+	
 	override string toString(Context ctx) const {
 		return "cast(" ~ type.toString(ctx) ~ ") " ~ expr.toString(ctx);
 	}
-	+/
+	
 	@property
 	override bool isLvalue() const {
 		final switch(kind) with(CastKind) {
 			case Invalid :
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 			case Pad :
 				return false;

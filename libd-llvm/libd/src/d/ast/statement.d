@@ -1,9 +1,11 @@
 module d.ast.statement;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
-import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 class AstStatement : Node {
 	this(Location location) {

@@ -485,10 +485,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				assert(0, "expression.type not implemented");
 			}
 		}, delegate Ret(r, t) {
-			if (t.kind == TypeKind.Struct || t.kind == TypeKind.Class) {
+			if (t.isAggregate) {
 				// XXX: add aggregate as a super class for class, struct, interface and union and simplify.
 				import d.semantic.aliasthis;
-				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr);
+				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t.aggregate);
 				
 				Ret[] results;
 				foreach(c; candidates) {
@@ -519,7 +519,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			} catch(CompileException e) {}
 			
 			if (t.kind == TypeKind.Pointer) {
-				auto pointed = t.getElement();
+				auto pointed = t.element;
 				expr = new UnaryExpression(expr.location, pointed, UnaryOp.Dereference, expr);
 				return r.visit(pointed);
 			} else {

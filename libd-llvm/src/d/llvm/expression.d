@@ -445,12 +445,9 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(VariableExpression e) {
-		import d.ast.base;
-		if(e.var.storage == Storage.Enum) {
-			return pass.visit(e.var);
-		} else {
-			return LLVMBuildLoad(builder, addressOf(e), "");
-		}
+		return (e.var.storage == Storage.Enum)
+			? pass.visit(e.var)
+			: LLVMBuildLoad(builder, addressOf(e), "");
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
@@ -551,7 +548,6 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(SliceExpression e) {
-		assert(e.first.length == 1 && e.second.length == 1);
 		auto t = e.sliced.type.getCanonical();
 		
 		LLVMValueRef length, ptr;
@@ -571,8 +567,8 @@ struct ExpressionGen {
 			assert(0, "Don't know how to slice "/+ ~ e.type.toString(context) +/);
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first[0]), LLVMInt64TypeInContext(llvmCtx), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second[0]), LLVMInt64TypeInContext(llvmCtx), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first), LLVMInt64TypeInContext(llvmCtx), "");
+		auto second = LLVMBuildZExt(builder, visit(e.second), LLVMInt64TypeInContext(llvmCtx), "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
@@ -601,6 +597,12 @@ struct ExpressionGen {
 			case Invalid :
 				assert(0, "Invalid cast");
 			
+			case IntToPtr :
+				return LLVMBuildIntToPtr(builder, value, type, "");
+			
+			case PtrToInt :
+				return LLVMBuildPtrToInt(builder, value, type, "");
+			
 			case Down :
 				LLVMValueRef[2] args;
 				args[0] = LLVMBuildBitCast(builder, value, pass.visit(pass.object.getObject()), "");
@@ -609,7 +611,7 @@ struct ExpressionGen {
 				auto result = buildCall(pass.visit(pass.object.getClassDowncast()), args[]);
 				return LLVMBuildBitCast(builder, result, type, "");
 			
-			case IntegralToBool :
+			case IntToBool :
 				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value, LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 			
 			case Trunc :
@@ -850,10 +852,9 @@ struct AddressOfGen {
 		return this.dispatch(e);
 	}
 	
-	LLVMValueRef visit(VariableExpression e) {
-		import d.ast.base;
+	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
-		
+	} body {
 		return pass.visit(e.var);
 	}
 	
@@ -910,8 +911,10 @@ struct AddressOfGen {
 		
 		final switch(e.kind) with(CastKind) {
 			case Invalid :
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 			case Pad :
 				assert(0, "Not an lvalue");

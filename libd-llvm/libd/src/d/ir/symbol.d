@@ -1,15 +1,13 @@
 module d.ir.symbol;
 
-import d.location;
-import d.node;
-
-// XXX: type qualifiers, refactor.
-import d.ast.base;
-
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.type;
+
+import d.base.node;
+
+import d.context;
 
 enum Step {
 	Parsed,
@@ -144,6 +142,21 @@ class TemplateParameter : Symbol {
 		super(location, name);
 		
 		this.index = index;
+	}
+}
+
+/**
+ * Superclass for struct, class and interface.
+ */
+abstract class Aggregate : TypeSymbol {
+	Symbol[] members;
+	
+	AggregateScope dscope;
+	
+	this(Location location, Name name, Symbol[] members) {
+		super(location, name);
+		
+		this.members = members;
 	}
 }
 
@@ -314,66 +327,45 @@ class ValueAlias : ValueSymbol {
 /**
  * Class
  */
-class Class : TypeSymbol {
+class Class : Aggregate {
 	Class base;
 	Interface[] interfaces;
 	
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.name = name;
-		this.members = members;
 	}
 }
 
 /**
  * Interface
  */
-class Interface : TypeSymbol {
+class Interface : Aggregate {
 	Interface[] bases;
-	Symbol[] members;
-	
-	AggregateScope dscope;
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
-		super(location, name);
+		super(location, name, members);
 		
 		this.bases = bases;
-		this.members = members;
 	}
 }
 
 /**
  * Struct
  */
-class Struct : TypeSymbol {
-	Symbol[] members;
-	
-	AggregateScope dscope;
-	
+class Struct : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 
 /**
  * Union
  */
-class Union : TypeSymbol {
-	Symbol[] members;
-	
-	SymbolScope dscope;
-	
+class Union : Aggregate {
 	this(Location location, Name name, Symbol[] members) {
-		super(location, name);
-		
-		this.members = members;
+		super(location, name, members);
 	}
 }
 

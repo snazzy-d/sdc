@@ -9,12 +9,10 @@ import d.semantic.dmodule;
 import d.semantic.evaluator;
 import d.semantic.scheduler;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.dmodule;
 import d.ast.expression;
 import d.ast.statement;
-import d.ast.type;
 
 import d.ir.expression;
 import d.ir.dscope;
@@ -28,7 +26,6 @@ import d.context;
 import d.exception;
 import d.lexer;
 import d.location;
-import d.object;
 
 import std.algorithm;
 import std.array;
@@ -51,6 +48,7 @@ final class SemanticPass {
 	
 	Evaluator evaluator;
 	
+	import d.object;
 	ObjectReference object;
 	
 	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
@@ -177,7 +175,6 @@ final class SemanticPass {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		alias FunctionType = d.ir.type.FunctionType;
 		type = FunctionType(Linkage.C, Type.get(BuiltinType.Int).getParamType(false, false), [], false);
 		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
 		bootstrap.storage = Storage.Enum;

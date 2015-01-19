@@ -7,13 +7,14 @@ LIBSDRT = lib/libsdrt.a
 
 ALL_TARGET ?= $(LIBSDRT)
 
+SDFLAGS ?=
 LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
 
 all: $(ALL_TARGET)
 
 obj/rt/%.o: $(LIBSDRT_ROOT)/src/d/rt/%.d $(LIBSDRT_SRC) $(LIBSDRT_EXTRA_DEPS)
 	@mkdir -p obj/rt
-	$(SDC) -c -o $@ $< $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 $(LIBSDRT): $(LIBSDRT_OBJ)
 	@mkdir -p lib

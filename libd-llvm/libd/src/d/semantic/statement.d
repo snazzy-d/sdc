@@ -72,7 +72,6 @@ struct StatementVisitor {
 	}
 	
 	void visit(DeclarationStatement s) {
-		import d.ast.base;
 		import d.semantic.declaration;
 		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(s.declaration);
 		scheduler.require(syms);
@@ -185,9 +184,9 @@ struct StatementVisitor {
 				assert(!idxDecl.type.isRef, "index can't be ref");
 				
 				import d.semantic.type;
-				auto t = (typeid({ return idxDecl.type.type; }()) is typeid(AutoType))
+				auto t = idxDecl.type.getType().isAuto
 					? length.type
-					: TypeVisitor(pass).visit(QualAstType(idxDecl.type.type, idxDecl.type.qualifier));
+					: TypeVisitor(pass).visit(idxDecl.type.getType());
 				
 				auto idxLoc = idxDecl.location;
 				
@@ -213,7 +212,7 @@ struct StatementVisitor {
 		auto iType = iterated.type.getCanonical();
 		assert(iType.hasElement, "Only array and slice are supported for now.");
 		
-		Type et = iType.getElement();
+		Type et = iType.element;
 		
 		auto eDecl = f.tupleElements[$ - 1];
 		auto eLoc = eDecl.location;
@@ -222,7 +221,7 @@ struct StatementVisitor {
 		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
 		auto eType = eVal.type.getParamType(eDecl.type.isRef, false);
 		
-		if (typeid({ return eDecl.type.type; }()) !is typeid(AutoType)) {
+		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
 			eType = TypeVisitor(pass).visit(eDecl.type);
 			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
@@ -256,7 +255,7 @@ struct StatementVisitor {
 		auto loc = f.location;
 		
 		import d.semantic.type, d.semantic.typepromotion;
-		auto type = (typeid({ return iDecl.type.type; }()) is typeid(AutoType))
+		auto type = iDecl.type.getType().isAuto
 			? getPromotedType(pass, loc, start.type, stop.type)
 			: TypeVisitor(pass).visit(iDecl.type).getType();
 		
@@ -282,7 +281,9 @@ struct StatementVisitor {
 		// TODO: precompute autotype instead of managing it here.
 		auto doCast = true;
 		auto rt = returnType.getType();
-		if (rt.kind == TypeKind.Builtin && rt.builtin == BuiltinType.None) {
+		
+		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
+		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
 			doCast = false;

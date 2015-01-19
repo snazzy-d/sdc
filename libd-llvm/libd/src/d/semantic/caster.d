@@ -3,8 +3,6 @@ module d.semantic.caster;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
-import d.ast.base;
-
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -66,7 +64,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
-		static if (is(T : Struct) || is(T : Class)) {
+		static if (is(T : Aggregate)) {
 			static struct AliasThisResult {
 				Expression expr;
 				CastKind level;
@@ -194,6 +192,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			to = to.denum.type.qualify(to.qualifier);
 		}
 		
+		// Can cast typeof(null) to class, pointer and function.
 		if (t == BuiltinType.Null) {
 			if (to.kind == TypeKind.Pointer || to.kind == TypeKind.Class) {
 				return CastKind.Bit;
@@ -202,6 +201,11 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			if (to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
 				return CastKind.Bit;
 			}
+		}
+		
+		// Can explicitely cast integral to pointer.
+		if (isExplicit && (to.kind == TypeKind.Pointer && canConvertToIntegral(t))) {
+			return CastKind.IntToPtr;
 		}
 		
 		if (!to.kind == TypeKind.Builtin) {
@@ -239,7 +243,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
 				if (isExplicit && bt == Bool) {
-					return CastKind.IntegralToBool;
+					return CastKind.IntToBool;
 				}
 				
 				if (!isIntegral(bt)) {
@@ -273,6 +277,19 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visitPointerOf(Type t) {
+		// You can explicitely cast pointer to class.
+		if (isExplicit && to.kind == TypeKind.Class) {
+			return CastKind.Bit;
+		}
+		
+		// It is also possible to cast to integral explicitely.
+		if (isExplicit && to.kind == TypeKind.Builtin) {
+			if (canConvertToIntegral(to.builtin)) {
+				return CastKind.PtrToInt;
+			}
+		}
+		
+		// You can also cast to function explicitely.
 		if (isExplicit && to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
 			return CastKind.Bit;
 		}
@@ -281,7 +298,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		// Cast to void* is kind of special.
 		if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {
@@ -324,7 +341,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
@@ -364,7 +381,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 		
-		auto e = to.getElement().getCanonical();
+		auto e = to.element.getCanonical();
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
@@ -484,7 +501,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	
 	CastKind visit(FunctionType f) {
 		if (to.kind == TypeKind.Pointer && f.contexts.length == 0) {
-			auto e = to.getElement().getCanonical();
+			auto e = to.element.getCanonical();
 			static if (isExplicit) {
 				return CastKind.Bit;
 			} else if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {

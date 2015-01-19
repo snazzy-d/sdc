@@ -1,9 +1,12 @@
 module d.ast.identifier;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
+
+import d.base.node;
+
+import d.context;
 
 abstract class Identifier : Node {
 	Name name;
@@ -63,9 +66,9 @@ class IdentifierDotIdentifier : Identifier {
  * An identifier qualified by a type (type.identifier)
  */
 class TypeDotIdentifier : Identifier {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, Name name, QualAstType type) {
+	this(Location location, Name name, AstType type) {
 		super(location, name);
 		
 		this.type = type;
@@ -125,9 +128,9 @@ class TemplateInstanciation : Node {
  * Template type argument
  */
 class TypeTemplateArgument : TemplateArgument {
-	QualAstType type;
+	AstType type;
 	
-	this(Location location, QualAstType type) {
+	this(Location location, AstType type) {
 		super(location);
 		
 		this.type = type;

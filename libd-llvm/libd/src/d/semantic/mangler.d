@@ -162,7 +162,6 @@ struct TypeMangler {
 		return (t.isRef ? "K" : "") ~ visit(t.getType());
 	}
 	
-	import d.ast.base;
 	private auto mangleLinkage(Linkage linkage) {
 		switch(linkage) with(Linkage) {
 			case D :

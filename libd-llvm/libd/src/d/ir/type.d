@@ -1,8 +1,13 @@
 module d.ir.type;
 
-public import d.builtintype;
-
 import d.ir.symbol;
+
+public import d.base.builtintype;
+public import d.base.qualifier;
+
+import d.base.type;
+
+import d.context;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -11,12 +16,12 @@ enum TypeKind : ubyte {
 	Builtin,
 	
 	// Symbols
+	Alias,
 	Struct,
 	Class,
-	Enum,
-	Alias,
 	Interface,
 	Union,
+	Enum,
 	
 	// Context
 	Context,
@@ -36,55 +41,31 @@ enum TypeKind : ubyte {
 	Template,
 }
 
-// For TypeQualifier
-import d.ast.base;
-
-// XXX: Make more of this const, bitmanip do nto allow it for now.
 struct Type {
 private:
-	union {
-		TypeDescriptor desc;
-		ulong raw_desc;
-	}
+	mixin TypeMixin!(TypeKind, Payload);
 	
-	Payload payload;
-	
-	this(TypeDescriptor d, inout Payload p = Payload.init) inout {
+	this(Desc d, inout Payload p = Payload.init) inout {
 		desc = d;
 		payload = p;
 	}
 	
-	this(TypeDescriptor d, inout Symbol s) inout {
-		this(d);
-		payload.sym = s;
+	import util.fastcast;
+	this(Desc d, inout Symbol s) inout {
+		this(d, fastCast!(inout Payload)(s));
 	}
 	
-	this(TypeDescriptor d, inout Type* n) inout {
-		this(d);
-		payload.next = n;
+	this(Desc d, inout Type* t) inout {
+		this(d, fastCast!(inout Payload)(t));
 	}
 	
-	this(TypeDescriptor d, inout ParamType* p) inout {
-		this(d);
-		payload.params = p;
+	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
+		return qualify(q).getConstructedMixin(k, q);
 	}
 	
-	Type getConstructedType(TypeKind k, TypeQualifier q) {
-		auto t = qualify(q);
-		if (raw_desc & (-1L << TypeDescriptor.DataSize)) {
-			// XXX: Consider caching in context, and stick in payload
-			// instead of heap if it fit.
-			auto n = new Type(t.desc, t.payload);
-			return Type(TypeDescriptor(k, q), n);
-		}
-		
-		return Type(TypeDescriptor(k, q, t.raw_desc), t.payload);
-	}
-	
-public:
-	auto accept(T)(ref T t) {
+	auto acceptImpl(T)(T t) {
 		final switch(kind) with(TypeKind) {
-			case Builtin:
+			case Builtin :
 				return t.visit(builtin);
 			
 			case Struct :
@@ -110,13 +91,13 @@ public:
 				return t.visit(context);
 			
 			case Pointer :
-				return t.visitPointerOf(getElement());
+				return t.visitPointerOf(element);
 			
 			case Slice :
-				return t.visitSliceOf(getElement());
+				return t.visitSliceOf(element);
 			
 			case Array :
-				return t.visitArrayOf(size, getElement());
+				return t.visitArrayOf(size, element);
 			
 			case Sequence :
 				return t.visit(sequence);
@@ -129,14 +110,13 @@ public:
 		}
 	}
 	
-	@property
-	TypeKind kind() const {
-		return desc.kind;
+public:
+	auto accept(T)(ref T t) if(is(T == struct)) {
+		return acceptImpl(&t);
 	}
 	
-	@property
-	TypeQualifier qualifier() const {
-		return desc.qualifier;
+	auto accept(T)(T t) if(is(T == class)) {
+		return acceptImpl(t);
 	}
 	
 	Type qualify(TypeQualifier q) {
@@ -152,13 +132,13 @@ public:
 				return Type(d, payload);
 			
 			case Pointer :
-				return getElement().qualify(nq).getPointer(nq);
+				return element.qualify(nq).getPointer(nq);
 			
 			case Slice :
-				return getElement().qualify(nq).getSlice(nq);
+				return element.qualify(nq).getSlice(nq);
 			
 			case Array :
-				return getElement().qualify(nq).getArray(size, nq);
+				return element.qualify(nq).getArray(size, nq);
 			
 			default :
 				assert(0, "Not implemented");
@@ -176,6 +156,17 @@ public:
 		assert(kind == TypeKind.Builtin);
 	} body {
 		return cast(BuiltinType) desc.data;
+	}
+	
+	bool isAggregate() const {
+		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Union);
+	}
+	
+	@property
+	auto aggregate() inout in {
+		assert(isAggregate, "Not an aggregate type.");
+	} body {
+		return payload.agg;
 	}
 	
 	@property
@@ -255,29 +246,27 @@ public:
 		
 		// XXX: Consider caching in context.
 		auto n = new Type(t.desc, t.payload);
-		return Type(TypeDescriptor(TypeKind.Array, q, size), n);
+		return Type(Desc(TypeKind.Array, q, size), n);
 	}
 	
 	bool hasElement() const {
 		return (kind >= TypeKind.Pointer) && (kind <= TypeKind.Array);
 	}
 	
-	auto getElement() inout in {
-		assert(hasElement, "getElement called on a type with no element.");
+	@property
+	auto element() inout in {
+		assert(hasElement, "element called on a type with no element.");
 	} body {
-		if (desc.data == 0 || kind == TypeKind.Array) {
+		if (kind == TypeKind.Array) {
 			return *payload.next;
 		}
 		
-		Type t;
-		t.raw_desc = desc.data;
-		
-		return inout(Type)(t.desc, payload);
+		return getElementMixin();
 	}
 	
 	@property
 	uint size() const in {
-		assert(kind == TypeKind.Array, "only array have size.");
+		assert(kind == TypeKind.Array, "Only array have size.");
 	} body {
 		return cast(uint) desc.data;
 	}
@@ -287,20 +276,6 @@ public:
 		assert(kind == TypeKind.Sequence, "Not a sequence type.");
 	} body {
 		return payload.next[0 .. desc.data];
-	}
-	
-	auto asFunctionType() inout in {
-		assert(kind == TypeKind.Function, "Not a function.");
-	} body {
-		return inout(FunctionType)(desc, payload.params);
-	}
-	
-	ParamType getParamType(bool isRef, bool isFinal) {
-		if (raw_desc & (0x03UL << 62)) {
-			assert(0, "ref and final flag not available.");
-		}
-		
-		return ParamType(desc.kind, desc.qualifier, isRef, isFinal, desc.data, payload);
 	}
 	
 	string toString(Context c, TypeQualifier q = TypeQualifier.Mutable) const {
@@ -332,8 +307,9 @@ public:
 	
 	string toUnqualString(Context c) const {
 		final switch(kind) with(TypeKind) {
-			case Builtin:
-				return .toString(builtin);
+			case Builtin :
+				import d.base.builtintype : toString;
+				return toString(builtin);
 			
 			case Struct :
 				return dstruct.name.toString(c);
@@ -357,14 +333,14 @@ public:
 				return "__ctx";
 			
 			case Pointer :
-				return getElement().toString(c, qualifier) ~ "*";
+				return element.toString(c, qualifier) ~ "*";
 			
 			case Slice :
-				return getElement().toString(c, qualifier) ~ "[]";
+				return element.toString(c, qualifier) ~ "[]";
 			
 			case Array :
 				import std.conv;
-				return getElement().toString(c, qualifier) ~ "[" ~ to!string(size) ~ "]";
+				return element.toString(c, qualifier) ~ "[" ~ to!string(size) ~ "]";
 			
 			case Sequence :
 				import std.algorithm, std.range;
@@ -386,62 +362,79 @@ public:
 	
 static:
 	Type get(BuiltinType bt, TypeQualifier q = TypeQualifier.Mutable) {
-		Payload p;
-		return Type(TypeDescriptor(TypeKind.Builtin, q, bt), p);
+		Payload p; // Needed because of lolbug in inout
+		return Type(Desc(TypeKind.Builtin, q, bt), p);
 	}
 	
 	Type get(Struct s, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Struct, q), s);
+		return Type(Desc(TypeKind.Struct, q), s);
 	}
 	
 	Type get(Class c, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Class, q), c);
+		return Type(Desc(TypeKind.Class, q), c);
 	}
 	
 	Type get(Enum e, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Enum, q), e);
+		return Type(Desc(TypeKind.Enum, q), e);
 	}
 	
 	Type get(TypeAlias a, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Alias, q), a);
+		return Type(Desc(TypeKind.Alias, q), a);
 	}
 	
 	Type get(Interface i, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Interface, q), i);
+		return Type(Desc(TypeKind.Interface, q), i);
 	}
 	
 	Type get(Union u, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Union, q), u);
+		return Type(Desc(TypeKind.Union, q), u);
 	}
 	
 	Type get(Type[] elements, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Sequence, q, elements.length), elements.ptr);
+		return Type(Desc(TypeKind.Sequence, q, elements.length), elements.ptr);
 	}
 	
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Template, q), p);
+		return Type(Desc(TypeKind.Template, q), p);
 	}
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(TypeDescriptor(TypeKind.Context, q), f);
+		return Type(Desc(TypeKind.Context, q), f);
 	}
 }
 
 unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto pi = i.getPointer();
-	assert(i == pi.getElement());
+	assert(i == pi.element);
 	
 	auto ci = i.qualify(TypeQualifier.Const);
 	auto cpi = pi.qualify(TypeQualifier.Const);
-	assert(ci == cpi.getElement());
-	assert(i != cpi.getElement());
+	assert(ci == cpi.element);
+	assert(i != cpi.element);
+}
+
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto t = i;
+	foreach(_; 0 .. 64) {
+		t = t.getPointer().getSlice();
+	}
+	
+	foreach(_; 0 .. 64) {
+		assert(t.kind == TypeKind.Slice);
+		t = t.element;
+		assert(t.kind == TypeKind.Pointer);
+		t = t.element;
+	}
+	
+	assert(t == i);
 }
 
 unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto ai = i.getArray(42);
-	assert(i == ai.getElement());
+	assert(i == ai.element);
 	assert(ai.size == 42);
 }
 
@@ -449,87 +442,44 @@ unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto ci = Type.get(BuiltinType.Int, TypeQualifier.Const);
 	auto cpi = i.getPointer(TypeQualifier.Const);
-	assert(ci == cpi.getElement());
+	assert(ci == cpi.element);
 	
 	auto csi = i.getSlice(TypeQualifier.Const);
-	assert(ci == csi.getElement());
+	assert(ci == csi.element);
 	
 	auto cai = i.getArray(42, TypeQualifier.Const);
-	assert(ci == cai.getElement());
+	assert(ci == cai.element);
 }
 
 unittest {
-	import d.context, d.ir.symbol;
+	import d.context, d.location, d.ir.symbol;
 	auto c = new Class(Location.init, BuiltinName!"", []);
 	auto tc = Type.get(c);
+	assert(tc.isAggregate);
+	assert(tc.aggregate is c);
+	
 	auto cc = Type.get(c, TypeQualifier.Const);
 	auto csc = tc.getSlice(TypeQualifier.Const);
-	assert(cc == csc.getElement());
+	assert(cc == csc.element);
 }
 
-struct ParamType {
-private:
-	import std.bitmanip;
-	mixin(bitfields!(
-		TypeKind, "kind", 4,
-		TypeQualifier, "qual", 3,
-		ulong, "data", 55,
-		bool, "dref", 1,
-		bool, "dfnl", 1,
-	));
-	
-	Payload payload;
-	
-	static assert(TypeDescriptor.sizeof == ulong.sizeof);
-	
-	this(TypeKind k, TypeQualifier q, bool isRef, bool isFinal, ulong d, inout Payload p) inout {
-		// unqual trick required for bitfield
-		auto unqual_this = cast(ParamType*) &this;
-		unqual_this.kind = k;
-		unqual_this.qual = q;
-		unqual_this.data = d;
-		unqual_this.dref = isRef;
-		unqual_this.dfnl = isFinal;
-		
-		payload = p;
-	}
+alias ParamType = Type.ParamType;
 
-public:
-	auto getType() inout {
-		return inout(Type)(TypeDescriptor(kind, qual, data), payload);
+string toString(const ParamType t, Context c) {
+	string s;
+	if (t.isRef && t.isFinal) {
+		s = "final ref ";
+	} else if (t.isRef) {
+		s = "ref ";
+	} else if (t.isFinal) {
+		s = "final ";
 	}
 	
-	auto getParamType(bool isRef, bool isFinal) inout {
-		return inout(ParamType)(kind, qual, isRef, isFinal, data, payload);
-	}
-	
-	@property
-	TypeQualifier qualifier() const {
-		return qual;
-	}
-	
-	@property
-	bool isRef() const {
-		return dref;
-	}
+	return s ~ t.getType().toString(c);
+}
 
-	@property
-	bool isFinal() const {
-		return dfnl;
-	}
-	
-	string toString(Context c) const {
-		string s;
-		if (isRef && isFinal) {
-			s = "final ref ";
-		} else if (isRef) {
-			s = "ref ";
-		} else if (isFinal) {
-			s = "final ";
-		}
-		
-		return s ~ getType().toString(c);
-	}
+inout(ParamType) getParamType(inout ParamType t, bool isRef, bool isFinal) {
+	return t.getType().getParamType(isRef, isFinal);
 }
 
 unittest {
@@ -544,105 +494,7 @@ unittest {
 	assert(pt == pi);
 }
 
-struct FunctionType {
-private:
-	import std.bitmanip;
-	mixin(bitfields!(
-		Linkage, "lnk", 3,
-		bool, "variadic", 1,
-		bool, "dpure", 1,
-		ulong, "ctxCount", 3,
-		ulong, "paramCount", 50,
-		uint, "", 6, // Pad for TypeKind and qualifier
-	));
-	
-	ParamType* params;
-	
-	this(TypeDescriptor desc, inout ParamType* params) inout {
-		// /!\ Black magic ahead.
-		auto raw_desc = cast(ulong*) &desc;
-		
-		// Remove the TypeKind and qualifier
-		*raw_desc = (*raw_desc >> 7);
-		
-		// This should point to an area of memory that have
-		// the correct layout for the bitfield.
-		auto f = cast(FunctionType*) raw_desc;
-		
-		// unqual trick required for bitfield
-		auto unqual_this = cast(FunctionType*) &this;
-		unqual_this.lnk = f.lnk;
-		unqual_this.variadic = f.variadic;
-		unqual_this.dpure = f.dpure;
-		unqual_this.ctxCount = f.ctxCount;
-		unqual_this.paramCount = f.paramCount;
-		
-		this.params = params;
-	}
-
-public:
-	this(Linkage linkage, ParamType returnType, ParamType[] params, bool isVariadic) {
-		lnk = linkage;
-		variadic = isVariadic;
-		dpure = false;
-		ctxCount = 0;
-		paramCount = params.length;
-		this.params = (params ~ returnType).ptr;
-	}
-	
-	this(Linkage linkage, ParamType returnType, ParamType ctxType, ParamType[] params, bool isVariadic) {
-		lnk = linkage;
-		variadic = isVariadic;
-		dpure = false;
-		ctxCount = 1;
-		paramCount = params.length;
-		this.params = (ctxType ~ params ~ returnType).ptr;
-	}
-	
-	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
-		ulong d = *cast(ulong*) &this;
-		return Type(TypeDescriptor(TypeKind.Function, q, d), params);
-	}
-	
-	FunctionType getDelegate(ulong contextCount = 1) in {
-		assert(contextCount <= paramCount + ctxCount);
-	} body {
-		auto t = this;
-		t.ctxCount = contextCount;
-		t.paramCount = paramCount + ctxCount - contextCount;
-		return t;
-	}
-	
-	@property
-	Linkage linkage() const {
-		return lnk;
-	}
-	
-	@property
-	bool isVariadic() const {
-		return variadic;
-	}
-	
-	@property
-	bool isPure() const {
-		return dpure;
-	}
-	
-	@property
-	auto returnType() inout {
-		return params[ctxCount + paramCount];
-	}
-	
-	@property
-	auto contexts() inout {
-		return params[0 .. ctxCount];
-	}
-	
-	@property
-	auto parameters() inout {
-		return params[ctxCount .. ctxCount + paramCount];
-	}
-}
+alias FunctionType = Type.FunctionType;
 
 unittest {
 	auto r = Type.get(BuiltinType.Void).getPointer().getParamType(false, false);
@@ -683,23 +535,11 @@ unittest {
 
 private:
 
-struct TypeDescriptor {
-	enum DataSize = 57;
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		TypeKind, "kind", 4,
-		TypeQualifier, "qualifier", 3,
-		ulong, "data", DataSize,
-	));
-	
-	static assert(TypeDescriptor.sizeof == ulong.sizeof);
-	
-	this(TypeKind k, TypeQualifier q, ulong d = 0) {
-		kind = k;
-		qualifier = q;
-		data = d;
-	}
+// XXX: we put it as a UFCS property to avoid forward reference.
+@property
+inout(ParamType)* params(inout Payload p) {
+	import util.fastcast;
+	return cast(inout ParamType*) p.next;
 }
 
 union Payload {
@@ -717,13 +557,13 @@ union Payload {
 	Function context;
 	
 	// For function and delegates.
-	ParamType* params;
+	// ParamType* params;
 	
 	// For template instanciation.
 	TypeTemplateParameter dtemplate;
 	
 	// For simple construction
 	Symbol sym;
-	ulong raw;
+	Aggregate agg;
 };
 

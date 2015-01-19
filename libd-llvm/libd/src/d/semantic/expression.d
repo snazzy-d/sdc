@@ -4,7 +4,6 @@ import d.semantic.caster;
 import d.semantic.identifier;
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.expression;
 import d.ast.type;
 
@@ -13,7 +12,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context;
 import d.exception;
+import d.location;
 
 import std.algorithm;
 import std.array;
@@ -23,10 +24,7 @@ alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
-alias SliceExpression = d.ir.expression.SliceExpression;
 alias AssertExpression = d.ir.expression.AssertExpression;
-
-alias FunctionType = d.ir.type.FunctionType;
 
 struct ExpressionVisitor {
 	private SemanticPass pass;
@@ -115,7 +113,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
+					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
 					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 				}
 				
@@ -144,7 +142,7 @@ struct ExpressionVisitor {
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.getElement(), lhs, rhs);
+					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
 					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
 				}
@@ -296,7 +294,7 @@ struct ExpressionVisitor {
 			case Dereference :
 				auto c = expr.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
-					type = c.getElement();
+					type = c.element;
 					break;
 				}
 				
@@ -392,8 +390,10 @@ struct ExpressionVisitor {
 			case Invalid :
 				return MatchLevel.Not;
 			
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 				assert(0, "Not an implicit cast !");
 			
@@ -752,10 +752,10 @@ struct ExpressionVisitor {
 	Expression getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
 		if (!t.hasElement) {
-			return pass.raiseCondition!Expression(location, "Can't index "/+ ~ indexed.type.toString(context) +/);
+			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
-		return new IndexExpression(location, t.getElement(), indexed, index);
+		return new IndexExpression(location, t.element, indexed, index);
 	}
 	
 	Expression visit(AstIndexExpression e) {
@@ -776,10 +776,12 @@ struct ExpressionVisitor {
 			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ t.toString(context));
 		}
 		
-		auto first = e.first.map!(e => visit(e)).array();
-		auto second = e.second.map!(e => visit(e)).array();
+		assert(e.first.length == 1 && e.second.length == 1);
 		
-		return new SliceExpression(e.location, t.getElement().getSlice(), sliced, first, second);
+		auto first = visit(e.first[0]);
+		auto second = visit(e.second[0]);
+		
+		return new SliceExpression(e.location, t.element.getSlice(), sliced, first, second);
 	}
 	
 	Expression visit(AstAssertExpression e) {
@@ -886,7 +888,7 @@ struct ExpressionVisitor {
 		auto d = new FunctionDeclaration(
 			location,
 			defaultStorageClass,
-			ParamAstType(new AutoType(), false),
+			AstType.getAuto().getParamType(false, false),
 			name,
 			params,
 			isVariadic,

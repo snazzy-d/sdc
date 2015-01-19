@@ -4,16 +4,16 @@ import d.semantic.caster;
 import d.semantic.declaration;
 import d.semantic.semantic;
 
-import d.ast.base;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
-import d.ast.type;
 
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+
+import d.context;
 
 import std.algorithm;
 import std.array;
@@ -100,7 +100,6 @@ struct SymbolAnalyzer {
 		
 		// All modules implicitely import object.
 		import d.semantic.declaration;
-		import d.context;
 		m.members = DeclarationVisitor(pass, Storage.Static)
 			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
@@ -146,7 +145,6 @@ struct SymbolAnalyzer {
 		bool isAuto = false;
 		
 		void buildType() {
-			alias FunctionType = d.ir.type.FunctionType;
 			f.type = FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
 			f.step = Step.Signed;
 		}
@@ -181,7 +179,7 @@ struct SymbolAnalyzer {
 				params = thisParameter ~ params;
 			}
 			
-			isAuto = typeid({ return fd.returnType.type; }()) is typeid(AutoType);
+			isAuto = fd.returnType.getType().isAuto;
 			
 			import d.semantic.type;
 			returnType = isAuto
@@ -266,7 +264,7 @@ struct SymbolAnalyzer {
 		auto stc = d.storageClass;
 		
 		Expression value;
-		if (typeid({ return d.type.type; }()) is typeid(AutoType)) {
+		if (d.type.isAuto) {
 			// XXX: remove selective import when dmd is sane.
 			import d.semantic.expression : ExpressionVisitor;
 			value = ExpressionVisitor(pass).visit(d.value);

@@ -1,4 +1,4 @@
-module d.builtintype;
+module d.base.builtintype;
 
 // Byte, Ubyte instead of Ubyte, Byte
 enum BuiltinType : ubyte {
@@ -36,7 +36,7 @@ string toString(BuiltinType t) {
 			return "dchar";
 		
 		case Byte :
-			return "bute";
+			return "byte";
 		
 		case Ubyte :
 			return "ubyte";
@@ -97,6 +97,10 @@ unittest {
 
 bool isIntegral(BuiltinType t) {
 	return (t >= BuiltinType.Byte) && (t <= BuiltinType.Ucent);
+}
+
+bool canConvertToIntegral(BuiltinType t) {
+	return (t >= BuiltinType.Bool) && (t <= BuiltinType.Ucent);
 }
 
 bool isSigned(BuiltinType t) in {

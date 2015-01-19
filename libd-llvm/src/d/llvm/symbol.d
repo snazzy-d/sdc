@@ -48,7 +48,6 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef genCached(S)(S s) {
-		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
@@ -61,7 +60,6 @@ final class SymbolGen {
 	}
 	
 	void register(ValueSymbol s, LLVMValueRef v) {
-		import d.ast.base;
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
@@ -218,13 +216,11 @@ final class SymbolGen {
 			auto value = params[i];
 			
 			if (p.isRef || p.isFinal) {
-				import d.ast.base;
 				assert (p.storage == Storage.Local, "storage must be local");
 				
 				LLVMSetValueName(value, p.mangle.toStringz());
 				locals[p] = value;
 			} else {
-				import d.ast.base;
 				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
 				
 				auto name = p.name.toString(context);
@@ -379,7 +375,6 @@ final class SymbolGen {
 	}
 	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
-		import d.ast.base;
 		if (v.storage == Storage.Enum) {
 			return globals[v] = value;
 		}
