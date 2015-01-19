@@ -85,7 +85,7 @@ struct TypeVisitor {
 	Type visitMapOf(AstType key, AstType t) {
 		visit(t);
 		visit(key);
-		assert(0, "Not implemented.");
+		assert(0, "Map are not implemented.");
 	}
 	
 	Type visitBracketOf(Identifier ikey, AstType t) {
@@ -136,6 +136,10 @@ struct TypeVisitor {
 	Type visit(AstExpression e) {
 		import d.semantic.expression;
 		return ExpressionVisitor(pass).visit(e).type.qualify(qualifier);
+	}
+	
+	Type visitTypeOfReturn() {
+		assert(0, "typeof(return) is not implemented.");
 	}
 }
 

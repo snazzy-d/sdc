@@ -91,7 +91,9 @@ private:
 				return t.visit(asFunctionType());
 			
 			case TypeOf :
-				return t.visit(expression);
+				return desc.data
+					? t.visitTypeOfReturn()
+					: t.visit(expression);
 		}
 	}
 	
@@ -135,13 +137,6 @@ public:
 		return payload.identifier;
 	}
 	
-	@property
-	auto expression() inout in {
-		assert(kind == AstTypeKind.TypeOf);
-	} body {
-		return payload.expr;
-	}
-	
 	AstType getPointer(TypeQualifier q = TypeQualifier.Mutable) {
 		return getConstructedType(AstTypeKind.Pointer, q);
 	}
@@ -150,16 +145,26 @@ public:
 		return getConstructedType(AstTypeKind.Slice, q);
 	}
 	
-	AstType getArray(AstExpression size, TypeQualifier q = TypeQualifier.Mutable) {
-		return AstType(Desc(AstTypeKind.Array, q), new ArrayPayload(this, size));
+	AstType getArray(AstExpression size, TypeQualifier q = TypeQualifier.Mutable) in {
+		assert(!isAuto, "Cannot build on top of auto type.");
+	} body {
+		return (payload.next is null && isPackable())
+			? AstType(Desc(AstTypeKind.Array, q, raw_desc), size)
+			: AstType(Desc(AstTypeKind.Array, q), new ArrayPayload(size, this));
 	}
 	
-	AstType getMap(AstType key, TypeQualifier q = TypeQualifier.Mutable) {
-		return AstType(Desc(AstTypeKind.Map, q), new MapPayload(this, key));
+	AstType getMap(AstType key, TypeQualifier q = TypeQualifier.Mutable) in {
+		assert(!isAuto, "Cannot build on top of auto type.");
+	} body {
+		return AstType(Desc(AstTypeKind.Map, q), new MapPayload(key, this));
 	}
 	
-	AstType getBracket(Identifier ikey, TypeQualifier q = TypeQualifier.Mutable) {
-		return AstType(Desc(AstTypeKind.Bracket, q), new BracketPayload(this, ikey));
+	AstType getBracket(Identifier ikey, TypeQualifier q = TypeQualifier.Mutable) in {
+		assert(!isAuto, "Cannot build on top of auto type.");
+	} body {
+		return (payload.next is null && isPackable())
+			? AstType(Desc(AstTypeKind.Bracket, q, raw_desc), ikey)
+			: AstType(Desc(AstTypeKind.Bracket, q), new BracketPayload(ikey, this));
 	}
 	
 	bool hasElement() const {
@@ -170,18 +175,36 @@ public:
 	auto element() inout in {
 		assert(hasElement, "element called on a type with no element.");
 	} body {
-		if (kind >= AstTypeKind.Array) {
-			return payload.array.type;
+		if (kind < AstTypeKind.Array) {
+			return getElementMixin();
 		}
 		
-		return getElementMixin();
+		switch(kind) with(AstTypeKind) {
+			case Array :
+				return desc.data
+					? inout(AstType)(getElementMixin().desc)
+					: payload.array.type;
+			
+			case Map :
+				return payload.map.type;
+			
+			case Bracket :
+				return desc.data
+					? inout(AstType)(getElementMixin().desc)
+					: payload.bracket.type;
+			
+			default :
+				assert(0);
+		}
 	}
 	
 	@property
 	auto size() inout in {
 		assert(kind == AstTypeKind.Array, "Only array have size.");
 	} body {
-		return payload.array.size;
+		return desc.data
+			? payload.expr
+			: payload.array.size;
 	}
 	
 	@property
@@ -195,7 +218,21 @@ public:
 	auto ikey() inout in {
 		assert(kind == AstTypeKind.Bracket, "Only bracket[identifier] have ikey.");
 	} body {
-		return payload.bracket.key;
+		return desc.data
+			? payload.identifier
+			: payload.bracket.key;
+	}
+	
+	@property
+	auto expression() inout in {
+		assert(kind == AstTypeKind.TypeOf && desc.data == 0);
+	} body {
+		return payload.expr;
+	}
+	
+	@property
+	bool isTypeOfReturn() inout {
+		return kind == AstTypeKind.TypeOf && desc.data != 0;
 	}
 	
 	string toString(Context c) const {
@@ -255,13 +292,15 @@ public:
 				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
 			case TypeOf :
-				return "typeof(" ~ expression.toString(c) ~ ")";
+				return desc.data
+					? "typeof(return)"
+					: "typeof(" ~ expression.toString(c) ~ ")";
 		}
 	}
 	
 static:
 	AstType get(BuiltinType bt, TypeQualifier q = TypeQualifier.Mutable) {
-		Payload p;
+		Payload p; // Needed because of lolbug in inout
 		return AstType(Desc(AstTypeKind.Builtin, q, bt), p);
 	}
 	
@@ -273,8 +312,13 @@ static:
 		return AstType(Desc(AstTypeKind.Identifier, q), i);
 	}
 	
-	AstType get(AstExpression e, TypeQualifier q = TypeQualifier.Mutable) {
+	AstType getTypeOf(AstExpression e, TypeQualifier q = TypeQualifier.Mutable) {
 		return AstType(Desc(AstTypeKind.TypeOf, q), e);
+	}
+	
+	AstType getTypeOfReturn(TypeQualifier q = TypeQualifier.Mutable) {
+		Payload p; // Needed because of lolbug in inout
+		return AstType(Desc(AstTypeKind.TypeOf, q, 1), p);
 	}
 }
 
@@ -296,10 +340,15 @@ unittest {
 	assert(p.element == l);
 	
 	import d.location;
-	auto s = new DollarExpression(Location.init);
-	auto a = l.getArray(s);
-	assert(a.size is s);
-	assert(a.element == l);
+	auto s1 = new DollarExpression(Location.init);
+	auto a1 = l.getArray(s1);
+	assert(a1.size is s1);
+	assert(a1.element == l);
+	
+	auto s2 = new DollarExpression(Location.init);
+	auto a2 = a1.getArray(s2);
+	assert(a2.size is s2);
+	assert(a2.element == a1);
 	
 	auto f = AstType.get(BuiltinType.Float);
 	auto m = l.getMap(f);
@@ -311,9 +360,20 @@ unittest {
 	assert(t.identifier is i);
 	assert(t.qualifier is TypeQualifier.Shared);
 	
-	auto b = l.getBracket(i);
-	assert(b.ikey is i);
-	assert(b.element == l);
+	auto b1 = l.getBracket(i);
+	assert(b1.ikey is i);
+	assert(b1.element == l);
+	
+	auto b2 = b1.getBracket(i);
+	assert(b2.ikey is i);
+	assert(b2.element == b1);
+	
+	auto e = new DollarExpression(Location.init);
+	t = AstType.getTypeOf(e);
+	assert(t.expression is e);
+	
+	t = AstType.getTypeOfReturn();
+	assert(t.toString(null) == "typeof(return)");
 }
 
 alias ParamAstType = AstType.ParamType;
@@ -362,17 +422,17 @@ union Payload {
 }
 
 struct ArrayPayload {
-	AstType type;
 	AstExpression size;
+	AstType type;
 }
 
 struct MapPayload {
-	AstType type;
 	AstType key;
+	AstType type;
 }
 
 struct BracketPayload {
-	AstType type;
 	Identifier key;
+	AstType type;
 }
 

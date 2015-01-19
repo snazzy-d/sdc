@@ -168,11 +168,10 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 	
 	if(trange.front.type == TokenType.Return) {
 		trange.popFront();
-		assert(0, "typeof(return) not implemented.");
-		// return new ReturnType();
+		return AstType.getTypeOfReturn();
 	}
 	
-	return AstType.get(trange.parseExpression());
+	return AstType.getTypeOf(trange.parseExpression());
 }
 
 /**

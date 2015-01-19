@@ -362,7 +362,7 @@ public:
 	
 static:
 	Type get(BuiltinType bt, TypeQualifier q = TypeQualifier.Mutable) {
-		Payload p;
+		Payload p; // Needed because of lolbug in inout
 		return Type(Desc(TypeKind.Builtin, q, bt), p);
 	}
 	
@@ -412,6 +412,23 @@ unittest {
 	auto cpi = pi.qualify(TypeQualifier.Const);
 	assert(ci == cpi.element);
 	assert(i != cpi.element);
+}
+
+unittest {
+	auto i = Type.get(BuiltinType.Int);
+	auto t = i;
+	foreach(_; 0 .. 64) {
+		t = t.getPointer().getSlice();
+	}
+	
+	foreach(_; 0 .. 64) {
+		assert(t.kind == TypeKind.Slice);
+		t = t.element;
+		assert(t.kind == TypeKind.Pointer);
+		t = t.element;
+	}
+	
+	assert(t == i);
 }
 
 unittest {
@@ -548,6 +565,5 @@ union Payload {
 	// For simple construction
 	Symbol sym;
 	Aggregate agg;
-	ulong raw;
 };
 
