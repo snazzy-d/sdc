@@ -99,6 +99,10 @@ bool isIntegral(BuiltinType t) {
 	return (t >= BuiltinType.Byte) && (t <= BuiltinType.Ucent);
 }
 
+bool canConvertToIntegral(BuiltinType t) {
+	return (t >= BuiltinType.Bool) && (t <= BuiltinType.Ucent);
+}
+
 bool isSigned(BuiltinType t) in {
 	assert(isIntegral(t), "isSigned only applys to integral types");
 } body {

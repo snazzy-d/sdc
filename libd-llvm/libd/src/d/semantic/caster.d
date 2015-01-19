@@ -192,6 +192,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			to = to.denum.type.qualify(to.qualifier);
 		}
 		
+		// Can cast typeof(null) to class, pointer and function.
 		if (t == BuiltinType.Null) {
 			if (to.kind == TypeKind.Pointer || to.kind == TypeKind.Class) {
 				return CastKind.Bit;
@@ -200,6 +201,11 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			if (to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
 				return CastKind.Bit;
 			}
+		}
+		
+		// Can explicitely cast integral to pointer.
+		if (isExplicit && (to.kind == TypeKind.Pointer && canConvertToIntegral(t))) {
+			return CastKind.IntToPtr;
 		}
 		
 		if (!to.kind == TypeKind.Builtin) {
@@ -237,7 +243,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
 				if (isExplicit && bt == Bool) {
-					return CastKind.IntegralToBool;
+					return CastKind.IntToBool;
 				}
 				
 				if (!isIntegral(bt)) {
@@ -271,6 +277,19 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visitPointerOf(Type t) {
+		// You can explicitely cast pointer to class.
+		if (isExplicit && to.kind == TypeKind.Class) {
+			return CastKind.Bit;
+		}
+		
+		// It is also possible to cast to integral explicitely.
+		if (isExplicit && to.kind == TypeKind.Builtin) {
+			if (canConvertToIntegral(to.builtin)) {
+				return CastKind.PtrToInt;
+			}
+		}
+		
+		// You can also cast to function explicitely.
 		if (isExplicit && to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
 			return CastKind.Bit;
 		}
