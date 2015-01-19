@@ -4,7 +4,8 @@
 // Test correct generation of temporary.
 
 int main() {
-	int[16] ii;
+	enum BUFFER_SIZE = 16;
+	int[BUFFER_SIZE] ii;
 	int i = 12;
 	
 	ii[++i] = i;
