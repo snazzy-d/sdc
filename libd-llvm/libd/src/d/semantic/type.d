@@ -2,6 +2,7 @@ module d.semantic.type;
 
 import d.semantic.semantic;
 
+import d.ast.identifier;
 import d.ast.type;
 
 import d.ir.type;
@@ -42,14 +43,13 @@ struct TypeVisitor {
 		return Type.get(t, qualifier);
 	}
 	
-	import d.ast.identifier;
 	Type visit(Identifier i) {
 		import d.semantic.identifier;
 		return SymbolResolver!(delegate Type(identified) {
 			static if(is(typeof(identified) : Type)) {
 				return identified.qualify(qualifier);
 			} else {
-				return pass.raiseCondition!Type(i.location, i.name.toString(pass.context) ~ " isn't an type.");
+				return pass.raiseCondition!Type(i.location, i.toString(pass.context) ~ " isn't an type.");
 			}
 		})(pass).visit(i);
 	}
@@ -63,21 +63,45 @@ struct TypeVisitor {
 	}
 	
 	Type visitArrayOf(AstExpression size, AstType t) {
-		import d.semantic.caster, d.semantic.expression, d.ir.expression;
+		auto type = visit(t);
+		
+		import d.semantic.expression;
+		return buildArray(ExpressionVisitor(pass).visit(size), type);
+	}
+	
+	import d.ir.expression;
+	private Type buildArray(Expression size, Type t) {
+		import d.semantic.caster, d.semantic.expression;
 		auto s = evalIntegral(buildImplicitCast(
 			pass,
 			size.location,
 			pass.object.getSizeT().type,
-			ExpressionVisitor(pass).visit(size),
+			size,
 		));
 		
-		return visit(t).getArray(s, qualifier);
+		return t.getArray(s, qualifier);
 	}
 	
 	Type visitMapOf(AstType key, AstType t) {
 		visit(t);
 		visit(key);
-		assert(0, "Not implemented.");
+		assert(0, "Map are not implemented.");
+	}
+	
+	Type visitBracketOf(Identifier ikey, AstType t) {
+		auto type = visit(t);
+		
+		import d.semantic.identifier;
+		return SymbolResolver!(delegate Type(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Type)) {
+				assert(0, "Not implemented.");
+			} else static if (is(T: Expression)) {
+				return buildArray(identified, type);
+			} else {
+				return pass.raiseCondition!Type(ikey.location, ikey.toString(pass.context) ~ " isn't an type.");
+			}
+		})(pass).visit(ikey);
 	}
 	
 	Type visit(FunctionAstType t) {
@@ -112,6 +136,10 @@ struct TypeVisitor {
 	Type visit(AstExpression e) {
 		import d.semantic.expression;
 		return ExpressionVisitor(pass).visit(e).type.qualify(qualifier);
+	}
+	
+	Type visitTypeOfReturn() {
+		assert(0, "typeof(return) is not implemented.");
 	}
 }
 

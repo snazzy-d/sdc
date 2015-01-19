@@ -168,11 +168,10 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 	
 	if(trange.front.type == TokenType.Return) {
 		trange.popFront();
-		assert(0, "typeof(return) not implemented.");
-		// return new ReturnType();
+		return AstType.getTypeOfReturn();
 	}
 	
-	return AstType.get(trange.parseExpression());
+	return AstType.getTypeOf(trange.parseExpression());
 }
 
 /**
@@ -240,7 +239,7 @@ AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 		return type.getSlice();
 	}
 	
-	return trange.parseAmbiguous!(delegate AstType(parsed) {
+	return trange.parseAmbiguous!((parsed) {
 		trange.match(TokenType.CloseBracket);
 		
 		alias T = typeof(parsed);
@@ -249,8 +248,7 @@ AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 		} else static if (is(T : AstExpression)) {
 			return type.getArray(parsed);
 		} else {
-			assert(0, "Not implemented.");
-			// return QualAstType(new IdentifierArrayType(type, parsed));
+			return type.getBracket(parsed);
 		}
 	})();
 }

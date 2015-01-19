@@ -597,6 +597,12 @@ struct ExpressionGen {
 			case Invalid :
 				assert(0, "Invalid cast");
 			
+			case IntToPtr :
+				return LLVMBuildIntToPtr(builder, value, type, "");
+			
+			case PtrToInt :
+				return LLVMBuildPtrToInt(builder, value, type, "");
+			
 			case Down :
 				LLVMValueRef[2] args;
 				args[0] = LLVMBuildBitCast(builder, value, pass.visit(pass.object.getObject()), "");
@@ -605,7 +611,7 @@ struct ExpressionGen {
 				auto result = buildCall(pass.visit(pass.object.getClassDowncast()), args[]);
 				return LLVMBuildBitCast(builder, result, type, "");
 			
-			case IntegralToBool :
+			case IntToBool :
 				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value, LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 			
 			case Trunc :
@@ -905,8 +911,10 @@ struct AddressOfGen {
 		
 		final switch(e.kind) with(CastKind) {
 			case Invalid :
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 			case Pad :
 				assert(0, "Not an lvalue");

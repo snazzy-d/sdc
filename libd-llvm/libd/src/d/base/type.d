@@ -25,20 +25,24 @@ private:
 	static assert(is(typeof(Payload.init.next) == typeof(&this)), "Payload.next must be a pointer to the next type element.");
 	static assert(is(typeof(Payload.init.params) == ParamType*), "Payload.params must be a pointer to parameter's types.");
 	
+	bool isPackable() const {
+		return (raw_desc & (-1L << Desc.DataSize)) == 0;
+	}
+	
 	auto getConstructedMixin(this T)(K k, TypeQualifier q) in {
 		assert(raw_desc != 0, "You can't construct type on None.");
 	} body {
 		// XXX: Consider caching in context, and stick in payload
 		// instead of heap if it fit.
-		return (raw_desc & (-1L << Desc.DataSize))
-			? T(Desc(k, q), new T(desc, payload))
-			: T(Desc(k, q, raw_desc), payload);
+		return isPackable()
+			? T(Desc(k, q, raw_desc), payload)
+			: T(Desc(k, q), new T(desc, payload));
 	}
 	
 	auto getElementMixin(this T)() {
 		auto data = desc.data;
 		if (data == 0) {
-			assert(raw_desc != 0, "None shouldn't have been packed.");
+			assert(payload.next !is null, "None shouldn't have been packed.");
 			return *payload.next;
 		}
 		

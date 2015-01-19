@@ -390,8 +390,10 @@ struct ExpressionVisitor {
 			case Invalid :
 				return MatchLevel.Not;
 			
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 				assert(0, "Not an implicit cast !");
 			

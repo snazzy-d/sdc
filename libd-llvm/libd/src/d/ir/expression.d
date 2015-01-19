@@ -340,8 +340,10 @@ class NullLiteral : CompileTimeExpression {
  */
 enum CastKind {
 	Invalid,
+	IntToPtr,
+	PtrToInt,
 	Down,
-	IntegralToBool,
+	IntToBool,
 	Trunc,
 	Pad,
 	Bit,
@@ -360,17 +362,19 @@ class CastExpression : Expression {
 		this.kind = kind;
 		this.expr = expr;
 	}
-	/+
+	
 	override string toString(Context ctx) const {
 		return "cast(" ~ type.toString(ctx) ~ ") " ~ expr.toString(ctx);
 	}
-	+/
+	
 	@property
 	override bool isLvalue() const {
 		final switch(kind) with(CastKind) {
 			case Invalid :
+			case IntToPtr :
+			case PtrToInt :
 			case Down :
-			case IntegralToBool :
+			case IntToBool :
 			case Trunc :
 			case Pad :
 				return false;
