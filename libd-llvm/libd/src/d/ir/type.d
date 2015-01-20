@@ -278,6 +278,22 @@ public:
 		return payload.next[0 .. desc.data];
 	}
 	
+	bool hasPointerABI() const {
+		switch (kind) with(TypeKind) {
+			case Class, Pointer :
+				return true;
+			
+			case Alias :
+				return dalias.type.hasPointerABI();
+			
+			case Function :
+				return asFunctionType().contexts.length == 0;
+			
+			default :
+				return false;
+		}
+	}
+	
 	string toString(Context c, TypeQualifier q = TypeQualifier.Mutable) const {
 		auto s = toUnqualString(c);
 		if (q == qualifier) {

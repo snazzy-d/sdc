@@ -111,6 +111,18 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			
 			e = candidate;
 			return level;
+		} else static if (is(T : BuiltinType)) {
+			auto to = c.to;
+			if (to.kind != TypeKind.Builtin || !canConvertToIntegral(to.builtin)) {
+				return CastKind.Invalid;
+			}
+			
+			assert(getSize(to.builtin) < getSize(t));
+			
+			import d.semantic.vrp;
+			return ValueRangePropagator(pass).canFit(e, to)
+				? CastKind.Trunc
+				: CastKind.Invalid;
 		} else {
 			return CastKind.Invalid;
 		}
@@ -193,14 +205,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		}
 		
 		// Can cast typeof(null) to class, pointer and function.
-		if (t == BuiltinType.Null) {
-			if (to.kind == TypeKind.Pointer || to.kind == TypeKind.Class) {
-				return CastKind.Bit;
-			}
-			
-			if (to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
-				return CastKind.Bit;
-			}
+		if (t == BuiltinType.Null && to.hasPointerABI()) {
+			return CastKind.Bit;
 		}
 		
 		// Can explicitely cast integral to pointer.
@@ -252,20 +258,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				
 				t = unsigned(t);
 				bt = unsigned(bt);
-				switch(bt) {
-					case Ubyte, Ushort, Uint, Ulong, Ucent :
-						if (t == bt) {
-							return CastKind.Bit;
-						} else if (t < bt) {
-							return CastKind.Pad;
-						} else static if (isExplicit) {
-							return CastKind.Trunc;
-						} else {
-							return CastKind.Invalid;
-						}
-					
-					default:
-						assert(0);
+				if (t == bt) {
+					return CastKind.Bit;
+				} else if (t < bt) {
+					return CastKind.Pad;
+				} else static if (isExplicit) {
+					return CastKind.Trunc;
+				} else {
+					return bailout(t);
 				}
 			
 			case Float, Double, Real :
@@ -277,8 +277,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visitPointerOf(Type t) {
-		// You can explicitely cast pointer to class.
-		if (isExplicit && to.kind == TypeKind.Class) {
+		// You can explicitely cast pointer to class, function.
+		if (isExplicit && to.kind != TypeKind.Pointer && to.hasPointerABI()) {
 			return CastKind.Bit;
 		}
 		
@@ -287,11 +287,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			if (canConvertToIntegral(to.builtin)) {
 				return CastKind.PtrToInt;
 			}
-		}
-		
-		// You can also cast to function explicitely.
-		if (isExplicit && to.kind == TypeKind.Function && to.asFunctionType().contexts.length == 0) {
-			return CastKind.Bit;
 		}
 		
 		if (to.kind != TypeKind.Pointer) {

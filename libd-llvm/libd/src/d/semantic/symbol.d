@@ -284,11 +284,11 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if(stc.isEnum) {
+		if (stc.isEnum) {
 			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.storage.isNonLocal) {
+		if (v.storage.isNonLocal) {
 			value = evaluate(value);
 		}
 		
