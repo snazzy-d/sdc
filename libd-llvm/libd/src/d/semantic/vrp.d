@@ -59,6 +59,21 @@ struct ValueRange {
 		);
 	}
 	
+	auto getSigned(Type t) const {
+		auto res = signExtend(t);
+		
+		// Full range need to be adjusted for signed computation.
+		if (res.min < long.min && res.max > long.max) {
+			// [------min----/----max------]
+			res = ValueRange(long.min, long.max);
+		} else if (res.min > res.max && (res.max > long.max || res.min < long.min)) {
+			// [--max-min----/------------] or [-------------/--max---min-]
+			res = ValueRange(long.min, long.max);
+		}
+		
+		return res;
+	}
+	
 static:
 	ValueRange get(ulong u0, ulong u1, ulong u2, ulong u3) {
 		import std.algorithm;
@@ -170,7 +185,6 @@ struct ValueRangePropagator {
 			}
 			
 			auto v0 = mul(ValueRange(0, lhs.max), rhs, t);
-			auto v1 = mul(ValueRange(lhs.min, -1), rhs, t);
 			
 			// This is caused by [a, 0] case and should be already handled.
 			assert (v0.min != 0 || v0.max != 0);
@@ -180,6 +194,7 @@ struct ValueRangePropagator {
 				return v0;
 			}
 			
+			auto v1 = mul(ValueRange(lhs.min, -1), rhs, t);
 			if (v1.full) {
 				return v1;
 			}
@@ -258,16 +273,7 @@ struct ValueRangePropagator {
 			return sdiv(lhs, rhs.complement(t), t).complement(t);
 		}
 		
-		lhs = lhs.signExtend(t);
-		
-		// Full range need to be adjusted for signed computation.
-		if (lhs.min < long.min && lhs.max > long.max) {
-			// [------min----/----max------]
-			lhs = ValueRange(long.min, long.max);
-		} else if (lhs.min > lhs.max && (lhs.max > long.max || lhs.min < long.min)) {
-			// [--max-min----/------------] or [-------------/--max---min-]
-			lhs = ValueRange(long.min, long.max);
-		}
+		lhs = lhs.getSigned(t);
 		
 		// Assert that full range are properly transformed.
 		assert(!lhs.full || lhs == ValueRange(long.min, long.max));
@@ -299,6 +305,99 @@ struct ValueRangePropagator {
 			: udiv(lhs, rhs, t);
 	}
 	
+	private ValueRange umod(ValueRange lhs, ValueRange rhs, Type t) in {
+		assert(!isSigned(t.builtin), t.toString(context) ~ " must be unsigned.");
+	} body {
+		if (lhs.min > lhs.max) {
+			lhs = ValueRange(0, -1);
+		}
+		
+		if (rhs.min > rhs.max) {
+			rhs = ValueRange(0, -1);
+		}
+		
+		// If the range of lhs is greater than rhs.max, pessimise.
+		auto lrange = lhs.max - lhs.min;
+		if (lrange >= rhs.max) {
+			return ValueRange(0, rhs.max - 1).repack(t);
+		}
+		
+		// If lhs is within the bound of rhs.
+		if (lhs.max < rhs.max) {
+			return ValueRange((lhs.max > rhs.min) ? 0 : lhs.min, lhs.max).repack(t);
+		}
+		
+		auto lminrmaxloop = lhs.min / rhs.max;
+		auto lmaxrmaxloop = lhs.max / rhs.max;
+		
+		// If we are goign around more than once, pessimise.
+		if (lminrmaxloop != lmaxrmaxloop) {
+			return ValueRange(0, rhs.max - 1).repack(t);
+		}
+		
+		// Ignore ranges that contains 0 ?
+		if (rhs.min == 0) {
+			rhs.min = 1;
+		}
+		
+		// If we are goign around more than once, again, pessimise.
+		auto lminrminloop = lhs.min / rhs.min;
+		auto lmaxrminloop = lhs.max / rhs.min;
+		if (lminrminloop != lmaxrminloop || lminrminloop != lminrmaxloop) {
+			return ValueRange(0, lminrmaxloop ? rhs.max - 1 : lhs.max).repack(t);
+		}
+		
+		// At this point, we know that as rhs grow, the result will reduce.
+		// and as lhs grow, the result will increase.
+		return ValueRange(lhs.min % rhs.max, lhs.max % rhs.min).repack(t);
+	}
+	
+	private ValueRange smod(ValueRange lhs, ValueRange rhs, Type t) in {
+		assert(isSigned(t.builtin), t.toString(context) ~ " must be signed.");
+	} body {
+		// Compute RHS absolute value range, as a % b = a % -b
+		rhs = rhs.getSigned(t);
+		if (rhs.min > rhs.max) {
+			import std.algorithm;
+			rhs = ValueRange(0, max(-rhs.min, rhs.max));
+		} else if (rhs.min > long.max) {
+			rhs = rhs.complement(t);
+		}
+		
+		lhs = lhs.getSigned(t);
+		auto ut = Type.get(unsigned(t.builtin));
+		
+		// If lhs is signed, compute negative and positive, then aggregate.
+		if (lhs.min > lhs.max) {
+			auto pos = umod(ValueRange(0, lhs.max), rhs, ut);
+			if (pos.full) {
+				return pos;
+			}
+			
+			auto neg = umod(ValueRange(0, -lhs.min), rhs, ut);
+			if (neg.full) {
+				return neg;
+			}
+			
+			auto min = -neg.max;
+			auto max = pos.max;
+			
+			return min > max
+				? ValueRange(min, max).repack(t)
+				: ValueRange.get(t);
+		}
+		
+		return lhs.min > long.max
+			? umod(lhs.complement(t), rhs, ut).complement(t)
+			: umod(lhs, rhs, ut).repack(t);
+	}
+	
+	private auto mod(ValueRange lhs, ValueRange rhs, Type t) {
+		return isSigned(t.builtin)
+			? smod(lhs, rhs, t)
+			: umod(lhs, rhs, t);
+	}
+	
 	ValueRange visit(BinaryExpression e) {
 		switch (e.op) with(BinaryOp) {
 			case Comma, Assign :
@@ -328,6 +427,7 @@ struct ValueRangePropagator {
 				return div(visit(e.lhs), rhs, e.type);
 			
 			case Mod :
+				return mod(visit(e.lhs), visit(e.rhs), e.type);
 			
 			default :
 				assert(0, "Not implemented.");
@@ -420,6 +520,9 @@ unittest {
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Div, i2, i1));
 	assert(v == ValueRange(cast(uint) -4));
+	
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mod, i2, i1));
+	assert(v == ValueRange(6));
 }
 
 unittest {
@@ -556,5 +659,63 @@ unittest {
 	testSdiv(ValueRange(125, -23), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
 	testSdiv(ValueRange(221, 47), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
 	testSdiv(ValueRange(-12, -23), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
+	
+	void testUmod(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.mod(lhs, rhs, Type.get(BuiltinType.Ulong));
+		assert(v == res, "a % b");
+	}
+	
+	// non overflowing results.
+	testUmod(ValueRange(14, 52), ValueRange(101, 109), ValueRange(14, 52));
+	testUmod(ValueRange(18, 47), ValueRange(9, 109), ValueRange(0, 47));
+	
+	// within range.
+	testUmod(ValueRange(23), ValueRange(5), ValueRange(3));
+	testUmod(ValueRange(127), ValueRange(121, 123), ValueRange(4, 6));
+	testUmod(ValueRange(127, 132), ValueRange(121, 125), ValueRange(2, 11));
+	testUmod(ValueRange(144, 156), ValueRange(136, 144), ValueRange(0, 20));
+	
+	// rhs overflow.
+	testUmod(ValueRange(12, 61), ValueRange(49), ValueRange(0, 48));
+	testUmod(ValueRange(23, 152), ValueRange(50), ValueRange(0, 49));
+	testUmod(ValueRange(12, 61), ValueRange(49, 124), ValueRange(0, 61));
+	testUmod(ValueRange(118, 152), ValueRange(50, 57), ValueRange(0, 56));
+	
+	// modulo 0 elimination.
+	testUmod(ValueRange(23), ValueRange(0, 3), ValueRange(0, 2));
+	
+	// oveflow
+	testUmod(ValueRange(-21, 16), ValueRange(123, 456), ValueRange(0, 455));
+	testUmod(ValueRange(34, 53), ValueRange(-41, 36), ValueRange(0, 53));
+	testUmod(ValueRange(-25, 42), ValueRange(-13, 75), ValueRange(0, -2));
+	
+	void testSmod(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.mod(lhs, rhs, t);
+		assert(v == res, "a % b");
+		
+		v = vrp.mod(lhs, rhs.complement(t), t);
+		assert(v == res, "a % -b = a % b");
+		
+		v = vrp.mod(lhs.complement(t), rhs, t);
+		assert(v == res.complement(t), "-a % b = -(a % b)");
+		
+		v = vrp.mod(lhs.complement(t), rhs.complement(t), t);
+		assert(v == res.complement(t), "-a % -b = -(a % b)");
+	}
+	
+	// test various signed ranges.
+	testSmod(ValueRange(23), ValueRange(5), ValueRange(3));
+	testSmod(ValueRange(121, 161), ValueRange(-57, 52), ValueRange(0, 56));
+	testSmod(ValueRange(-21, 34), ValueRange(-17, 24), ValueRange(-21, 23));
+	
+	// degenerate numerator.
+	testSmod(ValueRange(125, -23), ValueRange(210, 214), ValueRange(-213, 213));
+	testSmod(ValueRange(221, 47), ValueRange(-45, 13), ValueRange(-44, 44));
+	testSmod(ValueRange(-12, -23), ValueRange(-25, 132), ValueRange(-131, 131));
+	
+	// degenerate denumerator.
+	testSmod(ValueRange(-21, 16), ValueRange(456, 123), ValueRange(-21, 16));
+	testSmod(ValueRange(34, 53), ValueRange(-32, -41), ValueRange(0, 53));
+	testSmod(ValueRange(42, -25), ValueRange(75, -13), ValueRange(long.min + 1, long.max));
 }
 
