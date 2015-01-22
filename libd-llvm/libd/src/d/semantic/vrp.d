@@ -24,6 +24,11 @@ struct ValueRange {
 		return (min - max) == 1;
 	}
 	
+	@property
+	bool hasZero() const {
+		return min == 0 || min > max;
+	}
+	
 	auto complement(Type t) const {
 		return ValueRange(-max, -min).repack(t);
 	}
@@ -39,6 +44,19 @@ struct ValueRange {
 	
 	bool opEquals(ValueRange rhs) const {
 		return (full && rhs.full) || (min == rhs.min && max == rhs.max);
+	}
+	
+	auto signExtend(Type t) const {
+		auto mask = getMask(t);
+		auto sign_mask = mask >> 1;
+		return ValueRange(
+			(min == (min & sign_mask))
+				? min
+				: min | ~mask,
+			(max == (max & sign_mask))
+				? max
+				: max | ~mask,
+		);
 	}
 	
 static:
@@ -216,10 +234,74 @@ struct ValueRangePropagator {
 			: res.repack(t);
 	}
 	
+	private auto udiv(ValueRange lhs, ValueRange rhs, Type t) in {
+		assert(!isSigned(t.builtin), t.toString(context) ~ " must be unsigned.");
+		assert(!rhs.hasZero, "Cannot divide by 0.");
+	} body {
+		if (lhs.min > lhs.max || lhs.full) {
+			lhs = ValueRange(0, -1);
+		}
+		
+		return ValueRange(lhs.min / rhs.max, lhs.max / rhs.min).repack(t);
+	}
+	
+	private ValueRange sdiv(ValueRange lhs, ValueRange rhs, Type t) in {
+		assert(isSigned(t.builtin), t.toString(context) ~ " must be signed.");
+		assert(!rhs.hasZero, "Cannot divide by 0.");
+	} body {
+		rhs = rhs.signExtend(t);
+		if (rhs.min > long.max) {
+			// Must be true if rhs.hasZero is false.
+			assert(rhs.max >= rhs.min);
+			
+			// a / b = -(a / -b)
+			return sdiv(lhs, rhs.complement(t), t).complement(t);
+		}
+		
+		lhs = lhs.signExtend(t);
+		
+		// Full range need to be adjusted for signed computation.
+		if (lhs.min < long.min && lhs.max > long.max) {
+			// [------min----/----max------]
+			lhs = ValueRange(long.min, long.max);
+		} else if (lhs.min > lhs.max && (lhs.max > long.max || lhs.min < long.min)) {
+			// [--max-min----/------------] or [-------------/--max---min-]
+			lhs = ValueRange(long.min, long.max);
+		}
+		
+		// Assert that full range are properly transformed.
+		assert(!lhs.full || lhs == ValueRange(long.min, long.max));
+		
+		long lmin = lhs.min;
+		long lmax = lhs.max;
+		long rmin = rhs.min;
+		long rmax = rhs.max;
+		
+		auto min = lmin < 0
+			? lmin / rmin
+			: lmin / rmax;
+		
+		auto max = lmax < 0
+			? lmax / rmax
+			: lmax / rmin;
+		
+		return ValueRange(min, max).repack(t);
+	}
+	
+	private auto div(ValueRange lhs, ValueRange rhs, Type t) {
+		// Division by 0 is an error, bailing out.
+		if (rhs.hasZero) {
+			return ValueRange.get(t);
+		}
+		
+		return isSigned(t.builtin)
+			? sdiv(lhs, rhs, t)
+			: udiv(lhs, rhs, t);
+	}
+	
 	ValueRange visit(BinaryExpression e) {
 		switch (e.op) with(BinaryOp) {
-			case Comma :
-			case Assign :
+			case Comma, Assign :
 				return visit(e.rhs).repack(e.type);
 			
 			case Add :
@@ -235,7 +317,17 @@ struct ValueRangePropagator {
 			case Mul :
 				return mul(visit(e.lhs), visit(e.rhs), e.type);
 			
-			case Div, Mod :
+			case Div :
+				auto rhs = visit(e.rhs);
+				
+				// We do an early check for divide by 0 so we don't need to visit lhs.
+				if (rhs.hasZero) {
+					return ValueRange.get(e.type);
+				}
+				
+				return div(visit(e.lhs), rhs, e.type);
+			
+			case Mod :
 			
 			default :
 				assert(0, "Not implemented.");
@@ -313,6 +405,10 @@ unittest {
 	auto v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Comma, i1, i2));
 	assert(v == ValueRange(42));
 	
+	// Technically, this is illegal, but it is out of scope of VRP to detect this, so will do.
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Assign, i1, i2));
+	assert(v == ValueRange(42));
+	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Add, i1, i2));
 	assert(v == ValueRange(33));
 	
@@ -321,6 +417,9 @@ unittest {
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mul, i1, i2));
 	assert(v == ValueRange(cast(uint) -378));
+	
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Div, i2, i1));
+	assert(v == ValueRange(cast(uint) -4));
 }
 
 unittest {
@@ -342,7 +441,11 @@ unittest {
 	testAdd(ValueRange(-5, 0), ValueRange(-1, 5), ValueRange(-6, 5));
 	testAdd(ValueRange(5, 6), ValueRange(-3, 5), ValueRange(2, 11));
 	testAdd(ValueRange(-12, 85), ValueRange(5, 53), ValueRange(-7, 138));
+	testAdd(ValueRange(1, long.max), ValueRange(long.min, -1), ValueRange(1 + long.min, long.max - 1));
+	
+	// overflow
 	testAdd(ValueRange(0, -42), ValueRange(42, -1), ValueRange(0, -1));
+	testAdd(ValueRange(1, long.max + 2), ValueRange(long.min, -1), ValueRange(0, -1));
 	
 	void testSub(ValueRange lhs, ValueRange rhs, ValueRange res) {
 		auto v = vrp.sub(lhs, rhs, t);
@@ -399,5 +502,59 @@ unittest {
 	testMul(ValueRange(0, 4294967296), ValueRange(0, 4294967297), ValueRange(0, -1));
 	testMul(ValueRange(-23, 4294967296), ValueRange(10, 4294967297), ValueRange(0, -1));
 	testMul(ValueRange(-3037000500, 3037000500), ValueRange(-3037000500, 3037000500), ValueRange(0, -1));
+	
+	void testUdiv(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.div(lhs, rhs, Type.get(BuiltinType.Ulong));
+		assert(v == res, "a / b");
+	}
+	
+	// unsigned numerator.
+	testUdiv(ValueRange(23), ValueRange(5), ValueRange(4));
+	testUdiv(ValueRange(23, 125), ValueRange(5, 7), ValueRange(3, 25));
+	testUdiv(ValueRange(0, 201), ValueRange(12, 17), ValueRange(0, 16));
+	
+	// division by 0.
+	testUdiv(ValueRange(42), ValueRange(0), ValueRange(0, -1));
+	testUdiv(ValueRange(42), ValueRange(-8, 0), ValueRange(0, -1));
+	testUdiv(ValueRange(42), ValueRange(0, 25), ValueRange(0, -1));
+	testUdiv(ValueRange(42), ValueRange(-5, 7), ValueRange(0, -1));
+	
+	// signed numerator.
+	testUdiv(ValueRange(-23, 125), ValueRange(89351496, 458963274), ValueRange(0, 206451429461));
+	
+	// degenerate numerator.
+	testUdiv(ValueRange(2, 1), ValueRange(89351496, 458963274), ValueRange(0, 206451429461));
+	
+	void testSdiv(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.div(lhs, rhs, t);
+		assert(v == res, "a / b");
+		
+		v = vrp.div(lhs.complement(t), rhs, t);
+		assert(v == res.complement(t), "(-a) / b = -(a / b)");
+		
+		v = vrp.div(lhs, rhs.complement(t), t);
+		assert(v == res.complement(t), "a / (-b) = -(a / b)");
+		
+		v = vrp.div(lhs.complement(t), rhs.complement(t), t);
+		assert(v == res, "(-a) / (-b) = a / b");
+	}
+	
+	// signed numerator.
+	testSdiv(ValueRange(23), ValueRange(5), ValueRange(4));
+	testSdiv(ValueRange(23, 42), ValueRange(5), ValueRange(4, 8));
+	testSdiv(ValueRange(0, 37), ValueRange(2, 7), ValueRange(0, 18));
+	testSdiv(ValueRange(14, 122), ValueRange(3, 6), ValueRange(2, 40));
+	testSdiv(ValueRange(-27, 31), ValueRange(5, 9), ValueRange(-5, 6));
+	
+	// division by 0.
+	testSdiv(ValueRange(42), ValueRange(0), ValueRange(0, -1));
+	testSdiv(ValueRange(42), ValueRange(-8, 0), ValueRange(0, -1));
+	testSdiv(ValueRange(42), ValueRange(0, 25), ValueRange(0, -1));
+	testSdiv(ValueRange(42), ValueRange(-5, 7), ValueRange(0, -1));
+	
+	// degenerate numerator.
+	testSdiv(ValueRange(125, -23), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
+	testSdiv(ValueRange(221, 47), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
+	testSdiv(ValueRange(-12, -23), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
 }
 
