@@ -25,7 +25,7 @@ struct ValueRange {
 	}
 	
 	auto complement(Type t) const {
-		return ValueRange(1 + ~max, 1 + ~min).repack(t);
+		return ValueRange(-max, -min).repack(t);
 	}
 	
 	auto repack(Type t) const {
@@ -127,6 +127,95 @@ struct ValueRangePropagator {
 		return add(lhs, rhs.complement(t), t);
 	}
 	
+	private auto getMulOverflow(ulong a, ulong b) {
+		// (a0 << 32 + a1)(b0 << 32 + b1) = a0b0 << 64 + (a0b1 + a1b0) << 32 + a1b1
+		auto a0 = a >> 32;
+		auto a1 = a & uint.max;
+		
+		auto b0 = b >> 32;
+		auto b1 = b & uint.max;
+		
+		auto a0b0 = a0 * b0;
+		auto a0b1 = a0 * b1;
+		auto a1b0 = a1 * b0;
+		auto a1b1 = a1 * b1;
+		
+		auto carry = (a1b1 >> 32 + ((a0b1 + a1b0) & uint.max)) >> 32;
+		return a0b0 + (a0b1 >> 32) + (a1b0 >> 32) + carry;
+	}
+	
+	private ValueRange mul(ValueRange lhs, ValueRange rhs, Type t) {
+		if (lhs.min > lhs.max) {
+			// [a, 0] * x = -([0, -a] * x)
+			if (lhs.max == 0) {
+				return mul(lhs.complement(t), rhs, t).complement(t);
+			}
+			
+			auto v0 = mul(ValueRange(0, lhs.max), rhs, t);
+			auto v1 = mul(ValueRange(lhs.min, -1), rhs, t);
+			
+			// This is caused by [a, 0] case and should be already handled.
+			assert (v0.min != 0 || v0.max != 0);
+			
+			// If one or the other overflowed, propagate.
+			if (v0.full) {
+				return v0;
+			}
+			
+			if (v1.full) {
+				return v1;
+			}
+			
+			// If rhs is positive, 0 must be kept in min.
+			if (v0.min == 0) {
+				return ValueRange(v1.min, v0.max);
+			}
+			
+			// If rhs is negative, 0 will be found in max.
+			if (v0.max == 0) {
+				return ValueRange(v0.min, v1.max);
+			}
+			
+			// If rhs is signed, aggregate both signed results.
+			import std.algorithm;
+			auto min = min(v0.min, v1.min);
+			auto max = max(v0.max, v1.max);
+			
+			return (min > max)
+				? ValueRange(min, max)
+				: ValueRange.get(t);
+		}
+		
+		if (rhs.min > rhs.max) {
+			return mul(rhs, lhs, t);
+		}
+		
+		// If a range is completely in the negtive, we take the complement as to avoid overflow.
+		auto lneg = lhs.min > long.max;
+		if (lneg) {
+			lhs = lhs.complement(t);
+		}
+		
+		auto rneg = rhs.min > long.max;
+		if (rneg) {
+			rhs = rhs.complement(t);
+		}
+		
+		auto res = ValueRange(lhs.min * rhs.min, lhs.max * rhs.max);
+		auto minoverflow = getMulOverflow(lhs.min, rhs.min);
+		auto maxoverflow = getMulOverflow(lhs.max, rhs.max);
+		
+		// If one overflow, but not the other, we need to pessimize.
+		if (minoverflow != maxoverflow) {
+			return ValueRange.get(t);
+		}
+		
+		// If we used the complement in only one case, take the complement of the result.
+		return (lneg ^ rneg)
+			? res.complement(t)
+			: res.repack(t);
+	}
+	
 	ValueRange visit(BinaryExpression e) {
 		switch (e.op) with(BinaryOp) {
 			case Comma :
@@ -143,7 +232,10 @@ struct ValueRangePropagator {
 			case Concat :
 				assert(0);
 			
-			case Mul, Div, Mod :
+			case Mul :
+				return mul(visit(e.lhs), visit(e.rhs), e.type);
+			
+			case Div, Mod :
 			
 			default :
 				assert(0, "Not implemented.");
@@ -226,6 +318,9 @@ unittest {
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Sub, i1, i2));
 	assert(v == ValueRange(cast(uint) -51));
+	
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mul, i1, i2));
+	assert(v == ValueRange(cast(uint) -378));
 }
 
 unittest {
@@ -264,5 +359,45 @@ unittest {
 	}
 	
 	testSub(ValueRange(-1), ValueRange(1), ValueRange(-2));
+	
+	void testMul(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.mul(lhs, rhs, t);
+		assert(v == res, "ab");
+		
+		v = vrp.mul(rhs, lhs, t);
+		assert(v == res, "ab = ba");
+		
+		v = vrp.mul(lhs.complement(t), rhs, t);
+		assert(v == res.complement(t), "(-a) * b = -ab");
+		
+		v = vrp.mul(lhs, rhs.complement(t), t);
+		assert(v == res.complement(t), "a * (-b) = -ab");
+		
+		v = vrp.mul(lhs.complement(t), rhs.complement(t), t);
+		assert(v == res, "(-a) * (-b) = ab");
+	}
+	
+	// min < max
+	testMul(ValueRange(2, 3), ValueRange(0), ValueRange(0));
+	testMul(ValueRange(2, 3), ValueRange(7, 23), ValueRange(14, 69));
+	testMul(ValueRange(1), ValueRange(125, -32), ValueRange(125, -32));
+	testMul(ValueRange(-7, -4), ValueRange(-5, -3), ValueRange(12, 35));
+	testMul(ValueRange(3, 3037000500), ValueRange(7, 3037000500), ValueRange(21, 9223372037000250000UL));
+	
+	// min > max on one side
+	testMul(ValueRange(-5, 42), ValueRange(1), ValueRange(-5, 42));
+	testMul(ValueRange(-5, 42), ValueRange(2, 5), ValueRange(-25, 210));
+	testMul(ValueRange(-5, 12), ValueRange(0, 7), ValueRange(-35, 84));
+	testMul(ValueRange(5, 3037000500), ValueRange(-12, 3037000500), ValueRange(-36444006000, 9223372037000250000UL));
+	
+	// min > max on both side
+	testMul(ValueRange(-1, 5), ValueRange(-7, 22), ValueRange(-35, 110));
+	testMul(ValueRange(-11, 3037000500), ValueRange(-8, 3037000500), ValueRange(-33407005500, 9223372037000250000UL));
+	
+	// overflow
+	testMul(ValueRange(123), ValueRange(long.min, ulong.max), ValueRange(0, -1));
+	testMul(ValueRange(0, 4294967296), ValueRange(0, 4294967297), ValueRange(0, -1));
+	testMul(ValueRange(-23, 4294967296), ValueRange(10, 4294967297), ValueRange(0, -1));
+	testMul(ValueRange(-3037000500, 3037000500), ValueRange(-3037000500, 3037000500), ValueRange(0, -1));
 }
 
