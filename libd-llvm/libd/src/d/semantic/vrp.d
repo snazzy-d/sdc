@@ -104,13 +104,18 @@ struct ValueRangePropagator {
 	}
 	
 	private auto add(ValueRange lhs, ValueRange rhs, Type t) {
-		auto min = lhs.min + rhs.min;
-		auto max = lhs.max + rhs.max;
-		
-		// If one overflow, but not the other, we need to pessimize.
-		return ((min < lhs.min && min < rhs.min) == (max < lhs.max && max < rhs.max))
-			? ValueRange(min, max).repack(t)
-			: ValueRange.get(t);
+		auto lrange = lhs.max - lhs.min;
+		auto rrange = rhs.max - rhs.min;
+
+		// If the total range overflow, pessimise.
+		auto range = lrange + rrange;
+		return (range < lrange && range < rrange)
+			? ValueRange.get(t)
+			: ValueRange(lhs.min + rhs.min, lhs.max + rhs.max).repack(t);
+	}
+	
+	private auto sub(ValueRange lhs, ValueRange rhs, Type t) {
+		return add(lhs, rhs.complement(t), t);
 	}
 	
 	ValueRange visit(BinaryExpression e) {
@@ -124,7 +129,7 @@ struct ValueRangePropagator {
 			
 			case Sub :
 				// Get the complement and compute as an add.
-				return add(visit(e.lhs), visit(e.rhs).complement(e.rhs.type), e.type);
+				return sub(visit(e.lhs), visit(e.rhs), e.type);
 			
 			case Concat :
 				assert(0);
@@ -148,27 +153,6 @@ struct ValueRangePropagator {
 			? visit(v.value)
 			: ValueRange.get(v.type);
 	}
-}
-
-unittest {
-	auto vrp = ValueRangePropagator();
-	
-	import d.location;
-	auto v = vrp.visit(new BooleanLiteral(Location.init, false));
-	assert(v.min == false);
-	assert(v.max == false);
-	
-	v = vrp.visit(new BooleanLiteral(Location.init, true));
-	assert(v.min == true);
-	assert(v.max == true);
-	
-	v = vrp.visit(new IntegerLiteral!true(Location.init, -9, BuiltinType.Byte));
-	assert(v.min == cast(ubyte) -9);
-	assert(v.max == cast(ubyte) -9);
-	
-	v = vrp.visit(new IntegerLiteral!false(Location.init, 42, BuiltinType.Uint));
-	assert(v.min == 42);
-	assert(v.max == 42);
 }
 
 unittest {
@@ -201,6 +185,27 @@ unittest {
 	auto vrp = ValueRangePropagator();
 	
 	import d.location;
+	auto v = vrp.visit(new BooleanLiteral(Location.init, false));
+	assert(v.min == false);
+	assert(v.max == false);
+	
+	v = vrp.visit(new BooleanLiteral(Location.init, true));
+	assert(v.min == true);
+	assert(v.max == true);
+	
+	v = vrp.visit(new IntegerLiteral!true(Location.init, -9, BuiltinType.Byte));
+	assert(v.min == cast(ubyte) -9);
+	assert(v.max == cast(ubyte) -9);
+	
+	v = vrp.visit(new IntegerLiteral!false(Location.init, 42, BuiltinType.Uint));
+	assert(v.min == 42);
+	assert(v.max == 42);
+}
+
+unittest {
+	auto vrp = ValueRangePropagator();
+	
+	import d.location;
 	auto i1 = new IntegerLiteral!true(Location.init, -9, BuiltinType.Int);
 	auto i2 = new IntegerLiteral!true(Location.init, 42, BuiltinType.Int);
 	
@@ -216,18 +221,24 @@ unittest {
 
 unittest {
 	auto vrp = ValueRangePropagator();
+	auto t = Type.get(BuiltinType.Long);
 	
-	import d.location;
-	auto i1 = new IntegerLiteral!true(Location.init, -1, BuiltinType.Long);
-	auto i2 = new IntegerLiteral!false(Location.init, 1, BuiltinType.Ulong);
-	
-	auto v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Ulong), BinaryOp.Add, i1, i2));
+	auto v = vrp.add(ValueRange(1), ValueRange(-1), t);
 	assert(v == ValueRange(0));
 	
-	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Long), BinaryOp.Sub, i1, i2));
+	v = vrp.sub(ValueRange(-1), ValueRange(1), t);
 	assert(v == ValueRange(-2));
 	
-	v = vrp.add(ValueRange(0, -42), ValueRange(42, -1), Type.get(BuiltinType.Long));
+	v = vrp.add(ValueRange(-5, 0), ValueRange(-1, 5), t);
+	assert(v == ValueRange(-6, 5));
+	
+	v = vrp.add(ValueRange(5, 6), ValueRange(-3, 5), t);
+	assert(v == ValueRange(2, 11));
+	
+	v = vrp.add(ValueRange(-12, 85), ValueRange(5, 53), t);
+	assert(v == ValueRange(-7, 138));
+	
+	v = vrp.add(ValueRange(0, -42), ValueRange(42, -1), t);
 	assert(v == ValueRange(0, -1));
 }
 
