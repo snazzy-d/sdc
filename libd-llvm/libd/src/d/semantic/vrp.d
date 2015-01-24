@@ -19,6 +19,11 @@ struct ValueRange {
 		this(value, value);
 	}
 	
+	@property
+	bool full() const {
+		return (min - max) == 1;
+	}
+	
 	auto complement(Type t) const {
 		return ValueRange(1 + ~max, 1 + ~min).repack(t);
 	}
@@ -30,6 +35,10 @@ struct ValueRange {
 		return ((min & ~mask) == (max & ~mask))
 			? ValueRange(min & mask, max & mask)
 			: ValueRange(0, mask);
+	}
+	
+	bool opEquals(ValueRange rhs) const {
+		return (full && rhs.full) || (min == rhs.min && max == rhs.max);
 	}
 	
 static:
@@ -106,7 +115,7 @@ struct ValueRangePropagator {
 	private auto add(ValueRange lhs, ValueRange rhs, Type t) {
 		auto lrange = lhs.max - lhs.min;
 		auto rrange = rhs.max - rhs.min;
-
+		
 		// If the total range overflow, pessimise.
 		auto range = lrange + rrange;
 		return (range < lrange && range < rrange)
@@ -223,22 +232,37 @@ unittest {
 	auto vrp = ValueRangePropagator();
 	auto t = Type.get(BuiltinType.Long);
 	
-	auto v = vrp.add(ValueRange(1), ValueRange(-1), t);
-	assert(v == ValueRange(0));
+	void testAdd(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.add(lhs, rhs, t);
+		assert(v == res, "a + b");
+		
+		v = vrp.add(rhs, lhs, t);
+		assert(v == res, "a + b = b + a");
+		
+		v = vrp.add(lhs.complement(t), rhs.complement(t), t);
+		assert(v == res.complement(t), "-a + -b = -(a + b)");
+	}
 	
-	v = vrp.sub(ValueRange(-1), ValueRange(1), t);
-	assert(v == ValueRange(-2));
+	testAdd(ValueRange(1), ValueRange(-1), ValueRange(0));
+	testAdd(ValueRange(-5, 0), ValueRange(-1, 5), ValueRange(-6, 5));
+	testAdd(ValueRange(5, 6), ValueRange(-3, 5), ValueRange(2, 11));
+	testAdd(ValueRange(-12, 85), ValueRange(5, 53), ValueRange(-7, 138));
+	testAdd(ValueRange(0, -42), ValueRange(42, -1), ValueRange(0, -1));
 	
-	v = vrp.add(ValueRange(-5, 0), ValueRange(-1, 5), t);
-	assert(v == ValueRange(-6, 5));
+	void testSub(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto v = vrp.sub(lhs, rhs, t);
+		assert(v == res, "a - b");
+		
+		v = vrp.sub(rhs, lhs, t);
+		assert(v == res.complement(t), "b - a = -(a - b)");
+		
+		v = vrp.add(lhs, rhs.complement(t), t);
+		assert(v == res, "a + -b = a - b");
+		
+		v = vrp.sub(lhs.complement(t), rhs.complement(t), t);
+		assert(v == res.complement(t), "-a - -b = -(a - b)");
+	}
 	
-	v = vrp.add(ValueRange(5, 6), ValueRange(-3, 5), t);
-	assert(v == ValueRange(2, 11));
-	
-	v = vrp.add(ValueRange(-12, 85), ValueRange(5, 53), t);
-	assert(v == ValueRange(-7, 138));
-	
-	v = vrp.add(ValueRange(0, -42), ValueRange(42, -1), t);
-	assert(v == ValueRange(0, -1));
+	testSub(ValueRange(-1), ValueRange(1), ValueRange(-2));
 }
 
