@@ -6,108 +6,6 @@ import d.ir.type;
 
 import d.semantic.semantic;
 
-struct ValueRange {
-	ulong min = ulong.min;
-	ulong max = ulong.max;
-	
-	this(ulong min, ulong max) {
-		this.min = min;
-		this.max = max;
-	}
-	
-	this(ulong value) {
-		this(value, value);
-	}
-	
-	@property
-	bool full() const {
-		return (min - max) == 1;
-	}
-	
-	@property
-	bool hasZero() const {
-		return min == 0 || min > max;
-	}
-	
-	auto complement(Type t) const {
-		return ValueRange(-max, -min).repack(t);
-	}
-	
-	auto repack(Type t) const {
-		auto mask = getMask(t);
-		
-		// If overflow is identical, then simply strip it.
-		return ((min & ~mask) == (max & ~mask))
-			? ValueRange(min & mask, max & mask)
-			: ValueRange(0, mask);
-	}
-	
-	bool opEquals(ValueRange rhs) const {
-		return (full && rhs.full) || (min == rhs.min && max == rhs.max);
-	}
-	
-	auto signExtend(Type t) const {
-		auto mask = getMask(t);
-		auto sign_mask = mask >> 1;
-		return ValueRange(
-			(min == (min & sign_mask))
-				? min
-				: min | ~mask,
-			(max == (max & sign_mask))
-				? max
-				: max | ~mask,
-		);
-	}
-	
-	auto getSigned(Type t) const {
-		auto res = signExtend(t);
-		
-		// Full range need to be adjusted for signed computation.
-		if (res.min < long.min && res.max > long.max) {
-			// [------min----/----max------]
-			res = ValueRange(long.min, long.max);
-		} else if (res.min > res.max && (res.max > long.max || res.min < long.min)) {
-			// [--max-min----/------------] or [-------------/--max---min-]
-			res = ValueRange(long.min, long.max);
-		}
-		
-		return res;
-	}
-	
-static:
-	ValueRange get(ulong u0, ulong u1, ulong u2, ulong u3) {
-		import std.algorithm;
-		return ValueRange(min(u0, u1, u2, u3), max(u0, u1, u2, u3));
-	}
-	
-	ValueRange get(Type t) {
-		return ValueRange(0, getMask(t));
-	}
-	
-	ulong getMask(Type t) {
-		if (t.kind == TypeKind.Enum) {
-			return getMask(t.denum.type);
-		}
-		
-		if (t.hasPointerABI()) {
-			return ulong.max;
-		}
-		
-		auto bt = t.builtin;
-		assert(canConvertToIntegral(bt));
-		
-		if (bt == BuiltinType.Bool) {
-			return 1;
-		}
-		
-		bt = isChar(bt)
-			? integralOfChar(bt)
-			: unsigned(bt);
-		
-		return getMax(bt);
-	}
-}
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -120,15 +18,34 @@ struct ValueRangePropagator {
 	}
 	
 	bool canFit(Expression e, Type t) {
-		auto ev = visit(e);
-		auto tv = ValueRange.get(t);
+		auto er = visit(e);
+		auto tr = pessimise(t);
 		
-		return ev.min >= tv.min && ev.max <= tv.max;
+		auto sr = (tr.min > tr.max)
+			? tr
+			: ValueRange(~(tr.max / 2), tr.max / 2);
+		
+		if (er.min > er.max) {
+			return er.min >= sr.min && er.max <= sr.max;
+		}
+		
+		// Both negative.
+		if (er.min >= sr.min) {
+			return true;
+		}
+		
+		auto ur = (tr.min > tr.max)
+			? ValueRange(0, tr.max - tr.min)
+			: tr;
+		
+		return er.min >= ur.min && er.max <= ur.max;
 	}
 	
 	// Expressions
 	ValueRange visit(Expression e) in {
 		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "VRP expect integral types.");
+	} out(result) {
+		assert(result == result.repack(getBuiltin(e.type)), "Result is not repacked properly.");
 	} body {
 		return this.dispatch(e);
 	}
@@ -138,16 +55,66 @@ struct ValueRangePropagator {
 	}
 	
 	ValueRange visit(IntegerLiteral!false e) {
-		return ValueRange(e.value).repack(e.type);
+		return ValueRange(e.value).repack(e.type.builtin);
 	}
 	
 	ValueRange visit(IntegerLiteral!true e) {
-		return ValueRange(e.value).repack(e.type);
+		return ValueRange(e.value).repack(e.type.builtin);
 	}
 	
-	private auto add(ValueRange lhs, ValueRange rhs, Type t) {
-		auto lrange = lhs.max - lhs.min;
-		auto rrange = rhs.max - rhs.min;
+	ValueRange visit(BinaryExpression e) {
+		switch (e.op) with(BinaryOp) {
+			case Comma, Assign :
+				return visit(e.rhs).repack(e.type.builtin);
+			
+			case Add :
+				return add(visit(e.lhs), visit(e.rhs), e.type.builtin);
+			
+			case Sub :
+				// Get the complement and compute as an add.
+				return sub(visit(e.lhs), visit(e.rhs), e.type.builtin);
+			
+			case Concat :
+				assert(0);
+			
+			case Mul :
+				return mul(visit(e.lhs), visit(e.rhs), e.type.builtin);
+			
+			case Div :
+				auto rhs = visit(e.rhs);
+				
+				// We do an early check for divide by 0 so we don't need to visit lhs.
+				if (rhs.hasZero) {
+					return ValueRange.get(e.type.builtin);
+				}
+				
+				return div(visit(e.lhs), rhs, e.type.builtin);
+			
+			case Mod :
+				return mod(visit(e.lhs), visit(e.rhs), e.type.builtin);
+			
+			default :
+				assert(0, "Not implemented.");
+		}
+	}
+	
+	ValueRange visit(UnaryExpression e) {
+		assert(0, "Not implemented.");
+	}
+	
+	ValueRange visit(VariableExpression e) {
+		auto v = e.var;
+		scheduler.require(v, Step.Processed);
+		
+		return (v.storage == Storage.Enum || v.type.qualifier == TypeQualifier.Immutable)
+			? visit(v.value)
+			: pessimise(v.type);
+	}
+	
+private:
+	auto add(ValueRange lhs, ValueRange rhs, BuiltinType t) {
+		auto lrange = lhs.range;
+		auto rrange = rhs.range;
 		
 		// If the total range overflow, pessimise.
 		auto range = lrange + rrange;
@@ -156,11 +123,11 @@ struct ValueRangePropagator {
 			: ValueRange(lhs.min + rhs.min, lhs.max + rhs.max).repack(t);
 	}
 	
-	private auto sub(ValueRange lhs, ValueRange rhs, Type t) {
+	auto sub(ValueRange lhs, ValueRange rhs, BuiltinType t) {
 		return add(lhs, rhs.complement(t), t);
 	}
 	
-	private auto getMulOverflow(ulong a, ulong b) {
+	auto getMulOverflow(ulong a, ulong b) {
 		// (a0 << 32 + a1)(b0 << 32 + b1) = a0b0 << 64 + (a0b1 + a1b0) << 32 + a1b1
 		auto a0 = a >> 32;
 		auto a1 = a & uint.max;
@@ -177,59 +144,17 @@ struct ValueRangePropagator {
 		return a0b0 + (a0b1 >> 32) + (a1b0 >> 32) + carry;
 	}
 	
-	private ValueRange mul(ValueRange lhs, ValueRange rhs, Type t) {
-		if (lhs.min > lhs.max) {
-			// [a, 0] * x = -([0, -a] * x)
-			if (lhs.max == 0) {
-				return mul(lhs.complement(t), rhs, t).complement(t);
-			}
-			
-			auto v0 = mul(ValueRange(0, lhs.max), rhs, t);
-			
-			// This is caused by [a, 0] case and should be already handled.
-			assert (v0.min != 0 || v0.max != 0);
-			
-			// If one or the other overflowed, propagate.
-			if (v0.full) {
-				return v0;
-			}
-			
-			auto v1 = mul(ValueRange(lhs.min, -1), rhs, t);
-			if (v1.full) {
-				return v1;
-			}
-			
-			// If rhs is positive, 0 must be kept in min.
-			if (v0.min == 0) {
-				return ValueRange(v1.min, v0.max);
-			}
-			
-			// If rhs is negative, 0 will be found in max.
-			if (v0.max == 0) {
-				return ValueRange(v0.min, v1.max);
-			}
-			
-			// If rhs is signed, aggregate both signed results.
-			import std.algorithm;
-			auto min = min(v0.min, v1.min);
-			auto max = max(v0.max, v1.max);
-			
-			return (min > max)
-				? ValueRange(min, max)
-				: ValueRange.get(t);
-		}
-		
-		if (rhs.min > rhs.max) {
-			return mul(rhs, lhs, t);
-		}
-		
+	auto umul(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(lhs.min <= lhs.max && rhs.min <= rhs.max);
+	} body {
 		// If a range is completely in the negtive, we take the complement as to avoid overflow.
-		auto lneg = lhs.min > long.max;
+		auto smax = getMask(t) >> 1;
+		auto lneg = lhs.min > smax;
 		if (lneg) {
 			lhs = lhs.complement(t);
 		}
 		
-		auto rneg = rhs.min > long.max;
+		auto rneg = rhs.min > smax;
 		if (rneg) {
 			rhs = rhs.complement(t);
 		}
@@ -249,8 +174,74 @@ struct ValueRangePropagator {
 			: res.repack(t);
 	}
 	
-	private auto udiv(ValueRange lhs, ValueRange rhs, Type t) in {
-		assert(!isSigned(t.builtin), t.toString(context) ~ " must be unsigned.");
+	auto smul(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(lhs.min > lhs.max && lhs.max != 0);
+		assert(rhs != ValueRange(0));
+	} body {
+		// Make the computation in signed mode, so aggregation is easier.
+		if (!isSigned(t)) {
+			t = signed(t);
+			lhs = lhs.repack(t);
+			rhs = rhs.repack(t);
+		}
+		
+		auto v0 = mul(ValueRange(0, lhs.max), rhs, t);
+		
+		// This is caused by [a, 0] or rhs = 0 and should be already handled.
+		assert (v0.min != 0 || v0.max != 0);
+		
+		// If one or the other overflowed, propagate.
+		if (v0.full) {
+			return v0;
+		}
+		
+		auto v1 = mul(ValueRange(lhs.min, 0), rhs, t);
+		if (v1.full) {
+			return v1;
+		}
+		
+		// If rhs is positive, 0 must be kept in min.
+		if (v0.min == 0 || v1.max == 0) {
+			return ValueRange(v1.min, v0.max);
+		}
+		
+		// If rhs is negative, 0 will be found in max.
+		if (v0.max == 0 || v1.min == 0) {
+			// assert(v1.min == 0);
+			return ValueRange(v0.min, v1.max);
+		}
+		
+		// If rhs is signed, aggregate both signed results.
+		import std.algorithm;
+		auto min = min(v0.min, v1.min);
+		auto max = max(v0.max, v1.max);
+		
+		return (min > max)
+			? ValueRange(min, max)
+			: ValueRange.get(t);
+	}
+	
+	ValueRange mul(ValueRange lhs, ValueRange rhs, BuiltinType t) {
+		// Multiplication by 0 is always 0.
+		auto zero = ValueRange(0);
+		if (rhs == zero || lhs == zero) {
+			return zero;
+		}
+		
+		if (lhs.min > lhs.max) {
+			// [-a, 0] * x = -([0, a] * x)
+			return lhs.max
+				? smul(lhs, rhs, t).repack(t)
+				: mul(lhs.complement(t), rhs, t).complement(t);
+		}
+		
+		return (rhs.min > rhs.max)
+			? mul(rhs, lhs, t)
+			: umul(lhs, rhs, t);
+	}
+	
+	auto udiv(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(!isSigned(t), "t must be unsigned.");
 		assert(!rhs.hasZero, "Cannot divide by 0.");
 	} body {
 		if (lhs.min > lhs.max || lhs.full) {
@@ -260,8 +251,8 @@ struct ValueRangePropagator {
 		return ValueRange(lhs.min / rhs.max, lhs.max / rhs.min).repack(t);
 	}
 	
-	private ValueRange sdiv(ValueRange lhs, ValueRange rhs, Type t) in {
-		assert(isSigned(t.builtin), t.toString(context) ~ " must be signed.");
+	ValueRange sdiv(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(isSigned(t), "t must be signed.");
 		assert(!rhs.hasZero, "Cannot divide by 0.");
 	} body {
 		rhs = rhs.signExtend(t);
@@ -294,19 +285,19 @@ struct ValueRangePropagator {
 		return ValueRange(min, max).repack(t);
 	}
 	
-	private auto div(ValueRange lhs, ValueRange rhs, Type t) {
+	auto div(ValueRange lhs, ValueRange rhs, BuiltinType t) {
 		// Division by 0 is an error, bailing out.
 		if (rhs.hasZero) {
 			return ValueRange.get(t);
 		}
 		
-		return isSigned(t.builtin)
+		return isSigned(t)
 			? sdiv(lhs, rhs, t)
 			: udiv(lhs, rhs, t);
 	}
 	
-	private ValueRange umod(ValueRange lhs, ValueRange rhs, Type t) in {
-		assert(!isSigned(t.builtin), t.toString(context) ~ " must be unsigned.");
+	ValueRange umod(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(!isSigned(t), "t must be unsigned.");
 	} body {
 		if (lhs.min > lhs.max) {
 			lhs = ValueRange(0, -1);
@@ -317,7 +308,7 @@ struct ValueRangePropagator {
 		}
 		
 		// If the range of lhs is greater than rhs.max, pessimise.
-		auto lrange = lhs.max - lhs.min;
+		auto lrange = lhs.range;
 		if (lrange >= rhs.max) {
 			return ValueRange(0, rhs.max - 1).repack(t);
 		}
@@ -352,8 +343,8 @@ struct ValueRangePropagator {
 		return ValueRange(lhs.min % rhs.max, lhs.max % rhs.min).repack(t);
 	}
 	
-	private ValueRange smod(ValueRange lhs, ValueRange rhs, Type t) in {
-		assert(isSigned(t.builtin), t.toString(context) ~ " must be signed.");
+	ValueRange smod(ValueRange lhs, ValueRange rhs, BuiltinType t) in {
+		assert(isSigned(t), "t must be signed.");
 	} body {
 		// Compute RHS absolute value range, as a % b = a % -b
 		rhs = rhs.getSigned(t);
@@ -365,7 +356,7 @@ struct ValueRangePropagator {
 		}
 		
 		lhs = lhs.getSigned(t);
-		auto ut = Type.get(unsigned(t.builtin));
+		auto ut = unsigned(t);
 		
 		// If lhs is signed, compute negative and positive, then aggregate.
 		if (lhs.min > lhs.max) {
@@ -392,84 +383,183 @@ struct ValueRangePropagator {
 			: umod(lhs, rhs, ut).repack(t);
 	}
 	
-	private auto mod(ValueRange lhs, ValueRange rhs, Type t) {
-		return isSigned(t.builtin)
+	auto mod(ValueRange lhs, ValueRange rhs, BuiltinType t) {
+		return isSigned(t)
 			? smod(lhs, rhs, t)
 			: umod(lhs, rhs, t);
 	}
 	
-	ValueRange visit(BinaryExpression e) {
-		switch (e.op) with(BinaryOp) {
-			case Comma, Assign :
-				return visit(e.rhs).repack(e.type);
-			
-			case Add :
-				return add(visit(e.lhs), visit(e.rhs), e.type);
-			
-			case Sub :
-				// Get the complement and compute as an add.
-				return sub(visit(e.lhs), visit(e.rhs), e.type);
-			
-			case Concat :
-				assert(0);
-			
-			case Mul :
-				return mul(visit(e.lhs), visit(e.rhs), e.type);
-			
-			case Div :
-				auto rhs = visit(e.rhs);
-				
-				// We do an early check for divide by 0 so we don't need to visit lhs.
-				if (rhs.hasZero) {
-					return ValueRange.get(e.type);
-				}
-				
-				return div(visit(e.lhs), rhs, e.type);
-			
-			case Mod :
-				return mod(visit(e.lhs), visit(e.rhs), e.type);
-			
-			default :
-				assert(0, "Not implemented.");
+	BuiltinType getBuiltin(Type t) {
+		if (t.kind == TypeKind.Enum) {
+			scheduler.require(t.denum, Step.Signed);
+			return getBuiltin(t.denum.type);
 		}
-	}
-	
-	ValueRange visit(UnaryExpression e) {
-		assert(0, "Not implemented.");
-	}
-	
-	ValueRange visit(VariableExpression e) {
-		auto v = e.var;
-		scheduler.require(v, Step.Processed);
 		
-		return (v.storage == Storage.Enum || v.type.qualifier == TypeQualifier.Immutable)
-			? visit(v.value)
-			: ValueRange.get(v.type);
+		if (t.hasPointerABI()) {
+			return getBuiltin(pass.object.getSizeT().type);
+		}
+		
+		assert(t.kind == TypeKind.Builtin);
+		assert(canConvertToIntegral(t.builtin), "Only integral are supported for now.");
+		
+		return t.builtin;
+	}
+	
+	auto pessimise(Type t) {
+		return ValueRange.get(getBuiltin(t));
 	}
 }
 
+private:
+struct ValueRange {
+	ulong min = ulong.min;
+	ulong max = ulong.max;
+	
+	this(ulong min, ulong max) {
+		this.min = min;
+		this.max = max;
+	}
+	
+	this(ulong value) {
+		this(value, value);
+	}
+	
+	@property
+	ulong range() const {
+		return max - min;
+	}
+	
+	@property
+	bool full() const {
+		return range == -1;
+	}
+	
+	@property
+	bool hasZero() const {
+		return min == 0 || min > max;
+	}
+	
+	auto complement(BuiltinType t) const {
+		return ValueRange(-max, -min).repack(t);
+	}
+	
+	auto repack(BuiltinType t) const out(result) {
+		assert(result.range <= getMask(t), "Produced result of invalid range.");
+	} body {
+		auto mask = getMask(t);
+		auto signed = isIntegral(t) && isSigned(t);
+		
+		auto sign_max = mask >> 1;
+		auto sign_min = sign_max | ~mask;
+		auto sign_mask = sign_max + 1;
+		
+		// If range excceed, then return the full range.
+		if (range >= mask) {
+			return signed
+				? ValueRange(sign_mask | ~mask, sign_max)
+				: ValueRange(0, mask);
+		}
+		
+		auto smin = min | ~mask;
+		auto smax = max | ~mask;
+		auto umin = min & mask;
+		auto umax = max & mask;
+		
+		if (min > max) {
+			assert(min == smin && max == umax);
+			return ValueRange(smin, umax);
+		}
+		
+		// Ensure that truncation create a range that fit.
+		if (umin > umax) {
+			return ValueRange(smin, umax);
+		}
+		
+		if (!signed) {
+			return ValueRange(umin, umax);
+		}
+		
+		// If this is signed, we sign extend if both are negative.
+		return ((min & sign_mask) && (max & sign_mask))
+			? ValueRange(smin, smax)
+			: ValueRange(umin, umax);
+	}
+	
+	bool opEquals(ValueRange rhs) const {
+		return (full && rhs.full) || (min == rhs.min && max == rhs.max);
+	}
+	
+	// FIXME, not sure, need sanity check.
+	auto signExtend(BuiltinType t) const {
+		auto mask = getMask(t);
+		assert(range <= mask);
+		
+		auto sign_mask = (mask >> 1) + 1;
+		return ValueRange(
+			(min & sign_mask)
+				? min | ~mask
+				: min & mask,
+			(max & sign_mask)
+				? max | ~mask
+				: max & mask,
+		);
+	}
+	
+	auto getSigned(BuiltinType t) const {
+		auto res = signExtend(t);
+		
+		// Full range need to be adjusted for signed computation.
+		if (res.min < long.min && res.max > long.max) {
+			// [------min----/----max------]
+			res = ValueRange(long.min, long.max);
+		} else if (res.min > res.max && (res.max > long.max || res.min < long.min)) {
+			// [--max-min----/------------] or [-------------/--max---min-]
+			res = ValueRange(long.min, long.max);
+		}
+		
+		return res;
+	}
+	
+static:
+	ValueRange get(BuiltinType t) in {
+		assert(canConvertToIntegral(t));
+	} body {
+		auto mask = getMask(t);
+		return (isIntegral(t) && isSigned(t))
+			? ValueRange(((mask >> 1) + 1) | ~mask, mask >> 1)
+			: ValueRange(0, mask);
+	}
+}
+
+
+ulong getMask(BuiltinType t) in {
+	assert(canConvertToIntegral(t));
+} body {
+	if (t == BuiltinType.Bool) {
+		return 1;
+	}
+	
+	t = isChar(t)
+		? integralOfChar(t)
+		: unsigned(t);
+	
+	return getMax(t);
+}
+
 unittest {
-	auto v = ValueRange.get(Type.get(BuiltinType.Bool));
+	auto v = ValueRange.get(BuiltinType.Bool);
 	assert(v.min == bool.min);
 	assert(v.max == bool.max);
 	
-	v = ValueRange.get(Type.get(BuiltinType.Byte));
+	v = ValueRange.get(BuiltinType.Byte);
+	assert(v.min == byte.min);
+	assert(v.max == byte.max);
+	
+	v = ValueRange.get(BuiltinType.Char);
 	assert(v.min == ubyte.min);
 	assert(v.max == ubyte.max);
 	
-	v = ValueRange.get(Type.get(BuiltinType.Char));
-	assert(v.min == ubyte.min);
-	assert(v.max == ubyte.max);
-	
-	v = ValueRange.get(Type.get(BuiltinType.Ulong));
-	assert(v.min == ulong.min);
-	assert(v.max == ulong.max);
-	
-	v = ValueRange.get(Type.get(BuiltinType.Void).getPointer());
-	assert(v.min == ulong.min);
-	assert(v.max == ulong.max);
-	
-	v = ValueRange.get(Type.get(Class.init));
+	v = ValueRange.get(BuiltinType.Ulong);
 	assert(v.min == ulong.min);
 	assert(v.max == ulong.max);
 }
@@ -487,8 +577,8 @@ unittest {
 	assert(v.max == true);
 	
 	v = vrp.visit(new IntegerLiteral!true(Location.init, -9, BuiltinType.Byte));
-	assert(v.min == cast(ubyte) -9);
-	assert(v.max == cast(ubyte) -9);
+	assert(v.min == -9);
+	assert(v.max == -9);
 	
 	v = vrp.visit(new IntegerLiteral!false(Location.init, 42, BuiltinType.Uint));
 	assert(v.min == 42);
@@ -513,13 +603,13 @@ unittest {
 	assert(v == ValueRange(33));
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Sub, i1, i2));
-	assert(v == ValueRange(cast(uint) -51));
+	assert(v == ValueRange(-51));
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mul, i1, i2));
-	assert(v == ValueRange(cast(uint) -378));
+	assert(v == ValueRange(-378));
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Div, i2, i1));
-	assert(v == ValueRange(cast(uint) -4));
+	assert(v == ValueRange(-4));
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mod, i2, i1));
 	assert(v == ValueRange(6));
@@ -527,87 +617,113 @@ unittest {
 
 unittest {
 	auto vrp = ValueRangePropagator();
-	auto t = Type.get(BuiltinType.Long);
 	
-	void testAdd(ValueRange lhs, ValueRange rhs, ValueRange res) {
-		auto v = vrp.add(lhs, rhs, t);
-		assert(v == res, "a + b");
+	foreach(t; BuiltinType.Byte .. BuiltinType.Cent) {
+		void testAdd(ValueRange lhs, ValueRange rhs, ValueRange res) {
+			auto clhs = lhs.complement(t);
+			auto crhs = rhs.complement(t);
+			auto cres = res.complement(t);
+			
+			lhs = lhs.repack(t);
+			rhs = rhs.repack(t);
+			res = res.repack(t);
+			
+			auto v = vrp.add(lhs, rhs, t);
+			assert(v == res, "a + b");
+			
+			v = vrp.add(rhs, lhs, t);
+			assert(v == res, "a + b = b + a");
+			
+			v = vrp.add(clhs, crhs, t);
+			assert(v == cres, "-a + -b = -(a + b)");
+		}
 		
-		v = vrp.add(rhs, lhs, t);
-		assert(v == res, "a + b = b + a");
+		testAdd(ValueRange(1), ValueRange(-1), ValueRange(0));
+		testAdd(ValueRange(-5, 0), ValueRange(-1, 5), ValueRange(-6, 5));
+		testAdd(ValueRange(5, 6), ValueRange(-3, 5), ValueRange(2, 11));
+		testAdd(ValueRange(-12, 85), ValueRange(5, 53), ValueRange(-7, 138));
+		testAdd(ValueRange(1, long.max), ValueRange(long.min, -1), ValueRange(1 + long.min, long.max - 1));
 		
-		v = vrp.add(lhs.complement(t), rhs.complement(t), t);
-		assert(v == res.complement(t), "-a + -b = -(a + b)");
+		// overflow
+		testAdd(ValueRange(0, -42), ValueRange(42, -1), ValueRange(0, -1));
+		testAdd(ValueRange(1, long.max + 2), ValueRange(long.min, -1), ValueRange(0, -1));
+		
+		void testSub(ValueRange lhs, ValueRange rhs, ValueRange res) {
+			auto clhs = lhs.complement(t);
+			auto crhs = rhs.complement(t);
+			auto cres = res.complement(t);
+			
+			lhs = lhs.repack(t);
+			rhs = rhs.repack(t);
+			res = res.repack(t);
+			
+			auto v = vrp.sub(lhs, rhs, t);
+			assert(v == res, "a - b");
+			
+			v = vrp.sub(rhs, lhs, t);
+			assert(v == cres, "b - a = -(a - b)");
+			
+			v = vrp.add(lhs, crhs, t);
+			assert(v == res, "a + -b = a - b");
+			
+			v = vrp.sub(clhs, crhs, t);
+			assert(v == cres, "-a - -b = -(a - b)");
+		}
+		
+		testSub(ValueRange(-1), ValueRange(1), ValueRange(-2));
+		
+		void testMul(ValueRange lhs, ValueRange rhs, ValueRange res) {
+			auto clhs = lhs.complement(t);
+			auto crhs = rhs.complement(t);
+			auto cres = res.complement(t);
+			
+			lhs = lhs.repack(t);
+			rhs = rhs.repack(t);
+			res = res.repack(t);
+			
+			auto v = vrp.mul(lhs, rhs, t);
+			assert(v == res, "ab");
+			
+			v = vrp.mul(rhs, lhs, t);
+			assert(v == res, "ab = ba");
+			
+			v = vrp.mul(clhs, rhs, t);
+			assert(v == cres, "(-a) * b = -ab");
+			
+			v = vrp.mul(lhs, crhs, t);
+			assert(v == cres, "a * (-b) = -ab");
+			
+			v = vrp.mul(clhs, crhs, t);
+			assert(v == res, "(-a) * (-b) = ab");
+		}
+		
+		// min < max
+		testMul(ValueRange(2, 3), ValueRange(0), ValueRange(0));
+		testMul(ValueRange(2, 3), ValueRange(7, 23), ValueRange(14, 69));
+		testMul(ValueRange(1), ValueRange(125, -32), ValueRange(125, -32));
+		testMul(ValueRange(-7, -4), ValueRange(-5, -3), ValueRange(12, 35));
+		testMul(ValueRange(3, 3037000500), ValueRange(7, 3037000500), ValueRange(21, 9223372037000250000UL));
+		
+		// min > max on one side
+		testMul(ValueRange(-5, 42), ValueRange(1), ValueRange(-5, 42));
+		testMul(ValueRange(-5, 42), ValueRange(2, 5), ValueRange(-25, 210));
+		testMul(ValueRange(-5, 12), ValueRange(0, 7), ValueRange(-35, 84));
+		testMul(ValueRange(-5, 42), ValueRange(0), ValueRange(0));
+		testMul(ValueRange(5, 3037000500), ValueRange(-12, 3037000500), ValueRange(-36444006000, 9223372037000250000UL));
+		
+		// min > max on both side
+		testMul(ValueRange(-1, 5), ValueRange(-7, 22), ValueRange(-35, 110));
+		testMul(ValueRange(-11, 3037000500), ValueRange(-8, 3037000500), ValueRange(-33407005500, 9223372037000250000UL));
+		
+		// overflow
+		testMul(ValueRange(123), ValueRange(long.min, ulong.max), ValueRange(0, -1));
+		testMul(ValueRange(0, 4294967296), ValueRange(0, 4294967297), ValueRange(0, -1));
+		testMul(ValueRange(-23, 4294967296), ValueRange(10, 4294967297), ValueRange(0, -1));
+		testMul(ValueRange(-3037000500, 3037000500), ValueRange(-3037000500, 3037000500), ValueRange(0, -1));
 	}
-	
-	testAdd(ValueRange(1), ValueRange(-1), ValueRange(0));
-	testAdd(ValueRange(-5, 0), ValueRange(-1, 5), ValueRange(-6, 5));
-	testAdd(ValueRange(5, 6), ValueRange(-3, 5), ValueRange(2, 11));
-	testAdd(ValueRange(-12, 85), ValueRange(5, 53), ValueRange(-7, 138));
-	testAdd(ValueRange(1, long.max), ValueRange(long.min, -1), ValueRange(1 + long.min, long.max - 1));
-	
-	// overflow
-	testAdd(ValueRange(0, -42), ValueRange(42, -1), ValueRange(0, -1));
-	testAdd(ValueRange(1, long.max + 2), ValueRange(long.min, -1), ValueRange(0, -1));
-	
-	void testSub(ValueRange lhs, ValueRange rhs, ValueRange res) {
-		auto v = vrp.sub(lhs, rhs, t);
-		assert(v == res, "a - b");
-		
-		v = vrp.sub(rhs, lhs, t);
-		assert(v == res.complement(t), "b - a = -(a - b)");
-		
-		v = vrp.add(lhs, rhs.complement(t), t);
-		assert(v == res, "a + -b = a - b");
-		
-		v = vrp.sub(lhs.complement(t), rhs.complement(t), t);
-		assert(v == res.complement(t), "-a - -b = -(a - b)");
-	}
-	
-	testSub(ValueRange(-1), ValueRange(1), ValueRange(-2));
-	
-	void testMul(ValueRange lhs, ValueRange rhs, ValueRange res) {
-		auto v = vrp.mul(lhs, rhs, t);
-		assert(v == res, "ab");
-		
-		v = vrp.mul(rhs, lhs, t);
-		assert(v == res, "ab = ba");
-		
-		v = vrp.mul(lhs.complement(t), rhs, t);
-		assert(v == res.complement(t), "(-a) * b = -ab");
-		
-		v = vrp.mul(lhs, rhs.complement(t), t);
-		assert(v == res.complement(t), "a * (-b) = -ab");
-		
-		v = vrp.mul(lhs.complement(t), rhs.complement(t), t);
-		assert(v == res, "(-a) * (-b) = ab");
-	}
-	
-	// min < max
-	testMul(ValueRange(2, 3), ValueRange(0), ValueRange(0));
-	testMul(ValueRange(2, 3), ValueRange(7, 23), ValueRange(14, 69));
-	testMul(ValueRange(1), ValueRange(125, -32), ValueRange(125, -32));
-	testMul(ValueRange(-7, -4), ValueRange(-5, -3), ValueRange(12, 35));
-	testMul(ValueRange(3, 3037000500), ValueRange(7, 3037000500), ValueRange(21, 9223372037000250000UL));
-	
-	// min > max on one side
-	testMul(ValueRange(-5, 42), ValueRange(1), ValueRange(-5, 42));
-	testMul(ValueRange(-5, 42), ValueRange(2, 5), ValueRange(-25, 210));
-	testMul(ValueRange(-5, 12), ValueRange(0, 7), ValueRange(-35, 84));
-	testMul(ValueRange(5, 3037000500), ValueRange(-12, 3037000500), ValueRange(-36444006000, 9223372037000250000UL));
-	
-	// min > max on both side
-	testMul(ValueRange(-1, 5), ValueRange(-7, 22), ValueRange(-35, 110));
-	testMul(ValueRange(-11, 3037000500), ValueRange(-8, 3037000500), ValueRange(-33407005500, 9223372037000250000UL));
-	
-	// overflow
-	testMul(ValueRange(123), ValueRange(long.min, ulong.max), ValueRange(0, -1));
-	testMul(ValueRange(0, 4294967296), ValueRange(0, 4294967297), ValueRange(0, -1));
-	testMul(ValueRange(-23, 4294967296), ValueRange(10, 4294967297), ValueRange(0, -1));
-	testMul(ValueRange(-3037000500, 3037000500), ValueRange(-3037000500, 3037000500), ValueRange(0, -1));
 	
 	void testUdiv(ValueRange lhs, ValueRange rhs, ValueRange res) {
-		auto v = vrp.div(lhs, rhs, Type.get(BuiltinType.Ulong));
+		auto v = vrp.div(lhs, rhs, BuiltinType.Ulong);
 		assert(v == res, "a / b");
 	}
 	
@@ -629,16 +745,22 @@ unittest {
 	testUdiv(ValueRange(2, 1), ValueRange(89351496, 458963274), ValueRange(0, 206451429461));
 	
 	void testSdiv(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto t = BuiltinType.Long;
+		
+		auto clhs = lhs.complement(t);
+		auto crhs = rhs.complement(t);
+		auto cres = res.complement(t);
+		
 		auto v = vrp.div(lhs, rhs, t);
 		assert(v == res, "a / b");
 		
-		v = vrp.div(lhs.complement(t), rhs, t);
-		assert(v == res.complement(t), "(-a) / b = -(a / b)");
+		v = vrp.div(clhs, rhs, t);
+		assert(v == cres, "(-a) / b = -(a / b)");
 		
-		v = vrp.div(lhs, rhs.complement(t), t);
-		assert(v == res.complement(t), "a / (-b) = -(a / b)");
+		v = vrp.div(lhs, crhs, t);
+		assert(v == cres, "a / (-b) = -(a / b)");
 		
-		v = vrp.div(lhs.complement(t), rhs.complement(t), t);
+		v = vrp.div(clhs, crhs, t);
 		assert(v == res, "(-a) / (-b) = a / b");
 	}
 	
@@ -661,7 +783,7 @@ unittest {
 	testSdiv(ValueRange(-12, -23), ValueRange(89351496, 458963274), ValueRange(-103225714730, 103225714730));
 	
 	void testUmod(ValueRange lhs, ValueRange rhs, ValueRange res) {
-		auto v = vrp.mod(lhs, rhs, Type.get(BuiltinType.Ulong));
+		auto v = vrp.mod(lhs, rhs, BuiltinType.Ulong);
 		assert(v == res, "a % b");
 	}
 	
@@ -690,17 +812,23 @@ unittest {
 	testUmod(ValueRange(-25, 42), ValueRange(-13, 75), ValueRange(0, -2));
 	
 	void testSmod(ValueRange lhs, ValueRange rhs, ValueRange res) {
+		auto t = BuiltinType.Long;
+		
+		auto clhs = lhs.complement(t);
+		auto crhs = rhs.complement(t);
+		auto cres = res.complement(t);
+		
 		auto v = vrp.mod(lhs, rhs, t);
 		assert(v == res, "a % b");
 		
-		v = vrp.mod(lhs, rhs.complement(t), t);
+		v = vrp.mod(lhs, crhs, t);
 		assert(v == res, "a % -b = a % b");
 		
-		v = vrp.mod(lhs.complement(t), rhs, t);
-		assert(v == res.complement(t), "-a % b = -(a % b)");
+		v = vrp.mod(clhs, rhs, t);
+		assert(v == cres, "-a % b = -(a % b)");
 		
-		v = vrp.mod(lhs.complement(t), rhs.complement(t), t);
-		assert(v == res.complement(t), "-a % -b = -(a % b)");
+		v = vrp.mod(clhs, crhs, t);
+		assert(v == cres, "-a % -b = -(a % b)");
 	}
 	
 	// test various signed ranges.
