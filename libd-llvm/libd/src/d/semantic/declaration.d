@@ -341,7 +341,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(EnumDeclaration d) {
-		if(d.name.isDefined) {
+		if (d.name.isDefined) {
 			auto e = new Enum(d.location, d.name, Type.get(BuiltinType.None), []);
 			e.linkage = linkage;
 			e.visibility = visibility;

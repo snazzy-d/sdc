@@ -238,15 +238,15 @@ class BooleanLiteral : CompileTimeExpression {
  */
 class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 	static if(isSigned) {
-		alias long ValueType;
+		alias ValueType = long;
 	} else {
-		alias ulong ValueType;
+		alias ValueType = ulong;
 	}
 	
 	ValueType value;
 	
 	this(Location location, ValueType value, BuiltinType t) in {
-		assert(isIntegral(t));
+		assert(isIntegral(t) && .isSigned(t) == isSigned);
 	} body {
 		super(location, Type.get(t));
 		

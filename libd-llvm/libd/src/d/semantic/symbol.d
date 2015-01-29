@@ -284,11 +284,11 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if(stc.isEnum) {
+		if (stc.isEnum) {
 			assert(v.storage == Storage.Enum);
 		}
 		
-		if(v.storage.isNonLocal) {
+		if (v.storage.isNonLocal) {
 			value = evaluate(value);
 		}
 		
@@ -639,9 +639,9 @@ struct SymbolAnalyzer {
 		c.step = Step.Processed;
 	}
 	
-	void analyze(EnumDeclaration d, Enum e) {
+	void analyze(EnumDeclaration d, Enum e) in {
 		assert(e.name.isDefined, "anonymous enums must be flattened !");
-		
+	} body {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		
@@ -653,16 +653,14 @@ struct SymbolAnalyzer {
 		currentScope = e.dscope = new SymbolScope(e, oldScope);
 		
 		import d.semantic.type : TypeVisitor;
-		e.type = TypeVisitor(pass).visit(d.type);
+		e.type = d.type.isAuto
+			? Type.get(BuiltinType.Int)
+			: TypeVisitor(pass).visit(d.type);
+		
 		auto type = Type.get(e);
 		
-		auto bt = BuiltinType.Int;
-		if (e.type.kind == TypeKind.Builtin) {
-			assert(isIntegral(e.type.builtin), "enum are of integer type.");
-			bt = e.type.builtin;
-		} else {
-			assert(0, "enum are of integer type.");
-		}
+		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "enum are of integer type.");
+		auto bt = e.type.builtin;
 		
 		auto name = e.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;

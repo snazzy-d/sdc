@@ -151,7 +151,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 	trange.match(TokenType.Enum);
 	
 	Name name;
-	AstType type;
+	AstType type = AstType.getAuto();
 	
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
@@ -176,16 +176,12 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 			break;
 		
 		case OpenBrace :
-			// If no type is specified, uint is choosen by default.
-			type = AstType.get(BuiltinType.Uint);
 			break;
 		
 		default :
 			// TODO: error.
 			trange.match(Begin);
 	}
-	
-	assert(!type.isAuto, "type should have been set at this point.");
 	
 	trange.match(TokenType.OpenBrace);
 	VariableDeclaration[] enumEntries;
