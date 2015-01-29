@@ -43,9 +43,9 @@ struct ValueRangePropagator {
 	
 	// Expressions
 	ValueRange visit(Expression e) in {
-		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "VRP expect integral types.");
+		assert(e.type.kind == TypeKind.Builtin && canConvertToIntegral(e.type.builtin), "VRP expect integral types.");
 	} out(result) {
-		assert(result == result.repack(getBuiltin(e.type)), "Result is not repacked properly.");
+		assert(result == result.recast(getBuiltin(e.type)), "Result is not casted properly.");
 	} body {
 		return this.dispatch(e);
 	}
@@ -65,20 +65,20 @@ struct ValueRangePropagator {
 	ValueRange visit(BinaryExpression e) {
 		switch (e.op) with(BinaryOp) {
 			case Comma, Assign :
-				return visit(e.rhs).repack(e.type.builtin);
+				return visit(e.rhs);
 			
 			case Add :
-				return add(visit(e.lhs), visit(e.rhs), e.type.builtin);
+				return add(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
 			case Sub :
 				// Get the complement and compute as an add.
-				return sub(visit(e.lhs), visit(e.rhs), e.type.builtin);
+				return sub(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
 			case Concat :
 				assert(0);
 			
 			case Mul :
-				return mul(visit(e.lhs), visit(e.rhs), e.type.builtin);
+				return mul(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
 			case Div :
 				auto rhs = visit(e.rhs);
@@ -88,10 +88,10 @@ struct ValueRangePropagator {
 					return ValueRange.get(e.type.builtin);
 				}
 				
-				return div(visit(e.lhs), rhs, e.type.builtin);
+				return div(visit(e.lhs), rhs, e.type.builtin).recast(e.type.builtin);
 			
 			case Mod :
-				return mod(visit(e.lhs), visit(e.rhs), e.type.builtin);
+				return mod(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
 			default :
 				assert(0, "Not implemented.");
@@ -109,6 +109,35 @@ struct ValueRangePropagator {
 		return (v.storage == Storage.Enum || v.type.qualifier == TypeQualifier.Immutable)
 			? visit(v.value)
 			: pessimise(v.type);
+	}
+	
+	ValueRange visit(CastExpression e) {
+		final switch (e.kind) with(CastKind) {
+			case Invalid :
+				assert(0, "Invalid cast");
+			
+			case IntToPtr, Down :
+				assert(0, "Do not make any sense on integrals");
+			
+			case PtrToInt :
+				return ValueRange.get(e.type.builtin);
+			
+			case IntToBool :
+				return (visit(e.expr) == ValueRange(0))
+					? ValueRange(0)
+					: ValueRange(0, 1);
+			
+			case Trunc, Bit :
+				return visit(e.expr)
+					.repack(e.type.builtin)
+					.recast(e.type.builtin);
+			
+			case Pad :
+				return visit(e.expr).repack(e.type.builtin);
+			
+			case Qual, Exact :
+				return visit(e.expr).recast(e.type.builtin);
+		}
 	}
 	
 private:
@@ -443,6 +472,39 @@ struct ValueRange {
 		return ValueRange(-max, -min).repack(t);
 	}
 	
+	auto recast(BuiltinType t) const in {
+		assert(this == this.repack(t), "Not repacked properly.");
+	} out(result) {
+		assert(result.range <= getMask(t), "Produced result of invalid range.");
+	} body {
+		auto mask = getMask(t);
+		auto signed = isIntegral(t) && isSigned(t);
+		
+		auto sign_max = mask >> 1;
+		auto sign_min = sign_max | ~mask;
+		auto sign_mask = sign_max + 1;
+		
+		if (min > max) {
+			return (signed && min >= sign_min && max <= sign_max)
+				? this
+				: ValueRange(t);
+		}
+		
+		if (max <= sign_max) {
+			return this;
+		}
+		
+		if (signed && min >= sign_min) {
+			return this;
+		}
+		
+		if (!signed && max <= mask) {
+			return this;
+		}
+		
+		return ValueRange.get(t);
+	}
+	
 	auto repack(BuiltinType t) const out(result) {
 		assert(result.range <= getMask(t), "Produced result of invalid range.");
 	} body {
@@ -613,6 +675,19 @@ unittest {
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mod, i2, i1));
 	assert(v == ValueRange(6));
+}
+
+unittest {
+	auto vrp = ValueRangePropagator();
+	
+	import d.location;
+	auto i = new IntegerLiteral!false(Location.init, cast(uint) -6, BuiltinType.Uint);
+	
+	auto v = vrp.visit(new CastExpression(Location.init, CastKind.Bit, Type.get(BuiltinType.Ubyte), i));
+	assert(v == ValueRange(250));
+	
+	v = vrp.visit(new CastExpression(Location.init, CastKind.Pad, Type.get(BuiltinType.Ulong), i));
+	assert(v == ValueRange(cast(uint) -6));
 }
 
 unittest {
