@@ -41,15 +41,29 @@ struct StatementVisitor {
 	
 	private Statement[] flattenedStmts;
 	
+	private uint[] declBlockStack = [0];
+	private uint nextDeclBlock = 1;
+	
+	private uint[Name] labelBlocks;
+	private uint[][][Name] inFlightGotosStacks;
+	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
 	BlockStatement flatten(AstBlockStatement b) {
+		auto oldScope = currentScope;
+		auto oldDeclBlockStack = declBlockStack;
 		auto oldFlattenedStmts = flattenedStmts;
-		scope(exit) flattenedStmts = oldFlattenedStmts;
+
+		scope(exit) {
+			currentScope = oldScope;
+			declBlockStack = oldDeclBlockStack;
+			flattenedStmts = oldFlattenedStmts;
+		}
 		
 		flattenedStmts = [];
+		currentScope = (cast(NestedScope) oldScope).clone();
 		
 		foreach(ref s; b.statements) {
 			visit(s);
@@ -63,11 +77,6 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstBlockStatement b) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = (cast(NestedScope) oldScope).clone();
-		
 		flattenedStmts ~= flatten(b);
 	}
 	
@@ -75,6 +84,19 @@ struct StatementVisitor {
 		import d.semantic.declaration;
 		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(s.declaration);
 		scheduler.require(syms);
+		
+		foreach(sym; syms) {
+			if (auto v = cast(Variable) sym) {
+				if (v.storage.isNonLocal) {
+					continue;
+				}
+				
+				declBlockStack ~= nextDeclBlock++;
+				
+				// Only one variable is enough to create a new block.
+				break;
+			}
+		}
 		
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
 	}
@@ -85,16 +107,12 @@ struct StatementVisitor {
 	}
 	
 	private auto autoBlock(AstStatement s) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = (cast(NestedScope) oldScope).clone();
-		
-		if(auto b = cast(AstBlockStatement) s) {
-			return flatten(b);
+		auto b = cast(AstBlockStatement) s;
+		if (b is null) {
+			b = new AstBlockStatement(s.location, [s]);
 		}
-		
-		return flatten(new AstBlockStatement(s.location, [s]));
+
+		return flatten(b);
 	}
 	
 	void visit(AstIfStatement s) {
@@ -103,7 +121,7 @@ struct StatementVisitor {
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
-		if(s.elseStatement) {
+		if (s.elseStatement) {
 			elseStatement = autoBlock(s.elseStatement);
 		}
 		
@@ -319,6 +337,28 @@ struct StatementVisitor {
 	}
 	
 	void visit(AstLabeledStatement s) {
+		auto labelBlock = declBlockStack[$ - 1];
+		labelBlocks[s.label] = labelBlock;
+		if (auto bPtr = s.label in inFlightGotosStacks) {
+			auto inFlightGotoStacks = *bPtr;
+			inFlightGotosStacks.remove(s.label);
+			
+			foreach(inFlightGotoStack; inFlightGotoStacks) {
+				bool isValid = false;
+				foreach(block; inFlightGotoStack) {
+					if (block == labelBlock) {
+						isValid = true;
+						break;
+					}
+				}
+				
+				if (!isValid) {
+					import d.exception;
+					throw new CompileException(s.location, "You cannot goto over initialization.");
+				}
+			}
+		}
+		
 		auto labelIndex = flattenedStmts.length;
 		
 		visit(s.statement);
@@ -327,6 +367,30 @@ struct StatementVisitor {
 	}
 	
 	void visit(GotoStatement s) {
+		auto label = s.label;
+		if (auto bPtr = label in labelBlocks) {
+			auto labelBlock = *bPtr;
+			
+			bool isValid = false;
+			foreach(block; declBlockStack) {
+				if (block == labelBlock) {
+					isValid = true;
+					break;
+				}
+			}
+			
+			if (!isValid) {
+				import d.exception;
+				throw new CompileException(s.location, "You cannot goto over initialization.");
+			}
+		} else if (auto bPtr = label in inFlightGotosStacks) {
+			auto blockStacks = *bPtr;
+			blockStacks ~= declBlockStack;
+			inFlightGotosStacks[label] = blockStacks;
+		} else {
+			inFlightGotosStacks[label] = [declBlockStack];
+		}
+		
 		flattenedStmts ~= s;
 	}
 	
