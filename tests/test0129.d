@@ -8,8 +8,7 @@ int foo()(int i) {
 }
 
 template Qux(T : U*, U) {
-	// XXX: remove cast when VRP is in.
-	uint Qux = cast(uint) (T.sizeof + U.sizeof);
+	uint Qux = T.sizeof + U.sizeof;
 }
 
 auto bar(T)(T t) {

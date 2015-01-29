@@ -16,7 +16,6 @@ template Foo(T : T[]) {
 }
 
 int main() {
-	// XXX: remove cast when VRP is in.
-	return cast(int) (Foo!(int*) + Foo!(long[]) + Foo!char);
+	return Foo!(int*) + Foo!(long[]) + Foo!char;
 }
 

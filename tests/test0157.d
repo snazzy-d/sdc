@@ -3,9 +3,8 @@
 //T retval:25
 // template alias parameter (value)
 
-auto foo(alias U)() {
-	// XXX: remove cast when VRP is in.
-	return cast(int) (U + typeof(U).sizeof);
+int foo(alias U)() {
+	return U + typeof(U).sizeof;
 }
 
 int main() {

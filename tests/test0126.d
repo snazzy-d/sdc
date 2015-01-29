@@ -4,8 +4,7 @@
 // Test template argument deduction.
 
 template Foo(T : U[], U) {
-	// XXX: remove cast when VRP is in.
-	enum Foo = cast(int) U.sizeof;
+	enum Foo = U.sizeof;
 }
 
 int main() {
