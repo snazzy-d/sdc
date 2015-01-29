@@ -17,7 +17,6 @@ int main() {
 		}
 	}
 	
-	// XXX: remove cast when VRP is in.
-	return cast(int) arr.length;
+	return arr.length;
 }
 

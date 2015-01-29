@@ -619,13 +619,11 @@ struct ExpressionGen {
 			
 			case Pad :
 				auto k = e.expr.type.getCanonical().builtin;
-				if (isChar(k)) {
-					k = integralOfChar(k);
-				}
+				assert(canConvertToIntegral(k));
 				
-				return (k == BuiltinType.Bool || !isSigned(k))
-					? LLVMBuildZExt(builder, value, type, "")
-					: LLVMBuildSExt(builder, value, type, "");
+				return (isIntegral(k) && isSigned(k))
+					? LLVMBuildSExt(builder, value, type, "")
+					: LLVMBuildZExt(builder, value, type, "");
 			
 			case Bit :
 				return LLVMBuildBitCast(builder, value, type, "");

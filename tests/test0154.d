@@ -4,7 +4,6 @@
 // template value parameter
 
 auto foo(T U, T)() {
-	// XXX: remove cast when VRP is in.
 	return cast(int) (U + T.sizeof);
 }
 
