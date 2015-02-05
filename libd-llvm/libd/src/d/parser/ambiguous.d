@@ -138,44 +138,21 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 }
 
 private:
-// XXX: Workaround template recurence instanciation bug.
-enum Tag {
-	Identifier,
-	Expression,
-	Type,
-}
 
-struct Ambiguous {
-	Tag tag;
-	
-	union {
-		Identifier i;
-		AstExpression e;
-		AstType t;
-	}
-	
-	@disable this();
-	
-	// For type inference.
-	this(typeof(null));
-	
-	this(Ambiguous a) {
-		this = a;
-	}
-	
-	this(Identifier id) {
-		tag = Tag.Identifier;
-		i = id;
-	}
-	
-	this(AstExpression exp) {
-		tag = Tag.Expression;
-		e = exp;
-	}
-	
-	this(AstType type) {
-		tag = Tag.Type;
-		t = type;
+// XXX: Workaround template recurence instanciation bug.
+alias Ambiguous = AstType.UnionType!(Identifier, AstExpression);
+
+auto apply(alias handler)(Ambiguous a) {
+	alias Tag = typeof(a.tag);
+	final switch(a.tag) with(Tag) {
+		case Identifier :
+			return handler(a.get!Identifier);
+		
+		case AstExpression :
+			return handler(a.get!AstExpression);
+		
+		case AstType :
+			return handler(a.get!AstType);
 	}
 }
 
@@ -187,20 +164,7 @@ Ambiguous ambiguousHandler(T)(T t) {
 	}
 }
 
-auto apply(alias handler)(Ambiguous a) {
-	final switch(a.tag) {
-		case Tag.Identifier :
-			return handler(a.i);
-		
-		case Tag.Expression :
-			return handler(a.e);
-		
-		case Tag.Type :
-			return handler(a.t);
-	}
-}
-
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Identifier i) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Identifier i) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenBracket :
 			trange.popFront();
@@ -329,7 +293,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, AstType t) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, AstType t) {
 	switch(trange.front.type) with(TokenType) {
 		case OpenParen :
 			assert(0, "Constructor not implemented");
@@ -345,7 +309,7 @@ private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trang
 	}
 }
 
-private typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstExpression e) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstExpression e) {
 	switch(trange.front.type) with(TokenType) {
 		case Dot :
 			trange.popFront();

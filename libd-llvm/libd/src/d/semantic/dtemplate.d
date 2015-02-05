@@ -212,67 +212,27 @@ private:
 	}
 }
 
-enum Tag {
-	Undefined,
-	Symbol,
-	Expression,
-	Type,
-}
-
-struct TemplateArgument {
-	union {
-		Symbol sym;
-		CompileTimeExpression expr;
-		Type type;
-	}
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		Tag, "tag", 2,
-		uint, "", 6,
-	));
-	
-	// For type inference.
-	this(typeof(null));
-	
-	this(TemplateArgument a) {
-		this = a;
-	}
-	
-	this(Symbol s) {
-		tag = Tag.Symbol;
-		sym = s;
-	}
-	
-	this(CompileTimeExpression e) {
-		tag = Tag.Expression;
-		expr = e;
-	}
-	
-	this(Type t) {
-		tag = Tag.Type;
-		type = t;
-	}
-}
-
-unittest {
-	static assert(TemplateArgument.init.tag == Tag.Undefined);
-}
+alias TemplateArgument = Type.UnionType!(typeof(null), Symbol, CompileTimeExpression);
 
 auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
+	alias Tag = typeof(a.tag);
 	final switch(a.tag) with(Tag) {
 		case Undefined :
 			return undefinedHandler();
 		
 		case Symbol :
-			return handler(a.sym);
+			return handler(a.get!Symbol);
 		
-		case Expression :
-			return handler(a.expr);
+		case CompileTimeExpression :
+			return handler(a.get!CompileTimeExpression);
 		
 		case Type :
-			return handler(a.type);
+			return handler(a.get!Type);
 	}
+}
+
+unittest {
+	TemplateArgument.init.apply!(() {}, (i) { assert(0); })();
 }
 
 // Conflict with Interface in object.di

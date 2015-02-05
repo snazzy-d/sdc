@@ -95,67 +95,26 @@ struct TemplateDotIdentifierResolver(alias handler) {
 }
 
 private:
-enum Tag {
-	Symbol,
-	Expression,
-	Type,
-}
 
-struct Identifiable {
-	union {
-		Symbol sym;
-		Expression expr;
-		Type type;
+alias Identifiable = Type.UnionType!(Symbol, Expression);
+
+auto apply(alias handler)(Identifiable i) {
+	alias Tag = typeof(i.tag);
+	final switch(i.tag) with(Tag) {
+		case Symbol :
+			return handler(i.get!Symbol);
+		
+		case Expression :
+			return handler(i.get!Expression);
+		
+		case Type :
+			return handler(i.get!Type);
 	}
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		Tag, "tag", 2,
-		uint, "", 6,
-	));
-	
-	@disable this();
-	
-	this(Identifiable i) {
-		this = i;
-	}
-	
-	this(Symbol s) {
-		tag = Tag.Symbol;
-		sym = s;
-	}
-	
-	this(Expression e) {
-		tag = Tag.Expression;
-		expr = e;
-	}
-	
-	this(Type t) {
-		tag = Tag.Type;
-		type = t;
-	}
-	
-	// TODO: add invariant when possible.
-	// bitfield cause infinite recursion now.
 }
 
 // XXX: probably a "feature" this can't be passed as alias this if private.
-public
-Identifiable identifiableHandler(T)(T t) {
+public Identifiable identifiableHandler(T)(T t) {
 	return Identifiable(t);
-}
-
-auto apply(alias handler)(Identifiable i) {
-	final switch(i.tag) with(Tag) {
-		case Symbol :
-			return handler(i.sym);
-		
-		case Expression :
-			return handler(i.expr);
-		
-		case Type :
-			return handler(i.type);
-	}
 }
 
 /**
