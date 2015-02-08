@@ -230,7 +230,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(Colon);
 			
 			AstStatement statement;
-			if(trange.front.type != CloseBrace) {
+			if (trange.front.type != CloseBrace) {
 				statement = trange.parseStatement();
 				location.spanTo(statement.location);
 			} else {
@@ -244,7 +244,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
-			if(lookahead.front.type == Colon) {
+			if (lookahead.front.type == Colon) {
 				goto case Default;
 			}
 			
@@ -267,9 +267,8 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					trange.match(Identifier);
 			}
 			
-			trange.match(Semicolon);
-			
 			location.spanTo(trange.front.location);
+			trange.match(Semicolon);
 			
 			return new GotoStatement(location, label);
 		
