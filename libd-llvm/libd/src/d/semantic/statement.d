@@ -36,26 +36,69 @@ alias ThrowStatement = d.ir.statement.ThrowStatement;
 alias CatchBlock = d.ir.statement.CatchBlock;
 
 struct StatementVisitor {
-	private SemanticPass pass;
+private:
+	SemanticPass pass;
 	alias pass this;
 	
-	private Statement[] flattenedStmts;
+	Statement[] flattenedStmts;
 	
-	private uint[] declBlockStack = [0];
-	private uint nextDeclBlock = 1;
+	uint[] declBlockStack = [0];
+	uint nextDeclBlock = 1;
+	uint switchBlock = -1;
 	
-	private uint[Name] labelBlocks;
-	private uint[][][Name] inFlightGotosStacks;
+	import std.bitmanip;
+	mixin(bitfields!(
+		bool, "mustTerminate", 1,
+		bool, "funTerminate", 1,
+		bool, "blockTerminate", 1,
+		bool, "allowFallthrough", 1,
+		bool, "switchMustTerminate", 1,
+		bool, "switchFunTerminate", 1,
+		uint, "", 2,
+	));
 	
+	uint[Name] labelBlocks;
+	uint[][][Name] inFlightGotosStacks;
+	
+public:
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
-	BlockStatement flatten(AstBlockStatement b) {
+	BlockStatement getBody(AstBlockStatement b) {
+		auto fbody = flatten(b);
+		
+		auto rt = returnType.getType();
+		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
+		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
+			returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+		} else if (rt.kind != TypeKind.Builtin || rt.builtin != BuiltinType.Void) {
+			// FIXME: check that function actually returns.
+		}
+		
+		return fbody;
+	}
+	
+	void visit(AstStatement s) {
+		if (!mustTerminate) {
+			return this.dispatch(s);
+		}
+		
+		if (auto c = cast(AstCaseStatement) s) {
+			return visit(c);
+		} else if (auto l = cast(AstLabeledStatement) s) {
+			return visit(l);
+		}
+		
+		import d.exception;
+		throw new CompileException(s.location, "Unreachable statement.");
+	}
+	
+	private BlockStatement flatten(AstBlockStatement b) {
 		auto oldScope = currentScope;
 		auto oldDeclBlockStack = declBlockStack;
 		auto oldFlattenedStmts = flattenedStmts;
-
+		
 		scope(exit) {
 			currentScope = oldScope;
 			declBlockStack = oldDeclBlockStack;
@@ -70,10 +113,6 @@ struct StatementVisitor {
 		}
 		
 		return new BlockStatement(b.location, flattenedStmts);
-	}
-	
-	void visit(AstStatement s) {
-		return this.dispatch(s);
 	}
 	
 	void visit(AstBlockStatement b) {
@@ -111,42 +150,88 @@ struct StatementVisitor {
 		if (b is null) {
 			b = new AstBlockStatement(s.location, [s]);
 		}
-
+		
 		return flatten(b);
 	}
 	
 	void visit(AstIfStatement s) {
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		
 		import d.semantic.expression;
 		auto condition = buildExplicitCast(pass, s.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(s.condition));
 		auto then = autoBlock(s.then);
 		
+		auto thenMustTerminate = mustTerminate;
+		auto thenFunTerminate = funTerminate;
+		auto thenBlockTerminate = blockTerminate;
+		
+		mustTerminate = oldMustTerminate;
+		funTerminate = oldFunTerminate;
+		blockTerminate = oldBlockTerminate;
+		
 		Statement elseStatement;
 		if (s.elseStatement) {
 			elseStatement = autoBlock(s.elseStatement);
+			
+			mustTerminate = thenMustTerminate && mustTerminate;
+			funTerminate = thenFunTerminate && funTerminate;
+			blockTerminate = thenBlockTerminate && blockTerminate;
 		}
 		
 		flattenedStmts ~= new IfStatement(s.location, condition, then, elseStatement);
 	}
 	
 	void visit(AstWhileStatement w) {
-		import d.semantic.expression;
-		auto condition = buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition));
-		auto statement = autoBlock(w.statement);
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
 		
-		flattenedStmts ~= new WhileStatement(w.location, condition, statement);
+		import d.semantic.expression;
+		flattenedStmts ~= new WhileStatement(
+			w.location,
+			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
+			autoBlock(w.statement),
+		);
 	}
 	
 	void visit(AstDoWhileStatement w) {
-		import d.semantic.expression;
-		auto condition = buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition));
-		auto statement = autoBlock(w.statement);
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
 		
-		flattenedStmts ~= new DoWhileStatement(w.location, condition, statement);
+		import d.semantic.expression;
+		flattenedStmts ~= new DoWhileStatement(
+			w.location,
+			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
+			autoBlock(w.statement),
+		);
 	}
 	
 	void visit(AstForStatement f) {
 		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			currentScope = oldScope;
+			
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -168,7 +253,17 @@ struct StatementVisitor {
 	
 	void visit(ForeachStatement f) {
 		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			currentScope = oldScope;
+			
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -257,7 +352,17 @@ struct StatementVisitor {
 	
 	void visit(ForeachRangeStatement f) {
 		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			currentScope = oldScope;
+			
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -292,6 +397,22 @@ struct StatementVisitor {
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
 	
+	private void terminateBlock() {
+		mustTerminate = true;
+		blockTerminate = true;
+	}
+	
+	private void terminateFun() {
+		terminateBlock();
+		funTerminate = true;
+	}
+	
+	private void unterminate() {
+		mustTerminate = false;
+		blockTerminate = false;
+		funTerminate = false;
+	}
+	
 	void visit(AstReturnStatement r) {
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(r.value);
@@ -312,36 +433,128 @@ struct StatementVisitor {
 		}
 		
 		flattenedStmts ~= new ReturnStatement(r.location, value);
+		terminateFun();
 	}
 	
 	void visit(BreakStatement s) {
 		flattenedStmts ~= s;
+		terminateBlock();
 	}
 	
 	void visit(ContinueStatement s) {
 		flattenedStmts ~= s;
+		terminateBlock();
 	}
 	
 	void visit(AstSwitchStatement s) {
-		import d.semantic.expression;
-		auto expression = ExpressionVisitor(pass).visit(s.expression);
+		auto oldSwitchBlock = switchBlock;
+		auto oldAllowFallthrough = allowFallthrough;
+		auto oldSwitchMustTerminate = switchMustTerminate;
+		auto oldSwitchFunTerminate = switchFunTerminate;
 		
-		flattenedStmts ~= new SwitchStatement(s.location, expression, autoBlock(s.statement));
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			mustTerminate = switchMustTerminate;
+			funTerminate = switchFunTerminate;
+			blockTerminate = oldBlockTerminate || funTerminate;
+			
+			switchBlock = oldSwitchBlock;
+			allowFallthrough = oldAllowFallthrough;
+			switchMustTerminate = oldSwitchMustTerminate;
+			switchFunTerminate = oldSwitchFunTerminate;
+		}
+		
+		switchBlock = declBlockStack[$ - 1];
+		allowFallthrough = true;
+		switchFunTerminate = true;
+		
+		import d.semantic.expression;
+		flattenedStmts ~= new SwitchStatement(
+			s.location,
+			ExpressionVisitor(pass).visit(s.expression),
+			autoBlock(s.statement),
+		);
+	}
+	
+	private void setCaseEntry(Location location, string switchError, string fallthroughError) out {
+		assert(declBlockStack[$ - 1] == switchBlock);
+	} body {
+		if (allowFallthrough) {
+			allowFallthrough = false;
+			if (declBlockStack[$ - 1] == switchBlock) {
+				return;
+			}
+			
+			import d.exception;
+			throw new CompileException(location, "Cannot jump over variable initialization.");
+		}
+		
+		if (switchBlock == -1) {
+			import d.exception;
+			throw new CompileException(location, switchError);
+		}
+		
+		if (blockTerminate) {
+			switchMustTerminate = mustTerminate && switchMustTerminate;
+			switchFunTerminate = funTerminate && switchFunTerminate;
+		} else {
+			// Check for case a: case b:
+			// TODO: consider default: case a:
+			bool isValid = false;
+			if (flattenedStmts.length > 0) {
+				auto s = flattenedStmts[$ - 1];
+				if (auto c = cast(CaseStatement) s) {
+					isValid = true;
+				}
+			}
+			
+			if (!isValid) {
+				import d.exception;
+				throw new CompileException(location, fallthroughError);
+			}
+		}
+		
+		foreach_reverse(i, b; declBlockStack) {
+			if (b == switchBlock) {
+				declBlockStack = declBlockStack[0 .. i + 1];
+				break;
+			}
+		}
 	}
 	
 	void visit(AstCaseStatement s) {
-		import d.semantic.expression;
-		auto cases = s.cases.map!(e => pass.evaluate(ExpressionVisitor(pass).visit(e))).array();
+		setCaseEntry(
+			s.location,
+			"Case statement can only appear within switch statement.",
+			"Fallthrough is disabled, use goto case.",
+		);
 		
-		flattenedStmts ~= new CaseStatement(s.location, cases);
+		unterminate();
+		
+		import d.semantic.expression;
+		flattenedStmts ~= new CaseStatement(
+			s.location,
+			s.cases.map!(e => pass.evaluate(ExpressionVisitor(pass).visit(e))).array(),
+		);
 	}
 	
 	void visit(AstLabeledStatement s) {
+		auto label = s.label;
+		if (label == BuiltinName!"default") {
+			setCaseEntry(
+				s.location,
+				"Default statement can only appear within switch statement.",
+				"Fallthrough is disabled, use goto default.",
+			);
+		}
+		
+		unterminate();
+		
 		auto labelBlock = declBlockStack[$ - 1];
-		labelBlocks[s.label] = labelBlock;
+		labelBlocks[label] = labelBlock;
 		if (auto bPtr = s.label in inFlightGotosStacks) {
 			auto inFlightGotoStacks = *bPtr;
-			inFlightGotosStacks.remove(s.label);
+			inFlightGotosStacks.remove(label);
 			
 			foreach(inFlightGotoStack; inFlightGotoStacks) {
 				bool isValid = false;
@@ -354,7 +567,7 @@ struct StatementVisitor {
 				
 				if (!isValid) {
 					import d.exception;
-					throw new CompileException(s.location, "You cannot goto over initialization.");
+					throw new CompileException(s.location, "Cannot jump over variable initialization.");
 				}
 			}
 		}
@@ -363,7 +576,7 @@ struct StatementVisitor {
 		
 		visit(s.statement);
 		
-		flattenedStmts[labelIndex] = new LabeledStatement(s.location, s.label, flattenedStmts[labelIndex]);
+		flattenedStmts[labelIndex] = new LabeledStatement(s.location, label, flattenedStmts[labelIndex]);
 	}
 	
 	void visit(GotoStatement s) {
@@ -381,7 +594,7 @@ struct StatementVisitor {
 			
 			if (!isValid) {
 				import d.exception;
-				throw new CompileException(s.location, "You cannot goto over initialization.");
+				throw new CompileException(s.location, "Cannot goto over variable initialization.");
 			}
 		} else if (auto bPtr = label in inFlightGotosStacks) {
 			auto blockStacks = *bPtr;
@@ -392,20 +605,50 @@ struct StatementVisitor {
 		}
 		
 		flattenedStmts ~= s;
+		terminateBlock();
 	}
 	
 	void visit(AstScopeStatement s) {
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		scope(exit) {
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+		}
+		
 		flattenedStmts ~= new ScopeStatement(s.location, s.kind, autoBlock(s.statement));
 	}
 	
 	void visit(AstThrowStatement s) {
-		// TODO: Check that this is throwable
 		import d.semantic.expression;
-		flattenedStmts ~= new ThrowStatement(s.location, ExpressionVisitor(pass).visit(s.value));
+		flattenedStmts ~= new ThrowStatement(s.location, buildExplicitCast(
+			pass,
+			s.value.location,
+			Type.get(pass.object.getThrowable()),
+			ExpressionVisitor(pass).visit(s.value),
+		));
+		
+		terminateFun();
 	}
 	
 	void visit(AstTryStatement s) {
+		auto oldMustTerminate = mustTerminate;
+		auto oldFunTerminate = funTerminate;
+		auto oldBlockTerminate = blockTerminate;
+		
 		auto tryStmt = autoBlock(s.statement);
+		
+		auto tryMustTerminate = mustTerminate;
+		auto tryFunTerminate = funTerminate;
+		auto tryBlockTerminate = blockTerminate;
+		
+		scope(exit) {
+			mustTerminate = tryMustTerminate;
+			funTerminate = tryFunTerminate;
+			blockTerminate = tryBlockTerminate;
+		}
 		
 		import d.semantic.identifier : AliasResolver;
 		auto iv = AliasResolver!(function Class(identified) {
@@ -424,9 +667,24 @@ struct StatementVisitor {
 			}
 		})(pass);
 		
-		CatchBlock[] catches = s.catches.map!(c => CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement))).array();
+		CatchBlock[] catches;
+		foreach(c; s.catches) {
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+			
+			catches ~= CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement));
+			
+			tryMustTerminate = tryMustTerminate && mustTerminate;
+			tryFunTerminate = tryFunTerminate && funTerminate;
+			tryBlockTerminate = tryBlockTerminate && blockTerminate;
+		}
 		
-		if(s.finallyBlock) {
+		if (s.finallyBlock) {
+			mustTerminate = oldMustTerminate;
+			funTerminate = oldFunTerminate;
+			blockTerminate = oldBlockTerminate;
+			
 			flattenedStmts ~= new ScopeStatement(s.finallyBlock.location, ScopeKind.Exit, autoBlock(s.finallyBlock));
 		}
 		
@@ -449,6 +707,9 @@ struct StatementVisitor {
 		foreach(item; items) {
 			visit(item);
 		}
+		
+		// Do not error on unrechable statement after static if.
+		mustTerminate = false;
 	}
 	
 	void visit(Mixin!AstStatement s) {
