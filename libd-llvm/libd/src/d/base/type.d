@@ -103,6 +103,12 @@ private:
 			}
 		}
 		
+		// FIXME: DMD do not allow override of template by non templates.
+		this()(Desc d, inout Payload p) inout {
+			desc = d;
+			payload = p;
+		}
+		
 		template PackedMixin(T...) {
 			static if (T.length == 0) {
 				enum PackedMixin = "";
@@ -127,6 +133,103 @@ private:
 			}
 			
 			return inout(T)(u.desc, payload);
+		}
+	}
+	
+	struct UnionTypeTpl(T, U...) {
+	private:
+		template TagFields(uint i, U...) {
+			import std.conv;
+			static if (U.length == 0) {
+				enum TagFields = "\n\t" ~ T.stringof ~ " = " ~ to!string(i) ~ ",";
+			} else {
+				enum S = U[0].stringof;
+				static assert((S[0] & 0x80) == 0, S ~ " must not start with an unicode.");
+				static assert(U[0].sizeof <= size_t.sizeof, "Elements must be of pointer size or smaller.");
+				import std.ascii;
+				enum Name = (S == "typeof(null)")
+					? "Undefined"
+					: toUpper(S[0]) ~ S[1 .. $];
+				enum TagFields = "\n\t" ~ Name ~ " = " ~ to!string(i) ~ "," ~ TagFields!(i + 1, U[1 .. $]);
+			}
+		}
+		
+		mixin("enum Tag {" ~ TagFields!(0, U) ~ "\n}");
+		
+		import std.traits;
+		alias Tags = EnumMembers!Tag;
+		
+		// Using uing here as Tag is not accessible where the bitfield is mixed in.
+		import std.typetuple;
+		alias TagTuple = TypeTuple!(uint, "tag", EnumSize!Tag);
+		
+		alias Desc = TypeDescriptor!(K, TagTuple);
+		
+		union {
+			Desc desc;
+			ulong raw_desc;
+		}
+		
+		union {
+			U u;
+			Payload payload;
+		}
+		
+		// XXX: probably worthy of adding to phobos.
+		template isImplicitelyConvertibleFrom(T) {
+			import std.traits;
+			enum isImplicitelyConvertibleFrom(U) = isImplicitlyConvertible!(T, U);
+		}
+		
+		import std.typetuple, std.traits;
+		enum canConstructFrom(P) = anySatisfy!(isImplicitelyConvertibleFrom!(Unqual!P), U);
+		
+	public:
+		// Template as DMD don't allow to override template and non template.
+		this()(inout T t) inout {
+			import std.conv;
+			auto packed = t.getPackedBitfield!TagTuple(U.length.to!Tag());
+			desc = packed.desc;
+			payload = packed.payload;
+		}
+		
+		this(P)(inout P p) inout if(canConstructFrom!P) {
+			// Sanity check, in case canConstructFrom is bogous.
+			bool constructed = false;
+			
+			import std.traits;
+			alias UT = Unqual!P;
+			foreach(E; Tags[0 .. $ - 1]) {
+				static if (is(UT : U[E])) {
+					Desc d;
+					d.tag = E;
+					
+					// Assign d instead of setting tag to be inout compatible.
+					desc = d;
+					u[E] = p;
+					
+					constructed = true;
+				}
+			}
+			
+			assert(constructed, "canConstructFrom is bogous.");
+		}
+		
+		@property
+		auto tag() const {
+			import std.conv;
+			return desc.tag.to!Tag();
+		}
+		
+		@property
+		auto get(Tag E)() in {
+			assert(tag == E);
+		} body {
+			static if (E == U.length) {
+				return PackedType!(T, TagTuple)(desc, payload).getType();
+			} else {
+				return u[E];
+			}
 		}
 	}
 	
@@ -239,6 +342,8 @@ private:
 public:
 	mixin TypeAccessorMixin!K;
 	
+	alias UnionType(T...) = UnionTypeTpl!(typeof(this), T);
+	
 	auto getParamType(bool isRef, bool isFinal) inout {
 		return getPackedBitfield!ParamTuple(isRef, isFinal);
 	}
@@ -311,9 +416,9 @@ template SizeOfBitField(T...) {
 	}
 }
 
-private:
-
 enum EnumSize(E) = computeEnumSize!E();
+
+private:
 
 size_t computeEnumSize(E)() {
 	size_t size = 0;
