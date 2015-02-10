@@ -13,7 +13,5 @@ int main() {
 	} catch(Throwable e) {
 		return 13;
 	}
-	
-	return 42;
 }
 

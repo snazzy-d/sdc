@@ -5,6 +5,8 @@
 
 int main() {
 	goto Over;
+	
+	Reachable:
 	while(true) { int i; }
 	
 	Over:
