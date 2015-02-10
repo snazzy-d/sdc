@@ -418,7 +418,7 @@ struct StatementGen {
 		auto caseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "case");
 		
 		// In fligt goto case will end up here.
-		fixupGoto(BuiltinName!"case", LabelBlock(unwindBlocks.length, caseBB));
+		fixupGoto(BuiltinName!"case", LabelBlock(defaultBlock.unwind, caseBB));
 		
 		LLVMMoveBasicBlockAfter(caseBB, currentBB);
 		

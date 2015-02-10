@@ -222,7 +222,7 @@ struct SymbolAnalyzer {
 			
 			// And flatten.
 			import d.semantic.statement;
-			f.fbody = StatementVisitor(pass).flatten(fbody);
+			f.fbody = StatementVisitor(pass).getBody(fbody);
 		}
 		
 		if (isAuto) {
