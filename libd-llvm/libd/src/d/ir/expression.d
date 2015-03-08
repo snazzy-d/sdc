@@ -539,8 +539,20 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 		this(Location location, Type t, E[] values) {
 			// Implement type tuples.
 			super(location, t);
-		
+			
 			this.values = values;
+		}
+		
+		override string toString(Context c) const {
+			import std.algorithm, std.range;
+			auto members = values.map!(v => v.toString(c)).join(", ");
+			
+			// TODO: make this look nice for structs, classes, arrays...
+			static if (isCompileTime) {
+				return "ctTuple!(" ~ members ~ ")";
+			} else {
+				return "tuple(" ~ members ~ ")";
+			}
 		}
 	}
 }
