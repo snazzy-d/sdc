@@ -388,7 +388,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				goto default;
 			
 			case Exact :
-				return Qual;
+				return Exact;
 			
 			static if (isExplicit) {
 				default :
