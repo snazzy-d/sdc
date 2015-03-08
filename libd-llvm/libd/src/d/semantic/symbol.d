@@ -403,6 +403,13 @@ struct SymbolAnalyzer {
 		}
 		
 		auto members = DeclarationVisitor(pass, AggregateType.Struct).flatten(d.members, s);
+		
+		auto init = new Variable(d.location, type, BuiltinName!"init");
+		init.storage = Storage.Static;
+		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
+		init.step = Step.Signed;
+		
+		s.dscope.addSymbol(init);
 		s.step = Step.Populated;
 		
 		auto otherSymbols = members.filter!((m) {
@@ -416,19 +423,15 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(fields, Step.Signed);
 		
-		auto tuple = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
-		auto init = new Variable(d.location, type, BuiltinName!"init", tuple);
-
-		init.storage = Storage.Static;
-		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
-		
-		s.dscope.addSymbol(init);
-		init.step = Step.Processed;
-		
 		s.members ~= init;
 		s.members ~= fields;
 		
 		s.step = Step.Signed;
+		
+		scheduler.require(fields);
+		
+		init.value = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
+		init.step = Step.Processed;
 		
 		scheduler.require(otherSymbols);
 		s.members ~= otherSymbols;
