@@ -903,7 +903,7 @@ private auto parseIsExpression(R)(ref R trange) {
  * Parse identifier expression
  */
 AstExpression parseIdentifierExpression(R)(ref R trange, Identifier i) if(isTokenRange!R) {
-	if(trange.front.type != TokenType.OpenParen) {
+	if (trange.front.type != TokenType.OpenParen) {
 		return new IdentifierExpression(i);
 	}
 	
