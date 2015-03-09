@@ -1,7 +1,10 @@
 # Common definitions
 
-LIBSDRT_SRC = $(wildcard $(LIBSDRT_ROOT)/src/d/rt/*.d)
-LIBSDRT_OBJ = $(LIBSDRT_SRC:$(LIBSDRT_ROOT)/src/d/rt/%.d=obj/rt/%.o)
+LIBSDRT_RT_SRC = $(wildcard $(LIBSDRT_ROOT)/src/d/rt/*.d)
+LIBSDRT_GC_SRC = $(wildcard $(LIBSDRT_ROOT)/src/d/gc/*.d)
+
+LIBSDRT_RT_OBJ = $(LIBSDRT_RT_SRC:$(LIBSDRT_ROOT)/src/d/rt/%.d=obj/rt/%.o)
+LIBSDRT_GC_OBJ = $(LIBSDRT_GC_SRC:$(LIBSDRT_ROOT)/src/d/gc/%.d=obj/gc/%.o)
 
 LIBSDRT = lib/libsdrt.a
 
@@ -12,11 +15,15 @@ LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
 
 all: $(ALL_TARGET)
 
-obj/rt/%.o: $(LIBSDRT_ROOT)/src/d/rt/%.d $(LIBSDRT_SRC) $(LIBSDRT_EXTRA_DEPS)
+obj/rt/%.o: $(LIBSDRT_ROOT)/src/d/rt/%.d $(LIBSDRT_RT_SRC) $(LIBSDRT_EXTRA_DEPS)
 	@mkdir -p obj/rt
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-$(LIBSDRT): $(LIBSDRT_OBJ)
+obj/gc/%.o: $(LIBSDRT_ROOT)/src/d/gc/%.d $(LIBSDRT_GC_SRC) $(LIBSDRT_EXTRA_DEPS)
+	@mkdir -p obj/gc
+	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+$(LIBSDRT): $(LIBSDRT_RT_OBJ) $(LIBSDRT_GC_OBJ)
 	@mkdir -p lib
 	ar rcs $(LIBSDRT) $^
 
