@@ -196,7 +196,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(BuiltinType t) {
-		if (isExplicit && isIntegral(t) && to.kind == TypeKind.Enum) {
+		if (isExplicit && to.kind == TypeKind.Enum) {
 			to = to.denum.type.getCanonical().qualify(to.qualifier);
 			auto k = visit(t);
 			return (k == CastKind.Exact)
