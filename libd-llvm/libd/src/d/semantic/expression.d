@@ -310,6 +310,7 @@ struct ExpressionVisitor {
 			
 			case Plus :
 			case Minus :
+			case Complement :
 				// FIXME: check that type is integer.
 				type = expr.type;
 				break;
@@ -318,9 +319,6 @@ struct ExpressionVisitor {
 				type = Type.get(BuiltinType.Bool);
 				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
-			
-			case Complement :
-				assert(0, "unary ~ not implemented.");
 		}
 		
 		return new UnaryExpression(e.location, type, op, expr);

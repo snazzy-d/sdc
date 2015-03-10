@@ -618,7 +618,12 @@ struct ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				auto k = e.expr.type.getCanonical().builtin;
+				auto t = e.expr.type.getCanonical();
+				while (t.kind == TypeKind.Enum) {
+					t = t.denum.type.getCanonical();
+				}
+				
+				auto k = t.builtin;
 				assert(canConvertToIntegral(k));
 				
 				return (isIntegral(k) && isSigned(k))

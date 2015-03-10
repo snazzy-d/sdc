@@ -421,11 +421,40 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 		}
 	}
 	
+	auto qualifier = TypeQualifier.Mutable;
+	
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
-			case Pure, Const, Immutable, Inout, Shared, Nothrow :
+			case Pure :
+				stc.isPure = true;
+				goto HandleStorageClass;
+			
+			case Const :
+				qualifier = TypeQualifier.Const;
+				goto HandleTypeQualifier;
+			
+			case Immutable :
+				qualifier = TypeQualifier.Immutable;
+				goto HandleTypeQualifier;
+			
+			case Inout :
+				qualifier = TypeQualifier.Inout;
+				goto HandleTypeQualifier;
+			
+			case Shared :
+				qualifier = TypeQualifier.Shared;
+				goto HandleTypeQualifier;
+			
+			HandleTypeQualifier: {
+				// We have a qualifier(type) name type of declaration.
+				stc.hasQualifier = true;
+				stc.qualifier = stc.qualifier.add(qualifier);
+				goto HandleStorageClass;
+			}
+			
+			HandleStorageClass:
 				trange.popFront();
-				assert(0, "Not implemented");
+				break;
 			
 			case At :
 				trange.popFront();

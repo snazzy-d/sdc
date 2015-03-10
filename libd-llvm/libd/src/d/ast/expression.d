@@ -141,8 +141,8 @@ enum UnaryOp {
 	PostDec,
 	Plus,
 	Minus,
-	Not,
 	Complement,
+	Not,
 }
 
 string unarizeString(string s, UnaryOp op) {

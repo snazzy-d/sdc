@@ -153,7 +153,7 @@ public:
 	
 	@property
 	BuiltinType builtin() inout in {
-		assert(kind == TypeKind.Builtin);
+		assert(kind == TypeKind.Builtin, "Not a builtin type.");
 	} body {
 		return cast(BuiltinType) desc.data;
 	}

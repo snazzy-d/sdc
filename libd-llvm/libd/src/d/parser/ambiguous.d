@@ -203,8 +203,11 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 		
 		case DoublePlus :
 		case DoubleMinus :
-		case OpenParen :
 			auto e = trange.parsePostfixExpression!(ParseMode.Reluctant)(new IdentifierExpression(i));
+			return trange.parseAmbiguousSuffix!handler(e);
+		
+		case OpenParen :
+			auto e = trange.parseIdentifierExpression(i);
 			return trange.parseAmbiguousSuffix!handler(e);
 		
 		case Assign :
