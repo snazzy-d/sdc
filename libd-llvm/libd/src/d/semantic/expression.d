@@ -437,7 +437,7 @@ struct ExpressionVisitor {
 			return e;
 		}
 		
-		switch(f.params.length - f.hasContext - f.hasThis) {
+		switch(f.params.length) {
 			case 0:
 				return new CallExpression(location, f.type.returnType.getType(), e, []);
 			

@@ -123,7 +123,7 @@ struct SymbolAnalyzer {
 		}).array();
 		
 		// If this is a closure, we add the context parameter.
-		if(f.hasContext) {
+		if (f.hasContext) {
 			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
 			
 			auto contextParameter = new Variable(f.location, Type.getContextType(ctxSym).getParamType(true, false), BuiltinName!"__ctx");

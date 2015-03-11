@@ -539,11 +539,11 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			return e;
 		}
 		
-		switch(f.params.length - f.hasContext) {
-			case 1:
+		switch(f.params.length - !f.hasThis) {
+			case 0:
 				return new CallExpression(location, f.type.returnType.getType(), e, []);
 			
-			case 2:
+			case 1:
 				assert(0, "setter not supported)");
 			
 			default:
