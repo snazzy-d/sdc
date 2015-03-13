@@ -100,6 +100,10 @@ struct ExpressionVisitor {
 				break;
 			
 			case Assign :
+				if (!lhs.isLvalue) {
+					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+				}
+				
 				type = lhs.type;
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				break;
@@ -133,6 +137,10 @@ struct ExpressionVisitor {
 			
 			case AddAssign :
 			case SubAssign :
+				if (!lhs.isLvalue) {
+					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+				}
+				
 				auto c = lhs.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
 					lhs = getLvalue(lhs);
