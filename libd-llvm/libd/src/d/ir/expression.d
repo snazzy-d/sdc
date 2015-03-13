@@ -98,6 +98,13 @@ class IndexExpression : Expression {
 		this.indexed = indexed;
 		this.index = index;
 	}
+	
+	@property
+	override bool isLvalue() const {
+		// FIXME: make this const compliant
+		auto t = (cast() indexed.type).getCanonical();
+		return t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer || indexed.isLvalue;
+	}
 }
 
 /**
@@ -306,8 +313,7 @@ class StringLiteral : CompileTimeExpression {
 	this(Location location, string value) {
 		super(
 			location,
-			Type.get(BuiltinType.Char, TypeQualifier.Immutable)
-				.getSlice(TypeQualifier.Immutable),
+			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
 		);
 		
 		this.value = value;
@@ -452,7 +458,9 @@ class FieldExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return expr.type.kind == TypeKind.Class || expr.isLvalue;
+		// FIXME: make this const compliant
+		auto t = (cast() expr.type).getCanonical();
+		return t.kind == TypeKind.Class || t.kind == TypeKind.Pointer || expr.isLvalue;
 	}
 }
 
