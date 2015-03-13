@@ -196,6 +196,12 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 				}
 			})();
 		
+		case Dot :
+			trange.popFront();
+			
+			auto id = trange.parseQualifiedIdentifier(i.location, i);
+			return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
+		
 		case Function :
 		case Delegate :
 			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(AstType.get(i));
