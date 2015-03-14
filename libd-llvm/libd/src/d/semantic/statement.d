@@ -413,26 +413,30 @@ public:
 		funTerminate = false;
 	}
 	
-	void visit(AstReturnStatement r) {
+	void visit(AstReturnStatement s) {
 		import d.semantic.expression;
-		auto value = ExpressionVisitor(pass).visit(r.value);
+		auto value = ExpressionVisitor(pass).visit(s.value);
 		
 		// TODO: precompute autotype instead of managing it here.
-		auto doCast = true;
 		auto rt = returnType.getType();
 		
 		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
 		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
-			doCast = false;
+		} else {
+			value = buildImplicitCast(pass, s.location, returnType.getType(), value);
+			if (returnType.isRef) {
+				if (value.isLvalue) {
+					value = new UnaryExpression(s.location, value.type.getPointer(), UnaryOp.AddressOf, value);
+				} else {
+					import d.exception;
+					throw new CompileException(s.location, "Cannot ref return lvalues.");
+				}
+			}
 		}
 		
-		if (doCast) {
-			value = buildImplicitCast(pass, r.location, returnType.getType(), value);
-		}
-		
-		flattenedStmts ~= new ReturnStatement(r.location, value);
+		flattenedStmts ~= new ReturnStatement(s.location, value);
 		terminateFun();
 	}
 	

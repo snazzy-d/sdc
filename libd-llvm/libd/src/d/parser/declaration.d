@@ -107,6 +107,10 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 				goto HandleStorageClass;
 			}
 			
+			case Ref :
+				stc.isRef = true;
+				goto HandleStorageClass;
+			
 			case Abstract :
 				stc.isAbstract = true;
 				goto HandleStorageClass;
@@ -341,7 +345,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 		}
 		
 		// TODO: implement ref return.
-		return trange.parseFunction(location, stc, type.getParamType(false, false), name);
+		return trange.parseFunction(location, stc, type.getParamType(stc.isRef, false), name);
 	} else {
 		Declaration[] variables;
 		

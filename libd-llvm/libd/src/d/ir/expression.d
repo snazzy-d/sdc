@@ -25,7 +25,6 @@ abstract class Expression : AstExpression {
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
-alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
@@ -82,6 +81,28 @@ class UnaryExpression : Expression {
 	@property
 	override bool isLvalue() const {
 		return op == UnaryOp.Dereference;
+	}
+}
+
+class CallExpression : Expression {
+	Expression callee;
+	Expression[] args;
+	
+	this(Location location, Type type, Expression callee, Expression[] args) {
+		super(location, type);
+		
+		this.callee = callee;
+		this.args = args;
+	}
+	
+	override string toString(Context ctx) const {
+		import std.algorithm, std.range;
+		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return callee.type.asFunctionType().returnType.isRef;
 	}
 }
 

@@ -218,12 +218,12 @@ class AstCastExpression : AstExpression {
 /**
  * Function call
  */
-class CallExpression(T) : T  if(is(T: AstExpression)){
-	T callee;
-	T[] args;
+class AstCallExpression : AstExpression {
+	AstExpression callee;
+	AstExpression[] args;
 	
-	this(U...)(Location location, U pargs, T callee, T[] args) {
-		super(location, pargs);
+	this(Location location, AstExpression callee, AstExpression[] args) {
+		super(location);
 		
 		this.callee = callee;
 		this.args = args;
@@ -234,8 +234,6 @@ class CallExpression(T) : T  if(is(T: AstExpression)){
 		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
 	}
 }
-
-alias AstCallExpression = CallExpression!AstExpression;
 
 /**
  * Indetifier calls.

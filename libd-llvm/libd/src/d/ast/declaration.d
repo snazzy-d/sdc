@@ -26,6 +26,7 @@ struct StorageClass {
 		bool, "hasVisibility", 1,
 		TypeQualifier, "qualifier", 3,
 		bool, "hasQualifier", 1,
+		bool, "isRef", 1,
 		bool, "isStatic", 1,
 		bool, "isEnum", 1,
 		bool, "isFinal", 1,
@@ -38,7 +39,7 @@ struct StorageClass {
 		bool, "isGshared", 1,
 		bool, "isProperty", 1,
 		bool, "isNoGC", 1,
-		uint, "", 8,
+		uint, "", 7,
 	));
 }
 
