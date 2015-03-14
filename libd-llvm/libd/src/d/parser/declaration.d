@@ -107,6 +107,10 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 				goto HandleStorageClass;
 			}
 			
+			case Ref :
+				stc.isRef = true;
+				goto HandleStorageClass;
+			
 			case Abstract :
 				stc.isAbstract = true;
 				goto HandleStorageClass;
@@ -341,7 +345,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 		}
 		
 		// TODO: implement ref return.
-		return trange.parseFunction(location, stc, type.getParamType(false, false), name);
+		return trange.parseFunction(location, stc, type.getParamType(stc.isRef, false), name);
 	} else {
 		Declaration[] variables;
 		
@@ -421,11 +425,40 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 		}
 	}
 	
+	auto qualifier = TypeQualifier.Mutable;
+	
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
-			case Pure, Const, Immutable, Inout, Shared, Nothrow :
+			case Pure :
+				stc.isPure = true;
+				goto HandleStorageClass;
+			
+			case Const :
+				qualifier = TypeQualifier.Const;
+				goto HandleTypeQualifier;
+			
+			case Immutable :
+				qualifier = TypeQualifier.Immutable;
+				goto HandleTypeQualifier;
+			
+			case Inout :
+				qualifier = TypeQualifier.Inout;
+				goto HandleTypeQualifier;
+			
+			case Shared :
+				qualifier = TypeQualifier.Shared;
+				goto HandleTypeQualifier;
+			
+			HandleTypeQualifier: {
+				// We have a qualifier(type) name type of declaration.
+				stc.hasQualifier = true;
+				stc.qualifier = stc.qualifier.add(qualifier);
+				goto HandleStorageClass;
+			}
+			
+			HandleStorageClass:
 				trange.popFront();
-				assert(0, "Not implemented");
+				break;
 			
 			case At :
 				trange.popFront();

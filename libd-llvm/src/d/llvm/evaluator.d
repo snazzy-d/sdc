@@ -66,7 +66,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		if (t.kind == TypeKind.Slice) {
 			auto et = t.element.getCanonical();
-			if (et.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char) {
+			if (et.kind == TypeKind.Builtin && et.builtin == BuiltinType.Char) {
 				return new StringLiteral(e.location, evalString(e));
 			}
 		}

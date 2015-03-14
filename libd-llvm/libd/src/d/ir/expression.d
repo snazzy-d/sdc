@@ -25,7 +25,6 @@ abstract class Expression : AstExpression {
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
-alias CallExpression = d.ast.expression.CallExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
@@ -85,6 +84,28 @@ class UnaryExpression : Expression {
 	}
 }
 
+class CallExpression : Expression {
+	Expression callee;
+	Expression[] args;
+	
+	this(Location location, Type type, Expression callee, Expression[] args) {
+		super(location, type);
+		
+		this.callee = callee;
+		this.args = args;
+	}
+	
+	override string toString(Context ctx) const {
+		import std.algorithm, std.range;
+		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
+	}
+	
+	@property
+	override bool isLvalue() const {
+		return callee.type.asFunctionType().returnType.isRef;
+	}
+}
+
 /**
  * Index expression : indexed[arguments]
  */
@@ -97,6 +118,13 @@ class IndexExpression : Expression {
 		
 		this.indexed = indexed;
 		this.index = index;
+	}
+	
+	@property
+	override bool isLvalue() const {
+		// FIXME: make this const compliant
+		auto t = (cast() indexed.type).getCanonical();
+		return t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer || indexed.isLvalue;
 	}
 }
 
@@ -306,8 +334,7 @@ class StringLiteral : CompileTimeExpression {
 	this(Location location, string value) {
 		super(
 			location,
-			Type.get(BuiltinType.Char, TypeQualifier.Immutable)
-				.getSlice(TypeQualifier.Immutable),
+			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
 		);
 		
 		this.value = value;
@@ -452,7 +479,9 @@ class FieldExpression : Expression {
 	
 	@property
 	override bool isLvalue() const {
-		return expr.type.kind == TypeKind.Class || expr.isLvalue;
+		// FIXME: make this const compliant
+		auto t = (cast() expr.type).getCanonical();
+		return t.kind == TypeKind.Class || t.kind == TypeKind.Pointer || expr.isLvalue;
 	}
 }
 
@@ -539,8 +568,20 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 		this(Location location, Type t, E[] values) {
 			// Implement type tuples.
 			super(location, t);
-		
+			
 			this.values = values;
+		}
+		
+		override string toString(Context c) const {
+			import std.algorithm, std.range;
+			auto members = values.map!(v => v.toString(c)).join(", ");
+			
+			// TODO: make this look nice for structs, classes, arrays...
+			static if (isCompileTime) {
+				return "ctTuple!(" ~ members ~ ")";
+			} else {
+				return "tuple(" ~ members ~ ")";
+			}
 		}
 	}
 }

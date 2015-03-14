@@ -618,7 +618,12 @@ struct ExpressionGen {
 				return LLVMBuildTrunc(builder, value, type, "");
 			
 			case Pad :
-				auto k = e.expr.type.getCanonical().builtin;
+				auto t = e.expr.type.getCanonical();
+				while (t.kind == TypeKind.Enum) {
+					t = t.denum.type.getCanonical();
+				}
+				
+				auto k = t.builtin;
 				assert(canConvertToIntegral(k));
 				
 				return (isIntegral(k) && isSigned(k))
@@ -705,7 +710,7 @@ struct ExpressionGen {
 		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
 	}
 	
-	LLVMValueRef visit(CallExpression c) {
+	private LLVMValueRef buildCall(CallExpression c) {
 		auto cType = c.callee.type.getCanonical().asFunctionType();
 		auto contexts = cType.contexts;
 		auto params = cType.parameters;
@@ -738,6 +743,12 @@ struct ExpressionGen {
 		}
 		
 		return buildCall(callee, args);
+	}
+	
+	LLVMValueRef visit(CallExpression c) {
+		return c.callee.type.asFunctionType().returnType.isRef
+			? LLVMBuildLoad(builder, buildCall(c), "")
+			: buildCall(c);
 	}
 	
 	LLVMValueRef visit(TupleExpression e) {
@@ -846,7 +857,9 @@ struct AddressOfGen {
 		this.pass = pass;
 	}
 	
-	LLVMValueRef visit(Expression e) {
+	LLVMValueRef visit(Expression e) in {
+		assert(e.isLvalue, "You can only compute addresses of lvalues.");
+	} body {
 		return this.dispatch(e);
 	}
 	
@@ -924,6 +937,10 @@ struct AddressOfGen {
 			case Exact :
 				return value;
 		}
+	}
+	
+	LLVMValueRef visit(CallExpression c) {
+		return ExpressionGen(pass).buildCall(c);
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {

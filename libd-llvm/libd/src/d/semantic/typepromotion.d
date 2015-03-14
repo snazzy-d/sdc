@@ -14,7 +14,8 @@ alias Interface = d.ir.symbol.Interface;
 Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
 	return TypePromoter(pass, t1).visit(t2);
 }
-
+// XXX: type promotion and finding common type are mixed up in there.
+// This need to be splitted.
 struct TypePromoter {
 	// XXX: Used only to get to super class, should probably go away.
 	private SemanticPass pass;
@@ -85,7 +86,11 @@ struct TypePromoter {
 	}
 	
 	Type visit(Struct s) {
-		assert(0, "Not Implemented.");
+		if (t1.kind == TypeKind.Struct && t1.dstruct is s) {
+			return Type.get(s);
+		}
+		
+		assert(0, "Incompatible struct type.");
 	}
 	
 	Type visit(Class c) {

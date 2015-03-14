@@ -100,6 +100,10 @@ struct ExpressionVisitor {
 				break;
 			
 			case Assign :
+				if (!lhs.isLvalue) {
+					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+				}
+				
 				type = lhs.type;
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				break;
@@ -133,6 +137,10 @@ struct ExpressionVisitor {
 			
 			case AddAssign :
 			case SubAssign :
+				if (!lhs.isLvalue) {
+					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+				}
+				
 				auto c = lhs.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
 					lhs = getLvalue(lhs);
@@ -310,6 +318,7 @@ struct ExpressionVisitor {
 			
 			case Plus :
 			case Minus :
+			case Complement :
 				// FIXME: check that type is integer.
 				type = expr.type;
 				break;
@@ -318,9 +327,6 @@ struct ExpressionVisitor {
 				type = Type.get(BuiltinType.Bool);
 				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
-			
-			case Complement :
-				assert(0, "unary ~ not implemented.");
 		}
 		
 		return new UnaryExpression(e.location, type, op, expr);
@@ -439,7 +445,7 @@ struct ExpressionVisitor {
 			return e;
 		}
 		
-		switch(f.params.length - f.hasContext - f.hasThis) {
+		switch(f.params.length) {
 			case 0:
 				return new CallExpression(location, f.type.returnType.getType(), e, []);
 			

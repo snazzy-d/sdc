@@ -225,7 +225,7 @@ final class TypeGen {
 
 	private auto buildParamType(ParamType pt) {
 		auto t = visit(pt.getType());
-		if(pt.isRef) {
+		if (pt.isRef) {
 			t = LLVMPointerType(t, 0);
 		}
 		

@@ -110,34 +110,38 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
 		assert(init, "init must be defined");
 		
+		scheduler.require(init);
+		
 		static if(isCompileTime) {
 			auto v = cast(E) init.value;
 			assert(v, "init must be a compile time expression");
+			
+			return v;
 		} else {
 			auto v = init.value;
-			if (s.hasContext) {
-				v = getTemporary(v);
-				
-				import std.algorithm;
-				auto f = cast(Field) s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
-				assert(f, "Context must be a field");
-				
-				auto ft = f.type;
-				assert(ft.kind == TypeKind.Pointer);
-				
-				auto assign = new BinaryExpression(
-					location,
-					ft,
-					BinaryOp.Assign,
-					new FieldExpression(location, v, f),
-					new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.element.context)),
-				);
-				
-				return new BinaryExpression(location, Type.get(s), BinaryOp.Comma, assign, v);
+			if (!s.hasContext) {
+				return v;
 			}
+			
+			v = getTemporary(v);
+			
+			import std.algorithm;
+			auto f = cast(Field) s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
+			assert(f, "Context must be a field");
+			
+			auto ft = f.type;
+			assert(ft.kind == TypeKind.Pointer);
+			
+			auto assign = new BinaryExpression(
+				location,
+				ft,
+				BinaryOp.Assign,
+				new FieldExpression(location, v, f),
+				new UnaryExpression(location, ft, UnaryOp.AddressOf, new ContextExpression(location, ft.element.context)),
+			);
+			
+			return new BinaryExpression(location, Type.get(s), BinaryOp.Comma, assign, v);
 		}
-		
-		return v;
 	}
 	
 	E visit(Class c) {

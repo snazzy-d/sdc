@@ -44,11 +44,12 @@ struct DeclarationVisitor {
 			AggregateType, "aggregateType", 2,
 			AddContext, "addContext", 1,
 			CtUnitLevel, "ctLevel", 2,
+			bool, "isRef", 1,
 			bool, "isOverride", 1,
 			bool, "isAbstract", 1,
 			bool, "isProperty", 1,
 			bool, "isNoGC", 1,
-			uint, "", 15,
+			uint, "", 14,
 		));
 	}
 	
@@ -440,6 +441,7 @@ struct DeclarationVisitor {
 		auto oldVisibility = visibility;
 		auto oldLinkage = linkage;
 		
+		auto oldIsRef      = isRef;
 		auto oldIsOverride = isOverride;
 		auto oldIsAbstract = isAbstract;
 		auto oldIsProperty = isProperty;
@@ -450,6 +452,7 @@ struct DeclarationVisitor {
 			visibility = oldVisibility;
 			linkage = oldLinkage;
 			
+			isRef      = oldIsRef;
 			isOverride = oldIsOverride;
 			isAbstract = oldIsAbstract;
 			isProperty = oldIsProperty;
@@ -463,6 +466,7 @@ struct DeclarationVisitor {
 		visibility = getVisibility(stc);
 		linkage = getLinkage(stc);
 		
+		isRef      = isRef      || stc.isRef;
 		isOverride = isOverride || stc.isOverride;
 		isAbstract = isAbstract || stc.isAbstract;
 		isProperty = isProperty || stc.isProperty;

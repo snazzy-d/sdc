@@ -117,7 +117,7 @@ private:
 			}
 		}
 		
-		foreach(j, a; fargs) {
+		foreach(j, a; fargs[0 .. t.ifti.length]) {
 			if (!IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
 				return false;
 			}
