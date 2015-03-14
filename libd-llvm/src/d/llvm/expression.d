@@ -617,18 +617,11 @@ struct ExpressionGen {
 			case Trunc :
 				return LLVMBuildTrunc(builder, value, type, "");
 			
-			case Pad :
-				auto t = e.expr.type.getCanonical();
-				while (t.kind == TypeKind.Enum) {
-					t = t.denum.type.getCanonical();
-				}
-				
-				auto k = t.builtin;
-				assert(canConvertToIntegral(k));
-				
-				return (isIntegral(k) && isSigned(k))
-					? LLVMBuildSExt(builder, value, type, "")
-					: LLVMBuildZExt(builder, value, type, "");
+			case SPad :
+				return LLVMBuildSExt(builder, value, type, "");
+			
+			case UPad :
+				return LLVMBuildZExt(builder, value, type, "");
 			
 			case Bit :
 				return LLVMBuildBitCast(builder, value, type, "");
@@ -927,7 +920,8 @@ struct AddressOfGen {
 			case Down :
 			case IntToBool :
 			case Trunc :
-			case Pad :
+			case SPad :
+			case UPad :
 				assert(0, "Not an lvalue");
 			
 			case Bit :

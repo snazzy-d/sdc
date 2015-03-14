@@ -132,7 +132,7 @@ struct ValueRangePropagator {
 					.repack(e.type.builtin)
 					.recast(e.type.builtin);
 			
-			case Pad :
+			case SPad, UPad :
 				return visit(e.expr).repack(e.type.builtin);
 			
 			case Qual, Exact :
@@ -686,7 +686,7 @@ unittest {
 	auto v = vrp.visit(new CastExpression(Location.init, CastKind.Bit, Type.get(BuiltinType.Ubyte), i));
 	assert(v == ValueRange(250));
 	
-	v = vrp.visit(new CastExpression(Location.init, CastKind.Pad, Type.get(BuiltinType.Ulong), i));
+	v = vrp.visit(new CastExpression(Location.init, CastKind.UPad, Type.get(BuiltinType.Ulong), i));
 	assert(v == ValueRange(cast(uint) -6));
 }
 

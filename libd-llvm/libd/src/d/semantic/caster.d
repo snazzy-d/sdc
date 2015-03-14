@@ -230,7 +230,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			
 			case Bool :
 				if (isIntegral(bt)) {
-					return CastKind.Pad;
+					return CastKind.UPad;
 				}
 				
 				return CastKind.Invalid;
@@ -256,12 +256,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 					return CastKind.Invalid;
 				}
 				
-				t = unsigned(t);
+				auto ut = unsigned(t);
 				bt = unsigned(bt);
-				if (t == bt) {
+				if (ut == bt) {
 					return CastKind.Bit;
-				} else if (t < bt) {
-					return CastKind.Pad;
+				} else if (ut < bt) {
+					return isSigned(t)
+						? CastKind.SPad
+						: CastKind.UPad;
 				} else static if (isExplicit) {
 					return CastKind.Trunc;
 				} else {

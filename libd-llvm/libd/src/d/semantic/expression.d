@@ -403,7 +403,8 @@ struct ExpressionVisitor {
 			case Trunc :
 				assert(0, "Not an implicit cast !");
 			
-			case Pad :
+			case SPad :
+			case UPad :
 			case Bit :
 				return MatchLevel.TypeConvert;
 			

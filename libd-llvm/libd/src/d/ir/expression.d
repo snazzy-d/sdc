@@ -372,7 +372,8 @@ enum CastKind {
 	Down,
 	IntToBool,
 	Trunc,
-	Pad,
+	SPad,
+	UPad,
 	Bit,
 	Qual,
 	Exact,
@@ -403,7 +404,8 @@ class CastExpression : Expression {
 			case Down :
 			case IntToBool :
 			case Trunc :
-			case Pad :
+			case SPad :
+			case UPad :
 				return false;
 			
 			case Bit :
