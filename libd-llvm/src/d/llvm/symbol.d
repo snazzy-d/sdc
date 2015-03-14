@@ -235,8 +235,7 @@ final class SymbolGen {
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		import d.llvm.statement;
-		auto sg = StatementGen(pass);
-		sg.visit(f.fbody);
+		StatementGen(pass).visit(f.fbody);
 		
 		// If the current block isn't concluded, it means that it is unreachable.
 		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
