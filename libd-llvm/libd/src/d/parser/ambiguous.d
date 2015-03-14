@@ -164,8 +164,70 @@ Ambiguous ambiguousHandler(T)(T t) {
 	}
 }
 
+bool indicateExpression(TokenType t) {
+	switch(t) with(TokenType) {
+		case DoublePlus :
+		case DoubleMinus :
+		case Assign :
+		case PlusAssign :
+		case MinusAssign :
+		case StarAssign :
+		case SlashAssign :
+		case PercentAssign :
+		case AmpersandAssign :
+		case PipeAssign :
+		case CaretAssign :
+		case TildeAssign :
+		case DoubleLessAssign :
+		case DoubleMoreAssign :
+		case TripleMoreAssign :
+		case DoubleCaretAssign :
+		case QuestionMark :
+		case DoublePipe :
+		case DoubleAmpersand :
+		case Pipe :
+		case Caret :
+		case Ampersand :
+		case DoubleAssign :
+		case BangAssign :
+		case More:
+		case MoreAssign:
+		case Less :
+		case LessAssign :
+		case BangLessMoreAssign:
+		case BangLessMore:
+		case LessMore:
+		case LessMoreAssign:
+		case BangMore:
+		case BangMoreAssign:
+		case BangLess:
+		case BangLessAssign:
+		case Is :
+		case In :
+		case Bang :
+		case DoubleLess :
+		case DoubleMore :
+		case TripleMore :
+		case Plus :
+		case Minus :
+		case Tilde :
+		case Star :
+		case Slash :
+		case Percent :
+			return true;
+		
+		default:
+			return false;
+	}
+}
+
 typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Identifier i) {
-	switch(trange.front.type) with(TokenType) {
+	auto tt = trange.front.type;
+	if (tt.indicateExpression()) {
+		return trange.parseAmbiguousSuffix!handler(new IdentifierExpression(i));
+	}
+	
+	switch(tt) with(TokenType) {
 		case OpenBracket :
 			trange.popFront();
 			
@@ -207,94 +269,8 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(AstType.get(i));
 			return trange.parseAmbiguousSuffix!handler(i.location, t);
 		
-		case DoublePlus :
-		case DoubleMinus :
-			auto e = trange.parsePostfixExpression!(ParseMode.Reluctant)(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
 		case OpenParen :
 			auto e = trange.parseIdentifierExpression(i);
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Assign :
-		case PlusAssign :
-		case MinusAssign :
-		case StarAssign :
-		case SlashAssign :
-		case PercentAssign :
-		case AmpersandAssign :
-		case PipeAssign :
-		case CaretAssign :
-		case TildeAssign :
-		case DoubleLessAssign :
-		case DoubleMoreAssign :
-		case TripleMoreAssign :
-		case DoubleCaretAssign :
-			auto e = trange.parseAssignExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case QuestionMark :
-			auto e = trange.parseTernaryExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case DoublePipe :
-			auto e = trange.parseLogicalOrExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case DoubleAmpersand :
-			auto e = trange.parseLogicalAndExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Pipe :
-			auto e = trange.parseBitwiseOrExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Caret :
-			auto e = trange.parseBitwiseXorExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Ampersand :
-			auto e = trange.parseBitwiseAndExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case DoubleAssign :
-		case BangAssign :
-		case More:
-		case MoreAssign:
-		case Less :
-		case LessAssign :
-		case BangLessMoreAssign:
-		case BangLessMore:
-		case LessMore:
-		case LessMoreAssign:
-		case BangMore:
-		case BangMoreAssign:
-		case BangLess:
-		case BangLessAssign:
-		case Is :
-		case In :
-		case Bang :
-			auto e = trange.parseComparaisonExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case DoubleLess :
-		case DoubleMore :
-		case TripleMore :
-			auto e = trange.parseShiftExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Plus :
-		case Minus :
-		case Tilde :
-			auto e = trange.parseAddExpression(new IdentifierExpression(i));
-			return trange.parseAmbiguousSuffix!handler(e);
-		
-		case Star :
-			assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
-		
-		case Slash :
-		case Percent :
-			auto e = trange.parseMulExpression(new IdentifierExpression(i));
 			return trange.parseAmbiguousSuffix!handler(e);
 		
 		default :
@@ -319,15 +295,100 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Locat
 }
 
 typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstExpression e) {
-	switch(trange.front.type) with(TokenType) {
-		case Dot :
-			trange.popFront();
+	e = trange.parsePostfixExpression!(ParseMode.Reluctant)(e);
+	
+	while(true) {
+		switch(trange.front.type) with(TokenType) {
+			case Assign :
+			case PlusAssign :
+			case MinusAssign :
+			case StarAssign :
+			case SlashAssign :
+			case PercentAssign :
+			case AmpersandAssign :
+			case PipeAssign :
+			case CaretAssign :
+			case TildeAssign :
+			case DoubleLessAssign :
+			case DoubleMoreAssign :
+			case TripleMoreAssign :
+			case DoubleCaretAssign :
+				e = trange.parseAssignExpression(e);
+				continue;
 			
-			auto i = trange.parseQualifiedIdentifier(e.location, e);
-			return trange.parseAmbiguousSuffix!ambiguousHandler(i).apply!handler();
-		
-		default :
-			return handler(e);
+			case QuestionMark :
+				e = trange.parseTernaryExpression(e);
+				continue;
+			
+			case DoublePipe :
+				e = trange.parseLogicalOrExpression(e);
+				continue;
+			
+			case DoubleAmpersand :
+				e = trange.parseLogicalAndExpression(e);
+				continue;
+			
+			case Pipe :
+				e = trange.parseBitwiseOrExpression(e);
+				continue;
+			
+			case Caret :
+				e = trange.parseBitwiseXorExpression(e);
+				continue;
+			
+			case Ampersand :
+				e = trange.parseBitwiseAndExpression(e);
+				continue;
+			
+			case DoubleAssign :
+			case BangAssign :
+			case More:
+			case MoreAssign:
+			case Less :
+			case LessAssign :
+			case BangLessMoreAssign:
+			case BangLessMore:
+			case LessMore:
+			case LessMoreAssign:
+			case BangMore:
+			case BangMoreAssign:
+			case BangLess:
+			case BangLessAssign:
+			case Is :
+			case In :
+			case Bang :
+				e = trange.parseComparaisonExpression(e);
+				continue;
+			
+			case DoubleLess :
+			case DoubleMore :
+			case TripleMore :
+				e = trange.parseShiftExpression(e);
+				continue;
+			
+			case Plus :
+			case Minus :
+			case Tilde :
+				e = trange.parseAddExpression(e);
+				continue;
+			
+			case Star :
+				assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
+			
+			case Slash :
+			case Percent :
+				e = trange.parseMulExpression(e);
+				continue;
+			
+			case Dot :
+				trange.popFront();
+				
+				auto i = trange.parseQualifiedIdentifier(e.location, e);
+				return trange.parseAmbiguousSuffix!ambiguousHandler(i).apply!handler();
+			
+			default :
+				return handler(e);
+		}
 	}
 }
 
