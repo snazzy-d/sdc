@@ -273,14 +273,19 @@ struct SymbolAnalyzer {
 			import d.semantic.type : TypeVisitor;
 			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 			
-			// XXX: remove selective import when dmd is sane.
-			import d.semantic.expression : ExpressionVisitor;
-			import d.semantic.defaultinitializer : InitBuilder;
-			value = d.value
-				? ExpressionVisitor(pass).visit(d.value)
-				: InitBuilder(pass, v.location).visit(type);
-			
-			value = buildImplicitCast(pass, d.location, type, value);
+			value = cast(VoidInitializer) d.value;
+			if (value) {
+				value.type = type;
+			} else {
+				// XXX: remove selective import when dmd is sane.
+				import d.semantic.expression : ExpressionVisitor;
+				import d.semantic.defaultinitializer : InitBuilder;
+				value = d.value
+					? ExpressionVisitor(pass).visit(d.value)
+					: InitBuilder(pass, v.location).visit(type);
+				
+				value = buildImplicitCast(pass, d.location, type, value);
+			}
 		}
 		
 		// Sanity check.
