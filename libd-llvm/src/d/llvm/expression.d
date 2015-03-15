@@ -410,7 +410,7 @@ struct ExpressionGen {
 		
 		// Codegen of lhs can change the current block, so we put everything in order.
 		lhsBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(lhsBB, rhsBB);
+		LLVMMoveBasicBlockAfter(rhsBB, lhsBB);
 		
 		// Emit rhs
 		LLVMPositionBuilderAtEnd(builder, rhsBB);
@@ -980,7 +980,7 @@ struct AddressOfGen {
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
 		}
 		
-		assert(0, "Don't know how to index "/+ ~ indexed.type.toString(context) +/);
+		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
 	}
 }
 

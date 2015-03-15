@@ -762,6 +762,8 @@ struct ExpressionVisitor {
 			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
+		index = buildImplicitCast(pass, location, pass.object.getSizeT().type, index);
+		
 		return new IndexExpression(location, t.element, indexed, index);
 	}
 	
