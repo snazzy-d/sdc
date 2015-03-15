@@ -366,8 +366,6 @@ public:
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
-		assert(!f.reverse, "foreach_reverse not supported at this point.");
-		
 		import d.semantic.expression;
 		auto start = ExpressionVisitor(pass).visit(f.start);
 		auto stop  = ExpressionVisitor(pass).visit(f.stop);
@@ -384,15 +382,30 @@ public:
 		
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
-		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
+
+		BinaryOp cmp_op;
+		UnaryOp inc_op;
+
+		if (f.reverse) {
+			swap(start, stop);
+			cmp_op = BinaryOp.GreaterEqual;
+			inc_op = UnaryOp.PreDec;
+		} else {
+			cmp_op = BinaryOp.Less;
+			inc_op = UnaryOp.PreInc;
+		}
 		
+		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
+
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
-		
-		auto initialize = new SymbolStatement(idx);
-		auto idxExpr = new VariableExpression(idx.location, idx);
-		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, stop);
-		auto increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
+
+		auto idxExpr = new VariableExpression(idx.location, idx);		
+		auto initialize = f.reverse 
+			? new ExpressionStatement(new UnaryExpression(loc, idx.type, UnaryOp.PreDec, idxExpr))
+			: new SymbolStatement(idx);
+		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), cmp_op, idxExpr, stop);
+		auto increment = new UnaryExpression(loc, type, inc_op, idxExpr);
 		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
