@@ -4,8 +4,7 @@
 // Test template specialisation.
 
 template Foo(T : T*) {
-	// XXX: remove cast when VRP is in.
-	enum Foo = cast(int) T.sizeof;
+	enum Foo = T.sizeof;
 }
 
 int main() {

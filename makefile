@@ -47,7 +47,7 @@ obj/sdc.o: $(SOURCE)
 
 bin/sdc.conf:
 	@mkdir -p bin
-	echo "{	\"includePath\": [\"$(PWD)/libs\", \".\"], \"libPath\": [\"$(PWD)/lib\"], }" > $@
+	printf "{\n\t\"includePath\": [\"$(PWD)/libs\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
 
 clean:
 	rm -rf obj lib $(SDC)
