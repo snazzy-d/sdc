@@ -211,7 +211,6 @@ bool indicateExpression(TokenType t) {
 		case Plus :
 		case Minus :
 		case Tilde :
-		case Star :
 		case Slash :
 		case Percent :
 			return true;
@@ -258,6 +257,20 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 				}
 			})();
 		
+		case Star :
+			trange.popFront();
+			
+			switch (trange.front.type) {
+				case OpenBracket :
+				case Star :
+				case Function :
+				case Delegate :
+					return trange.parseAmbiguousSuffix!handler(i.location, AstType.get(i).getPointer());
+				
+				default :
+					assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
+			}
+		
 		case Dot :
 			trange.popFront();
 			
@@ -266,8 +279,7 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 		
 		case Function :
 		case Delegate :
-			auto t = trange.parseTypeSuffix!(ParseMode.Reluctant)(AstType.get(i));
-			return trange.parseAmbiguousSuffix!handler(i.location, t);
+			return trange.parseAmbiguousSuffix!handler(i.location, AstType.get(i));
 		
 		case OpenParen :
 			auto e = trange.parseIdentifierExpression(i);
@@ -279,6 +291,8 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 }
 
 typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, AstType t) {
+	t = trange.parseTypeSuffix!(ParseMode.Reluctant)(t);
+	
 	switch(trange.front.type) with(TokenType) {
 		case OpenParen :
 			assert(0, "Constructor not implemented");
@@ -373,8 +387,6 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstEx
 				continue;
 			
 			case Star :
-				assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
-			
 			case Slash :
 			case Percent :
 				e = trange.parseMulExpression(e);
