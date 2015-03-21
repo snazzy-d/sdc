@@ -186,7 +186,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	E visit(Union u) {
-		assert(0, "Not implemented");
+		// FIXME: Computing this properly would require layout
+		// informations from the backend. Will do for now.
+		return new VoidInitializer(location, Type.get(u));
 	}
 	
 	E visit(Function f) {

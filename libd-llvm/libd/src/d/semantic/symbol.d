@@ -442,6 +442,82 @@ struct SymbolAnalyzer {
 		s.step = Step.Processed;
 	}
 	
+	void analyze(UnionDeclaration d, Union u) {
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldThisType = thisType;
+		auto oldFieldIndex = fieldIndex;
+		
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			thisType = oldThisType;
+			fieldIndex = oldFieldIndex;
+		}
+		
+		auto type = Type.get(u);
+		thisType = type.getParamType(true, false);
+		
+		// Update mangle prefix.
+		auto name = u.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		
+		// XXX: For some reason dmd mangle the same way as structs ???
+		assert(u.linkage == Linkage.D || u.linkage == Linkage.C);
+		u.mangle = "S" ~ manglePrefix;
+		
+		auto dscope = currentScope = u.dscope = u.hasContext
+			? new VoldemortScope(u, oldScope)
+			: new AggregateScope(u, oldScope);
+		
+		fieldIndex = 0;
+		Field[] fields;
+		if (u.hasContext) {
+			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
+			auto ctx = new Field(u.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(u.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			fieldIndex = 1;
+			fields = [ctx];
+		}
+		
+		auto members = DeclarationVisitor(pass, AggregateType.Union).flatten(d.members, u);
+		
+		auto init = new Variable(u.location, type, BuiltinName!"init");
+		init.storage = Storage.Static;
+		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ u.mangle;
+		init.step = Step.Signed;
+		
+		u.dscope.addSymbol(init);
+		u.step = Step.Populated;
+		
+		auto otherSymbols = members.filter!((m) {
+			if (auto f = cast(Field) m) {
+				fields ~= f;
+				return false;
+			}
+			
+			return true;
+		}).array();
+		
+		scheduler.require(fields, Step.Signed);
+		
+		u.members ~= init;
+		u.members ~= fields;
+		
+		u.step = Step.Signed;
+		
+		scheduler.require(fields);
+		
+		init.value = new VoidInitializer(u.location, type);
+		init.step = Step.Processed;
+		
+		scheduler.require(otherSymbols);
+		u.members ~= otherSymbols;
+		
+		u.step = Step.Processed;
+	}
+	
 	void analyze(ClassDeclaration d, Class c) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;

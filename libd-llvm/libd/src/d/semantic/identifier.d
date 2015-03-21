@@ -387,6 +387,10 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		return getSymbolType(s);
 	}
 	
+	Ret visit(Union u) {
+		return getSymbolType(u);
+	}
+	
 	Ret visit(Class c) {
 		return getSymbolType(c);
 	}
@@ -722,7 +726,12 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	}
 	
 	Ret visit(Union u) {
-		assert(0, "Not Implemented.");
+		scheduler.require(u, Step.Populated);
+		if (auto sym = u.dscope.resolve(name)) {
+			return handler(sym);
+		}
+		
+		return bailout(Type.get(u));
 	}
 	
 	Ret visit(Function f) {
