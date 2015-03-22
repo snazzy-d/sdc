@@ -104,7 +104,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	E visit(Struct s) {
-		scheduler.require(s, Step.Populated);
+		scheduler.require(s, Step.Signed);
 		
 		import d.context;
 		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");

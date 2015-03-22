@@ -431,12 +431,12 @@ struct SymbolAnalyzer {
 		s.members ~= init;
 		s.members ~= fields;
 		
-		s.step = Step.Signed;
-		
 		scheduler.require(fields);
 		
 		init.value = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
 		init.step = Step.Processed;
+		
+		s.step = Step.Signed;
 		
 		scheduler.require(otherSymbols);
 		s.members ~= otherSymbols;
