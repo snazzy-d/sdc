@@ -466,7 +466,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Struct s) {
-		auto ret = pass.buildStructType(s);
+		auto ret = buildStructType(s);
 		
 		foreach(member; s.members) {
 			if(typeid(member) !is typeid(Field)) {
@@ -477,8 +477,20 @@ final class SymbolGen {
 		return ret;
 	}
 	
+	LLVMTypeRef visit(Union u) {
+		auto ret = buildUnionType(u);
+		
+		foreach(member; u.members) {
+			if (typeid(member) !is typeid(Field)) {
+				visit(member);
+			}
+		}
+		
+		return ret;
+	}
+	
 	LLVMTypeRef visit(Class c) {
-		auto ret = pass.buildClassType(c);
+		auto ret = buildClassType(c);
 		
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
@@ -493,7 +505,7 @@ final class SymbolGen {
 	}
 	
 	LLVMTypeRef visit(Enum e) {
-		auto type = pass.buildEnumType(e);
+		auto type = buildEnumType(e);
 		/+
 		foreach(entry; e.entries) {
 			visit(entry);

@@ -17,7 +17,7 @@ import util.visitor;
 
 import llvm.c.analysis;
 import llvm.c.core;
-import llvm.c.executionEngine;
+import llvm.c.target;
 
 import std.algorithm;
 import std.array;
@@ -35,8 +35,9 @@ final class CodeGenPass {
 	
 	ObjectReference object;
 	
-	LLVMContextRef llvmCtx;
+	LLVMTargetDataRef targetData;
 	
+	LLVMContextRef llvmCtx;
 	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
 	
@@ -64,8 +65,9 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(Context context, string name) {
+	this(Context context, string name, LLVMTargetDataRef targetData) {
 		this.context	= context;
+		this.targetData	= targetData;
 		
 		symbolGen		= new SymbolGen(this);
 		typeGen			= new TypeGen(this);
@@ -138,6 +140,10 @@ final class CodeGenPass {
 	
 	auto buildStructType(Struct s) {
 		return typeGen.visit(s);
+	}
+	
+	auto buildUnionType(Union u) {
+		return typeGen.visit(u);
 	}
 	
 	auto buildClassType(Class c) {

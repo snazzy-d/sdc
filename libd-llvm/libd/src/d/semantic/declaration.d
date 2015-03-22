@@ -17,6 +17,7 @@ alias Module = d.ir.symbol.Module;
 
 enum AggregateType {
 	None,
+	Union,
 	Struct,
 	Class,
 }
@@ -303,10 +304,15 @@ struct DeclarationVisitor {
 		auto storage = getStorage(stc);
 		
 		Variable v;
-		if(storage.isNonLocal || aggregateType == AggregateType.None) {
+		if (storage.isNonLocal || aggregateType == AggregateType.None) {
 			v = new Variable(d.location, Type.get(BuiltinType.None), d.name);
 		} else {
-			v = new Field(d.location, fieldIndex++, Type.get(BuiltinType.None), d.name);
+			v = new Field(d.location, fieldIndex, Type.get(BuiltinType.None), d.name);
+			
+			// Union have all their fields at the same index.
+			if (aggregateType > AggregateType.Union) {
+				fieldIndex++;
+			}
 		}
 		
 		v.linkage = getLinkage(stc);
@@ -327,6 +333,18 @@ struct DeclarationVisitor {
 		
 		addSymbol(s);
 		select(d, s);
+	}
+	
+	void visit(UnionDeclaration d) {
+		auto u = new Union(d.location, d.name, []);
+		u.linkage = linkage;
+		u.visibility = visibility;
+		u.storage = storage;
+		
+		u.hasContext = storage.isNonLocal ? false : !!addContext;
+		
+		addSymbol(u);
+		select(d, u);
 	}
 	
 	void visit(ClassDeclaration d) {

@@ -8,11 +8,8 @@ import d.ir.symbol;
 import d.context;
 
 import llvm.c.core;
-import llvm.c.executionEngine;
 import llvm.c.target;
 import llvm.c.targetMachine;
-
-import llvm.c.transforms.passManagerBuilder;
 
 import std.array;
 import std.process;
@@ -23,6 +20,8 @@ final class LLVMBackend {
 	private CodeGenPass pass;
 	private LLVMEvaluator evaluator;
 	
+	private LLVMTargetMachineRef targetMachine;
+	
 	private uint optLevel;
 	private string linkerParams;
 	
@@ -31,14 +30,37 @@ final class LLVMBackend {
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
 		
+		import llvm.c.executionEngine;
 		LLVMLinkInMCJIT();
 		LLVMInitializeX86AsmPrinter();
 		
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
 		
-		pass = new CodeGenPass(context, name);
+		version(OSX) {
+			auto triple = "x86_64-apple-darwin9".ptr;
+		} else {
+			auto triple = "x86_64-pc-linux-gnu".ptr;
+		}
+		
+		targetMachine = LLVMCreateTargetMachine(
+			LLVMGetFirstTarget(),
+			triple,
+			"x86-64".ptr,
+			"".ptr,
+			LLVMCodeGenOptLevel.Default,
+			LLVMRelocMode.Default,
+			LLVMCodeModel.Default,
+		);
+		
+		auto td = LLVMGetTargetMachineData(targetMachine);
+		
+		pass = new CodeGenPass(context, name, td);
 		evaluator = new LLVMEvaluator(pass);
+	}
+	
+	~this() {
+		LLVMDisposeTargetMachine(targetMachine);
 	}
 	
 	auto getPass() {
@@ -64,6 +86,7 @@ final class LLVMBackend {
 		
 		auto dmodule = pass.dmodule;
 		
+		import llvm.c.transforms.passManagerBuilder;
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
@@ -81,15 +104,6 @@ final class LLVMBackend {
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		version(OSX) {
-			auto triple = "x86_64-apple-darwin9".ptr;
-		} else {
-			auto triple = "x86_64-pc-linux-gnu".ptr;
-		}
-		
-		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
-		scope(exit) LLVMDisposeTargetMachine(targetMachine);
-
 		auto targetData = LLVMGetTargetMachineData(targetMachine);
 		LLVMAddTargetData(targetData, pm);
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);

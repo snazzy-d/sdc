@@ -451,10 +451,11 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
-		if(e.isLvalue) {
+		if (e.isLvalue) {
 			return LLVMBuildLoad(builder, addressOf(e), "");
 		}
 		
+		assert(e.expr.type.kind != TypeKind.Union, "rvalue unions not implemented.");
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
 	
@@ -913,7 +914,13 @@ struct AddressOfGen {
 			ptr = LLVMBuildLoad(builder, ptr, "");
 		}
 		
-		return LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+		ptr = LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+		if (e.expr.type.kind == TypeKind.Union) {
+			auto type = LLVMPointerType(pass.visit(e.type), 0);
+			ptr = LLVMBuildBitCast(builder, ptr, type, "");
+		}
+		
+		return ptr;
 	}
 	
 	LLVMValueRef visit(ThisExpression e) {

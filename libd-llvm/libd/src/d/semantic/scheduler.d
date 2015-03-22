@@ -42,17 +42,17 @@ final class Scheduler {
 		scope(exit) pass.state = state;
 		
 		while(s.step < step) {
-			if(auto p = s in processes) {
+			if (auto p = s in processes) {
 				auto f = *p;
-				if(f.state == Fiber.State.EXEC) {
+				if (f.state == Fiber.State.EXEC) {
 					// TODO: Check for possible forward reference problem.
 				}
 				
-				if(f.state == Fiber.State.HOLD) {
+				if (f.state == Fiber.State.HOLD) {
 					f.call();
 				}
 				
-				if(f.state == Fiber.State.TERM) {
+				if (f.state == Fiber.State.TERM) {
 					processes.remove(s);
 					
 					pool ~= f;
@@ -65,16 +65,17 @@ final class Scheduler {
 			/+
 			import std.stdio;
 			writeln(s.name.toString(pass.context), " ", step);
+			/+
 			try {
 				throw new Exception("Require call stack");
 			} catch(Exception e) {
 				writeln(e);
 			}
-			
+			// +/
 			writeln("Yield !");
 			
 			Thread.sleep(dur!"seconds"(1));
-			+/
+			// +/
 			Fiber.yield();
 		}
 	}
@@ -118,6 +119,18 @@ final class Scheduler {
 		p.init(t, i);
 		
 		processes[i] = p;
+	}
+	
+	// FIXME: We should consider a generic way to get things in there.
+	// It is clearly not going to scale that way.
+	import d.ast.expression;
+	void schedule()(AstExpression dv, Variable v) in {
+		assert(v.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
+	} body {
+		auto p = getProcess();
+		p.init(dv, v);
+		
+		processes[v] = p;
 	}
 }
 

@@ -119,12 +119,63 @@ final class TypeGen {
 		
 		LLVMTypeRef[] types;
 		foreach(member; s.members) {
-			if(auto f = cast(Field) member) {
+			if (auto f = cast(Field) member) {
 				types ~= visit(f.type);
 			}
 		}
 		
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length, false);
+		return llvmStruct;
+	}
+	
+	LLVMTypeRef visit(Union u) {
+		if (auto ut = u in typeSymbols) {
+			return *ut;
+		}
+		
+		assert(!u.hasContext, "Voldemort union not supported atm");
+		
+		auto llvmStruct = typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
+		
+		LLVMTypeRef[2] types;
+		
+		uint firstindex, size, dalign;
+		foreach(i, member; u.members) {
+			if (auto f = cast(Field) member) {
+				types[0] = visit(f.type);
+				
+				import llvm.c.target;
+				size = cast(uint) LLVMStoreSizeOfType(targetData, types[0]);
+				dalign = cast(uint) LLVMABIAlignmentOfType(targetData, types[0]);
+				
+				firstindex = cast(uint) (i + 1);
+				break;
+			}
+		}
+		
+		uint extra;
+		foreach(member; u.members[firstindex .. $]) {
+			if (auto f = cast(Field) member) {
+				auto t = visit(f.type);
+				
+				import llvm.c.target;
+				auto s = cast(uint) LLVMStoreSizeOfType(targetData, t);
+				auto a = cast(uint) LLVMABIAlignmentOfType(targetData, t);
+				
+				extra = ((size + extra) < s) ? s - size : extra;
+				dalign = (a > dalign) ? a : dalign;
+			}
+		}
+		
+		types[1] = LLVMArrayType(LLVMInt8TypeInContext(llvmCtx), extra);
+		LLVMStructSetBody(llvmStruct, types.ptr, 2, false);
+		
+		import llvm.c.target;
+		assert(
+			LLVMABIAlignmentOfType(targetData, llvmStruct) == dalign,
+			"union with differing alignement are not supported."
+		);
+		
 		return llvmStruct;
 	}
 	
@@ -213,16 +264,12 @@ final class TypeGen {
 		assert(0, "codegen for interface is not implemented.");
 	}
 	
-	LLVMTypeRef visit(Union u) {
-		assert(0, "codegen for interface is not implemented.");
-	}
-	
 	LLVMTypeRef visit(Function f) {
 		return funCtxTypes.get(f, {
 			return funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
 		}());
 	}
-
+	
 	private auto buildParamType(ParamType pt) {
 		auto t = visit(pt.getType());
 		if (pt.isRef) {

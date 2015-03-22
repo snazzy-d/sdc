@@ -289,9 +289,7 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if (stc.isEnum) {
-			assert(v.storage == Storage.Enum);
-		}
+		assert(!stc.isEnum || v.storage == Storage.Enum);
 		
 		if (v.storage.isNonLocal) {
 			value = evaluate(value);
@@ -442,6 +440,82 @@ struct SymbolAnalyzer {
 		s.members ~= otherSymbols;
 		
 		s.step = Step.Processed;
+	}
+	
+	void analyze(UnionDeclaration d, Union u) {
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldThisType = thisType;
+		auto oldFieldIndex = fieldIndex;
+		
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			thisType = oldThisType;
+			fieldIndex = oldFieldIndex;
+		}
+		
+		auto type = Type.get(u);
+		thisType = type.getParamType(true, false);
+		
+		// Update mangle prefix.
+		auto name = u.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		
+		// XXX: For some reason dmd mangle the same way as structs ???
+		assert(u.linkage == Linkage.D || u.linkage == Linkage.C);
+		u.mangle = "S" ~ manglePrefix;
+		
+		auto dscope = currentScope = u.dscope = u.hasContext
+			? new VoldemortScope(u, oldScope)
+			: new AggregateScope(u, oldScope);
+		
+		fieldIndex = 0;
+		Field[] fields;
+		if (u.hasContext) {
+			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
+			auto ctx = new Field(u.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(u.location, ctxPtr));
+			ctx.step = Step.Processed;
+			
+			fieldIndex = 1;
+			fields = [ctx];
+		}
+		
+		auto members = DeclarationVisitor(pass, AggregateType.Union).flatten(d.members, u);
+		
+		auto init = new Variable(u.location, type, BuiltinName!"init");
+		init.storage = Storage.Static;
+		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ u.mangle;
+		init.step = Step.Signed;
+		
+		u.dscope.addSymbol(init);
+		u.step = Step.Populated;
+		
+		auto otherSymbols = members.filter!((m) {
+			if (auto f = cast(Field) m) {
+				fields ~= f;
+				return false;
+			}
+			
+			return true;
+		}).array();
+		
+		scheduler.require(fields, Step.Signed);
+		
+		u.members ~= init;
+		u.members ~= fields;
+		
+		u.step = Step.Signed;
+		
+		scheduler.require(fields);
+		
+		init.value = new VoidInitializer(u.location, type);
+		init.step = Step.Processed;
+		
+		scheduler.require(otherSymbols);
+		u.members ~= otherSymbols;
+		
+		u.step = Step.Processed;
 	}
 	
 	void analyze(ClassDeclaration d, Class c) {
@@ -676,48 +750,66 @@ struct SymbolAnalyzer {
 		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = "E" ~ manglePrefix;
 		
+		Variable previous;
+		Expression one;
 		foreach(vd; d.entries) {
+			auto location = vd.location;
 			auto v = new Variable(vd.location, type, vd.name);
-			
 			v.storage = Storage.Enum;
-			v.step = Step.Processed;
 			
 			e.dscope.addSymbol(v);
 			e.entries ~= v;
+			
+			auto dv = vd.value;
+			if (dv is null) {
+				if (previous) {
+					if (!one) {
+						one = new IntegerLiteral!true(location, 1, bt);
+					}
+					
+					// XXX: consider using AstExpression and always
+					// follow th same path.
+					scheduler.require(previous, Step.Signed);
+					v.value = new BinaryExpression(
+						location,
+						type,
+						BinaryOp.Add,
+						new VariableExpression(location, previous),
+						one,
+					);
+				} else {
+					v.value = new IntegerLiteral!true(location, 0, bt);
+				}
+			}
+			
+			pass.scheduler.schedule(dv, v);
+			previous = v;
 		}
 		
 		e.step = Step.Signed;
 		
-		Expression previous;
-		Expression one;
-		import std.range;
-		foreach(v, vd; lockstep(e.entries, d.entries)) {
-			v.step = Step.Signed;
-			scope(exit) v.step = Step.Processed;
-			
-			if(vd.value) {
-				import d.semantic.expression;
-				v.value = ExpressionVisitor(pass).visit(vd.value);
-			} else {
-				if(previous) {
-					if(!one) {
-						one = new IntegerLiteral!true(vd.location, 1, bt);
-					}
-					
-					v.value = new BinaryExpression(vd.location, type, BinaryOp.Add, previous, one);
-				} else {
-					v.value = new IntegerLiteral!true(vd.location, 0, bt);
-				}
-			}
-			
-			previous = v.value;
-		}
-		
-		foreach(v; e.entries) {
-			v.value = pass.evaluate(v.value);
-		}
-		
+		scheduler.require(e.entries);
 		e.step = Step.Processed;
+	}
+	
+	void analyze(AstExpression dv, Variable v) in {
+		assert(v.storage == Storage.Enum);
+		assert(v.type.kind == TypeKind.Enum);
+	} body {
+		auto e = v.type.denum;
+		
+		if (dv !is null) {
+			assert(v.value is null);
+			
+			import d.semantic.expression;
+			v.value = ExpressionVisitor(pass).visit(dv);
+		}
+		
+		assert(v.value);
+		v.step = Step.Signed;
+		
+		v.value = evaluate(v.value);
+		v.step = Step.Processed;
 	}
 	
 	void analyze(TemplateDeclaration d, Template t) {
