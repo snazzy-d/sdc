@@ -796,9 +796,9 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 			case OpenBracket :
 				trange.popFront();
 				
-				if(trange.front.type == CloseBracket) {
+				if (trange.front.type == CloseBracket) {
 					// We have a slicing operation here.
-					assert(0, "Slice experssoins can not be parsed yet");
+					assert(0, "Slice expressions can not be parsed yet");
 				} else {
 					auto args = trange.parseArguments();
 					switch(trange.front.type) {
@@ -922,14 +922,27 @@ AstExpression[] parseArguments(TokenType openTokenType, R)(ref R trange) if(isTo
 	
 	trange.match(openTokenType);
 	
-	if(trange.front.type == closeTokenType) {
+	if (trange.front.type == closeTokenType) {
 		trange.match(closeTokenType);
 		return [];
 	}
 	
-	auto args = trange.parseArguments();
-	trange.match(closeTokenType);
+	AstExpression[] args;
+	while(true) {
+		args ~= trange.parseAssignExpression();
+		
+		if (trange.front.type != TokenType.Comma) {
+			break;
+		}
+		
+		trange.popFront();
+		
+		if (trange.front.type == closeTokenType) {
+			break;
+		}
+	}
 	
+	trange.match(closeTokenType);
 	return args;
 }
 

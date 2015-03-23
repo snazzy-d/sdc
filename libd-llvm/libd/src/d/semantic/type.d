@@ -105,33 +105,31 @@ struct TypeVisitor {
 	}
 	
 	Type visit(FunctionAstType t) {
-		assert(t.contexts.length == 0, "Delegate are not supported.");
+		auto ctxCount = t.contexts.length;
+		auto f = t.getDelegate(0);
+		
+		ParamType[] paramTypes;
+		paramTypes.length = f.parameters.length;
 		
 		auto oldQualifier = qualifier;
 		scope(exit) qualifier = oldQualifier;
 		
-		qualifier = TypeQualifier.Mutable;
-		
-		auto returnType = visit(t.returnType);
-		auto paramTypes = t.parameters.map!(t => visit(t)).array();
-		
-		return FunctionType(t.linkage, returnType, paramTypes, t.isVariadic).getType(oldQualifier);
-	}
-	/+
-	Type visit(AstDelegateType t) {
-		auto contextType = visit(t.context);
-		
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
+		foreach(i; 0 .. ctxCount) {
+			paramTypes[i] = visit(f.parameters[i]);
+		}
 		
 		qualifier = TypeQualifier.Mutable;
 		
 		auto returnType = visit(t.returnType);
-		auto paramTypes = t.paramTypes.map!(t => visit(t)).array();
+		foreach(i; ctxCount .. paramTypes.length) {
+			paramTypes[i] = visit(f.parameters[i]);
+		}
 		
-		return FunctionType(t.linkage, returnType, contextType, paramTypes, t.isVariadic).getType(oldQualifier);
+		return FunctionType(t.linkage, returnType, paramTypes, t.isVariadic)
+			.getDelegate(ctxCount)
+			.getType(oldQualifier);
 	}
-	+/
+	
 	import d.ast.expression;
 	Type visit(AstExpression e) {
 		import d.semantic.expression;

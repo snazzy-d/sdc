@@ -76,7 +76,6 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 		case Typeid :
 		case Is :
 		case Assert :
-		case OpenParen :
 		
 		// Prefixes.
 		case Ampersand :
@@ -90,6 +89,37 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 		case Cast :
 			auto e = trange.parseExpression!(ParseMode.Reluctant)();
 			return trange.parseAmbiguousSuffix!handler(e);
+		
+		case OpenParen :
+			auto matchingParen = trange.save;
+			matchingParen.popMatchingDelimiter!OpenParen();
+			
+			switch(matchingParen.front.type) {
+				case OpenBrace, AssignMore :
+					// Delegates.
+					assert(0, "Ambiguous delegates not implemented");
+				
+				default :
+					auto location = trange.front.location;
+					trange.popFront();
+					
+					// Use ambiguousHandler to avoid infinite recursion
+					return trange.parseAmbiguous!ambiguousHandler().apply!((parsed) {
+						location.spanTo(trange.front.location);
+						trange.match(CloseParen);
+						
+						alias T = typeof(parsed);
+						static if (is(T : AstType)) {
+							return trange.parseAmbiguousSuffix!ambiguousHandler(location, parsed).apply!handler();
+						} else static if (is(T : AstExpression)) {
+							auto e = new ParenExpression(location, parsed);
+							return trange.parseAmbiguousSuffix!ambiguousHandler(e).apply!handler();
+						} else {
+							// XXX: Consider adding ParenIdentifier for AST fidelity.
+							return trange.parseAmbiguousSuffix!ambiguousHandler(parsed).apply!handler();
+						}
+					})();
+			}
 		
 		default :
 			trange.match(Begin);
