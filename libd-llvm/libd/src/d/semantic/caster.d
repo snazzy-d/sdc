@@ -515,9 +515,12 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		auto tf = to.asFunctionType();
 		
+		if (f.contexts.length != tf.contexts.length) {
+			return CastKind.Invalid;
+		}
+		
 		enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 		
-		if (f.contexts.length != tf.contexts.length) return onFail;
 		if (f.parameters.length != tf.parameters.length) return onFail;
 		if (f.isVariadic != tf.isVariadic) return onFail;
 		
@@ -528,7 +531,20 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		import std.range;
 		foreach(fromc, toc; lockstep(f.contexts, tf.contexts)) {
-			// Contextx are covariant.
+			// ref context decay to void*
+			if (fromc.isRef && !toc.isRef &&
+				toc.kind == TypeKind.Pointer) {
+				
+				auto e = toc.getType().element;
+				if (e.kind == TypeKind.Builtin &&
+					e.builtin == BuiltinType.Void) {
+				
+					k = CastKind.Bit;
+					continue;
+				}
+			}
+			
+			// Contexts are covariant.
 			auto kc = castFrom(fromc, toc);
 			if(kc < CastKind.Bit) return onFail;
 			
