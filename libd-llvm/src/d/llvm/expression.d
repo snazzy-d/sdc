@@ -602,7 +602,7 @@ struct ExpressionGen {
 		auto count = LLVMCountStructElementTypes(t);
 		assert(LLVMCountStructElementTypes(vt) == count);
 		
-		LLVMTypeRef types[];
+		LLVMTypeRef[] types;
 		types.length = count;
 		
 		LLVMGetStructElementTypes(t, types.ptr);
