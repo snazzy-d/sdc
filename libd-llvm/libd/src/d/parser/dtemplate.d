@@ -66,7 +66,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 				case Colon, Assign, Comma, CloseParen :
 					return trange.parseTypeParameter();
 				
-				case TripleDot :
+				case DotDotDot :
 					auto name = trange.front.name;
 					auto location = lookahead.front.location;
 					

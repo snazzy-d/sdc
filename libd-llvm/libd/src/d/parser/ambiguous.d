@@ -79,8 +79,8 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 		
 		// Prefixes.
 		case Ampersand :
-		case DoublePlus :
-		case DoubleMinus :
+		case PlusPlus :
+		case MinusMinus :
 		case Star :
 		case Plus :
 		case Minus :
@@ -95,7 +95,7 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 			matchingParen.popMatchingDelimiter!OpenParen();
 			
 			switch(matchingParen.front.type) {
-				case OpenBrace, AssignMore :
+				case OpenBrace, EqualMore :
 					// Delegates.
 					assert(0, "Ambiguous delegates not implemented");
 				
@@ -196,48 +196,48 @@ Ambiguous ambiguousHandler(T)(T t) {
 
 bool indicateExpression(TokenType t) {
 	switch(t) with(TokenType) {
-		case DoublePlus :
-		case DoubleMinus :
+		case PlusPlus :
+		case MinusMinus :
 		case Assign :
-		case PlusAssign :
-		case MinusAssign :
-		case StarAssign :
-		case SlashAssign :
-		case PercentAssign :
-		case AmpersandAssign :
-		case PipeAssign :
-		case CaretAssign :
-		case TildeAssign :
-		case DoubleLessAssign :
-		case DoubleMoreAssign :
-		case TripleMoreAssign :
-		case DoubleCaretAssign :
+		case PlusEqual :
+		case MinusEqual :
+		case StarEqual :
+		case SlashEqual :
+		case PercentEqual :
+		case AmpersandEqual :
+		case PipeEqual :
+		case CaretEqual :
+		case TildeEqual :
+		case LessLessEqual :
+		case MoreMoreEqual :
+		case MoreMoreMoreEqual :
+		case CaretCaretEqual :
 		case QuestionMark :
-		case DoublePipe :
-		case DoubleAmpersand :
+		case PipePipe :
+		case AmpersandAmpersand :
 		case Pipe :
 		case Caret :
 		case Ampersand :
-		case DoubleAssign :
-		case BangAssign :
+		case EqualEqual :
+		case BangEqual :
 		case More:
-		case MoreAssign:
+		case MoreEqual:
 		case Less :
-		case LessAssign :
-		case BangLessMoreAssign:
+		case LessEqual :
+		case BangLessMoreEqual:
 		case BangLessMore:
 		case LessMore:
-		case LessMoreAssign:
+		case LessMoreEqual:
 		case BangMore:
-		case BangMoreAssign:
+		case BangMoreEqual:
 		case BangLess:
-		case BangLessAssign:
+		case BangLessEqual:
 		case Is :
 		case In :
 		case Bang :
-		case DoubleLess :
-		case DoubleMore :
-		case TripleMore :
+		case LessLess :
+		case MoreMore :
+		case MoreMoreMore :
 		case Plus :
 		case Minus :
 		case Tilde :
@@ -344,19 +344,19 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstEx
 	while(true) {
 		switch(trange.front.type) with(TokenType) {
 			case Assign :
-			case PlusAssign :
-			case MinusAssign :
-			case StarAssign :
-			case SlashAssign :
-			case PercentAssign :
-			case AmpersandAssign :
-			case PipeAssign :
-			case CaretAssign :
-			case TildeAssign :
-			case DoubleLessAssign :
-			case DoubleMoreAssign :
-			case TripleMoreAssign :
-			case DoubleCaretAssign :
+			case PlusEqual :
+			case MinusEqual :
+			case StarEqual :
+			case SlashEqual :
+			case PercentEqual :
+			case AmpersandEqual :
+			case PipeEqual :
+			case CaretEqual :
+			case TildeEqual :
+			case LessLessEqual :
+			case MoreMoreEqual :
+			case MoreMoreMoreEqual :
+			case CaretCaretEqual :
 				e = trange.parseAssignExpression(e);
 				continue;
 			
@@ -364,11 +364,11 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstEx
 				e = trange.parseTernaryExpression(e);
 				continue;
 			
-			case DoublePipe :
+			case PipePipe :
 				e = trange.parseLogicalOrExpression(e);
 				continue;
 			
-			case DoubleAmpersand :
+			case AmpersandAmpersand :
 				e = trange.parseLogicalAndExpression(e);
 				continue;
 			
@@ -384,29 +384,29 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstEx
 				e = trange.parseBitwiseAndExpression(e);
 				continue;
 			
-			case DoubleAssign :
-			case BangAssign :
+			case EqualEqual :
+			case BangEqual :
 			case More:
-			case MoreAssign:
+			case MoreEqual:
 			case Less :
-			case LessAssign :
-			case BangLessMoreAssign:
+			case LessEqual :
+			case BangLessMoreEqual:
 			case BangLessMore:
 			case LessMore:
-			case LessMoreAssign:
+			case LessMoreEqual:
 			case BangMore:
-			case BangMoreAssign:
+			case BangMoreEqual:
 			case BangLess:
-			case BangLessAssign:
+			case BangLessEqual:
 			case Is :
 			case In :
 			case Bang :
 				e = trange.parseComparaisonExpression(e);
 				continue;
 			
-			case DoubleLess :
-			case DoubleMore :
-			case TripleMore :
+			case LessLess :
+			case MoreMore :
+			case MoreMoreMore :
 				e = trange.parseShiftExpression(e);
 				continue;
 			

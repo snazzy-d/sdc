@@ -74,55 +74,55 @@ AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTok
 			processToken(BinaryOp.Assign);
 			break;
 		
-		case PlusAssign :
+		case PlusEqual :
 			processToken(BinaryOp.AddAssign);
 			break;
 		
-		case MinusAssign :
+		case MinusEqual :
 			processToken(BinaryOp.SubAssign);
 			break;
 		
-		case StarAssign :
+		case StarEqual :
 			processToken(BinaryOp.MulAssign);
 			break;
 		
-		case SlashAssign :
+		case SlashEqual :
 			processToken(BinaryOp.DivAssign);
 			break;
 		
-		case PercentAssign :
+		case PercentEqual :
 			processToken(BinaryOp.ModAssign);
 			break;
 		
-		case AmpersandAssign :
+		case AmpersandEqual :
 			processToken(BinaryOp.BitwiseAndAssign);
 			break;
 		
-		case PipeAssign :
+		case PipeEqual :
 			processToken(BinaryOp.BitwiseOrAssign);
 			break;
 		
-		case CaretAssign :
+		case CaretEqual :
 			processToken(BinaryOp.BitwiseXorAssign);
 			break;
 		
-		case TildeAssign :
+		case TildeEqual :
 			processToken(BinaryOp.ConcatAssign);
 			break;
 		
-		case DoubleLessAssign :
+		case LessLessEqual :
 			processToken(BinaryOp.LeftShiftAssign);
 			break;
 		
-		case DoubleMoreAssign :
+		case MoreMoreEqual :
 			processToken(BinaryOp.SignedRightShiftAssign);
 			break;
 		
-		case TripleMoreAssign :
+		case MoreMoreMoreEqual :
 			processToken(BinaryOp.UnsignedRightShiftAssign);
 			break;
 		
-		case DoubleCaretAssign :
+		case CaretCaretEqual :
 			processToken(BinaryOp.PowAssign);
 			break;
 		
@@ -171,7 +171,7 @@ AstExpression parseLogicalOrExpression(R)(ref R trange) if(isTokenRange!R) {
 
 auto parseLogicalOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	return trange.parseAstBinaryExpression!(
-		TokenType.DoublePipe,
+		TokenType.PipePipe,
 		BinaryOp.LogicalOr,
 		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseLogicalAndExpression(e);
@@ -189,7 +189,7 @@ AstExpression parseLogicalAndExpression(R)(ref R trange) if(isTokenRange!R) {
 
 auto parseLogicalAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
 	return trange.parseAstBinaryExpression!(
-		TokenType.DoubleAmpersand,
+		TokenType.AmpersandAmpersand,
 		BinaryOp.LogicalAnd,
 		function AstExpression(ref R trange, AstExpression e) {
 			return trange.parseBitwiseOrExpression(e);
@@ -273,11 +273,11 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 	}
 	
 	switch(trange.front.type) with(TokenType) {
-		case DoubleAssign :
+		case EqualEqual :
 			processToken(BinaryOp.Equal);
 			break;
 		
-		case BangAssign :
+		case BangEqual :
 			processToken(BinaryOp.NotEqual);
 			break;
 		
@@ -285,7 +285,7 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 			processToken(BinaryOp.Greater);
 			break;
 		
-		case MoreAssign:
+		case MoreEqual:
 			processToken(BinaryOp.GreaterEqual);
 			break;
 		
@@ -293,11 +293,11 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 			processToken(BinaryOp.Less);
 			break;
 		
-		case LessAssign :
+		case LessEqual :
 			processToken(BinaryOp.LessEqual);
 			break;
 		
-		case BangLessMoreAssign:
+		case BangLessMoreEqual:
 			processToken(BinaryOp.Unordered);
 			break;
 		
@@ -309,7 +309,7 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 			processToken(BinaryOp.LessGreater);
 			break;
 		
-		case LessMoreAssign:
+		case LessMoreEqual:
 			processToken(BinaryOp.LessEqualGreater);
 			break;
 		
@@ -317,7 +317,7 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 			processToken(BinaryOp.UnorderedLessEqual);
 			break;
 		
-		case BangMoreAssign:
+		case BangMoreEqual:
 			processToken(BinaryOp.UnorderedLess);
 			break;
 		
@@ -325,7 +325,7 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
 			processToken(BinaryOp.UnorderedGreaterEqual);
 			break;
 		
-		case BangLessAssign:
+		case BangLessEqual:
 			processToken(BinaryOp.UnorderedGreater);
 			break;
 		
@@ -386,15 +386,15 @@ AstExpression parseShiftExpression(R)(ref R trange, AstExpression lhs) if(isToke
 		}
 		
 		switch(trange.front.type) with(TokenType) {
-			case DoubleLess :
+			case LessLess :
 				processToken(BinaryOp.LeftShift);
 				break;
 			
-			case DoubleMore :
+			case MoreMore :
 				processToken(BinaryOp.SignedRightShift);
 				break;
 			
-			case TripleMore :
+			case MoreMoreMore :
 				processToken(BinaryOp.UnsignedRightShift);
 				break;
 			
@@ -508,11 +508,11 @@ private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R
 			processToken(UnaryOp.AddressOf);
 			break;
 		
-		case DoublePlus :
+		case PlusPlus :
 			processToken(UnaryOp.PreInc);
 			break;
 		
-		case DoubleMinus :
+		case MinusMinus :
 			processToken(UnaryOp.PreDec);
 			break;
 		
@@ -729,13 +729,13 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 					
 					return new DelegateLiteral(location, params, isVariadic, block);
 				
-				case AssignMore:
+				case EqualMore:
 					import d.parser.declaration;
 					bool isVariadic;
 					auto params = trange.parseParameters(isVariadic);
 					assert(!isVariadic, "Variadic lambda not supported");
 					
-					trange.match(AssignMore);
+					trange.match(EqualMore);
 					
 					auto value = trange.parseExpression();
 					location.spanTo(value.location);
@@ -770,14 +770,14 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 	
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
-			case DoublePlus :
+			case PlusPlus :
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
 				e = new AstUnaryExpression(location, UnaryOp.PostInc, e);
 				break;
 			
-			case DoubleMinus :
+			case MinusMinus :
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
@@ -808,7 +808,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 							
 							break;
 						
-						case DoubleDot :
+						case DotDot :
 							trange.popFront();
 							auto second = trange.parseArguments();
 							
@@ -847,7 +847,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 private AstExpression parsePowExpression(R)(ref R trange, AstExpression expr) {
 	Location location = expr.location;
 	
-	while (trange.front.type == TokenType.DoubleCaret) {
+	while (trange.front.type == TokenType.CaretCaret) {
 		trange.popFront();
 		AstExpression power = trange.parsePrefixExpression();
 		location.spanTo(power.location);
@@ -876,7 +876,7 @@ private auto parseIsExpression(R)(ref R trange) {
 			trange.parseType();
 			break;
 		
-		case DoubleAssign :
+		case EqualEqual :
 			trange.popFront();
 			
 			switch(trange.front.type) {
