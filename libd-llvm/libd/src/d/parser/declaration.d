@@ -550,7 +550,7 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 		case CloseParen :
 			break;
 		
-		case TripleDot :
+		case DotDotDot :
 			trange.popFront();
 			isVariadic = true;
 			break;
@@ -561,8 +561,8 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 			while(trange.front.type == Comma) {
 				trange.popFront();
 				
-				if (trange.front.type == TripleDot) {
-					goto case TripleDot;
+				if (trange.front.type == DotDotDot) {
+					goto case DotDotDot;
 				}
 				
 				if (trange.front.type == CloseParen) {

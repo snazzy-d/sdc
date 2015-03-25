@@ -52,42 +52,42 @@ enum TokenType {
 	
 	/// Operators.
 	Slash,				// /
-	SlashAssign,		// /=
+	SlashEqual,			// /=
 	Dot,				// .
-	DoubleDot,			// ..
-	TripleDot,			// ...
+	DotDot,				// ..
+	DotDotDot,			// ...
 	Ampersand,			// &
-	AmpersandAssign,	// &=
-	DoubleAmpersand,	// &&
+	AmpersandEqual,		// &=
+	AmpersandAmpersand,	// &&
 	Pipe,				// |
-	PipeAssign,			// |=
-	DoublePipe,			// ||
+	PipeEqual,			// |=
+	PipePipe,			// ||
 	Minus,				// -
-	MinusAssign,		// -=
-	DoubleMinus,		// --
+	MinusEqual,			// -=
+	MinusMinus,			// --
 	Plus,				// +
-	PlusAssign,			// +=
-	DoublePlus,			// ++
+	PlusEqual,			// +=
+	PlusPlus,			// ++
 	Less,				// <
-	LessAssign,			// <=
-	DoubleLess,			// <<
-	DoubleLessAssign,	// <<=
+	LessEqual,			// <=
+	LessLess,			// <<
+	LessLessEqual,		// <<=
 	LessMore,			// <>
-	LessMoreAssign,		// <>=
+	LessMoreEqual,		// <>=
 	More,				// >
-	MoreAssign,			// >=
-	DoubleMoreAssign,	// >>=
-	TripleMoreAssign,	// >>>=
-	DoubleMore,			// >>
-	TripleMore,			// >>>
+	MoreEqual,			// >=
+	MoreMoreEqual,		// >>=
+	MoreMoreMoreEqual,	// >>>=
+	MoreMore,			// >>
+	MoreMoreMore,		// >>>
 	Bang,				// !
-	BangAssign,			// !=
+	BangEqual,			// !=
 	BangLessMore,		// !<>
-	BangLessMoreAssign,	// !<>=
+	BangLessMoreEqual,	// !<>=
 	BangLess,			// !<
-	BangLessAssign,		// !<=
+	BangLessEqual,		// !<=
 	BangMore,			// !>
-	BangMoreAssign,		// !>=
+	BangMoreEqual,		// !>=
 	OpenParen,			// (
 	CloseParen,			// )
 	OpenBracket,		// [
@@ -100,25 +100,20 @@ enum TokenType {
 	Colon,				// :
 	Dollar,				// $
 	Assign,				// =
-	DoubleAssign,		// ==
+	EqualEqual,			// ==
 	Star,				// *
-	StarAssign,			// *=
+	StarEqual,			// *=
 	Percent,			// %
-	PercentAssign,		// %=
+	PercentEqual,		// %=
 	Caret,				// ^
-	CaretAssign,		// ^=
-	DoubleCaret,		// ^^
-	DoubleCaretAssign,	// ^^=
+	CaretEqual,			// ^=
+	CaretCaret,			// ^^
+	CaretCaretEqual,	// ^^=
 	Tilde,				// ~
-	TildeAssign,		// ~=
+	TildeEqual,			// ~=
 	At,					// @
-	AssignMore,			// =>
+	EqualMore,			// =>
 	Hash,				// #
-	/*
-	version(KIRBY) {
-		KirbyRape,		// (>^(>O_O)>
-	}
-	*/
 }
 
 import d.context;
@@ -872,181 +867,180 @@ mixin template CharPumper(bool decode = true) {
 
 public:
 auto getOperatorsMap() {
+	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
+	with(TokenType) 
 	return [
-		"/"		: TokenType.Slash,
-		"/="	: TokenType.SlashAssign,
-		"."		: TokenType.Dot,
-		".."	: TokenType.DoubleDot,
-		"..."	: TokenType.TripleDot,
-		"&"		: TokenType.Ampersand,
-		"&="	: TokenType.AmpersandAssign,
-		"&&"	: TokenType.DoubleAmpersand,
-		"|"		: TokenType.Pipe,
-		"|="	: TokenType.PipeAssign,
-		"||"	: TokenType.DoublePipe,
-		"-"		: TokenType.Minus,
-		"-="	: TokenType.MinusAssign,
-		"--"	: TokenType.DoubleMinus,
-		"+"		: TokenType.Plus,
-		"+="	: TokenType.PlusAssign,
-		"++"	: TokenType.DoublePlus,
-		"<"		: TokenType.Less,
-		"<="	: TokenType.LessAssign,
-		"<<"	: TokenType.DoubleLess,
-		"<<="	: TokenType.DoubleLessAssign,
-		"<>"	: TokenType.LessMore,
-		"<>="	: TokenType.LessMoreAssign,
-		">"		: TokenType.More,
-		">="	: TokenType.MoreAssign,
-		">>="	: TokenType.DoubleMoreAssign,
-		">>>="	: TokenType.TripleMoreAssign,
-		">>"	: TokenType.DoubleMore,
-		">>>"	: TokenType.TripleMore,
-		"!"		: TokenType.Bang,
-		"!="	: TokenType.BangAssign,
-		"!<>"	: TokenType.BangLessMore,
-		"!<>="	: TokenType.BangLessMoreAssign,
-		"!<"	: TokenType.BangLess,
-		"!<="	: TokenType.BangLessAssign,
-		"!>"	: TokenType.BangMore,
-		"!>="	: TokenType.BangMoreAssign,
-		"("		: TokenType.OpenParen,
-		")"		: TokenType.CloseParen,
-		"["		: TokenType.OpenBracket,
-		"]"		: TokenType.CloseBracket,
-		"{"		: TokenType.OpenBrace,
-		"}"		: TokenType.CloseBrace,
-		"?"		: TokenType.QuestionMark,
-		","		: TokenType.Comma,
-		";"		: TokenType.Semicolon,
-		":"		: TokenType.Colon,
-		"$"		: TokenType.Dollar,
-		"="		: TokenType.Assign,
-		"=="	: TokenType.DoubleAssign,
-		"*"		: TokenType.Star,
-		"*="	: TokenType.StarAssign,
-		"%"		: TokenType.Percent,
-		"%="	: TokenType.PercentAssign,
-		"^"		: TokenType.Caret,
-		"^="	: TokenType.CaretAssign,
-		"^^"	: TokenType.DoubleCaret,
-		"^^="	: TokenType.DoubleCaretAssign,
-		"~"		: TokenType.Tilde,
-		"~="	: TokenType.TildeAssign,
-		"@"		: TokenType.At,
-		"=>"	: TokenType.AssignMore,
-		"#"		: TokenType.Hash,
-		/*
-		version(KIRBY) {
-			"(>^(>O_O)>"	: KirbyRape,
-		}
-		*/
-		"\0"	: TokenType.End,
+		"/"		: Slash,
+		"/="	: SlashEqual,
+		"."		: Dot,
+		".."	: DotDot,
+		"..."	: DotDotDot,
+		"&"		: Ampersand,
+		"&="	: AmpersandEqual,
+		"&&"	: AmpersandAmpersand,
+		"|"		: Pipe,
+		"|="	: PipeEqual,
+		"||"	: PipePipe,
+		"-"		: Minus,
+		"-="	: MinusEqual,
+		"--"	: MinusMinus,
+		"+"		: Plus,
+		"+="	: PlusEqual,
+		"++"	: PlusPlus,
+		"<"		: Less,
+		"<="	: LessEqual,
+		"<<"	: LessLess,
+		"<<="	: LessLessEqual,
+		"<>"	: LessMore,
+		"<>="	: LessMoreEqual,
+		">"		: More,
+		">="	: MoreEqual,
+		">>="	: MoreMoreEqual,
+		">>>="	: MoreMoreMoreEqual,
+		">>"	: MoreMore,
+		">>>"	: MoreMoreMore,
+		"!"		: Bang,
+		"!="	: BangEqual,
+		"!<>"	: BangLessMore,
+		"!<>="	: BangLessMoreEqual,
+		"!<"	: BangLess,
+		"!<="	: BangLessEqual,
+		"!>"	: BangMore,
+		"!>="	: BangMoreEqual,
+		"("		: OpenParen,
+		")"		: CloseParen,
+		"["		: OpenBracket,
+		"]"		: CloseBracket,
+		"{"		: OpenBrace,
+		"}"		: CloseBrace,
+		"?"		: QuestionMark,
+		","		: Comma,
+		";"		: Semicolon,
+		":"		: Colon,
+		"$"		: Dollar,
+		"="		: Assign,
+		"=="	: EqualEqual,
+		"*"		: Star,
+		"*="	: StarEqual,
+		"%"		: Percent,
+		"%="	: PercentEqual,
+		"^"		: Caret,
+		"^="	: CaretEqual,
+		"^^"	: CaretCaret,
+		"^^="	: CaretCaretEqual,
+		"~"		: Tilde,
+		"~="	: TildeEqual,
+		"@"		: At,
+		"=>"	: EqualMore,
+		"#"		: Hash,
+		"\0"	: End,
 	];
 }
 
 auto getKeywordsMap() {
+	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
+	with(TokenType)
 	return [
-		"abstract"			: TokenType.Abstract,
-		"alias"				: TokenType.Alias,
-		"align"				: TokenType.Align,
-		"asm"				: TokenType.Asm,
-		"assert"			: TokenType.Assert,
-		"auto"				: TokenType.Auto,
-		"body"				: TokenType.Body,
-		"bool"				: TokenType.Bool,
-		"break"				: TokenType.Break,
-		"byte"				: TokenType.Byte,
-		"case"				: TokenType.Case,
-		"cast"				: TokenType.Cast,
-		"catch"				: TokenType.Catch,
-		"cent"				: TokenType.Cent,
-		"char"				: TokenType.Char,
-		"class"				: TokenType.Class,
-		"const"				: TokenType.Const,
-		"continue"			: TokenType.Continue,
-		"dchar"				: TokenType.Dchar,
-		"debug"				: TokenType.Debug,
-		"default"			: TokenType.Default,
-		"delegate"			: TokenType.Delegate,
-		"deprecated"		: TokenType.Deprecated,
-		"do"				: TokenType.Do,
-		"double"			: TokenType.Double,
-		"else"				: TokenType.Else,
-		"enum"				: TokenType.Enum,
-		"export"			: TokenType.Export,
-		"extern"			: TokenType.Extern,
-		"false"				: TokenType.False,
-		"final"				: TokenType.Final,
-		"finally"			: TokenType.Finally,
-		"float"				: TokenType.Float,
-		"for"				: TokenType.For,
-		"foreach"			: TokenType.Foreach,
-		"foreach_reverse"	: TokenType.ForeachReverse,
-		"function"			: TokenType.Function,
-		"goto"				: TokenType.Goto,
-		"if"				: TokenType.If,
-		"immutable"			: TokenType.Immutable,
-		"import"			: TokenType.Import,
-		"in"				: TokenType.In,
-		"inout"				: TokenType.Inout,
-		"int"				: TokenType.Int,
-		"interface"			: TokenType.Interface,
-		"invariant"			: TokenType.Invariant,
-		"is"				: TokenType.Is,
-		"lazy"				: TokenType.Lazy,
-		"long"				: TokenType.Long,
-		"macro"				: TokenType.Macro,
-		"mixin"				: TokenType.Mixin,
-		"module"			: TokenType.Module,
-		"new"				: TokenType.New,
-		"nothrow"			: TokenType.Nothrow,
-		"null"				: TokenType.Null,
-		"out"				: TokenType.Out,
-		"override"			: TokenType.Override,
-		"package"			: TokenType.Package,
-		"pragma"			: TokenType.Pragma,
-		"private"			: TokenType.Private,
-		"protected"			: TokenType.Protected,
-		"public"			: TokenType.Public,
-		"pure"				: TokenType.Pure,
-		"real"				: TokenType.Real,
-		"ref"				: TokenType.Ref,
-		"return"			: TokenType.Return,
-		"scope"				: TokenType.Scope,
-		"shared"			: TokenType.Shared,
-		"short"				: TokenType.Short,
-		"static"			: TokenType.Static,
-		"struct"			: TokenType.Struct,
-		"super"				: TokenType.Super,
-		"switch"			: TokenType.Switch,
-		"synchronized"		: TokenType.Synchronized,
-		"template"			: TokenType.Template,
-		"this"				: TokenType.This,
-		"throw"				: TokenType.Throw,
-		"true"				: TokenType.True,
-		"try"				: TokenType.Try,
-		"typeid"			: TokenType.Typeid,
-		"typeof"			: TokenType.Typeof,
-		"ubyte"				: TokenType.Ubyte,
-		"ucent"				: TokenType.Ucent,
-		"uint"				: TokenType.Uint,
-		"ulong"				: TokenType.Ulong,
-		"union"				: TokenType.Union,
-		"unittest"			: TokenType.Unittest,
-		"ushort"			: TokenType.Ushort,
-		"version"			: TokenType.Version,
-		"void"				: TokenType.Void,
-		"volatile"			: TokenType.Volatile,
-		"wchar"				: TokenType.Wchar,
-		"while"				: TokenType.While,
-		"with"				: TokenType.With,
-		"__FILE__"			: TokenType.__File__,
-		"__LINE__"			: TokenType.__Line__,
-		"__gshared"			: TokenType.__Gshared,
-		"__traits"			: TokenType.__Traits,
-		"__vector"			: TokenType.__Vector,
-		"__parameters"		: TokenType.__Parameters,
+		"abstract"			: Abstract,
+		"alias"				: Alias,
+		"align"				: Align,
+		"asm"				: Asm,
+		"assert"			: Assert,
+		"auto"				: Auto,
+		"body"				: Body,
+		"bool"				: Bool,
+		"break"				: Break,
+		"byte"				: Byte,
+		"case"				: Case,
+		"cast"				: Cast,
+		"catch"				: Catch,
+		"cent"				: Cent,
+		"char"				: Char,
+		"class"				: Class,
+		"const"				: Const,
+		"continue"			: Continue,
+		"dchar"				: Dchar,
+		"debug"				: Debug,
+		"default"			: Default,
+		"delegate"			: Delegate,
+		"deprecated"		: Deprecated,
+		"do"				: Do,
+		"double"			: Double,
+		"else"				: Else,
+		"enum"				: Enum,
+		"export"			: Export,
+		"extern"			: Extern,
+		"false"				: False,
+		"final"				: Final,
+		"finally"			: Finally,
+		"float"				: Float,
+		"for"				: For,
+		"foreach"			: Foreach,
+		"foreach_reverse"	: ForeachReverse,
+		"function"			: Function,
+		"goto"				: Goto,
+		"if"				: If,
+		"immutable"			: Immutable,
+		"import"			: Import,
+		"in"				: In,
+		"inout"				: Inout,
+		"int"				: Int,
+		"interface"			: Interface,
+		"invariant"			: Invariant,
+		"is"				: Is,
+		"lazy"				: Lazy,
+		"long"				: Long,
+		"macro"				: Macro,
+		"mixin"				: Mixin,
+		"module"			: Module,
+		"new"				: New,
+		"nothrow"			: Nothrow,
+		"null"				: Null,
+		"out"				: Out,
+		"override"			: Override,
+		"package"			: Package,
+		"pragma"			: Pragma,
+		"private"			: Private,
+		"protected"			: Protected,
+		"public"			: Public,
+		"pure"				: Pure,
+		"real"				: Real,
+		"ref"				: Ref,
+		"return"			: Return,
+		"scope"				: Scope,
+		"shared"			: Shared,
+		"short"				: Short,
+		"static"			: Static,
+		"struct"			: Struct,
+		"super"				: Super,
+		"switch"			: Switch,
+		"synchronized"		: Synchronized,
+		"template"			: Template,
+		"this"				: This,
+		"throw"				: Throw,
+		"true"				: True,
+		"try"				: Try,
+		"typeid"			: Typeid,
+		"typeof"			: Typeof,
+		"ubyte"				: Ubyte,
+		"ucent"				: Ucent,
+		"uint"				: Uint,
+		"ulong"				: Ulong,
+		"union"				: Union,
+		"unittest"			: Unittest,
+		"ushort"			: Ushort,
+		"version"			: Version,
+		"void"				: Void,
+		"volatile"			: Volatile,
+		"wchar"				: Wchar,
+		"while"				: While,
+		"with"				: With,
+		"__FILE__"			: __File__,
+		"__LINE__"			: __Line__,
+		"__gshared"			: __Gshared,
+		"__traits"			: __Traits,
+		"__vector"			: __Vector,
+		"__parameters"		: __Parameters,
 	];
 }
 

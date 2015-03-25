@@ -150,7 +150,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(Semicolon);
 			auto iterrated = trange.parseExpression();
 			
-			bool isRange = trange.front.type == DoubleDot;
+			bool isRange = trange.front.type == DotDot;
 			
 			AstExpression endOfRange;
 			if (isRange) {
