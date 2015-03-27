@@ -98,7 +98,7 @@ struct ExpressionGen {
 			: handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
 	}
 	
-	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate predicate) {
+	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate predicate) {
 		static LLVMIntPredicate workaround;
 		
 		auto oldWorkaround = workaround;
@@ -111,16 +111,16 @@ struct ExpressionGen {
 		})(e);
 	}
 	
-	private LLVMValueRef handleComparaison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
+	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
 		auto t = e.lhs.type.getCanonical();
 		if (t.kind == TypeKind.Builtin) {
 			if(isSigned(t.builtin)) {
-				return handleComparaison(e, signedPredicate);
+				return handleComparison(e, signedPredicate);
 			} else {
-				return handleComparaison(e, unsignedPredicate);
+				return handleComparison(e, unsignedPredicate);
 			}
 		} else if (t.kind == TypeKind.Pointer) {
-			return handleComparaison(e, unsignedPredicate);
+			return handleComparison(e, unsignedPredicate);
 		}
 		
 		assert(0, "Can't compare " ~ e.lhs.type.toString(context) ~ " with " ~ e.rhs.type.toString(context));
@@ -253,16 +253,16 @@ struct ExpressionGen {
 				return handleBinaryOpAssign!LLVMBuildXor(e);
 			
 			case Equal :
-				return handleComparaison(e, LLVMIntPredicate.EQ);
+				return handleComparison(e, LLVMIntPredicate.EQ);
 			
 			case NotEqual :
-				return handleComparaison(e, LLVMIntPredicate.NE);
+				return handleComparison(e, LLVMIntPredicate.NE);
 			
 			case Identical :
-				return handleComparaison(e, LLVMIntPredicate.EQ);
+				return handleComparison(e, LLVMIntPredicate.EQ);
 			
 			case NotIdentical :
-				return handleComparaison(e, LLVMIntPredicate.NE);
+				return handleComparison(e, LLVMIntPredicate.NE);
 			
 			case In :
 			case NotIn :
@@ -283,16 +283,16 @@ struct ExpressionGen {
 				assert(0, "Not implemented");
 			
 			case Greater :
-				return handleComparaison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
+				return handleComparison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);
 			
 			case GreaterEqual :
-				return handleComparaison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
+				return handleComparison(e, LLVMIntPredicate.SGE, LLVMIntPredicate.UGE);
 			
 			case Less :
-				return handleComparaison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
+				return handleComparison(e, LLVMIntPredicate.SLT, LLVMIntPredicate.ULT);
 			
 			case LessEqual :
-				return handleComparaison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
+				return handleComparison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
 			
 			case LessGreater :
 			case LessEqualGreater :
