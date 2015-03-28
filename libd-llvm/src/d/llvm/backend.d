@@ -21,7 +21,6 @@ import std.string;
 
 final class LLVMBackend {
 	private CodeGenPass pass;
-	private LLVMExecutionEngineRef executionEngine;
 	private LLVMEvaluator evaluator;
 	
 	private uint optLevel;
@@ -32,27 +31,14 @@ final class LLVMBackend {
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
 		
-		LLVMLinkInJIT();
+		LLVMLinkInMCJIT();
 		LLVMInitializeX86AsmPrinter();
 		
 		this.optLevel = optLevel;
 		this.linkerParams = linkerParams;
 		
 		pass = new CodeGenPass(context, name);
-		
-		char* errorPtr;
-		auto creationError = LLVMCreateJITCompilerForModule(&executionEngine, pass.dmodule, 0, &errorPtr);
-		if(creationError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-			
-			import std.c.string;
-			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-			
-			writeln(error);
-			assert(0, "Cannot create execution engine ! Exiting...");
-		}
-		
-		evaluator = new LLVMEvaluator(executionEngine, pass);
+		evaluator = new LLVMEvaluator(pass);
 	}
 	
 	auto getPass() {
@@ -95,14 +81,6 @@ final class LLVMBackend {
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		LLVMAddTargetData(LLVMGetExecutionEngineTargetData(executionEngine), pm);
-		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		
-		LLVMRunPassManager(pm, dmodule);
-		
-		// Dump module for debug purpose.
-		LLVMDumpModule(dmodule);
-		
 		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
 		} else {
@@ -111,6 +89,14 @@ final class LLVMBackend {
 		
 		auto targetMachine = LLVMCreateTargetMachine(LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr, LLVMCodeGenOptLevel.Default, LLVMRelocMode.Default, LLVMCodeModel.Default);
 		scope(exit) LLVMDisposeTargetMachine(targetMachine);
+
+		auto targetData = LLVMGetTargetMachineData(targetMachine);
+		LLVMAddTargetData(targetData, pm);
+		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
+		LLVMRunPassManager(pm, dmodule);
+		
+		// Dump module for debug purpose.
+		LLVMDumpModule(dmodule);
 		
 		/*
 		writeln("\nASM generated :");
