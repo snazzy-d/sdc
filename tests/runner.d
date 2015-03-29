@@ -21,6 +21,7 @@ version (linux) import core.sys.posix.unistd;
 
 
 immutable SDC = "../bin/sdc";
+immutable DMD = "dmd";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
@@ -104,9 +105,12 @@ void test(string filename, string compiler)
     }
     if (compiler == SDC) {
         command = format(`%s -o %s "%s" %s`, SDC, exeName, filename, cmdDeps);
-    } else {
-        command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
+    } else if (compiler == DMD) {
+            command = format(`%s -of%s "%s" %s`, compiler, exeName, filename, cmdDeps);
+    } else { 
+            command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
     }
+
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
     version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
     
