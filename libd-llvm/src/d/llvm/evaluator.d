@@ -107,13 +107,13 @@ final class LLVMEvaluator : Evaluator {
 				LLVMClearInsertionPosition(codeGen.builder);
 			}
 		}
+		
 		auto bodyBB = LLVMAppendBasicBlockInContext(codeGen.llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(codeGen.builder, bodyBB);
 		
 		// Generate function's body.
 		import d.llvm.expression;
-		auto eg = ExpressionGen(codeGen);
-		LLVMBuildRet(codeGen.builder, eg.visit(e));
+		LLVMBuildRet(codeGen.builder, ExpressionGen(codeGen).visit(e));
 		codeGen.checkModule();
 		
 		// Create a temporary execution engine for our LLVM module
@@ -141,8 +141,11 @@ final class LLVMEvaluator : Evaluator {
 	}
 	
 	string evalString(Expression e) in {
-		// FIXME: newtype
-		// assert(cast(SliceType) peelAlias(e.type).type, "this only CTFE strings.");
+		auto t = e.type.getCanonical();
+		assert(t.kind = TypeKind.Slice);
+		
+		auto et = t.element.getCanonical();
+		assert(et.builtin = BuiltinType.Char);
 	} body {
 		scope(failure) LLVMDumpModule(codeGen.dmodule);
 
@@ -152,8 +155,11 @@ final class LLVMEvaluator : Evaluator {
 		scope(exit) LLVMDeleteGlobal(receiver);
 		
 		// Initialize __ctString
-		LLVMValueRef[2] constInit = [ LLVMConstInt(LLVMInt64TypeInContext(codeGen.llvmCtx), 0, false),
-			LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(codeGen.llvmCtx), 0)) ];
+		LLVMValueRef[2] constInit = [
+			LLVMConstInt(LLVMInt64TypeInContext(codeGen.llvmCtx), 0, false),
+			LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(codeGen.llvmCtx), 0)),
+		];
+		
 		LLVMSetInitializer(receiver, LLVMConstStructInContext(codeGen.llvmCtx, constInit.ptr, 2, false));
 		
 		// Generate function signature
@@ -175,9 +181,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		// Generate function's body.
 		import d.llvm.expression;
-		auto eg = ExpressionGen(codeGen);
-		
-		LLVMBuildStore(codeGen.builder, eg.visit(e), receiver);
+		LLVMBuildStore(codeGen.builder, ExpressionGen(codeGen).visit(e), receiver);
 		// FIXME This is 64bit only code.
 		auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, receiver, LLVMInt64TypeInContext(codeGen.llvmCtx),"");
 		LLVMBuildRet(codeGen.builder, ptrToInt);
@@ -200,6 +204,7 @@ final class LLVMEvaluator : Evaluator {
 			}
 			LLVMDisposeExecutionEngine(executionEngine);
 		}
+		
 		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
 		scope(exit) LLVMDisposeGenericValue(result);
 
