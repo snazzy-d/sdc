@@ -8,9 +8,11 @@ int main() {
 	return foo() + bar!uint(30);
 }
 
+enum StringMixin = getStringMixin();
+
 string getStringMixin() {
 	return "T bar(T)(T t) { mixin(\"return t;\"); }";
 }
 
-mixin(getStringMixin());
+mixin(StringMixin);
 
