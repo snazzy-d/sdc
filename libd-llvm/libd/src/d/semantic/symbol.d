@@ -289,9 +289,7 @@ struct SymbolAnalyzer {
 		}
 		
 		// Sanity check.
-		if (stc.isEnum) {
-			assert(v.storage == Storage.Enum);
-		}
+		assert(!stc.isEnum || v.storage == Storage.Enum);
 		
 		if (v.storage.isNonLocal) {
 			value = evaluate(value);
@@ -676,48 +674,66 @@ struct SymbolAnalyzer {
 		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = "E" ~ manglePrefix;
 		
+		Variable previous;
+		Expression one;
 		foreach(vd; d.entries) {
+			auto location = vd.location;
 			auto v = new Variable(vd.location, type, vd.name);
-			
 			v.storage = Storage.Enum;
-			v.step = Step.Processed;
 			
 			e.dscope.addSymbol(v);
 			e.entries ~= v;
+			
+			auto dv = vd.value;
+			if (dv is null) {
+				if (previous) {
+					if (!one) {
+						one = new IntegerLiteral!true(location, 1, bt);
+					}
+					
+					// XXX: consider using AstExpression and always
+					// follow th same path.
+					scheduler.require(previous, Step.Signed);
+					v.value = new BinaryExpression(
+						location,
+						type,
+						BinaryOp.Add,
+						new VariableExpression(location, previous),
+						one,
+					);
+				} else {
+					v.value = new IntegerLiteral!true(location, 0, bt);
+				}
+			}
+			
+			pass.scheduler.schedule(dv, v);
+			previous = v;
 		}
 		
 		e.step = Step.Signed;
 		
-		Expression previous;
-		Expression one;
-		import std.range;
-		foreach(v, vd; lockstep(e.entries, d.entries)) {
-			v.step = Step.Signed;
-			scope(exit) v.step = Step.Processed;
-			
-			if(vd.value) {
-				import d.semantic.expression;
-				v.value = ExpressionVisitor(pass).visit(vd.value);
-			} else {
-				if(previous) {
-					if(!one) {
-						one = new IntegerLiteral!true(vd.location, 1, bt);
-					}
-					
-					v.value = new BinaryExpression(vd.location, type, BinaryOp.Add, previous, one);
-				} else {
-					v.value = new IntegerLiteral!true(vd.location, 0, bt);
-				}
-			}
-			
-			previous = v.value;
-		}
-		
-		foreach(v; e.entries) {
-			v.value = pass.evaluate(v.value);
-		}
-		
+		scheduler.require(e.entries);
 		e.step = Step.Processed;
+	}
+	
+	void analyze(AstExpression dv, Variable v) in {
+		assert(v.storage == Storage.Enum);
+		assert(v.type.kind == TypeKind.Enum);
+	} body {
+		auto e = v.type.denum;
+		
+		if (dv !is null) {
+			assert(v.value is null);
+			
+			import d.semantic.expression;
+			v.value = ExpressionVisitor(pass).visit(dv);
+		}
+		
+		assert(v.value);
+		v.step = Step.Signed;
+		
+		v.value = evaluate(v.value);
+		v.step = Step.Processed;
 	}
 	
 	void analyze(TemplateDeclaration d, Template t) {
