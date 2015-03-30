@@ -14,5 +14,5 @@ b main() {
 	return f;
 }
 
-alias a = uint;
+alias a = int;
 
