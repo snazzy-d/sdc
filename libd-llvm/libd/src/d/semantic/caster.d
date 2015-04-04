@@ -454,6 +454,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Class c) {
+		if (isExplicit && to.kind == TypeKind.Pointer) {
+			auto et = to.element.getCanonical();
+			if (et.kind == TypeKind.Builtin &&
+				et.builtin == BuiltinType.Void) {
+				return CastKind.Bit;
+			}
+		}
+		
 		if (to.kind == TypeKind.Class) {
 			scheduler.require(c, Step.Signed);
 			auto kind = castClass(c, to.dclass);
