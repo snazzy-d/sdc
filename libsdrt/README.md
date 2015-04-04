@@ -1,4 +1,0 @@
-libsdrt
-=======
-
-Runtime for SDC
