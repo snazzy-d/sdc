@@ -436,6 +436,8 @@ public:
 			}
 		}
 		
+		assert(value, "return; not implemented.");
+		
 		flattenedStmts ~= new ReturnStatement(s.location, value);
 		terminateFun();
 	}

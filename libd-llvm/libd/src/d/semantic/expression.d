@@ -217,19 +217,39 @@ struct ExpressionVisitor {
 			case NotIn :
 				assert(0, "in and !in are not implemented.");
 			
-			case LeftShift :
 			case SignedRightShift :
-			case UnsignedRightShift :
-				type = lhs.type;
+				type = lhs.type.getCanonical();
 				
+				// TODO: This seems to be a recuring pattern. Factorize.
+				while(type.kind == TypeKind.Enum) {
+					type = type.denum.type.getCanonical();
+				}
+				
+				auto bt = type.builtin;
+				if (!isIntegral(bt) || !isSigned(bt)) {
+					op = UnsignedRightShift;
+				}
+				
+				goto HandleShift;
+			
+			case UnsignedRightShift :
+			case LeftShift :
+				type = lhs.type.getCanonical();
+				
+				// TODO: This seems to be a recuring pattern. Factorize.
+				while(type.kind == TypeKind.Enum) {
+					type = type.denum.type.getCanonical();
+				}
+			
+			HandleShift:
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				break;
 			
-			case LeftShiftAssign :
 			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
+			case LeftShiftAssign :
 				assert(0,"<<, >> and >>> are not implemented.");
 			
 			case Greater :
