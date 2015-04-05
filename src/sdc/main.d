@@ -47,6 +47,12 @@ int main(string[] args) {
 	
 	auto files = args[1 .. $];
 	
+	if (files.length < 1) {
+		import std.stdio;
+		writeColouredText(stdout, ConsoleColour.Red, {writeln("No Sourcefile(s) provided");});
+		return 1;
+	}
+	
 	auto executable = "a.out";
 	auto objFile = files[0][0 .. $-2] ~ ".o";
 	if(outputFile.length) {
