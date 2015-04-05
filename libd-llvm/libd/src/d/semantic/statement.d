@@ -91,7 +91,10 @@ public:
 		}
 		
 		import d.exception;
-		throw new CompileException(s.location, "Unreachable statement.");
+		throw new CompileException(
+			s.location,
+			"Unreachable statement. " ~ typeid(s).toString(),
+		);
 	}
 	
 	private BlockStatement flatten(AstBlockStatement b) {

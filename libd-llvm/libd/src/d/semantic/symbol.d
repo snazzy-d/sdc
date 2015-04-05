@@ -158,9 +158,12 @@ struct SymbolAnalyzer {
 				ctorThis = ctorThis.getParamType(false, ctorThis.isFinal);
 				returnType = ctorThis;
 				
-				if(fbody) {
+				if (fbody) {
 					import d.ast.statement;
-					fbody.statements ~= new AstReturnStatement(f.location, new ThisExpression(f.location));
+					fbody = new AstBlockStatement(fbody.location, [
+						fbody,
+						new AstReturnStatement(f.location, new ThisExpression(f.location))
+					]);
 				}
 			} else {
 				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
@@ -273,9 +276,8 @@ struct SymbolAnalyzer {
 			import d.semantic.type : TypeVisitor;
 			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 			
-			value = cast(VoidInitializer) d.value;
-			if (value) {
-				value.type = type;
+			if (auto vi = cast(AstVoidInitializer) d.value) {
+				value = new VoidInitializer(vi.location, type);
 			} else {
 				// XXX: remove selective import when dmd is sane.
 				import d.semantic.expression : ExpressionVisitor;

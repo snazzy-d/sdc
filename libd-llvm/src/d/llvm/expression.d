@@ -81,10 +81,9 @@ struct ExpressionGen {
 	
 	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
 		auto lhsPtr = addressOf(e.lhs);
-		
-		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
 		auto rhs = visit(e.rhs);
 		
+		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
 		auto value = LLVMBuildOp(builder, lhs, rhs, "");
 		
 		LLVMBuildStore(builder, value, lhsPtr);
