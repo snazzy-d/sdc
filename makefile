@@ -39,7 +39,7 @@ include libsdrt/makefile.common
 
 $(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
 	@mkdir -p bin
-	gcc -o $(SDC) obj/sdc.o -m64 $(LDFLAGS)
+	gcc -o $(SDC) obj/sdc.o $(ARCHFLAG) $(LDFLAGS)
 
 obj/sdc.o: $(SOURCE)
 	@mkdir -p lib obj
