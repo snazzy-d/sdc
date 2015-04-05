@@ -696,15 +696,13 @@ auto parseImport(TokenRange)(ref TokenRange trange) {
  * Parse Initializer
  */
 auto parseInitializer(TokenRange)(ref TokenRange trange) {
-	if (trange.front.type == TokenType.Void) {
-		auto location = trange.front.location;
-		
-		trange.popFront();
-		
-		import d.ir.type;
-		return new VoidInitializer(location, Type.get(BuiltinType.None));
+	if (trange.front.type != TokenType.Void) {
+		return trange.parseAssignExpression();
 	}
 	
-	return trange.parseAssignExpression();
+	auto location = trange.front.location;
+	
+	trange.popFront();
+	return new AstVoidInitializer(location);
 }
 

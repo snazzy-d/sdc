@@ -494,3 +494,16 @@ class IdentifierTypeidExpression : AstExpression {
 	}
 }
 
+/**
+ * Used for type identifier = void;
+ */
+class AstVoidInitializer : AstExpression {
+	this(Location location) {
+		super(location);
+	}
+	
+	override string toString(Context) const {
+		return "void";
+	}
+}
+
