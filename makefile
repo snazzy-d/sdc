@@ -28,7 +28,7 @@ LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
 
-LIBSDRT_EXTRA_DEPS = $(SDC)
+LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
 
 ALL_TARGET = $(LIBSDRT)
 
