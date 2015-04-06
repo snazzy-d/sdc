@@ -36,7 +36,7 @@ final class Scheduler {
 	
 	// XXX: argument-less template. DMD don't allow overload of templated and non templated functions.
 	void require()(Symbol s, Step step = LastStep) {
-		if(s.step >= step) return;
+		if (s.step >= step) return;
 		
 		auto state = pass.state;
 		scope(exit) pass.state = state;
@@ -61,7 +61,7 @@ final class Scheduler {
 				assert(0, "Forward reference to " ~ s.name.toString(pass.context));
 			}
 			
-			if(s.step >= step) return;
+			if (s.step >= step) return;
 			/+
 			import std.stdio;
 			writeln(s.name.toString(pass.context), " ", step);

@@ -6,7 +6,6 @@ module d.semantic.semantic;
 public import util.visitor;
 
 import d.semantic.dmodule;
-import d.semantic.evaluator;
 import d.semantic.scheduler;
 
 import d.ast.declaration;
@@ -46,7 +45,11 @@ final class SemanticPass {
 	
 	Context context;
 	
+	import d.semantic.evaluator;
 	Evaluator evaluator;
+	
+	import d.semantic.datalayout;
+	DataLayout dataLayout;
 	
 	import d.object;
 	ObjectReference object;
@@ -79,9 +82,10 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, Source delegate(Name[]) sourceFactory) {
+	this(Context context, Evaluator evaluator, DataLayout dataLayout, Source delegate(Name[]) sourceFactory) {
 		this.context	= context;
 		this.evaluator	= evaluator;
+		this.dataLayout	= dataLayout;
 		
 		moduleVisitor	= new ModuleVisitor(this, sourceFactory);
 		scheduler		= new Scheduler(this);
