@@ -34,7 +34,7 @@ final class SDC {
 		context = new Context();
 		
 		backend	= new LLVMBackend(context, name, optLevel, conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join());
-		semantic = new SemanticPass(context, backend.getEvaluator(), &getFileSource);
+		semantic = new SemanticPass(context, backend.getEvaluator(), backend.getDataLayout(), &getFileSource);
 		
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;

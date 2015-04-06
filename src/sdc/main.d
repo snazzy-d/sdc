@@ -49,8 +49,8 @@ int main(string[] args) {
 	
 	auto executable = "a.out";
 	auto objFile = files[0][0 .. $-2] ~ ".o";
-	if(outputFile.length) {
-		if(dontLink) {
+	if (outputFile.length) {
+		if (dontLink) {
 			objFile = outputFile;
 		} else {
 			executable = outputFile;
@@ -63,7 +63,7 @@ int main(string[] args) {
 			sdc.compile(file);
 		}
 		
-		if(dontLink) {
+		if (dontLink) {
 			sdc.codeGen(objFile);
 		} else {
 			sdc.buildMain();
