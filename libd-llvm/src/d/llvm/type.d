@@ -39,7 +39,21 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Type t) {
-		return t.accept(this);
+		return t.getCanonical().accept(this);
+	}
+	
+	LLVMTypeRef buildOpaque(Type t) {
+		t = t.getCanonical();
+		switch(t.kind) with(TypeKind) {
+			case Struct:
+				return buildOpaque(t.dstruct);
+			
+			case Union:
+				return buildOpaque(t.dstruct);
+			
+			default:
+				return t.accept(this);
+		}
 	}
 	
 	LLVMTypeRef visit(BuiltinType t) {
@@ -92,7 +106,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visitPointerOf(Type t) {
 		auto pointed = (t.kind != TypeKind.Builtin || t.builtin != BuiltinType.Void)
-			? visit(t)
+			? buildOpaque(t)
 			: LLVMInt8TypeInContext(llvmCtx);
 		
 		return LLVMPointerType(pointed, 0);
@@ -110,12 +124,22 @@ final class TypeGen {
 		return LLVMArrayType(visit(t), size);
 	}
 	
-	LLVMTypeRef visit(Struct s) {
+	auto buildOpaque(Struct s) {
 		if (auto st = s in typeSymbols) {
 			return *st;
 		}
 		
-		auto llvmStruct = typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
+		return typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
+	}
+	
+	LLVMTypeRef visit(Struct s) in {
+		assert(s.step >= Step.Signed);
+	} body {
+		// FIXME: Ensure we don't have forward references.
+		LLVMTypeRef llvmStruct = buildOpaque(s);
+		if (!LLVMIsOpaqueStruct(llvmStruct)) {
+			return llvmStruct;
+		}
 		
 		LLVMTypeRef[] types;
 		foreach(member; s.members) {
@@ -128,14 +152,24 @@ final class TypeGen {
 		return llvmStruct;
 	}
 	
-	LLVMTypeRef visit(Union u) {
+	auto buildOpaque(Union u) {
 		if (auto ut = u in typeSymbols) {
 			return *ut;
 		}
 		
-		assert(!u.hasContext, "Voldemort union not supported atm");
+		return typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
+	}
+	
+	LLVMTypeRef visit(Union u) in {
+		assert(u.step >= Step.Signed);
+	} body {
+		// FIXME: Ensure we don't have forward references.
+		LLVMTypeRef llvmStruct = buildOpaque(u);
+		if (!LLVMIsOpaqueStruct(llvmStruct)) {
+			return llvmStruct;
+		}
 		
-		auto llvmStruct = typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
+		assert(!u.hasContext, "Voldemort union not supported atm");
 		
 		LLVMTypeRef[2] types;
 		
@@ -257,7 +291,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(TypeAlias a) {
-		return visit(a.type);
+		assert(0, "Use getCanonical");
 	}
 	
 	LLVMTypeRef visit(Interface i) {

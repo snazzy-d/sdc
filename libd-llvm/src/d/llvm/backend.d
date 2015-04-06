@@ -2,6 +2,7 @@ module d.llvm.backend;
 
 import d.llvm.codegen;
 import d.llvm.evaluator;
+import d.llvm.datalayout;
 
 import d.ir.symbol;
 
@@ -19,6 +20,7 @@ import std.string;
 final class LLVMBackend {
 	private CodeGenPass pass;
 	private LLVMEvaluator evaluator;
+	private LLVMDataLayout dataLayout;
 	
 	private LLVMTargetMachineRef targetMachine;
 	
@@ -57,6 +59,7 @@ final class LLVMBackend {
 		
 		pass = new CodeGenPass(context, name, td);
 		evaluator = new LLVMEvaluator(pass);
+		dataLayout = new LLVMDataLayout(pass, td);
 	}
 	
 	~this() {
@@ -69,6 +72,10 @@ final class LLVMBackend {
 	
 	auto getEvaluator() {
 		return evaluator;
+	}
+	
+	auto getDataLayout() {
+		return dataLayout;
 	}
 	
 	void visit(Module mod) {

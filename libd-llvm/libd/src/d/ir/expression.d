@@ -120,6 +120,10 @@ class IndexExpression : Expression {
 		this.index = index;
 	}
 	
+	override string toString(Context ctx) const {
+		return indexed.toString(ctx) ~ "[" ~ index.toString(ctx) ~ "]";
+	}
+	
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant

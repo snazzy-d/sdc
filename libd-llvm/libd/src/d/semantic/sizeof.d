@@ -39,7 +39,8 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(Struct s) {
-		assert(0, "struct.sizeof is not implemented.");
+		scheduler.require(s, Step.Signed);
+		return dataLayout.getSize(Type.get(s));
 	}
 	
 	uint visit(Class c) {
@@ -61,7 +62,8 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(Union u) {
-		assert(0, "union.sizeof is not implemented.");
+		scheduler.require(u, Step.Signed);
+		return dataLayout.getSize(Type.get(u));
 	}
 	
 	uint visit(Function f) {

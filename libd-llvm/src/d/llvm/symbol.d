@@ -465,7 +465,9 @@ final class SymbolGen {
 		return pass.visit(a.type);
 	}
 	
-	LLVMTypeRef visit(Struct s) {
+	LLVMTypeRef visit(Struct s) in {
+		assert(s.step == Step.Processed);
+	} body {
 		auto ret = buildStructType(s);
 		
 		foreach(member; s.members) {
@@ -477,7 +479,9 @@ final class SymbolGen {
 		return ret;
 	}
 	
-	LLVMTypeRef visit(Union u) {
+	LLVMTypeRef visit(Union u) in {
+		assert(u.step == Step.Processed);
+	} body {
 		auto ret = buildUnionType(u);
 		
 		foreach(member; u.members) {
@@ -489,7 +493,9 @@ final class SymbolGen {
 		return ret;
 	}
 	
-	LLVMTypeRef visit(Class c) {
+	LLVMTypeRef visit(Class c) in {
+		assert(c.step == Step.Processed);
+	} body {
 		auto ret = buildClassType(c);
 		
 		foreach(member; c.members) {

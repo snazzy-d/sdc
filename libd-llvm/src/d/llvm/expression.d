@@ -793,6 +793,7 @@ struct ExpressionGen {
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		auto fields = e.values.map!(v => visit(v)).array();
 		auto t = pass.visit(e.type);
+		
 		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
 			case Struct :
 				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
@@ -899,30 +900,31 @@ struct AddressOfGen {
 	
 	LLVMValueRef visit(FieldExpression e) {
 		auto base = e.expr;
+		auto type = base.type.getCanonical();
 		
 		LLVMValueRef ptr;
-		if (base.isLvalue) {
-			ptr = visit(base);
-		} else {
-			ptr = ExpressionGen(pass).visit(base);
+		switch(type.kind) with(TypeKind) {
+			case Slice, Struct, Union:
+				ptr = visit(base);
+				break;
+			
+			// XXX: Remove pointer. libd do not dererefence as expected.
+			case Pointer, Class:
+				ptr = ExpressionGen(pass).visit(base);
+				break;
+			
+			default:
+				assert(0, "Address of field only work on aggregate types, not " ~ type.toString(context));
 		}
 		
-		// Pointer auto dereference in D.
-		while(1) {
-			auto pointed = LLVMGetElementType(LLVMTypeOf(ptr));
-			auto kind = LLVMGetTypeKind(pointed);
-			if(kind != LLVMTypeKind.Pointer) {
-				assert(kind == LLVMTypeKind.Struct);
-				break;
-			}
-			
-			ptr = LLVMBuildLoad(builder, ptr, "");
-		}
+		// Make the type is not opaque.
+		// XXX: Find a factorized way to load and gep that ensure
+		// the indexed is not opaque and load metadata are correct.
+		pass.visit(type);
 		
 		ptr = LLVMBuildStructGEP(builder, ptr, e.field.index, "");
-		if (e.expr.type.kind == TypeKind.Union) {
-			auto type = LLVMPointerType(pass.visit(e.type), 0);
-			ptr = LLVMBuildBitCast(builder, ptr, type, "");
+		if (type.kind == TypeKind.Union) {
+			ptr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(pass.visit(e.type), 0), "");
 		}
 		
 		return ptr;
