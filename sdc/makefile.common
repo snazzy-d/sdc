@@ -1,0 +1,29 @@
+# Common definitions
+
+SDC_SRC = \
+	$(SDC_ROOT)/src/sdc/*.d \
+	$(SDC_ROOT)/src/util/*.d
+
+SDC = bin/sdc
+
+ALL_TARGET ?= $(SDC)
+
+LIBD_LLVM_ROOT ?= $(SDC_ROOT)/../libd-llvm
+ALL_TARGET ?= $(SDC) bin/sdc.conf
+
+include $(LIBD_LLVM_ROOT)/makefile.common
+
+SDC_IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
+
+$(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
+	@mkdir -p bin
+	gcc -o $(SDC) obj/sdc.o $(ARCHFLAG) $(LDFLAGS)
+
+obj/sdc.o: $(SDC_SRC)
+	@mkdir -p lib obj
+	$(DMD) -c -ofobj/sdc.o $(SDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
+
+bin/sdc.conf:
+	@mkdir -p bin
+	printf "{\n\t\"includePath\": [\"$(PWD)/libs\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
+

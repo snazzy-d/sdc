@@ -5,7 +5,7 @@
 	"copyright": "Copyright © 2012 Amaury SECHET",
 	"authors": ["Amaury SECHET"],
 	"license" : "MIT",
-	"importPaths" : ["libd-llvm/src","libd-llvm/libd/src","libd-llvm/import"],
+	"importPaths" : ["../libd-llvm/src","../libd/src","libd-llvm/import"],
 	"dependencies": {
 		"libd-llvm":{"version":"~master","path":"libd-llvm"}	
 	},

@@ -23,32 +23,17 @@ ifeq ($(PLATFORM),Darwin)
 	LDFLAGS += -lc++ -lncurses
 endif
 
-IMPORTS = $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
-SOURCE = src/sdc/*.d src/util/*.d
-
-SDC = bin/sdc
-
+SDC_ROOT = sdc
 LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
-LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
+
+LIBSDRT_EXTRA_DEPS = $(SDC)
 
 ALL_TARGET = $(LIBSDRT)
 
-include libd-llvm/makefile.common
+include sdc/makefile.common
 include libsdrt/makefile.common
-
-$(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
-	@mkdir -p bin
-	gcc -o $(SDC) obj/sdc.o $(ARCHFLAG) $(LDFLAGS)
-
-obj/sdc.o: $(SOURCE)
-	@mkdir -p lib obj
-	$(DMD) -c -ofobj/sdc.o $(SOURCE) $(DFLAGS) $(IMPORTS)
-
-bin/sdc.conf:
-	@mkdir -p bin
-	printf "{\n\t\"includePath\": [\"$(PWD)/libs\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
 
 clean:
 	rm -rf obj lib $(SDC)
