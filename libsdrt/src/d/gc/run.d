@@ -21,9 +21,7 @@ struct RunDesc {
 	@property
 	uint index() {
 		auto offset = (cast(uint) &this) - (cast(uint) &chunk.runs[0]);
-		
-		// FIXME: sizeof for struct not implemented.
-		return offset / 88;
+		return offset / RunDesc.sizeof;
 	}
 }
 

@@ -119,12 +119,14 @@ struct PageDescriptor {
 	}
 }
 
+enum DataPages	= computeDataPages();
+
 struct Chunk {
 	// 23 first pages are for header.
 	import d.gc.extent;
 	Extent header;
 	
-	uint[13] pad;
+	uint[1024 - DataPages - (Extent.sizeof / 4)] pad0;
 	
 	// 1 page including header.
 	PageDescriptor[DataPages] pages;
@@ -133,12 +135,16 @@ struct Chunk {
 	import d.gc.run;
 	RunDesc[DataPages] runs;
 	
+	uint[((1023 - DataPages) * PageSize - DataPages * RunDesc.sizeof) / 4] pad1;
+	
 	// 1001 pages left for data.
 	ulong[PageSize / ulong.sizeof][DataPages] datas;
 	
 	import d.gc.arena;
 	static Chunk* allocate(Arena* a) {
-		// assert(Chunk.sizeof == ChunkSize);
+		// XXX: ensure i didn't fucked up the layout.
+		// this better belong to static assert when available.
+		assert(Chunk.sizeof == ChunkSize);
 		
 		import d.gc.mman;
 		auto ret = map_chunks(1);
@@ -147,6 +153,15 @@ struct Chunk {
 		}
 		
 		auto c = cast(Chunk*) ret;
+		
+		// XXX: ensure i didn't fucked up the layout.
+		// this better belong to static assert when available.
+		auto ci = cast(size_t) ret;
+		auto ri = cast(size_t) &c.runs[0];
+		auto pi = cast(size_t) &c.datas[0];
+		
+		assert(ri == ci + PageSize);
+		assert(pi - ci == (1024 - DataPages) * PageSize);
 		
 		c.header.arena	= a;
 		c.header.addr	= c;
@@ -178,8 +193,6 @@ struct Chunk {
 	}
 	
 	void free() {
-		// assert(Chunk.sizeof == ChunkSize);
-		
 		import d.gc.mman;
 		pages_unmap(&this, ChunkSize);
 	}
@@ -310,5 +323,20 @@ struct Chunk {
 	}
 }
 
-enum DataPages	= 1001;
+private:
+
+auto computeDataPages() {
+	uint pages = 1023;
+	while(pages--) {
+		import d.gc.run;
+		auto miscPages = (((pages * RunDesc.sizeof) - 1) >> LgPageSize) + 1;
+		
+		auto availPages = 1023 - pages;
+		if (miscPages <= availPages) {
+			return pages;
+		}
+	}
+	
+	return 0;
+}
 

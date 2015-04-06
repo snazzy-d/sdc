@@ -131,7 +131,6 @@ void binInfoComputer(
 	
 	Exit:
 }
-//*/
 
 // 64 bits tiny, 128 bits quantum.
 enum LgTiny = 3;

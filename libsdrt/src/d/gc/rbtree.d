@@ -66,7 +66,7 @@ public:
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
-		Path!N[16 * size_t.sizeof /+ - lg2floor(N.sizeof) +/] path = void;
+		Path!N[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 		
 		// Let's make sure this is a child node.
@@ -172,7 +172,8 @@ public:
 		// rbtree's depth is ln(n) which is at most 8 * size_t.sizeof.
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
-		Path!N[16 * size_t.sizeof /+ - lg2floor(N.sizeof) +/] path = void;
+		import d.gc.util;
+		Path!N[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 		
 		// Root is always black.
