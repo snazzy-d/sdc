@@ -28,6 +28,7 @@ SOURCE = src/sdc/*.d src/util/*.d
 
 SDC = bin/sdc
 
+LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
 LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
