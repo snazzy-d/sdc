@@ -8,7 +8,7 @@ This compiler is based on [libd](https://github.com/deadalnix/libd) for D code a
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC require DMD release `2.065` to compile.
+SDC require DMD release `2.067` to compile.
 
 Goals
 ========
