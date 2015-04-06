@@ -45,14 +45,7 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.5. Ensure that libd and libd-llvm provided as submodules are compiled properly.
-````
-git submodule init
-git submodule update
-cd libd-llvm
-git submodule init
-git submodule update
-````
+Install LLVM 3.5.
 
 Run `make`.
 
