@@ -54,7 +54,7 @@ final class SemanticPass {
 	import d.object;
 	ObjectReference object;
 	
-	Name[] versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
+	Name[] versions = getDefaultVersions();
 	
 	static struct State {
 		Scope currentScope;
@@ -190,3 +190,18 @@ final class SemanticPass {
 	}
 }
 
+private:
+
+auto getDefaultVersions() {
+	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
+	
+	version(linux) {
+		versions ~=  BuiltinName!"linux";
+	}
+	
+	version(OSX) {
+		versions ~=  BuiltinName!"OSX";
+	}
+	
+	return versions;
+}
