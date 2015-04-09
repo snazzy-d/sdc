@@ -386,30 +386,35 @@ public:
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
 
-		BinaryOp cmp_op;
-		UnaryOp inc_op;
 
 		if (f.reverse) {
 			swap(start, stop);
-			cmp_op = BinaryOp.GreaterEqual;
-			inc_op = UnaryOp.PreDec;
-		} else {
-			cmp_op = BinaryOp.Less;
-			inc_op = UnaryOp.PreInc;
 		}
-		
+
 		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
 
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
 
-		auto idxExpr = new VariableExpression(idx.location, idx);		
-		auto initialize = f.reverse 
-			? new ExpressionStatement(new UnaryExpression(loc, idx.type, UnaryOp.PreDec, idxExpr))
-			: new SymbolStatement(idx);
-		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), cmp_op, idxExpr, stop);
-		auto increment = new UnaryExpression(loc, type, inc_op, idxExpr);
-		
+		Expression idxExpr = new VariableExpression(idx.location, idx);
+		Expression increment, condition;
+
+		if (f.reverse) {
+			// for(...; idx-- > stop; idx)
+			condition = new BinaryExpression(
+				loc, Type.get(BuiltinType.Bool), 
+				BinaryOp.Greater, 
+				new UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr), 
+				stop);
+			increment = idxExpr;
+		} else {
+			// for(...; idx < stop; idx++)
+			condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, stop);
+			increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
+		}
+
+		auto initialize = new SymbolStatement(idx);
+
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
 	
