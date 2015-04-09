@@ -30,7 +30,8 @@ void* pages_map(void* addr, size_t size) {
 	
 	auto MAP_FAILED = cast(void*) -1L;
 	if (ret is MAP_FAILED) {
-		ret = null;
+		/// XXX: perhaps to something better than crash
+		assert(false, "mmap failed");
 	} else if (addr !is null && ret !is addr) {
 		// We mapped, but not where expected.
 		pages_unmap(ret, size);
@@ -99,11 +100,21 @@ enum Prot {
 	Exec	= 0x4,
 }
 
-enum Map {
-	Shared	= 0x01,
-	Private	= 0x02,
-	Fixed	= 0x10,
-	Anon	= 0x20,
+version(OSX) {
+	enum Map {
+		Shared	= 0x01,
+		Private	= 0x02,
+		Fixed	  = 0x10,
+		Anon	  = 0x1000,
+	}
+}
+version(linux) {
+	enum Map {
+		Shared	= 0x01,
+		Private	= 0x02,
+		Fixed	  = 0x10,
+		Anon	  = 0x20,
+	}	
 }
 
 extern(C):
