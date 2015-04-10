@@ -25,9 +25,6 @@ auto buildConf() {
 	
 	conf.extends(getConf(path.join("/")));
 	
-	// Current folder.
-	conf.extends(getConf("sdc.conf"));
-	
 	return conf;
 }
 
