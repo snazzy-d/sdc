@@ -68,6 +68,10 @@ private:
 		size = getAllocSize(size);
 		
 		auto run = findSmallRun(binID);
+		if (run is null) {
+			return null;
+		}
+		
 		auto index = run.misc.small.allocate();
 		auto base = cast(void*) &run.chunk.datas[run.index];
 		
@@ -139,6 +143,10 @@ private:
 		assert(size >= SizeClass.Small && size < SizeClass.Large);
 		
 		auto run = allocateLargeRun(getAllocSize(size));
+		if (run is null) {
+			return null;
+		}
+		
 		return cast(void*) &run.chunk.datas[run.index];
 	}
 	

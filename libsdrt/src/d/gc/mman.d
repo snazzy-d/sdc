@@ -25,19 +25,18 @@ private:
 
 void* pages_map(void* addr, size_t size) {
 	auto ret = mmap(addr, size, Prot.Read | Prot.Write, Map.Private | Map.Anon, -1, 0);
-	
 	assert(ret !is null);
 	
 	auto MAP_FAILED = cast(void*) -1L;
 	if (ret is MAP_FAILED) {
-		/// XXX: perhaps to something better than crash
-		assert(false, "mmap failed");
+		ret = null;
 	} else if (addr !is null && ret !is addr) {
 		// We mapped, but not where expected.
 		pages_unmap(ret, size);
 		ret = null;
 	}
 	
+	// XXX: out contract
 	assert(ret is null || (addr is null && ret !is addr) || (addr !is null && ret is addr));
 	return ret;
 }
