@@ -211,6 +211,21 @@ struct ValueMangler {
 		return this.dispatch(e);
 	}
 	
+	string visit(StringLiteral s) {
+		auto ret = "a";
+		auto str = s.value;
+		auto len = str.length;
+		
+		ret.reserve(len * 2 + 8);
+		ret ~= to!string(len);
+		ret ~= '_';
+		foreach(ubyte c; str) {
+			ret ~= byte2hex(c);
+		}
+		
+		return ret;
+	}
+	
 	string visit(BooleanLiteral e) {
 		return to!string(cast(ubyte) e.value);
 	}
@@ -224,5 +239,32 @@ struct ValueMangler {
 	string visit(IntegerLiteral!false e) {
 		return e.value.to!string();
 	}
+}
+
+private:
+
+char[2] byte2hex(const ubyte b) pure {
+	static immutable char[16] hexDigits = "0123456789abcdef";
+	ubyte hi = (b >> 4);
+	ubyte lo = (b & 0x0F);
+	return [hexDigits[hi], hexDigits[lo]];
+}
+
+unittest {
+	assert(byte2hex(0) == "00");
+	assert(byte2hex(42) == "2a");
+	assert(byte2hex(255) == "ff");
+}
+
+unittest {
+	void check(string s, string m) {
+		import d.location, d.ir.expression;
+		auto sl = new StringLiteral(Location.init, s);
+		
+		assert(ValueMangler().visit(sl) == m);
+	}
+	
+	check("Hello World", "a11_48656c6c6f20576f726c64");
+	check("©", "a2_c2a9");
 }
 
