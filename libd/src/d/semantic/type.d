@@ -79,7 +79,8 @@ struct TypeVisitor {
 			size,
 		));
 		
-		return t.getArray(s, qualifier);
+		assert(s <= uint.max, "Array larger than uint.max are not supported");
+		return t.getArray(cast(uint) s, qualifier);
 	}
 	
 	Type visitMapOf(AstType key, AstType t) {

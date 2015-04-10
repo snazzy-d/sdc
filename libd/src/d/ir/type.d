@@ -241,7 +241,7 @@ public:
 		return getConstructedType(TypeKind.Slice, q);
 	}
 	
-	Type getArray(ulong size, TypeQualifier q = TypeQualifier.Mutable) {
+	Type getArray(uint size, TypeQualifier q = TypeQualifier.Mutable) {
 		auto t = qualify(q);
 		
 		// XXX: Consider caching in context.
@@ -268,6 +268,7 @@ public:
 	uint size() const in {
 		assert(kind == TypeKind.Array, "Only array have size.");
 	} body {
+		assert(desc.data <= uint.max);
 		return cast(uint) desc.data;
 	}
 	

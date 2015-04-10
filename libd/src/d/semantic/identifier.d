@@ -250,8 +250,15 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 					} else static if (is(U : Expression)) {
 						// XXX: dedup with IdentifierBracketExpression
 						import d.semantic.caster, d.semantic.expression;
-						auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, index);
-						return handler(indexed.getArray(pass.evalIntegral(se)));
+						auto size = pass.evalIntegral(buildImplicitCast(
+							pass,
+							i.index.location,
+							pass.object.getSizeT().type,
+							index,
+						));
+						
+						assert(size <= uint.max, "Array larger than uint.max are not supported");
+						return handler(indexed.getArray(cast(uint) size));
 					} else {
 						assert(0, "Add meaningful error message.");
 					}
@@ -278,8 +285,15 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			static if (is(T : Type)) {
 				// XXX: dedup with IdentifierBracketExpression
 				import d.semantic.caster, d.semantic.expression;
-				auto se = buildImplicitCast(pass, i.index.location, pass.object.getSizeT().type, ExpressionVisitor(pass).visit(i.index));
-				return handler(identified.getArray(pass.evalIntegral(se)));
+				auto size = pass.evalIntegral(buildImplicitCast(
+					pass,
+					i.index.location,
+					pass.object.getSizeT().type,
+					ExpressionVisitor(pass).visit(i.index),
+				));
+				
+				assert(size <= uint.max, "Array larger than uint.max are not supported");
+				return handler(identified.getArray(cast(uint) size));
 			} else static if (is(T : Expression)) {
 				import d.semantic.expression;
 				return handler(ExpressionVisitor(pass).getIndex(i.location, identified, ExpressionVisitor(pass).visit(i.index)));
