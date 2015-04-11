@@ -78,8 +78,13 @@ struct PageDescriptor {
 	
 	@property
 	bool allocated() const {
+		return !free;
+	}
+	
+	@property
+	bool free() const {
 		// TODO: VRP for &
-		return !!(bits & 0x01);
+		return !(bits & 0x01);
 	}
 	
 	@property

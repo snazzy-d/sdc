@@ -23,6 +23,14 @@ struct Arena {
 	import d.gc.extent;
 	RBTree!(Extent, addrExtentCmp) hugeTree;
 	
+	// Set of chunks for GC lookup.
+	ulong* chunkKeys;
+	uint chunkCount;
+	
+	// Metadatas for the chunk set.
+	ubyte lgChunkSetSize;
+	ubyte chunkMaxProbe;
+	
 	import d.gc.bin, d.gc.sizeclass;
 	Bin[ClassCount.Small] bins;
 	
@@ -106,22 +114,9 @@ private:
 		uint needPages = binInfos[binID].needPages;
 		auto runBinID = getBinID(needPages << LgPageSize);
 		
-		// XXX: use extract or something.
-		auto run = freeRunTree.bestfit(cast(RunDesc*) runBinID);
-		if (run !is null) {
-			freeRunTree.remove(run);
-		}
-		
+		auto run = extractFreeRun(runBinID);
 		if (run is null) {
-			auto c = allocateChunk();
-			if (c is null) {
-				// XXX: In the multithreaded version, we should
-				// retry reuse as one run can have been freed
-				// while we tried to allocate the chunk.
-				return null;
-			}
-			
-			run = &c.runs[0];
+			return null;
 		}
 		
 		auto c = run.chunk;
@@ -158,22 +153,9 @@ private:
 		auto binID = getBinID(size);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 		
-		// XXX: use extract or something.
-		auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
-		if (run !is null) {
-			freeRunTree.remove(run);
-		}
-		
+		auto run = extractFreeRun(binID);
 		if (run is null) {
-			auto c = allocateChunk();
-			if (c is null) {
-				// XXX: In the multithreaded version, we should
-				// retry reuse as one run can have been freed
-				// while we tried to allocate the chunk.
-				return null;
-			}
-			
-			run = &c.runs[0];
+			return null;
 		}
 		
 		auto c = run.chunk;
@@ -185,6 +167,33 @@ private:
 		}
 		
 		return run;
+	}
+	
+	/**
+	 * Extract free run from an existing or newly allocated chunk.
+	 * The run will not be present in the freeRunTree.
+	 */
+	RunDesc* extractFreeRun(ubyte binID) {
+		// XXX: use extract or something.
+		auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
+		if (run !is null) {
+			freeRunTree.remove(run);
+			return run;
+		}
+		
+		auto c = allocateChunk();
+		if (c is null) {
+			// XXX: In the multithreaded version, we should
+			// retry reuse as one run can have been freed
+			// while we tried to allocate the chunk.
+			return null;
+		}
+		
+		// In rare cases, we may have allocated metadata
+		// in the chunk for bookkeeping.
+		return c.pages[0].allocated
+			? extractFreeRun(binID)
+			: &c.runs[0];
 	}
 	
 	/**
@@ -316,9 +325,11 @@ private:
 			return null;
 		}
 		
-		// XXX: Use Extent.sizeof
+		// XXX: Consider having a run for extent.
+		// it should provide good locality for huge
+		// alloc lookup (for GC scan and huge free).
 		import d.gc.extent;
-		auto e = cast(Extent*) allocSmall(40);
+		auto e = cast(Extent*) allocSmall(Extent.sizeof);
 		e.arena = &this;
 		
 		import d.gc.mman, d.gc.spec;
@@ -342,6 +353,12 @@ private:
 		auto vc = cast(void*) ((cast(size_t) ptr) & ~AlignMask);
 		assert(vc is ptr);
 		
+		if (ptr is null) {
+			// free(null) is valid, we want to handle it properly.
+			// XXX: return; is not supported.
+			goto Exit;
+		}
+		{
 		Extent test;
 		test.addr = ptr;
 		
@@ -354,12 +371,21 @@ private:
 		
 		hugeTree.remove(e);
 		free(e);
+		}
+		Exit:
 	}
 	
 	/**
 	 * Chunk allocation facilities.
 	 */
 	Chunk* allocateChunk() {
+		// If we have a spare chunk, use that.
+		if (spare !is null) {
+			auto c = spare;
+			spare = null;
+			return c;
+		}
+		
 		auto c = Chunk.allocate(&this);
 		if (c is null) {
 			return null;
@@ -368,7 +394,105 @@ private:
 		assert(c.header.arena is &this);
 		// assert(c.header.addr is c);
 		
+		// Adding the chunk as spare so metadata can be allocated
+		// from it. For instance, this is useful if the chunk set
+		// needs to be resized to register this chunk.
+		assert(spare is null);
+		spare = c;
+		
+		// If we failed to register the chunk, free and bail out.
+		if (registerChunk(c)) {
+			c.free();
+			c = null;
+		}
+		
+		spare = null;
 		return c;
+	}
+	
+	bool registerChunk(Chunk* c) {
+		// We resize if the set if 7/8 full.
+		auto limitSize = (7UL << lgChunkSetSize) / 8;
+		if (limitSize <= chunkCount) {
+			auto oldChunkKeys = chunkKeys;
+			auto oldChunkSetSize = 1UL << lgChunkSetSize;
+			
+			lgChunkSetSize++;
+			assert(lgChunkSetSize <= 32);
+			
+			// FIXME: Use calloc.
+			import d.gc.spec;
+			auto newChunkKeys = cast(ulong*) alloc(ulong.sizeof << lgChunkSetSize);
+			assert(oldChunkKeys is chunkKeys);
+			
+			if (newChunkKeys is null) {
+				return true;
+			}
+			
+			// XXX: Using calloc would remove the need to zero this.
+			for (uint i = 0; i < oldChunkSetSize * 2; i++) {
+				newChunkKeys[i] = 0;
+			}
+			
+			chunkMaxProbe = 0;
+			chunkKeys = newChunkKeys;
+			auto rem = chunkCount;
+			
+			for(uint i = 0; rem != 0; i++) {
+				assert(i < oldChunkSetSize);
+				
+				auto k = oldChunkKeys[i];
+				if (k == 0) {
+					continue;
+				}
+				
+				insertKeyInSet(k);
+				rem--;
+			}
+			
+			free(oldChunkKeys);
+		}
+		
+		import d.gc.spec;
+		auto k = (cast(size_t) c) >> LgChunkSize;
+		
+		chunkCount++;
+		insertKeyInSet(k);
+		
+		return false;
+	}
+	
+	void insertKeyInSet(ulong k) {
+		auto setSize = 1 << lgChunkSetSize;
+		auto setMask = setSize - 1;
+		
+		auto c = (cast(uint) k) & setMask;
+		
+		auto i = c;
+		ubyte d = 0;
+		while(chunkKeys[i] != 0) {
+			auto e = chunkKeys[i];
+			auto ce = (cast(uint) e) & setMask;
+			
+			// Robin hood haching.
+			if (d > (i - ce)) {
+				chunkKeys[i] = k;
+				k = e;
+				c = ce;
+				
+				if (d > chunkMaxProbe) {
+					chunkMaxProbe = d;
+				}
+			}
+			
+			i = ((i + 1) & setMask);
+			d = cast(ubyte) (i - c);
+		}
+		
+		chunkKeys[i] = k;
+		if (d > chunkMaxProbe) {
+			chunkMaxProbe = d;
+		}
 	}
 }
 

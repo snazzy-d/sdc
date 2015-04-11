@@ -1,7 +1,7 @@
 //T compiles:yes
 //T has-passed:yes
 //T retval:0
-// typeid.
+// memory allocator test.
 
 class A {}
 class B : A { ulong a; }
@@ -67,5 +67,7 @@ void main() {
 	_tl_gc_free(b1);
 	_tl_gc_free(b2);
 	_tl_gc_free(b3);
+	
+	_tl_gc_free(null);
 }
 
