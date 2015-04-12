@@ -493,7 +493,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Union u) {
-		return CastKind.Invalid;
+		return (to.kind == TypeKind.Union && to.dunion is u)
+			? CastKind.Exact
+			: CastKind.Invalid;
 	}
 	
 	CastKind visit(Function f) {

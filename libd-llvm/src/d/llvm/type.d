@@ -49,7 +49,7 @@ final class TypeGen {
 				return buildOpaque(t.dstruct);
 			
 			case Union:
-				return buildOpaque(t.dstruct);
+				return buildOpaque(t.dunion);
 			
 			default:
 				return t.accept(this);
