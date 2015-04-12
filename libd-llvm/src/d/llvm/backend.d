@@ -151,7 +151,7 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
-		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt";
+		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lpthread";
 		
 		writeln(linkCommand);
 		wait(spawnShell(linkCommand));

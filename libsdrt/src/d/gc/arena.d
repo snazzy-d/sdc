@@ -10,6 +10,10 @@ extern(C) void _tl_gc_free(void* ptr) {
 	tl.free(ptr);
 }
 
+extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
+	tl.stackBottom = bottom;
+}
+
 struct Arena {
 	// Spare chunk to avoid churning too much.
 	import d.gc.chunk;
@@ -30,6 +34,8 @@ struct Arena {
 	// Metadatas for the chunk set.
 	ubyte lgChunkSetSize;
 	ubyte chunkMaxProbe;
+	
+	const void* stackBottom;
 	
 	import d.gc.bin, d.gc.sizeclass;
 	Bin[ClassCount.Small] bins;
