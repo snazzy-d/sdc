@@ -40,7 +40,21 @@ struct Arena {
 		}
 		
 		if (size < SizeClass.Large) {
-			return allocLarge(size);
+			return allocLarge(size, false);
+		}
+		
+		return allocHuge(size);
+	}
+	
+	void* calloc(size_t size) {
+		if (size < SizeClass.Small) {
+			auto ret = allocSmall(size);
+			memset(ret, 0, size);
+			return ret;
+		}
+		
+		if (size < SizeClass.Large) {
+			return allocLarge(size, true);
 		}
 		
 		return allocHuge(size);
@@ -133,11 +147,11 @@ private:
 	/**
 	 * Large allocation facilities.
 	 */
-	void* allocLarge(size_t size) {
+	void* allocLarge(size_t size, bool zero) {
 		// TODO: in contracts
 		assert(size >= SizeClass.Small && size < SizeClass.Large);
 		
-		auto run = allocateLargeRun(getAllocSize(size));
+		auto run = allocateLargeRun(getAllocSize(size), zero);
 		if (run is null) {
 			return null;
 		}
@@ -145,7 +159,7 @@ private:
 		return cast(void*) &run.chunk.datas[run.index];
 	}
 	
-	RunDesc* allocateLargeRun(size_t size) {
+	RunDesc* allocateLargeRun(size_t size, bool zero) {
 		// TODO: in contracts
 		assert(size >= SizeClass.Small && size < SizeClass.Large);
 		assert(size == getAllocSize(size));
@@ -161,7 +175,7 @@ private:
 		auto c = run.chunk;
 		auto i = run.index;
 		
-		auto rem = c.splitLargeRun(size, i, binID);
+		auto rem = c.splitLargeRun(size, i, binID, zero);
 		if (rem) {
 			freeRunTree.insert(&c.runs[rem]);
 		}
@@ -270,9 +284,10 @@ private:
 		auto pd = c.pages[runID];
 		assert(pd.allocated && pd.offset == 0);
 		
+		// XXX: find a way to merge dirty and clean free runs.
 		if (runID > 0) {
 			auto previous = c.pages[runID - 1];
-			if (!previous.allocated) {
+			if (previous.free && previous.dirty) {
 				runID -= previous.offset;
 				pages += previous.offset;
 				
@@ -283,9 +298,9 @@ private:
 		if (runID + pages < DataPages) {
 			auto nextID = runID + pages;
 			auto next = c.pages[nextID];
-			assert(!next.allocated || next.offset == 0);
+			assert(next.free || next.offset == 0);
 			
-			if (!next.allocated) {
+			if (next.free && next.dirty) {
 				pages += next.offset;
 				
 				freeRunTree.remove(&c.runs[nextID]);
@@ -300,8 +315,8 @@ private:
 		auto d = PageDescriptor(
 			false,
 			false,
-			pd.zeroed,
-			pd.dirty,
+			false,
+			true,
 			runBinID,
 			pages,
 		);
@@ -310,6 +325,8 @@ private:
 		c.pages[runID + pages - 1] = d;
 		
 		freeRunTree.insert(&c.runs[runID]);
+		
+		// XXX: remove dirty
 	}
 	
 	/**
@@ -420,18 +437,12 @@ private:
 			lgChunkSetSize++;
 			assert(lgChunkSetSize <= 32);
 			
-			// FIXME: Use calloc.
 			import d.gc.spec;
-			auto newChunkKeys = cast(ulong*) alloc(ulong.sizeof << lgChunkSetSize);
+			auto newChunkKeys = cast(ulong*) calloc(ulong.sizeof << lgChunkSetSize);
 			assert(oldChunkKeys is chunkKeys);
 			
 			if (newChunkKeys is null) {
 				return true;
-			}
-			
-			// XXX: Using calloc would remove the need to zero this.
-			for (uint i = 0; i < oldChunkSetSize * 2; i++) {
-				newChunkKeys[i] = 0;
 			}
 			
 			chunkMaxProbe = 0;
@@ -474,7 +485,7 @@ private:
 			auto e = chunkKeys[i];
 			auto ce = (cast(uint) e) & setMask;
 			
-			// Robin hood haching.
+			// Robin hood hashing.
 			if (d > (i - ce)) {
 				chunkKeys[i] = k;
 				k = e;

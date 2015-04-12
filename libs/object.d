@@ -14,8 +14,8 @@ extern (C) {
 	void* malloc(size_t);
 	void* realloc(void*, size_t);
 	void exit(int code);
-	// XXX: change to const when proper type qualifier propagation is in place.
 	int printf(const char* fmt, ...);
+	void* memset(void* ptr, int value, size_t num);
 }
 
 class Object {

@@ -212,28 +212,18 @@ struct Chunk {
 		auto needPages = binInfo.needPages;
 		
 		assert((needPages << LgPageSize) <= pages[runID].size);
-		
 		auto rem = runSplitRemove(runID, needPages);
 		
-		for (uint i = 0; i < needPages; i++) {
-			auto p = runID + i;
-			auto d = pages[p];
-			
-			pages[p] = PageDescriptor(
-				true,
-				false,
-				d.zeroed,
-				d.dirty,
-				binID,
-				i,
-			);
-			
-			if (d.zeroed) {
-				for (uint j; j < datas[p].length; j++) {
-					// assert(datas[p][j] == 0);
-				}
-			}
-		}
+		auto dirty = pages[runID].dirty;
+		
+		setBitmap(runID, needPages, PageDescriptor(
+			true,
+			false,
+			false,
+			dirty,
+			binID,
+			0,
+		));
 		
 		runs[runID].misc.small.binID = binID;
 		runs[runID].misc.small.freeSlots = binInfo.freeSlots;
@@ -247,7 +237,7 @@ struct Chunk {
 		return rem;
 	}
 	
-	uint splitLargeRun(size_t size, uint runID, ubyte binID) {
+	uint splitLargeRun(size_t size, uint runID, ubyte binID, bool zero) {
 		// XXX: in contract.
 		import d.gc.bin, d.gc.sizeclass;
 		assert(size >= SizeClass.Small && size < SizeClass.Large);
@@ -259,27 +249,53 @@ struct Chunk {
 		auto needPages = cast(uint) (size >> LgPageSize);
 		auto rem = runSplitRemove(runID, needPages);
 		
+		auto dirty = pages[runID].dirty;
+		if (zero) {
+			if (dirty) {
+				memset(&datas[runID], 0, needPages << LgPageSize);
+			} else {
+				for (uint i = 0; i < needPages; i++) {
+					auto p = runID + i;
+					if (!pages[p].zeroed) {
+						memset(&datas[p], 0, PageSize);
+					}
+				}
+			}
+		}
+		
+		setBitmap(runID, needPages, PageDescriptor(
+			true,
+			true,
+			zero,
+			dirty,
+			binID,
+			0,
+		));
+		
+		return rem;
+	}
+	
+private:
+	void setBitmap(uint runID, uint needPages, PageDescriptor base) {
 		for (uint i = 0; i < needPages; i++) {
 			auto p = runID + i;
 			auto d = pages[p];
 			
 			pages[p] = PageDescriptor(
-				true,
-				true,
-				d.zeroed,
-				d.dirty,
-				binID,
+				base.allocated,
+				base.large,
+				base.zeroed,
+				base.dirty,
+				base.binID,
 				i,
 			);
 			
-			if (d.zeroed) {
+			if (d.zeroed && !base.dirty) {
 				for (uint j; j < datas[p].length; j++) {
 					assert(datas[p][j] == 0);
 				}
 			}
 		}
-		
-		return rem;
 	}
 	
 	uint runSplitRemove(uint runID, uint needPages) {
@@ -292,8 +308,6 @@ struct Chunk {
 		
 		assert(needPages <= totalPages);
 		auto remPages = totalPages - needPages;
-		
-		// XXX: arena remove ?
 		
 		if (dirty) {
 			// XXX: arena dirty remove.
