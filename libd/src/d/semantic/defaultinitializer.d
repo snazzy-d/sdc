@@ -53,7 +53,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				return new BooleanLiteral(location, false);
 			
 			case Char, Wchar, Dchar :
-				return new CharacterLiteral(location, [char.init], t);
+				return new CharacterLiteral(location, getCharInit(t), t);
 			
 			case Ubyte, Ushort, Uint, Ulong, Ucent :
 				return new IntegerLiteral!false(location, 0, t);

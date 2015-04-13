@@ -625,7 +625,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 			trange.popFront();
 			
 			import d.base.builtintype : BuiltinType;
-			return new d.ir.expression.CharacterLiteral(location, str, BuiltinType.Char);
+			return new d.ir.expression.CharacterLiteral(location, str[0], BuiltinType.Char);
 		
 		case OpenBracket :
 			AstExpression[] keys, values;

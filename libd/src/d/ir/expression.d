@@ -310,9 +310,9 @@ class FloatLiteral : CompileTimeExpression {
  * Character literal
  */
 class CharacterLiteral : CompileTimeExpression {
-	string value;
+	dchar value;
 	
-	this(Location location, string value, BuiltinType t) in {
+	this(Location location, dchar value, BuiltinType t) in {
 		assert(isChar(t));
 	} body {
 		super(location, Type.get(t));
@@ -321,11 +321,8 @@ class CharacterLiteral : CompileTimeExpression {
 	}
 	
 	override string toString(Context) const {
-		return "'" ~ value ~ "'";
-	}
-	
-	invariant() {
-		assert(value.length > 0);
+		import std.conv;
+		return "'" ~ to!string(value) ~ "'";
 	}
 }
 

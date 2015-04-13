@@ -649,6 +649,8 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 					? new IntegerLiteral!true(location, getMax(t), t)
 					: new IntegerLiteral!false(location, getMax(t), t),
 				);
+			} else if (isChar(t)) {
+				return handler(new CharacterLiteral(location, getCharMax(t), t));
 			}
 		} else if (name == BuiltinName!"min") {
 			if (t == BuiltinType.Bool) {
@@ -658,6 +660,8 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 					? new IntegerLiteral!true(location, getMin(t), t)
 					: new IntegerLiteral!false(location, getMin(t), t),
 				);
+			} else if (isChar(t)) {
+				return handler(new CharacterLiteral(location, '\0', t));
 			}
 		}
 		

@@ -54,7 +54,7 @@ struct ExpressionGen {
 	
 	// XXX: character types in backend ?
 	LLVMValueRef visit(CharacterLiteral cl) {
-		return LLVMConstInt(pass.visit(cl.type), cl.value[0], false);
+		return LLVMConstInt(pass.visit(cl.type), cl.value, false);
 	}
 	
 	LLVMValueRef visit(NullLiteral nl) {

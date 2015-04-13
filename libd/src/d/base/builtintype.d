@@ -266,3 +266,48 @@ unittest {
 	assert(getMin(BuiltinType.Long) == -9223372036854775808UL);
 }
 
+dchar getCharInit(BuiltinType t) in {
+	assert(isChar(t), "getCharInit only applys to character types");
+} body {
+	switch(t) with(BuiltinType) {
+		case Char :
+			return '\xff';
+		
+		case Wchar, Dchar :
+			return cast(dchar) 0xffff;
+		
+		default :
+			assert(0, "getCharInit only applys to character types");
+	}
+}
+
+unittest {
+	assert(getCharInit(BuiltinType.Char) == '\xff');
+	assert(getCharInit(BuiltinType.Wchar) == 0xffff);
+	assert(getCharInit(BuiltinType.Dchar) == 0xffff);
+}
+
+dchar getCharMax(BuiltinType t) in {
+	assert(isChar(t), "getCharMax only applys to character types");
+} body {
+	switch(t) with(BuiltinType) {
+		case Char :
+			return '\xff';
+		
+		case Wchar :
+			return cast(dchar) 0xffff;
+		
+		case Dchar :
+			return cast(dchar) 0x10ffff;
+		
+		default :
+			assert(0, "getCharMax only applys to character types");
+	}
+}
+
+unittest {
+	assert(getCharMax(BuiltinType.Char) == '\xff');
+	assert(getCharMax(BuiltinType.Wchar) == 0xffff);
+	assert(getCharMax(BuiltinType.Dchar) == 0x10ffff);
+}
+
