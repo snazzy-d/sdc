@@ -169,18 +169,21 @@ final class TypeGen {
 			return llvmStruct;
 		}
 		
-		assert(!u.hasContext, "Voldemort union not supported atm");
+		auto hasContext = u.hasContext;
+		auto members = u.members;
+		assert(!hasContext, "Voldemort union not supported atm");
 		
-		LLVMTypeRef[2] types;
+		LLVMTypeRef[3] types;
+		uint elementCount = 1 + hasContext;
 		
 		uint firstindex, size, dalign;
-		foreach(i, member; u.members) {
-			if (auto f = cast(Field) member) {
-				types[0] = visit(f.type);
+		foreach(i, m; members) {
+			if (auto f = cast(Field) m) {
+				types[hasContext] = visit(f.type);
 				
 				import llvm.c.target;
-				size = cast(uint) LLVMStoreSizeOfType(targetData, types[0]);
-				dalign = cast(uint) LLVMABIAlignmentOfType(targetData, types[0]);
+				size = cast(uint) LLVMStoreSizeOfType(targetData, types[hasContext]);
+				dalign = cast(uint) LLVMABIAlignmentOfType(targetData, types[hasContext]);
 				
 				firstindex = cast(uint) (i + 1);
 				break;
@@ -188,8 +191,8 @@ final class TypeGen {
 		}
 		
 		uint extra;
-		foreach(member; u.members[firstindex .. $]) {
-			if (auto f = cast(Field) member) {
+		foreach(m; members[firstindex .. $]) {
+			if (auto f = cast(Field) m) {
 				auto t = visit(f.type);
 				
 				import llvm.c.target;
@@ -201,8 +204,12 @@ final class TypeGen {
 			}
 		}
 		
-		types[1] = LLVMArrayType(LLVMInt8TypeInContext(llvmCtx), extra);
-		LLVMStructSetBody(llvmStruct, types.ptr, 2, false);
+		if (extra > 0) {
+			elementCount++;
+			types[1] = LLVMArrayType(LLVMInt8TypeInContext(llvmCtx), extra);
+		}
+		
+		LLVMStructSetBody(llvmStruct, types.ptr, elementCount, false);
 		
 		import llvm.c.target;
 		assert(
