@@ -117,9 +117,11 @@ private:
 			}
 		}
 		
-		foreach(j, a; fargs[0 .. t.ifti.length]) {
-			if (!IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
-				return false;
+		if (fargs.length == t.ifti.length) {
+			foreach(j, a; fargs) {
+				if (!IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
+					return false;
+				}
 			}
 		}
 		

@@ -325,10 +325,11 @@ struct SymbolAnalyzer {
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
 		import d.semantic.identifier : AliasResolver;
 		a.symbol = AliasResolver!(function Symbol(identified) {
-			static if(is(typeof(identified) : Symbol)) {
+			alias T = typeof(identified);
+			static if(is(T : Symbol)) {
 				return identified;
 			} else {
-				assert(0, "Not implemented");
+				assert(0, "Not implemented for " ~ typeid(identified).toString());
 			}
 		})(pass).visit(d.identifier);
 		

@@ -527,7 +527,7 @@ struct ExpressionVisitor {
 		import d.ast.identifier;
 		if (auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
-			return TemplateDotIdentifierResolver!(i => postProcess(i))(pass).resolve(tidi, args);
+			return TemplateSymbolResolver!(i => postProcess(i))(pass).resolve(tidi, args);
 		}
 		
 		// XXX: For some reason this need to be passed a lambda.

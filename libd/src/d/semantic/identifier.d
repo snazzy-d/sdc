@@ -22,13 +22,18 @@ alias Module = d.ir.symbol.Module;
 alias SymbolResolver(alias handler) = IdentifierResolver!(handler, false);
 alias AliasResolver(alias handler)  = IdentifierResolver!(handler, true);
 
+alias TemplateSymbolResolver(alias handler) = TemplateDotIdentifierResolver!(handler, false);
+alias TemplateAliasResolver(alias handler) = TemplateDotIdentifierResolver!(handler, true);
+
 alias SymbolPostProcessor(alias handler) = IdentifierPostProcessor!(handler, false);
 alias AliasPostProcessor(alias handler)  = IdentifierPostProcessor!(handler, true);
+
+private:
 
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
-struct TemplateDotIdentifierResolver(alias handler) {
+struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 	private SemanticPass pass;
 	alias pass this;
 	
@@ -41,7 +46,7 @@ struct TemplateDotIdentifierResolver(alias handler) {
 	Ret resolve(TemplateInstanciationDotIdentifier i, Expression[] fargs = []) {
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
 		auto args = i.templateInstanciation.arguments.map!((a) {
-			if(auto ia = cast(IdentifierTemplateArgument) a) {
+			if (auto ia = cast(IdentifierTemplateArgument) a) {
 				return AliasResolver!identifiableHandler(pass)
 					.visit(ia.identifier)
 					.apply!((identified) {
@@ -51,10 +56,10 @@ struct TemplateDotIdentifierResolver(alias handler) {
 							return TemplateArgument(identified);
 						}
 					})();
-			} else if(auto ta = cast(TypeTemplateArgument) a) {
+			} else if (auto ta = cast(TypeTemplateArgument) a) {
 				import d.semantic.type;
 				return TemplateArgument(TypeVisitor(pass).visit(ta.type));
-			} else if(auto va = cast(ValueTemplateArgument) a) {
+			} else if (auto va = cast(ValueTemplateArgument) a) {
 				import d.semantic.expression;
 				return TemplateArgument(pass.evaluate(ExpressionVisitor(pass).visit(va.value)));
 			}
@@ -79,22 +84,20 @@ struct TemplateDotIdentifierResolver(alias handler) {
 		scheduler.require(instance, Step.Populated);
 		
 		if (auto s = instance.dscope.resolve(i.name)) {
-			return SymbolPostProcessor!handler(pass, i.location).visit(s);
+			return IdentifierPostProcessor!(handler, asAlias)(pass, i.location).visit(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		auto name = i.templateInstanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.dscope.resolve(name)) {
-				return SymbolResolver!identifiableHandler(pass).resolveInSymbol(i.location, s, i.name).apply!handler();
+				return IdentifierResolver!(identifiableHandler, asAlias)(pass).resolveInSymbol(i.location, s, i.name).apply!handler();
 			}
 		}
 		
 		throw new CompileException(i.location, i.name.toString(context) ~ " not found in template");
 	}
 }
-
-private:
 
 alias Identifiable = Type.UnionType!(Symbol, Expression);
 
@@ -236,7 +239,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	}
 	
 	Ret visit(TemplateInstanciationDotIdentifier i) {
-		return TemplateDotIdentifierResolver!handler(pass).resolve(i);
+		return TemplateDotIdentifierResolver!(handler, asAlias)(pass).resolve(i);
 	}
 	
 	Ret visit(IdentifierBracketIdentifier i) {
