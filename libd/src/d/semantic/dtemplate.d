@@ -312,7 +312,7 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Type t) {
-		return t.accept(this);
+		return t.getCanonical().accept(this);
 	}
 	
 	bool visit(BuiltinType t) {
