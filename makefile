@@ -41,4 +41,6 @@ clean:
 doc:
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
 
+print-%: ; @echo $*=$($*)
+
 .PHONY: clean run debug doc
