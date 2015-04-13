@@ -193,7 +193,7 @@ final class SemanticPass {
 private:
 
 auto getDefaultVersions() {
-	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64"];
+	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64"];
 	
 	version(linux) {
 		versions ~=  BuiltinName!"linux";
