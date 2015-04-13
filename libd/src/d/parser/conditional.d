@@ -122,28 +122,33 @@ ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRa
  * Parse the content of the conditionnal depending on if it is statement or declaration that are expected.
  */
 private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
-	ItemType[] items;
-	if(trange.front.type == TokenType.OpenBrace) {
+	switch(trange.front.type) with(TokenType) {
 		static if(is(ItemType == AstStatement)) {
-			trange.popFront();
+			case OpenBrace :
+				trange.popFront();
+				
+				ItemType[] items;
+				while(trange.front.type != TokenType.CloseBrace) {
+					items ~= trange.parseStatement();
+				}
+				
+				trange.popFront();
+				return items;
 			
-			do {
-				items ~= trange.parseStatement();
-			} while(trange.front.type != TokenType.CloseBrace);
+			default :
+				return [trange.parseStatement()];
+		} else {
+			case OpenBrace :
+				return trange.parseAggregate();
 			
-			trange.popFront();
-		} else {
-			items = trange.parseAggregate();
-		}
-	} else {
-		static if(is(ItemType == AstStatement)) {
-			items = [trange.parseStatement()];
-		} else {
-			items = [trange.parseDeclaration()];
+			case Colon :
+				trange.popFront();
+				return trange.parseAggregate!false();
+			
+			default :
+				return [trange.parseDeclaration()];
 		}
 	}
-	
-	return items;
 }
 
 /**
