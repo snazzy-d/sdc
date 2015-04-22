@@ -2,11 +2,19 @@ DMD ?= dmd
 GCC ?= gcc
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
+PLATFORM = $(shell uname -s)
+
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs`
 LIBD_LIB = -Llib -ld-llvm -ld
+
+# dmd.conf doesn't set the proper -L flags.  
+# Fix it here until dmd installer is updated
+ifeq ($(PLATFORM),Darwin)
+	LD_PATH ?= /usr/share/dmd/lib
+endif
 
 LDFLAGS ?=
 ifdef LD_PATH
@@ -15,7 +23,6 @@ endif
 
 LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
 
-PLATFORM = $(shell uname -s)
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses
 endif
