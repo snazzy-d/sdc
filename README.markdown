@@ -54,6 +54,11 @@ SDC contains le lot of hardcoded PATH right now, so it hard to integrate properl
 
 SDC require LLVM 3.5 . if the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.5` .
 
+Compiling SDC on Mac OS X
+=======
+You'll need `make`, `brew` and the latest DMD installed. Do the following
+Run `brew install llvm35`, followed by `make LLVM_CONFIG=llvm-config-3.5`
+
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
