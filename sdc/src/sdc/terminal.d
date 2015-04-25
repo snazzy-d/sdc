@@ -127,6 +127,12 @@ version(Windows) {
 
 void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg) {
 	bool coloursEnabled = true;  // XXX: Fix me!
+    
+    version(Windows) {
+			HANDLE handle;
+            CONSOLE_SCREEN_BUFFER_INFO termInfo;
+    }
+    
 	if(coloursEnabled) {
 		scope (exit) {
 			version(Windows) {
@@ -136,24 +142,23 @@ void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg
 			}
 		}
 		version(Windows) {
-			HANDLE handle;
 			
 			if(pipe == stderr) {
 				handle = GetStdHandle(STD_ERROR_HANDLE);
 			} else {
 				handle = GetStdHandle(STD_OUTPUT_HANDLE);
 			}
+
 			
-			CONSOLE_SCREEN_BUFFER_INFO termInfo;
 			GetConsoleScreenBufferInfo(handle, &termInfo);
-			
+
 			SetConsoleTextAttribute(handle, colour);
 		} else {
 			static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
 			ansiSequence[3] = cast(char)(colour + '0');
 			pipe.write(ansiSequence);
 		}
-		
+
 		dg();
 	} else {
 		dg();
