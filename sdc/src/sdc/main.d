@@ -29,18 +29,32 @@ int main(string[] args) {
 	uint optLevel;
 	bool dontLink;
 	string outputFile;
-	getopt(
+
+	auto help_info = getopt(
 		args, std.getopt.config.caseSensitive,
-		"I", &includePath,
-		"O", &optLevel,
-		"c", &dontLink,
-		"o", &outputFile,
-		"help|h", delegate() {
-			import std.stdio;
-			writeln("HELP !");
-		}
+		"I", "Include path",        &includePath,
+		"O", "Optimization level",  &optLevel,
+		"c", "Stop before linking", &dontLink,
+		"o", "Output file",         &outputFile
 	);
-	
+
+	if (help_info.helpWanted) {
+		import std.stdio;
+
+		writeln("The Stupid D Compiler");
+		writeln("Usage: sdc <options> file.d");
+		writeln("Options:");
+		foreach (option; help_info.options) {
+			writefln(
+				"%5s : %s",
+				// bug : optShort is empty if there is no long version
+				option.optShort.length ? option.optShort : option.optLong[1 .. $],
+				option.help
+			);
+		}
+		return 0;
+	}
+
 	foreach(path; includePath) {
 		conf["includePath"] ~= path;
 	}
