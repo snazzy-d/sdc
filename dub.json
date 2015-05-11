@@ -1,0 +1,17 @@
+{
+    "name": "SDC",
+    "targetType": "none",
+	"license" : "MIT",
+    "dependencies": {
+        "SDC:sdc":       "*",
+        "SDC:libd":      "*",
+        "SDC:libd-llvm": "*",
+        "SDC:libsdrt":   "*"
+    },
+    "subPackages": [
+        "./sdc/",
+        "./libd/",
+        "./libd-llvm/",
+        "./libdsdrt/"
+    ]
+}
