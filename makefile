@@ -51,6 +51,6 @@ doc:
 print-%: ; @echo $*=$($*)
 
 test: $(SDC) $(LIBSDRT)
-	cd ./tests; ./runner.d
+	cd ./tests;$(DMD) runner.d; ./runner; 
 
 .PHONY: clean run debug doc
