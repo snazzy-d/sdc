@@ -1,4 +1,4 @@
-#!/bin/env rdmd
+#!/usr/bin/env rdmd
 /**
  * Copyright 2010-2011 Bernard Helyer
  * Copyright 2011 Jakob Ovrum
