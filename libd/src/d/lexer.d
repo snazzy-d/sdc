@@ -99,7 +99,7 @@ enum TokenType {
 	Semicolon,			// ;
 	Colon,				// :
 	Dollar,				// $
-	Assign,				// =
+	Equal,				// =
 	EqualEqual,			// ==
 	Star,				// *
 	StarEqual,			// *=
@@ -918,7 +918,7 @@ auto getOperatorsMap() {
 		";"		: Semicolon,
 		":"		: Colon,
 		"$"		: Dollar,
-		"="		: Assign,
+		"="		: Equal,
 		"=="	: EqualEqual,
 		"*"		: Star,
 		"*="	: StarEqual,

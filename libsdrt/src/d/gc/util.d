@@ -26,4 +26,3 @@ auto lg2floor(size_t size) {
 	
 	return 0;
 }
-

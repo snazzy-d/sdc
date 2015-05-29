@@ -33,7 +33,7 @@ private AstExpression parseAstBinaryExpression(TokenType tokenType, BinaryOp op,
 	lhs = parseNext(trange, lhs);
 	Location location = lhs.location;
 	
-	while(trange.front.type == tokenType) {
+	while (trange.front.type == tokenType) {
 		trange.popFront();
 		
 		auto rhs = trange.parsePrefixExpression();
@@ -70,7 +70,7 @@ AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTok
 	}
 	
 	switch(trange.front.type) with(TokenType) {
-		case Assign :
+		case Equal :
 			processToken(BinaryOp.Assign);
 			break;
 		

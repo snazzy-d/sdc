@@ -159,7 +159,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 			trange.popFront();
 			
 			// Ensure we are not in case of manifest constant.
-			assert(trange.front.type != Assign, "Manifest constant must be parsed as auto declaration and not as enums.");
+			assert(trange.front.type != Equal, "Manifest constant must be parsed as auto declaration and not as enums.");
 			
 			// If we have a colon, we go to the apropriate case.
 			if (trange.front.type == Colon) {
@@ -193,7 +193,7 @@ Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
 		trange.match(TokenType.Identifier);
 		
 		AstExpression entryValue;
-		if(trange.front.type == TokenType.Assign) {
+		if(trange.front.type == TokenType.Equal) {
 			trange.popFront();
 			
 			entryValue = trange.parseAssignExpression();

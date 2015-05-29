@@ -122,9 +122,14 @@ public:
 		flattenedStmts ~= flatten(b);
 	}
 	
-	void visit(DeclarationStatement s) {
+	void visit(AstExpressionStatement s) {
+		import d.semantic.expression;
+		flattenedStmts ~= new ExpressionStatement(ExpressionVisitor(pass).visit(s.expression));
+	}
+
+	private void addDeclaration(Declaration decl) {
 		import d.semantic.declaration;
-		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(s.declaration);
+		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(decl);
 		scheduler.require(syms);
 		
 		foreach(sym; syms) {
@@ -142,10 +147,26 @@ public:
 		
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
 	}
+
+	void visit(DeclarationStatement s) {
+		addDeclaration(s.declaration);
+	}
 	
-	void visit(AstExpressionStatement s) {
-		import d.semantic.expression;
-		flattenedStmts ~= new ExpressionStatement(ExpressionVisitor(pass).visit(s.expression));
+	void visit(IdentifierStarIdentifierStatement s) {
+		import d.semantic.identifier;
+		SymbolResolver!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Expression)) {
+				assert(0, "expression identifier * identifier are not implemented.");
+			} else if (is(T : Type)) {
+				// XXXX: We'll do the resolution again, wasteful, but will do.
+				auto type = AstType.get(s.identifier).getPointer();
+				addDeclaration(new VariableDeclaration(s.location, StorageClass.init, type, s.name, s.value));
+				return true;
+			} else {
+				assert(0, "Was now expecting " ~ T.stringof);
+			}
+		})(pass).visit(s.identifier);
 	}
 	
 	private auto autoBlock(AstStatement s) {

@@ -254,7 +254,7 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			case Identifier:
 				auto lookahead = trange.save;
 				lookahead.popFront();
-				if (lookahead.front.type == Assign) {
+				if (lookahead.front.type == Equal) {
 					return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
 				}
 				
@@ -355,7 +355,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 			trange.match(TokenType.Identifier);
 			
 			AstExpression value;
-			if (trange.front.type == TokenType.Assign) {
+			if (trange.front.type == TokenType.Equal) {
 				trange.popFront();
 				value = trange.parseInitializer();
 				variableLocation.spanTo(value.location);
@@ -578,6 +578,20 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 	return parameters;
 }
 
+/**
+ * Parse Initializer
+ */
+auto parseInitializer(TokenRange)(ref TokenRange trange) {
+	if (trange.front.type != TokenType.Void) {
+		return trange.parseAssignExpression();
+	}
+	
+	auto location = trange.front.location;
+	
+	trange.popFront();
+	return new AstVoidInitializer(location);
+}
+
 private:
 auto parseParameter(R)(ref R trange) {
 	bool isRef;
@@ -609,7 +623,7 @@ auto parseParameter(R)(ref R trange) {
 		name = trange.front.name;
 		
 		trange.popFront();
-		if (trange.front.type == TokenType.Assign) {
+		if (trange.front.type == TokenType.Equal) {
 			trange.popFront();
 			value = trange.parseAssignExpression();
 		}
@@ -629,7 +643,7 @@ Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
-	if (trange.front.type == TokenType.Assign) {
+	if (trange.front.type == TokenType.Equal) {
 		trange.popFront();
 		
 		import d.parser.ambiguous;
@@ -691,18 +705,3 @@ auto parseImport(TokenRange)(ref TokenRange trange) {
 	
 	return new ImportDeclaration(location, modules);
 }
-
-/**
- * Parse Initializer
- */
-auto parseInitializer(TokenRange)(ref TokenRange trange) {
-	if (trange.front.type != TokenType.Void) {
-		return trange.parseAssignExpression();
-	}
-	
-	auto location = trange.front.location;
-	
-	trange.popFront();
-	return new AstVoidInitializer(location);
-}
-

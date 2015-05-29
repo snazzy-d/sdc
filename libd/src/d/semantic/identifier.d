@@ -473,6 +473,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				Ret[] results;
 				foreach(c; candidates) {
 					// TODO: refactor so we do not throw.
+					// FIXME: handler cannot return void, it should be able to.
 					try {
 						results ~= SymbolResolver!identifiableHandler(pass)
 							.resolveInIdentifiable(location, c, name)

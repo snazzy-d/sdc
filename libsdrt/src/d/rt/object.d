@@ -20,4 +20,3 @@ Object __sd_class_downcast(Object o, ClassInfo c) {
 	
 	return null;
 }
-

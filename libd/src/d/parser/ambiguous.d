@@ -17,15 +17,15 @@ import std.range;
 /**
  * Branch to the right code depending if we have a type, an expression or an identifier.
  */
-typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(isTokenRange!R) {
+typeof(handler(AstExpression.init)) parseAmbiguous(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange) if(isTokenRange!R) {
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
 			auto i = trange.parseIdentifier();
-			return trange.parseAmbiguousSuffix!handler(i);
+			return trange.parseAmbiguousSuffix!(handler, M)(i);
 		
 		case Dot :
 			auto i = trange.parseDotIdentifier();
-			return trange.parseAmbiguousSuffix!handler(i);
+			return trange.parseAmbiguousSuffix!(handler, M)(i);
 		
 		// Types
 		case Typeof :
@@ -55,7 +55,7 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 		case Shared :
 			auto location = trange.front.location;
 			auto t = trange.parseType!(ParseMode.Reluctant)();
-			return trange.parseAmbiguousSuffix!handler(location, t);
+			return trange.parseAmbiguousSuffix!(handler, M)(location, t);
 		
 		case New :
 		case This :
@@ -88,7 +88,7 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 		case Tilde :
 		case Cast :
 			auto e = trange.parseExpression!(ParseMode.Reluctant)();
-			return trange.parseAmbiguousSuffix!handler(e);
+			return trange.parseAmbiguousSuffix!(handler, M)(e);
 		
 		case OpenParen :
 			auto matchingParen = trange.save;
@@ -110,13 +110,13 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 						
 						alias T = typeof(parsed);
 						static if (is(T : AstType)) {
-							return trange.parseAmbiguousSuffix!ambiguousHandler(location, parsed).apply!handler();
+							return trange.parseAmbiguousSuffix!(handler, M)(location, parsed);
 						} else static if (is(T : AstExpression)) {
 							auto e = new ParenExpression(location, parsed);
-							return trange.parseAmbiguousSuffix!ambiguousHandler(e).apply!handler();
+							return trange.parseAmbiguousSuffix!(handler, M)(e);
 						} else {
 							// XXX: Consider adding ParenIdentifier for AST fidelity.
-							return trange.parseAmbiguousSuffix!ambiguousHandler(parsed).apply!handler();
+							return trange.parseAmbiguousSuffix!(handler, M)(parsed);
 						}
 					})();
 			}
@@ -127,6 +127,12 @@ typeof(handler(AstType.init)) parseAmbiguous(alias handler, R)(ref R trange) if(
 			// Erreur, unexpected.
 			assert(0);
 	}
+}
+
+struct IdentifierStarIdentifier {
+	Identifier identifier;
+	Name name;
+	AstExpression value;
 }
 
 auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRange!R) {
@@ -140,34 +146,32 @@ auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRang
 		
 		default :
 			auto location = trange.front.location;
-			auto parsed = trange.parseAmbiguous!(delegate Object(parsed) {
+			return trange.parseAmbiguous!((parsed) {
 				alias T = typeof(parsed);
 				static if (is(T : AstType)) {
-					return trange.parseTypedDeclaration(location, defaultStorageClass, parsed);
+					return handler(trange.parseTypedDeclaration(location, defaultStorageClass, parsed));
 				} else static if (is(T : AstExpression)) {
-					return parsed;
+					return handler(parsed);
+				} else static if (is(T : IdentifierStarIdentifier)) {
+					return handler(parsed);
 				} else {
 					// Identifier follow by another identifier is a declaration.
-					if (trange.front.type == TokenType.Identifier) {
-						return trange.parseTypedDeclaration(location, defaultStorageClass, AstType.get(parsed));
+					if (trange.front.type == Identifier) {
+						return handler(trange.parseTypedDeclaration(location, defaultStorageClass, AstType.get(parsed)));
 					} else {
-						return new IdentifierExpression(parsed);
+						return handler(new IdentifierExpression(parsed));
 					}
 				}
-			})();
-			
-			// XXX: workaround lolbug (handler can't be passed down to subfunction).
-			if (auto d = cast(Declaration) parsed) {
-				return handler(d);
-			} else if (auto e = cast(AstExpression) parsed) {
-				return handler(e);
-			}
-			
-			assert(0);
+			}, AmbiguousParseMode.Declaration)();
 	}
 }
 
 private:
+
+enum AmbiguousParseMode {
+	Type,
+	Declaration,
+}
 
 // XXX: Workaround template recurence instanciation bug.
 alias Ambiguous = AstType.UnionType!(Identifier, AstExpression);
@@ -198,7 +202,7 @@ bool indicateExpression(TokenType t) {
 	switch(t) with(TokenType) {
 		case PlusPlus :
 		case MinusMinus :
-		case Assign :
+		case Equal :
 		case PlusEqual :
 		case MinusEqual :
 		case StarEqual :
@@ -243,6 +247,7 @@ bool indicateExpression(TokenType t) {
 		case Tilde :
 		case Slash :
 		case Percent :
+		case OpenParen :
 			return true;
 		
 		default:
@@ -250,10 +255,11 @@ bool indicateExpression(TokenType t) {
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Identifier i) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, Identifier i) {
 	auto tt = trange.front.type;
 	if (tt.indicateExpression()) {
-		return trange.parseAmbiguousSuffix!handler(new IdentifierExpression(i));
+		auto e = trange.parseIdentifierExpression(i);
+		return trange.parseAmbiguousSuffix!handler(e);
 	}
 	
 	switch(tt) with(TokenType) {
@@ -282,8 +288,7 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 						auto id = new IdentifierBracketIdentifier(location, i, parsed);
 					}
 					
-					// Use ambiguousHandler to avoid infinite recursion
-					return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
+					return trange.parseAmbiguousSuffix!(handler, M)(id);
 				}
 			})();
 		
@@ -291,36 +296,94 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Ident
 			trange.popFront();
 			
 			switch (trange.front.type) {
-				case OpenBracket :
 				case Star :
-				case Function :
-				case Delegate :
 					return trange.parseAmbiguousSuffix!handler(i.location, AstType.get(i).getPointer());
 				
+				case OpenBracket :
+				case Function :
+				case Delegate :
+					// These can be expresion or types.
+					assert(0, "Not supported");
+
+				case New :
+				case This :
+				case Super :
+				case True :
+				case False :
+				case Null :
+				case IntegerLiteral :
+				case StringLiteral :
+				case CharacterLiteral :
+				case OpenBrace :
+				case __File__ :
+				case __Line__ :
+				case Dollar :
+				case Typeid :
+				case Is :
+				case Assert :
+					auto rhs = trange.parseMulExpression();
+					auto location = i.location;
+					location.spanTo(rhs.location);
+					auto lhs = new IdentifierExpression(i);
+					auto e = new AstBinaryExpression(location, BinaryOp.Mul, lhs, rhs);
+
+					return trange.parseAmbiguousSuffix!handler(e);
+
+				case Identifier :
+					auto name = trange.front.name;
+					auto rloc = trange.front.location;
+
+					trange.popFront();
+					auto rtt = trange.front.type;
+					static if (M == AmbiguousParseMode.Declaration) {
+						AstExpression v = null;
+						if (rtt == Equal) {
+							trange.popFront();
+							v = trange.parseInitializer();
+						}
+
+						if (v || !rtt.indicateExpression()) {
+							return handler(IdentifierStarIdentifier(i, name, v));
+						}
+					} else {
+						if (!rtt.indicateExpression()) {
+							goto default;
+						}
+					}
+
+					auto rhs = trange.parseIdentifierExpression(new BasicIdentifier(rloc, name));
+					rhs = trange.parsePostfixExpression!(ParseMode.Reluctant)(rhs);
+					rhs = trange.parseMulExpression(rhs);
+
+					auto location = i.location;
+					location.spanTo(rhs.location);
+					auto lhs = new IdentifierExpression(i);
+					auto e = new AstBinaryExpression(location, BinaryOp.Mul, lhs, rhs);
+
+					return trange.parseAmbiguousSuffix!handler(e);
+
 				default :
-					assert(0, "Can be a pointer or an expression, or maybe even a declaration. That is bad !");
+					// XXX: have a proper error message.
+					trange.match(Begin);
+					assert(0);
 			}
 		
 		case Dot :
 			trange.popFront();
 			
 			auto id = trange.parseQualifiedIdentifier(i.location, i);
-			return trange.parseAmbiguousSuffix!ambiguousHandler(id).apply!handler();
+			return trange.parseAmbiguousSuffix!(handler, M)(id);
 		
 		case Function :
 		case Delegate :
 			return trange.parseAmbiguousSuffix!handler(i.location, AstType.get(i));
-		
-		case OpenParen :
-			auto e = trange.parseIdentifierExpression(i);
-			return trange.parseAmbiguousSuffix!handler(e);
 		
 		default :
 			return handler(i);
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Location location, AstType t) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, Location location, AstType t) {
 	t = trange.parseTypeSuffix!(ParseMode.Reluctant)(t);
 	
 	switch(trange.front.type) with(TokenType) {
@@ -331,19 +394,19 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, Locat
 			trange.popFront();
 			
 			auto i = trange.parseQualifiedIdentifier(location, t);
-			return trange.parseAmbiguousSuffix!ambiguousHandler(i).apply!handler();
+			return trange.parseAmbiguousSuffix!(handler, M)(i);
 		
 		default :
 			return handler(t);
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstExpression e) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, AstExpression e) {
 	e = trange.parsePostfixExpression!(ParseMode.Reluctant)(e);
 	
 	while(true) {
 		switch(trange.front.type) with(TokenType) {
-			case Assign :
+			case Equal :
 			case PlusEqual :
 			case MinusEqual :
 			case StarEqual :
@@ -426,11 +489,10 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, R)(ref R trange, AstEx
 				trange.popFront();
 				
 				auto i = trange.parseQualifiedIdentifier(e.location, e);
-				return trange.parseAmbiguousSuffix!ambiguousHandler(i).apply!handler();
+				return trange.parseAmbiguousSuffix!(handler, M)(i);
 			
 			default :
 				return handler(e);
 		}
 	}
 }
-

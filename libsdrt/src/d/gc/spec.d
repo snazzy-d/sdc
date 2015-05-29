@@ -11,4 +11,3 @@ enum PageMask	= PageSize - 1;
 enum LgChunkSize	= LgPageSize + 10;
 enum ChunkSize		= 1UL << LgChunkSize;
 enum AlignMask		= ChunkSize - 1;
-

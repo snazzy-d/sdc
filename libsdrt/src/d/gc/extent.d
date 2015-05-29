@@ -18,4 +18,3 @@ ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
 	// We need to compare that way to avoid integer overflow.
 	return (l > r) - (l < r);
 }
-

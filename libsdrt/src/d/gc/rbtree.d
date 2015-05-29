@@ -43,7 +43,7 @@ public:
 	N* bestfit(N* test) {
 		auto n = root;
 		
-		auto bf = cast(N*) null;
+		N* bf = null;
 		while(n !is null) {
 			auto cmp = compare(test, n);
 			// We have a perfect match.
@@ -503,4 +503,3 @@ void print_tree(Link!N root, uint depth) {
 }
 }
 // +/
-

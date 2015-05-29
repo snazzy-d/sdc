@@ -405,13 +405,20 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		
 		default :
 			return trange.parseDeclarationOrExpression!(delegate AstStatement(parsed) {
-				alias typeof(parsed) caseType;
+				alias T = typeof(parsed);
 				
-				static if(is(caseType : AstExpression)) {
+				static if (is(T : AstExpression)) {
 					trange.match(Semicolon);
 					return new AstExpressionStatement(parsed);
-				} else {
+				} else static if (is(T : Declaration)) {
 					return new DeclarationStatement(parsed);
+				} else {
+					trange.match(Semicolon);
+					return new IdentifierStarIdentifierStatement(
+						parsed.identifier,
+						parsed.name,
+						parsed.value,
+					);
 				}
 			})();
 	}

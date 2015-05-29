@@ -63,7 +63,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 			lookahead.popFront();
 			switch(lookahead.front.type) {
 				// Identifier followed by ":", "=", "," or ")" are type parameters.
-				case Colon, Assign, Comma, CloseParen :
+				case Colon, Equal, Comma, CloseParen :
 					return trange.parseTypeParameter();
 				
 				case DotDotDot :
@@ -111,7 +111,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 			trange.popFront();
 			auto specialization = trange.parseType();
 			
-			if(trange.front.type == Assign) {
+			if(trange.front.type == Equal) {
 				trange.popFront();
 				defaultType = trange.parseType();
 			}
@@ -119,7 +119,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 			location.spanTo(trange.front.location);
 			return new AstTypeTemplateParameter(location, name, specialization, defaultType);
 		
-		case Assign :
+		case Equal :
 			trange.popFront();
 			defaultType = trange.parseType();
 			
@@ -142,7 +142,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
-	if(trange.front.type == TokenType.Assign) {
+	if(trange.front.type == TokenType.Equal) {
 		trange.popFront();
 		switch(trange.front.type) {
 			case TokenType.__File__, TokenType.__Line__ :
@@ -172,7 +172,7 @@ private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange tran
 		auto lookahead = trange.save;
 		lookahead.popFront();
 		auto nextType = lookahead.front.type;
-		if(nextType != TokenType.Colon && nextType != TokenType.Assign && nextType != TokenType.Comma && nextType != TokenType.CloseParen) {
+		if(nextType != TokenType.Colon && nextType != TokenType.Equal && nextType != TokenType.Comma && nextType != TokenType.CloseParen) {
 			isTyped = true;
 		}
 	}

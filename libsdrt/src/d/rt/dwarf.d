@@ -132,37 +132,37 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			break;
 		
 		case Format.Absptr:
-			result = *(cast(uintptr_t*)p);
+			result = *(cast(uintptr_t*) p);
 			p += uintptr_t.sizeof;
 			break;
 		
 		case Format.Udata2:
-			result = *(cast(ushort*)p);
+			result = *(cast(ushort*) p);
 			p += ushort.sizeof;
 			break;
 		
 		case Format.Udata4:
-			result = *(cast(uint*)p);
+			result = *(cast(uint*) p);
 			p += uint.sizeof;
 			break;
 		
 		case Format.Udata8:
-			result = cast(uintptr_t)*(cast(ulong*)p);
+			result = cast(uintptr_t) *(cast(ulong*) p);
 			p += ulong.sizeof;
 			break;
 		
 		case Format.Sdata2:
-			result = cast(uintptr_t)*(cast(short*)p);
+			result = cast(uintptr_t) *(cast(short*) p);
 			p += short.sizeof;
 			break;
 		
 		case Format.Sdata4:
-			result = cast(uintptr_t)*(cast(int*)p);
+			result = cast(uintptr_t) *(cast(int*) p);
 			p += int.sizeof;
 			break;
 		
 		case Format.Sdata8:
-			result = cast(uintptr_t)*(cast(long*)p);
+			result = cast(uintptr_t) *(cast(long*) p);
 			p += long.sizeof;
 			break;
 		
@@ -251,4 +251,3 @@ auto parseLsdHeader(ref const(ubyte)* p, _Unwind_Context* ctx) {
 	
 	return infos;
 }
-

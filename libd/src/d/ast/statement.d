@@ -58,6 +58,26 @@ class DeclarationStatement : AstStatement {
 }
 
 /**
+ * indentifier * identifier kind of things
+ */
+class IdentifierStarIdentifierStatement : AstStatement {
+	Identifier identifier;
+	Name name;
+	AstExpression value;
+	
+	this(Identifier identifier, Name name, AstExpression value) {
+		auto location = identifier.location;
+		location.spanTo(value.location);
+		
+		super(location);
+		
+		this.identifier = identifier;
+		this.name = name;
+		this.value = value;
+	}
+}
+
+/**
  * if statements.
  */
 class IfStatement(E, S) : S  if(is(E : AstExpression) && is(S : AstStatement)){
