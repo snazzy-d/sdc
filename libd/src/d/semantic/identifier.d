@@ -91,7 +91,7 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		auto name = i.templateInstanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.dscope.resolve(name)) {
-				return IdentifierResolver!(identifiableHandler, asAlias)(pass).resolveInSymbol(i.location, s, i.name).apply!handler();
+				return IdentifierResolver!(handler, asAlias)(pass).resolveInSymbol(i.location, s, i.name);
 			}
 		}
 		
