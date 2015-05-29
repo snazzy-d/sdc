@@ -90,9 +90,7 @@ public:
 		// The tree only has a root.
 		if (stackp is &path[0]) {
 			root = n;
-			
-			// XXX: return; statement is not supported ATM.
-			goto Exit;
+			return;
 		}
 		
 		// Inserted node is always red.
@@ -164,8 +162,6 @@ public:
 		}
 		
 		root = path[0].link.node;
-		
-		Exit:
 	}
 	
 	void remove(N* n) {
@@ -254,7 +250,10 @@ public:
 		// Removing red node require no fixup.
 		if (removed.isRed()) {
 			stackp[-1].link.childs[stackp[-1].cmp] = Link!N(null, Color.Black);
-			goto UpdateRootAndExit;
+			
+			// Update root and exit
+			root = path[0].link.node;
+			return;
 		}
 		
 		for (stackp--; stackp !is (&path[0] - 1); stackp--) {
@@ -370,19 +369,15 @@ public:
 			// If we are the root, we are done.
 			if (stackp is &path[0]) {
 				root = l.node;
-				
-				// XXX: return; statement is not supported ATM.
-				goto Exit;
+				return;
 			}
 			
 			stackp[-1].link.childs[stackp[-1].cmp] = l.getAs(link.color);
 			break;
 		}
 		
-		UpdateRootAndExit:
+		// Update root and exit
 		root = path[0].link.node;
-		
-		Exit:
 	}
 	
 	void dump() {

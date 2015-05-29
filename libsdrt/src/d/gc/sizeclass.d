@@ -98,12 +98,9 @@ void binInfoComputer(
 	// promotion for >= so we need it.
 	auto s = (1UL << grp) + (ndelta << delta);
 	if (grp >= SizeClass.LgSmall || s >= SizeClass.Small) {
-		// XXX: return; is not supported at this point.
-		goto Exit;
+		return;
 	}
 	
-	// XXX: Add block so we don't jump over initialization.
-	{
 	assert(s < ushort.max);
 	auto size = cast(ushort) s;
 	
@@ -127,9 +124,6 @@ void binInfoComputer(
 	
 	assert(id < ClassCount.Small);
 	bins[id] = BinInfo(size, needPages, freeSlots);
-	}
-	
-	Exit:
 }
 
 // 64 bits tiny, 128 bits quantum.

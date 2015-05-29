@@ -435,14 +435,28 @@ public:
 	}
 	
 	void visit(AstReturnStatement s) {
+		// TODO: precompute autotype instead of managing it here.
+		auto rt = returnType.getType();
+		auto isAutoReturn =
+			rt.kind == TypeKind.Builtin &&
+			rt.qualifier == TypeQualifier.Mutable &&
+			rt.builtin == BuiltinType.None;
+
+		// return; has no value.
+		if (s.value is null) {
+			if (isAutoReturn) {
+				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+			}
+
+			flattenedStmts ~= new ReturnStatement(s.location, null);
+			return terminateFun();
+		}
+		
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(s.value);
 		
-		// TODO: precompute autotype instead of managing it here.
-		auto rt = returnType.getType();
-		
 		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
-		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
+		if (isAutoReturn) {
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
 		} else {
@@ -456,8 +470,6 @@ public:
 				}
 			}
 		}
-		
-		assert(value, "return; not implemented.");
 		
 		flattenedStmts ~= new ReturnStatement(s.location, value);
 		terminateFun();

@@ -320,12 +320,19 @@ struct StatementGen {
 	}
 	
 	void visit(ReturnStatement r) {
-		auto ret = genExpression(r.value);
+		LLVMValueRef ret;
+		if (r.value) {
+			ret = genExpression(r.value);
+		}
 		
 		rewindTo(0);
 		
-		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			LLVMBuildRet(builder, ret);
+		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			if (r.value) {
+				LLVMBuildRet(builder, ret);
+			} else {
+				LLVMBuildRetVoid(builder);
+			}
 		}
 	}
 	

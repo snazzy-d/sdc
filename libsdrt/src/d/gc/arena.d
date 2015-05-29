@@ -378,10 +378,9 @@ private:
 		
 		if (ptr is null) {
 			// free(null) is valid, we want to handle it properly.
-			// XXX: return; is not supported.
-			goto Exit;
+			return;
 		}
-		{
+		
 		Extent test;
 		test.addr = ptr;
 		
@@ -394,8 +393,6 @@ private:
 		
 		hugeTree.remove(e);
 		free(e);
-		}
-		Exit:
 	}
 	
 	/**
