@@ -27,4 +27,3 @@ class LLVMDataLayout : DataLayout {
 		return LLVMABIAlignmentOfType(targetData, visit(t));
 	}
 }
-

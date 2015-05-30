@@ -27,119 +27,39 @@ final class LLVMEvaluator : Evaluator {
 		this.codeGen = codeGen;
 	}
 
-	auto createExecutionEngine(LLVMModuleRef dmodule) {
-		char* errorPtr;
-		
-		LLVMExecutionEngineRef executionEngine;
-		
-		auto creationError = LLVMCreateMCJITCompilerForModule(&executionEngine, dmodule,  null, 0,  &errorPtr);
-		if (creationError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-			
-			import std.c.string;
-			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-			
-			import std.stdio;
-			writeln(error);
-			assert(0, "Cannot create execution engine ! Exiting...");
-		}
-		
-		return executionEngine;
-	}
-	
 	CompileTimeExpression evaluate(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
 			return ce;
 		}
 		
-		return this.dispatch!(e => jit(e))(e);
+		// XXX: Work around not being able to pass e down.
+		static Expression statice;
+		auto oldStatice = statice;
+		statice = e;
+		scope(exit) statice = oldStatice;
+
+		// We agressively JIT all CTFE
+		return jit!(function CompileTimeExpression(void[] p) {
+			return JitRepacker(statice.location, p).visit(statice.type);
+		})(e);
 	}
 	
-	CompileTimeExpression visit(TupleExpression e) {
-		return new CompileTimeTupleExpression(e.location, e.type, e.values.map!(e => evaluate(e)).array());
-	}
-	
-	// Actual JIT
-	private CompileTimeExpression jit(Expression e) {
+	ulong evalIntegral(Expression e) in {
 		auto t = e.type.getCanonical();
-		
-		import d.ir.type;
-		if (t.kind == TypeKind.Enum) {
-			t = t.denum.type;
+		while (t.kind = TypeKing.Enum) {
+			t = t.denum.type.getCanonical();
 		}
-		
-		if (t.kind == TypeKind.Builtin) {
-			auto k = t.builtin;
-			if (isIntegral(k)) {
-				auto returned = evalIntegral(e);
-				
-				return isSigned(k)
-					? new IntegerLiteral!true(e.location, returned, k)
-					: new IntegerLiteral!false(e.location, returned, k);
-			} else if (k == BuiltinType.Bool) {
-				return new BooleanLiteral(e.location, !!evalIntegral(e));
-			}
-		}
-		
-		if (t.kind == TypeKind.Slice) {
-			auto et = t.element.getCanonical();
-			if (et.kind == TypeKind.Builtin && et.builtin == BuiltinType.Char) {
-				return new StringLiteral(e.location, evalString(e));
-			}
-		}
-		
-		assert(0, "Only able to JIT integers, booleans and strings, " ~ t.toString(codeGen.context) ~ " given.");
+
+		assert(t.kind == TypeKind.Builtin);
+
+		auto bt = t.builtin;
+		assert(isIntegral(bt) || bt == BuiltinType.Bool);
+	} body {
+		return jit!(function ulong(ulong r) {
+			return r;
+		}, JitReturn.Direct)(e);
 	}
-	
-	ulong evalIntegral(Expression e) {
-		scope(failure) LLVMDumpModule(codeGen.dmodule);
-		
-		// Add ctfe function header to module
-		auto funType = LLVMFunctionType(codeGen.visit(e.type), null, 0, false);
-		auto fun = LLVMAddFunction(codeGen.dmodule, "__ctfe", funType);
-		scope(exit) LLVMDeleteFunction(fun);
-		
-		auto backupCurrentBB = LLVMGetInsertBlock(codeGen.builder);
-		scope(exit) {
-			if (backupCurrentBB) {
-				LLVMPositionBuilderAtEnd(codeGen.builder, backupCurrentBB);
-			} else {
-				LLVMClearInsertionPosition(codeGen.builder);
-			}
-		}
-		
-		auto bodyBB = LLVMAppendBasicBlockInContext(codeGen.llvmCtx, fun, "");
-		LLVMPositionBuilderAtEnd(codeGen.builder, bodyBB);
-		
-		// Generate function's body.
-		import d.llvm.expression;
-		LLVMBuildRet(codeGen.builder, ExpressionGen(codeGen).visit(e));
-		codeGen.checkModule();
-		
-		// Create a temporary execution engine for our LLVM module
-		auto executionEngine = createExecutionEngine(codeGen.dmodule);
-		scope(exit) {
-			char* errorPtr;
-			LLVMModuleRef outMod;
-			auto removeError = LLVMRemoveModule(executionEngine, codeGen.dmodule, &outMod, &errorPtr);
-			if (removeError) {
-				scope(exit) LLVMDisposeMessage(errorPtr);
-				import std.c.string;
-				auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-				
-				import std.stdio;
-				writeln(error);
-				assert(0, "Cannot remove module from execution engine ! Exiting...");
-			}
-			LLVMDisposeExecutionEngine(executionEngine);
-		}
-		
-		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
-		scope(exit) LLVMDisposeGenericValue(result);
-		
-		return LLVMGenericValueToInt(result, true);
-	}
-	
+
 	string evalString(Expression e) in {
 		auto t = e.type.getCanonical();
 		assert(t.kind = TypeKind.Slice);
@@ -147,26 +67,39 @@ final class LLVMEvaluator : Evaluator {
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
 	} body {
+		return jit!(function string(void[] p) in {
+			assert(p.length == string.sizeof);
+		} body {
+			auto s = *(cast(string*) p.ptr);
+			return s.idup;
+		})(e);
+	}
+	
+	private auto jit(alias handler, JitReturn R = JitReturn.Indirect)(Expression e) {
 		scope(failure) LLVMDumpModule(codeGen.dmodule);
 
-		// Create a global variable to hold the returned string.
-		auto stringType = codeGen.visit(e.type);
-		auto receiver = LLVMAddGlobal(codeGen.dmodule, stringType, "__ctString");
-		scope(exit) LLVMDeleteGlobal(receiver);
-		
-		// Initialize __ctString
-		LLVMValueRef[2] constInit = [
-			LLVMConstInt(LLVMInt64TypeInContext(codeGen.llvmCtx), 0, false),
-			LLVMConstNull(LLVMPointerType(LLVMInt8TypeInContext(codeGen.llvmCtx), 0)),
-		];
-		
-		LLVMSetInitializer(receiver, LLVMConstStructInContext(codeGen.llvmCtx, constInit.ptr, 2, false));
-		
+		// Create a global variable to hold the returned blob.
+		auto type = codeGen.visit(e.type);
+
+		static if (R == JitReturn.Direct) {
+			auto returnType = type;
+		} else {
+			auto buffer = LLVMAddGlobal(codeGen.dmodule, type, "__ctBuf");
+			scope(exit) LLVMDeleteGlobal(buffer);
+			
+			LLVMSetInitializer(buffer, LLVMGetUndef(type));
+
+			import llvm.c.target;
+			auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
+
+			auto returnType = LLVMInt64TypeInContext(codeGen.llvmCtx);
+		}
+
 		// Generate function signature
-		auto funType = LLVMFunctionType(LLVMInt64TypeInContext(codeGen.llvmCtx), null, 0, false);
+		auto funType = LLVMFunctionType(returnType, null, 0, false);
 		auto fun = LLVMAddFunction(codeGen.dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
-		
+
 		auto backupCurrentBB = LLVMGetInsertBlock(codeGen.builder);
 		scope(exit) {
 			if (backupCurrentBB) {
@@ -181,13 +114,19 @@ final class LLVMEvaluator : Evaluator {
 		
 		// Generate function's body.
 		import d.llvm.expression;
-		LLVMBuildStore(codeGen.builder, ExpressionGen(codeGen).visit(e), receiver);
-		// FIXME This is 64bit only code.
-		auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, receiver, LLVMInt64TypeInContext(codeGen.llvmCtx),"");
-		LLVMBuildRet(codeGen.builder, ptrToInt);
-		
+		auto value = ExpressionGen(codeGen).visit(e);
+
+		static if (R == JitReturn.Direct) {
+			LLVMBuildRet(codeGen.builder, value);
+		} else {
+			LLVMBuildStore(codeGen.builder, value, buffer);
+			// FIXME This is 64bit only code.
+			auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
+			LLVMBuildRet(codeGen.builder, ptrToInt);
+		}
+
 		codeGen.checkModule();
-		
+
 		auto executionEngine = createExecutionEngine(codeGen.dmodule);
 		scope(exit) {
 			char* errorPtr;
@@ -208,12 +147,154 @@ final class LLVMEvaluator : Evaluator {
 		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
 		scope(exit) LLVMDisposeGenericValue(result);
 
-		// FIXME This only works for 64 bit platforms because the retval
-		// of the "__ctfe" is specifically a i64.  This is due to MCJIT
-		// not supporting pointer return values directly at this time. 
-		auto sAsInt = LLVMGenericValueToInt(result, false);
-		string s = *cast(string*)cast(void*)sAsInt;
-		return s.idup;
+
+		static if (R == JitReturn.Direct) {
+			return handler(LLVMGenericValueToInt(result, true));
+		} else {
+			// FIXME This only works for 64 bit platforms because the retval
+			// of the "__ctfe" is specifically a i64. This is due to MCJIT
+			// not supporting pointer return values directly at this time. 
+			auto asInt = LLVMGenericValueToInt(result, false);
+			return handler((cast(void*) asInt)[0 .. size]);
+		}
+	}
+
+	private auto createExecutionEngine(LLVMModuleRef dmodule) {
+		char* errorPtr;
+		
+		LLVMExecutionEngineRef executionEngine;
+		
+		auto creationError = LLVMCreateMCJITCompilerForModule(&executionEngine, dmodule,  null, 0,  &errorPtr);
+		if (creationError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+			
+			import std.c.string;
+			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+			
+			import std.stdio;
+			writeln(error);
+			assert(0, "Cannot create execution engine ! Exiting...");
+		}
+		
+		return executionEngine;
 	}
 }
 
+private:
+
+enum JitReturn {
+	Direct,
+	Indirect,
+}
+
+struct JitRepacker {
+	import d.location;
+	Location location;
+	void[] p;
+	
+	this(Location location, void[] p) {
+		this.p = p;
+	}
+	
+	import d.ir.type, d.ir.symbol;
+	CompileTimeExpression visit(Type t) {
+		return t.accept(this);
+	}
+	
+	T get(T)() {
+		scope(exit) p = p[T.sizeof .. $];
+		return *(cast(T*) p.ptr);
+	}
+
+	CompileTimeExpression visit(BuiltinType t) {
+		ulong raw;
+		switch(t) with(BuiltinType) {
+			case Bool :
+				return new BooleanLiteral(location, get!bool());
+
+			case Byte, Ubyte:
+				raw = get!ubyte();
+				goto HandleIntegral;
+			
+			case Short, Ushort:
+				raw = get!ushort();
+				goto HandleIntegral;
+			
+			case Int, Uint:
+				raw = get!uint();
+				goto HandleIntegral;
+			
+			case Long, Ulong:
+				raw = get!ulong();
+				goto HandleIntegral;
+			
+			HandleIntegral:
+				return isSigned(t)
+					? new IntegerLiteral!true(location, raw, t)
+					: new IntegerLiteral!false(location, raw, t);
+
+			default:
+				assert(0, "Not implemented");
+		}
+	}
+	
+	CompileTimeExpression visitPointerOf(Type t) {
+		assert(0, "Not implemented");
+	}
+	
+	CompileTimeExpression visitSliceOf(Type t) {
+		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char && t.qualifier == TypeQualifier.Immutable) {
+			return new StringLiteral(location, get!string().idup);
+		}
+
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visitArrayOf(uint size, Type t) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Struct s) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Class c) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Enum e) {
+		auto r = visit(e.type);
+		r.type = Type.get(e);
+		return r;
+	}
+	
+	CompileTimeExpression visit(TypeAlias a) {
+		auto r = visit(a.type);
+		r.type = Type.get(a);
+		return r;
+	}
+	
+	CompileTimeExpression visit(Interface i) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Union u) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Function f) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(Type[] seq) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(FunctionType f) {
+		assert(0, "Not Implemented.");
+	}
+	
+	CompileTimeExpression visit(TypeTemplateParameter p) {
+		assert(0, "Not implemented.");
+	}
+}
