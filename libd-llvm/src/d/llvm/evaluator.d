@@ -38,9 +38,14 @@ final class LLVMEvaluator : Evaluator {
 		statice = e;
 		scope(exit) statice = oldStatice;
 
+		static CodeGenPass staticCodeGen;
+		auto oldStaticCodeGen = staticCodeGen;
+		staticCodeGen = codeGen;
+		scope(exit) staticCodeGen = oldStaticCodeGen;
+
 		// We agressively JIT all CTFE
 		return jit!(function CompileTimeExpression(void[] p) {
-			return JitRepacker(statice.location, p).visit(statice.type);
+			return JitRepacker(staticCodeGen, statice.location, p).visit(statice.type);
 		})(e);
 	}
 	
@@ -188,11 +193,15 @@ enum JitReturn {
 }
 
 struct JitRepacker {
+	CodeGenPass codeGen;
+	
 	import d.location;
 	Location location;
+
 	void[] p;
 	
-	this(Location location, void[] p) {
+	this(CodeGenPass codeGen, Location location, void[] p) {
+		this.codeGen = codeGen;
 		this.p = p;
 	}
 	
@@ -251,11 +260,63 @@ struct JitRepacker {
 	}
 	
 	CompileTimeExpression visitArrayOf(uint size, Type t) {
-		assert(0, "Not Implemented.");
+		import llvm.c.target;
+		uint elementSize = cast(uint) LLVMStoreSizeOfType(codeGen.targetData, codeGen.visit(t));
+
+		CompileTimeExpression[] elements;
+		elements.reserve(size);
+		
+		auto buf = p;
+		uint start = 0;
+		scope(exit) p = buf[start .. $];
+		
+		for (uint i = 0; i < size; i++) {
+			uint end = start + elementSize;
+			p = buf[start .. end];
+			start = end;
+			elements ~= visit(t);
+		}
+
+		return new CompileTimeTupleExpression(location, t.getArray(size), elements);
 	}
 	
 	CompileTimeExpression visit(Struct s) {
-		assert(0, "Not Implemented.");
+		auto type = codeGen.buildStructType(s);
+		auto count = LLVMCountStructElementTypes(type);
+
+		// Hopefully we will be able to use http://reviews.llvm.org/D10148
+		LLVMTypeRef[] elementTypes;
+		elementTypes.length = count;
+
+		import llvm.c.target;
+		LLVMGetStructElementTypes(type, elementTypes.ptr);
+
+		auto buf = p;
+		auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
+		scope(exit) p = buf[size .. $];
+
+		CompileTimeExpression[] elements;
+		
+		uint i = 0;
+		foreach (m; s.members) {
+			if (auto f = cast(Field) m) {
+				scope(success) i++;
+
+				assert(f.index == i, "fields are out of order");
+				auto t = f.type;
+
+				auto start = LLVMOffsetOfElement(codeGen.targetData, type, i);
+				auto elementType = elementTypes[i];
+
+				auto fieldSize = LLVMStoreSizeOfType(codeGen.targetData, elementType);
+				auto end = start + fieldSize;
+
+				p = buf[start .. end];
+				elements ~= visit(t);
+			}
+		}
+		
+		return new CompileTimeTupleExpression(location, Type.get(s), elements);
 	}
 	
 	CompileTimeExpression visit(Class c) {

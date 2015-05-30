@@ -25,15 +25,4 @@ struct BinInfo {
 // XXX: Make this non thread local.
 // XXX: Make this immutable.
 import d.gc.sizeclass;
-BinInfo[ClassCount.Small] binInfosImpl;
-
-// XXX: Use a property as we don't do array CTFE right now.
-@property
-ref BinInfo[ClassCount.Small] binInfos() {
-	if (binInfosImpl[0].size == 0) {
-		binInfosImpl = getBinInfos();
-	}
-	
-	return binInfosImpl;
-}
-
+BinInfo[ClassCount.Small] binInfos = getBinInfos();
