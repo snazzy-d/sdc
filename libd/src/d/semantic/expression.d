@@ -12,13 +12,8 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context;
 import d.exception;
 import d.location;
-
-import std.algorithm;
-import std.array;
-import std.range;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
@@ -73,6 +68,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression getRvalue(Expression value) {
+		import d.base.name;
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.storage = Storage.Enum;
 		v.step = Step.Processed;
@@ -81,6 +77,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression getLvalue(Expression value) {
+		import d.base.name;
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.isRef = true;
 		v.step = Step.Processed;
@@ -298,6 +295,7 @@ struct ExpressionVisitor {
 		if (auto se = cast(FunctionExpression) expr) {
 			return expr;
 		} else if (auto pe = cast(PolysemousExpression) expr) {
+			import std.algorithm, std.array;
 			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
 			return pe;
 		}
@@ -481,8 +479,12 @@ struct ExpressionVisitor {
 	Expression visit(AstCallExpression c) {
 		// TODO: check if we are in a constructor.
 		if (cast(ThisExpression) c.callee) {
-			import d.ast.identifier;
-			auto call = visit(new IdentifierCallExpression(c.location, new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee), c.args));
+			import d.ast.identifier, d.base.name;
+			auto call = visit(new IdentifierCallExpression(
+				c.location,
+				new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee),
+				c.args,
+			));
 			
 			if (thisType.isFinal) {
 				return call;
@@ -491,6 +493,7 @@ struct ExpressionVisitor {
 			return new BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
 		}
 		
+		import std.algorithm, std.array;
 		auto callee = visit(c.callee);
 		auto args = c.args.map!(a => visit(a)).array();
 		
@@ -498,6 +501,7 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(IdentifierCallExpression c) {
+		import std.algorithm, std.array;
 		auto args = c.args.map!(a => visit(a)).array();
 		
 		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
@@ -538,7 +542,7 @@ struct ExpressionVisitor {
 	private Expression handleCtor(Location location, Location calleeLoc, Type type, Expression[] args) in {
 		assert(type.kind == TypeKind.Struct);
 	} body {
-		import d.semantic.defaultinitializer;
+		import d.semantic.defaultinitializer, d.base.name;
 		auto di = InstanceBuilder(pass, calleeLoc).visit(type);
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
@@ -547,6 +551,7 @@ struct ExpressionVisitor {
 					pass.scheduler.require(f, Step.Signed);
 					return new MethodExpression(calleeLoc, di, f);
 				} else if (auto s = cast(OverloadSet) identified) {
+					import std.algorithm, std.array;
 					return chooseOverload(location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
 							pass.scheduler.require(f, Step.Signed);
@@ -581,6 +586,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression callOverloadSet(Location location, OverloadSet s, Expression[] args) {
+		import std.algorithm, std.array;
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
 			if (auto f = cast(Function) s) {
 				return getFrom(location, f);
@@ -593,6 +599,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
+		import std.algorithm, std.range;
 		auto cds = candidates.map!(e => findCallable(location, e, args)).filter!((e) {
 			auto t = e.type.getCanonical();
 			if (t.kind == TypeKind.Function) {
@@ -683,6 +690,7 @@ struct ExpressionVisitor {
 			return callee;
 		}
 		
+		import std.algorithm, std.array;
 		import d.semantic.aliasthis;
 		auto results = AliasThisResolver!((identified) {
 			alias T = typeof(identified);
@@ -712,8 +720,8 @@ struct ExpressionVisitor {
 		auto paramTypes = f.parameters;
 		auto returnType = f.returnType;
 		
+		import std.range;
 		assert(args.length >= paramTypes.length);
-		
 		foreach(ref arg, pt; lockstep(args, paramTypes)) {
 			arg = buildArgument(arg, pt);
 		}
@@ -723,6 +731,7 @@ struct ExpressionVisitor {
 	
 	// XXX: factorize with handleCtor
 	Expression visit(AstNewExpression e) {
+		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		import d.semantic.type;
@@ -731,6 +740,7 @@ struct ExpressionVisitor {
 		import d.semantic.defaultinitializer;
 		auto di = NewBuilder(pass, e.location).visit(type);
 		
+		import d.base.name;
 		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if (is(typeof(identified) : Symbol)) {
 				if (auto f = cast(Function) identified) {
@@ -759,6 +769,7 @@ struct ExpressionVisitor {
 		// First parameter is compiler magic.
 		auto parameters = funType.parameters[1 .. $];
 		
+		import std.range;
 		assert(args.length >= parameters.length);
 		foreach(ref arg, pt; lockstep(args, parameters)) {
 			arg = buildArgument(arg, pt);
@@ -790,6 +801,7 @@ struct ExpressionVisitor {
 	Expression visit(AstIndexExpression e) {
 		auto indexed = visit(e.indexed);
 		
+		import std.algorithm, std.array;
 		auto arguments = e.arguments.map!(e => visit(e)).array();
 		assert(arguments.length == 1, "Multiple argument index are not supported");
 		
@@ -904,6 +916,7 @@ struct ExpressionVisitor {
 			}
 		})(pass, location);
 		
+		import std.algorithm, std.array;
 		auto exprs = s.set.map!(s => spp.visit(s)).array();
 		return new PolysemousExpression(location, exprs);
 	}

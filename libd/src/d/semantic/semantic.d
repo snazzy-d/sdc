@@ -21,15 +21,11 @@ import d.ir.type;
 
 import d.parser.base;
 
-import d.context;
+import d.base.name;
+
 import d.exception;
 import d.lexer;
 import d.location;
-
-import std.algorithm;
-import std.array;
-import std.bitmanip;
-import std.range;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
@@ -43,6 +39,7 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	
+	import d.base.context;
 	Context context;
 	
 	import d.semantic.evaluator;
@@ -66,6 +63,7 @@ final class SemanticPass {
 		
 		string manglePrefix;
 		
+		import std.bitmanip;
 		mixin(bitfields!(
 			bool, "buildErrorNode", 1,
 			uint, "", 7,
@@ -82,7 +80,7 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, DataLayout dataLayout, Source delegate(Name[]) sourceFactory) {
+	this(Context context, Evaluator evaluator, DataLayout dataLayout, SourceFactory sourceFactory) {
 		this.context	= context;
 		this.evaluator	= evaluator;
 		this.dataLayout	= dataLayout;
@@ -90,18 +88,19 @@ final class SemanticPass {
 		moduleVisitor	= new ModuleVisitor(this, sourceFactory);
 		scheduler		= new Scheduler(this);
 		
+		import d.base.name;
 		auto obj	= importModule([BuiltinName!"object"]);
-		object		= new ObjectReference(obj);
+		this.object	= new ObjectReference(obj);
 		
 		scheduler.require(obj, Step.Populated);
 	}
 	
-	AstModule parse(S)(S source, Name[] packages) if(is(S : Source)) {
+	AstModule parse(S)(S source, PackageNames packages) if(is(S : Source)) {
 		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	
-	Module add(Source source, Name[] packages) {
+	Module add(Source source, PackageNames packages) {
 		auto astm = parse(source, packages);
 		auto mod = moduleVisitor.modulize(astm);
 		
@@ -133,7 +132,7 @@ final class SemanticPass {
 	}
 	
 	T raiseCondition(T)(Location location, string message) {
-		if(buildErrorNode) {
+		if (buildErrorNode) {
 			static if(is(T == Type)) {
 				// FIXME: newtype
 				// return QualType(new ErrorType(location, message));
@@ -151,9 +150,10 @@ final class SemanticPass {
 	}
 	
 	Function buildMain(Module[] mods) {
+		import std.algorithm, std.array;
 		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
-			if(auto fun = cast(Function) s) {
-				if(fun.name == BuiltinName!"main") {
+			if (auto fun = cast(Function) s) {
+				if (fun.name == BuiltinName!"main") {
 					return fun;
 				}
 			}
@@ -193,6 +193,7 @@ final class SemanticPass {
 private:
 
 auto getDefaultVersions() {
+	import d.base.name;
 	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64"];
 	
 	version(linux) {

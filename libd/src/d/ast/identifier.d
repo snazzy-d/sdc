@@ -4,9 +4,8 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
+import d.base.name;
 import d.base.node;
-
-import d.context;
 
 abstract class Identifier : Node {
 	Name name;
@@ -17,7 +16,7 @@ abstract class Identifier : Node {
 		this.name = name;
 	}
 	
-	string toString(Context ctx) const {
+	string toString(const ref NameManager) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -40,8 +39,8 @@ class BasicIdentifier : Identifier {
 		super(location, name);
 	}
 	
-	override string toString(Context ctx) const {
-		return name.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return name.toString(nm);
 	}
 }
 
@@ -57,8 +56,8 @@ class IdentifierDotIdentifier : Identifier {
 		this.identifier = identifier;
 	}
 	
-	override string toString(Context ctx) const {
-		return identifier.toString(ctx) ~ "." ~ name.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return identifier.toString(nm) ~ "." ~ name.toString(nm);
 	}
 }
 
@@ -74,8 +73,8 @@ class TypeDotIdentifier : Identifier {
 		this.type = type;
 	}
 	
-	override string toString(Context ctx) const {
-		return type.toString(ctx) ~ "." ~ name.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return type.toString(nm) ~ "." ~ name.toString(nm);
 	}
 }
 
@@ -91,8 +90,8 @@ class ExpressionDotIdentifier : Identifier {
 		this.expression = expression;
 	}
 	
-	override string toString(Context ctx) const {
-		return expression.toString(ctx) ~ "." ~ name.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return expression.toString(nm) ~ "." ~ name.toString(nm);
 	}
 }
 
@@ -171,8 +170,8 @@ class DotIdentifier : Identifier {
 		super(location, name);
 	}
 	
-	override string toString(Context ctx) const {
-		return "." ~ name.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return "." ~ name.toString(nm);
 	}
 }
 
@@ -190,8 +189,8 @@ class IdentifierBracketIdentifier : Identifier {
 		this.index = index;
 	}
 	
-	override string toString(Context ctx) const {
-		return indexed.toString(ctx) ~ "[" ~ index.toString(ctx) ~ "]";
+	override string toString(const ref NameManager nm) const {
+		return indexed.toString(nm) ~ "[" ~ index.toString(nm) ~ "]";
 	}
 }
 
@@ -209,8 +208,7 @@ class IdentifierBracketExpression : Identifier {
 		this.index = index;
 	}
 	
-	override string toString(Context ctx) const {
-		return indexed.toString(ctx) ~ "[" ~ index.toString(ctx) ~ "]";
+	override string toString(const ref NameManager nm) const {
+		return indexed.toString(nm) ~ "[" ~ index.toString(nm) ~ "]";
 	}
 }
-

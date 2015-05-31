@@ -11,9 +11,6 @@ import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
 
-import std.algorithm;
-import std.array;
-
 AstType parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	auto base = trange.parseBasicType();
 	return trange.parseTypeSuffix!mode(base);
@@ -193,6 +190,7 @@ AstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, AstTy
 				trange.popFront();
 				
 				import d.parser.declaration;
+				import std.algorithm, std.array;
 				bool isVariadic;
 				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				
@@ -205,6 +203,7 @@ AstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, AstTy
 				trange.popFront();
 				
 				import d.parser.declaration;
+				import std.algorithm, std.array;
 				bool isVariadic;
 				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
 				

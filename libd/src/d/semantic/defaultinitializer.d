@@ -96,7 +96,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	private Expression getTemporary(Expression value) {
-		import d.context;
+		import d.base.name;
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 		
@@ -106,7 +106,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(Struct s) {
 		scheduler.require(s, Step.Signed);
 		
-		import d.context;
+		import d.base.name;
 		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
 		assert(init, "init must be defined");
 		
@@ -153,7 +153,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			
 			fields[0] = new VtblExpression(location, c);
 			if (c.hasContext) {
-				import d.context;
+				import d.base.name;
+				import std.algorithm;
 				foreach(f; c.members.filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m)) {
 					assert(f, "Context must be a field");
 					

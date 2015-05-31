@@ -5,15 +5,9 @@ import d.llvm.codegen;
 import d.ir.expression;
 import d.ir.statement;
 
-import d.context;
-
 import util.visitor;
 
 import llvm.c.core;
-
-import std.algorithm;
-import std.array;
-import std.string;
 
 struct StatementGen {
 	private CodeGenPass pass;
@@ -30,6 +24,7 @@ struct StatementGen {
 	LabelBlock breakBlock;
 	LabelBlock defaultBlock;
 	
+	import d.base.name;
 	LabelBlock[Name] labels;
 	
 	// Forward goto can only be resolved when the label is reached.
@@ -67,11 +62,12 @@ struct StatementGen {
 		scope(exit) unwindBlocks = oldUnwindBlocks;
 		
 		while(unwindBlocks.length > level) {
+			import std.array;
 			auto b = unwindBlocks.back;
 			unwindBlocks.popBack();
 			
-			if(b.kind == BlockKind.Exit || b.kind == BlockKind.Success) {
-				if(LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			if (b.kind == BlockKind.Exit || b.kind == BlockKind.Success) {
+				if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
 					break;
 				}
 				
@@ -84,11 +80,11 @@ struct StatementGen {
 		if(!LLVMGetBasicBlockTerminator(currentBB)) {
 			LLVMPositionBuilderAtEnd(builder, currentBB);
 			foreach_reverse(b; unwindBlocks) {
-				if(b.kind == BlockKind.Success) {
+				if (b.kind == BlockKind.Success) {
 					continue;
 				}
 				
-				if(!b.unwindBB) {
+				if (!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
 				
@@ -96,7 +92,7 @@ struct StatementGen {
 				break;
 			}
 			
-			if(!LLVMGetBasicBlockTerminator(currentBB)) {
+			if (!LLVMGetBasicBlockTerminator(currentBB)) {
 				LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
 			}
 		}
@@ -111,14 +107,14 @@ struct StatementGen {
 		auto preUnwindBB = currentBB;
 		
 		foreach_reverse(b; unwindBlocks[level .. $]) {
-			if(b.kind == BlockKind.Success) {
+			if (b.kind == BlockKind.Success) {
 				continue;
 			}
 			
 			assert(b.kind != BlockKind.Catch);
 			
 			auto unwindBB = b.unwindBB;
-			if(!unwindBB) {
+			if (!unwindBB) {
 				if(!mustResume) {
 					continue;
 				}
@@ -129,7 +125,7 @@ struct StatementGen {
 			mustResume = true;
 			
 			auto landingPadBB = b.landingPadBB;
-			if(landingPadBB) {
+			if (landingPadBB) {
 				LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
 				currentBB = landingPadBB;
 			}
@@ -143,7 +139,7 @@ struct StatementGen {
 		}
 		
 		unwindBlocks = unwindBlocks[0 .. level];
-		if(!mustResume) {
+		if (!mustResume) {
 			return;
 		}
 		
@@ -151,7 +147,7 @@ struct StatementGen {
 		
 		auto resumeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "resume");
 		
-		if(!LLVMGetBasicBlockTerminator(preUnwindBB)) {
+		if (!LLVMGetBasicBlockTerminator(preUnwindBB)) {
 			LLVMPositionBuilderAtEnd(builder, preUnwindBB);
 			LLVMBuildBr(builder, resumeBB);
 		}
@@ -452,6 +448,7 @@ struct StatementGen {
 		if (label == BuiltinName!"default") {
 			labelBB = defaultBlock.basic;
 		} else {
+			import std.string;
 			auto fun = LLVMGetBasicBlockParent(currentBB);
 			labelBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, toStringz("." ~ label.toString(context)));
 			

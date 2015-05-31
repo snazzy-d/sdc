@@ -2,7 +2,7 @@ module d.object;
 
 import d.ir.symbol;
 
-import d.context;
+import d.base.name;
 
 final class ObjectReference {
 	private Module object;

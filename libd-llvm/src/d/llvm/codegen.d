@@ -9,7 +9,6 @@ import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
 
-import d.context;
 import d.location;
 import d.object;
 
@@ -19,11 +18,8 @@ import llvm.c.analysis;
 import llvm.c.core;
 import llvm.c.target;
 
-import std.algorithm;
-import std.array;
-import std.string;
-
 final class CodeGenPass {
+	import d.base.context;
 	Context context;
 	
 	private SymbolGen symbolGen;
@@ -78,6 +74,8 @@ final class CodeGenPass {
 		
 		llvmCtx = LLVMContextCreate();
 		builder = LLVMCreateBuilderInContext(llvmCtx);
+
+		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
 		LLVMValueRef[3] branch_metadata;
@@ -191,6 +189,7 @@ final class DruntimeGen {
 	
 	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
 		return cache.get(name, cache[name] = {
+			import std.string;
 			return LLVMAddFunction(pass.dmodule, name.toStringz(), type);
 		}());
 	}

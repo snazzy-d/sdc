@@ -13,12 +13,6 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context;
-
-import std.algorithm;
-import std.array;
-import std.conv;
-
 // TODO: change ast to allow any statement as function body, then remove that import.
 import d.ast.statement;
 
@@ -99,7 +93,7 @@ struct SymbolAnalyzer {
 		manglePrefix ~= to!string(name.length) ~ name;
 		
 		// All modules implicitely import object.
-		import d.semantic.declaration;
+		import d.semantic.declaration, d.base.name;
 		m.members = DeclarationVisitor(pass, Storage.Static)
 			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
@@ -109,6 +103,7 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(FunctionDeclaration fd, Function f) {
+		import std.algorithm, std.array;
 		auto params = f.params = fd.params.map!((p) {
 			import d.semantic.type;
 			auto t = TypeVisitor(pass).visit(p.type);
@@ -126,6 +121,7 @@ struct SymbolAnalyzer {
 		if (f.hasContext) {
 			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
 			
+			import d.base.name;
 			auto contextParameter = new Variable(f.location, Type.getContextType(ctxSym).getParamType(true, false), BuiltinName!"__ctx");
 			params = contextParameter ~ params;
 		}
@@ -138,6 +134,7 @@ struct SymbolAnalyzer {
 			returnType = oldReturnType;
 		}
 		
+		import std.conv;
 		auto name = f.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -149,6 +146,7 @@ struct SymbolAnalyzer {
 			f.step = Step.Signed;
 		}
 		
+		import d.base.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		if (isCtor) {
 			assert(f.hasThis, "Constructor must have a this pointer");
@@ -306,6 +304,7 @@ struct SymbolAnalyzer {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
+			import std.conv;
 			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ TypeMangler(pass).visit(v.type);
 		}
 		
@@ -387,6 +386,7 @@ struct SymbolAnalyzer {
 		thisType = type.getParamType(true, false);
 		
 		// Update mangle prefix.
+		import std.conv;
 		auto name = s.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -397,6 +397,8 @@ struct SymbolAnalyzer {
 			? new VoldemortScope(s, oldScope)
 			: new AggregateScope(s, oldScope);
 		
+		// XXX: d is hijacked without explicit import
+		import d.base.name : BuiltinName;
 		fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
@@ -418,6 +420,7 @@ struct SymbolAnalyzer {
 		s.dscope.addSymbol(init);
 		s.step = Step.Populated;
 		
+		import std.algorithm, std.array;
 		auto otherSymbols = members.filter!((m) {
 			if(auto f = cast(Field) m) {
 				fields ~= f;
@@ -462,6 +465,7 @@ struct SymbolAnalyzer {
 		thisType = type.getParamType(true, false);
 		
 		// Update mangle prefix.
+		import std.conv;
 		auto name = u.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -473,6 +477,9 @@ struct SymbolAnalyzer {
 			? new VoldemortScope(u, oldScope)
 			: new AggregateScope(u, oldScope);
 		
+		// XXX: d is hijacked without explicit import
+		import d.base.name : BuiltinName;
+
 		fieldIndex = 0;
 		Field[] fields;
 		if (u.hasContext) {
@@ -494,6 +501,7 @@ struct SymbolAnalyzer {
 		u.dscope.addSymbol(init);
 		u.step = Step.Populated;
 		
+		import std.algorithm, std.array;
 		auto otherSymbols = members.filter!((m) {
 			if (auto f = cast(Field) m) {
 				fields ~= f;
@@ -539,6 +547,7 @@ struct SymbolAnalyzer {
 		thisType = Type.get(c).getParamType(false, true);
 		
 		// Update mangle prefix.
+		import std.conv;
 		auto name = c.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -579,9 +588,12 @@ struct SymbolAnalyzer {
 		methodIndex = 0;
 		
 		// object.Object, let's do some compiler magic.
-		if(c is c.base) {
+		if (c is c.base) {
 			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
 			
+			// XXX: d is hijacked without explicit import
+			import d.base.name : BuiltinName;
+
 			// TODO: use defaultinit.
 			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
 			vtbl.step = Step.Processed;
@@ -594,12 +606,13 @@ struct SymbolAnalyzer {
 			
 			fieldIndex = 0;
 			foreach(m; c.base.members) {
-				if(auto field = cast(Field) m) {
+				import std.algorithm;
+				if (auto field = cast(Field) m) {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
 					
 					c.dscope.addSymbol(field);
-				} else if(auto method = cast(Method) m) {
+				} else if (auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
 					
@@ -613,6 +626,8 @@ struct SymbolAnalyzer {
 		if (c.hasContext) {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
+
+			import d.base.name;
 			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
 			ctx.step = Step.Processed;
 			
@@ -747,6 +762,7 @@ struct SymbolAnalyzer {
 		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "enum are of integer type.");
 		auto bt = e.type.builtin;
 		
+		import std.conv;
 		auto name = e.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -817,6 +833,7 @@ struct SymbolAnalyzer {
 	
 	void analyze(TemplateDeclaration d, Template t) {
 		// XXX: compute a proper mangling for templates.
+		import std.conv;
 		auto name = t.name.toString(context);
 		t.mangle = manglePrefix ~ to!string(name.length) ~ name;
 		
@@ -879,6 +896,7 @@ struct SymbolAnalyzer {
 				}
 				
 				import d.semantic.type : TypeVisitor;
+				import std.algorithm, std.array;
 				t.ifti = fun.params.map!(p => TypeVisitor(pass).visit(p.type).getType()).array();
 				break;
 			}

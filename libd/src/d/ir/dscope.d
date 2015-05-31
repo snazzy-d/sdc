@@ -4,9 +4,8 @@ import d.ir.symbol;
 
 import d.ast.conditional;
 
-import d.base.qualifier;
+import d.base.name;
 
-import d.context;
 import d.location;
 
 // XXX: move this to a more apropriate place ?
@@ -266,6 +265,8 @@ class CapturingScope(S) : S  if(is(S : SymbolScope)){
 		}
 		
 		auto s = parent.search(name);
+
+		import d.base.qualifier;
 		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isNonLocal) {
 			capture[() @trusted {
 				// Fast cast can be trusted in this case, we already did the check.

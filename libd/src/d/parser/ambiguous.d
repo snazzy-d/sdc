@@ -12,8 +12,6 @@ import d.parser.type;
 import d.parser.identifier;
 import d.parser.util;
 
-import std.range;
-
 /**
  * Branch to the right code depending if we have a type, an expression or an identifier.
  */
@@ -130,8 +128,10 @@ typeof(handler(AstExpression.init)) parseAmbiguous(alias handler, AmbiguousParse
 }
 
 struct IdentifierStarIdentifier {
-	Identifier identifier;
+	import d.base.name;
 	Name name;
+
+	Identifier identifier;
 	AstExpression value;
 }
 
@@ -343,7 +343,7 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M =
 						}
 
 						if (v || !rtt.indicateExpression()) {
-							return handler(IdentifierStarIdentifier(i, name, v));
+							return handler(IdentifierStarIdentifier(name, i, v));
 						}
 					} else {
 						if (!rtt.indicateExpression()) {

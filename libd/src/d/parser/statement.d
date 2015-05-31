@@ -14,8 +14,6 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
-import std.range;
-
 AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
 	Location location = trange.front.location;
 	
@@ -254,6 +252,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		case Goto :
 			trange.popFront();
 			
+			import d.base.name;
 			Name label;
 			switch(trange.front.type) {
 				case Identifier :
@@ -294,12 +293,13 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto name = trange.front.name;
 			trange.match(Identifier);
 			
+			import d.base.name;
 			ScopeKind kind;
-			if(name == BuiltinName!"exit") {
+			if (name == BuiltinName!"exit") {
 				kind = ScopeKind.Exit;
-			} else if(name == BuiltinName!"success") {
+			} else if (name == BuiltinName!"success") {
 				kind = ScopeKind.Success;
-			} else if(name == BuiltinName!"failure") {
+			} else if (name == BuiltinName!"failure") {
 				kind = ScopeKind.Failure;
 			} else {
 				assert(0, name.toString(trange.context) ~ " is not a valid scope identifier.");
@@ -337,6 +337,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					import d.parser.identifier;
 					auto type = trange.parseIdentifier();
 					
+					import d.base.name;
 					Name name;
 					if(trange.front.type == Identifier) {
 						name = trange.front.name;
@@ -363,7 +364,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				
 				location.spanTo(finallyStatement.location);
 			} else {
-				location.spanTo(catches.back.location);
+				location.spanTo(catches[$ - 1].location);
 			}
 			
 			return new AstTryStatement(location, statement, catches, finallyStatement);
@@ -380,6 +381,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					return trange.parseStaticIf!AstStatement();
 				
 				case Assert :
+					import std.range;
 					trange.popFrontN(2);
 					trange.match(OpenParen);
 					

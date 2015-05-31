@@ -5,8 +5,6 @@ import d.ast.expression;
 
 import d.base.node;
 
-import d.context;
-
 class AstStatement : Node {
 	this(Location location) {
 		super(location);
@@ -61,8 +59,10 @@ class DeclarationStatement : AstStatement {
  * indentifier * identifier kind of things
  */
 class IdentifierStarIdentifierStatement : AstStatement {
-	Identifier identifier;
+	import d.base.name;
 	Name name;
+
+	Identifier identifier;
 	AstExpression value;
 	
 	this(Identifier identifier, Name name, AstExpression value) {
@@ -243,8 +243,10 @@ alias AstCaseStatement = CaseStatement!(AstExpression, AstStatement);
 /**
  * Label: statement
  */
-class LabeledStatement(S) : S  if(is(S : AstStatement)){
+class LabeledStatement(S) : S  if(is(S : AstStatement)) {
+	import d.base.name;
 	Name label;
+
 	S statement;
 	
 	this(Location location, Name label, S statement) {
@@ -331,6 +333,8 @@ class AstTryStatement : AstStatement {
 
 struct CatchBlock(T, S) if(is(S : AstStatement)) {
 	Location location;
+
+	import d.base.name;
 	Name name;
 	
 	T type;

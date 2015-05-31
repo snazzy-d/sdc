@@ -6,27 +6,24 @@ import d.llvm.datalayout;
 
 import d.ir.symbol;
 
-import d.context;
-
 import llvm.c.core;
 import llvm.c.target;
 import llvm.c.targetMachine;
 
-import std.array;
-import std.process;
-import std.stdio;
-import std.string;
-
 final class LLVMBackend {
-	private CodeGenPass pass;
-	private LLVMEvaluator evaluator;
-	private LLVMDataLayout dataLayout;
+private:
+	CodeGenPass pass;
 	
-	private LLVMTargetMachineRef targetMachine;
+	LLVMEvaluator evaluator;
+	LLVMDataLayout dataLayout;
 	
-	private uint optLevel;
-	private string linkerParams;
+	LLVMTargetMachineRef targetMachine;
 	
+	uint optLevel;
+	string linkerParams;
+	
+public:
+	import d.base.context;
 	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
@@ -102,6 +99,8 @@ final class LLVMBackend {
 			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
 		} else {
 			LLVMDumpModule(dmodule);
+
+			import std.stdio;
 			writeln("\n; Optimized as :");
 			
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
@@ -120,30 +119,20 @@ final class LLVMBackend {
 		LLVMDumpModule(dmodule);
 		
 		/*
+		import std.stdio;
 		writeln("\nASM generated :");
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
-		/+
-		version(linux) {
-			// Hack around the need of _tlsstart and _tlsend.
-			auto _tlsstart = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsstart");
-			LLVMSetInitializer(_tlsstart, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetSection(_tlsstart, ".tdata");
-			LLVMSetLinkage(_tlsstart, LLVMLinkage.LinkOnceODR);
-			
-			auto _tlsend = LLVMAddGlobal(dmodule, LLVMInt32Type(), "_tlsend");
-			LLVMSetInitializer(_tlsend, LLVMConstInt(LLVMInt32Type(), 0, true));
-			LLVMSetThreadLocal(_tlsend, true);
-			LLVMSetLinkage(_tlsend, LLVMLinkage.LinkOnceODR);
-		}
-		// +/
+
+		import std.string;
+
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
 		if(linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
-			import std.c.string;
+			import std.c.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
 			assert(0, "Fail to link ! Exiting...");
@@ -151,8 +140,10 @@ final class LLVMBackend {
 	}
 	
 	void link(string objFile, string executable) {
+		import std.process;
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lpthread";
 		
+		import std.stdio;
 		writeln(linkCommand);
 		wait(spawnShell(linkCommand));
 	}

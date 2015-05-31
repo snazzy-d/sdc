@@ -16,6 +16,8 @@ import d.ast.type;
 
 import d.ir.expression;
 
+import d.base.name;
+
 /**
  * Parse a set of declarations.
  */
@@ -382,7 +384,6 @@ private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	import d.context;
 	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__ctor");
 }
 
@@ -392,7 +393,6 @@ private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	import d.context;
 	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__dtor");
 }
 

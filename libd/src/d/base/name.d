@@ -1,4 +1,4 @@
-module d.context;
+module d.base.name;
 
 struct Name {
 private:
@@ -9,8 +9,8 @@ private:
 	}
 	
 public:
-	string toString(Context c) const {
-		return c.names[id];
+	string toString(const ref NameManager nm) const {
+		return nm.names[id];
 	}
 	
 	@property
@@ -29,17 +29,26 @@ public:
 	}
 }
 
-final class Context {
+template BuiltinName(string name) {
+	private enum id = Lookups.get(name, uint.max);
+	static assert(id < uint.max, name ~ " is not a builtin name.");
+	enum BuiltinName = Name(id);
+}
+
+struct NameManager {
 private:
 	string[] names;
 	uint[string] lookups;
-	
-public:
-	this() {
-		names = Names;
-		lookups = Lookups;
+
+	// Make it non copyable.
+	@disable this(this);
+
+package:
+	static get() {
+		return NameManager(Names, Lookups);
 	}
-	
+
+public:
 	auto getName(string s) {
 		if (auto id = s in lookups) {
 			return Name(*id);
@@ -53,14 +62,6 @@ public:
 		
 		return Name(id);
 	}
-}
-
-template BuiltinName(string name) {
-	private enum id = Lookups.get(name, uint.max);
-	
-	static assert(id < uint.max, name ~ " is not a builtin name.");
-	
-	enum BuiltinName = Name(id);
 }
 
 private:
@@ -124,4 +125,3 @@ auto getLookups() {
 }
 
 enum Lookups = getLookups();
-

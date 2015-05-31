@@ -5,9 +5,8 @@ import d.ir.expression;
 import d.ir.statement;
 import d.ir.type;
 
+import d.base.name;
 import d.base.node;
-
-import d.context;
 
 enum Step {
 	Parsed,
@@ -39,8 +38,8 @@ class Symbol : Node {
 		this.name = name;
 	}
 	
-	string toString(Context ctx) const {
-		return name.toString(ctx);
+	string toString(const ref NameManager nm) const {
+		return name.toString(nm);
 	}
 }
 
@@ -223,8 +222,8 @@ class TypeTemplateParameter : TemplateParameter {
 		this.defaultValue = defaultValue;
 	}
 	
-	override string toString(Context context) const {
-		return name.toString(context) ~ " : " ~ specialization.toString(context) ~ " = " ~ defaultValue.toString(context);
+	override string toString(const ref NameManager nm) const {
+		return name.toString(nm) ~ " : " ~ specialization.toString(nm) ~ " = " ~ defaultValue.toString(nm);
 	}
 }
 
@@ -414,4 +413,3 @@ class Method : Function {
 		this.index = index;
 	}
 }
-

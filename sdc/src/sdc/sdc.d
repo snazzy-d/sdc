@@ -9,16 +9,12 @@ import d.llvm.backend;
 
 import d.semantic.semantic;
 
-import d.context;
 import d.location;
 
 import util.json;
 
-import std.algorithm;
-import std.array;
-import std.file;
-
 final class SDC {
+	import d.base.context;
 	Context context;
 	
 	SemanticPass semantic;
@@ -29,6 +25,7 @@ final class SDC {
 	Module[] modules;
 	
 	this(string name, JSON conf, uint optLevel) {
+		import std.algorithm, std.array;
 		includePath = conf["includePath"].array.map!(path => cast(string) path).array();
 		
 		context = new Context();
@@ -41,10 +38,12 @@ final class SDC {
 	}
 	
 	void compile(string filename) {
+		import std.algorithm, std.array;
 		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
 		modules ~= semantic.add(new FileSource(filename), packages);
 	}
 	
+	import d.base.name;
 	void compile(Name[] packages) {
 		modules ~= semantic.add(getFileSource(packages), packages);
 	}
@@ -68,10 +67,13 @@ final class SDC {
 	}
 	
 	FileSource getFileSource(Name[] packages) {
+		import std.algorithm, std.array;
 		auto filename = "/" ~ packages.map!(p => p.toString(context)).join("/") ~ ".d";
 		foreach(path; includePath) {
 			auto fullpath = path ~ filename;
-			if(exists(fullpath)) {
+
+			import std.file;
+			if (exists(fullpath)) {
 				return new FileSource(fullpath);
 			}
 		}

@@ -2,10 +2,11 @@ module d.ast.dmodule;
 
 import d.ast.declaration;
 
-import d.context;
+import d.base.name;
+
 import d.location;
 
-// TODO: merge into declaration
+// TODO: merge into declaration.
 /**
  * A package delcaration
  */

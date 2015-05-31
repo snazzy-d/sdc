@@ -18,9 +18,6 @@ import d.ir.type;
 import d.parser.base;
 import d.parser.statement;
 
-import std.algorithm;
-import std.array;
-
 alias BlockStatement = d.ir.statement.BlockStatement;
 alias ExpressionStatement = d.ir.statement.ExpressionStatement;
 alias IfStatement = d.ir.statement.IfStatement;
@@ -57,6 +54,7 @@ private:
 		uint, "", 2,
 	));
 	
+	import d.base.name;
 	uint[Name] labelBlocks;
 	uint[][][Name] inFlightGotosStacks;
 	
@@ -145,6 +143,7 @@ public:
 			}
 		}
 		
+		import std.algorithm, std.array;
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
 	}
 
@@ -406,10 +405,11 @@ public:
 		
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
-
-
+		
 		if (f.reverse) {
-			swap(start, stop);
+			auto tmp = start;
+			start = stop;
+			stop = tmp;
 		}
 
 		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
@@ -592,6 +592,7 @@ public:
 		unterminate();
 		
 		import d.semantic.expression;
+		import std.algorithm, std.array;
 		flattenedStmts ~= new CaseStatement(
 			s.location,
 			s.cases.map!(e => pass.evaluate(ExpressionVisitor(pass).visit(e))).array(),

@@ -10,12 +10,10 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context;
+import d.base.name;
+
 import d.exception;
 import d.location;
-
-import std.algorithm;
-import std.array;
 
 alias Module = d.ir.symbol.Module;
 
@@ -45,6 +43,7 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 	
 	Ret resolve(TemplateInstanciationDotIdentifier i, Expression[] fargs = []) {
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
+		import std.algorithm, std.array;
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if (auto ia = cast(IdentifierTemplateArgument) a) {
 				return AliasResolver!identifiableHandler(pass)

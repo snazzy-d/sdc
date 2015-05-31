@@ -6,6 +6,8 @@ import d.ast.dmodule;
 import d.parser.base;
 import d.parser.declaration;
 
+import d.base.name;
+
 /**
  * Parse a whole module.
  * This is the regular entry point in the parser

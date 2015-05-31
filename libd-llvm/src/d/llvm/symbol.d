@@ -11,11 +11,6 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 
-import std.algorithm;
-import std.array;
-import std.range;
-import std.string;
-
 final class SymbolGen {
 	private CodeGenPass pass;
 	alias pass this;
@@ -38,11 +33,11 @@ final class SymbolGen {
 	}
 	
 	void visit(Symbol s) {
-		if(auto t = cast(TypeSymbol) s) {
+		if (auto t = cast(TypeSymbol) s) {
 			visit(t);
-		} else if(auto v = cast(Variable) s) {
+		} else if (auto v = cast(Variable) s) {
 			genCached(v);
-		} else if(auto f = cast(Function) s) {
+		} else if (auto f = cast(Function) s) {
 			genCached(f);
 		}
 	}
@@ -74,6 +69,7 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef visit(Function f) {
+		import std.string;
 		auto name = f.mangle.toStringz();
 		auto fun = LLVMGetNamedFunction(dmodule, name);
 		assert(!fun, f.mangle ~ " is already defined.");
@@ -178,6 +174,7 @@ final class SymbolGen {
 			assert(ctxType.isRef || ctxType.isFinal);
 			LLVMSetValueName(parentCtx, "__ctx");
 			
+			import std.algorithm, std.range;
 			auto ctxTypeGen = pass.visit(ctxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
@@ -218,6 +215,7 @@ final class SymbolGen {
 			if (p.isRef || p.isFinal) {
 				assert (p.storage == Storage.Local, "storage must be local");
 				
+				import std.string;
 				LLVMSetValueName(value, p.mangle.toStringz());
 				locals[p] = value;
 			} else {
@@ -226,6 +224,7 @@ final class SymbolGen {
 				auto name = p.name.toString(context);
 				p.mangle = name;
 				
+				import std.string;
 				LLVMSetValueName(value, ("arg." ~ name).toStringz());
 				createVariableStorage(p, value);
 			}
@@ -300,7 +299,8 @@ final class SymbolGen {
 			auto vs = cast(VoldemortScope) c.dscope;
 			assert(vs, "Class has context but no VoldemortScope");
 			
-			import d.context;
+			import d.base.name;
+			import std.algorithm, std.range;
 			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
 			
 			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], vs);
@@ -328,6 +328,7 @@ final class SymbolGen {
 			foreach(v; capture.byKey()) {
 				if (auto indexPtr = v in closure.indices) {
 					// Register the variable.
+					import std.string;
 					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
 					
 					assert(closureCount > 0, "closureCount is 0 or lower.");
@@ -384,6 +385,7 @@ final class SymbolGen {
 		
 		auto type = pass.visit(v.type);
 		if(v.storage == Storage.Static) {
+			import std.string;
 			auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
 			LLVMSetThreadLocal(globalVar, true);
 			
@@ -435,8 +437,11 @@ final class SymbolGen {
 			}
 			
 			closure.indices[v] = index;
+
+			import std.string;
 			addr = LLVMBuildStructGEP(builder, closure.context, index, v.mangle.toStringz());
 		} else {
+			import std.string;
 			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz());
 		}
 		
@@ -444,8 +449,8 @@ final class SymbolGen {
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		LLVMBuildStore(builder, value, addr);
 		
-		import d.context;
-		if(v.name == BuiltinName!"this") {
+		import d.base.name;
+		if (v.name == BuiltinName!"this") {
 			thisPtr = addr;
 		}
 		

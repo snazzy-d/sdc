@@ -10,8 +10,6 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
-import std.range;
-
 auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Template);
@@ -22,7 +20,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTok
 	auto parameters = trange.parseTemplateParameters();
 	auto declarations = trange.parseAggregate();
 	
-	location.spanTo(declarations.back.location);
+	location.spanTo(declarations[$ - 1].location);
 	
 	return new TemplateDeclaration(location, stc, name, parameters, declarations);
 }
@@ -70,6 +68,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 					auto name = trange.front.name;
 					auto location = lookahead.front.location;
 					
+					import std.range;
 					trange.popFrontN(2);
 					return new AstTupleTemplateParameter(location, name);
 				

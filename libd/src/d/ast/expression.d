@@ -5,16 +5,15 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
+import d.base.name;
 import d.base.node;
-
-import d.context;
 
 abstract class AstExpression : Node {
 	this(Location location) {
 		super(location);
 	}
 	
-	string toString(Context) const {
+	string toString(const ref NameManager nm) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -36,8 +35,8 @@ class TernaryExpression(E) : E  if(is(E: AstExpression)){
 		this.rhs = rhs;
 	}
 	
-	override string toString(Context ctx) const {
-		return condition.toString(ctx) ~ "? " ~ lhs.toString(ctx) ~ " : " ~ rhs.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return condition.toString(nm) ~ "? " ~ lhs.toString(nm) ~ " : " ~ rhs.toString(nm);
 	}
 }
 
@@ -121,9 +120,9 @@ class BinaryExpression(T) : T  if(is(T: AstExpression)){
 		assert(rhs);
 	}
 	
-	override string toString(Context ctx) const {
+	override string toString(const ref NameManager nm) const {
 		import std.conv;
-		return lhs.toString(ctx) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(ctx);
+		return lhs.toString(nm) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(nm);
 	}
 }
 
@@ -194,8 +193,8 @@ class AstUnaryExpression : AstExpression {
 		assert(expr);
 	}
 	
-	override string toString(Context ctx) const {
-		return unarizeString(expr.toString(ctx), op);
+	override string toString(const ref NameManager nm) const {
+		return unarizeString(expr.toString(nm), op);
 	}
 }
 
@@ -210,8 +209,8 @@ class AstCastExpression : AstExpression {
 		this.expr = expr;
 	}
 	
-	override string toString(Context ctx) const {
-		return "cast(" ~ type.toString(ctx) ~ ") " ~ expr.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return "cast(" ~ type.toString(nm) ~ ") " ~ expr.toString(nm);
 	}
 }
 
@@ -229,9 +228,9 @@ class AstCallExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(Context ctx) const {
+	override string toString(const ref NameManager nm) const {
 		import std.algorithm, std.range;
-		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
+		return callee.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
 	}
 }
 
@@ -249,9 +248,9 @@ class IdentifierCallExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(Context ctx) const {
+	override string toString(const ref NameManager nm) const {
 		import std.algorithm, std.range;
-		return callee.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
+		return callee.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
 	}
 }
 
@@ -313,8 +312,8 @@ class IdentifierExpression : AstExpression {
 		this.identifier = identifier;
 	}
 	
-	override string toString(Context ctx) const {
-		return identifier.toString(ctx);
+	override string toString(const ref NameManager nm) const {
+		return identifier.toString(nm);
 	}
 }
 
@@ -332,9 +331,9 @@ class NewExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(Context ctx) const {
+	override string toString(const ref NameManager nm) const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString(ctx) ~ "(" ~ args.map!(a => a.toString(ctx)).join(", ") ~ ")";
+		return "new " ~ type.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
 	}
 }
 
@@ -352,9 +351,9 @@ class ArrayLiteral(T) : T if(is(T: AstExpression)) {
 		this.values = values;
 	}
 	
-	override string toString(Context ctx) const {
+	override string toString(const ref NameManager nm) const {
 		import std.algorithm, std.range;
-		return "[" ~ values.map!(v => v.toString(ctx)).join(", ") ~ "]";
+		return "[" ~ values.map!(v => v.toString(nm)).join(", ") ~ "]";
 	}
 }
 
@@ -502,7 +501,7 @@ class AstVoidInitializer : AstExpression {
 		super(location);
 	}
 	
-	override string toString(Context) const {
+	override string toString(const ref NameManager) const {
 		return "void";
 	}
 }

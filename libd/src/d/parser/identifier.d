@@ -7,8 +7,6 @@ import d.ast.type;
 import d.parser.base;
 import d.parser.dtemplate;
 
-import std.range;
-
 /**
  * Parse Identifier
  */

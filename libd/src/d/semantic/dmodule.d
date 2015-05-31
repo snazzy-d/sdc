@@ -11,12 +11,9 @@ import d.ast.dmodule;
 
 import d.ir.symbol;
 
-import d.context;
-import d.location;
+import d.base.name;
 
-import std.algorithm;
-import std.array;
-import std.range; // for range.
+import d.location;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
@@ -24,20 +21,24 @@ alias Module = d.ir.symbol.Module;
 alias AstPackage = d.ast.dmodule.Package;
 alias Package = d.ir.symbol.Package;
 
+alias SourceFactory = Source delegate(Name[]);
+alias PackageNames = Name[];
+
 final class ModuleVisitor {
 	private SemanticPass pass;
 	alias pass this;
 	
-	private Source delegate(Name[]) sourceFactory;
+	private SourceFactory sourceFactory;
 	
 	private Module[string] cachedModules;
 	
-	this(SemanticPass pass, Source delegate(Name[]) sourceFactory) {
+	this(SemanticPass pass, SourceFactory sourceFactory) {
 		this.pass = pass;
 		this.sourceFactory = sourceFactory;
 	}
 	
-	Module importModule(Name[] packages) {
+	Module importModule(PackageNames packages) {
+		import std.algorithm, std.range;
 		auto name = packages.map!(p => p.toString(pass.context)).join(".");
 		
 		return cachedModules.get(name, {

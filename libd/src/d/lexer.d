@@ -116,11 +116,13 @@ enum TokenType {
 	Hash,				// #
 }
 
-import d.context;
+import d.base.context;
 
 struct Token(Location) {
 	Location location;
 	TokenType type;
+	
+	import d.base.name;
 	Name name;
 }
 
@@ -685,6 +687,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			Token t;
 			t.type = type;
 			t.location = locationProvider(line, index - l, l);
+
+			import d.base.name;
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -698,6 +702,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			Token t;
 			t.type = type;
 			t.location = locationProvider(line, index - l, l);
+
+			import d.base.name;
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -714,7 +720,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 	
 	// Pop #!
 	auto c = lexer.r.front;
-	if(c == '#') {
+	if (c == '#') {
 		do {
 			lexer.popChar();
 			c = lexer.r.front;
@@ -856,7 +862,7 @@ mixin template CharPumper(bool decode = true) {
 		}
 	}
 	
-	Name getValue() {
+	auto getValue() {
 		return context.getName(
 			(i < BufferSize)
 				? buffer[0 .. i].idup

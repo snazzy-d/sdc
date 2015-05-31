@@ -5,7 +5,6 @@ import d.semantic.semantic;
 import d.ir.expression;
 import d.ir.symbol;
 
-import d.context;
 import d.exception;
 import d.location;
 
@@ -36,6 +35,7 @@ struct AliasThisResolver(alias handler) {
 		return resolve(e, a.dscope.aliasThis);
 	}
 	
+	import d.base.name;
 	private Ret[] resolve(Expression e, Name[] aliases) {
 		auto oldBuildErrorNode = pass.buildErrorNode;
 		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
