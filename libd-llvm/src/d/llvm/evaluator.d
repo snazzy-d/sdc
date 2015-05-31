@@ -206,7 +206,21 @@ struct JitRepacker {
 	}
 	
 	import d.ir.type, d.ir.symbol;
-	CompileTimeExpression visit(Type t) {
+	CompileTimeExpression visit(Type t) in {
+		import llvm.c.target;
+		auto size = LLVMStoreSizeOfType(codeGen.targetData, codeGen.visit(t));
+
+		import std.conv;
+		assert(
+			size == p.length,
+			"Buffer of length " ~ p.length.to!string() ~
+				" when " ~ size.to!string() ~ " was expected"
+		);
+	} out(result) {
+		// FIXME: This does not always pass now.
+		// assert(result.type == t, "Result type do not match");
+		assert(p.length == 0, "Remaining data in the buffer");
+	} body {
 		return t.accept(this);
 	}
 	
