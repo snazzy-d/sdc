@@ -24,7 +24,7 @@ endif
 LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
-	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses
+	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses -lz
 endif
 ifeq ($(PLATFORM),Darwin)
 	LDFLAGS += -lc++ -lncurses
