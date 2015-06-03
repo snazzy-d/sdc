@@ -15,4 +15,3 @@ string getStringMixin() {
 }
 
 mixin(StringMixin);
-

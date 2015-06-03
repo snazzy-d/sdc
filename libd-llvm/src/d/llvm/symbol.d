@@ -299,7 +299,7 @@ final class SymbolGen {
 			auto vs = cast(VoldemortScope) c.dscope;
 			assert(vs, "Class has context but no VoldemortScope");
 			
-			import d.base.name;
+			import d.context.name;
 			import std.algorithm, std.range;
 			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
 			
@@ -449,7 +449,7 @@ final class SymbolGen {
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		LLVMBuildStore(builder, value, addr);
 		
-		import d.base.name;
+		import d.context.name;
 		if (v.name == BuiltinName!"this") {
 			thisPtr = addr;
 		}

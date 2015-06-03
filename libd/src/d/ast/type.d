@@ -1,10 +1,10 @@
 module d.ast.type;
 
-public import d.base.builtintype;
-public import d.base.qualifier;
+public import d.common.builtintype;
+public import d.common.qualifier;
 
-import d.base.name;
-import d.base.type;
+import d.context.name;
+import d.common.type;
 
 enum AstTypeKind : ubyte {
 	Builtin,
@@ -261,7 +261,7 @@ public:
 	string toUnqualString(const ref NameManager nm) const {
 		final switch(kind) with(AstTypeKind) {
 			case Builtin :
-				import d.base.builtintype : toString;
+				import d.common.builtintype : toString;
 				return toString(builtin);
 			
 			case Identifier :
@@ -338,7 +338,7 @@ unittest {
 	auto p = l.getPointer();
 	assert(p.element == l);
 	
-	import d.location;
+	import d.context.location;
 	auto s1 = new DollarExpression(Location.init);
 	auto a1 = l.getArray(s1);
 	assert(a1.size is s1);
@@ -354,7 +354,7 @@ unittest {
 	assert(m.key == f);
 	assert(m.element == l);
 	
-	import d.base.name;
+	import d.context.name;
 	auto i = new BasicIdentifier(Location.init, BuiltinName!"");
 	t = AstType.get(i, TypeQualifier.Shared);
 	assert(t.identifier is i);
@@ -374,7 +374,7 @@ unittest {
 	
 	t = AstType.getTypeOfReturn();
 
-	import d.base.context;
+	import d.context.context;
 	Context c;
 	assert(t.toString(c) == "typeof(return)");
 }

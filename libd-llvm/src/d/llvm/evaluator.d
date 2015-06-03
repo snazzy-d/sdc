@@ -11,9 +11,6 @@ import util.visitor;
 import llvm.c.core;
 import llvm.c.executionEngine;
 
-import std.algorithm;
-import std.array;
-
 // In order to JIT.
 extern(C) void _d_assert(string, int);
 extern(C) void _d_assert_msg(string, string, int);
@@ -195,7 +192,7 @@ enum JitReturn {
 struct JitRepacker {
 	CodeGenPass codeGen;
 	
-	import d.location;
+	import d.context.location;
 	Location location;
 
 	void[] p;

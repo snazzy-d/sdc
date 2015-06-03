@@ -1,7 +1,7 @@
-module d.base.type;
+module d.common.type;
 
-public import d.base.builtintype;
-public import d.base.qualifier;
+public import d.common.builtintype;
+public import d.common.qualifier;
 
 // Because bitfields won't work with the current stringof semantic.
 // It is needed to import all that instanciate TypeDescriptor.
@@ -436,4 +436,3 @@ size_t computeEnumSize(E)() {
 	
 	return size;
 }
-

@@ -5,8 +5,9 @@ import d.semantic.semantic;
 import d.ir.expression;
 import d.ir.symbol;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 struct AliasThisResolver(alias handler) {
 	private SemanticPass pass;
@@ -35,7 +36,7 @@ struct AliasThisResolver(alias handler) {
 		return resolve(e, a.dscope.aliasThis);
 	}
 	
-	import d.base.name;
+	import d.context.name;
 	private Ret[] resolve(Expression e, Name[] aliases) {
 		auto oldBuildErrorNode = pass.buildErrorNode;
 		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
@@ -57,4 +58,3 @@ struct AliasThisResolver(alias handler) {
 		return results;
 	}
 }
-

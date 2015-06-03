@@ -11,9 +11,8 @@ import d.ast.dmodule;
 
 import d.ir.symbol;
 
-import d.base.name;
-
-import d.location;
+import d.context.name;
+import d.context.source;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
@@ -21,20 +20,21 @@ alias Module = d.ir.symbol.Module;
 alias AstPackage = d.ast.dmodule.Package;
 alias Package = d.ir.symbol.Package;
 
-alias SourceFactory = Source delegate(Name[]);
 alias PackageNames = Name[];
 
 final class ModuleVisitor {
-	private SemanticPass pass;
+private:
+	SemanticPass pass;
 	alias pass this;
 	
-	private SourceFactory sourceFactory;
-	
-	private Module[string] cachedModules;
-	
-	this(SemanticPass pass, SourceFactory sourceFactory) {
+	string[] includePaths;
+
+	Module[string] cachedModules;
+
+public:
+	this(SemanticPass pass, string[] includePaths) {
 		this.pass = pass;
-		this.sourceFactory = sourceFactory;
+		this.includePaths = includePaths;
 	}
 	
 	Module importModule(PackageNames packages) {
@@ -42,8 +42,12 @@ final class ModuleVisitor {
 		auto name = packages.map!(p => p.toString(pass.context)).join(".");
 		
 		return cachedModules.get(name, {
-			auto source = sourceFactory(packages);
-			auto astm = pass.parse(source, packages);
+			import std.algorithm, std.array;
+			auto filename = "/" ~ packages.map!(p => p.toString(pass.context)).join("/") ~ ".d";
+			
+			auto fullPath = getFullPath(filename, includePaths);
+
+			auto astm = pass.parse(fullPath, packages);
 			auto mod = modulize(astm);
 			
 			pass.scheduler.schedule(astm, mod);
@@ -80,7 +84,7 @@ final class ModuleVisitor {
 	}
 	
 	Package modulize(AstPackage p) {
-		if(p is null) {
+		if (p is null) {
 			return null;
 		}
 		
@@ -103,3 +107,17 @@ final class ModuleVisitor {
 	}
 }
 
+private:
+string getFullPath(string filename, string[] inclduePaths) {
+	foreach(path; inclduePaths) {
+		auto fullpath = path ~ filename;
+
+		import std.file;
+		if (exists(fullpath)) {
+			return fullpath;
+		}
+	}
+	
+	// XXX: handle properly ? Now it will fail down the road.
+	return filename;
+}

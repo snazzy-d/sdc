@@ -71,8 +71,8 @@ int main(string[] args) {
 		}
 	}
 	
+	auto sdc = new SDC(files[0], conf, optLevel);
 	try {
-		auto sdc = new SDC(files[0], conf, optLevel);
 		foreach(file; files) {
 			sdc.compile(file);
 		}
@@ -86,7 +86,7 @@ int main(string[] args) {
 		
 		return 0;
 	} catch(CompileException e) {
-		outputCaretDiagnostics(e.location, e.msg);
+		outputCaretDiagnostics(e.getFullLocation(sdc.context), e.msg);
 		
 		// Rethrow in debug, so we have the stack trace.
 		debug {

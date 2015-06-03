@@ -7,8 +7,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 Expression buildImplicitCast(SemanticPass pass, Location location, Type to, Expression e) {
 	return build!false(pass, location, to, e);

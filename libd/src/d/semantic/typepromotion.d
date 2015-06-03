@@ -5,8 +5,9 @@ import d.semantic.semantic;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;

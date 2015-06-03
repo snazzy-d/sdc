@@ -4,9 +4,8 @@ import d.ir.symbol;
 
 import d.ast.conditional;
 
-import d.base.name;
-
-import d.location;
+import d.context.location;
+import d.context.name;
 
 // XXX: move this to a more apropriate place ?
 final class OverloadSet : Symbol {
@@ -266,7 +265,7 @@ class CapturingScope(S) : S  if(is(S : SymbolScope)){
 		
 		auto s = parent.search(name);
 
-		import d.base.qualifier;
+		import d.common.qualifier;
 		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isNonLocal) {
 			capture[() @trusted {
 				// Fast cast can be trusted in this case, we already did the check.

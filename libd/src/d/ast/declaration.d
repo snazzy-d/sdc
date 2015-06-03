@@ -4,8 +4,8 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-import d.base.name;
-import d.base.node;
+import d.context.name;
+import d.common.node;
 
 /**
  * Any declaration.

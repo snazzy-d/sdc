@@ -2,11 +2,11 @@ module d.ir.type;
 
 import d.ir.symbol;
 
-public import d.base.builtintype;
-public import d.base.qualifier;
+public import d.common.builtintype;
+public import d.common.qualifier;
 
-import d.base.name;
-import d.base.type;
+import d.context.name;
+import d.common.type;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -324,7 +324,7 @@ public:
 	string toUnqualString(const ref NameManager nm) const {
 		final switch(kind) with(TypeKind) {
 			case Builtin :
-				import d.base.builtintype : toString;
+				import d.common.builtintype : toString;
 				return toString(builtin);
 			
 			case Struct :
@@ -468,7 +468,7 @@ unittest {
 }
 
 unittest {
-	import d.base.name, d.location, d.ir.symbol;
+	import d.context.location, d.context.name, d.ir.symbol;
 	auto c = new Class(Location.init, BuiltinName!"", []);
 	auto tc = Type.get(c);
 	assert(tc.isAggregate);
@@ -581,5 +581,4 @@ union Payload {
 	// For simple construction
 	Symbol sym;
 	Aggregate agg;
-};
-
+}

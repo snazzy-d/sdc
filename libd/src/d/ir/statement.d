@@ -4,7 +4,7 @@ import d.ir.expression;
 
 import d.ast.statement;
 
-import d.location;
+import d.context.location;
 
 class Statement : AstStatement {
 	this(Location location) {
@@ -68,7 +68,7 @@ class ContinueStatement : Statement {
  * goto statements
  */
 class GotoStatement : Statement {
-	import d.base.name;
+	import d.context.name;
 	Name label;
 	
 	this(Location location, Name label) {

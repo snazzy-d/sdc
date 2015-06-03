@@ -93,7 +93,7 @@ struct SymbolAnalyzer {
 		manglePrefix ~= to!string(name.length) ~ name;
 		
 		// All modules implicitely import object.
-		import d.semantic.declaration, d.base.name;
+		import d.semantic.declaration, d.context.name;
 		m.members = DeclarationVisitor(pass, Storage.Static)
 			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
 		m.step = Step.Populated;
@@ -121,7 +121,7 @@ struct SymbolAnalyzer {
 		if (f.hasContext) {
 			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
 			
-			import d.base.name;
+			import d.context.name;
 			auto contextParameter = new Variable(f.location, Type.getContextType(ctxSym).getParamType(true, false), BuiltinName!"__ctx");
 			params = contextParameter ~ params;
 		}
@@ -146,7 +146,7 @@ struct SymbolAnalyzer {
 			f.step = Step.Signed;
 		}
 		
-		import d.base.name;
+		import d.context.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		if (isCtor) {
 			assert(f.hasThis, "Constructor must have a this pointer");
@@ -398,7 +398,7 @@ struct SymbolAnalyzer {
 			: new AggregateScope(s, oldScope);
 		
 		// XXX: d is hijacked without explicit import
-		import d.base.name : BuiltinName;
+		import d.context.name : BuiltinName;
 		fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
@@ -478,7 +478,7 @@ struct SymbolAnalyzer {
 			: new AggregateScope(u, oldScope);
 		
 		// XXX: d is hijacked without explicit import
-		import d.base.name : BuiltinName;
+		import d.context.name : BuiltinName;
 
 		fieldIndex = 0;
 		Field[] fields;
@@ -592,7 +592,7 @@ struct SymbolAnalyzer {
 			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
 			
 			// XXX: d is hijacked without explicit import
-			import d.base.name : BuiltinName;
+			import d.context.name : BuiltinName;
 
 			// TODO: use defaultinit.
 			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
@@ -627,7 +627,7 @@ struct SymbolAnalyzer {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
-			import d.base.name;
+			import d.context.name;
 			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
 			ctx.step = Step.Processed;
 			

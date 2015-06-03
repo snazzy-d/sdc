@@ -54,7 +54,7 @@ private:
 		uint, "", 2,
 	));
 	
-	import d.base.name;
+	import d.context.name;
 	uint[Name] labelBlocks;
 	uint[][][Name] inFlightGotosStacks;
 	
@@ -777,9 +777,9 @@ public:
 		import d.semantic.expression;
 		auto str = evalString(ExpressionVisitor(pass).visit(s.value));
 		
-		import d.lexer;
-		auto source = new MixinSource(s.location, str);
-		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
+		import d.lexer, d.context.source;
+		auto base = context.registerMixin(s.location, str ~ '\0');
+		auto trange = lex(base, context);
 		
 		trange.match(TokenType.Begin);
 		while(trange.front.type != TokenType.End) {

@@ -629,7 +629,7 @@ unittest {
 unittest {
 	auto vrp = ValueRangePropagator();
 	
-	import d.location;
+	import d.context.location;
 	auto v = vrp.visit(new BooleanLiteral(Location.init, false));
 	assert(v.min == false);
 	assert(v.max == false);
@@ -650,7 +650,7 @@ unittest {
 unittest {
 	auto vrp = ValueRangePropagator();
 	
-	import d.location;
+	import d.context.location;
 	auto i1 = new IntegerLiteral!true(Location.init, -9, BuiltinType.Int);
 	auto i2 = new IntegerLiteral!true(Location.init, 42, BuiltinType.Int);
 	
@@ -680,7 +680,7 @@ unittest {
 unittest {
 	auto vrp = ValueRangePropagator();
 	
-	import d.location;
+	import d.context.location;
 	auto i = new IntegerLiteral!false(Location.init, cast(uint) -6, BuiltinType.Uint);
 	
 	auto v = vrp.visit(new CastExpression(Location.init, CastKind.Bit, Type.get(BuiltinType.Ubyte), i));

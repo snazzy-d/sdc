@@ -2,9 +2,8 @@ module d.ast.dmodule;
 
 import d.ast.declaration;
 
-import d.base.name;
-
-import d.location;
+import d.context.location;
+import d.context.name;
 
 // TODO: merge into declaration.
 /**
@@ -37,4 +36,3 @@ class Module : Package {
 		this.declarations = declarations;
 	}
 }
-

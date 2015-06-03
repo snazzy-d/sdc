@@ -1,4 +1,4 @@
-module d.base.builtintype;
+module d.common.builtintype;
 
 // Byte, Ubyte instead of Ubyte, Byte
 enum BuiltinType : ubyte {
@@ -194,7 +194,7 @@ uint getSize(BuiltinType t) {
 			return 1 << (t - Float + 2);
 		
 		case None, Void, Real, Null :
-			assert(0, "Use SizeofVisitor");		
+			assert(0, "Use SizeofVisitor");
 	}
 }
 
@@ -310,4 +310,3 @@ unittest {
 	assert(getCharMax(BuiltinType.Wchar) == 0xffff);
 	assert(getCharMax(BuiltinType.Dchar) == 0x10ffff);
 }
-

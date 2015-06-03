@@ -236,9 +236,9 @@ struct DeclarationVisitor {
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.lexer, d.location, d.ir.expression;
-		auto source = new MixinSource(location, str);
-		auto trange = lex!((line, begin, length) => Location(source, line, begin, length))(str ~ '\0', context);
+		import d.lexer, d.context.source, d.ir.expression;
+		auto base = context.registerMixin(location, str ~ '\0');
+		auto trange = lex(base, context);
 		
 		import d.parser.base;
 		trange.match(TokenType.Begin);

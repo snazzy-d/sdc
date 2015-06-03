@@ -21,11 +21,10 @@ import d.ir.type;
 
 import d.parser.base;
 
-import d.base.name;
+import d.context.name;
+import d.context.source;
 
 import d.exception;
-import d.lexer;
-import d.location;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
@@ -39,7 +38,7 @@ alias ReturnStatement = d.ir.statement.ReturnStatement;
 final class SemanticPass {
 	private ModuleVisitor moduleVisitor;
 	
-	import d.base.context;
+	import d.context.context;
 	Context context;
 	
 	import d.semantic.evaluator;
@@ -80,34 +79,35 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, DataLayout dataLayout, SourceFactory sourceFactory) {
+	this(Context context, Evaluator evaluator, DataLayout dataLayout, string[] includePaths) {
 		this.context	= context;
 		this.evaluator	= evaluator;
 		this.dataLayout	= dataLayout;
 		
-		moduleVisitor	= new ModuleVisitor(this, sourceFactory);
+		moduleVisitor	= new ModuleVisitor(this, includePaths);
 		scheduler		= new Scheduler(this);
 		
-		import d.base.name;
+		import d.context.name;
 		auto obj	= importModule([BuiltinName!"object"]);
 		this.object	= new ObjectReference(obj);
 		
 		scheduler.require(obj, Step.Populated);
 	}
 	
-	AstModule parse(S)(S source, PackageNames packages) if(is(S : Source)) {
-		auto trange = lex!((line, index, length) => Location(source, line, index, length))(source.content, context);
+	AstModule parse(string filename, PackageNames packages) {
+		import d.lexer;
+		auto base = context.registerFile(filename);
+		auto trange = lex(base, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
 	
-	Module add(Source source, PackageNames packages) {
-		auto astm = parse(source, packages);
+	Module add(string filename, PackageNames packages) {
+		auto astm = parse(filename, packages);
 		auto mod = moduleVisitor.modulize(astm);
 		
 		moduleVisitor.preregister(mod);
 		
 		scheduler.schedule(astm, mod);
-		
 		return mod;
 	}
 	
@@ -131,6 +131,8 @@ final class SemanticPass {
 		return moduleVisitor.importModule(pkgs);
 	}
 	
+	// XXX: Move that somewhere else
+	import d.context.location;
 	T raiseCondition(T)(Location location, string message) {
 		if (buildErrorNode) {
 			static if(is(T == Type)) {
@@ -193,7 +195,7 @@ final class SemanticPass {
 private:
 
 auto getDefaultVersions() {
-	import d.base.name;
+	import d.context.name;
 	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64"];
 	
 	version(linux) {

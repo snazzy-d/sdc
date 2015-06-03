@@ -42,7 +42,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 		case OpenParen :
 			trange.popFront();
 			
-			import d.base.name;
+			import d.context.name;
 			Name versionId;
 			switch(trange.front.type) {
 				case Identifier :

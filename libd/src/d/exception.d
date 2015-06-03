@@ -4,20 +4,15 @@
  */
 module d.exception;
 
-import std.algorithm;
-import std.stdio;
-import std.string;
-
-import d.location;
-
 class CompileException : Exception {
+	import d.context.location;
 	Location location;
 	
 	CompileException more; // Optional
 	string fixHint; // Optional
 	
 	this(Location loc, string message) {
-		super(format("%s: error: %s", loc.toString(), message));
+		super(message);
 		location = loc;
 	}
 	
@@ -25,5 +20,9 @@ class CompileException : Exception {
 		this.more = more;
 		this(loc, message);
 	}
-}
 
+	import d.context.context;
+	auto getFullLocation(Context c) const {
+		return location.getFullLocation(c);
+	}
+}

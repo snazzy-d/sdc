@@ -1,4 +1,4 @@
-module d.base.name;
+module d.context.name;
 
 struct Name {
 private:

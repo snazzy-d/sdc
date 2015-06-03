@@ -1,4 +1,4 @@
-module d.base.qualifier;
+module d.common.qualifier;
 
 enum Visibility {
 	Private,
@@ -107,4 +107,3 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 			return from == Shared || from == Immutable;
 	}
 }
-

@@ -11,10 +11,6 @@ import util.visitor;
 
 import llvm.c.core;
 
-import std.algorithm;
-import std.array;
-import std.string;
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -129,6 +125,7 @@ final class TypeGen {
 			return *st;
 		}
 		
+		import std.string;
 		return typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
 	}
 	
@@ -157,6 +154,7 @@ final class TypeGen {
 			return *ut;
 		}
 		
+		import std.string;
 		return typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
 	}
 	
@@ -234,6 +232,7 @@ final class TypeGen {
 			return *ct;
 		}
 		
+		import std.string;
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
@@ -261,7 +260,10 @@ final class TypeGen {
 			}
 		}
 		
+		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+
+		import std.string;
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) (c.mangle ~ "__vtbl").toStringz());
 		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
 		
@@ -307,6 +309,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(Function f) {
 		return funCtxTypes.get(f, {
+			import std.string;
 			return funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
 		}());
 	}
@@ -321,6 +324,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(FunctionType f) {
+		import std.algorithm, std.array;
 		auto params = f.getDelegate(0).parameters.map!(p => buildParamType(p)).array();
 		auto fun = LLVMPointerType(LLVMFunctionType(buildParamType(f.returnType), params.ptr, cast(uint) params.length, f.isVariadic), 0);
 		
@@ -339,6 +343,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Type[] seq) {
+		import std.algorithm, std.array;
 		auto types = seq.map!(t => visit(t)).array();
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, cast(uint) types.length, false);
 	}

@@ -9,7 +9,6 @@ import d.llvm.string;
 import d.llvm.symbol;
 import d.llvm.type;
 
-import d.location;
 import d.object;
 
 import util.visitor;
@@ -19,7 +18,7 @@ import llvm.c.core;
 import llvm.c.target;
 
 final class CodeGenPass {
-	import d.base.context;
+	import d.context.context;
 	Context context;
 	
 	private SymbolGen symbolGen;

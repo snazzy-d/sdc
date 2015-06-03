@@ -4,8 +4,8 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.type;
 
-import d.base.name;
-import d.base.node;
+import d.context.name;
+import d.common.node;
 
 abstract class Identifier : Node {
 	Name name;

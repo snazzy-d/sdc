@@ -23,7 +23,7 @@ private:
 	string linkerParams;
 	
 public:
-	import d.base.context;
+	import d.context.context;
 	this(Context context, string name, uint optLevel, string linkerParams) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();

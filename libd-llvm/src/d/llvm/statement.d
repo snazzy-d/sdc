@@ -24,7 +24,7 @@ struct StatementGen {
 	LabelBlock breakBlock;
 	LabelBlock defaultBlock;
 	
-	import d.base.name;
+	import d.context.name;
 	LabelBlock[Name] labels;
 	
 	// Forward goto can only be resolved when the label is reached.

@@ -16,7 +16,7 @@ import d.ast.type;
 
 import d.ir.expression;
 
-import d.base.name;
+import d.context.name;
 
 /**
  * Parse a set of declarations.

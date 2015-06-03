@@ -7,15 +7,16 @@ module sdc.terminal;
 
 import std.stdio;
 
-import d.location;
+import d.context.sourcemanager;
 
 version(Windows) {
 	import std.c.windows.windows;
 }
 
-void outputCaretDiagnostics(Location loc, string fixHint) {
-	uint start = loc.index;
-	auto content = loc.source.content;
+void outputCaretDiagnostics(FullLocation loc, string fixHint) {
+	uint offset = loc.getStartOffset();
+	uint start = offset;
+	auto content = loc.getContent();
 
 	// This is unexpected end of input.
 	if (start == content.length) {
@@ -24,6 +25,7 @@ void outputCaretDiagnostics(Location loc, string fixHint) {
 		while(start > 0 && isWhite(content[--start])) {}
 	}
 	
+	// XXX: We could probably use infos from source manager here.
 	FindStart: while(start > 0) {
 		switch(content[start]) {
 			case '\n':
@@ -36,10 +38,11 @@ void outputCaretDiagnostics(Location loc, string fixHint) {
 		}
 	}
 	
-	uint end = loc.index + loc.length;
+	uint length = loc.length;
+	uint end = offset + loc.length;
 	
 	// This is unexpected end of input.
-	if(end > content.length) {
+	if (end > content.length) {
 		end = cast(uint) content.length;
 	}
 	
@@ -55,17 +58,12 @@ void outputCaretDiagnostics(Location loc, string fixHint) {
 	}
 	
 	auto line = content[start .. end];
-	uint index = loc.index - start;
-	uint length = loc.length;
-	
+	uint index = offset - start;
+
 	// Multi line location
-	if(index < line.length && index + length > line.length) {
+	if (index < line.length && index + length > line.length) {
 		length = cast(uint) line.length - index;
 	}
-	
-	writeColouredText(stderr, ConsoleColour.Green, {
-		stderr.writeln(line);
-	});
 	
 	char[] underline;
 	underline.length = index + length;
@@ -77,86 +75,44 @@ void outputCaretDiagnostics(Location loc, string fixHint) {
 	foreach(i; index + 1 .. index + length) {
 		underline[i] = '~';
 	}
+
+	stderr.write(loc.isMixin() ? "mixin" : loc.getFileName(), ":", loc.getStartLineNumber(), ":", index, ":");
+	stderr.writeColouredText(ConsoleColour.Red, " error: ");
+	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");
 	
-	writeColouredText(stderr, ConsoleColour.Yellow, {
-		stderr.writeln(underline);
-	});
+	stderr.writeln(line);
+	stderr.writeColouredText(ConsoleColour.Green, underline, "\n");
 	
-	if(fixHint !is null) {
-		writeColouredText(stderr, ConsoleColour.Yellow, {
-			stderr.writeln(underline[0 .. index], fixHint);
-		});
-	}
-	
-	if(auto fileSource = cast(FileSource) loc.source) {
-		writeColouredText(stderr, ConsoleColour.Blue, {
-			stderr.writeln(fileSource.filename, " line ", loc.line);
-		});
-	} else if(auto mixinSource = cast(MixinSource) loc.source) {
-		writeColouredText(stderr, ConsoleColour.Blue, {
-			stderr.writeln("Line ", loc.line, " expanded from mixin :");
-		});
-		
-		outputCaretDiagnostics(mixinSource.location, null);
+	if (loc.isMixin()) {
+		outputCaretDiagnostics(loc.getImportLocation(), "mixed in at");
 	}
 }
 
-version(Windows) {
-	enum ConsoleColour : WORD {
-		Red		= FOREGROUND_RED,
-		Green	= FOREGROUND_GREEN,
-		Blue	= FOREGROUND_BLUE,
-		Yellow	= FOREGROUND_RED | FOREGROUND_GREEN,
-	}
-} else {
-	/*
-	 * ANSI colour codes per ECMA-48 (minus 30).
-	 * e.g., Yellow = 3 + 30 = 33.
-	 */
-	enum ConsoleColour {
-		Black	= 0,
-		Red		= 1,
-		Green	= 2,
-		Yellow	= 3,
-		Blue	= 4,
-		Magenta	= 5,
-		Cyan	= 6,
-		White	= 7,
-	}
+/*
+ * ANSI colour codes per ECMA-48 (minus 30).
+ * e.g., Yellow = 3 + 30 = 33.
+ */
+enum ConsoleColour {
+	Black	= 0,
+	Red		= 1,
+	Green	= 2,
+	Yellow	= 3,
+	Blue	= 4,
+	Magenta	= 5,
+	Cyan	= 6,
+	White	= 7,
 }
 
-void writeColouredText(File pipe, ConsoleColour colour, scope void delegate() dg) {
+void writeColouredText(T...)(File pipe, ConsoleColour colour, T t) {
 	bool coloursEnabled = true;  // XXX: Fix me!
-	if(coloursEnabled) {
-		scope (exit) {
-			version(Windows) {
-				SetConsoleTextAttribute(handle, termInfo.wAttributes);
-			} else {
-				pipe.write("\x1b[0m");
-			}
-		}
-		version(Windows) {
-			HANDLE handle;
-			
-			if(pipe == stderr) {
-				handle = GetStdHandle(STD_ERROR_HANDLE);
-			} else {
-				handle = GetStdHandle(STD_OUTPUT_HANDLE);
-			}
-			
-			CONSOLE_SCREEN_BUFFER_INFO termInfo;
-			GetConsoleScreenBufferInfo(handle, &termInfo);
-			
-			SetConsoleTextAttribute(handle, colour);
-		} else {
-			static char[5] ansiSequence = [0x1B, '[', '3', '0', 'm'];
-			ansiSequence[3] = cast(char)(colour + '0');
-			pipe.write(ansiSequence);
-		}
-		
-		dg();
-	} else {
-		dg();
-	}
-}
 
+	if (!coloursEnabled) {
+		pipe.write(t);
+	}
+
+	char[5] ansiSequence = [0x1b, '[', '3', '0', 'm'];
+	ansiSequence[3] = cast(char)(colour + '0');
+
+	// XXX: use \e]11;?\a to get the color to restore
+	pipe.write(ansiSequence, t, "\x1b[0m");
+}

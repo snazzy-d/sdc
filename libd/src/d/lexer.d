@@ -116,35 +116,32 @@ enum TokenType {
 	Hash,				// #
 }
 
-import d.base.context;
+import d.context.context;
+import d.context.location;
+import d.context.source;
 
-struct Token(Location) {
+struct Token {
 	Location location;
 	TokenType type;
-	
-	import d.base.name;
+
+	import d.context.name;
 	Name name;
 }
 
-auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
-	alias Location = typeof(locationProvider(0, 0, 0));
-	alias Token = .Token!Location;
-	
-	struct Lexer {
+auto lex(Position base, Context context) {
+	static struct Lexer {
 		static assert(isForwardRange!Lexer);
 		
 		Token t;
-		R r;
+		string content;
 		
 		Context context;
-		
-		uint line = 1;
+
+		Position base;
 		uint index;
 		
-		/*
-		@disable
-		this(this);
-		*/
+		// We don't want the lexer to be copyable. Use save.
+		@disable this(this);
 		
 		@property
 		auto front() inout {
@@ -163,7 +160,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		
 		@property
 		auto save() inout {
-			return inout(Lexer)(t, r.save, context, line, index);
+			return inout(Lexer)(t, content, context, base, index);
 		}
 		
 		@property
@@ -171,7 +168,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			return t.type == TokenType.End;
 		}
 		
-	private :
+	private:
 		auto getNextToken() {
 			while(1) {
 				// pragma(msg, lexerMixin());
@@ -180,118 +177,78 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		}
 		
 		void popChar() {
-			r.popFront();
+			content.popFront();
 			index++;
 		}
 		
 		auto lexWhiteSpace(string s)() {
-			static if(s == "\n" || s == "\r" || s == "\r\n") {
-				line++;
-			}
+			// Just skip over whitespace.
 		}
 		
 		auto lexComment(string s)() {
-			auto c = r.front;
+			auto c = content.front;
 			
-			static if(s == "//") {
+			static if (s == "//") {
 				// TODO: check for unicode line break.
 				while(c != '\n' && c != '\r') {
 					popChar();
-					c = r.front;
+					c = content.front;
 				}
 				
 				popChar();
-				if(c == '\r') {
-					if(r.front == '\n') popChar();
+				if (c == '\r') {
+					if (content.front == '\n') popChar();
 				}
-				
-				line++;
 			} else static if(s == "/*") {
 				Pump: while(1) {
 					// TODO: check for unicode line break.
-					while(c != '*' && c != '\r' && c != '\n') {
+					while(c != '*') {
 						popChar();
-						c = r.front;
+						c = content.front;
 					}
 					
 					auto match = c;
 					popChar();
-					c = r.front;
+					c = content.front;
 					
-					switch(match) {
-						case '*' :
-							if(c == '/') {
-								popChar();
-								break Pump;
-							}
-							
-							break;
-						
-						case '\r' :
-							// \r\n is a special case.
-							if(c == '\n') {
-								popChar();
-								c = r.front;
-							}
-							
-							line++;
-							break;
-						
-						case '\n' :
-							line++;
-							break;
-						
-						default :
-							assert(0, "Unrecheable.");
+					if (c == '/') {
+						popChar();
+						break Pump;
 					}
 				}
 			} else static if(s == "/+") {
 				uint stack = 0;
 				Pump: while(1) {
 					// TODO: check for unicode line break.
-					while(c != '+' && c != '/' && c != '\r' && c != '\n') {
+					while(c != '+' && c != '/') {
 						popChar();
-						c = r.front;
+						c = content.front;
 					}
 					
 					auto match = c;
 					popChar();
-					c = r.front;
+					c = content.front;
 					
 					switch(match) {
 						case '+' :
-							if(c == '/') {
+							if (c == '/') {
 								popChar();
 								if(!stack) break Pump;
 								
-								c = r.front;
+								c = content.front;
 								stack--;
 							}
 							
 							break;
 						
 						case '/' :
-							if(c == '+') {
+							if (c == '+') {
 								popChar();
-								c = r.front;
+								c = content.front;
 								
 								stack++;
 							}
 							
-							break;
-						
-						case '\r' :
-							// \r\n is a special case.
-							if(c == '\n') {
-								popChar();
-								c = r.front;
-							}
-							
-							line++;
-							break;
-						
-						case '\n' :
-							line++;
 							break;
 						
 						default :
@@ -305,19 +262,19 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		
 		auto lexIdentifier(string s)() {
 			static if(s == "") {
-				auto c = r.front;
+				auto c = content.front;
 				
-				if(isIdChar(c)) {
+				if (isIdChar(c)) {
 					return lexIdentifier(s);
 				} else if(c & 0x80) {
 					size_t l;
-					auto save = r.save;
+					auto save = content;
 					auto u = save.decodeFront(l);
 					
-					if(isUniAlpha(u)) {
+					if (isUniAlpha(u)) {
 						char[4] encoded;
 						for(uint i = 0; i < l; i++) {
-							encoded[i] = r.front;
+							encoded[i] = content.front;
 							popChar();
 						}
 						
@@ -340,26 +297,26 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		} body {
 			Token t;
 			t.type = TokenType.Identifier;
-			uint l = line, begin = cast(uint) (index - prefix.length);
+			auto begin = base.getWithOffset(index - cast(uint) prefix.length);
 			
 			mixin CharPumper;
 			
 			putString(prefix);
-			pumpChars!isIdChar(r);
+			pumpChars!isIdChar(content);
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(begin, base.getWithOffset(index));
 			t.name = getValue();
 			
 			return t;
 		}
 		
 		auto lexEscapeSequence() in {
-			assert(r.front == '\\', r.front ~ " is not a valid escape sequence.");
+			assert(content.front == '\\', content.front ~ " is not a valid escape sequence.");
 		} body {
 			popChar();
 			scope(success) popChar();
 			
-			switch(r.front) {
+			switch(content.front) {
 				case '\'' :
 					return '\'';
 				
@@ -402,7 +359,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		}
 		
 		auto lexEscapeChar() {
-			auto c = r.front;
+			auto c = content.front;
 			switch(c) {
 				case '\0' :
 					assert(0, "unexpected end :(");
@@ -428,48 +385,26 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		} body {
 			Token t;
 			t.type = TokenType.StringLiteral;
-			uint l = line, begin = cast(uint) (index - s.length);
+			auto begin = base.getWithOffset(index - cast(uint) s.length);
 			
-			auto c = r.front;
+			auto c = content.front;
 			
 			static if(s == "\"") {
 				mixin CharPumper!false;
 				
 				Pump: while(1) {
 					// TODO: check for unicode line break.
-					while(c != '\"' && c != '\r' && c != '\n') {
+					while(c != '\"') {
 						putChar(lexEscapeChar());
-						c = r.front;
+						c = content.front;
 					}
 					
+					// End of string.
 					popChar();
-					switch(c) {
-						case '\"' :
-							// End of string.
-							break Pump;
-						
-						case '\r' :
-							c = r.front;
-							
-							// \r\n is a special case.
-							if(c == '\n') {
-								popChar();
-								c = r.front;
-							}
-							
-							line++;
-							break;
-						
-						case '\n' :
-							line++;
-							break;
-						
-						default :
-							assert(0, "Unrecheable.");
-					}
+					break Pump;
 				}
 				
-				t.location = locationProvider(l, begin, index - begin);
+				t.location = Location(begin, base.getWithOffset(index));
 				t.name = getValue();
 				
 				return t;
@@ -481,17 +416,17 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		auto lexChar(string s)() if(s == "'") {
 			Token t;
 			t.type = TokenType.CharacterLiteral;
-			uint l = line, begin = index - 1;
+			auto begin = base.getWithOffset(index - 1);
 			
 			t.name = context.getName([lexEscapeChar()]);
 			
-			if(r.front != '\'') {
+			if (content.front != '\'') {
 				assert(0, "booya !");
 			}
 			
 			popChar();
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(begin, base.getWithOffset(index));
 			return t;
 		}
 		
@@ -502,13 +437,13 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		Token lexNumeric(string s)() if(s.length == 2 && s[0] == '0') {
 			Token t;
 			t.type = TokenType.IntegerLiteral;
-			uint l = line, begin = index - 1;
+			auto begin = base.getWithOffset(index - 1);
 			
 			mixin CharPumper!false;
 			
 			putString(s);
 			
-			auto c = r.front;
+			auto c = content.front;
 			switch(s[1]) {
 				case 'B', 'b' :
 					assert(c == '0' || c == '1', "invalid integer literal");
@@ -516,12 +451,12 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 						while(c == '0' || c == '1') {
 							putChar(c);
 							popChar();
-							c = r.front;
+							c = content.front;
 						}
 						
 						if(c == '_') {
 							popChar();
-							c = r.front;
+							c = content.front;
 							continue;
 						}
 						
@@ -536,12 +471,12 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 						while((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
 							putChar(c);
 							popChar();
-							c = r.front;
+							c = content.front;
 						}
 						
 						if(c == '_') {
 							popChar();
-							c = r.front;
+							c = content.front;
 							continue;
 						}
 						
@@ -559,8 +494,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
-					if(c == 'L' || c == 'l') {
+					c = content.front;
+					if (c == 'L' || c == 'l') {
 						putChar(c);
 						popChar();
 					}
@@ -571,8 +506,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
-					if(c == 'U' || c == 'u') {
+					c = content.front;
+					if (c == 'U' || c == 'u') {
 						putChar(c);
 						popChar();
 					}
@@ -583,7 +518,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					break;
 			}
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(begin, base.getWithOffset(index));
 			t.name = getValue();
 			
 			return t;
@@ -592,23 +527,23 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 		auto lexNumeric()(char c) {
 			Token t;
 			t.type = TokenType.IntegerLiteral;
-			uint l = line, begin = index - 1;
+			auto begin = base.getWithOffset(index - 1);
 			
 			mixin CharPumper!false;
 			
 			assert(c >= '0' && c <= '9', "invalid integer literal");
 			putChar(c);
-			c = r.front;
+			c = content.front;
 			while(1) {
 				while(c >= '0' && c <= '9') {
 					putChar(c);
 					popChar();
-					c = r.front;
+					c = content.front;
 				}
 				
-				if(c == '_') {
+				if (c == '_') {
 					popChar();
-					c = r.front;
+					c = content.front;
 					continue;
 				}
 				
@@ -617,7 +552,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			switch(c) {
 				case '.' :
-					auto lookAhead = r.save;
+					auto lookAhead = content;
 					lookAhead.popFront();
 					
 					if(lookAhead.front.isDigit()) {
@@ -626,7 +561,7 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 						
 						t.type = TokenType.FloatLiteral;
 						
-						pumpChars!isDigit(r);
+						pumpChars!isDigit(content);
 					}
 					
 					break;
@@ -635,8 +570,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
-					if(c == 'L' || c == 'l') {
+					c = content.front;
+					if (c == 'L' || c == 'l') {
 						putChar(c);
 						popChar();
 					}
@@ -647,8 +582,8 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					putChar(c);
 					popChar();
 					
-					c = r.front;
-					if(c == 'U' || c == 'u') {
+					c = content.front;
+					if (c == 'U' || c == 'u') {
 						putChar(c);
 						popChar();
 					}
@@ -659,22 +594,22 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 					break;
 			}
 			
-			t.location = locationProvider(l, begin, index - begin);
+			t.location = Location(begin, base.getWithOffset(index));
 			t.name = getValue();
 			
 			return t;
 		}
 		
 		auto lexKeyword(string s)() {
-			auto c = r.front;
-			if(isIdChar(c)) {
+			auto c = content.front;
+			if (isIdChar(c)) {
 				return lexIdentifier!s();
-			} else if(c & 0x80) {
+			} else if (c & 0x80) {
 				size_t l;
-				auto save = r.save;
+				auto save = content;
 				auto u = save.decodeFront(l);
 				
-				if(isUniAlpha(u)) {
+				if (isUniAlpha(u)) {
 					// Double decoding here, but shouldn't be a problem as it should be rare enough.
 					return lexIdentifier!s();
 				}
@@ -686,9 +621,9 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			Token t;
 			t.type = type;
-			t.location = locationProvider(line, index - l, l);
+			t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-			import d.base.name;
+			import d.context.name;
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -701,9 +636,9 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 			
 			Token t;
 			t.type = type;
-			t.location = locationProvider(line, index - l, l);
+			t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-			import d.base.name;
+			import d.context.name;
 			t.name = BuiltinName!s;
 			
 			return t;
@@ -712,26 +647,25 @@ auto lex(alias locationProvider, R)(R r, Context context) if(isForwardRange!R) {
 	
 	auto lexer = Lexer();
 	
-	lexer.r = r.save;
+	lexer.content = base.getFullPosition(context).getContent();
 	lexer.t.type = TokenType.Begin;
-	lexer.t.location = locationProvider(0, 0, 0);
+	lexer.t.location = Location(base, base);
 	
 	lexer.context = context;
+	lexer.base = base;
 	
 	// Pop #!
-	auto c = lexer.r.front;
+	auto c = lexer.content.front;
 	if (c == '#') {
 		do {
 			lexer.popChar();
-			c = lexer.r.front;
+			c = lexer.content.front;
 		} while(c != '\n' && c != '\r');
 		
 		lexer.popChar();
-		if(c == '\r') {
-			if(lexer.r.front == '\n') lexer.popChar();
+		if (c == '\r') {
+			if (lexer.content.front == '\n') lexer.popChar();
 		}
-		
-		lexer.line++;
 	}
 	
 	return lexer;
@@ -769,23 +703,23 @@ mixin template CharPumper(bool decode = true) {
 		char c;
 		
 		Begin:
-		if(i < BufferSize) {
+		if (i < BufferSize) {
 			do {
 				c = r.front;
 				
-				if(condition(c)) {
+				if (condition(c)) {
 					buffer[i++] = c;
 					popChar();
 					
 					continue;
 				} else static if(decode) {
 					// Check if if have an unicode character.
-					if(c & 0x80) {
+					if (c & 0x80) {
 						size_t l;
-						auto save = r.save;
+						auto save = content;
 						auto u = save.decodeFront(l);
 						
-						if(condition(u)) {
+						if (condition(u)) {
 							while(l--) {
 								putChar(r.front);
 								popChar();
@@ -806,7 +740,7 @@ mixin template CharPumper(bool decode = true) {
 		while(1) {
 			 c = r.front;
 			 
-			 if(condition(c)) {
+			 if (condition(c)) {
 				heapBuffer ~= c;
 				popChar();
 				
@@ -815,7 +749,7 @@ mixin template CharPumper(bool decode = true) {
 				// Check if if have an unicode character.
 				if(c & 0x80) {
 					size_t l;
-					auto save = r.save;
+					auto save = content;
 					auto u = save.decodeFront(l);
 					
 					if(condition(u)) {
@@ -834,7 +768,7 @@ mixin template CharPumper(bool decode = true) {
 	}
 	
 	void putChar(char c) {
-		if(i < BufferSize) {
+		if (i < BufferSize) {
 			buffer[i++] = c;
 			
 			if(i == BufferSize) {
@@ -848,10 +782,10 @@ mixin template CharPumper(bool decode = true) {
 	
 	void putString(string s) {
 		auto finalSize = i + s.length;
-		if(finalSize < BufferSize) {
+		if (finalSize < BufferSize) {
 			buffer[i .. finalSize][] = s[];
 			i = finalSize;
-		} else if(i < BufferSize) {
+		} else if (i < BufferSize) {
 			heapBuffer.reserve(finalSize);
 			heapBuffer ~= buffer[0 .. i];
 			heapBuffer ~= s;
@@ -1136,7 +1070,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	}
 	
 	auto ret = "
-		switch(r.front) {";
+		switch(content.front) {";
 	
 	foreach(c, ids; nextLevel) {
 		// TODO: have a real function to handle that.
@@ -1184,4 +1118,3 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	
 	return ret;
 }
-

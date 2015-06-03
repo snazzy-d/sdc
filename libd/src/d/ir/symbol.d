@@ -5,8 +5,8 @@ import d.ir.expression;
 import d.ir.statement;
 import d.ir.type;
 
-import d.base.name;
-import d.base.node;
+import d.context.name;
+import d.common.node;
 
 enum Step {
 	Parsed,

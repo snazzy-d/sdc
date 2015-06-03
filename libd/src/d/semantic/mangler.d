@@ -5,10 +5,6 @@ import d.semantic.semantic;
 import d.ir.symbol;
 import d.ir.type;
 
-// XXX: top level for UFCS
-import std.algorithm;
-import std.array;
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -188,6 +184,8 @@ struct TypeMangler {
 	string visit(FunctionType f) {
 		auto base = f.contexts.length ? "D" : "";
 		auto linkage = mangleLinkage(f.linkage);
+
+		import std.algorithm, std.range;
 		auto args = f.parameters.map!(p => mangleParam(p)).join();
 		auto ret = mangleParam(f.returnType);
 		return base ~ linkage ~ args ~ "Z" ~ ret;
@@ -258,7 +256,7 @@ unittest {
 
 unittest {
 	void check(string s, string m) {
-		import d.location, d.ir.expression;
+		import d.context.location, d.ir.expression;
 		auto sl = new StringLiteral(Location.init, s);
 		
 		assert(ValueMangler().visit(sl) == m);

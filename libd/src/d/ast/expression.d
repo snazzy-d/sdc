@@ -5,8 +5,8 @@ import d.ast.identifier;
 import d.ast.statement;
 import d.ast.type;
 
-import d.base.name;
-import d.base.node;
+import d.context.name;
+import d.common.node;
 
 abstract class AstExpression : Node {
 	this(Location location) {

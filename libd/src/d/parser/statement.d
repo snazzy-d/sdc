@@ -252,7 +252,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 		case Goto :
 			trange.popFront();
 			
-			import d.base.name;
+			import d.context.name;
 			Name label;
 			switch(trange.front.type) {
 				case Identifier :
@@ -293,7 +293,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto name = trange.front.name;
 			trange.match(Identifier);
 			
-			import d.base.name;
+			import d.context.name;
 			ScopeKind kind;
 			if (name == BuiltinName!"exit") {
 				kind = ScopeKind.Exit;
@@ -337,7 +337,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 					import d.parser.identifier;
 					auto type = trange.parseIdentifier();
 					
-					import d.base.name;
+					import d.context.name;
 					Name name;
 					if(trange.front.type == Identifier) {
 						name = trange.front.name;

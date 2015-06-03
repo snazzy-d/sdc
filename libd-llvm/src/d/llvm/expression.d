@@ -6,16 +6,13 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 import util.visitor;
 
 import llvm.c.core;
-
-import std.algorithm;
-import std.array;
-import std.string;
 
 struct ExpressionGen {
 	private CodeGenPass pass;
@@ -32,8 +29,7 @@ struct ExpressionGen {
 	}
 	
 	private LLVMValueRef addressOf(Expression e) {
-		auto aog = AddressOfGen(pass);
-		return aog.visit(e);
+		return AddressOfGen(pass).visit(e);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -490,6 +486,8 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(NewExpression e) {
 		auto ctor = visit(e.ctor);
+		
+		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
@@ -540,10 +538,12 @@ struct ExpressionGen {
 		
 		// Emit bound check fail code.
 		LLVMPositionBuilderAtEnd(builder, failBB);
+
+		auto floc = location.getFullLocation(context);
 		
 		LLVMValueRef[2] args;
-		args[0] = buildDString(location.source.filename);
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.line, false);
+		args[0] = buildDString(floc.getFileName());
+		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), floc.getStartLineNumber(), false);
 		
 		buildCall(druntimeGen.getArrayBound(), args);
 		
@@ -783,6 +783,7 @@ struct ExpressionGen {
 		auto tuple = LLVMGetUndef(pass.visit(e.type));
 		
 		uint i = 0;
+		import std.algorithm;
 		foreach(v; e.values.map!(v => visit(v))) {
 			tuple = LLVMBuildInsertValue(builder, tuple, v, i++, "");
 		}
@@ -791,6 +792,7 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
+		import std.algorithm, std.array;
 		auto fields = e.values.map!(v => visit(v)).array();
 		auto t = pass.visit(e.type);
 		
@@ -828,10 +830,12 @@ struct ExpressionGen {
 		
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
+
+		auto location = e.getFullLocation(context);
 		
 		LLVMValueRef[3] args;
-		args[1] = buildDString(e.location.source.filename);
-		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), e.location.line, false);
+		args[1] = buildDString(location.getFileName());
+		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.getStartLineNumber(), false);
 		
 		if(e.message) {
 			args[0] = visit(e.message);

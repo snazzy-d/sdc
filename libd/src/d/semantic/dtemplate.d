@@ -9,11 +9,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.location;
-
-import std.algorithm;
-import std.array;
-import std.range;
+import d.context.location;
 
 struct TemplateInstancier {
 	private SemanticPass pass;
@@ -24,6 +20,7 @@ struct TemplateInstancier {
 	}
 	
 	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args, Expression[] fargs) {
+		import std.algorithm;
 		auto cds = s.set.filter!((t) {
 			if (auto asTemplate = cast(Template) t) {
 				return asTemplate.parameters.length >= args.length;
@@ -64,6 +61,7 @@ struct TemplateInstancier {
 				throw new CompileException(p.location, typeid(p).toString() ~ " not implemented");
 			}
 			
+			import std.algorithm, std.array;
 			auto asArg = match.parameters.map!buildArg.array();
 			bool match2t = matchArguments(t, asArg, [], dummy);
 			
@@ -156,7 +154,9 @@ private:
 	} body {
 		auto i = 0;
 		Symbol[] argSyms;
+		
 		// XXX: have to put array once again to avoid multiple map.
+		import std.algorithm, std.array;
 		string id = args.map!(
 			a => a.apply!(function string() {
 				assert(0, "All passed argument must be defined.");
@@ -510,4 +510,3 @@ struct SymbolMatcher {
 		})(pass, p.location).visit(matchee);
 	}
 }
-

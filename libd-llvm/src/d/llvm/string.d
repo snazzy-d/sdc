@@ -4,8 +4,6 @@ import d.llvm.codegen;
 
 import llvm.c.core;
 
-import std.string;
-
 final class StringGen {
 	private CodeGenPass pass;
 	alias pass this;
@@ -36,6 +34,7 @@ final class StringGen {
 			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
 			/*/
 			// with 0 termination.
+			import std.string;
 			auto ptr = LLVMBuildGlobalStringPtr(pass.builder, str.toStringz(), ".cstr");
 			//*/
 			
@@ -43,4 +42,3 @@ final class StringGen {
 		}());
 	}
 }
-

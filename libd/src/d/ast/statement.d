@@ -3,7 +3,7 @@ module d.ast.statement;
 import d.ast.declaration;
 import d.ast.expression;
 
-import d.base.node;
+import d.common.node;
 
 class AstStatement : Node {
 	this(Location location) {
@@ -59,7 +59,7 @@ class DeclarationStatement : AstStatement {
  * indentifier * identifier kind of things
  */
 class IdentifierStarIdentifierStatement : AstStatement {
-	import d.base.name;
+	import d.context.name;
 	Name name;
 
 	Identifier identifier;
@@ -244,7 +244,7 @@ alias AstCaseStatement = CaseStatement!(AstExpression, AstStatement);
  * Label: statement
  */
 class LabeledStatement(S) : S  if(is(S : AstStatement)) {
-	import d.base.name;
+	import d.context.name;
 	Name label;
 
 	S statement;
@@ -334,7 +334,7 @@ class AstTryStatement : AstStatement {
 struct CatchBlock(T, S) if(is(S : AstStatement)) {
 	Location location;
 
-	import d.base.name;
+	import d.context.name;
 	Name name;
 	
 	T type;

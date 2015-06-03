@@ -19,7 +19,7 @@ $(SDC): obj/sdc.o $(LIBD) $(LIBD_LLVM)
 	@mkdir -p bin
 	gcc -o $(SDC) obj/sdc.o $(ARCHFLAG) $(LDFLAGS)
 
-obj/sdc.o: $(SDC_SRC)
+obj/sdc.o: $(SDC_SRC) $(LIBD_DEP_BASE)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/sdc.o $(SDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
 

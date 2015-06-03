@@ -1,11 +1,11 @@
 module d.parser.base;
 
 public import d.lexer;
-public import d.location;
+public import d.context.location;
 
 import d.parser.dmodule;
 
-import d.base.name;
+import d.context.name;
 
 enum ParseMode {
 	Greedy,
@@ -18,7 +18,7 @@ auto parse(R)(ref R trange, Name name, Name[] packages) if(isTokenRange!R) {
 
 template isTokenRange(T) {
 	import std.range;
-	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token!Location));
+	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token));
 }
 
 void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
@@ -35,4 +35,3 @@ void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
 	
 	trange.popFront();
 }
-

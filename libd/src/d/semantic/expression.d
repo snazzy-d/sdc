@@ -12,8 +12,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
+import d.context.location;
+
 import d.exception;
-import d.location;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
@@ -68,7 +69,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression getRvalue(Expression value) {
-		import d.base.name;
+		import d.context.name;
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.storage = Storage.Enum;
 		v.step = Step.Processed;
@@ -77,7 +78,7 @@ struct ExpressionVisitor {
 	}
 	
 	private Expression getLvalue(Expression value) {
-		import d.base.name;
+		import d.context.name;
 		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
 		v.isRef = true;
 		v.step = Step.Processed;
@@ -479,7 +480,7 @@ struct ExpressionVisitor {
 	Expression visit(AstCallExpression c) {
 		// TODO: check if we are in a constructor.
 		if (cast(ThisExpression) c.callee) {
-			import d.ast.identifier, d.base.name;
+			import d.ast.identifier, d.context.name;
 			auto call = visit(new IdentifierCallExpression(
 				c.location,
 				new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee),
@@ -542,7 +543,7 @@ struct ExpressionVisitor {
 	private Expression handleCtor(Location location, Location calleeLoc, Type type, Expression[] args) in {
 		assert(type.kind == TypeKind.Struct);
 	} body {
-		import d.semantic.defaultinitializer, d.base.name;
+		import d.semantic.defaultinitializer, d.context.name;
 		auto di = InstanceBuilder(pass, calleeLoc).visit(type);
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
@@ -740,7 +741,7 @@ struct ExpressionVisitor {
 		import d.semantic.defaultinitializer;
 		auto di = NewBuilder(pass, e.location).visit(type);
 		
-		import d.base.name;
+		import d.context.name;
 		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
 			static if (is(typeof(identified) : Symbol)) {
 				if (auto f = cast(Function) identified) {
@@ -925,7 +926,7 @@ struct ExpressionVisitor {
 	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		// FIXME: can still collide with mixins, but that should rare enough for now.
 		import std.conv;
-		auto name = context.getName(prefix ~ to!string(location.line) ~ "_" ~ to!string(location.index));
+		auto name = context.getName(prefix ~ to!string(location.getFullLocation(context).getStartOffset()));
 		
 		auto d = new FunctionDeclaration(
 			location,

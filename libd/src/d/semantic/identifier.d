@@ -10,10 +10,10 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.base.name;
+import d.context.location;
+import d.context.name;
 
 import d.exception;
-import d.location;
 
 alias Module = d.ir.symbol.Module;
 
@@ -161,7 +161,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			if(auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found.");
+				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found");
 			}
 			
 			if(auto sscope = cast(SymbolScope) dscope) {

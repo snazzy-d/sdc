@@ -2,20 +2,22 @@
 
 LIBD_SRC_D = $(LIBD_ROOT)/src/d/*.d
 LIBD_SRC_UTIL = $(LIBD_ROOT)/src/util/*.d
-LIBD_SRC_BASE = $(LIBD_ROOT)/src/d/base/*.d
+LIBD_SRC_CONTEXT = $(LIBD_ROOT)/src/d/context/*.d
+LIBD_SRC_COMMON = $(LIBD_ROOT)/src/d/common/*.d
 LIBD_SRC_AST = $(LIBD_ROOT)/src/d/ast/*.d
 LIBD_SRC_IR = $(LIBD_ROOT)/src/d/ir/*.d
 LIBD_SRC_PARSER = $(LIBD_ROOT)/src/d/parser/*.d
 LIBD_SRC_SEMANTIC = $(wildcard $(LIBD_ROOT)/src/d/semantic/*.d)
-LIBD_SRC_ALL = $(LIBD_SRC_D) $(LIBD_SRC_BASE) $(LIBD_SRC_UTIL) \
-               $(LIBD_SRC_AST) $(LIBD_SRC_IR) $(LIBD_SRC_PARSER) \
-               $(LIBD_SRC_SEMANTIC)
+LIBD_SRC_ALL = $(LIBD_SRC_D) $(LIBD_SRC_CONTEXT) $(LIBD_SRC_COMMON) \
+               $(LIBD_SRC_UTIL) $(LIBD_SRC_AST) $(LIBD_SRC_IR) \
+               $(LIBD_SRC_PARSER) $(LIBD_SRC_SEMANTIC)
 
 LIBD_DEP_D = $(LIBD_SRC_D)
 LIBD_DEP_UTIL = $(LIBD_SRC_UTIL)
-LIBD_DEP_BASE = $(LIBD_SRC_BASE) $(LIBD_DEP_D)
-LIBD_DEP_AST = $(LIBD_SRC_AST) $(LIBD_DEP_BASE)
-LIBD_DEP_IR = $(LIBD_SRC_IR) $(LIBD_DEP_BASE)
+LIBD_DEP_CONTEXT = $(LIBD_SRC_CONTEXT)
+LIBD_DEP_COMMON = $(LIBD_SRC_COMMON) $(LIBD_DEP_CONTEXT) $(LIBD_DEP_D)
+LIBD_DEP_AST = $(LIBD_SRC_AST) $(LIBD_DEP_COMMON)
+LIBD_DEP_IR = $(LIBD_SRC_IR) $(LIBD_DEP_COMMON)
 LIBD_DEP_PARSER = $(LIBD_SRC_PARSER) $(LIBD_DEP_AST)
 LIBD_DEP_SEMANTIC = $(LIBD_SRC_SEMANTIC) $(LIBD_DEP_AST) $(LIBD_DEP_IR) \
                     $(LIBD_DEP_PARSER) $(LIBD_DEP_UTIL)
@@ -23,7 +25,7 @@ LIBD_DEP_SEMANTIC = $(LIBD_SRC_SEMANTIC) $(LIBD_DEP_AST) $(LIBD_DEP_IR) \
 LIBD_SEMANTIC_OBJ = $(LIBD_SRC_SEMANTIC:$(LIBD_ROOT)/src/d/semantic/%.d=obj/semantic/%.o)
 
 ifdef SEPARATE_COMPILATION
-	LIBD_DEP_ALL = obj/d.o obj/util.o obj/base.o obj/ast.o obj/ir.o obj/parser.o $(LIBD_SEMANTIC_OBJ)
+	LIBD_DEP_ALL = obj/d.o obj/util.o obj/context.o obj/common.o obj/ast.o obj/ir.o obj/parser.o $(LIBD_SEMANTIC_OBJ)
 else
 	LIBD_DEP_ALL = obj/libd.o
 endif
@@ -52,9 +54,13 @@ obj/util.o: $(LIBD_DEP_UTIL)
 	@mkdir -p obj
 	$(DMD) -c -of$@ $(LIBD_SRC_UTIL) $(DFLAGS) $(LIBD_IMPORTS)
 
-obj/base.o: $(LIBD_DEP_BASE)
+obj/context.o: $(LIBD_DEP_CONTEXT)
 	@mkdir -p obj
-	$(DMD) -c -of$@ $(LIBD_SRC_BASE) $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of$@ $(LIBD_SRC_CONTEXT) $(DFLAGS) $(LIBD_IMPORTS)
+
+obj/common.o: $(LIBD_DEP_COMMON)
+	@mkdir -p obj
+	$(DMD) -c -of$@ $(LIBD_SRC_COMMON) $(DFLAGS) $(LIBD_IMPORTS)
 
 obj/ast.o: $(LIBD_DEP_AST)
 	@mkdir -p obj
