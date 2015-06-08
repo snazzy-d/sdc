@@ -12,6 +12,7 @@ import d.location;
 import util.visitor;
 
 import llvm.c.core;
+import llvm.c.target;
 
 import std.algorithm;
 import std.array;
@@ -555,6 +556,7 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(SliceExpression e) {
 		auto t = e.sliced.type.getCanonical();
+		auto sizeT = LLVMIntPtrTypeInContext(llvmCtx, targetData);
 		
 		LLVMValueRef length, ptr;
 		if (t.kind == TypeKind.Slice) {
@@ -565,16 +567,17 @@ struct ExpressionGen {
 		} else if (t.kind == TypeKind.Pointer) {
 			ptr = visit(e.sliced);
 		} else if (t.kind == TypeKind.Array) {
-			length = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false);
+
+			length = LLVMConstInt(sizeT, t.size, false);
 			
-			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
+			auto zero = LLVMConstInt(sizeT, 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
 			assert(0, "Don't know how to slice "/+ ~ e.type.toString(context) +/);
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first), LLVMInt64TypeInContext(llvmCtx), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second), LLVMInt64TypeInContext(llvmCtx), "");
+		auto first = LLVMBuildZExt(builder, visit(e.first), sizeT, "");
+		auto second = LLVMBuildZExt(builder, visit(e.second), sizeT, "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if(length) {
@@ -985,14 +988,15 @@ struct AddressOfGen {
 	
 	auto computeIndexPtr(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
-		
+		auto sizeT =  LLVMIntPtrTypeInContext(llvmCtx, targetData);
+
 		if (t.kind == TypeKind.Slice) {
 			auto slice = ExpressionGen(pass).visit(indexed);
 			auto i = ExpressionGen(pass).visit(index);
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, sizeT, ""), length, "");
 			ExpressionGen(pass).genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
@@ -1008,15 +1012,15 @@ struct AddressOfGen {
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""),
-				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false),
+				LLVMBuildZExt(builder, i, , ""),
+				LLVMConstInt(sizeT, t.size, false),
 				"",
 			);
 			
 			ExpressionGen(pass).genBoundCheck(location, condition);
 			
 			LLVMValueRef[2] indices;
-			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
+			indices[0] = LLVMConstInt(sizeT, 0, false);
 			indices[1] = i;
 			
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");

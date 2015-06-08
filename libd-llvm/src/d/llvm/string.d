@@ -3,6 +3,7 @@ module d.llvm.string;
 import d.llvm.codegen;
 
 import llvm.c.core;
+import llvm.c.target;
 
 import std.string;
 
@@ -28,11 +29,11 @@ final class StringGen {
 			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
 			LLVMSetGlobalConstant(globalVar, true);
 			
-			auto length = LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), str.length, false);
+			auto length = LLVMConstInt(LLVMIntPtrTypeInContext(pass.llvmCtx, pass.targetData), str.length, false);
 			
 			/*
 			// skip 0 termination.
-			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true), LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true)];
+			auto indices = [LLVMConstInt(LLVMIntPtrTypeInContext(pass.llvmCtx, pass.targetData), 0, true), LLVMConstInt(LLVMIntPtrTypeInContext(pass.llvmCtx, pass.targetData), 0, true)];
 			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
 			/*/
 			// with 0 termination.

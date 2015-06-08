@@ -10,6 +10,7 @@ import d.exception;
 import util.visitor;
 
 import llvm.c.core;
+import llvm.c.target;
 
 import std.algorithm;
 import std.array;
@@ -114,7 +115,7 @@ final class TypeGen {
 	
 	LLVMTypeRef visitSliceOf(Type t) {
 		LLVMTypeRef[2] types;
-		types[0] = LLVMInt64TypeInContext(llvmCtx);
+		types[0] = LLVMIntPtrTypeInContext(llvmCtx, targetData);
 		types[1] = visitPointerOf(t);
 		
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
