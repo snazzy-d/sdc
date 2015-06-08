@@ -410,7 +410,11 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 	Ret visit(Class c) {
 		return getSymbolType(c);
 	}
-	
+
+	Ret visit(Interface i) {
+		return getSymbolType(i);
+	}
+
 	Ret visit(Enum e) {
 		return getSymbolType(e);
 	}

@@ -78,7 +78,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			new NullLiteral(location, t),
 			new IntegerLiteral!false(location, 0UL, pass.object.getSizeT().type.builtin)
 		];
-		
+
 		// XXX: Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
 		return new CompileTimeTupleExpression(location, t.getSlice(), init);
 	}
@@ -183,7 +183,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	E visit(Interface i) {
-		assert(0, "Not implemented");
+		CompileTimeExpression[] init = [
+			new NullLiteral(location, Type.get(pass.object.getObject())), // object
+			new NullLiteral(location, Type.get(BuiltinType.Void).getPointer()) // vtable
+		];
+		return new CompileTimeTupleExpression(location, Type.get(i), init);
 	}
 	
 	E visit(Union u) {

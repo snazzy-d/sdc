@@ -345,7 +345,6 @@ class Interface : Aggregate {
 	
 	this(Location location, Name name, Interface[] bases, Symbol[] members) {
 		super(location, name, members);
-		
 		this.bases = bases;
 	}
 }
