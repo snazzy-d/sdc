@@ -7,7 +7,7 @@ PLATFORM = $(shell uname -s)
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
 LLVM_CONFIG ?= llvm-config
-LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs`
+LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --system-libs`
 LIBD_LIB = -Llib -ld-llvm -ld
 
 # dmd.conf doesn't set the proper -L flags.  
@@ -21,13 +21,13 @@ ifdef LD_PATH
 	LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-LDFLAGS += -lphobos2 $(LIBD_LIB) $(LLVM_LIB)
+LDFLAGS += $(LIBD_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
-	LDFLAGS += -lstdc++ -export-dynamic -ldl -lffi -lpthread -lm -lncurses
+	LDFLAGS += -lstdc++ -export-dynamic
 endif
 ifeq ($(PLATFORM),Darwin)
-	LDFLAGS += -lc++ -lncurses
+	LDFLAGS += -lc++
 endif
 
 SDC_ROOT = sdc
