@@ -38,7 +38,7 @@ int main(string[] args) {
 		"o", "Output file",         &outputFile
 	);
 
-	if (help_info.helpWanted) {
+	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
 
 		writeln("The Stupid D Compiler");
