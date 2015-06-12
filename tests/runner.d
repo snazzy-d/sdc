@@ -115,18 +115,18 @@ void test(string filename, string compiler)
     // For some reasons &> is read as & > /dev/null causing the compiler to return 0.
     version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
     
-    auto retval = system(command);
-    if (expectedToCompile && retval != 0) {
+    auto returnInfo = executeShell(command);
+    if (expectedToCompile && returnInfo.status != 0) {
         stderr.writefln("%s: test expected to compile, did not.", filename);
         managerTid.send(filename, false, has);
         return;
     }
-    if (!expectedToCompile && retval == 0) {
+    if (!expectedToCompile && returnInfo.status == 0) {
         stderr.writefln("%s: test expected to not compile, did.", filename);
         managerTid.send(filename, false, has);
         return;
     }
-    if (!expectedToCompile && retval != 0) {
+    if (!expectedToCompile && returnInfo.status != 0) {
         managerTid.send(filename, true, has);
         return;
     }
@@ -135,10 +135,10 @@ void test(string filename, string compiler)
     command = exeName;
     version (Posix) command ~= " 2> /dev/null 1> /dev/null";
 
-    retval = system(command);
+    returnInfo = executeShell(command);
     
-    if (retval != expectedRetval) {
-        stderr.writefln("%s: expected retval %s, got %s", filename, expectedRetval, retval);
+    if (returnInfo.status != expectedRetval) {
+        stderr.writefln("%s: expected reval %s, got %s", filename, expectedRetval, returnInfo.status);
         managerTid.send(filename, false, has);
         return;
     }
