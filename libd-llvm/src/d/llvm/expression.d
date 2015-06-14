@@ -1012,7 +1012,7 @@ struct AddressOfGen {
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, , ""),
+				LLVMBuildZExt(builder, i, sizeT, ""),
 				LLVMConstInt(sizeT, t.size, false),
 				"",
 			);
