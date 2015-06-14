@@ -97,7 +97,7 @@ final class LLVMEvaluator : Evaluator {
 			import llvm.c.target;
 			auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
 
-			auto returnType = LLVMInt64TypeInContext(codeGen.llvmCtx);
+			auto returnType = LLVMIntPtrTypeInContext(codeGen.llvmCtx, codeGen.targetData);
 		}
 
 		// Generate function signature
@@ -125,8 +125,7 @@ final class LLVMEvaluator : Evaluator {
 			LLVMBuildRet(codeGen.builder, value);
 		} else {
 			LLVMBuildStore(codeGen.builder, value, buffer);
-			// FIXME This is 64bit only code.
-			auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
+			auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, buffer, LLVMIntPtrTypeInContext(codeGen.llvmCtx, codeGen.targetData), "");
 			LLVMBuildRet(codeGen.builder, ptrToInt);
 		}
 
