@@ -11,6 +11,9 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 final class SymbolGen {
 	private CodeGenPass pass;
 	alias pass this;
@@ -514,7 +517,13 @@ final class SymbolGen {
 		
 		return ret;
 	}
-	
+
+	LLVMTypeRef visit(Interface i) in {
+		assert(i.step == Step.Processed);
+	} body {
+		return buildInterfaceType(i); 
+	}
+
 	LLVMTypeRef visit(Enum e) {
 		auto type = buildEnumType(e);
 		/+

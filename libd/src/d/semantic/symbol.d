@@ -18,6 +18,9 @@ import d.ast.statement;
 
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 enum isSchedulable(D, S) = is(D : Declaration) && is(S : Symbol) && !__traits(isAbstractClass, S);
 
 struct SymbolVisitor {
@@ -273,7 +276,6 @@ struct SymbolAnalyzer {
 		} else {
 			import d.semantic.type : TypeVisitor;
 			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
-			
 			if (auto vi = cast(AstVoidInitializer) d.value) {
 				value = new VoidInitializer(vi.location, type);
 			} else {
@@ -738,7 +740,36 @@ struct SymbolAnalyzer {
 		
 		c.step = Step.Processed;
 	}
-	
+
+	void analyze (InterfaceDeclaration d, Interface i) {
+		auto oldManglePrefix = manglePrefix;
+		auto oldScope = currentScope;
+		auto oldThisType = thisType;
+		auto oldMethodIndex = methodIndex;
+		
+		scope(exit) {
+			manglePrefix = oldManglePrefix;
+			currentScope = oldScope;
+			thisType = oldThisType;
+			methodIndex = oldMethodIndex;
+		}
+
+		thisType = Type.get(i).getParamType(false, true);
+
+		import std.conv;
+		auto name = i.name.toString(context);
+		manglePrefix = manglePrefix ~ to!string(name.length);
+
+		i.mangle = "I" ~ manglePrefix;
+
+		assert(d.members.length == 0, "Member support not implemented for interfaces yet");
+		assert(d.bases.length == 0, "Interface inheritance not implemented yet");
+
+		// TODO: lots of stuff to add
+
+		i.step = Step.Processed;
+	}
+
 	void analyze(EnumDeclaration d, Enum e) in {
 		assert(e.name.isDefined, "anonymous enums must be flattened !");
 	} body {

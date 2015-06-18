@@ -17,6 +17,9 @@ import llvm.c.analysis;
 import llvm.c.core;
 import llvm.c.target;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 final class CodeGenPass {
 	import d.context.context;
 	Context context;
@@ -146,7 +149,11 @@ final class CodeGenPass {
 	auto buildClassType(Class c) {
 		return typeGen.visit(c);
 	}
-	
+
+	auto buildInterfaceType(Interface i) {
+		return typeGen.visit(i);
+	}
+
 	auto buildEnumType(Enum e) {
 		return typeGen.visit(e);
 	}

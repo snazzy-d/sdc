@@ -15,6 +15,9 @@ import std.range;
 
 alias Module = d.ir.symbol.Module;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 enum AggregateType {
 	None,
 	Union,
@@ -358,7 +361,17 @@ struct DeclarationVisitor {
 		addSymbol(c);
 		select(d, c);
 	}
-	
+
+	void visit(InterfaceDeclaration d) {
+		auto i = new Interface(d.location, d.name, [], []);
+		i.linkage = linkage;
+		i.visibility = visibility;
+		i.storage = storage; 
+
+		addSymbol(i);
+		select(d, i);
+	}
+
 	void visit(EnumDeclaration d) {
 		if (d.name.isDefined) {
 			auto e = new Enum(d.location, d.name, Type.get(BuiltinType.None), []);

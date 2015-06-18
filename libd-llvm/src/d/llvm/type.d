@@ -304,7 +304,17 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Interface i) {
-		assert(0, "codegen for interface is not implemented.");
+		if(auto it = i in typeSymbols) {
+			return *it;
+		}
+
+		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, i.mangle.toStringz());
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (i.mangle ~ "__vtbl").toStringz());
+		LLVMTypeRef[2] elements;
+		elements[0] = visit(pass.object.getObject());
+		elements[1] = LLVMPointerType(vtblStruct, 0);
+		LLVMStructSetBody(llvmStruct, elements.ptr, elements.length, false);
+		return llvmStruct;
 	}
 	
 	LLVMTypeRef visit(Function f) {
