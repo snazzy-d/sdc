@@ -308,6 +308,7 @@ final class TypeGen {
 			return *it;
 		}
 
+		import std.string;
 		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, i.mangle.toStringz());
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (i.mangle ~ "__vtbl").toStringz());
 		LLVMTypeRef[2] elements;
