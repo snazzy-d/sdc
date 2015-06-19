@@ -19,6 +19,7 @@ enum AggregateType {
 	Union,
 	Struct,
 	Class,
+	Interface,
 }
 
 struct DeclarationVisitor {
