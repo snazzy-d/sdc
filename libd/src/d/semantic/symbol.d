@@ -879,38 +879,64 @@ struct SymbolAnalyzer {
 			"Interface inheritance not implemented yet"
 		);
 		
-/*=======
+/*
 		manglePrefix = manglePrefix ~ to!string(name.length);
 
 		i.mangle = "I" ~ manglePrefix;
 
-		//assert(d.members.length == 0, "Member support not implemented for interfaces yet");
-		assert(d.bases.length == 0, "Interface inheritance not implemented yet");
 		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, i);
+		Method[] methods;
 
 		foreach(m; members) {
-			if (auto method = cast (Method) m) { // check for (non-static) method
+			if (auto method = cast (Method) m) { 
 				scheduler.require(method, Step.Signed);
-			
-				if(method.fbody) 
-					assert(0, "non-static or non-final method can't have a body in interface");
+				// check for (non-static) method body
+				if(method.fbody) {
+					import d.exception;
+					throw new CompileException(method.location, "non-static or non-final method can't have a body in interface");
+				}
+				methods ~= method;
 
-			} else if(auto staticMethod = cast(Function) m) { // check for static method
-				scheduler.require(staticMethod, Step.Signed);
+			} else if(auto staticMethod = cast(Function) m) { // static method
 			
 			} else { // not a method
-				assert(0, "Interface can have only methods");
+				import d.exception;
+				throw new CompileException(m.location, "Interface can have only methods");
 			}
 
 		}
 
+		// TODO: populate i.bases
+		if(i.bases.length == 0) {
+			// generate the vtable field 
+			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
+			import d.context.name : BuiltinName;
+			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
+			vtbl.step = Step.Processed;
+			i.members ~= [vtbl];
+
+		} else {
+			scheduler.require(i.bases);
+			foreach(b; i.bases) {
+				foreach(m; b.members) {
+					// TODO: handle static/final methods
+					if (auto vtable = cast(Field) m) {
+						i.members ~= vtable;
+					}else if (auto method = cast(Method) m) {
+						i.members ~= method;
+					}
+				}
+			}
+		}
 
 
 		i.members ~= members;
->>>>>>> added check for members in interface
+
 */
 		// TODO: lots of stuff to add
 		
+		i.members ~= methods;
+	
 		i.step = Step.Processed;
 	}
 
