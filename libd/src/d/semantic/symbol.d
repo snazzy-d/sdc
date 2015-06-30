@@ -884,6 +884,26 @@ struct SymbolAnalyzer {
 
 		i.mangle = "I" ~ manglePrefix;
 
+		foreach(b; d.bases) {
+			import d.semantic.identifier : AliasResolver;
+			i.bases ~= AliasResolver!(function Interface (identified) {
+					static if(is(typeof(identified) : Symbol)) {
+						if(auto i = cast(Interface) identified) {
+							return i;
+						}
+					}
+					
+					static if(is(typeof(identified.location))) {
+						import d.exception;
+						throw new CompileException(identified.location, typeid(identified).toString() ~ " is not an interface.");
+					} else {
+						// for typeof(null)
+						assert(0);
+					}
+				})(pass).visit(b);
+		}
+
+
 		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, i);
 		Method[] methods;
 
@@ -898,7 +918,7 @@ struct SymbolAnalyzer {
 				methods ~= method;
 
 			} else if(auto staticMethod = cast(Function) m) { // static method
-			
+				// TODO: handle static
 			} else { // not a method
 				import d.exception;
 				throw new CompileException(m.location, "Interface can have only methods");
@@ -906,36 +926,34 @@ struct SymbolAnalyzer {
 
 		}
 
-		// TODO: populate i.bases
-		if(i.bases.length == 0) {
-			// generate the vtable field 
-			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
-			import d.context.name : BuiltinName;
-			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
-			vtbl.step = Step.Processed;
-			i.members ~= [vtbl];
 
-		} else {
-			scheduler.require(i.bases);
-			foreach(b; i.bases) {
-				foreach(m; b.members) {
-					// TODO: handle static/final methods
-					if (auto vtable = cast(Field) m) {
-						i.members ~= vtable;
-					}else if (auto method = cast(Method) m) {
-						i.members ~= method;
-					}
+		// generate the vtable field 
+		auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
+		import d.context.name : BuiltinName;
+		auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
+		vtbl.step = Step.Processed;
+		i.members ~= [vtbl];
+
+		// add base interface methods
+		scheduler.require(i.bases);
+		foreach(b; i.bases) {
+			foreach(m; b.members) {
+			// TODO: handle static/final methods
+				if (auto vtable = cast(Field) m) {
+					i.members ~= vtable;
+				}else if (auto method = cast(Method) m) {
+					i.members ~= method;
 				}
 			}
 		}
+	
 
 
 		i.members ~= members;
 
 */
 		// TODO: lots of stuff to add
-		
-		i.members ~= methods;
+		i.members ~= methods; // add this interface methods
 	
 		i.step = Step.Processed;
 	}
