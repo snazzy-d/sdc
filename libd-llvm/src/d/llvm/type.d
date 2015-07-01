@@ -343,7 +343,33 @@ struct TypeGen {
 		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 		
 		import std.string;
-		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
+		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, i.mangle.toStringz());
+
+		LLVMValueRef[] vtbl = [];
+		foreach (member; i.members) {
+			if (auto m = cast(Method) member) {
+				vtbl ~= pass.visit(m);
+			}
+		}
+
+		import std.algorithm, std.array;
+		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (i.mangle ~ "__vtbl").toStringz());
+		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
+
+		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (i.mangle ~ "__vtblZ").toStringz());
+		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
+		LLVMSetGlobalConstant(vtblPtr, true);
+		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
+
+		LLVMValueRef[] fields = [];
+		fields ~= vtblPtr;
+		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
+		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
+
+		//foreach(b; i.bases)
+		//	visit(b);
+
 		LLVMTypeRef[2] elements;
 		elements[0] = visit(pass.object.getObject());
 		elements[1] = LLVMPointerType(vtblStruct, 0);

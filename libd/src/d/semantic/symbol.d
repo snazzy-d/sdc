@@ -862,7 +862,10 @@ struct SymbolAnalyzer {
 			thisType = oldThisType;
 		}
 
-		thisType = Type.get(pass.object.getObject()).getParamType(false, true);
+		auto o = pass.object.getObject();
+		scheduler.require(o, Step.Signed);
+		thisType = Type.get(o).getParamType(false, true);
+
 		import std.conv;
 		auto name = i.name.toString(context);
 		manglePrefix = manglePrefix ~ name.length.to!string();
@@ -887,20 +890,20 @@ struct SymbolAnalyzer {
 		foreach(b; d.bases) {
 			import d.semantic.identifier : AliasResolver;
 			i.bases ~= AliasResolver!(function Interface (identified) {
-					static if(is(typeof(identified) : Symbol)) {
-						if(auto i = cast(Interface) identified) {
-							return i;
-						}
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto i = cast(Interface) identified) {
+						return i;
 					}
+				}
 					
-					static if(is(typeof(identified.location))) {
-						import d.exception;
-						throw new CompileException(identified.location, typeid(identified).toString() ~ " is not an interface.");
-					} else {
-						// for typeof(null)
-						assert(0);
-					}
-				})(pass).visit(b);
+				static if (is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not an interface.");
+				} else {
+					// for typeof(null)
+					assert(0);
+				}
+			})(pass).visit(b);
 		}
 
 
@@ -913,7 +916,7 @@ struct SymbolAnalyzer {
 				// check for (non-static) method body
 				if(method.fbody) {
 					import d.exception;
-					throw new CompileException(method.location, "non-static or non-final method can't have a body in interface");
+					throw new CompileException(method.location, "non-static method can't have a body in interface");
 				}
 				methods ~= method;
 
@@ -938,10 +941,8 @@ struct SymbolAnalyzer {
 		scheduler.require(i.bases);
 		foreach(b; i.bases) {
 			foreach(m; b.members) {
-			// TODO: handle static/final methods
-				if (auto vtable = cast(Field) m) {
-					i.members ~= vtable;
-				}else if (auto method = cast(Method) m) {
+				// TODO: handle static/final methods
+				if (auto method = cast(Method) m) {
 					i.members ~= method;
 				}
 			}
