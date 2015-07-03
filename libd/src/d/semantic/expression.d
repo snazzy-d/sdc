@@ -591,15 +591,19 @@ struct ExpressionVisitor {
 		}).array(), args), args);
 	}
 	
+	private static bool checkArgumentCount(bool isVariadic, size_t argCount, size_t paramCount) {
+		return isVariadic
+			? argCount >= paramCount
+			: argCount == paramCount;
+	}
+	
 	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
 		import std.algorithm, std.range;
 		auto cds = candidates.map!(e => findCallable(location, e, args)).filter!((e) {
 			auto t = e.type.getCanonical();
 			if (t.kind == TypeKind.Function) {
 				auto ft = t.asFunctionType();
-				return ft.isVariadic
-					? args.length >= ft.parameters.length
-					: args.length == ft.parameters.length;
+				return checkArgumentCount(ft.isVariadic, args.length, ft.parameters.length);
 			}
 			
 			assert(0, e.type.toString(pass.context) ~ " is not a function type");
@@ -705,6 +709,7 @@ struct ExpressionVisitor {
 		return callCallable(location, findCallable(location, callee, args), args);
 	}
 	
+	// XXX: This assume that calable is the right one, but not all call sites do the check.
 	private Expression callCallable(Location location, Expression callee, Expression[] args) in {
 		assert(callee.type.getCanonical().kind == TypeKind.Function);
 	} body {
@@ -714,7 +719,7 @@ struct ExpressionVisitor {
 		auto returnType = f.returnType;
 		
 		import std.range;
-		assert(args.length >= paramTypes.length);
+		assert(checkArgumentCount(f.isVariadic, args.length, paramTypes.length), "Invalid argument count");
 		foreach(ref arg, pt; lockstep(args, paramTypes)) {
 			arg = buildArgument(arg, pt);
 		}
