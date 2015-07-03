@@ -630,33 +630,42 @@ struct SymbolAnalyzer {
 		auto name = c.name.toString(context);
 		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		c.mangle = context.getName("C" ~ manglePrefix);
-		
+		auto dscope = currentScope = c.dscope = c.hasContext
+			? new VoldemortScope(c, oldScope)
+			: new AggregateScope(c, oldScope);
+
 		Field[] baseFields;
 		Method[] baseMethods;
+		// TODO: Handle multiple classes in bases (error)
 		foreach(i; d.bases) {
-			import d.semantic.identifier;
-			c.base = IdentifierResolver(pass)
-				.resolve(i)
-				.apply!(function Class(identified) {
-					static if (is(typeof(identified) : Symbol)) {
-						if (auto c = cast(Class) identified) {
-							return c;
-						}
+			import d.semantic.identifier : AliasResolver;
+			auto resolved = AliasResolver!(function Aggregate (identified) {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto c = cast(Class) identified) {
+						return c;
+					} else if (auto i = cast(Interface) identified) {
+						return i;
 					}
-					
-					static if (is(typeof(identified.location))) {
-						import d.exception;
-						throw new CompileException(
-							identified.location,
-							typeid(identified).toString() ~ " is not a class.",
-						);
-					} else {
-						// for typeof(null)
-						assert(0);
-					}
-				})();
-			
-			break;
+				}
+				
+				static if(is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class or an interface.");
+				} else {
+					// for typeof(null)
+					assert(0);
+				}
+				
+			})(pass).visit(i);
+
+			if(auto r = cast(Class) resolved) {
+				c.base = r;
+			} else if(auto r = cast(Interface) resolved) {
+				c.interfaces ~= r;
+			}
+
+			//break;
+
 		}
 		
 		// If no inheritance is specified, inherit from object.
@@ -844,11 +853,72 @@ struct SymbolAnalyzer {
 			
 			baseMethods = baseMethods[0 .. i];
 		}
-		
+
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
 		scheduler.require(members);
 		c.members ~= members;
+
+		bool found = false;
+		foreach (i; c.interfaces){
+			scheduler.require(i);
+
+			// TODO: uint[Interface]
+			MemberLoop: foreach (m; i.members) {
+				if (auto interfaceMethod = cast(Method) m) {
+					auto mt = interfaceMethod.type;
+					auto rt = mt.returnType;
+					auto ats = mt.parameters[1 .. $];
+					import std.stdio;
+					found = false;
+					ClassLoop: foreach (member;  c.members) {
+						if (auto classMethod = cast(Method) member) {
+							writeln("cl: 1");
+							if(classMethod.name != interfaceMethod.name)
+								continue;
+							writeln("cl: 2");
+							auto ct = classMethod.type;
+							if(ct.isVariadic != mt.isVariadic)
+								continue;
+							writeln("cl: 3");
+							auto crt = ct.returnType;
+							auto cts = ct.parameters[1 .. $];
+							if (ats.length != cts.length || rt.isRef != crt.isRef) {
+								continue;
+							}
+							writeln("cl: 4");
+							if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
+								continue;
+							}
+							writeln("cl: 5");
+							import std.range;
+							foreach(at, ct; lockstep(ats, cts)) {
+								if (at.isRef != ct.isRef) {
+									continue ClassLoop;
+								}
+								
+								if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
+									continue ClassLoop;
+								}
+							}
+							writeln("cl: 6");
+							// found method in class
+							found = true;
+							break;
+						}
+					}
+			
+					if (!found) {
+						import d.exception;
+						throw new CompileException(m.location, m.name.toString(context) ~ " not implemented in class " ~ c.name.toString(context));
+					}
+				}
+			}
+		}
+
+
+
+
 		
 		c.step = Step.Processed;
 	}
