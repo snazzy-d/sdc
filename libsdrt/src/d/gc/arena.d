@@ -1,7 +1,5 @@
 module d.gc.arena;
 
-Arena tl;
-
 extern(C) void* _tl_gc_alloc(size_t size) {
 	return tl.alloc(size);
 }
@@ -13,6 +11,8 @@ extern(C) void _tl_gc_free(void* ptr) {
 extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
 	tl.stackBottom = bottom;
 }
+
+Arena tl;
 
 struct Arena {
 	// Spare chunk to avoid churning too much.

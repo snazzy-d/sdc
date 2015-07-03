@@ -471,10 +471,9 @@ struct Link(N) {
 	}
 }
 
-// TODO: make bool
-enum Color {
-	Black = 0,
-	Red = 1,
+enum Color : bool {
+	Black = false,
+	Red = true,
 }
 
 struct Path(N) {

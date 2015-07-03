@@ -790,8 +790,16 @@ struct SymbolAnalyzer {
 		
 		auto type = Type.get(e);
 		
-		assert(e.type.kind == TypeKind.Builtin && isIntegral(e.type.builtin), "enum are of integer type.");
+		if (e.type.kind != TypeKind.Builtin) {
+			import d.exception;
+			throw new CompileException(e.location, "Unsupported enum type " ~ e.type.toString(context));
+		}
+		
 		auto bt = e.type.builtin;
+		if (!isIntegral(bt) && bt != BuiltinType.Bool) {
+			import d.exception;
+			throw new CompileException(e.location, "Unsupported enum type " ~ e.type.toString(context));
+		}
 		
 		import std.conv;
 		auto name = e.name.toString(context);
