@@ -74,17 +74,16 @@ public:
 		n.node.right = Link!N(null, Color.Black);
 		
 		// Root is always black.
-		stackp.link = Link!N(root, Color.Black);
-		
-		while (!stackp.link.isLeaf()) {
-			auto link = stackp.link;
+		auto link = Link!N(root, Color.Black);
+		while (!link.isLeaf()) {
 			auto diff = compare(n, link.node);
 			assert(diff != 0);
 			
-			auto cmp = stackp.cmp = diff > 0;
+			auto cmp = diff > 0;
+			*stackp = Path!N(link, cmp);
 			
 			stackp++;
-			stackp.link = link.childs[cmp];
+			link = link.childs[cmp];
 		}
 		
 		// The tree only has a root.
@@ -94,12 +93,12 @@ public:
 		}
 		
 		// Inserted node is always red.
-		stackp.link = Link!N(n, Color.Red);
-		assert(stackp.link.isRed());
+		*stackp = Path!N(Link!N(n, Color.Red), false);
+		assert(stackp.isRed());
 		
 		// Now we found an insertion point, let's fix the tree.
 		for (stackp--; stackp !is (&path[0] - 1); stackp--) {
-			auto link = stackp.link;
+			link = stackp.link;
 			auto cmp = stackp.cmp;
 			
 			auto child = link.childs[cmp] = stackp[1].link;
@@ -114,7 +113,7 @@ public:
 			auto sibling = link.childs[!cmp];
 			if (sibling.isRed()) {
 				assert(link.isBlack());
-				assert(link.left.isRed() || link.right.isRed());
+				assert(link.left.isRed() && link.right.isRed());
 				
 				/**
 				 *     B          Br
@@ -123,7 +122,7 @@ public:
 				 */
 				link.left = link.left.getAs(Color.Black);
 				link.right = link.right.getAs(Color.Black);
-				stackp.link = link.getAs(Color.Red);
+				*stackp = stackp.getWithLink(link.getAs(Color.Red));
 				continue;
 			}
 			
@@ -158,10 +157,10 @@ public:
 			 */
 			link.childs[cmp] = child.getAs(Color.Black);
 			link = link.getAs(Color.Red);
-			stackp.link = link.rotate(!cmp);
+			*stackp = stackp.getWithLink(link.rotate(!cmp));
 		}
 		
-		root = path[0].link.node;
+		root = path[0].node;
 	}
 	
 	void remove(N* n) {
@@ -173,61 +172,62 @@ public:
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 		
 		// Root is always black.
-		stackp.link = Link!N(root, Color.Black);
-		
+		auto link = Link!N(root, Color.Black);
 		while (true) {
-			auto diff = compare(n, stackp.link.node);
+			auto diff = compare(n, link.node);
 			
 			// We found our node !
 			if (diff == 0) {
 				break;
 			}
 			
-			auto link = stackp.link;
-			auto cmp = stackp.cmp = diff > 0;
+			auto cmp = diff > 0;
+			*stackp = Path!N(link, cmp);
 			
 			stackp++;
-			stackp.link = link.childs[cmp];
+			link = link.childs[cmp];
 			
-			assert(!stackp.link.isLeaf(), "Element not found in rbtree.");
+			assert(!link.isLeaf(), "Element not found in rbtree");
 		}
 		
 		// Now we look for a succesor.
-		stackp.cmp = true;
+		*stackp = Path!N(link, true);
 		auto removep = stackp;
-		auto removed = removep.link;
+		auto removed = link;
 		
-		assert(removep.link.node is n);
+		assert(removed.node is n);
 		
-		stackp++;
-		stackp.link = removep.link.right;
-		
-		while(!stackp.link.isLeaf()) {
-			stackp.cmp = false;
-			auto link = stackp.link;
-			
+		/**
+		 * We find a replacing node by going one to the right
+		 * and then as far as possible to the left. That way
+		 * we get the next node in the tree and its ordering
+		 * will be valid.
+		 */
+		link = removed.right;
+		while(!link.isLeaf()) {
 			stackp++;
-			stackp.link = link.left;
+			*stackp = Path!N(link, false);
+			link = link.left;
 		}
 		
-		stackp--;
+		link = stackp.link;
 		
 		if (stackp is removep) {
 			// The node we remove has no successor.
-			stackp.link = stackp.link.left;
+			*stackp = stackp.getWithLink(link.left);
 		} else {
 			/**
 			 * Swap node to be deleted with its successor
 			 * but not the color, so we keep tree color
 			 * constraint in place.
 			 */
-			auto rcolor = removep.link.color;
-			removed = removed.getAs(stackp.link.color);
+			auto rcolor = removed.color;
 			
-			auto link = stackp.link.getAs(rcolor);
-			stackp.link = link.right;
+			removed = removed.getAs(link.color);
+			*stackp = stackp.getWithLink(link.right);
 			
-			link.left = removep.link.left;
+			link = link.getAs(rcolor);
+			link.left = removed.left;
 			
 			/**
 			 * If the successor is the right child of the
@@ -235,29 +235,29 @@ public:
 			 * However, it doesn't matter, as it is going
 			 * to be fixed during pruning.
 			 */
-			link.right = removep.link.right;
+			link.right = removed.right;
 			
 			// NB: We don't clean the node to be removed.
 			// We simply splice it out.
-			removep.link = link;
+			*removep = removep.getWithLink(link);
 		}
 		
 		// If we are not at the root, fix the parent.
 		if (removep !is &path[0]) {
-			removep[-1].link.childs[removep[-1].cmp] = removep.link;
+			removep[-1].childs[removep[-1].cmp] = removep.link;
 		}
 		
 		// Removing red node require no fixup.
 		if (removed.isRed()) {
-			stackp[-1].link.childs[stackp[-1].cmp] = Link!N(null, Color.Black);
+			stackp[-1].childs[stackp[-1].cmp] = Link!N(null, Color.Black);
 			
 			// Update root and exit
-			root = path[0].link.node;
+			root = path[0].node;
 			return;
 		}
 		
 		for (stackp--; stackp !is (&path[0] - 1); stackp--) {
-			auto link = stackp.link;
+			link = stackp.link;
 			auto cmp = stackp.cmp;
 			
 			auto child = stackp[1].link;
@@ -291,18 +291,18 @@ public:
 				
 				link = link.getAs(Color.Red);
 				auto parent = link.rotate(cmp);
-				stackp.link = parent.getAs(Color.Black);
+				*stackp = stackp.getWithLink(parent.getAs(Color.Black));
 				
 				// As we are going down one level, make sure we fix the parent.
 				if (stackp !is &path[0]) {
-					stackp[-1].link.childs[stackp[-1].cmp] = stackp.link;
+					stackp[-1].childs[stackp[-1].cmp] = stackp.link;
 				}
 				
 				stackp++;
 				
 				// Fake landing one level below.
 				// NB: We don't need to fake cmp.
-				stackp.link = link;
+				*stackp = stackp.getWithLink(link);
 				sibling = link.childs[!cmp];
 			}
 			
@@ -372,12 +372,12 @@ public:
 				return;
 			}
 			
-			stackp[-1].link.childs[stackp[-1].cmp] = l.getAs(link.color);
+			stackp[-1].childs[stackp[-1].cmp] = l.getAs(link.color);
 			break;
 		}
 		
 		// Update root and exit
-		root = path[0].link.node;
+		root = path[0].node;
 	}
 	
 	void dump() {
@@ -395,11 +395,12 @@ void rb_print_tree(N)(N* root) {
 private:
 
 struct Link(N) {
-	N* child;
+	// This is effectively a tagged pointer, don't use as this.
+	N* _child;
 	
 	this(N* n, Color c) {
 		assert(c == Color.Black || n !is null);
-		child = cast(N*) ((cast(size_t) n) | c);
+		_child = cast(N*) ((cast(size_t) n) | c);
 	}
 	
 	auto getAs(Color c) const {
@@ -409,7 +410,7 @@ struct Link(N) {
 	
 	@property
 	N* node() {
-		return cast(N*) ((cast(size_t) child) & ~0x01);
+		return cast(N*) ((cast(size_t) _child) & ~0x01);
 	}
 	
 	@property
@@ -429,7 +430,7 @@ struct Link(N) {
 	
 	@property
 	Color color() const {
-		return cast(Color) ((cast(size_t) child) & 0x01);
+		return cast(Color) ((cast(size_t) _child) & 0x01);
 	}
 	
 	bool isRed() const {
@@ -441,7 +442,7 @@ struct Link(N) {
 	}
 	
 	bool isLeaf() const {
-		return child is null;
+		return _child is null;
 	}
 	
 	// Rotate the tree and return the new root.
@@ -477,8 +478,63 @@ enum Color : bool {
 }
 
 struct Path(N) {
-	Link!N link;
-	bool cmp;
+	// This is effectively a tagged pointer, don't use as this.
+	N* _child;
+	
+	this(Link!N l, bool c) {
+		_child = cast(N*) ((cast(size_t) l._child) | (c << 1));
+	}
+	
+	auto getWithLink(Link!N l) {
+		return Path(l, cmp);
+	}
+	
+	auto getWithCmp(bool c) {
+		return Path(link, c);
+	}
+	
+	@property
+	Link!N link() {
+		return Link!N(node, color);
+	}
+	
+	@property
+	bool cmp() const {
+		return !!((cast(size_t) _child) & 0x02);
+	}
+	
+	@property
+	N* node() {
+		return cast(N*) ((cast(size_t) _child) & ~0x03);
+	}
+	
+	@property
+	ref Link!N left() {
+		return node.node.left;
+	}
+	
+	@property
+	ref Link!N right() {
+		return node.node.right;
+	}
+	
+	@property
+	ref Link!N[2] childs() {
+		return node.node.childs;
+	}
+	
+	@property
+	Color color() const {
+		return cast(Color) ((cast(size_t) _child) & 0x01);
+	}
+	
+	bool isRed() const {
+		return color == Color.Red;
+	}
+	
+	bool isBlack() const {
+		return color == Color.Black;
+	}
 }
 
 //+
