@@ -198,7 +198,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	
 	CastKind visit(BuiltinType t) {
 		if (isExplicit && to.kind == TypeKind.Enum) {
-			to = to.denum.type.getCanonical().qualify(to.qualifier);
+			to = to.getCanonicalAndPeelEnum();
 			auto k = visit(t);
 			return (k == CastKind.Exact)
 				? CastKind.Bit

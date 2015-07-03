@@ -33,26 +33,24 @@ struct TypePromoter {
 		return t.accept(this);
 	}
 	
-	Type visit(BuiltinType t) {
-		if (isIntegral(t) && t1.kind == TypeKind.Enum) {
-			t1 = t1.denum.type.qualify(t1.qualifier);
-		}
+	Type visit(BuiltinType bt) {
+		auto t = t1.getCanonicalAndPeelEnum();
 		
-		if (t == BuiltinType.Null) {
-			if (t1.kind == TypeKind.Pointer || t1.kind == TypeKind.Class) {
-				return t1;
+		if (bt == BuiltinType.Null) {
+			if (t.kind == TypeKind.Pointer || t.kind == TypeKind.Class) {
+				return t;
 			}
 			
-			if (t1.kind == TypeKind.Function && t1.asFunctionType().contexts.length == 0) {
-				return t1;
+			if (t.kind == TypeKind.Function && t.asFunctionType().contexts.length == 0) {
+				return t;
 			}
 		}
 		
-		if (t1.kind != TypeKind.Builtin) {
+		if (t.kind != TypeKind.Builtin) {
 			assert(0, "Not Implemented.");
 		}
 		
-		return Type.get(promoteBuiltin(t, t1.builtin));
+		return Type.get(promoteBuiltin(bt, t.builtin));
 	}
 	
 	Type visitPointerOf(Type t) {

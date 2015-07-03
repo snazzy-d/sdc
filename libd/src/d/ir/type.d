@@ -189,6 +189,17 @@ public:
 		return payload.denum;
 	}
 	
+	auto getCanonicalAndPeelEnum() {
+		auto t = this.getCanonical();
+		auto q = qualifier;
+		while(t.kind == TypeKind.Enum) {
+			t = t.denum.type.getCanonical();
+			q.add(t.qualifier);
+		}
+		
+		return t.qualify(q);
+	}
+	
 	@property
 	auto dalias() inout in {
 		assert(kind == TypeKind.Alias);
@@ -196,12 +207,15 @@ public:
 		return payload.dalias;
 	}
 	
-	Type getCanonical() {
-		if (kind != TypeKind.Alias) {
-			return this;
+	auto getCanonical() {
+		auto t = this;
+		auto q = qualifier;
+		while(t.kind == TypeKind.Alias) {
+			t = t.dalias.type;
+			q.add(t.qualifier);
 		}
 		
-		return dalias.type.getCanonical().qualify(qualifier);
+		return t.qualify(q);
 	}
 	
 	@property

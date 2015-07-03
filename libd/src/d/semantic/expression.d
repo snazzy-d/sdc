@@ -216,12 +216,7 @@ struct ExpressionVisitor {
 				assert(0, "in and !in are not implemented.");
 			
 			case SignedRightShift :
-				type = lhs.type.getCanonical();
-				
-				// TODO: This seems to be a recuring pattern. Factorize.
-				while(type.kind == TypeKind.Enum) {
-					type = type.denum.type.getCanonical();
-				}
+				type = lhs.type.getCanonicalAndPeelEnum();
 				
 				auto bt = type.builtin;
 				if (!isIntegral(bt) || !isSigned(bt)) {
@@ -232,12 +227,7 @@ struct ExpressionVisitor {
 			
 			case UnsignedRightShift :
 			case LeftShift :
-				type = lhs.type.getCanonical();
-				
-				// TODO: This seems to be a recuring pattern. Factorize.
-				while(type.kind == TypeKind.Enum) {
-					type = type.denum.type.getCanonical();
-				}
+				type = lhs.type.getCanonicalAndPeelEnum();
 			
 			HandleShift:
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
