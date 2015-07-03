@@ -216,7 +216,8 @@ struct ExpressionVisitor {
 				assert(0, "in and !in are not implemented.");
 			
 			case SignedRightShift :
-				type = lhs.type.getCanonicalAndPeelEnum();
+				import d.semantic.typepromotion;
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 				
 				auto bt = type.builtin;
 				if (!isIntegral(bt) || !isSigned(bt)) {
@@ -227,7 +228,8 @@ struct ExpressionVisitor {
 			
 			case UnsignedRightShift :
 			case LeftShift :
-				type = lhs.type.getCanonicalAndPeelEnum();
+				import d.semantic.typepromotion;
+				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
 			
 			HandleShift:
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
