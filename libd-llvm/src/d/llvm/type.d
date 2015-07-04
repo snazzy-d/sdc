@@ -348,7 +348,7 @@ struct TypeGen {
 		LLVMValueRef[] vtbl = [];
 		foreach (member; i.members) {
 			if (auto m = cast(Method) member) {
-				vtbl ~= pass.visit(m);
+				//vtbl ~= pass.visit(m);
 			}
 		}
 
