@@ -73,7 +73,6 @@ struct PageDescriptor {
 		assert(this.zeroed == zeroed);
 		assert(this.dirty == dirty);
 		assert(this.binID == binID);
-		assert(this.offset == pages);
 	}
 	
 	@property
@@ -114,11 +113,20 @@ struct PageDescriptor {
 	
 	@property
 	uint offset() const {
+		assert(allocated);
+		return bits >> LgPageSize;
+	}
+	
+	@property
+	uint pages() const {
+		assert(!allocated);
+		// TODO: VRP
 		return bits >> LgPageSize;
 	}
 	
 	@property
 	uint size() const {
+		assert(!allocated);
 		// TODO: VRP
 		return cast(uint) (bits & ~PageMask);
 	}
@@ -173,7 +181,8 @@ struct Chunk {
 		c.header.size	= ChunkSize;
 		
 		import d.gc.sizeclass;
-		enum FreeBinID = cast(ubyte) (getBinID((DataPages << LgPageSize) + 1) - 1);
+		enum DataSize = DataPages << LgPageSize;
+		enum FreeBinID = cast(ubyte) (getBinID(DataSize + 1) - 1);
 		
 		import d.gc.bin;
 		auto d = PageDescriptor(
@@ -187,7 +196,7 @@ struct Chunk {
 		
 		assert(d.zeroed == true);
 		assert(!d.allocated);
-		assert(d.offset == DataPages);
+		assert(d.size == DataSize);
 		assert(d.binID == FreeBinID);
 		
 		c.pages[0] = d;
@@ -303,7 +312,7 @@ private:
 		assert(!pages[runID].allocated);
 		
 		auto pd = pages[runID];
-		auto totalPages = pd.offset;
+		auto totalPages = pd.pages;
 		auto dirty = pd.dirty;
 		
 		assert(needPages <= totalPages);

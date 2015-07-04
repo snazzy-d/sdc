@@ -20,6 +20,7 @@ L[S / 128] ls;
 
 extern(C) void _tl_gc_free(void* ptr);
 extern(C) void* _tl_gc_alloc(size_t size);
+extern(C) void* _tl_gc_realloc(void* ptr, size_t size);
 
 void main() {
 	foreach(i; 0 .. S) {
@@ -69,5 +70,48 @@ void main() {
 	_tl_gc_free(b3);
 	
 	_tl_gc_free(null);
+	
+	// Realloc degenerate cases (null ptr, 0 size).
+	auto r = _tl_gc_realloc(null, 0);
+	assert(r is null);
+	
+	r = _tl_gc_realloc(r, 20);
+	assert(r !is null);
+	
+	r = _tl_gc_realloc(r, 0);
+	assert(r is null);
+	
+	// Small realloc
+	auto r0 = _tl_gc_realloc(r, 50);
+	auto r1 = _tl_gc_realloc(r0, 150);
+	assert(r1 !is r0);
+	
+	r1 = _tl_gc_realloc(r1, 50);
+	assert(r1 is r0);
+	
+	r1 = _tl_gc_realloc(r1, 55);
+	assert(r1 is r0);
+	
+	// Large realloc
+	r0 = _tl_gc_realloc(r1, 34 * 4096);
+	r1 = _tl_gc_realloc(r0, 55 * 4096);
+	assert(r0 !is r1);
+	
+	r1 = _tl_gc_realloc(r1, 34 * 4096);
+	assert(r1 is r0);
+	
+	r1 = _tl_gc_realloc(r1, 35 * 4096);
+	assert(r1 is r0);
+	
+	// Huge realloc
+	r0 = _tl_gc_realloc(r1, 34 * 1024 * 1024);
+	r1 = _tl_gc_realloc(r0, 55 * 1024 * 1024);
+	assert(r0 !is r1);
+	
+	r0 = _tl_gc_realloc(r1, 34 * 1024 * 1024);
+	assert(r0 !is r1);
+	
+	r1 = _tl_gc_realloc(r0, 35 * 1024 * 1024);
+	assert(r1 is r0);
 }
 

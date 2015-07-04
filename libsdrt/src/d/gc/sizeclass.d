@@ -59,8 +59,31 @@ ubyte getBinID(size_t size) {
 	auto ret = (shift - LgQuantum) * 4 + mod + ClassCount.Tiny;
 	
 	// TODO: out contract.
-	// assert(ret < ubyte.max);
+	assert(ret < ubyte.max);
 	return cast(ubyte) ret;
+}
+
+size_t getSizeFromBinID(uint binID) {
+	if (binID < ClassCount.Small) {
+		import d.gc.bin;
+		auto ret = binInfos[binID].size;
+		
+		// XXX: out contract
+		assert(binID == getBinID(ret));
+		assert(ret == getAllocSize(ret));
+		return ret;
+	}
+	
+	auto largeBinID = binID - ClassCount.Small;
+	auto shift = largeBinID / 4 + LgPageSize;
+	size_t bits = 4 + largeBinID % 4;
+	
+	auto ret = bits << shift;
+	
+	// XXX: out contract
+	assert(binID == getBinID(ret));
+	assert(ret == getAllocSize(ret));
+	return ret;
 }
 
 auto getBinInfos() {

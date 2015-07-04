@@ -8,6 +8,10 @@ extern(C) void _tl_gc_free(void* ptr) {
 	tl.free(ptr);
 }
 
+extern(C) void* _tl_gc_realloc(void* ptr, size_t size) {
+	return tl.realloc(ptr, size);
+}
+
 extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
 	tl.stackBottom = bottom;
 }
@@ -67,21 +71,92 @@ struct Arena {
 	}
 	
 	void free(void* ptr) {
-		import d.gc.spec;
-		auto c = cast(Chunk*) ((cast(size_t) ptr) & ~AlignMask);
-		
-		// XXX: type promotion is fucked.
-		auto vc = cast(void*) c;
-		
-		// XXX: assert that we own that chunk.
-		if (vc !is ptr) {
+		auto c = findChunk(ptr);
+		if (c !is null) {
 			freeInChunk(ptr, c);
 		} else {
 			freeHuge(ptr);
 		}
 	}
 	
+	void* realloc(void* ptr, size_t size) {
+		if (size == 0) {
+			free(ptr);
+			return null;
+		}
+		
+		if (ptr is null) {
+			return alloc(size);
+		}
+		
+		auto newBinID = getBinID(size);
+		
+		// TODO: Try in place resize for large/huge.
+		auto oldBinID = newBinID;
+		
+		auto c = findChunk(ptr);
+		if (c !is null) {
+			oldBinID = c.pages[findRunID(ptr, c)].binID;
+		} else {
+			oldBinID = getBinID(findHugeExtent(ptr).size);
+		}
+		
+		if (newBinID == oldBinID) {
+			return ptr;
+		}
+		
+		auto newPtr = alloc(size);
+		if (newPtr is null) {
+			return null;
+		}
+		
+		if (newBinID > oldBinID) {
+			memcpy(newPtr, ptr, getSizeFromBinID(oldBinID));
+		} else {
+			memcpy(newPtr, ptr, size);
+		}
+		
+		free(ptr);
+		return newPtr;
+	}
+	
 private:
+	Chunk* findChunk(void* ptr) {
+		import d.gc.spec;
+		// TODO: in contracts
+		auto c = cast(Chunk*) ((cast(size_t) ptr) & ~AlignMask);
+		
+		// XXX: type promotion is fucked.
+		auto vc = cast(void*) c;
+		if (vc is ptr) {
+			// Huge alloc, no arena.
+			return null;
+		}
+		
+		// This is not a huge alloc, assert we own the arena.
+		assert(c.header.arena is &this);
+		return c;
+	}
+	
+	uint findRunID(void* ptr, Chunk* c) {
+		// TODO: in contracts
+		assert(findChunk(ptr) is c);
+		
+		auto offset = (cast(uint) ptr) - (cast(uint) &c.datas[0]);
+		
+		import d.gc.spec;
+		auto runID = offset >> LgPageSize;
+		auto pd = c.pages[runID];
+		assert(pd.allocated);
+		
+		runID -= pd.offset;
+		
+		pd = c.pages[runID];
+		assert(pd.allocated);
+		
+		return runID;
+	}
+	
 	/**
 	 * Small allocation facilities.
 	 */
@@ -92,8 +167,8 @@ private:
 		auto binID = getBinID(size);
 		assert(binID < ClassCount.Small);
 		
-		// TODO: Precompute bininfos and read from there.
-		size = getAllocSize(size);
+		// Load eagerly as prefetching.
+		size = binInfos[binID].size;
 		
 		auto run = findSmallRun(binID);
 		if (run is null) {
@@ -220,14 +295,8 @@ private:
 	 * Free in chunk.
 	 */
 	void freeInChunk(void* ptr, Chunk* c) {
-		auto offset = (cast(uint) ptr) - (cast(uint) &c.datas[0]);
-		
-		import d.gc.spec;
-		auto runID = offset >> LgPageSize;
+		auto runID = findRunID(ptr, c);
 		auto pd = c.pages[runID];
-		assert(pd.allocated);
-		
-		runID -= pd.offset;
 		assert(pd.allocated);
 		
 		if (pd.small) {
@@ -274,15 +343,13 @@ private:
 		// TODO: in contracts
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 		
-		// Sanity check: no intern pointer.
+		// Sanity check: no interior pointer.
 		auto base = cast(void*) &c.datas[runID];
 		assert(ptr is base);
 		
-		auto largeBinID = binID - ClassCount.Small;
-		auto shift = largeBinID / 4;
-		auto bits = 4 + largeBinID % 4;
-		
-		freeRun(c, runID, bits << shift);
+		import d.gc.spec;
+		auto pages = cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+		freeRun(c, runID, pages);
 	}
 	
 	void freeRun(Chunk* c, uint runID, uint pages) {
@@ -294,8 +361,8 @@ private:
 		if (runID > 0) {
 			auto previous = c.pages[runID - 1];
 			if (previous.free && previous.dirty) {
-				runID -= previous.offset;
-				pages += previous.offset;
+				runID -= previous.pages;
+				pages += previous.pages;
 				
 				freeRunTree.remove(&c.runs[runID]);
 			}
@@ -304,10 +371,9 @@ private:
 		if (runID + pages < DataPages) {
 			auto nextID = runID + pages;
 			auto next = c.pages[nextID];
-			assert(next.free || next.offset == 0);
 			
 			if (next.free && next.dirty) {
-				pages += next.offset;
+				pages += next.pages;
 				
 				freeRunTree.remove(&c.runs[nextID]);
 			}
@@ -370,16 +436,10 @@ private:
 		return ret;
 	}
 	
-	void freeHuge(void* ptr) {
+	Extent* findHugeExtent(void* ptr) {
 		// XXX: in contracts
 		import d.gc.spec;
-		auto vc = cast(void*) ((cast(size_t) ptr) & ~AlignMask);
-		assert(vc is ptr);
-		
-		if (ptr is null) {
-			// free(null) is valid, we want to handle it properly.
-			return;
-		}
+		assert(((cast(size_t) ptr) & AlignMask) == 0);
 		
 		Extent test;
 		test.addr = ptr;
@@ -387,6 +447,19 @@ private:
 		// XXX: extract
 		auto e = hugeTree.find(&test);
 		assert(e !is null);
+		assert(e.arena is &this);
+		
+		return e;
+	}
+	
+	void freeHuge(void* ptr) {
+		if (ptr is null) {
+			// free(null) is valid, we want to handle it properly.
+			return;
+		}
+		
+		// XXX: extract
+		auto e = findHugeExtent(ptr);
 		
 		import d.gc.mman;
 		pages_unmap(e.addr, e.size);

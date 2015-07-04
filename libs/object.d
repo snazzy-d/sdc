@@ -16,6 +16,7 @@ extern (C) {
 	void exit(int code);
 	int printf(const char* fmt, ...);
 	void* memset(void* ptr, int value, size_t num);
+	void* memcpy(void* destination, void* source, size_t num);
 }
 
 class Object {
