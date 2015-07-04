@@ -102,14 +102,14 @@ struct DeclarationVisitor {
 			dscope.clearPoisoningMode();
 		}
 		
-		return flatten(ctus)[0].symbols.map!(su => su.s).array();
+		return lowerToSymbols(ctus);
 	}
 	
 	Symbol[] flatten(Declaration d) {
-		return flatten(flattenDecls([d]))[0].symbols.map!(su => su.s).array();
+		return lowerToSymbols(flattenDecls(only(d)));
 	}
 	
-	private auto flattenDecls(Declaration[] decls) {
+	private auto flattenDecls(R)(R decls) {
 		auto oldCtLevel = ctLevel;
 		scope(exit) ctLevel = oldCtLevel;
 		
@@ -129,70 +129,60 @@ struct DeclarationVisitor {
 	
 	// At this point, CTFE can yield, and change object state,
 	// so we pass things as parameters.
-	private auto flatten(CtUnit[] ctus, CtUnitLevel to = CtUnitLevel.Done) {
-		if(to == CtUnitLevel.Unknown) {
-			return ctus;
-		}
-		
+	private Symbol[] lowerToSymbols(CtUnit[] ctus) {
 		// Process level 2 construct
-		CtUnit[] cdUnits;
-		cdUnits.reserve(ctus.length);
-		foreach(u; ctus) {
-			if(u.level == CtUnitLevel.Unknown) {
-				final switch(u.type) with(CtUnitType) {
-					case StaticIf :
-						cdUnits ~= flattenStaticIf(u, CtUnitLevel.Conditional);
-						break;
-					
-					case Mixin :
-						cdUnits ~= flattenMixin(u, CtUnitLevel.Conditional);
-						break;
-					
-					case Symbols :
-						assert(0, "invalid ctUnit");
-				}
-			} else {
-				cdUnits ~= u;
-			}
-		}
+		ctus = lowerStaticIfs(lowerMixins(ctus));
+		assert(ctus[0].type == CtUnitType.Symbols);
 		
-		if(to == CtUnitLevel.Conditional) {
-			return cdUnits;
-		}
-		
-		ctus = cdUnits;
-		cdUnits = [];
-		cdUnits.reserve(ctus.length);
-		foreach(u; ctus) {
-			if(u.level == CtUnitLevel.Conditional) {
-				final switch(u.type) with(CtUnitType) {
-					case StaticIf :
-						cdUnits ~= flattenStaticIf(u, CtUnitLevel.Done);
-						break;
-					
-					case Mixin :
-					case Symbols :
-						assert(0, "invalid ctUnit");
-				}
-			} else {
-				assert(u.level == CtUnitLevel.Done);
-				cdUnits ~= u;
-			}
-		}
-		
-		ctus = cdUnits[1 .. $];
-		assert(cdUnits[0].level == CtUnitLevel.Done);
+		Symbol[] syms;
 		
 		foreach(u; ctus) {
 			assert(u.level == CtUnitLevel.Done);
-			assert(u.type == CtUnitType.Symbols);
-			cdUnits[0].symbols ~= u.symbols;
+			final switch(u.type) with(CtUnitType) {
+				case Symbols:
+					import std.range;
+					syms ~= u.symbols.map!(su => su.s).array();
+					break;
+				
+				case StaticAssert:
+					checkStaticAssert(u.staticAssert);
+					break;
+				
+				case StaticIf, Mixin:
+					assert(0, "invalid ctUnit");
+			}
 		}
 		
-		return cdUnits[0 .. 1];
+		return syms;
 	}
 	
-	private auto flattenStaticIf(CtUnit unit, CtUnitLevel to) in {
+	private CtUnit[] lowerStaticIfs(CtUnit[] ctus) {
+		CtUnit[] cdUnits;
+		cdUnits.reserve(ctus.length);
+		foreach(u; ctus) {
+			assert(u.level != CtUnitLevel.Unknown);
+			
+			if (u.level != CtUnitLevel.Conditional) {
+				assert(u.level == CtUnitLevel.Done);
+				
+				cdUnits ~= u;
+				continue;
+			}
+			
+			final switch(u.type) with(CtUnitType) {
+				case StaticIf :
+					cdUnits ~= lowerStaticIf(u);
+					break;
+				
+				case Mixin, Symbols, StaticAssert :
+					assert(0, "invalid ctUnit");
+			}
+		}
+		
+		return cdUnits;
+	}
+	
+	private auto lowerStaticIf(bool forMixin = false)(CtUnit unit) in {
 		assert(unit.type == CtUnitType.StaticIf);
 	} body {
 		auto d = unit.staticIf;
@@ -206,7 +196,7 @@ struct DeclarationVisitor {
 		));
 		
 		CtUnit[] items;
-		if(condition) {
+		if (condition) {
 			currentScope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
@@ -215,7 +205,7 @@ struct DeclarationVisitor {
 		}
 		
 		foreach(ref u; items) {
-			if(u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
+			if (u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
 				foreach(su; u.symbols) {
 					import d.semantic.symbol;
 					SymbolVisitor(pass).visit(su.d, su.s);
@@ -225,14 +215,40 @@ struct DeclarationVisitor {
 			}
 		}
 		
-		return flatten(items, to);
+		static if (forMixin) {
+			return lowerMixins(items);
+		} else {
+			return lowerStaticIfs(items);
+		}
 	}
 	
-	private auto flattenMixin(CtUnit unit, CtUnitLevel to) in {
-		assert(unit.type == CtUnitType.Mixin);
-	} body {
-		auto d = unit.mixinDecl;
-
+	private CtUnit[] lowerMixins(CtUnit[] ctus) {
+		CtUnit[] cdUnits;
+		cdUnits.reserve(ctus.length);
+		foreach(u; ctus) {
+			if (u.level != CtUnitLevel.Unknown) {
+				cdUnits ~= u;
+				continue;
+			}
+			
+			final switch(u.type) with(CtUnitType) {
+				case StaticIf :
+					cdUnits ~= lowerStaticIf!true(u);
+					break;
+				
+				case Mixin :
+					cdUnits ~= lowerMixin(u.mixinDecl);
+					break;
+				
+				case Symbols, StaticAssert :
+					assert(0, "invalid ctUnit");
+			}
+		}
+		
+		return cdUnits;
+	}
+	
+	private auto lowerMixin(Mixin!Declaration d) {
 		import d.semantic.expression : ExpressionVisitor;
 		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
 		
@@ -252,7 +268,35 @@ struct DeclarationVisitor {
 			decls ~= trange.parseDeclaration();
 		}
 		
-		return flatten(flattenDecls(decls), to);
+		return lowerMixins(flattenDecls(decls));
+	}
+	
+	private void checkStaticAssert(StaticAssert!Declaration a) {
+		import d.semantic.caster, d.semantic.expression;
+		auto condition = evalIntegral(buildExplicitCast(
+			pass,
+			a.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(a.condition),
+		));
+		
+		if (condition) {
+			return;
+		}
+		
+		import d.exception;
+		if (a.message is null) {
+			throw new CompileException(a.location, "assertion failure");
+		}
+		
+		auto msg = evalString(buildExplicitCast(
+			pass,
+			a.condition.location,
+			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
+			ExpressionVisitor(pass).visit(a.message),
+		));
+		
+		throw new CompileException(a.location, "assertion failure: " ~ msg);
 	}
 	
 	void visit(Declaration d) {
@@ -263,7 +307,7 @@ struct DeclarationVisitor {
 		auto unit = &(ctUnits[$ - 1]);
 		assert(unit.type == CtUnitType.Symbols);
 		
-		if(unit.level == CtUnitLevel.Done) {
+		if (unit.level == CtUnitLevel.Done) {
 			scheduler.schedule(d, s);
 		}
 		
@@ -602,6 +646,16 @@ struct DeclarationVisitor {
 		finalCtUnits ~= next;
 	}
 	
+	void visit(StaticAssert!Declaration d) {
+		auto unit = CtUnit();
+		unit.level = CtUnitLevel.Done;
+		unit.type = CtUnitType.StaticAssert;
+		unit.staticAssert = d;
+		
+		ctUnits ~= unit;
+		ctUnits ~= CtUnit();
+	}
+	
 	void visit(Version!Declaration d) {
 		foreach(v; versions) {
 			if(d.versionId == v) {
@@ -630,7 +684,7 @@ struct DeclarationVisitor {
 		ctUnits ~= unit;
 		ctUnits ~= CtUnit();
 	}
-
+	
 private:
 	void addSymbol(Symbol s) {
 		if (cdBranches.length) {
@@ -659,6 +713,7 @@ enum CtUnitLevel {
 
 enum CtUnitType {
 	Symbols,
+	StaticAssert,
 	StaticIf,
 	Mixin,
 }
@@ -678,6 +733,7 @@ struct CtUnit {
 	
 	union {
 		SymbolUnit[] symbols;
+		StaticAssert!Declaration staticAssert;
 		Mixin!Declaration mixinDecl;
 		struct {
 			// TODO: special declaration subtype here.
@@ -687,4 +743,3 @@ struct CtUnit {
 		};
 	}
 }
-

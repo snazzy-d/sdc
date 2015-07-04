@@ -170,3 +170,29 @@ auto parseMixin(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 	return new Mixin!ItemType(location, expression);
 }
 
+/**
+ * Parse static assert.
+ */
+ItemType parseStaticAssert(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
+	auto location = trange.front.location;
+	
+	trange.match(TokenType.Static);
+	trange.match(TokenType.Assert);
+	trange.match(TokenType.OpenParen);
+	
+	auto condition = trange.parseAssignExpression();
+	
+	import d.ast.expression;
+	AstExpression message;
+	if (trange.front.type == TokenType.Comma) {
+		trange.popFront();
+		message = trange.parseAssignExpression();
+	}
+	
+	trange.match(TokenType.CloseParen);
+	
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.Semicolon);
+	
+	return new StaticAssert!ItemType(location, condition, message);
+}

@@ -377,24 +377,13 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			lookahead.popFront();
 			
 			switch(lookahead.front.type) {
-				case If :
+				case If:
 					return trange.parseStaticIf!AstStatement();
 				
-				case Assert :
-					import std.range;
-					trange.popFrontN(2);
-					trange.match(OpenParen);
-					
-					auto arguments = trange.parseArguments();
-					
-					trange.match(CloseParen);
-					
-					location.spanTo(trange.front.location);
-					trange.match(Semicolon);
-					
-					return new StaticAssertStatement(location, arguments);
+				case Assert:
+					return trange.parseStaticAssert!AstStatement();
 				
-				default :
+				default:
 					auto declaration = trange.parseDeclaration();
 					return new DeclarationStatement(declaration);
 			}

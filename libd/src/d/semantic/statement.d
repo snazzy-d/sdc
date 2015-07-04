@@ -773,6 +773,34 @@ public:
 		mustTerminate = false;
 	}
 	
+	void visit(StaticAssert!AstStatement s) {
+		import d.semantic.expression;
+		auto condition = evalIntegral(buildExplicitCast(
+			pass,
+			s.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(s.condition),
+		));
+		
+		if (condition) {
+			return;
+		}
+		
+		import d.exception;
+		if (s.message is null) {
+			throw new CompileException(s.location, "assertion failure");
+		}
+		
+		auto msg = evalString(buildExplicitCast(
+			pass,
+			s.condition.location,
+			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
+			ExpressionVisitor(pass).visit(s.message),
+		));
+		
+		throw new CompileException(s.location, "assertion failure: " ~ msg);
+	}
+	
 	void visit(Mixin!AstStatement s) {
 		import d.semantic.expression;
 		auto str = evalString(ExpressionVisitor(pass).visit(s.value));

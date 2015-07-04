@@ -351,16 +351,3 @@ struct CatchBlock(T, S) if(is(S : AstStatement)) {
 import d.ast.identifier;
 alias AstCatchBlock = CatchBlock!(d.ast.identifier.Identifier, AstStatement);
 
-/**
- * static assert statements
- */
-class StaticAssertStatement : AstStatement {
-	AstExpression[] arguments;
-	
-	this(Location location, AstExpression[] arguments) {
-		super(location);
-		
-		this.arguments = arguments;
-	}
-}
-

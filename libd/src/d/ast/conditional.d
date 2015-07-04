@@ -58,7 +58,7 @@ class StaticIf(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemTy
 	AstExpression condition;
 	ItemType[] items;
 	ItemType[] elseItems;
-		
+	
 	this(Location location, AstExpression condition, ItemType[] items, ItemType[] elseItems) {
 		super(location);
 		
@@ -84,3 +84,18 @@ class Mixin(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType 
 }
 
 alias MixinDeclaration = Mixin!Declaration;
+
+/**
+ * Static assert
+ */
+class StaticAssert(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+	AstExpression condition;
+	AstExpression message;
+	
+	this(Location location, AstExpression condition, AstExpression message) {
+		super(location);
+		
+		this.condition = condition;
+		this.message = message;
+	}
+}

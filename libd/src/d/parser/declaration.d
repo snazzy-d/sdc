@@ -51,11 +51,17 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
 			// Handle static if.
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			if (lookahead.front.type == If) {
-				return trange.parseStaticIf!Declaration();
+			switch(lookahead.front.type) {
+				case If:
+					return trange.parseStaticIf!Declaration();
+				
+				case Assert:
+					return trange.parseStaticAssert!Declaration();
+				
+				default:
+					break;
 			}
 			
-			// TODO: handle static assert.
 			break;
 		
 		case Import :
