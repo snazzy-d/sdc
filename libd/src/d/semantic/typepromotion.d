@@ -13,7 +13,7 @@ import d.exception;
 alias Interface = d.ir.symbol.Interface;
 
 Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
-	return TypePromoter(pass, t1).visit(t2);
+	return TypePromoter(pass, location, t1).visit(t2);
 }
 // XXX: type promotion and finding common type are mixed up in there.
 // This need to be splitted.
@@ -22,10 +22,14 @@ struct TypePromoter {
 	private SemanticPass pass;
 	alias pass this;
 	
+	private Location location;
+	
 	Type t1;
 	
-	this(SemanticPass pass, Type t1) {
+	this(SemanticPass pass, Location location, Type t1) {
 		this.pass = pass;
+		this.location = location;
+		
 		this.t1 = t1.getCanonical();
 	}
 	
@@ -89,7 +93,8 @@ struct TypePromoter {
 			return Type.get(s);
 		}
 		
-		assert(0, "Incompatible struct type.");
+		import d.exception;
+		throw new CompileException(location, "Incompatible struct type " ~ s.name.toString(context) ~ " and " ~ t1.toString(context));
 	}
 	
 	Type visit(Class c) {
