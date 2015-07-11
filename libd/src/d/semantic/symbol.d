@@ -862,16 +862,10 @@ struct SymbolAnalyzer {
 		bool found = false;
 		foreach (i; c.interfaces){
 			scheduler.require(i);
-
-			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
-			
-			// XXX: d is hijacked without explicit import
+				// XXX: d is hijacked without explicit import
 			import d.context.name : BuiltinName;
 			
 			// TODO: use defaultinit.
-			auto ivtbl = new Field(d.location, 0, vtblType, BuiltinName!"__ivtbl", null);
-			c.members ~= ivtbl;
-			//c.ivtblOffset[i]
 			// TODO: uint[Interface]
 			MemberLoop: foreach (m; i.members) {
 				if (auto interfaceMethod = cast(Method) m) {

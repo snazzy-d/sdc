@@ -23,11 +23,12 @@ private:
 	
 	LLVMValueRef[Class] vtbls;
 	LLVMTypeRef[Function] funCtxTypes;
+	LLVMValueRef[Interface] ivtbls;
 }
 
 struct TypeGen {
 	private CodeGen pass;
-	alias pass this;
+	alias pass this;	
 	
 	this(CodeGen pass) {
 		this.pass = pass;
@@ -298,7 +299,14 @@ struct TypeGen {
 				}
 			}
 		}
-		
+
+		// adding interface vtables after all class methods
+		foreach (i; c.interfaces) {
+			// scheduler.require(ivtbls)?
+			vtbl ~= ivtbls[i]; // TODO: offset?
+		}
+
+
 		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
 		
@@ -364,6 +372,8 @@ struct TypeGen {
 
 		LLVMValueRef[] fields = [];
 		fields ~= vtblPtr;
+		ivtbls[i] = vtblPtr;
+
 		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
 		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
 
