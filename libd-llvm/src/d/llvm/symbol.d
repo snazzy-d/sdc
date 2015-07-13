@@ -386,15 +386,31 @@ final class SymbolGen {
 			return locals[v] = value;
 		}
 		
+		auto qualifier = v.type.qualifier;
 		auto type = pass.visit(v.type);
-		if(v.storage == Storage.Static) {
+
+		if (v.storage == Storage.Static) {
 			import std.string;
 			auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
-			LLVMSetThreadLocal(globalVar, true);
+			
+			// Depending on the type qualifier,
+			// make it thread local/ constant or nothing.
+			final switch(qualifier) with(TypeQualifier) {
+				case Mutable, Inout, Const:
+					LLVMSetThreadLocal(globalVar, true);
+					break;
+
+				case Shared, ConstShared:
+					break;
+
+				case Immutable:
+					LLVMSetGlobalConstant(globalVar, true);
+					break;
+			}
 			
 			// Store the initial value into the global variable.
 			LLVMSetInitializer(globalVar, value);
-			
+
 			// Register the variable.
 			return globals[v] = globalVar;
 		}
@@ -407,7 +423,7 @@ final class SymbolGen {
 		scope(success) assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
 		
 		LLVMValueRef addr;
-		if(v.storage == Storage.Capture) {
+		if (v.storage == Storage.Capture) {
 			auto closure = &contexts[$ - 1];
 			
 			uint index = 0;

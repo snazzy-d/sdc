@@ -22,7 +22,5 @@ struct BinInfo {
 	}
 }
 
-// XXX: Make this non thread local.
-// XXX: Make this immutable.
 import d.gc.sizeclass;
-BinInfo[ClassCount.Small] binInfos = getBinInfos();
+immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();

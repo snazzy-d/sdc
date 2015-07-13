@@ -28,8 +28,30 @@ struct ExpressionGen {
 		})(e);
 	}
 	
-	private LLVMValueRef addressOf(Expression e) {
+	private LLVMValueRef addressOf(E)(E e) if (is(E : Expression)) in {
+		assert(e.isLvalue, "e must be an lvalue");
+	} body {
 		return AddressOfGen(pass).visit(e);
+	}
+	
+	private LLVMValueRef buildLoad(LLVMValueRef ptr, TypeQualifier q) {
+		final switch(q) with(TypeQualifier) {
+			case Mutable, Inout, Const:
+				return LLVMBuildLoad(builder, ptr, "");
+			case Shared, ConstShared:
+				// TODO: Sequantial consistency.
+				return LLVMBuildLoad(builder, ptr, "");
+			case Immutable:
+				// TODO: !invariant.load
+				return LLVMBuildLoad(builder, ptr, "");
+		}
+	}
+	
+	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression)) in {
+		assert(e.isLvalue, "e must be an lvalue");
+	} body {
+		auto q = e.type.qualifier;
+		return buildLoad(addressOf(e), q);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -76,10 +98,11 @@ struct ExpressionGen {
 	}
 	
 	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
+		auto lhsQual = e.lhs.type.qualifier;
 		auto lhsPtr = addressOf(e.lhs);
 		auto rhs = visit(e.rhs);
 		
-		auto lhs = LLVMBuildLoad(builder, lhsPtr, "");
+		auto lhs = buildLoad(lhsPtr, lhsQual);
 		auto value = LLVMBuildOp(builder, lhs, rhs, "");
 		
 		LLVMBuildStore(builder, value, lhsPtr);
@@ -307,11 +330,12 @@ struct ExpressionGen {
 				return addressOf(e.expr);
 			
 			case Dereference :
-				return LLVMBuildLoad(builder, visit(e.expr), "");
+				return buildLoad(visit(e.expr), e.type.qualifier);
 			
 			case PreInc :
+				auto q = e.expr.type.qualifier;
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto value = buildLoad(ptr, q);
 				auto type = LLVMTypeOf(value);
 				
 				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
@@ -325,8 +349,9 @@ struct ExpressionGen {
 				return value;
 			
 			case PreDec :
+				auto q = e.expr.type.qualifier;
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto value = buildLoad(ptr, q);
 				auto type = LLVMTypeOf(value);
 				
 				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
@@ -340,8 +365,9 @@ struct ExpressionGen {
 				return value;
 			
 			case PostInc :
+				auto q = e.expr.type.qualifier;
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto value = buildLoad(ptr, q);
 				auto ret = value;
 				auto type = LLVMTypeOf(value);
 				
@@ -356,8 +382,9 @@ struct ExpressionGen {
 				return ret;
 			
 			case PostDec :
+				auto q = e.expr.type.qualifier;
 				auto ptr = addressOf(e.expr);
-				auto value = LLVMBuildLoad(builder, ptr, "");
+				auto value = buildLoad(ptr, q);
 				auto ret = value;
 				auto type = LLVMTypeOf(value);
 				
@@ -442,12 +469,12 @@ struct ExpressionGen {
 	LLVMValueRef visit(VariableExpression e) {
 		return (e.var.storage == Storage.Enum)
 			? pass.visit(e.var)
-			: LLVMBuildLoad(builder, addressOf(e), "");
+			: loadAddressOf(e);
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {
 		if (e.isLvalue) {
-			return LLVMBuildLoad(builder, addressOf(e), "");
+			return loadAddressOf(e);
 		}
 		
 		assert(e.expr.type.kind != TypeKind.Union, "rvalue unions not implemented.");
@@ -522,7 +549,7 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(IndexExpression e) {
-		return LLVMBuildLoad(builder, addressOf(e), "");
+		return loadAddressOf(e);
 	}
 	
 	auto genBoundCheck(Location location, LLVMValueRef condition) {

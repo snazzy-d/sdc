@@ -93,17 +93,14 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 	}
 	
 	final switch(to) with(TypeQualifier) {
-		case Mutable :
-		case Inout :
-		case Shared :
-		case Immutable :
+		case Mutable, Inout, Shared, Immutable:
 			// Some qualifier are not safely castable to.
 			return false;
 		
-		case Const :
+		case Const:
 			return from == Mutable || from == Immutable || from == Inout;
 		
-		case ConstShared :
+		case ConstShared:
 			return from == Shared || from == Immutable;
 	}
 }
