@@ -1,5 +1,6 @@
-// testing interface 
-// compiles: yes
+//T compiles:yes
+//T has-passed:yes
+// Test interfaces.
 
 interface I {}
 void main() {
