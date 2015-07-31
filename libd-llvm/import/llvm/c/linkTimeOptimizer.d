@@ -45,7 +45,7 @@ extern(C) nothrow:
     //  Added C-specific error codes
     NULL_OBJECT
   }
-  alias llvm_lto_status llvm_lto_status_t;
+  alias llvm_lto_status_t = llvm_lto_status;
  
   /// This provides C interface to initialize link time optimizer. This allows
   /// linker to use dlopen() interface to dynamically load LinkTimeOptimizer.

@@ -171,6 +171,10 @@ void LLVMAddGlobalMapping(LLVMExecutionEngineRef EE, LLVMValueRef Global,
 
 void *LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
 
+ulong LLVMGetGlobalValueAddress(LLVMExecutionEngineRef EE, const(char)* Name);
+
+ulong LLVMGetFunctionAddress(LLVMExecutionEngineRef EE, const(char)* Name);
+
 /*===-- Operations on memory managers -------------------------------------===*/
 
 alias LLVMMemoryManagerAllocateCodeSectionCallback = ubyte* function(

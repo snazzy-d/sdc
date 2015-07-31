@@ -59,7 +59,7 @@ alias int function(void *DisInfo, uint64_t PC,
  * SubtractSymbol can be link edited independent of each other.  Many other
  * platforms only allow a relocatable expression of the form AddSymbol + Offset
  * to be encoded.
- * 
+ *
  * The LLVMOpInfoCallback() for the TagType value of 1 uses the struct
  * LLVMOpInfo1.  The value of the relocatable expression for the operand,
  * including any PC adjustment, is passed in to the call back in the Value
@@ -171,8 +171,8 @@ enum LLVMDisassembler_ReferenceType_DeMangled_Name = 9;
  * by passing a block of information in the DisInfo parameter and specifying the
  * TagType and callback functions as described above.  These can all be passed
  * as NULL.  If successful, this returns a disassembler context.  If not, it
- * returns NULL. This function is equivalent to calling LLVMCreateDisasmCPU()
- * with an empty CPU name.
+ * returns NULL. This function is equivalent to calling
+ * LLVMCreateDisasmCPUFeatures() with an empty CPU name and feature set.
  */
 LLVMDisasmContextRef LLVMCreateDisasm(const(char) *TripleName, void *DisInfo,
                                       int TagType, LLVMOpInfoCallback GetOpInfo,
@@ -183,12 +183,26 @@ LLVMDisasmContextRef LLVMCreateDisasm(const(char) *TripleName, void *DisInfo,
  * disassembly is supported by passing a block of information in the DisInfo
  * parameter and specifying the TagType and callback functions as described
  * above.  These can all be passed * as NULL.  If successful, this returns a
- * disassembler context.  If not, it returns NULL.
+ * disassembler context.  If not, it returns NULL. This function is equivalent
+ * to calling LLVMCreateDisasmCPUFeatures() with an empty feature set.
  */
 LLVMDisasmContextRef LLVMCreateDisasmCPU(const char *Triple, const char *CPU,
                                          void *DisInfo, int TagType,
                                          LLVMOpInfoCallback GetOpInfo,
                                          LLVMSymbolLookupCallback SymbolLookUp);
+
+/**
+ * Create a disassembler for the TripleName, a specific CPU and specific feature
+ * string.  Symbolic disassembly is supported by passing a block of information
+ * in the DisInfo parameter and specifying the TagType and callback functions as
+ * described above.  These can all be passed * as NULL.  If successful, this
+ * returns a disassembler context.  If not, it returns NULL.
+ */
+LLVMDisasmContextRef
+LLVMCreateDisasmCPUFeatures(const(char)* Triple, const(char)* CPU,
+                            const(char)* Features, void* DisInfo, int TagType,
+                            LLVMOpInfoCallback GetOpInfo,
+                            LLVMSymbolLookupCallback SymbolLookUp);
 
 /**
  * Set the disassembler's options.  Returns 1 if it can set the Options and 0

@@ -32,14 +32,14 @@ enum LLVMCodeGenOptLevel {
     None,
     Less,
     Default,
-    Aggressive
+    Aggressive,
 }
 
 enum LLVMRelocMode {
     Default,
     Static,
     PIC,
-    DynamicNoPic
+    DynamicNoPic,
 }
 
 enum LLVMCodeModel {
@@ -48,7 +48,7 @@ enum LLVMCodeModel {
     Small,
     Kernel,
     Medium,
-    Large
+    Large,
 }
 
 enum LLVMCodeGenFileType {

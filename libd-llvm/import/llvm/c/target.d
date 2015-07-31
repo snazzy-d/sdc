@@ -175,7 +175,7 @@ static void LLVMInitializeAllTargetMCs() {
     return "LLVMInitialize" ~ name ~ "TargetMC();";
   }));
 }
-  
+
 /** LLVMInitializeAllAsmPrinters - The main program should call this function if
     it wants all asm printers that LLVM is configured to support, to make them
     available via the TargetRegistry. */
@@ -184,7 +184,7 @@ static void LLVMInitializeAllAsmPrinters() {
     return "LLVMInitialize" ~ name ~ "AsmPrinter();";
   }));
 }
-  
+
 /** LLVMInitializeAllAsmParsers - The main program should call this function if
     it wants all asm parsers that LLVM is configured to support, to make them
     available via the TargetRegistry. */
@@ -193,7 +193,7 @@ static void LLVMInitializeAllAsmParsers() {
     return "LLVMInitialize" ~ name ~ "AsmParser();";
   }));
 }
-  
+
 /** LLVMInitializeAllDisassemblers - The main program should call this function
     if it wants all disassemblers that LLVM is configured to support, to make
     them available via the TargetRegistry. */
@@ -202,7 +202,7 @@ static void LLVMInitializeAllDisassemblers() {
     return "LLVMInitialize" ~ name ~ "Disassembler();";
   }));
 }
-  
+
 /** LLVMInitializeNativeTarget - The main program should call this function to
     initialize the native target corresponding to the host.  This is useful
     for JIT applications to ensure that the target gets linked in correctly. */
