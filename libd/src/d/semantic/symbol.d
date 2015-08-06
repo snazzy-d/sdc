@@ -856,6 +856,17 @@ struct SymbolAnalyzer {
 
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
+		foreach (i; c.interfaces) {
+			scheduler.require(i);
+			c.ivtblOffset[i] = methodIndex++;
+			import std.algorithm, std.array;
+			auto imethods = i.members.map!((m) {
+					m.index += methodIndex;
+				}).array();
+			c.members ~= imethods;
+			methodIndex += imethods.length;
+		}
+
 		scheduler.require(members);
 		c.members ~= members;
 
