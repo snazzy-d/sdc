@@ -1,7 +1,7 @@
 DMD ?= dmd
 GCC ?= gcc
 ARCHFLAG ?= -m64
-DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
+DFLAGS = $(ARCHFLAG) -debug -gc -unittest
 PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
@@ -13,7 +13,7 @@ LIBD_LIB = -Llib -ld-llvm -ld
 # dmd.conf doesn't set the proper -L flags.  
 # Fix it here until dmd installer is updated
 ifeq ($(PLATFORM),Darwin)
-	LD_PATH ?= /usr/share/dmd/lib
+	LD_PATH ?= /Library/D/dmd/lib
 endif
 
 LDFLAGS ?=

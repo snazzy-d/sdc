@@ -1901,7 +1901,7 @@ unittest {
         "djw\nw": 1337
     ]);
 
-    assert(toJSON(j1) == `{"abc\"":1234,"def":5,"djw\nw":1337}`);
+    assert(toJSON(j1) == `{"def":5,"djw\nw":1337,"abc\"":1234}`);
 
     JSON j2 = convertJSON([
         "abc\"": ["bla", "bla", "bla"],
@@ -1909,8 +1909,8 @@ unittest {
         "djw\nw": ["beep", "boop"]
     ]);
 
-    assert(toJSON(j2) == `{"abc\"":["bla","bla","bla"],`
-        ~ `"def":[],"djw\nw":["beep","boop"]}`);
+    assert(toJSON(j2) == `{"def":[],"djw\nw":["beep","boop"],`
+        ~ `"abc\"":["bla","bla","bla"]}`);
 }
 
 
