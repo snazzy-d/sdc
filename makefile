@@ -1,7 +1,7 @@
 DMD ?= dmd
 GCC ?= gcc
 ARCHFLAG ?= -m64
-DFLAGS = $(ARCHFLAG) -debug -gc -unittest
+DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
