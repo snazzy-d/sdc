@@ -196,7 +196,7 @@ private:
 
 auto getDefaultVersions() {
 	import d.context.name;
-	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64"];
+	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64", BuiltinName!"Posix"];
 	
 	version(linux) {
 		versions ~=  BuiltinName!"linux";
@@ -204,6 +204,10 @@ auto getDefaultVersions() {
 	
 	version(OSX) {
 		versions ~=  BuiltinName!"OSX";
+	}
+	
+	version(Posix) {
+		versions ~=  BuiltinName!"Posix";
 	}
 	
 	return versions;

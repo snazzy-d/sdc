@@ -72,7 +72,7 @@ enum Prefill = [
 	// Linkages
 	"C", "D", "C++", "Windows", "System", "Pascal", "Java",
 	// Version
-	"SDC", "D_LP64", "X86_64", "linux", "OSX",
+	"SDC", "D_LP64", "X86_64", "linux", "OSX", "Posix",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof",
 	// Scope
