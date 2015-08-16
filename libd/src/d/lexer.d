@@ -354,7 +354,7 @@ auto lex(Position base, Context context) {
 					return '\v';
 				
 				default :
-					assert(0, "Don't know about it.");
+					assert(0, "Don't know about " ~ content.front);
 			}
 		}
 		
