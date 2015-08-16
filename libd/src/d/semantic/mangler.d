@@ -84,10 +84,12 @@ struct TypeMangler {
 				return "m";
 			
 			case Cent :
-				assert(0, "Mangling for cent is not implemented");
+				// Used for ifloat, that won't be implemented.
+				return "o";
 			
 			case Ucent :
-				assert(0, "Mangling for ucent is not implemented");
+				// Used for idouble, that won't be implemented.
+				return "p";
 			
 			case Float :
 				return "f";
