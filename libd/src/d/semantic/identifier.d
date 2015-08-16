@@ -637,7 +637,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return handler(InitBuilder(pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return handler(new IntegerLiteral!false(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
+			return handler(new IntegerLiteral(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
 		}
 		
 		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
@@ -652,10 +652,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			if (t == BuiltinType.Bool) {
 				return handler(new BooleanLiteral(location, true));
 			} else if (isIntegral(t)) {
-				return handler(isSigned(t)
-					? new IntegerLiteral!true(location, getMax(t), t)
-					: new IntegerLiteral!false(location, getMax(t), t),
-				);
+				return handler(new IntegerLiteral(location, getMax(t), t));
 			} else if (isChar(t)) {
 				return handler(new CharacterLiteral(location, getCharMax(t), t));
 			}
@@ -663,10 +660,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			if (t == BuiltinType.Bool) {
 				return handler(new BooleanLiteral(location, false));
 			} else if (isIntegral(t)) {
-				return handler(isSigned(t)
-					? new IntegerLiteral!true(location, getMin(t), t)
-					: new IntegerLiteral!false(location, getMin(t), t),
-				);
+				return handler(new IntegerLiteral(location, getMin(t), t));
 			} else if (isChar(t)) {
 				return handler(new CharacterLiteral(location, '\0', t));
 			}
@@ -702,7 +696,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return bailout(t.getArray(size));
 		}
 		
-		return handler(new IntegerLiteral!false(location, size, pass.object.getSizeT().type.builtin));
+		return handler(new IntegerLiteral(location, size, pass.object.getSizeT().type.builtin));
 	}
 	
 	Ret visit(Struct s) {

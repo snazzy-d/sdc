@@ -176,7 +176,7 @@ final class SemanticPass {
 		Statement[] fbody;
 		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
 			fbody ~= new ExpressionStatement(call);
-			fbody ~= new ReturnStatement(location, new IntegerLiteral!true(location, 0, BuiltinType.Int));
+			fbody ~= new ReturnStatement(location, new IntegerLiteral(location, 0, BuiltinType.Int));
 		} else {
 			fbody ~= new ReturnStatement(location, call);
 		}

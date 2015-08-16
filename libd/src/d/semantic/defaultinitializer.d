@@ -55,11 +55,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			case Char, Wchar, Dchar :
 				return new CharacterLiteral(location, getCharInit(t), t);
 			
-			case Ubyte, Ushort, Uint, Ulong, Ucent :
-				return new IntegerLiteral!false(location, 0, t);
-			
-			case Byte, Short, Int, Long, Cent :
-				return new IntegerLiteral!true(location, 0, t);
+			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
+				return new IntegerLiteral(location, 0, t);
 			
 			case Float, Double, Real :
 				return new FloatLiteral(location, float.nan, t);
@@ -76,7 +73,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visitSliceOf(Type t) {
 		CompileTimeExpression[] init = [
 			new NullLiteral(location, t.getPointer()),
-			new IntegerLiteral!false(location, 0UL, pass.object.getSizeT().type.builtin)
+			new IntegerLiteral(location, 0UL, pass.object.getSizeT().type.builtin)
 		];
 		
 		// XXX: Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
@@ -176,10 +173,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	E visit(TypeAlias a) {
-		auto e = visit(a.type);
-		e.type = Type.get(a);
-		
-		return e;
+		// TODO: build implicit cast.
+		return visit(a.type);
 	}
 	
 	E visit(Interface i) {

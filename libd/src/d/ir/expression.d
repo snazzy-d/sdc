@@ -268,17 +268,11 @@ class BooleanLiteral : CompileTimeExpression {
 /**
  * Integer literal
  */
-class IntegerLiteral(bool isSigned) : CompileTimeExpression {
-	static if(isSigned) {
-		alias ValueType = long;
-	} else {
-		alias ValueType = ulong;
-	}
+class IntegerLiteral : CompileTimeExpression {
+	ulong value;
 	
-	ValueType value;
-	
-	this(Location location, ValueType value, BuiltinType t) in {
-		assert(isIntegral(t) && .isSigned(t) == isSigned);
+	this(Location location, ulong value, BuiltinType t) in {
+		assert(isIntegral(t));
 	} body {
 		super(location, Type.get(t));
 		
@@ -287,7 +281,9 @@ class IntegerLiteral(bool isSigned) : CompileTimeExpression {
 	
 	override string toString(const ref NameManager) const {
 		import std.conv;
-		return to!string(value);
+		return isSigned(type.builtin)
+			? to!string(cast(long) value)
+			: to!string(value);
 	}
 }
 

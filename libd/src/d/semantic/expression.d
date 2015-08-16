@@ -44,11 +44,7 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	Expression visit(IntegerLiteral!true e) {
-		return e;
-	}
-	
-	Expression visit(IntegerLiteral!false e) {
+	Expression visit(IntegerLiteral e) {
 		return e;
 	}
 	

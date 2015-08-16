@@ -54,11 +54,7 @@ struct ValueRangePropagator {
 		return ValueRange(e.value);
 	}
 	
-	ValueRange visit(IntegerLiteral!false e) {
-		return ValueRange(e.value).repack(e.type.builtin);
-	}
-	
-	ValueRange visit(IntegerLiteral!true e) {
+	ValueRange visit(IntegerLiteral e) {
 		return ValueRange(e.value).repack(e.type.builtin);
 	}
 	
@@ -638,11 +634,11 @@ unittest {
 	assert(v.min == true);
 	assert(v.max == true);
 	
-	v = vrp.visit(new IntegerLiteral!true(Location.init, -9, BuiltinType.Byte));
+	v = vrp.visit(new IntegerLiteral(Location.init, -9, BuiltinType.Byte));
 	assert(v.min == -9);
 	assert(v.max == -9);
 	
-	v = vrp.visit(new IntegerLiteral!false(Location.init, 42, BuiltinType.Uint));
+	v = vrp.visit(new IntegerLiteral(Location.init, 42, BuiltinType.Uint));
 	assert(v.min == 42);
 	assert(v.max == 42);
 }
@@ -651,8 +647,8 @@ unittest {
 	auto vrp = ValueRangePropagator();
 	
 	import d.context.location;
-	auto i1 = new IntegerLiteral!true(Location.init, -9, BuiltinType.Int);
-	auto i2 = new IntegerLiteral!true(Location.init, 42, BuiltinType.Int);
+	auto i1 = new IntegerLiteral(Location.init, -9, BuiltinType.Int);
+	auto i2 = new IntegerLiteral(Location.init, 42, BuiltinType.Int);
 	
 	auto v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Comma, i1, i2));
 	assert(v == ValueRange(42));
@@ -681,7 +677,7 @@ unittest {
 	auto vrp = ValueRangePropagator();
 	
 	import d.context.location;
-	auto i = new IntegerLiteral!false(Location.init, cast(uint) -6, BuiltinType.Uint);
+	auto i = new IntegerLiteral(Location.init, cast(uint) -6, BuiltinType.Uint);
 	
 	auto v = vrp.visit(new CastExpression(Location.init, CastKind.Bit, Type.get(BuiltinType.Ubyte), i));
 	assert(v == ValueRange(250));

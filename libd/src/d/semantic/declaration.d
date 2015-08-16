@@ -437,12 +437,12 @@ struct DeclarationVisitor {
 					import d.ir.expression;
 					if(previous) {
 						if(!one) {
-							one = new IntegerLiteral!true(vd.location, 1, BuiltinType.Int);
+							one = new IntegerLiteral(vd.location, 1, BuiltinType.Int);
 						}
 						
 						vd.value = new AstBinaryExpression(vd.location, BinaryOp.Add, previous, one);
 					} else {
-						vd.value = new IntegerLiteral!true(vd.location, 0, BuiltinType.Int);
+						vd.value = new IntegerLiteral(vd.location, 0, BuiltinType.Int);
 					}
 				}
 				

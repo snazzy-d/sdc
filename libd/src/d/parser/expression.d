@@ -960,7 +960,7 @@ AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
 /**
  * Parse integer literals
  */
-private AstExpression parseIntegerLiteral(R)(ref R trange) {
+private IntegerLiteral parseIntegerLiteral(R)(ref R trange) {
 	Location location = trange.front.location;
 	
 	auto value = trange.front.name.toString(trange.context);
@@ -1027,17 +1027,17 @@ private AstExpression parseIntegerLiteral(R)(ref R trange) {
 		auto integer = parse!ulong(value);
 		
 		if (isLong || integer > uint.max) {
-			return new IntegerLiteral!false(location, integer, BuiltinType.Ulong);
+			return new IntegerLiteral(location, integer, BuiltinType.Ulong);
 		} else {
-			return new IntegerLiteral!false(location, integer, BuiltinType.Uint);
+			return new IntegerLiteral(location, integer, BuiltinType.Uint);
 		}
 	} else {
 		auto integer = parse!long(value);
 		
 		if (isLong || integer > int.max || integer < int.min) {
-			return new IntegerLiteral!true(location, integer, BuiltinType.Long);
+			return new IntegerLiteral(location, integer, BuiltinType.Long);
 		} else {
-			return new IntegerLiteral!true(location, integer, BuiltinType.Int);
+			return new IntegerLiteral(location, integer, BuiltinType.Int);
 		}
 	}
 }

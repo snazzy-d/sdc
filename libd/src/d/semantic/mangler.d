@@ -230,14 +230,16 @@ struct ValueMangler {
 		return to!string(cast(ubyte) e.value);
 	}
 	
-	string visit(IntegerLiteral!true e) {
-		return e.value >= 0
-			? e.value.to!string()
-			: "N" ~ to!string(-e.value);
-	}
-	
-	string visit(IntegerLiteral!false e) {
-		return e.value.to!string();
+	string visit(IntegerLiteral e) {
+		if (!isSigned(e.type.builtin)) {
+			return e.value.to!string();
+		}
+		
+		long v = e.value;
+		
+		return v >= 0
+			? v.to!string()
+			: "N" ~ to!string(-v);
 	}
 }
 

@@ -822,7 +822,7 @@ struct SymbolAnalyzer {
 			if (dv is null) {
 				if (previous) {
 					if (!one) {
-						one = new IntegerLiteral!true(location, 1, bt);
+						one = new IntegerLiteral(location, 1, bt);
 					}
 					
 					// XXX: consider using AstExpression and always
@@ -836,7 +836,7 @@ struct SymbolAnalyzer {
 						one,
 					);
 				} else {
-					v.value = new IntegerLiteral!true(location, 0, bt);
+					v.value = new IntegerLiteral(location, 0, bt);
 				}
 			}
 			

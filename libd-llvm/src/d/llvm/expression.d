@@ -58,12 +58,13 @@ struct ExpressionGen {
 		return LLVMConstInt(pass.visit(bl.type), bl.value, false);
 	}
 	
-	LLVMValueRef visit(IntegerLiteral!true il) {
-		return LLVMConstInt(pass.visit(il.type), il.value, true);
-	}
-	
-	LLVMValueRef visit(IntegerLiteral!false il) {
-		return LLVMConstInt(pass.visit(il.type), il.value, false);
+	LLVMValueRef visit(IntegerLiteral il) {
+		if (il.type.kind != TypeKind.Builtin) {
+			import std.stdio;
+			writeln(cast(void*) il, "\t", il.type.toString(context));
+		}
+		
+		return LLVMConstInt(pass.visit(il.type), il.value, isSigned(il.type.builtin));
 	}
 	
 	LLVMValueRef visit(FloatLiteral fl) {

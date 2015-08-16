@@ -249,10 +249,8 @@ struct JitRepacker {
 				goto HandleIntegral;
 			
 			HandleIntegral:
-				return isSigned(t)
-					? new IntegerLiteral!true(location, raw, t)
-					: new IntegerLiteral!false(location, raw, t);
-
+				return new IntegerLiteral(location, raw, t);
+			
 			default:
 				assert(0, "Not implemented");
 		}
@@ -335,15 +333,13 @@ struct JitRepacker {
 	}
 	
 	CompileTimeExpression visit(Enum e) {
-		auto r = visit(e.type);
-		r.type = Type.get(e);
-		return r;
+		// TODO: build implicit cast.
+		return visit(e.type);
 	}
 	
 	CompileTimeExpression visit(TypeAlias a) {
-		auto r = visit(a.type);
-		r.type = Type.get(a);
-		return r;
+		// TODO: build implicit cast.
+		return visit(a.type);
 	}
 	
 	CompileTimeExpression visit(Interface i) {
