@@ -126,9 +126,9 @@ final class LLVMEvaluator : Evaluator {
 			auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
 			LLVMBuildRet(codeGen.builder, ptrToInt);
 		}
-
+		
 		codeGen.checkModule();
-
+		
 		auto executionEngine = createExecutionEngine(codeGen.dmodule);
 		scope(exit) {
 			char* errorPtr;

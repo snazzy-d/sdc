@@ -78,7 +78,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			new NullLiteral(location, t.getPointer()),
 			new IntegerLiteral!false(location, 0UL, pass.object.getSizeT().type.builtin)
 		];
-
+		
 		// XXX: Should cast to size_t, but buildImplicitCast doesn't produce CompileTimeExpressions.
 		return new CompileTimeTupleExpression(location, t.getSlice(), init);
 	}
