@@ -35,6 +35,7 @@ struct Arena {
 	ChunkSet chunkSet;
 	
 	const void* stackBottom;
+	const void[] tlsSegments;
 	
 	import d.gc.bin, d.gc.sizeclass;
 	Bin[ClassCount.Small] bins;
@@ -489,7 +490,7 @@ private:
 		spare = c;
 		
 		// If we failed to register the chunk, free and bail out.
-		if (chunkSet.registerChunk(c)) {
+		if (chunkSet.register(c)) {
 			c.free();
 			c = null;
 		}
@@ -503,7 +504,7 @@ private:
 
 struct ChunkSet {
 	// Set of chunks for GC lookup.
-	size_t* chunkKeys;
+	Chunk** chunks;
 	uint chunkCount;
 	
 	// Metadatas for the chunk set.
@@ -518,7 +519,7 @@ struct ChunkSet {
 	}
 	
 	import d.gc.chunk;
-	bool registerChunk(Chunk* c) {
+	bool register(Chunk* c) {
 		// We resize if the set is 7/8 full.
 		auto limitSize = (7UL << lgChunkSetSize) / 8;
 		if (limitSize <= chunkCount) {
@@ -527,32 +528,33 @@ struct ChunkSet {
 			}
 		}
 		
-		import d.gc.spec;
-		auto k = (cast(size_t) c) >> LgChunkSize;
-		
 		chunkCount++;
-		insertKeyInSet(k);
+		insert(c);
 		
 		return false;
 	}
 	
-	void insertKeyInSet(ulong k) {
+	void insert(Chunk* c) {
 		auto setSize = 1 << lgChunkSetSize;
 		auto setMask = setSize - 1;
 		
-		auto c = (cast(uint) k) & setMask;
+		import d.gc.spec;
+		auto k = (cast(size_t) c) >> LgChunkSize;
+		auto p = (cast(uint) k) & setMask;
 		
-		auto i = c;
+		auto i = p;
 		ubyte d = 0;
-		while(chunkKeys[i] != 0) {
-			auto e = chunkKeys[i];
-			auto ce = (cast(uint) e) & setMask;
+		while(chunks[i] !is null) {
+			auto ce = chunks[i];
+			auto ke = (cast(size_t) ce) >> LgChunkSize;
+			auto pe = (cast(uint) ke) & setMask;
 			
 			// Robin hood hashing.
-			if (d > (i - ce)) {
-				chunkKeys[i] = k;
-				k = e;
+			if (d > (i - pe)) {
+				chunks[i] = c;
 				c = ce;
+				k = ke;
+				p = pe;
 				
 				if (d > chunkMaxProbe) {
 					chunkMaxProbe = d;
@@ -560,47 +562,48 @@ struct ChunkSet {
 			}
 			
 			i = ((i + 1) & setMask);
-			d = cast(ubyte) (i - c);
+			d = cast(ubyte) (i - p);
 		}
 		
-		chunkKeys[i] = k;
+		chunks[i] = c;
 		if (d > chunkMaxProbe) {
 			chunkMaxProbe = d;
 		}
 	}
 	
 	bool increaseSize() {
-		auto oldChunkKeys = chunkKeys;
+		auto oldChunks = chunks;
 		auto oldChunkSetSize = 1UL << lgChunkSetSize;
 		
 		lgChunkSetSize++;
 		assert(lgChunkSetSize <= 32);
 		
 		import d.gc.spec;
-		auto newChunkKeys = cast(ulong*) arena.calloc(ulong.sizeof << lgChunkSetSize);
-		assert(oldChunkKeys is chunkKeys);
+		// auto newChunks = cast(Chunk**) arena.calloc(Chunk*.sizeof << lgChunkSetSize);
+		auto newChunks = cast(Chunk**) arena.calloc(size_t.sizeof << lgChunkSetSize);
+		assert(oldChunks is chunks);
 		
-		if (newChunkKeys is null) {
+		if (newChunks is null) {
 			return true;
 		}
 		
 		chunkMaxProbe = 0;
-		chunkKeys = newChunkKeys;
+		chunks = newChunks;
 		auto rem = chunkCount;
 		
-		for(uint i = 0; rem != 0; i++) {
+		for (uint i = 0; rem != 0; i++) {
 			assert(i < oldChunkSetSize);
 			
-			auto k = oldChunkKeys[i];
-			if (k == 0) {
+			auto c = oldChunks[i];
+			if (c is null) {
 				continue;
 			}
 			
-			insertKeyInSet(k);
+			insert(c);
 			rem--;
 		}
 		
-		arena.free(oldChunkKeys);
+		arena.free(oldChunks);
 		return false;
 	}
 }
