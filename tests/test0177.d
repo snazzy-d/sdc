@@ -4,5 +4,6 @@
 
 interface I {}
 void main() {
-     I i;  
+	I i;
 }
+

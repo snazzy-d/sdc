@@ -493,7 +493,6 @@ private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R
 	
 	void processToken(UnaryOp op) {
 		Location location = trange.front.location;
-		
 		trange.popFront();
 		
 		// Drop mode on purpose.
@@ -868,7 +867,9 @@ private auto parseIsExpression(R)(ref R trange) {
 	auto type = trange.parseType();
 	
 	// Handle alias throw is expression.
-	if(trange.front.type == TokenType.Identifier) trange.popFront();
+	if (trange.front.type == TokenType.Identifier) {
+		trange.popFront();
+	}
 	
 	switch(trange.front.type) with(TokenType) {
 		case Colon :
@@ -963,82 +964,155 @@ AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
 private IntegerLiteral parseIntegerLiteral(R)(ref R trange) {
 	Location location = trange.front.location;
 	
-	auto value = trange.front.name.toString(trange.context);
-	assert(value.length > 0);
+	// Consider computing the value in the lexer and make it a fack string.
+	// This would avoid the duplication with code here and probably
+	// would be faster as well.
+	auto strVal = trange.front.name.toString(trange.context);
+	assert(strVal.length > 0);
 	
 	trange.match(TokenType.IntegerLiteral);
 	
 	bool isUnsigned, isLong;
-	switch(value[$ - 1]) {
-		case 'u', 'U' :
-			assert(value.length > 1);
-			isUnsigned = true;
-			
-			auto penultimo = value[$ - 2];
-			if(penultimo == 'l' || penultimo == 'L') {
-				isLong = true;
-				value = value[0 .. $ - 2];
-			} else {
-				value = value[0 .. $ - 1];
-			}
-			
-			break;
-		
-		case 'l', 'L' :
-			assert(value.length > 1);
-			isLong = true;
-			
-			auto penultimo = value[$ - 2];
-			if(penultimo == 'u' || penultimo == 'U') {
+	if (strVal.length > 1) {
+		switch (strVal[$ - 1]) {
+			case 'u', 'U' :
 				isUnsigned = true;
-				value = value[0 .. $ - 2];
-			} else {
-				value = value[0 .. $ - 1];
-			}
+				
+				auto penultimo = strVal[$ - 2];
+				if (penultimo == 'l' || penultimo == 'L') {
+					isLong = true;
+					strVal = strVal[0 .. $ - 2];
+				} else {
+					strVal = strVal[0 .. $ - 1];
+				}
+				
+				break;
 			
-			break;
-		
-		default :
-			break;
-	}
-	
-	auto parse(Type)(string input) in {
-		assert(input.length > 0);
-	} body {
-		import std.conv;
-		if(value.length < 2) {
-			return to!Type(value);
-		}
-		
-		switch(value[0 .. 2]) {
-			case "0x", "0X" :
-				return to!Type(value[2 .. $], 16);
-			
-			case "0b", "0B" :
-				return to!Type(value[2 .. $], 2);
+			case 'l', 'L' :
+				isLong = true;
+				
+				auto penultimo = strVal[$ - 2];
+				if (penultimo == 'u' || penultimo == 'U') {
+					isUnsigned = true;
+					strVal = strVal[0 .. $ - 2];
+				} else {
+					strVal = strVal[0 .. $ - 1];
+				}
+				
+				break;
 			
 			default :
-				return to!Type(value);
+				break;
 		}
 	}
 	
-	import d.common.builtintype : BuiltinType;
-	if(isUnsigned) {
-		auto integer = parse!ulong(value);
-		
-		if (isLong || integer > uint.max) {
-			return new IntegerLiteral(location, integer, BuiltinType.Ulong);
-		} else {
-			return new IntegerLiteral(location, integer, BuiltinType.Uint);
-		}
-	} else {
-		auto integer = parse!long(value);
-		
-		if (isLong || integer > int.max || integer < int.min) {
-			return new IntegerLiteral(location, integer, BuiltinType.Long);
-		} else {
-			return new IntegerLiteral(location, integer, BuiltinType.Int);
-		}
+	ulong value;
+	
+	assert(strVal.length > 0);
+	if (strVal[0] != '0' || strVal.length < 3) {
+		goto ParseDec;
 	}
+	
+	switch(strVal[1]) {
+		case 'x', 'X':
+			value = strToHexInt(strVal[2 .. $]);
+			goto CreateLiteral;
+		
+		case 'b', 'B' :
+			value = strToBinInt(strVal[2 .. $]);
+			goto CreateLiteral;
+		
+		default :
+			// Break to parse as decimal.
+			break;
+	}
+	
+	ParseDec: value = strToDecInt(strVal);
+	
+	CreateLiteral :
+	
+	import d.common.builtintype;
+	auto type = isUnsigned
+		? ((isLong || value > uint.max) ? BuiltinType.Ulong : BuiltinType.Uint)
+		: ((isLong || value > int.max) ? BuiltinType.Long : BuiltinType.Int);
+	
+	return new IntegerLiteral(location, value, type);
+}
+
+ulong strToDecInt(string s) in {
+	assert(s.length > 0, "s must not be empty");
+} body {
+	ulong ret = 0;
+	
+	for (uint i = 0; i < s.length; i++) {
+		assert(s[i] >= '0' || s[i] <= '9', "Only digits are expected here");
+		ret = (ret * 10) + (s[i] - '0');
+	}
+	
+	return ret;
+}
+
+unittest {
+	assert(strToDecInt("0") == 0);
+	assert(strToDecInt("42") == 42);
+	assert(strToDecInt("1234567890") == 1234567890);
+	assert(strToDecInt("18446744073709551615") == 18446744073709551615UL);
+}
+
+ulong strToBinInt(string s) in {
+	assert(s.length > 0, "s must not be empty");
+} body {
+	ulong ret = 0;
+	
+	for (uint i = 0; i < s.length; i++) {
+		assert(s[i] == '0' || s[i] == '1', "Only 0 and 1 are expected here");
+		ret = (ret << 1) | (s[i] - '0');
+	}
+	
+	return ret;
+}
+
+unittest {
+	assert(strToBinInt("0") == 0);
+	assert(strToBinInt("1010") == 10);
+	assert(strToBinInt("0101010") == 42);
+	assert(strToBinInt("1111111111111111111111111111111111111111111111111111111111111111") == 18446744073709551615UL);
+}
+
+ulong strToHexInt(string s) in {
+	assert(s.length > 0, "s must not be empty");
+} body {
+	ulong ret = 0;
+	
+	static immutable byte['f' - '0' + 1] unhexTbl = [
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, // '0' to '9'
+		-1, -1, -1, -1, -1, -1, -1,
+		10, 11, 12, 13, 14, 15,  // 'A' to 'F'
+		-1, -1, -1, -1, -1, -1, -1, -1, -1
+		-1, -1, -1, -1, -1, -1, -1, -1, -1
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		10, 11, 12, 13, 14, 15,  // 'a' to 'f'
+	];
+	
+	for (uint i = 0; i < s.length; i++) {
+		assert(s[i] >= '0' || s[i] <= 'f', "Only hex digits are expected here");
+		auto v = unhexTbl[s[i] - '0'];
+		assert(v != -1, "Only hex digits are expected here");
+		ret = (ret * 16) + v;
+	}
+	
+	return ret;
+}
+
+unittest {
+	assert(strToHexInt("0") == 0);
+	assert(strToHexInt("A") == 10);
+	assert(strToHexInt("a") == 10);
+	assert(strToHexInt("F") == 15);
+	assert(strToHexInt("f") == 15);
+	assert(strToHexInt("42") == 66);
+	assert(strToHexInt("AbCdEf0") == 180150000);
+	assert(strToHexInt("12345aBcDeF") == 1251004370415);
+	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
 }
 

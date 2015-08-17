@@ -454,7 +454,7 @@ auto lex(Position base, Context context) {
 							c = content.front;
 						}
 						
-						if(c == '_') {
+						if (c == '_') {
 							popChar();
 							c = content.front;
 							continue;
@@ -474,7 +474,7 @@ auto lex(Position base, Context context) {
 							c = content.front;
 						}
 						
-						if(c == '_') {
+						if (c == '_') {
 							popChar();
 							c = content.front;
 							continue;

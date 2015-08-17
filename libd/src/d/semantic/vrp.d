@@ -95,7 +95,16 @@ struct ValueRangePropagator {
 	}
 	
 	ValueRange visit(UnaryExpression e) {
-		assert(0, "Not implemented.");
+		switch (e.op) with(UnaryOp) {
+			case Plus :
+				return visit(e.expr);
+			
+			case Minus :
+				return visit(e.expr).complement(e.type.builtin);
+			
+			default :
+				assert(0, "Not implemented.");
+		}
 	}
 	
 	ValueRange visit(VariableExpression e) {
@@ -670,6 +679,19 @@ unittest {
 	assert(v == ValueRange(-4));
 	
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mod, i2, i1));
+	assert(v == ValueRange(6));
+}
+
+unittest {
+	auto vrp = ValueRangePropagator();
+	
+	import d.context.location;
+	auto i = new IntegerLiteral(Location.init, cast(uint) -6, BuiltinType.Uint);
+	
+	auto v = vrp.visit(new UnaryExpression(Location.init, Type.get(BuiltinType.Uint), UnaryOp.Plus, i));
+	assert(v == ValueRange(cast(uint) -6));
+	
+	v = vrp.visit(new UnaryExpression(Location.init, Type.get(BuiltinType.Uint), UnaryOp.Minus, i));
 	assert(v == ValueRange(6));
 }
 
