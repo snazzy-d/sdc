@@ -32,12 +32,7 @@ struct Arena {
 	RBTree!(Extent, addrExtentCmp) hugeTree;
 	
 	// Set of chunks for GC lookup.
-	ulong* chunkKeys;
-	uint chunkCount;
-	
-	// Metadatas for the chunk set.
-	ubyte lgChunkSetSize;
-	ubyte chunkMaxProbe;
+	ChunkSet chunkSet;
 	
 	const void* stackBottom;
 	
@@ -494,7 +489,7 @@ private:
 		spare = c;
 		
 		// If we failed to register the chunk, free and bail out.
-		if (registerChunk(c)) {
+		if (chunkSet.registerChunk(c)) {
 			c.free();
 			c = null;
 		}
@@ -502,42 +497,34 @@ private:
 		spare = null;
 		return c;
 	}
+}
+
+private:
+
+struct ChunkSet {
+	// Set of chunks for GC lookup.
+	size_t* chunkKeys;
+	uint chunkCount;
 	
+	// Metadatas for the chunk set.
+	ubyte lgChunkSetSize;
+	ubyte chunkMaxProbe;
+	
+	@property
+	Arena* arena() {
+		// We can find the arena from this pointer.
+		auto chunkSetOffset = cast(size_t) (&(cast(Arena*) null).chunkSet);
+		return cast(Arena*) ((cast(size_t) &this) - chunkSetOffset);
+	}
+	
+	import d.gc.chunk;
 	bool registerChunk(Chunk* c) {
-		// We resize if the set if 7/8 full.
+		// We resize if the set is 7/8 full.
 		auto limitSize = (7UL << lgChunkSetSize) / 8;
 		if (limitSize <= chunkCount) {
-			auto oldChunkKeys = chunkKeys;
-			auto oldChunkSetSize = 1UL << lgChunkSetSize;
-			
-			lgChunkSetSize++;
-			assert(lgChunkSetSize <= 32);
-			
-			import d.gc.spec;
-			auto newChunkKeys = cast(ulong*) calloc(ulong.sizeof << lgChunkSetSize);
-			assert(oldChunkKeys is chunkKeys);
-			
-			if (newChunkKeys is null) {
+			if (increaseSize()) {
 				return true;
 			}
-			
-			chunkMaxProbe = 0;
-			chunkKeys = newChunkKeys;
-			auto rem = chunkCount;
-			
-			for(uint i = 0; rem != 0; i++) {
-				assert(i < oldChunkSetSize);
-				
-				auto k = oldChunkKeys[i];
-				if (k == 0) {
-					continue;
-				}
-				
-				insertKeyInSet(k);
-				rem--;
-			}
-			
-			free(oldChunkKeys);
 		}
 		
 		import d.gc.spec;
@@ -580,6 +567,41 @@ private:
 		if (d > chunkMaxProbe) {
 			chunkMaxProbe = d;
 		}
+	}
+	
+	bool increaseSize() {
+		auto oldChunkKeys = chunkKeys;
+		auto oldChunkSetSize = 1UL << lgChunkSetSize;
+		
+		lgChunkSetSize++;
+		assert(lgChunkSetSize <= 32);
+		
+		import d.gc.spec;
+		auto newChunkKeys = cast(ulong*) arena.calloc(ulong.sizeof << lgChunkSetSize);
+		assert(oldChunkKeys is chunkKeys);
+		
+		if (newChunkKeys is null) {
+			return true;
+		}
+		
+		chunkMaxProbe = 0;
+		chunkKeys = newChunkKeys;
+		auto rem = chunkCount;
+		
+		for(uint i = 0; rem != 0; i++) {
+			assert(i < oldChunkSetSize);
+			
+			auto k = oldChunkKeys[i];
+			if (k == 0) {
+				continue;
+			}
+			
+			insertKeyInSet(k);
+			rem--;
+		}
+		
+		arena.free(oldChunkKeys);
+		return false;
 	}
 }
 

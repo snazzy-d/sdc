@@ -39,7 +39,7 @@ final class LLVMEvaluator : Evaluator {
 		auto oldStaticCodeGen = staticCodeGen;
 		staticCodeGen = codeGen;
 		scope(exit) staticCodeGen = oldStaticCodeGen;
-
+		
 		// We agressively JIT all CTFE
 		return jit!(function CompileTimeExpression(void[] p) {
 			return JitRepacker(staticCodeGen, statice.location, p).visit(statice.type);
@@ -117,7 +117,7 @@ final class LLVMEvaluator : Evaluator {
 		// Generate function's body.
 		import d.llvm.expression;
 		auto value = ExpressionGen(codeGen).visit(e);
-
+		
 		static if (R == JitReturn.Direct) {
 			LLVMBuildRet(codeGen.builder, value);
 		} else {
@@ -143,13 +143,13 @@ final class LLVMEvaluator : Evaluator {
 				writeln(error);
 				assert(0, "Cannot remove module from execution engine ! Exiting...");
 			}
+			
 			LLVMDisposeExecutionEngine(executionEngine);
 		}
 		
 		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
 		scope(exit) LLVMDisposeGenericValue(result);
-
-
+		
 		static if (R == JitReturn.Direct) {
 			return handler(LLVMGenericValueToInt(result, true));
 		} else {
