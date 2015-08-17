@@ -75,7 +75,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	
 	E visitSliceOf(Type t) {
 		CompileTimeExpression[] init = [
-			new NullLiteral(location, t),
+			new NullLiteral(location, t.getPointer()),
 			new IntegerLiteral!false(location, 0UL, pass.object.getSizeT().type.builtin)
 		];
 
