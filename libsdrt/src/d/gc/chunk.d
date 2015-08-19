@@ -132,25 +132,24 @@ struct PageDescriptor {
 	}
 }
 
-enum DataPages	= computeDataPages();
-
 struct Chunk {
-	// 23 first pages are for header.
-	import d.gc.extent;
-	Extent header;
+	// header + pad0 + DataPages populate the first page.
+	Header header;
+	alias header this;
 	
-	uint[1024 - DataPages - (Extent.sizeof / 4)] pad0;
+	uint[ChunkPageCount - DataPages - (Header.sizeof / 4)] pad0;
 	
-	// 1 page including header.
+	// One PageDescriptor per data page pages.
 	PageDescriptor[DataPages] pages;
 	
-	// 22 pages.
+	// One RunDesc per data page pages.
 	import d.gc.run;
 	RunDesc[DataPages] runs;
 	
-	uint[((1023 - DataPages) * PageSize - DataPages * RunDesc.sizeof) / 4] pad1;
+	// Pad metadata up to the end of the current page.
+	uint[((ChunkPageCount - DataPages - 1) * PageSize - DataPages * RunDesc.sizeof) / 4] pad1;
 	
-	// 1001 pages left for data.
+	// Actual user data.
 	ulong[PageSize / ulong.sizeof][DataPages] datas;
 	
 	import d.gc.arena;
@@ -167,7 +166,7 @@ struct Chunk {
 		
 		auto c = cast(Chunk*) ret;
 		
-		// XXX: ensure i didn't fucked up the layout.
+		// XXX: ensure I didn't fucked up the layout.
 		// this better belong to static assert when available.
 		auto ci = cast(size_t) ret;
 		auto ri = cast(size_t) &c.runs[0];
@@ -176,9 +175,12 @@ struct Chunk {
 		assert(ri == ci + PageSize);
 		assert(pi - ci == (1024 - DataPages) * PageSize);
 		
-		c.header.arena	= a;
-		c.header.addr	= c;
-		c.header.size	= ChunkSize;
+		c.arena	= a;
+		c.addr	= c;
+		c.size	= ChunkSize;
+		
+		c.worklist	= null;
+		c.bitmap	= null;
 		
 		import d.gc.sizeclass;
 		enum DataSize = DataPages << LgPageSize;
@@ -353,13 +355,27 @@ private:
 
 private:
 
+struct Header {
+	import d.gc.extent;
+	Extent extent;
+	alias extent this;
+	
+	void** worklist;
+	size_t* bitmap;
+}
+
+enum DataPages = computeDataPages();
+
 auto computeDataPages() {
-	uint pages = 1023;
+	// First page is header + page descriptor.
+	uint pages = ChunkPageCount - 1;
 	while(pages--) {
+		// We need one RunDesc data per page.
 		import d.gc.run;
 		auto miscPages = (((pages * RunDesc.sizeof) - 1) >> LgPageSize) + 1;
+		auto availPages = ChunkPageCount - pages - 1;
 		
-		auto availPages = 1023 - pages;
+		// once we have enough pages to store all RunDesc, we are done.
 		if (miscPages <= availPages) {
 			return pages;
 		}
