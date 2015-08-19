@@ -16,6 +16,10 @@ extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
 	tl.stackBottom = bottom;
 }
 
+extern(C) void _tl_gc_add_roots(const void[] range) {
+	tl.addRoots(range);
+}
+
 Arena tl;
 
 struct Arena {
@@ -35,7 +39,7 @@ struct Arena {
 	ChunkSet chunkSet;
 	
 	const void* stackBottom;
-	const void[] tlsSegments;
+	const(void[])[] roots;
 	
 	import d.gc.bin, d.gc.sizeclass;
 	Bin[ClassCount.Small] bins;
@@ -171,7 +175,7 @@ private:
 			return null;
 		}
 		
-		auto index = run.misc.small.allocate();
+		auto index = run.small.allocate();
 		auto base = cast(void*) &run.chunk.datas[run.index];
 		
 		return base + size * index;
@@ -182,24 +186,28 @@ private:
 		assert(binID < ClassCount.Small);
 		
 		auto run = bins[binID].current;
-		if (run !is null && run.misc.small.freeSlots != 0) {
+		if (run !is null && run.small.freeSlots != 0) {
 			return run;
 		}
 		
+		// This will allow to keep track if metadata are allocated in that bin.
+		bins[binID].current = null;
+		
 		// XXX: use extract or something.
 		run = bins[binID].runTree.bestfit(null);
-		if (run !is null) {
-			bins[binID].runTree.remove(run);
-		} else {
-			run = allocateSmallRun(binID);
+		if (run is null) {
+			// We don't have any run that fit, allocate a new one.
+			return allocateSmallRun(binID);
 		}
 		
+		bins[binID].runTree.remove(run);
 		return bins[binID].current = run;
 	}
 	
 	RunDesc* allocateSmallRun(ubyte binID) {
 		// XXX: in contract.
 		assert(binID < ClassCount.Small);
+		assert(bins[binID].current is null);
 		
 		import d.gc.spec;
 		uint needPages = binInfos[binID].needPages;
@@ -210,6 +218,15 @@ private:
 			return null;
 		}
 		
+		// We may have allocated the run we need when allcoating metadata.
+		if (bins[binID].current !is null) {
+			// In which case we put the free run back in the tree.
+			freeRunTree.insert(run);
+			
+			// And use the metadata run.
+			return bins[binID].current;
+		}
+		
 		auto c = run.chunk;
 		auto i = run.index;
 		
@@ -218,7 +235,7 @@ private:
 			freeRunTree.insert(&c.runs[rem]);
 		}
 		
-		return run;
+		return bins[binID].current = run;
 	}
 	
 	/**
@@ -282,9 +299,11 @@ private:
 		
 		// In rare cases, we may have allocated metadata
 		// in the chunk for bookkeeping.
-		return c.pages[0].allocated
-			? extractFreeRun(binID)
-			: &c.runs[0];
+		if (c.pages[0].allocated) {
+			return extractFreeRun(binID);
+		}
+		
+		return &c.runs[0];
 	}
 	
 	/**
@@ -317,9 +336,9 @@ private:
 		assert(ptr is (base + size * index));
 		
 		auto run = &c.runs[runID];
-		run.misc.small.free(index);
+		run.small.free(index);
 		
-		auto freeSlots = run.misc.small.freeSlots;
+		auto freeSlots = run.small.freeSlots;
 		if (freeSlots == binInfo.freeSlots) {
 			if (run is bins[binID].current) {
 				bins[binID].current = null;
@@ -470,9 +489,15 @@ private:
 	Chunk* allocateChunk() {
 		// If we have a spare chunk, use that.
 		if (spare !is null) {
+			/*
+			// FIXME: Only scope(exit) are supported.
+			scope(success) spare = null;
+			return spare;
+			/*/
 			auto c = spare;
 			spare = null;
 			return c;
+			//*/
 		}
 		
 		auto c = Chunk.allocate(&this);
@@ -497,6 +522,23 @@ private:
 		
 		spare = null;
 		return c;
+	}
+	
+	/**
+	 * GC facilities
+	 */
+	void addRoots(const void[] range) {
+		// FIXME: Casting to void* is aparently not handled properly :(
+		auto ptr = cast(void*) roots.ptr;
+		
+		// We realloc everytime. It doesn't really matter at this point.
+		roots.ptr = cast(const(void[])*) realloc(ptr, (roots.length + 1) * void[].sizeof);
+		
+		// Using .ptr to bypass bound checking.
+		roots.ptr[roots.length] = range;
+		
+		// Update the range.
+		roots = roots.ptr[0 .. roots.length + 1];
 	}
 }
 

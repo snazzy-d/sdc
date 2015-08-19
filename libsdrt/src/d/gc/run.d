@@ -11,6 +11,7 @@ struct RunDesc {
 	}
 	
 	U misc;
+	alias misc this;
 	
 	@property
 	auto chunk() {
