@@ -1,0 +1,52 @@
+language: d
+
+# Use container based infrastructure.
+sudo: false
+
+cache:
+  - apt
+
+d:
+  - dmd
+
+env:
+  global:
+    - LLVM_CONFIG=/usr/bin/llvm-config-3.6
+    # This is used in our makefile.  This may break if the
+    # dmd installer changes it's location.
+    - LD_PATH=${HOME}/dmd2/linux/lib64
+
+addons:
+  # http://docs.travis-ci.com/user/uploading-artifacts/
+  artifacts:
+    paths:
+      - build_sdc.log
+      - build_libsdrt.log
+
+  apt:
+    sources:
+      # See here for name of the travis apt repos:
+      # https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
+      - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise
+      - llvm-toolchain-precise-3.6
+    packages:
+      # See here for packages:
+      # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.6/
+      # Travis by default does not install dependencies, they must
+      # be enumerated.
+      - llvm-3.6 
+      - llvm-3.6-dev
+      - llvm-3.6-runtime
+      - libllvm3.6
+      - libstdc++6
+      - libedit2
+      - libedit-dev
+
+script:
+  # Temproary workaround for 
+  # https://issues.dlang.org/show_bug.cgi?id=14897
+  - ln -s ${LD_PATH}/libphobos2.so ${LD_PATH}/libphobos2.so.0.68
+  - make bin/sdc > build_sdc.log 2>&1
+  - make lib/libsdrt.a > build_libsdrt.log 2>&1
+  - make test

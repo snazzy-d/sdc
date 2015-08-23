@@ -1,5 +1,5 @@
 //T compiles:yes
-//T retval:42
+//T retval:43
 //T has-passed:yes
 // Tests simple functions, and use before definition.
 
