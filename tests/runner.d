@@ -146,7 +146,7 @@ void test(string filename, string compiler)
     managerTid.send(filename, true, has);
 }
 
-void main(string[] args)
+int main(string[] args)
 {
     string compiler = SDC;
     version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
@@ -183,7 +183,7 @@ void main(string[] args)
             writeln();
         }
 
-        return;
+        return regressed ? -1 : 0;
     }
 
     // Figure out how many tests there are.
@@ -191,7 +191,7 @@ void main(string[] args)
     while (exists(getTestFilename(++testNumber))) {}
     if (testNumber < 0) {
         stderr.writeln("No tests found.");
-        return;
+        return -1;
     }
     
     auto tests = array( map!getTestFilename(iota(0, testNumber)) );
@@ -248,6 +248,8 @@ void main(string[] args)
         write("Press any key to exit...");
         readln();
     }
+
+    return regressions > 0 ? -1 : 0;
 }
 
 /// Print usage to stdout.
