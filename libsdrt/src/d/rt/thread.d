@@ -67,8 +67,10 @@ version(OSX) {
 		return pthread_get_stackaddr_np(pthread_self());
 	}
 	
+	extern(C) void _d_dyld_registerTLSRange();
+
 	void registerTlsSegments() {
-		// Do nothing.
+		_d_dyld_registerTLSRange();
 	}
 }
 
