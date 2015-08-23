@@ -137,17 +137,18 @@ struct Chunk {
 	Header header;
 	alias header this;
 	
-	uint[ChunkPageCount - DataPages - (Header.sizeof / 4)] pad0;
+	// Pad header so that the first page descriptor is at the right place.
+	PageDescriptor[Pad0Size] pad0;
 	
 	// One PageDescriptor per data page pages.
 	PageDescriptor[DataPages] pages;
 	
-	// One RunDesc per data page pages.
+	// One RunDesc per data page.
 	import d.gc.run;
 	RunDesc[DataPages] runs;
 	
 	// Pad metadata up to the end of the current page.
-	uint[((ChunkPageCount - DataPages - 1) * PageSize - DataPages * RunDesc.sizeof) / 4] pad1;
+	uint[Pad1Size] pad1;
 	
 	// Actual user data.
 	ulong[PageSize / ulong.sizeof][DataPages] datas;
@@ -168,13 +169,17 @@ struct Chunk {
 		
 		// XXX: ensure I didn't fucked up the layout.
 		// this better belong to static assert when available.
-		auto ci = cast(size_t) ret;
-		auto ri = cast(size_t) &c.runs[0];
-		auto pi = cast(size_t) &c.datas[0];
-		
-		assert(ri == ci + PageSize);
-		assert(pi - ci == (1024 - DataPages) * PageSize);
-		
+		{
+			auto ci = cast(size_t) ret;
+			auto pi = cast(size_t) &c.pages[0];
+			auto ri = cast(size_t) &c.runs[0];
+			auto di = cast(size_t) &c.datas[0];
+			
+			assert(pi == ci + MetaPages * PageDescriptor.sizeof);
+			assert(ri == ci + ChunkPageCount * PageDescriptor.sizeof);
+			assert(di == ci + MetaPages * PageSize);
+		}
+
 		c.arena	= a;
 		c.addr	= c;
 		c.size	= ChunkSize;
@@ -365,22 +370,32 @@ struct Header {
 }
 
 enum DataPages = computeDataPages();
+enum MetaPages = ChunkPageCount - DataPages;
+
+enum MinMetaPages = ((Header.sizeof - 1) / /+ PageDescriptor.alignof +/ 4) + 1;
+enum Pad0Size = MetaPages - MinMetaPages;
+enum Pad1Size = ((MetaPages * PageSize) - computeRunDescEnd(DataPages)) / uint.sizeof;
 
 auto computeDataPages() {
-	// First page is header + page descriptor.
-	uint pages = ChunkPageCount - 1;
-	while(pages--) {
-		// We need one RunDesc data per page.
-		import d.gc.run;
-		auto miscPages = (((pages * RunDesc.sizeof) - 1) >> LgPageSize) + 1;
-		auto availPages = ChunkPageCount - pages - 1;
-		
-		// once we have enough pages to store all RunDesc, we are done.
-		if (miscPages <= availPages) {
-			return pages;
+	foreach (metaPages; MinMetaPages .. ChunkPageCount) {
+		auto dataPages = ChunkPageCount - metaPages;
+		auto runDescEnd = computeRunDescEnd(dataPages);
+		auto requiredMetaPages = ((runDescEnd - 1) >> LgPageSize) + 1;
+
+		if (requiredMetaPages == metaPages) {
+			return dataPages;
 		}
 	}
-	
-	return 0;
+
+	assert(0, "Chunk is too small");
 }
 
+auto computeRunDescEnd(size_t dataPages) {
+	auto pageDescEnd = ChunkPageCount * PageDescriptor.sizeof;
+	
+	import d.gc.run;
+	enum RDAlign = /+ RunDesc.alignof +/ 8;
+	auto runDescStart = (((pageDescEnd - 1) / RDAlign) + 1) * RDAlign;
+
+	return runDescStart + dataPages * RunDesc.sizeof;
+}

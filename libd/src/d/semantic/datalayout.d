@@ -6,4 +6,3 @@ interface DataLayout {
 	uint getSize(Type t);
 	uint getAlign(Type t);
 }
-
