@@ -8,7 +8,7 @@ This compiler is based on [libd](https://github.com/deadalnix/SDC/tree/master/li
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC requires DMD release `2.067` to compile.
+SDC requires DMD release `2.068` to compile.
 
 Goals
 ========
@@ -19,7 +19,7 @@ SDC now supports many very advanced features (static ifs, string mixins, CTFE) o
 What Can It Compile?
 ====================
 See the tests directory for a sample of what is/should-be working.
-libs/object.d contains the current (temporary) object.d file for SDC.  
+phobos/object.d contains the current (temporary) object.d file for SDC.
 
 Roadmap
 =======
