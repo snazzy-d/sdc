@@ -106,8 +106,8 @@ private:
 // XXX: find a better way to do all this.
 // This is kind of convoluted as I want to avoid alloc.
 struct BinInfoComputerDg {
-	void* fun;
 	void* bins;
+	void* fun;
 }
 
 void binInfoComputer(

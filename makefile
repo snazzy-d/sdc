@@ -1,5 +1,6 @@
 DMD ?= dmd
 GCC ?= gcc
+NASM ?= nasm
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -w -debug -gc -unittest
 PLATFORM = $(shell uname -s)
@@ -16,6 +17,7 @@ ifeq ($(PLATFORM),Darwin)
 	LD_PATH ?= /Library/D/dmd/lib
 endif
 
+NASMFLAGS ?=
 LDFLAGS ?=
 ifdef LD_PATH
 	LDFLAGS += $(addprefix -L, $(LD_PATH))
@@ -25,9 +27,11 @@ LDFLAGS += $(LIBD_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -lstdc++ -export-dynamic
+	NASMFLAGS += -f elf64
 endif
 ifeq ($(PLATFORM),Darwin)
 	LDFLAGS += -lc++
+	NASMFLAGS += -f macho64
 endif
 
 SDC_ROOT = sdc

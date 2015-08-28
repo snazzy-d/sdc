@@ -650,3 +650,5 @@ struct ChunkSet {
 	}
 }
 
+extern(C):
+size_t _sdgc_push_registers(size_t delegate());

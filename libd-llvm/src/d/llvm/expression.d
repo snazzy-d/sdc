@@ -496,7 +496,7 @@ struct ExpressionGen {
 			: visit(e.expr);
 		
 		LLVMValueRef fun;
-		if(auto m = cast(Method) e.method) {
+		if (auto m = cast(Method) e.method) {
 			assert(e.expr.type.getCanonical().dclass, "Virtual dispatch can only be done on classes.");
 			
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, ctxValue, 0, ""), "vtbl");
@@ -506,8 +506,8 @@ struct ExpressionGen {
 		}
 		
 		auto dg = LLVMGetUndef(pass.visit(type));
-		dg = LLVMBuildInsertValue(builder, dg, fun, 0, "");
-		dg = LLVMBuildInsertValue(builder, dg, ctxValue, 1, "");
+		dg = LLVMBuildInsertValue(builder, dg, ctxValue, 0, "");
+		dg = LLVMBuildInsertValue(builder, dg, fun, 1, "");
 		
 		return dg;
 	}
@@ -519,8 +519,6 @@ struct ExpressionGen {
 		auto args = e.args.map!(a => visit(a)).array();
 		
 		auto type = pass.visit(e.type);
-		LLVMDumpValue(LLVMGetUndef(type));
-		
 		LLVMValueRef size = LLVMSizeOf(
 			(e.type.kind == TypeKind.Class)
 				? LLVMGetElementType(type)
@@ -776,12 +774,12 @@ struct ExpressionGen {
 		
 		auto callee = visit(c.callee);
 		foreach (i, ctx; contexts) {
-			args[i] = LLVMBuildExtractValue(builder, callee, cast(uint) (i + 1), "");
+			args[i] = LLVMBuildExtractValue(builder, callee, cast(uint) i, "");
 		}
 		
 		auto firstarg = contexts.length;
 		if (firstarg) {
-			callee = LLVMBuildExtractValue(builder, callee, 0, "");
+			callee = LLVMBuildExtractValue(builder, callee, cast(uint) contexts.length, "");
 		}
 		
 		uint i = 0;

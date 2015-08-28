@@ -347,8 +347,8 @@ final class TypeGen {
 		assert(contexts.length == 1, "Multiple contexts not implemented.");
 		
 		LLVMTypeRef[2] types;
-		types[0] = fun;
-		types[1] = params[0];
+		types[0] = params[0];
+		types[1] = fun;
 		
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
 	}
