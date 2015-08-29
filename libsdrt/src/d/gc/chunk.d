@@ -256,7 +256,7 @@ struct Chunk {
 	uint splitLargeRun(size_t size, uint runID, ubyte binID, bool zero) {
 		// XXX: in contract.
 		import d.gc.bin, d.gc.sizeclass;
-		assert(size >= SizeClass.Small && size < SizeClass.Large);
+		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 		assert(!pages[runID].allocated);
 		assert(size == getAllocSize(size));

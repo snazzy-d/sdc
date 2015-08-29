@@ -13,11 +13,8 @@ enum ClassCount {
 }
 
 enum SizeClass {
-	LgSmall	= LgPageSize + 2,
-	LgLarge	= LgSmall + 7,
-	
-	Small	= 1UL << LgSmall,
-	Large	= 1UL << LgLarge,
+	Small	= getSizeFromBinID(ClassCount.Small - 1),
+	Large	= getSizeFromBinID(ClassCount.Large - 1),
 }
 
 size_t getAllocSize(size_t size) {
@@ -103,6 +100,11 @@ auto getBinInfos() {
 
 private:
 
+enum LgSizeClass {
+	LgSmall	= LgPageSize + 2,
+	LgLarge	= LgSmall + 7,
+}
+
 // XXX: find a better way to do all this.
 // This is kind of convoluted as I want to avoid alloc.
 struct BinInfoComputerDg {
@@ -120,7 +122,7 @@ void binInfoComputer(
 	// XXX: 1UL is useless here, but there is a bug in type
 	// promotion for >= so we need it.
 	auto s = (1UL << grp) + (ndelta << delta);
-	if (grp >= SizeClass.LgSmall || s >= SizeClass.Small) {
+	if (s >= (1UL << LgSizeClass.LgSmall)) {
 		return;
 	}
 	
@@ -179,7 +181,7 @@ auto getSmallClassCount() {
 	uint count = 0;
 	
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < SizeClass.LgSmall) {
+		if (grp < LgSizeClass.LgSmall) {
 			count++;
 		}
 	});
@@ -192,7 +194,7 @@ auto getLargeClassCount() {
 	uint count = 0;
 	
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < SizeClass.LgLarge) {
+		if (grp < LgSizeClass.LgLarge) {
 			count++;
 		}
 	});

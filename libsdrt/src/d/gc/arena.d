@@ -45,11 +45,11 @@ struct Arena {
 	Bin[ClassCount.Small] bins;
 	
 	void* alloc(size_t size) {
-		if (size < SizeClass.Small) {
+		if (size <= SizeClass.Small) {
 			return allocSmall(size);
 		}
 		
-		if (size < SizeClass.Large) {
+		if (size <= SizeClass.Large) {
 			return allocLarge(size, false);
 		}
 		
@@ -57,13 +57,13 @@ struct Arena {
 	}
 	
 	void* calloc(size_t size) {
-		if (size < SizeClass.Small) {
+		if (size <= SizeClass.Small) {
 			auto ret = allocSmall(size);
 			memset(ret, 0, size);
 			return ret;
 		}
 		
-		if (size < SizeClass.Large) {
+		if (size <= SizeClass.Large) {
 			return allocLarge(size, true);
 		}
 		
@@ -162,7 +162,7 @@ private:
 	 */
 	void* allocSmall(size_t size) {
 		// TODO: in contracts
-		assert(size < SizeClass.Small);
+		assert(size <= SizeClass.Small);
 		
 		auto binID = getBinID(size);
 		assert(binID < ClassCount.Small);
@@ -243,7 +243,7 @@ private:
 	 */
 	void* allocLarge(size_t size, bool zero) {
 		// TODO: in contracts
-		assert(size >= SizeClass.Small && size < SizeClass.Large);
+		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		
 		auto run = allocateLargeRun(getAllocSize(size), zero);
 		if (run is null) {
@@ -255,7 +255,7 @@ private:
 	
 	RunDesc* allocateLargeRun(size_t size, bool zero) {
 		// TODO: in contracts
-		assert(size >= SizeClass.Small && size < SizeClass.Large);
+		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(size == getAllocSize(size));
 		
 		auto binID = getBinID(size);
@@ -421,7 +421,7 @@ private:
 	 */
 	void* allocHuge(size_t size) {
 		// TODO: in contracts
-		assert(size >= SizeClass.Large);
+		assert(size > SizeClass.Large);
 		
 		size = getAllocSize(size);
 		if (size == 0) {
