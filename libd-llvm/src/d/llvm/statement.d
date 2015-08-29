@@ -81,7 +81,7 @@ struct StatementGen {
 	}
 	
 	void concludeUnwind(LLVMValueRef fun, LLVMBasicBlockRef currentBB) {
-		if(!LLVMGetBasicBlockTerminator(currentBB)) {
+		if (!LLVMGetBasicBlockTerminator(currentBB)) {
 			LLVMPositionBuilderAtEnd(builder, currentBB);
 			foreach_reverse(b; unwindBlocks) {
 				if (b.kind == BlockKind.Success) {

@@ -79,7 +79,7 @@ final class LLVMEvaluator : Evaluator {
 	
 	private auto jit(alias handler, JitReturn R = JitReturn.Indirect)(Expression e) {
 		scope(failure) LLVMDumpModule(codeGen.dmodule);
-
+		
 		// Create a global variable to hold the returned blob.
 		auto type = codeGen.visit(e.type);
 

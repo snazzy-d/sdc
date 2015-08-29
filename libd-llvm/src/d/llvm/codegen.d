@@ -145,7 +145,7 @@ final class CodeGenPass {
 	
 	auto checkModule() {
 		char* msg;
-		if(LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus, &msg)) {
+		if (LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus, &msg)) {
 			scope(exit) LLVMDisposeMessage(msg);
 			
 			import std.c.string;

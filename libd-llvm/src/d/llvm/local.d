@@ -83,7 +83,45 @@ struct LocalGen {
 		}
 	}
 	
+	void require(Function f) {
+		if (f.step == Step.Processed) {
+			return;
+		}
+		
+		LLVMValueRef[] unreachables;
+		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
+		scope(exit) {
+			foreach(u; unreachables) {
+				LLVMInstructionEraseFromParent(u);
+			}
+			
+			LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+		}
+		
+		// OK we need to require. We need to put the module in a good state.
+		for (
+			auto fun = LLVMGetFirstFunction(dmodule);
+			fun !is null;
+			fun = LLVMGetNextFunction(fun)
+		) {
+			for (
+				auto bb = LLVMGetFirstBasicBlock(fun);
+				bb !is null;
+				bb = LLVMGetNextBasicBlock(bb)
+			) {
+				if (!LLVMGetBasicBlockTerminator(bb)) {
+					LLVMPositionBuilderAtEnd(builder, bb);
+					unreachables ~= LLVMBuildUnreachable(builder);
+				}
+			}
+		}
+		
+		scheduler.require(f);
+	}
+	
 	LLVMValueRef declare(Function f) {
+		require(f);
+		
 		auto lookup = f.storage.isLocal
 			? locals
 			: globals;
