@@ -860,11 +860,14 @@ struct SymbolAnalyzer {
 			scheduler.require(i);
 			c.ivtblOffset[i] = methodIndex++;
 			import std.algorithm, std.array;
-			auto imethods = i.members.map!((m) {
-					m.index += methodIndex;
-				}).array();
-			c.members ~= imethods;
-			methodIndex += imethods.length;
+			int il = 0;
+			foreach(m; i.members) {
+				(cast(Method)m).index += methodIndex;
+				c.members ~= m;
+				il++;
+			}
+			//c.members ~= imethods;
+			methodIndex += il;
 		}
 
 		scheduler.require(members);
