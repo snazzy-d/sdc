@@ -303,7 +303,7 @@ struct TypeGen {
 		// adding interface vtables after all class methods
 		foreach (i; c.interfaces) {
 			// scheduler.require(ivtbls)?
-			vtbl ~= ivtbls[i]; // TODO: offset?
+			//vtbl ~= ivtbls[i]; // TODO: offset?
 		}
 
 
@@ -372,7 +372,7 @@ struct TypeGen {
 
 		LLVMValueRef[] fields = [];
 		fields ~= vtblPtr;
-		ivtbls[i] = vtblPtr;
+		//ivtbls[i] = vtblPtr;
 
 		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
 		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);

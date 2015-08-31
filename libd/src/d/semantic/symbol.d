@@ -856,23 +856,33 @@ struct SymbolAnalyzer {
 
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
+		methodIndex++;
+		import std.stdio;
+		writeln(methodIndex);
 		foreach (i; c.interfaces) {
+			writeln("sid: 1");
 			scheduler.require(i);
-			c.ivtblOffset[i] = methodIndex++;
+			c.ivtblOffset[i] = methodIndex;
 			import std.algorithm, std.array;
 			int il = 0;
+			scheduler.require(i.members);
 			foreach(m; i.members) {
-				(cast(Method)m).index += methodIndex;
-				c.members ~= m;
+				writeln("sid: 2 \n--methodIndex: ", methodIndex);
+				auto m1 = cast(Method) m;
+				if (!m1) 
+					continue;
+				m1.index += methodIndex;
+				c.members ~= m1;
 				il++;
 			}
+			writeln("sid: 3");
 			//c.members ~= imethods;
 			methodIndex += il;
 		}
 
 		scheduler.require(members);
 		c.members ~= members;
-
+		/*
 		bool found = false;
 		foreach (i; c.interfaces){
 			scheduler.require(i);
@@ -932,9 +942,12 @@ struct SymbolAnalyzer {
 				}
 			}
 		}
+*/
 
-
-
+		import std.stdio;
+		foreach(m; c.members){
+			writeln(m.name.toString(context));
+		}
 
 		
 		c.step = Step.Processed;
