@@ -300,7 +300,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		// Cast to void* is kind of special.
 		if (e.kind == TypeKind.Builtin && e.builtin == BuiltinType.Void) {
-			return (isExplicit || canConvert(t.qualifier, to.qualifier))
+			return (isExplicit || canConvert(t.qualifier, e.qualifier))
 				? CastKind.Bit
 				: CastKind.Invalid;
 		}
