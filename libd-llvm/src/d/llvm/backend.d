@@ -94,15 +94,10 @@ public:
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
-		if(optLevel == 0) {
+		if (optLevel == 0) {
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
 		} else {
-			LLVMDumpModule(dmodule);
-
-			import std.stdio;
-			writeln("\n; Optimized as :");
-			
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
 			LLVMPassManagerBuilderSetOptLevel(pmb, optLevel);
 		}
@@ -116,7 +111,7 @@ public:
 		LLVMRunPassManager(pm, dmodule);
 		
 		// Dump module for debug purpose.
-		LLVMDumpModule(dmodule);
+		// LLVMDumpModule(dmodule);
 		
 		/*
 		import std.stdio;
