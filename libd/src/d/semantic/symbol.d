@@ -293,7 +293,7 @@ struct SymbolAnalyzer {
 		// Sanity check.
 		assert(!stc.isEnum || v.storage == Storage.Enum);
 		
-		if (v.storage.isNonLocal) {
+		if (v.storage.isGlobal) {
 			value = evaluate(value);
 		}
 		

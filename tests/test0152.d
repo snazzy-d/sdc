@@ -16,4 +16,3 @@ int main() {
 	
 	return fooa() + foob() + a++ + b--;
 }
-

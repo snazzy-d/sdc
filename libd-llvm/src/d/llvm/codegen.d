@@ -1,12 +1,10 @@
 module d.llvm.codegen;
 
 import d.ir.expression;
-import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
 import d.llvm.string;
-import d.llvm.symbol;
 import d.llvm.type;
 
 import d.object;
@@ -25,7 +23,6 @@ final class CodeGenPass {
 	import d.context.context;
 	Context context;
 	
-	private SymbolGen symbolGen;
 	private TypeGen typeGen;
 	
 	private StringGen stringGen;
@@ -38,29 +35,19 @@ final class CodeGenPass {
 	LLVMTargetDataRef targetData;
 	
 	LLVMContextRef llvmCtx;
-	LLVMBuilderRef builder;
 	LLVMModuleRef dmodule;
 	
-	LLVMValueRef thisPtr;
+	LLVMValueRef[ValueSymbol] globals;
 	
-	LLVMValueRef lpContext;
-	LLVMValueRef[] catchClauses;
-	
-	enum BlockKind {
-		Exit,
-		Success,
-		Failure,
-		Catch,
+	struct Closure {
+		uint[Variable] indices;
+
+		// TODO: Try to delete when possible.
+		LLVMValueRef context;
+		LLVMTypeRef type;
 	}
 	
-	struct Block {
-		BlockKind kind;
-		Statement statement;
-		LLVMBasicBlockRef landingPadBB;
-		LLVMBasicBlockRef unwindBB;
-	}
-	
-	Block[] unwindBlocks;
+	Closure[][TypeSymbol] embededContexts;
 	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
@@ -68,17 +55,19 @@ final class CodeGenPass {
 	this(Context context, string name, LLVMTargetDataRef targetData) {
 		this.context	= context;
 		this.targetData	= targetData;
+
+		// Make sure globals are initialized.
+		globals[null] = null;
+		globals.remove(null);
 		
-		symbolGen		= new SymbolGen(this);
+		llvmCtx = LLVMContextCreate();
+		
 		typeGen			= new TypeGen(this);
 		
 		stringGen		= new StringGen(this);
 		
 		druntimeGen		= new DruntimeGen(this);
 		
-		llvmCtx = LLVMContextCreate();
-		builder = LLVMCreateBuilderInContext(llvmCtx);
-
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
@@ -95,33 +84,23 @@ final class CodeGenPass {
 		profKindID = LLVMGetMDKindIDInContext(llvmCtx, id.ptr, cast(uint) id.length);
 	}
 	
+	~this() {
+		LLVMDisposeModule(dmodule);
+		LLVMContextDispose(llvmCtx);
+	}
+	
 	Module visit(Module m) {
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
-		foreach(decl; m.members) {
-			visit(decl);
+		foreach(s; m.members) {
+			import d.llvm.global;
+			GlobalGen(this).visit(s);
 		}
 		
 		checkModule();
 		
 		return m;
-	}
-	
-	auto visit(Symbol s) {
-		return symbolGen.visit(s);
-	}
-	
-	auto visit(TypeSymbol s) {
-		return symbolGen.visit(s);
-	}
-	
-	auto visit(Variable v) {
-		return symbolGen.genCached(v);
-	}
-	
-	auto visit(Function f) {
-		return symbolGen.genCached(f);
 	}
 	
 	auto getTypeInfo(TypeSymbol s) {
@@ -158,10 +137,6 @@ final class CodeGenPass {
 
 	auto buildEnumType(Enum e) {
 		return typeGen.visit(e);
-	}
-	
-	auto getContext(Function f) {
-		return symbolGen.getContext(f);
 	}
 	
 	auto buildContextType(Function f) {

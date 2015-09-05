@@ -80,12 +80,13 @@ public:
 	}
 	
 	void visit(Function f) {
-		pass.visit(f);
+		import d.llvm.global;
+		GlobalGen(pass).visit(f);
 	}
 	
 	void emitObject(Module[] modules, string objFile) {
 		foreach(m; modules) {
-			visit(m);
+			pass.visit(m);
 		}
 		
 		auto dmodule = pass.dmodule;
@@ -124,7 +125,7 @@ public:
 
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
-		if(linkError) {
+		if (linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
 			import std.c.string, std.stdio;

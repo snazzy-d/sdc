@@ -102,29 +102,24 @@ final class LLVMEvaluator : Evaluator {
 		auto fun = LLVMAddFunction(codeGen.dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 
-		auto backupCurrentBB = LLVMGetInsertBlock(codeGen.builder);
-		scope(exit) {
-			if (backupCurrentBB) {
-				LLVMPositionBuilderAtEnd(codeGen.builder, backupCurrentBB);
-			} else {
-				LLVMClearInsertionPosition(codeGen.builder);
-			}
-		}
+		// Generate function's body. Warning: horrible hack.
+		import d.llvm.local;
+		auto lg = LocalGen(codeGen);
+		auto builder = lg.builder;
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(codeGen.llvmCtx, fun, "");
-		LLVMPositionBuilderAtEnd(codeGen.builder, bodyBB);
-		
-		// Generate function's body.
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
+
 		import d.llvm.expression;
-		auto value = ExpressionGen(codeGen).visit(e);
+		auto value = ExpressionGen(&lg).visit(e);
 		
 		static if (R == JitReturn.Direct) {
-			LLVMBuildRet(codeGen.builder, value);
+			LLVMBuildRet(builder, value);
 		} else {
-			LLVMBuildStore(codeGen.builder, value, buffer);
+			LLVMBuildStore(builder, value, buffer);
 			// FIXME This is 64bit only code.
-			auto ptrToInt = LLVMBuildPtrToInt(codeGen.builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
-			LLVMBuildRet(codeGen.builder, ptrToInt);
+			auto ptrToInt = LLVMBuildPtrToInt(builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
+			LLVMBuildRet(builder, ptrToInt);
 		}
 		
 		codeGen.checkModule();

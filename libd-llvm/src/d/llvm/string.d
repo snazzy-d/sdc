@@ -7,7 +7,7 @@ import llvm.c.core;
 final class StringGen {
 	private CodeGenPass pass;
 	alias pass this;
-	
+
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
@@ -19,26 +19,22 @@ final class StringGen {
 		assert(str.length <= uint.max, "string length must be <= uint.max");
 	} body {
 		return stringLiterals.get(str, stringLiterals[str] = {
-			auto charArray = LLVMConstStringInContext(pass.llvmCtx, str.ptr, cast(uint) str.length, true);
+			auto cstr = str ~ '\0';
+			auto charArray = LLVMConstStringInContext(pass.llvmCtx, cstr.ptr, cast(uint) cstr.length, true);
 			
 			auto globalVar = LLVMAddGlobal(pass.dmodule, LLVMTypeOf(charArray), ".str");
 			LLVMSetInitializer(globalVar, charArray);
 			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
 			LLVMSetGlobalConstant(globalVar, true);
+			LLVMSetUnnamedAddr(globalVar, true);
 			
-			auto length = LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), str.length, false);
+			LLVMValueRef[2] slice;
+			slice[0] = LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), str.length, false);
 			
-			/*
-			// skip 0 termination.
-			auto indices = [LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true), LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true)];
-			auto ptr = LLVMBuildInBoundsGEP(pass.builder, globalVar, indices.ptr, 2, "");
-			/*/
-			// with 0 termination.
-			import std.string;
-			auto ptr = LLVMBuildGlobalStringPtr(pass.builder, str.toStringz(), ".cstr");
-			//*/
+			LLVMValueRef[2] indices = [LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true), LLVMConstInt(LLVMInt64TypeInContext(pass.llvmCtx), 0, true)];
+			slice[1] = LLVMConstInBoundsGEP(globalVar, indices.ptr, 2);
 			
-			return LLVMConstStructInContext(pass.llvmCtx, [length, ptr].ptr, 2, false);
+			return LLVMConstStructInContext(pass.llvmCtx, slice.ptr, 2, false);
 		}());
 	}
 }

@@ -26,16 +26,25 @@ enum Storage {
 }
 
 @property
-bool isNonLocal(Storage s) {
+bool isGlobal(Storage s) {
 	return s > Storage.Capture;
+}
+
+@property
+bool isLocal(Storage s) {
+	return !isGlobal(s);
 }
 
 unittest {
 	with(Storage) {
-		assert(Local.isNonLocal   == false);
-		assert(Capture.isNonLocal == false);
-		assert(Static.isNonLocal  == true);
-		assert(Enum.isNonLocal    == true);
+		assert(Local.isGlobal   == false);
+		assert(Local.isLocal   == true);
+		assert(Capture.isGlobal == false);
+		assert(Capture.isLocal == true);
+		assert(Static.isGlobal  == true);
+		assert(Static.isLocal  == false);
+		assert(Enum.isGlobal    == true);
+		assert(Enum.isLocal    == false);
 	}
 }
 

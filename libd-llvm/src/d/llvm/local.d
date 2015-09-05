@@ -1,150 +1,123 @@
-module d.llvm.symbol;
+module d.llvm.local;
 
 import d.llvm.codegen;
 
 import d.ir.dscope;
+import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
-import util.visitor;
-
-import llvm.c.analysis;
 import llvm.c.core;
 
-// Conflict with Interface in object.di
-alias Interface = d.ir.symbol.Interface;
+alias LocalPass = LocalGen*;
 
-final class SymbolGen {
-	private CodeGenPass pass;
+struct LocalGen {
+	CodeGenPass pass;
 	alias pass this;
+
+	LLVMBuilderRef builder;
+
+	LLVMValueRef thisPtr;
 	
-	private LLVMValueRef[ValueSymbol] globals;
-	private LLVMValueRef[ValueSymbol] locals;
-	
-	struct Closure {
-		uint[Variable] indices;
-		LLVMValueRef context;
-		LLVMTypeRef type;
-	}
-	
+	LLVMValueRef[ValueSymbol] locals;
+
+	alias Closure = CodeGenPass.Closure;
 	Closure[] contexts;
 	
-	private Closure[][TypeSymbol] embededContexts;
+	LLVMValueRef lpContext;
+	LLVMValueRef[] catchClauses;
 	
-	this(CodeGenPass pass) {
+	enum BlockKind {
+		Exit,
+		Success,
+		Failure,
+		Catch,
+	}
+	
+	struct Block {
+		BlockKind kind;
+		Statement statement;
+		LLVMBasicBlockRef landingPadBB;
+		LLVMBasicBlockRef unwindBB;
+	}
+	
+	Block[] unwindBlocks;
+	
+	this(CodeGenPass pass, Closure[] contexts = []) {
 		this.pass = pass;
+		this.contexts = contexts;
+
+		// Make sure we alays have a builder ready to rock.
+		builder = LLVMCreateBuilderInContext(llvmCtx);
 	}
-	
+
+	~this() {
+		LLVMDisposeBuilder(builder);
+	}
+
+	@disable this(this);
+
 	void visit(Symbol s) {
-		if (auto t = cast(TypeSymbol) s) {
-			visit(t);
-		} else if (auto v = cast(Variable) s) {
-			genCached(v);
+		if (auto v = cast(Variable) s) {
+			visit(v);
 		} else if (auto f = cast(Function) s) {
-			genCached(f);
+			visit(f);
+		} else if (auto t = cast(TypeSymbol) s) {
+			visit(t);
+		} else {
+			import d.llvm.global;
+			GlobalGen(pass).visit(s);
 		}
 	}
-	
-	LLVMValueRef genCached(S)(S s) {
-		scheduler.require(s, Step.Processed);
-		final switch(s.storage) with(Storage) {
-			case Enum:
-			case Static:
-				return globals.get(s, visit(s));
-			
-			case Local:
-			case Capture:
-				return locals.get(s, visit(s));
-		}
-	}
-	
-	void register(ValueSymbol s, LLVMValueRef v) {
-		final switch(s.storage) with(Storage) {
-			case Enum:
-			case Static:
-				globals[s] = v;
-				return;
-			
-			case Local:
-			case Capture:
-				locals[s] = v;
-				return;
-		}
-	}
-	
+
 	LLVMValueRef visit(Function f) {
+		auto contexts = f.hasContext ? this.contexts : [];
+		auto lookup = f.storage.isLocal
+			? locals
+			: globals;
+
+		return lookup.get(f, {
+			auto lg = LocalGen(pass, contexts);
+			auto fun = lookup[f] = lg.declare(f);
+			
+			// We always generate the body for now, but it is very undesirable.
+			// FIXME: Separate symbol declaration from symbol definition.
+			if (f.fbody) {
+				lg.define(f, fun);
+			}
+			
+			return fun;
+		} ());
+	}
+	
+	LLVMValueRef declare(Function f) {
 		import std.string;
 		auto name = f.mangle.toStringz();
 		auto type = pass.visit(f.type);
 
-		// FIXME: Because we now require, and because we can end up calling
-		// this several times due to declaration/definition being confused,
-		// the method could ends up being genertated when visiting the type.
+		// The function may have been generated when visiting the type.
 		if (auto funPtr = f in globals) {
 			return *funPtr;
 		}
-		
+
 		// Sanity check.
 		auto fun = LLVMGetNamedFunction(dmodule, name);
-		assert(!fun, f.mangle ~ " is already defined.");
+		assert(!fun, f.mangle ~ " is already declared.");
 
-		fun = LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
-		
-		// Register the function.
-		register(f, fun);
-		
-		// We always generate the body for now, but it is very undesirable.
-		// FIXME: Separate symbol declaration from symbol definition.
-		if (f.fbody) {
-			genFunctionBody(f, fun);
-		}
-		
-		return fun;
+		return LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
 	}
-	
-	private void genFunctionBody(Function f, LLVMValueRef fun) {
+
+	void define(Function f, LLVMValueRef fun) in {
 		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle ~ " body is already defined.");
-		
-		// Function can be defined in several modules, so the optimizer can do its work.
-		LLVMSetLinkage(fun, LLVMLinkage.WeakODR);
-		
+		assert(f.step == Step.Processed, "f is not processed");
+		assert(f.fbody, "f must have a body");
+	} body {
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
-		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
-		
-		// Ensure we are rentrant.
-		auto backupCurrentBB = LLVMGetInsertBlock(builder);
-		auto oldLocals = locals;
-		auto oldThisPtr = thisPtr;
-		auto oldContexts = contexts;
-		auto oldLpContext = lpContext;
-		auto oldCatchClauses = catchClauses;
-		auto oldUnwindBlocks = unwindBlocks;
-		
-		scope(exit) {
-			if(backupCurrentBB) {
-				LLVMPositionBuilderAtEnd(builder, backupCurrentBB);
-			} else {
-				LLVMClearInsertionPosition(builder);
-			}
-			
-			locals = oldLocals;
-			thisPtr = oldThisPtr;
-			contexts = oldContexts;
-			lpContext = oldLpContext;
-			catchClauses = oldCatchClauses;
-			unwindBlocks = oldUnwindBlocks;
-		}
-		
-		// XXX: what is the way to flush an AA ?
-		locals = null;
-		lpContext = null;
-		catchClauses = [];
-		unwindBlocks = [];
 		
 		// Handle parameters in the alloca block.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
-		
+
 		auto funType = LLVMGetElementType(LLVMTypeOf(fun));
 		
 		LLVMValueRef[] params;
@@ -242,15 +215,16 @@ final class SymbolGen {
 		}
 		
 		// Generate function's body.
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
+
 		import d.llvm.statement;
-		StatementGen(pass).visit(f.fbody);
+		StatementGen(&this).visit(f.fbody);
 		
 		// If the current block isn't concluded, it means that it is unreachable.
-		if(!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
 			// FIXME: provide the right AST in case of void function.
-			if(LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
+			if (LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
 				LLVMBuildRetVoid(builder);
 			} else {
 				LLVMBuildUnreachable(builder);
@@ -281,15 +255,13 @@ final class SymbolGen {
 			LLVMPositionBuilderBefore(builder, context);
 			
 			import d.llvm.expression;
-			auto eg = ExpressionGen(pass);
-			
-			auto alloc = eg.buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
+			auto alloc = ExpressionGen(&this).buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
 			LLVMReplaceAllUsesWith(context, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
 		}
 	}
-	
+
 	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
 		if (t.kind == TypeKind.Struct) {
 			auto s = t.dstruct;
@@ -352,44 +324,30 @@ final class SymbolGen {
 		
 		assert(closureCount == 0);
 	}
-	
-	LLVMValueRef getContext(Function f) {
-		auto type = pass.buildContextType(f);
-		auto value = contexts[$ - 1].context;
-		foreach_reverse(i, c; contexts) {
-			if (c.context is null) {
-				assert (c.type is type, "Failed to find the context pointer.");
-				return LLVMConstNull(LLVMPointerType(type, 0));
-			}
-			
-			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
-			
-			if (c.type is type) {
-				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
-			}
-			
-			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
+
+	LLVMValueRef visit(Variable v) {
+		if (v.storage.isGlobal) {
+			import d.llvm.global;
+			return GlobalGen(pass).visit(v);
 		}
-		
-		assert(0, "No context available.");
+
+		return locals.get(v, define(v));
 	}
-	
-	LLVMValueRef visit(Variable v) in {
+
+	LLVMValueRef define(Variable v) in {
 		assert(!v.isFinal);
 	} body {
 		import d.llvm.expression;
 		auto value = v.isRef
-			? AddressOfGen(pass).visit(v.value)
-			: ExpressionGen(pass).visit(v.value);
+			? AddressOfGen(&this).visit(v.value)
+			: ExpressionGen(&this).visit(v.value);
 		
 		return createVariableStorage(v, value);
 	}
-	
-	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) {
-		if (v.storage == Storage.Enum) {
-			return globals[v] = value;
-		}
-		
+
+	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
+		assert(v.storage.isLocal, "globals not supported");
+	} body {
 		if (v.isRef) {
 			return locals[v] = value;
 		}
@@ -397,32 +355,6 @@ final class SymbolGen {
 		auto qualifier = v.type.qualifier;
 		auto type = pass.visit(v.type);
 
-		if (v.storage == Storage.Static) {
-			import std.string;
-			auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
-			
-			// Depending on the type qualifier,
-			// make it thread local/ constant or nothing.
-			final switch(qualifier) with(TypeQualifier) {
-				case Mutable, Inout, Const:
-					LLVMSetThreadLocal(globalVar, true);
-					break;
-
-				case Shared, ConstShared:
-					break;
-
-				case Immutable:
-					LLVMSetGlobalConstant(globalVar, true);
-					break;
-			}
-			
-			// Store the initial value into the global variable.
-			LLVMSetInitializer(globalVar, value);
-
-			// Register the variable.
-			return globals[v] = globalVar;
-		}
-		
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
@@ -484,82 +416,43 @@ final class SymbolGen {
 		// Register the variable.
 		return locals[v] = addr;
 	}
-	
-	LLVMTypeRef visit(TypeSymbol s) in {
-		assert(s.step == Step.Processed);
-	} body {
+
+	LLVMValueRef getContext(Function f) {
+		auto type = pass.buildContextType(f);
+		auto value = contexts[$ - 1].context;
+		foreach_reverse(i, c; contexts) {
+			if (c.context is null) {
+				assert (c.type is type, "Failed to find the context pointer.");
+				return LLVMConstNull(LLVMPointerType(type, 0));
+			}
+			
+			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
+			
+			if (c.type is type) {
+				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
+			}
+			
+			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
+		}
+		
+		assert(0, "No context available.");
+	}
+
+	// Figure out what's a good way here.
+	LLVMTypeRef visit(Type t) {
+		return pass.visit(t);
+	}
+
+	LLVMTypeRef visit(FunctionType t) {
+		return pass.visit(t);
+	}
+
+	LLVMTypeRef visit(TypeSymbol s) {
 		if (s.hasContext) {
 			embededContexts[s] = contexts;
 		}
 		
-		return this.dispatch(s);
-	}
-	
-	LLVMTypeRef visit(TypeAlias a) in {
-		assert(a.step == Step.Processed);
-	} body {
-		return pass.visit(a.type);
-	}
-	
-	LLVMTypeRef visit(Struct s) in {
-		assert(s.step == Step.Processed);
-	} body {
-		auto ret = buildStructType(s);
-		
-		foreach(member; s.members) {
-			if (typeid(member) !is typeid(Field)) {
-				visit(member);
-			}
-		}
-		
-		return ret;
-	}
-	
-	LLVMTypeRef visit(Union u) in {
-		assert(u.step == Step.Processed);
-	} body {
-		auto ret = buildUnionType(u);
-		
-		foreach(member; u.members) {
-			if (typeid(member) !is typeid(Field)) {
-				visit(member);
-			}
-		}
-		
-		return ret;
-	}
-	
-	LLVMTypeRef visit(Class c) in {
-		assert(c.step == Step.Processed);
-	} body {
-		auto ret = buildClassType(c);
-		
-		foreach(member; c.members) {
-			if (auto m = cast(Method) member) {
-				auto fun = genCached(m);
-				if (LLVMCountBasicBlocks(fun) == 0) {
-					genFunctionBody(m, fun);
-				}
-			}
-		}
-		
-		return ret;
-	}
-
-	LLVMTypeRef visit(Interface i) in {
-		assert(i.step == Step.Processed);
-	} body {
-		return buildInterfaceType(i); 
-	}
-
-	LLVMTypeRef visit(Enum e) {
-		auto type = buildEnumType(e);
-		/+
-		foreach(entry; e.entries) {
-			visit(entry);
-		}
-		+/
-		return type;
+		import d.llvm.global;
+		return GlobalGen(pass).visit(s);
 	}
 }
-

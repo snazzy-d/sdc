@@ -320,8 +320,8 @@ struct DeclarationVisitor {
 		
 		Function f;
 		
-		auto isStatic = storage.isNonLocal;
-		if(isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
+		auto isStatic = storage.isGlobal;
+		if (isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
 			f = new Function(d.location, FunctionType.init, d.name, [], null);
 		} else {
 			uint index = 0;
@@ -351,7 +351,7 @@ struct DeclarationVisitor {
 		auto storage = getStorage(stc);
 		
 		Variable v;
-		if (storage.isNonLocal || aggregateType == AggregateType.None) {
+		if (storage.isGlobal || aggregateType == AggregateType.None) {
 			v = new Variable(d.location, Type.get(BuiltinType.None), d.name);
 		} else {
 			v = new Field(d.location, fieldIndex, Type.get(BuiltinType.None), d.name);
@@ -376,7 +376,7 @@ struct DeclarationVisitor {
 		s.visibility = visibility;
 		s.storage = storage;
 		
-		s.hasContext = storage.isNonLocal ? false : !!addContext;
+		s.hasContext = storage.isGlobal ? false : !!addContext;
 		
 		addSymbol(s);
 		select(d, s);
@@ -388,7 +388,7 @@ struct DeclarationVisitor {
 		u.visibility = visibility;
 		u.storage = storage;
 		
-		u.hasContext = storage.isNonLocal ? false : !!addContext;
+		u.hasContext = storage.isGlobal ? false : !!addContext;
 		
 		addSymbol(u);
 		select(d, u);
@@ -400,7 +400,7 @@ struct DeclarationVisitor {
 		c.visibility = visibility;
 		c.storage = storage;
 		
-		c.hasContext = storage.isNonLocal ? false : !!addContext;
+		c.hasContext = storage.isGlobal ? false : !!addContext;
 		
 		addSymbol(c);
 		select(d, c);

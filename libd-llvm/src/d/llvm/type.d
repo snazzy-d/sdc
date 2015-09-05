@@ -249,13 +249,18 @@ final class TypeGen {
 			if (auto m = cast(Method) member) {
 				auto oldBody = m.fbody;
 				scope(exit) m.fbody = oldBody;
-				
 				m.fbody = null;
-				vtbl ~= pass.visit(m);
+
+				import d.llvm.global;
+				vtbl ~= GlobalGen(pass).visit(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
+					// FIXME: Remove localgen.
+					import d.llvm.local;
+					auto lg = LocalGen(pass);
+
 					import d.llvm.expression;
-					fields ~= ExpressionGen(pass).visit(f.value);
+					fields ~= ExpressionGen(&lg).visit(f.value);
 				}
 			}
 		}

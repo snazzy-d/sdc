@@ -266,7 +266,7 @@ class CapturingScope(S) : S  if(is(S : SymbolScope)){
 		auto s = parent.search(name);
 
 		import d.common.qualifier;
-		if (s !is null && typeid(s) is typeid(Variable) && !s.storage.isNonLocal) {
+		if (s !is null && typeid(s) is typeid(Variable) && s.storage.isLocal) {
 			capture[() @trusted {
 				// Fast cast can be trusted in this case, we already did the check.
 				import util.fastcast;

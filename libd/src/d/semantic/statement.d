@@ -132,7 +132,7 @@ public:
 		
 		foreach(sym; syms) {
 			if (auto v = cast(Variable) sym) {
-				if (v.storage.isNonLocal) {
+				if (v.storage.isGlobal) {
 					continue;
 				}
 				

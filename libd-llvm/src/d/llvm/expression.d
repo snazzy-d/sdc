@@ -1,6 +1,6 @@
 module d.llvm.expression;
 
-import d.llvm.codegen;
+import d.llvm.local;
 
 import d.ir.expression;
 import d.ir.symbol;
@@ -15,10 +15,10 @@ import util.visitor;
 import llvm.c.core;
 
 struct ExpressionGen {
-	private CodeGenPass pass;
+	private LocalPass pass;
 	alias pass this;
 	
-	this(CodeGenPass pass) {
+	this(LocalPass pass) {
 		this.pass = pass;
 	}
 	
@@ -696,7 +696,7 @@ struct ExpressionGen {
 	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		// Check if we need to invoke.
 		foreach_reverse(ref b; unwindBlocks) {
-			if(b.kind == BlockKind.Success) {
+			if (b.kind == BlockKind.Success) {
 				continue;
 			}
 			
@@ -704,7 +704,7 @@ struct ExpressionGen {
 			auto currentBB = LLVMGetInsertBlock(builder);
 			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 			
-			if(!b.landingPadBB) {
+			if (!b.landingPadBB) {
 				auto landingPadBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "landingPad");
 				
 				LLVMPositionBuilderAtEnd(builder, landingPadBB);
@@ -909,10 +909,10 @@ struct ExpressionGen {
 }
 
 struct AddressOfGen {
-	private CodeGenPass pass;
+	private LocalPass pass;
 	alias pass this;
 	
-	this(CodeGenPass pass) {
+	this(LocalPass pass) {
 		this.pass = pass;
 	}
 	
@@ -920,6 +920,10 @@ struct AddressOfGen {
 		assert(e.isLvalue, "You can only compute addresses of lvalues.");
 	} body {
 		return this.dispatch(e);
+	}
+	
+	private LLVMValueRef valueOf(E)(E e) if (is(E : Expression)) {
+		return ExpressionGen(pass).visit(e);
 	}
 	
 	LLVMValueRef visit(VariableExpression e) in {
@@ -940,13 +944,13 @@ struct AddressOfGen {
 			
 			// XXX: Remove pointer. libd do not dererefence as expected.
 			case Pointer, Class:
-				ptr = ExpressionGen(pass).visit(base);
+				ptr = valueOf(base);
 				break;
 			
 			default:
 				assert(0, "Address of field only work on aggregate types, not " ~ type.toString(context));
 		}
-		
+
 		// Make the type is not opaque.
 		// XXX: Find a factorized way to load and gep that ensure
 		// the indexed is not opaque and load metadata are correct.
@@ -956,7 +960,7 @@ struct AddressOfGen {
 		if (type.kind == TypeKind.Union) {
 			ptr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(pass.visit(e.type), 0), "");
 		}
-		
+
 		return ptr;
 	}
 	
@@ -975,7 +979,7 @@ struct AddressOfGen {
 	
 	LLVMValueRef visit(UnaryExpression e) {
 		if(e.op == UnaryOp.Dereference) {
-			return ExpressionGen(pass).visit(e.expr);
+			return valueOf(e.expr);
 		}
 		
 		assert(0, "not an lvalue ??");
@@ -1004,7 +1008,7 @@ struct AddressOfGen {
 				return value;
 		}
 	}
-	
+
 	LLVMValueRef visit(CallExpression c) {
 		return ExpressionGen(pass).buildCall(c);
 	}
@@ -1017,23 +1021,23 @@ struct AddressOfGen {
 		auto t = indexed.type.getCanonical();
 		
 		if (t.kind == TypeKind.Slice) {
-			auto slice = ExpressionGen(pass).visit(indexed);
-			auto i = ExpressionGen(pass).visit(index);
+			auto slice = valueOf(indexed);
+			auto i = valueOf(index);
 			
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
 			
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
-			ExpressionGen(pass).genBoundCheck(location, condition);
+			genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
 		} else if (t.kind == TypeKind.Pointer) {
-			auto ptr = ExpressionGen(pass).visit(indexed);
-			auto i = ExpressionGen(pass).visit(index);
+			auto ptr = valueOf(indexed);
+			auto i = valueOf(index);
 			return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
 		} else if (t.kind == TypeKind.Array) {
 			auto ptr = visit(indexed);
-			auto i = ExpressionGen(pass).visit(index);
+			auto i = valueOf(index);
 			
 			auto condition = LLVMBuildICmp(
 				builder,
@@ -1043,7 +1047,7 @@ struct AddressOfGen {
 				"",
 			);
 			
-			ExpressionGen(pass).genBoundCheck(location, condition);
+			genBoundCheck(location, condition);
 			
 			LLVMValueRef[2] indices;
 			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
@@ -1053,6 +1057,10 @@ struct AddressOfGen {
 		}
 		
 		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
+	}
+	
+	auto genBoundCheck(Location location, LLVMValueRef condition) {
+		return ExpressionGen(pass).genBoundCheck(location, condition);
 	}
 }
 

@@ -1,6 +1,6 @@
 module d.llvm.statement;
 
-import d.llvm.codegen;
+import d.llvm.local;
 
 import d.ir.expression;
 import d.ir.statement;
@@ -10,7 +10,7 @@ import util.visitor;
 import llvm.c.core;
 
 struct StatementGen {
-	private CodeGenPass pass;
+	private LocalPass pass;
 	alias pass this;
 	
 	LLVMValueRef switchInstr;
@@ -29,13 +29,13 @@ struct StatementGen {
 	
 	// Forward goto can only be resolved when the label is reached.
 	struct GotoBlock {
-		CodeGenPass.Block[] unwind;
+		LocalPass.Block[] unwind;
 		LLVMBasicBlockRef basic;
 	}
 	
 	GotoBlock[][Name] inFlightGotos;
 	
-	this(CodeGenPass pass) {
+	this(LocalPass pass) {
 		this.pass = pass;
 	}
 	
@@ -49,8 +49,12 @@ struct StatementGen {
 	
 	private auto genExpression(Expression e) {
 		import d.llvm.expression;
-		auto eg = ExpressionGen(pass);
-		return eg.visit(e);
+		return ExpressionGen(pass).visit(e);
+	}
+	
+	private auto genCall(LLVMValueRef callee, LLVMValueRef[] args) {
+		import d.llvm.expression;
+		return ExpressionGen(pass).buildCall(callee, args);
 	}
 	
 	void visit(ExpressionStatement e) {
@@ -506,11 +510,9 @@ struct StatementGen {
 	}
 	
 	void visit(ThrowStatement s) {
-		import d.llvm.expression;
-		auto eg = ExpressionGen(pass);
-		auto value = LLVMBuildBitCast(builder, eg.visit(s.value), pass.visit(pass.object.getThrowable()), "");
+		auto value = LLVMBuildBitCast(builder, genExpression(s.value), pass.visit(pass.object.getThrowable()), "");
 		
-		eg.buildCall(pass.visit(pass.object.getThrow()), [value]);
+		genCall(pass.visit(pass.object.getThrow()), [value]);
 		LLVMBuildUnreachable(builder);
 	}
 	
@@ -571,10 +573,8 @@ struct StatementGen {
 			auto catchBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "catch");
 			auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 			
-			import d.llvm.expression;
-			auto eg = ExpressionGen(pass);
 			auto typeinfo = LLVMBuildBitCast(builder, getTypeInfo(c.type), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), "");
-			auto tid = eg.buildCall(druntimeGen.getEhTypeidFor(), [typeinfo]);
+			auto tid = genCall(druntimeGen.getEhTypeidFor(), [typeinfo]);
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, tid, cid, "");
 			LLVMBuildCondBr(builder, condition, catchBB, nextUnwindBB);
 			
@@ -584,7 +584,7 @@ struct StatementGen {
 			visit(c.statement);
 			
 			currentBB = LLVMGetInsertBlock(builder);
-			if(!LLVMGetBasicBlockTerminator(currentBB)) {
+			if( !LLVMGetBasicBlockTerminator(currentBB)) {
 				LLVMBuildBr(builder, resumeBB);
 			}
 			
