@@ -220,10 +220,10 @@ final class TypeGen {
 	
 	LLVMTypeRef visit(Class c) {
 		// Ensure classInfo is built first.
-		if(!classInfoClass) {
+		if (!classInfoClass) {
 			classInfoClass = pass.object.getClassInfo();
 			
-			if(c !is classInfoClass) {
+			if (c !is classInfoClass) {
 				visit(classInfoClass);
 			}
 		}
@@ -252,8 +252,8 @@ final class TypeGen {
 				
 				m.fbody = null;
 				vtbl ~= pass.visit(m);
-			} else if(auto f = cast(Field) member) {
-				if(f.index > 0) {
+			} else if (auto f = cast(Field) member) {
+				if (f.index > 0) {
 					import d.llvm.expression;
 					fields ~= ExpressionGen(pass).visit(f.value);
 				}

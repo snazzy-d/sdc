@@ -10,6 +10,7 @@ import d.llvm.symbol;
 import d.llvm.type;
 
 import d.object;
+import d.semantic.scheduler;
 
 import util.visitor;
 
@@ -32,6 +33,7 @@ final class CodeGenPass {
 	DruntimeGen druntimeGen;
 	
 	ObjectReference object;
+	Scheduler scheduler;
 	
 	LLVMTargetDataRef targetData;
 	

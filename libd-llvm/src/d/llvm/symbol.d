@@ -46,6 +46,7 @@ final class SymbolGen {
 	}
 	
 	LLVMValueRef genCached(S)(S s) {
+		scheduler.require(s, Step.Processed);
 		final switch(s.storage) with(Storage) {
 			case Enum:
 			case Static:
@@ -74,20 +75,27 @@ final class SymbolGen {
 	LLVMValueRef visit(Function f) {
 		import std.string;
 		auto name = f.mangle.toStringz();
+		auto type = pass.visit(f.type);
+
+		// FIXME: Because we now require, and because we can end up calling
+		// this several times due to declaration/definition being confused,
+		// the method could ends up being genertated when visiting the type.
+		if (auto funPtr = f in globals) {
+			return *funPtr;
+		}
+		
+		// Sanity check.
 		auto fun = LLVMGetNamedFunction(dmodule, name);
 		assert(!fun, f.mangle ~ " is already defined.");
-		
-		auto type = pass.visit(f.type);
-		
-		// Type generation can have generated the signeture (it is required to generate virtual table).
-		fun = LLVMGetNamedFunction(dmodule, name);
-		if (!fun) {
-			fun = LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
-		}
+
+		fun = LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
 		
 		// Register the function.
 		register(f, fun);
-		if(f.fbody) {
+		
+		// We always generate the body for now, but it is very undesirable.
+		// FIXME: Separate symbol declaration from symbol definition.
+		if (f.fbody) {
 			genFunctionBody(f, fun);
 		}
 		
@@ -477,7 +485,9 @@ final class SymbolGen {
 		return locals[v] = addr;
 	}
 	
-	LLVMTypeRef visit(TypeSymbol s) {
+	LLVMTypeRef visit(TypeSymbol s) in {
+		assert(s.step == Step.Processed);
+	} body {
 		if (s.hasContext) {
 			embededContexts[s] = contexts;
 		}
@@ -485,7 +495,9 @@ final class SymbolGen {
 		return this.dispatch(s);
 	}
 	
-	LLVMTypeRef visit(TypeAlias a) {
+	LLVMTypeRef visit(TypeAlias a) in {
+		assert(a.step == Step.Processed);
+	} body {
 		return pass.visit(a.type);
 	}
 	
@@ -495,7 +507,7 @@ final class SymbolGen {
 		auto ret = buildStructType(s);
 		
 		foreach(member; s.members) {
-			if(typeid(member) !is typeid(Field)) {
+			if (typeid(member) !is typeid(Field)) {
 				visit(member);
 			}
 		}

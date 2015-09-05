@@ -34,6 +34,7 @@ final class SDC {
 		
 		// Review thet way this whole thing is built.
 		backend.getPass().object = semantic.object;
+		backend.getPass().scheduler = semantic.scheduler;
 	}
 	
 	void compile(string filename) {
