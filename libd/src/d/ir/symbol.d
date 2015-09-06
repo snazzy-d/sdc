@@ -17,21 +17,27 @@ enum Step {
 	Processed,
 }
 
+enum InTemplate {
+	No,
+	Yes,
+}
+
 class Symbol : Node {
 	Name name;
 	string mangle;
 	
 	import std.bitmanip;
 	mixin(bitfields!(
+		Step, "step", 2,
 		Linkage, "linkage", 3,
 		Visibility, "visibility", 3,
 		Storage, "storage", 2,
+		InTemplate, "inTemplate", 1,
 		bool, "isAbstract", 1,
 		bool, "isProperty", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
-		Step, "step", 2,
-		uint, "", 2,
+		uint, "", 1,
 	));
 	
 	this(Location location, Name name) {

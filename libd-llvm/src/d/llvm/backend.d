@@ -81,7 +81,7 @@ public:
 	
 	void visit(Function f) {
 		import d.llvm.global;
-		GlobalGen(pass).visit(f);
+		GlobalGen(pass).define(f);
 	}
 	
 	void emitObject(Module[] modules, string objFile) {
@@ -120,9 +120,9 @@ public:
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		//*/
-
+		
 		import std.string;
-
+		
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
 		if (linkError) {
@@ -137,7 +137,7 @@ public:
 	
 	void link(string objFile, string executable) {
 		import std.process;
-		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lpthread";
+		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lphobos -lpthread";
 		
 		import std.stdio;
 		writeln(linkCommand);

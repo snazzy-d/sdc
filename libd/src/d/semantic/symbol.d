@@ -44,7 +44,7 @@ struct SymbolVisitor {
 				alias DeclType = parameters[0];
 				alias SymType  = parameters[1];
 				
-				if(tid is typeid(SymType)) {
+				if (tid is typeid(SymType)) {
 					auto decl = cast(DeclType) d;
 					assert(decl, "Unexpected declaration type " ~ typeid(DeclType).toString());
 					
@@ -417,7 +417,7 @@ struct SymbolAnalyzer {
 			fields = [ctx];
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Struct).flatten(d.members, s);
+		auto members = DeclarationVisitor(pass, AggregateType.Struct, s.inTemplate).flatten(d.members, s);
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -498,7 +498,7 @@ struct SymbolAnalyzer {
 			fields = [ctx];
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Union).flatten(d.members, u);
+		auto members = DeclarationVisitor(pass, AggregateType.Union, u.inTemplate).flatten(d.members, u);
 		
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -641,13 +641,13 @@ struct SymbolAnalyzer {
 			baseFields ~= ctx;
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, c);
+		auto members = DeclarationVisitor(pass, AggregateType.Class, c.inTemplate).flatten(d.members, c);
 		
 		c.step = Step.Signed;
 		
 		uint overloadCount = 0;
 		foreach(m; members) {
-			if(auto method = cast(Method) m) {
+			if (auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
 				
 				auto mt = method.type;
@@ -685,7 +685,7 @@ struct SymbolAnalyzer {
 						}
 					}
 					
-					if(method.index == 0) {
+					if (method.index == 0) {
 						method.index = candidate.index;
 						
 						// Remove candidate from scope.
@@ -715,7 +715,7 @@ struct SymbolAnalyzer {
 					}
 				}
 				
-				if(method.index == 0) {
+				if (method.index == 0) {
 					import d.exception;
 					throw new CompileException(method.location, "Override not found for " ~ method.name.toString(context));
 				}
@@ -964,17 +964,17 @@ struct SymbolAnalyzer {
 		auto dscope = currentScope = i.dscope = new SymbolScope(i, t.dscope);
 		
 		// Prefilled members are template arguments.
-		foreach(s; i.members) {
-			if (s.hasContext) {
+		foreach(m; i.members) {
+			if (m.hasContext) {
 				assert(t.storage >= Storage.Static, "template can only have one context");
 				
 				import d.semantic.closure;
-				ctxSym = ContextFinder(pass).visit(s);
+				ctxSym = ContextFinder(pass).visit(m);
 				
 				i.storage = Storage.Local;
 			}
 			
-			dscope.addSymbol(s);
+			dscope.addSymbol(m);
 		}
 		
 		import d.semantic.declaration;
@@ -984,6 +984,7 @@ struct SymbolAnalyzer {
 			(i.storage >= Storage.Static)
 				? AddContext.No
 				: AddContext.Yes,
+			InTemplate.Yes,
 		);
 		
 		auto members = dv.flatten(t.members, i);

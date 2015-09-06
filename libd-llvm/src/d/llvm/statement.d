@@ -44,7 +44,7 @@ struct StatementGen {
 	}
 	
 	void visit(SymbolStatement s) {
-		pass.visit(s.symbol);
+		define(s.symbol);
 	}
 	
 	private auto genExpression(Expression e) {
@@ -510,9 +510,9 @@ struct StatementGen {
 	}
 	
 	void visit(ThrowStatement s) {
-		auto value = LLVMBuildBitCast(builder, genExpression(s.value), pass.visit(pass.object.getThrowable()), "");
+		auto value = LLVMBuildBitCast(builder, genExpression(s.value), define(pass.object.getThrowable()), "");
 		
-		genCall(pass.visit(pass.object.getThrow()), [value]);
+		genCall(declare(pass.object.getThrow()), [value]);
 		LLVMBuildUnreachable(builder);
 	}
 	

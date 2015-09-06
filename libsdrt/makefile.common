@@ -36,8 +36,6 @@ ALL_TARGET ?= $(LIBSDRT)
 SDFLAGS ?=
 LIBSDRT_IMPORTS = -I$(LIBSDRT_ROOT)/src
 
-all: $(ALL_TARGET)
-
 obj/gc/%.o: $(LIBSDRT_ROOT)/src/d/gc/%.d $(LIBSDRT_GC_SRC) $(LIBSDRT_EXTRA_DEPS)
 	@mkdir -p obj/gc
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)

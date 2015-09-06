@@ -469,7 +469,7 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(VariableExpression e) {
 		return (e.var.storage == Storage.Enum)
-			? pass.visit(e.var)
+			? declare(e.var)
 			: loadAddressOf(e);
 	}
 	
@@ -483,7 +483,7 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(FunctionExpression e) {
-		return pass.visit(e.fun);
+		return declare(e.fun);
 	}
 	
 	LLVMValueRef visit(MethodExpression e) {
@@ -502,7 +502,7 @@ struct ExpressionGen {
 			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, ctxValue, 0, ""), "vtbl");
 			fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
 		} else {
-			fun = pass.visit(e.method);
+			fun = declare(e.method);
 		}
 		
 		auto dg = LLVMGetUndef(pass.visit(type));
@@ -666,10 +666,10 @@ struct ExpressionGen {
 			
 			case Down :
 				LLVMValueRef[2] args;
-				args[0] = LLVMBuildBitCast(builder, value, pass.visit(pass.object.getObject()), "");
+				args[0] = LLVMBuildBitCast(builder, value, buildClassType(pass.object.getObject()), "");
 				args[1] = getTypeid(e.type);
 				
-				auto result = buildCall(pass.visit(pass.object.getClassDowncast()), args[]);
+				auto result = buildCall(declare(pass.object.getClassDowncast()), args[]);
 				return LLVMBuildBitCast(builder, result, type, "");
 			
 			case IntToBool :
@@ -712,7 +712,7 @@ struct ExpressionGen {
 				auto landingPad = LLVMBuildLandingPad(
 					builder,
 					LLVMStructTypeInContext(llvmCtx, [LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false),
-					pass.visit(pass.object.getPersonality()),
+					declare(pass.object.getPersonality()),
 					cast(uint) catchClauses.length,
 					"",
 				);
@@ -929,7 +929,7 @@ struct AddressOfGen {
 	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
 	} body {
-		return pass.visit(e.var);
+		return declare(e.var);
 	}
 	
 	LLVMValueRef visit(FieldExpression e) {

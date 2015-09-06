@@ -1,0 +1,18 @@
+# Common definitions
+
+PHOBOS_SRC = $(wildcard $(PHOBOS_ROOT)/*.d)
+PHOBOS_OBJ = $(PHOBOS_SRC:$(PHOBOS_ROOT)/%.d=obj/phobos/%.o)
+
+PHOBOS = lib/libphobos.a
+
+ALL_TARGET ?= $(PHOBOS)
+
+PHOBOS_DEPS = $(PHOBOS_OBJ)
+
+obj/phobos/%.o: $(PHOBOS_ROOT)/%.d $(PHOBOS_SRC) $(PHOBOS_EXTRA_DEPS)
+	@mkdir -p obj/phobos
+	$(SDC) -c -o $@ $< $(SDFLAGS)
+
+$(PHOBOS): $(PHOBOS_DEPS)
+	@mkdir -p lib obj/phobos
+	ar rcs $(PHOBOS) $^

@@ -252,7 +252,7 @@ final class TypeGen {
 				m.fbody = null;
 
 				import d.llvm.global;
-				vtbl ~= GlobalGen(pass).visit(m);
+				vtbl ~= GlobalGen(pass).declare(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
 					// FIXME: Remove localgen.

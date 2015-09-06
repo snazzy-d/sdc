@@ -46,14 +46,15 @@ struct DeclarationVisitor {
 			Visibility, "visibility", 3,
 			Storage, "storage", 2,
 			AggregateType, "aggregateType", 2,
-			AddContext, "addContext", 1,
 			CtUnitLevel, "ctLevel", 2,
+			AddContext, "addContext", 1,
+			InTemplate, "inTemplate", 1,
 			bool, "isRef", 1,
 			bool, "isOverride", 1,
 			bool, "isAbstract", 1,
 			bool, "isProperty", 1,
 			bool, "isNoGC", 1,
-			uint, "", 14,
+			uint, "", 13,
 		));
 	}
 	
@@ -84,6 +85,8 @@ struct DeclarationVisitor {
 				aggregateType = param;
 			} else static if(is(T == AddContext)) {
 				addContext = param;
+			} else static if(is(T == InTemplate)) {
+				inTemplate = param;
 			} else {
 				// FIXME: horrible use of stringof. typeid(T) is not availabel at compile time :(
 				static assert(0, T.stringof ~ " is not a valid initializer for DeclarationVisitor");
@@ -335,6 +338,7 @@ struct DeclarationVisitor {
 		f.linkage = getLinkage(stc);
 		f.visibility = getVisibility(stc);
 		f.storage = Storage.Enum;
+		f.inTemplate = inTemplate;
 		
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
 		f.hasContext = isStatic ? false : !!addContext;
@@ -365,6 +369,7 @@ struct DeclarationVisitor {
 		v.linkage = getLinkage(stc);
 		v.visibility = getVisibility(stc);
 		v.storage = storage;
+		v.inTemplate = inTemplate;
 		
 		addSymbol(v);
 		select(d, v);
@@ -375,6 +380,7 @@ struct DeclarationVisitor {
 		s.linkage = linkage;
 		s.visibility = visibility;
 		s.storage = storage;
+		s.inTemplate = inTemplate;
 		
 		s.hasContext = storage.isGlobal ? false : !!addContext;
 		
@@ -387,6 +393,7 @@ struct DeclarationVisitor {
 		u.linkage = linkage;
 		u.visibility = visibility;
 		u.storage = storage;
+		u.inTemplate = inTemplate;
 		
 		u.hasContext = storage.isGlobal ? false : !!addContext;
 		
@@ -399,6 +406,7 @@ struct DeclarationVisitor {
 		c.linkage = linkage;
 		c.visibility = visibility;
 		c.storage = storage;
+		c.inTemplate = inTemplate;
 		
 		c.hasContext = storage.isGlobal ? false : !!addContext;
 		
@@ -411,6 +419,7 @@ struct DeclarationVisitor {
 		i.linkage = linkage;
 		i.visibility = visibility;
 		i.storage = storage; 
+		i.inTemplate = inTemplate;
 
 		addSymbol(i);
 		select(d, i);
@@ -461,6 +470,7 @@ struct DeclarationVisitor {
 		t.linkage = linkage;
 		t.visibility = visibility;
 		t.storage = storage;
+		t.inTemplate = inTemplate;
 		
 		addOverloadableSymbol(t);
 		select(d, t);
@@ -472,6 +482,7 @@ struct DeclarationVisitor {
 		a.linkage = linkage;
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
+		a.inTemplate = inTemplate;
 		
 		addSymbol(a);
 		select(d, a);
@@ -483,6 +494,7 @@ struct DeclarationVisitor {
 		a.linkage = linkage;
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
+		a.inTemplate = inTemplate;
 		
 		addSymbol(a);
 		select(d, a);
@@ -494,6 +506,7 @@ struct DeclarationVisitor {
 		a.linkage = linkage;
 		a.visibility = visibility;
 		a.storage = Storage.Enum;
+		a.inTemplate = inTemplate;
 		
 		addSymbol(a);
 		select(d, a);

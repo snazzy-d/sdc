@@ -92,11 +92,10 @@ final class CodeGenPass {
 		
 		foreach(s; m.members) {
 			import d.llvm.global;
-			GlobalGen(this).visit(s);
+			GlobalGen(this).define(s);
 		}
 		
 		checkModule();
-		
 		return m;
 	}
 	

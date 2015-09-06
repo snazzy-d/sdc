@@ -19,11 +19,11 @@ class Declaration : Node {
 struct StorageClass {
 	import std.bitmanip;
 	mixin(bitfields!(
+		TypeQualifier, "qualifier", 3,
 		Linkage, "linkage", 3,
 		bool, "hasLinkage", 1,
 		Visibility, "visibility", 3,
 		bool, "hasVisibility", 1,
-		TypeQualifier, "qualifier", 3,
 		bool, "hasQualifier", 1,
 		bool, "isRef", 1,
 		bool, "isStatic", 1,

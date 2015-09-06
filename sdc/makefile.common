@@ -26,4 +26,3 @@ obj/sdc.o: $(SDC_SRC) $(LIBD_DEP_BASE)
 bin/sdc.conf:
 	@mkdir -p bin
 	printf "{\n\t\"includePath\": [\"$(PWD)/phobos\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
-

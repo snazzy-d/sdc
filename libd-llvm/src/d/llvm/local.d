@@ -11,17 +11,24 @@ import llvm.c.core;
 
 alias LocalPass = LocalGen*;
 
+enum Mode {
+	Lazy,
+	Eager,
+}
+
 struct LocalGen {
 	CodeGenPass pass;
 	alias pass this;
-
+	
 	LLVMBuilderRef builder;
-
+	
+	Mode mode;
+	
 	LLVMValueRef thisPtr;
 	LLVMValueRef ctxPtr;
 	
 	LLVMValueRef[ValueSymbol] locals;
-
+	
 	alias Closure = CodeGenPass.Closure;
 	Closure[] contexts;
 	
@@ -44,8 +51,9 @@ struct LocalGen {
 	
 	Block[] unwindBlocks;
 	
-	this(CodeGenPass pass, Closure[] contexts = []) {
+	this(CodeGenPass pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
 		this.pass = pass;
+		this.mode = mode;
 		this.contexts = contexts;
 
 		// Make sure globals are initialized.
@@ -62,57 +70,80 @@ struct LocalGen {
 
 	@disable this(this);
 
-	void visit(Symbol s) {
+	void define(Symbol s) {
 		if (auto v = cast(Variable) s) {
-			visit(v);
+			define(v);
 		} else if (auto f = cast(Function) s) {
-			visit(f);
+			define(f);
 		} else if (auto t = cast(TypeSymbol) s) {
-			visit(t);
+			define(t);
 		} else {
 			import d.llvm.global;
-			GlobalGen(pass).visit(s);
+			GlobalGen(pass).define(s);
 		}
 	}
 	
-	LLVMValueRef visit(Function f) {
-		auto contexts = f.hasContext ? this.contexts : [];
+	LLVMValueRef declare(Function f) {
 		auto lookup = f.storage.isLocal
 			? locals
 			: globals;
-
+		
 		return lookup.get(f, {
-			auto lg = LocalGen(pass, contexts);
-			auto fun = lookup[f] = lg.declare(f);
+			import std.string;
+			auto name = f.mangle.toStringz();
+			auto type = LLVMGetElementType(pass.visit(f.type));
 			
-			// We always generate the body for now, but it is very undesirable.
-			// FIXME: Separate symbol declaration from symbol definition.
-			if (f.fbody) {
-				lg.define(f, fun);
+			// The method may have been defined when visiting the type.
+			if (auto funPtr = f in lookup) {
+				return *funPtr;
+			}
+			
+			// Sanity check.
+			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
+			assert(!fun, f.mangle ~ " is already declared.");
+			
+			fun = lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
+			
+			if (f.hasContext || f.inTemplate || mode == Mode.Eager) {
+				if (f.fbody && maybeDefine(f, fun)) {
+					LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
+				}
 			}
 			
 			return fun;
 		} ());
 	}
 	
-	LLVMValueRef declare(Function f) {
-		import std.string;
-		auto name = f.mangle.toStringz();
-		auto type = pass.visit(f.type);
-
-		// The function may have been generated when visiting the type.
-		if (auto funPtr = f in globals) {
-			return *funPtr;
+	LLVMValueRef define(Function f) {
+		auto fun = declare(f);
+		if (!f.fbody) {
+			return fun;
 		}
-
-		// Sanity check.
-		auto fun = LLVMGetNamedFunction(dmodule, name);
-		assert(!fun, f.mangle ~ " is already declared.");
-
-		return LLVMAddFunction(dmodule, name, LLVMGetElementType(type));
+		
+		if (!maybeDefine(f, fun)) {
+			auto linkage = LLVMGetLinkage(fun);
+			assert(linkage == LLVMLinkage.LinkOnceODR, "function " ~ f.mangle ~ " already defined");
+			LLVMSetLinkage(fun, LLVMLinkage.External);
+		}
+		
+		return fun;
+	}
+	
+	private bool maybeDefine(Function f, LLVMValueRef fun) in {
+		assert(f.step == Step.Processed, "f is not processed");
+	} body {
+		auto countBB = LLVMCountBasicBlocks(fun);
+		if (countBB) {
+			return false;
+		}
+		
+		auto contexts = f.hasContext ? this.contexts : [];
+		LocalGen(pass, mode, contexts).genBody(f, fun);
+		
+		return true;
 	}
 
-	void define(Function f, LLVMValueRef fun) in {
+	private void genBody(Function f, LLVMValueRef fun) in {
 		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle ~ " body is already defined.");
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody, "f must have a body");
@@ -312,18 +343,19 @@ struct LocalGen {
 		assert(closureCount == 0);
 	}
 
-	LLVMValueRef visit(Variable v) {
-		if (v.storage.isGlobal) {
-			import d.llvm.global;
-			return GlobalGen(pass).visit(v);
-		}
-
+	LLVMValueRef declare(Variable v) {
+		// TODO: Actually just declare here :)
 		return locals.get(v, define(v));
 	}
 
 	LLVMValueRef define(Variable v) in {
 		assert(!v.isFinal);
 	} body {
+		if (v.storage.isGlobal) {
+			import d.llvm.global;
+			return GlobalGen(pass).declare(v);
+		}
+		
 		import d.llvm.expression;
 		auto value = v.isRef
 			? AddressOfGen(&this).visit(v.value)
@@ -406,12 +438,12 @@ struct LocalGen {
 		return pass.visit(t);
 	}
 
-	LLVMTypeRef visit(TypeSymbol s) {
+	LLVMTypeRef define(TypeSymbol s) {
 		if (s.hasContext) {
 			embededContexts[s] = contexts;
 		}
 		
 		import d.llvm.global;
-		return GlobalGen(pass).visit(s);
+		return GlobalGen(pass).define(s);
 	}
 }

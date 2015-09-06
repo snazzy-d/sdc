@@ -40,10 +40,10 @@ int main(string[] args) {
 
 	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
-
 		writeln("The Stupid D Compiler");
 		writeln("Usage: sdc <options> file.d");
 		writeln("Options:");
+		
 		foreach (option; help_info.options) {
 			writefln(
 				"%5s : %s",

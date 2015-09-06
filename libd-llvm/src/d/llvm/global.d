@@ -16,50 +16,43 @@ alias Interface = d.ir.symbol.Interface;
 struct GlobalGen {
 	private CodeGenPass pass;
 	alias pass this;
-
+	
 	this(CodeGenPass pass) {
 		this.pass = pass;
 	}
 	
-	void visit(Symbol s) {
+	void define(Symbol s) {
 		if (auto t = cast(TypeSymbol) s) {
-			visit(t);
+			define(t);
 		} else if (auto v = cast(Variable) s) {
-			visit(v);
+			define(v);
 		} else if (auto f = cast(Function) s) {
-			visit(f);
+			define(f);
+		} else if (auto t = cast(Template) s) {
+			define(t);
 		}
 	}
 	
-	LLVMValueRef visit(Function f) in {
+	LLVMValueRef declare(Function f) in {
 		assert(f.storage.isGlobal, "locals not supported");
 		assert(!f.hasContext, "function must not have context");
 	} body {
-		return globals.get(f, define(f));
+		import d.llvm.local;
+		return LocalGen(pass).declare(f);
 	}
 	
 	LLVMValueRef define(Function f) in {
 		assert(f.storage.isGlobal, "locals not supported");
+		assert(!f.hasContext, "function must not have context");
 	} body {
 		import d.llvm.local;
-		auto lg = LocalGen(pass);
-		auto fun = lg.declare(f);
-		
-		// Register the function.
-		globals[f] = fun;
-		
-		// We always generate the body for now, but it is very undesirable.
-		// FIXME: Separate symbol declaration from symbol definition.
-		if (f.fbody) {
-			lg.define(f, fun);
-		}
-		
-		return fun;
+		return LocalGen(pass).define(f);
 	}
 	
-	LLVMValueRef visit(Variable v) in {
+	LLVMValueRef declare(Variable v) in {
 		assert(v.storage.isGlobal, "locals not supported");
 	} body {
+		// TODO: Actually just declare here :)
 		return globals.get(v, define(v));
 	}
 	
@@ -68,15 +61,17 @@ struct GlobalGen {
 		assert(!v.isFinal);
 		assert(!v.isRef);
 	} body {
-		import d.llvm.local;
-		auto lg = LocalGen(pass);
+		return globals.get(v, {
+			import d.llvm.local;
+			auto lg = LocalGen(pass);
 
-		// FIXME: This should only generate const using the const API.
-		// That way no need for a builder and/or LocalGen.
-		import d.llvm.expression;
-		auto value = ExpressionGen(&lg).visit(v.value);
-		
-		return createVariableStorage(v, value);
+			// FIXME: This should only generate const using the const API.
+			// That way no need for a builder and/or LocalGen.
+			import d.llvm.expression;
+			auto value = ExpressionGen(&lg).visit(v.value);
+			
+			return createVariableStorage(v, value);
+		}());
 	}
 	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
@@ -94,6 +89,10 @@ struct GlobalGen {
 
 		import std.string;
 		auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
+		
+		// Symbolgenerated from templates and for JITing should linkonce.
+		// Other should not, but we lack a good way to make the different ATM.
+		LLVMSetLinkage(globalVar, LLVMLinkage.LinkOnceODR);
 		
 		// Depending on the type qualifier,
 		// make it thread local/ constant or nothing.
@@ -117,8 +116,9 @@ struct GlobalGen {
 		return globals[v] = globalVar;
 	}
 	
-	LLVMTypeRef visit(TypeSymbol s) in {
+	LLVMTypeRef define(TypeSymbol s) in {
 		assert(s.step == Step.Processed);
+		assert(!s.hasContext || s in embededContexts, "context is not set properly");
 	} body {
 		return this.dispatch(s);
 	}
@@ -134,9 +134,9 @@ struct GlobalGen {
 	} body {
 		auto ret = buildStructType(s);
 		
-		foreach(member; s.members) {
-			if (typeid(member) !is typeid(Field)) {
-				visit(member);
+		foreach(m; s.members) {
+			if (typeid(m) !is typeid(Field)) {
+				define(m);
 			}
 		}
 		
@@ -148,9 +148,9 @@ struct GlobalGen {
 	} body {
 		auto ret = buildUnionType(u);
 		
-		foreach(member; u.members) {
-			if (typeid(member) !is typeid(Field)) {
-				visit(member);
+		foreach(m; u.members) {
+			if (typeid(m) !is typeid(Field)) {
+				define(m);
 			}
 		}
 		
@@ -162,26 +162,30 @@ struct GlobalGen {
 	} body {
 		auto ret = buildClassType(c);
 		
-		foreach(member; c.members) {
-			if (auto m = cast(Method) member) {
-				// FIXME: separate declaration and definition.
-				auto fun = visit(m);
-				if (LLVMCountBasicBlocks(fun) == 0) {
-					import d.llvm.local;
-					LocalGen(pass).define(m, fun);
+		foreach(m; c.members) {
+			if (auto f = cast(Method) m) {
+				// We don't want to define inherited methods in childs.
+				if (!f.hasThis || f.type.parameters[0].getType().dclass is c) {
+					define(f);
 				}
+				
+				continue;
+			}
+			
+			if (typeid(m) !is typeid(Field)) {
+				define(m);
 			}
 		}
 		
 		return ret;
 	}
-
+	
 	LLVMTypeRef visit(Interface i) in {
 		assert(i.step == Step.Processed);
 	} body {
 		return buildInterfaceType(i); 
 	}
-
+	
 	LLVMTypeRef visit(Enum e) {
 		auto type = buildEnumType(e);
 		/+
@@ -191,5 +195,17 @@ struct GlobalGen {
 		+/
 		return type;
 	}
-}
 
+	void define(Template t) {
+		import d.llvm.local;
+		foreach(i; t.instances) {
+			if (i.storage.isLocal) {
+				continue;
+			}
+			
+			foreach(m; i.members) {
+				LocalGen(pass).define(m);
+			}
+		}
+	}
+}

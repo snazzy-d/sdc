@@ -104,7 +104,7 @@ final class LLVMEvaluator : Evaluator {
 
 		// Generate function's body. Warning: horrible hack.
 		import d.llvm.local;
-		auto lg = LocalGen(codeGen);
+		auto lg = LocalGen(codeGen, Mode.Eager);
 		auto builder = lg.builder;
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(codeGen.llvmCtx, fun, "");

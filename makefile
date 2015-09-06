@@ -38,13 +38,18 @@ SDC_ROOT = sdc
 LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
+PHOBOS_ROOT = phobos
 
 LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
+PHOBOS_EXTRA_DEPS = $(SDC)
 
-ALL_TARGET = $(LIBSDRT)
+ALL_TARGET = $(LIBSDRT) $(PHOBOS)
 
 include sdc/makefile.common
 include libsdrt/makefile.common
+include phobos/makefile.common
+
+all: $(ALL_TARGET)
 
 clean:
 	rm -rf obj lib $(SDC)
@@ -54,7 +59,7 @@ doc:
 
 print-%: ; @echo $*=$($*)
 
-test: $(SDC) $(LIBSDRT)
+test: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd ./tests; ./runner.d
 
 .PHONY: clean run debug doc test
