@@ -18,4 +18,3 @@ int main() {
 	auto test = new Test();
 	return test.foo();
 }
-

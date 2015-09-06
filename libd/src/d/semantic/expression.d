@@ -33,7 +33,10 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstExpression e) {
 		return this.dispatch!((e) {
-			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
+			throw new CompileException(
+				e.location,
+				typeid(e).toString() ~ " is not supported",
+			);
 		})(e);
 	}
 	
@@ -65,7 +68,8 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	private ErrorExpression getError(Expression base, Location location, string msg) {
+private:
+	ErrorExpression getError(Expression base, Location location, string msg) {
 		if (auto e = cast(ErrorExpression) base) {
 			return e;
 		}
@@ -73,11 +77,11 @@ struct ExpressionVisitor {
 		return new CompileError(location, msg).expression;
 	}
 	
-	private ErrorExpression getError(Expression base, string msg) {
+	ErrorExpression getError(Expression base, string msg) {
 		return getError(base, base.location, msg);
 	}
 	
-	private ErrorExpression getError(Symbol base, Location location, string msg) {
+	ErrorExpression getError(Symbol base, Location location, string msg) {
 		if (auto e = cast(ErrorSymbol) base) {
 			return e.error.expression;
 		}
@@ -85,7 +89,7 @@ struct ExpressionVisitor {
 		return new CompileError(location, msg).expression;
 	}
 	
-	private ErrorExpression getError(Type t, Location location, string msg) {
+	ErrorExpression getError(Type t, Location location, string msg) {
 		if (t.kind == TypeKind.Error) {
 			return t.error.expression;
 		}
@@ -93,18 +97,24 @@ struct ExpressionVisitor {
 		return new CompileError(location, msg).expression;
 	}
 	
-	private Expression getLvalue(Expression value) {
+	Expression getLvalue(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
 			return e;
 		}
 		
 		import d.context.name;
-		auto v = new Variable(value.location, value.type.getParamType(true, false), BuiltinName!"", value);
-		v.step = Step.Processed;
+		auto v = new Variable(
+			value.location,
+			value.type.getParamType(true, false),
+			BuiltinName!"",
+			value,
+		);
 		
+		v.step = Step.Processed;
 		return new VariableExpression(value.location, v);
 	}
 	
+public:
 	Expression build(E, T...)(T args) if (is(typeof(new E(T.init)))) {
 		foreach (ref a; args) {
 			alias T = typeof(a);
@@ -335,9 +345,15 @@ struct ExpressionVisitor {
 		
 		return build!BinaryExpression(e.location, type, op, lhs, rhs);
 	}
-
+	
 	Expression visit(AstTernaryExpression e) {
-		auto condition = buildExplicitCast(pass, e.condition.location, Type.get(BuiltinType.Bool), visit(e.condition));
+		auto condition = buildExplicitCast(
+			pass,
+			e.condition.location,
+			Type.get(BuiltinType.Bool),
+			visit(e.condition),
+		);
+		
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 		
@@ -349,18 +365,25 @@ struct ExpressionVisitor {
 		
 		return build!TernaryExpression(e.location, t, condition, lhs, rhs);
 	}
-
+	
 	private Expression handleAddressOf(Expression expr) {
 		// For fucked up reasons, &funcname is a special case.
 		if (auto se = cast(FunctionExpression) expr) {
 			return expr;
 		} else if (auto pe = cast(PolysemousExpression) expr) {
 			import std.algorithm, std.array;
-			pe.expressions = pe.expressions.map!(e => handleAddressOf(e)).array();
+			pe.expressions = pe.expressions
+				.map!(e => handleAddressOf(e))
+				.array();
 			return pe;
 		}
 		
-		return build!UnaryExpression(expr.location, expr.type.getPointer(), UnaryOp.AddressOf, expr);
+		return build!UnaryExpression(
+			expr.location,
+			expr.type.getPointer(),
+			UnaryOp.AddressOf,
+			expr,
+		);
 	}
 	
 	Expression visit(AstUnaryExpression e) {
@@ -384,7 +407,11 @@ struct ExpressionVisitor {
 					break;
 				}
 				
-				return getError(expr, e.location, "Only pointers can be dereferenced");
+				return getError(
+					expr,
+					e.location,
+					"Only pointers can be dereferenced",
+				);
 			
 			case PreInc :
 			case PreDec :
@@ -412,7 +439,12 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
-		return buildExplicitCast(pass, e.location, TypeVisitor(pass).visit(e.type), visit(e.expr));
+		return buildExplicitCast(
+			pass,
+			e.location,
+			TypeVisitor(pass).visit(e.type),
+			visit(e.expr),
+		);
 	}
 	
 	Expression buildArgument(Expression arg, ParamType pt) {
@@ -506,13 +538,16 @@ struct ExpressionVisitor {
 				pass,
 				location,
 				f.type.parameters[0].getType(),
-				new ThisExpression(location, thisType.getType()),
+				getThis(location),
 			);
 			
 			e = new MethodExpression(location, ctx, f);
 		} else if (f.hasContext) {
 			import d.semantic.closure;
-			e = new MethodExpression(location, new ContextExpression(location, ContextFinder(pass).visit(f)), f);
+			e = new MethodExpression(location, new ContextExpression(
+				location,
+				ContextFinder(pass).visit(f),
+			), f);
 		} else {
 			e = new FunctionExpression(location, f);
 		}
@@ -537,27 +572,44 @@ struct ExpressionVisitor {
 	}
 	
 	Expression visit(AstCallExpression c) {
+		import std.algorithm, std.array;
+		auto args = c.args.map!(a => visit(a)).array();
+		
 		// TODO: check if we are in a constructor.
 		if (cast(ThisExpression) c.callee) {
-			import d.ast.identifier, d.context.name;
-			auto call = visit(new IdentifierCallExpression(
-				c.location,
-				new ExpressionDotIdentifier(c.location, BuiltinName!"__ctor", c.callee),
-				c.args,
-			));
+			auto loc = c.callee.location;
+			auto thisExpr = getThis(loc);
 			
+			import d.context.name;
+			auto ctor = SymbolResolver!(delegate Expression(identified) {
+				static if(is(typeof(identified) : Expression)) {
+					return identified;
+				} else {
+					return new CompileError(
+						c.location,
+						"Cannot find a suitable constructor",
+					).expression;
+				}
+			})(pass).resolveInExpression(loc, thisExpr, BuiltinName!"__ctor");
+			
+			auto call = handleCall(c.location, ctor, args);
+			
+			// Classes
 			if (thisType.isFinal) {
 				return call;
 			}
 			
-			return build!BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
+			// Structs
+			return build!BinaryExpression(
+				c.location,
+				call.type,
+				BinaryOp.Assign,
+				thisExpr,
+				call,
+			);
 		}
 		
-		import std.algorithm, std.array;
-		auto callee = visit(c.callee);
-		auto args = c.args.map!(a => visit(a)).array();
-		
-		return handleCall(c.location, callee, args);
+		return handleCall(c.location, visit(c.callee), args);
 	}
 	
 	Expression visit(IdentifierCallExpression c) {
@@ -847,18 +899,43 @@ struct ExpressionVisitor {
 		return build!NewExpression(e.location, type, di, ctor, args);
 	}
 	
+	Expression getThis(Location location) {
+		import d.context.name;
+		auto thisExpr = SymbolResolver!(delegate Expression(identified) {
+			static if(is(typeof(identified) : Expression)) {
+				return identified;
+			} else {
+				return new CompileError(
+					location,
+					"Cannot find a suitable this pointer",
+				).expression;
+			}
+		})(pass).resolveName(location, BuiltinName!"this");
+		
+		return buildImplicitCast(pass, location, thisType.getType(), thisExpr);
+	}
+	
 	Expression visit(ThisExpression e) {
-		e.type = thisType.getType();
-		return e;
+		return getThis(e.location);
 	}
 	
 	Expression getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
 		if (!t.hasElement) {
-			return getError(indexed, location, "Can't index " ~ indexed.type.toString(context));
+			return getError(
+				indexed,
+				location,
+				"Can't index " ~ indexed.type.toString(context),
+			);
 		}
 		
-		index = buildImplicitCast(pass, location, pass.object.getSizeT().type, index);
+		index = buildImplicitCast(
+			pass,
+			location,
+			pass.object.getSizeT().type,
+			index,
+		);
+		
 		return build!IndexExpression(location, t.element, indexed, index);
 	}
 	
@@ -867,7 +944,10 @@ struct ExpressionVisitor {
 		
 		import std.algorithm, std.array;
 		auto arguments = e.arguments.map!(e => visit(e)).array();
-		assert(arguments.length == 1, "Multiple argument index are not supported");
+		assert(
+			arguments.length == 1,
+			"Multiple argument index are not supported"
+		);
 		
 		return getIndex(e.location, indexed, arguments[0]);
 	}
@@ -878,7 +958,11 @@ struct ExpressionVisitor {
 		
 		auto t = sliced.type.getCanonical();
 		if (!t.hasElement) {
-			return getError(sliced, e.location, "Can't slice " ~ t.toString(context));
+			return getError(
+				sliced,
+				e.location,
+				"Can't slice " ~ t.toString(context),
+			);
 		}
 		
 		assert(e.first.length == 1 && e.second.length == 1);
@@ -886,7 +970,13 @@ struct ExpressionVisitor {
 		auto first = visit(e.first[0]);
 		auto second = visit(e.second[0]);
 		
-		return build!SliceExpression(e.location, t.element.getSlice(), sliced, first, second);
+		return build!SliceExpression(
+			e.location,
+			t.element.getSlice(),
+			sliced,
+			first,
+			second,
+		);
 	}
 	
 	Expression visit(AstAssertExpression e) {
@@ -945,7 +1035,11 @@ struct ExpressionVisitor {
 			} else static if (is(T : Expression)) {
 				return handleTypeid(e.location, identified);
 			} else {
-				return getError(identified, e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context));
+				return getError(
+					identified,
+					e.location,
+					"Can't get typeid of " ~ e.argument.name.toString(pass.context),
+				);
 			}
 		})(pass).visit(e.argument);
 	}
@@ -962,7 +1056,11 @@ struct ExpressionVisitor {
 					}
 				}
 				
-				return getError(identified, e.location, e.identifier.name.toString(pass.context) ~ " isn't an expression");
+				return getError(
+					identified,
+					e.location,
+					e.identifier.name.toString(pass.context) ~ " isn't an expression",
+				);
 			}
 		})(pass).visit(e.identifier);
 	}
@@ -976,7 +1074,10 @@ struct ExpressionVisitor {
 				assert(0, "Type can't be overloaded");
 			} else {
 				// TODO: handle templates.
-				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not supported in overload set");
+				throw new CompileException(
+					identified.location,
+					typeid(identified).toString() ~ " is not supported in overload set",
+				);
 			}
 		})(pass, location);
 		
@@ -986,7 +1087,13 @@ struct ExpressionVisitor {
 	}
 	
 	import d.ast.declaration, d.ast.statement;
-	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+	private auto handleDgs(
+		Location location,
+		string prefix,
+		ParamDecl[] params,
+		bool isVariadic,
+		AstBlockStatement fbody,
+	) {
 		// FIXME: can still collide with mixins, but that should rare enough for now.
 		import std.conv;
 		auto offset = location.getFullLocation(context).getStartOffset();
@@ -1002,7 +1109,15 @@ struct ExpressionVisitor {
 			fbody,
 		);
 		
-		auto f = new Function(location, currentScope, FunctionType.init, name, [], null);
+		auto f = new Function(
+			location,
+			currentScope,
+			FunctionType.init,
+			name,
+			[],
+			null,
+		);
+		
 		f.hasContext = true;
 		
 		import d.semantic.symbol;

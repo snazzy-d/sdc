@@ -122,7 +122,12 @@ struct SymbolAnalyzer {
 			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
 			
 			import d.context.name;
-			auto contextParameter = new Variable(f.location, Type.getContextType(ctxSym).getParamType(true, false), BuiltinName!"__ctx");
+			auto contextParameter = new Variable(
+				f.location,
+				Type.getContextType(ctxSym).getParamType(true, false),
+				BuiltinName!"__ctx",
+			);
+			
 			params = contextParameter ~ params;
 		}
 		
@@ -193,16 +198,28 @@ struct SymbolAnalyzer {
 				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
 			}
 			
-			auto thisParameter = new Variable(f.location, ctorThis, BuiltinName!"this");
-			params = thisParameter ~ params;
+			auto thisParameter = new Variable(
+				f.location,
+				ctorThis,
+				BuiltinName!"this",
+			);
 			
+			params = thisParameter ~ params;
 			buildType();
 		} else {
 			// If it has a this pointer, add it as parameter.
 			if (f.hasThis) {
-				assert(thisType.getType().kind != TypeKind.Builtin, "thisType must be defined if funtion has a this pointer.");
+				assert(
+					thisType.getType().kind != TypeKind.Builtin,
+					"thisType must be defined if funtion has a this pointer."
+				);
 				
-				auto thisParameter = new Variable(f.location, thisType, BuiltinName!"this");
+				auto thisParameter = new Variable(
+					f.location,
+					thisType,
+					BuiltinName!"this",
+				);
+				
 				params = thisParameter ~ params;
 			}
 			
@@ -250,7 +267,8 @@ struct SymbolAnalyzer {
 			// If nothing has been set, the function returns void.
 			auto t = returnType.getType();
 			if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.None) {
-				returnType = Type.get(BuiltinType.Void).getParamType(returnType.isRef, returnType.isFinal);
+				returnType = Type.get(BuiltinType.Void)
+					.getParamType(returnType.isRef, returnType.isFinal);
 			}
 			
 			buildType();
@@ -446,8 +464,12 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(fields);
 		
-		init.value = new CompileTimeTupleExpression(d.location, type, fields.map!(f => cast(CompileTimeExpression) f.value).array());
 		init.step = Step.Processed;
+		init.value = new CompileTimeTupleExpression(
+			d.location,
+			type,
+			fields.map!(f => cast(CompileTimeExpression) f.value).array(),
+		);
 		
 		s.step = Step.Signed;
 		
@@ -565,7 +587,10 @@ struct SymbolAnalyzer {
 				
 				static if (is(typeof(identified.location))) {
 					import d.exception;
-					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
+					throw new CompileException(
+						identified.location,
+						typeid(identified).toString() ~ " is not a class.",
+					);
 				} else {
 					// for typeof(null)
 					assert(0);
@@ -714,7 +739,10 @@ struct SymbolAnalyzer {
 				
 				if (method.index == 0) {
 					import d.exception;
-					throw new CompileException(method.location, "Override not found for " ~ method.name.toString(context));
+					throw new CompileException(
+						method.location,
+						"Override not found for " ~ method.name.toString(context),
+					);
 				}
 			}
 		}

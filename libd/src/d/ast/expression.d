@@ -350,6 +350,19 @@ class NewExpression : AstExpression {
 alias AstNewExpression = NewExpression;
 
 /**
+ * This
+ */
+class ThisExpression : AstExpression {
+	this(Location location) {
+		super(location);
+	}
+	
+	override string toString(const Context) const {
+		return "this";
+	}
+}
+
+/**
  * Array literal
  */
 class ArrayLiteral(T) : T if(is(T: AstExpression)) {

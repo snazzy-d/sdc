@@ -495,13 +495,8 @@ struct ExpressionGen {
 		return phiNode;
 	}
 	
-	LLVMValueRef visit(ThisExpression e) {
-		assert(thisPtr, "No this pointer");
-		return e.isLvalue ? LLVMBuildLoad(builder, thisPtr, "") : thisPtr;
-	}
-	
 	LLVMValueRef visit(VariableExpression e) {
-		return (e.var.storage == Storage.Enum)
+		return (e.var.storage == Storage.Enum || e.var.isFinal)
 			? declare(e.var)
 			: loadAddressOf(e);
 	}
@@ -530,10 +525,15 @@ struct ExpressionGen {
 		
 		LLVMValueRef fun;
 		if (auto m = cast(Method) e.method) {
-			assert(e.expr.type.getCanonical().dclass, "Virtual dispatch can only be done on classes.");
+			assert(
+				e.expr.type.getCanonical().dclass,
+				"Virtual dispatch can only be done on classes."
+			);
 			
-			auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, ctxValue, 0, ""), "vtbl");
-			fun = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, m.index, ""), "");
+			auto vtblPtr = LLVMBuildStructGEP(builder, ctxValue, 0, "");
+			auto vtbl = LLVMBuildLoad(builder, vtblPtr, "vtbl");
+			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
+			fun = LLVMBuildLoad(builder, funPtr, "");
 		} else {
 			fun = declare(e.method);
 		}
@@ -970,6 +970,7 @@ struct AddressOfGen {
 	
 	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
+		assert(!e.var.isFinal, "finals have no address.");
 	} body {
 		return declare(e.var);
 	}
@@ -1010,13 +1011,6 @@ struct AddressOfGen {
 			LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
 			"",
 		);
-	}
-	
-	LLVMValueRef visit(ThisExpression e) {
-		assert(thisPtr, "no this pointer");
-		assert(e.isLvalue, "this is not an lvalue");
-		
-		return thisPtr;
 	}
 	
 	LLVMValueRef visit(ContextExpression e) in {

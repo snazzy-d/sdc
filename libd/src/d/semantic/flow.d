@@ -46,7 +46,18 @@ public:
 		assert(f.fbody, "f does not have a body");
 	} body {
 		nextClosureIndex = f.hasContext;
-
+		
+		// XXX: this and ctx shoudl really become regular parameters.
+		if (f.hasThis) {
+			import d.context.name;
+			auto tp = cast(Variable) f.resolve(f.location, BuiltinName!"this");
+			assert(tp !is null, "Can't find this");
+			if (tp.storage == Storage.Capture) {
+				assert(tp !in closure);
+				closure[tp] = nextClosureIndex++;
+			}
+		}
+		
 		foreach(p; f.params) {
 			if (p.storage == Storage.Capture) {
 				assert(p !in closure);
@@ -69,7 +80,10 @@ public:
 		}
 
 		import d.exception;
-		throw new CompileException(s.location, "Unreachable statement." ~ typeid(s).toString());
+		throw new CompileException(
+			s.location,
+			"Unreachable statement." ~ typeid(s).toString(),
+		);
 	}
 
 	void visit(BlockStatement b) {
@@ -98,7 +112,8 @@ public:
 			return;
 		}
 		
-		if (v.storage == Storage.Capture && v !in closure) {
+		if (v.storage == Storage.Capture) {
+			assert(v !in closure);
 			closure[v] = nextClosureIndex++;
 		}
 		
@@ -263,7 +278,10 @@ public:
 			}
 			
 			import d.exception;
-			throw new CompileException(location, "Cannot jump over variable initialization.");
+			throw new CompileException(
+				location,
+				"Cannot jump over variable initialization.",
+			);
 		}
 		
 		if (switchBlock == -1) {
@@ -330,7 +348,10 @@ public:
 				
 				if (!isValid) {
 					import d.exception;
-					throw new CompileException(s.location, "Cannot jump over variable initialization.");
+					throw new CompileException(
+						s.location,
+						"Cannot jump over variable initialization.",
+					);
 				}
 			}
 		}
@@ -351,7 +372,10 @@ public:
 			
 			if (!isValid) {
 				import d.exception;
-				throw new CompileException(s.location, "Cannot goto over variable initialization.");
+				throw new CompileException(
+					s.location,
+					"Cannot goto over variable initialization.",
+				);
 			}
 		} else if (auto bPtr = label in inFlightGotosStacks) {
 			auto blockStacks = *bPtr;

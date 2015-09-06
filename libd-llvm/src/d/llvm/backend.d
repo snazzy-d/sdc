@@ -120,7 +120,7 @@ public:
 		LLVMRunPassManager(pm, pass.dmodule);
 
 		// Dump module for debug purpose.
-		// LLVMDumpModule(dmodule);
+		// LLVMDumpModule(pass.dmodule);
 
 		/+
 		import std.stdio;

@@ -199,7 +199,10 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			
 			dscope = dscope.getParentScope();
 			if (dscope is null) {
-				return new CompileError(location, "Symbol " ~ name.toString(context) ~ " has not been found").symbol;
+				return new CompileError(
+					location,
+					"Symbol " ~ name.toString(context) ~ " has not been found",
+				).symbol;
 			}
 			
 			if (auto sscope = cast(Symbol) dscope) {
@@ -208,19 +211,26 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		}
 	}
 	
-	private Symbol resolveName(Location location, Name name) {
+	private Symbol resolveSymbolByName(Location location, Name name) {
 		auto symbol = currentScope.search(location, name);
 		
 		// I wish we had ?:
 		return symbol ? symbol : resolveImportedSymbol(location, name);
 	}
 	
+	Ret resolveName(Location location, Name name) {
+		return SelfPostProcessor(pass, location)
+			.visit(resolveSymbolByName(location, name));
+	}
+	
 	Ret visit(BasicIdentifier i) {
-		return SelfPostProcessor(pass, i.location).visit(resolveName(i.location, i.name));
+		return resolveName(i.location, i.name);
 	}
 	
 	Ret visit(IdentifierDotIdentifier i) {
-		return resolveInIdentifiable(i.location, SymbolResolver!identifiableHandler(pass).visit(i.identifier), i.name);
+		auto base = SymbolResolver!identifiableHandler(pass)
+			.visit(i.identifier);
+		return resolveInIdentifiable(i.location, base, i.name);
 	}
 	
 	Ret visit(DotIdentifier i) {
@@ -411,7 +421,12 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 	
 	Ret visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new FieldExpression(location, new ThisExpression(location, thisType.getType()), f));
+		
+		import d.semantic.expression;
+		auto thisExpr = ExpressionVisitor(pass).getThis(location);
+		
+		// FIXME: Turtle error.
+		return handler(new FieldExpression(location, thisExpr, f));
 	}
 	
 	Ret visit(ValueAlias a) {
@@ -577,7 +592,8 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 					.array();
 			}
 			
-			auto a = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+			auto a = AliasResolver!identifiableHandler(pass)
+				.resolveSymbolByName(location, name);
 			if (auto os = cast(OverloadSet) a) {
 				auto ufcs = findUFCS(os.set);
 				if (ufcs.length > 0) {
@@ -593,7 +609,13 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			
 			if (t.kind == TypeKind.Pointer) {
 				auto pointed = t.element;
-				expr = new UnaryExpression(expr.location, pointed, UnaryOp.Dereference, expr);
+				expr = new UnaryExpression(
+					expr.location,
+					pointed,
+					UnaryOp.Dereference,
+					expr,
+				);
+				
 				return r.visit(pointed);
 			} else {
 				return r.bailoutDefault(type);

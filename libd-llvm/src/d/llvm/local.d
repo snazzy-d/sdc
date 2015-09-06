@@ -35,7 +35,6 @@ struct LocalGen {
 	
 	Mode mode;
 	
-	LLVMValueRef thisPtr;
 	LLVMValueRef ctxPtr;
 	
 	LLVMValueRef[ValueSymbol] locals;
@@ -213,29 +212,6 @@ struct LocalGen {
 		
 		auto parameters = f.params;
 		
-		thisPtr = null;
-		if (f.hasThis) {
-			// TODO: if this have a context, expand variables !
-			auto thisType = f.type.parameters[0];
-			auto value = params[0];
-			
-			if (thisType.isRef || thisType.isFinal) {
-				LLVMSetValueName(value, "this");
-				thisPtr = value;
-			} else {
-				auto alloca = LLVMBuildAlloca(builder, paramTypes[0], "this");
-				LLVMSetValueName(value, "arg.this");
-				
-				LLVMBuildStore(builder, value, alloca);
-				thisPtr = alloca;
-			}
-			
-			buildEmbededCaptures(thisPtr, thisType.getType());
-			
-			params = params[1 .. $];
-			paramTypes = paramTypes[1 .. $];
-		}
-		
 		import d.llvm.type;
 		auto closure = Closure(f.closure, TypeGen(pass).visit(f));
 		if (f.hasContext) {
@@ -252,9 +228,6 @@ struct LocalGen {
 			
 			buildCapturedVariables(parentCtx, contexts, f.getCaptures());
 			
-			params = params[1 .. $];
-			paramTypes = paramTypes[1 .. $];
-			
 			// Chain closures.
 			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
 			
@@ -267,21 +240,32 @@ struct LocalGen {
 			contexts = [closure];
 		}
 		
+		if (f.hasThis) {
+			auto value = params[0];
+			
+			// XXX: Is that really the way we want it ?
+			import d.context.name;
+			auto thisParam = cast(Variable) f.resolve(f.location, BuiltinName!"this");
+			assert(thisParam !is null);
+			
+			auto thisPtr = createVariableStorage(thisParam, value);
+			if (!thisParam.isRef && !thisParam.isFinal) {
+				LLVMSetValueName(value, "arg.this");
+			}
+			
+			buildEmbededCaptures(thisPtr, thisParam.type);
+		}
+		
+		params = params[f.hasThis + f.hasContext .. $];
+		paramTypes = paramTypes[f.hasThis + f.hasContext .. $];
+		
 		foreach(i, p; parameters) {
-			auto type = p.type;
 			auto value = params[i];
 			
-			if (p.isRef || p.isFinal) {
-				assert (p.storage == Storage.Local, "storage must be local");
-				
-				LLVMSetValueName(value, p.name.toStringz(context));
-				locals[p] = value;
-			} else {
-				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
-				
+			createVariableStorage(p, value);
+			if (!p.isRef && !p.isFinal) {
 				import std.string;
 				LLVMSetValueName(value, toStringz("arg." ~ p.name.toString(context)));
-				createVariableStorage(p, value);
 			}
 		}
 		
@@ -381,12 +365,19 @@ struct LocalGen {
 			foreach(v; capture.byKey()) {
 				if (auto indexPtr = v in closure.indices) {
 					// Register the variable.
-					locals[v] = LLVMBuildStructGEP(
+					auto var = LLVMBuildStructGEP(
 						builder,
 						root,
 						*indexPtr,
-						v.mangle.toStringz(context),
+						"",
 					);
+					
+					if (v.isRef || v.isFinal) {
+						var = LLVMBuildLoad(builder, var, "");
+					}
+					
+					LLVMSetValueName(var, v.mangle.toStringz(context));
+					locals[v] = var;
 					
 					assert(closureCount > 0, "closureCount is 0 or lower.");
 					closureCount--;
@@ -420,56 +411,64 @@ struct LocalGen {
 		return createVariableStorage(v, value);
 	}
 	
-	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
+	private LLVMValueRef createVariableStorage(
+		Variable v,
+		LLVMValueRef value,
+	) in {
 		assert(v.storage.isLocal, "globals not supported");
 	} body {
-		if (v.isRef) {
+		auto name = v.mangle.toStringz(context);
+		
+		if (v.isRef | v.isFinal) {
+			if (v.storage == Storage.Capture) {
+				auto addr = createCaptureStorage(v, "");
+				LLVMBuildStore(builder, value, addr);
+			}
+			
+			LLVMSetValueName(value, name);
 			return locals[v] = value;
 		}
 		
-		auto qualifier = v.type.qualifier;
-		
-		import d.llvm.type;
-		auto type = TypeGen(pass).visit(v.type);
-		
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
+		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(
+			LLVMGetBasicBlockParent(backupCurrentBlock),
+		));
 		
 		// Sanity check
-		scope(success) assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
-		
-		LLVMValueRef addr;
-		if (v.storage == Storage.Capture) {
-			auto closure = &contexts[$ - 1];
-			
-			// If we don't have a closure, make one.
-			if (ctxPtr is null) {
-				ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
-				auto ctxType = LLVMStructTypeInContext(llvmCtx, &type, 1, false);
-			}
-			
-			addr = LLVMBuildStructGEP(
-				builder,
-				ctxPtr,
-				closure.indices[v],
-				v.mangle.toStringz(context),
-			);
-		} else {
-			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz(context));
+		scope(success) {
+			assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
 		}
+		
+		import d.llvm.type;
+		LLVMValueRef addr = (v.storage == Storage.Capture)
+			? createCaptureStorage(v, name)
+			: LLVMBuildAlloca(builder, TypeGen(pass).visit(v.type), name);
 		
 		// Store the initial value into the alloca.
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
 		LLVMBuildStore(builder, value, addr);
 		
-		import d.context.name;
-		if (v.name == BuiltinName!"this") {
-			thisPtr = addr;
-		}
-		
 		// Register the variable.
 		return locals[v] = addr;
+	}
+	
+	LLVMValueRef createCaptureStorage(Variable v, const char* name) in {
+		assert(v.storage == Storage.Capture, "Expected captured");
+	} body {
+		auto closure = &contexts[$ - 1];
+		
+		// If we don't have a closure, make one.
+		if (ctxPtr is null) {
+			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
+		}
+		
+		return LLVMBuildStructGEP(
+			builder,
+			ctxPtr,
+			closure.indices[v],
+			name,
+		);
 	}
 	
 	LLVMValueRef getContext(Function f) {
