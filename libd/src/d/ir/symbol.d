@@ -8,6 +8,8 @@ import d.ir.type;
 import d.context.name;
 import d.common.node;
 
+public import d.common.qualifier;
+
 enum Step {
 	Parsed,
 	Populated,

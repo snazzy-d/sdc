@@ -227,6 +227,9 @@ struct SymbolAnalyzer {
 			// And flatten.
 			import d.semantic.statement;
 			f.fbody = StatementVisitor(pass).getBody(fbody);
+
+			import d.semantic.flow;
+			FlowAnalyzer(pass).visit(f.fbody);
 		}
 		
 		if (isAuto) {
@@ -239,6 +242,7 @@ struct SymbolAnalyzer {
 			buildType();
 		}
 		
+		assert(f.fbody || !isAuto, "Auto functions must have a body");
 		assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
 		
 		switch (f.linkage) with(Linkage) {

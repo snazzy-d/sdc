@@ -39,25 +39,6 @@ private:
 	
 	Statement[] flattenedStmts;
 	
-	uint[] declBlockStack = [0];
-	uint nextDeclBlock = 1;
-	uint switchBlock = -1;
-	
-	import std.bitmanip;
-	mixin(bitfields!(
-		bool, "mustTerminate", 1,
-		bool, "funTerminate", 1,
-		bool, "blockTerminate", 1,
-		bool, "allowFallthrough", 1,
-		bool, "switchMustTerminate", 1,
-		bool, "switchFunTerminate", 1,
-		uint, "", 2,
-	));
-	
-	import d.context.name;
-	uint[Name] labelBlocks;
-	uint[][][Name] inFlightGotosStacks;
-	
 public:
 	this(SemanticPass pass) {
 		this.pass = pass;
@@ -78,31 +59,15 @@ public:
 	}
 	
 	void visit(AstStatement s) {
-		if (!mustTerminate) {
-			return this.dispatch(s);
-		}
-		
-		if (auto c = cast(AstCaseStatement) s) {
-			return visit(c);
-		} else if (auto l = cast(AstLabeledStatement) s) {
-			return visit(l);
-		}
-		
-		import d.exception;
-		throw new CompileException(
-			s.location,
-			"Unreachable statement. " ~ typeid(s).toString(),
-		);
+		return this.dispatch(s);
 	}
 	
 	private BlockStatement flatten(AstBlockStatement b) {
 		auto oldScope = currentScope;
-		auto oldDeclBlockStack = declBlockStack;
 		auto oldFlattenedStmts = flattenedStmts;
 		
 		scope(exit) {
 			currentScope = oldScope;
-			declBlockStack = oldDeclBlockStack;
 			flattenedStmts = oldFlattenedStmts;
 		}
 		
@@ -129,19 +94,6 @@ public:
 		import d.semantic.declaration;
 		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(decl);
 		scheduler.require(syms);
-		
-		foreach(sym; syms) {
-			if (auto v = cast(Variable) sym) {
-				if (v.storage.isGlobal) {
-					continue;
-				}
-				
-				declBlockStack ~= nextDeclBlock++;
-				
-				// Only one variable is enough to create a new block.
-				break;
-			}
-		}
 		
 		import std.algorithm, std.array;
 		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
@@ -178,44 +130,19 @@ public:
 	}
 	
 	void visit(AstIfStatement s) {
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		
 		import d.semantic.expression;
 		auto condition = buildExplicitCast(pass, s.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(s.condition));
 		auto then = autoBlock(s.then);
 		
-		auto thenMustTerminate = mustTerminate;
-		auto thenFunTerminate = funTerminate;
-		auto thenBlockTerminate = blockTerminate;
-		
-		mustTerminate = oldMustTerminate;
-		funTerminate = oldFunTerminate;
-		blockTerminate = oldBlockTerminate;
-		
 		Statement elseStatement;
 		if (s.elseStatement) {
 			elseStatement = autoBlock(s.elseStatement);
-			
-			mustTerminate = thenMustTerminate && mustTerminate;
-			funTerminate = thenFunTerminate && funTerminate;
-			blockTerminate = thenBlockTerminate && blockTerminate;
 		}
 		
 		flattenedStmts ~= new IfStatement(s.location, condition, then, elseStatement);
 	}
 	
 	void visit(AstWhileStatement w) {
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
-		
 		import d.semantic.expression;
 		flattenedStmts ~= new WhileStatement(
 			w.location,
@@ -225,15 +152,6 @@ public:
 	}
 	
 	void visit(AstDoWhileStatement w) {
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
-		
 		import d.semantic.expression;
 		flattenedStmts ~= new DoWhileStatement(
 			w.location,
@@ -244,17 +162,7 @@ public:
 	
 	void visit(AstForStatement f) {
 		auto oldScope = currentScope;
-		
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			currentScope = oldScope;
-			
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
+		scope(exit) currentScope = oldScope;
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -276,17 +184,7 @@ public:
 	
 	void visit(ForeachStatement f) {
 		auto oldScope = currentScope;
-		
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			currentScope = oldScope;
-			
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
+		scope(exit) currentScope = oldScope;
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -295,6 +193,7 @@ public:
 		import d.semantic.expression;
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 		
+		import d.context.name;
 		import d.semantic.identifier;
 		auto length = SymbolResolver!(delegate Expression (e) {
 			static if(is(typeof(e) : Expression)) {
@@ -375,17 +274,7 @@ public:
 	
 	void visit(ForeachRangeStatement f) {
 		auto oldScope = currentScope;
-		
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			currentScope = oldScope;
-			
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
+		scope(exit) currentScope = oldScope;
 		
 		currentScope = (cast(NestedScope) oldScope).clone();
 		
@@ -439,22 +328,6 @@ public:
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
 	
-	private void terminateBlock() {
-		mustTerminate = true;
-		blockTerminate = true;
-	}
-	
-	private void terminateFun() {
-		terminateBlock();
-		funTerminate = true;
-	}
-	
-	private void unterminate() {
-		mustTerminate = false;
-		blockTerminate = false;
-		funTerminate = false;
-	}
-	
 	void visit(AstReturnStatement s) {
 		// TODO: precompute autotype instead of managing it here.
 		auto rt = returnType.getType();
@@ -470,7 +343,7 @@ public:
 			}
 
 			flattenedStmts ~= new ReturnStatement(s.location, null);
-			return terminateFun();
+			return;
 		}
 		
 		import d.semantic.expression;
@@ -493,41 +366,17 @@ public:
 		}
 		
 		flattenedStmts ~= new ReturnStatement(s.location, value);
-		terminateFun();
 	}
 	
 	void visit(BreakStatement s) {
 		flattenedStmts ~= s;
-		terminateBlock();
 	}
 	
 	void visit(ContinueStatement s) {
 		flattenedStmts ~= s;
-		terminateBlock();
 	}
 	
 	void visit(AstSwitchStatement s) {
-		auto oldSwitchBlock = switchBlock;
-		auto oldAllowFallthrough = allowFallthrough;
-		auto oldSwitchMustTerminate = switchMustTerminate;
-		auto oldSwitchFunTerminate = switchFunTerminate;
-		
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			mustTerminate = switchMustTerminate;
-			funTerminate = switchFunTerminate;
-			blockTerminate = oldBlockTerminate || funTerminate;
-			
-			switchBlock = oldSwitchBlock;
-			allowFallthrough = oldAllowFallthrough;
-			switchMustTerminate = oldSwitchMustTerminate;
-			switchFunTerminate = oldSwitchFunTerminate;
-		}
-		
-		switchBlock = declBlockStack[$ - 1];
-		allowFallthrough = true;
-		switchFunTerminate = true;
-		
 		import d.semantic.expression;
 		flattenedStmts ~= new SwitchStatement(
 			s.location,
@@ -536,61 +385,7 @@ public:
 		);
 	}
 	
-	private void setCaseEntry(Location location, string switchError, string fallthroughError) out {
-		assert(declBlockStack[$ - 1] == switchBlock);
-	} body {
-		if (allowFallthrough) {
-			allowFallthrough = false;
-			if (declBlockStack[$ - 1] == switchBlock) {
-				return;
-			}
-			
-			import d.exception;
-			throw new CompileException(location, "Cannot jump over variable initialization.");
-		}
-		
-		if (switchBlock == -1) {
-			import d.exception;
-			throw new CompileException(location, switchError);
-		}
-		
-		if (blockTerminate) {
-			switchMustTerminate = mustTerminate && switchMustTerminate;
-			switchFunTerminate = funTerminate && switchFunTerminate;
-		} else {
-			// Check for case a: case b:
-			// TODO: consider default: case a:
-			bool isValid = false;
-			if (flattenedStmts.length > 0) {
-				auto s = flattenedStmts[$ - 1];
-				if (auto c = cast(CaseStatement) s) {
-					isValid = true;
-				}
-			}
-			
-			if (!isValid) {
-				import d.exception;
-				throw new CompileException(location, fallthroughError);
-			}
-		}
-		
-		foreach_reverse(i, b; declBlockStack) {
-			if (b == switchBlock) {
-				declBlockStack = declBlockStack[0 .. i + 1];
-				break;
-			}
-		}
-	}
-	
 	void visit(AstCaseStatement s) {
-		setCaseEntry(
-			s.location,
-			"Case statement can only appear within switch statement.",
-			"Fallthrough is disabled, use goto case.",
-		);
-		
-		unterminate();
-		
 		import d.semantic.expression;
 		import std.algorithm, std.array;
 		flattenedStmts ~= new CaseStatement(
@@ -600,85 +395,18 @@ public:
 	}
 	
 	void visit(AstLabeledStatement s) {
-		auto label = s.label;
-		if (label == BuiltinName!"default") {
-			setCaseEntry(
-				s.location,
-				"Default statement can only appear within switch statement.",
-				"Fallthrough is disabled, use goto default.",
-			);
-		}
-		
-		unterminate();
-		
-		auto labelBlock = declBlockStack[$ - 1];
-		labelBlocks[label] = labelBlock;
-		if (auto bPtr = s.label in inFlightGotosStacks) {
-			auto inFlightGotoStacks = *bPtr;
-			inFlightGotosStacks.remove(label);
-			
-			foreach(inFlightGotoStack; inFlightGotoStacks) {
-				bool isValid = false;
-				foreach(block; inFlightGotoStack) {
-					if (block == labelBlock) {
-						isValid = true;
-						break;
-					}
-				}
-				
-				if (!isValid) {
-					import d.exception;
-					throw new CompileException(s.location, "Cannot jump over variable initialization.");
-				}
-			}
-		}
-		
 		auto labelIndex = flattenedStmts.length;
 		
 		visit(s.statement);
 		
-		flattenedStmts[labelIndex] = new LabeledStatement(s.location, label, flattenedStmts[labelIndex]);
+		flattenedStmts[labelIndex] = new LabeledStatement(s.location, s.label, flattenedStmts[labelIndex]);
 	}
 	
 	void visit(GotoStatement s) {
-		auto label = s.label;
-		if (auto bPtr = label in labelBlocks) {
-			auto labelBlock = *bPtr;
-			
-			bool isValid = false;
-			foreach(block; declBlockStack) {
-				if (block == labelBlock) {
-					isValid = true;
-					break;
-				}
-			}
-			
-			if (!isValid) {
-				import d.exception;
-				throw new CompileException(s.location, "Cannot goto over variable initialization.");
-			}
-		} else if (auto bPtr = label in inFlightGotosStacks) {
-			auto blockStacks = *bPtr;
-			blockStacks ~= declBlockStack;
-			inFlightGotosStacks[label] = blockStacks;
-		} else {
-			inFlightGotosStacks[label] = [declBlockStack];
-		}
-		
 		flattenedStmts ~= s;
-		terminateBlock();
 	}
 	
 	void visit(AstScopeStatement s) {
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		scope(exit) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-		}
-		
 		flattenedStmts ~= new ScopeStatement(s.location, s.kind, autoBlock(s.statement));
 	}
 	
@@ -690,26 +418,10 @@ public:
 			Type.get(pass.object.getThrowable()),
 			ExpressionVisitor(pass).visit(s.value),
 		));
-		
-		terminateFun();
 	}
 	
 	void visit(AstTryStatement s) {
-		auto oldMustTerminate = mustTerminate;
-		auto oldFunTerminate = funTerminate;
-		auto oldBlockTerminate = blockTerminate;
-		
 		auto tryStmt = autoBlock(s.statement);
-		
-		auto tryMustTerminate = mustTerminate;
-		auto tryFunTerminate = funTerminate;
-		auto tryBlockTerminate = blockTerminate;
-		
-		scope(exit) {
-			mustTerminate = tryMustTerminate;
-			funTerminate = tryFunTerminate;
-			blockTerminate = tryBlockTerminate;
-		}
 		
 		import d.semantic.identifier : AliasResolver;
 		auto iv = AliasResolver!(function Class(identified) {
@@ -730,22 +442,10 @@ public:
 		
 		CatchBlock[] catches;
 		foreach(c; s.catches) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-			
 			catches ~= CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement));
-			
-			tryMustTerminate = tryMustTerminate && mustTerminate;
-			tryFunTerminate = tryFunTerminate && funTerminate;
-			tryBlockTerminate = tryBlockTerminate && blockTerminate;
 		}
 		
 		if (s.finallyBlock) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
-			
 			flattenedStmts ~= new ScopeStatement(s.finallyBlock.location, ScopeKind.Exit, autoBlock(s.finallyBlock));
 		}
 		
@@ -770,7 +470,8 @@ public:
 		}
 		
 		// Do not error on unrechable statement after static if.
-		mustTerminate = false;
+		// TODO: Find a way to pass this info to the FlowAnalyzer.
+		// mustTerminate = false;
 	}
 	
 	void visit(StaticAssert!AstStatement s) {
