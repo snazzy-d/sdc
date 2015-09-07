@@ -18,6 +18,7 @@ struct LocalGen {
 	LLVMBuilderRef builder;
 
 	LLVMValueRef thisPtr;
+	LLVMValueRef ctxPtr;
 	
 	LLVMValueRef[ValueSymbol] locals;
 
@@ -47,6 +48,10 @@ struct LocalGen {
 		this.pass = pass;
 		this.contexts = contexts;
 
+		// Make sure globals are initialized.
+		locals[null] = null;
+		locals.remove(null);
+
 		// Make sure we alays have a builder ready to rock.
 		builder = LLVMCreateBuilderInContext(llvmCtx);
 	}
@@ -69,7 +74,7 @@ struct LocalGen {
 			GlobalGen(pass).visit(s);
 		}
 	}
-
+	
 	LLVMValueRef visit(Function f) {
 		auto contexts = f.hasContext ? this.contexts : [];
 		auto lookup = f.storage.isLocal
@@ -150,16 +155,18 @@ struct LocalGen {
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
-		
+
+		auto closure = Closure(f.closure, buildContextType(f));
 		if (f.hasContext) {
-			auto ctxType = f.type.parameters[f.hasThis];
-			auto parentCtx = params[f.hasThis];
+			auto parentCtxType = f.type.parameters[f.hasThis];
+			assert(parentCtxType.isRef || parentCtxType.isFinal);
 			
-			assert(ctxType.isRef || ctxType.isFinal);
+			auto parentCtx = params[f.hasThis];
 			LLVMSetValueName(parentCtx, "__ctx");
 			
+			// Find the right context as parent.
 			import std.algorithm, std.range;
-			auto ctxTypeGen = pass.visit(ctxType.getType());
+			auto ctxTypeGen = pass.visit(parentCtxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
 			auto s = cast(ClosureScope) f.dscope;
@@ -171,23 +178,12 @@ struct LocalGen {
 			paramTypes = paramTypes[1 .. $];
 			
 			// Chain closures.
-			auto closure = Closure();
-			closure.type = buildContextType(f);
-			closure.context = LLVMBuildAlloca(builder, closure.type, "");
+			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
 			
-			auto parentType = LLVMTypeOf(parentCtx);
-			closure.context = LLVMBuildPointerCast(
-				builder,
-				closure.context,
-				LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &parentType, 1, false), 0),
-				"",
-			);
-			
-			LLVMBuildStore(builder, parentCtx, LLVMBuildStructGEP(builder, closure.context, 0, ""));
+			LLVMBuildStore(builder, parentCtx, LLVMBuildStructGEP(builder, ctxPtr, 0, ""));
 			contexts ~= closure;
 		} else {
 			// Build closure for this function.
-			auto closure = Closure();
 			closure.type = buildContextType(f);
 			contexts = [closure];
 		}
@@ -236,29 +232,22 @@ struct LocalGen {
 		LLVMBuildBr(builder, bodyBB);
 		
 		// If we have a context, let's make it the right size.
-		if (auto context = contexts[$ - 1].context) {
-			auto ctxType = LLVMGetElementType(LLVMTypeOf(context));
-			
-			auto count = LLVMCountStructElementTypes(ctxType);
-			LLVMTypeRef[] types;
-			types.length = count;
-			LLVMGetStructElementTypes(ctxType, types.ptr);
-			
-			ctxType = contexts[$ - 1].type;
-			LLVMStructSetBody(ctxType, types.ptr, count, false);
-			
-			while(LLVMGetInstructionOpcode(context) != LLVMOpcode.Alloca) {
-				assert(LLVMGetInstructionOpcode(context) == LLVMOpcode.BitCast);
-				context = LLVMGetOperand(context, 0);
+		if (ctxPtr !is null) {
+			auto ctxAlloca = ctxPtr;
+			while(LLVMGetInstructionOpcode(ctxAlloca) != LLVMOpcode.Alloca) {
+				assert(LLVMGetInstructionOpcode(ctxAlloca) == LLVMOpcode.BitCast);
+				ctxAlloca = LLVMGetOperand(ctxAlloca, 0);
 			}
 			
-			LLVMPositionBuilderBefore(builder, context);
+			LLVMPositionBuilderBefore(builder, ctxAlloca);
+
+			auto ctxType = contexts[$ - 1].type;
 			
 			import d.llvm.expression;
 			auto alloc = ExpressionGen(&this).buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
-			LLVMReplaceAllUsesWith(context, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
+			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
 		}
 	}
 
@@ -304,8 +293,6 @@ struct LocalGen {
 			if (!closureCount) {
 				break;
 			}
-
-			root = LLVMBuildPointerCast(builder, root, LLVMTypeOf(closure.context), "");
 			
 			// Create enclosed variables.
 			foreach(v; capture.byKey()) {
@@ -366,39 +353,14 @@ struct LocalGen {
 		if (v.storage == Storage.Capture) {
 			auto closure = &contexts[$ - 1];
 			
-			uint index = 0;
-			
 			// If we don't have a closure, make one.
-			if (!closure.context) {
-				auto alloca = LLVMBuildAlloca(builder, closure.type, "");
-				closure.context = LLVMBuildPointerCast(
-					builder,
-					alloca,
-					LLVMPointerType(LLVMStructTypeInContext(llvmCtx, &type, 1, false), 0),
-					"",
-				);
-			} else {
-				auto context = closure.context;
-				auto contextType = LLVMGetElementType(LLVMTypeOf(context));
-				index = LLVMCountStructElementTypes(contextType);
-				
-				LLVMTypeRef[] types;
-				types.length = index + 1;
-				LLVMGetStructElementTypes(contextType, types.ptr);
-				types[$ - 1] = type;
-				
-				closure.context = LLVMBuildPointerCast(
-					builder,
-					context,
-					LLVMPointerType(LLVMStructTypeInContext(llvmCtx, types.ptr, index + 1, false), 0),
-					"",
-				);
+			if (ctxPtr is null) {
+				ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
+				auto ctxType = LLVMStructTypeInContext(llvmCtx, &type, 1, false);
 			}
 			
-			closure.indices[v] = index;
-
 			import std.string;
-			addr = LLVMBuildStructGEP(builder, closure.context, index, v.mangle.toStringz());
+			addr = LLVMBuildStructGEP(builder, ctxPtr, closure.indices[v], v.mangle.toStringz());
 		} else {
 			import std.string;
 			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz());
@@ -418,16 +380,13 @@ struct LocalGen {
 	}
 
 	LLVMValueRef getContext(Function f) {
-		auto type = pass.buildContextType(f);
-		auto value = contexts[$ - 1].context;
+		auto type = buildContextType(f);
+		auto value = ctxPtr;
 		foreach_reverse(i, c; contexts) {
-			if (c.context is null) {
-				assert (c.type is type, "Failed to find the context pointer.");
+			if (value is null) {
 				return LLVMConstNull(LLVMPointerType(type, 0));
 			}
-			
-			value = LLVMBuildPointerCast(builder, value, LLVMTypeOf(c.context), "");
-			
+
 			if (c.type is type) {
 				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
 			}

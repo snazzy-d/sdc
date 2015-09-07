@@ -229,7 +229,7 @@ struct SymbolAnalyzer {
 			f.fbody = StatementVisitor(pass).getBody(fbody);
 
 			import d.semantic.flow;
-			FlowAnalyzer(pass).visit(f.fbody);
+			f.closure = FlowAnalyzer(pass).getClosure(f);
 		}
 		
 		if (isAuto) {

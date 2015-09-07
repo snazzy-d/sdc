@@ -326,7 +326,24 @@ final class TypeGen {
 	LLVMTypeRef visit(Function f) {
 		return funCtxTypes.get(f, {
 			import std.string;
-			return funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
+			auto ctxStruct = funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
+			auto count = cast(uint) f.closure.length + f.hasContext;
+
+			LLVMTypeRef[] ctxElts;
+			ctxElts.length = count;
+
+			if (f.hasContext) {
+				auto parentCtxType = f.type.parameters[f.hasThis].getType();
+				ctxElts[0] = LLVMPointerType(visit(parentCtxType), 0);
+			}
+
+			foreach(v, i; f.closure) {
+				ctxElts[i] = visit(v.type);
+			}
+			
+			LLVMStructSetBody(ctxStruct, ctxElts.ptr, count, false);
+
+			return ctxStruct;
 		}());
 	}
 	

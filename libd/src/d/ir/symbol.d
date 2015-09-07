@@ -120,11 +120,13 @@ class Function : ValueSymbol {
 	FunctionType type;
 	
 	Variable[] params;
-	Statement fbody;
+	BlockStatement fbody;
 	
 	FunctionScope dscope;
+
+	uint[Variable] closure;
 	
-	this(Location location, FunctionType type, Name name, Variable[] params, Statement fbody) {
+	this(Location location, FunctionType type, Name name, Variable[] params, BlockStatement fbody) {
 		super(location, name);
 		
 		this.type = type;

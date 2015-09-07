@@ -12,14 +12,19 @@ private:
 	alias pass this;
 
 	Statement previousStatement;
+
+	import d.ir.symbol;
+	uint[Variable] closure;
 	
 	import d.context.name;
 	uint[Name] labelBlocks;
 	uint[][][Name] inFlightGotosStacks;
 	
 	uint[] declBlockStack = [0];
-	uint nextDeclBlock = 1;
 	uint switchBlock = -1;
+
+	uint nextDeclBlock = 1;
+	uint nextClosureIndex;
 
 	import std.bitmanip;
 	mixin(bitfields!(
@@ -29,12 +34,28 @@ private:
 		bool, "allowFallthrough", 1,
 		bool, "switchMustTerminate", 1,
 		bool, "switchFunTerminate", 1,
-		ubyte, "", 2,
+		uint, "", 2,
 	));
 
 public:
 	this(SemanticPass pass) {
 		this.pass = pass;
+	}
+
+	uint[Variable] getClosure(Function f) in {
+		assert(f.fbody, "f does not have a body");
+	} body {
+		nextClosureIndex = f.hasContext;
+
+		foreach(p; f.params) {
+			if (p.storage == Storage.Capture) {
+				assert(p !in closure);
+				closure[p] = nextClosureIndex++;
+			}
+		}
+		
+		visit(f.fbody);
+		return closure;
 	}
 
 	void visit(Statement s) {
@@ -72,10 +93,13 @@ public:
 	void visit(SymbolStatement s) {
 		assert(s.symbol.step == Step.Processed);
 
-		import d.ir.symbol;
 		auto v = cast(Variable) s.symbol;
 		if (v is null || v.storage.isGlobal) {
 			return;
+		}
+
+		if (v.storage == Storage.Capture && v !in closure) {
+			closure[v] = nextClosureIndex++;
 		}
 
 		declBlockStack ~= nextDeclBlock++;

@@ -41,9 +41,6 @@ final class CodeGenPass {
 	
 	struct Closure {
 		uint[Variable] indices;
-
-		// TODO: Try to delete when possible.
-		LLVMValueRef context;
 		LLVMTypeRef type;
 	}
 	
