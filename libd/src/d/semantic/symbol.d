@@ -746,13 +746,12 @@ struct SymbolAnalyzer {
 		foreach(m; members) {
 			if (auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
-				/*
+				
 				auto mt = method.type;
 				auto rt = mt.returnType;
 				auto ats = mt.parameters[1 .. $];
-				*/
+				
 				CandidatesLoop: foreach(ref candidate; baseMethods) {
-					/*
 					if (!candidate || method.name != candidate.name) {
 						continue;
 					}
@@ -793,11 +792,8 @@ struct SymbolAnalyzer {
 						if (pk < CastKind.Exact) {
 							continue CandidatesLoop;
 						}
-					} */
-
-					if (!methodMatch(candidate, method))
-						continue;
-
+					}
+					
 					if(method.index == 0) {
 						method.index = candidate.index;
 						
@@ -869,15 +865,14 @@ struct SymbolAnalyzer {
 			c.ivtblOffset[i] = methodIndex;
 			import std.algorithm, std.array;
 			int il = 0;
-			//scheduler.require(i.members);
+			scheduler.require(i.members);
 			foreach(m; i.members) {
 				writeln("sid: 2 \n--methodIndex: ", methodIndex);
 				auto m1 = cast(Method) m;
 				if (!m1) 
 					continue;
-				writeln("sid4: m1");
-				//m1.index += methodIndex;
-				//c.members ~= m1;
+				m1.index += methodIndex;
+				c.members ~= m1;
 				il++;
 			}
 			writeln("sid: 3");
@@ -956,44 +951,6 @@ struct SymbolAnalyzer {
 
 		
 		c.step = Step.Processed;
-	}
-
-	// helper function for matching methods
-	bool methodMatch (ref Method candidate, ref Method method) {
-		auto mt = method.type;
-		auto rt = mt.returnType;
-		auto ats = mt.parameters[1 .. $];
-
-		if (!candidate || method.name != candidate.name) {
-			return false;
-		}
-		
-		auto ct = candidate.type;
-		if (ct.isVariadic != mt.isVariadic) {
-			return false;
-		}
-		
-		auto crt = ct.returnType;
-		auto cts = ct.parameters[1 .. $];
-		if (ats.length != cts.length || rt.isRef != crt.isRef) {
-			return false;
-		}
-		
-		if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
-			return false;
-		}
-		
-		import std.range;
-		foreach(at, ct; lockstep(ats, cts)) {
-			if (at.isRef != ct.isRef) {
-				return false;
-			}
-			
-			if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	void analyze (InterfaceDeclaration d, Interface i) {

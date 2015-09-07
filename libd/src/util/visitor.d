@@ -24,11 +24,6 @@ auto dispatch(
 private auto dispatchImpl(
 	alias unhandled, V, T, Args...
 )(auto ref V visitor, Args args, T t) in {
-	if(!t){
-		import std.stdio;
-		writefln("sid: error");
-	}
-
 	assert(t, "You can't dispatch null");
 } body {
 	static if(is(T == class)) {
