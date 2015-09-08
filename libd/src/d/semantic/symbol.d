@@ -841,6 +841,7 @@ struct SymbolAnalyzer {
 		}
 		*/
 		scheduler.require(members);
+
 		foreach (i; c.interfaces){
 			scheduler.require(i);
 			foreach (m; i.members) {
@@ -862,70 +863,11 @@ struct SymbolAnalyzer {
 				}
 			}
 		}
-
+		import std.stdio;
 		c.members ~= members;
-		/*
-		bool found = false;
-		foreach (i; c.interfaces){
-			scheduler.require(i);
-				// XXX: d is hijacked without explicit import
-			import d.context.name : BuiltinName;
-			
-			// TODO: use defaultinit.
-			// TODO: uint[Interface]
-			MemberLoop: foreach (m; i.members) {
-				if (auto interfaceMethod = cast(Method) m) {
-					auto mt = interfaceMethod.type;
-					auto rt = mt.returnType;
-					auto ats = mt.parameters[1 .. $];
-					import std.stdio;
-					found = false;
-					ClassLoop: foreach (member;  c.members) {
-						if (auto classMethod = cast(Method) member) {
-							writeln("cl: 1");
-							if(classMethod.name != interfaceMethod.name)
-								continue;
-							writeln("cl: 2");
-							auto ct = classMethod.type;
-							if(ct.isVariadic != mt.isVariadic)
-								continue;
-							writeln("cl: 3");
-							auto crt = ct.returnType;
-							auto cts = ct.parameters[1 .. $];
-							if (ats.length != cts.length || rt.isRef != crt.isRef) {
-								continue;
-							}
-							writeln("cl: 4");
-							if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
-								continue;
-							}
-							writeln("cl: 5");
-							import std.range;
-							foreach(at, ct; lockstep(ats, cts)) {
-								if (at.isRef != ct.isRef) {
-									continue ClassLoop;
-								}
-								
-								if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
-									continue ClassLoop;
-								}
-							}
-							writeln("cl: 6");
-							// found method in class
-							found = true;
-							break;
-						}
-					}
-			
-					if (!found) {
-						import d.exception;
-						throw new CompileException(m.location, m.name.toString(context) ~ " not implemented in class " ~ c.name.toString(context));
-					}
-				}
-			}
+		foreach(m; c.members){
+			writeln("member: ", m.name.toString(context));
 		}
-*/
-		 
 		c.step = Step.Processed;
 	}
 
@@ -934,7 +876,7 @@ struct SymbolAnalyzer {
 		auto mt = method.type;
 		auto rt = mt.returnType;
 		auto ats = mt.parameters[1 .. $];
-		import std.stdio;
+		//import std.stdio;
 		if (!candidate || method.name != candidate.name) {
 			return false;
 		}
