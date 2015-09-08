@@ -746,9 +746,9 @@ struct SymbolAnalyzer {
 		foreach(m; members) {
 			if (auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
-
+				// method = class method
 				CandidatesLoop: foreach(ref candidate; baseMethods) {
-
+					// candidate = base method
 					if (!methodMatch(candidate, method))
 						continue;
 
@@ -814,6 +814,7 @@ struct SymbolAnalyzer {
 
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
+		/*
 		methodIndex++;
 		import std.stdio;
 		writeln(methodIndex);
@@ -838,8 +839,30 @@ struct SymbolAnalyzer {
 			//c.members ~= imethods;
 			methodIndex += il;
 		}
-
+		*/
 		scheduler.require(members);
+		foreach (i; c.interfaces){
+			scheduler.require(i);
+			foreach (m; i.members) {
+				if (auto interfaceMethod = cast(Method) m) {
+					bool found = false;
+					foreach (ref member; members) {
+						if (auto classMethod = cast(Method) member) {
+							if(methodMatch(classMethod, interfaceMethod)){
+								c.members ~= member;
+								found = true;
+								break;
+							} 
+						}
+					}
+					if (!found) {
+						import d.exception;
+						throw new CompileException(m.location, m.name.toString(context) ~ " not implemented in class " ~ c.name.toString(context));
+					}
+				}
+			}
+		}
+
 		c.members ~= members;
 		/*
 		bool found = false;
@@ -902,13 +925,7 @@ struct SymbolAnalyzer {
 			}
 		}
 */
-
-		import std.stdio;
-		foreach(m; c.members){
-			writeln(m.name.toString(context));
-		}
-
-		
+		 
 		c.step = Step.Processed;
 	}
 
@@ -917,26 +934,26 @@ struct SymbolAnalyzer {
 		auto mt = method.type;
 		auto rt = mt.returnType;
 		auto ats = mt.parameters[1 .. $];
-
+		import std.stdio;
 		if (!candidate || method.name != candidate.name) {
 			return false;
 		}
-		
+		//writeln("sid2: 1");
 		auto ct = candidate.type;
 		if (ct.isVariadic != mt.isVariadic) {
 			return false;
 		}
-		
+		//writeln("sid2: 2");
 		auto crt = ct.returnType;
 		auto cts = ct.parameters[1 .. $];
 		if (ats.length != cts.length || rt.isRef != crt.isRef) {
 			return false;
 		}
-		
+		//writeln("sid2: 3");
 		if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
 			return false;
 		}
-		
+		//writeln("sid2: 4");
 		import std.range;
 		foreach(at, ct; lockstep(ats, cts)) {
 			if (at.isRef != ct.isRef) {
@@ -947,6 +964,7 @@ struct SymbolAnalyzer {
 				return false;
 			}
 		}
+		//writeln("sid2: 5");
 		return true;
 	}
 
