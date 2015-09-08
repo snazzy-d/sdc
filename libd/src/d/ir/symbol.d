@@ -84,32 +84,33 @@ class Package : Symbol {
 class Variable : ValueSymbol {
 	Expression value;
 	
-	Type type;
-	bool isRef;
-	bool isFinal;
+	ParamType paramType;
 	
-	this(Location location, Type type, Name name, Expression value = null, bool isRef = false, bool isFinal = false) {
+	this(Location location, ParamType paramType, Name name, Expression value = null) {
 		super(location, name);
 		
-		this.type = type;
+		this.paramType = paramType;
 		this.value = value;
-		this.isRef = isRef;
-		this.isFinal = isFinal;
 	}
 	
-	this(Location location, ParamType type, Name name, Expression value = null) {
-		super(location, name);
-		
-		this.type = type.getType();
-		this.value = value;
-		this.isRef = type.isRef;
-		this.isFinal = type.isFinal;
+	this(Location location, Type type, Name name, Expression value = null) {
+		this(location, type.getParamType(false, false), name, value);
 	}
 	
 final:
 	@property
-	auto paramType() {
-		return type.getParamType(isRef, isFinal);
+	Type type() {
+		return paramType.getType();
+	}
+	
+	@property
+	bool isRef() {
+		return paramType.isRef;
+	}
+	
+	@property
+	bool isFinal() {
+		return paramType.isFinal;
 	}
 }
 
@@ -396,9 +397,13 @@ class Enum : TypeSymbol {
 class Field : Variable {
 	uint index;
 	
+	this(Location location, uint index, ParamType paramType, Name name, Expression value = null) {
+		super(location, paramType, name, value);
+		this.index = index;
+	}
+	
 	this(Location location, uint index, Type type, Name name, Expression value = null) {
 		super(location, type, name, value);
-		
 		this.index = index;
 	}
 }

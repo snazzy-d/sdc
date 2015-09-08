@@ -433,7 +433,7 @@ struct DeclarationVisitor {
 				auto v = new Variable(vd.location, Type.get(BuiltinType.None), vd.name);
 				v.visibility = visibility;
 				
-				if(!vd.value) {
+				if (!vd.value) {
 					import d.ir.expression;
 					if(previous) {
 						if(!one) {

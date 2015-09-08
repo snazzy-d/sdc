@@ -276,10 +276,11 @@ struct SymbolAnalyzer {
 			// XXX: remove selective import when dmd is sane.
 			import d.semantic.expression : ExpressionVisitor;
 			value = ExpressionVisitor(pass).visit(d.value);
-			v.type = value.type;
+			v.paramType = value.type.getParamType(false, false);
 		} else {
 			import d.semantic.type : TypeVisitor;
-			auto type = v.type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
+			auto type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
+			v.paramType = type.getParamType(false, false);
 			if (auto vi = cast(AstVoidInitializer) d.value) {
 				value = new VoidInitializer(vi.location, type);
 			} else {

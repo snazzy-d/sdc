@@ -75,8 +75,7 @@ struct ExpressionVisitor {
 	
 	private Expression getLvalue(Expression value) {
 		import d.context.name;
-		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.isRef = true;
+		auto v = new Variable(value.location, value.type.getParamType(true, false), BuiltinName!"", value);
 		v.step = Step.Processed;
 		
 		return new VariableExpression(value.location, v);
