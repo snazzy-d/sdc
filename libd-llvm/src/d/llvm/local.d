@@ -79,7 +79,7 @@ struct LocalGen {
 			define(t);
 		} else {
 			import d.llvm.global;
-			GlobalGen(pass).define(s);
+			GlobalGen(pass, mode).define(s);
 		}
 	}
 	
@@ -88,7 +88,7 @@ struct LocalGen {
 			? locals
 			: globals;
 		
-		return lookup.get(f, {
+		auto fun = lookup.get(f, {
 			import std.string;
 			auto name = f.mangle.toStringz();
 			auto type = LLVMGetElementType(pass.visit(f.type));
@@ -102,16 +102,16 @@ struct LocalGen {
 			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
 			assert(!fun, f.mangle ~ " is already declared.");
 			
-			fun = lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
-			
-			if (f.hasContext || f.inTemplate || mode == Mode.Eager) {
-				if (f.fbody && maybeDefine(f, fun)) {
-					LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
-				}
-			}
-			
-			return fun;
+			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		} ());
+		
+		if (f.hasContext || f.inTemplate || mode == Mode.Eager) {
+			if (f.fbody && maybeDefine(f, fun)) {
+				LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
+			}
+		}
+		
+		return fun;
 	}
 	
 	LLVMValueRef define(Function f) {
@@ -353,7 +353,7 @@ struct LocalGen {
 	} body {
 		if (v.storage.isGlobal) {
 			import d.llvm.global;
-			return GlobalGen(pass).declare(v);
+			return GlobalGen(pass, mode).declare(v);
 		}
 		
 		import d.llvm.expression;
@@ -418,7 +418,7 @@ struct LocalGen {
 			if (value is null) {
 				return LLVMConstNull(LLVMPointerType(type, 0));
 			}
-
+			
 			if (c.type is type) {
 				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
 			}
@@ -444,6 +444,6 @@ struct LocalGen {
 		}
 		
 		import d.llvm.global;
-		return GlobalGen(pass).define(s);
+		return GlobalGen(pass, mode).define(s);
 	}
 }

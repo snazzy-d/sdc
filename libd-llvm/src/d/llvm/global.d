@@ -17,8 +17,12 @@ struct GlobalGen {
 	private CodeGenPass pass;
 	alias pass this;
 	
-	this(CodeGenPass pass) {
+	import d.llvm.local : Mode;
+	Mode mode;
+	
+	this(CodeGenPass pass, Mode mode = Mode.Lazy) {
 		this.pass = pass;
+		this.mode = mode;
 	}
 	
 	void define(Symbol s) {
@@ -51,9 +55,36 @@ struct GlobalGen {
 	
 	LLVMValueRef declare(Variable v) in {
 		assert(v.storage.isGlobal, "locals not supported");
+		assert(!v.isFinal);
+		assert(!v.isRef);
 	} body {
-		// TODO: Actually just declare here :)
-		return globals.get(v, define(v));
+		auto var = globals.get(v, {
+			if (v.storage == Storage.Enum) {
+				import d.llvm.local;
+				auto lg = LocalGen(pass);
+
+				// FIXME: This should only generate const using the const API.
+				// That way no need for a builder and/or LocalGen.
+				import d.llvm.expression;
+				return ExpressionGen(&lg).visit(v.value);
+			}
+			
+			return createVariableStorage(v);
+		}());
+		
+		// Register the variable.
+		globals[v] = var;
+		if (!v.value || v.storage == Storage.Enum) {
+			return var;
+		}
+		
+		if (v.inTemplate || mode == Mode.Eager) {
+			if (maybeDefine(v, var)) {
+				LLVMSetLinkage(var, LLVMLinkage.LinkOnceODR);
+			}
+		}
+		
+		return var;
 	}
 	
 	LLVMValueRef define(Variable v) in {
@@ -61,59 +92,72 @@ struct GlobalGen {
 		assert(!v.isFinal);
 		assert(!v.isRef);
 	} body {
-		return globals.get(v, {
-			import d.llvm.local;
-			auto lg = LocalGen(pass);
-
-			// FIXME: This should only generate const using the const API.
-			// That way no need for a builder and/or LocalGen.
-			import d.llvm.expression;
-			auto value = ExpressionGen(&lg).visit(v.value);
-			
-			return createVariableStorage(v, value);
-		}());
-	}
-	
-	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
-		assert(v.storage.isGlobal, "locals not supported");
-	} body {
-		if (v.storage == Storage.Enum) {
-			return globals[v] = value;
+		auto var = declare(v);
+		if (!v.value || v.storage == Storage.Enum) {
+			return var;
 		}
 		
+		if (!maybeDefine(v, var)) {
+			auto linkage = LLVMGetLinkage(var);
+			assert(linkage == LLVMLinkage.LinkOnceODR, "variable " ~ v.mangle ~ " already defined");
+			LLVMSetLinkage(var, LLVMLinkage.External);
+		}
+		
+		return var;
+	}
+	
+	bool maybeDefine(Variable v, LLVMValueRef var) in {
+		assert(v.storage.isGlobal, "locals not supported");
+		assert(v.storage != Storage.Enum, "enum do not have a storage");
+		assert(!v.isFinal);
+		assert(!v.isRef);
+	} body {
+		if (LLVMGetInitializer(var)) {
+			return false;
+		}
+		
+		import d.llvm.local;
+		auto lg = LocalGen(pass);
+		
+		// FIXME: This should only generate const using the const API.
+		// That way no need for a builder and/or LocalGen.
+		import d.llvm.expression;
+		auto value = ExpressionGen(&lg).visit(v.value);
+		
+		// Store the initial value into the global variable.
+		LLVMSetInitializer(var, value);
+		return true;
+	}
+	
+	private LLVMValueRef createVariableStorage(Variable v) in {
+		assert(v.storage.isGlobal, "locals not supported");
+		assert(v.storage != Storage.Enum, "enum do not have a storage");
+	} body {
 		auto qualifier = v.type.qualifier;
 		auto type = pass.visit(v.type);
-
+		
 		// If it is not enum, it must be static.
 		assert(v.storage == Storage.Static);
-
-		import std.string;
-		auto globalVar = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
 		
-		// Symbolgenerated from templates and for JITing should linkonce.
-		// Other should not, but we lack a good way to make the different ATM.
-		LLVMSetLinkage(globalVar, LLVMLinkage.LinkOnceODR);
+		import std.string;
+		auto var = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
 		
 		// Depending on the type qualifier,
 		// make it thread local/ constant or nothing.
 		final switch(qualifier) with(TypeQualifier) {
 			case Mutable, Inout, Const:
-				LLVMSetThreadLocal(globalVar, true);
+				LLVMSetThreadLocal(var, true);
 				break;
-
+			
 			case Shared, ConstShared:
 				break;
-
+			
 			case Immutable:
-				LLVMSetGlobalConstant(globalVar, true);
+				LLVMSetGlobalConstant(var, true);
 				break;
 		}
 		
-		// Store the initial value into the global variable.
-		LLVMSetInitializer(globalVar, value);
-
-		// Register the variable.
-		return globals[v] = globalVar;
+		return var;
 	}
 	
 	LLVMTypeRef define(TypeSymbol s) in {
