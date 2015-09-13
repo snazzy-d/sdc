@@ -300,12 +300,6 @@ struct TypeGen {
 			}
 		}
 
-		// adding interface vtables after all class methods
-		foreach (i; c.interfaces) {
-			// scheduler.require(ivtbls)?
-			//vtbl ~= ivtbls[i]; // TODO: offset?
-		}
-
 
 		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
@@ -353,32 +347,7 @@ struct TypeGen {
 		import std.string;
 		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, i.mangle.toStringz());
 
-		LLVMValueRef[] vtbl = [];
-		foreach (member; i.members) {
-			if (auto m = cast(Method) member) {
-				//vtbl ~= pass.visit(m);
-			}
-		}
-
-		import std.algorithm, std.array;
-		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (i.mangle ~ "__vtbl").toStringz());
-		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
-
-		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (i.mangle ~ "__vtblZ").toStringz());
-		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
-		LLVMSetGlobalConstant(vtblPtr, true);
-		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
-
-		LLVMValueRef[] fields = [];
-		fields ~= vtblPtr;
-		//ivtbls[i] = vtblPtr;
-
-		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
-		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
-
-		//foreach(b; i.bases)
-		//	visit(b);
 
 		LLVMTypeRef[2] elements;
 		elements[0] = visit(pass.object.getObject());

@@ -865,9 +865,9 @@ struct SymbolAnalyzer {
 		}
 		import std.stdio;
 		c.members ~= members;
-		foreach(m; c.members){
-			writeln("member: ", m.name.toString(context));
-		}
+		//foreach(m; c.members){
+		//	writeln("member: ", m.name.toString(context));
+		//}
 		c.step = Step.Processed;
 	}
 
