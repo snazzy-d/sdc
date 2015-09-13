@@ -300,7 +300,6 @@ struct TypeGen {
 			}
 		}
 
-
 		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
 		
