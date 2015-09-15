@@ -13,7 +13,8 @@ extern(C) void* _tl_gc_realloc(void* ptr, size_t size) {
 }
 
 extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
-	tl.stackBottom = bottom;
+	// tl.stackBottom = makeRange(bottom[]).ptr;
+	tl.stackBottom = makeRange(bottom[0 .. 0]).ptr;
 }
 
 extern(C) void _tl_gc_add_roots(const void[] range) {
@@ -38,8 +39,8 @@ struct Arena {
 	// Set of chunks for GC lookup.
 	ChunkSet chunkSet;
 	
-	const void* stackBottom;
-	const(void[])[] roots;
+	const(void*)* stackBottom;
+	const(void*)[][] roots;
 	
 	import d.gc.bin, d.gc.sizeclass;
 	Bin[ClassCount.Small] bins;
@@ -218,9 +219,12 @@ private:
 			return null;
 		}
 		
-		// We may have allocated the run we need when allcoating metadata.
+		// We may have allocated the run we need when allocating metadata.
 		if (bins[binID].current !is null) {
+			assert(run !is bins[binID].current);
+			
 			// In which case we put the free run back in the tree.
+			assert(run.chunk.pages[run.runID].free);
 			freeRunTree.insert(run);
 			
 			// And use the metadata run.
@@ -232,6 +236,7 @@ private:
 		
 		auto rem = c.splitSmallRun(i, binID);
 		if (rem) {
+			assert(c.pages[rem].free);
 			freeRunTree.insert(&c.runs[rem]);
 		}
 		
@@ -271,6 +276,7 @@ private:
 		
 		auto rem = c.splitLargeRun(size, i, binID, zero);
 		if (rem) {
+			assert(c.pages[rem].free);
 			freeRunTree.insert(&c.runs[rem]);
 		}
 		
@@ -371,6 +377,7 @@ private:
 		// XXX: in contract.
 		auto pd = c.pages[runID];
 		assert(pd.allocated && pd.offset == 0);
+		assert(pages > 0);
 		
 		// XXX: find a way to merge dirty and clean free runs.
 		if (runID > 0) {
@@ -379,6 +386,7 @@ private:
 				runID -= previous.pages;
 				pages += previous.pages;
 				
+				assert(c.pages[runID].free);
 				freeRunTree.remove(&c.runs[runID]);
 			}
 		}
@@ -390,6 +398,7 @@ private:
 			if (next.free && next.dirty) {
 				pages += next.pages;
 				
+				assert(c.pages[nextID].free);
 				freeRunTree.remove(&c.runs[nextID]);
 			}
 		}
@@ -411,6 +420,7 @@ private:
 		c.pages[runID] = d;
 		c.pages[runID + pages - 1] = d;
 		
+		assert(c.pages[runID].free);
 		freeRunTree.insert(&c.runs[runID]);
 		
 		// XXX: remove dirty
@@ -532,10 +542,10 @@ private:
 		auto ptr = cast(void*) roots.ptr;
 		
 		// We realloc everytime. It doesn't really matter at this point.
-		roots.ptr = cast(const(void[])*) realloc(ptr, (roots.length + 1) * void[].sizeof);
+		roots.ptr = cast(const(void*)[]*) realloc(ptr, (roots.length + 1) * void*[].sizeof);
 		
 		// Using .ptr to bypass bound checking.
-		roots.ptr[roots.length] = range;
+		roots.ptr[roots.length] = makeRange(range);
 		
 		// Update the range.
 		roots = roots.ptr[0 .. roots.length + 1];
@@ -543,6 +553,24 @@ private:
 }
 
 private:
+
+/**
+ * This function get a void[] range and chnage it into a
+ * const(void*)[] one, reducing to alignement boundaries.
+ */
+const(void*)[] makeRange(const void[] range) {
+	size_t iptr = cast(size_t) range.ptr;
+	auto aiptr = (((iptr - 1) / size_t.sizeof) + 1) * size_t.sizeof;
+	
+	// Align the ptr and remove the differnece from the length.
+	auto aptr = cast(const(void*)*) aiptr;
+	if (range.length < 8) {
+		return aptr[0 .. 0];
+	}
+	
+	auto length = (range.length - aiptr + iptr) / size_t.sizeof;
+	return aptr[0 .. length];
+}
 
 struct ChunkSet {
 	// Set of chunks for GC lookup.
