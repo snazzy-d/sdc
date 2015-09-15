@@ -11,7 +11,27 @@ struct RunDesc {
 	}
 	
 	U misc;
-	alias misc this;
+	
+	@property
+	ref DirtyRunMisc dirty() {
+		// FIXME: in contract
+		auto pd = chunk.pages[runID];
+		assert(pd.free, "Expected free run");
+		assert(pd.dirty, "Expected dirty run");
+		
+		return misc.dirty;
+	}
+	
+	@property
+	ref SmallRunMisc small() {
+		// FIXME: in contract
+		auto pd = chunk.pages[runID];
+		assert(pd.allocated, "Expected allocated run");
+		assert(pd.offset == 0, "Invalid run");
+		assert(pd.small, "Expected small run");
+		
+		return misc.small;
+	}
 	
 	@property
 	auto chunk() {
@@ -20,7 +40,7 @@ struct RunDesc {
 	}
 	
 	@property
-	uint index() {
+	uint runID() {
 		auto offset = (cast(uint) &this) - (cast(uint) &chunk.runs[0]);
 		return offset / RunDesc.sizeof;
 	}
@@ -36,9 +56,9 @@ ptrdiff_t addrRunCmp(RunDesc* lhs, RunDesc* rhs) {
 
 ptrdiff_t sizeAddrRunCmp(RunDesc* lhs, RunDesc* rhs) {
 	import d.gc.sizeclass;
-	int rBinID = rhs.chunk.pages[rhs.index].binID;
+	int rBinID = rhs.chunk.pages[rhs.runID].binID;
 	
-	auto rsize = rhs.chunk.pages[rhs.index].size;
+	auto rsize = rhs.chunk.pages[rhs.runID].size;
 	assert(rBinID == getBinID(rsize + 1) - 1);
 	
 	auto l = cast(size_t) lhs;
@@ -46,9 +66,9 @@ ptrdiff_t sizeAddrRunCmp(RunDesc* lhs, RunDesc* rhs) {
 	
 	import d.gc.spec;
 	if (l & ~PageMask) {
-		lBinID = lhs.chunk.pages[lhs.index].binID;
+		lBinID = lhs.chunk.pages[lhs.runID].binID;
 		
-		auto lsize = lhs.chunk.pages[lhs.index].size;
+		auto lsize = lhs.chunk.pages[lhs.runID].size;
 		assert(lBinID == getBinID(lsize + 1) - 1);
 	} else {
 		lhs = null;

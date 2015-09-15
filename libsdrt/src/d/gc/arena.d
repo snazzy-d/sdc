@@ -176,7 +176,7 @@ private:
 		}
 		
 		auto index = run.small.allocate();
-		auto base = cast(void*) &run.chunk.datas[run.index];
+		auto base = cast(void*) &run.chunk.datas[run.runID];
 		
 		return base + size * index;
 	}
@@ -228,7 +228,7 @@ private:
 		}
 		
 		auto c = run.chunk;
-		auto i = run.index;
+		auto i = run.runID;
 		
 		auto rem = c.splitSmallRun(i, binID);
 		if (rem) {
@@ -250,7 +250,7 @@ private:
 			return null;
 		}
 		
-		return cast(void*) &run.chunk.datas[run.index];
+		return cast(void*) &run.chunk.datas[run.runID];
 	}
 	
 	RunDesc* allocateLargeRun(size_t size, bool zero) {
@@ -267,7 +267,7 @@ private:
 		}
 		
 		auto c = run.chunk;
-		auto i = run.index;
+		auto i = run.runID;
 		
 		auto rem = c.splitLargeRun(size, i, binID, zero);
 		if (rem) {

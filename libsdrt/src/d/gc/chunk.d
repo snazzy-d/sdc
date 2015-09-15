@@ -241,13 +241,13 @@ struct Chunk {
 			0,
 		));
 		
-		runs[runID].misc.small.binID = binID;
-		runs[runID].misc.small.freeSlots = binInfo.slots;
+		runs[runID].small.binID = binID;
+		runs[runID].small.freeSlots = binInfo.slots;
 		
 		auto bits = binInfo.slots / 32;
-		runs[runID].misc.small.header = cast(ushort) ((1 << bits) - 1);
+		runs[runID].small.header = cast(ushort) ((1 << bits) - 1);
 		for (uint i = 0; i < bits; i++) {
-			runs[runID].misc.small.bitmap[i] = -1;
+			runs[runID].small.bitmap[i] = -1;
 		}
 		
 		return rem;
