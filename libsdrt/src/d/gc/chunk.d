@@ -69,7 +69,7 @@ struct PageDescriptor {
 		
 		// Sanity checks.
 		assert(this.allocated == allocated);
-		assert(this.large == large);
+		assert(this.free || this.large == large);
 		assert(this.zeroed == zeroed);
 		assert(this.dirty == dirty);
 		assert(this.binID == binID);
@@ -88,11 +88,13 @@ struct PageDescriptor {
 	
 	@property
 	bool small() const {
+		assert(allocated);
 		return !(bits & 0x02);
 	}
 	
 	@property
 	bool large() const {
+		assert(allocated);
 		return !small;
 	}
 	
@@ -119,14 +121,14 @@ struct PageDescriptor {
 	
 	@property
 	uint pages() const {
-		assert(!allocated);
+		assert(free);
 		// TODO: VRP
 		return bits >> LgPageSize;
 	}
 	
 	@property
 	uint size() const {
-		assert(!allocated);
+		assert(free);
 		// TODO: VRP
 		return cast(uint) (bits & ~PageMask);
 	}
@@ -184,8 +186,9 @@ struct Chunk {
 		c.addr	= c;
 		c.size	= ChunkSize;
 		
-		c.worklist	= null;
-		c.bitmap	= null;
+		// FIXME: empty array not supported.
+		// c.worklist	= [];
+		// c.bitmap	= [];
 		
 		import d.gc.sizeclass;
 		enum DataSize = DataPages << LgPageSize;
@@ -243,11 +246,14 @@ struct Chunk {
 		return runID;
 	}
 	
+	/**
+	 * Split run from free space.
+	 */
 	uint splitSmallRun(uint runID, ubyte binID) {
 		// XXX: in contract.
 		import d.gc.bin, d.gc.sizeclass;
 		assert(binID < ClassCount.Small);
-		assert(!pages[runID].allocated);
+		assert(pages[runID].free);
 		
 		auto binInfo = binInfos[binID];
 		auto needPages = binInfo.needPages;
@@ -283,7 +289,7 @@ struct Chunk {
 		import d.gc.bin, d.gc.sizeclass;
 		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
-		assert(!pages[runID].allocated);
+		assert(pages[runID].free);
 		assert(size == getAllocSize(size));
 		assert(getBinID(size) == binID);
 		
@@ -318,6 +324,9 @@ struct Chunk {
 	
 private:
 	void setBitmap(uint runID, uint needPages, PageDescriptor base) {
+		// FIXME: in contract
+		assert(base.allocated);
+		
 		for (uint i = 0; i < needPages; i++) {
 			auto p = runID + i;
 			auto d = pages[p];
@@ -404,8 +413,8 @@ struct Header {
 	Extent extent;
 	alias extent this;
 	
-	void** worklist;
-	size_t* bitmap;
+	uint[] bitmap;
+	const(void)*[] worklist;
 }
 
 enum DataPages = computeDataPages();
