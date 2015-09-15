@@ -548,7 +548,7 @@ struct ChunkSet {
 	
 	// Metadatas for the chunk set.
 	ubyte lgChunkSetSize;
-	ubyte chunkMaxProbe;
+	ubyte maxProbe;
 	
 	@property
 	Arena* arena() {
@@ -559,6 +559,9 @@ struct ChunkSet {
 	
 	import d.gc.chunk;
 	bool register(Chunk* c) {
+		// FIXME: in contract
+		assert(!test(c));
+		
 		// We resize if the set is 7/8 full.
 		auto limitSize = (7UL << lgChunkSetSize) / 8;
 		if (limitSize <= chunkCount) {
@@ -570,23 +573,72 @@ struct ChunkSet {
 		chunkCount++;
 		insert(c);
 		
+		// FIXME: out contract
+		assert(test(c));
 		return false;
 	}
 	
-	void insert(Chunk* c) {
-		auto setSize = 1 << lgChunkSetSize;
-		auto setMask = setSize - 1;
+	/**
+	 * GC facilities
+	 */
+	bool test(Chunk* c) {
+		// FIXME: in contract
+		assert(c !is null);
 		
 		import d.gc.spec;
 		auto k = (cast(size_t) c) >> LgChunkSize;
-		auto p = (cast(uint) k) & setMask;
+		auto mask = (1 << lgChunkSetSize) - 1;
+		
+		foreach(i; 0 .. maxProbe) {
+			if (c is chunks[(k + i) & mask]) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	ChunkSet clone() {
+		auto oldLgChunkSetSize = lgChunkSetSize;
+		auto buf = cast(Chunk**) arena.alloc(1UL << lgChunkSetSize);
+		
+		// We may have created a new chunk to allocate the buffer.
+		while (lgChunkSetSize != oldLgChunkSetSize) {
+			// If don't think this can run more than once,
+			// but better safe than sorry.
+			oldLgChunkSetSize = lgChunkSetSize;
+			buf = cast(Chunk**) arena.realloc(buf, 1UL << lgChunkSetSize);
+		}
+		
+		// memcpy(buf, chunks, (1UL << lgChunkSetSize) * Chunk*.sizeof);
+		memcpy(buf, chunks, (1UL << lgChunkSetSize) * size_t.sizeof);
+		
+		ChunkSet clone;
+		clone.chunks = buf;
+		clone.chunkCount = chunkCount;
+		clone.lgChunkSetSize = lgChunkSetSize;
+		clone.maxProbe = maxProbe;
+		
+		return clone;
+	}
+	
+private:
+	/**
+	 * Internal facilities
+	 */
+	void insert(Chunk* c) {
+		auto mask = (1 << lgChunkSetSize) - 1;
+		
+		import d.gc.spec;
+		auto k = (cast(size_t) c) >> LgChunkSize;
+		auto p = (cast(uint) k) & mask;
 		
 		auto i = p;
 		ubyte d = 0;
 		while(chunks[i] !is null) {
 			auto ce = chunks[i];
 			auto ke = (cast(size_t) ce) >> LgChunkSize;
-			auto pe = (cast(uint) ke) & setMask;
+			auto pe = (cast(uint) ke) & mask;
 			
 			// Robin hood hashing.
 			if (d > (i - pe)) {
@@ -595,18 +647,18 @@ struct ChunkSet {
 				k = ke;
 				p = pe;
 				
-				if (d > chunkMaxProbe) {
-					chunkMaxProbe = d;
+				if (d >= maxProbe) {
+					maxProbe = cast(ubyte) (d + 1);
 				}
 			}
 			
-			i = ((i + 1) & setMask);
+			i = ((i + 1) & mask);
 			d = cast(ubyte) (i - p);
 		}
 		
 		chunks[i] = c;
-		if (d > chunkMaxProbe) {
-			chunkMaxProbe = d;
+		if (d >= maxProbe) {
+			maxProbe = cast(ubyte) (d + 1);
 		}
 	}
 	
@@ -626,7 +678,7 @@ struct ChunkSet {
 			return true;
 		}
 		
-		chunkMaxProbe = 0;
+		maxProbe = 0;
 		chunks = newChunks;
 		auto rem = chunkCount;
 		

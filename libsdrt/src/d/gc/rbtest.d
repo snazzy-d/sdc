@@ -55,3 +55,5 @@ ulong prand_next(ulong prev) {
 	return (prev * 31415821 + 1) % 100_000_000;
 }
 
+private:
+extern(C) void* malloc(size_t);
