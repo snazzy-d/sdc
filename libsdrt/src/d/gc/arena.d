@@ -339,10 +339,10 @@ private:
 		run.small.free(index);
 		
 		auto freeSlots = run.small.freeSlots;
-		if (freeSlots == binInfo.freeSlots) {
+		if (freeSlots == binInfo.slots) {
 			if (run is bins[binID].current) {
 				bins[binID].current = null;
-			} else if (binInfo.freeSlots > 1) {
+			} else if (binInfo.slots > 1) {
 				// When we only have one slot in the run,
 				// it is never added to the tree.
 				bins[binID].runTree.remove(run);

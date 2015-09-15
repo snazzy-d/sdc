@@ -13,12 +13,12 @@ struct Bin {
 struct BinInfo {
 	ushort size;
 	ubyte needPages;
-	ushort freeSlots;
+	ushort slots;
 	
-	this(ushort size, ubyte needPages, ushort freeSlots) {
+	this(ushort size, ubyte needPages, ushort slots) {
 		this.size = size;
 		this.needPages = needPages;
-		this.freeSlots = freeSlots;
+		this.slots = slots;
 	}
 }
 

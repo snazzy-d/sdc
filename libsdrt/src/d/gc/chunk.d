@@ -242,9 +242,9 @@ struct Chunk {
 		));
 		
 		runs[runID].misc.small.binID = binID;
-		runs[runID].misc.small.freeSlots = binInfo.freeSlots;
+		runs[runID].misc.small.freeSlots = binInfo.slots;
 		
-		auto bits = binInfo.freeSlots / 32;
+		auto bits = binInfo.slots / 32;
 		runs[runID].misc.small.header = cast(ushort) ((1 << bits) - 1);
 		for (uint i = 0; i < bits; i++) {
 			runs[runID].misc.small.bitmap[i] = -1;

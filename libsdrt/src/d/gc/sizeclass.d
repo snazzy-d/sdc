@@ -145,10 +145,10 @@ void binInfoComputer(
 	auto needPages = npLookup[(size >> shift) % 4];
 	
 	uint p = needPages;
-	auto freeSlots = cast(ushort) ((p << LgPageSize) / s);
+	auto slots = cast(ushort) ((p << LgPageSize) / s);
 	
 	assert(id < ClassCount.Small);
-	bins[id] = BinInfo(size, needPages, freeSlots);
+	bins[id] = BinInfo(size, needPages, slots);
 }
 
 // 64 bits tiny, 128 bits quantum.
@@ -279,11 +279,11 @@ void main() {
 	foreach(i; 0 .. ClassCount.Small) {
 		auto b = bins[i];
 		printf(
-			"id: %d\tsize: %hd\tneedPages: %hhd\tfreeSlots: %hd\n".ptr,
+			"id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n".ptr,
 			i,
 			b.size,
 			b.needPages,
-			b.freeSlots,
+			b.slots,
 		);
 	}
 	
