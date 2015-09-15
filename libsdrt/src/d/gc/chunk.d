@@ -218,6 +218,31 @@ struct Chunk {
 		pages_unmap(&this, ChunkSize);
 	}
 	
+	uint getPageID(const void* ptr) {
+		// FIXME: in contract
+		assert(findChunk(ptr) is &this);
+		
+		auto offset = (cast(uint) ptr) - (cast(uint) &datas[0]);
+		
+		import d.gc.spec;
+		return offset >> LgPageSize;
+	}
+	
+	uint getRunID(const void* ptr) {
+		// FIXME: in contract
+		assert(findChunk(ptr) is &this);
+		
+		auto pageID = getPageID(ptr);
+		auto pd = pages[pageID];
+		assert(pd.allocated);
+		
+		auto runID = pageID - pd.offset;
+		
+		// FIXME: out contract
+		assert(pages[runID].allocated);
+		return runID;
+	}
+	
 	uint splitSmallRun(uint runID, ubyte binID) {
 		// XXX: in contract.
 		import d.gc.bin, d.gc.sizeclass;
@@ -356,6 +381,20 @@ private:
 		
 		return runID + needPages;
 	}
+}
+
+Chunk* findChunk(const void* ptr) {
+	import d.gc.spec;
+	auto c = cast(Chunk*) ((cast(size_t) ptr) & ~AlignMask);
+	
+	// XXX: type promotion is fucked.
+	auto vc = cast(void*) c;
+	if (vc is ptr) {
+		// Huge alloc, no arena.
+		return null;
+	}
+	
+	return c;
 }
 
 private:

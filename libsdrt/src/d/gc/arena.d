@@ -74,6 +74,9 @@ struct Arena {
 	void free(void* ptr) {
 		auto c = findChunk(ptr);
 		if (c !is null) {
+			// This is not a huge alloc, assert we own the arena.
+			assert(c.header.arena is &this);
+			
 			freeInChunk(ptr, c);
 		} else {
 			freeHuge(ptr);
@@ -97,7 +100,9 @@ struct Arena {
 		
 		auto c = findChunk(ptr);
 		if (c !is null) {
-			oldBinID = c.pages[findRunID(ptr, c)].binID;
+			// This is not a huge alloc, assert we own the arena.
+			assert(c.header.arena is &this);
+			oldBinID = c.pages[c.getRunID(ptr)].binID;
 		} else {
 			oldBinID = getBinID(findHugeExtent(ptr).size);
 		}
@@ -111,53 +116,17 @@ struct Arena {
 			return null;
 		}
 		
-		if (newBinID > oldBinID) {
-			memcpy(newPtr, ptr, getSizeFromBinID(oldBinID));
-		} else {
-			memcpy(newPtr, ptr, size);
-		}
+		auto cpySize = (newBinID > oldBinID)
+			? getSizeFromBinID(oldBinID)
+			: size;
+		
+		memcpy(newPtr, ptr, cpySize);
 		
 		free(ptr);
 		return newPtr;
 	}
 	
 private:
-	Chunk* findChunk(void* ptr) {
-		import d.gc.spec;
-		// TODO: in contracts
-		auto c = cast(Chunk*) ((cast(size_t) ptr) & ~AlignMask);
-		
-		// XXX: type promotion is fucked.
-		auto vc = cast(void*) c;
-		if (vc is ptr) {
-			// Huge alloc, no arena.
-			return null;
-		}
-		
-		// This is not a huge alloc, assert we own the arena.
-		assert(c.header.arena is &this);
-		return c;
-	}
-	
-	uint findRunID(void* ptr, Chunk* c) {
-		// TODO: in contracts
-		assert(findChunk(ptr) is c);
-		
-		auto offset = (cast(uint) ptr) - (cast(uint) &c.datas[0]);
-		
-		import d.gc.spec;
-		auto runID = offset >> LgPageSize;
-		auto pd = c.pages[runID];
-		assert(pd.allocated);
-		
-		runID -= pd.offset;
-		
-		pd = c.pages[runID];
-		assert(pd.allocated);
-		
-		return runID;
-	}
-	
 	/**
 	 * Small allocation facilities.
 	 */
@@ -316,7 +285,7 @@ private:
 	 * Free in chunk.
 	 */
 	void freeInChunk(void* ptr, Chunk* c) {
-		auto runID = findRunID(ptr, c);
+		auto runID = c.getRunID(ptr);
 		auto pd = c.pages[runID];
 		assert(pd.allocated);
 		
