@@ -45,9 +45,6 @@ addons:
       - libedit-dev
 
 script:
-  # Temproary workaround for 
-  # https://issues.dlang.org/show_bug.cgi?id=14897
-  - ln -s ${LD_PATH}/libphobos2.so ${LD_PATH}/libphobos2.so.0.68
   - make bin/sdc > build_sdc.log 2>&1
   - make lib/libsdrt.a > build_libsdrt.log 2>&1
   - make test
