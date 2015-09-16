@@ -401,7 +401,7 @@ struct Chunk {
 					size = binInfos[pd.binID].size;
 					auto offset = (cast(uint) ptr) - (cast(uint) base);
 					auto index = offset / size;
-					base = base + size * index;
+					base = cast(const(void*)*) ((cast(void*) base) + size * index);
 				} else {
 					import d.gc.sizeclass;
 					size = getSizeFromBinID(pd.binID);
