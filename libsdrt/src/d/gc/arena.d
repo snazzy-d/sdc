@@ -537,7 +537,7 @@ private:
 		}
 		
 		// Scan the roots !
-		_sdgc_push_registers(scanStack);
+		__sdgc_push_registers(scanStack);
 		foreach(range; roots) {
 			scan(range);
 		}
@@ -767,4 +767,10 @@ private:
 }
 
 extern(C):
-bool _sdgc_push_registers(bool delegate());
+version(OSX) {
+	// For some reason OSX's symbol get a _ prepended.
+	bool _sdgc_push_registers(bool delegate());
+	alias __sdgc_push_registers = _sdgc_push_registers;
+} else {
+	bool __sdgc_push_registers(bool delegate());
+}
