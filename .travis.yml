@@ -31,6 +31,7 @@ addons:
       - llvm-toolchain-precise
       - llvm-toolchain-precise-3.6
     packages:
+      - nasm
       # See here for packages:
       # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.6/
       # Travis by default does not install dependencies, they must
