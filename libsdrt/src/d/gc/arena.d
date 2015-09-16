@@ -21,6 +21,10 @@ extern(C) void _tl_gc_add_roots(const void[] range) {
 	tl.addRoots(range);
 }
 
+extern(C) void _tl_gc_collect() {
+	tl.collect();
+}
+
 Arena tl;
 
 struct Arena {
@@ -519,6 +523,75 @@ private:
 		// Update the range.
 		roots = roots.ptr[0 .. roots.length + 1];
 	}
+	
+	void collect() {
+		// TODO: The set need a range interface or some other way to iterrate.
+		auto chunks = chunkSet.cloneChunks();
+		
+		foreach(c; chunks) {
+			if (c is null) {
+				continue;
+			}
+			
+			c.prepare();
+		}
+		
+		// Scan the roots !
+		_sdgc_push_registers(scanStack);
+		foreach(range; roots) {
+			scan(range);
+		}
+		
+		auto needRescan = true;
+		while(needRescan) {
+			needRescan = false;
+			foreach(c; chunks) {
+				if (c is null) {
+					continue;
+				}
+				
+				needRescan = c.scan() || needRescan;
+			}
+		}
+		
+		foreach(c; chunks) {
+			if (c is null) {
+				continue;
+			}
+			
+			c.collect();
+		}
+	}
+
+	bool scanStack() {
+		const(void*) p;
+
+		auto iptr = cast(size_t) &p;
+		auto iend = cast(size_t) stackBottom;
+		auto length = (iend - iptr) / size_t.sizeof;
+
+		auto range = (&p)[1 .. length];
+		return scan(range);
+	}
+	
+	bool scan(const(void*)[] range) {
+		bool newPtr;
+		foreach(ptr; range) {
+			auto iptr = cast(size_t) ptr;
+			
+			import d.gc.spec;
+			auto c = findChunk(ptr);
+			if (c is null) {
+				continue;
+			}
+
+			if (chunkSet.test(c)) {
+				newPtr = c.mark(ptr) || newPtr;
+			}
+		}
+		
+		return newPtr;
+	}
 }
 
 private:
@@ -598,28 +671,22 @@ struct ChunkSet {
 		return false;
 	}
 	
-	ChunkSet clone() {
+	Chunk*[] cloneChunks() {
 		auto oldLgChunkSetSize = lgChunkSetSize;
-		auto buf = cast(Chunk**) arena.alloc(1UL << lgChunkSetSize);
+		auto allocSize = size_t.sizeof << lgChunkSetSize;
+		auto buf = cast(Chunk**) arena.alloc(allocSize);
 		
 		// We may have created a new chunk to allocate the buffer.
 		while (lgChunkSetSize != oldLgChunkSetSize) {
 			// If don't think this can run more than once,
 			// but better safe than sorry.
 			oldLgChunkSetSize = lgChunkSetSize;
-			buf = cast(Chunk**) arena.realloc(buf, 1UL << lgChunkSetSize);
+			allocSize = size_t.sizeof << lgChunkSetSize;
+			buf = cast(Chunk**) arena.realloc(buf, allocSize);
 		}
 		
-		// memcpy(buf, chunks, (1UL << lgChunkSetSize) * Chunk*.sizeof);
-		memcpy(buf, chunks, (1UL << lgChunkSetSize) * size_t.sizeof);
-		
-		ChunkSet clone;
-		clone.chunks = buf;
-		clone.chunkCount = chunkCount;
-		clone.lgChunkSetSize = lgChunkSetSize;
-		clone.maxProbe = maxProbe;
-		
-		return clone;
+		memcpy(buf, chunks, allocSize);
+		return buf[0 .. 1UL << lgChunkSetSize];
 	}
 	
 private:
@@ -700,4 +767,4 @@ private:
 }
 
 extern(C):
-size_t _sdgc_push_registers(size_t delegate());
+bool _sdgc_push_registers(bool delegate());

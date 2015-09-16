@@ -168,6 +168,7 @@ struct Chunk {
 		}
 		
 		auto c = cast(Chunk*) ret;
+		assert(findChunk(c) is null);
 		
 		// XXX: ensure I didn't fucked up the layout.
 		// this better belong to static assert when available.
@@ -187,8 +188,12 @@ struct Chunk {
 		c.size	= ChunkSize;
 		
 		// FIXME: empty array not supported.
-		// c.worklist	= [];
-		// c.bitmap	= [];
+		// c.worklist = [];
+		c.worklist.ptr = null;
+		c.worklist.length = 0;
+		// c.bitmap = [];
+		c.bitmap.ptr = null;
+		c.bitmap.length = 0;
 		
 		import d.gc.sizeclass;
 		enum DataSize = DataPages << LgPageSize;
@@ -247,6 +252,151 @@ struct Chunk {
 	}
 	
 	/**
+	 * GC facilities.
+	 */
+	void prepare() {
+		ushort nextBitmapIndex = ((DataPages - 1) / (uint.sizeof * 8)) + 1;
+		uint i = 0;
+		while (i < DataPages) {
+			if (pages[i].free) {
+				auto runID = i;
+				i += pages[i].pages;
+				
+				assert(pages[i - 1].free);
+				assert(pages[i - 1].pages == pages[runID].pages);
+				
+				continue;
+			}
+			
+			auto binID = pages[i].binID;
+			if (pages[i].large) {
+				import d.gc.sizeclass;
+				i += cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+				continue;
+			}
+			
+			// For small runs, we make sure we reserve some place in the chunk's bitmap.
+			assert(pages[i].offset == 0);
+			assert(runs[i].small.bitmapIndex == 0);
+			runs[i].small.bitmapIndex = nextBitmapIndex;
+			
+			import d.gc.bin;
+			i += binInfos[binID].needPages;
+			
+			auto slots = binInfos[binID].slots;
+			nextBitmapIndex += cast(ushort) (((slots - 1) / (uint.sizeof * 8)) + 1);
+		}
+		
+		// FIXME: It seems that there are some issue with alias this.
+		auto bitmapPtr = cast(uint*) header.arena.calloc(nextBitmapIndex * uint.sizeof);
+		header.bitmap = bitmapPtr[0 .. nextBitmapIndex];
+	}
+	
+	bool mark(const void* ptr) {
+		assert(findChunk(ptr) is &this);
+		
+		auto pageID = getPageID(ptr);
+		if (pageID >= DataPages) {
+			return false;
+		}
+		
+		auto pd = pages[pageID];
+		if (pd.free) {
+			return false;
+		}
+		
+		// Find the start of the run.
+		auto runID = pageID - pd.offset;
+		pd = pages[runID];
+		if (pd.free) {
+			return false;
+		}
+		
+		auto bitmapPtr = header.bitmap.ptr;
+		auto index = runID;
+		if (pd.small) {
+			// This run has been alocated after the start of the collection.
+			// We just consider it alive, no need to check for it.
+			auto bitmapIndex = runs[runID].small.bitmapIndex;
+			if (bitmapIndex == 0) {
+				return false;
+			}
+			
+			bitmapPtr = &bitmapPtr[bitmapIndex];
+			
+			// This is duplicated with Arena.freeSmall, need refactoring.
+			auto offset = (cast(uint) ptr) - (cast(uint) &datas[runID]);
+			
+			import d.gc.bin;
+			index = offset / binInfos[pd.binID].size;
+		}
+		
+		// Already marked
+		auto elementBitmap = bitmapPtr[index / 32];
+		auto mask = 1 << (index % 32);
+		if (elementBitmap & mask) {
+			return false;
+		}
+		
+		// Mark and add to worklist
+		bitmapPtr[index / 32] = elementBitmap | mask;
+		
+		auto workLength = header.worklist.length + 1;
+		
+		// We realloc everytime. It doesn't really matter at this point.
+		auto workPtr = cast(const(void)**) header.arena.realloc(header.worklist.ptr, workLength * void*.sizeof);
+		
+		workPtr[workLength - 1] = cast(void*) 0xdeadbeef;
+		header.worklist = workPtr[0 .. workLength];
+		
+		return true;
+	}
+	
+	bool scan() {
+		return false;
+	}
+	
+	void collect() {
+		uint i = 0;
+		while (i < DataPages) {
+			if (pages[i].free) {
+				auto runID = i;
+				i += pages[i].pages;
+				
+				assert(pages[i - 1].free);
+				assert(pages[i - 1].pages == pages[runID].pages);
+				
+				continue;
+			}
+			
+			auto binID = pages[i].binID;
+			if (pages[i].large) {
+				import d.gc.sizeclass;
+				i += cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+				continue;
+			}
+			
+			assert(pages[i].offset == 0);
+			runs[i].small.bitmapIndex == 0;
+			
+			import d.gc.bin;
+			i += binInfos[binID].needPages;
+		}
+		
+		// FIXME: It seems that there are some issue with alias this.
+		header.arena.free(header.bitmap.ptr);
+		header.arena.free(header.worklist.ptr);
+		
+		// FIXME: empty array not supported.
+		// header.bitmap = [];
+		header.worklist.ptr = null;
+		header.worklist.length = 0;
+		// bitmap = [];
+		header.bitmap.ptr = null;
+		header.bitmap.length = 0;
+	}
+	
+	/**
 	 * Split run from free space.
 	 */
 	uint splitSmallRun(uint runID, ubyte binID) {
@@ -275,9 +425,16 @@ struct Chunk {
 		runs[runID].small.binID = binID;
 		runs[runID].small.freeSlots = binInfo.slots;
 		
-		auto bits = binInfo.slots / 32;
-		runs[runID].small.header = cast(ushort) ((1 << bits) - 1);
-		for (uint i = 0; i < bits; i++) {
+		// During the collection process, other runs may be created,
+		// they are considered live and will be scanned during the next
+		// collection cycle.
+		runs[runID].small.bitmapIndex = 0;
+		
+		auto headerBits = binInfo.slots / 32;
+		if (!headerBits) headerBits = 1;
+		
+		runs[runID].small.header = cast(ushort) ((1 << headerBits) - 1);
+		for (uint i = 0; i < headerBits; i++) {
 			runs[runID].small.bitmap[i] = -1;
 		}
 		

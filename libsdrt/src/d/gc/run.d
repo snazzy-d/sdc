@@ -42,7 +42,12 @@ struct RunDesc {
 	@property
 	uint runID() {
 		auto offset = (cast(uint) &this) - (cast(uint) &chunk.runs[0]);
-		return offset / RunDesc.sizeof;
+		uint r = offset / RunDesc.sizeof;
+		
+		// FIXME: out contract
+		import d.gc.chunk;
+		assert(r < DataPages);
+		return r;
 	}
 }
 
@@ -90,6 +95,8 @@ struct DirtyRunMisc {
 struct SmallRunMisc {
 	ubyte binID;
 	ushort freeSlots;
+	
+	ushort bitmapIndex;
 	
 	ushort header;
 	uint[16] bitmap;

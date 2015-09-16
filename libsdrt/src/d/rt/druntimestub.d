@@ -22,4 +22,3 @@ void _d_arraybounds(string file, int line) {
 	printf("bound check fail: %s:%d\n".ptr, file.ptr, line);
 	exit(1);
 }
-

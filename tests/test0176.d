@@ -21,6 +21,7 @@ L[S / 128] ls;
 extern(C) void _tl_gc_free(void* ptr);
 extern(C) void* _tl_gc_alloc(size_t size);
 extern(C) void* _tl_gc_realloc(void* ptr, size_t size);
+extern(C) void _tl_gc_collect();
 
 void main() {
 	foreach(i; 0 .. S) {
@@ -113,5 +114,6 @@ void main() {
 	
 	r1 = _tl_gc_realloc(r0, 35 * 1024 * 1024);
 	assert(r1 is r0);
-}
 
+	_tl_gc_collect();
+}
