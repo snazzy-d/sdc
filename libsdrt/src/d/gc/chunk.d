@@ -251,6 +251,30 @@ struct Chunk {
 		return runID;
 	}
 	
+	uint maybeGetRunID(const void* ptr) {
+		// FIXME: in contract
+		assert(findChunk(ptr) is &this);
+		
+		auto pageID = getPageID(ptr);
+		if (pageID >= DataPages) {
+			return -1;
+		}
+		
+		auto pd = pages[pageID];
+		if (pd.free) {
+			return -1;
+		}
+		
+		// Find the start of the run.
+		auto runID = pageID - pd.offset;
+		pd = pages[runID];
+		if (pd.free) {
+			return -1;
+		}
+		
+		return runID;
+	}
+	
 	/**
 	 * GC facilities.
 	 */
@@ -295,29 +319,20 @@ struct Chunk {
 	bool mark(const void* ptr) {
 		assert(findChunk(ptr) is &this);
 		
-		auto pageID = getPageID(ptr);
-		if (pageID >= DataPages) {
+		auto runID = maybeGetRunID(ptr);
+		if (runID == -1) {
 			return false;
 		}
 		
-		auto pd = pages[pageID];
-		if (pd.free) {
-			return false;
-		}
-		
-		// Find the start of the run.
-		auto runID = pageID - pd.offset;
-		pd = pages[runID];
-		if (pd.free) {
-			return false;
-		}
-		
+		auto pd = pages[runID];
 		auto bitmapPtr = header.bitmap.ptr;
 		auto index = runID;
 		if (pd.small) {
+			auto smallRun = &runs[runID].small;
+			
 			// This run has been alocated after the start of the collection.
 			// We just consider it alive, no need to check for it.
-			auto bitmapIndex = runs[runID].small.bitmapIndex;
+			auto bitmapIndex = smallRun.bitmapIndex;
 			if (bitmapIndex == 0) {
 				return false;
 			}
@@ -329,6 +344,9 @@ struct Chunk {
 			
 			import d.gc.bin;
 			index = offset / binInfos[pd.binID].size;
+			if (smallRun.isFree(index)) {
+				return false;
+			}
 		}
 		
 		// Already marked
@@ -346,14 +364,55 @@ struct Chunk {
 		// We realloc everytime. It doesn't really matter at this point.
 		auto workPtr = cast(const(void)**) header.arena.realloc(header.worklist.ptr, workLength * void*.sizeof);
 		
-		workPtr[workLength - 1] = cast(void*) 0xdeadbeef;
+		workPtr[workLength - 1] = ptr;
 		header.worklist = workPtr[0 .. workLength];
 		
 		return true;
 	}
 	
 	bool scan() {
-		return false;
+		auto newPtr = false;
+		
+		while (header.worklist.length > 0) {
+			auto ptrs = header.worklist;
+			// header.bitmap = [];
+			header.worklist.ptr = null;
+			header.worklist.length = 0;
+			
+			foreach(ptr; ptrs) {
+				assert(findChunk(ptr) is &this);
+				
+				auto runID = maybeGetRunID(ptr);
+				if (runID == -1) {
+					continue;
+				}
+				
+				auto pd = pages[runID];
+				assert(pd.allocated);
+				assert(pd.offset == 0);
+				
+				auto base = cast(const(void*)*) &datas[runID];
+				
+				const(void*)[] range;
+				size_t size;
+				
+				if (pd.small) {
+					import d.gc.bin;
+					size = binInfos[pd.binID].size;
+					auto offset = (cast(uint) ptr) - (cast(uint) base);
+					auto index = offset / size;
+					base = base + size * index;
+				} else {
+					import d.gc.sizeclass;
+					size = getSizeFromBinID(pd.binID);
+				}
+				
+				range = base[0 .. size / size_t.sizeof];
+				newPtr = header.arena.scan(range) || newPtr;
+			}
+		}
+		
+		return newPtr;
 	}
 	
 	void collect() {

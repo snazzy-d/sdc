@@ -562,14 +562,14 @@ private:
 			c.collect();
 		}
 	}
-
+	
 	bool scanStack() {
 		const(void*) p;
-
+		
 		auto iptr = cast(size_t) &p;
 		auto iend = cast(size_t) stackBottom;
 		auto length = (iend - iptr) / size_t.sizeof;
-
+		
 		auto range = (&p)[1 .. length];
 		return scan(range);
 	}
@@ -584,7 +584,7 @@ private:
 			if (c is null) {
 				continue;
 			}
-
+			
 			if (chunkSet.test(c)) {
 				newPtr = c.mark(ptr) || newPtr;
 			}
