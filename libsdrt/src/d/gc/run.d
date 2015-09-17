@@ -127,6 +127,18 @@ struct SmallRunMisc {
 					header ^= cast(ushort) (1 << hindex);
 				}
 				
+				// If we are GCing, mark the new allocation as live.
+				if (bitmapIndex != 0) {
+					import d.gc.chunk, d.gc.spec;
+					auto chunk = cast(Chunk*) ((cast(size_t) &this) & ~AlignMask);
+					
+					assert(chunk.header.bitmap !is null);
+					auto bPtr = chunk.header.bitmap + bitmapIndex + hindex;
+					
+					// This is live, don't collect it !
+					*bPtr = *bPtr | (1 << bindex);
+				}
+				
 				freeSlots--;
 				return hindex * 32 + bindex;
 			}
@@ -164,4 +176,3 @@ struct SmallRunMisc {
 		bitmap[hindex] |= (1 << bindex);
 	}
 }
-

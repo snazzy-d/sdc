@@ -15,6 +15,7 @@ alias Interface = d.ir.symbol.Interface;
 Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
 	return TypePromoter(pass, location, t1).visit(t2);
 }
+
 // XXX: type promotion and finding common type are mixed up in there.
 // This need to be splitted.
 struct TypePromoter {
@@ -166,7 +167,7 @@ struct TypePromoter {
 	
 	import d.context.name;
 	Type visitError(Location location, Name name) {
-		assert(0, "Not implemented.");
+		return Type.getError(location, name);
 	}
 }
 

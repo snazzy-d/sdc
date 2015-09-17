@@ -183,17 +183,15 @@ struct Chunk {
 			assert(di == ci + MetaPages * PageSize);
 		}
 
-		c.arena	= a;
-		c.addr	= c;
-		c.size	= ChunkSize;
+		c.arena	 = a;
+		c.addr   = c;
+		c.size   = ChunkSize;
+		c.bitmap = null;
 		
 		// FIXME: empty array not supported.
 		// c.worklist = [];
 		c.worklist.ptr = null;
 		c.worklist.length = 0;
-		// c.bitmap = [];
-		c.bitmap.ptr = null;
-		c.bitmap.length = 0;
 		
 		import d.gc.sizeclass;
 		enum DataSize = DataPages << LgPageSize;
@@ -312,8 +310,7 @@ struct Chunk {
 		}
 		
 		// FIXME: It seems that there are some issue with alias this.
-		auto bitmapPtr = cast(uint*) header.arena.calloc(nextBitmapIndex * uint.sizeof);
-		header.bitmap = bitmapPtr[0 .. nextBitmapIndex];
+		header.bitmap = cast(uint*) header.arena.calloc(nextBitmapIndex * uint.sizeof);
 	}
 	
 	bool mark(const void* ptr) {
@@ -325,7 +322,7 @@ struct Chunk {
 		}
 		
 		auto pd = pages[runID];
-		auto bitmapPtr = header.bitmap.ptr;
+		auto bitmapPtr = header.bitmap;
 		auto index = runID;
 		if (pd.small) {
 			auto smallRun = &runs[runID].small;
@@ -375,7 +372,7 @@ struct Chunk {
 		
 		while (header.worklist.length > 0) {
 			auto ptrs = header.worklist;
-			// header.bitmap = [];
+			// header.worklist = [];
 			header.worklist.ptr = null;
 			header.worklist.length = 0;
 			
@@ -443,16 +440,15 @@ struct Chunk {
 		}
 		
 		// FIXME: It seems that there are some issue with alias this.
-		header.arena.free(header.bitmap.ptr);
+		header.arena.free(header.bitmap);
 		header.arena.free(header.worklist.ptr);
 		
+		header.bitmap = null;
+		
 		// FIXME: empty array not supported.
-		// header.bitmap = [];
+		// header.worklist = [];
 		header.worklist.ptr = null;
 		header.worklist.length = 0;
-		// bitmap = [];
-		header.bitmap.ptr = null;
-		header.bitmap.length = 0;
 	}
 	
 	/**
@@ -508,6 +504,13 @@ struct Chunk {
 		assert(pages[runID].free);
 		assert(size == getAllocSize(size));
 		assert(getBinID(size) == binID);
+		
+		// If we are GCing, mark the new allocation as live.
+		auto bPtr = header.bitmap;
+		if (bPtr !is null) {
+			bPtr = &bPtr[runID / 32];
+			*bPtr = *bPtr | (1 << (runID % 32));
+		}
 		
 		auto needPages = cast(uint) (size >> LgPageSize);
 		auto rem = runSplitRemove(runID, needPages);
@@ -629,7 +632,7 @@ struct Header {
 	Extent extent;
 	alias extent this;
 	
-	uint[] bitmap;
+	uint* bitmap;
 	const(void)*[] worklist;
 }
 
