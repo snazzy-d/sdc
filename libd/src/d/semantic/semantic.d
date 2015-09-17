@@ -136,11 +136,9 @@ final class SemanticPass {
 	T raiseCondition(T)(Location location, string message) {
 		if (buildErrorNode) {
 			static if(is(T == Type)) {
-				// FIXME: newtype
-				// return QualType(new ErrorType(location, message));
-				throw new CompileException(location, message);
+				return Type.getError(location, context.getName(message));
 			} else static if(is(T == Expression) || is(T == CompileTimeExpression)) {
-				return new ErrorExpression(location, message);
+				return new ErrorExpression(location, context.getName(message));
 			} else static if(is(T == Symbol)) {
 				return new ErrorSymbol(location, message);
 			} else {

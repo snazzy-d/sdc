@@ -360,4 +360,9 @@ struct JitRepacker {
 	CompileTimeExpression visit(TypeTemplateParameter p) {
 		assert(0, "Not implemented.");
 	}
+	
+	import d.context.name;
+	CompileTimeExpression visitError(Location location, Name name) {
+		assert(0, "Not implemented.");
+	}
 }

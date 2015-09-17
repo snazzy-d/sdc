@@ -461,7 +461,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			static if (is(T : Symbol)) {
 				// XXX: I'd like to have a more elegant way to retrive this.
 				return visit(identified);
-			} else if (is(T : Expression)) {
+			} else static if (is(T : Expression)) {
 				// sizeof, init and other goodies.
 				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, expr, identified));
 			} else {
@@ -773,6 +773,10 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(TypeTemplateParameter t) {
 		assert(0, "Can't resolve identifier on template type.");
+	}
+	
+	Ret visitError(Location location, Name name) {
+		return handler(Type.getError(location, name));
 	}
 }
 

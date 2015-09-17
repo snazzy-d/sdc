@@ -196,6 +196,11 @@ struct TypeMangler {
 	string visit(TypeTemplateParameter p) {
 		assert(0, "Can't mangle template type.");
 	}
+	
+	import d.context.location, d.context.name;
+	string visitError(Location location, Name name) {
+		assert(0, "Can't mangle error type.");
+	}
 }
 
 struct ValueMangler {

@@ -578,5 +578,10 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	CastKind visit(TypeTemplateParameter p) {
 		assert(0, "Not implemented.");
 	}
+	
+	import d.context.name;
+	CastKind visitError(Location location, Name name) {
+		return CastKind.Invalid;
+	}
 }
 

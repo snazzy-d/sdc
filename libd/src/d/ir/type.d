@@ -6,6 +6,7 @@ public import d.common.builtintype;
 public import d.common.qualifier;
 
 import d.context.name;
+import d.context.location;
 import d.common.type;
 
 // Conflict with Interface in object.di
@@ -38,6 +39,9 @@ enum TypeKind : ubyte {
 	
 	// Template type
 	Template,
+	
+	// Error
+	Error,
 }
 
 struct Type {
@@ -56,6 +60,10 @@ private:
 	
 	this(Desc d, inout Type* t) inout {
 		this(d, fastCast!(inout Payload)(t));
+	}
+	
+	this(Desc d, inout Location l) inout {
+		this(d, fastCast!(inout Payload)(l));
 	}
 	
 	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
@@ -106,6 +114,9 @@ private:
 			
 			case Template :
 				return t.visit(dtemplate);
+			
+			case Error :
+				return t.visitError(location, name);
 		}
 	}
 	
@@ -244,6 +255,22 @@ public:
 		assert(kind == TypeKind.Template);
 	} body {
 		return payload.dtemplate;
+	}
+	
+	@property
+	auto location() inout in {
+		assert(kind == TypeKind.Error);
+	} body {
+		return payload.location;
+	}
+	
+	@property
+	auto name() inout in {
+		assert(kind == TypeKind.Error);
+	} body {
+		assert(desc.data <= uint.max);
+		auto rawname = cast(uint) desc.data;
+		return *(cast(Name*) &rawname);
 	}
 	
 	Type getPointer(TypeQualifier q = TypeQualifier.Mutable) {
@@ -387,6 +414,9 @@ public:
 			
 			case Template :
 				return dtemplate.name.toString(nm);
+			
+			case Error :
+				return "__error__(" ~ name.toString(nm) ~ ")";
 		}
 	}
 	
@@ -430,6 +460,11 @@ static:
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
 		return Type(Desc(TypeKind.Context, q), f);
+	}
+	
+	Type getError(Location location, Name message, TypeQualifier q = TypeQualifier.Mutable) {
+		static assert(Name.sizeof == uint.sizeof);
+		return Type(Desc(TypeKind.Error, q, *(cast(uint*) &message)), location);
 	}
 }
 
@@ -625,6 +660,9 @@ union Payload {
 	
 	// For template instanciation.
 	TypeTemplateParameter dtemplate;
+	
+	// Location are useful for errors.
+	Location location;
 	
 	// For simple construction
 	Symbol sym;

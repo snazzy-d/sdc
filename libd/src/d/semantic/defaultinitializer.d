@@ -214,5 +214,10 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(TypeTemplateParameter p) {
 		assert(0, "Template type have no initializer.");
 	}
+	
+	import d.context.name;
+	E visitError(Location location, Name msg) {
+		return new ErrorExpression(location, msg);
+	}
 }
 

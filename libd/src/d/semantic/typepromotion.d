@@ -163,6 +163,11 @@ struct TypePromoter {
 	Type visit(TypeTemplateParameter p) {
 		assert(0, "Not implemented.");
 	}
+	
+	import d.context.name;
+	Type visitError(Location location, Name name) {
+		assert(0, "Not implemented.");
+	}
 }
 
 private:

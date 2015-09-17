@@ -46,16 +46,16 @@ final:
  * Useful for speculative compilation.
  */
 class ErrorExpression : CompileTimeExpression {
-	string message;
-	
-	this(Location location, string message) {
-		super(location, Type.get(BuiltinType.None));
-		
-		this.message = message;
+	this(Location location, Name message) {
+		super(location, Type.getError(location, message));
 	}
 	
-	override string toString(const ref NameManager) const {
-		return "__error__(" ~ message ~ ")";
+	invariant() {
+		assert(type.kind == TypeKind.Error);
+	}
+	
+	override string toString(const ref NameManager nm) const {
+		return type.toString(nm);
 	}
 }
 

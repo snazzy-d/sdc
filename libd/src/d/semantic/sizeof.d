@@ -83,6 +83,11 @@ struct SizeofVisitor {
 		assert(0, "Template type have no size.");
 	}
 	
+	import d.context.location, d.context.name;
+	uint visitError(Location location, Name name) {
+		assert(0, "Error type have no size.");
+	}
+	
 	private uint getPointerSize() {
 		return visit(pass.object.getSizeT().type);
 	}
