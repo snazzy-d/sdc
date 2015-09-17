@@ -499,7 +499,13 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				scope(exit) pass.buildErrorNode = oldBuildErrorNode;
 				
 				pass.buildErrorNode = false;
-				return visit(AliasResolver!identifiableHandler(pass).resolveName(location, name));
+				auto a = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+				// FIXME: templates and IFTI should UFCS too.
+				if (auto os = cast(OverloadSet) a) {
+					return visit(os);
+				} else if (auto f = cast(Function) a) {
+					return visit(f);
+				}
 			} catch(CompileException e) {}
 			
 			if (t.kind == TypeKind.Pointer) {
