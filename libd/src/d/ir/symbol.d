@@ -182,6 +182,7 @@ class ErrorSymbol : Symbol {
 		super(location, BuiltinName!"");
 		
 		this.message = message;
+		step = Step.Processed;
 	}
 }
 

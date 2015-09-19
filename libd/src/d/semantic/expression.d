@@ -32,7 +32,7 @@ struct ExpressionVisitor {
 	
 	Expression visit(AstExpression e) {
 		return this.dispatch!((e) {
-			return pass.raiseCondition!Expression(e.location, typeid(e).toString() ~ " is not supported");
+			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
 		})(e);
 	}
 	
@@ -64,21 +64,65 @@ struct ExpressionVisitor {
 		return e;
 	}
 	
-	private Expression getRvalue(Expression value) {
-		import d.context.name;
-		auto v = new Variable(value.location, value.type, BuiltinName!"", value);
-		v.storage = Storage.Enum;
-		v.step = Step.Processed;
+	private ErrorExpression getError(Expression base, Location location, string msg) {
+		if (auto e = cast(ErrorExpression) base) {
+			return e;
+		}
 		
-		return new VariableExpression(value.location, v);
+		return new ErrorExpression(location, context.getName(msg));
+	}
+	
+	private ErrorExpression getError(Expression base, string msg) {
+		return getError(base, base.location, msg);
+	}
+	
+	private ErrorExpression getError(Symbol base, Location location, string msg) {
+		if (auto e = cast(ErrorSymbol) base) {
+			return new ErrorExpression(e.location, context.getName(e.message));
+		}
+		
+		return new ErrorExpression(location, context.getName(msg));
+	}
+	
+	private ErrorExpression getError(Type t, Location location, string msg) {
+		if (t.kind == TypeKind.Error) {
+			return new ErrorExpression(t.location, t.message);
+		}
+		
+		return new ErrorExpression(location, context.getName(msg));
 	}
 	
 	private Expression getLvalue(Expression value) {
+		if (auto e = cast(ErrorExpression) value) {
+			return e;
+		}
+		
 		import d.context.name;
 		auto v = new Variable(value.location, value.type.getParamType(true, false), BuiltinName!"", value);
 		v.step = Step.Processed;
 		
 		return new VariableExpression(value.location, v);
+	}
+	
+	Expression build(E, T...)(T args) if (is(typeof(new E(T.init)))) {
+		foreach (ref a; args) {
+			static if (is(typeof(a) : Expression)) {
+				if (auto e = cast(ErrorExpression) a) {
+					return e;
+				}
+			}
+		}
+		
+		foreach (ref a; args) {
+			static if (is(typeof(a) : Type)) {
+				if (a.kind == TypeKind.Error) {
+					return new ErrorExpression(a.location, a.message);
+				}
+			}
+		}
+		
+		// XXX: ErrorSymbol ???
+		return new E(args);
 	}
 	
 	Expression visit(AstBinaryExpression e) {
@@ -94,7 +138,7 @@ struct ExpressionVisitor {
 			
 			case Assign :
 				if (!lhs.isLvalue) {
-					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+					return getError(lhs, "Expected an lvalue");
 				}
 				
 				type = lhs.type;
@@ -131,7 +175,7 @@ struct ExpressionVisitor {
 			case AddAssign :
 			case SubAssign :
 				if (!lhs.isLvalue) {
-					return pass.raiseCondition!Expression(lhs.location, "Expected an lvalue.");
+					return getError(lhs, "Expected an lvalue");
 				}
 				
 				auto c = lhs.type.getCanonical();
@@ -261,7 +305,7 @@ struct ExpressionVisitor {
 				assert(0, "Unorderd comparisons are not implemented.");
 		}
 		
-		return new BinaryExpression(e.location, type, op, lhs, rhs);
+		return build!BinaryExpression(e.location, type, op, lhs, rhs);
 	}
 
 	Expression visit(AstTernaryExpression e) {
@@ -275,7 +319,7 @@ struct ExpressionVisitor {
 		lhs = buildExplicitCast(pass, lhs.location, t, lhs);
 		rhs = buildExplicitCast(pass, rhs.location, t, rhs);
 		
-		return new TernaryExpression(e.location, t, condition, lhs, rhs);
+		return build!TernaryExpression(e.location, t, condition, lhs, rhs);
 	}
 
 	private Expression handleAddressOf(Expression expr) {
@@ -288,7 +332,7 @@ struct ExpressionVisitor {
 			return pe;
 		}
 		
-		return new UnaryExpression(expr.location, expr.type.getPointer(), UnaryOp.AddressOf, expr);
+		return build!UnaryExpression(expr.location, expr.type.getPointer(), UnaryOp.AddressOf, expr);
 	}
 	
 	Expression visit(AstUnaryExpression e) {
@@ -312,7 +356,7 @@ struct ExpressionVisitor {
 					break;
 				}
 				
-				return pass.raiseCondition!Expression(e.location, "Only pointers can be dereferenced, not "/+ ~ expr.type.toString(context) +/);
+				return getError(expr, e.location, "Only pointers can be dereferenced");
 			
 			case PreInc :
 			case PreDec :
@@ -335,7 +379,7 @@ struct ExpressionVisitor {
 				break;
 		}
 		
-		return new UnaryExpression(e.location, type, op, expr);
+		return build!UnaryExpression(e.location, type, op, expr);
 	}
 	
 	Expression visit(AstCastExpression e) {
@@ -345,14 +389,14 @@ struct ExpressionVisitor {
 	
 	Expression buildArgument(Expression arg, ParamType pt) {
 		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
-			return pass.raiseCondition!Expression(arg.location, "Can't pass argument by ref.");
+			return getError(arg, "Can't pass argument by ref");
 		}
 		
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
 		
-		// test if we can pass by ref.
+		// Test if we can pass by ref.
 		if (pt.isRef && !arg.isLvalue) {
-			return pass.raiseCondition!Expression(arg.location, "Argument isn't a lvalue.");
+			return getError(arg, "Argument isn't a lvalue");
 		}
 		
 		return arg;
@@ -478,7 +522,7 @@ struct ExpressionVisitor {
 				return call;
 			}
 			
-			return new BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
+			return build!BinaryExpression(c.location, call.type, BinaryOp.Assign, new ThisExpression(c.location, call.type), call);
 		}
 		
 		import std.algorithm, std.array;
@@ -512,7 +556,7 @@ struct ExpressionVisitor {
 					}
 				}
 				
-				return pass.raiseCondition!Expression(c.location, c.callee.name.toString(pass.context) ~ " isn't callable.");
+				return getError(identified, c.location, c.callee.name.toString(pass.context) ~ " isn't callable");
 			}
 		}
 		
@@ -551,7 +595,7 @@ struct ExpressionVisitor {
 				}
 			}
 			
-			return pass.raiseCondition!Expression(location, type.dstruct.name.toString(pass.context) ~ " isn't callable.");
+			return getError(identified, location, type.dstruct.name.toString(pass.context) ~ " isn't callable");
 		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
@@ -568,7 +612,7 @@ struct ExpressionVisitor {
 			static if (is(T : Expression)) {
 				return identified;
 			} else {
-				return pass.raiseCondition!Expression(location, t.name.toString(pass.context) ~ " isn't callable.");
+				return getError(identified, location, t.name.toString(pass.context) ~ " isn't callable");
 			}
 		})(pass).resolveInSymbol(location, i, t.name);
 	}
@@ -656,7 +700,7 @@ struct ExpressionVisitor {
 				}
 				
 				if (matchFail == candidateFail) {
-					return pass.raiseCondition!Expression(location, "ambiguous function call.");
+					return getError(candidate, location, "ambiguous function call.");
 				}
 				
 				if (matchFail) {
@@ -666,7 +710,7 @@ struct ExpressionVisitor {
 		}
 		
 		if (!match) {
-			return pass.raiseCondition!Expression(location, "No candidate for function call.");
+			return new ErrorExpression(location, context.getName("No candidate for function call"));
 		}
 		
 		return match;
@@ -697,7 +741,7 @@ struct ExpressionVisitor {
 			return results[0];
 		}
 		
-		return pass.raiseCondition!Expression(location, "You must call function or delegates, not " ~ callee.type.toString(context));
+		return getError(callee, location, "You must call function or delegates, not " ~ callee.type.toString(context));
 	}
 	
 	private Expression handleCall(Location location, Expression callee, Expression[] args) {
@@ -719,7 +763,7 @@ struct ExpressionVisitor {
 			arg = buildArgument(arg, pt);
 		}
 		
-		return new CallExpression(location, returnType.getType(), callee, args);
+		return build!CallExpression(location, returnType.getType(), callee, args);
 	}
 	
 	// XXX: factorize with handleCtor
@@ -772,7 +816,7 @@ struct ExpressionVisitor {
 			type = type.getPointer();
 		}
 		
-		return new NewExpression(e.location, type, di, ctor, args);
+		return build!NewExpression(e.location, type, di, ctor, args);
 	}
 	
 	Expression visit(ThisExpression e) {
@@ -783,12 +827,11 @@ struct ExpressionVisitor {
 	Expression getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
 		if (!t.hasElement) {
-			return pass.raiseCondition!Expression(location, "Can't index " ~ indexed.type.toString(context));
+			return getError(indexed, location, "Can't index " ~ indexed.type.toString(context));
 		}
 		
 		index = buildImplicitCast(pass, location, pass.object.getSizeT().type, index);
-		
-		return new IndexExpression(location, t.element, indexed, index);
+		return build!IndexExpression(location, t.element, indexed, index);
 	}
 	
 	Expression visit(AstIndexExpression e) {
@@ -807,7 +850,7 @@ struct ExpressionVisitor {
 		
 		auto t = sliced.type.getCanonical();
 		if (!t.hasElement) {
-			return pass.raiseCondition!Expression(e.location, "Can't slice " ~ t.toString(context));
+			return getError(sliced, e.location, "Can't slice " ~ t.toString(context));
 		}
 		
 		assert(e.first.length == 1 && e.second.length == 1);
@@ -815,7 +858,7 @@ struct ExpressionVisitor {
 		auto first = visit(e.first[0]);
 		auto second = visit(e.second[0]);
 		
-		return new SliceExpression(e.location, t.element.getSlice(), sliced, first, second);
+		return build!SliceExpression(e.location, t.element.getSlice(), sliced, first, second);
 	}
 	
 	Expression visit(AstAssertExpression e) {
@@ -829,7 +872,7 @@ struct ExpressionVisitor {
 			// TODO: ensure that msg is a string.
 		}
 		
-		return new AssertExpression(e.location, Type.get(BuiltinType.Void), c, msg);
+		return build!AssertExpression(e.location, Type.get(BuiltinType.Void), c, msg);
 	}
 	
 	private Expression handleTypeid(Location location, Expression e) {
@@ -874,7 +917,7 @@ struct ExpressionVisitor {
 			} else static if (is(T : Expression)) {
 				return handleTypeid(e.location, identified);
 			} else {
-				return pass.raiseCondition!Expression(e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context) ~ ".");
+				return getError(identified, e.location, "Can't get typeid of " ~ e.argument.name.toString(pass.context));
 			}
 		})(pass).visit(e.argument);
 	}
@@ -891,7 +934,7 @@ struct ExpressionVisitor {
 					}
 				}
 				
-				return pass.raiseCondition!Expression(e.location, e.identifier.name.toString(pass.context) ~ " isn't an expression.");
+				return getError(identified, e.location, e.identifier.name.toString(pass.context) ~ " isn't an expression");
 			}
 		})(pass).visit(e.identifier);
 	}
@@ -955,4 +998,3 @@ struct ExpressionVisitor {
 		);
 	}
 }
-

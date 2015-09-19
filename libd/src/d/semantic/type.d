@@ -49,7 +49,7 @@ struct TypeVisitor {
 			static if(is(typeof(identified) : Type)) {
 				return identified.qualify(qualifier);
 			} else {
-				return pass.raiseCondition!Type(i.location, i.toString(pass.context) ~ " isn't an type.");
+				return Type.getError(i.location, pass.context.getName(i.toString(pass.context) ~ " isn't an type"));
 			}
 		})(pass).visit(i);
 	}
@@ -100,7 +100,7 @@ struct TypeVisitor {
 			} else static if (is(T: Expression)) {
 				return buildArray(identified, type);
 			} else {
-				return pass.raiseCondition!Type(ikey.location, ikey.toString(pass.context) ~ " isn't an type.");
+				return Type.getError(ikey.location, pass.context.getName(ikey.toString(pass.context) ~ " isn't an type"));
 			}
 		})(pass).visit(ikey);
 	}

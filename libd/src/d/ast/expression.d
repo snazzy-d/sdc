@@ -448,6 +448,10 @@ class AssertExpression(T) : T if(is(T: AstExpression)) {
 		this.condition = condition;
 		this.message = message;
 	}
+	
+	override string toString(const ref NameManager nm) const {
+		return "assert(" ~ condition.toString(nm) ~ ")";
+	}
 }
 
 alias AstAssertExpression = AssertExpression!AstExpression;

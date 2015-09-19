@@ -94,13 +94,13 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 			}
 		}
 		
-		throw new CompileException(i.location, i.name.toString(context) ~ " not found in template");
+		return handler(new ErrorSymbol(i.location, i.name.toString(context) ~ " not found in template"));
 	}
 }
 
 alias Identifiable = Type.UnionType!(Symbol, Expression);
 
-auto apply(alias handler)(Identifiable i) {
+public auto apply(alias handler)(Identifiable i) {
 	alias Tag = typeof(i.tag);
 	final switch(i.tag) with(Tag) {
 		case Symbol :
@@ -117,6 +117,21 @@ auto apply(alias handler)(Identifiable i) {
 // XXX: probably a "feature" this can't be passed as alias this if private.
 public Identifiable identifiableHandler(T)(T t) {
 	return Identifiable(t);
+}
+
+public auto isError(Identifiable i) {
+	return i.apply!((identified) {
+		alias T = typeof(identified);
+		static if (is(T : Symbol)) {
+			return typeid(identified) is typeid(ErrorSymbol);
+		} else static if (is(T : Expression)) {
+			return typeid(identified) is typeid(ErrorExpression);
+		} else static if (is(T : Type)) {
+			return identified.kind == TypeKind.Error;
+		} else {
+			static assert(0, "Dafuq ?");
+		}
+	})();
 }
 
 /**
@@ -147,24 +162,24 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				scheduler.require(m, Step.Populated);
 				
 				auto symInMod = m.dscope.resolve(name);
-				if(symInMod) {
-					if(symbol) {
-						return pass.raiseCondition!Symbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
+				if (symInMod) {
+					if (symbol) {
+						return new ErrorSymbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
 					}
 					
 					symbol = symInMod;
 				}
 			}
 			
-			if(symbol) return symbol;
+			if (symbol) return symbol;
 			
-			if(auto nested = cast(NestedScope) dscope) {
+			if (auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				return pass.raiseCondition!Symbol(location, "Symbol " ~ name.toString(context) ~ " has not been found");
+				return new ErrorSymbol(location, "Symbol " ~ name.toString(context) ~ " has not been found");
 			}
 			
-			if(auto sscope = cast(SymbolScope) dscope) {
+			if (auto sscope = cast(SymbolScope) dscope) {
 				scheduler.require(sscope.symbol, Step.Populated);
 			}
 		}
@@ -222,7 +237,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 					return spp.visit(m.dscope.resolve(name));
 				}
 				
-				throw new CompileException(location, "Can't resolve " ~ name.toString(pass.context));
+				return spp.visit(new ErrorSymbol(location, "Can't resolve " ~ name.toString(pass.context)));
 			}
 		})();
 	}
@@ -434,6 +449,10 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 	Ret visit(TypeTemplateParameter t) {
 		return getSymbolType(t);
 	}
+	
+	Ret visit(ErrorSymbol e) {
+		return handler(e);
+	}
 }
 
 /**
@@ -463,28 +482,32 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				return visit(identified);
 			} else static if (is(T : Expression)) {
 				// sizeof, init and other goodies.
-				return handler(new BinaryExpression(location, identified.type, BinaryOp.Comma, expr, identified));
+				import d.semantic.expression;
+				return handler(ExpressionVisitor(pass).build!BinaryExpression(
+					location,
+					identified.type,
+					BinaryOp.Comma,
+					expr,
+					identified,
+				));
 			} else {
+				if (identified.kind == TypeKind.Error) {
+					return handler(identified);
+				}
+				
 				assert(0, "expression.type not implemented");
 			}
 		}, delegate Ret(r, t) {
 			if (t.isAggregate) {
-				// XXX: add aggregate as a super class for class, struct, interface and union and simplify.
 				import d.semantic.aliasthis;
-				auto candidates = AliasThisResolver!identifiableHandler(pass).resolve(expr, t.aggregate);
-				
-				Ret[] results;
-				foreach(c; candidates) {
-					// TODO: refactor so we do not throw.
-					// FIXME: handler cannot return void, it should be able to.
-					try {
-						results ~= SymbolResolver!identifiableHandler(pass)
-							.resolveInIdentifiable(location, c, name)
-							.apply!handler();
-					} catch(CompileException e) {
-						continue;
-					}
-				}
+				import std.algorithm, std.array;
+				auto results = AliasThisResolver!identifiableHandler(pass)
+					.resolve(expr, t.aggregate)
+					.map!(c => SymbolResolver!identifiableHandler(pass)
+							.resolveInIdentifiable(location, c, name))
+					.filter!(i => !i.isError())
+					.map!(c => c.apply!handler())
+					.array();
 				
 				if (results.length == 1) {
 					return results[0];
@@ -494,19 +517,44 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 			}
 			
 			// UFCS
-			try {
-				auto oldBuildErrorNode = pass.buildErrorNode;
-				scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-				
-				pass.buildErrorNode = false;
-				auto a = AliasResolver!identifiableHandler(pass).resolveName(location, name);
-				// FIXME: templates and IFTI should UFCS too.
-				if (auto os = cast(OverloadSet) a) {
-					return visit(os);
-				} else if (auto f = cast(Function) a) {
-					return visit(f);
+			// FIXME: templates and IFTI should UFCS too.
+			Expression tryUFCS(Function f) {
+				// No UFCS on member methods.
+				if (f.hasThis) {
+					return null;
 				}
-			} catch(CompileException e) {}
+				
+				auto e = makeExpression(f);
+				if (typeid(e) is typeid(ErrorExpression)) {
+					return null;
+				}
+				
+				return e;
+			}
+			
+			auto findUFCS(Symbol[] syms) {
+				import std.algorithm, std.array;
+				return syms
+					.map!(s => cast(Function) s)
+					.filter!(f => f !is null)
+					.map!(f => tryUFCS(f))
+					.filter!(e => e !is null)
+					.array();
+			}
+			
+			auto a = AliasResolver!identifiableHandler(pass).resolveName(location, name);
+			if (auto os = cast(OverloadSet) a) {
+				auto ufcs = findUFCS(os.set);
+				if (ufcs.length > 0) {
+					assert(ufcs.length == 1, "ambiguous ufcs");
+					return handler(ufcs[0]);
+				}
+			} else if (auto f = cast(Function) a) {
+				auto ufcs = tryUFCS(f);
+				if (ufcs) {
+					return handler(ufcs);
+				}
+			}
 			
 			if (t.kind == TypeKind.Pointer) {
 				auto pointed = t.element;
@@ -531,18 +579,21 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		Expression[] exprs;
 		foreach (sym; s.set) {
-			try {
-				if (auto f = cast(Function) sym) {
-					exprs ~= makeExpression(f);
-				} else {
-					assert(0, "not implemented: template with context");
+			if (auto f = cast(Function) sym) {
+				auto e = makeExpression(f);
+				if (auto ee = cast(ErrorExpression) e) {
+					continue;
 				}
-			} catch(CompileException e) {}
+				
+				exprs ~= e;
+			} else {
+				assert(0, "not implemented: template with context");
+			}
 		}
 		
 		switch(exprs.length) {
 			case 0 :
-				throw new CompileException(location, "No valid candidate in overload set");
+				return handler(new ErrorSymbol(location, "No valid candidate in overload set"));
 			
 			case 1 :
 				return handler(exprs[0]);
@@ -562,8 +613,9 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		scheduler.require(f, Step.Signed);
 		
 		import d.semantic.expression;
-		auto arg = ExpressionVisitor(pass).buildArgument(expr, f.type.parameters[0]);
-		auto e = new MethodExpression(location, arg, f);
+		auto ev = ExpressionVisitor(pass);
+		auto arg = ev.buildArgument(expr, f.type.parameters[0]);
+		auto e = ev.build!MethodExpression(location, arg, f);
 		
 		// If this is not a property, things are straigforward.
 		if (!f.isProperty) {
@@ -572,7 +624,8 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		switch(f.params.length - !f.hasThis) {
 			case 0:
-				return new CallExpression(location, f.type.returnType.getType(), e, []);
+				Expression[] args;
+				return ev.build!CallExpression(location, f.type.returnType.getType(), e, args);
 			
 			case 1:
 				assert(0, "setter not supported)");
@@ -606,6 +659,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 	
 	Ret visit(Enum e) {
 		return handler(Type.get(e));
+	}
+	
+	Ret visit(ErrorSymbol e) {
+		return handler(e);
 	}
 }
 
@@ -646,7 +703,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return handler(new IntegerLiteral(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
 		}
 		
-		throw new CompileException(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context));
+		return handler(new ErrorSymbol(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context)));
 	}
 	
 	Ret visit(Type t) {
@@ -779,4 +836,3 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		return handler(Type.getError(location, name));
 	}
 }
-

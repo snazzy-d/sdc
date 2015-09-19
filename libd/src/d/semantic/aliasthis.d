@@ -38,23 +38,12 @@ struct AliasThisResolver(alias handler) {
 	
 	import d.context.name;
 	private Ret[] resolve(Expression e, Name[] aliases) {
-		auto oldBuildErrorNode = pass.buildErrorNode;
-		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-		
-		pass.buildErrorNode = true;
-		
-		Ret[] results;
-		foreach(n; aliases) {
-			// XXX: this will swallow error silently.
-			// There must be a better way.
-			try {
-				import d.semantic.identifier;
-				results ~= SymbolResolver!handler(pass).resolveInExpression(e.location, e, n);
-			} catch(CompileException e) {
-				continue;
-			}
-		}
-		
-		return results;
+		import d.semantic.identifier;
+		import std.algorithm, std.array;
+		return aliases
+			.map!(n => SymbolResolver!identifiableHandler(pass).resolveInExpression(e.location, e, n))
+			.filter!(i => !i.isError())
+			.map!(c => c.apply!handler())
+			.array();
 	}
 }

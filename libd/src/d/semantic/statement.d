@@ -199,7 +199,7 @@ public:
 			static if(is(typeof(e) : Expression)) {
 				return e;
 			} else {
-				return pass.raiseCondition!Expression(iterated.location, typeid(e).toString() ~ " is not a valid length.");
+				return new ErrorExpression(iterated.location, pass.context.getName(typeid(e).toString() ~ " is not a valid length"));
 			}
 		})(pass).resolveInExpression(iterated.location, iterated, BuiltinName!"length");
 		
@@ -335,19 +335,23 @@ public:
 			rt.kind == TypeKind.Builtin &&
 			rt.qualifier == TypeQualifier.Mutable &&
 			rt.builtin == BuiltinType.None;
-
+		
 		// return; has no value.
 		if (s.value is null) {
 			if (isAutoReturn) {
 				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
 			}
-
+			
 			flattenedStmts ~= new ReturnStatement(s.location, null);
 			return;
 		}
 		
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(s.value);
+		if (auto e = cast(ErrorExpression) value) {
+			import d.exception;
+			throw new CompileException(e.location, e.message.toString(context));
+		}
 		
 		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
 		if (isAutoReturn) {
@@ -360,7 +364,7 @@ public:
 					value = new UnaryExpression(s.location, value.type.getPointer(), UnaryOp.AddressOf, value);
 				} else {
 					import d.exception;
-					throw new CompileException(s.location, "Cannot ref return lvalues.");
+					throw new CompileException(s.location, "Cannot ref return lvalues");
 				}
 			}
 		}

@@ -116,7 +116,7 @@ private:
 				return t.visit(dtemplate);
 			
 			case Error :
-				return t.visitError(location, name);
+				return t.visitError(location, message);
 		}
 	}
 	
@@ -265,7 +265,7 @@ public:
 	}
 	
 	@property
-	auto name() inout in {
+	auto message() inout in {
 		assert(kind == TypeKind.Error);
 	} body {
 		assert(desc.data <= uint.max);
@@ -416,7 +416,7 @@ public:
 				return dtemplate.name.toString(nm);
 			
 			case Error :
-				return "__error__(" ~ name.toString(nm) ~ ")";
+				return "__error__(" ~ message.toString(nm) ~ ")";
 		}
 	}
 	

@@ -54,6 +54,11 @@ class ErrorExpression : CompileTimeExpression {
 		assert(type.kind == TypeKind.Error);
 	}
 	
+	@property
+	auto message() {
+		return type.message;
+	}
+	
 	override string toString(const ref NameManager nm) const {
 		return type.toString(nm);
 	}
@@ -147,6 +152,10 @@ class SliceExpression : Expression {
 		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
+	}
+	
+	override string toString(const ref NameManager nm) const {
+		return sliced.toString(nm) ~ "[" ~ first.toString(nm) ~ " .. " ~ second.toString(nm) ~ "]";
 	}
 }
 

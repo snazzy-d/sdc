@@ -36,12 +36,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	assert(e, "Expression must not be null");
 } body {
 	// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
-	if(auto asPolysemous = cast(PolysemousExpression) e) {
-		auto oldBuildErrorNode = pass.buildErrorNode;
-		scope(exit) pass.buildErrorNode = oldBuildErrorNode;
-		
-		pass.buildErrorNode = true;
-		
+	if (auto asPolysemous = cast(PolysemousExpression) e) {
 		Expression casted;
 		foreach(candidate; asPolysemous.expressions) {
 			candidate = build!isExplicit(pass, location, to, candidate);
@@ -50,7 +45,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			}
 			
 			if (casted) {
-				return pass.raiseCondition!Expression(location, "Ambiguous.");
+				return new ErrorExpression(location, pass.context.getName("Ambiguous"));
 			}
 			
 			casted = candidate;
@@ -60,7 +55,7 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			return casted;
 		}
 		
-		return pass.raiseCondition!Expression(e.location, "No match found.");
+		return new ErrorExpression(location, pass.context.getName("No match found"));
 	}
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
@@ -137,7 +132,15 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			return new CastExpression(location, kind, to, e);
 		
 		case Invalid:
-			return pass.raiseCondition!Expression(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context));
+			if (to.kind == TypeKind.Error) {
+				return new ErrorExpression(to.location, to.message);
+			}
+			
+			if (auto ee = cast(ErrorExpression) e) {
+				return ee;
+			}
+			
+			return new ErrorExpression(location, pass.context.getName("Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context)));
 	}
 }
 
@@ -584,4 +587,3 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return CastKind.Invalid;
 	}
 }
-

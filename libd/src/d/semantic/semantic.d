@@ -24,8 +24,6 @@ import d.parser.base;
 import d.context.name;
 import d.context.source;
 
-import d.exception;
-
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
 
@@ -61,12 +59,6 @@ final class SemanticPass {
 		Function ctxSym;
 		
 		string manglePrefix;
-		
-		import std.bitmanip;
-		mixin(bitfields!(
-			bool, "buildErrorNode", 1,
-			uint, "", 7,
-		));
 		
 		uint fieldIndex;
 		uint methodIndex;
@@ -129,24 +121,6 @@ final class SemanticPass {
 	
 	auto importModule(Name[] pkgs) {
 		return moduleVisitor.importModule(pkgs);
-	}
-	
-	// XXX: Move that somewhere else
-	import d.context.location;
-	T raiseCondition(T)(Location location, string message) {
-		if (buildErrorNode) {
-			static if(is(T == Type)) {
-				return Type.getError(location, context.getName(message));
-			} else static if(is(T == Expression) || is(T == CompileTimeExpression)) {
-				return new ErrorExpression(location, context.getName(message));
-			} else static if(is(T == Symbol)) {
-				return new ErrorSymbol(location, message);
-			} else {
-				static assert(false, "compilationCondition only works for Types and Expressions.");
-			}
-		} else {
-			throw new CompileException(location, message);
-		}
 	}
 	
 	Function buildMain(Module[] mods) {
