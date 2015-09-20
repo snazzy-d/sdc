@@ -309,7 +309,7 @@ final class TypeGen {
 	}
 	
 	LLVMTypeRef visit(Interface i) {
-		if(auto it = i in typeSymbols) {
+		if (auto it = i in typeSymbols) {
 			return *it;
 		}
 
@@ -323,26 +323,28 @@ final class TypeGen {
 		return llvmStruct;
 	}
 	
-	LLVMTypeRef visit(Function f) {
+	LLVMTypeRef visit(Function f) in {
+		assert(f.step >= Step.Signed);
+	} body {
 		return funCtxTypes.get(f, {
 			import std.string;
 			auto ctxStruct = funCtxTypes[f] = LLVMStructCreateNamed(pass.llvmCtx, ("S" ~ f.mangle[2 .. $] ~ ".ctx").toStringz());
 			auto count = cast(uint) f.closure.length + f.hasContext;
-
+			
 			LLVMTypeRef[] ctxElts;
 			ctxElts.length = count;
-
+			
 			if (f.hasContext) {
 				auto parentCtxType = f.type.parameters[f.hasThis].getType();
 				ctxElts[0] = LLVMPointerType(visit(parentCtxType), 0);
 			}
-
+			
 			foreach(v, i; f.closure) {
 				ctxElts[i] = visit(v.type);
 			}
 			
 			LLVMStructSetBody(ctxStruct, ctxElts.ptr, count, false);
-
+			
 			return ctxStruct;
 		}());
 	}

@@ -144,13 +144,32 @@ struct SymbolAnalyzer {
 		auto fbody = fd.fbody;
 		bool isAuto = false;
 		
+		import d.context.name;
+		immutable isCtor = f.name == BuiltinName!"__ctor";
+		
 		void buildType() {
 			f.type = FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
+			
+			assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
+			switch (f.linkage) with(Linkage) {
+				case D :
+					import d.semantic.mangler;
+					auto typeMangle = TypeMangler(pass).visit(f.type);
+					f.mangle = "_D" ~ pass.manglePrefix ~ (f.hasThis ? typeMangle : ("FM" ~ typeMangle[1 .. $]));
+					break;
+				
+				case C :
+					f.mangle = f.name.toString(pass.context);
+					break;
+				
+				default:
+					import std.conv;
+					assert(0, "Linkage " ~ to!string(f.linkage) ~ " is not supported.");
+			}
+			
 			f.step = Step.Signed;
 		}
 		
-		import d.context.name;
-		immutable isCtor = f.name == BuiltinName!"__ctor";
 		if (isCtor) {
 			assert(f.hasThis, "Constructor must have a this pointer");
 			
@@ -243,24 +262,6 @@ struct SymbolAnalyzer {
 		}
 		
 		assert(f.fbody || !isAuto, "Auto functions must have a body");
-		assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
-		
-		switch (f.linkage) with(Linkage) {
-			case D :
-				import d.semantic.mangler;
-				auto typeMangle = TypeMangler(pass).visit(f.type);
-				f.mangle = "_D" ~ manglePrefix ~ (f.hasThis ? typeMangle : ("FM" ~ typeMangle[1 .. $]));
-				break;
-			
-			case C :
-				f.mangle = f.name.toString(context);
-				break;
-			
-			default:
-				import std.conv;
-				assert(0, "Linkage " ~ to!string(f.linkage) ~ " is not supported.");
-		}
-		
 		f.step = Step.Processed;
 	}
 	
@@ -305,9 +306,13 @@ struct SymbolAnalyzer {
 		assert(value);
 		v.value = value;
 		
+		// XXX: Make sure type is at least signed.
+		import d.semantic.sizeof;
+		SizeofVisitor(pass).visit(value.type);
+		
 		auto name = v.name.toString(context);
 		v.mangle = name;
-		if(v.storage == Storage.Static) {
+		if (v.storage == Storage.Static) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
 			import d.semantic.mangler;
@@ -429,7 +434,7 @@ struct SymbolAnalyzer {
 		
 		import std.algorithm, std.array;
 		auto otherSymbols = members.filter!((m) {
-			if(auto f = cast(Field) m) {
+			if (auto f = cast(Field) m) {
 				fields ~= f;
 				return false;
 			}

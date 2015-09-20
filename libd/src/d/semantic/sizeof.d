@@ -58,7 +58,7 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(Interface i) {
-		assert(0, "interface.sizeof is not implemented.");
+		return 2 * getPointerSize();
 	}
 	
 	uint visit(Union u) {
@@ -75,8 +75,10 @@ struct SizeofVisitor {
 	}
 	
 	uint visit(FunctionType f) {
-		assert(f.contexts.length == 0, "delegate.sizeof is not implemented.");
-		return getPointerSize();
+		auto ptrSize = getPointerSize();
+		return (f.contexts.length > 0)
+			? 2 * ptrSize
+			: ptrSize;
 	}
 	
 	uint visit(TypeTemplateParameter t) {

@@ -17,7 +17,7 @@ int main() {
 	ucent uce;
 	float f;
 	double d;
-	real r;
+	// real r;
 	char c;
 	wchar wc;
 	dchar dc;
