@@ -164,7 +164,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				auto symInMod = m.dscope.resolve(name);
 				if (symInMod) {
 					if (symbol) {
-						return new ErrorSymbol(location, "Ambiguous symbol " ~ name.toString(context) ~ ".");
+						return new ErrorSymbol(location, "Ambiguous symbol " ~ name.toString(context));
 					}
 					
 					symbol = symInMod;

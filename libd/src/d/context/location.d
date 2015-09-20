@@ -22,7 +22,7 @@ public:
 		this.start = start;
 		this.stop = stop;
 	}
-
+	
 	@property
 	uint length() const {
 		return stop.offset - start.offset;
@@ -32,12 +32,12 @@ public:
 	bool isFile() const {
 		return start.isFile();
 	}
-
+	
 	@property
 	bool isMixin() const {
 		return start.isMixin();
 	}
-
+	
 	void spanTo(ref const Location end) in {
 		import std.conv;
 		assert(
@@ -47,7 +47,7 @@ public:
 	} body {
 		spanTo(end.stop);
 	}
-
+	
 	void spanTo(ref const Position end) in {
 		import std.conv;
 		assert(
@@ -57,14 +57,14 @@ public:
 	} body {
 		stop = end;
 	}
-
+	
 	// XXX: lack of alias this :(
 	// XXX: https://issues.dlang.org/show_bug.cgi?id=14666
 	// import d.context.context;
 	FullLocation getFullLocation(Context c) const {
 		return getFullLocation(c.sourceManager);
 	}
-
+	
 	FullLocation getFullLocation(ref SourceManager sm) const {
 		return FullLocation(this, &sm);
 	}
@@ -80,40 +80,40 @@ private:
 		uint, "_offset", uint.sizeof * 8 - 1,
 		bool, "_mixin", 1,
 	));
-
+	
 package:
 	@property
 	uint offset() const {
 		return _offset;
 	}
-
+	
 	@property
 	uint raw() const {
 		return *(cast(uint*) &this);
 	}
-
+	
 	bool isFile() const {
 		return !_mixin;
 	}
-
+	
 	bool isMixin() const {
 		return _mixin;
 	}
-
+	
 public:
 	Position getWithOffset(uint offset) const out(result) {
 		assert(result.isMixin() == isMixin(), "Position overflow");
 	} body {
 		return Position(raw + offset);
 	}
-
+	
 	// XXX: lack of alias this :(
 	// XXX: https://issues.dlang.org/show_bug.cgi?id=14666
 	// import d.context.context;
 	FullPosition getFullPosition(Context c) const {
 		return getFullPosition(c.sourceManager);
 	}
-
+	
 	FullPosition getFullPosition(ref SourceManager sm) const {
 		return FullPosition(this, &sm);
 	}

@@ -3,6 +3,8 @@
 //T has-passed:yes
 // Create one variable of every primitive type.
 
+struct S {}
+
 int main() {
 	bool b;
 	byte by;
@@ -22,6 +24,8 @@ int main() {
 	wchar wc;
 	dchar dc;
 	
+	void* vp;
+	S* sp;
+	
 	return i;
 }
-

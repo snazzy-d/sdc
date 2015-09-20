@@ -115,7 +115,7 @@ public:
 				addDeclaration(new VariableDeclaration(s.location, StorageClass.init, type, s.name, s.value));
 				return true;
 			} else {
-				assert(0, "Was now expecting " ~ T.stringof);
+				assert(0, "Was not expecting " ~ T.stringof);
 			}
 		})(pass).visit(s.identifier);
 	}

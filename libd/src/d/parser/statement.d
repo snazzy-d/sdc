@@ -404,8 +404,11 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 				} else static if (is(T : Declaration)) {
 					return new DeclarationStatement(parsed);
 				} else {
+					auto location = parsed.identifier.location;
+					location.spanTo(trange.front.location);
 					trange.match(Semicolon);
 					return new IdentifierStarIdentifierStatement(
+						location,
 						parsed.identifier,
 						parsed.name,
 						parsed.value,

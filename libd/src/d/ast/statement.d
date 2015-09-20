@@ -61,14 +61,11 @@ class DeclarationStatement : AstStatement {
 class IdentifierStarIdentifierStatement : AstStatement {
 	import d.context.name;
 	Name name;
-
+	
 	Identifier identifier;
 	AstExpression value;
 	
-	this(Identifier identifier, Name name, AstExpression value) {
-		auto location = identifier.location;
-		location.spanTo(value.location);
-		
+	this(Location location, Identifier identifier, Name name, AstExpression value) {
 		super(location);
 		
 		this.identifier = identifier;
