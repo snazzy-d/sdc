@@ -39,7 +39,7 @@ struct Arena {
 	// Extent describing huge allocs.
 	import d.gc.extent;
 	ExtentTree hugeTree;
-	LookupExtentTree hugeLookupTree;
+	ExtentTree hugeLookupTree;
 	
 	// Set of chunks for GC lookup.
 	ChunkSet chunkSet;
@@ -109,7 +109,12 @@ struct Arena {
 			assert(c.header.arena is &this);
 			oldBinID = c.pages[c.getRunID(ptr)].binID;
 		} else {
-			oldBinID = getBinID(findHugeExtent(ptr).size);
+			auto e = extractHugeExtent(ptr);
+			assert(e !is null);
+			
+			// We need to keep it alive for now.
+			hugeTree.insert(e);
+			oldBinID = getBinID(e.size);
 		}
 		
 		if (newBinID == oldBinID) {
@@ -435,7 +440,7 @@ private:
 		return ret;
 	}
 	
-	Extent* findHugeExtent(void* ptr) {
+	Extent* extractHugeExtent(void* ptr) {
 		// XXX: in contracts
 		import d.gc.spec;
 		assert(((cast(size_t) ptr) & AlignMask) == 0);
@@ -445,8 +450,20 @@ private:
 		
 		// XXX: extract
 		auto e = hugeTree.find(&test);
-		assert(e !is null);
-		assert(e.arena is &this);
+		if (e !is null) {
+			hugeTree.remove(e);
+		} else {
+			e = hugeLookupTree.find(&test);
+			if (e !is null) {
+				hugeLookupTree.remove(e);
+			}
+		}
+		
+		// FIXME: out contract.
+		if (e !is null) {
+			assert(e.addr is ptr);
+			assert(e.arena is &this);
+		}
 		
 		return e;
 	}
@@ -458,12 +475,12 @@ private:
 		}
 		
 		// XXX: extract
-		auto e = findHugeExtent(ptr);
+		auto e = extractHugeExtent(ptr);
+		assert(e !is null);
 		
 		import d.gc.mman;
 		pages_unmap(e.addr, e.size);
 		
-		hugeTree.remove(e);
 		free(e);
 	}
 	
@@ -526,6 +543,12 @@ private:
 	}
 	
 	void collect() {
+		// Get ready to detect huge allocations.
+		hugeLookupTree = hugeTree;
+		
+		// FIXME: This bypass visibility.
+		hugeTree.root = null;
+		
 		// TODO: The set need a range interface or some other way to iterrate.
 		auto chunks = chunkSet.cloneChunks();
 		
@@ -536,6 +559,8 @@ private:
 			
 			c.prepare();
 		}
+		
+		// FIXME: mark datastructures as live.
 		
 		// Scan the roots !
 		__sdgc_push_registers(scanStack);
@@ -582,13 +607,28 @@ private:
 			
 			import d.gc.spec;
 			auto c = findChunk(ptr);
-			if (c is null) {
+			if (c !is null && chunkSet.test(c)) {
+				newPtr = c.mark(ptr) || newPtr;
 				continue;
 			}
 			
-			if (chunkSet.test(c)) {
-				newPtr = c.mark(ptr) || newPtr;
+			// XXX: extract.
+			Extent ecmp;
+			ecmp.addr = cast(void*) ptr;
+			auto e = hugeLookupTree.find(&ecmp);
+			if (e is null) {
+				continue;
 			}
+			
+			hugeLookupTree.remove(e);
+			hugeTree.insert(e);
+			
+			auto hugeRange = makeRange(e.addr[0 .. e.size]);
+			
+			// FIXME: Ideally, a worklist is preferable as
+			// 1/ We could recurse a lot this way.
+			// 2/ We want to keep working on the same chunk for locality.
+			scan(hugeRange);
 		}
 		
 		return newPtr;
