@@ -87,7 +87,14 @@ public:
 	
 	void visit(AstExpressionStatement s) {
 		import d.semantic.expression;
-		flattenedStmts ~= new ExpressionStatement(ExpressionVisitor(pass).visit(s.expression));
+		auto e = ExpressionVisitor(pass).visit(s.expression);
+		auto t = e.type;
+		if (t.kind == TypeKind.Error) {
+			import d.exception;
+			throw new CompileException(t.location, t.message.toString(context));
+		}
+		
+		flattenedStmts ~= new ExpressionStatement(e);
 	}
 
 	private void addDeclaration(Declaration decl) {
