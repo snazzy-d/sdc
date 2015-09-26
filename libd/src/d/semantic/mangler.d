@@ -197,8 +197,8 @@ struct TypeMangler {
 		assert(0, "Can't mangle template type.");
 	}
 	
-	import d.context.location, d.context.name;
-	string visitError(Location location, Name name) {
+	import d.ir.error;
+	string visit(CompileError e) {
 		assert(0, "Can't mangle error type.");
 	}
 }

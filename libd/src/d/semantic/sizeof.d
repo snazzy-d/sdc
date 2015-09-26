@@ -85,8 +85,8 @@ struct SizeofVisitor {
 		assert(0, "Template type has no size.");
 	}
 	
-	import d.context.location, d.context.name;
-	uint visitError(Location location, Name name) {
+	import d.ir.error;
+	uint visit(CompileError e) {
 		assert(0, "Error type has no size.");
 	}
 	

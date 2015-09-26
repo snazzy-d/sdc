@@ -40,12 +40,14 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		Expression casted;
 		foreach(candidate; asPolysemous.expressions) {
 			candidate = build!isExplicit(pass, location, to, candidate);
+			
+			import d.ir.error;
 			if (cast(ErrorExpression) candidate) {
 				continue;
 			}
 			
 			if (casted) {
-				return new ErrorExpression(location, pass.context.getName("Ambiguous"));
+				return new CompileError(location, "Ambiguous").expression;
 			}
 			
 			casted = candidate;
@@ -55,7 +57,8 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			return casted;
 		}
 		
-		return new ErrorExpression(location, pass.context.getName("No match found"));
+		import d.ir.error;
+		return new CompileError(location, "No match found").expression;
 	}
 	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
@@ -133,14 +136,15 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		
 		case Invalid:
 			if (to.kind == TypeKind.Error) {
-				return new ErrorExpression(to.location, to.message);
+				return to.error.expression;
 			}
 			
+			import d.ir.error;
 			if (auto ee = cast(ErrorExpression) e) {
 				return ee;
 			}
 			
-			return new ErrorExpression(location, pass.context.getName("Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context)));
+			return new CompileError(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context)).expression;
 	}
 }
 
@@ -582,8 +586,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		assert(0, "Not implemented.");
 	}
 	
-	import d.context.name;
-	CastKind visitError(Location location, Name name) {
+	import d.ir.error;
+	CastKind visit(CompileError e) {
 		return CastKind.Invalid;
 	}
 }

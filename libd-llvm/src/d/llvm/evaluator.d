@@ -361,8 +361,8 @@ struct JitRepacker {
 		assert(0, "Not implemented.");
 	}
 	
-	import d.context.name;
-	CompileTimeExpression visitError(Location location, Name name) {
+	import d.ir.error;
+	CompileTimeExpression visit(CompileError e) {
 		assert(0, "Not implemented.");
 	}
 }

@@ -387,8 +387,8 @@ final class TypeGen {
 		assert(0, "Template type can't be generated.");
 	}
 	
-	import d.context.location, d.context.name;
-	LLVMTypeRef visitError(Location location, Name name) {
+	import d.ir.error;
+	LLVMTypeRef visit(CompileError e) {
 		assert(0, "Error type can't be generated.");
 	}
 }

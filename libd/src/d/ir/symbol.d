@@ -172,21 +172,6 @@ abstract class Aggregate : TypeSymbol {
 
 final:
 /**
- * An Error occured but a Symbol is expected.
- * Useful for speculative compilation.
- */
-class ErrorSymbol : Symbol {
-	string message;
-	
-	this(Location location, string message) {
-		super(location, BuiltinName!"");
-		
-		this.message = message;
-		step = Step.Processed;
-	}
-}
-
-/**
  * Module
  */
 class Module : Package {

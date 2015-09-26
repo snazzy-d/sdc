@@ -91,7 +91,7 @@ public:
 		auto t = e.type;
 		if (t.kind == TypeKind.Error) {
 			import d.exception;
-			throw new CompileException(t.location, t.message.toString(context));
+			throw new CompileException(t.error.location, t.error.message);
 		}
 		
 		flattenedStmts ~= new ExpressionStatement(e);
@@ -203,10 +203,14 @@ public:
 		import d.context.name;
 		import d.semantic.identifier;
 		auto length = SymbolResolver!(delegate Expression (e) {
-			static if(is(typeof(e) : Expression)) {
+			static if (is(typeof(e) : Expression)) {
 				return e;
 			} else {
-				return new ErrorExpression(iterated.location, pass.context.getName(typeid(e).toString() ~ " is not a valid length"));
+				import d.ir.error;
+				return new CompileError(
+					iterated.location,
+					typeid(e).toString() ~ " is not a valid length",
+				).expression;
 			}
 		})(pass).resolveInExpression(iterated.location, iterated, BuiltinName!"length");
 		
@@ -355,9 +359,10 @@ public:
 		
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(s.value);
-		if (auto e = cast(ErrorExpression) value) {
+		auto t = value.type;
+		if (t.kind == TypeKind.Error) {
 			import d.exception;
-			throw new CompileException(e.location, e.message.toString(context));
+			throw new CompileException(t.error.location, t.error.message);
 		}
 		
 		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.

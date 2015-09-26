@@ -6,6 +6,7 @@ import d.ast.dmodule;
 import d.ast.identifier;
 
 import d.ir.dscope;
+import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -94,7 +95,7 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 			}
 		}
 		
-		return handler(new ErrorSymbol(i.location, i.name.toString(context) ~ " not found in template"));
+		return handler(new CompileError(i.location, i.name.toString(context) ~ " not found in template").symbol);
 	}
 }
 
@@ -164,7 +165,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				auto symInMod = m.dscope.resolve(name);
 				if (symInMod) {
 					if (symbol) {
-						return new ErrorSymbol(location, "Ambiguous symbol " ~ name.toString(context));
+						return new CompileError(location, "Ambiguous symbol " ~ name.toString(context)).symbol;
 					}
 					
 					symbol = symInMod;
@@ -176,7 +177,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			if (auto nested = cast(NestedScope) dscope) {
 				dscope = nested.parent;
 			} else {
-				return new ErrorSymbol(location, "Symbol " ~ name.toString(context) ~ " has not been found");
+				return new CompileError(location, "Symbol " ~ name.toString(context) ~ " has not been found").symbol;
 			}
 			
 			if (auto sscope = cast(SymbolScope) dscope) {
@@ -237,7 +238,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 					return spp.visit(m.dscope.resolve(name));
 				}
 				
-				return spp.visit(new ErrorSymbol(location, "Can't resolve " ~ name.toString(pass.context)));
+				return spp.visit(new CompileError(location, "Can't resolve " ~ name.toString(pass.context)).symbol);
 			}
 		})();
 	}
@@ -593,7 +594,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		switch(exprs.length) {
 			case 0 :
-				return handler(new ErrorSymbol(location, "No valid candidate in overload set"));
+				return handler(new CompileError(location, "No valid candidate in overload set").symbol);
 			
 			case 1 :
 				return handler(exprs[0]);
@@ -703,7 +704,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return handler(new IntegerLiteral(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
 		}
 		
-		return handler(new ErrorSymbol(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context)));
+		return handler(new CompileError(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context)).symbol);
 	}
 	
 	Ret visit(Type t) {
@@ -832,7 +833,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		assert(0, "Can't resolve identifier on template type.");
 	}
 	
-	Ret visitError(Location location, Name name) {
-		return handler(Type.getError(location, name));
+	Ret visit(CompileError e) {
+		return handler(e.type);
 	}
 }

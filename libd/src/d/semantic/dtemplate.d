@@ -406,8 +406,8 @@ struct TypeMatcher(bool isIFTI) {
 		})();
 	}
 	
-	import d.context.name;
-	bool visitError(Location location, Name name) {
+	import d.ir.error;
+	bool visit(CompileError e) {
 		assert(0, "Not implemented.");
 	}
 }

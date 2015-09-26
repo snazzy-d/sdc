@@ -1,12 +1,12 @@
 module d.ir.type;
 
+import d.ir.error;
 import d.ir.symbol;
 
 public import d.common.builtintype;
 public import d.common.qualifier;
 
 import d.context.name;
-import d.context.location;
 import d.common.type;
 
 // Conflict with Interface in object.di
@@ -62,8 +62,8 @@ private:
 		this(d, fastCast!(inout Payload)(t));
 	}
 	
-	this(Desc d, inout Location l) inout {
-		this(d, fastCast!(inout Payload)(l));
+	this(Desc d, inout CompileError e) inout {
+		this(d, fastCast!(inout Payload)(e));
 	}
 	
 	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
@@ -116,7 +116,7 @@ private:
 				return t.visit(dtemplate);
 			
 			case Error :
-				return t.visitError(location, message);
+				return t.visit(error);
 		}
 	}
 	
@@ -258,19 +258,10 @@ public:
 	}
 	
 	@property
-	auto location() inout in {
+	auto error() inout in {
 		assert(kind == TypeKind.Error);
 	} body {
-		return payload.location;
-	}
-	
-	@property
-	auto message() inout in {
-		assert(kind == TypeKind.Error);
-	} body {
-		assert(desc.data <= uint.max);
-		auto rawname = cast(uint) desc.data;
-		return *(cast(Name*) &rawname);
+		return payload.error;
 	}
 	
 	Type getPointer(TypeQualifier q = TypeQualifier.Mutable) {
@@ -416,7 +407,7 @@ public:
 				return dtemplate.name.toString(nm);
 			
 			case Error :
-				return "__error__(" ~ message.toString(nm) ~ ")";
+				return "__error__(" ~ error.toString(nm) ~ ")";
 		}
 	}
 	
@@ -462,9 +453,8 @@ static:
 		return Type(Desc(TypeKind.Context, q), f);
 	}
 	
-	Type getError(Location location, Name message, TypeQualifier q = TypeQualifier.Mutable) {
-		static assert(Name.sizeof == uint.sizeof);
-		return Type(Desc(TypeKind.Error, q, *(cast(uint*) &message)), location);
+	Type get(CompileError e, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Error, q), e);
 	}
 }
 
@@ -661,8 +651,8 @@ union Payload {
 	// For template instanciation.
 	TypeTemplateParameter dtemplate;
 	
-	// Location are useful for errors.
-	Location location;
+	// For speculative compilation.
+	CompileError error;
 	
 	// For simple construction
 	Symbol sym;

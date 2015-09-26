@@ -41,29 +41,6 @@ abstract class CompileTimeExpression : Expression {
 }
 
 final:
-/**
- * An Error occured but an Expression is expected.
- * Useful for speculative compilation.
- */
-class ErrorExpression : CompileTimeExpression {
-	this(Location location, Name message) {
-		super(location, Type.getError(location, message));
-	}
-	
-	invariant() {
-		assert(type.kind == TypeKind.Error);
-	}
-	
-	@property
-	auto message() {
-		return type.message;
-	}
-	
-	override string toString(const ref NameManager nm) const {
-		return type.toString(nm);
-	}
-}
-
 class UnaryExpression : Expression {
 	Expression expr;
 	UnaryOp op;

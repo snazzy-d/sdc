@@ -8,6 +8,7 @@ import d.ast.expression;
 import d.ast.type;
 
 import d.ir.dscope;
+import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -69,7 +70,7 @@ struct ExpressionVisitor {
 			return e;
 		}
 		
-		return new ErrorExpression(location, context.getName(msg));
+		return new CompileError(location, msg).expression;
 	}
 	
 	private ErrorExpression getError(Expression base, string msg) {
@@ -78,18 +79,18 @@ struct ExpressionVisitor {
 	
 	private ErrorExpression getError(Symbol base, Location location, string msg) {
 		if (auto e = cast(ErrorSymbol) base) {
-			return new ErrorExpression(e.location, context.getName(e.message));
+			return e.error.expression;
 		}
 		
-		return new ErrorExpression(location, context.getName(msg));
+		return new CompileError(location, msg).expression;
 	}
 	
 	private ErrorExpression getError(Type t, Location location, string msg) {
 		if (t.kind == TypeKind.Error) {
-			return new ErrorExpression(t.location, t.message);
+			return t.error.expression;
 		}
 		
-		return new ErrorExpression(location, context.getName(msg));
+		return new CompileError(location, msg).expression;
 	}
 	
 	private Expression getLvalue(Expression value) {
@@ -116,7 +117,7 @@ struct ExpressionVisitor {
 		foreach (ref a; args) {
 			static if (is(typeof(a) : Type)) {
 				if (a.kind == TypeKind.Error) {
-					return new ErrorExpression(a.location, a.message);
+					return a.error.expression;
 				}
 			}
 		}
@@ -710,7 +711,7 @@ struct ExpressionVisitor {
 		}
 		
 		if (!match) {
-			return new ErrorExpression(location, context.getName("No candidate for function call"));
+			return new CompileError(location, "No candidate for function call").expression;
 		}
 		
 		return match;
