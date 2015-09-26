@@ -17,7 +17,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	uint offset = loc.getStartOffset();
 	uint start = offset;
 	auto content = loc.getContent();
-
+	
 	// This is unexpected end of input.
 	if (start == content.length) {
 		// Find first non white char.
@@ -26,7 +26,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	}
 	
 	// XXX: We could probably use infos from source manager here.
-	FindStart: while(start > 0) {
+	FindStart: while (start > 0) {
 		switch(content[start]) {
 			case '\n':
 			case '\r':
@@ -46,7 +46,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 		end = cast(uint) content.length;
 	}
 	
-	FindEnd: while(end < content.length) {
+	FindEnd: while (end < content.length) {
 		switch(content[end]) {
 			case '\n':
 			case '\r':
@@ -59,7 +59,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	
 	auto line = content[start .. end];
 	uint index = offset - start;
-
+	
 	// Multi line location
 	if (index < line.length && index + length > line.length) {
 		length = cast(uint) line.length - index;
@@ -75,7 +75,9 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	foreach(i; index + 1 .. index + length) {
 		underline[i] = '~';
 	}
-
+	
+	assert(index == loc.getStartColumn());
+	
 	stderr.write(loc.isMixin() ? "mixin" : loc.getFileName(), ":", loc.getStartLineNumber(), ":", index, ":");
 	stderr.writeColouredText(ConsoleColour.Red, " error: ");
 	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");

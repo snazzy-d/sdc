@@ -18,13 +18,13 @@ final:
 	string content() const {
 		return _content;
 	}
-
+	
 package:
 	uint getLineNumber(uint index) {
 		if (!lines) {
 			lines = getLines(content);
 		}
-
+		
 		// It is common to query the same file many time,
 		// so we have a one entry cache for it.
 		if (!isIndexInLine(index, lastLineLookup)) {
@@ -35,16 +35,22 @@ package:
 				lastLineLookup,
 			);
 		}
-
+		
 		return lastLineLookup + 1;
 	}
-
+	
+	uint getLineOffset(uint index) out(result) {
+		assert(result <= index);
+	} body {
+		return lines[getLineNumber(index) - 1];
+	}
+	
 private:
 	bool isIndexInLine(uint index, uint line) {
 		if (index < lines[line]) {
 			return false;
 		}
-
+		
 		return (line + 1 == lines.length)
 			? (index < content.length)
 			: (index < lines[line + 1]);
@@ -61,7 +67,7 @@ public:
 		
 		import std.file;
 		auto data = cast(const(ubyte)[]) read(filename);
-
+		
 		import util.utf8;
 		super(convertToUTF8(data) ~ '\0');
 	}
@@ -84,28 +90,28 @@ final class MixinSource : Source {
 // XXX: This need to be vectorized
 immutable(uint)[] getLines(string content) {
 	immutable(uint)[] ret = [];
-
+	
 	uint p = 0;
 	uint i = 0;
 	char c = content[i];
 	while (true) {
-		while(c != '\n' && c != '\r' && c != '\0') {
+		while (c != '\n' && c != '\r' && c != '\0') {
 			c = content[++i];
 		}
-
+		
 		if (c == '\0') {
 			ret ~= p;
 			return ret;
 		}
-
+		
 		auto match = c;
 		c = content[++i];
-
+		
 		// \r\n is a special case
 		if (match == '\r' && c == '\n') {
 			c = content[++i];
 		}
-
+		
 		ret ~= p;
 		p = i;
 	}
