@@ -87,7 +87,8 @@ struct SizeofVisitor {
 	
 	import d.ir.error;
 	uint visit(CompileError e) {
-		assert(0, "Error type has no size.");
+		import d.exception;
+		throw new CompileException(e.location, e.message);
 	}
 	
 	private uint getPointerSize() {
