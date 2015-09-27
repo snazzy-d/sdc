@@ -91,7 +91,7 @@ final class Scheduler {
 		
 		// XXX: it seems that if(pool) test for the pointer, not the content.
 		// Seems to me like a weird conflation of identity and value.
-		if(pool.length) {
+		if (pool.length) {
 			p = pool[$ - 1];
 			
 			pool = pool[0 .. $ - 1];

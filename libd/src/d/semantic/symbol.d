@@ -354,9 +354,6 @@ struct SymbolAnalyzer {
 		
 		scheduler.require(a.symbol, Step.Signed);
 		a.hasContext = a.symbol.hasContext;
-		a.step = Step.Signed;
-		
-		scheduler.require(a.symbol, Step.Processed);
 		a.step = Step.Processed;
 	}
 	
