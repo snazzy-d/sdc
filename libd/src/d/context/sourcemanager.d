@@ -22,8 +22,11 @@ public:
 	this(Location location, SourceManager* sourceManager) {
 		this._location = location;
 		this.sourceManager = sourceManager;
-
-		assert(sourceManager.getFileID(start) == sourceManager.getFileID(stop), "Invalid location");
+		
+		assert(
+			sourceManager.getFileID(start) == sourceManager.getFileID(stop),
+			"Location file mismatch"
+		);
 	}
 	
 	@property

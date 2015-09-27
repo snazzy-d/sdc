@@ -8,6 +8,10 @@ void* _d_allocmemory(size_t size) {
 	return _tl_gc_alloc(size);
 }
 
+void* __sd_array_alloc(size_t size) {
+	return _tl_gc_alloc(size);
+}
+
 void _d_assert(string file, int line) {
 	printf("assert fail: %s:%d\n".ptr, file.ptr, line);
 	exit(1);

@@ -37,12 +37,12 @@ extern(C) {
 	int __sd_eh_personality(int, int, ulong, void*, void*);
 	
 	// We should be using some dedicated array API instead of this.
-	void* _tl_gc_alloc(size_t size);
+	void* __sd_array_alloc(size_t size);
 }
 
 auto __sd_array_concat(T : U[], U)(T lhs, T rhs) {
 	auto length = lhs.length + rhs.length;
-	auto ptr = cast(U*) _tl_gc_alloc(length * U.sizeof);
+	auto ptr = cast(U*) __sd_array_alloc(length * U.sizeof);
 	memcpy(ptr, cast(void*) lhs.ptr, lhs.length * U.sizeof);
 	memcpy(&ptr[lhs.length], cast(void*) rhs.ptr, rhs.length * U.sizeof);
 	return ptr[0 .. length];

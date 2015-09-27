@@ -1,24 +1,33 @@
 module d.gc.rbtree;
 
-struct Node(N) {
+struct Node(N, string NodeName = "node") {
 private:
-	Link!N[2] childs;
+	alias Link = .Link!(N, NodeName);
+	Link[2] childs;
 	
 	@property
-	ref Link!N left() {
+	ref Link left() {
 		return childs[0];
 	}
 	
 	@property
-	ref Link!N right() {
+	ref Link right() {
 		return childs[1];
 	}
 }
 
 // TODO: when supported add default to use opCmp for compare.
-struct RBTree(N, alias compare) {
+struct RBTree(N, alias compare, string NodeName = "node") {
 private:
 	N* root;
+	
+	alias Link = .Link!(N, NodeName);
+	alias Node = .Node!(N, NodeName);
+	alias Path = .Path!(N, NodeName);
+	
+	static ref Node nodeData(N* n) {
+		return .nodeData!NodeName(n);
+	}
 	
 public:
 	N* find(N* test) {
@@ -31,7 +40,7 @@ public:
 				return n;
 			}
 			
-			n = n.node.childs[cmp > 0].node;
+			n = nodeData(n).childs[cmp > 0].node;
 		}
 		
 		return null;
@@ -55,7 +64,7 @@ public:
 				bf = n;
 			}
 			
-			n = n.node.childs[cmp > 0].node;
+			n = nodeData(n).childs[cmp > 0].node;
 		}
 		
 		return bf;
@@ -66,21 +75,21 @@ public:
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
-		Path!N[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
+		Path[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 		
 		// Let's make sure this is a child node.
-		n.node.left = Link!N(null, Color.Black);
-		n.node.right = Link!N(null, Color.Black);
+		nodeData(n).left = Link(null, Color.Black);
+		nodeData(n).right = Link(null, Color.Black);
 		
 		// Root is always black.
-		auto link = Link!N(root, Color.Black);
+		auto link = Link(root, Color.Black);
 		while (!link.isLeaf()) {
 			auto diff = compare(n, link.node);
 			assert(diff != 0);
 			
 			auto cmp = diff > 0;
-			*stackp = Path!N(link, cmp);
+			*stackp = Path(link, cmp);
 			
 			stackp++;
 			link = link.childs[cmp];
@@ -93,7 +102,7 @@ public:
 		}
 		
 		// Inserted node is always red.
-		*stackp = Path!N(Link!N(n, Color.Red), false);
+		*stackp = Path(Link(n, Color.Red), false);
 		assert(stackp.isRed());
 		
 		// Now we found an insertion point, let's fix the tree.
@@ -168,11 +177,11 @@ public:
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
-		Path!N[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
+		Path[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 		
 		// Root is always black.
-		auto link = Link!N(root, Color.Black);
+		auto link = Link(root, Color.Black);
 		while (true) {
 			auto diff = compare(n, link.node);
 			
@@ -182,7 +191,7 @@ public:
 			}
 			
 			auto cmp = diff > 0;
-			*stackp = Path!N(link, cmp);
+			*stackp = Path(link, cmp);
 			
 			stackp++;
 			link = link.childs[cmp];
@@ -191,7 +200,7 @@ public:
 		}
 		
 		// Now we look for a succesor.
-		*stackp = Path!N(link, true);
+		*stackp = Path(link, true);
 		auto removep = stackp;
 		auto removed = link;
 		
@@ -206,7 +215,7 @@ public:
 		link = removed.right;
 		while(!link.isLeaf()) {
 			stackp++;
-			*stackp = Path!N(link, false);
+			*stackp = Path(link, false);
 			link = link.left;
 		}
 		
@@ -249,7 +258,7 @@ public:
 		
 		// Removing red node require no fixup.
 		if (removed.isRed()) {
-			stackp[-1].childs[stackp[-1].cmp] = Link!N(null, Color.Black);
+			stackp[-1].childs[stackp[-1].cmp] = Link(null, Color.Black);
 			
 			// Update root and exit
 			root = path[0].node;
@@ -381,20 +390,26 @@ public:
 	}
 	
 	void dump() {
-		rb_print_tree(root);
+		rb_print_tree!NodeName(root);
 	}
 }
 
 private:
 //+
-void rb_print_tree(N)(N* root) {
-	Debug!N.print_tree(Link!N(root, Color.Black), 0);
+void rb_print_tree(string NodeName, N)(N* root) {
+	Debug!(N, NodeName).print_tree(Link!(N, NodeName)(root, Color.Black), 0);
 }
 // +/
 
 private:
 
-struct Link(N) {
+ref Node!(N, NodeName) nodeData(string NodeName, N)(N* n) {
+	mixin("return n." ~ NodeName ~ ";");
+}
+
+struct Link(N, string NodeName) {
+	alias Node = .Node!(N, NodeName);
+	
 	// This is effectively a tagged pointer, don't use as this.
 	N* _child;
 	
@@ -414,18 +429,23 @@ struct Link(N) {
 	}
 	
 	@property
+	ref Node nodeData() {
+		return .nodeData!NodeName(node);
+	}
+	
+	@property
 	ref Link left() {
-		return node.node.left;
+		return nodeData.left;
 	}
 	
 	@property
 	ref Link right() {
-		return node.node.right;
+		return nodeData.right;
 	}
 	
 	@property
 	ref Link[2] childs() {
-		return node.node.childs;
+		return nodeData.childs;
 	}
 	
 	@property
@@ -477,15 +497,18 @@ enum Color : bool {
 	Red = true,
 }
 
-struct Path(N) {
+struct Path(N, string NodeName) {
+	alias Link = .Link!(N, NodeName);
+	alias Node = .Node!(N, NodeName);
+	
 	// This is effectively a tagged pointer, don't use as this.
 	N* _child;
 	
-	this(Link!N l, bool c) {
+	this(Link l, bool c) {
 		_child = cast(N*) ((cast(size_t) l._child) | (c << 1));
 	}
 	
-	auto getWithLink(Link!N l) {
+	auto getWithLink(Link l) {
 		return Path(l, cmp);
 	}
 	
@@ -494,8 +517,8 @@ struct Path(N) {
 	}
 	
 	@property
-	Link!N link() {
-		return Link!N(node, color);
+	Link link() {
+		return Link(node, color);
 	}
 	
 	@property
@@ -509,18 +532,23 @@ struct Path(N) {
 	}
 	
 	@property
-	ref Link!N left() {
-		return node.node.left;
+	ref Node nodeData() {
+		return .nodeData!NodeName(node);
 	}
 	
 	@property
-	ref Link!N right() {
-		return node.node.right;
+	ref Link left() {
+		return nodeData.left;
 	}
 	
 	@property
-	ref Link!N[2] childs() {
-		return node.node.childs;
+	ref Link right() {
+		return nodeData.right;
+	}
+	
+	@property
+	ref Link[2] childs() {
+		return nodeData.childs;
 	}
 	
 	@property
@@ -538,8 +566,8 @@ struct Path(N) {
 }
 
 //+
-template Debug(N) {
-void print_tree(Link!N root, uint depth) {
+template Debug(N, string NodeName) {
+void print_tree(Link!(N, NodeName) root, uint depth) {
 	foreach (i; 0 .. depth) {
 		printf("\t".ptr);
 	}

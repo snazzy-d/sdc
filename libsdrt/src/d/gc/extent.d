@@ -1,11 +1,18 @@
 module d.gc.extent;
 
+import d.gc.rbtree;
+alias ExtentTree = RBTree!(Extent, addrExtentCmp);
+alias LookupExtentTree = RBTree!(Extent, addrExtentCmp, "lookupNode");
+
 struct Extent {
 	import d.gc.arena;
 	Arena* arena;
 	
 	import d.gc.rbtree;
-	Node!Extent node;
+	ExtentTree.Node node;
+	
+	// Used for GC lookup of huge allocs.
+	LookupExtentTree.Node lookupNode;
 	
 	void* addr;
 	size_t size;

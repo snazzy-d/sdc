@@ -38,7 +38,8 @@ struct Arena {
 	
 	// Extent describing huge allocs.
 	import d.gc.extent;
-	RBTree!(Extent, addrExtentCmp) hugeTree;
+	ExtentTree hugeTree;
+	LookupExtentTree hugeLookupTree;
 	
 	// Set of chunks for GC lookup.
 	ChunkSet chunkSet;
