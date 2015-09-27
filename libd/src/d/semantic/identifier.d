@@ -67,20 +67,44 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 			assert(0, typeid(a).toString() ~ " is not supported.");
 		}).array();
 		
-		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
-		auto instance = SymbolResolver!identifiableHandler(pass).visit(i.templateInstanciation.identifier).apply!((identified) {
-			static if (is(typeof(identified) : Symbol)) {
-				if (auto t = cast(Template) identified) {
-					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, t, args, fargs);
-				} else if (auto s = cast(OverloadSet) identified) {
-					return TemplateInstancier(pass).instanciate(i.templateInstanciation.location, s, args, fargs);
-				}
-			}
-			
-			return cast(TemplateInstance) null;
-		})();
+		CompileError ce;
 		
-		assert(instance);
+		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
+		auto instance = SymbolResolver!identifiableHandler(pass)
+			.visit(i.templateInstanciation.identifier)
+			.apply!(delegate TemplateInstance(identified) {
+				static if (is(typeof(identified) : Symbol)) {
+					if (auto t = cast(Template) identified) {
+						return TemplateInstancier(pass).instanciate(
+							i.templateInstanciation.location,
+							t,
+							args,
+							fargs,
+						);
+					} else if (auto s = cast(OverloadSet) identified) {
+						return TemplateInstancier(pass).instanciate(
+							i.templateInstanciation.location,
+							s,
+							args,
+							fargs,
+						);
+					}
+				}
+				
+				ce = getError(
+					identified,
+					i.templateInstanciation.location,
+					"Unexpected " ~ typeid(identified).toString(),
+				);
+				
+				return null;
+			})();
+		
+		if (instance is null) {
+			assert(ce, "No error reported :(");
+			return handler(ce.symbol);
+		}
+		
 		scheduler.require(instance, Step.Populated);
 		
 		if (auto s = instance.dscope.resolve(i.name)) {

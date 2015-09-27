@@ -14,6 +14,7 @@ class CompileError {
 	void[StorageSize!ErrorSymbol] symStorage;
 	void[StorageSize!ErrorExpression] exprStorage;
 	
+public:
 	this(Location location, string message) {
 		this.location = location;
 		this.message = message;
@@ -23,6 +24,11 @@ class CompileError {
 		exprStorage.emplace!ErrorExpression(this);
 	}
 	
+	string toString(const ref NameManager nm) const {
+		return message;
+	}
+	
+final:
 	@property
 	auto symbol() inout {
 		return cast(inout(ErrorSymbol)) symStorage.ptr;
@@ -38,10 +44,27 @@ class CompileError {
 		import d.ir.type;
 		return Type.get(this);
 	}
-	
-	string toString(const ref NameManager nm) const {
-		return message;
+}
+
+auto getError(T)(T t, Location location, string msg) {
+	import d.ir.type;
+	static if (is(T : Expression)) {
+		if (auto e = cast(ErrorExpression) t) {
+			return e.error;
+		}
+	} else static if (is(T : Symbol)) {
+		if (auto e = cast(ErrorSymbol) t) {
+			return e.error;
+		}
+	} else static if (is(T : Type)) {
+		if (t.kind == TypeKind.Error) {
+			return t.error;
+		}
+	} else {
+		static assert(0, "Unepxected " ~ typeid(t).toString());
 	}
+	
+	return new CompileError(location, msg);
 }
 
 final:
