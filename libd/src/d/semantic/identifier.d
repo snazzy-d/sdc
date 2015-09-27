@@ -232,13 +232,21 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				pass.scheduler.require(identified, pass.Step.Populated);
 				auto spp = SelfPostProcessor(pass, location);
 				
+				Symbol s;
 				if (auto i = cast(TemplateInstance) identified) {
-					return spp.visit(i.dscope.resolve(name));
+					s = i.dscope.resolve(name);
 				} else if (auto m = cast(Module) identified) {
-					return spp.visit(m.dscope.resolve(name));
+					s = m.dscope.resolve(name);
 				}
 				
-				return spp.visit(new CompileError(location, "Can't resolve " ~ name.toString(pass.context)).symbol);
+				if (s is null) {
+					s = new CompileError(
+						location,
+						"Can't resolve " ~ name.toString(pass.context),
+					).symbol;
+				}
+				
+				return spp.visit(s);
 			}
 		})();
 	}
