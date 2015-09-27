@@ -141,7 +141,8 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
-	if(trange.front.type == TokenType.Equal) {
+	AstExpression defaultValue;
+	if (trange.front.type == TokenType.Equal) {
 		trange.popFront();
 		switch(trange.front.type) {
 			case TokenType.__File__, TokenType.__Line__ :
@@ -151,12 +152,12 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 				break;
 			
 			default :
-				auto expression = trange.parseAssignExpression();
-				location.spanTo(expression.location);
+				defaultValue = trange.parseAssignExpression();
+				location.spanTo(defaultValue.location);
 		}
 	}
 	
-	return new AstValueTemplateParameter(location, name, type);
+	return new AstValueTemplateParameter(location, name, type, defaultValue);
 }
 
 private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
@@ -164,7 +165,7 @@ private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange tran
 	trange.match(TokenType.Alias);
 	
 	bool isTyped = false;
-	if(trange.front.type != TokenType.Identifier) {
+	if (trange.front.type != TokenType.Identifier) {
 		isTyped = true;
 	} else {
 		// Identifier followed by ":", "=", "," or ")" are untyped alias parameters.

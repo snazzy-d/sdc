@@ -229,11 +229,13 @@ class TypeTemplateParameter : TemplateParameter {
  */
 class ValueTemplateParameter : TemplateParameter {
 	Type type;
+	Expression defaultValue;
 	
-	this(Location location, Name name, uint index, Type type) {
+	this(Location location, Name name, uint index, Type type, Expression defaultValue) {
 		super(location, name, index);
 		
 		this.type = type;
+		this.defaultValue = defaultValue;
 	}
 }
 

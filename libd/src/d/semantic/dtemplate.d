@@ -134,8 +134,23 @@ private:
 	}
 	
 	bool matchArgument(TemplateParameter p, TemplateArgument a, TemplateArgument[] matchedArgs) {
-		return a.apply!(function bool() {
-			assert(0, "All passed argument must be defined.");
+		return a.apply!(delegate bool() {
+			if (auto t = cast(TypeTemplateParameter) p) {
+				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue).visit(t);
+			} else if (auto v = cast(ValueTemplateParameter) p) {
+				if (v.defaultValue !is null) {
+					import d.semantic.caster;
+					auto e = pass.evaluate(buildImplicitCast(
+						pass,
+						v.location,
+						v.type,
+						v.defaultValue,
+					));
+					return ValueMatcher(pass, matchedArgs, e).visit(v);
+				}
+			}
+			
+			return false;
 		}, (identified) {
 			static if (is(typeof(identified) : Type)) {
 				return TypeParameterMatcher(pass, matchedArgs, identified).visit(p);

@@ -248,11 +248,13 @@ class AstTypeTemplateParameter : AstTemplateParameter {
  */
 class AstValueTemplateParameter : AstTemplateParameter {
 	AstType type;
+	AstExpression defaultValue;
 	
-	this(Location location, Name name, AstType type) {
+	this(Location location, Name name, AstType type, AstExpression defaultValue) {
 		super(location, name);
 		
 		this.type = type;
+		this.defaultValue = defaultValue;
 	}
 }
 

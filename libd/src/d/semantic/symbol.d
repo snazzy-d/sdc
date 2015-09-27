@@ -337,7 +337,7 @@ struct SymbolAnalyzer {
 		import d.semantic.identifier : AliasResolver;
 		a.symbol = AliasResolver!(function Symbol(identified) {
 			alias T = typeof(identified);
-			static if(is(T : Symbol)) {
+			static if (is(T : Symbol)) {
 				return identified;
 			} else {
 				assert(0, "Not implemented for " ~ typeid(identified).toString());
@@ -751,7 +751,7 @@ struct SymbolAnalyzer {
 		c.step = Step.Processed;
 	}
 
-	void analyze (InterfaceDeclaration d, Interface i) {
+	void analyze(InterfaceDeclaration d, Interface i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
@@ -896,7 +896,7 @@ struct SymbolAnalyzer {
 		// Register parameter int the scope.
 		auto none = Type.get(BuiltinType.None);
 		foreach_reverse(i, p; d.parameters) {
-			if(auto atp = cast(AstTypeTemplateParameter) p) {
+			if (auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
 				currentScope.addSymbol(tp);
 				
@@ -906,22 +906,27 @@ struct SymbolAnalyzer {
 				
 				tp.step = Step.Signed;
 				t.parameters[i] = tp;
-			} else if(auto avp = cast(AstValueTemplateParameter) p) {
-				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none);
+			} else if (auto avp = cast(AstValueTemplateParameter) p) {
+				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none, null);
 				currentScope.addSymbol(vp);
 				
 				import d.semantic.type : TypeVisitor;
 				vp.type = TypeVisitor(pass).visit(avp.type);
 				
+				if (avp.defaultValue !is null) {
+					import d.semantic.expression : ExpressionVisitor;
+					vp.defaultValue = ExpressionVisitor(pass).visit(avp.defaultValue);
+				}
+				
 				vp.step = Step.Signed;
 				t.parameters[i] = vp;
-			} else if(auto aap = cast(AstAliasTemplateParameter) p) {
+			} else if (auto aap = cast(AstAliasTemplateParameter) p) {
 				auto ap = new AliasTemplateParameter(aap.location, aap.name, cast(uint) i);
 				currentScope.addSymbol(ap);
 				
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
-			} else if(auto atap = cast(AstTypedAliasTemplateParameter) p) {
+			} else if (auto atap = cast(AstTypedAliasTemplateParameter) p) {
 				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
 				currentScope.addSymbol(tap);
 				
@@ -939,7 +944,7 @@ struct SymbolAnalyzer {
 		
 		// TODO: support multiple IFTI.
 		foreach(m; t.members) {
-			if(auto fun = cast(FunctionDeclaration) m) {
+			if (auto fun = cast(FunctionDeclaration) m) {
 				if(fun.name != t.name) {
 					continue;
 				}
