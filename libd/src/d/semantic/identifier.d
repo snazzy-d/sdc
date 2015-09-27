@@ -201,6 +201,10 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		return resolveInIdentifiable(i.location, SymbolResolver!identifiableHandler(pass).visit(i.identifier), i.name);
 	}
 	
+	Ret visit(DotIdentifier i) {
+		return resolveInSymbol(i.location, currentScope.dmodule, i.name);
+	}
+	
 	Ret resolveInType(Location location, Type t, Name name) {
 		return TypeDotIdentifierResolver!((identified) {
 			alias T = typeof(identified);
