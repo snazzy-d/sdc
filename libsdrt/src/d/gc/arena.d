@@ -551,7 +551,6 @@ private:
 		
 		// TODO: The set need a range interface or some other way to iterrate.
 		auto chunks = chunkSet.cloneChunks();
-		
 		foreach(c; chunks) {
 			if (c is null) {
 				continue;
@@ -576,6 +575,7 @@ private:
 			scan(range);
 		}
 		
+		// Go on and on until all worklists are empty.
 		auto needRescan = true;
 		while(needRescan) {
 			needRescan = false;
@@ -588,6 +588,7 @@ private:
 			}
 		}
 		
+		// Now we can collect.
 		foreach(c; chunks) {
 			if (c is null) {
 				continue;
@@ -595,6 +596,8 @@ private:
 			
 			c.collect();
 		}
+		
+		// FIXME: Collect what remains in hugeLookupTree.
 	}
 	
 	bool scanStack() {

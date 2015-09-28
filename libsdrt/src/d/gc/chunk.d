@@ -321,8 +321,13 @@ struct Chunk {
 			return false;
 		}
 		
-		auto pd = pages[runID];
+		// The chunk may have been created after the collection started.
 		auto bitmapPtr = header.bitmap;
+		if (bitmapPtr is null) {
+			return false;
+		}
+		
+		auto pd = pages[runID];
 		auto index = runID;
 		if (pd.small) {
 			auto smallRun = &runs[runID].small;
@@ -372,6 +377,8 @@ struct Chunk {
 		
 		while (header.worklist.length > 0) {
 			auto ptrs = header.worklist;
+			scope(exit) header.arena.free(ptrs.ptr);
+			
 			// header.worklist = [];
 			header.worklist.ptr = null;
 			header.worklist.length = 0;
@@ -425,30 +432,47 @@ struct Chunk {
 				continue;
 			}
 			
-			auto binID = pages[i].binID;
-			if (pages[i].large) {
+			auto pd = pages[i];
+			auto runID = i;
+			auto binID = pd.binID;
+			if (pd.large) {
 				import d.gc.sizeclass;
-				i += cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+				auto pages = cast(uint) (getSizeFromBinID(pd.binID) >> LgPageSize);
+				i += pages;
+				
+				// Check if the run is alive.
+				auto bmp = header.bitmap[runID / 32];
+				auto mask = 1 << (runID % 32);
+				if (bmp & mask) {
+					continue;
+				}
+				
+				header.arena.freeRun(&this, runID, pages);
 				continue;
 			}
 			
-			assert(pages[i].offset == 0);
-			runs[i].small.bitmapIndex == 0;
+			assert(pd.offset == 0);
 			
 			import d.gc.bin;
 			i += binInfos[binID].needPages;
+			
+			auto bmpIndex = runs[runID].small.bitmapIndex;
+			// This is a new run, dismiss.
+			if (bmpIndex == 0) {
+				continue;
+			}
+			
+			// TODO: free en masse.
 		}
 		
 		// FIXME: It seems that there are some issue with alias this.
 		header.arena.free(header.bitmap);
-		header.arena.free(header.worklist.ptr);
-		
 		header.bitmap = null;
 		
 		// FIXME: empty array not supported.
 		// header.worklist = [];
-		header.worklist.ptr = null;
-		header.worklist.length = 0;
+		assert(header.worklist.ptr is null);
+		assert(header.worklist.length == 0);
 	}
 	
 	/**
