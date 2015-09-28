@@ -114,17 +114,17 @@ public:
 		// Dump module for debug purpose.
 		// LLVMDumpModule(dmodule);
 		
-		/*
+		/+
 		import std.stdio;
 		writeln("\nASM generated :");
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
-		//*/
+		// +/
 		
 		import std.string;
 		
 		char* errorPtr;
-		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, toStringz(objFile), LLVMCodeGenFileType.Object, &errorPtr);
+		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, objFile.toStringz(), LLVMCodeGenFileType.Object, &errorPtr);
 		if (linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
@@ -138,9 +138,10 @@ public:
 	void link(string objFile, string executable) {
 		import std.process;
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lphobos -lpthread";
-		
+		/+
 		import std.stdio;
 		writeln(linkCommand);
+		// +/
 		wait(spawnShell(linkCommand));
 	}
 }
