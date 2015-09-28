@@ -421,7 +421,7 @@ private:
 		e.arena = &this;
 		
 		import d.gc.mman, d.gc.spec;
-		auto ret = map_chunks(size >> LgChunkSize);
+		auto ret = map_chunks(((size - 1) >> LgChunkSize) + 1);
 		if (ret is null) {
 			free(e);
 			return null;
