@@ -57,28 +57,7 @@ template ElfW(string Type) {
 	// mixin("alias Elf"~__ELF_NATIVE_CLASS.stringof~"_"~type~" ElfW;");
 	
 	// stringof not implemented, hardcode 64 in there.
-	enum Prefix = "alias ElfW = Elf64_";
-	
-	// Work around ~ not being implemented in SDC.
-	// Work around the lack of relocation for TLS in LLVM.
-	// https://llvm.org/bugs/show_bug.cgi?id=17058
-	shared char[Prefix.length + Type.length + 1] buffer;
-	string getMixin() {
-		foreach(i; 0 .. Prefix.length) {
-			buffer[i] = Prefix[i];
-		}
-		
-		foreach(i; 0 .. Type.length) {
-			buffer[Prefix.length + i] = Type[i];
-		}
-		
-		buffer[Prefix.length + Type.length] = ';';
-		
-		auto ptr = cast(immutable(char)*) &buffer[0];
-		return ptr[0 .. buffer.length];
-	}
-	
-	mixin(getMixin());
+	mixin("alias ElfW = Elf64_" ~ Type ~ ";");
 }
 
 enum {
