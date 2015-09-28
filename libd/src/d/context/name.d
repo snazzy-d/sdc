@@ -90,6 +90,7 @@ enum Prefill = [
 	"__sd_class_downcast",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
+	"__sd_array_concat",
 	// Generated symbols
 	"__dg",
 	"__lambda",

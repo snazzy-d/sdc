@@ -107,9 +107,16 @@ struct ExpressionVisitor {
 	
 	Expression build(E, T...)(T args) if (is(typeof(new E(T.init)))) {
 		foreach (ref a; args) {
-			static if (is(typeof(a) : Expression)) {
+			alias T = typeof(a);
+			static if (is(T : Expression)) {
 				if (auto e = cast(ErrorExpression) a) {
 					return e;
+				}
+			} else static if (is(T : U[], U : Expression)) {
+				foreach (e; a) {
+					if (auto ee = cast(ErrorExpression) e) {
+						return ee;
+					}
 				}
 			}
 		}
@@ -204,6 +211,26 @@ struct ExpressionVisitor {
 				break;
 			
 			case Concat :
+				type = lhs.type;
+				if (type.getCanonical().kind != TypeKind.Slice) {
+					return getError(lhs, "Expected a slice");
+				}
+				
+				rhs = buildImplicitCast(
+					pass,
+					rhs.location,
+					(rhs.type.getCanonical().kind == TypeKind.Slice)
+						? type
+						: type.element,
+					rhs,
+				);
+				
+				return callOverloadSet(
+					e.location,
+					pass.object.getArrayConcat(),
+					[lhs, rhs],
+				);
+			
 			case ConcatAssign :
 				assert(0, "~ and ~= not implemented.");
 			

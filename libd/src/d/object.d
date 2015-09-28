@@ -15,28 +15,32 @@ final class ObjectReference {
 		return cast(TypeAlias) object.dscope.resolve(BuiltinName!"size_t");
 	}
 	
+	private auto getClass(Name name) {
+		return cast(Class) object.dscope.resolve(name);
+	}
+	
 	auto getObject() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"Object");
+		return getClass(BuiltinName!"Object");
 	}
 	
 	auto getTypeInfo() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"TypeInfo");
+		return getClass(BuiltinName!"TypeInfo");
 	}
 	
 	auto getClassInfo() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"ClassInfo");
+		return getClass(BuiltinName!"ClassInfo");
 	}
 	
 	auto getThrowable() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"Throwable");
+		return getClass(BuiltinName!"Throwable");
 	}
 	
 	auto getException() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"Exception");
+		return getClass(BuiltinName!"Exception");
 	}
 	
 	auto getError() {
-		return cast(Class) object.dscope.resolve(BuiltinName!"Error");
+		return getClass(BuiltinName!"Error");
 	}
 	
 	private auto getFunction(Name name) {
@@ -57,6 +61,12 @@ final class ObjectReference {
 	
 	auto getPersonality() {
 		return getFunction(BuiltinName!"__sd_eh_personality");
+	}
+	
+	auto getArrayConcat() {
+		auto s = object.dscope.resolve(BuiltinName!"__sd_array_concat");
+		import d.ir.dscope : OverloadSet;
+		return cast(OverloadSet) s;
 	}
 }
 
