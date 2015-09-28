@@ -560,7 +560,15 @@ private:
 			c.prepare();
 		}
 		
-		// FIXME: mark datastructures as live.
+		// Mark bitmap as live.
+		foreach(c; chunks) {
+			if (c is null) {
+				continue;
+			}
+			
+			auto bmp = cast(void**) &c.header.bitmap;
+			scan(bmp[0 .. 1]);
+		}
 		
 		// Scan the roots !
 		__sdgc_push_registers(scanStack);
