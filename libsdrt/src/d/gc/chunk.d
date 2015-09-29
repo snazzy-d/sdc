@@ -454,15 +454,39 @@ struct Chunk {
 			assert(pd.offset == 0);
 			
 			import d.gc.bin;
-			i += binInfos[binID].needPages;
+			auto binInfo = binInfos[binID];
+			i += binInfo.needPages;
 			
-			auto bmpIndex = runs[runID].small.bitmapIndex;
+			auto small = &runs[runID].small;
+			auto bmpIndex = small.bitmapIndex;
 			// This is a new run, dismiss.
 			if (bmpIndex == 0) {
 				continue;
 			}
 			
-			// TODO: free en masse.
+			auto bitmapPtr = &header.bitmap[bmpIndex];
+			auto headerBits = binInfo.slots / 32;
+			if (!headerBits) {
+				headerBits = 1;
+			} else {
+				assert((binInfo.slots % 32) == 0);
+			}
+			
+			for (uint j = 0; j < headerBits; j++) {
+				auto liveBmp = bitmapPtr[j];
+				
+				// Zero means allocated, so we flip bits.
+				auto oldBmp = small.bitmap[j];
+				auto newBmp = oldBmp | ~liveBmp;
+				
+				auto freed = newBmp ^ oldBmp;
+				if (freed) {
+					import d.gc.util;
+					small.freeSlots += popcount(freed);
+					small.header = cast(ushort)  (small.header | (1 << i));
+					small.bitmap[j] = newBmp;
+				}
+			}
 		}
 		
 		// FIXME: It seems that there are some issue with alias this.
@@ -510,7 +534,13 @@ struct Chunk {
 		runs[runID].small.bitmapIndex = 0;
 		
 		auto headerBits = binInfo.slots / 32;
-		if (!headerBits) headerBits = 1;
+		if (!headerBits) {
+			runs[runID].small.header = 1;
+			runs[runID].small.bitmap[0] = (1 << (binInfo.slots % 32)) - 1;
+			return rem;
+		}
+		
+		assert((binInfo.slots % 32) == 0);
 		
 		runs[runID].small.header = cast(ushort) ((1 << headerBits) - 1);
 		for (uint i = 0; i < headerBits; i++) {
