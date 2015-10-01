@@ -447,16 +447,9 @@ private:
 		
 		Extent test;
 		test.addr = ptr;
-		
-		// XXX: extract
-		auto e = hugeTree.find(&test);
-		if (e !is null) {
-			hugeTree.remove(e);
-		} else {
-			e = hugeLookupTree.find(&test);
-			if (e !is null) {
-				hugeLookupTree.remove(e);
-			}
+		auto e = hugeTree.extract(&test);
+		if (e is null) {
+			e = hugeLookupTree.extract(&test);
 		}
 		
 		// FIXME: out contract.
@@ -623,15 +616,13 @@ private:
 				continue;
 			}
 			
-			// XXX: extract.
 			Extent ecmp;
 			ecmp.addr = cast(void*) ptr;
-			auto e = hugeLookupTree.find(&ecmp);
+			auto e = hugeLookupTree.extract(&ecmp);
 			if (e is null) {
 				continue;
 			}
 			
-			hugeLookupTree.remove(e);
 			hugeTree.insert(e);
 			
 			auto hugeRange = makeRange(e.addr[0 .. e.size]);

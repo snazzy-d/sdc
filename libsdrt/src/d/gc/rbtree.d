@@ -173,6 +173,12 @@ public:
 	}
 	
 	void remove(N* n) {
+		assert(n !is null);
+		auto removed = extract(n);
+		assert(n is removed);
+	}
+	
+	N* extract(N* n) {
 		// rbtree's depth is ln(n) which is at most 8 * size_t.sizeof.
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
@@ -182,8 +188,9 @@ public:
 		
 		// Root is always black.
 		auto link = Link(root, Color.Black);
-		while (true) {
-			auto diff = compare(n, link.node);
+		auto rn = root;
+		while (rn !is null) {
+			auto diff = compare(n, rn);
 			
 			// We found our node !
 			if (diff == 0) {
@@ -195,16 +202,17 @@ public:
 			
 			stackp++;
 			link = link.childs[cmp];
-			
-			assert(!link.isLeaf(), "Element not found in rbtree");
+			rn = link.node;
+		}
+		
+		if (rn is null) {
+			return null;
 		}
 		
 		// Now we look for a succesor.
 		*stackp = Path(link, true);
 		auto removep = stackp;
 		auto removed = link;
-		
-		assert(removed.node is n);
 		
 		/**
 		 * We find a replacing node by going one to the right
@@ -262,7 +270,7 @@ public:
 			
 			// Update root and exit
 			root = path[0].node;
-			return;
+			return rn;
 		}
 		
 		for (stackp--; stackp !is (&path[0] - 1); stackp--) {
@@ -378,7 +386,7 @@ public:
 			// If we are the root, we are done.
 			if (stackp is &path[0]) {
 				root = l.node;
-				return;
+				return rn;
 			}
 			
 			stackp[-1].childs[stackp[-1].cmp] = l.getAs(link.color);
@@ -387,6 +395,7 @@ public:
 		
 		// Update root and exit
 		root = path[0].node;
+		return rn;
 	}
 	
 	void dump() {
