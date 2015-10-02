@@ -30,6 +30,11 @@ private:
 	}
 	
 public:
+	@property
+	bool empty() {
+		return root is null;
+	}
+	
 	N* find(N* test) {
 		auto n = root;
 		
@@ -176,6 +181,10 @@ public:
 		assert(n !is null);
 		auto removed = extract(n);
 		assert(n is removed);
+	}
+	
+	N* extractAny() {
+		return extract(root);
 	}
 	
 	N* extract(N* n) {

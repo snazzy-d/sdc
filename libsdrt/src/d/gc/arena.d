@@ -467,9 +467,14 @@ private:
 			return;
 		}
 		
-		// XXX: extract
-		auto e = extractHugeExtent(ptr);
+		freeExtent(extractHugeExtent(ptr));
+	}
+	
+	void freeExtent(Extent* e) {
+		// FIXME: in contract
 		assert(e !is null);
+		assert(hugeTree.find(e) is null);
+		assert(hugeLookupTree.find(e) is null);
 		
 		import d.gc.mman;
 		pages_unmap(e.addr, e.size);
@@ -590,7 +595,10 @@ private:
 			c.collect();
 		}
 		
-		// FIXME: Collect what remains in hugeLookupTree.
+		// Extents that have not been moved to hugeTree are dead.
+		while(!hugeLookupTree.empty) {
+			freeExtent(hugeLookupTree.extractAny());
+		}
 	}
 	
 	bool scanStack() {
