@@ -29,12 +29,42 @@ final class SDC {
 		
 		context = new Context();
 		
-		backend	= new LLVMBackend(context, name, optLevel, linkerParams);
-		semantic = new SemanticPass(context, backend.getEvaluator(), backend.getDataLayout(), includePaths);
+		LLVMBackend evBackend;
 		
-		// Review thet way this whole thing is built.
-		backend.getPass().object = semantic.object;
-		backend.getPass().scheduler = semantic.scheduler;
+		import d.object;
+		import d.semantic.scheduler, d.semantic.evaluator;
+		Evaluator evb(Scheduler scheduler, ObjectReference obj) {
+			if (evBackend is null) {
+				evBackend = new LLVMBackend(
+					context,
+					scheduler,
+					obj,
+					name,
+					optLevel,
+					linkerParams,
+				);
+			}
+			
+			return evBackend.getEvaluator();
+		}
+		
+		import d.semantic.datalayout;
+		DataLayout dlb(ObjectReference) {
+			assert(evBackend !is null);
+			return evBackend.getDataLayout();
+		}
+		
+		SemanticPass.DataLayoutBuilder stuff = &dlb;
+		
+		semantic = new SemanticPass(context, &evb, &dlb, includePaths);
+		backend = new LLVMBackend(
+			context,
+			semantic.scheduler,
+			semantic.object,
+			name,
+			optLevel,
+			linkerParams,
+		);
 	}
 	
 	void compile(string filename) {
@@ -45,19 +75,16 @@ final class SDC {
 	
 	void buildMain() {
 		semantic.terminate();
-		
 		backend.visit(semantic.buildMain(modules));
 	}
 	
 	void codeGen(string objFile) {
 		semantic.terminate();
-		
 		backend.emitObject(modules, objFile);
 	}
 	
 	void codeGen(string objFile, string executable) {
 		codeGen(objFile);
-		
 		backend.link(objFile, executable);
 	}
 }

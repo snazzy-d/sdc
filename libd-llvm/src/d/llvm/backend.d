@@ -23,8 +23,15 @@ private:
 	string linkerParams;
 	
 public:
-	import d.context.context;
-	this(Context context, string name, uint optLevel, string linkerParams) {
+	import d.context.context, d.semantic.scheduler, d.object;
+	this(
+		Context context,
+		Scheduler scheduler,
+		ObjectReference obj,
+		string name,
+		uint optLevel,
+		string linkerParams,
+	) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -54,8 +61,7 @@ public:
 		
 		auto td = LLVMGetTargetMachineData(targetMachine);
 		
-		pass = new CodeGenPass(context, name, td);
-		evaluator = new LLVMEvaluator(pass);
+		pass = new CodeGenPass(context, scheduler, obj, this, name, td);
 		dataLayout = new LLVMDataLayout(pass, td);
 	}
 	
@@ -68,6 +74,10 @@ public:
 	}
 	
 	auto getEvaluator() {
+		if (evaluator is null) {
+			evaluator = new LLVMEvaluator(pass);
+		}
+		
 		return evaluator;
 	}
 	

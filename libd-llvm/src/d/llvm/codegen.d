@@ -22,15 +22,12 @@ alias Interface = d.ir.symbol.Interface;
 final class CodeGenPass {
 	import d.context.context;
 	Context context;
+	Scheduler scheduler;
+	ObjectReference object;
 	
 	private TypeGen typeGen;
-	
 	private StringGen stringGen;
-	
 	DruntimeGen druntimeGen;
-	
-	ObjectReference object;
-	Scheduler scheduler;
 	
 	LLVMTargetDataRef targetData;
 	
@@ -49,10 +46,27 @@ final class CodeGenPass {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	this(Context context, string name, LLVMTargetDataRef targetData) {
+	// FIXME: We hold a refernece to the backend here so ti is not GCed.
+	// Now that JIT use its own codegen, no reference to the JIT backend
+	// is held is that one goes. The whole thing needs to be refactored
+	// in a way that is more sensible.
+	import d.llvm.backend;
+	LLVMBackend backend;
+	
+	this(
+		Context context,
+		Scheduler scheduler,
+		ObjectReference object,
+		LLVMBackend backend,
+		string name,
+		LLVMTargetDataRef targetData,
+	) {
 		this.context	= context;
+		this.scheduler	= scheduler;
+		this.object		= object;
+		this.backend	= backend;
 		this.targetData	= targetData;
-
+		
 		// Make sure globals are initialized.
 		globals[null] = null;
 		globals.remove(null);
@@ -60,9 +74,7 @@ final class CodeGenPass {
 		llvmCtx = LLVMContextCreate();
 		
 		typeGen			= new TypeGen(this);
-		
 		stringGen		= new StringGen(this);
-		
 		druntimeGen		= new DruntimeGen(this);
 		
 		import std.string;

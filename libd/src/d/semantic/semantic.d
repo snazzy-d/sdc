@@ -71,10 +71,11 @@ final class SemanticPass {
 	
 	alias Step = d.ir.symbol.Step;
 	
-	this(Context context, Evaluator evaluator, DataLayout dataLayout, string[] includePaths) {
+	alias EvaluatorBuilder = Evaluator delegate(Scheduler, ObjectReference);
+	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
+	
+	this(Context context, EvaluatorBuilder evBuilder, DataLayoutBuilder dlBuilder, string[] includePaths) {
 		this.context	= context;
-		this.evaluator	= evaluator;
-		this.dataLayout	= dataLayout;
 		
 		moduleVisitor	= new ModuleVisitor(this, includePaths);
 		scheduler		= new Scheduler(this);
@@ -82,6 +83,9 @@ final class SemanticPass {
 		import d.context.name;
 		auto obj	= importModule([BuiltinName!"object"]);
 		this.object	= new ObjectReference(obj);
+		
+		evaluator = evBuilder(scheduler, this.object);
+		dataLayout = dlBuilder(this.object);
 		
 		scheduler.require(obj, Step.Populated);
 	}
