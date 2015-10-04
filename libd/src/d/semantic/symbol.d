@@ -841,8 +841,10 @@ struct SymbolAnalyzer {
 		}
 		*/
 		scheduler.require(members);
-
-		foreach (i; c.interfaces){
+		methodIndex++;
+		// loop to check for implementation of the interface methods
+		foreach (i; c.interfaces) {
+			c.ivtblOffset[i] = methodIndex++;
 			scheduler.require(i);
 			foreach (m; i.members) {
 				if (auto interfaceMethod = cast(Method) m) {
@@ -850,7 +852,7 @@ struct SymbolAnalyzer {
 					foreach (ref member; members) {
 						if (auto classMethod = cast(Method) member) {
 							if(methodMatch(classMethod, interfaceMethod)){
-								c.members ~= member;
+								//c.members ~= member;
 								found = true;
 								break;
 							} 
@@ -966,7 +968,7 @@ struct SymbolAnalyzer {
 
 		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, i);
 		Method[] methods;
-
+		methodIndex = 0;
 		foreach(m; members) {
 			if (auto method = cast (Method) m) { 
 				scheduler.require(method, Step.Signed);
@@ -975,6 +977,7 @@ struct SymbolAnalyzer {
 					import d.exception;
 					throw new CompileException(method.location, "non-static method can't have a body in interface");
 				}
+				method.index = methodIndex++;
 				methods ~= method;
 
 			} else if(auto staticMethod = cast(Function) m) { // static method
@@ -983,7 +986,6 @@ struct SymbolAnalyzer {
 				import d.exception;
 				throw new CompileException(m.location, "Interface can have only methods");
 			}
-
 		}
 
 

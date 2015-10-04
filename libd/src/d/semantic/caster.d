@@ -485,6 +485,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Class c) {
+		import std.stdio;
+		writeln("visted:c");
 		if (isExplicit && to.kind == TypeKind.Pointer) {
 			auto et = to.element.getCanonical();
 			if (et.kind == TypeKind.Builtin &&
@@ -500,7 +502,13 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				return kind;
 			}
 		}
-		
+
+		if (to.kind == TypeKind.Interface) {
+			scheduler.require(c, Step.Signed);
+			//
+			return CastKind.Down;
+		}
+
 		return bailout(c);
 	}
 	
@@ -520,6 +528,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Interface i) {
+		import std.stdio;
+		writeln("visted");
+
 		return CastKind.Invalid;
 	}
 	
