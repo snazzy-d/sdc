@@ -258,7 +258,6 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				return resolveInExpression(location, identified, name);
 			} else {
 				pass.scheduler.require(identified, pass.Step.Populated);
-				auto spp = SelfPostProcessor(pass, location);
 				
 				Symbol s;
 				if (auto i = cast(TemplateInstance) identified) {
@@ -268,13 +267,14 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				}
 				
 				if (s is null) {
-					s = new CompileError(
+					s = getError(
+						identified,
 						location,
 						"Can't resolve " ~ name.toString(pass.context),
 					).symbol;
 				}
 				
-				return spp.visit(s);
+				return SelfPostProcessor(pass, location).visit(s);
 			}
 		})();
 	}
@@ -740,7 +740,11 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return handler(new IntegerLiteral(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
 		}
 		
-		return handler(new CompileError(location, name.toString(context) ~ " can't be resolved in type " ~ t.toString(context)).symbol);
+		return handler(getError(
+			t,
+			location,
+			name.toString(context) ~ " can't be resolved in type " ~ t.toString(context),
+		).symbol);
 	}
 	
 	Ret visit(Type t) {
