@@ -87,28 +87,36 @@ public:
 			previousStatement = s;
 		}
 	}
-
+	
 	void visit(ExpressionStatement s) {}
-
-	void visit(SymbolStatement s) {
-		assert(s.symbol.step == Step.Processed);
-
-		auto v = cast(Variable) s.symbol;
-		if (v is null || v.storage.isGlobal) {
+	
+	void visit(VariableStatement s) in {
+		assert(s.var.step == Step.Processed);
+	} body {
+		auto v = s.var;
+		if (v.storage.isGlobal) {
 			return;
 		}
-
+		
 		if (v.storage == Storage.Capture && v !in closure) {
 			closure[v] = nextClosureIndex++;
 		}
-
+		
 		declBlockStack ~= nextDeclBlock++;
 	}
-
+	
+	void visit(FunctionStatement s) in {
+		assert(s.fun.step == Step.Processed);
+	} body {}
+	
+	void visit(TypeStatement s) in {
+		assert(s.type.step == Step.Processed);
+	} body {}
+	
 	void visit(ReturnStatement s) {
 		terminateFun();
 	}
-
+	
 	void visit(IfStatement s) {
 		auto oldMustTerminate = mustTerminate;
 		auto oldFunTerminate = funTerminate;

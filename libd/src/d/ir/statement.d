@@ -33,16 +33,44 @@ alias CatchBlock = d.ast.statement.CatchBlock!(Class, Statement);
 final:
 
 /**
- * Symbols
+ * Variable
  */
-class SymbolStatement : Statement {
+class VariableStatement : Statement {
 	import d.ir.symbol;
-	Symbol symbol;
+	Variable var;
 	
-	this(Symbol symbol) {
-		super(symbol.location);
+	this(Variable variable) {
+		super(variable.location);
 		
-		this.symbol = symbol;
+		var = variable;
+	}
+}
+
+/**
+ * Function
+ */
+class FunctionStatement : Statement {
+	import d.ir.symbol;
+	Function fun;
+	
+	this(Function dfunction) {
+		super(dfunction.location);
+		
+		fun = dfunction;
+	}
+}
+
+/**
+ * Type
+ */
+class TypeStatement : Statement {
+	import d.ir.symbol;
+	TypeSymbol type;
+	
+	this(TypeSymbol type) {
+		super(type.location);
+		
+		this.type = type;
 	}
 }
 

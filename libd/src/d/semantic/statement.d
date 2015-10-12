@@ -1,6 +1,5 @@
 module d.semantic.statement;
 
-import d.semantic.caster;
 import d.semantic.semantic;
 
 import d.ast.conditional;
@@ -96,18 +95,28 @@ public:
 		
 		flattenedStmts ~= new ExpressionStatement(e);
 	}
-
-	private void addDeclaration(Declaration decl) {
+	
+	void visit(DeclarationStatement s) {
 		import d.semantic.declaration;
-		auto syms = DeclarationVisitor(pass, AddContext.Yes, Visibility.Private).flatten(decl);
+		auto syms = DeclarationVisitor(
+			pass,
+			AddContext.Yes,
+			Visibility.Private,
+		).flatten(s.declaration);
+		
 		scheduler.require(syms);
 		
-		import std.algorithm, std.array;
-		flattenedStmts ~= syms.map!(d => new SymbolStatement(d)).array();
-	}
-
-	void visit(DeclarationStatement s) {
-		addDeclaration(s.declaration);
+		foreach(sym; syms) {
+			if (auto v = cast(Variable) sym) {
+				flattenedStmts ~= new VariableStatement(v);
+			} else if (auto f = cast(Function) sym) {
+				flattenedStmts ~= new FunctionStatement(f);
+			} else if (auto t = cast(TypeSymbol) sym) {
+				flattenedStmts ~= new TypeStatement(t);
+			} else {
+				assert(0, typeid(sym).toString() ~ " is not supported");
+			}
+		}
 	}
 	
 	void visit(IdentifierStarIdentifierStatement s) {
@@ -116,10 +125,27 @@ public:
 			alias T = typeof(identified);
 			static if (is(T : Expression)) {
 				assert(0, "expression identifier * identifier are not implemented.");
-			} else if (is(T : Type)) {
-				// XXXX: We'll do the resolution again, wasteful, but will do.
-				auto type = AstType.get(s.identifier).getPointer();
-				addDeclaration(new VariableDeclaration(s.location, StorageClass.init, type, s.name, s.value));
+			} else static if (is(T : Type)) {
+				auto t = identified.getPointer();
+				
+				import d.semantic.expression;
+				import d.semantic.defaultinitializer : InitBuilder;
+				auto value = s.value
+					? ExpressionVisitor(pass).visit(s.value)
+					: InitBuilder(pass, s.location).visit(t);
+				
+				import d.semantic.caster;
+				auto v = new Variable(
+					s.location,
+					t.getParamType(false, false),
+					s.name,
+					buildImplicitCast(pass, s.location, t, value),
+				);
+				
+				v.step = Step.Processed;
+				pass.currentScope.addSymbol(v);
+				
+				flattenedStmts ~= new VariableStatement(v);
 				return true;
 			} else {
 				assert(0, "Was not expecting " ~ T.stringof);
@@ -137,7 +163,7 @@ public:
 	}
 	
 	void visit(AstIfStatement s) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		auto condition = buildExplicitCast(pass, s.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(s.condition));
 		auto then = autoBlock(s.then);
 		
@@ -150,7 +176,7 @@ public:
 	}
 	
 	void visit(AstWhileStatement w) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		flattenedStmts ~= new WhileStatement(
 			w.location,
 			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
@@ -159,7 +185,7 @@ public:
 	}
 	
 	void visit(AstDoWhileStatement w) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		flattenedStmts ~= new DoWhileStatement(
 			w.location,
 			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
@@ -177,7 +203,7 @@ public:
 		visit(f.initialize);
 		auto initialize = flattenedStmts[$ - 1];
 		
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		Expression condition = f.condition
 			? buildExplicitCast(pass, f.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(f.condition))
 			: new BooleanLiteral(f.location, true);
@@ -250,7 +276,7 @@ public:
 		
 		assert(idx);
 		
-		auto initialize = new SymbolStatement(idx);
+		auto initialize = new VariableStatement(idx);
 		auto idxExpr = new VariableExpression(idx.location, idx);
 		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, length);
 		auto increment = new UnaryExpression(loc, idxExpr.type, UnaryOp.PreInc, idxExpr);
@@ -270,6 +296,8 @@ public:
 		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
 			eType = TypeVisitor(pass).visit(eDecl.type);
+			
+			import d.semantic.caster;
 			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
 		}
 		
@@ -303,6 +331,7 @@ public:
 			? getPromotedType(pass, loc, start.type, stop.type)
 			: TypeVisitor(pass).visit(iDecl.type).getType();
 		
+		import d.semantic.caster;
 		start = buildImplicitCast(pass, start.location, type, start);
 		stop  = buildImplicitCast(pass, stop.location, type, stop);
 		
@@ -311,15 +340,15 @@ public:
 			start = stop;
 			stop = tmp;
 		}
-
+		
 		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
-
+		
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
-
+		
 		Expression idxExpr = new VariableExpression(idx.location, idx);
 		Expression increment, condition;
-
+		
 		if (f.reverse) {
 			// for(...; idx-- > stop; idx)
 			condition = new BinaryExpression(
@@ -333,9 +362,9 @@ public:
 			condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, stop);
 			increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}
-
-		auto initialize = new SymbolStatement(idx);
-
+		
+		auto initialize = new VariableStatement(idx);
+		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
 	}
 	
@@ -370,6 +399,7 @@ public:
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
 		} else {
+			import d.semantic.caster;
 			value = buildImplicitCast(pass, s.location, returnType.getType(), value);
 			if (returnType.isRef) {
 				if (value.isLvalue) {
@@ -427,7 +457,7 @@ public:
 	}
 	
 	void visit(AstThrowStatement s) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		flattenedStmts ~= new ThrowStatement(s.location, buildExplicitCast(
 			pass,
 			s.value.location,
@@ -469,7 +499,7 @@ public:
 	}
 	
 	void visit(StaticIf!AstStatement s) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		auto condition = evalIntegral(buildExplicitCast(
 			pass,
 			s.condition.location,
@@ -491,7 +521,7 @@ public:
 	}
 	
 	void visit(StaticAssert!AstStatement s) {
-		import d.semantic.expression;
+		import d.semantic.caster, d.semantic.expression;
 		auto condition = evalIntegral(buildExplicitCast(
 			pass,
 			s.condition.location,

@@ -43,8 +43,16 @@ struct StatementGen {
 		this.dispatch(s);
 	}
 	
-	void visit(SymbolStatement s) {
-		define(s.symbol);
+	void visit(VariableStatement s) {
+		define(s.var);
+	}
+	
+	void visit(FunctionStatement s) {
+		define(s.fun);
+	}
+	
+	void visit(TypeStatement s) {
+		define(s.type);
 	}
 	
 	private auto genExpression(Expression e) {
