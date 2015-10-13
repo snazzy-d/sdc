@@ -1,7 +1,6 @@
 module d.context.sourcemanager;
 
 import d.context.location;
-import d.context.source;
 
 struct FullLocation {
 private:
@@ -23,9 +22,16 @@ public:
 		this._location = location;
 		this.sourceManager = sourceManager;
 		
+		import std.conv;
 		assert(
 			sourceManager.getFileID(start) == sourceManager.getFileID(stop),
+/+
+			"Location file mismatch " ~
+				start.getFileName() ~ ":" ~ to!string(start.getOffsetInFile()) ~ " and " ~
+				stop.getFileName() ~ ":" ~ to!string(stop.getOffsetInFile())
+/* +/ /*/ /+ */
 			"Location file mismatch"
+// +/
 		);
 	}
 	
@@ -42,6 +48,10 @@ public:
 	
 	string getFileName() {
 		return start.getFileName();
+	}
+	
+	string getDirectory() {
+		return start.getDirectory();
 	}
 	
 	FullLocation getImportLocation() {
@@ -99,6 +109,10 @@ public:
 		return sourceManager.getFileName(this);
 	}
 	
+	string getDirectory() {
+		return sourceManager.getDirectory(this);
+	}
+	
 	FullLocation getImportLocation() {
 		return sourceManager.getImportLocation(this);
 	}
@@ -125,18 +139,16 @@ private:
 	@disable this(this);
 	
 public:
-	Position registerFile(string filename) out(result) {
+	Position registerFile(Location location, string filename) out(result) {
 		assert(result.isFile());
 	} body {
-		auto s = new FileSource(filename);
-		return files.registerSource(s);
+		return files.registerFile(location, filename);
 	}
 	
 	Position registerMixin(Location location, string content) out(result) {
 		assert(result.isMixin());
 	} body {
-		auto s = new MixinSource(location, content);
-		return mixins.registerSource(s);
+		return mixins.registerMixin(location, content);
 	}
 	
 package:
@@ -145,35 +157,37 @@ package:
 	}
 	
 private:
-	Source getSource(Position p) {
-		return getSourceEntry(p).source;
-	}
-	
 	string getContent(Position p) {
-		return getSource(p).content;
+		return getSourceEntry(p).content;
 	}
 	
 	string getFileName(Position p) in {
 		assert(p.isFile());
 	} body {
-		return getSourceEntry(p).fileSource.filename;
+		return getSourceEntry(p).filename;
+	}
+	
+	string getDirectory(Position p) in {
+		assert(p.isFile());
+	} body {
+		return "";
 	}
 	
 	FullLocation getImportLocation(Position p) in {
 		assert(p.isMixin());
 	} body {
-		return getSourceEntry(p).mixinSource.location.getFullLocation(this);
+		return getSourceEntry(p).location.getFullLocation(this);
 	}
 	
 	uint getLineNumber(Position p) {
 		auto e = &getSourceEntry(p);
-		return e.source.getLineNumber(p.offset - e.base.offset);
+		return e.getLineNumber(p.offset - e.base.offset);
 	}
 	
 	uint getColumn(Position p) {
 		auto e = &getSourceEntry(p);
 		auto o = p.offset - e.base.offset;
-		return o - e.source.getLineOffset(o);
+		return o - e.getLineOffset(o);
 	}
 	
 	uint getOffsetInFile(Position p) {
@@ -237,11 +251,29 @@ struct SourceEntries {
 		lastFileID = FileID(0, nextSourcePos.isMixin());
 	}
 	
-	Position registerSource(S)(S s) if(is(S : Source)) {
+	Position registerFile(Location location, string filename) in {
+		assert(nextSourcePos.isFile());
+	} body {
+		import std.file;
+		auto data = cast(const(ubyte)[]) read(filename);
+		
+		import util.utf8;
+		auto content = convertToUTF8(data) ~ '\0';
+		
 		auto base = nextSourcePos;
 		nextSourcePos = nextSourcePos
-			.getWithOffset(cast(uint) s.content.length);
-		sourceEntries ~= SourceEntry(base, s);
+			.getWithOffset(cast(uint) content.length);
+		sourceEntries ~= SourceEntry(base, location, filename, content);
+		return base;
+	}
+	
+	Position registerMixin(Location location, string content) in {
+		assert(nextSourcePos.isMixin());
+	} body {
+		auto base = nextSourcePos;
+		nextSourcePos = nextSourcePos
+			.getWithOffset(cast(uint) content.length);
+		sourceEntries ~= SourceEntry(base, location, content);
 		return base;
 	}
 	
@@ -276,47 +308,114 @@ struct SourceEntries {
 }
 
 struct SourceEntry {
+private:
 	Position base;
 	alias base this;
 	
-private:
-	union {
-		Source _source;
-		FileSource _fileSource;
-		MixinSource _mixinSource;
+	uint lastLineLookup;
+	immutable(uint)[] lines;
+	
+	Location location;
+	string _content;
+	
+	string _filename;
+	
+	// Make sure this is compact enough to fit in a cache line.
+	static assert(SourceEntry.sizeof == 8 * size_t.sizeof);
+	
+public:
+	@property
+	string content() const {
+		return _content;
 	}
 	
-private:
-	this(Position base, FileSource source) in {
+	@property
+	auto filename() const in {
 		assert(base.isFile());
 	} body {
-		this.base = base;
-		_fileSource = source;
+		return _filename;
 	}
 	
-	this(Position base, MixinSource source) in {
+private:
+	this(Position base, Location location, string content) in {
 		assert(base.isMixin());
 	} body {
 		this.base = base;
-		_mixinSource = source;
+		this.location = location;
+		_content = content;
 	}
 	
-	@property
-	inout(FileSource) fileSource() inout in {
+	this(Position base, Location location, string filename, string content) in {
 		assert(base.isFile());
 	} body {
-		return _fileSource;
+		this.base = base;
+		this.location = location;
+		_content = content;
+		_filename = filename;
 	}
 	
-	@property
-	inout(MixinSource) mixinSource() inout in {
-		assert(base.isMixin());
+	uint getLineNumber(uint index) {
+		if (!lines) {
+			lines = getLines(content);
+		}
+		
+		// It is common to query the same file many time,
+		// so we have a one entry cache for it.
+		if (!isIndexInLine(index, lastLineLookup)) {
+			import util.lookup;
+			lastLineLookup = lookup!(l => l, 15)(
+				lines,
+				index,
+				lastLineLookup,
+			);
+		}
+		
+		return lastLineLookup + 1;
+	}
+	
+	uint getLineOffset(uint index) out(result) {
+		assert(result <= index);
 	} body {
-		return _mixinSource;
+		return lines[getLineNumber(index) - 1];
 	}
 	
-	@property
-	inout(Source) source() inout {
-		return _source;
+	bool isIndexInLine(uint index, uint line) {
+		if (index < lines[line]) {
+			return false;
+		}
+		
+		return (line + 1 == lines.length)
+			? (index < content.length)
+			: (index < lines[line + 1]);
+	}
+}
+
+// XXX: This need to be vectorized
+immutable(uint)[] getLines(string content) {
+	immutable(uint)[] ret = [];
+	
+	uint p = 0;
+	uint i = 0;
+	char c = content[i];
+	while (true) {
+		while (c != '\n' && c != '\r' && c != '\0') {
+			c = content[++i];
+		}
+		
+		if (c == '\0') {
+			ret ~= p;
+			return ret;
+		}
+		
+		auto match = c;
+		c = content[++i];
+		
+		// \r\n is a special case
+		if (match == '\r' && c == '\n') {
+			c = content[++i];
+		}
+		
+		ret ~= p;
+		p = i;
 	}
 }

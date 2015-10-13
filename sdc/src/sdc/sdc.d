@@ -9,8 +9,6 @@ import d.llvm.backend;
 
 import d.semantic.semantic;
 
-import d.context.source;
-
 import util.json;
 
 final class SDC {

@@ -118,7 +118,6 @@ enum TokenType {
 
 import d.context.context;
 import d.context.location;
-import d.context.source;
 
 struct Token {
 	Location location;

@@ -258,7 +258,7 @@ struct DeclarationVisitor {
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.lexer, d.context.source, d.ir.expression;
+		import d.lexer, d.ir.expression;
 		auto base = context.registerMixin(location, str ~ '\0');
 		auto trange = lex(base, context);
 		

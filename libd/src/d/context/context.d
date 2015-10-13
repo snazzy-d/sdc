@@ -11,8 +11,8 @@ final class Context {
 	// alias sourceManager this;
 	// XXX: Lack of alias this
 	import d.context.location;
-	Position registerFile(string filename) {
-		return sourceManager.registerFile(filename);
+	Position registerFile(Location location, string filename) {
+		return sourceManager.registerFile(location, filename);
 	}
 
 	Position registerMixin(Location location, string content) {

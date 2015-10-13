@@ -12,7 +12,6 @@ import d.ast.dmodule;
 import d.ir.symbol;
 
 import d.context.name;
-import d.context.source;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;

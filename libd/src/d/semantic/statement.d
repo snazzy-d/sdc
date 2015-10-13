@@ -552,7 +552,7 @@ public:
 		import d.semantic.expression;
 		auto str = evalString(ExpressionVisitor(pass).visit(s.value));
 		
-		import d.lexer, d.context.source;
+		import d.lexer;
 		auto base = context.registerMixin(s.location, str ~ '\0');
 		auto trange = lex(base, context);
 		

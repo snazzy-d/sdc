@@ -22,7 +22,6 @@ import d.ir.type;
 import d.parser.base;
 
 import d.context.name;
-import d.context.source;
 
 alias AstModule = d.ast.dmodule.Module;
 alias Module = d.ir.symbol.Module;
@@ -92,7 +91,7 @@ final class SemanticPass {
 	
 	AstModule parse(string filename, PackageNames packages) {
 		import d.lexer;
-		auto base = context.registerFile(filename);
+		auto base = context.registerFile(Location.init, filename);
 		auto trange = lex(base, context);
 		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
 	}
