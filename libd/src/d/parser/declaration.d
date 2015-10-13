@@ -21,7 +21,7 @@ import d.context.name;
 /**
  * Parse a set of declarations.
  */
-auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) {
+auto parseAggregate(bool globBraces = true)(ref TokenRange trange) {
 	static if (globBraces) {
 		trange.match(TokenType.OpenBrace);
 	}
@@ -42,7 +42,7 @@ auto parseAggregate(bool globBraces = true, R)(ref R trange) if(isTokenRange!R) 
 /**
  * Parse a declaration
  */
-Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
+Declaration parseDeclaration(ref TokenRange trange) {
 	auto location = trange.front.location;
 	
 	// First, declarations that do not support storage classes.
@@ -332,14 +332,14 @@ Declaration parseDeclaration(R)(ref R trange) if(isTokenRange!R) {
  * Parse type identifier ... declarations.
  * Function/variables.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc) if(isTokenRange!R) {
+Declaration parseTypedDeclaration(ref TokenRange trange, Location location, StorageClass stc) {
 	return trange.parseTypedDeclaration(location, stc, trange.parseType());
 }
 
 /**
  * Parse a declaration when you already have its type.
  */
-Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageClass stc, AstType type) if(isTokenRange!R) {
+Declaration parseTypedDeclaration(ref TokenRange trange, Location location, StorageClass stc, AstType type) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if (lookahead.front.type == TokenType.OpenParen) {
@@ -386,7 +386,7 @@ Declaration parseTypedDeclaration(R)(ref R trange, Location location, StorageCla
 }
 
 // XXX: one callsite, remove
-private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
+private Declaration parseConstructor(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
@@ -394,7 +394,7 @@ private Declaration parseConstructor(R)(ref R trange, StorageClass stc) {
 }
 
 // XXX: one callsite, remove
-private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
+private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
@@ -407,7 +407,7 @@ private Declaration parseDestructor(R)(ref R trange, StorageClass stc) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-private Declaration parseFunction(R)(ref R trange, Location location, StorageClass stc, ParamAstType returnType, Name name) {
+private Declaration parseFunction(ref TokenRange trange, Location location, StorageClass stc, ParamAstType returnType, Name name) {
 	// Function declaration.
 	bool isVariadic;
 	AstTemplateParameter[] tplParameters;
@@ -547,7 +547,7 @@ private Declaration parseFunction(R)(ref R trange, Location location, StorageCla
 /**
  * Parse function and delegate parameters.
  */
-auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
+auto parseParameters(ref TokenRange trange, out bool isVariadic) {
 	trange.match(TokenType.OpenParen);
 	
 	ParamDecl[] parameters;
@@ -587,7 +587,7 @@ auto parseParameters(R)(ref R trange, out bool isVariadic) if(isTokenRange!R) {
 /**
  * Parse Initializer
  */
-auto parseInitializer(TokenRange)(ref TokenRange trange) {
+auto parseInitializer(ref TokenRange trange) {
 	if (trange.front.type != TokenType.Void) {
 		return trange.parseAssignExpression();
 	}
@@ -599,7 +599,7 @@ auto parseInitializer(TokenRange)(ref TokenRange trange) {
 }
 
 private:
-auto parseParameter(R)(ref R trange) {
+auto parseParameter(ref TokenRange trange) {
 	bool isRef;
 	
 	// TODO: parse storage class
@@ -642,7 +642,7 @@ auto parseParameter(R)(ref R trange) {
 /**
  * Parse alias declaration
  */
-Declaration parseAlias(R)(ref R trange, StorageClass stc) {
+Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
@@ -682,7 +682,7 @@ Declaration parseAlias(R)(ref R trange, StorageClass stc) {
 /**
  * Parse import declaration
  */
-auto parseImport(TokenRange)(ref TokenRange trange) {
+auto parseImport(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Import);
 	

@@ -11,12 +11,12 @@ import d.parser.expression;
 import d.parser.identifier;
 import d.parser.util;
 
-AstType parseType(ParseMode mode = ParseMode.Greedy, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstType parseType(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
 	auto base = trange.parseBasicType();
 	return trange.parseTypeSuffix!mode(base);
 }
 
-auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseBasicType(ref TokenRange trange) {
 	auto processQualifier(TypeQualifier qualifier)() {
 		trange.popFront();
 		
@@ -157,7 +157,7 @@ auto parseBasicType(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRang
 /**
  * Parse typeof(...)
  */
-private auto parseTypeof(TokenRange)(ref TokenRange trange) {
+private auto parseTypeof(ref TokenRange trange) {
 	trange.match(TokenType.Typeof);
 	trange.match(TokenType.OpenParen);
 	
@@ -174,7 +174,7 @@ private auto parseTypeof(TokenRange)(ref TokenRange trange) {
 /**
  * Parse *, [ ... ] and function/delegate types.
  */
-AstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, AstType type) if(isTokenRange!TokenRange) {
+AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Star :
@@ -231,7 +231,7 @@ AstType parseTypeSuffix(ParseMode mode, TokenRange)(ref TokenRange trange, AstTy
 }
 
 private:
-AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
+AstType parseBracket(ref TokenRange trange, AstType type) {
 	trange.match(TokenType.OpenBracket);
 	if(trange.front.type == TokenType.CloseBracket) {
 		trange.popFront();
@@ -251,4 +251,3 @@ AstType parseBracket(TokenRange)(ref TokenRange trange, AstType type) {
 		}
 	})();
 }
-

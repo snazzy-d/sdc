@@ -15,18 +15,18 @@ import d.ast.type;
 /**
  * Parse class
  */
-auto parseClass(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+auto parseClass(ref TokenRange trange, StorageClass stc) {
 	return trange.parsePolymorphic!true(stc);
 }
 
 /**
  * Parse interface
  */
-auto parseInterface(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+auto parseInterface(ref TokenRange trange, StorageClass stc) {
 	return trange.parsePolymorphic!false(stc);
 }
 
-private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenRange trange, StorageClass stc) {
+private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
 	
 	static if (isClass) {
@@ -75,18 +75,18 @@ private Declaration parsePolymorphic(bool isClass = true, TokenRange)(ref TokenR
 /**
  * Parse struct
  */
-auto parseStruct(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+auto parseStruct(ref TokenRange trange, StorageClass stc) {
 	return trange.parseMonomorphic!true(stc);
 }
 
 /**
  * Parse union
  */
-auto parseUnion(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+auto parseUnion(ref TokenRange trange, StorageClass stc) {
 	return trange.parseMonomorphic!false(stc);
 }
 
-private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref TokenRange trange, StorageClass stc) {
+private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
 	
 	static if (isStruct) {
@@ -145,7 +145,7 @@ private Declaration parseMonomorphic(bool isStruct = true, TokenRange)(ref Token
 /**
  * Parse enums
  */
-Declaration parseEnum(TokenRange)(ref TokenRange trange, StorageClass stc) in {
+Declaration parseEnum(ref TokenRange trange, StorageClass stc) in {
 	assert(stc.isEnum == true);
 } body {
 	Location location = trange.front.location;

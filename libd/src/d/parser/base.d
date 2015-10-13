@@ -12,16 +12,11 @@ enum ParseMode {
 	Reluctant,
 }
 
-auto parse(R)(ref R trange, Name name, Name[] packages) if(isTokenRange!R) {
+auto parse(ref TokenRange trange, Name name, Name[] packages) {
 	return trange.parseModule(name, packages);
 }
 
-template isTokenRange(T) {
-	import std.range;
-	enum isTokenRange = isForwardRange!T && is(ElementType!T : const(Token));
-}
-
-void match(R)(ref R trange, TokenType type) if(isTokenRange!R) {
+void match(ref TokenRange trange, TokenType type) {
 	auto token = trange.front;
 	
 	if (token.type != type) {

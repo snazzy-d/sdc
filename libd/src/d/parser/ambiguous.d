@@ -15,7 +15,7 @@ import d.parser.util;
 /**
  * Branch to the right code depending if we have a type, an expression or an identifier.
  */
-typeof(handler(AstExpression.init)) parseAmbiguous(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange) if(isTokenRange!R) {
+typeof(handler(AstExpression.init)) parseAmbiguous(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type)(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
 			auto i = trange.parseIdentifier();
@@ -135,7 +135,7 @@ struct IdentifierStarIdentifier {
 	AstExpression value;
 }
 
-auto parseDeclarationOrExpression(alias handler, R)(ref R trange) if(isTokenRange!R) {
+auto parseDeclarationOrExpression(alias handler)(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		case Import, Interface, Class, Struct, Union, Enum, Template, Alias, Extern :
 			// XXX: lolbug !
@@ -255,7 +255,7 @@ bool indicateExpression(TokenType t) {
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, Identifier i) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type)(ref TokenRange trange, Identifier i) {
 	auto tt = trange.front.type;
 	if (tt.indicateExpression()) {
 		auto e = trange.parseIdentifierExpression(i);
@@ -383,7 +383,7 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M =
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, Location location, AstType t) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type)(ref TokenRange trange, Location location, AstType t) {
 	t = trange.parseTypeSuffix!(ParseMode.Reluctant)(t);
 	
 	switch(trange.front.type) with(TokenType) {
@@ -401,7 +401,7 @@ typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M =
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type, R)(ref R trange, AstExpression e) {
+typeof(handler(null)) parseAmbiguousSuffix(alias handler, AmbiguousParseMode M = AmbiguousParseMode.Type)(ref TokenRange trange, AstExpression e) {
 	e = trange.parsePostfixExpression!(ParseMode.Reluctant)(e);
 	
 	while(true) {

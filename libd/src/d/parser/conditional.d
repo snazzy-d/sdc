@@ -12,19 +12,19 @@ import d.parser.statement;
 /**
  * Parse Version Declaration
  */
-auto parseVersion(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
+auto parseVersion(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
 	return trange.parseconditionalBlock!(true, ItemType)();
 }
 
 /**
  * Parse Debug Declaration
  */
-auto parseDebug(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
+auto parseDebug(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
 	return trange.parseconditionalBlock!(false, ItemType)();
 }
 
-private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref TokenRange trange) {
-	static if(isVersion) {
+private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange trange) {
+	static if (isVersion) {
 		alias TokenType.Version conditionalTokenType;
 		alias Version!ItemType ConditionalType;
 		alias VersionDefinition!ItemType DefinitionType;
@@ -95,7 +95,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType, TokenRange)(ref
 /**
  * Parse static if.
  */
-ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
+ItemType parseStaticIf(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Static);
@@ -108,21 +108,21 @@ ItemType parseStaticIf(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRa
 	
 	ItemType[] items = trange.parseItems!ItemType();
 	
-	if(trange.front.type == TokenType.Else) {
-		trange.popFront();
-		
-		ItemType[] elseItems = trange.parseItems!ItemType();
-		
-		return new StaticIf!ItemType(location, condition, items, elseItems);
-	} else {
+	if (trange.front.type != TokenType.Else) {
 		return new StaticIf!ItemType(location, condition, items, []);
 	}
+	
+	trange.popFront();
+	
+	ItemType[] elseItems = trange.parseItems!ItemType();
+	
+	return new StaticIf!ItemType(location, condition, items, elseItems);
 }
 
 /**
  * Parse the content of the conditionnal depending on if it is statement or declaration that are expected.
  */
-private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
+private auto parseItems(ItemType)(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		static if(is(ItemType == AstStatement)) {
 			case OpenBrace :
@@ -155,7 +155,7 @@ private auto parseItems(ItemType, TokenRange)(ref TokenRange trange) {
 /**
  * Parse mixins.
  */
-auto parseMixin(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && is(Mixin!ItemType)) {
+auto parseMixin(ItemType)(ref TokenRange trange) if(is(Mixin!ItemType)) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Mixin);
@@ -173,7 +173,7 @@ auto parseMixin(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!Tok
 /**
  * Parse static assert.
  */
-ItemType parseStaticAssert(ItemType, TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange && (is(ItemType == AstStatement) || is(ItemType == Declaration))) {
+ItemType parseStaticAssert(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Static);

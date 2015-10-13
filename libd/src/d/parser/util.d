@@ -8,13 +8,13 @@ import d.parser.type;
  * Get the matching delimiter
  */
 template MatchingDelimiter(TokenType openTokenType) {
-	static if(openTokenType == TokenType.OpenParen) {
+	static if (openTokenType == TokenType.OpenParen) {
 		alias MatchingDelimiter = TokenType.CloseParen;
-	} else static if(openTokenType == TokenType.OpenBrace) {
+	} else static if (openTokenType == TokenType.OpenBrace) {
 		alias MatchingDelimiter = TokenType.CloseBrace;
-	} else static if(openTokenType == TokenType.OpenBracket) {
+	} else static if (openTokenType == TokenType.OpenBracket) {
 		alias MatchingDelimiter = TokenType.CloseBracket;
-	} else static if(openTokenType == TokenType.Less) {
+	} else static if (openTokenType == TokenType.Less) {
 		alias MatchingDelimiter = TokenType.Greater;
 	} else {
 		import std.conv;
@@ -26,7 +26,7 @@ template MatchingDelimiter(TokenType openTokenType) {
  * Pop a range of token until we pop the matchin delimiter.
  * matchin tokens are (), [], <> and {}
  */
-void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange trange) {
+void popMatchingDelimiter(TokenType openTokenType)(ref TokenRange trange) {
 	auto startLocation = trange.front.location;
 	alias closeTokenType = MatchingDelimiter!openTokenType;
 	
@@ -57,4 +57,3 @@ void popMatchingDelimiter(TokenType openTokenType, TokenRange)(ref TokenRange tr
 	assert(trange.front.type == closeTokenType);
 	trange.popFront();
 }
-

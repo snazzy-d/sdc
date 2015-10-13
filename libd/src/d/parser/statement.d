@@ -14,7 +14,7 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
-AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstStatement parseStatement(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	switch(trange.front.type) with(TokenType) {
@@ -32,7 +32,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			auto then = trange.parseStatement();
 			
 			AstStatement elseStatement;
-			if(trange.front.type == Else) {
+			if (trange.front.type == Else) {
 				trange.popFront();
 				
 				elseStatement = trange.parseStatement();
@@ -78,7 +78,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			trange.match(OpenParen);
 			
 			AstStatement init;
-			if(trange.front.type != Semicolon) {
+			if (trange.front.type != Semicolon) {
 				init = trange.parseStatement();
 			} else {
 				init = new AstBlockStatement(trange.front.location, []);
@@ -86,14 +86,14 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 			}
 			
 			AstExpression condition;
-			if(trange.front.type != Semicolon) {
+			if (trange.front.type != Semicolon) {
 				condition = trange.parseExpression();
 			}
 			
 			trange.match(Semicolon);
 			
 			AstExpression increment;
-			if(trange.front.type != CloseParen) {
+			if (trange.front.type != CloseParen) {
 				increment = trange.parseExpression();
 			}
 			
@@ -420,7 +420,7 @@ AstStatement parseStatement(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 	assert(0);
 }
 
-AstBlockStatement parseBlock(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+AstBlockStatement parseBlock(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	trange.match(TokenType.OpenBrace);

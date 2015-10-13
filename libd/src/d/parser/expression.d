@@ -15,12 +15,12 @@ import d.parser.util;
 /**
  * Parse Expression
  */
-AstExpression parseExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseExpression(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
 	auto lhs = trange.parsePrefixExpression!mode();
 	return trange.parseAstBinaryExpression!(
 		TokenType.Comma,
 		BinaryOp.Comma,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseAssignExpression(e);
 		}
 	)(lhs);
@@ -50,11 +50,11 @@ private AstExpression parseAstBinaryExpression(TokenType tokenType, BinaryOp op,
 /**
  * Parse assignement expressions.
  */
-AstExpression parseAssignExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseAssignExpression(ref TokenRange trange) {
 	return trange.parseAssignExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseTernaryExpression(lhs);
 	Location location = lhs.location;
 	
@@ -138,11 +138,11 @@ AstExpression parseAssignExpression(R)(ref R trange, AstExpression lhs) if(isTok
  * Parse ?:
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseTernaryExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseTernaryExpression(ref TokenRange trange) {
 	return trange.parseTernaryExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseTernaryExpression(R)(ref R trange, AstExpression condition) if(isTokenRange!R) {
+AstExpression parseTernaryExpression(ref TokenRange trange, AstExpression condition) {
 	condition = trange.parseLogicalOrExpression(condition);
 	
 	if(trange.front.type == TokenType.QuestionMark) {
@@ -165,15 +165,15 @@ AstExpression parseTernaryExpression(R)(ref R trange, AstExpression condition) i
  * Parse ||
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseLogicalOrExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseLogicalOrExpression(ref TokenRange trange) {
 	return trange.parseLogicalOrExpression(trange.parsePrefixExpression());
 }
 
-auto parseLogicalOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+auto parseLogicalOrExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.PipePipe,
 		BinaryOp.LogicalOr,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseLogicalAndExpression(e);
 		}
 	)(lhs);
@@ -183,15 +183,15 @@ auto parseLogicalOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRang
  * Parse &&
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseLogicalAndExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseLogicalAndExpression(ref TokenRange trange) {
 	return trange.parseLogicalAndExpression(trange.parsePrefixExpression());
 }
 
-auto parseLogicalAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+auto parseLogicalAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.AmpersandAmpersand,
 		BinaryOp.LogicalAnd,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseOrExpression(e);
 		}
 	)(lhs);
@@ -201,15 +201,15 @@ auto parseLogicalAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRan
  * Parse |
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseOrExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseOrExpression(ref TokenRange trange) {
 	return trange.parseBitwiseOrExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+auto parseBitwiseOrExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Pipe,
 		BinaryOp.BitwiseOr,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseXorExpression(e);
 		}
 	)(lhs);
@@ -219,15 +219,15 @@ auto parseBitwiseOrExpression(R)(ref R trange, AstExpression lhs) if(isTokenRang
  * Parse ^
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseXorExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseXorExpression(ref TokenRange trange) {
 	return trange.parseBitwiseXorExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseXorExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+auto parseBitwiseXorExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Caret,
 		BinaryOp.BitwiseXor,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseAndExpression(e);
 		}
 	)(lhs);
@@ -237,15 +237,15 @@ auto parseBitwiseXorExpression(R)(ref R trange, AstExpression lhs) if(isTokenRan
  * Parse &
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseAndExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseBitwiseAndExpression(ref TokenRange trange) {
 	return trange.parseBitwiseAndExpression(trange.parsePrefixExpression());
 }
 
-auto parseBitwiseAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Ampersand,
 		BinaryOp.BitwiseAnd,
-		function AstExpression(ref R trange, AstExpression e) {
+		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseComparaisonExpression(e);
 		}
 	)(lhs);
@@ -255,11 +255,11 @@ auto parseBitwiseAndExpression(R)(ref R trange, AstExpression lhs) if(isTokenRan
  * Parse ==, != and comparaisons
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseComparaisonExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseComparaisonExpression(ref TokenRange trange) {
 	return trange.parseComparaisonExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+AstExpression parseComparaisonExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseShiftExpression(lhs);
 	Location location = lhs.location;
 	
@@ -367,11 +367,11 @@ AstExpression parseComparaisonExpression(R)(ref R trange, AstExpression lhs) if(
  * Parse <<, >> and >>>
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseShiftExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseShiftExpression(ref TokenRange trange) {
 	return trange.parseShiftExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseShiftExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseAddExpression(lhs);
 	Location location = lhs.location;
 	
@@ -408,11 +408,11 @@ AstExpression parseShiftExpression(R)(ref R trange, AstExpression lhs) if(isToke
  * Parse +, - and ~
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseAddExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseAddExpression(ref TokenRange trange) {
 	return trange.parseAddExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseAddExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseMulExpression(lhs);
 	Location location = lhs.location;
 	
@@ -449,11 +449,11 @@ AstExpression parseAddExpression(R)(ref R trange, AstExpression lhs) if(isTokenR
  * Parse *, / and %
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseMulExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parseMulExpression(ref TokenRange trange) {
 	return trange.parseMulExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseMulExpression(R)(ref R trange, AstExpression lhs) if(isTokenRange!R) {
+AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 	Location location = lhs.location;
 	
 	while(1) {
@@ -488,7 +488,7 @@ AstExpression parseMulExpression(R)(ref R trange, AstExpression lhs) if(isTokenR
 /**
  * Unary prefixes
  */
-private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R)(ref R trange) {
+private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
 	AstExpression result;
 	
 	void processToken(UnaryOp op) {
@@ -568,7 +568,7 @@ private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy, R
 	return trange.parsePowExpression(result);
 }
 
-AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
+AstExpression parsePrimaryExpression(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	switch(trange.front.type) with(TokenType) {
@@ -764,7 +764,7 @@ AstExpression parsePrimaryExpression(R)(ref R trange) if(isTokenRange!R) {
 /**
  * Parse postfix ++, --, (...), [...], .identifier
  */
-AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpression e) if(isTokenRange!R) {
+AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange, AstExpression e) {
 	Location location = e.location;
 	
 	while(1) {
@@ -843,7 +843,7 @@ AstExpression parsePostfixExpression(ParseMode mode, R)(ref R trange, AstExpress
 /**
  * Parse ^^
  */
-private AstExpression parsePowExpression(R)(ref R trange, AstExpression expr) {
+private AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
 	Location location = expr.location;
 	
 	while (trange.front.type == TokenType.CaretCaret) {
@@ -859,7 +859,7 @@ private AstExpression parsePowExpression(R)(ref R trange, AstExpression expr) {
 /**
  * Parse unary is expression.
  */
-private auto parseIsExpression(R)(ref R trange) {
+private auto parseIsExpression(ref TokenRange trange) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Is);
 	trange.match(TokenType.OpenParen);
@@ -903,7 +903,7 @@ private auto parseIsExpression(R)(ref R trange) {
 /**
  * Parse identifier expression
  */
-AstExpression parseIdentifierExpression(R)(ref R trange, Identifier i) if(isTokenRange!R) {
+AstExpression parseIdentifierExpression(ref TokenRange trange, Identifier i) {
 	if (trange.front.type != TokenType.OpenParen) {
 		return new IdentifierExpression(i);
 	}
@@ -918,7 +918,7 @@ AstExpression parseIdentifierExpression(R)(ref R trange, Identifier i) if(isToke
 /**
  * Parse function arguments
  */
-AstExpression[] parseArguments(TokenType openTokenType, R)(ref R trange) if(isTokenRange!R) {
+AstExpression[] parseArguments(TokenType openTokenType)(ref TokenRange trange) {
 	alias closeTokenType = MatchingDelimiter!openTokenType;
 	
 	trange.match(openTokenType);
@@ -947,7 +947,7 @@ AstExpression[] parseArguments(TokenType openTokenType, R)(ref R trange) if(isTo
 	return args;
 }
 
-AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
+AstExpression[] parseArguments(ref TokenRange trange) {
 	AstExpression[] args = [trange.parseAssignExpression()];
 	while(trange.front.type == TokenType.Comma) {
 		trange.popFront();
@@ -961,7 +961,7 @@ AstExpression[] parseArguments(R)(ref R trange) if(isTokenRange!R) {
 /**
  * Parse integer literals
  */
-private IntegerLiteral parseIntegerLiteral(R)(ref R trange) {
+private IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
 	// Consider computing the value in the lexer and make it a fack string.
@@ -1115,4 +1115,3 @@ unittest {
 	assert(strToHexInt("12345aBcDeF") == 1251004370415);
 	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
 }
-

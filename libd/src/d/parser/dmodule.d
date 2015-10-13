@@ -12,11 +12,11 @@ import d.context.name;
  * Parse a whole module.
  * This is the regular entry point in the parser
  */
-auto parseModule(TokenRange)(ref TokenRange trange, Name name, Name[] packages) if(isTokenRange!TokenRange) {
+auto parseModule(ref TokenRange trange, Name name, Name[] packages) {
 	trange.match(TokenType.Begin);
 	Location location = trange.front.location;
 	
-	if(trange.front.type == TokenType.Module) {
+	if (trange.front.type == TokenType.Module) {
 		trange.popFront();
 		auto current = trange.front.name;
 		Name[] parsedPackages;
@@ -48,4 +48,3 @@ auto parseModule(TokenRange)(ref TokenRange trange, Name name, Name[] packages) 
 	
 	return new Module(location, name, packages, declarations);
 }
-

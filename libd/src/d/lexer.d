@@ -128,525 +128,7 @@ struct Token {
 }
 
 auto lex(Position base, Context context) {
-	static struct Lexer {
-		static assert(isForwardRange!Lexer);
-		
-		Token t;
-		Position previous;
-		
-		Position base;
-		uint index;
-		
-		Context context;
-		string content;
-		
-		// We don't want the lexer to be copyable. Use save.
-		@disable this(this);
-		
-		@property
-		auto front() inout {
-			return t;
-		}
-		
-		void popFront() {
-			previous = base.getWithOffset(index);
-			t = getNextToken();
-			
-			/+
-			import sdc.terminal;
-			import std.conv;
-			outputCaretDiagnostics(t.location, to!string(t.type));
-			+/
-		}
-		
-		@property
-		auto save() inout {
-			return inout(Lexer)(t, previous, base, index, context, content);
-		}
-		
-		@property
-		bool empty() const {
-			return t.type == TokenType.End;
-		}
-		
-	private:
-		auto getNextToken() {
-			while(1) {
-				// pragma(msg, lexerMixin());
-				mixin(lexerMixin());
-			}
-		}
-		
-		void popChar() {
-			content.popFront();
-			index++;
-		}
-		
-		auto lexWhiteSpace(string s)() {
-			// Just skip over whitespace.
-		}
-		
-		auto lexComment(string s)() {
-			auto c = content.front;
-			
-			static if (s == "//") {
-				// TODO: check for unicode line break.
-				while(c != '\n' && c != '\r') {
-					popChar();
-					c = content.front;
-				}
-				
-				popChar();
-				if (c == '\r') {
-					if (content.front == '\n') popChar();
-				}
-			} else static if(s == "/*") {
-				Pump: while(1) {
-					// TODO: check for unicode line break.
-					while(c != '*') {
-						popChar();
-						c = content.front;
-					}
-					
-					auto match = c;
-					popChar();
-					c = content.front;
-					
-					if (c == '/') {
-						popChar();
-						break Pump;
-					}
-				}
-			} else static if(s == "/+") {
-				uint stack = 0;
-				Pump: while(1) {
-					// TODO: check for unicode line break.
-					while(c != '+' && c != '/') {
-						popChar();
-						c = content.front;
-					}
-					
-					auto match = c;
-					popChar();
-					c = content.front;
-					
-					switch(match) {
-						case '+' :
-							if (c == '/') {
-								popChar();
-								if(!stack) break Pump;
-								
-								c = content.front;
-								stack--;
-							}
-							
-							break;
-						
-						case '/' :
-							if (c == '+') {
-								popChar();
-								c = content.front;
-								
-								stack++;
-							}
-							
-							break;
-						
-						default :
-							assert(0, "Unrecheable.");
-					}
-				}
-			} else {
-				static assert(0, s ~ " isn't a known type of comment.");
-			}
-		}
-		
-		auto lexIdentifier(string s)() {
-			static if(s == "") {
-				auto c = content.front;
-				
-				if (isIdChar(c)) {
-					return lexIdentifier(s);
-				} else if(c & 0x80) {
-					size_t l;
-					auto save = content;
-					auto u = save.decodeFront(l);
-					
-					if (isUniAlpha(u)) {
-						char[4] encoded;
-						for(uint i = 0; i < l; i++) {
-							encoded[i] = content.front;
-							popChar();
-						}
-						
-						return lexIdentifier(cast(string) encoded[0 .. l]);
-					} else {
-						assert(0, "bazinga !");
-					}
-				}
-				
-				// TODO: check for unicode whitespaces.
-				assert(0, "bazinga !");
-			} else {
-				return lexIdentifier(s);
-			}
-		}
-		
-		// XXX: dmd don't support overlaod of template and non templates.
-		auto lexIdentifier()(string prefix) in {
-			assert(index >= prefix.length);
-		} body {
-			Token t;
-			t.type = TokenType.Identifier;
-			auto begin = base.getWithOffset(index - cast(uint) prefix.length);
-			
-			mixin CharPumper;
-			
-			putString(prefix);
-			pumpChars!isIdChar(content);
-			
-			t.location = Location(begin, base.getWithOffset(index));
-			t.name = getValue();
-			
-			return t;
-		}
-		
-		auto lexEscapeSequence() in {
-			assert(content.front == '\\', content.front ~ " is not a valid escape sequence.");
-		} body {
-			popChar();
-			scope(success) popChar();
-			
-			switch(content.front) {
-				case '\'' :
-					return '\'';
-				
-				case '"' :
-					return '"';
-				
-				case '?' :
-					assert(0, "WTF is \\?");
-				
-				case '\\' :
-					return '\\';
-				
-				case '0' :
-					return '\0';
-				
-				case 'a' :
-					return '\a';
-				
-				case 'b' :
-					return '\b';
-				
-				case 'f' :
-					return '\f';
-				
-				case 'r' :
-					return '\r';
-				
-				case 'n' :
-					return '\n';
-				
-				case 't' :
-					return '\t';
-				
-				case 'v' :
-					return '\v';
-				
-				default :
-					assert(0, "Don't know about " ~ content.front);
-			}
-		}
-		
-		auto lexEscapeChar() {
-			auto c = content.front;
-			switch(c) {
-				case '\0' :
-					assert(0, "unexpected end :(");
-				
-				case '\\' :
-					return lexEscapeSequence();
-				
-				case '\'' :
-					assert(0, "Empty character litteral is bad, very very bad !");
-				
-				default :
-					if(c & 0x80) {
-						assert(0, "Unicode not supported here");
-					} else {
-						popChar();
-						return c;
-					}
-			}
-		}
-		
-		Token lexString(string s)() in {
-			assert(index >= s.length);
-		} body {
-			Token t;
-			t.type = TokenType.StringLiteral;
-			auto begin = base.getWithOffset(index - cast(uint) s.length);
-			
-			auto c = content.front;
-			
-			static if(s == "\"") {
-				mixin CharPumper!false;
-				
-				Pump: while(1) {
-					// TODO: check for unicode line break.
-					while(c != '\"') {
-						putChar(lexEscapeChar());
-						c = content.front;
-					}
-					
-					// End of string.
-					popChar();
-					break Pump;
-				}
-				
-				t.location = Location(begin, base.getWithOffset(index));
-				t.name = getValue();
-				
-				return t;
-			} else {
-				assert(0, "string literal using " ~ s ~ "not supported");
-			}
-		}
-		
-		auto lexChar(string s)() if(s == "'") {
-			Token t;
-			t.type = TokenType.CharacterLiteral;
-			auto begin = base.getWithOffset(index - 1);
-			
-			t.name = context.getName([lexEscapeChar()]);
-			
-			if (content.front != '\'') {
-				assert(0, "booya !");
-			}
-			
-			popChar();
-			
-			t.location = Location(begin, base.getWithOffset(index));
-			return t;
-		}
-		
-		auto lexNumeric(string s)() if(s.length == 1 && isDigit(s[0])) {
-			return lexNumeric(s[0]);
-		}
-		
-		Token lexNumeric(string s)() if(s.length == 2 && s[0] == '0') {
-			Token t;
-			t.type = TokenType.IntegerLiteral;
-			auto begin = base.getWithOffset(index - 1);
-			
-			mixin CharPumper!false;
-			
-			putString(s);
-			
-			auto c = content.front;
-			switch(s[1]) {
-				case 'B', 'b' :
-					assert(c == '0' || c == '1', "invalid integer literal");
-					while(1) {
-						while(c == '0' || c == '1') {
-							putChar(c);
-							popChar();
-							c = content.front;
-						}
-						
-						if (c == '_') {
-							popChar();
-							c = content.front;
-							continue;
-						}
-						
-						break;
-					}
-					
-					break;
-				
-				case 'X', 'x' :
-					assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "invalid integer literal");
-					while(1) {
-						while((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-							putChar(c);
-							popChar();
-							c = content.front;
-						}
-						
-						if (c == '_') {
-							popChar();
-							c = content.front;
-							continue;
-						}
-						
-						break;
-					}
-					
-					break;
-				
-				default :
-					assert(0, s ~ " is not a valid prefix.");
-			}
-			
-			switch(c) {
-				case 'U', 'u' :
-					putChar(c);
-					popChar();
-					
-					c = content.front;
-					if (c == 'L' || c == 'l') {
-						putChar(c);
-						popChar();
-					}
-					
-					break;
-				
-				case 'L', 'l' :
-					putChar(c);
-					popChar();
-					
-					c = content.front;
-					if (c == 'U' || c == 'u') {
-						putChar(c);
-						popChar();
-					}
-					
-					break;
-				
-				default:
-					break;
-			}
-			
-			t.location = Location(begin, base.getWithOffset(index));
-			t.name = getValue();
-			
-			return t;
-		}
-		
-		auto lexNumeric()(char c) {
-			Token t;
-			t.type = TokenType.IntegerLiteral;
-			auto begin = base.getWithOffset(index - 1);
-			
-			mixin CharPumper!false;
-			
-			assert(c >= '0' && c <= '9', "invalid integer literal");
-			putChar(c);
-			c = content.front;
-			while(1) {
-				while(c >= '0' && c <= '9') {
-					putChar(c);
-					popChar();
-					c = content.front;
-				}
-				
-				if (c == '_') {
-					popChar();
-					c = content.front;
-					continue;
-				}
-				
-				break;
-			}
-			
-			switch(c) {
-				case '.' :
-					auto lookAhead = content;
-					lookAhead.popFront();
-					
-					if(lookAhead.front.isDigit()) {
-						popChar();
-						putChar('.');
-						
-						t.type = TokenType.FloatLiteral;
-						
-						pumpChars!isDigit(content);
-					}
-					
-					break;
-				
-				case 'U', 'u' :
-					putChar(c);
-					popChar();
-					
-					c = content.front;
-					if (c == 'L' || c == 'l') {
-						putChar(c);
-						popChar();
-					}
-					
-					break;
-				
-				case 'L', 'l' :
-					putChar(c);
-					popChar();
-					
-					c = content.front;
-					if (c == 'U' || c == 'u') {
-						putChar(c);
-						popChar();
-					}
-					
-					break;
-				
-				default:
-					break;
-			}
-			
-			t.location = Location(begin, base.getWithOffset(index));
-			t.name = getValue();
-			
-			return t;
-		}
-		
-		auto lexKeyword(string s)() {
-			auto c = content.front;
-			if (isIdChar(c)) {
-				return lexIdentifier!s();
-			} else if (c & 0x80) {
-				size_t l;
-				auto save = content;
-				auto u = save.decodeFront(l);
-				
-				if (isUniAlpha(u)) {
-					// Double decoding here, but shouldn't be a problem as it should be rare enough.
-					return lexIdentifier!s();
-				}
-			}
-			
-			enum type = getKeywordsMap()[s];
-			
-			uint l = s.length;
-			
-			Token t;
-			t.type = type;
-			t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
-
-			import d.context.name;
-			t.name = BuiltinName!s;
-			
-			return t;
-		}
-		
-		auto lexOperator(string s)() {
-			enum type = getOperatorsMap()[s];
-			
-			uint l = s.length;
-			
-			Token t;
-			t.type = type;
-			t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
-
-			import d.context.name;
-			t.name = BuiltinName!s;
-			
-			return t;
-		}
-	}
-	
-	auto lexer = Lexer();
+	auto lexer = TokenRange();
 	
 	lexer.content = base.getFullPosition(context).getContent();
 	lexer.t.type = TokenType.Begin;
@@ -673,6 +155,524 @@ auto lex(Position base, Context context) {
 	return lexer;
 }
 
+struct TokenRange {
+	static assert(isForwardRange!TokenRange);
+	
+	Token t;
+	Position previous;
+	
+	Position base;
+	uint index;
+	
+	Context context;
+	string content;
+	
+	// We don't want the lexer to be copyable. Use save.
+	@disable this(this);
+	
+	@property
+	auto front() inout {
+		return t;
+	}
+	
+	void popFront() {
+		previous = base.getWithOffset(index);
+		t = getNextToken();
+		
+		/+
+		import sdc.terminal;
+		import std.conv;
+		outputCaretDiagnostics(t.location, to!string(t.type));
+		+/
+	}
+	
+	@property
+	auto save() inout {
+		return inout(TokenRange)(t, previous, base, index, context, content);
+	}
+	
+	@property
+	bool empty() const {
+		return t.type == TokenType.End;
+	}
+	
+private:
+	auto getNextToken() {
+		while(1) {
+			// pragma(msg, lexerMixin());
+			mixin(lexerMixin());
+		}
+	}
+	
+	void popChar() {
+		content.popFront();
+		index++;
+	}
+	
+	auto lexWhiteSpace(string s)() {
+		// Just skip over whitespace.
+	}
+	
+	auto lexComment(string s)() {
+		auto c = content.front;
+		
+		static if (s == "//") {
+			// TODO: check for unicode line break.
+			while(c != '\n' && c != '\r') {
+				popChar();
+				c = content.front;
+			}
+			
+			popChar();
+			if (c == '\r') {
+				if (content.front == '\n') popChar();
+			}
+		} else static if (s == "/*") {
+			Pump: while(1) {
+				// TODO: check for unicode line break.
+				while(c != '*') {
+					popChar();
+					c = content.front;
+				}
+				
+				auto match = c;
+				popChar();
+				c = content.front;
+				
+				if (c == '/') {
+					popChar();
+					break Pump;
+				}
+			}
+		} else static if (s == "/+") {
+			uint stack = 0;
+			Pump: while(1) {
+				// TODO: check for unicode line break.
+				while(c != '+' && c != '/') {
+					popChar();
+					c = content.front;
+				}
+				
+				auto match = c;
+				popChar();
+				c = content.front;
+				
+				switch(match) {
+					case '+' :
+						if (c == '/') {
+							popChar();
+							if (!stack) break Pump;
+							
+							c = content.front;
+							stack--;
+						}
+						
+						break;
+					
+					case '/' :
+						if (c == '+') {
+							popChar();
+							c = content.front;
+							
+							stack++;
+						}
+						
+						break;
+					
+					default :
+						assert(0, "Unrecheable.");
+				}
+			}
+		} else {
+			static assert(0, s ~ " isn't a known type of comment.");
+		}
+	}
+	
+	auto lexIdentifier(string s)() {
+		static if (s == "") {
+			auto c = content.front;
+			
+			if (isIdChar(c)) {
+				return lexIdentifier(s);
+			} else if (c & 0x80) {
+				size_t l;
+				auto save = content;
+				auto u = save.decodeFront(l);
+				
+				if (isUniAlpha(u)) {
+					char[4] encoded;
+					for(uint i = 0; i < l; i++) {
+						encoded[i] = content.front;
+						popChar();
+					}
+					
+					return lexIdentifier(cast(string) encoded[0 .. l]);
+				} else {
+					assert(0, "bazinga !");
+				}
+			}
+			
+			// TODO: check for unicode whitespaces.
+			assert(0, "bazinga !");
+		} else {
+			return lexIdentifier(s);
+		}
+	}
+	
+	// XXX: dmd don't support overlaod of template and non templates.
+	auto lexIdentifier()(string prefix) in {
+		assert(index >= prefix.length);
+	} body {
+		Token t;
+		t.type = TokenType.Identifier;
+		auto begin = base.getWithOffset(index - cast(uint) prefix.length);
+		
+		mixin CharPumper;
+		
+		putString(prefix);
+		pumpChars!isIdChar(content);
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		t.name = getValue();
+		
+		return t;
+	}
+	
+	auto lexEscapeSequence() in {
+		assert(content.front == '\\', content.front ~ " is not a valid escape sequence.");
+	} body {
+		popChar();
+		scope(success) popChar();
+		
+		switch(content.front) {
+			case '\'' :
+				return '\'';
+			
+			case '"' :
+				return '"';
+			
+			case '?' :
+				assert(0, "WTF is \\?");
+			
+			case '\\' :
+				return '\\';
+			
+			case '0' :
+				return '\0';
+			
+			case 'a' :
+				return '\a';
+			
+			case 'b' :
+				return '\b';
+			
+			case 'f' :
+				return '\f';
+			
+			case 'r' :
+				return '\r';
+			
+			case 'n' :
+				return '\n';
+			
+			case 't' :
+				return '\t';
+			
+			case 'v' :
+				return '\v';
+			
+			default :
+				assert(0, "Don't know about " ~ content.front);
+		}
+	}
+	
+	auto lexEscapeChar() {
+		auto c = content.front;
+		switch(c) {
+			case '\0' :
+				assert(0, "unexpected end :(");
+			
+			case '\\' :
+				return lexEscapeSequence();
+			
+			case '\'' :
+				assert(0, "Empty character litteral is bad, very very bad !");
+			
+			default :
+				if (c & 0x80) {
+					assert(0, "Unicode not supported here");
+				} else {
+					popChar();
+					return c;
+				}
+		}
+	}
+	
+	Token lexString(string s)() in {
+		assert(index >= s.length);
+	} body {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		auto begin = base.getWithOffset(index - cast(uint) s.length);
+		
+		auto c = content.front;
+		
+		static if (s == "\"") {
+			mixin CharPumper!false;
+			
+			Pump: while(1) {
+				// TODO: check for unicode line break.
+				while(c != '\"') {
+					putChar(lexEscapeChar());
+					c = content.front;
+				}
+				
+				// End of string.
+				popChar();
+				break Pump;
+			}
+			
+			t.location = Location(begin, base.getWithOffset(index));
+			t.name = getValue();
+			
+			return t;
+		} else {
+			assert(0, "string literal using " ~ s ~ "not supported");
+		}
+	}
+	
+	auto lexChar(string s)() if(s == "'") {
+		Token t;
+		t.type = TokenType.CharacterLiteral;
+		auto begin = base.getWithOffset(index - 1);
+		
+		t.name = context.getName([lexEscapeChar()]);
+		
+		if (content.front != '\'') {
+			assert(0, "booya !");
+		}
+		
+		popChar();
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		return t;
+	}
+	
+	auto lexNumeric(string s)() if(s.length == 1 && isDigit(s[0])) {
+		return lexNumeric(s[0]);
+	}
+	
+	Token lexNumeric(string s)() if(s.length == 2 && s[0] == '0') {
+		Token t;
+		t.type = TokenType.IntegerLiteral;
+		auto begin = base.getWithOffset(index - 1);
+		
+		mixin CharPumper!false;
+		
+		putString(s);
+		
+		auto c = content.front;
+		switch(s[1]) {
+			case 'B', 'b' :
+				assert(c == '0' || c == '1', "invalid integer literal");
+				while(1) {
+					while(c == '0' || c == '1') {
+						putChar(c);
+						popChar();
+						c = content.front;
+					}
+					
+					if (c == '_') {
+						popChar();
+						c = content.front;
+						continue;
+					}
+					
+					break;
+				}
+				
+				break;
+			
+			case 'X', 'x' :
+				assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "invalid integer literal");
+				while(1) {
+					while((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+						putChar(c);
+						popChar();
+						c = content.front;
+					}
+					
+					if (c == '_') {
+						popChar();
+						c = content.front;
+						continue;
+					}
+					
+					break;
+				}
+				
+				break;
+			
+			default :
+				assert(0, s ~ " is not a valid prefix.");
+		}
+		
+		switch(c) {
+			case 'U', 'u' :
+				putChar(c);
+				popChar();
+				
+				c = content.front;
+				if (c == 'L' || c == 'l') {
+					putChar(c);
+					popChar();
+				}
+				
+				break;
+			
+			case 'L', 'l' :
+				putChar(c);
+				popChar();
+				
+				c = content.front;
+				if (c == 'U' || c == 'u') {
+					putChar(c);
+					popChar();
+				}
+				
+				break;
+			
+			default:
+				break;
+		}
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		t.name = getValue();
+		
+		return t;
+	}
+	
+	auto lexNumeric()(char c) {
+		Token t;
+		t.type = TokenType.IntegerLiteral;
+		auto begin = base.getWithOffset(index - 1);
+		
+		mixin CharPumper!false;
+		
+		assert(c >= '0' && c <= '9', "invalid integer literal");
+		putChar(c);
+		c = content.front;
+		while(1) {
+			while(c >= '0' && c <= '9') {
+				putChar(c);
+				popChar();
+				c = content.front;
+			}
+			
+			if (c == '_') {
+				popChar();
+				c = content.front;
+				continue;
+			}
+			
+			break;
+		}
+		
+		switch(c) {
+			case '.' :
+				auto lookAhead = content;
+				lookAhead.popFront();
+				
+				if (lookAhead.front.isDigit()) {
+					popChar();
+					putChar('.');
+					
+					t.type = TokenType.FloatLiteral;
+					
+					pumpChars!isDigit(content);
+				}
+				
+				break;
+			
+			case 'U', 'u' :
+				putChar(c);
+				popChar();
+				
+				c = content.front;
+				if (c == 'L' || c == 'l') {
+					putChar(c);
+					popChar();
+				}
+				
+				break;
+			
+			case 'L', 'l' :
+				putChar(c);
+				popChar();
+				
+				c = content.front;
+				if (c == 'U' || c == 'u') {
+					putChar(c);
+					popChar();
+				}
+				
+				break;
+			
+			default:
+				break;
+		}
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		t.name = getValue();
+		
+		return t;
+	}
+	
+	auto lexKeyword(string s)() {
+		auto c = content.front;
+		if (isIdChar(c)) {
+			return lexIdentifier!s();
+		} else if (c & 0x80) {
+			size_t l;
+			auto save = content;
+			auto u = save.decodeFront(l);
+			
+			if (isUniAlpha(u)) {
+				// Double decoding here, but shouldn't be a problem as it should be rare enough.
+				return lexIdentifier!s();
+			}
+		}
+		
+		enum type = getKeywordsMap()[s];
+		
+		uint l = s.length;
+		
+		Token t;
+		t.type = type;
+		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
+
+		import d.context.name;
+		t.name = BuiltinName!s;
+		
+		return t;
+	}
+	
+	auto lexOperator(string s)() {
+		enum type = getOperatorsMap()[s];
+		
+		uint l = s.length;
+		
+		Token t;
+		t.type = type;
+		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
+
+		import d.context.name;
+		t.name = BuiltinName!s;
+		
+		return t;
+	}
+}
+
 private:
 
 @property
@@ -685,9 +685,9 @@ void popFront(ref string s) {
 }
 
 auto isIdChar(C)(C c) {
-	static if(is(C == char)) {
+	static if (is(C == char)) {
 		return c == '_' || isAlphaNum(c);
-	} else static if(is(C == wchar) || is(C == dchar)) {
+	} else static if (is(C == wchar) || is(C == dchar)) {
 		return isUniAlpha(c);
 	} else {
 		static assert(0, "This function is only for chatacter types.");
@@ -714,7 +714,7 @@ mixin template CharPumper(bool decode = true) {
 					popChar();
 					
 					continue;
-				} else static if(decode) {
+				} else static if (decode) {
 					// Check if if have an unicode character.
 					if (c & 0x80) {
 						size_t l;
@@ -747,14 +747,14 @@ mixin template CharPumper(bool decode = true) {
 				popChar();
 				
 				continue;
-			 } else static if(decode) {
+			 } else static if (decode) {
 				// Check if if have an unicode character.
-				if(c & 0x80) {
+				if (c & 0x80) {
 					size_t l;
 					auto save = content;
 					auto u = save.decodeFront(l);
 					
-					if(condition(u)) {
+					if (condition(u)) {
 						heapBuffer.reserve(l);
 						
 						while(l--) {
@@ -773,7 +773,7 @@ mixin template CharPumper(bool decode = true) {
 		if (i < BufferSize) {
 			buffer[i++] = c;
 			
-			if(i == BufferSize) {
+			if (i == BufferSize) {
 				// Buffer is full, we need to work on heap;
 				heapBuffer = buffer.idup;
 			}
@@ -1044,7 +1044,7 @@ auto stringify(string s) {
 auto getReturnOrBreak(string fun, string base) {
 	auto cmd = "!" ~ stringify(base) ~ "()";
 	
-	if(fun[0] == '?') {
+	if (fun[0] == '?') {
 		cmd = fun[1 .. $] ~ cmd;
 		return "
 				static if(is(typeof(" ~ cmd ~ ") == void)) {
@@ -1064,7 +1064,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	auto defaultFun = def;
 	string[string][char] nextLevel;
 	foreach(id, fun; ids) {
-		if(id == "") {
+		if (id == "") {
 			defaultFun = fun;
 		} else {
 			nextLevel[id[0]][id[1 .. $]] = fun;
@@ -1103,8 +1103,8 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 				popChar();";
 		
 		auto newBase = base ~ c;
-		if(ids.length == 1) {
-			if(auto cdef = "" in ids) {
+		if (ids.length == 1) {
+			if (auto cdef = "" in ids) {
 				ret ~= getReturnOrBreak(*cdef, newBase);
 				continue;
 			}

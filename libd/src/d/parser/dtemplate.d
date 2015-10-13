@@ -10,7 +10,7 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 
-auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTokenRange!TokenRange) {
+auto parseTemplate(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Template);
 	
@@ -25,7 +25,7 @@ auto parseTemplate(TokenRange)(ref TokenRange trange, StorageClass stc) if(isTok
 	return new TemplateDeclaration(location, stc, name, parameters, declarations);
 }
 
-auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseConstraint(ref TokenRange trange) {
 	trange.match(TokenType.If);
 	trange.match(TokenType.OpenParen);
 	
@@ -34,12 +34,12 @@ auto parseConstraint(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRan
 	trange.match(TokenType.CloseParen);
 }
 
-auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseTemplateParameters(ref TokenRange trange) {
 	trange.match(TokenType.OpenParen);
 	
 	AstTemplateParameter[] parameters;
 	
-	if(trange.front.type != TokenType.CloseParen) {
+	if (trange.front.type != TokenType.CloseParen) {
 		parameters ~= trange.parseTemplateParameter();
 		
 		while(trange.front.type != TokenType.CloseParen) {
@@ -54,7 +54,7 @@ auto parseTemplateParameters(TokenRange)(ref TokenRange trange) if(isTokenRange!
 	return parameters;
 }
 
-private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange trange) {
+private AstTemplateParameter parseTemplateParameter(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
 			auto lookahead = trange.save;
@@ -98,7 +98,7 @@ private AstTemplateParameter parseTemplateParameter(TokenRange)(ref TokenRange t
 	}
 }
 
-private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
+private auto parseTypeParameter(ref TokenRange trange) {
 	auto name = trange.front.name;
 	auto location = trange.front.location;
 	
@@ -132,7 +132,7 @@ private auto parseTypeParameter(TokenRange)(ref TokenRange trange) {
 	}
 }
 
-private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
+private auto parseValueParameter(ref TokenRange trange) {
 	auto location = trange.front.location;
 	
 	auto type = trange.parseType();
@@ -160,7 +160,7 @@ private auto parseValueParameter(TokenRange)(ref TokenRange trange) {
 	return new AstValueTemplateParameter(location, name, type, defaultValue);
 }
 
-private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange trange) {
+private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Alias);
 	
@@ -177,7 +177,7 @@ private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange tran
 		}
 	}
 	
-	if(isTyped) {
+	if (isTyped) {
 		auto type = trange.parseType();
 		auto name = trange.front.name;
 		
@@ -195,7 +195,7 @@ private AstTemplateParameter parseAliasParameter(TokenRange)(ref TokenRange tran
 	}
 }
 
-auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseTemplateArguments(ref TokenRange trange) {
 	TemplateArgument[] arguments;
 	
 	switch(trange.front.type) with(TokenType) {
@@ -242,7 +242,7 @@ auto parseTemplateArguments(TokenRange)(ref TokenRange trange) if(isTokenRange!T
 	return arguments;
 }
 
-auto parseTemplateArgument(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+auto parseTemplateArgument(ref TokenRange trange) {
 	auto location = trange.front.location;
 	
 	import d.parser.ambiguous;
@@ -258,4 +258,3 @@ auto parseTemplateArgument(TokenRange)(ref TokenRange trange) if(isTokenRange!To
 		}
 	})();
 }
-

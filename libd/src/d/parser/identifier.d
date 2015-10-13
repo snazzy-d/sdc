@@ -10,7 +10,7 @@ import d.parser.dtemplate;
 /**
  * Parse Identifier
  */
-Identifier parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Identifier parseIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
 	
 	auto name = trange.front.name;
@@ -22,7 +22,7 @@ Identifier parseIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!To
 /**
  * Parse dotted identifier (.identifier)
  */
-Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange!TokenRange) {
+Identifier parseDotIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Dot);
 	
@@ -38,16 +38,16 @@ Identifier parseDotIdentifier(TokenRange)(ref TokenRange trange) if(isTokenRange
 /**
  * Parse any qualifier identifier (qualifier.identifier)
  */
-auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Location location, Namespace ns) if(isTokenRange!TokenRange) {
+auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange, Location location, Namespace ns) {
 	auto name = trange.front.name;
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 	
-	static if(is(Namespace : Identifier)) {
+	static if (is(Namespace : Identifier)) {
 		alias QualifiedIdentifier = IdentifierDotIdentifier;
-	} else static if(is(Namespace : AstType)) {
+	} else static if (is(Namespace : AstType)) {
 		alias QualifiedIdentifier = TypeDotIdentifier;
-	} else static if(is(Namespace : AstExpression)) {
+	} else static if (is(Namespace : AstExpression)) {
 		alias QualifiedIdentifier = ExpressionDotIdentifier;
 	} else {
 		static assert(0, "Namespace can only be an Identifier, a AstType or an Expression. Not a " ~ Namespace.stringof);
@@ -59,7 +59,7 @@ auto parseQualifiedIdentifier(TokenRange, Namespace)(ref TokenRange trange, Loca
 /**
  * Parse built identifier
  */
-private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Location location, Identifier identifier) {
+private Identifier parseBuiltIdentifier(ref TokenRange trange, Location location, Identifier identifier) {
 	while(1) {
 		switch(trange.front.type) with(TokenType) {
 			case Dot :
@@ -75,7 +75,7 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 			case Bang :
 				auto lookahead = trange.save;
 				lookahead.popFront();
-				if(lookahead.front.type == Is || lookahead.front.type == In) {
+				if (lookahead.front.type == Is || lookahead.front.type == In) {
 					return identifier;
 				}
 				
@@ -87,20 +87,20 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 				
 				auto instance = new TemplateInstanciation(location, identifier, arguments);
 				
-				if(trange.front.type == Dot) {
-					trange.popFront();
-					
-					auto name = trange.front.name;
-					
-					location.spanTo(trange.front.location);
-					trange.match(Identifier);
-					
-					identifier = new TemplateInstanciationDotIdentifier(location, name, instance);
-				} else {
+				if (trange.front.type != Dot) {
 					// TODO: create s pecial node for that ?
 					identifier = new TemplateInstanciationDotIdentifier(location, identifier.name, instance);
+					break;
 				}
 				
+				trange.popFront();
+				
+				auto name = trange.front.name;
+				
+				location.spanTo(trange.front.location);
+				trange.match(Identifier);
+				
+				identifier = new TemplateInstanciationDotIdentifier(location, name, instance);
 				break;
 			
 			default :
@@ -108,4 +108,3 @@ private Identifier parseBuiltIdentifier(TokenRange)(ref TokenRange trange, Locat
 		}
 	}
 }
-
