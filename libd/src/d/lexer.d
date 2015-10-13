@@ -123,7 +123,7 @@ import d.context.source;
 struct Token {
 	Location location;
 	TokenType type;
-
+	
 	import d.context.name;
 	Name name;
 }
@@ -133,12 +133,13 @@ auto lex(Position base, Context context) {
 		static assert(isForwardRange!Lexer);
 		
 		Token t;
-		string content;
+		Position previous;
 		
-		Context context;
-
 		Position base;
 		uint index;
+		
+		Context context;
+		string content;
 		
 		// We don't want the lexer to be copyable. Use save.
 		@disable this(this);
@@ -149,6 +150,7 @@ auto lex(Position base, Context context) {
 		}
 		
 		void popFront() {
+			previous = base.getWithOffset(index);
 			t = getNextToken();
 			
 			/+
@@ -160,7 +162,7 @@ auto lex(Position base, Context context) {
 		
 		@property
 		auto save() inout {
-			return inout(Lexer)(t, content, context, base, index);
+			return inout(Lexer)(t, previous, base, index, context, content);
 		}
 		
 		@property
@@ -653,6 +655,7 @@ auto lex(Position base, Context context) {
 	
 	lexer.context = context;
 	lexer.base = base;
+	lexer.previous = base;
 	
 	// Pop #!
 	auto c = lexer.content.front;
