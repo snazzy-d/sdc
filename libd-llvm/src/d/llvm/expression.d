@@ -825,7 +825,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef getTypeid(Type t) {
 		t = t.getCanonical();
-		assert(t.kind == TypeKind.Class, "Not implemented");
+/*		assert(t.kind == TypeKind.Class, "Not implemented");
 		
 		// Ensure that the thing is generated.
 		auto c = t.dclass;
@@ -834,6 +834,23 @@ struct ExpressionGen {
 		TypeGen(pass.pass).visit(c);
 		
 		return TypeGen(pass.pass).getTypeInfo(c);
+*/
+		if (t.kind == TypeKind.Class) {
+			// Ensure that the thing is generated.
+			auto c = t.dclass;
+			buildClassType(c);
+			
+			return getTypeInfo(c);
+		}
+
+		/*if (t.kind == TypeKind.Interface) {
+			auto i = t.dinterface;
+			buildInterfaceType(i);
+			auto ti = getTypeInfo(i);
+			return ti;
+		}*/
+
+		assert(0, "Not implemented");
 	}
 	
 	LLVMValueRef visit(StaticTypeidExpression e) {

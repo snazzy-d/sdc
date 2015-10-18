@@ -505,8 +505,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		if (to.kind == TypeKind.Interface) {
 			scheduler.require(c, Step.Signed);
-			//
-			return CastKind.Down;
+			//SIDX
+			return CastKind.Exact;
 		}
 
 		return bailout(c);
