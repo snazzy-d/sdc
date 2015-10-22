@@ -475,6 +475,7 @@ enum CastKind {
 	IntToPtr,
 	PtrToInt,
 	Down,
+	InterfaceDown,
 	IntToBool,
 	Trunc,
 	SPad,

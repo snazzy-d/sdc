@@ -148,6 +148,8 @@ Expression buildCast(bool isExplicit)(
 			// FIXME: Because we don't cast type qualifier the proper
 			// way, we need ot make sure they match.
 			e.type = e.type.qualify(to.qualifier);
+			import std.stdio;
+			writeln("visit: case");
 			return e;
 		
 		default:
@@ -506,7 +508,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		if (to.kind == TypeKind.Interface) {
 			scheduler.require(c, Step.Signed);
 			//SIDX
-			return CastKind.Exact;
+			writeln("viii");
+			return CastKind.InterfaceDown;
 		}
 
 		return bailout(c);

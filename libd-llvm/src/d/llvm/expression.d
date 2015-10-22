@@ -675,6 +675,7 @@ struct ExpressionGen {
 			
 			case Invalid :
 				assert(0, "Invalid cast");
+			case InterfaceDown:
 		}
 	}
 	
@@ -843,13 +844,14 @@ struct ExpressionGen {
 			return getTypeInfo(c);
 		}
 
-		/*if (t.kind == TypeKind.Interface) {
+		/*
+		if (t.kind == TypeKind.Interface) {
 			auto i = t.dinterface;
 			buildInterfaceType(i);
 			auto ti = getTypeInfo(i);
 			return ti;
-		}*/
-
+		}
+		*/
 		assert(0, "Not implemented");
 	}
 	
