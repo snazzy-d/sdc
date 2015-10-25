@@ -56,7 +56,8 @@ SDC requires LLVM 3.6 . If the default llvm-config on your system is an older ve
 
 Compiling SDC on Mac OS X
 =======
-You'll need `make` and the latest DMD installed. You'll also need llvm36 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm36`, followed by `make LLVM_CONFIG=llvm-config-3.6` .
+You'll need `make` and the latest DMD installed. You'll also need llvm36 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm36`, followed by `make LLVM_CONFIG=llvm-config-3.6` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.6`, followed by `make LLVM_CONFIG=llvm-config-mp-3.6` .
+You'll also need a recent version of `nasm`; if `nasm` does not recognise the `macho64` output format, try updating `nasm`.
 
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
