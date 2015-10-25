@@ -94,12 +94,10 @@ public:
 		GlobalGen(pass).define(f);
 	}
 	
-	void emitObject(Module[] modules, string objFile) {
+	private void runLLVMPasses(Module[] modules) {
 		foreach(m; modules) {
 			pass.visit(m);
 		}
-		
-		auto dmodule = pass.dmodule;
 		
 		import llvm.c.transforms.passManagerBuilder;
 		auto pmb = LLVMPassManagerBuilderCreate();
@@ -119,22 +117,25 @@ public:
 		auto targetData = LLVMGetTargetMachineData(targetMachine);
 		LLVMAddTargetData(targetData, pm);
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		LLVMRunPassManager(pm, dmodule);
-		
+		LLVMRunPassManager(pm, pass.dmodule);
+
 		// Dump module for debug purpose.
 		// LLVMDumpModule(dmodule);
-		
+
 		/+
 		import std.stdio;
 		writeln("\nASM generated :");
 		
 		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
 		// +/
-		
+	}
+
+	void emitObject(Module[] modules, string objFile) {
+		runLLVMPasses(modules);
+
 		import std.string;
-		
 		char* errorPtr;
-		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, dmodule, objFile.toStringz(), LLVMCodeGenFileType.Object, &errorPtr);
+		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, pass.dmodule, objFile.toStringz(), LLVMCodeGenFileType.Object, &errorPtr);
 		if (linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
@@ -144,7 +145,50 @@ public:
 			assert(0, "Fail to link ! Exiting...");
 		}
 	}
-	
+
+	void emitAsm(Module[] modules, string filename) {
+		runLLVMPasses(modules);
+
+		import std.string;
+		char* errorPtr;
+		auto printError = LLVMTargetMachineEmitToFile(targetMachine, pass.dmodule, filename.toStringz(), LLVMCodeGenFileType.Assembly, &errorPtr);
+		if (printError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+
+			import std.c.string, std.stdio;
+			writeln(errorPtr[0 .. strlen(errorPtr)]);
+
+			assert(0, "Failed to output assembly file! Exiting...");
+		}
+	}
+
+	void emitLLVMAsm(Module[] modules, string filename) {
+		runLLVMPasses(modules);
+
+		import std.string;
+		char* errorPtr;
+		auto printError = LLVMPrintModuleToFile(pass.dmodule, filename.toStringz(), &errorPtr);
+		if (printError) {
+			scope(exit) LLVMDisposeMessage(errorPtr);
+
+			import std.c.string, std.stdio;
+			writeln(errorPtr[0 .. strlen(errorPtr)]);
+
+			assert(0, "Failed to output LLVM assembly file! Exiting...");
+		}
+	}
+
+	void emitLLVMBitcode(Module[] modules, string filename) {
+		runLLVMPasses(modules);
+
+		import llvm.c.bitWriter;
+		import std.string;
+		auto error = LLVMWriteBitcodeToFile(pass.dmodule, filename.toStringz());
+		if (error) {
+			assert(0, "Failed to output LLVM bitcode file! Exiting...");
+		}
+	}
+
 	void link(string objFile, string executable) {
 		import std.process;
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lphobos -lpthread";
