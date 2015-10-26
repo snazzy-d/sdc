@@ -13,7 +13,6 @@ import sdc.terminal;
 
 import std.array;
 import std.getopt;
-import std.path;
 
 int main(string[] args) {
 	version(DigitalMars) {
@@ -62,6 +61,8 @@ int main(string[] args) {
 	
 	auto files = args[1 .. $];
 	
+	// Generate filenames for output artifacts (if not specified on commandline)
+	import std.path : baseName, stripExtension;
 	auto stripped_filename = baseName(stripExtension(files[0]));
 	auto executable = stripped_filename;
 	version(Windows) executable ~= ".exe";
