@@ -23,6 +23,7 @@ version (linux) import core.sys.posix.unistd;
 
 immutable SDC = "../bin/sdc";
 immutable DMD = "dmd";
+immutable OUTPUT_DIRECTORY = "tmp";
 
 version (Windows) {
     immutable EXE_EXTENSION = ".exe";
@@ -30,6 +31,13 @@ version (Windows) {
     immutable EXE_EXTENSION = ".bin";
 }
 
+void createBinOutputDirectory()
+{
+    auto dir = OUTPUT_DIRECTORY;
+    if (!(exists(dir) && isDir(dir))) {
+        mkdir(dir);
+    }
+}
 
 string getTestFilename(int n)
 {
@@ -100,7 +108,7 @@ void test(string filename, string compiler)
     string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
     version (Windows) string exeName;
     else string exeName = "./";
-    exeName ~= filename ~ EXE_EXTENSION;
+    exeName ~= OUTPUT_DIRECTORY ~ "/" ~ filename ~ EXE_EXTENSION;
     if (file.exists(exeName)) {
         file.remove(exeName);
     }
@@ -159,6 +167,9 @@ int main(string[] args)
             "only-failed", &displayOnlyFailed,
             "wait-on-exit", &waitOnExit,
             "help", delegate {usage(); exit(0);});
+
+    createBinOutputDirectory();
+
     if (args.length > 1) {
         int testNumber = to!int(args[1]);
         auto testName = getTestFilename(testNumber);
