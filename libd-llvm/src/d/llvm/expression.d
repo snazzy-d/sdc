@@ -8,8 +8,6 @@ import d.ir.type;
 
 import d.context.location;
 
-import d.exception;
-
 import util.visitor;
 
 import llvm.c.core;
@@ -23,7 +21,14 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(Expression e) {
+		if (auto ce = cast(CompileTimeExpression) e) {
+			// XXX: for some resaon, pass.pass is need as alias this doesn't kick in.
+			import d.llvm.constant;
+			return ConstantGen(pass.pass).visit(ce);
+		}
+		
 		return this.dispatch!(function LLVMValueRef(Expression e) {
+			import d.exception;
 			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
 		})(e);
 	}
@@ -52,36 +57,6 @@ struct ExpressionGen {
 	} body {
 		auto q = e.type.qualifier;
 		return buildLoad(addressOf(e), q);
-	}
-	
-	LLVMValueRef visit(BooleanLiteral bl) {
-		return LLVMConstInt(pass.visit(bl.type), bl.value, false);
-	}
-	
-	LLVMValueRef visit(IntegerLiteral il) {
-		if (il.type.kind != TypeKind.Builtin) {
-			import std.stdio;
-			writeln(cast(void*) il, "\t", il.type.toString(context));
-		}
-		
-		return LLVMConstInt(pass.visit(il.type), il.value, isSigned(il.type.builtin));
-	}
-	
-	LLVMValueRef visit(FloatLiteral fl) {
-		return LLVMConstReal(pass.visit(fl.type), fl.value);
-	}
-	
-	// XXX: character types in backend ?
-	LLVMValueRef visit(CharacterLiteral cl) {
-		return LLVMConstInt(pass.visit(cl.type), cl.value, false);
-	}
-	
-	LLVMValueRef visit(NullLiteral nl) {
-		return LLVMConstNull(pass.visit(nl.type));
-	}
-	
-	LLVMValueRef visit(StringLiteral sl) {
-		return buildDString(sl.value);
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
@@ -815,29 +790,6 @@ struct ExpressionGen {
 		}
 		
 		return tuple;
-	}
-	
-	LLVMValueRef visit(CompileTimeTupleExpression e) {
-		import std.algorithm, std.array;
-		auto fields = e.values.map!(v => visit(v)).array();
-		auto t = pass.visit(e.type);
-		
-		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
-			case Struct :
-				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
-			
-			case Array :
-				return LLVMConstArray(LLVMGetElementType(t), fields.ptr, cast(uint) fields.length);
-			
-			default :
-				break;
-		}
-		
-		assert(0, "Invalid type tuple.");
-	}
-	
-	LLVMValueRef visit(VoidInitializer v) {
-		return LLVMGetUndef(pass.visit(v.type));
 	}
 	
 	LLVMValueRef visit(AssertExpression e) {

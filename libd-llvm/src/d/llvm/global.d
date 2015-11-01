@@ -60,13 +60,8 @@ struct GlobalGen {
 	} body {
 		auto var = globals.get(v, {
 			if (v.storage == Storage.Enum) {
-				import d.llvm.local;
-				auto lg = LocalGen(pass);
-
-				// FIXME: This should only generate const using the const API.
-				// That way no need for a builder and/or LocalGen.
-				import d.llvm.expression;
-				return ExpressionGen(&lg).visit(v.value);
+				import d.llvm.constant;
+				return ConstantGen(pass).visit(v.value);
 			}
 			
 			return createVariableStorage(v);
@@ -116,13 +111,8 @@ struct GlobalGen {
 			return false;
 		}
 		
-		import d.llvm.local;
-		auto lg = LocalGen(pass);
-		
-		// FIXME: This should only generate const using the const API.
-		// That way no need for a builder and/or LocalGen.
-		import d.llvm.expression;
-		auto value = ExpressionGen(&lg).visit(v.value);
+		import d.llvm.constant;
+		auto value = ConstantGen(pass).visit(v.value);
 		
 		// Store the initial value into the global variable.
 		LLVMSetInitializer(var, value);

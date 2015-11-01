@@ -250,24 +250,20 @@ final class TypeGen {
 				auto oldBody = m.fbody;
 				scope(exit) m.fbody = oldBody;
 				m.fbody = null;
-
+				
 				import d.llvm.global;
 				vtbl ~= GlobalGen(pass).declare(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
-					// FIXME: Remove localgen.
-					import d.llvm.local;
-					auto lg = LocalGen(pass);
-
-					import d.llvm.expression;
-					fields ~= ExpressionGen(&lg).visit(f.value);
+					import d.llvm.constant;
+					fields ~= ConstantGen(pass).visit(f.value);
 				}
 			}
 		}
 		
 		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
-
+		
 		import std.string;
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) (c.mangle ~ "__vtbl").toStringz());
 		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
