@@ -28,9 +28,7 @@ public:
 		return sourceManager.getFileName(this).getFullName(context);
 	}
 	
-	FullName getDirectory() in {
-		assert(isFile());
-	} body {
+	FullName getDirectory() {
 		return sourceManager.getDirectory(this).getFullName(context);
 	}
 	

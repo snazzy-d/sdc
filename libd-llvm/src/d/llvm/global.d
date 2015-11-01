@@ -20,9 +20,12 @@ struct GlobalGen {
 	import d.llvm.local : Mode;
 	Mode mode;
 	
-	this(CodeGen pass, Mode mode = Mode.Lazy) {
+	LLVMMetadataRef diScope;
+	
+	this(CodeGen pass, LLVMMetadataRef diScope, Mode mode = Mode.Lazy) {
 		this.pass = pass;
 		this.mode = mode;
+		this.diScope = diScope;
 	}
 	
 	void define(Symbol s) {
@@ -42,7 +45,7 @@ struct GlobalGen {
 		assert(!f.hasContext, "function must not have context");
 	} body {
 		import d.llvm.local;
-		return LocalGen(pass).declare(f);
+		return LocalGen(pass, diScope).declare(f);
 	}
 	
 	LLVMValueRef define(Function f) in {
@@ -50,7 +53,7 @@ struct GlobalGen {
 		assert(!f.hasContext, "function must not have context");
 	} body {
 		import d.llvm.local;
-		return LocalGen(pass).define(f);
+		return LocalGen(pass, diScope).define(f);
 	}
 	
 	LLVMValueRef declare(Variable v) in {
@@ -69,7 +72,7 @@ struct GlobalGen {
 		
 		// Register the variable.
 		globals[v] = var;
-		if (!v.value || v.storage == Storage.Enum) {
+		if (v.storage == Storage.Enum) {
 			return var;
 		}
 		
@@ -88,13 +91,17 @@ struct GlobalGen {
 		assert(!v.isRef);
 	} body {
 		auto var = declare(v);
-		if (!v.value || v.storage == Storage.Enum) {
+		if (v.storage == Storage.Enum) {
 			return var;
 		}
 		
 		if (!maybeDefine(v, var)) {
 			auto linkage = LLVMGetLinkage(var);
-			assert(linkage == LLVMLinkage.LinkOnceODR, "variable " ~ v.mangle.toString(context) ~ " already defined");
+			assert(
+				linkage == LLVMLinkage.LinkOnceODR,
+				"variable " ~ v.mangle.toString(context) ~ " already defined"
+			);
+			
 			LLVMSetLinkage(var, LLVMLinkage.External);
 		}
 		
@@ -109,6 +116,11 @@ struct GlobalGen {
 	} body {
 		if (LLVMGetInitializer(var)) {
 			return false;
+		}
+		
+		if (diScope !is null) {
+			import d.llvm.digen;
+			DIGlobalGen(pass, diScope).declare(v, var);
 		}
 		
 		import d.llvm.constant;
@@ -166,12 +178,15 @@ struct GlobalGen {
 	LLVMTypeRef visit(Struct s) in {
 		assert(s.step == Step.Processed);
 	} body {
+		import d.llvm.digen;
+		auto diStruct = DIScopeGen(pass).define(s);
+		
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(s);
 		
 		foreach(m; s.members) {
 			if (typeid(m) !is typeid(Field)) {
-				define(m);
+				GlobalGen(pass, diStruct, mode).define(m);
 			}
 		}
 		
@@ -181,12 +196,15 @@ struct GlobalGen {
 	LLVMTypeRef visit(Union u) in {
 		assert(u.step == Step.Processed);
 	} body {
+		import d.llvm.digen;
+		auto diUnion = DIScopeGen(pass).define(u);
+		
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(u);
 		
 		foreach(m; u.members) {
 			if (typeid(m) !is typeid(Field)) {
-				define(m);
+				GlobalGen(pass, diUnion, mode).define(m);
 			}
 		}
 		
@@ -196,6 +214,9 @@ struct GlobalGen {
 	LLVMTypeRef visit(Class c) in {
 		assert(c.step == Step.Processed);
 	} body {
+		import d.llvm.digen;
+		auto diClass = DIScopeGen(pass).define(c);
+		
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(c);
 		
@@ -203,14 +224,15 @@ struct GlobalGen {
 			if (auto f = cast(Method) m) {
 				// We don't want to define inherited methods in childs.
 				if (!f.hasThis || f.type.parameters[0].getType().dclass is c) {
-					define(f);
+					import d.llvm.local;
+					LocalGen(pass, diClass, mode).define(f);
 				}
 				
 				continue;
 			}
 			
 			if (typeid(m) !is typeid(Field)) {
-				define(m);
+				GlobalGen(pass, diClass, mode).define(m);
 			}
 		}
 		
@@ -234,16 +256,18 @@ struct GlobalGen {
 		+/
 		return type;
 	}
-
+	
 	void define(Template t) {
 		foreach(i; t.instances) {
 			if (i.storage.isLocal) {
 				continue;
 			}
 			
+			// FIXME: Create a scope here.
+			
 			foreach(m; i.members) {
 				import d.llvm.local;
-				LocalGen(pass).define(m);
+				LocalGen(pass, diScope).define(m);
 			}
 		}
 	}

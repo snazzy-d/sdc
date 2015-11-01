@@ -186,7 +186,7 @@ struct TypeMangler {
 	string visit(FunctionType f) {
 		auto base = f.contexts.length ? "D" : "";
 		auto linkage = mangleLinkage(f.linkage);
-
+		
 		import std.algorithm, std.range;
 		auto args = f.parameters.map!(p => mangleParam(p)).join();
 		auto ret = mangleParam(f.returnType);
@@ -241,7 +241,6 @@ struct ValueMangler {
 		}
 		
 		long v = e.value;
-		
 		return v >= 0
 			? v.to!string()
 			: "N" ~ to!string(-v);
@@ -274,4 +273,3 @@ unittest {
 	check("Hello World", "a11_48656c6c6f20576f726c64");
 	check("©", "a2_c2a9");
 }
-

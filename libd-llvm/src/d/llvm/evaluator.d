@@ -6,8 +6,6 @@ import d.ir.expression;
 
 import d.semantic.evaluator;
 
-import util.visitor;
-
 import llvm.c.core;
 import llvm.c.executionEngine;
 
@@ -106,7 +104,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		// Generate function's body. Warning: horrible hack.
 		import d.llvm.local;
-		auto lg = LocalGen(pass, Mode.Eager);
+		auto lg = LocalGen(pass, null, Mode.Eager);
 		auto builder = lg.builder;
 		
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
@@ -323,12 +321,7 @@ struct JitRepacker {
 		auto type = TypeGen(pass).visit(s);
 		auto count = LLVMCountStructElementTypes(type);
 		
-		// Hopefully we will be able to use http://reviews.llvm.org/D10148
-		LLVMTypeRef[] elementTypes;
-		elementTypes.length = count;
-		
 		import llvm.c.target;
-		LLVMGetStructElementTypes(type, elementTypes.ptr);
 		auto size = LLVMStoreSizeOfType(targetData, type);
 		
 		auto buf = p;
@@ -345,7 +338,7 @@ struct JitRepacker {
 				auto t = f.type;
 				
 				auto start = LLVMOffsetOfElement(targetData, type, i);
-				auto elementType = elementTypes[i];
+				auto elementType = LLVMStructGetTypeAtIndex(type, i);
 				
 				auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
 				auto end = start + fieldSize;

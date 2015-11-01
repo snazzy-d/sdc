@@ -109,6 +109,22 @@ struct __LLVMOpaqueBuilder {};
 alias LLVMBuilderRef = __LLVMOpaqueBuilder*;
 
 /**
+ * Represents an LLVM debug infos builder.
+ *
+ * This models llvm::DIBuilder.
+ */
+struct __LLVMOpaqueDIBuilder {};
+alias LLVMDIBuilderRef = __LLVMOpaqueDIBuilder*;
+
+/**
+ * Represents an LLVM Metadata.
+ *
+ * This models llvm::Metadata.
+ */
+struct __LLVMOpaqueMetadata {};
+alias LLVMMetadataRef = __LLVMOpaqueMetadata*;
+
+/**
  * Interface used to provide a module to JIT or interpreter.
  * This is now just a synonym for llvm::Module, but we have to keep using the
  * different type to keep binary compatibility.
@@ -1004,6 +1020,13 @@ uint LLVMCountStructElementTypes(LLVMTypeRef StructTy);
 void LLVMGetStructElementTypes(LLVMTypeRef StructTy, LLVMTypeRef *Dest);
 
 /**
+ * Get the type of the element at a given index in the structure.
+ *
+ * @see llvm::StructType::getTypeAtIndex()
+ */
+LLVMTypeRef LLVMStructGetTypeAtIndex(LLVMTypeRef StructTy, uint i);
+
+/**
  * Determine whether a structure is packed.
  *
  * @see llvm::StructType::isPacked()
@@ -1893,6 +1916,34 @@ LLVMValueRef LLVMAddAlias(LLVMModuleRef M, LLVMTypeRef Ty, LLVMValueRef Aliasee,
 void LLVMDeleteFunction(LLVMValueRef Fn);
 
 /**
+ * Obtain the personality function attached to the function.
+ *
+ * @see llvm::Function::getPersonalityFn()
+ */
+LLVMValueRef LLVMGetPersonalityFn(LLVMValueRef Fn);
+
+/**
+ * Set the personality function attached to the function.
+ *
+ * @see llvm::Function::setPersonalityFn()
+ */
+void LLVMSetPersonalityFn(LLVMValueRef Fn, LLVMValueRef PersonalityFn);
+
+/**
+ * Obtain the DISubprogram attached to the function.
+ *
+ * @see llvm::Function::getSubprogram()
+ */
+LLVMMetadataRef LLVMGetSubprogram(LLVMValueRef Fn);
+
+/**
+ * Set the DISubprogram attached to the function.
+ *
+ * @see llvm::Function::setSubprogram()
+ */
+void LLVMSetSubprogram(LLVMValueRef Fn, LLVMMetadataRef SP);
+
+/**
  * Obtain the ID number from a function instance.
  *
  * @see llvm::Function::getIntrinsicID()
@@ -2117,26 +2168,38 @@ void LLVMSetParamAlignment(LLVMValueRef Arg, uint _align);
  * string content is copied, so the backing memory can be freed after
  * this function returns.
  */
-LLVMValueRef LLVMMDStringInContext(LLVMContextRef C, const(char)* Str,
-                                   uint SLen);
+LLVMMetadataRef LLVMMDStringInContext(LLVMContextRef C, const(char)* Str,
+                                      uint SLen);
 
 /**
  * Obtain a MDString value from the global context.
  */
-LLVMValueRef LLVMMDString(const(char)* Str, uint SLen);
+LLVMMetadataRef LLVMMDString(const(char)* Str, uint SLen);
 
 /**
  * Obtain a MDNode value from a context.
  *
  * The returned value corresponds to the llvm::MDNode class.
  */
-LLVMValueRef LLVMMDNodeInContext(LLVMContextRef C, LLVMValueRef *Vals,
-                                 uint Count);
+LLVMMetadataRef LLVMMDNodeInContext(LLVMContextRef C, LLVMMetadataRef *MDs,
+                                    uint Count);
 
 /**
  * Obtain a MDNode value from the global context.
  */
-LLVMValueRef LLVMMDNode(LLVMValueRef* Vals, uint Count);
+LLVMMetadataRef LLVMMDNode(LLVMValueRef* Vals, uint Count);
+
+/**
+ * Obtain a Metadata as a Value.
+ */
+LLVMValueRef LLVMMetadataAsValueInContext(LLVMContextRef C,
+                                          LLVMMetadataRef MD);
+LLVMValueRef LLVMMetadataAsValue(LLVMMetadataRef MD);
+
+/**
+ * Obtain a Value as a Metadata.
+ */
+LLVMMetadataRef LLVMValueAsMetadata(LLVMValueRef Val);
 
 /**
  * Obtain the underlying string from a MDString value.
@@ -2145,7 +2208,7 @@ LLVMValueRef LLVMMDNode(LLVMValueRef* Vals, uint Count);
  * @param Len Memory address which will hold length of returned string.
  * @return String data in MDString.
  */
-const(char)  *LLVMGetMDString(LLVMValueRef V, uint* Len);
+const(char)  *LLVMGetMDString(LLVMMetadataRef MD, uint* Len);
 
 /**
  * Obtain the number of operands from an MDNode value.
@@ -2153,7 +2216,7 @@ const(char)  *LLVMGetMDString(LLVMValueRef V, uint* Len);
  * @param V MDNode to get number of operands from.
  * @return Number of operands of the MDNode.
  */
-uint LLVMGetMDNodeNumOperands(LLVMValueRef V);
+uint LLVMGetMDNodeNumOperands(LLVMMetadataRef V);
 
 /**
  * Obtain the given MDNode's operands.
@@ -2166,8 +2229,318 @@ uint LLVMGetMDNodeNumOperands(LLVMValueRef V);
  * @param V MDNode to get the operands from.
  * @param Dest Destination array for operands.
  */
-void LLVMGetMDNodeOperands(LLVMValueRef V, LLVMValueRef *Dest);
+void LLVMGetMDNodeOperands(LLVMMetadataRef V, LLVMMetadataRef *Dest);
 
+/**
+ * Dump a representation of a metadata to stderr.
+ *
+ * @see llvm::Metadata::dump()
+ */
+void LLVMDumpMetadata(LLVMMetadataRef MD);
+
+/**
+ * @}
+ */
+
+/**
+ * @defgroup LLVMCoreDebugMetadata Metadata
+ *
+ * @{
+ */
+
+LLVMMetadataRef LLVMGetDILocation(uint Line, uint Column,
+                                  LLVMMetadataRef Scope);
+LLVMMetadataRef LLVMGetDILocationInContext(LLVMContextRef C, uint Line,
+                                           uint Column,
+                                           LLVMMetadataRef Scope);
+
+LLVMDIBuilderRef LLVMCreateDIBuilder(LLVMModuleRef M);
+void LLVMFinalizeDIBuilder(LLVMDIBuilderRef B);
+void LLVMDisposeDIBuilder(LLVMDIBuilderRef B);
+
+LLVMMetadataRef LLVMDICreateCompileUnit(LLVMDIBuilderRef B, uint Lang,
+                                        const char *File, const char *Dir,
+                                        const char *Producer,
+                                        LLVMBool isOptimized,
+                                        const char *Flags, uint RV,
+                                        const char *SplitName);
+LLVMMetadataRef LLVMDICreateFile(LLVMDIBuilderRef B, const char *FileName,
+                                 const char *Directory);
+LLVMMetadataRef LLVMDICreateEnumerator(LLVMDIBuilderRef B, const char *Name,
+                                       long Val);
+LLVMMetadataRef LLVMDICreateUnspecifiedType(LLVMDIBuilderRef B,
+                                            const char *Name);
+LLVMMetadataRef LLVMDICreateNullPtrType(LLVMDIBuilderRef B);
+LLVMMetadataRef LLVMDICreateBasicType(LLVMDIBuilderRef B, const char *Name,
+                                      ulong SizeInBits,
+                                      ulong AlignInBits, uint Encoding);
+LLVMMetadataRef LLVMDICreateQualifiedType(LLVMDIBuilderRef B, uint Tag,
+                                          LLVMMetadataRef FromTy);
+LLVMMetadataRef LLVMDICreatePointerType(LLVMDIBuilderRef B,
+                                        LLVMMetadataRef PointeeTy,
+                                        ulong SizeInBits,
+                                        ulong AlignInBits,
+                                        const char *Name);
+LLVMMetadataRef LLVMDICreateMemberPointerType(LLVMDIBuilderRef B,
+                                              LLVMMetadataRef PointeeTy,
+                                              LLVMMetadataRef Class,
+                                              ulong SizeInBits,
+                                              ulong AlignInBits);
+LLVMMetadataRef LLVMDICreateReferenceType(LLVMDIBuilderRef B, uint Tag,
+                                          LLVMMetadataRef RTy);
+LLVMMetadataRef LLVMDICreateTypedef(LLVMDIBuilderRef B, LLVMMetadataRef Ty,
+                                    const char *Name, LLVMMetadataRef File,
+                                    uint LineNo, LLVMMetadataRef Context);
+LLVMMetadataRef LLVMDICreateFriend(LLVMDIBuilderRef B, LLVMMetadataRef Ty,
+                                   LLVMMetadataRef FriendTy);
+LLVMMetadataRef LLVMDICreateInheritance(LLVMDIBuilderRef B, LLVMMetadataRef Ty,
+                                        LLVMMetadataRef BaseTy,
+                                        ulong BaseOffset, uint Flags);
+LLVMMetadataRef LLVMDICreateMemberType(LLVMDIBuilderRef B,
+                                       LLVMMetadataRef Scope, const char *Name,
+                                       LLVMMetadataRef File, uint LineNo,
+                                       ulong SizeInBits,
+                                       ulong AlignInBits,
+                                       ulong OffsetInBits,
+                                       uint Flags, LLVMMetadataRef Ty);
+LLVMMetadataRef LLVMDICreateStaticMemberType(LLVMDIBuilderRef B,
+                                             LLVMMetadataRef Scope,
+                                             const char *Name,
+                                             LLVMMetadataRef File,
+                                             uint LineNo,
+                                             LLVMMetadataRef Ty,
+                                             uint Flags,
+                                             LLVMValueRef Val);
+LLVMMetadataRef LLVMDICreateObjCIVar(LLVMDIBuilderRef B, const char *Name,
+                                     LLVMMetadataRef File, uint LineNo,
+                                     ulong SizeInBits, ulong AlignInBits,
+                                     ulong OffsetInBits, uint Flags,
+                                     LLVMMetadataRef Ty,
+                                     LLVMMetadataRef PropertyNode);
+LLVMMetadataRef LLVMDICreateObjCProperty(LLVMDIBuilderRef B, const char *Name,
+                                         LLVMMetadataRef File, uint LineNo,
+                                         const char *GetterName,
+                                         const char *SetterName,
+                                         uint PropertyAttributes,
+                                         LLVMMetadataRef Ty);
+LLVMMetadataRef LLVMDICreateClassType(LLVMDIBuilderRef B,
+                                      LLVMMetadataRef Scope, const char *Name,
+                                      LLVMMetadataRef File, uint LineNo,
+                                      ulong SizeInBits,
+                                      ulong AlignInBits,
+                                      ulong OffsetInBits, uint Flags,
+                                      LLVMMetadataRef DerivedFrom,
+                                      LLVMMetadataRef Elements,
+                                      LLVMMetadataRef VTableHolder,
+                                      LLVMMetadataRef TemplateParms,
+                                      const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateStructType(LLVMDIBuilderRef B,
+                                       LLVMMetadataRef Scope, const char *Name,
+                                       LLVMMetadataRef File, uint LineNo,
+                                       ulong SizeInBits,
+                                       ulong AlignInBits,
+                                       uint Flags,
+                                       LLVMMetadataRef DerivedFrom,
+                                       LLVMMetadataRef Elements,
+                                       uint RunTimeLang,
+                                       LLVMMetadataRef VTableHolder,
+                                       const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateUnionType(LLVMDIBuilderRef B,
+                                      LLVMMetadataRef Scope, const char *Name,
+                                      LLVMMetadataRef File, uint LineNo,
+                                      ulong SizeInBits,
+                                      ulong AlignInBits,
+                                      uint Flags, LLVMMetadataRef Elements,
+                                      uint RunTimeLang,
+                                      const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateTemplateTypeParameter(LLVMDIBuilderRef B,
+                                                  LLVMMetadataRef Scope,
+                                                  const char *Name,
+                                                  LLVMMetadataRef Ty);
+LLVMMetadataRef LLVMDICreateTemplateValueParameter(LLVMDIBuilderRef B,
+                                                   LLVMMetadataRef Scope,
+                                                   const char *Name,
+                                                   LLVMMetadataRef Ty,
+                                                   LLVMValueRef Val);
+LLVMMetadataRef LLVMDICreateTemplateTemplateParameter(LLVMDIBuilderRef B,
+                                                      LLVMMetadataRef Scope,
+                                                      const char *Name,
+                                                      LLVMMetadataRef Ty,
+                                                      const char *Val);
+LLVMMetadataRef LLVMDICreateTemplateParameterPack(LLVMDIBuilderRef B,
+                                                 LLVMMetadataRef Scope,
+                                                 const char *Name,
+                                                 LLVMMetadataRef Ty,
+                                                 LLVMMetadataRef Val);
+LLVMMetadataRef LLVMDICreateArrayType(LLVMDIBuilderRef B, ulong Size,
+                                      ulong AlignInBits, LLVMMetadataRef Ty,
+                                      LLVMMetadataRef Subscripts);
+LLVMMetadataRef LLVMDICreateVectorType(LLVMDIBuilderRef B, ulong Size,
+                                       ulong AlignInBits,
+                                       LLVMMetadataRef Ty,
+                                       LLVMMetadataRef Subscripts);
+LLVMMetadataRef LLVMDICreateEnumerationType(LLVMDIBuilderRef B,
+                                            LLVMMetadataRef Scope,
+                                            const char *Name,
+                                            LLVMMetadataRef File,
+                                            uint LineNo,
+                                            ulong SizeInBits,
+                                            ulong AlignInBits,
+                                            LLVMMetadataRef Elements,
+                                            LLVMMetadataRef UnderlyingType,
+                                            const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateSubroutineType(LLVMDIBuilderRef B,
+                                           LLVMMetadataRef ParameterTypes,
+                                           uint Flags);
+LLVMMetadataRef LLVMDICreateExternalTypeRef(LLVMDIBuilderRef B,
+                                            uint Tag, LLVMMetadataRef File,
+                                            const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateArtificialType(LLVMDIBuilderRef B,
+                                           LLVMMetadataRef Ty);
+LLVMMetadataRef LLVMDICreateObjectPointerType(LLVMDIBuilderRef B,
+                                              LLVMMetadataRef Ty);
+LLVMMetadataRef LLVMDICreateForwardDecl(LLVMDIBuilderRef B, uint Tag,
+                                        const char *Name,
+                                        LLVMMetadataRef Scope,
+                                        LLVMMetadataRef F, uint Line,
+                                        uint RuntimeLang,
+                                        ulong SizeInBits,
+                                        ulong AlignInBits,
+                                        const char *UniqueIdentifier);
+LLVMMetadataRef LLVMDICreateReplaceableCompositeType(LLVMDIBuilderRef B,
+                                                     uint Tag,
+                                                     const char *Name,
+                                                     LLVMMetadataRef Scope,
+                                                     LLVMMetadataRef F,
+                                                     uint Line,
+                                                     uint RuntimeLang,
+                                                     ulong SizeInBits,
+                                                     ulong AlignInBits,
+                                                     uint Flags,
+                                                 const char *UniqueIdentifier);
+void LLVMDIRetainType(LLVMDIBuilderRef B, LLVMMetadataRef T);
+LLVMMetadataRef LLVMDICreateUnspecifiedParameter(LLVMDIBuilderRef B);
+LLVMMetadataRef LLVMDIGetOrCreateArray(LLVMDIBuilderRef B,
+                                       LLVMMetadataRef *Elements,
+                                       uint ElementCount);
+LLVMMetadataRef LLVMDIGetOrCreateTypeArray(LLVMDIBuilderRef B,
+                                           LLVMMetadataRef *Elements,
+                                           uint ElementCount);
+LLVMMetadataRef LLVMDIGetOrCreateSubrange(LLVMDIBuilderRef B, long Lo,
+                                          long Count);
+LLVMMetadataRef LLVMDICreateGlobalVariable(LLVMDIBuilderRef B,
+                                           LLVMMetadataRef Context,
+                                           const char *Name,
+                                           const char *LinkageName,
+                                           LLVMMetadataRef File,
+                                           uint LineNo, LLVMMetadataRef Ty,
+                                           LLVMBool isLocalToUnit,
+                                           LLVMValueRef Val,
+                                           LLVMMetadataRef Decl);
+LLVMMetadataRef LLVMDICreateTempGlobalVariableFwdDecl(LLVMDIBuilderRef B,
+                                                      LLVMMetadataRef Context,
+                                                      const char *Name,
+                                                      const char *LinkageName,
+                                                      LLVMMetadataRef File,
+                                                      uint LineNo,
+                                                      LLVMMetadataRef Ty,
+                                                      LLVMBool isLocalToUnit,
+                                                      LLVMValueRef Val,
+                                                      LLVMMetadataRef Decl);
+LLVMMetadataRef LLVMDICreateAutoVariable(LLVMDIBuilderRef B,
+                                         LLVMMetadataRef Scope,
+                                         const char *Name,
+                                         LLVMMetadataRef File, uint LineNo,
+                                         LLVMMetadataRef Ty,
+                                         LLVMBool AlwaysPreserve,
+                                         uint Flags);
+LLVMMetadataRef LLVMDICreateParameterVariable(LLVMDIBuilderRef B,
+                                              LLVMMetadataRef Scope,
+                                              const char *Name, uint ArgNo,
+                                              LLVMMetadataRef File,
+                                              uint LineNo,
+                                              LLVMMetadataRef Ty,
+                                              LLVMBool AlwaysPreserve,
+                                              uint Flags);
+// createExpression, createBitPieceExpression ??!?
+LLVMMetadataRef LLVMDICreateExpression(LLVMDIBuilderRef B);
+LLVMMetadataRef LLVMDICreateFunction(LLVMDIBuilderRef B, LLVMMetadataRef Scope,
+                                     const char *Name, const char *LinkageName,
+                                     LLVMMetadataRef File, uint LineNo,
+                                     LLVMMetadataRef Ty,
+                                     LLVMBool isLocalToUnit,
+                                     LLVMBool isDefinition, uint ScopeLine,
+                                     uint Flags, LLVMBool isOptimized,
+                                     LLVMMetadataRef TParam,
+                                     LLVMMetadataRef Decl);
+LLVMMetadataRef LLVMDICreateTempFunctionFwdDecl(LLVMDIBuilderRef B,
+                                                LLVMMetadataRef Scope,
+                                                const char *Name,
+                                                const char *LinkageName,
+                                                LLVMMetadataRef File,
+                                                uint LineNo,
+                                                LLVMMetadataRef Ty,
+                                                LLVMBool isLocalToUnit,
+                                                LLVMBool isDefinition,
+                                                uint ScopeLine,
+                                                uint Flags,
+                                                LLVMBool isOptimized,
+                                                LLVMMetadataRef TParam,
+                                                LLVMMetadataRef Decl);
+LLVMMetadataRef LLVMDICreateMethod(LLVMDIBuilderRef B, LLVMMetadataRef Scope,
+                                   const char *Name, const char *LinkageName,
+                                   LLVMMetadataRef File, uint LineNo,
+                                   LLVMMetadataRef Ty, LLVMBool isLocalToUnit,
+                                   LLVMBool isDefinition, uint Virtuality,
+                                   uint VTableIndex,
+                                   LLVMMetadataRef VTableHolder,
+                                   uint Flags, LLVMBool isOptimized,
+                                   LLVMMetadataRef TParam);
+LLVMMetadataRef LLVMDICreateNameSpace(LLVMDIBuilderRef B,
+                                      LLVMMetadataRef Scope, const char *Name,
+                                      LLVMMetadataRef File, uint LineNo);
+LLVMMetadataRef LLVMDICreateModule(LLVMDIBuilderRef B, LLVMMetadataRef Scope,
+                                   const char *Name,
+                                   const char *ConfigurationMacros,
+                                   const char *IncludePath,
+                                   const char *ISysRoot);
+LLVMMetadataRef LLVMDICreateLexicalBlockFile(LLVMDIBuilderRef B,
+                                             LLVMMetadataRef Scope,
+                                             LLVMMetadataRef File,
+                                             uint Discriminator);
+LLVMMetadataRef LLVMDICreateLexicalBlock(LLVMDIBuilderRef B,
+                                         LLVMMetadataRef Scope,
+                                         LLVMMetadataRef File,
+                                         uint Line, uint Col);
+// ImportedModule ??!? Declaration ?
+LLVMValueRef LLVMDIInsertDeclareAtEnd(LLVMDIBuilderRef B, LLVMValueRef Storage,
+                                      LLVMMetadataRef VarInfo,
+                                      LLVMMetadataRef Expr, LLVMMetadataRef DL,
+                                      LLVMBasicBlockRef InsertAtEnd);
+LLVMValueRef LLVMDIInsertDeclareBefore(LLVMDIBuilderRef B,
+                                       LLVMValueRef Storage,
+                                       LLVMMetadataRef VarInfo,
+                                       LLVMMetadataRef Expr,
+                                       LLVMMetadataRef DL,
+                                       LLVMValueRef InsertBefore);
+LLVMValueRef LLVMDIInsertDbgValueIntrinsicAtEnd(LLVMDIBuilderRef B,
+                                                LLVMValueRef Val,
+                                                ulong Offset,
+                                                LLVMMetadataRef VarInfo,
+                                                LLVMMetadataRef Expr,
+                                                LLVMMetadataRef DL,
+                                                LLVMBasicBlockRef InsertAtEnd);
+LLVMValueRef LLVMDIInsertDbgValueIntrinsicBefore(LLVMDIBuilderRef B,
+                                                 LLVMValueRef Val,
+                                                 ulong Offset,
+                                                 LLVMMetadataRef VarInfo,
+                                                 LLVMMetadataRef Expr,
+                                                 LLVMMetadataRef DL,
+                                                 LLVMValueRef InsertBefore);
+void LLVMDIReplaceVTableHolder(LLVMDIBuilderRef B, LLVMMetadataRef *T,
+                               LLVMMetadataRef VTableHolder);
+void LLVMDIReplaceArrays(LLVMDIBuilderRef B, LLVMMetadataRef *T,
+                         LLVMMetadataRef Elements, LLVMMetadataRef TParams);
 /**
  * @}
  */
@@ -2390,12 +2763,12 @@ int LLVMHasMetadata(LLVMValueRef Val);
 /**
  * Return metadata associated with an instruction value.
  */
-LLVMValueRef LLVMGetMetadata(LLVMValueRef Val, uint KindID);
+LLVMMetadataRef LLVMGetMetadata(LLVMValueRef Val, uint KindID);
 
 /**
  * Set metadata associated with an instruction value.
  */
-void LLVMSetMetadata(LLVMValueRef Val, uint KindID, LLVMValueRef Node);
+void LLVMSetMetadata(LLVMValueRef Val, uint KindID, LLVMMetadataRef Node);
 
 /**
  * Obtain the basic block to which an instruction belongs.
@@ -2664,7 +3037,7 @@ void LLVMInsertIntoBuilderWithName(LLVMBuilderRef Builder, LLVMValueRef Instr,
 void LLVMDisposeBuilder(LLVMBuilderRef Builder);
 
 /* Metadata */
-void LLVMSetCurrentDebugLocation(LLVMBuilderRef Builder, LLVMValueRef L);
+void LLVMSetCurrentDebugLocation(LLVMBuilderRef Builder, LLVMMetadataRef L);
 LLVMValueRef LLVMGetCurrentDebugLocation(LLVMBuilderRef Builder);
 void LLVMSetInstDebugLocation(LLVMBuilderRef Builder, LLVMValueRef Inst);
 

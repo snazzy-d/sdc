@@ -40,11 +40,30 @@ struct StatementGen {
 	}
 	
 	void visit(Statement s) {
+		if (diScope !is null) {
+			auto location = s.getFullLocation(context);
+			auto debugLoc = LLVMGetDILocationInContext(
+				llvmCtx,
+				location.getStartLineNumber(),
+				0,
+				diScope,
+			);
+			
+			LLVMSetCurrentDebugLocation(builder, debugLoc);
+		}
+		
 		this.dispatch(s);
 	}
 	
 	void visit(VariableStatement s) {
-		define(s.var);
+		auto v = s.var;
+		auto storage = define(v);
+		
+		import d.ir.symbol;
+		if (diScope !is null && v.storage == Storage.Local) {
+			import d.llvm.digen;
+			DIVariableGen(pass).declare(v, storage);
+		}
 	}
 	
 	void visit(FunctionStatement s) {
@@ -66,7 +85,7 @@ struct StatementGen {
 	}
 	
 	void visit(ExpressionStatement e) {
-		genExpression(e.expression);
+		auto v = genExpression(e.expression);
 	}
 	
 	void rewindTo(size_t level) {
@@ -89,24 +108,26 @@ struct StatementGen {
 	}
 	
 	void concludeUnwind(LLVMValueRef fun, LLVMBasicBlockRef currentBB) {
-		if (!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMPositionBuilderAtEnd(builder, currentBB);
-			foreach_reverse(b; unwindBlocks) {
-				if (b.kind == BlockKind.Success) {
-					continue;
-				}
-				
-				if (!b.unwindBB) {
-					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-				}
-				
-				LLVMBuildBr(builder, b.unwindBB);
-				break;
+		if (LLVMGetBasicBlockTerminator(currentBB)) {
+			return;
+		}
+		
+		LLVMPositionBuilderAtEnd(builder, currentBB);
+		foreach_reverse(b; unwindBlocks) {
+			if (b.kind == BlockKind.Success) {
+				continue;
 			}
 			
-			if (!LLVMGetBasicBlockTerminator(currentBB)) {
-				LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
+			if (!b.unwindBB) {
+				b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 			}
+			
+			LLVMBuildBr(builder, b.unwindBB);
+			break;
+		}
+		
+		if (!LLVMGetBasicBlockTerminator(currentBB)) {
+			LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
 		}
 	}
 	

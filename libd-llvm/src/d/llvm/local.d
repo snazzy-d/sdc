@@ -36,6 +36,7 @@ struct LocalGen {
 	Mode mode;
 	
 	LLVMValueRef ctxPtr;
+	LLVMMetadataRef diScope;
 	
 	LLVMValueRef[ValueSymbol] locals;
 	
@@ -60,12 +61,18 @@ struct LocalGen {
 	
 	Block[] unwindBlocks;
 	
-	this(CodeGen pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
+	this(
+		CodeGen pass,
+		LLVMMetadataRef diScope,
+		Mode mode = Mode.Lazy,
+		Closure[] contexts = [],
+	) {
 		this.pass = pass;
 		this.mode = mode;
+		this.diScope = diScope;
 		this.contexts = contexts;
 		
-		// Make sure globals are initialized.
+		// Make sure locals are initialized.
 		locals[null] = null;
 		locals.remove(null);
 		
@@ -88,7 +95,7 @@ struct LocalGen {
 			define(t);
 		} else {
 			import d.llvm.global;
-			GlobalGen(pass, mode).define(s);
+			GlobalGen(pass, diScope, mode).define(s);
 		}
 	}
 	
@@ -148,7 +155,10 @@ struct LocalGen {
 			
 			// Sanity check.
 			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
-			assert(!fun, f.mangle.toString(pass.context) ~ " is already declared.");
+			assert(
+				!fun,
+				f.mangle.toString(pass.context) ~ " is already declared."
+			);
 			
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		} ());
@@ -170,7 +180,10 @@ struct LocalGen {
 		
 		if (!maybeDefine(f, fun)) {
 			auto linkage = LLVMGetLinkage(fun);
-			assert(linkage == LLVMLinkage.LinkOnceODR, "function " ~ f.mangle.toString(context) ~ " already defined");
+			assert(
+				linkage == LLVMLinkage.LinkOnceODR,
+				"function " ~ f.mangle.toString(context) ~ " already defined"
+			);
 			LLVMSetLinkage(fun, LLVMLinkage.External);
 		}
 		
@@ -185,16 +198,26 @@ struct LocalGen {
 			return false;
 		}
 		
+		LLVMMetadataRef diSubprogram;
+		if (diScope !is null) {
+			auto location = f.getFullLocation(context);
+			diSubprogram = DIScopeGen(pass).visit(f);
+			LLVMSetSubprogram(fun, diSubprogram);
+		}
+		
 		auto contexts = f.hasContext ? this.contexts : [];
-		LocalGen(pass, mode, contexts).genBody(f, fun);
+		LocalGen(pass, diSubprogram, mode, contexts).genBody(f, fun);
 		
 		return true;
 	}
 	
 	private void genBody(Function f, LLVMValueRef fun) in {
-		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle.toString(context) ~ " body is already defined.");
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody, "f must have a body");
+		assert(
+			LLVMCountBasicBlocks(fun) == 0,
+			f.mangle.toString(context) ~ " body is already defined."
+		);
 	} body {
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
@@ -248,24 +271,37 @@ struct LocalGen {
 			auto thisParam = cast(Variable) f.resolve(f.location, BuiltinName!"this");
 			assert(thisParam !is null);
 			
-			auto thisPtr = createVariableStorage(thisParam, value);
 			if (!thisParam.isRef && !thisParam.isFinal) {
 				LLVMSetValueName(value, "arg.this");
+			}
+			
+			auto thisPtr = createVariableStorage(thisParam, value);
+			if (diScope !is null) {
+				DIVariableGen(&this).declare(thisParam, 1, thisPtr);
 			}
 			
 			buildEmbededCaptures(thisPtr, thisParam.type);
 		}
 		
-		params = params[f.hasThis + f.hasContext .. $];
-		paramTypes = paramTypes[f.hasThis + f.hasContext .. $];
+		auto magicParamCount = f.hasThis + f.hasContext;
+		params = params[magicParamCount .. $];
+		paramTypes = paramTypes[magicParamCount .. $];
 		
 		foreach(i, p; parameters) {
 			auto value = params[i];
 			
-			createVariableStorage(p, value);
 			if (!p.isRef && !p.isFinal) {
 				import std.string;
-				LLVMSetValueName(value, toStringz("arg." ~ p.name.toString(context)));
+				LLVMSetValueName(
+					value,
+					toStringz("arg." ~ p.name.toString(context)),
+				);
+			}
+			
+			auto storage = createVariableStorage(p, value);
+			if (diScope !is null) {
+				DIVariableGen(&this)
+					.declare(p, cast(uint) (i + magicParamCount + 1), storage);
 			}
 		}
 		
@@ -303,10 +339,18 @@ struct LocalGen {
 			auto ctxType = contexts[$ - 1].type;
 			
 			import d.llvm.expression, d.llvm.runtime;
-			auto alloc = ExpressionGen(&this).buildCall(RuntimeGen(pass).getAllocMemory(), [LLVMSizeOf(ctxType)]);
-			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+			auto alloc = ExpressionGen(&this).buildCall(
+				RuntimeGen(pass).getAllocMemory(),
+				[LLVMSizeOf(ctxType)],
+			);
 			
-			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
+			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(
+				builder,
+				alloc,
+				LLVMPointerType(ctxType, 0),
+				"",
+			));
 		}
 	}
 	
@@ -400,7 +444,7 @@ struct LocalGen {
 	} body {
 		if (v.storage.isGlobal) {
 			import d.llvm.global;
-			return GlobalGen(pass, mode).declare(v);
+			return GlobalGen(pass, diScope, mode).declare(v);
 		}
 		
 		import d.llvm.expression;
@@ -497,6 +541,6 @@ struct LocalGen {
 		}
 		
 		import d.llvm.global;
-		return GlobalGen(pass, mode).define(s);
+		return GlobalGen(pass, diScope, mode).define(s);
 	}
 }

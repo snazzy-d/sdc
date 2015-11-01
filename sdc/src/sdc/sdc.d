@@ -20,7 +20,7 @@ final class SDC {
 	
 	Module[] modules;
 	
-	this(string name, JSON conf, uint optLevel) {
+	this(string name, JSON conf, uint optLevel, bool debugBuild) {
 		import std.algorithm, std.array, std.conv, std.path;
 		auto includePaths = conf["includePath"]
 			.array
@@ -71,6 +71,10 @@ final class SDC {
 			optLevel,
 			linkerParams,
 		);
+		
+		if (debugBuild) {
+			backend.getPass().setDebug();
+		}
 	}
 	
 	void compile(string filename) {

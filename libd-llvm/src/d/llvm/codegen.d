@@ -41,10 +41,13 @@ final class CodeGen {
 	import d.llvm.runtime;
 	RuntimeGenData runtimeGenData;
 	
-	LLVMValueRef unlikelyBranch;
+	import d.llvm.digen;
+	DIData diData;
+	
+	LLVMMetadataRef unlikelyBranch;
 	uint profKindID;
 	
-	// FIXME: We hold a refernece to the backend here so ti is not GCed.
+	// FIXME: We hold a refernece to the backend here so it is not GCed.
 	// Now that JIT use its own codegen, no reference to the JIT backend
 	// is held is that one goes. The whole thing needs to be refactored
 	// in a way that is more sensible.
@@ -74,14 +77,14 @@ final class CodeGen {
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
-		LLVMValueRef[3] branch_metadata;
+		LLVMMetadataRef[3] branch_metadata;
 		
 		auto id = "branch_weights";
 		branch_metadata[0] = LLVMMDStringInContext(llvmCtx, id.ptr, cast(uint) id.length);
-		branch_metadata[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false);
-		branch_metadata[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false);
+		branch_metadata[1] = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false));
+		branch_metadata[2] = LLVMValueAsMetadata(LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false));
 		
-		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr, cast(uint) branch_metadata.length);
+		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr, branch_metadata.length);
 		
 		id = "prof";
 		profKindID = LLVMGetMDKindIDInContext(llvmCtx, id.ptr, cast(uint) id.length);
@@ -92,16 +95,26 @@ final class CodeGen {
 		LLVMContextDispose(llvmCtx);
 	}
 	
+	void setDebug() {
+		diData.enableDebug(dmodule);
+	}
+	
 	Module visit(Module m) {
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 		
+		auto diModule = DIScopeGen(this).define(m);
 		foreach(s; m.members) {
 			import d.llvm.global;
-			GlobalGen(this).define(s);
+			GlobalGen(this, diModule).define(s);
 		}
 		
-		checkModule();
+		// If it is not null, then we can have temporary metadata nodes.
+		// We should be able to check a module with metatadata not finalized.
+		if (diModule is null) {
+			checkModule();
+		}
+		
 		return m;
 	}
 	

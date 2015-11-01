@@ -21,19 +21,20 @@ int main(string[] args) {
 	
 	string[] includePath;
 	uint optLevel;
-	bool dontLink;
+	bool dontLink, debugBuild;
 	string outputFile;
 	bool outputLLVM, outputAsm;
 	
 	import std.getopt;
 	auto help_info = getopt(
 		args, std.getopt.config.caseSensitive,
-		"I",         "Include path",        &includePath,
-		"O",         "Optimization level",  &optLevel,
-		"c",         "Stop before linking", &dontLink,
-		"o",         "Output file",         &outputFile,
+		"I",         "Include path",            &includePath,
+		"O",         "Optimization level",      &optLevel,
+		"c",         "Stop before linking",     &dontLink,
+		"g",         "Emit Debug informations", &debugBuild,
+		"o",         "Output file",             &outputFile,
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
-		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM
+		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
 	);
 	
 	if (help_info.helpWanted || args.length == 1) {
@@ -69,7 +70,7 @@ int main(string[] args) {
 		defaultExtension = outputLLVM ? ".bc" : ".o";
 	}
 	
-	auto objFile = files[0][0 .. $-2] ~ defaultExtension;
+	auto objFile = files[0][0 .. $ - 2] ~ defaultExtension;
 	if (outputFile.length) {
 		if (dontLink || outputAsm) {
 			objFile = outputFile;
@@ -78,7 +79,7 @@ int main(string[] args) {
 		}
 	}
 	
-	auto sdc = new SDC(files[0], conf, optLevel);
+	auto sdc = new SDC(files[0], conf, optLevel, debugBuild);
 	try {
 		foreach(file; files) {
 			sdc.compile(file);

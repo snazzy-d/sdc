@@ -91,13 +91,15 @@ public:
 	
 	void visit(Function f) {
 		import d.llvm.global;
-		GlobalGen(pass).define(f);
+		GlobalGen(pass, null).define(f);
 	}
 	
 	private void runLLVMPasses(Module[] modules) {
 		foreach(m; modules) {
 			pass.visit(m);
 		}
+		
+		pass.diData.finalize();
 		
 		import llvm.c.transforms.passManagerBuilder;
 		auto pmb = LLVMPassManagerBuilderCreate();
@@ -121,7 +123,7 @@ public:
 
 		// Dump module for debug purpose.
 		// LLVMDumpModule(pass.dmodule);
-
+		
 		/+
 		import std.stdio;
 		writeln("\nASM generated :");

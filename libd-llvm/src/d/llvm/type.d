@@ -7,8 +7,6 @@ import d.ir.type;
 
 import d.exception;
 
-import util.visitor;
-
 import llvm.c.core;
 
 // Conflict with Interface in object.di
@@ -290,7 +288,7 @@ struct TypeGen {
 				m.fbody = null;
 				
 				import d.llvm.global;
-				vtbl ~= GlobalGen(pass).declare(m);
+				vtbl ~= GlobalGen(pass, null).declare(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
 					import d.llvm.constant;

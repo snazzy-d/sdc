@@ -789,7 +789,7 @@ struct ExpressionGen {
 				
 				LLVMBuildStore(builder, landingPad, lpContext);
 				
-				if(!b.unwindBB) {
+				if (!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
 				
