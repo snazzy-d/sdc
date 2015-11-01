@@ -111,13 +111,13 @@ struct SymbolAnalyzer {
 			import d.semantic.type;
 			auto t = TypeVisitor(pass).visit(p.type);
 			
-			Expression v;
+			Expression value;
 			if (p.value) {
 				import d.semantic.expression;
-				v = ExpressionVisitor(pass).visit(p.value);
+				value = ExpressionVisitor(pass).visit(p.value);
 			}
 			
-			return new Variable(p.location, t, p.name, v);
+			return new Variable(p.location, t, p.name, value);
 		}).array();
 		
 		// If this is a closure, we add the context parameter.
@@ -236,6 +236,7 @@ struct SymbolAnalyzer {
 			
 			// Register parameters.
 			foreach(p; params) {
+				p.mangle = p.name.toString(context);
 				p.step = Step.Processed;
 				
 				if (!p.name.isEmpty()) {
