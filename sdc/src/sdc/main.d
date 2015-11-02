@@ -61,8 +61,12 @@ int main(string[] args) {
 	
 	auto files = args[1 .. $];
 	
-	auto executable = "a.out";
-	auto objFile = files[0][0 .. $-2] ~ ".o";
+	// Generate filenames for output artifacts (if not specified on commandline)
+	import std.path : baseName, stripExtension;
+	auto stripped_filename = baseName(stripExtension(files[0]));
+	auto executable = stripped_filename;
+	version(Windows) executable ~= ".exe";
+	auto objFile = stripped_filename ~ ".o";
 	if (outputFile.length) {
 		if (dontLink) {
 			objFile = outputFile;
