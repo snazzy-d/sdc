@@ -85,6 +85,24 @@ class AstTemplateParameter : Declaration {
 
 final:
 /**
+ * A D module
+ */
+class Module : Declaration {
+	Name name;
+	Name[] packages;
+	
+	Declaration[] declarations;
+	
+	this(Location location, Name name, Name[] packages, Declaration[] declarations) {
+		super(location);
+		
+		this.name = name;
+		this.packages = packages;
+		this.declarations = declarations;
+	}
+}
+
+/**
  * Identifier alias
  */
 class IdentifierAliasDeclaration : NamedDeclaration {

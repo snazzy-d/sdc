@@ -3,8 +3,6 @@
  */
 module sdc.main;
 
-import d.ast.dmodule;
-
 import d.exception;
 
 import sdc.conf;

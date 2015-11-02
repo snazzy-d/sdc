@@ -4,4 +4,3 @@ module test0020_import;
 int importedFunction() {
 	return 21;
 }
-

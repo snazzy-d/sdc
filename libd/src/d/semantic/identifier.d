@@ -2,7 +2,6 @@ module d.semantic.identifier;
 
 import d.semantic.semantic;
 
-import d.ast.dmodule;
 import d.ast.identifier;
 
 import d.ir.dscope;

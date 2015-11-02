@@ -1,19 +1,14 @@
+// XXX: This whole file needs to go away.
 module d.parser.base;
 
 public import d.lexer;
 public import d.context.location;
-
-import d.parser.dmodule;
 
 import d.context.name;
 
 enum ParseMode {
 	Greedy,
 	Reluctant,
-}
-
-auto parse(ref TokenRange trange, Name name, Name[] packages) {
-	return trange.parseModule(name, packages);
 }
 
 void match(ref TokenRange trange, TokenType type) {

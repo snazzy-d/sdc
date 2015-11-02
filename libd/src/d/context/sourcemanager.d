@@ -1,26 +1,33 @@
 module d.context.sourcemanager;
 
+import d.context.context;
 import d.context.location;
+import d.context.name;
 
 struct FullLocation {
 private:
 	Location _location;
-	SourceManager* sourceManager;
+	Context context;
 	
 	@property
 	inout(FullPosition) start() inout {
-		return inout(FullPosition)(location.start, sourceManager);
+		return inout(FullPosition)(location.start, context);
 	}
 	
 	@property
 	inout(FullPosition) stop() inout {
-		return inout(FullPosition)(location.stop, sourceManager);
+		return inout(FullPosition)(location.stop, context);
+	}
+	
+	@property
+	ref sourceManager() inout {
+		return context.sourceManager;
 	}
 	
 public:
-	this(Location location, SourceManager* sourceManager) {
+	this(Location location, Context context) {
 		this._location = location;
-		this.sourceManager = sourceManager;
+		this.context = context;
 		
 		import std.conv;
 		assert(
@@ -86,11 +93,16 @@ public:
 struct FullPosition {
 private:
 	Position _position;
-	SourceManager* sourceManager;
+	Context context;
 	
 	@property
 	uint offset() const {
 		return position.offset;
+	}
+	
+	@property
+	ref sourceManager() inout {
+		return context.sourceManager;
 	}
 	
 public:
@@ -106,15 +118,17 @@ public:
 	}
 	
 	string getFileName() {
-		return sourceManager.getFileName(this);
+		return sourceManager.getFileName(this).toString(context);
 	}
 	
 	string getDirectory() {
-		return sourceManager.getDirectory(this);
+		return sourceManager.getDirectory(this).toString(context);
 	}
 	
 	FullLocation getImportLocation() {
-		return sourceManager.getImportLocation(this);
+		return sourceManager
+			.getImportLocation(this)
+			.getFullLocation(context);
 	}
 	
 	uint getLineNumber() {
@@ -139,10 +153,15 @@ private:
 	@disable this(this);
 	
 public:
-	Position registerFile(Location location, string filename) out(result) {
+	Position registerFile(
+		Location location,
+		Name filename,
+		Name directory,
+		string content,
+	) out(result) {
 		assert(result.isFile());
 	} body {
-		return files.registerFile(location, filename);
+		return files.registerFile(location, filename, directory, content);
 	}
 	
 	Position registerMixin(Location location, string content) out(result) {
@@ -161,22 +180,25 @@ private:
 		return getSourceEntry(p).content;
 	}
 	
-	string getFileName(Position p) in {
-		assert(p.isFile());
-	} body {
+	Name getFileName(Position p) {
+		/+
+		if (p.isMixin()) {
+			import std.conv;
+			auto loc = getSourceEntry(p).location.getFullLocation(this);
+			return loc.getFileName() ~ "-mixin" ~ to!string(loc.getStartOffset());
+		}
+		// +/
 		return getSourceEntry(p).filename;
 	}
 	
-	string getDirectory(Position p) in {
+	Name getDirectory(Position p) in {
 		assert(p.isFile());
 	} body {
-		return "";
+		return getSourceEntry(p).directory;
 	}
 	
-	FullLocation getImportLocation(Position p) in {
-		assert(p.isMixin());
-	} body {
-		return getSourceEntry(p).location.getFullLocation(this);
+	Location getImportLocation(Position p) {
+		return getSourceEntry(p).location;
 	}
 	
 	uint getLineNumber(Position p) {
@@ -251,19 +273,19 @@ struct SourceEntries {
 		lastFileID = FileID(0, nextSourcePos.isMixin());
 	}
 	
-	Position registerFile(Location location, string filename) in {
+	Position registerFile(
+		Location location,
+		Name filename,
+		Name directory,
+		string content,
+	) in {
 		assert(nextSourcePos.isFile());
 	} body {
-		import std.file;
-		auto data = cast(const(ubyte)[]) read(filename);
-		
-		import util.utf8;
-		auto content = convertToUTF8(data) ~ '\0';
-		
 		auto base = nextSourcePos;
 		nextSourcePos = nextSourcePos
 			.getWithOffset(cast(uint) content.length);
-		sourceEntries ~= SourceEntry(base, location, filename, content);
+		sourceEntries ~=
+			SourceEntry(base, location, filename, directory, content);
 		return base;
 	}
 	
@@ -318,7 +340,10 @@ private:
 	Location location;
 	string _content;
 	
-	string _filename;
+	Name _filename;
+	Name _directory;
+	
+	ulong pad;
 	
 	// Make sure this is compact enough to fit in a cache line.
 	static assert(SourceEntry.sizeof == 8 * size_t.sizeof);
@@ -336,6 +361,13 @@ public:
 		return _filename;
 	}
 	
+	@property
+	auto directory() const in {
+		assert(base.isFile());
+	} body {
+		return _directory;
+	}
+	
 private:
 	this(Position base, Location location, string content) in {
 		assert(base.isMixin());
@@ -345,13 +377,20 @@ private:
 		_content = content;
 	}
 	
-	this(Position base, Location location, string filename, string content) in {
+	this(
+		Position base,
+		Location location,
+		Name filename,
+		Name directory,
+		string content,
+	) in {
 		assert(base.isFile());
 	} body {
 		this.base = base;
 		this.location = location;
 		_content = content;
 		_filename = filename;
+		_directory = directory;
 	}
 	
 	uint getLineNumber(uint index) {

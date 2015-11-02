@@ -2,9 +2,6 @@ module d.context.location;
 
 import d.context.context;
 
-// XXX: https://issues.dlang.org/show_bug.cgi?id=14666
-import d.context.sourcemanager;
-
 /**
  * Struct representing a location in a source file.
  * Effectively a pair of Position within the source file.
@@ -58,15 +55,9 @@ public:
 		stop = end;
 	}
 	
-	// XXX: lack of alias this :(
-	// XXX: https://issues.dlang.org/show_bug.cgi?id=14666
-	// import d.context.context;
-	FullLocation getFullLocation(Context c) const {
-		return getFullLocation(c.sourceManager);
-	}
-	
-	FullLocation getFullLocation(ref SourceManager sm) const {
-		return FullLocation(this, &sm);
+	auto getFullLocation(Context c) const {
+		import d.context.sourcemanager;
+		return FullLocation(this, c);
 	}
 }
 
@@ -107,14 +98,8 @@ public:
 		return Position(raw + offset);
 	}
 	
-	// XXX: lack of alias this :(
-	// XXX: https://issues.dlang.org/show_bug.cgi?id=14666
-	// import d.context.context;
-	FullPosition getFullPosition(Context c) const {
-		return getFullPosition(c.sourceManager);
-	}
-	
-	FullPosition getFullPosition(ref SourceManager sm) const {
-		return FullPosition(this, &sm);
+	auto getFullPosition(Context c) const {
+		import d.context.sourcemanager;
+		return FullPosition(this, c);
 	}
 }

@@ -1,7 +1,6 @@
 module d.parser.dmodule;
 
 import d.ast.declaration;
-import d.ast.dmodule;
 
 import d.parser.base;
 import d.parser.declaration;
@@ -12,31 +11,28 @@ import d.context.name;
  * Parse a whole module.
  * This is the regular entry point in the parser
  */
-auto parseModule(ref TokenRange trange, Name name, Name[] packages) {
+auto parseModule(ref TokenRange trange) {
 	trange.match(TokenType.Begin);
 	Location location = trange.front.location;
 	
+	Name name;
+	Name[] packages;
+	
 	if (trange.front.type == TokenType.Module) {
 		trange.popFront();
-		auto current = trange.front.name;
-		Name[] parsedPackages;
+		name = trange.front.name;
 		
 		trange.match(TokenType.Identifier);
 		while(trange.front.type == TokenType.Dot) {
 			trange.popFront();
 			
-			parsedPackages ~= current;
-			current = trange.front.name;
+			packages ~= name;
+			name = trange.front.name;
 			
 			trange.match(TokenType.Identifier);
 		}
 		
 		trange.match(TokenType.Semicolon);
-		
-		assert(current == name);
-		assert(parsedPackages == packages[$ - parsedPackages.length .. $]);
-		
-		packages = parsedPackages;
 	}
 	
 	Declaration[] declarations;
@@ -44,7 +40,7 @@ auto parseModule(ref TokenRange trange, Name name, Name[] packages) {
 		declarations ~= trange.parseDeclaration();
 	}
 	
-	location.spanTo(trange.front.location);
+	location.spanTo(trange.previous);
 	
 	return new Module(location, name, packages, declarations);
 }

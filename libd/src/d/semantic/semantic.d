@@ -9,7 +9,6 @@ import d.semantic.dmodule;
 import d.semantic.scheduler;
 
 import d.ast.declaration;
-import d.ast.dmodule;
 import d.ast.expression;
 import d.ast.statement;
 
@@ -19,11 +18,9 @@ import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.parser.base;
-
 import d.context.name;
 
-alias AstModule = d.ast.dmodule.Module;
+alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
 
 alias CallExpression = d.ir.expression.CallExpression;
@@ -89,21 +86,8 @@ final class SemanticPass {
 		scheduler.require(obj, Step.Populated);
 	}
 	
-	AstModule parse(string filename, PackageNames packages) {
-		import d.lexer;
-		auto base = context.registerFile(Location.init, filename);
-		auto trange = lex(base, context);
-		return trange.parse(packages[$ - 1], packages[0 .. $-1]);
-	}
-	
-	Module add(string filename, PackageNames packages) {
-		auto astm = parse(filename, packages);
-		auto mod = moduleVisitor.modulize(astm);
-		
-		moduleVisitor.preregister(mod);
-		
-		scheduler.schedule(astm, mod);
-		return mod;
+	Module add(string filename) {
+		return moduleVisitor.add(filename);
 	}
 	
 	void terminate() {

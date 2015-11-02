@@ -21,16 +21,24 @@ final class SDC {
 	Module[] modules;
 	
 	this(string name, JSON conf, uint optLevel) {
-		import std.algorithm, std.array;
-		auto includePaths = conf["includePath"].array.map!(path => cast(string) path).array();
-		auto linkerParams = conf["libPath"].array.map!(path => " -L" ~ (cast(string) path)).join();
+		import std.algorithm, std.array, std.conv, std.path;
+		auto includePaths = conf["includePath"]
+			.array
+			.map!(p => expandTilde(cast(string) p)
+				.asAbsolutePath
+				.asNormalizedPath
+				.to!string())
+			.array();
+		auto linkerParams = conf["libPath"]
+			.array
+			.map!(path => " -L" ~ (cast(string) path))
+			.join();
 		
 		context = new Context();
 		
 		LLVMBackend evBackend;
 		
-		import d.object;
-		import d.semantic.scheduler, d.semantic.evaluator;
+		import d.object, d.semantic.scheduler, d.semantic.evaluator;
 		Evaluator evb(Scheduler scheduler, ObjectReference obj) {
 			if (evBackend is null) {
 				evBackend = new LLVMBackend(
@@ -66,9 +74,7 @@ final class SDC {
 	}
 	
 	void compile(string filename) {
-		import std.algorithm, std.array;
-		auto packages = filename[0 .. $ - 2].split("/").map!(p => context.getName(p)).array();
-		modules ~= semantic.add(filename, packages);
+		modules ~= semantic.add(filename);
 	}
 	
 	void buildMain() {
