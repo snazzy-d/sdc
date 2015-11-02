@@ -462,7 +462,7 @@ struct StatementGen {
 		} else {
 			import std.string;
 			auto fun = LLVMGetBasicBlockParent(currentBB);
-			labelBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, toStringz("." ~ label.toString(context)));
+			labelBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, label.toStringz(context));
 			
 			auto block = labels[label] = LabelBlock(unwindBlocks.length, labelBB);
 			fixupGoto(label, block);

@@ -571,7 +571,7 @@ struct ExpressionGen {
 			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
 			ptr = LLVMBuildInBoundsGEP(builder, addressOf(e.sliced), &zero, 1, "");
 		} else {
-			assert(0, "Don't know how to slice "/+ ~ e.type.toString(context) +/);
+			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 		
 		auto first = LLVMBuildZExt(builder, visit(e.first), LLVMInt64TypeInContext(llvmCtx), "");

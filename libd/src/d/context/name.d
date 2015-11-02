@@ -13,6 +13,12 @@ public:
 		return nm.names[id];
 	}
 	
+	immutable(char)* toStringz(const ref NameManager nm) const {
+		auto s = nm.names[id];
+		assert(s.ptr[s.length] == '\0', "Expected a zero terminated string");
+		return s.ptr;
+	}
+	
 	@property
 	bool isEmpty() const {
 		return this == BuiltinName!"";
@@ -49,13 +55,17 @@ package:
 	}
 
 public:
-	auto getName(string s) {
-		if (auto id = s in lookups) {
+	auto getName(const(char)[] str) {
+		if (auto id = str in lookups) {
 			return Name(*id);
 		}
 		
-		// Do not keep around slice of potentially large input.
-		s = s.idup;
+		// As we are cloning, make sure it is 0 terminated as to pass to C.
+		import std.string;
+		auto s = str.toStringz()[0 .. str.length];
+		
+		// Make sure we do not keep around slice of potentially large input.
+		scope(exit) assert(str.ptr !is s.ptr, s);
 		
 		auto id = lookups[s] = cast(uint) names.length;
 		names ~= s;
@@ -117,6 +127,7 @@ enum Names = getNames();
 static assert(Names[0] == "");
 
 auto getLookups() {
+	// XXX: DMD zero terminate here, but I'd like to not rely on it :/
 	uint[string] lookups;
 	foreach(uint i, id; Names) {
 		lookups[id] = i;

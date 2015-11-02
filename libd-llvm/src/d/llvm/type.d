@@ -126,7 +126,7 @@ final class TypeGen {
 		}
 		
 		import std.string;
-		return typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, cast(char*) s.mangle.toStringz());
+		return typeSymbols[s] = LLVMStructCreateNamed(llvmCtx, s.mangle.toStringz());
 	}
 	
 	LLVMTypeRef visit(Struct s) in {
@@ -155,7 +155,7 @@ final class TypeGen {
 		}
 		
 		import std.string;
-		return typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, cast(char*) u.mangle.toStringz());
+		return typeSymbols[u] = LLVMStructCreateNamed(llvmCtx, u.mangle.toStringz());
 	}
 	
 	LLVMTypeRef visit(Union u) in {
@@ -233,11 +233,11 @@ final class TypeGen {
 		}
 		
 		import std.string;
-		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) c.mangle.toStringz());
+		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, c.mangle.toStringz());
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
 		
 		auto classInfoStruct = LLVMGetElementType(visit(classInfoClass));
-		auto classInfo = LLVMAddGlobal(dmodule, classInfoStruct, cast(char*) (c.mangle ~ "__ClassInfo").toStringz());
+		auto classInfo = LLVMAddGlobal(dmodule, classInfoStruct, (c.mangle ~ "__ClassInfo").toStringz());
 		LLVMSetGlobalConstant(classInfo, true);
 		LLVMSetLinkage(classInfo, LLVMLinkage.LinkOnceODR);
 		
@@ -265,7 +265,7 @@ final class TypeGen {
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
 		
 		import std.string;
-		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, cast(char*) (c.mangle ~ "__vtbl").toStringz());
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (c.mangle ~ "__vtbl").toStringz());
 		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
 		
 		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, (c.mangle ~ "__vtblZ").toStringz());

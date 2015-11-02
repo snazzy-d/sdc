@@ -1045,6 +1045,8 @@ ulong strToDecInt(string s) in {
 	ulong ret = 0;
 	
 	for (uint i = 0; i < s.length; i++) {
+		if (s[i] == '_') continue;
+		
 		assert(s[i] >= '0' || s[i] <= '9', "Only digits are expected here");
 		ret = (ret * 10) + (s[i] - '0');
 	}
@@ -1057,6 +1059,7 @@ unittest {
 	assert(strToDecInt("42") == 42);
 	assert(strToDecInt("1234567890") == 1234567890);
 	assert(strToDecInt("18446744073709551615") == 18446744073709551615UL);
+	assert(strToDecInt("34_56") == 3456);
 }
 
 ulong strToBinInt(string s) in {
@@ -1065,6 +1068,8 @@ ulong strToBinInt(string s) in {
 	ulong ret = 0;
 	
 	for (uint i = 0; i < s.length; i++) {
+		if (s[i] == '_') continue;
+		
 		assert(s[i] == '0' || s[i] == '1', "Only 0 and 1 are expected here");
 		ret = (ret << 1) | (s[i] - '0');
 	}
@@ -1077,6 +1082,7 @@ unittest {
 	assert(strToBinInt("1010") == 10);
 	assert(strToBinInt("0101010") == 42);
 	assert(strToBinInt("1111111111111111111111111111111111111111111111111111111111111111") == 18446744073709551615UL);
+	assert(strToBinInt("11_101_00") == 116);
 }
 
 ulong strToHexInt(string s) in {
@@ -1095,6 +1101,8 @@ ulong strToHexInt(string s) in {
 	];
 	
 	for (uint i = 0; i < s.length; i++) {
+		if (s[i] == '_') continue;
+		
 		assert(s[i] >= '0' || s[i] <= 'f', "Only hex digits are expected here");
 		auto v = unhexTbl[s[i] - '0'];
 		assert(v != -1, "Only hex digits are expected here");
@@ -1114,4 +1122,5 @@ unittest {
 	assert(strToHexInt("AbCdEf0") == 180150000);
 	assert(strToHexInt("12345aBcDeF") == 1251004370415);
 	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
+	assert(strToHexInt("a_B_c") == 2748);
 }

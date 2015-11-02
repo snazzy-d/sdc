@@ -265,7 +265,7 @@ struct LocalGen {
 				assert (p.storage == Storage.Local, "storage must be local");
 				
 				import std.string;
-				LLVMSetValueName(value, p.mangle.toStringz());
+				LLVMSetValueName(value, p.name.toStringz(context));
 				locals[p] = value;
 			} else {
 				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
