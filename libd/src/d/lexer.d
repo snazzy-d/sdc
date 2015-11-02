@@ -480,8 +480,8 @@ private:
 		auto begin = base.getWithOffset(ibegin);
 		
 		auto c = frontChar;
-		switch(s[1]) {
-			case 'B', 'b' :
+		switch(s[1] | 0x20) {
+			case 'b' :
 				assert(c == '0' || c == '1', "invalid integer literal");
 				while(1) {
 					while(c == '0' || c == '1') {
@@ -500,12 +500,15 @@ private:
 				
 				break;
 			
-			case 'X', 'x' :
-				assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "invalid integer literal");
+			case 'x' :
+				auto hc = c | 0x20;
+				assert((c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f'), "invalid integer literal");
 				while(1) {
-					while((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					hc = c | 0x20;
+					while((c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f')) {
 						popChar();
 						c = frontChar;
+						hc = c | 0x20;
 					}
 					
 					if (c == '_') {
@@ -523,8 +526,8 @@ private:
 				assert(0, s ~ " is not a valid prefix.");
 		}
 		
-		switch(c) {
-			case 'U', 'u' :
+		switch(c | 0x20) {
+			case 'u' :
 				popChar();
 				
 				c = frontChar;
@@ -534,7 +537,7 @@ private:
 				
 				break;
 			
-			case 'L', 'l' :
+			case 'l' :
 				popChar();
 				
 				c = frontChar;
