@@ -178,33 +178,36 @@ private:
 			}, delegate string(identified) {
 				auto p = t.parameters[i++];
 				
-				static if (is(typeof(identified) : Type)) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
 					auto a = new TypeAlias(p.location, p.name, identified);
 					
 					import d.semantic.mangler;
-					a.mangle = TypeMangler(pass).visit(identified);
+					a.mangle = pass.context.getName(TypeMangler(pass).visit(identified));
 					a.step = Step.Processed;
 					
 					argSyms ~= a;
-					return "T" ~ a.mangle;
-				} else static if (is(typeof(identified) : CompileTimeExpression)) {
+					return "T" ~ a.mangle.toString(pass.context);
+				} else static if (is(T : CompileTimeExpression)) {
 					auto a = new ValueAlias(p.location, p.name, identified);
 					a.storage = Storage.Enum;
 					
 					import d.semantic.mangler;
-					a.mangle = TypeMangler(pass).visit(identified.type) ~ ValueMangler(pass).visit(identified);
+					auto typeMangle = TypeMangler(pass).visit(identified.type);
+					auto valueMangle = ValueMangler(pass).visit(identified);
+					a.mangle = pass.context.getName(typeMangle ~ valueMangle);
 					a.step = Step.Processed;
 					
 					argSyms ~= a;
-					return "V" ~ a.mangle;
-				} else static if (is(typeof(identified) : Symbol)) {
+					return "V" ~ a.mangle.toString(pass.context);
+				} else static if (is(T : Symbol)) {
 					auto a = new SymbolAlias(p.location, p.name, identified);
 					
 					import d.semantic.symbol;
 					SymbolAnalyzer(pass).process(a);
 					
 					argSyms ~= a;
-					return "S" ~ a.mangle;
+					return "S" ~ a.mangle.toString(pass.context);
 				} else {
 					assert(0, typeid(identified).toString() ~ " is not supported.");
 				}
@@ -220,7 +223,8 @@ private:
 			}
 			
 			auto i = new TemplateInstance(location, t, argSyms);
-			i.mangle = t.mangle ~ "T" ~ id ~ "Z";
+			auto mangle = t.mangle.toString(pass.context);
+			i.mangle = pass.context.getName(mangle ~ "T" ~ id ~ "Z");
 			i.storage = t.storage;
 			
 			pass.scheduler.schedule(t, i);

@@ -120,32 +120,32 @@ struct TypeMangler {
 	
 	string visit(Struct s) {
 		scheduler.require(s, Step.Populated);
-		return s.mangle;
+		return s.mangle.toString(context);
 	}
 	
 	string visit(Class c) {
 		scheduler.require(c, Step.Populated);
-		return c.mangle;
+		return c.mangle.toString(context);
 	}
 	
 	string visit(Enum e) {
 		scheduler.require(e);
-		return e.mangle;
+		return e.mangle.toString(context);
 	}
 	
 	string visit(TypeAlias a) {
 		scheduler.require(a);
-		return a.mangle;
+		return a.mangle.toString(context);
 	}
 	
 	string visit(Interface i) {
 		scheduler.require(i, Step.Populated);
-		return i.mangle;
+		return i.mangle.toString(context);
 	}
 	
 	string visit(Union u) {
 		scheduler.require(u, Step.Populated);
-		return u.mangle;
+		return u.mangle.toString(context);
 	}
 	
 	string visit(Function f) {

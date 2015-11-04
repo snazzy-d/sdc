@@ -94,7 +94,7 @@ struct GlobalGen {
 		
 		if (!maybeDefine(v, var)) {
 			auto linkage = LLVMGetLinkage(var);
-			assert(linkage == LLVMLinkage.LinkOnceODR, "variable " ~ v.mangle ~ " already defined");
+			assert(linkage == LLVMLinkage.LinkOnceODR, "variable " ~ v.mangle.toString(context) ~ " already defined");
 			LLVMSetLinkage(var, LLVMLinkage.External);
 		}
 		
@@ -128,9 +128,7 @@ struct GlobalGen {
 		
 		// If it is not enum, it must be static.
 		assert(v.storage == Storage.Static);
-		
-		import std.string;
-		auto var = LLVMAddGlobal(dmodule, type, v.mangle.toStringz());
+		auto var = LLVMAddGlobal(dmodule, type, v.mangle.toStringz(context));
 		
 		// Depending on the type qualifier,
 		// make it thread local/ constant or nothing.

@@ -806,7 +806,7 @@ mixin template CharPumper(bool decode = true) {
 public:
 auto getOperatorsMap() {
 	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
-	with(TokenType) 
+	with(TokenType)
 	return [
 		"/"		: Slash,
 		"/="	: SlashEqual,

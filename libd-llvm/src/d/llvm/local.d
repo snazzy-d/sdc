@@ -127,8 +127,7 @@ struct LocalGen {
 			: globals;
 		
 		auto fun = lookup.get(f, {
-			import std.string;
-			auto name = f.mangle.toStringz();
+			auto name = f.mangle.toStringz(pass.context);
 			auto type = LLVMGetElementType(pass.visit(f.type));
 			
 			// The method may have been defined when visiting the type.
@@ -138,7 +137,7 @@ struct LocalGen {
 			
 			// Sanity check.
 			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
-			assert(!fun, f.mangle ~ " is already declared.");
+			assert(!fun, f.mangle.toString(pass.context) ~ " is already declared.");
 			
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		} ());
@@ -160,7 +159,7 @@ struct LocalGen {
 		
 		if (!maybeDefine(f, fun)) {
 			auto linkage = LLVMGetLinkage(fun);
-			assert(linkage == LLVMLinkage.LinkOnceODR, "function " ~ f.mangle ~ " already defined");
+			assert(linkage == LLVMLinkage.LinkOnceODR, "function " ~ f.mangle.toString(context) ~ " already defined");
 			LLVMSetLinkage(fun, LLVMLinkage.External);
 		}
 		
@@ -182,7 +181,7 @@ struct LocalGen {
 	}
 
 	private void genBody(Function f, LLVMValueRef fun) in {
-		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle ~ " body is already defined.");
+		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle.toString(context) ~ " body is already defined.");
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody, "f must have a body");
 	} body {
@@ -264,17 +263,13 @@ struct LocalGen {
 			if (p.isRef || p.isFinal) {
 				assert (p.storage == Storage.Local, "storage must be local");
 				
-				import std.string;
 				LLVMSetValueName(value, p.name.toStringz(context));
 				locals[p] = value;
 			} else {
 				assert (p.storage == Storage.Local || p.storage == Storage.Capture, "storage must be local or capture");
 				
-				auto name = p.name.toString(context);
-				p.mangle = name;
-				
 				import std.string;
-				LLVMSetValueName(value, ("arg." ~ name).toStringz());
+				LLVMSetValueName(value, toStringz("arg." ~ p.name.toString(context)));
 				createVariableStorage(p, value);
 			}
 		}
@@ -282,7 +277,7 @@ struct LocalGen {
 		// Generate function's body.
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
-
+		
 		import d.llvm.statement;
 		StatementGen(&this).visit(f.fbody);
 		
@@ -367,8 +362,12 @@ struct LocalGen {
 			foreach(v; capture.byKey()) {
 				if (auto indexPtr = v in closure.indices) {
 					// Register the variable.
-					import std.string;
-					locals[v] = LLVMBuildStructGEP(builder, root, *indexPtr, v.mangle.toStringz());
+					locals[v] = LLVMBuildStructGEP(
+						builder,
+						root,
+						*indexPtr,
+						v.mangle.toStringz(context),
+					);
 					
 					assert(closureCount > 0, "closureCount is 0 or lower.");
 					closureCount--;
@@ -429,11 +428,14 @@ struct LocalGen {
 				auto ctxType = LLVMStructTypeInContext(llvmCtx, &type, 1, false);
 			}
 			
-			import std.string;
-			addr = LLVMBuildStructGEP(builder, ctxPtr, closure.indices[v], v.mangle.toStringz());
+			addr = LLVMBuildStructGEP(
+				builder,
+				ctxPtr,
+				closure.indices[v],
+				v.mangle.toStringz(context),
+			);
 		} else {
-			import std.string;
-			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz());
+			addr = LLVMBuildAlloca(builder, type, v.mangle.toStringz(context));
 		}
 		
 		// Store the initial value into the alloca.

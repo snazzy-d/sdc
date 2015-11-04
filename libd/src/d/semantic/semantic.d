@@ -140,12 +140,23 @@ final class SemanticPass {
 			fbody ~= new ReturnStatement(location, call);
 		}
 		
-		type = FunctionType(Linkage.C, Type.get(BuiltinType.Int).getParamType(false, false), [], false);
-		auto bootstrap = new Function(main.location, type, BuiltinName!"_Dmain", [], new BlockStatement(location, fbody));
+		auto bootstrap = new Function(
+			main.location,
+			FunctionType(
+				Linkage.C,
+				Type.get(BuiltinType.Int).getParamType(false, false),
+				[],
+				false,
+			),
+			BuiltinName!"_Dmain",
+			[],
+			new BlockStatement(location, fbody),
+		);
+		
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;
-		bootstrap.mangle = "_Dmain";
+		bootstrap.mangle = BuiltinName!"_Dmain";
 		
 		return bootstrap;
 	}

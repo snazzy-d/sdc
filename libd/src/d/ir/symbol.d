@@ -24,7 +24,7 @@ enum InTemplate {
 
 class Symbol : Node {
 	Name name;
-	string mangle;
+	Name mangle;
 	
 	import std.bitmanip;
 	mixin(bitfields!(

@@ -149,18 +149,25 @@ struct SymbolAnalyzer {
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		
 		void buildType() {
-			f.type = FunctionType(f.linkage, pass.returnType, params.map!(p => p.paramType).array(), fd.isVariadic);
+			f.type = FunctionType(
+				f.linkage,
+				pass.returnType,
+				params.map!(p => p.paramType).array(),
+				fd.isVariadic,
+			);
 			
 			assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
 			switch (f.linkage) with(Linkage) {
 				case D :
 					import d.semantic.mangler;
-					auto typeMangle = TypeMangler(pass).visit(f.type);
-					f.mangle = "_D" ~ pass.manglePrefix ~ (f.hasThis ? typeMangle : ("FM" ~ typeMangle[1 .. $]));
+					auto mangle = TypeMangler(pass).visit(f.type);
+					mangle = f.hasThis ? mangle : ("FM" ~ mangle[1 .. $]);
+					f.mangle = pass.context
+						.getName("_D" ~ pass.manglePrefix ~ mangle);
 					break;
 				
 				case C :
-					f.mangle = f.name.toString(pass.context);
+					f.mangle = f.name;
 					break;
 				
 				default:
@@ -237,7 +244,7 @@ struct SymbolAnalyzer {
 			
 			// Register parameters.
 			foreach(p; params) {
-				p.mangle = p.name.toString(context);
+				p.mangle = p.name;
 				p.step = Step.Processed;
 				
 				if (!p.name.isEmpty()) {
@@ -312,14 +319,19 @@ struct SymbolAnalyzer {
 		import d.semantic.sizeof;
 		SizeofVisitor(pass).visit(value.type);
 		
-		auto name = v.name.toString(context);
-		v.mangle = name;
+		v.mangle = v.name;
 		if (v.storage == Storage.Static) {
 			assert(v.linkage == Linkage.D, "I mangle only D !");
 			
+			auto name = v.name.toString(context);
+			
 			import d.semantic.mangler;
+			auto mangle = TypeMangler(pass).visit(v.type);
+			
 			import std.conv;
-			v.mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ TypeMangler(pass).visit(v.type);
+			mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
+			
+			v.mangle = context.getName(mangle);
 		}
 		
 		v.step = Step.Processed;
@@ -364,7 +376,7 @@ struct SymbolAnalyzer {
 		a.type = TypeVisitor(pass).visit(d.type);
 		
 		import d.semantic.mangler;
-		a.mangle = TypeMangler(pass).visit(a.type);
+		a.mangle = context.getName(TypeMangler(pass).visit(a.type));
 		
 		a.step = Step.Processed;
 	}
@@ -375,7 +387,9 @@ struct SymbolAnalyzer {
 		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
 		
 		import d.semantic.mangler;
-		a.mangle = TypeMangler(pass).visit(a.value.type) ~ ValueMangler(pass).visit(a.value);
+		auto typeMangle = TypeMangler(pass).visit(a.value.type);
+		auto valueMangle = ValueMangler(pass).visit(a.value);
+		a.mangle = context.getName(typeMangle ~ valueMangle);
 		
 		a.step = Step.Processed;
 	}
@@ -402,7 +416,8 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
-		s.mangle = "S" ~ manglePrefix;
+		auto mangle = "S" ~ manglePrefix;
+		s.mangle = context.getName(mangle);
 		
 		auto dscope = currentScope = s.dscope = s.hasContext
 			? new VoldemortScope(s, oldScope)
@@ -425,7 +440,7 @@ struct SymbolAnalyzer {
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
-		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ s.mangle;
+		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
 		s.dscope.addSymbol(init);
@@ -482,7 +497,8 @@ struct SymbolAnalyzer {
 		
 		// XXX: For some reason dmd mangle the same way as structs ???
 		assert(u.linkage == Linkage.D || u.linkage == Linkage.C);
-		u.mangle = "S" ~ manglePrefix;
+		auto mangle = "S" ~ manglePrefix;
+		u.mangle = context.getName(mangle);
 		
 		auto dscope = currentScope = u.dscope = u.hasContext
 			? new VoldemortScope(u, oldScope)
@@ -506,7 +522,7 @@ struct SymbolAnalyzer {
 		
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
-		init.mangle = "_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ u.mangle;
+		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
 		u.dscope.addSymbol(init);
@@ -561,8 +577,7 @@ struct SymbolAnalyzer {
 		import std.conv;
 		auto name = c.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
-		
-		c.mangle = "C" ~ manglePrefix;
+		c.mangle = context.getName("C" ~ manglePrefix);
 		
 		auto dscope = currentScope = c.dscope = c.hasContext
 			? new VoldemortScope(c, oldScope)
@@ -573,13 +588,13 @@ struct SymbolAnalyzer {
 		foreach(i; d.bases) {
 			import d.semantic.identifier : AliasResolver;
 			c.base = AliasResolver!(function Class(identified) {
-				static if(is(typeof(identified) : Symbol)) {
-					if(auto c = cast(Class) identified) {
+				static if (is(typeof(identified) : Symbol)) {
+					if (auto c = cast(Class) identified) {
 						return c;
 					}
 				}
 				
-				static if(is(typeof(identified.location))) {
+				static if (is(typeof(identified.location))) {
 					import d.exception;
 					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
 				} else {
@@ -592,7 +607,7 @@ struct SymbolAnalyzer {
 		}
 		
 		// If no inheritance is specified, inherit from object.
-		if(!c.base) {
+		if (!c.base) {
 			c.base = pass.object.getObject();
 		}
 		
@@ -729,12 +744,12 @@ struct SymbolAnalyzer {
 		// Remove overlaoded base method.
 		if (overloadCount) {
 			uint i = 0;
-			while (baseMethods[i] !is null) {
+			while(baseMethods[i] !is null) {
 				i++;
 			}
 			
 			foreach(baseMethod; baseMethods[i + 1 .. $]) {
-				if(baseMethod) {
+				if (baseMethod) {
 					baseMethods[i++] = baseMethod;
 				}
 			}
@@ -762,20 +777,20 @@ struct SymbolAnalyzer {
 			thisType = oldThisType;
 			methodIndex = oldMethodIndex;
 		}
-
+		
 		thisType = Type.get(i).getParamType(false, true);
-
+		
 		import std.conv;
 		auto name = i.name.toString(context);
 		manglePrefix = manglePrefix ~ to!string(name.length);
-
-		i.mangle = "I" ~ manglePrefix;
-
+		
+		i.mangle = context.getName("I" ~ manglePrefix);
+		
 		assert(d.members.length == 0, "Member support not implemented for interfaces yet");
 		assert(d.bases.length == 0, "Interface inheritance not implemented yet");
-
+		
 		// TODO: lots of stuff to add
-
+		
 		i.step = Step.Processed;
 	}
 
@@ -815,7 +830,7 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
 		
 		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
-		e.mangle = "E" ~ manglePrefix;
+		e.mangle = context.getName("E" ~ manglePrefix);
 		
 		Variable previous;
 		Expression one;
@@ -883,7 +898,7 @@ struct SymbolAnalyzer {
 		// XXX: compute a proper mangling for templates.
 		import std.conv;
 		auto name = t.name.toString(context);
-		t.mangle = manglePrefix ~ to!string(name.length) ~ name;
+		t.mangle = context.getName(manglePrefix ~ to!string(name.length) ~ name);
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -944,7 +959,7 @@ struct SymbolAnalyzer {
 		// TODO: support multiple IFTI.
 		foreach(m; t.members) {
 			if (auto fun = cast(FunctionDeclaration) m) {
-				if(fun.name != t.name) {
+				if (fun.name != t.name) {
 					continue;
 				}
 				
@@ -969,7 +984,7 @@ struct SymbolAnalyzer {
 			ctxSym = oldCtxSym;
 		}
 		
-		manglePrefix = i.mangle;
+		manglePrefix = i.mangle.toString(context);
 		auto dscope = currentScope = i.dscope = new SymbolScope(i, t.dscope);
 		
 		// Prefilled members are template arguments.
@@ -1003,4 +1018,3 @@ struct SymbolAnalyzer {
 		i.step = Step.Processed;
 	}
 }
-

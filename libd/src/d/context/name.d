@@ -72,6 +72,13 @@ public:
 		
 		return Name(id);
 	}
+	
+	void dump() {
+		foreach(s; names) {
+			import std.stdio;
+			writeln(lookups[s], "\t=> ", s);
+		}
+	}
 }
 
 private:
