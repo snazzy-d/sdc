@@ -46,6 +46,39 @@ int getInt(string s)
     return parse!int(s);
 }
 
+/* FIXME: This function is a temporary test for Asm/LLVM  output.
+ * To be removed when the LLVM IR codegen testsuite is in place. */
+bool testAssemblyOutput(string filename, string compiler, bool displayOnlyFailed)
+{
+    if (compiler == SDC) {
+        string[] flagList = [ 
+            "-S",
+            "-S --emit-llvm",
+            "-c --emit-llvm"
+        ];
+
+        version (Windows) string outputName;
+        else string outputName = "./";
+        outputName ~= filename ~ ".bin";  // use output extension that is already ignored by git
+
+        foreach (flags; flagList) { 
+            if (file.exists(outputName)) {
+                file.remove(outputName);
+            }
+            string command = format(`%s -o %s "%s" %s`, SDC, outputName, filename, flags);
+            version (Posix) command ~= " 2> /dev/null 1> /dev/null";
+            auto returnInfo = executeShell(command);
+            if ( (returnInfo.status != 0) || (!file.exists(outputName)) ) {
+                stderr.writeln("Assembly output failed with flags: ", flags);
+                return false;
+            }
+            // Success!
+            if (!displayOnlyFailed) writeln("Assembly test SUCCEEDED with flags: ", flags);
+        }
+    }
+    return true; // not an SDC compiler, or all tests passed!
+}
+
 void test(string filename, string compiler)
 {
     auto managerTid = receiveOnly!Tid();
@@ -184,6 +217,12 @@ int main(string[] args)
         }
 
         return regressed ? -1 : 0;
+    }
+
+    // FIXME: Run temporary tests, remove this when proper assembly output tests are in place.
+    if (!testAssemblyOutput("test0000.d", compiler, displayOnlyFailed)) {
+        stderr.writeln("Assembly output tests failed!");
+        return -2;
     }
 
     // Figure out how many tests there are.

@@ -81,14 +81,28 @@ final class SDC {
 		semantic.terminate();
 		backend.visit(semantic.buildMain(modules));
 	}
-	
-	void codeGen(string objFile) {
+
+	void outputLLVMAsm(string filename) {
+		semantic.terminate();
+		backend.emitLLVMAsm(modules, filename);
+	}
+
+	void outputLLVMBitcode(string filename) {
+		semantic.terminate();
+		backend.emitLLVMBitcode(modules, filename);
+	}
+
+	void outputAsm(string filename) {
+		semantic.terminate();
+		backend.emitAsm(modules, filename);
+	}
+
+	void outputObj(string objFile) {
 		semantic.terminate();
 		backend.emitObject(modules, objFile);
 	}
-	
-	void codeGen(string objFile, string executable) {
-		codeGen(objFile);
+
+	void linkExecutable(string objFile, string executable) {
 		backend.link(objFile, executable);
 	}
 }
