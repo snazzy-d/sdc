@@ -201,24 +201,43 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind castFrom(ParamType from, ParamType to) {
-		if(from.isRef != to.isRef) return CastKind.Invalid;
+		if (from.isRef != to.isRef) {
+			return CastKind.Invalid;
+		}
 		
 		auto k = castFrom(from.getType(), to.getType());
-		if(from.isRef && k < CastKind.Qual) return CastKind.Invalid;
+		if (from.isRef && k < CastKind.Qual) {
+			return CastKind.Invalid;
+		}
 		
 		return k;
 	}
 	
-	// FIXME: handle qualifiers.
 	CastKind castFrom(Type from) {
 		from = from.getCanonical();
 		to = to.getCanonical();
-		
 		if (from == to) {
 			return CastKind.Exact;
 		}
 		
-		return from.accept(this);
+		// Check if the qualifier can convert to begin with.
+		auto fromQual = from.qualifier;
+		auto toQual = to.qualifier;
+		
+		auto k = from.accept(this);
+		if (fromQual != toQual) {
+			if (!isExplicit && !canConvert(fromQual, toQual) && to.hasIndirection) {
+				return CastKind.Invalid;
+			}
+			
+			if (k != CastKind.Exact) {
+				return k;
+			}
+			
+			return CastKind.Qual;
+		}
+		
+		return k;
 	}
 	
 	CastKind castFrom(Type from, Type to) {
@@ -414,29 +433,18 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
 			case Qual :
-				if (canConvert(t.qualifier, e.qualifier)) {
-					return Qual;
-				}
-				
-				goto default;
+				return Qual;
 			
 			case Exact :
 				return Exact;
 			
-			static if (isExplicit) {
-				default :
-					return Bit;
-			} else {
-				case Bit :
-					if (canConvert(t.qualifier, e.qualifier)) {
-						return subCast;
-					}
-					
-					return Invalid;
-				
-				default :
-					return Invalid;
-			}
+			case Bit :
+				return (isExplicit || canConvert(t.qualifier, e.qualifier))
+					? Bit
+					: Invalid;
+			
+			default :
+				return Invalid;
 		}
 	}
 	

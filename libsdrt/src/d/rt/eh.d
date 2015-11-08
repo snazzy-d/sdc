@@ -59,7 +59,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 	}
 	
-	ubyte* p = cast(ubyte*) _Unwind_GetLanguageSpecificData(ctx);
+	auto p = cast(const(ubyte)*) _Unwind_GetLanguageSpecificData(ctx);
 	if (p is null) {
 		return _Unwind_Reason_Code.CONTINUE_UNWIND;
 	}

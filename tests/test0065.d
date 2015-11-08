@@ -20,13 +20,13 @@ int main() {
 	foreach(size_t j; 0 .. str.length) {
 		assert(str[j] == str2[(str2.length - j) - 1]);
 	}
-
+	
 	int k = 0;
 	foreach_reverse(size_t j; 0 .. str.length) {
 		assert(str2[j] == str[k++]);
 	}
-
-	foreach(char* it; str.ptr .. str.ptr + str.length) {
+	
+	foreach(immutable(char)* it; str.ptr .. str.ptr + str.length) {
 		assert(*it == str[i]);
 		i++;
 	}
@@ -53,4 +53,3 @@ int main() {
 	
 	return 0;
 }
-

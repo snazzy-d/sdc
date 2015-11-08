@@ -95,4 +95,3 @@ struct SizeofVisitor {
 		return visit(pass.object.getSizeT().type);
 	}
 }
-
