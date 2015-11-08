@@ -85,42 +85,6 @@ class Package : Symbol {
 }
 
 /**
- * Variable
- */
-class Variable : ValueSymbol {
-	Expression value;
-	
-	ParamType paramType;
-	
-	this(Location location, ParamType paramType, Name name, Expression value = null) {
-		super(location, name);
-		
-		this.paramType = paramType;
-		this.value = value;
-	}
-	
-	this(Location location, Type type, Name name, Expression value = null) {
-		this(location, type.getParamType(false, false), name, value);
-	}
-	
-final:
-	@property
-	Type type() {
-		return paramType.getType();
-	}
-	
-	@property
-	bool isRef() {
-		return paramType.isRef;
-	}
-	
-	@property
-	bool isFinal() {
-		return paramType.isFinal;
-	}
-}
-
-/**
  * Function
  */
 class Function : ValueSymbol {
@@ -179,6 +143,72 @@ class Module : Package {
 	
 	this(Location location, Name name, Package parent) {
 		super(location, name, parent);
+	}
+}
+
+/**
+ * Variable
+ */
+class Variable : ValueSymbol {
+	Expression value;
+	
+	ParamType paramType;
+	
+	this(Location location, ParamType paramType, Name name, Expression value = null) {
+		super(location, name);
+		
+		this.paramType = paramType;
+		this.value = value;
+	}
+	
+	this(Location location, Type type, Name name, Expression value = null) {
+		super(location, name);
+		
+		this.type = type;
+		this.value = value;
+	}
+	
+	@property
+	inout(Type) type() inout {
+		return paramType.getType();
+	}
+	
+	@property
+	Type type(Type t) {
+		paramType = t.getParamType(false, false);
+		return t;
+	}
+	
+	@property
+	bool isRef() const {
+		return paramType.isRef;
+	}
+	
+	@property
+	bool isFinal() const {
+		return paramType.isFinal;
+	}
+	
+	override
+	string toString(const ref NameManager nm) const {
+		return type.toString(nm) ~ " " ~ name.toString(nm) ~ " = " ~ value.toString(nm) ~ ";";
+	}
+}
+
+/**
+ * Field
+ * Simply a Variable with a field index.
+ */
+class Field : ValueSymbol {
+	CompileTimeExpression value;
+	Type type;
+	uint index;
+	
+	this(Location location, uint index, Type type, Name name, CompileTimeExpression value = null) {
+		super(location, name);
+		this.value = value;
+		this.type = type;
+		this.index = index;
 	}
 }
 
@@ -381,24 +411,6 @@ class Enum : TypeSymbol {
 		
 		this.type = type;
 		this.entries = entries;
-	}
-}
-
-/**
- * Field
- * Simply a Variable with a field index.
- */
-class Field : Variable {
-	uint index;
-	
-	this(Location location, uint index, ParamType paramType, Name name, Expression value = null) {
-		super(location, paramType, name, value);
-		this.index = index;
-	}
-	
-	this(Location location, uint index, Type type, Name name, Expression value = null) {
-		super(location, type, name, value);
-		this.index = index;
 	}
 }
 

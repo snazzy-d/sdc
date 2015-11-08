@@ -64,15 +64,15 @@ struct ConstantGen {
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		import std.algorithm, std.array;
-		auto fields = e.values.map!(v => visit(v)).array();
+		auto elts = e.values.map!(v => visit(v)).array();
 		auto t = pass.visit(e.type);
 		
 		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
 			case Struct :
-				return LLVMConstNamedStruct(t, fields.ptr, cast(uint) fields.length);
+				return LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
 			
 			case Array :
-				return LLVMConstArray(LLVMGetElementType(t), fields.ptr, cast(uint) fields.length);
+				return LLVMConstArray(LLVMGetElementType(t), elts.ptr, cast(uint) elts.length);
 			
 			default :
 				break;

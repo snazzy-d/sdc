@@ -179,7 +179,7 @@ struct LocalGen {
 		
 		return true;
 	}
-
+	
 	private void genBody(Function f, LLVMValueRef fun) in {
 		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle.toString(context) ~ " body is already defined.");
 		assert(f.step == Step.Processed, "f is not processed");

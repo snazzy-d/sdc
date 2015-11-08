@@ -146,7 +146,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			scheduler.require(c);
 			
 			import std.algorithm, std.array;
-			auto fields = c.members.map!(m => cast(Field) m).filter!(f => !!f).map!(f => f.value).array();
+			auto fields = c.members
+				.map!(m => cast(Field) m)
+				.filter!(f => !!f)
+				.map!(function Expression(f) { return f.value; })
+				.array();
 			
 			fields[0] = new VtblExpression(location, c);
 			if (c.hasContext) {

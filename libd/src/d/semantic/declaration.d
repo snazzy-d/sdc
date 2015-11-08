@@ -354,25 +354,31 @@ struct DeclarationVisitor {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 		
-		Variable v;
-		if (storage.isGlobal || aggregateType == AggregateType.None) {
-			v = new Variable(d.location, Type.get(BuiltinType.None), d.name);
+		if (aggregateType == AggregateType.None || storage.isGlobal) {
+			auto v = new Variable(d.location, Type.get(BuiltinType.None), d.name);
+			v.linkage = getLinkage(stc);
+			v.visibility = getVisibility(stc);
+			v.storage = storage;
+			v.inTemplate = inTemplate;
+			
+			addSymbol(v);
+			select(d, v);
 		} else {
-			v = new Field(d.location, fieldIndex, Type.get(BuiltinType.None), d.name);
+			auto f = new Field(d.location, fieldIndex, Type.get(BuiltinType.None), d.name);
 			
 			// Union have all their fields at the same index.
 			if (aggregateType > AggregateType.Union) {
 				fieldIndex++;
 			}
+			
+			f.linkage = getLinkage(stc);
+			f.visibility = getVisibility(stc);
+			f.storage = storage;
+			f.inTemplate = inTemplate;
+			
+			addSymbol(f);
+			select(d, f);
 		}
-		
-		v.linkage = getLinkage(stc);
-		v.visibility = getVisibility(stc);
-		v.storage = storage;
-		v.inTemplate = inTemplate;
-		
-		addSymbol(v);
-		select(d, v);
 	}
 	
 	void visit(StructDeclaration d) {

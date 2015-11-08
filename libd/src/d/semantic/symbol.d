@@ -278,73 +278,74 @@ struct SymbolAnalyzer {
 		analyze(d, cast(Function) m);
 	}
 	
-	void analyze(VariableDeclaration d, Variable v) {
+	private auto getValue(VariableDeclaration d) {
 		auto stc = d.storageClass;
 		
-		Expression value;
 		if (d.type.isAuto) {
 			// XXX: remove selective import when dmd is sane.
 			import d.semantic.expression : ExpressionVisitor;
-			value = ExpressionVisitor(pass).visit(d.value);
-			v.paramType = value.type.getParamType(false, false);
-		} else {
-			import d.semantic.type : TypeVisitor;
-			auto type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
-			v.paramType = type.getParamType(false, false);
-			if (auto vi = cast(AstVoidInitializer) d.value) {
-				value = new VoidInitializer(vi.location, type);
-			} else {
-				// XXX: remove selective import when dmd is sane.
-				import d.semantic.expression : ExpressionVisitor;
-				import d.semantic.defaultinitializer : InitBuilder;
-				value = d.value
-					? ExpressionVisitor(pass).visit(d.value)
-					: InitBuilder(pass, v.location).visit(type);
-				
-				value = buildImplicitCast(pass, d.location, type, value);
-			}
+			return ExpressionVisitor(pass).visit(d.value);
 		}
 		
-		// Sanity check.
-		assert(!stc.isEnum || v.storage == Storage.Enum);
-		
-		if (v.storage.isGlobal) {
-			value = evaluate(value);
+		import d.semantic.type : TypeVisitor;
+		auto type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
+		if (auto vi = cast(AstVoidInitializer) d.value) {
+			return new VoidInitializer(vi.location, type);
 		}
+		
+		// XXX: remove selective import when dmd is sane.
+		import d.semantic.expression : ExpressionVisitor;
+		import d.semantic.defaultinitializer : InitBuilder;
+		auto value = d.value
+			? ExpressionVisitor(pass).visit(d.value)
+			: InitBuilder(pass, d.location).visit(type);
+		
+		return buildImplicitCast(pass, d.location, type, value);
+	}
+	
+	private void analyzeVarLike(V)(VariableDeclaration d, V v) {
+		auto value = getValue(d);
+		v.type = value.type;
 		
 		assert(value);
-		v.value = value;
+		static if (is(typeof(v.value) : CompileTimeExpression)) {
+			value = v.value = evaluate(value);
+		} else {
+			value = v.value = v.storage.isGlobal
+				? evaluate(value)
+				: value;
+		}
 		
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
 		SizeofVisitor(pass).visit(value.type);
 		
 		v.mangle = v.name;
-		if (v.storage == Storage.Static) {
-			assert(v.linkage == Linkage.D, "I mangle only D !");
-			
-			auto name = v.name.toString(context);
-			
-			import d.semantic.mangler;
-			auto mangle = TypeMangler(pass).visit(v.type);
-			
-			import std.conv;
-			mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
-			
-			v.mangle = context.getName(mangle);
+		static if(is(V : Variable)) {
+			if (v.storage == Storage.Static) {
+				assert(v.linkage == Linkage.D, "I mangle only D !");
+				
+				auto name = v.name.toString(context);
+				
+				import d.semantic.mangler;
+				auto mangle = TypeMangler(pass).visit(v.type);
+				
+				import std.conv;
+				mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
+				
+				v.mangle = context.getName(mangle);
+			}
 		}
 		
 		v.step = Step.Processed;
 	}
 	
+	void analyze(VariableDeclaration d, Variable v) {
+		analyzeVarLike(d, v);
+	}
+	
 	void analyze(VariableDeclaration d, Field f) {
-		// XXX: hacky ! We force CTFE that way.
-		auto oldStorage = f.storage;
-		scope(exit) f.storage = oldStorage;
-		
-		f.storage = Storage.Enum;
-		
-		analyze(d, cast(Variable) f);
+		analyzeVarLike(d, f);
 	}
 	
 	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {

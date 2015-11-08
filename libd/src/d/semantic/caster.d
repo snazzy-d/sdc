@@ -129,6 +129,9 @@ Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	
 	switch(kind) with(CastKind) {
 		case Exact:
+			// FIXME: Because we don't cast type qualifier the proper
+			// way, we need ot make sure they match.
+			e.type = e.type.qualify(to.qualifier);
 			return e;
 		
 		default:
