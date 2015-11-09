@@ -9,6 +9,7 @@ PLATFORM = $(shell uname -s)
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --system-libs`
+LLVM_BIN ?= `$(LLVM_CONFIG) --bindir`
 LIBD_LIB = -Llib -ld-llvm -ld
 
 # dmd.conf doesn't set the proper -L flags.  
@@ -59,7 +60,12 @@ doc:
 
 print-%: ; @echo $*=$($*)
 
-test: $(SDC) $(LIBSDRT) $(PHOBOS)
+testlibd-llvm: $(SDC) $(LIBSDRT) $(PHOBOS)
+	cd ./libd-llvm/tests; ./runlit.py . -v --path=$(LLVM_BIN)
+
+testrunner: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd ./tests; ./runner.d
 
-.PHONY: clean run debug doc test
+test: testrunner testlibd-llvm
+
+.PHONY: clean run debug doc test testrunner testlibd-llvm
