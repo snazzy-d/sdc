@@ -238,7 +238,7 @@ struct SymbolAnalyzer {
 			// Update scope.
 			currentScope = f.dscope = f.hasContext
 				? new ClosureScope(f, oldScope)
-				: new FunctionScope(f, oldScope);
+				: new SymbolScope(f, oldScope);
 			
 			ctxSym = f;
 			
@@ -421,8 +421,8 @@ struct SymbolAnalyzer {
 		s.mangle = context.getName(mangle);
 		
 		auto dscope = currentScope = s.dscope = s.hasContext
-			? new VoldemortScope(s, oldScope)
-			: new AggregateScope(s, oldScope);
+			? new ClosureScope(s, oldScope)
+			: new SymbolScope(s, oldScope);
 		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
@@ -502,8 +502,8 @@ struct SymbolAnalyzer {
 		u.mangle = context.getName(mangle);
 		
 		auto dscope = currentScope = u.dscope = u.hasContext
-			? new VoldemortScope(u, oldScope)
-			: new AggregateScope(u, oldScope);
+			? new ClosureScope(u, oldScope)
+			: new SymbolScope(u, oldScope);
 		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
@@ -581,8 +581,8 @@ struct SymbolAnalyzer {
 		c.mangle = context.getName("C" ~ manglePrefix);
 		
 		auto dscope = currentScope = c.dscope = c.hasContext
-			? new VoldemortScope(c, oldScope)
-			: new AggregateScope(c, oldScope);
+			? new ClosureScope(c, oldScope)
+			: new SymbolScope(c, oldScope);
 		
 		Field[] baseFields;
 		Method[] baseMethods;

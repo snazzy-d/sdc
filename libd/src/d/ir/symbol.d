@@ -93,7 +93,7 @@ class Function : ValueSymbol {
 	Variable[] params;
 	BlockStatement fbody;
 	
-	FunctionScope dscope;
+	SymbolScope dscope;
 
 	uint[Variable] closure;
 	
@@ -125,7 +125,8 @@ class TemplateParameter : Symbol {
 abstract class Aggregate : TypeSymbol {
 	Symbol[] members;
 	
-	AggregateScope dscope;
+	SymbolScope dscope;
+	Name[] aliasThis;
 	
 	this(Location location, Name name, Symbol[] members) {
 		super(location, name);

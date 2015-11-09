@@ -322,7 +322,7 @@ struct LocalGen {
 				return;
 			}
 			
-			auto vs = cast(VoldemortScope) s.dscope;
+			auto vs = cast(ClosureScope) s.dscope;
 			assert(vs, "Struct has context but no VoldemortScope");
 			
 			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
@@ -332,7 +332,7 @@ struct LocalGen {
 				return;
 			}
 			
-			auto vs = cast(VoldemortScope) c.dscope;
+			auto vs = cast(ClosureScope) c.dscope;
 			assert(vs, "Class has context but no VoldemortScope");
 			
 			import d.context.name;
@@ -345,8 +345,12 @@ struct LocalGen {
 		}
 	}
 	
-	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, VoldemortScope s) {
-		buildCapturedVariables(LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""), ""), contexts, s.capture);
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, ClosureScope s) {
+		buildCapturedVariables(LLVMBuildLoad(
+			builder,
+			LLVMBuildStructGEP(builder, thisPtr, i, ""),
+			"",
+		), contexts, s.capture);
 	}
 	
 	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, bool[Variable] capture) {

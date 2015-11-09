@@ -298,23 +298,8 @@ class SymbolScope : NestedScope {
 	}
 }
 
-class AggregateScope : SymbolScope {
-	Name[] aliasThis;
-	
-	this(Symbol symbol, Scope parent) {
-		super(symbol, parent);
-	}
-}
-
-alias FunctionScope  = SymbolScope;
-
-alias ClosureScope   = CapturingScope!FunctionScope;
-alias VoldemortScope = CapturingScope!AggregateScope;
-
-private:
-
 final:
-class CapturingScope(S) : S if(is(S : SymbolScope)) {
+class ClosureScope : SymbolScope {
 	// XXX: Use a proper set :D
 	bool[Variable] capture;
 	
@@ -344,6 +329,7 @@ class CapturingScope(S) : S if(is(S : SymbolScope)) {
 	}
 }
 
+private:
 class Poison : Symbol {
 	this(Location location, Name name) {
 		super(location, name);

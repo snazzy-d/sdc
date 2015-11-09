@@ -524,10 +524,12 @@ struct DeclarationVisitor {
 		// TODO: have a better scheme to do this in order to:
 		// - keep the location of the alias for error messages.
 		// - not redo identifier resolution all the time.
-		auto as = cast(AggregateScope) currentScope;
-		assert(as !is null, "Aggregate must have aggregate scope");
+		auto sc = cast(SymbolScope) currentScope;
+		assert(sc !is null, "Symbol scope expected");
+		auto a = cast(Aggregate) sc.symbol;
+		assert(a !is null, "Aggergate expected");
 		
-		as.aliasThis ~= d.name;
+		a.aliasThis ~= d.name;
 	}
 	
 	void visit(GroupDeclaration d) {
