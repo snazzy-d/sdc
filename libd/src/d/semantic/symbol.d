@@ -399,13 +399,11 @@ struct SymbolAnalyzer {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldFieldIndex = fieldIndex;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			fieldIndex = oldFieldIndex;
 		}
 		
 		auto type = Type.get(s);
@@ -426,7 +424,7 @@ struct SymbolAnalyzer {
 		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
-		fieldIndex = 0;
+		uint fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
@@ -437,7 +435,10 @@ struct SymbolAnalyzer {
 			fields = [ctx];
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Struct, s.inTemplate).flatten(d.members, s);
+		// XXX: Template DeclarationVisitor on the symbol type.
+		auto dv = DeclarationVisitor(pass, AggregateType.Struct, s.inTemplate);
+		dv.fieldIndex = fieldIndex;
+		auto members = dv.flatten(d.members, s);
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -479,13 +480,11 @@ struct SymbolAnalyzer {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldFieldIndex = fieldIndex;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			fieldIndex = oldFieldIndex;
 		}
 		
 		auto type = Type.get(u);
@@ -508,7 +507,7 @@ struct SymbolAnalyzer {
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
 
-		fieldIndex = 0;
+		uint fieldIndex = 0;
 		Field[] fields;
 		if (u.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
@@ -519,7 +518,9 @@ struct SymbolAnalyzer {
 			fields = [ctx];
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Union, u.inTemplate).flatten(d.members, u);
+		auto dv = DeclarationVisitor(pass, AggregateType.Union, u.inTemplate);
+		dv.fieldIndex = fieldIndex;
+		auto members = dv.flatten(d.members, u);
 		
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -561,15 +562,11 @@ struct SymbolAnalyzer {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldFieldIndex = fieldIndex;
-		auto oldMethodIndex = methodIndex;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			fieldIndex = oldFieldIndex;
-			methodIndex = oldMethodIndex;
 		}
 		
 		thisType = Type.get(c).getParamType(false, true);
@@ -612,7 +609,8 @@ struct SymbolAnalyzer {
 			c.base = pass.object.getObject();
 		}
 		
-		methodIndex = 0;
+		uint fieldIndex = 0;
+		uint methodIndex = 0;
 		
 		// object.Object, let's do some compiler magic.
 		if (c is c.base) {
@@ -661,7 +659,10 @@ struct SymbolAnalyzer {
 			baseFields ~= ctx;
 		}
 		
-		auto members = DeclarationVisitor(pass, AggregateType.Class, c.inTemplate).flatten(d.members, c);
+		auto dv = DeclarationVisitor(pass, AggregateType.Class, c.inTemplate);
+		dv.fieldIndex = fieldIndex;
+		dv.methodIndex = methodIndex;
+		auto members = dv.flatten(d.members, c);
 		
 		c.step = Step.Signed;
 		
@@ -771,13 +772,11 @@ struct SymbolAnalyzer {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		auto oldThisType = thisType;
-		auto oldMethodIndex = methodIndex;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
 			currentScope = oldScope;
 			thisType = oldThisType;
-			methodIndex = oldMethodIndex;
 		}
 		
 		thisType = Type.get(i).getParamType(false, true);

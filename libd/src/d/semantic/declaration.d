@@ -36,6 +36,9 @@ struct DeclarationVisitor {
 	
 	alias Step = SemanticPass.Step;
 	
+	uint fieldIndex;
+	uint methodIndex;
+	
 	CtUnit[] ctUnits;
 	ConditionalBranch[] cdBranches;
 	

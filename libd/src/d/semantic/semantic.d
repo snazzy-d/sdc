@@ -55,9 +55,6 @@ final class SemanticPass {
 		Function ctxSym;
 		
 		string manglePrefix;
-		
-		uint fieldIndex;
-		uint methodIndex;
 	}
 	
 	State state;
