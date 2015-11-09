@@ -40,9 +40,74 @@ public:
 }
 
 /**
+ * Tools to make symbols Scopes.
+ */
+interface IScope {
+	Symbol search(Location location, Name name);
+	
+	void addSymbol(Symbol s);
+	void addOverloadableSymbol(Symbol s);
+	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches);
+	
+	void setPoisoningMode();
+	void clearPoisoningMode();
+	
+	Module getModule();
+	
+	Module[] getImports();
+	void addImport(Module m);
+}
+
+mixin template ScopeSymbol() {
+	Scope dscope;
+	
+final:
+	Module getModule() {
+		return dscope.dmodule;
+	}
+	
+	Module[] getImports() {
+		return dscope.imports;
+	}
+	
+	void addImport(Module m) {
+		dscope.imports ~= m;
+	}
+	
+	Symbol search(Location location, Name name) {
+		return dscope.search(location, name);
+	}
+	
+	void addSymbol(Symbol s) {
+		dscope.addSymbol(s);
+	}
+	
+	void addOverloadableSymbol(Symbol s) {
+		dscope.addOverloadableSymbol(s);
+	}
+	
+	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches) {
+		dscope.addConditionalSymbol(s, cdBranches);
+	}
+	
+	void setPoisoningMode() {
+		dscope.setPoisoningMode();
+	}
+	
+	void clearPoisoningMode() {
+		dscope.clearPoisoningMode();
+	}
+	
+	import d.ast.conditional : StaticIfDeclaration;
+	void resolveConditional(StaticIfDeclaration sif, bool branch) {
+		dscope.resolveConditional(sif, branch);
+	}
+}
+
+/**
  * A scope associate identifier with declarations.
  */
-class Scope {
+class Scope : IScope {
 	Module dmodule;
 	
 	Symbol[Name] symbols;
@@ -62,6 +127,18 @@ class Scope {
 	}
 	
 final:
+	override Module getModule() {
+		return dmodule;
+	}
+	
+	override Module[] getImports() {
+		return imports;
+	}
+	
+	override void addImport(Module m) {
+		imports ~= m;
+	}
+	
 	Symbol resolve(Location location, Name name) {
 		if (auto sPtr = name in symbols) {
 			auto s = *sPtr;
@@ -259,10 +336,17 @@ final:
 }
 
 class NestedScope : Scope {
-	Scope parent;
+	IScope parent;
 	
-	this(Scope parent) {
-		super(parent.dmodule);
+	this(S)(S parent) if (is(S : IScope)) {
+		super(parent.getModule());
+		this.parent = parent;
+	}
+	
+	this()(Module dmodule, IScope parent) in {
+		assert(dmodule is parent.getModule());
+	} body {
+		super(dmodule);
 		this.parent = parent;
 	}
 	
@@ -279,7 +363,7 @@ class NestedScope : Scope {
 			return new NestedScope(this);
 		}
 		
-		auto clone = new NestedScope(parent);
+		auto clone = new NestedScope(dmodule, parent);
 		
 		clone.symbols = symbols.dup;
 		clone.imports = imports;
@@ -292,7 +376,7 @@ class NestedScope : Scope {
 class SymbolScope : NestedScope {
 	Symbol symbol;
 	
-	this(Symbol symbol, Scope parent) {
+	this(Symbol symbol, IScope parent) {
 		super(parent);
 		this.symbol = symbol;
 	}
@@ -303,7 +387,7 @@ class ClosureScope : SymbolScope {
 	// XXX: Use a proper set :D
 	bool[Variable] capture;
 	
-	this(Symbol symbol, Scope parent) {
+	this(Symbol symbol, IScope parent) {
 		super(symbol, parent);
 	}
 	

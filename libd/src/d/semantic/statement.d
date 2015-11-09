@@ -43,7 +43,15 @@ public:
 		this.pass = pass;
 	}
 	
-	BlockStatement getBody(AstBlockStatement b) {
+	void getBody(Function f, AstBlockStatement b) {
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		currentScope = f.dscope;
+		f.fbody = getBody(b);
+	}
+	
+	private BlockStatement getBody(AstBlockStatement b) {
 		auto fbody = flatten(b);
 		
 		auto rt = returnType.getType();
@@ -98,11 +106,7 @@ public:
 	
 	void visit(DeclarationStatement s) {
 		import d.semantic.declaration;
-		auto syms = DeclarationVisitor(
-			pass,
-			AddContext.Yes,
-			Visibility.Private,
-		).flatten(s.declaration);
+		auto syms = DeclarationVisitor(pass).flatten(s.declaration);
 		
 		scheduler.require(syms);
 		

@@ -9,10 +9,6 @@ import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
-import std.algorithm;
-import std.array;
-import std.range;
-
 alias Module = d.ir.symbol.Module;
 
 // Conflict with Interface in object.di
@@ -23,11 +19,6 @@ enum AggregateType {
 	Union,
 	Struct,
 	Class,
-}
-
-enum AddContext {
-	No,
-	Yes,
 }
 
 struct DeclarationVisitor {
@@ -50,8 +41,8 @@ struct DeclarationVisitor {
 			Storage, "storage", 2,
 			AggregateType, "aggregateType", 2,
 			CtUnitLevel, "ctLevel", 2,
-			AddContext, "addContext", 1,
 			InTemplate, "inTemplate", 1,
+			bool, "addContext", 1,
 			bool, "isRef", 1,
 			bool, "isOverride", 1,
 			bool, "isAbstract", 1,
@@ -61,58 +52,99 @@ struct DeclarationVisitor {
 		));
 	}
 	
+	static assert(DeclarationVisitor.init.linkage == Linkage.D);
+	static assert(DeclarationVisitor.init.visibility == Visibility.Private);
+	static assert(DeclarationVisitor.init.storage == Storage.Local);
+	static assert(DeclarationVisitor.init.aggregateType == AggregateType.None);
+	
 	this(SemanticPass pass) {
 		this.pass = pass;
+	}
+	
+	Symbol[] flatten(S)(
+		Declaration[] decls,
+		S dscope,
+	) if (is(S : Symbol) && is(S : IScope)) {
+		static assert(
+			!is(S : Class),
+			"Classes need to have fieldIndex and methodIndex"
+		);
 		
-		linkage = Linkage.D;
+		uint fi = is(S : Aggregate) ? dscope.hasContext : 0;
+		return flattenImpl(decls, dscope, fi, 0);
+	}
+	
+	Symbol[] flatten()(
+		Declaration[] decls,
+		Class c,
+		uint fieldIndex,
+		uint methodIndex,
+	) {
+		return flattenImpl(decls, c, fieldIndex, methodIndex);
+	}
+	
+	private Symbol[] flattenImpl(S)(
+		Declaration[] decls,
+		S dscope,
+		uint fieldIndex,
+		uint methodIndex,
+	) if (is(S : Symbol) && is(S : IScope)) {
 		visibility = Visibility.Public;
-		storage = Storage.Local;
-		aggregateType = AggregateType.None;
-		addContext = AddContext.No;
-		isOverride = false;
-	}
-	
-	this(P...)(SemanticPass pass, P params) {
-		this(pass);
 		
-		foreach(param; params) {
-			alias T = typeof(param);
-			
-			static if(is(T == Linkage)) {
-				linkage = param;
-			} else static if(is(T == Visibility)) {
-				visibility = param;
-			} else static if(is(T == Storage)) {
-				storage = param;
-			} else static if(is(T == AggregateType)) {
-				aggregateType = param;
-			} else static if(is(T == AddContext)) {
-				addContext = param;
-			} else static if(is(T == InTemplate)) {
-				inTemplate = param;
-			} else {
-				// FIXME: horrible use of stringof. typeid(T) is not availabel at compile time :(
-				static assert(0, T.stringof ~ " is not a valid initializer for DeclarationVisitor");
-			}
+		aggregateType =
+			  is(S : Class) ? AggregateType.Class
+			: is(S : Struct) ? AggregateType.Struct
+			: is(S : Union) ? AggregateType.Union
+			: AggregateType.None;
+		
+		linkage = dscope.linkage;
+		
+		// What a mess !
+		if (aggregateType > AggregateType.None) {
+			inTemplate = dscope.inTemplate;
 		}
-	}
-	
-	Symbol[] flatten(Declaration[] decls, Symbol parent) {
-		auto ctus = flattenDecls(decls);
-		parent.step = Step.Populated;
 		
-		auto dscope = currentScope;
+		static if (is(S : Module)) {
+			storage = Storage.Static;
+		}
+		
+		static if (is(S : TemplateInstance)) {
+			inTemplate = InTemplate.Yes;
+			storage = dscope.storage;
+			addContext = dscope.storage < Storage.Static;
+		}
+		
+		this.fieldIndex = fieldIndex;
+		this.methodIndex = methodIndex;
+		
+		auto oldScope = currentScope;
+		scope(exit) currentScope = oldScope;
+		
+		// TODO: These should be the scope, not contain it.
+		currentScope = dscope.dscope;
+		
+		auto ctus = flattenDecls(decls);
+		dscope.step = Step.Populated;
 		
 		dscope.setPoisoningMode();
-		scope(exit) {
-			dscope.clearPoisoningMode();
-		}
+		scope(exit) dscope.clearPoisoningMode();
 		
-		return lowerToSymbols(ctus);
+		return DeclarationFlattener!S(&this, dscope).lowerToSymbols(ctus);
 	}
 	
 	Symbol[] flatten(Declaration d) {
-		return lowerToSymbols(flattenDecls(only(d)));
+		addContext = true;
+		
+		import std.range;
+		auto ctus = flattenDecls(only(d));
+		assert(ctus.length == 1);
+		
+		auto u = ctus[0];
+		assert(u.level == CtUnitLevel.Done);
+		assert(u.type == CtUnitType.Symbols);
+		
+		import std.algorithm, std.range;
+		return u.symbols.map!(su => su.s).array();
 	}
 	
 	private auto flattenDecls(R)(R decls) {
@@ -131,178 +163,6 @@ struct DeclarationVisitor {
 		}
 		
 		return ctUnits;
-	}
-	
-	// At this point, CTFE can yield, and change object state,
-	// so we pass things as parameters.
-	private Symbol[] lowerToSymbols(CtUnit[] ctus) {
-		// Process level 2 construct
-		ctus = lowerStaticIfs(lowerMixins(ctus));
-		assert(ctus[0].type == CtUnitType.Symbols);
-		
-		Symbol[] syms;
-		
-		foreach(u; ctus) {
-			assert(u.level == CtUnitLevel.Done);
-			final switch(u.type) with(CtUnitType) {
-				case Symbols:
-					import std.range;
-					syms ~= u.symbols.map!(su => su.s).array();
-					break;
-				
-				case StaticAssert:
-					checkStaticAssert(u.staticAssert);
-					break;
-				
-				case StaticIf, Mixin:
-					assert(0, "invalid ctUnit");
-			}
-		}
-		
-		return syms;
-	}
-	
-	private CtUnit[] lowerStaticIfs(CtUnit[] ctus) {
-		CtUnit[] cdUnits;
-		cdUnits.reserve(ctus.length);
-		foreach(u; ctus) {
-			assert(u.level != CtUnitLevel.Unknown);
-			
-			if (u.level != CtUnitLevel.Conditional) {
-				assert(u.level == CtUnitLevel.Done);
-				
-				cdUnits ~= u;
-				continue;
-			}
-			
-			final switch(u.type) with(CtUnitType) {
-				case StaticIf :
-					cdUnits ~= lowerStaticIf(u);
-					break;
-				
-				case Mixin, Symbols, StaticAssert :
-					assert(0, "invalid ctUnit");
-			}
-		}
-		
-		return cdUnits;
-	}
-	
-	private auto lowerStaticIf(bool forMixin = false)(CtUnit unit) in {
-		assert(unit.type == CtUnitType.StaticIf);
-	} body {
-		auto d = unit.staticIf;
-		
-		import d.ir.expression, d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(buildExplicitCast(
-			pass,
-			d.condition.location,
-			Type.get(BuiltinType.Bool),
-			ExpressionVisitor(pass).visit(d.condition),
-		));
-		
-		CtUnit[] items;
-		if (condition) {
-			currentScope.resolveConditional(d, true);
-			items = unit.items;
-		} else {
-			currentScope.resolveConditional(d, false);
-			items = unit.elseItems;
-		}
-		
-		foreach(ref u; items) {
-			if (u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
-				foreach(su; u.symbols) {
-					import d.semantic.symbol;
-					SymbolVisitor(pass).visit(su.d, su.s);
-				}
-				
-				u.level = CtUnitLevel.Done;
-			}
-		}
-		
-		static if (forMixin) {
-			return lowerMixins(items);
-		} else {
-			return lowerStaticIfs(items);
-		}
-	}
-	
-	private CtUnit[] lowerMixins(CtUnit[] ctus) {
-		CtUnit[] cdUnits;
-		cdUnits.reserve(ctus.length);
-		foreach(u; ctus) {
-			if (u.level != CtUnitLevel.Unknown) {
-				cdUnits ~= u;
-				continue;
-			}
-			
-			final switch(u.type) with(CtUnitType) {
-				case StaticIf :
-					cdUnits ~= lowerStaticIf!true(u);
-					break;
-				
-				case Mixin :
-					cdUnits ~= lowerMixin(u.mixinDecl);
-					break;
-				
-				case Symbols, StaticAssert :
-					assert(0, "invalid ctUnit");
-			}
-		}
-		
-		return cdUnits;
-	}
-	
-	private auto lowerMixin(Mixin!Declaration d) {
-		import d.semantic.expression : ExpressionVisitor;
-		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
-		
-		// XXX: in order to avoid identifier resolution weirdness.
-		auto location = d.location;
-		
-		import d.lexer, d.ir.expression;
-		auto base = context.registerMixin(location, str ~ '\0');
-		auto trange = lex(base, context);
-		
-		import d.parser.base;
-		trange.match(TokenType.Begin);
-		
-		Declaration[] decls;
-		while(trange.front.type != TokenType.End) {
-			import d.parser.declaration;
-			decls ~= trange.parseDeclaration();
-		}
-		
-		return lowerMixins(flattenDecls(decls));
-	}
-	
-	private void checkStaticAssert(StaticAssert!Declaration a) {
-		import d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(buildExplicitCast(
-			pass,
-			a.condition.location,
-			Type.get(BuiltinType.Bool),
-			ExpressionVisitor(pass).visit(a.condition),
-		));
-		
-		if (condition) {
-			return;
-		}
-		
-		import d.exception;
-		if (a.message is null) {
-			throw new CompileException(a.location, "assertion failure");
-		}
-		
-		auto msg = evalString(buildExplicitCast(
-			pass,
-			a.condition.location,
-			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
-			ExpressionVisitor(pass).visit(a.message),
-		));
-		
-		throw new CompileException(a.location, "assertion failure: " ~ msg);
 	}
 	
 	void visit(Declaration d) {
@@ -344,7 +204,7 @@ struct DeclarationVisitor {
 		f.inTemplate = inTemplate;
 		
 		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
-		f.hasContext = isStatic ? false : !!addContext;
+		f.hasContext = isStatic ? false : addContext;
 		
 		f.isAbstract = isAbstract || stc.isAbstract;
 		f.isProperty = isProperty || stc.isProperty;
@@ -391,7 +251,7 @@ struct DeclarationVisitor {
 		s.storage = storage;
 		s.inTemplate = inTemplate;
 		
-		s.hasContext = storage.isGlobal ? false : !!addContext;
+		s.hasContext = storage.isGlobal ? false : addContext;
 		
 		addSymbol(s);
 		select(d, s);
@@ -404,7 +264,7 @@ struct DeclarationVisitor {
 		u.storage = storage;
 		u.inTemplate = inTemplate;
 		
-		u.hasContext = storage.isGlobal ? false : !!addContext;
+		u.hasContext = storage.isGlobal ? false : addContext;
 		
 		addSymbol(u);
 		select(d, u);
@@ -417,7 +277,7 @@ struct DeclarationVisitor {
 		c.storage = storage;
 		c.inTemplate = inTemplate;
 		
-		c.hasContext = storage.isGlobal ? false : !!addContext;
+		c.hasContext = storage.isGlobal ? false : addContext;
 		
 		addSymbol(c);
 		select(d, c);
@@ -607,15 +467,14 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(ImportDeclaration d) {
-		Module[] addToScope;
 		foreach(name; d.modules) {
-			addToScope ~= importModule(name);
+			currentScope.addImport(importModule(name));
 		}
-		
-		currentScope.imports ~= addToScope;
 	}
 	
 	void visit(StaticIfDeclaration d) {
+		import std.algorithm : max;
+		
 		auto finalCtLevel = CtUnitLevel.Conditional;
 		auto oldCtLevel = ctLevel;
 		scope(exit) ctLevel = max(finalCtLevel, oldCtLevel);
@@ -765,5 +624,189 @@ struct CtUnit {
 			CtUnit[] items;
 			CtUnit[] elseItems;
 		};
+	}
+}
+
+struct DeclarationFlattener(S) if(is(S : IScope)) {
+	private DeclarationVisitor* dv;
+	alias dv this;
+	
+	S dscope;
+	
+	this(DeclarationVisitor* dv, S dscope) {
+		this.dv = dv;
+		this.dscope = dscope;
+	}
+	
+	// At this point, CTFE can yield, and change object state,
+	// so we pass things as parameters.
+	private Symbol[] lowerToSymbols(CtUnit[] ctus) {
+		// Process level 2 construct
+		ctus = lowerStaticIfs(lowerMixins(ctus));
+		assert(ctus[0].type == CtUnitType.Symbols);
+		
+		Symbol[] syms;
+		
+		foreach(u; ctus) {
+			assert(u.level == CtUnitLevel.Done);
+			final switch(u.type) with(CtUnitType) {
+				case Symbols:
+					import std.algorithm, std.range;
+					syms ~= u.symbols.map!(su => su.s).array();
+					break;
+				
+				case StaticAssert:
+					checkStaticAssert(u.staticAssert);
+					break;
+				
+				case StaticIf, Mixin:
+					assert(0, "invalid ctUnit");
+			}
+		}
+		
+		return syms;
+	}
+	
+	private CtUnit[] lowerStaticIfs(CtUnit[] ctus) {
+		CtUnit[] cdUnits;
+		cdUnits.reserve(ctus.length);
+		foreach(u; ctus) {
+			assert(u.level != CtUnitLevel.Unknown);
+			
+			if (u.level != CtUnitLevel.Conditional) {
+				assert(u.level == CtUnitLevel.Done);
+				
+				cdUnits ~= u;
+				continue;
+			}
+			
+			final switch(u.type) with(CtUnitType) {
+				case StaticIf :
+					cdUnits ~= lowerStaticIf(u);
+					break;
+				
+				case Mixin, Symbols, StaticAssert :
+					assert(0, "invalid ctUnit");
+			}
+		}
+		
+		return cdUnits;
+	}
+	
+	private auto lowerStaticIf(bool forMixin = false)(CtUnit unit) in {
+		assert(unit.type == CtUnitType.StaticIf);
+	} body {
+		auto d = unit.staticIf;
+		
+		import d.ir.expression, d.semantic.caster, d.semantic.expression;
+		auto condition = evalIntegral(buildExplicitCast(
+			pass,
+			d.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(d.condition),
+		));
+		
+		CtUnit[] items;
+		if (condition) {
+			dscope.resolveConditional(d, true);
+			items = unit.items;
+		} else {
+			dscope.resolveConditional(d, false);
+			items = unit.elseItems;
+		}
+		
+		foreach(ref u; items) {
+			if (u.type == CtUnitType.Symbols && u.level == CtUnitLevel.Conditional) {
+				foreach(su; u.symbols) {
+					import d.semantic.symbol;
+					SymbolVisitor(pass).visit(su.d, su.s);
+				}
+				
+				u.level = CtUnitLevel.Done;
+			}
+		}
+		
+		static if (forMixin) {
+			return lowerMixins(items);
+		} else {
+			return lowerStaticIfs(items);
+		}
+	}
+	
+	private CtUnit[] lowerMixins(CtUnit[] ctus) {
+		CtUnit[] cdUnits;
+		cdUnits.reserve(ctus.length);
+		foreach(u; ctus) {
+			if (u.level != CtUnitLevel.Unknown) {
+				cdUnits ~= u;
+				continue;
+			}
+			
+			final switch(u.type) with(CtUnitType) {
+				case StaticIf :
+					cdUnits ~= lowerStaticIf!true(u);
+					break;
+				
+				case Mixin :
+					cdUnits ~= lowerMixin(u.mixinDecl);
+					break;
+				
+				case Symbols, StaticAssert :
+					assert(0, "invalid ctUnit");
+			}
+		}
+		
+		return cdUnits;
+	}
+	
+	private auto lowerMixin(Mixin!Declaration d) {
+		import d.semantic.expression : ExpressionVisitor;
+		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
+		
+		// XXX: in order to avoid identifier resolution weirdness.
+		auto location = d.location;
+		
+		import d.lexer, d.ir.expression;
+		auto base = context.registerMixin(location, str ~ '\0');
+		auto trange = lex(base, context);
+		
+		import d.parser.base;
+		trange.match(TokenType.Begin);
+		
+		Declaration[] decls;
+		while(trange.front.type != TokenType.End) {
+			import d.parser.declaration;
+			decls ~= trange.parseDeclaration();
+		}
+		
+		return lowerMixins(flattenDecls(decls));
+	}
+	
+	private void checkStaticAssert(StaticAssert!Declaration a) {
+		import d.semantic.caster, d.semantic.expression;
+		auto condition = evalIntegral(buildExplicitCast(
+			pass,
+			a.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(a.condition),
+		));
+		
+		if (condition) {
+			return;
+		}
+		
+		import d.exception;
+		if (a.message is null) {
+			throw new CompileException(a.location, "assertion failure");
+		}
+		
+		auto msg = evalString(buildExplicitCast(
+			pass,
+			a.condition.location,
+			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
+			ExpressionVisitor(pass).visit(a.message),
+		));
+		
+		throw new CompileException(a.location, "assertion failure: " ~ msg);
 	}
 }

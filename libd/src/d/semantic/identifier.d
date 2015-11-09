@@ -182,7 +182,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		while(true) {
 			Symbol symbol;
 			
-			foreach(m; dscope.imports) {
+			foreach(m; dscope.getImports()) {
 				scheduler.require(m, Step.Populated);
 				
 				auto symInMod = m.dscope.resolve(location, name);
@@ -225,7 +225,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	}
 	
 	Ret visit(DotIdentifier i) {
-		return resolveInSymbol(i.location, currentScope.dmodule, i.name);
+		return resolveInSymbol(i.location, currentScope.getModule(), i.name);
 	}
 	
 	Ret resolveInType(Location location, Type t, Name name) {

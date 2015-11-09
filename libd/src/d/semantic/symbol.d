@@ -76,16 +76,10 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(AstModule astm, Module m) {
-		auto oldCurrentScope = currentScope;
 		auto oldManglePrefix = manglePrefix;
-		
-		scope(exit) {
-			currentScope = oldCurrentScope;
-			manglePrefix = oldManglePrefix;
-		}
+		scope(exit) manglePrefix = oldManglePrefix;
 		
 		manglePrefix = "";
-		currentScope = m.dscope;
 		
 		import std.conv;
 		foreach(name; astm.packages) {
@@ -94,13 +88,12 @@ struct SymbolAnalyzer {
 		}
 		
 		auto name = astm.name.toString(context);
-		manglePrefix ~= to!string(name.length) ~ name;
+		manglePrefix ~= name.length.to!string() ~ name;
 		
 		// All modules implicitely import object.
 		import d.semantic.declaration, d.context.name;
-		m.members = DeclarationVisitor(pass, Storage.Static)
+		m.members = DeclarationVisitor(pass)
 			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
-		m.step = Step.Populated;
 		
 		scheduler.require(m.members);
 		m.step = Step.Processed;
@@ -190,7 +183,7 @@ struct SymbolAnalyzer {
 					import d.ast.statement;
 					fbody = new AstBlockStatement(fbody.location, [
 						fbody,
-						new AstReturnStatement(f.location, new ThisExpression(f.location))
+						new AstReturnStatement(f.location, new ThisExpression(f.location)),
 					]);
 				}
 			} else {
@@ -227,18 +220,13 @@ struct SymbolAnalyzer {
 		}
 		
 		if (fbody) {
-			auto oldScope = currentScope;
 			auto oldCtxSym = ctxSym;
-			
-			scope(exit) {
-				currentScope = oldScope;
-				ctxSym = oldCtxSym;
-			}
+			scope(exit) ctxSym = oldCtxSym;
 			
 			// Update scope.
-			currentScope = f.dscope = f.hasContext
-				? new ClosureScope(f, oldScope)
-				: new SymbolScope(f, oldScope);
+			auto dscope = f.dscope = f.hasContext
+				? new ClosureScope(f, currentScope)
+				: new SymbolScope(f, currentScope);
 			
 			ctxSym = f;
 			
@@ -248,14 +236,14 @@ struct SymbolAnalyzer {
 				p.step = Step.Processed;
 				
 				if (!p.name.isEmpty()) {
-					f.dscope.addSymbol(p);
+					dscope.addSymbol(p);
 				}
 			}
 			
 			// And flatten.
 			import d.semantic.statement;
-			f.fbody = StatementVisitor(pass).getBody(fbody);
-
+			StatementVisitor(pass).getBody(f, fbody);
+			
 			import d.semantic.flow;
 			f.closure = FlowAnalyzer(pass).getClosure(f);
 		}
@@ -397,12 +385,10 @@ struct SymbolAnalyzer {
 	
 	void analyze(StructDeclaration d, Struct s) {
 		auto oldManglePrefix = manglePrefix;
-		auto oldScope = currentScope;
 		auto oldThisType = thisType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
-			currentScope = oldScope;
 			thisType = oldThisType;
 		}
 		
@@ -412,40 +398,41 @@ struct SymbolAnalyzer {
 		// Update mangle prefix.
 		import std.conv;
 		auto name = s.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		
 		assert(s.linkage == Linkage.D || s.linkage == Linkage.C);
 		auto mangle = "S" ~ manglePrefix;
 		s.mangle = context.getName(mangle);
 		
-		auto dscope = currentScope = s.dscope = s.hasContext
-			? new ClosureScope(s, oldScope)
-			: new SymbolScope(s, oldScope);
+		auto dscope = s.dscope = s.hasContext
+			? new ClosureScope(s, currentScope)
+			: new SymbolScope(s, currentScope);
 		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
-		uint fieldIndex = 0;
 		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(s.location, ctxPtr));
-			ctx.step = Step.Processed;
+			auto ctx = new Field(
+				s.location,
+				0,
+				ctxPtr,
+				BuiltinName!"__ctx",
+				new NullLiteral(s.location, ctxPtr),
+			);
 			
-			fieldIndex = 1;
+			ctx.step = Step.Processed;
 			fields = [ctx];
 		}
 		
-		// XXX: Template DeclarationVisitor on the symbol type.
-		auto dv = DeclarationVisitor(pass, AggregateType.Struct, s.inTemplate);
-		dv.fieldIndex = fieldIndex;
-		auto members = dv.flatten(d.members, s);
+		auto members = DeclarationVisitor(pass).flatten(d.members, s);
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
 		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
-		s.dscope.addSymbol(init);
+		dscope.addSymbol(init);
 		s.step = Step.Populated;
 		
 		import std.algorithm, std.array;
@@ -478,12 +465,10 @@ struct SymbolAnalyzer {
 	
 	void analyze(UnionDeclaration d, Union u) {
 		auto oldManglePrefix = manglePrefix;
-		auto oldScope = currentScope;
 		auto oldThisType = thisType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
-			currentScope = oldScope;
 			thisType = oldThisType;
 		}
 		
@@ -493,41 +478,43 @@ struct SymbolAnalyzer {
 		// Update mangle prefix.
 		import std.conv;
 		auto name = u.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		
 		// XXX: For some reason dmd mangle the same way as structs ???
 		assert(u.linkage == Linkage.D || u.linkage == Linkage.C);
 		auto mangle = "S" ~ manglePrefix;
 		u.mangle = context.getName(mangle);
 		
-		auto dscope = currentScope = u.dscope = u.hasContext
-			? new ClosureScope(u, oldScope)
-			: new SymbolScope(u, oldScope);
+		auto dscope = u.dscope = u.hasContext
+			? new ClosureScope(u, currentScope)
+			: new SymbolScope(u, currentScope);
 		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
-
-		uint fieldIndex = 0;
+		
 		Field[] fields;
 		if (u.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(u.location, 0, ctxPtr, BuiltinName!"__ctx", new NullLiteral(u.location, ctxPtr));
-			ctx.step = Step.Processed;
+			auto ctx = new Field(
+				u.location,
+				0,
+				ctxPtr,
+				BuiltinName!"__ctx",
+				new NullLiteral(u.location, ctxPtr),
+			);
 			
-			fieldIndex = 1;
+			ctx.step = Step.Processed;
 			fields = [ctx];
 		}
 		
-		auto dv = DeclarationVisitor(pass, AggregateType.Union, u.inTemplate);
-		dv.fieldIndex = fieldIndex;
-		auto members = dv.flatten(d.members, u);
+		auto members = DeclarationVisitor(pass).flatten(d.members, u);
 		
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
 		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
-		u.dscope.addSymbol(init);
+		dscope.addSymbol(init);
 		u.step = Step.Populated;
 		
 		import std.algorithm, std.array;
@@ -560,12 +547,10 @@ struct SymbolAnalyzer {
 	
 	void analyze(ClassDeclaration d, Class c) {
 		auto oldManglePrefix = manglePrefix;
-		auto oldScope = currentScope;
 		auto oldThisType = thisType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
-			currentScope = oldScope;
 			thisType = oldThisType;
 		}
 		
@@ -574,12 +559,12 @@ struct SymbolAnalyzer {
 		// Update mangle prefix.
 		import std.conv;
 		auto name = c.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		c.mangle = context.getName("C" ~ manglePrefix);
 		
-		auto dscope = currentScope = c.dscope = c.hasContext
-			? new ClosureScope(c, oldScope)
-			: new SymbolScope(c, oldScope);
+		auto dscope = c.dscope = c.hasContext
+			? new ClosureScope(c, currentScope)
+			: new SymbolScope(c, currentScope);
 		
 		Field[] baseFields;
 		Method[] baseMethods;
@@ -636,12 +621,12 @@ struct SymbolAnalyzer {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
 					
-					c.dscope.addSymbol(field);
+					dscope.addSymbol(field);
 				} else if (auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
 					
-					c.dscope.addOverloadableSymbol(method);
+					dscope.addOverloadableSymbol(method);
 				}
 			}
 			
@@ -653,16 +638,20 @@ struct SymbolAnalyzer {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
 			import d.context.name;
-			auto ctx = new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx", new NullLiteral(c.location, ctxPtr));
-			ctx.step = Step.Processed;
+			auto ctx = new Field(
+				c.location,
+				fieldIndex++,
+				ctxPtr,
+				BuiltinName!"__ctx",
+				new NullLiteral(c.location, ctxPtr),
+			);
 			
+			ctx.step = Step.Processed;
 			baseFields ~= ctx;
 		}
 		
-		auto dv = DeclarationVisitor(pass, AggregateType.Class, c.inTemplate);
-		dv.fieldIndex = fieldIndex;
-		dv.methodIndex = methodIndex;
-		auto members = dv.flatten(d.members, c);
+		auto members = DeclarationVisitor(pass)
+			.flatten(d.members, c, fieldIndex, methodIndex);
 		
 		c.step = Step.Signed;
 		
@@ -770,12 +759,10 @@ struct SymbolAnalyzer {
 
 	void analyze(InterfaceDeclaration d, Interface i) {
 		auto oldManglePrefix = manglePrefix;
-		auto oldScope = currentScope;
 		auto oldThisType = thisType;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
-			currentScope = oldScope;
 			thisType = oldThisType;
 		}
 		
@@ -783,7 +770,7 @@ struct SymbolAnalyzer {
 		
 		import std.conv;
 		auto name = i.name.toString(context);
-		manglePrefix = manglePrefix ~ to!string(name.length);
+		manglePrefix = manglePrefix ~ name.length.to!string();
 		
 		i.mangle = context.getName("I" ~ manglePrefix);
 		
@@ -899,21 +886,21 @@ struct SymbolAnalyzer {
 		// XXX: compute a proper mangling for templates.
 		import std.conv;
 		auto name = t.name.toString(context);
-		t.mangle = context.getName(manglePrefix ~ to!string(name.length) ~ name);
+		t.mangle = context.getName(manglePrefix ~ name.length.to!string() ~ name);
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = t.dscope = new SymbolScope(t, oldScope);
+		auto dscope = currentScope = t.dscope = new SymbolScope(t, oldScope);
 		
 		t.parameters.length = d.parameters.length;
 		
-		// Register parameter int the scope.
+		// Register parameter in the scope.
 		auto none = Type.get(BuiltinType.None);
 		foreach_reverse(i, p; d.parameters) {
 			if (auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
-				currentScope.addSymbol(tp);
+				dscope.addSymbol(tp);
 				
 				import d.semantic.type : TypeVisitor;
 				tp.specialization = TypeVisitor(pass).visit(atp.specialization);
@@ -923,7 +910,7 @@ struct SymbolAnalyzer {
 				t.parameters[i] = tp;
 			} else if (auto avp = cast(AstValueTemplateParameter) p) {
 				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none, null);
-				currentScope.addSymbol(vp);
+				dscope.addSymbol(vp);
 				
 				import d.semantic.type : TypeVisitor;
 				vp.type = TypeVisitor(pass).visit(avp.type);
@@ -937,13 +924,13 @@ struct SymbolAnalyzer {
 				t.parameters[i] = vp;
 			} else if (auto aap = cast(AstAliasTemplateParameter) p) {
 				auto ap = new AliasTemplateParameter(aap.location, aap.name, cast(uint) i);
-				currentScope.addSymbol(ap);
+				dscope.addSymbol(ap);
 				
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
 			} else if (auto atap = cast(AstTypedAliasTemplateParameter) p) {
 				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
-				currentScope.addSymbol(tap);
+				dscope.addSymbol(tap);
 				
 				import d.semantic.type : TypeVisitor;
 				tap.type = TypeVisitor(pass).visit(atap.type);
@@ -964,9 +951,11 @@ struct SymbolAnalyzer {
 					continue;
 				}
 				
-				import d.semantic.type : TypeVisitor;
-				import std.algorithm, std.array;
-				t.ifti = fun.params.map!(p => TypeVisitor(pass).visit(p.type).getType()).array();
+				import d.semantic.type, std.algorithm, std.array;
+				t.ifti = fun.params
+					.map!(p => TypeVisitor(pass).visit(p.type).getType())
+					.array();
+				
 				break;
 			}
 		}
@@ -976,17 +965,15 @@ struct SymbolAnalyzer {
 	
 	void analyze(Template t, TemplateInstance i) {
 		auto oldManglePrefix = manglePrefix;
-		auto oldScope = currentScope;
 		auto oldCtxSym = ctxSym;
 		
 		scope(exit) {
 			manglePrefix = oldManglePrefix;
-			currentScope = oldScope;
 			ctxSym = oldCtxSym;
 		}
 		
 		manglePrefix = i.mangle.toString(context);
-		auto dscope = currentScope = i.dscope = new SymbolScope(i, t.dscope);
+		auto dscope = i.dscope = new SymbolScope(i, t.dscope);
 		
 		// Prefilled members are template arguments.
 		foreach(m; i.members) {
@@ -1003,16 +990,7 @@ struct SymbolAnalyzer {
 		}
 		
 		import d.semantic.declaration;
-		auto dv = DeclarationVisitor(
-			pass,
-			i.storage,
-			(i.storage >= Storage.Static)
-				? AddContext.No
-				: AddContext.Yes,
-			InTemplate.Yes,
-		);
-		
-		auto members = dv.flatten(t.members, i);
+		auto members = DeclarationVisitor(pass).flatten(t.members, i);
 		scheduler.require(members);
 		
 		i.members ~= members;

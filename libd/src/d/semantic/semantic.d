@@ -47,7 +47,7 @@ final class SemanticPass {
 	Name[] versions = getDefaultVersions();
 	
 	static struct State {
-		Scope currentScope;
+		IScope currentScope;
 		
 		ParamType returnType;
 		ParamType thisType;

@@ -72,10 +72,10 @@ abstract class ValueSymbol : Symbol {
 /**
  * Package
  */
-class Package : Symbol {
+class Package : Symbol, IScope {
 	Package parent;
 	
-	Scope dscope;
+	mixin ScopeSymbol;
 	
 	this(Location location, Name name, Package parent) {
 		super(location, name);
@@ -94,7 +94,7 @@ class Function : ValueSymbol {
 	BlockStatement fbody;
 	
 	SymbolScope dscope;
-
+	
 	uint[Variable] closure;
 	
 	this(Location location, FunctionType type, Name name, Variable[] params, BlockStatement fbody) {
@@ -122,10 +122,10 @@ class TemplateParameter : Symbol {
 /**
  * Superclass for struct, class and interface.
  */
-abstract class Aggregate : TypeSymbol {
+abstract class Aggregate : TypeSymbol, IScope {
 	Symbol[] members;
 	
-	SymbolScope dscope;
+	mixin ScopeSymbol;
 	Name[] aliasThis;
 	
 	this(Location location, Name name, Symbol[] members) {
@@ -295,10 +295,10 @@ class TypedAliasTemplateParameter : TemplateParameter {
 /**
 * Template instance
 */
-class TemplateInstance : Symbol {
+class TemplateInstance : Symbol, IScope {
 	Symbol[] members;
 	
-	Scope dscope;
+	mixin ScopeSymbol;
 	
 	this(Location location, Template tpl, Symbol[] members) {
 		super(location, tpl.name);
