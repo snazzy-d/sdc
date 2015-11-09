@@ -19,9 +19,24 @@ final class OverloadSet : Symbol {
 }
 
 struct ConditionalBranch {
-	// XXX: stick that bit in the pointer.
-	StaticIfDeclaration sif;
-	bool branch;
+private:
+	// XXX: Because mixin if such a fucking broken way to go:
+	static import d.ast.declaration;
+	alias Declaration = d.ast.declaration.Declaration;
+	
+	import std.bitmanip;
+	mixin(taggedClassRef!(
+		StaticIfDeclaration, "sif",
+		bool, "branch", 1,
+	));
+	
+public:
+	this(StaticIfDeclaration sif, bool branch) {
+		// XXX: Need to set the branch first because of
+		// https://issues.dlang.org/show_bug.cgi?id=15305
+		this.branch = branch;
+		this.sif = sif;
+	}
 }
 
 /**
@@ -111,7 +126,7 @@ final:
 	} body {
 		auto entry = ConditionalEntry(s, cdBranches);
 		if (auto csPtr = s.name in symbols) {
-			if(auto cs = cast(ConditionalSet) *csPtr) {
+			if (auto cs = cast(ConditionalSet) *csPtr) {
 				cs.set ~= entry;
 				return;
 			}
@@ -129,29 +144,39 @@ final:
 		assert(isPoisoning, "You must be in poisoning mode when resolving static ifs.");
 	} body {
 		foreach(s; symbols.values) {
-			if(auto cs = cast(ConditionalSet) s) {
+			if (auto cs = cast(ConditionalSet) s) {
 				ConditionalEntry[] newSet;
-				foreach(cd; cs.set) {
-					if(cd.cdBranches[0].sif is sif) {
-						// If this the right branch, then proceed. Otherwize forget.
-						if(cd.cdBranches[0].branch == branch) {
-							cd.cdBranches = cd.cdBranches[1 .. $];
-							if(cd.cdBranches.length) {
-								newSet ~= cd;
-							} else {
-								// FIXME: Check if it is an overloadable symbol.
-								assert(cs.selected is null, "overload ? bug ?");
-								if (cs.isPoisoned) {
-									import d.exception;
-									throw new CompileException(s.location, "Poisoned");
-								}
-
-								cs.selected = cd.entry;
-							}
-						}
-					} else {
-						newSet ~= cd;
+				foreach(ce; cs.set) {
+					// This is not the symbol we are interested in, move on.
+					if (ce.cdBranches[0].sif !is sif) {
+						newSet ~= ce;
+						continue;
 					}
+					
+					// If this is not the right branch, forget.
+					if (ce.cdBranches[0].branch != branch) {
+						continue;
+					}
+					
+					// The top level static if is resolved, drop.
+					ce.cdBranches = ce.cdBranches[1 .. $];
+					
+					// There are nested static ifs, put back in the set.
+					if (ce.cdBranches.length) {
+						newSet ~= ce;
+						continue;
+					}
+					
+					// FIXME: Check if it is an overloadable symbol.
+					assert(cs.selected is null, "overload ? bug ?");
+					
+					// We have a new symbol, select it.
+					if (cs.isPoisoned) {
+						import d.exception;
+						throw new CompileException(s.location, "Poisoned");
+					}
+					
+					cs.selected = ce.entry;
 				}
 				
 				cs.set = newSet;
@@ -172,18 +197,41 @@ final:
 		// That would allow to not pass over the AA most of the time.
 		foreach(n; symbols.keys) {
 			auto s = symbols[n];
+			
+			// Mark overload set as non poisoned.
+			// XXX: Why ?!??
 			if (auto os = cast(OverloadSet) s) {
 				os.isPoisoned = false;
-			} else if(isPoisoned && cast(Poison) s) {
+				continue;
+			}
+			
+			// Remove poisons.
+			// XXX: Why ?!!??!
+			if (isPoisoned && cast(Poison) s) {
 				symbols.remove(n);
-			} else if (hasConditional) {
-				if (auto cs = cast(ConditionalSet) s) {
-					assert(cs.set.length == 0, "Conditional symbols remains when clearing poisoning mode.");
-					if (cs.selected) {
-						symbols[n] = cs.selected;
-					} else {
-						symbols.remove(n);
-					}
+				continue;
+			}
+			
+			// If we have no conditionals, no need to check for them.
+			if (!hasConditional) {
+				continue;
+			}
+			
+			// Replace conditional entrie by whatever they resolve to.
+			if (auto cs = cast(ConditionalSet) s) {
+				if (cs.set.length) {
+					import d.exception;
+					throw new CompileException(cs.set[0].entry.location, "Not resolved");
+				}
+				
+				assert(
+					cs.set.length == 0,
+					"Conditional symbols remains when clearing poisoning mode."
+				);
+				if (cs.selected) {
+					symbols[n] = cs.selected;
+				} else {
+					symbols.remove(n);
 				}
 			}
 		}
@@ -236,7 +284,7 @@ class SymbolScope : NestedScope {
 
 class AggregateScope : SymbolScope {
 	Name[] aliasThis;
-
+	
 	this(Symbol symbol, Scope parent) {
 		super(symbol, parent);
 	}
@@ -306,4 +354,3 @@ class ConditionalSet : Symbol {
 		this.set = set;
 	}
 }
-
