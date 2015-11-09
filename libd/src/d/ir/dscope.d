@@ -57,32 +57,48 @@ class Scope {
 		this.dmodule = dmodule;
 	}
 	
-	Symbol search(Name name) {
-		return resolve(name);
+	Symbol search(Location location, Name name) {
+		return resolve(location, name);
 	}
 	
 final:
-	Symbol resolve(Name name) {
+	Symbol resolve(Location location, Name name) {
 		if (auto sPtr = name in symbols) {
 			auto s = *sPtr;
-			if (isPoisoning) {
-				if (auto os = cast(OverloadSet) s) {
-					os.isPoisoned = true;
-				} else if (isPoisoned && cast(Poison) s) {
-					return null;
-				} else if (hasConditional) {
-					if (auto cs = cast(ConditionalSet) s) {
-						cs.isPoisoned = true;
-						return cs.selected;
-					}
-				}
+			
+			// If we are poisoning, we need to make sure we poison.
+			// If not, we can return directly.
+			if (!isPoisoning) {
+				return s;
+			}
+			
+			// If we have an overloadset, make it poisoned.
+			if (auto os = cast(OverloadSet) s) {
+				os.isPoisoned = true;
+				return s;
+			}
+			
+			// If we have a poison, then pretend there is nothing.
+			if (cast(Poison) s) {
+				return null;
+			}
+			
+			// If we have no conditionals, no need to check for them.
+			if (!hasConditional) {
+				return s;
+			}
+			
+			// If we have a conditional, poison it.
+			if (auto cs = cast(ConditionalSet) s) {
+				cs.isPoisoned = true;
+				return cs.selected;
 			}
 			
 			return s;
 		}
 		
 		if (isPoisoning) {
-			symbols[name] = new Poison(name);
+			symbols[name] = new Poison(location, name);
 			isPoisoned = true;
 		}
 		
@@ -93,7 +109,7 @@ final:
 		assert(!s.name.isEmpty, "Symbol can't be added to scope as it has no name.");
 		
 		if (auto sPtr = s.name in symbols) {
-			if(auto p = cast(Poison) *sPtr) {
+			if (auto p = cast(Poison) *sPtr) {
 				import d.exception;
 				throw new CompileException(s.location, "Poisoned");
 			}
@@ -106,8 +122,8 @@ final:
 	}
 	
 	void addOverloadableSymbol(Symbol s) {
-		if(auto sPtr = s.name in symbols) {
-			if(auto os = cast(OverloadSet) *sPtr) {
+		if (auto sPtr = s.name in symbols) {
+			if (auto os = cast(OverloadSet) *sPtr) {
 				if (os.isPoisoned) {
 					import d.exception;
 					throw new CompileException(s.location, "Poisoned");
@@ -250,12 +266,12 @@ class NestedScope : Scope {
 		this.parent = parent;
 	}
 	
-	override Symbol search(Name name) {
-		if (auto s = resolve(name)) {
+	override Symbol search(Location location, Name name) {
+		if (auto s = resolve(location, name)) {
 			return s;
 		}
 		
-		return parent.search(name);
+		return parent.search(location, name);
 	}
 	
 	final auto clone() {
@@ -306,13 +322,13 @@ class CapturingScope(S) : S if(is(S : SymbolScope)) {
 		super(symbol, parent);
 	}
 	
-	override Symbol search(Name name) {
-		if (auto s = resolve(name)) {
+	override Symbol search(Location location, Name name) {
+		if (auto s = resolve(location, name)) {
 			return s;
 		}
 		
-		auto s = parent.search(name);
-
+		auto s = parent.search(location, name);
+		
 		import d.common.qualifier;
 		if (s !is null && typeid(s) is typeid(Variable) && s.storage.isLocal) {
 			capture[() @trusted {
@@ -331,10 +347,6 @@ class CapturingScope(S) : S if(is(S : SymbolScope)) {
 class Poison : Symbol {
 	this(Location location, Name name) {
 		super(location, name);
-	}
-	
-	this(Name name) {
-		super(Location.init, name);
 	}
 }
 

@@ -709,7 +709,8 @@ struct SymbolAnalyzer {
 						method.index = candidate.index;
 						
 						// Remove candidate from scope.
-						auto os = cast(OverloadSet) dscope.resolve(method.name);
+						auto os = cast(OverloadSet) dscope
+							.resolve(method.location, method.name);
 						assert(os, "This must be an overload set");
 						
 						uint i = 0;

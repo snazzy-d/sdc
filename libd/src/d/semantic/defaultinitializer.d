@@ -104,12 +104,13 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		scheduler.require(s, Step.Signed);
 		
 		import d.context.name;
-		auto init = cast(Variable) s.dscope.resolve(BuiltinName!"init");
+		auto init = cast(Variable) s.dscope
+			.resolve(location, BuiltinName!"init");
 		assert(init, "init must be defined");
 		
 		scheduler.require(init);
 		
-		static if(isCompileTime) {
+		static if (isCompileTime) {
 			auto v = cast(E) init.value;
 			assert(v, "init must be a compile time expression");
 			
