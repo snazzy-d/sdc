@@ -72,10 +72,10 @@ abstract class ValueSymbol : Symbol {
 /**
  * Package
  */
-class Package : Symbol, IScope {
-	Package parent;
+class Package : Symbol, Scope {
+	mixin ScopeSymbol!(ScopeType.Module);
 	
-	mixin ScopeSymbol;
+	Package parent;
 	
 	this(Location location, Name name, Package parent) {
 		super(location, name);
@@ -87,18 +87,25 @@ class Package : Symbol, IScope {
 /**
  * Function
  */
-class Function : ValueSymbol {
+class Function : ValueSymbol, Scope {
+	mixin ScopeSymbol;
 	FunctionType type;
 	
 	Variable[] params;
-	BlockStatement fbody;
-	
-	SymbolScope dscope;
-	
 	uint[Variable] closure;
 	
-	this(Location location, FunctionType type, Name name, Variable[] params, BlockStatement fbody) {
+	BlockStatement fbody;
+	
+	this(
+		Location location,
+		Scope parentScope,
+		FunctionType type,
+		Name name,
+		Variable[] params,
+		BlockStatement fbody,
+	) {
 		super(location, name);
+		fillParentScope(parentScope);
 		
 		this.type = type;
 		this.params = params;
@@ -122,14 +129,15 @@ class TemplateParameter : Symbol {
 /**
  * Superclass for struct, class and interface.
  */
-abstract class Aggregate : TypeSymbol, IScope {
-	Symbol[] members;
-	
+abstract class Aggregate : TypeSymbol, Scope {
 	mixin ScopeSymbol;
 	Name[] aliasThis;
 	
-	this(Location location, Name name, Symbol[] members) {
+	Symbol[] members;
+	
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
 		super(location, name);
+		fillParentScope(parentScope);
 		
 		this.members = members;
 	}
@@ -144,6 +152,7 @@ class Module : Package {
 	
 	this(Location location, Name name, Package parent) {
 		super(location, name, parent);
+		dmodule = this;
 	}
 }
 
@@ -216,20 +225,26 @@ class Field : ValueSymbol {
 /**
  * Template
  */
-class Template : Symbol {
-	TemplateParameter[] parameters;
-	
-	Type[] ifti;
-	
-	import d.ast.declaration;
-	Declaration[] members;
-	
-	SymbolScope dscope;
+class Template : Symbol, Scope {
+	mixin ScopeSymbol;
 	
 	TemplateInstance[string] instances;
+	Type[] ifti;
 	
-	this(Location location, Name name, TemplateParameter[] parameters, Declaration[] members) {
+	TemplateParameter[] parameters;
+	
+	import d.ast.declaration : Declaration;
+	Declaration[] members;
+	
+	this(
+		Location location,
+		Scope parentScope,
+		Name name,
+		TemplateParameter[] parameters,
+		Declaration[] members,
+	) {
 		super(location, name);
+		fillParentScope(parentScope);
 		
 		this.parameters = parameters;
 		this.members = members;
@@ -295,13 +310,14 @@ class TypedAliasTemplateParameter : TemplateParameter {
 /**
 * Template instance
 */
-class TemplateInstance : Symbol, IScope {
-	Symbol[] members;
+class TemplateInstance : Symbol, Scope {
+	mixin ScopeSymbol!(ScopeType.WithParent, Template);
 	
-	mixin ScopeSymbol;
+	Symbol[] members;
 	
 	this(Location location, Template tpl, Symbol[] members) {
 		super(location, tpl.name);
+		fillParentScope(tpl);
 		
 		this.members = members;
 	}
@@ -360,8 +376,8 @@ class Class : Aggregate {
 	Class base;
 	Interface[] interfaces;
 	
-	this(Location location, Name name, Symbol[] members) {
-		super(location, name, members);
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+		super(location, parentScope, name, members);
 		
 		this.name = name;
 	}
@@ -373,8 +389,14 @@ class Class : Aggregate {
 class Interface : Aggregate {
 	Interface[] bases;
 	
-	this(Location location, Name name, Interface[] bases, Symbol[] members) {
-		super(location, name, members);
+	this(
+		Location location,
+		Scope parentScope,
+		Name name,
+		Interface[] bases,
+		Symbol[] members,
+	) {
+		super(location, parentScope, name, members);
 		this.bases = bases;
 	}
 }
@@ -383,8 +405,8 @@ class Interface : Aggregate {
  * Struct
  */
 class Struct : Aggregate {
-	this(Location location, Name name, Symbol[] members) {
-		super(location, name, members);
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+		super(location, parentScope, name, members);
 	}
 }
 
@@ -392,23 +414,29 @@ class Struct : Aggregate {
  * Union
  */
 class Union : Aggregate {
-	this(Location location, Name name, Symbol[] members) {
-		super(location, name, members);
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+		super(location, parentScope, name, members);
 	}
 }
 
 /**
  * Enum
  */
-class Enum : TypeSymbol {
+class Enum : TypeSymbol, Scope {
+	mixin ScopeSymbol;
+	
 	Type type;
-	
-	SymbolScope dscope;
-	
 	Variable[] entries;
 	
-	this(Location location, Name name, Type type, Variable[] entries) {
+	this(
+		Location location,
+		Scope parentScope,
+		Name name,
+		Type type,
+		Variable[] entries,
+	) {
 		super(location, name);
+		fillParentScope(parentScope);
 		
 		this.type = type;
 		this.entries = entries;
@@ -422,8 +450,16 @@ class Enum : TypeSymbol {
 class Method : Function {
 	uint index;
 	
-	this(Location location, uint index, FunctionType type, Name name, Variable[] params, BlockStatement fbody) {
-		super(location, type, name, params, fbody);
+	this(
+		Location location,
+		Scope parentScope,
+		uint index,
+		FunctionType type,
+		Name name,
+		Variable[] params,
+		BlockStatement fbody,
+	) {
+		super(location, parentScope, type, name, params, fbody);
 		
 		this.index = index;
 	}

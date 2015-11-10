@@ -19,7 +19,8 @@ final class OverloadSet : Symbol {
 }
 
 struct ConditionalBranch {
-private:
+// XXX: Can't be private because mixin templates are a glorious hack.
+// private:
 	// XXX: Because mixin if such a fucking broken way to go:
 	static import d.ast.declaration;
 	alias Declaration = d.ast.declaration.Declaration;
@@ -42,8 +43,17 @@ public:
 /**
  * Tools to make symbols Scopes.
  */
-interface IScope {
+interface Scope {
+	Module getModule();
+	Scope getParentScope();
+	
+	Module[] getImports();
+	void addImport(Module m);
+	
 	Symbol search(Location location, Name name);
+	Symbol resolve(Location location, Name name);
+	
+	NestedScope makeNestedScope();
 	
 	void addSymbol(Symbol s);
 	void addOverloadableSymbol(Symbol s);
@@ -51,92 +61,102 @@ interface IScope {
 	
 	void setPoisoningMode();
 	void clearPoisoningMode();
-	
-	Module getModule();
-	
-	Module[] getImports();
-	void addImport(Module m);
 }
 
-mixin template ScopeSymbol() {
-	Scope dscope;
-	
-final:
-	Module getModule() {
-		return dscope.dmodule;
-	}
-	
-	Module[] getImports() {
-		return dscope.imports;
-	}
-	
-	void addImport(Module m) {
-		dscope.imports ~= m;
-	}
-	
-	Symbol search(Location location, Name name) {
-		return dscope.search(location, name);
-	}
-	
-	void addSymbol(Symbol s) {
-		dscope.addSymbol(s);
-	}
-	
-	void addOverloadableSymbol(Symbol s) {
-		dscope.addOverloadableSymbol(s);
-	}
-	
-	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches) {
-		dscope.addConditionalSymbol(s, cdBranches);
-	}
-	
-	void setPoisoningMode() {
-		dscope.setPoisoningMode();
-	}
-	
-	void clearPoisoningMode() {
-		dscope.clearPoisoningMode();
-	}
-	
-	import d.ast.conditional : StaticIfDeclaration;
-	void resolveConditional(StaticIfDeclaration sif, bool branch) {
-		dscope.resolveConditional(sif, branch);
-	}
+enum ScopeType {
+	Module,
+	WithParent,
 }
 
-/**
- * A scope associate identifier with declarations.
- */
-class Scope : IScope {
+mixin template ScopeSymbol(
+	ScopeType ST = ScopeType.WithParent,
+	ParentScope = Scope,
+) {
+private:
 	Module dmodule;
+	static if (ST) {
+		ParentScope parentScope;
+	}
 	
 	Symbol[Name] symbols;
 	
+	static if (ST) {
+		// XXX: Use a proper set :D
+		bool[Variable] captures;
+	}
+	
 	Module[] imports;
 	
-	private bool isPoisoning;
-	private bool isPoisoned;
-	private bool hasConditional;
-	
-	this(Module dmodule) {
-		this.dmodule = dmodule;
-	}
-	
-	Symbol search(Location location, Name name) {
-		return resolve(location, name);
-	}
+	bool isPoisoning;
+	bool isPoisoned;
+	bool hasConditional;
 	
 final:
-	override Module getModule() {
+	static if (ST) {
+		void fillParentScope(ParentScope parentScope) {
+			this.dmodule = parentScope.getModule();
+			this.parentScope = parentScope;
+		}
+	}
+	
+public:
+	Module getModule() {
+		assert(dmodule !is null, "No module");
 		return dmodule;
 	}
 	
-	override Module[] getImports() {
+	Scope getParentScope() {
+		static if (ST) {
+			assert(parentScope !is null);
+			return parentScope;
+		} else {
+			return null;
+		}
+	}
+	
+	static if (ST) {
+		bool[Variable] getCaptures() {
+			return captures;
+		}
+	}
+	
+	Module[] getImports() {
 		return imports;
 	}
 	
-	override void addImport(Module m) {
+	void addImport(Module m) {
 		imports ~= m;
+	}
+	
+	Symbol search(Location location, Name name) {
+		if (auto s = resolve(location, name)) {
+			return s;
+		}
+		
+		Symbol s = null;
+		static if (ST) {
+			s = parentScope.search(location, name);
+		}
+		
+		static if(!is(typeof(hasContext))) {
+			enum hasContext = false;
+		}
+		
+		if (s is null || !hasContext) {
+			return s;
+		}
+		
+		static if (ST) {
+			if (auto v = cast(Variable) s) {
+				import d.common.qualifier;
+				if (v.storage.isLocal) {
+					captures[v] = true;
+					v.storage = Storage.Capture;
+				}
+			}
+		}
+		
+		return s;
 	}
 	
 	Symbol resolve(Location location, Name name) {
@@ -180,6 +200,19 @@ final:
 		}
 		
 		return null;
+	}
+	
+	NestedScope makeNestedScope() {
+		static if (is(typeof(this) : NestedScope)) {
+			auto clone = new NestedScope(dmodule, parentScope);
+			
+			clone.symbols = symbols.dup;
+			clone.imports = imports;
+			
+			return clone;
+		} else {
+			return new NestedScope(this);
+		}
 	}
 	
 	void addSymbol(Symbol s) {
@@ -230,51 +263,6 @@ final:
 		
 		symbols[s.name] = new ConditionalSet(s.location, s.name, [entry]);
 		hasConditional = true;
-	}
-	
-	// XXX: Use of smarter data structure can probably improve things here :D
-	void resolveConditional(StaticIfDeclaration sif, bool branch) in {
-		assert(isPoisoning, "You must be in poisoning mode when resolving static ifs.");
-	} body {
-		foreach(s; symbols.values) {
-			if (auto cs = cast(ConditionalSet) s) {
-				ConditionalEntry[] newSet;
-				foreach(ce; cs.set) {
-					// This is not the symbol we are interested in, move on.
-					if (ce.cdBranches[0].sif !is sif) {
-						newSet ~= ce;
-						continue;
-					}
-					
-					// If this is not the right branch, forget.
-					if (ce.cdBranches[0].branch != branch) {
-						continue;
-					}
-					
-					// The top level static if is resolved, drop.
-					ce.cdBranches = ce.cdBranches[1 .. $];
-					
-					// There are nested static ifs, put back in the set.
-					if (ce.cdBranches.length) {
-						newSet ~= ce;
-						continue;
-					}
-					
-					// FIXME: Check if it is an overloadable symbol.
-					assert(cs.selected is null, "overload ? bug ?");
-					
-					// We have a new symbol, select it.
-					if (cs.isPoisoned) {
-						import d.exception;
-						throw new CompileException(s.location, "Poisoned");
-					}
-					
-					cs.selected = ce.entry;
-				}
-				
-				cs.set = newSet;
-			}
-		}
 	}
 	
 	void setPoisoningMode() in {
@@ -333,87 +321,77 @@ final:
 		isPoisoned = false;
 		hasConditional = false;
 	}
-}
-
-class NestedScope : Scope {
-	IScope parent;
 	
-	this(S)(S parent) if (is(S : IScope)) {
-		super(parent.getModule());
-		this.parent = parent;
-	}
-	
-	this()(Module dmodule, IScope parent) in {
-		assert(dmodule is parent.getModule());
+	// XXX: Use of smarter data structure can probably improve things here :D
+	import d.ast.conditional : StaticIfDeclaration;
+	void resolveConditional(StaticIfDeclaration sif, bool branch) in {
+		assert(isPoisoning, "You must be in poisoning mode when resolving static ifs.");
 	} body {
-		super(dmodule);
-		this.parent = parent;
-	}
-	
-	override Symbol search(Location location, Name name) {
-		if (auto s = resolve(location, name)) {
-			return s;
+		foreach(s; symbols.values) {
+			if (auto cs = cast(ConditionalSet) s) {
+				ConditionalEntry[] newSet;
+				foreach(ce; cs.set) {
+					// This is not the symbol we are interested in, move on.
+					if (ce.cdBranches[0].sif !is sif) {
+						newSet ~= ce;
+						continue;
+					}
+					
+					// If this is not the right branch, forget.
+					if (ce.cdBranches[0].branch != branch) {
+						continue;
+					}
+					
+					// The top level static if is resolved, drop.
+					ce.cdBranches = ce.cdBranches[1 .. $];
+					
+					// There are nested static ifs, put back in the set.
+					if (ce.cdBranches.length) {
+						newSet ~= ce;
+						continue;
+					}
+					
+					// FIXME: Check if it is an overloadable symbol.
+					assert(cs.selected is null, "overload ? bug ?");
+					
+					// We have a new symbol, select it.
+					if (cs.isPoisoned) {
+						import d.exception;
+						throw new CompileException(s.location, "Poisoned");
+					}
+					
+					cs.selected = ce.entry;
+				}
+				
+				cs.set = newSet;
+			}
 		}
-		
-		return parent.search(location, name);
-	}
-	
-	final auto clone() {
-		if (typeid(this) !is typeid(NestedScope)) {
-			return new NestedScope(this);
-		}
-		
-		auto clone = new NestedScope(dmodule, parent);
-		
-		clone.symbols = symbols.dup;
-		clone.imports = imports;
-		
-		return clone;
-	}
-}
-
-// XXX: Find a way to get a better handling of the symbol's type.
-class SymbolScope : NestedScope {
-	Symbol symbol;
-	
-	this(Symbol symbol, IScope parent) {
-		super(parent);
-		this.symbol = symbol;
 	}
 }
 
 final:
-class ClosureScope : SymbolScope {
-	// XXX: Use a proper set :D
-	bool[Variable] capture;
+
+/**
+ * A scope associate identifier with declarations.
+ */
+class NestedScope : Scope {
+	mixin ScopeSymbol;
 	
-	this(Symbol symbol, IScope parent) {
-		super(symbol, parent);
+	this(S)(S parentScope) if (is(S : Scope)) {
+		this.dmodule = parentScope.getModule();
+		this.parentScope = parentScope;
 	}
 	
-	override Symbol search(Location location, Name name) {
-		if (auto s = resolve(location, name)) {
-			return s;
-		}
-		
-		auto s = parent.search(location, name);
-		
-		import d.common.qualifier;
-		if (s !is null && typeid(s) is typeid(Variable) && s.storage.isLocal) {
-			capture[() @trusted {
-				// Fast cast can be trusted in this case, we already did the check.
-				import util.fastcast;
-				return fastCast!Variable(s);
-			} ()] = true;
-			
-			s.storage = Storage.Capture;
-		}
-		
-		return s;
+	this()(Module dmodule, Scope parentScope) in {
+		assert(dmodule is parentScope.getModule());
+	} body {
+		this.dmodule = dmodule;
+		this.parentScope = parentScope;
 	}
 }
 
-private:
+// XXX: Can't be private because mixin templates are a glorious hack.
+// private:
 class Poison : Symbol {
 	this(Location location, Name name) {
 		super(location, name);

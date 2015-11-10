@@ -47,7 +47,7 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = f.dscope;
+		currentScope = f;
 		f.fbody = getBody(b);
 	}
 	
@@ -78,8 +78,8 @@ public:
 			flattenedStmts = oldFlattenedStmts;
 		}
 		
+		currentScope = oldScope.makeNestedScope();
 		flattenedStmts = [];
-		currentScope = (cast(NestedScope) oldScope).clone();
 		
 		foreach(ref s; b.statements) {
 			visit(s);
@@ -201,7 +201,7 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = (cast(NestedScope) oldScope).clone();
+		currentScope = oldScope.makeNestedScope();
 		
 		// FIXME: if initialize is flattened into several statement, scope is wrong.
 		visit(f.initialize);
@@ -223,7 +223,7 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = (cast(NestedScope) oldScope).clone();
+		currentScope = oldScope.makeNestedScope();
 		
 		assert(!f.reverse, "foreach_reverse not supported at this point.");
 		
@@ -319,7 +319,7 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		currentScope = (cast(NestedScope) oldScope).clone();
+		currentScope = oldScope.makeNestedScope();
 		
 		import d.semantic.expression;
 		auto start = ExpressionVisitor(pass).visit(f.start);

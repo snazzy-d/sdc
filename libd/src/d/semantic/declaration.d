@@ -64,7 +64,7 @@ struct DeclarationVisitor {
 	Symbol[] flatten(S)(
 		Declaration[] decls,
 		S dscope,
-	) if (is(S : Symbol) && is(S : IScope)) {
+	) if (is(S : Symbol) && is(S : Scope)) {
 		static assert(
 			!is(S : Class),
 			"Classes need to have fieldIndex and methodIndex"
@@ -88,7 +88,7 @@ struct DeclarationVisitor {
 		S dscope,
 		uint fieldIndex,
 		uint methodIndex,
-	) if (is(S : Symbol) && is(S : IScope)) {
+	) if (is(S : Symbol) && is(S : Scope)) {
 		visibility = Visibility.Public;
 		
 		aggregateType =
@@ -119,9 +119,7 @@ struct DeclarationVisitor {
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
-		
-		// TODO: These should be the scope, not contain it.
-		currentScope = dscope.dscope;
+		currentScope = dscope;
 		
 		auto ctus = flattenDecls(decls);
 		dscope.step = Step.Populated;
@@ -188,14 +186,14 @@ struct DeclarationVisitor {
 		
 		auto isStatic = storage.isGlobal;
 		if (isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
-			f = new Function(d.location, FunctionType.init, d.name, [], null);
+			f = new Function(d.location, currentScope, FunctionType.init, d.name, [], null);
 		} else {
 			uint index = 0;
 			if (!isOverride && !stc.isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(d.location, index, FunctionType.init, d.name, [], null);
+			f = new Method(d.location, currentScope, index, FunctionType.init, d.name, [], null);
 		}
 		
 		f.linkage = getLinkage(stc);
@@ -245,7 +243,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(StructDeclaration d) {
-		auto s = new Struct(d.location, d.name, []);
+		auto s = new Struct(d.location, currentScope, d.name, []);
 		s.linkage = linkage;
 		s.visibility = visibility;
 		s.storage = storage;
@@ -258,7 +256,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(UnionDeclaration d) {
-		auto u = new Union(d.location, d.name, []);
+		auto u = new Union(d.location, currentScope, d.name, []);
 		u.linkage = linkage;
 		u.visibility = visibility;
 		u.storage = storage;
@@ -271,7 +269,7 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(ClassDeclaration d) {
-		auto c = new Class(d.location, d.name, []);
+		auto c = new Class(d.location, currentScope, d.name, []);
 		c.linkage = linkage;
 		c.visibility = visibility;
 		c.storage = storage;
@@ -284,7 +282,7 @@ struct DeclarationVisitor {
 	}
 
 	void visit(InterfaceDeclaration d) {
-		auto i = new Interface(d.location, d.name, [], []);
+		auto i = new Interface(d.location, currentScope, d.name, [], []);
 		i.linkage = linkage;
 		i.visibility = visibility;
 		i.storage = storage; 
@@ -296,7 +294,14 @@ struct DeclarationVisitor {
 
 	void visit(EnumDeclaration d) {
 		if (d.name.isDefined) {
-			auto e = new Enum(d.location, d.name, Type.get(BuiltinType.None), []);
+			auto e = new Enum(
+				d.location,
+				currentScope,
+				d.name,
+				Type.get(BuiltinType.None),
+				[],
+			);
+			
 			e.linkage = linkage;
 			e.visibility = visibility;
 			
@@ -334,7 +339,13 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(TemplateDeclaration d) {
-		auto t = new Template(d.location, d.name, [], d.declarations);
+		auto t = new Template(
+			d.location,
+			currentScope,
+			d.name,
+			[],
+			d.declarations,
+		);
 		
 		t.linkage = linkage;
 		t.visibility = visibility;
@@ -387,9 +398,7 @@ struct DeclarationVisitor {
 		// TODO: have a better scheme to do this in order to:
 		// - keep the location of the alias for error messages.
 		// - not redo identifier resolution all the time.
-		auto sc = cast(SymbolScope) currentScope;
-		assert(sc !is null, "Symbol scope expected");
-		auto a = cast(Aggregate) sc.symbol;
+		auto a = cast(Aggregate) currentScope;
 		assert(a !is null, "Aggergate expected");
 		
 		a.aliasThis ~= d.name;
@@ -627,7 +636,7 @@ struct CtUnit {
 	}
 }
 
-struct DeclarationFlattener(S) if(is(S : IScope)) {
+struct DeclarationFlattener(S) if(is(S : Scope)) {
 	private DeclarationVisitor* dv;
 	alias dv this;
 	

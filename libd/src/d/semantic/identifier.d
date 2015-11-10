@@ -106,14 +106,14 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		
 		scheduler.require(instance, Step.Populated);
 		
-		if (auto s = instance.dscope.resolve(i.location, i.name)) {
+		if (auto s = instance.resolve(i.location, i.name)) {
 			return IdentifierPostProcessor!(handler, asAlias)(pass, i.location).visit(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		auto name = i.templateInstanciation.identifier.name;
 		if (name != i.name) {
-			if (auto s = instance.dscope.resolve(i.location, name)) {
+			if (auto s = instance.resolve(i.location, name)) {
 				return IdentifierResolver!(handler, asAlias)(pass).resolveInSymbol(i.location, s, i.name);
 			}
 		}
@@ -185,7 +185,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			foreach(m; dscope.getImports()) {
 				scheduler.require(m, Step.Populated);
 				
-				auto symInMod = m.dscope.resolve(location, name);
+				auto symInMod = m.resolve(location, name);
 				if (symInMod) {
 					if (symbol) {
 						return new CompileError(location, "Ambiguous symbol " ~ name.toString(context)).symbol;
@@ -197,14 +197,13 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			
 			if (symbol) return symbol;
 			
-			if (auto nested = cast(NestedScope) dscope) {
-				dscope = nested.parent;
-			} else {
+			dscope = dscope.getParentScope();
+			if (dscope is null) {
 				return new CompileError(location, "Symbol " ~ name.toString(context) ~ " has not been found").symbol;
 			}
 			
-			if (auto sscope = cast(SymbolScope) dscope) {
-				scheduler.require(sscope.symbol, Step.Populated);
+			if (auto sscope = cast(Symbol) dscope) {
+				scheduler.require(sscope, Step.Populated);
 			}
 		}
 	}
@@ -260,9 +259,9 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				
 				Symbol s;
 				if (auto i = cast(TemplateInstance) identified) {
-					s = i.dscope.resolve(location, name);
+					s = i.resolve(location, name);
 				} else if (auto m = cast(Module) identified) {
-					s = m.dscope.resolve(location, name);
+					s = m.resolve(location, name);
 				}
 				
 				if (s is null) {
@@ -804,7 +803,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(Struct s) {
 		scheduler.require(s, Step.Populated);
-		if (auto sym = s.dscope.resolve(location, name)) {
+		if (auto sym = s.resolve(location, name)) {
 			return handler(sym);
 		}
 		
@@ -813,7 +812,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(Class c) {
 		scheduler.require(c, Step.Populated);
-		if (auto s = c.dscope.resolve(location, name)) {
+		if (auto s = c.resolve(location, name)) {
 			return handler(s);
 		}
 		
@@ -831,7 +830,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(Enum e) {
 		scheduler.require(e, Step.Populated);
-		if (auto s = e.dscope.resolve(location, name)) {
+		if (auto s = e.resolve(location, name)) {
 			return handler(s);
 		}
 		
@@ -849,7 +848,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret visit(Union u) {
 		scheduler.require(u, Step.Populated);
-		if (auto sym = u.dscope.resolve(location, name)) {
+		if (auto sym = u.resolve(location, name)) {
 			return handler(sym);
 		}
 		

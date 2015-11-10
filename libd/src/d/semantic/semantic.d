@@ -47,7 +47,7 @@ final class SemanticPass {
 	Name[] versions = getDefaultVersions();
 	
 	static struct State {
-		IScope currentScope;
+		Scope currentScope;
 		
 		ParamType returnType;
 		ParamType thisType;
@@ -139,6 +139,7 @@ final class SemanticPass {
 		
 		auto bootstrap = new Function(
 			main.location,
+			main.getModule(),
 			FunctionType(
 				Linkage.C,
 				Type.get(BuiltinType.Int).getParamType(false, false),

@@ -989,7 +989,8 @@ struct ExpressionVisitor {
 	private auto handleDgs(Location location, string prefix, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
 		// FIXME: can still collide with mixins, but that should rare enough for now.
 		import std.conv;
-		auto name = context.getName(prefix ~ to!string(location.getFullLocation(context).getStartOffset()));
+		auto offset = location.getFullLocation(context).getStartOffset();
+		auto name = context.getName(prefix ~ offset.to!string());
 		
 		auto d = new FunctionDeclaration(
 			location,
@@ -1001,7 +1002,7 @@ struct ExpressionVisitor {
 			fbody,
 		);
 		
-		auto f = new Function(location, FunctionType.init, name, [], null);
+		auto f = new Function(location, currentScope, FunctionType.init, name, [], null);
 		f.hasContext = true;
 		
 		import d.semantic.symbol;

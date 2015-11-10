@@ -13,11 +13,11 @@ final class ObjectReference {
 	}
 	
 	auto getSizeT() {
-		return cast(TypeAlias) object.dscope.resolve(Location.init, BuiltinName!"size_t");
+		return cast(TypeAlias) object.resolve(Location.init, BuiltinName!"size_t");
 	}
 	
 	private auto getClass(Name name) {
-		return cast(Class) object.dscope.resolve(Location.init, name);
+		return cast(Class) object.resolve(Location.init, name);
 	}
 	
 	auto getObject() {
@@ -46,7 +46,7 @@ final class ObjectReference {
 	
 	private auto getFunction(Name name) {
 		import d.ir.dscope : OverloadSet;
-		auto os = cast(OverloadSet) object.dscope.resolve(Location.init, name);
+		auto os = cast(OverloadSet) object.resolve(Location.init, name);
 		assert(os.set.length == 1);
 		
 		return cast(Function) os.set[0];
@@ -65,7 +65,7 @@ final class ObjectReference {
 	}
 	
 	auto getArrayConcat() {
-		auto s = object.dscope.resolve(Location.init, BuiltinName!"__sd_array_concat");
+		auto s = object.resolve(Location.init, BuiltinName!"__sd_array_concat");
 		import d.ir.dscope : OverloadSet;
 		return cast(OverloadSet) s;
 	}

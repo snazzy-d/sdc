@@ -237,10 +237,7 @@ struct LocalGen {
 			auto ctxTypeGen = pass.visit(parentCtxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
-			auto s = cast(ClosureScope) f.dscope;
-			assert(s, "Function has context but do not have a closure scope");
-			
-			buildCapturedVariables(parentCtx, contexts, s.capture);
+			buildCapturedVariables(parentCtx, contexts, f.getCaptures());
 			
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
@@ -315,45 +312,50 @@ struct LocalGen {
 		}
 	}
 
-	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
+	private void buildEmbededCaptures()(LLVMValueRef thisPtr, Type t) {
 		if (t.kind == TypeKind.Struct) {
 			auto s = t.dstruct;
 			if (!s.hasContext) {
 				return;
 			}
 			
-			auto vs = cast(ClosureScope) s.dscope;
-			assert(vs, "Struct has context but no VoldemortScope");
-			
-			buildEmbededCaptures(thisPtr, 0, embededContexts[s], vs);
+			buildEmbededCaptures(thisPtr, s, 0);
 		} else if (t.kind == TypeKind.Class) {
 			auto c = t.dclass;
 			if (!c.hasContext) {
 				return;
 			}
 			
-			auto vs = cast(ClosureScope) c.dscope;
-			assert(vs, "Class has context but no VoldemortScope");
-			
 			import d.context.name;
 			import std.algorithm, std.range;
-			auto f = retro(c.members).filter!(m => m.name == BuiltinName!"__ctx").map!(m => cast(Field) m).front;
+			auto f = retro(c.members)
+				.filter!(m => m.name == BuiltinName!"__ctx")
+				.map!(m => cast(Field) m)
+				.front;
 			
-			buildEmbededCaptures(thisPtr, f.index, embededContexts[c], vs);
+			buildEmbededCaptures(thisPtr, c, f.index);
 		} else {
 			assert(0, typeid(t).toString() ~ " is not supported.");
 		}
 	}
 	
-	private void buildEmbededCaptures(LLVMValueRef thisPtr, uint i, Closure[] contexts, ClosureScope s) {
+	private void buildEmbededCaptures(S)(
+		LLVMValueRef thisPtr,
+		S s,
+		uint i,
+	) if (is(S : Scope)) {
 		buildCapturedVariables(LLVMBuildLoad(
 			builder,
 			LLVMBuildStructGEP(builder, thisPtr, i, ""),
 			"",
-		), contexts, s.capture);
+		), embededContexts[s], s.getCaptures());
 	}
 	
-	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts, bool[Variable] capture) {
+	private void buildCapturedVariables(
+		LLVMValueRef root,
+		Closure[] contexts,
+		bool[Variable] capture,
+	) {
 		auto closureCount = capture.length;
 		
 		// Try to find out if we have the variable in a closure.

@@ -104,8 +104,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		scheduler.require(s, Step.Signed);
 		
 		import d.context.name;
-		auto init = cast(Variable) s.dscope
-			.resolve(location, BuiltinName!"init");
+		auto init = cast(Variable) s.resolve(location, BuiltinName!"init");
 		assert(init, "init must be defined");
 		
 		scheduler.require(init);

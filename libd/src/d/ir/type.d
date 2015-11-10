@@ -508,7 +508,8 @@ unittest {
 
 unittest {
 	import d.context.location, d.context.name, d.ir.symbol;
-	auto c = new Class(Location.init, BuiltinName!"", []);
+	auto m = new Module(Location.init, BuiltinName!"", null);
+	auto c = new Class(Location.init, m, BuiltinName!"", []);
 	auto tc = Type.get(c);
 	assert(tc.isAggregate);
 	assert(tc.aggregate is c);
@@ -524,11 +525,11 @@ unittest {
 	auto a1 = new TypeAlias(Location.init, BuiltinName!"", i);
 	auto a1t = Type.get(a1);
 	assert(a1t.getCanonical() == i);
-
+	
 	auto a2 = new TypeAlias(Location.init, BuiltinName!"", a1t);
 	auto a2t = Type.get(a2, TypeQualifier.Immutable);
 	assert(a2t.getCanonical() == i.qualify(TypeQualifier.Immutable));
-
+	
 	auto a3 = new TypeAlias(Location.init, BuiltinName!"", a2t);
 	auto a3t = Type.get(a3, TypeQualifier.Const);
 	assert(a3t.getCanonical() == i.qualify(TypeQualifier.Immutable));
@@ -539,15 +540,16 @@ unittest {
 	auto f = Type.get(BuiltinType.Float, TypeQualifier.Const);
 	auto a = new TypeAlias(Location.init, BuiltinName!"", f);
 	
-	auto e1 = new Enum(Location.init, BuiltinName!"", Type.get(a), []);
+	auto m = new Module(Location.init, BuiltinName!"", null);
+	auto e1 = new Enum(Location.init, m, BuiltinName!"", Type.get(a), []);
 	auto e1t = Type.get(e1);
 	assert(e1t.getCanonicalAndPeelEnum() == f);
 
-	auto e2 = new Enum(Location.init, BuiltinName!"", e1t, []);
+	auto e2 = new Enum(Location.init, m, BuiltinName!"", e1t, []);
 	auto e2t = Type.get(e2, TypeQualifier.Immutable);
 	assert(e2t.getCanonicalAndPeelEnum() == f.qualify(TypeQualifier.Immutable));
 
-	auto e3 = new Enum(Location.init, BuiltinName!"", e2t, []);
+	auto e3 = new Enum(Location.init, m, BuiltinName!"", e2t, []);
 	auto e3t = Type.get(e3, TypeQualifier.Const);
 	assert(e3t.getCanonicalAndPeelEnum() == f.qualify(TypeQualifier.Immutable));
 }

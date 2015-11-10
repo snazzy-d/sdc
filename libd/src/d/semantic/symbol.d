@@ -223,11 +223,6 @@ struct SymbolAnalyzer {
 			auto oldCtxSym = ctxSym;
 			scope(exit) ctxSym = oldCtxSym;
 			
-			// Update scope.
-			auto dscope = f.dscope = f.hasContext
-				? new ClosureScope(f, currentScope)
-				: new SymbolScope(f, currentScope);
-			
 			ctxSym = f;
 			
 			// Register parameters.
@@ -236,7 +231,7 @@ struct SymbolAnalyzer {
 				p.step = Step.Processed;
 				
 				if (!p.name.isEmpty()) {
-					dscope.addSymbol(p);
+					f.addSymbol(p);
 				}
 			}
 			
@@ -404,10 +399,6 @@ struct SymbolAnalyzer {
 		auto mangle = "S" ~ manglePrefix;
 		s.mangle = context.getName(mangle);
 		
-		auto dscope = s.dscope = s.hasContext
-			? new ClosureScope(s, currentScope)
-			: new SymbolScope(s, currentScope);
-		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
 		Field[] fields;
@@ -432,7 +423,7 @@ struct SymbolAnalyzer {
 		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
-		dscope.addSymbol(init);
+		s.addSymbol(init);
 		s.step = Step.Populated;
 		
 		import std.algorithm, std.array;
@@ -485,10 +476,6 @@ struct SymbolAnalyzer {
 		auto mangle = "S" ~ manglePrefix;
 		u.mangle = context.getName(mangle);
 		
-		auto dscope = u.dscope = u.hasContext
-			? new ClosureScope(u, currentScope)
-			: new SymbolScope(u, currentScope);
-		
 		// XXX: d is hijacked without explicit import
 		import d.context.name : BuiltinName;
 		
@@ -514,7 +501,7 @@ struct SymbolAnalyzer {
 		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
 		
-		dscope.addSymbol(init);
+		u.addSymbol(init);
 		u.step = Step.Populated;
 		
 		import std.algorithm, std.array;
@@ -561,10 +548,6 @@ struct SymbolAnalyzer {
 		auto name = c.name.toString(context);
 		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		c.mangle = context.getName("C" ~ manglePrefix);
-		
-		auto dscope = c.dscope = c.hasContext
-			? new ClosureScope(c, currentScope)
-			: new SymbolScope(c, currentScope);
 		
 		Field[] baseFields;
 		Method[] baseMethods;
@@ -621,12 +604,12 @@ struct SymbolAnalyzer {
 					baseFields ~= field;
 					fieldIndex = max(fieldIndex, field.index);
 					
-					dscope.addSymbol(field);
+					c.addSymbol(field);
 				} else if (auto method = cast(Method) m) {
 					baseMethods ~= method;
 					methodIndex = max(methodIndex, method.index);
 					
-					dscope.addOverloadableSymbol(method);
+					c.addOverloadableSymbol(method);
 				}
 			}
 			
@@ -699,8 +682,8 @@ struct SymbolAnalyzer {
 						method.index = candidate.index;
 						
 						// Remove candidate from scope.
-						auto os = cast(OverloadSet) dscope
-							.resolve(method.location, method.name);
+						auto os = cast(OverloadSet) c
+							.resolve(c.location, method.name);
 						assert(os, "This must be an overload set");
 						
 						uint i = 0;
@@ -793,7 +776,7 @@ struct SymbolAnalyzer {
 			currentScope = oldScope;
 		}
 		
-		currentScope = e.dscope = new SymbolScope(e, oldScope);
+		currentScope = e;
 		
 		import d.semantic.type : TypeVisitor;
 		e.type = d.type.isAuto
@@ -827,7 +810,7 @@ struct SymbolAnalyzer {
 			auto v = new Variable(vd.location, type, vd.name);
 			v.storage = Storage.Enum;
 			
-			e.dscope.addSymbol(v);
+			e.addSymbol(v);
 			e.entries ~= v;
 			
 			auto dv = vd.value;
@@ -891,7 +874,7 @@ struct SymbolAnalyzer {
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		auto dscope = currentScope = t.dscope = new SymbolScope(t, oldScope);
+		currentScope = t;
 		
 		t.parameters.length = d.parameters.length;
 		
@@ -900,7 +883,7 @@ struct SymbolAnalyzer {
 		foreach_reverse(i, p; d.parameters) {
 			if (auto atp = cast(AstTypeTemplateParameter) p) {
 				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
-				dscope.addSymbol(tp);
+				t.addSymbol(tp);
 				
 				import d.semantic.type : TypeVisitor;
 				tp.specialization = TypeVisitor(pass).visit(atp.specialization);
@@ -910,7 +893,7 @@ struct SymbolAnalyzer {
 				t.parameters[i] = tp;
 			} else if (auto avp = cast(AstValueTemplateParameter) p) {
 				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none, null);
-				dscope.addSymbol(vp);
+				t.addSymbol(vp);
 				
 				import d.semantic.type : TypeVisitor;
 				vp.type = TypeVisitor(pass).visit(avp.type);
@@ -924,13 +907,13 @@ struct SymbolAnalyzer {
 				t.parameters[i] = vp;
 			} else if (auto aap = cast(AstAliasTemplateParameter) p) {
 				auto ap = new AliasTemplateParameter(aap.location, aap.name, cast(uint) i);
-				dscope.addSymbol(ap);
+				t.addSymbol(ap);
 				
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
 			} else if (auto atap = cast(AstTypedAliasTemplateParameter) p) {
 				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
-				dscope.addSymbol(tap);
+				t.addSymbol(tap);
 				
 				import d.semantic.type : TypeVisitor;
 				tap.type = TypeVisitor(pass).visit(atap.type);
@@ -973,7 +956,6 @@ struct SymbolAnalyzer {
 		}
 		
 		manglePrefix = i.mangle.toString(context);
-		auto dscope = i.dscope = new SymbolScope(i, t.dscope);
 		
 		// Prefilled members are template arguments.
 		foreach(m; i.members) {
@@ -986,7 +968,7 @@ struct SymbolAnalyzer {
 				i.storage = Storage.Local;
 			}
 			
-			dscope.addSymbol(m);
+			i.addSymbol(m);
 		}
 		
 		import d.semantic.declaration;

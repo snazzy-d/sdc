@@ -116,30 +116,25 @@ public:
 		return m;
 	}
 	
-	Module modulize(AstModule m) {
-		auto loc = m.location;
+	Module modulize(AstModule astm) {
+		auto loc = astm.location;
 		
-		Package parent;
-		foreach(n; m.packages) {
-			parent = new Package(loc, n, parent);
+		auto m = new Module(loc, astm.name, null);
+		m.addSymbol(m);
+		
+		Package p;
+		foreach(n; astm.packages) {
+			p = new Package(loc, n, p);
 		}
 		
-		auto ret = new Module(loc, m.name, parent);
-		
-		void prepareScope(Package p) {
-			if (p.parent) {
-				prepareScope(p.parent);
-				p.parent.dscope.addSymbol(p);
-			}
-			
-			import d.ir.dscope;
-			p.dscope = new Scope(ret);
+		m.parent = p;
+		p = m;
+		while (p.parent !is null) {
+			p.parent.addSymbol(p);
+			p = p.parent;
 		}
 		
-		prepareScope(ret);
-		ret.dscope.addSymbol(ret);
-		
-		return ret;
+		return m;
 	}
 	
 	private auto getModuleName(Module m) {
