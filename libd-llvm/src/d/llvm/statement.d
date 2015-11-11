@@ -536,8 +536,10 @@ struct StatementGen {
 		auto catches = s.catches;
 		foreach_reverse(c; catches) {
 			auto type = c.type;
-			buildClassType(type);
-			catchClauses ~= getTypeInfo(type);
+			
+			import d.llvm.type;
+			TypeGen(pass.pass).visit(type);
+			catchClauses ~= TypeGen(pass.pass).getTypeInfo(type);
 			
 			unwindBlocks ~= Block(BlockKind.Catch, c.statement, null, null);
 		}
@@ -581,8 +583,16 @@ struct StatementGen {
 			auto catchBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "catch");
 			auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 			
-			auto typeinfo = LLVMBuildBitCast(builder, getTypeInfo(c.type), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), "");
-			auto tid = genCall(druntimeGen.getEhTypeidFor(), [typeinfo]);
+			import d.llvm.type;
+			auto typeinfo = LLVMBuildBitCast(
+				builder,
+				TypeGen(pass.pass).getTypeInfo(c.type),
+				LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
+				"",
+			);
+			
+			import d.llvm.runtime;
+			auto tid = genCall(RuntimeGen(pass.pass).getEhTypeidFor(), [typeinfo]);
 			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, tid, cid, "");
 			LLVMBuildCondBr(builder, condition, catchBB, nextUnwindBB);
 			

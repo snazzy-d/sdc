@@ -12,7 +12,7 @@ import llvm.c.targetMachine;
 
 final class LLVMBackend {
 private:
-	CodeGenPass pass;
+	CodeGen pass;
 	
 	LLVMEvaluator evaluator;
 	LLVMDataLayout dataLayout;
@@ -61,7 +61,7 @@ public:
 		
 		auto td = LLVMGetTargetMachineData(targetMachine);
 		
-		pass = new CodeGenPass(context, scheduler, obj, this, name, td);
+		pass = new CodeGen(context, scheduler, obj, this, name, td);
 		dataLayout = new LLVMDataLayout(pass, td);
 	}
 	

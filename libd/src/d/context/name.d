@@ -103,6 +103,8 @@ enum Prefill = [
 	"Throwable", "Exception", "Error",
 	// Attribute
 	"property", "safe", "trusted", "system", "nogc",
+	// druntime
+	"_d_assert", "_d_assert_msg", "_d_arraybounds", "_d_allocmemory",
 	// Runtime
 	"__sd_class_downcast",
 	"__sd_eh_throw",

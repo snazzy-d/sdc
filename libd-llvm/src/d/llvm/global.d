@@ -14,13 +14,13 @@ import llvm.c.core;
 alias Interface = d.ir.symbol.Interface;
 
 struct GlobalGen {
-	private CodeGenPass pass;
+	private CodeGen pass;
 	alias pass this;
 	
 	import d.llvm.local : Mode;
 	Mode mode;
 	
-	this(CodeGenPass pass, Mode mode = Mode.Lazy) {
+	this(CodeGen pass, Mode mode = Mode.Lazy) {
 		this.pass = pass;
 		this.mode = mode;
 	}
@@ -124,7 +124,9 @@ struct GlobalGen {
 		assert(v.storage != Storage.Enum, "enum do not have a storage");
 	} body {
 		auto qualifier = v.type.qualifier;
-		auto type = pass.visit(v.type);
+		
+		import d.llvm.type;
+		auto type = TypeGen(pass).visit(v.type);
 		
 		// If it is not enum, it must be static.
 		assert(v.storage == Storage.Static);
@@ -150,7 +152,10 @@ struct GlobalGen {
 	
 	LLVMTypeRef define(TypeSymbol s) in {
 		assert(s.step == Step.Processed);
-		assert(!s.hasContext || s in embededContexts, "context is not set properly");
+		assert(
+			!s.hasContext || s in embededContexts,
+			"context is not set properly"
+		);
 	} body {
 		return this.dispatch(s);
 	}
@@ -158,13 +163,15 @@ struct GlobalGen {
 	LLVMTypeRef visit(TypeAlias a) in {
 		assert(a.step == Step.Processed);
 	} body {
-		return pass.visit(a.type);
+		import d.llvm.type;
+		return TypeGen(pass).visit(a.type);
 	}
 	
 	LLVMTypeRef visit(Struct s) in {
 		assert(s.step == Step.Processed);
 	} body {
-		auto ret = buildStructType(s);
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(s);
 		
 		foreach(m; s.members) {
 			if (typeid(m) !is typeid(Field)) {
@@ -178,7 +185,8 @@ struct GlobalGen {
 	LLVMTypeRef visit(Union u) in {
 		assert(u.step == Step.Processed);
 	} body {
-		auto ret = buildUnionType(u);
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(u);
 		
 		foreach(m; u.members) {
 			if (typeid(m) !is typeid(Field)) {
@@ -192,7 +200,8 @@ struct GlobalGen {
 	LLVMTypeRef visit(Class c) in {
 		assert(c.step == Step.Processed);
 	} body {
-		auto ret = buildClassType(c);
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(c);
 		
 		foreach(m; c.members) {
 			if (auto f = cast(Method) m) {
@@ -215,11 +224,13 @@ struct GlobalGen {
 	LLVMTypeRef visit(Interface i) in {
 		assert(i.step == Step.Processed);
 	} body {
-		return buildInterfaceType(i); 
+		import d.llvm.type;
+		return TypeGen(pass).visit(i);
 	}
 	
 	LLVMTypeRef visit(Enum e) {
-		auto type = buildEnumType(e);
+		import d.llvm.type;
+		auto type = TypeGen(pass).visit(e);
 		/+
 		foreach(entry; e.entries) {
 			visit(entry);
@@ -229,13 +240,13 @@ struct GlobalGen {
 	}
 
 	void define(Template t) {
-		import d.llvm.local;
 		foreach(i; t.instances) {
 			if (i.storage.isLocal) {
 				continue;
 			}
 			
 			foreach(m; i.members) {
+				import d.llvm.local;
 				LocalGen(pass).define(m);
 			}
 		}

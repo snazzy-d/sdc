@@ -4,12 +4,6 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.llvm.string;
-import d.llvm.type;
-
-import d.object;
-import d.semantic.scheduler;
-
 import util.visitor;
 
 import llvm.c.analysis;
@@ -19,20 +13,28 @@ import llvm.c.target;
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-final class CodeGenPass {
+final class CodeGen {
 	import d.context.context;
 	Context context;
+	
+	import d.semantic.scheduler;
 	Scheduler scheduler;
-	ObjectReference object;
-	
-	private TypeGen typeGen;
-	private StringGen stringGen;
-	DruntimeGen druntimeGen;
-	
-	LLVMTargetDataRef targetData;
 	
 	LLVMContextRef llvmCtx;
 	LLVMModuleRef dmodule;
+	
+	LLVMTargetDataRef targetData;
+	
+	import d.llvm.type;
+	TypeGenData typeGenData;
+	
+	private LLVMValueRef[string] stringLiterals;
+	
+	import d.object;
+	ObjectReference object;
+	
+	import d.llvm.runtime;
+	RuntimeGenData runtimeGenData;
 	
 	LLVMValueRef[ValueSymbol] globals;
 	
@@ -73,10 +75,6 @@ final class CodeGenPass {
 		
 		llvmCtx = LLVMContextCreate();
 		
-		typeGen			= new TypeGen(this);
-		stringGen		= new StringGen(this);
-		druntimeGen		= new DruntimeGen(this);
-		
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 		
@@ -111,48 +109,28 @@ final class CodeGenPass {
 		return m;
 	}
 	
-	auto getTypeInfo(TypeSymbol s) {
-		return typeGen.getTypeInfo(s);
-	}
-	
-	auto getVtbl(Class c) {
-		return typeGen.getVtbl(c);
-	}
-	
-	auto visit(Type t) {
-		return typeGen.visit(t);
-	}
-	
-	auto visit(FunctionType t) {
-		return typeGen.visit(t);
-	}
-	
-	auto buildStructType(Struct s) {
-		return typeGen.visit(s);
-	}
-	
-	auto buildUnionType(Union u) {
-		return typeGen.visit(u);
-	}
-	
-	auto buildClassType(Class c) {
-		return typeGen.visit(c);
-	}
-
-	auto buildInterfaceType(Interface i) {
-		return typeGen.visit(i);
-	}
-
-	auto buildEnumType(Enum e) {
-		return typeGen.visit(e);
-	}
-	
-	auto buildContextType(Function f) {
-		return typeGen.visit(f);
-	}
-	
-	auto buildDString(string str) {
-		return stringGen.buildDString(str);
+	auto buildDString(string str) in {
+		assert(str.length <= uint.max, "string length must be <= uint.max");
+	} body {
+		return stringLiterals.get(str, stringLiterals[str] = {
+			auto cstr = str ~ '\0';
+			auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr, cast(uint) cstr.length, true);
+			
+			auto globalVar = LLVMAddGlobal(dmodule, LLVMTypeOf(charArray), ".str");
+			LLVMSetInitializer(globalVar, charArray);
+			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
+			LLVMSetGlobalConstant(globalVar, true);
+			LLVMSetUnnamedAddr(globalVar, true);
+			
+			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
+			LLVMValueRef[2] indices = [zero, zero];
+			
+			LLVMValueRef[2] slice;
+			slice[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length, false);
+			slice[1] = LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
+			
+			return LLVMConstStructInContext(llvmCtx, slice.ptr, indices.length, false);
+		}());
 	}
 	
 	auto checkModule() {
@@ -167,58 +145,3 @@ final class CodeGenPass {
 		}
 	}
 }
-
-final class DruntimeGen {
-	private CodeGenPass pass;
-	alias pass this;
-	
-	private LLVMValueRef[string] cache;
-	
-	this(CodeGenPass pass) {
-		this.pass = pass;
-	}
-	
-	private auto getNamedFunction(string name, lazy LLVMTypeRef type) {
-		return cache.get(name, cache[name] = {
-			import std.string;
-			return LLVMAddFunction(pass.dmodule, name.toStringz(), type);
-		}());
-	}
-	
-	private auto getNamedFunction(string name, LLVMValueRef function(CodeGenPass) build) {
-		return cache.get(name, cache[name] = build(pass));
-	}
-	
-	auto getAssert() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_assert", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
-	}
-	
-	auto getAssertMessage() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_assert_msg", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 3, false));
-	}
-	
-	auto getArrayBound() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return getNamedFunction("_d_arraybounds", LLVMFunctionType(LLVMVoidTypeInContext(llvmCtx), [LLVMStructTypeInContext(llvmCtx, [LLVMInt64TypeInContext(llvmCtx), LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 2, false), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false));
-	}
-	
-	auto getAllocMemory() {
-		return getNamedFunction("_d_allocmemory", (p) {
-			auto arg = LLVMInt64TypeInContext(p.llvmCtx);
-			auto type = LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(p.llvmCtx), 0), &arg, 1, false);
-			auto fun = LLVMAddFunction(p.dmodule, "_d_allocmemory", type);
-			
-			// Trying to get the patch into LLVM
-			// LLVMAddReturnAttr(fun, LLVMAttribute.NoAlias);
-			return fun;
-		});
-	}
-	
-	auto getEhTypeidFor() {
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoAlias);
-		return getNamedFunction("llvm.eh.typeid.for", LLVMFunctionType(LLVMInt32TypeInContext(llvmCtx), [LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0)].ptr, 1, false));
-	}
-}
-

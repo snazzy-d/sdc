@@ -14,24 +14,60 @@ import llvm.c.core;
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-final class TypeGen {
-	private CodeGenPass pass;
+struct TypeGenData {
+private:
+	Class classInfoClass;
+	
+	LLVMTypeRef[TypeSymbol] typeSymbols;
+	LLVMValueRef[TypeSymbol] typeInfos;
+	
+	LLVMValueRef[Class] vtbls;
+	LLVMTypeRef[Function] funCtxTypes;
+}
+
+struct TypeGen {
+	private CodeGen pass;
 	alias pass this;
 	
-	private LLVMTypeRef[TypeSymbol] typeSymbols;
-	private LLVMValueRef[TypeSymbol] typeInfos;
-	
-	private LLVMValueRef[Class] vtbls;
-	private LLVMTypeRef[Function] funCtxTypes;
-	
-	private Class classInfoClass;
-	
-	this(CodeGenPass pass) {
+	this(CodeGen pass) {
 		this.pass = pass;
+	}
+	
+	// XXX: lack of multiple alias this, so we do it automanually.
+	private {
+		@property
+		ref Class classInfoClass() {
+			return pass.typeGenData.classInfoClass;
+		}
+		
+		@property
+		ref LLVMTypeRef[TypeSymbol] typeSymbols() {
+			return pass.typeGenData.typeSymbols;
+		}
+		
+		@property
+		ref LLVMValueRef[TypeSymbol] typeInfos() {
+			return pass.typeGenData.typeInfos;
+		}
+		
+		@property
+		ref LLVMValueRef[Class] vtbls() {
+			return pass.typeGenData.vtbls;
+		}
+		
+		@property
+		ref LLVMTypeRef[Function] funCtxTypes() {
+			return pass.typeGenData.funCtxTypes;
+		}
 	}
 	
 	LLVMValueRef getTypeInfo(TypeSymbol s) {
 		return typeInfos[s];
+	}
+	
+	// XXX: Remove ?
+	LLVMValueRef getVtbl(Class c) {
+		return vtbls[c];
 	}
 	
 	LLVMTypeRef visit(Type t) {
@@ -63,27 +99,19 @@ final class TypeGen {
 			case Bool :
 				return LLVMInt1TypeInContext(llvmCtx);
 			
-			case Char :
-			case Ubyte :
-			case Byte :
+			case Char, Ubyte, Byte :
 				return LLVMInt8TypeInContext(llvmCtx);
 			
-			case Wchar :
-			case Ushort :
-			case Short :
+			case Wchar, Ushort, Short :
 				return LLVMInt16TypeInContext(llvmCtx);
 			
-			case Dchar :
-			case Uint :
-			case Int :
+			case Dchar, Uint, Int :
 				return LLVMInt32TypeInContext(llvmCtx);
 			
-			case Ulong :
-			case Long :
+			case Ulong, Long :
 				return LLVMInt64TypeInContext(llvmCtx);
 			
-			case Ucent :
-			case Cent :
+			case Ucent, Cent :
 				return LLVMIntTypeInContext(llvmCtx, 128);
 			
 			case Float :
@@ -296,10 +324,6 @@ final class TypeGen {
 		LLVMSetInitializer(classInfo, LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr, 2));
 		
 		return structPtr;
-	}
-	
-	LLVMValueRef getVtbl(Class c) {
-		return vtbls[c];
 	}
 	
 	LLVMTypeRef visit(Enum e) {

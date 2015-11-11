@@ -17,7 +17,7 @@ enum Mode {
 }
 
 struct LocalGen {
-	CodeGenPass pass;
+	CodeGen pass;
 	alias pass this;
 	
 	LLVMBuilderRef builder;
@@ -29,7 +29,7 @@ struct LocalGen {
 	
 	LLVMValueRef[ValueSymbol] locals;
 	
-	alias Closure = CodeGenPass.Closure;
+	alias Closure = CodeGen.Closure;
 	Closure[] contexts;
 	
 	LLVMValueRef lpContext;
@@ -51,25 +51,25 @@ struct LocalGen {
 	
 	Block[] unwindBlocks;
 	
-	this(CodeGenPass pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
+	this(CodeGen pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
 		this.pass = pass;
 		this.mode = mode;
 		this.contexts = contexts;
-
+		
 		// Make sure globals are initialized.
 		locals[null] = null;
 		locals.remove(null);
-
+		
 		// Make sure we alays have a builder ready to rock.
 		builder = LLVMCreateBuilderInContext(llvmCtx);
 	}
-
+	
 	~this() {
 		LLVMDisposeBuilder(builder);
 	}
-
+	
 	@disable this(this);
-
+	
 	void define(Symbol s) {
 		if (auto v = cast(Variable) s) {
 			define(v);
@@ -128,7 +128,9 @@ struct LocalGen {
 		
 		auto fun = lookup.get(f, {
 			auto name = f.mangle.toStringz(pass.context);
-			auto type = LLVMGetElementType(pass.visit(f.type));
+			
+			import d.llvm.type;
+			auto type = LLVMGetElementType(TypeGen(pass).visit(f.type));
 			
 			// The method may have been defined when visiting the type.
 			if (auto funPtr = f in lookup) {
@@ -190,7 +192,7 @@ struct LocalGen {
 		
 		// Handle parameters in the alloca block.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
-
+		
 		auto funType = LLVMGetElementType(LLVMTypeOf(fun));
 		
 		LLVMValueRef[] params;
@@ -223,8 +225,9 @@ struct LocalGen {
 			params = params[1 .. $];
 			paramTypes = paramTypes[1 .. $];
 		}
-
-		auto closure = Closure(f.closure, buildContextType(f));
+		
+		import d.llvm.type;
+		auto closure = Closure(f.closure, TypeGen(pass).visit(f));
 		if (f.hasContext) {
 			auto parentCtxType = f.type.parameters[f.hasThis];
 			assert(parentCtxType.isRef || parentCtxType.isFinal);
@@ -233,8 +236,8 @@ struct LocalGen {
 			LLVMSetValueName(parentCtx, "__ctx");
 			
 			// Find the right context as parent.
-			import std.algorithm, std.range;
-			auto ctxTypeGen = pass.visit(parentCtxType.getType());
+			import d.llvm.type, std.algorithm, std.range;
+			auto ctxTypeGen = TypeGen(pass).visit(parentCtxType.getType());
 			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
 			
 			buildCapturedVariables(parentCtx, contexts, f.getCaptures());
@@ -249,7 +252,8 @@ struct LocalGen {
 			contexts ~= closure;
 		} else {
 			// Build closure for this function.
-			closure.type = buildContextType(f);
+			import d.llvm.type;
+			closure.type = TypeGen(pass).visit(f);
 			contexts = [closure];
 		}
 		
@@ -301,17 +305,17 @@ struct LocalGen {
 			}
 			
 			LLVMPositionBuilderBefore(builder, ctxAlloca);
-
+			
 			auto ctxType = contexts[$ - 1].type;
 			
-			import d.llvm.expression;
-			auto alloc = ExpressionGen(&this).buildCall(druntimeGen.getAllocMemory(), [LLVMSizeOf(ctxType)]);
+			import d.llvm.expression, d.llvm.runtime;
+			auto alloc = ExpressionGen(&this).buildCall(RuntimeGen(pass).getAllocMemory(), [LLVMSizeOf(ctxType)]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
 			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
 		}
 	}
-
+	
 	private void buildEmbededCaptures()(LLVMValueRef thisPtr, Type t) {
 		if (t.kind == TypeKind.Struct) {
 			auto s = t.dstruct;
@@ -326,8 +330,7 @@ struct LocalGen {
 				return;
 			}
 			
-			import d.context.name;
-			import std.algorithm, std.range;
+			import d.context.name, std.algorithm, std.range;
 			auto f = retro(c.members)
 				.filter!(m => m.name == BuiltinName!"__ctx")
 				.map!(m => cast(Field) m)
@@ -385,12 +388,12 @@ struct LocalGen {
 		
 		assert(closureCount == 0);
 	}
-
+	
 	LLVMValueRef declare(Variable v) {
 		// TODO: Actually just declare here :)
 		return locals.get(v, define(v));
 	}
-
+	
 	LLVMValueRef define(Variable v) in {
 		assert(!v.isFinal);
 	} body {
@@ -406,7 +409,7 @@ struct LocalGen {
 		
 		return createVariableStorage(v, value);
 	}
-
+	
 	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
 		assert(v.storage.isLocal, "globals not supported");
 	} body {
@@ -415,8 +418,10 @@ struct LocalGen {
 		}
 		
 		auto qualifier = v.type.qualifier;
-		auto type = pass.visit(v.type);
-
+		
+		import d.llvm.type;
+		auto type = TypeGen(pass).visit(v.type);
+		
 		// Backup current block
 		auto backupCurrentBlock = LLVMGetInsertBlock(builder);
 		LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
@@ -456,9 +461,10 @@ struct LocalGen {
 		// Register the variable.
 		return locals[v] = addr;
 	}
-
+	
 	LLVMValueRef getContext(Function f) {
-		auto type = buildContextType(f);
+		import d.llvm.type;
+		auto type = TypeGen(pass).visit(f);
 		auto value = ctxPtr;
 		foreach_reverse(i, c; contexts) {
 			if (value is null) {
@@ -474,16 +480,8 @@ struct LocalGen {
 		
 		assert(0, "No context available.");
 	}
-
+	
 	// Figure out what's a good way here.
-	LLVMTypeRef visit(Type t) {
-		return pass.visit(t);
-	}
-
-	LLVMTypeRef visit(FunctionType t) {
-		return pass.visit(t);
-	}
-
 	LLVMTypeRef define(TypeSymbol s) {
 		if (s.hasContext) {
 			embededContexts[s] = contexts;

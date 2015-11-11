@@ -23,12 +23,12 @@ extern(C) void* __sd_array_alloc(size_t size) {
 }
 
 final class LLVMEvaluator : Evaluator {
-	private CodeGenPass codeGen;
-		
-	this(CodeGenPass codeGen) {
+	private CodeGen codeGen;
+	
+	this(CodeGen codeGen) {
 		this.codeGen = codeGen;
 	}
-
+	
 	CompileTimeExpression evaluate(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
 			return ce;
@@ -39,8 +39,8 @@ final class LLVMEvaluator : Evaluator {
 		auto oldStatice = statice;
 		statice = e;
 		scope(exit) statice = oldStatice;
-
-		static CodeGenPass staticCodeGen;
+		
+		static CodeGen staticCodeGen;
 		auto oldStaticCodeGen = staticCodeGen;
 		staticCodeGen = codeGen;
 		scope(exit) staticCodeGen = oldStaticCodeGen;
@@ -56,9 +56,9 @@ final class LLVMEvaluator : Evaluator {
 		while (t.kind = TypeKing.Enum) {
 			t = t.denum.type.getCanonical();
 		}
-
+		
 		assert(t.kind == TypeKind.Builtin);
-
+		
 		auto bt = t.builtin;
 		assert(isIntegral(bt) || bt == BuiltinType.Bool);
 	} body {
@@ -66,7 +66,7 @@ final class LLVMEvaluator : Evaluator {
 			return r;
 		}, JitReturn.Direct)(e);
 	}
-
+	
 	string evalString(Expression e) in {
 		auto t = e.type.getCanonical();
 		assert(t.kind = TypeKind.Slice);
@@ -86,8 +86,9 @@ final class LLVMEvaluator : Evaluator {
 		scope(failure) LLVMDumpModule(codeGen.dmodule);
 		
 		// Create a global variable to hold the returned blob.
-		auto type = codeGen.visit(e.type);
-
+		import d.llvm.type;
+		auto type = TypeGen(codeGen).visit(e.type);
+		
 		static if (R == JitReturn.Direct) {
 			auto returnType = type;
 		} else {
@@ -95,18 +96,18 @@ final class LLVMEvaluator : Evaluator {
 			scope(exit) LLVMDeleteGlobal(buffer);
 			
 			LLVMSetInitializer(buffer, LLVMGetUndef(type));
-
+			
 			import llvm.c.target;
 			auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
-
+			
 			auto returnType = LLVMInt64TypeInContext(codeGen.llvmCtx);
 		}
-
+		
 		// Generate function signature
 		auto funType = LLVMFunctionType(returnType, null, 0, false);
 		auto fun = LLVMAddFunction(codeGen.dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
-
+		
 		// Generate function's body. Warning: horrible hack.
 		import d.llvm.local;
 		auto lg = LocalGen(codeGen, Mode.Eager);
@@ -160,7 +161,7 @@ final class LLVMEvaluator : Evaluator {
 			return handler((cast(void*) asInt)[0 .. size]);
 		}
 	}
-
+	
 	private auto createExecutionEngine(LLVMModuleRef dmodule) {
 		char* errorPtr;
 		
@@ -190,23 +191,24 @@ enum JitReturn {
 }
 
 struct JitRepacker {
-	CodeGenPass codeGen;
+	CodeGen pass;
+	alias pass this;
 	
 	import d.context.location;
 	Location location;
-
+	
 	void[] p;
 	
-	this(CodeGenPass codeGen, Location location, void[] p) {
-		this.codeGen = codeGen;
+	this(CodeGen pass, Location location, void[] p) {
+		this.pass = pass;
 		this.p = p;
 	}
 	
 	import d.ir.type, d.ir.symbol;
 	CompileTimeExpression visit(Type t) in {
-		import llvm.c.target;
-		auto size = LLVMStoreSizeOfType(codeGen.targetData, codeGen.visit(t));
-
+		import d.llvm.type, llvm.c.target;
+		auto size = LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
+		
 		import std.conv;
 		assert(
 			size == p.length,
@@ -225,13 +227,13 @@ struct JitRepacker {
 		scope(exit) p = p[T.sizeof .. $];
 		return *(cast(T*) p.ptr);
 	}
-
+	
 	CompileTimeExpression visit(BuiltinType t) {
 		ulong raw;
 		switch(t) with(BuiltinType) {
 			case Bool :
 				return new BooleanLiteral(location, get!bool());
-
+			
 			case Byte, Ubyte:
 				raw = get!ubyte();
 				goto HandleIntegral;
@@ -261,17 +263,24 @@ struct JitRepacker {
 	}
 	
 	CompileTimeExpression visitSliceOf(Type t) {
-		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char && t.qualifier == TypeQualifier.Immutable) {
+		if (
+			t.kind == TypeKind.Builtin &&
+			t.builtin == BuiltinType.Char &&
+			t.qualifier == TypeQualifier.Immutable
+		) {
 			return new StringLiteral(location, get!string().idup);
 		}
-
+		
 		assert(0, "Not Implemented.");
 	}
 	
 	CompileTimeExpression visitArrayOf(uint size, Type t) {
-		import llvm.c.target;
-		uint elementSize = cast(uint) LLVMStoreSizeOfType(codeGen.targetData, codeGen.visit(t));
-
+		import d.llvm.type, llvm.c.target;
+		uint elementSize = cast(uint) LLVMStoreSizeOfType(
+			targetData,
+			TypeGen(pass).visit(t),
+		);
+		
 		CompileTimeExpression[] elements;
 		elements.reserve(size);
 		
@@ -285,41 +294,42 @@ struct JitRepacker {
 			start = end;
 			elements ~= visit(t);
 		}
-
+		
 		return new CompileTimeTupleExpression(location, t.getArray(size), elements);
 	}
 	
 	CompileTimeExpression visit(Struct s) {
-		auto type = codeGen.buildStructType(s);
+		import d.llvm.type;
+		auto type = TypeGen(pass).visit(s);
 		auto count = LLVMCountStructElementTypes(type);
-
+		
 		// Hopefully we will be able to use http://reviews.llvm.org/D10148
 		LLVMTypeRef[] elementTypes;
 		elementTypes.length = count;
-
+		
 		import llvm.c.target;
 		LLVMGetStructElementTypes(type, elementTypes.ptr);
-
+		
 		auto buf = p;
-		auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
+		auto size = LLVMStoreSizeOfType(targetData, type);
 		scope(exit) p = buf[size .. $];
-
+		
 		CompileTimeExpression[] elements;
 		
 		uint i = 0;
 		foreach (m; s.members) {
 			if (auto f = cast(Field) m) {
 				scope(success) i++;
-
+				
 				assert(f.index == i, "fields are out of order");
 				auto t = f.type;
-
-				auto start = LLVMOffsetOfElement(codeGen.targetData, type, i);
+				
+				auto start = LLVMOffsetOfElement(targetData, type, i);
 				auto elementType = elementTypes[i];
-
-				auto fieldSize = LLVMStoreSizeOfType(codeGen.targetData, elementType);
+				
+				auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
 				auto end = start + fieldSize;
-
+				
 				p = buf[start .. end];
 				elements ~= visit(t);
 			}

@@ -9,10 +9,10 @@ import util.visitor;
 import llvm.c.core;
 
 struct ConstantGen {
-	private CodeGenPass pass;
+	private CodeGen pass;
 	alias pass this;
 	
-	this(CodeGenPass pass) {
+	this(CodeGen pass) {
 		this.pass = pass;
 	}
 	
@@ -28,30 +28,41 @@ struct ConstantGen {
 	LLVMValueRef visit(CompileTimeExpression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
 			import d.exception;
-			throw new CompileException(e.location, typeid(e).toString() ~ " is not supported");
+			throw new CompileException(
+				e.location,
+				typeid(e).toString() ~ " is not supported",
+			);
 		})(e);
 	}
 	
 	LLVMValueRef visit(BooleanLiteral bl) {
-		return LLVMConstInt(pass.visit(bl.type), bl.value, false);
+		import d.llvm.type;
+		return LLVMConstInt(TypeGen(pass).visit(bl.type), bl.value, false);
 	}
 	
 	LLVMValueRef visit(IntegerLiteral il) {
-		import d.ir.type;
-		return LLVMConstInt(pass.visit(il.type), il.value, isSigned(il.type.builtin));
+		import d.ir.type, d.llvm.type;
+		return LLVMConstInt(
+			TypeGen(pass).visit(il.type),
+			il.value,
+			il.type.builtin.isSigned(),
+		);
 	}
 	
 	LLVMValueRef visit(FloatLiteral fl) {
-		return LLVMConstReal(pass.visit(fl.type), fl.value);
+		import d.llvm.type;
+		return LLVMConstReal(TypeGen(pass).visit(fl.type), fl.value);
 	}
 	
 	// XXX: character types in backend ?
 	LLVMValueRef visit(CharacterLiteral cl) {
-		return LLVMConstInt(pass.visit(cl.type), cl.value, false);
+		import d.llvm.type;
+		return LLVMConstInt(TypeGen(pass).visit(cl.type), cl.value, false);
 	}
 	
 	LLVMValueRef visit(NullLiteral nl) {
-		return LLVMConstNull(pass.visit(nl.type));
+		import d.llvm.type;
+		return LLVMConstNull(TypeGen(pass).visit(nl.type));
 	}
 	
 	LLVMValueRef visit(StringLiteral sl) {
@@ -59,20 +70,31 @@ struct ConstantGen {
 	}
 	
 	LLVMValueRef visit(VoidInitializer v) {
-		return LLVMGetUndef(pass.visit(v.type));
+		import d.llvm.type;
+		return LLVMGetUndef(TypeGen(pass).visit(v.type));
 	}
 	
 	LLVMValueRef visit(CompileTimeTupleExpression e) {
 		import std.algorithm, std.array;
 		auto elts = e.values.map!(v => visit(v)).array();
-		auto t = pass.visit(e.type);
+		
+		import d.llvm.type;
+		auto t = TypeGen(pass).visit(e.type);
 		
 		switch(LLVMGetTypeKind(t)) with(LLVMTypeKind) {
 			case Struct :
-				return LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
+				return LLVMConstNamedStruct(
+					t,
+					elts.ptr,
+					cast(uint) elts.length,
+				);
 			
 			case Array :
-				return LLVMConstArray(LLVMGetElementType(t), elts.ptr, cast(uint) elts.length);
+				return LLVMConstArray(
+					LLVMGetElementType(t),
+					elts.ptr,
+					cast(uint) elts.length,
+				);
 			
 			default :
 				break;
