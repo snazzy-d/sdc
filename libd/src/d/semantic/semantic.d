@@ -5,7 +5,6 @@ module d.semantic.semantic;
 
 public import util.visitor;
 
-import d.semantic.dmodule;
 import d.semantic.scheduler;
 
 import d.ast.declaration;
@@ -30,21 +29,10 @@ alias ExpressionStatement = d.ir.statement.ExpressionStatement;
 alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
-	private ModuleVisitor moduleVisitor;
-	
 	import d.context.context;
 	Context context;
 	
-	import d.semantic.evaluator;
-	Evaluator evaluator;
-	
-	import d.semantic.datalayout;
-	DataLayout dataLayout;
-	
-	import d.object;
-	ObjectReference object;
-	
-	Name[] versions = getDefaultVersions();
+	Scheduler scheduler;
 	
 	static struct State {
 		Scope currentScope;
@@ -60,14 +48,31 @@ final class SemanticPass {
 	State state;
 	alias state this;
 	
-	Scheduler scheduler;
-	
 	alias Step = d.ir.symbol.Step;
+	
+	import d.semantic.evaluator;
+	Evaluator evaluator;
+	
+	import d.semantic.datalayout;
+	DataLayout dataLayout;
+	
+	import d.semantic.dmodule;
+	ModuleVisitor moduleVisitor;
+	
+	import d.object;
+	ObjectReference object;
+	
+	Name[] versions = getDefaultVersions();
 	
 	alias EvaluatorBuilder = Evaluator delegate(Scheduler, ObjectReference);
 	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
 	
-	this(Context context, EvaluatorBuilder evBuilder, DataLayoutBuilder dlBuilder, string[] includePaths) {
+	this(
+		Context context,
+		EvaluatorBuilder evBuilder,
+		DataLayoutBuilder dlBuilder,
+		string[] includePaths,
+	) {
 		this.context	= context;
 		
 		moduleVisitor	= new ModuleVisitor(this, includePaths);

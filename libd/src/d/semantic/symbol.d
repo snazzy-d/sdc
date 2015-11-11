@@ -90,10 +90,13 @@ struct SymbolAnalyzer {
 		auto name = astm.name.toString(context);
 		manglePrefix ~= name.length.to!string() ~ name;
 		
+		import d.context.name;
 		// All modules implicitely import object.
-		import d.semantic.declaration, d.context.name;
-		m.members = DeclarationVisitor(pass)
-			.flatten(new ImportDeclaration(m.location, [[BuiltinName!"object"]]) ~ astm.declarations, m);
+		auto obj = importModule([BuiltinName!"object"]);
+		m.addImport(obj);
+		
+		import d.semantic.declaration;
+		m.members = DeclarationVisitor(pass).flatten(astm.declarations, m);
 		
 		scheduler.require(m.members);
 		m.step = Step.Processed;
