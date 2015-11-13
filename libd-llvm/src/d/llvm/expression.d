@@ -604,8 +604,12 @@ struct ExpressionGen {
 		auto floc = location.getFullLocation(context);
 		
 		LLVMValueRef[2] args;
-		args[0] = buildDString(floc.getFileName().toString());
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), floc.getStartLineNumber(), false);
+		args[0] = buildDString(floc.getSource().getFileName().toString());
+		args[1] = LLVMConstInt(
+			LLVMInt32TypeInContext(llvmCtx),
+			floc.getStartLineNumber(),
+			false,
+		);
 		
 		import d.llvm.runtime;
 		buildCall(RuntimeGen(pass.pass).getArrayBound(), args);
@@ -881,11 +885,15 @@ struct ExpressionGen {
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
 		
-		auto location = e.getFullLocation(context);
+		auto floc = e.getFullLocation(context);
 		
 		LLVMValueRef[3] args;
-		args[1] = buildDString(location.getFileName().toString());
-		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.getStartLineNumber(), false);
+		args[1] = buildDString(floc.getSource().getFileName().toString());
+		args[2] = LLVMConstInt(
+			LLVMInt32TypeInContext(llvmCtx),
+			floc.getStartLineNumber(),
+			false,
+		);
 		
 		if (e.message) {
 			args[0] = visit(e.message);

@@ -1,23 +1,13 @@
-module d.context.sourcemanager;
+module d.context.source;
 
 import d.context.context;
 import d.context.location;
 import d.context.name;
 
-struct FullLocation {
+struct Source {
 private:
-	Location _location;
+	FileID _file;
 	Context context;
-	
-	@property
-	inout(FullPosition) start() inout {
-		return inout(FullPosition)(location.start, context);
-	}
-	
-	@property
-	inout(FullPosition) stop() inout {
-		return inout(FullPosition)(location.stop, context);
-	}
 	
 	@property
 	ref sourceManager() inout {
@@ -25,91 +15,10 @@ private:
 	}
 	
 public:
-	this(Location location, Context context) {
-		this._location = location;
-		this.context = context;
-		
-		import std.conv;
-		assert(
-			sourceManager.getFileID(start) == sourceManager.getFileID(stop),
-/+
-			"Location file mismatch " ~
-				start.getFileName() ~ ":" ~ to!string(start.getOffsetInFile()) ~ " and " ~
-				stop.getFileName() ~ ":" ~ to!string(stop.getOffsetInFile())
-/* +/ /*/ /+ */
-			"Location file mismatch"
-// +/
-		);
+	alias file this;
+	@property file() const {
+		return _file;
 	}
-	
-	alias location this;
-	@property location() const {
-		return _location;
-	}
-	
-	string getContent() {
-		return start.getContent();
-	}
-	
-	FullName getFileName() {
-		return start.getFileName();
-	}
-	
-	FullName getDirectory() {
-		return start.getDirectory();
-	}
-	
-	FullLocation getImportLocation() {
-		return start.getImportLocation();
-	}
-	
-	uint getStartLineNumber() {
-		return start.getLineNumber();
-	}
-	
-	uint getStopLineNumber() {
-		return stop.getLineNumber();
-	}
-	
-	uint getStartColumn() {
-		return start.getColumn();
-	}
-	
-	uint getStopColumn() {
-		return stop.getColumn();
-	}
-	
-	uint getStartOffset() {
-		return start.getOffsetInFile();
-	}
-	
-	uint getStopOffset() {
-		return stop.getOffsetInFile();
-	}
-}
-
-struct FullPosition {
-private:
-	Position _position;
-	Context context;
-	
-	@property
-	uint offset() const {
-		return position.offset;
-	}
-	
-	@property
-	ref sourceManager() inout {
-		return context.sourceManager;
-	}
-	
-public:
-	@property
-	Position position() const {
-		return _position;
-	}
-	
-	alias position this;
 	
 	string getContent() {
 		return sourceManager.getContent(this);
@@ -119,7 +28,9 @@ public:
 		return sourceManager.getFileName(this).getFullName(context);
 	}
 	
-	FullName getDirectory() {
+	FullName getDirectory(FileID f) in {
+		assert(f.isFile());
+	} body {
 		return sourceManager.getDirectory(this).getFullName(context);
 	}
 	
@@ -127,18 +38,6 @@ public:
 		return sourceManager
 			.getImportLocation(this)
 			.getFullLocation(context);
-	}
-	
-	uint getLineNumber() {
-		return sourceManager.getLineNumber(this);
-	}
-	
-	uint getColumn() {
-		return sourceManager.getColumn(this);
-	}
-	
-	uint getOffsetInFile() {
-		return sourceManager.getOffsetInFile(this);
 	}
 }
 
@@ -168,35 +67,12 @@ public:
 		return mixins.registerMixin(location, content);
 	}
 	
-package:
-	static get() {
-		return SourceManager();
-	}
-	
-private:
-	string getContent(Position p) {
-		return getSourceEntry(p).content;
-	}
-	
-	Name getFileName(Position p) {
-		/+
-		if (p.isMixin()) {
-			import std.conv;
-			auto loc = getSourceEntry(p).location.getFullLocation(this);
-			return loc.getFileName() ~ "-mixin" ~ to!string(loc.getStartOffset());
-		}
-		// +/
-		return getSourceEntry(p).filename;
-	}
-	
-	Name getDirectory(Position p) in {
-		assert(p.isFile());
+	FileID getFileID(Position p) out(result) {
+		assert(p.isMixin() == result.isMixin());
 	} body {
-		return getSourceEntry(p).directory;
-	}
-	
-	Location getImportLocation(Position p) {
-		return getSourceEntry(p).location;
+		return p.isFile()
+			? files.getFileID(p)
+			: mixins.getFileID(p);
 	}
 	
 	uint getLineNumber(Position p) {
@@ -214,12 +90,28 @@ private:
 		return p.offset - getSourceEntry(p).offset;
 	}
 	
-	FileID getFileID(Position p) out(result) {
-		assert(p.isMixin() == result.isMixin());
+package:
+	static get() {
+		return SourceManager();
+	}
+	
+private:
+	string getContent(FileID f) {
+		return getSourceEntry(f).content;
+	}
+	
+	Name getFileName(FileID f) {
+		return getSourceEntry(f).filename;
+	}
+	
+	Name getDirectory(FileID f) in {
+		assert(f.isFile());
 	} body {
-		return p.isFile()
-			? files.getFileID(p)
-			: mixins.getFileID(p);
+		return getSourceEntry(f).directory;
+	}
+	
+	Location getImportLocation(FileID f) {
+		return getSourceEntry(f).location;
 	}
 	
 	ref SourceEntry getSourceEntry(Position p) {
@@ -233,9 +125,8 @@ private:
 	}
 }
 
-private:
-
 struct FileID {
+private:
 	import std.bitmanip;
 	mixin(bitfields!(
 		bool, "_mixin", 1,
@@ -247,6 +138,7 @@ struct FileID {
 		this._mixin = isMixin;
 	}
 	
+public:
 	alias id this;
 	@property id() const {
 		return _index;
@@ -259,7 +151,21 @@ struct FileID {
 	bool isMixin() const {
 		return _mixin;
 	}
+	
+	Source getSource(Context c) {
+		return Source(this, c);
+	}
 }
+
+unittest {
+	uint i = 1;
+	auto f = *cast(FileID*) &i;
+	
+	assert(f.isMixin());
+	assert(f.id == 0);
+}
+
+private:
 
 struct SourceEntries {
 	SourceEntry[] sourceEntries;

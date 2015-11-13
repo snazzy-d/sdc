@@ -56,7 +56,6 @@ public:
 	}
 	
 	auto getFullLocation(Context c) const {
-		import d.context.sourcemanager;
 		return FullLocation(this, c);
 	}
 }
@@ -99,7 +98,126 @@ public:
 	}
 	
 	auto getFullPosition(Context c) const {
-		import d.context.sourcemanager;
 		return FullPosition(this, c);
+	}
+}
+
+/**
+ * A Location associated with a context, so it can probe various infos.
+ */
+struct FullLocation {
+private:
+	Location _location;
+	Context context;
+	
+	@property
+	inout(FullPosition) start() inout {
+		return inout(FullPosition)(location.start, context);
+	}
+	
+	@property
+	inout(FullPosition) stop() inout {
+		return inout(FullPosition)(location.stop, context);
+	}
+	
+	@property
+	ref sourceManager() inout {
+		return context.sourceManager;
+	}
+	
+public:
+	this(Location location, Context context) {
+		this._location = location;
+		this.context = context;
+		
+		import std.conv;
+		assert(
+			start.getSource() == stop.getSource(),
+/+
+			"Location file mismatch " ~
+				start.getFileName() ~ ":" ~ to!string(start.getOffsetInFile()) ~ " and " ~
+				stop.getFileName() ~ ":" ~ to!string(stop.getOffsetInFile())
+/* +/ /*/ /+ */
+			"Location file mismatch"
+// +/
+		);
+	}
+	
+	alias location this;
+	@property location() const {
+		return _location;
+	}
+	
+	auto getSource() out(result) {
+		assert(result.isMixin() == isMixin());
+	} body {
+		return start.getSource();
+	}
+	
+	uint getStartLineNumber() {
+		return start.getLineNumber();
+	}
+	
+	uint getStopLineNumber() {
+		return stop.getLineNumber();
+	}
+	
+	uint getStartColumn() {
+		return start.getColumn();
+	}
+	
+	uint getStopColumn() {
+		return stop.getColumn();
+	}
+	
+	uint getStartOffset() {
+		return start.getOffsetInFile();
+	}
+	
+	uint getStopOffset() {
+		return stop.getOffsetInFile();
+	}
+}
+
+/**
+ * A Position associated with a context, so it can probe various infos.
+ */
+struct FullPosition {
+private:
+	Position _position;
+	Context context;
+	
+	@property
+	uint offset() const {
+		return position.offset;
+	}
+	
+	@property
+	ref sourceManager() inout {
+		return context.sourceManager;
+	}
+	
+public:
+	alias position this;
+	@property position() const {
+		return _position;
+	}
+	
+	auto getSource() out(result) {
+		assert(result.isMixin() == isMixin());
+	} body {
+		return sourceManager.getFileID(this).getSource(context);
+	}
+	
+	uint getLineNumber() {
+		return sourceManager.getLineNumber(this);
+	}
+	
+	uint getColumn() {
+		return sourceManager.getColumn(this);
+	}
+	
+	uint getOffsetInFile() {
+		return sourceManager.getOffsetInFile(this);
 	}
 }

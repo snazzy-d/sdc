@@ -1,13 +1,8 @@
-/**
- * Copyright 2010 Jakob Ovrum.
- * This file is part of SDC.
- * See LICENCE or sdc.d for more details.
- */ 
-module sdc.terminal;
+module util.terminal;
 
 import std.stdio;
 
-import d.context.sourcemanager;
+import d.context.location;
 
 version(Windows) {
 	import std.c.windows.windows;
@@ -15,8 +10,10 @@ version(Windows) {
 
 void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	uint offset = loc.getStartOffset();
-	uint start = offset;
-	auto content = loc.getContent();
+	uint start  = offset;
+	
+	auto source  = loc.getSource();
+	auto content = source.getContent();
 	
 	// This is unexpected end of input.
 	if (start == content.length) {
@@ -79,7 +76,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	assert(index == loc.getStartColumn());
 	
 	stderr.write(
-		loc.isMixin() ? "mixin" : loc.getFileName().toString(),
+		loc.isMixin() ? "mixin" : source.getFileName().toString(),
 		":",
 		loc.getStartLineNumber(),
 		":",
@@ -94,7 +91,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	stderr.writeColouredText(ConsoleColour.Green, underline, "\n");
 	
 	if (loc.isMixin()) {
-		outputCaretDiagnostics(loc.getImportLocation(), "mixed in at");
+		outputCaretDiagnostics(source.getImportLocation(), "mixed in at");
 	}
 }
 

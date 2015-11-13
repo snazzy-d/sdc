@@ -130,7 +130,7 @@ struct Token {
 auto lex(Position base, Context context) {
 	auto lexer = TokenRange();
 	
-	lexer.content = base.getFullPosition(context).getContent();
+	lexer.content = base.getFullPosition(context).getSource().getContent();
 	lexer.t.type = TokenType.Begin;
 	lexer.t.location = Location(base, base);
 	

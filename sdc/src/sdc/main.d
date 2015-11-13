@@ -7,7 +7,6 @@ import d.exception;
 
 import sdc.conf;
 import sdc.sdc;
-import sdc.terminal;
 
 import std.array;
 import std.getopt;
@@ -109,6 +108,7 @@ int main(string[] args) {
 
 		return 0;
 	} catch(CompileException e) {
+		import util.terminal;
 		outputCaretDiagnostics(e.getFullLocation(sdc.context), e.msg);
 		
 		// Rethrow in debug, so we have the stack trace.
@@ -119,4 +119,3 @@ int main(string[] args) {
 		}
 	}
 }
-
