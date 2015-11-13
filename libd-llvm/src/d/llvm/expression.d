@@ -22,7 +22,8 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
-			// XXX: for some resaon, pass.pass is need as alias this doesn't kick in.
+			// XXX: for some resaon, pass.pass is need as
+			// alias this doesn't kick in.
 			import d.llvm.constant;
 			return ConstantGen(pass.pass).visit(ce);
 		}
@@ -65,14 +66,17 @@ struct ExpressionGen {
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
-		// XXX: should be useless, but order of evaluation of parameters is bugguy.
+		// XXX: should be useless, but parameters's order of evaluation is bugguy.
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 		
 		return LLVMBuildOp(builder, lhs, rhs, "");
 	}
 	
-	private auto handleBinaryOp(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
+	private auto handleBinaryOp(
+		alias LLVMSignedBuildOp,
+		alias LLVMUnsignedBuildOp,
+	)(BinaryExpression e) {
 		return isSigned(e.type.getCanonical().builtin)
 			? handleBinaryOp!LLVMSignedBuildOp(e)
 			: handleBinaryOp!LLVMUnsignedBuildOp(e);
@@ -90,38 +94,48 @@ struct ExpressionGen {
 		return value;
 	}
 	
-	private auto handleBinaryOpAssign(alias LLVMSignedBuildOp, alias LLVMUnsignedBuildOp)(BinaryExpression e) {
+	private auto handleBinaryOpAssign(
+		alias LLVMSignedBuildOp,
+		alias LLVMUnsignedBuildOp,
+	)(BinaryExpression e) {
 		return isSigned(e.type.getCanonical().builtin)
 			? handleBinaryOpAssign!LLVMSignedBuildOp(e)
 			: handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
 	}
 	
-	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate predicate) {
-		static LLVMIntPredicate workaround;
+	private LLVMValueRef handleComparison(
+		BinaryExpression e,
+		LLVMIntPredicate pred,
+	) {
+		// XXX: should be useless, but parameters's order of evaluation is bugguy.
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
 		
-		auto oldWorkaround = workaround;
-		scope(exit) workaround = oldWorkaround;
-		
-		workaround = predicate;
-		
-		return handleBinaryOp!(function(LLVMBuilderRef builder, LLVMValueRef lhs, LLVMValueRef rhs, const char* name) {
-			return LLVMBuildICmp(builder, workaround, lhs, rhs, name);
-		})(e);
+		return LLVMBuildICmp(builder, pred, lhs, rhs, "");
 	}
 	
-	private LLVMValueRef handleComparison(BinaryExpression e, LLVMIntPredicate signedPredicate, LLVMIntPredicate unsignedPredicate) {
+	private LLVMValueRef handleComparison(
+		BinaryExpression e,
+		LLVMIntPredicate signedPredicate,
+		LLVMIntPredicate unsignedPredicate,
+	) {
 		auto t = e.lhs.type.getCanonical();
 		if (t.kind == TypeKind.Builtin) {
-			if(isSigned(t.builtin)) {
-				return handleComparison(e, signedPredicate);
-			} else {
-				return handleComparison(e, unsignedPredicate);
-			}
-		} else if (t.kind == TypeKind.Pointer) {
+			return handleComparison(
+				e,
+				t.builtin.isSigned()
+					? signedPredicate
+					: unsignedPredicate,
+			);
+		}
+		
+		if (t.kind == TypeKind.Pointer) {
 			return handleComparison(e, unsignedPredicate);
 		}
 		
-		assert(0, "Can't compare " ~ e.lhs.type.toString(context) ~ " with " ~ e.rhs.type.toString(context));
+		auto t1 = e.lhs.type.toString(context);
+		auto t2 = e.rhs.type.toString(context);
+		assert(0, "Can't compare " ~ t1 ~ " with " ~ t2);
 	}
 	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
@@ -130,7 +144,7 @@ struct ExpressionGen {
 		auto lhsBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(lhsBB);
 		
-		static if(shortCircuitOnTrue) {
+		static if (shortCircuitOnTrue) {
 			auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_rhs");
 			auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "or_merge");
 			LLVMBuildCondBr(builder, lhs, mergeBB, rhsBB);
