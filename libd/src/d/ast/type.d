@@ -3,7 +3,7 @@ module d.ast.type;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context.name;
+import d.context.context;
 import d.common.type;
 
 enum AstTypeKind : ubyte {
@@ -234,8 +234,8 @@ public:
 		return kind == AstTypeKind.TypeOf && desc.data != 0;
 	}
 	
-	string toString(const ref NameManager nm) const {
-		auto s = toUnqualString(nm);
+	string toString(const Context c) const {
+		auto s = toUnqualString(c);
 		
 		final switch(qualifier) with(TypeQualifier) {
 			case Mutable:
@@ -258,42 +258,42 @@ public:
 		}
 	}
 	
-	string toUnqualString(const ref NameManager nm) const {
+	string toUnqualString(const Context c) const {
 		final switch(kind) with(AstTypeKind) {
 			case Builtin :
 				import d.common.builtintype : toString;
 				return toString(builtin);
 			
 			case Identifier :
-				return identifier.toString(nm);
+				return identifier.toString(c);
 			
 			case Pointer :
-				return element.toString(nm) ~ "*";
+				return element.toString(c) ~ "*";
 			
 			case Slice :
-				return element.toString(nm) ~ "[]";
+				return element.toString(c) ~ "[]";
 			
 			case Array :
-				return element.toString(nm) ~ "[" ~ size.toString(nm) ~ "]";
+				return element.toString(c) ~ "[" ~ size.toString(c) ~ "]";
 			
 			case Map :
-				return element.toString(nm) ~ "[" ~ key.toString(nm) ~ "]";
+				return element.toString(c) ~ "[" ~ key.toString(c) ~ "]";
 			
 			case Bracket :
-				return element.toString(nm) ~ "[" ~ ikey.toString(nm) ~ "]";
+				return element.toString(c) ~ "[" ~ ikey.toString(c) ~ "]";
 			
 			case Function :
 				auto f = asFunctionType();
-				auto ret = f.returnType.toString(nm);
+				auto ret = f.returnType.toString(c);
 				auto base = f.contexts.length ? " delegate(" : " function(";
 				import std.algorithm, std.range;
-				auto args = f.parameters.map!(p => p.toString(nm)).join(", ");
+				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
 				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
 			case TypeOf :
 				return desc.data
 					? "typeof(return)"
-					: "typeof(" ~ expression.toString(nm) ~ ")";
+					: "typeof(" ~ expression.toString(c) ~ ")";
 		}
 	}
 	
@@ -381,7 +381,7 @@ unittest {
 
 alias ParamAstType = AstType.ParamType;
 
-string toString(const ParamAstType t, const ref NameManager nm) {
+string toString(const ParamAstType t, const Context c) {
 	string s;
 	if (t.isRef && t.isFinal) {
 		s = "final ref ";
@@ -391,7 +391,7 @@ string toString(const ParamAstType t, const ref NameManager nm) {
 		s = "final ";
 	}
 	
-	return s ~ t.getType().toString(nm);
+	return s ~ t.getType().toString(c);
 }
 
 inout(ParamAstType) getParamType(inout ParamAstType t, bool isRef, bool isFinal) {

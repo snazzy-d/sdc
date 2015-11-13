@@ -46,8 +46,8 @@ class Symbol : Node {
 		this.name = name;
 	}
 	
-	string toString(const ref NameManager nm) const {
-		return name.toString(nm);
+	string toString(const Context c) const {
+		return name.toString(c);
 	}
 }
 
@@ -164,7 +164,12 @@ class Variable : ValueSymbol {
 	
 	ParamType paramType;
 	
-	this(Location location, ParamType paramType, Name name, Expression value = null) {
+	this(
+		Location location,
+		ParamType paramType,
+		Name name,
+		Expression value = null,
+	) {
 		super(location, name);
 		
 		this.paramType = paramType;
@@ -200,8 +205,9 @@ class Variable : ValueSymbol {
 	}
 	
 	override
-	string toString(const ref NameManager nm) const {
-		return type.toString(nm) ~ " " ~ name.toString(nm) ~ " = " ~ value.toString(nm) ~ ";";
+	string toString(const Context c) const {
+		return type.toString(c) ~ " " ~ name.toString(c)
+			~ " = " ~ value.toString(c) ~ ";";
 	}
 }
 
@@ -214,7 +220,13 @@ class Field : ValueSymbol {
 	Type type;
 	uint index;
 	
-	this(Location location, uint index, Type type, Name name, CompileTimeExpression value = null) {
+	this(
+		Location location,
+		uint index,
+		Type type,
+		Name name,
+		CompileTimeExpression value = null,
+	) {
 		super(location, name);
 		this.value = value;
 		this.type = type;
@@ -258,15 +270,23 @@ class TypeTemplateParameter : TemplateParameter {
 	Type specialization;
 	Type defaultValue;
 	
-	this(Location location, Name name, uint index, Type specialization, Type defaultValue) {
+	this(
+		Location location,
+		Name name,
+		uint index,
+		Type specialization,
+		Type defaultValue,
+	) {
 		super(location, name, index);
 		
 		this.specialization = specialization;
 		this.defaultValue = defaultValue;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return name.toString(nm) ~ " : " ~ specialization.toString(nm) ~ " = " ~ defaultValue.toString(nm);
+	override string toString(const Context c) const {
+		return name.toString(c)
+			~ " : " ~ specialization.toString(c)
+			~ " = " ~ defaultValue.toString(c);
 	}
 }
 
@@ -277,7 +297,13 @@ class ValueTemplateParameter : TemplateParameter {
 	Type type;
 	Expression defaultValue;
 	
-	this(Location location, Name name, uint index, Type type, Expression defaultValue) {
+	this(
+		Location location,
+		Name name,
+		uint index,
+		Type type,
+		Expression defaultValue,
+	) {
 		super(location, name, index);
 		
 		this.type = type;

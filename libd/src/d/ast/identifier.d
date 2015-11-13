@@ -16,7 +16,7 @@ abstract class Identifier : Node {
 		this.name = name;
 	}
 	
-	string toString(const ref NameManager) const {
+	string toString(const Context c) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -39,8 +39,8 @@ class BasicIdentifier : Identifier {
 		super(location, name);
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return name.toString(nm);
+	override string toString(const Context c) const {
+		return name.toString(c);
 	}
 }
 
@@ -56,8 +56,8 @@ class IdentifierDotIdentifier : Identifier {
 		this.identifier = identifier;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return identifier.toString(nm) ~ "." ~ name.toString(nm);
+	override string toString(const Context c) const {
+		return identifier.toString(c) ~ "." ~ name.toString(c);
 	}
 }
 
@@ -73,8 +73,8 @@ class TypeDotIdentifier : Identifier {
 		this.type = type;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return type.toString(nm) ~ "." ~ name.toString(nm);
+	override string toString(const Context c) const {
+		return type.toString(c) ~ "." ~ name.toString(c);
 	}
 }
 
@@ -90,8 +90,8 @@ class ExpressionDotIdentifier : Identifier {
 		this.expression = expression;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return expression.toString(nm) ~ "." ~ name.toString(nm);
+	override string toString(const Context c) const {
+		return expression.toString(c) ~ "." ~ name.toString(c);
 	}
 }
 
@@ -101,7 +101,11 @@ class ExpressionDotIdentifier : Identifier {
 class TemplateInstanciationDotIdentifier : Identifier {
 	TemplateInstanciation templateInstanciation;
 	
-	this(Location location, Name name, TemplateInstanciation templateInstanciation) {
+	this(
+		Location location,
+		Name name,
+		TemplateInstanciation templateInstanciation,
+	) {
 		super(location, name);
 		
 		this.templateInstanciation = templateInstanciation;
@@ -115,7 +119,11 @@ class TemplateInstanciation : Node {
 	Identifier identifier;
 	TemplateArgument[] arguments;
 	
-	this(Location location, Identifier identifier, TemplateArgument[] arguments) {
+	this(
+		Location location,
+		Identifier identifier,
+		TemplateArgument[] arguments,
+	) {
 		super(location);
 		
 		this.identifier = identifier;
@@ -170,8 +178,8 @@ class DotIdentifier : Identifier {
 		super(location, name);
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return "." ~ name.toString(nm);
+	override string toString(const Context c) const {
+		return "." ~ name.toString(c);
 	}
 }
 
@@ -189,8 +197,8 @@ class IdentifierBracketIdentifier : Identifier {
 		this.index = index;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return indexed.toString(nm) ~ "[" ~ index.toString(nm) ~ "]";
+	override string toString(const Context c) const {
+		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
 }
 
@@ -208,7 +216,7 @@ class IdentifierBracketExpression : Identifier {
 		this.index = index;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return indexed.toString(nm) ~ "[" ~ index.toString(nm) ~ "]";
+	override string toString(const Context c) const {
+		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
 }

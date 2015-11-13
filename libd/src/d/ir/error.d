@@ -1,7 +1,7 @@
 module d.ir.error;
 
+import d.context.context;
 import d.context.location;
-import d.context.name;
 
 import d.ir.expression;
 import d.ir.statement;
@@ -24,7 +24,7 @@ public:
 		exprStorage.emplace!ErrorExpression(this);
 	}
 	
-	string toString(const ref NameManager nm) const {
+	string toString(const Context) const {
 		return message;
 	}
 	
@@ -90,8 +90,8 @@ public:
 		return type.error;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return type.toString(nm);
+	override string toString(const Context c) const {
+		return type.toString(c);
 	}
 }
 
@@ -104,6 +104,7 @@ class ErrorSymbol : Symbol {
 	
 // private:
 	this(CompileError error) {
+		import d.context.name;
 		super(error.location, BuiltinName!"");
 		
 		this.error = error;
@@ -111,8 +112,8 @@ class ErrorSymbol : Symbol {
 	}
 	
 public:
-	override string toString(const ref NameManager nm) const {
-		return "__error__(" ~ error.toString(nm) ~ ")";
+	override string toString(const Context c) const {
+		return "__error__(" ~ error.toString(c) ~ ")";
 	}
 }
 

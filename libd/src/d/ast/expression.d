@@ -13,7 +13,7 @@ abstract class AstExpression : Node {
 		super(location);
 	}
 	
-	string toString(const ref NameManager nm) const {
+	string toString(const Context) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
 }
@@ -35,8 +35,10 @@ class TernaryExpression(E) : E  if(is(E: AstExpression)){
 		this.rhs = rhs;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return condition.toString(nm) ~ "? " ~ lhs.toString(nm) ~ " : " ~ rhs.toString(nm);
+	override string toString(const Context c) const {
+		return condition.toString(c)
+			~ "? " ~ lhs.toString(c)
+			~ " : " ~ rhs.toString(c);
 	}
 }
 
@@ -120,9 +122,9 @@ class BinaryExpression(T) : T  if(is(T: AstExpression)){
 		assert(rhs);
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.conv;
-		return lhs.toString(nm) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(nm);
+		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
 	}
 }
 
@@ -193,8 +195,8 @@ class AstUnaryExpression : AstExpression {
 		assert(expr);
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return unarizeString(expr.toString(nm), op);
+	override string toString(const Context c) const {
+		return unarizeString(expr.toString(c), op);
 	}
 }
 
@@ -209,8 +211,8 @@ class AstCastExpression : AstExpression {
 		this.expr = expr;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return "cast(" ~ type.toString(nm) ~ ") " ~ expr.toString(nm);
+	override string toString(const Context c) const {
+		return "cast(" ~ type.toString(c) ~ ") " ~ expr.toString(c);
 	}
 }
 
@@ -228,9 +230,10 @@ class AstCallExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return callee.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
 
@@ -248,9 +251,10 @@ class IdentifierCallExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return callee.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
 
@@ -278,7 +282,12 @@ class AstSliceExpression : AstExpression {
 	AstExpression[] first;
 	AstExpression[] second;
 	
-	this(Location location, AstExpression sliced, AstExpression[] first, AstExpression[] second) {
+	this(
+		Location location,
+		AstExpression sliced,
+		AstExpression[] first,
+		AstExpression[] second,
+	) {
 		super(location);
 		
 		this.sliced = sliced;
@@ -312,8 +321,8 @@ class IdentifierExpression : AstExpression {
 		this.identifier = identifier;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return identifier.toString(nm);
+	override string toString(const Context c) const {
+		return identifier.toString(c);
 	}
 }
 
@@ -331,9 +340,10 @@ class NewExpression : AstExpression {
 		this.args = args;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return "new " ~ type.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
 
@@ -351,9 +361,9 @@ class ArrayLiteral(T) : T if(is(T: AstExpression)) {
 		this.values = values;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return "[" ~ values.map!(v => v.toString(nm)).join(", ") ~ "]";
+		return "[" ~ values.map!(v => v.toString(c)).join(", ") ~ "]";
 	}
 }
 
@@ -385,7 +395,12 @@ class DelegateLiteral : AstExpression {
 	bool isVariadic;
 	AstBlockStatement fbody;
 	
-	this(Location location, ParamDecl[] params, bool isVariadic, AstBlockStatement fbody) {
+	this(
+		Location location,
+		ParamDecl[] params,
+		bool isVariadic,
+		AstBlockStatement fbody,
+	) {
 		super(location);
 		
 		this.params = params;
@@ -449,8 +464,8 @@ class AssertExpression(T) : T if(is(T: AstExpression)) {
 		this.message = message;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return "assert(" ~ condition.toString(nm) ~ ")";
+	override string toString(const Context c) const {
+		return "assert(" ~ condition.toString(c) ~ ")";
 	}
 }
 
@@ -482,7 +497,8 @@ class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 	}
 }
 
-alias AstStaticTypeidExpression = StaticTypeidExpression!(AstType, AstExpression);
+alias AstStaticTypeidExpression =
+	StaticTypeidExpression!(AstType, AstExpression);
 
 /**
  * ambiguous typeid expression.
@@ -505,8 +521,7 @@ class AstVoidInitializer : AstExpression {
 		super(location);
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "void";
 	}
 }
-

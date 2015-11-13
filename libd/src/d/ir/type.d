@@ -6,7 +6,7 @@ import d.ir.symbol;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context.name;
+import d.context.context;
 import d.common.type;
 
 // Conflict with Interface in object.di
@@ -136,7 +136,8 @@ public:
 		}
 		
 		switch(kind) with(TypeKind) {
-			case Builtin, Struct, Class, Enum, Alias, Interface, Union, Context, Function :
+			case Builtin, Struct, Class, Enum, Alias :
+			case Interface, Union, Context, Function :
 				auto d = desc;
 				d.qualifier = nq;
 				return Type(d, payload);
@@ -326,8 +327,8 @@ public:
 		}
 	}
 	
-	string toString(const ref NameManager nm, TypeQualifier q = TypeQualifier.Mutable) const {
-		auto s = toUnqualString(nm);
+	string toString(const Context c, TypeQualifier q = TypeQualifier.Mutable) const {
+		auto s = toUnqualString(c);
 		if (q == qualifier) {
 			return s;
 		}
@@ -353,61 +354,62 @@ public:
 		}
 	}
 	
-	string toUnqualString(const ref NameManager nm) const {
+	string toUnqualString(const Context c) const {
 		final switch(kind) with(TypeKind) {
 			case Builtin :
 				import d.common.builtintype : toString;
 				return toString(builtin);
 			
 			case Struct :
-				return dstruct.name.toString(nm);
+				return dstruct.name.toString(c);
 			
 			case Class :
-				return dclass.name.toString(nm);
+				return dclass.name.toString(c);
 			
 			case Enum :
-				return denum.name.toString(nm);
+				return denum.name.toString(c);
 			
 			case Alias :
-				return dalias.name.toString(nm);
+				return dalias.name.toString(c);
 			
 			case Interface :
-				return dinterface.name.toString(nm);
+				return dinterface.name.toString(c);
 			
 			case Union :
-				return dunion.name.toString(nm);
+				return dunion.name.toString(c);
 			
 			case Context :
 				return "__ctx";
 			
 			case Pointer :
-				return element.toString(nm, qualifier) ~ "*";
+				return element.toString(c, qualifier) ~ "*";
 			
 			case Slice :
-				return element.toString(nm, qualifier) ~ "[]";
+				return element.toString(c, qualifier) ~ "[]";
 			
 			case Array :
 				import std.conv;
-				return element.toString(nm, qualifier) ~ "[" ~ to!string(size) ~ "]";
+				return element.toString(c, qualifier)
+					~ "[" ~ to!string(size) ~ "]";
 			
 			case Sequence :
 				import std.algorithm, std.range;
 				// XXX: need to use this because of identifier hijacking in the import.
-				return this.sequence.map!(e => e.toString(nm, qualifier)).join(", ");
+				return this.sequence.map!(e => e.toString(c, qualifier)).join(", ");
 			
 			case Function :
 				auto f = asFunctionType();
-				auto ret = f.returnType.toString(nm);
+				auto ret = f.returnType.toString(c);
 				auto base = f.contexts.length ? " delegate(" : " function(";
 				import std.algorithm, std.range;
-				auto args = f.parameters.map!(p => p.toString(nm)).join(", ");
+				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
 				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
 			case Template :
-				return dtemplate.name.toString(nm);
+				return dtemplate.name.toString(c);
 			
 			case Error :
-				return "__error__(" ~ error.toString(nm) ~ ")";
+				return "__error__(" ~ error.toString(c) ~ ")";
 		}
 	}
 	
@@ -556,7 +558,7 @@ unittest {
 
 alias ParamType = Type.ParamType;
 
-string toString(const ParamType t, const ref NameManager nm) {
+string toString(const ParamType t, const Context c) {
 	string s;
 	if (t.isRef && t.isFinal) {
 		s = "final ref ";
@@ -566,7 +568,7 @@ string toString(const ParamType t, const ref NameManager nm) {
 		s = "final ";
 	}
 	
-	return s ~ t.getType().toString(nm);
+	return s ~ t.getType().toString(c);
 }
 
 inout(ParamType) getParamType(inout ParamType t, bool isRef, bool isFinal) {

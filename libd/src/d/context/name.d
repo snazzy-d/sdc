@@ -1,5 +1,7 @@
 module d.context.name;
 
+import d.context.context;
+
 struct Name {
 private:
 	uint id;
@@ -9,16 +11,6 @@ private:
 	}
 	
 public:
-	string toString(const ref NameManager nm) const {
-		return nm.names[id];
-	}
-	
-	immutable(char)* toStringz(const ref NameManager nm) const {
-		auto s = nm.names[id];
-		assert(s.ptr[s.length] == '\0', "Expected a zero terminated string");
-		return s.ptr;
-	}
-	
 	@property
 	bool isEmpty() const {
 		return this == BuiltinName!"";
@@ -33,12 +25,56 @@ public:
 	bool isDefined() const {
 		return id != 0;
 	}
+	
+	auto getFullName(const Context c) const {
+		return FullName(this, c);
+	}
+	
+	string toString(const Context c) const {
+		return getFullName(c).toString();
+	}
+	
+	immutable(char)* toStringz(const Context c) const {
+		return getFullName(c).toStringz();
+	}
 }
 
 template BuiltinName(string name) {
 	private enum id = Lookups.get(name, uint.max);
 	static assert(id < uint.max, name ~ " is not a builtin name.");
 	enum BuiltinName = Name(id);
+}
+
+struct FullName {
+private:
+	Name _name;
+	const Context context;
+	
+	this(Name name, const Context context) {
+		this._name = name;
+		this.context = context;
+	}
+	
+	@property
+	ref nameManager() const {
+		return context.nameManager;
+	}
+	
+public:
+	alias name this;
+	@property name() const {
+		return _name;
+	}
+	
+	string toString() const {
+		return nameManager.names[id];
+	}
+	
+	immutable(char)* toStringz() const {
+		auto s = toString();
+		assert(s.ptr[s.length] == '\0', "Expected a zero terminated string");
+		return s.ptr;
+	}
 }
 
 struct NameManager {

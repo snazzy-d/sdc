@@ -56,8 +56,8 @@ class UnaryExpression : Expression {
 		assert(expr);
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return unarizeString(expr.toString(nm), op);
+	override string toString(const Context c) const {
+		return unarizeString(expr.toString(c), op);
 	}
 	
 	@property
@@ -77,9 +77,10 @@ class CallExpression : Expression {
 		this.args = args;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return callee.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
 	
 	@property
@@ -102,15 +103,15 @@ class IndexExpression : Expression {
 		this.index = index;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return indexed.toString(nm) ~ "[" ~ index.toString(nm) ~ "]";
+	override string toString(const Context c) const {
+		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
 	
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
 		auto t = (cast() indexed.type).getCanonical();
-		return t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer || indexed.isLvalue;
+		return t.kind == TypeKind.Slice|| t.kind == TypeKind.Pointer || indexed.isLvalue;
 	}
 }
 
@@ -123,7 +124,13 @@ class SliceExpression : Expression {
 	Expression first;
 	Expression second;
 	
-	this(Location location, Type type, Expression sliced, Expression first, Expression second) {
+	this(
+		Location location,
+		Type type,
+		Expression sliced,
+		Expression first,
+		Expression second,
+	) {
 		super(location, type);
 		
 		this.sliced = sliced;
@@ -131,8 +138,9 @@ class SliceExpression : Expression {
 		this.second = second;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return sliced.toString(nm) ~ "[" ~ first.toString(nm) ~ " .. " ~ second.toString(nm) ~ "]";
+	override string toString(const Context c) const {
+		return sliced.toString(c)
+			~ "[" ~ first.toString(c) ~ " .. " ~ second.toString(c) ~ "]";
 	}
 }
 
@@ -166,7 +174,7 @@ class ThisExpression : Expression {
 		super(location, type);
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "this";
 	}
 	
@@ -188,7 +196,7 @@ class SuperExpression : Expression {
 		super(location, type);
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "super";
 	}
 	
@@ -206,7 +214,7 @@ class ContextExpression : Expression {
 		super(location, Type.getContextType(f));
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "__ctx";
 	}
 	
@@ -229,8 +237,8 @@ class VtblExpression : Expression {
 		this.dclass = dclass;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return dclass.toString(nm) ~ ".__vtbl";
+	override string toString(const Context c) const {
+		return dclass.toString(c) ~ ".__vtbl";
 	}
 }
 
@@ -246,7 +254,7 @@ class BooleanLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return value ? "true" : "false";
 	}
 }
@@ -265,7 +273,7 @@ class IntegerLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		import std.conv;
 		return isSigned(type.builtin)
 			? to!string(cast(long) value)
@@ -302,7 +310,7 @@ class CharacterLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		import std.conv;
 		return "'" ~ to!string(value) ~ "'";
 	}
@@ -323,7 +331,7 @@ class StringLiteral : CompileTimeExpression {
 		this.value = value;
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "\"" ~ value ~ "\"";
 	}
 }
@@ -340,7 +348,7 @@ class NullLiteral : CompileTimeExpression {
 		super(location, t);
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "null";
 	}
 }
@@ -374,8 +382,8 @@ class CastExpression : Expression {
 		this.expr = expr;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return "cast(" ~ type.toString(nm) ~ ") " ~ expr.toString(nm);
+	override string toString(const Context c) const {
+		return "cast(" ~ type.toString(c) ~ ") " ~ expr.toString(c);
 	}
 	
 	@property
@@ -415,9 +423,10 @@ class NewExpression : Expression {
 		this.args = args;
 	}
 	
-	override string toString(const ref NameManager nm) const {
+	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		return "new " ~ type.toString(nm) ~ "(" ~ args.map!(a => a.toString(nm)).join(", ") ~ ")";
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return "new " ~ type.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
 
@@ -433,8 +442,8 @@ class VariableExpression : Expression {
 		this.var = var;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return var.name.toString(nm);
+	override string toString(const Context c) const {
+		return var.name.toString(c);
 	}
 	
 	@property
@@ -457,8 +466,8 @@ class FieldExpression : Expression {
 		this.field = field;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return expr.toString(nm) ~ "." ~ field.name.toString(nm);
+	override string toString(const Context c) const {
+		return expr.toString(c) ~ "." ~ field.name.toString(c);
 	}
 	
 	@property
@@ -482,8 +491,8 @@ class FunctionExpression : Expression {
 		this.fun = fun;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return fun.name.toString(nm);
+	override string toString(const Context c) const {
+		return fun.name.toString(c);
 	}
 }
 
@@ -501,8 +510,8 @@ class MethodExpression : Expression {
 		this.method = method;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return expr.toString(nm) ~ "." ~ method.name.toString(nm);
+	override string toString(const Context c) const {
+		return expr.toString(c) ~ "." ~ method.name.toString(c);
 	}
 }
 
@@ -518,8 +527,8 @@ class DynamicTypeidExpression : Expression {
 		this.argument = argument;
 	}
 	
-	override string toString(const ref NameManager nm) const {
-		return "typeid(" ~ argument.toString(nm) ~ ")";
+	override string toString(const Context c) const {
+		return "typeid(" ~ argument.toString(c) ~ ")";
 	}
 }
 
@@ -531,7 +540,7 @@ class VoidInitializer : CompileTimeExpression {
 		super(location, type);
 	}
 	
-	override string toString(const ref NameManager) const {
+	override string toString(const Context) const {
 		return "void";
 	}
 }
@@ -556,9 +565,9 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 			this.values = values;
 		}
 		
-		override string toString(const ref NameManager nm) const {
+		override string toString(const Context c) const {
 			import std.algorithm, std.range;
-			auto members = values.map!(v => v.toString(nm)).join(", ");
+			auto members = values.map!(v => v.toString(c)).join(", ");
 			
 			// TODO: make this look nice for structs, classes, arrays...
 			static if (isCompileTime) {

@@ -42,12 +42,10 @@ public:
 		);
 	}
 	
-	@property
-	Location location() const {
+	alias location this;
+	@property location() const {
 		return _location;
 	}
-	
-	alias location this;
 	
 	string getContent() {
 		return start.getContent();
