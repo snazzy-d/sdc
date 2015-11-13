@@ -23,10 +23,11 @@ extern(C) void* __sd_array_alloc(size_t size) {
 }
 
 final class LLVMEvaluator : Evaluator {
-	private CodeGen codeGen;
+	private CodeGen pass;
+	alias pass this;
 	
-	this(CodeGen codeGen) {
-		this.codeGen = codeGen;
+	this(CodeGen pass) {
+		this.pass = pass;
 	}
 	
 	CompileTimeExpression evaluate(Expression e) {
@@ -34,20 +35,13 @@ final class LLVMEvaluator : Evaluator {
 			return ce;
 		}
 		
-		// XXX: Work around not being able to pass e down.
-		static Expression statice;
-		auto oldStatice = statice;
-		statice = e;
-		scope(exit) statice = oldStatice;
-		
-		static CodeGen staticCodeGen;
-		auto oldStaticCodeGen = staticCodeGen;
-		staticCodeGen = codeGen;
-		scope(exit) staticCodeGen = oldStaticCodeGen;
-		
 		// We agressively JIT all CTFE
-		return jit!(function CompileTimeExpression(void[] p) {
-			return JitRepacker(staticCodeGen, statice.location, p).visit(statice.type);
+		return jit!(function CompileTimeExpression(
+			CodeGen pass,
+			Expression e,
+			void[] p,
+		) {
+			return JitRepacker(pass, e.location, p).visit(e.type);
 		})(e);
 	}
 	
@@ -74,7 +68,7 @@ final class LLVMEvaluator : Evaluator {
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
 	} body {
-		return jit!(function string(void[] p) in {
+		return jit!(function string(CodeGen pass, Expression e, void[] p) in {
 			assert(p.length == string.sizeof);
 		} body {
 			auto s = *(cast(string*) p.ptr);
@@ -82,38 +76,40 @@ final class LLVMEvaluator : Evaluator {
 		})(e);
 	}
 	
-	private auto jit(alias handler, JitReturn R = JitReturn.Indirect)(Expression e) {
-		scope(failure) LLVMDumpModule(codeGen.dmodule);
+	private auto jit(
+		alias handler,
+		JitReturn R = JitReturn.Indirect,
+	)(Expression e) {
+		scope(failure) LLVMDumpModule(dmodule);
 		
 		// Create a global variable to hold the returned blob.
 		import d.llvm.type;
-		auto type = TypeGen(codeGen).visit(e.type);
+		auto type = TypeGen(pass).visit(e.type);
 		
 		static if (R == JitReturn.Direct) {
 			auto returnType = type;
 		} else {
-			auto buffer = LLVMAddGlobal(codeGen.dmodule, type, "__ctBuf");
+			auto buffer = LLVMAddGlobal(dmodule, type, "__ctBuf");
 			scope(exit) LLVMDeleteGlobal(buffer);
 			
 			LLVMSetInitializer(buffer, LLVMGetUndef(type));
 			
 			import llvm.c.target;
-			auto size = LLVMStoreSizeOfType(codeGen.targetData, type);
-			
-			auto returnType = LLVMInt64TypeInContext(codeGen.llvmCtx);
+			auto size = LLVMStoreSizeOfType(targetData, type);
+			auto returnType = LLVMInt64TypeInContext(llvmCtx);
 		}
 		
 		// Generate function signature
 		auto funType = LLVMFunctionType(returnType, null, 0, false);
-		auto fun = LLVMAddFunction(codeGen.dmodule, "__ctfe", funType);
+		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 		
 		// Generate function's body. Warning: horrible hack.
 		import d.llvm.local;
-		auto lg = LocalGen(codeGen, Mode.Eager);
+		auto lg = LocalGen(pass, Mode.Eager);
 		auto builder = lg.builder;
 		
-		auto bodyBB = LLVMAppendBasicBlockInContext(codeGen.llvmCtx, fun, "");
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 		
 		import d.llvm.expression;
@@ -124,17 +120,29 @@ final class LLVMEvaluator : Evaluator {
 		} else {
 			LLVMBuildStore(builder, value, buffer);
 			// FIXME This is 64bit only code.
-			auto ptrToInt = LLVMBuildPtrToInt(builder, buffer, LLVMInt64TypeInContext(codeGen.llvmCtx), "");
+			auto ptrToInt = LLVMBuildPtrToInt(
+				builder,
+				buffer,
+				LLVMInt64TypeInContext(llvmCtx),
+				"",
+			);
+			
 			LLVMBuildRet(builder, ptrToInt);
 		}
 		
-		codeGen.checkModule();
+		checkModule();
 		
-		auto executionEngine = createExecutionEngine(codeGen.dmodule);
+		auto executionEngine = createExecutionEngine(dmodule);
 		scope(exit) {
 			char* errorPtr;
 			LLVMModuleRef outMod;
-			auto removeError = LLVMRemoveModule(executionEngine, codeGen.dmodule, &outMod, &errorPtr);
+			auto removeError = LLVMRemoveModule(
+				executionEngine,
+				dmodule,
+				&outMod,
+				&errorPtr,
+			);
+			
 			if (removeError) {
 				scope (exit) LLVMDisposeMessage(errorPtr);
 				import std.c.string;
@@ -142,7 +150,10 @@ final class LLVMEvaluator : Evaluator {
 				
 				import std.stdio;
 				writeln(error);
-				assert(0, "Cannot remove module from execution engine ! Exiting...");
+				assert(
+					0,
+					"Cannot remove module from execution engine ! Exiting..."
+				);
 			}
 			
 			LLVMDisposeExecutionEngine(executionEngine);
@@ -158,16 +169,21 @@ final class LLVMEvaluator : Evaluator {
 			// of the "__ctfe" is specifically a i64. This is due to MCJIT
 			// not supporting pointer return values directly at this time. 
 			auto asInt = LLVMGenericValueToInt(result, false);
-			return handler((cast(void*) asInt)[0 .. size]);
+			return handler(pass, e, (cast(void*) asInt)[0 .. size]);
 		}
 	}
 	
 	private auto createExecutionEngine(LLVMModuleRef dmodule) {
 		char* errorPtr;
-		
 		LLVMExecutionEngineRef executionEngine;
+		auto creationError = LLVMCreateMCJITCompilerForModule(
+			&executionEngine,
+			dmodule,
+			null,
+			0,
+			&errorPtr,
+		);
 		
-		auto creationError = LLVMCreateMCJITCompilerForModule(&executionEngine, dmodule,  null, 0,  &errorPtr);
 		if (creationError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
@@ -295,7 +311,11 @@ struct JitRepacker {
 			elements ~= visit(t);
 		}
 		
-		return new CompileTimeTupleExpression(location, t.getArray(size), elements);
+		return new CompileTimeTupleExpression(
+			location,
+			t.getArray(size),
+			elements,
+		);
 	}
 	
 	CompileTimeExpression visit(Struct s) {
@@ -309,9 +329,9 @@ struct JitRepacker {
 		
 		import llvm.c.target;
 		LLVMGetStructElementTypes(type, elementTypes.ptr);
+		auto size = LLVMStoreSizeOfType(targetData, type);
 		
 		auto buf = p;
-		auto size = LLVMStoreSizeOfType(targetData, type);
 		scope(exit) p = buf[size .. $];
 		
 		CompileTimeExpression[] elements;
