@@ -51,11 +51,11 @@ public:
 		return start.getContent();
 	}
 	
-	string getFileName() {
+	FullName getFileName() {
 		return start.getFileName();
 	}
 	
-	string getDirectory() {
+	FullName getDirectory() {
 		return start.getDirectory();
 	}
 	
@@ -115,12 +115,12 @@ public:
 		return sourceManager.getContent(this);
 	}
 	
-	string getFileName() {
-		return sourceManager.getFileName(this).toString(context);
+	FullName getFileName() {
+		return sourceManager.getFileName(this).getFullName(context);
 	}
 	
-	string getDirectory() {
-		return sourceManager.getDirectory(this).toString(context);
+	FullName getDirectory() {
+		return sourceManager.getDirectory(this).getFullName(context);
 	}
 	
 	FullLocation getImportLocation() {

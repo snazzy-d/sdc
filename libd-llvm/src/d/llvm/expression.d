@@ -604,7 +604,7 @@ struct ExpressionGen {
 		auto floc = location.getFullLocation(context);
 		
 		LLVMValueRef[2] args;
-		args[0] = buildDString(floc.getFileName());
+		args[0] = buildDString(floc.getFileName().toString());
 		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), floc.getStartLineNumber(), false);
 		
 		import d.llvm.runtime;
@@ -884,7 +884,7 @@ struct ExpressionGen {
 		auto location = e.getFullLocation(context);
 		
 		LLVMValueRef[3] args;
-		args[1] = buildDString(location.getFileName());
+		args[1] = buildDString(location.getFileName().toString());
 		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), location.getStartLineNumber(), false);
 		
 		if (e.message) {
