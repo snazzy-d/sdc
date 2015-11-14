@@ -28,8 +28,8 @@ public:
 		return sourceManager.getFileName(this).getFullName(context);
 	}
 	
-	FullName getDirectory(FileID f) in {
-		assert(f.isFile());
+	FullName getDirectory() in {
+		assert(isFile());
 	} body {
 		return sourceManager.getDirectory(this).getFullName(context);
 	}
