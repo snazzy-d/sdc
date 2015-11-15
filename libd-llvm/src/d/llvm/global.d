@@ -152,10 +152,6 @@ struct GlobalGen {
 	
 	LLVMTypeRef define(TypeSymbol s) in {
 		assert(s.step == Step.Processed);
-		assert(
-			!s.hasContext || s in embededContexts,
-			"context is not set properly"
-		);
 	} body {
 		return this.dispatch(s);
 	}

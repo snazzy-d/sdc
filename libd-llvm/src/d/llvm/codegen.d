@@ -23,6 +23,11 @@ final class CodeGen {
 	LLVMContextRef llvmCtx;
 	LLVMModuleRef dmodule;
 	
+	LLVMValueRef[ValueSymbol] globals;
+	
+	import d.llvm.local;
+	LocalData localData;
+	
 	LLVMTargetDataRef targetData;
 	
 	import d.llvm.type;
@@ -35,15 +40,6 @@ final class CodeGen {
 	
 	import d.llvm.runtime;
 	RuntimeGenData runtimeGenData;
-	
-	LLVMValueRef[ValueSymbol] globals;
-	
-	struct Closure {
-		uint[Variable] indices;
-		LLVMTypeRef type;
-	}
-	
-	Closure[][TypeSymbol] embededContexts;
 	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;

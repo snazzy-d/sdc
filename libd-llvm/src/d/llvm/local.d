@@ -16,6 +16,17 @@ enum Mode {
 	Eager,
 }
 
+struct Closure {
+private:
+	uint[Variable] indices;
+	LLVMTypeRef type;
+}
+
+struct LocalData {
+private:
+	Closure[][TypeSymbol] embededContexts;
+}
+
 struct LocalGen {
 	CodeGen pass;
 	alias pass this;
@@ -29,7 +40,6 @@ struct LocalGen {
 	
 	LLVMValueRef[ValueSymbol] locals;
 	
-	alias Closure = CodeGen.Closure;
 	Closure[] contexts;
 	
 	LLVMValueRef lpContext;
@@ -351,7 +361,7 @@ struct LocalGen {
 			builder,
 			LLVMBuildStructGEP(builder, thisPtr, i, ""),
 			"",
-		), embededContexts[s], s.getCaptures());
+		), localData.embededContexts[s], s.getCaptures());
 	}
 	
 	private void buildCapturedVariables(
@@ -484,7 +494,7 @@ struct LocalGen {
 	// Figure out what's a good way here.
 	LLVMTypeRef define(TypeSymbol s) {
 		if (s.hasContext) {
-			embededContexts[s] = contexts;
+			localData.embededContexts[s] = contexts;
 		}
 		
 		import d.llvm.global;
