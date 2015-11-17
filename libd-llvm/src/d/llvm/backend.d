@@ -126,7 +126,13 @@ public:
 		import std.stdio;
 		writeln("\nASM generated :");
 		
-		LLVMTargetMachineEmitToFile(targetMachine, dmodule, "/dev/stdout".ptr, LLVMCodeGenFileType.Assembly, &errorPtr);
+		LLVMTargetMachineEmitToFile(
+			targetMachine,
+			dmodule,
+			"/dev/stdout",
+			LLVMCodeGenFileType.Assembly,
+			&errorPtr,
+		);
 		// +/
 	}
 
@@ -135,7 +141,14 @@ public:
 
 		import std.string;
 		char* errorPtr;
-		auto linkError = LLVMTargetMachineEmitToFile(targetMachine, pass.dmodule, objFile.toStringz(), LLVMCodeGenFileType.Object, &errorPtr);
+		auto linkError = LLVMTargetMachineEmitToFile(
+			targetMachine,
+			pass.dmodule,
+			objFile.toStringz(),
+			LLVMCodeGenFileType.Object,
+			&errorPtr,
+		);
+		
 		if (linkError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
@@ -151,7 +164,14 @@ public:
 
 		import std.string;
 		char* errorPtr;
-		auto printError = LLVMTargetMachineEmitToFile(targetMachine, pass.dmodule, filename.toStringz(), LLVMCodeGenFileType.Assembly, &errorPtr);
+		auto printError = LLVMTargetMachineEmitToFile(
+			targetMachine,
+			pass.dmodule,
+			filename.toStringz(),
+			LLVMCodeGenFileType.Assembly,
+			&errorPtr,
+		);
+		
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 
@@ -167,7 +187,12 @@ public:
 
 		import std.string;
 		char* errorPtr;
-		auto printError = LLVMPrintModuleToFile(pass.dmodule, filename.toStringz(), &errorPtr);
+		auto printError = LLVMPrintModuleToFile(
+			pass.dmodule,
+			filename.toStringz(),
+			&errorPtr,
+		);
+		
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 
@@ -191,7 +216,10 @@ public:
 
 	void link(string objFile, string executable) {
 		import std.process;
-		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " " ~ escapeShellFileName(objFile) ~ linkerParams ~ " -lsdrt -lphobos -lpthread";
+		auto linkCommand = "gcc -o "
+			~ escapeShellFileName(executable) ~ " "
+			~ escapeShellFileName(objFile)
+			~ linkerParams ~ " -lsdrt -lphobos -lpthread";
 		/+
 		import std.stdio;
 		writeln(linkCommand);
