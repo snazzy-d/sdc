@@ -76,19 +76,18 @@ void LLVMMoveToNextRelocation(LLVMRelocationIteratorRef RI);
 
 
 // SymbolRef accessors
-const(char) *LLVMGetSymbolName(LLVMSymbolIteratorRef SI);
+const(char)* LLVMGetSymbolName(LLVMSymbolIteratorRef SI);
 ulong LLVMGetSymbolAddress(LLVMSymbolIteratorRef SI);
 ulong LLVMGetSymbolSize(LLVMSymbolIteratorRef SI);
 
 // RelocationRef accessors
-ulong LLVMGetRelocationAddress(LLVMRelocationIteratorRef RI);
 ulong LLVMGetRelocationOffset(LLVMRelocationIteratorRef RI);
 LLVMSymbolIteratorRef LLVMGetRelocationSymbol(LLVMRelocationIteratorRef RI);
 ulong LLVMGetRelocationType(LLVMRelocationIteratorRef RI);
 // NOTE: Caller takes ownership of returned string of the two
 // following functions.
-const(char) *LLVMGetRelocationTypeName(LLVMRelocationIteratorRef RI);
-const(char) *LLVMGetRelocationValueString(LLVMRelocationIteratorRef RI);
+const(char)* LLVMGetRelocationTypeName(LLVMRelocationIteratorRef RI);
+const(char)* LLVMGetRelocationValueString(LLVMRelocationIteratorRef RI);
 
 /**
  * @}
