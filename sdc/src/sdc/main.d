@@ -8,9 +8,6 @@ import d.exception;
 import sdc.conf;
 import sdc.sdc;
 
-import std.array;
-import std.getopt;
-
 int main(string[] args) {
 	version(DigitalMars) {
 		version(linux) {
@@ -27,7 +24,8 @@ int main(string[] args) {
 	bool dontLink;
 	string outputFile;
 	bool outputLLVM, outputAsm;
-
+	
+	import std.getopt;
 	auto help_info = getopt(
 		args, std.getopt.config.caseSensitive,
 		"I",         "Include path",        &includePath,
@@ -37,7 +35,7 @@ int main(string[] args) {
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
 		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM
 	);
-
+	
 	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
 		writeln("The Stupid D Compiler");
@@ -54,15 +52,15 @@ int main(string[] args) {
 		}
 		return 0;
 	}
-
+	
 	foreach(path; includePath) {
 		conf["includePath"] ~= path;
 	}
 	
 	auto files = args[1 .. $];
-
+	
 	if (outputAsm) dontLink = true;
-
+	
 	auto executable = "a.out";
 	auto defaultExtension = ".o";
 	if (outputAsm) {
@@ -70,6 +68,7 @@ int main(string[] args) {
 	} else if (dontLink) {
 		defaultExtension = outputLLVM ? ".bc" : ".o";
 	}
+	
 	auto objFile = files[0][0 .. $-2] ~ defaultExtension;
 	if (outputFile.length) {
 		if (dontLink || outputAsm) {
@@ -84,11 +83,11 @@ int main(string[] args) {
 		foreach(file; files) {
 			sdc.compile(file);
 		}
-
+		
 		if (!dontLink) {
 			sdc.buildMain();
 		}
-
+		
 		if (outputAsm) {
 			if (outputLLVM) {
 				sdc.outputLLVMAsm(objFile);
@@ -105,7 +104,7 @@ int main(string[] args) {
 			sdc.outputObj(objFile);
 			sdc.linkExecutable(objFile, executable);
 		}
-
+		
 		return 0;
 	} catch(CompileException e) {
 		import util.terminal;
