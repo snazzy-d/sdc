@@ -168,14 +168,15 @@ enum LLVMAttribute {
     /* FIXME: These attributes are currently not included in the C API as
        a temporary measure until the API/ABI impact to the C API is understood
        and the path forward agreed upon.
-    AddressSafety = 1ULL << 32,
-    StackProtectStrongAttribute = 1ULL<<33,
-    Cold = 1ULL << 34,
-    OptimizeNone = 1ULL << 35,
-    InAllocaAttribute = 1ULL << 36,
-    NonNullAttribute = 1ULL << 37,
-    JumpTableAttribute = 1ULL << 38,
-    DereferenceableAttribute = 1ULL << 39,
+    SanitizeAddress = 1ULL << 32,
+    StackProtectStrongAttribute = 1ULL<<35,
+    Cold = 1ULL << 40,
+    OptimizeNone = 1ULL << 42,
+    InAlloca = 1ULL << 43,
+    NonNull = 1ULL << 44,
+    JumpTable = 1ULL << 45,
+    Convergent = 1ULL << 46,
+    SafeStack = 1ULL << 47,
     */
 }
 
@@ -1004,6 +1005,13 @@ uint LLVMCountStructElementTypes(LLVMTypeRef StructTy);
 void LLVMGetStructElementTypes(LLVMTypeRef StructTy, LLVMTypeRef *Dest);
 
 /**
+ * Get the type of the element at a given index in the structure.
+ *
+ * @see llvm::StructType::getTypeAtIndex()
+ */
+LLVMTypeRef LLVMStructGetTypeAtIndex(LLVMTypeRef StructTy, uint i);
+
+/**
  * Determine whether a structure is packed.
  *
  * @see llvm::StructType::isPacked()
@@ -1320,6 +1328,9 @@ LLVMBool LLVMIsUndef(LLVMValueRef Val);
 extern(D) mixin(LLVM_FOR_EACH_VALUE_SUBCLASS(delegate string(string name) {
   return "extern(C) LLVMValueRef LLVMIsA" ~ name ~ "(LLVMValueRef Val);";
 }));
+
+LLVMValueRef LLVMIsAMDNode(LLVMValueRef Val);
+LLVMValueRef LLVMIsAMDString(LLVMValueRef Val);
 
 /**
  * @}
@@ -1891,6 +1902,20 @@ LLVMValueRef LLVMAddAlias(LLVMModuleRef M, LLVMTypeRef Ty, LLVMValueRef Aliasee,
  * @see llvm::Function::eraseFromParent()
  */
 void LLVMDeleteFunction(LLVMValueRef Fn);
+
+/**
+ * Obtain the personality function attached to the function.
+ *
+ * @see llvm::Function::getPersonalityFn()
+ */
+LLVMValueRef LLVMGetPersonalityFn(LLVMValueRef Fn);
+
+/**
+ * Set the personality function attached to the function.
+ *
+ * @see llvm::Function::setPersonalityFn()
+ */
+void LLVMSetPersonalityFn(LLVMValueRef Fn, LLVMValueRef PersonalityFn);
 
 /**
  * Obtain the ID number from a function instance.
