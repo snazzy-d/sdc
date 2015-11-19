@@ -70,11 +70,7 @@ struct ExpressionVisitor {
 	
 private:
 	ErrorExpression getError(Expression base, Location location, string msg) {
-		if (auto e = cast(ErrorExpression) base) {
-			return e;
-		}
-		
-		return new CompileError(location, msg).expression;
+		return .getError(base, location, msg).expression;
 	}
 	
 	ErrorExpression getError(Expression base, string msg) {
@@ -82,19 +78,11 @@ private:
 	}
 	
 	ErrorExpression getError(Symbol base, Location location, string msg) {
-		if (auto e = cast(ErrorSymbol) base) {
-			return e.error.expression;
-		}
-		
-		return new CompileError(location, msg).expression;
+		return .getError(base, location, msg).expression;
 	}
 	
 	ErrorExpression getError(Type t, Location location, string msg) {
-		if (t.kind == TypeKind.Error) {
-			return t.error.expression;
-		}
-		
-		return new CompileError(location, msg).expression;
+		return .getError(t, location, msg).expression;
 	}
 	
 	Expression getLvalue(Expression value) {
@@ -115,34 +103,6 @@ private:
 	}
 	
 public:
-	Expression build(E, T...)(T args) if (is(typeof(new E(T.init)))) {
-		foreach (ref a; args) {
-			alias T = typeof(a);
-			static if (is(T : Expression)) {
-				if (auto e = cast(ErrorExpression) a) {
-					return e;
-				}
-			} else static if (is(T : U[], U : Expression)) {
-				foreach (e; a) {
-					if (auto ee = cast(ErrorExpression) e) {
-						return ee;
-					}
-				}
-			}
-		}
-		
-		foreach (ref a; args) {
-			static if (is(typeof(a) : Type)) {
-				if (a.kind == TypeKind.Error) {
-					return a.error.expression;
-				}
-			}
-		}
-		
-		// XXX: ErrorSymbol ???
-		return new E(args);
-	}
-	
 	Expression visit(AstBinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
@@ -172,8 +132,8 @@ public:
 						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
-					return new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
+					auto i = build!IndexExpression(e.location, c.element, lhs, rhs);
+					return build!UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
 				}
 				
 				goto case;
@@ -202,12 +162,12 @@ public:
 					
 					// FIXME: check that rhs is an integer.
 					if (op == SubAssign) {
-						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
+						rhs = build!UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
 					}
 					
-					auto i = new IndexExpression(e.location, c.element, lhs, rhs);
-					auto v = new UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
-					return new BinaryExpression(e.location, lhs.type, Assign, lhs, v);
+					auto i = build!IndexExpression(e.location, c.element, lhs, rhs);
+					auto v = build!UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
+					return build!BinaryExpression(e.location, lhs.type, Assign, lhs, v);
 				}
 				
 				goto case;
@@ -544,7 +504,7 @@ public:
 			e = new MethodExpression(location, ctx, f);
 		} else if (f.hasContext) {
 			import d.semantic.closure;
-			e = new MethodExpression(location, new ContextExpression(
+			e = build!MethodExpression(location, build!ContextExpression(
 				location,
 				ContextFinder(pass).visit(f),
 			), f);
@@ -561,7 +521,13 @@ public:
 		
 		switch(f.params.length) {
 			case 0:
-				return new CallExpression(location, f.type.returnType.getType(), e, []);
+				Expression[] args;
+				return build!CallExpression(
+					location,
+					f.type.returnType.getType(),
+					e,
+					args,
+				);
 			
 			case 1:
 				assert(0, "setter not supported)");
@@ -651,7 +617,12 @@ public:
 	}
 	
 	// XXX: factorize with NewExpression
-	private Expression handleCtor(Location location, Location calleeLoc, Type type, Expression[] args) in {
+	private Expression handleCtor(
+		Location location,
+		Location calleeLoc,
+		Type type,
+		Expression[] args,
+	) in {
 		assert(type.kind == TypeKind.Struct);
 	} body {
 		import d.semantic.defaultinitializer, d.context.name;
@@ -664,18 +635,26 @@ public:
 					return new MethodExpression(calleeLoc, di, f);
 				} else if (auto s = cast(OverloadSet) identified) {
 					import std.algorithm, std.array;
-					return chooseOverload(location, s.set.map!(delegate Expression(s) {
-						if (auto f = cast(Function) s) {
-							pass.scheduler.require(f, Step.Signed);
-							return new MethodExpression(calleeLoc, di, f);
-						}
-						
-						assert(0, "not a constructor");
-					}).array(), args);
+					return chooseOverload(
+						location,
+						s.set.map!(delegate Expression(s) {
+							if (auto f = cast(Function) s) {
+								pass.scheduler.require(f, Step.Signed);
+								return new MethodExpression(calleeLoc, di, f);
+							}
+							
+							assert(0, "not a constructor");
+						}).array(),
+						args,
+					);
 				}
 			}
 			
-			return getError(identified, location, type.dstruct.name.toString(pass.context) ~ " isn't callable");
+			return getError(
+				identified,
+				location,
+				type.dstruct.name.toString(pass.context) ~ " isn't callable",
+			);
 		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
 	}
 	
@@ -692,12 +671,20 @@ public:
 			static if (is(T : Expression)) {
 				return identified;
 			} else {
-				return getError(identified, location, t.name.toString(pass.context) ~ " isn't callable");
+				return getError(
+					identified,
+					location,
+					t.name.toString(pass.context) ~ " isn't callable",
+				);
 			}
 		})(pass).resolveInSymbol(location, i, t.name);
 	}
 	
-	private Expression callOverloadSet(Location location, OverloadSet s, Expression[] args) {
+	private Expression callOverloadSet(
+		Location location,
+		OverloadSet s,
+		Expression[] args,
+	) {
 		import std.algorithm, std.array;
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
 			if (auto f = cast(Function) s) {
@@ -706,33 +693,54 @@ public:
 				return handleIFTI(location, t, args);
 			}
 			
-			throw new CompileException(s.location, typeid(s).toString() ~ " is not supported in overload set");
+			throw new CompileException(
+				s.location,
+				typeid(s).toString() ~ " is not supported in overload set",
+			);
 		}).array(), args), args);
 	}
 	
-	private static bool checkArgumentCount(bool isVariadic, size_t argCount, size_t paramCount) {
+	private static bool checkArgumentCount(
+		bool isVariadic,
+		size_t argCount,
+		size_t paramCount,
+	) {
 		return isVariadic
 			? argCount >= paramCount
 			: argCount == paramCount;
 	}
 	
-	private Expression chooseOverload(Location location, Expression[] candidates, Expression[] args) {
+	// XXX: Take a range instead of an array.
+	private Expression chooseOverload(
+		Location location,
+		Expression[] candidates,
+		Expression[] args,
+	) {
 		import std.algorithm, std.range;
-		auto cds = candidates.map!(e => findCallable(location, e, args)).filter!((e) {
-			auto t = e.type.getCanonical();
-			if (t.kind == TypeKind.Function) {
-				auto ft = t.asFunctionType();
-				return checkArgumentCount(ft.isVariadic, args.length, ft.parameters.length);
-			}
-			
-			assert(0, e.type.toString(pass.context) ~ " is not a function type");
-		});
+		auto cds = candidates
+			.map!(e => findCallable(location, e, args))
+			.filter!((e) {
+				auto t = e.type.getCanonical();
+				if (t.kind == TypeKind.Function) {
+					auto ft = t.asFunctionType();
+					return checkArgumentCount(
+						ft.isVariadic,
+						args.length,
+						ft.parameters.length,
+					);
+				}
+				
+				assert(0, e.type.toString(pass.context) ~ " is not a function type");
+			});
 		
 		auto level = MatchLevel.Not;
 		Expression match;
 		CandidateLoop: foreach(candidate; cds) {
 			auto t = candidate.type.getCanonical();
-			assert(t.kind == TypeKind.Function, "We should have filtered function at this point.");
+			assert(
+				t.kind == TypeKind.Function,
+				"We should have filtered function at this point."
+			);
 			
 			auto candidateLevel = MatchLevel.Exact;
 			foreach(arg, param; lockstep(args, t.asFunctionType().parameters)) {
@@ -765,11 +773,19 @@ public:
 			} else if (candidateLevel == level) {
 				// Check for specialisation.
 				auto mt = match.type.getCanonical();
-				assert(mt.kind == TypeKind.Function, "We should have filtered function at this point.");
+				assert(
+					mt.kind == TypeKind.Function,
+					"We should have filtered function at this point."
+				);
+				
+				auto prange = lockstep(
+					t.asFunctionType().parameters,
+					mt.asFunctionType().parameters,
+				);
 				
 				bool candidateFail;
 				bool matchFail;
-				foreach(param, matchParam; lockstep(t.asFunctionType().parameters, mt.asFunctionType().parameters)) {
+				foreach(param, matchParam; prange) {
 					if (matchArgument(param, matchParam) == MatchLevel.Not) {
 						candidateFail = true;
 					}
@@ -780,7 +796,11 @@ public:
 				}
 				
 				if (matchFail == candidateFail) {
-					return getError(candidate, location, "ambiguous function call.");
+					return getError(
+						candidate,
+						location,
+						"ambiguous function call.",
+					);
 				}
 				
 				if (matchFail) {
@@ -790,13 +810,20 @@ public:
 		}
 		
 		if (!match) {
-			return new CompileError(location, "No candidate for function call").expression;
+			return new CompileError(
+				location,
+				"No candidate for function call",
+			).expression;
 		}
 		
 		return match;
 	}
 	
-	private Expression findCallable(Location location, Expression callee, Expression[] args) {
+	private Expression findCallable(
+		Location location,
+		Expression callee,
+		Expression[] args,
+	) {
 		if (auto asPolysemous = cast(PolysemousExpression) callee) {
 			return chooseOverload(location, asPolysemous.expressions, args);
 		}
@@ -808,20 +835,28 @@ public:
 		
 		import std.algorithm, std.array;
 		import d.semantic.aliasthis;
-		auto results = AliasThisResolver!((identified) {
+		auto ar = AliasThisResolver!((identified) {
 			alias T = typeof(identified);
 			static if (is(T : Expression)) {
 				return findCallable(location, identified, args);
 			} else {
 				return cast(Expression) null;
 			}
-		})(pass).resolve(callee).filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression)).array();
+		})(pass);
+		auto results = ar.resolve(callee)
+			.filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression))
+			.array();
 		
 		if (results.length == 1) {
 			return results[0];
 		}
 		
-		return getError(callee, location, "You must call function or delegates, not " ~ callee.type.toString(context));
+		return getError(
+			callee,
+			location,
+			"You must call function or delegates, not "
+				~ callee.type.toString(context),
+		);
 	}
 	
 	private Expression handleCall(Location location, Expression callee, Expression[] args) {
@@ -837,8 +872,12 @@ public:
 		auto paramTypes = f.parameters;
 		auto returnType = f.returnType;
 		
+		assert(
+			checkArgumentCount(f.isVariadic, args.length, paramTypes.length),
+			"Invalid argument count"
+		);
+		
 		import std.range;
-		assert(checkArgumentCount(f.isVariadic, args.length, paramTypes.length), "Invalid argument count");
 		foreach(ref arg, pt; lockstep(args, paramTypes)) {
 			arg = buildArgument(arg, pt);
 		}
@@ -990,14 +1029,19 @@ public:
 			// TODO: ensure that msg is a string.
 		}
 		
-		return build!AssertExpression(e.location, Type.get(BuiltinType.Void), c, msg);
+		return build!AssertExpression(
+			e.location,
+			Type.get(BuiltinType.Void),
+			c,
+			msg,
+		);
 	}
 	
 	private Expression handleTypeid(Location location, Expression e) {
 		auto c = e.type.getCanonical();
 		if (c.kind == TypeKind.Class) {
 			auto classInfo = pass.object.getClassInfo();
-			return new DynamicTypeidExpression(location, Type.get(classInfo), e);
+			return build!DynamicTypeidExpression(location, Type.get(classInfo), e);
 		}
 		
 		return getTypeInfo(location, e.type);
@@ -1010,12 +1054,20 @@ public:
 		}
 		
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		return new StaticTypeidExpression(location, Type.get(pass.object.getTypeInfo()), t);
+		return build!StaticTypeidExpression(
+			location,
+			Type.get(pass.object.getTypeInfo()),
+			t,
+		);
 	}
 	
 	auto getClassInfo(Location location, Class c) {
 		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
-		return new StaticTypeidExpression(location, Type.get(pass.object.getClassInfo()), Type.get(c));
+		return build!StaticTypeidExpression(
+			location,
+			Type.get(pass.object.getClassInfo()),
+			Type.get(c),
+		);
 	}
 	
 	Expression visit(AstTypeidExpression e) {
@@ -1038,7 +1090,8 @@ public:
 				return getError(
 					identified,
 					e.location,
-					"Can't get typeid of " ~ e.argument.name.toString(pass.context),
+					"Can't get typeid of "
+						~ e.argument.name.toString(pass.context),
 				);
 			}
 		})(pass).visit(e.argument);
@@ -1059,7 +1112,8 @@ public:
 				return getError(
 					identified,
 					e.location,
-					e.identifier.name.toString(pass.context) ~ " isn't an expression",
+					e.identifier.name.toString(pass.context)
+						~ " isn't an expression",
 				);
 			}
 		})(pass).visit(e.identifier);
@@ -1076,7 +1130,8 @@ public:
 				// TODO: handle templates.
 				throw new CompileException(
 					identified.location,
-					typeid(identified).toString() ~ " is not supported in overload set",
+					typeid(identified).toString()
+						~ " is not supported in overload set",
 				);
 			}
 		})(pass, location);
@@ -1094,7 +1149,8 @@ public:
 		bool isVariadic,
 		AstBlockStatement fbody,
 	) {
-		// FIXME: can still collide with mixins, but that should rare enough for now.
+		// FIXME: can still collide with mixins,
+		// but that should rare enough for now.
 		import std.conv;
 		auto offset = location.getFullLocation(context).getStartOffset();
 		auto name = context.getName(prefix ~ offset.to!string());
@@ -1138,7 +1194,10 @@ public:
 			"__lambda",
 			e.params,
 			false,
-			new AstBlockStatement(v.location, [new AstReturnStatement(v.location, v)]),
+			new AstBlockStatement(
+				v.location,
+				[new AstReturnStatement(v.location, v)],
+			),
 		);
 	}
 }

@@ -20,11 +20,15 @@ alias Module = d.ir.symbol.Module;
 alias SymbolResolver(alias handler) = IdentifierResolver!(handler, false);
 alias AliasResolver(alias handler)  = IdentifierResolver!(handler, true);
 
-alias TemplateSymbolResolver(alias handler) = TemplateDotIdentifierResolver!(handler, false);
-alias TemplateAliasResolver(alias handler) = TemplateDotIdentifierResolver!(handler, true);
+alias TemplateSymbolResolver(alias handler) =
+	TemplateDotIdentifierResolver!(handler, false);
+alias TemplateAliasResolver(alias handler) =
+	TemplateDotIdentifierResolver!(handler, true);
 
-alias SymbolPostProcessor(alias handler) = IdentifierPostProcessor!(handler, false);
-alias AliasPostProcessor(alias handler)  = IdentifierPostProcessor!(handler, true);
+alias SymbolPostProcessor(alias handler) =
+	IdentifierPostProcessor!(handler, false);
+alias AliasPostProcessor(alias handler) =
+	IdentifierPostProcessor!(handler, true);
 
 private:
 
@@ -60,7 +64,8 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 				return TemplateArgument(TypeVisitor(pass).visit(ta.type));
 			} else if (auto va = cast(ValueTemplateArgument) a) {
 				import d.semantic.expression;
-				return TemplateArgument(pass.evaluate(ExpressionVisitor(pass).visit(va.value)));
+				return TemplateArgument(pass.evaluate(ExpressionVisitor(pass)
+					.visit(va.value)));
 			}
 			
 			assert(0, typeid(a).toString() ~ " is not supported.");
@@ -68,7 +73,8 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		
 		CompileError ce;
 		
-		// XXX: identifiableHandler shouldn't be necessary, we should pas a free function.
+		// XXX: identifiableHandler shouldn't be necessary,
+		// we should pas a free function.
 		auto instance = SymbolResolver!identifiableHandler(pass)
 			.visit(i.templateInstanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
@@ -107,18 +113,25 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		scheduler.require(instance, Step.Populated);
 		
 		if (auto s = instance.resolve(i.location, i.name)) {
-			return IdentifierPostProcessor!(handler, asAlias)(pass, i.location).visit(s);
+			return IdentifierPostProcessor!(handler, asAlias)(
+				pass,
+				i.location,
+			).visit(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		auto name = i.templateInstanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.resolve(i.location, name)) {
-				return IdentifierResolver!(handler, asAlias)(pass).resolveInSymbol(i.location, s, i.name);
+				return IdentifierResolver!(handler, asAlias)(pass)
+					.resolveInSymbol(i.location, s, i.name);
 			}
 		}
 		
-		return handler(new CompileError(i.location, i.name.toString(context) ~ " not found in template").symbol);
+		return handler(new CompileError(
+			i.location,
+			i.name.toString(context) ~ " not found in template").symbol,
+		);
 	}
 }
 
@@ -188,7 +201,10 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 				auto symInMod = m.resolve(location, name);
 				if (symInMod) {
 					if (symbol) {
-						return new CompileError(location, "Ambiguous symbol " ~ name.toString(context)).symbol;
+						return new CompileError(
+							location,
+							"Ambiguous symbol " ~ name.toString(context),
+						).symbol;
 					}
 					
 					symbol = symInMod;
@@ -249,15 +265,27 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	}
 	
 	Ret resolveInExpression(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierResolver!handler(pass, location, e).resolve(name);
+		return ExpressionDotIdentifierResolver!handler(
+			pass,
+			location,
+			e,
+		).resolve(name);
 	}
 	
 	// XXX: higly dubious, see how this can be removed.
 	Ret resolveInSymbol(Location location, Symbol s, Name name) {
-		return resolveInIdentifiable(location, SymbolPostProcessor!identifiableHandler(pass, location).visit(s), name);
+		return resolveInIdentifiable(
+			location,
+			SymbolPostProcessor!identifiableHandler(pass, location).visit(s),
+			name,
+		);
 	}
 	
-	private Ret resolveInIdentifiable(Location location, Identifiable i, Name name) {
+	private Ret resolveInIdentifiable(
+		Location location,
+		Identifiable i,
+		Name name,
+	) {
 		return i.apply!(delegate Ret(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Type)) {
@@ -289,80 +317,108 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 	
 	Ret visit(ExpressionDotIdentifier i) {
 		import d.semantic.expression;
-		return resolveInExpression(i.location, ExpressionVisitor(pass).visit(i.expression), i.name);
+		return resolveInExpression(
+			i.location,
+			ExpressionVisitor(pass).visit(i.expression),
+			i.name,
+		);
 	}
 	
 	Ret visit(TypeDotIdentifier i) {
 		import d.semantic.type;
-		return resolveInType(i.location, TypeVisitor(pass).visit(i.type), i.name);
+		return resolveInType(
+			i.location,
+			TypeVisitor(pass).visit(i.type),
+			i.name,
+		);
 	}
 	
 	Ret visit(TemplateInstanciationDotIdentifier i) {
-		return TemplateDotIdentifierResolver!(handler, asAlias)(pass).resolve(i);
+		return TemplateDotIdentifierResolver!(handler, asAlias)(pass)
+			.resolve(i);
 	}
 	
 	Ret visit(IdentifierBracketIdentifier i) {
-		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(indexed) {
-			alias T = typeof(indexed);
-			static if (is(T : Type)) {
-				return SymbolResolver!identifiableHandler(pass).visit(i.index).apply!(delegate Ret(index) {
-					alias U = typeof(index);
-					static if (is(U : Type)) {
-						assert(0, "AA are not implemented");
-					} else static if (is(U : Expression)) {
-						// XXX: dedup with IdentifierBracketExpression
-						import d.semantic.caster, d.semantic.expression;
-						auto size = pass.evalIntegral(buildImplicitCast(
-							pass,
-							i.index.location,
-							pass.object.getSizeT().type,
-							index,
-						));
-						
-						assert(size <= uint.max, "Array larger than uint.max are not supported");
-						return handler(indexed.getArray(cast(uint) size));
-					} else {
-						assert(0, "Add meaningful error message.");
-					}
-				})();
-			} else static if (is(T : Expression)) {
-				return SymbolResolver!identifiableHandler(pass).visit(i.index).apply!(delegate Ret(index) {
-					alias U = typeof(index);
-					static if (is(U : Expression)) {
-						import d.semantic.expression;
-						return handler(ExpressionVisitor(pass).getIndex(i.location, indexed, index));
-					} else {
-						assert(0, "Add meaningful error message.");
-					}
-				})();
-			} else {
-				assert(0, "Add meaningful error message.");
-			}
-		})();
+		return SymbolResolver!identifiableHandler(pass)
+			.visit(i.indexed)
+			.apply!(delegate Ret(indexed) {
+				alias T = typeof(indexed);
+				static if (is(T : Type)) {
+					return SymbolResolver!identifiableHandler(pass)
+						.visit(i.index)
+						.apply!(delegate Ret(index) {
+							alias U = typeof(index);
+							static if (is(U : Type)) {
+								assert(0, "AA are not implemented");
+							} else static if (is(U : Expression)) {
+								// XXX: dedup with IdentifierBracketExpression
+								import d.semantic.caster, d.semantic.expression;
+								auto size = pass.evalIntegral(buildImplicitCast(
+									pass,
+									i.index.location,
+									pass.object.getSizeT().type,
+									index,
+								));
+								
+								assert(
+									size <= uint.max,
+									"Array larger than uint.max are not supported"
+								);
+								return handler(indexed.getArray(cast(uint) size));
+							} else {
+								assert(0, "Add meaningful error message.");
+							}
+						})();
+				} else static if (is(T : Expression)) {
+					return SymbolResolver!identifiableHandler(pass)
+						.visit(i.index)
+						.apply!(delegate Ret(index) {
+							alias U = typeof(index);
+							static if (is(U : Expression)) {
+								import d.semantic.expression;
+								return handler(ExpressionVisitor(pass)
+										.getIndex(i.location, indexed, index));
+							} else {
+								assert(0, "Add meaningful error message.");
+							}
+						})();
+				} else {
+					assert(0, "Add meaningful error message.");
+				}
+			})();
 	}
 	
 	Ret visit(IdentifierBracketExpression i) {
-		return SymbolResolver!identifiableHandler(pass).visit(i.indexed).apply!(delegate Ret(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				// XXX: dedup with IdentifierBracketExpression
-				import d.semantic.caster, d.semantic.expression;
-				auto size = pass.evalIntegral(buildImplicitCast(
-					pass,
-					i.index.location,
-					pass.object.getSizeT().type,
-					ExpressionVisitor(pass).visit(i.index),
-				));
-				
-				assert(size <= uint.max, "Array larger than uint.max are not supported");
-				return handler(identified.getArray(cast(uint) size));
-			} else static if (is(T : Expression)) {
-				import d.semantic.expression;
-				return handler(ExpressionVisitor(pass).getIndex(i.location, identified, ExpressionVisitor(pass).visit(i.index)));
-			} else {
-				assert(0, "It seems some weird index expression");
-			}
-		})();
+		return SymbolResolver!identifiableHandler(pass)
+			.visit(i.indexed)
+			.apply!(delegate Ret(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
+					// XXX: dedup with IdentifierBracketExpression
+					import d.semantic.caster, d.semantic.expression;
+					auto size = pass.evalIntegral(buildImplicitCast(
+						pass,
+						i.index.location,
+						pass.object.getSizeT().type,
+						ExpressionVisitor(pass).visit(i.index),
+					));
+					
+					assert(
+						size <= uint.max,
+						"Array larger than uint.max are not supported"
+					);
+					return handler(identified.getArray(cast(uint) size));
+				} else static if (is(T : Expression)) {
+					import d.semantic.expression;
+					return handler(ExpressionVisitor(pass).getIndex(
+						i.location,
+						identified,
+						ExpressionVisitor(pass).visit(i.index),
+					));
+				} else {
+					assert(0, "It seems some weird index expression");
+				}
+			})();
 	}
 }
 
@@ -532,8 +588,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				return visit(identified);
 			} else static if (is(T : Expression)) {
 				// sizeof, init and other goodies.
-				import d.semantic.expression;
-				return handler(ExpressionVisitor(pass).build!BinaryExpression(
+				return handler(build!BinaryExpression(
 					location,
 					identified.type,
 					BinaryOp.Comma,
@@ -625,7 +680,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 	
 	Ret visit(Symbol s) {
 		return this.dispatch!((s) {
-			throw new CompileException(s.location, "Don't know how to dispatch " ~ typeid(s).toString());
+			throw new CompileException(
+				s.location,
+				"Don't know how to dispatch " ~ typeid(s).toString(),
+			);
 		})(s);
 	}
 	
@@ -650,7 +708,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		switch(exprs.length) {
 			case 0 :
-				return handler(new CompileError(location, "No valid candidate in overload set").symbol);
+				return handler(new CompileError(
+					location,
+					"No valid candidate in overload set").symbol,
+				);
 			
 			case 1 :
 				return handler(exprs[0]);
@@ -670,9 +731,10 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		scheduler.require(f, Step.Signed);
 		
 		import d.semantic.expression;
-		auto ev = ExpressionVisitor(pass);
-		auto arg = ev.buildArgument(expr, f.type.parameters[0]);
-		auto e = ev.build!MethodExpression(location, arg, f);
+		auto arg = ExpressionVisitor(pass)
+			.buildArgument(expr, f.type.parameters[0]);
+		
+		auto e = build!MethodExpression(location, arg, f);
 		
 		// If this is not a property, things are straigforward.
 		if (!f.isProperty) {
@@ -682,13 +744,19 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		switch(f.params.length - !f.hasThis) {
 			case 0:
 				Expression[] args;
-				return ev.build!CallExpression(location, f.type.returnType.getType(), e, args);
+				return build!CallExpression(
+					location,
+					f.type.returnType.getType(),
+					e,
+					args,
+				);
 			
 			case 1:
 				assert(0, "setter not supported)");
 			
 			default:
-				assert(0, "Invalid argument count for property " ~ f.name.toString(context));
+				assert(0, "Invalid argument count for property "
+					~ f.name.toString(context));
 		}
 	}
 	
@@ -757,13 +825,19 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return handler(InitBuilder(pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return handler(new IntegerLiteral(location, SizeofVisitor(pass).visit(t), pass.object.getSizeT().type.builtin));
+			return handler(new IntegerLiteral(
+				location,
+				SizeofVisitor(pass).visit(t),
+				pass.object.getSizeT().type.builtin,
+			));
 		}
 		
 		return handler(getError(
 			t,
 			location,
-			name.toString(context) ~ " can't be resolved in type " ~ t.toString(context),
+			name.toString(context)
+				~ " can't be resolved in type "
+				~ t.toString(context),
 		).symbol);
 	}
 	
@@ -801,13 +875,27 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		if (name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
-			auto s = new Field(location, 0, pass.object.getSizeT().type, BuiltinName!"length", null);
+			auto s = new Field(
+				location,
+				0,
+				pass.object.getSizeT().type,
+				BuiltinName!"length",
+				null,
+			);
+			
 			s.step = Step.Processed;
 			return handler(s);
 		} else if (name == BuiltinName!"ptr") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
-			auto s = new Field(location, 1, t.getPointer(), BuiltinName!"ptr", null);
+			auto s = new Field(
+				location,
+				1,
+				t.getPointer(),
+				BuiltinName!"ptr",
+				null,
+			);
+			
 			s.step = Step.Processed;
 			return handler(s);
 		}
@@ -820,7 +908,11 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			return bailout(t.getArray(size));
 		}
 		
-		return handler(new IntegerLiteral(location, size, pass.object.getSizeT().type.builtin));
+		return handler(new IntegerLiteral(
+			location,
+			size,
+			pass.object.getSizeT().type.builtin,
+		));
 	}
 	
 	Ret visit(Struct s) {
@@ -839,9 +931,14 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		}
 		
 		if (c !is c.base) {
-			// XXX: check if the compiler is smart enough to make a loop out of this.
+			// XXX: check if the compiler is smart enough
+			// to make a loop out of this.
 			static if (hasBailoutOverride) {
-				return TypeDotIdentifierResolver!handler(pass, location, name).visit(c.base);
+				return TypeDotIdentifierResolver!handler(
+					pass,
+					location,
+					name,
+				).visit(c.base);
 			} else {
 				return visit(c.base);
 			}

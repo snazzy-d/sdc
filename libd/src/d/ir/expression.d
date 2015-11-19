@@ -23,6 +23,15 @@ abstract class Expression : AstExpression {
 	}
 }
 
+Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.init)))) {
+	import d.ir.error;
+	if (auto ce = errorize(args)) {
+		return ce.expression;
+	}
+	
+	return new E(args);
+}
+
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
 alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias AssertExpression = d.ast.expression.AssertExpression!Expression;

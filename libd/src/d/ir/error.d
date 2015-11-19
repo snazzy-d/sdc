@@ -6,6 +6,7 @@ import d.context.location;
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.symbol;
+import d.ir.type;
 
 class CompileError {
 	Location location;
@@ -46,7 +47,7 @@ final:
 	}
 }
 
-auto getError(T)(T t, Location location, string msg) {
+CompileError getError(T)(T t, Location location, string msg) {
 	import d.ir.type;
 	static if (is(T : Expression)) {
 		if (auto e = cast(ErrorExpression) t) {
@@ -65,6 +66,59 @@ auto getError(T)(T t, Location location, string msg) {
 	}
 	
 	return new CompileError(location, msg);
+}
+
+CompileError errorize(E)(E e) if (is(E : Expression)) {
+	static if (is(ErrorExpression : E)) {
+		if (auto ee = cast(ErrorExpression) e) {
+			return ee.error;
+		}
+	}
+	
+	return null;
+}
+
+CompileError errorize(S)(S s) if (is(S : Symbol)) {
+	static if (is(ErrorSymbol : S)) {
+		if (auto es = cast(ErrorSymbol) s) {
+			return es.error;
+		}
+	}
+	
+	return null;
+}
+
+CompileError errorize()(Type t) {
+	if (t.kind == TypeKind.Error) {
+		return t.error;
+	}
+	
+	return null;
+}
+
+enum isErrorizable(T) = is(typeof(errorize(T.init)));
+
+CompileError errorize(T)(T[] ts) if (isErrorizable!T) {
+	foreach(t; ts) {
+		if (auto ce = errorize(t)) {
+			return ce;
+		}
+	}
+	
+	return null;
+}
+
+CompileError errorize(T...)(T ts) {
+	foreach(t; ts) {
+		// XXX: https://issues.dlang.org/show_bug.cgi?id=15360
+		static if (isErrorizable!(typeof(t))) {
+			if (auto ce = errorize(t)) {
+				return ce;
+			}
+		}
+	}
+	
+	return null;
 }
 
 final:
