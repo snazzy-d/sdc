@@ -399,10 +399,16 @@ class CastExpression : Expression {
  */
 class NewExpression : Expression {
 	Expression dinit;
-	Expression ctor;
+	Function ctor;
 	Expression[] args;
 	
-	this(Location location, Type type, Expression dinit, Expression ctor, Expression[] args) {
+	this(
+		Location location,
+		Type type,
+		Expression dinit,
+		Function ctor,
+		Expression[] args,
+	) {
 		super(location, type);
 		
 		this.dinit = dinit;

@@ -25,4 +25,3 @@ int main() {
 	auto f = new Foo(11);
 	return f.bar();
 }
-

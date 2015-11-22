@@ -541,41 +541,34 @@ public:
 		import std.algorithm, std.array;
 		auto args = c.args.map!(a => visit(a)).array();
 		
-		// TODO: check if we are in a constructor.
-		if (cast(ThisExpression) c.callee) {
-			auto loc = c.callee.location;
-			auto thisExpr = getThis(loc);
-			
-			import d.context.name;
-			auto ctor = SymbolResolver!(delegate Expression(identified) {
-				static if(is(typeof(identified) : Expression)) {
-					return identified;
-				} else {
-					return new CompileError(
-						c.location,
-						"Cannot find a suitable constructor",
-					).expression;
-				}
-			})(pass).resolveInExpression(loc, thisExpr, BuiltinName!"__ctor");
-			
-			auto call = handleCall(c.location, ctor, args);
-			
-			// Classes
-			if (thisType.isFinal) {
-				return call;
-			}
-			
-			// Structs
-			return build!BinaryExpression(
-				c.location,
-				call.type,
-				BinaryOp.Assign,
-				thisExpr,
-				call,
-			);
+		auto te = cast(ThisExpression) c.callee;
+		if (te is null) {
+			return handleCall(c.location, visit(c.callee), args);
 		}
 		
-		return handleCall(c.location, visit(c.callee), args);
+		// TODO: check if we are in a constructor.
+		auto t = thisType.getType().getCanonical();
+		if (!t.isAggregate()) {
+			assert(0, "ctor on non aggregate not implemented");
+		}
+		
+		auto loc = c.callee.location;
+		auto thisExpr = getThis(loc);
+		auto call = callCtor(c.location, loc, thisExpr, args);
+		
+		// Classes
+		if (thisType.isFinal) {
+			return call;
+		}
+		
+		// Structs
+		return build!BinaryExpression(
+			c.location,
+			thisExpr.type,
+			BinaryOp.Assign,
+			thisExpr,
+			call,
+		);
 	}
 	
 	Expression visit(IdentifierCallExpression c) {
@@ -597,42 +590,68 @@ public:
 				} else static if (is(T : Type)) {
 					auto t = identified.getCanonical();
 					if (t.kind == TypeKind.Struct) {
-						auto callee = handleCtor(c.location, c.callee.location, t, args);
-						return callCallable(c.location, callee, args);
+						auto loc = c.callee.location;
+						import d.semantic.defaultinitializer;
+						auto di = InstanceBuilder(pass, loc).visit(t);
+						return callCtor(c.location, loc, di, args);
 					}
 				}
 				
-				return getError(identified, c.location, c.callee.name.toString(pass.context) ~ " isn't callable");
+				return getError(
+					identified,
+					c.location,
+					c.callee.name.toString(pass.context) ~ " isn't callable",
+				);
 			}
 		}
 		
 		import d.ast.identifier;
 		if (auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
-			return TemplateSymbolResolver!(i => postProcess(i))(pass).resolve(tidi, args);
+			return TemplateSymbolResolver!(i => postProcess(i))(pass)
+				.resolve(tidi, args);
 		}
 		
 		// XXX: For some reason this need to be passed a lambda.
 		return SymbolResolver!((i => postProcess(i)))(pass).visit(c.callee);
 	}
 	
-	// XXX: factorize with NewExpression
-	private Expression handleCtor(
+	private Expression callCtor(
 		Location location,
 		Location calleeLoc,
-		Type type,
+		Expression thisExpr,
 		Expression[] args,
 	) in {
-		assert(type.kind == TypeKind.Struct);
+		assert(thisExpr.type.isAggregate());
 	} body {
-		import d.semantic.defaultinitializer, d.context.name;
-		auto di = InstanceBuilder(pass, calleeLoc).visit(type);
+		return callCallable(
+			location,
+			findCtor(location, calleeLoc, thisExpr, args),
+			args,
+		);
+	}
+	
+	// XXX: factorize with NewExpression
+	private Expression findCtor(
+		Location location,
+		Location calleeLoc,
+		Expression thisExpr,
+		Expression[] args,
+	) in {
+		assert(
+			thisExpr.type.isAggregate(),
+			thisExpr.toString(context) ~ " is not an aggregate"
+		);
+	} body {
+		auto agg = thisExpr.type.aggregate;
+		
+		import d.context.name;
 		return AliasResolver!(delegate Expression(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Symbol)) {
 				if (auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
-					return new MethodExpression(calleeLoc, di, f);
+					return new MethodExpression(calleeLoc, thisExpr, f);
 				} else if (auto s = cast(OverloadSet) identified) {
 					import std.algorithm, std.array;
 					return chooseOverload(
@@ -640,10 +659,11 @@ public:
 						s.set.map!(delegate Expression(s) {
 							if (auto f = cast(Function) s) {
 								pass.scheduler.require(f, Step.Signed);
-								return new MethodExpression(calleeLoc, di, f);
+								return new MethodExpression(calleeLoc, thisExpr, f);
 							}
 							
-							assert(0, "not a constructor");
+							// XXX: Template ??!?!!?
+							assert(0, "Not a constructor");
 						}).array(),
 						args,
 					);
@@ -653,9 +673,9 @@ public:
 			return getError(
 				identified,
 				location,
-				type.dstruct.name.toString(pass.context) ~ " isn't callable",
+				agg.name.toString(pass.context) ~ " isn't callable",
 			);
-		})(pass).resolveInSymbol(location, type.dstruct, BuiltinName!"__ctor");
+		})(pass).resolveInSymbol(location, agg, BuiltinName!"__ctor");
 	}
 	
 	private Expression handleIFTI(Location location, Template t, Expression[] args) {
@@ -843,6 +863,7 @@ public:
 				return cast(Expression) null;
 			}
 		})(pass);
+		
 		auto results = ar.resolve(callee)
 			.filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression))
 			.array();
@@ -885,7 +906,7 @@ public:
 		return build!CallExpression(location, returnType.getType(), callee, args);
 	}
 	
-	// XXX: factorize with handleCtor
+	// XXX: factorize with findCtor
 	Expression visit(AstNewExpression e) {
 		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
@@ -897,11 +918,11 @@ public:
 		auto di = NewBuilder(pass, e.location).visit(type);
 		
 		import d.context.name;
-		auto ctor = AliasResolver!(delegate FunctionExpression(identified) {
+		auto ctor = AliasResolver!(delegate Function(identified) {
 			static if (is(typeof(identified) : Symbol)) {
 				if (auto f = cast(Function) identified) {
 					pass.scheduler.require(f, Step.Signed);
-					return new FunctionExpression(e.location, f);
+					return f;
 				} else if (auto s = cast(OverloadSet) identified) {
 					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
 						if (auto f = cast(Function) s) {
@@ -913,17 +934,15 @@ public:
 					}).array(), args);
 					
 					// XXX: find a clean way to achieve this.
-					return new FunctionExpression(e.location, (cast(MethodExpression) m).method);
+					return (cast(MethodExpression) m).method;
 				}
 			}
 			
 			assert(0, "Gimme some construtor !");
 		})(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
 		
-		auto funType = ctor.fun.type;
-		
 		// First parameter is compiler magic.
-		auto parameters = funType.parameters[1 .. $];
+		auto parameters = ctor.type.parameters[1 .. $];
 		
 		import std.range;
 		assert(args.length >= parameters.length);

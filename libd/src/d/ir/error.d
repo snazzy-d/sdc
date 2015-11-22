@@ -108,7 +108,7 @@ CompileError errorize(T)(T[] ts) if (isErrorizable!T) {
 	return null;
 }
 
-CompileError errorize(T...)(T ts) {
+CompileError errorize(T...)(T ts) if (T.length > 1) {
 	foreach(t; ts) {
 		// XXX: https://issues.dlang.org/show_bug.cgi?id=15360
 		static if (isErrorizable!(typeof(t))) {

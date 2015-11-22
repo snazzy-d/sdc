@@ -547,7 +547,7 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(NewExpression e) {
-		auto ctor = visit(e.ctor);
+		auto ctor = declare(e.ctor);
 		
 		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();

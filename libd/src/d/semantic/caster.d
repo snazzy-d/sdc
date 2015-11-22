@@ -11,12 +11,22 @@ import d.context.location;
 
 import d.exception;
 
-Expression buildImplicitCast(SemanticPass pass, Location location, Type to, Expression e) {
-	return build!false(pass, location, to, e);
+Expression buildImplicitCast(
+	SemanticPass pass,
+	Location location,
+	Type to,
+	Expression e,
+) {
+	return buildCast!false(pass, location, to, e);
 }
 
-Expression buildExplicitCast(SemanticPass pass, Location location, Type to, Expression e) {
-	return build!true(pass, location, to, e);
+Expression buildExplicitCast(
+	SemanticPass pass,
+	Location location,
+	Type to,
+	Expression e,
+) {
+	return buildCast!true(pass, location, to, e);
 }
 
 CastKind implicitCastFrom(SemanticPass pass, Type from, Type to) {
@@ -32,14 +42,20 @@ private:
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-Expression build(bool isExplicit)(SemanticPass pass, Location location, Type to, Expression e) in {
+Expression buildCast(bool isExplicit)(
+	SemanticPass pass,
+	Location location,
+	Type to,
+	Expression e,
+) in {
 	assert(e, "Expression must not be null");
 } body {
-	// If the expression is polysemous, we try the several meaning and exclude the ones that make no sense.
+	// If the expression is polysemous, we try the several meaning and
+	// exclude the ones that make no sense.
 	if (auto asPolysemous = cast(PolysemousExpression) e) {
 		Expression casted;
 		foreach(candidate; asPolysemous.expressions) {
-			candidate = build!isExplicit(pass, location, to, candidate);
+			candidate = buildCast!isExplicit(pass, location, to, candidate);
 			
 			import d.ir.error;
 			if (cast(ErrorExpression) candidate) {
