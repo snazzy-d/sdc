@@ -486,55 +486,75 @@ public:
 		}
 	}
 	
-	// XXX: dedup with IdentifierVisitor
 	Expression getFrom(Location location, Function f) {
 		scheduler.require(f, Step.Signed);
-		
 		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
 		
-		Expression e;
 		if (f.hasThis) {
-			auto ctx = buildImplicitCast(
-				pass,
-				location,
-				f.type.parameters[0].getType(),
-				getThis(location),
-			);
-			
-			e = new MethodExpression(location, ctx, f);
-		} else if (f.hasContext) {
+			return getFrom(location, getThis(location), f);
+		}
+		
+		if (f.hasContext) {
 			import d.semantic.closure;
-			e = build!MethodExpression(location, build!ContextExpression(
+			return getFrom(location, build!ContextExpression(
 				location,
 				ContextFinder(pass).visit(f),
 			), f);
-		} else {
-			e = new FunctionExpression(location, f);
 		}
 		
-		assert(e);
+		auto e = new FunctionExpression(location, f);
 		
 		// If this is not a property, things are straigforward.
 		if (!f.isProperty) {
 			return e;
 		}
 		
-		switch(f.params.length) {
-			case 0:
-				Expression[] args;
-				return build!CallExpression(
-					location,
-					f.type.returnType.getType(),
-					e,
-					args,
-				);
-			
-			case 1:
-				assert(0, "setter not supported)");
-			
-			default:
-				assert(0, "Invalid argument count for property " ~ f.name.toString(context));
+		if (f.params.length) {
+			return getError(
+				e,
+				"Invalid number of argument for @property "
+					~ f.name.toString(context),
+			);
 		}
+		
+		Expression[] args;
+		return build!CallExpression(
+			location,
+			f.type.returnType.getType(),
+			e,
+			args,
+		);
+	}
+	
+	// XXX: dedup with IdentifierVisitor
+	Expression getFrom(Location location, Expression ctx, Function f) {
+		scheduler.require(f, Step.Signed);
+		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
+		
+		ctx = buildArgument(ctx, f.type.parameters[0]);
+		auto e = build!MethodExpression(location, ctx, f);
+		
+		// If this is not a property, things are straigforward.
+		if (!f.isProperty) {
+			return e;
+		}
+		
+		assert(!f.hasContext);
+		if (f.params.length != 1) {
+			return getError(
+				e,
+				"Invalid number of argument for @property "
+					~ f.name.toString(context),
+			);
+		}
+		
+		Expression[] args;
+		return build!CallExpression(
+			location,
+			f.type.returnType.getType(),
+			e,
+			args,
+		);
 	}
 	
 	Expression visit(AstCallExpression c) {

@@ -104,7 +104,7 @@ struct SymbolAnalyzer {
 	
 	void analyze(FunctionDeclaration fd, Function f) {
 		import std.algorithm, std.array;
-		auto params = f.params = fd.params.map!((p) {
+		auto params = fd.params.map!((p) {
 			import d.semantic.type;
 			auto t = TypeVisitor(pass).visit(p.type);
 			
@@ -117,19 +117,8 @@ struct SymbolAnalyzer {
 			return new Variable(p.location, t, p.name, value);
 		}).array();
 		
-		// If this is a closure, we add the context parameter.
-		if (f.hasContext) {
-			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
-			
-			import d.context.name;
-			auto contextParameter = new Variable(
-				f.location,
-				Type.getContextType(ctxSym).getParamType(true, false),
-				BuiltinName!"__ctx",
-			);
-			
-			params = contextParameter ~ params;
-		}
+		// Functions are always populated as resolution is order dependant.
+		f.step = Step.Populated;
 		
 		// Prepare statement visitor for return type.
 		auto oldReturnType = returnType;
@@ -205,7 +194,6 @@ struct SymbolAnalyzer {
 			);
 			
 			params = thisParameter ~ params;
-			buildType();
 		} else {
 			// If it has a this pointer, add it as parameter.
 			if (f.hasThis) {
@@ -229,16 +217,29 @@ struct SymbolAnalyzer {
 			returnType = isAuto
 				? Type.get(BuiltinType.None).getParamType(false, false)
 				: TypeVisitor(pass).visit(fd.returnType);
-			
-			// Compute return type.
-			if (isAuto) {
-				// Functions are always populated as resolution is order dependant.
-				f.step = Step.Populated;
-			} else {
-				buildType();
-			}
 		}
 		
+		// Add this as a parameter, but not context.
+		// Why ? Because bullshit !
+		f.params = params;
+		
+		// If this is a closure, we add the context parameter.
+		if (f.hasContext) {
+			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
+			
+			import d.context.name;
+			auto contextParameter = new Variable(
+				f.location,
+				Type.getContextType(ctxSym).getParamType(true, false),
+				BuiltinName!"__ctx",
+			);
+			
+			params = contextParameter ~ params;
+		}
+		
+		if (!isAuto) {
+			buildType();
+		}
 		if (fbody) {
 			auto oldCtxSym = ctxSym;
 			scope(exit) ctxSym = oldCtxSym;

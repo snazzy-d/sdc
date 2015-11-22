@@ -726,38 +726,9 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		return handler(new FieldExpression(location, expr, f));
 	}
 	
-	// XXX: dedup with ExpressionVisitor
 	private Expression makeExpression(Function f) {
-		scheduler.require(f, Step.Signed);
-		
 		import d.semantic.expression;
-		auto arg = ExpressionVisitor(pass)
-			.buildArgument(expr, f.type.parameters[0]);
-		
-		auto e = build!MethodExpression(location, arg, f);
-		
-		// If this is not a property, things are straigforward.
-		if (!f.isProperty) {
-			return e;
-		}
-		
-		switch(f.params.length - !f.hasThis) {
-			case 0:
-				Expression[] args;
-				return build!CallExpression(
-					location,
-					f.type.returnType.getType(),
-					e,
-					args,
-				);
-			
-			case 1:
-				assert(0, "setter not supported)");
-			
-			default:
-				assert(0, "Invalid argument count for property "
-					~ f.name.toString(context));
-		}
+		return ExpressionVisitor(pass).getFrom(location, expr, f);
 	}
 	
 	Ret visit(Function f) {

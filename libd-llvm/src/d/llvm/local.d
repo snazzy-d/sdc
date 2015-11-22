@@ -215,10 +215,10 @@ struct LocalGen {
 		import d.llvm.type;
 		auto closure = Closure(f.closure, TypeGen(pass).visit(f));
 		if (f.hasContext) {
-			auto parentCtxType = f.type.parameters[f.hasThis];
+			auto parentCtxType = f.type.parameters[0];
 			assert(parentCtxType.isRef || parentCtxType.isFinal);
 			
-			auto parentCtx = params[f.hasThis];
+			auto parentCtx = params[0];
 			LLVMSetValueName(parentCtx, "__ctx");
 			
 			// Find the right context as parent.
@@ -241,11 +241,11 @@ struct LocalGen {
 		}
 		
 		if (f.hasThis) {
-			auto value = params[0];
+			auto value = params[f.hasContext];
 			
 			// XXX: Is that really the way we want it ?
 			import d.context.name;
-			auto thisParam = cast(Variable) f.resolve(f.location, BuiltinName!"this");
+			auto thisParam = parameters[0];
 			assert(thisParam !is null);
 			
 			auto thisPtr = createVariableStorage(thisParam, value);
@@ -258,6 +258,7 @@ struct LocalGen {
 		
 		params = params[f.hasThis + f.hasContext .. $];
 		paramTypes = paramTypes[f.hasThis + f.hasContext .. $];
+		parameters = parameters[f.hasThis .. $];
 		
 		foreach(i, p; parameters) {
 			auto value = params[i];

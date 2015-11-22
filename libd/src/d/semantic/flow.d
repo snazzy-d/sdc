@@ -10,9 +10,9 @@ struct FlowAnalyzer {
 private:
 	SemanticPass pass;
 	alias pass this;
-
+	
 	Statement previousStatement;
-
+	
 	import d.ir.symbol;
 	uint[Variable] closure;
 	
@@ -22,10 +22,10 @@ private:
 	
 	uint[] declBlockStack = [0];
 	uint switchBlock = -1;
-
+	
 	uint nextDeclBlock = 1;
 	uint nextClosureIndex;
-
+	
 	import std.bitmanip;
 	mixin(bitfields!(
 		bool, "mustTerminate", 1,
@@ -36,27 +36,16 @@ private:
 		bool, "switchFunTerminate", 1,
 		uint, "", 2,
 	));
-
+	
 public:
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-
+	
 	uint[Variable] getClosure(Function f) in {
 		assert(f.fbody, "f does not have a body");
 	} body {
 		nextClosureIndex = f.hasContext;
-		
-		// XXX: this and ctx shoudl really become regular parameters.
-		if (f.hasThis) {
-			import d.context.name;
-			auto tp = cast(Variable) f.resolve(f.location, BuiltinName!"this");
-			assert(tp !is null, "Can't find this");
-			if (tp.storage == Storage.Capture) {
-				assert(tp !in closure);
-				closure[tp] = nextClosureIndex++;
-			}
-		}
 		
 		foreach(p; f.params) {
 			if (p.storage == Storage.Capture) {
@@ -68,7 +57,7 @@ public:
 		visit(f.fbody);
 		return closure;
 	}
-
+	
 	void visit(Statement s) {
 		if (!mustTerminate) {
 			return this.dispatch(s);
@@ -78,18 +67,18 @@ public:
 			// FIXME: Check if this is default or a goto jump here.
 			return visit(l);
 		}
-
+		
 		import d.exception;
 		throw new CompileException(
 			s.location,
 			"Unreachable statement." ~ typeid(s).toString(),
 		);
 	}
-
+	
 	void visit(BlockStatement b) {
 		auto oldDeclBlockStack = declBlockStack;
 		auto oldPreviousStatement = previousStatement;
-
+		
 		scope(exit) {
 			declBlockStack = oldDeclBlockStack;
 			previousStatement = oldPreviousStatement;
