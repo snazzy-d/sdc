@@ -2,6 +2,7 @@ module d.semantic.flow;
 
 import d.semantic.semantic;
 
+import d.ir.expression;
 import d.ir.statement;
 
 import d.context.location;
@@ -11,6 +12,7 @@ private:
 	SemanticPass pass;
 	alias pass this;
 	
+	// Needed for switch flow analysis.
 	Statement previousStatement;
 	
 	import d.ir.symbol;
@@ -74,6 +76,10 @@ public:
 		);
 	}
 	
+	Expression visit(Expression e) {
+		ExpressionConsumer(&this).visit(e);
+	}
+	
 	void visit(Statement s) {
 		if (!mustTerminate) {
 			return this.dispatch(s);
@@ -103,7 +109,9 @@ public:
 		}
 	}
 	
-	void visit(ExpressionStatement s) {}
+	void visit(ExpressionStatement s) {
+		visit(s.expression);
+	}
 	
 	void visit(VariableStatement s) in {
 		assert(s.var.step == Step.Processed);
@@ -119,6 +127,9 @@ public:
 		}
 		
 		varStack ~= v;
+		
+		// Computing of the inital value can impact flow.
+		visit(v.value);
 	}
 	
 	void visit(FunctionStatement s) in {
@@ -130,10 +141,16 @@ public:
 	} body {}
 	
 	void visit(ReturnStatement s) {
+		if (s.value) {
+			visit(s.value);
+		}
+		
 		terminateFun();
 	}
 	
 	void visit(IfStatement s) {
+		visit(s.condition);
+		
 		auto oldMustTerminate = mustTerminate;
 		auto oldFunTerminate = funTerminate;
 		auto oldBlockTerminate = blockTerminate;
@@ -190,6 +207,8 @@ public:
 	}
 	
 	void visit(SwitchStatement s) {
+		visit(s.expression);
+		
 		auto oldSwitchStmt = switchStmt;
 		auto oldSwitchStack = switchStack;
 		auto oldAllowFallthrough = allowFallthrough;
@@ -232,6 +251,8 @@ public:
 	}
 	
 	void visit(ThrowStatement s) {
+		visit(s.value);
+		
 		terminateFun();
 	}
 	
@@ -375,7 +396,7 @@ public:
 		
 		terminateFun();
 	}
-
+	
 private:
 	void terminateBlock() {
 		mustTerminate = true;
@@ -391,5 +412,40 @@ private:
 		mustTerminate = false;
 		blockTerminate = false;
 		funTerminate = false;
+	}
+}
+
+private:
+
+struct ExpressionConsumer {
+	FlowAnalyzer* pass;
+	alias pass this;
+	
+	this(FlowAnalyzer* pass) {
+		this.pass = pass;
+	}
+	
+	/**
+	 * Expression handling
+	 */
+	void visit(Expression e) {
+		return this.dispatch!((e) {
+			// Do nothing.
+		})(e);
+	}
+	
+	void visit(BinaryExpression e) {
+		visit(e.lhs);
+		visit(e.rhs);
+	}
+	
+	void visit(TernaryExpression e) {
+		visit(e.condition);
+		visit(e.lhs);
+		visit(e.rhs);
+	}
+	
+	void visit(UnaryExpression e) {
+		visit(e.expr);
 	}
 }
