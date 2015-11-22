@@ -119,7 +119,7 @@ public:
 
 private:
 
-enum Reserved = ["__ctor", "__dtor", "__vtbl"];
+enum Reserved = ["__ctor", "__dtor", "__postblit", "__vtbl"];
 
 enum Prefill = [
 	// Linkages

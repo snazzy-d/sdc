@@ -24,7 +24,9 @@ alias BinaryExpression = d.ir.expression.BinaryExpression;
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-enum isSchedulable(D, S) = is(D : Declaration) && is(S : Symbol) && !__traits(isAbstractClass, S);
+enum isSchedulable(D, S) = is(D : Declaration) &&
+	is(S : Symbol) &&
+	!__traits(isAbstractClass, S);
 
 struct SymbolVisitor {
 	private SemanticPass pass;
@@ -49,10 +51,15 @@ struct SymbolVisitor {
 				
 				if (tid is typeid(SymType)) {
 					auto decl = cast(DeclType) d;
-					assert(decl, "Unexpected declaration type " ~ typeid(DeclType).toString());
+					assert(
+						decl,
+						"Unexpected declaration type "
+							~ typeid(DeclType).toString()
+					);
 					
 					scheduler.schedule(decl, () @trusted {
-						// Fast cast can be trusted in this case, we already did the check.
+						// Fast cast can be trusted in this case,
+						// we already did the check.
 						import util.fastcast;
 						return fastCast!SymType(s);
 					} ());
@@ -146,7 +153,11 @@ struct SymbolAnalyzer {
 				fd.isVariadic,
 			);
 			
-			assert(!isCtor || f.linkage == Linkage.D, "Only D linkage is supported for ctors.");
+			assert(
+				!isCtor || f.linkage == Linkage.D,
+				"Only D linkage is supported for ctors."
+			);
+			
 			switch (f.linkage) with(Linkage) {
 				case D :
 					import d.semantic.mangler;
@@ -162,7 +173,10 @@ struct SymbolAnalyzer {
 				
 				default:
 					import std.conv;
-					assert(0, "Linkage " ~ to!string(f.linkage) ~ " is not supported.");
+					assert(
+						0,
+						"Linkage " ~ to!string(f.linkage) ~ " is not supported."
+					);
 			}
 			
 			f.step = Step.Signed;
@@ -180,11 +194,15 @@ struct SymbolAnalyzer {
 					import d.ast.statement;
 					fbody = new AstBlockStatement(fbody.location, [
 						fbody,
-						new AstReturnStatement(f.location, new ThisExpression(f.location)),
+						new AstReturnStatement(
+							f.location,
+							new ThisExpression(f.location),
+						),
 					]);
 				}
 			} else {
-				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+				returnType = Type.get(BuiltinType.Void)
+					.getParamType(false, false);
 			}
 			
 			auto thisParameter = new Variable(
@@ -198,7 +216,7 @@ struct SymbolAnalyzer {
 			// If it has a this pointer, add it as parameter.
 			if (f.hasThis) {
 				assert(
-					thisType.getType().kind != TypeKind.Builtin,
+					thisType.getType().isAggregate(),
 					"thisType must be defined if funtion has a this pointer."
 				);
 				
@@ -225,7 +243,10 @@ struct SymbolAnalyzer {
 		
 		// If this is a closure, we add the context parameter.
 		if (f.hasContext) {
-			assert(ctxSym, "ctxSym must be defined if function has a context pointer.");
+			assert(
+				ctxSym,
+				"ctxSym must be defined if function has a context pointer."
+			);
 			
 			import d.context.name;
 			auto contextParameter = new Variable(
@@ -337,7 +358,9 @@ struct SymbolAnalyzer {
 				auto mangle = TypeMangler(pass).visit(v.type);
 				
 				import std.conv;
-				mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
+				mangle = "_D" ~ manglePrefix
+					~ to!string(name.length) ~ name
+					~ mangle;
 				
 				v.mangle = context.getName(mangle);
 			}
@@ -446,8 +469,12 @@ struct SymbolAnalyzer {
 		
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
-		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
+		init.mangle = context.getName(
+			"_D" ~ manglePrefix
+				~ to!string("init".length) ~ "init"
+				~ mangle,
+		);
 		
 		s.addSymbol(init);
 		s.step = Step.Populated;
@@ -475,6 +502,26 @@ struct SymbolAnalyzer {
 			type,
 			fields.map!(f => cast(CompileTimeExpression) f.value).array(),
 		);
+		
+		// If the struct has no dtor and only pod fields, it is a pod.
+		auto hasDtor = s.resolve(s.location, BuiltinName!"__dtor");
+		auto hasPostblit = s.resolve(s.location, BuiltinName!"__postblit");
+		
+		if (!hasDtor && !hasPostblit) {
+			s.isPod = fields
+				.map!((f) {
+					auto t = f.type.getCanonical();
+					return t.kind != TypeKind.Struct || t.dstruct.isPod;
+				})
+				.all();
+			
+			if (!s.isPod) {
+				assert(
+					0,
+					"automatic __dtor or __postblit creation not implemenetd"
+				);
+			}
+		}
 		
 		s.step = Step.Signed;
 		
@@ -528,8 +575,12 @@ struct SymbolAnalyzer {
 		
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
-		init.mangle = context.getName("_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 		init.step = Step.Signed;
+		init.mangle = context.getName(
+			"_D" ~ manglePrefix
+				~ to!string("init".length) ~ "init"
+				~ mangle,
+		);
 		
 		u.addSymbol(init);
 		u.step = Step.Populated;
@@ -617,13 +668,21 @@ struct SymbolAnalyzer {
 		
 		// object.Object, let's do some compiler magic.
 		if (c is c.base) {
-			auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
+			auto vtblType = Type.get(BuiltinType.Void)
+				.getPointer(TypeQualifier.Immutable);
 			
 			// XXX: d is hijacked without explicit import
 			import d.context.name : BuiltinName;
 
 			// TODO: use defaultinit.
-			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
+			auto vtbl = new Field(
+				d.location,
+				0,
+				vtblType,
+				BuiltinName!"__vtbl",
+				null,
+			);
+			
 			vtbl.step = Step.Processed;
 			
 			baseFields = [vtbl];
@@ -698,7 +757,13 @@ struct SymbolAnalyzer {
 						continue;
 					}
 					
-					if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
+					auto rk = implicitCastFrom(
+						pass,
+						rt.getType(),
+						crt.getType(),
+					);
+					
+					if (rk < CastKind.Exact) {
 						continue;
 					}
 					
@@ -708,7 +773,13 @@ struct SymbolAnalyzer {
 							continue CandidatesLoop;
 						}
 						
-						if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
+						auto pk = implicitCastFrom(
+							pass,
+							ct.getType(),
+							at.getType(),
+						);
+						
+						if (pk < CastKind.Exact) {
 							continue CandidatesLoop;
 						}
 					}
@@ -739,7 +810,9 @@ struct SymbolAnalyzer {
 						import d.exception;
 						throw new CompileException(
 							method.location,
-							method.name.toString(context) ~ " overrides a base class methode but is not marked override",
+							method.name.toString(context)
+								~ " overrides a base class methode "
+								~ "but is not marked override",
 						);
 					}
 				}
@@ -748,7 +821,8 @@ struct SymbolAnalyzer {
 					import d.exception;
 					throw new CompileException(
 						method.location,
-						"Override not found for " ~ method.name.toString(context),
+						"Override not found for "
+							~ method.name.toString(context),
 					);
 				}
 			}
@@ -795,8 +869,15 @@ struct SymbolAnalyzer {
 		
 		i.mangle = context.getName("I" ~ manglePrefix);
 		
-		assert(d.members.length == 0, "Member support not implemented for interfaces yet");
-		assert(d.bases.length == 0, "Interface inheritance not implemented yet");
+		assert(
+			d.members.length == 0,
+			"Member support not implemented for interfaces yet"
+		);
+		
+		assert(
+			d.bases.length == 0,
+			"Interface inheritance not implemented yet"
+		);
 		
 		// TODO: lots of stuff to add
 		
@@ -825,13 +906,19 @@ struct SymbolAnalyzer {
 		
 		if (e.type.kind != TypeKind.Builtin) {
 			import d.exception;
-			throw new CompileException(e.location, "Unsupported enum type " ~ e.type.toString(context));
+			throw new CompileException(
+				e.location,
+				"Unsupported enum type " ~ e.type.toString(context),
+			);
 		}
 		
 		auto bt = e.type.builtin;
 		if (!isIntegral(bt) && bt != BuiltinType.Bool) {
 			import d.exception;
-			throw new CompileException(e.location, "Unsupported enum type " ~ e.type.toString(context));
+			throw new CompileException(
+				e.location,
+				"Unsupported enum type " ~ e.type.toString(context),
+			);
 		}
 		
 		import std.conv;
@@ -907,7 +994,8 @@ struct SymbolAnalyzer {
 		// XXX: compute a proper mangling for templates.
 		import std.conv;
 		auto name = t.name.toString(context);
-		t.mangle = context.getName(manglePrefix ~ name.length.to!string() ~ name);
+		t.mangle = context
+			.getName(manglePrefix ~ name.length.to!string() ~ name);
 		
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
@@ -920,7 +1008,14 @@ struct SymbolAnalyzer {
 		auto none = Type.get(BuiltinType.None);
 		foreach_reverse(i, p; d.parameters) {
 			if (auto atp = cast(AstTypeTemplateParameter) p) {
-				auto tp = new TypeTemplateParameter(atp.location, atp.name, cast(uint) i, none, none);
+				auto tp = new TypeTemplateParameter(
+					atp.location,
+					atp.name,
+					cast(uint) i,
+					none,
+					none,
+				);
+				
 				t.addSymbol(tp);
 				
 				import d.semantic.type : TypeVisitor;
@@ -930,7 +1025,14 @@ struct SymbolAnalyzer {
 				tp.step = Step.Signed;
 				t.parameters[i] = tp;
 			} else if (auto avp = cast(AstValueTemplateParameter) p) {
-				auto vp = new ValueTemplateParameter(avp.location, avp.name, cast(uint) i, none, null);
+				auto vp = new ValueTemplateParameter(
+					avp.location,
+					avp.name,
+					cast(uint) i,
+					none,
+					null,
+				);
+				
 				t.addSymbol(vp);
 				
 				import d.semantic.type : TypeVisitor;
@@ -938,19 +1040,31 @@ struct SymbolAnalyzer {
 				
 				if (avp.defaultValue !is null) {
 					import d.semantic.expression : ExpressionVisitor;
-					vp.defaultValue = ExpressionVisitor(pass).visit(avp.defaultValue);
+					vp.defaultValue = ExpressionVisitor(pass)
+						.visit(avp.defaultValue);
 				}
 				
 				vp.step = Step.Signed;
 				t.parameters[i] = vp;
 			} else if (auto aap = cast(AstAliasTemplateParameter) p) {
-				auto ap = new AliasTemplateParameter(aap.location, aap.name, cast(uint) i);
+				auto ap = new AliasTemplateParameter(
+					aap.location,
+					aap.name,
+					cast(uint) i,
+				);
+				
 				t.addSymbol(ap);
 				
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
 			} else if (auto atap = cast(AstTypedAliasTemplateParameter) p) {
-				auto tap = new TypedAliasTemplateParameter(atap.location, atap.name, cast(uint) i, none);
+				auto tap = new TypedAliasTemplateParameter(
+					atap.location,
+					atap.name,
+					cast(uint) i,
+					none,
+				);
+				
 				t.addSymbol(tap);
 				
 				import d.semantic.type : TypeVisitor;
@@ -959,7 +1073,8 @@ struct SymbolAnalyzer {
 				tap.step = Step.Signed;
 				t.parameters[i] = tap;
 			} else {
-				assert(0, typeid(p).toString() ~ " template parameters are not supported.");
+				assert(0, typeid(p).toString()
+						~ " template parameters are not supported.");
 			}
 		}
 		
@@ -998,7 +1113,10 @@ struct SymbolAnalyzer {
 		// Prefilled members are template arguments.
 		foreach(m; i.members) {
 			if (m.hasContext) {
-				assert(t.storage >= Storage.Static, "template can only have one context");
+				assert(
+					t.storage >= Storage.Static,
+					"template can only have one context"
+				);
 				
 				import d.semantic.closure;
 				ctxSym = ContextFinder(pass).visit(m);

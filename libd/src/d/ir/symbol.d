@@ -37,7 +37,7 @@ class Symbol : Node {
 		bool, "isProperty", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
-		uint, "", 1,
+		uint, "__derived", 1,
 	));
 	
 	this(Location location, Name name) {
@@ -48,6 +48,15 @@ class Symbol : Node {
 	
 	string toString(const Context c) const {
 		return name.toString(c);
+	}
+	
+protected:
+	@property derived() const {
+		return __derived;
+	}
+	
+	@property derived(uint val) {
+		return __derived = val;
 	}
 }
 
@@ -433,6 +442,15 @@ class Interface : Aggregate {
 class Struct : Aggregate {
 	this(Location location, Scope parentScope, Name name, Symbol[] members) {
 		super(location, parentScope, name, members);
+	}
+	
+	@property isPod() const {
+		return !!derived;
+	}
+	
+	@property isPod(bool ispod) {
+		derived = ispod;
+		return ispod;
 	}
 }
 

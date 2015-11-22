@@ -51,11 +51,16 @@ struct TypePromoter {
 			}
 		}
 		
-		if (t.kind != TypeKind.Builtin) {
-			assert(0, "Not Implemented.");
+		if (t.kind == TypeKind.Builtin) {
+			return Type.get(promoteBuiltin(bt, t.builtin));
 		}
 		
-		return Type.get(promoteBuiltin(bt, t.builtin));
+		import std.conv;
+		return getError(
+			t,
+			location,
+			"Can't coerce " ~ bt.to!string() ~ " to " ~ t.toString(context),
+		).type;
 	}
 	
 	Type visitPointerOf(Type t) {
