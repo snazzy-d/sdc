@@ -125,36 +125,37 @@ public:
 	
 	void visit(IdentifierStarIdentifierStatement s) {
 		import d.semantic.identifier;
-		SymbolResolver!(delegate bool(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				assert(0, "expression identifier * identifier are not implemented.");
-			} else static if (is(T : Type)) {
-				auto t = identified.getPointer();
-				
-				import d.semantic.expression;
-				import d.semantic.defaultinitializer : InitBuilder;
-				auto value = s.value
-					? ExpressionVisitor(pass).visit(s.value)
-					: InitBuilder(pass, s.location).visit(t);
-				
-				import d.semantic.caster;
-				auto v = new Variable(
-					s.location,
-					t.getParamType(false, false),
-					s.name,
-					buildImplicitCast(pass, s.location, t, value),
-				);
-				
-				v.step = Step.Processed;
-				pass.currentScope.addSymbol(v);
-				
-				flattenedStmts ~= new VariableStatement(v);
-				return true;
-			} else {
-				assert(0, "Was not expecting " ~ T.stringof);
-			}
-		})(pass).visit(s.identifier);
+		SymbolResolver(pass)
+			.visit(s.identifier)
+			.apply!(delegate void(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					assert(0, "expression identifier * identifier are not implemented.");
+				} else static if (is(T : Type)) {
+					auto t = identified.getPointer();
+					
+					import d.semantic.expression;
+					import d.semantic.defaultinitializer : InitBuilder;
+					auto value = s.value
+						? ExpressionVisitor(pass).visit(s.value)
+						: InitBuilder(pass, s.location).visit(t);
+					
+					import d.semantic.caster;
+					auto v = new Variable(
+						s.location,
+						t.getParamType(false, false),
+						s.name,
+						buildImplicitCast(pass, s.location, t, value),
+					);
+					
+					v.step = Step.Processed;
+					pass.currentScope.addSymbol(v);
+					
+					flattenedStmts ~= new VariableStatement(v);
+				} else {
+					assert(0, "Was not expecting " ~ T.stringof);
+				}
+			})();
 	}
 	
 	private auto autoBlock(AstStatement s) {
@@ -230,19 +231,20 @@ public:
 		import d.semantic.expression;
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 		
-		import d.context.name;
-		import d.semantic.identifier;
-		auto length = SymbolResolver!(delegate Expression (e) {
-			static if (is(typeof(e) : Expression)) {
-				return e;
-			} else {
-				import d.ir.error;
-				return new CompileError(
-					iterated.location,
-					typeid(e).toString() ~ " is not a valid length",
-				).expression;
-			}
-		})(pass).resolveInExpression(iterated.location, iterated, BuiltinName!"length");
+		import d.context.name, d.semantic.identifier;
+		auto length = SymbolResolver(pass)
+			.resolveInExpression(iterated.location, iterated, BuiltinName!"length")
+			.apply!(delegate Expression (e) {
+				static if (is(typeof(e) : Expression)) {
+					return e;
+				} else {
+					import d.ir.error;
+					return new CompileError(
+						iterated.location,
+						typeid(e).toString() ~ " is not a valid length",
+					).expression;
+				}
+			})();
 		
 		Variable idx;
 		
@@ -473,30 +475,39 @@ public:
 	void visit(AstTryStatement s) {
 		auto tryStmt = autoBlock(s.statement);
 		
-		import d.semantic.identifier : AliasResolver;
-		auto iv = AliasResolver!(function Class(identified) {
-			static if(is(typeof(identified) : Symbol)) {
-				if(auto c = cast(Class) identified) {
-					return c;
-				}
-			}
-			
-			static if(is(typeof(identified.location))) {
-				import d.exception;
-				throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class.");
-			} else {
-				// for typeof(null)
-				assert(0);
-			}
-		})(pass);
-		
-		CatchBlock[] catches;
-		foreach(c; s.catches) {
-			catches ~= CatchBlock(c.location, iv.visit(c.type), c.name, autoBlock(c.statement));
-		}
+		import std.algorithm, std.array, d.semantic.identifier;
+		auto catches = s.catches.map!(c => CatchBlock(
+			c.location,
+			AliasResolver(pass)
+				.visit(c.type)
+				.apply!(function Class(identified) {
+					static if(is(typeof(identified) : Symbol)) {
+						if(auto c = cast(Class) identified) {
+							return c;
+						}
+					}
+					
+					static if(is(typeof(identified.location))) {
+						import d.exception;
+						throw new CompileException(
+							identified.location,
+							typeid(identified).toString() ~ " is not a class.",
+						);
+					} else {
+						// for typeof(null)
+						assert(0);
+					}
+				})(),
+			c.name,
+			autoBlock(c.statement),
+		)).array();
 		
 		if (s.finallyBlock) {
-			flattenedStmts ~= new ScopeStatement(s.finallyBlock.location, ScopeKind.Exit, autoBlock(s.finallyBlock));
+			flattenedStmts ~= new ScopeStatement(
+				s.finallyBlock.location,
+				ScopeKind.Exit,
+				autoBlock(s.finallyBlock),
+			);
 		}
 		
 		flattenedStmts ~= new TryStatement(s.location, tryStmt, catches);
@@ -566,4 +577,3 @@ public:
 		}
 	}
 }
-

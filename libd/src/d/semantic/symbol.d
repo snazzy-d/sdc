@@ -353,16 +353,19 @@ struct SymbolAnalyzer {
 		analyzeVarLike(d, f);
 	}
 	
-	void analyze(IdentifierAliasDeclaration d, SymbolAlias a) {
-		import d.semantic.identifier : AliasResolver;
-		a.symbol = AliasResolver!(function Symbol(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Symbol)) {
-				return identified;
-			} else {
-				assert(0, "Not implemented for " ~ typeid(identified).toString());
-			}
-		})(pass).visit(d.identifier);
+	void analyze(IdentifierAliasDeclaration iad, SymbolAlias a) {
+		import d.semantic.identifier;
+		a.symbol = AliasResolver(pass)
+			.visit(iad.identifier)
+			.apply!(function Symbol(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Symbol)) {
+					return identified;
+				} else {
+					assert(0, "Not implemented for "
+						~ typeid(identified).toString());
+				}
+			})();
 		
 		process(a);
 	}
@@ -578,25 +581,27 @@ struct SymbolAnalyzer {
 		Field[] baseFields;
 		Method[] baseMethods;
 		foreach(i; d.bases) {
-			import d.semantic.identifier : AliasResolver;
-			c.base = AliasResolver!(function Class(identified) {
-				static if (is(typeof(identified) : Symbol)) {
-					if (auto c = cast(Class) identified) {
-						return c;
+			import d.semantic.identifier;
+			c.base = AliasResolver(pass)
+				.visit(i)
+				.apply!(function Class(identified) {
+					static if (is(typeof(identified) : Symbol)) {
+						if (auto c = cast(Class) identified) {
+							return c;
+						}
 					}
-				}
-				
-				static if (is(typeof(identified.location))) {
-					import d.exception;
-					throw new CompileException(
-						identified.location,
-						typeid(identified).toString() ~ " is not a class.",
-					);
-				} else {
-					// for typeof(null)
-					assert(0);
-				}
-			})(pass).visit(i);
+					
+					static if (is(typeof(identified.location))) {
+						import d.exception;
+						throw new CompileException(
+							identified.location,
+							typeid(identified).toString() ~ " is not a class.",
+						);
+					} else {
+						// for typeof(null)
+						assert(0);
+					}
+				})();
 			
 			break;
 		}

@@ -1,7 +1,6 @@
 module d.semantic.expression;
 
 import d.semantic.caster;
-import d.semantic.identifier;
 import d.semantic.semantic;
 
 import d.ast.expression;
@@ -625,15 +624,18 @@ public:
 			}
 		}
 		
-		import d.ast.identifier;
+		import d.ast.identifier, d.semantic.identifier;
 		if (auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
-			return TemplateSymbolResolver!(i => postProcess(i))(pass)
-				.resolve(tidi, args);
+			return TemplateSymbolResolver(pass)
+				.resolve(tidi, args)
+				.apply!(i => postProcess(i))();
 		}
 		
 		// XXX: For some reason this need to be passed a lambda.
-		return SymbolResolver!((i => postProcess(i)))(pass).visit(c.callee);
+		return SymbolResolver(pass)
+			.visit(c.callee)
+			.apply!((i => postProcess(i)))();
 	}
 	
 	private Expression callCtor(
@@ -665,37 +667,39 @@ public:
 	} body {
 		auto agg = thisExpr.type.aggregate;
 		
-		import d.context.name;
-		return AliasResolver!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Symbol)) {
-				if (auto f = cast(Function) identified) {
-					pass.scheduler.require(f, Step.Signed);
-					return new MethodExpression(calleeLoc, thisExpr, f);
-				} else if (auto s = cast(OverloadSet) identified) {
-					import std.algorithm, std.array;
-					return chooseOverload(
-						location,
-						s.set.map!(delegate Expression(s) {
-							if (auto f = cast(Function) s) {
-								pass.scheduler.require(f, Step.Signed);
-								return new MethodExpression(calleeLoc, thisExpr, f);
-							}
-							
-							// XXX: Template ??!?!!?
-							assert(0, "Not a constructor");
-						}).array(),
-						args,
-					);
+		import d.context.name, d.semantic.identifier;
+		return AliasResolver(pass)
+			.resolveInSymbol(location, agg, BuiltinName!"__ctor")
+			.apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Symbol)) {
+					if (auto f = cast(Function) identified) {
+						pass.scheduler.require(f, Step.Signed);
+						return new MethodExpression(calleeLoc, thisExpr, f);
+					} else if (auto s = cast(OverloadSet) identified) {
+						import std.algorithm, std.array;
+						return chooseOverload(
+							location,
+							s.set.map!(delegate Expression(s) {
+								if (auto f = cast(Function) s) {
+									pass.scheduler.require(f, Step.Signed);
+									return new MethodExpression(calleeLoc, thisExpr, f);
+								}
+								
+								// XXX: Template ??!?!!?
+								assert(0, "Not a constructor");
+							}).array(),
+							args,
+						);
+					}
 				}
-			}
-			
-			return getError(
-				identified,
-				location,
-				agg.name.toString(pass.context) ~ " isn't callable",
-			);
-		})(pass).resolveInSymbol(location, agg, BuiltinName!"__ctor");
+				
+				return getError(
+					identified,
+					location,
+					agg.name.toString(pass.context) ~ " isn't callable",
+				);
+			})();
 	}
 	
 	private Expression handleIFTI(Location location, Template t, Expression[] args) {
@@ -706,18 +710,21 @@ public:
 		auto i = TemplateInstancier(pass).instanciate(location, t, [], args);
 		scheduler.require(i);
 		
-		return SymbolResolver!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return identified;
-			} else {
-				return getError(
-					identified,
-					location,
-					t.name.toString(pass.context) ~ " isn't callable",
-				);
-			}
-		})(pass).resolveInSymbol(location, i, t.name);
+		import d.semantic.identifier;
+		return SymbolResolver(pass)
+			.resolveInSymbol(location, i, t.name)
+			.apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					return identified;
+				} else {
+					return getError(
+						identified,
+						location,
+						t.name.toString(pass.context) ~ " isn't callable",
+					);
+				}
+			})();
 	}
 	
 	private Expression callOverloadSet(
@@ -937,29 +944,35 @@ public:
 		import d.semantic.defaultinitializer;
 		auto di = NewBuilder(pass, e.location).visit(type);
 		
-		import d.context.name;
-		auto ctor = AliasResolver!(delegate Function(identified) {
-			static if (is(typeof(identified) : Symbol)) {
-				if (auto f = cast(Function) identified) {
-					pass.scheduler.require(f, Step.Signed);
-					return f;
-				} else if (auto s = cast(OverloadSet) identified) {
-					auto m = chooseOverload(e.location, s.set.map!(delegate Expression(s) {
-						if (auto f = cast(Function) s) {
-							pass.scheduler.require(f, Step.Signed);
-							return new MethodExpression(e.location, di, f);
-						}
+		import d.context.name, d.semantic.identifier;
+		auto ctor = AliasResolver(pass)
+			.resolveInType(e.location, type, BuiltinName!"__ctor")
+			.apply!(delegate Function(identified) {
+				static if (is(typeof(identified) : Symbol)) {
+					if (auto f = cast(Function) identified) {
+						pass.scheduler.require(f, Step.Signed);
+						return f;
+					} else if (auto s = cast(OverloadSet) identified) {
+						auto m = chooseOverload(
+							e.location,
+							s.set.map!(delegate Expression(s) {
+								if (auto f = cast(Function) s) {
+									pass.scheduler.require(f, Step.Signed);
+									return new MethodExpression(e.location, di, f);
+								}
+								
+								assert(0, "not a constructor");
+							}).array(),
+							args,
+						);
 						
-						assert(0, "not a constructor");
-					}).array(), args);
-					
-					// XXX: find a clean way to achieve this.
-					return (cast(MethodExpression) m).method;
+						// XXX: find a clean way to achieve this.
+						return (cast(MethodExpression) m).method;
+					}
 				}
-			}
-			
-			assert(0, "Gimme some construtor !");
-		})(pass).resolveInType(e.location, type, BuiltinName!"__ctor");
+				
+				assert(0, "Gimme some construtor !");
+			})();
 		
 		// First parameter is compiler magic.
 		auto parameters = ctor.type.parameters[1 .. $];
@@ -978,17 +991,19 @@ public:
 	}
 	
 	Expression getThis(Location location) {
-		import d.context.name;
-		auto thisExpr = SymbolResolver!(delegate Expression(identified) {
-			static if(is(typeof(identified) : Expression)) {
-				return identified;
-			} else {
-				return new CompileError(
-					location,
-					"Cannot find a suitable this pointer",
-				).expression;
-			}
-		})(pass).resolveName(location, BuiltinName!"this");
+		import d.context.name, d.semantic.identifier;
+		auto thisExpr = SymbolResolver(pass)
+			.resolveName(location, BuiltinName!"this")
+			.apply!(delegate Expression(identified) {
+				static if(is(typeof(identified) : Expression)) {
+					return identified;
+				} else {
+					return new CompileError(
+						location,
+						"Cannot find a suitable this pointer",
+					).expression;
+				}
+			})();
 		
 		return buildImplicitCast(pass, location, thisType.getType(), thisExpr);
 	}
@@ -1119,64 +1134,73 @@ public:
 	}
 	
 	Expression visit(IdentifierTypeidExpression e) {
-		return SymbolResolver!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				return getTypeInfo(e.location, identified);
-			} else static if (is(T : Expression)) {
-				return handleTypeid(e.location, identified);
-			} else {
-				return getError(
-					identified,
-					e.location,
-					"Can't get typeid of "
-						~ e.argument.name.toString(pass.context),
-				);
-			}
-		})(pass).visit(e.argument);
+		import d.semantic.identifier;
+		return SymbolResolver(pass)
+			.visit(e.argument)
+			.apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
+					return getTypeInfo(e.location, identified);
+				} else static if (is(T : Expression)) {
+					return handleTypeid(e.location, identified);
+				} else {
+					return getError(
+						identified,
+						e.location,
+						"Can't get typeid of "
+							~ e.argument.name.toString(pass.context),
+					);
+				}
+			})();
 	}
 	
 	Expression visit(IdentifierExpression e) {
-		return SymbolResolver!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return identified;
-			} else {
-				static if (is(T : Symbol)) {
-					if (auto s = cast(OverloadSet) identified) {
-						return buildPolysemous(e.location, s);
+		import d.semantic.identifier;
+		return SymbolResolver(pass)
+			.visit(e.identifier)
+			.apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					return identified;
+				} else {
+					static if (is(T : Symbol)) {
+						if (auto s = cast(OverloadSet) identified) {
+							return buildPolysemous(e.location, s);
+						}
 					}
+					
+					return getError(
+						identified,
+						e.location,
+						e.identifier.name.toString(pass.context)
+							~ " isn't an expression",
+					);
 				}
-				
-				return getError(
-					identified,
-					e.location,
-					e.identifier.name.toString(pass.context)
-						~ " isn't an expression",
-				);
-			}
-		})(pass).visit(e.identifier);
+			})();
 	}
 	
 	private Expression buildPolysemous(Location location, OverloadSet s) {
-		auto spp = SymbolPostProcessor!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return identified;
-			} else static if (is(T : Type)) {
-				assert(0, "Type can't be overloaded");
-			} else {
-				// TODO: handle templates.
-				throw new CompileException(
-					identified.location,
-					typeid(identified).toString()
-						~ " is not supported in overload set",
-				);
-			}
-		})(pass, location);
-		
 		import std.algorithm, std.array;
-		auto exprs = s.set.map!(s => spp.visit(s)).array();
+		import d.semantic.identifier;
+		auto exprs = s.set
+			.map!(s => SymbolPostProcessor(pass, location)
+				.visit(s)
+				.apply!(delegate Expression(identified) {
+					alias T = typeof(identified);
+					static if (is(T : Expression)) {
+						return identified;
+					} else static if (is(T : Type)) {
+						assert(0, "Type can't be overloaded");
+					} else {
+						// TODO: handle templates.
+						throw new CompileException(
+							identified.location,
+							typeid(identified).toString()
+								~ " is not supported in overload set",
+						);
+					}
+				})())
+			.array();
 		return new PolysemousExpression(location, exprs);
 	}
 	

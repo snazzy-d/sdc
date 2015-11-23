@@ -496,15 +496,21 @@ struct SymbolMatcher {
 			matchedArgs[p.index] = TemplateArgument(vs);
 			
 			import d.semantic.identifier;
-			return SymbolPostProcessor!(delegate bool(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					// TODO: If IFTI fails, go for cast.
-					return IftiTypeMatcher(pass, matchedArgs, identified.type).visit(p.type);
-				} else {
-					return false;
-				}
-			})(pass, p.location).visit(vs);
+			return SymbolPostProcessor(pass, p.location)
+				.visit(vs)
+				.apply!(delegate bool(identified) {
+					alias T = typeof(identified);
+					static if (is(T : Expression)) {
+						// TODO: If IFTI fails, go for cast.
+						return IftiTypeMatcher(
+							pass,
+							matchedArgs,
+							identified.type,
+						).visit(p.type);
+					} else {
+						return false;
+					}
+				})();
 		}
 		
 		return false;
@@ -512,25 +518,37 @@ struct SymbolMatcher {
 	
 	bool visit(TypeTemplateParameter p) {
 		import d.semantic.identifier;
-		return SymbolPostProcessor!(delegate bool(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				return TypeParameterMatcher(pass, matchedArgs, identified).visit(p);
-			} else {
-				return false;
-			}
-		})(pass, p.location).visit(matchee);
+		return SymbolPostProcessor(pass, p.location)
+			.visit(matchee)
+			.apply!(delegate bool(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
+					return TypeParameterMatcher(
+						pass,
+						matchedArgs,
+						identified,
+					).visit(p);
+				} else {
+					return false;
+				}
+			})();
 	}
 	
 	bool visit(ValueTemplateParameter p) {
 		import d.semantic.identifier;
-		return SymbolPostProcessor!(delegate bool(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return ValueMatcher(pass, matchedArgs, pass.evaluate(identified)).visit(p);
-			} else {
-				return false;
-			}
-		})(pass, p.location).visit(matchee);
+		return SymbolPostProcessor(pass, p.location)
+			.visit(matchee)
+			.apply!(delegate bool(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					return ValueMatcher(
+						pass,
+						matchedArgs,
+						pass.evaluate(identified),
+					).visit(p);
+				} else {
+					return false;
+				}
+			})();
 	}
 }

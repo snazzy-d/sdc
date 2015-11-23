@@ -17,40 +17,37 @@ import d.exception;
 
 alias Module = d.ir.symbol.Module;
 
-alias SymbolResolver(alias handler) = IdentifierResolver!(handler, false);
-alias AliasResolver(alias handler)  = IdentifierResolver!(handler, true);
+alias SymbolResolver = IdentifierResolver!false;
+alias AliasResolver  = IdentifierResolver!true;
 
-alias TemplateSymbolResolver(alias handler) =
-	TemplateDotIdentifierResolver!(handler, false);
-alias TemplateAliasResolver(alias handler) =
-	TemplateDotIdentifierResolver!(handler, true);
+alias TemplateSymbolResolver = TemplateDotIdentifierResolver!false;
+alias TemplateAliasResolver  = TemplateDotIdentifierResolver!true;
 
-alias SymbolPostProcessor(alias handler) =
-	IdentifierPostProcessor!(handler, false);
-alias AliasPostProcessor(alias handler) =
-	IdentifierPostProcessor!(handler, true);
+alias SymbolPostProcessor = IdentifierPostProcessor!false;
+alias AliasPostProcessor  = IdentifierPostProcessor!true;
 
 private:
 
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
-struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
+struct TemplateDotIdentifierResolver(bool asAlias) {
 	private SemanticPass pass;
 	alias pass this;
-	
-	alias Ret = typeof(handler(Symbol.init));
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
-	Ret resolve(TemplateInstanciationDotIdentifier i, Expression[] fargs = []) {
+	Identifiable resolve(
+		TemplateInstanciationDotIdentifier i,
+		Expression[] fargs = [],
+	) {
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
 		import std.algorithm, std.array;
 		auto args = i.templateInstanciation.arguments.map!((a) {
 			if (auto ia = cast(IdentifierTemplateArgument) a) {
-				return AliasResolver!identifiableHandler(pass)
+				return AliasResolver(pass)
 					.visit(ia.identifier)
 					.apply!((identified) {
 						static if(is(typeof(identified) : Expression)) {
@@ -75,7 +72,7 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		
 		// XXX: identifiableHandler shouldn't be necessary,
 		// we should pas a free function.
-		auto instance = SymbolResolver!identifiableHandler(pass)
+		auto instance = SymbolResolver(pass)
 			.visit(i.templateInstanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
@@ -107,28 +104,26 @@ struct TemplateDotIdentifierResolver(alias handler, bool asAlias) {
 		
 		if (instance is null) {
 			assert(ce, "No error reported :(");
-			return handler(ce.symbol);
+			return Identifiable(ce.symbol);
 		}
 		
 		scheduler.require(instance, Step.Populated);
 		
 		if (auto s = instance.resolve(i.location, i.name)) {
-			return IdentifierPostProcessor!(handler, asAlias)(
-				pass,
-				i.location,
-			).visit(s);
+			return IdentifierPostProcessor!asAlias(pass, i.location)
+				.visit(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
 		auto name = i.templateInstanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.resolve(i.location, name)) {
-				return IdentifierResolver!(handler, asAlias)(pass)
+				return IdentifierResolver!asAlias(pass)
 					.resolveInSymbol(i.location, s, i.name);
 			}
 		}
 		
-		return handler(new CompileError(
+		return Identifiable(new CompileError(
 			i.location,
 			i.name.toString(context) ~ " not found in template").symbol,
 		);
@@ -174,18 +169,17 @@ public auto isError(Identifiable i) {
 /**
  * General entry point to resolve identifiers.
  */
-struct IdentifierResolver(alias handler, bool asAlias) {
+struct IdentifierResolver(bool asAlias) {
 	private SemanticPass pass;
 	alias pass this;
 	
-	alias Ret = typeof(handler(Symbol.init));
-	alias SelfPostProcessor = IdentifierPostProcessor!(handler, asAlias);
+	alias SelfPostProcessor = IdentifierPostProcessor!asAlias;
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
 	
-	Ret visit(Identifier i) {
+	Identifiable visit(Identifier i) {
 		return this.dispatch(i);
 	}
 	
@@ -234,59 +228,54 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		return symbol ? symbol : resolveImportedSymbol(location, name);
 	}
 	
-	Ret resolveName(Location location, Name name) {
+	Identifiable resolveName(Location location, Name name) {
 		return SelfPostProcessor(pass, location)
 			.visit(resolveSymbolByName(location, name));
 	}
 	
-	Ret visit(BasicIdentifier i) {
+	Identifiable visit(BasicIdentifier i) {
 		return resolveName(i.location, i.name);
 	}
 	
-	Ret visit(IdentifierDotIdentifier i) {
-		auto base = SymbolResolver!identifiableHandler(pass)
-			.visit(i.identifier);
+	Identifiable visit(IdentifierDotIdentifier i) {
+		auto base = SymbolResolver(pass).visit(i.identifier);
 		return resolveInIdentifiable(i.location, base, i.name);
 	}
 	
-	Ret visit(DotIdentifier i) {
+	Identifiable visit(DotIdentifier i) {
 		return resolveInSymbol(i.location, currentScope.getModule(), i.name);
 	}
 	
-	Ret resolveInType(Location location, Type t, Name name) {
+	Identifiable resolveInType(Location location, Type t, Name name) {
 		return TypeDotIdentifierResolver!((identified) {
 			alias T = typeof(identified);
 			static if (is(T : Symbol)) {
 				return SelfPostProcessor(pass, location).visit(identified);
 			} else {
-				return handler(identified);
+				return Identifiable(identified);
 			}
 		})(pass, location, name).visit(t);
 	}
 	
-	Ret resolveInExpression(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierResolver!handler(
-			pass,
-			location,
-			e,
-		).resolve(name);
+	Identifiable resolveInExpression(Location location, Expression e, Name name) {
+		return ExpressionDotIdentifierResolver(pass, location, e).resolve(name);
 	}
 	
 	// XXX: higly dubious, see how this can be removed.
-	Ret resolveInSymbol(Location location, Symbol s, Name name) {
+	Identifiable resolveInSymbol(Location location, Symbol s, Name name) {
 		return resolveInIdentifiable(
 			location,
-			SymbolPostProcessor!identifiableHandler(pass, location).visit(s),
+			SymbolPostProcessor(pass, location).visit(s),
 			name,
 		);
 	}
 	
-	private Ret resolveInIdentifiable(
+	private Identifiable resolveInIdentifiable(
 		Location location,
 		Identifiable i,
 		Name name,
 	) {
-		return i.apply!(delegate Ret(identified) {
+		return i.apply!(delegate Identifiable(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Type)) {
 				return resolveInType(location, identified, name);
@@ -315,7 +304,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		})();
 	}
 	
-	Ret visit(ExpressionDotIdentifier i) {
+	Identifiable visit(ExpressionDotIdentifier i) {
 		import d.semantic.expression;
 		return resolveInExpression(
 			i.location,
@@ -324,7 +313,7 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		);
 	}
 	
-	Ret visit(TypeDotIdentifier i) {
+	Identifiable visit(TypeDotIdentifier i) {
 		import d.semantic.type;
 		return resolveInType(
 			i.location,
@@ -333,20 +322,19 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 		);
 	}
 	
-	Ret visit(TemplateInstanciationDotIdentifier i) {
-		return TemplateDotIdentifierResolver!(handler, asAlias)(pass)
-			.resolve(i);
+	Identifiable visit(TemplateInstanciationDotIdentifier i) {
+		return TemplateDotIdentifierResolver!asAlias(pass).resolve(i);
 	}
 	
-	Ret visit(IdentifierBracketIdentifier i) {
-		return SymbolResolver!identifiableHandler(pass)
+	Identifiable visit(IdentifierBracketIdentifier i) {
+		return SymbolResolver(pass)
 			.visit(i.indexed)
-			.apply!(delegate Ret(indexed) {
+			.apply!(delegate Identifiable(indexed) {
 				alias T = typeof(indexed);
 				static if (is(T : Type)) {
-					return SymbolResolver!identifiableHandler(pass)
+					return SymbolResolver(pass)
 						.visit(i.index)
-						.apply!(delegate Ret(index) {
+						.apply!(delegate Identifiable(index) {
 							alias U = typeof(index);
 							static if (is(U : Type)) {
 								assert(0, "AA are not implemented");
@@ -364,19 +352,19 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 									size <= uint.max,
 									"Array larger than uint.max are not supported"
 								);
-								return handler(indexed.getArray(cast(uint) size));
+								return Identifiable(indexed.getArray(cast(uint) size));
 							} else {
 								assert(0, "Add meaningful error message.");
 							}
 						})();
 				} else static if (is(T : Expression)) {
-					return SymbolResolver!identifiableHandler(pass)
+					return SymbolResolver(pass)
 						.visit(i.index)
-						.apply!(delegate Ret(index) {
+						.apply!(delegate Identifiable(index) {
 							alias U = typeof(index);
 							static if (is(U : Expression)) {
 								import d.semantic.expression;
-								return handler(ExpressionVisitor(pass)
+								return Identifiable(ExpressionVisitor(pass)
 										.getIndex(i.location, indexed, index));
 							} else {
 								assert(0, "Add meaningful error message.");
@@ -388,10 +376,10 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 			})();
 	}
 	
-	Ret visit(IdentifierBracketExpression i) {
-		return SymbolResolver!identifiableHandler(pass)
+	Identifiable visit(IdentifierBracketExpression i) {
+		return SymbolResolver(pass)
 			.visit(i.indexed)
-			.apply!(delegate Ret(identified) {
+			.apply!(delegate Identifiable(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
 					// XXX: dedup with IdentifierBracketExpression
@@ -407,10 +395,10 @@ struct IdentifierResolver(alias handler, bool asAlias) {
 						size <= uint.max,
 						"Array larger than uint.max are not supported"
 					);
-					return handler(identified.getArray(cast(uint) size));
+					return Identifiable(identified.getArray(cast(uint) size));
 				} else static if (is(T : Expression)) {
 					import d.semantic.expression;
-					return handler(ExpressionVisitor(pass).getIndex(
+					return Identifiable(ExpressionVisitor(pass).getIndex(
 						i.location,
 						identified,
 						ExpressionVisitor(pass).visit(i.index),
@@ -428,11 +416,9 @@ alias Interface = d.ir.symbol.Interface;
 /**
  * Post process resolved identifiers.
  */
-struct IdentifierPostProcessor(alias handler, bool asAlias) {
+struct IdentifierPostProcessor(bool asAlias) {
 	private SemanticPass pass;
 	alias pass this;
-	
-	alias Ret = typeof(handler(Symbol.init));
 	
 	private Location location;
 	
@@ -441,134 +427,132 @@ struct IdentifierPostProcessor(alias handler, bool asAlias) {
 		this.location = location;
 	}
 	
-	Ret visit(Symbol s) {
+	Identifiable visit(Symbol s) {
 		return this.dispatch(s);
 	}
 	
-	Ret visit(TypeSymbol s) {
+	Identifiable visit(TypeSymbol s) {
 		return this.dispatch(s);
 	}
 	
-	Ret visit(ValueSymbol s) {
+	Identifiable visit(ValueSymbol s) {
 		return this.dispatch(s);
 	}
 	
-	Ret visit(Function f) {
+	Identifiable visit(Function f) {
 		static if (asAlias) {
-			return handler(f);
+			return Identifiable(f);
 		} else {
 			import d.semantic.expression;
-			return handler(ExpressionVisitor(pass).getFrom(location, f));
+			return Identifiable(ExpressionVisitor(pass).getFrom(location, f));
 		}
 	}
 	
-	Ret visit(Method m) {
+	Identifiable visit(Method m) {
 		return visit(cast(Function) m);
 	}
 	
-	Ret visit(Variable v) {
+	Identifiable visit(Variable v) {
 		static if (asAlias) {
-			return handler(v);
+			return Identifiable(v);
 		} else {
 			scheduler.require(v, Step.Signed);
-			return handler(new VariableExpression(location, v));
+			return Identifiable(new VariableExpression(location, v));
 		}
 	}
 	
-	Ret visit(Field f) {
+	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
 		
 		import d.semantic.expression;
 		auto thisExpr = ExpressionVisitor(pass).getThis(location);
 		
 		// FIXME: Turtle error.
-		return handler(new FieldExpression(location, thisExpr, f));
+		return Identifiable(new FieldExpression(location, thisExpr, f));
 	}
 	
-	Ret visit(ValueAlias a) {
+	Identifiable visit(ValueAlias a) {
 		static if (asAlias) {
-			return handler(a);
+			return Identifiable(a);
 		} else {
 			scheduler.require(a, Step.Signed);
-			return handler(a.value);
+			return Identifiable(a.value);
 		}
 	}
 	
-	Ret visit(OverloadSet s) {
+	Identifiable visit(OverloadSet s) {
 		if (s.set.length == 1) {
 			return visit(s.set[0]);
 		}
 		
-		return handler(s);
+		return Identifiable(s);
 	}
 	
-	Ret visit(SymbolAlias s) {
+	Identifiable visit(SymbolAlias s) {
 		scheduler.require(s, Step.Signed);
 		return visit(s.symbol);
 	}
 	
 	private auto getSymbolType(S)(S s) {
 		static if (asAlias) {
-			return handler(s);
+			return Identifiable(s);
 		} else {
-			return handler(Type.get(s));
+			return Identifiable(Type.get(s));
 		}
 	}
 	
-	Ret visit(TypeAlias a) {
+	Identifiable visit(TypeAlias a) {
 		scheduler.require(a);
 		return getSymbolType(a);
 	}
 	
-	Ret visit(Struct s) {
+	Identifiable visit(Struct s) {
 		return getSymbolType(s);
 	}
 	
-	Ret visit(Union u) {
+	Identifiable visit(Union u) {
 		return getSymbolType(u);
 	}
 	
-	Ret visit(Class c) {
+	Identifiable visit(Class c) {
 		return getSymbolType(c);
 	}
 
-	Ret visit(Interface i) {
+	Identifiable visit(Interface i) {
 		return getSymbolType(i);
 	}
 
-	Ret visit(Enum e) {
+	Identifiable visit(Enum e) {
 		return getSymbolType(e);
 	}
 	
-	Ret visit(Template t) {
-		return handler(t);
+	Identifiable visit(Template t) {
+		return Identifiable(t);
 	}
 	
-	Ret visit(TemplateInstance i) {
-		return handler(i);
+	Identifiable visit(TemplateInstance i) {
+		return Identifiable(i);
 	}
 	
-	Ret visit(Module m) {
-		return handler(m);
+	Identifiable visit(Module m) {
+		return Identifiable(m);
 	}
 	
-	Ret visit(TypeTemplateParameter t) {
+	Identifiable visit(TypeTemplateParameter t) {
 		return getSymbolType(t);
 	}
 	
-	Ret visit(ErrorSymbol e) {
-		return handler(e);
+	Identifiable visit(ErrorSymbol e) {
+		return Identifiable(e);
 	}
 }
 
 /**
  * Resolve expression.identifier as type or expression.
  */
-struct ExpressionDotIdentifierResolver(alias handler) {
+struct ExpressionDotIdentifierResolver {
 	SemanticPass pass;
 	alias pass this;
-	
-	alias Ret = typeof(handler(Symbol.init));
 	
 	Location location;
 	Expression expr;
@@ -579,16 +563,16 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		this.expr = expr;
 	}
 	
-	Ret resolve(Name name) {
+	Identifiable resolve(Name name) {
 		auto type = expr.type;
-		return TypeDotIdentifierResolver!(delegate Ret(identified) {
+		return TypeDotIdentifierResolver!(delegate Identifiable(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Symbol)) {
 				// XXX: I'd like to have a more elegant way to retrive this.
 				return visit(identified);
 			} else static if (is(T : Expression)) {
 				// sizeof, init and other goodies.
-				return handler(build!BinaryExpression(
+				return Identifiable(build!BinaryExpression(
 					location,
 					identified.type,
 					BinaryOp.Comma,
@@ -597,21 +581,20 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 				));
 			} else {
 				if (identified.kind == TypeKind.Error) {
-					return handler(identified);
+					return Identifiable(identified);
 				}
 				
 				assert(0, "expression.type not implemented");
 			}
-		}, delegate Ret(r, t) {
+		}, delegate Identifiable(r, t) {
 			if (t.isAggregate) {
 				import d.semantic.aliasthis;
 				import std.algorithm, std.array;
 				auto results = AliasThisResolver!identifiableHandler(pass)
 					.resolve(expr, t.aggregate)
-					.map!(c => SymbolResolver!identifiableHandler(pass)
+					.map!(c => SymbolResolver(pass)
 							.resolveInIdentifiable(location, c, name))
 					.filter!(i => !i.isError())
-					.map!(c => c.apply!handler())
 					.array();
 				
 				if (results.length == 1) {
@@ -647,18 +630,18 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 					.array();
 			}
 			
-			auto a = AliasResolver!identifiableHandler(pass)
+			auto a = AliasResolver(pass)
 				.resolveSymbolByName(location, name);
 			if (auto os = cast(OverloadSet) a) {
 				auto ufcs = findUFCS(os.set);
 				if (ufcs.length > 0) {
 					assert(ufcs.length == 1, "ambiguous ufcs");
-					return handler(ufcs[0]);
+					return Identifiable(ufcs[0]);
 				}
 			} else if (auto f = cast(Function) a) {
 				auto ufcs = tryUFCS(f);
 				if (ufcs) {
-					return handler(ufcs);
+					return Identifiable(ufcs);
 				}
 			}
 			
@@ -678,7 +661,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		})(pass, location, name).visit(type);
 	}
 	
-	Ret visit(Symbol s) {
+	Identifiable visit(Symbol s) {
 		return this.dispatch!((s) {
 			throw new CompileException(
 				s.location,
@@ -687,7 +670,7 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		})(s);
 	}
 	
-	Ret visit(OverloadSet s) {
+	Identifiable visit(OverloadSet s) {
 		if (s.set.length == 1) {
 			return visit(s.set[0]);
 		}
@@ -708,22 +691,22 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		
 		switch(exprs.length) {
 			case 0 :
-				return handler(new CompileError(
+				return Identifiable(new CompileError(
 					location,
 					"No valid candidate in overload set").symbol,
 				);
 			
 			case 1 :
-				return handler(exprs[0]);
+				return Identifiable(exprs[0]);
 			
 			default :
-				return handler(new PolysemousExpression(location, exprs));
+				return Identifiable(new PolysemousExpression(location, exprs));
 		}
 	}
 	
-	Ret visit(Field f) {
+	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return handler(new FieldExpression(location, expr, f));
+		return Identifiable(new FieldExpression(location, expr, f));
 	}
 	
 	private Expression makeExpression(Function f) {
@@ -731,34 +714,34 @@ struct ExpressionDotIdentifierResolver(alias handler) {
 		return ExpressionVisitor(pass).getFrom(location, expr, f);
 	}
 	
-	Ret visit(Function f) {
-		return handler(makeExpression(f));
+	Identifiable visit(Function f) {
+		return Identifiable(makeExpression(f));
 	}
 	
-	Ret visit(Method m) {
-		return handler(makeExpression(m));
+	Identifiable visit(Method m) {
+		return Identifiable(makeExpression(m));
 	}
 	
-	Ret visit(TypeAlias a) {
+	Identifiable visit(TypeAlias a) {
 		// XXX: get rid of peelAlias and then get rid of this.
 		scheduler.require(a);
-		return handler(Type.get(a));
+		return Identifiable(Type.get(a));
 	}
 	
-	Ret visit(Struct s) {
-		return handler(Type.get(s));
+	Identifiable visit(Struct s) {
+		return Identifiable(Type.get(s));
 	}
 	
-	Ret visit(Class c) {
-		return handler(Type.get(c));
+	Identifiable visit(Class c) {
+		return Identifiable(Type.get(c));
 	}
 	
-	Ret visit(Enum e) {
-		return handler(Type.get(e));
+	Identifiable visit(Enum e) {
+		return Identifiable(Type.get(e));
 	}
 	
-	Ret visit(ErrorSymbol e) {
-		return handler(e);
+	Identifiable visit(ErrorSymbol e) {
+		return Identifiable(e);
 	}
 }
 

@@ -7,9 +7,6 @@ import d.ast.type;
 
 import d.ir.type;
 
-// XXX: module level for UFCS.
-import std.algorithm, std.array;
-
 struct TypeVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -45,18 +42,22 @@ struct TypeVisitor {
 	
 	Type visit(Identifier i) {
 		import d.semantic.identifier;
-		return SymbolResolver!(delegate Type(identified) {
-			static if(is(typeof(identified) : Type)) {
-				return identified.qualify(qualifier);
-			} else {
-				import d.ir.error;
-				return getError(
-					identified,
-					i.location,
-					i.toString(pass.context) ~ "(" ~ typeid(identified).toString() ~ ") isn't an type",
-				).type;
-			}
-		})(pass).visit(i);
+		return SymbolResolver(pass)
+			.visit(i)
+			.apply!(delegate Type(identified) {
+				static if(is(typeof(identified) : Type)) {
+					return identified.qualify(qualifier);
+				} else {
+					import d.ir.error;
+					return getError(
+						identified,
+						i.location,
+						i.toString(pass.context) ~ "("
+							~ typeid(identified).toString()
+							~ ") isn't an type",
+					).type;
+				}
+			})();
 	}
 	
 	Type visitPointerOf(AstType t) {
@@ -98,21 +99,24 @@ struct TypeVisitor {
 		auto type = visit(t);
 		
 		import d.semantic.identifier;
-		return SymbolResolver!(delegate Type(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				assert(0, "Not implemented.");
-			} else static if (is(T: Expression)) {
-				return buildArray(identified, type);
-			} else {
-				import d.ir.error;
-				return getError(
-					identified,
-					ikey.location,
-					ikey.toString(pass.context) ~ " isn't an type or an expression",
-				).type;
-			}
-		})(pass).visit(ikey);
+		return SymbolResolver(pass)
+			.visit(ikey)
+			.apply!(delegate Type(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
+					assert(0, "Not implemented.");
+				} else static if (is(T: Expression)) {
+					return buildArray(identified, type);
+				} else {
+					import d.ir.error;
+					return getError(
+						identified,
+						ikey.location,
+						ikey.toString(pass.context)
+							~ " isn't an type or an expression",
+					).type;
+				}
+			})();
 	}
 	
 	Type visit(FunctionAstType t) {
@@ -151,4 +155,3 @@ struct TypeVisitor {
 		assert(0, "typeof(return) is not implemented.");
 	}
 }
-

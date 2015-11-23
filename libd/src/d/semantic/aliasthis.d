@@ -41,7 +41,8 @@ struct AliasThisResolver(alias handler) {
 		import d.semantic.identifier;
 		import std.algorithm, std.array;
 		return aliases
-			.map!(n => SymbolResolver!identifiableHandler(pass).resolveInExpression(e.location, e, n))
+			.map!(n => SymbolResolver(pass)
+					.resolveInExpression(e.location, e, n))
 			.filter!(i => !i.isError())
 			.map!(c => c.apply!handler())
 			.array();
