@@ -308,6 +308,10 @@ private:
 			return t;
 		}
 		
+		FunctionType getFunction() {
+			return getDelegate(0);
+		}
+		
 		@property
 		Linkage linkage() const {
 			return lnk;

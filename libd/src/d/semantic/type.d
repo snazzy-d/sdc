@@ -121,7 +121,7 @@ struct TypeVisitor {
 	
 	Type visit(FunctionAstType t) {
 		auto ctxCount = t.contexts.length;
-		auto f = t.getDelegate(0);
+		auto f = t.getFunction();
 		
 		ParamType[] paramTypes;
 		paramTypes.length = f.parameters.length;

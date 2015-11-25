@@ -623,7 +623,7 @@ unittest {
 	auto d2 = d.getDelegate(2);
 	assert(d2.contexts.length == 2);
 	assert(d2.parameters.length == 0);
-	assert(d2.getDelegate(0) == f);
+	assert(d2.getFunction() == f);
 }
 
 private:
