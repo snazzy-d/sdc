@@ -186,6 +186,16 @@ struct TokenRange {
 		+/
 	}
 	
+	void moveTo(ref TokenRange fr) in {
+		assert(base is fr.base);
+		assert(context is fr.context);
+		assert(content is fr.content);
+		assert(index < fr.index);
+	} body {
+		index = fr.index;
+		t = fr.t;
+	}
+	
 	@property
 	auto save() inout {
 		return inout(TokenRange)(t, previous, base, index, context, content);

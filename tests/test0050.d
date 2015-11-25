@@ -9,4 +9,3 @@ int main() {
 	int function(int, int) a = &add;
 	return a(21, 21);
 }
-

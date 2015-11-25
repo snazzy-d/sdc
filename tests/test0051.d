@@ -12,4 +12,3 @@ int foo(int function(int, int) a) {
 int main() {
 	return foo(&add);
 }
-

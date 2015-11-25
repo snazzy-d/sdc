@@ -162,14 +162,27 @@ AstStatement parseStatement(ref TokenRange trange) {
 			location.spanTo(statement.location);
 			
 			return isRange
-				? new ForeachRangeStatement(location, tupleElements, iterrated, endOfRange, statement, reverse)
-				: new ForeachStatement(location, tupleElements, iterrated, statement, reverse);
+				? new ForeachRangeStatement(
+					location,
+					tupleElements,
+					iterrated,
+					endOfRange,
+					statement,
+					reverse,
+				)
+				: new ForeachStatement(
+					location,
+					tupleElements,
+					iterrated,
+					statement,
+					reverse,
+				);
 		
 		case Return :
 			trange.popFront();
 			
 			AstExpression value;
-			if(trange.front.type != Semicolon) {
+			if (trange.front.type != Semicolon) {
 				value = trange.parseExpression();
 			}
 			
@@ -191,7 +204,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 		case Continue :
 			trange.popFront();
 			
-			if(trange.front.type == Identifier) trange.popFront();
+			if (trange.front.type == Identifier) trange.popFront();
 			
 			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
@@ -273,11 +286,9 @@ AstStatement parseStatement(ref TokenRange trange) {
 		
 		case Synchronized :
 			trange.popFront();
-			if(trange.front.type == OpenParen) {
+			if (trange.front.type == OpenParen) {
 				trange.popFront();
-				
 				trange.parseExpression();
-				
 				trange.match(CloseParen);
 			}
 			
@@ -331,7 +342,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 				auto catchLocation = trange.front.location;
 				trange.popFront();
 				
-				if(trange.front.type == OpenParen) {
+				if (trange.front.type == OpenParen) {
 					trange.popFront();
 					
 					import d.parser.identifier;
@@ -358,7 +369,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 			}
 			
 			AstStatement finallyStatement;
-			if(trange.front.type == Finally) {
+			if (trange.front.type == Finally) {
 				trange.popFront();
 				finallyStatement = trange.parseStatement();
 				
