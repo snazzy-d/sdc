@@ -470,13 +470,26 @@ public:
 	}
 	
 	void visit(AstAssertStatement s) {
+		bool isHalt;
+		if (auto b = cast(BooleanLiteral) s.condition) {
+			isHalt = !b.value;
+		} else if (auto i = cast(IntegerLiteral) s.condition) {
+			isHalt = !i.value;
+		} else if (auto n = cast(NullLiteral) s.condition) {
+			isHalt = true;
+		}
+		
 		import d.semantic.caster, d.semantic.expression;
-		auto c = buildExplicitCast(
-			pass,
-			s.condition.location,
-			Type.get(BuiltinType.Bool),
-			ExpressionVisitor(pass).visit(s.condition),
-		);
+		
+		Expression c;
+		if (!isHalt) {
+			c = buildExplicitCast(
+				pass,
+				s.condition.location,
+				Type.get(BuiltinType.Bool),
+				ExpressionVisitor(pass).visit(s.condition),
+			);
+		}
 		
 		Expression msg;
 		if (s.message) {
@@ -488,7 +501,9 @@ public:
 			);
 		}
 		
-		flattenedStmts ~= new AssertStatement(s.location, c, msg);
+		flattenedStmts ~= isHalt
+			? new HaltStatement(s.location, msg)
+			: new AssertStatement(s.location, c, msg);
 	}
 	
 	void visit(AstThrowStatement s) {

@@ -2,6 +2,8 @@ module d.llvm.statement;
 
 import d.llvm.local;
 
+import d.context.location;
+
 import d.ir.expression;
 import d.ir.statement;
 
@@ -538,8 +540,18 @@ struct StatementGen {
 		
 		// Emit assert call
 		LLVMPositionBuilderAtEnd(builder, failBB);
+		genHalt(s.location, s.message);
 		
-		auto floc = s.getFullLocation(context);
+		// Now continue regular execution flow.
+		LLVMPositionBuilderAtEnd(builder, successBB);
+	}
+	
+	void visit(HaltStatement s) {
+		genHalt(s.location, s.message);
+	}
+	
+	void genHalt(Location location, Expression msg) {
+		auto floc = location.getFullLocation(context);
 		
 		LLVMValueRef[3] args;
 		args[1] = buildDString(floc.getSource().getFileName().toString());
@@ -549,8 +561,9 @@ struct StatementGen {
 			false,
 		);
 		
-		if (s.message) {
-			args[0] = genExpression(s.message);
+		if (msg) {
+			args[0] = genExpression(msg);
+			
 			import d.llvm.runtime;
 			genCall(RuntimeGen(pass.pass).getAssertMessage(), args[]);
 		} else {
@@ -560,9 +573,6 @@ struct StatementGen {
 		
 		// Conclude that block.
 		LLVMBuildUnreachable(builder);
-		
-		// Now continue regular execution flow.
-		LLVMPositionBuilderAtEnd(builder, successBB);
 	}
 	
 	void visit(ThrowStatement s) {

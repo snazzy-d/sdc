@@ -55,7 +55,22 @@ public:
 		}
 		
 		visit(f.fbody);
-		return closure;
+		
+		if (funTerminate) {
+			return closure;
+		}
+		
+		import d.ir.type;
+		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
+			return closure;
+		}
+		
+		import d.exception;
+		throw new CompileException(
+			f.location,
+			f.name.toString(context) ~ " "
+				~ f.mangle.toString(context) ~ " does not terminate :(",
+		);
 	}
 	
 	void visit(Statement s) {
@@ -69,16 +84,12 @@ public:
 		}
 		
 		import d.exception;
-		throw new CompileException(
-			s.location,
-			"Unreachable statement." ~ typeid(s).toString(),
-		);
+		throw new CompileException(s.location, "Unreachable statement");
 	}
 	
 	void visit(BlockStatement b) {
 		auto oldDeclBlockStack = declBlockStack;
 		auto oldPreviousStatement = previousStatement;
-		
 		scope(exit) {
 			declBlockStack = oldDeclBlockStack;
 			previousStatement = oldPreviousStatement;
@@ -131,6 +142,11 @@ public:
 		auto thenMustTerminate = mustTerminate;
 		auto thenFunTerminate = funTerminate;
 		auto thenBlockTerminate = blockTerminate;
+		scope(exit) {
+			mustTerminate = thenMustTerminate && mustTerminate;
+			funTerminate = thenFunTerminate && funTerminate;
+			blockTerminate = thenBlockTerminate && blockTerminate;
+		}
 		
 		mustTerminate = oldMustTerminate;
 		funTerminate = oldFunTerminate;
@@ -138,10 +154,6 @@ public:
 		
 		if (s.elseStatement) {
 			visit(s.elseStatement);
-			
-			mustTerminate = thenMustTerminate && mustTerminate;
-			funTerminate = thenFunTerminate && funTerminate;
-			blockTerminate = thenBlockTerminate && blockTerminate;
 		}
 	}
 	
@@ -151,9 +163,9 @@ public:
 		auto oldFunTerminate = funTerminate;
 		auto oldBlockTerminate = blockTerminate;
 		scope(exit) {
-			mustTerminate = oldMustTerminate;
-			funTerminate = oldFunTerminate;
-			blockTerminate = oldBlockTerminate;
+			mustTerminate = oldMustTerminate && mustTerminate;
+			funTerminate = oldFunTerminate && funTerminate;
+			blockTerminate = oldBlockTerminate && blockTerminate;
 		}
 		
 		visit(s);
@@ -218,6 +230,10 @@ public:
 	}
 	
 	void visit(AssertStatement s) {}
+	
+	void visit(HaltStatement s) {
+		terminateFun();
+	}
 	
 	void visit(ThrowStatement s) {
 		terminateFun();
@@ -286,7 +302,7 @@ public:
 		} else {
 			// Check for case a: case b:
 			// TODO: consider default: case a:
-			if (!(cast(CaseStatement) previousStatement)) {
+			if ((cast(CaseStatement) previousStatement) is null) {
 				import d.exception;
 				throw new CompileException(location, fallthroughError);
 			}
@@ -306,7 +322,7 @@ public:
 			"Case statement can only appear within switch statement.",
 			"Fallthrough is disabled, use goto case.",
 		);
-
+		
 		unterminate();
 	}
 
@@ -321,7 +337,7 @@ public:
 		}
 		
 		unterminate();
-
+		
 		auto labelBlock = declBlockStack[$ - 1];
 		labelBlocks[label] = labelBlock;
 		if (auto bPtr = s.label in inFlightGotosStacks) {
@@ -346,6 +362,8 @@ public:
 				}
 			}
 		}
+		
+		visit(s.statement);
 	}
 
 	void visit(GotoStatement s) {

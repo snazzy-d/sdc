@@ -121,3 +121,16 @@ class TryStatement : Statement {
 		this.catches = catches;
 	}
 }
+
+/**
+ * halt statements (asserts that always fail)
+ */
+class HaltStatement : Statement {
+	Expression message;
+	
+	this(Location location, Expression message) {
+		super(location);
+		
+		this.message = message;
+	}
+}

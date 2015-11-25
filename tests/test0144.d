@@ -34,5 +34,7 @@ int main() {
 	assert(a == 9);
 	
 	while(true) scope(exit) return 123;
+	
+	assert(0, "unreachable");
 }
 
