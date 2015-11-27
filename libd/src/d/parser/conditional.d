@@ -187,12 +187,15 @@ ItemType parseStaticAssert(ItemType)(ref TokenRange trange) if(is(ItemType == As
 	if (trange.front.type == TokenType.Comma) {
 		trange.popFront();
 		message = trange.parseAssignExpression();
+		
+		if (trange.front.type == TokenType.Comma) {
+			trange.popFront();
+		}
 	}
 	
 	trange.match(TokenType.CloseParen);
-	
 	location.spanTo(trange.front.location);
-	trange.match(TokenType.Semicolon);
 	
+	trange.match(TokenType.Semicolon);
 	return new StaticAssert!ItemType(location, condition, message);
 }

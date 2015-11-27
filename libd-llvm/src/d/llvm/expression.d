@@ -868,52 +868,6 @@ struct ExpressionGen {
 		return tuple;
 	}
 	
-	LLVMValueRef visit(AssertExpression e) {
-		auto test = visit(e.condition);
-		
-		auto testBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(testBB);
-		
-		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_fail");
-		auto successBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_success");
-		
-		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
-		
-		// We assume that assert fail is unlikely.
-		LLVMSetMetadata(br, profKindID, unlikelyBranch);
-		
-		// Emit assert call
-		LLVMPositionBuilderAtEnd(builder, failBB);
-		
-		auto floc = e.getFullLocation(context);
-		
-		LLVMValueRef[3] args;
-		args[1] = buildDString(floc.getSource().getFileName().toString());
-		args[2] = LLVMConstInt(
-			LLVMInt32TypeInContext(llvmCtx),
-			floc.getStartLineNumber(),
-			false,
-		);
-		
-		if (e.message) {
-			args[0] = visit(e.message);
-			import d.llvm.runtime;
-			buildCall(RuntimeGen(pass.pass).getAssertMessage(), args[]);
-		} else {
-			import d.llvm.runtime;
-			buildCall(RuntimeGen(pass.pass).getAssert(), args[1 .. $]);
-		}
-		
-		// Conclude that block.
-		LLVMBuildUnreachable(builder);
-		
-		// Now continue regular execution flow.
-		LLVMPositionBuilderAtEnd(builder, successBB);
-		
-		// XXX: should figure out what is the right value to return.
-		return null;
-	}
-	
 	LLVMValueRef visit(DynamicTypeidExpression e) {
 		auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, visit(e.argument), 0, ""), "");
 		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");

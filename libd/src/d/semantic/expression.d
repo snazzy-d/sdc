@@ -20,7 +20,6 @@ alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
-alias AssertExpression = d.ir.expression.AssertExpression;
 
 struct ExpressionVisitor {
 	private SemanticPass pass;
@@ -1069,25 +1068,6 @@ public:
 			sliced,
 			first,
 			second,
-		);
-	}
-	
-	Expression visit(AstAssertExpression e) {
-		auto c = visit(e.condition);
-		c = buildExplicitCast(pass, c.location, Type.get(BuiltinType.Bool), c);
-		
-		Expression msg;
-		if (e.message) {
-			msg = visit(e.message);
-			
-			// TODO: ensure that msg is a string.
-		}
-		
-		return build!AssertExpression(
-			e.location,
-			Type.get(BuiltinType.Void),
-			c,
-			msg,
 		);
 	}
 	

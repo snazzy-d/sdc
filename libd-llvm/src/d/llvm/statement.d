@@ -60,6 +60,11 @@ struct StatementGen {
 		return ExpressionGen(pass).visit(e);
 	}
 	
+	private auto genConstant(CompileTimeExpression e) {
+		import d.llvm.constant;
+		return ConstantGen(pass.pass).visit(e);
+	}
+	
 	private auto genCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		import d.llvm.expression;
 		return ExpressionGen(pass).buildCall(callee, args);
@@ -444,7 +449,7 @@ struct StatementGen {
 		}
 		
 		foreach(e; s.cases) {
-			LLVMAddCase(switchInstr, genExpression(e), caseBB);
+			LLVMAddCase(switchInstr, genConstant(e), caseBB);
 		}
 		
 		LLVMPositionBuilderAtEnd(builder, caseBB);
@@ -517,8 +522,56 @@ struct StatementGen {
 		unwindBlocks ~= Block(BlockKind.Exit, s.statement, null, null);
 	}
 	
+	void visit(AssertStatement s) {
+		auto test = genExpression(s.condition);
+		
+		auto testBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(testBB);
+		
+		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_fail");
+		auto successBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_success");
+		
+		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
+		
+		// We assume that assert fail is unlikely.
+		LLVMSetMetadata(br, profKindID, unlikelyBranch);
+		
+		// Emit assert call
+		LLVMPositionBuilderAtEnd(builder, failBB);
+		
+		auto floc = s.getFullLocation(context);
+		
+		LLVMValueRef[3] args;
+		args[1] = buildDString(floc.getSource().getFileName().toString());
+		args[2] = LLVMConstInt(
+			LLVMInt32TypeInContext(llvmCtx),
+			floc.getStartLineNumber(),
+			false,
+		);
+		
+		if (s.message) {
+			args[0] = genExpression(s.message);
+			import d.llvm.runtime;
+			genCall(RuntimeGen(pass.pass).getAssertMessage(), args[]);
+		} else {
+			import d.llvm.runtime;
+			genCall(RuntimeGen(pass.pass).getAssert(), args[1 .. $]);
+		}
+		
+		// Conclude that block.
+		LLVMBuildUnreachable(builder);
+		
+		// Now continue regular execution flow.
+		LLVMPositionBuilderAtEnd(builder, successBB);
+	}
+	
 	void visit(ThrowStatement s) {
-		auto value = LLVMBuildBitCast(builder, genExpression(s.value), define(pass.object.getThrowable()), "");
+		auto value = LLVMBuildBitCast(
+			builder,
+			genExpression(s.value),
+			define(pass.object.getThrowable()),
+			"",
+		);
 		
 		genCall(declare(pass.object.getThrow()), [value]);
 		LLVMBuildUnreachable(builder);

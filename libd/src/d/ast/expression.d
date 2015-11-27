@@ -22,7 +22,7 @@ final:
 /**
  * Conditional expression of type ?:
  */
-class TernaryExpression(E) : E  if(is(E: AstExpression)){
+class TernaryExpression(E) : E if (is(E: AstExpression)) {
 	E condition;
 	E lhs;
 	E rhs;
@@ -102,7 +102,7 @@ enum BinaryOp {
 	UnorderedEqual,
 }
 
-class BinaryExpression(T) : T  if(is(T: AstExpression)){
+class BinaryExpression(T) : T if (is(T: AstExpression)) {
 	T lhs;
 	T rhs;
 	
@@ -462,27 +462,6 @@ class IsExpression : AstExpression {
 		this.tested = tested;
 	}
 }
-
-/**
- * assert
- */
-class AssertExpression(T) : T if(is(T: AstExpression)) {
-	T condition;
-	T message;
-	
-	this(U...)(Location location, U args, T condition, T message) {
-		super(location, args);
-		
-		this.condition = condition;
-		this.message = message;
-	}
-	
-	override string toString(const Context c) const {
-		return "assert(" ~ condition.toString(c) ~ ")";
-	}
-}
-
-alias AstAssertExpression = AssertExpression!AstExpression;
 
 /**
  * typeid(expression) expression.

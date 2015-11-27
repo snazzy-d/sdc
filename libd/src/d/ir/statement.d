@@ -12,6 +12,7 @@ class Statement : AstStatement {
 	}
 }
 
+alias AssertStatement = d.ast.statement.AssertStatement!(Expression, Statement);
 alias BlockStatement = d.ast.statement.BlockStatement!Statement;
 alias ExpressionStatement = d.ast.statement.ExpressionStatement!(Expression, Statement);
 alias IfStatement = d.ast.statement.IfStatement!(Expression, Statement);

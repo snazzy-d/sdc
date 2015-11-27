@@ -688,22 +688,6 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		case Is :
 			return trange.parseIsExpression();
 		
-		case Assert :
-			trange.popFront();
-			trange.match(OpenParen);
-			
-			auto condition = trange.parseAssignExpression();
-			AstExpression message;
-			if(trange.front.type == Comma) {
-				trange.popFront();
-				message = trange.parseAssignExpression();
-			}
-			
-			location.spanTo(trange.front.location);
-			trange.match(CloseParen);
-			
-			return new AstAssertExpression(location, condition, message);
-		
 		case OpenParen :
 			auto matchingParen = trange.save;
 			matchingParen.popMatchingDelimiter!OpenParen();

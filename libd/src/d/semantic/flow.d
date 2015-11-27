@@ -217,6 +217,8 @@ public:
 		terminateBlock();
 	}
 	
+	void visit(AssertStatement s) {}
+	
 	void visit(ThrowStatement s) {
 		terminateFun();
 	}

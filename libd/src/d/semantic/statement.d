@@ -17,6 +17,7 @@ import d.ir.type;
 import d.parser.base;
 import d.parser.statement;
 
+alias AssertStatement = d.ir.statement.AssertStatement;
 alias BlockStatement = d.ir.statement.BlockStatement;
 alias ExpressionStatement = d.ir.statement.ExpressionStatement;
 alias IfStatement = d.ir.statement.IfStatement;
@@ -169,7 +170,13 @@ public:
 	
 	void visit(AstIfStatement s) {
 		import d.semantic.caster, d.semantic.expression;
-		auto condition = buildExplicitCast(pass, s.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(s.condition));
+		auto condition = buildExplicitCast(
+			pass,
+			s.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(s.condition),
+		);
+		
 		auto then = autoBlock(s.then);
 		
 		Statement elseStatement;
@@ -460,6 +467,28 @@ public:
 	
 	void visit(AstScopeStatement s) {
 		flattenedStmts ~= new ScopeStatement(s.location, s.kind, autoBlock(s.statement));
+	}
+	
+	void visit(AstAssertStatement s) {
+		import d.semantic.caster, d.semantic.expression;
+		auto c = buildExplicitCast(
+			pass,
+			s.condition.location,
+			Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(s.condition),
+		);
+		
+		Expression msg;
+		if (s.message) {
+			msg = buildImplicitCast(
+				pass,
+				s.message.location,
+				Type.get(BuiltinType.Char, TypeQualifier.Immutable).getSlice(),
+				ExpressionVisitor(pass).visit(s.message),
+			);
+		}
+		
+		flattenedStmts ~= new AssertStatement(s.location, c, msg);
 	}
 	
 	void visit(AstThrowStatement s) {

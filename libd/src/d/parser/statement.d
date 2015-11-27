@@ -21,6 +21,17 @@ AstStatement parseStatement(ref TokenRange trange) {
 		case OpenBrace :
 			return trange.parseBlock();
 		
+		case Identifier :
+			auto lookahead = trange.save;
+			lookahead.popFront();
+			
+			if (lookahead.front.type == Colon) {
+				goto case Default;
+			}
+			
+			// If it is not a labeled statement, then it is a declaration or an expression.
+			goto default;
+		
 		case If :
 			trange.popFront();
 			trange.match(OpenParen);
@@ -66,10 +77,9 @@ AstStatement parseStatement(ref TokenRange trange) {
 			auto condition = trange.parseExpression();
 			
 			trange.match(CloseParen);
-			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new AstDoWhileStatement(location, condition, statement);
 		
 		case For :
@@ -186,29 +196,33 @@ AstStatement parseStatement(ref TokenRange trange) {
 				value = trange.parseExpression();
 			}
 			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new AstReturnStatement(location, value);
 		
 		case Break :
 			trange.popFront();
 			
-			if(trange.front.type == Identifier) trange.popFront();
+			if (trange.front.type == Identifier) {
+				trange.popFront();
+			}
 			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new BreakStatement(location);
 		
 		case Continue :
 			trange.popFront();
 			
-			if (trange.front.type == Identifier) trange.popFront();
+			if (trange.front.type == Identifier) {
+				trange.popFront();
+			}
 			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new ContinueStatement(location);
 		
 		case Switch :
@@ -229,9 +243,9 @@ AstStatement parseStatement(ref TokenRange trange) {
 			
 			AstExpression[] cases = trange.parseArguments();
 			
-			location.spanTo(trange.front.location);
 			trange.match(Colon);
 			
+			location.spanTo(trange.previous);
 			return new AstCaseStatement(location, cases);
 		
 		case Default :
@@ -251,17 +265,6 @@ AstStatement parseStatement(ref TokenRange trange) {
 			
 			return new AstLabeledStatement(location, label, statement);
 		
-		case Identifier :
-			auto lookahead = trange.save;
-			lookahead.popFront();
-			
-			if (lookahead.front.type == Colon) {
-				goto case Default;
-			}
-			
-			// If it is not a labeled statement, then it is a declaration or an expression.
-			goto default;
-		
 		case Goto :
 			trange.popFront();
 			
@@ -279,23 +282,10 @@ AstStatement parseStatement(ref TokenRange trange) {
 					trange.match(Identifier);
 			}
 			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new GotoStatement(location, label);
-		
-		case Synchronized :
-			trange.popFront();
-			if (trange.front.type == OpenParen) {
-				trange.popFront();
-				trange.parseExpression();
-				trange.match(CloseParen);
-			}
-			
-			auto statement = trange.parseStatement();
-			location.spanTo(statement.location);
-			
-			return new AstSynchronizedStatement(location, statement);
 		
 		case Scope :
 			trange.popFront();
@@ -323,13 +313,35 @@ AstStatement parseStatement(ref TokenRange trange) {
 			
 			return new AstScopeStatement(location, kind, statement);
 		
+		case Assert :
+			trange.popFront();
+			trange.match(OpenParen);
+			
+			auto condition = trange.parseAssignExpression();
+			AstExpression message;
+			if (trange.front.type == Comma) {
+				trange.popFront();
+				message = trange.parseAssignExpression();
+				
+				// Trailing comma
+				if (trange.front.type == Comma) {
+					trange.popFront();
+				}
+			}
+			
+			trange.match(CloseParen);
+			trange.match(Semicolon);
+			
+			location.spanTo(trange.previous);
+			return new AstAssertStatement(location, condition, message);
+		
 		case Throw :
 			trange.popFront();
 			auto value = trange.parseExpression();
 			
-			location.spanTo(trange.front.location);
 			trange.match(Semicolon);
 			
+			location.spanTo(trange.previous);
 			return new AstThrowStatement(location, value);
 		
 		case Try :
@@ -380,6 +392,19 @@ AstStatement parseStatement(ref TokenRange trange) {
 			
 			return new AstTryStatement(location, statement, catches, finallyStatement);
 		
+		case Synchronized :
+			trange.popFront();
+			if (trange.front.type == OpenParen) {
+				trange.popFront();
+				trange.parseExpression();
+				trange.match(CloseParen);
+			}
+			
+			auto statement = trange.parseStatement();
+			location.spanTo(statement.location);
+			
+			return new AstSynchronizedStatement(location, statement);
+		
 		case Mixin :
 			return trange.parseMixin!AstStatement();
 		
@@ -415,9 +440,9 @@ AstStatement parseStatement(ref TokenRange trange) {
 				} else static if (is(T : Declaration)) {
 					return new DeclarationStatement(parsed);
 				} else {
-					auto location = parsed.identifier.location;
-					location.spanTo(trange.front.location);
 					trange.match(Semicolon);
+					auto location = parsed.identifier.location;
+					location.spanTo(trange.previous);
 					return new IdentifierStarIdentifierStatement(
 						location,
 						parsed.identifier,
@@ -442,9 +467,9 @@ AstBlockStatement parseBlock(ref TokenRange trange) {
 		statements ~= trange.parseStatement();
 	}
 	
-	location.spanTo(trange.front.location);
 	trange.popFront();
 	
+	location.spanTo(trange.previous);
 	return new AstBlockStatement(location, statements);
 }
 
