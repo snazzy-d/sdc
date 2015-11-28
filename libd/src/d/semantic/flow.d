@@ -61,7 +61,8 @@ public:
 		}
 		
 		import d.ir.type;
-		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
+		if (returnType.kind == TypeKind.Builtin &&
+			returnType.builtin == BuiltinType.Void) {
 			return closure;
 		}
 		
@@ -170,11 +171,11 @@ public:
 		
 		visit(s);
 	}
-
+	
 	void visit(ForStatement s) {
 		handleLoop(s.statement);
 	}
-
+	
 	void visit(WhileStatement s) {
 		handleLoop(s.statement);
 	}
@@ -192,7 +193,7 @@ public:
 			funTerminate = oldFunTerminate;
 			blockTerminate = oldBlockTerminate;
 		}
-
+		
 		visit(s.statement);
 	}
 	
@@ -217,10 +218,10 @@ public:
 		switchBlock = declBlockStack[$ - 1];
 		allowFallthrough = true;
 		switchFunTerminate = true;
-
+		
 		visit(s.statement);
 	}
-
+	
 	void visit(BreakStatement s) {
 		terminateBlock();
 	}
@@ -267,10 +268,8 @@ public:
 			tryFunTerminate = tryFunTerminate && funTerminate;
 			tryBlockTerminate = tryBlockTerminate && blockTerminate;
 		}
-		
-		// FIXME: The merge part ???
 	}
-
+	
 	private void setCaseEntry(
 		Location location,
 		string switchError,
@@ -315,7 +314,7 @@ public:
 			}
 		}
 	}
-
+	
 	void visit(CaseStatement s) {
 		setCaseEntry(
 			s.location,
@@ -325,7 +324,7 @@ public:
 		
 		unterminate();
 	}
-
+	
 	void visit(LabeledStatement s) {
 		auto label = s.label;
 		if (label == BuiltinName!"default") {
@@ -365,7 +364,7 @@ public:
 		
 		visit(s.statement);
 	}
-
+	
 	void visit(GotoStatement s) {
 		auto label = s.label;
 		if (auto bPtr = label in labelBlocks) {
@@ -393,8 +392,8 @@ public:
 		} else {
 			inFlightGotosStacks[label] = [declBlockStack];
 		}
-
-		terminateBlock();
+		
+		terminateFun();
 	}
 
 private:
