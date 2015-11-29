@@ -205,8 +205,8 @@ public:
 		auto oldBlockTerminate = blockTerminate;
 		
 		scope(exit) {
-			mustTerminate = switchMustTerminate;
-			funTerminate = switchFunTerminate;
+			mustTerminate = switchMustTerminate && mustTerminate;
+			funTerminate = switchFunTerminate && funTerminate;
 			blockTerminate = oldBlockTerminate || funTerminate;
 			
 			switchBlock = oldSwitchBlock;
