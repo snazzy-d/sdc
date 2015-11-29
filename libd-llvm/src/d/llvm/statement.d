@@ -134,7 +134,7 @@ struct StatementGen {
 			
 			auto unwindBB = b.unwindBB;
 			if (!unwindBB) {
-				if(!mustResume) {
+				if (!mustResume) {
 					continue;
 				}
 				
@@ -177,12 +177,17 @@ struct StatementGen {
 	
 	void visit(BlockStatement b) {
 		auto oldUnwindBlocks = unwindBlocks;
-		
 		foreach(s; b.statements) {
 			visit(s);
 		}
 		
 		unwindTo(oldUnwindBlocks.length);
+	}
+	
+	private void maybeBranchTo(LLVMBasicBlockRef destBB) {
+		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			LLVMBuildBr(builder, destBB);
+		}
 	}
 	
 	void visit(IfStatement ifs) {
@@ -207,17 +212,13 @@ struct StatementGen {
 		
 		// Codegen of then can change the current block, so we put everything in order.
 		thenBB = LLVMGetInsertBlock(builder);
-		
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(thenBB)) {
-			LLVMBuildBr(builder, mergeBB);
-		}
+		maybeBranchTo(mergeBB);
 		
 		// Put the else block after the generated stuff.
 		LLVMMoveBasicBlockAfter(elseBB, thenBB);
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
-		if(ifs.elseStatement) {
+		if (ifs.elseStatement) {
 			unwindBlocks = oldUnwindBlocks;
 			
 			// Emit else
@@ -227,20 +228,10 @@ struct StatementGen {
 		
 		// Codegen of else can change the current block, so we put everything in order.
 		elseBB = LLVMGetInsertBlock(builder);
-		
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(elseBB)) {
-			LLVMBuildBr(builder, mergeBB);
-		}
+		maybeBranchTo(mergeBB);
 		
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
-	}
-	
-	private void maybeBranchTo(LLVMBasicBlockRef destBB) {
-		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			LLVMBuildBr(builder, destBB);
-		}
 	}
 	
 	private void handleLoop(LoopStatement)(LoopStatement l) {
@@ -248,7 +239,7 @@ struct StatementGen {
 		enum isDoWhile = is(LoopStatement : DoWhileStatement);
 		
 		// Generate initialization if appropriate
-		static if(isFor) {
+		static if (isFor) {
 			auto oldUnwindBlocks = unwindBlocks;
 			scope(exit) unwindBlocks = oldUnwindBlocks;
 			
@@ -265,7 +256,7 @@ struct StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		static if(isFor) {
+		static if (isFor) {
 			auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "for");
 			auto continueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "increment");
 		} else {
@@ -279,7 +270,7 @@ struct StatementGen {
 		breakBlock = LabelBlock(unwindBlocks.length, breakBB);
 		continueBlock = LabelBlock(unwindBlocks.length, continueBB);
 		
-		static if(isDoWhile) {
+		static if (isDoWhile) {
 			alias startBB = doBB;
 		} else {
 			alias startBB = testBB;
@@ -294,7 +285,7 @@ struct StatementGen {
 		LLVMBuildCondBr(builder, condition, doBB, breakBB);
 		
 		// Build continue block or alias it to the test.
-		static if(isFor) {
+		static if (isFor) {
 			LLVMPositionBuilderAtEnd(builder, continueBB);
 			genExpression(l.increment);
 			
@@ -308,16 +299,12 @@ struct StatementGen {
 		
 		// Codegen of then can change the current block, so we put everything in order.
 		doBB = LLVMGetInsertBlock(builder);
-		
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(doBB)) {
-			LLVMBuildBr(builder, continueBB);
-		}
+		maybeBranchTo(continueBB);
 		
 		LLVMMoveBasicBlockAfter(breakBB, doBB);
 		LLVMPositionBuilderAtEnd(builder, breakBB);
 		
-		static if(isFor) {
+		static if (isFor) {
 			unwindTo(oldUnwindBlocks.length);
 		}
 	}
@@ -398,14 +385,10 @@ struct StatementGen {
 		
 		// Codegen of switch body can change the current block, so we put everything in order.
 		auto finalBB = LLVMGetInsertBlock(builder);
-		
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(finalBB)) {
-			LLVMBuildBr(builder, breakBB);
-		}
+		maybeBranchTo(breakBB);
 		
 		// Conclude default block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(defaultBB)) {
+		if (!LLVMGetBasicBlockTerminator(defaultBB)) {
 			LLVMPositionBuilderAtEnd(builder, defaultBB);
 			LLVMBuildUnreachable(builder);
 		}
@@ -435,8 +418,8 @@ struct StatementGen {
 		assert(switchInstr);
 		
 		auto currentBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(currentBB);
 		
+		auto fun = LLVMGetBasicBlockParent(currentBB);
 		auto caseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "case");
 		
 		// In fligt goto case will end up here.
@@ -610,10 +593,7 @@ struct StatementGen {
 		visit(s.statement);
 		
 		auto currentBB = LLVMGetInsertBlock(builder);
-		// Conclude that block if it isn't already.
-		if(!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMBuildBr(builder, resumeBB);
-		}
+		maybeBranchTo(resumeBB);
 		
 		auto lastBlock = unwindBlocks[$ - 1];
 		unwindBlocks = unwindBlocks[0 .. $ - catches.length];
@@ -624,14 +604,14 @@ struct StatementGen {
 		
 		// If no unwind in the first block, we can skip the whole stuff.
 		auto unwindBB = lastBlock.unwindBB;
-		if(!unwindBB) {
+		if (!unwindBB) {
 			LLVMMoveBasicBlockAfter(resumeBB, currentBB);
 			return;
 		}
 		
 		// Only the first one can have a landingPad.
 		auto landingPadBB = lastBlock.landingPadBB;
-		if(landingPadBB) {
+		if (landingPadBB) {
 			LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
 			currentBB = landingPadBB;
 		}
@@ -665,9 +645,7 @@ struct StatementGen {
 			visit(c.statement);
 			
 			currentBB = LLVMGetInsertBlock(builder);
-			if( !LLVMGetBasicBlockTerminator(currentBB)) {
-				LLVMBuildBr(builder, resumeBB);
-			}
+			maybeBranchTo(resumeBB);
 			
 			unwindBB = nextUnwindBB;
 			LLVMPositionBuilderAtEnd(builder, unwindBB);
@@ -677,4 +655,3 @@ struct StatementGen {
 		concludeUnwind(fun, unwindBB);
 	}
 }
-
