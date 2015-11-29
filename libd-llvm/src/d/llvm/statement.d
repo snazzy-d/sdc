@@ -226,29 +226,19 @@ struct StatementGen {
 			unwindTo(oldUnwindBlocks.length);
 		}
 		
-		// Codegen of else can change the current block, so we put everything in order.
+		// Codegen of else can change the current block,
+		// so we put everything in order.
 		elseBB = LLVMGetInsertBlock(builder);
-		maybeBranchTo(mergeBB);
-		
 		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
+		
+		maybeBranchTo(mergeBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 	}
 	
-	private void handleLoop(LoopStatement)(LoopStatement l) {
-		enum isFor = is(LoopStatement : ForStatement);
-		enum isDoWhile = is(LoopStatement : DoWhileStatement);
-		
+	void visit(LoopStatement l) {
 		// Generate initialization if appropriate
-		static if (isFor) {
-			auto oldUnwindBlocks = unwindBlocks;
-			scope(exit) unwindBlocks = oldUnwindBlocks;
-			
-			visit(l.initialize);
-		}
-		
 		auto oldBreakBlock = breakBlock;
 		auto oldContinueBlock = continueBlock;
-		
 		scope(exit) {
 			breakBlock = oldBreakBlock;
 			continueBlock = oldContinueBlock;
@@ -256,69 +246,47 @@ struct StatementGen {
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 		
-		static if (isFor) {
-			auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "for");
-			auto continueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "increment");
-		} else {
-			auto continueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "while");
-			auto testBB = continueBB;
-		}
+		auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.test");
+		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.body");
+		auto incBB  = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.inc");
+		auto exitBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.exit");
 		
-		auto doBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "do");
-		auto breakBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "done");
-		
-		breakBlock = LabelBlock(unwindBlocks.length, breakBB);
-		continueBlock = LabelBlock(unwindBlocks.length, continueBB);
-		
-		static if (isDoWhile) {
-			alias startBB = doBB;
-		} else {
-			alias startBB = testBB;
-		}
+		breakBlock = LabelBlock(unwindBlocks.length, exitBB);
+		continueBlock = LabelBlock(unwindBlocks.length, incBB);
 		
 		// Jump into the loop.
-		maybeBranchTo(startBB);
+		maybeBranchTo(l.skipFirstCond ? bodyBB : testBB);
 		LLVMPositionBuilderAtEnd(builder, testBB);
 		
 		// Test and do or jump to done.
 		auto condition = genExpression(l.condition);
-		LLVMBuildCondBr(builder, condition, doBB, breakBB);
+		LLVMBuildCondBr(builder, condition, bodyBB, exitBB);
+		
+		// Emit loop body
+		auto currentBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(bodyBB, currentBB);
+		LLVMPositionBuilderAtEnd(builder, bodyBB);
+		
+		visit(l.fbody);
+		
+		// Codegen of then can change the current block,
+		// so we put everything in order.
+		currentBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(incBB, currentBB);
+		
+		maybeBranchTo(incBB);
 		
 		// Build continue block or alias it to the test.
-		static if (isFor) {
-			LLVMPositionBuilderAtEnd(builder, continueBB);
+		LLVMPositionBuilderAtEnd(builder, incBB);
+		if (l.increment !is null) {
 			genExpression(l.increment);
-			
-			LLVMBuildBr(builder, testBB);
 		}
 		
-		// Emit do
-		LLVMPositionBuilderAtEnd(builder, doBB);
+		currentBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(exitBB, currentBB);
+		maybeBranchTo(testBB);
 		
-		visit(l.statement);
-		
-		// Codegen of then can change the current block, so we put everything in order.
-		doBB = LLVMGetInsertBlock(builder);
-		maybeBranchTo(continueBB);
-		
-		LLVMMoveBasicBlockAfter(breakBB, doBB);
-		LLVMPositionBuilderAtEnd(builder, breakBB);
-		
-		static if (isFor) {
-			unwindTo(oldUnwindBlocks.length);
-		}
-	}
-	
-	void visit(WhileStatement w) {
-		handleLoop(w);
-	}
-	
-	void visit(DoWhileStatement w) {
-		handleLoop(w);
-	}
-	
-	void visit(ForStatement f) {
-		handleLoop(f);
+		LLVMPositionBuilderAtEnd(builder, exitBB);
 	}
 	
 	void visit(ReturnStatement r) {
@@ -385,6 +353,8 @@ struct StatementGen {
 		
 		// Codegen of switch body can change the current block, so we put everything in order.
 		auto finalBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(breakBB, finalBB);
+		
 		maybeBranchTo(breakBB);
 		
 		// Conclude default block if it isn't already.
@@ -393,7 +363,6 @@ struct StatementGen {
 			LLVMBuildUnreachable(builder);
 		}
 		
-		LLVMMoveBasicBlockAfter(breakBB, finalBB);
 		LLVMPositionBuilderAtEnd(builder, breakBB);
 	}
 	

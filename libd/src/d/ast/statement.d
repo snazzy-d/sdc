@@ -105,28 +105,26 @@ alias AstIfStatement = IfStatement!(AstExpression, AstStatement);
 /**
  * while statements
  */
-class WhileStatement(E, S) : S if (is(E : AstExpression) && is(S : AstStatement)) {
-	E condition;
-	S statement;
+class WhileStatement : AstStatement {
+	AstExpression condition;
+	AstStatement statement;
 	
-	this(Location location, E condition, S statement) {
+	this(Location location, AstExpression condition, AstStatement statement) {
 		super(location);
 		
 		this.condition = condition;
 		this.statement = statement;
 	}
 }
-
-alias AstWhileStatement = WhileStatement!(AstExpression, AstStatement);
 
 /**
  * do .. while statements
  */
-class DoWhileStatement(E, S) : S if(is(E : AstExpression) && is(S : AstStatement)) {
-	E condition;
-	S statement;
+class DoWhileStatement : AstStatement {
+	AstExpression condition;
+	AstStatement statement;
 	
-	this(Location location, E condition, S statement) {
+	this(Location location, AstExpression condition, AstStatement statement) {
 		super(location);
 		
 		this.condition = condition;
@@ -134,18 +132,22 @@ class DoWhileStatement(E, S) : S if(is(E : AstExpression) && is(S : AstStatement
 	}
 }
 
-alias AstDoWhileStatement = DoWhileStatement!(AstExpression, AstStatement);
-
 /**
  * for statements
  */
-class ForStatement(E, S) : S if (is(E : AstExpression) && is(S : AstStatement)) {
-	S initialize;
-	E condition;
-	E increment;
-	S statement;
+class ForStatement : AstStatement {
+	AstStatement initialize;
+	AstExpression condition;
+	AstExpression increment;
+	AstStatement statement;
 	
-	this(Location location, S initialize, E condition, E increment, S statement) {
+	this(
+		Location location,
+		AstStatement initialize,
+		AstExpression condition,
+		AstExpression increment,
+		AstStatement statement,
+	) {
 		super(location);
 		
 		this.initialize = initialize;
@@ -154,8 +156,6 @@ class ForStatement(E, S) : S if (is(E : AstExpression) && is(S : AstStatement)) 
 		this.statement = statement;
 	}
 }
-
-alias AstForStatement = ForStatement!(AstExpression, AstStatement);
 
 /**
  * foreach statements

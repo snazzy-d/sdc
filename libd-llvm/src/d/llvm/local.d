@@ -418,7 +418,7 @@ struct LocalGen {
 	) in {
 		assert(v.storage.isLocal, "globals not supported");
 	} body {
-		auto name = v.mangle.toStringz(context);
+		auto name = v.name.toStringz(context);
 		
 		if (v.isRef | v.isFinal) {
 			if (v.storage == Storage.Capture) {

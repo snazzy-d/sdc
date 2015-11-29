@@ -16,9 +16,6 @@ class Statement : AstStatement {
 alias AssertStatement = d.ast.statement.AssertStatement!(Expression, Statement);
 alias ExpressionStatement = d.ast.statement.ExpressionStatement!(Expression, Statement);
 alias IfStatement = d.ast.statement.IfStatement!(Expression, Statement);
-alias WhileStatement = d.ast.statement.WhileStatement!(Expression, Statement);
-alias DoWhileStatement = d.ast.statement.DoWhileStatement!(Expression, Statement);
-alias ForStatement = d.ast.statement.ForStatement!(Expression, Statement);
 alias ReturnStatement = d.ast.statement.ReturnStatement!(Expression, Statement);
 alias SwitchStatement = d.ast.statement.SwitchStatement!(Expression, Statement);
 alias CaseStatement = d.ast.statement.CaseStatement!(CompileTimeExpression, Statement);
@@ -87,6 +84,31 @@ class TypeStatement : Statement {
 		super(type.location);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * loop statements
+ */
+class LoopStatement : Statement {
+	Expression condition;
+	BlockStatement fbody;
+	Expression increment;
+	
+	// For do/while.
+	bool skipFirstCond;
+	
+	this(
+		Location location,
+		Expression condition,
+		BlockStatement fbody,
+		Expression increment = null,
+	) {
+		super(location);
+		
+		this.condition = condition;
+		this.fbody = fbody;
+		this.increment = increment;
 	}
 }
 

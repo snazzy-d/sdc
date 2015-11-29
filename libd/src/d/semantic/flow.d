@@ -158,30 +158,22 @@ public:
 		}
 	}
 	
-	// FIXME: This should be a BlockStatement, not a statement.
-	private void handleLoop(Statement s) {
+	void visit(LoopStatement s) {
 		auto oldMustTerminate = mustTerminate;
 		auto oldFunTerminate = funTerminate;
 		auto oldBlockTerminate = blockTerminate;
 		scope(exit) {
-			mustTerminate = oldMustTerminate && mustTerminate;
-			funTerminate = oldFunTerminate && funTerminate;
-			blockTerminate = oldBlockTerminate && blockTerminate;
+			if (!s.skipFirstCond) {
+				funTerminate = oldFunTerminate && funTerminate;
+			}
+			
+			if (!funTerminate) {
+				mustTerminate = oldMustTerminate && mustTerminate;
+				blockTerminate = oldBlockTerminate && blockTerminate;
+			}
 		}
 		
-		visit(s);
-	}
-	
-	void visit(ForStatement s) {
-		handleLoop(s.statement);
-	}
-	
-	void visit(WhileStatement s) {
-		handleLoop(s.statement);
-	}
-	
-	void visit(DoWhileStatement s) {
-		handleLoop(s.statement);
+		visit(s.fbody);
 	}
 	
 	void visit(ScopeStatement s) {

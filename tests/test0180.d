@@ -62,8 +62,6 @@ uint loopflow() {
 	do {
 		return 1;
 	} while(condition);
-	
-	return 2;
 }
 
 uint tryflow0() {

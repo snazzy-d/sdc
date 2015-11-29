@@ -57,10 +57,10 @@ public:
 		
 		auto rt = returnType.getType();
 		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
-		if (rt.kind == TypeKind.Builtin && rt.qualifier == TypeQualifier.Mutable && rt.builtin == BuiltinType.None) {
+		if (rt.kind == TypeKind.Builtin &&
+			rt.qualifier == TypeQualifier.Mutable &&
+			rt.builtin == BuiltinType.None) {
 			returnType = Type.get(BuiltinType.Void).getParamType(false, false);
-		} else if (rt.kind != TypeKind.Builtin || rt.builtin != BuiltinType.Void) {
-			// FIXME: check that function actually returns.
 		}
 		
 		return fbody;
@@ -200,9 +200,9 @@ public:
 		flattenedStmts ~= new IfStatement(s.location, condition, then, elseStatement);
 	}
 	
-	void visit(AstWhileStatement w) {
+	void visit(WhileStatement w) {
 		import d.semantic.caster, d.semantic.expression;
-		flattenedStmts ~= new WhileStatement(
+		flattenedStmts ~= new LoopStatement(
 			w.location,
 			buildExplicitCast(
 				pass,
@@ -214,9 +214,9 @@ public:
 		);
 	}
 	
-	void visit(AstDoWhileStatement w) {
+	void visit(DoWhileStatement w) {
 		import d.semantic.caster, d.semantic.expression;
-		flattenedStmts ~= new DoWhileStatement(
+		auto l = new LoopStatement(
 			w.location,
 			buildExplicitCast(
 				pass,
@@ -226,15 +226,17 @@ public:
 			),
 			autoBlock(w.statement),
 		);
+		
+		l.skipFirstCond = true;
+		flattenedStmts ~= l;
 	}
 	
-	void visit(AstForStatement f) {
+	void visit(ForStatement f) {
 		flattenedStmts ~= buildBlock(f.location, f);
 	}
 	
-	void process(AstForStatement f) {
+	void process(ForStatement f) {
 		visit(f.initialize);
-		auto initialize = flattenedStmts[$ - 1];
 		
 		import d.semantic.caster, d.semantic.expression;
 		Expression condition = f.condition
@@ -248,14 +250,13 @@ public:
 		
 		Expression increment = f.increment
 			? ExpressionVisitor(pass).visit(f.increment)
-			: new BooleanLiteral(f.location, true);
+			: null;
 		
-		flattenedStmts[$ - 1] = new ForStatement(
+		flattenedStmts ~= new LoopStatement(
 			f.location,
-			initialize,
 			condition,
-			increment,
 			autoBlock(f.statement),
+			increment,
 		);
 	}
 	
@@ -272,7 +273,7 @@ public:
 		import d.context.name, d.semantic.identifier;
 		auto length = SymbolResolver(pass)
 			.resolveInExpression(iterated.location, iterated, BuiltinName!"length")
-			.apply!(delegate Expression (e) {
+			.apply!(delegate Expression(e) {
 				static if (is(typeof(e) : Expression)) {
 					return e;
 				} else {
@@ -290,7 +291,12 @@ public:
 		switch(f.tupleElements.length) {
 			case 1 :
 				import d.semantic.defaultinitializer;
-				idx = new Variable(loc, length.type, BuiltinName!"", InitBuilder(pass, loc).visit(length.type));
+				idx = new Variable(
+					loc,
+					length.type,
+					BuiltinName!"",
+					InitBuilder(pass, loc).visit(length.type),
+				);
 				
 				idx.step = Step.Processed;
 				break;
@@ -307,7 +313,12 @@ public:
 				auto idxLoc = idxDecl.location;
 				
 				import d.semantic.defaultinitializer;
-				idx = new Variable(idxLoc, t, idxDecl.name, InitBuilder(pass, idxLoc).visit(t));
+				idx = new Variable(
+					idxLoc,
+					t,
+					idxDecl.name,
+					InitBuilder(pass, idxLoc).visit(t),
+				);
 				
 				idx.step = Step.Processed;
 				currentScope.addSymbol(idx);
@@ -319,8 +330,8 @@ public:
 		}
 		
 		assert(idx);
+		flattenedStmts ~= new VariableStatement(idx);
 		
-		auto initialize = new VariableStatement(idx);
 		auto idxExpr = new VariableExpression(idx.location, idx);
 		auto condition = new BinaryExpression(
 			loc,
@@ -359,23 +370,22 @@ public:
 		
 		auto element = new Variable(eLoc, eType, eDecl.name, eVal);
 		element.step = Step.Processed;
-		currentScope.addSymbol(element);
-		
-		auto assign = new BinaryExpression(
-			loc,
-			eType.getType(),
-			BinaryOp.Assign,
-			new VariableExpression(eLoc, element),
-			eVal,
-		);
 		
 		auto stmt = new BlockStatement(
 			f.statement.location,
 			currentScope,
-			[new ExpressionStatement(assign), autoBlock(f.statement)],
+			[],
 		);
 		
-		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);
+		stmt.addSymbol(element);
+		currentScope = stmt;
+		
+		stmt.statements = [
+			new VariableStatement(element),
+			autoBlock(f.statement),
+		];
+		
+		flattenedStmts ~= new LoopStatement(loc, condition, stmt, increment);
 	}
 	
 	void visit(ForeachRangeStatement f) {
@@ -416,6 +426,7 @@ public:
 		
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
+		flattenedStmts ~= new VariableStatement(idx);
 		
 		Expression idxExpr = new VariableExpression(idx.location, idx);
 		Expression increment, condition;
@@ -441,13 +452,11 @@ public:
 			increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}
 		
-		auto initialize = new VariableStatement(idx);
-		flattenedStmts ~= new ForStatement(
+		flattenedStmts ~= new LoopStatement(
 			loc,
-			initialize,
 			condition,
-			increment,
 			autoBlock(f.statement),
+			increment,
 		);
 	}
 	
@@ -477,7 +486,8 @@ public:
 			throw new CompileException(t.error.location, t.error.message);
 		}
 		
-		// TODO: Handle auto return by specifying it to this visitor instead of deducing it in dubious ways.
+		// TODO: Handle auto return by specifying it to this visitor
+		// instead of deducing it in dubious ways.
 		if (isAutoReturn) {
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(false, false);
@@ -485,12 +495,17 @@ public:
 			import d.semantic.caster;
 			value = buildImplicitCast(pass, s.location, returnType.getType(), value);
 			if (returnType.isRef) {
-				if (value.isLvalue) {
-					value = new UnaryExpression(s.location, value.type.getPointer(), UnaryOp.AddressOf, value);
-				} else {
+				if (!value.isLvalue) {
 					import d.exception;
 					throw new CompileException(s.location, "Cannot ref return lvalues");
 				}
+				
+				value = new UnaryExpression(
+					s.location,
+					value.type.getPointer(),
+					UnaryOp.AddressOf,
+					value,
+				);
 			}
 		}
 		

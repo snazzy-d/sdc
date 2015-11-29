@@ -65,7 +65,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 			auto statement = trange.parseStatement();
 			
 			location.spanTo(statement.location);
-			return new AstWhileStatement(location, condition, statement);
+			return new WhileStatement(location, condition, statement);
 		
 		case Do :
 			trange.popFront();
@@ -80,7 +80,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 			trange.match(Semicolon);
 			
 			location.spanTo(trange.previous);
-			return new AstDoWhileStatement(location, condition, statement);
+			return new DoWhileStatement(location, condition, statement);
 		
 		case For :
 			trange.popFront();
@@ -112,7 +112,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 			auto statement = trange.parseStatement();
 			
 			location.spanTo(statement.location);
-			return new AstForStatement(location, init, condition, increment, statement);
+			return new ForStatement(location, init, condition, increment, statement);
 		
 		case Foreach, ForeachReverse :
 			bool reverse = (trange.front.type == ForeachReverse);
