@@ -240,6 +240,7 @@ struct SymbolAnalyzer {
 		if (!isAuto) {
 			buildType();
 		}
+		
 		if (fbody) {
 			auto oldCtxSym = ctxSym;
 			scope(exit) ctxSym = oldCtxSym;
