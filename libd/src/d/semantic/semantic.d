@@ -153,8 +153,10 @@ final class SemanticPass {
 			),
 			BuiltinName!"_Dmain",
 			[],
-			new BlockStatement(location, fbody),
+			null,
 		);
+		
+		bootstrap.fbody = new BlockStatement(location, bootstrap, fbody);
 		
 		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;

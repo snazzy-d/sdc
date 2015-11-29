@@ -1,5 +1,6 @@
 module d.ir.statement;
 
+import d.ir.dscope;
 import d.ir.expression;
 
 import d.ast.statement;
@@ -13,7 +14,6 @@ class Statement : AstStatement {
 }
 
 alias AssertStatement = d.ast.statement.AssertStatement!(Expression, Statement);
-alias BlockStatement = d.ast.statement.BlockStatement!Statement;
 alias ExpressionStatement = d.ast.statement.ExpressionStatement!(Expression, Statement);
 alias IfStatement = d.ast.statement.IfStatement!(Expression, Statement);
 alias WhileStatement = d.ast.statement.WhileStatement!(Expression, Statement);
@@ -32,6 +32,21 @@ import d.ir.symbol;
 alias CatchBlock = d.ast.statement.CatchBlock!(Class, Statement);
 
 final:
+/**
+ * Blocks
+ */
+class BlockStatement : Statement, Scope {
+	mixin ScopeSymbol;
+	Statement[] statements;
+	
+	this(Location location, Scope parentScope, Statement[] statements) in {
+	} body {
+		super(location);
+		fillParentScope(parentScope);
+		
+		this.statements = statements;
+	}
+}
 
 /**
  * Variable

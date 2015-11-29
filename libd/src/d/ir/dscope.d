@@ -53,8 +53,6 @@ interface Scope {
 	Symbol search(Location location, Name name);
 	Symbol resolve(Location location, Name name);
 	
-	NestedScope makeNestedScope();
-	
 	void addSymbol(Symbol s);
 	void addOverloadableSymbol(Symbol s);
 	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches);
@@ -78,6 +76,7 @@ private:
 		ParentScope parentScope;
 	}
 	
+	import d.context.name;
 	Symbol[Name] symbols;
 	
 	static if (ST) {
@@ -200,19 +199,6 @@ public:
 		}
 		
 		return null;
-	}
-	
-	NestedScope makeNestedScope() {
-		static if (is(typeof(this) : NestedScope)) {
-			auto clone = new NestedScope(dmodule, parentScope);
-			
-			clone.symbols = symbols.dup;
-			clone.imports = imports;
-			
-			return clone;
-		} else {
-			return new NestedScope(this);
-		}
 	}
 	
 	void addSymbol(Symbol s) {

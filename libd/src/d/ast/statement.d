@@ -19,17 +19,15 @@ final:
 /**
  * Blocks
  */
-class BlockStatement(S) : S if (is(S : AstStatement)) {
-	S[] statements;
+class AstBlockStatement : AstStatement {
+	AstStatement[] statements;
 	
-	this(Location location, S[] statements) {
+	this(Location location, AstStatement[] statements) {
 		super(location);
 		
 		this.statements = statements;
 	}
 }
-
-alias AstBlockStatement = BlockStatement!AstStatement;
 
 /**
  * Expressions

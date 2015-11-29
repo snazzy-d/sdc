@@ -70,23 +70,45 @@ public:
 		return this.dispatch(s);
 	}
 	
-	private BlockStatement flatten(AstBlockStatement b) {
+	private BlockStatement buildBlock(U...)(Location location, U args) {
 		auto oldScope = currentScope;
 		auto oldFlattenedStmts = flattenedStmts;
 		
+		auto block = new BlockStatement(location, oldScope, []);
 		scope(exit) {
+			block.statements = flattenedStmts;
+			
 			currentScope = oldScope;
 			flattenedStmts = oldFlattenedStmts;
 		}
 		
-		currentScope = oldScope.makeNestedScope();
+		currentScope = block;
 		flattenedStmts = [];
 		
-		foreach(ref s; b.statements) {
+		process(args);
+		return block;
+	}
+	
+	private BlockStatement flatten(AstBlockStatement b) {
+		return buildBlock(b.location, b.statements);
+	}
+	
+	private void process(AstStatement[] statements) {
+		foreach(s; statements) {
 			visit(s);
 		}
+	}
+	
+	private void process(AstStatement s) {
+		visit(s);
+	}
+	
+	private auto autoBlock(AstStatement s) {
+		if (auto b = cast(AstBlockStatement) s) {
+			return flatten(b);
+		}
 		
-		return new BlockStatement(b.location, flattenedStmts);
+		return buildBlock(s.location, s);
 	}
 	
 	void visit(AstBlockStatement b) {
@@ -159,15 +181,6 @@ public:
 			})();
 	}
 	
-	private auto autoBlock(AstStatement s) {
-		auto b = cast(AstBlockStatement) s;
-		if (b is null) {
-			b = new AstBlockStatement(s.location, [s]);
-		}
-		
-		return flatten(b);
-	}
-	
 	void visit(AstIfStatement s) {
 		import d.semantic.caster, d.semantic.expression;
 		auto condition = buildExplicitCast(
@@ -191,7 +204,12 @@ public:
 		import d.semantic.caster, d.semantic.expression;
 		flattenedStmts ~= new WhileStatement(
 			w.location,
-			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
+			buildExplicitCast(
+				pass,
+				w.condition.location,
+				Type.get(BuiltinType.Bool),
+				ExpressionVisitor(pass).visit(w.condition),
+			),
 			autoBlock(w.statement),
 		);
 	}
@@ -200,39 +218,52 @@ public:
 		import d.semantic.caster, d.semantic.expression;
 		flattenedStmts ~= new DoWhileStatement(
 			w.location,
-			buildExplicitCast(pass, w.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(w.condition)),
+			buildExplicitCast(
+				pass,
+				w.condition.location,
+				Type.get(BuiltinType.Bool),
+				ExpressionVisitor(pass).visit(w.condition),
+			),
 			autoBlock(w.statement),
 		);
 	}
 	
 	void visit(AstForStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = oldScope.makeNestedScope();
-		
-		// FIXME: if initialize is flattened into several statement, scope is wrong.
+		flattenedStmts ~= buildBlock(f.location, f);
+	}
+	
+	void process(AstForStatement f) {
 		visit(f.initialize);
 		auto initialize = flattenedStmts[$ - 1];
 		
 		import d.semantic.caster, d.semantic.expression;
 		Expression condition = f.condition
-			? buildExplicitCast(pass, f.condition.location, Type.get(BuiltinType.Bool), ExpressionVisitor(pass).visit(f.condition))
+			? buildExplicitCast(
+				pass,
+				f.condition.location,
+				Type.get(BuiltinType.Bool),
+				ExpressionVisitor(pass).visit(f.condition),
+			)
 			: new BooleanLiteral(f.location, true);
 		
 		Expression increment = f.increment
 			? ExpressionVisitor(pass).visit(f.increment)
 			: new BooleanLiteral(f.location, true);
 		
-		flattenedStmts[$ - 1] = new ForStatement(f.location, initialize, condition, increment, autoBlock(f.statement));
+		flattenedStmts[$ - 1] = new ForStatement(
+			f.location,
+			initialize,
+			condition,
+			increment,
+			autoBlock(f.statement),
+		);
 	}
 	
 	void visit(ForeachStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = oldScope.makeNestedScope();
-		
+		flattenedStmts ~= buildBlock(f.location, f);
+	}
+	
+	void process(ForeachStatement f) {
 		assert(!f.reverse, "foreach_reverse not supported at this point.");
 		
 		import d.semantic.expression;
@@ -291,8 +322,20 @@ public:
 		
 		auto initialize = new VariableStatement(idx);
 		auto idxExpr = new VariableExpression(idx.location, idx);
-		auto condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, length);
-		auto increment = new UnaryExpression(loc, idxExpr.type, UnaryOp.PreInc, idxExpr);
+		auto condition = new BinaryExpression(
+			loc,
+			Type.get(BuiltinType.Bool),
+			BinaryOp.Less,
+			idxExpr,
+			length,
+		);
+		
+		auto increment = new UnaryExpression(
+			loc,
+			idxExpr.type,
+			UnaryOp.PreInc,
+			idxExpr,
+		);
 		
 		auto iType = iterated.type.getCanonical();
 		assert(iType.hasElement, "Only array and slice are supported for now.");
@@ -318,18 +361,28 @@ public:
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 		
-		auto assign = new BinaryExpression(loc, eType.getType(), BinaryOp.Assign, new VariableExpression(eLoc, element), eVal);
-		auto stmt = new BlockStatement(f.statement.location, [new ExpressionStatement(assign), autoBlock(f.statement)]);
+		auto assign = new BinaryExpression(
+			loc,
+			eType.getType(),
+			BinaryOp.Assign,
+			new VariableExpression(eLoc, element),
+			eVal,
+		);
+		
+		auto stmt = new BlockStatement(
+			f.statement.location,
+			currentScope,
+			[new ExpressionStatement(assign), autoBlock(f.statement)],
+		);
 		
 		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, stmt);
 	}
 	
 	void visit(ForeachRangeStatement f) {
-		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
-		
-		currentScope = oldScope.makeNestedScope();
-		
+		flattenedStmts ~= buildBlock(f.location, f);
+	}
+	
+	void process(ForeachRangeStatement f) {
 		import d.semantic.expression;
 		auto start = ExpressionVisitor(pass).visit(f.start);
 		auto stop  = ExpressionVisitor(pass).visit(f.stop);
@@ -354,7 +407,12 @@ public:
 			stop = tmp;
 		}
 		
-		auto idx = new Variable(iDecl.location, type.getParamType(iDecl.type.isRef, false), iDecl.name, start);
+		auto idx = new Variable(
+			iDecl.location,
+			type.getParamType(iDecl.type.isRef, false),
+			iDecl.name,
+			start,
+		);
 		
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
@@ -372,13 +430,25 @@ public:
 			increment = idxExpr;
 		} else {
 			// for(...; idx < stop; idx++)
-			condition = new BinaryExpression(loc, Type.get(BuiltinType.Bool), BinaryOp.Less, idxExpr, stop);
+			condition = new BinaryExpression(
+				loc,
+				Type.get(BuiltinType.Bool),
+				BinaryOp.Less,
+				idxExpr,
+				stop,
+			);
+			
 			increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}
 		
 		auto initialize = new VariableStatement(idx);
-		
-		flattenedStmts ~= new ForStatement(loc, initialize, condition, increment, autoBlock(f.statement));
+		flattenedStmts ~= new ForStatement(
+			loc,
+			initialize,
+			condition,
+			increment,
+			autoBlock(f.statement),
+		);
 	}
 	
 	void visit(AstReturnStatement s) {
