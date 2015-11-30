@@ -25,7 +25,6 @@ alias CaseStatement = d.ir.statement.CaseStatement;
 alias LabeledStatement = d.ir.statement.LabeledStatement;
 alias ScopeStatement = d.ir.statement.ScopeStatement;
 alias ThrowStatement = d.ir.statement.ThrowStatement;
-alias CatchBlock = d.ir.statement.CatchBlock;
 
 struct StatementVisitor {
 private:

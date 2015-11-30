@@ -191,9 +191,6 @@ struct StatementGen {
 	}
 	
 	void visit(IfStatement ifs) {
-		auto oldUnwindBlocks = unwindBlocks;
-		scope(exit) unwindBlocks = oldUnwindBlocks;
-		
 		auto condition = genExpression(ifs.condition);
 		
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
@@ -208,7 +205,6 @@ struct StatementGen {
 		LLVMPositionBuilderAtEnd(builder, thenBB);
 		
 		visit(ifs.then);
-		unwindTo(oldUnwindBlocks.length);
 		
 		// Codegen of then can change the current block, so we put everything in order.
 		thenBB = LLVMGetInsertBlock(builder);
@@ -218,12 +214,9 @@ struct StatementGen {
 		LLVMMoveBasicBlockAfter(elseBB, thenBB);
 		LLVMPositionBuilderAtEnd(builder, elseBB);
 		
+		// Emit else
 		if (ifs.elseStatement) {
-			unwindBlocks = oldUnwindBlocks;
-			
-			// Emit else
 			visit(ifs.elseStatement);
-			unwindTo(oldUnwindBlocks.length);
 		}
 		
 		// Codegen of else can change the current block,
