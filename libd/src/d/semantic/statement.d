@@ -18,12 +18,7 @@ import d.parser.base;
 import d.parser.statement;
 
 alias AssertStatement = d.ir.statement.AssertStatement;
-alias BlockStatement = d.ir.statement.BlockStatement;
 alias ExpressionStatement = d.ir.statement.ExpressionStatement;
-alias IfStatement = d.ir.statement.IfStatement;
-alias WhileStatement = d.ir.statement.WhileStatement;
-alias DoWhileStatement = d.ir.statement.DoWhileStatement;
-alias ForStatement = d.ir.statement.ForStatement;
 alias ReturnStatement = d.ir.statement.ReturnStatement;
 alias SwitchStatement = d.ir.statement.SwitchStatement;
 alias CaseStatement = d.ir.statement.CaseStatement;
@@ -192,7 +187,7 @@ public:
 		
 		auto then = autoBlock(s.then);
 		
-		Statement elseStatement;
+		BlockStatement elseStatement;
 		if (s.elseStatement) {
 			elseStatement = autoBlock(s.elseStatement);
 		}

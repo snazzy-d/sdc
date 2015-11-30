@@ -85,14 +85,19 @@ class IdentifierStarIdentifierStatement : AstStatement {
 /**
  * if statements.
  */
-class IfStatement(E, S) : S if (is(E : AstExpression) && is(S : AstStatement)) {
-	E condition;
-	S then;
+class AstIfStatement : AstStatement {
+	AstExpression condition;
+	AstStatement then;
 	
 	// Nullable
-	S elseStatement;
+	AstStatement elseStatement;
 	
-	this(Location location, E condition, S then, S elseStatement) {
+	this(
+		Location location,
+		AstExpression condition,
+		AstStatement then,
+		AstStatement elseStatement,
+	) {
 		super(location);
 		
 		this.condition = condition;
@@ -100,8 +105,6 @@ class IfStatement(E, S) : S if (is(E : AstExpression) && is(S : AstStatement)) {
 		this.elseStatement = elseStatement;
 	}
 }
-
-alias AstIfStatement = IfStatement!(AstExpression, AstStatement);
 
 /**
  * while statements

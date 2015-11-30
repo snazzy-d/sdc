@@ -15,7 +15,6 @@ class Statement : AstStatement {
 
 alias AssertStatement = d.ast.statement.AssertStatement!(Expression, Statement);
 alias ExpressionStatement = d.ast.statement.ExpressionStatement!(Expression, Statement);
-alias IfStatement = d.ast.statement.IfStatement!(Expression, Statement);
 alias ReturnStatement = d.ast.statement.ReturnStatement!(Expression, Statement);
 alias SwitchStatement = d.ast.statement.SwitchStatement!(Expression, Statement);
 alias CaseStatement = d.ast.statement.CaseStatement!(CompileTimeExpression, Statement);
@@ -81,6 +80,30 @@ class TypeStatement : Statement {
 		super(type.location);
 		
 		this.type = type;
+	}
+}
+
+/**
+ * if statements.
+ */
+class IfStatement : Statement {
+	Expression condition;
+	BlockStatement then;
+	
+	// Nullable
+	BlockStatement elseStatement;
+	
+	this(
+		Location location,
+		Expression condition,
+		BlockStatement then,
+		BlockStatement elseStatement,
+	) {
+		super(location);
+		
+		this.condition = condition;
+		this.then = then;
+		this.elseStatement = elseStatement;
 	}
 }
 
