@@ -14,17 +14,17 @@ private:
 	Statement previousStatement;
 	
 	import d.ir.symbol;
+	Variable[] varStack;
+	
 	uint[Variable] closure;
+	uint nextClosureIndex;
 	
 	import d.context.name;
-	uint[Name] labelBlocks;
-	uint[][][Name] inFlightGotosStacks;
+	Variable[][Name] labelStacks;
+	Variable[][][Name] inFlightGotosStacks;
 	
-	uint[] declBlockStack = [0];
-	uint switchBlock = -1;
-	
-	uint nextDeclBlock = 1;
-	uint nextClosureIndex;
+	Variable[] switchStack;
+	SwitchStatement switchStmt;
 	
 	import std.bitmanip;
 	mixin(bitfields!(
@@ -89,11 +89,11 @@ public:
 	}
 	
 	void visit(BlockStatement b) {
-		auto oldDeclBlockStack = declBlockStack;
 		auto oldPreviousStatement = previousStatement;
+		auto oldVarStack = varStack;
 		scope(exit) {
-			declBlockStack = oldDeclBlockStack;
 			previousStatement = oldPreviousStatement;
+			varStack = oldVarStack;
 		}
 		
 		previousStatement = null;
@@ -118,7 +118,7 @@ public:
 			closure[v] = nextClosureIndex++;
 		}
 		
-		declBlockStack ~= nextDeclBlock++;
+		varStack ~= v;
 	}
 	
 	void visit(FunctionStatement s) in {
@@ -190,7 +190,8 @@ public:
 	}
 	
 	void visit(SwitchStatement s) {
-		auto oldSwitchBlock = switchBlock;
+		auto oldSwitchStmt = switchStmt;
+		auto oldSwitchStack = switchStack;
 		auto oldAllowFallthrough = allowFallthrough;
 		auto oldSwitchMustTerminate = switchMustTerminate;
 		auto oldSwitchFunTerminate = switchFunTerminate;
@@ -201,13 +202,15 @@ public:
 			funTerminate = switchFunTerminate && funTerminate;
 			blockTerminate = oldBlockTerminate || funTerminate;
 			
-			switchBlock = oldSwitchBlock;
+			switchStmt = oldSwitchStmt;
+			switchStack = oldSwitchStack;
 			allowFallthrough = oldAllowFallthrough;
 			switchMustTerminate = oldSwitchMustTerminate;
 			switchFunTerminate = oldSwitchFunTerminate;
 		}
 		
-		switchBlock = declBlockStack[$ - 1];
+		switchStmt = s;
+		switchStack = varStack;
 		allowFallthrough = true;
 		switchFunTerminate = true;
 		
@@ -267,11 +270,11 @@ public:
 		string switchError,
 		string fallthroughError,
 	) out {
-		assert(declBlockStack[$ - 1] == switchBlock);
+		assert(varStack == switchStack);
 	} body {
 		if (allowFallthrough) {
 			allowFallthrough = false;
-			if (declBlockStack[$ - 1] == switchBlock) {
+			if (varStack == switchStack) {
 				return;
 			}
 			
@@ -282,7 +285,7 @@ public:
 			);
 		}
 		
-		if (switchBlock == -1) {
+		if (switchStmt is null) {
 			import d.exception;
 			throw new CompileException(location, switchError);
 		}
@@ -299,12 +302,7 @@ public:
 			}
 		}
 		
-		foreach_reverse(i, b; declBlockStack) {
-			if (b == switchBlock) {
-				declBlockStack = declBlockStack[0 .. i + 1];
-				break;
-			}
-		}
+		varStack = switchStack;
 	}
 	
 	void visit(CaseStatement s) {
@@ -329,20 +327,15 @@ public:
 		
 		unterminate();
 		
-		auto labelBlock = declBlockStack[$ - 1];
-		labelBlocks[label] = labelBlock;
+		labelStacks[label] = varStack;
 		if (auto bPtr = s.label in inFlightGotosStacks) {
-			auto inFlightGotoStacks = *bPtr;
+			auto stacks = *bPtr;
 			inFlightGotosStacks.remove(label);
 			
-			foreach(inFlightGotoStack; inFlightGotoStacks) {
-				bool isValid = false;
-				foreach(block; inFlightGotoStack) {
-					if (block == labelBlock) {
-						isValid = true;
-						break;
-					}
-				}
+			// Check that all inflight goto to thta label are valid.
+			foreach(stack; stacks) {
+				import std.algorithm.searching;
+				bool isValid = stack.startsWith(varStack);
 				
 				if (!isValid) {
 					import d.exception;
@@ -359,16 +352,11 @@ public:
 	
 	void visit(GotoStatement s) {
 		auto label = s.label;
-		if (auto bPtr = label in labelBlocks) {
-			auto labelBlock = *bPtr;
+		if (auto bPtr = label in labelStacks) {
+			auto labelStack = *bPtr;
 			
-			bool isValid = false;
-			foreach(block; declBlockStack) {
-				if (block == labelBlock) {
-					isValid = true;
-					break;
-				}
-			}
+			import std.algorithm.searching;
+			bool isValid = varStack.startsWith(labelStack);
 			
 			if (!isValid) {
 				import d.exception;
@@ -378,11 +366,11 @@ public:
 				);
 			}
 		} else if (auto bPtr = label in inFlightGotosStacks) {
-			auto blockStacks = *bPtr;
-			blockStacks ~= declBlockStack;
-			inFlightGotosStacks[label] = blockStacks;
+			auto varStacks = *bPtr;
+			varStacks ~= varStack;
+			*bPtr = varStacks;
 		} else {
-			inFlightGotosStacks[label] = [declBlockStack];
+			inFlightGotosStacks[label] = [varStack];
 		}
 		
 		terminateFun();
