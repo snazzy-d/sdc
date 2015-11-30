@@ -20,7 +20,6 @@ alias SwitchStatement = d.ast.statement.SwitchStatement!(Expression, Statement);
 alias CaseStatement = d.ast.statement.CaseStatement!(CompileTimeExpression, Statement);
 alias LabeledStatement = d.ast.statement.LabeledStatement!Statement;
 alias SynchronizedStatement = d.ast.statement.SynchronizedStatement!Statement;
-alias ScopeStatement = d.ast.statement.ScopeStatement!Statement;
 alias ScopeKind = d.ast.statement.ScopeKind;
 alias ThrowStatement = d.ast.statement.ThrowStatement!(Expression, Statement);
 
@@ -168,13 +167,13 @@ class GotoStatement : Statement {
  * try statements
  */
 class TryStatement : Statement {
-	Statement statement;
+	BlockStatement tbody;
 	CatchBlock[] catches;
 	
-	this(Location location, Statement statement, CatchBlock[] catches) {
+	this(Location location, BlockStatement tbody, CatchBlock[] catches) {
 		super(location);
 		
-		this.statement = statement;
+		this.tbody = tbody;
 		this.catches = catches;
 	}
 }
@@ -188,13 +187,25 @@ struct CatchBlock {
 	import d.ir.symbol;
 	Class type;
 	
-	BlockStatement statement;
+	BlockStatement cbody;
 	
-	this(Location location, Class type, Name name, BlockStatement statement) {
+	this(Location location, Class type, Name name, BlockStatement cbody) {
 		this.location = location;
 		this.name = name;
 		this.type = type;
-		this.statement = statement;
+		this.cbody = cbody;
+	}
+}
+
+/**
+ * Statement that indicate the need to cleanup when unwinding.
+ */
+class CleanupStatement : Statement {
+	BlockStatement cleanup;
+	
+	this(Location location, BlockStatement cleanup) {
+		super(location);
+		this.cleanup = cleanup;
 	}
 }
 

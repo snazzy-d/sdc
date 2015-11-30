@@ -176,7 +176,7 @@ public:
 		visit(s.fbody);
 	}
 	
-	void visit(ScopeStatement s) {
+	void visit(CleanupStatement s) {
 		auto oldMustTerminate = mustTerminate;
 		auto oldFunTerminate = funTerminate;
 		auto oldBlockTerminate = blockTerminate;
@@ -186,7 +186,7 @@ public:
 			blockTerminate = oldBlockTerminate;
 		}
 		
-		visit(s.statement);
+		visit(s.cleanup);
 	}
 	
 	void visit(SwitchStatement s) {
@@ -240,7 +240,7 @@ public:
 		auto oldFunTerminate = funTerminate;
 		auto oldBlockTerminate = blockTerminate;
 		
-		visit(s.statement);
+		visit(s.tbody);
 		
 		auto tryMustTerminate = mustTerminate;
 		auto tryFunTerminate = funTerminate;
@@ -257,7 +257,7 @@ public:
 			funTerminate = oldFunTerminate;
 			blockTerminate = oldBlockTerminate;
 			
-			visit(c.statement);
+			visit(c.cbody);
 			
 			tryMustTerminate = tryMustTerminate && mustTerminate;
 			tryFunTerminate = tryFunTerminate && funTerminate;

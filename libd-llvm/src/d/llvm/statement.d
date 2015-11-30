@@ -367,9 +367,8 @@ struct StatementGen {
 		LLVMPositionBuilderAtEnd(builder, postGotoBB);
 	}
 	
-	void visit(ScopeStatement s) {
-		assert(s.kind == ScopeKind.Exit, "Only scope exit is supported");
-		unwindBlocks ~= Block(BlockKind.Exit, s.statement, null, null);
+	void visit(CleanupStatement s) {
+		unwindBlocks ~= Block(BlockKind.Exit, s.cleanup, null, null);
 	}
 	
 	void visit(AssertStatement s) {
@@ -452,10 +451,10 @@ struct StatementGen {
 			TypeGen(pass.pass).visit(type);
 			catchClauses ~= TypeGen(pass.pass).getTypeInfo(type);
 			
-			unwindBlocks ~= Block(BlockKind.Catch, c.statement, null, null);
+			unwindBlocks ~= Block(BlockKind.Catch, c.cbody, null, null);
 		}
 		
-		visit(s.statement);
+		visit(s.tbody);
 		
 		auto currentBB = LLVMGetInsertBlock(builder);
 		maybeBranchTo(resumeBB);
@@ -507,7 +506,7 @@ struct StatementGen {
 			LLVMMoveBasicBlockAfter(catchBB, unwindBB);
 			LLVMPositionBuilderAtEnd(builder, catchBB);
 			
-			visit(c.statement);
+			visit(c.cbody);
 			
 			currentBB = LLVMGetInsertBlock(builder);
 			maybeBranchTo(resumeBB);
