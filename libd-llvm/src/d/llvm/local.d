@@ -168,12 +168,17 @@ struct LocalGen {
 			return fun;
 		}
 		
-		if (!maybeDefine(f, fun)) {
-			auto linkage = LLVMGetLinkage(fun);
-			assert(linkage == LLVMLinkage.LinkOnceODR, "function " ~ f.mangle.toString(context) ~ " already defined");
-			LLVMSetLinkage(fun, LLVMLinkage.External);
+		if (maybeDefine(f, fun)) {
+			return fun;
 		}
 		
+		auto linkage = LLVMGetLinkage(fun);
+		assert(
+			linkage == LLVMLinkage.LinkOnceODR,
+			"function " ~ f.mangle.toString(context) ~ " already defined"
+		);
+		
+		LLVMSetLinkage(fun, LLVMLinkage.External);
 		return fun;
 	}
 	
