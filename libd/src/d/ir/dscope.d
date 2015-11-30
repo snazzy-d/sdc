@@ -71,6 +71,7 @@ mixin template ScopeSymbol(
 	ParentScope = Scope,
 ) {
 private:
+	import d.ir.symbol;
 	Module dmodule;
 	static if (ST) {
 		ParentScope parentScope;

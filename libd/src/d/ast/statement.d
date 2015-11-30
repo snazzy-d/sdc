@@ -64,6 +64,7 @@ class IdentifierStarIdentifierStatement : AstStatement {
 	import d.context.name;
 	Name name;
 	
+	import d.ast.identifier;
 	Identifier identifier;
 	AstExpression value;
 	
@@ -379,22 +380,20 @@ class AstTryStatement : AstStatement {
 	}
 }
 
-struct CatchBlock(T, S) if(is(S : AstStatement)) {
+struct AstCatchBlock {
 	Location location;
-
+	
 	import d.context.name;
 	Name name;
 	
-	T type;
-	S statement;
+	import d.ast.identifier;
+	Identifier type;
+	AstStatement statement;
 	
-	this(Location location, T type, Name name, S statement) {
+	this(Location location, Identifier type, Name name, AstStatement statement) {
 		this.location = location;
 		this.name = name;
 		this.type = type;
 		this.statement = statement;
 	}
 }
-
-import d.ast.identifier;
-alias AstCatchBlock = CatchBlock!(d.ast.identifier.Identifier, AstStatement);

@@ -25,9 +25,6 @@ alias ScopeStatement = d.ast.statement.ScopeStatement!Statement;
 alias ScopeKind = d.ast.statement.ScopeKind;
 alias ThrowStatement = d.ast.statement.ThrowStatement!(Expression, Statement);
 
-import d.ir.symbol;
-alias CatchBlock = d.ast.statement.CatchBlock!(Class, Statement);
-
 final:
 /**
  * Blocks
@@ -156,6 +153,25 @@ class TryStatement : Statement {
 		
 		this.statement = statement;
 		this.catches = catches;
+	}
+}
+
+struct CatchBlock {
+	Location location;
+	
+	import d.context.name;
+	Name name;
+	
+	import d.ir.symbol;
+	Class type;
+	
+	BlockStatement statement;
+	
+	this(Location location, Class type, Name name, BlockStatement statement) {
+		this.location = location;
+		this.name = name;
+		this.type = type;
+		this.statement = statement;
 	}
 }
 
