@@ -578,6 +578,8 @@ struct StatementGen {
 			
 			assert(b.kind != BlockKind.Catch);
 			
+			// We have a scope(exit) or scope(failure).
+			// Check if we need to chain unwinding.
 			auto unwindBB = b.unwindBB;
 			if (!unwindBB) {
 				if (!mustResume) {
@@ -587,8 +589,11 @@ struct StatementGen {
 				unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 			}
 			
+			// We encountered a scope statement that
+			// can be reached while unwinding.
 			mustResume = true;
 			
+			// Reorder basic blocks so that IR look nice.
 			auto landingPadBB = b.landingPadBB;
 			if (landingPadBB) {
 				LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
@@ -598,6 +603,7 @@ struct StatementGen {
 			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
 			LLVMPositionBuilderAtEnd(builder, unwindBB);
 			
+			// Emit the exception cleanup code.
 			visit(b.statement);
 			
 			currentBB = LLVMGetInsertBlock(builder);
