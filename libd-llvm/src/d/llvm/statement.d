@@ -76,105 +76,6 @@ struct StatementGen {
 		genExpression(e.expression);
 	}
 	
-	void rewindTo(size_t level) {
-		auto oldUnwindBlocks = unwindBlocks;
-		scope(exit) unwindBlocks = oldUnwindBlocks;
-		
-		while(unwindBlocks.length > level) {
-			import std.array;
-			auto b = unwindBlocks.back;
-			unwindBlocks.popBack();
-			
-			if (b.kind == BlockKind.Exit || b.kind == BlockKind.Success) {
-				if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-					break;
-				}
-				
-				visit(b.statement);
-			}
-		}
-	}
-	
-	void concludeUnwind(LLVMValueRef fun, LLVMBasicBlockRef currentBB) {
-		if (!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMPositionBuilderAtEnd(builder, currentBB);
-			foreach_reverse(b; unwindBlocks) {
-				if (b.kind == BlockKind.Success) {
-					continue;
-				}
-				
-				if (!b.unwindBB) {
-					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-				}
-				
-				LLVMBuildBr(builder, b.unwindBB);
-				break;
-			}
-			
-			if (!LLVMGetBasicBlockTerminator(currentBB)) {
-				LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
-			}
-		}
-	}
-	
-	void unwindTo(size_t level) {
-		rewindTo(level);
-		
-		bool mustResume = false;
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		auto currentBB = LLVMGetInsertBlock(builder);
-		auto preUnwindBB = currentBB;
-		
-		foreach_reverse(b; unwindBlocks[level .. $]) {
-			if (b.kind == BlockKind.Success) {
-				continue;
-			}
-			
-			assert(b.kind != BlockKind.Catch);
-			
-			auto unwindBB = b.unwindBB;
-			if (!unwindBB) {
-				if (!mustResume) {
-					continue;
-				}
-				
-				unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-			}
-			
-			mustResume = true;
-			
-			auto landingPadBB = b.landingPadBB;
-			if (landingPadBB) {
-				LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
-				currentBB = landingPadBB;
-			}
-			
-			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
-			LLVMPositionBuilderAtEnd(builder, unwindBB);
-			
-			visit(b.statement);
-			
-			currentBB = LLVMGetInsertBlock(builder);
-		}
-		
-		unwindBlocks = unwindBlocks[0 .. level];
-		if (!mustResume) {
-			return;
-		}
-		
-		concludeUnwind(fun, currentBB);
-		
-		auto resumeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "resume");
-		
-		if (!LLVMGetBasicBlockTerminator(preUnwindBB)) {
-			LLVMPositionBuilderAtEnd(builder, preUnwindBB);
-			LLVMBuildBr(builder, resumeBB);
-		}
-		
-		LLVMMoveBasicBlockAfter(resumeBB, currentBB);
-		LLVMPositionBuilderAtEnd(builder, resumeBB);
-	}
-	
 	void visit(BlockStatement b) {
 		auto oldUnwindBlocks = unwindBlocks;
 		foreach(s; b.statements) {
@@ -288,21 +189,23 @@ struct StatementGen {
 			ret = genExpression(r.value);
 		}
 		
-		rewindTo(0);
+		closeBlockTo(0);
 		
-		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			if (r.value) {
-				LLVMBuildRet(builder, ret);
-			} else {
-				LLVMBuildRetVoid(builder);
-			}
+		if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+			return;
+		}
+		
+		if (r.value) {
+			LLVMBuildRet(builder, ret);
+		} else {
+			LLVMBuildRetVoid(builder);
 		}
 	}
 	
 	private void unwindAndBranch(LabelBlock b) in {
 		assert(b.basic !is null);
 	} body {
-		rewindTo(b.unwind);
+		closeBlockTo(b.unwind);
 		maybeBranchTo(b.basic);
 	}
 	
@@ -615,5 +518,106 @@ struct StatementGen {
 		
 		LLVMMoveBasicBlockAfter(resumeBB, unwindBB);
 		concludeUnwind(fun, unwindBB);
+	}
+	
+	void closeBlockTo(size_t level) {
+		auto oldUnwindBlocks = unwindBlocks;
+		scope(exit) unwindBlocks = oldUnwindBlocks;
+		
+		while(unwindBlocks.length > level) {
+			import std.array;
+			auto b = unwindBlocks.back;
+			unwindBlocks.popBack();
+			
+			if (b.kind == BlockKind.Exit || b.kind == BlockKind.Success) {
+				if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
+					break;
+				}
+				
+				visit(b.statement);
+			}
+		}
+	}
+	
+	void concludeUnwind(LLVMValueRef fun, LLVMBasicBlockRef currentBB) {
+		if (LLVMGetBasicBlockTerminator(currentBB)) {
+			return;
+		}
+		
+		LLVMPositionBuilderAtEnd(builder, currentBB);
+		foreach_reverse(b; unwindBlocks) {
+			if (b.kind == BlockKind.Success) {
+				continue;
+			}
+			
+			if (!b.unwindBB) {
+				b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
+			}
+			
+			LLVMBuildBr(builder, b.unwindBB);
+			break;
+		}
+		
+		if (!LLVMGetBasicBlockTerminator(currentBB)) {
+			LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
+		}
+	}
+	
+	void unwindTo(size_t level) {
+		closeBlockTo(level);
+		
+		bool mustResume = false;
+		auto currentBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(currentBB);
+		auto preUnwindBB = currentBB;
+		
+		foreach_reverse(b; unwindBlocks[level .. $]) {
+			if (b.kind == BlockKind.Success) {
+				continue;
+			}
+			
+			assert(b.kind != BlockKind.Catch);
+			
+			auto unwindBB = b.unwindBB;
+			if (!unwindBB) {
+				if (!mustResume) {
+					continue;
+				}
+				
+				unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
+			}
+			
+			mustResume = true;
+			
+			auto landingPadBB = b.landingPadBB;
+			if (landingPadBB) {
+				LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
+				currentBB = landingPadBB;
+			}
+			
+			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
+			LLVMPositionBuilderAtEnd(builder, unwindBB);
+			
+			visit(b.statement);
+			
+			currentBB = LLVMGetInsertBlock(builder);
+		}
+		
+		unwindBlocks = unwindBlocks[0 .. level];
+		if (!mustResume) {
+			return;
+		}
+		
+		concludeUnwind(fun, currentBB);
+		
+		auto resumeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "resume");
+		
+		if (!LLVMGetBasicBlockTerminator(preUnwindBB)) {
+			LLVMPositionBuilderAtEnd(builder, preUnwindBB);
+			LLVMBuildBr(builder, resumeBB);
+		}
+		
+		LLVMMoveBasicBlockAfter(resumeBB, currentBB);
+		LLVMPositionBuilderAtEnd(builder, resumeBB);
 	}
 }

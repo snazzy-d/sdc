@@ -752,7 +752,7 @@ struct ExpressionGen {
 			
 			// We have a failure case.
 			auto currentBB = LLVMGetInsertBlock(builder);
-			auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
+			auto fun = LLVMGetBasicBlockParent(currentBB);
 			
 			if (!b.landingPadBB) {
 				auto landingPadBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "landingPad");
@@ -789,7 +789,7 @@ struct ExpressionGen {
 				
 				LLVMBuildStore(builder, landingPad, lpContext);
 				
-				if(!b.unwindBB) {
+				if (!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
 				
