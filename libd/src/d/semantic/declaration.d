@@ -309,23 +309,41 @@ struct DeclarationVisitor {
 			select(d, e);
 		} else {
 			// XXX: Code duplication with symbols. Refactor.
-			import d.ast.expression : AstExpression, AstBinaryExpression;
+			import d.ast.expression : AstExpression, AstBinaryExpression, AstBinaryOp;
 			AstExpression previous;
 			AstExpression one;
 			foreach(vd; d.entries) {
-				auto v = new Variable(vd.location, Type.get(BuiltinType.None), vd.name);
+				auto v = new Variable(
+					vd.location,
+					Type.get(BuiltinType.None),
+					vd.name,
+				);
+				
 				v.visibility = visibility;
 				
 				if (!vd.value) {
 					import d.ir.expression;
-					if(previous) {
-						if(!one) {
-							one = new IntegerLiteral(vd.location, 1, BuiltinType.Int);
+					if (previous) {
+						if (!one) {
+							one = new IntegerLiteral(
+								vd.location,
+								1,
+								BuiltinType.Int,
+							);
 						}
 						
-						vd.value = new AstBinaryExpression(vd.location, BinaryOp.Add, previous, one);
+						vd.value = new AstBinaryExpression(
+							vd.location,
+							AstBinaryOp.Add,
+							previous,
+							one,
+						);
 					} else {
-						vd.value = new IntegerLiteral(vd.location, 0, BuiltinType.Int);
+						vd.value = new IntegerLiteral(
+							vd.location,
+							0,
+							BuiltinType.Int,
+						);
 					}
 				}
 				

@@ -534,6 +534,13 @@ struct StatementGen {
 					break;
 				}
 				
+				auto oldLocals = pass.locals.dup;
+				scope(exit) {
+					if (pass.locals.length != oldLocals.length) {
+						pass.locals = oldLocals;
+					}
+				}
+				
 				visit(b.statement);
 			}
 		}
@@ -602,6 +609,13 @@ struct StatementGen {
 			
 			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
 			LLVMPositionBuilderAtEnd(builder, unwindBB);
+			
+			auto oldLocals = pass.locals.dup;
+			scope(exit) {
+				if (pass.locals.length != oldLocals.length) {
+					pass.locals = oldLocals;
+				}
+			}
 			
 			// Emit the exception cleanup code.
 			visit(b.statement);

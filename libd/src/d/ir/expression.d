@@ -33,10 +33,8 @@ Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.in
 }
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
-alias BinaryExpression = d.ast.expression.BinaryExpression!Expression;
 alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
-alias BinaryOp = d.ast.expression.BinaryOp;
 alias UnaryOp = d.ast.expression.UnaryOp;
 
 /**
@@ -71,6 +69,67 @@ class UnaryExpression : Expression {
 	@property
 	override bool isLvalue() const {
 		return op == UnaryOp.Dereference;
+	}
+}
+
+enum BinaryOp {
+	Comma,
+	Assign,
+	Add,
+	Sub,
+	Mul,
+	Div,
+	Mod,
+	Pow,
+	BitwiseOr,
+	BitwiseAnd,
+	BitwiseXor,
+	LeftShift,
+	SignedRightShift,
+	UnsignedRightShift,
+	LogicalOr,
+	LogicalAnd,
+	Equal,
+	NotEqual,
+	Greater,
+	GreaterEqual,
+	Less,
+	LessEqual,
+	
+	// Weird float operators
+	LessGreater,
+	LessEqualGreater,
+	UnorderedLess,
+	UnorderedLessEqual,
+	UnorderedGreater,
+	UnorderedGreaterEqual,
+	Unordered,
+	UnorderedEqual,
+}
+
+class BinaryExpression : Expression {
+	BinaryOp op;
+	
+	Expression lhs;
+	Expression rhs;
+	
+	this(
+		Location location,
+		Type type,
+		BinaryOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		super(location, type);
+		
+		this.op = op;
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+	
+	override string toString(const Context c) const {
+		import std.conv;
+		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
 	}
 }
 

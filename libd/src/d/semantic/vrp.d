@@ -70,9 +70,6 @@ struct ValueRangePropagator {
 				// Get the complement and compute as an add.
 				return sub(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
-			case Concat :
-				assert(0);
-			
 			case Mul :
 				return mul(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			

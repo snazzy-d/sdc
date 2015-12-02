@@ -17,7 +17,6 @@ import d.context.location;
 import d.exception;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
-alias BinaryExpression = d.ir.expression.BinaryExpression;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
 
@@ -83,6 +82,20 @@ private:
 		return .getError(t, location, msg).expression;
 	}
 	
+	Expression getTemporary(Expression value) {
+		if (auto e = cast(ErrorExpression) value) {
+			return e;
+		}
+		
+		auto loc = value.location;
+		
+		import d.context.name;
+		auto v = new Variable(loc, value.type, BuiltinName!"", value);
+		v.step = Step.Processed;
+		
+		return new VariableExpression(loc, v);
+	}
+	
 	Expression getLvalue(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
 			return e;
@@ -100,86 +113,141 @@ private:
 		return new VariableExpression(value.location, v);
 	}
 	
-public:
-	Expression visit(AstBinaryExpression e) {
-		auto lhs = visit(e.lhs);
-		auto rhs = visit(e.rhs);
-		auto op = e.op;
+	auto buildAssign(Location location, Expression lhs, Expression rhs) {
+		if (!lhs.isLvalue) {
+			return getError(lhs, "Expected an lvalue");
+		}
 		
-		Type type;
-		final switch(op) with(BinaryOp) {
+		auto type = lhs.type;
+		rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+		return build!BinaryExpression(
+			location,
+			type,
+			BinaryOp.Assign,
+			lhs,
+			rhs,
+		);
+	}
+	
+	Expression buildBinary(
+		Location location,
+		AstBinaryOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		if (op.isAssign()) {
+			lhs = getLvalue(lhs);
+			rhs = getTemporary(rhs);
+			
+			auto type = lhs.type;
+			auto llhs = build!BinaryExpression(
+				location,
+				type,
+				BinaryOp.Comma,
+				rhs,
+				lhs,
+			);
+			
+			return buildAssign(
+				location,
+				lhs,
+				buildExplicitCast(
+					pass,
+					location,
+					type,
+					buildBinary(location, op.getBaseOp(), llhs, rhs),
+				),
+			);
+		}
+		
+		BinaryOp bop;
+		final switch(op) with(AstBinaryOp) {
 			case Comma:
-				type = rhs.type;
-				break;
+				return build!BinaryExpression(
+					location,
+					rhs.type,
+					BinaryOp.Comma,
+					lhs,
+					rhs,
+				);
 			
 			case Assign :
-				if (!lhs.isLvalue) {
-					return getError(lhs, "Expected an lvalue");
-				}
-				
-				type = lhs.type;
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				break;
+				return buildAssign(location, lhs, rhs);
 			
-			case Add :
-			case Sub :
+			case Add, Sub :
 				auto c = lhs.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
 					// FIXME: check that rhs is an integer.
 					if (op == Sub) {
-						rhs = new UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
+						rhs = build!UnaryExpression(
+							rhs.location,
+							rhs.type,
+							UnaryOp.Minus,
+							rhs,
+						);
 					}
 					
-					auto i = build!IndexExpression(e.location, c.element, lhs, rhs);
-					return build!UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
+					auto i = build!IndexExpression(location, c.element, lhs, rhs);
+					return build!UnaryExpression(
+						location,
+						lhs.type,
+						UnaryOp.AddressOf,
+						i,
+					);
 				}
 				
 				goto case;
 			
-			case Mul :
-			case Div :
-			case Mod :
-			case Pow :
+			case Mul, Div, Mod, Pow :
+			case BitwiseOr, BitwiseAnd, BitwiseXor :
+			case UnsignedRightShift, LeftShift :
+			PromotedBinaryOp:
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
+				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
-				break;
+				return build!BinaryExpression(
+					location,
+					type,
+					// Some like living dangerously !
+					cast(BinaryOp) op,
+					lhs,
+					rhs,
+				);
 			
-			case AddAssign :
-			case SubAssign :
-				if (!lhs.isLvalue) {
-					return getError(lhs, "Expected an lvalue");
-				}
+			case SignedRightShift :
+				import d.semantic.typepromotion;
+				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
-				auto c = lhs.type.getCanonical();
-				if (c.kind == TypeKind.Pointer) {
-					lhs = getLvalue(lhs);
-					
-					// FIXME: check that rhs is an integer.
-					if (op == SubAssign) {
-						rhs = build!UnaryExpression(rhs.location, rhs.type, UnaryOp.Minus, rhs);
-					}
-					
-					auto i = build!IndexExpression(e.location, c.element, lhs, rhs);
-					auto v = build!UnaryExpression(e.location, lhs.type, UnaryOp.AddressOf, i);
-					return build!BinaryExpression(e.location, lhs.type, Assign, lhs, v);
-				}
+				auto bt = type.builtin;
+				bop = (isIntegral(bt) && isSigned(bt))
+					? BinaryOp.SignedRightShift
+					: BinaryOp.UnsignedRightShift;
 				
-				goto case;
-			
-			case MulAssign :
-			case DivAssign :
-			case ModAssign :
-			case PowAssign :
-				type = lhs.type;
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				break;
+				
+				return build!BinaryExpression(location, type, bop, lhs, rhs);
+			
+			case LogicalOr, LogicalAnd :
+				auto type = Type.get(BuiltinType.Bool);
+				
+				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
+				
+				return build!BinaryExpression(
+					location,
+					type,
+					// Some like living dangerously !
+					cast(BinaryOp) op,
+					lhs,
+					rhs,
+				);
 			
 			case Concat :
-				type = lhs.type;
+				auto type = lhs.type;
 				if (type.getCanonical().kind != TypeKind.Slice) {
 					return getError(lhs, "Expected a slice");
 				}
@@ -194,101 +262,61 @@ public:
 				);
 				
 				return callOverloadSet(
-					e.location,
+					location,
 					pass.object.getArrayConcat(),
 					[lhs, rhs],
 				);
 			
-			case ConcatAssign :
-				assert(0, "~ and ~= not implemented.");
-			
-			case LogicalOr :
-			case LogicalAnd :
-				type = Type.get(BuiltinType.Bool);
-				
-				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
-				
-				break;
-			
-			case LogicalOrAssign :
-			case LogicalAndAssign :
-				assert(0, "||= and &&= Not implemented.");
-			
-			case BitwiseOr :
-			case BitwiseAnd :
-			case BitwiseXor :
-				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
-				
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
-				break;
-			
+			case AddAssign, SubAssign :
+			case MulAssign, DivAssign, ModAssign, PowAssign :
 			case BitwiseOrAssign :
 			case BitwiseAndAssign :
 			case BitwiseXorAssign :
-				type = lhs.type;
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				break;
+			case LeftShiftAssign :
+			case SignedRightShiftAssign :
+			case UnsignedRightShiftAssign :
+			case LogicalOrAssign :
+			case LogicalAndAssign :
+			case ConcatAssign :
+				assert(0, "Assign op should not reach this point");
 			
-			case Equal :
-			case NotEqual :
-			case Identical :
-			case NotIdentical :
+			case Equal, Identical :
+				bop = BinaryOp.Equal;
+				goto HandleICmp;
+			
+			case NotEqual, NotIdentical :
+				bop = BinaryOp.NotEqual;
+				goto HandleICmp;
+			
+			case Greater :
+				bop = BinaryOp.Greater;
+				goto HandleICmp;
+			
+			case GreaterEqual :
+				bop = BinaryOp.GreaterEqual;
+				goto HandleICmp;
+			
+			case Less :
+				bop = BinaryOp.Less;
+				goto HandleICmp;
+			
+			case LessEqual :
+				bop = BinaryOp.LessEqual;
+				goto HandleICmp;
+			
+			HandleICmp:
 				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
+				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
 				type = Type.get(BuiltinType.Bool);
-				break;
+				return build!BinaryExpression(location, type, bop, lhs, rhs);
 			
 			case In :
 			case NotIn :
 				assert(0, "in and !in are not implemented.");
-			
-			case SignedRightShift :
-				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
-				
-				auto bt = type.builtin;
-				if (!isIntegral(bt) || !isSigned(bt)) {
-					op = UnsignedRightShift;
-				}
-				
-				goto HandleShift;
-			
-			case UnsignedRightShift :
-			case LeftShift :
-				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
-			
-			HandleShift:
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
-				break;
-			
-			case SignedRightShiftAssign :
-			case UnsignedRightShiftAssign :
-			case LeftShiftAssign :
-				assert(0,"<<, >> and >>> are not implemented.");
-			
-			case Greater :
-			case GreaterEqual :
-			case Less :
-			case LessEqual :
-				import d.semantic.typepromotion;
-				type = getPromotedType(pass, e.location, lhs.type, rhs.type);
-				
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
-				type = Type.get(BuiltinType.Bool);
-				break;
 			
 			case LessGreater :
 			case LessEqualGreater :
@@ -300,8 +328,11 @@ public:
 			case UnorderedEqual :
 				assert(0, "Unorderd comparisons are not implemented.");
 		}
-		
-		return build!BinaryExpression(e.location, type, op, lhs, rhs);
+	}
+	
+public:
+	Expression visit(AstBinaryExpression e) {
+		return buildBinary(e.location, e.op, visit(e.lhs), visit(e.rhs));
 	}
 	
 	Expression visit(AstTernaryExpression e) {

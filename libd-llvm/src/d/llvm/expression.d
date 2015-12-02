@@ -82,27 +82,6 @@ struct ExpressionGen {
 			: handleBinaryOp!LLVMUnsignedBuildOp(e);
 	}
 	
-	private auto handleBinaryOpAssign(alias LLVMBuildOp)(BinaryExpression e) {
-		auto lhsQual = e.lhs.type.qualifier;
-		auto lhsPtr = addressOf(e.lhs);
-		auto rhs = visit(e.rhs);
-		
-		auto lhs = buildLoad(lhsPtr, lhsQual);
-		auto value = LLVMBuildOp(builder, lhs, rhs, "");
-		
-		LLVMBuildStore(builder, value, lhsPtr);
-		return value;
-	}
-	
-	private auto handleBinaryOpAssign(
-		alias LLVMSignedBuildOp,
-		alias LLVMUnsignedBuildOp,
-	)(BinaryExpression e) {
-		return isSigned(e.type.getCanonical().builtin)
-			? handleBinaryOpAssign!LLVMSignedBuildOp(e)
-			: handleBinaryOpAssign!LLVMUnsignedBuildOp(e);
-	}
-	
 	private LLVMValueRef handleComparison(
 		BinaryExpression e,
 		LLVMIntPredicate pred,
@@ -224,37 +203,11 @@ struct ExpressionGen {
 			case Pow :
 				assert(0, "Not implemented");
 			
-			case Concat :
-			case ConcatAssign :
-				assert(0, "Not implemented");
-			
-			case AddAssign :
-				return handleBinaryOpAssign!LLVMBuildAdd(e);
-			
-			case SubAssign :
-				return handleBinaryOpAssign!LLVMBuildSub(e);
-			
-			case MulAssign :
-				return handleBinaryOpAssign!LLVMBuildMul(e);
-			
-			case DivAssign :
-				return handleBinaryOpAssign!(LLVMBuildSDiv, LLVMBuildUDiv)(e);
-			
-			case ModAssign :
-				return handleBinaryOpAssign!(LLVMBuildSRem, LLVMBuildURem)(e);
-			
-			case PowAssign :
-				assert(0, "Not implemented");
-			
 			case LogicalOr :
 				return handleLogicalBinary!true(e);
 			
 			case LogicalAnd :
 				return handleLogicalBinary!false(e);
-			
-			case LogicalOrAssign :
-			case LogicalAndAssign :
-				assert(0, "Not implemented");
 			
 			case BitwiseOr :
 				return handleBinaryOp!LLVMBuildOr(e);
@@ -265,31 +218,6 @@ struct ExpressionGen {
 			case BitwiseXor :
 				return handleBinaryOp!LLVMBuildXor(e);
 			
-			case BitwiseOrAssign :
-				return handleBinaryOpAssign!LLVMBuildOr(e);
-			
-			case BitwiseAndAssign :
-				return handleBinaryOpAssign!LLVMBuildAnd(e);
-			
-			case BitwiseXorAssign :
-				return handleBinaryOpAssign!LLVMBuildXor(e);
-			
-			case Equal :
-				return handleComparison(e, LLVMIntPredicate.EQ);
-			
-			case NotEqual :
-				return handleComparison(e, LLVMIntPredicate.NE);
-			
-			case Identical :
-				return handleComparison(e, LLVMIntPredicate.EQ);
-			
-			case NotIdentical :
-				return handleComparison(e, LLVMIntPredicate.NE);
-			
-			case In :
-			case NotIn :
-				assert(0, "Not implemented");
-			
 			case LeftShift :
 				return handleBinaryOp!LLVMBuildShl(e);
 			
@@ -299,10 +227,11 @@ struct ExpressionGen {
 			case UnsignedRightShift :
 				return handleBinaryOp!LLVMBuildLShr(e);
 			
-			case LeftShiftAssign :
-			case SignedRightShiftAssign :
-			case UnsignedRightShiftAssign :
-				assert(0, "Not implemented");
+			case Equal :
+				return handleComparison(e, LLVMIntPredicate.EQ);
+			
+			case NotEqual :
+				return handleComparison(e, LLVMIntPredicate.NE);
 			
 			case Greater :
 				return handleComparison(e, LLVMIntPredicate.SGT, LLVMIntPredicate.UGT);

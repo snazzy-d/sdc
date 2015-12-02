@@ -37,7 +37,7 @@ class TernaryExpression(E) : E if (is(E: AstExpression)) {
 	
 	override string toString(const Context c) const {
 		return condition.toString(c)
-			~ "? " ~ lhs.toString(c)
+			~ " ? " ~ lhs.toString(c)
 			~ " : " ~ rhs.toString(c);
 	}
 }
@@ -47,45 +47,45 @@ alias AstTernaryExpression = TernaryExpression!AstExpression;
 /**
  * Binary Expressions.
  */
-enum BinaryOp {
+enum AstBinaryOp {
 	Comma,
 	Assign,
 	Add,
 	Sub,
-	Concat,
 	Mul,
 	Div,
 	Mod,
 	Pow,
+	BitwiseOr,
+	BitwiseAnd,
+	BitwiseXor,
+	LeftShift,
+	SignedRightShift,
+	UnsignedRightShift,
+	LogicalOr,
+	LogicalAnd,
+	Concat,
 	AddAssign,
 	SubAssign,
-	ConcatAssign,
 	MulAssign,
 	DivAssign,
 	ModAssign,
 	PowAssign,
-	LogicalOr,
-	LogicalAnd,
-	LogicalOrAssign,
-	LogicalAndAssign,
-	BitwiseOr,
-	BitwiseAnd,
-	BitwiseXor,
 	BitwiseOrAssign,
 	BitwiseAndAssign,
 	BitwiseXorAssign,
+	LeftShiftAssign,
+	SignedRightShiftAssign,
+	UnsignedRightShiftAssign,
+	LogicalOrAssign,
+	LogicalAndAssign,
+	ConcatAssign,
 	Equal,
 	NotEqual,
 	Identical,
 	NotIdentical,
 	In,
 	NotIn,
-	SignedRightShift,
-	UnsignedRightShift,
-	LeftShift,
-	SignedRightShiftAssign,
-	UnsignedRightShiftAssign,
-	LeftShiftAssign,
 	Greater,
 	GreaterEqual,
 	Less,
@@ -102,24 +102,68 @@ enum BinaryOp {
 	UnorderedEqual,
 }
 
-class BinaryExpression(T) : T if (is(T: AstExpression)) {
-	T lhs;
-	T rhs;
-	
-	BinaryOp op;
-	
-	this(U...)(Location location, U args, BinaryOp op, T lhs, T rhs) {
-		super(location, args);
+bool isAssign(AstBinaryOp op) {
+	return op >= AstBinaryOp.AddAssign && op <= AstBinaryOp.ConcatAssign;
+}
+
+unittest {
+	enum Assign = "Assign";
+	bool isAssignStupid(AstBinaryOp op) {
+		import std.conv;
+		auto s = op.to!string();
+		if (s.length <= Assign.length) {
+			return false;
+		}
 		
-		this.lhs = lhs;
-		this.rhs = rhs;
-		
-		this.op = op;
+		return s[$ - Assign.length .. $] == Assign;
 	}
 	
-	invariant() {
-		assert(lhs);
-		assert(rhs);
+	import std.traits;
+	foreach(op; EnumMembers!AstBinaryOp) {
+		import std.conv;
+		assert(op.isAssign() == isAssignStupid(op), op.to!string());
+	}
+}
+
+AstBinaryOp getBaseOp(AstBinaryOp op) in {
+	assert(isAssign(op));
+} body {
+	return op + AstBinaryOp.Add - AstBinaryOp.AddAssign;
+}
+
+unittest {
+	enum Assign = "Assign";
+	
+	import std.traits;
+	foreach(op; EnumMembers!AstBinaryOp) {
+		if (!op.isAssign()) {
+			continue;
+		}
+		
+		import std.conv;
+		auto b0 = op.to!string()[0 .. $ - Assign.length];
+		auto b1 = op.getBaseOp().to!string();
+		assert(b0 == b1);
+	}
+}
+
+class AstBinaryExpression : AstExpression {
+	AstBinaryOp op;
+	
+	AstExpression lhs;
+	AstExpression rhs;
+	
+	this(
+		Location location,
+		AstBinaryOp op,
+		AstExpression lhs,
+		AstExpression rhs,
+	) {
+		super(location);
+		
+		this.op = op;
+		this.lhs = lhs;
+		this.rhs = rhs;
 	}
 	
 	override string toString(const Context c) const {
@@ -127,8 +171,6 @@ class BinaryExpression(T) : T if (is(T: AstExpression)) {
 		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
 	}
 }
-
-alias AstBinaryExpression = BinaryExpression!AstExpression;
 
 /**
  * Unary Expression types.
@@ -486,6 +528,10 @@ class StaticTypeidExpression(T, E) : E if(is(E: AstExpression)) {
 		super(location, args);
 		
 		this.argument = argument;
+	}
+	
+	override string toString(const Context c) const {
+		return "typeid(" ~ argument.toString(c) ~ ")";
 	}
 }
 

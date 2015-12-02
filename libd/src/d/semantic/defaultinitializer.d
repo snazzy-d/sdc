@@ -104,6 +104,10 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 	
 	private Expression getTemporary(Expression value) {
+		if (auto e = cast(ErrorExpression) value) {
+			return e;
+		}
+		
 		auto loc = value.location;
 		
 		import d.context.name;

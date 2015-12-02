@@ -19,7 +19,7 @@ AstExpression parseExpression(ParseMode mode = ParseMode.Greedy)(ref TokenRange 
 	auto lhs = trange.parsePrefixExpression!mode();
 	return trange.parseAstBinaryExpression!(
 		TokenType.Comma,
-		BinaryOp.Comma,
+		AstBinaryOp.Comma,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseAssignExpression(e);
 		}
@@ -29,7 +29,12 @@ AstExpression parseExpression(ParseMode mode = ParseMode.Greedy)(ref TokenRange 
 /**
  * Template used to parse basic AstBinaryExpressions.
  */
-private AstExpression parseAstBinaryExpression(TokenType tokenType, BinaryOp op, alias parseNext, R)(ref R trange, AstExpression lhs) {
+private AstExpression parseAstBinaryExpression(
+	TokenType tokenType,
+	AstBinaryOp op,
+	alias parseNext,
+	R,
+)(ref R trange, AstExpression lhs) {
 	lhs = parseNext(trange, lhs);
 	Location location = lhs.location;
 	
@@ -40,7 +45,6 @@ private AstExpression parseAstBinaryExpression(TokenType tokenType, BinaryOp op,
 		rhs = parseNext(trange, rhs);
 		
 		location.spanTo(rhs.location);
-		
 		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 	
@@ -58,7 +62,7 @@ AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseTernaryExpression(lhs);
 	Location location = lhs.location;
 	
-	void processToken(BinaryOp op) {
+	void processToken(AstBinaryOp op) {
 		trange.popFront();
 		
 		auto rhs = trange.parsePrefixExpression();
@@ -69,61 +73,61 @@ AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 	
-	switch(trange.front.type) with(TokenType) {
+	switch(trange.front.type) with(AstBinaryOp) with(TokenType) {
 		case Equal :
-			processToken(BinaryOp.Assign);
+			processToken(Assign);
 			break;
 		
 		case PlusEqual :
-			processToken(BinaryOp.AddAssign);
+			processToken(AddAssign);
 			break;
 		
 		case MinusEqual :
-			processToken(BinaryOp.SubAssign);
+			processToken(SubAssign);
 			break;
 		
 		case StarEqual :
-			processToken(BinaryOp.MulAssign);
+			processToken(MulAssign);
 			break;
 		
 		case SlashEqual :
-			processToken(BinaryOp.DivAssign);
+			processToken(DivAssign);
 			break;
 		
 		case PercentEqual :
-			processToken(BinaryOp.ModAssign);
+			processToken(ModAssign);
 			break;
 		
 		case AmpersandEqual :
-			processToken(BinaryOp.BitwiseAndAssign);
+			processToken(BitwiseAndAssign);
 			break;
 		
 		case PipeEqual :
-			processToken(BinaryOp.BitwiseOrAssign);
+			processToken(BitwiseOrAssign);
 			break;
 		
 		case CaretEqual :
-			processToken(BinaryOp.BitwiseXorAssign);
+			processToken(BitwiseXorAssign);
 			break;
 		
 		case TildeEqual :
-			processToken(BinaryOp.ConcatAssign);
+			processToken(ConcatAssign);
 			break;
 		
 		case LessLessEqual :
-			processToken(BinaryOp.LeftShiftAssign);
+			processToken(LeftShiftAssign);
 			break;
 		
 		case MoreMoreEqual :
-			processToken(BinaryOp.SignedRightShiftAssign);
+			processToken(SignedRightShiftAssign);
 			break;
 		
 		case MoreMoreMoreEqual :
-			processToken(BinaryOp.UnsignedRightShiftAssign);
+			processToken(UnsignedRightShiftAssign);
 			break;
 		
 		case CaretCaretEqual :
-			processToken(BinaryOp.PowAssign);
+			processToken(PowAssign);
 			break;
 		
 		default :
@@ -172,7 +176,7 @@ AstExpression parseLogicalOrExpression(ref TokenRange trange) {
 auto parseLogicalOrExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.PipePipe,
-		BinaryOp.LogicalOr,
+		AstBinaryOp.LogicalOr,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseLogicalAndExpression(e);
 		}
@@ -190,7 +194,7 @@ AstExpression parseLogicalAndExpression(ref TokenRange trange) {
 auto parseLogicalAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.AmpersandAmpersand,
-		BinaryOp.LogicalAnd,
+		AstBinaryOp.LogicalAnd,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseOrExpression(e);
 		}
@@ -208,7 +212,7 @@ AstExpression parseBitwiseOrExpression(ref TokenRange trange) {
 auto parseBitwiseOrExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Pipe,
-		BinaryOp.BitwiseOr,
+		AstBinaryOp.BitwiseOr,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseXorExpression(e);
 		}
@@ -226,7 +230,7 @@ AstExpression parseBitwiseXorExpression(ref TokenRange trange) {
 auto parseBitwiseXorExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Caret,
-		BinaryOp.BitwiseXor,
+		AstBinaryOp.BitwiseXor,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseAndExpression(e);
 		}
@@ -244,7 +248,7 @@ AstExpression parseBitwiseAndExpression(ref TokenRange trange) {
 auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Ampersand,
-		BinaryOp.BitwiseAnd,
+		AstBinaryOp.BitwiseAnd,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseComparaisonExpression(e);
 		}
@@ -263,7 +267,7 @@ AstExpression parseComparaisonExpression(ref TokenRange trange, AstExpression lh
 	lhs = trange.parseShiftExpression(lhs);
 	Location location = lhs.location;
 	
-	void processToken(BinaryOp op) {
+	void processToken(AstBinaryOp op) {
 		trange.popFront();
 		
 		auto rhs = trange.parseShiftExpression();
@@ -274,78 +278,78 @@ AstExpression parseComparaisonExpression(ref TokenRange trange, AstExpression lh
 	
 	switch(trange.front.type) with(TokenType) {
 		case EqualEqual :
-			processToken(BinaryOp.Equal);
+			processToken(AstBinaryOp.Equal);
 			break;
 		
 		case BangEqual :
-			processToken(BinaryOp.NotEqual);
+			processToken(AstBinaryOp.NotEqual);
 			break;
 		
 		case More:
-			processToken(BinaryOp.Greater);
+			processToken(AstBinaryOp.Greater);
 			break;
 		
 		case MoreEqual:
-			processToken(BinaryOp.GreaterEqual);
+			processToken(AstBinaryOp.GreaterEqual);
 			break;
 		
 		case Less :
-			processToken(BinaryOp.Less);
+			processToken(AstBinaryOp.Less);
 			break;
 		
 		case LessEqual :
-			processToken(BinaryOp.LessEqual);
+			processToken(AstBinaryOp.LessEqual);
 			break;
 		
 		case BangLessMoreEqual:
-			processToken(BinaryOp.Unordered);
+			processToken(AstBinaryOp.Unordered);
 			break;
 		
 		case BangLessMore:
-			processToken(BinaryOp.UnorderedEqual);
+			processToken(AstBinaryOp.UnorderedEqual);
 			break;
 		
 		case LessMore:
-			processToken(BinaryOp.LessGreater);
+			processToken(AstBinaryOp.LessGreater);
 			break;
 		
 		case LessMoreEqual:
-			processToken(BinaryOp.LessEqualGreater);
+			processToken(AstBinaryOp.LessEqualGreater);
 			break;
 		
 		case BangMore:
-			processToken(BinaryOp.UnorderedLessEqual);
+			processToken(AstBinaryOp.UnorderedLessEqual);
 			break;
 		
 		case BangMoreEqual:
-			processToken(BinaryOp.UnorderedLess);
+			processToken(AstBinaryOp.UnorderedLess);
 			break;
 		
 		case BangLess:
-			processToken(BinaryOp.UnorderedGreaterEqual);
+			processToken(AstBinaryOp.UnorderedGreaterEqual);
 			break;
 		
 		case BangLessEqual:
-			processToken(BinaryOp.UnorderedGreater);
+			processToken(AstBinaryOp.UnorderedGreater);
 			break;
 		
 		case Is :
-			processToken(BinaryOp.Identical);
+			processToken(AstBinaryOp.Identical);
 			break;
 		
 		case In :
-			processToken(BinaryOp.In);
+			processToken(AstBinaryOp.In);
 			break;
 		
 		case Bang :
 			trange.popFront();
 			switch(trange.front.type) {
 				case Is :
-					processToken(BinaryOp.NotIdentical);
+					processToken(AstBinaryOp.NotIdentical);
 					break;
 				
 				case In :
-					processToken(BinaryOp.NotIn);
+					processToken(AstBinaryOp.NotIn);
 					break;
 				
 				default :
@@ -376,7 +380,7 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryOp op) {
+		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parseAddExpression();
@@ -385,17 +389,17 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
-		switch(trange.front.type) with(TokenType) {
+		switch(trange.front.type) with(AstBinaryOp) with(TokenType) {
 			case LessLess :
-				processToken(BinaryOp.LeftShift);
+				processToken(LeftShift);
 				break;
 			
 			case MoreMore :
-				processToken(BinaryOp.SignedRightShift);
+				processToken(SignedRightShift);
 				break;
 			
 			case MoreMoreMore :
-				processToken(BinaryOp.UnsignedRightShift);
+				processToken(UnsignedRightShift);
 				break;
 			
 			default :
@@ -417,7 +421,7 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryOp op) {
+		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parseMulExpression();
@@ -426,17 +430,17 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
-		switch(trange.front.type) with(TokenType) {
+		switch(trange.front.type) with(AstBinaryOp) with(TokenType) {
 			case Plus :
-				processToken(BinaryOp.Add);
+				processToken(Add);
 				break;
 			
 			case Minus :
-				processToken(BinaryOp.Sub);
+				processToken(Sub);
 				break;
 			
 			case Tilde :
-				processToken(BinaryOp.Concat);
+				processToken(Concat);
 				break;
 			
 			default :
@@ -457,7 +461,7 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 	Location location = lhs.location;
 	
 	while(1) {
-		void processToken(BinaryOp op) {
+		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			
 			auto rhs = trange.parsePrefixExpression();
@@ -466,17 +470,17 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 			lhs = new AstBinaryExpression(location, op, lhs, rhs);
 		}
 		
-		switch(trange.front.type) with(TokenType) {
+		switch(trange.front.type) with(AstBinaryOp) with(TokenType) {
 			case Star :
-				processToken(BinaryOp.Mul);
+				processToken(Mul);
 				break;
 			
 			case Slash :
-				processToken(BinaryOp.Div);
+				processToken(Div);
 				break;
 			
 			case Percent :
-				processToken(BinaryOp.Mod);
+				processToken(Mod);
 				break;
 			
 			default :
@@ -488,7 +492,9 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 /**
  * Unary prefixes
  */
-private AstExpression parsePrefixExpression(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
+private AstExpression parsePrefixExpression(
+	ParseMode mode = ParseMode.Greedy,
+)(ref TokenRange trange) {
 	AstExpression result;
 	
 	void processToken(UnaryOp op) {
@@ -699,7 +705,11 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 						trange.match(CloseParen);
 						trange.match(Dot);
 						
-						return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, parsed));
+						auto qi = trange.parseQualifiedIdentifier(
+							location,
+							parsed,
+						);
+						return trange.parseIdentifierExpression(qi);
 					})();
 				
 				case OpenBrace:
@@ -827,14 +837,15 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange, AstE
 /**
  * Parse ^^
  */
-private AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
+private
+AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
 	Location location = expr.location;
 	
 	while (trange.front.type == TokenType.CaretCaret) {
 		trange.popFront();
 		AstExpression power = trange.parsePrefixExpression();
 		location.spanTo(power.location);
-		expr = new AstBinaryExpression(location, BinaryOp.Pow, expr, power);
+		expr = new AstBinaryExpression(location, AstBinaryOp.Pow, expr, power);
 	}
 	
 	return expr;
@@ -865,7 +876,8 @@ private auto parseIsExpression(ref TokenRange trange) {
 			trange.popFront();
 			
 			switch(trange.front.type) {
-				case Struct, Union, Class, Interface, Enum, Function, Delegate, Super, Const, Immutable, Inout, Shared, Return :
+				case Struct, Union, Class, Interface, Enum, Function, Delegate :
+				case Super, Const, Immutable, Inout, Shared, Return :
 					assert(0, "Not implemented.");
 				
 				default :
@@ -1065,7 +1077,9 @@ unittest {
 	assert(strToBinInt("0") == 0);
 	assert(strToBinInt("1010") == 10);
 	assert(strToBinInt("0101010") == 42);
-	assert(strToBinInt("1111111111111111111111111111111111111111111111111111111111111111") == 18446744073709551615UL);
+	assert(strToBinInt(
+		"1111111111111111111111111111111111111111111111111111111111111111",
+	) == 18446744073709551615UL);
 	assert(strToBinInt("11_101_00") == 116);
 }
 

@@ -312,7 +312,12 @@ struct LocalGen {
 			auto alloc = ExpressionGen(&this).buildCall(RuntimeGen(pass).getAllocMemory(), [LLVMSizeOf(ctxType)]);
 			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			
-			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(builder, alloc, LLVMPointerType(ctxType, 0), ""));
+			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(
+				builder,
+				alloc,
+				LLVMPointerType(ctxType, 0),
+				"",
+			));
 		}
 	}
 	
@@ -431,7 +436,10 @@ struct LocalGen {
 				LLVMBuildStore(builder, value, addr);
 			}
 			
-			LLVMSetValueName(value, name);
+			if (LLVMGetValueName(value)[0] == '\0') {
+				LLVMSetValueName(value, name);
+			}
+			
 			return locals[v] = value;
 		}
 		

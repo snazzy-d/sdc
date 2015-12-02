@@ -179,11 +179,15 @@ struct TokenRange {
 		previous = base.getWithOffset(index);
 		t = getNextToken();
 		
-		/+
-		import sdc.terminal;
-		import std.conv;
-		outputCaretDiagnostics(t.location, to!string(t.type));
-		+/
+		/+ Exprerience the token deluge !
+		if (t.type != TokenType.End) {
+			import util.terminal, std.conv;
+			outputCaretDiagnostics(
+				t.location.getFullLocation(context),
+				to!string(t.type),
+			);
+		}
+		// +/
 	}
 	
 	void moveTo(ref TokenRange fr) in {
