@@ -144,8 +144,8 @@ private auto parseValueParameter(ref TokenRange trange) {
 	AstExpression defaultValue;
 	if (trange.front.type == TokenType.Equal) {
 		trange.popFront();
-		switch(trange.front.type) {
-			case TokenType.__File__, TokenType.__Line__ :
+		switch(trange.front.type) with(TokenType) {
+			case __File__, __Line__ :
 				location.spanTo(trange.front.location);
 				
 				trange.popFront();
@@ -172,8 +172,13 @@ private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
 		auto lookahead = trange.save;
 		lookahead.popFront();
 		auto nextType = lookahead.front.type;
-		if(nextType != TokenType.Colon && nextType != TokenType.Equal && nextType != TokenType.Comma && nextType != TokenType.CloseParen) {
-			isTyped = true;
+		switch(lookahead.front.type) with(TokenType) {
+			case Colon, Equal, Comma, CloseParen :
+				break;
+			
+			default:
+				isTyped = true;
+				break;
 		}
 	}
 	
