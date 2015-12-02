@@ -92,9 +92,8 @@ private AstTemplateParameter parseTemplateParameter(ref TokenRange trange) {
 			return new AstThisTemplateParameter(location, name);
 		
 		default :
-			// We probably have a value parameter (or an error).
-			// return trange.parseValueParameter();
-			assert(0);
+			// In case of an error parseValueParameter will assert.
+			return trange.parseValueParameter();
 	}
 }
 
