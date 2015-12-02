@@ -353,7 +353,7 @@ private:
 			index = cast(uint) i;
 		}
 		
-		t.location = Location(begin, base.getWithOffset(index - 1));
+		t.location = Location(begin, base.getWithOffset(index));
 		t.name = context.getName(content[ibegin .. index]);
 		
 		return t;
