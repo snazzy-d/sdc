@@ -86,6 +86,15 @@ struct ExpressionGen {
 		BinaryExpression e,
 		LLVMIntPredicate pred,
 	) {
+		assert((e.lhs.type.getCanonicalAndPeelEnum.kind == TypeKind.Builtin 
+			|| e.lhs.type.getCanonical.kind == TypeKind.Pointer
+			|| e.lhs.type.getCanonical.kind == TypeKind.Class) 
+			&& (e.rhs.type.getCanonicalAndPeelEnum.kind == TypeKind.Builtin 
+			|| e.rhs.type.getCanonical.kind == TypeKind.Pointer
+			|| e.rhs.type.getCanonical.kind == TypeKind.Class),
+			"Invalid Types for Comparision " ~ e.lhs.type.toString(pass.context)
+			~ "and " ~ e.lhs.type.toString(pass.context)
+		);
 		// XXX: should be useless, but parameters's order of evaluation is bugguy.
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
