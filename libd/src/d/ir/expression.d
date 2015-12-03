@@ -33,7 +33,8 @@ Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.in
 }
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
-alias StaticTypeidExpression = d.ast.expression.StaticTypeidExpression!(Type, Expression);
+alias StaticTypeidExpression =
+	d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
 alias UnaryOp = d.ast.expression.UnaryOp;
 
@@ -89,6 +90,71 @@ enum BinaryOp {
 	UnsignedRightShift,
 	LogicalOr,
 	LogicalAnd,
+}
+
+class BinaryExpression : Expression {
+	BinaryOp op;
+	
+	Expression lhs;
+	Expression rhs;
+	
+	this(
+		Location location,
+		Type type,
+		BinaryOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		super(location, type);
+		
+		this.op = op;
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+	
+	override string toString(const Context c) const {
+		import std.conv;
+		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+	}
+}
+
+enum ICmpOp {
+	Equal,
+	NotEqual,
+	Greater,
+	GreaterEqual,
+	Less,
+	LessEqual,
+}
+/**
+ * Integral comparisons (integers, pointers, ...)
+ */
+class ICmpExpression : Expression {
+	ICmpOp op;
+	
+	Expression lhs;
+	Expression rhs;
+	
+	this(
+		Location location,
+		ICmpOp op,
+		Expression lhs,
+		Expression rhs,
+	) {
+		super(location, Type.get(BuiltinType.Bool));
+		
+		this.op = op;
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+	
+	override string toString(const Context c) const {
+		import std.conv;
+		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+	}
+}
+
+enum FPCmpOp {
 	Equal,
 	NotEqual,
 	Greater,
@@ -107,20 +173,19 @@ enum BinaryOp {
 	UnorderedEqual,
 }
 
-class BinaryExpression : Expression {
-	BinaryOp op;
+class FPCmpExpression : Expression {
+	FPCmpOp op;
 	
 	Expression lhs;
 	Expression rhs;
 	
 	this(
 		Location location,
-		Type type,
-		BinaryOp op,
+		FPCmpOp op,
 		Expression lhs,
 		Expression rhs,
 	) {
-		super(location, type);
+		super(location, Type.get(BuiltinType.Bool));
 		
 		this.op = op;
 		this.lhs = lhs;
@@ -178,7 +243,11 @@ class IndexExpression : Expression {
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
 		auto t = (cast() indexed.type).getCanonical();
-		return t.kind == TypeKind.Slice|| t.kind == TypeKind.Pointer || indexed.isLvalue;
+		if (t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer) {
+			return true;
+		}
+		
+		return indexed.isLvalue;
 	}
 }
 
@@ -525,7 +594,11 @@ class FieldExpression : Expression {
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
 		auto t = (cast() expr.type).getCanonical();
-		return t.kind == TypeKind.Class || t.kind == TypeKind.Pointer || expr.isLvalue;
+		if (t.kind == TypeKind.Class || t.kind == TypeKind.Pointer) {
+			return true;
+		}
+		
+		return expr.isLvalue;
 	}
 }
 

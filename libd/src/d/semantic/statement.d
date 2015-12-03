@@ -327,22 +327,16 @@ public:
 		flattenedStmts ~= new VariableStatement(idx);
 		
 		auto idxExpr = new VariableExpression(idx.location, idx);
-
-		import d.semantic.caster;
-		auto condition = new BinaryExpression(
-			loc,
-			Type.get(BuiltinType.Bool),
-			BinaryOp.Less,
-			idxExpr,
-			buildImplicitCast(pass, idx.location, idx.type, length),
-		);
-		
 		auto increment = new UnaryExpression(
 			loc,
-			idxExpr.type,
+			idx.type,
 			UnaryOp.PreInc,
 			idxExpr,
 		);
+		
+		import d.semantic.caster;
+		length = buildImplicitCast(pass, idx.location, idx.type, length);
+		auto condition = new ICmpExpression(loc, ICmpOp.Less, idxExpr, length);
 		
 		auto iType = iterated.type.getCanonical();
 		assert(iType.hasElement, "Only array and slice are supported for now.");
@@ -429,22 +423,15 @@ public:
 		
 		if (f.reverse) {
 			// for(...; idx-- > stop; idx)
-			condition = new BinaryExpression(
-				loc, Type.get(BuiltinType.Bool), 
-				BinaryOp.Greater, 
+			condition = new ICmpExpression(
+				loc,
+				ICmpOp.Greater,
 				new UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr), 
 				stop);
 			increment = idxExpr;
 		} else {
 			// for(...; idx < stop; idx++)
-			condition = new BinaryExpression(
-				loc,
-				Type.get(BuiltinType.Bool),
-				BinaryOp.Less,
-				idxExpr,
-				stop,
-			);
-			
+			condition = new ICmpExpression(loc, ICmpOp.Less, idxExpr, stop);
 			increment = new UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}
 		

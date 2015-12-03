@@ -160,7 +160,7 @@ private:
 			);
 		}
 		
-		BinaryOp bop;
+		ICmpOp icmpop;
 		final switch(op) with(AstBinaryOp) {
 			case Comma:
 				return build!BinaryExpression(
@@ -222,7 +222,7 @@ private:
 				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
 				auto bt = type.builtin;
-				bop = (isIntegral(bt) && isSigned(bt))
+				auto bop = (isIntegral(bt) && isSigned(bt))
 					? BinaryOp.SignedRightShift
 					: BinaryOp.UnsignedRightShift;
 				
@@ -281,27 +281,27 @@ private:
 				assert(0, "Assign op should not reach this point");
 			
 			case Equal, Identical :
-				bop = BinaryOp.Equal;
+				icmpop = ICmpOp.Equal;
 				goto HandleICmp;
 			
 			case NotEqual, NotIdentical :
-				bop = BinaryOp.NotEqual;
+				icmpop = ICmpOp.NotEqual;
 				goto HandleICmp;
 			
 			case Greater :
-				bop = BinaryOp.Greater;
+				icmpop = ICmpOp.Greater;
 				goto HandleICmp;
 			
 			case GreaterEqual :
-				bop = BinaryOp.GreaterEqual;
+				icmpop = ICmpOp.GreaterEqual;
 				goto HandleICmp;
 			
 			case Less :
-				bop = BinaryOp.Less;
+				icmpop = ICmpOp.Less;
 				goto HandleICmp;
 			
 			case LessEqual :
-				bop = BinaryOp.LessEqual;
+				icmpop = ICmpOp.LessEqual;
 				goto HandleICmp;
 			
 			HandleICmp:
@@ -311,8 +311,7 @@ private:
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
 				
-				type = Type.get(BuiltinType.Bool);
-				return build!BinaryExpression(location, type, bop, lhs, rhs);
+				return build!ICmpExpression(location, icmpop, lhs, rhs);
 			
 			case In :
 			case NotIn :

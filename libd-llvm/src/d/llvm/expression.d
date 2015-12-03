@@ -82,41 +82,6 @@ struct ExpressionGen {
 			: handleBinaryOp!LLVMUnsignedBuildOp(e);
 	}
 	
-	private LLVMValueRef handleComparison(
-		BinaryExpression e,
-		LLVMIntPredicate pred,
-	) {
-		// XXX: should be useless, but parameters's order of evaluation is bugguy.
-		auto lhs = visit(e.lhs);
-		auto rhs = visit(e.rhs);
-		
-		return LLVMBuildICmp(builder, pred, lhs, rhs, "");
-	}
-	
-	private LLVMValueRef handleComparison(
-		BinaryExpression e,
-		LLVMIntPredicate signedPredicate,
-		LLVMIntPredicate unsignedPredicate,
-	) {
-		auto t = e.lhs.type.getCanonical();
-		if (t.kind == TypeKind.Builtin) {
-			return handleComparison(
-				e,
-				t.builtin.isSigned()
-					? signedPredicate
-					: unsignedPredicate,
-			);
-		}
-		
-		if (t.kind == TypeKind.Pointer) {
-			return handleComparison(e, unsignedPredicate);
-		}
-		
-		auto t1 = e.lhs.type.toString(context);
-		auto t2 = e.rhs.type.toString(context);
-		assert(0, "Can't compare " ~ t1 ~ " with " ~ t2);
-	}
-	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		
@@ -203,12 +168,6 @@ struct ExpressionGen {
 			case Pow :
 				assert(0, "Not implemented");
 			
-			case LogicalOr :
-				return handleLogicalBinary!true(e);
-			
-			case LogicalAnd :
-				return handleLogicalBinary!false(e);
-			
 			case BitwiseOr :
 				return handleBinaryOp!LLVMBuildOr(e);
 			
@@ -227,6 +186,52 @@ struct ExpressionGen {
 			case UnsignedRightShift :
 				return handleBinaryOp!LLVMBuildLShr(e);
 			
+			case LogicalOr :
+				return handleLogicalBinary!true(e);
+			
+			case LogicalAnd :
+				return handleLogicalBinary!false(e);
+		}
+	}
+	
+	private LLVMValueRef handleComparison(
+		ICmpExpression e,
+		LLVMIntPredicate pred,
+	) {
+		// XXX: should be useless, but parameters's order of evaluation
+		// not enforced by DMD.
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+		
+		return LLVMBuildICmp(builder, pred, lhs, rhs, "");
+	}
+	
+	private LLVMValueRef handleComparison(
+		ICmpExpression e,
+		LLVMIntPredicate signedPredicate,
+		LLVMIntPredicate unsignedPredicate,
+	) {
+		auto t = e.lhs.type.getCanonical();
+		if (t.kind == TypeKind.Builtin) {
+			return handleComparison(
+				e,
+				t.builtin.isSigned()
+					? signedPredicate
+					: unsignedPredicate,
+			);
+		}
+		
+		if (t.kind == TypeKind.Pointer) {
+			return handleComparison(e, unsignedPredicate);
+		}
+		
+		auto t1 = e.lhs.type.toString(context);
+		auto t2 = e.rhs.type.toString(context);
+		assert(0, "Can't compare " ~ t1 ~ " with " ~ t2);
+	}
+	
+	LLVMValueRef visit(ICmpExpression e) {
+		final switch(e.op) with(ICmpOp) {
 			case Equal :
 				return handleComparison(e, LLVMIntPredicate.EQ);
 			
@@ -244,16 +249,6 @@ struct ExpressionGen {
 			
 			case LessEqual :
 				return handleComparison(e, LLVMIntPredicate.SLE, LLVMIntPredicate.ULE);
-			
-			case LessGreater :
-			case LessEqualGreater :
-			case UnorderedLess :
-			case UnorderedLessEqual :
-			case UnorderedGreater :
-			case UnorderedGreaterEqual :
-			case Unordered :
-			case UnorderedEqual :
-				assert(0, "Not implemented");
 		}
 	}
 	
