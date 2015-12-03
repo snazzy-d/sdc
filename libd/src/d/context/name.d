@@ -146,6 +146,7 @@ enum Prefill = [
 	"__sd_eh_throw",
 	"__sd_eh_personality",
 	"__sd_array_concat",
+	"__sd_array_compare",
 	// Generated symbols
 	"__dg",
 	"__lambda",

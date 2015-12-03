@@ -15,6 +15,7 @@ extern (C) {
 	int printf(const char* fmt, ...);
 	void* memset(void* ptr, int value, size_t num);
 	void* memcpy(void* destination, void* source, size_t num);
+	int memcmp(void* ptr1, void* ptr2, size_t num);
 }
 
 class Object {
@@ -47,3 +48,13 @@ auto __sd_array_concat(T : U[], U)(T lhs, T rhs) {
 	memcpy(&ptr[lhs.length], cast(void*) rhs.ptr, rhs.length * U.sizeof);
 	return ptr[0 .. length];
 }
+
+//FIXME add a general comparison as soon as Overloading is supported
+bool __sd_array_compare(T : string)(T lhs, T rhs) {
+	if (lhs.length == rhs.length) {
+		return !memcmp(cast(void*) lhs.ptr, cast(void*) rhs.ptr, lhs.length);
+	} else {
+		return false;
+	}
+}
+

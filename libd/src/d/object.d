@@ -69,5 +69,11 @@ final class ObjectReference {
 		import d.ir.dscope : OverloadSet;
 		return cast(OverloadSet) s;
 	}
+
+	auto getArrayCompare() {
+		auto s = object.resolve(Location.init, BuiltinName!"__sd_array_compare");
+		import d.ir.dscope : OverloadSet;
+		return cast(OverloadSet) s;
+	}
 }
 
