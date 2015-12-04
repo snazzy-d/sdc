@@ -515,6 +515,13 @@ public:
 		return build!ContextExpression(location, ctx);
 	}
 	
+	Expression visit(IsExpression e) {
+		import d.semantic.type;
+		auto ts = TypeVisitor(pass).visit(e.tested);
+		
+		return new BooleanLiteral(e.location, ts.kind != TypeKind.Error);
+	}
+
 	Expression getFrom(Location location, Function f) {
 		scheduler.require(f, Step.Signed);
 		
