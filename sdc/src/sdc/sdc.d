@@ -76,7 +76,8 @@ final class SDC {
 	void compile(string filename) {
 		modules ~= semantic.add(filename);
 	}
-
+	/// The string needs to be 0-terminated!
+	/// The terminator needs to be included in bufferLength!
 	bool compileBuffer(const char* bufferPtr, const size_t bufferLength, const char* namePtr, const size_t nameLength) {
 		try {
 			modules ~= semantic.add(bufferPtr, bufferLength, namePtr, nameLength);
