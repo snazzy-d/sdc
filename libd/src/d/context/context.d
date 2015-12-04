@@ -21,13 +21,19 @@ public:
 	}
 	
 	import d.context.location;
+
 	Position registerFile(Location location, string filename, string directory) {
 		import std.file, std.path;
 		auto data = cast(const(ubyte)[]) read(buildPath(directory, filename));
 		
 		import util.utf8;
 		auto content = convertToUTF8(data) ~ '\0';
-		
+
+		return registerBuffer(content, filename, directory, location);
+	}
+
+	/// assumes contents is valid UTF8!
+	Position registerBuffer(string content, string filename, string directory = "", Location location = Location.init) {
 		return sourceManager.registerFile(
 			location,
 			getName(filename),

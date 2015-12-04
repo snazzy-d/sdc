@@ -87,7 +87,11 @@ final class SemanticPass {
 		
 		scheduler.require(obj, Step.Populated);
 	}
-	
+
+	Module add(const char* code, const size_t codeLength, const char* filename, const size_t filenameLength) {
+		return moduleVisitor.add(code, codeLength, filename, filenameLength);
+	}
+
 	Module add(string filename) {
 		return moduleVisitor.add(filename);
 	}

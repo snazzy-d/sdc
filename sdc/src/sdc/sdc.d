@@ -76,6 +76,20 @@ final class SDC {
 	void compile(string filename) {
 		modules ~= semantic.add(filename);
 	}
+
+	bool compileBuffer(const char* bufferPtr, const size_t bufferLength, const char* namePtr, const size_t nameLength) {
+		try {
+			modules ~= semantic.add(bufferPtr, bufferLength, namePtr, nameLength);
+		} catch (Throwable t) {
+			debug {
+				throw t;
+			} else {
+				return false;
+			}
+		}
+
+		return true;
+	}
 	
 	void buildMain() {
 		semantic.terminate();
