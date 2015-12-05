@@ -327,12 +327,14 @@ public:
 		flattenedStmts ~= new VariableStatement(idx);
 		
 		auto idxExpr = new VariableExpression(idx.location, idx);
+
+		import d.semantic.caster;
 		auto condition = new BinaryExpression(
 			loc,
 			Type.get(BuiltinType.Bool),
 			BinaryOp.Less,
 			idxExpr,
-			length,
+			buildImplicitCast(pass, idx.location, idx.type, length),
 		);
 		
 		auto increment = new UnaryExpression(
