@@ -1,0 +1,14 @@
+TESTER_SRC = $(TESTER_ROOT)/src/*.d
+TESTER = bin/tester
+
+ALL_TARGET ?= $(TESTER)
+
+SDC_ROOT = $(TESTER_ROOT)/../sdc
+LIBSDRT_ROOT = $(TESTER_ROOT)/../libsdrt
+
+include $(SDC_ROOT)/makefile.common
+include $(LIBSDRT_ROOT)/makefile.common 
+
+$(TESTER) : $(LIBSDC) $(LIBSDRT) 
+	$(DMD) -c -ofobj/tester.o $(TESTER_SRC) $(DFLAGS) $(SDC_IMPORTS)
+	gcc -o $(TESTER) obj/tester.o $(ARCHFLAG) $(LDFLAGS)
