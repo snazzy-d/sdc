@@ -42,8 +42,8 @@ struct TypeVisitor {
 	
 	Type visit(Identifier i) {
 		import d.semantic.identifier;
-		return SymbolResolver(pass)
-			.visit(i)
+		return IdentifierResolver(pass)
+			.build(i)
 			.apply!(delegate Type(identified) {
 				static if(is(typeof(identified) : Type)) {
 					return identified.qualify(qualifier);
@@ -99,8 +99,8 @@ struct TypeVisitor {
 		auto type = visit(t);
 		
 		import d.semantic.identifier;
-		return SymbolResolver(pass)
-			.visit(ikey)
+		return IdentifierResolver(pass)
+			.build(ikey)
 			.apply!(delegate Type(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {

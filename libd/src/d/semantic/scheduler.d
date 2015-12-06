@@ -42,23 +42,22 @@ final class Scheduler {
 		scope(exit) pass.state = state;
 		
 		while(s.step < step) {
-			if (auto p = s in processes) {
-				auto f = *p;
-				if (f.state == Fiber.State.EXEC) {
-					// TODO: Check for possible forward reference problem.
-				}
+			auto p = s in processes;
+			assert(p, "Forward reference to " ~ s.name.toString(pass.context));
+			
+			auto f = *p;
+			if (f.state == Fiber.State.EXEC) {
+				// TODO: Check for possible forward reference problem.
+			}
+			
+			if (f.state == Fiber.State.HOLD) {
+				f.call();
+			}
+			
+			if (f.state == Fiber.State.TERM) {
+				processes.remove(s);
 				
-				if (f.state == Fiber.State.HOLD) {
-					f.call();
-				}
-				
-				if (f.state == Fiber.State.TERM) {
-					processes.remove(s);
-					
-					pool ~= f;
-				}
-			} else {
-				assert(0, "Forward reference to " ~ s.name.toString(pass.context));
+				pool ~= f;
 			}
 			
 			if (s.step >= step) return;

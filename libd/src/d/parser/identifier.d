@@ -99,8 +99,7 @@ private Identifier parseBuiltIdentifier(
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
 				
-				// XXX: is likely incorrect.
-				location.spanTo(trange.front.location);
+				location.spanTo(trange.previous);
 				
 				auto instance = new TemplateInstanciation(
 					location,
@@ -120,9 +119,9 @@ private Identifier parseBuiltIdentifier(
 				
 				trange.popFront();
 				
-				auto name = trange.front.name;
-				
 				location.spanTo(trange.front.location);
+				
+				auto name = trange.front.name;
 				trange.match(Identifier);
 				
 				identifier = new TemplateInstanciationDotIdentifier(

@@ -30,4 +30,3 @@ bool buzz(size_t sizeof) {
 		return false;
 	}
 }
-

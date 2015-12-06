@@ -142,8 +142,8 @@ public:
 	
 	void visit(IdentifierStarIdentifierStatement s) {
 		import d.semantic.identifier;
-		SymbolResolver(pass)
-			.visit(s.identifier)
+		IdentifierResolver(pass)
+			.build(s.identifier)
 			.apply!(delegate void(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
@@ -265,8 +265,8 @@ public:
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 		
 		import d.context.name, d.semantic.identifier;
-		auto length = SymbolResolver(pass)
-			.resolveInExpression(iterated.location, iterated, BuiltinName!"length")
+		auto length = IdentifierResolver(pass)
+			.buildIn(iterated.location, iterated, BuiltinName!"length")
 			.apply!(delegate Expression(e) {
 				static if (is(typeof(e) : Expression)) {
 					return e;
@@ -587,27 +587,27 @@ public:
 	void visit(AstTryStatement s) {
 		auto tryStmt = autoBlock(s.statement);
 		
-		import std.algorithm, std.array, d.semantic.identifier;
+		import d.semantic.identifier, std.algorithm, std.array;
 		auto catches = s.catches.map!(c => CatchBlock(
 			c.location,
-			AliasResolver(pass)
-				.visit(c.type)
+			IdentifierResolver(pass)
+				.resolve(c.type)
 				.apply!(function Class(identified) {
-					static if(is(typeof(identified) : Symbol)) {
-						if(auto c = cast(Class) identified) {
+					alias T = typeof(identified);
+					static if (is(T : Symbol)) {
+						if (auto c = cast(Class) identified) {
 							return c;
 						}
 					}
 					
-					static if(is(typeof(identified.location))) {
+					static if (is(T : Type)) {
+						assert(0);
+					} else {
 						import d.exception;
 						throw new CompileException(
 							identified.location,
 							typeid(identified).toString() ~ " is not a class.",
 						);
-					} else {
-						// for typeof(null)
-						assert(0);
 					}
 				})(),
 			c.name,

@@ -15,6 +15,9 @@ final class OverloadSet : Symbol {
 	this(Location location, Name name, Symbol[] set) {
 		super(location, name);
 		this.set = set;
+		
+		// Always
+		this.step = Step.Processed;
 	}
 }
 
@@ -203,7 +206,10 @@ public:
 	}
 	
 	void addSymbol(Symbol s) {
-		assert(!s.name.isEmpty, "Symbol can't be added to scope as it has no name.");
+		assert(
+			!s.name.isEmpty,
+			"Symbol can't be added to scope as it has no name."
+		);
 		
 		if (auto sPtr = s.name in symbols) {
 			if (auto p = cast(Poison) *sPtr) {
@@ -289,7 +295,10 @@ public:
 			if (auto cs = cast(ConditionalSet) s) {
 				if (cs.set.length) {
 					import d.exception;
-					throw new CompileException(cs.set[0].entry.location, "Not resolved");
+					throw new CompileException(
+						cs.set[0].entry.location,
+						"Not resolved",
+					);
 				}
 				
 				assert(
@@ -312,7 +321,10 @@ public:
 	// XXX: Use of smarter data structure can probably improve things here :D
 	import d.ast.conditional : StaticIfDeclaration;
 	void resolveConditional(StaticIfDeclaration sif, bool branch) in {
-		assert(isPoisoning, "You must be in poisoning mode when resolving static ifs.");
+		assert(
+			isPoisoning,
+			"You must be in poisoning mode when resolving static ifs."
+		);
 	} body {
 		foreach(s; symbols.values) {
 			if (auto cs = cast(ConditionalSet) s) {

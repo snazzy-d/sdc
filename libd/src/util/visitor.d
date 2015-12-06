@@ -63,7 +63,7 @@ private auto dispatchImpl(
 	
 	// Dispatch isn't possible.
 	enum returnVoid = is(typeof(return) == void);
-	static if(returnVoid || is(typeof(unhandled(t)) == void)) {
+	static if (returnVoid || is(typeof(unhandled(t)) == void)) {
 		unhandled(t);
 		assert(returnVoid);
 	} else {
@@ -80,7 +80,7 @@ auto accept(T, V)(T t, V visitor) if((is(V == class) || is(V == interface)) && (
 }
 
 private auto acceptImpl(T, V)(T t, auto ref V visitor) {
-	static if(is(typeof(visitor.visit(t)))) {
+	static if (is(typeof(visitor.visit(t)))) {
 		return visitor.visit(t);
 	} else {
 		visitor.dispatch(t);

@@ -148,7 +148,10 @@ struct LocalGen {
 			
 			// Sanity check.
 			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
-			assert(!fun, f.mangle.toString(pass.context) ~ " is already declared.");
+			assert(
+				!fun,
+				f.mangle.toString(pass.context) ~ " is already declared."
+			);
 			
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		} ());
@@ -197,7 +200,11 @@ struct LocalGen {
 	}
 	
 	private void genBody(Function f, LLVMValueRef fun) in {
-		assert(LLVMCountBasicBlocks(fun) == 0, f.mangle.toString(context) ~ " body is already defined.");
+		assert(
+			LLVMCountBasicBlocks(fun) == 0,
+			f.mangle.toString(context) ~ " body is already defined"
+		);
+		
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody, "f must have a body");
 	} body {
@@ -227,16 +234,21 @@ struct LocalGen {
 			LLVMSetValueName(parentCtx, "__ctx");
 			
 			// Find the right context as parent.
-			import d.llvm.type, std.algorithm, std.range;
+			import d.llvm.type;
 			auto ctxTypeGen = TypeGen(pass).visit(parentCtxType.getType());
-			contexts = contexts[0 .. $ - retro(contexts).countUntil!(c => c.type is ctxTypeGen)()];
+			
+			import std.algorithm, std.range;
+			auto ctxCount = contexts.length -
+				retro(contexts).countUntil!(c => c.type is ctxTypeGen)();
+			contexts = contexts[0 .. ctxCount];
 			
 			buildCapturedVariables(parentCtx, contexts, f.getCaptures());
 			
 			// Chain closures.
 			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
 			
-			LLVMBuildStore(builder, parentCtx, LLVMBuildStructGEP(builder, ctxPtr, 0, ""));
+			auto ctxStorage = LLVMBuildStructGEP(builder, ctxPtr, 0, "");
+			LLVMBuildStore(builder, parentCtx, ctxStorage);
 			contexts ~= closure;
 		} else {
 			// Build closure for this function.
@@ -254,7 +266,10 @@ struct LocalGen {
 			auto ptr = createVariableStorage(p, value);
 			if (!p.isRef && !p.isFinal) {
 				import std.string;
-				LLVMSetValueName(value, toStringz("arg." ~ p.name.toString(context)));
+				LLVMSetValueName(
+					value,
+					toStringz("arg." ~ p.name.toString(context)),
+				);
 			}
 			
 			// this is kind of magic :)
@@ -271,10 +286,12 @@ struct LocalGen {
 		import d.llvm.statement;
 		StatementGen(&this).visit(f.fbody);
 		
-		// If the current block isn't concluded, it means that it is unreachable.
+		// If the current block isn't concluded,
+		// it means that it is unreachable.
 		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
 			// FIXME: provide the right AST in case of void function.
-			if (LLVMGetTypeKind(LLVMGetReturnType(funType)) == LLVMTypeKind.Void) {
+			auto retType = LLVMGetReturnType(funType);
+			if (LLVMGetTypeKind(retType) == LLVMTypeKind.Void) {
 				LLVMBuildRetVoid(builder);
 			} else {
 				LLVMBuildUnreachable(builder);
@@ -298,9 +315,12 @@ struct LocalGen {
 			auto ctxType = contexts[$ - 1].type;
 			
 			import d.llvm.expression, d.llvm.runtime;
-			auto alloc = ExpressionGen(&this).buildCall(RuntimeGen(pass).getAllocMemory(), [LLVMSizeOf(ctxType)]);
-			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+			auto alloc = ExpressionGen(&this).buildCall(
+				RuntimeGen(pass).getAllocMemory(),
+				[LLVMSizeOf(ctxType)],
+			);
 			
+			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
 			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(
 				builder,
 				alloc,
@@ -384,7 +404,8 @@ struct LocalGen {
 				}
 			}
 			
-			root = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, root, 0, ""), "");
+			auto rootPtr = LLVMBuildStructGEP(builder, root, 0, "");
+			root = LLVMBuildLoad(builder, rootPtr, "");
 		}
 		
 		assert(closureCount == 0);
@@ -484,10 +505,12 @@ struct LocalGen {
 			}
 			
 			if (c.type is type) {
-				return LLVMBuildPointerCast(builder, value, LLVMPointerType(type, 0), "");
+				auto ptrType = LLVMPointerType(type, 0);
+				return LLVMBuildPointerCast(builder, value, ptrType, "");
 			}
 			
-			value = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, value, 0, ""), "");
+			auto ctxPtr = LLVMBuildStructGEP(builder, value, 0, "");
+			value = LLVMBuildLoad(builder, ctxPtr, "");
 		}
 		
 		assert(0, "No context available.");

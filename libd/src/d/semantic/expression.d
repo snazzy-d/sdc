@@ -657,14 +657,14 @@ public:
 		import d.ast.identifier, d.semantic.identifier;
 		if (auto tidi = cast(TemplateInstanciationDotIdentifier) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
-			return TemplateSymbolResolver(pass)
-				.resolve(tidi, args)
+			return IdentifierResolver(pass)
+				.build(tidi, args)
 				.apply!(i => postProcess(i))();
 		}
 		
 		// XXX: For some reason this need to be passed a lambda.
-		return SymbolResolver(pass)
-			.visit(c.callee)
+		return IdentifierResolver(pass)
+			.build(c.callee)
 			.apply!((i => postProcess(i)))();
 	}
 	
@@ -698,34 +698,40 @@ public:
 		auto agg = thisExpr.type.aggregate;
 		
 		import d.context.name, d.semantic.identifier;
-		return AliasResolver(pass)
-			.resolveInSymbol(location, agg, BuiltinName!"__ctor")
-			.apply!(delegate Expression(identified) {
-				alias T = typeof(identified);
+		return IdentifierResolver(pass)
+			.resolveIn(location, agg, BuiltinName!"__ctor")
+			.apply!(delegate Expression(i) {
+				alias T = typeof(i);
 				static if (is(T : Symbol)) {
-					if (auto f = cast(Function) identified) {
+					if (auto s = cast(OverloadSet) i) {
+						if (s.set.length > 1) {
+							import std.algorithm, std.array;
+							return chooseOverload(
+								location,
+								s.set.map!(delegate Expression(s) {
+									if (auto f = cast(Function) s) {
+										pass.scheduler.require(f, Step.Signed);
+										return new MethodExpression(calleeLoc, thisExpr, f);
+									}
+									
+									// XXX: Template ??!?!!?
+									assert(0, "Not a constructor");
+								}).array(),
+								args,
+							);
+						}
+						
+						i = s.set[0];
+					}
+					
+					if (auto f = cast(Function) i) {
 						pass.scheduler.require(f, Step.Signed);
 						return new MethodExpression(calleeLoc, thisExpr, f);
-					} else if (auto s = cast(OverloadSet) identified) {
-						import std.algorithm, std.array;
-						return chooseOverload(
-							location,
-							s.set.map!(delegate Expression(s) {
-								if (auto f = cast(Function) s) {
-									pass.scheduler.require(f, Step.Signed);
-									return new MethodExpression(calleeLoc, thisExpr, f);
-								}
-								
-								// XXX: Template ??!?!!?
-								assert(0, "Not a constructor");
-							}).array(),
-							args,
-						);
 					}
 				}
 				
 				return getError(
-					identified,
+					i,
 					location,
 					agg.name.toString(pass.context) ~ " isn't callable",
 				);
@@ -741,8 +747,8 @@ public:
 		scheduler.require(i);
 		
 		import d.semantic.identifier;
-		return SymbolResolver(pass)
-			.resolveInSymbol(location, i, t.name)
+		return IdentifierResolver(pass)
+			.buildIn(location, i, t.name)
 			.apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
@@ -764,6 +770,7 @@ public:
 	) {
 		import std.algorithm, std.array;
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
+			pass.scheduler.require(s, Step.Signed);
 			if (auto f = cast(Function) s) {
 				return getFrom(location, f);
 			} else if (auto t = cast(Template) s) {
@@ -996,8 +1003,8 @@ public:
 		auto di = NewBuilder(pass, e.location).visit(type);
 		
 		import d.context.name, d.semantic.identifier;
-		auto ctor = AliasResolver(pass)
-			.resolveInType(e.location, type, BuiltinName!"__ctor")
+		auto ctor = IdentifierResolver(pass)
+			.resolveIn(e.location, type, BuiltinName!"__ctor")
 			.apply!(delegate Function(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					if (auto f = cast(Function) identified) {
@@ -1043,8 +1050,8 @@ public:
 	
 	Expression getThis(Location location) {
 		import d.context.name, d.semantic.identifier;
-		auto thisExpr = SymbolResolver(pass)
-			.resolveName(location, BuiltinName!"this")
+		auto thisExpr = IdentifierResolver(pass)
+			.build(location, BuiltinName!"this")
 			.apply!(delegate Expression(identified) {
 				static if(is(typeof(identified) : Expression)) {
 					return identified;
@@ -1167,8 +1174,8 @@ public:
 	
 	Expression visit(IdentifierTypeidExpression e) {
 		import d.semantic.identifier;
-		return SymbolResolver(pass)
-			.visit(e.argument)
+		return IdentifierResolver(pass)
+			.build(e.argument)
 			.apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
@@ -1188,8 +1195,8 @@ public:
 	
 	Expression visit(IdentifierExpression e) {
 		import d.semantic.identifier;
-		return SymbolResolver(pass)
-			.visit(e.identifier)
+		return IdentifierResolver(pass)
+			.build(e.identifier)
 			.apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
@@ -1215,8 +1222,8 @@ public:
 		import std.algorithm, std.array;
 		import d.semantic.identifier;
 		auto exprs = s.set
-			.map!(s => SymbolPostProcessor(pass, location)
-				.visit(s)
+			.map!(s => IdentifierResolver(pass)
+				.postProcess(location, s)
 				.apply!(delegate Expression(identified) {
 					alias T = typeof(identified);
 					static if (is(T : Expression)) {

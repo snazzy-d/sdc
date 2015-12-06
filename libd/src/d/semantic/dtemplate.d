@@ -19,11 +19,17 @@ struct TemplateInstancier {
 		this.pass = pass;
 	}
 	
-	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args, Expression[] fargs) {
+	auto instanciate(
+		Location location,
+		OverloadSet s,
+		TemplateArgument[] args,
+		Expression[] fargs,
+	) {
 		import std.algorithm;
-		auto cds = s.set.filter!((t) {
-			if (auto asTemplate = cast(Template) t) {
-				return asTemplate.parameters.length >= args.length;
+		auto cds = s.set.filter!((s) {
+			if (auto t = cast(Template) s) {
+				pass.scheduler.require(t, Step.Signed);
+				return t.parameters.length >= args.length;
 			}
 			
 			assert(0, "this isn't a template");
@@ -34,8 +40,6 @@ struct TemplateInstancier {
 		CandidateLoop: foreach(candidate; cds) {
 			auto t = cast(Template) candidate;
 			assert(t, "We should have ensured that we only have templates at this point.");
-			
-			scheduler.require(t);
 			
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;
@@ -58,7 +62,10 @@ struct TemplateInstancier {
 				}
 				
 				import d.exception;
-				throw new CompileException(p.location, typeid(p).toString() ~ " not implemented");
+				throw new CompileException(
+					p.location,
+					typeid(p).toString() ~ " not implemented",
+				);
 			}
 			
 			import std.algorithm, std.array;
@@ -81,19 +88,27 @@ struct TemplateInstancier {
 			}
 		}
 		
-		assert(match);
+		if (!match) {
+			import d.exception;
+			throw new CompileException(location, "No match");
+		}
+		
 		return instanciateFromResolvedArgs(location, match, matchedArgs);
 	}
 	
-	auto instanciate(Location location, Template t, TemplateArgument[] args, Expression[] fargs = []) {
+	auto instanciate(
+		Location location,
+		Template t,
+		TemplateArgument[] args,
+		Expression[] fargs = [],
+	) {
 		scheduler.require(t);
 		
 		TemplateArgument[] matchedArgs;
 		if (t.parameters.length > 0) {
 			matchedArgs.length = t.parameters.length;
 			
-			auto match = matchArguments(t, args, fargs, matchedArgs);
-			if (!match) {
+			if (!matchArguments(t, args, fargs, matchedArgs)) {
 				import d.exception;
 				throw new CompileException(location, "No match");
 			}
@@ -103,7 +118,12 @@ struct TemplateInstancier {
 	}
 	
 private:
-	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs, TemplateArgument[] matchedArgs) in {
+	bool matchArguments(
+		Template t,
+		TemplateArgument[] args,
+		Expression[] fargs,
+		TemplateArgument[] matchedArgs,
+	) in {
 		assert(t.step == Step.Processed);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
@@ -133,10 +153,15 @@ private:
 		return true;
 	}
 	
-	bool matchArgument(TemplateParameter p, TemplateArgument a, TemplateArgument[] matchedArgs) {
+	bool matchArgument(
+		TemplateParameter p,
+		TemplateArgument a,
+		TemplateArgument[] matchedArgs,
+	) {
 		return a.apply!(delegate bool() {
 			if (auto t = cast(TypeTemplateParameter) p) {
-				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue).visit(t);
+				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
+					.visit(t);
 			} else if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
@@ -164,7 +189,11 @@ private:
 		})();
 	}
 	
-	auto instanciateFromResolvedArgs(Location location, Template t, TemplateArgument[] args) in {
+	auto instanciateFromResolvedArgs(
+		Location location,
+		Template t,
+		TemplateArgument[] args,
+	) in {
 		assert(t.parameters.length == args.length);
 	} body {
 		auto i = 0;
@@ -288,7 +317,8 @@ struct TypeParameterMatcher {
 		auto originalMatched = matchedArgs[p.index];
 		matchedArgs[p.index] = TemplateArgument.init;
 		
-		if (!StaticTypeMatcher(pass, matchedArgs, matchee).visit(p.specialization.getCanonical())) {
+		auto ct = p.specialization.getCanonical();
+		if (!StaticTypeMatcher(pass, matchedArgs, matchee).visit(ct)) {
 			return false;
 		}
 		
@@ -440,7 +470,11 @@ struct ValueMatcher {
 	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
 	
-	this(SemanticPass pass, TemplateArgument[] matchedArgs, CompileTimeExpression matchee) {
+	this(
+		SemanticPass pass,
+		TemplateArgument[] matchedArgs,
+		CompileTimeExpression matchee,
+	) {
 		this.pass = pass;
 		this.matchedArgs = matchedArgs;
 		this.matchee = matchee;
@@ -496,8 +530,8 @@ struct SymbolMatcher {
 			matchedArgs[p.index] = TemplateArgument(vs);
 			
 			import d.semantic.identifier;
-			return SymbolPostProcessor(pass, p.location)
-				.visit(vs)
+			return IdentifierResolver(pass)
+				.postProcess(p.location, vs)
 				.apply!(delegate bool(identified) {
 					alias T = typeof(identified);
 					static if (is(T : Expression)) {
@@ -518,8 +552,8 @@ struct SymbolMatcher {
 	
 	bool visit(TypeTemplateParameter p) {
 		import d.semantic.identifier;
-		return SymbolPostProcessor(pass, p.location)
-			.visit(matchee)
+		return IdentifierResolver(pass)
+			.postProcess(p.location, matchee)
 			.apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
@@ -536,8 +570,8 @@ struct SymbolMatcher {
 	
 	bool visit(ValueTemplateParameter p) {
 		import d.semantic.identifier;
-		return SymbolPostProcessor(pass, p.location)
-			.visit(matchee)
+		return IdentifierResolver(pass)
+			.postProcess(p.location, matchee)
 			.apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {

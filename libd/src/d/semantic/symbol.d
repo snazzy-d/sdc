@@ -383,8 +383,8 @@ struct SymbolAnalyzer {
 	
 	void analyze(IdentifierAliasDeclaration iad, SymbolAlias a) {
 		import d.semantic.identifier;
-		a.symbol = AliasResolver(pass)
-			.visit(iad.identifier)
+		a.symbol = IdentifierResolver(pass)
+			.resolve(iad.identifier)
 			.apply!(function Symbol(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Symbol)) {
@@ -399,6 +399,14 @@ struct SymbolAnalyzer {
 	}
 	
 	void process(SymbolAlias a) {
+		// Simply overlaod set without overloads.
+		// XXX: This is probably invalid outside function's body.
+		if (auto s = cast(OverloadSet) a.symbol) {
+			if (s.set.length == 1) {
+				a.symbol = s.set[0];
+			}
+		}
+		
 		// Mangling
 		scheduler.require(a.symbol, Step.Populated);
 		a.mangle = a.symbol.mangle;
@@ -638,8 +646,8 @@ struct SymbolAnalyzer {
 		Method[] baseMethods;
 		foreach(i; d.bases) {
 			import d.semantic.identifier;
-			c.base = AliasResolver(pass)
-				.visit(i)
+			c.base = IdentifierResolver(pass)
+				.resolve(i)
 				.apply!(function Class(identified) {
 					static if (is(typeof(identified) : Symbol)) {
 						if (auto c = cast(Class) identified) {
@@ -1082,7 +1090,7 @@ struct SymbolAnalyzer {
 			}
 		}
 		
-		t.step = Step.Populated;
+		t.step = Step.Signed;
 		
 		// TODO: support multiple IFTI.
 		foreach(m; t.members) {
