@@ -267,22 +267,32 @@ struct TypeGen {
 		auto mangle = c.mangle.toString(context);
 		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
-		auto classInfoStruct = LLVMGetElementType(visit(classInfoClass));
 		
 		import std.string;
-		auto classInfo = LLVMAddGlobal(
-			dmodule,
-			classInfoStruct,
-			toStringz(mangle ~ "__ClassInfo"),
+		auto classInfoPtr = visit(classInfoClass);
+		auto classInfoStruct = LLVMGetElementType(classInfoPtr);
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
+		auto vtblPtr = LLVMPointerType(vtblStruct, 0);
+		
+		LLVMTypeRef[2] classDataElts = [classInfoStruct, vtblStruct];
+		auto classDataStruct = LLVMStructTypeInContext(
+			llvmCtx,
+			classDataElts.ptr,
+			cast(uint) classDataElts.length,
+			false,
 		);
 		
-		LLVMSetGlobalConstant(classInfo, true);
-		LLVMSetLinkage(classInfo, LLVMLinkage.LinkOnceODR);
+		import std.string;
+		auto classData = LLVMAddGlobal(
+			dmodule,
+			classDataStruct,
+			toStringz(mangle ~ "__Metadata"),
+		);
 		
-		typeInfos[c] = classInfo;
+		typeInfos[c] = LLVMConstBitCast(classData, classInfoPtr);
 		
-		auto vtbl = [classInfo];
-		LLVMValueRef[] fields = [null];
+		LLVMValueRef[] methods;
+		LLVMTypeRef[] initTypes = [vtblPtr];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
 				auto oldBody = m.fbody;
@@ -290,38 +300,70 @@ struct TypeGen {
 				m.fbody = null;
 				
 				import d.llvm.global;
-				vtbl ~= GlobalGen(pass).declare(m);
+				methods ~= GlobalGen(pass).declare(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
-					import d.llvm.constant;
-					fields ~= ConstantGen(pass).visit(f.value);
+					initTypes ~= visit(f.value.type);
 				}
 			}
 		}
 		
+		LLVMStructSetBody(
+			llvmStruct,
+			initTypes.ptr,
+			cast(uint) initTypes.length,
+			false,
+		);
+		
 		import std.algorithm, std.array;
-		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
+		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
+		LLVMStructSetBody(
+			vtblStruct,
+			vtblTypes.ptr,
+			cast(uint) vtblTypes.length,
+			false,
+		);
 		
-		import std.string;
-		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
-		LLVMStructSetBody(vtblStruct, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
+		auto vtbl = LLVMConstNamedStruct(
+			vtblStruct,
+			methods.ptr,
+			cast(uint) methods.length,
+		);
 		
-		auto vtblPtr = LLVMAddGlobal(dmodule, vtblStruct, toStringz(mangle ~ "__vtblZ"));
-		LLVMSetInitializer(vtblPtr, LLVMConstNamedStruct(vtblStruct, vtbl.ptr, cast(uint) vtbl.length));
-		LLVMSetGlobalConstant(vtblPtr, true);
-		LLVMSetLinkage(vtblPtr, LLVMLinkage.LinkOnceODR);
+		auto i32 = LLVMInt32TypeInContext(llvmCtx);
+		LLVMValueRef[2] indices = [
+			LLVMConstInt(i32, 0, false),
+			LLVMConstInt(i32, 1, false),
+		];
 		
-		// Set vtbl.
-		vtbls[c] = fields[0] = vtblPtr;
-		auto initTypes = fields.map!(f => LLVMTypeOf(f)).array();
-		LLVMStructSetBody(llvmStruct, initTypes.ptr, cast(uint) initTypes.length, false);
+		vtbls[c] = LLVMConstInBoundsGEP(
+			classData,
+			indices.ptr,
+			indices.length,
+		);
 		
-		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
+		// Doing it at the end to avoid infinite recursion
+		// when generating object.ClassInfo
 		auto base = c.base;
 		visit(base);
 		
 		LLVMValueRef[2] classInfoData = [getVtbl(classInfoClass), getTypeInfo(base)];
-		LLVMSetInitializer(classInfo, LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr, 2));
+		auto classInfoGen = LLVMConstNamedStruct(
+			classInfoStruct,
+			classInfoData.ptr,
+			classInfoData.length,
+		);
+		
+		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
+		auto classDataGen = LLVMConstNamedStruct(
+			classDataStruct,
+			classDataData.ptr,
+			classDataData.length,
+		);
+		
+		LLVMSetInitializer(classData, classDataGen);
+		LLVMSetGlobalConstant(classData, true);
+		LLVMSetLinkage(classData, LLVMLinkage.LinkOnceODR);
 		
 		return structPtr;
 	}
