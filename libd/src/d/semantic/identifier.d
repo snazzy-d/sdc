@@ -61,8 +61,8 @@ struct TemplateDotIdentifierResolver(bool asAlias) {
 				return TemplateArgument(TypeVisitor(pass).visit(ta.type));
 			} else if (auto va = cast(ValueTemplateArgument) a) {
 				import d.semantic.expression;
-				return TemplateArgument(pass.evaluate(ExpressionVisitor(pass)
-					.visit(va.value)));
+				auto e = ExpressionVisitor(pass).visit(va.value);
+				return TemplateArgument(pass.evaluate(e));
 			}
 			
 			assert(0, typeid(a).toString() ~ " is not supported.");
@@ -246,17 +246,22 @@ struct IdentifierResolver(bool asAlias) {
 		return resolveInSymbol(i.location, currentScope.getModule(), i.name);
 	}
 	
+	Identifiable postProcess(Location location, Symbol s) {
+		return SelfPostProcessor(pass, location).visit(s);
+	}
+	
+	Identifiable postProcess(Location location, Expression e) {
+		return Identifiable(e);
+	}
+	
+	Identifiable postProcess(Location location, Type t) {
+		return Identifiable(t);
+	}
+	
 	Identifiable resolveInType(Location location, Type t, Name name) {
 		return TypeDotIdentifierResolver(pass, location, name)
 			.visit(t)
-			.apply!((identified) {
-				alias T = typeof(identified);
-				static if (is(T : Symbol)) {
-					return SelfPostProcessor(pass, location).visit(identified);
-				} else {
-					return Identifiable(identified);
-				}
-			})();
+			.apply!(i => postProcess(location, i))();
 	}
 	
 	Identifiable resolveInExpression(
@@ -265,7 +270,8 @@ struct IdentifierResolver(bool asAlias) {
 		Name name,
 	) {
 		return ExpressionDotIdentifierResolver(pass, location, expr, name)
-			.resolve();
+			.resolve()
+			.apply!(i => postProcess(location, i))();
 	}
 	
 	// XXX: higly dubious, see how this can be removed.
@@ -486,9 +492,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 		
 		import d.semantic.expression;
 		auto thisExpr = ExpressionVisitor(pass).getThis(location);
-		
-		// FIXME: Turtle error.
-		return Identifiable(new FieldExpression(location, thisExpr, f));
+		return Identifiable(build!FieldExpression(location, thisExpr, f));
 	}
 	
 	Identifiable visit(ValueAlias a) {
@@ -592,7 +596,33 @@ struct ExpressionDotIdentifierResolver {
 	Identifiable resolve(Expression base) {
 		auto t = expr.type.getCanonical();
 		if (t.isAggregate) {
-			return resolveInAggregate(t.aggregate);
+			auto a = t.aggregate;
+			
+			scheduler.require(a, Step.Populated);
+			if (auto sym = a.resolve(location, name)) {
+				return visit(sym);
+			}
+			
+			if (auto c = cast(Class) a) {
+				if (auto sym = lookupInBase(c)) {
+					return visit(sym);
+				}
+			}
+			
+			import d.semantic.aliasthis;
+			import std.algorithm, std.array;
+			auto results = AliasThisResolver!identifiableHandler(pass)
+				.resolve(expr, a)
+				.map!(c => SymbolResolver(pass)
+						.resolveInIdentifiable(location, c, name))
+				.filter!(i => !i.isError())
+				.array();
+			
+			if (results.length == 1) {
+				return results[0];
+			} else if (results.length > 1) {
+				assert(0, "WTF am I supposed to do here ?");
+			}
 		}
 		
 		auto et = t;
@@ -639,46 +669,6 @@ struct ExpressionDotIdentifierResolver {
 		return lookupInBase(c);
 	}
 	
-	Identifiable resolveInAggregate(Aggregate a) {
-		scheduler.require(a, Step.Populated);
-		if (auto sym = a.resolve(location, name)) {
-			return visit(sym);
-		}
-		
-		if (auto c = cast(Class) a) {
-			if (auto sym = lookupInBase(c)) {
-				return visit(sym);
-			}
-		}
-		
-		import d.semantic.aliasthis;
-		import std.algorithm, std.array;
-		auto results = AliasThisResolver!identifiableHandler(pass)
-			.resolve(expr, a)
-			.map!(c => SymbolResolver(pass)
-					.resolveInIdentifiable(location, c, name))
-			.filter!(i => !i.isError())
-			.array();
-		
-		if (results.length == 1) {
-			return results[0];
-		} else if (results.length > 1) {
-			assert(0, "WTF am I supposed to do here ?");
-		}
-		
-		// UFCS
-		if (auto ufcs = resolveUFCS()) {
-			return Identifiable(ufcs);
-		}
-		
-		return Identifiable(new CompileError(
-			location,
-			name.toString(context)
-				~ " can't be resolved in type "
-				~ a.toString(context),
-		).symbol);
-	}
-	
 	Expression resolveUFCS() {
 		// FIXME: templates and IFTI should UFCS too.
 		Expression tryUFCS(Function f) {
@@ -687,7 +677,8 @@ struct ExpressionDotIdentifierResolver {
 				return null;
 			}
 			
-			auto e = makeExpression(f);
+			import d.semantic.expression;
+			auto e = ExpressionVisitor(pass).getFrom(location, expr, f);
 			if (typeid(e) is typeid(ErrorExpression)) {
 				return null;
 			}
@@ -728,26 +719,49 @@ struct ExpressionDotIdentifierResolver {
 		return TypeDotIdentifierResolver(pass, location, name)
 			.visit(base.type)
 			.apply!(delegate Identifiable(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Symbol)) {
-					return visit(identified);
-				} else static if (is(T : Expression)) {
-					// sizeof, init and other goodies.
-					return Identifiable(build!BinaryExpression(
-						location,
-						identified.type,
-						BinaryOp.Comma,
-						base,
-						identified,
-					));
-				} else {
-					if (identified.kind == TypeKind.Error) {
-						return Identifiable(identified);
-					}
-					
-					assert(0, "expression.type not implemented");
-				}
+				return ContextIdentifierPostProcessor(
+					pass,
+					location,
+					base,
+				).visit(identified);
 			})();
+	}
+	
+	Identifiable visit(Symbol s) {
+		return ContextIdentifierPostProcessor(pass, location, expr)
+			.visit(s);
+	}
+}
+
+struct ContextIdentifierPostProcessor {
+	SemanticPass pass;
+	alias pass this;
+	
+	Location location;
+	Expression base;
+	
+	this(SemanticPass pass, Location location, Expression base) {
+		this.pass = pass;
+		this.location = location;
+		this.base = base;
+	}
+	
+	Identifiable visit(Expression e) {
+		return Identifiable(build!BinaryExpression(
+			location,
+			e.type,
+			BinaryOp.Comma,
+			base,
+			e,
+		));
+	}
+	
+	Identifiable visit(Type t) {
+		if (t.kind == TypeKind.Error) {
+			return Identifiable(t);
+		}
+		
+		assert(0, "expression.type not implemented");
 	}
 	
 	Identifiable visit(Symbol s) {
@@ -795,12 +809,12 @@ struct ExpressionDotIdentifierResolver {
 	
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return Identifiable(new FieldExpression(location, expr, f));
+		return Identifiable(new FieldExpression(location, base, f));
 	}
 	
 	private Expression makeExpression(Function f) {
 		import d.semantic.expression;
-		return ExpressionVisitor(pass).getFrom(location, expr, f);
+		return ExpressionVisitor(pass).getFrom(location, base, f);
 	}
 	
 	Identifiable visit(Function f) {
@@ -814,19 +828,19 @@ struct ExpressionDotIdentifierResolver {
 	Identifiable visit(TypeAlias a) {
 		// XXX: get rid of peelAlias and then get rid of this.
 		scheduler.require(a);
-		return Identifiable(Type.get(a));
+		return Identifiable(a);
 	}
 	
 	Identifiable visit(Struct s) {
-		return Identifiable(Type.get(s));
+		return Identifiable(s);
 	}
 	
 	Identifiable visit(Class c) {
-		return Identifiable(Type.get(c));
+		return Identifiable(c);
 	}
 	
 	Identifiable visit(Enum e) {
-		return Identifiable(Type.get(e));
+		return Identifiable(e);
 	}
 	
 	Identifiable visit(ErrorSymbol e) {
