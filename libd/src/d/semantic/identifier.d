@@ -28,6 +28,9 @@ alias AliasPostProcessor  = IdentifierPostProcessor!true;
 
 private:
 
+alias ThisSymbolPostProcessor = IdentifierPostProcessor!(true, Expression);
+alias ThisAliasPostProcessor = IdentifierPostProcessor!(true, Expression);
+
 /**
  * Resolve identifier!(arguments).identifier as type or expression.
  */
@@ -45,7 +48,7 @@ struct TemplateDotIdentifierResolver(bool asAlias) {
 	) {
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
 		import std.algorithm, std.array;
-		auto args = i.templateInstanciation.arguments.map!((a) {
+		auto args = i.instanciation.arguments.map!((a) {
 			if (auto ia = cast(IdentifierTemplateArgument) a) {
 				return AliasResolver(pass)
 					.visit(ia.identifier)
@@ -72,30 +75,22 @@ struct TemplateDotIdentifierResolver(bool asAlias) {
 		
 		// XXX: identifiableHandler shouldn't be necessary,
 		// we should pas a free function.
-		auto instance = SymbolResolver(pass)
-			.visit(i.templateInstanciation.identifier)
+		auto iloc = i.instanciation.location;
+		auto instance = visit(i.instanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					if (auto t = cast(Template) identified) {
-						return TemplateInstancier(pass).instanciate(
-							i.templateInstanciation.location,
-							t,
-							args,
-							fargs,
-						);
+						return TemplateInstancier(pass)
+							.instanciate(iloc, t, args, fargs);
 					} else if (auto s = cast(OverloadSet) identified) {
-						return TemplateInstancier(pass).instanciate(
-							i.templateInstanciation.location,
-							s,
-							args,
-							fargs,
-						);
+						return TemplateInstancier(pass)
+							.instanciate(iloc, s, args, fargs);
 					}
 				}
 				
 				ce = getError(
 					identified,
-					i.templateInstanciation.location,
+					i.instanciation.location,
 					"Unexpected " ~ typeid(identified).toString(),
 				);
 				
@@ -115,7 +110,7 @@ struct TemplateDotIdentifierResolver(bool asAlias) {
 		}
 		
 		// Let's try eponymous trick if the previous failed.
-		auto name = i.templateInstanciation.identifier.name;
+		auto name = i.instanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.resolve(i.location, name)) {
 				return IdentifierResolver!asAlias(pass)
@@ -125,8 +120,29 @@ struct TemplateDotIdentifierResolver(bool asAlias) {
 		
 		return Identifiable(new CompileError(
 			i.location,
-			i.name.toString(context) ~ " not found in template").symbol,
-		);
+			i.name.toString(context) ~ " not found in template",
+		).symbol);
+	}
+	
+	Identifiable visit(Identifier i) {
+		if (auto idi = cast(IdentifierDotIdentifier) i) {
+			return SymbolResolver(pass)
+				.visit(idi.identifier)
+				.apply!(delegate Identifiable(identified) {
+					alias T = typeof(identified);
+					static if (is(T : Expression)) {
+						assert(0, "flop");
+					} else static if (is(T : Type)) {
+						return SymbolResolver(pass)
+							.resolveInType(i.location, identified, i.name);
+					} else {
+						return SymbolResolver(pass)
+							.resolveInSymbol(i.location, identified, i.name);
+					}
+				})();
+		}
+		
+		return SymbolResolver(pass).visit(i);
 	}
 }
 
@@ -266,11 +282,11 @@ struct IdentifierResolver(bool asAlias) {
 	
 	Identifiable resolveInExpression(
 		Location location,
-		Expression expr,
+		Expression e,
 		Name name,
 	) {
-		return ExpressionDotIdentifierResolver(pass, location, expr, name)
-			.resolve()
+		return ExpressionDotIdentifierResolver(pass, location, name)
+			.resolve(e)
 			.apply!(i => postProcess(location, i))();
 	}
 	
@@ -442,15 +458,48 @@ alias Interface = d.ir.symbol.Interface;
 /**
  * Post process resolved identifiers.
  */
-struct IdentifierPostProcessor(bool asAlias) {
+struct IdentifierPostProcessor(bool asAlias, T = void) {
 	private SemanticPass pass;
 	alias pass this;
 	
 	private Location location;
 	
-	this(SemanticPass pass, Location location) {
+	enum hasThis = is(T : Expression);
+	enum hasType = is(T : Type);
+	static assert(hasThis || hasType || is(T : void));
+	
+	static if (hasThis || hasType) {
+		import std.meta;
+		alias Ts = AliasSeq!T;
+	} else {
+		import std.meta;
+		alias Ts = AliasSeq!();
+	}
+	
+	private Ts __this;
+	
+	this(SemanticPass pass, Location location, Ts __this) {
 		this.pass = pass;
 		this.location = location;
+		this.__this = __this;
+	}
+	
+	Expression getThis() {
+		static if (hasThis) {
+			return __this[0];
+		} else static if (hasType) {
+			import d.semantic.expression;
+			return buildImplicitCast(
+				pass,
+				__this[0],
+				ExpressionVisitor(pass).getThis(location),
+			);
+		} else {
+			// FIXME: This should basically never happen.
+			// But we don't get the right context when we should now.
+			import d.semantic.expression;
+			return ExpressionVisitor(pass).getThis(location);
+		}
 	}
 	
 	Identifiable visit(Symbol s) {
@@ -465,8 +514,14 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return this.dispatch(s);
 	}
 	
-	Identifiable visit(Function f) {
-		static if (asAlias) {
+	Identifiable postProcess(Function f) {
+		scheduler.require(f, Step.Signed);
+		if (hasThis || f.hasThis) {
+			import d.semantic.expression;
+			return Identifiable(
+				ExpressionVisitor(pass).getFrom(location, getThis(), f),
+			);
+		} else static if (asAlias) {
 			return Identifiable(f);
 		} else {
 			import d.semantic.expression;
@@ -474,8 +529,57 @@ struct IdentifierPostProcessor(bool asAlias) {
 		}
 	}
 	
+	Identifiable visit(Function f) {
+		return postProcess(f);
+	}
+	
 	Identifiable visit(Method m) {
-		return visit(cast(Function) m);
+		return postProcess(m);
+	}
+	
+	Identifiable visit(OverloadSet s) {
+		if (s.set.length == 1) {
+			return visit(s.set[0]);
+		}
+		
+		if (!hasThis) {
+			return Identifiable(s);
+		}
+		
+		// XXX: To trump the unreachable statement bullshit
+		HasThis:
+		auto dthis = getThis();
+		
+		Expression[] exprs;
+		foreach(sym; s.set) {
+			auto f = cast(Function) sym;
+			assert(f, "Only function are implemented");
+			
+			import d.semantic.expression;
+			auto e = ExpressionVisitor(pass).getFrom(location, dthis, f);
+			if (auto ee = cast(ErrorExpression) e) {
+				continue;
+			}
+			
+			exprs ~= e;
+		}
+		
+		switch(exprs.length) {
+			case 0 :
+				return Identifiable(new CompileError(
+					location,
+					"No valid candidate in overload set",
+				).symbol);
+			
+			case 1 :
+				return Identifiable(exprs[0]);
+			
+			default :
+				return Identifiable(new PolysemousExpression(
+					location,
+					exprs,
+				));
+		}
 	}
 	
 	Identifiable visit(Variable v) {
@@ -489,10 +593,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		
-		import d.semantic.expression;
-		auto thisExpr = ExpressionVisitor(pass).getThis(location);
-		return Identifiable(build!FieldExpression(location, thisExpr, f));
+		return Identifiable(build!FieldExpression(location, getThis(), f));
 	}
 	
 	Identifiable visit(ValueAlias a) {
@@ -502,14 +603,6 @@ struct IdentifierPostProcessor(bool asAlias) {
 			scheduler.require(a, Step.Signed);
 			return Identifiable(a.value);
 		}
-	}
-	
-	Identifiable visit(OverloadSet s) {
-		if (s.set.length == 1) {
-			return visit(s.set[0]);
-		}
-		
-		return Identifiable(s);
 	}
 	
 	Identifiable visit(SymbolAlias s) {
@@ -579,40 +672,38 @@ struct ExpressionDotIdentifierResolver {
 	alias pass this;
 	
 	Location location;
-	Expression expr;
 	Name name;
 	
-	this(SemanticPass pass, Location location, Expression expr, Name name) {
+	this(SemanticPass pass, Location location, Name name) {
 		this.pass = pass;
 		this.location = location;
-		this.expr = expr;
 		this.name = name;
 	}
 	
-	Identifiable resolve() {
-		return resolve(expr);
+	Identifiable resolve(Expression e) {
+		return resolve(e, e);
 	}
 	
-	Identifiable resolve(Expression base) {
-		auto t = expr.type.getCanonical();
+	Identifiable resolve(Expression e, Expression base) {
+		auto t = e.type.getCanonical();
 		if (t.isAggregate) {
 			auto a = t.aggregate;
 			
 			scheduler.require(a, Step.Populated);
 			if (auto sym = a.resolve(location, name)) {
-				return visit(sym);
+				return postProcess(e, sym);
 			}
 			
 			if (auto c = cast(Class) a) {
 				if (auto sym = lookupInBase(c)) {
-					return visit(sym);
+					return postProcess(e, sym);
 				}
 			}
 			
 			import d.semantic.aliasthis;
 			import std.algorithm, std.array;
 			auto results = AliasThisResolver!identifiableHandler(pass)
-				.resolve(expr, a)
+				.resolve(e, a)
 				.map!(c => SymbolResolver(pass)
 						.resolveInIdentifiable(location, c, name))
 				.filter!(i => !i.isError())
@@ -629,27 +720,25 @@ struct ExpressionDotIdentifierResolver {
 		while (et.kind == TypeKind.Enum) {
 			scheduler.require(et.denum, Step.Populated);
 			if (auto sym = et.denum.resolve(location, name)) {
-				return visit(sym);
+				return postProcess(e, sym);
 			}
 			
 			et = et.denum.type.getCanonical();
 		}
 		
 		// UFCS
-		if (auto ufcs = resolveUFCS()) {
+		if (auto ufcs = resolveUFCS(e)) {
 			return Identifiable(ufcs);
 		}
 		
 		// Try to autodereference pointers.
 		if (t.kind == TypeKind.Pointer) {
-			expr = new UnaryExpression(
-				expr.location,
+			return resolve(new UnaryExpression(
+				e.location,
 				t.element,
 				UnaryOp.Dereference,
-				expr,
-			);
-			
-			return resolve(base);
+				e,
+			), base);
 		}
 		
 		return resolveInType(base);
@@ -669,7 +758,7 @@ struct ExpressionDotIdentifierResolver {
 		return lookupInBase(c);
 	}
 	
-	Expression resolveUFCS() {
+	Expression resolveUFCS(Expression e) {
 		// FIXME: templates and IFTI should UFCS too.
 		Expression tryUFCS(Function f) {
 			// No UFCS on member methods.
@@ -678,12 +767,12 @@ struct ExpressionDotIdentifierResolver {
 			}
 			
 			import d.semantic.expression;
-			auto e = ExpressionVisitor(pass).getFrom(location, expr, f);
-			if (typeid(e) is typeid(ErrorExpression)) {
+			auto dg = ExpressionVisitor(pass).getFrom(location, e, f);
+			if (typeid(dg) is typeid(ErrorExpression)) {
 				return null;
 			}
 			
-			return e;
+			return dg;
 		}
 		
 		auto findUFCS(Symbol[] syms) {
@@ -715,136 +804,34 @@ struct ExpressionDotIdentifierResolver {
 		return null;
 	}
 	
-	Identifiable resolveInType(Expression base) {
+	Identifiable resolveInType(Expression e) {
 		return TypeDotIdentifierResolver(pass, location, name)
-			.visit(base.type)
+			.visit(e.type)
 			.apply!(delegate Identifiable(identified) {
-				return ContextIdentifierPostProcessor(
-					pass,
-					location,
-					base,
-				).visit(identified);
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					return Identifiable(build!BinaryExpression(
+						location,
+						identified.type,
+						BinaryOp.Comma,
+						e,
+						identified,
+					));
+				} else static if (is(T : Type)) {
+					if (identified.kind == TypeKind.Error) {
+						return Identifiable(identified);
+					}
+					
+					assert(0, "expression.type not implemented");
+				} else {
+					return ThisAliasPostProcessor(pass, location, e)
+						.visit(identified);
+				}
 			})();
 	}
 	
-	Identifiable visit(Symbol s) {
-		return ContextIdentifierPostProcessor(pass, location, expr)
-			.visit(s);
-	}
-}
-
-struct ContextIdentifierPostProcessor {
-	SemanticPass pass;
-	alias pass this;
-	
-	Location location;
-	Expression base;
-	
-	this(SemanticPass pass, Location location, Expression base) {
-		this.pass = pass;
-		this.location = location;
-		this.base = base;
-	}
-	
-	Identifiable visit(Expression e) {
-		return Identifiable(build!BinaryExpression(
-			location,
-			e.type,
-			BinaryOp.Comma,
-			base,
-			e,
-		));
-	}
-	
-	Identifiable visit(Type t) {
-		if (t.kind == TypeKind.Error) {
-			return Identifiable(t);
-		}
-		
-		assert(0, "expression.type not implemented");
-	}
-	
-	Identifiable visit(Symbol s) {
-		return this.dispatch!((s) {
-			throw new CompileException(
-				s.location,
-				"Don't know how to dispatch " ~ typeid(s).toString(),
-			);
-		})(s);
-	}
-	
-	Identifiable visit(OverloadSet s) {
-		if (s.set.length == 1) {
-			return visit(s.set[0]);
-		}
-		
-		Expression[] exprs;
-		foreach (sym; s.set) {
-			if (auto f = cast(Function) sym) {
-				auto e = makeExpression(f);
-				if (auto ee = cast(ErrorExpression) e) {
-					continue;
-				}
-				
-				exprs ~= e;
-			} else {
-				assert(0, "not implemented: template with context");
-			}
-		}
-		
-		switch(exprs.length) {
-			case 0 :
-				return Identifiable(new CompileError(
-					location,
-					"No valid candidate in overload set").symbol,
-				);
-			
-			case 1 :
-				return Identifiable(exprs[0]);
-			
-			default :
-				return Identifiable(new PolysemousExpression(location, exprs));
-		}
-	}
-	
-	Identifiable visit(Field f) {
-		scheduler.require(f, Step.Signed);
-		return Identifiable(new FieldExpression(location, base, f));
-	}
-	
-	private Expression makeExpression(Function f) {
-		import d.semantic.expression;
-		return ExpressionVisitor(pass).getFrom(location, base, f);
-	}
-	
-	Identifiable visit(Function f) {
-		return Identifiable(makeExpression(f));
-	}
-	
-	Identifiable visit(Method m) {
-		return Identifiable(makeExpression(m));
-	}
-	
-	Identifiable visit(TypeAlias a) {
-		// XXX: get rid of peelAlias and then get rid of this.
-		scheduler.require(a);
-		return Identifiable(a);
-	}
-	
-	Identifiable visit(Struct s) {
-		return Identifiable(s);
-	}
-	
-	Identifiable visit(Class c) {
-		return Identifiable(c);
-	}
-	
-	Identifiable visit(Enum e) {
-		return Identifiable(e);
-	}
-	
-	Identifiable visit(ErrorSymbol e) {
-		return Identifiable(e);
+	Identifiable postProcess(Expression e, Symbol s) {
+		return ThisAliasPostProcessor(pass, location, e).visit(s);
 	}
 }
 

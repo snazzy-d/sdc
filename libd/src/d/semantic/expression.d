@@ -623,7 +623,8 @@ public:
 		import std.algorithm, std.array;
 		auto args = c.args.map!(a => visit(a)).array();
 		
-		// XXX: Why are doing this here ? Shouldn't this be done in the identifier module ?
+		// XXX: Why are doing this here ?
+		// Shouldn't this be done in the identifier module ?
 		Expression postProcess(T)(T identified) {
 			static if (is(T : Expression)) {
 				return handleCall(c.location, identified, args);
@@ -955,7 +956,10 @@ public:
 		Expression callee,
 		Expression[] args,
 	) in {
-		assert(callee.type.getCanonical().kind == TypeKind.Function);
+		assert(
+			callee.type.getCanonical().kind == TypeKind.Function,
+			callee.toString(context)
+		);
 	} body {
 		auto f = callee.type.getCanonical().asFunctionType();
 		

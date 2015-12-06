@@ -138,7 +138,7 @@ public:
 			s = parentScope.search(location, name);
 		}
 		
-		static if(!is(typeof(hasContext))) {
+		static if (!is(typeof(hasContext))) {
 			enum hasContext = false;
 		}
 		

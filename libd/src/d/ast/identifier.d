@@ -99,16 +99,12 @@ class ExpressionDotIdentifier : Identifier {
  * An identifier qualified by a template (template!(...).identifier)
  */
 class TemplateInstanciationDotIdentifier : Identifier {
-	TemplateInstanciation templateInstanciation;
+	TemplateInstanciation instanciation;
 	
-	this(
-		Location location,
-		Name name,
-		TemplateInstanciation templateInstanciation,
-	) {
+	this(Location location, Name name, TemplateInstanciation instanciation) {
 		super(location, name);
 		
-		this.templateInstanciation = templateInstanciation;
+		this.instanciation = instanciation;
 	}
 }
 

@@ -237,9 +237,13 @@ class Field : ValueSymbol {
 		CompileTimeExpression value = null,
 	) {
 		super(location, name);
+		
 		this.value = value;
 		this.type = type;
 		this.index = index;
+		
+		// Always true for fields.
+		this.hasThis = true;
 	}
 }
 
@@ -343,8 +347,8 @@ class TypedAliasTemplateParameter : TemplateParameter {
 }
 
 /**
-* Template instance
-*/
+ * Template instance
+ */
 class TemplateInstance : Symbol, Scope {
 	mixin ScopeSymbol!(ScopeType.WithParent, Template);
 	
