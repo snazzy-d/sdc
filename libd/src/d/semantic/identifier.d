@@ -247,23 +247,25 @@ struct IdentifierResolver(bool asAlias) {
 	}
 	
 	Identifiable resolveInType(Location location, Type t, Name name) {
-		return TypeDotIdentifierResolver!((identified) {
-			alias T = typeof(identified);
-			static if (is(T : Symbol)) {
-				return SelfPostProcessor(pass, location).visit(identified);
-			} else {
-				return Identifiable(identified);
-			}
-		})(pass, location, name).visit(t);
+		return TypeDotIdentifierResolver(pass, location, name)
+			.visit(t)
+			.apply!((identified) {
+				alias T = typeof(identified);
+				static if (is(T : Symbol)) {
+					return SelfPostProcessor(pass, location).visit(identified);
+				} else {
+					return Identifiable(identified);
+				}
+			})();
 	}
 	
 	Identifiable resolveInExpression(
 		Location location,
-		Expression e,
+		Expression expr,
 		Name name,
 	) {
-		return ExpressionDotIdentifierResolver(pass, location, e)
-			.resolve(name);
+		return ExpressionDotIdentifierResolver(pass, location, expr, name)
+			.resolve();
 	}
 	
 	// XXX: higly dubious, see how this can be removed.
@@ -574,109 +576,178 @@ struct ExpressionDotIdentifierResolver {
 	
 	Location location;
 	Expression expr;
+	Name name;
 	
-	this(SemanticPass pass, Location location, Expression expr) {
+	this(SemanticPass pass, Location location, Expression expr, Name name) {
 		this.pass = pass;
 		this.location = location;
 		this.expr = expr;
+		this.name = name;
 	}
 	
-	Identifiable resolve(Name name) {
-		auto type = expr.type;
-		return TypeDotIdentifierResolver!(delegate Identifiable(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Symbol)) {
-				// XXX: I'd like to have a more elegant way to retrive this.
-				return visit(identified);
-			} else static if (is(T : Expression)) {
-				// sizeof, init and other goodies.
-				return Identifiable(build!BinaryExpression(
-					location,
-					identified.type,
-					BinaryOp.Comma,
-					expr,
-					identified,
-				));
-			} else {
-				if (identified.kind == TypeKind.Error) {
-					return Identifiable(identified);
-				}
-				
-				assert(0, "expression.type not implemented");
-			}
-		}, delegate Identifiable(r, t) {
-			if (t.isAggregate) {
-				import d.semantic.aliasthis;
-				import std.algorithm, std.array;
-				auto results = AliasThisResolver!identifiableHandler(pass)
-					.resolve(expr, t.aggregate)
-					.map!(c => SymbolResolver(pass)
-							.resolveInIdentifiable(location, c, name))
-					.filter!(i => !i.isError())
-					.array();
-				
-				if (results.length == 1) {
-					return results[0];
-				} else if (results.length > 1) {
-					assert(0, "WTF am I supposed to do here ?");
-				}
+	Identifiable resolve() {
+		return resolve(expr);
+	}
+	
+	Identifiable resolve(Expression base) {
+		auto t = expr.type.getCanonical();
+		if (t.isAggregate) {
+			return resolveInAggregate(t.aggregate);
+		}
+		
+		auto et = t;
+		while (et.kind == TypeKind.Enum) {
+			scheduler.require(et.denum, Step.Populated);
+			if (auto sym = et.denum.resolve(location, name)) {
+				return visit(sym);
 			}
 			
-			// UFCS
-			// FIXME: templates and IFTI should UFCS too.
-			Expression tryUFCS(Function f) {
-				// No UFCS on member methods.
-				if (f.hasThis) {
-					return null;
-				}
-				
-				auto e = makeExpression(f);
-				if (typeid(e) is typeid(ErrorExpression)) {
-					return null;
-				}
-				
-				return e;
+			et = et.denum.type.getCanonical();
+		}
+		
+		// UFCS
+		if (auto ufcs = resolveUFCS()) {
+			return Identifiable(ufcs);
+		}
+		
+		// Try to autodereference pointers.
+		if (t.kind == TypeKind.Pointer) {
+			expr = new UnaryExpression(
+				expr.location,
+				t.element,
+				UnaryOp.Dereference,
+				expr,
+			);
+			
+			return resolve(base);
+		}
+		
+		return resolveInType(base);
+	}
+	
+	Symbol lookupInBase(Class c) {
+		if (c is c.base) {
+			return null;
+		}
+		
+		c = c.base;
+		scheduler.require(c, Step.Populated);
+		if (auto sym = c.resolve(location, name)) {
+			return sym;
+		}
+		
+		return lookupInBase(c);
+	}
+	
+	Identifiable resolveInAggregate(Aggregate a) {
+		scheduler.require(a, Step.Populated);
+		if (auto sym = a.resolve(location, name)) {
+			return visit(sym);
+		}
+		
+		if (auto c = cast(Class) a) {
+			if (auto sym = lookupInBase(c)) {
+				return visit(sym);
+			}
+		}
+		
+		import d.semantic.aliasthis;
+		import std.algorithm, std.array;
+		auto results = AliasThisResolver!identifiableHandler(pass)
+			.resolve(expr, a)
+			.map!(c => SymbolResolver(pass)
+					.resolveInIdentifiable(location, c, name))
+			.filter!(i => !i.isError())
+			.array();
+		
+		if (results.length == 1) {
+			return results[0];
+		} else if (results.length > 1) {
+			assert(0, "WTF am I supposed to do here ?");
+		}
+		
+		// UFCS
+		if (auto ufcs = resolveUFCS()) {
+			return Identifiable(ufcs);
+		}
+		
+		return Identifiable(new CompileError(
+			location,
+			name.toString(context)
+				~ " can't be resolved in type "
+				~ a.toString(context),
+		).symbol);
+	}
+	
+	Expression resolveUFCS() {
+		// FIXME: templates and IFTI should UFCS too.
+		Expression tryUFCS(Function f) {
+			// No UFCS on member methods.
+			if (f.hasThis) {
+				return null;
 			}
 			
-			auto findUFCS(Symbol[] syms) {
-				import std.algorithm, std.array;
-				return syms
-					.map!(s => cast(Function) s)
-					.filter!(f => f !is null)
-					.map!(f => tryUFCS(f))
-					.filter!(e => e !is null)
-					.array();
+			auto e = makeExpression(f);
+			if (typeid(e) is typeid(ErrorExpression)) {
+				return null;
 			}
 			
-			auto a = AliasResolver(pass)
-				.resolveSymbolByName(location, name);
-			if (auto os = cast(OverloadSet) a) {
-				auto ufcs = findUFCS(os.set);
-				if (ufcs.length > 0) {
-					assert(ufcs.length == 1, "ambiguous ufcs");
-					return Identifiable(ufcs[0]);
-				}
-			} else if (auto f = cast(Function) a) {
-				auto ufcs = tryUFCS(f);
-				if (ufcs) {
-					return Identifiable(ufcs);
-				}
+			return e;
+		}
+		
+		auto findUFCS(Symbol[] syms) {
+			import std.algorithm, std.array;
+			return syms
+				.map!(s => cast(Function) s)
+				.filter!(f => f !is null)
+				.map!(f => tryUFCS(f))
+				.filter!(e => e !is null)
+				.array();
+		}
+		
+		// TODO: Cache this result maybe ?
+		auto a = AliasResolver(pass)
+			.resolveSymbolByName(location, name);
+		if (auto os = cast(OverloadSet) a) {
+			auto ufcs = findUFCS(os.set);
+			if (ufcs.length > 0) {
+				assert(ufcs.length == 1, "ambiguous ufcs");
+				return ufcs[0];
 			}
-			
-			if (t.kind == TypeKind.Pointer) {
-				auto pointed = t.element;
-				expr = new UnaryExpression(
-					expr.location,
-					pointed,
-					UnaryOp.Dereference,
-					expr,
-				);
-				
-				return r.visit(pointed);
-			} else {
-				return r.bailoutDefault(type);
+		} else if (auto f = cast(Function) a) {
+			auto ufcs = tryUFCS(f);
+			if (ufcs) {
+				return ufcs;
 			}
-		})(pass, location, name).visit(type);
+		}
+		
+		return null;
+	}
+	
+	Identifiable resolveInType(Expression base) {
+		return TypeDotIdentifierResolver(pass, location, name)
+			.visit(base.type)
+			.apply!(delegate Identifiable(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Symbol)) {
+					return visit(identified);
+				} else static if (is(T : Expression)) {
+					// sizeof, init and other goodies.
+					return Identifiable(build!BinaryExpression(
+						location,
+						identified.type,
+						BinaryOp.Comma,
+						base,
+						identified,
+					));
+				} else {
+					if (identified.kind == TypeKind.Error) {
+						return Identifiable(identified);
+					}
+					
+					assert(0, "expression.type not implemented");
+				}
+			})();
 	}
 	
 	Identifiable visit(Symbol s) {
@@ -766,11 +837,9 @@ struct ExpressionDotIdentifierResolver {
 /**
  * Resolve symbols in types.
  */
-struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
+struct TypeDotIdentifierResolver {
 	SemanticPass pass;
 	alias pass this;
-	
-	alias Ret = typeof(handler(Symbol.init));
 	
 	Location location;
 	Name name;
@@ -781,30 +850,20 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		this.name = name;
 	}
 	
-	enum hasBailoutOverride = !is(typeof(bailoutOverride) : typeof(null));
-	
-	Ret bailout(Type t) {
-		static if (hasBailoutOverride) {
-			return bailoutOverride(this, t);
-		} else {
-			return bailoutDefault(t);
-		}
-	}
-	
-	Ret bailoutDefault(Type t) {
+	Identifiable bailout(Type t) {
 		if (name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			return handler(InitBuilder(pass, location).visit(t));
+			return Identifiable(InitBuilder(pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return handler(new IntegerLiteral(
+			return Identifiable(new IntegerLiteral(
 				location,
 				SizeofVisitor(pass).visit(t),
 				pass.object.getSizeT().type.builtin,
 			));
 		}
 		
-		return handler(getError(
+		return Identifiable(getError(
 			t,
 			location,
 			name.toString(context)
@@ -813,37 +872,40 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 		).symbol);
 	}
 	
-	Ret visit(Type t) {
+	Identifiable visit(Type t) {
 		return t.accept(this);
 	}
 	
-	Ret visit(BuiltinType t) {
+	Identifiable visit(BuiltinType t) {
 		if (name == BuiltinName!"max") {
 			if (t == BuiltinType.Bool) {
-				return handler(new BooleanLiteral(location, true));
+				return Identifiable(new BooleanLiteral(location, true));
 			} else if (isIntegral(t)) {
-				return handler(new IntegerLiteral(location, getMax(t), t));
+				return Identifiable(new IntegerLiteral(location, getMax(t), t));
 			} else if (isChar(t)) {
-				return handler(new CharacterLiteral(location, getCharMax(t), t));
+				auto c = new CharacterLiteral(location, getCharMax(t), t);
+				return Identifiable(c);
 			}
 		} else if (name == BuiltinName!"min") {
 			if (t == BuiltinType.Bool) {
-				return handler(new BooleanLiteral(location, false));
+				return Identifiable(new BooleanLiteral(location, false));
 			} else if (isIntegral(t)) {
-				return handler(new IntegerLiteral(location, getMin(t), t));
+				return Identifiable(new IntegerLiteral(location, getMin(t), t));
 			} else if (isChar(t)) {
-				return handler(new CharacterLiteral(location, '\0', t));
+				return Identifiable(new CharacterLiteral(location, '\0', t));
 			}
 		}
 		
 		return bailout(Type.get(t));
 	}
 	
-	Ret visitPointerOf(Type t) {
+	Identifiable visitPointerOf(Type t) {
 		return bailout(t.getPointer());
 	}
 	
-	Ret visitSliceOf(Type t) {
+	Identifiable visitSliceOf(Type t) {
+		// Slice have magic fields.
+		// XXX: This would gain to be moved to object.d
 		if (name == BuiltinName!"length") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
@@ -856,7 +918,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			);
 			
 			s.step = Step.Processed;
-			return handler(s);
+			return Identifiable(s);
 		} else if (name == BuiltinName!"ptr") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
@@ -869,100 +931,92 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 			);
 			
 			s.step = Step.Processed;
-			return handler(s);
+			return Identifiable(s);
 		}
 		
 		return bailout(t.getSlice());
 	}
 	
-	Ret visitArrayOf(uint size, Type t) {
+	Identifiable visitArrayOf(uint size, Type t) {
 		if (name != BuiltinName!"length") {
 			return bailout(t.getArray(size));
 		}
 		
-		return handler(new IntegerLiteral(
+		return Identifiable(new IntegerLiteral(
 			location,
 			size,
 			pass.object.getSizeT().type.builtin,
 		));
 	}
 	
-	Ret visit(Struct s) {
-		scheduler.require(s, Step.Populated);
-		if (auto sym = s.resolve(location, name)) {
-			return handler(sym);
+	Symbol resolveInAggregate(Aggregate a) {
+		scheduler.require(a, Step.Populated);
+		return a.resolve(location, name);
+	}
+	
+	Identifiable visit(Struct s) {
+		if (auto sym = resolveInAggregate(s)) {
+			return Identifiable(sym);
 		}
 		
 		return bailout(Type.get(s));
 	}
 	
-	Ret visit(Class c) {
-		scheduler.require(c, Step.Populated);
-		if (auto s = c.resolve(location, name)) {
-			return handler(s);
-		}
-		
-		if (c !is c.base) {
-			// XXX: check if the compiler is smart enough
-			// to make a loop out of this.
-			static if (hasBailoutOverride) {
-				return TypeDotIdentifierResolver!handler(
-					pass,
-					location,
-					name,
-				).visit(c.base);
-			} else {
-				return visit(c.base);
-			}
-		}
-		
-		return bailout(Type.get(c));
-	}
-	
-	Ret visit(Enum e) {
-		scheduler.require(e, Step.Populated);
-		if (auto s = e.resolve(location, name)) {
-			return handler(s);
-		}
-		
-		return visit(e.type);
-	}
-	
-	Ret visit(TypeAlias a) {
-		scheduler.require(a, Step.Populated);
-		return visit(a.type);
-	}
-	
-	Ret visit(Interface i) {
-		assert(0, "Not Implemented.");
-	}
-	
-	Ret visit(Union u) {
-		scheduler.require(u, Step.Populated);
-		if (auto sym = u.resolve(location, name)) {
-			return handler(sym);
+	Identifiable visit(Union u) {
+		if (auto sym = resolveInAggregate(u)) {
+			return Identifiable(sym);
 		}
 		
 		return bailout(Type.get(u));
 	}
 	
-	Ret visit(Function f) {
+	Identifiable visit(Class c) {
+		if (auto s = resolveInAggregate(c)) {
+			return Identifiable(s);
+		}
+		
+		if (c !is c.base) {
+			return visit(c.base);
+		}
+		
+		return bailout(Type.get(c));
+	}
+	
+	Identifiable visit(Interface i) {
 		assert(0, "Not Implemented.");
 	}
 	
-	Ret visit(Type[] seq) {
+	Identifiable visit(Enum e) {
+		scheduler.require(e, Step.Populated);
+		if (auto s = e.resolve(location, name)) {
+			return Identifiable(s);
+		}
+		
+		return visit(e.type);
+	}
+	
+	Identifiable visit(TypeAlias a) {
+		scheduler.require(a, Step.Populated);
+		return visit(a.type);
+	}
+	
+	Identifiable visit(Function f) {
 		assert(0, "Not Implemented.");
 	}
 	
-	Ret visit(FunctionType f) {
+	Identifiable visit(Type[] seq) {
+		assert(0, "Not Implemented.");
+	}
+	
+	Identifiable visit(FunctionType f) {
 		return bailout(f.getType());
 	}
 	
-	Ret visit(TypeTemplateParameter t) {
+	Identifiable visit(TypeTemplateParameter t) {
 		assert(0, "Can't resolve identifier on template type.");
 	}
 	
-	Ret visit(CompileError e) {
-		return handler(e.type);
+	Identifiable visit(CompileError e) {
+		return Identifiable(e.symbol);
 	}
 }
