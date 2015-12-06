@@ -936,12 +936,25 @@ public:
 		);
 	}
 	
-	private Expression handleCall(Location location, Expression callee, Expression[] args) {
-		return callCallable(location, findCallable(location, callee, args), args);
+	private Expression handleCall(
+		Location location,
+		Expression callee,
+		Expression[] args,
+	) {
+		return callCallable(
+			location,
+			findCallable(location, callee, args),
+			args,
+		);
 	}
 	
-	// XXX: This assume that calable is the right one, but not all call sites do the check.
-	private Expression callCallable(Location location, Expression callee, Expression[] args) in {
+	// XXX: This assume that calable is the right one,
+	// but not all call sites do the check.
+	private Expression callCallable(
+		Location location,
+		Expression callee,
+		Expression[] args,
+	) in {
 		assert(callee.type.getCanonical().kind == TypeKind.Function);
 	} body {
 		auto f = callee.type.getCanonical().asFunctionType();
@@ -959,7 +972,12 @@ public:
 			arg = buildArgument(arg, pt);
 		}
 		
-		return build!CallExpression(location, returnType.getType(), callee, args);
+		return build!CallExpression(
+			location,
+			returnType.getType(),
+			callee,
+			args,
+		);
 	}
 	
 	// XXX: factorize with findCtor

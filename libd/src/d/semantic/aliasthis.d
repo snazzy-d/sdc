@@ -26,7 +26,7 @@ struct AliasThisResolver(alias handler) {
 		if (!t.isAggregate) {
 			return [];
 		}
-
+		
 		return resolve(e, t.aggregate);
 	}
 	

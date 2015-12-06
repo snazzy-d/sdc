@@ -257,8 +257,13 @@ struct IdentifierResolver(bool asAlias) {
 		})(pass, location, name).visit(t);
 	}
 	
-	Identifiable resolveInExpression(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierResolver(pass, location, e).resolve(name);
+	Identifiable resolveInExpression(
+		Location location,
+		Expression e,
+		Name name,
+	) {
+		return ExpressionDotIdentifierResolver(pass, location, e)
+			.resolve(name);
 	}
 	
 	// XXX: higly dubious, see how this can be removed.
@@ -326,37 +331,61 @@ struct IdentifierResolver(bool asAlias) {
 		return TemplateDotIdentifierResolver!asAlias(pass).resolve(i);
 	}
 	
+	private Identifiable resolveTypeBracketIdentifier(
+		Location location,
+		Type indexed,
+		Identifier index,
+	) {
+		return SymbolResolver(pass)
+			.visit(index)
+			.apply!(delegate Identifiable(identified) {
+				alias U = typeof(identified);
+				static if (is(U : Type)) {
+					assert(0, "AA are not implemented");
+				} else static if (is(U : Expression)) {
+					return resolveTypeBracketExpression(
+						location,
+						indexed,
+						identified,
+					);
+				} else {
+					assert(0, "Add meaningful error message.");
+				}
+			})();
+	}
+	
+	private Identifiable resolveTypeBracketExpression(
+		Location location,
+		Type indexed,
+		Expression index,
+	) {
+		import d.semantic.caster, d.semantic.expression;
+		auto size = pass.evalIntegral(buildImplicitCast(
+			pass,
+			index.location,
+			pass.object.getSizeT().type,
+			index,
+		));
+		
+		assert(
+			size <= uint.max,
+			"Array larger than uint.max are not supported"
+		);
+		
+		return Identifiable(indexed.getArray(cast(uint) size));
+	}
+	
 	Identifiable visit(IdentifierBracketIdentifier i) {
 		return SymbolResolver(pass)
 			.visit(i.indexed)
 			.apply!(delegate Identifiable(indexed) {
 				alias T = typeof(indexed);
 				static if (is(T : Type)) {
-					return SymbolResolver(pass)
-						.visit(i.index)
-						.apply!(delegate Identifiable(index) {
-							alias U = typeof(index);
-							static if (is(U : Type)) {
-								assert(0, "AA are not implemented");
-							} else static if (is(U : Expression)) {
-								// XXX: dedup with IdentifierBracketExpression
-								import d.semantic.caster, d.semantic.expression;
-								auto size = pass.evalIntegral(buildImplicitCast(
-									pass,
-									i.index.location,
-									pass.object.getSizeT().type,
-									index,
-								));
-								
-								assert(
-									size <= uint.max,
-									"Array larger than uint.max are not supported"
-								);
-								return Identifiable(indexed.getArray(cast(uint) size));
-							} else {
-								assert(0, "Add meaningful error message.");
-							}
-						})();
+					return resolveTypeBracketIdentifier(
+						i.location,
+						indexed,
+						i.index,
+					);
 				} else static if (is(T : Expression)) {
 					return SymbolResolver(pass)
 						.visit(i.index)
@@ -377,32 +406,21 @@ struct IdentifierResolver(bool asAlias) {
 	}
 	
 	Identifiable visit(IdentifierBracketExpression i) {
+		import d.semantic.expression;
+		auto index = ExpressionVisitor(pass).visit(i.index);
 		return SymbolResolver(pass)
 			.visit(i.indexed)
-			.apply!(delegate Identifiable(identified) {
-				alias T = typeof(identified);
+			.apply!(delegate Identifiable(indexed) {
+				alias T = typeof(indexed);
 				static if (is(T : Type)) {
-					// XXX: dedup with IdentifierBracketExpression
-					import d.semantic.caster, d.semantic.expression;
-					auto size = pass.evalIntegral(buildImplicitCast(
-						pass,
-						i.index.location,
-						pass.object.getSizeT().type,
-						ExpressionVisitor(pass).visit(i.index),
-					));
-					
-					assert(
-						size <= uint.max,
-						"Array larger than uint.max are not supported"
-					);
-					return Identifiable(identified.getArray(cast(uint) size));
-				} else static if (is(T : Expression)) {
-					import d.semantic.expression;
-					return Identifiable(ExpressionVisitor(pass).getIndex(
+					return resolveTypeBracketExpression(
 						i.location,
-						identified,
-						ExpressionVisitor(pass).visit(i.index),
-					));
+						indexed,
+						index,
+					);
+				} else static if (is(T : Expression)) {
+					return Identifiable(ExpressionVisitor(pass)
+						.getIndex(i.location, indexed, index));
 				} else {
 					assert(0, "It seems some weird index expression");
 				}
@@ -767,7 +785,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	
 	Ret bailout(Type t) {
 		static if (hasBailoutOverride) {
-			 return bailoutOverride(this, t);
+			return bailoutOverride(this, t);
 		} else {
 			return bailoutDefault(t);
 		}
@@ -798,7 +816,7 @@ struct TypeDotIdentifierResolver(alias handler, alias bailoutOverride = null) {
 	Ret visit(Type t) {
 		return t.accept(this);
 	}
-
+	
 	Ret visit(BuiltinType t) {
 		if (name == BuiltinName!"max") {
 			if (t == BuiltinType.Bool) {
