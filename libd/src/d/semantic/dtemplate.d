@@ -137,7 +137,9 @@ private:
 		
 		if (fargs.length == t.ifti.length) {
 			foreach(j, a; fargs) {
-				if (!IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j])) {
+				auto m = IftiTypeMatcher(pass, matchedArgs, a.type)
+					.visit(t.ifti[j]);
+				if (!m) {
 					return false;
 				}
 			}
@@ -292,10 +294,8 @@ struct TypeParameterMatcher {
 	TemplateArgument[] matchedArgs;
 	Type matchee;
 	
-	// XXX: used only in one place in caster, can probably be removed.
-	// XXX: it used to cast classes in a way that isn't useful here.
-	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
+	alias pass this;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.pass = pass;
@@ -350,10 +350,8 @@ struct TypeMatcher(bool isIFTI) {
 	TemplateArgument[] matchedArgs;
 	Type matchee;
 	
-	// XXX: used only in one place in caster, can probably be removed.
-	// XXX: it used to cast classes in a way that isn't useful here.
-	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
+	alias pass this;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.matchedArgs = matchedArgs;
@@ -465,10 +463,8 @@ struct ValueMatcher {
 	TemplateArgument[] matchedArgs;
 	CompileTimeExpression matchee;
 	
-	// XXX: used only in one place in caster, can probably be removed.
-	// XXX: it used to cast classes in a way that isn't useful here.
-	// XXX: let's move it away when we have a context and cannonical types.
 	SemanticPass pass;
+	alias pass this;
 	
 	this(
 		SemanticPass pass,
@@ -484,11 +480,28 @@ struct ValueMatcher {
 		return this.dispatch(p);
 	}
 	
-	bool visit(ValueTemplateParameter p) {
-		matchedArgs[p.index] = TemplateArgument(matchee);
+	private bool matchTyped(Type t, uint i) {
+		if (t.kind == TypeKind.Template) {
+			matchedArgs[i] = TemplateArgument(matchee);
+			return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(t);
+		}
 		
-		// TODO: If IFTI fails, go for cast.
-		return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(p.type);
+		import d.semantic.caster;
+		matchee = evaluate(
+			buildImplicitCast(pass, matchee.location, t, matchee),
+		);
+		
+		import d.ir.error;
+		if (cast(ErrorExpression) matchee) {
+			return false;
+		}
+		
+		matchedArgs[i] = TemplateArgument(matchee);
+		return true;
+	}
+	
+	bool visit(ValueTemplateParameter p) {
+		return matchTyped(p.type, p.index);
 	}
 	
 	bool visit(AliasTemplateParameter p) {
@@ -497,10 +510,7 @@ struct ValueMatcher {
 	}
 	
 	bool visit(TypedAliasTemplateParameter p) {
-		matchedArgs[p.index] = TemplateArgument(matchee);
-		
-		// TODO: If IFTI fails, go for cast.
-		return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(p.type);
+		return matchTyped(p.type, p.index);
 	}
 }
 
@@ -509,6 +519,7 @@ struct SymbolMatcher {
 	Symbol matchee;
 	
 	SemanticPass pass;
+	alias pass this;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Symbol matchee) {
 		this.pass = pass;
@@ -527,20 +538,14 @@ struct SymbolMatcher {
 	
 	bool visit(TypedAliasTemplateParameter p) {
 		if (auto vs = cast(ValueSymbol) matchee) {
-			matchedArgs[p.index] = TemplateArgument(vs);
-			
 			import d.semantic.identifier;
 			return IdentifierResolver(pass)
 				.postProcess(p.location, vs)
-				.apply!(delegate bool(identified) {
-					alias T = typeof(identified);
+				.apply!(delegate bool(i) {
+					alias T = typeof(i);
 					static if (is(T : Expression)) {
-						// TODO: If IFTI fails, go for cast.
-						return IftiTypeMatcher(
-							pass,
-							matchedArgs,
-							identified.type,
-						).visit(p.type);
+						return ValueMatcher(pass, matchedArgs, pass.evaluate(i))
+							.matchTyped(p.type, p.index);
 					} else {
 						return false;
 					}
