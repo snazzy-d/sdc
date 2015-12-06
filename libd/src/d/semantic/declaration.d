@@ -201,9 +201,9 @@ struct DeclarationVisitor {
 				null,
 			);
 		} else {
-			uint index = 0;
+			uint index = -1;
 			if (!isOverride && !stc.isOverride) {
-				index = ++methodIndex;
+				index = methodIndex++;
 			}
 			
 			f = new Method(

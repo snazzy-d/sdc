@@ -820,7 +820,14 @@ struct ExpressionGen {
 	LLVMValueRef visit(DynamicTypeidExpression e) {
 		auto vtblPtr = LLVMBuildStructGEP(builder, visit(e.argument), 0, "");
 		auto vtbl = LLVMBuildLoad(builder, vtblPtr, "");
-		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");
+		
+		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
+		
+		// The classInfo is just before the vtbls in memory.
+		// So we cast the pointer and look at index -1 to get it.
+		auto ptr = LLVMBuildBitCast(builder, vtbl, classInfo, "");
+		auto idx = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
+		return LLVMBuildGEP(builder, ptr, &idx, 1, "");
 	}
 	
 	private LLVMValueRef getTypeid(Type t) {
