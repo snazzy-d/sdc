@@ -514,53 +514,58 @@ public:
 		}
 	}
 	
-	Expression getFrom(Location location, Function f) {
-		scheduler.require(f, Step.Signed);
-		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
-		
-		if (f.hasThis) {
-			return getFrom(location, getThis(location), f);
-		}
-		
-		if (f.hasContext) {
-			import d.semantic.closure;
-			return getFrom(location, build!ContextExpression(
-				location,
-				ContextFinder(pass).visit(f),
-			), f);
-		}
-		
-		auto e = new FunctionExpression(location, f);
-		
-		// If this is not a property, things are straigforward.
-		if (!f.isProperty) {
-			return e;
-		}
-		
-		if (f.params.length) {
-			return getError(
-				e,
-				"Invalid number of argument for @property "
-					~ f.name.toString(context),
-			);
-		}
-		
-		Expression[] args;
-		return build!CallExpression(
-			location,
-			f.type.returnType.getType(),
-			e,
-			args,
-		);
+	private Expression getContext(Location location, Function f) in {
+		assert(f.step >= Step.Signed);
+	} body {
+		import d.semantic.closure;
+		auto ctx = ContextFinder(pass).visit(f);
+		return build!ContextExpression(location, ctx);
 	}
 	
-	// XXX: dedup with IdentifierVisitor
-	Expression getFrom(Location location, Expression ctx, Function f) {
+	Expression getFrom(Location location, Function f) {
 		scheduler.require(f, Step.Signed);
-		assert(!f.hasThis || !f.hasContext, "this + context not implemented");
 		
-		ctx = buildArgument(ctx, f.type.parameters[0]);
-		auto e = build!MethodExpression(location, ctx, f);
+		Expression[] ctxs;
+		ctxs.reserve(f.hasThis + f.hasContext);
+		if (f.hasContext) {
+			ctxs ~= getContext(location, f);
+		}
+		
+		if (f.hasThis) {
+			ctxs ~= getThis(location);
+		}
+		
+		return getFromImpl(location, f, ctxs);
+	}
+	
+	Expression getFrom(Location location, Expression thisExpr, Function f) {
+		scheduler.require(f, Step.Signed);
+		
+		Expression[] ctxs;
+		ctxs.reserve(f.hasContext + 1);
+		
+		if (f.hasContext) {
+			ctxs ~= getContext(location, f);
+		}
+		
+		ctxs ~= thisExpr;
+		return getFromImpl(location, f, ctxs);
+	}
+	
+	private Expression getFromImpl(
+		Location location,
+		Function f,
+		Expression[] ctxs,
+	) in {
+		assert(f.step >= Step.Signed);
+	} body {
+		foreach(i, ref c; ctxs) {
+			c = buildArgument(c, f.type.parameters[i]);
+		}
+		
+		auto e = (ctxs.length == 0)
+			? new FunctionExpression(location, f)
+			: build!DelegateExpression(location, ctxs, f);
 		
 		// If this is not a property, things are straigforward.
 		if (!f.isProperty) {
@@ -568,7 +573,7 @@ public:
 		}
 		
 		assert(!f.hasContext);
-		if (f.params.length != 1) {
+		if (f.params.length != ctxs.length - f.hasContext) {
 			return getError(
 				e,
 				"Invalid number of argument for @property "

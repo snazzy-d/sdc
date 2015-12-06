@@ -61,6 +61,15 @@ struct TemplateInstancier {
 					return TemplateArgument(tp.specialization);
 				}
 				
+				// XXX: Clarify the specialization thing...
+				if (auto ap = cast(ValueTemplateParameter) p) {
+					return TemplateArgument.init;
+				}
+				
+				if (auto ap = cast(AliasTemplateParameter) p) {
+					return TemplateArgument.init;
+				}
+				
 				import d.exception;
 				throw new CompileException(
 					p.location,

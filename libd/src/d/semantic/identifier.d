@@ -93,7 +93,7 @@ public:
 	) if (isIdentifiable!I) {
 		auto ii = IdentifierVisitor(&this).resolveIn(location, i, name);
 		if (thisExpr) {
-			// ii = postProcess(location, ii);
+			ii = postProcess(location, ii);
 		}
 		
 		return ii;

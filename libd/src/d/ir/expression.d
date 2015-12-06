@@ -640,6 +640,25 @@ class MethodExpression : Expression {
 }
 
 /**
+ * Delegate from a function + contextes.
+ */
+class DelegateExpression : Expression {
+	Expression[] contexts;
+	Function method;
+	
+	this(Location location, Expression[] contexts, Function method) {
+		super(location, method.type.getDelegate(contexts.length).getType());
+		
+		this.contexts = contexts;
+		this.method = method;
+	}
+	
+	override string toString(const Context c) const {
+		return contexts[$ - 1].toString(c) ~ "." ~ method.name.toString(c);
+	}
+}
+
+/**
  * For classes, typeid is computed at runtime.
  */
 class DynamicTypeidExpression : Expression {

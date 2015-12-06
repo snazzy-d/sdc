@@ -470,6 +470,46 @@ struct ExpressionGen {
 		return dg;
 	}
 	
+	LLVMValueRef visit(DelegateExpression e) {
+		auto type = e.type.getCanonical().asFunctionType();
+		auto tCtxs = type.contexts;
+		auto eCtxs = e.contexts;
+		
+		auto length = cast(uint) tCtxs.length;
+		assert(eCtxs.length == length);
+		
+		import d.llvm.type;
+		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
+		
+		foreach (uint i, c; eCtxs) {
+			auto ctxValue = tCtxs[i].isRef
+				? addressOf(c)
+				: visit(c);
+			
+			dg = LLVMBuildInsertValue(builder, dg, ctxValue, i, "");
+		}
+		
+		LLVMValueRef fun;
+		if (auto m = cast(Method) e.method) {
+			assert(m.hasThis);
+			assert(
+				eCtxs[m.hasContext].type.getCanonical().dclass,
+				"Virtual dispatch can only be done on classes"
+			);
+			
+			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
+			auto vtblPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
+			auto vtbl = LLVMBuildLoad(builder, vtblPtr, "vtbl");
+			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
+			fun = LLVMBuildLoad(builder, funPtr, "");
+		} else {
+			fun = declare(e.method);
+		}
+		
+		dg = LLVMBuildInsertValue(builder, dg, fun, length, "");
+		return dg;
+	}
+	
 	LLVMValueRef visit(NewExpression e) {
 		auto ctor = declare(e.ctor);
 		
@@ -680,26 +720,33 @@ struct ExpressionGen {
 			
 			if (!b.landingPadBB) {
 				auto landingPadBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "landingPad");
-				
 				LLVMPositionBuilderAtEnd(builder, landingPadBB);
+				
+				LLVMTypeRef[2] lpTypes = [
+					LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
+					LLVMInt32TypeInContext(llvmCtx),
+				];
+				
+				auto lpType = LLVMStructTypeInContext(
+					llvmCtx,
+					lpTypes.ptr,
+					lpTypes.length,
+					false,
+				);
 				
 				auto landingPad = LLVMBuildLandingPad(
 					builder,
-					LLVMStructTypeInContext(llvmCtx, [LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0), LLVMInt32TypeInContext(llvmCtx)].ptr, 2, false),
+					lpType,
 					declare(pass.object.getPersonality()),
 					cast(uint) catchClauses.length,
 					"",
 				);
 				
 				if (!lpContext) {
-					// Backup current block
-					auto backupCurrentBlock = LLVMGetInsertBlock(builder);
-					LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(backupCurrentBlock)));
-					
 					// Create an alloca for this variable.
-					lpContext = LLVMBuildAlloca(builder, LLVMTypeOf(landingPad), "lpContext");
-					
-					LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
+					LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(fun));
+					lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
+					LLVMPositionBuilderAtEnd(builder, landingPadBB);
 				}
 				
 				// TODO: handle cleanup.
@@ -713,7 +760,7 @@ struct ExpressionGen {
 				
 				LLVMBuildStore(builder, landingPad, lpContext);
 				
-				if (!b.unwindBB) {
+				if(!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
 				

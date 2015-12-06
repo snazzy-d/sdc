@@ -371,7 +371,7 @@ struct TypeGen {
 			ctxElts.length = count;
 			
 			if (f.hasContext) {
-				auto parentCtxType = f.type.parameters[f.hasThis].getType();
+				auto parentCtxType = f.type.parameters[0].getType();
 				ctxElts[0] = LLVMPointerType(visit(parentCtxType), 0);
 			}
 			
@@ -403,13 +403,17 @@ struct TypeGen {
 			return fun;
 		}
 		
-		assert(contexts.length == 1, "Multiple contexts not implemented.");
+		auto length = cast(uint) contexts.length;
 		
-		LLVMTypeRef[2] types;
-		types[0] = params[0];
-		types[1] = fun;
+		LLVMTypeRef[] types;
+		types.length = length + 1;
 		
-		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
+		foreach(i, _; contexts) {
+			types[i] = params[i];
+		}
+		
+		types[length] = fun;
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, length + 1, false);
 	}
 	
 	LLVMTypeRef visit(Type[] seq) {

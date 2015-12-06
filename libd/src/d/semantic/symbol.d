@@ -1120,19 +1120,54 @@ struct SymbolAnalyzer {
 			ctxSym = oldCtxSym;
 		}
 		
+		ctxSym = null;
+		if (t.hasThis) {
+			i.hasThis = true;
+			i.storage = Storage.Local;
+			
+			// Try to recover the template type.
+			// XXX: There should be a way to keep it around.
+			auto cs = t.getParentScope();
+			while(true) {
+				auto o = cast(Object) cs;
+				if (auto s = cast(Struct) o) {
+					thisType = Type.get(s).getParamType(true, false);
+					break;
+				}
+				
+				if (auto c = cast(Class) o) {
+					thisType = Type.get(c).getParamType(false, true);
+					break;
+				}
+				
+				if (auto u = cast(Union) o) {
+					thisType = Type.get(u).getParamType(true, false);
+					break;
+				}
+				
+				if (auto iface = cast(Interface) o) {
+					thisType = Type.get(iface).getParamType(false, true);
+					break;
+				}
+				
+				cs = cs.getParentScope();
+			}
+		}
+		
 		manglePrefix = i.mangle.toString(context);
 		
 		// Prefilled members are template arguments.
 		foreach(m; i.members) {
 			if (m.hasContext) {
 				assert(
-					t.storage >= Storage.Static,
+					!i.hasContext,
 					"template can only have one context"
 				);
 				
 				import d.semantic.closure;
 				ctxSym = ContextFinder(pass).visit(m);
 				
+				i.hasContext = true;
 				i.storage = Storage.Local;
 			}
 			

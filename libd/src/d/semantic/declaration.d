@@ -42,13 +42,14 @@ struct DeclarationVisitor {
 			AggregateType, "aggregateType", 2,
 			CtUnitLevel, "ctLevel", 2,
 			InTemplate, "inTemplate", 1,
+			bool, "addThis", 1,
 			bool, "addContext", 1,
 			bool, "isRef", 1,
 			bool, "isOverride", 1,
 			bool, "isAbstract", 1,
 			bool, "isProperty", 1,
 			bool, "isNoGC", 1,
-			uint, "", 13,
+			uint, "", 12,
 		));
 	}
 	
@@ -102,6 +103,7 @@ struct DeclarationVisitor {
 		// What a mess !
 		if (aggregateType > AggregateType.None) {
 			inTemplate = dscope.inTemplate;
+			addThis = true;
 		}
 		
 		static if (is(S : Module)) {
@@ -111,7 +113,8 @@ struct DeclarationVisitor {
 		static if (is(S : TemplateInstance)) {
 			inTemplate = InTemplate.Yes;
 			storage = dscope.storage;
-			addContext = dscope.storage < Storage.Static;
+			addThis = dscope.hasThis;
+			addContext = dscope.hasContext;
 		}
 		
 		this.fieldIndex = fieldIndex;
@@ -186,14 +189,29 @@ struct DeclarationVisitor {
 		
 		auto isStatic = storage.isGlobal;
 		if (isStatic || aggregateType != AggregateType.Class || d.name.isReserved) {
-			f = new Function(d.location, currentScope, FunctionType.init, d.name, [], null);
+			f = new Function(
+				d.location,
+				currentScope,
+				FunctionType.init,
+				d.name,
+				[],
+				null,
+			);
 		} else {
 			uint index = 0;
 			if (!isOverride && !stc.isOverride) {
 				index = ++methodIndex;
 			}
 			
-			f = new Method(d.location, currentScope, index, FunctionType.init, d.name, [], null);
+			f = new Method(
+				d.location,
+				currentScope,
+				index,
+				FunctionType.init,
+				d.name,
+				[],
+				null,
+			);
 		}
 		
 		f.linkage = getLinkage(stc);
@@ -201,7 +219,7 @@ struct DeclarationVisitor {
 		f.storage = Storage.Enum;
 		f.inTemplate = inTemplate;
 		
-		f.hasThis = isStatic ? false : aggregateType != AggregateType.None;
+		f.hasThis = isStatic ? false : addThis;
 		f.hasContext = isStatic ? false : addContext;
 		
 		f.isAbstract = isAbstract || stc.isAbstract;
@@ -225,7 +243,12 @@ struct DeclarationVisitor {
 			addSymbol(v);
 			select(d, v);
 		} else {
-			auto f = new Field(d.location, fieldIndex, Type.get(BuiltinType.None), d.name);
+			auto f = new Field(
+				d.location,
+				fieldIndex,
+				Type.get(BuiltinType.None),
+				d.name,
+			);
 			
 			// Union have all their fields at the same index.
 			if (aggregateType > AggregateType.Union) {
@@ -368,6 +391,7 @@ struct DeclarationVisitor {
 		t.linkage = linkage;
 		t.visibility = visibility;
 		t.storage = storage;
+		t.hasThis = addThis;
 		t.inTemplate = inTemplate;
 		
 		addOverloadableSymbol(t);
@@ -411,7 +435,10 @@ struct DeclarationVisitor {
 	}
 	
 	void visit(AliasThisDeclaration d) {
-		assert(aggregateType != AggregateType.None, "alias this can only appear in aggregates.");
+		assert(
+			aggregateType != AggregateType.None,
+			"alias this can only appear in aggregates"
+		);
 		
 		// TODO: have a better scheme to do this in order to:
 		// - keep the location of the alias for error messages.
