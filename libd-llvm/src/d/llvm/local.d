@@ -245,33 +245,22 @@ struct LocalGen {
 			contexts = [closure];
 		}
 		
-		if (f.hasThis) {
-			auto value = params[f.hasContext];
-			
-			// XXX: Is that really the way we want it ?
-			import d.context.name;
-			auto thisParam = parameters[0];
-			assert(thisParam !is null);
-			
-			auto thisPtr = createVariableStorage(thisParam, value);
-			if (!thisParam.isRef && !thisParam.isFinal) {
-				LLVMSetValueName(value, "arg.this");
-			}
-			
-			buildEmbededCaptures(thisPtr, thisParam.type);
-		}
-		
-		params = params[f.hasThis + f.hasContext .. $];
-		paramTypes = paramTypes[f.hasThis + f.hasContext .. $];
-		parameters = parameters[f.hasThis .. $];
+		params = params[f.hasContext .. $];
+		paramTypes = paramTypes[f.hasContext .. $];
 		
 		foreach(i, p; parameters) {
 			auto value = params[i];
 			
-			createVariableStorage(p, value);
+			auto ptr = createVariableStorage(p, value);
 			if (!p.isRef && !p.isFinal) {
 				import std.string;
 				LLVMSetValueName(value, toStringz("arg." ~ p.name.toString(context)));
+			}
+			
+			// this is kind of magic :)
+			import d.context.name;
+			if (p.name == BuiltinName!"this") {
+				buildEmbededCaptures(ptr, p.type);
 			}
 		}
 		

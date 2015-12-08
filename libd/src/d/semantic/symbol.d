@@ -185,6 +185,10 @@ struct SymbolAnalyzer {
 		if (isCtor) {
 			assert(f.hasThis, "Constructor must have a this pointer");
 			
+			// However, we don't want usual hasThis behavior to kick in
+			// as constructor are kind of magic.
+			f.hasThis = false;
+			
 			auto ctorThis = thisType;
 			if (ctorThis.isRef) {
 				ctorThis = ctorThis.getParamType(false, ctorThis.isFinal);
