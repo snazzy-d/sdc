@@ -765,7 +765,13 @@ public:
 		import std.algorithm, std.array;
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
 			if (auto f = cast(Function) s) {
-				return getFrom(location, f);
+				auto c = getFrom(location, f);
+				if (c.type.kind != TypeKind.Error) {
+					return c;
+				} else {
+					//try to call as regular Function
+					return build!FunctionExpression(f.location, f);
+				}
 			} else if (auto t = cast(Template) s) {
 				return handleIFTI(location, t, args);
 			}
