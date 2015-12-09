@@ -765,7 +765,13 @@ public:
 		import std.algorithm, std.array;
 		return callCallable(location, chooseOverload(location, s.set.map!((s) {
 			if (auto f = cast(Function) s) {
-				return getFrom(location, f);
+				auto c = getFrom(location, f);
+				if (c.type.kind != TypeKind.Error) {
+					return c;
+				} else {
+					//try first argument as this
+					return getFrom(location, args[0], f);
+				}
 			} else if (auto t = cast(Template) s) {
 				return handleIFTI(location, t, args);
 			}
@@ -776,7 +782,7 @@ public:
 			);
 		}).array(), args), args);
 	}
-	
+
 	private static bool checkArgumentCount(
 		bool isVariadic,
 		size_t argCount,
