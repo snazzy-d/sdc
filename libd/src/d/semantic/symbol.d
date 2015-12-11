@@ -1084,6 +1084,8 @@ struct SymbolAnalyzer {
 			}
 		}
 		
+		t.constraint = d.constraint;
+		
 		t.step = Step.Signed;
 		
 		// TODO: support multiple IFTI.

@@ -159,6 +159,55 @@ private:
 				return false;
 			}
 		}
+				
+		if (t.constraint) {	
+			auto oldScope = currentScope;
+			scope(exit) {
+				currentScope = oldScope;
+			}
+			
+			//template constraint evaluationScope :)
+			TemplateInstance tces = new TemplateInstance(t.location, t, []); //just to provide the Scope... could  be every other SymbolScope...
+			import std.range:lockstep;
+			foreach(p,arg;lockstep(t.parameters, matchedArgs)) {
+				arg.apply!((){}, (identified) {
+					alias T = typeof(identified);
+
+					static if (is(T : Type)) {
+						auto a = new TypeAlias(p.location, p.name, identified);
+						a.step = Step.Processed;
+						tces.addSymbol(a);
+					} else static if (is(T : CompileTimeExpression)) {
+						auto a = new ValueAlias(p.location, p.name, identified);
+						a.step = Step.Processed;
+						tces.addSymbol(a);
+					} else static if (is(T : Symbol)) {
+						auto a = new SymbolAlias(p.location, p.name, identified);
+						
+						import d.semantic.symbol;
+						SymbolAnalyzer(pass).process(a);
+						a.step = Step.Processed;								
+						
+						tces.addSymbol(a);
+					} else {
+						assert(0);
+					}
+				})();
+			}
+
+			currentScope = tces;
+
+			import d.semantic.expression;
+			import d.semantic.caster;
+			auto retval = evalIntegral(buildExplicitCast(
+				pass, 
+				t.constraint.location,
+				Type.get(BuiltinType.Bool),
+				ExpressionVisitor(pass).visit(t.constraint),
+			));
+
+			return cast(bool) retval;
+		}
 		
 		return true;
 	}
@@ -202,7 +251,7 @@ private:
 	auto instanciateFromResolvedArgs(
 		Location location,
 		Template t,
-		TemplateArgument[] args,
+		TemplateArgument[] args
 	) in {
 		assert(t.parameters.length == args.length);
 	} body {
@@ -266,6 +315,7 @@ private:
 			i.storage = t.storage;
 			
 			pass.scheduler.schedule(t, i);
+			
 			return t.instances[id] = i;
 		}());
 	}

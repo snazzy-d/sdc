@@ -28,6 +28,7 @@ auto parseInterface(ref TokenRange trange, StorageClass stc) {
 
 private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
+	AstExpression constraint;
 	
 	static if (isClass) {
 		trange.match(TokenType.Class);
@@ -55,7 +56,7 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 	
 	if (parameters.ptr) {
 		if (trange.front.type == TokenType.If) {
-			trange.parseConstraint();
+			constraint = trange.parseConstraint();
 		}
 	}
 	
@@ -66,7 +67,7 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 	auto adt = new DeclarationType(location, stc, name, bases, members);
 	
 	if (parameters.ptr) {
-		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
+		return new TemplateDeclaration(location, stc, name, parameters, [adt], constraint);
 	} else {
 		return adt;
 	}
@@ -88,6 +89,7 @@ auto parseUnion(ref TokenRange trange, StorageClass stc) {
 
 private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange, StorageClass stc) {
 	Location location = trange.front.location;
+	AstExpression constraint;
 	
 	static if (isStruct) {
 		trange.match(TokenType.Struct);
@@ -119,7 +121,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 				parameters = trange.parseTemplateParameters();
 				
 				if(trange.front.type == TokenType.If) {
-					trange.parseConstraint();
+					constraint = trange.parseConstraint();
 				}
 				
 				break;
@@ -136,7 +138,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 	auto adt = new DeclarationType(location, stc, name, members);
 	
 	if (parameters.ptr) {
-		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
+		return new TemplateDeclaration(location, stc, name, parameters, [adt], constraint);
 	} else {
 		return adt;
 	}

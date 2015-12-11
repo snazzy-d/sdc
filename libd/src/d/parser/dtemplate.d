@@ -12,26 +12,32 @@ import d.parser.type;
 
 auto parseTemplate(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
+	AstExpression constraint;
 	trange.match(TokenType.Template);
 	
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 	
 	auto parameters = trange.parseTemplateParameters();
+	if (trange.front.type == TokenType.If) {
+		constraint = trange.parseConstraint();
+	}
 	auto declarations = trange.parseAggregate();
 	
 	location.spanTo(declarations[$ - 1].location);
 	
-	return new TemplateDeclaration(location, stc, name, parameters, declarations);
+	return new TemplateDeclaration(location, stc, name, parameters, declarations, constraint);
 }
 
 auto parseConstraint(ref TokenRange trange) {
 	trange.match(TokenType.If);
 	trange.match(TokenType.OpenParen);
 	
-	trange.parseExpression();
+	auto constraint = trange.parseExpression();
 	
 	trange.match(TokenType.CloseParen);
+
+	return constraint;
 }
 
 auto parseTemplateParameters(ref TokenRange trange) {
