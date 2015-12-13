@@ -825,17 +825,15 @@ struct ExpressionGen {
 	
 	private LLVMValueRef getTypeid(Type t) {
 		t = t.getCanonical();
-		if (t.kind == TypeKind.Class) {
-			// Ensure that the thing is generated.
-			auto c = t.dclass;
-			
-			import d.llvm.type;
-			TypeGen(pass.pass).visit(c);
-			
-			return TypeGen(pass.pass).getTypeInfo(c);
-		}
+		assert(t.kind == TypeKind.Class, "Not implemented");
 		
-		assert(0, "Not implemented");
+		// Ensure that the thing is generated.
+		auto c = t.dclass;
+		
+		import d.llvm.type;
+		TypeGen(pass.pass).visit(c);
+		
+		return TypeGen(pass.pass).getTypeInfo(c);
 	}
 	
 	LLVMValueRef visit(StaticTypeidExpression e) {
