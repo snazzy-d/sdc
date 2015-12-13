@@ -8,7 +8,6 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
-import d.ir.dscope;
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.symbol;

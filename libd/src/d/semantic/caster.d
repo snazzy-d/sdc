@@ -163,7 +163,11 @@ Expression buildCast(bool isExplicit)(
 				return ee;
 			}
 			
-			return new CompileError(location, "Can't cast " ~ e.type.toString(pass.context) ~ " to " ~ to.toString(pass.context)).expression;
+			return new CompileError(
+				location,
+				"Can't cast " ~ e.type.toString(pass.context)
+					~ " to " ~ to.toString(pass.context),
+			).expression;
 	}
 }
 

@@ -12,7 +12,6 @@ import d.ast.expression;
 import d.ast.statement;
 
 import d.ir.expression;
-import d.ir.dscope;
 import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
@@ -35,6 +34,7 @@ final class SemanticPass {
 	Scheduler scheduler;
 	
 	static struct State {
+		import d.ir.dscope;
 		Scope currentScope;
 		
 		ParamType returnType;

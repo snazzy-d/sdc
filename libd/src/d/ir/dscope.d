@@ -7,20 +7,6 @@ import d.ast.conditional;
 import d.context.location;
 import d.context.name;
 
-// XXX: move this to a more apropriate place ?
-final class OverloadSet : Symbol {
-	Symbol[] set;
-	bool isPoisoned;
-	
-	this(Location location, Name name, Symbol[] set) {
-		super(location, name);
-		this.set = set;
-		
-		// Always
-		this.step = Step.Processed;
-	}
-}
-
 struct ConditionalBranch {
 // XXX: Can't be private because mixin templates are a glorious hack.
 // private:
@@ -67,6 +53,7 @@ interface Scope {
 enum ScopeType {
 	Module,
 	WithParent,
+	Nested,
 }
 
 mixin template ScopeImpl(
@@ -163,46 +150,63 @@ public:
 	}
 	
 	Symbol resolve(Location location, Name name) {
-		if (auto sPtr = name in symbols) {
-			auto s = *sPtr;
-			
-			// If we are poisoning, we need to make sure we poison.
-			// If not, we can return directly.
-			if (!isPoisoning) {
-				return s;
+		auto sPtr = name in symbols;
+		if (sPtr is null) {
+			if (isPoisoning) {
+				symbols[name] = new Poison(location, name);
+				isPoisoned = true;
 			}
 			
+			return null;
+		}
+		
+		auto s = *sPtr;
+		
+		static if (ST == ScopeType.Nested) {
+			// For nested scope we unpack and/or mark overloadset as already
+			// resolved so we make copy of it when adding new overloads.
+			if (auto os = cast(OverloadSet) s) {
+				os.isPoisoned = isPoisoning;
+				if (os.set.length == 1) {
+					return os.set[0];
+				}
+				
+				os.isResolved = true;
+				return os;
+			}
+		}
+		
+		// If we are poisoning, we need to make sure we poison.
+		// If not, we can return directly.
+		if (!isPoisoning) {
+			return s;
+		}
+		
+		static if (ST != ScopeType.Nested) {
 			// If we have an overloadset, make it poisoned.
 			if (auto os = cast(OverloadSet) s) {
 				os.isPoisoned = true;
 				return s;
 			}
-			
-			// If we have a poison, then pretend there is nothing.
-			if (cast(Poison) s) {
-				return null;
-			}
-			
-			// If we have no conditionals, no need to check for them.
-			if (!hasConditional) {
-				return s;
-			}
-			
-			// If we have a conditional, poison it.
-			if (auto cs = cast(ConditionalSet) s) {
-				cs.isPoisoned = true;
-				return cs.selected;
-			}
-			
+		}
+		
+		// If we have a poison, then pretend there is nothing.
+		if (cast(Poison) s) {
+			return null;
+		}
+		
+		// If we have no conditionals, no need to check for them.
+		if (!hasConditional) {
 			return s;
 		}
 		
-		if (isPoisoning) {
-			symbols[name] = new Poison(location, name);
-			isPoisoned = true;
+		// If we have a conditional, poison it.
+		if (auto cs = cast(ConditionalSet) s) {
+			cs.isPoisoned = true;
+			return cs.selected;
 		}
 		
-		return null;
+		return s;
 	}
 	
 	void addSymbol(Symbol s) {
@@ -230,6 +234,11 @@ public:
 				if (os.isPoisoned) {
 					import d.exception;
 					throw new CompileException(s.location, "Poisoned");
+				}
+				
+				if (ST == ScopeType.Nested && os.isResolved) {
+					os = new OverloadSet(os.location, os.name, os.set);
+					*sPtr = os;
 				}
 				
 				os.set ~= s;
@@ -374,7 +383,7 @@ final:
  * A scope associate identifier with declarations.
  */
 class NestedScope : Scope {
-	mixin ScopeImpl;
+	mixin ScopeImpl!(ScopeType.Nested);
 	
 	this(S)(S parentScope) if (is(S : Scope)) {
 		this.dmodule = parentScope.getModule();

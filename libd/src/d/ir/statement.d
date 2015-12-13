@@ -29,7 +29,7 @@ final:
  * Blocks
  */
 class BlockStatement : Statement, Scope {
-	mixin ScopeImpl;
+	mixin ScopeImpl!(ScopeType.Nested);
 	Statement[] statements;
 	
 	this(Location location, Scope parentScope, Statement[] statements) in {

@@ -37,6 +37,12 @@ final class Scheduler {
 	void require(Symbol s, Step step = LastStep) {
 		if (s.step >= step) return;
 		
+		// Overloadset sadness...
+		if (auto os = cast(OverloadSet) s) {
+			require(os, step);
+			return;
+		}
+		
 		auto state = pass.state;
 		scope(exit) pass.state = state;
 		
@@ -82,6 +88,18 @@ final class Scheduler {
 		foreach(s; syms) {
 			require(s, step);
 		}
+	}
+	
+	void require(OverloadSet os, Step step = LastStep) {
+		if (os.step >= step) return;
+		
+		foreach(s; os.set) {
+			require(s, step);
+			os.hasContext = os.hasContext || s.hasContext;
+			os.hasThis = os.hasThis || s.hasThis;
+		}
+		
+		os.step = step;
 	}
 	
 	private Process getProcess() {

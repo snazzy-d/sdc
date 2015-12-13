@@ -8,7 +8,6 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 
-import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -45,7 +44,7 @@ struct SymbolVisitor {
 			alias parameters = ParameterTypeTuple!visit;
 			static assert(parameters.length == 2);
 			
-			static if(isSchedulable!parameters) {
+			static if (isSchedulable!parameters) {
 				alias DeclType = parameters[0];
 				alias SymType  = parameters[1];
 				
@@ -124,7 +123,7 @@ struct SymbolAnalyzer {
 			return new Variable(p.location, t, p.name, value);
 		}).array();
 		
-		// Functions are always populated as resolution is order dependant.
+		// Functions are always populated as resolution is order dependant
 		f.step = Step.Populated;
 		
 		// Prepare statement visitor for return type.
@@ -399,20 +398,10 @@ struct SymbolAnalyzer {
 	}
 	
 	void process(SymbolAlias a) {
-		// Simply overlaod set without overloads.
-		// XXX: This is probably invalid outside function's body.
-		if (auto s = cast(OverloadSet) a.symbol) {
-			if (s.set.length == 1) {
-				a.symbol = s.set[0];
-			}
-		}
-		
-		// Mangling
-		scheduler.require(a.symbol, Step.Populated);
-		a.mangle = a.symbol.mangle;
-		
 		scheduler.require(a.symbol, Step.Signed);
 		a.hasContext = a.symbol.hasContext;
+		a.hasThis = a.symbol.hasThis;
+		a.mangle = a.symbol.mangle;
 		a.step = Step.Processed;
 	}
 	

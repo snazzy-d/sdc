@@ -4,7 +4,6 @@ import d.semantic.semantic;
 
 import d.ast.declaration;
 
-import d.ir.dscope;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;

@@ -29,4 +29,3 @@ int main() {
 	auto v = voldemort();
 	return bar(v);
 }
-

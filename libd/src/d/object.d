@@ -13,7 +13,10 @@ final class ObjectReference {
 	}
 	
 	auto getSizeT() {
-		return cast(TypeAlias) object.resolve(Location.init, BuiltinName!"size_t");
+		return cast(TypeAlias) object.resolve(
+			Location.init,
+			BuiltinName!"size_t",
+		);
 	}
 	
 	private auto getClass(Name name) {
@@ -45,10 +48,13 @@ final class ObjectReference {
 	}
 	
 	private auto getFunction(Name name) {
-		import d.ir.dscope : OverloadSet;
-		auto os = cast(OverloadSet) object.resolve(Location.init, name);
-		assert(os.set.length == 1);
+		auto s = object.resolve(Location.init, name);
+		if (auto f = cast(Function) s) {
+			return f;
+		}
 		
+		auto os = cast(OverloadSet) s;
+		assert(os.set.length == 1);
 		return cast(Function) os.set[0];
 	}
 	
@@ -65,9 +71,10 @@ final class ObjectReference {
 	}
 	
 	auto getArrayConcat() {
-		auto s = object.resolve(Location.init, BuiltinName!"__sd_array_concat");
-		import d.ir.dscope : OverloadSet;
-		return cast(OverloadSet) s;
+		return cast(OverloadSet) object.resolve(
+			Location.init,
+			BuiltinName!"__sd_array_concat",
+		);
 	}
 }
 

@@ -315,7 +315,6 @@ private:
 			.visit(i.instanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
-					import d.ir.dscope : OverloadSet;
 					if (auto s = cast(OverloadSet) identified) {
 						return TemplateInstancier(pass.pass)
 							.instanciate(iloc, s, args, fargs);
@@ -536,7 +535,6 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return buildFun(m);
 	}
 	
-	import d.ir.dscope : OverloadSet;
 	Identifiable visit(OverloadSet s) {
 		if (s.set.length == 1) {
 			return visit(s.set[0]);
@@ -791,8 +789,6 @@ struct ExpressionDotIdentifierResolver {
 		
 		// TODO: Cache this result maybe ?
 		auto a = IdentifierVisitor(pass).resolve(location, name);
-		
-		import d.ir.dscope : OverloadSet;
 		if (auto os = cast(OverloadSet) a) {
 			auto ufcs = findUFCS(os.set);
 			if (ufcs.length > 0) {

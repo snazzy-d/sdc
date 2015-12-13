@@ -6,7 +6,6 @@ import d.semantic.semantic;
 import d.ast.expression;
 import d.ast.type;
 
-import d.ir.dscope;
 import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
@@ -491,25 +490,19 @@ public:
 	
 	private auto matchLevel(CastKind flavor) {
 		final switch(flavor) with(CastKind) {
-			case Invalid :
+			case Invalid:
 				return MatchLevel.Not;
 			
-			case IntToPtr :
-			case PtrToInt :
-			case Down :
-			case IntToBool :
-			case Trunc :
+			case IntToPtr, PtrToInt, Down, IntToBool, Trunc:
 				assert(0, "Not an implicit cast !");
 			
-			case SPad :
-			case UPad :
-			case Bit :
+			case SPad, UPad, Bit:
 				return MatchLevel.TypeConvert;
 			
-			case Qual :
+			case Qual:
 				return MatchLevel.QualifierConvert;
 			
-			case Exact :
+			case Exact:
 				return MatchLevel.Exact;
 		}
 	}
@@ -558,6 +551,7 @@ public:
 		Expression[] ctxs,
 	) in {
 		assert(f.step >= Step.Signed);
+		assert(ctxs.length >= f.hasContext + f.hasThis);
 	} body {
 		foreach(i, ref c; ctxs) {
 			c = buildArgument(c, f.type.parameters[i]);
@@ -710,28 +704,32 @@ public:
 			.apply!(delegate Expression(i) {
 				alias T = typeof(i);
 				static if (is(T : Symbol)) {
-					if (auto s = cast(OverloadSet) i) {
-						if (s.set.length > 1) {
-							import std.algorithm, std.array;
-							return chooseOverload(
-								location,
-								s.set.map!(delegate Expression(s) {
-									if (auto f = cast(Function) s) {
-										return getFrom(calleeLoc, thisExpr, f);
-									}
-									
-									// XXX: Template ??!?!!?
-									assert(0, "Not a constructor");
-								}).array(),
-								args,
-							);
-						}
-						
-						i = s.set[0];
-					}
-					
 					if (auto f = cast(Function) i) {
 						return getFrom(calleeLoc, thisExpr, f);
+					}
+					
+					if (auto s = cast(OverloadSet) i) {
+						// FIXME: overload resolution doesn't do alias this
+						// or vrp trunc, so we need a workaround here.
+						if (s.set.length == 1) {
+							if (auto f = cast(Function) s.set[0]) {
+								return getFrom(calleeLoc, thisExpr, f);
+							}
+						}
+						
+						import std.algorithm, std.array;
+						return chooseOverload(
+							location,
+							s.set.map!(delegate Expression(s) {
+								if (auto f = cast(Function) s) {
+									return getFrom(calleeLoc, thisExpr, f);
+								}
+								
+								// XXX: Template ??!?!!?
+								assert(0, "Not a constructor");
+							}).array(),
+							args,
+						);
 					}
 				}
 				
@@ -743,7 +741,11 @@ public:
 			})();
 	}
 	
-	private Expression handleIFTI(Location location, Template t, Expression[] args) {
+	private Expression handleIFTI(
+		Location location,
+		Template t,
+		Expression[] args,
+	) {
 		import d.semantic.dtemplate;
 		TemplateArgument[] targs;
 		targs.length = t.parameters.length;
@@ -819,7 +821,11 @@ public:
 					);
 				}
 				
-				assert(0, e.type.toString(pass.context) ~ " is not a function type");
+				assert(
+					0,
+					e.type.toString(pass.context)
+						~ " is not a function type"
+				);
 			});
 		
 		auto level = MatchLevel.Not;
@@ -831,8 +837,10 @@ public:
 				"We should have filtered function at this point."
 			);
 			
+			auto funType = t.asFunctionType();
+			
 			auto candidateLevel = MatchLevel.Exact;
-			foreach(arg, param; lockstep(args, t.asFunctionType().parameters)) {
+			foreach(arg, param; lockstep(args, funType.parameters)) {
 				auto argLevel = matchArgument(arg, param);
 				
 				// If we don't match high enough.
@@ -845,8 +853,7 @@ public:
 						// This function don't match, go to next one.
 						continue CandidateLoop;
 					
-					case TypeConvert :
-					case QualifierConvert :
+					case TypeConvert, QualifierConvert :
 						candidateLevel = min(candidateLevel, argLevel);
 						continue;
 					
@@ -868,7 +875,7 @@ public:
 				);
 				
 				auto prange = lockstep(
-					t.asFunctionType().parameters,
+					funType.parameters,
 					mt.asFunctionType().parameters,
 				);
 				
@@ -1016,7 +1023,9 @@ public:
 					if (auto f = cast(Function) identified) {
 						pass.scheduler.require(f, Step.Signed);
 						return f;
-					} else if (auto s = cast(OverloadSet) identified) {
+					}
+					
+					if (auto s = cast(OverloadSet) identified) {
 						auto m = chooseOverload(
 							e.location,
 							s.set.map!(delegate Expression(s) {

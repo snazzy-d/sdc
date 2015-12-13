@@ -168,6 +168,24 @@ class Module : Package {
 }
 
 /**
+ * Placeholder in symbol tables for templates and functions.
+ */
+class OverloadSet : Symbol {
+	Symbol[] set;
+	bool isPoisoned;
+	bool isResolved;
+	
+	this(Location location, Name name, Symbol[] set) {
+		super(location, name);
+		this.mangle = name;
+		this.set = set;
+		
+		// Always
+		this.step = Step.Processed;
+	}
+}
+
+/**
  * Variable
  */
 class Variable : ValueSymbol {
