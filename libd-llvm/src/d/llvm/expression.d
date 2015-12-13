@@ -533,7 +533,8 @@ struct ExpressionGen {
 		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));
 		bool isClass = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
 		if (isClass) {
-			auto thisPtr = LLVMBuildBitCast(builder, ptr, LLVMPointerType(LLVMTypeOf(thisArg), 0), "");
+			auto ptrType = LLVMPointerType(LLVMTypeOf(thisArg), 0);
+			auto thisPtr = LLVMBuildBitCast(builder, ptr, ptrType, "");
 			LLVMBuildStore(builder, thisArg, thisPtr);
 			thisArg = LLVMBuildBitCast(builder, ptr, thisType, "");
 		}
@@ -604,12 +605,14 @@ struct ExpressionGen {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 		
-		auto first = LLVMBuildZExt(builder, visit(e.first), LLVMInt64TypeInContext(llvmCtx), "");
-		auto second = LLVMBuildZExt(builder, visit(e.second), LLVMInt64TypeInContext(llvmCtx), "");
+		auto i64 = LLVMInt64TypeInContext(llvmCtx);
+		auto first = LLVMBuildZExt(builder, visit(e.first), i64, "");
+		auto second = LLVMBuildZExt(builder, visit(e.second), i64, "");
 		
 		auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
 		if (length) {
-			condition = LLVMBuildAnd(builder, condition, LLVMBuildICmp(builder, LLVMIntPredicate.ULE, second, length, ""), "");
+			auto boundCheck = LLVMBuildICmp(builder, LLVMIntPredicate.ULE, second, length, "");
+			condition = LLVMBuildAnd(builder, condition, boundCheck, "");
 		}
 		
 		genBoundCheck(e.location, condition);
@@ -760,7 +763,7 @@ struct ExpressionGen {
 				
 				LLVMBuildStore(builder, landingPad, lpContext);
 				
-				if(!b.unwindBB) {
+				if (!b.unwindBB) {
 					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
 				}
 				
@@ -773,10 +776,17 @@ struct ExpressionGen {
 			auto landingPadBB = b.landingPadBB;
 			auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
 			
-			auto ret = LLVMBuildInvoke(builder, callee, args.ptr, cast(uint) args.length, thenBB, landingPadBB, "");
+			auto ret = LLVMBuildInvoke(
+				builder,
+				callee,
+				args.ptr,
+				cast(uint) args.length,
+				thenBB,
+				landingPadBB,
+				"",
+			);
 			
 			LLVMMoveBasicBlockAfter(thenBB, currentBB);
-			
 			LLVMPositionBuilderAtEnd(builder, thenBB);
 			
 			return ret;
@@ -840,7 +850,8 @@ struct ExpressionGen {
 	}
 	
 	LLVMValueRef visit(DynamicTypeidExpression e) {
-		auto vtbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, visit(e.argument), 0, ""), "");
+		auto vtblPtr = LLVMBuildStructGEP(builder, visit(e.argument), 0, "");
+		auto vtbl = LLVMBuildLoad(builder, vtblPtr, "");
 		return LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, vtbl, 0, ""), "");
 	}
 	
@@ -916,7 +927,10 @@ struct AddressOfGen {
 				break;
 			
 			default:
-				assert(0, "Address of field only work on aggregate types, not " ~ type.toString(context));
+				assert(
+					0,
+					"Address of field only work on aggregate types, not "
+						~ type.toString(context));
 		}
 		
 		// Make the type is not opaque.
@@ -939,7 +953,10 @@ struct AddressOfGen {
 	}
 	
 	LLVMValueRef visit(ContextExpression e) in {
-		assert(e.type.kind == TypeKind.Context, "ContextExpression must be of ContextType");
+		assert(
+			e.type.kind == TypeKind.Context,
+			"ContextExpression must be of ContextType"
+		);
 	} body {
 		return pass.getContext(e.type.context);
 	}
@@ -985,14 +1002,12 @@ struct AddressOfGen {
 	
 	auto computeIndexPtr(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
-		
 		if (t.kind == TypeKind.Slice) {
 			auto slice = valueOf(indexed);
-			auto i = valueOf(index);
-			
+			auto i64 = LLVMInt64TypeInContext(llvmCtx);
+			auto i = LLVMBuildZExt(builder, valueOf(index), i64, "");
 			auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
-			
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""), length, "");
+			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.ULT, i, length, "");
 			genBoundCheck(location, condition);
 			
 			auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
@@ -1005,10 +1020,11 @@ struct AddressOfGen {
 			auto ptr = visit(indexed);
 			auto i = valueOf(index);
 			
+			auto i64 = LLVMInt64TypeInContext(llvmCtx);
 			auto condition = LLVMBuildICmp(
 				builder,
 				LLVMIntPredicate.ULT,
-				LLVMBuildZExt(builder, i, LLVMInt64TypeInContext(llvmCtx), ""),
+				LLVMBuildZExt(builder, i, i64, ""),
 				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false),
 				"",
 			);
@@ -1016,7 +1032,7 @@ struct AddressOfGen {
 			genBoundCheck(location, condition);
 			
 			LLVMValueRef[2] indices;
-			indices[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, false);
+			indices[0] = LLVMConstInt(i64, 0, false);
 			indices[1] = i;
 			
 			return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr, indices.length, "");
