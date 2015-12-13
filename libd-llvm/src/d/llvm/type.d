@@ -396,7 +396,12 @@ struct TypeGen {
 	LLVMTypeRef visit(FunctionType f) {
 		import std.algorithm, std.array;
 		auto params = f.getFunction().parameters.map!(p => buildParamType(p)).array();
-		auto fun = LLVMPointerType(LLVMFunctionType(buildParamType(f.returnType), params.ptr, cast(uint) params.length, f.isVariadic), 0);
+		auto fun = LLVMPointerType(LLVMFunctionType(
+			buildParamType(f.returnType),
+			params.ptr,
+			cast(uint) params.length,
+			f.isVariadic,
+		), 0);
 		
 		auto contexts = f.contexts;
 		if (contexts.length == 0) {

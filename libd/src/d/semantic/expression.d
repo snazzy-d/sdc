@@ -715,8 +715,7 @@ public:
 								location,
 								s.set.map!(delegate Expression(s) {
 									if (auto f = cast(Function) s) {
-										pass.scheduler.require(f, Step.Signed);
-										return new MethodExpression(calleeLoc, thisExpr, f);
+										return getFrom(calleeLoc, thisExpr, f);
 									}
 									
 									// XXX: Template ??!?!!?
@@ -730,8 +729,7 @@ public:
 					}
 					
 					if (auto f = cast(Function) i) {
-						pass.scheduler.require(f, Step.Signed);
-						return new MethodExpression(calleeLoc, thisExpr, f);
+						return getFrom(calleeLoc, thisExpr, f);
 					}
 				}
 				
@@ -1006,6 +1004,7 @@ public:
 		
 		import d.semantic.defaultinitializer;
 		auto di = NewBuilder(pass, e.location).visit(type);
+		auto hackForDg = (&di)[0 .. 1];
 		
 		import d.context.name, d.semantic.identifier;
 		auto ctor = IdentifierResolver(pass)
@@ -1020,8 +1019,11 @@ public:
 							e.location,
 							s.set.map!(delegate Expression(s) {
 								if (auto f = cast(Function) s) {
-									pass.scheduler.require(f, Step.Signed);
-									return new MethodExpression(e.location, di, f);
+									return new DelegateExpression(
+										e.location,
+										hackForDg,
+										f,
+									);
 								}
 								
 								assert(0, "not a constructor");
@@ -1030,7 +1032,7 @@ public:
 						);
 						
 						// XXX: find a clean way to achieve this.
-						return (cast(MethodExpression) m).method;
+						return (cast(DelegateExpression) m).method;
 					}
 				}
 				

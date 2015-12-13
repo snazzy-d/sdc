@@ -621,25 +621,6 @@ class FunctionExpression : Expression {
 }
 
 /**
- * Methods resolved on expressions.
- */
-class MethodExpression : Expression {
-	Expression expr;
-	Function method;
-	
-	this(Location location, Expression expr, Function method) {
-		super(location, method.type.getDelegate().getType());
-		
-		this.expr = expr;
-		this.method = method;
-	}
-	
-	override string toString(const Context c) const {
-		return expr.toString(c) ~ "." ~ method.name.toString(c);
-	}
-}
-
-/**
  * Delegate from a function + contextes.
  */
 class DelegateExpression : Expression {

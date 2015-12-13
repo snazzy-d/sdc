@@ -438,38 +438,6 @@ struct ExpressionGen {
 		return declare(e.fun);
 	}
 	
-	LLVMValueRef visit(MethodExpression e) {
-		auto type = e.type.getCanonical().asFunctionType();
-		auto contexts = type.contexts;
-		
-		assert(contexts.length == 1, "Multiple contexts not implemented.");
-		auto ctxValue = contexts[0].isRef
-			? addressOf(e.expr)
-			: visit(e.expr);
-		
-		LLVMValueRef fun;
-		if (auto m = cast(Method) e.method) {
-			assert(
-				e.expr.type.getCanonical().dclass,
-				"Virtual dispatch can only be done on classes."
-			);
-			
-			auto vtblPtr = LLVMBuildStructGEP(builder, ctxValue, 0, "");
-			auto vtbl = LLVMBuildLoad(builder, vtblPtr, "vtbl");
-			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
-			fun = LLVMBuildLoad(builder, funPtr, "");
-		} else {
-			fun = declare(e.method);
-		}
-		
-		import d.llvm.type;
-		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
-		dg = LLVMBuildInsertValue(builder, dg, ctxValue, 0, "");
-		dg = LLVMBuildInsertValue(builder, dg, fun, 1, "");
-		
-		return dg;
-	}
-	
 	LLVMValueRef visit(DelegateExpression e) {
 		auto type = e.type.getCanonical().asFunctionType();
 		auto tCtxs = type.contexts;

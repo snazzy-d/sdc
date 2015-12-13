@@ -181,8 +181,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			
 			fields[0] = new VtblExpression(location, c);
 			if (c.hasContext) {
-				import d.context.name;
 				import std.algorithm;
+				import d.context.name;
 				auto ctxr = c.members
 					.filter!(m => m.name == BuiltinName!"__ctx")
 					.map!(m => cast(Field) m);

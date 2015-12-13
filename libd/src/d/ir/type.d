@@ -395,7 +395,7 @@ public:
 			case Sequence :
 				import std.algorithm, std.range;
 				// XXX: need to use this because of identifier hijacking in the import.
-				return this.sequence.map!(e => e.toString(c, qualifier)).join(", ");
+				return "(" ~ this.sequence.map!(e => e.toString(c, qualifier)).join(", ") ~ ")";
 			
 			case Function :
 				auto f = asFunctionType();
