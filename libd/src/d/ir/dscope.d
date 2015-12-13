@@ -237,8 +237,7 @@ public:
 				}
 				
 				if (ST == ScopeType.Nested && os.isResolved) {
-					os = new OverloadSet(os.location, os.name, os.set);
-					*sPtr = os;
+					*sPtr = os = os.clone();
 				}
 				
 				os.set ~= s;

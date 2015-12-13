@@ -179,9 +179,12 @@ class OverloadSet : Symbol {
 		super(location, name);
 		this.mangle = name;
 		this.set = set;
-		
-		// Always
-		this.step = Step.Processed;
+	}
+	
+	OverloadSet clone() {
+		auto os = new OverloadSet(location, name, set);
+		os.mangle = mangle;
+		return os;
 	}
 }
 
