@@ -637,7 +637,9 @@ public:
 				static if (is(T : Symbol)) {
 					if (auto s = cast(OverloadSet) identified) {
 						return callOverloadSet(c.location, s, args);
-					} else if (auto t = cast(Template) identified) {
+					}
+					
+					if (auto t = cast(Template) identified) {
 						auto callee = handleIFTI(c.location, t, args);
 						return callCallable(c.location, callee, args);
 					}

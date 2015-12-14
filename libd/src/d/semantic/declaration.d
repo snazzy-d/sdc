@@ -75,7 +75,7 @@ struct DeclarationVisitor {
 		return flattenImpl(decls, dscope, fi, 0);
 	}
 	
-	Symbol[] flatten()(
+	Symbol[] flatten(
 		Declaration[] decls,
 		Class c,
 		uint fieldIndex,

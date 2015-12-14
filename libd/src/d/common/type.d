@@ -103,8 +103,7 @@ private:
 			}
 		}
 		
-		// FIXME: DMD do not allow override of template by non templates.
-		this()(Desc d, inout Payload p) inout {
+		this(Desc d, inout Payload p) inout {
 			desc = d;
 			payload = p;
 		}
@@ -185,8 +184,7 @@ private:
 		enum canConstructFrom(P) = anySatisfy!(isImplicitelyConvertibleFrom!(Unqual!P), U);
 		
 	public:
-		// Template as DMD don't allow to override template and non template.
-		this()(inout T t) inout {
+		this(inout T t) inout {
 			import std.conv;
 			auto packed = t.getPackedBitfield!TagTuple(U.length.to!Tag());
 			desc = packed.desc;

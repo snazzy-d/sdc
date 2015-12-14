@@ -329,7 +329,7 @@ private:
 		}
 	}
 	
-	auto lexIdentifier()(uint prefixLength) in {
+	auto lexIdentifier(uint prefixLength) in {
 		assert(prefixLength > 0);
 		assert(index >= prefixLength);
 	} body {
@@ -571,7 +571,7 @@ private:
 		return t;
 	}
 	
-	auto lexNumeric()(char c) {
+	auto lexNumeric(char c) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
 		auto ibegin = index - 1;

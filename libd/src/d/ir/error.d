@@ -88,7 +88,7 @@ CompileError errorize(S)(S s) if (is(S : Symbol)) {
 	return null;
 }
 
-CompileError errorize()(Type t) {
+CompileError errorize(Type t) {
 	if (t.kind == TypeKind.Error) {
 		return t.error;
 	}

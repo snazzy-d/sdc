@@ -34,8 +34,7 @@ final class Scheduler {
 		while(f.state != Fiber.State.TERM) f.call();
 	}
 	
-	// XXX: argument-less template. DMD don't allow overload of templated and non templated functions.
-	void require()(Symbol s, Step step = LastStep) {
+	void require(Symbol s, Step step = LastStep) {
 		if (s.step >= step) return;
 		
 		auto state = pass.state;
@@ -43,7 +42,7 @@ final class Scheduler {
 		
 		while(s.step < step) {
 			auto p = s in processes;
-			assert(p, "Forward reference to " ~ s.name.toString(pass.context));
+			assert(p, "No Fiber found for " ~ s.name.toString(pass.context));
 			
 			auto f = *p;
 			if (f.state == Fiber.State.EXEC) {
@@ -111,7 +110,7 @@ final class Scheduler {
 		processes[s] = p;
 	}
 	
-	void schedule()(Template t, TemplateInstance i) in {
+	void schedule(Template t, TemplateInstance i) in {
 		assert(i.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
 	} body {
 		auto p = getProcess();
@@ -123,7 +122,7 @@ final class Scheduler {
 	// FIXME: We should consider a generic way to get things in there.
 	// It is clearly not going to scale that way.
 	import d.ast.expression;
-	void schedule()(AstExpression dv, Variable v) in {
+	void schedule(AstExpression dv, Variable v) in {
 		assert(v.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
 	} body {
 		auto p = getProcess();

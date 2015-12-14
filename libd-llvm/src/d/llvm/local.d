@@ -330,7 +330,7 @@ struct LocalGen {
 		}
 	}
 	
-	private void buildEmbededCaptures()(LLVMValueRef thisPtr, Type t) {
+	private void buildEmbededCaptures(LLVMValueRef thisPtr, Type t) {
 		if (t.kind == TypeKind.Struct) {
 			auto s = t.dstruct;
 			if (!s.hasContext) {

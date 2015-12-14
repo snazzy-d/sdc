@@ -381,7 +381,7 @@ class NestedScope : Scope {
 		this.parentScope = parentScope;
 	}
 	
-	this()(Module dmodule, Scope parentScope) in {
+	this(Module dmodule, Scope parentScope) in {
 		assert(dmodule is parentScope.getModule());
 	} body {
 		this.dmodule = dmodule;
