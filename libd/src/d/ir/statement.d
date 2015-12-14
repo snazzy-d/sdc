@@ -29,7 +29,7 @@ final:
  * Blocks
  */
 class BlockStatement : Statement, Scope {
-	mixin ScopeSymbol;
+	mixin ScopeImpl;
 	Statement[] statements;
 	
 	this(Location location, Scope parentScope, Statement[] statements) in {
@@ -70,16 +70,16 @@ class FunctionStatement : Statement {
 }
 
 /**
- * Type
+ * Aggregate Type
  */
-class TypeStatement : Statement {
+class AggregateStatement : Statement {
 	import d.ir.symbol;
-	TypeSymbol type;
+	Aggregate aggregate;
 	
-	this(TypeSymbol type) {
-		super(type.location);
+	this(Aggregate aggregate) {
+		super(aggregate.location);
 		
-		this.type = type;
+		this.aggregate = aggregate;
 	}
 }
 

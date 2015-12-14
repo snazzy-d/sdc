@@ -18,8 +18,8 @@ struct TypeGenData {
 private:
 	Class classInfoClass;
 	
-	LLVMTypeRef[TypeSymbol] typeSymbols;
-	LLVMValueRef[TypeSymbol] typeInfos;
+	LLVMTypeRef[Aggregate] aggTypes;
+	LLVMValueRef[Aggregate] typeInfos;
 	
 	LLVMValueRef[Class] vtbls;
 	LLVMTypeRef[Function] funCtxTypes;
@@ -41,12 +41,12 @@ struct TypeGen {
 		}
 		
 		@property
-		ref LLVMTypeRef[TypeSymbol] typeSymbols() {
-			return pass.typeGenData.typeSymbols;
+		ref LLVMTypeRef[Aggregate] typeSymbols() {
+			return pass.typeGenData.aggTypes;
 		}
 		
 		@property
-		ref LLVMValueRef[TypeSymbol] typeInfos() {
+		ref LLVMValueRef[Aggregate] typeInfos() {
 			return pass.typeGenData.typeInfos;
 		}
 		
@@ -61,8 +61,8 @@ struct TypeGen {
 		}
 	}
 	
-	LLVMValueRef getTypeInfo(TypeSymbol s) {
-		return typeInfos[s];
+	LLVMValueRef getTypeInfo(Aggregate a) {
+		return typeInfos[a];
 	}
 	
 	// XXX: Remove ?
@@ -327,11 +327,7 @@ struct TypeGen {
 	}
 	
 	LLVMTypeRef visit(Enum e) {
-		if (auto et = e in typeSymbols) {
-			return *et;
-		}
-		
-		return typeSymbols[e] = visit(e.type);
+		return visit(e.type);
 	}
 	
 	LLVMTypeRef visit(TypeAlias a) {

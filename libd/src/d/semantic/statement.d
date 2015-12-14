@@ -132,10 +132,8 @@ public:
 				flattenedStmts ~= new VariableStatement(v);
 			} else if (auto f = cast(Function) sym) {
 				flattenedStmts ~= new FunctionStatement(f);
-			} else if (auto t = cast(TypeSymbol) sym) {
-				flattenedStmts ~= new TypeStatement(t);
-			} else {
-				assert(0, typeid(sym).toString() ~ " is not supported");
+			} else if (auto a = cast(Aggregate) sym) {
+				flattenedStmts ~= new AggregateStatement(a);
 			}
 		}
 	}

@@ -25,15 +25,17 @@ struct GlobalGen {
 		this.mode = mode;
 	}
 	
-	void define(Symbol s) {
-		if (auto t = cast(TypeSymbol) s) {
-			define(t);
-		} else if (auto v = cast(Variable) s) {
-			define(v);
-		} else if (auto f = cast(Function) s) {
+	void define(Symbol s) in {
+		assert(s.step == Step.Processed);
+	} body {
+		if (auto f = cast(Function) s) {
 			define(f);
 		} else if (auto t = cast(Template) s) {
 			define(t);
+		} else if (auto a = cast(Aggregate) s) {
+			define(a);
+		} else if (auto v = cast(Variable) s) {
+			define(v);
 		}
 	}
 	
@@ -150,17 +152,10 @@ struct GlobalGen {
 		return var;
 	}
 	
-	LLVMTypeRef define(TypeSymbol s) in {
-		assert(s.step == Step.Processed);
-	} body {
-		return this.dispatch(s);
-	}
-	
-	LLVMTypeRef visit(TypeAlias a) in {
+	LLVMTypeRef define(Aggregate a) in {
 		assert(a.step == Step.Processed);
 	} body {
-		import d.llvm.type;
-		return TypeGen(pass).visit(a.type);
+		return this.dispatch(a);
 	}
 	
 	LLVMTypeRef visit(Struct s) in {
@@ -170,21 +165,6 @@ struct GlobalGen {
 		auto ret = TypeGen(pass).visit(s);
 		
 		foreach(m; s.members) {
-			if (typeid(m) !is typeid(Field)) {
-				define(m);
-			}
-		}
-		
-		return ret;
-	}
-	
-	LLVMTypeRef visit(Union u) in {
-		assert(u.step == Step.Processed);
-	} body {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(u);
-		
-		foreach(m; u.members) {
 			if (typeid(m) !is typeid(Field)) {
 				define(m);
 			}
@@ -217,6 +197,21 @@ struct GlobalGen {
 		return ret;
 	}
 	
+	LLVMTypeRef visit(Union u) in {
+		assert(u.step == Step.Processed);
+	} body {
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(u);
+		
+		foreach(m; u.members) {
+			if (typeid(m) !is typeid(Field)) {
+				define(m);
+			}
+		}
+		
+		return ret;
+	}
+	
 	LLVMTypeRef visit(Interface i) in {
 		assert(i.step == Step.Processed);
 	} body {
@@ -224,17 +219,6 @@ struct GlobalGen {
 		return TypeGen(pass).visit(i);
 	}
 	
-	LLVMTypeRef visit(Enum e) {
-		import d.llvm.type;
-		auto type = TypeGen(pass).visit(e);
-		/+
-		foreach(entry; e.entries) {
-			visit(entry);
-		}
-		+/
-		return type;
-	}
-
 	void define(Template t) {
 		foreach(i; t.instances) {
 			if (i.storage.isLocal) {

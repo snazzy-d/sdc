@@ -53,8 +53,8 @@ struct StatementGen {
 		define(s.fun);
 	}
 	
-	void visit(TypeStatement s) {
-		define(s.type);
+	void visit(AggregateStatement s) {
+		define(s.aggregate);
 	}
 	
 	private auto genExpression(Expression e) {

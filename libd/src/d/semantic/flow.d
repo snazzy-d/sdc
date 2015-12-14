@@ -125,8 +125,8 @@ public:
 		assert(s.fun.step == Step.Processed);
 	} body {}
 	
-	void visit(TypeStatement s) in {
-		assert(s.type.step == Step.Processed);
+	void visit(AggregateStatement s) in {
+		assert(s.aggregate.step == Step.Processed);
 	} body {}
 	
 	void visit(ReturnStatement s) {

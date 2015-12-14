@@ -24,7 +24,7 @@ private:
 
 struct LocalData {
 private:
-	Closure[][TypeSymbol] embededContexts;
+	Closure[][Aggregate] embededContexts;
 }
 
 struct LocalGen {
@@ -84,8 +84,8 @@ struct LocalGen {
 			define(v);
 		} else if (auto f = cast(Function) s) {
 			define(f);
-		} else if (auto t = cast(TypeSymbol) s) {
-			define(t);
+		} else if (auto a = cast(Aggregate) s) {
+			define(a);
 		} else {
 			import d.llvm.global;
 			GlobalGen(pass, mode).define(s);
@@ -516,13 +516,12 @@ struct LocalGen {
 		assert(0, "No context available.");
 	}
 	
-	// Figure out what's a good way here.
-	LLVMTypeRef define(TypeSymbol s) {
-		if (s.hasContext) {
-			localData.embededContexts[s] = contexts;
+	LLVMTypeRef define(Aggregate a) {
+		if (a.hasContext) {
+			localData.embededContexts[a] = contexts;
 		}
 		
 		import d.llvm.global;
-		return GlobalGen(pass, mode).define(s);
+		return GlobalGen(pass, mode).define(a);
 	}
 }

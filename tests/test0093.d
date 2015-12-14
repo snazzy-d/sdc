@@ -7,4 +7,3 @@ int main() {
 	// XXX: Remove when RVP is in.
 	return cast(int) foo.sizeof;
 }
-

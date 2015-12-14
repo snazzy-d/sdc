@@ -61,11 +61,15 @@ protected:
 }
 
 /**
- * Symbol that represent a type once resolved.
+ * Symbol that introduce a scope.
+ * NB: Symbols that introduce non standard scope may not extend this.
  */
-class TypeSymbol : Symbol {
-	this(Location location, Name name) {
+abstract class ScopeSymbol : Symbol, Scope {
+	mixin ScopeImpl;
+	
+	this(Location location, Scope parentScope, Name name) {
 		super(location, name);
+		fillParentScope(parentScope);
 	}
 }
 
@@ -82,7 +86,7 @@ abstract class ValueSymbol : Symbol {
  * Package
  */
 class Package : Symbol, Scope {
-	mixin ScopeSymbol!(ScopeType.Module);
+	mixin ScopeImpl!(ScopeType.Module);
 	
 	Package parent;
 	
@@ -97,7 +101,7 @@ class Package : Symbol, Scope {
  * Function
  */
 class Function : ValueSymbol, Scope {
-	mixin ScopeSymbol;
+	mixin ScopeImpl;
 	FunctionType type;
 	
 	Variable[] params;
@@ -138,15 +142,13 @@ class TemplateParameter : Symbol {
 /**
  * Superclass for struct, class and interface.
  */
-abstract class Aggregate : TypeSymbol, Scope {
-	mixin ScopeSymbol;
+abstract class Aggregate : ScopeSymbol {
 	Name[] aliasThis;
 	
 	Symbol[] members;
 	
 	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, name);
-		fillParentScope(parentScope);
+		super(location, parentScope, name);
 		
 		this.members = members;
 	}
@@ -250,9 +252,7 @@ class Field : ValueSymbol {
 /**
  * Template
  */
-class Template : Symbol, Scope {
-	mixin ScopeSymbol;
-	
+class Template : ScopeSymbol {
 	TemplateInstance[string] instances;
 	Type[] ifti;
 	
@@ -268,8 +268,7 @@ class Template : Symbol, Scope {
 		TemplateParameter[] parameters,
 		Declaration[] members,
 	) {
-		super(location, name);
-		fillParentScope(parentScope);
+		super(location, parentScope, name);
 		
 		this.parameters = parameters;
 		this.members = members;
@@ -350,7 +349,7 @@ class TypedAliasTemplateParameter : TemplateParameter {
  * Template instance
  */
 class TemplateInstance : Symbol, Scope {
-	mixin ScopeSymbol!(ScopeType.WithParent, Template);
+	mixin ScopeImpl!(ScopeType.WithParent, Template);
 	
 	Symbol[] members;
 	
@@ -385,7 +384,7 @@ class SymbolAlias : Symbol {
 /**
  * Alias of types
  */
-class TypeAlias : TypeSymbol {
+class TypeAlias : Symbol {
 	Type type;
 	
 	this(Location location, Name name, Type type) {
@@ -470,9 +469,7 @@ class Union : Aggregate {
 /**
  * Enum
  */
-class Enum : TypeSymbol, Scope {
-	mixin ScopeSymbol;
-	
+class Enum : ScopeSymbol {
 	Type type;
 	Variable[] entries;
 	
@@ -483,8 +480,7 @@ class Enum : TypeSymbol, Scope {
 		Type type,
 		Variable[] entries,
 	) {
-		super(location, name);
-		fillParentScope(parentScope);
+		super(location, parentScope, name);
 		
 		this.type = type;
 		this.entries = entries;

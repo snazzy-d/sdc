@@ -69,7 +69,7 @@ enum ScopeType {
 	WithParent,
 }
 
-mixin template ScopeSymbol(
+mixin template ScopeImpl(
 	ScopeType ST = ScopeType.WithParent,
 	ParentScope = Scope,
 ) {
@@ -374,7 +374,7 @@ final:
  * A scope associate identifier with declarations.
  */
 class NestedScope : Scope {
-	mixin ScopeSymbol;
+	mixin ScopeImpl;
 	
 	this(S)(S parentScope) if (is(S : Scope)) {
 		this.dmodule = parentScope.getModule();
