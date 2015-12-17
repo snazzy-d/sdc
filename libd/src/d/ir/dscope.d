@@ -414,7 +414,6 @@ class ConditionalSet : Symbol {
 	ConditionalEntry[] set;
 	
 	Symbol selected;
-	bool isPoisoned;
 	
 	this(Location location, Name name, ConditionalEntry[] set) {
 		super(location, name);

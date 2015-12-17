@@ -33,11 +33,12 @@ class Symbol : Node {
 		Visibility, "visibility", 3,
 		Storage, "storage", 2,
 		InTemplate, "inTemplate", 1,
-		bool, "isAbstract", 1,
-		bool, "isProperty", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
-		uint, "__derived", 1,
+		bool, "isPoisoned", 1,
+		bool, "isAbstract", 1,
+		bool, "isProperty", 1,
+		uint, "__derived", 16,
 	));
 	
 	this(Location location, Name name) {
@@ -130,12 +131,15 @@ class Function : ValueSymbol, Scope {
  * Entry for template parameters
  */
 class TemplateParameter : Symbol {
-	uint index;
-	
 	this(Location location, Name name, uint index) {
 		super(location, name);
 		
-		this.index = index;
+		this.derived = index;
+	}
+	
+final:
+	@property index() const {
+		return derived;
 	}
 }
 
@@ -250,7 +254,6 @@ class Variable : ValueSymbol {
 class Field : ValueSymbol {
 	CompileTimeExpression value;
 	Type type;
-	uint index;
 	
 	this(
 		Location location,
@@ -263,10 +266,14 @@ class Field : ValueSymbol {
 		
 		this.value = value;
 		this.type = type;
-		this.index = index;
+		this.derived = index;
 		
 		// Always true for fields.
 		this.hasThis = true;
+	}
+	
+	@property index() const {
+		return derived;
 	}
 }
 
