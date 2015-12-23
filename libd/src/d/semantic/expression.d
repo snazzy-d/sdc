@@ -345,13 +345,14 @@ public:
 	Expression visit(AstBinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
-		import d.context.name;
 
+		import d.context.name;
+		
 		struct OverloadInfo {
 			Name name;
 			bool isTemplate;
 		}
-
+		
 		const OverloadInfo overloadInfo(const AstBinaryOp op) pure {
 			switch (op) with (AstBinaryOp) {
 				case Assign :
@@ -360,47 +361,78 @@ public:
 					return OverloadInfo(BuiltinName!"opEquals", false);
 				case  Add, Sub,	Mul, Div, Mod, Pow :
 					return OverloadInfo(BuiltinName!"opBinary", true);
-				default : 
+				default :
 					return OverloadInfo (BuiltinName!"", false);
 			}
 		}
 		
 		Expression handleOverloadedBinaryOp (Location location, AstBinaryOp op, Expression lhs, Expression rhs) {
 			Expression call;			
-
+			
 			auto oInfo = overloadInfo(e.op);
 			if (op.isAssign) {
 				// oInfo = OverloadInfo(BuiltinName!"opOpAssign", true);
 				// if we cannot find opOpAssign let's call buildOpOpAssign with ourselfs as delegate
-				// return buildOpOpAssign(location, op, lhs, rhs, &handleOverloadedBinaryOp); 
+				return buildOpOpAssign(location, op, lhs, rhs, &handleOverloadedBinaryOp); 
 			}
+			
+			import d.semantic.identifier;
+			auto agg = lhs.type.aggregate;
+			
+			import d.semantic.identifier;
+			// this is taken straight form findCtor
+			// which is pretty similar to the newExpressionVisitor
+			// XXX Deduplicate!!!
+			call = IdentifierResolver(pass)
+				.resolveIn(location, agg, oInfo.name)
+					.apply!(delegate Expression(i) {
+							alias T = typeof(i);
+							static if (is(T : Symbol)) {
+								if (auto f = cast(Function) i) {
+									return getFrom(location, lhs, f);
+								}
+								
+								if (auto s = cast(OverloadSet) i) {
+									// FIXME: overload resolution doesn't do alias this
+									// or vrp trunc, so we need a workaround here.
+									if (s.set.length == 1) {
+										if (auto f = cast(Function) s.set[0]) {
+											return getFrom(location, lhs, f);
+										}
+									}
+									
+									import std.algorithm, std.array;
+									return chooseOverload(
+										location,
+										s.set.map!(delegate Expression(s) {
+												if (auto f = cast(Function) s) {
+													return getFrom(location, lhs, f);
+												}
 
-			auto resolvedOpSymbol = lhs.type.aggregate.resolve(e.location, oInfo.name);
-
-			if (auto os = cast(OverloadSet) resolvedOpSymbol) {
-				if (oInfo.isTemplate) {
-					// we maybe want to do diffrent things for templates in the future 
-					assert(0, "Templates like opBinary not supported right now");
-				} else {
-					call = callOverloadSet(e.location, os, [lhs, rhs]);
-				}
-			} else if (auto f = cast(Function) resolvedOpSymbol) {
-				call = handleCall(e.location, build!FunctionExpression(f.location, f), [lhs, rhs]);
-				assert(0, "I am surprised we got here... If we do just remove this assert");
-			}
-
+												assert(0, "Not what we expected");
+											}).array(),
+										[rhs],
+										);
+								}
+							}
+							return null;
+						})
+					();
+			
 			if (e.op == AstBinaryOp.NotEqual && call) {
 				call = build!UnaryExpression(
 					e.location,
 					Type.get(BuiltinType.Bool),
 					UnaryOp.Not,
 					call,
-				);
+					);
 			}
-
+			
 			return call;
+			
 		}
-
+		
+		
 		auto oInfo = overloadInfo(e.op);
 		if (lhs.type.isAggregate() && oInfo.name != BuiltinName!"") { 
 			auto call =  handleOverloadedBinaryOp (e.location, e.op, lhs, rhs);
@@ -408,7 +440,7 @@ public:
 				return call;
 			}
 		}
-			
+		
 		return buildBinary(e.location, e.op, lhs, rhs);
 	}
 	
