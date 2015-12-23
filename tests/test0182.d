@@ -6,7 +6,7 @@
 struct Foo {
 	uint a = 13;
 	
-	// FIXME: handle implicitelyd efined constructors.
+	// FIXME: handle implicitly defined constructors.
 	this() {}
 	
 	uint bar(alias fun)() {

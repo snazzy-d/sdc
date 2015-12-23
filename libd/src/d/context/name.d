@@ -128,6 +128,9 @@ enum Prefill = [
 	"SDC", "D_LP64", "X86_64", "linux", "OSX", "Posix",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
+	// Operators
+	"opAssign", "opBinary", "opCall", "opCast", "opCmp",
+	"opEquals", "opUnary",
 	// Scope
 	"exit", "success", "failure",
 	// Main
