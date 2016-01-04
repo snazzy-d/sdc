@@ -83,6 +83,7 @@ Example: Working with arrays.
 +/
 
 module util.json;
+version = dson_relaxed;
 
 import std.conv;
 import std.traits;
@@ -190,37 +191,36 @@ class JSONParseException : Exception {
 }
 
 /// The possible types of JSON values.
-enum JsonType : byte {
+enum JSON_TYPE : byte {
     /// The JSON value holds null. (This is the default value)
-    Null,
+    NULL,
     /// The JSON value holds explicitly true or false.
-    Bool,
+    BOOL,
     /// The JSON value holds a string.
-    String,
+    STRING,
     /// The JSON value holds an integer.
-    Int,
+    INT,
     /// The JSON value holds a floating point number.
-    Float,
+    FLOAT,
     /// The JSON value holds a JSON object. (associative array)
-    Object,
+    OBJECT,
     /// The JSON value holds a JSON array.
-    Array,
+    ARRAY
 }
 
 /// A discriminated union representation of any JSON value.
 struct JSON {
 private:
-    JsonType _type;
-
     union {
         bool _boolean;
         string _str;
         long _integer;
-        double _floating;
+        real _floating;
         JSON[string] _object;
         JSON[] _array;
     }
 
+    JSON_TYPE _type;
 public:
     // Any method accessing the union must be marked as @trusted, not @safe.
     // This is because @safe rejects the union.
@@ -230,7 +230,7 @@ public:
      */
     @trusted pure nothrow this(long integer) inout {
         _integer = integer;
-        _type = JsonType.Int;
+        _type = JSON_TYPE.INT;
     }
 
     /**
@@ -238,22 +238,23 @@ public:
      */
     @trusted pure nothrow this(bool boolean) inout {
         _boolean = boolean;
-        _type = JsonType.Bool;
+        _type = JSON_TYPE.BOOL;
     }
 
     /**
      * Initialize the JSON type from a floating point value.
      */
-    @trusted pure nothrow this(double floating) inout {
+    @trusted pure nothrow this(real floating) inout {
         _floating = floating;
-        _type = JsonType.Float;
+        _type = JSON_TYPE.FLOAT;
     }
 
     /**
      * Initialize the JSON type explicitly to null.
      */
-    @trusted pure nothrow this(typeof(null) nothing = null) inout {
-        _type = JsonType.Null;
+    @trusted pure nothrow this(typeof(null) nothing) inout {
+        _integer = 0;
+        _type = JSON_TYPE.NULL;
     }
 
     /**
@@ -261,7 +262,7 @@ public:
      */
     @trusted pure nothrow this(inout(string) str) inout {
         _str = str;
-        _type = JsonType.String;
+        _type = JSON_TYPE.STRING;
     }
 
     /**
@@ -269,7 +270,7 @@ public:
      */
     @trusted pure nothrow this(inout(JSON[]) array) inout {
         _array = array;
-        _type = JsonType.Array;
+        _type = JSON_TYPE.ARRAY;
     }
 
     /**
@@ -277,14 +278,14 @@ public:
      */
     @trusted pure nothrow this(inout(JSON[string]) object) inout {
         _object = object;
-        _type = JsonType.Object;
+        _type = JSON_TYPE.OBJECT;
     }
 
     /**
      * Assign an integer to the JSON value.
      */
     @trusted pure nothrow long opAssign(long integer) {
-        _type = JsonType.Int;
+        _type = JSON_TYPE.INT;
         return _integer = integer;
     }
 
@@ -292,7 +293,7 @@ public:
      * Assign a boolean to the JSON value.
      */
     @trusted pure nothrow bool opAssign(bool boolean) {
-        _type = JsonType.Bool;
+        _type = JSON_TYPE.BOOL;
         return _boolean = boolean;
     }
 
@@ -300,7 +301,7 @@ public:
      * Assign a floating point number to the JSON value.
      */
     @trusted pure nothrow real opAssign(real floating) {
-        _type = JsonType.Float;
+        _type = JSON_TYPE.FLOAT;
         return _floating = floating;
     }
 
@@ -308,7 +309,9 @@ public:
      * Assign null to the JSON value.
      */
     @trusted pure nothrow typeof(null) opAssign(typeof(null) nothing) {
-        _type = JsonType.Null;
+        _integer = 0;
+        _type = JSON_TYPE.NULL;
+
         return null;
     }
 
@@ -316,7 +319,7 @@ public:
      * Assign a string the JSON value.
      */
     @trusted pure nothrow string opAssign(string str) {
-        _type = JsonType.String;
+        _type = JSON_TYPE.STRING;
         return _str = str;
     }
 
@@ -324,7 +327,7 @@ public:
      * Assign an array to the JSON value.
      */
     @trusted pure nothrow JSON[] opAssign(JSON[] array) {
-        _type = JsonType.Array;
+        _type = JSON_TYPE.ARRAY;
         return _array = array;
     }
 
@@ -332,14 +335,14 @@ public:
      * Assign an object to the JSON value.
      */
     @trusted pure nothrow JSON[string] opAssign(JSON[string] object) {
-        _type = JsonType.Object;
+        _type = JSON_TYPE.OBJECT;
         return _object = object;
     }
 
     /**
      * Returns: An enum describing the current type of the JSON value.
      */
-    @trusted pure nothrow @property JsonType type() const {
+    @trusted pure nothrow @property JSON_TYPE type() const {
         return _type;
     }
 
@@ -347,7 +350,7 @@ public:
      * Returns: true if this JSON value is a boolean value.
      */
     @trusted pure nothrow @property bool isBool() const {
-        return _type == JsonType.Bool;
+        return _type == JSON_TYPE.BOOL;
     }
 
     /**
@@ -355,11 +358,11 @@ public:
      *  This includes boolean values.
      */
     @trusted pure nothrow @property bool isNumber() const {
-        switch(_type) with(JsonType) {
-		    case Bool, Int, Float:
-		        return true;
-		    default:
-		        return false;
+        with(JSON_TYPE) switch(_type) {
+        case BOOL, INT, FLOAT:
+            return true;
+        default:
+            return false;
         }
     }
 
@@ -367,11 +370,11 @@ public:
      * Returns: true if the value is a string.
      */
     @trusted pure nothrow @property bool isString() const {
-        switch(_type) with(JsonType) {
-		    case String:
-		        return true;
-		    default:
-		        return false;
+        with(JSON_TYPE) switch(_type) {
+        case STRING:
+            return true;
+        default:
+            return false;
         }
     }
 
@@ -379,21 +382,21 @@ public:
      * Returns: true if this JSON value is null.
      */
     @trusted pure nothrow @property bool isNull() const {
-        return _type == JsonType.Null;
+        return _type == JSON_TYPE.NULL;
     }
 
     /**
      * Returns: true if this JSON value is an array.
      */
     @trusted pure nothrow @property bool isArray() const {
-        return _type == JsonType.Array;
+        return _type == JSON_TYPE.ARRAY;
     }
 
     /**
      * Returns: true if this JSON value is an object.
      */
     @trusted pure nothrow @property bool isObject() const {
-        return _type == JsonType.Object;
+        return _type == JSON_TYPE.OBJECT;
     }
 
     /**
@@ -401,7 +404,7 @@ public:
      * Throws: Exception when the JSON type is not an array.
      */
     @trusted pure @property ref inout(JSON[]) array() inout {
-        if (_type != JsonType.Array) {
+        if (_type != JSON_TYPE.ARRAY) {
             throw new Exception("JSON value is not an array!");
         }
 
@@ -413,7 +416,7 @@ public:
      * Throws: Exception when the JSON type is not an object.
      */
     @trusted pure @property ref inout(JSON[string]) object() inout {
-        if (_type != JsonType.Object) {
+        if (_type != JSON_TYPE.OBJECT) {
             throw new Exception("JSON value is not an object!");
         }
 
@@ -425,9 +428,9 @@ public:
      * Throws: Exception when this is not an array or object.
      */
     @trusted @property size_t length() const {
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
            return _array.length;
-        } else if (_type == JsonType.Object) {
+        } else if (_type == JSON_TYPE.OBJECT) {
            return _object.length;
         } else {
             throw new Exception("length called on non array or object type.");
@@ -439,7 +442,7 @@ public:
      * Throws: Exception when this is not an array.
      */
     @trusted pure @property void length(size_t len) {
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
            _array.length = len;
         } else {
             throw new Exception("Cannot set length on non array!");
@@ -450,21 +453,21 @@ public:
      * Returns: The JSON value converted to a string.
      */
     @trusted string toString() const {
-        final switch (_type) with(JsonType) {
-		    case Bool:
-		        return _boolean ? "true" : "false";
-		    case Int:
-		        return to!string(_integer);
-		    case Float:
-		        return to!string(_floating);
-		    case String:
-		        return _str;
-		    case Array:
-		        return to!string(_array);
-		    case Object:
-		        return to!string(_object);
-		    case Null:
-		        return "null";
+        with(JSON_TYPE) final switch (_type) {
+        case BOOL:
+            return _boolean ? "true" : "false";
+        case INT:
+            return to!string(_integer);
+        case FLOAT:
+            return to!string(_floating);
+        case STRING:
+            return _str;
+        case ARRAY:
+            return to!string(_array);
+        case OBJECT:
+            return to!string(_object);
+        case NULL:
+            return "null";
         }
     }
 
@@ -474,30 +477,34 @@ public:
      */
     @trusted pure inout(T) opCast(T)() inout {
         static if (__traits(isArithmetic, T)) {
-            switch (_type) with(JsonType) {
-		        case Bool:
-		            return cast(T) _boolean;
-		        case Int:
-		            return cast(T) _integer;
-		        case Float:
-		            return cast(T) _floating;
-		        default:
-		            throw new Exception("cast to number failed!");
+            with(JSON_TYPE) switch (_type) {
+            case BOOL:
+                return cast(T) _boolean;
+            case INT:
+                return cast(T) _integer;
+            case FLOAT:
+                return cast(T) _floating;
+            default:
+                throw new Exception("cast to number failed!");
             }
         } else static if (is(T == string)) {
-            if (_type != JsonType.String) {
+            if (_type != JSON_TYPE.STRING) {
                 throw new Exception("cast(string) failed!");
             }
 
             return _str;
         } else static if(is(T == JSON[])) {
-            return array;
-        /+
-        } else static if(is(T : U[], U)) {
-            return array.map!(e => cast(U) e).array();
-        +/
+            if (_type != JSON_TYPE.ARRAY) {
+                throw new Exception("JSON value is not an array!");
+            }
+
+            return _array;
         } else static if(is(T == JSON[string])) {
-            return object;
+            if (_type != JSON_TYPE.OBJECT) {
+                throw new Exception("JSON value is not an object!");
+            }
+
+            return _object;
         } else {
             static assert(false, "Unsupported cast from JSON!");
         }
@@ -512,21 +519,21 @@ public:
      * Returns: The JSON value cast to a boolean.
      */
     @trusted nothrow inout(T) opCast(T: bool)() inout {
-        final switch (_type) with(JsonType) {
-		    case Bool:
-		        return cast(T) _boolean;
-		    case Int:
-		        return cast(T) _integer;
-		    case Float:
-		        return cast(T) _floating;
-		    case String:
-		        return _str.length > 0;
-		    case Array:
-		        return _array.length > 0;
-		    case Object:
-	            return _object.length > 0;
-		    case Null:
-		        return false;
+        with(JSON_TYPE) final switch (_type) {
+        case BOOL:
+            return cast(T) _boolean;
+        case INT:
+            return cast(T) _integer;
+        case FLOAT:
+            return cast(T) _floating;
+        case STRING:
+            return _str.length > 0;
+        case ARRAY:
+            return _array.length > 0;
+        case OBJECT:
+                return _object.length > 0;
+        case NULL:
+            return false;
         }
     }
 
@@ -554,6 +561,7 @@ public:
 
     @trusted pure
     JSON opBinary(string op : "~", T : JSON)(T val) {
+        // We can avoid a copy for JSON types.
         return JSON(array ~ val);
     }
 
@@ -567,7 +575,6 @@ public:
         array ~= JSON(val);
     }
 
-	// Necessary as dmd mess up with inout
     @trusted pure
     void put(T : JSON)(T val) {
         array ~= val;
@@ -658,13 +665,13 @@ public:
     @trusted int opApply(int delegate(ref JSON val) dg) {
         int result;
 
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
             foreach(ref val; _array) {
                 if((result = dg(val)) > 0) {
                     break;
                 }
             }
-        } else if (_type == JsonType.Object) {
+        } else if (_type == JSON_TYPE.OBJECT) {
             foreach(ref val; _object) {
                 if((result = dg(val)) > 0) {
                     break;
@@ -689,13 +696,13 @@ public:
     @trusted int opApply(int delegate(string key, ref JSON val) dg) {
         int result;
 
-        if (_type == JsonType.Object) {
+        if (_type == JSON_TYPE.OBJECT) {
             foreach(key, ref val; _object) {
                 if((result = dg(key, val)) > 0) {
                     break;
                 }
             }
-        } else if(_type == JsonType.Array) {
+        } else if(_type == JSON_TYPE.ARRAY) {
             foreach(index, ref val; _array) {
                 if((result = dg(to!string(index), val)) > 0) {
                     break;
@@ -720,14 +727,14 @@ public:
      * Throws: Exception when the JSON value is an object.
      */
     @trusted int opApply(int delegate(size_t index, ref JSON val) dg) {
-        if(_type == JsonType.Object) {
+        if(_type == JSON_TYPE.OBJECT) {
             throw new Exception("index-value foreach not supported for "
                 ~ "objects!");
         }
 
         int result;
 
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
             foreach(index, ref val; _array) {
                 if((result = dg(index, val)) > 0) {
                     break;
@@ -740,14 +747,14 @@ public:
 
     /// foreach_reverse support
     @trusted int opApplyReverse(int delegate(ref JSON val) dg) {
-        if (_type == JsonType.Object) {
+        if (_type == JSON_TYPE.OBJECT) {
             // Map are unordered, so the same code for foreach can be used.
             return opApply(dg);
         }
 
         int result;
 
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
             foreach_reverse(ref val; _array) {
                 if((result = dg(val)) > 0) {
                     break;
@@ -760,13 +767,13 @@ public:
 
     /// ditto
     @trusted int opApplyReverse(int delegate(string key, ref JSON val) dg) {
-        if (_type == JsonType.Object) {
+        if (_type == JSON_TYPE.OBJECT) {
             return opApply(dg);
         }
 
         int result;
 
-        if(_type == JsonType.Array) {
+        if(_type == JSON_TYPE.ARRAY) {
             foreach_reverse(index, ref val; _array) {
                 if((result = dg(to!string(index), val)) > 0) {
                     break;
@@ -779,14 +786,14 @@ public:
 
     /// ditto
     @trusted int opApplyReverse(int delegate(size_t index, ref JSON val) dg) {
-        if(_type == JsonType.Object) {
+        if(_type == JSON_TYPE.OBJECT) {
             throw new Exception("index-value foreach_reverse not supported "
                 ~ "for objects!");
         }
 
         int result;
 
-        if (_type == JsonType.Array) {
+        if (_type == JSON_TYPE.ARRAY) {
             foreach_reverse(index, ref val; _array) {
                 if((result = dg(index, val)) > 0) {
                     break;
@@ -805,27 +812,27 @@ public:
                 return false;
             }
 
-            final switch (_type) with(JsonType) {
-		        case Bool:
-		            return _boolean == other._boolean;
-		        case Int:
-		            return _integer == other._integer;
-		        case Float:
-		            return _floating == other._floating;
-		        case String:
-		            return _str == other._str;
-		        case Array:
-		            return _array == other._array;
-		        case Object:
-		            return _object == other._object;
-		        case Null:
-		            // The types match, so this is true.
-		            return true;
+            with(JSON_TYPE) final switch (_type) {
+            case BOOL:
+                return _boolean == other._boolean;
+            case INT:
+                return _integer == other._integer;
+            case FLOAT:
+                return _floating == other._floating;
+            case STRING:
+                return _str == other._str;
+            case ARRAY:
+                return _array == other._array;
+            case OBJECT:
+                return _object == other._object;
+            case NULL:
+                // The types match, so this is true.
+                return true;
             }
-        } else static if(is(T : string)) {
-            return _type == JsonType.String && _str == other;
+        } else static if(is(T : const(char[]))) {
+            return _type == JSON_TYPE.STRING && _str == other;
         } else static if(isJSONArray!T) {
-            if (_type != JsonType.Array || _array.length != other.length) {
+            if (_type != JSON_TYPE.ARRAY || _array.length != other.length) {
                 return false;
             }
 
@@ -837,7 +844,7 @@ public:
 
             return true;
         } else static if(isJSONObject!T) {
-            if (_type != JsonType.Object || _object.length != other.length) {
+            if (_type != JSON_TYPE.OBJECT || _object.length != other.length) {
                 return false;
             }
 
@@ -851,15 +858,15 @@ public:
 
             return true;
         } else static if(__traits(isArithmetic, T)) {
-            switch (_type) with(JsonType) {
-		        case Bool:
-		            return _boolean == other;
-		        case Int:
-		            return _integer == other;
-		        case Float:
-		            return _floating == other;
-		        default:
-		            return false;
+            with(JSON_TYPE) switch (_type) {
+            case BOOL:
+                return _boolean == other;
+            case INT:
+                return _integer == other;
+            case FLOAT:
+                return _floating == other;
+            default:
+                return false;
             }
         } else {
             static assert(false, "No match for JSON opEquals!");
@@ -878,27 +885,27 @@ unittest {
 
 // Test type return values.
 unittest {
-    assert(JSON(null).type == JsonType.Null);
-    assert(JSON(true).type == JsonType.Bool);
-    assert(JSON(3).type == JsonType.Int);
-    assert(JSON(7.3).type == JsonType.Float);
-    assert(JSON("").type == JsonType.String);
-    assert(JSON(new JSON[0]).type == JsonType.Array);
+    assert(JSON(null).type == JSON_TYPE.NULL);
+    assert(JSON(true).type == JSON_TYPE.BOOL);
+    assert(JSON(3).type == JSON_TYPE.INT);
+    assert(JSON(7.3).type == JSON_TYPE.FLOAT);
+    assert(JSON("").type == JSON_TYPE.STRING);
+    assert(JSON(new JSON[0]).type == JSON_TYPE.ARRAY);
 
     // TODO: Fix this.
-    // assert(JSON(0).type == JsonType.Int);
-    // assert(JSON(1).type == JsonType.Int);
+    // assert(JSON(0).type == JSON_TYPE.INT);
+    // assert(JSON(1).type == JSON_TYPE.INT);
 
     JSON[string] object;
 
-    assert(JSON(object).type == JsonType.Object);
+    assert(JSON(object).type == JSON_TYPE.OBJECT);
 
     // It's important to make sure than normal assignment still
     // works properly.
     JSON j1;
     JSON j2 = j1;
 
-    assert(j2.type == JsonType.Null);
+    assert(j2.type == JSON_TYPE.NULL);
 }
 
 // Test cast(bool)
@@ -1238,7 +1245,7 @@ unittest {
 @trusted pure nothrow JSON jsonObject() {
     JSON object;
     object._object = null;
-    object._type = JsonType.Object;
+    object._type = JSON_TYPE.OBJECT;
 
     return object;
 }
@@ -1337,7 +1344,7 @@ unittest {
 @trusted pure nothrow JSON jsonArray(size_t size = 0) {
     JSON array;
     array._array = new JSON[size];
-    array._type = JsonType.Array;
+    array._type = JSON_TYPE.ARRAY;
 
     return array;
 }
@@ -1701,7 +1708,10 @@ if(isOutputRange!(OutputRange, char)) {
             copy(`\t`, outRange);
         break;
         default:
-            if (isControl(c)) {
+            if (c > 127) {
+                // Let starting and continuation bytes pass through.
+                outRange.put(c);
+            } else if (isControl(c)) {
                 copy(`\u00`, outRange);
 
                 char hexChar(ubyte num) {
@@ -1810,28 +1820,28 @@ private void writeJSONObject(int spaces, T)
  */
 private void writePrettyJSON (int spaces = 0, T)
 (in JSON json, T outRange, int level = 0) {
-    final switch (json.type) with(JsonType) {
-		case Null:
-		    outRange.put("null");
-			break;
-		case Bool:
-		    outRange.put(json._boolean ? "true" : "false");
-			break;
-		case Int:
-		    copy(to!string(json._integer), outRange);
-			break;
-		case Float:
-		    copy(to!string(json._floating), outRange);
-			break;
-		case String:
-		    writeJSONString(json._str, outRange);
-			break;
-		case Array:
-		    writeJSONArray!spaces(json._array, outRange, level);
-			break;
-		case Object:
-		    writeJSONObject!spaces(json._object, outRange, level);
-		break;
+    with(JSON_TYPE) final switch (json.type) {
+    case NULL:
+        outRange.put("null");
+    break;
+    case BOOL:
+        outRange.put(json._boolean ? "true" : "false");
+    break;
+    case INT:
+        copy(to!string(json._integer), outRange);
+    break;
+    case FLOAT:
+        copy(to!string(json._floating), outRange);
+    break;
+    case STRING:
+        writeJSONString(json._str, outRange);
+    break;
+    case ARRAY:
+        writeJSONArray!spaces(json._array, outRange, level);
+    break;
+    case OBJECT:
+        writeJSONObject!spaces(json._object, outRange, level);
+    break;
     }
 }
 
@@ -1883,6 +1893,15 @@ unittest {
     toJSON(JSON());
 }
 
+//is order independent for non-nested objects
+version(unittest) auto objectStringTest(R, Rs...)(R res, Rs components)
+{
+    return only(components)
+        .permutations
+        .map!(p => chain(`{`, p.joiner(`,`), `}`))
+        .canFind!equal(res);
+}
+
 // Test various kinds of output from toJSON with JSON types.
 unittest {
     assert(toJSON(JSON("bla\\")) == `"bla\\"`);
@@ -1901,7 +1920,8 @@ unittest {
         "djw\nw": 1337
     ]);
 
-    assert(toJSON(j1) == `{"def":5,"djw\nw":1337,"abc\"":1234}`);
+    assert(objectStringTest(toJSON(j1),
+        `"abc\"":1234`, `"def":5`, `"djw\nw":1337`));
 
     JSON j2 = convertJSON([
         "abc\"": ["bla", "bla", "bla"],
@@ -1909,8 +1929,10 @@ unittest {
         "djw\nw": ["beep", "boop"]
     ]);
 
-    assert(toJSON(j2) == `{"def":[],"djw\nw":["beep","boop"],`
-        ~ `"abc\"":["bla","bla","bla"]}`);
+    assert(objectStringTest(toJSON(j2),
+        `"abc\"":["bla","bla","bla"]`,
+        `"def":[]`,
+        `"djw\nw":["beep","boop"]`));
 }
 
 
@@ -1993,19 +2015,11 @@ private struct JSONReader(InputRange) {
 
             scope(failure) --column;
 
-            try {
-                inputRange.popFront();
-            } catch {
-                throw complaint("Unexpected end of input");
-            }
+            inputRange.popFront();
         }
 
         auto front() {
-            try {
-                return inputRange.front();
-            } catch {
-                throw complaint("Unexpected end of input");
-            }
+            return inputRange.front();
         }
 
         auto moveFront() {
@@ -2013,14 +2027,10 @@ private struct JSONReader(InputRange) {
 
             scope(failure) --column;
 
-            try {
-                auto c = inputRange.front();
-                inputRange.popFront();
+            auto c = inputRange.front();
+            inputRange.popFront();
 
-                return c;
-            } catch {
-                throw complaint("Unexpected end of input");
-            }
+            return c;
         }
     }
 
@@ -2156,20 +2166,25 @@ private struct JSONReader(InputRange) {
         byte signInfo  = 0;
 
         // Accumulate digits reading left-to-right in a number.
-        void parseDigits(T)(ref T accum) {
+        size_t parseDigits(T)(ref T accum) {
+            size_t digitCount = 0;
+
             while (!empty()) {
                 switch(front()) {
                 case '0': .. case '9':
                     accum = cast(T) (accum * 10 + (moveFront() - '0'));
+                    ++digitCount;
 
                     if (accum < 0) {
                         throw complaint("overflow error!");
                     }
                 break;
                 default:
-                    return;
+                    return digitCount;
                 }
             }
+
+            return digitCount;
         }
 
         if (front() == '-') {
@@ -2184,10 +2199,12 @@ private struct JSONReader(InputRange) {
 
         parseDigits(integer);
 
+        size_t fractionalDigitCount = 0;
+
         if (!empty() && front() == '.') {
             popFront();
 
-            parseDigits(remainder);
+            fractionalDigitCount = parseDigits(remainder);
         }
 
         if (!empty() && (front() == 'e' || front() == 'E')) {
@@ -2217,7 +2234,7 @@ private struct JSONReader(InputRange) {
 
         if (remainder != 0) {
             // Add in the remainder.
-            whole += remainder / (10.0 ^^ (floor(log10(remainder)) + 1));
+            whole += remainder / (10.0 ^^ fractionalDigitCount);
         }
 
         if (signInfo & NEGATIVE) {
@@ -2294,26 +2311,27 @@ private struct JSONReader(InputRange) {
             obj[key] = parseValue();
 
             skipWhitespace();
-            
+
+            // this switch statement stolen from SDC fork
             switch(front()) {
-            	case ',':
-            		popFront();
-            		skipWhitespace();
-            		
-            		// Allow trailing comma.
-            		if (front() == '}') {
-            			goto case '}';
-            		}
-            		
-            		// Next field.
-            		continue;
-            	
-            	case '}':
-            		popFront();
-            		break FieldLoop;
-            	
-            	default:
-            		throw complaint("Expected , or }");
+            case ',':
+                popFront();
+                skipWhitespace();
+
+                // Allow trailing comma.
+                version (dson_relaxed) if (front() == '}') {
+                    goto case '}';
+                }
+
+                // Next field.
+                continue;
+
+            case '}':
+                popFront();
+                break FieldLoop;
+
+            default:
+                throw complaint("Expected , or }");
             }
         }
 
@@ -2411,9 +2429,9 @@ JSON parseJSON(size_t chunkSize = 4096)(File file) {
 // Test parseJSON for keywords
 unittest {
     assert(parseJSON(`null`).isNull);
-    assert(parseJSON(`true`).type == JsonType.Bool);
+    assert(parseJSON(`true`).type == JSON_TYPE.BOOL);
     assert(parseJSON(`true`));
-    assert(parseJSON(`false`).type == JsonType.Bool);
+    assert(parseJSON(`false`).type == JSON_TYPE.BOOL);
     assert(!parseJSON(`false`));
 }
 
@@ -2499,6 +2517,11 @@ unittest {
     assert(parseJSON(`{}`).length == 0);
     assert(parseJSON(" [\t \n] ").length == 0);
     assert(parseJSON(" {\r\n } ").length == 0);
+}
+
+//test trailing comma in objects
+version (dson_relaxed) unittest {
+    assert(parseJSON(`{ "a": 1 , }`) == parseJSON(`{"a":1}`));
 }
 
 // Test complicated parseJSON examples
@@ -2594,3 +2617,29 @@ unittest {
     //assert(j5 == "some text");
 }
 
+// Test for correct float parsing.
+unittest {
+    import std.typecons : tuple;
+    auto jsonComponents = tuple(`"a":1.001`, `"b":1.02345`, `"c":1.05678`);
+    auto jsonString = `{` ~ jsonComponents[0]
+                    ~ `,` ~ jsonComponents[1]
+                    ~ `,` ~ jsonComponents[2] ~ `}`;
+
+    auto object = parseJSON(jsonString);
+
+    assert(object["a"] == 1.001L);
+    assert(objectStringTest(toJSON(object), jsonComponents.expand));
+}
+
+// Test for correct character encoding
+unittest {
+    auto obj = jsonObject();
+
+    obj["x"] = "é".toUpper();
+
+    assert(obj["x"] == "É");
+
+    auto str = obj.toJSON();
+
+    assert(str == `{"x":"É"}`);
+}
