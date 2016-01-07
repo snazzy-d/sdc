@@ -149,7 +149,7 @@ AstExpression parseTernaryExpression(ref TokenRange trange) {
 AstExpression parseTernaryExpression(ref TokenRange trange, AstExpression condition) {
 	condition = trange.parseLogicalOrExpression(condition);
 	
-	if(trange.front.type == TokenType.QuestionMark) {
+	if (trange.front.type == TokenType.QuestionMark) {
 		Location location = condition.location;
 		
 		trange.popFront();
@@ -751,7 +751,9 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			trange.match(Dot);
 			
 			// FIXME: Or type() {} expressions.
-			return trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, type));
+			return trange.parseIdentifierExpression(
+				trange.parseQualifiedIdentifier(location, type),
+			);
 	}
 }
 
@@ -824,7 +826,10 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange, AstE
 			case Dot :
 				trange.popFront();
 				
-				e = trange.parseIdentifierExpression(trange.parseQualifiedIdentifier(location, e));
+				e = trange.parseIdentifierExpression(
+					trange.parseQualifiedIdentifier(location, e),
+				);
+				
 				break;
 			}
 			
@@ -1043,8 +1048,11 @@ ulong strToDecInt(string s) in {
 	for (uint i = 0; i < s.length; i++) {
 		if (s[i] == '_') continue;
 		
-		assert(s[i] >= '0' || s[i] <= '9', "Only digits are expected here");
-		ret = (ret * 10) + (s[i] - '0');
+		ret *= 10;
+		
+		auto d = s[i] - '0';
+		assert(d < 10, "Only digits are expected here");
+		ret += d;
 	}
 	
 	return ret;
@@ -1066,8 +1074,10 @@ ulong strToBinInt(string s) in {
 	for (uint i = 0; i < s.length; i++) {
 		if (s[i] == '_') continue;
 		
-		assert(s[i] == '0' || s[i] == '1', "Only 0 and 1 are expected here");
-		ret = (ret << 1) | (s[i] - '0');
+		ret <<= 1;
+		auto d = s[i] - '0';
+		assert(d < 2, "Only 0 and 1 are expected here");
+		ret |= d;
 	}
 	
 	return ret;
@@ -1088,23 +1098,23 @@ ulong strToHexInt(string s) in {
 } body {
 	ulong ret = 0;
 	
-	static immutable byte['f' - '0' + 1] unhexTbl = [
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, // '0' to '9'
-		-1, -1, -1, -1, -1, -1, -1,
-		10, 11, 12, 13, 14, 15,  // 'A' to 'F'
-		-1, -1, -1, -1, -1, -1, -1, -1, -1
-		-1, -1, -1, -1, -1, -1, -1, -1, -1
-		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-		10, 11, 12, 13, 14, 15,  // 'a' to 'f'
-	];
-	
 	for (uint i = 0; i < s.length; i++) {
+		// TODO: Filter these out at lexing.
 		if (s[i] == '_') continue;
 		
-		assert(s[i] >= '0' || s[i] <= 'f', "Only hex digits are expected here");
-		auto v = unhexTbl[s[i] - '0'];
-		assert(v != -1, "Only hex digits are expected here");
-		ret = (ret * 16) + v;
+		// XXX: This would allow to reduce data dependacy here by using
+		// the string length and shifting the whole amount at once.
+		ret *= 16;
+		
+		auto d = s[i] - '0';
+		if (d < 10) {
+			ret += d;
+			continue;
+		}
+		
+		auto h = (s[i] | 0x20) - 'a' + 10;
+		assert(h - 10 < 6, "Only hex digits are expected here");
+		ret += h;
 	}
 	
 	return ret;
