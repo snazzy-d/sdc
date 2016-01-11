@@ -676,6 +676,7 @@ struct ExpressionGen {
 			case Invalid :
 				assert(0, "Invalid cast");
 			case InterfaceDown:
+			case InterfaceUp:
 		}
 	}
 	

@@ -509,7 +509,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			scheduler.require(c, Step.Signed);
 			//SIDX
 			writeln("viii");
-			return CastKind.InterfaceDown;
+			return CastKind.InterfaceUp;
 		}
 
 		return bailout(c);
@@ -532,7 +532,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	
 	CastKind visit(Interface i) {
 		import std.stdio;
-		writeln("visted");
+		writeln("visted:i");
 
 		return CastKind.Invalid;
 	}

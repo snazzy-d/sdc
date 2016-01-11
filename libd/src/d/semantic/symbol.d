@@ -874,7 +874,7 @@ struct SymbolAnalyzer {
 	}
 
 	// helper function for matching methods
-	bool methodMatch (ref Method candidate, ref Method method) {
+	public bool methodMatch (ref Method candidate, ref Method method) {
 		auto mt = method.type;
 		auto rt = mt.returnType;
 		auto ats = mt.parameters[1 .. $];
