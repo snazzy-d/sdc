@@ -690,7 +690,7 @@ struct SymbolAnalyzer {
 			
 			fieldIndex = 1;
 		} else {
-			scheduler.require(c.base);
+			scheduler.require(c.base, Step.Signed);
 			
 			fieldIndex = 0;
 			foreach(m; c.base.members) {
@@ -847,7 +847,7 @@ struct SymbolAnalyzer {
 		
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
-		scheduler.require(members);
+		scheduler.require(members, Step.Signed);
 		c.members ~= members;
 		
 		c.step = Step.Processed;

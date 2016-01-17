@@ -1,16 +1,14 @@
-//T compiles:no
+//T compiles:yes
+//T retval:0
 //T has-passed:yes
-// Test invalid override.
+// Tests derived class defined in superclass
+
+class Alpha {
+	class Bravo : Alpha {}
+}
+
 
 int main() {
-	return 0;
-}
-
-class A {
-	void foo(int a) {}
-}
-
-class B : A {
-	override void bar(int a) {}
+        return 0;
 }
 
