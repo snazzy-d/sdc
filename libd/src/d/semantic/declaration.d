@@ -245,8 +245,14 @@ struct DeclarationVisitor {
 			addSymbol(v);
 			select(d, v);
 		} else {
+			// XXX: Maybe we should go back to have 2 decl visitor using
+			// templates like we used to: one for aggregate and one for others.
+			auto agg = cast(Aggregate) currentScope;
+			assert(agg);
+			
 			auto f = new Field(
 				d.location,
+				agg,
 				fieldIndex,
 				Type.get(BuiltinType.None),
 				d.name,

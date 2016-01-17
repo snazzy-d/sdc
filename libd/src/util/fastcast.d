@@ -10,4 +10,3 @@ U fastCast(U, T)(T t) if(is(T == class) && is(U == class) && is(U : T)) in {
 U fastCast(U, T)(T t) if(is(U == union)) {
 	return *(cast(U*) &t);
 }
-

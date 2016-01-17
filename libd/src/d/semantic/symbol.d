@@ -456,6 +456,7 @@ struct SymbolAnalyzer {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(
 				s.location,
+				s,
 				0,
 				ctxPtr,
 				BuiltinName!"__ctx",
@@ -564,6 +565,7 @@ struct SymbolAnalyzer {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(
 				u.location,
+				u,
 				0,
 				ctxPtr,
 				BuiltinName!"__ctx",
@@ -679,10 +681,11 @@ struct SymbolAnalyzer {
 			
 			// XXX: d is hijacked without explicit import
 			import d.context.name : BuiltinName;
-
+			
 			// TODO: use defaultinit.
 			auto vtbl = new Field(
 				d.location,
+				c,
 				0,
 				vtblType,
 				BuiltinName!"__vtbl",
@@ -723,6 +726,7 @@ struct SymbolAnalyzer {
 			import d.context.name;
 			auto ctx = new Field(
 				c.location,
+				c,
 				fieldIndex++,
 				ctxPtr,
 				BuiltinName!"__ctx",

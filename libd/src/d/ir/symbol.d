@@ -143,7 +143,7 @@ final:
 }
 
 /**
- * Superclass for struct, class and interface.
+ * Superclass for struct, union, class and interface.
  */
 abstract class Aggregate : ScopeSymbol {
 	Name[] aliasThis;
@@ -153,6 +153,90 @@ abstract class Aggregate : ScopeSymbol {
 		super(location, parentScope, name);
 		
 		this.members = members;
+	}
+}
+
+enum AggregateKind {
+	Struct,
+	Union,
+	Class,
+	Interface,
+}
+
+struct PackedAggregate {
+private:
+	import std.bitmanip;
+	mixin(taggedClassRef!(
+		Aggregate, "_agg",
+		AggregateKind, "kind", 2,
+	));
+	
+public:
+	this(Struct s) {
+		_agg = s;
+		kind = AggregateKind.Struct;
+	}
+	
+	this(Union u) {
+		_agg = u;
+		kind = AggregateKind.Union;
+	}
+	
+	this(Class c) {
+		_agg = c;
+		kind = AggregateKind.Class;
+	}
+	
+	this(Interface i) {
+		_agg = i;
+		kind = AggregateKind.Interface;
+	}
+	
+	alias aggregate this;
+	
+	@property aggregate() inout {
+		return _agg;
+	}
+	
+	@property dstruct() inout in {
+		assert(kind == AggregateKind.Struct);
+	} body {
+		import util.fastcast;
+		return fastCast!Struct(aggregate);
+	}
+	
+	@property dunion() inout in {
+		assert(kind == AggregateKind.Union);
+	} body {
+		import util.fastcast;
+		return fastCast!Union(aggregate);
+	}
+	
+	@property dclass() inout in {
+		assert(kind == AggregateKind.Class);
+	} body {
+		import util.fastcast;
+		return fastCast!Class(aggregate);
+	}
+	
+	@property dinterface() inout in {
+		assert(kind == AggregateKind.Interface);
+	} body {
+		import util.fastcast;
+		return fastCast!Interface(aggregate);
+	}
+	
+	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
+		final switch(kind) with(AggregateKind) {
+			case Struct:
+				return Type.get(dstruct, q);
+			case Union:
+				return Type.get(dunion, q);
+			case Class:
+				return Type.get(dclass, q);
+			case Interface:
+				return Type.get(dinterface, q);
+		}
 	}
 }
 
@@ -174,7 +258,6 @@ class Module : Package {
  */
 class OverloadSet : Symbol {
 	Symbol[] set;
-	bool isPoisoned;
 	bool isResolved;
 	
 	this(Location location, Name name, Symbol[] set) {
@@ -258,10 +341,12 @@ class Variable : ValueSymbol {
  */
 class Field : ValueSymbol {
 	CompileTimeExpression value;
+	Aggregate aggregate;
 	Type type;
 	
 	this(
 		Location location,
+		Aggregate aggregate,
 		uint index,
 		Type type,
 		Name name,
@@ -270,6 +355,7 @@ class Field : ValueSymbol {
 		super(location, name);
 		
 		this.value = value;
+		this.aggregate = aggregate;
 		this.type = type;
 		this.derived = index;
 		

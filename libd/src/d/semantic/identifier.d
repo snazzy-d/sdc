@@ -499,22 +499,31 @@ struct IdentifierPostProcessor(bool asAlias) {
 	
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return Identifiable(build!FieldExpression(
-			location,
-			getThis(location),
-			f,
-		));
+		
+		auto thisExpr = getThis(location);
+		if (f.aggregate !is null) {
+			/+
+			import d.semantic.caster;
+			thisExpr = buildImplicitCast(
+				pass,
+				location,
+				Type.get(f.aggregate),
+				thisExpr,
+			);
+			// +/
+		}
+		
+		return Identifiable(build!FieldExpression(location, thisExpr, f));
 	}
 	
 	Identifiable buildFun(Function f) {
 		scheduler.require(f, Step.Signed);
 		if (thisExpr || f.hasThis) {
 			import d.semantic.expression;
-			return Identifiable(ExpressionVisitor(pass.pass).getFrom(
-				location,
-				getThis(location),
-				f,
-			));
+			return Identifiable(
+				ExpressionVisitor(pass.pass)
+					.getFrom(location, getThis(location), f),
+			);
 		}
 		
 		static if (asAlias) {
@@ -888,6 +897,7 @@ struct TypeDotIdentifierResolver {
 			auto location = Location.init;
 			auto s = new Field(
 				location,
+				null,
 				0,
 				pass.object.getSizeT().type,
 				BuiltinName!"length",
@@ -901,6 +911,7 @@ struct TypeDotIdentifierResolver {
 			auto location = Location.init;
 			auto s = new Field(
 				location,
+				null,
 				1,
 				t.getPointer(),
 				BuiltinName!"ptr",
