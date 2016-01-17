@@ -327,6 +327,33 @@ public:
 		}
 	}
 	
+	bool hasIndirection() {
+		auto t = getCanonicalAndPeelEnum();
+		final switch(t.kind) with(TypeKind) {
+			case Builtin:
+				// Is this, really ?
+				return t.builtin == BuiltinType.Null;
+			case Alias, Enum, Template, Error:
+				assert(0);
+			case Pointer, Slice, Class, Interface, Context:
+				return true;
+			case Array:
+				return element.hasIndirection;
+			case Struct:
+				return t.dstruct.hasIndirection;
+			case Union:
+				return t.dunion.hasIndirection;
+			case Function:
+				import std.algorithm;
+				return asFunctionType()
+					.contexts
+					.any!(t => t.isRef || t.getType().hasIndirection);
+			case Sequence:
+				import std.algorithm;
+				return sequence.any!(t => t.hasIndirection);
+		}
+	}
+	
 	string toString(const Context c, TypeQualifier q = TypeQualifier.Mutable) const {
 		auto s = toUnqualString(c);
 		if (q == qualifier) {

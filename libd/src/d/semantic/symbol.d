@@ -508,20 +508,22 @@ struct SymbolAnalyzer {
 		auto hasDtor = s.resolve(s.location, BuiltinName!"__dtor");
 		auto hasPostblit = s.resolve(s.location, BuiltinName!"__postblit");
 		
-		if (!hasDtor && !hasPostblit) {
-			s.isPod = fields
-				.map!((f) {
-					auto t = f.type.getCanonical();
-					return t.kind != TypeKind.Struct || t.dstruct.isPod;
-				})
-				.all();
-			
-			if (!s.isPod) {
-				assert(
-					0,
-					"automatic __dtor or __postblit creation not implemenetd"
-				);
+		bool hasIndirection = false;
+		bool isPod = !hasDtor && !hasPostblit;
+		foreach(f; fields) {
+			auto t = f.type.getCanonical();
+			if (t.kind == TypeKind.Struct) {
+				isPod = isPod && t.dstruct.isPod;
 			}
+			
+			hasIndirection = hasIndirection || t.hasIndirection;
+		}
+		
+		s.hasIndirection = hasIndirection;
+		s.isPod = isPod;
+		
+		if (!isPod) {
+			// TODO: Create default ctor and dtor
 		}
 		
 		s.step = Step.Signed;
@@ -601,12 +603,15 @@ struct SymbolAnalyzer {
 		u.members ~= init;
 		u.members ~= fields;
 		
-		u.step = Step.Signed;
-		
 		scheduler.require(fields);
 		
 		init.value = new VoidInitializer(u.location, type);
 		init.step = Step.Processed;
+		
+		import std.algorithm;
+		u.hasIndirection = fields.any!(f => f.type.hasIndirection);
+		
+		u.step = Step.Signed;
 		
 		scheduler.require(otherSymbols);
 		u.members ~= otherSymbols;

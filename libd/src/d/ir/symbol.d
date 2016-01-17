@@ -147,7 +147,6 @@ final:
  */
 abstract class Aggregate : ScopeSymbol {
 	Name[] aliasThis;
-	
 	Symbol[] members;
 	
 	this(Location location, Scope parentScope, Name name, Symbol[] members) {
@@ -458,6 +457,78 @@ class ValueAlias : ValueSymbol {
 }
 
 /**
+ * Struct
+ */
+class Struct : Aggregate {
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+		super(location, parentScope, name, members);
+	}
+	
+	// XXX: std.bitmanip should really offer the possibility to create bitfield
+	// out of unused bits of existing bitfields.
+	@property hasIndirection() const in {
+		assert(
+			step >= Step.Signed,
+			"Struct need to be signed to use hasIndirection"
+		);
+	} body {
+		return !!(derived & 0x01);
+	}
+	
+	@property hasIndirection(bool hasIndirection) {
+		if (hasIndirection) {
+			derived = derived | 0x01;
+		} else {
+			derived = derived & ~0x01;
+		}
+		
+		return hasIndirection;
+	}
+	
+	@property isPod() const in {
+		assert(
+			step >= Step.Signed,
+			"Struct need to be signed to use isPod"
+		);
+	} body {
+		return !!(derived & 0x02);
+	}
+	
+	@property isPod(bool isPod) {
+		if (isPod) {
+			derived = derived | 0x02;
+		} else {
+			derived = derived & ~0x02;
+		}
+		
+		return isPod;
+	}
+}
+
+/**
+ * Union
+ */
+class Union : Aggregate {
+	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+		super(location, parentScope, name, members);
+	}
+	
+	@property hasIndirection() const in {
+		assert(
+			step >= Step.Signed,
+			"Union need to be signed to use hasIndirection"
+		);
+	} body {
+		return !!derived;
+	}
+	
+	@property hasIndirection(bool hasIndirection) {
+		derived = hasIndirection;
+		return hasIndirection;
+	}
+}
+
+/**
  * Class
  */
 class Class : Aggregate {
@@ -486,33 +557,6 @@ class Interface : Aggregate {
 	) {
 		super(location, parentScope, name, members);
 		this.bases = bases;
-	}
-}
-
-/**
- * Struct
- */
-class Struct : Aggregate {
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
-	}
-	
-	@property isPod() const {
-		return !!derived;
-	}
-	
-	@property isPod(bool ispod) {
-		derived = ispod;
-		return ispod;
-	}
-}
-
-/**
- * Union
- */
-class Union : Aggregate {
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
 	}
 }
 
