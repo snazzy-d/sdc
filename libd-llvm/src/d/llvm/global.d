@@ -40,7 +40,6 @@ struct GlobalGen {
 	}
 	
 	LLVMValueRef declare(Function f) in {
-		assert(f.storage.isGlobal, "locals not supported");
 		assert(!f.hasContext, "function must not have context");
 	} body {
 		import d.llvm.local;
@@ -48,7 +47,6 @@ struct GlobalGen {
 	}
 	
 	LLVMValueRef define(Function f) in {
-		assert(f.storage.isGlobal, "locals not supported");
 		assert(!f.hasContext, "function must not have context");
 	} body {
 		import d.llvm.local;
@@ -221,7 +219,7 @@ struct GlobalGen {
 	
 	void define(Template t) {
 		foreach(i; t.instances) {
-			if (i.storage.isLocal) {
+			if (i.hasThis || i.hasContext) {
 				continue;
 			}
 			

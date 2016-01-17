@@ -229,7 +229,6 @@ private:
 					return "T" ~ a.mangle.toString(pass.context);
 				} else static if (is(T : CompileTimeExpression)) {
 					auto a = new ValueAlias(p.location, p.name, identified);
-					a.storage = Storage.Enum;
 					
 					import d.semantic.mangler;
 					auto typeMangle = TypeMangler(pass).visit(identified.type);

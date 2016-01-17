@@ -57,6 +57,8 @@ struct DeclarationVisitor {
 	static assert(DeclarationVisitor.init.visibility == Visibility.Private);
 	static assert(DeclarationVisitor.init.storage == Storage.Local);
 	static assert(DeclarationVisitor.init.aggregateType == AggregateType.None);
+	static assert(DeclarationVisitor.init.addThis == false);
+	static assert(DeclarationVisitor.init.addContext == false);
 	
 	this(SemanticPass pass) {
 		this.pass = pass;
@@ -112,9 +114,9 @@ struct DeclarationVisitor {
 		
 		static if (is(S : TemplateInstance)) {
 			inTemplate = InTemplate.Yes;
-			storage = dscope.storage;
 			addThis = dscope.hasThis;
 			addContext = dscope.hasContext;
+			storage = dscope.storage;
 		}
 		
 		this.fieldIndex = fieldIndex;
@@ -133,6 +135,7 @@ struct DeclarationVisitor {
 		return DeclarationFlattener!S(&this, dscope).lowerToSymbols(ctus);
 	}
 	
+	// FIXME: Pass the function down here.
 	Symbol[] flatten(Declaration d) {
 		addContext = true;
 		
@@ -216,7 +219,6 @@ struct DeclarationVisitor {
 		
 		f.linkage = getLinkage(stc);
 		f.visibility = getVisibility(stc);
-		f.storage = Storage.Enum;
 		f.inTemplate = inTemplate;
 		
 		f.hasThis = isStatic ? false : addThis;
@@ -257,7 +259,6 @@ struct DeclarationVisitor {
 			
 			f.linkage = getLinkage(stc);
 			f.visibility = getVisibility(stc);
-			f.storage = storage;
 			f.inTemplate = inTemplate;
 			
 			addSymbol(f);
@@ -269,7 +270,6 @@ struct DeclarationVisitor {
 		auto s = new Struct(d.location, currentScope, d.name, []);
 		s.linkage = linkage;
 		s.visibility = visibility;
-		s.storage = storage;
 		s.inTemplate = inTemplate;
 		
 		s.hasContext = storage.isGlobal ? false : addContext;
@@ -282,7 +282,6 @@ struct DeclarationVisitor {
 		auto u = new Union(d.location, currentScope, d.name, []);
 		u.linkage = linkage;
 		u.visibility = visibility;
-		u.storage = storage;
 		u.inTemplate = inTemplate;
 		
 		u.hasContext = storage.isGlobal ? false : addContext;
@@ -295,26 +294,25 @@ struct DeclarationVisitor {
 		auto c = new Class(d.location, currentScope, d.name, []);
 		c.linkage = linkage;
 		c.visibility = visibility;
-		c.storage = storage;
 		c.inTemplate = inTemplate;
 		
+		c.hasThis = storage.isGlobal ? false : addThis;
 		c.hasContext = storage.isGlobal ? false : addContext;
 		
 		addSymbol(c);
 		select(d, c);
 	}
-
+	
 	void visit(InterfaceDeclaration d) {
 		auto i = new Interface(d.location, currentScope, d.name, [], []);
 		i.linkage = linkage;
 		i.visibility = visibility;
-		i.storage = storage; 
 		i.inTemplate = inTemplate;
-
+		
 		addSymbol(i);
 		select(d, i);
 	}
-
+	
 	void visit(EnumDeclaration d) {
 		if (d.name.isDefined) {
 			auto e = new Enum(
@@ -390,9 +388,9 @@ struct DeclarationVisitor {
 		
 		t.linkage = linkage;
 		t.visibility = visibility;
-		t.storage = storage;
 		t.hasThis = addThis;
 		t.inTemplate = inTemplate;
+		t.storage = storage;
 		
 		addOverloadableSymbol(t);
 		select(d, t);
@@ -403,7 +401,6 @@ struct DeclarationVisitor {
 		
 		a.linkage = linkage;
 		a.visibility = visibility;
-		a.storage = Storage.Enum;
 		a.inTemplate = inTemplate;
 		
 		addSymbol(a);
@@ -415,7 +412,6 @@ struct DeclarationVisitor {
 		
 		a.linkage = linkage;
 		a.visibility = visibility;
-		a.storage = Storage.Enum;
 		a.inTemplate = inTemplate;
 		
 		addSymbol(a);
@@ -427,7 +423,6 @@ struct DeclarationVisitor {
 		
 		a.linkage = linkage;
 		a.visibility = visibility;
-		a.storage = Storage.Enum;
 		a.inTemplate = inTemplate;
 		
 		addSymbol(a);

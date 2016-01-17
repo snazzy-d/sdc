@@ -131,9 +131,13 @@ struct LocalGen {
 	LLVMValueRef declare(Function f) {
 		require(f);
 		
-		auto lookup = f.storage.isLocal
+		// XXX: This should probably a member of the Function class.
+		auto isLocal = f.hasContext || (cast(BlockStatement) f.getParentScope());
+		auto lookup = isLocal
 			? locals
 			: globals;
+		
+		lookup = globals;
 		
 		auto fun = lookup.get(f, {
 			auto name = f.mangle.toStringz(pass.context);

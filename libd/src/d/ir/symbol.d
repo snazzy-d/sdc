@@ -31,14 +31,13 @@ class Symbol : Node {
 		Step, "step", 2,
 		Linkage, "linkage", 3,
 		Visibility, "visibility", 3,
-		Storage, "storage", 2,
 		InTemplate, "inTemplate", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
 		bool, "isPoisoned", 1,
 		bool, "isAbstract", 1,
 		bool, "isProperty", 1,
-		uint, "__derived", 16,
+		uint, "__derived", 18,
 	));
 	
 	this(Location location, Name name) {
@@ -197,7 +196,6 @@ class OverloadSet : Symbol {
  */
 class Variable : ValueSymbol {
 	Expression value;
-	
 	ParamType paramType;
 	
 	this(
@@ -238,6 +236,14 @@ class Variable : ValueSymbol {
 	@property
 	bool isFinal() const {
 		return paramType.isFinal;
+	}
+	
+	@property storage() const {
+		return cast(Storage) (__derived & 0x03);
+	}
+	
+	@property storage(Storage storage) {
+		__derived = storage;
 	}
 	
 	override
@@ -300,6 +306,14 @@ class Template : ScopeSymbol {
 		
 		this.parameters = parameters;
 		this.members = members;
+	}
+	
+	@property storage() const {
+		return cast(Storage) (__derived & 0x03);
+	}
+	
+	@property storage(Storage storage) {
+		__derived = storage;
 	}
 }
 
@@ -386,6 +400,14 @@ class TemplateInstance : Symbol, Scope {
 		fillParentScope(tpl);
 		
 		this.members = members;
+	}
+	
+	@property storage() const {
+		return cast(Storage) (__derived & 0x03);
+	}
+	
+	@property storage(Storage storage) {
+		__derived = storage;
 	}
 }
 

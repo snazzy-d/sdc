@@ -10,4 +10,3 @@ int main() {
 	Foo!int.bar = 4;
 	return Foo!int.bar;
 }
-

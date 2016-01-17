@@ -158,7 +158,6 @@ final class SemanticPass {
 		
 		bootstrap.fbody = new BlockStatement(location, bootstrap, fbody);
 		
-		bootstrap.storage = Storage.Enum;
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;
 		bootstrap.mangle = BuiltinName!"_Dmain";
