@@ -39,6 +39,7 @@ SDC_ROOT = sdc
 LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
+TESTER_ROOT = tester
 PHOBOS_ROOT = phobos
 
 LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
@@ -48,6 +49,7 @@ ALL_TARGET = $(LIBSDRT) $(PHOBOS)
 
 include sdc/makefile.common
 include libsdrt/makefile.common
+include tester/makefile.common
 include phobos/makefile.common
 
 all: $(ALL_TARGET)
