@@ -44,6 +44,7 @@ addons:
       - libedit2
       - libedit-dev
       - g++-4.9
+      - binutils-gold
 
 # install lit from PyPi and make sure it works, compile FileCheck and install in ./tests/ir
 install: 
