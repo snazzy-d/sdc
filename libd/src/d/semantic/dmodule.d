@@ -52,7 +52,16 @@ public:
 			return cachedModules[name] = mod;
 		}());
 	}
-	
+
+	Module add(const char* code, size_t codeLength, const char* filename, size_t filenameLength) {
+		auto astm = this.parse(code, codeLength, filename, filenameLength);
+		auto mod = modulize(astm);
+		cachedModules[getModuleName(mod)] = mod;
+		
+		scheduler.schedule(astm, mod);
+		return mod;
+	}
+
 	Module add(string filename) {
 		import std.conv, std.path;
 		filename = expandTilde(filename)
@@ -81,13 +90,27 @@ public:
 		scheduler.schedule(astm, mod);
 		return mod;
 	}
-	
+
+	AstModule parse(const char* pcontent, size_t contentLength, const char* pfilename, size_t filenameLength) {
+		string filename  = cast(immutable) pfilename[0 .. filenameLength];
+		string content = cast(immutable) pcontent[0 .. contentLength];
+
+		auto base = context.registerBuffer(content, filename);
+
+		return parse(base, filename);
+	}
+
 	AstModule parse(string filename, string directory) in {
 		assert(filename[$ - 2 .. $] == ".d");
 	} body {
 		import d.context.location;
 		auto base = context.registerFile(Location.init, filename, directory);
-		
+
+		return parse(base, filename);
+	}
+
+	import d.context.location:Position;
+	AstModule parse(Position base, string filename) {
 		import d.lexer;
 		auto l = lex(base, context);
 		

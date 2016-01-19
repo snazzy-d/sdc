@@ -10,7 +10,7 @@ PLATFORM = $(shell uname -s)
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --system-libs`
 LLVM_BIN ?= `$(LLVM_CONFIG) --bindir`
-LIBD_LIB = -Llib -ld-llvm -ld
+SDC_LIB = -Llib -lsdc -ld-llvm -ld
 
 # dmd.conf doesn't set the proper -L flags.  
 # Fix it here until dmd installer is updated
@@ -24,7 +24,7 @@ ifdef LD_PATH
 	LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-LDFLAGS += $(LIBD_LIB) -lphobos2 $(LLVM_LIB)
+LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -lstdc++ -export-dynamic
@@ -39,6 +39,7 @@ SDC_ROOT = sdc
 LIBD_ROOT = libd
 LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
+TESTER_ROOT = tester
 PHOBOS_ROOT = phobos
 
 LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
@@ -48,6 +49,7 @@ ALL_TARGET = $(LIBSDRT) $(PHOBOS)
 
 include sdc/makefile.common
 include libsdrt/makefile.common
+include tester/makefile.common
 include phobos/makefile.common
 
 all: $(ALL_TARGET)

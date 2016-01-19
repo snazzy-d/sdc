@@ -8,6 +8,9 @@ import d.exception;
 import sdc.conf;
 import sdc.sdc;
 
+version (SDC_Library) {}
+else
+
 int main(string[] args) {
 	version(DigitalMars) {
 		version(linux) {

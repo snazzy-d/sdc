@@ -1,0 +1,8 @@
+TESTER_SRC = $(TESTER_ROOT)/src/*.d
+TESTER = bin/tester
+
+ALL_TARGET ?= $(TESTER)
+
+$(TESTER) : $(LIBSDC) $(LIBSDRT) 
+	$(DMD) -c -ofobj/tester.o $(TESTER_SRC) $(DFLAGS) $(SDC_IMPORTS)
+	gcc -o $(TESTER) obj/tester.o $(ARCHFLAG) $(LDFLAGS)
