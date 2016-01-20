@@ -23,11 +23,12 @@ private:
 	
 	LLVMValueRef[Class] vtbls;
 	LLVMTypeRef[Function] funCtxTypes;
+	LLVMValueRef[Interface] ivtbls;
 }
 
 struct TypeGen {
 	private CodeGen pass;
-	alias pass this;
+	alias pass this;	
 	
 	this(CodeGen pass) {
 		this.pass = pass;
@@ -282,6 +283,7 @@ struct TypeGen {
 		typeInfos[c] = classInfo;
 		
 		auto vtbl = [classInfo];
+		auto classMethods = [];
 		LLVMValueRef[] fields = [null];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
@@ -290,7 +292,7 @@ struct TypeGen {
 				m.fbody = null;
 				
 				import d.llvm.global;
-				vtbl ~= GlobalGen(pass).declare(m);
+				classMethods ~= GlobalGen(pass).declare(m);
 			} else if (auto f = cast(Field) member) {
 				if (f.index > 0) {
 					import d.llvm.constant;
@@ -298,7 +300,27 @@ struct TypeGen {
 				}
 			}
 		}
-		
+
+		foreach (i; c.interfaces) {
+			currentClass = c;
+			visit(i);
+			foreach (m; i.members) {
+				if (auto interfaceMethod = cast(Method) m) {
+					bool found = false;
+					foreach (ref member; c.members) {
+						if (auto classMethod = cast(Method) member) {
+							if(methodMatch(classMethod, interfaceMethod)){
+								vtbl ~= GlobalGen(pass).declare(m);;
+								found = true;
+								break;
+							} 
+						}
+					}
+				}
+			}
+		}
+
+		vtbl += classMethods;
 		import std.algorithm, std.array;
 		auto vtblTypes = vtbl.map!(m => LLVMTypeOf(m)).array();
 		
@@ -319,7 +341,7 @@ struct TypeGen {
 		// Doing it at the end to avoid infinite recursion when generating object.ClassInfo
 		auto base = c.base;
 		visit(base);
-		
+
 		LLVMValueRef[2] classInfoData = [getVtbl(classInfoClass), getTypeInfo(base)];
 		LLVMSetInitializer(classInfo, LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr, 2));
 		
@@ -343,7 +365,10 @@ struct TypeGen {
 		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 		
 		import std.string;
-		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
+		auto llvmStruct = typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, i.mangle.toStringz());
+
+		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, (i.mangle ~ "__vtbl").toStringz());
+
 		LLVMTypeRef[2] elements;
 		elements[0] = visit(pass.object.getObject());
 		elements[1] = LLVMPointerType(vtblStruct, 0);

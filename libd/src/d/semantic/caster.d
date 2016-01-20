@@ -148,6 +148,8 @@ Expression buildCast(bool isExplicit)(
 			// FIXME: Because we don't cast type qualifier the proper
 			// way, we need ot make sure they match.
 			e.type = e.type.qualify(to.qualifier);
+			import std.stdio;
+			writeln("visit: case");
 			return e;
 		
 		default:
@@ -485,6 +487,8 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Class c) {
+		import std.stdio;
+		writeln("visted:c");
 		if (isExplicit && to.kind == TypeKind.Pointer) {
 			auto et = to.element.getCanonical();
 			if (et.kind == TypeKind.Builtin &&
@@ -500,7 +504,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				return kind;
 			}
 		}
-		
+
+		if (to.kind == TypeKind.Interface) {
+			scheduler.require(c, Step.Signed);
+			//SIDX
+			writeln("viii");
+			return CastKind.InterfaceUp;
+		}
+
 		return bailout(c);
 	}
 	
@@ -520,6 +531,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Interface i) {
+		import std.stdio;
+		writeln("visted:i");
+
 		return CastKind.Invalid;
 	}
 	

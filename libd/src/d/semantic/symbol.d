@@ -635,33 +635,42 @@ struct SymbolAnalyzer {
 		auto name = c.name.toString(context);
 		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		c.mangle = context.getName("C" ~ manglePrefix);
-		
+		auto dscope = currentScope = c.dscope = c.hasContext
+			? new VoldemortScope(c, oldScope)
+			: new AggregateScope(c, oldScope);
+
 		Field[] baseFields;
 		Method[] baseMethods;
+		// TODO: Handle multiple classes in bases (error)
 		foreach(i; d.bases) {
-			import d.semantic.identifier;
-			c.base = IdentifierResolver(pass)
-				.resolve(i)
-				.apply!(function Class(identified) {
-					static if (is(typeof(identified) : Symbol)) {
-						if (auto c = cast(Class) identified) {
-							return c;
-						}
+			import d.semantic.identifier : AliasResolver;
+			auto resolved = AliasResolver!(function Aggregate (identified) {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto c = cast(Class) identified) {
+						return c;
+					} else if (auto i = cast(Interface) identified) {
+						return i;
 					}
-					
-					static if (is(typeof(identified.location))) {
-						import d.exception;
-						throw new CompileException(
-							identified.location,
-							typeid(identified).toString() ~ " is not a class.",
-						);
-					} else {
-						// for typeof(null)
-						assert(0);
-					}
-				})();
-			
-			break;
+				}
+				
+				static if(is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not a class or an interface.");
+				} else {
+					// for typeof(null)
+					assert(0);
+				}
+				
+			})(pass).visit(i);
+
+			if(auto r = cast(Class) resolved) {
+				c.base = r;
+			} else if(auto r = cast(Interface) resolved) {
+				c.interfaces ~= r;
+			}
+
+			//break;
+
 		}
 		
 		// If no inheritance is specified, inherit from object.
@@ -742,55 +751,13 @@ struct SymbolAnalyzer {
 		foreach(m; members) {
 			if (auto method = cast(Method) m) {
 				scheduler.require(method, Step.Signed);
-				
-				auto mt = method.type;
-				auto rt = mt.returnType;
-				auto ats = mt.parameters[1 .. $];
-				
+				// method = class method
 				CandidatesLoop: foreach(ref candidate; baseMethods) {
-					if (!candidate || method.name != candidate.name) {
+					// candidate = base method
+					if (!methodMatch(candidate, method))
 						continue;
-					}
-					
-					auto ct = candidate.type;
-					if (ct.isVariadic != mt.isVariadic) {
-						continue;
-					}
-					
-					auto crt = ct.returnType;
-					auto cts = ct.parameters[1 .. $];
-					if (ats.length != cts.length || rt.isRef != crt.isRef) {
-						continue;
-					}
-					
-					auto rk = implicitCastFrom(
-						pass,
-						rt.getType(),
-						crt.getType(),
-					);
-					
-					if (rk < CastKind.Exact) {
-						continue;
-					}
-					
-					import std.range;
-					foreach(at, ct; lockstep(ats, cts)) {
-						if (at.isRef != ct.isRef) {
-							continue CandidatesLoop;
-						}
-						
-						auto pk = implicitCastFrom(
-							pass,
-							ct.getType(),
-							at.getType(),
-						);
-						
-						if (pk < CastKind.Exact) {
-							continue CandidatesLoop;
-						}
-					}
-					
-					if (method.index == 0) {
+
+					if(method.index == 0) {
 						method.index = candidate.index;
 						
 						// Remove candidate from scope.
@@ -849,16 +816,108 @@ struct SymbolAnalyzer {
 			
 			baseMethods = baseMethods[0 .. i];
 		}
-		
+
 		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
+		/*
+		methodIndex++;
+		import std.stdio;
+		writeln(methodIndex);
+		foreach (i; c.interfaces) {
+			writeln("sid: 1");
+			scheduler.require(i);
+			c.ivtblOffset[i] = methodIndex;
+			import std.algorithm, std.array;
+			int il = 0;
+			//scheduler.require(i.members);
+			foreach(m; i.members) {
+				writeln("sid: 2 \n--methodIndex: ", methodIndex);
+				auto m1 = cast(Method) m;
+				if (!m1) 
+					continue;
+				writeln("sid4: m1");
+				//m1.index += methodIndex;
+				//c.members ~= m1;
+				il++;
+			}
+			writeln("sid: 3");
+			//c.members ~= imethods;
+			methodIndex += il;
+		}
+		*/
 		scheduler.require(members);
+		methodIndex++;
+		// loop to check for implementation of the interface methods
+		foreach (i; c.interfaces) {
+			c.ivtblOffset[i] = methodIndex++;
+			scheduler.require(i);
+			foreach (m; i.members) {
+				if (auto interfaceMethod = cast(Method) m) {
+					bool found = false;
+					foreach (ref member; members) {
+						if (auto classMethod = cast(Method) member) {
+							if(methodMatch(classMethod, interfaceMethod)){
+								//c.members ~= member;
+								found = true;
+								break;
+							} 
+						}
+					}
+					if (!found) {
+						import d.exception;
+						throw new CompileException(m.location, m.name.toString(context) ~ " not implemented in class " ~ c.name.toString(context));
+					}
+				}
+			}
+		}
+		import std.stdio;
 		c.members ~= members;
-		
+		//foreach(m; c.members){
+		//	writeln("member: ", m.name.toString(context));
+		//}
 		c.step = Step.Processed;
 	}
 
-	void analyze(InterfaceDeclaration d, Interface i) {
+	// helper function for matching methods
+	public bool methodMatch (ref Method candidate, ref Method method) {
+		auto mt = method.type;
+		auto rt = mt.returnType;
+		auto ats = mt.parameters[1 .. $];
+		//import std.stdio;
+		if (!candidate || method.name != candidate.name) {
+			return false;
+		}
+		//writeln("sid2: 1");
+		auto ct = candidate.type;
+		if (ct.isVariadic != mt.isVariadic) {
+			return false;
+		}
+		//writeln("sid2: 2");
+		auto crt = ct.returnType;
+		auto cts = ct.parameters[1 .. $];
+		if (ats.length != cts.length || rt.isRef != crt.isRef) {
+			return false;
+		}
+		//writeln("sid2: 3");
+		if (implicitCastFrom(pass, rt.getType(), crt.getType()) < CastKind.Exact) {
+			return false;
+		}
+		//writeln("sid2: 4");
+		import std.range;
+		foreach(at, ct; lockstep(ats, cts)) {
+			if (at.isRef != ct.isRef) {
+				return false;
+			}
+			
+			if (implicitCastFrom(pass, ct.getType(), at.getType()) < CastKind.Exact) {
+				return false;
+			}
+		}
+		//writeln("sid2: 5");
+		return true;
+	}
+
+	void analyze (InterfaceDeclaration d, Interface i) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldThisType = thisType;
 		
@@ -866,9 +925,11 @@ struct SymbolAnalyzer {
 			manglePrefix = oldManglePrefix;
 			thisType = oldThisType;
 		}
-		
-		thisType = Type.get(i).getParamType(false, true);
-		
+
+		auto o = pass.object.getObject();
+		scheduler.require(o, Step.Signed);
+		thisType = Type.get(o).getParamType(false, true);
+
 		import std.conv;
 		auto name = i.name.toString(context);
 		manglePrefix = manglePrefix ~ name.length.to!string();
@@ -885,8 +946,80 @@ struct SymbolAnalyzer {
 			"Interface inheritance not implemented yet"
 		);
 		
+/*
+		manglePrefix = manglePrefix ~ to!string(name.length);
+
+		i.mangle = "I" ~ manglePrefix;
+
+		foreach(b; d.bases) {
+			import d.semantic.identifier : AliasResolver;
+			i.bases ~= AliasResolver!(function Interface (identified) {
+				static if(is(typeof(identified) : Symbol)) {
+					if(auto i = cast(Interface) identified) {
+						return i;
+					}
+				}
+					
+				static if (is(typeof(identified.location))) {
+					import d.exception;
+					throw new CompileException(identified.location, typeid(identified).toString() ~ " is not an interface.");
+				} else {
+					// for typeof(null)
+					assert(0);
+				}
+			})(pass).visit(b);
+		}
+
+
+		auto members = DeclarationVisitor(pass, AggregateType.Class).flatten(d.members, i);
+		Method[] methods;
+		methodIndex = 0;
+		foreach(m; members) {
+			if (auto method = cast (Method) m) { 
+				scheduler.require(method, Step.Signed);
+				// check for (non-static) method body
+				if(method.fbody) {
+					import d.exception;
+					throw new CompileException(method.location, "non-static method can't have a body in interface");
+				}
+				method.index = methodIndex++;
+				methods ~= method;
+
+			} else if(auto staticMethod = cast(Function) m) { // static method
+				// TODO: handle static
+			} else { // not a method
+				import d.exception;
+				throw new CompileException(m.location, "Interface can have only methods");
+			}
+		}
+
+
+		// generate the vtable field 
+		auto vtblType = Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
+		import d.context.name : BuiltinName;
+		auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
+		vtbl.step = Step.Processed;
+		i.members ~= [vtbl];
+
+		// add base interface methods
+		scheduler.require(i.bases);
+		foreach(b; i.bases) {
+			foreach(m; b.members) {
+				// TODO: handle static/final methods
+				if (auto method = cast(Method) m) {
+					i.members ~= method;
+				}
+			}
+		}
+	
+
+
+		i.members ~= members;
+
+*/
 		// TODO: lots of stuff to add
-		
+		i.members ~= methods; // add this interface methods
+	
 		i.step = Step.Processed;
 	}
 

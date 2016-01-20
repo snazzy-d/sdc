@@ -534,9 +534,10 @@ class Union : Aggregate {
 class Class : Aggregate {
 	Class base;
 	Interface[] interfaces;
-	
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
+	uint[Interface] ivtblOffset;
+
+	this(Location location, Name name, Symbol[] members) {
+		super(location, name, members);
 		
 		this.name = name;
 	}
