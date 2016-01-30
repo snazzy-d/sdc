@@ -27,6 +27,10 @@ endif
 LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
+	LD_GOLD = $(shell which ld.gold | xargs basename)
+	ifeq ($(LD_GOLD),ld.gold)
+		LDFLAGS += -fuse-ld=gold
+	endif
 	LDFLAGS += -lstdc++ -export-dynamic
 	NASMFLAGS += -f elf64
 endif
