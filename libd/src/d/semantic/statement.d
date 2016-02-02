@@ -501,39 +501,39 @@ public:
 	
 	void check(AstSwitchStatement s) {
 		auto cases = (cast(AstBlockStatement*)&s.statement).statements;
-        	auto _default = context.getName("default");
-        	
-        	import std.algorithm;
-        	
-        	auto defaultCaseRange = cases
-            	.map!(s => cast(AstLabeledStatement) s)
-            	.filter!(s => s !is null)
-            	.filter!(s => s.label == _default);
-            	
-        	if(defaultCaseRange.empty) {
-        		throw new CompileException(s.location, 
-        			"switch statement without a default; use 'final switch' or add 'default: assert(0);' or add 'default: break;'");
-        	} else {
-        		defaultCaseRange.popFront();
-        		if(!defaultCaseRange.empty) {
-        			// multiple default: cases
-        			throw new CompileException(s.location,
-        				"switch statements with multiple defaults are not allowed ");
-        		}
-	 	}
+	        auto _default = context.getName("default");
+	        	
+	        import std.algorithm;
+	        	
+	        auto defaultCaseRange = cases
+	            .map!(s => cast(AstLabeledStatement) s)
+	            .filter!(s => s !is null)
+	            .filter!(s => s.label == _default);
+	            	
+	        if(defaultCaseRange.empty) {
+	        	throw new CompileException(s.location, 
+	        		"switch statement without a default; use 'final switch' or add 'default: assert(0);' or add 'default: break;'");
+	        } else {
+	        	defaultCaseRange.popFront();
+	        	if(!defaultCaseRange.empty) {
+	        		// multiple default: cases
+	        		throw new CompileException(s.location,
+	        			"switch statements with multiple defaults are not allowed ");
+	        	}
+		}
 	}
-	
+		
 	void visit(AstSwitchStatement s) {
 		import d.semantic.expression;
-		
-        	check(s);
-        	
+			
+	        check(s);
+	        	
 		flattenedStmts ~= new SwitchStatement(
 			s.location,
 			ExpressionVisitor(pass).visit(s.expression),
 			autoBlock(s.statement),
 		);
-	}
+	}	
 	
 	void visit(AstCaseStatement s) {
 		import d.semantic.expression;
