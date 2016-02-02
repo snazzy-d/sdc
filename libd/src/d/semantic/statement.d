@@ -504,6 +504,7 @@ public:
 	        auto _default = context.getName("default");
 	        	
 	        import std.algorithm;
+	        import d.execption;
 	        	
 	        auto defaultCaseRange = cases
 	            .map!(s => cast(AstLabeledStatement) s)
