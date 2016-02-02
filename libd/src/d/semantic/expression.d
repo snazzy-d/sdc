@@ -330,7 +330,34 @@ private:
 	
 public:
 	Expression visit(AstBinaryExpression e) {
-		return buildBinary(e.location, e.op, visit(e.lhs), visit(e.rhs));
+		auto lhs = visit(e.lhs);
+		auto rhs = visit(e.rhs);
+
+		if (e.op == AstBinaryOp.Equal || e.op == AstBinaryOp.NotEqual) {
+			if (lhs.type.kind == TypeKind.Slice || lhs.type.kind == TypeKind.Array) {
+				assert (rhs.type.kind == TypeKind.Slice || rhs.type.kind == TypeKind.Array,
+					"Slice or Array Expected");
+
+				auto expr = callOverloadSet(
+					e.location,
+					pass.object.getArrayCompare(),
+					[lhs, rhs],
+				);
+
+				if (e.op == AstBinaryOp.NotEqual) {
+					expr = new UnaryExpression(e.location,
+						Type.get(BuiltinType.Bool),
+						UnaryOp.Not,
+						expr
+					);
+				}
+
+				return expr;
+			}
+		}
+
+		return buildBinary(e.location, e.op, lhs, rhs);
+
 	}
 	
 	Expression visit(AstTernaryExpression e) {
