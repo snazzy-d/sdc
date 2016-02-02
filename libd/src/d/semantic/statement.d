@@ -513,8 +513,7 @@ public:
         	if(defaultCaseRange.empty) {
         		throw new CompileException(s.location, 
         			"switch statement without a default; use 'final switch' or add 'default: assert(0);' or add 'default: break;'");
-        	}
-	 	else {
+        	} else {
         		defaultCaseRange.popFront();
         		if(!defaultCaseRange.empty) {
         			// multiple default: cases
