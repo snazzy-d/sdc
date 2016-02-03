@@ -197,7 +197,6 @@ public:
 		auto oldSwitchMustTerminate = switchMustTerminate;
 		auto oldSwitchFunTerminate = switchFunTerminate;
 		auto oldBlockTerminate = blockTerminate;
-		auto oldSwitchHaveDefault = switchHaveDefault;
 		
 		scope(exit) {
 			mustTerminate = switchMustTerminate && mustTerminate;
@@ -209,13 +208,13 @@ public:
 			allowFallthrough = oldAllowFallthrough;
 			switchMustTerminate = oldSwitchMustTerminate;
 			switchFunTerminate = oldSwitchFunTerminate;
-			switchHaveDefault = oldSwitchHaveDefault;
 		}
 		
 		switchStmt = s;
 		switchStack = varStack;
 		allowFallthrough = true;
 		switchFunTerminate = true;
+		switchHaveDefault = false;
 		
 		visit(s.statement);
 
@@ -224,7 +223,7 @@ public:
 			throw new CompileException(
 				s.location,
 				"switch statement without a default; use 'final switch' or add 'default: assert(0);' or add 'default: break;'",
-				);
+			);
 		}
 	}
 	
@@ -334,7 +333,7 @@ public:
 				throw new CompileException(
 						s.location,
 						"switch statements with multiple defaults are not allowed.",
-					);
+				);
 			} else {
 				switchHaveDefault = true;
 			}
