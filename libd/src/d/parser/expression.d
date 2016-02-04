@@ -694,6 +694,10 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		case Is :
 			return trange.parseIsExpression();
 		
+		case Mixin :
+			import d.parser.conditional;
+			return trange.parseMixin!AstExpression();
+
 		case OpenParen :
 			auto matchingParen = trange.save;
 			matchingParen.popMatchingDelimiter!OpenParen();

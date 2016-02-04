@@ -406,7 +406,34 @@ AstStatement parseStatement(ref TokenRange trange) {
 			return new AstSynchronizedStatement(location, statement);
 		
 		case Mixin :
-			return trange.parseMixin!AstStatement();
+			//could be an expression so if we cannot parse it as a Statement fall back to expression
+			trange.popFront();
+			trange.match(TokenType.OpenParen);
+
+			auto expr = trange.parseAssignExpression();
+
+			trange.match(TokenType.CloseParen);
+
+			AstStatement stmt;
+
+			if (trange.front.type == TokenType.Semicolon) {
+				location.spanTo(trange.front.location);
+				trange.popFront();
+
+				stmt = new d.ast.conditional.Mixin!AstStatement(location, expr);
+			} else {
+				location.spanTo(trange.previous);
+
+				auto prev = new d.ast.conditional.Mixin!AstExpression(location, expr);
+
+				stmt = new AstExpressionStatement(
+					trange.parseAssignExpression(prev)
+				);
+
+				trange.match(TokenType.Semicolon);
+			}
+
+			return stmt;
 		
 		case Static :
 			auto lookahead = trange.save;

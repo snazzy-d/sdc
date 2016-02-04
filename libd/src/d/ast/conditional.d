@@ -73,7 +73,7 @@ alias StaticIfDeclaration = StaticIf!Declaration;
 /**
  * Mixins
  */
-class Mixin(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration) || is(ItemType == Expression)) {
+class Mixin(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration) || is(ItemType == AstExpression)) {
 	AstExpression value;
 	
 	this(Location location, AstExpression value) {
