@@ -335,7 +335,7 @@ public:
 						s.location,
 						"switch statements with multiple defaults are not allowed.",
 				);
-			}	
+			}
 			
 			switchHaveDefault = true;
 
