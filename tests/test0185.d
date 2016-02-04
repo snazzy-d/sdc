@@ -6,17 +6,22 @@ int main() {
 	int x = 10;
 	switch (x) {
    		case 1 :
-      		switch (x) { 
-      			default : 
-              break; 
-      		}
-     	case 2 : 
-     		switch (x) {
-     			default : 
-            break;
-     		}
+      			switch (x) { 
+      				default : 
+		        	      break; 
+      			}
+			break;
+     		case 2 : 
+			switch (x) {
+				default : 
+					break;
+     			}
+			break;
+
 		default : 
-      break;
-  }
+			break;
+  	}
+	
+	return 0;
 }
 

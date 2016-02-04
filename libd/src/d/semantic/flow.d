@@ -197,6 +197,7 @@ public:
 		auto oldSwitchMustTerminate = switchMustTerminate;
 		auto oldSwitchFunTerminate = switchFunTerminate;
 		auto oldBlockTerminate = blockTerminate;
+		auto oldSwitchHaveDefault = switchHaveDefault;
 		
 		scope(exit) {
 			mustTerminate = switchMustTerminate && mustTerminate;
@@ -208,17 +209,17 @@ public:
 			allowFallthrough = oldAllowFallthrough;
 			switchMustTerminate = oldSwitchMustTerminate;
 			switchFunTerminate = oldSwitchFunTerminate;
+			switchHaveDefault = oldSwitchHaveDefault;
 		}
 		
 		switchStmt = s;
 		switchStack = varStack;
 		allowFallthrough = true;
 		switchFunTerminate = true;
-		switchHaveDefault = false;
 		
 		visit(s.statement);
 
-		if(!switchHaveDefault) {
+		if (!switchHaveDefault) {
 			import d.exception;
 			throw new CompileException(
 				s.location,
@@ -334,9 +335,9 @@ public:
 						s.location,
 						"switch statements with multiple defaults are not allowed.",
 				);
-			} else {
-				switchHaveDefault = true;
-			}
+			}	
+			
+			switchHaveDefault = true;
 
 			setCaseEntry(
 				s.location,

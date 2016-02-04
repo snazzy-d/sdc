@@ -8,15 +8,15 @@ int main() {
    		case 1 :
       		switch (x) { 
       			case 1 :
-              break; 
+              		break; 
       		}
      	case 2 : 
      		switch (x) {
      			default : 
-            break;
+            		break;
      		}
-		  default : 
-        break;
-  }
+		default : 
+        	break;
+	}
 }
 
