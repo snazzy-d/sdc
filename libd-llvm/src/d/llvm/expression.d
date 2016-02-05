@@ -468,6 +468,7 @@ struct ExpressionGen {
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
 			auto vtblPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
 			auto vtbl = LLVMBuildLoad(builder, vtblPtr, "vtbl");
+			LLVMSetMetadata(vtbl, 16, LLVMMDNode([LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 3, false)].ptr, 1));
 			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
 			fun = LLVMBuildLoad(builder, funPtr, "");
 		} else {
