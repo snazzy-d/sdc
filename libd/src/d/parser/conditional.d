@@ -161,12 +161,16 @@ auto parseMixin(ItemType)(ref TokenRange trange) if(is(Mixin!ItemType)) {
 	trange.match(TokenType.Mixin);
 	trange.match(TokenType.OpenParen);
 	
-	auto expression = trange.parseExpression();
+	auto expression = trange.parseAssignExpression();
 	
 	trange.match(TokenType.CloseParen);
-	location.spanTo(trange.front.location);
 	
-	trange.match(TokenType.Semicolon);
+	import d.ast.expression : AstExpression;
+	static if (!is(ItemType == AstExpression)) {
+		trange.match(TokenType.Semicolon);
+	}
+	
+	location.spanTo(trange.previous);
 	return new Mixin!ItemType(location, expression);
 }
 

@@ -3,6 +3,7 @@ module d.parser.ambiguous;
 import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
+import d.ast.statement;
 import d.ast.type;
 
 import d.parser.base;
@@ -129,44 +130,72 @@ struct IdentifierStarIdentifier {
 	AstExpression value;
 }
 
-auto parseDeclarationOrExpression(alias handler)(ref TokenRange trange) {
+auto parseAmbiguousStatement(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		case Interface, Class, Struct, Union, Enum :
 		case Import, Template, Extern, Alias :
 		case Auto, Static, Const, Immutable, Inout, Shared :
-			return handler(trange.parseDeclaration());
+			auto d = trange.parseDeclaration();
+			return trange.finalizeStatement(d.location, d);
 		
 		default :
 			auto location = trange.front.location;
-			return trange.parseAmbiguous!((parsed) {
-				alias T = typeof(parsed);
-				static if (is(T : AstType)) {
-					return handler(trange.parseTypedDeclaration(
-						location,
-						defaultStorageClass,
-						parsed,
-					));
-				} else static if (is(T : AstExpression)) {
-					return handler(parsed);
-				} else static if (is(T : IdentifierStarIdentifier)) {
-					return handler(parsed);
-				} else {
-					// Identifier follow by another identifier is a declaration.
-					if (trange.front.type == Identifier) {
-						return handler(trange.parseTypedDeclaration(
-							location,
-							defaultStorageClass,
-							AstType.get(parsed),
-						));
-					} else {
-						return handler(new IdentifierExpression(parsed));
-					}
-				}
-			}, AmbiguousParseMode.Declaration)();
+			return trange.parseAmbiguous!(
+				parsed => trange.finalizeStatement(location, parsed),
+				AmbiguousParseMode.Declaration,
+			)();
 	}
 }
 
+auto parseStatementSuffix(ref TokenRange trange, AstExpression e) {
+	return trange.parseAmbiguousSuffix!(
+		parsed => trange.finalizeStatement(e.location, parsed),
+		AmbiguousParseMode.Declaration,
+	)(e);
+}
+
 private:
+
+AstStatement finalizeStatement(T)(
+	ref TokenRange trange,
+	Location location,
+	T parsed,
+) {
+	static if (is(T : AstType)) {
+		return trange.finalizeStatement(
+			location,
+			trange.parseTypedDeclaration(
+				location,
+				defaultStorageClass,
+				parsed,
+			),
+		);
+	} else static if (is(T : Declaration)) {
+		return new DeclarationStatement(parsed);
+	} else static if (is(T : AstExpression)) {
+		trange.match(TokenType.Semicolon);
+		return new AstExpressionStatement(parsed);
+	} else static if (is(T : IdentifierStarIdentifier)) {
+		trange.match(TokenType.Semicolon);
+		location.spanTo(trange.previous);
+		return new IdentifierStarIdentifierStatement(
+			location,
+			parsed.identifier,
+			parsed.name,
+			parsed.value,
+		);
+	} else {
+		// Identifier follow by another identifier is a declaration.
+		if (trange.front.type == TokenType.Identifier) {
+			return trange.finalizeStatement(location, AstType.get(parsed));
+		} else {
+			return trange.finalizeStatement(
+				location,
+				new IdentifierExpression(parsed),
+			);
+		}
+	}
+}
 
 enum AmbiguousParseMode {
 	Type,
@@ -255,7 +284,7 @@ bool indicateExpression(TokenType t) {
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(
+typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	alias handler,
 	AmbiguousParseMode M = AmbiguousParseMode.Type,
 )(ref TokenRange trange, Identifier i) {
@@ -394,7 +423,7 @@ typeof(handler(null)) parseAmbiguousSuffix(
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(
+typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	alias handler,
 	AmbiguousParseMode M = AmbiguousParseMode.Type,
 )(ref TokenRange trange, Location location, AstType t) {
@@ -415,7 +444,7 @@ typeof(handler(null)) parseAmbiguousSuffix(
 	}
 }
 
-typeof(handler(null)) parseAmbiguousSuffix(
+typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	alias handler,
 	AmbiguousParseMode M = AmbiguousParseMode.Type,
 )(ref TokenRange trange, AstExpression e) {
