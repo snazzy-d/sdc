@@ -293,6 +293,8 @@ class Template : ScopeSymbol {
 	
 	import d.ast.declaration : Declaration;
 	Declaration[] members;
+	import d.ast.expression : AstExpression;
+	AstExpression constraint;
 	
 	this(
 		Location location,

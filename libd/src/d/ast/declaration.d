@@ -237,12 +237,14 @@ class FunctionDeclaration : NamedDeclaration {
 class TemplateDeclaration : NamedDeclaration {
 	AstTemplateParameter[] parameters;
 	Declaration[] declarations;
+	AstExpression constraint;
 	
-	this(Location location, StorageClass storageClass, Name name, AstTemplateParameter[] parameters, Declaration[] declarations) {
+	this(Location location, StorageClass storageClass, Name name, AstTemplateParameter[] parameters, Declaration[] declarations, AstExpression constraint) {
 		super(location, storageClass, name);
 		
 		this.parameters = parameters;
 		this.declarations = declarations;
+		this.constraint = constraint;
 	}
 }
 

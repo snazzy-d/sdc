@@ -411,6 +411,7 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	// Function declaration.
 	bool isVariadic;
 	AstTemplateParameter[] tplParameters;
+	AstExpression constraint;
 	
 	// Check if we have a function template
 	import d.parser.util;
@@ -425,9 +426,9 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	auto parameters = trange.parseParameters(isVariadic);
 	
 	// If it is a template, it can have a constraint.
-	if (tplParameters.ptr) {
+	if (isTemplate) {
 		if (trange.front.type == TokenType.If) {
-			trange.parseConstraint();
+			constraint = trange.parseConstraint();
 		}
 	}
 	
@@ -540,7 +541,7 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	
 	auto fun = new FunctionDeclaration(location, stc, returnType, name, parameters, isVariadic, fbody);
 	return isTemplate
-		? new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun])
+		? new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun], constraint)
 		: fun;
 }
 
