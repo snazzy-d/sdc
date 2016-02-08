@@ -1320,4 +1320,18 @@ public:
 			),
 		);
 	}
+	
+	import d.ast.conditional;
+	Expression visit(Mixin!AstExpression e) {
+		import d.semantic.evaluator;
+		auto str = evalString(visit(e.value));
+		auto pos = context.registerMixin(e.location, str ~ "\0");
+		
+		import d.lexer;
+		auto trange = lex(pos, context);
+		
+		import d.parser.base, d.parser.expression;
+		trange.match(TokenType.Begin);
+		return visit(trange.parseExpression());
+	}
 }

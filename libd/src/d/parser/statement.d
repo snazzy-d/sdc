@@ -29,7 +29,8 @@ AstStatement parseStatement(ref TokenRange trange) {
 				goto case Default;
 			}
 			
-			// If it is not a labeled statement, then it is a declaration or an expression.
+			// If it is not a labeled statement,
+			// then it is a declaration or an expression.
 			goto default;
 		
 		case If :
@@ -146,7 +147,12 @@ AstStatement parseStatement(ref TokenRange trange) {
 				
 				trange.match(Identifier);
 				
-				return ParamDecl(elementLocation, type.getParamType(isRef, false), name, null);
+				return ParamDecl(
+					elementLocation,
+					type.getParamType(isRef, false),
+					name,
+					null,
+				);
 			}
 			
 			ParamDecl[] tupleElements = [parseForeachListElement()];
@@ -384,12 +390,9 @@ AstStatement parseStatement(ref TokenRange trange) {
 			if (trange.front.type == Finally) {
 				trange.popFront();
 				finallyStatement = trange.parseStatement();
-				
-				location.spanTo(finallyStatement.location);
-			} else {
-				location.spanTo(catches[$ - 1].location);
 			}
 			
+			location.spanTo(trange.previous);
 			return new AstTryStatement(location, statement, catches, finallyStatement);
 		
 		case Synchronized :
@@ -406,7 +409,25 @@ AstStatement parseStatement(ref TokenRange trange) {
 			return new AstSynchronizedStatement(location, statement);
 		
 		case Mixin :
-			return trange.parseMixin!AstStatement();
+			trange.popFront();
+			trange.match(OpenParen);
+			
+			auto expr = trange.parseAssignExpression();
+			
+			alias MixinTpl = d.ast.conditional.Mixin;
+			
+			trange.match(CloseParen);
+			if (trange.front.type == Semicolon) {
+				// mixin(expr); is a statement.
+				location.spanTo(trange.front.location);
+				trange.popFront();
+				
+				return new MixinTpl!AstStatement(location, expr);
+			}
+			
+			location.spanTo(trange.previous);
+			expr = new MixinTpl!AstExpression(location, expr);
+			return trange.parseStatementSuffix(expr);
 		
 		case Static :
 			auto lookahead = trange.save;
@@ -431,26 +452,7 @@ AstStatement parseStatement(ref TokenRange trange) {
 			return trange.parseDebug!AstStatement();
 		
 		default :
-			return trange.parseDeclarationOrExpression!(delegate AstStatement(parsed) {
-				alias T = typeof(parsed);
-				
-				static if (is(T : AstExpression)) {
-					trange.match(Semicolon);
-					return new AstExpressionStatement(parsed);
-				} else static if (is(T : Declaration)) {
-					return new DeclarationStatement(parsed);
-				} else {
-					trange.match(Semicolon);
-					auto location = parsed.identifier.location;
-					location.spanTo(trange.previous);
-					return new IdentifierStarIdentifierStatement(
-						location,
-						parsed.identifier,
-						parsed.name,
-						parsed.value,
-					);
-				}
-			})();
+			return trange.parseAmbiguousStatement();
 	}
 	
 	assert(0);

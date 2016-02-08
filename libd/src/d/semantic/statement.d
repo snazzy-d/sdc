@@ -8,13 +8,12 @@ import d.ast.expression;
 import d.ast.statement;
 import d.ast.type;
 
+import d.context.location;
+
 import d.ir.expression;
 import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
-
-import d.parser.base;
-import d.parser.statement;
 
 alias AssertStatement = d.ir.statement.AssertStatement;
 alias ExpressionStatement = d.ir.statement.ExpressionStatement;
@@ -682,6 +681,7 @@ public:
 		auto base = context.registerMixin(s.location, str ~ '\0');
 		auto trange = lex(base, context);
 		
+		import d.parser.base, d.parser.statement;
 		trange.match(TokenType.Begin);
 		while(trange.front.type != TokenType.End) {
 			visit(trange.parseStatement());
