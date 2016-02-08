@@ -34,7 +34,8 @@ private:
 		bool, "allowFallthrough", 1,
 		bool, "switchMustTerminate", 1,
 		bool, "switchFunTerminate", 1,
-		uint, "", 2,
+		bool, "switchHaveDefault", 1,
+		uint, "", 1,
 	));
 	
 public:
@@ -196,6 +197,7 @@ public:
 		auto oldSwitchMustTerminate = switchMustTerminate;
 		auto oldSwitchFunTerminate = switchFunTerminate;
 		auto oldBlockTerminate = blockTerminate;
+		auto oldSwitchHaveDefault = switchHaveDefault;
 		
 		scope(exit) {
 			mustTerminate = switchMustTerminate && mustTerminate;
@@ -207,6 +209,7 @@ public:
 			allowFallthrough = oldAllowFallthrough;
 			switchMustTerminate = oldSwitchMustTerminate;
 			switchFunTerminate = oldSwitchFunTerminate;
+			switchHaveDefault = oldSwitchHaveDefault;
 		}
 		
 		switchStmt = s;
@@ -215,6 +218,14 @@ public:
 		switchFunTerminate = true;
 		
 		visit(s.statement);
+
+		if (!switchHaveDefault) {
+			import d.exception;
+			throw new CompileException(
+				s.location,
+				"switch statement without a default; use 'final switch' or add 'default: assert(0);' or add 'default: break;'",
+			);
+		}
 	}
 	
 	void visit(BreakStatement s) {
@@ -318,6 +329,16 @@ public:
 	void visit(LabeledStatement s) {
 		auto label = s.label;
 		if (label == BuiltinName!"default") {
+			if (switchHaveDefault) {
+				import d.exception;
+				throw new CompileException(
+						s.location,
+						"switch statements with multiple defaults are not allowed.",
+				);
+			}
+			
+			switchHaveDefault = true;
+
 			setCaseEntry(
 				s.location,
 				"Default statement can only appear within switch statement.",
