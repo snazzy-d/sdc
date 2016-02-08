@@ -329,7 +329,7 @@ public:
 	void visit(LabeledStatement s) {
 		auto label = s.label;
 		if (label == BuiltinName!"default") {
-			if(switchHaveDefault) {
+			if (switchHaveDefault) {
 				import d.exception;
 				throw new CompileException(
 						s.location,
