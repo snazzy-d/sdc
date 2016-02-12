@@ -11,7 +11,7 @@ d:
 
 env:
   global:
-    - LLVM_CONFIG=/usr/bin/llvm-config-3.6
+    - LLVM_CONFIG=/usr/bin/llvm-config-3.7
     # This is used in our makefile.  This may break if the
     # dmd installer changes it's location.
     - LD_PATH=${HOME}/dmd2/linux/lib64
@@ -29,21 +29,23 @@ addons:
       # https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
       - ubuntu-toolchain-r-test
       - llvm-toolchain-precise
-      - llvm-toolchain-precise-3.6
+      - llvm-toolchain-precise-3.7
     packages:
       - nasm
       # See here for packages:
       # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.6/
       # Travis by default does not install dependencies, they must
       # be enumerated.
-      - llvm-3.6 
-      - llvm-3.6-dev
-      - llvm-3.6-runtime
-      - libllvm3.6
+      - llvm-3.7 
+      - llvm-3.7-dev
+      - llvm-3.7-runtime
+      - llvm-3.7-tools
+      - libllvm3.7
       - libstdc++6
       - libedit2
       - libedit-dev
-      - g++-4.9
+      - gcc-5
+      - g++-5
       - binutils-gold
 
 # install lit from PyPi and make sure it works, compile FileCheck and install in ./tests/ir
@@ -51,8 +53,8 @@ install:
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
   # compile FileCheck, not part of standard LLVM package
-  - wget -nv http://llvm.org/svn/llvm-project/llvm/branches/release_36/utils/FileCheck/FileCheck.cpp
-  - g++-4.9 FileCheck.cpp -o ./libd-llvm/tests/FileCheck `${LLVM_CONFIG} --cxxflags` `${LLVM_CONFIG} --ldflags` -lLLVMSupport `${LLVM_CONFIG} --system-libs`
+  - wget -nv http://llvm.org/svn/llvm-project/llvm/branches/release_37/utils/FileCheck/FileCheck.cpp
+  - g++-5 FileCheck.cpp -o ./libd-llvm/tests/FileCheck `${LLVM_CONFIG} --cxxflags` `${LLVM_CONFIG} --ldflags` -lLLVMSupport `${LLVM_CONFIG} --system-libs`
   - libd-llvm/tests/FileCheck --version
 
 script:
