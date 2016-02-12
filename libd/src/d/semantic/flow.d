@@ -216,7 +216,7 @@ public:
 		switchStack = varStack;
 		allowFallthrough = true;
 		switchFunTerminate = true;
-		
+		switchHaveDefault = false;
 		visit(s.statement);
 
 		if (!switchHaveDefault) {
@@ -332,8 +332,8 @@ public:
 			if (switchHaveDefault) {
 				import d.exception;
 				throw new CompileException(
-						s.location,
-						"switch statements with multiple defaults are not allowed.",
+					s.location,
+					"switch statements with multiple defaults are not allowed.",
 				);
 			}
 			
