@@ -11,3 +11,4 @@ int main() {
 // ASM:  $42
 // ASM:  ret
 }
+

@@ -33,27 +33,19 @@ addons:
     packages:
       - nasm
       # See here for packages:
-      # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.6/
+      # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.7/
       # Travis by default does not install dependencies, they must
       # be enumerated.
       - llvm-3.7
       - llvm-3.7-dev
       - llvm-3.7-runtime
+      - llvm-3.7-tools
       - libllvm3.7
       - libstdc++6
       - libedit2
       - libedit-dev
       - g++-4.9
       - binutils-gold
-
-# install lit from PyPi and make sure it works, compile FileCheck and install in ./tests/ir
-install: 
-  - pip install --user lit
-  - python -c "import lit; lit.main();" --version | head -n 1
-  # compile FileCheck, not part of standard LLVM package
-  - wget -nv http://llvm.org/svn/llvm-project/llvm/branches/release_37/utils/FileCheck/FileCheck.cpp
-  - g++-4.9 FileCheck.cpp -o ./libd-llvm/tests/FileCheck `${LLVM_CONFIG} --cxxflags` `${LLVM_CONFIG} --ldflags` -lLLVMSupport `${LLVM_CONFIG} --system-libs`
-  - libd-llvm/tests/FileCheck --version
 
 script:
   - make bin/sdc > build_sdc.log 2>&1
