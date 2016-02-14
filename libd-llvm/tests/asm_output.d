@@ -1,6 +1,6 @@
-// RUN: %sdc %s -S --emit-llvm -o %t.ll  &&  FileCheck %s --check-prefix LLVM < %t.ll
-// RUN: %sdc %s -c --emit-llvm -o %t.bc  &&  FileCheck %s --check-prefix BITCODE < %t.bc
-// RUN: %sdc %s -S             -o %t.s   &&  FileCheck %s --check-prefix ASM < %t.s
+// RUN: %sdc %s -S --emit-llvm -o - | FileCheck %s --check-prefix LLVM
+// RUN: %sdc %s -c --emit-llvm -o - | FileCheck %s --check-prefix BITCODE
+// RUN: %sdc %s -S             -o - | FileCheck %s --check-prefix ASM
 
 // BITCODE: BC
 
