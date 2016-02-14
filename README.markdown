@@ -8,10 +8,10 @@ This compiler is based on [libd](https://github.com/deadalnix/SDC/tree/master/li
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC requires DMD release `2.068` to compile.
+SDC requires DMD release `2.070` to compile.
 
 Goals
-========
+=====
 Right now, SDC is a work in progress and unusable for any production work. Its intent is to provide a D compiler as a library (libd) in order to improve the overall D toolchain by enabling the possibility of developing new tools.
 
 SDC now supports many very advanced features (static ifs, string mixins, CTFE) of D, but not many basic ones. This is a development choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC has a solid base to build upon.
@@ -45,18 +45,18 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.6.
+Install LLVM 3.7.
 
 Run `make`.
 
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
 SDC contains a lot of hardcoded PATH right now, so it's hard to integrate properly with the system. It expects object.d to be in ../libs/object.d
 
-SDC requires LLVM 3.6 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.6` .
+SDC requires LLVM 3.7 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.7` .
 
 Compiling SDC on Mac OS X
 =======
-You'll need `make` and the latest DMD installed. You'll also need llvm36 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm36`, followed by `make LLVM_CONFIG=llvm-config-3.6` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.6`, followed by `make LLVM_CONFIG=llvm-config-mp-3.6` .
+You'll need `make` and the latest DMD installed. You'll also need llvm36 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm37`, followed by `make LLVM_CONFIG=llvm-config-3.7` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.7`, followed by `make LLVM_CONFIG=llvm-config-mp-3.7` .
 You'll also need a recent version of `nasm`; if `nasm` does not recognise the `macho64` output format, try updating `nasm`.
 
 ### Setup
