@@ -112,7 +112,7 @@ struct TypeGen {
 				return LLVMInt64TypeInContext(llvmCtx);
 			
 			case Ucent, Cent :
-				return LLVMIntTypeInContext(llvmCtx, 128);
+				return LLVMInt128TypeInContext(llvmCtx);
 			
 			case Float :
 				return LLVMFloatTypeInContext(llvmCtx);

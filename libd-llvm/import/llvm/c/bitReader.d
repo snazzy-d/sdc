@@ -18,7 +18,7 @@
 
 module llvm.c.bitReader;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
@@ -31,36 +31,45 @@ extern(C) nothrow:
 
 /* Builds a module from the bitcode in the specified memory buffer, returning a
    reference to the module via the OutModule parameter. Returns 0 on success.
-   Optionally returns a human-readable error message via OutMessage. */
-LLVMBool LLVMParseBitcode(LLVMMemoryBufferRef MemBuf,
-                          LLVMModuleRef *OutModule, char **OutMessage);
+   Optionally returns a human-readable error message via OutMessage.
 
+   This is deprecated. Use LLVMParseBitcode2. */
+LLVMBool LLVMParseBitcode(LLVMMemoryBufferRef MemBuf, LLVMModuleRef* OutModule,
+                          char** OutMessage);
+
+/* Builds a module from the bitcode in the specified memory buffer, returning a
+   reference to the module via the OutModule parameter. Returns 0 on success. */
+LLVMBool LLVMParseBitcode2(LLVMMemoryBufferRef MemBuf,
+                           LLVMModuleRef* OutModule);
+
+/* This is deprecated. Use LLVMParseBitcodeInContext2. */
 LLVMBool LLVMParseBitcodeInContext(LLVMContextRef ContextRef,
                                    LLVMMemoryBufferRef MemBuf,
-                                   LLVMModuleRef *OutModule, char **OutMessage);
+                                   LLVMModuleRef* OutModule, char** OutMessage);
+
+LLVMBool LLVMParseBitcodeInContext2(LLVMContextRef ContextRef,
+                                    LLVMMemoryBufferRef MemBuf,
+                                    LLVMModuleRef* OutModule);
 
 /** Reads a module from the specified path, returning via the OutMP parameter
     a module provider which performs lazy deserialization. Returns 0 on success.
-    Optionally returns a human-readable error message via OutMessage. */
+    Optionally returns a human-readable error message via OutMessage.
+    This is deprecated. Use LLVMGetBitcodeModuleInContext2. */
 LLVMBool LLVMGetBitcodeModuleInContext(LLVMContextRef ContextRef,
                                        LLVMMemoryBufferRef MemBuf,
-                                       LLVMModuleRef *OutM,
-                                       char **OutMessage);
+                                       LLVMModuleRef* OutM, char** OutMessage);
 
-LLVMBool LLVMGetBitcodeModule(LLVMMemoryBufferRef MemBuf, LLVMModuleRef *OutM,
-                              char **OutMessage);
+/** Reads a module from the specified path, returning via the OutMP parameter a
+ * module provider which performs lazy deserialization. Returns 0 on success. */
+LLVMBool LLVMGetBitcodeModuleInContext2(LLVMContextRef ContextRef,
+                                        LLVMMemoryBufferRef MemBuf,
+                                        LLVMModuleRef* OutM);
 
+/* This is deprecated. Use LLVMGetBitcodeModule2. */
+LLVMBool LLVMGetBitcodeModule(LLVMMemoryBufferRef MemBuf, LLVMModuleRef* OutM,
+                              char** OutMessage);
 
-/** Deprecated: Use LLVMGetBitcodeModuleInContext instead. */
-LLVMBool LLVMGetBitcodeModuleProviderInContext(LLVMContextRef ContextRef,
-                                               LLVMMemoryBufferRef MemBuf,
-                                               LLVMModuleProviderRef *OutMP,
-                                               char **OutMessage);
-
-/** Deprecated: Use LLVMGetBitcodeModule instead. */
-LLVMBool LLVMGetBitcodeModuleProvider(LLVMMemoryBufferRef MemBuf,
-                                      LLVMModuleProviderRef *OutMP,
-                                      char **OutMessage);
+LLVMBool LLVMGetBitcodeModule2(LLVMMemoryBufferRef MemBuf, LLVMModuleRef* OutM);
 
 /**
  * @}

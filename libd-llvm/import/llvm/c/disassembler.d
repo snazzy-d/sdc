@@ -29,7 +29,7 @@ extern(C) nothrow:
 /**
  * An opaque reference to a disassembler context.
  */
-alias void *LLVMDisasmContextRef;
+alias LLVMDisasmContextRef = void*;
 
 /**
  * The type for the operand information call back function.  This is called to
@@ -48,9 +48,9 @@ alias void *LLVMDisasmContextRef;
  * TagType for that Triple.  If symbolic information is returned the function
  * returns 1, otherwise it returns 0.
  */
-alias int function(void *DisInfo, uint64_t PC,
-                   uint64_t Offset, uint64_t Size,
-                   int TagType, void *TagBuf) LLVMOpInfoCallback;
+alias LLVMOpInfoCallback = int function(void *DisInfo, uint64_t PC,
+                                        uint64_t Offset, uint64_t Size,
+                                        int TagType, void *TagBuf);
 
 /**
  * The initial support in LLVM MC for the most general form of a relocatable
@@ -174,7 +174,7 @@ enum LLVMDisassembler_ReferenceType_DeMangled_Name = 9;
  * returns NULL. This function is equivalent to calling
  * LLVMCreateDisasmCPUFeatures() with an empty CPU name and feature set.
  */
-LLVMDisasmContextRef LLVMCreateDisasm(const(char) *TripleName, void *DisInfo,
+LLVMDisasmContextRef LLVMCreateDisasm(const(char)* TripleName, void* DisInfo,
                                       int TagType, LLVMOpInfoCallback GetOpInfo,
                                       LLVMSymbolLookupCallback SymbolLookUp);
 

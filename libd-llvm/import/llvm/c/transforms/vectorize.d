@@ -19,7 +19,7 @@
 
 module llvm.c.transforms.vectorize;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 

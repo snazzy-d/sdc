@@ -18,7 +18,7 @@
 
 module llvm.c.analysis;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 

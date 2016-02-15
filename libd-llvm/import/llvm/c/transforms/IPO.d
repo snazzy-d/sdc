@@ -14,7 +14,7 @@
 
 module llvm.c.transforms.IPO;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
