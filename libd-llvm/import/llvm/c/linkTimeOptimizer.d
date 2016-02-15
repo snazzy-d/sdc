@@ -15,8 +15,6 @@
 
 module llvm.c.linkTimeOptimizer;
 
-import llvm.c.core;
-
 extern(C) nothrow:
 
 /**
@@ -27,7 +25,7 @@ extern(C) nothrow:
  */
 
   /// This provides a dummy type for pointers to the LTO object.
-  alias void* llvm_lto_t;
+  alias llvm_lto_t = void*;
 
   /// This provides a C-visible enumerator to manage status codes.
   /// This should map exactly onto the C++ enumerator LTOStatus.

@@ -18,7 +18,7 @@
 
 module llvm.c.object;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
@@ -60,9 +60,9 @@ LLVMBool LLVMIsSymbolIteratorAtEnd(LLVMObjectFileRef ObjectFile,
 void LLVMMoveToNextSymbol(LLVMSymbolIteratorRef SI);
 
 // SectionRef accessors
-const(char) *LLVMGetSectionName(LLVMSectionIteratorRef SI);
+const(char)* LLVMGetSectionName(LLVMSectionIteratorRef SI);
 ulong LLVMGetSectionSize(LLVMSectionIteratorRef SI);
-const(char) *LLVMGetSectionContents(LLVMSectionIteratorRef SI);
+const(char)* LLVMGetSectionContents(LLVMSectionIteratorRef SI);
 ulong LLVMGetSectionAddress(LLVMSectionIteratorRef SI);
 LLVMBool LLVMGetSectionContainsSymbol(LLVMSectionIteratorRef SI,
                                  LLVMSymbolIteratorRef Sym);

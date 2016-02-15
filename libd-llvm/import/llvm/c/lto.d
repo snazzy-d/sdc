@@ -52,6 +52,8 @@ enum lto_symbol_attributes {
     SCOPE_PROTECTED             = 0x00002000,
     SCOPE_DEFAULT               = 0x00001800,
     SCOPE_DEFAULT_CAN_BE_HIDDEN = 0x00002800,
+    COMDAT                      = 0x00004000,
+    ALIAS                       = 0x00008000,
 }
 
 /**

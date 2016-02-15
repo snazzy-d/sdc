@@ -15,7 +15,7 @@
 
 module llvm.c.initialization;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 

@@ -13,7 +13,7 @@
 
 module llvm.c.irReader;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 

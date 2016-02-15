@@ -14,7 +14,7 @@
 
 module llvm.c.core;
 
-public import llvm.c.support;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
@@ -37,15 +37,6 @@ extern(C) nothrow:
  * the LLVM intermediate representation as well as other related types
  * and utilities.
  *
- * LLVM uses a polymorphic type hierarchy which C cannot represent, therefore
- * parameters must be passed as base types. Despite the declared types, most
- * of the functions provided operate only on branches of the type hierarchy.
- * The declared parameter names are descriptive and specify which type is
- * required. Additionally, each type hierarchy is documented along with the
- * functions that operate upon it. For more detail, refer to LLVM's C++ code.
- * If in doubt, refer to Core.cpp, which performs parameter downcasts in the
- * form unwrap<RequiredType>(Param).
- *
  * Many exotic languages can interoperate with C code but have a harder time
  * with C++ due to name mangling. So in addition to C, this interface enables
  * tools written in such languages.
@@ -58,84 +49,6 @@ extern(C) nothrow:
  *
  * @{
  */
-
-/* Opaque types. */
-
-/**
- * The top-level container for all LLVM global data. See the LLVMContext class.
- */
-struct __LLVMOpaqueContext {};
-alias LLVMContextRef = __LLVMOpaqueContext*;
-
-/**
- * The top-level container for all other LLVM Intermediate Representation (IR)
- * objects.
- *
- * @see llvm::Module
- */
-struct __LLVMOpaqueModule {};
-alias LLVMModuleRef = __LLVMOpaqueModule*;
-
-/**
- * Each value in the LLVM IR has a type, an LLVMTypeRef.
- *
- * @see llvm::Type
- */
-struct __LLVMOpaqueType {};
-alias LLVMTypeRef = __LLVMOpaqueType*;
-
-/**
- * Represents an individual value in LLVM IR.
- *
- * This models llvm::Value.
- */
-struct __LLVMOpaqueValue {};
-alias LLVMValueRef = __LLVMOpaqueValue*;
-
-/**
- * Represents a basic block of instructions in LLVM IR.
- *
- * This models llvm::BasicBlock.
- */
-struct __LLVMOpaqueBasicBlock {};
-alias LLVMBasicBlockRef = __LLVMOpaqueBasicBlock*;
-
-/**
- * Represents an LLVM basic block builder.
- *
- * This models llvm::IRBuilder.
- */
-struct __LLVMOpaqueBuilder {};
-alias LLVMBuilderRef = __LLVMOpaqueBuilder*;
-
-/**
- * Interface used to provide a module to JIT or interpreter.
- * This is now just a synonym for llvm::Module, but we have to keep using the
- * different type to keep binary compatibility.
- */
-struct __LLVMOpaqueModuleProvider {};
-alias LLVMModuleProviderRef = __LLVMOpaqueModuleProvider*;
-
-/** @see llvm::PassManagerBase */
-struct __LLVMOpaquePassManager {};
-alias LLVMPassManagerRef = __LLVMOpaquePassManager*;
-
-/** @see llvm::PassRegistry */
-struct __LLVMOpaquePassRegistry {};
-alias __LLVMOpaquePassRegistry *LLVMPassRegistryRef;
-
-/**
- * Used to get the users and usees of a Value.
- *
- * @see llvm::Use */
-struct __LLVMOpaqueUse {};
-alias LLVMUseRef = __LLVMOpaqueUse*;
-
-/**
- * @see llvm::DiagnosticInfo
- */
-struct __LLVMOpaqueDiagnosticInfo {};
-alias LLVMDiagnosticInfoRef = __LLVMOpaqueDiagnosticInfo*;
 
 enum LLVMAttribute {
     ZExt            = 1 << 0,
@@ -256,7 +169,11 @@ enum LLVMOpcode {
   /* Exception Handling Operators */
   Resume         = 58,
   LandingPad     = 59,
-
+  CleanupRet     = 61,
+  CatchRet       = 62,
+  CatchPad       = 63,
+  CleanupPad     = 64,
+  CatchSwitch    = 65,
 }
 
 enum LLVMTypeKind {
@@ -276,6 +193,7 @@ enum LLVMTypeKind {
   Vector,      /**< SIMD 'packed' format, or other vector type */
   Metadata,    /**< Metadata */
   X86_MMX,     /**< X86 MMX */
+  Token,       /**< Tokens */
 }
 
 enum LLVMLinkage {
@@ -435,35 +353,10 @@ void LLVMInitializeCore(LLVMPassRegistryRef R);
     @see ManagedStatic */
 void LLVMShutdown();
 
-
 /*===-- Error handling ----------------------------------------------------===*/
 
 char* LLVMCreateMessage(const(char)* Message);
 void LLVMDisposeMessage(char* Message);
-
-alias LLVMFatalErrorHandler = void function(const(char)* Reason);
-
-/**
- * Install a fatal error handler. By default, if LLVM detects a fatal error, it
- * will call exit(1). This may not be appropriate in many contexts. For example,
- * doing exit(1) will bypass many crash reporting/tracing system tools. This
- * function allows you to install a callback that will be invoked prior to the
- * call to exit(1).
- */
-void LLVMInstallFatalErrorHandler(LLVMFatalErrorHandler Handler);
-
-/**
- * Reset the fatal error handler. This resets LLVM's fatal error handling
- * behavior to the default.
- */
-void LLVMResetFatalErrorHandler();
-
-/**
- * Enable LLVM's built-in stack trace code. This intercepts the OS's crash
- * signals and prints which component of LLVM you were in at the time if the
- * crash.
- */
-void LLVMEnablePrettyStackTrace();
 
 /**
  * @defgroup LLVMCCoreContext Contexts
@@ -815,6 +708,7 @@ LLVMTypeRef LLVMInt8TypeInContext(LLVMContextRef C);
 LLVMTypeRef LLVMInt16TypeInContext(LLVMContextRef C);
 LLVMTypeRef LLVMInt32TypeInContext(LLVMContextRef C);
 LLVMTypeRef LLVMInt64TypeInContext(LLVMContextRef C);
+LLVMTypeRef LLVMInt128TypeInContext(LLVMContextRef C);
 LLVMTypeRef LLVMIntTypeInContext(LLVMContextRef C, uint NumBits);
 
 /**
@@ -826,6 +720,7 @@ LLVMTypeRef LLVMInt8Type();
 LLVMTypeRef LLVMInt16Type();
 LLVMTypeRef LLVMInt32Type();
 LLVMTypeRef LLVMInt64Type();
+LLVMTypeRef LLVMInt128Type();
 LLVMTypeRef LLVMIntType(uint NumBits);
 uint LLVMGetIntTypeWidth(LLVMTypeRef IntegerTy);
 
@@ -1029,7 +924,6 @@ LLVMBool LLVMIsOpaqueStruct(LLVMTypeRef StructTy);
  * @}
  */
 
-
 /**
  * @defgroup LLVMCCoreTypeSequential Sequential Types
  *
@@ -1188,6 +1082,7 @@ extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fu
         "ConstantInt",
         "ConstantPointerNull",
         "ConstantStruct",
+        "ConstantTokenNone",
         "ConstantVector",
         "GlobalValue",
           "GlobalAlias",
@@ -1225,25 +1120,30 @@ extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fu
           "SwitchInst",
           "UnreachableInst",
           "ResumeInst",
-      "UnaryInstruction",
-        "AllocaInst",
-        "CastInst",
-          "AddrSpaceCastInst",
-          "BitCastInst",
-          "FPExtInst",
-          "FPToSIInst",
-          "FPToUIInst",
-          "FPTruncInst"
-          "IntToPtrInst",
-          "PtrToIntInst",
-          "SExtInst",
-          "SIToFPInst",
-          "TruncInst",
-          "UIToFPInst"
-          "ZExtInst",
-        "ExtractValueInst",
-        "LoadInst",
-        "VAArgInst"
+          "CleanupReturnInst",
+          "CatchReturnInst",
+        "FuncletPadInst",
+          "CatchPadInst",
+          "CleanupPadInst",
+        "UnaryInstruction",
+          "AllocaInst",
+          "CastInst",
+            "AddrSpaceCastInst",
+            "BitCastInst",
+            "FPExtInst",
+            "FPToSIInst",
+            "FPToUIInst",
+            "FPTruncInst"
+            "IntToPtrInst",
+            "PtrToIntInst",
+            "SExtInst",
+            "SIToFPInst",
+            "TruncInst",
+            "UIToFPInst"
+            "ZExtInst",
+          "ExtractValueInst",
+          "LoadInst",
+          "VAArgInst",
   ]) {
     ret ~= fun(str) ~ "\n";
   }
@@ -1966,7 +1866,7 @@ void LLVMSetGC(LLVMValueRef Fn, const(char)* Name);
 void LLVMAddFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 /**
- * Add a target-dependent attribute to a fuction
+ * Add a target-dependent attribute to a function
  * @see llvm::AttrBuilder::addAttribute()
  */
 void LLVMAddTargetDependentFunctionAttr(LLVMValueRef Fn, const char *A,
@@ -2170,7 +2070,7 @@ LLVMValueRef LLVMMDNode(LLVMValueRef* Vals, uint Count);
  * @param Len Memory address which will hold length of returned string.
  * @return String data in MDString.
  */
-const(char)  *LLVMGetMDString(LLVMValueRef V, uint* Len);
+const(char) *LLVMGetMDString(LLVMValueRef V, uint* Len);
 
 /**
  * Obtain the number of operands from an MDNode value.
@@ -2462,7 +2362,7 @@ void LLVMInstructionEraseFromParent(LLVMValueRef Inst);
  *
  * @see llvm::Instruction::getOpCode()
  */
-LLVMOpcode   LLVMGetInstructionOpcode(LLVMValueRef Inst);
+LLVMOpcode LLVMGetInstructionOpcode(LLVMValueRef Inst);
 
 /**
  * Obtain the predicate of an instruction.
@@ -2815,6 +2715,8 @@ LLVMValueRef LLVMBuildGlobalStringPtr(LLVMBuilderRef B, const(char)* Str,
                                       const(char)* Name);
 LLVMBool LLVMGetVolatile(LLVMValueRef MemoryAccessInst);
 void LLVMSetVolatile(LLVMValueRef MemoryAccessInst, LLVMBool IsVolatile);
+LLVMAtomicOrdering LLVMGetOrdering(LLVMValueRef MemoryAccessInst);
+void LLVMSetOrdering(LLVMValueRef MemoryAccessInst, LLVMAtomicOrdering Ordering);
 
 /* Casts */
 LLVMValueRef LLVMBuildTrunc(LLVMBuilderRef, LLVMValueRef Val,

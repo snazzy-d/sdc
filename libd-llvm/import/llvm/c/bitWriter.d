@@ -18,7 +18,7 @@
 
 module llvm.c.bitWriter;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 

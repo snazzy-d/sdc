@@ -18,7 +18,7 @@
 
 module llvm.c.targetMachine;
 
-import llvm.c.core;
+public import llvm.c.types;
 import llvm.c.target;
 
 extern(C) nothrow:

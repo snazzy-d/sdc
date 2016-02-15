@@ -13,7 +13,7 @@
 
 module llvm.c.linker;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
@@ -23,15 +23,23 @@ enum LLVMLinkerMode {
                                  should not be used. */
 }
 
-
-/* Links the source module into the destination module, taking ownership
- * of the source module away from the caller. Optionally returns a
- * human-readable description of any errors that occurred in linking.
- * OutMessage must be disposed with LLVMDisposeMessage. The return value
- * is true if an error occurred, false otherwise.
+/* Links the source module into the destination module. The source module is
+ * damaged. The only thing that can be done is destroy it. Optionally returns a
+ * human-readable description of any errors that occurred in linking. OutMessage
+ * must be disposed with LLVMDisposeMessage. The return value is true if an
+ * error occurred, false otherwise.
  *
  * Note that the linker mode parameter \p Unused is no longer used, and has
- * no effect. */
+ * no effect.
+ *
+ * This function is deprecated. Use LLVMLinkModules2 instead.
+ */
 LLVMBool LLVMLinkModules(LLVMModuleRef Dest, LLVMModuleRef Src,
                          LLVMLinkerMode Unused, char** OutMessage);
 
+/* Links the source module into the destination module. The source module is
+ * destroyed.
+ * The return value is true if an error occurred, false otherwise.
+ * Use the diagnostic handler to get any diagnostic message.
+*/
+LLVMBool LLVMLinkModules2(LLVMModuleRef Dest, LLVMModuleRef Src);

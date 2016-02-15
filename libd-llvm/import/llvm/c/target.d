@@ -18,7 +18,7 @@
 
 module llvm.c.target;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
@@ -32,9 +32,9 @@ extern(C) nothrow:
 enum LLVMByteOrdering { BigEndian, LittleEndian };
 
 struct __LLVMOpaqueTargetData {};
-alias __LLVMOpaqueTargetData *LLVMTargetDataRef;
+alias LLVMTargetDataRef = __LLVMOpaqueTargetData*;
 struct __LLVMOpaqueTargetLibraryInfotData {};
-alias __LLVMOpaqueTargetLibraryInfotData *LLVMTargetLibraryInfoRef;
+alias LLVMTargetLibraryInfoRef = __LLVMOpaqueTargetLibraryInfotData*;
 struct __LLVMStructLayout {};
 
 extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
@@ -251,7 +251,7 @@ static inline LLVMBool LLVMInitializeNativeDisassembler() {
 
 /** Creates target data from a target layout string.
     See the constructor llvm::DataLayout::DataLayout. */
-LLVMTargetDataRef LLVMCreateTargetData(const(char) *StringRep);
+LLVMTargetDataRef LLVMCreateTargetData(const(char)* StringRep);
 
 /** Adds target data information to a pass manager. This does not take ownership
     of the target data.

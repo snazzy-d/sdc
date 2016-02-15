@@ -18,7 +18,7 @@
 
 module llvm.c.transforms.scalar;
 
-import llvm.c.core;
+public import llvm.c.types;
 
 extern(C) nothrow:
 
