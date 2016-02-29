@@ -7,6 +7,7 @@ import d.exception;
 
 import sdc.conf;
 import sdc.sdc;
+import std.path;
 
 int main(string[] args) {
 	version(DigitalMars) {
@@ -61,7 +62,12 @@ int main(string[] args) {
 	
 	if (outputAsm) dontLink = true;
 	
-	auto executable = "a.out";
+	auto executable = baseName(files[0], ".d");
+	version (Windows) {
+		// While this should be based on the target type rather than the platform you're compiling on,
+		// there isn't a way to do that just now.
+		executable ~= ".exe";
+	}
 	auto defaultExtension = ".o";
 	if (outputAsm) {
 		defaultExtension = outputLLVM ? ".ll" : ".s";
