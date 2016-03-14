@@ -44,7 +44,7 @@ addons:
       - libstdc++6
       - libedit2
       - libedit-dev
-      - g++-4.9
+      - g++-5.2
       - binutils-gold
 
 script:
