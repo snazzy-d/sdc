@@ -442,6 +442,11 @@ class FloatLiteral : CompileTimeExpression {
 		
 		this.value = value;
 	}
+	
+	override string toString(const Context) const {
+		import std.conv;
+		return to!string(value);
+	}
 }
 
 /**

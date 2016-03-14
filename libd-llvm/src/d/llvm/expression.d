@@ -679,87 +679,33 @@ struct ExpressionGen {
 	
 	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		// Check if we need to invoke.
-		foreach_reverse(ref b; unwindBlocks) {
-			if (b.kind == BlockKind.Success) {
-				continue;
-			}
-			
-			// We have a failure case.
-			auto currentBB = LLVMGetInsertBlock(builder);
-			auto fun = LLVMGetBasicBlockParent(currentBB);
-			
-			if (!b.landingPadBB) {
-				auto landingPadBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "landingPad");
-				LLVMPositionBuilderAtEnd(builder, landingPadBB);
-				
-				LLVMTypeRef[2] lpTypes = [
-					LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
-					LLVMInt32TypeInContext(llvmCtx),
-				];
-				
-				auto lpType = LLVMStructTypeInContext(
-					llvmCtx,
-					lpTypes.ptr,
-					lpTypes.length,
-					false,
-				);
-				
-				auto landingPad = LLVMBuildLandingPad(
-					builder,
-					lpType,
-					declare(pass.object.getPersonality()),
-					cast(uint) catchClauses.length,
-					"",
-				);
-				
-				if (!lpContext) {
-					// Create an alloca for this variable.
-					LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(fun));
-					lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
-					LLVMPositionBuilderAtEnd(builder, landingPadBB);
-				}
-				
-				// TODO: handle cleanup.
-				// For now assume always cleanup.
-				// This is inneffiscient, but works.
-				LLVMSetCleanup(landingPad, true);
-				
-				foreach_reverse(c; catchClauses) {
-					LLVMAddClause(landingPad, c);
-				}
-				
-				LLVMBuildStore(builder, landingPad, lpContext);
-				
-				if (!b.unwindBB) {
-					b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-				}
-				
-				LLVMBuildBr(builder, b.unwindBB);
-				
-				LLVMPositionBuilderAtEnd(builder, currentBB);
-				b.landingPadBB = landingPadBB;
-			}
-			
-			auto landingPadBB = b.landingPadBB;
-			auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
-			
-			auto ret = LLVMBuildInvoke(
+		if (!lpBB) {
+			return LLVMBuildCall(
 				builder,
 				callee,
 				args.ptr,
 				cast(uint) args.length,
-				thenBB,
-				landingPadBB,
 				"",
 			);
-			
-			LLVMMoveBasicBlockAfter(thenBB, currentBB);
-			LLVMPositionBuilderAtEnd(builder, thenBB);
-			
-			return ret;
 		}
 		
-		return LLVMBuildCall(builder, callee, args.ptr, cast(uint) args.length, "");
+		auto currentBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(currentBB);
+		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
+		auto ret = LLVMBuildInvoke(
+			builder,
+			callee,
+			args.ptr,
+			cast(uint) args.length,
+			thenBB,
+			lpBB,
+			"",
+		);
+		
+		LLVMMoveBasicBlockAfter(thenBB, currentBB);
+		LLVMPositionBuilderAtEnd(builder, thenBB);
+		
+		return ret;
 	}
 	
 	private LLVMValueRef buildCall(CallExpression c) {

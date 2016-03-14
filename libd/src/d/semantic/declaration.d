@@ -198,7 +198,6 @@ struct DeclarationVisitor {
 				FunctionType.init,
 				d.name,
 				[],
-				null,
 			);
 		} else {
 			uint index = -1;
@@ -213,7 +212,6 @@ struct DeclarationVisitor {
 				FunctionType.init,
 				d.name,
 				[],
-				null,
 			);
 		}
 		

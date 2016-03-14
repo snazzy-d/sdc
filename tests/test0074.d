@@ -30,7 +30,7 @@ int transmogrify(int input) {
 int main() {
 	bool didRun = false;
 	switch(0) {
-		didRun = true;
+		// didRun = true;
 		default:
 	}
 	assert(!didRun);
@@ -51,4 +51,3 @@ int main() {
 	assert(transmogrify(4) == 0);
 	return transmogrify(128);
 }
-

@@ -450,13 +450,13 @@ class __Line__Literal : AstExpression {
 class DelegateLiteral : AstExpression {
 	ParamDecl[] params;
 	bool isVariadic;
-	AstBlockStatement fbody;
+	BlockStatement fbody;
 	
 	this(
 		Location location,
 		ParamDecl[] params,
 		bool isVariadic,
-		AstBlockStatement fbody,
+		BlockStatement fbody,
 	) {
 		super(location);
 		
@@ -465,7 +465,7 @@ class DelegateLiteral : AstExpression {
 		this.fbody = fbody;
 	}
 	
-	this(AstBlockStatement fbody) {
+	this(BlockStatement fbody) {
 		this(fbody.location, [], false, fbody);
 	}
 }

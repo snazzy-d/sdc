@@ -12,14 +12,14 @@ import d.parser.statement;
 /**
  * Parse Version Declaration
  */
-auto parseVersion(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+auto parseVersion(ItemType)(ref TokenRange trange) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	return trange.parseconditionalBlock!(true, ItemType)();
 }
 
 /**
  * Parse Debug Declaration
  */
-auto parseDebug(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+auto parseDebug(ItemType)(ref TokenRange trange) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	return trange.parseconditionalBlock!(false, ItemType)();
 }
 
@@ -95,7 +95,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 /**
  * Parse static if.
  */
-ItemType parseStaticIf(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+ItemType parseStaticIf(ItemType)(ref TokenRange trange) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Static);
@@ -124,7 +124,7 @@ ItemType parseStaticIf(ItemType)(ref TokenRange trange) if(is(ItemType == AstSta
  */
 private auto parseItems(ItemType)(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
-		static if(is(ItemType == AstStatement)) {
+		static if(is(ItemType == Statement)) {
 			case OpenBrace :
 				trange.popFront();
 				
@@ -177,7 +177,7 @@ auto parseMixin(ItemType)(ref TokenRange trange) if(is(Mixin!ItemType)) {
 /**
  * Parse static assert.
  */
-ItemType parseStaticAssert(ItemType)(ref TokenRange trange) if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+ItemType parseStaticAssert(ItemType)(ref TokenRange trange) if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	auto location = trange.front.location;
 	
 	trange.match(TokenType.Static);

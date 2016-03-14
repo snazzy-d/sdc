@@ -11,10 +11,10 @@ final:
 /**
  * Version Conditional
  */
-class Version(ItemType) : ItemType if (is(ItemType == AstStatement) || is(ItemType == Declaration))  {
+class Version(ItemType) : ItemType if (is(ItemType == Statement) || is(ItemType == Declaration))  {
 	import d.context.name;
 	Name versionId;
-
+	
 	ItemType[] items;
 	ItemType[] elseItems;
 	
@@ -32,7 +32,7 @@ alias VersionDeclaration = Version!Declaration;
 /**
  * Version definition (ie version = FOOBAR)
  */
-class VersionDefinition(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+class VersionDefinition(ItemType) : ItemType if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	import d.context.name;
 	Name versionId;
 	
@@ -54,7 +54,7 @@ alias DebugDefinition = VersionDefinition;
 /**
  * Static if Conditional
  */
-class StaticIf(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+class StaticIf(ItemType) : ItemType if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	AstExpression condition;
 	ItemType[] items;
 	ItemType[] elseItems;
@@ -73,7 +73,7 @@ alias StaticIfDeclaration = StaticIf!Declaration;
 /**
  * Mixins
  */
-class Mixin(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration) || is(ItemType == AstExpression)) {
+class Mixin(ItemType) : ItemType if(is(ItemType == Statement) || is(ItemType == Declaration) || is(ItemType == AstExpression)) {
 	AstExpression value;
 	
 	this(Location location, AstExpression value) {
@@ -88,7 +88,7 @@ alias MixinDeclaration = Mixin!Declaration;
 /**
  * Static assert
  */
-class StaticAssert(ItemType) : ItemType if(is(ItemType == AstStatement) || is(ItemType == Declaration)) {
+class StaticAssert(ItemType) : ItemType if(is(ItemType == Statement) || is(ItemType == Declaration)) {
 	AstExpression condition;
 	AstExpression message;
 	

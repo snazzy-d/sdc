@@ -518,7 +518,7 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	}
 	
 	import d.ast.statement;
-	AstBlockStatement fbody;
+	BlockStatement fbody;
 	switch(trange.front.type) with(TokenType) {
 		case Semicolon :
 			location.spanTo(trange.front.location);

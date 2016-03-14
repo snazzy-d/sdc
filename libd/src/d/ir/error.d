@@ -4,7 +4,6 @@ import d.context.context;
 import d.context.location;
 
 import d.ir.expression;
-import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 

@@ -2,10 +2,10 @@ module d.llvm.statement;
 
 import d.llvm.local;
 
-import d.context.location;
-
 import d.ir.expression;
-import d.ir.statement;
+import d.ir.instruction;
+
+import d.context.location;
 
 import util.visitor;
 
@@ -15,46 +15,202 @@ struct StatementGen {
 	private LocalPass pass;
 	alias pass this;
 	
-	LLVMValueRef switchInstr;
+	LLVMValueRef fun;
 	
-	struct LabelBlock {
-		size_t unwind;
-		LLVMBasicBlockRef basic;
-	}
+	LLVMBasicBlockRef[] basicBlocks;
+	LLVMBasicBlockRef[] landingPads;
 	
-	LabelBlock continueBlock;
-	LabelBlock breakBlock;
-	LabelBlock defaultBlock;
-	
-	import d.context.name;
-	LabelBlock[Name] labels;
-	
-	// Forward goto can only be resolved when the label is reached.
-	struct GotoBlock {
-		LocalPass.Block[] unwind;
-		LLVMBasicBlockRef basic;
-	}
-	
-	GotoBlock[][Name] inFlightGotos;
+	Body fbody;
 	
 	this(LocalPass pass) {
 		this.pass = pass;
 	}
 	
-	void visit(Statement s) {
-		this.dispatch(s);
+	void visit(Body fbody) in {
+		assert(fbody, "Empty body");
+	} body {
+		basicBlocks.length = fbody.length;
+		landingPads.length = fbody.length;
+		
+		auto allocaBB = LLVMGetInsertBlock(builder);
+		fun = LLVMGetBasicBlockParent(allocaBB);
+		scope(success) {
+			// Branch from alloca block to function body.
+			LLVMPositionBuilderAtEnd(builder, allocaBB);
+			LLVMBuildBr(builder, basicBlocks[0]);
+		}
+		
+		this.fbody = fbody;
+		foreach (b; range(fbody)) {
+			visit(b);
+		}
 	}
 	
-	void visit(VariableStatement s) {
-		define(s.var);
-	}
-	
-	void visit(FunctionStatement s) {
-		define(s.fun);
-	}
-	
-	void visit(AggregateStatement s) {
-		define(s.aggregate);
+	void visit(BasicBlockRef b) {
+		auto llvmBB = genBasicBlock(b);
+		LLVMMoveBasicBlockAfter(llvmBB, LLVMGetInsertBlock(builder));
+		LLVMPositionBuilderAtEnd(builder, llvmBB);
+		
+		lpBB = genLandingPad(b);
+		
+		foreach(i; range(fbody, b)) {
+			final switch(i.op) with(OpCode) {
+			case Alloca:
+				define(i.var);
+				break;
+			
+			case Evaluate:
+				genExpression(i.expr);
+				break;
+			
+			// FIXME: Delete this, we can generate these eagerly upon use.
+			case Declare:
+				import d.ir.symbol;
+				if (auto f = cast(Function) i.sym) {
+					declare(f);
+				} else if (auto a = cast(Aggregate) i.sym) {
+					define(a);
+				} else {
+					assert(0, typeid(i.sym).toString() ~ " is not supported");
+				}
+				break;
+			}
+		}
+		
+		auto bb = &fbody[b];
+		final switch(bb.terminator) with(Terminator) {
+			case None:
+				assert(0, "Unterminated block");
+			
+			case Branch:
+				if (bb.value) {
+					LLVMBuildCondBr(
+						builder,
+						genExpression(bb.value),
+						genBasicBlock(fbody[b].successors[0]),
+						genBasicBlock(fbody[b].successors[1]),
+					);
+				} else {
+					LLVMBuildBr(
+						builder,
+						genBasicBlock(fbody[b].successors[0]),
+					);
+				}
+				break;
+			
+			case Switch:
+				auto switchTable = bb.switchTable;
+				auto e = genExpression(bb.value);
+				auto switchInstr = LLVMBuildSwitch(
+					builder,
+					e,
+					genBasicBlock(switchTable.defaultBlock),
+					switchTable.entryCount,
+				);
+				
+				auto t = LLVMTypeOf(e);
+				foreach(c; switchTable.cases) {
+					LLVMAddCase(
+						switchInstr,
+						LLVMConstInt(t, c.value, false),
+						genBasicBlock(c.block),
+					);
+				}
+				
+				break;
+			
+			case Return:
+				if (bb.value) {
+					auto ret = genExpression(bb.value);
+					LLVMBuildRet(builder, ret);
+				} else {
+					LLVMBuildRetVoid(builder);
+				}
+				
+				break;
+			
+			case Throw:
+				if (bb.value) {
+					genCall(
+						declare(pass.object.getThrow()),
+						[genExpression(bb.value)],
+					);
+					LLVMBuildUnreachable(builder);
+					break;
+				}
+				
+				assert(lpContext, "No context to unwind");
+				auto catchTable = fbody[b].catchTable;
+				if (catchTable is null) {
+					Resume:
+					if (auto lpBlock = fbody[b].landingpad) {
+						LLVMBuildBr(builder, genBasicBlock(lpBlock));
+					} else {
+						auto lp = LLVMBuildLoad(builder, lpContext, "");
+						LLVMBuildResume(builder, lp);
+					}
+					
+					break;
+				}
+				
+				auto i32 = LLVMInt32TypeInContext(llvmCtx);
+				LLVMValueRef[2] gepIdx = [
+					LLVMConstInt(i32, 0, false),
+					LLVMConstInt(i32, 1, false),
+				];
+				
+				auto ptr = LLVMBuildInBoundsGEP(
+					builder,
+					lpContext,
+					gepIdx.ptr,
+					gepIdx.length,
+					"",
+				);
+				
+				import d.llvm.runtime;
+				auto ehTypeidFun = RuntimeGen(pass.pass).getEhTypeidFor();
+				
+				auto actionid = LLVMBuildLoad(builder, ptr, "actionid");
+				auto voidstar = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+				foreach(c; catchTable.catches) {
+					auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
+					
+					import d.llvm.type;
+					auto typeinfo = LLVMBuildBitCast(
+						builder,
+						TypeGen(pass.pass).getTypeInfo(c.type),
+						voidstar,
+						"",
+					);
+					
+					LLVMBuildCondBr(
+						builder,
+						LLVMBuildICmp(
+							builder,
+							LLVMIntPredicate.EQ,
+							genCall(ehTypeidFun, [typeinfo]),
+							actionid,
+							"",
+						),
+						genBasicBlock(c.block),
+						nextUnwindBB,
+					);
+					
+					LLVMPositionBuilderAtEnd(builder, nextUnwindBB);
+				}
+				
+				auto lpBlock = fbody[b].landingpad;
+				if (lpBlock) {
+					LLVMBuildBr(builder, genBasicBlock(lpBlock));
+					break;
+				}
+				
+				goto Resume;
+			
+			case Halt:
+				genHalt(bb.location, bb.value);
+				break;
+		}
 	}
 	
 	private auto genExpression(Expression e) {
@@ -62,339 +218,107 @@ struct StatementGen {
 		return ExpressionGen(pass).visit(e);
 	}
 	
-	private auto genConstant(CompileTimeExpression e) {
-		import d.llvm.constant;
-		return ConstantGen(pass.pass).visit(e);
+	private LLVMBasicBlockRef genLandingPad(BasicBlockRef srcBlock) {
+		auto b = fbody[srcBlock].landingpad;
+		if (!b) {
+			return null;
+		}
+		
+		auto i = *(cast(uint*) &b) - 1;
+		if (landingPads[i] !is null) {
+			return landingPads[i];
+		}
+		
+		// We have a failure case.
+		auto currentBB = LLVMGetInsertBlock(builder);
+		scope(exit) LLVMPositionBuilderAtEnd(builder, currentBB);
+		
+		LLVMTypeRef[2] lpTypes = [
+			LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
+			LLVMInt32TypeInContext(llvmCtx),
+		];
+		
+		auto lpType = LLVMStructTypeInContext(
+			llvmCtx,
+			lpTypes.ptr,
+			lpTypes.length,
+			false,
+		);
+		
+		// Create an alloca for the landing pad results.
+		if (!lpContext) {
+			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(fun));
+			lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
+		}
+		
+		auto lpBB = landingPads[i] = LLVMAppendBasicBlockInContext(
+			llvmCtx,
+			fun,
+			"landingPad",
+		);
+		
+		auto instrs = range(fbody, b);
+		bool cleanup = instrs.length > 0 || fbody[b].terminator != Terminator.Throw;
+		
+		LLVMValueRef[] clauses;
+		if (fbody[b].terminator == Terminator.Throw && !fbody[b].value) {
+			if (auto catchTable = fbody[b].catchTable) {
+				foreach(c; catchTable.catches) {
+					import d.llvm.type;
+					clauses ~= TypeGen(pass.pass).getTypeInfo(c.type);
+				}
+			}
+		}
+		
+		if (auto nextLpBB = genLandingPad(b)) {
+			auto nextLp = LLVMGetFirstInstruction(nextLpBB);
+			cleanup = cleanup || LLVMIsCleanup(nextLp);
+			
+			clauses.length = LLVMGetNumClauses(nextLp);
+			foreach (uint n, ref c; clauses) {
+				c = LLVMGetClause(nextLp, n);
+			}
+		}
+		
+		LLVMPositionBuilderAtEnd(builder, lpBB);
+		auto landingPad = LLVMBuildLandingPad(
+			builder,
+			lpType,
+			declare(pass.object.getPersonality()),
+			cast(uint) clauses.length,
+			"",
+		);
+		
+		LLVMSetCleanup(landingPad, cleanup);
+		foreach (c; clauses) {
+			LLVMAddClause(landingPad, c);
+		}
+		
+		LLVMBuildStore(builder, landingPad, lpContext);
+		LLVMBuildBr(builder, genBasicBlock(b));
+		
+		return lpBB;
+	}
+	
+	private LLVMBasicBlockRef genBasicBlock(BasicBlockRef b) {
+		auto i = *(cast(uint*) &b) - 1;
+		if (basicBlocks[i] !is null) {
+			return basicBlocks[i];
+		}
+		
+		// Make sure we have the landign pad ready.
+		genLandingPad(b);
+		
+		return basicBlocks[i] = LLVMAppendBasicBlockInContext(
+			llvmCtx,
+			fun,
+			fbody[b].name.toStringz(context),
+		);
 	}
 	
 	private auto genCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		import d.llvm.expression;
 		return ExpressionGen(pass).buildCall(callee, args);
-	}
-	
-	void visit(ExpressionStatement e) {
-		genExpression(e.expression);
-	}
-	
-	void visit(BlockStatement b) {
-		auto oldUnwindBlocks = unwindBlocks;
-		foreach(s; b.statements) {
-			visit(s);
-		}
-		
-		unwindTo(oldUnwindBlocks.length);
-	}
-	
-	private void maybeBranchTo(LLVMBasicBlockRef destBB) {
-		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			LLVMBuildBr(builder, destBB);
-		}
-	}
-	
-	void visit(IfStatement ifs) {
-		auto condition = genExpression(ifs.condition);
-		
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
-		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
-		auto elseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "else");
-		auto mergeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "merge");
-		
-		LLVMBuildCondBr(builder, condition, thenBB, elseBB);
-		
-		// Emit then
-		LLVMPositionBuilderAtEnd(builder, thenBB);
-		
-		visit(ifs.then);
-		
-		// Codegen of then can change the current block, so we put everything in order.
-		thenBB = LLVMGetInsertBlock(builder);
-		maybeBranchTo(mergeBB);
-		
-		// Put the else block after the generated stuff.
-		LLVMMoveBasicBlockAfter(elseBB, thenBB);
-		LLVMPositionBuilderAtEnd(builder, elseBB);
-		
-		// Emit else
-		if (ifs.elseStatement) {
-			visit(ifs.elseStatement);
-		}
-		
-		// Codegen of else can change the current block,
-		// so we put everything in order.
-		elseBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(mergeBB, elseBB);
-		
-		maybeBranchTo(mergeBB);
-		LLVMPositionBuilderAtEnd(builder, mergeBB);
-	}
-	
-	void visit(LoopStatement l) {
-		// Generate initialization if appropriate
-		auto oldBreakBlock = breakBlock;
-		auto oldContinueBlock = continueBlock;
-		scope(exit) {
-			breakBlock = oldBreakBlock;
-			continueBlock = oldContinueBlock;
-		}
-		
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
-		auto testBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.test");
-		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.body");
-		auto incBB  = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.inc");
-		auto exitBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "loop.exit");
-		
-		breakBlock = LabelBlock(unwindBlocks.length, exitBB);
-		continueBlock = LabelBlock(unwindBlocks.length, incBB);
-		
-		// Jump into the loop.
-		maybeBranchTo(l.skipFirstCond ? bodyBB : testBB);
-		LLVMPositionBuilderAtEnd(builder, testBB);
-		
-		// Test and do or jump to done.
-		auto condition = genExpression(l.condition);
-		LLVMBuildCondBr(builder, condition, bodyBB, exitBB);
-		
-		// Emit loop body
-		auto currentBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(bodyBB, currentBB);
-		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
-		visit(l.fbody);
-		
-		// Codegen of then can change the current block,
-		// so we put everything in order.
-		currentBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(incBB, currentBB);
-		
-		maybeBranchTo(incBB);
-		
-		// Build continue block or alias it to the test.
-		LLVMPositionBuilderAtEnd(builder, incBB);
-		if (l.increment !is null) {
-			genExpression(l.increment);
-		}
-		
-		currentBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(exitBB, currentBB);
-		maybeBranchTo(testBB);
-		
-		LLVMPositionBuilderAtEnd(builder, exitBB);
-	}
-	
-	void visit(ReturnStatement r) {
-		LLVMValueRef ret;
-		if (r.value) {
-			ret = genExpression(r.value);
-		}
-		
-		closeBlockTo(0);
-		
-		if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			return;
-		}
-		
-		if (r.value) {
-			LLVMBuildRet(builder, ret);
-		} else {
-			LLVMBuildRetVoid(builder);
-		}
-	}
-	
-	private void unwindAndBranch(LabelBlock b) in {
-		assert(b.basic !is null);
-	} body {
-		closeBlockTo(b.unwind);
-		maybeBranchTo(b.basic);
-	}
-	
-	void visit(BreakStatement s) {
-		unwindAndBranch(breakBlock);
-	}
-	
-	void visit(ContinueStatement s) {
-		unwindAndBranch(continueBlock);
-	}
-	
-	void visit(SwitchStatement s) {
-		auto oldBreakBlock = breakBlock;
-		auto oldDefaultBlock = defaultBlock;
-		auto oldSwitchInstr = switchInstr;
-		
-		scope(exit) {
-			breakBlock = oldBreakBlock;
-			defaultBlock = oldDefaultBlock;
-			switchInstr = oldSwitchInstr;
-		}
-		
-		auto unwindBlock = unwindBlocks.length;
-		
-		auto expression = genExpression(s.expression);
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		
-		auto defaultBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "default");
-		defaultBlock = LabelBlock(unwindBlock, defaultBB);
-		
-		auto startBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "switchstart");
-		
-		auto breakBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "switchend");
-		breakBlock = LabelBlock(unwindBlock, breakBB);
-		
-		switchInstr = LLVMBuildSwitch(builder, expression, defaultBB, 0);
-		
-		LLVMPositionBuilderAtEnd(builder, startBB);
-		
-		visit(s.statement);
-		
-		// Codegen of switch body can change the current block, so we put everything in order.
-		auto finalBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(breakBB, finalBB);
-		
-		maybeBranchTo(breakBB);
-		
-		// Conclude default block if it isn't already.
-		if (!LLVMGetBasicBlockTerminator(defaultBB)) {
-			LLVMPositionBuilderAtEnd(builder, defaultBB);
-			LLVMBuildUnreachable(builder);
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, breakBB);
-	}
-	
-	private void fixupGoto(Name label, LabelBlock block) {
-		if (auto ifgsPtr = label in inFlightGotos) {
-			auto ifgs = *ifgsPtr;
-			inFlightGotos.remove(label);
-			
-			foreach(ifg; ifgs) {
-				auto oldUnwindBlocks = unwindBlocks;
-				scope(exit) unwindBlocks = oldUnwindBlocks;
-				
-				unwindBlocks = ifg.unwind;
-				
-				LLVMPositionBuilderAtEnd(builder, ifg.basic);
-				unwindAndBranch(block);
-			}
-		}
-	}
-	
-	void visit(CaseStatement s) {
-		assert(switchInstr);
-		
-		auto currentBB = LLVMGetInsertBlock(builder);
-		
-		auto fun = LLVMGetBasicBlockParent(currentBB);
-		auto caseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "case");
-		
-		// In fligt goto case will end up here.
-		fixupGoto(BuiltinName!"case", LabelBlock(defaultBlock.unwind, caseBB));
-		
-		LLVMMoveBasicBlockAfter(caseBB, currentBB);
-		
-		// Conclude that block if it isn't already.
-		if (!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMPositionBuilderAtEnd(builder, currentBB);
-			LLVMBuildBr(builder, caseBB);
-		}
-		
-		foreach(e; s.cases) {
-			LLVMAddCase(switchInstr, genConstant(e), caseBB);
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, caseBB);
-	}
-	
-	void visit(LabeledStatement s) {
-		auto currentBB = LLVMGetInsertBlock(builder);
-		auto label = s.label;
-		
-		LLVMBasicBlockRef labelBB;
-		
-		// default is a magic label.
-		if (label == BuiltinName!"default") {
-			labelBB = defaultBlock.basic;
-		} else {
-			import std.string;
-			auto fun = LLVMGetBasicBlockParent(currentBB);
-			labelBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, label.toStringz(context));
-			
-			auto block = labels[label] = LabelBlock(unwindBlocks.length, labelBB);
-			fixupGoto(label, block);
-		}
-		
-		assert(labelBB !is null);
-		LLVMMoveBasicBlockAfter(labelBB, currentBB);
-		
-		// Conclude that block if it isn't already.
-		if (!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMPositionBuilderAtEnd(builder, currentBB);
-			LLVMBuildBr(builder, labelBB);
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, labelBB);
-		visit(s.statement);
-	}
-	
-	void visit(GotoStatement s) {
-		auto label = s.label;
-		
-		// default is a magic label.
-		if (label == BuiltinName!"default") {
-			unwindAndBranch(defaultBlock);
-			return;
-		}
-		
-		if (auto bPtr = label in labels) {
-			unwindAndBranch(*bPtr);
-			return;
-		}
-		
-		// Forward goto need to be registered and fixed when we encounter the label.
-		if (auto bPtr = label in inFlightGotos) {
-			auto b = *bPtr;
-			b ~= GotoBlock(unwindBlocks, LLVMGetInsertBlock(builder));
-			inFlightGotos[label] = b;
-		} else {
-			inFlightGotos[label] = [GotoBlock(unwindBlocks, LLVMGetInsertBlock(builder))];
-		}
-		
-		// Should be unreachable, but most of the code expect a BB to be active.
-		auto currentBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(currentBB);
-		auto postGotoBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unreachable_post_goto");
-		LLVMMoveBasicBlockAfter(postGotoBB, currentBB);
-		LLVMPositionBuilderAtEnd(builder, postGotoBB);
-	}
-	
-	void visit(CleanupStatement s) {
-		unwindBlocks ~= Block(BlockKind.Exit, s.cleanup, null, null);
-	}
-	
-	void visit(AssertStatement s) {
-		auto test = genExpression(s.condition);
-		
-		auto testBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(testBB);
-		
-		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_fail");
-		auto successBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "assert_success");
-		
-		auto br = LLVMBuildCondBr(builder, test, successBB, failBB);
-		
-		// We assume that assert fail is unlikely.
-		LLVMSetMetadata(br, profKindID, unlikelyBranch);
-		
-		// Emit assert call
-		LLVMPositionBuilderAtEnd(builder, failBB);
-		genHalt(s.location, s.message);
-		
-		// Now continue regular execution flow.
-		LLVMPositionBuilderAtEnd(builder, successBB);
-	}
-	
-	void visit(HaltStatement s) {
-		genHalt(s.location, s.message);
 	}
 	
 	void genHalt(Location location, Expression msg) {
@@ -420,223 +344,5 @@ struct StatementGen {
 		
 		// Conclude that block.
 		LLVMBuildUnreachable(builder);
-	}
-	
-	void visit(ThrowStatement s) {
-		auto value = LLVMBuildBitCast(
-			builder,
-			genExpression(s.value),
-			define(pass.object.getThrowable()),
-			"",
-		);
-		
-		genCall(declare(pass.object.getThrow()), [value]);
-		LLVMBuildUnreachable(builder);
-	}
-	
-	void visit(TryStatement s) {
-		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
-		auto resumeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "resume");
-		
-		auto oldCatchClauses = catchClauses;
-		scope(success) {
-			catchClauses = oldCatchClauses;
-		}
-		
-		auto catches = s.catches;
-		foreach_reverse(c; catches) {
-			auto type = c.type;
-			
-			import d.llvm.type;
-			TypeGen(pass.pass).visit(type);
-			catchClauses ~= TypeGen(pass.pass).getTypeInfo(type);
-			
-			unwindBlocks ~= Block(BlockKind.Catch, c.cbody, null, null);
-		}
-		
-		visit(s.tbody);
-		
-		auto currentBB = LLVMGetInsertBlock(builder);
-		maybeBranchTo(resumeBB);
-		
-		auto lastBlock = unwindBlocks[$ - 1];
-		unwindBlocks = unwindBlocks[0 .. $ - catches.length];
-		
-		scope(success) {
-			LLVMPositionBuilderAtEnd(builder, resumeBB);
-		}
-		
-		// If no unwind in the first block, we can skip the whole stuff.
-		auto unwindBB = lastBlock.unwindBB;
-		if (!unwindBB) {
-			LLVMMoveBasicBlockAfter(resumeBB, currentBB);
-			return;
-		}
-		
-		// Only the first one can have a landingPad.
-		auto landingPadBB = lastBlock.landingPadBB;
-		if (landingPadBB) {
-			LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
-			currentBB = landingPadBB;
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, unwindBB);
-		auto landingPad = LLVMBuildLoad(builder, lpContext, "");
-		auto cid = LLVMBuildExtractValue(builder, landingPad, 1, "");
-		
-		foreach(c; catches) {
-			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
-			
-			auto catchBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "catch");
-			auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-			
-			import d.llvm.type;
-			auto typeinfo = LLVMBuildBitCast(
-				builder,
-				TypeGen(pass.pass).getTypeInfo(c.type),
-				LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
-				"",
-			);
-			
-			import d.llvm.runtime;
-			auto tid = genCall(RuntimeGen(pass.pass).getEhTypeidFor(), [typeinfo]);
-			auto condition = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, tid, cid, "");
-			LLVMBuildCondBr(builder, condition, catchBB, nextUnwindBB);
-			
-			LLVMMoveBasicBlockAfter(catchBB, unwindBB);
-			LLVMPositionBuilderAtEnd(builder, catchBB);
-			
-			visit(c.cbody);
-			
-			currentBB = LLVMGetInsertBlock(builder);
-			maybeBranchTo(resumeBB);
-			
-			unwindBB = nextUnwindBB;
-			LLVMPositionBuilderAtEnd(builder, unwindBB);
-		}
-		
-		LLVMMoveBasicBlockAfter(resumeBB, unwindBB);
-		concludeUnwind(fun, unwindBB);
-	}
-	
-	void closeBlockTo(size_t level) {
-		auto oldUnwindBlocks = unwindBlocks;
-		scope(exit) unwindBlocks = oldUnwindBlocks;
-		
-		while(unwindBlocks.length > level) {
-			import std.array;
-			auto b = unwindBlocks.back;
-			unwindBlocks.popBack();
-			
-			if (b.kind == BlockKind.Exit || b.kind == BlockKind.Success) {
-				if (LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-					break;
-				}
-				
-				auto oldLocals = pass.locals.dup;
-				scope(exit) {
-					if (pass.locals.length != oldLocals.length) {
-						pass.locals = oldLocals;
-					}
-				}
-				
-				visit(b.statement);
-			}
-		}
-	}
-	
-	void concludeUnwind(LLVMValueRef fun, LLVMBasicBlockRef currentBB) {
-		if (LLVMGetBasicBlockTerminator(currentBB)) {
-			return;
-		}
-		
-		LLVMPositionBuilderAtEnd(builder, currentBB);
-		foreach_reverse(b; unwindBlocks) {
-			if (b.kind == BlockKind.Success) {
-				continue;
-			}
-			
-			if (!b.unwindBB) {
-				b.unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-			}
-			
-			LLVMBuildBr(builder, b.unwindBB);
-			break;
-		}
-		
-		if (!LLVMGetBasicBlockTerminator(currentBB)) {
-			LLVMBuildResume(builder, LLVMBuildLoad(builder, lpContext, ""));
-		}
-	}
-	
-	void unwindTo(size_t level) {
-		closeBlockTo(level);
-		
-		bool mustResume = false;
-		auto currentBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(currentBB);
-		auto preUnwindBB = currentBB;
-		
-		foreach_reverse(b; unwindBlocks[level .. $]) {
-			if (b.kind == BlockKind.Success) {
-				continue;
-			}
-			
-			assert(b.kind != BlockKind.Catch);
-			
-			// We have a scope(exit) or scope(failure).
-			// Check if we need to chain unwinding.
-			auto unwindBB = b.unwindBB;
-			if (!unwindBB) {
-				if (!mustResume) {
-					continue;
-				}
-				
-				unwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "unwind");
-			}
-			
-			// We encountered a scope statement that
-			// can be reached while unwinding.
-			mustResume = true;
-			
-			// Reorder basic blocks so that IR look nice.
-			auto landingPadBB = b.landingPadBB;
-			if (landingPadBB) {
-				LLVMMoveBasicBlockAfter(landingPadBB, currentBB);
-				currentBB = landingPadBB;
-			}
-			
-			LLVMMoveBasicBlockAfter(unwindBB, currentBB);
-			LLVMPositionBuilderAtEnd(builder, unwindBB);
-			
-			auto oldLocals = pass.locals.dup;
-			scope(exit) {
-				if (pass.locals.length != oldLocals.length) {
-					pass.locals = oldLocals;
-				}
-			}
-			
-			// Emit the exception cleanup code.
-			visit(b.statement);
-			
-			currentBB = LLVMGetInsertBlock(builder);
-		}
-		
-		unwindBlocks = unwindBlocks[0 .. level];
-		if (!mustResume) {
-			return;
-		}
-		
-		concludeUnwind(fun, currentBB);
-		
-		auto resumeBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "resume");
-		
-		if (!LLVMGetBasicBlockTerminator(preUnwindBB)) {
-			LLVMPositionBuilderAtEnd(builder, preUnwindBB);
-			LLVMBuildBr(builder, resumeBB);
-		}
-		
-		LLVMMoveBasicBlockAfter(resumeBB, currentBB);
-		LLVMPositionBuilderAtEnd(builder, resumeBB);
 	}
 }

@@ -219,7 +219,7 @@ struct SymbolAnalyzer {
 			);
 			
 			switch (f.linkage) with(Linkage) {
-				case D :
+				case D:
 					import d.semantic.mangler;
 					auto mangle = TypeMangler(pass).visit(f.type);
 					mangle = f.hasThis ? mangle : ("FM" ~ mangle[1 .. $]);
@@ -227,7 +227,7 @@ struct SymbolAnalyzer {
 						.getName("_D" ~ pass.manglePrefix ~ mangle);
 					break;
 				
-				case C :
+				case C:
 					f.mangle = f.name;
 					break;
 				
@@ -256,9 +256,9 @@ struct SymbolAnalyzer {
 				
 				if (fbody) {
 					import d.ast.statement;
-					fbody = new AstBlockStatement(fbody.location, [
+					fbody = new BlockStatement(fbody.location, [
 						fbody,
-						new AstReturnStatement(
+						new ReturnStatement(
 							f.location,
 							new ThisExpression(f.location),
 						),
@@ -347,7 +347,7 @@ struct SymbolAnalyzer {
 			StatementVisitor(pass).getBody(f, fbody);
 			
 			import d.semantic.flow;
-			f.closure = FlowAnalyzer(pass).getClosure(f);
+			f.closure = FlowAnalyzer(pass, f).getClosure();
 		}
 		
 		if (isAuto) {

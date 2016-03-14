@@ -382,18 +382,33 @@ final:
  * A scope associate identifier with declarations.
  */
 class NestedScope : Scope {
+	// TODO: Remove the module field, which can be access from fun.
+	Function fun;
+	
 	mixin ScopeImpl!(ScopeType.Nested);
 	
-	this(S)(S parentScope) if (is(S : Scope)) {
-		this.dmodule = parentScope.getModule();
+	this(Function fun) {
+		this.fun = fun;
+		this.parentScope = fun;
+	}
+	
+	this(NestedScope parentScope) {
+		this.fun = parentScope.fun;
 		this.parentScope = parentScope;
 	}
 	
-	this(Module dmodule, Scope parentScope) in {
-		assert(dmodule is parentScope.getModule());
-	} body {
-		this.dmodule = dmodule;
-		this.parentScope = parentScope;
+	this(Scope s) {
+		if (auto n = cast(NestedScope) s) {
+			this(n);
+		} else if (auto f = cast(Function) s) {
+			this(f);
+		} else {
+			assert(0, "Parent scope must be a function or a nested scope");
+		}
+	}
+	
+	Module getModule() {
+		return fun.getModule();
 	}
 }
 

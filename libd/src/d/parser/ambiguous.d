@@ -156,7 +156,7 @@ auto parseStatementSuffix(ref TokenRange trange, AstExpression e) {
 
 private:
 
-AstStatement finalizeStatement(T)(
+Statement finalizeStatement(T)(
 	ref TokenRange trange,
 	Location location,
 	T parsed,
@@ -174,7 +174,7 @@ AstStatement finalizeStatement(T)(
 		return new DeclarationStatement(parsed);
 	} else static if (is(T : AstExpression)) {
 		trange.match(TokenType.Semicolon);
-		return new AstExpressionStatement(parsed);
+		return new ExpressionStatement(parsed);
 	} else static if (is(T : IdentifierStarIdentifier)) {
 		trange.match(TokenType.Semicolon);
 		location.spanTo(trange.previous);

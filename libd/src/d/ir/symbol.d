@@ -2,7 +2,6 @@ module d.ir.symbol;
 
 import d.ir.dscope;
 import d.ir.expression;
-import d.ir.statement;
 import d.ir.type;
 
 import d.common.node;
@@ -109,7 +108,8 @@ class Function : ValueSymbol, Scope {
 	Variable[] params;
 	uint[Variable] closure;
 	
-	BlockStatement fbody;
+	import d.ir.instruction;
+	Body fbody;
 	
 	this(
 		Location location,
@@ -117,14 +117,12 @@ class Function : ValueSymbol, Scope {
 		FunctionType type,
 		Name name,
 		Variable[] params,
-		BlockStatement fbody,
 	) {
 		super(location, name);
 		fillParentScope(parentScope);
 		
 		this.type = type;
 		this.params = params;
-		this.fbody = fbody;
 	}
 	
 	@property intrinsicID() const {
@@ -623,9 +621,8 @@ class Method : Function {
 		FunctionType type,
 		Name name,
 		Variable[] params,
-		BlockStatement fbody,
 	) {
-		super(location, parentScope, type, name, params, fbody);
+		super(location, parentScope, type, name, params);
 		
 		this.index = index;
 	}

@@ -12,7 +12,6 @@ import d.ast.expression;
 import d.ast.statement;
 
 import d.ir.expression;
-import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -22,10 +21,6 @@ alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
 
 alias CallExpression = d.ir.expression.CallExpression;
-
-alias BlockStatement = d.ir.statement.BlockStatement;
-alias ExpressionStatement = d.ir.statement.ExpressionStatement;
-alias ReturnStatement = d.ir.statement.ReturnStatement;
 
 final class SemanticPass {
 	import d.context.context;
@@ -128,18 +123,20 @@ final class SemanticPass {
 		assert(candidates.length == 1, "No main function");
 		
 		auto main = candidates[0];
-		auto location = main.fbody.location;
+		auto location = main.location;
 		
 		auto type = main.type;
 		auto returnType = type.returnType.getType();
 		auto call = new CallExpression(location, returnType, new FunctionExpression(location, main), []);
 		
-		Statement[] fbody;
+		import d.ir.instruction;
+		Body fbody;
+		auto bb = fbody.newBasicBlock(BuiltinName!"entry");
 		if (returnType.kind == TypeKind.Builtin && returnType.builtin == BuiltinType.Void) {
-			fbody ~= new ExpressionStatement(call);
-			fbody ~= new ReturnStatement(location, new IntegerLiteral(location, 0, BuiltinType.Int));
+			fbody[bb].eval(location, call);
+			fbody[bb].ret(location, new IntegerLiteral(location, 0, BuiltinType.Int));
 		} else {
-			fbody ~= new ReturnStatement(location, call);
+			fbody[bb].ret(location, call);
 		}
 		
 		auto bootstrap = new Function(
@@ -153,10 +150,9 @@ final class SemanticPass {
 			),
 			BuiltinName!"_Dmain",
 			[],
-			null,
 		);
 		
-		bootstrap.fbody = new BlockStatement(location, bootstrap, fbody);
+		bootstrap.fbody = fbody;
 		
 		bootstrap.visibility = Visibility.Public;
 		bootstrap.step = Step.Processed;

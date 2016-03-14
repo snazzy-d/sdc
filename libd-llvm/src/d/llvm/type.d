@@ -62,6 +62,10 @@ struct TypeGen {
 	}
 	
 	LLVMValueRef getTypeInfo(Aggregate a) {
+		if (a !in typeInfos) {
+			this.dispatch(a);
+		}
+		
 		return typeInfos[a];
 	}
 	
@@ -297,7 +301,8 @@ struct TypeGen {
 			if (auto m = cast(Method) member) {
 				auto oldBody = m.fbody;
 				scope(exit) m.fbody = oldBody;
-				m.fbody = null;
+				// FIXME: Do whatever is needed here.
+				// m.fbody = null;
 				
 				import d.llvm.global;
 				methods ~= GlobalGen(pass).declare(m);

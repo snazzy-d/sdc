@@ -62,6 +62,10 @@ uint loopflow() {
 	do {
 		return 1;
 	} while(condition);
+	
+	// FIXME: instruction lowerer lost the capability
+	// to see this is unreachable.
+	return 2;
 }
 
 uint tryflow0() {
@@ -93,9 +97,11 @@ uint switchflow0() {
 	switch(cast(uint) condition) {
 		case 0:
 			return 0;
-		 case 1:
+		
+		case 1:
 			return 1;
-		 default:
+		
+		default:
 			return 2;
 	}
 }
@@ -104,8 +110,10 @@ uint switchflow1() {
 	switch(cast(uint) condition) {
 		case 0:
 			break;
+		
 		 case 1:
 			return 1;
+		
 		 default:
 			break;
 	}

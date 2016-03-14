@@ -3,7 +3,6 @@ module d.llvm.local;
 import d.llvm.codegen;
 
 import d.ir.dscope;
-import d.ir.statement;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -42,23 +41,7 @@ struct LocalGen {
 	Closure[] contexts;
 	
 	LLVMValueRef lpContext;
-	LLVMValueRef[] catchClauses;
-	
-	enum BlockKind {
-		Exit,
-		Success,
-		Failure,
-		Catch,
-	}
-	
-	struct Block {
-		BlockKind kind;
-		Statement statement;
-		LLVMBasicBlockRef landingPadBB;
-		LLVMBasicBlockRef unwindBB;
-	}
-	
-	Block[] unwindBlocks;
+	LLVMBasicBlockRef lpBB;
 	
 	this(CodeGen pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
 		this.pass = pass;
@@ -132,7 +115,7 @@ struct LocalGen {
 		require(f);
 		
 		// XXX: This should probably a member of the Function class.
-		auto isLocal = f.hasContext || (cast(BlockStatement) f.getParentScope());
+		auto isLocal = f.hasContext || (cast(NestedScope) f.getParentScope());
 		auto lookup = isLocal
 			? locals
 			: globals;
@@ -203,6 +186,18 @@ struct LocalGen {
 		return true;
 	}
 	
+	void dump(Function f) {
+		import std.algorithm, std.range;
+		auto params = f.params
+			.map!(p => p.name.toString(pass.context))
+			.join(", ");
+		
+		import std.stdio;
+		write(f.name.toString(context), '(', params, ") {");
+		f.fbody.dump(context);
+		writeln("}\n");
+	}
+	
 	private void genBody(Function f, LLVMValueRef fun) in {
 		assert(
 			LLVMCountBasicBlocks(fun) == 0,
@@ -212,6 +207,8 @@ struct LocalGen {
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody || f.intrinsicID, "f must have a body");
 	} body {
+		scope(failure) dump(f);
+		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		
@@ -297,27 +294,8 @@ struct LocalGen {
 		}
 		
 		// Generate function's body.
-		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "body");
-		LLVMPositionBuilderAtEnd(builder, bodyBB);
-		
 		import d.llvm.statement;
 		StatementGen(&this).visit(f.fbody);
-		
-		// If the current block isn't concluded,
-		// it means that it is unreachable.
-		if (!LLVMGetBasicBlockTerminator(LLVMGetInsertBlock(builder))) {
-			// FIXME: provide the right AST in case of void function.
-			auto retType = LLVMGetReturnType(funType);
-			if (LLVMGetTypeKind(retType) == LLVMTypeKind.Void) {
-				LLVMBuildRetVoid(builder);
-			} else {
-				LLVMBuildUnreachable(builder);
-			}
-		}
-		
-		// Branch from alloca block to function body.
-		LLVMPositionBuilderAtEnd(builder, allocaBB);
-		LLVMBuildBr(builder, bodyBB);
 		
 		// If we have a context, let's make it the right size.
 		if (ctxPtr !is null) {
@@ -457,7 +435,7 @@ struct LocalGen {
 	} body {
 		auto name = v.name.toStringz(context);
 		
-		if (v.isRef | v.isFinal) {
+		if (v.isRef || v.isFinal) {
 			if (v.storage == Storage.Capture) {
 				auto addr = createCaptureStorage(v, "");
 				LLVMBuildStore(builder, value, addr);
