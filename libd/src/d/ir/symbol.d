@@ -174,8 +174,6 @@ class Module : Package {
  */
 class OverloadSet : Symbol {
 	Symbol[] set;
-	bool isPoisoned;
-	bool isResolved;
 	
 	this(Location location, Name name, Symbol[] set) {
 		super(location, name);
@@ -187,6 +185,15 @@ class OverloadSet : Symbol {
 		auto os = new OverloadSet(location, name, set);
 		os.mangle = mangle;
 		return os;
+	}
+	
+	@property isResolved() const {
+		return !!__derived;
+	}
+	
+	@property isResolved(bool resolved) {
+		__derived = resolved;
+		return resolved;
 	}
 }
 
@@ -243,6 +250,7 @@ class Variable : ValueSymbol {
 	
 	@property storage(Storage storage) {
 		__derived = storage;
+		return storage;
 	}
 	
 	override
@@ -313,6 +321,7 @@ class Template : ScopeSymbol {
 	
 	@property storage(Storage storage) {
 		__derived = storage;
+		return storage;
 	}
 }
 
@@ -407,6 +416,7 @@ class TemplateInstance : Symbol, Scope {
 	
 	@property storage(Storage storage) {
 		__derived = storage;
+		return storage;
 	}
 }
 
