@@ -92,7 +92,6 @@ AstStatement parseStatement(ref TokenRange trange) {
 			if (trange.front.type != Semicolon) {
 				init = trange.parseStatement();
 			} else {
-				init = new AstBlockStatement(trange.front.location, []);
 				trange.popFront();
 			}
 			

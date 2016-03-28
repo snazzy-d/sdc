@@ -225,7 +225,9 @@ public:
 	}
 	
 	void process(ForStatement f) {
-		visit(f.initialize);
+		if (f.initialize) {
+			visit(f.initialize);
+		}
 		
 		import d.semantic.caster, d.semantic.expression;
 		Expression condition = f.condition
