@@ -20,4 +20,3 @@ $(LIBD_LLVM): $(LIBD_LLVM_SRC) $(LIBD_DEP_IR) $(LIBD_DEP_UTIL)
 
 testlibd-llvm: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd $(LIBD_LLVM_ROOT)/tests; ./runlit.py . -v
-

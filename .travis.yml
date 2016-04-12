@@ -39,15 +39,14 @@ addons:
       - llvm-3.8
       - llvm-3.8-dev
       - llvm-3.8-runtime
-      - llvm-3.8-tools
       - libllvm3.8
       - libstdc++6
       - libedit2
       - libedit-dev
-      - g++-5.2
       - binutils-gold
 
 script:
   - make bin/sdc > build_sdc.log 2>&1
   - make lib/libsdrt.a > build_libsdrt.log 2>&1
-  - make test
+  # Because lit is gone (used to be in llvm-3.8-tools) we can only run testrunner.
+  - make testrunner
