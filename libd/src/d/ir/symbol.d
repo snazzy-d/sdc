@@ -5,8 +5,10 @@ import d.ir.expression;
 import d.ir.statement;
 import d.ir.type;
 
-import d.context.name;
 import d.common.node;
+
+import d.context.context;
+import d.context.name;
 
 public import d.common.qualifier;
 

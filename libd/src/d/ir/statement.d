@@ -5,6 +5,7 @@ import d.ir.expression;
 
 import d.ast.statement;
 
+import d.context.context;
 import d.context.location;
 
 class Statement : AstStatement {

@@ -5,6 +5,8 @@ import d.ast.expression;
 
 import d.common.node;
 
+import d.context.context;
+
 class AstStatement : Node {
 	this(Location location) {
 		super(location);

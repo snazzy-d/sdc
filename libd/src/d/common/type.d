@@ -353,9 +353,7 @@ public:
 	auto asFunctionType() inout in {
 		assert(kind == K.Function, "Not a function.");
 	} body {
-		import std.traits;
-		alias T = Unqual!(typeof(this));
-		return inout(FunctionType!T)(desc, payload.params);
+		return inout(FunctionType)(desc, payload.params);
 	}
 }
 

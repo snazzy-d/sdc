@@ -821,6 +821,7 @@ struct ExpressionGen {
 		auto vtblPtr = LLVMBuildStructGEP(builder, visit(e.argument), 0, "");
 		auto vtbl = LLVMBuildLoad(builder, vtblPtr, "");
 		
+		import d.llvm.type;
 		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
 		
 		// The classInfo is just before the vtbls in memory.

@@ -545,7 +545,7 @@ struct SymbolMatcher {
 	
 	bool visit(TypedAliasTemplateParameter p) {
 		if (auto vs = cast(ValueSymbol) matchee) {
-			import d.semantic.identifier;
+			import d.semantic.identifier : IdentifierResolver, apply;
 			return IdentifierResolver(pass)
 				.postProcess(p.location, vs)
 				.apply!(delegate bool(i) {
@@ -563,7 +563,7 @@ struct SymbolMatcher {
 	}
 	
 	bool visit(TypeTemplateParameter p) {
-		import d.semantic.identifier;
+		import d.semantic.identifier : IdentifierResolver, apply;
 		return IdentifierResolver(pass)
 			.postProcess(p.location, matchee)
 			.apply!(delegate bool(identified) {
@@ -581,7 +581,7 @@ struct SymbolMatcher {
 	}
 	
 	bool visit(ValueTemplateParameter p) {
-		import d.semantic.identifier;
+		import d.semantic.identifier : IdentifierResolver, apply;
 		return IdentifierResolver(pass)
 			.postProcess(p.location, matchee)
 			.apply!(delegate bool(identified) {
