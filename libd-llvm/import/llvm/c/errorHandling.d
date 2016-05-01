@@ -13,10 +13,7 @@
 
 module llvm.c.errorHandling;
 
-public import llvm.c.types;
-
 extern(C) nothrow:
-
 
 alias LLVMFatalErrorHandler = void function(const(char)* Reason);
 

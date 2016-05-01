@@ -115,6 +115,14 @@ struct __LLVMOpaqueUse {};
 alias LLVMUseRef = __LLVMOpaqueUse*;
 
 /**
+ * Used to represent an attributes.
+ *
+ * @see llvm::Attribute
+ */
+struct __LLVMOpaqueAttribute {};
+alias LLVMAttributeRef = __LLVMOpaqueAttribute*;
+
+/**
  * @see llvm::DiagnosticInfo
  */
 struct __LLVMOpaqueDiagnosticInfo {};

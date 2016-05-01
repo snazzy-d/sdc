@@ -63,7 +63,6 @@ final class CodeGen {
 		this.scheduler	= scheduler;
 		this.object		= object;
 		this.backend	= backend;
-		this.targetData	= targetData;
 		
 		// Make sure globals are initialized.
 		globals[null] = null;
@@ -73,6 +72,9 @@ final class CodeGen {
 		
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
+		
+		LLVMSetModuleDataLayout(dmodule, targetData);
+		this.targetData = LLVMGetModuleDataLayout(dmodule);
 		
 		LLVMValueRef[3] branch_metadata;
 		

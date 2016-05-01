@@ -59,10 +59,11 @@ public:
 			LLVMCodeModel.Default,
 		);
 		
-		auto td = LLVMGetTargetMachineData(targetMachine);
+		auto td = LLVMCreateTargetDataLayout(targetMachine);
+		scope(exit) LLVMDisposeTargetData(td);
 		
 		pass = new CodeGen(context, scheduler, obj, this, name, td);
-		dataLayout = new LLVMDataLayout(pass, td);
+		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
 	
 	~this() {
@@ -114,14 +115,12 @@ public:
 		auto pm = LLVMCreatePassManager();
 		scope(exit) LLVMDisposePassManager(pm);
 		
-		auto targetData = LLVMGetTargetMachineData(targetMachine);
-		LLVMAddTargetData(targetData, pm);
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		LLVMRunPassManager(pm, pass.dmodule);
-
+		
 		// Dump module for debug purpose.
 		// LLVMDumpModule(pass.dmodule);
-
+		
 		/+
 		import std.stdio;
 		writeln("\nASM generated :");
@@ -138,7 +137,7 @@ public:
 
 	void emitObject(Module[] modules, string objFile) {
 		runLLVMPasses(modules);
-
+		
 		import std.string;
 		char* errorPtr;
 		auto linkError = LLVMTargetMachineEmitToFile(

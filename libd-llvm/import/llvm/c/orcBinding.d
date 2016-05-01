@@ -35,6 +35,11 @@ alias LLVMOrcSymbolResolverFn = ulong function(const(char)* Name,
 alias LLVMOrcLazyCompileCallbackFn = ulong function(LLVMOrcJITStackRef JITStack,
                                                     void *CallbackCtx);
 
+enum LLVMOrcErrorCode {
+  Success = 0,
+  Generic,
+}
+
 /**
  * Create an ORC JIT stack.
  *
@@ -47,6 +52,14 @@ alias LLVMOrcLazyCompileCallbackFn = ulong function(LLVMOrcJITStackRef JITStack,
 LLVMOrcJITStackRef LLVMOrcCreateInstance(LLVMTargetMachineRef TM);
 
 /**
+ * Get the error message for the most recent error (if any).
+ *
+ * This message is owned by the ORC JIT Stack and will be freed when the stack
+ * is disposed of by LLVMOrcDisposeInstance.
+ */
+const(char)* LLVMOrcGetErrorMsg(LLVMOrcJITStackRef JITStack);
+
+/**
  * Mangle the given symbol.
  * Memory will be allocated for MangledSymbol to hold the result. The client
  */
@@ -56,7 +69,6 @@ void LLVMOrcGetMangledSymbol(LLVMOrcJITStackRef JITStack, char** MangledSymbol,
 /**
  * Dispose of a mangled symbol.
  */
-
 void LLVMOrcDisposeMangledSymbol(char* MangledSymbol);
 
 /**
@@ -70,16 +82,16 @@ LLVMOrcCreateLazyCompileCallback(LLVMOrcJITStackRef JITStack,
 /**
  * Create a named indirect call stub.
  */
-void LLVMOrcCreateIndirectStub(LLVMOrcJITStackRef JITStack,
-                               const(char)* StubName,
-                               LLVMOrcTargetAddress InitAddr);
+LLVMOrcErrorCode LLVMOrcCreateIndirectStub(LLVMOrcJITStackRef JITStack,
+                                           const(char)* StubName,
+                                           LLVMOrcTargetAddress InitAddr);
 
 /**
  * Set the pointer for the given indirect stub.
  */
-void LLVMOrcSetIndirectStubPointer(LLVMOrcJITStackRef JITStack,
-                                   const(char)* StubName,
-                                   LLVMOrcTargetAddress NewAddr);
+LLVMOrcErrorCode LLVMOrcSetIndirectStubPointer(LLVMOrcJITStackRef JITStack,
+                                               const(char)* StubName,
+                                               LLVMOrcTargetAddress NewAddr);
 
 /**
  * Add module to be eagerly compiled.
