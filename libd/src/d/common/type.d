@@ -158,7 +158,7 @@ private:
 		import std.traits;
 		alias Tags = EnumMembers!Tag;
 		
-		// Using uing here as Tag is not accessible where the bitfield is mixed in.
+		// Using uint here as Tag is not accessible where the bitfield is mixed in.
 		import std.typetuple;
 		alias TagTuple = TypeTuple!(uint, "tag", EnumSize!Tag);
 		
