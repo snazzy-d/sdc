@@ -22,14 +22,14 @@ int bar(int n) {
 }
 
 int foo(int n) {
-	if(n == 0) {
+	if (n == 0) {
 		return bar(n);	
 	}
 	
 	switch(n) {
 		case 1:
 			return 23;
-	
+		
 		case 2:
 		case 3:
 			return n;
@@ -42,4 +42,3 @@ int foo(int n) {
 int main() {
 	return foo(0) + foo(42) - foo(2);
 }
-

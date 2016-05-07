@@ -13,4 +13,3 @@ int main() {
 	foo() = 42;
 	return a;
 }
-

@@ -7,7 +7,7 @@ int main() {
 	
 FOO:
 	i++;
-	if(i != 42) {
+	if (i != 42) {
 		if(i == 27) {
 			i = 27;
 		}
@@ -17,4 +17,3 @@ FOO:
 	
 	return i;
 }
-

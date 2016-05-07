@@ -8,12 +8,14 @@ int main() {
 	switch(x) {
 		case 0:
 			return 1;
+		
 		case 2:
 			return 2;
+		
 		default:
 			return 5;
+		
 		default:
 			return 7;
 	}
 }
-

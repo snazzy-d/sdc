@@ -18,7 +18,7 @@ int main() {
 	i = 0;
 	do {
 		i++;
-		if(i == 5)
+		if (i == 5)
 			break;
 	} while(i < 10);
 	assert(i == 5);
@@ -28,11 +28,11 @@ int main() {
 	int j = 0;
 	do {
 		i++;
-		if(i > 5)
+		if (i > 5)
 			continue;
 		j++;
 	} while(i < 10);
 	assert(j == 5);
+	
 	return 0;
 }
-

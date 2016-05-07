@@ -8,8 +8,8 @@ int main() {
 	switch(x) {
 		case 0:
 			return 1;
+		
 		case 2:
 			return 2;
 	}
 }
-

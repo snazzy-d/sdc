@@ -12,4 +12,3 @@ int main() {
 	_out:
 	return i;
 }
-

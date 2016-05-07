@@ -1,7 +1,8 @@
 //T compiles:yes
 //T retval:0
 //T has-passed:yes
-// Tests nested switch 
+// Tests nested switch
+
 int main() {
 	int x = 10;
 	switch (x) {
@@ -11,10 +12,12 @@ int main() {
 					break;
 			}
 			break;
+		
 		case 2 :
 			switch (x) {
 				default :
 					break;
+				
 				case 1 :
 					switch (x) {
 						default :
@@ -23,7 +26,7 @@ int main() {
 					break;
 			}
 			break;
-
+		
 		default :
 			break;
 	}

@@ -55,4 +55,3 @@ int main() {
 	assert(transmogrify(128) == -1);
 	return 0;
 }
-

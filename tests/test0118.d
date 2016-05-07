@@ -13,4 +13,3 @@ class A {
 class B : A {
 	override void foo(long a) {}
 }
-

@@ -3,14 +3,14 @@
 //T retval:42
 
 int foo(char* p) {
-	if(*p == '\0') {
+	if (*p == '\0') {
 		return 0;
 	}
 	
 	switch(*p) {
 		case 'i' :
 			p++;
-			if(*p == '\0') {
+			if (*p == '\0') {
 				return 1;
 			}
 			
@@ -38,4 +38,3 @@ int main() {
 	
 	return foo(&str[0]);
 }
-

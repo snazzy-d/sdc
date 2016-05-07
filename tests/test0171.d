@@ -7,4 +7,3 @@ int main() {
 	int i;
 	OverInit:
 }
-
