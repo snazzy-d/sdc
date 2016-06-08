@@ -55,25 +55,49 @@ struct StatementGen {
 		
 		foreach(i; range(fbody, b)) {
 			final switch(i.op) with(OpCode) {
-			case Alloca:
-				define(i.var);
-				break;
-			
-			case Evaluate:
-				genExpression(i.expr);
-				break;
-			
-			// FIXME: Delete this, we can generate these eagerly upon use.
-			case Declare:
-				import d.ir.symbol;
-				if (auto f = cast(Function) i.sym) {
-					declare(f);
-				} else if (auto a = cast(Aggregate) i.sym) {
-					define(a);
-				} else {
-					assert(0, typeid(i.sym).toString() ~ " is not supported");
-				}
-				break;
+				case Alloca:
+					define(i.var);
+					break;
+				
+				case Destroy:
+					auto v = i.var;
+					auto s = v.type.getCanonical().dstruct;
+					assert(!s.isPod, "struct is not a pod");
+					
+					import d.context.name;
+					auto dsym = s.resolve(i.location, BuiltinName!"__dtor");
+					
+					import d.ir.symbol;
+					auto dtor = cast(Function) dsym;
+					if (dtor is null) {
+						auto os = cast(OverloadSet) dsym;
+						assert(os, "__dtor must be an overload set");
+						dtor = cast(Function) os.set[0];
+					}
+					
+					assert(dtor, "Cannot find dtor");
+					genCall(declare(dtor), [declare(v)]);
+					break;
+				
+				case Evaluate:
+					genExpression(i.expr);
+					break;
+				
+				// FIXME: Delete this, we can generate these upon use.
+				case Declare:
+					import d.ir.symbol;
+					if (auto f = cast(Function) i.sym) {
+						declare(f);
+					} else if (auto a = cast(Aggregate) i.sym) {
+						define(a);
+					} else {
+						assert(
+							0,
+							typeid(i.sym).toString() ~ " is not supported",
+						);
+					}
+					
+					break;
 			}
 		}
 		
@@ -96,6 +120,7 @@ struct StatementGen {
 						genBasicBlock(fbody[b].successors[0]),
 					);
 				}
+				
 				break;
 			
 			case Switch:
@@ -171,9 +196,11 @@ struct StatementGen {
 				auto ehTypeidFun = RuntimeGen(pass.pass).getEhTypeidFor();
 				
 				auto actionid = LLVMBuildLoad(builder, ptr, "actionid");
-				auto voidstar = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+				auto i8 = LLVMInt8TypeInContext(llvmCtx);
+				auto voidstar = LLVMPointerType(i8, 0);
 				foreach(c; catchTable.catches) {
-					auto nextUnwindBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
+					auto nextUnwindBB =
+						LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 					
 					import d.llvm.type;
 					auto typeinfo = LLVMBuildBitCast(
@@ -258,10 +285,11 @@ struct StatementGen {
 		);
 		
 		auto instrs = range(fbody, b);
-		bool cleanup = instrs.length > 0 || fbody[b].terminator != Terminator.Throw;
+		auto terminator = fbody[b].terminator;
+		bool cleanup = instrs.length > 0 || terminator != Terminator.Throw;
 		
 		LLVMValueRef[] clauses;
-		if (fbody[b].terminator == Terminator.Throw && !fbody[b].value) {
+		if (terminator == Terminator.Throw && !fbody[b].value) {
 			if (auto catchTable = fbody[b].catchTable) {
 				foreach(c; catchTable.catches) {
 					import d.llvm.type;

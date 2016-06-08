@@ -169,8 +169,12 @@ private:
 		return ub.unwindBlock;
 	}
 	
+	BasicBlockRef makeNewBranch(Name name) {
+		return fbody.newBasicBlock(name, getUnwindBlock());
+	}
+	
 	BasicBlockRef startNewBranch(Name name) {
-		return currentBlockRef = fbody.newBasicBlock(name, getUnwindBlock());
+		return currentBlockRef = makeNewBranch(name);
 	}
 	
 	BasicBlockRef maybeBranchToNewBlock(Location location, Name name) {
@@ -235,6 +239,19 @@ private:
 		return buildBlock(s.location, s);
 	}
 	
+	void alloca(Variable v) {
+		currentBlock.alloca(v.location, v);
+		varStack ~= v;
+		
+		auto t = v.type.getCanonical();
+		if (t.kind != TypeKind.Struct || t.dstruct.isPod) {
+			return;
+		}
+		
+		unwindActions ~= UnwindInfo(v);
+		maybeBranchToNewBlock(v.location, BuiltinName!"");
+	}
+	
 	Expression check(Expression e) {
 		auto t = e.type;
 		if (t.kind == TypeKind.Error) {
@@ -243,7 +260,6 @@ private:
 		}
 		
 		// FIXME: Update flags.
-		
 		return e;
 	}
 	
@@ -290,8 +306,7 @@ public:
 		
 		foreach(sym; syms) {
 			if (auto v = cast(Variable) sym) {
-				currentBlock.alloca(v.location, v);
-				varStack ~= v;
+				alloca(v);
 			} else if (cast(Function) sym || cast(Aggregate) sym) {
 				// FIXME: We should get rid of this.
 				currentBlock.declare(sym.location, sym);
@@ -745,9 +760,7 @@ public:
 				break;
 		}
 		
-		auto oldCurrentBlock = currentBlockRef;
-		scope(success) currentBlockRef = oldCurrentBlock;
-		breakLabel.block = startNewBranch(name);
+		breakLabel.block = makeNewBranch(name);
 		return breakLabel;
 	}
 	
@@ -1001,7 +1014,7 @@ public:
 	}
 	
 	void visit(ScopeStatement s) {
-		unwindActions ~= UnwindInfo(cast(UnwindKind) s.kind, s.statement);
+		unwindActions ~= UnwindInfo(s.kind, s.statement);
 		maybeBranchToNewBlock(s.location, BuiltinName!"scope.entry");
 	}
 	
@@ -1050,7 +1063,7 @@ public:
 		scope(success) unwindTo(unwindLevel);
 		
 		if (s.finallyBlock) {
-			unwindActions ~= UnwindInfo(UnwindKind.Exit, s.finallyBlock);
+			unwindActions ~= UnwindInfo(ScopeKind.Exit, s.finallyBlock);
 		}
 		
 		// No cath blocks, just bypass the whole thing.
@@ -1061,7 +1074,7 @@ public:
 		}
 		
 		auto preCatchLevel = unwindActions.length;
-		unwindActions ~= UnwindInfo(UnwindKind.Failure, null);
+		unwindActions ~= UnwindInfo(ScopeKind.Failure, null);
 		
 		maybeBranchToNewBlock(s.location, BuiltinName!"try");
 		autoBlock(s.statement);
@@ -1176,6 +1189,11 @@ public:
 		}
 	}
 	
+	void destroy(Variable v) {
+		maybeBranchToNewBlock(v.location, BuiltinName!"destroy");
+		currentBlock.destroy(v.location, v);
+	}
+	
 	/**
 	 * Unwinding facilities
 	 */
@@ -1191,11 +1209,18 @@ public:
 			auto b = unwindActions[$ - 1];
 			unwindActions = unwindActions[0 .. $ - 1];
 			
-			if (!isCleanup(b.kind)) {
-				continue;
+			final switch(b.kind) with(UnwindKind) {
+				case Success, Exit:
+					autoBlock(b.statement);
+					break;
+				
+				case Failure:
+					continue;
+				
+				case Destroy:
+					destroy(b.var);
+					break;
 			}
-			
-			autoBlock(b.statement);
 		}
 	}
 	
@@ -1204,17 +1229,16 @@ public:
 			return;
 		}
 		
-		foreach_reverse(b; unwindActions) {
+		foreach_reverse(ref b; unwindActions) {
 			if (!isUnwind(b.kind)) {
 				continue;
 			}
 			
-			auto src = currentBlockRef;
 			if (!b.unwindBlock) {
-				b.unwindBlock = startNewBranch(BuiltinName!"unwind");
+				b.unwindBlock = makeNewBranch(BuiltinName!"unwind");
 			}
 			
-			fbody[src].branch(location, b.unwindBlock);
+			currentBlock.branch(location, b.unwindBlock);
 			return;
 		}
 		
@@ -1233,50 +1257,48 @@ public:
 		
 		closeBlockTo(level);
 		
-		bool mustResume = false;
-		
 		auto preUnwindBlock = currentBlockRef;
 		scope(exit) currentBlockRef = preUnwindBlock;
 		
 		auto i = unwindActions.length;
 		while (i --> level) {
-			auto b = unwindActions[i];
+			auto bPtr = &unwindActions[i];
+			auto b = *bPtr;
 			if (!isUnwind(b.kind)) {
 				continue;
 			}
 			
-			assert(
-				b.statement !is null,
-				"Catch blocks must be handled with try statements",
-			);
-			
 			unwindActions = unwindActions[0 .. i];
-			
-			// We have a scope(exit) or scope(failure).
-			// Check if we need to chain unwinding.
-			auto unwindBlock = b.unwindBlock;
-			if (!unwindBlock) {
-				if (!mustResume) {
-					continue;
-				}
-				
-				unwindBlock = startNewBranch(BuiltinName!"unwind");
-			}
 			
 			// We encountered a scope statement that
 			// can be reached while unwinding.
-			mustResume = true;
+			scope(success) concludeUnwind(Location.init);
 			
 			// Emit the exception cleanup code.
-			currentBlockRef = unwindBlock;
-			autoBlock(b.statement);
+			currentBlockRef = b.unwindBlock;
+			final switch(b.kind) with(UnwindKind) {
+				case Success:
+					assert(0);
+				
+				case Exit:
+					autoBlock(b.statement);
+					break;
+				
+				case Failure:
+					assert(
+						b.statement !is null,
+						"Catch blocks must be handled with try statements",
+					);
+					
+					goto case Exit;
+				
+				case Destroy:
+					destroy(b.var);
+					break;
+			}
 		}
 		
 		assert(unwindActions.length == level);
-		if (mustResume) {
-			concludeUnwind(Location.init);
-		}
-		
 		if (!terminate) {
 			maybeBranchToNewBlock(Location.init, BuiltinName!"resume");
 		}
@@ -1292,18 +1314,44 @@ enum BreakKind {
 }
 
 struct UnwindInfo {
+private:
 	import std.bitmanip;
 	mixin(taggedClassRef!(
-		Statement, "statement",
-		UnwindKind, "kind", 2,
+		Statement, "_statement",
+		UnwindKind, "_kind", 2,
 	));
+	
+public:
+	@property kind() const {
+		return _kind;
+	}
+	
+	@property statement() inout in {
+		assert(kind != UnwindKind.Destroy);
+	} body {
+		return _statement;
+	}
+	
+	@property var() inout in {
+		assert(kind == UnwindKind.Destroy);
+	} body {
+		auto s = _statement;
+		return *(cast(Variable*) &s);
+	}
 	
 	BasicBlockRef unwindBlock;
 	BasicBlockRef cleanupBlock;
 	
-	this(UnwindKind kind, Statement statement) {
-		this.kind = kind;
-		this.statement = statement;
+	this(ScopeKind kind, Statement statement) {
+		_kind = cast(UnwindKind) kind;
+		_statement = statement;
+	}
+	
+	this(Variable v) in {
+		assert(!v.type.dstruct.isPod);
+	} body {
+		_kind = UnwindKind.Destroy;
+		_statement = *(cast(Statement*) &v);
 	}
 }
 
@@ -1311,24 +1359,27 @@ enum UnwindKind {
 	Success,
 	Exit,
 	Failure,
+	Destroy,
 }
 
 bool isCleanup(UnwindKind k) {
-	return k <= UnwindKind.Exit;
+	return k != UnwindKind.Failure;
 }
 
 bool isUnwind(UnwindKind k) {
-	return k >= UnwindKind.Exit;
+	return k != UnwindKind.Success;
 }
 
 unittest {
 	assert(isCleanup(UnwindKind.Success));
 	assert(isCleanup(UnwindKind.Exit));
 	assert(!isCleanup(UnwindKind.Failure));
+	assert(isCleanup(UnwindKind.Destroy));
 	
 	assert(!isUnwind(UnwindKind.Success));
 	assert(isUnwind(UnwindKind.Exit));
 	assert(isUnwind(UnwindKind.Failure));
+	assert(isUnwind(UnwindKind.Destroy));
 	
 	static assert(UnwindKind.Exit == ScopeKind.Exit);
 	static assert(UnwindKind.Success == ScopeKind.Success);

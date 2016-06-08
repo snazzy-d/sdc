@@ -18,6 +18,7 @@ class Statement : Node {
 }
 
 final:
+
 /**
  * Blocks
  */

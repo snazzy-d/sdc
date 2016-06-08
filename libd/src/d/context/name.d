@@ -151,7 +151,7 @@ enum Prefill = [
 	"__lambda",
 	"__ctx",
 	// Used to make IR more comprehensible.
-	"entry", "then", "unwind", "resume",
+	"entry", "then", "unwind", "resume", "destroy", "cleanup",
 	"assert.fail", "assert.success", "scope.entry",
 	"endif", "endswitch", "endcatch", "unreachable",
 	"loop.continue", "loop.test", "loop.body", "loop.exit",

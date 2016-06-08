@@ -191,6 +191,7 @@ struct SymbolAnalyzer {
 		
 		import d.context.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
+		immutable isDtor = f.name == BuiltinName!"__dtor";
 		
 		// Make sure we take the type qualifier into account
 		if (f.hasThis) {
@@ -214,8 +215,8 @@ struct SymbolAnalyzer {
 			);
 			
 			assert(
-				!isCtor || f.linkage == Linkage.D,
-				"Only D linkage is supported for ctors.",
+				!isCtor || !isDtor || f.linkage == Linkage.D,
+				"Only D linkage is supported for ctors and dtors",
 			);
 			
 			switch (f.linkage) with(Linkage) {
@@ -235,24 +236,24 @@ struct SymbolAnalyzer {
 					import std.conv;
 					assert(
 						0,
-						"Linkage " ~ to!string(f.linkage) ~ " is not supported."
+						"Linkage " ~ to!string(f.linkage) ~ " is not supported",
 					);
 			}
 			
 			f.step = Step.Signed;
 		}
 		
-		if (isCtor) {
+		if (isCtor || isDtor) {
 			assert(f.hasThis, "Constructor must have a this pointer");
 			
 			// However, we don't want usual hasThis behavior to kick in
 			// as constructor are kind of magic.
 			f.hasThis = false;
 			
-			auto ctorThis = thisType;
-			if (ctorThis.isRef) {
-				ctorThis = ctorThis.getParamType(false, ctorThis.isFinal);
-				returnType = ctorThis;
+			auto xtorType = thisType;
+			if (xtorType.isRef && isCtor) {
+				xtorType = xtorType.getParamType(false, xtorType.isFinal);
+				returnType = xtorType;
 				
 				if (fbody) {
 					import d.ast.statement;
@@ -271,11 +272,72 @@ struct SymbolAnalyzer {
 			
 			auto thisParameter = new Variable(
 				f.location,
-				ctorThis,
+				xtorType,
 				BuiltinName!"this",
 			);
 			
 			params = thisParameter ~ params;
+			
+			// If we have a dtor body, we need to tweak it.
+			if (isDtor && fbody) {
+				auto a = xtorType.getType().getCanonical().aggregate;
+				scheduler.require(a, Step.Signed);
+				
+				import d.ast.statement;
+				Statement[] fieldDtors;
+				
+				import std.algorithm;
+				auto fields = a.members
+					.map!(m => cast(Field) m)
+					.filter!(f => f !is null);
+				
+				foreach(field; fields) {
+					auto t = field.type.getCanonical();
+					if (t.kind != TypeKind.Struct) {
+						continue;
+					}
+					
+					auto s = t.dstruct;
+					scheduler.require(s, Step.Signed);
+					if (s.isPod) {
+						continue;
+					}
+					
+					import d.ast.expression;
+					auto fieldDtor = new IdentifierDotIdentifier(
+						fbody.location,
+						BuiltinName!"__dtor",
+						new ExpressionDotIdentifier(
+							fbody.location,
+							field.name,
+							new ThisExpression(fbody.location),
+						),
+					);
+					
+					fieldDtors ~= new ScopeStatement(
+						f.location,
+						ScopeKind.Exit,
+						new ExpressionStatement(
+							new IdentifierCallExpression(
+								fbody.location,
+								fieldDtor,
+								[],
+							),
+						),
+					);
+				}
+				
+				// Ok, we have fields to destroy, let's do it !
+				if (fieldDtors.length > 0) {
+					import std.algorithm;
+					foreach (i; 0 .. fieldDtors.length / 2) {
+						swap(fieldDtors[i], fieldDtors[$ - i - 1]);
+					}
+					
+					fieldDtors ~= fbody;
+					fbody = new BlockStatement(fbody.location, fieldDtors);
+				}
+			}
 		} else {
 			// If it has a this pointer, add it as parameter.
 			if (f.hasThis) {

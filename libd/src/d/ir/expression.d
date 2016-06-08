@@ -201,6 +201,27 @@ class FPCmpExpression : Expression {
 	}
 }
 
+enum LifetimeOp {
+	Copy,
+	Consume,
+	Destroy,
+}
+
+class LifetimeExpression : Expression {
+	import std.bitmanip;
+	mixin(taggedClassRef!(
+		Expression, "value",
+		LifetimeOp, "op", 2,
+	));
+	
+	this(Location location, LifetimeOp op, Expression value) {
+		super(location, value.type);
+		
+		this.op = op;
+		this.value = value;
+	}
+}
+
 class CallExpression : Expression {
 	Expression callee;
 	Expression[] args;

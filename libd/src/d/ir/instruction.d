@@ -135,6 +135,10 @@ public:
 				writeln("\t", i.var.toString(c));
 				break;
 			
+			case Destroy:
+				writeln("\tdestroy\t", i.var.name.toString(c));
+				break;
+			
 			case Evaluate:
 				writeln("\t", i.expr.toString(c));
 				break;
@@ -248,6 +252,10 @@ public:
 		add(Instruction(location, v));
 	}
 	
+	void destroy(Location location, Variable v) {
+		add(Instruction.destroy(location, v));
+	}
+	
 	void eval(Location location, Expression e) {
 		add(Instruction(location, e));
 	}
@@ -309,6 +317,7 @@ public:
 
 enum OpCode {
 	Alloca,
+	Destroy,
 	Evaluate,
 	
 	// FIXME: This is unecessary, but will makes thigns easier for now.
@@ -339,6 +348,12 @@ private:
 		this.location = location;
 		op = OpCode.Alloca;
 		var = v;
+	}
+	
+	static destroy(Location location, Variable v) {
+		auto i = Instruction(location, v);
+		i.op = OpCode.Destroy;
+		return i;
 	}
 	
 	this(Location location, Symbol s) in {
