@@ -164,7 +164,15 @@ struct StatementGen {
 					break;
 				}
 				
-				assert(lpContext, "No context to unwind");
+				// Create an alloca for the landing pad results.
+				if (!lpContext) {
+					auto currentBB = LLVMGetInsertBlock(builder);
+					LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(fun));
+					lpContext = LLVMBuildAlloca(builder, getLpType(), "lpContext");
+					LLVMPositionBuilderAtEnd(builder, currentBB);
+					LLVMSetPersonalityFn(fun, declare(pass.object.getPersonality()));
+				}
+				
 				auto catchTable = fbody[b].catchTable;
 				if (catchTable is null) {
 					Resume:
@@ -245,6 +253,20 @@ struct StatementGen {
 		return ExpressionGen(pass).visit(e);
 	}
 	
+	private auto getLpType() {
+		LLVMTypeRef[2] lpTypes = [
+			LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
+			LLVMInt32TypeInContext(llvmCtx),
+		];
+		
+		return LLVMStructTypeInContext(
+			llvmCtx,
+			lpTypes.ptr,
+			lpTypes.length,
+			false,
+		);
+	}
+	
 	private LLVMBasicBlockRef genLandingPad(BasicBlockRef srcBlock) {
 		auto b = fbody[srcBlock].landingpad;
 		if (!b) {
@@ -260,22 +282,13 @@ struct StatementGen {
 		auto currentBB = LLVMGetInsertBlock(builder);
 		scope(exit) LLVMPositionBuilderAtEnd(builder, currentBB);
 		
-		LLVMTypeRef[2] lpTypes = [
-			LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
-			LLVMInt32TypeInContext(llvmCtx),
-		];
-		
-		auto lpType = LLVMStructTypeInContext(
-			llvmCtx,
-			lpTypes.ptr,
-			lpTypes.length,
-			false,
-		);
+		auto lpType = getLpType();
 		
 		// Create an alloca for the landing pad results.
 		if (!lpContext) {
 			LLVMPositionBuilderAtEnd(builder, LLVMGetFirstBasicBlock(fun));
 			lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
+			LLVMSetPersonalityFn(fun, declare(pass.object.getPersonality()));
 		}
 		
 		auto lpBB = landingPads[i] = LLVMAppendBasicBlockInContext(
@@ -312,7 +325,7 @@ struct StatementGen {
 		auto landingPad = LLVMBuildLandingPad(
 			builder,
 			lpType,
-			declare(pass.object.getPersonality()),
+			null,
 			cast(uint) clauses.length,
 			"",
 		);

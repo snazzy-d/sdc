@@ -140,6 +140,18 @@ class Function : ValueSymbol, Scope {
 		__derived = id;
 		return intrinsicID;
 	}
+	
+	void dump(const Context c) const {
+		import std.algorithm, std.range;
+		auto params = params
+			.map!(p => p.name.toString(c))
+			.join(", ");
+		
+		import std.stdio;
+		write(name.toString(c), '(', params, ") {");
+		fbody.dump(c);
+		writeln("}\n");
+	}
 }
 
 /**

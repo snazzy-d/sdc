@@ -43,13 +43,13 @@ public:
 		return bbref;
 	}
 	
-	void dump(Context c) const {
+	void dump(const Context c) const {
 		foreach(ref b; basicBlocks) {
 			dump(c, b);
 		}
 	}
 	
-	void dump(Context c, const ref BasicBlock b) const {
+	void dump(const Context c, const ref BasicBlock b) const {
 		import std.stdio;
 		writeln();
 		dumpBasicBlockName(c, b);
@@ -121,14 +121,14 @@ public:
 		}
 	}
 	
-	void dumpBasicBlockName(Context c, const ref BasicBlock b) const {
+	void dumpBasicBlockName(const Context c, const ref BasicBlock b) const {
 		size_t index = (cast(size_t) &b - cast(size_t) basicBlocks.ptr) / BasicBlock.sizeof;
 		
 		import std.stdio;
 		write(b.name.toString(c), index);
 	}
 	
-	void dump(Context c, const ref BasicBlock b, const ref Instruction i) const {
+	void dump(const Context c, const ref BasicBlock b, const ref Instruction i) const {
 		import std.stdio;
 		final switch(i.op) with(OpCode) {
 			case Alloca:

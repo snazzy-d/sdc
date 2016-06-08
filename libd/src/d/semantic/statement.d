@@ -82,7 +82,7 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		scope(failure) dump(f);
+		scope(failure) f.dump(context);
 		
 		currentScope = f;
 		auto entry = startNewBranch(BuiltinName!"entry");
@@ -108,18 +108,6 @@ public:
 				throw new CompileException(f.location, "Must return");
 			}
 		}
-	}
-	
-	void dump(Function f) {
-		import std.algorithm, std.range;
-		auto params = f.params
-			.map!(p => p.name.toString(pass.context))
-			.join(", ");
-		
-		import std.stdio;
-		write(f.name.toString(context), '(', params, ") {");
-		fbody.dump(context);
-		writeln("}\n");
 	}
 	
 	void visit(Statement s) {
@@ -1211,6 +1199,7 @@ public:
 			
 			final switch(b.kind) with(UnwindKind) {
 				case Success, Exit:
+					maybeBranchToNewBlock(Location.init, BuiltinName!"cleanup");
 					autoBlock(b.statement);
 					break;
 				
