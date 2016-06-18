@@ -48,9 +48,9 @@ ubyte getBinID(size_t size) {
 	
 	// Faster way to compute x = lg2floor(pow2ceil(size));
 	import d.gc.util;
-	auto shift = (size < (1UL << LgQuantum + 2))
+	auto shift = (size < (1UL << (LgQuantum + 2)))
 		? LgQuantum
-		: lg2floor((size) - 1) - 2;
+		: lg2floor(size - 1) - 2;
 	
 	auto mod = (size - 1) >> shift;
 	auto ret = (shift - LgQuantum) * 4 + mod + ClassCount.Tiny;
