@@ -303,9 +303,10 @@ struct Chunk {
 			runs[i].small.bitmapIndex = nextBitmapIndex;
 			
 			import d.gc.bin;
-			i += binInfos[binID].needPages;
+			auto binInfo = binInfos[binID];
+			auto slots = binInfo.slots;
 			
-			auto slots = binInfos[binID].slots;
+			i += binInfo.needPages;
 			nextBitmapIndex += cast(ushort) (((slots - 1) / (uint.sizeof * 8)) + 1);
 		}
 		
@@ -345,7 +346,8 @@ struct Chunk {
 			auto offset = (cast(uint) ptr) - (cast(uint) &datas[runID]);
 			
 			import d.gc.bin;
-			index = offset / binInfos[pd.binID].size;
+			auto binInfo = binInfos[pd.binID];
+			index = binInfo.computeIndex(offset);
 			if (smallRun.isFree(index)) {
 				return false;
 			}
@@ -402,9 +404,10 @@ struct Chunk {
 				
 				if (pd.small) {
 					import d.gc.bin;
-					size = binInfos[pd.binID].size;
+					auto binInfo = binInfos[pd.binID];
+					size = binInfo.itemSize;
 					auto offset = (cast(uint) ptr) - (cast(uint) base);
-					auto index = offset / size;
+					auto index = binInfo.computeIndex(offset);
 					base = cast(const(void*)*) ((cast(void*) base) + size * index);
 				} else {
 					import d.gc.sizeclass;

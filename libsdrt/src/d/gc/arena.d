@@ -148,7 +148,7 @@ private:
 		assert(binID < ClassCount.Small);
 		
 		// Load eagerly as prefetching.
-		size = binInfos[binID].size;
+		size = binInfos[binID].itemSize;
 		
 		auto run = findSmallRun(binID);
 		if (run is null) {
@@ -313,7 +313,7 @@ private:
 		auto offset = (cast(uint) ptr) - (cast(uint) &c.datas[runID]);
 		
 		auto binInfo = binInfos[binID];
-		auto size = binInfo.size;
+		auto size = binInfo.itemSize;
 		auto index = offset / size;
 		
 		// Sanity check: no intern pointer.

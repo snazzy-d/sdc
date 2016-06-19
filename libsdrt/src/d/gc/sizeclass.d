@@ -63,7 +63,7 @@ ubyte getBinID(size_t size) {
 size_t getSizeFromBinID(uint binID) {
 	if (binID < ClassCount.Small) {
 		import d.gc.bin;
-		auto ret = binInfos[binID].size;
+		auto ret = binInfos[binID].itemSize;
 		
 		// XXX: out contract
 		assert(binID == getBinID(ret));
@@ -139,7 +139,8 @@ void binInfoComputer(
 	
 	auto shift = cast(ubyte) delta;
 	if (grp == delta) {
-		shift = cast(ubyte) (delta + (ndelta >> 1) - 2);
+		auto tag = (ndelta + 1) / 2;
+		shift = cast(ubyte) (delta + tag - 2);
 	}
 	
 	auto needPages = npLookup[(itemSize >> shift) % 4];
@@ -148,7 +149,7 @@ void binInfoComputer(
 	auto slots = cast(ushort) ((p << LgPageSize) / s);
 	
 	assert(id < ClassCount.Small);
-	bins[id] = BinInfo(itemSize, needPages, slots);
+	bins[id] = BinInfo(itemSize, shift, needPages, slots);
 }
 
 // 64 bits tiny, 128 bits quantum.
@@ -275,7 +276,7 @@ void main() {
 		printf(
 			"id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n".ptr,
 			i,
-			b.size,
+			b.itemSize,
 			b.needPages,
 			b.slots,
 		);
