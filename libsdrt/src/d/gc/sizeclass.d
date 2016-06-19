@@ -73,7 +73,7 @@ size_t getSizeFromBinID(uint binID) {
 	
 	auto largeBinID = binID - ClassCount.Small;
 	auto shift = largeBinID / 4 + LgPageSize;
-	size_t bits = 4 + largeBinID % 4;
+	size_t bits = (largeBinID % 4) | 0x04;
 	
 	auto ret = bits << shift;
 	
@@ -127,7 +127,7 @@ void binInfoComputer(
 	}
 	
 	assert(s < ushort.max);
-	auto size = cast(ushort) s;
+	auto itemSize = cast(ushort) s;
 	
 	ubyte[4] npLookup;
 	
@@ -137,18 +137,18 @@ void binInfoComputer(
 	npLookup[2] = 3;
 	npLookup[3] = 7;
 	
-	auto shift = cast(ushort) delta;
+	auto shift = cast(ubyte) delta;
 	if (grp == delta) {
-		shift = cast(ushort) (shift + (ndelta >> 1) - 2);
+		shift = cast(ubyte) (delta + (ndelta >> 1) - 2);
 	}
 	
-	auto needPages = npLookup[(size >> shift) % 4];
+	auto needPages = npLookup[(itemSize >> shift) % 4];
 	
 	uint p = needPages;
 	auto slots = cast(ushort) ((p << LgPageSize) / s);
 	
 	assert(id < ClassCount.Small);
-	bins[id] = BinInfo(size, needPages, slots);
+	bins[id] = BinInfo(itemSize, needPages, slots);
 }
 
 // 64 bits tiny, 128 bits quantum.
@@ -186,8 +186,7 @@ auto getSmallClassCount() {
 		}
 	});
 	
-	// We count the 16k size when we shouldn't.
-	return count - 1;
+	return count;
 }
 
 auto getLargeClassCount() {
@@ -199,7 +198,7 @@ auto getLargeClassCount() {
 		}
 	});
 	
-	return count;
+	return count + 1;
 }
 
 auto getLookupClassCount() {
@@ -211,7 +210,7 @@ auto getLookupClassCount() {
 		}
 	});
 	
-	return count;
+	return count + 1;
 }
 
 void computeSizeClass(void delegate(uint id, uint grp, uint delta, uint ndelta) fun) {
@@ -223,20 +222,15 @@ void computeSizeClass(void delegate(uint id, uint grp, uint delta, uint ndelta) 
 	}
 	
 	// First group is kind of special.
-	foreach (i; 0 .. 4) {
+	foreach (i; 0 .. 3) {
 		fun(id++, LgQuantum, LgQuantum, i);
 	}
 	
 	// Most size classes falls here.
-	foreach (grp; LgQuantum + 2 .. SizeofPtr * 8 - 1) {
-		foreach (i; 1 .. 5) {
+	foreach (grp; LgQuantum + 2 .. SizeofPtr * 8) {
+		foreach (i; 0 .. 4) {
 			fun(id++, grp, grp - 2, i);
 		}
-	}
-	
-	// We don't want sizeclass larger than the address space.
-	foreach (i; 1 .. 4) {
-		fun(id++, SizeofPtr * 8 - 1, SizeofPtr * 8 - 3, i);
 	}
 	
 	// We want to be able to store the binID in a byte.
@@ -256,7 +250,7 @@ void printfAlloc(size_t s) {
 void main() {
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		printf(
-			"%d\t%d\t%d\t%d\t%lu\n".ptr,
+			"%d\t%d\t%d\t%d\t0x%lx\n".ptr,
 			id,
 			grp,
 			delta,
