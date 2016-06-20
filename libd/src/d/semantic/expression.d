@@ -436,7 +436,7 @@ public:
 	
 	Expression buildArgument(Expression arg, ParamType pt) {
 		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
-			return getError(arg, "Can't pass argument by ref");
+			return getError(arg, "Can't pass argument (" ~ arg.type.toString(context) ~ ") by ref to " ~ pt.toString(context));
 		}
 		
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
@@ -975,19 +975,25 @@ public:
 		Expression callee,
 		Expression[] args,
 	) in {
+		auto k = callee.type.getCanonical().kind;
 		assert(
-			callee.type.getCanonical().kind == TypeKind.Function,
+			k == TypeKind.Function || k == TypeKind.Error,
 			callee.toString(context)
 		);
 	} body {
-		auto f = callee.type.getCanonical().asFunctionType();
+		auto t = callee.type.getCanonical();
+		if (t.kind == TypeKind.Error) {
+			return callee;
+		}
+		
+		auto f = t.asFunctionType();
 		
 		auto paramTypes = f.parameters;
 		auto returnType = f.returnType;
 		
 		assert(
 			checkArgumentCount(f.isVariadic, args.length, paramTypes.length),
-			"Invalid argument count"
+			"Invalid argument count",
 		);
 		
 		import std.range;

@@ -44,7 +44,18 @@ public:
 	}
 	
 	~this() {
-		assert(thisExpr is null, "thisExpr has not been consumed");
+		if (thisExpr is null) {
+			return;
+		}
+		
+		auto e = getError(
+			thisExpr,
+			thisExpr.location,
+			"thisExpr has not been consumed",
+		);
+		
+		import d.exception;
+		throw new CompileException(e.location, e.message);
 	}
 	
 	Identifiable build(Identifier i) {
