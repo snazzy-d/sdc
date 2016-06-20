@@ -127,11 +127,13 @@ struct SymbolAnalyzer {
 		f.step = Step.Populated;
 		
 		// Prepare statement visitor for return type.
+		auto oldThisType = thisType;
 		auto oldReturnType = returnType;
 		auto oldManglePrefix = manglePrefix;
 		scope(exit) {
-			manglePrefix = oldManglePrefix;
+			thisType = oldThisType;
 			returnType = oldReturnType;
+			manglePrefix = oldManglePrefix;
 		}
 		
 		import std.conv;
@@ -143,6 +145,19 @@ struct SymbolAnalyzer {
 		
 		import d.context.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
+		
+		// Make sure we take the type qualifier into account
+		if (f.hasThis) {
+			// XXX: Maybe we should offer a way to requalify ParamType.
+			thisType = thisType.getType()
+				.qualify(fd.storageClass.qualifier)
+				.getParamType(oldThisType.isRef, oldThisType.isFinal);
+		} else {
+			assert(
+				fd.storageClass.qualifier == TypeQualifier.Mutable,
+				"Unexpacted qualifier for a function without this",
+			);
+		}
 		
 		void buildType() {
 			f.type = FunctionType(
@@ -220,7 +235,7 @@ struct SymbolAnalyzer {
 			if (f.hasThis) {
 				assert(
 					thisType.getType().isAggregate(),
-					"thisType must be defined if funtion has a this pointer."
+					"thisType must be defined if funtion has a this pointer.",
 				);
 				
 				auto thisParameter = new Variable(

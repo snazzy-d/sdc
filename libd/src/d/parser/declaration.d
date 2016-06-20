@@ -433,7 +433,7 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	
 	auto qualifier = TypeQualifier.Mutable;
 	
-	while(1) {
+	while(true) {
 		switch(trange.front.type) with(TokenType) {
 			case Pure :
 				stc.isPure = true;
@@ -538,10 +538,21 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 			assert(0);
 	}
 	
-	auto fun = new FunctionDeclaration(location, stc, returnType, name, parameters, isVariadic, fbody);
-	return isTemplate
-		? new TemplateDeclaration(location, stc, fun.name, tplParameters, [fun])
-		: fun;
+	auto fun = new FunctionDeclaration(
+		location,
+		stc,
+		returnType,
+		name,
+		parameters,
+		isVariadic,
+		fbody,
+	);
+	
+	if (!isTemplate) {
+		return fun;
+	}
+	
+	return new TemplateDeclaration(location, stc, name, tplParameters, [fun]);
 }
 
 /**

@@ -436,7 +436,7 @@ struct Link(N, string NodeName) {
 		_child = cast(N*) ((cast(size_t) n) | c);
 	}
 	
-	auto getAs(Color c) const {
+	auto getAs(Color c) {
 		assert(c == Color.Black || node !is null);
 		return Link(node, c);
 	}

@@ -70,7 +70,7 @@ struct DeclarationVisitor {
 	) if (is(S : Symbol) && is(S : Scope)) {
 		static assert(
 			!is(S : Class),
-			"Classes need to have fieldIndex and methodIndex"
+			"Classes need to have fieldIndex and methodIndex",
 		);
 		
 		uint fi = is(S : Aggregate) ? dscope.hasContext : 0;
