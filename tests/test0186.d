@@ -1,5 +1,4 @@
 //T compiles:no
-//T retval:0
 //T has-passed:yes
 // Tests nested default for no error on missing defaut in non-final switches
 

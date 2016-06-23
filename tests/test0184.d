@@ -1,5 +1,4 @@
 //T compiles:no
-//T retval:0
 //T has-passed:yes
 // Tests multiple default in non-final switches
 

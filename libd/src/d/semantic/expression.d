@@ -436,7 +436,11 @@ public:
 	
 	Expression buildArgument(Expression arg, ParamType pt) {
 		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
-			return getError(arg, "Can't pass argument (" ~ arg.type.toString(context) ~ ") by ref to " ~ pt.toString(context));
+			return getError(
+				arg,
+				"Can't pass argument (" ~ arg.type.toString(context)
+					~ ") by ref to " ~ pt.toString(context),
+			);
 		}
 		
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
@@ -991,10 +995,44 @@ public:
 		auto paramTypes = f.parameters;
 		auto returnType = f.returnType;
 		
-		assert(
-			checkArgumentCount(f.isVariadic, args.length, paramTypes.length),
-			"Invalid argument count",
-		);
+		// If we don't have enough parameters, try to find default
+		// values in the function declaration.
+		if (args.length < paramTypes.length) {
+			Function fun;
+			if (auto fe = cast(FunctionExpression) callee) {
+				fun = fe.fun;
+			} else if (auto dge = cast(DelegateExpression) callee) {
+				fun = dge.method;
+			} else {
+				// Can't find the function, error.
+				return getError(
+					callee,
+					location,
+					"Insuffiscient parameters",
+				);
+			}
+			
+			auto start = args.length + f.contexts.length;
+			auto stop = paramTypes.length + f.contexts.length;
+			auto params = fun.params[start .. stop];
+			foreach(p; params) {
+				if (p.value is null) {
+					return getError(
+						callee,
+						location,
+						"Insuffiscient parameters",
+					);
+				}
+				
+				args ~= p.value;
+			}
+		} else if (args.length > paramTypes.length && !f.isVariadic) {
+			return getError(
+				callee,
+				location,
+				"Too much parameters",
+			);
+		}
 		
 		import std.range;
 		foreach(ref arg, pt; lockstep(args, paramTypes)) {
