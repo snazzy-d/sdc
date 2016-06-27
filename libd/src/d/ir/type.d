@@ -201,17 +201,6 @@ public:
 		return payload.denum;
 	}
 	
-	auto getCanonicalAndPeelEnum() {
-		auto t = this.getCanonical();
-		auto q = qualifier;
-		while(t.kind == TypeKind.Enum) {
-			t = t.denum.type.getCanonical();
-			q = q.add(t.qualifier);
-		}
-		
-		return t.qualify(q);
-	}
-	
 	@property
 	auto dalias() inout in {
 		assert(kind == TypeKind.Alias);
@@ -223,7 +212,20 @@ public:
 		auto t = this;
 		auto q = qualifier;
 		while(t.kind == TypeKind.Alias) {
+			// FIXME: Make sure alias is signed.
 			t = t.dalias.type;
+			q = q.add(t.qualifier);
+		}
+		
+		return t.qualify(q);
+	}
+	
+	auto getCanonicalAndPeelEnum() {
+		auto t = this.getCanonical();
+		auto q = qualifier;
+		while(t.kind == TypeKind.Enum) {
+			// FIXME: Make sure enum is signed.
+			t = t.denum.type.getCanonical();
 			q = q.add(t.qualifier);
 		}
 		

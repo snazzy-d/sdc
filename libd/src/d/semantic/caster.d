@@ -135,7 +135,7 @@ Expression buildCast(bool isExplicit)(
 			assert(getSize(to.builtin) < getSize(t));
 			
 			import d.semantic.vrp;
-			return ValueRangePropagator(pass).canFit(e, to)
+			return ValueRangePropagator!uint(pass).canFit(e, to)
 				? CastKind.Trunc
 				: CastKind.Invalid;
 		} else {

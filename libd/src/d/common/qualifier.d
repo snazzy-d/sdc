@@ -38,13 +38,13 @@ bool isLocal(Storage s) {
 unittest {
 	with(Storage) {
 		assert(Local.isGlobal   == false);
-		assert(Local.isLocal   == true);
+		assert(Local.isLocal    == true);
 		assert(Capture.isGlobal == false);
-		assert(Capture.isLocal == true);
+		assert(Capture.isLocal  == true);
 		assert(Static.isGlobal  == true);
-		assert(Static.isLocal  == false);
+		assert(Static.isLocal   == false);
 		assert(Enum.isGlobal    == true);
-		assert(Enum.isLocal    == false);
+		assert(Enum.isLocal     == false);
 	}
 }
 
@@ -59,7 +59,7 @@ enum TypeQualifier {
 
 // XXX: operator overloading ?
 auto add(TypeQualifier actual, TypeQualifier added) {
-	if((actual == TypeQualifier.Shared && added == TypeQualifier.Const) ||
+	if ((actual == TypeQualifier.Shared && added == TypeQualifier.Const) ||
 			(added == TypeQualifier.Shared && actual == TypeQualifier.Const)) {
 		return TypeQualifier.ConstShared;
 	}

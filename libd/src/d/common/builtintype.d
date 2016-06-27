@@ -221,6 +221,38 @@ unittest {
 	assert(getSize(BuiltinType.Ucent) == 16);
 }
 
+uint getBits(BuiltinType t) {
+	if (t == BuiltinType.Bool) {
+		return 1;
+	}
+	
+	return getSize(t) * 8;
+}
+
+unittest {
+	assert(getBits(BuiltinType.Bool) == 1);
+	
+	assert(getBits(BuiltinType.Byte) == 8);
+	assert(getBits(BuiltinType.Ubyte) == 8);
+	assert(getBits(BuiltinType.Char) == 8);
+	
+	assert(getBits(BuiltinType.Short) == 16);
+	assert(getBits(BuiltinType.Ushort) == 16);
+	assert(getBits(BuiltinType.Wchar) == 16);
+	
+	assert(getBits(BuiltinType.Int) == 32);
+	assert(getBits(BuiltinType.Uint) == 32);
+	assert(getBits(BuiltinType.Dchar) == 32);
+	assert(getBits(BuiltinType.Float) == 32);
+	
+	assert(getBits(BuiltinType.Long) == 64);
+	assert(getBits(BuiltinType.Ulong) == 64);
+	assert(getBits(BuiltinType.Double) == 64);
+	
+	assert(getBits(BuiltinType.Cent) == 128);
+	assert(getBits(BuiltinType.Ucent) == 128);
+}
+
 ulong getMax(BuiltinType t) in {
 	assert(isIntegral(t), "getMax only applys to integral types");
 } body {
