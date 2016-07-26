@@ -73,15 +73,6 @@ struct ExpressionGen {
 		return LLVMBuildOp(builder, lhs, rhs, "");
 	}
 	
-	private auto handleBinaryOp(
-		alias LLVMSignedBuildOp,
-		alias LLVMUnsignedBuildOp,
-	)(BinaryExpression e) {
-		return isSigned(e.type.getCanonical().builtin)
-			? handleBinaryOp!LLVMSignedBuildOp(e)
-			: handleBinaryOp!LLVMUnsignedBuildOp(e);
-	}
-	
 	private auto handleLogicalBinary(bool shortCircuitOnTrue)(BinaryExpression e) {
 		auto lhs = visit(e.lhs);
 		
@@ -159,32 +150,38 @@ struct ExpressionGen {
 			case Mul :
 				return handleBinaryOp!LLVMBuildMul(e);
 			
-			case Div :
-				return handleBinaryOp!(LLVMBuildSDiv, LLVMBuildUDiv)(e);
+			case UDiv :
+				return handleBinaryOp!LLVMBuildUDiv(e);
 			
-			case Mod :
-				return handleBinaryOp!(LLVMBuildSRem, LLVMBuildURem)(e);
+			case SDiv :
+				return handleBinaryOp!LLVMBuildSDiv(e);
+			
+			case URem :
+				return handleBinaryOp!LLVMBuildURem(e);
+			
+			case SRem :
+				return handleBinaryOp!LLVMBuildSRem(e);
 			
 			case Pow :
 				assert(0, "Not implemented");
 			
-			case BitwiseOr :
+			case Or :
 				return handleBinaryOp!LLVMBuildOr(e);
 			
-			case BitwiseAnd :
+			case And :
 				return handleBinaryOp!LLVMBuildAnd(e);
 			
-			case BitwiseXor :
+			case Xor :
 				return handleBinaryOp!LLVMBuildXor(e);
 			
 			case LeftShift :
 				return handleBinaryOp!LLVMBuildShl(e);
 			
-			case SignedRightShift :
-				return handleBinaryOp!LLVMBuildAShr(e);
-			
 			case UnsignedRightShift :
 				return handleBinaryOp!LLVMBuildLShr(e);
+			
+			case SignedRightShift :
+				return handleBinaryOp!LLVMBuildAShr(e);
 			
 			case LogicalOr :
 				return handleLogicalBinary!true(e);

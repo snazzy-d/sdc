@@ -95,19 +95,19 @@ AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 			break;
 		
 		case PercentEqual :
-			processToken(ModAssign);
+			processToken(RemAssign);
 			break;
 		
 		case AmpersandEqual :
-			processToken(BitwiseAndAssign);
+			processToken(AndAssign);
 			break;
 		
 		case PipeEqual :
-			processToken(BitwiseOrAssign);
+			processToken(OrAssign);
 			break;
 		
 		case CaretEqual :
-			processToken(BitwiseXorAssign);
+			processToken(XorAssign);
 			break;
 		
 		case TildeEqual :
@@ -212,7 +212,7 @@ AstExpression parseBitwiseOrExpression(ref TokenRange trange) {
 auto parseBitwiseOrExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Pipe,
-		AstBinaryOp.BitwiseOr,
+		AstBinaryOp.Or,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseXorExpression(e);
 		}
@@ -230,7 +230,7 @@ AstExpression parseBitwiseXorExpression(ref TokenRange trange) {
 auto parseBitwiseXorExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Caret,
-		AstBinaryOp.BitwiseXor,
+		AstBinaryOp.Xor,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseBitwiseAndExpression(e);
 		}
@@ -248,7 +248,7 @@ AstExpression parseBitwiseAndExpression(ref TokenRange trange) {
 auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Ampersand,
-		AstBinaryOp.BitwiseAnd,
+		AstBinaryOp.And,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
 			return trange.parseComparaisonExpression(e);
 		}
@@ -480,7 +480,7 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 				break;
 			
 			case Percent :
-				processToken(Mod);
+				processToken(Rem);
 				break;
 			
 			default :

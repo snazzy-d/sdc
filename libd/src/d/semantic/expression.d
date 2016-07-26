@@ -159,6 +159,8 @@ private:
 			);
 		}
 		
+		Type type;
+		BinaryOp bop;
 		ICmpOp icmpop;
 		final switch(op) with(AstBinaryOp) {
 			case Comma:
@@ -197,56 +199,72 @@ private:
 				
 				goto case;
 			
-			case Mul, Div, Mod, Pow :
-			case BitwiseOr, BitwiseAnd, BitwiseXor :
-			case UnsignedRightShift, LeftShift :
+			case Mul, Pow :
+				bop = cast(BinaryOp) op;
+				goto PromotedBinaryOp;
+			
+			case Div, Rem :
+				import d.semantic.typepromotion;
+				type = getPromotedType(pass, location, lhs.type, rhs.type);
+				
+				auto bt = type.builtin;
+				auto signed = isIntegral(bt) && isSigned(bt);
+				
+				// FIXME: We need some wrapper asserting + unitest for these.
+				bop = cast(BinaryOp) (((op - Div) * 2) + BinaryOp.UDiv + signed);
+				goto CastBinaryOp;
+			
+			case Or, And, Xor :
+			case LeftShift, UnsignedRightShift :
+				// FIXME: We need some wrapper asserting + unitest for these.
+				bop = cast(BinaryOp) (op - Or + BinaryOp.Or);
+				goto PromotedBinaryOp;
+			
 			PromotedBinaryOp:
 				import d.semantic.typepromotion;
-				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
+				type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
-				return build!BinaryExpression(
-					location,
-					type,
-					// Some like living dangerously !
-					cast(BinaryOp) op,
-					lhs,
-					rhs,
-				);
+				goto CastBinaryOp;
 			
 			case SignedRightShift :
 				import d.semantic.typepromotion;
-				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
+				type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
 				auto bt = type.builtin;
-				auto bop = (isIntegral(bt) && isSigned(bt))
+				bop = (isIntegral(bt) && isSigned(bt))
 					? BinaryOp.SignedRightShift
 					: BinaryOp.UnsignedRightShift;
 				
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-				
-				return build!BinaryExpression(location, type, bop, lhs, rhs);
+				goto CastBinaryOp;
 			
 			case LogicalOr, LogicalAnd :
-				auto type = Type.get(BuiltinType.Bool);
+				type = Type.get(BuiltinType.Bool);
+				
+				// FIXME: We need some wrapper asserting + unitest for these.
+				bop = cast(BinaryOp) (op - LogicalOr + BinaryOp.LogicalOr);
 				
 				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
 				
+				goto BuildBinaryOp;
+			
+			CastBinaryOp:
+				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
+				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				
+				goto BuildBinaryOp;
+			
+			BuildBinaryOp:
 				return build!BinaryExpression(
 					location,
 					type,
-					// Some like living dangerously !
-					cast(BinaryOp) op,
+					bop,
 					lhs,
 					rhs,
 				);
 			
 			case Concat :
-				auto type = lhs.type;
+				type = lhs.type;
 				if (type.getCanonical().kind != TypeKind.Slice) {
 					return getError(lhs, "Expected a slice");
 				}
@@ -267,13 +285,12 @@ private:
 				);
 			
 			case AddAssign, SubAssign :
-			case MulAssign, DivAssign, ModAssign, PowAssign :
-			case BitwiseOrAssign :
-			case BitwiseAndAssign :
-			case BitwiseXorAssign :
+			case MulAssign, PowAssign :
+			case DivAssign, RemAssign :
+			case OrAssign, AndAssign, XorAssign :
 			case LeftShiftAssign :
-			case SignedRightShiftAssign :
 			case UnsignedRightShiftAssign :
+			case SignedRightShiftAssign :
 			case LogicalOrAssign :
 			case LogicalAndAssign :
 			case ConcatAssign :
@@ -305,7 +322,7 @@ private:
 			
 			HandleICmp:
 				import d.semantic.typepromotion;
-				auto type = getPromotedType(pass, location, lhs.type, rhs.type);
+				type = getPromotedType(pass, location, lhs.type, rhs.type);
 				
 				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
@@ -400,10 +417,8 @@ public:
 					"Only pointers can be dereferenced",
 				);
 			
-			case PreInc :
-			case PreDec :
-			case PostInc :
-			case PostDec :
+			case PreInc, PreDec :
+			case PostInc, PostDec :
 				// FIXME: check that type is integer or pointer.
 				type = expr.type;
 				break;

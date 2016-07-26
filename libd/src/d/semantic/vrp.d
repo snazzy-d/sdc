@@ -73,7 +73,7 @@ struct ValueRangePropagator {
 			case Mul :
 				return mul(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
-			case Div :
+			case SDiv, UDiv :
 				auto rhs = visit(e.rhs);
 				
 				// We do an early check for divide by 0 so we don't need to visit lhs.
@@ -83,7 +83,7 @@ struct ValueRangePropagator {
 				
 				return div(visit(e.lhs), rhs, e.type.builtin).recast(e.type.builtin);
 			
-			case Mod :
+			case SRem, URem :
 				return mod(visit(e.lhs), visit(e.rhs), e.type.builtin).recast(e.type.builtin);
 			
 			default :
@@ -672,10 +672,10 @@ unittest {
 	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mul, i1, i2));
 	assert(v == ValueRange(-378));
 	
-	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Div, i2, i1));
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.SDiv, i2, i1));
 	assert(v == ValueRange(-4));
 	
-	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.Mod, i2, i1));
+	v = vrp.visit(new BinaryExpression(Location.init, Type.get(BuiltinType.Int), BinaryOp.SRem, i2, i1));
 	assert(v == ValueRange(6));
 }
 
