@@ -53,7 +53,7 @@ struct SymbolVisitor {
 					assert(
 						decl,
 						"Unexpected declaration type "
-							~ typeid(DeclType).toString()
+							~ typeid(DeclType).toString(),
 					);
 					
 					scheduler.schedule(decl, () @trusted {
@@ -169,7 +169,7 @@ struct SymbolAnalyzer {
 			
 			assert(
 				!isCtor || f.linkage == Linkage.D,
-				"Only D linkage is supported for ctors."
+				"Only D linkage is supported for ctors.",
 			);
 			
 			switch (f.linkage) with(Linkage) {
