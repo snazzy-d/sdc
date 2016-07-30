@@ -415,7 +415,11 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Enum e) {
-		assert(0, "Not implemented.");
+		if (matchee.kind != TypeKind.Enum) {
+			return visit(e.type);
+		}
+		
+		return matchee.denum is e;
 	}
 	
 	bool visit(TypeAlias a) {
