@@ -456,7 +456,8 @@ unittest {
 private:
 
 auto isValidExpr(Expression e) {
-	return e.type.kind == TypeKind.Builtin && canConvertToIntegral(e.type.builtin);
+	auto t = e.type.getCanonicalAndPeelEnum();
+	return t.kind == TypeKind.Builtin && canConvertToIntegral(t.builtin);
 }
 
 bool isMask(T)(T mask) if (isIntegral!T) {
