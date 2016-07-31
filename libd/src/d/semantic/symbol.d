@@ -350,7 +350,12 @@ struct SymbolAnalyzer {
 	
 	private void analyzeVarLike(V)(VariableDeclaration d, V v) {
 		auto value = getValue(d);
-		v.type = value.type;
+		
+		// We peel alias for auto variable as it can lead to
+		// very confusing results, like a template parameter.
+		v.type = d.type.isAuto
+			? value.type.getCanonical()
+			: value.type;
 		
 		assert(value);
 		static if (is(typeof(v.value) : CompileTimeExpression)) {
