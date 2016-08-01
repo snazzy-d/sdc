@@ -352,7 +352,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					lookahead.popFront();
 					
 					if (lookahead.front.type == OpenParen) {
-						// Function type returnign a pointer.
+						// Function type returning a pointer.
 						goto Type;
 					}
 					

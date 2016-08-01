@@ -786,7 +786,7 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange, AstE
 			case OpenParen :
 				auto args = trange.parseArguments!OpenParen();
 				
-				location.spanTo(trange.front.location);
+				location.spanTo(trange.previous);
 				e = new AstCallExpression(location, e, args);
 				
 				break;
@@ -916,7 +916,7 @@ AstExpression parseIdentifierExpression(ref TokenRange trange, Identifier i) {
 	auto args = trange.parseArguments!(TokenType.OpenParen)();
 	
 	auto location = i.location;
-	location.spanTo(trange.front.location);
+	location.spanTo(trange.previous);
 	return new IdentifierCallExpression(location, i, args);
 }
 
