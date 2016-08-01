@@ -105,46 +105,36 @@ struct SmallRunMisc {
 		// TODO: in contracts.
 		assert(freeSlots > 0);
 		
-		// TODO: Use bsr when available.
-		uint hindex;
-		for (hindex = 0; hindex < 16; hindex++) {
-			if (header & 1 << hindex) {
-				break;
-			}
-		}
-		
+		import sdc.intrinsics;
+		uint hindex = countTrailingZeros(header);
 		assert(hindex < 16, "Cannot allocate from that run");
 		
-		// TODO: Use bsr when available.
-		for (uint bindex = 0; bindex < 32; bindex++) {
-			if (bitmap[hindex] & (1 << bindex)) {
-				// Use xor so we don't need to invert bits.
-				// It is ok as we assert the bit is unset before.
-				bitmap[hindex] ^= (1 << bindex);
-				
-				// If we unset all bits, unset header.
-				if (bitmap[hindex] == 0) {
-					header ^= cast(ushort) (1 << hindex);
-				}
-				
-				// If we are GCing, mark the new allocation as live.
-				if (bitmapIndex != 0) {
-					import d.gc.chunk, d.gc.spec;
-					auto chunk = cast(Chunk*) ((cast(size_t) &this) & ~AlignMask);
-					
-					assert(chunk.header.bitmap !is null);
-					auto bPtr = chunk.header.bitmap + bitmapIndex + hindex;
-					
-					// This is live, don't collect it !
-					*bPtr = *bPtr | (1 << bindex);
-				}
-				
-				freeSlots--;
-				return hindex * 32 + bindex;
-			}
+		auto bindex = countTrailingZeros(bitmap[hindex]);
+		assert(bindex < 32, "Invalid bitmap");
+		
+		// Use xor so we don't need to invert bits.
+		// It is ok as we assert the bit is unset before.
+		bitmap[hindex] ^= (1 << bindex);
+		
+		// If we unset all bits, unset header.
+		if (bitmap[hindex] == 0) {
+			header ^= cast(ushort) (1 << hindex);
 		}
 		
-		assert(0, "Invalid bitmap");
+		// If we are GCing, mark the new allocation as live.
+		if (bitmapIndex != 0) {
+			import d.gc.chunk, d.gc.spec;
+			auto chunk = cast(Chunk*) ((cast(size_t) &this) & ~AlignMask);
+			
+			assert(chunk.header.bitmap !is null);
+			auto bPtr = chunk.header.bitmap + bitmapIndex + hindex;
+			
+			// This is live, don't collect it !
+			*bPtr = *bPtr | (1 << bindex);
+		}
+		
+		freeSlots--;
+		return hindex * 32 + bindex;
 	}
 	
 	bool isFree(uint bit) const {

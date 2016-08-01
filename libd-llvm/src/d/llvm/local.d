@@ -171,7 +171,7 @@ struct LocalGen {
 	
 	LLVMValueRef define(Function f) {
 		auto fun = declare(f);
-		if (!f.fbody) {
+		if (!f.fbody && !f.intrinsicID) {
 			return fun;
 		}
 		
@@ -210,7 +210,7 @@ struct LocalGen {
 		);
 		
 		assert(f.step == Step.Processed, "f is not processed");
-		assert(f.fbody, "f must have a body");
+		assert(f.fbody || f.intrinsicID, "f must have a body");
 	} body {
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
@@ -225,6 +225,19 @@ struct LocalGen {
 		params.length = paramTypes.length = LLVMCountParamTypes(funType);
 		LLVMGetParams(fun, params.ptr);
 		LLVMGetParamTypes(funType, paramTypes.ptr);
+		
+		// If this function is a known intrinsic, swap implementation.
+		if (f.intrinsicID) {
+			import d.llvm.expression, d.llvm.intrinsic;
+			LLVMBuildRet(
+				builder,
+				ExpressionGen(&this).buildBitCast(
+					IntrinsicGen(&this).build(f.intrinsicID, params),
+					LLVMGetReturnType(funType),
+				),
+			);
+			return;
+		}
 		
 		auto parameters = f.params;
 		

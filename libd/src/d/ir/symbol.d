@@ -126,6 +126,22 @@ class Function : ValueSymbol, Scope {
 		this.params = params;
 		this.fbody = fbody;
 	}
+	
+	@property intrinsicID() const {
+		if (hasThis) {
+			return Intrinsic.None;
+		}
+		
+		return cast(Intrinsic) __derived;
+	}
+	
+	@property intrinsicID(Intrinsic id) in {
+		assert(!hasThis, "Method can't be intrinsic");
+		assert(intrinsicID == Intrinsic.None, "This is already an intrinsic");
+	} body {
+		__derived = id;
+		return intrinsicID;
+	}
 }
 
 /**

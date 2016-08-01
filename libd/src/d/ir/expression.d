@@ -224,6 +224,37 @@ class CallExpression : Expression {
 	}
 }
 
+enum Intrinsic {
+	None,
+	Expect,
+	CompareAndSwap,
+	CompareAndSwapWeak,
+	PopCount,
+	CountLeadingZeros,
+	CountTrailingZeros,
+}
+
+/**
+ * This is where the compiler does its magic.
+ */
+class IntrinsicExpression : Expression {
+	Intrinsic intrinsic;
+	Expression[] args;
+	
+	this(Location location, Type type, Intrinsic intrinsic, Expression[] args) {
+		super(location, type);
+		
+		this.intrinsic = intrinsic;
+		this.args = args;
+	}
+	
+	override string toString(const Context c) const {
+		import std.algorithm, std.range, std.conv;
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return "intrinsic." ~ intrinsic.to!string ~ "(" ~ aa ~ ")";
+	}
+}
+
 /**
  * Index expression : indexed[arguments]
  */

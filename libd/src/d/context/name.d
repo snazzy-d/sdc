@@ -150,6 +150,9 @@ enum Prefill = [
 	"__dg",
 	"__lambda",
 	"__ctx",
+	// Intrinsics
+	"3sdc10intrinsics", "expect", "cas", "casWeak", "popCount",
+	"countLeadingZeros", "countTrailingZeros",
 ];
 
 auto getNames() {

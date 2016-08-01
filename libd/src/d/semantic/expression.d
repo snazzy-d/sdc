@@ -1054,6 +1054,18 @@ public:
 			arg = buildArgument(arg, pt);
 		}
 		
+		// If this is an intrinsic, create an intrinsic expression
+		if (auto fe = cast(FunctionExpression) callee) {
+			if (auto i = fe.fun.intrinsicID) {
+				return build!IntrinsicExpression(
+					location,
+					returnType.getType(),
+					i,
+					args,
+				);
+			}
+		}
+		
 		return build!CallExpression(
 			location,
 			returnType.getType(),

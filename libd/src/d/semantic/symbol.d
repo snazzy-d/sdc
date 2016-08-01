@@ -96,6 +96,8 @@ struct SymbolAnalyzer {
 		auto name = astm.name.toString(context);
 		manglePrefix ~= name.length.to!string() ~ name;
 		
+		auto mangle = m.mangle = context.getName(manglePrefix);
+		
 		import d.context.name;
 		// All modules implicitely import object.
 		auto obj = importModule([BuiltinName!"object"]);
@@ -104,8 +106,52 @@ struct SymbolAnalyzer {
 		import d.semantic.declaration;
 		m.members = DeclarationVisitor(pass).flatten(astm.declarations, m);
 		
+		// sdc.intrinsic is a magic module !
+		if (mangle == BuiltinName!"3sdc10intrinsics") {
+			fillIntrinsics(m);
+		}
+		
 		scheduler.require(m.members);
 		m.step = Step.Processed;
+	}
+	
+	private void fillIntrinsics(Module m) {
+		void setInstrinsic(Function f, Intrinsic i) in {
+			assert(f, "intrinsic not defined");
+		} body {
+			pass.scheduler.require(f);
+			f.intrinsicID = i;
+		}
+		
+		import d.context.name;
+		void set(Name name, Intrinsic i) {
+			import d.context.location;
+			auto s = m.resolve(Location.init, name);
+			if (s is null) {
+				return;
+			}
+			
+			if (auto f = cast(Function) s) {
+				return setInstrinsic(f, i);
+			}
+			
+			auto os = cast(OverloadSet) s;
+			assert(os);
+			foreach (c; os.set) {
+				if (auto f = cast(Function) c) {
+					setInstrinsic(f, i);
+				}
+			}
+		}
+		
+		// Ideally we'd use UDA, but as they are not implemented,
+		// we just bake the magic in the compiler.
+		set(BuiltinName!"expect", Intrinsic.Expect);
+		set(BuiltinName!"cas", Intrinsic.CompareAndSwap);
+		set(BuiltinName!"casWeak", Intrinsic.CompareAndSwapWeak);
+		set(BuiltinName!"popCount", Intrinsic.PopCount);
+		set(BuiltinName!"countLeadingZeros", Intrinsic.CountLeadingZeros);
+		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);
 	}
 	
 	void analyze(FunctionDeclaration fd, Function f) {

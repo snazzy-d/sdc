@@ -594,7 +594,9 @@ struct ExpressionGen {
 		return slice;
 	}
 	
-	private LLVMValueRef buildBitCast(LLVMValueRef v, LLVMTypeRef t) {
+	// FIXME: This is public because of intrinsic codegen.
+	// Once we support sequence return, we can make that private.
+	LLVMValueRef buildBitCast(LLVMValueRef v, LLVMTypeRef t) {
 		auto k = LLVMGetTypeKind(t);
 		if (k != LLVMTypeKind.Struct) {
 			assert(k != LLVMTypeKind.Array);
@@ -799,6 +801,15 @@ struct ExpressionGen {
 		return c.callee.type.asFunctionType().returnType.isRef
 			? LLVMBuildLoad(builder, buildCall(c), "")
 			: buildCall(c);
+	}
+	
+	LLVMValueRef visit(IntrinsicExpression e) {
+		import d.llvm.intrinsic, d.llvm.type;
+		return buildBitCast(
+			IntrinsicGen(pass).build(e.intrinsic, e.args),
+			// XXX: This is necessary until returning sequence is supported.
+			TypeGen(pass.pass).visit(e.type),
+		);
 	}
 	
 	LLVMValueRef visit(TupleExpression e) {

@@ -484,8 +484,8 @@ struct Chunk {
 				
 				auto freed = newBmp ^ oldBmp;
 				if (freed) {
-					import d.gc.util;
-					small.freeSlots += popcount(freed);
+					import sdc.intrinsics;
+					small.freeSlots += popCount(freed);
 					small.header = cast(ushort)  (small.header | (1 << i));
 					small.bitmap[j] = newBmp;
 				}

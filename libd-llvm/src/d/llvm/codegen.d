@@ -41,6 +41,9 @@ final class CodeGen {
 	import d.llvm.runtime;
 	RuntimeGenData runtimeGenData;
 	
+	import d.llvm.intrinsic;
+	IntrinsicGenData intrinsicGenData;
+	
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	

@@ -140,6 +140,7 @@ struct RuntimeGen {
 		);
 	}
 	
+	// While technically an intrinsic, it fits better here.
 	auto getEhTypeidFor() {
 		auto name = context.getName("llvm.eh.typeid.for");
 		if (auto fPtr = name in cache) {

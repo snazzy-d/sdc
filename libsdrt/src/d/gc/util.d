@@ -1,6 +1,7 @@
 module d.gc.util;
 
-// XXX: Would that be faster with bsr/bsf ?
+// XXX: Would require more benchmarks, but it looks like
+// it is faster to do it that way than using bsr/bsf ??!?
 auto pow2ceil(size_t x) {
 	x--;
 	x |= x >> 1;
@@ -14,29 +15,15 @@ auto pow2ceil(size_t x) {
 	return x;
 }
 
-auto lg2floor(size_t size) {
+size_t lg2floor(size_t x) {
 	enum S = size_t.sizeof * 8;
 	
-	// XXX: use bsr/bsf
-	for (uint i = 1; i <= S; i++) {
-		if (size & (1UL << (S - i))) {
-			return S - i;
-		}
+	import sdc.intrinsics;
+	if (x == 0) {
+		return 0;
 	}
 	
-	return 0;
-}
-
-auto popcount(uint bmp) {
-	enum S = uint.sizeof * 8;
-	
-	// XXX: use popcnt
-	ubyte count = 0;
-	for (uint i = 0; i < S; i++) {
-		if (bmp & (1 << i)) {
-			count++;
-		}
-	}
-	
-	return count;
+	// Looks like LLVM can't figure out that we tested 0
+	// already and generate some stupidly degenerated code.
+	return S - countLeadingZeros(x) - 1;
 }
