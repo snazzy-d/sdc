@@ -8,7 +8,7 @@ This compiler is based on [libd](https://github.com/deadalnix/SDC/tree/master/li
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC requires DMD release `2.070` to compile.
+SDC requires DMD release `2.071` to compile.
 
 Goals
 =====
@@ -45,18 +45,18 @@ This just me thinking outloud about what features I want, when.
 Compiling SDC on Linux
 =======
 You'll need `make` and the latest DMD installed.
-Install LLVM 3.8.
+Install LLVM 3.9.
 
 Run `make`.
 
 Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
 SDC contains a lot of hardcoded PATH right now, so it's hard to integrate properly with the system. It expects object.d to be in ../libs/object.d
 
-SDC requires LLVM 3.8 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.8` .
+SDC requires LLVM 3.9 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.9` .
 
 Compiling SDC on Mac OS X
 =======
-You'll need `make` and the latest DMD installed. You'll also need llvm38 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm38`, followed by `make LLVM_CONFIG=llvm-config-3.8` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.8`, followed by `make LLVM_CONFIG=llvm-config-mp-3.8` .
+You'll need `make` and the latest DMD installed. You'll also need llvm38 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm39`, followed by `make LLVM_CONFIG=llvm-config-3.9` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.9`, followed by `make LLVM_CONFIG=llvm-config-mp-3.9` .
 You'll also need a recent version of `nasm`; if `nasm` does not recognise the `macho64` output format, try updating `nasm`.
 
 ### Setup
