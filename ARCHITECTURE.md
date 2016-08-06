@@ -38,6 +38,11 @@ Character Streams -> Lexer -> (Token Stream) -> Parser -> (AST) -> Semantic Pass
 	+ May reduce some higher level Ast concepts into easier concepts to express in the IR.
 	+ *** Need to cover visitors, and require, scheduler, etc.
 	+ Cover how visitors work -- Equivalent to functional programming concept of parameter specialization
+	+ Operates in multiple passes over the AST/IR (Ew that it modifies the IR/AST?)
+
+### Passes
+
++ Need to determine what passes are made.  
 
 ### SDIR 
 
