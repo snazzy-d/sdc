@@ -386,7 +386,7 @@ struct JitRepacker {
 		assert(0, "Not Implemented.");
 	}
 	
-	CompileTimeExpression visit(TypeTemplateParameter p) {
+	CompileTimeExpression visit(Pattern p) {
 		assert(0, "Not implemented.");
 	}
 	

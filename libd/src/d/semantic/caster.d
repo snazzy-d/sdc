@@ -605,7 +605,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return (k < CastKind.Exact) ? CastKind.Bit : CastKind.Exact;
 	}
 	
-	CastKind visit(TypeTemplateParameter p) {
+	CastKind visit(Pattern p) {
 		assert(0, "Not implemented.");
 	}
 	

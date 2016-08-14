@@ -37,8 +37,8 @@ enum TypeKind : ubyte {
 	// Complex types
 	Function,
 	
-	// Template type
-	Template,
+	// Template Pattern matching for IFTI.
+	TemplatePattern,
 	
 	// Error
 	Error,
@@ -112,8 +112,8 @@ private:
 			case Function:
 				return t.visit(asFunctionType());
 			
-			case Template:
-				return t.visit(dtemplate);
+			case TemplatePattern:
+				return t.visit(pattern);
 			
 			case Error:
 				return t.visit(error);
@@ -254,10 +254,10 @@ public:
 	}
 	
 	@property
-	auto dtemplate() inout in {
-		assert(kind == TypeKind.Template);
+	auto pattern() inout in {
+		assert(kind == TypeKind.TemplatePattern);
 	} body {
-		return payload.dtemplate;
+		return payload.pattern;
 	}
 	
 	@property
@@ -336,7 +336,7 @@ public:
 				// Is this, really ?
 				return t.builtin == BuiltinType.Null;
 
-			case Alias, Enum, Template, Error:
+			case Alias, Enum, TemplatePattern, Error:
 				assert(0);
 
 			case Pointer, Slice, Class, Interface, Context:
@@ -441,8 +441,8 @@ public:
 				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
 				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
-			case Template:
-				return dtemplate.name.toString(c);
+			case TemplatePattern:
+				return pattern.toString(c);
 			
 			case Error:
 				return "__error__(" ~ error.toString(c) ~ ")";
@@ -484,7 +484,7 @@ static:
 	}
 	
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.Template, q), p);
+		return Type(Desc(TypeKind.TemplatePattern, q), p);
 	}
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
@@ -678,6 +678,41 @@ unittest {
 	assert(d2.getFunction() == f);
 }
 
+// Facility for IFTI pattern matching.
+enum PatternKind {
+	Parameter,
+}
+
+struct Pattern {
+private:
+	import std.bitmanip;
+	import d.ir.symbol;
+	mixin(taggedClassRef!(
+		TypeTemplateParameter, "_parameter",
+		PatternKind, "_kind", 2,
+	));
+	
+public:
+	@property kind() const {
+		return _kind;
+	}
+	
+	@property parameter() inout in {
+		assert(kind == PatternKind.Parameter);
+	} body {
+		return _parameter;
+	}
+	
+	this(TypeTemplateParameter p) {
+		_kind = PatternKind.Parameter;
+		_parameter = p;
+	}
+	
+	string toString(const Context c) const {
+		return parameter.toString(c);
+	}
+}
+
 private:
 
 // XXX: we put it as a UFCS property to avoid forward reference.
@@ -705,7 +740,7 @@ union Payload {
 	// ParamType* params;
 	
 	// For template instanciation.
-	TypeTemplateParameter dtemplate;
+	Pattern pattern;
 	
 	// For speculative compilation.
 	CompileError error;

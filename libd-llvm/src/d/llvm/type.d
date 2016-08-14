@@ -485,8 +485,8 @@ struct TypeGen {
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, cast(uint) types.length, false);
 	}
 	
-	LLVMTypeRef visit(TypeTemplateParameter p) {
-		assert(0, "Template type can't be generated.");
+	LLVMTypeRef visit(Pattern p) {
+		assert(0, "Patterns cannot be generated.");
 	}
 	
 	import d.ir.error;

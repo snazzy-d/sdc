@@ -1020,8 +1020,11 @@ struct TypeDotIdentifierResolver {
 		return bailout(f.getType());
 	}
 	
-	Identifiable visit(TypeTemplateParameter t) {
-		assert(0, "Can't resolve identifier on template type.");
+	Identifiable visit(Pattern p) {
+		return Identifiable(new CompileError(
+			location,
+			"Cannot resolve identifier on pattern.",
+		).symbol);
 	}
 	
 	Identifiable visit(CompileError e) {

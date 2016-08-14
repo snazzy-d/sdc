@@ -81,8 +81,8 @@ struct SizeofVisitor {
 			: ptrSize;
 	}
 	
-	uint visit(TypeTemplateParameter t) {
-		assert(0, "Template type has no size.");
+	uint visit(Pattern p) {
+		assert(0, "Pattern has no size.");
 	}
 	
 	import d.ir.error;

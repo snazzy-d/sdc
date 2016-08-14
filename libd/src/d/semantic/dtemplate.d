@@ -446,6 +446,10 @@ struct TypeMatcher(bool isIFTI) {
 		assert(0, "Not implemented.");
 	}
 	
+	bool visit(Pattern p) {
+		return visit(p.parameter);
+	}
+	
 	bool visit(TypeTemplateParameter p) {
 		auto i = p.index;
 		return matchedArgs[i].apply!({
@@ -492,7 +496,7 @@ struct ValueMatcher {
 	}
 	
 	private bool matchTyped(Type t, uint i) {
-		if (t.kind == TypeKind.Template) {
+		if (t.kind == TypeKind.TemplatePattern) {
 			matchedArgs[i] = TemplateArgument(matchee);
 			return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(t);
 		}

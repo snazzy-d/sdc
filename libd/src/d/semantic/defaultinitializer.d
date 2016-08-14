@@ -290,8 +290,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		}
 	}
 	
-	E visit(TypeTemplateParameter p) {
-		assert(0, "Template type have no initializer.");
+	E visit(Pattern p) {
+		assert(0, "Patterns have no initializer.");
 	}
 	
 	import d.ir.error;

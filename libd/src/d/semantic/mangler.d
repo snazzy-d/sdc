@@ -193,8 +193,8 @@ struct TypeMangler {
 		return base ~ linkage ~ args ~ "Z" ~ ret;
 	}
 	
-	string visit(TypeTemplateParameter p) {
-		assert(0, "Can't mangle template type.");
+	string visit(Pattern p) {
+		assert(0, "Can't mangle pattern.");
 	}
 	
 	import d.ir.error;

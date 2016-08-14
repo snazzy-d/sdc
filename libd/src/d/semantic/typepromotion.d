@@ -166,7 +166,7 @@ struct TypePromoter {
 		assert(0, "Not Implemented.");
 	}
 	
-	Type visit(TypeTemplateParameter p) {
+	Type visit(Pattern p) {
 		assert(0, "Not implemented.");
 	}
 	
