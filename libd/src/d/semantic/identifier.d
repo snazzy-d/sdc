@@ -657,6 +657,10 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return getSymbolType(t);
 	}
 	
+	Identifiable visit(ValueTemplateParameter v) {
+		return Identifiable(v);
+	}
+	
 	Identifiable visit(ErrorSymbol e) {
 		return Identifiable(e);
 	}

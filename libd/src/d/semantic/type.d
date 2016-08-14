@@ -98,7 +98,7 @@ struct TypeVisitor {
 	Type visitBracketOf(Identifier ikey, AstType t) {
 		auto type = visit(t);
 		
-		import d.semantic.identifier;
+		import d.semantic.identifier, d.ir.symbol;
 		return IdentifierResolver(pass)
 			.build(ikey)
 			.apply!(delegate Type(identified) {
@@ -107,6 +107,8 @@ struct TypeVisitor {
 					assert(0, "Not implemented.");
 				} else static if (is(T: Expression)) {
 					return buildArray(identified, type);
+				} else if (auto v = cast(ValueTemplateParameter) identified) {
+					return Type.get(Pattern(type, v));
 				} else {
 					import d.ir.error;
 					return getError(

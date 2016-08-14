@@ -27,7 +27,7 @@ struct TemplateInstancier {
 		import std.algorithm;
 		auto cds = s.set.filter!((s) {
 			if (auto t = cast(Template) s) {
-				pass.scheduler.require(t, Step.Signed);
+				pass.scheduler.require(t);
 				return t.parameters.length >= args.length;
 			}
 			
@@ -204,6 +204,7 @@ private:
 		Template t,
 		TemplateArgument[] args,
 	) in {
+		assert(t.step == Step.Processed);
 		assert(t.parameters.length == args.length);
 	} body {
 		auto i = 0;
@@ -361,6 +362,7 @@ struct TypeMatcher(bool isIFTI) {
 	alias pass this;
 	
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
+		this.pass = pass;
 		this.matchedArgs = matchedArgs;
 		this.matchee = matchee.getCanonical();
 	}
@@ -447,7 +449,7 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Pattern p) {
-		return visit(p.parameter);
+		return p.accept(this);
 	}
 	
 	bool visit(TypeTemplateParameter p) {
@@ -466,6 +468,26 @@ struct TypeMatcher(bool isIFTI) {
 				return false;
 			}
 		})();
+	}
+	
+	bool visit(Type t, ValueTemplateParameter p) {
+		if (matchee.kind != TypeKind.Array) {
+			return false;
+		}
+		
+		auto size = matchee.size;
+		matchee = matchee.element.getCanonical();
+		if (!visit(t)) {
+			return false;
+		}
+		
+		auto s = new IntegerLiteral(
+			p.location,
+			size,
+			pass.object.getSizeT().type.builtin,
+		);
+		
+		return ValueMatcher(pass, matchedArgs, s).visit(p);
 	}
 	
 	import d.ir.error;

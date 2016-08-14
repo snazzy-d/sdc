@@ -62,6 +62,10 @@ private:
 		this(d, fastCast!(inout Payload)(t));
 	}
 	
+	this(Desc d, inout Pattern p) inout {
+		this(d, fastCast!(inout Payload)(p));
+	}
+	
 	this(Desc d, inout CompileError e) inout {
 		this(d, fastCast!(inout Payload)(e));
 	}
@@ -487,6 +491,10 @@ static:
 		return Type(Desc(TypeKind.TemplatePattern, q), p);
 	}
 	
+	Type get(Pattern p, TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.TemplatePattern, q), p);
+	}
+	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
 		return Type(Desc(TypeKind.Context, q), f);
 	}
@@ -681,6 +689,9 @@ unittest {
 // Facility for IFTI pattern matching.
 enum PatternKind {
 	Parameter,
+	TypeBracketValue,
+	TypeBracketType,
+	Template,
 }
 
 struct Pattern {
@@ -692,15 +703,27 @@ private:
 		PatternKind, "_kind", 2,
 	));
 	
-public:
-	@property kind() const {
-		return _kind;
-	}
-	
 	@property parameter() inout in {
 		assert(kind == PatternKind.Parameter);
 	} body {
 		return _parameter;
+	}
+	
+	struct TypeValuePair {
+		Type type;
+		ValueTemplateParameter value;
+	}
+	
+	auto getTypeValuePair() inout in {
+		assert(kind == PatternKind.TypeBracketValue);
+	} body {
+		auto p = _parameter;
+		return *(cast(inout(TypeValuePair)**) &p);
+	}
+	
+public:
+	@property kind() const {
+		return _kind;
 	}
 	
 	this(TypeTemplateParameter p) {
@@ -708,8 +731,53 @@ public:
 		_parameter = p;
 	}
 	
+	this(Type t, ValueTemplateParameter v) {
+		_kind = PatternKind.TypeBracketValue;
+		auto p = new TypeValuePair(t, v);
+		_parameter = *(cast(TypeTemplateParameter*) &p);
+	}
+	
+	auto accept(T)(ref T t) if(is(T == struct)) {
+		return acceptImpl(&t);
+	}
+	
+	auto accept(T)(T t) if(is(T == class)) {
+		return acceptImpl(t);
+	}
+	
 	string toString(const Context c) const {
-		return parameter.toString(c);
+		final switch (kind) with(PatternKind) {
+			case Parameter:
+				return parameter.name.toString(c);
+			
+			case TypeBracketValue:
+				auto p = getTypeValuePair();
+				return p.type.toString(c) ~ '[' ~ p.value.name.toString(c) ~ ']';
+			
+			case TypeBracketType:
+				assert(0, "Not implemented");
+			
+			case Template:
+				assert(0, "Not implemented");
+		}
+	}
+	
+private:
+	auto acceptImpl(T)(T t) {
+		final switch(kind) with(PatternKind) {
+			case Parameter:
+				return t.visit(parameter);
+			
+			case TypeBracketValue:
+				auto p = getTypeValuePair();
+				return t.visit(p.type, p.value);
+			
+			case TypeBracketType:
+				assert(0, "Not implemented");
+			
+			case Template:
+				assert(0, "Not implemented");
+		}
 	}
 }
 

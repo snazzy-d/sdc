@@ -1221,8 +1221,6 @@ struct SymbolAnalyzer {
 			}
 		}
 		
-		t.step = Step.Signed;
-		
 		// TODO: support multiple IFTI.
 		foreach(m; t.members) {
 			if (auto fun = cast(FunctionDeclaration) m) {
