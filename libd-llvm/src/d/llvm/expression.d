@@ -44,18 +44,23 @@ struct ExpressionGen {
 	}
 	
 	private LLVMValueRef buildLoad(LLVMValueRef ptr, TypeQualifier q) {
+		auto l = LLVMBuildLoad(builder, ptr, "");
 		final switch(q) with(TypeQualifier) {
 			case Mutable, Inout, Const:
-				return LLVMBuildLoad(builder, ptr, "");
+				break;
 			
 			case Shared, ConstShared:
-				// TODO: Sequantial consistency.
-				return LLVMBuildLoad(builder, ptr, "");
+				import llvm.c.target;
+				LLVMSetAlignment(l, LLVMABIAlignmentOfType(targetData, LLVMTypeOf(l)));
+				LLVMSetOrdering(l, LLVMAtomicOrdering.SequentiallyConsistent);
+				break;
 			
 			case Immutable:
 				// TODO: !invariant.load
-				return LLVMBuildLoad(builder, ptr, "");
+				break;
 		}
+		
+		return l;
 	}
 	
 	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression)) in {
@@ -63,6 +68,26 @@ struct ExpressionGen {
 	} body {
 		auto q = e.type.qualifier;
 		return buildLoad(addressOf(e), q);
+	}
+	
+	private LLVMValueRef buildStore(LLVMValueRef ptr, LLVMValueRef val, TypeQualifier q) {
+		auto s = LLVMBuildStore(builder, val, ptr);
+		final switch(q) with(TypeQualifier) {
+			case Mutable, Inout, Const:
+				break;
+			
+			case Shared, ConstShared:
+				import llvm.c.target;
+				LLVMSetAlignment(s, LLVMABIAlignmentOfType(targetData, LLVMTypeOf(val)));
+				LLVMSetOrdering(s, LLVMAtomicOrdering.SequentiallyConsistent);
+				break;
+			
+			case Immutable:
+				// TODO: !invariant.load
+				break;
+		}
+		
+		return s;
 	}
 	
 	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
@@ -138,7 +163,7 @@ struct ExpressionGen {
 				auto lhs = addressOf(e.lhs);
 				auto rhs = visit(e.rhs);
 				
-				LLVMBuildStore(builder, rhs, lhs);
+				buildStore(lhs, rhs, e.lhs.type.qualifier);
 				return rhs;
 			
 			case Add :
