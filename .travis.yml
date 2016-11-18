@@ -3,18 +3,19 @@ language: d
 # Use container based infrastructure.
 sudo: false
 
-cache:
-  - apt
+matrix:
+  include:
+    - os: linux
+      d: dmd
 
-d:
-  - dmd
+cache:
+  directories:
+    - llvm-3.9.0-linux
+    - llvm-3.9.0-osx
 
 env:
   global:
-    - LLVM_CONFIG=/usr/bin/llvm-config-3.9
-    # This is used in our makefile. This may break if the
-    # dmd installer changes it's location.
-    - LD_PATH=${HOME}/dmd2/linux/lib64
+    - LLVM_VERSION=3.9.0
 
 addons:
   # http://docs.travis-ci.com/user/uploading-artifacts/
@@ -28,22 +29,30 @@ addons:
       # See here for name of the travis apt repos:
       # https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
       - ubuntu-toolchain-r-test
-      - llvm-toolchain-precise
     packages:
       - nasm
-      # See here for packages:
-      # http://llvm.org/apt/precise/dists/llvm-toolchain-precise-3.9/
-      # Travis by default does not install dependencies, they must
-      # be enumerated.
-      - llvm-3.9
-      - llvm-3.9-dev
-      - llvm-3.9-runtime
-      # - llvm-3.9-tools
-      - libllvm3.9
-      - libstdc++6
-      - libedit2
-      - libedit-dev
+      - build-essential
       - binutils-gold
+      - libstdc++6
+
+before_install:
+  - export LLVM_DIR="llvm-$LLVM_VERSION-$TRAVIS_OS_NAME";
+  -
+    if [ -z "$(ls -A $LLVM_DIR)" ]; then
+      if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
+        LLVM_ARCH="linux-gnu-ubuntu-14.04";
+      elif [ "${TRAVIS_OS_NAME}" = "osx" ]; then
+        LLVM_ARCH="apple-darwin";
+      else
+        echo "$LLVM_ARCH is not supported";
+        exit 2;
+      fi;
+      wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-$LLVM_ARCH.tar.xz;
+      mkdir $LLVM_DIR;
+      tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C $LLVM_DIR;
+    fi;
+  - export LLVM_CONFIG="$LLVM_DIR/bin/llvm-config";
+  - echo $($LLVM_CONFIG --version);
 
 script:
   - make bin/sdc > build_sdc.log 2>&1
