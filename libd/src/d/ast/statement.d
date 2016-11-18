@@ -328,19 +328,12 @@ enum ScopeKind {
 }
 
 class ScopeStatement : Statement {
-	//*
-	// For now, backing of tagged pointer is wrong, which result
-	// in the statement can end up being GCed.
-	// FIXME: Use bitmanip in 2.072
-	ScopeKind kind;
-	Statement statement;
-	/*/
 	import std.bitmanip;
 	mixin(taggedClassRef!(
 		Statement, "statement",
 		ScopeKind, "kind", 2,
 	));
-	//*/
+	
 	this(Location location, ScopeKind kind, Statement statement) {
 		super(location);
 		
