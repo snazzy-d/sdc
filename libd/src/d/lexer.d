@@ -1,13 +1,8 @@
 module d.lexer;
 
 import std.array;
-import std.ascii;
 import std.range;
-import std.uni;
 import std.utf;
-
-alias isAlpha = std.ascii.isAlpha;
-alias isUniAlpha = std.uni.isAlpha;
 
 enum TokenType {
 	Invalid = 0,
@@ -318,8 +313,10 @@ private:
 			
 			// XXX: Dafuq does this need to be a size_t ?
 			size_t i = index;
+			
+			import std.uni;
 			auto u = content.decode(i);
-			assert(isUniAlpha(u), "lex error");
+			assert(isAlpha(u), "lex error");
 			
 			auto l = cast(ubyte) (i - index);
 			index += l;
@@ -349,8 +346,10 @@ private:
 			
 			// XXX: Dafuq does this need to be a size_t ?
 			size_t i = index;
+			
+			import std.uni;
 			auto u = content.decode(i);
-			if (!isUniAlpha(u)) {
+			if (!isAlpha(u)) {
 				break;
 			}
 			
@@ -650,9 +649,10 @@ private:
 		
 		if (c & 0x80) {
 			size_t i = index;
-			auto u = content.decode(i);
 			
-			if (isUniAlpha(u)) {
+			import std.uni;
+			auto u = content.decode(i);
+			if (isAlpha(u)) {
 				auto l = cast(ubyte) (i - index);
 				index += l;
 				return lexIdentifier(s.length + l);
@@ -701,7 +701,13 @@ void popFront(ref string s) {
 }
 
 auto isIdChar(char c) {
+	import std.ascii;
 	return c == '_' || isAlphaNum(c);
+}
+
+auto isDigit(char c) {
+	import std.ascii;
+	return std.ascii.isDigit(c);
 }
 
 mixin template CharPumper(bool decode = true) {
