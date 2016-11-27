@@ -1200,8 +1200,9 @@ LLVMTypeRef LLVMX86MMXType();
  * @{
  */
 
-extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fun)
-{
+extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(
+  string delegate(string) nothrow fun,
+) {
   string ret;
   foreach (str; [
     "Argument",
@@ -1271,13 +1272,13 @@ extern(D) string LLVM_FOR_EACH_VALUE_SUBCLASS(string delegate(string) nothrow fu
             "FPExtInst",
             "FPToSIInst",
             "FPToUIInst",
-            "FPTruncInst"
+            "FPTruncInst",
             "IntToPtrInst",
             "PtrToIntInst",
             "SExtInst",
             "SIToFPInst",
             "TruncInst",
-            "UIToFPInst"
+            "UIToFPInst",
             "ZExtInst",
           "ExtractValueInst",
           "LoadInst",

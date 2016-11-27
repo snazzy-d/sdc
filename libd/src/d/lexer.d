@@ -1054,11 +1054,11 @@ auto getLexerMap() {
 }
 
 auto stringify(string s) {
-	return "`" ~ s.replace("`", "`\"`\"`").replace("\0", "`\"\\0\"`") ~ "`";
+	return "`" ~ s.replace("`", "` ~ \"`\" ~ `").replace("\0", "` ~ \"\\0\" ~ `") ~ "`";
 }
 
 auto getReturnOrBreak(string fun, string base) {
-	auto cmd = "!" ~ stringify(base) ~ "()";
+	auto cmd = "!(" ~ stringify(base) ~ ")()";
 	
 	if (fun[0] == '?') {
 		cmd = fun[1 .. $] ~ cmd;

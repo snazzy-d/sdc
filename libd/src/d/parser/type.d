@@ -215,7 +215,7 @@ AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
 				type = FunctionAstType(Linkage.D, type.getParamType(false, false), ctx, params, isVariadic).getType();
 				break;
 			
-			static if(mode == ParseMode.Greedy) {
+			static if (mode == ParseMode.Greedy) {
 				case TokenType.Dot :
 					trange.popFront();
 					
