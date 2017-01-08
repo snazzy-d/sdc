@@ -31,6 +31,10 @@ build.rf
 *.userprefs
 *.pidb
 
+# Sublime text
+*.sublime-project
+*.sublime-workspace
+
 # DMD/Windows
 *.exe
 *.map
