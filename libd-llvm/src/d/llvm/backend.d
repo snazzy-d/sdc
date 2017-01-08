@@ -140,7 +140,7 @@ public:
 		
 		import std.string;
 		char* errorPtr;
-		auto linkError = LLVMTargetMachineEmitToFile(
+		auto emitError = LLVMTargetMachineEmitToFile(
 			targetMachine,
 			pass.dmodule,
 			objFile.toStringz(),
@@ -148,13 +148,13 @@ public:
 			&errorPtr,
 		);
 		
-		if (linkError) {
+		if (emitError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
 			import std.c.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
-			assert(0, "Fail to link ! Exiting...");
+			assert(0, "Fail to emit object file ! Exiting...");
 		}
 	}
 
