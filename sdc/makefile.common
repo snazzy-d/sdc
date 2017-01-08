@@ -24,7 +24,7 @@ $(SDC_DRIVER_OBJ): $(LIBSDC_SRC) $(LIBD) $(LIBD_LLVM)
 	$(DMD) -c -of$(SDC_DRIVER_OBJ) $(SDC_DRIVER_SRC) $(DFLAGS) $(SDC_IMPORTS)
 
 $(SDC): $(SDC_DRIVER_OBJ) $(LIBSDC)
-	@mkdir -p bin	
+	@mkdir -p bin
 	gcc -o $(SDC) $(SDC_DRIVER_OBJ) $(ARCHFLAG) $(LDFLAGS)
 
 $(LIBSDC): $(LIBSDC_SRC) $(LIBD_DEP_BASE)
