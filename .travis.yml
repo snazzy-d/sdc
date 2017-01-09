@@ -7,6 +7,8 @@ matrix:
   include:
     - os: linux
       d: dmd
+    - os: osx
+      d: dmd
 
 cache:
   directories:
@@ -51,8 +53,14 @@ before_install:
       mkdir $LLVM_DIR;
       tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C $LLVM_DIR;
     fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
+      brew update;
+      brew install nasm;
+    fi;
   - export LLVM_CONFIG="$LLVM_DIR/bin/llvm-config";
+  - echo $(nasm -v)
   - echo $($LLVM_CONFIG --version);
+  - echo $(dmd --version)
 
 script:
   - make bin/sdc > build_sdc.log 2>&1
