@@ -49,13 +49,19 @@ public:
 			auto triple = "x86_64-pc-linux-gnu".ptr;
 		}
 		
+		version(linux) {
+			enum Reloc = LLVMRelocMode.PIC;
+		} else {
+			enum Reloc = LLVMRelocMode.Default;
+		}
+		
 		targetMachine = LLVMCreateTargetMachine(
 			LLVMGetFirstTarget(),
 			triple,
 			"x86-64".ptr,
 			"".ptr,
 			LLVMCodeGenOptLevel.Default,
-			LLVMRelocMode.Default,
+			Reloc,
 			LLVMCodeModel.Default,
 		);
 		
