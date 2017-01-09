@@ -9,6 +9,9 @@ matrix:
       d: dmd
     - os: osx
       d: dmd
+    - os: linux
+      d: dmd
+      env: SEPARATE_LIBD_COMPILATION=1
 
 cache:
   directories:

@@ -24,7 +24,7 @@ LIBD_DEP_SEMANTIC = $(LIBD_SRC_SEMANTIC) $(LIBD_DEP_AST) $(LIBD_DEP_IR) \
 
 LIBD_SEMANTIC_OBJ = $(LIBD_SRC_SEMANTIC:$(LIBD_ROOT)/src/d/semantic/%.d=obj/semantic/%.o)
 
-ifdef SEPARATE_COMPILATION
+ifdef SEPARATE_LIBD_COMPILATION
 	LIBD_DEP_ALL = obj/d.o obj/util.o obj/context.o obj/common.o obj/ast.o obj/ir.o obj/parser.o $(LIBD_SEMANTIC_OBJ)
 else
 	LIBD_DEP_ALL = obj/libd.o
