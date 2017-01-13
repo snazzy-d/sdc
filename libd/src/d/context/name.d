@@ -157,7 +157,7 @@ enum Prefill = [
 	"loop.continue", "loop.test", "loop.body", "loop.exit",
 	// Intrinsics
 	"3sdc10intrinsics", "expect", "cas", "casWeak", "popCount",
-	"countLeadingZeros", "countTrailingZeros",
+	"countLeadingZeros", "countTrailingZeros", "bswap",
 ];
 
 auto getNames() {

@@ -152,6 +152,7 @@ struct SymbolAnalyzer {
 		set(BuiltinName!"popCount", Intrinsic.PopCount);
 		set(BuiltinName!"countLeadingZeros", Intrinsic.CountLeadingZeros);
 		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);
+		set(BuiltinName!"bswap", Intrinsic.ByteSwap);
 	}
 	
 	void analyze(FunctionDeclaration fd, Function f) {

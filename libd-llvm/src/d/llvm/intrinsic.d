@@ -55,6 +55,9 @@ struct IntrinsicGen {
 			
 			case CountTrailingZeros:
 				return cttz(args);
+			
+			case ByteSwap:
+				return bswap(args);
 		}
 	}
 	
@@ -207,6 +210,32 @@ struct IntrinsicGen {
 			dmodule,
 			name.toStringz(context),
 			type,
+		);
+	}
+
+	LLVMValueRef bswap(LLVMValueRef[] args) in {
+		assert(args.length == 1, "Invalid argument count");
+	} body {
+		return bswap(args[0]);
+	}
+	
+	LLVMValueRef bswap(LLVMValueRef n) {
+		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
+		return LLVMBuildCall(builder, getBswap(bits), &n, 1, "");
+	}
+	
+	auto getBswap(uint bits) {
+		import std.conv;
+		auto name = context.getName("llvm.bswap.i" ~ to!string(bits));
+		if (auto fPtr = name in cache) {
+			return *fPtr;
+		}
+		
+		auto t = LLVMIntTypeInContext(llvmCtx, bits);
+		return cache[name] = LLVMAddFunction(
+			dmodule,
+			name.toStringz(context),
+			LLVMFunctionType(t, &t, 1, false),
 		);
 	}
 }

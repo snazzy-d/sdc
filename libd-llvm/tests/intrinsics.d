@@ -53,3 +53,11 @@ ulong docounttrailingzeros(ubyte n1, ushort n2, uint n3, ulong n4) {
 // CHECK: call i32 @llvm.cttz.i32(i32 {{.*}})
 // CHECK: call i64 @llvm.cttz.i64(i64 {{.*}})
 }
+
+ulong dobswap(ushort n1, uint n2, ulong n3) {
+	return bswap(n1) + bswap(n2) + bswap(n3);
+// CHECK-LABEL: _D10intrinsics7dobswapFMtkmZm
+// CHECK: call i16 @llvm.bswap.i16(i16 {{.*}})
+// CHECK: call i32 @llvm.bswap.i32(i32 {{.*}})
+// CHECK: call i64 @llvm.bswap.i64(i64 {{.*}})
+}

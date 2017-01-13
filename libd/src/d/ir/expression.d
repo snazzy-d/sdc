@@ -253,6 +253,7 @@ enum Intrinsic {
 	PopCount,
 	CountLeadingZeros,
 	CountTrailingZeros,
+	ByteSwap,
 }
 
 /**

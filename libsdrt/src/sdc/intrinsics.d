@@ -36,3 +36,7 @@ ubyte countTrailingZeros(ubyte n);
 ushort countTrailingZeros(ushort n);
 uint countTrailingZeros(uint n);
 ulong countTrailingZeros(ulong n);
+
+ushort bswap(ushort n);
+uint bswap(uint n);
+ulong bswap(ulong n);
