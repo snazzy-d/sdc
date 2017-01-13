@@ -18,5 +18,5 @@ $(LIBD_LLVM): $(LIBD_LLVM_SRC) $(LIBD_DEP_IR) $(LIBD_DEP_UTIL)
 	$(DMD) -c -ofobj/libd-llvm.o $(LIBD_LLVM_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 	ar rcs $(LIBD_LLVM) obj/libd-llvm.o
 
-testlibd-llvm: $(SDC) $(LIBSDRT) $(PHOBOS)
+littest: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd $(LIBD_LLVM_ROOT)/tests; ./runlit.py . -v

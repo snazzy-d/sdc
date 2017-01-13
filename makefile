@@ -66,6 +66,6 @@ print-%: ; @echo $*=$($*)
 testrunner: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd ./tests; ./runner.d
 
-test: testrunner testlibd-llvm
+test: testrunner littest
 
-.PHONY: clean run debug doc test testrunner testlibd-llvm
+.PHONY: clean run debug doc test testrunner littest
