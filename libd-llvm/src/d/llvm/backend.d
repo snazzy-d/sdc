@@ -140,7 +140,7 @@ public:
 		);
 		// +/
 	}
-
+	
 	void emitObject(Module[] modules, string objFile) {
 		runLLVMPasses(modules);
 		
@@ -163,7 +163,7 @@ public:
 			assert(0, "Fail to emit object file ! Exiting...");
 		}
 	}
-
+	
 	void emitAsm(Module[] modules, string filename) {
 		runLLVMPasses(modules);
 
@@ -186,7 +186,7 @@ public:
 			assert(0, "Failed to output assembly file! Exiting...");
 		}
 	}
-
+	
 	void emitLLVMAsm(Module[] modules, string filename) {
 		runLLVMPasses(modules);
 
@@ -207,7 +207,7 @@ public:
 			assert(0, "Failed to output LLVM assembly file! Exiting...");
 		}
 	}
-
+	
 	void emitLLVMBitcode(Module[] modules, string filename) {
 		runLLVMPasses(modules);
 
@@ -218,7 +218,7 @@ public:
 			assert(0, "Failed to output LLVM bitcode file! Exiting...");
 		}
 	}
-
+	
 	void link(string objFile, string executable) {
 		import std.process;
 		auto linkCommand = "gcc -o "
