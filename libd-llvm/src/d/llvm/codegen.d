@@ -145,4 +145,9 @@ final class CodeGen {
 			throw new Exception(error);
 		}
 	}
+	
+	auto getAttribute(string name, ulong val = 0) {
+		auto id = LLVMGetEnumAttributeKindForName(name.ptr, name.length);
+		return LLVMCreateEnumAttribute(llvmCtx, id, val);
+	}
 }

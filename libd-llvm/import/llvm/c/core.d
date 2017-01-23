@@ -497,7 +497,7 @@ uint LLVMGetMDKindID(const(char)* Name, uint SLen);
  * NB: Attribute names and/or id are subject to change without
  * going through the C API deprecation cycle.
  */
-uint LLVMGetAttrKindID(const(char)* Name, size_t SLen);
+uint LLVMGetEnumAttributeKindForName(const char *Name, size_t SLen);
 uint LLVMGetLastEnumAttributeKind();
 
 /**

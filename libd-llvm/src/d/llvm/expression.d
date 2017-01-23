@@ -517,7 +517,13 @@ struct ExpressionGen {
 		import d.llvm.runtime;
 		auto alloc = buildCall(RuntimeGen(pass.pass).getAllocMemory(), [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
-		LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+		
+		// XXX: This should be set on the alloc function instead of the callsite.
+		LLVMAddCallSiteAttribute(
+			alloc,
+			LLVMAttributeReturnIndex,
+			getAttribute("noalias"),
+		);
 		
 		auto thisArg = visit(e.dinit);
 		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));

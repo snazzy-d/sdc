@@ -315,7 +315,13 @@ struct LocalGen {
 				[LLVMSizeOf(ctxType)],
 			);
 			
-			LLVMAddInstrAttribute(alloc, 0, LLVMAttribute.NoAlias);
+			// XXX: This should be set on the alloc function instead of the callsite.
+			LLVMAddCallSiteAttribute(
+				alloc,
+				LLVMAttributeReturnIndex,
+				getAttribute("noalias"),
+			);
+			
 			LLVMReplaceAllUsesWith(ctxAlloca, LLVMBuildPointerCast(
 				builder,
 				alloc,
