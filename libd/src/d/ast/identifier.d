@@ -30,6 +30,10 @@ class TemplateArgument : Node {
 	this(Location location) {
 		super(location);
 	}
+	
+	string toString(const Context c) const {
+		assert(0, "toString not implement for " ~ typeid(this).toString());
+	}
 }
 
 final:
@@ -108,6 +112,10 @@ class TemplateInstanciationDotIdentifier : Identifier {
 		
 		this.instanciation = instanciation;
 	}
+	
+	override string toString(const Context c) const {
+		return instanciation.toString(c) ~ "." ~ name.toString(c);
+	}
 }
 
 /**
@@ -127,6 +135,12 @@ class TemplateInstanciation : Node {
 		this.identifier = identifier;
 		this.arguments = arguments;
 	}
+	
+	string toString(const Context c) const {
+		import std.algorithm, std.range;
+		auto args = arguments.map!(a => a.toString(c)).join(", ");
+		return identifier.toString(c) ~ "!(" ~ args ~ ")";
+	}
 }
 
 /**
@@ -139,6 +153,10 @@ class TypeTemplateArgument : TemplateArgument {
 		super(location);
 		
 		this.type = type;
+	}
+	
+	override string toString(const Context c) const {
+		return type.toString(c);
 	}
 }
 
@@ -153,6 +171,10 @@ class ValueTemplateArgument : TemplateArgument {
 		
 		this.value = value;
 	}
+	
+	override string toString(const Context c) const {
+		return value.toString(c);
+	}
 }
 
 /**
@@ -165,6 +187,10 @@ class IdentifierTemplateArgument : TemplateArgument {
 		super(identifier.location);
 		
 		this.identifier = identifier;
+	}
+	
+	override string toString(const Context c) const {
+		return identifier.toString(c);
 	}
 }
 
