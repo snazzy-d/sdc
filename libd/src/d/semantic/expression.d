@@ -656,21 +656,22 @@ public:
 						auto callee = handleIFTI(c.location, t, args);
 						return callCallable(c.location, callee, args);
 					}
-				} else static if (is(T : Type)) {
-					auto t = identified.getCanonical();
-					if (t.kind == TypeKind.Struct) {
-						auto loc = c.callee.location;
-						import d.semantic.defaultinitializer;
-						auto di = InstanceBuilder(pass, loc).visit(t);
-						return callCtor(c.location, loc, di, args);
-					}
 				}
 				
-				return getError(
-					identified,
-					c.location,
-					c.callee.name.toString(pass.context) ~ " isn't callable",
-				);
+				static if (is(T : Type)) {
+					return callType(
+						c.location,
+						c.callee.location,
+						identified,
+						args,
+					);
+				} else {
+					return getError(
+						identified,
+						c.location,
+						c.callee.name.toString(pass.context) ~ " isn't callable",
+					);
+				}
 			}
 		}
 		
@@ -686,6 +687,49 @@ public:
 		return IdentifierResolver(pass)
 			.build(c.callee)
 			.apply!((i => postProcess(i)))();
+	}
+	
+	Expression visit(ConstructExpression e) {
+		import d.semantic.type;
+		auto t = TypeVisitor(pass).visit(e.type);
+		
+		import std.algorithm, std.array;
+		auto args = e.args.map!(a => visit(a)).array();
+		
+		return callType(e.location, e.location, t, args);
+	}
+	
+	private Expression callType(
+		Location location,
+		Location calleeLoc,
+		Type callee,
+		Expression[] args,
+	) {
+		auto t = callee.getCanonical();
+		switch (t.kind) with(TypeKind) {
+			case Builtin:
+				if (args.length == 1) {
+					return buildImplicitCast(pass, location, t, args[0]);
+				}
+				
+				return getError(
+					t,
+					location,
+					"Expected one argument",
+				);
+			
+			case Struct:
+				import d.semantic.defaultinitializer;
+				auto di = InstanceBuilder(pass, calleeLoc).visit(t);
+				return callCtor(location, calleeLoc, di, args);
+			
+			default:
+				return getError(
+					t,
+					location,
+					"Cannot build this type",
+				);
+		}
 	}
 	
 	private Expression callCtor(

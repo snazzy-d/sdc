@@ -655,8 +655,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		case OpenBrace :
 			return new DelegateLiteral(trange.parseBlock());
 		
-		case Function :
-		case Delegate :
+		case Function, Delegate :
 			assert(0, "Functions or Delegates not implemented ");
 		
 		case __File__ :
@@ -752,12 +751,25 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		default:
 			// Our last resort are type.identifier expressions.
 			auto type = trange.parseType!(ParseMode.Reluctant)();
-			trange.match(Dot);
+			switch (trange.front.type) {
+				case Dot:
+					trange.popFront();
+					return trange.parseIdentifierExpression(
+						trange.parseQualifiedIdentifier(location, type),
+					);
+				
+				case OpenParen:
+					auto args = trange.parseArguments!OpenParen();
+					location.spanTo(trange.previous);
+					return new ConstructExpression(location, type, args);
+				
+				default:
+					break;
+			}
 			
-			// FIXME: Or type() {} expressions.
-			return trange.parseIdentifierExpression(
-				trange.parseQualifiedIdentifier(location, type),
-			);
+			// TODO: error message that make sense.
+			trange.match(Begin);
+			assert(0, "Implement proper error handling :)");
 	}
 }
 

@@ -303,6 +303,27 @@ class IdentifierCallExpression : AstExpression {
 }
 
 /**
+ * Contructor for builtin types.
+ */
+class ConstructExpression : AstExpression {
+	AstType type;
+	AstExpression[] args;
+	
+	this(Location location, AstType type, AstExpression[] args) {
+		super(location);
+		
+		this.type = type;
+		this.args = args;
+	}
+	
+	override string toString(const Context c) const {
+		import std.algorithm, std.range;
+		auto aa = args.map!(a => a.toString(c)).join(", ");
+		return type.toString(c) ~ "(" ~ aa ~ ")";
+	}
+}
+
+/**
  * Index expression : indexed[arguments]
  */
 class AstIndexExpression : AstExpression {
@@ -373,7 +394,7 @@ class IdentifierExpression : AstExpression {
 /**
  * new
  */
-class NewExpression : AstExpression {
+class AstNewExpression : AstExpression {
 	AstType type;
 	AstExpression[] args;
 	
@@ -390,8 +411,6 @@ class NewExpression : AstExpression {
 		return "new " ~ type.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
-
-alias AstNewExpression = NewExpression;
 
 /**
  * This
