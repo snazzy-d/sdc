@@ -82,7 +82,10 @@ public:
 		auto oldScope = currentScope;
 		scope(exit) currentScope = oldScope;
 		
-		scope(failure) f.dump(context);
+		scope(failure) {
+			f.fbody = fbody;
+			f.dump(context);
+		}
 		
 		currentScope = f;
 		auto entry = startNewBranch(BuiltinName!"entry");
@@ -145,16 +148,19 @@ private:
 	}
 	
 	BasicBlockRef getUnwindBlock() {
-		if (unwindActions.length == 0) {
-			return BasicBlockRef();
+		foreach_reverse (ref b; unwindActions) {
+			if (!b.isUnwind()) {
+				continue;
+			}
+			
+			if (!b.unwindBlock) {
+				b.unwindBlock = fbody.newBasicBlock(BuiltinName!"unwind");
+			}
+			
+			return b.unwindBlock;
 		}
 		
-		auto ub = &unwindActions[$ - 1];
-		if (!ub.unwindBlock) {
-			ub.unwindBlock = fbody.newBasicBlock(BuiltinName!"unwind");
-		}
-		
-		return ub.unwindBlock;
+		return BasicBlockRef();
 	}
 	
 	BasicBlockRef makeNewBranch(Name name) {
@@ -1219,7 +1225,7 @@ public:
 		}
 		
 		foreach_reverse(ref b; unwindActions) {
-			if (!isUnwind(b.kind)) {
+			if (!b.isUnwind()) {
 				continue;
 			}
 			
@@ -1253,7 +1259,7 @@ public:
 		while (i --> level) {
 			auto bPtr = &unwindActions[i];
 			auto b = *bPtr;
-			if (!isUnwind(b.kind)) {
+			if (!b.isUnwind()) {
 				continue;
 			}
 			
@@ -1287,7 +1293,15 @@ public:
 			}
 		}
 		
-		assert(unwindActions.length == level);
+		if (unwindActions.length != level) {
+			foreach (b; unwindActions[level .. $]) {
+				assert(!b.isUnwind());
+			}
+			
+			unwindActions = unwindActions[0 .. level];
+			concludeUnwind(Location.init);
+		}
+		
 		if (!terminate) {
 			maybeBranchToNewBlock(Location.init, BuiltinName!"resume");
 		}
@@ -1341,6 +1355,14 @@ public:
 	} body {
 		_kind = UnwindKind.Destroy;
 		_statement = *(cast(Statement*) &v);
+	}
+	
+	bool isCleanup() const {
+		return .isCleanup(kind);
+	}
+	
+	bool isUnwind() const {
+		return .isUnwind(kind);
 	}
 }
 
