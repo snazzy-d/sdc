@@ -16,14 +16,11 @@ auto pow2ceil(size_t x) {
 }
 
 size_t lg2floor(size_t x) {
-	enum S = size_t.sizeof * 8;
-	
-	import sdc.intrinsics;
 	if (x == 0) {
 		return 0;
 	}
 	
-	// Looks like LLVM can't figure out that we tested 0
-	// already and generate some stupidly degenerated code.
+	import sdc.intrinsics;
+	enum S = size_t.sizeof * 8;
 	return S - countLeadingZeros(x) - 1;
 }
