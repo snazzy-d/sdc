@@ -46,8 +46,8 @@ Declaration parseDeclaration(ref TokenRange trange) {
 	auto location = trange.front.location;
 	
 	// First, declarations that do not support storage classes.
-	switch(trange.front.type) with(TokenType) {
-		case Static :
+	switch (trange.front.type) with(TokenType) {
+		case Static:
 			// Handle static if.
 			auto lookahead = trange.save;
 			lookahead.popFront();
@@ -64,16 +64,16 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			
 			break;
 		
-		case Import :
+		case Import:
 			return trange.parseImport();
 		
-		case Version :
+		case Version:
 			return trange.parseVersion!Declaration();
 		
-		case Debug :
+		case Debug:
 			return trange.parseDebug!Declaration();
 		
-		case Mixin :
+		case Mixin:
 			return trange.parseMixin!Declaration();
 		
 		default :
@@ -83,21 +83,21 @@ Declaration parseDeclaration(ref TokenRange trange) {
 	auto qualifier = TypeQualifier.Mutable;
 	StorageClass stc = defaultStorageClass;
 
-	StorageClassLoop: while(true) {
-		switch(trange.front.type) with(TokenType) {
-			case Const :
+	StorageClassLoop: while (true) {
+		switch (trange.front.type) with(TokenType) {
+			case Const:
 				qualifier = TypeQualifier.Const;
 				goto HandleTypeQualifier;
 			
-			case Immutable :
+			case Immutable:
 				qualifier = TypeQualifier.Immutable;
 				goto HandleTypeQualifier;
 			
-			case Inout :
+			case Inout:
 				qualifier = TypeQualifier.Inout;
 				goto HandleTypeQualifier;
 			
-			case Shared :
+			case Shared:
 				qualifier = TypeQualifier.Shared;
 				goto HandleTypeQualifier;
 			
@@ -115,63 +115,63 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				goto HandleStorageClass;
 			}
 			
-			case Ref :
+			case Ref:
 				stc.isRef = true;
 				goto HandleStorageClass;
 			
-			case Abstract :
+			case Abstract:
 				stc.isAbstract = true;
 				goto HandleStorageClass;
 			
-			case Deprecated :
+			case Deprecated:
 				stc.isDeprecated = true;
 				goto HandleStorageClass;
 			
-			case Nothrow :
+			case Nothrow:
 				stc.isNoThrow = true;
 				goto HandleStorageClass;
 			
-			case Override :
+			case Override:
 				stc.isOverride = true;
 				goto HandleStorageClass;
 			
-			case Pure :
+			case Pure:
 				stc.isPure = true;
 				goto HandleStorageClass;
 			
-			case Static :
+			case Static:
 				stc.isStatic = true;
 				goto HandleStorageClass;
 			
-			case Synchronized :
+			case Synchronized:
 				stc.isSynchronized = true;
 				goto HandleStorageClass;
 			
-			case __Gshared :
+			case __Gshared:
 				stc.isGshared = true;
 				goto HandleStorageClass;
 			
-			case Private :
+			case Private:
 				stc.hasVisibility = true;
 				stc.visibility = Visibility.Private;
 				goto HandleStorageClass;
 			
-			case Package :
+			case Package:
 				stc.hasVisibility = true;
 				stc.visibility = Visibility.Package;
 				goto HandleStorageClass;
 			
-			case Protected :
+			case Protected:
 				stc.hasVisibility = true;
 				stc.visibility = Visibility.Protected;
 				goto HandleStorageClass;
 			
-			case Public :
+			case Public:
 				stc.hasVisibility = true;
 				stc.visibility = Visibility.Public;
 				goto HandleStorageClass;
 			
-			case Export :
+			case Export:
 				stc.hasVisibility = true;
 				stc.visibility = Visibility.Export;
 				goto HandleStorageClass;
@@ -180,7 +180,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				trange.popFront();
 				break;
 			
-			case Extern :
+			case Extern:
 				trange.popFront();
 				trange.match(OpenParen);
 				auto linkageName = trange.front.name;
@@ -208,27 +208,24 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				break;
 			
 			// Enum is a bit of a strange beast. half storage class, half declaration itself.
-			case Enum :
+			case Enum:
 				stc.isEnum = true;
 				
 				auto lookahead = trange.save;
 				lookahead.popFront();
 				
-				switch(lookahead.front.type) {
+				switch (lookahead.front.type) {
 					// enum : and enum { are special construct,
 					// not classic storage class declaration.
-					case Colon, OpenBrace :
+					case Colon, OpenBrace:
 						return trange.parseEnum(stc);
 					
-					case Identifier :
+					case Identifier:
 						lookahead.popFront();
-						switch(lookahead.front.type) {
+						auto nextType = lookahead.front.type;
+						if (nextType == Colon || nextType == OpenBrace) {
 							// Named verion of the above.
-							case Colon, OpenBrace :
-								return trange.parseEnum(stc);
-							
-							default:
-								break;
+							return trange.parseEnum(stc);
 						}
 						
 						break;
@@ -239,7 +236,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				
 				goto HandleStorageClass;
 			
-			case At :
+			case At:
 				trange.popFront();
 				auto attr = trange.front.name;
 				trange.match(Identifier);
@@ -249,7 +246,11 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				} else if (attr == BuiltinName!"nogc") {
 					stc.isNoGC = true;
 				} else {
-					assert(0, "@" ~ attr.toString(trange.context) ~ " is not supported.");
+					assert(
+						0,
+						"@" ~ attr.toString(trange.context)
+							~ " is not supported.",
+					);
 				}
 				
 				break;
@@ -258,71 +259,75 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				break StorageClassLoop;
 		}
 		
-		switch(trange.front.type) with(TokenType) {
+		switch (trange.front.type) with(TokenType) {
 			case Identifier:
 				auto lookahead = trange.save;
 				lookahead.popFront();
 				auto nextType = lookahead.front.type;
 				if (nextType == Equal || nextType == OpenParen) {
-					return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
+					return trange.parseTypedDeclaration(
+						location,
+						stc,
+						AstType.getAuto(),
+					);
 				}
 				
 				break StorageClassLoop;
 			
-			case Colon :
+			case Colon:
 				trange.popFront();
 				auto declarations = trange.parseAggregate!false();
 				
 				location.spanTo(trange.front.location);
 				return new GroupDeclaration(location, stc, declarations);
 			
-			case OpenBrace :
+			case OpenBrace:
 				auto declarations = trange.parseAggregate();
 				
 				location.spanTo(trange.front.location);
 				return new GroupDeclaration(location, stc, declarations);
 			
-			default :
+			default:
 				break;
 		}
 	}
 	
-	switch(trange.front.type) with(TokenType) {
+	switch (trange.front.type) with(TokenType) {
 		// XXX: auto as a storage class ?
-		case Auto :
+		case Auto:
 			trange.popFront();
 			return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
 		
-		case Interface :
+		case Interface:
 			return trange.parseInterface(stc);
 		
-		case Class :
+		case Class:
 			return trange.parseClass(stc);
 		
-		case Struct :
+		case Struct:
 			return trange.parseStruct(stc);
 		
-		case Union :
+		case Union:
 			return trange.parseUnion(stc);
 		
-		case This :
+		case This:
 			return trange.parseConstructor(stc);
 		
-		case Tilde :
+		case Tilde:
 			return trange.parseDestructor(stc);
 		
-		case Template :
+		case Template:
 			return trange.parseTemplate(stc);
 		
-		case Alias :
+		case Alias:
 			return trange.parseAlias(stc);
 		
-		case Unittest :
+		case Unittest:
 			trange.popFront();
 			trange.parseBlock();
 			assert(0, "unittest not supported");
 		
-		default :
+		default:
 			return trange.parseTypedDeclaration(location, stc);
 	}
 	
@@ -333,14 +338,23 @@ Declaration parseDeclaration(ref TokenRange trange) {
  * Parse type identifier ... declarations.
  * Function/variables.
  */
-Declaration parseTypedDeclaration(ref TokenRange trange, Location location, StorageClass stc) {
+Declaration parseTypedDeclaration(
+	ref TokenRange trange,
+	Location location,
+	StorageClass stc,
+) {
 	return trange.parseTypedDeclaration(location, stc, trange.parseType());
 }
 
 /**
  * Parse a declaration when you already have its type.
  */
-Declaration parseTypedDeclaration(ref TokenRange trange, Location location, StorageClass stc, AstType type) {
+Declaration parseTypedDeclaration(
+	ref TokenRange trange,
+	Location location,
+	StorageClass stc,
+	AstType type,
+) {
 	auto lookahead = trange.save;
 	lookahead.popFront();
 	if (lookahead.front.type == TokenType.OpenParen) {
@@ -350,15 +364,23 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location, Stor
 		
 		if (name.isReserved) {
 			import d.exception;
-			throw new CompileException(idLoc, name.toString(trange.context) ~ " is a reserved name");
+			throw new CompileException(
+				idLoc,
+				name.toString(trange.context) ~ " is a reserved name",
+			);
 		}
 		
 		// TODO: implement ref return.
-		return trange.parseFunction(location, stc, type.getParamType(stc.isRef, false), name);
+		return trange.parseFunction(
+			location,
+			stc,
+			type.getParamType(stc.isRef, false),
+			name,
+		);
 	} else {
 		Declaration[] variables;
 		
-		while(true) {
+		while (true) {
 			auto name = trange.front.name;
 			Location variableLocation = trange.front.location;
 			trange.match(TokenType.Identifier);
@@ -370,7 +392,13 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location, Stor
 				variableLocation.spanTo(value.location);
 			}
 			
-			variables ~= new VariableDeclaration(location, stc, type, name, value);
+			variables ~= new VariableDeclaration(
+				location,
+				stc,
+				type,
+				name,
+				value,
+			);
 			
 			if (trange.front.type != TokenType.Comma) {
 				break;
@@ -391,7 +419,12 @@ private Declaration parseConstructor(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__ctor");
+	return trange.parseFunction(
+		location,
+		stc,
+		AstType.getAuto().getParamType(false, false),
+		BuiltinName!"__ctor",
+	);
 }
 
 // XXX: one callsite, remove
@@ -400,7 +433,12 @@ private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
 	trange.match(TokenType.Tilde);
 	trange.match(TokenType.This);
 	
-	return trange.parseFunction(location, stc, AstType.getAuto().getParamType(false, false), BuiltinName!"__dtor");
+	return trange.parseFunction(
+		location,
+		stc,
+		AstType.getAuto().getParamType(false, false),
+		BuiltinName!"__dtor",
+	);
 }
 
 /**
@@ -408,7 +446,13 @@ private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
  * This allow to parse function as well as constructor or any special function.
  * Additionnal parameters are used to construct the function.
  */
-private Declaration parseFunction(ref TokenRange trange, Location location, StorageClass stc, ParamAstType returnType, Name name) {
+private Declaration parseFunction(
+	ref TokenRange trange,
+	Location location,
+	StorageClass stc,
+	ParamAstType returnType,
+	Name name,
+) {
 	// Function declaration.
 	bool isVariadic;
 	AstTemplateParameter[] tplParameters;
@@ -434,25 +478,25 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	
 	auto qualifier = TypeQualifier.Mutable;
 	
-	while(true) {
-		switch(trange.front.type) with(TokenType) {
-			case Pure :
+	while (true) {
+		switch (trange.front.type) with(TokenType) {
+			case Pure:
 				stc.isPure = true;
 				goto HandleStorageClass;
 			
-			case Const :
+			case Const:
 				qualifier = TypeQualifier.Const;
 				goto HandleTypeQualifier;
 			
-			case Immutable :
+			case Immutable:
 				qualifier = TypeQualifier.Immutable;
 				goto HandleTypeQualifier;
 			
-			case Inout :
+			case Inout:
 				qualifier = TypeQualifier.Inout;
 				goto HandleTypeQualifier;
 			
-			case Shared :
+			case Shared:
 				qualifier = TypeQualifier.Shared;
 				goto HandleTypeQualifier;
 			
@@ -467,7 +511,7 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 				trange.popFront();
 				break;
 			
-			case At :
+			case At:
 				trange.popFront();
 				auto attr = trange.front.name;
 				trange.match(Identifier);
@@ -477,12 +521,16 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 				} else if (attr == BuiltinName!"nogc") {
 					stc.isNoGC = true;
 				} else {
-					assert(0, "@" ~ attr.toString(trange.context) ~ " is not supported.");
+					assert(
+						0,
+						"@" ~ attr.toString(trange.context)
+							~ " is not supported.",
+					);
 				}
 				
 				continue;
 			
-			default :
+			default:
 				break;
 		}
 		
@@ -491,13 +539,13 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 	
 	// TODO: parse contracts.
 	// Skip contracts
-	switch(trange.front.type) with(TokenType) {
-		case In, Out :
+	switch (trange.front.type) with(TokenType) {
+		case In, Out:
 			trange.popFront();
 			trange.parseBlock();
 			
-			switch(trange.front.type) {
-				case In, Out :
+			switch (trange.front.type) {
+				case In, Out:
 					trange.popFront();
 					trange.parseBlock();
 					break;
@@ -509,31 +557,31 @@ private Declaration parseFunction(ref TokenRange trange, Location location, Stor
 			trange.match(Body);
 			break;
 		
-		case Body :
+		case Body:
 			// Body without contract is just skipped.
 			trange.popFront();
 			break;
 		
-		default :
+		default:
 			break;
 	}
 	
 	import d.ast.statement;
 	BlockStatement fbody;
-	switch(trange.front.type) with(TokenType) {
-		case Semicolon :
+	switch (trange.front.type) with(TokenType) {
+		case Semicolon:
 			location.spanTo(trange.front.location);
 			trange.popFront();
 			
 			break;
 		
-		case OpenBrace :
+		case OpenBrace:
 			fbody = trange.parseBlock();
 			location.spanTo(fbody.location);
 			
 			break;
 		
-		default :
+		default:
 			// TODO: error.
 			trange.match(Begin);
 			assert(0);
@@ -564,19 +612,19 @@ auto parseParameters(ref TokenRange trange, out bool isVariadic) {
 	
 	ParamDecl[] parameters;
 	
-	switch(trange.front.type) with(TokenType) {
-		case CloseParen :
+	switch (trange.front.type) with(TokenType) {
+		case CloseParen:
 			break;
 		
-		case DotDotDot :
+		case DotDotDot:
 			trange.popFront();
 			isVariadic = true;
 			break;
 		
-		default :
+		default:
 			parameters ~= trange.parseParameter();
 			
-			while(trange.front.type == Comma) {
+			while (trange.front.type == Comma) {
 				trange.popFront();
 				
 				if (trange.front.type == DotDotDot) {
@@ -615,18 +663,21 @@ auto parseParameter(ref TokenRange trange) {
 	bool isRef;
 	
 	// TODO: parse storage class
-	ParseStorageClassLoop: while(1) {
-		switch(trange.front.type) with(TokenType) {
-			case In, Out, Lazy :
-				assert(0, "storageclasses: in, out and lazy  are not yet implemented");
+	ParseStorageClassLoop: while (true) {
+		switch (trange.front.type) with(TokenType) {
+			case In, Out, Lazy:
+				assert(
+					0,
+					"storageclasses: in, out and lazy  are not yet implemented",
+				);
 			
-			case Ref :
+			case Ref:
 				trange.popFront();
 				isRef = true;
 				
 				break;
 			
-			default :
+			default:
 				break ParseStorageClassLoop;
 		}
 	}
@@ -675,7 +726,12 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 			} else static if (is(T : AstExpression)) {
 				return new ValueAliasDeclaration(location, stc, name, parsed);
 			} else {
-				return new IdentifierAliasDeclaration(location, stc, name, parsed);
+				return new IdentifierAliasDeclaration(
+					location,
+					stc,
+					name,
+					parsed,
+				);
 			}
 		})();
 	} else if (trange.front.type == TokenType.This) {
@@ -701,7 +757,7 @@ auto parseImport(ref TokenRange trange) {
 	auto parseModuleName(TokenRange)(ref TokenRange trange) {
 		auto mod = [trange.front.name];
 		trange.match(TokenType.Identifier);
-		while(trange.front.type == TokenType.Dot) {
+		while (trange.front.type == TokenType.Dot) {
 			trange.popFront();
 		
 			mod ~= trange.front.name;
@@ -712,7 +768,7 @@ auto parseImport(ref TokenRange trange) {
 	}
 	
 	auto modules = [parseModuleName(trange)];
-	while(trange.front.type == TokenType.Comma) {
+	while (trange.front.type == TokenType.Comma) {
 		trange.popFront();
 		
 		modules ~= parseModuleName(trange);
