@@ -761,7 +761,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 				case OpenParen:
 					auto args = trange.parseArguments!OpenParen();
 					location.spanTo(trange.previous);
-					return new ConstructExpression(location, type, args);
+					return new TypeCallExpression(location, type, args);
 				
 				default:
 					break;

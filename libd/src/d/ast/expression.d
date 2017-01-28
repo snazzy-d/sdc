@@ -305,7 +305,7 @@ class IdentifierCallExpression : AstExpression {
 /**
  * Contructor for builtin types.
  */
-class ConstructExpression : AstExpression {
+class TypeCallExpression : AstExpression {
 	AstType type;
 	AstExpression[] args;
 	

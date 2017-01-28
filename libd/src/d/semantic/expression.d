@@ -689,7 +689,7 @@ public:
 			.apply!((i => postProcess(i)))();
 	}
 	
-	Expression visit(ConstructExpression e) {
+	Expression visit(TypeCallExpression e) {
 		import d.semantic.type;
 		auto t = TypeVisitor(pass).visit(e.type);
 		
