@@ -262,7 +262,8 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			case Identifier:
 				auto lookahead = trange.save;
 				lookahead.popFront();
-				if (lookahead.front.type == Equal) {
+				auto nextType = lookahead.front.type;
+				if (nextType == Equal || nextType == OpenParen) {
 					return trange.parseTypedDeclaration(location, stc, AstType.getAuto());
 				}
 				
