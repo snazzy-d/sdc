@@ -33,120 +33,126 @@ auto parseBasicType(ref TokenRange trange) {
 	
 	switch(trange.front.type) with(TokenType) {
 		// Types qualifiers
-		case Const :
+		case Const:
 			return processQualifier!(TypeQualifier.Const)();
 		
-		case Immutable :
+		case Immutable:
 			return processQualifier!(TypeQualifier.Immutable)();
 		
-		case Inout :
+		case Inout:
 			return processQualifier!(TypeQualifier.Mutable)();
 		
-		case Shared :
+		case Shared:
 			return processQualifier!(TypeQualifier.Shared)();
 		
 		// Identified types
-		case Identifier :
+		case Identifier:
 			return AstType.get(trange.parseIdentifier());
 		
-		case Dot :
+		case Dot:
 			return AstType.get(trange.parseDotIdentifier());
 		
-		case Typeof :
+		case Typeof:
 			return trange.parseTypeof();
 		
-		case This :
+		case This:
 			Location location = trange.front.location;
 			auto thisExpression = new ThisExpression(location);
 			
 			trange.popFront();
 			trange.match(Dot);
 			
-			return AstType.get(trange.parseQualifiedIdentifier(location, thisExpression));
+			return AstType.get(trange.parseQualifiedIdentifier(
+				location,
+				thisExpression,
+			));
 		
-		case Super :
+		case Super:
 			Location location = trange.front.location;
 			auto superExpression = new SuperExpression(location);
 			
 			trange.popFront();
 			trange.match(TokenType.Dot);
 			
-			return AstType.get(trange.parseQualifiedIdentifier(location, superExpression));
+			return AstType.get(trange.parseQualifiedIdentifier(
+				location,
+				superExpression,
+			));
 		
 		// Basic types
-		case Void :
+		case Void:
 			trange.popFront();
 			return AstType.get(BuiltinType.Void);
 		
-		case Bool :
+		case Bool:
 			trange.popFront();
 			return AstType.get(BuiltinType.Bool);
 		
-		case Char :
+		case Char:
 			trange.popFront();
 			return AstType.get(BuiltinType.Char);
 		
-		case Wchar :
+		case Wchar:
 			trange.popFront();
 			return AstType.get(BuiltinType.Wchar);
 		
-		case Dchar :
+		case Dchar:
 			trange.popFront();
 			return AstType.get(BuiltinType.Dchar);
 		
-		case Ubyte :
+		case Ubyte:
 			trange.popFront();
 			return AstType.get(BuiltinType.Ubyte);
 		
-		case Ushort :
+		case Ushort:
 			trange.popFront();
 			return AstType.get(BuiltinType.Ushort);
 		
-		case Uint :
+		case Uint:
 			trange.popFront();
 			return AstType.get(BuiltinType.Uint);
 		
-		case Ulong :
+		case Ulong:
 			trange.popFront();
 			return AstType.get(BuiltinType.Ulong);
 		
-		case Ucent :
+		case Ucent:
 			trange.popFront();
 			return AstType.get(BuiltinType.Ucent);
 		
-		case Byte :
+		case Byte:
 			trange.popFront();
 			return AstType.get(BuiltinType.Byte);
 		
-		case Short :
+		case Short:
 			trange.popFront();
 			return AstType.get(BuiltinType.Short);
 		
-		case Int :
+		case Int:
 			trange.popFront();
 			return AstType.get(BuiltinType.Int);
 		
-		case Long :
+		case Long:
 			trange.popFront();
 			return AstType.get(BuiltinType.Long);
 		
-		case Cent :
+		case Cent:
 			trange.popFront();
 			return AstType.get(BuiltinType.Cent);
 		
-		case Float :
+		case Float:
 			trange.popFront();
 			return AstType.get(BuiltinType.Float);
 		
-		case Double :
+		case Double:
 			trange.popFront();
 			return AstType.get(BuiltinType.Double);
 		
-		case Real :
+		case Real:
 			trange.popFront();
 			return AstType.get(BuiltinType.Real);
 		
-		default :
+		default:
 			trange.match(Begin);
 			// TODO: handle.
 			// Erreur, basic type expected.
@@ -163,7 +169,7 @@ private auto parseTypeof(ref TokenRange trange) {
 	
 	scope(success) trange.match(TokenType.CloseParen);
 	
-	if(trange.front.type == TokenType.Return) {
+	if (trange.front.type == TokenType.Return) {
 		trange.popFront();
 		return AstType.getTypeOfReturn();
 	}
@@ -175,56 +181,79 @@ private auto parseTypeof(ref TokenRange trange) {
  * Parse *, [ ... ] and function/delegate types.
  */
 AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
-	while(1) {
-		switch(trange.front.type) with(TokenType) {
-			case Star :
+	while (true) {
+		switch (trange.front.type) with(TokenType) {
+			case Star:
 				trange.popFront();
 				type = type.getPointer();
 				break;
 			
-			case OpenBracket :
+			case OpenBracket:
 				type = trange.parseBracket(type);
 				break;
 			
-			case Function :
+			case Function: {
 				trange.popFront();
 				
 				import d.parser.declaration;
 				import std.algorithm, std.array;
 				bool isVariadic;
-				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
+				auto params = trange
+					.parseParameters(isVariadic)
+					.map!(d => d.type)
+					.array();
 				
 				// TODO: parse postfix attributes.
 				// TODO: ref return.
-				type = FunctionAstType(Linkage.D, type.getParamType(false, false), params, isVariadic).getType();
+				type = FunctionAstType(
+					Linkage.D,
+					type.getParamType(false, false),
+					params,
+					isVariadic,
+				).getType();
+				
 				break;
-			
-			case Delegate :
+			}
+			case Delegate: {
 				trange.popFront();
 				
 				import d.parser.declaration;
 				import std.algorithm, std.array;
 				bool isVariadic;
-				auto params = trange.parseParameters(isVariadic).map!(d => d.type).array();
+				auto params = trange
+					.parseParameters(isVariadic)
+					.map!(d => d.type).array();
 				
 				// TODO: fully typed delegates.
-				auto ctx = AstType.get(BuiltinType.Void).getPointer().getParamType(false, false);
+				auto ctx = AstType.get(BuiltinType.Void)
+					.getPointer()
+					.getParamType(false, false);
 				
 				// TODO: parse postfix attributes and storage class.
 				// TODO: ref return.
-				type = FunctionAstType(Linkage.D, type.getParamType(false, false), ctx, params, isVariadic).getType();
+				type = FunctionAstType(
+					Linkage.D,
+					type.getParamType(false, false),
+					ctx,
+					params,
+					isVariadic,
+				).getType();
+				
 				break;
-			
+			}
 			static if (mode == ParseMode.Greedy) {
-				case TokenType.Dot :
+				case Dot:
 					trange.popFront();
 					
 					// TODO: Duplicate function and pass location explicitely.
-					type = AstType.get(trange.parseQualifiedIdentifier(trange.front.location, type));
+					type = AstType.get(trange.parseQualifiedIdentifier(
+						trange.front.location,
+						type,
+					));
 					break;
 			}
 			
-			default :
+			default:
 				return type;
 		}
 	}
@@ -233,7 +262,7 @@ AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
 private:
 AstType parseBracket(ref TokenRange trange, AstType type) {
 	trange.match(TokenType.OpenBracket);
-	if(trange.front.type == TokenType.CloseBracket) {
+	if (trange.front.type == TokenType.CloseBracket) {
 		trange.popFront();
 		return type.getSlice();
 	}
