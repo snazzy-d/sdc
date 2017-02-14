@@ -293,7 +293,7 @@ private:
 						break;
 					
 					default :
-						assert(0, "Unrecheable.");
+						assert(0, "Unreachable.");
 				}
 			}
 		} else {
