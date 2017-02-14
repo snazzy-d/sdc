@@ -54,10 +54,18 @@ SDC contains a lot of hardcoded PATH right now, so it's hard to integrate proper
 
 SDC requires LLVM 3.9 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.9` .
 
+For detailed installing instructions please refer the [Dockerfile](https://github.com/lindt/docker-sdc/blob/master/Dockerfile).
+
 Compiling SDC on Mac OS X
 =======
 You'll need `make` and the latest DMD installed. You'll also need llvm38 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm39`, followed by `make LLVM_CONFIG=llvm-config-3.9` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.9`, followed by `make LLVM_CONFIG=llvm-config-mp-3.9` .
 You'll also need a recent version of `nasm`; if `nasm` does not recognise the `macho64` output format, try updating `nasm`.
+
+Usage as Docker Image
+=======
+If you do not want to compile SDC on your own, you can use the [automatic generated Docker Image](https://hub.docker.com/r/dlanguage/sdc/).
+Assume you have a `test.d` file in your local directory, you can compile it using the Docker image with this command:
+`docker run -ti -v $(pwd):/src dlanguage/sdc test.d`
 
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
