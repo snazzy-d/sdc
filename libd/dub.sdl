@@ -1,0 +1,21 @@
+// note: on windows you must build for x86_64 - dub --arch=x86_64
+
+name "libd"
+description "SDC D parser library"
+homepage "https://github.com/SDC-Developers/SDC"
+
+license "MIT"
+copyright ""
+authors "Amaury Séchet"
+
+targetType "library"
+//targetType  "dynamicLibrary"
+targetName "libd"
+
+buildType "debug" {
+        buildOptions "debugMode" "debugInfo" "warnings" "deprecationWarnings" "warningsAsErrors" "unittests"
+}
+
+buildType "release" {
+        buildOptions "releaseMode" "optimize" "warnings" "deprecationWarnings" "warningsAsErrors"
+}
