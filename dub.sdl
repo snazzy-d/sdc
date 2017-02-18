@@ -15,12 +15,6 @@ dependency ":libd-llvm" version="*"
 
 configuration "staticLib" {
 	subConfiguration ":libd" "staticLib"
-	subConfiguration ":libd-llvm" "staticLib"
-}
-
-configuration "sharedLib" {
-	subConfiguration ":libd" "sharedLib"
-	subConfiguration ":libd-llvm" "sharedLib"
 }
 
 targetType "executable"

@@ -1,19 +1,10 @@
 name "libd-llvm"
 targetName "d-llvm"
+targetType "library"
 targetPath "../lib"
 
 sourcePaths "src" "import"
-importPaths "../libd/src"
+importPaths "../libd/src" ".."
 
 // these files are yet "not ready" for D or doesn't needed at all ?
 excludedSourceFiles "*/errorHandling.d" "*/lto.d"	
-
-configuration "sharedLib" {
-   # note - on windows for link dll there is this needed - https://github.com/dlang/druntime/blob/master/src/core/sys/windows/dll.d#L473
-   targetType "dynamicLibrary"
-   versions "WindowsDLL" platform="windows"
-}
-
-configuration "staticLib" {
-   targetType "library"
-}
