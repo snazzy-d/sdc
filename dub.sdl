@@ -11,11 +11,7 @@ authors "SDC-Developers"
 systemDependencies "LLVM 3.9 development libraries must be available"
 dependency ":libd" version="*"
 dependency ":libd-llvm" version="*"
-
-
-configuration "staticLib" {
-	subConfiguration ":libd" "staticLib"
-}
+subConfiguration ":libd" "staticLib"
 
 targetType "executable"
 targetName "sdc"
