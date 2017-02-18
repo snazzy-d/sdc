@@ -30,7 +30,7 @@ targetPath "bin"
 sourcePaths "sdc"
 importPaths "libd-llvm/src" "libd-llvm/import"
 
-lflags "-L/usr/lib/llvm-3.9/lib" "-Llib" platform="posix"
+lflags "-L/usr/lib/llvm-3.9/lib" platform="posix"
 
 libs "LLVM-3.9" "rt" "dl" "tinfo" "pthread" "z" "m" platform="posix"
 libs "LLVM" platform="windows"
