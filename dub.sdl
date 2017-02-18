@@ -1,0 +1,47 @@
+// note: on windows you must build for x86_64 - dub -a x86_64
+
+name "sdc"
+description "The Stupid D Compiler"
+homepage "https://github.com/SDC-Developers/SDC"
+
+license "MIT"
+copyright "Copyright © 2010-2017 SDC-Developers"
+authors "SDC-Developers"
+
+systemDependencies "LLVM 3.9 development libraries must be available"
+dependency ":libd" version="*"
+dependency ":libd-llvm" version="*"
+
+
+configuration "staticLib" {
+	subConfiguration ":libd" "staticLib"
+	subConfiguration ":libd-llvm" "staticLib"
+}
+
+configuration "sharedLib" {
+	subConfiguration ":libd" "sharedLib"
+	subConfiguration ":libd-llvm" "sharedLib"
+}
+
+targetType "executable"
+targetName "sdc"
+targetPath "bin"
+
+sourcePaths "sdc"
+importPaths "libd-llvm/src" "libd-llvm/import"
+
+lflags "-L/usr/lib/llvm-3.9/lib" "-Llib" platform="posix"
+
+libs "LLVM-3.9" "rt" "dl" "tinfo" "pthread" "z" "m" platform="posix"
+libs "LLVM" platform="windows"
+
+buildType "debug" {
+        buildOptions "debugMode" "debugInfo" "warnings" "deprecationWarnings" "warningsAsErrors" "unittests"
+}
+
+buildType "release" {
+        buildOptions "releaseMode" "optimize" "warnings" "deprecationWarnings" "warningsAsErrors"
+}
+
+subPackage "libd"
+subPackage "libd-llvm"
