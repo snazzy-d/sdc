@@ -127,7 +127,7 @@ public:
 	VR visit(Expression e) in {
 		assert(isValidExpr(e), "VRP expect integral types.");
 	} body {
-		return this.dispatch(e);
+		return this.dispatch!(e => getRange(e.type))(e);
 	}
 	
 	VR visit(BooleanLiteral e) {
