@@ -113,3 +113,15 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 			return from == Shared || from == Immutable;
 	}
 }
+
+enum ParamKind {
+	/// Regular parameter. A slot on the stack will be allocated and value
+	/// copied in it when calling the function.
+	Regular,
+	/// Final parameter. No slot on the stack is created for it, and the
+	/// parameter cannot be written to, even when mutable.
+	Final,
+	/// Ref parameter. The address of the argument is passed instead of the
+	/// argument itself and is used as if it was a regular slot on the stack.
+	Ref,
+}

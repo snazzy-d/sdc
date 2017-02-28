@@ -383,19 +383,25 @@ alias ParamAstType = AstType.ParamType;
 
 string toString(const ParamAstType t, const Context c) {
 	string s;
-	if (t.isRef && t.isFinal) {
-		s = "final ref ";
-	} else if (t.isRef) {
-		s = "ref ";
-	} else if (t.isFinal) {
-		s = "final ";
+	final switch (t.paramKind) with(ParamKind) {
+		case Regular:
+			s = "";
+			break;
+		
+		case Final:
+			s = "final ";
+			break;
+		
+		case Ref:
+			s = "ref ";
+			break;
 	}
 	
 	return s ~ t.getType().toString(c);
 }
 
-inout(ParamAstType) getParamType(inout ParamAstType t, bool isRef, bool isFinal) {
-	return t.getType().getParamType(isRef, isFinal);
+inout(ParamAstType) getParamType(inout ParamAstType t, ParamKind kind) {
+	return t.getType().getParamType(kind);
 }
 
 alias FunctionAstType = AstType.FunctionType;

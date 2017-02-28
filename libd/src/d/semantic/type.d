@@ -33,7 +33,7 @@ struct TypeVisitor {
 	}
 	
 	ParamType visit(ParamAstType t) {
-		return visit(t.getType()).getParamType(t.isRef, t.isFinal);
+		return visit(t.getType()).getParamType(t.paramKind);
 	}
 	
 	Type visit(BuiltinType t) {

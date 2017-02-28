@@ -103,7 +103,7 @@ private:
 		import d.context.name;
 		auto v = new Variable(
 			value.location,
-			value.type.getParamType(true, false),
+			value.type.getParamType(ParamKind.Ref),
 			BuiltinName!"",
 			value,
 		);
@@ -607,12 +607,13 @@ public:
 		import std.algorithm, std.array;
 		auto args = c.args.map!(a => visit(a)).array();
 		
+		// FIXME: Have a ThisCallExpression.
 		auto te = cast(ThisExpression) c.callee;
 		if (te is null) {
 			return handleCall(c.location, visit(c.callee), args);
 		}
 		
-		// TODO: check if we are in a constructor.
+		// FIXME: check if we are in a constructor.
 		auto t = thisType.getType().getCanonical();
 		if (!t.isAggregate()) {
 			assert(0, "ctor on non aggregate not implemented");
@@ -622,19 +623,24 @@ public:
 		auto thisExpr = getThis(loc);
 		auto call = callCtor(c.location, loc, thisExpr, args);
 		
-		// Classes
-		if (thisType.isFinal) {
-			return call;
+		final switch (thisType.paramKind) with(ParamKind) {
+			case Regular:
+				assert(0, "Not supported");
+			
+			case Final:
+				// Classes.
+				return call;
+			
+			case Ref:
+				// Value type, by value.
+				return build!BinaryExpression(
+					c.location,
+					thisExpr.type,
+					BinaryOp.Assign,
+					thisExpr,
+					call,
+				);
 		}
-		
-		// Structs
-		return build!BinaryExpression(
-			c.location,
-			thisExpr.type,
-			BinaryOp.Assign,
-			thisExpr,
-			call,
-		);
 	}
 	
 	Expression visit(IdentifierCallExpression c) {
@@ -740,11 +746,8 @@ public:
 	) in {
 		assert(thisExpr.type.isAggregate());
 	} body {
-		return callCallable(
-			location,
-			findCtor(location, calleeLoc, thisExpr, args),
-			args,
-		);
+		auto ctor = findCtor(location, calleeLoc, thisExpr, args);
+		return callCallable(location, ctor, args);
 	}
 	
 	// XXX: factorize with NewExpression
@@ -1393,7 +1396,7 @@ public:
 		auto d = new FunctionDeclaration(
 			location,
 			defaultStorageClass,
-			AstType.getAuto().getParamType(false, false),
+			AstType.getAuto().getParamType(ParamKind.Regular),
 			name,
 			params,
 			isVariadic,

@@ -396,7 +396,12 @@ unittest {
 		 * Variables
 		 */
 		import d.context.name;
-		auto var = new Variable(Location.init, tuint.getParamType(false, false), BuiltinName!"", i1);
+		auto var = new Variable(
+			Location.init,
+			tuint.getParamType(ParamKind.Regular),
+			BuiltinName!"",
+			i1,
+		);
 		var.step = Step.Processed;
 		
 		v = vrp.visit(var);

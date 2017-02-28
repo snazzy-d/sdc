@@ -99,7 +99,8 @@ public:
 		if (rt.kind == TypeKind.Builtin &&
 			rt.qualifier == TypeQualifier.Mutable &&
 			rt.builtin == BuiltinType.None) {
-			returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+			returnType = Type.get(BuiltinType.Void)
+				.getParamType(ParamKind.Regular);
 		}
 		
 		if (!terminate) {
@@ -328,7 +329,7 @@ public:
 					import d.semantic.caster;
 					auto v = new Variable(
 						s.location,
-						t.getParamType(false, false),
+						t.getParamType(ParamKind.Regular),
 						s.name,
 						buildImplicitCast(pass, s.location, t, value),
 					);
@@ -505,7 +506,7 @@ public:
 		Variable idx;
 		
 		auto loc = f.location;
-		switch(f.tupleElements.length) {
+		switch (f.tupleElements.length) {
 			case 1:
 				import d.semantic.defaultinitializer;
 				idx = new Variable(
@@ -520,7 +521,9 @@ public:
 			
 			case 2:
 				auto idxDecl = f.tupleElements[0];
-				assert(!idxDecl.type.isRef, "index can't be ref");
+				if (idxDecl.type.paramKind != ParamKind.Regular) {
+					assert(0, "index can't be ref");
+				}
 				
 				import d.semantic.type;
 				auto t = idxDecl.type.getType().isAuto
@@ -571,7 +574,7 @@ public:
 		
 		import d.semantic.expression;
 		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
-		auto eType = eVal.type.getParamType(eDecl.type.isRef, false);
+		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 		
 		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
@@ -619,7 +622,7 @@ public:
 		
 		auto idx = new Variable(
 			iDecl.location,
-			type.getParamType(iDecl.type.isRef, false),
+			type.getParamType(iDecl.type.paramKind),
 			iDecl.name,
 			start,
 		);
@@ -659,7 +662,8 @@ public:
 		// return; has no value.
 		if (s.value is null) {
 			if (isAutoReturn) {
-				returnType = Type.get(BuiltinType.Void).getParamType(false, false);
+				returnType = Type.get(BuiltinType.Void)
+					.getParamType(ParamKind.Regular);
 			}
 			
 			closeBlockTo(0);
@@ -673,7 +677,7 @@ public:
 		// instead of deducing it in dubious ways.
 		if (isAutoReturn) {
 			// TODO: auto ref return.
-			returnType = value.type.getParamType(false, false);
+			returnType = value.type.getParamType(ParamKind.Regular);
 		} else {
 			import d.semantic.caster;
 			value = buildImplicitCast(pass, s.location, returnType.getType(), value);

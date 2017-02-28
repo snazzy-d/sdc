@@ -258,7 +258,7 @@ class Variable : ValueSymbol {
 	
 	@property
 	Type type(Type t) {
-		paramType = t.getParamType(false, false);
+		paramType = t.getParamType(ParamKind.Regular);
 		return t;
 	}
 	

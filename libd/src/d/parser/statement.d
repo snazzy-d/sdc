@@ -146,7 +146,7 @@ Statement parseStatement(ref TokenRange trange) {
 				
 				return ParamDecl(
 					elementLocation,
-					type.getParamType(isRef, false),
+					type.getParamType(isRef ? ParamKind.Ref : ParamKind.Regular),
 					name,
 					null,
 				);

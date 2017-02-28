@@ -144,7 +144,7 @@ final class SemanticPass {
 			main.getModule(),
 			FunctionType(
 				Linkage.C,
-				Type.get(BuiltinType.Int).getParamType(false, false),
+				Type.get(BuiltinType.Int).getParamType(ParamKind.Regular),
 				[],
 				false,
 			),

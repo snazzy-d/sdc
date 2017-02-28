@@ -374,7 +374,7 @@ Declaration parseTypedDeclaration(
 		return trange.parseFunction(
 			location,
 			stc,
-			type.getParamType(stc.isRef, false),
+			type.getParamType(stc.isRef ? ParamKind.Ref : ParamKind.Regular),
 			name,
 		);
 	} else {
@@ -422,7 +422,7 @@ private Declaration parseConstructor(ref TokenRange trange, StorageClass stc) {
 	return trange.parseFunction(
 		location,
 		stc,
-		AstType.getAuto().getParamType(false, false),
+		AstType.getAuto().getParamType(ParamKind.Regular),
 		BuiltinName!"__ctor",
 	);
 }
@@ -436,7 +436,7 @@ private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
 	return trange.parseFunction(
 		location,
 		stc,
-		AstType.getAuto().getParamType(false, false),
+		AstType.getAuto().getParamType(ParamKind.Regular),
 		BuiltinName!"__dtor",
 	);
 }
@@ -683,7 +683,8 @@ auto parseParameter(ref TokenRange trange) {
 	}
 	
 	auto location = trange.front.location;
-	auto type = trange.parseType().getParamType(isRef, false);
+	auto type = trange.parseType()
+		.getParamType(isRef ? ParamKind.Ref : ParamKind.Regular);
 	
 	auto name = BuiltinName!"";
 	AstExpression value;

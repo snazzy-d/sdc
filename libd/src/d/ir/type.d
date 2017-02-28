@@ -335,21 +335,28 @@ public:
 			case Builtin:
 				// Is this, really ?
 				return t.builtin == BuiltinType.Null;
+
 			case Alias, Enum, Template, Error:
 				assert(0);
+
 			case Pointer, Slice, Class, Interface, Context:
 				return true;
+
 			case Array:
 				return element.hasIndirection;
+
 			case Struct:
 				return t.dstruct.hasIndirection;
+
 			case Union:
 				return t.dunion.hasIndirection;
+
 			case Function:
 				import std.algorithm;
 				return asFunctionType()
 					.contexts
 					.any!(t => t.isRef || t.getType().hasIndirection);
+
 			case Sequence:
 				import std.algorithm;
 				return sequence.any!(t => t.hasIndirection);
@@ -589,27 +596,40 @@ alias ParamType = Type.ParamType;
 
 string toString(const ParamType t, const Context c) {
 	string s;
-	if (t.isRef && t.isFinal) {
-		s = "final ref ";
-	} else if (t.isRef) {
-		s = "ref ";
-	} else if (t.isFinal) {
-		s = "final ";
+	final switch (t.paramKind) with(ParamKind) {
+		case Regular:
+			s = "";
+			break;
+		
+		case Final:
+			s = "final ";
+			break;
+		
+		case Ref:
+			s = "ref ";
+			break;
 	}
 	
 	return s ~ t.getType().toString(c);
 }
 
-inout(ParamType) getParamType(inout ParamType t, bool isRef, bool isFinal) {
-	return t.getType().getParamType(isRef, isFinal);
+inout(ParamType) getParamType(inout ParamType t, ParamKind kind) {
+	return t.getType().getParamType(kind);
+}
+
+@property isRef(const ParamType t) {
+	return t.paramKind == ParamKind.Ref;
+}
+
+@property isFinal(const ParamType t) {
+	return t.paramKind == ParamKind.Final;
 }
 
 unittest {
 	auto pi = Type.get(BuiltinType.Int).getPointer(TypeQualifier.Const);
-	auto p = pi.getParamType(true, false);
+	auto p = pi.getParamType(ParamKind.Ref);
 	
-	assert(p.isRef == true);
-	assert(p.isFinal == false);
+	assert(p.paramKind == ParamKind.Ref);
 	assert(p.qualifier == TypeQualifier.Const);
 	
 	auto pt = p.getType();
@@ -619,9 +639,12 @@ unittest {
 alias FunctionType = Type.FunctionType;
 
 unittest {
-	auto r = Type.get(BuiltinType.Void).getPointer().getParamType(false, false);
-	auto c = Type.get(BuiltinType.Null).getSlice().getParamType(false, true);
-	auto p = Type.get(BuiltinType.Float).getSlice(TypeQualifier.Immutable).getParamType(true, true);
+	auto r = Type.get(BuiltinType.Void).getPointer()
+		.getParamType(ParamKind.Regular);
+	auto c = Type.get(BuiltinType.Null).getSlice()
+		.getParamType(ParamKind.Final);
+	auto p = Type.get(BuiltinType.Float).getSlice(TypeQualifier.Immutable)
+		.getParamType(ParamKind.Ref);
 	auto f = FunctionType(Linkage.Java, r, [c, p], true);
 	
 	assert(f.linkage == Linkage.Java);

@@ -199,7 +199,7 @@ struct SymbolAnalyzer {
 			// XXX: Maybe we should offer a way to requalify ParamType.
 			thisType = thisType.getType()
 				.qualify(fd.storageClass.qualifier)
-				.getParamType(oldThisType.isRef, oldThisType.isFinal);
+				.getParamType(oldThisType.paramKind);
 		} else {
 			assert(
 				fd.storageClass.qualifier == TypeQualifier.Mutable,
@@ -251,9 +251,12 @@ struct SymbolAnalyzer {
 			// as constructor are kind of magic.
 			f.hasThis = false;
 			
+			returnType = Type.get(BuiltinType.Void)
+				.getParamType(ParamKind.Regular);
+			
 			auto xtorType = thisType;
 			if (xtorType.isRef && isCtor) {
-				xtorType = xtorType.getParamType(false, xtorType.isFinal);
+				xtorType = xtorType.getParamType(ParamKind.Regular);
 				returnType = xtorType;
 				
 				if (fbody) {
@@ -266,9 +269,6 @@ struct SymbolAnalyzer {
 						),
 					]);
 				}
-			} else {
-				returnType = Type.get(BuiltinType.Void)
-					.getParamType(false, false);
 			}
 			
 			auto thisParameter = new Variable(
@@ -360,7 +360,7 @@ struct SymbolAnalyzer {
 			
 			import d.semantic.type;
 			returnType = isAuto
-				? Type.get(BuiltinType.None).getParamType(false, false)
+				? Type.get(BuiltinType.None).getParamType(ParamKind.Regular)
 				: TypeVisitor(pass).visit(fd.returnType);
 		}
 		
@@ -378,7 +378,7 @@ struct SymbolAnalyzer {
 			import d.context.name;
 			auto contextParameter = new Variable(
 				f.location,
-				Type.getContextType(ctxSym).getParamType(true, false),
+				Type.getContextType(ctxSym).getParamType(ParamKind.Ref),
 				BuiltinName!"__ctx",
 			);
 			
@@ -418,7 +418,7 @@ struct SymbolAnalyzer {
 			auto t = returnType.getType();
 			if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.None) {
 				returnType = Type.get(BuiltinType.Void)
-					.getParamType(returnType.isRef, returnType.isFinal);
+					.getParamType(returnType.paramKind);
 			}
 			
 			buildType();
@@ -567,7 +567,7 @@ struct SymbolAnalyzer {
 		}
 		
 		auto type = Type.get(s);
-		thisType = type.getParamType(true, false);
+		thisType = type.getParamType(ParamKind.Ref);
 		
 		// Update mangle prefix.
 		import std.conv;
@@ -673,7 +673,7 @@ struct SymbolAnalyzer {
 		}
 		
 		auto type = Type.get(u);
-		thisType = type.getParamType(true, false);
+		thisType = type.getParamType(ParamKind.Ref);
 		
 		// Update mangle prefix.
 		import std.conv;
@@ -757,7 +757,7 @@ struct SymbolAnalyzer {
 			thisType = oldThisType;
 		}
 		
-		thisType = Type.get(c).getParamType(false, true);
+		thisType = Type.get(c).getParamType(ParamKind.Final);
 		
 		// Update mangle prefix.
 		import std.conv;
@@ -996,7 +996,7 @@ struct SymbolAnalyzer {
 			thisType = oldThisType;
 		}
 		
-		thisType = Type.get(i).getParamType(false, true);
+		thisType = Type.get(i).getParamType(ParamKind.Final);
 		
 		import std.conv;
 		auto name = i.name.toString(context);
@@ -1254,22 +1254,22 @@ struct SymbolAnalyzer {
 			while(true) {
 				auto o = cast(Object) cs;
 				if (auto s = cast(Struct) o) {
-					thisType = Type.get(s).getParamType(true, false);
+					thisType = Type.get(s).getParamType(ParamKind.Ref);
 					break;
 				}
 				
 				if (auto c = cast(Class) o) {
-					thisType = Type.get(c).getParamType(false, true);
+					thisType = Type.get(c).getParamType(ParamKind.Final);
 					break;
 				}
 				
 				if (auto u = cast(Union) o) {
-					thisType = Type.get(u).getParamType(true, false);
+					thisType = Type.get(u).getParamType(ParamKind.Ref);
 					break;
 				}
 				
 				if (auto iface = cast(Interface) o) {
-					thisType = Type.get(iface).getParamType(false, true);
+					thisType = Type.get(iface).getParamType(ParamKind.Final);
 					break;
 				}
 				

@@ -346,8 +346,8 @@ public:
 	
 	alias UnionType(T...) = UnionTypeTpl!(typeof(this), T);
 	
-	auto getParamType(bool isRef, bool isFinal) inout {
-		return getPackedBitfield!ParamTuple(isRef, isFinal);
+	auto getParamType(ParamKind kind) inout {
+		return getPackedBitfield!ParamTuple(kind);
 	}
 	
 	auto asFunctionType() inout in {
@@ -404,8 +404,7 @@ struct TypeDescriptor(K, T...) {
 
 import std.typetuple;
 alias ParamTuple = TypeTuple!(
-	bool, "isRef", 1,
-	bool, "isFinal", 1,
+	ParamKind, "paramKind", 2,
 );
 
 template SizeOfBitField(T...) {
