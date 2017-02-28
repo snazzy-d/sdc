@@ -428,8 +428,11 @@ private:
 		assert(0, "Wat wat wat ?");
 	}
 	
-	Identifiable resolveBracket(S1, S2)(Location location, S1 base, S2 index)
-	if (
+	Identifiable resolveBracket(S1, S2)(
+		Location location,
+		S1 base,
+		S2 index,
+	) if (
 		(is(S1 : Symbol) || is(S2 : Symbol)) &&
 		!(is(S1 : Identifier) || is(S2 : Identifier))
 	) {
