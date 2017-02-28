@@ -725,9 +725,23 @@ public:
 				);
 			
 			case Struct:
+				auto s = t.dstruct;
+				scheduler.require(s, Step.Signed);
+				
 				import d.semantic.defaultinitializer;
-				auto di = InstanceBuilder(pass, calleeLoc).visit(t);
-				return callCtor(location, calleeLoc, di, args);
+				auto di = InstanceBuilder(pass, calleeLoc).visit(s);
+				if (s.isSmall) {
+					return callCtor(location, calleeLoc, di, args);
+				}
+				
+				auto thisExpr = getTemporary(di);
+				return build!BinaryExpression(
+					location,
+					t,
+					BinaryOp.Comma,
+					callCtor(location, calleeLoc, thisExpr, args),
+					thisExpr,
+				);
 			
 			default:
 				return getError(

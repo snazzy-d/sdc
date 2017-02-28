@@ -255,19 +255,26 @@ struct SymbolAnalyzer {
 				.getParamType(ParamKind.Regular);
 			
 			auto xtorType = thisType;
-			if (xtorType.isRef && isCtor) {
-				xtorType = xtorType.getParamType(ParamKind.Regular);
-				returnType = xtorType;
+			
+			// For small struct, we construct by value.
+			if (isCtor && xtorType.kind == TypeKind.Struct) {
+				auto s = xtorType.getType().dstruct;
+				scheduler.require(s, Step.Signed);
 				
-				if (fbody) {
-					import d.ast.statement;
-					fbody = new BlockStatement(fbody.location, [
-						fbody,
-						new ReturnStatement(
-							f.location,
-							new ThisExpression(f.location),
-						),
-					]);
+				if (s.isSmall) {
+					xtorType = xtorType.getParamType(ParamKind.Regular);
+					returnType = xtorType;
+					
+					if (fbody) {
+						import d.ast.statement;
+						fbody = new BlockStatement(fbody.location, [
+							fbody,
+							new ReturnStatement(
+								f.location,
+								new ThisExpression(f.location),
+							),
+						]);
+					}
 				}
 			}
 			
@@ -656,6 +663,10 @@ struct SymbolAnalyzer {
 		}
 		
 		s.step = Step.Signed;
+		
+		// Must be done once the struct is signed, but really is part
+		// of the process to get it signed, so we do it immediatly.
+		s.isSmall = (dataLayout.getSize(Type.get(s)) <= 32);
 		
 		scheduler.require(otherSymbols);
 		s.members ~= otherSymbols;

@@ -526,7 +526,7 @@ class Struct : Aggregate {
 	@property isPod() const in {
 		assert(
 			step >= Step.Signed,
-			"Struct need to be signed to use isPod"
+			"Struct need to be signed to use isPod",
 		);
 	} body {
 		return !!(derived & 0x02);
@@ -540,6 +540,25 @@ class Struct : Aggregate {
 		}
 		
 		return isPod;
+	}
+	
+	@property isSmall() const in {
+		assert(
+			step >= Step.Signed,
+			"Struct need to be signed to use isSmall",
+		);
+	} body {
+		return !!(derived & 0x04);
+	}
+	
+	@property isSmall(bool isSmall) {
+		if (isSmall) {
+			derived = derived | 0x04;
+		} else {
+			derived = derived & ~0x04;
+		}
+		
+		return isSmall;
 	}
 }
 
