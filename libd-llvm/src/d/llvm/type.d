@@ -80,12 +80,15 @@ struct TypeGen {
 	
 	LLVMTypeRef buildOpaque(Type t) {
 		t = t.getCanonical();
-		switch(t.kind) with(TypeKind) {
+		switch (t.kind) with(TypeKind) {
 			case Struct:
 				return buildOpaque(t.dstruct);
 			
 			case Union:
 				return buildOpaque(t.dunion);
+			
+			case Context:
+				return buildOpaque(t.context);
 			
 			default:
 				return t.accept(this);
@@ -167,7 +170,7 @@ struct TypeGen {
 		assert(s.step >= Step.Signed);
 	} body {
 		// FIXME: Ensure we don't have forward references.
-		LLVMTypeRef llvmStruct = buildOpaque(s);
+		auto llvmStruct = buildOpaque(s);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
 			return llvmStruct;
 		}
@@ -198,7 +201,7 @@ struct TypeGen {
 		assert(u.step >= Step.Signed);
 	} body {
 		// FIXME: Ensure we don't have forward references.
-		LLVMTypeRef llvmStruct = buildOpaque(u);
+		auto llvmStruct = buildOpaque(u);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
 			return llvmStruct;
 		}
@@ -398,33 +401,45 @@ struct TypeGen {
 		return llvmStruct;
 	}
 	
+	auto buildOpaque(Function f) {
+		if (auto fctx = f in funCtxTypes) {
+			return *fctx;
+		}
+		
+		import std.string;
+		return funCtxTypes[f] = LLVMStructCreateNamed(
+			llvmCtx,
+			toStringz("S" ~ f.mangle.toString(context)[2 .. $] ~ ".ctx"),
+		);
+	}
+	
 	LLVMTypeRef visit(Function f) in {
-		assert(f.step >= Step.Signed);
+		assert(
+			f.step >= Step.Signed,
+			f.name.toString(pass.context) ~ " isn't signed",
+		);
 	} body {
-		return funCtxTypes.get(f, {
-			auto count = cast(uint) f.closure.length + f.hasContext;
-			
-			import std.string;
-			auto ctxStruct = funCtxTypes[f] = LLVMStructCreateNamed(
-				pass.llvmCtx,
-				toStringz("S" ~ f.mangle.toString(pass.context)[2 .. $] ~ ".ctx"),
-			);
-			
-			LLVMTypeRef[] ctxElts;
-			ctxElts.length = count;
-			
-			if (f.hasContext) {
-				auto parentCtxType = f.type.parameters[0].getType();
-				ctxElts[0] = LLVMPointerType(visit(parentCtxType), 0);
-			}
-			
-			foreach(v, i; f.closure) {
-				ctxElts[i] = visit(v.type);
-			}
-			
-			LLVMStructSetBody(ctxStruct, ctxElts.ptr, count, false);
+		auto ctxStruct = buildOpaque(f);
+		if (!LLVMIsOpaqueStruct(ctxStruct)) {
 			return ctxStruct;
-		}());
+		}
+		
+		auto count = cast(uint) f.closure.length + f.hasContext;
+		
+		LLVMTypeRef[] ctxElts;
+		ctxElts.length = count;
+		
+		if (f.hasContext) {
+			auto parentCtxType = f.type.parameters[0].getType();
+			ctxElts[0] = LLVMPointerType(visit(parentCtxType), 0);
+		}
+		
+		foreach(v, i; f.closure) {
+			ctxElts[i] = visit(v.type);
+		}
+		
+		LLVMStructSetBody(ctxStruct, ctxElts.ptr, count, false);
+		return ctxStruct;
 	}
 	
 	private auto buildParamType(ParamType pt) {
