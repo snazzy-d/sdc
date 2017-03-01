@@ -621,17 +621,13 @@ public:
 		
 		auto loc = c.callee.location;
 		auto thisExpr = getThis(loc);
-		auto call = callCtor(c.location, loc, thisExpr, args);
 		
-		final switch (thisType.paramKind) with(ParamKind) {
+		auto ctor = findCtor(c.location, loc, thisExpr, args);
+		auto thisKind = ctor.type.asFunctionType().contexts[0].paramKind;
+		auto call = callCallable(c.location, ctor, args);
+		
+		final switch (thisKind) with(ParamKind) {
 			case Regular:
-				assert(0, "Not supported");
-			
-			case Final:
-				// Classes.
-				return call;
-			
-			case Ref:
 				// Value type, by value.
 				return build!BinaryExpression(
 					c.location,
@@ -639,6 +635,20 @@ public:
 					BinaryOp.Assign,
 					thisExpr,
 					call,
+				);
+			
+			case Final:
+				// Classes.
+				return call;
+			
+			case Ref:
+				// Value type, by ref.
+				return build!BinaryExpression(
+					c.location,
+					thisExpr.type,
+					BinaryOp.Comma,
+					call,
+					thisExpr,
 				);
 		}
 	}
