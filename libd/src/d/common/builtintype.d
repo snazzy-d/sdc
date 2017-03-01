@@ -194,7 +194,8 @@ uint getSize(BuiltinType t) {
 			return 1 << (t - Float + 2);
 		
 		case None, Void, Real, Null :
-			assert(0, "Use SizeofVisitor");
+			import std.conv;
+			assert(0, "Use SizeofVisitor for " ~ t.to!string());
 	}
 }
 
