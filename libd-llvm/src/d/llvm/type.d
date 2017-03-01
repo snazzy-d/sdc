@@ -409,13 +409,13 @@ struct TypeGen {
 		import std.string;
 		return funCtxTypes[f] = LLVMStructCreateNamed(
 			llvmCtx,
-			toStringz("S" ~ f.mangle.toString(context)[2 .. $] ~ ".ctx"),
+			toStringz("S" ~ f.name.toString(context) ~ ".ctx"),
 		);
 	}
 	
 	LLVMTypeRef visit(Function f) in {
 		assert(
-			f.step >= Step.Signed,
+			f.step >= Step.Processed,
 			f.name.toString(pass.context) ~ " isn't signed",
 		);
 	} body {
