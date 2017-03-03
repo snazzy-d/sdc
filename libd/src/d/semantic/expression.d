@@ -1247,6 +1247,12 @@ public:
 			index,
 		);
 		
+		// Make sure we create a temporary for rvalue indices.
+		// XXX: Should this be done in the backend ?
+		if (t.kind == TypeKind.Array && !indexed.isLvalue) {
+			indexed = getTemporary(indexed);
+		}
+		
 		return build!IndexExpression(location, t.element, indexed, index);
 	}
 	

@@ -544,7 +544,9 @@ struct ExpressionGen {
 		return ptr;
 	}
 	
-	LLVMValueRef visit(IndexExpression e) {
+	LLVMValueRef visit(IndexExpression e) in {
+		assert(e.isLvalue, "e must be an lvalue");
+	} body {
 		return loadAddressOf(e);
 	}
 	
