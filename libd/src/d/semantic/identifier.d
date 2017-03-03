@@ -742,6 +742,21 @@ struct ExpressionDotIdentifierResolver {
 			et = et.denum.type.getCanonical();
 		}
 		
+		// array.ptr is a special case.
+		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
+			return Identifiable(new UnaryExpression(
+				location,
+				t.element.getPointer(),
+				UnaryOp.AddressOf,
+				new IndexExpression(
+					location,
+					t.element,
+					e,
+					new IntegerLiteral(location, 0, BuiltinType.Uint),
+				),
+			));
+		}
+		
 		// UFCS
 		if (auto ufcs = resolveUFCS(e)) {
 			return Identifiable(ufcs);
@@ -910,7 +925,9 @@ struct TypeDotIdentifierResolver {
 			
 			s.step = Step.Processed;
 			return Identifiable(s);
-		} else if (name == BuiltinName!"ptr") {
+		}
+		
+		if (name == BuiltinName!"ptr") {
 			// FIXME: pass explicit location.
 			auto location = Location.init;
 			auto s = new Field(
