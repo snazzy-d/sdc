@@ -48,7 +48,7 @@ struct LocalGen {
 		this.mode = mode;
 		this.contexts = contexts;
 		
-		// Make sure globals are initialized.
+		// Make sure locals are initialized.
 		locals[null] = null;
 		locals.remove(null);
 		
@@ -116,10 +116,16 @@ struct LocalGen {
 		
 		// XXX: This should probably a member of the Function class.
 		auto isLocal = f.hasContext || (cast(NestedScope) f.getParentScope());
-		auto lookup = isLocal
-			? locals
-			: globals;
+		auto lookup = isLocal ? locals : globals;
 		
+		// FIXME: This is broken, but we do it all in globals for now.
+		// We have no good way to pas the nested locals down in aggregates
+		// declarations as we do a round trip through globals.
+		// We could fix this by removing any require from the backend
+		// and moving local to the localData, or bubbling down part of the
+		// aggregate declaration code in the LocalGen. This last option seems
+		// more reasonable as the situation is also broken for embededContexts.
+		// In the meantime, just store everything in globals.
 		lookup = globals;
 		
 		auto fun = lookup.get(f, {
@@ -133,11 +139,10 @@ struct LocalGen {
 				return *funPtr;
 			}
 			
-			// Sanity check.
-			auto fun = LLVMGetNamedFunction(pass.dmodule, name);
+			// Sanity check: do not declare multiple time.
 			assert(
-				!fun,
-				f.mangle.toString(pass.context) ~ " is already declared."
+				!LLVMGetNamedFunction(pass.dmodule, name),
+				f.mangle.toString(pass.context) ~ " is already declared.",
 			);
 			
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);

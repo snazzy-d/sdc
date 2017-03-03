@@ -85,18 +85,7 @@ struct StatementGen {
 				
 				// FIXME: Delete this, we can generate these upon use.
 				case Declare:
-					import d.ir.symbol;
-					if (auto f = cast(Function) i.sym) {
-						declare(f);
-					} else if (auto a = cast(Aggregate) i.sym) {
-						define(a);
-					} else {
-						assert(
-							0,
-							typeid(i.sym).toString() ~ " is not supported",
-						);
-					}
-					
+					define(i.sym);
 					break;
 			}
 		}

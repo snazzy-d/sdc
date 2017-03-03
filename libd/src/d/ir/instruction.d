@@ -320,7 +320,7 @@ enum OpCode {
 	Destroy,
 	Evaluate,
 	
-	// FIXME: This is unecessary, but will makes thigns easier for now.
+	// FIXME: This is unecessary, but will makes things easier for now.
 	Declare,
 }
 

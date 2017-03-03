@@ -14,10 +14,9 @@ immutable n = 3;
 }
 
 int main() {
-	// FIXME: Codegen of foo fails for some reason.
 	static foo() {
 		return 1;
 	}
 	
-	return /* foo() */ 1 + bar() + n + p;
+	return foo() + bar() + n + p;
 }
