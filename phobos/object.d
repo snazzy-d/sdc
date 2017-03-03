@@ -14,7 +14,7 @@ extern (C) {
 	void exit(int code);
 	int printf(const char* fmt, ...);
 	void* memset(void* ptr, int value, size_t num);
-	void* memcpy(void* destination, void* source, size_t num);
+	void* memcpy(void* destination, const void* source, size_t num);
 }
 
 class Object {
@@ -43,7 +43,7 @@ extern(C) {
 auto __sd_array_concat(T : U[], U)(T lhs, T rhs) {
 	auto length = lhs.length + rhs.length;
 	auto ptr = cast(U*) __sd_array_alloc(length * U.sizeof);
-	memcpy(ptr, cast(void*) lhs.ptr, lhs.length * U.sizeof);
-	memcpy(&ptr[lhs.length], cast(void*) rhs.ptr, rhs.length * U.sizeof);
+	memcpy(ptr, lhs.ptr, lhs.length * U.sizeof);
+	memcpy(&ptr[lhs.length], rhs.ptr, rhs.length * U.sizeof);
 	return ptr[0 .. length];
 }
