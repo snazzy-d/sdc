@@ -5,7 +5,7 @@ import std.stdio;
 import d.context.location;
 
 version(Windows) {
-	import std.c.windows.windows;
+	import core.sys.windows.windows;
 }
 
 void outputCaretDiagnostics(FullLocation loc, string fixHint) {
