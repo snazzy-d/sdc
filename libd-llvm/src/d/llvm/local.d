@@ -148,7 +148,7 @@ struct LocalGen {
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		} ());
 		
-		if (f.hasContext || f.inTemplate || mode == Mode.Eager) {
+		if (isLocal || f.inTemplate || mode == Mode.Eager) {
 			if (f.fbody && maybeDefine(f, fun)) {
 				LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
 			}
