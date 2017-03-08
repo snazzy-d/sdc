@@ -148,7 +148,7 @@ class Function : ValueSymbol, Scope {
 			.join(", ");
 		
 		import std.stdio;
-		write(name.toString(c), '(', params, ") {");
+		write(type.returnType.toString(c), ' ', name.toString(c), '(', params, ") {");
 		fbody.dump(c);
 		writeln("}\n");
 	}
