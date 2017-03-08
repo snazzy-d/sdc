@@ -191,18 +191,6 @@ struct LocalGen {
 		return true;
 	}
 	
-	void dump(Function f) {
-		import std.algorithm, std.range;
-		auto params = f.params
-			.map!(p => p.name.toString(pass.context))
-			.join(", ");
-		
-		import std.stdio;
-		write(f.name.toString(context), '(', params, ") {");
-		f.fbody.dump(context);
-		writeln("}\n");
-	}
-	
 	private void genBody(Function f, LLVMValueRef fun) in {
 		assert(
 			LLVMCountBasicBlocks(fun) == 0,
@@ -212,7 +200,7 @@ struct LocalGen {
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody || f.intrinsicID, "f must have a body");
 	} body {
-		scope(failure) dump(f);
+		scope(failure) f.dump(context);
 		
 		// Alloca and instruction block.
 		auto allocaBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
