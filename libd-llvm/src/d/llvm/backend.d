@@ -123,22 +123,6 @@ public:
 		
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
 		LLVMRunPassManager(pm, pass.dmodule);
-		
-		// Dump module for debug purpose.
-		// LLVMDumpModule(pass.dmodule);
-		
-		/+
-		import std.stdio;
-		writeln("\nASM generated :");
-		
-		LLVMTargetMachineEmitToFile(
-			targetMachine,
-			dmodule,
-			"/dev/stdout",
-			LLVMCodeGenFileType.Assembly,
-			&errorPtr,
-		);
-		// +/
 	}
 	
 	void emitObject(Module[] modules, string objFile) {
@@ -166,7 +150,7 @@ public:
 	
 	void emitAsm(Module[] modules, string filename) {
 		runLLVMPasses(modules);
-
+		
 		import std.string;
 		char* errorPtr;
 		auto printError = LLVMTargetMachineEmitToFile(
@@ -179,17 +163,17 @@ public:
 		
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
-
+			
 			import std.c.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
-
+			
 			assert(0, "Failed to output assembly file! Exiting...");
 		}
 	}
 	
 	void emitLLVMAsm(Module[] modules, string filename) {
 		runLLVMPasses(modules);
-
+		
 		import std.string;
 		char* errorPtr;
 		auto printError = LLVMPrintModuleToFile(
@@ -200,17 +184,17 @@ public:
 		
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
-
+			
 			import std.c.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
-
+			
 			assert(0, "Failed to output LLVM assembly file! Exiting...");
 		}
 	}
 	
 	void emitLLVMBitcode(Module[] modules, string filename) {
 		runLLVMPasses(modules);
-
+		
 		import llvm.c.bitWriter;
 		import std.string;
 		auto error = LLVMWriteBitcodeToFile(pass.dmodule, filename.toStringz());
