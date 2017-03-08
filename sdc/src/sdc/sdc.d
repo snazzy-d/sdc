@@ -80,7 +80,7 @@ final class SDC {
 	
 	void buildMain() {
 		semantic.terminate();
-		backend.visit(semantic.buildMain(modules));
+		backend.visit(semantic.buildMain(modules[0]));
 	}
 	
 	void outputLLVMAsm(string filename) {

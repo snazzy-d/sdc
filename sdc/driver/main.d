@@ -21,7 +21,7 @@ int main(string[] args) {
 	
 	string[] includePath;
 	uint optLevel;
-	bool dontLink;
+	bool dontLink, generateMain;
 	string outputFile;
 	bool outputLLVM, outputAsm;
 	
@@ -33,7 +33,8 @@ int main(string[] args) {
 		"c",         "Stop before linking", &dontLink,
 		"o",         "Output file",         &outputFile,
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
-		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM
+		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
+		"main",      "Generate the main function", &generateMain,
 	);
 	
 	if (help_info.helpWanted || args.length == 1) {
@@ -44,16 +45,20 @@ int main(string[] args) {
 		
 		foreach (option; help_info.options) {
 			writefln(
-				"%5s : %s",
+				"  %-12s %s",
 				// bug : optShort is empty if there is no long version
-				option.optShort.length ? option.optShort : option.optLong[1 .. $],
+				option.optShort.length
+					? option.optShort
+					: (option.optLong.length == 3)
+						? option.optLong[1 .. $]
+						: option.optLong,
 				option.help
 			);
 		}
 		return 0;
 	}
 	
-	foreach(path; includePath) {
+	foreach (path; includePath) {
 		conf["includePath"] ~= path;
 	}
 	
@@ -78,13 +83,16 @@ int main(string[] args) {
 		}
 	}
 	
+	// If we are generating an executable, we want a main function.
+	generateMain = generateMain || !dontLink;
+	
 	auto sdc = new SDC(files[0], conf, optLevel);
 	try {
-		foreach(file; files) {
+		foreach (file; files) {
 			sdc.compile(file);
 		}
 		
-		if (!dontLink) {
+		if (generateMain) {
 			sdc.buildMain();
 		}
 		

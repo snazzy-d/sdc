@@ -107,9 +107,9 @@ final class SemanticPass {
 		return moduleVisitor.importModule(pkgs);
 	}
 	
-	Function buildMain(Module[] mods) {
+	Function buildMain(Module m) {
 		import std.algorithm, std.array;
-		auto candidates = mods.map!(m => m.members).joiner.map!((s) {
+		auto candidates = m.members.map!((s) {
 			if (auto fun = cast(Function) s) {
 				if (fun.name == BuiltinName!"main") {
 					return fun;
