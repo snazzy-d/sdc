@@ -147,8 +147,12 @@ class Function : ValueSymbol, Scope {
 			.map!(p => p.name.toString(c))
 			.join(", ");
 		
+		auto retStr = (step >= Step.Signed)
+			? type.returnType.toString(c)
+			: "__untyped";
+		
 		import std.stdio;
-		write(type.returnType.toString(c), ' ', name.toString(c), '(', params, ") {");
+		write(retStr, ' ', name.toString(c), '(', params, ") {");
 		fbody.dump(c);
 		writeln("}\n");
 	}
