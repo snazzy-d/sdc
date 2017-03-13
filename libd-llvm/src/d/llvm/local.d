@@ -406,6 +406,11 @@ struct LocalGen {
 	}
 	
 	LLVMValueRef declare(Variable v) {
+		if (v.storage.isGlobal) {
+			import d.llvm.global;
+			return GlobalGen(pass, mode).declare(v);
+		}
+		
 		// TODO: Actually just declare here :)
 		return locals.get(v, define(v));
 	}
@@ -415,7 +420,7 @@ struct LocalGen {
 	} body {
 		if (v.storage.isGlobal) {
 			import d.llvm.global;
-			return GlobalGen(pass, mode).declare(v);
+			return GlobalGen(pass, mode).define(v);
 		}
 		
 		import d.llvm.expression;
