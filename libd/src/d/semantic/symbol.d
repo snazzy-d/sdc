@@ -203,7 +203,7 @@ struct SymbolAnalyzer {
 		} else {
 			assert(
 				fd.storageClass.qualifier == TypeQualifier.Mutable,
-				"Unexpacted qualifier for a function without this",
+				"Unexpected qualifier for a function without this",
 			);
 		}
 		
