@@ -559,8 +559,8 @@ struct SymbolMatcher {
 				.apply!(delegate bool(i) {
 					alias T = typeof(i);
 					static if (is(T : Expression)) {
-						return ValueMatcher(pass, matchedArgs, pass.evaluate(i))
-							.matchTyped(p.type, p.index);
+						auto v = pass.evaluate(i);
+						return ValueMatcher(pass, matchedArgs, v).visit(p);
 					} else {
 						return false;
 					}
@@ -595,11 +595,8 @@ struct SymbolMatcher {
 			.apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					return ValueMatcher(
-						pass,
-						matchedArgs,
-						pass.evaluate(identified),
-					).visit(p);
+					auto v = pass.evaluate(identified);
+					return ValueMatcher(pass, matchedArgs, v).visit(p);
 				} else {
 					return false;
 				}
