@@ -72,50 +72,50 @@ private:
 	
 	auto acceptImpl(T)(T t) {
 		final switch(kind) with(TypeKind) {
-			case Builtin :
+			case Builtin:
 				return t.visit(builtin);
 			
-			case Struct :
+			case Struct:
 				return t.visit(dstruct);
 			
-			case Class :
+			case Class:
 				return t.visit(dclass);
 			
-			case Enum :
+			case Enum:
 				return t.visit(denum);
 			
-			case Alias :
+			case Alias:
 				// XXX: consider how to propagate the qualifier properly.
 				return t.visit(dalias);
 			
-			case Interface :
+			case Interface:
 				return t.visit(dinterface);
 			
-			case Union :
+			case Union:
 				return t.visit(dunion);
 			
-			case Context :
+			case Context:
 				return t.visit(context);
 			
-			case Pointer :
+			case Pointer:
 				return t.visitPointerOf(element);
 			
-			case Slice :
+			case Slice:
 				return t.visitSliceOf(element);
 			
-			case Array :
+			case Array:
 				return t.visitArrayOf(size, element);
 			
-			case Sequence :
+			case Sequence:
 				return t.visit(sequence);
 			
-			case Function :
+			case Function:
 				return t.visit(asFunctionType());
 			
-			case Template :
+			case Template:
 				return t.visit(dtemplate);
 			
-			case Error :
+			case Error:
 				return t.visit(error);
 		}
 	}
@@ -392,48 +392,48 @@ public:
 	
 	string toUnqualString(const Context c) const {
 		final switch(kind) with(TypeKind) {
-			case Builtin :
+			case Builtin:
 				import d.common.builtintype : toString;
 				return toString(builtin);
 			
-			case Struct :
+			case Struct:
 				return dstruct.name.toString(c);
 			
-			case Class :
+			case Class:
 				return dclass.name.toString(c);
 			
-			case Enum :
+			case Enum:
 				return denum.name.toString(c);
 			
-			case Alias :
+			case Alias:
 				return dalias.name.toString(c);
 			
-			case Interface :
+			case Interface:
 				return dinterface.name.toString(c);
 			
-			case Union :
+			case Union:
 				return dunion.name.toString(c);
 			
-			case Context :
+			case Context:
 				return "__ctx";
 			
-			case Pointer :
+			case Pointer:
 				return element.toString(c, qualifier) ~ "*";
 			
-			case Slice :
+			case Slice:
 				return element.toString(c, qualifier) ~ "[]";
 			
-			case Array :
+			case Array:
 				import std.conv;
 				return element.toString(c, qualifier)
 					~ "[" ~ to!string(size) ~ "]";
 			
-			case Sequence :
+			case Sequence:
 				import std.algorithm, std.range;
 				// XXX: need to use this because of identifier hijacking in the import.
 				return "(" ~ this.sequence.map!(e => e.toString(c, qualifier)).join(", ") ~ ")";
 			
-			case Function :
+			case Function:
 				auto f = asFunctionType();
 				auto ret = f.returnType.toString(c);
 				auto base = f.contexts.length ? " delegate(" : " function(";
@@ -441,10 +441,10 @@ public:
 				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
 				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
-			case Template :
+			case Template:
 				return dtemplate.name.toString(c);
 			
-			case Error :
+			case Error:
 				return "__error__(" ~ error.toString(c) ~ ")";
 		}
 	}
