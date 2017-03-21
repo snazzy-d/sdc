@@ -12,9 +12,6 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-// TODO: change ast to allow any statement as function body, then remove that import.
-import d.ast.statement;
-
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
 
