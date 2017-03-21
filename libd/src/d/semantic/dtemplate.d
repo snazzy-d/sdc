@@ -409,7 +409,11 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Struct s) {
-		assert(0, "Not implemented.");
+		if (matchee.kind != TypeKind.Struct) {
+			return false;
+		}
+		
+		return s is matchee.dstruct;
 	}
 	
 	bool visit(Class c) {
@@ -433,7 +437,11 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Union u) {
-		assert(0, "Not implemented.");
+		if (matchee.kind != TypeKind.Union) {
+			return false;
+		}
+		
+		return u is matchee.dunion;
 	}
 	
 	bool visit(Function f) {
