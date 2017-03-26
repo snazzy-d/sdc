@@ -574,8 +574,7 @@ struct ExpressionGen {
 			false,
 		);
 		
-		import d.llvm.runtime;
-		buildCall(RuntimeGen(pass.pass).getArrayBound(), args);
+		buildCall(declare(pass.object.getArrayOutOfBounds()), args);
 		
 		LLVMBuildUnreachable(builder);
 		

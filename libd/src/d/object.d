@@ -70,6 +70,10 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_eh_personality");
 	}
 	
+	auto getArrayOutOfBounds() {
+		return getFunction(BuiltinName!"__sd_array_outofbounds");
+	}
+	
 	auto getArrayConcat() {
 		return cast(OverloadSet) object.resolve(
 			Location.init,

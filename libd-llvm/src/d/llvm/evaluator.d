@@ -22,6 +22,10 @@ extern(C) void* __sd_array_alloc(size_t size) {
 	return GC.malloc(size);
 }
 
+extern(C) void __sd_array_outofbounds(string file, int line) {
+	_d_arraybounds(file, line);
+}
+
 final class LLVMEvaluator : Evaluator {
 	private CodeGen pass;
 	alias pass this;

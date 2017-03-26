@@ -35,6 +35,7 @@ extern(C) {
 	Object __sd_class_downcast(Object o, ClassInfo c);
 	void __sd_eh_throw(Throwable t);
 	int __sd_eh_personality(int, int, ulong, void*, void*);
+	int __sd_array_outofbounds(string, int);
 	
 	// We should be using some dedicated array API instead of this.
 	void* __sd_array_alloc(size_t size);

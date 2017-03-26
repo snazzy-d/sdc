@@ -89,38 +89,6 @@ struct RuntimeGen {
 		);
 	}
 	
-	auto getArrayBound() {
-		auto name = BuiltinName!"_d_arraybounds";
-		if (auto fPtr = name in cache) {
-			return *fPtr;
-		}
-		
-		LLVMTypeRef[2] elts;
-		elts[0] = LLVMInt64TypeInContext(llvmCtx);
-		elts[1] = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
-		
-		auto str = LLVMStructTypeInContext(
-			llvmCtx,
-			elts.ptr,
-			elts.length,
-			false,
-		);
-		
-		LLVMTypeRef[2] args;
-		args[0] = str;
-		args[1] = LLVMInt32TypeInContext(llvmCtx);
-		
-		auto ret = LLVMVoidTypeInContext(llvmCtx);
-		auto type = LLVMFunctionType(ret, args.ptr, args.length, false);
-		
-		// TODO: LLVMAddFunctionAttr(fun, LLVMAttribute.NoReturn);
-		return cache[name] = LLVMAddFunction(
-			dmodule,
-			name.toStringz(context),
-			type,
-		);
-	}
-	
 	auto getAllocMemory() {
 		auto name = BuiltinName!"_d_allocmemory";
 		if (auto fPtr = name in cache) {
