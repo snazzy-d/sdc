@@ -140,13 +140,14 @@ enum Prefill = [
 	// Attribute
 	"property", "safe", "trusted", "system", "nogc",
 	// druntime
-	"_d_assert", "_d_assert_msg", "_d_allocmemory",
+	"_d_assert", "_d_assert_msg",
 	// Runtime
 	"__sd_class_downcast",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
 	"__sd_array_concat",
 	"__sd_array_outofbounds",
+	"__sd_gc_tl_malloc",
 	// Generated symbols
 	"__dg",
 	"__lambda",

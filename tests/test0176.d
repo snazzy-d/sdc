@@ -19,7 +19,6 @@ A[S] ds;
 L[S / 128] ls;
 
 extern(C) void _tl_gc_free(void* ptr);
-extern(C) void* _tl_gc_alloc(size_t size);
 extern(C) void* _tl_gc_realloc(void* ptr, size_t size);
 extern(C) void _tl_gc_collect();
 
@@ -61,10 +60,10 @@ void main() {
 		}
 	}
 	
-	auto b0 = _tl_gc_alloc(25 * 1024 * 1024);
-	auto b1 = _tl_gc_alloc(13 * 1024 * 1024);
-	auto b2 = _tl_gc_alloc(52 * 1024 * 1024);
-	auto b3 = _tl_gc_alloc(27 * 1024 * 1024);
+	auto b0 = __sd_gc_tl_malloc(25 * 1024 * 1024);
+	auto b1 = __sd_gc_tl_malloc(13 * 1024 * 1024);
+	auto b2 = __sd_gc_tl_malloc(52 * 1024 * 1024);
+	auto b3 = __sd_gc_tl_malloc(27 * 1024 * 1024);
 	_tl_gc_free(b0);
 	_tl_gc_free(b1);
 	_tl_gc_free(b2);

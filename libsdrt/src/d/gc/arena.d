@@ -1,6 +1,6 @@
 module d.gc.arena;
 
-extern(C) void* _tl_gc_alloc(size_t size) {
+extern(C) void* __sd_gc_tl_malloc(size_t size) {
 	return tl.alloc(size);
 }
 

@@ -16,7 +16,7 @@ struct S {
 	
 	static allocate(ulong n) {
 // CHECK-LABEL: define %S9structabi1S* @_D9structabi1S8allocateFMmZPS9structabi1S
-// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @_d_allocmemory
+// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @__sd_gc_tl_malloc
 // CHECK-NEXT: [[TYPED:%[a-z0-9\.]+]] = bitcast i8* [[ALLOC]] to %S9structabi1S*
 // CHECK-NEXT: [[VALUE:%[a-z0-9\.]+]] = call %S9structabi1S @_D9structabi1S6__ctorFMS9structabi1SmZS9structabi1S
 // CHECK-NEXT: store %S9structabi1S [[VALUE]], %S9structabi1S* [[TYPED]]
@@ -38,7 +38,7 @@ struct E {
 	
 	static allocate(ulong n) {
 // CHECK-LABEL: define %S9structabi1E* @_D9structabi1E8allocateFMmZPS9structabi1E
-// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @_d_allocmemory
+// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @__sd_gc_tl_malloc
 // CHECK-NEXT: [[TYPED:%[a-z0-9\.]+]] = bitcast i8* [[ALLOC]] to %S9structabi1E*
 // CHECK-NEXT: store %S9structabi1E zeroinitializer, %S9structabi1E* [[TYPED]]
 // CHECK-NEXT: call void @_D9structabi1E6__ctorFMKS9structabi1EmZv(%S9structabi1E* [[TYPED]], i64 {{.*}})
@@ -80,7 +80,7 @@ struct F {
 	
 	static allocate(ulong n) {
 // CHECK-LABEL: define %S9structabi1F* @_D9structabi1F8allocateFMmZPS9structabi1F
-// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @_d_allocmemory
+// CHECK: [[ALLOC:%[a-z0-9\.]+]] = call noalias i8* @__sd_gc_tl_malloc
 // CHECK-NEXT: [[TYPED:%[a-z0-9\.]+]] = bitcast i8* [[ALLOC]] to %S9structabi1F*
 // CHECK-NEXT: store %S9structabi1F zeroinitializer, %S9structabi1F* [[TYPED]]
 // CHECK-NEXT: call void @_D9structabi1F6__ctorFMKS9structabi1FmZv(%S9structabi1F* [[TYPED]], i64 {{.*}})

@@ -2,14 +2,10 @@ module d.rt.druntimestub;
 
 extern(C):
 
-void* _tl_gc_alloc(size_t size);
-
-void* _d_allocmemory(size_t size) {
-	return _tl_gc_alloc(size);
-}
+void* __sd_gc_tl_malloc(size_t size);
 
 void* __sd_array_alloc(size_t size) {
-	return _tl_gc_alloc(size);
+	return __sd_gc_tl_malloc(size);
 }
 
 void _d_assert(string file, int line) {

@@ -302,9 +302,9 @@ struct LocalGen {
 			
 			auto ctxType = contexts[$ - 1].type;
 			
-			import d.llvm.expression, d.llvm.runtime;
+			import d.llvm.expression;
 			auto alloc = ExpressionGen(&this).buildCall(
-				RuntimeGen(pass).getAllocMemory(),
+				declare(pass.object.getGCThreadLocalAllow()),
 				[LLVMSizeOf(ctxType)],
 			);
 			

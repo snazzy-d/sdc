@@ -514,8 +514,8 @@ struct ExpressionGen {
 				: type,
 		);
 		
-		import d.llvm.runtime;
-		auto alloc = buildCall(RuntimeGen(pass.pass).getAllocMemory(), [size]);
+		auto allocFun = declare(pass.object.getGCThreadLocalAllow());
+		auto alloc = buildCall(allocFun, [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 		
 		// XXX: This should be set on the alloc function instead of the callsite.

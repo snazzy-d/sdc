@@ -80,5 +80,9 @@ final class ObjectReference {
 			BuiltinName!"__sd_array_concat",
 		);
 	}
+	
+	auto getGCThreadLocalAllow() {
+		return getFunction(BuiltinName!"__sd_gc_tl_malloc");
+	}
 }
 

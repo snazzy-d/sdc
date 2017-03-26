@@ -89,25 +89,6 @@ struct RuntimeGen {
 		);
 	}
 	
-	auto getAllocMemory() {
-		auto name = BuiltinName!"_d_allocmemory";
-		if (auto fPtr = name in cache) {
-			return *fPtr;
-		}
-		
-		auto voidStar = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
-		auto arg = LLVMInt64TypeInContext(llvmCtx);
-		auto type = LLVMFunctionType(voidStar, &arg, 1, false);
-		
-		// Trying to get the patch into LLVM
-		// LLVMAddReturnAttr(fun, LLVMAttribute.NoAlias);
-		return cache[name] = LLVMAddFunction(
-			dmodule,
-			name.toStringz(context),
-			type,
-		);
-	}
-	
 	// While technically an intrinsic, it fits better here.
 	auto getEhTypeidFor() {
 		auto name = context.getName("llvm.eh.typeid.for");

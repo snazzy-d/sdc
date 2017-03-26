@@ -15,7 +15,11 @@ import llvm.c.executionEngine;
 extern(C) void _d_assert(string, int);
 extern(C) void _d_assert_msg(string, string, int);
 extern(C) void _d_arraybounds(string, int);
-extern(C) void* _d_allocmemory(size_t);
+
+extern(C) void* __sd_gc_tl_malloc(size_t size) {
+	import core.memory;
+	return GC.malloc(size);
+}
 
 extern(C) void* __sd_array_alloc(size_t size) {
 	import core.memory;
