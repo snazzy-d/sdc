@@ -42,6 +42,17 @@ build.rf
 *.dll
 *.lib
 
+# DUB
+.dub
+dub.selections.json
+
+# IntelliJ
+.idea
+
+# Visual Studio (VisualD)
+*.sln
+.vs
+
 # OSX
 .DS_Store
 
