@@ -69,3 +69,6 @@ testrunner: $(SDC) $(LIBSDRT) $(PHOBOS)
 test: testrunner littest
 
 .PHONY: clean run debug doc test testrunner littest
+
+# Secondary without dependency make all temporaries secondary.
+.SECONDARY:
