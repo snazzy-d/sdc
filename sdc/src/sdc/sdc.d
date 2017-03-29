@@ -100,4 +100,9 @@ final class SDC {
 	void linkExecutable(string objFile, string executable) {
 		backend.link(objFile, executable);
 	}
+	
+	void runUnittests() {
+		semantic.terminate();
+		backend.runUnittests(modules);
+	}
 }

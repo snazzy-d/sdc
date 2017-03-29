@@ -27,6 +27,7 @@ addons:
   artifacts:
     paths:
       - build_sdc.log
+      - build_sdunit.log
       - build_libsdrt.log
 
   apt:
@@ -67,6 +68,7 @@ before_install:
 
 script:
   - make bin/sdc > build_sdc.log 2>&1
+  - make bin/sdunit > build_sdunit.log 2>&1
   - make lib/libsdrt.a > build_libsdrt.log 2>&1
   # Because lit is gone (used to be in llvm-3.9-tools) we can only run testrunner.
   - make testrunner

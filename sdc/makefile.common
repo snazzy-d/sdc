@@ -7,9 +7,11 @@ LIBSDC_SRC = \
 LIBSDC_DEP = $(LIBSDC_SRC) $(LIBD_SRC_ALL) $(LIBD_LLVM_SRC)
 
 DRIVER_SRC = $(wildcard $(SDC_ROOT)/driver/*.d)
-DRIVER_OBJ = $(LIBD_SRC_SEMANTIC:$(SDC_ROOT)/driver/%.d=obj/driver/%.o)
+DRIVER_OBJ = $(DRIVER_SRC:$(SDC_ROOT)/driver/%.d=obj/driver/%.o)
+ALL_EXECUTABLES = $(DRIVER_SRC:$(SDC_ROOT)/driver/%.d=bin/%)
 
 SDC = bin/sdc
+SDUNIT = bin/sdunit
 
 LIBSDC = lib/libsdc.a
 

@@ -149,9 +149,10 @@ enum Prefill = [
 	"__sd_array_outofbounds",
 	"__sd_gc_tl_malloc",
 	// Generated symbols
+	"__ctx",
 	"__dg",
 	"__lambda",
-	"__ctx",
+	"__unittest",
 	// Used to make IR more comprehensible.
 	"entry", "then", "unwind", "resume", "destroy", "cleanup",
 	"assert.fail", "assert.success", "scope.entry",

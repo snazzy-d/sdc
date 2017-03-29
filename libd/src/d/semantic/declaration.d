@@ -521,6 +521,23 @@ struct DeclarationVisitor {
 	
 	void visit(UnittestDeclaration d) {
 		// Do something only if unittest are enabled.
+		if (!config.enableUnittest) {
+			return;
+		}
+		
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+		
+		auto f = new Function(
+			d.location,
+			currentScope,
+			FunctionType.init,
+			d.name,
+			[],
+		);
+		
+		f.inTemplate = inTemplate;
+		select(d, f);
 	}
 	
 	void visit(StaticIfDeclaration d) {

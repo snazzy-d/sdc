@@ -140,34 +140,10 @@ final class LLVMEvaluator : Evaluator {
 		
 		checkModule();
 		
-		auto executionEngine = createExecutionEngine(dmodule);
-		scope(exit) {
-			char* errorPtr;
-			LLVMModuleRef outMod;
-			auto removeError = LLVMRemoveModule(
-				executionEngine,
-				dmodule,
-				&outMod,
-				&errorPtr,
-			);
-			
-			if (removeError) {
-				scope (exit) LLVMDisposeMessage(errorPtr);
-				import std.c.string;
-				auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-				
-				import std.stdio;
-				writeln(error);
-				assert(
-					0,
-					"Cannot remove module from execution engine ! Exiting..."
-				);
-			}
-			
-			LLVMDisposeExecutionEngine(executionEngine);
-		}
+		auto ee = createExecutionEngine(dmodule);
+		scope(exit) destroyExecutionEngine(ee, dmodule);
 		
-		auto result = LLVMRunFunction(executionEngine, fun, 0, null);
+		auto result = LLVMRunFunction(ee, fun, 0, null);
 		scope(exit) LLVMDisposeGenericValue(result);
 		
 		static if (R == JitReturn.Direct) {
@@ -180,31 +156,58 @@ final class LLVMEvaluator : Evaluator {
 			return handler(pass, e, (cast(void*) asInt)[0 .. size]);
 		}
 	}
+}
+
+package:
+auto createExecutionEngine(LLVMModuleRef dmodule) {
+	char* errorPtr;
+	LLVMExecutionEngineRef ee;
+	auto creationError = LLVMCreateMCJITCompilerForModule(
+		&ee,
+		dmodule,
+		null,
+		0,
+		&errorPtr,
+	);
 	
-	private auto createExecutionEngine(LLVMModuleRef dmodule) {
-		char* errorPtr;
-		LLVMExecutionEngineRef executionEngine;
-		auto creationError = LLVMCreateMCJITCompilerForModule(
-			&executionEngine,
-			dmodule,
-			null,
-			0,
-			&errorPtr,
-		);
+	if (creationError) {
+		scope(exit) LLVMDisposeMessage(errorPtr);
 		
-		if (creationError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-			
-			import std.c.string;
-			auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-			
-			import std.stdio;
-			writeln(error);
-			assert(0, "Cannot create execution engine ! Exiting...");
-		}
+		import std.c.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 		
-		return executionEngine;
+		import std.stdio;
+		writeln(error);
+		assert(0, "Cannot create execution engine ! Exiting...");
 	}
+	
+	return ee;
+}
+
+auto destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
+	char* errorPtr;
+	LLVMModuleRef outMod;
+	auto removeError = LLVMRemoveModule(
+		ee,
+		dmodule,
+		&outMod,
+		&errorPtr,
+	);
+	
+	if (removeError) {
+		scope (exit) LLVMDisposeMessage(errorPtr);
+		import std.c.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+		
+		import std.stdio;
+		writeln(error);
+		assert(
+			0,
+			"Cannot remove module from execution engine ! Exiting..."
+		);
+	}
+	
+	LLVMDisposeExecutionEngine(ee);
 }
 
 private:

@@ -194,6 +194,7 @@ final:
  */
 class Module : Package {
 	Symbol[] members;
+	Function[] tests;
 	
 	this(Location location, Name name, Package parent) {
 		super(location, name, parent);

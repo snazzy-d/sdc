@@ -207,11 +207,39 @@ public:
 			~ escapeShellFileName(executable) ~ " "
 			~ escapeShellFileName(objFile)
 			~ params ~ " -lsdrt -lphobos -lpthread";
-		/+
-		import std.stdio;
-		writeln(linkCommand);
-		// +/
+		
 		wait(spawnShell(linkCommand));
 	}
+	
+	void runUnittests(Module[] modules) {
+		// In a first step, we do all the codegen.
+		// We need to do it in a first step so that we can reuse
+		// one instance of MCJIT.
+		foreach (m; modules) {
+			foreach (t; m.tests) {
+				import d.llvm.local;
+				auto f = LocalGen(pass, Mode.Eager).declare(t);
+			}
+		}
+		
+		// Now that we generated the IR, we run the unittests.
+		import d.llvm.evaluator;
+		auto ee = createExecutionEngine(pass.dmodule);
+		
+		import llvm.c.executionEngine;
+		scope(exit) destroyExecutionEngine(ee, pass.dmodule);
+		
+		foreach (m; modules) {
+			foreach (t; m.tests) {
+				import d.llvm.local;
+				auto f = LocalGen(pass, Mode.Eager).declare(t);
+				auto result = LLVMRunFunction(ee, f, 0, null);
+				
+				// TODO: Check the return value and pretty print.
+				// Right now, unittest will crash on assert fail,
+				// so we are doing just fine :)
+				LLVMDisposeGenericValue(result);
+			}
+		}
+	}
 }
-

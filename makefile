@@ -47,7 +47,7 @@ PHOBOS_ROOT = phobos
 LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
 PHOBOS_EXTRA_DEPS = $(SDC)
 
-ALL_TARGET = $(LIBSDRT) $(PHOBOS)
+ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
 include sdc/makefile.common
 include libsdrt/makefile.common
@@ -56,7 +56,7 @@ include phobos/makefile.common
 all: $(ALL_TARGET)
 
 clean:
-	rm -rf obj lib $(SDC)
+	rm -rf obj lib $(ALL_EXECUTABLES)
 
 doc:
 	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)

@@ -103,7 +103,7 @@ struct SymbolAnalyzer {
 		import d.semantic.declaration;
 		m.members = DeclarationVisitor(pass).flatten(astm.declarations, m);
 		
-		// sdc.intrinsic is a magic module !
+		// sdc.intrinsics is a magic module !
 		if (mangle == BuiltinName!"3sdc10intrinsics") {
 			fillIntrinsics(m);
 		}
@@ -1309,5 +1309,87 @@ struct SymbolAnalyzer {
 		
 		i.members ~= members;
 		i.step = Step.Processed;
+	}
+	
+	void analyze(UnittestDeclaration ud, Function f) {
+		// Functions are always populated as resolution is order dependant
+		f.step = Step.Populated;
+		
+		// Prepare statement visitor for return type.
+		auto oldReturnType = returnType;
+		auto oldManglePrefix = manglePrefix;
+		auto oldCtxSym = ctxSym;
+		scope(exit) {
+			returnType = oldReturnType;
+			manglePrefix = oldManglePrefix;
+			ctxSym = oldCtxSym;
+		}
+		
+		returnType = Type.get(BuiltinType.Uint)
+			.getParamType(ParamKind.Regular);
+		
+		f.type = FunctionType(Linkage.D, returnType, [], false);
+		
+		string name;
+		
+		import d.context.name;
+		if (f.name == BuiltinName!"") {
+			// FIXME: can still collide with mixins,
+			// but that should rare enough for now.
+			auto offset = f.location.getFullLocation(context).getStartOffset();
+			
+			import std.conv;
+			name = "__unittest" ~ offset.to!string();
+		} else {
+			name = "__unittest" ~ f.name.toString(context);
+		}
+		
+		import std.conv;
+		manglePrefix = manglePrefix ~ to!string(name.length) ~ name;
+		f.mangle = context.getName("_D" ~ manglePrefix);
+		
+		// Typed and mangled, ready to go !
+		f.step = Step.Signed;
+		
+		// Now generate the body.
+		ctxSym = f;
+		
+		// Instead of generating something stupid here, we should just
+		// have the JIT gather a bunch of function pointers, and then
+		// have a function which is able to run them all and pretty print
+		// the result of the runs.
+		import d.ast.statement;
+		auto fbody = new BlockStatement(f.location, [new TryStatement(
+			f.location,
+			new BlockStatement(f.location, [
+				ud.fbody,
+				new ReturnStatement(
+					f.location,
+					new IntegerLiteral(f.location, 0, BuiltinType.Uint),
+				),
+			]),
+			[CatchBlock(
+				f.location,
+				new BasicIdentifier(f.location, BuiltinName!"Throwable"),
+				BuiltinName!"",
+				new ReturnStatement(
+					f.location,
+					new IntegerLiteral(f.location, 1, BuiltinType.Uint),
+				),
+			)],
+			null,
+		)]);
+		
+		import d.semantic.statement;
+		StatementVisitor(pass).getBody(f, fbody);
+		
+		import d.semantic.flow;
+		f.closure = FlowAnalyzer(pass, f).getClosure();
+		
+		f.step = Step.Processed;
+		
+		// Register the test at the module level.
+		// XXX: This may not be the right module when instanciating templates.
+		currentScope.getModule().tests ~= f;
 	}
 }

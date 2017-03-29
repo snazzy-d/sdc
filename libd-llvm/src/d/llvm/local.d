@@ -170,7 +170,7 @@ struct LocalGen {
 		auto linkage = LLVMGetLinkage(fun);
 		assert(
 			linkage == LLVMLinkage.LinkOnceODR,
-			"function " ~ f.mangle.toString(context) ~ " already defined"
+			"function " ~ f.mangle.toString(context) ~ " already defined",
 		);
 		
 		LLVMSetLinkage(fun, LLVMLinkage.External);
