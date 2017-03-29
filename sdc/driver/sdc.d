@@ -1,12 +1,4 @@
-/**
- * Entry point for the new multi-pass experiment.
- */
-module sdc.main;
-
-import d.exception;
-
-import sdc.conf;
-import sdc.sdc;
+module driver.sdc;
 
 int main(string[] args) {
 	version(DigitalMars) {
@@ -17,6 +9,7 @@ int main(string[] args) {
 		}
 	}
 	
+	import sdc.conf;
 	auto conf = buildConf();
 	
 	string[] includePath;
@@ -86,37 +79,42 @@ int main(string[] args) {
 	// If we are generating an executable, we want a main function.
 	generateMain = generateMain || !dontLink;
 	
-	auto sdc = new SDC(files[0], conf, optLevel);
+	// Cannot call the variable "sdc" or DMD complains about name clash
+	// with the sdc package from the import.
+	import sdc.sdc;
+	auto c = new SDC(files[0], conf, optLevel);
+	
+	import d.exception;
 	try {
 		foreach (file; files) {
-			sdc.compile(file);
+			c.compile(file);
 		}
 		
 		if (generateMain) {
-			sdc.buildMain();
+			c.buildMain();
 		}
 		
 		if (outputAsm) {
 			if (outputLLVM) {
-				sdc.outputLLVMAsm(objFile);
+				c.outputLLVMAsm(objFile);
 			} else {
-				sdc.outputAsm(objFile);
+				c.outputAsm(objFile);
 			}
 		} else if (dontLink) {
 			if (outputLLVM) {
-				sdc.outputLLVMBitcode(objFile);
+				c.outputLLVMBitcode(objFile);
 			} else {
-				sdc.outputObj(objFile);
+				c.outputObj(objFile);
 			}
 		} else {
-			sdc.outputObj(objFile);
-			sdc.linkExecutable(objFile, executable);
+			c.outputObj(objFile);
+			c.linkExecutable(objFile, executable);
 		}
 		
 		return 0;
 	} catch(CompileException e) {
 		import util.terminal;
-		outputCaretDiagnostics(e.getFullLocation(sdc.context), e.msg);
+		outputCaretDiagnostics(e.getFullLocation(c.context), e.msg);
 		
 		// Rethrow in debug, so we have the stack trace.
 		debug {
