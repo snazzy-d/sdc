@@ -22,14 +22,11 @@ private:
 	SemanticPass pass;
 	alias pass this;
 	
-	string[] includePaths;
-
 	Module[string] cachedModules;
-
+	
 public:
-	this(SemanticPass pass, string[] includePaths) {
+	this(SemanticPass pass) {
 		this.pass = pass;
-		this.includePaths = includePaths;
 	}
 	
 	Module importModule(PackageNames packages) {
@@ -43,7 +40,7 @@ public:
 				.buildPath();
 			
 			auto filename = basename ~ ".d";
-			auto dir = getIncludeDir(filename, includePaths);
+			auto dir = getIncludeDir(filename, pass.config.includePaths);
 			
 			auto astm = parse(filename, dir);
 			auto mod = modulize(astm);
@@ -62,7 +59,7 @@ public:
 		
 		// Try to find the module in include path.
 		string dir;
-		foreach(path; includePaths) {
+		foreach(path; config.includePaths) {
 			if (path.length < dir.length) {
 				continue;
 			}
@@ -146,13 +143,13 @@ public:
 				dpackage = dpackage.parent;
 			}
 		}
-	
+		
 		return name;
 	}
 }
 
 private:
-string getIncludeDir(string filename, string[] includePaths) {
+string getIncludeDir(string filename, const string[] includePaths) {
 	foreach(path; includePaths) {
 		import std.path;
 		auto fullpath = buildPath(path, filename);

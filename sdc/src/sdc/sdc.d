@@ -35,7 +35,11 @@ final class SDC {
 			.map!(path => " -L" ~ (cast(string) path))
 			.join();
 		
-		context = new Context();
+		import d.context.config;
+		Config config;
+		config.includePaths = includePaths;
+		
+		context = new Context(config);
 		
 		LLVMBackend evBackend;
 		
@@ -63,7 +67,7 @@ final class SDC {
 		
 		SemanticPass.DataLayoutBuilder stuff = &dlb;
 		
-		semantic = new SemanticPass(context, &evb, &dlb, includePaths);
+		semantic = new SemanticPass(context, &evb, &dlb);
 		backend = new LLVMBackend(
 			context,
 			semantic.scheduler,

@@ -1,23 +1,33 @@
 module d.context.context;
 
-import d.context.name;
-import d.context.source;
-
 final class Context {
 package:
+	import d.context.name;
 	NameManager _nameManager;
+	
+	import d.context.source;
 	SourceManager sourceManager;
 	
+	import d.context.config;
+	Config _config;
+	
 public:
-	this() {
+	this(Config config) {
 		_nameManager = NameManager.get();
 		sourceManager = SourceManager.get();
+		
+		_config = config;
 	}
 	
 	alias nameManager this;
 	@property
 	ref nameManager() inout {
 		return _nameManager;
+	}
+	
+	@property
+	ref config() const {
+		return _config;
 	}
 	
 	import d.context.location;

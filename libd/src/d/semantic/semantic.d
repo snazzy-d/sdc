@@ -62,15 +62,19 @@ final class SemanticPass {
 	alias EvaluatorBuilder = Evaluator delegate(Scheduler, ObjectReference);
 	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
 	
+	// For convenience:
+	@property config() const {
+		return context.config;
+	}
+	
 	this(
 		Context context,
 		EvaluatorBuilder evBuilder,
 		DataLayoutBuilder dlBuilder,
-		string[] includePaths,
 	) {
 		this.context	= context;
 		
-		moduleVisitor	= new ModuleVisitor(this, includePaths);
+		moduleVisitor	= new ModuleVisitor(this);
 		scheduler		= new Scheduler(this);
 		
 		import d.context.name;
