@@ -129,6 +129,7 @@ enum ICmpOp {
 	Less,
 	LessEqual,
 }
+
 /**
  * Integral comparisons (integers, pointers, ...)
  */
@@ -263,7 +264,12 @@ class IntrinsicExpression : Expression {
 	Intrinsic intrinsic;
 	Expression[] args;
 	
-	this(Location location, Type type, Intrinsic intrinsic, Expression[] args) {
+	this(
+		Location location,
+		Type type,
+		Intrinsic intrinsic,
+		Expression[] args,
+	) {
 		super(location, type);
 		
 		this.intrinsic = intrinsic;
@@ -273,7 +279,7 @@ class IntrinsicExpression : Expression {
 	override string toString(const Context c) const {
 		import std.algorithm, std.range, std.conv;
 		auto aa = args.map!(a => a.toString(c)).join(", ");
-		return "intrinsic." ~ intrinsic.to!string ~ "(" ~ aa ~ ")";
+		return "sdc.intrinsics." ~ intrinsic.to!string ~ "(" ~ aa ~ ")";
 	}
 }
 
