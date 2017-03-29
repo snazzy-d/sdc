@@ -9,11 +9,9 @@ int main(string[] args) {
 		}
 	}
 	
-	import sdc.conf;
-	auto conf = buildConf();
+	import d.context.config;
+	Config conf;
 	
-	string[] includePath;
-	uint optLevel;
 	bool dontLink, generateMain;
 	string outputFile;
 	bool outputLLVM, outputAsm;
@@ -21,8 +19,8 @@ int main(string[] args) {
 	import std.getopt;
 	auto help_info = getopt(
 		args, std.getopt.config.caseSensitive,
-		"I",         "Include path",        &includePath,
-		"O",         "Optimization level",  &optLevel,
+		"I",         "Include path",        &conf.includePaths,
+		"O",         "Optimization level",  &conf.optLevel,
 		"c",         "Stop before linking", &dontLink,
 		"o",         "Output file",         &outputFile,
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
@@ -51,10 +49,6 @@ int main(string[] args) {
 		return 0;
 	}
 	
-	foreach (path; includePath) {
-		conf["includePath"] ~= path;
-	}
-	
 	auto files = args[1 .. $];
 	
 	if (outputAsm) dontLink = true;
@@ -81,8 +75,8 @@ int main(string[] args) {
 	
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
-	import sdc.sdc;
-	auto c = new SDC(files[0], conf, optLevel);
+	import sdc.sdc, sdc.conf;
+	auto c = new SDC(files[0], buildConf(), conf);
 	
 	import d.exception;
 	try {

@@ -19,9 +19,6 @@ private:
 	
 	LLVMTargetMachineRef targetMachine;
 	
-	uint optLevel;
-	string linkerParams;
-	
 public:
 	import d.context.context, d.semantic.scheduler, d.object;
 	this(
@@ -29,8 +26,6 @@ public:
 		Scheduler scheduler,
 		ObjectReference obj,
 		string name,
-		uint optLevel,
-		string linkerParams,
 	) {
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
@@ -39,9 +34,6 @@ public:
 		import llvm.c.executionEngine;
 		LLVMLinkInMCJIT();
 		LLVMInitializeX86AsmPrinter();
-		
-		this.optLevel = optLevel;
-		this.linkerParams = linkerParams;
 		
 		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
@@ -110,6 +102,7 @@ public:
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
+		uint optLevel = pass.context.config.optLevel;
 		if (optLevel == 0) {
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
@@ -204,11 +197,16 @@ public:
 	}
 	
 	void link(string objFile, string executable) {
+		import std.algorithm, std.array;
+		auto params = pass.context.config.linkerPaths
+			.map!(path => " -L" ~ (cast(string) path))
+			.join();
+		
 		import std.process;
 		auto linkCommand = "gcc -o "
 			~ escapeShellFileName(executable) ~ " "
 			~ escapeShellFileName(objFile)
-			~ linkerParams ~ " -lsdrt -lphobos -lpthread";
+			~ params ~ " -lsdrt -lphobos -lpthread";
 		/+
 		import std.stdio;
 		writeln(linkCommand);

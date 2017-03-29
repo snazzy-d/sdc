@@ -27,7 +27,7 @@ $(LIBSDC): $(LIBSDC_SRC) $(LIBSDC_DEP)
 	$(DMD) -c -ofobj/sdc.o $(LIBSDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
 	ar rcs $(LIBSDC) obj/sdc.o
 
-obj/driver/%.o: $(SDC_ROOT)/driver/%.d $(LIBD_SRC)
+obj/driver/%.o: $(SDC_ROOT)/driver/%.d $(LIBD_SRC) $(LIBD_LLVM_SRC)
 	@mkdir -p obj/driver
 	$(DMD) -c -of$@ $< $(DFLAGS) $(SDC_IMPORTS)
 
