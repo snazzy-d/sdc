@@ -1,25 +1,19 @@
-/**
- * Entry point for the new multi-pass experiment.
- */
 module sdc.sdc;
-
-import d.ir.symbol;
-
-import d.llvm.backend;
-
-import d.semantic.semantic;
-
-import util.json;
 
 final class SDC {
 	import d.context.context;
 	Context context;
 	
+	import d.semantic.semantic;
 	SemanticPass semantic;
+	
+	import d.llvm.backend;
 	LLVMBackend backend;
 	
+	import d.ir.symbol;
 	Module[] modules;
 	
+	import util.json;
 	this(string name, JSON conf, uint optLevel) {
 		import std.algorithm, std.array, std.conv, std.path;
 		auto includePaths = conf["includePath"]
