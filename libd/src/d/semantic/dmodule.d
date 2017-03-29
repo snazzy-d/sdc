@@ -17,12 +17,20 @@ alias Module = d.ir.symbol.Module;
 
 alias PackageNames = Name[];
 
-final class ModuleVisitor {
+struct ModuleVisitorData {
+private:
+	Module[string] cachedModules;
+}
+
+struct ModuleVisitor {
 private:
 	SemanticPass pass;
 	alias pass this;
 	
-	Module[string] cachedModules;
+	@property
+	ref Module[string] cachedModules() {
+		return pass.moduleVisitorData.cachedModules;
+	}
 	
 public:
 	this(SemanticPass pass) {

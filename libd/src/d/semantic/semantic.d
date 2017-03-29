@@ -52,7 +52,7 @@ final class SemanticPass {
 	DataLayout dataLayout;
 	
 	import d.semantic.dmodule;
-	ModuleVisitor moduleVisitor;
+	ModuleVisitorData moduleVisitorData;
 	
 	import d.object;
 	ObjectReference object;
@@ -72,14 +72,12 @@ final class SemanticPass {
 		EvaluatorBuilder evBuilder,
 		DataLayoutBuilder dlBuilder,
 	) {
-		this.context	= context;
-		
-		moduleVisitor	= new ModuleVisitor(this);
-		scheduler		= new Scheduler(this);
+		this.context = context;
+		scheduler = new Scheduler(this);
 		
 		import d.context.name;
-		auto obj	= importModule([BuiltinName!"object"]);
-		this.object	= new ObjectReference(obj);
+		auto obj = importModule([BuiltinName!"object"]);
+		this.object = new ObjectReference(obj);
 		
 		evaluator = evBuilder(scheduler, this.object);
 		dataLayout = dlBuilder(this.object);
@@ -88,7 +86,7 @@ final class SemanticPass {
 	}
 	
 	Module add(string filename) {
-		return moduleVisitor.add(filename);
+		return ModuleVisitor(this).add(filename);
 	}
 	
 	void terminate() {
@@ -108,7 +106,7 @@ final class SemanticPass {
 	}
 	
 	auto importModule(Name[] pkgs) {
-		return moduleVisitor.importModule(pkgs);
+		return ModuleVisitor(this).importModule(pkgs);
 	}
 	
 	Function buildMain(Module m) {
