@@ -39,7 +39,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 	
 	// TODO: refactor.
 	switch(trange.front.type) with(TokenType) {
-		case OpenParen :
+		case OpenParen:
 			trange.popFront();
 			
 			import d.context.name;
@@ -51,8 +51,8 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 					
 					break;
 				
-				case Unittest :
-					static if(isVersion) {
+				case Unittest:
+					static if (isVersion) {
 						trange.popFront();
 						versionId = BuiltinName!"unittest";
 						break;
@@ -61,7 +61,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 						goto default;
 					}
 					
-				default :
+				default:
 					assert(0);
 			}
 			
@@ -70,7 +70,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 			ItemType[] items = trange.parseItems!ItemType();
 			ItemType[] elseItems;
 			
-			if(trange.front.type == Else) {
+			if (trange.front.type == Else) {
 				trange.popFront();
 				
 				elseItems = trange.parseItems!ItemType();
@@ -78,7 +78,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 			
 			return new ConditionalType(location, versionId, items, elseItems);
 		
-		case Equal :
+		case Equal:
 			trange.popFront();
 			auto versionId = trange.front.name;
 			trange.match(Identifier);
@@ -86,7 +86,7 @@ private ItemType parseconditionalBlock(bool isVersion, ItemType)(ref TokenRange 
 			
 			return new DefinitionType(location, versionId);
 		
-		default :
+		default:
 			// TODO: error.
 			assert(0);
 	}
