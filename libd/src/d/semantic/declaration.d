@@ -519,6 +519,10 @@ struct DeclarationVisitor {
 		}
 	}
 	
+	void visit(UnittestDeclaration d) {
+		// Do something only if unittest are enabled.
+	}
+	
 	void visit(StaticIfDeclaration d) {
 		import std.algorithm : max;
 		

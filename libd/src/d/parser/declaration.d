@@ -28,7 +28,7 @@ auto parseAggregate(bool globBraces = true)(ref TokenRange trange) {
 	
 	Declaration[] declarations;
 	
-	while(!trange.empty && trange.front.type != TokenType.CloseBrace) {
+	while (!trange.empty && trange.front.type != TokenType.CloseBrace) {
 		declarations ~= trange.parseDeclaration();
 	}
 	
@@ -51,7 +51,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			// Handle static if.
 			auto lookahead = trange.save;
 			lookahead.popFront();
-			switch(lookahead.front.type) {
+			switch (lookahead.front.type) {
 				case If:
 					return trange.parseStaticIf!Declaration();
 				
@@ -324,8 +324,23 @@ Declaration parseDeclaration(ref TokenRange trange) {
 		
 		case Unittest:
 			trange.popFront();
-			trange.parseBlock();
-			assert(0, "unittest not supported");
+			
+			auto name = BuiltinName!"";
+			if (trange.front.type == Identifier) {
+				name = trange.front.name;
+				trange.popFront();
+			}
+			
+			// In the future we may want to skip parsing unittest blocks.
+			// if (!trange.context.enableUnittest) {
+			// 	import d.parser.util;
+			// 	popMatchingDelimiter!(TokenType.OpenBrace)();
+			// }
+			
+			auto fbody = trange.parseBlock();
+			location.spanTo(trange.previous);
+			
+			return new UnittestDeclaration(location, stc, name, fbody);
 		
 		default:
 			return trange.parseTypedDeclaration(location, stc);

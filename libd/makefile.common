@@ -77,4 +77,3 @@ obj/parser.o: $(LIBD_DEP_PARSER)
 obj/semantic/%.o: $(LIBD_ROOT)/src/d/semantic/%.d $(LIBD_DEP_SEMANTIC)
 	@mkdir -p obj/semantic
 	$(DMD) -c -of$@ $< $(DFLAGS) $(LIBD_IMPORTS)
-

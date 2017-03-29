@@ -240,6 +240,25 @@ class FunctionDeclaration : NamedDeclaration {
 }
 
 /**
+ * A unittest block.
+ */
+class UnittestDeclaration : NamedDeclaration {
+	import d.ast.statement;
+	BlockStatement fbody;
+	
+	this(
+		Location location,
+		StorageClass storageClass,
+		Name name,
+		BlockStatement fbody,
+	) {
+		super(location, storageClass, name);
+		
+		this.fbody = fbody;
+	}
+}
+
+/**
  * Template declaration
  */
 class TemplateDeclaration : NamedDeclaration {
