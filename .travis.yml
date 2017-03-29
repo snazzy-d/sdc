@@ -71,3 +71,4 @@ script:
   - make lib/libsdrt.a
   # Because lit is gone (used to be in llvm-3.9-tools) we can only run testrunner.
   - make check-sdc
+  - make check-llvm
