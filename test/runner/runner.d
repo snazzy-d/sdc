@@ -20,7 +20,7 @@ import std.string;
 import core.stdc.stdlib;
 version (linux) import core.sys.posix.unistd;
 
-immutable SDC = "../bin/sdc";
+immutable SDC = "../../bin/sdc";
 immutable DMD = "dmd";
 
 version (Windows) {

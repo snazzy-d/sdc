@@ -38,9 +38,6 @@ ifeq ($(PLATFORM),Darwin)
 	NASMFLAGS += -f macho64
 endif
 
-SDC_ROOT = sdc
-LIBD_ROOT = libd
-LIBD_LLVM_ROOT = libd-llvm
 LIBSDRT_ROOT = libsdrt
 PHOBOS_ROOT = phobos
 
@@ -49,7 +46,7 @@ PHOBOS_EXTRA_DEPS = $(SDC)
 
 ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
-include sdc/makefile.common
+include src/sdc.mak
 include libsdrt/makefile.common
 include phobos/makefile.common
 
@@ -58,13 +55,10 @@ all: $(ALL_TARGET)
 clean:
 	rm -rf obj lib $(ALL_EXECUTABLES)
 
-doc:
-	$(DMD) -o- -op -c -Dddoc index.dd $(SOURCE) $(DFLAGS)
-
 print-%: ; @echo $*=$($*)
 
 testrunner: $(SDC) $(LIBSDRT) $(PHOBOS)
-	cd ./tests; ./runner.d
+	cd ./test/runner; ./runner.d
 
 test: testrunner littest
 

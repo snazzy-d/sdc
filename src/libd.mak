@@ -1,13 +1,13 @@
 # Common definitions
 
-LIBD_SRC_D = $(LIBD_ROOT)/src/d/*.d
-LIBD_SRC_UTIL = $(LIBD_ROOT)/src/util/*.d
-LIBD_SRC_CONTEXT = $(LIBD_ROOT)/src/d/context/*.d
-LIBD_SRC_COMMON = $(LIBD_ROOT)/src/d/common/*.d
-LIBD_SRC_AST = $(LIBD_ROOT)/src/d/ast/*.d
-LIBD_SRC_IR = $(LIBD_ROOT)/src/d/ir/*.d
-LIBD_SRC_PARSER = $(LIBD_ROOT)/src/d/parser/*.d
-LIBD_SRC_SEMANTIC = $(wildcard $(LIBD_ROOT)/src/d/semantic/*.d)
+LIBD_SRC_D = $(wildcard src/d/*.d)
+LIBD_SRC_UTIL = $(wildcard src/util/*.d)
+LIBD_SRC_CONTEXT = $(wildcard src/d/context/*.d)
+LIBD_SRC_COMMON = $(wildcard src/d/common/*.d)
+LIBD_SRC_AST = $(wildcard src/d/ast/*.d)
+LIBD_SRC_IR = $(wildcard src/d/ir/*.d)
+LIBD_SRC_PARSER = $(wildcard src/d/parser/*.d)
+LIBD_SRC_SEMANTIC = $(wildcard src/d/semantic/*.d)
 LIBD_SRC_ALL = $(LIBD_SRC_D) $(LIBD_SRC_CONTEXT) $(LIBD_SRC_COMMON) \
                $(LIBD_SRC_UTIL) $(LIBD_SRC_AST) $(LIBD_SRC_IR) \
                $(LIBD_SRC_PARSER) $(LIBD_SRC_SEMANTIC)
@@ -22,7 +22,7 @@ LIBD_DEP_PARSER = $(LIBD_SRC_PARSER) $(LIBD_DEP_AST)
 LIBD_DEP_SEMANTIC = $(LIBD_SRC_SEMANTIC) $(LIBD_DEP_AST) $(LIBD_DEP_IR) \
                     $(LIBD_DEP_PARSER) $(LIBD_DEP_UTIL)
 
-LIBD_SEMANTIC_OBJ = $(LIBD_SRC_SEMANTIC:$(LIBD_ROOT)/src/d/semantic/%.d=obj/semantic/%.o)
+LIBD_SEMANTIC_OBJ = $(LIBD_SRC_SEMANTIC:src/d/semantic/%.d=obj/semantic/%.o)
 
 ifdef SEPARATE_LIBD_COMPILATION
 	LIBD_DEP_ALL = obj/d.o obj/util.o obj/context.o obj/common.o obj/ast.o obj/ir.o obj/parser.o $(LIBD_SEMANTIC_OBJ)
@@ -32,9 +32,7 @@ endif
 
 LIBD = lib/libd.a
 
-ALL_TARGET ?= $(LIBD)
-
-LIBD_IMPORTS = -I$(LIBD_ROOT)/src
+LIBD_IMPORTS = -Isrc
 
 all: $(ALL_TARGET)
 
@@ -74,6 +72,6 @@ obj/parser.o: $(LIBD_DEP_PARSER)
 	@mkdir -p obj
 	$(DMD) -c -of$@ $(LIBD_SRC_PARSER) $(DFLAGS) $(LIBD_IMPORTS)
 
-obj/semantic/%.o: $(LIBD_ROOT)/src/d/semantic/%.d $(LIBD_DEP_SEMANTIC)
+obj/semantic/%.o: src/d/semantic/%.d $(LIBD_DEP_SEMANTIC)
 	@mkdir -p obj/semantic
 	$(DMD) -c -of$@ $< $(DFLAGS) $(LIBD_IMPORTS)

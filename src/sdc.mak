@@ -1,35 +1,28 @@
 # Common definitions
 
-LIBSDC_SRC = \
-	$(SDC_ROOT)/src/sdc/*.d \
-	$(SDC_ROOT)/src/util/*.d
+LIBSDC_SRC = $(wildcard src/sdc/*.d) $(wildcard src/sdc/util/*.d)
 
 LIBSDC_DEP = $(LIBSDC_SRC) $(LIBD_SRC_ALL) $(LIBD_LLVM_SRC)
 
-DRIVER_SRC = $(wildcard $(SDC_ROOT)/driver/*.d)
-DRIVER_OBJ = $(DRIVER_SRC:$(SDC_ROOT)/driver/%.d=obj/driver/%.o)
-ALL_EXECUTABLES = $(DRIVER_SRC:$(SDC_ROOT)/driver/%.d=bin/%)
+DRIVER_SRC = $(wildcard src/driver/*.d)
+DRIVER_OBJ = $(DRIVER_SRC:src/driver/%.d=obj/driver/%.o)
+ALL_EXECUTABLES = $(DRIVER_SRC:src/driver/%.d=bin/%)
 
 SDC = bin/sdc
 SDUNIT = bin/sdunit
 
 LIBSDC = lib/libsdc.a
 
-ALL_TARGET ?= $(LIBSDC) $(SDC)
+include src/libd-llvm.mak
 
-LIBD_LLVM_ROOT ?= $(SDC_ROOT)/../libd-llvm
-ALL_TARGET ?= $(SDC) bin/sdc.conf
-
-include $(LIBD_LLVM_ROOT)/makefile.common
-
-SDC_IMPORTS = -I$(SDC_ROOT)/src $(LIBD_LLVM_IMPORTS) -I$(LIBD_LLVM_ROOT)/src
+SDC_IMPORTS = -Isrc -Iimport
 
 $(LIBSDC): $(LIBSDC_SRC) $(LIBSDC_DEP)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/sdc.o $(LIBSDC_SRC) $(DFLAGS) $(SDC_IMPORTS)
 	ar rcs $(LIBSDC) obj/sdc.o
 
-obj/driver/%.o: $(SDC_ROOT)/driver/%.d $(LIBD_SRC) $(LIBD_LLVM_SRC)
+obj/driver/%.o: src/driver/%.d $(LIBD_SRC) $(LIBD_LLVM_SRC)
 	@mkdir -p obj/driver
 	$(DMD) -c -of$@ $< $(DFLAGS) $(SDC_IMPORTS)
 

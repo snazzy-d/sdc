@@ -1,6 +1,6 @@
 module sdc.conf;
 
-import util.json;
+import sdc.util.json;
 
 auto buildConf() {
 	auto conf = parseJSON(`{

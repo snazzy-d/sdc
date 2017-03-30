@@ -13,7 +13,7 @@ final class SDC {
 	import d.ir.symbol;
 	Module[] modules;
 	
-	import util.json, d.context.config;
+	import sdc.util.json, d.context.config;
 	this(string name, JSON fileConfig, Config config) {
 		import std.algorithm, std.array, std.conv, std.path, std.range;
 		config.includePaths = fileConfig["includePath"]

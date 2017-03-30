@@ -82,7 +82,7 @@ Example: Working with arrays.
 ---
 +/
 
-module util.json;
+module sdc.util.json;
 version = dson_relaxed;
 
 import std.conv;
