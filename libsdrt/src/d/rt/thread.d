@@ -13,16 +13,19 @@ version(linux) {
 		void* addr; size_t size;
 		
 		if (pthread_getattr_np(pthread_self(), &attr)) {
+			import core.stdc.stdlib, core.stdc.stdio;
 			printf("pthread_getattr_np failed!".ptr);
 			exit(1);
 		}
 		
 		if (pthread_attr_getstack(&attr, &addr, &size)) {
+			import core.stdc.stdlib, core.stdc.stdio;
 			printf("pthread_attr_getstack failed!".ptr);
 			exit(1);
 		}
 		
 		if (pthread_attr_destroy(&attr)) {
+			import core.stdc.stdlib, core.stdc.stdio;
 			printf("pthread_attr_destroy failed!".ptr);
 			exit(1);
 		}

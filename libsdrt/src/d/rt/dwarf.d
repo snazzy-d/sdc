@@ -115,6 +115,7 @@ ubyte read_ubyte(ref const(ubyte)* p) {
 
 uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encoding) {
 	if (encoding.isOmit()) {
+		import core.stdc.stdlib, core.stdc.stdio;
 		printf("Encoding specifies omit flag, should not read.\n".ptr);
 		exit(-1);
 	}
@@ -167,6 +168,7 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			break;
 		
 		default:
+			import core.stdc.stdlib, core.stdc.stdio;
 			printf("FORMAT NOT SUPPORTED %d\n".ptr, encoding.getFormat());
 			exit(-1);
 	}
@@ -196,6 +198,7 @@ uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx, Encoding encod
 			break;
 		
 		default:
+			import core.stdc.stdlib, core.stdc.stdio;
 			printf("BASE NOT SUPPORTED %d\n".ptr, encoding.getBase());
 			exit(-1);
 	}

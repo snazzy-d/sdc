@@ -587,13 +587,17 @@ struct Path(N, string NodeName) {
 template Debug(N, string NodeName) {
 void print_tree(Link!(N, NodeName) root, uint depth) {
 	foreach (i; 0 .. depth) {
+		import core.stdc.stdio;
 		printf("\t".ptr);
 	}
 	
 	if (root.isBlack()) {
+		import core.stdc.stdio;
 		printf("B %p\n".ptr, root.node);
 	} else {
 		assert(root.isRed());
+		
+		import core.stdc.stdio;
 		printf("R %p\n".ptr, root.node);
 	}
 	

@@ -33,7 +33,7 @@ extern(C) void __sd_eh_delete(
  * Throws a exception.
  */
 extern(C) void __sd_eh_throw(Throwable t) {
-	if(inFlight !is null) {
+	if (inFlight !is null) {
 		// TODO: chain
 	}
 	
@@ -44,9 +44,7 @@ extern(C) void __sd_eh_throw(Throwable t) {
 	
 	auto f = _Unwind_RaiseException(&ue);
 	
-	/+
 	import core.stdc.stdlib, core.stdc.stdio;
-	// +/
 	printf("FAILED TO RAISE EXCEPTION %i\n".ptr, f);
 	exit(-1);
 }
@@ -133,9 +131,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		nextOffset = read_sleb128(actionPtr);
 		
 		if (switchval < 0) {
-			/+
 			import core.stdc.stdlib, core.stdc.stdio;
-			// +/
 			printf("FILTER NOT SUPPORTED\n".ptr);
 			exit(-1);
 		}

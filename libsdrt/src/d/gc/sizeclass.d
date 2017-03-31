@@ -239,7 +239,7 @@ void computeSizeClass(void delegate(uint id, uint grp, uint delta, uint ndelta) 
 }
 
 void printfAlloc(size_t s) {
-	import d.gc.util;
+	import d.gc.util, core.stdc.stdio;
 	printf(
 		"%lu :\t%lu\t%hhu\n".ptr,
 		s,
@@ -250,6 +250,7 @@ void printfAlloc(size_t s) {
 
 void main() {
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
+		import core.stdc.stdio;
 		printf(
 			"%d\t%d\t%d\t%d\t0x%lx\n".ptr,
 			id,
@@ -260,6 +261,7 @@ void main() {
 		);
 	});
 	
+	import core.stdc.stdio;
 	printf(
 		"total: %d\tsmall: %d\tlarge: %d\tlookup: %d\n".ptr,
 		ClassCount.Total,
