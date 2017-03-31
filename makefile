@@ -38,17 +38,13 @@ ifeq ($(PLATFORM),Darwin)
 	NASMFLAGS += -f macho64
 endif
 
-LIBSDRT_ROOT = libsdrt
-PHOBOS_ROOT = phobos
-
-LIBSDRT_EXTRA_DEPS = $(SDC) bin/sdc.conf
-PHOBOS_EXTRA_DEPS = $(SDC)
+SDLIB_DEPS = $(SDC) bin/sdc.conf
 
 ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
 include src/sdc.mak
-include libsdrt/makefile.common
-include phobos/makefile.common
+include sdlib/sdrt.mak
+include sdlib/phobos.mak
 
 all: $(ALL_TARGET)
 

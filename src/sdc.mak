@@ -32,4 +32,4 @@ bin/%: obj/driver/%.o $(LIBSDC) $(LIBD) $(LIBD_LLVM)
 
 bin/sdc.conf:
 	@mkdir -p bin
-	printf "{\n\t\"includePath\": [\"$(PWD)/phobos\", \"$(PWD)/libsdrt/src\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
+	printf "{\n\t\"includePath\": [\"$(PWD)/sdlib\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
