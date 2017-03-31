@@ -315,6 +315,14 @@ private:
 			return lnk;
 		}
 		
+		auto withLinkage(Linkage linkage) inout {
+			// Bypass type qualifier for params, but it's alright because
+			// we do not touch any of the params and put the qualifier back.
+			auto r = *(cast(FunctionType*) &this);
+			r.lnk = linkage;
+			return *(cast(inout(FunctionType)*) &r);
+		}
+		
 		@property
 		bool isVariadic() const {
 			return variadic;

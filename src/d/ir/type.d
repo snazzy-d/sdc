@@ -439,11 +439,18 @@ public:
 			
 			case Function:
 				auto f = asFunctionType();
+				
+				auto linkage = "";
+				if (f.linkage != Linkage.D) {
+					import std.conv;
+					linkage = "extern(" ~ f.linkage.to!string() ~ ") ";
+				}
+				
 				auto ret = f.returnType.toString(c);
 				auto base = f.contexts.length ? " delegate(" : " function(";
 				import std.algorithm, std.range;
 				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
-				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
+				return linkage ~ ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
 			case TemplatePattern:
 				return pattern.toString(c);

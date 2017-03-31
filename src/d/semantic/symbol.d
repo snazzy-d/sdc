@@ -542,6 +542,12 @@ struct SymbolAnalyzer {
 		import d.semantic.type : TypeVisitor;
 		a.type = TypeVisitor(pass).visit(d.type);
 		
+		// If it is a function or delegate type, we need to apply the linkage.
+		if (a.type.kind == TypeKind.Function) {
+			auto f = a.type.asFunctionType();
+			a.type = f.withLinkage(a.linkage).getType(a.type.qualifier);
+		}
+		
 		import d.semantic.mangler;
 		a.mangle = context.getName(TypeMangler(pass).visit(a.type));
 		

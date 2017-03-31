@@ -36,7 +36,7 @@ version(linux) {
 		dl_iterate_phdr(callback, null);
 	}
 	
-	int callback(dl_phdr_info *info, size_t size, void *data) {
+	extern(C) int callback(dl_phdr_info *info, size_t size, void *data) {
 		auto tlsStart = info.dlpi_tls_data;
 		if (tlsStart is null) {
 			// FIXME: make sure this is not lazy initialized or something.

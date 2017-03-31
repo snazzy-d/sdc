@@ -22,7 +22,10 @@ enum ExceptionClass = getExceptionClass();
 private Throwable inFlight;
 private _Unwind_Exception ue;
 
-void __sd_eh_delete(_Unwind_Reason_Code reason, _Unwind_Exception* exceptionObject) {
+extern(C) void __sd_eh_delete(
+	_Unwind_Reason_Code reason,
+	_Unwind_Exception* exceptionObject,
+) {
 	inFlight = null;
 }
 
@@ -43,7 +46,7 @@ extern(C) void __sd_eh_throw(Throwable t) {
 	
 	/+
 	import core.stdc.stdlib, core.stdc.stdio;
-	+/
+	// +/
 	printf("FAILED TO RAISE EXCEPTION %i\n".ptr, f);
 	exit(-1);
 }
@@ -59,7 +62,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 	}
 	
-	ubyte* p = cast(ubyte*) _Unwind_GetLanguageSpecificData(ctx);
+	auto p = cast(const(ubyte)*) _Unwind_GetLanguageSpecificData(ctx);
 	if (p is null) {
 		return _Unwind_Reason_Code.CONTINUE_UNWIND;
 	}
@@ -124,12 +127,15 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 	bool doCatch = (exceptionClass == ExceptionClass) && !(actions & _Unwind_Action.FORCE_UNWIND);
 	
 	ptrdiff_t nextOffset = -1;
-	while(nextOffset) {
+	while (nextOffset) {
 		auto switchval = read_sleb128(actionPtr);
 		auto prev = actionPtr;
 		nextOffset = read_sleb128(actionPtr);
 		
 		if (switchval < 0) {
+			/+
+			import core.stdc.stdlib, core.stdc.stdio;
+			// +/
 			printf("FILTER NOT SUPPORTED\n".ptr);
 			exit(-1);
 		}
@@ -142,8 +148,8 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		p = headers.typeTable - switchval * headers.typeEncoding.getSize();
 		auto tmp = read_encoded(p, ctx, headers.typeEncoding);
 		auto candidate = *(cast(ClassInfo*) &tmp);
-
-		// Null is a special case that always catches.		
+		
+		// Null is a special case that always catches.
 		if (candidate !is null && !doCatch) {
 			continue;
 		}

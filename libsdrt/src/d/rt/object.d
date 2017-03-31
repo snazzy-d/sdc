@@ -5,11 +5,11 @@ extern(C):
 Object __sd_class_downcast(Object o, ClassInfo c) {
 	auto t = typeid(o);
 	
-	if(t is c) {
+	if (t is c) {
 		return o;
 	}
 	
-	while(t !is t.base) {
+	while (t !is t.base) {
 		// Promote
 		t = t.base;
 		
