@@ -385,7 +385,6 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 				case Dollar:
 				case Typeid:
 				case Is:
-				case Assert:
 					// These indicate an expression.
 					goto Expression;
 				
@@ -416,6 +415,10 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					
 					// Otherwize, it is an expression.
 					goto Expression;
+				
+				case Semicolon:
+					// This indicate an end of statement, so we have a type.
+					goto Type;
 				
 				default:
 					// XXX: have a proper error message.

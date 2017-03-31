@@ -26,7 +26,7 @@ obj/driver/%.o: src/driver/%.d $(LIBD_SRC) $(LIBD_LLVM_SRC)
 	@mkdir -p obj/driver
 	$(DMD) -c -of$@ $< $(DFLAGS) $(SDC_IMPORTS)
 
-bin/%: obj/driver/%.o $(LIBSDC) $(LIBD) $(LIBD_LLVM)
+bin/%: obj/driver/%.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD)
 	@mkdir -p bin
 	gcc -o $@ $< $(ARCHFLAG) $(LDFLAGS)
 

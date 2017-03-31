@@ -201,3 +201,6 @@ _Unwind_Reason_Code setupCleanup(
 	
 	return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
+
+// This is specific from SDC's runtime, so DMD doesn't know about it.
+private extern(C) Object __sd_class_downcast(Object o, ClassInfo c);

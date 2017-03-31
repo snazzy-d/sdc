@@ -9,7 +9,7 @@ PLATFORM = $(shell uname -s)
 
 LLVM_CONFIG ?= llvm-config
 LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --system-libs`
-SDC_LIB = -Llib -lsdc -ld-llvm -ld
+SDC_LIB = -Llib -lsdc -ld -ld-llvm -lsdmd
 
 # dmd.conf doesn't set the proper -L flags.  
 # Fix it here until dmd installer is updated
@@ -42,6 +42,7 @@ SDLIB_DEPS = $(SDC) bin/sdc.conf
 
 ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
+include sdlib/sdmd.mak
 include src/sdc.mak
 include sdlib/sdrt.mak
 include sdlib/phobos.mak

@@ -46,6 +46,13 @@ extern(C) {
 	void __sd_assert_fail_msg(string msg, string file, int line) {
 		_d_assert_msg(msg, file, line);
 	}
+	
+	/**
+	 * Exception facilities are using a subset of libsdrt compiled with
+	 * DMD called libsdmd. We need to anchor some functions here.
+	 */
+	void __sd_eh_throw(void*);
+	immutable __whatever = &__sd_eh_throw;
 }
 
 final class LLVMEvaluator : Evaluator {

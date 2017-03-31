@@ -1365,26 +1365,26 @@ struct SymbolAnalyzer {
 		// have a function which is able to run them all and pretty print
 		// the result of the runs.
 		import d.ast.statement;
-		auto fbody = new BlockStatement(f.location, [new TryStatement(
-			f.location,
-			new BlockStatement(f.location, [
-				ud.fbody,
-				new ReturnStatement(
-					f.location,
-					new IntegerLiteral(f.location, 0, BuiltinType.Uint),
-				),
-			]),
-			[CatchBlock(
+		auto fbody = new BlockStatement(f.location, [
+			new TryStatement(
 				f.location,
-				new BasicIdentifier(f.location, BuiltinName!"Throwable"),
-				BuiltinName!"",
-				new ReturnStatement(
+				ud.fbody,
+				[CatchBlock(
 					f.location,
-					new IntegerLiteral(f.location, 1, BuiltinType.Uint),
-				),
-			)],
-			null,
-		)]);
+					new BasicIdentifier(f.location, BuiltinName!"Throwable"),
+					BuiltinName!"",
+					new ReturnStatement(
+						f.location,
+						new IntegerLiteral(f.location, 1, BuiltinType.Uint),
+					),
+				)],
+				null,
+			),
+			new ReturnStatement(
+				f.location,
+				new IntegerLiteral(f.location, 0, BuiltinType.Uint),
+			),
+		]);
 		
 		import d.semantic.statement;
 		StatementVisitor(pass).getBody(f, fbody);
