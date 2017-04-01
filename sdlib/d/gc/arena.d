@@ -4,6 +4,10 @@ extern(C) void* __sd_gc_tl_malloc(size_t size) {
 	return tl.alloc(size);
 }
 
+extern(C) void* __sd_gc_tl_array_alloc(size_t size) {
+	return __sd_gc_tl_malloc(size);
+}
+
 extern(C) void _tl_gc_free(void* ptr) {
 	tl.free(ptr);
 }

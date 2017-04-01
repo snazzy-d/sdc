@@ -364,12 +364,9 @@ struct StatementGen {
 		
 		if (msg) {
 			args[0] = genExpression(msg);
-			
-			import d.llvm.runtime;
-			genCall(RuntimeGen(pass.pass).getAssertMessage(), args[]);
+			genCall(declare(pass.object.getAssertFailMsg()), args[]);
 		} else {
-			import d.llvm.runtime;
-			genCall(RuntimeGen(pass.pass).getAssert(), args[1 .. $]);
+			genCall(declare(pass.object.getAssertFail()), args[1 .. $]);
 		}
 		
 		// Conclude that block.

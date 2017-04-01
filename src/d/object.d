@@ -74,6 +74,14 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_array_outofbounds");
 	}
 	
+	auto getAssertFail() {
+		return getFunction(BuiltinName!"__sd_assert_fail");
+	}
+	
+	auto getAssertFailMsg() {
+		return getFunction(BuiltinName!"__sd_assert_fail_msg");
+	}
+	
 	auto getArrayConcat() {
 		return cast(OverloadSet) object.resolve(
 			Location.init,

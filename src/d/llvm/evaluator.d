@@ -11,23 +11,41 @@ import util.visitor;
 import llvm.c.core;
 import llvm.c.executionEngine;
 
-// In order to JIT.
-extern(C) void _d_assert(string, int);
-extern(C) void _d_assert_msg(string, string, int);
-extern(C) void _d_arraybounds(string, int);
-
-extern(C) void* __sd_gc_tl_malloc(size_t size) {
-	import core.memory;
-	return GC.malloc(size);
-}
-
-extern(C) void* __sd_array_alloc(size_t size) {
-	import core.memory;
-	return GC.malloc(size);
-}
-
-extern(C) void __sd_array_outofbounds(string file, int line) {
-	_d_arraybounds(file, line);
+// In order to JIT, we redirect some call from libsdrt to druntime.
+extern(C) {
+	/**
+	 * Memory allocation, forward to GC
+	 */
+	void* __sd_gc_tl_malloc(size_t size) {
+		import core.memory;
+		return GC.malloc(size);
+	}
+	
+	void* __sd_gc_tl_array_alloc(size_t size) {
+		import core.memory;
+		return GC.malloc(size);
+	}
+	
+	/**
+	 * Forward bound check routines.
+	 */
+	void _d_arraybounds(string, int);
+	void __sd_array_outofbounds(string file, int line) {
+		_d_arraybounds(file, line);
+	}
+	
+	/**
+	 * Forward contract routines.
+	 */
+	void _d_assert(string, int);
+	void __sd_assert_fail(string file, int line) {
+		_d_assert(file, line);
+	}
+	
+	void _d_assert_msg(string, string, int);
+	void __sd_assert_fail_msg(string msg, string file, int line) {
+		_d_assert_msg(msg, file, line);
+	}
 }
 
 final class LLVMEvaluator : Evaluator {

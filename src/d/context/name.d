@@ -139,9 +139,9 @@ enum Prefill = [
 	"Throwable", "Exception", "Error",
 	// Attribute
 	"property", "safe", "trusted", "system", "nogc",
-	// druntime
-	"_d_assert", "_d_assert_msg",
 	// Runtime
+	"__sd_assert_fail",
+	"__sd_assert_fail_msg",
 	"__sd_class_downcast",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
