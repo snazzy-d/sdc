@@ -19,7 +19,7 @@ import d.parser.util;
  */
 typeof(handler(AstExpression.init)) parseAmbiguous(
 	alias handler,
-	AmbiguousParseMode M = AmbiguousParseMode.Type,
+	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange) {
 	switch (trange.front.type) with(TokenType) {
 		case Identifier:
@@ -198,8 +198,18 @@ Statement finalizeStatement(T)(
 	}
 }
 
+/**
+ * Indicate if we are looking for something that may be a declaration.
+ * This is relevent for statements, which can be expression or declaration,
+ * but not true in the general case. This is relevent for special cases such
+ * as:
+ *   Identifier * Identifier = Expression.
+ *
+ * Such statement can either be a declaration or an expression if the mode
+ * is declaration, but will be considered an expression if it is regular.
+ */
 enum AmbiguousParseMode {
-	Type,
+	Regular,
 	Declaration,
 }
 
@@ -432,7 +442,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 
 typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	alias handler,
-	AmbiguousParseMode M = AmbiguousParseMode.Type,
+	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange, Location location, AstType t) {
 	t = trange.parseTypeSuffix!(ParseMode.Reluctant)(t);
 	
@@ -453,7 +463,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 
 typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	alias handler,
-	AmbiguousParseMode M = AmbiguousParseMode.Type,
+	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange, AstExpression e) {
 	e = trange.parsePostfixExpression!(ParseMode.Reluctant)(e);
 	
