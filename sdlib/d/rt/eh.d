@@ -150,8 +150,9 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 			continue;
 		}
 		
+		// null is a wildcard for catch all.
 		// XXX: We don't need to recompute all downcast every time.
-		if (__sd_class_downcast(inFlight, candidate) !is null) {
+		if (candidate is null || __sd_class_downcast(inFlight, candidate) !is null) {
 			return setupCatch(ctx, actions, switchval, landingPad, exceptionObject);
 		}
 		

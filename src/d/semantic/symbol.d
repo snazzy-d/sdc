@@ -1331,7 +1331,7 @@ struct SymbolAnalyzer {
 			ctxSym = oldCtxSym;
 		}
 		
-		returnType = Type.get(BuiltinType.Uint)
+		returnType = Type.get(BuiltinType.Void)
 			.getParamType(ParamKind.Regular);
 		
 		f.type = FunctionType(Linkage.D, returnType, [], false);
@@ -1360,34 +1360,8 @@ struct SymbolAnalyzer {
 		// Now generate the body.
 		ctxSym = f;
 		
-		// Instead of generating something stupid here, we should just
-		// have the JIT gather a bunch of function pointers, and then
-		// have a function which is able to run them all and pretty print
-		// the result of the runs.
-		import d.ast.statement;
-		auto fbody = new BlockStatement(f.location, [
-			new TryStatement(
-				f.location,
-				ud.fbody,
-				[CatchBlock(
-					f.location,
-					new BasicIdentifier(f.location, BuiltinName!"Throwable"),
-					BuiltinName!"",
-					new ReturnStatement(
-						f.location,
-						new IntegerLiteral(f.location, 1, BuiltinType.Uint),
-					),
-				)],
-				null,
-			),
-			new ReturnStatement(
-				f.location,
-				new IntegerLiteral(f.location, 0, BuiltinType.Uint),
-			),
-		]);
-		
 		import d.semantic.statement;
-		StatementVisitor(pass).getBody(f, fbody);
+		StatementVisitor(pass).getBody(f, ud.fbody);
 		
 		import d.semantic.flow;
 		f.closure = FlowAnalyzer(pass, f).getClosure();

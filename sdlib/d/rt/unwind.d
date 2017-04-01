@@ -44,7 +44,7 @@ struct _Unwind_Context {}
 
 _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
 void _Unwind_Resume(_Unwind_Exception*);
-void _Unwind_DeleteException (_Unwind_Exception*);
+void _Unwind_DeleteException(_Unwind_Exception*);
 
 _Unwind_Ptr _Unwind_GetLanguageSpecificData(_Unwind_Context* ctx);
 
