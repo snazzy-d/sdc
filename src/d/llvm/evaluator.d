@@ -181,6 +181,64 @@ final class LLVMEvaluator : Evaluator {
 			return handler(pass, e, (cast(void*) asInt)[0 .. size]);
 		}
 	}
+	
+	import d.context.name, d.ir.symbol;
+	auto createStub(Name name, Function f) {
+		// Make sure the function we want to call is ready to go.
+		import d.llvm.local;
+		auto lg = LocalGen(pass, Mode.Eager);
+		auto callee = lg.declare(f);
+		
+		// Generate function's body. Warning: horrible hack.
+		auto builder = lg.builder;
+		
+		auto returnType = LLVMInt64TypeInContext(llvmCtx);
+		auto funType = LLVMFunctionType(returnType, null, 0, false);
+		auto fun = LLVMAddFunction(dmodule, name.toStringz(context), funType);
+		
+		// Personality function to handle exceptions.
+		LLVMSetPersonalityFn(fun, lg.declare(pass.object.getPersonality()));
+		
+		auto callBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "call");
+		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
+		auto lpBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "lp");
+		
+		LLVMPositionBuilderAtEnd(builder, callBB);
+		LLVMBuildInvoke(builder, callee, null, 0, thenBB, lpBB, "");
+		
+		LLVMPositionBuilderAtEnd(builder, thenBB);
+		LLVMBuildRet(builder, LLVMConstInt(returnType, 0, false));
+		
+		// Build the landing pad.
+		LLVMTypeRef[2] lpTypes = [
+			LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
+			LLVMInt32TypeInContext(llvmCtx),
+		];
+		
+		auto lpType = LLVMStructTypeInContext(
+			llvmCtx,
+			lpTypes.ptr,
+			lpTypes.length,
+			false,
+		);
+		
+		LLVMPositionBuilderAtEnd(builder, lpBB);
+		auto landingPad = LLVMBuildLandingPad(
+			builder,
+			lpType,
+			null,
+			1,
+			"",
+		);
+		
+		auto typeofNull = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		LLVMAddClause(landingPad, LLVMConstNull(typeofNull));
+		
+		// We don't care about cleanup for now.
+		LLVMBuildRet(builder, LLVMConstInt(returnType, 1, false));
+		
+		return fun;
+	}
 }
 
 package:
