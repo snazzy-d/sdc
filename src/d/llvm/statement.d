@@ -11,6 +11,11 @@ import util.visitor;
 
 import llvm.c.core;
 
+struct StatementGenData {
+private:
+	LLVMValueRef llvmEhTypeIdFor;
+}
+
 struct StatementGen {
 	private LocalPass pass;
 	alias pass this;
@@ -189,9 +194,6 @@ struct StatementGen {
 					"",
 				);
 				
-				import d.llvm.runtime;
-				auto ehTypeidFun = RuntimeGen(pass.pass).getEhTypeidFor();
-				
 				auto actionid = LLVMBuildLoad(builder, ptr, "actionid");
 				auto i8 = LLVMInt8TypeInContext(llvmCtx);
 				auto voidstar = LLVMPointerType(i8, 0);
@@ -212,7 +214,7 @@ struct StatementGen {
 						LLVMBuildICmp(
 							builder,
 							LLVMIntPredicate.EQ,
-							genCall(ehTypeidFun, [typeinfo]),
+							genCall(getEhTypeidFor(), [typeinfo]),
 							actionid,
 							"",
 						),
@@ -235,6 +237,23 @@ struct StatementGen {
 				genHalt(bb.location, bb.value);
 				break;
 		}
+	}
+	
+	private auto getEhTypeidFor() {
+		if (pass.statementGenData.llvmEhTypeIdFor !is null) {
+			return pass.statementGenData.llvmEhTypeIdFor;
+		}
+		
+		auto i32 = LLVMInt32TypeInContext(llvmCtx);
+		auto arg = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		
+		pass.statementGenData.llvmEhTypeIdFor = LLVMAddFunction(
+			dmodule,
+			"llvm.eh.typeid.for".ptr,
+			LLVMFunctionType(i32, &arg, 1, false),
+		);
+		
+		return pass.statementGenData.llvmEhTypeIdFor;
 	}
 	
 	private auto genExpression(Expression e) {

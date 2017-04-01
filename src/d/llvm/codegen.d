@@ -38,8 +38,8 @@ final class CodeGen {
 	import d.object;
 	ObjectReference object;
 	
-	import d.llvm.runtime;
-	RuntimeGenData runtimeGenData;
+	import d.llvm.statement;
+	StatementGenData statementGenData;
 	
 	import d.llvm.intrinsic;
 	IntrinsicGenData intrinsicGenData;
