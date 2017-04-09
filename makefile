@@ -20,22 +20,22 @@ endif
 NASMFLAGS ?=
 LDFLAGS ?=
 ifdef LD_PATH
-	LDFLAGS += $(addprefix -L, $(LD_PATH))
+	override LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
+override LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
 	LD_GOLD = $(shell which ld.gold | xargs basename)
 	ifeq ($(LD_GOLD),ld.gold)
-		LDFLAGS += -fuse-ld=gold
+		override LDFLAGS += -fuse-ld=gold
 	endif
-	LDFLAGS += -lstdc++ -export-dynamic
-	NASMFLAGS += -f elf64
+	override LDFLAGS += -lstdc++ -export-dynamic
+	override NASMFLAGS += -f elf64
 endif
 ifeq ($(PLATFORM),Darwin)
-	LDFLAGS += -lc++
-	NASMFLAGS += -f macho64
+	override LDFLAGS += -lc++
+	override NASMFLAGS += -f macho64
 endif
 
 SDLIB_DEPS = $(SDC) bin/sdc.conf
