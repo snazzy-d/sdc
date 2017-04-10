@@ -28,7 +28,7 @@ obj/driver/%.o: src/driver/%.d $(LIBD_SRC) $(LIBD_LLVM_SRC)
 
 bin/%: obj/driver/%.o $(LIBSDC) $(LIBD) $(LIBD_LLVM)
 	@mkdir -p bin
-	gcc -o $@ $< $(ARCHFLAG) $(LDFLAGS)
+	$(GCC) -o $@ $< $(ARCHFLAG) $(LDFLAGS)
 
 bin/sdc.conf:
 	@mkdir -p bin
