@@ -17,36 +17,43 @@ int main(string[] args) {
 	bool outputLLVM, outputAsm;
 	
 	import std.getopt;
-	auto help_info = getopt(
-		args, std.getopt.config.caseSensitive,
-		"I",         "Include path",        &conf.includePaths,
-		"O",         "Optimization level",  &conf.optLevel,
-		"c",         "Stop before linking", &dontLink,
-		"o",         "Output file",         &outputFile,
-		"S",         "Stop before assembling and output assembly file", &outputAsm,
-		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
-		"main",      "Generate the main function", &generateMain,
-	);
-	
-	if (help_info.helpWanted || args.length == 1) {
-		import std.stdio;
-		writeln("The Stupid D Compiler");
-		writeln("Usage: sdc <options> file.d");
-		writeln("Options:");
+	try {
+		auto help_info = getopt(
+			args, std.getopt.config.caseSensitive,
+			"I",         "Include path",        &conf.includePaths,
+			"O",         "Optimization level",  &conf.optLevel,
+			"c",         "Stop before linking", &dontLink,
+			"o",         "Output file",         &outputFile,
+			"S",         "Stop before assembling and output assembly file", &outputAsm,
+			"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
+			"main",      "Generate the main function", &generateMain,
+		);
 		
-		foreach (option; help_info.options) {
-			writefln(
-				"  %-12s %s",
-				// bug : optShort is empty if there is no long version
-				option.optShort.length
-					? option.optShort
-					: (option.optLong.length == 3)
-						? option.optLong[1 .. $]
-						: option.optLong,
-				option.help
-			);
+		if (help_info.helpWanted || args.length == 1) {
+			import std.stdio;
+			writeln("The Stupid D Compiler");
+			writeln("Usage: sdc <options> file.d");
+			writeln("Options:");
+
+			foreach (option; help_info.options) {
+				writefln(
+					"  %-12s %s",
+					// bug : optShort is empty if there is no long version
+					option.optShort.length
+						? option.optShort
+						: (option.optLong.length == 3)
+							? option.optLong[1 .. $]
+							: option.optLong,
+					option.help
+				);
+			}
+			return 0;
 		}
-		return 0;
+	} catch (GetOptException ex) {
+		import std.stdio;
+		writefln("%s", ex.msg);
+		writeln("Please use -h to get a list of valid options.");
+		return 1;
 	}
 	
 	auto files = args[1 .. $];
