@@ -107,6 +107,14 @@ version(OSX) {
 		Anon	  = 0x1000,
 	}
 }
+version(FreeBSD) {
+	enum Map {
+		Shared	= 0x01,
+		Private	= 0x02,
+		Fixed	  = 0x10,
+		Anon	  = 0x1000,
+	}
+}
 version(linux) {
 	enum Map {
 		Shared	= 0x01,

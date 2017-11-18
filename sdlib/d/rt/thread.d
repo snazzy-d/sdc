@@ -77,6 +77,23 @@ version(OSX) {
 	}
 }
 
+version(FreeBSD) {
+	void* getStackBottom() {
+		pthread_attr_t attr;
+		void* addr;	size_t size;
+
+		pthread_attr_init(&attr);
+		pthread_attr_get_np(pthread_self(),	&attr);
+		pthread_attr_getstack(&attr, &addr,	&size);
+		pthread_attr_destroy(&attr);
+		return addr	+ size;
+	}
+
+	void registerTlsSegments() {
+		// TODO
+	}
+}
+
 // XXX: Will do for now.
 alias pthread_t = size_t;
 union pthread_attr_t {
@@ -96,6 +113,13 @@ version(linux) {
 
 version(OSX) {
 	void* pthread_get_stackaddr_np(pthread_t __th);
+}
+
+version(FreeBSD) {
+	int pthread_attr_init(pthread_attr_t*);
+	int pthread_attr_get_np(pthread_t, pthread_attr_t *);
+	int pthread_attr_getstack(pthread_attr_t*, void**, size_t*);
+	int pthread_attr_destroy(pthread_attr_t*);
 }
 
 void _tl_gc_set_stack_bottom(const void* bottom);

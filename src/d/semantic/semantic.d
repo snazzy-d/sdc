@@ -178,6 +178,10 @@ auto getDefaultVersions() {
 		versions ~=  BuiltinName!"OSX";
 	}
 	
+	version(FreeBSD) {
+		versions ~=  BuiltinName!"FreeBSD";
+	}
+
 	version(Posix) {
 		versions ~=  BuiltinName!"Posix";
 	}
