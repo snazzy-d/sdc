@@ -37,6 +37,10 @@ ifeq ($(PLATFORM),Darwin)
 	override LDFLAGS += -lc++
 	override NASMFLAGS += -f macho64
 endif
+ifeq ($(PLATFORM),FreeBSD)
+	override LDFLAGS += -lc++
+	override NASMFLAGS += -f elf64
+endif
 
 SDLIB_DEPS = $(SDC) bin/sdc.conf
 

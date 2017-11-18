@@ -37,6 +37,8 @@ public:
 		
 		version(OSX) {
 			auto triple = "x86_64-apple-darwin9".ptr;
+		} else version (FreeBSD) {
+			auto triple = "x86_64-unknown-freebsd".ptr;
 		} else {
 			auto triple = "x86_64-pc-linux-gnu".ptr;
 		}
