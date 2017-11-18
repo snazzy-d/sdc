@@ -3,6 +3,10 @@ language: d
 # Use container based infrastructure.
 sudo: false
 
+d:
+  - dmd
+  - dmd-2.072.2
+
 matrix:
   include:
     - os: linux
