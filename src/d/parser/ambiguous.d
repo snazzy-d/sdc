@@ -417,6 +417,10 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					// Otherwize, it is an expression.
 					goto Expression;
 				
+				case Semicolon:
+					// This indicate an end of statement, so we have a type.
+					goto Type;
+				
 				default:
 					// XXX: have a proper error message.
 					trange.match(Begin);
