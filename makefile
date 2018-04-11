@@ -46,6 +46,9 @@ SDLIB_DEPS = $(SDC) bin/sdc.conf
 
 ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
+# To make sure make calls all
+default: all
+
 include sdlib/sdmd.mak
 include src/sdc.mak
 include sdlib/sdrt.mak
@@ -58,12 +61,12 @@ clean:
 
 print-%: ; @echo $*=$($*)
 
-testrunner: $(SDC) $(LIBSDRT) $(PHOBOS)
+check-sdc: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd ./test/runner; ./runner.d
 
-test: testrunner littest
+check: check-sdc check-llvm
 
-.PHONY: clean run debug doc test testrunner littest
+.PHONY: check check-llvm check-sdc clean default
 
 # Secondary without dependency make all temporaries secondary.
 .SECONDARY:
