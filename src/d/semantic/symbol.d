@@ -1368,13 +1368,7 @@ struct SymbolAnalyzer {
 		auto fbody = new BlockStatement(f.location, [
 			new TryStatement(
 				f.location,
-				new BlockStatement(f.location, [
-					ud.fbody,
-					new ReturnStatement(
-						f.location,
-						new IntegerLiteral(f.location, 0, BuiltinType.Uint),
-					),
-				]),
+				ud.fbody,
 				[CatchBlock(
 					f.location,
 					new BasicIdentifier(f.location, BuiltinName!"Throwable"),
@@ -1385,6 +1379,10 @@ struct SymbolAnalyzer {
 					),
 				)],
 				null,
+			),
+			new ReturnStatement(
+				f.location,
+				new IntegerLiteral(f.location, 0, BuiltinType.Uint),
 			),
 		]);
 		
