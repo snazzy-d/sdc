@@ -2163,7 +2163,7 @@ private struct JSONReader(InputRange) {
 
         long integer   = 0;
         long remainder = 0;
-        short exponent = 0;
+        int exponent = 0;
         byte signInfo  = 0;
 
         // Accumulate digits reading left-to-right in a number.
