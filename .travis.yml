@@ -23,7 +23,7 @@ cache:
 
 env:
   global:
-    - LLVM_VERSION=3.9.0
+    - LLVM_VERSION=4.0.1
     - DMD_VERSION=2.079.1
 
 addons:
@@ -41,9 +41,9 @@ addons:
 before_install:
   - export LLVM_DIR="llvm-${LLVM_VERSION}-${TRAVIS_OS_NAME}";
   -
-    if [ -z "$(ls -A ${LLVM_DIR})" ]; then
+    if [ -z "$(ls -A \"${LLVM_DIR}\")" ]; then
       if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-        LLVM_ARCH="linux-gnu-ubuntu-14.04";
+        LLVM_ARCH="linux-gnu-debian8";
       elif [ "${TRAVIS_OS_NAME}" = "osx" ]; then
         LLVM_ARCH="apple-darwin";
       else
