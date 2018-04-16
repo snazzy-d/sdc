@@ -608,3 +608,55 @@ void print_tree(Link!(N, NodeName) root, uint depth) {
 }
 }
 // +/
+
+unittest rbtree {
+	struct Stuff {
+		Node!Stuff node;
+		ulong value;
+	}
+	
+	static ptrdiff_t stuffCmp(Stuff* lhs, Stuff* rhs) {
+		return (lhs.value == rhs.value)
+			? (cast(ptrdiff_t) lhs) - (cast(ptrdiff_t) rhs)
+			: (lhs.value - rhs.value);
+	}
+	
+	static ulong prand_next(ulong prev) {
+		return (prev * 31415821 + 1) % 100_000_000;
+	}
+	
+	enum Items = 174762;
+	Stuff[32][Items]* nodes;
+	
+	Stuff* get_node(ulong tree, ulong node) {
+		assert(node < 174762 && tree < 32);
+		return &nodes[0][node][tree];
+	}
+	
+	// 128 Mb to ramble through.
+	nodes = cast(Stuff[32][Items]*) __sd_gc_tl_malloc(128 * 1024 * 1024);
+	ulong prand = 365307287;
+	
+	foreach (i; 0 .. Items) {
+		foreach (t; 0 .. 32) {
+			prand = prand_next(prand);
+			get_node(t, i).value = prand;
+		}
+	}
+	
+	RBTree!(Stuff, stuffCmp)[32] trees;
+	
+	foreach (i; 0 .. Items) {
+		foreach (t; 0 .. 32) {
+			trees[t].insert(get_node(t, i));
+			// rb_print_tree(trees[t]);
+		}
+	}
+	
+	foreach (i; 0 .. Items) {
+		foreach (t; 0 .. 32) {
+			trees[t].remove(get_node(t, i));
+			// rb_print_tree(trees[t]);
+		}
+	}
+}
