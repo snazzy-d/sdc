@@ -101,8 +101,8 @@ final class SDC {
 		backend.link(objFile, executable);
 	}
 	
-	void runUnittests() {
+	auto runUnittests() {
 		semantic.terminate();
-		backend.runUnittests(modules);
+		return backend.runUnittests(modules);
 	}
 }

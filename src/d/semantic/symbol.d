@@ -1318,7 +1318,7 @@ struct SymbolAnalyzer {
 	}
 	
 	void analyze(UnittestDeclaration ud, Function f) {
-		// Functions are always populated as resolution is order dependant
+		// Functions are always populated as resolution is order dependant.
 		f.step = Step.Populated;
 		
 		// Prepare statement visitor for return type.
@@ -1346,8 +1346,9 @@ struct SymbolAnalyzer {
 			
 			import std.conv;
 			name = "__unittest" ~ offset.to!string();
+			f.name = context.getName(name);
 		} else {
-			name = "__unittest" ~ f.name.toString(context);
+			name = "__unittest." ~ f.name.toString(context);
 		}
 		
 		import std.conv;

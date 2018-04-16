@@ -213,17 +213,27 @@ public:
 		wait(spawnShell(linkCommand));
 	}
 	
-	void runUnittests(Module[] modules) {
+	auto runUnittests(Module[] modules) {
 		// In a first step, we do all the codegen.
 		// We need to do it in a first step so that we can reuse
 		// one instance of MCJIT.
 		auto e = getEvaluator();
 		
-		LLVMValueRef[] stubs;
+		struct Test {
+			Function unit;
+			LLVMValueRef stub;
+			
+			this(LLVMEvaluator e, Function t) {
+				unit = t;
+				stub = e.createTestStub(t);
+			}
+		}
+		
+		Test[] tests;
 		foreach (m; modules) {
 			foreach (t; m.tests) {
 				import d.context.name;
-				stubs ~= e.createStub(BuiltinName!"__unittest", t);
+				tests ~= Test(e, t);
 			}
 		}
 		
@@ -232,14 +242,33 @@ public:
 		auto ee = createExecutionEngine(pass.dmodule);
 		scope(exit) destroyExecutionEngine(ee, pass.dmodule);
 		
-		foreach (t; stubs) {
-			import llvm.c.executionEngine;
-			auto result = LLVMRunFunction(ee, t, 0, null);
+		struct Result {
+			import std.bitmanip;
+			mixin(taggedClassRef!(
+				Function, "test",
+				bool, "pass", 1,
+			));
 			
-			// TODO: Check the return value and pretty print.
-			// Right now, unittest will crash on assert fail,
-			// so we are doing just fine :)
-			LLVMDisposeGenericValue(result);
+			this(Function test, bool pass) {
+				this.test = test;
+				this.pass = pass;
+			}
 		}
+		
+		Result[] results;
+		
+		foreach (t; tests) {
+			import llvm.c.executionEngine;
+			auto result = LLVMRunFunction(ee, t.stub, 0, null);
+			scope(exit) LLVMDisposeGenericValue(result);
+			
+			// Check the return value and report.
+			// TODO: We need to make a specific report of the failure
+			// if indeed there is failure.
+			bool pass = !LLVMGenericValueToInt(result, false);
+			results ~= Result(t.unit, pass);
+		}
+		
+		return results;
 	}
 }

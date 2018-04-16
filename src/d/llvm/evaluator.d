@@ -182,8 +182,8 @@ final class LLVMEvaluator : Evaluator {
 		}
 	}
 	
-	import d.context.name, d.ir.symbol;
-	auto createStub(Name name, Function f) {
+	import d.ir.symbol;
+	auto createTestStub(Function f) {
 		// Make sure the function we want to call is ready to go.
 		import d.llvm.local;
 		auto lg = LocalGen(pass, Mode.Eager);
@@ -194,7 +194,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		auto returnType = LLVMInt64TypeInContext(llvmCtx);
 		auto funType = LLVMFunctionType(returnType, null, 0, false);
-		auto fun = LLVMAddFunction(dmodule, name.toStringz(context), funType);
+		auto fun = LLVMAddFunction(dmodule, "__unittest", funType);
 		
 		// Personality function to handle exceptions.
 		LLVMSetPersonalityFn(fun, lg.declare(pass.object.getPersonality()));

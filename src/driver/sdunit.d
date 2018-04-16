@@ -1,5 +1,7 @@
 module driver.dsunit;
 
+immutable string[2] ResultStr = ["FAIL", "PASS"];
+
 int main(string[] args) {
 	import d.context.config;
 	Config conf;
@@ -46,9 +48,57 @@ int main(string[] args) {
 			c.compile(file);
 		}
 		
-		c.runUnittests();
+		import d.ir.symbol;
+		Module m = null;
 		
-		return 0;
+		bool returnCode = 0;
+		auto results = c.runUnittests();
+		if (results.length == 0) {
+			import std.stdio;
+			writeln("No test to run");
+			return 0;
+		}
+		
+		import std.stdio;
+		write("Test results:");
+		
+		foreach (r; results) {
+			if (!r.pass) {
+				returnCode = 1;
+			}
+			
+			auto testModule = r.test.getModule();
+			if (m != testModule) {
+				m = testModule;
+				
+				import d.context.context;
+				static void printModule(P)(Context c, P p) {
+					if (p.parent is null) {
+						import std.stdio;
+						write("\nModule ", p.toString(c));
+						return;
+					}
+					
+					printModule(c, p.parent);
+					
+					import std.stdio;
+					write(".", p.toString(c));
+					
+					static if(is(P : Module)) {
+						writeln(":");
+					}
+				}
+				
+				printModule(c.context, m);
+			}
+			
+			auto name = r.test.name.toString(c.context);
+			
+			import std.stdio;
+			writefln("\t%-24s %s", name, ResultStr[r.pass]);
+		}
+		
+		return returnCode;
 	} catch(CompileException e) {
 		import util.terminal;
 		outputCaretDiagnostics(e.getFullLocation(c.context), e.msg);
