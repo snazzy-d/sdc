@@ -31,7 +31,7 @@ auto parseBasicType(ref TokenRange trange) {
 		return trange.parseType().qualify(qualifier);
 	}
 	
-	switch(trange.front.type) with(TokenType) {
+	switch (trange.front.type) with(TokenType) {
 		// Types qualifiers
 		case Const:
 			return processQualifier!(TypeQualifier.Const)();

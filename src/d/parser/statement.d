@@ -15,11 +15,11 @@ import d.parser.type;
 Statement parseStatement(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
-	switch(trange.front.type) with(TokenType) {
-		case OpenBrace :
+	switch (trange.front.type) with(TokenType) {
+		case OpenBrace:
 			return trange.parseBlock();
 		
-		case Identifier :
+		case Identifier:
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
@@ -31,7 +31,7 @@ Statement parseStatement(ref TokenRange trange) {
 			// then it is a declaration or an expression.
 			goto default;
 		
-		case If :
+		case If:
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -54,7 +54,7 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			return new IfStatement(location, condition, then, elseStatement);
 		
-		case While :
+		case While:
 			trange.popFront();
 			trange.match(OpenParen);
 			auto condition = trange.parseExpression();
@@ -66,7 +66,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(statement.location);
 			return new WhileStatement(location, condition, statement);
 		
-		case Do :
+		case Do:
 			trange.popFront();
 			
 			auto statement = trange.parseStatement();
@@ -81,7 +81,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new DoWhileStatement(location, condition, statement);
 		
-		case For :
+		case For:
 			trange.popFront();
 			
 			trange.match(OpenParen);
@@ -112,7 +112,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(statement.location);
 			return new ForStatement(location, init, condition, increment, statement);
 		
-		case Foreach, ForeachReverse :
+		case Foreach, ForeachReverse:
 			bool reverse = (trange.front.type == ForeachReverse);
 			trange.popFront();
 			trange.match(OpenParen);
@@ -191,7 +191,7 @@ Statement parseStatement(ref TokenRange trange) {
 					reverse,
 				);
 		
-		case Return :
+		case Return:
 			trange.popFront();
 			
 			AstExpression value;
@@ -204,7 +204,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new ReturnStatement(location, value);
 		
-		case Break :
+		case Break:
 			trange.popFront();
 			if (trange.front.type == Identifier) {
 				trange.popFront();
@@ -215,7 +215,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new BreakStatement(location);
 		
-		case Continue :
+		case Continue:
 			trange.popFront();
 			if (trange.front.type == Identifier) {
 				trange.popFront();
@@ -226,7 +226,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new ContinueStatement(location);
 		
-		case Switch :
+		case Switch:
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -239,7 +239,7 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			return new SwitchStatement(location, expression, statement);
 		
-		case Case :
+		case Case:
 			trange.popFront();
 			
 			AstExpression[] cases = trange.parseArguments();
@@ -249,7 +249,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new CaseStatement(location, cases);
 		
-		case Default :
+		case Default:
 			// Other labeled statement will jump here !
 			auto label = trange.front.name;
 			trange.popFront();
@@ -266,7 +266,7 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			return new LabeledStatement(location, label, statement);
 		
-		case Goto :
+		case Goto:
 			trange.popFront();
 			
 			import d.context.name;
@@ -288,7 +288,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new GotoStatement(location, label);
 		
-		case Scope :
+		case Scope:
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -314,7 +314,7 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			return new ScopeStatement(location, kind, statement);
 		
-		case Assert :
+		case Assert:
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -336,7 +336,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new AssertStatement(location, condition, message);
 		
-		case Throw :
+		case Throw:
 			trange.popFront();
 			auto value = trange.parseExpression();
 			
@@ -345,7 +345,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new ThrowStatement(location, value);
 		
-		case Try :
+		case Try:
 			trange.popFront();
 			
 			auto statement = trange.parseStatement();
@@ -363,7 +363,7 @@ Statement parseStatement(ref TokenRange trange) {
 					
 					import d.context.name;
 					Name name;
-					if(trange.front.type == Identifier) {
+					if (trange.front.type == Identifier) {
 						name = trange.front.name;
 						trange.popFront();
 					}
@@ -390,7 +390,7 @@ Statement parseStatement(ref TokenRange trange) {
 			location.spanTo(trange.previous);
 			return new TryStatement(location, statement, catches, finallyStatement);
 		
-		case Synchronized :
+		case Synchronized:
 			trange.popFront();
 			if (trange.front.type == OpenParen) {
 				trange.popFront();
@@ -403,7 +403,7 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			return new SynchronizedStatement(location, statement);
 		
-		case Mixin :
+		case Mixin:
 			trange.popFront();
 			trange.match(OpenParen);
 			
@@ -424,11 +424,11 @@ Statement parseStatement(ref TokenRange trange) {
 			expr = new MixinTpl!AstExpression(location, expr);
 			return trange.parseStatementSuffix(expr);
 		
-		case Static :
+		case Static:
 			auto lookahead = trange.save;
 			lookahead.popFront();
 			
-			switch(lookahead.front.type) {
+			switch (lookahead.front.type) {
 				case If:
 					return trange.parseStaticIf!Statement();
 				
@@ -440,13 +440,13 @@ Statement parseStatement(ref TokenRange trange) {
 					return new DeclarationStatement(declaration);
 			}
 		
-		case Version :
+		case Version:
 			return trange.parseVersion!Statement();
 		
-		case Debug :
+		case Debug:
 			return trange.parseDebug!Statement();
 		
-		default :
+		default:
 			return trange.parseAmbiguousStatement();
 	}
 	
@@ -460,7 +460,7 @@ BlockStatement parseBlock(ref TokenRange trange) {
 	
 	Statement[] statements;
 	
-	while(trange.front.type != TokenType.CloseBrace) {
+	while (trange.front.type != TokenType.CloseBrace) {
 		statements ~= trange.parseStatement();
 	}
 	

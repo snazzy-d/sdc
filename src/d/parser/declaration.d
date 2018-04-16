@@ -201,7 +201,11 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				} else if (linkageName == BuiltinName!"Java") {
 					stc.linkage = Linkage.Java;
 				} else {
-					assert(0, "Linkage not supported : " ~ linkageName.toString(trange.context));
+					assert(
+						0,
+						"Linkage not supported : "
+							~ linkageName.toString(trange.context),
+					);
 				}
 				
 				trange.match(CloseParen);
