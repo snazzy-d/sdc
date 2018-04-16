@@ -403,27 +403,54 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					goto Expression;
 				
 				case Identifier:
-					// Identifier * Name = Initializer can be a declaration.
+					/**
+					 * Deal with:
+					 *     Identifier * Name = Initializer
+					 *     Identifier * identifier(
+					 * As both can be expression or declaration depending
+					 * on identifier resolution.
+					 */
 					static if (M == AmbiguousParseMode.Declaration) {
 						auto name = lookahead.front.name;
 						auto rloc = lookahead.front.location;
 						
 						lookahead.popFront();
 						auto rtt = lookahead.front.type;
-						
-						if (rtt == Equal) {
-							// That a bold move Cotton, let's see if it pays off.
-							trange.moveTo(lookahead);
-							trange.popFront();
-							auto v = trange.parseInitializer();
-							return handler(IdentifierStarName(name, i, v));
-						}
-						
-						// FIXME: This is most likely broken.
-						// Cases like *, . and ! are not handled.
-						if (!rtt.indicateExpression()) {
-							trange.moveTo(lookahead);
-							return handler(IdentifierStarName(name, i, null));
+						switch (rtt) {
+							case Equal:
+								/**
+								 * Identifier * Name = Initializer can be
+								 * an expression or a declaration. Create
+								 * a special node and let identifier resolution
+								 * deal with it.
+								 */
+								trange.moveTo(lookahead);
+								trange.popFront();
+								auto v = trange.parseInitializer();
+								return handler(IdentifierStarName(name, i, v));
+							
+							case OpenParen:
+								/**
+								 * We are faced with Identifier * Identifier(
+								 * It is either the start of an expression or
+								 * the start of the declaration of a function
+								 * that returns a pointer.
+								 * In any case, we'll assume the later.
+								 */
+								trange.popFront();
+								return handler(trange.parseTypedDeclaration(
+									i.location,
+									defaultStorageClass,
+									AstType.get(i).getPointer(),
+								));
+							
+							default:
+								// FIXME: This is most likely broken.
+								// Cases like *, . and ! are not handled.
+								if (!rtt.indicateExpression()) {
+									trange.moveTo(lookahead);
+									return handler(IdentifierStarName(name, i, null));
+								}
 						}
 					}
 					

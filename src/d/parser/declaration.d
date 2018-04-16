@@ -626,8 +626,10 @@ private Declaration parseFunction(
 /**
  * Parse function and delegate parameters.
  */
-auto parseParameters(ref TokenRange trange, out bool isVariadic) {
-	trange.match(TokenType.OpenParen);
+auto parseParameters(bool matchOpenParen = true)(ref TokenRange trange, out bool isVariadic) {
+	static if (matchOpenParen) {
+		trange.match(TokenType.OpenParen);
+	}
 	
 	ParamDecl[] parameters;
 	while (trange.front.type != TokenType.CloseParen) {
