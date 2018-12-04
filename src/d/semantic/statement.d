@@ -1396,7 +1396,8 @@ unittest {
 	assert(isUnwind(UnwindKind.Failure));
 	assert(isUnwind(UnwindKind.Destroy));
 	
-	static assert(UnwindKind.Exit == ScopeKind.Exit);
-	static assert(UnwindKind.Success == ScopeKind.Success);
-	static assert(UnwindKind.Failure == ScopeKind.Failure);
+	import std.conv;
+	static assert(UnwindKind.Exit.asOriginalType() == ScopeKind.Exit.asOriginalType());
+	static assert(UnwindKind.Success.asOriginalType() == ScopeKind.Success.asOriginalType());
+	static assert(UnwindKind.Failure.asOriginalType() == ScopeKind.Failure.asOriginalType());
 }

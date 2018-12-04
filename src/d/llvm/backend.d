@@ -136,7 +136,7 @@ public:
 		if (emitError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
-			import std.c.string, std.stdio;
+			import core.stdc.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
 			assert(0, "Fail to emit object file ! Exiting...");
@@ -159,7 +159,7 @@ public:
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
-			import std.c.string, std.stdio;
+			import core.stdc.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
 			assert(0, "Failed to output assembly file! Exiting...");
@@ -180,7 +180,7 @@ public:
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
 			
-			import std.c.string, std.stdio;
+			import core.stdc.string, std.stdio;
 			writeln(errorPtr[0 .. strlen(errorPtr)]);
 			
 			assert(0, "Failed to output LLVM assembly file! Exiting...");

@@ -139,7 +139,7 @@ final class CodeGen {
 		if (LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus, &msg)) {
 			scope(exit) LLVMDisposeMessage(msg);
 			
-			import std.c.string;
+			import core.stdc.string;
 			auto error = msg[0 .. strlen(msg)].idup;
 			
 			throw new Exception(error);

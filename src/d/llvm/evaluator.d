@@ -256,7 +256,7 @@ auto createExecutionEngine(LLVMModuleRef dmodule) {
 	if (creationError) {
 		scope(exit) LLVMDisposeMessage(errorPtr);
 		
-		import std.c.string;
+		import core.stdc.string;
 		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 		
 		import std.stdio;
@@ -279,7 +279,7 @@ auto destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
 	
 	if (removeError) {
 		scope (exit) LLVMDisposeMessage(errorPtr);
-		import std.c.string;
+		import core.stdc.string;
 		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 		
 		import std.stdio;
