@@ -16,6 +16,7 @@ import d.context.location;
 import d.exception;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
+alias ArrayLiteral = d.ir.expression.ArrayLiteral;
 alias CallExpression = d.ir.expression.CallExpression;
 alias NewExpression = d.ir.expression.NewExpression;
 
@@ -447,6 +448,23 @@ public:
 			TypeVisitor(pass).visit(e.type),
 			visit(e.expr),
 		);
+	}
+	
+	Expression visit(AstArrayLiteral e) {
+		import std.algorithm, std.array;
+		auto values = e.values.map!(v => visit(v)).array();
+		
+		// The type of the first element determine the type of the array.
+		auto type = values.length > 0
+			? values[0].type
+			: Type.get(BuiltinType.Void);
+		
+		// Cast all the value to the proper type.
+		values = values
+			.map!(v => buildImplicitCast(pass, v.location, type, v))
+			.array();
+		
+		return build!ArrayLiteral(e.location, type.getSlice(), values);
 	}
 	
 	Expression buildArgument(Expression arg, ParamType pt) {

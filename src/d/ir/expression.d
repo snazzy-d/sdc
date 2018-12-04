@@ -34,6 +34,7 @@ Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.in
 }
 
 alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
+alias ArrayLiteral = d.ast.expression.ArrayLiteral!Expression;
 alias StaticTypeidExpression =
 	d.ast.expression.StaticTypeidExpression!(Type, Expression);
 

@@ -77,6 +77,34 @@ Expression buildCast(bool isExplicit)(
 		return new CompileError(location, "No match found").expression;
 	}
 	
+	// When casting an array literal, we try to push down the
+	// cast to each element of the literal.
+	if (auto al = cast(ArrayLiteral) e) {
+		switch (to.kind) with(TypeKind) {
+			case Array:
+				if (al.values.length != to.size) {
+					import d.ir.error;
+					return new CompileError(
+						al.location,
+						"Incorrect element count",
+					).expression;
+				}
+				
+				goto case;
+				
+			case Slice:
+				import std.algorithm, std.array;
+				auto et = to.element;
+				auto values = al.values
+					.map!(v => buildCast!isExplicit(pass, location, et, v))
+					.array();
+				return build!ArrayLiteral(e.location, to, values);
+			
+			default:
+				break;
+		}
+	}
+	
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
 		static if (is(T : Aggregate)) {

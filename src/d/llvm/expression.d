@@ -710,6 +710,58 @@ struct ExpressionGen {
 		}
 	}
 	
+	LLVMValueRef visit(ArrayLiteral e) {
+		auto t = e.type;
+		auto count = cast(uint) e.values.length;
+		
+		import d.llvm.type;
+		auto et = TypeGen(pass.pass).visit(t.element);
+		auto type = LLVMArrayType(et, count);
+		auto array = LLVMGetUndef(type);
+		
+		uint i = 0;
+		import std.algorithm;
+		foreach(v; e.values.map!(v => visit(v))) {
+			array = LLVMBuildInsertValue(builder, array, v, i++, "");
+		}
+		
+		if (t.kind == TypeKind.Array) {
+			return array;
+		}
+		
+		auto ptrType = LLVMPointerType(type, 0);
+		auto ptr = LLVMConstNull(ptrType);
+		
+		if (count > 0) {
+			// We have a slice, we need to allocate.
+			auto allocFun = declare(pass.object.getGCThreadLocalAllow());
+			auto alloc = buildCall(allocFun, [LLVMSizeOf(type)]);
+			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
+			
+			// XXX: This should be set on the alloc function instead of the callsite.
+			LLVMAddCallSiteAttribute(
+				alloc,
+				LLVMAttributeReturnIndex,
+				getAttribute("noalias"),
+			);
+			
+			// Store all the values on heap.
+			LLVMBuildStore(builder, array, ptr);
+		}
+		
+		// Build the slice.
+		auto slice = LLVMGetUndef(TypeGen(pass.pass).visit(t));
+		auto i64 = LLVMInt64TypeInContext(llvmCtx);
+		auto llvmCount = LLVMConstInt(i64, count, false);
+		slice = LLVMBuildInsertValue(builder, slice, llvmCount, 0, "");
+		
+		auto elPtrType = LLVMPointerType(et, 0);
+		ptr = LLVMBuildPointerCast(builder, ptr, elPtrType, "");
+		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
+		
+		return slice;
+	}
+	
 	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		// Check if we need to invoke.
 		if (!lpBB) {

@@ -431,9 +431,8 @@ class ThisExpression : AstExpression {
 class ArrayLiteral(T) : T if(is(T: AstExpression)) {
 	T[] values;
 	
-	this(Location location, T[] values) {
-		super(location);
-		
+	this(U...)(Location location, U args, T[] values) {
+		super(location, args);
 		this.values = values;
 	}
 	

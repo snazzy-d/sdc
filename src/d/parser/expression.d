@@ -633,19 +633,18 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			return new d.ir.expression.CharacterLiteral(location, str[0], BuiltinType.Char);
 		
 		case OpenBracket:
-			AstExpression[] keys, values;
-			do {
-				trange.popFront();
-				auto value = trange.parseAssignExpression();
-				
-				if(trange.front.type == Colon) {
-					keys ~= value;
-					trange.popFront();
-					values ~= trange.parseAssignExpression();
-				} else {
-					values ~= value;
+			// FIXME: Support map literals.
+			AstExpression[] values;
+			trange.popFront();
+			
+			while (trange.front.type != CloseBracket) {
+				values ~= trange.parseAssignExpression();
+				if (trange.front.type != Comma) {
+					break;
 				}
-			} while(trange.front.type == Comma);
+				
+				trange.popFront();
+			}
 			
 			location.spanTo(trange.front.location);
 			trange.match(CloseBracket);
