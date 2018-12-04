@@ -146,7 +146,7 @@ Expression buildCast(bool isExplicit)(
 	switch(kind) with(CastKind) {
 		case Exact:
 			// FIXME: Because we don't cast type qualifier the proper
-			// way, we need ot make sure they match.
+			// way, we need to make sure they match.
 			e.type = e.type.qualify(to.qualifier);
 			return e;
 		
@@ -201,10 +201,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind castFrom(ParamType from, ParamType to) {
-		if(from.isRef != to.isRef) return CastKind.Invalid;
+		if (from.isRef != to.isRef) {
+			return CastKind.Invalid;
+		}
 		
 		auto k = castFrom(from.getType(), to.getType());
-		if(from.isRef && k < CastKind.Qual) return CastKind.Invalid;
+		if (from.isRef && k < CastKind.Qual) {
+			return CastKind.Invalid;
+		}
 		
 		return k;
 	}
@@ -337,18 +341,18 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
-			case Qual :
+			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
 				}
 				
 				goto default;
 			
-			case Exact :
+			case Exact:
 				return Qual;
 			
 			static if (isExplicit) {
-				default :
+				default:
 					return Bit;
 			} else {
 				case Bit :
@@ -356,9 +360,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 						return subCast;
 					}
 					
-					return Invalid;
+					goto default;
 				
-				default :
+				default:
 					return Invalid;
 			}
 		}
@@ -373,28 +377,28 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
-			case Qual :
+			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
 				}
 				
 				goto default;
 			
-			case Exact :
+			case Exact:
 				return Qual;
 			
 			static if (isExplicit) {
-				default :
+				default:
 					return Bit;
 			} else {
-				case Bit :
+				case Bit:
 					if (canConvert(t.qualifier, e.qualifier)) {
 						return subCast;
 					}
 					
-					return Invalid;
+					goto default;
 				
-				default :
+				default:
 					return Invalid;
 			}
 		}
@@ -413,28 +417,28 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		auto subCast = castFrom(t, e);
 		switch(subCast) with(CastKind) {
-			case Qual :
+			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
 				}
 				
 				goto default;
 			
-			case Exact :
+			case Exact:
 				return Exact;
 			
 			static if (isExplicit) {
-				default :
+				default:
 					return Bit;
 			} else {
-				case Bit :
+				case Bit:
 					if (canConvert(t.qualifier, e.qualifier)) {
 						return subCast;
 					}
 					
-					return Invalid;
+					goto default;
 				
-				default :
+				default:
 					return Invalid;
 			}
 		}
@@ -562,13 +566,22 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		
 		enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 		
-		if (f.parameters.length != tf.parameters.length) return onFail;
-		if (f.isVariadic != tf.isVariadic) return onFail;
+		if (f.parameters.length != tf.parameters.length) {
+			return onFail;
+		}
 		
-		if (f.linkage != tf.linkage) return onFail;
+		if (f.isVariadic != tf.isVariadic) {
+			return onFail;
+		}
+		
+		if (f.linkage != tf.linkage) {
+			return onFail;
+		}
 		
 		auto k = castFrom(f.returnType, tf.returnType);
-		if(k < CastKind.Bit) return onFail;
+		if (k < CastKind.Bit) {
+			return onFail;
+		}
 		
 		import std.range;
 		foreach(fromc, toc; lockstep(f.contexts, tf.contexts)) {
@@ -587,7 +600,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			
 			// Contexts are covariant.
 			auto kc = castFrom(fromc, toc);
-			if(kc < CastKind.Bit) return onFail;
+			if (kc < CastKind.Bit) {
+				return onFail;
+			}
 			
 			import std.algorithm;
 			k = min(k, kc);
@@ -596,7 +611,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		foreach(fromp, top; lockstep(f.parameters, tf.parameters)) {
 			// Parameters are contrevariant.
 			auto kp = castFrom(top, fromp);
-			if(kp < CastKind.Bit) return onFail;
+			if (kp < CastKind.Bit) {
+				return onFail;
+			}
 			
 			import std.algorithm;
 			k = min(k, kp);
