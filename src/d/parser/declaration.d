@@ -630,36 +630,23 @@ auto parseParameters(ref TokenRange trange, out bool isVariadic) {
 	trange.match(TokenType.OpenParen);
 	
 	ParamDecl[] parameters;
-	
-	switch (trange.front.type) with(TokenType) {
-		case CloseParen:
-			break;
-		
-		case DotDotDot:
+	while (trange.front.type != TokenType.CloseParen) {
+		if (trange.front.type == TokenType.DotDotDot) {
+			// This is a variadic function.
 			trange.popFront();
 			isVariadic = true;
 			break;
+		}
 		
-		default:
-			parameters ~= trange.parseParameter();
-			
-			while (trange.front.type == Comma) {
-				trange.popFront();
-				
-				if (trange.front.type == DotDotDot) {
-					goto case DotDotDot;
-				}
-				
-				if (trange.front.type == CloseParen) {
-					goto case CloseParen;
-				}
-				
-				parameters ~= trange.parseParameter();
-			}
+		parameters ~= trange.parseParameter();
+		if (trange.front.type != TokenType.Comma) {
+			break;
+		}
+		
+		trange.popFront();
 	}
 	
 	trange.match(TokenType.CloseParen);
-	
 	return parameters;
 }
 

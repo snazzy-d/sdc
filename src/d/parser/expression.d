@@ -939,24 +939,14 @@ AstExpression[] parseArguments(TokenType openTokenType)(ref TokenRange trange) {
 	
 	trange.match(openTokenType);
 	
-	if (trange.front.type == closeTokenType) {
-		trange.match(closeTokenType);
-		return [];
-	}
-	
 	AstExpression[] args;
-	while(true) {
+	while (trange.front.type != closeTokenType) {
 		args ~= trange.parseAssignExpression();
-		
 		if (trange.front.type != TokenType.Comma) {
 			break;
 		}
 		
 		trange.popFront();
-		
-		if (trange.front.type == closeTokenType) {
-			break;
-		}
 	}
 	
 	trange.match(closeTokenType);
