@@ -157,6 +157,20 @@ auto parseStatementSuffix(ref TokenRange trange, AstExpression e) {
 
 private:
 
+Declaration finalizeDeclaration(T)(
+	ref TokenRange trange,
+	Location location,
+	T parsed,
+) {
+	static if (is(T : AstType)) {
+		alias t = parsed;
+	} else {
+		auto t = AstType.get(parsed);
+	}
+	
+	return trange.parseTypedDeclaration(location, defaultStorageClass, t);
+}
+
 Statement finalizeStatement(T)(
 	ref TokenRange trange,
 	Location location,
@@ -165,11 +179,7 @@ Statement finalizeStatement(T)(
 	static if (is(T : AstType)) {
 		return trange.finalizeStatement(
 			location,
-			trange.parseTypedDeclaration(
-				location,
-				defaultStorageClass,
-				parsed,
-			),
+			trange.finalizeDeclaration(location, parsed),
 		);
 	} else static if (is(T : Declaration)) {
 		return new DeclarationStatement(parsed);
@@ -188,7 +198,10 @@ Statement finalizeStatement(T)(
 	} else {
 		// Identifier follow by another identifier is a declaration.
 		if (trange.front.type == TokenType.Identifier) {
-			return trange.finalizeStatement(location, AstType.get(parsed));
+			return trange.finalizeStatement(
+				location,
+				trange.finalizeDeclaration(location, parsed),
+			);
 		} else {
 			return trange.finalizeStatement(
 				location,
