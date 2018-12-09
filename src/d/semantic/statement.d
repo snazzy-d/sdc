@@ -309,7 +309,7 @@ public:
 		}
 	}
 	
-	void visit(IdentifierStarIdentifierStatement s) {
+	void visit(IdentifierStarNameStatement s) {
 		import d.semantic.identifier;
 		IdentifierResolver(pass)
 			.build(s.identifier)

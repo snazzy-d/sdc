@@ -61,7 +61,7 @@ class DeclarationStatement : Statement {
 /**
  * indentifier * identifier kind of things
  */
-class IdentifierStarIdentifierStatement : Statement {
+class IdentifierStarNameStatement : Statement {
 	import d.context.name;
 	Name name;
 	

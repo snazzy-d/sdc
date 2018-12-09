@@ -123,7 +123,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 	}
 }
 
-struct IdentifierStarIdentifier {
+struct IdentifierStarName {
 	import d.context.name;
 	Name name;
 
@@ -186,10 +186,10 @@ Statement finalizeStatement(T)(
 	} else static if (is(T : AstExpression)) {
 		trange.match(TokenType.Semicolon);
 		return new ExpressionStatement(parsed);
-	} else static if (is(T : IdentifierStarIdentifier)) {
+	} else static if (is(T : IdentifierStarName)) {
 		trange.match(TokenType.Semicolon);
 		location.spanTo(trange.previous);
-		return new IdentifierStarIdentifierStatement(
+		return new IdentifierStarNameStatement(
 			location,
 			parsed.identifier,
 			parsed.name,
@@ -416,14 +416,14 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 							trange.moveTo(lookahead);
 							trange.popFront();
 							auto v = trange.parseInitializer();
-							return handler(IdentifierStarIdentifier(name, i, v));
+							return handler(IdentifierStarName(name, i, v));
 						}
 						
 						// FIXME: This is most likely broken.
 						// Cases like *, . and ! are not handled.
 						if (!rtt.indicateExpression()) {
 							trange.moveTo(lookahead);
-							return handler(IdentifierStarIdentifier(name, i, null));
+							return handler(IdentifierStarName(name, i, null));
 						}
 					}
 					
