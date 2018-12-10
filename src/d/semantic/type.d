@@ -108,7 +108,7 @@ struct TypeVisitor {
 				} else static if (is(T: Expression)) {
 					return buildArray(identified, type);
 				} else if (auto v = cast(ValueTemplateParameter) identified) {
-					return Type.get(Pattern(type, v));
+					return Pattern(type, v).getType();
 				} else {
 					import d.ir.error;
 					return getError(

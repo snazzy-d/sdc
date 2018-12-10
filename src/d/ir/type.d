@@ -495,11 +495,7 @@ static:
 	}
 	
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.Pattern, q), p);
-	}
-	
-	Type get(Pattern p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.Pattern, q), p);
+		return Pattern(p).getType(q);
 	}
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {
@@ -703,6 +699,8 @@ enum PatternKind {
 
 struct Pattern {
 private:
+	alias Desc = Type.Desc;
+	
 	import std.bitmanip;
 	import d.ir.symbol;
 	mixin(taggedClassRef!(
@@ -742,6 +740,10 @@ public:
 		_kind = PatternKind.TypeBracketValue;
 		auto p = new TypeValuePair(t, v);
 		_parameter = *(cast(TypeTemplateParameter*) &p);
+	}
+	
+	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
+		return Type(Desc(TypeKind.Pattern, q), this);
 	}
 	
 	auto accept(T)(ref T t) if(is(T == struct)) {
