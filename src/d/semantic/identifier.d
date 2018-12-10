@@ -14,7 +14,7 @@ import d.context.name;
 
 alias Identifiable = Type.UnionType!(Symbol, Expression);
 
-public auto apply(alias handler)(Identifiable i) {
+auto apply(alias handler)(Identifiable i) {
 	alias Tag = typeof(i.tag);
 	final switch(i.tag) with(Tag) {
 		case Symbol :
@@ -77,7 +77,7 @@ public:
 	}
 	
 	Identifiable build(
-		TemplateInstanciationDotIdentifier i,
+		TemplateInstantiationDotIdentifier i,
 		Expression[] fargs = [],
 	) {
 		auto ti = IdentifierVisitor(&this).resolve(i, fargs);
@@ -166,7 +166,7 @@ public:
 		return resolveIn(i.location, visit(i.identifier), i.name);
 	}
 	
-	Identifiable visit(TemplateInstanciationDotIdentifier i) {
+	Identifiable visit(TemplateInstantiationDotIdentifier i) {
 		return resolve(i);
 	}
 	
@@ -284,20 +284,24 @@ private:
 	}
 	
 	Identifiable resolve(
-		TemplateInstanciationDotIdentifier i,
+		TemplateInstantiationDotIdentifier i,
 		Expression[] fargs = [],
 	) in {
 		// We don't want to resolve argument with the same context we have here.
 		assert(acquireThis() is null);
 	} body {
+		alias astapply = d.ast.identifier.apply;
+		
 		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
+		import d.ast.type : AstType;
 		import std.algorithm, std.array;
-		auto args = i.instanciation.arguments.map!((a) {
-			if (auto ia = cast(IdentifierTemplateArgument) a) {
+		auto args = i.instanciation.arguments.map!(a => astapply!((a) {
+			alias T = typeof(a);
+			static if (is(T : Identifier)) {
 				assert(pass.acquireThis() is null);
 				
 				return IdentifierVisitor(pass)
-					.visit(ia.identifier)
+					.visit(a)
 					.apply!((val) {
 						static if(is(typeof(val) : Expression)) {
 							return TemplateArgument(pass.evaluate(val));
@@ -305,17 +309,15 @@ private:
 							return TemplateArgument(val);
 						}
 					})();
-			} else if (auto ta = cast(TypeTemplateArgument) a) {
+			} else static if (is(T : AstType)) {
 				import d.semantic.type;
-				return TemplateArgument(TypeVisitor(pass.pass).visit(ta.type));
-			} else if (auto va = cast(ValueTemplateArgument) a) {
+				return TemplateArgument(TypeVisitor(pass.pass).visit(a));
+			} else {
 				import d.semantic.expression;
-				auto e = ExpressionVisitor(pass.pass).visit(va.value);
+				auto e = ExpressionVisitor(pass.pass).visit(a);
 				return TemplateArgument(pass.evaluate(e));
 			}
-			
-			assert(0, typeid(a).toString() ~ " is not supported.");
-		}).array();
+		})(a)).array();
 		
 		CompileError ce;
 		

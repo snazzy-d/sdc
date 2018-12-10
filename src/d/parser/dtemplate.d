@@ -200,33 +200,36 @@ private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
 }
 
 auto parseTemplateArguments(ref TokenRange trange) {
-	TemplateArgument[] arguments;
+	AstTemplateArgument[] arguments;
 	
-	switch(trange.front.type) with(TokenType) {
-		case OpenParen :
+	switch (trange.front.type) with(TokenType) {
+		case OpenParen:
 			trange.popFront();
 			
-			if(trange.front.type != CloseParen) {
-				arguments ~= trange.parseTemplateArgument();
-		
-				while(trange.front.type != CloseParen) {
-					trange.match(Comma);
-					arguments ~= trange.parseTemplateArgument();
+			while (trange.front.type != CloseParen) {
+				import d.parser.ambiguous;
+				arguments ~= trange
+					.parseAmbiguous!(p => AstTemplateArgument(p))();
+				
+				if (trange.front.type != Comma) {
+					break;
 				}
+				
+				trange.popFront();
 			}
 			
 			trange.match(CloseParen);
 			break;
 		
-		case Identifier :
+		case Identifier:
 			auto identifier = new BasicIdentifier(trange.front.location, trange.front.name);
-			arguments ~= new IdentifierTemplateArgument(identifier);
+			arguments = [AstTemplateArgument(identifier)];
 			
 			trange.popFront();
 			break;
 		
 		case True, False, Null, IntegerLiteral, StringLiteral, CharacterLiteral, FloatLiteral, __File__, __Line__ :
-			arguments = [new ValueTemplateArgument(trange.parsePrimaryExpression())];
+			arguments = [AstTemplateArgument(trange.parsePrimaryExpression())];
 			break;
 		
 		/+
@@ -234,31 +237,10 @@ auto parseTemplateArguments(ref TokenRange trange) {
 			// This can be passed as alias parameter.
 		+/
 		
-		default :
-			auto location = trange.front.location;
-			auto type = trange.parseBasicType();
-			
-			location.spanTo(trange.front.location);
-			arguments ~= new TypeTemplateArgument(location, type);
+		default:
+			arguments = [AstTemplateArgument(trange.parseBasicType())];
 			break;
 	}
 	
 	return arguments;
-}
-
-auto parseTemplateArgument(ref TokenRange trange) {
-	auto location = trange.front.location;
-	
-	import d.parser.ambiguous;
-	return trange.parseAmbiguous!(delegate TemplateArgument(parsed) {
-		alias T = typeof(parsed);
-		static if(is(T : AstType)) {
-			location.spanTo(trange.front.location);
-			return new TypeTemplateArgument(location, parsed);
-		} else static if(is(T : AstExpression)) {
-			return new ValueTemplateArgument(parsed);
-		} else {
-			return new IdentifierTemplateArgument(parsed);
-		}
-	})();
 }

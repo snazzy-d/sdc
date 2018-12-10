@@ -23,19 +23,6 @@ abstract class Identifier : Node {
 	}
 }
 
-/**
- * Super class for all template arguments.
- */
-class TemplateArgument : Node {
-	this(Location location) {
-		super(location);
-	}
-	
-	string toString(const Context c) const {
-		assert(0, "toString not implement for " ~ typeid(this).toString());
-	}
-}
-
 final:
 /**
  * An identifier.
@@ -104,10 +91,10 @@ class ExpressionDotIdentifier : Identifier {
 /**
  * An identifier qualified by a template (template!(...).identifier)
  */
-class TemplateInstanciationDotIdentifier : Identifier {
-	TemplateInstanciation instanciation;
+class TemplateInstantiationDotIdentifier : Identifier {
+	TemplateInstantiation instanciation;
 	
-	this(Location location, Name name, TemplateInstanciation instanciation) {
+	this(Location location, Name name, TemplateInstantiation instanciation) {
 		super(location, name);
 		
 		this.instanciation = instanciation;
@@ -119,16 +106,16 @@ class TemplateInstanciationDotIdentifier : Identifier {
 }
 
 /**
- * Template instanciation
+ * Template instantiation
  */
-class TemplateInstanciation : Node {
+class TemplateInstantiation : Node {
 	Identifier identifier;
-	TemplateArgument[] arguments;
+	AstTemplateArgument[] arguments;
 	
 	this(
 		Location location,
 		Identifier identifier,
-		TemplateArgument[] arguments,
+		AstTemplateArgument[] arguments,
 	) {
 		super(location);
 		
@@ -137,60 +124,28 @@ class TemplateInstanciation : Node {
 	}
 	
 	string toString(const Context c) const {
+		// Unfortunately, apply isn't const compliant so we cast it away.
 		import std.algorithm, std.range;
-		auto args = arguments.map!(a => a.toString(c)).join(", ");
+		auto args = arguments
+			.map!(a => (cast() a).apply!(a => a.toString(c)))
+			.join(", ");
 		return identifier.toString(c) ~ "!(" ~ args ~ ")";
 	}
 }
 
-/**
- * Template type argument
- */
-class TypeTemplateArgument : TemplateArgument {
-	AstType type;
-	
-	this(Location location, AstType type) {
-		super(location);
-		
-		this.type = type;
-	}
-	
-	override string toString(const Context c) const {
-		return type.toString(c);
-	}
-}
+alias AstTemplateArgument = AstType.UnionType!(AstExpression, Identifier);
 
-/**
- * Template value argument
- */
-class ValueTemplateArgument : TemplateArgument {
-	AstExpression value;
-	
-	this(AstExpression value) {
-		super(value.location);
+auto apply(alias handler)(AstTemplateArgument a) {
+	alias Tag = typeof(a.tag);
+	final switch(a.tag) with(Tag) {
+		case AstExpression:
+			return handler(a.get!AstExpression);
 		
-		this.value = value;
-	}
-	
-	override string toString(const Context c) const {
-		return value.toString(c);
-	}
-}
-
-/**
- * Template identifier argument
- */
-class IdentifierTemplateArgument : TemplateArgument {
-	Identifier identifier;
-	
-	this(Identifier identifier) {
-		super(identifier.location);
+		case Identifier:
+			return handler(a.get!Identifier);
 		
-		this.identifier = identifier;
-	}
-	
-	override string toString(const Context c) const {
-		return identifier.toString(c);
+		case AstType:
+			return handler(a.get!AstType);
 	}
 }
 

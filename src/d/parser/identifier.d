@@ -101,7 +101,7 @@ private Identifier parseBuiltIdentifier(
 				
 				location.spanTo(trange.previous);
 				
-				auto instance = new TemplateInstanciation(
+				auto instance = new TemplateInstantiation(
 					location,
 					identifier,
 					arguments,
@@ -109,7 +109,7 @@ private Identifier parseBuiltIdentifier(
 				
 				if (trange.front.type != Dot) {
 					// TODO: create s pecial node for that ?
-					identifier = new TemplateInstanciationDotIdentifier(
+					identifier = new TemplateInstantiationDotIdentifier(
 						location,
 						identifier.name,
 						instance,
@@ -124,7 +124,7 @@ private Identifier parseBuiltIdentifier(
 				auto name = trange.front.name;
 				trange.match(Identifier);
 				
-				identifier = new TemplateInstanciationDotIdentifier(
+				identifier = new TemplateInstantiationDotIdentifier(
 					location,
 					name,
 					instance,
