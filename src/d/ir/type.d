@@ -62,7 +62,7 @@ private:
 		this(d, fastCast!(inout Payload)(t));
 	}
 	
-	this(Desc d, inout Pattern p) inout {
+	this(Desc d, inout Pattern.Payload p) inout {
 		this(d, fastCast!(inout Payload)(p));
 	}
 	
@@ -261,7 +261,7 @@ public:
 	auto pattern() inout in {
 		assert(kind == TypeKind.Pattern);
 	} body {
-		return payload.pattern;
+		return inout(Pattern)(desc, payload.patternPayload);
 	}
 	
 	@property
@@ -690,7 +690,7 @@ unittest {
 }
 
 // Facility for IFTI pattern matching.
-enum PatternKind {
+enum PatternKind : ubyte {
 	Parameter,
 	TypeBracketValue,
 	TypeBracketType,
@@ -701,17 +701,49 @@ struct Pattern {
 private:
 	alias Desc = Type.Desc;
 	
+	enum KindSize = EnumSize!PatternKind;
+	enum Pad = ulong.sizeof * 8 - Type.Desc.DataSize;
+	enum CountSize = ulong.sizeof * 8 - KindSize - Pad;
+	
 	import std.bitmanip;
-	import d.ir.symbol;
-	mixin(taggedClassRef!(
-		TypeTemplateParameter, "_parameter",
-		PatternKind, "_kind", 2,
+	mixin(bitfields!(
+		PatternKind, "kind", KindSize,
+		ulong, "argCount", CountSize,
+		uint, "", Pad, // Pad for TypeKind and qualifier
 	));
 	
-	@property parameter() inout in {
-		assert(kind == PatternKind.Parameter);
-	} body {
-		return _parameter;
+	union Payload {
+		TypeTemplateParameter param;
+		TypeValuePair* typeValuePair;
+	}
+	
+	Payload payload;
+	
+	static assert(Payload.sizeof == ulong.sizeof, "Payload must be the same size as ulong.");
+	
+	this(Desc desc, inout Payload payload) inout {
+		// /!\ Black magic ahead.
+		auto raw_desc = cast(ulong*) &desc;
+		
+		// Remove the TypeKind and qualifier
+		*raw_desc = (*raw_desc >> Pad);
+		
+		// This should point to an area of memory that have
+		// the correct layout for the bitfield.
+		auto p = cast(Pattern*) raw_desc;
+		
+		// unqual trick required for bitfield
+		auto unqual_this = cast(Pattern*) &this;
+		unqual_this.kind = p.kind;
+		unqual_this.argCount = p.argCount;
+		
+		this.payload = payload;
+	}
+	
+	this(PatternKind k, ulong c, Payload p) {
+		kind = k;
+		argCount = c;
+		payload = p;
 	}
 	
 	struct TypeValuePair {
@@ -722,28 +754,29 @@ private:
 	auto getTypeValuePair() inout in {
 		assert(kind == PatternKind.TypeBracketValue);
 	} body {
-		auto p = _parameter;
-		return *(cast(inout(TypeValuePair)**) &p);
+		return payload.typeValuePair;
 	}
 	
 public:
-	@property kind() const {
-		return _kind;
-	}
-	
+	import util.fastcast;
 	this(TypeTemplateParameter p) {
-		_kind = PatternKind.Parameter;
-		_parameter = p;
+		this(PatternKind.Parameter, 0, fastCast!Payload(p));
 	}
 	
 	this(Type t, ValueTemplateParameter v) {
-		_kind = PatternKind.TypeBracketValue;
 		auto p = new TypeValuePair(t, v);
-		_parameter = *(cast(TypeTemplateParameter*) &p);
+		this(PatternKind.TypeBracketValue, 0, fastCast!Payload(p));
+	}
+	
+	@property parameter() inout in {
+		assert(kind == PatternKind.Parameter);
+	} body {
+		return payload.param;
 	}
 	
 	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.Pattern, q), this);
+		ulong d = *cast(ulong*) &this;
+		return Type(Desc(TypeKind.Pattern, q, d), payload);
 	}
 	
 	auto accept(T)(ref T t) if(is(T == struct)) {
@@ -817,7 +850,7 @@ union Payload {
 	// ParamType* params;
 	
 	// For template instanciation.
-	Pattern pattern;
+	Pattern.Payload patternPayload;
 	
 	// For speculative compilation.
 	CompileError error;
