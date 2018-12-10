@@ -220,11 +220,12 @@ private:
 		}
 		
 		@property
-		auto get(Tag E)() in {
+		auto get(Tag E)() inout in {
 			assert(tag == E);
 		} body {
 			static if (E == U.length) {
-				return PackedType!(T, TagTuple)(desc, payload).getType();
+				alias R = inout(PackedType!(T, TagTuple));
+				return R(desc, payload).getType();
 			} else {
 				return u[E];
 			}
