@@ -272,29 +272,6 @@ private:
 	}
 }
 
-alias TemplateArgument = Type.UnionType!(typeof(null), Symbol, CompileTimeExpression);
-
-auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
-	alias Tag = typeof(a.tag);
-	final switch(a.tag) with(Tag) {
-		case Undefined :
-			return undefinedHandler();
-		
-		case Symbol :
-			return handler(a.get!Symbol);
-		
-		case CompileTimeExpression :
-			return handler(a.get!CompileTimeExpression);
-		
-		case Type :
-			return handler(a.get!Type);
-	}
-}
-
-unittest {
-	TemplateArgument.init.apply!(() {}, (i) { assert(0); })();
-}
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 

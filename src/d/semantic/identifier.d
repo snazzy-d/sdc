@@ -292,7 +292,7 @@ private:
 	} body {
 		alias astapply = d.ast.identifier.apply;
 		
-		import d.semantic.dtemplate : TemplateInstancier, TemplateArgument;
+		import d.semantic.dtemplate : TemplateInstancier;
 		import d.ast.type : AstType;
 		import std.algorithm, std.array;
 		auto args = i.instanciation.arguments.map!(a => astapply!((a) {
