@@ -38,7 +38,7 @@ enum TypeKind : ubyte {
 	Function,
 	
 	// Template Pattern matching for IFTI.
-	TemplatePattern,
+	Pattern,
 	
 	// Error
 	Error,
@@ -116,7 +116,7 @@ private:
 			case Function:
 				return t.visit(asFunctionType());
 			
-			case TemplatePattern:
+			case Pattern:
 				return t.visit(pattern);
 			
 			case Error:
@@ -259,7 +259,7 @@ public:
 	
 	@property
 	auto pattern() inout in {
-		assert(kind == TypeKind.TemplatePattern);
+		assert(kind == TypeKind.Pattern);
 	} body {
 		return payload.pattern;
 	}
@@ -340,7 +340,7 @@ public:
 				// Is this, really ?
 				return t.builtin == BuiltinType.Null;
 
-			case Alias, Enum, TemplatePattern, Error:
+			case Alias, Enum, Pattern, Error:
 				assert(0);
 
 			case Pointer, Slice, Class, Interface, Context:
@@ -452,7 +452,7 @@ public:
 				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
 				return linkage ~ ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
 			
-			case TemplatePattern:
+			case Pattern:
 				return pattern.toString(c);
 			
 			case Error:
@@ -495,11 +495,11 @@ static:
 	}
 	
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.TemplatePattern, q), p);
+		return Type(Desc(TypeKind.Pattern, q), p);
 	}
 	
 	Type get(Pattern p, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.TemplatePattern, q), p);
+		return Type(Desc(TypeKind.Pattern, q), p);
 	}
 	
 	Type getContextType(Function f, TypeQualifier q = TypeQualifier.Mutable) {

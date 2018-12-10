@@ -526,7 +526,7 @@ struct ValueMatcher {
 	}
 	
 	private bool matchTyped(Type t, uint i) {
-		if (t.kind == TypeKind.TemplatePattern) {
+		if (t.kind == TypeKind.Pattern) {
 			matchedArgs[i] = TemplateArgument(matchee);
 			return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(t);
 		}
