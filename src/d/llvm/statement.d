@@ -324,8 +324,8 @@ struct StatementGen {
 			cleanup = cleanup || LLVMIsCleanup(nextLp);
 			
 			clauses.length = LLVMGetNumClauses(nextLp);
-			foreach (uint n, ref c; clauses) {
-				c = LLVMGetClause(nextLp, n);
+			foreach (n, ref c; clauses) {
+				c = LLVMGetClause(nextLp, cast(uint) n);
 			}
 		}
 		

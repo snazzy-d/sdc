@@ -471,12 +471,12 @@ struct ExpressionGen {
 		import d.llvm.type;
 		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
 		
-		foreach (uint i, c; eCtxs) {
+		foreach (i, c; eCtxs) {
 			auto ctxValue = tCtxs[i].isRef
 				? addressOf(c)
 				: visit(c);
 			
-			dg = LLVMBuildInsertValue(builder, dg, ctxValue, i, "");
+			dg = LLVMBuildInsertValue(builder, dg, ctxValue, cast(uint) i, "");
 		}
 		
 		LLVMValueRef fun;

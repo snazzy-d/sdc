@@ -185,8 +185,8 @@ static assert(Names[0] == "");
 auto getLookups() {
 	// XXX: DMD zero terminate here, but I'd like to not rely on it :/
 	uint[string] lookups;
-	foreach(uint i, id; Names) {
-		lookups[id] = i;
+	foreach(i, id; Names) {
+		lookups[id] = cast(uint) i;
 	}
 	
 	return lookups;
