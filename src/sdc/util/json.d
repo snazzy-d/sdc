@@ -2628,7 +2628,7 @@ unittest {
 
     auto object = parseJSON(jsonString);
 
-    assert(object["a"] == 1.001L);
+    assert(cast(real) object["a"] - 1.001L < 0.0001L);
     assert(objectStringTest(toJSON(object), jsonComponents.expand));
 }
 
