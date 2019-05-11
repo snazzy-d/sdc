@@ -9,7 +9,6 @@ int main() {
 	if (a > c) {
 		return 17;
 	}
-	
+
 	return cast(int) a + c;
 }
-

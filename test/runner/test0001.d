@@ -6,4 +6,3 @@
 int main() {
 	return 42 + 21 * 2;
 }
-

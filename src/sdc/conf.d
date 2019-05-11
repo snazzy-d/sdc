@@ -42,4 +42,3 @@ void extends(ref JSON base, JSON add) {
 		base[key] = value;
 	}
 }
-

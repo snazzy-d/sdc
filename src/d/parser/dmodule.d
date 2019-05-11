@@ -23,7 +23,7 @@ auto parseModule(ref TokenRange trange) {
 		name = trange.front.name;
 		
 		trange.match(TokenType.Identifier);
-		while(trange.front.type == TokenType.Dot) {
+		while (trange.front.type == TokenType.Dot) {
 			trange.popFront();
 			
 			packages ~= name;
@@ -36,7 +36,7 @@ auto parseModule(ref TokenRange trange) {
 	}
 	
 	Declaration[] declarations;
-	while(trange.front.type != TokenType.End) {
+	while (trange.front.type != TokenType.End) {
 		declarations ~= trange.parseDeclaration();
 	}
 	

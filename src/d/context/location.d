@@ -132,7 +132,8 @@ public:
 		
 		import std.conv;
 		assert(
-			start.getSource() == stop.getSource(),
+			length == 0 ||
+			start.getSource() == Position(stop.raw - 1).getFullPosition(context).getSource(),
 /+
 			"Location file mismatch " ~
 				start.getFileName() ~ ":" ~ to!string(getStartOffset()) ~ " and " ~

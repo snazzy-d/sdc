@@ -24,7 +24,7 @@ Statement parseStatement(ref TokenRange trange) {
 			lookahead.popFront();
 			
 			if (lookahead.front.type == Colon) {
-				goto case Default;
+				goto ParseLabel;
 			}
 			
 			// If it is not a labeled statement,
@@ -250,6 +250,7 @@ Statement parseStatement(ref TokenRange trange) {
 			return new CaseStatement(location, cases);
 		
 		case Default:
+		ParseLabel:
 			// Other labeled statement will jump here !
 			auto label = trange.front.name;
 			trange.popFront();

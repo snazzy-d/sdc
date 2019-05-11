@@ -778,7 +778,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange, AstExpression e) {
 	Location location = e.location;
 	
-	while (1) {
+	while (true) {
 		switch (trange.front.type) with(TokenType) {
 			case PlusPlus:
 				location.spanTo(trange.front.location);

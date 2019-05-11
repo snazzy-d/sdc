@@ -73,9 +73,9 @@ private Identifier parseBuiltIdentifier(
 	Identifier identifier,
 ) {
 	auto location = identifier.location;
-	while(1) {
-		switch(trange.front.type) with(TokenType) {
-			case Dot :
+	while (true) {
+		switch (trange.front.type) with(TokenType) {
+			case Dot:
 				trange.popFront();
 				auto name = trange.front.name;
 				
@@ -89,7 +89,7 @@ private Identifier parseBuiltIdentifier(
 				);
 				break;
 			
-			case Bang :
+			case Bang:
 				auto lookahead = trange.save;
 				lookahead.popFront();
 				if (lookahead.front.type == Is || lookahead.front.type == In) {
@@ -108,7 +108,7 @@ private Identifier parseBuiltIdentifier(
 				);
 				break;
 			
-			default :
+			default:
 				return identifier;
 		}
 	}

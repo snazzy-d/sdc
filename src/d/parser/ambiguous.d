@@ -132,7 +132,7 @@ struct IdentifierStarName {
 }
 
 auto parseAmbiguousStatement(ref TokenRange trange) {
-	switch (trange.front.type) with(TokenType) {
+	switch (trange.front.type) with (TokenType) {
 		case Interface, Class, Struct, Union, Enum:
 		case Import, Template, Extern, Alias:
 		case Auto, Static, Const, Immutable, Inout, Shared:
