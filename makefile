@@ -2,7 +2,8 @@ DMD ?= dmd
 GCC ?= gcc
 NASM ?= nasm
 ARCHFLAG ?= -m64
-DFLAGS = $(ARCHFLAG) -w -debug -g -unittest
+# DFLAGS = $(ARCHFLAG) -w -debug -g -unittest
+DFLAGS = $(ARCHFLAG) -w -debug -g
 PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
