@@ -110,4 +110,7 @@ int main(string[] args) {
 			return 1;
 		}
 	}
+
+	// This is unreachable, but dmd can't figure this out.
+	assert(0);
 }
