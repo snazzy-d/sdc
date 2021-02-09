@@ -2137,8 +2137,8 @@ private struct JSONReader(InputRange) {
 
                     char[4] buf;
 
-                    const sz = encode!(Yes.useReplacementDchar)(buf, val);
-                    result.put(buf[0 .. sz]);
+                    encode(buf, val);
+                    result.put(cast(string)buf);
                 break;
                 default:
                     throw complaint("Invalid escape character");
@@ -2163,7 +2163,7 @@ private struct JSONReader(InputRange) {
 
         long integer   = 0;
         long remainder = 0;
-        int exponent = 0;
+        short exponent = 0;
         byte signInfo  = 0;
 
         // Accumulate digits reading left-to-right in a number.
@@ -2628,7 +2628,7 @@ unittest {
 
     auto object = parseJSON(jsonString);
 
-    assert(cast(real) object["a"] - 1.001L < 0.0001L);
+    assert(object["a"] == 1.001L);
     assert(objectStringTest(toJSON(object), jsonComponents.expand));
 }
 
