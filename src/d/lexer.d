@@ -1090,7 +1090,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	auto ret = "
 		switch(frontChar) {";
 	
-	foreach(c, ids; nextLevel) {
+	foreach(c, subids; nextLevel) {
 		// TODO: have a real function to handle that.
 		string charLit;
 		switch(c) {
@@ -1119,8 +1119,8 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 				popChar();";
 		
 		auto newBase = base ~ c;
-		if (ids.length == 1) {
-			if (auto cdef = "" in ids) {
+		if (subids.length == 1) {
+			if (auto cdef = "" in subids) {
 				ret ~= getReturnOrBreak(*cdef, newBase);
 				continue;
 			}
