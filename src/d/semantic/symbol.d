@@ -901,8 +901,8 @@ struct SymbolAnalyzer {
 					}
 					
 					auto crt = ct.returnType;
-					auto cts = ct.parameters[1 .. $];
-					if (ats.length != cts.length || rt.isRef != crt.isRef) {
+					auto cpts = ct.parameters[1 .. $];
+					if (ats.length != cpts.length || rt.isRef != crt.isRef) {
 						continue;
 					}
 					
@@ -917,14 +917,14 @@ struct SymbolAnalyzer {
 					}
 					
 					import std.range;
-					foreach(at, ct; lockstep(ats, cts)) {
-						if (at.isRef != ct.isRef) {
+					foreach(at, cpt; lockstep(ats, cpts)) {
+						if (at.isRef != cpt.isRef) {
 							continue CandidatesLoop;
 						}
 						
 						auto pk = implicitCastFrom(
 							pass,
-							ct.getType(),
+							cpt.getType(),
 							at.getType(),
 						);
 						
