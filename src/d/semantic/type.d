@@ -138,7 +138,7 @@ struct TypeVisitor {
 		qualifier = TypeQualifier.Mutable;
 		
 		auto returnType = visit(t.returnType);
-		foreach(i; ctxCount .. paramTypes.length) {
+		foreach (i; ctxCount .. paramTypes.length) {
 			paramTypes[i] = visit(f.parameters[i]);
 		}
 		

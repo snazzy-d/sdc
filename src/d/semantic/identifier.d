@@ -248,7 +248,7 @@ private:
 	Symbol resolveImport(Location location, Name name) {
 		auto dscope = currentScope;
 		
-		while(true) {
+		while (true) {
 			Symbol symbol;
 			
 			foreach(m; dscope.getImports()) {
@@ -267,7 +267,9 @@ private:
 				}
 			}
 			
-			if (symbol) return symbol;
+			if (symbol) {
+				return symbol;
+			}
 			
 			dscope = dscope.getParentScope();
 			if (dscope is null) {
