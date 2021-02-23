@@ -651,7 +651,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	}
 	
 	CastKind visit(Pattern p) {
-		assert(0, "Not implemented.");
+		assert(0, "Pattern cannot be casted.");
 	}
 	
 	import d.ir.error;

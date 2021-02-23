@@ -108,7 +108,7 @@ private Identifier parseBuiltIdentifier(
 				);
 				
 				if (trange.front.type != Dot) {
-					// TODO: create s pecial node for that ?
+					// TODO: create a special node for that ?
 					identifier = new TemplateInstantiationDotIdentifier(
 						location,
 						identifier.name,
