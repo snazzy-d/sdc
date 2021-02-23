@@ -95,7 +95,7 @@ public:
 		return dmodule;
 	}
 	
-	Scope getParentScope() {
+	ParentScope getParentScope() {
 		static if (ST) {
 			assert(parentScope !is null);
 			return parentScope;
