@@ -692,9 +692,9 @@ unittest {
 // Facility for IFTI pattern matching.
 enum PatternKind : ubyte {
 	Parameter,
+	Instance,
 	TypeBracketValue,
 	TypeBracketType,
-	Template,
 }
 
 struct Pattern {
@@ -792,14 +792,14 @@ public:
 			case Parameter:
 				return parameter.name.toString(c);
 			
+			case Instance:
+				assert(0, "Not implemented");
+			
 			case TypeBracketValue:
 				auto p = getTypeValuePair();
 				return p.type.toString(c) ~ '[' ~ p.value.name.toString(c) ~ ']';
 			
 			case TypeBracketType:
-				assert(0, "Not implemented");
-			
-			case Template:
 				assert(0, "Not implemented");
 		}
 	}
@@ -810,14 +810,14 @@ private:
 			case Parameter:
 				return t.visit(parameter);
 			
+			case Instance:
+				assert(0, "Not implemented");
+			
 			case TypeBracketValue:
 				auto p = getTypeValuePair();
 				return t.visit(p.type, p.value);
 			
 			case TypeBracketType:
-				assert(0, "Not implemented");
-			
-			case Template:
 				assert(0, "Not implemented");
 		}
 	}
