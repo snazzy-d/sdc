@@ -35,7 +35,7 @@ addons:
     packages:
       - nasm
       - build-essential
-      - binutils-gold
+      - lld
       - libstdc++6
 
 before_install:

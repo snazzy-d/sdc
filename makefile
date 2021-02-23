@@ -27,9 +27,9 @@ endif
 override LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
-	LD_GOLD = $(shell which ld.gold | xargs basename)
-	ifeq ($(LD_GOLD),ld.gold)
-		override LDFLAGS += -fuse-ld=gold
+	LD_LLD = $(shell which ld.lld | xargs basename)
+	ifeq ($(LD_LLD),ld.lld)
+		override LDFLAGS += -fuse-ld=lld
 	endif
 	override LDFLAGS += -lstdc++ -export-dynamic
 	override NASMFLAGS += -f elf64
