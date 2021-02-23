@@ -434,13 +434,14 @@ class TypedAliasTemplateParameter : TemplateParameter {
 class TemplateInstance : Symbol, Scope {
 	mixin ScopeImpl!(ScopeType.WithParent, Template);
 	
+	Symbol[] args;
 	Symbol[] members;
 	
-	this(Location location, Template tpl, Symbol[] members) {
+	this(Location location, Template tpl, Symbol[] args) {
 		super(location, tpl.name);
 		fillParentScope(tpl);
 		
-		this.members = members;
+		this.args = args;
 	}
 	
 	@property storage() const {

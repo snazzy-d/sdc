@@ -1292,28 +1292,27 @@ struct SymbolAnalyzer {
 		manglePrefix = i.mangle.toString(context);
 		
 		// Prefilled members are template arguments.
-		foreach(m; i.members) {
-			if (m.hasContext) {
+		foreach(a; i.args) {
+			if (a.hasContext) {
 				assert(
 					!i.hasContext,
 					"template can only have one context"
 				);
 				
 				import d.semantic.closure;
-				ctxSym = ContextFinder(pass).visit(m);
+				ctxSym = ContextFinder(pass).visit(a);
 				
 				i.hasContext = true;
 				i.storage = Storage.Local;
 			}
 			
-			i.addSymbol(m);
+			i.addSymbol(a);
 		}
 		
 		import d.semantic.declaration;
-		auto members = DeclarationVisitor(pass).flatten(t.members, i);
-		scheduler.require(members);
+		i.members = DeclarationVisitor(pass).flatten(t.members, i);
+		scheduler.require(i.members);
 		
-		i.members ~= members;
 		i.step = Step.Processed;
 	}
 	
