@@ -481,7 +481,53 @@ struct TypeMatcher(bool isIFTI) {
 	}
 	
 	bool visit(Symbol s, TemplateArgument[] args) {
-		assert(0, "Not implemented.");
+		// We are matching a template aggregate.
+		if (!matchee.isAggregate()) {
+			return false;
+		}
+		
+		// If this is not a templated type, bail.
+		auto a = matchee.aggregate;
+		if (!a.inTemplate) {
+			return false;
+		}
+		
+		auto name = a.name;
+		auto ti = cast(TemplateInstance) a.getParentScope();
+		if (ti is null) {
+			// Cannot find the template instance.
+			return false;
+		}
+		
+		if (args.length > ti.args.length) {
+			// Incompatible argument count.
+			return false;
+		}
+		
+		Template t = ti.getParentScope();
+		
+		// Match the template itself.
+		if (!SymbolMatcher(pass, matchedArgs, t).visit(s)) {
+			return false;
+		}
+		
+		// We got our instance, let's match parameters.
+		foreach (i, arg; args) {
+			if (arg.tag != TemplateArgument.Tag.Symbol) {
+				assert(0, "Only symbols are implemented for now");
+			}
+			
+			auto p = cast(TemplateParameter) arg.get!(TemplateArgument.Tag.Symbol);
+			if (p is null) {
+				assert(0, "Expected a tepmplate argument");
+			}
+			
+			if (!TemplateInstancier(pass).matchArgument(p, ti.args[i], matchedArgs)) {
+				return false;
+			}
+		}
+		
+		return true;
 	}
 	
 	import d.ir.error;
@@ -556,6 +602,25 @@ struct SymbolMatcher {
 		this.pass = pass;
 		this.matchedArgs = matchedArgs;
 		this.matchee = matchee;
+	}
+	
+	bool visit(Symbol s) {
+		if (auto p = cast(TemplateParameter) s) {
+			return visit(p);
+		}
+		
+		// Peel aliases
+		while (true) {
+			auto a = cast(SymbolAlias) s;
+			if (a is null) {
+				break;
+			}
+			
+			s = a;
+		}
+		
+		// We have a match.
+		return s is matchee;
 	}
 	
 	bool visit(TemplateParameter p) {
