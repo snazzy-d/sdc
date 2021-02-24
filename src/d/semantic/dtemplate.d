@@ -311,9 +311,9 @@ struct TypeParameterMatcher {
 			matchedArgs[p.index] = TemplateArgument(originalMatchee);
 		}, (_) {})();
 		
-		return originalMatched.apply!({ return true; }, (o) {
+		return originalMatched.apply!(() => true, (o) {
 			static if (is(typeof(o) : Type)) {
-				return matchedArgs[p.index].apply!({ return false; }, (m) {
+				return matchedArgs[p.index].apply!(() => false, (m) {
 					static if (is(typeof(m) : Type)) {
 						import d.semantic.caster;
 						return implicitCastFrom(pass, m, o) == CastKind.Exact;
