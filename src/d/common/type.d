@@ -153,7 +153,7 @@ private:
 			}
 		}
 		
-		mixin("enum Tag {" ~ TagFields!(0, U) ~ "\n}");
+		mixin("public enum Tag {" ~ TagFields!(0, U) ~ "\n}");
 		
 		import std.traits;
 		alias Tags = EnumMembers!Tag;

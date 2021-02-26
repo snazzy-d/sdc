@@ -261,10 +261,15 @@ private:
 				pass.currentScope = oldScope;
 			}
 			
-			auto i = new TemplateInstance(location, t, argSyms);
+			auto i = new TemplateInstance(location, t, args);
 			auto mangle = t.mangle.toString(pass.context);
 			i.mangle = pass.context.getName(mangle ~ "T" ~ id ~ "Z");
 			i.storage = t.storage;
+			
+			// Prefill arguments.
+			foreach (a; argSyms) {
+				i.addSymbol(a);
+			}
 			
 			pass.scheduler.schedule(t, i);
 			return t.instances[id] = i;

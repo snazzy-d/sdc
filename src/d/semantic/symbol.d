@@ -1293,20 +1293,25 @@ struct SymbolAnalyzer {
 		
 		// Prefilled members are template arguments.
 		foreach(a; i.args) {
-			if (a.hasContext) {
-				assert(
-					!i.hasContext,
-					"template can only have one context"
-				);
-				
-				import d.semantic.closure;
-				ctxSym = ContextFinder(pass).visit(a);
-				
-				i.hasContext = true;
-				i.storage = Storage.Local;
+			if (a.tag != TemplateArgument.Tag.Symbol) {
+				continue;
 			}
 			
-			i.addSymbol(a);
+			auto s = a.get!(TemplateArgument.Tag.Symbol);
+			if (!s.hasContext) {
+				continue;
+			}
+			
+			assert(
+				!i.hasContext,
+				"template can only have one context"
+			);
+			
+			import d.semantic.closure;
+			ctxSym = ContextFinder(pass).visit(s);
+			
+			i.hasContext = true;
+			i.storage = Storage.Local;
 		}
 		
 		import d.semantic.declaration;

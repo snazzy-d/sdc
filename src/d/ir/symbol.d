@@ -434,10 +434,10 @@ class TypedAliasTemplateParameter : TemplateParameter {
 class TemplateInstance : Symbol, Scope {
 	mixin ScopeImpl!(ScopeType.WithParent, Template);
 	
-	Symbol[] args;
+	TemplateArgument[] args;
 	Symbol[] members;
 	
-	this(Location location, Template tpl, Symbol[] args) {
+	this(Location location, Template tpl, TemplateArgument[] args) {
 		super(location, tpl.name);
 		fillParentScope(tpl);
 		
