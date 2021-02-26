@@ -38,6 +38,10 @@ final class SemanticPass {
 		Function ctxSym;
 		
 		string manglePrefix;
+		
+		// Indicate that what is being worked on is a
+		// template specialization pattern.
+		bool inPattern;
 	}
 	
 	State state;

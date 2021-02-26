@@ -480,6 +480,10 @@ struct TypeMatcher(bool isIFTI) {
 		return ValueMatcher(pass, matchedArgs, s).visit(p);
 	}
 	
+	bool visit(Symbol s, TemplateArgument[] args) {
+		assert(0, "Not implemented.");
+	}
+	
 	import d.ir.error;
 	bool visit(CompileError e) {
 		assert(0, "Not implemented.");

@@ -715,6 +715,7 @@ private:
 	union Payload {
 		TypeTemplateParameter param;
 		TypeValuePair* typeValuePair;
+		TemplateArgument* args;
 	}
 	
 	Payload payload;
@@ -757,6 +758,21 @@ private:
 		return payload.typeValuePair;
 	}
 	
+	struct Instantiation {
+		Symbol instantiated;
+		TemplateArgument[] args;
+	}
+	
+	auto getInstatiation() inout in {
+		assert(kind == PatternKind.Instance);
+	} body {
+		auto c = argCount;
+		return inout(Instantiation)(
+			payload.args[c].get!(TemplateArgument.Tag.Symbol),
+			payload.args[0 .. c],
+		);
+	}
+	
 public:
 	import util.fastcast;
 	this(TypeTemplateParameter p) {
@@ -766,6 +782,15 @@ public:
 	this(Type t, ValueTemplateParameter v) {
 		auto p = new TypeValuePair(t, v);
 		this(PatternKind.TypeBracketValue, 0, fastCast!Payload(p));
+	}
+	
+	this(Symbol instantiated, TemplateArgument[] args) {
+		args ~= TemplateArgument(instantiated);
+		this(
+			PatternKind.Instance,
+			args.length - 1,
+			fastCast!Payload(args.ptr),
+		);
 	}
 	
 	@property parameter() inout in {
@@ -811,7 +836,8 @@ private:
 				return t.visit(parameter);
 			
 			case Instance:
-				assert(0, "Not implemented");
+				auto i = getInstatiation();
+				return t.visit(i.instantiated, i.args);
 			
 			case TypeBracketValue:
 				auto p = getTypeValuePair();

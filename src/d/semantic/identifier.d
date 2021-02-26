@@ -322,6 +322,7 @@ private:
 		})(a)).array();
 		
 		CompileError ce;
+		Symbol instantiated;
 		
 		// XXX: identifiableHandler shouldn't be necessary,
 		// we should pas a free function.
@@ -330,6 +331,14 @@ private:
 			.visit(i.instanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
+					// If we are within a pattern, we are not looking to instanciate.
+					// XXX: Arguably, we'd like the TemplateInstancier to figure out if
+					// this is a pattern instead of using this hack.
+					if (inPattern) {
+						instantiated = identified;
+						return null;
+					}
+					
 					if (auto s = cast(OverloadSet) identified) {
 						return TemplateInstancier(pass.pass)
 							.instanciate(iloc, s, args, fargs);
@@ -349,6 +358,10 @@ private:
 				
 				return null;
 			})();
+		
+		if (inPattern && instantiated) {
+			return Identifiable(Pattern(instantiated, args).getType());
+		}
 		
 		if (instance is null) {
 			assert(ce, "No error reported :(");

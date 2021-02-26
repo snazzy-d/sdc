@@ -1147,9 +1147,14 @@ struct SymbolAnalyzer {
 			.getName(manglePrefix ~ name.length.to!string() ~ name);
 		
 		auto oldScope = currentScope;
-		scope(exit) currentScope = oldScope;
+		auto oldInPattern = inPattern;
+		scope(exit) {
+			currentScope = oldScope;
+			inPattern = oldInPattern;
+		}
 		
 		currentScope = t;
+		inPattern = true;
 		
 		t.parameters.length = d.parameters.length;
 		
