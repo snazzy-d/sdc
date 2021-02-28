@@ -302,10 +302,9 @@ private:
 			static if (is(T : Identifier)) {
 				assert(pass.acquireThis() is null);
 				
-				return IdentifierVisitor(pass)
-					.visit(a)
+				return visit(a)
 					.apply!((val) {
-						static if(is(typeof(val) : Expression)) {
+						static if (is(typeof(val) : Expression)) {
 							return TemplateArgument(pass.evaluate(val));
 						} else {
 							return TemplateArgument(val);
@@ -327,8 +326,7 @@ private:
 		// XXX: identifiableHandler shouldn't be necessary,
 		// we should pas a free function.
 		auto iloc = i.instanciation.location;
-		auto instance = IdentifierVisitor(pass)
-			.visit(i.instanciation.identifier)
+		auto instance = visit(i.instanciation.identifier)
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					// If we are within a pattern, we are not looking to instanciate.
@@ -377,8 +375,7 @@ private:
 		auto name = i.instanciation.identifier.name;
 		if (name != i.name) {
 			if (auto s = instance.resolve(i.location, name)) {
-				return IdentifierVisitor(pass)
-					.resolveIn(i.location, s, i.name);
+				return resolveIn(i.location, s, i.name);
 			}
 		}
 		
