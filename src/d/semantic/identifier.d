@@ -323,10 +323,9 @@ private:
 		CompileError ce;
 		Symbol instantiated;
 		
-		// XXX: identifiableHandler shouldn't be necessary,
-		// we should pas a free function.
 		auto iloc = i.instanciation.location;
-		auto instance = visit(i.instanciation.identifier)
+		auto instance = AliasPostProcessor(pass, i.instanciation.identifier.location)
+			.visit(visit(i.instanciation.identifier))
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					// If we are within a pattern, we are not looking to instanciate.
