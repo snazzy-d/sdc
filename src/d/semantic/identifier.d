@@ -223,7 +223,7 @@ private:
 			static if (!is(T : Symbol)) {
 				return resolveIn(location, i, name);
 			} else {
-				pass.scheduler.require(i, pass.Step.Populated);
+				scheduler.require(i, Step.Populated);
 				
 				Symbol s;
 				if (auto ti = cast(TemplateInstance) i) {
@@ -236,7 +236,7 @@ private:
 					s = getError(
 						i,
 						location,
-						"Can't resolve " ~ name.toString(pass.context),
+						"Can't resolve " ~ name.toString(context),
 					).symbol;
 				}
 				
@@ -300,12 +300,12 @@ private:
 		auto args = i.instanciation.arguments.map!(a => astapply!((a) {
 			alias T = typeof(a);
 			static if (is(T : Identifier)) {
-				assert(pass.acquireThis() is null);
+				assert(acquireThis() is null);
 				
 				return visit(a)
 					.apply!((val) {
 						static if (is(typeof(val) : Expression)) {
-							return TemplateArgument(pass.evaluate(val));
+							return TemplateArgument(evaluate(val));
 						} else {
 							return TemplateArgument(val);
 						}
@@ -316,7 +316,7 @@ private:
 			} else {
 				import d.semantic.expression;
 				auto e = ExpressionVisitor(pass.pass).visit(a);
-				return TemplateArgument(pass.evaluate(e));
+				return TemplateArgument(evaluate(e));
 			}
 		})(a)).array();
 		
@@ -421,7 +421,7 @@ private:
 		Expression index,
 	) {
 		import d.semantic.caster, d.semantic.expression;
-		auto size = pass.evalIntegral(buildImplicitCast(
+		auto size = evalIntegral(buildImplicitCast(
 			pass.pass,
 			index.location,
 			pass.object.getSizeT().type,
@@ -730,15 +730,15 @@ struct ExpressionDotIdentifierResolver {
 				.resolve(e, a)
 				.map!((c) {
 					// Make sure we process all alias this on the same base.
-					auto oldThisExpr = pass.thisExpr;
-					scope(exit) pass.thisExpr = oldThisExpr;
+					auto oldThisExpr = thisExpr;
+					scope(exit) thisExpr = oldThisExpr;
 					
 					// FIXME: Postprocess if thisExpr is not null.
 					auto i = IdentifierVisitor(pass)
 						.resolveIn(location, c, name);
 					
 					import std.typecons;
-					return tuple(i, pass.thisExpr);
+					return tuple(i, thisExpr);
 				})
 				.filter!((t) => !t[0].isError())
 				.array();
