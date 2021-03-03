@@ -109,9 +109,10 @@ private Identifier parseBuiltIdentifier(
 				
 				if (trange.front.type != Dot) {
 					// TODO: create a special node for that ?
+					import d.context.name;
 					identifier = new TemplateInstantiationDotIdentifier(
 						location,
-						identifier.name,
+						BuiltinName!"",
 						instance,
 					);
 					break;

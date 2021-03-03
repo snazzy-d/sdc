@@ -365,16 +365,19 @@ private:
 			return Identifiable(ce.symbol);
 		}
 		
+		// An empty name means we must do an eponymous resolution.
+		Template t = instance.getParentScope();
+		auto name = (i.name == BuiltinName!"") ? t.name : i.name;
+		
 		scheduler.require(instance, Step.Populated);
-		if (auto s = instance.resolve(i.location, i.name)) {
+		if (auto s = instance.resolve(i.location, name)) {
 			return Identifiable(s);
 		}
 		
 		// Let's try eponymous trick if the previous failed.
-		Template t = instance.getParentScope();
-		if (t.name != i.name) {
+		if (name != t.name) {
 			if (auto s = instance.resolve(i.location, t.name)) {
-				return resolveIn(i.location, s, i.name);
+				return resolveIn(i.location, s, name);
 			}
 		}
 		

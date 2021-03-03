@@ -10,12 +10,8 @@ import d.context.context;
 import d.context.name;
 
 abstract class Identifier : Node {
-	Name name;
-	
-	this(Location location, Name name) {
+	this(Location location) {
 		super(location);
-		
-		this.name = name;
 	}
 	
 	string toString(const Context c) const {
@@ -28,8 +24,12 @@ final:
  * An identifier.
  */
 class BasicIdentifier : Identifier {
+	Name name;
+	
 	this(Location location, Name name) {
-		super(location, name);
+		super(location);
+		
+		this.name = name;
 	}
 	
 	override string toString(const Context c) const {
@@ -41,11 +41,13 @@ class BasicIdentifier : Identifier {
  * An identifier qualified by an identifier (identifier.identifier)
  */
 class IdentifierDotIdentifier : Identifier {
+	Name name;
 	Identifier identifier;
 	
 	this(Location location, Name name, Identifier identifier) {
-		super(location, name);
+		super(location);
 		
+		this.name = name;
 		this.identifier = identifier;
 	}
 	
@@ -58,11 +60,13 @@ class IdentifierDotIdentifier : Identifier {
  * An identifier qualified by a type (type.identifier)
  */
 class TypeDotIdentifier : Identifier {
+	Name name;
 	AstType type;
 	
 	this(Location location, Name name, AstType type) {
-		super(location, name);
+		super(location);
 		
+		this.name = name;
 		this.type = type;
 	}
 	
@@ -75,11 +79,13 @@ class TypeDotIdentifier : Identifier {
  * An identifier qualified by an expression (expression.identifier)
  */
 class ExpressionDotIdentifier : Identifier {
+	Name name;
 	AstExpression expression;
 	
 	this(Location location, Name name, AstExpression expression) {
-		super(location, name);
+		super(location);
 		
+		this.name = name;
 		this.expression = expression;
 	}
 	
@@ -92,11 +98,13 @@ class ExpressionDotIdentifier : Identifier {
  * An identifier qualified by a template (template!(...).identifier)
  */
 class TemplateInstantiationDotIdentifier : Identifier {
+	Name name;
 	TemplateInstantiation instanciation;
 	
 	this(Location location, Name name, TemplateInstantiation instanciation) {
-		super(location, name);
+		super(location);
 		
+		this.name = name;
 		this.instanciation = instanciation;
 	}
 	
@@ -108,7 +116,7 @@ class TemplateInstantiationDotIdentifier : Identifier {
 /**
  * Template instantiation
  */
-class TemplateInstantiation : Node {
+class TemplateInstantiation : Identifier {
 	Identifier identifier;
 	AstTemplateArgument[] arguments;
 	
@@ -123,7 +131,7 @@ class TemplateInstantiation : Node {
 		this.arguments = arguments;
 	}
 	
-	string toString(const Context c) const {
+	override string toString(const Context c) const {
 		// Unfortunately, apply isn't const compliant so we cast it away.
 		import std.algorithm, std.range;
 		auto args = arguments
@@ -153,8 +161,11 @@ auto apply(alias handler)(AstTemplateArgument a) {
  * A module level identifier (.identifier)
  */
 class DotIdentifier : Identifier {
+	Name name;
 	this(Location location, Name name) {
-		super(location, name);
+		super(location);
+		
+		this.name = name;
 	}
 	
 	override string toString(const Context c) const {
@@ -170,7 +181,7 @@ class IdentifierBracketIdentifier : Identifier {
 	Identifier index;
 	
 	this(Location location, Identifier indexed, Identifier index) {
-		super(location, indexed.name);
+		super(location);
 		
 		this.indexed = indexed;
 		this.index = index;
@@ -189,7 +200,7 @@ class IdentifierBracketExpression : Identifier {
 	AstExpression index;
 	
 	this(Location location, Identifier indexed, AstExpression index) {
-		super(location, indexed.name);
+		super(location);
 		
 		this.indexed = indexed;
 		this.index = index;

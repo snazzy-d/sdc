@@ -703,7 +703,7 @@ public:
 					return getError(
 						identified,
 						c.location,
-						c.callee.name.toString(pass.context) ~ " isn't callable",
+						c.callee.toString(pass.context) ~ " isn't callable",
 					);
 				}
 			}
@@ -1371,7 +1371,7 @@ public:
 						identified,
 						e.location,
 						"Can't get typeid of "
-							~ e.argument.name.toString(pass.context),
+							~ e.argument.toString(pass.context),
 					);
 				}
 			})();
@@ -1395,7 +1395,7 @@ public:
 					return getError(
 						identified,
 						e.location,
-						e.identifier.name.toString(pass.context)
+						e.identifier.toString(pass.context)
 							~ " isn't an expression",
 					);
 				}
