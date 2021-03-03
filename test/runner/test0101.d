@@ -15,7 +15,7 @@ int main() {
 }
 
 uint foo(T)() {
-	static if(buzz(T.sizeof) > 10) {
+	static if (buzz(T.sizeof) > 10) {
 		uint ret = buzz(T.sizeof);
 		return ret;
 	} else {
@@ -26,7 +26,7 @@ uint foo(T)() {
 
 uint buzz(size_t sizeof) {
 	uint ret = 1;
-	for(uint i = 0; i < sizeof; ++i) {
+	for (uint i = 0; i < sizeof; ++i) {
 		ret *= 2;
 	}
 	

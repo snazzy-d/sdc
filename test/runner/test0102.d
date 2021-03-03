@@ -16,7 +16,7 @@ int main() {
 }
 
 template Foo(T) {
-	static if(buzz(T.sizeof)) {
+	static if (buzz(T.sizeof)) {
 		enum Foo = 15;
 	} else {
 		enum Foo = 2;
@@ -24,7 +24,7 @@ template Foo(T) {
 }
 
 bool buzz(size_t sizeof) {
-	if(sizeof > 4) {
+	if (sizeof > 4) {
 		return true;
 	} else {
 		return false;

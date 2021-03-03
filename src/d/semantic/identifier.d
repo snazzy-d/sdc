@@ -371,9 +371,9 @@ private:
 		}
 		
 		// Let's try eponymous trick if the previous failed.
-		auto name = i.instanciation.identifier.name;
-		if (name != i.name) {
-			if (auto s = instance.resolve(i.location, name)) {
+		Template t = instance.getParentScope();
+		if (t.name != i.name) {
+			if (auto s = instance.resolve(i.location, t.name)) {
 				return resolveIn(i.location, s, i.name);
 			}
 		}
