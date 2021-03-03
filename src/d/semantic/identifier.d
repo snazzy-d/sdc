@@ -292,15 +292,54 @@ private:
 		// We don't want to resolve argument with the same context we have here.
 		assert(acquireThis() is null);
 	} body {
+		auto result = resolve(i.instanciation, fargs);
+		alias SymbolTag = Identifiable.Tag.Symbol;
+		auto instance = result.tag == SymbolTag
+			? cast(TemplateInstance) result.get!SymbolTag
+			: null;
+		
+		if (instance is null) {
+			return result;
+		}
+		
+		// An empty name means we must do an eponymous resolution.
+		Template t = instance.getParentScope();
+		auto name = (i.name == BuiltinName!"") ? t.name : i.name;
+		
+		scheduler.require(instance, Step.Populated);
+		if (auto s = instance.resolve(i.location, name)) {
+			return Identifiable(s);
+		}
+		
+		// Let's try eponymous trick if the previous failed.
+		if (name != t.name) {
+			if (auto s = instance.resolve(i.location, t.name)) {
+				return resolveIn(i.location, s, name);
+			}
+		}
+		
+		return Identifiable(new CompileError(
+			i.location,
+			i.name.toString(context) ~ " not found in template",
+		).symbol);
+	}
+	
+	Identifiable resolve(
+		TemplateInstantiation i,
+		Expression[] fargs = [],
+	) in {
+		// We don't want to resolve argument with the same context we have here.
+		assert(acquireThis() is null);
+	} body {
 		alias astapply = d.ast.identifier.apply;
 		
 		import d.semantic.dtemplate : TemplateInstancier;
 		import d.ast.type : AstType;
 		import std.algorithm, std.array;
-		auto args = i.instanciation.arguments.map!(a => astapply!((a) {
+		auto args = i.arguments.map!(a => astapply!((a) {
 			alias T = typeof(a);
 			static if (is(T : Identifier)) {
-				assert(acquireThis() is null);
+				assert(pass.acquireThis() is null);
 				
 				return visit(a)
 					.apply!((val) {
@@ -323,9 +362,9 @@ private:
 		CompileError ce;
 		Symbol instantiated;
 		
-		auto iloc = i.instanciation.location;
-		auto instance = AliasPostProcessor(pass, i.instanciation.identifier.location)
-			.visit(visit(i.instanciation.identifier))
+		auto iloc = i.location;
+		auto instance = AliasPostProcessor(pass, i.identifier.location)
+			.visit(visit(i.identifier))
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					// If we are within a pattern, we are not looking to instanciate.
@@ -349,7 +388,7 @@ private:
 				
 				ce = getError(
 					identified,
-					i.instanciation.location,
+					iloc,
 					"Unexpected " ~ typeid(identified).toString(),
 				);
 				
@@ -365,26 +404,7 @@ private:
 			return Identifiable(ce.symbol);
 		}
 		
-		// An empty name means we must do an eponymous resolution.
-		Template t = instance.getParentScope();
-		auto name = (i.name == BuiltinName!"") ? t.name : i.name;
-		
-		scheduler.require(instance, Step.Populated);
-		if (auto s = instance.resolve(i.location, name)) {
-			return Identifiable(s);
-		}
-		
-		// Let's try eponymous trick if the previous failed.
-		if (name != t.name) {
-			if (auto s = instance.resolve(i.location, t.name)) {
-				return resolveIn(i.location, s, name);
-			}
-		}
-		
-		return Identifiable(new CompileError(
-			i.location,
-			i.name.toString(context) ~ " not found in template",
-		).symbol);
+		return Identifiable(instance);
 	}
 	
 	Identifiable resolveBracket(I)(Location location, Identifier base, I index) {
