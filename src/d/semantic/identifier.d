@@ -30,6 +30,9 @@ auto apply(alias handler)(Identifiable i) {
 
 /**
  * General entry point to resolve identifiers.
+ *
+ * The resolve method family will fallback on the symbol itself in case of ambiguity.
+ * The build method family will post process the symbols to get to a type/expression.
  */
 struct IdentifierResolver {
 private:
@@ -88,13 +91,12 @@ public:
 		return SymbolPostProcessor(&this, location).visit(i);
 	}
 	
+	Identifiable finalize(I)(Location location, I i) {
+		return AliasPostProcessor(&this, location).visit(i);
+	}
+	
 	Identifiable resolve(Identifier i) {
-		auto ii = IdentifierVisitor(&this).visit(i);
-		if (thisExpr) {
-			ii = postProcess(i.location, ii);
-		}
-		
-		return ii;
+		return finalize(i.location, IdentifierVisitor(&this).visit(i));
 	}
 	
 	Identifiable resolveIn(I)(
@@ -102,15 +104,28 @@ public:
 		I i,
 		Name name,
 	) if (isIdentifiable!I) {
-		auto ii = IdentifierVisitor(&this).resolveIn(location, i, name);
-		if (thisExpr) {
-			ii = postProcess(location, ii);
-		}
-		
-		return ii;
+		return finalize(
+			location,
+			IdentifierVisitor(&this).resolveIn(location, i, name),
+		);
 	}
 	
 private:
+	Expression wrap(Location location, Expression e) {
+		if (thisExpr is null) {
+			return e;
+		}
+		
+		import d.ir.expression : build;
+		return build!BinaryExpression(
+			location,
+			e.type,
+			BinaryOp.Comma,
+			getThis(location),
+			e,
+		);
+	}
+	
 	void setThis(Expression thisExpr) in {
 		assert(this.thisExpr is null);
 	} body {
@@ -209,8 +224,7 @@ private:
 	}
 	
 	Identifiable resolveIn(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierResolver(pass, location, name)
-			.visit(SymbolPostProcessor(pass, location).wrap(e));
+		return ExpressionDotIdentifierResolver(pass, location, name).visit(e);
 	}
 	
 	Identifiable resolveIn(Location location, Type t, Name name) {
@@ -218,6 +232,7 @@ private:
 	}
 	
 	Identifiable resolveIn(Location location, Symbol s, Name name) {
+		// TODO: SymbolDotIdentifierResolver
 		return postProcess(location, s).apply!((i) {
 			alias T = typeof(i);
 			static if (!is(T : Symbol)) {
@@ -363,8 +378,7 @@ private:
 		Symbol instantiated;
 		
 		auto iloc = i.location;
-		auto instance = AliasPostProcessor(pass, i.identifier.location)
-			.visit(visit(i.identifier))
+		auto instance = finalize(i.identifier.location, visit(i.identifier))
 			.apply!(delegate TemplateInstance(identified) {
 				static if (is(typeof(identified) : Symbol)) {
 					// If we are within a pattern, we are not looking to instanciate.
@@ -512,22 +526,8 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return i.apply!(ii => visit(ii))();
 	}
 	
-	Expression wrap(Expression e) {
-		if (thisExpr is null) {
-			return e;
-		}
-		
-		return build!BinaryExpression(
-			location,
-			e.type,
-			BinaryOp.Comma,
-			getThis(location),
-			e,
-		);
-	}
-	
 	Identifiable visit(Expression e) {
-		return Identifiable(wrap(e));
+		return Identifiable(wrap(location, e));
 	}
 	
 	Identifiable visit(Type t) {
@@ -721,6 +721,7 @@ struct ExpressionDotIdentifierResolver {
 	Identifiable visit(Expression e) in {
 		assert(thisExpr is null);
 	} body {
+		e = wrap(location, e);
 		return visit(e, e);
 	}
 	
