@@ -820,9 +820,7 @@ struct ExpressionDotIdentifierResolver {
 					auto oldThisExpr = thisExpr;
 					scope(exit) thisExpr = oldThisExpr;
 					
-					// FIXME: Postprocess if thisExpr is not null.
-					auto i = IdentifierVisitor(pass)
-						.resolveIn(location, c, name);
+					auto i = resolveIn(location, c, name);
 					
 					import std.typecons;
 					return tuple(i, thisExpr);
