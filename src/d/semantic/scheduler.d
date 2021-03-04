@@ -65,11 +65,14 @@ final class Scheduler {
 				pool ~= f;
 			}
 			
-			if (s.step >= step) return;
+			if (s.step >= step) {
+				return;
+			}
+			
 			/+
 			import std.stdio;
-			writeln(s.name.toString(pass.context), " ", step);
-			/+
+			writefln("%s (%s) %s", s.name.toString(pass.context), typeid(s).toString(), step);
+			//+
 			try {
 				throw new Exception("Require call stack");
 			} catch(Exception e) {
