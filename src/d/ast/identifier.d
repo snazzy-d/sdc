@@ -95,26 +95,7 @@ class ExpressionDotIdentifier : Identifier {
 }
 
 /**
- * An identifier qualified by a template (template!(...).identifier)
- */
-class TemplateInstantiationDotIdentifier : Identifier {
-	Name name;
-	TemplateInstantiation instanciation;
-	
-	this(Location location, Name name, TemplateInstantiation instanciation) {
-		super(location);
-		
-		this.name = name;
-		this.instanciation = instanciation;
-	}
-	
-	override string toString(const Context c) const {
-		return instanciation.toString(c) ~ "." ~ name.toString(c);
-	}
-}
-
-/**
- * Template instantiation
+ * Template instantiation (identifier!(arguments...))
  */
 class TemplateInstantiation : Identifier {
 	Identifier identifier;

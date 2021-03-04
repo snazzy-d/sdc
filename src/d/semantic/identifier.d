@@ -80,7 +80,7 @@ public:
 	}
 	
 	Identifiable build(
-		TemplateInstantiationDotIdentifier i,
+		TemplateInstantiation i,
 		Expression[] fargs = [],
 	) {
 		auto ti = IdentifierVisitor(&this).resolve(i, fargs);
@@ -181,7 +181,7 @@ public:
 		return resolveIn(i.location, visit(i.identifier), i.name);
 	}
 	
-	Identifiable visit(TemplateInstantiationDotIdentifier i) {
+	Identifiable visit(TemplateInstantiation i) {
 		return resolve(i);
 	}
 	
@@ -273,31 +273,6 @@ private:
 				scheduler.require(sscope, Step.Populated);
 			}
 		}
-	}
-	
-	Identifiable resolve(
-		TemplateInstantiationDotIdentifier i,
-		Expression[] fargs = [],
-	) in {
-		// We don't want to resolve argument with the same context we have here.
-		assert(acquireThis() is null);
-	} body {
-		auto result = resolve(i.instanciation, fargs);
-		if (i.name == BuiltinName!"") {
-			return result;
-		}
-		
-		alias SymbolTag = Identifiable.Tag.Symbol;
-		auto instance = result.tag == SymbolTag
-			? cast(TemplateInstance) result.get!SymbolTag
-			: null;
-		
-		if (instance is null) {
-			return result;
-		}
-		
-		return SymbolDotIdentifierResolver(pass, i.location, i.name)
-			.visit(instance);
 	}
 	
 	Identifiable resolve(

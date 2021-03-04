@@ -710,7 +710,7 @@ public:
 		}
 		
 		import d.ast.identifier, d.semantic.identifier;
-		if (auto tidi = cast(TemplateInstantiationDotIdentifier) c.callee) {
+		if (auto tidi = cast(TemplateInstantiation) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
 			return IdentifierResolver(pass)
 				.build(tidi, args)

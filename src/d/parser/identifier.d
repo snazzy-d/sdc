@@ -101,34 +101,10 @@ private Identifier parseBuiltIdentifier(
 				
 				location.spanTo(trange.previous);
 				
-				auto instance = new TemplateInstantiation(
+				identifier = new TemplateInstantiation(
 					location,
 					identifier,
 					arguments,
-				);
-				
-				if (trange.front.type != Dot) {
-					// TODO: create a special node for that ?
-					import d.context.name;
-					identifier = new TemplateInstantiationDotIdentifier(
-						location,
-						BuiltinName!"",
-						instance,
-					);
-					break;
-				}
-				
-				trange.popFront();
-				
-				location.spanTo(trange.front.location);
-				
-				auto name = trange.front.name;
-				trange.match(Identifier);
-				
-				identifier = new TemplateInstantiationDotIdentifier(
-					location,
-					name,
-					instance,
 				);
 				break;
 			
