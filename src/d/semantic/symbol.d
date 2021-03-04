@@ -1324,8 +1324,9 @@ struct SymbolAnalyzer {
 		
 		import d.semantic.declaration;
 		i.members = DeclarationVisitor(pass).flatten(t.members, i);
-		scheduler.require(i.members);
+		i.step = Step.Signed;
 		
+		scheduler.require(i.members);
 		i.step = Step.Processed;
 	}
 	
