@@ -155,7 +155,7 @@ Identifiable identifiableHandler(T)(T t) {
 
 private:
 
-enum isIdentifiable(T) = is(T : Expression) || is(T : Type) || is(T : Symbol);
+enum isIdentifiable(T) = is(T : Expression) || is(T : Type) || is(T : Symbol) || is(T : Identifiable);
 
 alias IdentifierPass = IdentifierResolver*;
 
@@ -232,32 +232,7 @@ private:
 	}
 	
 	Identifiable resolveIn(Location location, Symbol s, Name name) {
-		// TODO: SymbolDotIdentifierResolver
-		return postProcess(location, s).apply!((i) {
-			alias T = typeof(i);
-			static if (!is(T : Symbol)) {
-				return resolveIn(location, i, name);
-			} else {
-				scheduler.require(i, Step.Populated);
-				
-				Symbol s;
-				if (auto ti = cast(TemplateInstance) i) {
-					s = ti.resolve(location, name);
-				} else if (auto m = cast(Module) i) {
-					s = m.resolve(location, name);
-				}
-				
-				if (s is null) {
-					s = getError(
-						i,
-						location,
-						"Can't resolve " ~ name.toString(context),
-					).symbol;
-				}
-				
-				return Identifiable(s);
-			}
-		})();
+		return SymbolDotIdentifierResolver(pass, location, name).visit(s);
 	}
 	
 	Symbol resolveImport(Location location, Name name) {
@@ -538,6 +513,10 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return this.dispatch(s);
 	}
 	
+	Identifiable visit(ValueSymbol vs) {
+		return this.dispatch(vs);
+	}
+	
 	Identifiable visit(Variable v) {
 		if (asAlias && !thisExpr) {
 			return Identifiable(v);
@@ -638,7 +617,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 	
 	Identifiable visit(SymbolAlias s) {
-		scheduler.require(s, Step.Signed);
+		scheduler.require(s, Step.Populated);
 		return visit(s.symbol);
 	}
 	
@@ -701,7 +680,96 @@ struct IdentifierPostProcessor(bool asAlias) {
 }
 
 /**
- * Resolve expression.identifier as type or expression.
+ * Resolve symbol.identifier.
+ */
+struct SymbolDotIdentifierResolver {
+	IdentifierPass pass;
+	alias pass this;
+	
+	Location location;
+	Name name;
+	
+	this(IdentifierPass pass, Location location, Name name) {
+		this.pass = pass;
+		this.location = location;
+		this.name = name;
+	}
+	
+	Identifiable visit(Symbol s) {
+		if (auto vs = cast(ValueSymbol) s) {
+			return resolveIn(location, postProcess(location, vs), name);
+		}
+		
+		return this.dispatch(s);
+	}
+	
+	Identifiable visit(OverloadSet o) {
+		auto i = postProcess(location, o);
+		if (i == Identifiable(o)) {
+			assert(0, "Error, infinite loop");
+		}
+		
+		return resolveIn(location, i, name);
+	}
+	
+	Identifiable visitScope(S)(S s) {
+		scheduler.require(s, Step.Populated);
+		auto r = s.resolve(location, name);
+		if (r) {
+			return Identifiable(r);
+		}
+		
+		return Identifiable(getError(
+			s,
+			location,
+			"Cannot resolve " ~ name.toString(context),
+		).symbol);
+	}
+	
+	Identifiable visit(Module m) {
+		return visitScope(m);
+	}
+	
+	Identifiable visit(TemplateInstance ti) {
+		return visitScope(ti);
+	}
+	
+	Identifiable visit(SymbolAlias s) {
+		scheduler.require(s, Step.Populated);
+		return visit(s.symbol);
+	}
+	
+	Identifiable resolveAsType(S)(S s) {
+		return TypeDotIdentifierResolver(pass, location, name).visit(s);
+	}
+	
+	Identifiable visit(Struct s) {
+		return resolveAsType(s);
+	}
+	
+	Identifiable visit(Union u) {
+		return resolveAsType(u);
+	}
+	
+	Identifiable visit(Class c) {
+		return resolveAsType(c);
+	}
+	
+	Identifiable visit(Interface i) {
+		return resolveAsType(i);
+	}
+	
+	Identifiable visit(Enum e) {
+		return resolveAsType(e);
+	}
+	
+	Identifiable visit(TypeAlias a) {
+		return resolveAsType(a);
+	}
+}
+
+/**
+ * Resolve expression.identifier.
  */
 struct ExpressionDotIdentifierResolver {
 	IdentifierPass pass;
@@ -880,7 +948,7 @@ struct ExpressionDotIdentifierResolver {
 }
 
 /**
- * Resolve symbols in types.
+ * Resolve type.identifier.
  */
 struct TypeDotIdentifierResolver {
 	IdentifierPass pass;

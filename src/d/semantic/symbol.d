@@ -531,6 +531,9 @@ struct SymbolAnalyzer {
 	}
 	
 	void process(SymbolAlias a) {
+		assert(a.symbol, "SymbolAlias must alias to something");
+		a.step = Step.Populated;
+		
 		scheduler.require(a.symbol, Step.Signed);
 		a.hasContext = a.symbol.hasContext;
 		a.hasThis = a.symbol.hasThis;
