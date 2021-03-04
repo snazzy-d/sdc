@@ -292,14 +292,13 @@ private:
 			static if (is(T : Identifier)) {
 				assert(pass.acquireThis() is null);
 				
-				return visit(a)
-					.apply!((val) {
-						static if (is(typeof(val) : Expression)) {
-							return TemplateArgument(evaluate(val));
-						} else {
-							return TemplateArgument(val);
-						}
-					})();
+				return visit(a).apply!((val) {
+					static if (is(typeof(val) : Expression)) {
+						return TemplateArgument(evaluate(val));
+					} else {
+						return TemplateArgument(val);
+					}
+				})();
 			} else static if (is(T : AstType)) {
 				import d.semantic.type;
 				return TemplateArgument(TypeVisitor(pass.pass).visit(a));
