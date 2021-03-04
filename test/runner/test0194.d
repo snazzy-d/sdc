@@ -1,6 +1,6 @@
 //T compiles:yes
 //T has-passed:yes
-//T retval:82
+//T retval:53
 // tpl template argument specialization.
 
 struct S(T) {
@@ -11,13 +11,16 @@ struct S(T) {
 	}
 }
 
-// TODO: Check pattern matching on the template itself.
-// Also check for incorrect paramater count and so on.
+// TODO: Check for incorrect paramater count and so on.
 T foo(T)(S!T s) {
 	return s.t;
 }
 
 U bar(T : S!U, U)(T s) {
+	return s.t;
+}
+
+U flib(alias T, U)(T!U s) {
 	return s.t;
 }
 
@@ -31,6 +34,6 @@ auto buzz(T)(T[10] a) {
 
 int main() {
 	uint[10] a;
-	auto s = S!int(34);
-	return foo(s) + bar(s) + buzz(a) + qux(a);
+	auto s = S!int(13);
+	return foo(s) + bar(s) + flib(s) + buzz(a) + qux(a);
 }
