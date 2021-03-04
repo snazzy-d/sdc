@@ -1,4 +1,4 @@
-SDC - The Stupid D Compiler
+SDC - The Snazzy D Compiler
 ===========================
 This is the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.

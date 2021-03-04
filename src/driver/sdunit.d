@@ -16,7 +16,7 @@ int main(string[] args) {
 	
 	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
-		writeln("The Stupid D Compiler - Unit test JIT");
+		writeln("The Snazzy D Compiler - Unit test JIT");
 		writeln("Usage: sdunit <options> file.d");
 		writeln("Options:");
 		
