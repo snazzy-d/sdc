@@ -52,7 +52,7 @@ struct TypeVisitor {
 					return getError(
 						identified,
 						i.location,
-						i.toString(pass.context) ~ "("
+						i.toString(pass.context) ~ " ("
 							~ typeid(identified).toString()
 							~ ") isn't an type",
 					).type;

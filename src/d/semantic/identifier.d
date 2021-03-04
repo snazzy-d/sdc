@@ -283,6 +283,10 @@ private:
 		assert(acquireThis() is null);
 	} body {
 		auto result = resolve(i.instanciation, fargs);
+		if (i.name == BuiltinName!"") {
+			return result;
+		}
+		
 		alias SymbolTag = Identifiable.Tag.Symbol;
 		auto instance = result.tag == SymbolTag
 			? cast(TemplateInstance) result.get!SymbolTag
@@ -292,26 +296,8 @@ private:
 			return result;
 		}
 		
-		// An empty name means we must do an eponymous resolution.
-		Template t = instance.getTemplate();
-		auto name = (i.name == BuiltinName!"") ? t.name : i.name;
-		
-		scheduler.require(instance, Step.Populated);
-		if (auto s = instance.resolve(i.location, name)) {
-			return Identifiable(s);
-		}
-		
-		// Let's try eponymous trick if the previous failed.
-		if (name != t.name) {
-			if (auto s = instance.resolve(i.location, t.name)) {
-				return resolveIn(i.location, s, name);
-			}
-		}
-		
-		return Identifiable(new CompileError(
-			i.location,
-			i.name.toString(context) ~ " not found in template",
-		).symbol);
+		return SymbolDotIdentifierResolver(pass, i.location, i.name)
+			.visit(instance);
 	}
 	
 	Identifiable resolve(
@@ -658,8 +644,18 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return Identifiable(t);
 	}
 	
-	Identifiable visit(TemplateInstance i) {
-		return Identifiable(i);
+	Identifiable visit(TemplateInstance ti) {
+		static if (!asAlias) {
+			scheduler.require(ti, Step.Populated);
+			
+			// Try the eponymous trick.
+			Template t = ti.getTemplate();
+			if (auto s = ti.resolve(location, t.name)) {
+				return visit(s);
+			}
+		}
+
+		return Identifiable(ti);
 	}
 	
 	Identifiable visit(Module m) {
@@ -712,26 +708,34 @@ struct SymbolDotIdentifierResolver {
 		return resolveIn(location, i, name);
 	}
 	
-	Identifiable visitScope(S)(S s) {
-		scheduler.require(s, Step.Populated);
-		auto r = s.resolve(location, name);
-		if (r) {
-			return Identifiable(r);
+	Identifiable visit(Module m) {
+		scheduler.require(m, Step.Populated);
+		if (auto s = m.resolve(location, name)) {
+			return Identifiable(s);
 		}
 		
-		return Identifiable(getError(
-			s,
+		return Identifiable(new CompileError(
 			location,
 			"Cannot resolve " ~ name.toString(context),
 		).symbol);
 	}
 	
-	Identifiable visit(Module m) {
-		return visitScope(m);
-	}
-	
 	Identifiable visit(TemplateInstance ti) {
-		return visitScope(ti);
+		scheduler.require(ti, Step.Populated);
+		if (auto s = ti.resolve(location, name)) {
+			return Identifiable(s);
+		}
+		
+		// This failed, let's try the eponymous trick.
+		Template t = ti.getTemplate();
+		if (auto s = ti.resolve(location, t.name)) {
+			return resolveIn(location, s, name);
+		}
+		
+		return Identifiable(new CompileError(
+			location,
+			"Cannot resolve " ~ name.toString(context),
+		).symbol);
 	}
 	
 	Identifiable visit(SymbolAlias s) {
