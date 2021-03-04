@@ -594,8 +594,6 @@ struct IdentifierPostProcessor(bool asAlias) {
 			return Identifiable(s);
 		}
 		
-		// XXX: To trump the unreachable statement bullshit
-		HasThis:
 		auto dthis = getThis(location);
 		
 		Expression[] exprs;
