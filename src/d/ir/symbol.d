@@ -444,6 +444,10 @@ class TemplateInstance : Symbol, Scope {
 		this.args = args;
 	}
 	
+	Template getTemplate() {
+		return getParentScope();
+	}
+	
 	@property storage() const {
 		return cast(Storage) (__derived & 0x03);
 	}

@@ -293,7 +293,7 @@ private:
 		}
 		
 		// An empty name means we must do an eponymous resolution.
-		Template t = instance.getParentScope();
+		Template t = instance.getTemplate();
 		auto name = (i.name == BuiltinName!"") ? t.name : i.name;
 		
 		scheduler.require(instance, Step.Populated);

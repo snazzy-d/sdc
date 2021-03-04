@@ -504,9 +504,8 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 		
-		Template t = ti.getParentScope();
-		
 		// Match the template itself.
+		Template t = ti.getTemplate();
 		if (!SymbolMatcher(pass, matchedArgs, t).visit(s)) {
 			return false;
 		}
