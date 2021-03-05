@@ -10,6 +10,9 @@ enum TokenType {
 	Begin,
 	End,
 	
+	// Comments
+	Comment,
+	
 	// Literals
 	Identifier,
 	StringLiteral,
@@ -153,6 +156,9 @@ auto lex(Position base, Context context) {
 }
 
 struct TokenRange {
+// TODO: We shouldn't let consumer play with the internal state of the lexer.
+// Instead, we should provide accessor to useful members.
+// private:
 	static assert(isForwardRange!TokenRange);
 	
 	Token t;
@@ -163,6 +169,16 @@ struct TokenRange {
 	
 	Context context;
 	string content;
+	
+	// Skip comments by default.
+	bool tokenizeComments = false;
+	
+public:
+	TokenRange withComments(bool wc = true) {
+		TokenRange r = this.save;
+		r.tokenizeComments = wc;
+		return r;
+	}
 	
 	// We don't want the lexer to be copyable. Use save.
 	@disable this(this);
@@ -228,7 +244,7 @@ private:
 		// Just skip over whitespace.
 	}
 	
-	auto lexComment(string s)() {
+	void popComment(string s)() {
 		auto c = frontChar;
 		
 		static if (s == "//") {
@@ -303,6 +319,21 @@ private:
 		} else {
 			static assert(0, s ~ " isn't a known type of comment.");
 		}
+	}
+	
+	auto lexComment(string s)() {
+		Token t;
+		t.type = TokenType.Comment;
+		uint prefixLength = s.length;
+		auto ibegin = index - prefixLength;
+		auto begin = base.getWithOffset(ibegin);
+		
+		popComment!s();
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		t.name = context.getName(content[ibegin .. index]);
+		
+		return t;
 	}
 	
 	auto lexIdentifier(string s)() {
@@ -1009,18 +1040,18 @@ private:
 auto getLexerMap() {
 	auto ret = [
 		// WhiteSpaces
-		" "					: "?lexWhiteSpace",
-		"\t"				: "?lexWhiteSpace",
-		"\v"				: "?lexWhiteSpace",
-		"\f"				: "?lexWhiteSpace",
-		"\n"				: "?lexWhiteSpace",
-		"\r"				: "?lexWhiteSpace",
-		"\r\n"				: "?lexWhiteSpace",
+		" "					: "-lexWhiteSpace",
+		"\t"				: "-lexWhiteSpace",
+		"\v"				: "-lexWhiteSpace",
+		"\f"				: "-lexWhiteSpace",
+		"\n"				: "-lexWhiteSpace",
+		"\r"				: "-lexWhiteSpace",
+		"\r\n"				: "-lexWhiteSpace",
 		
 		// Comments
-		"//"				: "?lexComment",
-		"/*"				: "?lexComment",
-		"/+"				: "?lexComment",
+		"//"				: "!tokenizeComments?lexComment:popComment",
+		"/*"				: "!tokenizeComments?lexComment:popComment",
+		"/+"				: "!tokenizeComments?lexComment:popComment",
 		
 		// Integer literals.
 		"0b"				: "lexNumeric",
@@ -1060,22 +1091,41 @@ auto stringify(string s) {
 	return "`" ~ s.replace("`", "` ~ \"`\" ~ `").replace("\0", "` ~ \"\\0\" ~ `") ~ "`";
 }
 
-auto getReturnOrBreak(string fun, string base) {
-	auto cmd = "!(" ~ stringify(base) ~ ")()";
+auto getLexingCode(string fun, string base) {
+	auto args = "!(" ~ stringify(base) ~ ")()";
 	
-	if (fun[0] == '?') {
-		cmd = fun[1 .. $] ~ cmd;
-		return "
-				static if(is(typeof(" ~ cmd ~ ") == void)) {
-					" ~ cmd ~ ";
-					continue;
+	switch (fun[0]) {
+		case '-':
+			return "
+				" ~ fun[1 .. $] ~ args ~ ";
+				continue;";
+			
+		case '!':
+			size_t i = 1;
+			while (fun[i] != '?') {
+				i++;
+			}
+			
+			size_t endcond = i;
+			while (fun[i] != ':') {
+				i++;
+			}
+			
+			auto cond = fun[1 .. endcond];
+			auto lexCmd = fun[endcond + 1 .. i];
+			auto skipCmd = fun[i + 1 .. $];
+			
+			return "
+				if (" ~ cond ~ ") {
+					return " ~ lexCmd ~ args ~ ";
 				} else {
-					return " ~ cmd ~ ";
+					" ~ skipCmd ~ args ~ ";
+					continue;
 				}";
-	} else {
-		cmd = fun ~ cmd;
-		return "
-				return " ~ cmd ~ ";";
+			
+		default:
+			return "
+				return " ~ fun ~ args ~ ";";
 	}
 }
 
@@ -1124,7 +1174,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 		auto newBase = base ~ c;
 		if (subids.length == 1) {
 			if (auto cdef = "" in subids) {
-				ret ~= getReturnOrBreak(*cdef, newBase);
+				ret ~= getLexingCode(*cdef, newBase);
 				continue;
 			}
 		}
@@ -1133,7 +1183,7 @@ string lexerMixin(string base = "", string def = "lexIdentifier", string[string]
 	}
 	
 	ret ~= "
-			default :" ~ getReturnOrBreak(defaultFun, base) ~ "
+			default :" ~ getLexingCode(defaultFun, base) ~ "
 		}
 		";
 	
