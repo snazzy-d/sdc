@@ -3,12 +3,12 @@ SDC - The Snazzy D Compiler
 This is the home of a [D](http://dlang.org/) compiler.
 SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
 
-This compiler is based on [libd](https://github.com/deadalnix/SDC/tree/master/libd) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/deadalnix/SDC/tree/master/libd-llvm) for codegen and JIT CTFE. It uses [libsdrt](https://github.com/deadalnix/SDC/tree/master/libsdrt) to support various runtime facilities required by programs compiled by SDC.
+This compiler is based on [libd](https://github.com/SDC-Developers/SDC/tree/master/src/d) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/SDC-Developers/SDC/tree/master/src/d/llvm) for codegen and JIT CTFE. It uses [libsdrt](https://github.com/SDC-Developers/SDC/tree/master/sdlib) to support various runtime facilities required by programs compiled by SDC.
 
 The code is released under the MIT license (see the LICENCE file for more details).
 Contact me at deadalnix@gmail.com
 
-SDC requires DMD release `2.072` to compile.
+SDC requires DMD release `2.094` to compile.
 
 Goals
 =====
