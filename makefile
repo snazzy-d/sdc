@@ -65,7 +65,7 @@ print-%: ; @echo $*=$($*)
 check-sdc: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd ./test/runner; ./runner.d
 
-check: check-sdc check-llvm
+check: all check-sdc check-llvm
 
 .PHONY: check check-llvm check-sdc clean default
 
