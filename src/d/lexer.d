@@ -14,11 +14,13 @@ enum TokenType {
 	Comment,
 	
 	// Literals
-	Identifier,
 	StringLiteral,
 	CharacterLiteral,
 	IntegerLiteral,
 	FloatLiteral,
+	
+	// Identifier
+	Identifier,
 	
 	// Keywords
 	Abstract, Alias, Align, Asm, Assert, Auto,
