@@ -23,7 +23,7 @@ alias Module = d.ir.symbol.Module;
 alias CallExpression = d.ir.expression.CallExpression;
 
 final class SemanticPass {
-	import d.context.context;
+	import d.context;
 	Context context;
 	
 	Scheduler scheduler;

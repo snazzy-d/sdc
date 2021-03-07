@@ -6,7 +6,7 @@ import d.ir.symbol;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context.context;
+import d.context;
 import d.common.type;
 
 // Conflict with Interface in object.di

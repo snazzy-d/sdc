@@ -1,6 +1,6 @@
 module d.context.source;
 
-import d.context.context;
+import d.context;
 import d.context.location;
 import d.context.name;
 

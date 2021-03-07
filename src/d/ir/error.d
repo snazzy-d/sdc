@@ -1,6 +1,6 @@
 module d.ir.error;
 
-import d.context.context;
+import d.context;
 import d.context.location;
 
 import d.ir.expression;

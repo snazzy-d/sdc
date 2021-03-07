@@ -6,7 +6,7 @@ import d.ast.type;
 
 import d.common.node;
 
-import d.context.context;
+import d.context;
 import d.context.name;
 
 abstract class Identifier : Node {

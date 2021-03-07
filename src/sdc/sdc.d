@@ -1,7 +1,7 @@
 module sdc.sdc;
 
 final class SDC {
-	import d.context.context;
+	import d.context;
 	Context context;
 	
 	import d.semantic.semantic;

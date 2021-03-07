@@ -5,7 +5,7 @@ import d.ir.type;
 
 import d.ast.expression;
 
-import d.context.context;
+import d.context;
 import d.context.location;
 import d.context.name;
 

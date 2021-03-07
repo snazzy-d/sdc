@@ -1,6 +1,6 @@
 module d.context.name;
 
-import d.context.context;
+import d.context;
 
 struct Name {
 private:

@@ -1,4 +1,4 @@
-module d.context.context;
+module d.context;
 
 final class Context {
 package:

@@ -71,7 +71,7 @@ int main(string[] args) {
 			if (m != testModule) {
 				m = testModule;
 				
-				import d.context.context;
+				import d.context;
 				static void printModule(P)(Context c, P p) {
 					if (p.parent is null) {
 						import std.stdio;

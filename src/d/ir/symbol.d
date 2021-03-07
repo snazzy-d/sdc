@@ -6,7 +6,7 @@ import d.ir.type;
 
 import d.common.node;
 
-import d.context.context;
+import d.context;
 import d.context.name;
 
 public import d.common.qualifier;

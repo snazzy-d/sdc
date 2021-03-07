@@ -14,7 +14,7 @@ class Node {
 		// assert(location != Location.init, "node location must never be init");
 	}
 final:
-	import d.context.context;
+	import d.context;
 	auto getFullLocation(Context c) const {
 		return location.getFullLocation(c);
 	}

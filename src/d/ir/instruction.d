@@ -1,6 +1,6 @@
 module d.ir.instruction;
 
-import d.context.context;
+import d.context;
 import d.context.location;
 import d.context.name;
 

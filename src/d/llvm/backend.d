@@ -20,7 +20,7 @@ private:
 	LLVMTargetMachineRef targetMachine;
 	
 public:
-	import d.context.context, d.semantic.scheduler, d.object;
+	import d.context, d.semantic.scheduler, d.object;
 	this(
 		Context context,
 		Scheduler scheduler,

@@ -14,7 +14,7 @@ import llvm.c.target;
 alias Interface = d.ir.symbol.Interface;
 
 final class CodeGen {
-	import d.context.context;
+	import d.context;
 	Context context;
 	
 	import d.semantic.scheduler;

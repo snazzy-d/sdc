@@ -5,7 +5,7 @@ import d.ast.expression;
 
 import d.common.node;
 
-import d.context.context;
+import d.context;
 
 class Statement : Node {
 	this(Location location) {

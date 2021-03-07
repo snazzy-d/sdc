@@ -114,7 +114,7 @@ enum TokenType {
 	Hash,				// #
 }
 
-import d.context.context;
+import d.context;
 import d.context.location;
 
 struct Token {

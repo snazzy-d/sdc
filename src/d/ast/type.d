@@ -3,7 +3,7 @@ module d.ast.type;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context.context;
+import d.context;
 import d.common.type;
 
 enum AstTypeKind : ubyte {
@@ -374,7 +374,7 @@ unittest {
 	
 	t = AstType.getTypeOfReturn();
 
-	import d.context.context;
+	import d.context;
 	Context c;
 	assert(t.toString(c) == "typeof(return)");
 }

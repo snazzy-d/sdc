@@ -21,7 +21,7 @@ class CompileException : Exception {
 		this(loc, message);
 	}
 
-	import d.context.context;
+	import d.context;
 	auto getFullLocation(Context c) const {
 		return location.getFullLocation(c);
 	}

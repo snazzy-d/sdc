@@ -1,6 +1,6 @@
 module d.context.location;
 
-import d.context.context;
+import d.context;
 
 /**
  * Struct representing a location in a source file.
