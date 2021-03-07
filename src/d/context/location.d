@@ -135,8 +135,8 @@ public:
 			start.getSource() == stop.getSource(),
 /+
 			"Location file mismatch " ~
-				start.getFileName() ~ ":" ~ to!string(start.getOffsetInFile()) ~ " and " ~
-				stop.getFileName() ~ ":" ~ to!string(stop.getOffsetInFile())
+				start.getFileName() ~ ":" ~ to!string(getStartOffset()) ~ " and " ~
+				stop.getFileName() ~ ":" ~ to!string(getStopOffset())
 /* +/ /*/ /+ */
 			"Location file mismatch"
 // +/
@@ -152,6 +152,10 @@ public:
 		assert(result.isMixin() == isMixin());
 	} body {
 		return start.getSource();
+	}
+	
+	string getSlice() {
+		return getSource().getSlice(this);
 	}
 	
 	uint getStartLineNumber() {
@@ -171,11 +175,11 @@ public:
 	}
 	
 	uint getStartOffset() {
-		return start.getOffsetInFile();
+		return start.getSourceOffset();
 	}
 	
 	uint getStopOffset() {
-		return stop.getOffsetInFile();
+		return stop.getSourceOffset();
 	}
 }
 
@@ -217,7 +221,7 @@ public:
 		return sourceManager.getColumn(this);
 	}
 	
-	uint getOffsetInFile() {
-		return sourceManager.getOffsetInFile(this);
+	uint getSourceOffset() {
+		return getSource().getOffset(this);
 	}
 }

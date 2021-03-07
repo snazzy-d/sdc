@@ -24,6 +24,10 @@ public:
 		return sourceManager.getContent(this);
 	}
 	
+	string getSlice(Location loc) {
+		return getContent()[getOffset(loc.start) .. getOffset(loc.stop)];
+	}
+	
 	FullName getFileName() {
 		return sourceManager.getFileName(this).getFullName(context);
 	}
@@ -38,6 +42,13 @@ public:
 		return sourceManager
 			.getImportLocation(this)
 			.getFullLocation(context);
+	}
+	
+package:
+	uint getOffset(Position p) in {
+		assert(p.getFullPosition(context).getSource() == this);
+	} body {
+		return p.offset - sourceManager.getOffset(this);
 	}
 }
 
@@ -86,10 +97,6 @@ public:
 		return o - e.getLineOffset(o);
 	}
 	
-	uint getOffsetInFile(Position p) {
-		return p.offset - getSourceEntry(p).offset;
-	}
-	
 package:
 	static get() {
 		return SourceManager();
@@ -98,6 +105,10 @@ package:
 private:
 	string getContent(FileID f) {
 		return getSourceEntry(f).content;
+	}
+	
+	uint getOffset(FileID f) {
+		return getSourceEntry(f).base.offset;
 	}
 	
 	Name getFileName(FileID f) {
