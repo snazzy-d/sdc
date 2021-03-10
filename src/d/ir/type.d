@@ -701,6 +701,7 @@ struct Pattern {
 private:
 	alias Desc = Type.Desc;
 	
+	import util.bitfields;
 	enum KindSize = EnumSize!PatternKind;
 	enum Pad = ulong.sizeof * 8 - Type.Desc.DataSize;
 	enum CountSize = ulong.sizeof * 8 - KindSize - Pad;

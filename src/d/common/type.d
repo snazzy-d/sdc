@@ -9,6 +9,7 @@ import d.ast.type, d.ir.type;
 
 mixin template TypeMixin(K, Payload) {
 private:
+	import util.bitfields;
 	alias Desc = TypeDescriptor!K;
 	
 	union {
@@ -392,6 +393,7 @@ mixin template TypeAccessorMixin(K) {
 }
 
 struct TypeDescriptor(K, T...) {
+	import util.bitfields;
 	enum DataSize = ulong.sizeof * 8 - 3 - EnumSize!K - SizeOfBitField!T;
 	
 	import std.bitmanip;
@@ -415,32 +417,3 @@ import std.typetuple;
 alias ParamTuple = TypeTuple!(
 	ParamKind, "paramKind", 2,
 );
-
-template SizeOfBitField(T...) {
-	static if (T.length < 2) {
-		enum SizeOfBitField = 0;
-	} else {
-		enum SizeOfBitField = T[2] + SizeOfBitField!(T[3 .. $]);
-	}
-}
-
-enum EnumSize(E) = computeEnumSize!E();
-
-private:
-
-size_t computeEnumSize(E)() {
-	size_t size = 0;
-	
-	import std.traits;
-	foreach (m; EnumMembers!E) {
-		size_t ms = 0;
-		while ((m >> ms) != 0) {
-			ms++;
-		}
-		
-		import std.algorithm;
-		size = max(size, ms);
-	}
-	
-	return size;
-}
