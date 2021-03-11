@@ -246,7 +246,7 @@ private:
 		// Just skip over whitespace.
 	}
 	
-	void popComment(string s)() {
+	uint popComment(string s)() {
 		auto c = frontChar;
 		
 		static if (s == "//") {
@@ -256,14 +256,18 @@ private:
 				c = frontChar;
 			}
 			
+			uint ret = index;
+			
 			popChar();
 			if (c == '\r') {
 				if (frontChar == '\n') {
 					popChar();
 				}
 			}
+			
+			return ret;
 		} else static if (s == "/*") {
-			Pump: while (true) {
+			while (true) {
 				while (c != '*') {
 					popChar();
 					c = frontChar;
@@ -275,12 +279,12 @@ private:
 				
 				if (c == '/') {
 					popChar();
-					break Pump;
+					return index;
 				}
 			}
 		} else static if (s == "/+") {
 			uint stack = 0;
-			Pump: while (true) {
+			while (true) {
 				while (c != '+' && c != '/') {
 					popChar();
 					c = frontChar;
@@ -295,7 +299,7 @@ private:
 						if (c == '/') {
 							popChar();
 							if (!stack) {
-								break Pump;
+								return index;
 							}
 							
 							c = frontChar;
@@ -330,10 +334,10 @@ private:
 		auto ibegin = index - prefixLength;
 		auto begin = base.getWithOffset(ibegin);
 		
-		popComment!s();
+		uint iend = popComment!s();
 		
-		t.location = Location(begin, base.getWithOffset(index));
-		t.name = context.getName(content[ibegin .. index]);
+		t.location = Location(begin, base.getWithOffset(iend));
+		t.name = context.getName(content[ibegin .. iend]);
 		
 		return t;
 	}
