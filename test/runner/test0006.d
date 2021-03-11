@@ -23,9 +23,9 @@ int main() {
 	char c;
 	wchar wc;
 	dchar dc;
-	
+
 	void* vp;
 	S* sp;
-	
+
 	return i;
 }

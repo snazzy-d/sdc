@@ -10,7 +10,6 @@ int add(int a, int b) {
 int main() {
 	int a = 40;
 	int b = 3;
-	
+
 	return add(a++, --b);
 }
-

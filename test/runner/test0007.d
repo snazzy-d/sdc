@@ -6,7 +6,6 @@
 int main() {
 	byte b;
 	b++;
-	
+
 	return b;
 }
-

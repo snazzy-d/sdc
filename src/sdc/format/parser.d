@@ -295,16 +295,40 @@ private:
 				break;
 			
 			default:
+				Location loc = token.location;
 				parseIdentifier();
-				if (!match(Identifier)) {
-					// We just have some kind of expression.
-					break;
+				
+				if (token.location == loc) {
+					// We made no progress, start skipping.
+					skipToken();
+					return;
 				}
 				
-				parseTypedDeclaration();
+				switch (token.type) {
+					case Star:
+						auto lookahead = trange.save.withComments(false);
+						lookahead.popFront();
+						
+						if (lookahead.front.type != Identifier) {
+							break;
+						}
+						
+						// This is a pointer type.
+						nextToken();
+						goto case;
+					
+					case Identifier:
+						// We have a declaration.
+						parseTypedDeclaration();
+						// parseTypedDeclaration eats the semicolon
+						return;
+					
+					default:
+						break;
+				}
 				
-				// parseTypedDeclaration east the semicolon
-				return;
+				// We just have some kind of expression.
+				break;
 		}
 		
 		runOnType!(TokenType.Semicolon, nextTokenAndNewLine)();
@@ -404,8 +428,6 @@ private:
 				break;
 			
 			default:
-				// FIXME: Return to the caller and let it handle it.
-				skipToken();
 				return;
 		}
 		
