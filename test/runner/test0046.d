@@ -4,11 +4,11 @@
 
 class Test {
 	int i;
-	
+
 	this() {
 		i = 12;
 	}
-	
+
 	int foo() {
 		return i + 1;
 	}

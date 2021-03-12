@@ -6,7 +6,8 @@ int main() {
 	int i;
 	i = 7;
 	goto _out;
-	_out:
+
+_out:
 	i++;
 	return i;
 }

@@ -5,4 +5,3 @@
 void main() {
 	assert(false, "test 56 succeeded!");
 }
-

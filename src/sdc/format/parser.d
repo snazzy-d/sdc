@@ -297,11 +297,21 @@ private:
 				goto default;
 			
 			case Scope:
+				// FIXME: scope statements.
 				goto StorageClass;
 			
 			case Assert:
 			case Throw, Try:
 				goto default;
+			
+			/**
+			 * Declaration
+			 */
+			case This:
+				// FIXME: customized parsing depending if declaration or statement are prefered.
+				// For now, assume ctor.
+				parseConstructor();
+				break;
 			
 			case Synchronized:
 				goto StorageClass;
@@ -742,6 +752,20 @@ private:
 		}
 		
 		runOnType!(TokenType.Semicolon, nextTokenAndNewLine)();
+	}
+	
+	void parseConstructor() in {
+		assert(match(TokenType.This));
+	} body {
+		nextToken();
+		
+		while (parseParameterList()) {}
+		
+		// Function declaration.
+		if (match(TokenType.OpenBrace)) {
+			space();
+			parseBlock();
+		}
 	}
 	
 	bool parseParameterList() {

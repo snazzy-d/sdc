@@ -13,4 +13,3 @@ int add(int a, int b, int c) {
 int main() {
 	return add(20, add(5, 2, 1));
 }
-

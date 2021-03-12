@@ -9,4 +9,3 @@ int foo() {
 int main() {
 	return test0049.foo();
 }
-

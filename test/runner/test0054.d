@@ -4,4 +4,3 @@
 static assert(false, "test 54 succeeded!");
 
 void main() {}
-

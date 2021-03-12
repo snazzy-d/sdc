@@ -8,7 +8,9 @@ int main() {
 	if (i == 7) {
 		goto _out;
 	}
+
 	i++;
-	_out:
+
+_out:
 	return i;
 }
