@@ -301,8 +301,12 @@ private:
 				break;
 			
 			case While:
+				parseWhile();
+				break;
+			
 			case Do:
-				goto default;
+				parseDoWhile();
+				break;
 			
 			case For:
 				parseFor();
@@ -648,9 +652,9 @@ private:
 		}
 	}
 	
-	void parseControlFlowBlock() {
-		bool isBrace = match(TokenType.OpenBrace);
-		if (isBrace) {
+	bool parseControlFlowBlock() {
+		bool isBlock = match(TokenType.OpenBrace);
+		if (isBlock) {
 			parseBlock(mode);
 		} else {
 			auto guard = builder.indent();
@@ -658,21 +662,10 @@ private:
 			parseStructuralElement();
 		}
 		
-		if (match(TokenType.Else)) {
-			clearSplitType();
-			if (isBrace) {
-				space();
-			} else {
-				newline(1);
-			}
-			
-			parseElse();
-		}
+		return isBlock;
 	}
 	
-	void parseIf() in {
-		assert(match(TokenType.If));
-	} body {
+	bool parseControlFlowBase() {
 		nextToken();
 		space();
 		
@@ -684,7 +677,28 @@ private:
 		}
 		
 		space();
-		parseControlFlowBlock();
+		return parseControlFlowBlock();
+	}
+	
+	void emitBlockControlFlowWhitespace(bool isBlock) {
+		clearSplitType();
+		if (isBlock) {
+			space();
+		} else {
+			newline(1);
+		}
+	}
+	
+	void parseIf() in {
+		assert(match(TokenType.If));
+	} body {
+		bool isBlock = parseControlFlowBase();
+		if (!match(TokenType.Else)) {
+			return;
+		}
+		
+		emitBlockControlFlowWhitespace(isBlock);
+		parseElse();
 	}
 	
 	void parseElse() in {
@@ -699,6 +713,37 @@ private:
 		} else {
 			parseControlFlowBlock();
 		}
+	}
+	
+	void parseWhile() in {
+		assert(match(TokenType.While));
+	} body {
+		parseControlFlowBase();
+	}
+	
+	void parseDoWhile() in {
+		assert(match(TokenType.Do));
+	} body {
+		nextToken();
+		space();
+		bool isBlock = parseControlFlowBlock();
+		
+		if (!match(TokenType.While)) {
+			return;
+		}
+		
+		emitBlockControlFlowWhitespace(isBlock);
+		nextToken();
+		
+		if (match(TokenType.OpenParen)) {
+			nextToken();
+			auto guard = changeMode(Mode.Parameter);
+			parseStructuralElement();
+			runOnType!(TokenType.CloseParen, nextToken)();
+		}
+		
+		runOnType!(TokenType.Semicolon, nextToken)();
+		newline(2);
 	}
 	
 	void parseFor() in {

@@ -8,12 +8,15 @@ int main() {
 	do {
 		i++;
 	} while(i > 10); // Should run once.
+
 	assert(i == 1);
-	
-	do i--;
+
+	do
+		i--;
 	while(i > -10);
+
 	assert(i == -10);
-	
+
 	// Break.
 	i = 0;
 	do {
@@ -21,8 +24,9 @@ int main() {
 		if (i == 5)
 			break;
 	} while(i < 10);
+
 	assert(i == 5);
-	
+
 	// Continue.
 	i = 0;
 	int j = 0;
@@ -32,7 +36,8 @@ int main() {
 			continue;
 		j++;
 	} while(i < 10);
+
 	assert(j == 5);
-	
+
 	return 0;
 }
