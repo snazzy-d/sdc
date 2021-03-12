@@ -304,13 +304,17 @@ private:
 				
 				goto StorageClass;
 			
-			case Abstract, Align, Alias, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
+			case Abstract, Align, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
 			StorageClass:
 				parseStorageClass();
 				break;
 			
 			case Struct, Union, Class, Interface:
 				parseAggregate();
+				break;
+			
+			case Alias:
+				parseAlias();
 				break;
 			
 			default:
@@ -740,6 +744,30 @@ private:
 		}
 	}
 	
+	void parseEnum() in {
+		assert(match(TokenType.Enum));
+	} body {
+		nextToken();
+		
+		if (match(TokenType.Identifier)) {
+			space();
+			nextToken();
+		}
+		
+		if (match(TokenType.Colon)) {
+			space();
+			nextToken();
+			space();
+			parseType();
+		}
+		
+		if (match(TokenType.OpenBrace)) {
+			space();
+		}
+		
+		parseList!(parseExpression, true);
+	}
+	
 	void parseAggregate() in {
 		assert(
 			match(TokenType.Struct) ||
@@ -768,28 +796,31 @@ private:
 		parseBlock();
 	}
 	
-	void parseEnum() in {
-		assert(match(TokenType.Enum));
+	void parseAlias() in {
+		assert(match(TokenType.Alias));
 	} body {
 		nextToken();
+		space();
 		
-		if (match(TokenType.Identifier)) {
-			space();
-			nextToken();
+		runOnType!(TokenType.Identifier, nextToken)();
+		
+		parseArgumentList();
+		space();
+		
+		switch (token.type) with(TokenType) {
+			case This:
+				nextToken();
+				break;
+			
+			case Equal:
+				nextToken();
+				space();
+				parseExpression();
+				break;
+			
+			default:
+				break;
 		}
-		
-		if (match(TokenType.Colon)) {
-			space();
-			nextToken();
-			space();
-			parseType();
-		}
-		
-		if (match(TokenType.OpenBrace)) {
-			space();
-		}
-		
-		parseList!(parseExpression, true);
 	}
 	
 	/**

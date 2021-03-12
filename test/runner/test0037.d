@@ -11,13 +11,13 @@ alias bar = foo;
 alias bas = bar;
 
 int bazoooooooom() {
-  return 2;
+	return 2;
 }
 
 Integer main() {
-  SS s;
-  s.i = 30;
-  bas(&s.i);
+	SS s;
+	s.i = 30;
+	bas(&s.i);
 
-  return s;
+	return s;
 }
