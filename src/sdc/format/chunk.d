@@ -129,6 +129,10 @@ public:
 	}
 	
 	void split() {
+		scope(success) {
+			chunk.indentation = indentation;
+		}
+		
 		// There is nothing to flush.
 		if (chunk.empty) {
 			return;
@@ -136,7 +140,6 @@ public:
 		
 		source ~= chunk;
 		chunk = Chunk();
-		chunk.indentation = indentation;
 		
 		// TODO: Process rules.
 	}
@@ -155,7 +158,18 @@ public:
 		uint oldLevel = indentation;
 		indentation += level;
 		
+		// Make sure we don't overflow.
+		if (int(indentation) < 0) {
+			indentation = 0;
+		}
+		
 		return Guard(&this, oldLevel);
+	}
+	
+	auto unindent(uint level = 1) {
+		import std.algorithm;
+		level = min(level, indentation);
+		return indent(-level);
 	}
 	
 	/**

@@ -57,8 +57,12 @@ private:
 		return p.getFullPosition(context).getLineNumber();
 	}
 	
+	int newLineCount(ref TokenRange r) {
+		return getStartLineNumber(r.front.location) - getLineNumber(r.previous);
+	}
+	
 	int newLineCount() {
-		return getStartLineNumber(trange.front.location) - getLineNumber(trange.previous);
+		return newLineCount(trange);
 	}
 	
 	uint getStartOffset(Location loc) {
@@ -69,8 +73,12 @@ private:
 		return p.getFullPosition(context).getSourceOffset();
 	}
 	
+	int whiteSpaceLength(ref TokenRange r) {
+		return getStartOffset(r.front.location) - getSourceOffset(r.previous);
+	}
+	
 	int whiteSpaceLength() {
-		return getStartOffset(trange.front.location) - getSourceOffset(trange.previous);
+		return whiteSpaceLength(trange);
 	}
 	
 	@property
@@ -242,8 +250,28 @@ private:
 				return;
 			
 			case Identifier:
-				// FIXME: Labels.
-				goto default;
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				if (lookahead.front.type != Colon) {
+					// This is an expression or a declaration.
+					goto default;
+				}
+				
+				lookahead.popFront();
+				if (newLineCount(lookahead)) {
+					auto guard = builder.unindent();
+					newline(2);
+					nextToken();
+					nextToken();
+					newline();
+				} else {
+					nextToken();
+					nextToken();
+					space();
+				}
+
+				break;
 			
 			case If:
 				parseIf();
