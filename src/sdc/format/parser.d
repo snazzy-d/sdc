@@ -299,10 +299,7 @@ private:
 				break;
 			
 			default:
-				Location loc = token.location;
-				parseIdentifier();
-				
-				if (token.location == loc) {
+				if (!parseIdentifier()) {
 					// We made no progress, start skipping.
 					skipToken();
 					return;
@@ -353,8 +350,20 @@ private:
 	/**
 	 * Identifiers
 	 */
-	void parseIdentifier() {
-		PrefixLoop: while (true) {
+	bool parseIdentifier() {
+		bool prefix = parseIdentifierPrefix();
+		bool base = parseBaseIdentifier();
+		return prefix || base;
+	}
+	
+	bool parseIdentifierPrefix() {
+		bool ret = false;
+		while (true) {
+			scope(success) {
+				// This will be true after the first loop iterration.
+				ret = true;
+			}
+
 			switch (token.type) with(TokenType) {
 				// Prefixes.
 				case Dot:
@@ -367,21 +376,26 @@ private:
 				case Bang:
 				case Tilde:
 					nextToken();
-					continue;
+					break;
 				
 				case Cast:
 					nextToken();
-					parseArgumentList();
+					if (match(OpenParen)) {
+						nextToken();
+						parseType();
+					}
+					
+					runOnType!(CloseParen, nextToken)();
 					space();
-					continue;
+					break;
 				
 				default:
-					break PrefixLoop;
+					return ret;
 			}
 		}
-		
-		runOnType!(TokenType.Dot, nextToken)();
-		
+	}
+	
+	bool parseBaseIdentifier() {
 		BaseIdentifier:
 		switch (token.type) with(TokenType) {
 			case Identifier:
@@ -441,19 +455,31 @@ private:
 				
 				nextToken();
 				parseIdentifier();
-				runOnType!(TokenType.Dot, nextToken)();
+				runOnType!(Dot, nextToken)();
 				break;
 			
 			default:
-				return;
+				return false;
 		}
 		
-		SuffixLoop: while (true) {
+		parseIdentifierSuffix();
+		return true;
+	}
+	
+	bool parseIdentifierSuffix() {
+		bool ret = false;
+		while (true) {
+			scope(success) {
+				// This will be true after the first loop iterration.
+				ret = true;
+			}
+
 			switch (token.type) with(TokenType) {
 				case Dot:
 					nextToken();
 					// Put another coin in the Pachinko!
-					goto BaseIdentifier;
+					parseBaseIdentifier();
+					return true;
 				
 				case Bang:
 					nextToken();
@@ -472,7 +498,7 @@ private:
 					break;
 				
 				default:
-					break SuffixLoop;
+					return ret;
 			}
 		}
 	}
@@ -544,6 +570,18 @@ private:
 		nextToken();
 		space();
 		parseExpression();
+	}
+	
+	/**
+	 * Types
+	 */
+	void parseType() {
+		parseIdentifier();
+		
+		do {
+			// '*' could be a pointer or a multiply, so it is not parsed eagerly.
+			runOnType!(TokenType.Star, nextToken)();
+		} while(parseIdentifierSuffix());
 	}
 	
 	/**

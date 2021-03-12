@@ -5,7 +5,6 @@
 int main() {
 	int i;
 	void* p = &i;
-	
+
 	return *(cast(int*) p) + 2;
 }
-
