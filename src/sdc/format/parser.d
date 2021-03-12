@@ -400,6 +400,18 @@ private:
 			case __File__:
 			case __Line__:
 			case Dollar:
+				nextToken();
+				break;
+			
+			case OpenParen:
+				// TODO: lambdas
+				parseArgumentList();
+				break;
+			
+			case OpenBracket:
+				// TODO: maps
+				parseArgumentList();
+				break;
 			
 			// Types
 			case Typeof:
