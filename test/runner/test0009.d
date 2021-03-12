@@ -6,20 +6,19 @@
 extern(C) size_t strlen(const char* s);
 
 int main() {
-	string str = "test";  
-	if(str.length != 4) {
+	string str = "test";
+	if (str.length != 4) {
 		return 1;
 	}
-	
-	if(str[2] != 's') {
+
+	if (str[2] != 's') {
 		return 2;
 	}
-	
+
 	auto p = str.ptr;
-	if(strlen(p) != str.length) {
+	if (strlen(p) != str.length) {
 		return 3;
 	}
-	
+
 	return 0;
 }
-

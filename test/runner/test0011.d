@@ -5,10 +5,11 @@
 
 struct S {
 	int c, d;
-	
+
 	int add(int a, int b) {
 		return a + b + c + this.d;
 	}
+
 }
 
 int main() {
@@ -16,4 +17,3 @@ int main() {
 	s.c = s.d = 1;
 	return s.add(38, 2);
 }
-

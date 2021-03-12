@@ -6,7 +6,6 @@
 int main() {
 	int i = 12;
 	typeof(i++) j;
-	
+
 	return i + j;
 }
-

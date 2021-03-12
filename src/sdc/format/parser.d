@@ -82,7 +82,7 @@ private:
 		emitSkippedTokens();
 		
 		// Process current token.
-		builder.write(token.name.toString(context));
+		builder.write(token.toString(context));
 		
 		if (match(TokenType.End)) {
 			// We reached the end of our input.
@@ -142,7 +142,7 @@ private:
 		
 		// TODO: Process comments here.
 		while (match(TokenType.Comment)) {
-			auto comment = token.name.toString(context);
+			auto comment = token.toString(context);
 			builder.write(comment);
 			
 			trange.popFront();

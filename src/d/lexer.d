@@ -125,6 +125,12 @@ struct Token {
 	
 	import d.context.name;
 	Name name;
+	
+	string toString(Context context) {
+		return (type >= TokenType.Identifier)
+			? name.toString(context)
+			: location.getFullLocation(context).getSlice();
+	}
 }
 
 auto lex(Position base, Context context) {

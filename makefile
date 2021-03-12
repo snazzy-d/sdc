@@ -70,7 +70,7 @@ check-sdfmt: $(SDFMT)
 
 check: all check-sdc check-llvm check-sdfmt
 
-.PHONY: check check-llvm check-sdc clean default
+.PHONY: check check-sdc check-llvm check-sdfmt clean default
 
 # Secondary without dependency make all temporaries secondary.
 .SECONDARY:
