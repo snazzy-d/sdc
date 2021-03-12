@@ -12,4 +12,3 @@ int main() {
 	change(i, 73);
 	return i;
 }
-

@@ -249,6 +249,10 @@ private:
 				parseIf();
 				break;
 			
+			case Else:
+				parseElse();
+				break;
+			
 			case While:
 			case Do:
 			case For:
@@ -328,6 +332,7 @@ private:
 				}
 				
 				// We just have some kind of expression.
+				parseBinaryExpression();
 				break;
 		}
 		
@@ -487,7 +492,7 @@ private:
 		}
 		
 		if (match(TokenType.CloseBrace)) {
-			space();
+			builder.forceNewLine();
 			nextToken();
 			newline(2);
 		}
@@ -508,10 +513,13 @@ private:
 		space();
 		parseStructuralElement();
 		
-		if (!match(TokenType.Else)) {
-			return;
-		}
-		
+		runOnType!(TokenType.Else, parseElse)();
+	}
+	
+	void parseElse() in {
+		assert(match(TokenType.Else));
+	} body {
+		builder.forceSpace();
 		nextToken();
 		space();
 		split();
@@ -530,9 +538,12 @@ private:
 	 * Expressions
 	 */
 	void parseExpression() {
+		parseIdentifier();
+		parseBinaryExpression();
+	}
+	
+	void parseBinaryExpression() {
 		while (true) {
-			parseIdentifier();
-			
 			switch (token.type) with(TokenType) {
 				case Equal:
 				case PlusEqual:
@@ -590,6 +601,8 @@ private:
 				default:
 					return;
 			}
+			
+			parseIdentifier();
 		}
 	}
 	

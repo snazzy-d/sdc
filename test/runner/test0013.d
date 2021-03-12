@@ -7,4 +7,3 @@ int main() {
 	auto i = 42;
 	return i;
 }
-

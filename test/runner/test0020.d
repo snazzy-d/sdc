@@ -11,6 +11,6 @@ import test0020_import2;
 int main() {
 	int a = importedFunction();
 	int b = anotherImportedFunction();
-	
+
 	return a + b;
 }

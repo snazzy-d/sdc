@@ -16,4 +16,3 @@ int twelve() {
 int main() {
 	return start();
 }
-

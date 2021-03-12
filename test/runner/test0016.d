@@ -11,4 +11,3 @@ int main() {
 	f = &add;
 	return f(30, 2);
 }
-

@@ -9,7 +9,6 @@ struct S {
 	int add(int a, int b) {
 		return a + b + c + this.d;
 	}
-
 }
 
 int main() {

@@ -10,4 +10,3 @@ int main() {
 	foo(i);
 	return i;
 }
-
