@@ -289,6 +289,21 @@ private:
 			case Version, Debug:
 				goto default;
 			
+			case Enum:
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				if (lookahead.front.type == Identifier) {
+					lookahead.popFront();
+				}
+				
+				if (lookahead.front.type == Colon || lookahead.front.type == OpenBrace) {
+					parseEnum();
+					break;
+				}
+				
+				goto StorageClass;
+			
 			case Abstract, Align, Alias, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
 			StorageClass:
 				parseStorageClass();
@@ -753,10 +768,36 @@ private:
 		parseBlock();
 	}
 	
+	void parseEnum() in {
+		assert(match(TokenType.Enum));
+	} body {
+		nextToken();
+		
+		if (match(TokenType.Identifier)) {
+			space();
+			nextToken();
+		}
+		
+		if (match(TokenType.Colon)) {
+			space();
+			nextToken();
+			space();
+			parseType();
+		}
+		
+		if (match(TokenType.OpenBrace)) {
+			space();
+		}
+		
+		parseList!(parseExpression, true);
+	}
+	
 	/**
 	 * Parsing utilities
 	 */
-	bool parseList(alias fun)() {
+	bool parseList(alias fun, bool AllowBraces = false)() {
+		bool addNewLines = false;
+		
 		TokenType closingTokenType;
 		switch (token.type) with(TokenType) {
 			case OpenParen:
@@ -766,6 +807,15 @@ private:
 			case OpenBracket:
 				closingTokenType = CloseBracket;
 				break;
+			
+			case OpenBrace:
+				if (!AllowBraces) {
+					return false;
+				} else {
+					addNewLines = true;
+					closingTokenType = CloseBrace;
+					break;
+				}
 			
 			default:
 				return false;
@@ -777,23 +827,38 @@ private:
 			return true;
 		}
 		
-		while (true) {
-			split();
-			fun();
-			
-			if (!match(TokenType.Comma)) {
-				break;
+		{
+			auto guard = builder.indent();
+			while (true) {
+				if (addNewLines) {
+					newline(1);
+				} else {
+					split();
+				}
+				
+				fun();
+				
+				if (!match(TokenType.Comma)) {
+					break;
+				}
+				
+				nextToken();
+				space();
 			}
-
-			nextToken();
-			space();
-			split();
 		}
 		
 		if (match(closingTokenType)) {
+			if (addNewLines) {
+				newline(1);
+			}
+			
 			nextToken();
 		}
 		
+		if (addNewLines) {
+			newline(2);
+		}
+
 		return true;
 	}
 }

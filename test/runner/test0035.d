@@ -10,10 +10,10 @@ struct Bar {
 	static Qux baz() {
 		Foo f;
 		f.i = 42;
-		
+
 		return f;
 	}
-	
+
 	alias Qux = Foo;
 }
 

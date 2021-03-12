@@ -11,10 +11,9 @@ enum B : long {
 }
 
 int main() {
-	if(A.Foo.sizeof < B.Bar.sizeof) {
+	if (A.Foo.sizeof < B.Bar.sizeof) {
 		return 42;
 	} else {
 		return 0;
 	}
 }
-

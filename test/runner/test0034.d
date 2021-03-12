@@ -6,7 +6,7 @@ struct S {
 	A foo(bar b) {
 		A a;
 		a.i = b;
-		
+
 		return a;
 	}
 }
@@ -19,7 +19,6 @@ alias bar = int;
 
 int main() {
 	S s;
-	
+
 	return s.foo(16).i + 1;
 }
-

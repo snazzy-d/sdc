@@ -14,7 +14,6 @@ struct S {
 
 int main() {
 	S s;
-	
+
 	return S.foo() + s.bar();
 }
-

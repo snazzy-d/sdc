@@ -10,4 +10,3 @@ enum Foo {
 int main() {
 	return Foo.Baz;
 }
-

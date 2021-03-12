@@ -10,4 +10,3 @@ enum {
 int main() {
 	return B;
 }
-

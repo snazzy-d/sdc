@@ -12,4 +12,3 @@ int main() {
 	S s;
 	return s.O.B + S.O.B;
 }
-
