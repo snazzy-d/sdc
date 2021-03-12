@@ -767,8 +767,37 @@ private:
 					
 			}
 			
-			runOnType!(TokenType.Colon, nextTokenAndSplit)();
-			space();
+			switch (token.type) with (TokenType) {
+				case Colon:
+					nextToken();
+					newline(1);
+					return;
+					
+				case OpenBrace:
+					space();
+					parseBlock();
+					return;
+				
+				case Identifier:
+					auto lookahead = trange.save.withComments(false);
+					lookahead.popFront();
+					
+					switch (lookahead.front.type) {
+						case Equal:
+						case OpenParen:
+							parseTypedDeclaration();
+							break;
+						
+						default:
+							parseStructuralElement();
+							break;
+					}
+					
+					return;
+				
+				default:
+					break;
+			}
 		}
 	}
 	

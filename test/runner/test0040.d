@@ -14,4 +14,3 @@ int main() {
 	ulong l = f();
 	return add(20, 21);
 }
-

@@ -8,6 +8,6 @@ import test0042_import;
 int main() {
 	auto foo = new Foo();
 	foo.dummy = 8;
-	
+
 	return foo.bar();
 }

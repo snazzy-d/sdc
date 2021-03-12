@@ -4,7 +4,7 @@
 
 struct A {
 	int A;
-	
+
 	int foo() {
 		return A;
 	}
@@ -12,7 +12,6 @@ struct A {
 
 int main() {
 	A a;
-	
+
 	return a.foo() + 7;
 }
-

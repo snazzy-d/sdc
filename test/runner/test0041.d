@@ -7,7 +7,6 @@ import test0041_import;
 int main() {
 	Foo foo;
 	foo.bar();
-	
+
 	return 7;
 }
-
