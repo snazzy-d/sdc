@@ -457,7 +457,7 @@ private:
 				
 				case Bang:
 					nextToken();
-					if (token.type == OpenParen) {
+					if (match(OpenParen)) {
 						parseArgumentList();
 					}
 					
@@ -649,7 +649,7 @@ private:
 				parseExpression();
 			}
 			
-			if (token.type != TokenType.Comma) {
+			if (!match(TokenType.Comma)) {
 				break;
 			}
 			
