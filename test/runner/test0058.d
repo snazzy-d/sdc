@@ -11,4 +11,3 @@ int main() {
 	int a = importedFunction();
 	return a;
 }
-
