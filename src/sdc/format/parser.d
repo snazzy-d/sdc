@@ -299,14 +299,21 @@ private:
 			case While:
 			case Do:
 			case For:
-			case Foreach, ForeachReverse:
 				goto default;
+			
+			case Foreach, ForeachReverse:
+				parseForeach();
+				break;
 			
 			case Return:
 				parseReturn();
 				break;
 			
 			case Break, Continue:
+				nextToken();
+				runOnType!(Identifier, nextToken)();
+				break;
+			
 			case Switch,Case, Default:
 			case Goto:
 				goto default;
@@ -624,6 +631,16 @@ private:
 		}
 	}
 	
+	void parseControlFlowBlock() {
+		if (match(TokenType.OpenBrace)) {
+			parseBlock(mode);
+		} else {
+			auto guard = builder.indent();
+			newline(1);
+			parseStructuralElement();
+		}
+	}
+	
 	void parseIf() in {
 		assert(match(TokenType.If));
 	} body {
@@ -638,7 +655,7 @@ private:
 		}
 		
 		space();
-		parseStructuralElement();
+		parseControlFlowBlock();
 		
 		runOnType!(TokenType.Else, parseElse)();
 	}
@@ -651,6 +668,35 @@ private:
 		space();
 		split();
 		parseStructuralElement();
+	}
+	
+	void parseForeach() in {
+		assert(match(TokenType.Foreach) || match(TokenType.ForeachReverse));
+	} body {
+		nextToken();
+		space();
+		
+		if (match(TokenType.OpenParen)) {
+			nextToken();
+			auto guard = changeMode(Mode.Parameter);
+			
+			parseList!parseStructuralElement(TokenType.Semicolon);
+			
+			space();
+			parseExpression();
+			
+			if (match(TokenType.DotDot)) {
+				space();
+				nextToken();
+				space();
+				parseExpression();
+			}
+			
+			runOnType!(TokenType.CloseParen, nextToken)();
+		}
+		
+		space();
+		parseControlFlowBlock();
 	}
 	
 	void parseReturn() in {
@@ -876,9 +922,9 @@ private:
 		
 		if (match(TokenType.OpenBrace)) {
 			space();
+			nextToken();
+			parseList!parseExpression(TokenType.CloseBrace, true);
 		}
-		
-		parseList!(parseExpression, true);
 	}
 	
 	void parseAggregate() in {
@@ -939,9 +985,7 @@ private:
 	/**
 	 * Parsing utilities
 	 */
-	bool parseList(alias fun, bool AllowBraces = false)() {
-		bool addNewLines = false;
-		
+	bool parseList(alias fun)() {
 		TokenType closingTokenType;
 		switch (token.type) with(TokenType) {
 			case OpenParen:
@@ -952,20 +996,15 @@ private:
 				closingTokenType = CloseBracket;
 				break;
 			
-			case OpenBrace:
-				if (!AllowBraces) {
-					return false;
-				} else {
-					addNewLines = true;
-					closingTokenType = CloseBrace;
-					break;
-				}
-			
 			default:
 				return false;
 		}
 		
 		nextToken();
+		return parseList!fun(closingTokenType);
+	}
+
+	bool parseList(alias fun)(TokenType closingTokenType, bool addNewLines = false) {
 		if (match(closingTokenType)) {
 			nextToken();
 			return true;
