@@ -514,14 +514,14 @@ private:
 			// Type qualifiers
 			case Const, Immutable, Inout, Shared:
 				nextToken();
-				if (!match(TokenType.OpenParen)) {
+				if (!match(OpenParen)) {
 					space();
 					goto BaseIdentifier;
 				}
 				
 				nextToken();
-				parseIdentifier();
-				runOnType!(Dot, nextToken)();
+				parseType();
+				runOnType!(CloseParen, nextToken)();
 				break;
 			
 			default:

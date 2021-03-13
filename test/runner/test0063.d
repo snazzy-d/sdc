@@ -8,4 +8,3 @@ int main() {
 	assert(0x0FL == 15L);
 	return 0;
 }
-
