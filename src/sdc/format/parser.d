@@ -20,6 +20,31 @@ private:
 	import sdc.format.chunk;
 	Builder builder;
 	
+	enum Mode {
+		Declaration,
+		Statement,
+		Parameter,
+	}
+
+	Mode mode;
+	
+	auto changeMode(Mode m) {
+		static struct Guard {
+			~this() {
+				parser.mode = oldMode;
+			}
+			
+		private:
+			Parser* parser;
+			Mode oldMode;
+		}
+		
+		Mode oldMode = mode;
+		mode = m;
+		
+		return Guard(&this, oldMode);
+	}
+	
 	/**
 	 * When we can't parse we skip and forward chunks "as this"
 	 */
@@ -204,11 +229,6 @@ private:
 		}
 	}
 	
-	void nextTokenAndNewLine() {
-		nextToken();
-		newline();
-	}
-	
 	void nextTokenAndSplit() {
 		nextToken();
 		space();
@@ -217,18 +237,13 @@ private:
 	/**
 	 * Parsing
 	 */
-	void parseLevelImpl(bool StopOnClosingBrace)() {
+	void parseModule() {
+		auto guard = changeMode(Mode.Declaration);
+		
 		while (!match(TokenType.End)) {
-			if (StopOnClosingBrace && match(TokenType.CloseBrace)) {
-				break;
-			}
-			
 			parseStructuralElement();
 		}
 	}
-	
-	alias parseModule = parseLevelImpl!false;
-	alias parseLevel = parseLevelImpl!true;
 	
 	void parseStructuralElement() {
 		Entry:
@@ -244,7 +259,7 @@ private:
 			 * Statements
 			 */
 			case OpenBrace:
-				parseBlock();
+				parseBlock(mode);
 				
 				// Blocks do not end with a semicolon.
 				return;
@@ -394,11 +409,17 @@ private:
 				break;
 		}
 		
-		if (match(TokenType.Semicolon)) {
+		bool foundSemicolon = match(TokenType.Semicolon);
+		if (foundSemicolon) {
 			nextToken();
-			newline();
-		} else {
-			emitSourceBasedWhiteSpace();
+		}
+		
+		if (mode != Mode.Parameter) {
+			if (foundSemicolon) {
+				newline();
+			} else {
+				emitSourceBasedWhiteSpace();
+			}
 		}
 	}
 	
@@ -572,7 +593,7 @@ private:
 	/**
 	 * Statements
 	 */
-	void parseBlock() {
+	void parseBlock(Mode m) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -585,14 +606,15 @@ private:
 		}
 		
 		{
-			auto guard = builder.indent();
+			auto indentGuard = builder.indent();
+			auto modeGuard = changeMode(m);
 			
 			newline(1);
 			split();
 			
-			// TODO: Indentation and nesting business.
-			
-			parseLevel();
+			while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+				parseStructuralElement();
+			}
 		}
 		
 		if (match(TokenType.CloseBrace)) {
@@ -610,6 +632,7 @@ private:
 		
 		if (match(TokenType.OpenParen)) {
 			nextToken();
+			auto guard = changeMode(Mode.Parameter);
 			parseStructuralElement();
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
@@ -732,7 +755,8 @@ private:
 	void parseTypedDeclaration() in {
 		assert(match(TokenType.Identifier));
 	} body {
-		while (true) {
+		bool loop = mode == Mode.Parameter;
+		do {
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 			
@@ -741,7 +765,7 @@ private:
 			// Function declaration.
 			if (match(TokenType.OpenBrace)) {
 				space();
-				parseBlock();
+				parseBlock(Mode.Statement);
 				return;
 			}
 			
@@ -758,7 +782,7 @@ private:
 			}
 			
 			nextToken();
-		}
+		} while (loop);
 	}
 	
 	void parseConstructor() in {
@@ -771,11 +795,12 @@ private:
 		// Function declaration.
 		if (match(TokenType.OpenBrace)) {
 			space();
-			parseBlock();
+			parseBlock(Mode.Statement);
 		}
 	}
 	
 	bool parseParameterList() {
+		auto guard = changeMode(Mode.Parameter);
 		return parseList!parseStructuralElement();
 	}
 	
@@ -806,7 +831,7 @@ private:
 					
 				case OpenBrace:
 					space();
-					parseBlock();
+					parseBlock(mode);
 					return;
 				
 				case Identifier:
@@ -881,7 +906,7 @@ private:
 		
 		// TODO inheritance.
 		
-		parseBlock();
+		parseBlock(Mode.Declaration);
 	}
 	
 	void parseAlias() in {

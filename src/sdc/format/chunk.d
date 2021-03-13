@@ -158,11 +158,6 @@ public:
 		uint oldLevel = indentation;
 		indentation += level;
 		
-		// Make sure we don't overflow.
-		if (int(indentation) < 0) {
-			indentation = 0;
-		}
-		
 		return Guard(&this, oldLevel);
 	}
 	
