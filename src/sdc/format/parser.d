@@ -383,8 +383,7 @@ private:
 					case Identifier:
 						// We have a declaration.
 						parseTypedDeclaration();
-						// parseTypedDeclaration eats the semicolon
-						return;
+						break;
 					
 					default:
 						break;
@@ -395,7 +394,12 @@ private:
 				break;
 		}
 		
-		runOnType!(TokenType.Semicolon, nextTokenAndNewLine)();
+		if (match(TokenType.Semicolon)) {
+			nextToken();
+			newline();
+		} else {
+			emitSourceBasedWhiteSpace();
+		}
 	}
 	
 	/**
@@ -755,8 +759,6 @@ private:
 			
 			nextToken();
 		}
-		
-		runOnType!(TokenType.Semicolon, nextTokenAndNewLine)();
 	}
 	
 	void parseConstructor() in {
