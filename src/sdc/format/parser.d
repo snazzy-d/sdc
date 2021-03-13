@@ -342,6 +342,11 @@ private:
 				
 				goto StorageClass;
 			
+			case Ref:
+				nextToken();
+				space();
+				goto default;
+			
 			case Abstract, Align, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
 			StorageClass:
 				parseStorageClass();
