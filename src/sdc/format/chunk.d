@@ -116,16 +116,12 @@ public:
 		setWhiteSpace(SplitType.Space);
 	}
 	
-	void forceSpace() {
-		pendingWhiteSpace = SplitType.Space;
-	}
-	
 	void newline(int nLines = 1) {
 		setWhiteSpace(nLines > 1 ? SplitType.TwoNewLines : SplitType.NewLine);
 	}
 	
-	void forceNewLine(int nLines = 1) {
-		pendingWhiteSpace = nLines > 1 ? SplitType.TwoNewLines : SplitType.NewLine;
+	void clearSplitType() {
+		pendingWhiteSpace = SplitType.None;
 	}
 	
 	void split() {

@@ -203,6 +203,10 @@ private:
 		builder.newline(nl);
 	}
 	
+	void clearSplitType() {
+		builder.clearSplitType();
+	}
+	
 	void split() {
 		builder.split();
 	}
@@ -323,6 +327,9 @@ private:
 				goto StorageClass;
 			
 			case Assert:
+				parseExpression();
+				break;
+			
 			case Throw, Try:
 				goto default;
 			
@@ -511,6 +518,12 @@ private:
 				nextToken();
 				break;
 			
+			case Assert:
+				nextToken();
+				parseArgumentList();
+				break;
+				
+			
 			case OpenParen:
 				// TODO: lambdas
 				parseArgumentList();
@@ -625,19 +638,32 @@ private:
 		}
 		
 		if (match(TokenType.CloseBrace)) {
-			builder.forceNewLine();
+			clearSplitType();
+			newline(1);
 			nextToken();
 			newline(2);
 		}
 	}
 	
 	void parseControlFlowBlock() {
-		if (match(TokenType.OpenBrace)) {
+		bool isBrace = match(TokenType.OpenBrace);
+		if (isBrace) {
 			parseBlock(mode);
 		} else {
 			auto guard = builder.indent();
 			newline(1);
 			parseStructuralElement();
+		}
+		
+		if (match(TokenType.Else)) {
+			clearSplitType();
+			if (isBrace) {
+				space();
+			} else {
+				newline(1);
+			}
+			
+			parseElse();
 		}
 	}
 	
@@ -656,18 +682,20 @@ private:
 		
 		space();
 		parseControlFlowBlock();
-		
-		runOnType!(TokenType.Else, parseElse)();
 	}
 	
 	void parseElse() in {
 		assert(match(TokenType.Else));
 	} body {
-		builder.forceSpace();
+		space();
 		nextToken();
 		space();
-		split();
-		parseStructuralElement();
+		
+		if (match(TokenType.If)) {
+			parseIf();
+		} else {
+			parseControlFlowBlock();
+		}
 	}
 	
 	void parseForeach() in {
@@ -683,16 +711,7 @@ private:
 			parseList!parseStructuralElement(TokenType.Semicolon);
 			
 			space();
-			parseExpression();
-			
-			if (match(TokenType.DotDot)) {
-				space();
-				nextToken();
-				space();
-				parseExpression();
-			}
-			
-			runOnType!(TokenType.CloseParen, nextToken)();
+			parseList!parseExpression(TokenType.CloseParen);
 		}
 		
 		space();
@@ -1010,7 +1029,7 @@ private:
 			return true;
 		}
 		
-		{
+		while (true) {
 			auto guard = builder.indent();
 			while (true) {
 				if (addNewLines) {
@@ -1028,6 +1047,14 @@ private:
 				nextToken();
 				space();
 			}
+			
+			if (!match(TokenType.DotDot)) {
+				break;
+			}
+			
+			space();
+			nextToken();
+			space();
 		}
 		
 		if (match(closingTokenType)) {
