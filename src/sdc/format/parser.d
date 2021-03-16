@@ -963,27 +963,49 @@ private:
 			
 			while (parseParameterList()) {}
 			
-			// Function declaration.
-			if (match(TokenType.OpenBrace)) {
-				space();
-				parseBlock(Mode.Statement);
-				return;
-			}
-			
 			// Variable, template parameters, whatever.
-			while (match(TokenType.Equal) || match(TokenType.Colon)) {
+			if (match(TokenType.Equal) || match(TokenType.Colon)) {
 				space();
 				nextToken();
 				space();
 				parseExpression();
 			}
-			
+
 			if (!match(TokenType.Comma)) {
 				break;
 			}
 			
 			nextToken();
 		} while (loop);
+		
+		while (true) {
+			clearSplitType();
+
+			switch (token.type) with (TokenType) {
+				case OpenBrace:
+					// Function declaration.
+					break;
+				
+				case In, Body:
+					space();
+					nextToken();
+					break;
+					
+				case Out:
+					space();
+					nextToken();
+					parseParameterList();
+					break;
+				
+				default:
+					return;
+			}
+
+			space();
+			if (match(TokenType.OpenBrace)) {
+				parseBlock(Mode.Statement);
+			}
+		}
 	}
 	
 	void parseConstructor() in {

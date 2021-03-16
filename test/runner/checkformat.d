@@ -70,7 +70,7 @@ int main(string[] args) {
 		// Figure out how many tests there are.
 		int testNumber = -1;
 		while (exists(getTestFilename(++testNumber))) {
-			if (testNumber > 77) {
+			if (testNumber > 82) {
 				break;
 			}
 		}

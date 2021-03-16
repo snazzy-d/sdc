@@ -9,4 +9,3 @@ int main() {
 	bool d = b == c;
 	return 0;
 }
-

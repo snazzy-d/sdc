@@ -7,4 +7,3 @@ alias bar = int;
 int main() {
 	return cast(int) ((int).sizeof + (bar).sizeof);
 }
-

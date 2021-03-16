@@ -8,4 +8,3 @@ int main() {
 	*p++ = cast(ubyte) 'A';
 	return arr[0];
 }
-
