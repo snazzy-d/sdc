@@ -327,13 +327,24 @@ private:
 			case Case: {
 					auto guard = builder.unindent();
 					newline();
-					nextToken();
-					space();
 					
-					parseList!parseExpression(TokenType.Colon);
-					newline();
+					while (true) {
+						nextToken();
+						space();
+						
+						parseList!parseExpression(TokenType.Colon);
+						
+						if (!match(DotDot)) {
+							break;
+						}
+						
+						space();
+						nextToken();
+						space();
+					}
 				}
 				
+				newline();
 				break;
 			
 			case Default: {
@@ -348,9 +359,13 @@ private:
 
 			case Goto:
 				nextToken();
-				if (match(Identifier) || match(Case) || match(Default)) {
+				if (match(Identifier) || match(Default)) {
 					space();
 					nextToken();
+				} else if (match(Case)) {
+					space();
+					nextToken();
+					runOnType!(Identifier, nextToken)();
 				}
 				
 				break;

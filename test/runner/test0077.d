@@ -4,8 +4,7 @@
 
 void main() {
 	string str = "foobar";
-	
-	// This is narrowing, SDC disallows this.
-	foreach(byte i, c; str) {}
-}
 
+	// This is narrowing, SDC disallows this.
+	foreach (byte i, c; str) {}
+}
