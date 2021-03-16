@@ -302,8 +302,11 @@ private:
 			
 			case While:
 			case Do:
-			case For:
 				goto default;
+			
+			case For:
+				parseFor();
+				break;
 			
 			case Foreach, ForeachReverse:
 				parseForeach();
@@ -698,6 +701,43 @@ private:
 		}
 	}
 	
+	void parseFor() in {
+		assert(match(TokenType.For));
+	} body {
+		nextToken();
+		space();
+		
+		if (match(TokenType.OpenParen)) {
+			nextToken();
+			if (match(TokenType.Semicolon)) {
+				nextToken();
+			} else {
+				parseStructuralElement();
+				clearSplitType();
+			}
+			
+			if (match(TokenType.Semicolon)) {
+				nextToken();
+			} else {
+				space();
+				parseExpression();
+				runOnType!(TokenType.Semicolon, nextToken)();
+			}
+			
+			if (match(TokenType.CloseParen)) {
+				nextToken();
+			} else {
+				space();
+				parseExpression();
+			}
+
+			runOnType!(TokenType.CloseParen, nextToken)();
+		}
+		
+		space();
+		parseControlFlowBlock();
+	}
+	
 	void parseForeach() in {
 		assert(match(TokenType.Foreach) || match(TokenType.ForeachReverse));
 	} body {
@@ -742,8 +782,12 @@ private:
 	 * Expressions
 	 */
 	void parseExpression() {
-		parseIdentifier();
+		parseBaseExpression();
 		parseBinaryExpression();
+	}
+	
+	void parseBaseExpression() {
+		parseIdentifier();
 	}
 	
 	void parseBinaryExpression() {
@@ -806,7 +850,7 @@ private:
 					return;
 			}
 			
-			parseIdentifier();
+			parseBaseExpression();
 		}
 	}
 	
