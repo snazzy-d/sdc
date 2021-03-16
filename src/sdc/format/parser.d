@@ -233,11 +233,6 @@ private:
 		}
 	}
 	
-	void nextTokenAndSplit() {
-		nextToken();
-		space();
-	}
-	
 	/**
 	 * Parsing
 	 */
@@ -325,9 +320,40 @@ private:
 				runOnType!(Identifier, nextToken)();
 				break;
 			
-			case Switch,Case, Default:
+			case Switch:
+				parseSwitch();
+				break;
+			
+			case Case: {
+					auto guard = builder.unindent();
+					newline();
+					nextToken();
+					space();
+					
+					parseList!parseExpression(TokenType.Colon);
+					newline();
+				}
+				
+				break;
+			
+			case Default: {
+					auto guard = builder.unindent();
+					newline();
+					nextToken();
+					runOnType!(Colon, nextToken)();
+					newline();
+				}
+				
+				break;
+
 			case Goto:
-				goto default;
+				nextToken();
+				if (match(Identifier) || match(Case) || match(Default)) {
+					space();
+					nextToken();
+				}
+				
+				break;
 			
 			case Scope:
 				// FIXME: scope statements.
@@ -620,7 +646,7 @@ private:
 	/**
 	 * Statements
 	 */
-	void parseBlock(Mode m) {
+	void parseBlock(Mode m, uint indentLevel = 1) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -633,7 +659,7 @@ private:
 		}
 		
 		{
-			auto indentGuard = builder.indent();
+			auto indentGuard = builder.indent(indentLevel);
 			auto modeGuard = changeMode(m);
 			
 			newline(1);
@@ -652,10 +678,10 @@ private:
 		}
 	}
 	
-	bool parseControlFlowBlock() {
+	bool parseControlFlowBlock(uint indentLevel = 1) {
 		bool isBlock = match(TokenType.OpenBrace);
 		if (isBlock) {
-			parseBlock(mode);
+			parseBlock(mode, indentLevel);
 		} else {
 			auto guard = builder.indent();
 			newline(1);
@@ -665,7 +691,7 @@ private:
 		return isBlock;
 	}
 	
-	bool parseControlFlowBase() {
+	bool parseControlFlowBase(uint indentLevel = 1) {
 		nextToken();
 		space();
 		
@@ -677,7 +703,7 @@ private:
 		}
 		
 		space();
-		return parseControlFlowBlock();
+		return parseControlFlowBlock(indentLevel);
 	}
 	
 	void emitBlockControlFlowWhitespace(bool isBlock) {
@@ -809,6 +835,12 @@ private:
 		nextToken();
 		space();
 		parseExpression();
+	}
+	
+	void parseSwitch() in {
+		assert(match(TokenType.Switch));
+	} body {
+		parseControlFlowBase(2);
 	}
 	
 	/**

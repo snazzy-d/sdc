@@ -26,29 +26,31 @@ int transmogrify(int input) {
 			break;
 		default:
 			return -1;
-    }
+	}
+
 	return output;
 }
 
 int main() {
 	bool defaultRan = false;
-	switch(0) {
+	switch (0) {
 		default:
 			defaultRan = true;
 			break;
 		case 0:
 			goto default;
 	}
+
 	assert(defaultRan);
-	
+
 	assert(transmogrify(0) == 10);
 	assert(transmogrify(1) == 11);
-	
+
 	assert(transmogrify(2) == 10);
 	assert(transmogrify(3) == 5);
 	assert(transmogrify(7) == 20);
 	assert(transmogrify(8) == 20);
-	
+
 	assert(transmogrify(4) == -1);
 	assert(transmogrify(5) == -1);
 	assert(transmogrify(6) == -1);

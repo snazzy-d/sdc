@@ -17,34 +17,37 @@ int transmogrify(int input) {
 			break;
 		case 3:
 			output = 0;
-			while(true) {
+			while (true) {
 				++output;
 				if (output == 30)
 					break;
 			}
+
 			break;
 	}
+
 	return output;
 }
 
 int main() {
 	bool didRun = false;
-	switch(0) {
-		// didRun = true;
+	switch (0) {
+	// didRun = true;
 		default:
 	}
+
 	assert(!didRun);
-	
-	switch(0) { // Should not cause any warnings.
+
+	switch (0) { // Should not cause any warnings.
 		case 0:
 			didRun = true;
 			break;
 		default:
 			break;
 	}
-	
+
 	assert(didRun);
-	
+
 	assert(transmogrify(1) == 10);
 	assert(transmogrify(2) == 20);
 	assert(transmogrify(3) == 30);
