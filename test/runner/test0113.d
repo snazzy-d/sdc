@@ -15,4 +15,3 @@ int foo(ref int i) {
 int foo(int i) {
 	return i + 10;
 }
-

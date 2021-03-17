@@ -14,4 +14,3 @@ int foo(ref int i, int j) {
 int foo(int i, ref int j) {
 	return 0;
 }
-

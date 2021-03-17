@@ -6,7 +6,7 @@
 struct S {
 	int i;
 	T t;
-	
+
 	auto add(int a) {
 		t.i = a + i;
 		return t.add;
@@ -23,7 +23,6 @@ struct T {
 int main() {
 	S s;
 	s.i = s.t.i = 1;
-	
+
 	return s.add(34)(7);
 }
-

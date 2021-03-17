@@ -10,7 +10,7 @@ int main() {
 
 class A {
 	int a = 15;
-	
+
 	int foo() {
 		return a;
 	}
@@ -18,9 +18,8 @@ class A {
 
 class B : A {
 	int b = 27;
-	
+
 	override int foo() {
 		return a + b;
 	}
 }
-

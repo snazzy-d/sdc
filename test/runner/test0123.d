@@ -15,4 +15,3 @@ enum Foo {
 int main() {
 	return Foo.Bar;
 }
-

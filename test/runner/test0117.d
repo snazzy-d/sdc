@@ -17,4 +17,3 @@ class B : A {
 		return 7;
 	}
 }
-

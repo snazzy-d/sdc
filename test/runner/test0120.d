@@ -13,4 +13,3 @@ class A {
 class B : A {
 	void foo(int a) {}
 }
-

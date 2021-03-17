@@ -6,26 +6,26 @@ int foo(char* p) {
 	if (*p == '\0') {
 		return 0;
 	}
-	
-	switch(*p) {
-		case 'i' :
+
+	switch (*p) {
+		case 'i':
 			p++;
 			if (*p == '\0') {
 				return 1;
 			}
-			
-			switch(*p) {
-				case 'f' :
+
+			switch (*p) {
+				case 'f':
 					return 2;
-				
-				case 's' :
+
+				case 's':
 					return 3;
-				
-				default :
+
+				default:
 					return 42;
 			}
-		
-		default :
+
+		default:
 			return 1;
 	}
 }
@@ -35,6 +35,6 @@ int main() {
 	str[0] = 'i';
 	str[1] = 'g';
 	str[2] = '\0';
-	
+
 	return foo(&str[0]);
 }

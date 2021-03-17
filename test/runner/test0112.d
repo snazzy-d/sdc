@@ -14,4 +14,3 @@ int foo(ref int i) {
 int foo(long l) {
 	return 42;
 }
-

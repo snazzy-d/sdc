@@ -408,6 +408,11 @@ private:
 			case Version, Debug:
 				goto default;
 			
+			case Ref:
+				nextToken();
+				space();
+				goto default;
+			
 			case Enum:
 				auto lookahead = trange.save.withComments(false);
 				lookahead.popFront();
@@ -423,14 +428,10 @@ private:
 				
 				goto StorageClass;
 			
-			case Ref:
-				nextToken();
-				space();
-				goto default;
-			
 			case Abstract, Align, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
 			StorageClass:
-				parseStorageClass();
+				bool success = parseStorageClass();
+				assert(success, "Failed to parse storage class");
 				break;
 			
 			case Struct, Union, Class, Interface:
@@ -506,12 +507,8 @@ private:
 	bool parseIdentifier() {
 		bool prefix = parseIdentifierPrefix();
 		bool base = parseBaseIdentifier();
-		if (!prefix && !base) {
-			return false;
-		}
-		
-		parseIdentifierSuffix();
-		return true;
+		bool suffix = parseIdentifierSuffix();
+		return prefix || base || suffix;
 	}
 	
 	bool parseIdentifierPrefix() {
@@ -1048,10 +1045,16 @@ private:
 		return parseList!parseStructuralElement();
 	}
 	
-	void parseStorageClass() {
+	bool parseStorageClass() {
+		bool ret = false;
 		while (true) {
+			scope(success) {
+				// This will be true after the first loop iterration.
+				ret = true;
+			}
+
 			switch (token.type) with (TokenType) {
-				case Abstract, Auto, Alias, Deprecated, Final, Nothrow, Override, Pure, Static:
+				case Abstract, Auto, Alias, Deprecated, Enum, Final, Nothrow, Override, Pure, Static:
 				case Const, Immutable, Inout, Shared, __Gshared:
 					nextToken();
 					break;
@@ -1063,20 +1066,19 @@ private:
 					break;
 				
 				default:
-					return;
-					
+					return ret;
 			}
 			
 			switch (token.type) with (TokenType) {
 				case Colon:
 					nextToken();
 					newline(1);
-					return;
+					return true;
 					
 				case OpenBrace:
 					space();
 					parseBlock(mode);
-					return;
+					return true;
 				
 				case Identifier:
 					auto lookahead = trange.save.withComments(false);
@@ -1093,7 +1095,7 @@ private:
 							break;
 					}
 					
-					return;
+					return true;
 				
 				default:
 					break;

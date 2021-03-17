@@ -15,4 +15,3 @@ int foo(long i, long j) {
 int foo(long i, int j) {
 	return 17;
 }
-

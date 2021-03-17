@@ -7,12 +7,11 @@ int main() {
 	enum BUFFER_SIZE = 16;
 	int[BUFFER_SIZE] ii;
 	int i = 12;
-	
+
 	ii[++i] = i;
 	ii[i++] += i;
-	
+
 	(*(&ii[i--] - 1)) += 2;
-	
+
 	return ii[i] + i;
 }
-

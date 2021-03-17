@@ -15,4 +15,3 @@ mixin(bar());
 string bar() {
 	return "int foo(int i) { return i; }";
 }
-

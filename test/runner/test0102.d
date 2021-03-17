@@ -5,13 +5,13 @@
 int main() {
 	auto a = Foo!bool + Foo!byte + Foo!ushort + Foo!int + Foo!float;
 	assert(a == 10);
-	
+
 	a += Foo!char;
-	
+
 	auto b = Foo!long + Foo!double;
-	
+
 	assert(b == 30);
-	
+
 	return a + b;
 }
 

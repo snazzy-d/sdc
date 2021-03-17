@@ -10,4 +10,3 @@ string foo() {
 }
 
 mixin(foo());
-
