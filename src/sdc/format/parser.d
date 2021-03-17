@@ -390,6 +390,10 @@ private:
 				parseConstructor();
 				break;
 			
+			case Template:
+				parseTemplate();
+				break;
+			
 			case Synchronized:
 				goto StorageClass;
 			
@@ -502,7 +506,12 @@ private:
 	bool parseIdentifier() {
 		bool prefix = parseIdentifierPrefix();
 		bool base = parseBaseIdentifier();
-		return prefix || base;
+		if (!prefix && !base) {
+			return false;
+		}
+		
+		parseIdentifierSuffix();
+		return true;
 	}
 	
 	bool parseIdentifierPrefix() {
@@ -617,7 +626,6 @@ private:
 				return false;
 		}
 		
-		parseIdentifierSuffix();
 		return true;
 	}
 	
@@ -634,12 +642,14 @@ private:
 					nextToken();
 					// Put another coin in the Pachinko!
 					parseBaseIdentifier();
-					return true;
+					break;
 				
 				case Bang:
 					nextToken();
 					if (match(OpenParen)) {
 						parseArgumentList();
+					} else {
+						parseBaseIdentifier();
 					}
 					
 					break;
@@ -1020,6 +1030,17 @@ private:
 			space();
 			parseBlock(Mode.Statement);
 		}
+	}
+	
+	void parseTemplate() in {
+		assert(match(TokenType.Template));
+	} body {
+		nextToken();
+		space();
+		runOnType!(TokenType.Identifier, nextToken)();
+		parseParameterList();
+		space();
+		parseBlock(Mode.Declaration);
 	}
 	
 	bool parseParameterList() {

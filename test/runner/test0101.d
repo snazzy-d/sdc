@@ -5,12 +5,12 @@
 int main() {
 	auto a = foo!bool() + foo!byte() + foo!ushort() + foo!int() + foo!float();
 	assert(a == 40);
-	
+
 	a += foo!char();
-	
+
 	auto b = foo!long() + foo!double();
 	assert(b == 512);
-	
+
 	return a + b;
 }
 
@@ -29,7 +29,6 @@ uint buzz(size_t sizeof) {
 	for (uint i = 0; i < sizeof; ++i) {
 		ret *= 2;
 	}
-	
+
 	return ret;
 }
-

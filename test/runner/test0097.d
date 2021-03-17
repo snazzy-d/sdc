@@ -10,7 +10,6 @@ int add(long a, ulong b) {
 int main() {
 	int a = 25;
 	int b = 2;
-	
+
 	return add(-12, add(add(a, b), add(b, a)));
 }
-

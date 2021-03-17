@@ -9,9 +9,8 @@ template Foo(T) {
 int main() {
 	Foo!int = 4;
 	Foo!long = 2 * Foo!int;
-	
+
 	Foo!int = 4 + cast(typeof(Foo!int)) (Foo!long + Foo!bool);
-	
+
 	return Foo!int;
 }
-

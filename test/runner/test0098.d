@@ -10,7 +10,7 @@ struct Bar {
 		f.i = 42;
 		return f;
 	}
-	
+
 	alias Qux = Baz;
 }
 
@@ -25,4 +25,3 @@ alias Fizz = int;
 int main() {
 	return Bar.baz().i;
 }
-

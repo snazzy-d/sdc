@@ -14,7 +14,7 @@ alias Fizz = Foo;
 
 struct S {
 	Qux!Bar buzz;
-	
+
 	auto get7() {
 		return buzz.baz + 2;
 	}
