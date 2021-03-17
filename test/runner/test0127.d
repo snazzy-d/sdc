@@ -18,4 +18,3 @@ template Foo(T : T[]) {
 int main() {
 	return Foo!(int*) + Foo!(long[]) + Foo!char;
 }
-

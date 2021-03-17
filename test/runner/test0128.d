@@ -9,4 +9,3 @@ template Qux(T : U*, U : V*, V) {
 int main() {
 	return Qux!(float**, int*);
 }
-

@@ -8,7 +8,7 @@ int a = 10;
 int foo() {
 	scope(exit) a = 7;
 	scope(exit) return a;
-	
+
 	return a++;
 }
 

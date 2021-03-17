@@ -10,4 +10,3 @@ template Foo(T : T*) {
 int main() {
 	return Foo!(char*) + Foo!(long*);
 }
-

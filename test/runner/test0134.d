@@ -7,4 +7,3 @@ struct Foo {
 }
 
 void main() {}
-

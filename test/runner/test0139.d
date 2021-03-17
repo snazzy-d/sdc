@@ -6,16 +6,16 @@
 class Foo {
 	int i;
 	int j;
-	
+
 	this(int i) {
 		this(i, 31);
 	}
-	
+
 	this(int i, int j) {
 		this.i = i;
 		this.j = j;
 	}
-	
+
 	auto bar() {
 		return i + j;
 	}

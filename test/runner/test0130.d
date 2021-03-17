@@ -21,7 +21,6 @@ auto qux(T : U*, U)(T t) {
 
 int main() {
 	int a = 5;
-	
+
 	return cast(int) (buzz(&a) + foo(a) + bar(1) + qux(&a));
 }
-

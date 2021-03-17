@@ -10,4 +10,3 @@ template Foo(T : U[], U) {
 int main() {
 	return Foo!(long[]) + Foo!string + Foo!(string[]);
 }
-

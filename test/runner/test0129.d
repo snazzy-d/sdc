@@ -18,10 +18,10 @@ auto bar(T)(T t) {
 int main() {
 	auto a = Qux!(float*);
 	assert(a == 12);
-	
+
 	a += Qux!(int*, int);
 	assert(a == 24);
-	
+
 	return foo(a) + bar(4) + buzz(5);
 }
 

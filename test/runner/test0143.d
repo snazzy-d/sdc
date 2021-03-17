@@ -7,13 +7,13 @@ int a = 9;
 
 int foo(bool fi) {
 	scope(exit) a = 11;
-	
+
 	auto b = a;
-	if(fi) {
+	if (fi) {
 		a = 7;
 		return a + b;
 	}
-	
+
 	a = 5;
 	return a + b;
 }
@@ -21,4 +21,3 @@ int foo(bool fi) {
 int main() {
 	return foo(true) + foo(false) + a;
 }
-

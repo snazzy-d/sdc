@@ -266,8 +266,14 @@ private:
 			case Identifier:
 				auto lookahead = trange.save.withComments(false);
 				lookahead.popFront();
+				auto t = lookahead.front.type;
 				
-				if (lookahead.front.type != Colon) {
+				if (mode == Mode.Parameter && (t == Colon || t == Equal)) {
+					parseTemplateParameter();
+					break;
+				}
+				
+				if (t != Colon) {
 					// This is an expression or a declaration.
 					goto default;
 				}
@@ -504,21 +510,26 @@ private:
 	/**
 	 * Identifiers
 	 */
-	bool parseIdentifier() {
-		bool prefix = parseIdentifierPrefix();
-		bool base = parseBaseIdentifier();
-		bool suffix = parseIdentifierSuffix();
-		return prefix || base || suffix;
+	enum IdentifierKind {
+		None,
+		Symbol,
+		Type,
+		Expression,
 	}
 	
-	bool parseIdentifierPrefix() {
-		bool ret = false;
+	bool parseIdentifier() {
+		parseIdentifierPrefix();
+		auto kind = parseBaseIdentifier();
+		if (kind == IdentifierKind.None) {
+			return false;
+		}
+		
+		parseIdentifierSuffix(kind);
+		return true;
+	}
+	
+	void parseIdentifierPrefix() {
 		while (true) {
-			scope(success) {
-				// This will be true after the first loop iterration.
-				ret = true;
-			}
-
 			switch (token.type) with(TokenType) {
 				// Prefixes.
 				case Dot:
@@ -545,12 +556,14 @@ private:
 					break;
 				
 				default:
-					return ret;
+					return;
 			}
 		}
 	}
 	
-	bool parseBaseIdentifier() {
+	IdentifierKind parseBaseIdentifier() {
+		IdentifierKind kind = IdentifierKind.Symbol;
+		
 		BaseIdentifier:
 		switch (token.type) with(TokenType) {
 			case Identifier:
@@ -569,6 +582,7 @@ private:
 			case __File__:
 			case __Line__:
 			case Dollar:
+				kind = IdentifierKind.Expression;
 				nextToken();
 				break;
 			
@@ -590,6 +604,7 @@ private:
 			
 			// Types
 			case Typeof:
+				kind = IdentifierKind.Type;
 				nextToken();
 				parseArgumentList();
 				break;
@@ -603,11 +618,13 @@ private:
 			case Char, Wchar, Dchar:
 			case Float, Double, Real:
 			case Void:
+				kind = IdentifierKind.Type;
 				nextToken();
 				break;
 			
 			// Type qualifiers
 			case Const, Immutable, Inout, Shared:
+				kind = IdentifierKind.Type;
 				nextToken();
 				if (!match(OpenParen)) {
 					space();
@@ -620,28 +637,47 @@ private:
 				break;
 			
 			default:
-				return false;
+				return IdentifierKind.None;
 		}
 		
-		return true;
+		return kind;
 	}
 	
-	bool parseIdentifierSuffix() {
-		bool ret = false;
+	void parseIdentifierSuffix(IdentifierKind kind) in {
+		assert(kind != IdentifierKind.None);
+	} body {
 		while (true) {
-			scope(success) {
-				// This will be true after the first loop iterration.
-				ret = true;
-			}
-
 			switch (token.type) with(TokenType) {
 				case Dot:
 					nextToken();
 					// Put another coin in the Pachinko!
-					parseBaseIdentifier();
+					kind = parseBaseIdentifier();
+					break;
+				
+				case Star:
+					final switch (kind) with(IdentifierKind) {
+						case Type:
+							// This is a pointer.
+							nextToken();
+							break;
+						
+						case Expression:
+							// This is a multiplication.
+							return;
+						
+						case Symbol:
+							// This could be either. Bail for now.
+							// TODO: use an heuristic.
+							return;
+						
+						case None:
+							assert(0);
+					}
+					
 					break;
 				
 				case Bang:
+					kind = IdentifierKind.Symbol;
 					nextToken();
 					if (match(OpenParen)) {
 						parseArgumentList();
@@ -652,6 +688,7 @@ private:
 					break;
 				
 				case PlusPlus, MinusMinus:
+					kind = IdentifierKind.Expression;
 					nextToken();
 					break;
 				
@@ -660,7 +697,7 @@ private:
 					break;
 				
 				default:
-					return ret;
+					return;
 			}
 		}
 	}
@@ -870,11 +907,9 @@ private:
 	 */
 	void parseType() {
 		parseIdentifier();
-		
-		do {
-			// '*' could be a pointer or a multiply, so it is not parsed eagerly.
-			runOnType!(TokenType.Star, nextToken)();
-		} while(parseIdentifierSuffix());
+
+		// '*' could be a pointer or a multiply, so it is not parsed eagerly.
+		parseIdentifierSuffix(IdentifierKind.Type);
 	}
 	
 	/**
@@ -1038,6 +1073,19 @@ private:
 		parseParameterList();
 		space();
 		parseBlock(Mode.Declaration);
+	}
+	
+	void parseTemplateParameter() in {
+		assert(token.type == TokenType.Identifier);
+	} body {
+		nextToken();
+		
+		while (match(TokenType.Colon) || match(TokenType.Equal)) {
+			space();
+			nextToken();
+			space();
+			parseType();
+		}
 	}
 	
 	bool parseParameterList() {

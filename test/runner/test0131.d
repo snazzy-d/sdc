@@ -10,4 +10,3 @@ auto foo(T, U)(T t, U u) {
 int main() {
 	return cast(int) foo('A', -28);
 }
-
