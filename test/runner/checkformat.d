@@ -28,7 +28,7 @@ void test(string filename, string formatter) in {
 } body {
 	auto managerTid = receiveOnly!Tid();
 	
-	string original = readText(filename);
+	string original = cast(string) read(filename);
 	
 	import std.process;
 	auto result = execute([formatter, filename]);
@@ -37,8 +37,10 @@ void test(string filename, string formatter) in {
 		managerTid.send(filename, false);
 		return;
 	}
-
-	if (result.output != original) {
+	
+	import std.encoding;
+	auto bom = getBOM(cast(const(ubyte)[]) original).schema;
+	if (bom == BOM.none && result.output != original) {
 		stderr.writefln("%s: sdfmt did not format as expected.", filename);
 		managerTid.send(filename, false);
 		return;
@@ -70,7 +72,7 @@ int main(string[] args) {
 		// Figure out how many tests there are.
 		int testNumber = -1;
 		while (exists(getTestFilename(++testNumber))) {
-			if (testNumber > 82) {
+			if (testNumber > 94) {
 				break;
 			}
 		}

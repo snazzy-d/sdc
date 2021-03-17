@@ -7,4 +7,3 @@ int foobar = 42;
 int main() {
 	return foobar;
 }
-
