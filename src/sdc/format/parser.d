@@ -609,8 +609,46 @@ private:
 				
 			
 			case OpenParen:
-				// TODO: lambdas
+				import d.parser.util;
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popMatchingDelimiter!OpenParen();
+				
+				switch (lookahead.front.type) {
+					case Dot:
+						// Could be (type).identifier
+						break;
+					
+					case OpenBrace:
+						kind = IdentifierKind.Expression;
+						parseParameterList();
+						space();
+						parseBlock(Mode.Statement);
+						clearSplitType();
+						break;
+					
+					case EqualMore:
+						kind = IdentifierKind.Expression;
+						parseParameterList();
+						space();
+						if (match(EqualMore)) {
+							nextToken();
+							space();
+							parseExpression();
+						}
+						
+						break;
+					
+					default:
+						break;
+				}
+				
 				parseArgumentList();
+				break;
+			
+			case OpenBrace:
+				// This is a parameterless lambda.
+				parseBlock(Mode.Statement);
+				clearSplitType();
 				break;
 			
 			case OpenBracket:

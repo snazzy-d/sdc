@@ -8,11 +8,10 @@ int main() {
 	int foo() {
 		return --a;
 	}
-	
+
 	return () {
 		return a++;
 	}() + {
 		return a -= 2;
 	}() + foo() + ((int b) => a + b)(1);
 }
-

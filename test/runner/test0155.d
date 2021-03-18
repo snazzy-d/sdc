@@ -5,17 +5,16 @@
 
 int main() {
 	int a = 9;
-	
+
 	auto foo() {
 		int b = 11;
-		
+
 		auto bar() {
 			return a++ + b++;
 		}
-		
+
 		return bar() + b;
 	}
-	
+
 	return foo() + a;
 }
-
