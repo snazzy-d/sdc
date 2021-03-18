@@ -5,15 +5,15 @@
 
 class Foo {
 	uint a = 13;
-	
+
 	uint bar() {
 		auto dg = {
 			return buzz();
 		};
-		
+
 		return dg() + buzz() + a;
 	}
-	
+
 	uint buzz() {
 		return a++;
 	}

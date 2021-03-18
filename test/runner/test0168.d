@@ -9,12 +9,11 @@ int main() {
 			return 11;
 		}
 	}
-	
+
 	auto bar() {
 		return 13;
 	}
-	
+
 	S s;
 	return s.foo() + bar();
 }
-

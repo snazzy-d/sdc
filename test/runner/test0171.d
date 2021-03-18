@@ -5,5 +5,6 @@
 int main() {
 	goto OverInit;
 	int i;
-	OverInit:
+
+OverInit:
 }

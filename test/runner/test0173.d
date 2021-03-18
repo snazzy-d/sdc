@@ -9,7 +9,6 @@ int main() {
 	} else {
 		return 5;
 	}
-	
+
 	return 7;
 }
-

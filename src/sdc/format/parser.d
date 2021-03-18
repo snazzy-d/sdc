@@ -1102,7 +1102,19 @@ private:
 					break;
 				
 				case QuestionMark:
-					goto default;
+					space();
+					nextToken();
+					space();
+					parseExpression();
+					space();
+					
+					if (match(Colon)) {
+						nextToken();
+						space();
+					}
+					
+					parseExpression();
+					break;
 				
 				default:
 					return;

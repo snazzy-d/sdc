@@ -5,8 +5,9 @@
 int main() {
 	if (false) {
 		int i;
-		OverInit:
+
+	OverInit:
 	}
-	
+
 	goto OverInit;
 }

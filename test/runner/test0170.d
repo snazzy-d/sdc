@@ -5,45 +5,50 @@
 
 int main() {
 	goto Over;
-	
-	Reachable:
-	while(true) { int i; }
-	
-	Over:
+
+Reachable:
+	while (true) {
+		int i;
+	}
+
+Over:
 	while (false) {
-		InLoop:
+
+	InLoop:
 		int i;
 		goto PostLoop;
 	}
-	
+
 	goto InLoop;
-	
-	PostLoop:
+
+PostLoop:
 	bool hasJumped = false;
-	
-	Jump:
+
+Jump:
 	uint i;
 	assert(i == 0);
-	
+
 	i = 5;
 	if (!hasJumped) {
 		hasJumped = true;
 		goto Jump;
 	}
-	
+
 	// Backward unwind.
-	Reloop:
+
+Reloop:
 	while (i < 13) {
 		scope(exit) i += 7;
 		goto Reloop;
 	}
-	
+
 	// Forward unwind.
+
 	{
 		scope(exit) i += 4;
 		goto Exit;
 	}
-	
-	Exit:
+
+Exit:
 	return i;
 }

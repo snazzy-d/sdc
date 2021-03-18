@@ -16,4 +16,3 @@ int main() {
 	int a = 11;
 	return a.ufcs + (&a).ufcs;
 }
-
