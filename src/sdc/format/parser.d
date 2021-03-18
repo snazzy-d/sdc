@@ -1336,21 +1336,18 @@ private:
 		runOnType!(TokenType.Identifier, nextToken)();
 		
 		parseArgumentList();
-		space();
 		
-		switch (token.type) with(TokenType) {
-			case This:
-				nextToken();
-				break;
-			
-			case Equal:
-				nextToken();
-				space();
-				parseExpression();
-				break;
-			
-			default:
-				break;
+		if (match(TokenType.This)) {
+			space();
+			nextToken();
+			return;
+		}
+		
+		while (match(TokenType.Equal) || match(TokenType.Colon)) {
+			space();
+			nextToken();
+			space();
+			parseExpression();
 		}
 	}
 	

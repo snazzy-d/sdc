@@ -12,10 +12,10 @@ int main() {
 	auto foo() {
 		return a;
 	}
-	
+
 	auto bar() {
 		return forward!foo();
 	}
-	
+
 	return bar();
 }

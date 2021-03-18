@@ -12,4 +12,3 @@ int main() {
 }
 
 enum I = 5;
-

@@ -15,4 +15,3 @@ b main() {
 }
 
 alias a = uint;
-

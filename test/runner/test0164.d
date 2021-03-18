@@ -5,19 +5,19 @@
 
 auto voldemort() {
 	uint a = 7;
-	
+
 	class MarvoloRiddle {
 		uint b;
-		
+
 		this(uint b) {
 			this.b = b + a++;
 		}
-		
+
 		auto foo() {
 			return a + b;
 		}
 	}
-	
+
 	return new MarvoloRiddle(27);
 }
 
@@ -29,4 +29,3 @@ int main() {
 	auto v = voldemort();
 	return bar(v);
 }
-
