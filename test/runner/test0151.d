@@ -20,7 +20,6 @@ int main() {
 	} catch(Exception e) {
 		return a;
 	}
-	
+
 	return 0;
 }
-

@@ -376,6 +376,24 @@ private:
 				
 				break;
 			
+			case Throw:
+				nextToken();
+				space();
+				parseExpression();
+				break;
+			
+			case Try:
+				parseTry();
+				break;
+			
+			case Catch:
+				parseCatch();
+				break;
+			
+			case Finally:
+				parseFinally();
+				break;
+			
 			case Scope:
 				// FIXME: scope statements.
 				goto StorageClass;
@@ -383,9 +401,6 @@ private:
 			case Assert:
 				parseExpression();
 				break;
-			
-			case Throw, Try:
-				goto default;
 			
 			/**
 			 * Declaration
@@ -913,6 +928,45 @@ private:
 		assert(match(TokenType.Switch));
 	} body {
 		parseControlFlowBase(2);
+	}
+	
+	void parseTry() in {
+		assert(match(TokenType.Try));
+	} body {
+		nextToken();
+		space();
+		bool isBlock = parseControlFlowBlock();
+		
+		while (true) {
+			while (match(TokenType.Catch)) {
+				emitBlockControlFlowWhitespace(isBlock);
+				isBlock = parseCatch();
+			}
+			
+			if (!match(TokenType.Finally)) {
+				break;
+			}
+			
+			emitBlockControlFlowWhitespace(isBlock);
+			isBlock = parseFinally();
+		}
+	}
+	
+	bool parseCatch() in {
+		assert(match(TokenType.Catch));
+	} body {
+		nextToken();
+		parseParameterList();
+		space();
+		return parseControlFlowBlock();
+	}
+	
+	bool parseFinally() in {
+		assert(match(TokenType.Finally));
+	} body {
+		nextToken();
+		space();
+		return parseControlFlowBlock();
 	}
 	
 	/**
