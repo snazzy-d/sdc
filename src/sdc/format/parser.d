@@ -587,6 +587,7 @@ private:
 				break;
 			
 			case Assert:
+				kind = IdentifierKind.Expression;
 				nextToken();
 				parseArgumentList();
 				break;
@@ -599,6 +600,12 @@ private:
 			
 			case OpenBracket:
 				// TODO: maps
+				parseArgumentList();
+				break;
+			
+			case Typeid:
+				kind = IdentifierKind.Expression;
+				nextToken();
 				parseArgumentList();
 				break;
 			
@@ -677,6 +684,12 @@ private:
 					break;
 				
 				case Bang:
+					if (isBangIsOrIn()) {
+						// This is a binary expression.
+						return;
+					}
+					
+					// Template instance.
 					kind = IdentifierKind.Symbol;
 					nextToken();
 					if (match(OpenParen)) {
@@ -924,6 +937,15 @@ private:
 		parseIdentifier();
 	}
 	
+	bool isBangIsOrIn() in {
+		assert(match(TokenType.Bang));
+	} body {
+		auto lookahead = trange.save.withComments(false);
+		lookahead.popFront();
+		auto t = lookahead.front.type;
+		return t == TokenType.Is || t == TokenType.In;
+	}
+	
 	void parseBinaryExpression() {
 		while (true) {
 			switch (token.type) with(TokenType) {
@@ -962,7 +984,6 @@ private:
 				case BangLessEqual:
 				case Is:
 				case In:
-				case Bang:
 				case LessLess:
 				case MoreMore:
 				case MoreMoreMore:
@@ -973,6 +994,17 @@ private:
 				case Star:
 				case Percent:
 					space();
+					nextToken();
+					space();
+					break;
+				
+				case Bang:
+					if (!isBangIsOrIn()) {
+						return;
+					}
+					
+					space();
+					nextToken();
 					nextToken();
 					space();
 					break;
