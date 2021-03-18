@@ -8,7 +8,7 @@ int foo() {
 
 int main() {
 	void* p = &foo;
-	auto fn = (cast(int function())p)();
+	auto fn = (cast(int function()) p)();
 
 	return fn;
 }

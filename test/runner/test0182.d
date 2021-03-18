@@ -5,14 +5,14 @@
 
 struct Foo {
 	uint a = 13;
-	
+
 	// FIXME: handle implicitelyd efined constructors.
 	this() {}
-	
+
 	uint bar(alias fun)() {
 		return fun(buzz()) + buzz();
 	}
-	
+
 	uint buzz() {
 		return a++;
 	}
@@ -23,7 +23,7 @@ int main() {
 	uint foo(uint a) {
 		return a + b++;
 	}
-	
+
 	auto f = Foo();
 	return f.bar!foo() + b;
 }

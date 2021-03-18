@@ -719,21 +719,41 @@ private:
 						case Type:
 							// This is a pointer.
 							nextToken();
-							break;
+							continue;
 						
 						case Expression:
 							// This is a multiplication.
 							return;
 						
 						case Symbol:
-							// This could be either. Bail for now.
-							// TODO: use an heuristic.
-							return;
+							// This could be either. Use lookahead.
+							break;
 						
 						case None:
 							assert(0);
 					}
 					
+					auto lookahead = trange.save.withComments(false);
+					lookahead.popFront();
+					
+					switch (lookahead.front.type) {
+						case Star, Function, Delegate:
+							kind = IdentifierKind.Type;
+							nextToken();
+							break;
+						
+						default:
+							// No idea what this is, move on.
+							return;
+					}
+					
+					break;
+				
+				case Function, Delegate:
+					kind = IdentifierKind.Type;
+					space();
+					nextToken();
+					parseParameterList();
 					break;
 				
 				case Bang:
