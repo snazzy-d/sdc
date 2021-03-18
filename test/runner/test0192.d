@@ -17,6 +17,6 @@ int main() {
 	static foo() {
 		return 1;
 	}
-	
+
 	return foo() + bar() + n + p;
 }

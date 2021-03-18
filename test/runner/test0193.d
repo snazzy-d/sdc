@@ -16,6 +16,6 @@ auto bar() {
 int main() {
 	arr[0] = 25;
 	arr[1] = 10;
-	
+
 	return foo()[1] + bar()[1] + *foo();
 }

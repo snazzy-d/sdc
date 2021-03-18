@@ -71,11 +71,7 @@ int main(string[] args) {
 	} else {
 		// Figure out how many tests there are.
 		int testNumber = -1;
-		while (exists(getTestFilename(++testNumber))) {
-			if (testNumber > 182) {
-				break;
-			}
-		}
+		while (exists(getTestFilename(++testNumber))) {}
 		if (testNumber < 0) {
 			stderr.writeln("No tests found.");
 			return -1;

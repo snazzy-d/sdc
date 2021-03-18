@@ -6,28 +6,31 @@
 int main() {
 	int x = 10;
 	switch (x) {
-		case 1 :
+		case 1:
 			switch (x) {
-				default :
+				default:
 					break;
 			}
+
 			break;
-		
-		case 2 :
+
+		case 2:
 			switch (x) {
-				default :
+				default:
 					break;
-				
-				case 1 :
+
+				case 1:
 					switch (x) {
-						default :
+						default:
 							break;
 					}
+
 					break;
 			}
+
 			break;
-		
-		default :
+
+		default:
 			break;
 	}
 

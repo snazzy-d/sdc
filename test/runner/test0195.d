@@ -17,7 +17,7 @@ unittest buzz {
 	static fail() {
 		throw new Exception();
 	}
-	
+
 	fail();
 }
 

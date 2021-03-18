@@ -4,10 +4,10 @@
 
 int main() {
 	int x = 10;
-	switch(x) {
+	switch (x) {
 		case 0:
 			return 1;
-		
+
 		case 2:
 			return 2;
 	}

@@ -662,6 +662,14 @@ private:
 				parseArgumentList();
 				break;
 			
+			case Mixin:
+				// Assume it is an expression. Technically, it could be a declaration, but it
+				// change nothing from a formatting perspective, so we are good.
+				kind = IdentifierKind.Expression;
+				nextToken();
+				parseArgumentList();
+				break;
+			
 			// Types
 			case Typeof:
 				kind = IdentifierKind.Type;

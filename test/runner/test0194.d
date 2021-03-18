@@ -5,13 +5,14 @@
 
 struct S(T) {
 	T t;
-	
+
 	this(T t) {
 		this.t = t;
 	}
 }
 
 // TODO: Check for incorrect paramater count and so on.
+
 T foo(T)(S!T s) {
 	return s.t;
 }

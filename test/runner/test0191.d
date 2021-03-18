@@ -17,6 +17,6 @@ int main() {
 	auto ul = ulong(1);
 	auto ce = cent(1);
 	auto uc = ucent(1);
-	
+
 	return 20 + T(3);
 }
