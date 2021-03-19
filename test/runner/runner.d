@@ -13,57 +13,87 @@ immutable EXE_EXTENSION = ".bin";
 
 string getTestFilename(int n) {
 	import std.format;
-	return format("test%04s.d",n);
+	return format("test/runner/test%04s.d",n);
+}
+
+enum Mode {
+	Legacy,
+	Invalid,
 }
 
 struct Task {
 	string name;
 	string compiler;
+	Mode mode;
 	
 	TestResult run() {
-		bool has = true;
-		bool expectedToCompile = true;
+		bool hasPassed = true;
 		int expectedRetval = 0;
 		string[] dependencies;
+		string[] errors;
 		
-		import std.stdio, std.string;
-		foreach (line; File("test/runner/" ~ name, "r").byLine) {
+		bool expectedToCompile;
+		
+		final switch (mode) with(Mode) {
+			case Legacy:
+				expectedToCompile = true;
+				break;
+			
+			case Invalid:
+				expectedToCompile = false;
+				break;
+		}
+		
+		import std.stdio;
+		foreach (const(char)[] line; File(name, "r").byLine) {
 			if (line.length < 3 || line[0 .. 3] != "//T") {
 				continue;
 			}
-			auto words = split(line);
-			if (words.length != 2) {
+			
+			import std.algorithm : findSplitAfter;
+			auto parts = findSplitAfter(line[3 .. $], ":");
+			
+			import std.string;
+			auto var = strip(parts[0][0 .. $ - 1]);
+			auto val = strip(parts[1]).idup;
+			
+			if (var == "") {
 				stderr.writefln("%s: malformed test.", name);
-				return TestResult(name, false, has);
+				return TestResult(name, false, hasPassed);
 			}
-			auto set = split(words[1], ":");
-			if (set.length < 2) {
-				stderr.writefln("%s: malformed test.", name);
-				return TestResult(name, false, has);
-			}
-			auto var = set[0].idup;
-			auto val = set[1].idup;
 			
 			switch (var) {
-			case "compiles":
-				expectedToCompile = getBool(val);
-				break;
-			case "retval":
-				expectedRetval = getInt(val);
-				break;
-			case "dependency":
-				dependencies ~= val;
-				break;
-			case "has-passed":
-				has = getBool(val);
-				break;
-			default:
-				stderr.writefln("%s: invalid command.", name);
-				return TestResult(name, false, has);
+				case "compiles":
+					expectedToCompile = getBool(val);
+					break;
+				
+				case "retval":
+					expectedRetval = getInt(val);
+					break;
+				
+				case "dependency":
+					dependencies ~= val;
+					break;
+				
+				case "has-passed":
+					hasPassed = getBool(val);
+					break;
+				
+				case "error":
+					errors ~= val;
+					break;
+				
+				default:
+					stderr.writefln("%s: invalid command.", name);
+					return TestResult(name, false, hasPassed);
 			}
 		}
 
-		string exeName = name ~ EXE_EXTENSION;
+		import std.path;
+		auto dir = dirName(name);
+		auto file = baseName(name);
+		
+		string exeName = file ~ EXE_EXTENSION;
 		scope(exit) {
 			import std.file;
 			if (exists(exeName)) {
@@ -72,31 +102,40 @@ struct Task {
 		}
 		
 		import std.process;
-		string[] command = [compiler, "-o", exeName, name] ~ dependencies;
-		auto result = execute(command, /* env = */ null, Config.none, /* maxOutput = */ size_t.max, "test/runner");
+		string[] command = [compiler, "-o", exeName, file] ~ dependencies;
+		auto result = execute(command, /* env = */ null, Config.none, /* maxOutput = */ size_t.max, dir);
+		
+		string output = result.output;
+		foreach (e; errors) {
+			import std.algorithm : findSkip;
+			if (!output.findSkip(e)) {
+				stderr.writefln("%s: test expected error %s %s", name, [e], [output]);
+				return TestResult(name, false, hasPassed);
+			}
+		}
 		
 		if (expectedToCompile && result.status != 0) {
 			stderr.writefln("%s: test expected to compile, did not (%d).", name, result.status);
-			return TestResult(name, false, has);
+			return TestResult(name, false, hasPassed);
 		}
 		
 		if (!expectedToCompile && result.status == 0) {
 			stderr.writefln("%s: test expected to not compile, did.", name);
-			return TestResult(name, false, has);
+			return TestResult(name, false, hasPassed);
 		}
 
 		if (!expectedToCompile && result.status != 0) {
-			return TestResult(name, true, has);
+			return TestResult(name, true, hasPassed);
 		}
 		
 		assert(expectedToCompile);
-		auto retval = execute(["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */ size_t.max, "test/runner").status;
+		auto retval = execute(["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */ size_t.max, dir).status;
 		if (retval != expectedRetval) {
 			stderr.writefln("%s: expected reval %s, got %s", name, expectedRetval, retval);
-			return TestResult(name, false, has);
+			return TestResult(name, false, hasPassed);
 		}
 		
-		return TestResult(name, true, has);
+		return TestResult(name, true, hasPassed);
 	}
 }
 
@@ -127,7 +166,7 @@ struct TestRunner {
 			// Figure out how many tests there are.
 			uint testNumber = 0;
 			import std.file;
-			while (exists("test/runner/" ~ getTestFilename(testNumber))) {
+			while (exists(getTestFilename(testNumber))) {
 				testNumber++;
 			}
 			
@@ -137,7 +176,21 @@ struct TestRunner {
 			tests = iota(0, testNumber - 1).map!getTestFilename().array();
 		}
 		
-		return tests.map!(t => Task(t, compiler));
+		auto legacy_tests = tests.map!(t => Task(t, compiler, Mode.Legacy));
+
+		import std.file;
+		tests = [];
+		foreach (f; dirEntries("test/invalid", "*.d", SpanMode.breadth)) {
+			if (!f.isFile()) {
+				continue;
+			}
+			
+			tests ~= f;
+		}
+		
+		auto invalid_tests = tests.map!(t => Task(t, compiler, Mode.Invalid));
+		
+		return chain(legacy_tests, invalid_tests);
 	}
 }
 

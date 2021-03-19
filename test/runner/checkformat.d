@@ -79,6 +79,15 @@ struct CheckFormat {
 			tests = iota(0, testNumber - 1).map!getTestFilename().array();
 		}
 		
+		import std.file;
+		foreach (f; dirEntries("test/invalid", "*.d", SpanMode.breadth)) {
+			if (!f.isFile()) {
+				continue;
+			}
+			
+			tests ~= f;
+		}
+		
 		return tests.map!(t => Task(t, formatter));
 	}
 }
