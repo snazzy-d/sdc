@@ -418,28 +418,26 @@ private:
 			? TokenType.StringLiteral
 			: TokenType.CharacterLiteral;
 		
-		auto c = frontChar;
+		enum Delimiter = s[0];
+		enum DoesEscape = Delimiter != '`';
 		
-		static if (s == "\"" || s == "'") {
-			while (c != s[0] && c != '\0') {
-				if (c == '\\') {
-					popChar();
-					c = frontChar;
-				}
-				
+		auto c = frontChar;
+		while (c != Delimiter && c != '\0') {
+			if (DoesEscape && c == '\\') {
 				popChar();
 				c = frontChar;
 			}
 			
-			if (c == s[0]) {
-				popChar();
-			}
-			
-			t.location = Location(begin, base.getWithOffset(index));
-			return t;
-		} else {
-			assert(0, "string literal using " ~ s ~ "not supported");
+			popChar();
+			c = frontChar;
 		}
+		
+		if (c == Delimiter) {
+			popChar();
+		}
+		
+		t.location = Location(begin, base.getWithOffset(index));
+		return t;
 	}
 	
 	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
@@ -982,12 +980,12 @@ auto getLexerMap() {
 		"0X"				: "lexNumeric",
 		
 		// String literals.
-		`r"`				: "lexString",
 		"`"					: "lexString",
 		`"`					: "lexString",
 		`x"`				: "lexString",
 		`q"`				: "lexString",
 		"q{"				: "lexString",
+		`r"`				: "lexString",
 		
 		// Character literals.
 		"'"					: "lexString",

@@ -1254,11 +1254,11 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 	
 	trange.match(TokenType.StringLiteral);
 	
+	string dest;
+	
 	char c = str.popChar(location);
 	switch (c) {
 		case '"':
-			string dest;
-			
 			while (true) {
 				auto src = str;
 				do {
@@ -1273,10 +1273,21 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 				dest ~= str.lexEscapeSequence(location);
 			}
 			
-			return new StringLiteral(location, dest);
+			break;
+		
+		case '`':
+			if (str.length == 0 || str[$ - 1] != '`') {
+				import d.exception;
+				throw new CompileException(location, "Unexpected termination of literal");
+			}
+			
+			dest = str[0 .. $ - 1];
+			break;
 		
 		default:
 			import d.exception;
 			throw new CompileException(location, "Invalid string litteral");
 	}
+	
+	return new StringLiteral(location, dest);
 }
