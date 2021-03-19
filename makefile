@@ -63,10 +63,10 @@ clean:
 print-%: ; @echo $*=$($*)
 
 check-sdc: $(SDC) $(LIBSDRT) $(PHOBOS)
-	cd ./test/runner; ./runner.d
+	test/runner/runner.d
 
 check-sdfmt: $(SDFMT)
-	cd ./test/runner; ./checkformat.d
+	test/runner/checkformat.d
 
 check: all check-sdc check-llvm check-sdfmt
 

@@ -1,246 +1,146 @@
-#!/usr/bin/env rdmd
+#!/usr/bin/env -S sh -c 'rdmd -I`dirname "$0"` "$0" "$@"'
 /**
  * Copyright 2010-2011 Bernard Helyer
  * Copyright 2011 Jakob Ovrum
  */
 module runner;
 
-import std.algorithm;
-import std.concurrency;
-import std.conv;
-import std.file;
-alias std.file file;
-import std.getopt;
-import std.process;
-import std.range;
-import std.stdio;
-import std.string;
-import core.stdc.stdlib;
-version (linux) import core.sys.posix.unistd;
+import util;
 
-immutable SDC = "../../bin/sdc";
-immutable DMD = "dmd";
+immutable SDC = "bin/sdc";
 
-version (Windows) {
-	immutable EXE_EXTENSION = ".exe";
-} else {
-	immutable EXE_EXTENSION = ".bin";
-}
+immutable EXE_EXTENSION = ".bin";
 
 string getTestFilename(int n) {
+	import std.format;
 	return format("test%04s.d",n);
 }
 
-bool getBool(string s) {
-	return s == "yes";
-}
-
-int getInt(string s) {
-	return parse!int(s);
-}
-
-void test(string filename, string compiler) {
-	auto managerTid = receiveOnly!Tid();
-	bool has = true;
-	bool expectedToCompile = true;
-	int expectedRetval = 0;
-	string[] dependencies;
+struct Task {
+	string name;
+	string compiler;
 	
-	assert(exists(filename));
-	auto f = File(filename, "r");
-	scope(exit) f.close();
-
-	foreach (line; f.byLine) {
-		if (line.length < 3 || line[0 .. 3] != "//T") {
-			continue;
-		}
-		auto words = split(line);
-		if (words.length != 2) {
-			stderr.writefln("%s: malformed test.", filename);
-			managerTid.send(filename, false, has);
-			return;
-		}
-		auto set = split(words[1], ":");
-		if (set.length < 2) {
-			stderr.writefln("%s: malformed test.", filename);
-			managerTid.send(filename, false, has);
-			return;
-		}
-		auto var = set[0].idup;
-		auto val = set[1].idup;
+	TestResult run() {
+		bool has = true;
+		bool expectedToCompile = true;
+		int expectedRetval = 0;
+		string[] dependencies;
 		
-		switch (var) {
-		case "compiles":
-			expectedToCompile = getBool(val);
-			break;
-		case "retval":
-			expectedRetval = getInt(val);
-			break;
-		case "dependency":
-			dependencies ~= val;
-			break;
-		case "has-passed":
-			has = getBool(val);
-			break;
-		default:
-			stderr.writefln("%s: invalid command.", filename);
-			managerTid.send(filename, false, has);
-			return;
+		import std.stdio, std.string;
+		foreach (line; File("test/runner/" ~ name, "r").byLine) {
+			if (line.length < 3 || line[0 .. 3] != "//T") {
+				continue;
+			}
+			auto words = split(line);
+			if (words.length != 2) {
+				stderr.writefln("%s: malformed test.", name);
+				return TestResult(name, false, has);
+			}
+			auto set = split(words[1], ":");
+			if (set.length < 2) {
+				stderr.writefln("%s: malformed test.", name);
+				return TestResult(name, false, has);
+			}
+			auto var = set[0].idup;
+			auto val = set[1].idup;
+			
+			switch (var) {
+			case "compiles":
+				expectedToCompile = getBool(val);
+				break;
+			case "retval":
+				expectedRetval = getInt(val);
+				break;
+			case "dependency":
+				dependencies ~= val;
+				break;
+			case "has-passed":
+				has = getBool(val);
+				break;
+			default:
+				stderr.writefln("%s: invalid command.", name);
+				return TestResult(name, false, has);
+			}
 		}
+
+		string exeName = name ~ EXE_EXTENSION;
+		scope(exit) {
+			import std.file;
+			if (exists(exeName)) {
+				remove(exeName);
+			}
+		}
+		
+		import std.process;
+		string[] command = [compiler, "-o", exeName, name] ~ dependencies;
+		auto result = execute(command, /* env = */ null, Config.none, /* maxOutput = */ size_t.max, "test/runner");
+		
+		if (expectedToCompile && result.status != 0) {
+			stderr.writefln("%s: test expected to compile, did not (%d).", name, result.status);
+			return TestResult(name, false, has);
+		}
+		
+		if (!expectedToCompile && result.status == 0) {
+			stderr.writefln("%s: test expected to not compile, did.", name);
+			return TestResult(name, false, has);
+		}
+
+		if (!expectedToCompile && result.status != 0) {
+			return TestResult(name, true, has);
+		}
+		
+		assert(expectedToCompile);
+		auto retval = execute(["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */ size_t.max, "test/runner").status;
+		if (retval != expectedRetval) {
+			stderr.writefln("%s: expected reval %s, got %s", name, expectedRetval, retval);
+			return TestResult(name, false, has);
+		}
+		
+		return TestResult(name, true, has);
+	}
+}
+
+struct TestRunner {
+	enum Name = "Integration Test Runner";
+	enum XtraDoc = "specific test";
+	
+	import std.meta;
+	alias ExtraArgs = AliasSeq!("compiler", "The compiler executable to use.", string);
+	
+	string compiler;
+	
+	void processArgs(string compiler) {
+		this.compiler = getAbsolutePath(compiler);
 	}
 	
-	string command;
-	string cmdDeps = reduce!((string deps, string dep){ return format(`%s"%s" `, deps, dep); })("", dependencies);
-	
-	version (Windows) string exeName;
-	else string exeName = "./";
-	exeName ~= filename ~ EXE_EXTENSION;
-	if (file.exists(exeName)) {
-		file.remove(exeName);
+	auto getTasks(string[] args) {
+		if (compiler == "") {
+			compiler = getAbsolutePath(SDC);
+		}
+		
+		string[] tests;
+		
+		import std.algorithm, std.range;
+		if (args.length > 1) {
+			tests = args[1 .. $].map!(a => getTestFilename(getInt(a))).array();
+		} else {
+			// Figure out how many tests there are.
+			uint testNumber = 0;
+			import std.file;
+			while (exists("test/runner/" ~ getTestFilename(testNumber))) {
+				testNumber++;
+			}
+			
+			import std.exception;
+			enforce(testNumber > 0, "No tests found.");
+			
+			tests = iota(0, testNumber - 1).map!getTestFilename().array();
+		}
+		
+		return tests.map!(t => Task(t, compiler));
 	}
-	
-	if (compiler == SDC) {
-		command = format(`%s -o %s "%s" %s`, SDC, exeName, filename, cmdDeps);
-	} else if (compiler == DMD) {
-		command = format(`%s -of%s "%s" %s`, compiler, exeName, filename, cmdDeps);
-	} else {
-		command = format(`%s %s "%s" %s`, compiler, exeName, filename, cmdDeps);
-	}
-
-	// For some reasons &> is read as & > /dev/null causing the compiler to return 0.
-	version (Posix) if(!expectedToCompile || true) command ~= " 2> /dev/null 1> /dev/null";
-
-	auto retval = wait(spawnShell(command));
-	if (expectedToCompile && retval != 0) {
-		stderr.writefln("%s: test expected to compile, did not (%d).", filename, retval);
-		managerTid.send(filename, false, has);
-		return;
-	}
-
-	if (!expectedToCompile && retval == 0) {
-		stderr.writefln("%s: test expected to not compile, did.", filename);
-		managerTid.send(filename, false, has);
-		return;
-	}
-
-	if (!expectedToCompile && retval != 0) {
-		managerTid.send(filename, true, has);
-		return;
-	}
-
-	assert(expectedToCompile);
-	command = exeName;
-	version (Posix) command ~= " 2> /dev/null 1> /dev/null";
-
-	retval = wait(spawnShell(command));
-	if (retval != expectedRetval) {
-		stderr.writefln("%s: expected reval %s, got %s", filename, expectedRetval, retval);
-		managerTid.send(filename, false, has);
-		return;
-	}
-
-	managerTid.send(filename, true, has);
 }
 
 int main(string[] args) {
-	string compiler = SDC;
-	version (linux) size_t jobCount = sysconf(_SC_NPROCESSORS_ONLN);
-	else size_t jobCount = 1;
-	bool displayOnlyFailed = false;
-	bool waitOnExit = false;
-	getopt(
-		args,
-		"compiler", &compiler,
-		"j", &jobCount,
-		"only-failed", &displayOnlyFailed,
-		"wait-on-exit", &waitOnExit,
-		"help", delegate {usage(); exit(0);},
-	);
-	
-	string[] tests;
-	
-	if (args.length > 1) {
-		tests = args[1 .. $].map!(a => getTestFilename(to!int(a))).array();
-	} else {
-		// Figure out how many tests there are.
-		int testNumber = -1;
-		while (exists(getTestFilename(++testNumber))) {}
-		if (testNumber < 0) {
-			stderr.writeln("No tests found.");
-			return -1;
-		}
-		
-		tests = iota(0, testNumber).map!getTestFilename().array();
-	}
-	
-	size_t testIndex = 0;
-	int passed = 0;
-	int regressions = 0;
-	int improvments = 0;
-	while (testIndex < tests.length) {
-		Tid[] jobs;
-		// spawn $jobCount concurrent jobs.
-		while (jobs.length < jobCount && testIndex < tests.length) {
-			jobs ~= spawn(&test, tests[testIndex], compiler);
-			jobs[$ - 1].send(thisTid);
-			testIndex++;
-		}
-
-		foreach (job; jobs) {
-			auto testResult = receiveOnly!(string, bool, bool)();
-			bool regressed = !testResult[1] & testResult[2];
-			bool fixed = testResult[1] & !testResult[2];
-
-			passed += testResult[1];
-			regressions += regressed;
-			improvments += fixed;
-			if (testResult[1]) {
-				if (!displayOnlyFailed) {
-					writef("%s: %s", testResult[0], "SUCCEEDED");
-				}
-			} else {
-				writef("%s: %s", testResult[0], "FAILED");
-			}
-
-			if (fixed) {
-				if (!displayOnlyFailed) {
-					writefln(", FIXED");
-				}
-			} else if (regressed) {
-				writefln(", REGRESSION");
-			} else {
-				if ((displayOnlyFailed && !testResult[1]) || !displayOnlyFailed) {
-					writefln("");
-				}
-			}
-		}
-	}
-
-	if (tests.length > 0) {
-		writefln("Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate, "
-				 ~ "%s regressions, %s improvements.",
-				 tests.length, passed, passed == 1 ? "" : "es",
-				 tests.length - passed, (tests.length - passed) == 1 ? "" : "s",
-				 (cast(real)passed / tests.length) * 100,
-				 regressions, improvments);
-	}
-	
-	if (waitOnExit) {
-		write("Press any key to exit...");
-		readln();
-	}
-
-	return regressions > 0 ? -1 : 0;
-}
-
-/// Print usage to stdout.
-void usage() {
-	writeln("runner [options] [specific test]");
-	writeln("  run with no arguments to run test suite.");
-	writeln("    --compiler:     which compiler to run.");
-	writeln("    -j:             how many tests to do at once.");
-	writeln("                    (on Linux this will automatically be number of processors)");
-	writeln("    --only-failed:  only display failed tests.");
-	writeln("    --wait-on-exit: wait for user input before exiting.");
-	writeln("    --help:         display this message and exit.");
+	return runUtility(TestRunner(), args);
 }
