@@ -32,12 +32,12 @@ int main(string[] args) {
 		if (help_info.helpWanted || args.length == 1) {
 			import std.stdio;
 			writeln("The Snazzy D Compiler");
-			writeln("Usage: sdc <options> file.d");
+			writeln("Usage: sdc [options] file.d");
 			writeln("Options:");
 
 			foreach (option; help_info.options) {
 				writefln(
-					"  %-12s %s",
+					"  %-16s %s",
 					// bug : optShort is empty if there is no long version
 					option.optShort.length
 						? option.optShort
@@ -47,6 +47,7 @@ int main(string[] args) {
 					option.help
 				);
 			}
+			
 			return 0;
 		}
 	} catch (GetOptException ex) {
