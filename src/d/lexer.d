@@ -409,123 +409,37 @@ private:
 		return t;
 	}
 	
-	auto lexEscapeSequence() in {
-		assert(frontChar == '\\', frontChar ~ " is not a valid escape sequence.");
-	} body {
-		popChar();
-		scope(success) popChar();
-		
-		switch (frontChar) {
-			case '\'':
-				return '\'';
-			
-			case '"':
-				return '"';
-			
-			case '?':
-				assert(0, "WTF is \\?");
-			
-			case '\\':
-				return '\\';
-			
-			case '0':
-				return '\0';
-			
-			case 'a':
-				return '\a';
-			
-			case 'b':
-				return '\b';
-			
-			case 'f':
-				return '\f';
-			
-			case 'r':
-				return '\r';
-			
-			case 'n':
-				return '\n';
-			
-			case 't':
-				return '\t';
-			
-			case 'v':
-				return '\v';
-			
-			default:
-				assert(0, "Don't know about " ~ frontChar);
-		}
-	}
-	
-	auto lexEscapeChar() {
-		auto c = frontChar;
-		switch (c) {
-			case '\0':
-				assert(0, "unexpected end :(");
-			
-			case '\\':
-				return lexEscapeSequence();
-			
-			case '\'':
-				assert(0, "Empty character litteral is bad, very very bad !");
-			
-			default:
-				if (c & 0x80) {
-					assert(0, "Unicode not supported here");
-				} else {
-					popChar();
-					return c;
-				}
-		}
-	}
-	
 	Token lexString(string s)() in {
 		assert(index >= s.length);
 	} body {
 		Token t;
-		t.type = TokenType.StringLiteral;
 		auto begin = base.getWithOffset(index - cast(uint) s.length);
+		t.type = (s != "\'")
+			? TokenType.StringLiteral
+			: TokenType.CharacterLiteral;
 		
 		auto c = frontChar;
 		
-		static if (s == "\"") {
-			mixin CharPumper!false;
-			
-			Pump: while (true) {
-				while (c != '\"') {
-					putChar(lexEscapeChar());
+		static if (s == "\"" || s == "'") {
+			while (c != s[0] && c != '\0') {
+				if (c == '\\') {
+					popChar();
 					c = frontChar;
 				}
 				
-				// End of string.
 				popChar();
-				break Pump;
+				c = frontChar;
+			}
+			
+			if (c == s[0]) {
+				popChar();
 			}
 			
 			t.location = Location(begin, base.getWithOffset(index));
-			t.name = getValue();
-			
 			return t;
 		} else {
 			assert(0, "string literal using " ~ s ~ "not supported");
 		}
-	}
-	
-	auto lexChar(string s)() if (s == "'") {
-		Token t;
-		t.type = TokenType.CharacterLiteral;
-		auto begin = base.getWithOffset(index - 1);
-		
-		t.name = context.getName([lexEscapeChar()]);
-		
-		if (frontChar != '\'') {
-			assert(0, "booya !");
-		}
-		
-		popChar();
-		
-		t.location = Location(begin, base.getWithOffset(index));
-		return t;
 	}
 	
 	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
@@ -611,8 +525,6 @@ private:
 		}
 		
 		t.location = Location(begin, base.getWithOffset(index));
-		t.name = context.getName(content[ibegin .. index]);
-		
 		return t;
 	}
 	
@@ -681,8 +593,6 @@ private:
 		}
 		
 		t.location = Location(begin, base.getWithOffset(index));
-		t.name = context.getName(content[ibegin .. index]);
-		
 		return t;
 	}
 	
@@ -1080,7 +990,7 @@ auto getLexerMap() {
 		"q{"				: "lexString",
 		
 		// Character literals.
-		"'"					: "lexChar",
+		"'"					: "lexString",
 	];
 	
 	foreach (op, _; getOperatorsMap()) {

@@ -129,6 +129,33 @@ public:
 			chunk.indentation = indentation;
 		}
 		
+		uint nlCount = 0;
+		
+		size_t last = chunk.text.length;
+		while (last > 0) {
+			char lastChar = chunk.text[last - 1];
+			
+			import std.ascii;
+			if (!isWhite(lastChar)) {
+				break;
+			}
+			
+			last--;
+			if (lastChar == ' ') {
+				space();
+			}
+			
+			if (lastChar == '\n') {
+				nlCount++;
+			}
+		}
+		
+		if (nlCount) {
+			newline(nlCount);
+		}
+		
+		chunk.text = chunk.text[0 .. last];
+		
 		// There is nothing to flush.
 		if (chunk.empty) {
 			return;

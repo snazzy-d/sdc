@@ -177,7 +177,7 @@ struct TestRunner {
 		}
 		
 		auto legacy_tests = tests.map!(t => Task(t, compiler, Mode.Legacy));
-
+		
 		import std.file;
 		tests = [];
 		foreach (f; dirEntries("test/invalid", "*.d", SpanMode.breadth)) {

@@ -617,20 +617,10 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			return trange.parseIntegerLiteral();
 		
 		case StringLiteral:
-			auto name = trange.front.name;
-			trange.popFront();
-			
-			// XXX: Use name for string once CTFE do not return node ?
-			return new d.ir.expression.StringLiteral(location, name.toString(trange.context));
+			return trange.parseStringLiteral();
 		
 		case CharacterLiteral:
-			auto str = trange.front.name.toString(trange.context);
-			assert(str.length == 1);
-			
-			trange.popFront();
-			
-			import d.common.builtintype : BuiltinType;
-			return new d.ir.expression.CharacterLiteral(location, str[0], BuiltinType.Char);
+			return trange.parseCharacterLiteral();
 		
 		case OpenBracket:
 			// FIXME: Support map literals.
@@ -967,13 +957,13 @@ AstExpression[] parseArguments(ref TokenRange trange) {
 /**
  * Parse integer literals
  */
-private IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
+IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 	Location location = trange.front.location;
 	
-	// Consider computing the value in the lexer and make it a fack string.
+	// Consider computing the value in the lexer and make it a Name.
 	// This would avoid the duplication with code here and probably
 	// would be faster as well.
-	auto strVal = trange.front.name.toString(trange.context);
+	auto strVal = trange.front.toString(trange.context);
 	assert(strVal.length > 0);
 	
 	trange.match(TokenType.IntegerLiteral);
@@ -1136,4 +1126,157 @@ unittest {
 	assert(strToHexInt("12345aBcDeF") == 1251004370415);
 	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
 	assert(strToHexInt("a_B_c") == 2748);
+}
+
+/**
+ * Parse character literals
+ */
+void matchChar(ref string s, Location location, char c) {
+	if (s.length > 0 && s[0] == c) {
+		s = s[1 .. $];
+		return;
+	}
+	
+	import std.conv, std.string;
+	auto error = format("expected '%s'.", to!string(c));
+	
+	import d.exception;
+	throw new CompileException(location, error);
+}
+
+char popChar(ref string s, Location location) {
+	if (s.length == 0) {
+		import d.exception;
+		throw new CompileException(location, "Unexpected termination of literal");
+	}
+	
+	auto c = s[0];
+	s = s[1 .. $];
+	return c;
+}
+
+dchar lexEscapeSequence(ref string s, Location location) {
+	if (s.length == 0) {
+		import d.exception;
+		throw new CompileException(location, "Unexpected termination of literal");
+	}
+	
+	char c = s.popChar(location);
+	switch (c) {
+		case '\'':
+			return '\'';
+		
+		case '"':
+			return '"';
+		
+		case '?':
+			assert(0, "WTF is \\?");
+		
+		case '\\':
+			return '\\';
+		
+		case '0':
+			return '\0';
+		
+		case 'a':
+			return '\a';
+		
+		case 'b':
+			return '\b';
+		
+		case 'f':
+			return '\f';
+		
+		case 'r':
+			return '\r';
+		
+		case 'n':
+			return '\n';
+		
+		case 't':
+			return '\t';
+		
+		case 'v':
+			return '\v';
+		
+		default:
+			import std.conv, std.string;
+			auto error = format("unpexcted escape sequence: '%s'.", to!string(c));
+
+			import d.exception;
+			throw new CompileException(location, error);
+	}
+}
+
+CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
+	Location location = trange.front.location;
+	auto str = trange.front.toString(trange.context);
+	scope(success) {
+		assert(str == "");
+	}
+	
+	trange.match(TokenType.CharacterLiteral);
+	str.matchChar(location, '\'');
+	
+	dchar result;
+	
+	char c = str.popChar(location);
+	switch (c) {
+		case '\\':
+			result = str.lexEscapeSequence(location);
+			break;
+		
+		case '\'':
+			import d.exception;
+			throw new CompileException(location, "\"'\" must be escaped as '\'' in character literals");
+		
+		default:
+			assert (!(c & 0x80), "Unicode not supported here");
+			result = c;
+			break;
+	}
+	
+	str.matchChar(location, '\'');
+	
+	import d.common.builtintype : BuiltinType;
+	return new CharacterLiteral(location, result, BuiltinType.Char);
+}
+
+/**
+ * Parse string literals
+ */
+StringLiteral parseStringLiteral(ref TokenRange trange) {
+	Location location = trange.front.location;
+	auto str = trange.front.toString(trange.context);
+	scope(success) {
+		assert(str == "");
+	}
+	
+	trange.match(TokenType.StringLiteral);
+	
+	char c = str.popChar(location);
+	switch (c) {
+		case '"':
+			string dest;
+			
+			while (true) {
+				auto src = str;
+				do {
+					c = str.popChar(location);
+				} while (c != '\\' && c != '"');
+				
+				dest ~= src[0 .. $ - str.length - 1];
+				if (c == '"') {
+					break;
+				}
+				
+				dest ~= str.lexEscapeSequence(location);
+			}
+			
+			return new StringLiteral(location, dest);
+		
+		default:
+			import d.exception;
+			throw new CompileException(location, "Invalid string litteral");
+	}
 }
