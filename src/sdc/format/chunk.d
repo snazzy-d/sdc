@@ -85,6 +85,10 @@ public:
 		return _chunks;
 	}
 	
+	bool isLineBreak() const {
+		return splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines;
+	}
+	
 	string toString() const {
 		import std.conv;
 		return "Chunk(" ~ splitType.to!string ~ ", "

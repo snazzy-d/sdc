@@ -1346,8 +1346,6 @@ private:
 			match(TokenType.Class) ||
 			match(TokenType.Interface));
 	} body {
-		parseStorageClass();
-		
 		nextToken();
 		space();
 		
