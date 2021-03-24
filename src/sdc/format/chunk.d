@@ -20,6 +20,7 @@ private:
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		SplitType, "_splitType", EnumSize!SplitType,
 		uint, "_indentation", 10,
+		size_t, "_length", 16,
 	);
 
 	enum Pad = ulong.sizeof * 8 - SizeOfBitField!FieldsTuple;
@@ -58,6 +59,11 @@ public:
 	uint indentation(uint i) {
 		_indentation = i;
 		return i;
+	}
+	
+	@property
+	size_t length() const {
+		return _length;
 	}
 	
 	@property
@@ -160,6 +166,9 @@ public:
 		if (chunk.empty) {
 			return;
 		}
+		
+		import std.uni, std.range;
+		chunk._length = chunk.text.byGrapheme.walkLength();
 		
 		source ~= chunk;
 		chunk = Chunk();
