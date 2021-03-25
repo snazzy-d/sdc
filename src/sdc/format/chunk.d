@@ -20,7 +20,7 @@ private:
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		SplitType, "_splitType", EnumSize!SplitType,
 		uint, "_indentation", 10,
-		size_t, "_length", 16,
+		uint, "_length", 16,
 	);
 
 	enum Pad = ulong.sizeof * 8 - SizeOfBitField!FieldsTuple;
@@ -62,7 +62,7 @@ public:
 	}
 	
 	@property
-	size_t length() const {
+	uint length() const {
 		return _length;
 	}
 	
@@ -93,6 +93,7 @@ public:
 		import std.conv;
 		return "Chunk(" ~ splitType.to!string ~ ", "
 			~ indentation.to!string ~ ", "
+			~ length.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
 	}
 }
@@ -172,7 +173,7 @@ public:
 		}
 		
 		import std.uni, std.range;
-		chunk._length = chunk.text.byGrapheme.walkLength();
+		chunk._length = cast(uint) chunk.text.byGrapheme.walkLength();
 		
 		source ~= chunk;
 		chunk = Chunk();

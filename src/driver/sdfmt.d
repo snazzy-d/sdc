@@ -52,18 +52,18 @@ int main(string[] args) {
 	    auto base = context.registerFile(Location.init, filename, "");
 		
 		import d.lexer;
-		auto l = lex(base, context).withComments();
+		auto l = lex(base, context);
 		
 		import sdc.format.parser;
 		auto chunks = Parser(context, l).parse();
-		
-		import sdc.format.writer;
-		auto o = Writer().write(chunks);
 		
 		if (dbg) {
 			import std.stdio;
 			writeln(chunks);
 		}
+		
+		import sdc.format.writer;
+		auto o = Writer().write(chunks);
 		
 		import std.stdio;
 		writeln(o);

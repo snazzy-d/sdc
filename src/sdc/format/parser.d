@@ -173,7 +173,6 @@ private:
 		emitSkippedTokens();
 		emitSourceBasedWhiteSpace();
 		
-		// TODO: Process comments here.
 		while (match(TokenType.Comment)) {
 			auto comment = token.toString(context);
 			builder.write(comment);
@@ -1188,14 +1187,15 @@ private:
 			switch (token.type) with (TokenType) {
 				case OpenBrace:
 					// Function declaration.
+					clearSplitType();
 					break;
 				
-				case In, Body:
+				case In, Body, Do:
 					clearSplitType();
 					space();
 					nextToken();
 					break;
-					
+				
 				case Out:
 					clearSplitType();
 					space();
