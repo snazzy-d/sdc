@@ -57,8 +57,8 @@ int main(string[] args) {
 		import sdc.format.parser;
 		auto chunks = Parser(context, l).parse();
 		
-		import sdc.format.writter;
-		auto o = Writter().write(chunks);
+		import sdc.format.writer;
+		auto o = Writer().write(chunks);
 		
 		if (dbg) {
 			import std.stdio;

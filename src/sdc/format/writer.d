@@ -1,8 +1,8 @@
-module sdc.format.writter;
+module sdc.format.writer;
 
 import sdc.format.chunk;
 
-struct Writter {
+struct Writer {
 	import std.array;
 	Appender!string buffer;
 	
@@ -17,12 +17,12 @@ struct Writter {
 				continue;
 			}
 			
-			cost += LineWritter(&this, chunks[start .. i]).write();
+			cost += LineWriter(&this, chunks[start .. i]).write();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		cost += LineWritter(&this, chunks[start .. $]).write();
+		cost += LineWriter(&this, chunks[start .. $]).write();
 		
 		return buffer.data;
 	}
@@ -59,12 +59,12 @@ struct SolveState {
 	}
 }
 
-struct LineWritter {
-	Writter* writter;
+struct LineWriter {
+	Writer* writer;
 	Chunk[] line;
 	
-	this(Writter* writter, Chunk[] line) {
-		this.writter = writter;
+	this(Writer* writer, Chunk[] line) {
+		this.writer = writer;
 		this.line = line;
 	}
 	
@@ -110,11 +110,11 @@ struct LineWritter {
 	}
 	
 	void output(char c) {
-		writter.buffer ~= c;
+		writer.buffer ~= c;
 	}
 	
 	void output(string s) {
-		writter.buffer ~= s;
+		writer.buffer ~= s;
 	}
 	
 	void indent(uint level) {
