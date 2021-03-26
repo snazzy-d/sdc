@@ -1185,19 +1185,19 @@ private:
 		} while (loop);
 		
 		while (true) {
-			clearSplitType();
-
 			switch (token.type) with (TokenType) {
 				case OpenBrace:
 					// Function declaration.
 					break;
 				
 				case In, Body:
+					clearSplitType();
 					space();
 					nextToken();
 					break;
 					
 				case Out:
+					clearSplitType();
 					space();
 					nextToken();
 					parseParameterList();
@@ -1206,7 +1206,8 @@ private:
 				default:
 					return;
 			}
-
+			
+			clearSplitType();
 			space();
 			if (match(TokenType.OpenBrace)) {
 				parseBlock(Mode.Statement);

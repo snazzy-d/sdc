@@ -14,12 +14,15 @@ int main() {
 	S* foo() {
 		return null;
 	}
+
 	S* foo(...) {
 		return null;
 	}
+
 	S* foo(int a) {
 		return null;
 	}
+
 	S* foo(int a, ...) {
 		return null;
 	}
@@ -27,6 +30,7 @@ int main() {
 	S* foo(S* s) {
 		return s;
 	}
+
 	S* foo(S* s, ...) {
 		return s;
 	}
