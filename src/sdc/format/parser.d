@@ -992,8 +992,12 @@ private:
 		assert(match(TokenType.Return));
 	} body {
 		nextToken();
-		space();
-		parseExpression();
+		if (token.type == TokenType.Semicolon) {
+			nextToken();
+		} else {
+			space();
+			parseExpression();
+		}
 	}
 	
 	void parseSwitch() in {
