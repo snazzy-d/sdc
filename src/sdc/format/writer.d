@@ -140,8 +140,8 @@ struct SolveState {
 		}
 		
 		void startLine(uint i) {
-				start = i;
-				length = line[i].length + INDENTATION_SIZE * line[i].indentation;
+			start = i;
+			length = line[i].length + INDENTATION_SIZE * line[i].indentation;
 		}
 		
 		void newLine(uint i) {

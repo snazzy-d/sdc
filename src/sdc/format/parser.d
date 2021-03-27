@@ -20,6 +20,8 @@ private:
 	import sdc.format.chunk;
 	Builder builder;
 	
+	uint extraIndent = 0;
+	
 	enum Mode {
 		Declaration,
 		Statement,
@@ -805,7 +807,7 @@ private:
 	/**
 	 * Statements
 	 */
-	void parseBlock(Mode m, uint indentLevel = 1) {
+	void parseBlock(Mode m) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -818,8 +820,16 @@ private:
 		}
 		
 		{
-			auto indentGuard = builder.indent(indentLevel);
+			auto oldExtraIndent = extraIndent;
+			scope(exit) {
+				extraIndent = oldExtraIndent;
+			}
+			
+			auto indentGuard = builder.indent(1 + extraIndent);
 			auto modeGuard = changeMode(m);
+			
+			// Do not extra indent sub blocks.
+			extraIndent = 0;
 			
 			newline(1);
 			split();
@@ -837,10 +847,10 @@ private:
 		}
 	}
 	
-	bool parseControlFlowBlock(uint indentLevel = 1) {
+	bool parseControlFlowBlock() {
 		bool isBlock = match(TokenType.OpenBrace);
 		if (isBlock) {
-			parseBlock(mode, indentLevel);
+			parseBlock(mode);
 		} else {
 			auto guard = builder.indent();
 			newline(1);
@@ -850,19 +860,23 @@ private:
 		return isBlock;
 	}
 	
-	bool parseControlFlowBase(uint indentLevel = 1) {
-		nextToken();
-		space();
-		
+	void parseCondition() {
 		if (match(TokenType.OpenParen)) {
 			nextToken();
 			auto guard = changeMode(Mode.Parameter);
 			parseStructuralElement();
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
+	}
+	
+	bool parseControlFlowBase() {
+		nextToken();
+		space();
+		
+		parseCondition();
 		
 		space();
-		return parseControlFlowBlock(indentLevel);
+		return parseControlFlowBlock();
 	}
 	
 	void emitBlockControlFlowWhitespace(bool isBlock) {
@@ -1003,7 +1017,19 @@ private:
 	void parseSwitch() in {
 		assert(match(TokenType.Switch));
 	} body {
-		parseControlFlowBase(2);
+		nextToken();
+		space();
+		
+		parseCondition();
+		space();
+		
+		auto oldExtraIndent = extraIndent;
+		scope(exit) {
+			extraIndent = oldExtraIndent;
+		}
+		
+		extraIndent = 1;
+		parseStructuralElement();
 	}
 	
 	void parseTry() in {
