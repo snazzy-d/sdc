@@ -605,7 +605,14 @@ private:
 				nextToken();
 				parseArgumentList();
 				break;
-				
+			
+			case New:
+				kind = IdentifierKind.Expression;
+				nextToken();
+				space();
+				parseType();
+				parseArgumentList();
+				break;
 			
 			case OpenParen:
 				import d.parser.util;
