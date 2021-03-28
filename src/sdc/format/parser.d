@@ -327,6 +327,10 @@ private:
 				runOnType!(Identifier, nextToken)();
 				break;
 			
+			case With:
+				parseWith();
+				break;
+			
 			case Switch:
 				parseSwitch();
 				break;
@@ -1014,6 +1018,18 @@ private:
 		}
 	}
 	
+	void parseWith() in {
+		assert(match(TokenType.With));
+	} body {
+		nextToken();
+		space();
+		
+		parseCondition();
+		space();
+		
+		parseStructuralElement();
+	}
+
 	void parseSwitch() in {
 		assert(match(TokenType.Switch));
 	} body {
