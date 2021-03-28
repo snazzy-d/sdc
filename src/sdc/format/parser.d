@@ -1150,6 +1150,7 @@ private:
 				case Star:
 				case Percent:
 					space();
+					split();
 					nextToken();
 					space();
 					break;
@@ -1160,6 +1161,7 @@ private:
 					}
 					
 					space();
+					split();
 					nextToken();
 					nextToken();
 					space();
@@ -1167,12 +1169,14 @@ private:
 				
 				case QuestionMark:
 					space();
+					split();
 					nextToken();
 					space();
 					parseExpression();
 					space();
 					
 					if (match(Colon)) {
+						split();
 						nextToken();
 						space();
 					}
