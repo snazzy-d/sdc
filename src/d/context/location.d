@@ -8,16 +8,26 @@ import d.context;
  */
 struct Location {
 package:
-	Position start;
-	Position stop;
+	Position _start;
+	Position _stop;
 	
 public:
 	this(Position start, Position stop) in {
 		assert(start.isMixin() == stop.isMixin());
 		assert(start.offset <= stop.offset);
 	} body {
-		this.start = start;
-		this.stop = stop;
+		this._start = start;
+		this._stop = stop;
+	}
+	
+	@property
+	Position start() const {
+		return _start;
+	}
+	
+	@property
+	Position stop() const {
+		return _stop;
 	}
 	
 	@property
@@ -35,7 +45,7 @@ public:
 		return start.isMixin();
 	}
 	
-	void spanTo(ref const Location end) in {
+	void spanTo(Location end) in {
 		import std.conv;
 		assert(
 			stop.offset <= end.stop.offset,
@@ -45,14 +55,14 @@ public:
 		spanTo(end.stop);
 	}
 	
-	void spanTo(ref const Position end) in {
+	void spanTo(Position end) in {
 		import std.conv;
 		assert(
 			stop.offset <= end.offset,
 			to!string(stop.offset) ~ " > " ~ to!string(end.offset)
 		);
 	} body {
-		stop = end;
+		_stop = end;
 	}
 	
 	auto getFullLocation(Context c) const {

@@ -197,7 +197,7 @@ public:
 	}
 	
 	void popFront() {
-		previous = base.getWithOffset(index);
+		previous = t.location.stop;
 		t = getNextToken();
 		
 		/+ Exprerience the token deluge !

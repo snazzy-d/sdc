@@ -182,7 +182,7 @@ private:
 			trange.popFront();
 			
 			if (comment[0 .. 2] == "//") {
-				newline(newLineCount() + 1);
+				newline();
 			} else {
 				emitSourceBasedWhiteSpace();
 			}
