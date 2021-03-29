@@ -14,15 +14,16 @@ enum ChunkKind {
 
 struct Chunk {
 private:
-	import util.bitfields;
-	import std.typetuple;
+	import util.bitfields, std.typetuple;
 	alias FieldsTuple = TypeTuple!(
+		// sdfmt off
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		SplitType, "_splitType", EnumSize!SplitType,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
+		// sdfmt on
 	);
-
+	
 	enum Pad = ulong.sizeof * 8 - SizeOfBitField!FieldsTuple;
 	
 	import std.bitmanip;

@@ -58,6 +58,20 @@ private:
 	Location[] inFlightComments;
 	Location[] nextCommentBlock;
 	
+	/**
+	 * Passthrough for portion of code not to be formatted.
+	 *
+	 * When formatting is disabled, we keep parsing anyways. This ensures
+	 * the state of affairs, such as identation levels, are kept track off.
+	 * However, nothign is sent to the builder as parsing progresses, and
+	 * everything is sent as one signle chunk at the end of it.
+	 */
+	Position sdfmtOffStart;
+	
+	bool skipFormatting() const {
+		return sdfmtOffStart != Position();
+	}
+	
 public:	
 	this(Context context, ref TokenRange trange) {
 		this.context = context;
@@ -84,10 +98,18 @@ private:
 	 * Chunk builder facilities
 	 */
 	void write(string s) {
+		if (skipFormatting()) {
+			return;
+		}
+		
 		builder.write(s);
 	}
 	
 	void space() {
+		if (skipFormatting()) {
+			return;
+		}
+		
 		builder.space();
 	}
 	
@@ -96,14 +118,26 @@ private:
 	}
 	
 	void newline(int nl) {
+		if (skipFormatting()) {
+			return;
+		}
+		
 		builder.newline(nl);
 	}
 	
 	void clearSplitType() {
+		if (skipFormatting()) {
+			return;
+		}
+		
 		builder.clearSplitType();
 	}
 	
 	void split() {
+		if (skipFormatting()) {
+			return;
+		}
+		
 		builder.split();
 	}
 	
@@ -237,6 +271,25 @@ private:
 	/**
 	 * Comments management
 	 */
+	void emitComment(Location loc, Position previous) {
+		emitSourceBasedWhiteSpace(loc, previous);
+		
+		import std.string;
+		auto comment = loc.getFullLocation(context).getSlice().strip();
+		if (skipFormatting() && comment == "// sdfmt on") {
+			auto content = Location(sdfmtOffStart, loc.start).getFullLocation(context).getSlice();
+			sdfmtOffStart = Position();
+			write(content);
+		}
+		
+		write(comment);
+		
+		if (comment == "// sdfmt off") {
+			sdfmtOffStart = loc.stop;
+			assert(skipFormatting(), "We should start skipping.");
+		}
+	}
+	 
 	void emitComments(ref Location[] commentBlock, Location nextTokenLoc) {
 		if (commentBlock.length == 0) {
 			return;
@@ -253,14 +306,7 @@ private:
 				previous = loc.stop;
 			}
 			
-			emitSourceBasedWhiteSpace(loc, previous);
-			
-			auto comment = loc.getFullLocation(context).getSlice();
-			write(comment);
-			
-			if (comment[0 .. 2] == "//") {
-				newline(1);
-			}
+			emitComment(loc, previous);
 		}
 		
 		emitSourceBasedWhiteSpace(nextTokenLoc, previous);
@@ -288,7 +334,6 @@ private:
 		}
 		
 		emitSkippedTokens();
-		emitSourceBasedWhiteSpace();
 		
 		/**
 		 * We distrube comments in 3 groups:
@@ -299,12 +344,11 @@ private:
 		 * emitting groups 2 and 3.
 		 */
 		while (match(TokenType.Comment) && newLineCount() == 0) {
-			auto comment = token.toString(context);
-			write(comment);
+			emitComment(token.location, trange.previous);
 			trange.popFront();
-			
-			emitSourceBasedWhiteSpace();
 		}
+		
+		emitSourceBasedWhiteSpace();
 		
 		Location[] commentBlock = [];
 		while (match(TokenType.Comment)) {
