@@ -527,7 +527,27 @@ private:
 			case Ref:
 				nextToken();
 				space();
-				goto default;
+				goto Entry;
+			
+			case Public, Private, Protected, Package:
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				if (lookahead.front.type != Colon) {
+					nextToken();
+					space();
+					goto Entry;
+				}
+				
+				{
+					auto guard = builder.unindent();
+					newline();
+					nextToken();
+					nextToken();
+					newline();
+				}
+				
+				break;
 			
 			case Enum:
 				auto lookahead = trange.save.withComments(false);
