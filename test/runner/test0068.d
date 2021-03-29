@@ -4,14 +4,15 @@
 //? desc:Various cases for comments.
 
 int main() {
-//      return 21;
+	//      return 21;
 
-// //   return 31;
+	// //   return 31;
 
 	string a = /+ "+/ " +/ 1";
 	string c = /* "*/ " */ 1";
 	int d = 1 + /* 2 */ + /+ 3 +/ // 4
 	+5;
+
 	/*
 	 * return 22;
 	 */

@@ -124,10 +124,14 @@ public:
 	}
 	
 	void space() {
+		import std.stdio;
+		// writeln("space!");
 		setWhiteSpace(SplitType.Space);
 	}
 	
 	void newline(int nLines = 1) {
+		import std.stdio;
+		// writeln("newline ", nLines);
 		setWhiteSpace(nLines > 1 ? SplitType.TwoNewLines : SplitType.NewLine);
 	}
 	

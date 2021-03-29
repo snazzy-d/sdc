@@ -52,6 +52,12 @@ private:
 	 */
 	Location skipped;
 	
+	/**
+	 * Comments to be emitted before the next token.
+	 */
+	Location[] inFlightComments;
+	Location[] nextCommentBlock;
+	
 public:	
 	this(Context context, ref TokenRange trange) {
 		this.context = context;
@@ -68,6 +74,8 @@ public:
 		assert(match(TokenType.End));
 		
 		emitSkippedTokens();
+		flushComments();
+		
 		return builder.build();
 	}
 
@@ -84,8 +92,12 @@ private:
 		return p.getFullPosition(context).getLineNumber();
 	}
 	
+	int newLineCount(Location location, Position previous) {
+		return getStartLineNumber(location) - getLineNumber(previous);
+	}
+	
 	int newLineCount(ref TokenRange r) {
-		return getStartLineNumber(r.front.location) - getLineNumber(r.previous);
+		return newLineCount(r.front.location, r.previous);
 	}
 	
 	int newLineCount() {
@@ -100,12 +112,12 @@ private:
 		return p.getFullPosition(context).getSourceOffset();
 	}
 	
-	int whiteSpaceLength(ref TokenRange r) {
-		return getStartOffset(r.front.location) - getSourceOffset(r.previous);
+	int whiteSpaceLength(Location location, Position previous) {
+		return getStartOffset(location) - getSourceOffset(previous);
 	}
 	
 	int whiteSpaceLength() {
-		return whiteSpaceLength(trange);
+		return whiteSpaceLength(token.location, trange.previous);
 	}
 	
 	@property
@@ -115,6 +127,7 @@ private:
 	
 	void nextToken() {
 		emitSkippedTokens();
+		flushComments();
 		
 		// Process current token.
 		builder.write(token.toString(context));
@@ -125,13 +138,15 @@ private:
 		}
 		
 		trange.popFront();
-		emitComments();
+		parseComments();
 	}
 	
 	/**
 	 * We skip over portions of the code we can't parse.
 	 */
 	void skipToken() {
+		flushComments();
+		
 		if (skipped.length == 0) {
 			emitSourceBasedWhiteSpace();
 			split();
@@ -149,7 +164,7 @@ private:
 			trange.popFront();
 		}
 		
-		emitComments();
+		parseComments();
 	}
 	
 	void emitSkippedTokens() {
@@ -167,7 +182,52 @@ private:
 	/**
 	 * Comments management
 	 */
-	void emitComments() {
+	void emitComments(ref Location[] commentBlock, Location nextTokenLoc) {
+		if (commentBlock.length == 0) {
+			return;
+		}
+		
+		scope(success) {
+			commentBlock = [];
+		}
+		
+		Position previous = commentBlock[0].start;
+		
+		foreach (loc; commentBlock) {
+			scope(success) {
+				previous = loc.stop;
+			}
+			
+			emitSourceBasedWhiteSpace(loc, previous);
+			
+			auto comment = loc.getFullLocation(context).getSlice();
+			builder.write(comment);
+			
+			if (comment[0 .. 2] == "//") {
+				newline(1);
+			}
+		}
+		
+		emitSourceBasedWhiteSpace(nextTokenLoc, previous);
+	}
+	
+	void emitInFlightComments() {
+		auto nextTokenLoc = nextCommentBlock.length > 0
+			? nextCommentBlock[0]
+			: token.location;
+		
+		emitComments(inFlightComments, nextTokenLoc);
+	}
+	
+	void flushComments() {
+		emitInFlightComments();
+		emitComments(nextCommentBlock, token.location);
+	}
+	
+	void parseComments() in {
+		assert(inFlightComments == []);
+		assert(inFlightComments == []);
+	} do {
 		if (!match(TokenType.Comment)) {
 			return;
 		}
@@ -175,18 +235,36 @@ private:
 		emitSkippedTokens();
 		emitSourceBasedWhiteSpace();
 		
-		while (match(TokenType.Comment)) {
+		/**
+		 * We distrube comments in 3 groups:
+		 *   1 - The comments attached to the previous structural element.
+		 *   2 - The comments in flight between two structural elements.
+		 *   3 - The comments attached to the next structural element.
+		 * We want to emit group 1 right away, but wait for later when
+		 * emitting groups 2 and 3.
+		 */
+		while (match(TokenType.Comment) && newLineCount() == 0) {
 			auto comment = token.toString(context);
 			builder.write(comment);
-			
 			trange.popFront();
 			
-			if (comment[0 .. 2] == "//") {
-				newline();
-			} else {
-				emitSourceBasedWhiteSpace();
-			}
+			emitSourceBasedWhiteSpace();
 		}
+		
+		Location[] commentBlock = [];
+		while (match(TokenType.Comment)) {
+			commentBlock ~= token.location;
+			trange.popFront();
+			
+			if (newLineCount() < 2) {
+				continue;
+			}
+			
+			inFlightComments ~= commentBlock;
+			commentBlock = [];
+		}
+		
+		nextCommentBlock = commentBlock;
 	}
 	
 	/**
@@ -212,13 +290,19 @@ private:
 		builder.split();
 	}
 	
-	void emitSourceBasedWhiteSpace() {
-		auto nl = newLineCount();
-		if (nl) {
+	void emitSourceBasedWhiteSpace(Location location, Position previous) {
+		if (auto nl = newLineCount(location, previous)) {
 			newline(nl);
-		} else if (whiteSpaceLength() > 0) {
+			return;
+		}
+		
+		if (whiteSpaceLength(location, previous) > 0) {
 			space();
 		}
+	}
+	
+	void emitSourceBasedWhiteSpace() {
+		emitSourceBasedWhiteSpace(token.location, trange.previous);
 	}
 	
 	/**
@@ -246,6 +330,8 @@ private:
 	}
 	
 	void parseStructuralElement() {
+		emitInFlightComments();
+		
 		Entry:
 		switch (token.type) with(TokenType) {
 			case End:
@@ -841,6 +927,9 @@ private:
 			while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
 				parseStructuralElement();
 			}
+			
+			// Flush comments so that they have the proper indentation.
+			flushComments();
 		}
 		
 		if (match(TokenType.CloseBrace)) {
