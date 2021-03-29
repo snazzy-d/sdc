@@ -462,7 +462,11 @@ private:
 				} else if (match(Case)) {
 					space();
 					nextToken();
-					runOnType!(Identifier, nextToken)();
+					
+					if (!match(Semicolon)) {
+						space();
+						parseExpression();
+					}
 				}
 				
 				break;
