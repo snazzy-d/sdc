@@ -81,7 +81,34 @@ public:
 
 private:
 	/**
-	 * Token Processing.
+	 * Chunk builder facilities
+	 */
+	void write(string s) {
+		builder.write(s);
+	}
+	
+	void space() {
+		builder.space();
+	}
+	
+	void newline() {
+		newline(newLineCount());
+	}
+	
+	void newline(int nl) {
+		builder.newline(nl);
+	}
+	
+	void clearSplitType() {
+		builder.clearSplitType();
+	}
+	
+	void split() {
+		builder.split();
+	}
+	
+	/**
+	 * Whitespace management.
 	 */
 	import d.context.location;
 	uint getStartLineNumber(Location loc) {
@@ -120,9 +147,37 @@ private:
 		return whiteSpaceLength(token.location, trange.previous);
 	}
 	
+	void emitSourceBasedWhiteSpace(Location location, Position previous) {
+		if (auto nl = newLineCount(location, previous)) {
+			newline(nl);
+			return;
+		}
+		
+		if (whiteSpaceLength(location, previous) > 0) {
+			space();
+		}
+	}
+	
+	void emitSourceBasedWhiteSpace() {
+		emitSourceBasedWhiteSpace(token.location, trange.previous);
+	}
+	
+	/**
+	 * Token processing.
+	 */
 	@property
 	Token token() const {
 		return trange.front;
+	}
+	
+	bool match(TokenType t) {
+		return token.type == t;
+	}
+	
+	auto runOnType(TokenType T, alias fun)() {
+		if (match(T)) {
+			return fun();
+		}
 	}
 	
 	void nextToken() {
@@ -130,7 +185,7 @@ private:
 		flushComments();
 		
 		// Process current token.
-		builder.write(token.toString(context));
+		write(token.toString(context));
 		
 		if (match(TokenType.End)) {
 			// We reached the end of our input.
@@ -172,7 +227,7 @@ private:
 			return;
 		}
 		
-		builder.write(skipped.getFullLocation(context).getSlice());
+		write(skipped.getFullLocation(context).getSlice());
 		skipped = Location.init;
 		
 		emitSourceBasedWhiteSpace();
@@ -201,7 +256,7 @@ private:
 			emitSourceBasedWhiteSpace(loc, previous);
 			
 			auto comment = loc.getFullLocation(context).getSlice();
-			builder.write(comment);
+			write(comment);
 			
 			if (comment[0 .. 2] == "//") {
 				newline(1);
@@ -245,7 +300,7 @@ private:
 		 */
 		while (match(TokenType.Comment) && newLineCount() == 0) {
 			auto comment = token.toString(context);
-			builder.write(comment);
+			write(comment);
 			trange.popFront();
 			
 			emitSourceBasedWhiteSpace();
@@ -265,57 +320,6 @@ private:
 		}
 		
 		nextCommentBlock = commentBlock;
-	}
-	
-	/**
-	 * Chunk builder facilities
-	 */
-	void space() {
-		builder.space();
-	}
-	
-	void newline() {
-		newline(newLineCount());
-	}
-	
-	void newline(int nl) {
-		builder.newline(nl);
-	}
-	
-	void clearSplitType() {
-		builder.clearSplitType();
-	}
-	
-	void split() {
-		builder.split();
-	}
-	
-	void emitSourceBasedWhiteSpace(Location location, Position previous) {
-		if (auto nl = newLineCount(location, previous)) {
-			newline(nl);
-			return;
-		}
-		
-		if (whiteSpaceLength(location, previous) > 0) {
-			space();
-		}
-	}
-	
-	void emitSourceBasedWhiteSpace() {
-		emitSourceBasedWhiteSpace(token.location, trange.previous);
-	}
-	
-	/**
-	 * Parser utilities
-	 */
-	bool match(TokenType t) {
-		return token.type == t;
-	}
-	
-	auto runOnType(TokenType T, alias fun)() {
-		if (match(T)) {
-			return fun();
-		}
 	}
 	
 	/**
