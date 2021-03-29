@@ -1356,6 +1356,13 @@ private:
 		
 		while (true) {
 			switch (token.type) with (TokenType) {
+				case Const, Immutable, Inout, Shared:
+					// Postfix qualifiers
+					clearSplitType();
+					space();
+					nextToken();
+					break;
+				
 				case OpenBrace:
 					// Function declaration.
 					clearSplitType();
