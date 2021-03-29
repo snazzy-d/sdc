@@ -7,13 +7,13 @@ int main() {
 	int i = 0;
 	do {
 		i++;
-	} while(i > 10); // Should run once.
+	} while (i > 10); // Should run once.
 
 	assert(i == 1);
 
 	do
 		i--;
-	while(i > -10);
+	while (i > -10);
 
 	assert(i == -10);
 
@@ -23,7 +23,7 @@ int main() {
 		i++;
 		if (i == 5)
 			break;
-	} while(i < 10);
+	} while (i < 10);
 
 	assert(i == 5);
 
@@ -35,7 +35,7 @@ int main() {
 		if (i > 5)
 			continue;
 		j++;
-	} while(i < 10);
+	} while (i < 10);
 
 	assert(j == 5);
 

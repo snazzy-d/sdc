@@ -60,7 +60,7 @@ uint loopflow() {
 
 	do {
 		return 1;
-	} while(condition);
+	} while (condition);
 
 	// FIXME: instruction lowerer lost the capability
 	// to see this is unreachable.

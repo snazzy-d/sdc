@@ -30,7 +30,7 @@ int main() {
 		if (a > 10)
 			continue;
 		break;
-	} while(true);
+	} while (true);
 
 	assert(a == 9);
 

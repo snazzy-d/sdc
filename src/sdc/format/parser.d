@@ -1052,6 +1052,7 @@ private:
 		nextToken();
 		
 		if (match(TokenType.OpenParen)) {
+			space();
 			nextToken();
 			auto guard = changeMode(Mode.Parameter);
 			parseStructuralElement();
