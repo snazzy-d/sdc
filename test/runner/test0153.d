@@ -10,8 +10,8 @@ int main() {
 	}
 
 	return () {
-		return a++;
-	}() + {
-		return a -= 2;
-	}() + foo() + ((int b) => a + b)(1);
+			return a++;
+		}() + {
+			return a -= 2;
+		}() + foo() + ((int b) => a + b)(1);
 }

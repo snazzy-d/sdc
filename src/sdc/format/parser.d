@@ -1174,10 +1174,14 @@ private:
 		nextToken();
 		if (token.type == TokenType.Semicolon) {
 			nextToken();
-		} else {
-			space();
-			parseExpression();
+			return;
 		}
+		
+		space();
+		split();
+		
+		auto guard = builder.indent();
+		parseExpression();
 	}
 	
 	void parseWith() in {
