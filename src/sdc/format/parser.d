@@ -1028,7 +1028,8 @@ private:
 	void parseCondition() {
 		if (match(TokenType.OpenParen)) {
 			nextToken();
-			auto guard = changeMode(Mode.Parameter);
+			auto indentGuard = builder.indent();
+			auto modeGuard = changeMode(Mode.Parameter);
 			parseStructuralElement();
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
