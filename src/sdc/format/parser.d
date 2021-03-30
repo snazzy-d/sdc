@@ -72,7 +72,7 @@ private:
 		return sdfmtOffStart != Position();
 	}
 	
-public:	
+public:
 	this(Context context, ref TokenRange trange) {
 		this.context = context;
 		this.trange = trange.withComments();
@@ -1506,7 +1506,6 @@ private:
 				case Align, Extern, Scope, Synchronized:
 					nextToken();
 					parseArgumentList();
-					space();
 					break;
 				
 				default:
@@ -1525,6 +1524,8 @@ private:
 					return true;
 				
 				case Identifier:
+					space();
+					
 					auto lookahead = trange.save.withComments(false);
 					lookahead.popFront();
 					
@@ -1542,6 +1543,7 @@ private:
 					return true;
 				
 				default:
+					space();
 					break;
 			}
 		}
