@@ -1385,8 +1385,7 @@ private:
 	void parseTypedDeclaration() in {
 		assert(match(TokenType.Identifier));
 	} body {
-		bool loop = mode == Mode.Parameter;
-		do {
+		while (true) {
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 			
@@ -1399,13 +1398,13 @@ private:
 				space();
 				parseExpression();
 			}
-
-			if (!match(TokenType.Comma)) {
+			
+			if (mode == Mode.Parameter || !match(TokenType.Comma)) {
 				break;
 			}
 			
 			nextToken();
-		} while (loop);
+		}
 		
 		while (true) {
 			switch (token.type) with (TokenType) {

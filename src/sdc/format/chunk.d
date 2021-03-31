@@ -137,6 +137,8 @@ public:
 	}
 	
 	void clearSplitType() {
+		import std.stdio;
+		// writeln("clearSplitType!");
 		pendingWhiteSpace = SplitType.None;
 	}
 	
