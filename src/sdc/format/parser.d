@@ -327,7 +327,7 @@ private:
 	
 	void parseComments() in {
 		assert(inFlightComments == []);
-		assert(inFlightComments == []);
+		assert(nextCommentBlock == []);
 	} do {
 		if (!match(TokenType.Comment)) {
 			return;
@@ -377,6 +377,17 @@ private:
 		}
 	}
 	
+	void parseColonBlock() {
+		runOnType!(TokenType.Colon, nextToken)();
+		if (!match(TokenType.OpenBrace)) {
+			newline(1);
+			return;
+		}
+		
+		space();
+		parseBlock(mode);
+	}
+	
 	void parseStructuralElement() {
 		emitInFlightComments();
 		
@@ -418,8 +429,7 @@ private:
 					auto guard = builder.unindent();
 					newline(2);
 					nextToken();
-					nextToken();
-					newline();
+					parseColonBlock();
 				} else {
 					nextToken();
 					nextToken();
@@ -489,15 +499,14 @@ private:
 					}
 				}
 				
-				newline();
+				parseColonBlock();
 				break;
 			
 			case Default: {
 					auto guard = builder.unindent();
 					newline();
 					nextToken();
-					runOnType!(Colon, nextToken)();
-					newline();
+					parseColonBlock();
 				}
 				
 				break;
@@ -1513,8 +1522,7 @@ private:
 			
 			switch (token.type) with (TokenType) {
 				case Colon:
-					nextToken();
-					newline(1);
+					parseColonBlock();
 					return true;
 					
 				case OpenBrace:
