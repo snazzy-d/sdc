@@ -170,7 +170,7 @@ struct LineWriter {
 	
 	SolveState findBestState() {
 		auto best = SolveState(this);
-		if (best.overflow == 0 || best.liveRules is null) {
+		if (best.overflow == 0 || !best.canExpand) {
 			// Either the line already fit, or it is not breakable.
 			return best;
 		}
@@ -201,8 +201,16 @@ struct LineWriter {
 				break;
 			}
 			
-			foreach (r; next.liveRules) {
-				auto newRuleValues = next.ruleValues.withValue(r, true);
+			foreach (rule; next.ruleValues.frozen .. line.length) {
+				if (next.isSplit(rule)) {
+					break;
+				}
+				
+				if (!next.canSplit(line, rule)) {
+					continue;
+				}
+				
+				auto newRuleValues = next.ruleValues.withValue(rule, true);
 				auto candidate = SolveState(this, newRuleValues);
 				
 				if (candidate.isBetterThan(best)) {
@@ -210,7 +218,7 @@ struct LineWriter {
 				}
 				
 				// This candidate cannot be expanded further.
-				if (candidate.liveRules is null) {
+				if (!candidate.canExpand) {
 					continue;
 				}
 				
@@ -294,6 +302,21 @@ public:
 			: indirect[0];
 	}
 	
+	@property
+	size_t frozen(size_t f) in {
+		assert(f >= frozen && f <= length);
+	} do {
+		if (isDirect()) {
+			// Replace the previous frozen value.
+			direct[1] &= (size_t(1) << DirectShift) - 1;
+			direct[1] |= f << DirectShift;
+		} else {
+			*uptr = f;
+		}
+		
+		return frozen;
+	}
+	
 	bool opIndex(size_t i) const {
 		return (values[word(i)] >> shift(i)) & 0x01;
 	}
@@ -356,12 +379,12 @@ struct SolveState {
 	
 	RuleValues ruleValues;
 	
-	// The set of free to bind rules that affect the next overflowing line.
-	RedBlackTree!size_t liveRules;
-	
-	// Span that require indentation.
-	import sdc.format.span;
-	RedBlackTree!(const(Span)) usedSpans;
+	import sdc.format.span, std.bitmanip;
+	mixin(taggedClassRef!(
+		// Spans that require indentation.
+		RedBlackTree!(const(Span)), "usedSpans",
+		bool, "canExpand", 1,
+	));
 	
 	this(ref LineWriter lineWriter) {
 		this(lineWriter, RuleValues(1, lineWriter.line.length));
@@ -431,22 +454,23 @@ struct SolveState {
 			overflow += lineOverflow;
 			
 			// We try to split element in the first line that overflows.
-			if (liveRules !is null) {
+			if (canExpand) {
 				return;
 			}
 			
-			import std.algorithm, std.range;
-			auto range = max(ruleValues.frozen, start + 1)
-				.iota(i)
-				.filter!(i => canSplit(line, i));
+			if (ruleValues.frozen < start + 1) {
+				ruleValues.frozen = start + 1;
+			}
+			
+			foreach (j; ruleValues.frozen .. i) {
+				if (canSplit(line, j)) {
+					canExpand = true;
+					return;
+				}
+			}
 			
 			// If the line overflow, but has no split point, it is sunk.
-			if (range.empty) {
-				sunk += lineOverflow;
-				return;
-			}
-			
-			liveRules = redBlackTree(range);
+			sunk += lineOverflow;
 		}
 		
 		bool salvageNextSpan = true;
