@@ -581,6 +581,16 @@ private:
 			case Version, Debug:
 				goto default;
 			
+			case At:
+				while(match(At)) {
+					nextToken();
+					parseIdentifier();
+					space();
+				}
+				
+				newline(1);
+				goto Entry;
+			
 			case Ref:
 				nextToken();
 				space();
@@ -1415,21 +1425,46 @@ private:
 			nextToken();
 		}
 		
+		bool foundBody = false;
 		while (true) {
 			switch (token.type) with (TokenType) {
+				case At:
+					if (foundBody) {
+						return;
+					}
+					
+					clearSplitType();
+					space();
+					nextToken();
+					parseIdentifier();
+					space();
+					continue;
+				
+				case Abstract, Deprecated, Final, Nothrow, Override, Pure:
 				case Const, Immutable, Inout, Shared:
+					if (foundBody) {
+						return;
+					}
+					
 					// Postfix qualifiers
 					clearSplitType();
 					space();
 					nextToken();
-					break;
+					space();
+					continue;
 				
 				case OpenBrace:
 					// Function declaration.
+					foundBody = true;
 					clearSplitType();
 					break;
 				
-				case In, Body, Do:
+				case Body, Do:
+					foundBody = true;
+					goto ParseBody;
+				
+				case In:
+				ParseBody:
 					clearSplitType();
 					space();
 					nextToken();

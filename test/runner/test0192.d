@@ -9,7 +9,8 @@ public bar() {
 
 immutable n = 3;
 
-@property p() {
+@property
+p() {
 	return 4;
 }
 
