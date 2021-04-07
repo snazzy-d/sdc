@@ -715,6 +715,8 @@ private:
 	}
 	
 	bool parseIdentifier() {
+		auto guard = builder.span();
+		
 		parseIdentifierPrefix();
 		auto kind = parseBaseIdentifier();
 		if (kind == IdentifierKind.None) {

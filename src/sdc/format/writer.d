@@ -97,6 +97,7 @@ struct SolveState {
 	Splitter* splitter;
 	uint[] ruleValues;
 	
+	// The set of free to bind rules that affect the next overflowing line.
 	RedBlackTree!uint liveRules;
 	
 	this(Splitter* splitter, uint[] ruleValues = []) {
@@ -114,6 +115,8 @@ struct SolveState {
 		if (line.length == 0) {
 			return;
 		}
+		
+		auto brokenSpans = redBlackTree!Span();
 		
 		uint length = 0;
 		uint start = 0;
@@ -142,6 +145,12 @@ struct SolveState {
 		void startLine(uint i) {
 			start = i;
 			length = line[i].length + INDENTATION_SIZE * line[i].indentation;
+			
+			// Make sure to keep track of the span that cross over line breaks.
+			auto span = line[i].span;
+			while (span !is null && brokenSpans.insert(span)) {
+				span = span.parent;
+			}
 		}
 		
 		void newLine(uint i) {
@@ -168,6 +177,11 @@ struct SolveState {
 		}
 		
 		endLine(cast(uint) line.length);
+		
+		// Account for the cost of breaking spans.
+		foreach (s; brokenSpans) {
+			cost += s.cost;
+		}
 	}
 	
 	uint getRuleValue(uint i) const {

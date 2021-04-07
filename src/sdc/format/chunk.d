@@ -12,6 +12,24 @@ enum ChunkKind {
 	Block,
 }
 
+final class Span {
+	Span parent = null;
+	uint cost = 1;
+	
+	this(Span parent, uint cost) {
+		this.parent = parent;
+		this.cost = cost;
+	}
+	
+	// lhs < rhs => rhs.opCmp(rhs) < 0
+	int opCmp(const Span rhs) const {
+		auto lhsPtr = cast(void*) this;
+		auto rhsPtr = cast(void*) rhs;
+		
+		return (lhsPtr > rhsPtr) - (lhsPtr < rhsPtr);
+	}
+}
+
 struct Chunk {
 private:
 	import util.bitfields, std.typetuple;
@@ -35,6 +53,8 @@ private:
 	}
 	
 public:
+	Span span = null;
+	
 	@property
 	ChunkKind kind() const {
 		return _kind;
@@ -107,6 +127,8 @@ public:
 	SplitType pendingWhiteSpace = SplitType.None;
 	uint indentation;
 	
+	Span spanStack = null;
+	
 public:
 	Chunk[] build() {
 		split();
@@ -145,6 +167,7 @@ public:
 	void split() {
 		scope(success) {
 			chunk.indentation = indentation;
+			chunk.span = spanStack;
 		}
 		
 		uint nlCount = 0;
@@ -214,16 +237,22 @@ public:
 	/**
 	 * Span management.
 	 */
-	void startSpan() {
-		import std.stdio;
-		// writeln("startSpan");
+	auto span(uint cost = 1) {
+		static struct Guard {
+			~this() {
+				assert(builder.spanStack is span);
+				builder.spanStack = span.parent;
+			}
+			
+		private:
+			Builder* builder;
+			Span span;
+		}
+		
+		spanStack = new Span(spanStack, cost);
+		return Guard(&this, spanStack);
 	}
 	
-	void endSpan() {
-		import std.stdio;
-		// writeln("endSpan");
-	}
-
 private:
 	void setWhiteSpace(SplitType st) {
 		import std.algorithm;
