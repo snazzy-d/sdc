@@ -752,6 +752,7 @@ private:
 					
 					runOnType!(CloseParen, nextToken)();
 					space();
+					split();
 					break;
 				
 				default:
@@ -824,6 +825,7 @@ private:
 						if (match(EqualMore)) {
 							nextToken();
 							space();
+							split();
 							parseExpression();
 						}
 						
@@ -908,6 +910,7 @@ private:
 		while (true) {
 			switch (token.type) with(TokenType) {
 				case Dot:
+					split();
 					nextToken();
 					// Put another coin in the Pachinko!
 					kind = parseBaseIdentifier();
@@ -1406,7 +1409,12 @@ private:
 	void parseTypedDeclaration() in {
 		assert(match(TokenType.Identifier));
 	} body {
+		bool isParameter = mode == Mode.Parameter;
 		while (true) {
+			if (!isParameter) {
+				split();
+			}
+			
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 			
@@ -1415,12 +1423,24 @@ private:
 			// Variable, template parameters, whatever.
 			if (match(TokenType.Equal) || match(TokenType.Colon)) {
 				space();
+				
+				// Pre split for parameters.
+				if (isParameter) {
+					split();
+				}
+				
 				nextToken();
 				space();
+				
+				// Post split for declarations.
+				if (!isParameter) {
+					split();
+				}
+				
 				parseExpression();
 			}
 			
-			if (mode == Mode.Parameter || !match(TokenType.Comma)) {
+			if (isParameter || !match(TokenType.Comma)) {
 				break;
 			}
 			
