@@ -1386,7 +1386,7 @@ private:
 					}
 					
 					parseExpression();
-					break;
+					continue;
 				
 				default:
 					return;
