@@ -4,6 +4,7 @@
 // downcast
 
 class A {}
+
 class B : A {}
 
 void main() {

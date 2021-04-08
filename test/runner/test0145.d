@@ -4,6 +4,7 @@
 // typeid.
 
 class A {}
+
 class B : A {}
 
 void main() {

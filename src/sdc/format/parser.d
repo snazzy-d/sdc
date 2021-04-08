@@ -1001,7 +1001,7 @@ private:
 		nextToken();
 		if (match(TokenType.CloseBrace)) {
 			nextToken();
-			newline();
+			newline(mode == Mode.Declaration ? 2 : 1);
 			return;
 		}
 		

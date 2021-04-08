@@ -4,6 +4,7 @@
 // memory allocator test.
 
 class A {}
+
 class B : A {
 	ulong a;
 }

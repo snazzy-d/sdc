@@ -3,6 +3,7 @@
 // Test interfaces.
 
 interface I {}
+
 void main() {
 	I i;
 }
