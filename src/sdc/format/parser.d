@@ -567,6 +567,20 @@ private:
 				parseTemplate();
 				break;
 			
+			case Unittest:
+				nextToken();
+				space();
+				
+				if (match(Identifier)) {
+					nextToken();
+					space();
+				}
+				
+				parseBlock(Mode.Statement);
+				
+				// Blocks do not end with a semicolon.
+				return;
+			
 			case Synchronized:
 				goto StorageClass;
 			
