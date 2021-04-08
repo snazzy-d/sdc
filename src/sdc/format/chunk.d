@@ -15,10 +15,12 @@ enum ChunkKind {
 final class Span {
 	Span parent = null;
 	uint cost = 1;
+	uint indent = 1;
 	
-	this(Span parent, uint cost) {
+	this(Span parent, uint cost, uint indent) {
 		this.parent = parent;
 		this.cost = cost;
+		this.indent = indent;
 	}
 	
 	// lhs < rhs => rhs.opCmp(rhs) < 0
@@ -27,6 +29,19 @@ final class Span {
 		auto rhsPtr = cast(void*) rhs;
 		
 		return (lhsPtr > rhsPtr) - (lhsPtr < rhsPtr);
+	}
+	
+	static string print(const Span span) {
+		if (span is null)  {
+			return "null";
+		}
+		
+		return span.toString();
+	}
+	
+	override string toString() const {
+		import std.conv;
+		return "Span(" ~ print(parent) ~ ", " ~ cost.to!string ~ ", " ~ indent.to!string ~ ")";
 	}
 }
 
@@ -106,13 +121,14 @@ public:
 		return _chunks;
 	}
 	
-	bool isLineBreak() const {
-		return splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines;
+	bool endsBreakableLine() const {
+		return span is null && (splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines);
 	}
 	
 	string toString() const {
 		import std.conv;
 		return "Chunk(" ~ splitType.to!string ~ ", "
+			~ Span.print(span) ~ ", "
 			~ indentation.to!string ~ ", "
 			~ length.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
@@ -165,6 +181,9 @@ public:
 	}
 	
 	void split() {
+		import std.stdio;
+		// writeln("split!");
+
 		scope(success) {
 			chunk.indentation = indentation;
 			chunk.span = spanStack;
@@ -237,7 +256,9 @@ public:
 	/**
 	 * Span management.
 	 */
-	auto span(uint cost = 1) {
+	auto span(uint cost = 1, uint indent = 1) {
+		emitPendingWhiteSpace();
+		
 		static struct Guard {
 			~this() {
 				assert(builder.spanStack is span);
@@ -249,7 +270,7 @@ public:
 			Span span;
 		}
 		
-		spanStack = new Span(spanStack, cost);
+		spanStack = new Span(spanStack, cost, indent);
 		return Guard(&this, spanStack);
 	}
 	

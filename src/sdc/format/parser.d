@@ -141,6 +141,13 @@ private:
 		builder.split();
 	}
 	
+	auto span() {
+		emitSkippedTokens();
+		flushComments();
+		
+		return builder.span();
+	}
+	
 	/**
 	 * Whitespace management.
 	 */
@@ -729,9 +736,10 @@ private:
 	}
 	
 	bool parseIdentifier() {
-		auto guard = builder.span();
+		auto guard = span();
 		
 		parseIdentifierPrefix();
+		
 		auto kind = parseBaseIdentifier();
 		if (kind == IdentifierKind.None) {
 			return false;
@@ -1066,7 +1074,10 @@ private:
 	void parseCondition() {
 		if (match(TokenType.OpenParen)) {
 			nextToken();
-			auto indentGuard = builder.indent();
+			
+			auto guard = span();
+			split();
+			
 			auto modeGuard = changeMode(Mode.Parameter);
 			parseStructuralElement();
 			runOnType!(TokenType.CloseParen, nextToken)();
@@ -1216,10 +1227,11 @@ private:
 			return;
 		}
 		
+		auto guard = span();
+		
 		space();
 		split();
 		
-		auto guard = builder.indent();
 		parseExpression();
 	}
 	
@@ -1436,6 +1448,8 @@ private:
 			
 			// Variable, template parameters, whatever.
 			if (match(TokenType.Equal) || match(TokenType.Colon)) {
+				auto guard = span();
+				
 				space();
 				
 				// Pre split for parameters.
@@ -1729,32 +1743,34 @@ private:
 			return true;
 		}
 		
-		while (true) {
-			auto guard = builder.indent();
+		{
+			auto guard = span();
 			while (true) {
-				if (addNewLines) {
-					newline(1);
-				} else {
-					split();
+				while (true) {
+					if (addNewLines) {
+						newline(1);
+					} else {
+						split();
+					}
+					
+					fun();
+					
+					if (!match(TokenType.Comma)) {
+						break;
+					}
+					
+					nextToken();
+					space();
 				}
 				
-				fun();
-				
-				if (!match(TokenType.Comma)) {
+				if (!match(TokenType.DotDot)) {
 					break;
 				}
 				
+				space();
 				nextToken();
 				space();
 			}
-			
-			if (!match(TokenType.DotDot)) {
-				break;
-			}
-			
-			space();
-			nextToken();
-			space();
 		}
 		
 		if (match(closingTokenType)) {

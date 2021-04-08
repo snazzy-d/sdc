@@ -13,7 +13,7 @@ struct Writer {
 		uint cost = 0;
 		size_t start = 0;
 		foreach (i, c; chunks) {
-			if (!c.isLineBreak()) {
+			if (!c.endsBreakableLine()) {
 				continue;
 			}
 			
@@ -100,6 +100,9 @@ struct SolveState {
 	// The set of free to bind rules that affect the next overflowing line.
 	RedBlackTree!uint liveRules;
 	
+	// Span that require indentation.
+	RedBlackTree!Span usedSpans;
+	
 	this(Splitter* splitter, uint[] ruleValues = []) {
 		this.splitter = splitter;
 		this.ruleValues = ruleValues;
@@ -116,7 +119,24 @@ struct SolveState {
 			return;
 		}
 		
-		auto brokenSpans = redBlackTree!Span();
+		foreach (uint i, ref c; line[1 .. $]) {
+			if (c.span is null) {
+				continue;
+			}
+			
+			if (!isSplit(i + 1)) {
+				continue;
+			}
+			
+			if (usedSpans is null) {
+				usedSpans = redBlackTree!Span();
+			}
+			
+			usedSpans.insert(c.span);
+		}
+		
+		// All the span which do not fit on one line.
+		RedBlackTree!Span brokenSpans;
 		
 		uint length = 0;
 		uint start = 0;
@@ -144,13 +164,23 @@ struct SolveState {
 		
 		void startLine(uint i) {
 			start = i;
-			length = line[i].length + INDENTATION_SIZE * line[i].indentation;
+			
+			auto indent = line[i].indentation;
+			auto span = line[i].span;
+			bool needInsert = true;
 			
 			// Make sure to keep track of the span that cross over line breaks.
-			auto span = line[i].span;
-			while (span !is null && brokenSpans.insert(span)) {
-				span = span.parent;
+			while (span !is null && needInsert) {
+				scope(success) span = span.parent;
+				
+				if (brokenSpans is null) {
+					brokenSpans = redBlackTree!Span();
+				}
+				
+				needInsert = brokenSpans.insert(span) > 0;
 			}
+			
+			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i)) + line[i].length;
 		}
 		
 		void newLine(uint i) {
@@ -161,7 +191,7 @@ struct SolveState {
 		startLine(0);
 		
 		foreach (uint i, ref c; line[1 .. $]) {
-			if (getRuleValue(i)) {
+			if (isSplit(i + 1)) {
 				newLine(i + 1);
 				
 				// FIXME: compute proper cost.
@@ -179,15 +209,41 @@ struct SolveState {
 		endLine(cast(uint) line.length);
 		
 		// Account for the cost of breaking spans.
-		foreach (s; brokenSpans) {
-			cost += s.cost;
+		if (brokenSpans !is null) {
+			foreach (s; brokenSpans) {
+				cost += s.cost;
+			}
 		}
 	}
 	
 	uint getRuleValue(uint i) const {
-		return i < ruleValues.length
-			? ruleValues[i]
+		return (i - 1) < ruleValues.length
+			? ruleValues[i - 1]
 			: 0;
+	}
+	
+	bool isSplit(uint i) const {
+		auto st = splitter.line[i].splitType;
+		return st == SplitType.TwoNewLines || st == SplitType.NewLine || getRuleValue(i) > 0;
+	}
+	
+	uint getIndent(uint i) {
+		if (usedSpans is null) {
+			return 0;
+		}
+		
+		uint indent = 0;
+		
+		auto span = splitter.line[i].span;
+		while (span !is null) {
+			scope(success) span = span.parent;
+			
+			if (span in usedSpans) {
+				indent += span.indent;
+			}
+		}
+		
+		return indent;
 	}
 	
 	SolveState withRuleValue(uint i, uint v) in {
@@ -254,33 +310,17 @@ struct LineWriter {
 		auto line = state.splitter.line;
 		assert(line.length > 0, "line must not be empty");
 		
-		final switch (line[0].splitType) with (SplitType) {
-			case None:
-				// File starts.
-				break;
+		foreach (uint i, c; line) {
+			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
 			
-			case Space:
-				assert(0, "Expected line break");
-			
-			case NewLine:
-				output('\n');
-				indent(line[0].indentation);
-				break;
-			
-			case TwoNewLines:
-				output("\n\n");
-				indent(line[0].indentation);
-				break;
-		}
-		
-		output(line[0].text);
-		
-		foreach (uint i, c; line[1 .. $]) {
-			assert(!c.isLineBreak(), "Line splitting bug");
-			
-			if (state.getRuleValue(i)) {
-				output('\n');
-				indent(c.indentation);
+			if (state.isSplit(i)) {
+				if (c.splitType == SplitType.TwoNewLines) {
+					output("\n\n");
+				} else {
+					output('\n');
+				}
+				
+				indent(c.indentation + state.getIndent(i));
 			} else if (c.splitType == SplitType.Space) {
 				output(' ');
 			}

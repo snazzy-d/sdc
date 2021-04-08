@@ -8,8 +8,8 @@ class Foo {
 
 	uint bar() {
 		auto dg = {
-			return buzz();
-		};
+				return buzz();
+			};
 
 		return dg() + buzz() + a;
 	}
