@@ -553,10 +553,6 @@ private:
 				parseFinally();
 				break;
 			
-			case Scope:
-				// FIXME: scope statements.
-				goto StorageClass;
-			
 			case Assert:
 				parseExpression();
 				break;
@@ -588,16 +584,8 @@ private:
 				// Blocks do not end with a semicolon.
 				return;
 			
-			case Synchronized:
-				goto StorageClass;
-			
 			case Mixin:
 				goto default;
-			
-			case Static:
-				nextToken();
-				space();
-				goto Entry;
 			
 			case Version, Debug:
 				goto default;
@@ -610,11 +598,6 @@ private:
 				}
 				
 				newline(1);
-				goto Entry;
-			
-			case Ref:
-				nextToken();
-				space();
 				goto Entry;
 			
 			case Public, Private, Protected, Package:
@@ -638,35 +621,22 @@ private:
 				break;
 			
 			case Enum:
-				auto lookahead = trange.save.withComments(false);
-				lookahead.popFront();
-				
-				if (lookahead.front.type == Identifier) {
-					lookahead.popFront();
-				}
-				
-				if (lookahead.front.type == Colon || lookahead.front.type == OpenBrace) {
-					parseEnum();
-					break;
-				}
-				
-				goto StorageClass;
-			
-			case Abstract, Align, Auto, Deprecated, Extern, Final, Nothrow, Override, Pure:
-			StorageClass:
-				bool success = parseStorageClass();
-				assert(success, "Failed to parse storage class");
-				break;
-			
-			case Struct, Union, Class, Interface:
-				parseAggregate();
+				parseEnum();
 				break;
 			
 			case Alias:
 				parseAlias();
 				break;
 			
+			case Struct, Union, Class, Interface:
+				parseAggregate();
+				break;
+			
 			default:
+				if (parseStorageClassDeclaration()) {
+					break;
+				}
+				
 				if (!parseIdentifier()) {
 					// We made no progress, start skipping.
 					skipToken();
@@ -1437,10 +1407,6 @@ private:
 	} body {
 		bool isParameter = mode == Mode.Parameter;
 		while (true) {
-			if (!isParameter) {
-				split();
-			}
-			
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 			
@@ -1473,40 +1439,29 @@ private:
 			}
 			
 			nextToken();
+			
+			if (!isParameter) {
+				split();
+			}
 		}
 		
 		bool foundBody = false;
-		while (true) {
+		while (!foundBody) {
+			clearSplitType();
+			space();
+			
+			parseStorageClasses();
+			
 			switch (token.type) with (TokenType) {
 				case At:
-					if (foundBody) {
-						return;
-					}
-					
-					clearSplitType();
-					space();
 					nextToken();
 					parseIdentifier();
-					space();
-					continue;
-				
-				case Abstract, Deprecated, Final, Nothrow, Override, Pure:
-				case Const, Immutable, Inout, Shared:
-					if (foundBody) {
-						return;
-					}
-					
-					// Postfix qualifiers
-					clearSplitType();
-					space();
-					nextToken();
 					space();
 					continue;
 				
 				case OpenBrace:
 					// Function declaration.
 					foundBody = true;
-					clearSplitType();
 					break;
 				
 				case Body, Do:
@@ -1515,23 +1470,19 @@ private:
 				
 				case In:
 				ParseBody:
-					clearSplitType();
-					space();
 					nextToken();
 					break;
 				
 				case Out:
-					clearSplitType();
-					space();
 					nextToken();
 					parseParameterList();
 					break;
 				
 				default:
+					clearSplitType();
 					return;
 			}
 			
-			clearSplitType();
 			space();
 			if (match(TokenType.OpenBrace)) {
 				parseBlock(Mode.Statement);
@@ -1582,17 +1533,26 @@ private:
 		return parseList!parseStructuralElement();
 	}
 	
-	bool parseStorageClass() {
+	bool parseStorageClasses() {
 		bool ret = false;
 		while (true) {
 			scope(success) {
 				// This will be true after the first loop iterration.
 				ret = true;
 			}
-
+			
 			switch (token.type) with (TokenType) {
-				case Abstract, Auto, Alias, Deprecated, Enum, Final, Nothrow, Override, Pure, Static:
-				case Const, Immutable, Inout, Shared, __Gshared:
+				case Const, Immutable, Inout, Shared:
+					auto lookahead = trange.save.withComments(false);
+					lookahead.popFront();
+					if (lookahead.front.type == OpenParen) {
+						return ret;
+					}
+					
+					nextToken();
+					break;
+				
+				case Abstract, Alias, Auto, Deprecated, Enum, Final, Nothrow, Override, Pure, Ref, Static, __Gshared:
 					nextToken();
 					break;
 				
@@ -1605,47 +1565,71 @@ private:
 					return ret;
 			}
 			
-			switch (token.type) with (TokenType) {
-				case Colon:
-					parseColonBlock();
-					return true;
-					
-				case OpenBrace:
-					space();
-					parseBlock(mode);
-					return true;
-				
-				case Identifier:
-					space();
-					
-					auto lookahead = trange.save.withComments(false);
-					lookahead.popFront();
-					
-					switch (lookahead.front.type) {
-						case Equal:
-						case OpenParen:
-							parseTypedDeclaration();
-							break;
-						
-						default:
-							parseStructuralElement();
-							break;
-					}
-					
-					return true;
-				
-				default:
-					space();
-					break;
-			}
+			space();
 		}
+	}
+	
+	bool parseStorageClassDeclaration() {
+		if (!parseStorageClasses()) {
+			return false;
+		}
+		
+		switch (token.type) with (TokenType) {
+			case Colon:
+				clearSplitType();
+				parseColonBlock();
+				break;
+				
+			case OpenBrace:
+				parseBlock(mode);
+				break;
+			
+			case Identifier:
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				auto t = lookahead.front.type;
+				if (t == Equal || t == OpenParen) {
+					parseTypedDeclaration();
+					break;
+				}
+				
+				goto default;
+			
+			default:
+				parseStructuralElement();
+				break;
+		}
+		
+		return true;
+	}
+	
+	TokenType getStorageClassTokenType() {
+		auto lookahead = trange.save.withComments(false);
+		lookahead.popFront();
+		
+		if (lookahead.front.type == TokenType.Identifier) {
+			lookahead.popFront();
+		}
+		
+		if (lookahead.front.type == TokenType.OpenParen) {
+			import d.parser.util;
+			lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
+		}
+		
+		return lookahead.front.type;
 	}
 	
 	void parseEnum() in {
 		assert(match(TokenType.Enum));
 	} body {
-		nextToken();
+		auto t = getStorageClassTokenType();
+		if (t != TokenType.Colon && t != TokenType.OpenBrace) {
+			parseStorageClassDeclaration();
+			return;
+		}
 		
+		nextToken();
 		if (match(TokenType.Identifier)) {
 			space();
 			nextToken();
@@ -1662,6 +1646,34 @@ private:
 			space();
 			nextToken();
 			parseList!parseExpression(TokenType.CloseBrace, true);
+		}
+	}
+	
+	void parseAlias() in {
+		assert(match(TokenType.Alias));
+	} body {
+		auto t = getStorageClassTokenType();
+		if (t != TokenType.This && t != TokenType.Identifier) {
+			parseStorageClassDeclaration();
+			return;
+		}
+		
+		nextToken();
+		space();
+		
+		parseIdentifier();
+		
+		if (match(TokenType.Identifier) || match(TokenType.This)) {
+			space();
+			nextToken();
+			return;
+		}
+		
+		while (match(TokenType.Equal) || match(TokenType.Colon)) {
+			space();
+			nextToken();
+			space();
+			parseExpression();
 		}
 	}
 	
@@ -1689,30 +1701,6 @@ private:
 		// TODO inheritance.
 		
 		parseBlock(Mode.Declaration);
-	}
-	
-	void parseAlias() in {
-		assert(match(TokenType.Alias));
-	} body {
-		nextToken();
-		space();
-		
-		runOnType!(TokenType.Identifier, nextToken)();
-		
-		parseArgumentList();
-		
-		if (match(TokenType.This)) {
-			space();
-			nextToken();
-			return;
-		}
-		
-		while (match(TokenType.Equal) || match(TokenType.Colon)) {
-			space();
-			nextToken();
-			space();
-			parseExpression();
-		}
 	}
 	
 	/**
