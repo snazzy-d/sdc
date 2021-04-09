@@ -1110,10 +1110,24 @@ private:
 		nextToken();
 		space();
 		
-		if (match(TokenType.If)) {
-			parseIf();
-		} else {
+		static bool isControlFlow(TokenType t) {
+			return t == TokenType.If || t == TokenType.Do || t == TokenType.While
+				|| t == TokenType.For || t == TokenType.Foreach || t == TokenType.ForeachReverse
+				|| t == TokenType.Version || t == TokenType.Debug;
+		}
+		
+		bool useControlFlowBlock = !isControlFlow(token.type);
+		if (useControlFlowBlock && match(TokenType.Static)) {
+			auto lookahead = trange.save.withComments(false);
+			lookahead.popFront();
+			
+			useControlFlowBlock = !isControlFlow(lookahead.front.type);
+		}
+		
+		if (useControlFlowBlock) {
 			parseControlFlowBlock();
+		} else {
+			parseStructuralElement();
 		}
 	}
 	
