@@ -798,6 +798,11 @@ private:
 				parseArgumentList();
 				break;
 			
+			case Is:
+				kind = IdentifierKind.Expression;
+				parseIsExpression();
+				break;
+			
 			case OpenParen:
 				import d.parser.util;
 				auto lookahead = trange.save.withComments(false);
@@ -1469,6 +1474,58 @@ private:
 		return parseList!parseExpression();
 	}
 	
+	void parseIsExpression() in {
+		assert(match(TokenType.Is));
+	} do {
+		nextToken();
+		if (!match(TokenType.OpenParen)) {
+			return;
+		}
+		
+		nextToken();
+		if (match(TokenType.CloseParen)) {
+			return;
+		}
+		
+		auto modeGuard = changeMode(Mode.Parameter);
+		auto spanGuard = span();
+		split();
+		
+		parseType();
+		if (match(TokenType.Identifier)) {
+			space();
+			nextToken();
+		}
+		
+		static bool isTypeSpecialization(TokenType t) {
+			return t == TokenType.Struct || t == TokenType.Union || t == TokenType.Class || t == TokenType.Interface
+				|| t == TokenType.Enum || t == TokenType.__Vector || t == TokenType.Function || t == TokenType.Delegate
+				|| t == TokenType.Super || t == TokenType.Return || t == TokenType.__Parameters
+				|| t == TokenType.Module || t == TokenType.Package;
+		}
+		
+		while (match(TokenType.EqualEqual) || match(TokenType.Colon)) {
+			space();
+			split();
+			nextToken();
+			space();
+			
+			if (isTypeSpecialization(token.type)) {
+				nextToken();
+			} else {
+				parseType();
+			}
+		}
+		
+		if (match(TokenType.Comma)) {
+			nextToken();
+			space();
+			split();
+		}
+		
+		parseList!parseStructuralElement(TokenType.CloseParen);
+	}
+	
 	/**
 	 * Declarations
 	 */
@@ -1792,13 +1849,14 @@ private:
 		}
 		
 		nextToken();
-		return parseList!fun(closingTokenType);
+		parseList!fun(closingTokenType);
+		return true;
 	}
 
-	bool parseList(alias fun)(TokenType closingTokenType, bool addNewLines = false) {
+	void parseList(alias fun)(TokenType closingTokenType, bool addNewLines = false) {
 		if (match(closingTokenType)) {
 			nextToken();
-			return true;
+			return;
 		}
 		
 		{
@@ -1842,7 +1900,5 @@ private:
 		if (addNewLines) {
 			newline(2);
 		}
-
-		return true;
 	}
 }
