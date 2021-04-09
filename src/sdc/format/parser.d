@@ -783,6 +783,12 @@ private:
 				nextToken();
 				break;
 			
+			case __Traits:
+				kind = IdentifierKind.Symbol;
+				nextToken();
+				parseArgumentList();
+				break;
+			
 			case Assert:
 				kind = IdentifierKind.Expression;
 				nextToken();
