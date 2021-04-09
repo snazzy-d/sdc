@@ -473,7 +473,7 @@ private:
 				parseForeach();
 				break;
 			
-			case Return:
+			case Return, Throw:
 				parseReturn();
 				break;
 			
@@ -537,12 +537,6 @@ private:
 					}
 				}
 				
-				break;
-			
-			case Throw:
-				nextToken();
-				space();
-				parseExpression();
 				break;
 			
 			case Try:
@@ -1247,7 +1241,7 @@ private:
 	}
 	
 	void parseReturn() in {
-		assert(match(TokenType.Return));
+		assert(match(TokenType.Return) || match(TokenType.Throw));
 	} body {
 		nextToken();
 		if (token.type == TokenType.Semicolon) {
