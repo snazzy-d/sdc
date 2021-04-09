@@ -449,6 +449,10 @@ private:
 				parseIf();
 				break;
 			
+			case Version, Debug:
+				parseVersion();
+				break;
+			
 			case Else:
 				parseElse();
 				break;
@@ -589,9 +593,6 @@ private:
 				return;
 			
 			case Mixin:
-				goto default;
-			
-			case Version, Debug:
 				goto default;
 			
 			case At:
@@ -1059,6 +1060,16 @@ private:
 		return isBlock;
 	}
 	
+	void parseElsableBlock() {
+		bool isBlock = parseControlFlowBlock();
+		if (!match(TokenType.Else)) {
+			return;
+		}
+		
+		emitBlockControlFlowWhitespace(isBlock);
+		parseElse();
+	}
+	
 	void parseCondition() {
 		if (match(TokenType.OpenParen)) {
 			nextToken();
@@ -1072,14 +1083,14 @@ private:
 		}
 	}
 	
-	bool parseControlFlowBase() {
+	void parseControlFlowBase() {
 		nextToken();
 		space();
 		
 		parseCondition();
 		
 		space();
-		return parseControlFlowBlock();
+		parseElsableBlock();
 	}
 	
 	void emitBlockControlFlowWhitespace(bool isBlock) {
@@ -1094,13 +1105,27 @@ private:
 	void parseIf() in {
 		assert(match(TokenType.If));
 	} body {
-		bool isBlock = parseControlFlowBase();
-		if (!match(TokenType.Else)) {
-			return;
+		parseControlFlowBase();
+	}
+	
+	void parseVersion() in {
+		assert(match(TokenType.Version) || match(TokenType.Debug));
+	} body {
+		nextToken();
+		
+		if (match(TokenType.OpenParen)) {
+			space();
+			nextToken();
+			
+			if (match(TokenType.Identifier) || match(TokenType.Unittest)) {
+				nextToken();
+			}
+			
+			runOnType!(TokenType.CloseParen, nextToken)();
 		}
 		
-		emitBlockControlFlowWhitespace(isBlock);
-		parseElse();
+		space();
+		parseElsableBlock();
 	}
 	
 	void parseElse() in {
@@ -1134,6 +1159,7 @@ private:
 	void parseWhile() in {
 		assert(match(TokenType.While));
 	} body {
+		// Technically, this means while can have an else clause, and I think it is beautiful.
 		parseControlFlowBase();
 	}
 	
