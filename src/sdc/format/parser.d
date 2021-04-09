@@ -143,7 +143,7 @@ private:
 	
 	auto span() {
 		emitSkippedTokens();
-		flushComments();
+		emitInFlightComments();
 		
 		return builder.span();
 	}
@@ -553,6 +553,10 @@ private:
 				parseFinally();
 				break;
 			
+			case Scope:
+				parseScope();
+				break;
+			
 			case Assert:
 				parseExpression();
 				break;
@@ -706,6 +710,7 @@ private:
 	}
 	
 	bool parseIdentifier() {
+		flushComments();
 		auto guard = span();
 		
 		parseIdentifierPrefix();
@@ -1028,13 +1033,20 @@ private:
 		}
 	}
 	
-	bool parseControlFlowBlock() {
+	bool parseControlFlowBlock(bool forceNewLine = true) {
 		bool isBlock = match(TokenType.OpenBrace);
 		if (isBlock) {
 			parseBlock(mode);
 		} else {
-			auto guard = builder.indent();
-			newline(1);
+			auto guard = span();
+			
+			if (forceNewLine) {
+				newline(1);
+			} else {
+				space();
+				split();
+			}
+			
 			parseStructuralElement();
 		}
 		
@@ -1272,6 +1284,24 @@ private:
 		nextToken();
 		space();
 		return parseControlFlowBlock();
+	}
+	
+	void parseScope() in {
+		assert(match(TokenType.Scope));
+	} body {
+		auto lookahead = trange.save.withComments(false);
+		lookahead.popFront();
+		
+		if (lookahead.front.type != TokenType.OpenParen) {
+			parseStorageClassDeclaration();
+			return;
+		}
+		
+		nextToken();
+		parseArgumentList();
+		
+		space();
+		parseControlFlowBlock(false);
 	}
 	
 	/**
@@ -1542,7 +1572,7 @@ private:
 			}
 			
 			switch (token.type) with (TokenType) {
-				case Const, Immutable, Inout, Shared:
+				case Const, Immutable, Inout, Shared, Scope:
 					auto lookahead = trange.save.withComments(false);
 					lookahead.popFront();
 					if (lookahead.front.type == OpenParen) {
@@ -1556,7 +1586,7 @@ private:
 					nextToken();
 					break;
 				
-				case Align, Extern, Scope, Synchronized:
+				case Align, Extern, Synchronized:
 					nextToken();
 					parseArgumentList();
 					break;
@@ -1603,7 +1633,7 @@ private:
 		
 		return true;
 	}
-	
+	 
 	TokenType getStorageClassTokenType() {
 		auto lookahead = trange.save.withComments(false);
 		lookahead.popFront();
