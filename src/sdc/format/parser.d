@@ -573,6 +573,14 @@ private:
 				break;
 			
 			case Import:
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				if (lookahead.front.type == TokenType.OpenParen) {
+					// This is an import expression.
+					goto default;
+				}
+				
 				parseImport();
 				break;
 			
@@ -800,7 +808,7 @@ private:
 				parseArgumentList();
 				break;
 			
-			case Assert:
+			case Assert, Import:
 				kind = IdentifierKind.Expression;
 				nextToken();
 				parseArgumentList();
