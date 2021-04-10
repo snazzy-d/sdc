@@ -760,6 +760,18 @@ private:
 		switch (token.type) with(TokenType) {
 			case Identifier:
 				nextToken();
+				
+				if (!match(EqualMore)) {
+					break;
+				}
+				
+				// Lambda expression
+				kind = IdentifierKind.Expression;
+				space();
+				nextToken();
+				space();
+				split();
+				parseExpression();
 				break;
 			
 			// Litterals
