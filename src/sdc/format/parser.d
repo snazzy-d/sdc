@@ -572,6 +572,10 @@ private:
 				parseTemplate();
 				break;
 			
+			case Import:
+				parseImport();
+				break;
+			
 			case Unittest:
 				nextToken();
 				space();
@@ -1670,6 +1674,58 @@ private:
 	bool parseParameterList() {
 		auto guard = changeMode(Mode.Parameter);
 		return parseList!parseStructuralElement();
+	}
+	
+	void parseImport() in {
+		assert(match(TokenType.Import));
+	} body {
+		nextToken();
+		
+		auto guard = span();
+		
+		while (true) {
+			space();
+			split();
+			parseIdentifier();
+			
+			if (!match(TokenType.Comma)) {
+				break;
+			}
+			
+			nextToken();
+		}
+		
+		if (!match(TokenType.Colon)) {
+			return;
+		}
+		
+		space();
+		nextToken();
+		
+		// TODO: Splice a span over the last import and this.
+		while (true) {
+			space();
+			split();
+			
+			auto bindGuard = span();
+			
+			parseIdentifier();
+			
+			if (match(TokenType.Equal)) {
+				space();
+				nextToken();
+				space();
+				split();
+				
+				parseIdentifier();
+			}
+			
+			if (!match(TokenType.Comma)) {
+				break;
+			}
+			
+			nextToken();
+		}
 	}
 	
 	bool parseStorageClasses() {
