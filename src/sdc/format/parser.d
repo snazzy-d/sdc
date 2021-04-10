@@ -1019,6 +1019,12 @@ private:
 		
 		nextToken();
 		if (match(TokenType.CloseBrace)) {
+			{
+				// Flush comments so that they have the proper indentation.
+				auto guard = builder.indent();
+				flushComments();
+			}
+			
 			nextToken();
 			newline(mode == Mode.Declaration ? 2 : 1);
 			return;
