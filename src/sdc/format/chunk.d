@@ -274,6 +274,32 @@ public:
 		return Guard(&this, spanStack);
 	}
 	
+	bool spliceSpan() {
+		Span parent = spanStack.parent;
+		Span insert;
+		
+		import std.range;
+		foreach (ref c; only(chunk).chain(source.retro())) {
+			if (c.span !is parent) {
+				insert = c.span;
+				break;
+			}
+			
+			c.span = spanStack;
+		}
+		
+		while (insert !is null && insert.parent !is parent) {
+			insert = insert.parent;
+		}
+		
+		bool doSlice = insert !is null && insert !is spanStack;
+		if (doSlice) {
+			insert.parent = spanStack;
+		}
+		
+		return doSlice;
+	}
+	
 private:
 	void setWhiteSpace(SplitType st) {
 		import std.algorithm;

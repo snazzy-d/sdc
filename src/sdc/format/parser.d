@@ -148,6 +148,13 @@ private:
 		return builder.span();
 	}
 	
+	auto spliceSpan() {
+		auto guard = span();
+		builder.spliceSpan();
+		
+		return guard;
+	}
+	
 	/**
 	 * Whitespace management.
 	 */
@@ -1412,6 +1419,9 @@ private:
 	
 	void parseBinaryExpression() {
 		while (true) {
+			// This is incorrect, but will do for now.
+			auto guard = spliceSpan();
+			
 			switch (token.type) with(TokenType) {
 				case Equal:
 				case PlusEqual:
@@ -1716,7 +1726,7 @@ private:
 		space();
 		nextToken();
 		
-		// TODO: Splice a span over the last import and this.
+		auto bindsGuard = spliceSpan();
 		while (true) {
 			space();
 			split();
@@ -1954,7 +1964,10 @@ private:
 				
 				switch (token.type) with(TokenType) {
 					case DotDot:
+						auto rangeGuard = spliceSpan();
 						space();
+						split();
+						
 						nextToken();
 						space();
 						fun();
