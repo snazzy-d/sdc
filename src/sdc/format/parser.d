@@ -673,11 +673,11 @@ private:
 						break;
 					
 					default:
+						// We just have some kind of expression.
+						parseBinaryExpression();
 						break;
 				}
 				
-				// We just have some kind of expression.
-				parseBinaryExpression();
 				break;
 		}
 		
