@@ -1944,28 +1944,34 @@ private:
 		{
 			auto guard = span();
 			while (true) {
-				while (true) {
-					if (addNewLines) {
-						newline(1);
-					} else {
-						split();
-					}
-					
-					fun();
-					
-					if (!match(TokenType.Comma)) {
-						break;
-					}
-					
-					nextToken();
-					space();
+				if (addNewLines) {
+					newline(1);
+				} else {
+					split();
 				}
 				
-				if (!match(TokenType.DotDot)) {
+				fun();
+				
+				switch (token.type) with(TokenType) {
+					case DotDot:
+						space();
+						nextToken();
+						space();
+						fun();
+						break;
+					
+					case DotDotDot:
+						nextToken();
+						break;
+					
+					default:
+						break;
+				}
+				
+				if (!match(TokenType.Comma)) {
 					break;
 				}
 				
-				space();
 				nextToken();
 				space();
 			}
