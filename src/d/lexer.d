@@ -258,6 +258,10 @@ private:
 		static if (s == "//") {
 			// TODO: check for unicode line break.
 			while (c != '\n' && c != '\r') {
+				if (c == 0) {
+					return index;
+				}
+				
 				popChar();
 				c = frontChar;
 			}
