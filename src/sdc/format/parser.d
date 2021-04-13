@@ -681,7 +681,7 @@ private:
 					
 					default:
 						// We just have some kind of expression.
-						parseBinaryExpression();
+						parseAssignExpression();
 						break;
 				}
 				
@@ -1401,11 +1401,38 @@ private:
 	 */
 	void parseExpression() {
 		parseBaseExpression();
-		parseBinaryExpression();
+		parseAssignExpression();
 	}
 	
 	void parseBaseExpression() {
 		parseIdentifier();
+	}
+	
+	void parseAssignExpression() {
+		parseBinaryExpression();
+		
+		static bool isAssignExpression(TokenType t) {
+			return t == TokenType.Equal || t == TokenType.PlusEqual || t == TokenType.MinusEqual
+				|| t == TokenType.StarEqual || t == TokenType.SlashEqual || t == TokenType.PercentEqual
+				|| t == TokenType.AmpersandEqual || t == TokenType.PipeEqual || t == TokenType.CaretEqual
+				|| t == TokenType.TildeEqual || t == TokenType.LessLessEqual
+				|| t == TokenType.MoreMoreEqual || t == TokenType.MoreMoreMoreEqual || t == TokenType.CaretCaretEqual;
+		}
+		
+		if (!isAssignExpression(token.type)) {
+			return;
+		}
+		
+		auto guard = span();
+		do {
+			space();
+			nextToken();
+			split();
+			space();
+			
+			parseBaseExpression();
+			parseBinaryExpression();
+		} while (isAssignExpression(token.type));
 	}
 	
 	bool isBangIsOrIn() in {
@@ -1423,20 +1450,6 @@ private:
 			auto guard = spliceSpan();
 			
 			switch (token.type) with(TokenType) {
-				case Equal:
-				case PlusEqual:
-				case MinusEqual:
-				case StarEqual:
-				case SlashEqual:
-				case PercentEqual:
-				case AmpersandEqual:
-				case PipeEqual:
-				case CaretEqual:
-				case TildeEqual:
-				case LessLessEqual:
-				case MoreMoreEqual:
-				case MoreMoreMoreEqual:
-				case CaretCaretEqual:
 				case PipePipe:
 				case AmpersandAmpersand:
 				case Pipe:
