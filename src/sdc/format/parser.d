@@ -1476,65 +1476,100 @@ private:
 		return t == TokenType.Is || t == TokenType.In;
 	}
 	
-	void parseBinaryExpression() {
-		while (true) {
-			// This is incorrect, but will do for now.
+	uint getPrecedence() {
+		switch (token.type) with(TokenType) {
+			case PipePipe:
+				return 1;
+			
+			case AmpersandAmpersand:
+				return 2;
+			
+			case Pipe:
+				return 3;
+			
+			case Caret:
+				return 4;
+			
+			case Ampersand:
+				return 5;
+			
+			case Is:
+			case In:
+				return 6;
+			
+			case Bang:
+				return isBangIsOrIn() ? 6 : 0;
+			
+			case EqualEqual:
+			case BangEqual:
+				return 6;
+			
+			case More:
+			case MoreEqual:
+			case Less:
+			case LessEqual:
+				return 6;
+			
+			case LessLess:
+			case MoreMore:
+			case MoreMoreMore:
+				return 7;
+			
+			case BangLessMoreEqual:
+			case BangLessMore:
+			case LessMore:
+			case LessMoreEqual:
+			case BangMore:
+			case BangMoreEqual:
+			case BangLess:
+			case BangLessEqual:
+				return 7;
+			
+			case Plus:
+			case Minus:
+				return 8;
+			
+			case Slash:
+			case Star:
+			case Percent:
+				return 9;
+			
+			case Tilde:
+				return 10;
+			
+			default:
+				return 0;
+		}
+	}
+	
+	void parseBinaryExpression(uint minPrecedence = 0) {
+		auto currentPrecedence = getPrecedence();
+		
+		while (currentPrecedence > minPrecedence) {
+			auto previousPrecedence = currentPrecedence;
 			auto guard = spliceSpan();
 			
-			switch (token.type) with(TokenType) {
-				case PipePipe:
-				case AmpersandAmpersand:
-				case Pipe:
-				case Caret:
-				case Ampersand:
-				case EqualEqual:
-				case BangEqual:
-				case More:
-				case MoreEqual:
-				case Less:
-				case LessEqual:
-				case BangLessMoreEqual:
-				case BangLessMore:
-				case LessMore:
-				case LessMoreEqual:
-				case BangMore:
-				case BangMoreEqual:
-				case BangLess:
-				case BangLessEqual:
-				case Is:
-				case In:
-				case LessLess:
-				case MoreMore:
-				case MoreMoreMore:
-				case Plus:
-				case Minus:
-				case Tilde:
-				case Slash:
-				case Star:
-				case Percent:
-					space();
-					split();
-					nextToken();
-					space();
-					break;
-				
-				case Bang:
-					if (!isBangIsOrIn()) {
-						return;
+			while (previousPrecedence == currentPrecedence) {
+				scope(success) {
+					currentPrecedence = getPrecedence();
+					if (currentPrecedence > previousPrecedence) {
+						parseBinaryExpression(previousPrecedence);
+						currentPrecedence = getPrecedence();
 					}
 					
-					space();
-					split();
-					nextToken();
-					nextToken();
-					space();
-					break;
+					assert(currentPrecedence <= previousPrecedence);
+				}
 				
-				default:
-					return;
+				space();
+				split();
+				if (match(TokenType.Bang)) {
+					nextToken();
+				}
+				nextToken();
+				space();
+				
+				parseBaseExpression();
 			}
-			
-			parseBaseExpression();
 		}
 	}
 	
