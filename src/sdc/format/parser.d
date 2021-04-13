@@ -1409,7 +1409,7 @@ private:
 	}
 	
 	void parseAssignExpression() {
-		parseBinaryExpression();
+		parseConditionalExpression();
 		
 		static bool isAssignExpression(TokenType t) {
 			return t == TokenType.Equal || t == TokenType.PlusEqual || t == TokenType.MinusEqual
@@ -1431,8 +1431,40 @@ private:
 			space();
 			
 			parseBaseExpression();
-			parseBinaryExpression();
+			parseConditionalExpression();
 		} while (isAssignExpression(token.type));
+	}
+	
+	void parseConditionalExpression() {
+		parseBinaryExpression();
+		
+		if (!match(TokenType.QuestionMark)) {
+			return;
+		}
+		
+		do {
+			auto guard = spliceSpan();
+			
+			space();
+			split();
+			nextToken();
+			space();
+			
+			parseBaseExpression();
+			parseBinaryExpression();
+			
+			if (!match(TokenType.Colon)) {
+				continue;
+			}
+			
+			space();
+			split();
+			nextToken();
+			space();
+			
+			parseBaseExpression();
+			parseBinaryExpression();
+		} while (match(TokenType.QuestionMark));
 	}
 	
 	bool isBangIsOrIn() in {
@@ -1497,23 +1529,6 @@ private:
 					nextToken();
 					space();
 					break;
-				
-				case QuestionMark:
-					space();
-					split();
-					nextToken();
-					space();
-					parseExpression();
-					space();
-					
-					if (match(Colon)) {
-						split();
-						nextToken();
-						space();
-					}
-					
-					parseExpression();
-					continue;
 				
 				default:
 					return;
