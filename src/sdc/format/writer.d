@@ -56,7 +56,6 @@ struct Splitter {
 	
 	SolveState findBestState() {
 		auto best = SolveState(&this);
-		
 		if (best.overflow == 0) {
 			return best;
 		}
@@ -153,7 +152,7 @@ struct SolveState {
 				return;
 			}
 			
-			import std.algorithm, std.range;
+			import std.algorithm.comparison, std.range;
 			auto range = max(cast(uint) ruleValues.length, start + 1).iota(i);
 			
 			// If the line overflow, but has no split point, skip it.
@@ -247,11 +246,11 @@ struct SolveState {
 	}
 	
 	SolveState withRuleValue(uint i, uint v) in {
-		assert(i >= ruleValues.length);
+		assert(i > ruleValues.length);
 	} body {
 		uint[] newRuleValues = ruleValues;
-		newRuleValues.length = i + 1;
-		newRuleValues[i] = v;
+		newRuleValues.length = i;
+		newRuleValues[i - 1] = v;
 		
 		return SolveState(splitter, newRuleValues);
 	}
