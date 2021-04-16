@@ -901,7 +901,22 @@ private:
 			case Typeof:
 				kind = IdentifierKind.Type;
 				nextToken();
-				parseArgumentList();
+				
+				if (!match(OpenParen)) {
+					break;
+				}
+				
+				auto lookahead = trange.save.withComments(false);
+				lookahead.popFront();
+				
+				if (lookahead.front.type == Return) {
+					nextToken();
+					nextToken();
+					nextToken();
+				} else {
+					parseArgumentList();
+				}
+				
 				break;
 			
 			case Bool:
