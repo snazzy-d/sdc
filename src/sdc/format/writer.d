@@ -67,13 +67,14 @@ struct Splitter {
 		// to try, then we are done.
 		while (!queue.empty) {
 			auto candidate = queue.front;
-			if (candidate < best) {
-				best = candidate;
+			queue.removeFront();
+			
+			if (candidate.isDeadSubTree(best)) {
+				continue;
 			}
 			
-			// We have our solution.
-			if (candidate.overflow == 0) {
-				break;
+			if (candidate.isBetterThan(best)) {
+				best = candidate;
 			}
 			
 			// We ran out of attempts.
@@ -81,7 +82,6 @@ struct Splitter {
 				break;
 			}
 			
-			queue.removeFront();
 			candidate.expand(queue);
 		}
 		
@@ -90,6 +90,7 @@ struct Splitter {
 }
 
 struct SolveState {
+	uint sunk = 0;
 	uint overflow = 0;
 	uint cost = 0;
 	
@@ -109,6 +110,7 @@ struct SolveState {
 	}
 	
 	void computeCost() {
+		sunk = 0;
 		overflow = 0;
 		cost = 0;
 		
@@ -145,7 +147,8 @@ struct SolveState {
 				return;
 			}
 			
-			overflow += length - PAGE_WIDTH;
+			uint lineOverflow = length - PAGE_WIDTH;
+			overflow += lineOverflow;
 			
 			// We try to split element in the first line that overflows.
 			if (liveRules !is null) {
@@ -155,10 +158,13 @@ struct SolveState {
 			import std.algorithm.comparison, std.range;
 			auto range = max(cast(uint) ruleValues.length, start + 1).iota(i);
 			
-			// If the line overflow, but has no split point, skip it.
-			if (!range.empty) {
-				liveRules = redBlackTree(range);
+			// If the line overflow, but has no split point, it is sunk.
+			if (range.empty) {
+				sunk += lineOverflow;
+				return;
 			}
+			
+			liveRules = redBlackTree(range);
 		}
 		
 		void startLine(uint i) {
@@ -265,6 +271,35 @@ struct SolveState {
 		}
 	}
 	
+	// Return if this solve state must be chosen over rhs as a solution.
+	bool isDeadSubTree(const ref SolveState best) const {
+		if (sunk > best.overflow) {
+			// We already have comitted to an overflow greater than the best.
+			return true;
+		}
+		
+		if (sunk == best.overflow && cost >= best.cost) {
+			// We already comitted to a cost greater than the best.
+			return true;
+		}
+		
+		// There is still hope to find a better solution down that path.
+		return false;
+	}
+	
+	// Return if this solve state must be chosen over rhs as a solution.
+	bool isBetterThan(const ref SolveState rhs) const {
+		if (overflow < rhs.overflow) {
+			return true;
+		}
+		
+		if (overflow == rhs.overflow && cost < rhs.cost) {
+			return true;
+		}
+		
+		return false;
+	}
+	
 	// lhs < rhs => rhs.opCmp(rhs) < 0
 	int opCmp(const ref SolveState rhs) const {
 		if (overflow != rhs.overflow) {
@@ -273,6 +308,10 @@ struct SolveState {
 		
 		if (cost != rhs.cost) {
 			return cost - rhs.cost;
+		}
+		
+		if (sunk != rhs.sunk) {
+			return sunk - rhs.sunk;
 		}
 		
 		return opCmpSlow(rhs);
