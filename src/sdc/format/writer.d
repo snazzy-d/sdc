@@ -146,6 +146,9 @@ struct SolveState {
 		uint length = 0;
 		uint start = 0;
 		
+		uint previousIndentLength = 0;
+		Span previousSpan = null;
+		
 		void endLine(uint i) {
 			if (length <= PAGE_WIDTH) {
 				return;
@@ -174,8 +177,13 @@ struct SolveState {
 		void startLine(uint i) {
 			start = i;
 			
-			auto indent = line[i].indentation;
+			auto indentLength = INDENTATION_SIZE * (line[i].indentation + getIndent(i));
 			auto span = line[i].span;
+			scope(success) {
+				previousIndentLength = indentLength;
+				previousSpan = span;
+			}
+			
 			bool needInsert = true;
 			
 			// Make sure to keep track of the span that cross over line breaks.
@@ -189,7 +197,21 @@ struct SolveState {
 				needInsert = brokenSpans.insert(span) > 0;
 			}
 			
-			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i)) + line[i].length;
+			/**
+			 * We want to avoid sequential lines having the same indentation
+			 * but for different reasons. For instance:
+			 * function(first(
+			 *     argument), second(
+			 *     another);
+			 *
+			 * It is impossible to prevent in the general case,
+			 * but we can (and do) penalize it.
+			 */
+			if (indentLength > 0 && indentLength == previousIndentLength && span !is previousSpan) {
+				cost += 1000;
+			}
+			
+			length = indentLength + line[i].length;
 		}
 		
 		void newLine(uint i) {
