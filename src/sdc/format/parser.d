@@ -1662,19 +1662,9 @@ private:
 				auto guard = span();
 				
 				space();
-				
-				// Pre split for parameters.
-				if (isParameter) {
-					split();
-				}
-				
 				nextToken();
 				space();
-				
-				// Post split for declarations.
-				if (!isParameter) {
-					split();
-				}
+				split();
 				
 				parseExpression();
 			}
@@ -1684,10 +1674,7 @@ private:
 			}
 			
 			nextToken();
-			
-			if (!isParameter) {
-				split();
-			}
+			split();
 		}
 		
 		bool foundBody = false;
