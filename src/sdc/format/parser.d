@@ -608,6 +608,16 @@ private:
 			case Mixin:
 				goto default;
 			
+			case Pragma:
+				nextToken();
+				parseArgumentList();
+				if (match(Semicolon)) {
+					break;
+				}
+				
+				newline(1);
+				goto Entry;
+			
 			case At:
 				while(match(At)) {
 					nextToken();
@@ -618,7 +628,7 @@ private:
 				newline(1);
 				goto Entry;
 			
-			case Public, Private, Protected, Package:
+			case Public, Private, Protected, Package, Export:
 				auto lookahead = trange.save.withComments(false);
 				lookahead.popFront();
 				
@@ -1840,7 +1850,7 @@ private:
 					nextToken();
 					break;
 				
-				case Align, Extern, Synchronized:
+				case Align, Extern, Pragma, Synchronized:
 					nextToken();
 					parseArgumentList();
 					break;
