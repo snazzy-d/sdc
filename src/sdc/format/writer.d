@@ -75,6 +75,10 @@ struct Splitter {
 			
 			if (candidate.isBetterThan(best)) {
 				best = candidate;
+				if (candidate.overflow == 0) {
+					// We found the lowest cost solution that fit on the page.
+					break;
+				}
 			}
 			
 			// We ran out of attempts.
@@ -302,12 +306,12 @@ struct SolveState {
 	
 	// lhs < rhs => rhs.opCmp(rhs) < 0
 	int opCmp(const ref SolveState rhs) const {
-		if (overflow != rhs.overflow) {
-			return overflow - rhs.overflow;
-		}
-		
 		if (cost != rhs.cost) {
 			return cost - rhs.cost;
+		}
+		
+		if (overflow != rhs.overflow) {
+			return overflow - rhs.overflow;
 		}
 		
 		if (sunk != rhs.sunk) {
