@@ -189,7 +189,7 @@ struct SolveState {
 				needInsert = brokenSpans.insert(span) > 0;
 			}
 			
-			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i)) + line[i].length;
+			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i));
 		}
 		
 		void newLine(uint i) {
@@ -199,19 +199,16 @@ struct SolveState {
 		
 		startLine(0);
 		
-		foreach (uint i, ref c; line[1 .. $]) {
-			if (isSplit(i + 1)) {
-				newLine(i + 1);
-				
-				// FIXME: compute proper cost.
-				cost += 1;
-				continue;
-			}
-			
-			if (c.splitType == SplitType.Space) {
+		foreach (uint i, ref c; line) {
+			if (isSplit(i)) {
+				if (i > 0) {
+					newLine(i);
+					cost += 1;
+				}
+			} else if (c.splitType == SplitType.Space) {
 				length++;
 			}
-			
+				
 			length += c.length;
 		}
 		
