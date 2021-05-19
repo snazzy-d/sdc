@@ -10,19 +10,18 @@ struct Writer {
 		import std.array;
 		buffer = appender!string();
 		
-		uint cost = 0;
 		size_t start = 0;
 		foreach (i, c; chunks) {
 			if (!c.endsBreakableLine()) {
 				continue;
 			}
 			
-			cost += Splitter(&this, chunks[start .. i]).write();
+			Splitter(&this, chunks[start .. i]).write();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		cost += Splitter(&this, chunks[start .. $]).write();
+		Splitter(&this, chunks[start .. $]).write();
 		
 		return buffer.data;
 	}
@@ -44,14 +43,14 @@ struct Splitter {
 		this.line = line;
 	}
 	
-	uint write() {
+	void write() {
 		if (line.length == 0) {
 			// This is empty.
-			return 0;
+			return;
 		}
 		
 		auto best = findBestState();
-		return LineWriter(best, writer.buffer).write();
+		LineWriter(best, writer.buffer).write();
 	}
 	
 	SolveState findBestState() {
@@ -345,7 +344,7 @@ struct LineWriter {
 		this.buffer = buffer;
 	}
 	
-	uint write() {
+	void write() {
 		auto line = state.splitter.line;
 		assert(line.length > 0, "line must not be empty");
 		
@@ -366,8 +365,6 @@ struct LineWriter {
 			
 			output(c.text);
 		}
-		
-		return state.cost;
 	}
 	
 	void output(char c) {
