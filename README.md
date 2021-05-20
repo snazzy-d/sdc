@@ -67,6 +67,14 @@ If you do not want to compile SDC on your own, you can use the [automatic genera
 Assume you have a `test.d` file in your local directory, you can compile it using the Docker image with this command:
 `docker run -ti -v $(pwd):/src dlanguage/sdc test.d`
 
+Building SDC as a Nix package
+=======
+On Linux, you can also use the [Nix package manager](https://nixos.org) to automatically fetch dependencies and build SDC for you.
+You may need to use the unstable nix channel, to have a new enough `dmd` to build SDC. Clone or download this repository.
+
+To build the executable, run `nix-build -E "(import <nixpkgs> {}).callPackage ./. {}"` or
+`nix-build -E "(import <nixpkgs> {}).callPackage ./. {dflags=\"-O -release\";}"` from the project root directory.
+
 ### Setup
 Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
 When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
