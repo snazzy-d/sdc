@@ -158,8 +158,10 @@ struct SolveState {
 				return;
 			}
 			
-			import std.algorithm.comparison, std.range;
-			auto range = max(cast(uint) ruleValues.length, start + 1).iota(i);
+			import std.algorithm, std.range;
+			auto range = max(cast(uint) ruleValues.length, start + 1)
+				.iota(i)
+				.filter!(i => !mustSplit(i));
 			
 			// If the line overflow, but has no split point, it is sunk.
 			if (range.empty) {
@@ -227,9 +229,13 @@ struct SolveState {
 			: 0;
 	}
 	
-	bool isSplit(uint i) const {
+	bool mustSplit(uint i) const {
 		auto st = splitter.line[i].splitType;
-		return st == SplitType.TwoNewLines || st == SplitType.NewLine || getRuleValue(i) > 0;
+		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
+	}
+	
+	bool isSplit(uint i) const {
+		return mustSplit(i) || getRuleValue(i) > 0;
 	}
 	
 	uint getIndent(uint i) {
