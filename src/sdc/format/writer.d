@@ -204,11 +204,28 @@ struct SolveState {
 			liveRules = redBlackTree(range);
 		}
 		
-		void startLine(uint i) {
+		bool newLine = true;
+		foreach (uint i, ref c; line) {
+			if (isSplit(i)) {
+				newLine = true;
+				cost += 1;
+			}
+			
+			if (!newLine) {
+				length += c.length + (c.splitType == SplitType.Space);
+				continue;
+			}
+			
+			if (i > 0) {
+				// End the previous line if there is one.
+				endLine(i);
+			}
+			
+			newLine = false;
 			start = i;
 			
-			auto indent = line[i].indentation;
-			auto span = line[i].span;
+			auto indent = c.indentation;
+			auto span = c.span;
 			bool needInsert = true;
 			
 			// Make sure to keep track of the span that cross over line breaks.
@@ -222,27 +239,7 @@ struct SolveState {
 				needInsert = brokenSpans.insert(span) > 0;
 			}
 			
-			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i));
-		}
-		
-		void newLine(uint i) {
-			endLine(i);
-			startLine(i);
-		}
-		
-		startLine(0);
-		
-		foreach (uint i, ref c; line) {
-			if (isSplit(i)) {
-				if (i > 0) {
-					newLine(i);
-					cost += 1;
-				}
-			} else if (c.splitType == SplitType.Space) {
-				length++;
-			}
-				
-			length += c.length;
+			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i)) + c.length;
 		}
 		
 		endLine(cast(uint) line.length);
