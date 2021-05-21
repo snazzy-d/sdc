@@ -63,7 +63,7 @@ int main(string[] args) {
 		}
 		
 		import sdc.format.writer;
-		auto o = Writer().write(chunks);
+		auto o = Writer().write(chunks).text;
 		
 		import std.stdio;
 		writeln(o);

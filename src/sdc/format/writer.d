@@ -2,13 +2,25 @@ module sdc.format.writer;
 
 import sdc.format.chunk;
 
+struct FormatResult {
+	uint cost;
+	uint overflow;
+	string text;
+}
+
 struct Writer {
 	import std.array;
 	Appender!string buffer;
 	
-	string write(Chunk[] chunks) {
+	uint cost;
+	uint overflow;
+	
+	FormatResult write(Chunk[] chunks) {
 		import std.array;
 		buffer = appender!string();
+		
+		cost = 0;
+		overflow = 0;
 		
 		size_t start = 0;
 		foreach (i, c; chunks) {
@@ -23,13 +35,16 @@ struct Writer {
 		// Make sure we write the last line too.
 		writeLine(chunks[start .. $]);
 		
-		return buffer.data;
+		return FormatResult(cost, overflow, buffer.data);
 	}
 	
 	void writeLine(Chunk[] line) in {
 		assert(line.length > 0, "line must not be empty");
 	} do {
 		auto state = findBestState(line);
+		
+		cost += state.cost;
+		overflow += state.overflow;
 		
 		foreach (uint i, c; line) {
 			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
