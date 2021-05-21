@@ -16,14 +16,52 @@ struct Writer {
 				continue;
 			}
 			
-			Splitter(&this, chunks[start .. i]).write();
+			writeLine(chunks[start .. i]);
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		Splitter(&this, chunks[start .. $]).write();
+		writeLine(chunks[start .. $]);
 		
 		return buffer.data;
+	}
+	
+	void writeLine(Chunk[] line) in {
+		assert(line.length > 0, "line must not be empty");
+	} do {
+		auto state = findBestState(line);
+		
+		foreach (uint i, c; line) {
+			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
+			
+			if (state.isSplit(i)) {
+				if (c.splitType == SplitType.TwoNewLines) {
+					output("\n\n");
+				} else {
+					output('\n');
+				}
+				
+				indent(c.indentation + state.getIndent(i));
+			} else if (c.splitType == SplitType.Space) {
+				output(' ');
+			}
+			
+			output(c.text);
+		}
+	}
+	
+	void output(char c) {
+		buffer ~= c;
+	}
+	
+	void output(string s) {
+		buffer ~= s;
+	}
+	
+	void indent(uint level) {
+		foreach (_; 0 .. level) {
+			output('\t');
+		}
 	}
 }
 
@@ -34,62 +72,42 @@ enum MAX_ATTEMPT = 5000;
 import std.container.rbtree;
 alias SolveStateQueue = RedBlackTree!SolveState;
 
-struct Splitter {
-	Writer* writer;
-	Chunk[] line;
-	
-	this(Writer* writer, Chunk[] line) {
-		this.writer = writer;
-		this.line = line;
-	}
-	
-	void write() {
-		if (line.length == 0) {
-			// This is empty.
-			return;
-		}
-		
-		auto best = findBestState();
-		LineWriter(best, writer.buffer).write();
-	}
-	
-	SolveState findBestState() {
-		auto best = SolveState(&this);
-		if (best.overflow == 0) {
-			return best;
-		}
-		
-		uint attempts = 0;
-		scope queue = redBlackTree(best);
-		
-		// Once we have a solution that fits, or no more things
-		// to try, then we are done.
-		while (!queue.empty) {
-			auto candidate = queue.front;
-			queue.removeFront();
-			
-			if (candidate.isDeadSubTree(best)) {
-				continue;
-			}
-			
-			if (candidate.isBetterThan(best)) {
-				best = candidate;
-				if (candidate.overflow == 0) {
-					// We found the lowest cost solution that fit on the page.
-					break;
-				}
-			}
-			
-			// We ran out of attempts.
-			if (attempts++ > MAX_ATTEMPT) {
-				break;
-			}
-			
-			candidate.expand(queue);
-		}
-		
+SolveState findBestState(Chunk[] line) {
+	auto best = SolveState(line);
+	if (best.overflow == 0) {
 		return best;
 	}
+	
+	uint attempts = 0;
+	scope queue = redBlackTree(best);
+	
+	// Once we have a solution that fits, or no more things
+	// to try, then we are done.
+	while (!queue.empty) {
+		auto candidate = queue.front;
+		queue.removeFront();
+		
+		if (candidate.isDeadSubTree(best)) {
+			continue;
+		}
+		
+		if (candidate.isBetterThan(best)) {
+			best = candidate;
+			if (candidate.overflow == 0) {
+				// We found the lowest cost solution that fit on the page.
+				break;
+			}
+		}
+		
+		// We ran out of attempts.
+		if (attempts++ > MAX_ATTEMPT) {
+			break;
+		}
+		
+		candidate.expand(queue);
+	}
+	
+	return best;
 }
 
 struct SolveState {
@@ -97,7 +115,7 @@ struct SolveState {
 	uint overflow = 0;
 	uint cost = 0;
 	
-	Splitter* splitter;
+	Chunk[] line;
 	uint[] ruleValues;
 	
 	// The set of free to bind rules that affect the next overflowing line.
@@ -106,8 +124,8 @@ struct SolveState {
 	// Span that require indentation.
 	RedBlackTree!Span usedSpans;
 	
-	this(Splitter* splitter, uint[] ruleValues = []) {
-		this.splitter = splitter;
+	this(Chunk[] line, uint[] ruleValues = []) {
+		this.line = line;
 		this.ruleValues = ruleValues;
 		computeCost();
 	}
@@ -118,7 +136,6 @@ struct SolveState {
 		cost = 0;
 		
 		// If there is nothing to be done, just skip.
-		auto line = splitter.line;
 		if (line.length == 0) {
 			return;
 		}
@@ -230,7 +247,7 @@ struct SolveState {
 	}
 	
 	bool mustSplit(uint i) const {
-		auto st = splitter.line[i].splitType;
+		auto st = line[i].splitType;
 		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
 	}
 	
@@ -245,7 +262,7 @@ struct SolveState {
 		
 		uint indent = 0;
 		
-		auto span = splitter.line[i].span;
+		auto span = line[i].span;
 		while (span !is null) {
 			scope(success) span = span.parent;
 			
@@ -264,7 +281,7 @@ struct SolveState {
 		newRuleValues.length = i;
 		newRuleValues[i - 1] = v;
 		
-		return SolveState(splitter, newRuleValues);
+		return SolveState(line, newRuleValues);
 	}
 	
 	void expand()(SolveStateQueue queue) {
@@ -337,53 +354,19 @@ struct SolveState {
 		
 		return 0;
 	}
-}
-
-struct LineWriter {
-	SolveState state;
 	
-	import std.array;
-	Appender!string buffer;
-	
-	this(SolveState state, Appender!string buffer) {
-		this.state = state;
-		this.buffer = buffer;
-	}
-	
-	void write() {
-		auto line = state.splitter.line;
-		assert(line.length > 0, "line must not be empty");
-		
-		foreach (uint i, c; line) {
-			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
-			
-			if (state.isSplit(i)) {
-				if (c.splitType == SplitType.TwoNewLines) {
-					output("\n\n");
-				} else {
-					output('\n');
-				}
-				
-				indent(c.indentation + state.getIndent(i));
-			} else if (c.splitType == SplitType.Space) {
-				output(' ');
+	// Necessary due to https://issues.dlang.org/show_bug.cgi?id=21947
+	size_t toHash() const @trusted nothrow {
+		size_t h = 0;
+		foreach (const ref v; this.tupleof) {
+			static if (is(typeof(v) : S[], S)) {
+				h = hashOf(v.length, h);
+				h = hashOf(v.ptr, h);
+			} else {
+				h = hashOf(v, h);
 			}
-			
-			output(c.text);
 		}
-	}
-	
-	void output(char c) {
-		buffer ~= c;
-	}
-	
-	void output(string s) {
-		buffer ~= s;
-	}
-	
-	void indent(uint level) {
-		foreach (_; 0 .. level) {
-			output('\t');
-		}
+		
+		return h;
 	}
 }
