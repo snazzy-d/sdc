@@ -1687,6 +1687,20 @@ private:
 			split();
 		}
 		
+		parseFunctionBody();
+	}
+	
+	void parseConstructor() in {
+		assert(match(TokenType.This));
+	} do {
+		nextToken();
+		
+		while (parseParameterList()) {}
+		
+		parseFunctionBody();
+	}
+	
+	void parseFunctionBody() {
 		bool foundBody = false;
 		while (!foundBody) {
 			clearSplitType();
@@ -1695,12 +1709,6 @@ private:
 			parseStorageClasses();
 			
 			switch (token.type) with (TokenType) {
-				case At:
-					nextToken();
-					parseIdentifier();
-					space();
-					continue;
-				
 				case OpenBrace:
 					// Function declaration.
 					foundBody = true;
@@ -1729,20 +1737,6 @@ private:
 			if (match(TokenType.OpenBrace)) {
 				parseBlock(Mode.Statement);
 			}
-		}
-	}
-	
-	void parseConstructor() in {
-		assert(match(TokenType.This));
-	} do {
-		nextToken();
-		
-		while (parseParameterList()) {}
-		
-		// Function declaration.
-		if (match(TokenType.OpenBrace)) {
-			space();
-			parseBlock(Mode.Statement);
 		}
 	}
 	
@@ -1853,6 +1847,11 @@ private:
 				case Align, Extern, Pragma, Synchronized:
 					nextToken();
 					parseArgumentList();
+					break;
+				
+				case At:
+					nextToken();
+					parseIdentifier();
 					break;
 				
 				default:
