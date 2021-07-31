@@ -1706,7 +1706,7 @@ private:
 			clearSplitType();
 			space();
 			
-			parseStorageClasses();
+			parseStorageClasses(true);
 			
 			switch (token.type) with (TokenType) {
 				case OpenBrace:
@@ -1821,7 +1821,7 @@ private:
 		}
 	}
 	
-	bool parseStorageClasses() {
+	bool parseStorageClasses(bool isPostfix = false) {
 		bool ret = false;
 		while (true) {
 			scope(success) {
@@ -1840,7 +1840,17 @@ private:
 					nextToken();
 					break;
 				
-				case Abstract, Alias, Auto, Deprecated, Enum, Final, Nothrow, Override, Pure, Ref, Static, __Gshared:
+				case In, Out:
+					// Make sure we deambiguate with contracts.
+					if (isPostfix) {
+						return ret;
+					}
+					
+					nextToken();
+					break;
+				
+				case Abstract, Alias, Auto, Deprecated, Enum, Final, Lazy, Nothrow:
+				case Override, Pure, Ref, Return, Static, __Gshared:
 					nextToken();
 					break;
 				
