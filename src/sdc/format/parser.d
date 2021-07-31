@@ -1993,17 +1993,30 @@ private:
 		runOnType!(TokenType.Identifier, nextToken)();
 		
 		parseArgumentList();
-		space();
 		
-		if (match(TokenType.Colon)) {
-			split();
-			nextToken();
+		while (true) {
 			space();
+			
+			switch (token.type) with(TokenType) {
+				case Colon:
+					split();
+					nextToken();
+					break;
+				
+				case If: {
+					auto guard = span();
+					split();
+					nextToken();
+					space();
+					parseCondition();
+					break;
+				}
+				
+				default:
+					parseBlock(Mode.Declaration);
+					return;
+			}
 		}
-		
-		// TODO inheritance.
-		
-		parseBlock(Mode.Declaration);
 	}
 	
 	/**
