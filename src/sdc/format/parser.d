@@ -1716,14 +1716,10 @@ private:
 				
 				case Body, Do:
 					foundBody = true;
-					goto ParseBody;
-				
-				case In:
-				ParseBody:
 					nextToken();
 					break;
 				
-				case Out:
+				case In, Out:
 					nextToken();
 					parseParameterList();
 					break;
