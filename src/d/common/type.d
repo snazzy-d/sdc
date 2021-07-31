@@ -32,7 +32,7 @@ private:
 	
 	auto getConstructedMixin(this T)(K k, TypeQualifier q) in {
 		assert(raw_desc != 0, "You can't construct type on None.");
-	} body {
+	} do {
 		// XXX: Consider caching in context, and stick in payload
 		// instead of heap if it fit.
 		return isPackable()
@@ -223,7 +223,7 @@ private:
 		@property
 		auto get(Tag E)() inout in {
 			assert(tag == E);
-		} body {
+		} do {
 			static if (E == U.length) {
 				alias R = inout(PackedType!(T, TagTuple));
 				return R(desc, payload).getType();
@@ -301,7 +301,7 @@ private:
 		
 		FunctionType getDelegate(ulong contextCount = 1) in {
 			assert(contextCount <= paramCount + ctxCount);
-		} body {
+		} do {
 			auto t = this;
 			t.ctxCount = contextCount;
 			t.paramCount = paramCount + ctxCount - contextCount;
@@ -362,7 +362,7 @@ public:
 	
 	auto asFunctionType() inout in {
 		assert(kind == K.Function, "Not a function.");
-	} body {
+	} do {
 		return inout(FunctionType)(desc, payload.params);
 	}
 }
@@ -387,7 +387,7 @@ mixin template TypeAccessorMixin(K) {
 	@property
 	BuiltinType builtin() inout in {
 		assert(kind == K.Builtin);
-	} body {
+	} do {
 		return cast(BuiltinType) desc.data;
 	}
 }

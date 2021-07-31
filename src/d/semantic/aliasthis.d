@@ -32,7 +32,7 @@ struct AliasThisResolver(alias handler) {
 	
 	Ret[] resolve(Expression e, Aggregate a) in {
 		assert(e.type.getCanonical().aggregate is a);
-	} body {
+	} do {
 		return resolve(e, a.aliasThis);
 	}
 	

@@ -89,7 +89,7 @@ public:
 	
 	AstModule parse(string filename, string directory) in {
 		assert(filename[$ - 2 .. $] == ".d");
-	} body {
+	} do {
 		import d.context.location;
 		auto base = context.registerFile(Location.init, filename, directory);
 		

@@ -59,7 +59,7 @@ private:
 	
 	AstType getConstructedType(this T)(AstTypeKind k, TypeQualifier q) in {
 		assert(!isAuto, "Cannot build on top of auto type.");
-	} body {
+	} do {
 		return getConstructedMixin(k, q);
 	}
 	
@@ -120,7 +120,7 @@ public:
 	@property
 	BuiltinType builtin() inout in {
 		assert(kind == AstTypeKind.Builtin);
-	} body {
+	} do {
 		return cast(BuiltinType) desc.data;
 	}
 	
@@ -132,7 +132,7 @@ public:
 	@property
 	auto identifier() inout in {
 		assert(kind == AstTypeKind.Identifier);
-	} body {
+	} do {
 		return payload.identifier;
 	}
 	
@@ -146,7 +146,7 @@ public:
 	
 	AstType getArray(AstExpression size, TypeQualifier q = TypeQualifier.Mutable) in {
 		assert(!isAuto, "Cannot build on top of auto type.");
-	} body {
+	} do {
 		return (payload.next is null && isPackable())
 			? AstType(Desc(AstTypeKind.Array, q, raw_desc), size)
 			: AstType(Desc(AstTypeKind.Array, q), new ArrayPayload(size, this));
@@ -154,13 +154,13 @@ public:
 	
 	AstType getMap(AstType key, TypeQualifier q = TypeQualifier.Mutable) in {
 		assert(!isAuto, "Cannot build on top of auto type.");
-	} body {
+	} do {
 		return AstType(Desc(AstTypeKind.Map, q), new MapPayload(key, this));
 	}
 	
 	AstType getBracket(Identifier ikey, TypeQualifier q = TypeQualifier.Mutable) in {
 		assert(!isAuto, "Cannot build on top of auto type.");
-	} body {
+	} do {
 		return (payload.next is null && isPackable())
 			? AstType(Desc(AstTypeKind.Bracket, q, raw_desc), ikey)
 			: AstType(Desc(AstTypeKind.Bracket, q), new BracketPayload(ikey, this));
@@ -173,7 +173,7 @@ public:
 	@property
 	auto element() inout in {
 		assert(hasElement, "element called on a type with no element.");
-	} body {
+	} do {
 		if (kind < AstTypeKind.Array) {
 			return getElementMixin();
 		}
@@ -200,7 +200,7 @@ public:
 	@property
 	auto size() inout in {
 		assert(kind == AstTypeKind.Array, "Only array have size.");
-	} body {
+	} do {
 		return desc.data
 			? payload.expr
 			: payload.array.size;
@@ -209,14 +209,14 @@ public:
 	@property
 	auto key() inout in {
 		assert(kind == AstTypeKind.Map, "Only maps have key.");
-	} body {
+	} do {
 		return payload.map.key;
 	}
 	
 	@property
 	auto ikey() inout in {
 		assert(kind == AstTypeKind.Bracket, "Only bracket[identifier] have ikey.");
-	} body {
+	} do {
 		return desc.data
 			? payload.identifier
 			: payload.bracket.key;
@@ -225,7 +225,7 @@ public:
 	@property
 	auto expression() inout in {
 		assert(kind == AstTypeKind.TypeOf && desc.data == 0);
-	} body {
+	} do {
 		return payload.expr;
 	}
 	

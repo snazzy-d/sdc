@@ -444,7 +444,7 @@ class IntegerLiteral : CompileTimeExpression {
 	
 	this(Location location, ulong value, BuiltinType t) in {
 		assert(isIntegral(t));
-	} body {
+	} do {
 		super(location, Type.get(t));
 		
 		this.value = value;
@@ -466,7 +466,7 @@ class FloatLiteral : CompileTimeExpression {
 	
 	this(Location location, double value, BuiltinType t) in {
 		assert(isFloat(t));
-	} body {
+	} do {
 		super(location, Type.get(t));
 		
 		this.value = value;
@@ -486,7 +486,7 @@ class CharacterLiteral : CompileTimeExpression {
 	
 	this(Location location, dchar value, BuiltinType t) in {
 		assert(isChar(t));
-	} body {
+	} do {
 		super(location, Type.get(t));
 		
 		this.value = value;

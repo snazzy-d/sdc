@@ -20,7 +20,7 @@ private:
 public:
 	this(SemanticPass pass, Function f) in {
 		assert(f.fbody, "f does not have a body");
-	} body {
+	} do {
 		this.pass = pass;
 		
 		fbody = f.fbody;

@@ -33,7 +33,7 @@ struct StatementGen {
 	
 	void visit(Body fbody) in {
 		assert(fbody, "Empty body");
-	} body {
+	} do {
 		basicBlocks.length = fbody.length;
 		landingPads.length = fbody.length;
 		

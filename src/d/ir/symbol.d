@@ -136,7 +136,7 @@ class Function : ValueSymbol, Scope {
 	@property intrinsicID(Intrinsic id) in {
 		assert(!hasThis, "Method can't be intrinsic");
 		assert(intrinsicID == Intrinsic.None, "This is already an intrinsic");
-	} body {
+	} do {
 		__derived = id;
 		return intrinsicID;
 	}
@@ -542,7 +542,7 @@ class Struct : Aggregate {
 			step >= Step.Signed,
 			"Struct need to be signed to use hasIndirection"
 		);
-	} body {
+	} do {
 		return !!(derived & 0x01);
 	}
 	
@@ -561,7 +561,7 @@ class Struct : Aggregate {
 			step >= Step.Signed,
 			"Struct need to be signed to use isPod",
 		);
-	} body {
+	} do {
 		return !!(derived & 0x02);
 	}
 	
@@ -580,7 +580,7 @@ class Struct : Aggregate {
 			step >= Step.Signed,
 			"Struct need to be signed to use isSmall",
 		);
-	} body {
+	} do {
 		return !!(derived & 0x04);
 	}
 	
@@ -608,7 +608,7 @@ class Union : Aggregate {
 			step >= Step.Signed,
 			"Union need to be signed to use hasIndirection"
 		);
-	} body {
+	} do {
 		return !!derived;
 	}
 	

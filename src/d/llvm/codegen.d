@@ -112,7 +112,7 @@ final class CodeGen {
 	
 	auto buildDString(string str) in {
 		assert(str.length <= uint.max, "string length must be <= uint.max");
-	} body {
+	} do {
 		return stringLiterals.get(str, stringLiterals[str] = {
 			auto cstr = str ~ '\0';
 			auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr, cast(uint) cstr.length, true);

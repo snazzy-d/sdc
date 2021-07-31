@@ -124,7 +124,7 @@ final class Scheduler {
 	
 	void schedule(D, S)(D d, S s) if(isSchedulable!(D, S)) in {
 		assert(s.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
-	} body {
+	} do {
 		auto p = getProcess();
 		p.init(d, s);
 		
@@ -133,7 +133,7 @@ final class Scheduler {
 	
 	void schedule(Template t, TemplateInstance i) in {
 		assert(i.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
-	} body {
+	} do {
 		auto p = getProcess();
 		p.init(t, i);
 		
@@ -145,7 +145,7 @@ final class Scheduler {
 	import d.ast.expression;
 	void schedule(AstExpression dv, Variable v) in {
 		assert(v.step == SemanticPass.Step.Parsed, "Symbol processing already started.");
-	} body {
+	} do {
 		auto p = getProcess();
 		p.init(dv, v);
 		

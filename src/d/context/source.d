@@ -34,7 +34,7 @@ public:
 	
 	FullName getDirectory() in {
 		assert(isFile());
-	} body {
+	} do {
 		return sourceManager.getDirectory(this).getFullName(context);
 	}
 	
@@ -47,7 +47,7 @@ public:
 package:
 	uint getOffset(Position p) in {
 		assert(p.getFullPosition(context).getSource() == this);
-	} body {
+	} do {
 		return p.offset - sourceManager.getOffset(this);
 	}
 }
@@ -68,19 +68,19 @@ public:
 		string content,
 	) out(result) {
 		assert(result.isFile());
-	} body {
+	} do {
 		return files.registerFile(location, filename, directory, content);
 	}
 	
 	Position registerMixin(Location location, string content) out(result) {
 		assert(result.isMixin());
-	} body {
+	} do {
 		return mixins.registerMixin(location, content);
 	}
 	
 	FileID getFileID(Position p) out(result) {
 		assert(p.isMixin() == result.isMixin());
-	} body {
+	} do {
 		return p.isFile()
 			? files.getFileID(p)
 			: mixins.getFileID(p);
@@ -117,7 +117,7 @@ private:
 	
 	Name getDirectory(FileID f) in {
 		assert(f.isFile());
-	} body {
+	} do {
 		return getSourceEntry(f).directory;
 	}
 	
@@ -195,7 +195,7 @@ struct SourceEntries {
 		string content,
 	) in {
 		assert(nextSourcePos.isFile());
-	} body {
+	} do {
 		auto base = nextSourcePos;
 		nextSourcePos = nextSourcePos
 			.getWithOffset(cast(uint) content.length);
@@ -206,7 +206,7 @@ struct SourceEntries {
 	
 	Position registerMixin(Location location, string content) in {
 		assert(nextSourcePos.isMixin());
-	} body {
+	} do {
 		auto base = nextSourcePos;
 		nextSourcePos = nextSourcePos
 			.getWithOffset(cast(uint) content.length);
@@ -228,7 +228,7 @@ struct SourceEntries {
 	FileID getFileID(Position p) in {
 		assert(p.isMixin() == nextSourcePos.isMixin());
 		assert(p.offset < nextSourcePos.offset);
-	} body {
+	} do {
 		// It is common to query the same file many time,
 		// so we have a one entry cache for it.
 		if (!isPositionInFileID(p, lastFileID)) {
@@ -272,21 +272,21 @@ public:
 	@property
 	auto filename() const in {
 		assert(base.isFile());
-	} body {
+	} do {
 		return _filename;
 	}
 	
 	@property
 	auto directory() const in {
 		assert(base.isFile());
-	} body {
+	} do {
 		return _directory;
 	}
 	
 private:
 	this(Position base, Location location, string content) in {
 		assert(base.isMixin());
-	} body {
+	} do {
 		this.base = base;
 		this.location = location;
 		_content = content;
@@ -300,7 +300,7 @@ private:
 		string content,
 	) in {
 		assert(base.isFile());
-	} body {
+	} do {
 		this.base = base;
 		this.location = location;
 		_content = content;
@@ -329,7 +329,7 @@ private:
 	
 	uint getLineOffset(uint index) out(result) {
 		assert(result <= index);
-	} body {
+	} do {
 		return lines[getLineNumber(index) - 1];
 	}
 	

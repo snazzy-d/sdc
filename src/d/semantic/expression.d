@@ -546,7 +546,7 @@ public:
 	
 	private Expression getContext(Location location, Function f) in {
 		assert(f.step >= Step.Signed);
-	} body {
+	} do {
 		import d.semantic.closure;
 		auto ctx = ContextFinder(pass).visit(f);
 		return build!ContextExpression(location, ctx);
@@ -589,7 +589,7 @@ public:
 	) in {
 		assert(f.step >= Step.Signed);
 		assert(ctxs.length >= f.hasContext + f.hasThis);
-	} body {
+	} do {
 		foreach(i, ref c; ctxs) {
 			c = buildArgument(c, f.type.parameters[i]);
 		}
@@ -787,7 +787,7 @@ public:
 		Expression[] args,
 	) in {
 		assert(thisExpr.type.isAggregate());
-	} body {
+	} do {
 		auto ctor = findCtor(location, calleeLoc, thisExpr, args);
 		return callCallable(location, ctor, args);
 	}
@@ -803,7 +803,7 @@ public:
 			thisExpr.type.isAggregate(),
 			thisExpr.toString(context) ~ " is not an aggregate"
 		);
-	} body {
+	} do {
 		auto agg = thisExpr.type.aggregate;
 		
 		import d.context.name, d.semantic.identifier;
@@ -1088,7 +1088,7 @@ public:
 			k == TypeKind.Function || k == TypeKind.Error,
 			callee.toString(context)
 		);
-	} body {
+	} do {
 		auto t = callee.type.getCanonical();
 		if (t.kind == TypeKind.Error) {
 			return callee;

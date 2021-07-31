@@ -18,7 +18,7 @@ struct ContextFinder {
 			s.hasContext,
 			"You can't find context of symbol that do not have context"
 		);
-	} body {
+	} do {
 		return this.dispatch(s);
 	}
 	

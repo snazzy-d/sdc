@@ -763,7 +763,7 @@ struct DeclarationFlattener(S) if(is(S : Scope)) {
 	
 	private auto lowerStaticIf(bool forMixin = false)(CtUnit unit) in {
 		assert(unit.type == CtUnitType.StaticIf);
-	} body {
+	} do {
 		auto d = unit.staticIf;
 		
 		import d.ir.expression, d.semantic.caster, d.semantic.expression;

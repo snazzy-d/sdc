@@ -88,7 +88,7 @@ final class LLVMEvaluator : Evaluator {
 		
 		auto bt = t.builtin;
 		assert(isIntegral(bt) || bt == BuiltinType.Bool);
-	} body {
+	} do {
 		return jit!(function ulong(ulong r) {
 			return r;
 		}, JitReturn.Direct)(e);
@@ -100,10 +100,10 @@ final class LLVMEvaluator : Evaluator {
 		
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
-	} body {
+	} do {
 		return jit!(function string(CodeGen pass, Expression e, void[] p) in {
 			assert(p.length == string.sizeof);
-		} body {
+		} do {
 			auto s = *(cast(string*) p.ptr);
 			return s.idup;
 		})(e);
@@ -329,7 +329,7 @@ struct JitRepacker {
 		// FIXME: This does not always pass now.
 		// assert(result.type == t, "Result type do not match");
 		assert(p.length == 0, "Remaining data in the buffer");
-	} body {
+	} do {
 		return t.accept(this);
 	}
 	

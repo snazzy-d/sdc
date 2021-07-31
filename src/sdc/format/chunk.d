@@ -110,14 +110,14 @@ public:
 	@property
 	ref inout(string) text() inout in {
 		assert(kind == ChunkKind.Text);
-	} body {
+	} do {
 		return _text;
 	}
 	
 	@property
 	const(Chunk)[] chunks() const in {
 		assert(kind == ChunkKind.Block);
-	} body {
+	} do {
 		return _chunks;
 	}
 	

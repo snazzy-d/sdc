@@ -1037,7 +1037,7 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 
 ulong strToDecInt(string s) in {
 	assert(s.length > 0, "s must not be empty");
-} body {
+} do {
 	ulong ret = 0;
 	
 	for (uint i = 0; i < s.length; i++) {
@@ -1063,7 +1063,7 @@ unittest {
 
 ulong strToBinInt(string s) in {
 	assert(s.length > 0, "s must not be empty");
-} body {
+} do {
 	ulong ret = 0;
 	
 	for (uint i = 0; i < s.length; i++) {
@@ -1090,7 +1090,7 @@ unittest {
 
 ulong strToHexInt(string s) in {
 	assert(s.length > 0, "s must not be empty");
-} body {
+} do {
 	ulong ret = 0;
 	
 	for (uint i = 0; i < s.length; i++) {

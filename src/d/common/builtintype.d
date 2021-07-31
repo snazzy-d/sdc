@@ -85,7 +85,7 @@ bool isChar(BuiltinType t) {
 
 BuiltinType integralOfChar(BuiltinType t) in {
 	assert(isChar(t), "integralOfChar only applys to character types");
-} body {
+} do {
 	return cast(BuiltinType) ((t * 2) | 0x01);
 }
 
@@ -105,7 +105,7 @@ bool canConvertToIntegral(BuiltinType t) {
 
 bool isSigned(BuiltinType t) in {
 	assert(isIntegral(t), "isSigned only applys to integral types");
-} body {
+} do {
 	return (t & 0x01) == 0;
 }
 
@@ -125,7 +125,7 @@ unittest {
 
 BuiltinType unsigned(BuiltinType t) in {
 	assert(isIntegral(t), "unsigned only applys to integral types");
-} body {
+} do {
 	return cast(BuiltinType) (t | 0x01);
 }
 
@@ -148,7 +148,7 @@ unittest {
 
 BuiltinType signed(BuiltinType t) in {
 	assert(isIntegral(t), "signed only applys to integral types");
-} body {
+} do {
 	return cast(BuiltinType) (t & ~0x01);
 }
 
@@ -175,7 +175,7 @@ bool isFloat(BuiltinType t) {
 
 uint getIntegralSize(BuiltinType t) in {
 	assert(isIntegral(t), "getIntegralSize only apply to integral types");
-} body {
+} do {
 	return 1 << ((t / 2) - 3);
 }
 
@@ -256,7 +256,7 @@ unittest {
 
 ulong getMax(BuiltinType t) in {
 	assert(isIntegral(t), "getMax only applys to integral types");
-} body {
+} do {
 	auto base = isSigned(t)
 		? 1UL << 7
 		: 1UL << 8;
@@ -280,7 +280,7 @@ unittest {
 
 ulong getMin(BuiltinType t) in {
 	assert(isIntegral(t), "getMin only applys to integral types");
-} body {
+} do {
 	return isSigned(t)
 		? -(1UL << getIntegralSize(t) * 8 - 1)
 		: 0;
@@ -301,7 +301,7 @@ unittest {
 
 dchar getCharInit(BuiltinType t) in {
 	assert(isChar(t), "getCharInit only applys to character types");
-} body {
+} do {
 	switch(t) with(BuiltinType) {
 		case Char :
 			return '\xff';
@@ -322,7 +322,7 @@ unittest {
 
 dchar getCharMax(BuiltinType t) in {
 	assert(isChar(t), "getCharMax only applys to character types");
-} body {
+} do {
 	switch(t) with(BuiltinType) {
 		case Char :
 			return '\xff';

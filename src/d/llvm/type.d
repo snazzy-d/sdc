@@ -168,7 +168,7 @@ struct TypeGen {
 	
 	LLVMTypeRef visit(Struct s) in {
 		assert(s.step >= Step.Signed);
-	} body {
+	} do {
 		// FIXME: Ensure we don't have forward references.
 		auto llvmStruct = buildOpaque(s);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
@@ -199,7 +199,7 @@ struct TypeGen {
 	
 	LLVMTypeRef visit(Union u) in {
 		assert(u.step >= Step.Signed);
-	} body {
+	} do {
 		// FIXME: Ensure we don't have forward references.
 		auto llvmStruct = buildOpaque(u);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
@@ -418,7 +418,7 @@ struct TypeGen {
 			f.step >= Step.Processed,
 			f.name.toString(pass.context) ~ " isn't signed",
 		);
-	} body {
+	} do {
 		auto ctxStruct = buildOpaque(f);
 		if (!LLVMIsOpaqueStruct(ctxStruct)) {
 			return ctxStruct;

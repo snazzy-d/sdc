@@ -129,7 +129,7 @@ unittest {
 
 AstBinaryOp getBaseOp(AstBinaryOp op) in {
 	assert(isAssign(op));
-} body {
+} do {
 	return op + AstBinaryOp.Add - AstBinaryOp.AddAssign;
 }
 

@@ -128,7 +128,7 @@ private:
 	
 	void setThis(Expression thisExpr) in {
 		assert(this.thisExpr is null);
-	} body {
+	} do {
 		this.thisExpr = thisExpr;
 	}
 	
@@ -281,7 +281,7 @@ private:
 	) in {
 		// We don't want to resolve argument with the same context we have here.
 		assert(acquireThis() is null);
-	} body {
+	} do {
 		alias astapply = d.ast.identifier.apply;
 		
 		import d.semantic.dtemplate : TemplateInstancier;
@@ -768,14 +768,14 @@ struct ExpressionDotIdentifierResolver {
 	
 	Identifiable visit(Expression e) in {
 		assert(thisExpr is null);
-	} body {
+	} do {
 		e = wrap(location, e);
 		return visit(e, e);
 	}
 	
 	Identifiable visit(Expression e, Expression base) in {
 		assert(thisExpr is null);
-	} body {
+	} do {
 		auto t = e.type.getCanonical();
 		if (t.isAggregate) {
 			auto a = t.aggregate;

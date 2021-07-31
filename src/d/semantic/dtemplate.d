@@ -135,7 +135,7 @@ private:
 		assert(t.step == Step.Processed);
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
-	} body {
+	} do {
 		uint i = 0;
 		foreach(a; args) {
 			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
@@ -206,7 +206,7 @@ private:
 	) in {
 		assert(t.step == Step.Processed);
 		assert(t.parameters.length == args.length);
-	} body {
+	} do {
 		auto i = 0;
 		Symbol[] argSyms;
 		

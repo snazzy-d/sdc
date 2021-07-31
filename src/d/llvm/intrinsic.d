@@ -63,7 +63,7 @@ struct IntrinsicGen {
 	
 	LLVMValueRef expect(LLVMValueRef[] args) in {
 		assert(args.length == 2, "Invalid argument count");
-	} body {
+	} do {
 		return expect(args[0], args[1]);
 	}
 	
@@ -91,7 +91,7 @@ struct IntrinsicGen {
 	
 	LLVMValueRef cas(bool weak, LLVMValueRef[] args) in {
 		assert(args.length == 3, "Invalid argument count");
-	} body {
+	} do {
 		return cas(
 			weak,
 			args[0],
@@ -121,7 +121,7 @@ struct IntrinsicGen {
 	
 	LLVMValueRef ctpop(LLVMValueRef[] args) in {
 		assert(args.length == 1, "Invalid argument count");
-	} body {
+	} do {
 		return ctpop(args[0]);
 	}
 	
@@ -147,7 +147,7 @@ struct IntrinsicGen {
 	
 	LLVMValueRef ctlz(LLVMValueRef[] args) in {
 		assert(args.length == 1, "Invalid argument count");
-	} body {
+	} do {
 		return ctlz(args[0]);
 	}
 	
@@ -181,7 +181,7 @@ struct IntrinsicGen {
 	
 	LLVMValueRef cttz(LLVMValueRef[] args) in {
 		assert(args.length == 1, "Invalid argument count");
-	} body {
+	} do {
 		return cttz(args[0]);
 	}
 	
@@ -215,7 +215,7 @@ struct IntrinsicGen {
 
 	LLVMValueRef bswap(LLVMValueRef[] args) in {
 		assert(args.length == 1, "Invalid argument count");
-	} body {
+	} do {
 		return bswap(args[0]);
 	}
 	

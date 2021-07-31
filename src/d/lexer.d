@@ -216,7 +216,7 @@ public:
 		assert(context is fr.context);
 		assert(content is fr.content);
 		assert(index < fr.index);
-	} body {
+	} do {
 		index = fr.index;
 		t = fr.t;
 	}
@@ -380,7 +380,7 @@ private:
 	auto lexIdentifier(uint prefixLength) in {
 		assert(prefixLength > 0);
 		assert(index >= prefixLength);
-	} body {
+	} do {
 		Token t;
 		t.type = TokenType.Identifier;
 		auto ibegin = index - prefixLength;
@@ -415,7 +415,7 @@ private:
 	
 	Token lexString(string s)() in {
 		assert(index >= s.length);
-	} body {
+	} do {
 		Token t;
 		auto begin = base.getWithOffset(index - cast(uint) s.length);
 		t.type = (s != "\'")

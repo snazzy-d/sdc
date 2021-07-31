@@ -80,7 +80,7 @@ public:
 	
 	Chunk[] parse() in {
 		assert(match(TokenType.Begin));
-	} body {
+	} do {
 		// Eat the begin token and get the game rolling.
 		nextToken();
 		parseModule();
@@ -717,7 +717,7 @@ private:
 	 */
 	void parseModuleDeclaration() in {
 		assert (match(TokenType.Module));
-	} body {
+	} do {
 		nextToken();
 		space();
 		parseIdentifier();
@@ -965,7 +965,7 @@ private:
 	
 	void parseIdentifierSuffix(IdentifierKind kind) in {
 		assert(kind != IdentifierKind.None);
-	} body {
+	} do {
 		while (true) {
 			switch (token.type) with(TokenType) {
 				case Dot:
@@ -1165,13 +1165,13 @@ private:
 	
 	void parseIf() in {
 		assert(match(TokenType.If));
-	} body {
+	} do {
 		parseControlFlowBase();
 	}
 	
 	void parseVersion() in {
 		assert(match(TokenType.Version) || match(TokenType.Debug));
-	} body {
+	} do {
 		nextToken();
 		
 		if (match(TokenType.OpenParen)) {
@@ -1191,7 +1191,7 @@ private:
 	
 	void parseElse() in {
 		assert(match(TokenType.Else));
-	} body {
+	} do {
 		space();
 		nextToken();
 		space();
@@ -1219,14 +1219,14 @@ private:
 	
 	void parseWhile() in {
 		assert(match(TokenType.While));
-	} body {
+	} do {
 		// Technically, this means while can have an else clause, and I think it is beautiful.
 		parseControlFlowBase();
 	}
 	
 	void parseDoWhile() in {
 		assert(match(TokenType.Do));
-	} body {
+	} do {
 		nextToken();
 		space();
 		bool isBlock = parseControlFlowBlock();
@@ -1252,7 +1252,7 @@ private:
 	
 	void parseFor() in {
 		assert(match(TokenType.For));
-	} body {
+	} do {
 		nextToken();
 		space();
 		
@@ -1289,7 +1289,7 @@ private:
 	
 	void parseForeach() in {
 		assert(match(TokenType.Foreach) || match(TokenType.ForeachReverse));
-	} body {
+	} do {
 		nextToken();
 		space();
 		
@@ -1309,7 +1309,7 @@ private:
 	
 	void parseReturn() in {
 		assert(match(TokenType.Return) || match(TokenType.Throw));
-	} body {
+	} do {
 		nextToken();
 		if (token.type == TokenType.Semicolon) {
 			nextToken();
@@ -1326,7 +1326,7 @@ private:
 	
 	void parseWith() in {
 		assert(match(TokenType.With));
-	} body {
+	} do {
 		nextToken();
 		space();
 		
@@ -1338,7 +1338,7 @@ private:
 
 	void parseSwitch() in {
 		assert(match(TokenType.Switch));
-	} body {
+	} do {
 		nextToken();
 		space();
 		
@@ -1356,7 +1356,7 @@ private:
 	
 	void parseTry() in {
 		assert(match(TokenType.Try));
-	} body {
+	} do {
 		nextToken();
 		space();
 		bool isBlock = parseControlFlowBlock();
@@ -1378,7 +1378,7 @@ private:
 	
 	bool parseCatch() in {
 		assert(match(TokenType.Catch));
-	} body {
+	} do {
 		nextToken();
 		parseParameterList();
 		space();
@@ -1387,7 +1387,7 @@ private:
 	
 	bool parseFinally() in {
 		assert(match(TokenType.Finally));
-	} body {
+	} do {
 		nextToken();
 		space();
 		return parseControlFlowBlock();
@@ -1395,7 +1395,7 @@ private:
 	
 	void parseScope() in {
 		assert(match(TokenType.Scope));
-	} body {
+	} do {
 		auto lookahead = trange.save.withComments(false);
 		lookahead.popFront();
 		
@@ -1494,7 +1494,7 @@ private:
 	
 	bool isBangIsOrIn() in {
 		assert(match(TokenType.Bang));
-	} body {
+	} do {
 		auto lookahead = trange.save.withComments(false);
 		lookahead.popFront();
 		auto t = lookahead.front.type;
@@ -1659,7 +1659,7 @@ private:
 	 */
 	void parseTypedDeclaration() in {
 		assert(match(TokenType.Identifier));
-	} body {
+	} do {
 		bool isParameter = mode == Mode.Parameter;
 		while (true) {
 			space();
@@ -1734,7 +1734,7 @@ private:
 	
 	void parseConstructor() in {
 		assert(match(TokenType.This));
-	} body {
+	} do {
 		nextToken();
 		
 		while (parseParameterList()) {}
@@ -1748,7 +1748,7 @@ private:
 	
 	void parseTemplate() in {
 		assert(match(TokenType.Template));
-	} body {
+	} do {
 		nextToken();
 		space();
 		runOnType!(TokenType.Identifier, nextToken)();
@@ -1759,7 +1759,7 @@ private:
 	
 	void parseTemplateParameter() in {
 		assert(token.type == TokenType.Identifier);
-	} body {
+	} do {
 		nextToken();
 		
 		while (match(TokenType.Colon) || match(TokenType.Equal)) {
@@ -1777,7 +1777,7 @@ private:
 	
 	void parseImport() in {
 		assert(match(TokenType.Import));
-	} body {
+	} do {
 		nextToken();
 		
 		auto guard = span();
@@ -1916,7 +1916,7 @@ private:
 	
 	void parseEnum() in {
 		assert(match(TokenType.Enum));
-	} body {
+	} do {
 		auto t = getStorageClassTokenType();
 		if (t != TokenType.Colon && t != TokenType.OpenBrace) {
 			parseStorageClassDeclaration();
@@ -1945,7 +1945,7 @@ private:
 	
 	void parseAlias() in {
 		assert(match(TokenType.Alias));
-	} body {
+	} do {
 		auto t = getStorageClassTokenType();
 		if (t != TokenType.This && t != TokenType.Identifier) {
 			parseStorageClassDeclaration();
@@ -1977,7 +1977,7 @@ private:
 			match(TokenType.Union) ||
 			match(TokenType.Class) ||
 			match(TokenType.Interface));
-	} body {
+	} do {
 		nextToken();
 		space();
 		

@@ -15,7 +15,7 @@ public:
 	this(Position start, Position stop) in {
 		assert(start.isMixin() == stop.isMixin());
 		assert(start.offset <= stop.offset);
-	} body {
+	} do {
 		this._start = start;
 		this._stop = stop;
 	}
@@ -51,7 +51,7 @@ public:
 			stop.offset <= end.stop.offset,
 			to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset)
 		);
-	} body {
+	} do {
 		spanTo(end.stop);
 	}
 	
@@ -61,7 +61,7 @@ public:
 			stop.offset <= end.offset,
 			to!string(stop.offset) ~ " > " ~ to!string(end.offset)
 		);
-	} body {
+	} do {
 		_stop = end;
 	}
 	
@@ -103,7 +103,7 @@ package:
 public:
 	Position getWithOffset(uint offset) const out(result) {
 		assert(result.isMixin() == isMixin(), "Position overflow");
-	} body {
+	} do {
 		return Position(raw + offset);
 	}
 	
@@ -161,7 +161,7 @@ public:
 	
 	auto getSource() out(result) {
 		assert(result.isMixin() == isMixin());
-	} body {
+	} do {
 		return start.getSource();
 	}
 	
@@ -220,7 +220,7 @@ public:
 	
 	auto getSource() out(result) {
 		assert(result.isMixin() == isMixin());
-	} body {
+	} do {
 		return sourceManager.getFileID(this).getSource(context);
 	}
 	

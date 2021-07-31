@@ -36,14 +36,14 @@ struct ValueRangePropagator(T) if (is(T == uint) || is(T == ulong)) {
 	
 	bool canFit(Expression e, Type t) in {
 		assert(isValidExpr(e), "VRP expect integral types.");
-	} body {
+	} do {
 		return canFit(e, getBuiltin(t));
 	}
 	
 	bool canFit(Expression e, BuiltinType t) in {
 		assert(isValidExpr(e), "VRP expect integral types.");
 		assert(canConvertToIntegral(t), "VRP only supports integral types.");
-	} body {
+	} do {
 		static canFitDMDMonkeyDance(R)(R r, BuiltinType t) {
 			auto mask = cast(R.U) ((1UL << t.getBits()) - 1);
 			
@@ -95,7 +95,7 @@ private:
 	
 	BuiltinType getBuiltin(Type t) out(result) {
 		assert(canConvertToIntegral(result), "VRP only supports integral types.");
-	} body {
+	} do {
 		t = t.getCanonicalAndPeelEnum();
 		if (t.hasPointerABI()) {
 			return getBuiltin(pass.object.getSizeT().type);
@@ -111,7 +111,7 @@ private:
 	
 	VR getRange(BuiltinType t) in {
 		assert(t.getSize() <= T.sizeof);
-	} body {
+	} do {
 		if (t == BuiltinType.Bool) {
 			return VR(0, 1);
 		}
@@ -126,7 +126,7 @@ private:
 public:
 	VR visit(Expression e) in {
 		assert(isValidExpr(e), "VRP expect integral types.");
-	} body {
+	} do {
 		return this.dispatch!(e => getRange(e.type))(e);
 	}
 	
@@ -208,7 +208,7 @@ public:
 	
 	VR visit(Variable v) in {
 		assert(v.step >= Step.Processed);
-	} body {
+	} do {
 		return (v.storage == Storage.Enum || v.type.getCanonical().qualifier == TypeQualifier.Immutable)
 			? visit(v.value)
 			: getRange(v.type);
@@ -524,7 +524,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto normalized() const out(result) {
 		assert(result.range >= range);
 		assert(result.min <= result.max);
-	} body {
+	} do {
 		// This is lossy, only use when stritcly necessary.
 		if (min > max) {
 			return ValueRange();
@@ -601,7 +601,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	@property
 	ValueRange!A as(A)() const if (is(uint : A) && isIntegral!A) out(result) {
 		assert(result.range <= Unsigned!A.max);
-	} body {
+	} do {
 		static if (T.sizeof <= A.sizeof) {
 			// Type are the same size, it is a noop.
 			return ValueRange!A(min, max);
@@ -654,7 +654,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	ValueRange trunc(U mask) const out(result) {
 		assert(isMask(mask));
 		assert(result.range <= mask);
-	} body {
+	} do {
 		auto smask = mask >> 1;
 		
 		// Worse case scenario, we can return this.
@@ -707,7 +707,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	ValueRange pad()(U mask) const if (isUnsigned!T) out(result) {
 		assert(result.range <= mask);
 		assert(isMask(mask));
-	} body {
+	} do {
 		auto bits = min ^ max;
 		return ((min > max) || (bits & ~mask))
 			? ValueRange(0, mask)
@@ -717,7 +717,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	ValueRange pad()(U mask) const if (isSigned!T) out(result) {
 		assert(result.range <= mask);
 		assert(isMask(mask));
-	} body {
+	} do {
 		auto offset = URange(~(mask >> 1));
 		return ((unsigned - offset).pad(mask) + offset).signed;
 	}
@@ -755,7 +755,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	
 	auto smul()(ValueRange rhs) const if (isUnsigned!T) in {
 		assert(min > max && max != 0);
-	} body {
+	} do {
 		auto v0 = ValueRange(0, max) * rhs;
 		auto v1 = ValueRange(0, -min) * -rhs;
 		
@@ -784,7 +784,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto umul()(ValueRange rhs) const if (isUnsigned!T) in {
 		assert(min <= max);
 		assert(rhs.min <= rhs.max);
-	} body {
+	} do {
 		// So we can swap modify.
 		ValueRange lhs = this;
 		
@@ -937,7 +937,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto srem()(ValueRange rhs) const if (isSigned!T) in {
 		assert(this != ValueRange(0));
 		assert(rhs is rhs.normalized);
-	} body {
+	} do {
 		if (rhs.max < 0) {
 			// a % -b = a % b
 			rhs = -rhs;
@@ -973,7 +973,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 		assert(this != ValueRange(0));
 		assert(rhs is rhs.normalized);
 		assert(rhs.min > 0);
-	} body {
+	} do {
 		auto lhs = this.normalized;
 		
 		// If lhs is within the bound of rhs.
@@ -1024,7 +1024,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto sshl()(ValueRange rhs) const if (isUnsigned!T) in {
 		assert(rhs is rhs.normalized);
 		assert(rhs.max < Bits);
-	} body {
+	} do {
 		auto v0 = ValueRange(0, max).ushl(rhs);
 		auto v1 = -ValueRange(0, -min).ushl(rhs);
 		
@@ -1039,7 +1039,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 		assert(rhs is rhs.normalized);
 		assert(rhs.max < Bits);
 		assert(this.min <= Signed!T.max);
-	} body {
+	} do {
 		auto minhi = rhs.min ? (min >> (Bits - rhs.min)) : 0;
 		auto maxhi = rhs.max ? (max >> (Bits - rhs.max)) : 0;
 		if (minhi != maxhi) {
@@ -1082,7 +1082,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto sshr(URange rhs) const in {
 		assert(rhs is rhs.normalized);
 		assert(rhs.min < Bits);
-	} body {
+	} do {
 		auto v0 = ValueRange(0, max).ushr(rhs);
 		auto v1 = ValueRange(min, U.max).ushr(rhs);
 		
@@ -1109,7 +1109,7 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 	auto ushr(URange rhs) const in {
 		assert(rhs is rhs.normalized);
 		assert(rhs.min < Bits);
-	} body {
+	} do {
 		T rmin = min >> (min < 0 ? rhs.min : rhs.max);
 		if (min >= 0 && rhs.max >= Bits) {
 			rmin = 0;
@@ -1154,10 +1154,10 @@ struct ValueRange(T) if(is(uint : T) && isIntegral!T) {
 		ValueRange rhs,
 	) const if (isUnsigned!T) in {
 		assert(min <= max && rhs.min <= rhs.max);
-	} body {
+	} do {
 		static nextRange(T t) out(result) {
 			assert((t & result) == 0);
-		} body {
+		} do {
 			return (t & -t) - 1;
 		}
 		

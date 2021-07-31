@@ -147,7 +147,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
  */
 Declaration parseEnum(ref TokenRange trange, StorageClass stc) in {
 	assert(stc.isEnum == true);
-} body {
+} do {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	

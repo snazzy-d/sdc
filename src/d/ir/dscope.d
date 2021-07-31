@@ -250,7 +250,7 @@ public:
 	
 	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches) in {
 		assert(cdBranches.length > 0, "No conditional branches supplied");
-	} body {
+	} do {
 		auto entry = ConditionalEntry(s, cdBranches);
 		if (auto csPtr = s.name in symbols) {
 			if (auto cs = cast(ConditionalSet) *csPtr) {
@@ -268,13 +268,13 @@ public:
 	
 	void setPoisoningMode() in {
 		assert(isPoisoning == false, "poisoning mode is already on.");
-	} body {
+	} do {
 		isPoisoning = true;
 	}
 	
 	void clearPoisoningMode() in {
 		assert(isPoisoning == true, "poisoning mode is not on.");
-	} body {
+	} do {
 		// XXX: Consider not removing tags on OverloadSet.
 		// That would allow to not pass over the AA most of the time.
 		foreach(n; symbols.keys) {
@@ -333,7 +333,7 @@ public:
 			isPoisoning,
 			"You must be in poisoning mode when resolving static ifs."
 		);
-	} body {
+	} do {
 		foreach(s; symbols.values) {
 			if (auto cs = cast(ConditionalSet) s) {
 				ConditionalEntry[] newSet;

@@ -15,7 +15,7 @@ public:
 	ref inout(BasicBlock) opIndex(BasicBlockRef i) inout in {
 		assert(i, "null block ref");
 		assert(i.index <= basicBlocks.length, "Out of bounds block ref");
-	} body {
+	} do {
 		return basicBlocks.ptr[i.index - 1];
 	}
 	
@@ -219,7 +219,7 @@ private:
 	
 	void add(Instruction i) in {
 		assert(!terminate, "block does terminate already");
-	} body {
+	} do {
 		instructions ~= i;
 	}
 	
@@ -344,7 +344,7 @@ private:
 	
 	this(Location location, Variable v) in {
 		assert(v.step == Step.Processed, "Variable is not processed");
-	} body {
+	} do {
 		this.location = location;
 		op = OpCode.Alloca;
 		var = v;
@@ -359,7 +359,7 @@ private:
 	this(Location location, Symbol s) in {
 		assert(s.step == Step.Processed, "Symbol is not processed");
 		assert(!cast(Variable) s, "Use alloca for variables");
-	} body {
+	} do {
 		this.location = location;
 		op = OpCode.Declare;
 		sym = s;

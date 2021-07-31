@@ -179,7 +179,7 @@ struct LocalGen {
 	
 	private bool maybeDefine(Function f, LLVMValueRef fun) in {
 		assert(f.step == Step.Processed, "f is not processed");
-	} body {
+	} do {
 		auto countBB = LLVMCountBasicBlocks(fun);
 		if (countBB) {
 			return false;
@@ -199,7 +199,7 @@ struct LocalGen {
 		
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody || f.intrinsicID, "f must have a body");
-	} body {
+	} do {
 		scope(failure) f.dump(context);
 		
 		// Alloca and instruction block.
@@ -417,7 +417,7 @@ struct LocalGen {
 	
 	LLVMValueRef define(Variable v) in {
 		assert(!v.isFinal);
-	} body {
+	} do {
 		if (v.storage.isGlobal) {
 			import d.llvm.global;
 			return GlobalGen(pass, mode).define(v);
@@ -436,7 +436,7 @@ struct LocalGen {
 		LLVMValueRef value,
 	) in {
 		assert(v.storage.isLocal, "globals not supported");
-	} body {
+	} do {
 		auto name = v.name.toStringz(context);
 		
 		if (v.isRef || v.isFinal) {
@@ -478,7 +478,7 @@ struct LocalGen {
 	
 	LLVMValueRef createCaptureStorage(Variable v, const char* name) in {
 		assert(v.storage == Storage.Capture, "Expected captured");
-	} body {
+	} do {
 		auto closure = &contexts[$ - 1];
 		
 		// If we don't have a closure, make one.

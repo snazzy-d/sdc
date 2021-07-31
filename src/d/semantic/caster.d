@@ -49,7 +49,7 @@ Expression buildCast(bool isExplicit)(
 	Expression e,
 ) in {
 	assert(e, "Expression must not be null");
-} body {
+} do {
 	// If the expression is polysemous, we try the several meaning and
 	// exclude the ones that make no sense.
 	if (auto asPolysemous = cast(PolysemousExpression) e) {

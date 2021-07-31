@@ -115,7 +115,7 @@ struct SymbolAnalyzer {
 	private void fillIntrinsics(Module m) {
 		void setInstrinsic(Function f, Intrinsic i) in {
 			assert(f, "intrinsic not defined");
-		} body {
+		} do {
 			pass.scheduler.require(f);
 			f.intrinsicID = i;
 		}
@@ -1038,7 +1038,7 @@ struct SymbolAnalyzer {
 
 	void analyze(EnumDeclaration d, Enum e) in {
 		assert(e.name.isDefined, "anonymous enums must be flattened !");
-	} body {
+	} do {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 		
@@ -1125,7 +1125,7 @@ struct SymbolAnalyzer {
 	void analyze(AstExpression dv, Variable v) in {
 		assert(v.storage == Storage.Enum);
 		assert(v.type.kind == TypeKind.Enum);
-	} body {
+	} do {
 		auto e = v.type.denum;
 		
 		if (dv !is null) {

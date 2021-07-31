@@ -27,7 +27,7 @@ struct GlobalGen {
 	
 	void define(Symbol s) in {
 		assert(s.step == Step.Processed);
-	} body {
+	} do {
 		if (auto f = cast(Function) s) {
 			define(f);
 		} else if (auto t = cast(Template) s) {
@@ -41,14 +41,14 @@ struct GlobalGen {
 	
 	LLVMValueRef declare(Function f) in {
 		assert(!f.hasContext, "function must not have context");
-	} body {
+	} do {
 		import d.llvm.local;
 		return LocalGen(pass).declare(f);
 	}
 	
 	LLVMValueRef define(Function f) in {
 		assert(!f.hasContext, "function must not have context");
-	} body {
+	} do {
 		import d.llvm.local;
 		return LocalGen(pass).define(f);
 	}
@@ -57,7 +57,7 @@ struct GlobalGen {
 		assert(v.storage.isGlobal, "locals not supported");
 		assert(!v.isFinal);
 		assert(!v.isRef);
-	} body {
+	} do {
 		auto var = globals.get(v, {
 			if (v.storage == Storage.Enum) {
 				import d.llvm.constant;
@@ -86,7 +86,7 @@ struct GlobalGen {
 		assert(v.storage.isGlobal, "locals not supported");
 		assert(!v.isFinal);
 		assert(!v.isRef);
-	} body {
+	} do {
 		auto var = declare(v);
 		if (!v.value || v.storage == Storage.Enum) {
 			return var;
@@ -106,7 +106,7 @@ struct GlobalGen {
 		assert(v.storage != Storage.Enum, "enum do not have a storage");
 		assert(!v.isFinal);
 		assert(!v.isRef);
-	} body {
+	} do {
 		if (LLVMGetInitializer(var)) {
 			return false;
 		}
@@ -122,7 +122,7 @@ struct GlobalGen {
 	private LLVMValueRef createVariableStorage(Variable v) in {
 		assert(v.storage.isGlobal, "locals not supported");
 		assert(v.storage != Storage.Enum, "enum do not have a storage");
-	} body {
+	} do {
 		auto qualifier = v.type.qualifier;
 		
 		import d.llvm.type;
@@ -152,13 +152,13 @@ struct GlobalGen {
 	
 	LLVMTypeRef define(Aggregate a) in {
 		assert(a.step == Step.Processed);
-	} body {
+	} do {
 		return this.dispatch(a);
 	}
 	
 	LLVMTypeRef visit(Struct s) in {
 		assert(s.step == Step.Processed);
-	} body {
+	} do {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(s);
 		
@@ -173,7 +173,7 @@ struct GlobalGen {
 	
 	LLVMTypeRef visit(Class c) in {
 		assert(c.step == Step.Processed);
-	} body {
+	} do {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(c);
 		
@@ -197,7 +197,7 @@ struct GlobalGen {
 	
 	LLVMTypeRef visit(Union u) in {
 		assert(u.step == Step.Processed);
-	} body {
+	} do {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(u);
 		
@@ -212,7 +212,7 @@ struct GlobalGen {
 	
 	LLVMTypeRef visit(Interface i) in {
 		assert(i.step == Step.Processed);
-	} body {
+	} do {
 		import d.llvm.type;
 		return TypeGen(pass).visit(i);
 	}

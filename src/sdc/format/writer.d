@@ -291,7 +291,7 @@ struct SolveState {
 	
 	SolveState withRuleValue(uint i, uint v) in {
 		assert(i > ruleValues.length);
-	} body {
+	} do {
 		uint[] newRuleValues = ruleValues;
 		newRuleValues.length = i;
 		newRuleValues[i - 1] = v;

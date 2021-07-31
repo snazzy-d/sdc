@@ -39,7 +39,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef addressOf(E)(E e) if (is(E : Expression)) in {
 		assert(e.isLvalue, "e must be an lvalue");
-	} body {
+	} do {
 		return AddressOfGen(pass).visit(e);
 	}
 	
@@ -65,7 +65,7 @@ struct ExpressionGen {
 	
 	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression)) in {
 		assert(e.isLvalue, "e must be an lvalue");
-	} body {
+	} do {
 		auto q = e.type.qualifier;
 		return buildLoad(addressOf(e), q);
 	}
@@ -546,7 +546,7 @@ struct ExpressionGen {
 	
 	LLVMValueRef visit(IndexExpression e) in {
 		assert(e.isLvalue, "e must be an lvalue");
-	} body {
+	} do {
 		return loadAddressOf(e);
 	}
 	
@@ -909,7 +909,7 @@ struct AddressOfGen {
 	
 	LLVMValueRef visit(Expression e) in {
 		assert(e.isLvalue, "You can only compute addresses of lvalues.");
-	} body {
+	} do {
 		return this.dispatch(e);
 	}
 	
@@ -920,7 +920,7 @@ struct AddressOfGen {
 	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
 		assert(!e.var.isFinal, "finals have no address.");
-	} body {
+	} do {
 		return declare(e.var);
 	}
 	
@@ -970,7 +970,7 @@ struct AddressOfGen {
 			e.type.kind == TypeKind.Context,
 			"ContextExpression must be of ContextType"
 		);
-	} body {
+	} do {
 		return pass.getContext(e.type.context);
 	}
 	

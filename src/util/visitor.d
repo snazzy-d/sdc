@@ -25,7 +25,7 @@ private auto dispatchImpl(
 	alias unhandled, V, T, Args...
 )(auto ref V visitor, Args args, T t) in {
 	assert(t, "You can't dispatch null");
-} body {
+} do {
 	static if(is(T == class)) {
 		alias o = t;
 	} else {

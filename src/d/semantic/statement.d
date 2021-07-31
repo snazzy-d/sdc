@@ -730,7 +730,7 @@ public:
 	
 	private BasicBlockRef unwindAndBranch(Location location, Label l) in {
 		assert(l, "Invalid label");
-	} body {
+	} do {
 		closeBlockTo(l.level);
 		return maybeBranchTo(location, l.block);
 	}
@@ -896,7 +896,7 @@ public:
 		string fallthroughError,
 	) out {
 		assert(varStack == switchStack);
-	} body {
+	} do {
 		scope(success) varStack = switchStack;
 		if (allowFallthrough) {
 			allowFallthrough = false;
@@ -1248,7 +1248,7 @@ public:
 	
 	void unwindTo(size_t level) in {
 		assert(unwindActions.length >= level);
-	} body {
+	} do {
 		if (unwindActions.length == level) {
 			// Nothing to unwind, done !
 			return;
@@ -1335,13 +1335,13 @@ public:
 	
 	@property statement() inout in {
 		assert(kind != UnwindKind.Destroy);
-	} body {
+	} do {
 		return _statement;
 	}
 	
 	@property var() inout in {
 		assert(kind == UnwindKind.Destroy);
-	} body {
+	} do {
 		auto s = _statement;
 		return *(cast(Variable*) &s);
 	}
@@ -1356,7 +1356,7 @@ public:
 	
 	this(Variable v) in {
 		assert(!v.type.dstruct.isPod);
-	} body {
+	} do {
 		_kind = UnwindKind.Destroy;
 		_statement = *(cast(Statement*) &v);
 	}
