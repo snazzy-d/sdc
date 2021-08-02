@@ -2,6 +2,28 @@ module sdc.format.writer;
 
 import sdc.format.chunk;
 
+struct BlockSpecifier {
+	Chunk[] chunks;
+	uint baseIndent;
+	
+	bool opEquals(const ref BlockSpecifier rhs) const {
+		return chunks is rhs.chunks && baseIndent == rhs.baseIndent;
+	}
+	
+	size_t toHash() const @safe nothrow {
+		size_t h = cast(size_t) chunks.ptr;
+		
+		h ^=  (h >>> 33);
+		h *= 0xff51afd7ed558ccd;
+		h += chunks.length;
+		h ^=  (h >>> 33);
+		h *= 0xc4ceb9fe1a85ec53;
+		h += baseIndent;
+		
+		return h;
+	}
+}
+
 struct FormatResult {
 	uint cost;
 	uint overflow;
@@ -9,37 +31,43 @@ struct FormatResult {
 }
 
 struct Writer {
-	import std.array;
-	Appender!string buffer;
-	
 	uint cost;
 	uint overflow;
 	
 	uint baseIndent = 0;
 	Chunk[] line;
 	
-	FormatResult write(Chunk[] chunks, uint baseIndent = 0) {
-		import std.array;
-		buffer = appender!string();
-		
-		this.baseIndent = baseIndent;
-		
+	FormatResult[BlockSpecifier] cache;
+	
+	import std.array;
+	Appender!string buffer;
+	
+	FormatResult write(Chunk[] chunks) {
+		return write(BlockSpecifier(chunks, 0));
+	}
+	
+	FormatResult write(BlockSpecifier block) {
 		cost = 0;
 		overflow = 0;
 		
+		baseIndent = block.baseIndent;
+		
+		import std.array;
+		buffer = appender!string();
+		
 		size_t start = 0;
-		foreach (i, c; chunks) {
-			if (!c.endsBreakableLine()) {
+		foreach (i, ref c; block.chunks) {
+			if (i == 0 || !c.endsBreakableLine()) {
 				continue;
 			}
 			
-			line = chunks[start .. i];
+			line = block.chunks[start .. i];
 			writeLine();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		line = chunks[start .. $];
+		line = block.chunks[start .. $];
 		writeLine();
 		
 		return FormatResult(cost, overflow, buffer.data);
@@ -54,7 +82,7 @@ struct Writer {
 		overflow += state.overflow;
 		
 		foreach (uint i, c; line) {
-			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
+			assert(i == 0 || !c.endsBreakableLine(), "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(i);
 			if (state.isSplit(i)) {
@@ -69,8 +97,26 @@ struct Writer {
 				output(' ');
 			}
 			
-			output(c.text);
+			final switch (c.kind) with(ChunkKind) {
+				case Text:
+					output(c.text);
+					break;
+				
+				case Block:
+					auto f = formatBlock(c.chunks, chunkIndent);
+					
+					cost += f.cost;
+					overflow += f.overflow;
+					
+					output(f.text);
+					break;
+			}
 		}
+	}
+	
+	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
+		auto block = BlockSpecifier(chunks, baseIndent);
+		return cache.require(block, Writer().write(block));
 	}
 	
 	SolveState findBestState() {
@@ -173,6 +219,11 @@ struct SolveState {
 				continue;
 			}
 			
+			// Block are magic and do not break spans.
+			if (c.kind == ChunkKind.Block || line[i].kind == ChunkKind.Block) {
+				continue;
+			}
+			
 			if (!isSplit(i + 1)) {
 				continue;
 			}
@@ -217,16 +268,38 @@ struct SolveState {
 			liveRules = redBlackTree(range);
 		}
 		
-		bool newLine = true;
+		bool salvageNextSpan = true;
+		
 		foreach (uint i, ref c; line) {
-			if (isSplit(i)) {
-				newLine = true;
-				cost += 1;
-			}
+			bool salvageSpan = salvageNextSpan;
+			uint lineLength = 0;
 			
-			if (!newLine) {
-				length += c.length + (c.splitType == SplitType.Space);
-				continue;
+			final switch (c.kind) with (ChunkKind) {
+				case Block:
+					salvageNextSpan = true;
+					
+					auto f = writer.formatBlock(c.chunks, getIndent(i));
+					
+					cost += f.cost;
+					overflow += f.overflow;
+					
+					if (i <= ruleValues.length) {
+						sunk += f.overflow;
+					}
+					
+					break;
+				
+				case Text:
+					salvageNextSpan = false;
+					
+					if (!salvageSpan && !isSplit(i)) {
+						length += (c.splitType == SplitType.Space) + c.length;
+						continue;
+					}
+					
+					cost += 1;
+					lineLength = c.length;
+					break;
 			}
 			
 			if (i > 0) {
@@ -234,10 +307,13 @@ struct SolveState {
 				endLine(i);
 			}
 			
-			newLine = false;
+			length = getIndent(i) * INDENTATION_SIZE + lineLength;
 			start = i;
 			
-			auto indent = c.indentation;
+			if (salvageSpan) {
+				continue;
+			}
+			
 			auto span = c.span;
 			bool needInsert = true;
 			
@@ -251,8 +327,6 @@ struct SolveState {
 				
 				needInsert = brokenSpans.insert(span) > 0;
 			}
-			
-			length = getIndent(i) * INDENTATION_SIZE + c.length;
 		}
 		
 		endLine(cast(uint) line.length);
