@@ -15,6 +15,8 @@ struct Writer {
 	uint cost;
 	uint overflow;
 	
+	Chunk[] line;
+	
 	FormatResult write(Chunk[] chunks) {
 		import std.array;
 		buffer = appender!string();
@@ -28,20 +30,22 @@ struct Writer {
 				continue;
 			}
 			
-			writeLine(chunks[start .. i]);
+			line = chunks[start .. i];
+			writeLine();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		writeLine(chunks[start .. $]);
+		line = chunks[start .. $];
+		writeLine();
 		
 		return FormatResult(cost, overflow, buffer.data);
 	}
 	
-	void writeLine(Chunk[] line) in {
+	void writeLine() in {
 		assert(line.length > 0, "line must not be empty");
 	} do {
-		auto state = findBestState(line);
+		auto state = findBestState();
 		
 		cost += state.cost;
 		overflow += state.overflow;
@@ -65,7 +69,7 @@ struct Writer {
 		}
 	}
 	
-	SolveState findBestState(Chunk[] line) {
+	SolveState findBestState() {
 		auto best = SolveState(line);
 		if (best.overflow == 0) {
 			return best;
