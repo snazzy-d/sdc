@@ -65,6 +65,44 @@ struct Writer {
 		}
 	}
 	
+	SolveState findBestState(Chunk[] line) {
+		auto best = SolveState(line);
+		if (best.overflow == 0) {
+			return best;
+		}
+		
+		uint attempts = 0;
+		scope queue = redBlackTree(best);
+		
+		// Once we have a solution that fits, or no more things
+		// to try, then we are done.
+		while (!queue.empty) {
+			auto candidate = queue.front;
+			queue.removeFront();
+			
+			if (candidate.isDeadSubTree(best)) {
+				continue;
+			}
+			
+			if (candidate.isBetterThan(best)) {
+				best = candidate;
+				if (candidate.overflow == 0) {
+					// We found the lowest cost solution that fit on the page.
+					break;
+				}
+			}
+			
+			// We ran out of attempts.
+			if (attempts++ > MAX_ATTEMPT) {
+				break;
+			}
+			
+			candidate.expand(queue);
+		}
+		
+		return best;
+	}
+	
 	void output(char c) {
 		buffer ~= c;
 	}
@@ -86,44 +124,6 @@ enum MAX_ATTEMPT = 5000;
 
 import std.container.rbtree;
 alias SolveStateQueue = RedBlackTree!SolveState;
-
-SolveState findBestState(Chunk[] line) {
-	auto best = SolveState(line);
-	if (best.overflow == 0) {
-		return best;
-	}
-	
-	uint attempts = 0;
-	scope queue = redBlackTree(best);
-	
-	// Once we have a solution that fits, or no more things
-	// to try, then we are done.
-	while (!queue.empty) {
-		auto candidate = queue.front;
-		queue.removeFront();
-		
-		if (candidate.isDeadSubTree(best)) {
-			continue;
-		}
-		
-		if (candidate.isBetterThan(best)) {
-			best = candidate;
-			if (candidate.overflow == 0) {
-				// We found the lowest cost solution that fit on the page.
-				break;
-			}
-		}
-		
-		// We ran out of attempts.
-		if (attempts++ > MAX_ATTEMPT) {
-			break;
-		}
-		
-		candidate.expand(queue);
-	}
-	
-	return best;
-}
 
 struct SolveState {
 	uint sunk = 0;
