@@ -155,6 +155,10 @@ private:
 		return guard;
 	}
 	
+	auto block() {
+		return builder.block();
+	}
+	
 	/**
 	 * Whitespace management.
 	 */
@@ -1082,6 +1086,10 @@ private:
 		}
 		
 		{
+			// We have an actual block.
+			clearSplitType();
+			auto blockGuard = block();
+			
 			auto oldExtraIndent = extraIndent;
 			scope(exit) {
 				extraIndent = oldExtraIndent;
