@@ -232,13 +232,13 @@ private:
 		emitSkippedTokens();
 		flushComments();
 		
-		// Process current token.
-		write(token.toString(context));
-		
 		if (match(TokenType.End)) {
 			// We reached the end of our input.
 			return;
 		}
+		
+		// Process current token.
+		write(token.toString(context));
 		
 		trange.popFront();
 		parseComments();
