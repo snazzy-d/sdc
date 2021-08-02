@@ -1069,7 +1069,7 @@ private:
 		}
 		
 		nextToken();
-		if (match(TokenType.CloseBrace)) {
+		if (match(TokenType.CloseBrace) || match(TokenType.End)) {
 			{
 				// Flush comments so that they have the proper indentation.
 				auto guard = builder.indent();
