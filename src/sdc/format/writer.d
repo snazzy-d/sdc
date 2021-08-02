@@ -70,7 +70,7 @@ struct Writer {
 	}
 	
 	SolveState findBestState() {
-		auto best = SolveState(line);
+		auto best = SolveState(&this);
 		if (best.overflow == 0) {
 			return best;
 		}
@@ -130,11 +130,14 @@ import std.container.rbtree;
 alias SolveStateQueue = RedBlackTree!SolveState;
 
 struct SolveState {
-	uint sunk = 0;
-	uint overflow = 0;
-	uint cost = 0;
+	// XXX: Keeping that reference in the object is not strictlynecessary.
+	// Because there are possibly many instances, this needs to be removed.
+	Writer* writer;
 	
-	Chunk[] line;
+	uint cost = 0;
+	uint overflow = 0;
+	uint sunk = 0;
+	
 	uint[] ruleValues;
 	
 	// The set of free to bind rules that affect the next overflowing line.
@@ -143,8 +146,8 @@ struct SolveState {
 	// Span that require indentation.
 	RedBlackTree!Span usedSpans;
 	
-	this(Chunk[] line, uint[] ruleValues = []) {
-		this.line = line;
+	this(Writer* writer, uint[] ruleValues = []) {
+		this.writer = writer;
 		this.ruleValues = ruleValues;
 		computeCost();
 	}
@@ -153,6 +156,8 @@ struct SolveState {
 		sunk = 0;
 		overflow = 0;
 		cost = 0;
+		
+		auto line = writer.line;
 		
 		// If there is nothing to be done, just skip.
 		if (line.length == 0) {
@@ -263,7 +268,7 @@ struct SolveState {
 	}
 	
 	bool mustSplit(uint i) const {
-		auto st = line[i].splitType;
+		auto st = writer.line[i].splitType;
 		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
 	}
 	
@@ -278,7 +283,7 @@ struct SolveState {
 		
 		uint indent = 0;
 		
-		auto span = line[i].span;
+		auto span = writer.line[i].span;
 		while (span !is null) {
 			scope(success) span = span.parent;
 			
@@ -297,7 +302,7 @@ struct SolveState {
 		newRuleValues.length = i;
 		newRuleValues[i - 1] = v;
 		
-		return SolveState(line, newRuleValues);
+		return SolveState(writer, newRuleValues);
 	}
 	
 	void expand()(SolveStateQueue queue) {
