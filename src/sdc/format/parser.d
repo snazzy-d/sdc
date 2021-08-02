@@ -1724,6 +1724,15 @@ private:
 					parseParameterList();
 					break;
 				
+				case If: {
+					auto guard = span();
+					split();
+					nextToken();
+					space();
+					parseCondition();
+					continue;
+				}
+				
 				default:
 					clearSplitType();
 					return;
