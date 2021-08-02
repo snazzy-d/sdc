@@ -398,6 +398,17 @@ private:
 			return;
 		}
 		
+		import d.parser.util;
+		auto lookahead = trange.save.withComments(false);
+		lookahead.popMatchingDelimiter!(TokenType.OpenBrace)();
+		
+		auto nextType = lookahead.front.type;
+		if (nextType != TokenType.CloseBrace && nextType != TokenType.Case && nextType != TokenType.Default) {
+			newline(1);
+			return;
+		}
+		
+		auto guard = builder.unindent();
 		space();
 		parseBlock(mode);
 	}
