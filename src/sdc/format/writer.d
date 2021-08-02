@@ -15,11 +15,14 @@ struct Writer {
 	uint cost;
 	uint overflow;
 	
+	uint baseIndent = 0;
 	Chunk[] line;
 	
-	FormatResult write(Chunk[] chunks) {
+	FormatResult write(Chunk[] chunks, uint baseIndent = 0) {
 		import std.array;
 		buffer = appender!string();
+		
+		this.baseIndent = baseIndent;
 		
 		cost = 0;
 		overflow = 0;
@@ -53,14 +56,15 @@ struct Writer {
 		foreach (uint i, c; line) {
 			assert((i == 0) || !c.endsBreakableLine(), "Line splitting bug");
 			
+			uint chunkIndent = state.getIndent(i);
 			if (state.isSplit(i)) {
+				output('\n');
+				
 				if (c.splitType == SplitType.TwoNewLines) {
-					output("\n\n");
-				} else {
 					output('\n');
 				}
 				
-				indent(c.indentation + state.getIndent(i));
+				indent(chunkIndent);
 			} else if (c.splitType == SplitType.Space) {
 				output(' ');
 			}
@@ -248,7 +252,7 @@ struct SolveState {
 				needInsert = brokenSpans.insert(span) > 0;
 			}
 			
-			length = INDENTATION_SIZE * (line[i].indentation + getIndent(i)) + c.length;
+			length = getIndent(i) * INDENTATION_SIZE + c.length;
 		}
 		
 		endLine(cast(uint) line.length);
@@ -277,11 +281,10 @@ struct SolveState {
 	}
 	
 	uint getIndent(uint i) {
+		uint indent = writer.baseIndent + writer.line[i].indentation;
 		if (usedSpans is null) {
-			return 0;
+			return indent;
 		}
-		
-		uint indent = 0;
 		
 		auto span = writer.line[i].span;
 		while (span !is null) {
