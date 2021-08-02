@@ -375,19 +375,4 @@ struct SolveState {
 		
 		return 0;
 	}
-	
-	// Necessary due to https://issues.dlang.org/show_bug.cgi?id=21947
-	size_t toHash() const @trusted nothrow {
-		size_t h = 0;
-		foreach (const ref v; this.tupleof) {
-			static if (is(typeof(v) : S[], S)) {
-				h = hashOf(v.length, h);
-				h = hashOf(v.ptr, h);
-			} else {
-				h = hashOf(v, h);
-			}
-		}
-		
-		return h;
-	}
 }
