@@ -115,7 +115,7 @@ public:
 	}
 	
 	@property
-	const(Chunk)[] chunks() const in {
+	ref inout(Chunk[]) chunks() inout in {
 		assert(kind == ChunkKind.Block);
 	} do {
 		return _chunks;
@@ -298,6 +298,42 @@ public:
 		}
 		
 		return doSlice;
+	}
+	
+	/**
+	 * Block management.
+	 */
+	auto block() {
+		split();
+		emitPendingWhiteSpace();
+		
+		static struct Guard {
+			~this() {
+				auto chunk = outerBuilder.chunk;
+				chunk._kind = ChunkKind.Block;
+				chunk.chunks = builder.build();
+				outerBuilder.source ~= chunk;
+				
+				// Restore the outer builder.
+				*builder = outerBuilder;
+			}
+			
+		private:
+			Builder* builder;
+			Builder outerBuilder;
+		}
+		
+		auto guard = Guard(&this, this);
+		
+		// Get ready to buidl the block.
+		source = [];
+		chunk = Chunk();
+		
+		pendingWhiteSpace = SplitType.None;
+		indentation = 0;
+		spanStack = null;
+		
+		return guard;
 	}
 	
 private:
