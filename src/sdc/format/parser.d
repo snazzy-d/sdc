@@ -1972,8 +1972,24 @@ private:
 		if (match(TokenType.OpenBrace)) {
 			space();
 			nextToken();
-			parseList!parseExpression(TokenType.CloseBrace, true);
+			parseList!parseEnumEntry(TokenType.CloseBrace, true);
 		}
+	}
+	
+	void parseEnumEntry() {
+		bool hasUDA = false;
+		while(match(TokenType.At)) {
+			hasUDA = true;
+			nextToken();
+			parseIdentifier();
+			space();
+		}
+		
+		if (hasUDA) {
+			newline(1);
+		}
+		
+		parseExpression();
 	}
 	
 	void parseAlias() in {
