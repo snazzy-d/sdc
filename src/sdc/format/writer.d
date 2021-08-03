@@ -350,7 +350,12 @@ struct SolveState {
 			return false;
 		}
 		
-		if (writer.line[i].kind == ChunkKind.Block) {
+		auto c = writer.line[i];
+		if (c.kind == ChunkKind.Block) {
+			return false;
+		}
+		
+		if (c.splitIndex != 0) {
 			return false;
 		}
 		
@@ -363,7 +368,14 @@ struct SolveState {
 	}
 	
 	bool isSplit(uint i) const {
-		return mustSplit(i) || getRuleValue(i) > 0;
+		if (mustSplit(i)) {
+			return true;
+		}
+		
+		auto splitIndex = writer.line[i].splitIndex;
+		return splitIndex > 0
+			? isSplit(i - splitIndex)
+			: getRuleValue(i) > 0;
 	}
 	
 	uint getIndent(uint i) {

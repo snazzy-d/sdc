@@ -54,6 +54,7 @@ private:
 		SplitType, "_splitType", EnumSize!SplitType,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
+		uint, "_splitIndex", 16,
 		// sdfmt on
 	);
 	
@@ -84,6 +85,17 @@ public:
 	SplitType splitType(SplitType st) {
 		_splitType = st;
 		return splitType;
+	}
+	
+	@property
+	uint splitIndex() const {
+		return _splitIndex;
+	}
+	
+	@property
+	uint splitIndex(uint si) {
+		_splitIndex = si;
+		return splitIndex;
 	}
 	
 	@property
@@ -180,7 +192,7 @@ public:
 		pendingWhiteSpace = SplitType.None;
 	}
 	
-	void split() {
+	auto split() {
 		import std.stdio;
 		// writeln("split!");
 
@@ -218,7 +230,7 @@ public:
 		
 		// There is nothing to flush.
 		if (chunk.empty) {
-			return;
+			return cast(uint) source.length;
 		}
 		
 		import std.uni, std.range;
@@ -228,6 +240,14 @@ public:
 		chunk = Chunk();
 		
 		// TODO: Process rules.
+		
+		return cast(uint) source.length;
+	}
+	
+	void setSplitIndex(uint index) in {
+		assert(index <= source.length, "Invalid split index");
+	} do {
+		chunk.splitIndex = cast(uint) (source.length - index);
 	}
 	
 	auto indent(uint level = 1) {

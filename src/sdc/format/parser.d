@@ -133,12 +133,12 @@ private:
 		builder.clearSplitType();
 	}
 	
-	void split() {
+	auto split() {
 		if (skipFormatting()) {
-			return;
+			return 0;
 		}
 		
-		builder.split();
+		return builder.split();
 	}
 	
 	auto span() {
@@ -1490,7 +1490,7 @@ private:
 			auto guard = spliceSpan();
 			
 			space();
-			split();
+			auto questionMarkIndex = split();
 			nextToken();
 			space();
 			
@@ -1503,6 +1503,7 @@ private:
 			
 			space();
 			split();
+			builder.setSplitIndex(questionMarkIndex);
 			nextToken();
 			space();
 			
