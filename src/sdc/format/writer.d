@@ -257,7 +257,7 @@ struct SolveState {
 			import std.algorithm, std.range;
 			auto range = max(cast(uint) ruleValues.length, start + 1)
 				.iota(i)
-				.filter!(i => !mustSplit(i));
+				.filter!(i => cansSplit(i));
 			
 			// If the line overflow, but has no split point, it is sunk.
 			if (range.empty) {
@@ -343,6 +343,18 @@ struct SolveState {
 		return (i - 1) < ruleValues.length
 			? ruleValues[i - 1]
 			: 0;
+	}
+	
+	bool cansSplit(uint i) const {
+		if (mustSplit(i)) {
+			return false;
+		}
+		
+		if (writer.line[i].kind == ChunkKind.Block) {
+			return false;
+		}
+		
+		return true;
 	}
 	
 	bool mustSplit(uint i) const {
