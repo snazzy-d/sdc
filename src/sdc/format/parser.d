@@ -2039,10 +2039,25 @@ private:
 			space();
 			
 			switch (token.type) with(TokenType) {
-				case Colon:
+				case Colon: {
+					auto guard = span();
 					split();
 					nextToken();
+					
+					while (true) {
+						space();
+						parseIdentifier();
+						
+						if (!match(TokenType.Comma)) {
+							break;
+						}
+						
+						nextToken();
+						split();
+					}
+					
 					break;
+				}
 				
 				case If: {
 					auto guard = span();
