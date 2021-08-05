@@ -194,6 +194,7 @@ struct SolveState {
 	RedBlackTree!uint liveRules;
 	
 	// Span that require indentation.
+	import sdc.format.span;
 	RedBlackTree!Span usedSpans;
 	
 	this(Writer* writer, uint[] ruleValues = []) {
