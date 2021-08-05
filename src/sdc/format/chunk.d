@@ -128,10 +128,18 @@ public:
 	Chunk[] build() {
 		split();
 		
-		// The first chunk obviously starts a new line.
-		source[0]._startsUnwrappedLine = true;
-		
-		foreach (i, ref c; source[1 .. $]) {
+		size_t start = 0;
+		foreach (i, ref c; source) {
+			scope(success) {
+				// Make sure we let the spans know where they are in the line.
+				c.span.register(i - start);
+			}
+			
+			if (i == 0) {
+				// The first chunk obviously starts a new line.
+				goto FoundLineBreak;
+			}
+			
 			// This is not a line break.
 			if (c.kind != ChunkKind.Block
 					&& c.splitType != SplitType.NewLine
@@ -140,13 +148,17 @@ public:
 			}
 			
 			// Check if these two have a span in common.
-			auto top = c.span.getTop();
-			if (top !is null && top is source[i].span.getTop()) {
-				continue;
+			{
+				auto top = c.span.getTop();
+				if (top !is null && top is source[i].span.getTop()) {
+					continue;
+				}
 			}
 			
+		FoundLineBreak:
 			// This is a line break with no span in common.
 			c._startsUnwrappedLine = true;
+			start = i;
 		}
 		
 		return source;
@@ -184,7 +196,7 @@ public:
 	auto split() {
 		import std.stdio;
 		// writeln("split!");
-
+		
 		scope(success) {
 			chunk._indentation = indentation;
 			chunk._alignIndex = source.length <= alignIndex
@@ -230,8 +242,6 @@ public:
 		
 		source ~= chunk;
 		chunk = Chunk();
-		
-		// TODO: Process rules.
 		
 		return cast(uint) source.length;
 	}
@@ -288,7 +298,7 @@ public:
 	/**
 	 * Span management.
 	 */
-	auto span(uint cost = 1, uint indent = 1) {
+	auto span() {
 		emitPendingWhiteSpace();
 		
 		static struct Guard {
@@ -302,7 +312,7 @@ public:
 			Span span;
 		}
 		
-		spanStack = new Span(spanStack, cost, indent);
+		spanStack = new Span(spanStack);
 		return Guard(&this, spanStack);
 	}
 	

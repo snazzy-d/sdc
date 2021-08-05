@@ -313,7 +313,7 @@ struct SolveState {
 			import std.algorithm, std.range;
 			auto range = max(ruleValues.length, start + 1)
 				.iota(i)
-				.filter!(i => cansSplit(line, i));
+				.filter!(i => canSplit(line, i));
 			
 			// If the line overflow, but has no split point, it is sunk.
 			if (range.empty) {
@@ -392,7 +392,7 @@ struct SolveState {
 		// Account for the cost of breaking spans.
 		if (brokenSpans !is null) {
 			foreach (s; brokenSpans) {
-				cost += s.cost;
+				cost += s.getCost();
 			}
 		}
 	}
@@ -403,7 +403,7 @@ struct SolveState {
 			: 0;
 	}
 	
-	bool cansSplit(const Chunk[] line, size_t i) const {
+	bool canSplit(const Chunk[] line, size_t i) const {
 		if (mustSplit(line, i)) {
 			return false;
 		}
@@ -447,7 +447,7 @@ struct SolveState {
 			scope(success) span = span.parent;
 			
 			if (span in usedSpans) {
-				indent += span.indent;
+				indent += span.getIndent();
 			}
 		}
 		

@@ -1,14 +1,21 @@
 module sdc.format.span;
 
-final class Span {
+import sdc.format.writer;
+import sdc.format.chunk;
+
+class Span {
 	Span parent = null;
-	uint cost = 1;
-	uint indent = 1;
 	
-	this(Span parent, uint cost, uint indent) {
+	this(Span parent) {
 		this.parent = parent;
-		this.cost = cost;
-		this.indent = indent;
+	}
+	
+	uint getCost() const {
+		return 1;
+	}
+	
+	uint getIndent() const {
+		return 1;
 	}
 	
 	// lhs < rhs => rhs.opCmp(rhs) < 0
@@ -29,7 +36,17 @@ final class Span {
 	
 	override string toString() const {
 		import std.conv;
-		return "Span(" ~ print(parent) ~ ", " ~ cost.to!string ~ ", " ~ indent.to!string ~ ")";
+		return typeid(this).toString() ~ "(" ~ print(parent) ~ ")";
+	}
+	
+protected:
+	void register(size_t i) {}
+}
+
+void register(Span span, size_t i) {
+	while (span !is null) {
+		span.register(i);
+		span = span.parent;
 	}
 }
 
