@@ -94,6 +94,10 @@ struct Writer {
 				}
 				
 				indent(chunkIndent);
+				
+				if (!newline) {
+					outputAlign(state.getAlign(i));
+				}
 			} else if (c.splitType == SplitType.Space) {
 				output(' ');
 			}
@@ -172,6 +176,12 @@ struct Writer {
 	void indent(uint level) {
 		foreach (_; 0 .. level) {
 			output('\t');
+		}
+	}
+	
+	void outputAlign(uint columns) {
+		foreach (_; 0 .. columns) {
+			output(' ');
 		}
 	}
 }
@@ -319,6 +329,8 @@ struct SolveState {
 				continue;
 			}
 			
+			length += getAlign(i);
+			
 			auto span = c.span;
 			bool needInsert = true;
 			
@@ -399,6 +411,19 @@ struct SolveState {
 		}
 		
 		return indent;
+	}
+	
+	uint getAlign(uint i) {
+		i -= writer.line[i].alignIndex;
+		uint ret = 0;
+		
+		// Find the preceding line break.
+		while (i > 0 && !isSplit(i)) {
+			ret += writer.line[i].splitType == SplitType.Space;
+			ret += writer.line[--i].length;
+		}
+		
+		return ret;
 	}
 	
 	SolveState withRuleValue(uint i, uint v) in {

@@ -22,6 +22,7 @@ private:
 		uint, "_indentation", 10,
 		uint, "_length", 16,
 		uint, "_splitIndex", 16,
+		uint, "_alignIndex", 16,
 		// sdfmt on
 	);
 	
@@ -78,6 +79,17 @@ public:
 	}
 	
 	@property
+	uint alignIndex() const {
+		return _alignIndex;
+	}
+	
+	@property
+	uint alignIndex(uint ai) {
+		_alignIndex = ai;
+		return alignIndex;
+	}
+	
+	@property
 	uint length() const {
 		return _length;
 	}
@@ -121,6 +133,7 @@ public:
 		return "Chunk(" ~ splitType.to!string ~ ", "
 			~ Span.print(span) ~ ", "
 			~ indentation.to!string ~ ", "
+			~ alignIndex.to!string ~ ", "
 			~ length.to!string ~ ", "
 			~ splitIndex.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
@@ -134,6 +147,7 @@ public:
 	
 	SplitType pendingWhiteSpace = SplitType.None;
 	uint indentation;
+	uint alignIndex = -1;
 	
 	import sdc.format.span;
 	Span spanStack = null;
@@ -179,6 +193,9 @@ public:
 
 		scope(success) {
 			chunk.indentation = indentation;
+			chunk.alignIndex = source.length <= alignIndex
+				? 0
+				: cast(uint) source.length - alignIndex;
 			chunk.span = spanStack;
 		}
 		
@@ -231,6 +248,9 @@ public:
 		chunk.splitIndex = cast(uint) (source.length - index);
 	}
 	
+	/**
+	 * Indentation and alignement.
+	 */
 	auto indent(uint level = 1) {
 		static struct Guard {
 			~this() {
@@ -254,6 +274,23 @@ public:
 		return indent(-level);
 	}
 	
+	auto alignOnChunk() {
+		static struct Guard {
+			~this() {
+				builder.alignIndex = oldAlign;
+			}
+			
+		private:
+			Builder* builder;
+			uint oldAlign;
+		}
+		
+		uint oldAlign = alignIndex;
+		alignIndex = cast(uint) source.length;
+		
+		return Guard(&this, oldAlign);
+	}
+		
 	/**
 	 * Span management.
 	 */
@@ -332,6 +369,7 @@ public:
 		
 		pendingWhiteSpace = SplitType.None;
 		indentation = 0;
+		alignIndex = -1;
 		spanStack = null;
 		
 		return guard;

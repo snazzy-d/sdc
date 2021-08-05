@@ -1159,7 +1159,9 @@ private:
 			auto guard = span();
 			split();
 			
+			auto alignGuard = builder.alignOnChunk();
 			auto modeGuard = changeMode(Mode.Parameter);
+			
 			parseStructuralElement();
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
@@ -2109,6 +2111,7 @@ private:
 		
 		{
 			auto guard = span();
+			
 			while (true) {
 				if (addNewLines) {
 					newline(1);
