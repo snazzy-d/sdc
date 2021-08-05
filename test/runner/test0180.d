@@ -71,7 +71,7 @@ uint loopflow() {
 uint tryflow0() {
 	try {
 		return 0;
-	} catch(Exception e) {
+	} catch (Exception e) {
 		return 1;
 	}
 }
@@ -79,13 +79,13 @@ uint tryflow0() {
 uint tryflow1() {
 	try {
 		return 0;
-	} catch(Exception e) {}
+	} catch (Exception e) {}
 
 	return 1;
 }
 
 uint tryflow2() {
-	try {} catch(Exception e) {
+	try {} catch (Exception e) {
 		return 0;
 	}
 

@@ -13,7 +13,7 @@ void foo() {
 int main() {
 	try {
 		foo();
-	} catch(Exception e) {
+	} catch (Exception e) {
 		return a;
 	}
 

@@ -6,11 +6,11 @@
 int main() {
 	try {
 		throw new Exception();
-	} catch(Error e) {
+	} catch (Error e) {
 		return 23;
-	} catch(Exception e) {
+	} catch (Exception e) {
 		return 19;
-	} catch(Throwable e) {
+	} catch (Throwable e) {
 		return 13;
 	}
 }

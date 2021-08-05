@@ -8,7 +8,7 @@ auto a = 7;
 void foo() {
 	try {
 		throw new Exception();
-	} catch(Exception e) {
+	} catch (Exception e) {
 		a += 2;
 		throw new Exception();
 	}
@@ -17,7 +17,7 @@ void foo() {
 int main() {
 	try {
 		foo();
-	} catch(Exception e) {
+	} catch (Exception e) {
 		return a;
 	}
 

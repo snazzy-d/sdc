@@ -1399,6 +1399,7 @@ private:
 		assert(match(TokenType.Catch));
 	} do {
 		nextToken();
+		space();
 		parseParameterList();
 		space();
 		return parseControlFlowBlock();
