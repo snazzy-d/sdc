@@ -102,7 +102,18 @@ public:
 	}
 	
 	bool endsBreakableLine() const {
-		return span is null && (splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines);
+		// Process span all at once.
+		if (span !is null) {
+			return false;
+		}
+		
+		// Blocks always split.
+		if (kind == ChunkKind.Block) {
+			return true;
+		}
+		
+		// Split on new lines.
+		return splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines;
 	}
 	
 	string toString() const {
@@ -111,6 +122,7 @@ public:
 			~ Span.print(span) ~ ", "
 			~ indentation.to!string ~ ", "
 			~ length.to!string ~ ", "
+			~ splitIndex.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
 	}
 }

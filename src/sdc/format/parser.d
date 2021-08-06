@@ -1085,6 +1085,8 @@ private:
 			return;
 		}
 		
+		auto blockIndex = split();
+		
 		{
 			// We have an actual block.
 			clearSplitType();
@@ -1112,9 +1114,9 @@ private:
 			flushComments();
 		}
 		
+		builder.setSplitIndex(blockIndex);
+		
 		if (match(TokenType.CloseBrace)) {
-			clearSplitType();
-			newline(1);
 			nextToken();
 			newline(2);
 		}

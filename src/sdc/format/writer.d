@@ -81,11 +81,12 @@ struct Writer {
 		cost += state.cost;
 		overflow += state.overflow;
 		
+		bool newline = false;
 		foreach (uint i, c; line) {
 			assert(i == 0 || !c.endsBreakableLine(), "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(i);
-			if (state.isSplit(i)) {
+			if (newline || state.isSplit(i)) {
 				output('\n');
 				
 				if (c.splitType == SplitType.TwoNewLines) {
@@ -99,6 +100,7 @@ struct Writer {
 			
 			final switch (c.kind) with(ChunkKind) {
 				case Text:
+					newline = false;
 					output(c.text);
 					break;
 				
@@ -107,6 +109,8 @@ struct Writer {
 					
 					cost += f.cost;
 					overflow += f.overflow;
+					
+					newline = true;
 					
 					output(f.text);
 					break;
