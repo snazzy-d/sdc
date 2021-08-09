@@ -70,12 +70,12 @@ struct Writer {
 				continue;
 			}
 			
-			LineWriter(&this, chunks[start .. i], baseIndent).write();
+			LineWriter(&this, chunks[start .. i]).write();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		LineWriter(&this, chunks[start .. $], baseIndent).write();
+		LineWriter(&this, chunks[start .. $]).write();
 		
 		return FormatResult(cost, overflow, buffer.data);
 	}
@@ -112,14 +112,11 @@ struct LineWriter {
 	
 	Chunk[] line;
 	
-	uint baseIndent = 0;
-	
-	this(Writer* writer, Chunk[] line, uint baseIndent) in {
+	this(Writer* writer, Chunk[] line) in {
 		assert(line.length > 0, "line must not be empty");
 	} do {
 		this.writer = writer;
 		this.line = line;
-		this.baseIndent = baseIndent;
 	}
 	
 	void write() {
