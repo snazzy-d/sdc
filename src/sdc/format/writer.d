@@ -132,8 +132,8 @@ struct LineWriter {
 		foreach (uint i, c; line) {
 			assert(i == 0 || !c.endsBreakableLine(), "Line splitting bug");
 			
-			uint chunkIndent = state.getIndent(i);
-			if (newline || state.isSplit(i)) {
+			uint chunkIndent = state.getIndent(line, i);
+			if (newline || state.isSplit(line, i)) {
 				output('\n');
 				
 				if (c.splitType == SplitType.TwoNewLines) {
@@ -143,7 +143,7 @@ struct LineWriter {
 				indent(chunkIndent);
 				
 				if (!newline) {
-					outputAlign(state.getAlign(i));
+					outputAlign(state.getAlign(line, i));
 				}
 			} else if (c.splitType == SplitType.Space) {
 				output(' ');
@@ -236,13 +236,10 @@ enum PAGE_WIDTH = 80;
 enum MAX_ATTEMPT = 5000;
 
 struct SolveState {
-	// XXX: Keeping that reference in the object is not strictlynecessary.
-	// Because there are possibly many instances, this needs to be removed.
-	LineWriter* lineWriter;
-	
 	uint cost = 0;
 	uint overflow = 0;
 	uint sunk = 0;
+	uint baseIndent = 0;
 	
 	uint[] ruleValues;
 	
@@ -254,17 +251,15 @@ struct SolveState {
 	RedBlackTree!Span usedSpans;
 	
 	this(LineWriter* lineWriter, uint[] ruleValues = []) {
-		this.lineWriter = lineWriter;
 		this.ruleValues = ruleValues;
-		computeCost();
+		this.baseIndent = lineWriter.baseIndent;
+		computeCost(lineWriter.line, lineWriter.writer);
 	}
 	
-	void computeCost() {
+	void computeCost(Chunk[] line, Writer* writer) {
 		sunk = 0;
 		overflow = 0;
 		cost = 0;
-		
-		auto line = lineWriter.line;
 		
 		// If there is nothing to be done, just skip.
 		if (line.length == 0) {
@@ -281,7 +276,7 @@ struct SolveState {
 				continue;
 			}
 			
-			if (!isSplit(i + 1)) {
+			if (!isSplit(line, i + 1)) {
 				continue;
 			}
 			
@@ -314,7 +309,7 @@ struct SolveState {
 			import std.algorithm, std.range;
 			auto range = max(cast(uint) ruleValues.length, start + 1)
 				.iota(i)
-				.filter!(i => cansSplit(i));
+				.filter!(i => cansSplit(line, i));
 			
 			// If the line overflow, but has no split point, it is sunk.
 			if (range.empty) {
@@ -335,7 +330,7 @@ struct SolveState {
 				case Block:
 					salvageNextSpan = true;
 					
-					auto f = lineWriter.writer.formatBlock(c.chunks, getIndent(i));
+					auto f = writer.formatBlock(c.chunks, getIndent(line, i));
 					
 					cost += f.cost;
 					overflow += f.overflow;
@@ -349,7 +344,7 @@ struct SolveState {
 				case Text:
 					salvageNextSpan = false;
 					
-					if (!salvageSpan && !isSplit(i)) {
+					if (!salvageSpan && !isSplit(line, i)) {
 						length += (c.splitType == SplitType.Space) + c.length;
 						continue;
 					}
@@ -364,14 +359,14 @@ struct SolveState {
 				endLine(i);
 			}
 			
-			length = getIndent(i) * INDENTATION_SIZE + lineLength;
+			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
 			start = i;
 			
 			if (salvageSpan) {
 				continue;
 			}
 			
-			length += getAlign(i);
+			length += getAlign(line, i);
 			
 			auto span = c.span;
 			bool needInsert = true;
@@ -404,12 +399,12 @@ struct SolveState {
 			: 0;
 	}
 	
-	bool cansSplit(uint i) const {
-		if (mustSplit(i)) {
+	bool cansSplit(const Chunk[] line, uint i) const {
+		if (mustSplit(line, i)) {
 			return false;
 		}
 		
-		auto c = lineWriter.line[i];
+		auto c = line[i];
 		if (c.kind == ChunkKind.Block) {
 			return false;
 		}
@@ -421,29 +416,29 @@ struct SolveState {
 		return true;
 	}
 	
-	bool mustSplit(uint i) const {
-		auto st = lineWriter.line[i].splitType;
+	bool mustSplit(const Chunk[] line, uint i) const {
+		auto st = line[i].splitType;
 		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
 	}
 	
-	bool isSplit(uint i) const {
-		if (mustSplit(i)) {
+	bool isSplit(const Chunk[] line, uint i) const {
+		if (mustSplit(line, i)) {
 			return true;
 		}
 		
-		auto splitIndex = lineWriter.line[i].splitIndex;
+		auto splitIndex = line[i].splitIndex;
 		return splitIndex > 0
-			? isSplit(i - splitIndex)
+			? isSplit(line, i - splitIndex)
 			: getRuleValue(i) > 0;
 	}
 	
-	uint getIndent(uint i) {
-		uint indent = lineWriter.baseIndent + lineWriter.line[i].indentation;
+	uint getIndent(Chunk[] line, uint i) {
+		uint indent = baseIndent + line[i].indentation;
 		if (usedSpans is null) {
 			return indent;
 		}
 		
-		auto span = lineWriter.line[i].span;
+		auto span = line[i].span;
 		while (span !is null) {
 			scope(success) span = span.parent;
 			
@@ -455,14 +450,14 @@ struct SolveState {
 		return indent;
 	}
 	
-	uint getAlign(uint i) {
-		i -= lineWriter.line[i].alignIndex;
+	uint getAlign(const Chunk[] line, uint i) {
+		i -= line[i].alignIndex;
 		uint ret = 0;
 		
 		// Find the preceding line break.
-		while (i > 0 && !isSplit(i)) {
-			ret += lineWriter.line[i].splitType == SplitType.Space;
-			ret += lineWriter.line[--i].length;
+		while (i > 0 && !isSplit(line, i)) {
+			ret += line[i].splitType == SplitType.Space;
+			ret += line[--i].length;
 		}
 		
 		return ret;
