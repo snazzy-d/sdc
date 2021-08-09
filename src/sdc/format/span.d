@@ -32,3 +32,14 @@ final class Span {
 		return "Span(" ~ print(parent) ~ ", " ~ cost.to!string ~ ", " ~ indent.to!string ~ ")";
 	}
 }
+
+Span getTop(Span span) {
+	Span top = span;
+	
+	while (span !is null) {
+		top = span;
+		span = span.parent;
+	}
+	
+	return top;
+}

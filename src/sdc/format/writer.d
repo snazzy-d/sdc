@@ -66,7 +66,7 @@ struct Writer {
 		
 		size_t start = 0;
 		foreach (i, ref c; chunks) {
-			if (i == 0 || !c.endsBreakableLine()) {
+			if (i == 0 || !c.startsUnwrappedLine) {
 				continue;
 			}
 			
@@ -127,7 +127,7 @@ struct LineWriter {
 		
 		bool newline = false;
 		foreach (i, c; line) {
-			assert(i == 0 || !c.endsBreakableLine(), "Line splitting bug");
+			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(line, i);
 			if (newline || state.isSplit(line, i)) {
@@ -263,17 +263,24 @@ struct SolveState {
 			return;
 		}
 		
-		foreach (i, ref c; line[1 .. $]) {
+		bool wasBlock = false;
+		foreach (i, ref c; line) {
+			bool isBlock = c.kind == ChunkKind.Block;
+			scope(success) {
+				wasBlock = isBlock;
+			}
+			
+			// Blocks are magic and do not break spans.
+			if (isBlock || wasBlock) {
+				continue;
+			}
+			
+			// If there are no spans to break, move on.
 			if (c.span is null) {
 				continue;
 			}
 			
-			// Block are magic and do not break spans.
-			if (c.kind == ChunkKind.Block || line[i].kind == ChunkKind.Block) {
-				continue;
-			}
-			
-			if (!isSplit(line, i + 1)) {
+			if (!isSplit(line, i)) {
 				continue;
 			}
 			

@@ -19,6 +19,7 @@ private:
 		// sdfmt off
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		SplitType, "_splitType", EnumSize!SplitType,
+		bool, "_startsUnwrappedLine", 1,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
 		uint, "_splitIndex", 16,
@@ -31,15 +32,15 @@ private:
 	import std.bitmanip;
 	mixin(bitfields!(FieldsTuple, ulong, "", Pad));
 	
+	import sdc.format.span;
+	Span _span = null;
+	
 	union {
 		string _text;
 		Chunk[] _chunks;
 	}
-	
+
 public:
-	import sdc.format.span;
-	Span span = null;
-	
 	@property
 	ChunkKind kind() const {
 		return _kind;
@@ -51,20 +52,8 @@ public:
 	}
 	
 	@property
-	SplitType splitType(SplitType st) {
-		_splitType = st;
-		return splitType;
-	}
-	
-	@property
-	uint splitIndex() const {
-		return _splitIndex;
-	}
-	
-	@property
-	uint splitIndex(uint si) {
-		_splitIndex = si;
-		return splitIndex;
+	bool startsUnwrappedLine() const {
+		return _startsUnwrappedLine;
 	}
 	
 	@property
@@ -73,9 +62,13 @@ public:
 	}
 	
 	@property
-	uint indentation(uint i) {
-		_indentation = i;
-		return i;
+	uint length() const {
+		return _length;
+	}
+	
+	@property
+	uint splitIndex() const {
+		return _splitIndex;
 	}
 	
 	@property
@@ -84,14 +77,8 @@ public:
 	}
 	
 	@property
-	uint alignIndex(uint ai) {
-		_alignIndex = ai;
-		return alignIndex;
-	}
-	
-	@property
-	uint length() const {
-		return _length;
+	inout(Span) span() inout {
+		return _span;
 	}
 	
 	@property
@@ -113,21 +100,6 @@ public:
 		return _chunks;
 	}
 	
-	bool endsBreakableLine() const {
-		// Process span all at once.
-		if (span !is null) {
-			return false;
-		}
-		
-		// Blocks always split.
-		if (kind == ChunkKind.Block) {
-			return true;
-		}
-		
-		// Split on new lines.
-		return splitType == SplitType.NewLine || splitType == SplitType.TwoNewLines;
-	}
-	
 	string toString() const {
 		import std.conv;
 		return "Chunk(" ~ splitType.to!string ~ ", "
@@ -141,7 +113,7 @@ public:
 }
 
 struct Builder {
-public:
+private:
 	Chunk chunk;
 	Chunk[] source;
 	
@@ -155,6 +127,28 @@ public:
 public:
 	Chunk[] build() {
 		split();
+		
+		// The first chunk obviously starts a new line.
+		source[0]._startsUnwrappedLine = true;
+		
+		foreach (i, ref c; source[1 .. $]) {
+			// This is not a line break.
+			if (c.kind != ChunkKind.Block
+					&& c.splitType != SplitType.NewLine
+					&& c.splitType != SplitType.TwoNewLines) {
+				continue;
+			}
+			
+			// Check if these two have a span in common.
+			auto top = c.span.getTop();
+			if (top !is null && top is source[i].span.getTop()) {
+				continue;
+			}
+			
+			// This is a line break with no span in common.
+			c._startsUnwrappedLine = true;
+		}
+		
 		return source;
 	}
 	
@@ -192,11 +186,11 @@ public:
 		// writeln("split!");
 
 		scope(success) {
-			chunk.indentation = indentation;
-			chunk.alignIndex = source.length <= alignIndex
+			chunk._indentation = indentation;
+			chunk._alignIndex = source.length <= alignIndex
 				? 0
 				: cast(uint) source.length - alignIndex;
-			chunk.span = spanStack;
+			chunk._span = spanStack;
 		}
 		
 		uint nlCount = 0;
@@ -245,7 +239,7 @@ public:
 	void setSplitIndex(uint index) in {
 		assert(index <= source.length, "Invalid split index");
 	} do {
-		chunk.splitIndex = cast(uint) (source.length - index);
+		chunk._splitIndex = cast(uint) (source.length - index);
 	}
 	
 	/**
@@ -323,7 +317,7 @@ public:
 				break;
 			}
 			
-			c.span = spanStack;
+			c._span = spanStack;
 		}
 		
 		while (insert !is null && insert.parent !is parent) {
@@ -384,7 +378,7 @@ private:
 	void emitPendingWhiteSpace() {
 		scope(success) {
 			import std.algorithm;
-			chunk.splitType = max(chunk.splitType, pendingWhiteSpace);
+			chunk._splitType = max(chunk.splitType, pendingWhiteSpace);
 			
 			pendingWhiteSpace = SplitType.None;
 		}
