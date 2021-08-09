@@ -36,7 +36,6 @@ struct Writer {
 	
 	uint baseIndent = 0;
 	Chunk[] chunks;
-	Chunk[] line;
 	
 	FormatResult[BlockSpecifier] cache;
 	
@@ -69,21 +68,59 @@ struct Writer {
 				continue;
 			}
 			
-			line = chunks[start .. i];
-			writeLine();
+			LineWriter(&this, chunks[start .. i], baseIndent).write();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		line = chunks[start .. $];
-		writeLine();
+		LineWriter(&this, chunks[start .. $], baseIndent).write();
 		
 		return FormatResult(cost, overflow, buffer.data);
 	}
 	
-	void writeLine() in {
+	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
+		auto block = BlockSpecifier(chunks, baseIndent);
+		return cache.require(block, Writer(block, cache).write());
+	}
+	
+	void output(char c) {
+		buffer ~= c;
+	}
+	
+	void output(string s) {
+		buffer ~= s;
+	}
+	
+	void indent(uint level) {
+		foreach (_; 0 .. level) {
+			output('\t');
+		}
+	}
+	
+	void outputAlign(uint columns) {
+		foreach (_; 0 .. columns) {
+			output(' ');
+		}
+	}
+}
+
+struct LineWriter {
+	Writer* writer;
+	alias writer this;
+	
+	Chunk[] line;
+	
+	uint baseIndent = 0;
+	
+	this(Writer* writer, Chunk[] line, uint baseIndent) in {
 		assert(line.length > 0, "line must not be empty");
 	} do {
+		this.writer = writer;
+		this.line = line;
+		this.baseIndent = baseIndent;
+	}
+	
+	void write() {
 		auto state = findBestState();
 		
 		cost += state.cost;
@@ -130,11 +167,6 @@ struct Writer {
 		}
 	}
 	
-	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
-		auto block = BlockSpecifier(chunks, baseIndent);
-		return cache.require(block, Writer(block, cache).write());
-	}
-	
 	SolveState findBestState() {
 		auto best = SolveState(&this);
 		if (best.overflow == 0) {
@@ -172,26 +204,6 @@ struct Writer {
 		
 		return best;
 	}
-	
-	void output(char c) {
-		buffer ~= c;
-	}
-	
-	void output(string s) {
-		buffer ~= s;
-	}
-	
-	void indent(uint level) {
-		foreach (_; 0 .. level) {
-			output('\t');
-		}
-	}
-	
-	void outputAlign(uint columns) {
-		foreach (_; 0 .. columns) {
-			output(' ');
-		}
-	}
 }
 
 enum INDENTATION_SIZE = 4;
@@ -204,7 +216,7 @@ alias SolveStateQueue = RedBlackTree!SolveState;
 struct SolveState {
 	// XXX: Keeping that reference in the object is not strictlynecessary.
 	// Because there are possibly many instances, this needs to be removed.
-	Writer* writer;
+	LineWriter* lineWriter;
 	
 	uint cost = 0;
 	uint overflow = 0;
@@ -219,8 +231,8 @@ struct SolveState {
 	import sdc.format.span;
 	RedBlackTree!Span usedSpans;
 	
-	this(Writer* writer, uint[] ruleValues = []) {
-		this.writer = writer;
+	this(LineWriter* lineWriter, uint[] ruleValues = []) {
+		this.lineWriter = lineWriter;
 		this.ruleValues = ruleValues;
 		computeCost();
 	}
@@ -230,7 +242,7 @@ struct SolveState {
 		overflow = 0;
 		cost = 0;
 		
-		auto line = writer.line;
+		auto line = lineWriter.line;
 		
 		// If there is nothing to be done, just skip.
 		if (line.length == 0) {
@@ -301,7 +313,7 @@ struct SolveState {
 				case Block:
 					salvageNextSpan = true;
 					
-					auto f = writer.formatBlock(c.chunks, getIndent(i));
+					auto f = lineWriter.writer.formatBlock(c.chunks, getIndent(i));
 					
 					cost += f.cost;
 					overflow += f.overflow;
@@ -375,7 +387,7 @@ struct SolveState {
 			return false;
 		}
 		
-		auto c = writer.line[i];
+		auto c = lineWriter.line[i];
 		if (c.kind == ChunkKind.Block) {
 			return false;
 		}
@@ -388,7 +400,7 @@ struct SolveState {
 	}
 	
 	bool mustSplit(uint i) const {
-		auto st = writer.line[i].splitType;
+		auto st = lineWriter.line[i].splitType;
 		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
 	}
 	
@@ -397,19 +409,19 @@ struct SolveState {
 			return true;
 		}
 		
-		auto splitIndex = writer.line[i].splitIndex;
+		auto splitIndex = lineWriter.line[i].splitIndex;
 		return splitIndex > 0
 			? isSplit(i - splitIndex)
 			: getRuleValue(i) > 0;
 	}
 	
 	uint getIndent(uint i) {
-		uint indent = writer.baseIndent + writer.line[i].indentation;
+		uint indent = lineWriter.baseIndent + lineWriter.line[i].indentation;
 		if (usedSpans is null) {
 			return indent;
 		}
 		
-		auto span = writer.line[i].span;
+		auto span = lineWriter.line[i].span;
 		while (span !is null) {
 			scope(success) span = span.parent;
 			
@@ -422,13 +434,13 @@ struct SolveState {
 	}
 	
 	uint getAlign(uint i) {
-		i -= writer.line[i].alignIndex;
+		i -= lineWriter.line[i].alignIndex;
 		uint ret = 0;
 		
 		// Find the preceding line break.
 		while (i > 0 && !isSplit(i)) {
-			ret += writer.line[i].splitType == SplitType.Space;
-			ret += writer.line[--i].length;
+			ret += lineWriter.line[i].splitType == SplitType.Space;
+			ret += lineWriter.line[--i].length;
 		}
 		
 		return ret;
@@ -441,7 +453,7 @@ struct SolveState {
 		newRuleValues.length = i;
 		newRuleValues[i - 1] = v;
 		
-		return SolveState(writer, newRuleValues);
+		return SolveState(lineWriter, newRuleValues);
 	}
 	
 	void expand()(SolveStateQueue queue) {
