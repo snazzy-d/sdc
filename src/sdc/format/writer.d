@@ -2,6 +2,8 @@ module sdc.format.writer;
 
 import sdc.format.chunk;
 
+import std.container.rbtree;
+
 struct BlockSpecifier {
 	Chunk[] chunks;
 	uint baseIndent;
@@ -169,7 +171,8 @@ struct LineWriter {
 	
 	SolveState findBestState() {
 		auto best = SolveState(&this);
-		if (best.overflow == 0) {
+		if (best.overflow == 0 || best.liveRules is null) {
+			// Either the line already fit, or it is not breakable.
 			return best;
 		}
 		
@@ -179,27 +182,49 @@ struct LineWriter {
 		// Once we have a solution that fits, or no more things
 		// to try, then we are done.
 		while (!queue.empty) {
-			auto candidate = queue.front;
+			auto next = queue.front;
 			queue.removeFront();
 			
-			if (candidate.isDeadSubTree(best)) {
+			// We found the lowest cost solution that fit on the page.
+			if (next.overflow == 0) {
+				break;
+			}
+			
+			// There is no point trying to expand this if it cannot
+			// lead to a a solution better than the current best.
+			if (next.isDeadSubTree(best)) {
 				continue;
 			}
 			
-			if (candidate.isBetterThan(best)) {
-				best = candidate;
-				if (candidate.overflow == 0) {
-					// We found the lowest cost solution that fit on the page.
-					break;
-				}
-			}
-			
-			// We ran out of attempts.
+			// This algorithm is exponential in nature, so make sure to stop
+			// after some time, even if we haven't found an optimal solution.
 			if (attempts++ > MAX_ATTEMPT) {
 				break;
 			}
 			
-			candidate.expand(queue);
+			foreach (r; next.liveRules) {
+				uint[] newRuleValues = next.ruleValues;
+				newRuleValues.length = r;
+				newRuleValues[$ - 1] = 1;
+				
+				auto candidate = SolveState(&this, newRuleValues);
+				
+				if (candidate.isBetterThan(best)) {
+					best = candidate;
+				}
+				
+				// This candidate cannot be expanded further.
+				if (candidate.liveRules is null) {
+					continue;
+				}
+				
+				// This candidate can never expand to something better than the best.
+				if (candidate.isDeadSubTree(best)) {
+					continue;
+				}
+				
+				queue.insert(candidate);
+			}
 		}
 		
 		return best;
@@ -209,9 +234,6 @@ struct LineWriter {
 enum INDENTATION_SIZE = 4;
 enum PAGE_WIDTH = 80;
 enum MAX_ATTEMPT = 5000;
-
-import std.container.rbtree;
-alias SolveStateQueue = RedBlackTree!SolveState;
 
 struct SolveState {
 	// XXX: Keeping that reference in the object is not strictlynecessary.
@@ -444,26 +466,6 @@ struct SolveState {
 		}
 		
 		return ret;
-	}
-	
-	SolveState withRuleValue(uint i, uint v) in {
-		assert(i > ruleValues.length);
-	} do {
-		uint[] newRuleValues = ruleValues;
-		newRuleValues.length = i;
-		newRuleValues[i - 1] = v;
-		
-		return SolveState(lineWriter, newRuleValues);
-	}
-	
-	void expand()(SolveStateQueue queue) {
-		if (liveRules is null) {
-			return;
-		}
-		
-		foreach (r; liveRules) {
-			queue.insert(withRuleValue(r, 1));
-		}
 	}
 	
 	// Return if this solve state must be chosen over rhs as a solution.
