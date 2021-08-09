@@ -35,6 +35,7 @@ struct Writer {
 	uint overflow;
 	
 	uint baseIndent = 0;
+	Chunk[] chunks;
 	Chunk[] line;
 	
 	FormatResult[BlockSpecifier] cache;
@@ -42,38 +43,39 @@ struct Writer {
 	import std.array;
 	Appender!string buffer;
 	
-	this(FormatResult[BlockSpecifier] cache) in {
-		assert(cache.length > 0);
+	this(Chunk[] chunks) {
+		this.chunks = chunks;
+	}
+	
+	this(BlockSpecifier block, FormatResult[BlockSpecifier] cache) in {
+		assert(cache !is null);
 	} do {
+		baseIndent = block.baseIndent;
+		chunks = block.chunks;
+		
 		this.cache = cache;
 	}
 	
-	FormatResult write(Chunk[] chunks) {
-		return write(BlockSpecifier(chunks, 0));
-	}
-	
-	FormatResult write(BlockSpecifier block) {
+	FormatResult write() {
 		cost = 0;
 		overflow = 0;
-		
-		baseIndent = block.baseIndent;
 		
 		import std.array;
 		buffer = appender!string();
 		
 		size_t start = 0;
-		foreach (i, ref c; block.chunks) {
+		foreach (i, ref c; chunks) {
 			if (i == 0 || !c.endsBreakableLine()) {
 				continue;
 			}
 			
-			line = block.chunks[start .. i];
+			line = chunks[start .. i];
 			writeLine();
 			start = i;
 		}
 		
 		// Make sure we write the last line too.
-		line = block.chunks[start .. $];
+		line = chunks[start .. $];
 		writeLine();
 		
 		return FormatResult(cost, overflow, buffer.data);
@@ -130,7 +132,7 @@ struct Writer {
 	
 	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
 		auto block = BlockSpecifier(chunks, baseIndent);
-		return cache.require(block, Writer(cache).write(block));
+		return cache.require(block, Writer(block, cache).write());
 	}
 	
 	SolveState findBestState() {
