@@ -42,6 +42,12 @@ struct Writer {
 	import std.array;
 	Appender!string buffer;
 	
+	this(FormatResult[BlockSpecifier] cache) in {
+		assert(cache.length > 0);
+	} do {
+		this.cache = cache;
+	}
+	
 	FormatResult write(Chunk[] chunks) {
 		return write(BlockSpecifier(chunks, 0));
 	}
@@ -124,7 +130,7 @@ struct Writer {
 	
 	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
 		auto block = BlockSpecifier(chunks, baseIndent);
-		return cache.require(block, Writer().write(block));
+		return cache.require(block, Writer(cache).write(block));
 	}
 	
 	SolveState findBestState() {
