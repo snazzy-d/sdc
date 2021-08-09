@@ -129,7 +129,7 @@ struct LineWriter {
 		overflow += state.overflow;
 		
 		bool newline = false;
-		foreach (uint i, c; line) {
+		foreach (i, c; line) {
 			assert(i == 0 || !c.endsBreakableLine(), "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(line, i);
@@ -244,7 +244,7 @@ struct SolveState {
 	uint[] ruleValues;
 	
 	// The set of free to bind rules that affect the next overflowing line.
-	RedBlackTree!uint liveRules;
+	RedBlackTree!size_t liveRules;
 	
 	// Span that require indentation.
 	import sdc.format.span;
@@ -266,7 +266,7 @@ struct SolveState {
 			return;
 		}
 		
-		foreach (uint i, ref c; line[1 .. $]) {
+		foreach (i, ref c; line[1 .. $]) {
 			if (c.span is null) {
 				continue;
 			}
@@ -291,9 +291,9 @@ struct SolveState {
 		RedBlackTree!Span brokenSpans;
 		
 		uint length = 0;
-		uint start = 0;
+		size_t start = 0;
 		
-		void endLine(uint i) {
+		void endLine(size_t i) {
 			if (length <= PAGE_WIDTH) {
 				return;
 			}
@@ -307,7 +307,7 @@ struct SolveState {
 			}
 			
 			import std.algorithm, std.range;
-			auto range = max(cast(uint) ruleValues.length, start + 1)
+			auto range = max(ruleValues.length, start + 1)
 				.iota(i)
 				.filter!(i => cansSplit(line, i));
 			
@@ -322,7 +322,7 @@ struct SolveState {
 		
 		bool salvageNextSpan = true;
 		
-		foreach (uint i, ref c; line) {
+		foreach (i, ref c; line) {
 			bool salvageSpan = salvageNextSpan;
 			uint lineLength = 0;
 			
@@ -393,13 +393,13 @@ struct SolveState {
 		}
 	}
 	
-	uint getRuleValue(uint i) const {
+	uint getRuleValue(size_t i) const {
 		return (i - 1) < ruleValues.length
 			? ruleValues[i - 1]
 			: 0;
 	}
 	
-	bool cansSplit(const Chunk[] line, uint i) const {
+	bool cansSplit(const Chunk[] line, size_t i) const {
 		if (mustSplit(line, i)) {
 			return false;
 		}
@@ -416,12 +416,12 @@ struct SolveState {
 		return true;
 	}
 	
-	bool mustSplit(const Chunk[] line, uint i) const {
+	bool mustSplit(const Chunk[] line, size_t i) const {
 		auto st = line[i].splitType;
 		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
 	}
 	
-	bool isSplit(const Chunk[] line, uint i) const {
+	bool isSplit(const Chunk[] line, size_t i) const {
 		if (mustSplit(line, i)) {
 			return true;
 		}
@@ -432,7 +432,7 @@ struct SolveState {
 			: getRuleValue(i) > 0;
 	}
 	
-	uint getIndent(Chunk[] line, uint i) {
+	uint getIndent(Chunk[] line, size_t i) {
 		uint indent = baseIndent + line[i].indentation;
 		if (usedSpans is null) {
 			return indent;
@@ -450,7 +450,7 @@ struct SolveState {
 		return indent;
 	}
 	
-	uint getAlign(const Chunk[] line, uint i) {
+	uint getAlign(const Chunk[] line, size_t i) {
 		i -= line[i].alignIndex;
 		uint ret = 0;
 		
