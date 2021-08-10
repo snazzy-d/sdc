@@ -22,7 +22,6 @@ private:
 		bool, "_startsUnwrappedLine", 1,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
-		uint, "_splitIndex", 16,
 		// sdfmt on
 	);
 	
@@ -71,11 +70,6 @@ public:
 	}
 	
 	@property
-	uint splitIndex() const {
-		return _splitIndex;
-	}
-	
-	@property
 	inout(Span) span() inout {
 		return _span;
 	}
@@ -105,7 +99,6 @@ public:
 			~ Span.print(span) ~ ", "
 			~ indentation.to!string ~ ", "
 			~ length.to!string ~ ", "
-			~ splitIndex.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
 	}
 }
@@ -121,15 +114,32 @@ private:
 	import sdc.format.span;
 	Span spanStack = null;
 	
+	struct Fixup {
+		size_t index;
+		Span span;
+		void function(Span span, size_t i) fun;
+		
+		void fix(size_t i) {
+			fun(span, i);
+		}
+	}
+	
+	Fixup[] fixups;
+	
 public:
 	Chunk[] build() {
 		split();
 		
 		size_t start = 0;
+		size_t fi = 0;
 		foreach (i, ref c; source) {
 			scope(success) {
 				// Make sure we let the spans know where they are in the line.
 				c.span.register(i - start);
+				
+				while (fi < fixups.length && fixups[fi].index == i) {
+					fixups[fi++].fix(i - start);
+				}
 			}
 			
 			if (i == 0) {
@@ -188,7 +198,7 @@ public:
 		pendingWhiteSpace = SplitType.None;
 	}
 	
-	auto split() {
+	void split() {
 		import std.stdio;
 		// writeln("split!");
 		
@@ -226,7 +236,7 @@ public:
 		
 		// There is nothing to flush.
 		if (chunk.empty) {
-			return cast(uint) source.length;
+			return;
 		}
 		
 		import std.uni, std.range;
@@ -234,14 +244,6 @@ public:
 		
 		source ~= chunk;
 		chunk = Chunk();
-		
-		return cast(uint) source.length;
-	}
-	
-	void setSplitIndex(uint index) in {
-		assert(index <= source.length, "Invalid split index");
-	} do {
-		chunk._splitIndex = cast(uint) (source.length - index);
 	}
 	
 	/**
@@ -277,18 +279,35 @@ public:
 		emitPendingWhiteSpace();
 		
 		static struct Guard {
+			this(Builder* builder, S span) {
+				this.builder = builder;
+				this.span = span;
+				builder.spanStack = span;
+			}
+			
 			~this() {
 				assert(builder.spanStack is span);
 				builder.spanStack = span.parent;
 			}
 			
+			void registerFix(void function(S s, size_t i) fix) {
+				builder.fixups ~= Fixup(
+					builder.source.length,
+					span,
+					// Fixup is not templated, so we need to give it the type
+					// it expects. The compiler cannot verify this for us, but we
+					// know it is always called with the supplied span as argument,
+					// which we know have the right type.
+					cast(void function(Span span, ulong i)) fix,
+				);
+			}
+		
 		private:
 			Builder* builder;
-			Span span;
+			S span;
 		}
 		
-		spanStack = new S(spanStack);
-		return Guard(&this, spanStack);
+		return Guard(&this, new S(spanStack));
 	}
 	
 	bool spliceSpan() {

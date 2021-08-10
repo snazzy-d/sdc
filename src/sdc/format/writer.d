@@ -397,10 +397,8 @@ struct SolveState {
 		}
 	}
 	
-	uint getRuleValue(size_t i) const {
-		return (i - 1) < ruleValues.length
-			? ruleValues[i - 1]
-			: 0;
+	bool getRuleValue(size_t i) const {
+		return (i - 1) < ruleValues.length && ruleValues[i - 1] > 0;
 	}
 	
 	bool canSplit(const Chunk[] line, size_t i) const {
@@ -413,15 +411,12 @@ struct SolveState {
 			return false;
 		}
 		
-		if (c.splitIndex != 0) {
-			return false;
-		}
-		
-		return true;
+		return c.span.canSplit(this, line, i);
 	}
 	
 	bool mustSplit(const Chunk[] line, size_t i) const {
-		return line[i].mustSplit();
+		auto c = line[i];
+		return c.mustSplit() || c.span.mustSplit(this, line, i);
 	}
 	
 	bool isSplit(const Chunk[] line, size_t i) const {
@@ -429,10 +424,7 @@ struct SolveState {
 			return true;
 		}
 		
-		auto splitIndex = line[i].splitIndex;
-		return splitIndex > 0
-			? isSplit(line, i - splitIndex)
-			: getRuleValue(i) > 0;
+		return getRuleValue(i);
 	}
 	
 	uint getIndent(Chunk[] line, size_t i) {

@@ -45,6 +45,16 @@ protected:
 	size_t computeAlignIndex() const {
 		return 0;
 	}
+	
+	enum Split {
+		No,
+		Can,
+		Must,
+	}
+	
+	Split computeSplit(const ref SolveState s, const Chunk[] line, size_t i) const {
+		return Split.Can;
+	}
 }
 
 void register(Span span, size_t i) {
@@ -77,11 +87,40 @@ size_t getAlignIndex(const Span span) {
 	return span.parent.getAlignIndex();
 }
 
+bool canSplit(const Span span, const ref SolveState s, const Chunk[] line, size_t i) {
+	if (span is null) {
+		return true;
+	}
+	
+	if (span.computeSplit(s, line, i) != Span.Split.Can) {
+		return false;
+	}
+	
+	return span.parent.canSplit(s, line, i);
+}
+
+bool mustSplit(const Span span, const ref SolveState s, const Chunk[] line, size_t i) {
+	if (span is null) {
+		return false;
+	}
+	
+	final switch (span.computeSplit(s, line, i)) with (Span.Split)  {
+		case No:
+			return false;
+		
+		case Must:
+			return true;
+		
+		case Can:
+			return span.parent.mustSplit(s, line, i);
+	}
+}
+
 /**
  * When broken up, this span will ensure code
  * remain align with the break point.
  */
-class AlignedSpan : Span {
+final class AlignedSpan : Span {
 	size_t first = size_t.max;
 	
 	this(Span parent) {
@@ -94,5 +133,32 @@ class AlignedSpan : Span {
 
 	override size_t computeAlignIndex() const {
 		return first;
+	}
+}
+
+final class ConditionalSpan : Span {
+	size_t questionMarkIndex = size_t.max;
+	size_t colonIndex = size_t.max;
+	
+	this(Span parent) {
+		super(parent);
+	}
+	
+	void setQuestionMarkIndex(size_t i) {
+		questionMarkIndex = i;
+	}
+	
+	void setColonIndex(size_t i) {
+		colonIndex = i;
+	}
+	
+	override Split computeSplit(const ref SolveState s, const Chunk[] line, size_t i) const {
+		if (i != colonIndex) {
+			return Split.Can;
+		}
+		
+		return s.isSplit(line, questionMarkIndex)
+			? Split.Must
+			: Split.No;
 	}
 }

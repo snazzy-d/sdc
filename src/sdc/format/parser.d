@@ -133,12 +133,12 @@ private:
 		builder.clearSplitType();
 	}
 	
-	auto split() {
+	void split() {
 		if (skipFormatting()) {
-			return 0;
+			return;
 		}
 		
-		return builder.split();
+		builder.split();
 	}
 	
 	import sdc.format.span;
@@ -149,8 +149,8 @@ private:
 		return builder.span!S();
 	}
 	
-	auto spliceSpan() {
-		auto guard = span();
+	auto spliceSpan(S = Span)() {
+		auto guard = span!S();
 		builder.spliceSpan();
 		
 		return guard;
@@ -1483,15 +1483,16 @@ private:
 	void parseConditionalExpression() {
 		parseBinaryExpression();
 		
-		if (!match(TokenType.QuestionMark)) {
-			return;
-		}
-		
-		do {
-			auto guard = spliceSpan();
+		while (match(TokenType.QuestionMark)) {
+			auto guard = spliceSpan!ConditionalSpan();
 			
 			space();
-			auto questionMarkIndex = split();
+			split();
+			
+			guard.registerFix(function(ConditionalSpan s, size_t i) {
+				s.setQuestionMarkIndex(i);
+			});
+			
 			nextToken();
 			space();
 			
@@ -1504,13 +1505,17 @@ private:
 			
 			space();
 			split();
-			builder.setSplitIndex(questionMarkIndex);
+			
+			guard.registerFix(function(ConditionalSpan s, size_t i) {
+				s.setColonIndex(i);
+			});
+			
 			nextToken();
 			space();
 			
 			parseBaseExpression();
 			parseBinaryExpression();
-		} while (match(TokenType.QuestionMark));
+		}
 	}
 	
 	bool isBangIsOrIn() in {
