@@ -1086,8 +1086,6 @@ private:
 			return;
 		}
 		
-		auto blockIndex = split();
-		
 		{
 			// We have an actual block.
 			clearSplitType();
@@ -1114,8 +1112,6 @@ private:
 			// Flush comments so that they have the proper indentation.
 			flushComments();
 		}
-		
-		builder.setSplitIndex(blockIndex);
 		
 		if (match(TokenType.CloseBrace)) {
 			nextToken();
