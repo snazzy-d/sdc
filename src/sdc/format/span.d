@@ -41,6 +41,10 @@ class Span {
 	
 protected:
 	void register(size_t i) {}
+	
+	size_t computeAlignIndex() const {
+		return 0;
+	}
 }
 
 void register(Span span, size_t i) {
@@ -59,4 +63,36 @@ Span getTop(Span span) {
 	}
 	
 	return top;
+}
+
+size_t getAlignIndex(const Span span) {
+	if (span is null) {
+		return 0;
+	}
+	
+	if (auto i = span.computeAlignIndex()) {
+		return i;
+	}
+	
+	return span.parent.getAlignIndex();
+}
+
+/**
+ * When broken up, this span will ensure code
+ * remain align with the break point.
+ */
+class AlignedSpan : Span {
+	size_t first = size_t.max;
+	
+	this(Span parent) {
+		super(parent);
+	}
+	
+	override void register(size_t i) {
+		first = i < first ? i : first;
+	}
+
+	override size_t computeAlignIndex() const {
+		return first;
+	}
 }

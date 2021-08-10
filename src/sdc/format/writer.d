@@ -454,13 +454,17 @@ struct SolveState {
 	}
 	
 	uint getAlign(const Chunk[] line, size_t i) {
-		i -= line[i].alignIndex;
 		uint ret = 0;
 		
 		// Find the preceding line break.
-		while (i > 0 && !isSplit(line, i)) {
-			ret += line[i].splitType == SplitType.Space;
-			ret += line[--i].length;
+		size_t c = line[i].span.getAlignIndex();
+		while (c > 0 && !isSplit(line, c)) {
+			ret += line[c].splitType == SplitType.Space;
+			ret += line[--c].length;
+		}
+		
+		if (c != i) {
+			ret += getAlign(line, c);
 		}
 		
 		return ret;

@@ -141,11 +141,12 @@ private:
 		return builder.split();
 	}
 	
-	auto span() {
+	import sdc.format.span;
+	auto span(S = Span)() {
 		emitSkippedTokens();
 		emitInFlightComments();
 		
-		return builder.span();
+		return builder.span!S();
 	}
 	
 	auto spliceSpan() {
@@ -1156,10 +1157,9 @@ private:
 		if (match(TokenType.OpenParen)) {
 			nextToken();
 			
-			auto guard = span();
+			auto guard = span!AlignedSpan();
 			split();
 			
-			auto alignGuard = builder.alignOnChunk();
 			auto modeGuard = changeMode(Mode.Parameter);
 			
 			parseStructuralElement();
