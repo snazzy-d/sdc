@@ -51,6 +51,11 @@ public:
 		return _splitType;
 	}
 	
+	bool mustSplit() const {
+		return splitType == SplitType.TwoNewLines
+			|| splitType == SplitType.NewLine;
+	}
+	
 	@property
 	bool startsUnwrappedLine() const {
 		return _startsUnwrappedLine;
@@ -141,9 +146,7 @@ public:
 			}
 			
 			// This is not a line break.
-			if (c.kind != ChunkKind.Block
-					&& c.splitType != SplitType.NewLine
-					&& c.splitType != SplitType.TwoNewLines) {
+			if (c.kind != ChunkKind.Block && !c.mustSplit()) {
 				continue;
 			}
 			

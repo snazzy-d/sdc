@@ -421,8 +421,7 @@ struct SolveState {
 	}
 	
 	bool mustSplit(const Chunk[] line, size_t i) const {
-		auto st = line[i].splitType;
-		return st == SplitType.TwoNewLines || st == SplitType.NewLine;
+		return line[i].mustSplit();
 	}
 	
 	bool isSplit(const Chunk[] line, size_t i) const {
