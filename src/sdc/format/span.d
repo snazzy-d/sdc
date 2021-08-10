@@ -11,7 +11,7 @@ class Span {
 	}
 	
 	uint getCost() const {
-		return 1;
+		return 3;
 	}
 	
 	uint getIndent() const {
