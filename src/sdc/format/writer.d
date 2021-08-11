@@ -245,7 +245,7 @@ struct SolveState {
 	
 	// Span that require indentation.
 	import sdc.format.span;
-	RedBlackTree!Span usedSpans;
+	RedBlackTree!(const(Span)) usedSpans;
 	
 	this(LineWriter* lineWriter, uint[] ruleValues = []) {
 		this.ruleValues = ruleValues;
@@ -285,7 +285,7 @@ struct SolveState {
 			}
 			
 			if (usedSpans is null) {
-				usedSpans = redBlackTree!Span();
+				usedSpans = redBlackTree!(const(Span))();
 			}
 			
 			usedSpans.insert(c.span);
@@ -428,28 +428,15 @@ struct SolveState {
 	}
 	
 	uint getIndent(Chunk[] line, size_t i) {
-		uint indent = baseIndent + line[i].indentation;
-		if (usedSpans is null) {
-			return indent;
-		}
-		
-		auto span = line[i].span;
-		while (span !is null) {
-			scope(success) span = span.parent;
-			
-			if (span in usedSpans) {
-				indent += span.getIndent();
-			}
-		}
-		
-		return indent;
+		return baseIndent + line[i].indentation
+			+ line[i].span.getIndent(this, line);
 	}
 	
 	uint getAlign(const Chunk[] line, size_t i) {
 		uint ret = 0;
 		
 		// Find the preceding line break.
-		size_t c = line[i].span.getAlignIndex();
+		size_t c = line[i].span.getAlignIndex(this, line);
 		while (c > 0 && !isSplit(line, c)) {
 			ret += line[c].splitType == SplitType.Space;
 			ret += line[--c].length;

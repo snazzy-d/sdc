@@ -14,16 +14,17 @@ class Span {
 		return 3;
 	}
 	
-	uint getIndent() const {
-		return 1;
-	}
-	
 	// lhs < rhs => rhs.opCmp(rhs) < 0
 	final int opCmp(const Span rhs) const {
 		auto lhsPtr = cast(void*) this;
 		auto rhsPtr = cast(void*) rhs;
 		
 		return (lhsPtr > rhsPtr) - (lhsPtr < rhsPtr);
+	}
+	
+	@trusted
+	final override size_t toHash() const {
+		return cast(size_t) cast(void*) this;
 	}
 	
 	static string print(const Span span) {
@@ -42,14 +43,18 @@ class Span {
 protected:
 	void register(size_t i) {}
 	
-	size_t computeAlignIndex() const {
-		return 0;
-	}
-	
 	enum Split {
 		No,
 		Can,
 		Must,
+	}
+	
+	uint computeIndent(const ref SolveState s, const Chunk[] line) const {
+		return 1;
+	}
+	
+	size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
+		return 0;
 	}
 	
 	Split computeSplit(const ref SolveState s, const Chunk[] line, size_t i) const {
@@ -75,16 +80,29 @@ Span getTop(Span span) {
 	return top;
 }
 
-size_t getAlignIndex(const Span span) {
+uint getIndent(const Span span, const ref SolveState s, const Chunk[] line) {
+	if (span is null || s.usedSpans is null) {
+		return 0;
+	}
+	
+	uint indent = 0;
+	if (span in s.usedSpans) {
+		indent += span.computeIndent(s, line);
+	}
+	
+	return indent + span.parent.getIndent(s, line);
+}
+
+size_t getAlignIndex(const Span span, const ref SolveState s, const Chunk[] line) {
 	if (span is null) {
 		return 0;
 	}
 	
-	if (auto i = span.computeAlignIndex()) {
+	if (auto i = span.computeAlignIndex(s, line)) {
 		return i;
 	}
 	
-	return span.parent.getAlignIndex();
+	return span.parent.getAlignIndex(s, line);
 }
 
 bool canSplit(const Span span, const ref SolveState s, const Chunk[] line, size_t i) {
@@ -117,8 +135,7 @@ bool mustSplit(const Span span, const ref SolveState s, const Chunk[] line, size
 }
 
 /**
- * When broken up, this span will ensure code
- * remain align with the break point.
+ * Span that ensure breaks are aligned with the start of the span.
  */
 final class AlignedSpan : Span {
 	size_t first = size_t.max;
@@ -130,12 +147,43 @@ final class AlignedSpan : Span {
 	override void register(size_t i) {
 		first = i < first ? i : first;
 	}
-
-	override size_t computeAlignIndex() const {
+	
+	override size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
 		return first;
 	}
 }
 
+/**
+ * Span ensuring lists of items are formatted as expected.
+ */
+final class ListSpan : Span {
+	size_t first = size_t.max;
+	
+	this(Span parent) {
+		super(parent);
+	}
+	
+	override void register(size_t i) {
+		first = i < first ? i : first;
+	}
+	
+	override uint computeIndent(const ref SolveState s, const Chunk[] line) const {
+		return s.isSplit(line, first) ? 1 : 0;
+	}
+
+	override size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
+		if (s.usedSpans is null || this !in s.usedSpans) {
+			return 0;
+		}
+		
+		return s.isSplit(line, first) ? 0 : first;
+	}
+}
+
+/**
+ * Span used to format Condition expression, of the form:
+ *     condition ? ifTrue : ifFalse
+ */
 final class ConditionalSpan : Span {
 	size_t questionMarkIndex = size_t.max;
 	size_t colonIndex = size_t.max;

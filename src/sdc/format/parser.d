@@ -2111,7 +2111,7 @@ private:
 		}
 		
 		{
-			auto guard = span();
+			auto guard = span!ListSpan();
 			
 			while (true) {
 				if (addNewLines) {
