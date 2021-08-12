@@ -170,7 +170,7 @@ final class ListSpan : Span {
 	override uint computeIndent(const ref SolveState s, const Chunk[] line) const {
 		return s.isSplit(line, first) ? 1 : 0;
 	}
-
+	
 	override size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
 		if (s.usedSpans is null || this !in s.usedSpans) {
 			return 0;

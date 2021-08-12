@@ -106,6 +106,8 @@ struct Writer {
 	}
 }
 
+enum MAX_ATTEMPT = 5000;
+
 struct LineWriter {
 	Writer* writer;
 	alias writer this;
@@ -130,7 +132,7 @@ struct LineWriter {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(line, i);
-			if (newline || state.isSplit(line, i)) {
+			if (newline || (i > 0 && state.ruleValues[i]) || state.mustSplit(line, i)) {
 				output('\n');
 				
 				if (c.splitType == SplitType.TwoNewLines) {
@@ -167,7 +169,7 @@ struct LineWriter {
 	}
 	
 	SolveState findBestState() {
-		auto best = SolveState(&this);
+		auto best = SolveState(this);
 		if (best.overflow == 0 || best.liveRules is null) {
 			// Either the line already fit, or it is not breakable.
 			return best;
@@ -200,11 +202,8 @@ struct LineWriter {
 			}
 			
 			foreach (r; next.liveRules) {
-				uint[] newRuleValues = next.ruleValues;
-				newRuleValues.length = r;
-				newRuleValues[$ - 1] = 1;
-				
-				auto candidate = SolveState(&this, newRuleValues);
+				auto newRuleValues = next.ruleValues.withValue(r, true);
+				auto candidate = SolveState(this, newRuleValues);
 				
 				if (candidate.isBetterThan(best)) {
 					best = candidate;
@@ -230,7 +229,124 @@ struct LineWriter {
 
 enum INDENTATION_SIZE = 4;
 enum PAGE_WIDTH = 80;
-enum MAX_ATTEMPT = 5000;
+
+struct RuleValues {
+private:
+	import core.bitop;
+	enum DirectBits = 16 * size_t.sizeof;
+	enum DirectCapacity = DirectBits - bsf(DirectBits);
+	enum DirectShift = DirectCapacity - 8 * size_t.sizeof;
+	
+	union {
+		struct {
+			size_t* uptr;
+			size_t ulength;
+		}
+		
+		size_t[2] direct;
+	}
+	
+	bool isDirect() const {
+		return direct[0] & 0x01;
+	}
+	
+public:
+	this(size_t frozen, size_t capacity) in {
+		assert(frozen > 0 && capacity >= frozen);
+	} do {
+		if (capacity > DirectCapacity) {
+			indirect = new size_t[capacity + 1];
+			indirect[0] = frozen;
+			indirect[1] = 0x01;
+		} else {
+			direct[0] = 0x01;
+			direct[1] = frozen << DirectShift;
+		}
+	}
+	
+	RuleValues withValue(size_t i, bool v) const in {
+		assert(i >= frozen && i < length);
+	} do {
+		auto ret = RuleValues(i + 1, length);
+		if (isDirect()) {
+			ret.direct = direct;
+		} else {
+			foreach (size_t n; 1 .. indirect.length) {
+				ret.indirect[n] = indirect[n];
+			}
+		}
+		
+		ret.setValue(i, v);
+		return ret;
+	}
+	
+	@property
+	size_t length() const {
+		return isDirect()
+			? DirectCapacity
+			: indirect.length - 1;
+	}
+	
+	@property
+	size_t frozen() const {
+		return isDirect()
+			? direct[1] >> DirectShift
+			: indirect[0];
+	}
+	
+	bool opIndex(size_t i) const {
+		return (values[word(i)] >> shift(i)) & 0x01;
+	}
+	
+	void opIndexAssign(bool v, size_t i) in {
+		assert(i >= frozen && i < length);
+	} do {
+		setValue(i, v);
+	}
+	
+private:
+	@property
+	inout(size_t)[] values() inout {
+		return isDirect() ? direct[] : indirect[1 .. $];
+	}
+	
+	@property
+	inout(size_t)[] indirect() inout {
+		return uptr[0 .. ulength];
+	}
+	
+	@property
+	size_t[] indirect(size_t[] v) {
+		uptr = v.ptr;
+		ulength = v.length;
+		return indirect;
+	}
+	
+	enum Bits = 8 * size_t.sizeof;
+	enum Mask = Bits - 1;
+	
+	static word(size_t i) {
+		return i / Bits;
+	}
+	
+	static shift(size_t i) {
+		return i & Mask;
+	}
+	
+	/**
+	 * Internal version without in contract.
+	 */
+	void setValue(size_t i, bool v) {
+		auto w = word(i);
+		auto m = size_t(1) << shift(i);
+		
+		if (v) {
+			values[w] |= m;
+		} else {
+			values[v] &= m;
+		}
+	}
+}
 
 struct SolveState {
 	uint cost = 0;
@@ -238,7 +354,7 @@ struct SolveState {
 	uint sunk = 0;
 	uint baseIndent = 0;
 	
-	uint[] ruleValues;
+	RuleValues ruleValues;
 	
 	// The set of free to bind rules that affect the next overflowing line.
 	RedBlackTree!size_t liveRules;
@@ -247,7 +363,11 @@ struct SolveState {
 	import sdc.format.span;
 	RedBlackTree!(const(Span)) usedSpans;
 	
-	this(LineWriter* lineWriter, uint[] ruleValues = []) {
+	this(ref LineWriter lineWriter) {
+		this(lineWriter, RuleValues(1, lineWriter.line.length));
+	}
+	
+	this(ref LineWriter lineWriter, RuleValues ruleValues) {
 		this.ruleValues = ruleValues;
 		this.baseIndent = lineWriter.baseIndent;
 		computeCost(lineWriter.line, lineWriter.writer);
@@ -311,7 +431,7 @@ struct SolveState {
 			}
 			
 			import std.algorithm, std.range;
-			auto range = max(ruleValues.length, start + 1)
+			auto range = max(ruleValues.frozen, start + 1)
 				.iota(i)
 				.filter!(i => canSplit(line, i));
 			
@@ -339,7 +459,7 @@ struct SolveState {
 					cost += f.cost;
 					overflow += f.overflow;
 					
-					if (i <= ruleValues.length) {
+					if (i <= ruleValues.frozen) {
 						sunk += f.overflow;
 					}
 					
@@ -397,10 +517,6 @@ struct SolveState {
 		}
 	}
 	
-	bool getRuleValue(size_t i) const {
-		return (i - 1) < ruleValues.length && ruleValues[i - 1] > 0;
-	}
-	
 	bool canSplit(const Chunk[] line, size_t i) const {
 		if (mustSplit(line, i)) {
 			return false;
@@ -424,7 +540,7 @@ struct SolveState {
 			return true;
 		}
 		
-		return getRuleValue(i);
+		return ruleValues[i];
 	}
 	
 	uint getIndent(Chunk[] line, size_t i) {
@@ -497,11 +613,11 @@ struct SolveState {
 	
 	int opCmpSlow(const ref SolveState rhs) const {
 		// Explore candidate with a lot of follow up first.
-		if (ruleValues.length != rhs.ruleValues.length) {
-			return cast(int) (ruleValues.length - rhs.ruleValues.length);
+		if (ruleValues.frozen != rhs.ruleValues.frozen) {
+			return cast(int) (ruleValues.frozen - rhs.ruleValues.frozen);
 		}
 		
-		foreach (i; 0 .. ruleValues.length) {
+		foreach (i; 0 .. ruleValues.frozen) {
 			if (ruleValues[i] != rhs.ruleValues[i]) {
 				return rhs.ruleValues[i] - ruleValues[i];
 			}
