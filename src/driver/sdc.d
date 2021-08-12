@@ -83,7 +83,7 @@ int main(string[] args) {
 	
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
-	import sdc.sdc, sdc.conf;
+	import sdc.sdc, sdc.config;
 	auto c = new SDC(files[0], buildConf(), conf);
 	
 	import d.exception;

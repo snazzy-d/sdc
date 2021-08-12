@@ -17,8 +17,14 @@ final class CodeGen {
 	import d.context;
 	Context context;
 	
+	import d.context.config;
+	Config config;
+	
 	import d.semantic.scheduler;
 	Scheduler scheduler;
+	
+	import d.object;
+	ObjectReference object;
 	
 	LLVMContextRef llvmCtx;
 	LLVMModuleRef dmodule;
@@ -35,9 +41,6 @@ final class CodeGen {
 	
 	private LLVMValueRef[string] stringLiterals;
 	
-	import d.object;
-	ObjectReference object;
-	
 	import d.llvm.statement;
 	StatementGenData statementGenData;
 	
@@ -47,25 +50,20 @@ final class CodeGen {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 	
-	// FIXME: We hold a refernece to the backend here so ti is not GCed.
+	// FIXME: We hold a refernece to the backend here so it is not GCed.
 	// Now that JIT use its own codegen, no reference to the JIT backend
-	// is held is that one goes. The whole thing needs to be refactored
+	// is held if that one goes. The whole thing needs to be refactored
 	// in a way that is more sensible.
 	import d.llvm.backend;
 	LLVMBackend backend;
 	
-	this(
-		Context context,
-		Scheduler scheduler,
-		ObjectReference object,
-		LLVMBackend backend,
-		string name,
-		LLVMTargetDataRef targetData,
-	) {
-		this.context	= context;
-		this.scheduler	= scheduler;
-		this.object		= object;
-		this.backend	= backend;
+	import d.semantic.semantic;
+	this(SemanticPass sema, LLVMBackend backend, string name, LLVMTargetDataRef targetData) {
+		this.context   = sema.context;
+		this.config    = sema.config;
+		this.scheduler = sema.scheduler;
+		this.object    = sema.object;
+		this.backend   = backend;
 		
 		// Make sure globals are initialized.
 		globals[null] = null;

@@ -26,6 +26,9 @@ final class SemanticPass {
 	import d.context;
 	Context context;
 	
+	import d.context.config;
+	Config config;
+	
 	Scheduler scheduler;
 	
 	static struct State {
@@ -63,27 +66,25 @@ final class SemanticPass {
 	
 	Name[] versions = getDefaultVersions();
 	
-	alias EvaluatorBuilder = Evaluator delegate(Scheduler, ObjectReference);
+	alias EvaluatorBuilder = Evaluator delegate(SemanticPass);
 	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
-	
-	// For convenience:
-	@property config() const {
-		return context.config;
-	}
 	
 	this(
 		Context context,
+		Config config,
 		EvaluatorBuilder evBuilder,
 		DataLayoutBuilder dlBuilder,
 	) {
 		this.context = context;
+		this.config = config;
+		
 		scheduler = new Scheduler(this);
 		
 		import d.context.name;
 		auto obj = importModule([BuiltinName!"object"]);
 		this.object = new ObjectReference(obj);
 		
-		evaluator = evBuilder(scheduler, this.object);
+		evaluator = evBuilder(this);
 		dataLayout = dlBuilder(this.object);
 		
 		scheduler.require(obj, Step.Populated);

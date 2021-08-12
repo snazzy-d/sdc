@@ -2,9 +2,6 @@
 module driver.sdfmt;
 
 int main(string[] args) {
-	import d.context.config;
-	Config conf;
-	
 	bool dbg = false;
 	
 	import std.getopt;
@@ -45,7 +42,7 @@ int main(string[] args) {
 	auto files = args[1 .. $];
 	
 	import d.context;
-	auto context = new Context(conf);
+	auto context = new Context();
 	
 	foreach (filename; files) {
 		import d.context.location;

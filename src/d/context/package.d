@@ -8,29 +8,16 @@ package:
 	import d.context.source;
 	SourceManager sourceManager;
 	
-	// XXX: The config should likely go in the Semantic analysis pass rather than here.
-	// XXX: This + lexer are suffiscient for formatting, so it beling in
-	// its own lib rather than libd.
-	import d.context.config;
-	Config _config;
-	
 public:
-	this(Config config) {
+	this() {
 		_nameManager = NameManager.get();
 		sourceManager = SourceManager.get();
-		
-		_config = config;
 	}
 	
 	alias nameManager this;
 	@property
 	ref nameManager() inout {
 		return _nameManager;
-	}
-	
-	@property
-	ref config() const {
-		return _config;
 	}
 	
 	import d.context.location;

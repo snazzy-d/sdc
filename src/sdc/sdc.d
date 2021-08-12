@@ -33,39 +33,27 @@ final class SDC {
 		
 		config.linkerPaths = linkerPaths ~ config.linkerPaths;
 		
-		context = new Context(config);
+		context = new Context();
 		
 		LLVMBackend evBackend;
 		
-		import d.object, d.semantic.scheduler, d.semantic.evaluator;
-		Evaluator evb(Scheduler scheduler, ObjectReference obj) {
+		import d.semantic.evaluator;
+		Evaluator evb(SemanticPass pass) {
 			if (evBackend is null) {
-				evBackend = new LLVMBackend(
-					context,
-					scheduler,
-					obj,
-					name,
-				);
+				evBackend = new LLVMBackend(pass, name);
 			}
 			
 			return evBackend.getEvaluator();
 		}
 		
-		import d.semantic.datalayout;
+		import d.semantic.datalayout, d.object;
 		DataLayout dlb(ObjectReference) {
 			assert(evBackend !is null);
 			return evBackend.getDataLayout();
 		}
 		
-		SemanticPass.DataLayoutBuilder stuff = &dlb;
-		
-		semantic = new SemanticPass(context, &evb, &dlb);
-		backend = new LLVMBackend(
-			context,
-			semantic.scheduler,
-			semantic.object,
-			name,
-		);
+		semantic = new SemanticPass(context, config, &evb, &dlb);
+		backend = new LLVMBackend(semantic, name);
 	}
 	
 	void compile(string filename) {
