@@ -127,12 +127,12 @@ struct LineWriter {
 		cost += state.cost;
 		overflow += state.overflow;
 		
-		bool newline = false;
+		bool newline = state.mustSplit(line, 0);
 		foreach (i, c; line) {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 			
 			uint chunkIndent = state.getIndent(line, i);
-			if (newline || (i > 0 && state.ruleValues[i]) || state.mustSplit(line, i)) {
+			if (newline || (i > 0 && state.isSplit(i))) {
 				output('\n');
 				
 				if (c.splitType == SplitType.TwoNewLines) {
@@ -395,12 +395,17 @@ struct SolveState {
 				continue;
 			}
 			
-			// If there are no spans to break, move on.
-			if (c.span is null) {
-				continue;
+			if (!isSplit(i)) {
+				if (!mustSplit(line, i)) {
+					continue;
+				}
+				
+				// Mark this as split.
+				ruleValues[i] = true;
 			}
 			
-			if (!isSplit(line, i)) {
+			// If there are no spans to break, move on.
+			if (c.span is null) {
 				continue;
 			}
 			
@@ -468,7 +473,7 @@ struct SolveState {
 				case Text:
 					salvageNextSpan = false;
 					
-					if (!salvageSpan && !isSplit(line, i)) {
+					if (!salvageSpan && !isSplit(i)) {
 						length += (c.splitType == SplitType.Space) + c.length;
 						continue;
 					}
@@ -518,7 +523,7 @@ struct SolveState {
 	}
 	
 	bool canSplit(const Chunk[] line, size_t i) const {
-		if (mustSplit(line, i)) {
+		if (isSplit(i)) {
 			return false;
 		}
 		
@@ -527,33 +532,29 @@ struct SolveState {
 			return false;
 		}
 		
-		return c.span.canSplit(this, line, i);
+		return c.span.canSplit(this, i);
 	}
 	
 	bool mustSplit(const Chunk[] line, size_t i) const {
 		auto c = line[i];
-		return c.mustSplit() || c.span.mustSplit(this, line, i);
+		return c.mustSplit() || c.span.mustSplit(this, i);
 	}
 	
-	bool isSplit(const Chunk[] line, size_t i) const {
-		if (mustSplit(line, i)) {
-			return true;
-		}
-		
+	bool isSplit(size_t i) const {
 		return ruleValues[i];
 	}
 	
 	uint getIndent(Chunk[] line, size_t i) {
 		return baseIndent + line[i].indentation
-			+ line[i].span.getIndent(this, line);
+			+ line[i].span.getIndent(this);
 	}
 	
 	uint getAlign(const Chunk[] line, size_t i) {
 		uint ret = 0;
 		
 		// Find the preceding line break.
-		size_t c = line[i].span.getAlignIndex(this, line);
-		while (c > 0 && !isSplit(line, c)) {
+		size_t c = line[i].span.getAlignIndex(this);
+		while (c > 0 && !isSplit(c)) {
 			ret += line[c].splitType == SplitType.Space;
 			ret += line[--c].length;
 		}

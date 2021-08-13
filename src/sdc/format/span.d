@@ -49,15 +49,15 @@ protected:
 		Must,
 	}
 	
-	uint computeIndent(const ref SolveState s, const Chunk[] line) const {
+	uint computeIndent(const ref SolveState s) const {
 		return 1;
 	}
 	
-	size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
+	size_t computeAlignIndex(const ref SolveState s) const {
 		return 0;
 	}
 	
-	Split computeSplit(const ref SolveState s, const Chunk[] line, size_t i) const {
+	Split computeSplit(const ref SolveState s, size_t i) const {
 		return Split.Can;
 	}
 }
@@ -80,49 +80,49 @@ Span getTop(Span span) {
 	return top;
 }
 
-uint getIndent(const Span span, const ref SolveState s, const Chunk[] line) {
+uint getIndent(const Span span, const ref SolveState s) {
 	if (span is null || s.usedSpans is null) {
 		return 0;
 	}
 	
 	uint indent = 0;
 	if (span in s.usedSpans) {
-		indent += span.computeIndent(s, line);
+		indent += span.computeIndent(s);
 	}
 	
-	return indent + span.parent.getIndent(s, line);
+	return indent + span.parent.getIndent(s);
 }
 
-size_t getAlignIndex(const Span span, const ref SolveState s, const Chunk[] line) {
+size_t getAlignIndex(const Span span, const ref SolveState s) {
 	if (span is null) {
 		return 0;
 	}
 	
-	if (auto i = span.computeAlignIndex(s, line)) {
+	if (auto i = span.computeAlignIndex(s)) {
 		return i;
 	}
 	
-	return span.parent.getAlignIndex(s, line);
+	return span.parent.getAlignIndex(s);
 }
 
-bool canSplit(const Span span, const ref SolveState s, const Chunk[] line, size_t i) {
+bool canSplit(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return true;
 	}
 	
-	if (span.computeSplit(s, line, i) != Span.Split.Can) {
+	if (span.computeSplit(s, i) != Span.Split.Can) {
 		return false;
 	}
 	
-	return span.parent.canSplit(s, line, i);
+	return span.parent.canSplit(s, i);
 }
 
-bool mustSplit(const Span span, const ref SolveState s, const Chunk[] line, size_t i) {
+bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return false;
 	}
 	
-	final switch (span.computeSplit(s, line, i)) with (Span.Split)  {
+	final switch (span.computeSplit(s, i)) with (Span.Split)  {
 		case No:
 			return false;
 		
@@ -130,7 +130,7 @@ bool mustSplit(const Span span, const ref SolveState s, const Chunk[] line, size
 			return true;
 		
 		case Can:
-			return span.parent.mustSplit(s, line, i);
+			return span.parent.mustSplit(s, i);
 	}
 }
 
@@ -148,7 +148,7 @@ final class AlignedSpan : Span {
 		first = i < first ? i : first;
 	}
 	
-	override size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
+	override size_t computeAlignIndex(const ref SolveState s) const {
 		return first;
 	}
 }
@@ -167,16 +167,16 @@ final class ListSpan : Span {
 		first = i < first ? i : first;
 	}
 	
-	override uint computeIndent(const ref SolveState s, const Chunk[] line) const {
-		return s.isSplit(line, first) ? 1 : 0;
+	override uint computeIndent(const ref SolveState s) const {
+		return s.isSplit(first) ? 1 : 0;
 	}
 	
-	override size_t computeAlignIndex(const ref SolveState s, const Chunk[] line) const {
+	override size_t computeAlignIndex(const ref SolveState s) const {
 		if (s.usedSpans is null || this !in s.usedSpans) {
 			return 0;
 		}
 		
-		return s.isSplit(line, first) ? 0 : first;
+		return s.isSplit(first) ? 0 : first;
 	}
 }
 
@@ -200,13 +200,11 @@ final class ConditionalSpan : Span {
 		colonIndex = i;
 	}
 	
-	override Split computeSplit(const ref SolveState s, const Chunk[] line, size_t i) const {
+	override Split computeSplit(const ref SolveState s, size_t i) const {
 		if (i != colonIndex) {
 			return Split.Can;
 		}
 		
-		return s.isSplit(line, questionMarkIndex)
-			? Split.Must
-			: Split.No;
+		return s.isSplit(questionMarkIndex) ? Split.Must : Split.No;
 	}
 }
