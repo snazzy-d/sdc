@@ -10,7 +10,7 @@ class Span {
 		this.parent = parent;
 	}
 	
-	uint getCost() const {
+	uint getCost(const ref SolveState s) const {
 		return 3;
 	}
 	
@@ -81,12 +81,12 @@ Span getTop(Span span) {
 }
 
 uint getIndent(const Span span, const ref SolveState s) {
-	if (span is null || s.usedSpans is null) {
+	if (span is null) {
 		return 0;
 	}
 	
 	uint indent = 0;
-	if (span in s.usedSpans) {
+	if (s.isUsed(span)) {
 		indent += span.computeIndent(s);
 	}
 	
@@ -135,6 +135,19 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 }
 
 /**
+ * This span only has a cost when directly broken.
+ */
+final class PrefixSpan : Span {
+	this(Span parent) {
+		super(parent);
+	}
+	
+	override uint getCost(const ref SolveState s) const {
+		return s.isUsed(this) ? 5 : 0;
+	}
+}
+
+/**
  * Span that ensure breaks are aligned with the start of the span.
  */
 final class AlignedSpan : Span {
@@ -172,7 +185,7 @@ final class ListSpan : Span {
 	}
 	
 	override size_t computeAlignIndex(const ref SolveState s) const {
-		if (s.usedSpans is null || this !in s.usedSpans) {
+		if (!s.isUsed(this)) {
 			return 0;
 		}
 		

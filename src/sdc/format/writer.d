@@ -536,12 +536,12 @@ struct SolveState {
 			}
 		}
 		
-		endLine(cast(uint) line.length);
+		endLine(line.length);
 		
 		// Account for the cost of breaking spans.
 		if (brokenSpans !is null) {
 			foreach (s; brokenSpans) {
-				cost += s.getCost();
+				cost += s.getCost(this);
 			}
 		}
 	}
@@ -566,6 +566,10 @@ struct SolveState {
 	
 	bool isSplit(size_t i) const {
 		return ruleValues[i];
+	}
+	
+	bool isUsed(const Span span) const {
+		return usedSpans !is null && span in usedSpans;
 	}
 	
 	uint getIndent(Chunk[] line, size_t i) {

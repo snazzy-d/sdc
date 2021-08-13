@@ -1688,6 +1688,8 @@ private:
 	} do {
 		bool isParameter = mode == Mode.Parameter;
 		while (true) {
+			auto guard = span!PrefixSpan();
+			split();
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 			
@@ -1695,7 +1697,7 @@ private:
 			
 			// Variable, template parameters, whatever.
 			if (match(TokenType.Equal) || match(TokenType.Colon)) {
-				auto guard = span();
+				auto valueGuard = span();
 				
 				space();
 				nextToken();
@@ -1710,7 +1712,6 @@ private:
 			}
 			
 			nextToken();
-			split();
 		}
 		
 		parseFunctionBody();
@@ -1805,7 +1806,7 @@ private:
 	} do {
 		nextToken();
 		
-		auto guard = span();
+		auto guard = span!PrefixSpan();
 		
 		while (true) {
 			space();
