@@ -7,9 +7,11 @@ import std.container.rbtree;
 struct BlockSpecifier {
 	Chunk[] chunks;
 	uint baseIndent;
+	uint baseAlign;
 	
 	bool opEquals(const ref BlockSpecifier rhs) const {
-		return chunks is rhs.chunks && baseIndent == rhs.baseIndent;
+		return chunks is rhs.chunks
+			&& baseIndent == rhs.baseIndent && baseAlign == rhs.baseAlign;
 	}
 	
 	size_t toHash() const @safe nothrow {
@@ -20,7 +22,7 @@ struct BlockSpecifier {
 		h += chunks.length;
 		h ^=  (h >>> 33);
 		h *= 0xc4ceb9fe1a85ec53;
-		h += baseIndent;
+		h += baseIndent * 0x9e3779b97f4a7c15 + baseAlign;
 		
 		return h;
 	}
@@ -37,6 +39,7 @@ struct Writer {
 	uint overflow;
 	
 	uint baseIndent = 0;
+	uint baseAlign = 0;
 	Chunk[] chunks;
 	
 	FormatResult[BlockSpecifier] cache;
@@ -52,6 +55,7 @@ struct Writer {
 		assert(cache !is null);
 	} do {
 		baseIndent = block.baseIndent;
+		baseAlign = block.baseAlign;
 		chunks = block.chunks;
 		
 		this.cache = cache;
@@ -80,8 +84,8 @@ struct Writer {
 		return FormatResult(cost, overflow, buffer.data);
 	}
 	
-	FormatResult formatBlock(Chunk[] chunks, uint baseIndent) {
-		auto block = BlockSpecifier(chunks, baseIndent);
+	FormatResult formatBlock(Chunk[] chunks, uint baseIndent, uint baseAlign) {
+		auto block = BlockSpecifier(chunks, baseIndent, baseAlign);
 		return cache.require(block, Writer(block, cache).write());
 	}
 	
@@ -131,7 +135,6 @@ struct LineWriter {
 		foreach (i, c; line) {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 			
-			uint chunkIndent = state.getIndent(line, i);
 			if (newline || (i > 0 && state.isSplit(i))) {
 				output('\n');
 				
@@ -139,11 +142,8 @@ struct LineWriter {
 					output('\n');
 				}
 				
-				indent(chunkIndent);
-				
-				if (!newline) {
-					outputAlign(state.getAlign(line, i));
-				}
+				indent(state.getIndent(line, i));
+				outputAlign(state.getAlign(line, i));
 			} else if (c.splitType == SplitType.Space) {
 				output(' ');
 			}
@@ -155,7 +155,7 @@ struct LineWriter {
 					break;
 				
 				case Block:
-					auto f = formatBlock(c.chunks, chunkIndent);
+					auto f = formatBlock(c.chunks, state.getIndent(line, i), state.getAlign(line, i));
 					
 					cost += f.cost;
 					overflow += f.overflow;
@@ -383,6 +383,7 @@ struct SolveState {
 	uint overflow = 0;
 	uint sunk = 0;
 	uint baseIndent = 0;
+	uint baseAlign = 0;
 	
 	RuleValues ruleValues;
 	
@@ -400,6 +401,7 @@ struct SolveState {
 	this(ref LineWriter lineWriter, RuleValues ruleValues) {
 		this.ruleValues = ruleValues;
 		this.baseIndent = lineWriter.baseIndent;
+		this.baseAlign = lineWriter.baseAlign;
 		computeCost(lineWriter.line, lineWriter.writer);
 	}
 	
@@ -461,7 +463,7 @@ struct SolveState {
 			
 			final switch (c.kind) with (ChunkKind) {
 				case Block:
-					auto f = writer.formatBlock(c.chunks, getIndent(line, i));
+					auto f = writer.formatBlock(c.chunks, getIndent(line, i), getAlign(line, i));
 					
 					cost += f.cost;
 					overflow += f.overflow;
@@ -487,14 +489,13 @@ struct SolveState {
 				endLine(line, i, length);
 			}
 			
-			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
+			length = getIndent(line, i) * INDENTATION_SIZE + getAlign(line, i) + lineLength;
 			
 			if (c.glued) {
 				continue;
 			}
 			
 			cost += 1;
-			length += getAlign(line, i);
 			
 			// If we do not plan to expand, freeze previous regions.
 			if (!canExpand && regionStart > ruleValues.frozen) {
@@ -587,7 +588,7 @@ struct SolveState {
 	}
 	
 	uint getAlign(const Chunk[] line, size_t i) {
-		uint ret = 0;
+		uint ret = baseAlign;
 		
 		// Find the preceding line break.
 		size_t c = line[i].span.getAlignIndex(this, i);
