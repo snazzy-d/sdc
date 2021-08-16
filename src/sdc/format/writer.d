@@ -453,6 +453,7 @@ struct SolveState {
 			
 			final switch (c.kind) with (ChunkKind) {
 				case Block:
+					salvageSpan = true;
 					salvageNextSpan = true;
 					
 					auto f = writer.formatBlock(c.chunks, getIndent(line, i));
@@ -460,7 +461,7 @@ struct SolveState {
 					cost += f.cost;
 					overflow += f.overflow;
 					
-					if (i <= ruleValues.frozen) {
+					if (!tryWrap(line, i, start)) {
 						sunk += f.overflow;
 					}
 					
@@ -485,12 +486,11 @@ struct SolveState {
 			}
 			
 			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
-			start = i;
-			
 			if (salvageSpan) {
 				continue;
 			}
 			
+			start = i;
 			length += getAlign(line, i);
 			
 			auto span = c.span;
@@ -518,17 +518,9 @@ struct SolveState {
 		}
 	}
 	
-	void endLine(const Chunk[] line, size_t i, size_t start, uint length) {
-		if (length <= PAGE_WIDTH) {
-			return;
-		}
-		
-		uint lineOverflow = length - PAGE_WIDTH;
-		overflow += lineOverflow;
-		
-		// We try to split element in the first line that overflows.
+	bool tryWrap(const Chunk[] line, size_t i, size_t start) {
 		if (canExpand) {
-			return;
+			return true;
 		}
 		
 		if (ruleValues.frozen < start + 1) {
@@ -538,12 +530,25 @@ struct SolveState {
 		foreach (j; ruleValues.frozen .. i) {
 			if (canSplit(line, j)) {
 				canExpand = true;
-				return;
+				return true;
 			}
 		}
 		
+		return false;
+	}
+	
+	void endLine(const Chunk[] line, size_t i, size_t start, uint length) {
+		if (length <= PAGE_WIDTH) {
+			return;
+		}
+		
+		uint lineOverflow = length - PAGE_WIDTH;
+		overflow += lineOverflow;
+		
 		// If the line overflow, but has no split point, it is sunk.
-		sunk += lineOverflow;
+		if (!tryWrap(line, i, start)) {
+			sunk += lineOverflow;
+		}
 	}
 	
 	bool canSplit(const Chunk[] line, size_t i) const {
