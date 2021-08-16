@@ -581,7 +581,7 @@ struct SolveState {
 		uint ret = 0;
 		
 		// Find the preceding line break.
-		size_t c = line[i].span.getAlignIndex(this);
+		size_t c = line[i].span.getAlignIndex(this, i);
 		while (c > 0 && !isSplit(c)) {
 			ret += line[c].splitType == SplitType.Space;
 			ret += line[--c].length;

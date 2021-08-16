@@ -874,8 +874,7 @@ private:
 						kind = IdentifierKind.Expression;
 						parseParameterList();
 						space();
-						parseBlock(Mode.Statement);
-						clearSplitType();
+						parseLambda();
 						break;
 					
 					case EqualMore:
@@ -900,8 +899,7 @@ private:
 			
 			case OpenBrace:
 				// This is a parameterless lambda.
-				parseBlock(Mode.Statement);
-				clearSplitType();
+				parseLambda();
 				break;
 			
 			case OpenBracket:
@@ -1068,7 +1066,7 @@ private:
 	/**
 	 * Statements
 	 */
-	void parseBlock(Mode m) {
+	void parseBlockImpl(bool isLambda)(Mode m) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -1089,7 +1087,10 @@ private:
 		{
 			// We have an actual block.
 			clearSplitType();
-			auto blockGuard = block();
+			
+			static if (isLambda) {
+				auto blockGuard = block();
+			}
 			
 			auto oldExtraIndent = extraIndent;
 			scope(exit) {
@@ -1114,9 +1115,18 @@ private:
 		}
 		
 		if (match(TokenType.CloseBrace)) {
+			clearSplitType();
+			newline(1);
 			nextToken();
 			newline(2);
 		}
+	}
+	
+	alias parseBlock = parseBlockImpl!false;
+	
+	void parseLambda() {
+		parseBlockImpl!true(Mode.Statement);
+		clearSplitType();
 	}
 	
 	bool parseControlFlowBlock(bool forceNewLine = true) {

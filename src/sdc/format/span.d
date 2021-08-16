@@ -53,8 +53,8 @@ protected:
 		return 1;
 	}
 	
-	size_t computeAlignIndex(const ref SolveState s) const {
-		return 0;
+	size_t computeAlignIndex(const ref SolveState s, size_t i) const {
+		return i;
 	}
 	
 	Split computeSplit(const ref SolveState s, size_t i) const {
@@ -93,16 +93,17 @@ uint getIndent(const Span span, const ref SolveState s) {
 	return indent + span.parent.getIndent(s);
 }
 
-size_t getAlignIndex(const Span span, const ref SolveState s) {
+size_t getAlignIndex(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
-		return 0;
-	}
-	
-	if (auto i = span.computeAlignIndex(s)) {
 		return i;
 	}
 	
-	return span.parent.getAlignIndex(s);
+	auto ci = span.computeAlignIndex(s, i);
+	if (ci != i) {
+		return ci;
+	}
+	
+	return span.parent.getAlignIndex(s, i);
 }
 
 bool canSplit(const Span span, const ref SolveState s, size_t i) {
@@ -161,7 +162,7 @@ final class AlignedSpan : Span {
 		first = i < first ? i : first;
 	}
 	
-	override size_t computeAlignIndex(const ref SolveState s) const {
+	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
 		return first;
 	}
 }
@@ -184,12 +185,8 @@ final class ListSpan : Span {
 		return s.isSplit(first) ? 1 : 0;
 	}
 	
-	override size_t computeAlignIndex(const ref SolveState s) const {
-		if (!s.isUsed(this)) {
-			return 0;
-		}
-		
-		return s.isSplit(first) ? 0 : first;
+	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
+		return (s.isSplit(first) || !s.isUsed(this)) ? i : first;
 	}
 }
 
