@@ -445,34 +445,6 @@ struct SolveState {
 		uint length = 0;
 		size_t start = 0;
 		
-		void endLine(size_t i) {
-			if (length <= PAGE_WIDTH) {
-				return;
-			}
-			
-			uint lineOverflow = length - PAGE_WIDTH;
-			overflow += lineOverflow;
-			
-			// We try to split element in the first line that overflows.
-			if (canExpand) {
-				return;
-			}
-			
-			if (ruleValues.frozen < start + 1) {
-				ruleValues.frozen = start + 1;
-			}
-			
-			foreach (j; ruleValues.frozen .. i) {
-				if (canSplit(line, j)) {
-					canExpand = true;
-					return;
-				}
-			}
-			
-			// If the line overflow, but has no split point, it is sunk.
-			sunk += lineOverflow;
-		}
-		
 		bool salvageNextSpan = true;
 		
 		foreach (i, ref c; line) {
@@ -509,7 +481,7 @@ struct SolveState {
 			
 			if (i > 0) {
 				// End the previous line if there is one.
-				endLine(i);
+				endLine(line, i, start, length);
 			}
 			
 			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
@@ -536,7 +508,7 @@ struct SolveState {
 			}
 		}
 		
-		endLine(line.length);
+		endLine(line, line.length, start, length);
 		
 		// Account for the cost of breaking spans.
 		if (brokenSpans !is null) {
@@ -544,6 +516,34 @@ struct SolveState {
 				cost += s.getCost(this);
 			}
 		}
+	}
+	
+	void endLine(const Chunk[] line, size_t i, size_t start, uint length) {
+		if (length <= PAGE_WIDTH) {
+			return;
+		}
+		
+		uint lineOverflow = length - PAGE_WIDTH;
+		overflow += lineOverflow;
+		
+		// We try to split element in the first line that overflows.
+		if (canExpand) {
+			return;
+		}
+		
+		if (ruleValues.frozen < start + 1) {
+			ruleValues.frozen = start + 1;
+		}
+		
+		foreach (j; ruleValues.frozen .. i) {
+			if (canSplit(line, j)) {
+				canExpand = true;
+				return;
+			}
+		}
+		
+		// If the line overflow, but has no split point, it is sunk.
+		sunk += lineOverflow;
 	}
 	
 	bool canSplit(const Chunk[] line, size_t i) const {
