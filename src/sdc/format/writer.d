@@ -201,16 +201,25 @@ struct LineWriter {
 				break;
 			}
 			
+			bool split = false;
 			foreach (rule; next.ruleValues.frozen .. line.length) {
-				if (next.isSplit(rule)) {
+				if (split) {
+					// We reach a split point, bail.
 					break;
 				}
 				
-				if (!next.canSplit(line, rule)) {
-					continue;
+				auto newRuleValues = next.ruleValues.withFrozen(rule + 1);
+				
+				split = next.isSplit(rule);
+				if (!split) {
+					if (!next.canSplit(line, rule)) {
+						continue;
+					}
+					
+					// If this can be split, then split.
+					newRuleValues.setValue(rule, true);
 				}
 				
-				auto newRuleValues = next.ruleValues.withValue(rule, true);
 				auto candidate = SolveState(this, newRuleValues);
 				
 				if (candidate.isBetterThan(best)) {
@@ -272,19 +281,17 @@ public:
 		}
 	}
 	
-	RuleValues withValue(size_t i, bool v) const in {
-		assert(i >= frozen && i < length);
+	RuleValues withFrozen(size_t f) const in {
+		assert(f > frozen && f <= length);
 	} do {
-		auto ret = RuleValues(i + 1, length);
+		RuleValues ret = void;
 		if (isDirect()) {
 			ret.direct = direct;
 		} else {
-			foreach (size_t n; 1 .. indirect.length) {
-				ret.indirect[n] = indirect[n];
-			}
+			ret.indirect = indirect.dup;
 		}
 		
-		ret.setValue(i, v);
+		ret.frozen = f;
 		return ret;
 	}
 	
