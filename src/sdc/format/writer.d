@@ -450,10 +450,14 @@ struct SolveState {
 		RedBlackTree!Span brokenSpans;
 		
 		uint length = 0;
-		size_t start = 0;
+		size_t regionStart = 0;
 		
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
+			
+			if (c.startsRegion) {
+				regionStart = i;
+			}
 			
 			final switch (c.kind) with (ChunkKind) {
 				case Block:
@@ -462,7 +466,7 @@ struct SolveState {
 					cost += f.cost;
 					overflow += f.overflow;
 					
-					if (!tryWrap(line, i, start)) {
+					if (!tryWrap(line, i)) {
 						sunk += f.overflow;
 					}
 					
@@ -480,7 +484,7 @@ struct SolveState {
 			
 			if (i > 0) {
 				// End the previous line if there is one.
-				endLine(line, i, start, length);
+				endLine(line, i, length);
 			}
 			
 			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
@@ -490,8 +494,12 @@ struct SolveState {
 			}
 			
 			cost += 1;
-			start = i;
 			length += getAlign(line, i);
+			
+			// If we do not plan to expand, freeze previous regions.
+			if (!canExpand && regionStart > ruleValues.frozen) {
+				ruleValues.frozen = regionStart;
+			}
 			
 			auto span = c.span;
 			bool needInsert = true;
@@ -508,7 +516,7 @@ struct SolveState {
 			}
 		}
 		
-		endLine(line, line.length, start, length);
+		endLine(line, line.length, length);
 		
 		// Account for the cost of breaking spans.
 		if (brokenSpans !is null) {
@@ -518,13 +526,9 @@ struct SolveState {
 		}
 	}
 	
-	bool tryWrap(const Chunk[] line, size_t i, size_t start) {
+	bool tryWrap(const Chunk[] line, size_t i) {
 		if (canExpand) {
 			return true;
-		}
-		
-		if (ruleValues.frozen < start + 1) {
-			ruleValues.frozen = start + 1;
 		}
 		
 		foreach (j; ruleValues.frozen .. i) {
@@ -537,7 +541,7 @@ struct SolveState {
 		return false;
 	}
 	
-	void endLine(const Chunk[] line, size_t i, size_t start, uint length) {
+	void endLine(const Chunk[] line, size_t i, uint length) {
 		if (length <= PAGE_WIDTH) {
 			return;
 		}
@@ -546,7 +550,7 @@ struct SolveState {
 		overflow += lineOverflow;
 		
 		// If the line overflow, but has no split point, it is sunk.
-		if (!tryWrap(line, i, start)) {
+		if (!tryWrap(line, i)) {
 			sunk += lineOverflow;
 		}
 	}

@@ -21,6 +21,7 @@ private:
 		SplitType, "_splitType", EnumSize!SplitType,
 		bool, "_glued", 1,
 		bool, "_startsUnwrappedLine", 1,
+		bool, "_startsRegion", 1,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
 		// sdfmt on
@@ -66,6 +67,11 @@ public:
 	}
 	
 	@property
+	bool startsRegion() const {
+		return _startsRegion;
+	}
+	
+	@property
 	uint indentation() const {
 		return _indentation;
 	}
@@ -103,6 +109,8 @@ public:
 		import std.conv;
 		return "Chunk(" ~ splitType.to!string ~ ", "
 			~ Span.print(span) ~ ", "
+			~ startsUnwrappedLine.to!string ~ ", "
+			~ startsRegion.to!string ~ ", "
 			~ indentation.to!string ~ ", "
 			~ length.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
@@ -161,22 +169,19 @@ public:
 			
 			c._glued = isBlock || wasBlock;
 			
-			if (i == 0) {
-				// The first chunk obviously starts a new line.
-				goto FoundLineBreak;
-			}
+			// If we have a new set of spans, then we have a new region.
+			c._startsRegion = top is null || top !is previousTop;
 			
-			// This is not a line break.
-			if (!isBlock && !c.mustSplit()) {
+			// If this is not a new region, this is not an unwrapped line break.
+			if (!c.startsRegion) {
 				continue;
 			}
 			
-			// Check if these two have a span in common.
-			if (top !is null && top is previousTop) {
+			// If this is not a line break, this is not an unwrapped line break.
+			if (i > 0 && c.kind != ChunkKind.Block && !c.mustSplit()) {
 				continue;
 			}
 			
-		FoundLineBreak:
 			// This is a line break with no span in common.
 			c._startsUnwrappedLine = true;
 			c._glued = true;
