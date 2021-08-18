@@ -1669,6 +1669,8 @@ private:
 		}
 		
 		while (match(TokenType.EqualEqual) || match(TokenType.Colon)) {
+			auto specGuard = span();
+			
 			space();
 			split();
 			nextToken();
