@@ -452,17 +452,11 @@ struct SolveState {
 		uint length = 0;
 		size_t start = 0;
 		
-		bool salvageNextSpan = true;
-		
 		foreach (i, ref c; line) {
-			bool salvageSpan = salvageNextSpan;
 			uint lineLength = 0;
 			
 			final switch (c.kind) with (ChunkKind) {
 				case Block:
-					salvageSpan = true;
-					salvageNextSpan = true;
-					
 					auto f = writer.formatBlock(c.chunks, getIndent(line, i));
 					
 					cost += f.cost;
@@ -475,16 +469,13 @@ struct SolveState {
 					break;
 				
 				case Text:
-					salvageNextSpan = false;
-					
-					if (!salvageSpan && !isSplit(i)) {
-						length += (c.splitType == SplitType.Space) + c.length;
-						continue;
+					if (c.glued || isSplit(i)) {
+						lineLength = c.length;
+						break;
 					}
 					
-					cost += 1;
-					lineLength = c.length;
-					break;
+					length += (c.splitType == SplitType.Space) + c.length;
+					continue;
 			}
 			
 			if (i > 0) {
@@ -493,10 +484,12 @@ struct SolveState {
 			}
 			
 			length = getIndent(line, i) * INDENTATION_SIZE + lineLength;
-			if (salvageSpan) {
+			
+			if (c.glued) {
 				continue;
 			}
 			
+			cost += 1;
 			start = i;
 			length += getAlign(line, i);
 			
@@ -564,7 +557,7 @@ struct SolveState {
 		}
 		
 		auto c = line[i];
-		if (c.kind == ChunkKind.Block) {
+		if (c.glued) {
 			return false;
 		}
 		

@@ -19,6 +19,7 @@ private:
 		// sdfmt off
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		SplitType, "_splitType", EnumSize!SplitType,
+		bool, "_glued", 1,
 		bool, "_startsUnwrappedLine", 1,
 		uint, "_indentation", 10,
 		uint, "_length", 16,
@@ -52,6 +53,11 @@ public:
 	bool mustSplit() const {
 		return splitType == SplitType.TwoNewLines
 			|| splitType == SplitType.NewLine;
+	}
+	
+	@property
+	bool glued() const {
+		return _glued;
 	}
 	
 	@property
@@ -132,15 +138,28 @@ public:
 		
 		size_t start = 0;
 		size_t fi = 0;
+		
+		bool wasBlock = false;
+		Span previousTop = null;
+		
 		foreach (i, ref c; source) {
+			bool isBlock = c.kind == ChunkKind.Block;
+			auto top = c.span.getTop();
+			
 			scope(success) {
+				wasBlock = isBlock;
+				previousTop = top;
+				
 				// Make sure we let the spans know where they are in the line.
 				c.span.register(i - start);
 				
+				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
 					fixups[fi++].fix(i - start);
 				}
 			}
+			
+			c._glued = isBlock || wasBlock;
 			
 			if (i == 0) {
 				// The first chunk obviously starts a new line.
@@ -148,21 +167,19 @@ public:
 			}
 			
 			// This is not a line break.
-			if (c.kind != ChunkKind.Block && !c.mustSplit()) {
+			if (!isBlock && !c.mustSplit()) {
 				continue;
 			}
 			
 			// Check if these two have a span in common.
-			{
-				auto top = c.span.getTop();
-				if (top !is null && top is source[i].span.getTop()) {
-					continue;
-				}
+			if (top !is null && top is previousTop) {
+				continue;
 			}
 			
 		FoundLineBreak:
 			// This is a line break with no span in common.
 			c._startsUnwrappedLine = true;
+			c._glued = true;
 			start = i;
 		}
 		
