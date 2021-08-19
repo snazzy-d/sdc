@@ -86,6 +86,10 @@ public:
 		return _span;
 	}
 	
+	bool contains(const Span s) const {
+		return span.contains(s);
+	}
+	
 	@property
 	bool empty() const {
 		return kind ? chunks.length == 0 : text.length == 0;
@@ -133,8 +137,8 @@ private:
 		Span span;
 		void function(Span span, size_t i) fun;
 		
-		void fix(size_t i) {
-			fun(span, i);
+		void fix(const ref Chunk c, size_t pre, size_t post) {
+			fun(span, c.contains(span) ? pre : post);
 		}
 	}
 	
@@ -147,6 +151,11 @@ public:
 		size_t start = 0;
 		size_t fi = 0;
 		
+		// Make sure we consumed all fixups by the end of the process.
+		scope(success) {
+			assert(fi == fixups.length);
+		}
+		
 		bool wasBlock = false;
 		Span previousTop = null;
 		
@@ -154,23 +163,27 @@ public:
 			bool isBlock = c.kind == ChunkKind.Block;
 			auto top = c.span.getTop();
 			
+			// Do not use the regular line splitter for blocks.
+			c._glued = isBlock || wasBlock;
+			
+			// If we have a new set of spans, then we have a new region.
+			c._startsRegion = top is null || top !is previousTop;
+			
+			// Bucket brigade.
+			wasBlock = isBlock;
+			previousTop = top;
+			
+			size_t indexinLine = i - start;
+			
 			scope(success) {
-				wasBlock = isBlock;
-				previousTop = top;
-				
 				// Make sure we let the spans know where they are in the line.
 				c.span.register(i - start);
 				
 				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
-					fixups[fi++].fix(i - start);
+					fixups[fi++].fix(c, i - start, indexinLine);
 				}
 			}
-			
-			c._glued = isBlock || wasBlock;
-			
-			// If we have a new set of spans, then we have a new region.
-			c._startsRegion = top is null || top !is previousTop;
 			
 			// If this is not a new region, this is not an unwrapped line break.
 			if (!c.startsRegion) {
@@ -178,7 +191,7 @@ public:
 			}
 			
 			// If this is not a line break, this is not an unwrapped line break.
-			if (i > 0 && c.kind != ChunkKind.Block && !c.mustSplit()) {
+			if (i > 0 && !c.mustSplit()) {
 				continue;
 			}
 			
@@ -390,6 +403,7 @@ public:
 		pendingWhiteSpace = SplitType.None;
 		indentation = 0;
 		spanStack = null;
+		fixups = [];
 		
 		return guard;
 	}

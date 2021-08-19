@@ -80,6 +80,18 @@ Span getTop(Span span) {
 	return top;
 }
 
+bool contains(const Span span, const Span s) {
+	if (span is null) {
+		return false;
+	}
+	
+	if (span is s) {
+		return true;
+	}
+	
+	return span.parent.contains(s);
+}
+
 uint getIndent(const Span span, const ref SolveState s) {
 	if (span is null) {
 		return 0;
@@ -171,22 +183,53 @@ final class AlignedSpan : Span {
  * Span ensuring lists of items are formatted as expected.
  */
 final class ListSpan : Span {
-	size_t first = size_t.max;
+	size_t[] params;
 	
 	this(Span parent) {
 		super(parent);
 	}
 	
-	override void register(size_t i) {
-		first = i < first ? i : first;
+	void registerParam(size_t i) in {
+		assert(params.length == 0 || params[$ - 1] < i);
+	} do {
+		params ~= i;
 	}
 	
 	override uint computeIndent(const ref SolveState s) const {
-		return s.isSplit(first) ? 1 : 0;
+		return s.isSplit(params[0]) ? 1 : 0;
 	}
 	
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		return (s.isSplit(first) || !s.isUsed(this)) ? i : first;
+		return (s.isSplit(params[0]) || !s.isUsed(this)) ? i : params[0];
+	}
+	
+	override Split computeSplit(const ref SolveState s, size_t i) const {
+		size_t previous = params[0];
+		foreach (p; params) {
+			if (p > i) {
+				// We went past the index we are interested in.
+				break;
+			}
+			
+			if (p < i) {
+				// We have not reached our goal, move on to the next param.
+				previous = p;
+				continue;
+			}
+			
+			// We are at a parameter junction. Split here if the preceding
+			// parameter is split.
+			foreach (c; previous + 1 .. p) {
+				if (s.isSplit(c)) {
+					return Split.Must;
+				}
+			}
+			
+			// Previous parameters isn't split, so there are no constraints.
+			break;
+		}
+		
+		return Split.Can;
 	}
 }
 

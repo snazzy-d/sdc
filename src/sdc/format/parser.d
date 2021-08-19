@@ -2129,9 +2129,12 @@ private:
 			while (true) {
 				if (addNewLines) {
 					newline(1);
-				} else {
-					split();
 				}
+				
+				split();
+				guard.registerFix(function(ListSpan s, size_t i) {
+					s.registerParam(i);
+				});
 				
 				fun();
 				
