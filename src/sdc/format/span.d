@@ -50,7 +50,7 @@ protected:
 	}
 	
 	uint computeIndent(const ref SolveState s) const {
-		return 1;
+		return s.isUsed(this) ? 1 : 0;
 	}
 	
 	size_t computeAlignIndex(const ref SolveState s, size_t i) const {
@@ -97,12 +97,7 @@ uint getIndent(const Span span, const ref SolveState s) {
 		return 0;
 	}
 	
-	uint indent = 0;
-	if (s.isUsed(span)) {
-		indent += span.computeIndent(s);
-	}
-	
-	return indent + span.parent.getIndent(s);
+	return span.computeIndent(s) + span.parent.getIndent(s);
 }
 
 size_t getAlignIndex(const Span span, const ref SolveState s, size_t i) {
@@ -195,8 +190,12 @@ final class ListSpan : Span {
 		params ~= i;
 	}
 	
+	bool isActive(const ref SolveState s) const {
+		return s.isSplit(params[0]) || !s.isUsed(this);
+	}
+	
 	override uint computeIndent(const ref SolveState s) const {
-		return s.isSplit(params[0]) ? 1 : 0;
+		return (s.isSplit(params[0]) && s.isUsed(this)) ? 1 : 0;
 	}
 	
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
