@@ -1066,7 +1066,7 @@ private:
 	/**
 	 * Statements
 	 */
-	void parseBlockImpl(bool isLambda)(Mode m) {
+	void parseBlock(Mode m) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -1088,9 +1088,7 @@ private:
 			// We have an actual block.
 			clearSplitType();
 			
-			static if (isLambda) {
-				auto blockGuard = block();
-			}
+			auto blockGuard = block();
 			
 			auto oldExtraIndent = extraIndent;
 			scope(exit) {
@@ -1122,10 +1120,8 @@ private:
 		}
 	}
 	
-	alias parseBlock = parseBlockImpl!false;
-	
 	void parseLambda() {
-		parseBlockImpl!true(Mode.Statement);
+		parseBlock(Mode.Statement);
 		clearSplitType();
 	}
 	

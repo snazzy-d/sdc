@@ -452,10 +452,13 @@ struct SolveState {
 		RedBlackTree!Span brokenSpans;
 		
 		uint length = 0;
+		uint previousColumn = 0;
+		Span previousSpan = null;
 		size_t regionStart = 0;
 		
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
+			uint column = 0;
 			
 			if (c.startsRegion) {
 				regionStart = i;
@@ -464,6 +467,24 @@ struct SolveState {
 			final switch (c.kind) with (ChunkKind) {
 				case Block:
 					auto f = writer.formatBlock(c.chunks, getIndent(line, i), getAlign(line, i));
+					
+					// Compute the column at which the block starts.
+					auto text = f.text;
+					assert(text[0] == '\n');
+					
+					foreach (n; 1 .. f.text.length) {
+						if (text[n] == ' ') {
+							column++;
+							continue;
+						}
+						
+						if (text[n] == '\t') {
+							column += INDENTATION_SIZE;
+							continue;
+						}
+						
+						break;
+					}
 					
 					cost += f.cost;
 					overflow += f.overflow;
@@ -475,21 +496,29 @@ struct SolveState {
 					break;
 				
 				case Text:
-					if (c.glued || isSplit(i)) {
-						lineLength = c.length;
-						break;
+					if (!c.glued && !isSplit(i)) {
+						length += (c.splitType == SplitType.Space) + c.length;
+						continue;
 					}
 					
-					length += (c.splitType == SplitType.Space) + c.length;
-					continue;
+					lineLength = c.length;
+					column = getIndent(line, i) * INDENTATION_SIZE + getAlign(line, i);
+					break;
 			}
+			
+			// Try to avoid subsequent line to have the same indentation level if
+			// they belong to a different span.
+			length += computeNewLinePenality(c, column, previousColumn, previousSpan);
+			
+			previousSpan = c.span;
+			previousColumn = column;
 			
 			if (i > 0) {
 				// End the previous line if there is one.
 				endLine(line, i, length);
 			}
 			
-			length = getIndent(line, i) * INDENTATION_SIZE + getAlign(line, i) + lineLength;
+			length = column + lineLength;
 			
 			if (c.glued) {
 				continue;
@@ -525,6 +554,27 @@ struct SolveState {
 				cost += s.getCost(this);
 			}
 		}
+	}
+	
+	uint computeNewLinePenality(const ref Chunk c, uint column, uint previousColumn, const(Span) previousSpan) const {
+		// No penality for top level or mismatching levels.
+		if (column == 0 || column != previousColumn) {
+			return 0;
+		}
+		
+		// If it is the same span, then it's a feature, not a bug.
+		if (c.span is previousSpan) {
+			return 0;
+		}
+		
+		// No penality for double line breaks.
+		if (c.splitType == SplitType.TwoNewLines) {
+			return 0;
+		}
+		
+		// This new line is at the same level as the previous line, yet belong to another span.
+		// This tends to make the code confusing to read, so we penalize this solution.
+		return 1000;
 	}
 	
 	bool tryWrap(const Chunk[] line, size_t i) {
