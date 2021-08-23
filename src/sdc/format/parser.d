@@ -2123,10 +2123,16 @@ private:
 			return;
 		}
 		
+		bool foundClosingToken = false;
+		
 		{
 			auto guard = span!ListSpan();
 			
-			while (true) {
+			while (!foundClosingToken) {
+				scope(success) {
+					foundClosingToken = match(closingTokenType);
+				}
+				
 				if (addNewLines) {
 					newline(1);
 				}
@@ -2166,7 +2172,7 @@ private:
 			}
 		}
 		
-		if (match(closingTokenType)) {
+		if (foundClosingToken) {
 			if (addNewLines) {
 				newline(1);
 			}
