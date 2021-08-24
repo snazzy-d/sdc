@@ -45,8 +45,6 @@ endif
 
 SDLIB_DEPS = $(SDC) bin/sdc.conf
 
-ALL_TARGET = $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
-
 # To make sure make calls all
 default: all
 
@@ -55,7 +53,7 @@ include src/sdc.mak
 include sdlib/sdrt.mak
 include sdlib/phobos.mak
 
-all: $(ALL_TARGET)
+all: $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
 
 clean:
 	rm -rf obj lib $(ALL_EXECUTABLES)
@@ -74,3 +72,5 @@ check: all check-sdc check-llvm check-sdfmt
 
 # Secondary without dependency make all temporaries secondary.
 .SECONDARY:
+
+include $(shell test -d obj && find obj/ -type f -name '*.deps')

@@ -10,5 +10,5 @@ LIBSDMD_IMPORTS = $(NATIVE_DMD_IMPORTS) -Isdlib
 
 $(LIBSDMD): $(LIBSMD_SRC)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/sdmd.o $(LIBSMD_SRC) $(ARCHFLAG) $(LIBSDMD_IMPORTS)
+	$(DMD) -c -ofobj/sdmd.o -makedeps="$@.deps" $(LIBSMD_SRC) $(ARCHFLAG) $(LIBSDMD_IMPORTS)
 	ar rcs $(LIBSDMD) obj/sdmd.o
