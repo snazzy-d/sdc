@@ -5,7 +5,7 @@ import d.ast.expression;
 
 import d.common.node;
 
-import d.context;
+import source.context;
 
 class Statement : Node {
 	this(Location location) {
@@ -62,7 +62,7 @@ class DeclarationStatement : Statement {
  * indentifier * identifier kind of things
  */
 class IdentifierStarNameStatement : Statement {
-	import d.context.name;
+	import source.context.name;
 	Name name;
 	
 	import d.ast.identifier;
@@ -278,7 +278,7 @@ class ContinueStatement : Statement {
  * goto statements
  */
 class GotoStatement : Statement {
-	import d.context.name;
+	import source.context.name;
 	Name label;
 	
 	this(Location location, Name label) {
@@ -292,7 +292,7 @@ class GotoStatement : Statement {
  * Label: statement
  */
 class LabeledStatement : Statement {
-	import d.context.name;
+	import source.context.name;
 	Name label;
 	
 	Statement statement;
@@ -406,7 +406,7 @@ class TryStatement : Statement {
 struct CatchBlock {
 	Location location;
 	
-	import d.context.name;
+	import source.context.name;
 	Name name;
 	
 	import d.ast.identifier;

@@ -280,7 +280,7 @@ struct LocalGen {
 			}
 			
 			// this is kind of magic :)
-			import d.context.name;
+			import source.context.name;
 			if (p.name == BuiltinName!"this") {
 				buildEmbededCaptures(ptr, p.type);
 			}
@@ -338,7 +338,7 @@ struct LocalGen {
 				return;
 			}
 			
-			import d.context.name, std.algorithm, std.range;
+			import source.context.name, std.algorithm, std.range;
 			auto f = retro(c.members)
 				.filter!(m => m.name == BuiltinName!"__ctx")
 				.map!(m => cast(Field) m)

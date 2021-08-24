@@ -3,7 +3,7 @@ module driver.dsunit;
 immutable string[2] ResultStr = ["FAIL", "PASS"];
 
 int main(string[] args) {
-	import d.context.config;
+	import d.config;
 	Config conf;
 	conf.enableUnittest = true;
 	
@@ -50,7 +50,7 @@ int main(string[] args) {
 	import sdc.sdc, sdc.config;
 	auto c = new SDC(files[0], buildConf(), conf);
 	
-	import d.exception;
+	import source.exception;
 	try {
 		foreach (file; files) {
 			c.compile(file);
@@ -79,7 +79,7 @@ int main(string[] args) {
 			if (m != testModule) {
 				m = testModule;
 				
-				import d.context;
+				import source.context;
 				static void printModule(P)(Context c, P p) {
 					if (p.parent is null) {
 						import std.stdio;

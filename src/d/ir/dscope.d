@@ -4,8 +4,8 @@ import d.ir.symbol;
 
 import d.ast.conditional;
 
-import d.context.location;
-import d.context.name;
+import source.context.location;
+import source.context.name;
 
 struct ConditionalBranch {
 // XXX: Can't be private because mixin templates are a glorious hack.
@@ -67,7 +67,7 @@ private:
 		ParentScope parentScope;
 	}
 	
-	import d.context.name;
+	import source.context.name;
 	Symbol[Name] symbols;
 	
 	static if (ST) {
@@ -217,11 +217,11 @@ public:
 		
 		if (auto sPtr = s.name in symbols) {
 			if (auto p = cast(Poison) *sPtr) {
-				import d.exception;
+				import source.exception;
 				throw new CompileException(s.location, "Poisoned");
 			}
 			
-			import d.exception;
+			import source.exception;
 			throw new CompileException(s.location, "Already defined");
 		}
 		
@@ -232,7 +232,7 @@ public:
 		if (auto sPtr = s.name in symbols) {
 			if (auto os = cast(OverloadSet) *sPtr) {
 				if (os.isPoisoned) {
-					import d.exception;
+					import source.exception;
 					throw new CompileException(s.location, "Poisoned");
 				}
 				
@@ -258,7 +258,7 @@ public:
 				return;
 			}
 			
-			import d.exception;
+			import source.exception;
 			throw new CompileException(s.location, "Already defined");
 		}
 		
@@ -302,7 +302,7 @@ public:
 			// Replace conditional entrie by whatever they resolve to.
 			if (auto cs = cast(ConditionalSet) s) {
 				if (cs.set.length) {
-					import d.exception;
+					import source.exception;
 					throw new CompileException(
 						cs.set[0].entry.location,
 						"Not resolved",
@@ -363,7 +363,7 @@ public:
 					
 					// We have a new symbol, select it.
 					if (cs.isPoisoned) {
-						import d.exception;
+						import source.exception;
 						throw new CompileException(s.location, "Poisoned");
 					}
 					

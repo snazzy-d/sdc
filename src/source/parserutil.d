@@ -1,8 +1,6 @@
-module d.parser.util;
+module source.parserutil;
 
-import d.parser.base;
-import d.parser.expression;
-import d.parser.type;
+import source.lexer;
 
 /**
  * Get the matching delimiter
@@ -46,7 +44,7 @@ void popMatchingDelimiter(TokenType openTokenType)(ref TokenRange trange) {
 				break;
 			
 			case TokenType.End :
-				import d.exception;
+				import source.exception;
 				throw new CompileException(startLocation, "Matching delimiter not found");
 			
 			default :

@@ -6,7 +6,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
+import source.context.location;
 
 import util.visitor;
 
@@ -29,7 +29,7 @@ struct ExpressionGen {
 		}
 		
 		return this.dispatch!(function LLVMValueRef(Expression e) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				e.location,
 				typeid(e).toString() ~ " is not supported",

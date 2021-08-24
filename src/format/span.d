@@ -1,7 +1,7 @@
-module sdc.format.span;
+module format.span;
 
-import sdc.format.writer;
-import sdc.format.chunk;
+import format.writer;
+import format.chunk;
 
 class Span {
 	Span parent = null;

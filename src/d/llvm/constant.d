@@ -27,7 +27,7 @@ struct ConstantGen {
 	
 	LLVMValueRef visit(CompileTimeExpression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				e.location,
 				typeid(e).toString() ~ " is not supported",

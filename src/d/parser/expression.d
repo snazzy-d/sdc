@@ -10,7 +10,7 @@ import d.parser.base;
 import d.parser.identifier;
 import d.parser.statement;
 import d.parser.type;
-import d.parser.util;
+import source.parserutil;
 
 /**
  * Parse Expression
@@ -1140,13 +1140,13 @@ void matchChar(ref string s, Location location, char c) {
 	import std.conv, std.string;
 	auto error = format("expected '%s'.", to!string(c));
 	
-	import d.exception;
+	import source.exception;
 	throw new CompileException(location, error);
 }
 
 char popChar(ref string s, Location location) {
 	if (s.length == 0) {
-		import d.exception;
+		import source.exception;
 		throw new CompileException(location, "Unexpected termination of literal");
 	}
 	
@@ -1157,7 +1157,7 @@ char popChar(ref string s, Location location) {
 
 dchar lexEscapeSequence(ref string s, Location location) {
 	if (s.length == 0) {
-		import d.exception;
+		import source.exception;
 		throw new CompileException(location, "Unexpected termination of literal");
 	}
 	
@@ -1203,7 +1203,7 @@ dchar lexEscapeSequence(ref string s, Location location) {
 			import std.conv, std.string;
 			auto error = format("unpexcted escape sequence: '%s'.", to!string(c));
 
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, error);
 	}
 }
@@ -1227,7 +1227,7 @@ CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
 			break;
 		
 		case '\'':
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, "\"'\" must be escaped as '\'' in character literals");
 		
 		default:
@@ -1277,7 +1277,7 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 		
 		case '`':
 			if (str.length == 0 || str[$ - 1] != '`') {
-				import d.exception;
+				import source.exception;
 				throw new CompileException(location, "Unexpected termination of literal");
 			}
 			
@@ -1285,7 +1285,7 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 			break;
 		
 		default:
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, "Invalid string litteral");
 	}
 	

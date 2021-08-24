@@ -5,9 +5,9 @@ import d.ir.type;
 
 import d.ast.expression;
 
-import d.context;
-import d.context.location;
-import d.context.name;
+import source.context;
+import source.context.location;
+import source.context.name;
 
 abstract class Expression : AstExpression {
 	Type type;

@@ -9,7 +9,7 @@ import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.expression;
 import d.parser.identifier;
-import d.parser.util;
+import source.parserutil;
 
 AstType parseType(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
 	auto base = trange.parseBasicType();

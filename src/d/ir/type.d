@@ -6,7 +6,7 @@ import d.ir.symbol;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context;
+import source.context;
 import d.common.type;
 
 // Conflict with Interface in object.di
@@ -556,7 +556,7 @@ unittest {
 }
 
 unittest {
-	import d.context.location, d.context.name, d.ir.symbol;
+	import source.context.location, source.context.name, d.ir.symbol;
 	auto m = new Module(Location.init, BuiltinName!"", null);
 	auto c = new Class(Location.init, m, BuiltinName!"", []);
 	auto tc = Type.get(c);
@@ -569,7 +569,7 @@ unittest {
 }
 
 unittest {
-	import d.context.location, d.context.name, d.ir.symbol;
+	import source.context.location, source.context.name, d.ir.symbol;
 	auto i = Type.get(BuiltinType.Int);
 	auto a1 = new TypeAlias(Location.init, BuiltinName!"", i);
 	auto a1t = Type.get(a1);
@@ -585,7 +585,7 @@ unittest {
 }
 
 unittest {
-	import d.context.location, d.context.name, d.ir.symbol;
+	import source.context.location, source.context.name, d.ir.symbol;
 	auto f = Type.get(BuiltinType.Float, TypeQualifier.Const);
 	auto a = new TypeAlias(Location.init, BuiltinName!"", f);
 	
@@ -674,8 +674,8 @@ unittest {
 	assert(d.isVariadic == true);
 	assert(d.isPure == false);
 	assert(d.returnType == r);
-	assert(d.contexts.length == 1);
-	assert(d.contexts[0] == c);
+	assert(source.contexts.length == 1);
+	assert(source.contexts[0] == c);
 	assert(d.parameters.length == 1);
 	assert(d.parameters[0] == p);
 	

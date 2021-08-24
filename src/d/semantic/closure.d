@@ -16,7 +16,7 @@ struct ContextFinder {
 	Function visit(Symbol s) in {
 		assert(
 			s.hasContext,
-			"You can't find context of symbol that do not have context"
+			"You can't finsource.context of symbol that do not have context"
 		);
 	} do {
 		return this.dispatch(s);

@@ -10,7 +10,7 @@ import d.ast.declaration;
 
 import d.ir.symbol;
 
-import d.context.name;
+import source.context.name;
 
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
@@ -90,10 +90,10 @@ public:
 	AstModule parse(string filename, string directory) in {
 		assert(filename[$ - 2 .. $] == ".d");
 	} do {
-		import d.context.location;
+		import source.context.location;
 		auto base = context.registerFile(Location.init, filename, directory);
 		
-		import d.lexer;
+		import source.lexer;
 		auto l = lex(base, context);
 		
 		import d.parser.dmodule;

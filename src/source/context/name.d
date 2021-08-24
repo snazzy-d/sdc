@@ -1,6 +1,6 @@
-module d.context.name;
+module source.context.name;
 
-import d.context;
+import source.context;
 
 struct Name {
 private:
@@ -164,7 +164,7 @@ enum Prefill = [
 ];
 
 auto getNames() {
-	import d.lexer;
+	import source.lexer;
 	
 	auto identifiers = [""];
 	foreach(k, _; getOperatorsMap()) {

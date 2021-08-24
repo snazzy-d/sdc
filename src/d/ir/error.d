@@ -1,7 +1,7 @@
 module d.ir.error;
 
-import d.context;
-import d.context.location;
+import source.context;
+import source.context.location;
 
 import d.ir.expression;
 import d.ir.symbol;
@@ -157,7 +157,7 @@ class ErrorSymbol : Symbol {
 	
 // private:
 	this(CompileError error) {
-		import d.context.name;
+		import source.context.name;
 		super(error.location, BuiltinName!"");
 		
 		this.error = error;

@@ -1,6 +1,6 @@
 # Common definitions
 
-LIBSDC_SRC = $(wildcard src/sdc/*.d) $(wildcard src/sdc/util/*.d) $(wildcard src/sdc/format/*.d)
+LIBSDC_SRC = $(wildcard src/sdc/*.d) $(wildcard src/sdc/util/*.d)
 
 DRIVER_SRC = $(wildcard src/driver/*.d)
 DRIVER_OBJ = $(DRIVER_SRC:src/driver/%.d=obj/driver/%.o)
@@ -8,12 +8,12 @@ ALL_EXECUTABLES = $(DRIVER_SRC:src/driver/%.d=bin/%)
 
 SDC = bin/sdc
 SDUNIT = bin/sdunit
-SDFMT = bin/sdfmt
 
 LIBSDC = lib/libsdc.a
 
 include src/libd.mak
 include src/libd-llvm.mak
+include src/libsource.mak
 
 SDC_IMPORTS = -Isrc -Iimport
 
@@ -26,11 +26,13 @@ obj/driver/%.o: src/driver/%.d
 	@mkdir -p obj/driver
 	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS) $(SDC_IMPORTS)
 
-# SDFMT only require libd, but there are no easy way to do this
-# within the current makefiles.
-bin/%: obj/driver/%.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD)
+$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" "$<" $(ARCHFLAG) $(LDFLAGS)
+	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS)
+
+$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
+	@mkdir -p bin
+	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS)
 
 bin/sdc.conf:
 	@mkdir -p bin

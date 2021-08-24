@@ -1,11 +1,11 @@
-module d.context;
+module source.context;
 
 final class Context {
 package:
-	import d.context.name;
+	import source.context.name;
 	NameManager _nameManager;
 	
-	import d.context.source;
+	import source.context.source;
 	SourceManager sourceManager;
 	
 public:
@@ -20,12 +20,12 @@ public:
 		return _nameManager;
 	}
 	
-	import d.context.location;
+	import source.context.location;
 	Position registerFile(Location location, string filename, string directory) {
 		import std.file, std.path;
 		auto data = cast(const(ubyte)[]) read(buildPath(directory, filename));
 		
-		import util.utf8;
+		import source.util.utf8;
 		auto content = convertToUTF8(data) ~ '\0';
 		
 		return sourceManager.registerFile(

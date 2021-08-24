@@ -87,7 +87,7 @@ struct SizeofVisitor {
 	
 	import d.ir.error;
 	uint visit(CompileError e) {
-		import d.exception;
+		import source.exception;
 		throw new CompileException(e.location, e.message);
 	}
 	

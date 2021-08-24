@@ -6,8 +6,8 @@ import d.ast.conditional;
 import d.ast.expression;
 import d.ast.statement;
 
-import d.context.location;
-import d.context.name;
+import source.context.location;
+import source.context.name;
 
 import d.ir.dscope;
 import d.ir.expression;
@@ -108,7 +108,7 @@ public:
 				returnType.builtin == BuiltinType.Void) {
 				currentBlock.ret(b.location);
 			} else {
-				import d.exception;
+				import source.exception;
 				throw new CompileException(f.location, "Must return");
 			}
 		}
@@ -134,7 +134,7 @@ public:
 		if (allowUnreachable) {
 			startNewBranch(BuiltinName!"unreachable");
 		} else {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(s.location, "Unreachable statement");
 		}
 		
@@ -250,7 +250,7 @@ private:
 	Expression check(Expression e) {
 		auto t = e.type;
 		if (t.kind == TypeKind.Error) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(t.error.location, t.error.message);
 		}
 		
@@ -488,7 +488,7 @@ public:
 		import d.semantic.expression;
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 		
-		import d.context.name, d.semantic.identifier;
+		import source.context.name, d.semantic.identifier;
 		auto length = IdentifierResolver(pass)
 			.buildIn(iterated.location, iterated, BuiltinName!"length")
 			.apply!(delegate Expression(e) {
@@ -683,7 +683,7 @@ public:
 			value = buildImplicitCast(pass, s.location, returnType.getType(), value);
 			if (returnType.isRef) {
 				if (!value.isLvalue) {
-					import d.exception;
+					import source.exception;
 					throw new CompileException(s.location, "Cannot ref return lvalues");
 				}
 				
@@ -743,7 +743,7 @@ public:
 		Name name;
 		final switch(breakKind) with(BreakKind) {
 			case None:
-				import d.exception;
+				import source.exception;
 				throw new CompileException(
 					location,
 					"Cannot break outside of switches and loops",
@@ -768,7 +768,7 @@ public:
 	
 	void visit(ContinueStatement s) {
 		if (!continueLabel) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				s.location,
 				"Cannot continue outside of loops",
@@ -826,7 +826,7 @@ public:
 		}
 		
 		if (BuiltinName!"case" in inFlightGotos) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				s.location,
 				"Reached end of switch statement with unresolved goto case;",
@@ -838,7 +838,7 @@ public:
 			defaultBlock = defaultLabel.block;
 			labels.remove(BuiltinName!"default");
 		} else {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				s.location,
 				"switch statement without a default; use 'final switch' "
@@ -880,7 +880,7 @@ public:
 				import std.algorithm.searching;
 				bool isValid = igs.startsWith(varStack);
 				if (!isValid) {
-					import d.exception;
+					import source.exception;
 					throw new CompileException(
 						location,
 						"Cannot jump over variable initialization.",
@@ -904,7 +904,7 @@ public:
 				return;
 			}
 			
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				location,
 				"Cannot jump over variable initialization.",
@@ -912,7 +912,7 @@ public:
 		}
 		
 		if (cases.length == 0) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, switchError);
 		}
 		
@@ -923,7 +923,7 @@ public:
 		// Check for case a: case b:
 		// TODO: consider default: case a:
 		if (cases[$ - 1].block != currentBlockRef || !currentBlock.empty) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, fallthroughError);
 		}
 	}
@@ -959,7 +959,7 @@ public:
 		}
 		
 		if (name in labels) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(s.location, "Label is already defined");
 		}
 		
@@ -980,7 +980,7 @@ public:
 			import std.algorithm.searching;
 			bool isValid = varStack.startsWith(labelStack);
 			if (!isValid) {
-				import d.exception;
+				import source.exception;
 				throw new CompileException(
 					s.location,
 					"Cannot goto over variable initialization.",
@@ -1106,7 +1106,7 @@ public:
 					static if (is(T : Type)) {
 						assert(0);
 					} else {
-						import d.exception;
+						import source.exception;
 						throw new CompileException(
 							identified.location,
 							typeid(identified).toString() ~ " is not a class.",
@@ -1164,7 +1164,7 @@ public:
 			return;
 		}
 		
-		import d.exception;
+		import source.exception;
 		if (s.message is null) {
 			throw new CompileException(s.location, "assertion failure");
 		}
@@ -1174,7 +1174,7 @@ public:
 	}
 	
 	void visit(Mixin!Statement s) {
-		import d.lexer;
+		import source.lexer;
 		auto str = evalString(buildString(s.value)) ~ '\0';
 		auto base = context.registerMixin(s.location, str);
 		auto trange = lex(base, context);

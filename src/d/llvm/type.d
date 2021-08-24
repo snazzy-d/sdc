@@ -5,7 +5,7 @@ import d.llvm.codegen;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.exception;
+import source.exception;
 
 import util.visitor;
 

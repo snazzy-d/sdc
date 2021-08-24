@@ -8,7 +8,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
+import source.context.location;
 
 struct TemplateInstancier {
 	private SemanticPass pass;
@@ -69,7 +69,7 @@ struct TemplateInstancier {
 					return TemplateArgument.init;
 				}
 				
-				import d.exception;
+				import source.exception;
 				throw new CompileException(
 					p.location,
 					typeid(p).toString() ~ " not implemented",
@@ -97,7 +97,7 @@ struct TemplateInstancier {
 		}
 		
 		if (!match) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(location, "No match");
 		}
 		
@@ -117,7 +117,7 @@ struct TemplateInstancier {
 			matchedArgs.length = t.parameters.length;
 			
 			if (!matchArguments(t, args, fargs, matchedArgs)) {
-				import d.exception;
+				import source.exception;
 				throw new CompileException(location, "No match");
 			}
 		}

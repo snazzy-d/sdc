@@ -16,7 +16,7 @@ import d.ast.type;
 
 import d.ir.expression;
 
-import d.context.name;
+import source.context.name;
 
 /**
  * Parse a set of declarations.
@@ -337,7 +337,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			
 			// In the future we may want to skip parsing unittest blocks.
 			// if (!trange.context.enableUnittest) {
-			// 	import d.parser.util;
+			// 	import source.parserutil;
 			// 	popMatchingDelimiter!(TokenType.OpenBrace)();
 			// }
 			
@@ -382,7 +382,7 @@ Declaration parseTypedDeclaration(
 		trange.match(TokenType.Identifier);
 		
 		if (name.isReserved) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				idLoc,
 				name.toString(trange.context) ~ " is a reserved name",
@@ -477,7 +477,7 @@ private Declaration parseFunction(
 	AstTemplateParameter[] tplParameters;
 	
 	// Check if we have a function template
-	import d.parser.util;
+	import source.parserutil;
 	auto lookahead = trange.save;
 	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
 	

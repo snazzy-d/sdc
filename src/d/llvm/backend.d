@@ -227,7 +227,7 @@ public:
 		Test[] tests;
 		foreach (m; modules) {
 			foreach (t; m.tests) {
-				import d.context.name;
+				import source.context.name;
 				tests ~= Test(e, t);
 			}
 		}

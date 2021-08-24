@@ -2,10 +2,10 @@
  * This file is part of libd.
  * See LICENCE for more details.
  */
-module d.exception;
+module source.exception;
 
 class CompileException : Exception {
-	import d.context.location;
+	import source.context.location;
 	Location location;
 	
 	CompileException more; // Optional
@@ -21,7 +21,7 @@ class CompileException : Exception {
 		this(loc, message);
 	}
 
-	import d.context;
+	import source.context;
 	auto getFullLocation(Context c) const {
 		return location.getFullLocation(c);
 	}

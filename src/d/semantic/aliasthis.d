@@ -5,9 +5,9 @@ import d.semantic.semantic;
 import d.ir.expression;
 import d.ir.symbol;
 
-import d.context.location;
+import source.context.location;
 
-import d.exception;
+import source.exception;
 
 struct AliasThisResolver(alias handler) {
 	private SemanticPass pass;
@@ -36,7 +36,7 @@ struct AliasThisResolver(alias handler) {
 		return resolve(e, a.aliasThis);
 	}
 	
-	import d.context.name;
+	import source.context.name;
 	private Ret[] resolve(Expression e, Name[] aliases) {
 		import d.semantic.identifier;
 		import std.algorithm, std.array;

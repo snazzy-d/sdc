@@ -1,4 +1,4 @@
-module sdc.format.parser;
+module format.parser;
 
 /**
  * While we already have a parser in libd, we cannot use it here.
@@ -11,13 +11,13 @@ module sdc.format.parser;
  */
 struct Parser {
 private:
-	import d.context;
+	import source.context;
 	Context context;
 	
-	import d.lexer;
+	import source.lexer;
 	TokenRange trange;
 	
-	import sdc.format.chunk;
+	import format.chunk;
 	Builder builder;
 	
 	uint extraIndent = 0;
@@ -141,7 +141,7 @@ private:
 		builder.split();
 	}
 	
-	import sdc.format.span;
+	import format.span;
 	auto span(S = Span)() {
 		emitSkippedTokens();
 		emitInFlightComments();
@@ -163,7 +163,7 @@ private:
 	/**
 	 * Whitespace management.
 	 */
-	import d.context.location;
+	import source.context.location;
 	uint getStartLineNumber(Location loc) {
 		return loc.getFullLocation(context).getStartLineNumber();
 	}
@@ -403,7 +403,7 @@ private:
 			return;
 		}
 		
-		import d.parser.util;
+		import source.parserutil;
 		auto lookahead = trange.save.withComments(false);
 		lookahead.popMatchingDelimiter!(TokenType.OpenBrace)();
 		
@@ -861,7 +861,7 @@ private:
 				break;
 			
 			case OpenParen:
-				import d.parser.util;
+				import source.parserutil;
 				auto lookahead = trange.save.withComments(false);
 				lookahead.popMatchingDelimiter!OpenParen();
 				
@@ -1956,7 +1956,7 @@ private:
 		}
 		
 		if (lookahead.front.type == TokenType.OpenParen) {
-			import d.parser.util;
+			import source.parserutil;
 			lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
 		}
 		

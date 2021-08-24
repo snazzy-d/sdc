@@ -1,6 +1,6 @@
-module sdc.format.writer;
+module format.writer;
 
-import sdc.format.chunk;
+import format.chunk;
 
 import std.container.rbtree;
 
@@ -387,7 +387,7 @@ struct SolveState {
 	
 	RuleValues ruleValues;
 	
-	import sdc.format.span, std.bitmanip;
+	import format.span, std.bitmanip;
 	mixin(taggedClassRef!(
 		// Spans that require indentation.
 		RedBlackTree!(const(Span)), "usedSpans",

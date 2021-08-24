@@ -1,8 +1,8 @@
-module d.context.source;
+module source.context.source;
 
-import d.context;
-import d.context.location;
-import d.context.name;
+import source.context;
+import source.context.location;
+import source.context.name;
 
 struct Source {
 private:
@@ -232,7 +232,7 @@ struct SourceEntries {
 		// It is common to query the same file many time,
 		// so we have a one entry cache for it.
 		if (!isPositionInFileID(p, lastFileID)) {
-			import util.lookup;
+			import source.util.lookup;
 			lastFileID = FileID(lookup!(e => e.offset, 7)(
 				sourceEntries,
 				p.offset,
@@ -316,7 +316,7 @@ private:
 		// It is common to query the same file many time,
 		// so we have a one entry cache for it.
 		if (!isIndexInLine(index, lastLineLookup)) {
-			import util.lookup;
+			import source.util.lookup;
 			lastLineLookup = lookup!(l => l, 15)(
 				lines,
 				index,

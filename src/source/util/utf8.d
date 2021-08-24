@@ -1,4 +1,4 @@
-module util.utf8;
+module source.util.utf8;
 
 import std.utf; // toUTF8
 import std.string; // startsWith

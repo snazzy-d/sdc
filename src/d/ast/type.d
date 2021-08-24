@@ -3,7 +3,7 @@ module d.ast.type;
 public import d.common.builtintype;
 public import d.common.qualifier;
 
-import d.context;
+import source.context;
 import d.common.type;
 
 enum AstTypeKind : ubyte {
@@ -338,7 +338,7 @@ unittest {
 	auto p = l.getPointer();
 	assert(p.element == l);
 	
-	import d.context.location;
+	import source.context.location;
 	auto s1 = new DollarExpression(Location.init);
 	auto a1 = l.getArray(s1);
 	assert(a1.size is s1);
@@ -354,7 +354,7 @@ unittest {
 	assert(m.key == f);
 	assert(m.element == l);
 	
-	import d.context.name;
+	import source.context.name;
 	auto i = new BasicIdentifier(Location.init, BuiltinName!"");
 	t = AstType.get(i, TypeQualifier.Shared);
 	assert(t.identifier is i);
@@ -374,7 +374,7 @@ unittest {
 	
 	t = AstType.getTypeOfReturn();
 
-	import d.context;
+	import source.context;
 	Context c;
 	assert(t.toString(c) == "typeof(return)");
 }

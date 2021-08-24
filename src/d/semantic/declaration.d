@@ -834,7 +834,7 @@ struct DeclarationFlattener(S) if(is(S : Scope)) {
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
 		
-		import d.lexer, d.ir.expression;
+		import source.lexer, d.ir.expression;
 		auto base = context.registerMixin(location, str ~ '\0');
 		auto trange = lex(base, context);
 		
@@ -863,7 +863,7 @@ struct DeclarationFlattener(S) if(is(S : Scope)) {
 			return;
 		}
 		
-		import d.exception;
+		import source.exception;
 		if (a.message is null) {
 			throw new CompileException(a.location, "assertion failure");
 		}

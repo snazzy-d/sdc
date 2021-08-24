@@ -11,9 +11,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
+import source.context.location;
 
-import d.exception;
+import source.exception;
 
 alias TernaryExpression = d.ir.expression.TernaryExpression;
 alias ArrayLiteral = d.ir.expression.ArrayLiteral;
@@ -89,7 +89,7 @@ private:
 		
 		auto loc = value.location;
 		
-		import d.context.name;
+		import source.context.name;
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 		
@@ -101,7 +101,7 @@ private:
 			return e;
 		}
 		
-		import d.context.name;
+		import source.context.name;
 		auto v = new Variable(
 			value.location,
 			value.type.getParamType(ParamKind.Ref),
@@ -806,7 +806,7 @@ public:
 	} do {
 		auto agg = thisExpr.type.aggregate;
 		
-		import d.context.name, d.semantic.identifier;
+		import source.context.name, d.semantic.identifier;
 		return IdentifierResolver(pass)
 			.resolveIn(location, agg, BuiltinName!"__ctor")
 			.apply!(delegate Expression(i) {
@@ -1175,7 +1175,7 @@ public:
 		auto di = NewBuilder(pass, e.location).visit(type);
 		auto hackForDg = (&di)[0 .. 1];
 		
-		import d.context.name, d.semantic.identifier;
+		import source.context.name, d.semantic.identifier;
 		auto ctor = IdentifierResolver(pass)
 			.resolveIn(e.location, type, BuiltinName!"__ctor")
 			.apply!(delegate Function(identified) {
@@ -1227,7 +1227,7 @@ public:
 	}
 	
 	Expression getThis(Location location) {
-		import d.context.name, d.semantic.identifier;
+		import source.context.name, d.semantic.identifier;
 		auto thisExpr = IdentifierResolver(pass)
 			.build(location, BuiltinName!"this")
 			.apply!(delegate Expression(identified) {
@@ -1492,7 +1492,7 @@ public:
 		auto str = evalString(visit(e.value));
 		auto pos = context.registerMixin(e.location, str ~ "\0");
 		
-		import d.lexer;
+		import source.lexer;
 		auto trange = lex(pos, context);
 		
 		import d.parser.base, d.parser.expression;

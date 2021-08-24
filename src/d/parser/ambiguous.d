@@ -11,7 +11,7 @@ import d.parser.declaration;
 import d.parser.expression;
 import d.parser.type;
 import d.parser.identifier;
-import d.parser.util;
+import source.parserutil;
 
 /**
  * Branch to the right code depending if we have a type,
@@ -124,7 +124,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 }
 
 struct IdentifierStarName {
-	import d.context.name;
+	import source.context.name;
 	Name name;
 
 	Identifier identifier;

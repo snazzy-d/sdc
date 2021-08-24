@@ -19,6 +19,7 @@ a.out
 /cfg.dot
 /bin
 /lib
+/obj
 
 # Eclipse
 build.rf

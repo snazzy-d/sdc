@@ -15,7 +15,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.name;
+import source.context.name;
 
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
@@ -23,10 +23,10 @@ alias Module = d.ir.symbol.Module;
 alias CallExpression = d.ir.expression.CallExpression;
 
 final class SemanticPass {
-	import d.context;
+	import source.context;
 	Context context;
 	
-	import d.context.config;
+	import d.config;
 	Config config;
 	
 	Scheduler scheduler;
@@ -80,7 +80,7 @@ final class SemanticPass {
 		
 		scheduler = new Scheduler(this);
 		
-		import d.context.name;
+		import source.context.name;
 		auto obj = importModule([BuiltinName!"object"]);
 		this.object = new ObjectReference(obj);
 		
@@ -172,7 +172,7 @@ final class SemanticPass {
 private:
 
 auto getDefaultVersions() {
-	import d.context.name;
+	import source.context.name;
 	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64", BuiltinName!"Posix"];
 	
 	version(linux) {

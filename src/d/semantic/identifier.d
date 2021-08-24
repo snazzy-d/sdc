@@ -9,8 +9,8 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
-import d.context.name;
+import source.context.location;
+import source.context.name;
 
 alias Identifiable = Type.UnionType!(Symbol, Expression);
 
@@ -57,7 +57,7 @@ public:
 			"thisExpr has not been consumed",
 		);
 		
-		import d.exception;
+		import source.exception;
 		throw new CompileException(e.location, e.message);
 	}
 	

@@ -95,7 +95,7 @@ struct SymbolAnalyzer {
 		
 		auto mangle = m.mangle = context.getName(manglePrefix);
 		
-		import d.context.name;
+		import source.context.name;
 		// All modules implicitely import object.
 		auto obj = importModule([BuiltinName!"object"]);
 		m.addImport(obj);
@@ -120,9 +120,9 @@ struct SymbolAnalyzer {
 			f.intrinsicID = i;
 		}
 		
-		import d.context.name;
+		import source.context.name;
 		void set(Name name, Intrinsic i) {
-			import d.context.location;
+			import source.context.location;
 			auto s = m.resolve(Location.init, name);
 			if (s is null) {
 				return;
@@ -187,7 +187,7 @@ struct SymbolAnalyzer {
 		auto fbody = fd.fbody;
 		bool isAuto = false;
 		
-		import d.context.name;
+		import source.context.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		immutable isDtor = f.name == BuiltinName!"__dtor";
 		
@@ -379,7 +379,7 @@ struct SymbolAnalyzer {
 				"ctxSym must be defined if function has a context pointer."
 			);
 			
-			import d.context.name;
+			import source.context.name;
 			auto contextParameter = new Variable(
 				f.location,
 				Type.getContextType(ctxSym).getParamType(ParamKind.Ref),
@@ -592,7 +592,7 @@ struct SymbolAnalyzer {
 		s.mangle = context.getName(mangle);
 		
 		// XXX: d is hijacked without explicit import
-		import d.context.name : BuiltinName;
+		import source.context.name : BuiltinName;
 		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
@@ -703,7 +703,7 @@ struct SymbolAnalyzer {
 		u.mangle = context.getName(mangle);
 		
 		// XXX: d is hijacked without explicit import
-		import d.context.name : BuiltinName;
+		import source.context.name : BuiltinName;
 		
 		Field[] fields;
 		if (u.hasContext) {
@@ -796,7 +796,7 @@ struct SymbolAnalyzer {
 					}
 					
 					static if (is(typeof(identified.location))) {
-						import d.exception;
+						import source.exception;
 						throw new CompileException(
 							identified.location,
 							typeid(identified).toString() ~ " is not a class.",
@@ -824,7 +824,7 @@ struct SymbolAnalyzer {
 				.getPointer(TypeQualifier.Immutable);
 			
 			// XXX: d is hijacked without explicit import
-			import d.context.name : BuiltinName;
+			import source.context.name : BuiltinName;
 
 			// TODO: use defaultinit.
 			auto vtbl = new Field(
@@ -866,7 +866,7 @@ struct SymbolAnalyzer {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
-			import d.context.name;
+			import source.context.name;
 			auto ctx = new Field(
 				c.location,
 				fieldIndex++,
@@ -959,7 +959,7 @@ struct SymbolAnalyzer {
 						candidate = null;
 						break;
 					} else {
-						import d.exception;
+						import source.exception;
 						throw new CompileException(
 							method.location,
 							method.name.toString(context)
@@ -970,7 +970,7 @@ struct SymbolAnalyzer {
 				}
 				
 				if (method.index == -1) {
-					import d.exception;
+					import source.exception;
 					throw new CompileException(
 						method.location,
 						"Override not found for "
@@ -1057,7 +1057,7 @@ struct SymbolAnalyzer {
 		auto type = Type.get(e);
 		
 		if (e.type.kind != TypeKind.Builtin) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				e.location,
 				"Unsupported enum type " ~ e.type.toString(context),
@@ -1066,7 +1066,7 @@ struct SymbolAnalyzer {
 		
 		auto bt = e.type.builtin;
 		if (!isIntegral(bt) && bt != BuiltinType.Bool) {
-			import d.exception;
+			import source.exception;
 			throw new CompileException(
 				e.location,
 				"Unsupported enum type " ~ e.type.toString(context),
@@ -1351,7 +1351,7 @@ struct SymbolAnalyzer {
 		
 		string name;
 		
-		import d.context.name;
+		import source.context.name;
 		if (f.name == BuiltinName!"") {
 			// FIXME: can still collide with mixins,
 			// but that should rare enough for now.

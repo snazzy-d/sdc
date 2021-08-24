@@ -4,7 +4,7 @@
  * provided location. If nothing is found, then
  * it switches to a binary search.
  */
-module util.lookup;
+module source.util.lookup;
 
 uint lookup(alias f, uint N, T)(T[] items, uint needle, uint pivot) in {
 	assert(items.length > 0, "items must not be empty");

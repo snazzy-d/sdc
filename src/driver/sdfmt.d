@@ -41,17 +41,17 @@ int main(string[] args) {
 	
 	auto files = args[1 .. $];
 	
-	import d.context;
+	import source.context;
 	auto context = new Context();
 	
 	foreach (filename; files) {
-		import d.context.location;
+		import source.context.location;
 	    auto base = context.registerFile(Location.init, filename, "");
 		
-		import d.lexer;
+		import source.lexer;
 		auto l = lex(base, context);
 		
-		import sdc.format.parser;
+		import format.parser;
 		auto chunks = Parser(context, l).parse();
 		
 		if (dbg) {
@@ -59,7 +59,7 @@ int main(string[] args) {
 			writeln(chunks);
 		}
 		
-		import sdc.format.writer;
+		import format.writer;
 		auto o = Writer(chunks).write().text;
 		
 		import std.stdio;

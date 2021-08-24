@@ -24,7 +24,7 @@ ifdef LD_PATH
 	override LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-override LDFLAGS += $(SDC_LIB) -lphobos2 $(LLVM_LIB)
+override LDFLAGS += -lphobos2 $(LLVM_LIB)
 
 ifeq ($(PLATFORM),Linux)
 	LD_LLD = $(shell which ld.lld | xargs basename)
@@ -50,6 +50,7 @@ default: all
 
 include sdlib/sdmd.mak
 include src/sdc.mak
+include src/sdfmt.mak
 include sdlib/sdrt.mak
 include sdlib/phobos.mak
 

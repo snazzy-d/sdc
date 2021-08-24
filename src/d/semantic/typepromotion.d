@@ -5,9 +5,9 @@ import d.semantic.semantic;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
+import source.context.location;
 
-import d.exception;
+import source.exception;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -99,7 +99,7 @@ struct TypePromoter {
 			return Type.get(s);
 		}
 		
-		import d.exception;
+		import source.exception;
 		throw new CompileException(location, "Incompatible struct type " ~ s.name.toString(context) ~ " and " ~ t1.toString(context));
 	}
 	

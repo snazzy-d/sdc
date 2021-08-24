@@ -1,6 +1,6 @@
 module d.common.node;
 
-public import d.context.location;
+public import source.context.location;
 
 class Node {
 	Location location;
@@ -14,7 +14,7 @@ class Node {
 		// assert(location != Location.init, "node location must never be init");
 	}
 final:
-	import d.context;
+	import source.context;
 	auto getFullLocation(Context c) const {
 		return location.getFullLocation(c);
 	}

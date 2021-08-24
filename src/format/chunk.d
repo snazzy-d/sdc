@@ -1,4 +1,4 @@
-module sdc.format.chunk;
+module format.chunk;
 
 enum SplitType {
 	None,
@@ -32,7 +32,7 @@ private:
 	import std.bitmanip;
 	mixin(bitfields!(FieldsTuple, ulong, "", Pad));
 	
-	import sdc.format.span;
+	import format.span;
 	Span _span = null;
 	
 	union {
@@ -129,7 +129,7 @@ private:
 	SplitType pendingWhiteSpace = SplitType.None;
 	uint indentation;
 	
-	import sdc.format.span;
+	import format.span;
 	Span spanStack = null;
 	
 	struct Fixup {

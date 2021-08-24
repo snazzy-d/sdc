@@ -97,7 +97,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 		alias DeclarationType = UnionDeclaration;
 	}
 	
-	import d.context.name;
+	import source.context.name;
 	Name name;
 	AstTemplateParameter[] parameters;
 	
@@ -151,7 +151,7 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc) in {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	
-	import d.context.name;
+	import source.context.name;
 	Name name;
 	AstType type = AstType.getAuto();
 	

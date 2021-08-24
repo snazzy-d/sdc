@@ -307,7 +307,7 @@ unittest {
 		/**
 		 * Literals
 		 */
-		import d.context.location;
+		import source.context.location;
 		v = vrp.visit(new BooleanLiteral(Location.init, false));
 		assert(v == VR(0));
 		
@@ -395,7 +395,7 @@ unittest {
 		/**
 		 * Variables
 		 */
-		import d.context.name;
+		import source.context.name;
 		auto var = new Variable(
 			Location.init,
 			tuint.getParamType(ParamKind.Regular),

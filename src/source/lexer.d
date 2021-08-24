@@ -1,4 +1,4 @@
-module d.lexer;
+module source.lexer;
 
 import std.array;
 import std.range;
@@ -116,14 +116,14 @@ enum TokenType {
 	Hash,				// #
 }
 
-import d.context;
-import d.context.location;
+import source.context;
+import source.context.location;
 
 struct Token {
 	Location location;
 	TokenType type;
 	
-	import d.context.name;
+	import source.context.name;
 	Name name;
 	
 	string toString(Context context) {
@@ -625,7 +625,7 @@ private:
 		t.type = type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-		import d.context.name;
+		import source.context.name;
 		t.name = BuiltinName!s;
 		
 		return t;
@@ -640,7 +640,7 @@ private:
 		t.type = type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-		import d.context.name;
+		import source.context.name;
 		t.name = BuiltinName!s;
 		
 		return t;

@@ -1,4 +1,4 @@
-module d.context.config;
+module d.config;
 
 struct Config {
 	string[] includePaths;

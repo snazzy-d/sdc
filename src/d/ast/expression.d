@@ -7,8 +7,8 @@ import d.ast.type;
 
 import d.common.node;
 
-import d.context;
-import d.context.name;
+import source.context;
+import source.context.name;
 
 abstract class AstExpression : Node {
 	this(Location location) {

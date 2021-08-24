@@ -7,9 +7,9 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.context.location;
+import source.context.location;
 
-import d.exception;
+import source.exception;
 
 Expression buildImplicitCast(
 	SemanticPass pass,

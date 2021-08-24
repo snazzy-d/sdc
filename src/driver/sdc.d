@@ -9,7 +9,7 @@ int main(string[] args) {
 		}
 	}
 	
-	import d.context.config;
+	import d.config;
 	Config conf;
 	
 	bool dontLink, generateMain;
@@ -86,7 +86,7 @@ int main(string[] args) {
 	import sdc.sdc, sdc.config;
 	auto c = new SDC(files[0], buildConf(), conf);
 	
-	import d.exception;
+	import source.exception;
 	try {
 		foreach (file; files) {
 			c.compile(file);
