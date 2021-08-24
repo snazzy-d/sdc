@@ -95,7 +95,7 @@ struct SymbolAnalyzer {
 		
 		auto mangle = m.mangle = context.getName(manglePrefix);
 		
-		import source.context.name;
+		import source.name;
 		// All modules implicitely import object.
 		auto obj = importModule([BuiltinName!"object"]);
 		m.addImport(obj);
@@ -120,9 +120,9 @@ struct SymbolAnalyzer {
 			f.intrinsicID = i;
 		}
 		
-		import source.context.name;
+		import source.name;
 		void set(Name name, Intrinsic i) {
-			import source.context.location;
+			import source.location;
 			auto s = m.resolve(Location.init, name);
 			if (s is null) {
 				return;
@@ -187,7 +187,7 @@ struct SymbolAnalyzer {
 		auto fbody = fd.fbody;
 		bool isAuto = false;
 		
-		import source.context.name;
+		import source.name;
 		immutable isCtor = f.name == BuiltinName!"__ctor";
 		immutable isDtor = f.name == BuiltinName!"__dtor";
 		
@@ -379,7 +379,7 @@ struct SymbolAnalyzer {
 				"ctxSym must be defined if function has a context pointer."
 			);
 			
-			import source.context.name;
+			import source.name;
 			auto contextParameter = new Variable(
 				f.location,
 				Type.getContextType(ctxSym).getParamType(ParamKind.Ref),
@@ -592,7 +592,7 @@ struct SymbolAnalyzer {
 		s.mangle = context.getName(mangle);
 		
 		// XXX: d is hijacked without explicit import
-		import source.context.name : BuiltinName;
+		import source.name : BuiltinName;
 		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
@@ -703,7 +703,7 @@ struct SymbolAnalyzer {
 		u.mangle = context.getName(mangle);
 		
 		// XXX: d is hijacked without explicit import
-		import source.context.name : BuiltinName;
+		import source.name : BuiltinName;
 		
 		Field[] fields;
 		if (u.hasContext) {
@@ -824,7 +824,7 @@ struct SymbolAnalyzer {
 				.getPointer(TypeQualifier.Immutable);
 			
 			// XXX: d is hijacked without explicit import
-			import source.context.name : BuiltinName;
+			import source.name : BuiltinName;
 
 			// TODO: use defaultinit.
 			auto vtbl = new Field(
@@ -866,7 +866,7 @@ struct SymbolAnalyzer {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
-			import source.context.name;
+			import source.name;
 			auto ctx = new Field(
 				c.location,
 				fieldIndex++,
@@ -1351,7 +1351,7 @@ struct SymbolAnalyzer {
 		
 		string name;
 		
-		import source.context.name;
+		import source.name;
 		if (f.name == BuiltinName!"") {
 			// FIXME: can still collide with mixins,
 			// but that should rare enough for now.

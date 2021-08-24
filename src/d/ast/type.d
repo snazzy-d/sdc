@@ -338,7 +338,7 @@ unittest {
 	auto p = l.getPointer();
 	assert(p.element == l);
 	
-	import source.context.location;
+	import source.location;
 	auto s1 = new DollarExpression(Location.init);
 	auto a1 = l.getArray(s1);
 	assert(a1.size is s1);
@@ -354,7 +354,7 @@ unittest {
 	assert(m.key == f);
 	assert(m.element == l);
 	
-	import source.context.name;
+	import source.name;
 	auto i = new BasicIdentifier(Location.init, BuiltinName!"");
 	t = AstType.get(i, TypeQualifier.Shared);
 	assert(t.identifier is i);

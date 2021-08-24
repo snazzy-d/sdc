@@ -4,7 +4,7 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-import source.context.name;
+import source.name;
 import d.common.node;
 
 /**

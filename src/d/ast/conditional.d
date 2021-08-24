@@ -4,7 +4,7 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
 
-import source.context.location;
+import source.location;
 
 final:
 
@@ -12,7 +12,7 @@ final:
  * Version Conditional
  */
 class Version(ItemType) : ItemType if (is(ItemType == Statement) || is(ItemType == Declaration))  {
-	import source.context.name;
+	import source.name;
 	Name versionId;
 	
 	ItemType[] items;
@@ -33,7 +33,7 @@ alias VersionDeclaration = Version!Declaration;
  * Version definition (ie version = FOOBAR)
  */
 class VersionDefinition(ItemType) : ItemType if(is(ItemType == Statement) || is(ItemType == Declaration)) {
-	import source.context.name;
+	import source.name;
 	Name versionId;
 	
 	this(Location location, Name versionId) {

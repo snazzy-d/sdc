@@ -4,8 +4,8 @@ import d.ir.symbol;
 
 import d.ast.conditional;
 
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 struct ConditionalBranch {
 // XXX: Can't be private because mixin templates are a glorious hack.
@@ -67,7 +67,7 @@ private:
 		ParentScope parentScope;
 	}
 	
-	import source.context.name;
+	import source.name;
 	Symbol[Name] symbols;
 	
 	static if (ST) {

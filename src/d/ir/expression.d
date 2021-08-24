@@ -6,8 +6,8 @@ import d.ir.type;
 import d.ast.expression;
 
 import source.context;
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 abstract class Expression : AstExpression {
 	Type type;

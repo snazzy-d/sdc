@@ -2,7 +2,7 @@ module d.llvm.intrinsic;
 
 import d.llvm.local;
 
-import source.context.name;
+import source.name;
 
 import d.ir.expression;
 

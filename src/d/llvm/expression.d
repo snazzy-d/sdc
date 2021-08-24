@@ -6,7 +6,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import source.context.location;
+import source.location;
 
 import util.visitor;
 

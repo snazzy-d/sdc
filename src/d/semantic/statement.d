@@ -6,8 +6,8 @@ import d.ast.conditional;
 import d.ast.expression;
 import d.ast.statement;
 
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 import d.ir.dscope;
 import d.ir.expression;
@@ -488,7 +488,7 @@ public:
 		import d.semantic.expression;
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 		
-		import source.context.name, d.semantic.identifier;
+		import source.name, d.semantic.identifier;
 		auto length = IdentifierResolver(pass)
 			.buildIn(iterated.location, iterated, BuiltinName!"length")
 			.apply!(delegate Expression(e) {

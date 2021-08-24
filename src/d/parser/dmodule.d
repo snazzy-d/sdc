@@ -5,7 +5,7 @@ import d.ast.declaration;
 import d.parser.base;
 import d.parser.declaration;
 
-import source.context.name;
+import source.name;
 
 /**
  * Parse a whole module.

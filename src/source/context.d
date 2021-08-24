@@ -2,10 +2,10 @@ module source.context;
 
 final class Context {
 package:
-	import source.context.name;
+	import source.name;
 	NameManager _nameManager;
 	
-	import source.context.source;
+	import source.manager;
 	SourceManager sourceManager;
 	
 public:
@@ -20,7 +20,7 @@ public:
 		return _nameManager;
 	}
 	
-	import source.context.location;
+	import source.location;
 	Position registerFile(Location location, string filename, string directory) {
 		import std.file, std.path;
 		auto data = cast(const(ubyte)[]) read(buildPath(directory, filename));

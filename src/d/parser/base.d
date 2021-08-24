@@ -2,9 +2,9 @@
 module d.parser.base;
 
 public import source.lexer;
-public import source.context.location;
+public import source.location;
 
-import source.context.name;
+import source.name;
 
 enum ParseMode {
 	Greedy,

@@ -1,4 +1,4 @@
-module source.context.location;
+module source.location;
 
 import source.context;
 

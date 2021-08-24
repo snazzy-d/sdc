@@ -4,7 +4,7 @@ import d.semantic.semantic;
 
 import d.ir.instruction;
 
-import source.context.location;
+import source.location;
 
 struct FlowAnalyzer {
 private:

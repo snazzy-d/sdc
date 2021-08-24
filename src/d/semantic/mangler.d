@@ -265,7 +265,7 @@ unittest {
 
 unittest {
 	void check(string s, string m) {
-		import source.context.location, d.ir.expression;
+		import source.location, d.ir.expression;
 		auto sl = new StringLiteral(Location.init, s);
 		
 		assert(ValueMangler().visit(sl) == m);

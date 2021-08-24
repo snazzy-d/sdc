@@ -1,8 +1,8 @@
-module source.context.source;
+module source.manager;
 
 import source.context;
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 struct Source {
 private:

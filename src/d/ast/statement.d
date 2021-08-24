@@ -62,7 +62,7 @@ class DeclarationStatement : Statement {
  * indentifier * identifier kind of things
  */
 class IdentifierStarNameStatement : Statement {
-	import source.context.name;
+	import source.name;
 	Name name;
 	
 	import d.ast.identifier;
@@ -278,7 +278,7 @@ class ContinueStatement : Statement {
  * goto statements
  */
 class GotoStatement : Statement {
-	import source.context.name;
+	import source.name;
 	Name label;
 	
 	this(Location location, Name label) {
@@ -292,7 +292,7 @@ class GotoStatement : Statement {
  * Label: statement
  */
 class LabeledStatement : Statement {
-	import source.context.name;
+	import source.name;
 	Name label;
 	
 	Statement statement;
@@ -406,7 +406,7 @@ class TryStatement : Statement {
 struct CatchBlock {
 	Location location;
 	
-	import source.context.name;
+	import source.name;
 	Name name;
 	
 	import d.ast.identifier;

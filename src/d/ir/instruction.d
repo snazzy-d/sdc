@@ -1,8 +1,8 @@
 module d.ir.instruction;
 
 import source.context;
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 import d.ir.expression;
 import d.ir.symbol;
@@ -191,7 +191,7 @@ struct BasicBlock {
 private:
 	Instruction[] instructions;
 	
-	import source.context.name;
+	import source.name;
 	Name _name;
 	
 	Terminator _terminator;

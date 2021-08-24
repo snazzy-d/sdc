@@ -1,4 +1,4 @@
-module source.context.name;
+module source.name;
 
 import source.context;
 

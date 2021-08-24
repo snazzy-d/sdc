@@ -124,7 +124,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 }
 
 struct IdentifierStarName {
-	import source.context.name;
+	import source.name;
 	Name name;
 
 	Identifier identifier;

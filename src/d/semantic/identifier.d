@@ -9,8 +9,8 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 alias Identifiable = Type.UnionType!(Symbol, Expression);
 

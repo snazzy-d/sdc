@@ -1,6 +1,6 @@
 module d.common.node;
 
-public import source.context.location;
+public import source.location;
 
 class Node {
 	Location location;

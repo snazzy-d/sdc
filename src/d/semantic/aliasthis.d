@@ -5,7 +5,7 @@ import d.semantic.semantic;
 import d.ir.expression;
 import d.ir.symbol;
 
-import source.context.location;
+import source.location;
 
 import source.exception;
 
@@ -36,7 +36,7 @@ struct AliasThisResolver(alias handler) {
 		return resolve(e, a.aliasThis);
 	}
 	
-	import source.context.name;
+	import source.name;
 	private Ret[] resolve(Expression e, Name[] aliases) {
 		import d.semantic.identifier;
 		import std.algorithm, std.array;

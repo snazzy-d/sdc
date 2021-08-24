@@ -6,7 +6,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import source.context.location;
+import source.location;
 
 alias InitBuilder = DefaultInitializerVisitor!(true, false);
 alias InstanceBuilder = DefaultInitializerVisitor!(false, false);
@@ -110,7 +110,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		
 		auto loc = value.location;
 		
-		import source.context.name;
+		import source.name;
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 		
@@ -120,7 +120,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(Struct s) {
 		scheduler.require(s, Step.Signed);
 		
-		import source.context.name;
+		import source.name;
 		auto init = cast(Variable) s.resolve(location, BuiltinName!"init");
 		assert(init, "init must be defined");
 		
@@ -182,7 +182,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			fields[0] = new VtblExpression(location, c);
 			if (c.hasContext) {
 				import std.algorithm;
-				import source.context.name;
+				import source.name;
 				auto ctxr = c.members
 					.filter!(m => m.name == BuiltinName!"__ctx")
 					.map!(m => cast(Field) m);

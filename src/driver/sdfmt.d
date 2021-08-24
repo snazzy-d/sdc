@@ -45,7 +45,7 @@ int main(string[] args) {
 	auto context = new Context();
 	
 	foreach (filename; files) {
-		import source.context.location;
+		import source.location;
 	    auto base = context.registerFile(Location.init, filename, "");
 		
 		import source.lexer;

@@ -304,7 +304,7 @@ struct JitRepacker {
 	CodeGen pass;
 	alias pass this;
 	
-	import source.context.location;
+	import source.location;
 	Location location;
 	
 	void[] p;

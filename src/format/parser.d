@@ -163,7 +163,7 @@ private:
 	/**
 	 * Whitespace management.
 	 */
-	import source.context.location;
+	import source.location;
 	uint getStartLineNumber(Location loc) {
 		return loc.getFullLocation(context).getStartLineNumber();
 	}

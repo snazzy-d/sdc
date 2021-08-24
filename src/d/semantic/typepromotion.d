@@ -5,7 +5,7 @@ import d.semantic.semantic;
 import d.ir.symbol;
 import d.ir.type;
 
-import source.context.location;
+import source.location;
 
 import source.exception;
 

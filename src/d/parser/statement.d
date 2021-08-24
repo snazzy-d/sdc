@@ -270,7 +270,7 @@ Statement parseStatement(ref TokenRange trange) {
 		case Goto:
 			trange.popFront();
 			
-			import source.context.name;
+			import source.name;
 			Name label;
 			switch(trange.front.type) {
 				case Identifier:
@@ -296,7 +296,7 @@ Statement parseStatement(ref TokenRange trange) {
 			auto name = trange.front.name;
 			trange.match(Identifier);
 			
-			import source.context.name;
+			import source.name;
 			ScopeKind kind;
 			if (name == BuiltinName!"exit") {
 				kind = ScopeKind.Exit;
@@ -362,7 +362,7 @@ Statement parseStatement(ref TokenRange trange) {
 					import d.parser.identifier;
 					auto type = trange.parseIdentifier();
 					
-					import source.context.name;
+					import source.name;
 					Name name;
 					if (trange.front.type == Identifier) {
 						name = trange.front.name;

@@ -11,7 +11,7 @@ import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 
-import source.context.location;
+import source.location;
 
 import source.exception;
 
@@ -89,7 +89,7 @@ private:
 		
 		auto loc = value.location;
 		
-		import source.context.name;
+		import source.name;
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 		
@@ -101,7 +101,7 @@ private:
 			return e;
 		}
 		
-		import source.context.name;
+		import source.name;
 		auto v = new Variable(
 			value.location,
 			value.type.getParamType(ParamKind.Ref),
@@ -806,7 +806,7 @@ public:
 	} do {
 		auto agg = thisExpr.type.aggregate;
 		
-		import source.context.name, d.semantic.identifier;
+		import source.name, d.semantic.identifier;
 		return IdentifierResolver(pass)
 			.resolveIn(location, agg, BuiltinName!"__ctor")
 			.apply!(delegate Expression(i) {
@@ -1175,7 +1175,7 @@ public:
 		auto di = NewBuilder(pass, e.location).visit(type);
 		auto hackForDg = (&di)[0 .. 1];
 		
-		import source.context.name, d.semantic.identifier;
+		import source.name, d.semantic.identifier;
 		auto ctor = IdentifierResolver(pass)
 			.resolveIn(e.location, type, BuiltinName!"__ctor")
 			.apply!(delegate Function(identified) {
@@ -1227,7 +1227,7 @@ public:
 	}
 	
 	Expression getThis(Location location) {
-		import source.context.name, d.semantic.identifier;
+		import source.name, d.semantic.identifier;
 		auto thisExpr = IdentifierResolver(pass)
 			.build(location, BuiltinName!"this")
 			.apply!(delegate Expression(identified) {

@@ -556,7 +556,7 @@ unittest {
 }
 
 unittest {
-	import source.context.location, source.context.name, d.ir.symbol;
+	import source.location, source.name, d.ir.symbol;
 	auto m = new Module(Location.init, BuiltinName!"", null);
 	auto c = new Class(Location.init, m, BuiltinName!"", []);
 	auto tc = Type.get(c);
@@ -569,7 +569,7 @@ unittest {
 }
 
 unittest {
-	import source.context.location, source.context.name, d.ir.symbol;
+	import source.location, source.name, d.ir.symbol;
 	auto i = Type.get(BuiltinType.Int);
 	auto a1 = new TypeAlias(Location.init, BuiltinName!"", i);
 	auto a1t = Type.get(a1);
@@ -585,7 +585,7 @@ unittest {
 }
 
 unittest {
-	import source.context.location, source.context.name, d.ir.symbol;
+	import source.location, source.name, d.ir.symbol;
 	auto f = Type.get(BuiltinType.Float, TypeQualifier.Const);
 	auto a = new TypeAlias(Location.init, BuiltinName!"", f);
 	

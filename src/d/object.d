@@ -2,8 +2,8 @@ module d.object;
 
 import d.ir.symbol;
 
-import source.context.location;
-import source.context.name;
+import source.location;
+import source.name;
 
 final class ObjectReference {
 	private Module object;

@@ -5,7 +5,7 @@ import d.llvm.local;
 import d.ir.expression;
 import d.ir.instruction;
 
-import source.context.location;
+import source.location;
 
 import util.visitor;
 
@@ -69,7 +69,7 @@ struct StatementGen {
 					auto s = v.type.getCanonical().dstruct;
 					assert(!s.isPod, "struct is not a pod");
 					
-					import source.context.name;
+					import source.name;
 					auto dsym = s.resolve(i.location, BuiltinName!"__dtor");
 					
 					import d.ir.symbol;

@@ -5,7 +5,7 @@
 module source.exception;
 
 class CompileException : Exception {
-	import source.context.location;
+	import source.location;
 	Location location;
 	
 	CompileException more; // Optional

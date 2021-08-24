@@ -2,7 +2,7 @@ module util.terminal;
 
 import std.stdio;
 
-import source.context.location;
+import source.location;
 
 version(Windows) {
 	import core.sys.windows.windows;

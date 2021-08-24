@@ -117,13 +117,13 @@ enum TokenType {
 }
 
 import source.context;
-import source.context.location;
+import source.location;
 
 struct Token {
 	Location location;
 	TokenType type;
 	
-	import source.context.name;
+	import source.name;
 	Name name;
 	
 	string toString(Context context) {
@@ -625,7 +625,7 @@ private:
 		t.type = type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-		import source.context.name;
+		import source.name;
 		t.name = BuiltinName!s;
 		
 		return t;
@@ -640,7 +640,7 @@ private:
 		t.type = type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
-		import source.context.name;
+		import source.name;
 		t.name = BuiltinName!s;
 		
 		return t;
