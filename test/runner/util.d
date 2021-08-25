@@ -180,12 +180,15 @@ Result runTasks(R)(R tasks, ref const Options options) {
 		running++;
 		
 		static void runTask(Task task, Tid managerTid) {
-			// Make sure we send somethign back when we fail.
-			scope(failure) {
-				managerTid.send(TestResult("", false, false));
+			try {
+				managerTid.send(task.run());
+			} catch (Exception e) {
+				import std.stdio;
+				stderr.writeln(e);
+				
+				// Make sure we send something back when we fail.
+				managerTid.send(TestResult("", false, true));
 			}
-			
-			managerTid.send(task.run());
 		}
 		
 		spawn(&runTask, t, thisTid);

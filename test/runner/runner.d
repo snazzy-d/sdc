@@ -89,20 +89,21 @@ struct Task {
 			}
 		}
 
-		import std.path;
+		import std.path, std.file;
 		auto dir = dirName(name);
 		auto file = baseName(name);
 		
 		string exeName = file ~ EXE_EXTENSION;
+		string fullExeName = dir ~ "/" ~ exeName;
 		scope(exit) {
-			import std.file;
-			if (exists(exeName)) {
-				remove(exeName);
+			if (exists(fullExeName)) {
+				remove(fullExeName);
 			}
 		}
 		
 		import std.process;
 		string[] command = [compiler, "-o", exeName, file] ~ dependencies;
+		
 		auto result = execute(command, /* env = */ null, Config.none, /* maxOutput = */ size_t.max, dir);
 		
 		string output = result.output;
@@ -129,6 +130,11 @@ struct Task {
 		}
 		
 		assert(expectedToCompile);
+		if (!exists(fullExeName)) {
+			stderr.writefln("%s: expected %s to be generated, but it wasn't", name, exeName);
+			return TestResult(name, false, hasPassed);
+		}
+		
 		auto retval = execute(["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */ size_t.max, dir).status;
 		if (retval != expectedRetval) {
 			stderr.writefln("%s: expected reval %s, got %s", name, expectedRetval, retval);
