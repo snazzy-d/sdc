@@ -21,40 +21,64 @@ endif
 
 LIBD = lib/libd.a
 
-LIBD_IMPORTS = -Isrc
-
 $(LIBD): $(LIBD_DEP_ALL)
 	@mkdir -p lib
 	ar rcs $(LIBD) $^
 
 obj/libd.o: $(LIBD_SRC_ALL)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_ALL) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_ALL) -makedeps="$@.deps" $(DFLAGS)
 
 obj/d.o: $(LIBD_SRC_D)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_D) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_D) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-d: $(LIBD_SRC_D)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_D)
 
 obj/util.o: $(LIBD_SRC_UTIL)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_UTIL) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_UTIL) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-util: $(LIBD_SRC_UTIL)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_UTIL)
 
 obj/common.o: $(LIBD_SRC_COMMON)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_COMMON) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_COMMON) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-common: $(LIBD_SRC_COMMON)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_COMMON)
 
 obj/ast.o: $(LIBD_SRC_AST)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_AST) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_AST) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-ast: $(LIBD_SRC_AST)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_AST)
 
 obj/ir.o: $(LIBD_SRC_IR)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_IR) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_IR) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-ir: $(LIBD_SRC_IR)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_IR)
 
 obj/parser.o: $(LIBD_SRC_PARSER)
 	@mkdir -p obj
-	$(DMD) -c -of"$@" $(LIBD_SRC_PARSER) -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_SRC_PARSER) -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-parser: $(LIBD_SRC_PARSER)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_PARSER)
 
 obj/semantic/%.o: src/d/semantic/%.d
 	@mkdir -p obj/semantic
-	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS) $(LIBD_IMPORTS)
+	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS)
+
+check-libd-semantic: $(LIBD_SRC_SEMANTIC)
+	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBD_SRC_SEMANTIC)
+
+check-libd: check-libd-d check-libd-util check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
+.PHONY: check-libd-d check-libd-util check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
+
+check: check-libd

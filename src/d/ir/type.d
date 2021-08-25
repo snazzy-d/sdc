@@ -674,8 +674,8 @@ unittest {
 	assert(d.isVariadic == true);
 	assert(d.isPure == false);
 	assert(d.returnType == r);
-	assert(source.contexts.length == 1);
-	assert(source.contexts[0] == c);
+	assert(d.contexts.length == 1);
+	assert(d.contexts[0] == c);
 	assert(d.parameters.length == 1);
 	assert(d.parameters[0] == p);
 	

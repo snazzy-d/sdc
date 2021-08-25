@@ -2,14 +2,13 @@ DMD ?= dmd
 GCC ?= gcc
 NASM ?= nasm
 ARCHFLAG ?= -m64
-# DFLAGS = $(ARCHFLAG) -w -debug -g -unittest
-DFLAGS = $(ARCHFLAG) -w -debug -g
+DFLAGS = $(ARCHFLAG) -Isrc -w -debug -g
 PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
 LLVM_CONFIG ?= llvm-config
-LLVM_LIB = `$(LLVM_CONFIG) --ldflags` `$(LLVM_CONFIG) --libs` `$(LLVM_CONFIG) --system-libs`
+LLVM_LIB = $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) $(shell $(LLVM_CONFIG) --system-libs)
 SDC_LIB = -Llib -lsdc -ld -ld-llvm -lsdmd
 
 # dmd.conf doesn't set the proper -L flags.  
@@ -43,33 +42,22 @@ ifeq ($(PLATFORM),FreeBSD)
 	override NASMFLAGS += -f elf64
 endif
 
-SDLIB_DEPS = $(SDC) bin/sdc.conf
-
 # To make sure make calls all
 default: all
 
-include sdlib/sdmd.mak
 include src/sdc.mak
 include src/sdfmt.mak
-include sdlib/sdrt.mak
-include sdlib/phobos.mak
 
 all: $(ALL_EXECUTABLES) $(LIBSDRT) $(PHOBOS)
+
+check: all
 
 clean:
 	rm -rf obj lib $(ALL_EXECUTABLES)
 
 print-%: ; @echo $*=$($*)
 
-check-sdc: $(SDC) $(LIBSDRT) $(PHOBOS)
-	test/runner/runner.d
-
-check-sdfmt: $(SDFMT)
-	test/runner/checkformat.d
-
-check: all check-sdc check-llvm check-sdfmt
-
-.PHONY: check check-sdc check-llvm check-sdfmt clean default
+.PHONY: check clean default
 
 # Secondary without dependency make all temporaries secondary.
 .SECONDARY:
