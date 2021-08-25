@@ -7,10 +7,6 @@ PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
-LLVM_CONFIG ?= llvm-config
-LLVM_LIB = $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) $(shell $(LLVM_CONFIG) --system-libs)
-SDC_LIB = -Llib -lsdc -ld -ld-llvm -lsdmd
-
 # dmd.conf doesn't set the proper -L flags.  
 # Fix it here until dmd installer is updated
 ifeq ($(PLATFORM),Darwin)
@@ -23,7 +19,7 @@ ifdef LD_PATH
 	override LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
 
-override LDFLAGS += -lphobos2 $(LLVM_LIB)
+override LDFLAGS += -lphobos2
 
 ifeq ($(PLATFORM),Linux)
 	LD_LLD = $(shell which ld.lld | xargs basename)

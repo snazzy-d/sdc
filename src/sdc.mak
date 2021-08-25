@@ -28,11 +28,11 @@ obj/driver/%.o: src/driver/%.d
 
 $(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS)
+	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
 
 $(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS)
+	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
 
 bin/sdc.conf:
 	@mkdir -p bin
