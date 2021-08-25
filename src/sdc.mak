@@ -11,6 +11,7 @@ LIBSDC = lib/libsdc.a
 
 include src/libd.mak
 include src/libd-llvm.mak
+include src/libconfig.mak
 include src/libsource.mak
 
 include sdlib/sdmd.mak
