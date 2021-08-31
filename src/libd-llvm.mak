@@ -1,5 +1,3 @@
-# Common definitions
-
 LIBD_LLVM_SRC = $(wildcard src/d/llvm/*.d) import/llvm/c/target.d
 
 LIBD_LLVM = lib/libd-llvm.a

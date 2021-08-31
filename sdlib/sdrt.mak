@@ -1,5 +1,3 @@
-# Common definitions
-
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)

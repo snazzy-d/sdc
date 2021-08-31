@@ -1,5 +1,3 @@
-# Common definitions
-
 LIBSDFMT_SRC = $(wildcard src/format/*.d)
 
 SDFMT = bin/sdfmt

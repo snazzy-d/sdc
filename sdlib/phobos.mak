@@ -1,5 +1,3 @@
-# Common definitions
-
 PHOBOS_SRC = $(wildcard sdlib/std/*.d)
 PHOBOS_OBJ = $(PHOBOS_SRC:sdlib/std/%.d=obj/phobos/%.o)
 

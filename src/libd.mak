@@ -1,5 +1,3 @@
-# Common definitions
-
 LIBD_SRC_D = $(wildcard src/d/*.d)
 LIBD_SRC_UTIL = $(wildcard src/util/*.d)
 LIBD_SRC_COMMON = $(wildcard src/d/common/*.d)

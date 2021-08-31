@@ -1,5 +1,3 @@
-# Common definitions
-
 LIBSDC_SRC = $(wildcard src/sdc/*.d) $(wildcard src/sdc/util/*.d)
 
 DRIVER_SRC = $(wildcard src/driver/*.d)
