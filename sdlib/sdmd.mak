@@ -6,7 +6,9 @@ SDFLAGS ?=
 NATIVE_DMD_IMPORTS ?= -I/usr/include/dmd/druntime/import -I/usr/include/dmd/phobos
 LIBSDMD_IMPORTS = $(NATIVE_DMD_IMPORTS) -Isdlib
 
-$(LIBSDMD): $(LIBSMD_SRC)
+obj/sdmd.o: $(LIBSMD_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/sdmd.o -makedeps="$@.deps" $(LIBSMD_SRC) $(ARCHFLAG) $(LIBSDMD_IMPORTS)
+
+$(LIBSDMD): obj/sdmd.o
 	ar rcs $(LIBSDMD) obj/sdmd.o

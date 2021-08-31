@@ -16,9 +16,11 @@ include src/libsource.mak
 
 include sdlib/sdmd.mak
 
-$(LIBSDC): $(LIBSDC_SRC)
+obj/sdc.o: $(LIBSDC_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/sdc.o -makedeps="$@.deps" $(LIBSDC_SRC) $(DFLAGS) $(LIBD_LLVM_IMPORTS)
+
+$(LIBSDC): obj/sdc.o
 	ar rcs $(LIBSDC) obj/sdc.o
 
 obj/driver/%.o: src/driver/%.d

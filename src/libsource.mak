@@ -2,9 +2,11 @@ LIBSOURCE_SRC = $(wildcard src/source/*.d) $(wildcard src/source/util/*.d)
 
 LIBSOURCE = lib/libsource.a
 
-$(LIBSOURCE): $(LIBSOURCE_SRC)
+obj/libsource.o: $(LIBSOURCE_SRC)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/libsource.o $(LIBSOURCE_SRC) -makedeps="$@.deps" $(DFLAGS)
+	$(DMD) -c -of"$@" $(LIBSOURCE_SRC) -makedeps="$@.deps" $(DFLAGS)
+
+$(LIBSOURCE): obj/libsource.o
 	ar rcs $(LIBSOURCE) obj/libsource.o
 
 check-source: $(LIBSOURCE_SRC)

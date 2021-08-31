@@ -4,9 +4,11 @@ SDFMT = bin/sdfmt
 
 LIBSDFMT = lib/libsdfmt.a
 
-$(LIBSDFMT): $(LIBSDFMT_SRC)
+obj/format.o: $(LIBSDFMT_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -ofobj/format.o -makedeps="$@.deps" $(LIBSDFMT_SRC) $(DFLAGS)
+
+$(LIBSDFMT): obj/format.o
 	ar rcs $(LIBSDFMT) obj/format.o
 
 $(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBSOURCE)
