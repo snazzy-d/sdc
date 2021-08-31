@@ -347,8 +347,6 @@ private:
 		uint iend = popComment!s();
 		
 		t.location = Location(begin, base.getWithOffset(iend));
-		t.name = context.getName(content[ibegin .. iend]);
-		
 		return t;
 	}
 	
@@ -438,6 +436,9 @@ private:
 		
 		if (c == Delimiter) {
 			popChar();
+		} else {
+			t.type = TokenType.Invalid;
+			t.name = context.getName("Unexpected string literal termination");
 		}
 		
 		t.location = Location(begin, base.getWithOffset(index));
