@@ -14,7 +14,7 @@ private:
 	import source.context;
 	Context context;
 	
-	import source.lexer;
+	import source.dlexer;
 	TokenRange trange;
 	
 	import format.chunk;

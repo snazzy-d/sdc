@@ -1492,7 +1492,7 @@ public:
 		auto str = evalString(visit(e.value));
 		auto pos = context.registerMixin(e.location, str ~ "\0");
 		
-		import source.lexer;
+		import source.dlexer;
 		auto trange = lex(pos, context);
 		
 		import d.parser.base, d.parser.expression;

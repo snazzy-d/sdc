@@ -1,195 +1,32 @@
-module source.lexer;
+module source.lexerutil;
 
-import std.array;
-import std.range;
-import std.utf;
-
-enum TokenType {
-	Invalid = 0,
-	
-	Begin,
-	End,
-	
-	// Comments
-	Comment,
-	
-	// Literals
-	StringLiteral,
-	CharacterLiteral,
-	IntegerLiteral,
-	FloatLiteral,
-	
-	// Identifier
-	Identifier,
-	
-	// Keywords
-	Abstract, Alias, Align, Asm, Assert, Auto,
-	Body, Bool, Break, Byte,
-	Case, Cast, Catch, Cdouble, Cent, Cfloat, Char,
-	Class, Const, Continue, Creal,
-	Dchar, Debug, Default, Delegate, Delete,
-	Deprecated, Do, Double,
-	Else, Enum, Export, Extern,
-	False, Final, Finally, Float, For, Foreach,
-	ForeachReverse, Function,
-	Goto,
-	Idouble, If, Ifloat, Immutable, Import, In,
-	Inout, Int, Interface, Invariant, Ireal, Is,
-	Lazy, Long,
-	Macro, Mixin, Module,
-	New, Nothrow, Null,
-	Out, Override,
-	Package, Pragma, Private, Protected, Public, Pure,
-	Real, Ref, Return,
-	Scope, Shared, Short, Static, Struct, Super,
-	Switch, Synchronized,
-	Template, This, Throw, True, Try, Typedef,
-	Typeid, Typeof,
-	Ubyte, Ucent, Uint, Ulong, Union, Unittest, Ushort,
-	Version, Void, Volatile,
-	Wchar, While, With,
-	__File__, __Line__, __Gshared, __Traits, __Vector, __Parameters,
-	
-	/// Operators.
-	Slash,				// /
-	SlashEqual,			// /=
-	Dot,				// .
-	DotDot,				// ..
-	DotDotDot,			// ...
-	Ampersand,			// &
-	AmpersandEqual,		// &=
-	AmpersandAmpersand,	// &&
-	Pipe,				// |
-	PipeEqual,			// |=
-	PipePipe,			// ||
-	Minus,				// -
-	MinusEqual,			// -=
-	MinusMinus,			// --
-	Plus,				// +
-	PlusEqual,			// +=
-	PlusPlus,			// ++
-	Less,				// <
-	LessEqual,			// <=
-	LessLess,			// <<
-	LessLessEqual,		// <<=
-	LessMore,			// <>
-	LessMoreEqual,		// <>=
-	More,				// >
-	MoreEqual,			// >=
-	MoreMoreEqual,		// >>=
-	MoreMoreMoreEqual,	// >>>=
-	MoreMore,			// >>
-	MoreMoreMore,		// >>>
-	Bang,				// !
-	BangEqual,			// !=
-	BangLessMore,		// !<>
-	BangLessMoreEqual,	// !<>=
-	BangLess,			// !<
-	BangLessEqual,		// !<=
-	BangMore,			// !>
-	BangMoreEqual,		// !>=
-	OpenParen,			// (
-	CloseParen,			// )
-	OpenBracket,		// [
-	CloseBracket,		// ]
-	OpenBrace,			// {
-	CloseBrace,			// }
-	QuestionMark,		// ?
-	Comma,				// ,
-	Semicolon,			// ;
-	Colon,				// :
-	Dollar,				// $
-	Equal,				// =
-	EqualEqual,			// ==
-	Star,				// *
-	StarEqual,			// *=
-	Percent,			// %
-	PercentEqual,		// %=
-	Caret,				// ^
-	CaretEqual,			// ^=
-	CaretCaret,			// ^^
-	CaretCaretEqual,	// ^^=
-	Tilde,				// ~
-	TildeEqual,			// ~=
-	At,					// @
-	EqualMore,			// =>
-	Hash,				// #
-}
-
-import source.context;
-import source.location;
-
-struct Token {
-	Location location;
-	TokenType type;
-	
-	import source.name;
-	Name name;
-	
-	string toString(Context context) {
-		return (type >= TokenType.Identifier)
-			? name.toString(context)
-			: location.getFullLocation(context).getSlice();
-	}
-}
-
-auto lex(Position base, Context context) {
-	auto lexer = TokenRange();
-	
-	lexer.content = base.getFullPosition(context).getSource().getContent();
-	lexer.t.type = TokenType.Begin;
-	
-	lexer.context = context;
-	lexer.base = base;
-	lexer.previous = base;
-	
-	// Pop #!
-	auto c = lexer.frontChar;
-	if (c == '#') {
-		do {
-			lexer.popChar();
-			c = lexer.frontChar;
-		} while (c != '\n' && c != '\r');
-		
-		lexer.popChar();
-		if (c == '\r') {
-			if (lexer.frontChar == '\n') {
-				lexer.popChar();
-			}
-		}
-	}
-	
-	lexer.t.location =  Location(base, base.getWithOffset(lexer.index));
-	return lexer;
-}
-
-struct TokenRange {
+mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias OperatorMap) {
 // TODO: We shouldn't let consumer play with the internal state of the lexer.
 // Instead, we should provide accessor to useful members.
 // private:
-	static assert(isForwardRange!TokenRange);
-	
 	Token t;
+	
+	import source.location;
 	Position previous;
-	
 	Position base;
-	uint index;
 	
-	Context context;
-	string content;
+	uint index;
 	
 	// Skip comments by default.
 	bool tokenizeComments = false;
 	
-public:
-	TokenRange withComments(bool wc = true) {
-		TokenRange r = this.save;
+	import source.context;
+	Context context;
+	
+	string content;
+	
+	alias TokenRange = typeof(this);
+	
+	auto withComments(bool wc = true) {
+		auto r = this.save;
 		r.tokenizeComments = wc;
 		return r;
 	}
-	
-	// We don't want the lexer to be copyable. Use save.
-	@disable this(this);
 	
 	@property
 	auto front() inout {
@@ -223,7 +60,7 @@ public:
 	
 	@property
 	auto save() inout {
-		return inout(TokenRange)(t, previous, base, index, context, content);
+		return this;
 	}
 	
 	@property
@@ -233,9 +70,24 @@ public:
 	
 private:
 	auto getNextToken() {
+		static getLexerMap() {
+			auto ret = BaseMap;
+			
+			foreach (kw, _; KeywordMap) {
+				ret[kw] = "lexKeyword";
+			}
+			
+			foreach (op, _; OperatorMap) {
+				ret[op] = "lexOperator";
+			}
+			
+			return ret;
+		}
+		
 		while (true) {
-			// pragma(msg, lexerMixin());
-			mixin(lexerMixin());
+			import source.lexerutil;
+			// pragma(msg, lexerMixin(getLexerMap()));
+			mixin(lexerMixin(getLexerMap()));
 		}
 	}
 	
@@ -248,7 +100,7 @@ private:
 		return content[index];
 	}
 	
-	auto lexWhiteSpace(string s)() {
+	auto skip(string s)() {
 		// Just skip over whitespace.
 	}
 	
@@ -363,8 +215,10 @@ private:
 			// XXX: Dafuq does this need to be a size_t ?
 			size_t i = index;
 			
-			import std.uni;
+			import std.utf;
 			auto u = content.decode(i);
+			
+			import std.uni;
 			assert(isAlpha(u), "lex error");
 			
 			auto l = cast(ubyte) (i - index);
@@ -396,8 +250,10 @@ private:
 			// XXX: Dafuq does this need to be a size_t ?
 			size_t i = index;
 			
-			import std.uni;
+			import std.utf;
 			auto u = content.decode(i);
+			
+			import std.uni;
 			if (!isAlpha(u)) {
 				break;
 			}
@@ -609,8 +465,10 @@ private:
 		if (c & 0x80) {
 			size_t i = index;
 			
-			import std.uni;
+			import std.utf;
 			auto u = content.decode(i);
+			
+			import std.uni;
 			if (isAlpha(u)) {
 				auto l = cast(ubyte) (i - index);
 				index += l;
@@ -618,12 +476,12 @@ private:
 			}
 		}
 		
-		enum type = getKeywordsMap()[s];
+		enum Type = KeywordMap[s];
 		
 		uint l = s.length;
 		
 		Token t;
-		t.type = type;
+		t.type = Type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
 		import source.name;
@@ -633,12 +491,12 @@ private:
 	}
 	
 	auto lexOperator(string s)() {
-		enum type = getOperatorsMap()[s];
+		enum Type = OperatorMap[s];
 		
 		uint l = s.length;
 		
 		Token t;
-		t.type = type;
+		t.type = Type;
 		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
 
 		import source.name;
@@ -647,8 +505,6 @@ private:
 		return t;
 	}
 }
-
-private:
 
 @property
 char front(string s) {
@@ -669,237 +525,14 @@ auto isDigit(char c) {
 	return std.ascii.isDigit(c);
 }
 
-public:
-auto getOperatorsMap() {
-	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
-	with(TokenType)
-	return [
-		"/"		: Slash,
-		"/="	: SlashEqual,
-		"."		: Dot,
-		".."	: DotDot,
-		"..."	: DotDotDot,
-		"&"		: Ampersand,
-		"&="	: AmpersandEqual,
-		"&&"	: AmpersandAmpersand,
-		"|"		: Pipe,
-		"|="	: PipeEqual,
-		"||"	: PipePipe,
-		"-"		: Minus,
-		"-="	: MinusEqual,
-		"--"	: MinusMinus,
-		"+"		: Plus,
-		"+="	: PlusEqual,
-		"++"	: PlusPlus,
-		"<"		: Less,
-		"<="	: LessEqual,
-		"<<"	: LessLess,
-		"<<="	: LessLessEqual,
-		"<>"	: LessMore,
-		"<>="	: LessMoreEqual,
-		">"		: More,
-		">="	: MoreEqual,
-		">>="	: MoreMoreEqual,
-		">>>="	: MoreMoreMoreEqual,
-		">>"	: MoreMore,
-		">>>"	: MoreMoreMore,
-		"!"		: Bang,
-		"!="	: BangEqual,
-		"!<>"	: BangLessMore,
-		"!<>="	: BangLessMoreEqual,
-		"!<"	: BangLess,
-		"!<="	: BangLessEqual,
-		"!>"	: BangMore,
-		"!>="	: BangMoreEqual,
-		"("		: OpenParen,
-		")"		: CloseParen,
-		"["		: OpenBracket,
-		"]"		: CloseBracket,
-		"{"		: OpenBrace,
-		"}"		: CloseBrace,
-		"?"		: QuestionMark,
-		","		: Comma,
-		";"		: Semicolon,
-		":"		: Colon,
-		"$"		: Dollar,
-		"="		: Equal,
-		"=="	: EqualEqual,
-		"*"		: Star,
-		"*="	: StarEqual,
-		"%"		: Percent,
-		"%="	: PercentEqual,
-		"^"		: Caret,
-		"^="	: CaretEqual,
-		"^^"	: CaretCaret,
-		"^^="	: CaretCaretEqual,
-		"~"		: Tilde,
-		"~="	: TildeEqual,
-		"@"		: At,
-		"=>"	: EqualMore,
-		"#"		: Hash,
-		"\0"	: End,
-	];
-}
-
-auto getKeywordsMap() {
-	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
-	with(TokenType)
-	return [
-		"abstract"			: Abstract,
-		"alias"				: Alias,
-		"align"				: Align,
-		"asm"				: Asm,
-		"assert"			: Assert,
-		"auto"				: Auto,
-		"body"				: Body,
-		"bool"				: Bool,
-		"break"				: Break,
-		"byte"				: Byte,
-		"case"				: Case,
-		"cast"				: Cast,
-		"catch"				: Catch,
-		"cent"				: Cent,
-		"char"				: Char,
-		"class"				: Class,
-		"const"				: Const,
-		"continue"			: Continue,
-		"dchar"				: Dchar,
-		"debug"				: Debug,
-		"default"			: Default,
-		"delegate"			: Delegate,
-		"deprecated"		: Deprecated,
-		"do"				: Do,
-		"double"			: Double,
-		"else"				: Else,
-		"enum"				: Enum,
-		"export"			: Export,
-		"extern"			: Extern,
-		"false"				: False,
-		"final"				: Final,
-		"finally"			: Finally,
-		"float"				: Float,
-		"for"				: For,
-		"foreach"			: Foreach,
-		"foreach_reverse"	: ForeachReverse,
-		"function"			: Function,
-		"goto"				: Goto,
-		"if"				: If,
-		"immutable"			: Immutable,
-		"import"			: Import,
-		"in"				: In,
-		"inout"				: Inout,
-		"int"				: Int,
-		"interface"			: Interface,
-		"invariant"			: Invariant,
-		"is"				: Is,
-		"lazy"				: Lazy,
-		"long"				: Long,
-		"macro"				: Macro,
-		"mixin"				: Mixin,
-		"module"			: Module,
-		"new"				: New,
-		"nothrow"			: Nothrow,
-		"null"				: Null,
-		"out"				: Out,
-		"override"			: Override,
-		"package"			: Package,
-		"pragma"			: Pragma,
-		"private"			: Private,
-		"protected"			: Protected,
-		"public"			: Public,
-		"pure"				: Pure,
-		"real"				: Real,
-		"ref"				: Ref,
-		"return"			: Return,
-		"scope"				: Scope,
-		"shared"			: Shared,
-		"short"				: Short,
-		"static"			: Static,
-		"struct"			: Struct,
-		"super"				: Super,
-		"switch"			: Switch,
-		"synchronized"		: Synchronized,
-		"template"			: Template,
-		"this"				: This,
-		"throw"				: Throw,
-		"true"				: True,
-		"try"				: Try,
-		"typeid"			: Typeid,
-		"typeof"			: Typeof,
-		"ubyte"				: Ubyte,
-		"ucent"				: Ucent,
-		"uint"				: Uint,
-		"ulong"				: Ulong,
-		"union"				: Union,
-		"unittest"			: Unittest,
-		"ushort"			: Ushort,
-		"version"			: Version,
-		"void"				: Void,
-		"volatile"			: Volatile,
-		"wchar"				: Wchar,
-		"while"				: While,
-		"with"				: With,
-		"__FILE__"			: __File__,
-		"__LINE__"			: __Line__,
-		"__gshared"			: __Gshared,
-		"__traits"			: __Traits,
-		"__vector"			: __Vector,
-		"__parameters"		: __Parameters,
-	];
+string lexerMixin(string[string] ids) {
+	return lexerMixin("", "lexIdentifier", ids);
 }
 
 private:
-auto getLexerMap() {
-	auto ret = [
-		// WhiteSpaces
-		" "					: "-lexWhiteSpace",
-		"\t"				: "-lexWhiteSpace",
-		"\v"				: "-lexWhiteSpace",
-		"\f"				: "-lexWhiteSpace",
-		"\n"				: "-lexWhiteSpace",
-		"\r"				: "-lexWhiteSpace",
-		"\r\n"				: "-lexWhiteSpace",
-		
-		// Comments
-		"//"				: "!tokenizeComments?lexComment:popComment",
-		"/*"				: "!tokenizeComments?lexComment:popComment",
-		"/+"				: "!tokenizeComments?lexComment:popComment",
-		
-		// Integer literals.
-		"0b"				: "lexNumeric",
-		"0B"				: "lexNumeric",
-		"0x"				: "lexNumeric",
-		"0X"				: "lexNumeric",
-		
-		// String literals.
-		"`"					: "lexString",
-		`"`					: "lexString",
-		`x"`				: "lexString",
-		`q"`				: "lexString",
-		"q{"				: "lexString",
-		`r"`				: "lexString",
-		
-		// Character literals.
-		"'"					: "lexString",
-	];
-	
-	foreach (op, _; getOperatorsMap()) {
-		ret[op] = "lexOperator";
-	}
-	
-	foreach (kw, _; getKeywordsMap()) {
-		ret[kw] = "lexKeyword";
-	}
-	
-	foreach (i; 0 .. 10) {
-		import std.conv;
-		ret[to!string(i)] = "lexNumeric";
-	}
-	
-	return ret;
-}
 
 auto stringify(string s) {
+	import std.array;
 	return "`" ~ s.replace("`", "` ~ \"`\" ~ `").replace("\0", "` ~ \"\\0\" ~ `") ~ "`";
 }
 
@@ -941,7 +574,7 @@ auto getLexingCode(string fun, string base) {
 	}
 }
 
-string lexerMixin(string base = "", string def = "lexIdentifier", string[string] ids = getLexerMap()) {
+string lexerMixin(string base, string def, string[string] ids) {
 	auto defaultFun = def;
 	string[string][char] nextLevel;
 	foreach (id, fun; ids) {

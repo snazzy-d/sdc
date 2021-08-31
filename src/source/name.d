@@ -164,7 +164,7 @@ enum Prefill = [
 ];
 
 auto getNames() {
-	import source.lexer;
+	import source.dlexer;
 	
 	auto identifiers = [""];
 	foreach(k, _; getOperatorsMap()) {

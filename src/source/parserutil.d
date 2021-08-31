@@ -1,6 +1,6 @@
 module source.parserutil;
 
-import source.lexer;
+import source.dlexer;
 
 /**
  * Get the matching delimiter

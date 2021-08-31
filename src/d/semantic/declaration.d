@@ -833,9 +833,9 @@ struct DeclarationFlattener(S) if(is(S : Scope)) {
 		
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
-		
-		import source.lexer, d.ir.expression;
 		auto base = context.registerMixin(location, str ~ '\0');
+
+		import source.dlexer;
 		auto trange = lex(base, context);
 		
 		import d.parser.base;

@@ -1174,9 +1174,10 @@ public:
 	}
 	
 	void visit(Mixin!Statement s) {
-		import source.lexer;
 		auto str = evalString(buildString(s.value)) ~ '\0';
 		auto base = context.registerMixin(s.location, str);
+		
+		import source.dlexer;
 		auto trange = lex(base, context);
 		
 		import d.parser.base;

@@ -1,7 +1,7 @@
 // XXX: This whole file needs to go away.
 module d.parser.base;
 
-public import source.lexer;
+public import source.dlexer;
 public import source.location;
 
 import source.name;

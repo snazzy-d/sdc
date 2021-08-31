@@ -48,7 +48,7 @@ int main(string[] args) {
 		import source.location;
 	    auto base = context.registerFile(Location.init, filename, "");
 		
-		import source.lexer;
+		import source.dlexer;
 		auto l = lex(base, context);
 		
 		import format.parser;
