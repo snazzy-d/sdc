@@ -2,6 +2,23 @@ module source.parserutil;
 
 import source.dlexer;
 
+void match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
+	auto token = lexer.front;
+	
+	if (token.type == type) {
+		lexer.popFront();
+		return;
+	}
+	
+	import std.conv, std.string;
+	auto error = token.type == TokenType.Invalid
+		? token.name.toString(lexer.context)
+		: format!"expected '%s', got '%s'."(to!string(type), to!string(token.type));
+	
+	import source.exception;
+	throw new CompileException(token.location, error);
+}
+
 /**
  * Get the matching delimiter
  */

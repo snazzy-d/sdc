@@ -21,6 +21,7 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	string content;
 	
 	alias TokenRange = typeof(this);
+	alias TokenType = typeof(Token.init.type);
 	
 	auto withComments(bool wc = true) {
 		auto r = this.save;
@@ -33,11 +34,14 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 		return t;
 	}
 	
-	void popFront() {
+	void popFront() in {
+		assert(front.type != TokenType.End);
+	} do {
 		previous = t.location.stop;
 		t = getNextToken();
 		
-		/+ Exprerience the token deluge !
+		/+
+		// Exprerience the token deluge !
 		if (t.type != TokenType.End) {
 			import util.terminal, std.conv;
 			outputCaretDiagnostics(
@@ -86,12 +90,15 @@ private:
 		
 		while (true) {
 			import source.lexerutil;
+			// pragma(msg, typeof(this));
 			// pragma(msg, lexerMixin(getLexerMap()));
 			mixin(lexerMixin(getLexerMap()));
 		}
 	}
 	
-	void popChar() {
+	void popChar() in {
+		assert(index < content.length);
+	} do {
 		index++;
 	}
 	
@@ -271,19 +278,24 @@ private:
 		assert(index >= s.length);
 	} do {
 		Token t;
-		auto begin = base.getWithOffset(index - cast(uint) s.length);
-		t.type = (s != "\'")
-			? TokenType.StringLiteral
-			: TokenType.CharacterLiteral;
+		auto ibegin = index - cast(uint) s.length;
+		auto begin = base.getWithOffset(ibegin);
+		t.type = (s == "\'")
+			? TokenType.CharacterLiteral
+			: TokenType.StringLiteral;
 		
 		enum Delimiter = s[0];
 		enum DoesEscape = Delimiter != '`';
 		
 		auto c = frontChar;
-		while (c != Delimiter && c != '\0') {
+		while (c != Delimiter) {
 			if (DoesEscape && c == '\\') {
 				popChar();
 				c = frontChar;
+			}
+			
+			if (c == '\0') {
+				break;
 			}
 			
 			popChar();

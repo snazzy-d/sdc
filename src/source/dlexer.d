@@ -49,7 +49,7 @@ enum TokenType {
 	Wchar, While, With,
 	__File__, __Line__, __Gshared, __Traits, __Vector, __Parameters,
 	
-	/// Operators.
+	// Operators.
 	Slash,              // /
 	SlashEqual,         // /=
 	Dot,                // .
