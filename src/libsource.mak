@@ -10,7 +10,7 @@ $(LIBSOURCE): obj/libsource.o
 	ar rcs $(LIBSOURCE) obj/libsource.o
 
 check-source: $(LIBSOURCE_SRC)
-	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBSOURCE_SRC)
+	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"
 
 check: check-source
 .PHONY: check-source

@@ -16,7 +16,7 @@ $(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBSOURCE)
 	$(GCC) -o "$@" $^ $(ARCHFLAG) $(LDFLAGS)
 
 check-libfmt: $(LIBSDFMT_SRC)
-	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBSDFMT_SRC)
+	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"
 
 check-sdfmt: $(SDFMT)
 	test/runner/checkformat.d

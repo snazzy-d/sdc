@@ -1,6 +1,8 @@
 DMD ?= dmd
 GCC ?= gcc
 NASM ?= nasm
+RDMD ?= rdmd
+
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -Isrc -w -debug -g
 PLATFORM = $(shell uname -s)

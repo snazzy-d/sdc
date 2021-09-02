@@ -10,7 +10,7 @@ $(LIBCONFIG): obj/libconfig.o
 	ar rcs $(LIBCONFIG) obj/libconfig.o
 
 check-config: $(LIBCONFIG_SRC)
-	$(DMD) $(DFLAGS) -main -unittest -i -run $(LIBCONFIG_SRC)
+	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"
 
 check: check-config
 .PHONY: check-config
