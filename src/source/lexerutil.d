@@ -251,8 +251,7 @@ private:
 	} do {
 		Token t;
 		t.type = TokenType.Identifier;
-		auto ibegin = index - prefixLength;
-		auto begin = base.getWithOffset(ibegin);
+		immutable begin = index - prefixLength;
 		
 		while (true) {
 			while (isIdChar(frontChar)) {
@@ -277,8 +276,8 @@ private:
 			index = cast(uint) i;
 		}
 		
-		t.location = Location(begin, base.getWithOffset(index));
-		t.name = context.getName(content[ibegin .. index]);
+		t.location = base.getWithOffsets(begin, index);
+		t.name = context.getName(content[begin .. index]);
 		
 		return t;
 	}
@@ -286,9 +285,9 @@ private:
 	Token lexString(string s)() in {
 		assert(index >= s.length);
 	} do {
+		immutable begin = cast(uint) (index - s.length);
+		
 		Token t;
-		auto ibegin = index - cast(uint) s.length;
-		auto begin = base.getWithOffset(ibegin);
 		t.type = (s == "\'")
 			? TokenType.CharacterLiteral
 			: TokenType.StringLiteral;
@@ -318,7 +317,7 @@ private:
 			t.name = context.getName("Unexpected string literal termination");
 		}
 		
-		t.location = Location(begin, base.getWithOffset(index));
+		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
@@ -329,8 +328,7 @@ private:
 	Token lexNumeric(string s)() if (s.length == 2 && s[0] == '0') {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
-		auto ibegin = index - 2;
-		auto begin = base.getWithOffset(ibegin);
+		immutable begin = index - 2;
 		
 		auto c = frontChar;
 		switch(s[1] | 0x20) {
@@ -404,15 +402,14 @@ private:
 				break;
 		}
 		
-		t.location = Location(begin, base.getWithOffset(index));
+		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
 	auto lexNumeric(char c) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
-		auto ibegin = index - 1;
-		auto begin = base.getWithOffset(ibegin);
+		immutable begin = index - 1;
 		
 		assert(c >= '0' && c <= '9', "invalid integer literal");
 		
@@ -472,7 +469,7 @@ private:
 				break;
 		}
 		
-		t.location = Location(begin, base.getWithOffset(index));
+		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
@@ -503,7 +500,7 @@ private:
 		
 		Token t;
 		t.type = Type;
-		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
+		t.location = base.getWithOffsets(index - l, index);
 
 		import source.name;
 		t.name = BuiltinName!s;
@@ -518,7 +515,7 @@ private:
 		
 		Token t;
 		t.type = Type;
-		t.location = Location(base.getWithOffset(index - l), base.getWithOffset(index));
+		t.location = base.getWithOffsets(index - l, index);
 
 		import source.name;
 		t.name = BuiltinName!s;

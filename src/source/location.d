@@ -107,6 +107,10 @@ public:
 		return Position(raw + offset);
 	}
 	
+	Location getWithOffsets(uint start, uint stop) {
+		return Location(getWithOffset(start), getWithOffset(stop));
+	}
+	
 	auto getFullPosition(Context c) const {
 		return FullPosition(this, c);
 	}
