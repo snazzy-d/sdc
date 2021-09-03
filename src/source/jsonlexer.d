@@ -31,6 +31,8 @@ enum TokenType {
 	CloseBracket, // ]
 	OpenBrace,    // {
 	CloseBrace,   // }
+	Comma,        // ,
+	Colon,        // :
 }
 
 struct Token {
@@ -112,6 +114,8 @@ struct JsonLexer {
 		"]"  : TokenType.CloseBracket,
 		"{"  : TokenType.OpenBrace,
 		"}"  : TokenType.CloseBrace,
+		","  : TokenType.Comma,
+		":"  : TokenType.Colon,
 		"\0" : TokenType.End,
 	];
 	
@@ -124,9 +128,8 @@ unittest {
 	
 	auto testlexer(string s) {
 		import source.name;
-		return lex(
-			context.registerMixin(Location.init, s ~ '\0'),
-			context);
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		return lex(base, context);
 	}
 	
 	import source.parserutil;
