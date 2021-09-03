@@ -238,4 +238,10 @@ unittest {
 		lex.match(TokenType.Begin);
 		assert(lex.front.type == TokenType.Invalid);
 	}
+	
+	{
+		auto lex = testlexer(`"\u03@3"`);
+		lex.match(TokenType.Begin);
+		assert(lex.front.type == TokenType.Invalid);
+	}
 }

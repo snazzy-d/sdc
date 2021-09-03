@@ -347,8 +347,8 @@ private:
 					c = frontChar;
 					
 					uint d = c - '0';
-					uint h = (c | 0x20) - 'a' + 10;
-					uint n = (d < 10) ? d : h;
+					uint h = ((c | 0x20) - 'a') & 0xff;
+					uint n = (d < 10) ? d : (h + 10);
 					
 					if (n >= 16) {
 						return false;
