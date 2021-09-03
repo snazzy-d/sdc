@@ -49,7 +49,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 	switch (trange.front.type) with(TokenType) {
 		case Static:
 			// Handle static if.
-			auto lookahead = trange.save;
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			switch (lookahead.front.type) {
 				case If:
@@ -102,7 +102,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				goto HandleTypeQualifier;
 			
 			HandleTypeQualifier: {
-				auto lookahead = trange.save;
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				if (lookahead.front.type == OpenParen) {
 					// This is a type not a storage class.
@@ -215,7 +215,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			case Enum:
 				stc.isEnum = true;
 				
-				auto lookahead = trange.save;
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				
 				switch (lookahead.front.type) {
@@ -265,7 +265,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 		
 		switch (trange.front.type) with(TokenType) {
 			case Identifier:
-				auto lookahead = trange.save;
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				auto nextType = lookahead.front.type;
 				if (nextType == Equal || nextType == OpenParen) {
@@ -374,7 +374,7 @@ Declaration parseTypedDeclaration(
 	StorageClass stc,
 	AstType type,
 ) {
-	auto lookahead = trange.save;
+	auto lookahead = trange.getLookahead();
 	lookahead.popFront();
 	if (lookahead.front.type == TokenType.OpenParen) {
 		auto idLoc = trange.front.location;
@@ -478,7 +478,7 @@ private Declaration parseFunction(
 	
 	// Check if we have a function template
 	import source.parserutil;
-	auto lookahead = trange.save;
+	auto lookahead = trange.getLookahead();
 	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
 	
 	bool isTemplate = lookahead.front.type == TokenType.OpenParen;

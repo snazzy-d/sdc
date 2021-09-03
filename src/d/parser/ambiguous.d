@@ -84,7 +84,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 			return trange.parseAmbiguousSuffix!(handler, M)(e);
 		
 		case OpenParen:
-			auto matchingParen = trange.save;
+			auto matchingParen = trange.getLookahead();
 			matchingParen.popMatchingDelimiter!OpenParen();
 			
 			switch (matchingParen.front.type) {
@@ -352,7 +352,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 			})();
 		
 		case Star:
-			auto lookahead = trange.save;
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			
 			switch (lookahead.front.type) {

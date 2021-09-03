@@ -20,7 +20,7 @@ Statement parseStatement(ref TokenRange trange) {
 			return trange.parseBlock();
 		
 		case Identifier:
-			auto lookahead = trange.save;
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			
 			if (lookahead.front.type == Colon) {
@@ -128,7 +128,7 @@ Statement parseStatement(ref TokenRange trange) {
 				bool parseType = true;
 				// If we have an idientifer, check if the type is implicit.
 				if (trange.front.type == Identifier) {
-						auto lookahead = trange.save;
+						auto lookahead = trange.getLookahead();
 						lookahead.popFront();
 						if (lookahead.front.type == Comma || lookahead.front.type == Semicolon) {
 							parseType = false;
@@ -426,7 +426,7 @@ Statement parseStatement(ref TokenRange trange) {
 			return trange.parseStatementSuffix(expr);
 		
 		case Static:
-			auto lookahead = trange.save;
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			
 			switch (lookahead.front.type) {

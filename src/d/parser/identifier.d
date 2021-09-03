@@ -90,7 +90,7 @@ private Identifier parseBuiltIdentifier(
 				break;
 			
 			case Bang:
-				auto lookahead = trange.save;
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				if (lookahead.front.type == Is || lookahead.front.type == In) {
 					return identifier;

@@ -687,7 +687,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			return trange.parseMixin!AstExpression();
 		
 		case OpenParen:
-			auto matchingParen = trange.save;
+			auto matchingParen = trange.getLookahead();
 			matchingParen.popMatchingDelimiter!OpenParen();
 			
 			switch (matchingParen.front.type) {

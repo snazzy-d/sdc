@@ -404,7 +404,7 @@ private:
 		}
 		
 		import source.parserutil;
-		auto lookahead = trange.save.withComments(false);
+		auto lookahead = trange.getLookahead();
 		lookahead.popMatchingDelimiter!(TokenType.OpenBrace)();
 		
 		auto nextType = lookahead.front.type;
@@ -440,7 +440,7 @@ private:
 				return;
 			
 			case Identifier:
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				auto t = lookahead.front.type;
 				
@@ -596,7 +596,7 @@ private:
 				break;
 			
 			case Import:
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				
 				if (lookahead.front.type == TokenType.OpenParen) {
@@ -645,7 +645,7 @@ private:
 				goto Entry;
 			
 			case Public, Private, Protected, Package, Export:
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				
 				if (lookahead.front.type != Colon) {
@@ -689,7 +689,7 @@ private:
 				
 				switch (token.type) {
 					case Star:
-						auto lookahead = trange.save.withComments(false);
+						auto lookahead = trange.getLookahead();
 						lookahead.popFront();
 						
 						if (lookahead.front.type != Identifier) {
@@ -862,7 +862,7 @@ private:
 			
 			case OpenParen:
 				import source.parserutil;
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popMatchingDelimiter!OpenParen();
 				
 				switch (lookahead.front.type) {
@@ -930,7 +930,7 @@ private:
 					break;
 				}
 				
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				
 				if (lookahead.front.type == Return) {
@@ -1008,7 +1008,7 @@ private:
 							assert(0);
 					}
 					
-					auto lookahead = trange.save.withComments(false);
+					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 					
 					switch (lookahead.front.type) {
@@ -1229,7 +1229,7 @@ private:
 		
 		bool useControlFlowBlock = !isControlFlow(token.type);
 		if (useControlFlowBlock && match(TokenType.Static)) {
-			auto lookahead = trange.save.withComments(false);
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			
 			useControlFlowBlock = !isControlFlow(lookahead.front.type);
@@ -1422,7 +1422,7 @@ private:
 	void parseScope() in {
 		assert(match(TokenType.Scope));
 	} do {
-		auto lookahead = trange.save.withComments(false);
+		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 		
 		if (lookahead.front.type != TokenType.OpenParen) {
@@ -1527,7 +1527,7 @@ private:
 	bool isBangIsOrIn() in {
 		assert(match(TokenType.Bang));
 	} do {
-		auto lookahead = trange.save.withComments(false);
+		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 		auto t = lookahead.front.type;
 		return t == TokenType.Is || t == TokenType.In;
@@ -1871,7 +1871,7 @@ private:
 			
 			switch (token.type) with (TokenType) {
 				case Const, Immutable, Inout, Shared, Scope:
-					auto lookahead = trange.save.withComments(false);
+					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 					if (lookahead.front.type == OpenParen) {
 						return ret;
@@ -1928,7 +1928,7 @@ private:
 				break;
 			
 			case Identifier:
-				auto lookahead = trange.save.withComments(false);
+				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				
 				auto t = lookahead.front.type;
@@ -1948,7 +1948,7 @@ private:
 	}
 	 
 	TokenType getStorageClassTokenType() {
-		auto lookahead = trange.save.withComments(false);
+		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 		
 		if (lookahead.front.type == TokenType.Identifier) {

@@ -29,6 +29,15 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 		return r;
 	}
 	
+	/**
+	 * Return a copy of this lexer that:
+	 *  - skip over comments.
+	 *  - do not decode strings.
+	 */
+	auto getLookahead() {
+		return withComments(false);
+	}
+	
 	@property
 	auto front() inout {
 		return t;

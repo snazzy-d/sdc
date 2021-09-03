@@ -57,7 +57,7 @@ auto parseTemplateParameters(ref TokenRange trange) {
 private AstTemplateParameter parseTemplateParameter(ref TokenRange trange) {
 	switch(trange.front.type) with(TokenType) {
 		case Identifier :
-			auto lookahead = trange.save;
+			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
 			switch(lookahead.front.type) {
 				// Identifier followed by ":", "=", "," or ")" are type parameters.
@@ -168,7 +168,7 @@ private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
 		isTyped = true;
 	} else {
 		// Identifier followed by ":", "=", "," or ")" are untyped alias parameters.
-		auto lookahead = trange.save;
+		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 		auto nextType = lookahead.front.type;
 		switch(lookahead.front.type) with(TokenType) {
