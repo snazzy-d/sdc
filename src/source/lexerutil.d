@@ -14,6 +14,7 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	
 	// Skip comments by default.
 	bool tokenizeComments = false;
+	bool decodeStrings = true;
 	
 	import source.context;
 	Context context;
@@ -29,13 +30,19 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 		return r;
 	}
 	
+	auto withStringDecoding(bool sd = true) {
+		auto r = this.save;
+		r.decodeStrings = sd;
+		return r;
+	}
+	
 	/**
 	 * Return a copy of this lexer that:
 	 *  - skip over comments.
 	 *  - do not decode strings.
 	 */
 	auto getLookahead() {
-		return withComments(false);
+		return withStringDecoding(false).withComments(false);
 	}
 	
 	@property
@@ -103,6 +110,11 @@ private:
 			// pragma(msg, lexerMixin(getLexerMap()));
 			mixin(lexerMixin(getLexerMap()));
 		}
+	}
+	
+	void setError(ref Token t, string message) {
+		t.type = TokenType.Invalid;
+		t.name = context.getName(message);
 	}
 	
 	void popChar() in {
@@ -282,6 +294,90 @@ private:
 		return t;
 	}
 	
+	bool lexEscapeSequence(ref string decoded) {
+		char c = frontChar;
+		
+		switch (c) {
+			case '\'', '"', '\\':
+				// Noop.
+				break;
+			
+			case '?':
+				assert(0, "WTF is \\?");
+			
+			case '0':
+				c = '\0';
+				break;
+			
+			case 'a':
+				c = '\a';
+				break;
+			
+			case 'b':
+				c = '\b';
+				break;
+			
+			case 'f':
+				c = '\f';
+				break;
+			
+			case 'r':
+				c = '\r';
+				break;
+			
+			case 'n':
+				c = '\n';
+				break;
+			
+			case 't':
+				c = '\t';
+				break;
+			
+			case 'v':
+				c = '\v';
+				break;
+			
+			case 'u', 'U':
+				popChar();
+				
+				uint v = 0;
+				
+				auto length = 4 * (c == 'U') + 4;
+				foreach (i; 0 .. length) {
+					c = frontChar;
+					
+					uint d = c - '0';
+					uint h = (c | 0x20) - 'a' + 10;
+					uint n = (d < 10) ? d : h;
+					
+					if (n >= 16) {
+						return false;
+					}
+					
+					v |= n << (4 * (length - i - 1));
+					popChar();
+				}
+				
+				char[4] buf;
+				
+				import std.utf;
+				auto i = encode(buf, v);
+				
+				decoded ~= buf[0 .. i];
+				return true;
+			
+			case '&':
+				assert(0, "HTML5 named character references not implemented");
+			
+			default:
+				return false;
+		}
+		
+		popChar();
+		decoded ~= c;
+		return true;
+	}
+	
 	Token lexString(string s)() in {
 		assert(index >= s.length);
 	} do {
@@ -295,9 +391,37 @@ private:
 		enum Delimiter = s[0];
 		enum DoesEscape = Delimiter != '`';
 		
+		size_t start = index;
+		string decoded;
+		
 		auto c = frontChar;
 		while (c != Delimiter) {
 			if (DoesEscape && c == '\\') {
+				immutable beginEscape = index;
+				
+				if (decodeStrings) {
+					scope(success) {
+						start = index;
+					}
+					
+					// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+					if (decoded == "") {
+						decoded = content[start .. index];
+					} else {
+						decoded ~= content[start .. index];
+					}
+					
+					popChar();
+					if (!lexEscapeSequence(decoded)) {
+						t.location = base.getWithOffsets(beginEscape, index);
+						setError(t, "Invalid escape sequence");
+						return t;
+					}
+					
+					c = frontChar;
+					continue;
+				}
+				
 				popChar();
 				c = frontChar;
 			}
@@ -311,10 +435,20 @@ private:
 		}
 		
 		if (c == Delimiter) {
+			if (decodeStrings) {
+				// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+				if (DoesEscape && decoded != "") {
+					decoded ~= content[start .. index];
+				} else {
+					decoded = content[start .. index];
+				}
+				
+				t.name = context.getName(decoded);
+			}
+			
 			popChar();
 		} else {
-			t.type = TokenType.Invalid;
-			t.name = context.getName("Unexpected string literal termination");
+			setError(t, "Unexpected string literal termination");
 		}
 		
 		t.location = base.getWithOffsets(begin, index);

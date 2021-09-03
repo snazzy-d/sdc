@@ -1131,115 +1131,24 @@ unittest {
 /**
  * Parse character literals
  */
-void matchChar(ref string s, Location location, char c) {
-	if (s.length > 0 && s[0] == c) {
-		s = s[1 .. $];
-		return;
-	}
-	
-	import std.conv, std.string;
-	auto error = format("expected '%s'.", to!string(c));
-	
-	import source.exception;
-	throw new CompileException(location, error);
-}
-
-char popChar(ref string s, Location location) {
-	if (s.length == 0) {
-		import source.exception;
-		throw new CompileException(location, "Unexpected termination of literal");
-	}
-	
-	auto c = s[0];
-	s = s[1 .. $];
-	return c;
-}
-
-dchar lexEscapeSequence(ref string s, Location location) {
-	if (s.length == 0) {
-		import source.exception;
-		throw new CompileException(location, "Unexpected termination of literal");
-	}
-	
-	char c = s.popChar(location);
-	switch (c) {
-		case '\'':
-			return '\'';
-		
-		case '"':
-			return '"';
-		
-		case '?':
-			assert(0, "WTF is \\?");
-		
-		case '\\':
-			return '\\';
-		
-		case '0':
-			return '\0';
-		
-		case 'a':
-			return '\a';
-		
-		case 'b':
-			return '\b';
-		
-		case 'f':
-			return '\f';
-		
-		case 'r':
-			return '\r';
-		
-		case 'n':
-			return '\n';
-		
-		case 't':
-			return '\t';
-		
-		case 'v':
-			return '\v';
-		
-		default:
-			import std.conv, std.string;
-			auto error = format("unpexcted escape sequence: '%s'.", to!string(c));
-
-			import source.exception;
-			throw new CompileException(location, error);
-	}
-}
-
 CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
 	Location location = trange.front.location;
-	auto str = trange.front.toString(trange.context);
-	scope(success) {
-		assert(str == "");
-	}
+	auto str = trange.front.name.toString(trange.context);
 	
 	trange.match(TokenType.CharacterLiteral);
-	str.matchChar(location, '\'');
 	
-	dchar result;
+	size_t i = 0;
 	
-	char c = str.popChar(location);
-	switch (c) {
-		case '\\':
-			result = str.lexEscapeSequence(location);
-			break;
-		
-		case '\'':
-			import source.exception;
-			throw new CompileException(location, "\"'\" must be escaped as '\'' in character literals");
-		
-		default:
-			assert (!(c & 0x80), "Unicode not supported here");
-			result = c;
-			break;
+	import std.utf;
+	dchar c = str.decode(i);
+	
+	if (i != str.length) {
+		import source.exception;
+		throw new CompileException(location, "Invalid character literal");
 	}
 	
-	str.matchChar(location, '\'');
-	
 	import d.common.builtintype : BuiltinType;
-	return new CharacterLiteral(location, result, BuiltinType.Char);
+	return new CharacterLiteral(location, c, BuiltinType.Char);
 }
 
 /**
@@ -1247,47 +1156,9 @@ CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
  */
 StringLiteral parseStringLiteral(ref TokenRange trange) {
 	Location location = trange.front.location;
-	auto str = trange.front.toString(trange.context);
-	scope(success) {
-		assert(str == "");
-	}
+	auto name = trange.front.name;
 	
 	trange.match(TokenType.StringLiteral);
 	
-	string dest;
-	
-	char c = str.popChar(location);
-	switch (c) {
-		case '"':
-			while (true) {
-				auto src = str;
-				do {
-					c = str.popChar(location);
-				} while (c != '\\' && c != '"');
-				
-				dest ~= src[0 .. $ - str.length - 1];
-				if (c == '"') {
-					break;
-				}
-				
-				dest ~= str.lexEscapeSequence(location);
-			}
-			
-			break;
-		
-		case '`':
-			if (str.length == 0 || str[$ - 1] != '`') {
-				import source.exception;
-				throw new CompileException(location, "Unexpected termination of literal");
-			}
-			
-			dest = str[0 .. $ - 1];
-			break;
-		
-		default:
-			import source.exception;
-			throw new CompileException(location, "Invalid string litteral");
-	}
-	
-	return new StringLiteral(location, dest);
+	return new StringLiteral(location, name.toString(trange.context));
 }

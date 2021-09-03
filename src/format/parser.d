@@ -75,7 +75,7 @@ private:
 public:
 	this(Context context, ref TokenRange trange) {
 		this.context = context;
-		this.trange = trange.withComments();
+		this.trange = trange.withStringDecoding(false).withComments();
 	}
 	
 	Chunk[] parse() in {
