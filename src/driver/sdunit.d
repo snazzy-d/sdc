@@ -3,14 +3,21 @@ module driver.dsunit;
 immutable string[2] ResultStr = ["FAIL", "PASS"];
 
 int main(string[] args) {
+	import source.context;
+	auto context = new Context();
+	
 	import sdc.config;
-	Config conf;
+	Config conf = buildBaseConfig(context);
 	conf.enableUnittest = true;
+	
+	string[] includePaths, linkerPaths;
 	
 	import std.getopt;
 	try {
 		auto help_info = getopt(
 			args, std.getopt.config.caseSensitive,
+			"I",         "Include path",        &includePaths,
+			"L",         "Library path",        &linkerPaths,
 			"I",         "Include path",        &conf.includePaths,
 			"O",         "Optimization level",  &conf.optLevel,
 		);
@@ -43,12 +50,15 @@ int main(string[] args) {
 		return 1;
 	}
 	
+	conf.includePaths = includePaths ~ conf.includePaths;
+	conf.linkerPaths = linkerPaths ~ conf.linkerPaths;
+	
 	auto files = args[1 .. $];
 	
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
 	import sdc.sdc;
-	auto c = new SDC(files[0], buildConf(), conf);
+	auto c = new SDC(context, files[0], conf);
 	
 	import source.exception;
 	try {

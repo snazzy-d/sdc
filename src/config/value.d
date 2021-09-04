@@ -187,6 +187,20 @@ public:
 		}
 	}
 	
+	/**
+	 * Map and Object features
+	 */
+	inout(Value)* opBinaryRight(string op : "in")(string key) inout in {
+		assert(kind == Kind.Object || kind == Kind.Map);
+	} do {
+		return kind == Kind.Map
+			? Value(key) in map
+			: key in obj;
+	}
+	
+	/**
+	 * Misc
+	 */
 	string toString() const {
 		return this.visit!(function string(v) {
 			alias T = typeof(v);
@@ -209,6 +223,9 @@ public:
 		return this.visit!(x => is(typeof(x) : typeof(null)) ? -1 : hashOf(x))();
 	}
 	
+	/**
+	 * Assignement
+	 */
 	Value opAssign()(typeof(null) nothing) {
 		_kind = Kind.Null;
 		_str = null;
@@ -273,6 +290,9 @@ public:
 		return this;
 	}
 	
+	/**
+	 * Equality
+	 */
 	bool opEquals(const ref Value rhs) const {
 		return this.visit!((x, const ref Value rhs) => rhs == x)(rhs);
 	}

@@ -13,27 +13,17 @@ final class SDC {
 	import d.ir.symbol;
 	Module[] modules;
 	
-	import sdc.util.json, sdc.config;
-	this(string name, JSON fileConfig, Config config) {
-		import std.algorithm, std.array, std.conv, std.path, std.range;
-		config.includePaths ~= fileConfig["includePath"]
-			.array
-			.map!(p => cast(string) p)
-			.array();
+	import sdc.config;
+	this(Context context, string name, Config config) {
+		this.context = context;
 		
+		import std.algorithm, std.array, std.conv, std.path;
 		auto includePaths = config.includePaths
 			.map!(p => expandTilde(p)
 				.asAbsolutePath
 				.asNormalizedPath
 				.to!string())
 			.array();
-		
-		config.linkerPaths ~= fileConfig["libPath"]
-			.array
-			.map!(path => cast(string) path)
-			.array();
-		
-		context = new Context();
 		
 		LLVMBackend evBackend;
 		

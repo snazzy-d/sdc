@@ -9,9 +9,13 @@ int main(string[] args) {
 		}
 	}
 	
-	import sdc.config;
-	Config conf;
+	import source.context;
+	auto context = new Context();
 	
+	import sdc.config;
+	Config conf = buildBaseConfig(context);
+	
+	string[] includePaths, linkerPaths;
 	bool dontLink, generateMain;
 	string outputFile;
 	bool outputLLVM, outputAsm;
@@ -20,7 +24,8 @@ int main(string[] args) {
 	try {
 		auto help_info = getopt(
 			args, std.getopt.config.caseSensitive,
-			"I",         "Include path",        &conf.includePaths,
+			"I",         "Include path",        &includePaths,
+			"L",         "Library path",        &linkerPaths,
 			"O",         "Optimization level",  &conf.optLevel,
 			"c",         "Stop before linking", &dontLink,
 			"o",         "Output file",         &outputFile,
@@ -57,6 +62,9 @@ int main(string[] args) {
 		return 1;
 	}
 	
+	conf.includePaths = includePaths ~ conf.includePaths;
+	conf.linkerPaths = linkerPaths ~ conf.linkerPaths;
+	
 	auto files = args[1 .. $];
 	
 	if (outputAsm) {
@@ -86,7 +94,7 @@ int main(string[] args) {
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
 	import sdc.sdc;
-	auto c = new SDC(files[0], buildConf(), conf);
+	auto c = new SDC(context, files[0], conf);
 	
 	import source.exception;
 	try {

@@ -1,4 +1,4 @@
-LIBSDC_SRC = $(wildcard src/sdc/*.d) $(wildcard src/sdc/util/*.d)
+LIBSDC_SRC = $(wildcard src/sdc/*.d)
 
 DRIVER_SRC = $(wildcard src/driver/*.d)
 DRIVER_OBJ = $(DRIVER_SRC:src/driver/%.d=obj/driver/%.o)
@@ -27,17 +27,17 @@ obj/driver/%.o: src/driver/%.d
 	@mkdir -p obj/driver
 	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 
-$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
+$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
 	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
 
-$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBSOURCE)
+$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
 	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
 
 bin/sdc.conf:
 	@mkdir -p bin
-	printf "{\n\t\"includePath\": [\"$(PWD)/sdlib\", \".\"],\n\t\"libPath\": [\"$(PWD)/lib\"],\n}\n" > $@
+	printf "{\n\t\"includePaths\": [\"$(PWD)/sdlib\", \".\"],\n\t\"libPaths\": [\"$(PWD)/lib\"],\n}\n" > $@
 
 SDLIB_DEPS = $(SDC) bin/sdc.conf
 

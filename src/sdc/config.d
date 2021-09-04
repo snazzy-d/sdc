@@ -7,45 +7,68 @@ struct Config {
 	bool enableUnittest;
 }
 
-import sdc.util.json;
+import source.context;
 
-auto buildConf() {
-	auto conf = parseJSON(`{
-		"includePath": ["@SDCPATH@/../libs", "."],
-		"libPath": ["@SDCPATH@/../lib"],
-	}`);
+import config.value;
+
+auto buildBaseConfig(Context context) {
+	Config config;
 	
-	// System wide configuration
-	conf.extends(getConf("/etc/sdc.conf"));
+	// After user supplied path, always check current directory.
+	config.includePaths ~= ".";
+	
+	config.extends(context.getConf("/etc/sdc.conf"));
 	
 	// User wide configuration.
 	import std.process;
-	if(auto home = environment.get("HOME", "")) {
-		conf.extends(getConf(home ~ "/.sdc/sdc.conf"));
+	if (auto home = environment.get("HOME", "")) {
+		config.extends(context.getConf(home ~ "/.sdc/sdc.conf"));
 	}
 	
 	// SDC's folder.
-	import std.file;
-	import std.array;
+	import std.file, std.array;
 	auto path = thisExePath.split('/');
 	path[$ - 1] = "sdc.conf";
 	
-	conf.extends(getConf(path.join("/")));
+	config.extends(context.getConf(path.join("/")));
 	
-	return conf;
+	return config;
 }
 
-auto getConf(string filename) {
+auto getConf(Context context, string filename) {
 	import std.file;
-	if(!exists(filename)) {
-		return JSON(null);
+	if (!exists(filename)) {
+		return Value(null);
 	}
 	
-	return parseJSON(cast(string) read(filename));
+	import source.location;
+	auto base = context.registerFile(Location.init, filename, "");
+	
+	import source.jsonlexer;
+	auto lexer = lex(base, context);
+	
+	import config.jsonparser;
+	return lexer.parseJSON();
 }
 
-void extends(ref JSON base, JSON add) {
-	foreach(string key, value; add) {
-		base[key] = value;
+void extends(ref Config config, Value add) {
+	if (add == null) {
+		return;
+	}
+	
+	if (auto ip = "includePaths" in add) {
+		import std.algorithm, std.range;
+		config.includePaths = ip.array
+			.map!(i => i.str)
+			.chain(config.includePaths)
+			.array();
+	}
+	
+	if (auto lp = "libPaths" in add) {
+		import std.algorithm, std.range;
+		config.linkerPaths = lp.array
+			.map!(i => i.str)
+			.chain(config.linkerPaths)
+			.array();
 	}
 }
