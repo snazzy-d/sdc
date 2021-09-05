@@ -521,7 +521,7 @@ struct DeclarationVisitor {
 	
 	void visit(UnittestDeclaration d) {
 		// Do something only if unittest are enabled.
-		if (!config.enableUnittest) {
+		if (!enableUnittest) {
 			return;
 		}
 		

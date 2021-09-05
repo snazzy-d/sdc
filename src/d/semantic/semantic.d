@@ -26,8 +26,8 @@ final class SemanticPass {
 	import source.context;
 	Context context;
 	
-	import d.config;
-	Config config;
+	string[] includePaths;
+	bool enableUnittest;
 	
 	Scheduler scheduler;
 	
@@ -71,12 +71,14 @@ final class SemanticPass {
 	
 	this(
 		Context context,
-		Config config,
+		string[] includePaths,
+		bool enableUnittest,
 		EvaluatorBuilder evBuilder,
 		DataLayoutBuilder dlBuilder,
 	) {
 		this.context = context;
-		this.config = config;
+		this.includePaths = includePaths;
+		this.enableUnittest = enableUnittest;
 		
 		scheduler = new Scheduler(this);
 		

@@ -1,4 +1,11 @@
-module sdc.conf;
+module sdc.config;
+
+struct Config {
+	string[] includePaths;
+	string[] linkerPaths;
+	uint optLevel;
+	bool enableUnittest;
+}
 
 import sdc.util.json;
 

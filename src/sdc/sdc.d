@@ -13,25 +13,25 @@ final class SDC {
 	import d.ir.symbol;
 	Module[] modules;
 	
-	import sdc.util.json, d.config;
+	import sdc.util.json, sdc.config;
 	this(string name, JSON fileConfig, Config config) {
 		import std.algorithm, std.array, std.conv, std.path, std.range;
-		config.includePaths = fileConfig["includePath"]
+		config.includePaths ~= fileConfig["includePath"]
 			.array
 			.map!(p => cast(string) p)
-			.chain(config.includePaths)
+			.array();
+		
+		auto includePaths = config.includePaths
 			.map!(p => expandTilde(p)
 				.asAbsolutePath
 				.asNormalizedPath
 				.to!string())
 			.array();
 		
-		auto linkerPaths = fileConfig["libPath"]
+		config.linkerPaths ~= fileConfig["libPath"]
 			.array
 			.map!(path => cast(string) path)
 			.array();
-		
-		config.linkerPaths = linkerPaths ~ config.linkerPaths;
 		
 		context = new Context();
 		
@@ -40,7 +40,7 @@ final class SDC {
 		import d.semantic.evaluator;
 		Evaluator evb(SemanticPass pass) {
 			if (evBackend is null) {
-				evBackend = new LLVMBackend(pass, name);
+				evBackend = new LLVMBackend(pass, name, config.optLevel, config.linkerPaths);
 			}
 			
 			return evBackend.getEvaluator();
@@ -52,8 +52,8 @@ final class SDC {
 			return evBackend.getDataLayout();
 		}
 		
-		semantic = new SemanticPass(context, config, &evb, &dlb);
-		backend = new LLVMBackend(semantic, name);
+		semantic = new SemanticPass(context, includePaths, config.enableUnittest, &evb, &dlb);
+		backend = new LLVMBackend(semantic, name, config.optLevel, config.linkerPaths);
 	}
 	
 	void compile(string filename) {

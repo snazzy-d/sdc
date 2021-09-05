@@ -14,6 +14,9 @@ final class LLVMBackend {
 private:
 	CodeGen pass;
 	
+	uint optLevel;
+	string[] linkerPaths;
+	
 	LLVMEvaluator evaluator;
 	LLVMDataLayout dataLayout;
 	
@@ -21,7 +24,10 @@ private:
 	
 public:
 	import d.semantic.semantic;
-	this(SemanticPass sema, string name) {
+	this(SemanticPass sema, string name, uint optLevel, string[] linkerPaths) {
+		this.optLevel = optLevel;
+		this.linkerPaths = linkerPaths;
+		
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
@@ -57,7 +63,7 @@ public:
 		auto td = LLVMCreateTargetDataLayout(targetMachine);
 		scope(exit) LLVMDisposeTargetData(td);
 		
-		pass = new CodeGen(sema, this, name, td);
+		pass = new CodeGen(sema, name, this, td);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
 	
@@ -99,7 +105,7 @@ public:
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
 		
-		uint optLevel = pass.config.optLevel;
+		uint optLevel = optLevel;
 		if (optLevel == 0) {
 			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
 			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
@@ -195,7 +201,7 @@ public:
 	
 	void link(string objFile, string executable) {
 		import std.algorithm, std.array;
-		auto params = pass.config.linkerPaths
+		auto params = linkerPaths
 			.map!(path => " -L" ~ (cast(string) path))
 			.join();
 		

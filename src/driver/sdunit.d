@@ -3,7 +3,7 @@ module driver.dsunit;
 immutable string[2] ResultStr = ["FAIL", "PASS"];
 
 int main(string[] args) {
-	import d.config;
+	import sdc.config;
 	Config conf;
 	conf.enableUnittest = true;
 	
@@ -47,7 +47,7 @@ int main(string[] args) {
 	
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
-	import sdc.sdc, sdc.config;
+	import sdc.sdc;
 	auto c = new SDC(files[0], buildConf(), conf);
 	
 	import source.exception;

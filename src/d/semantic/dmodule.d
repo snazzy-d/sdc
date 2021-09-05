@@ -48,7 +48,7 @@ public:
 				.buildPath();
 			
 			auto filename = basename ~ ".d";
-			auto dir = getIncludeDir(filename, pass.config.includePaths);
+			auto dir = getIncludeDir(filename, includePaths);
 			
 			auto astm = parse(filename, dir);
 			auto mod = modulize(astm);
@@ -67,7 +67,7 @@ public:
 		
 		// Try to find the module in include path.
 		string dir;
-		foreach(path; config.includePaths) {
+		foreach(path; includePaths) {
 			if (path.length < dir.length) {
 				continue;
 			}

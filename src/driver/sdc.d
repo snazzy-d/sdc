@@ -9,7 +9,7 @@ int main(string[] args) {
 		}
 	}
 	
-	import d.config;
+	import sdc.config;
 	Config conf;
 	
 	bool dontLink, generateMain;
@@ -59,7 +59,9 @@ int main(string[] args) {
 	
 	auto files = args[1 .. $];
 	
-	if (outputAsm) dontLink = true;
+	if (outputAsm) {
+		dontLink = true;
+	}
 	
 	auto executable = "a.out";
 	auto defaultExtension = ".o";
@@ -83,7 +85,7 @@ int main(string[] args) {
 	
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
-	import sdc.sdc, sdc.config;
+	import sdc.sdc;
 	auto c = new SDC(files[0], buildConf(), conf);
 	
 	import source.exception;

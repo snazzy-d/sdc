@@ -17,9 +17,6 @@ final class CodeGen {
 	import source.context;
 	Context context;
 	
-	import d.config;
-	Config config;
-	
 	import d.semantic.scheduler;
 	Scheduler scheduler;
 	
@@ -58,9 +55,8 @@ final class CodeGen {
 	LLVMBackend backend;
 	
 	import d.semantic.semantic;
-	this(SemanticPass sema, LLVMBackend backend, string name, LLVMTargetDataRef targetData) {
+	this(SemanticPass sema, string name, LLVMBackend backend, LLVMTargetDataRef targetData) {
 		this.context   = sema.context;
-		this.config    = sema.config;
 		this.scheduler = sema.scheduler;
 		this.object    = sema.object;
 		this.backend   = backend;

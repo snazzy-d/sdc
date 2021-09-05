@@ -2137,8 +2137,8 @@ private struct JSONReader(InputRange) {
 
                     char[4] buf;
 
-                    encode(buf, val);
-                    result.put(cast(string)buf);
+                    size_t i = encode(buf, val);
+                    result.put(buf[0 .. i]);
                 break;
                 default:
                     throw complaint("Invalid escape character");
