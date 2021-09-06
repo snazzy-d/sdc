@@ -70,12 +70,12 @@ struct JsonLexer {
 	enum BaseMap = () {
 		auto ret = [
 			// WhiteSpaces
-			" "    : "-skip",
-			"\t"   : "-skip",
-			"\v"   : "-skip",
-			"\f"   : "-skip",
-			"\n"   : "-skip",
-			"\r"   : "-skip",
+			" "  : "-skip",
+			"\t" : "-skip",
+			"\v" : "-skip",
+			"\f" : "-skip",
+			"\n" : "-skip",
+			"\r" : "-skip",
 			
 			// Comments
 			"//" : "!tokenizeComments?lexComment:popComment",
