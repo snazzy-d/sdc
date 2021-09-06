@@ -43,7 +43,6 @@ int run(Context context, string[] args) {
 		args, std.getopt.config.caseSensitive,
 		"I",         "Include path",        &includePaths,
 		"L",         "Library path",        &linkerPaths,
-		"I",         "Include path",        &conf.includePaths,
 		"O",         "Optimization level",  &conf.optLevel,
 	);
 	
