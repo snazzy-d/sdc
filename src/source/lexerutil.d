@@ -220,13 +220,11 @@ private:
 	auto lexComment(string s)() {
 		Token t;
 		t.type = TokenType.Comment;
-		uint prefixLength = s.length;
-		auto ibegin = index - prefixLength;
-		auto begin = base.getWithOffset(ibegin);
 		
-		uint iend = popComment!s();
+		uint begin = index - uint(s.length);
+		uint end = popComment!s();
 		
-		t.location = Location(begin, base.getWithOffset(iend));
+		t.location = base.getWithOffsets(begin, end);
 		return t;
 	}
 	
