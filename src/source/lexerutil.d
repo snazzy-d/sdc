@@ -12,9 +12,12 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	
 	uint index;
 	
-	// Skip comments by default.
-	bool tokenizeComments = false;
-	bool decodeStrings = true;
+	import std.bitmanip;
+	mixin(bitfields!(
+		bool, "tokenizeComments", 1,
+		bool, "skipStrings", 1,
+		uint, "__derived", 30,
+	));
 	
 	import source.context;
 	Context context;
@@ -32,7 +35,7 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	
 	auto withStringDecoding(bool sd = true) {
 		auto r = this.save;
-		r.decodeStrings = sd;
+		r.skipStrings = !sd;
 		return r;
 	}
 	
@@ -397,7 +400,7 @@ private:
 			if (DoesEscape && c == '\\') {
 				immutable beginEscape = index;
 				
-				if (decodeStrings) {
+				if (!skipStrings) {
 					scope(success) {
 						start = index;
 					}
@@ -433,7 +436,7 @@ private:
 		}
 		
 		if (c == Delimiter) {
-			if (decodeStrings) {
+			if (!skipStrings) {
 				// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
 				if (DoesEscape && decoded != "") {
 					decoded ~= content[start .. index];
