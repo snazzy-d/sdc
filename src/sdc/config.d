@@ -17,6 +17,7 @@ auto buildBaseConfig(Context context) {
 	// After user supplied path, always check current directory.
 	config.includePaths ~= ".";
 	
+	// System wide configuration.
 	config.extends(context.getConf("/etc/sdc.conf"));
 	
 	// User wide configuration.

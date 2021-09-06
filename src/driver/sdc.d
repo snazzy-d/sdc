@@ -1,5 +1,7 @@
 module driver.sdc;
 
+import source.context;
+
 int main(string[] args) {
 	version(DigitalMars) {
 		version(linux) {
@@ -9,9 +11,33 @@ int main(string[] args) {
 		}
 	}
 	
-	import source.context;
 	auto context = new Context();
 	
+	import std.getopt, source.exception;
+	try {
+		return context.run(args);
+	} catch (GetOptException ex) {
+		import std.stdio;
+		writefln("%s", ex.msg);
+		writeln("Please use -h to get a list of valid options.");
+		return 1;
+	} catch(CompileException e) {
+		import util.terminal;
+		outputCaretDiagnostics(e.getFullLocation(context), e.msg);
+		
+		// Rethrow in debug, so we have the stack trace.
+		debug {
+			throw e;
+		} else {
+			return 1;
+		}
+	}
+	
+	// This is unreachable, but dmd can't figure this out.
+	assert(0);
+}
+
+int run(Context context, string[] args) {
 	import sdc.config;
 	Config conf = buildBaseConfig(context);
 	
@@ -21,45 +47,38 @@ int main(string[] args) {
 	bool outputLLVM, outputAsm;
 	
 	import std.getopt;
-	try {
-		auto help_info = getopt(
-			args, std.getopt.config.caseSensitive,
-			"I",         "Include path",        &includePaths,
-			"L",         "Library path",        &linkerPaths,
-			"O",         "Optimization level",  &conf.optLevel,
-			"c",         "Stop before linking", &dontLink,
-			"o",         "Output file",         &outputFile,
-			"S",         "Stop before assembling and output assembly file", &outputAsm,
-			"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
-			"main",      "Generate the main function", &generateMain,
-		);
-		
-		if (help_info.helpWanted || args.length == 1) {
-			import std.stdio;
-			writeln("The Snazzy D Compiler");
-			writeln("Usage: sdc [options] file.d");
-			writeln("Options:");
-
-			foreach (option; help_info.options) {
-				writefln(
-					"  %-16s %s",
-					// bug : optShort is empty if there is no long version
-					option.optShort.length
-						? option.optShort
-						: (option.optLong.length == 3)
-							? option.optLong[1 .. $]
-							: option.optLong,
-					option.help
-				);
-			}
-			
-			return 0;
-		}
-	} catch (GetOptException ex) {
+	auto help_info = getopt(
+		args, std.getopt.config.caseSensitive,
+		"I",         "Include path",        &includePaths,
+		"L",         "Library path",        &linkerPaths,
+		"O",         "Optimization level",  &conf.optLevel,
+		"c",         "Stop before linking", &dontLink,
+		"o",         "Output file",         &outputFile,
+		"S",         "Stop before assembling and output assembly file", &outputAsm,
+		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
+		"main",      "Generate the main function", &generateMain,
+	);
+	
+	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
-		writefln("%s", ex.msg);
-		writeln("Please use -h to get a list of valid options.");
-		return 1;
+		writeln("The Snazzy D Compiler");
+		writeln("Usage: sdc [options] file.d");
+		writeln("Options:");
+
+		foreach (option; help_info.options) {
+			writefln(
+				"  %-16s %s",
+				// bug : optShort is empty if there is no long version
+				option.optShort.length
+					? option.optShort
+					: (option.optLong.length == 3)
+						? option.optLong[1 .. $]
+						: option.optLong,
+				option.help
+			);
+		}
+		
+		return 0;
 	}
 	
 	conf.includePaths = includePaths ~ conf.includePaths;
@@ -96,46 +115,30 @@ int main(string[] args) {
 	import sdc.sdc;
 	auto c = new SDC(context, files[0], conf);
 	
-	import source.exception;
-	try {
-		foreach (file; files) {
-			c.compile(file);
+	foreach (file; files) {
+		c.compile(file);
+	}
+	
+	if (generateMain) {
+		c.buildMain();
+	}
+	
+	if (outputAsm) {
+		if (outputLLVM) {
+			c.outputLLVMAsm(objFile);
+		} else {
+			c.outputAsm(objFile);
 		}
-		
-		if (generateMain) {
-			c.buildMain();
-		}
-		
-		if (outputAsm) {
-			if (outputLLVM) {
-				c.outputLLVMAsm(objFile);
-			} else {
-				c.outputAsm(objFile);
-			}
-		} else if (dontLink) {
-			if (outputLLVM) {
-				c.outputLLVMBitcode(objFile);
-			} else {
-				c.outputObj(objFile);
-			}
+	} else if (dontLink) {
+		if (outputLLVM) {
+			c.outputLLVMBitcode(objFile);
 		} else {
 			c.outputObj(objFile);
-			c.linkExecutable(objFile, executable);
 		}
-		
-		return 0;
-	} catch(CompileException e) {
-		import util.terminal;
-		outputCaretDiagnostics(e.getFullLocation(c.context), e.msg);
-		
-		// Rethrow in debug, so we have the stack trace.
-		debug {
-			throw e;
-		} else {
-			return 1;
-		}
+	} else {
+		c.outputObj(objFile);
+		c.linkExecutable(objFile, executable);
 	}
-
-	// This is unreachable, but dmd can't figure this out.
-	assert(0);
+	
+	return 0;
 }

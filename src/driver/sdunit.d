@@ -1,11 +1,37 @@
 module driver.dsunit;
 
+import source.context;
+
 immutable string[2] ResultStr = ["FAIL", "PASS"];
 
 int main(string[] args) {
-	import source.context;
 	auto context = new Context();
 	
+	import std.getopt, source.exception;
+	try {
+		return context.run(args);
+	} catch (GetOptException ex) {
+		import std.stdio;
+		writefln("%s", ex.msg);
+		writeln("Please use -h to get a list of valid options.");
+		return 1;
+	} catch(CompileException e) {
+		import util.terminal;
+		outputCaretDiagnostics(e.getFullLocation(context), e.msg);
+		
+		// Rethrow in debug, so we have the stack trace.
+		debug {
+			throw e;
+		} else {
+			return 1;
+		}
+	}
+	
+	// This is unreachable, but dmd can't figure this out.
+	assert(0);
+}
+
+int run(Context context, string[] args) {
 	import sdc.config;
 	Config conf = buildBaseConfig(context);
 	conf.enableUnittest = true;
@@ -13,41 +39,34 @@ int main(string[] args) {
 	string[] includePaths, linkerPaths;
 	
 	import std.getopt;
-	try {
-		auto help_info = getopt(
-			args, std.getopt.config.caseSensitive,
-			"I",         "Include path",        &includePaths,
-			"L",         "Library path",        &linkerPaths,
-			"I",         "Include path",        &conf.includePaths,
-			"O",         "Optimization level",  &conf.optLevel,
-		);
-		
-		if (help_info.helpWanted || args.length == 1) {
-			import std.stdio;
-			writeln("The Snazzy D Compiler - Unit test JIT");
-			writeln("Usage: sdunit [options] file.d");
-			writeln("Options:");
-			
-			foreach (option; help_info.options) {
-				writefln(
-					"  %-16s %s",
-					// bug : optShort is empty if there is no long version
-					option.optShort.length
-						? option.optShort
-						: (option.optLong.length == 3)
-							? option.optLong[1 .. $]
-							: option.optLong,
-					option.help
-				);
-			}
-			
-			return 0;
-		}
-	} catch (GetOptException ex) {
+	auto help_info = getopt(
+		args, std.getopt.config.caseSensitive,
+		"I",         "Include path",        &includePaths,
+		"L",         "Library path",        &linkerPaths,
+		"I",         "Include path",        &conf.includePaths,
+		"O",         "Optimization level",  &conf.optLevel,
+	);
+	
+	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
-		writefln("%s", ex.msg);
-		writeln("Please use -h to get a list of valid options.");
-		return 1;
+		writeln("The Snazzy D Compiler - Unit test JIT");
+		writeln("Usage: sdunit [options] file.d");
+		writeln("Options:");
+		
+		foreach (option; help_info.options) {
+			writefln(
+				"  %-16s %s",
+				// bug : optShort is empty if there is no long version
+				option.optShort.length
+					? option.optShort
+					: (option.optLong.length == 3)
+						? option.optLong[1 .. $]
+						: option.optLong,
+				option.help
+			);
+		}
+		
+		return 0;
 	}
 	
 	conf.includePaths = includePaths ~ conf.includePaths;
@@ -60,75 +79,59 @@ int main(string[] args) {
 	import sdc.sdc;
 	auto c = new SDC(context, files[0], conf);
 	
-	import source.exception;
-	try {
-		foreach (file; files) {
-			c.compile(file);
-		}
-		
-		import d.ir.symbol;
-		Module m = null;
-		
-		bool returnCode = 0;
-		auto results = c.runUnittests();
-		if (results.length == 0) {
-			import std.stdio;
-			writeln("No test to run");
-			return 0;
-		}
-		
+	foreach (file; files) {
+		c.compile(file);
+	}
+	
+	import d.ir.symbol;
+	Module m = null;
+	
+	bool returnCode = 0;
+	auto results = c.runUnittests();
+	if (results.length == 0) {
 		import std.stdio;
-		write("Test results:");
+		writeln("No test to run");
+		return 0;
+	}
+	
+	import std.stdio;
+	write("Test results:");
+	
+	foreach (r; results) {
+		if (!r.pass) {
+			returnCode = 1;
+		}
 		
-		foreach (r; results) {
-			if (!r.pass) {
-				returnCode = 1;
-			}
+		auto testModule = r.test.getModule();
+		if (m != testModule) {
+			m = testModule;
 			
-			auto testModule = r.test.getModule();
-			if (m != testModule) {
-				m = testModule;
-				
-				import source.context;
-				static void printModule(P)(Context c, P p) {
-					if (p.parent is null) {
-						import std.stdio;
-						write("\nModule ", p.toString(c));
-						return;
-					}
-					
-					printModule(c, p.parent);
-					
+			import source.context;
+			static void printModule(P)(Context c, P p) {
+				if (p.parent is null) {
 					import std.stdio;
-					write(".", p.toString(c));
-					
-					static if(is(P : Module)) {
-						writeln(":");
-					}
+					write("\nModule ", p.toString(c));
+					return;
 				}
 				
-				printModule(c.context, m);
+				printModule(c, p.parent);
+				
+				import std.stdio;
+				write(".", p.toString(c));
+				
+				static if(is(P : Module)) {
+					writeln(":");
+				}
 			}
 			
-			auto name = r.test.name.toString(c.context);
-			
-			import std.stdio;
-			writefln("\t%-24s %s", name, ResultStr[r.pass]);
+			printModule(c.context, m);
 		}
 		
-		return returnCode;
-	} catch(CompileException e) {
-		import util.terminal;
-		outputCaretDiagnostics(e.getFullLocation(c.context), e.msg);
+		auto name = r.test.name.toString(c.context);
 		
-		// Rethrow in debug, so we have the stack trace.
-		debug {
-			throw e;
-		} else {
-			return 1;
-		}
+		import std.stdio;
+		writefln("\t%-24s %s", name, ResultStr[r.pass]);
 	}
-
-	// This is unreachable, but dmd can't figure this out.
-	assert(0);
+	
+	return returnCode;
 }
