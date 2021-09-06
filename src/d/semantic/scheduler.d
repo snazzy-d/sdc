@@ -24,18 +24,22 @@ final class Scheduler {
 	
 	void terminate() {
 		auto f = new Fiber({
-			while(processes.length) {
-				foreach(s; processes.keys) {
+			while (processes.length) {
+				foreach (s; processes.keys) {
 					require(s);
 				}
 			}
 		});
 		
-		while(f.state != Fiber.State.TERM) f.call();
+		while (f.state != Fiber.State.TERM) {
+			f.call();
+		}
 	}
 	
 	void require(Symbol s, Step step = LastStep) {
-		if (s.step >= step) return;
+		if (s.step >= step) {
+			return;
+		}
 		
 		// Overloadset sadness...
 		if (auto os = cast(OverloadSet) s) {
@@ -88,15 +92,17 @@ final class Scheduler {
 	}
 	
 	void require(R)(R syms, Step step = LastStep) if(isSymbolRange!R) {
-		foreach(s; syms) {
+		foreach (s; syms) {
 			require(s, step);
 		}
 	}
 	
 	void require(OverloadSet os, Step step = LastStep) {
-		if (os.step >= step) return;
+		if (os.step >= step) {
+			return;
+		}
 		
-		foreach(s; os.set) {
+		foreach (s; os.set) {
 			require(s, step);
 			os.hasContext = os.hasContext || s.hasContext;
 			os.hasThis = os.hasThis || s.hasThis;
@@ -181,8 +187,10 @@ enum LastStep = EnumMembers!Step[$ - 1];
 
 bool checkEnumElements() {
 	uint i;
-	foreach(s; EnumMembers!Step) {
-		if(s != i++) return false;
+	foreach (s; EnumMembers!Step) {
+		if (s != i++) {
+			return false;
+		}
 	}
 
 	return i > 0;
