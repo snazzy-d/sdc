@@ -209,8 +209,9 @@ public:
 			} else static if (is(T == bool)) {
 				return v ? "true" : "false";
 			} else static if (is(T == string)) {
-				// This is wrong, but will do for now.
-				return '"' ~ v ~ '"';
+				// This is retarded, but I can't find another way to do it.
+				import std.conv;
+				return to!string([v])[1 .. $ - 1];
 			} else {
 				import std.conv;
 				return to!string(v);
@@ -503,6 +504,7 @@ unittest {
 	
 	assert(Value("").toString() == `""`);
 	assert(Value("abc").toString() == `"abc"`);
+	assert(Value("\n\t\n").toString() == `"\n\t\n"`);
 	
 	assert(Value([1, 2, 3]).toString() == "[1, 2, 3]");
 	assert(Value(["y": true, "n": false]).toString() == `["y":true, "n":false]`);
