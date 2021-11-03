@@ -12,7 +12,7 @@ struct Config {
 
 string write(Chunk[] chunks, Config config = Config.init) {
 	auto context = Context(config, null);
-	return Writer(chunks, &context).write().text;
+	return Writer(BlockSpecifier(chunks, 0, 0), &context).write().text;
 }
 
 package:
@@ -59,26 +59,19 @@ struct Writer {
 	uint cost;
 	uint overflow;
 	
-	uint baseIndent = 0;
-	uint baseAlign = 0;
 	Chunk[] chunks;
+	uint baseIndent;
+	uint baseAlign;
 	
 	import std.array;
 	Appender!string buffer;
 	
-	this(Chunk[] chunks, Context* context) in {
-		assert(context !is null);
-	} do {
-		this.context = context;
-		this.chunks = chunks;
-	}
-	
 	this(BlockSpecifier block, Context* context) in {
 		assert(context !is null);
 	} do {
+		chunks = block.chunks;
 		baseIndent = block.baseIndent;
 		baseAlign = block.baseAlign;
-		chunks = block.chunks;
 		
 		this.context = context;
 	}
