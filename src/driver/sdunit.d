@@ -33,7 +33,11 @@ int main(string[] args) {
 
 int run(Context context, string[] args) {
 	import sdc.config;
-	Config conf = buildBaseConfig(context);
+	Config conf;
+	
+	import config.build;
+	conf.buildBaseConfig("sdc.conf", context);
+	
 	conf.enableUnittest = true;
 	
 	string[] includePaths, linkerPaths;

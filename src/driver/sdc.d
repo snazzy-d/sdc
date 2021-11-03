@@ -39,7 +39,10 @@ int main(string[] args) {
 
 int run(Context context, string[] args) {
 	import sdc.config;
-	Config conf = buildBaseConfig(context);
+	Config conf;
+	
+	import config.build;
+	conf.buildBaseConfig("sdc.conf", context);
 	
 	string[] includePaths, linkerPaths;
 	bool dontLink, generateMain;
