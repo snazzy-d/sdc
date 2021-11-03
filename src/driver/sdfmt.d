@@ -60,7 +60,7 @@ int main(string[] args) {
 		}
 		
 		import format.writer;
-		auto o = Writer(chunks).write().text;
+		auto o = chunks.write();
 		
 		import std.stdio;
 		writeln(o);

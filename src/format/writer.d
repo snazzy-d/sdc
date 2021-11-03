@@ -4,6 +4,19 @@ import format.chunk;
 
 import std.container.rbtree;
 
+struct Config {
+	uint pageWidth = 80;
+	uint indentationSize = 4;
+	bool useTabs = true;
+}
+
+string write(Chunk[] chunks, Config config = Config.init) {
+	auto context = Context(config, null);
+	return Writer(chunks, &context).write().text;
+}
+
+package:
+
 struct BlockSpecifier {
 	Chunk[] chunks;
 	uint baseIndent;
@@ -34,7 +47,15 @@ struct FormatResult {
 	string text;
 }
 
+struct Context {
+	Config config;
+	FormatResult[BlockSpecifier] cache;
+}
+
 struct Writer {
+	Context* context;
+	alias context this;
+	
 	uint cost;
 	uint overflow;
 	
@@ -42,23 +63,24 @@ struct Writer {
 	uint baseAlign = 0;
 	Chunk[] chunks;
 	
-	FormatResult[BlockSpecifier] cache;
-	
 	import std.array;
 	Appender!string buffer;
 	
-	this(Chunk[] chunks) {
+	this(Chunk[] chunks, Context* context) in {
+		assert(context !is null);
+	} do {
+		this.context = context;
 		this.chunks = chunks;
 	}
 	
-	this(BlockSpecifier block, FormatResult[BlockSpecifier] cache) in {
-		assert(cache !is null);
+	this(BlockSpecifier block, Context* context) in {
+		assert(context !is null);
 	} do {
 		baseIndent = block.baseIndent;
 		baseAlign = block.baseAlign;
 		chunks = block.chunks;
 		
-		this.cache = cache;
+		this.context = context;
 	}
 	
 	FormatResult write() {
@@ -86,7 +108,7 @@ struct Writer {
 	
 	FormatResult formatBlock(Chunk[] chunks, uint baseIndent, uint baseAlign) {
 		auto block = BlockSpecifier(chunks, baseIndent, baseAlign);
-		return cache.require(block, Writer(block, cache).write());
+		return cache.require(block, Writer(block, context).write());
 	}
 	
 	void output(char c) {
@@ -98,8 +120,14 @@ struct Writer {
 	}
 	
 	void indent(uint level) {
-		foreach (_; 0 .. level) {
-			output('\t');
+		if (config.useTabs) {
+			foreach (_; 0 .. level) {
+				output('\t');
+			}
+		} else {
+			foreach (_; 0 .. level * config.indentationSize) {
+				output(' ');
+			}
 		}
 	}
 	
@@ -243,9 +271,6 @@ struct LineWriter {
 		return best;
 	}
 }
-
-enum INDENTATION_SIZE = 4;
-enum PAGE_WIDTH = 80;
 
 struct RuleValues {
 private:
@@ -456,6 +481,9 @@ struct SolveState {
 		Span previousSpan = null;
 		size_t regionStart = 0;
 		
+		const indentationSize = writer.config.indentationSize;
+		const pageWidth = writer.config.pageWidth;
+		
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
 			uint column = 0;
@@ -479,7 +507,7 @@ struct SolveState {
 						}
 						
 						if (text[n] == '\t') {
-							column += INDENTATION_SIZE;
+							column += indentationSize;
 							continue;
 						}
 						
@@ -502,7 +530,7 @@ struct SolveState {
 					}
 					
 					lineLength = c.length;
-					column = getIndent(line, i) * INDENTATION_SIZE + getAlign(line, i);
+					column = getIndent(line, i) * indentationSize + getAlign(line, i);
 					break;
 			}
 			
@@ -515,7 +543,7 @@ struct SolveState {
 			
 			if (i > 0) {
 				// End the previous line if there is one.
-				endLine(line, i, length);
+				endLine(line, i, length, pageWidth);
 			}
 			
 			length = column + lineLength;
@@ -546,7 +574,7 @@ struct SolveState {
 			}
 		}
 		
-		endLine(line, line.length, length);
+		endLine(line, line.length, length, pageWidth);
 		
 		// Account for the cost of breaking spans.
 		if (brokenSpans !is null) {
@@ -592,12 +620,12 @@ struct SolveState {
 		return false;
 	}
 	
-	void endLine(const Chunk[] line, size_t i, uint length) {
-		if (length <= PAGE_WIDTH) {
+	void endLine(const Chunk[] line, size_t i, uint length, uint pageWidth) {
+		if (length <= pageWidth) {
 			return;
 		}
 		
-		uint lineOverflow = length - PAGE_WIDTH;
+		uint lineOverflow = length - pageWidth;
 		overflow += lineOverflow;
 		
 		// If the line overflow, but has no split point, it is sunk.
