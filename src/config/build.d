@@ -4,7 +4,7 @@ import source.context;
 
 import config.value;
 
-void parseAndExtend(C)(ref C config, Context context, string filename) {
+auto parseAndExtend(C)(ref C config, Context context, string filename) {
 	import std.file;
 	if (!exists(filename)) {
 		return;
@@ -20,21 +20,21 @@ void parseAndExtend(C)(ref C config, Context context, string filename) {
 	auto cfg = &config;
 	
 	import config.jsonparser;
-	cfg.extends(lexer.parseJSON());
+	return cfg.extends(lexer.parseJSON());
 }
 
 auto buildGlobalConfig(C)(ref C config, string name, Context context) {
 	// System wide configuration.
-	config.parseAndExtend(context, "/etc/" ~ name);
+	config.parseAndExtend(context, "/etc".buildPath(name));
 	
 	// User wide configuration.
 	import std.process;
 	if (auto home = environment.get("HOME", "")) {
-		config.parseAndExtend(context, home ~ "/." ~ name);
+		config.parseAndExtend(context, home.buildPath('.' ~ name));
 	}
 	
 	// SDC's folder.
 	import std.file, std.path;
-	auto path = thisExePath.dirName() ~ '/' ~ name;
+	auto path = thisExePath.dirName().buildPath(name);
 	config.parseAndExtend(context, path);
 }
