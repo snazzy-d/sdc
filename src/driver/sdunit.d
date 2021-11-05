@@ -36,7 +36,7 @@ int run(Context context, string[] args) {
 	Config conf;
 	
 	import config.build;
-	conf.buildBaseConfig("sdc.conf", context);
+	conf.buildBaseConfig("sdconfig", context);
 	
 	conf.enableUnittest = true;
 	

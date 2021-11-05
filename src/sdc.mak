@@ -35,16 +35,16 @@ $(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCO
 	@mkdir -p bin
 	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
 
-bin/sdc.conf:
+bin/sdconfig:
 	@mkdir -p bin
 	printf "{\n\t\"includePaths\": [\"$(PWD)/sdlib\", \".\"],\n\t\"libPaths\": [\"$(PWD)/lib\"],\n}\n" > $@
 
-SDLIB_DEPS = $(SDC) bin/sdc.conf
+SDLIB_DEPS = $(SDC) bin/sdconfig
 
 include sdlib/sdrt.mak
 include sdlib/phobos.mak
 
-check-sdc: $(SDC) bin/sdc.conf $(LIBSDRT) $(PHOBOS)
+check-sdc: $(SDC) bin/sdconfig $(LIBSDRT) $(PHOBOS)
 	test/runner/runner.d
 
 check: check-sdc

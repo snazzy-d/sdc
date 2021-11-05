@@ -27,7 +27,7 @@ auto buildBaseConfig(C)(ref C config, string name, Context context) {
 	// User wide configuration.
 	import std.process;
 	if (auto home = environment.get("HOME", "")) {
-		config.extends(context.buildConfigFromFile(home ~ "/.sdc/" ~ name));
+		config.extends(context.buildConfigFromFile(home ~ "/." ~ name));
 	}
 	
 	// SDC's folder.
