@@ -45,6 +45,12 @@ int main(string[] args) {
 	auto context = new Context();
 	
 	foreach (filename; files) {
+		import format.config;
+		Config conf;
+		
+		import config.build;
+		conf.buildLocalConfig("sdfmt", context, filename);
+		
 		import source.location;
 	    auto base = context.registerFile(Location.init, filename, "");
 		
@@ -60,7 +66,7 @@ int main(string[] args) {
 		}
 		
 		import format.writer;
-		auto o = chunks.write();
+		auto o = chunks.write(conf);
 		
 		import std.stdio;
 		writeln(o);

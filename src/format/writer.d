@@ -1,16 +1,11 @@
 module format.writer;
 
 import format.chunk;
+import format.config;
 
 import std.container.rbtree;
 
-struct Config {
-	uint pageWidth = 80;
-	uint indentationSize = 4;
-	bool useTabs = true;
-}
-
-string write(Chunk[] chunks, Config config = Config.init) {
+string write(Chunk[] chunks, Config config) {
 	auto context = Context(config, null);
 	return Writer(BlockSpecifier(chunks, 0, 0), &context).write().text;
 }

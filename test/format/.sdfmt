@@ -1,0 +1,4 @@
+{
+	// Make sure we wrap around quickly so we don't need to pad tests.
+	"pageWidth": 40,
+}

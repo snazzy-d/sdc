@@ -11,7 +11,7 @@ obj/format.o: $(LIBSDFMT_SRC)
 $(LIBSDFMT): obj/format.o
 	ar rcs $(LIBSDFMT) obj/format.o
 
-$(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBSOURCE)
+$(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
 	$(GCC) -o "$@" $^ $(ARCHFLAG) $(LDFLAGS)
 

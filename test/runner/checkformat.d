@@ -80,7 +80,7 @@ struct CheckFormat {
 		}
 		
 		import std.file;
-		foreach (f; dirEntries("test/invalid", "*.d", SpanMode.breadth)) {
+		foreach (f; ["test/invalid", "test/format"].map!(d => dirEntries(d, "*.d", SpanMode.breadth)).join()) {
 			if (!f.isFile()) {
 				continue;
 			}
