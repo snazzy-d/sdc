@@ -28,17 +28,16 @@ auto parseAndExtend(C)(ref C config, Context context, string filename) {
 }
 
 auto buildGlobalConfig(C)(ref C config, string name, Context context) {
-	// System wide configuration.
-	import std.path;
-	config.parseAndExtendIfExist(context, "/etc".buildPath(name));
+	// SDC's folder.
+	import std.file, std.path;
+	config.parseAndExtendIfExist(context, thisExePath.dirName().buildPath(name));
 	
+	// System wide configuration.
+	config.parseAndExtendIfExist(context, "/etc".buildPath(name));
+
 	// User wide configuration.
 	import std.process;
 	if (auto home = environment.get("HOME", "")) {
 		config.parseAndExtendIfExist(context, home.buildPath('.' ~ name));
 	}
-	
-	// SDC's folder.
-	import std.file;
-	config.parseAndExtendIfExist(context, thisExePath.dirName().buildPath(name));
 }
