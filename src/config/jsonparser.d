@@ -38,6 +38,10 @@ unittest {
 	assert(testJSON(`''`) == "");
 	assert(testJSON(`"pouic"`) == "pouic");
 	assert(testJSON(`'"'`) == "\"");
+	assert(testJSON(`0`) == 0);
+	assert(testJSON(`1`) == 1);
+	assert(testJSON(`0x42`) == 0x42);
+	assert(testJSON(`0b10101`) == 21);
 	assert(testJSON(`[]`) == emptyArray);
 	assert(testJSON(`[true, false]`) == [true, false]);
 	assert(testJSON(`["foo", 'bar']`) == ["foo", "bar"]);
@@ -54,10 +58,9 @@ unittest {
 }
 
 Value parseJsonValue(ref JsonLexer lexer) {
-	auto type = lexer.front.type;
-	auto name = lexer.front.name;
+	auto t = lexer.front;
 	
-	switch (type) with (TokenType) {
+	switch (t.type) with (TokenType) {
 		case Null:
 			lexer.popFront();
 			return Value(null);
@@ -72,9 +75,15 @@ Value parseJsonValue(ref JsonLexer lexer) {
 		
 		case StringLiteral:
 			lexer.popFront();
-			return Value(name.toString(lexer.context));
+			return Value(t.name.toString(lexer.context));
 		
-		case IntegerLiteral, FloatLiteral:
+		case IntegerLiteral:
+			lexer.popFront();
+			
+			import source.strtoint;
+			return Value(strToInt(t.toString(lexer.context)));
+		
+		case FloatLiteral:
 			assert(0, "Not implemented");
 		
 		case OpenBracket:

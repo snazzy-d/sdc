@@ -25,6 +25,7 @@ ParseDec:
 
 unittest {
 	assert(strToInt("0") == 0);
+	assert(strToInt("42") == 42);
 	assert(strToInt("123") == 123);
 	assert(strToInt("0x0") == 0);
 	assert(strToInt("0xaa") == 170);
