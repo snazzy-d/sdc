@@ -1002,30 +1002,8 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 		}
 	}
 	
-	ulong value;
-	
-	assert(strVal.length > 0);
-	if (strVal[0] != '0' || strVal.length < 3) {
-		goto ParseDec;
-	}
-	
-	switch(strVal[1]) {
-		case 'x', 'X':
-			value = strToHexInt(strVal[2 .. $]);
-			goto CreateLiteral;
-		
-		case 'b', 'B':
-			value = strToBinInt(strVal[2 .. $]);
-			goto CreateLiteral;
-		
-		default:
-			// Break to parse as decimal.
-			break;
-	}
-	
-	ParseDec: value = strToDecInt(strVal);
-	
-	CreateLiteral :
+	import source.strtoint;
+	ulong value = strToInt(strVal);
 	
 	import d.common.builtintype;
 	auto type = isUnsigned
@@ -1033,99 +1011,6 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 		: ((isLong || value > int.max) ? BuiltinType.Long : BuiltinType.Int);
 	
 	return new IntegerLiteral(location, value, type);
-}
-
-ulong strToDecInt(string s) in {
-	assert(s.length > 0, "s must not be empty");
-} do {
-	ulong ret = 0;
-	
-	for (uint i = 0; i < s.length; i++) {
-		if (s[i] == '_') continue;
-		
-		ret *= 10;
-		
-		auto d = s[i] - '0';
-		assert(d < 10, "Only digits are expected here");
-		ret += d;
-	}
-	
-	return ret;
-}
-
-unittest {
-	assert(strToDecInt("0") == 0);
-	assert(strToDecInt("42") == 42);
-	assert(strToDecInt("1234567890") == 1234567890);
-	assert(strToDecInt("18446744073709551615") == 18446744073709551615UL);
-	assert(strToDecInt("34_56") == 3456);
-}
-
-ulong strToBinInt(string s) in {
-	assert(s.length > 0, "s must not be empty");
-} do {
-	ulong ret = 0;
-	
-	for (uint i = 0; i < s.length; i++) {
-		if (s[i] == '_') continue;
-		
-		ret <<= 1;
-		auto d = s[i] - '0';
-		assert(d < 2, "Only 0 and 1 are expected here");
-		ret |= d;
-	}
-	
-	return ret;
-}
-
-unittest {
-	assert(strToBinInt("0") == 0);
-	assert(strToBinInt("1010") == 10);
-	assert(strToBinInt("0101010") == 42);
-	assert(strToBinInt(
-		"1111111111111111111111111111111111111111111111111111111111111111",
-	) == 18446744073709551615UL);
-	assert(strToBinInt("11_101_00") == 116);
-}
-
-ulong strToHexInt(string s) in {
-	assert(s.length > 0, "s must not be empty");
-} do {
-	ulong ret = 0;
-	
-	for (uint i = 0; i < s.length; i++) {
-		// TODO: Filter these out at lexing.
-		if (s[i] == '_') continue;
-		
-		// XXX: This would allow to reduce data dependacy here by using
-		// the string length and shifting the whole amount at once.
-		ret *= 16;
-		
-		auto d = s[i] - '0';
-		if (d < 10) {
-			ret += d;
-			continue;
-		}
-		
-		auto h = (s[i] | 0x20) - 'a' + 10;
-		assert(h - 10 < 6, "Only hex digits are expected here");
-		ret += h;
-	}
-	
-	return ret;
-}
-
-unittest {
-	assert(strToHexInt("0") == 0);
-	assert(strToHexInt("A") == 10);
-	assert(strToHexInt("a") == 10);
-	assert(strToHexInt("F") == 15);
-	assert(strToHexInt("f") == 15);
-	assert(strToHexInt("42") == 66);
-	assert(strToHexInt("AbCdEf0") == 180150000);
-	assert(strToHexInt("12345aBcDeF") == 1251004370415);
-	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
-	assert(strToHexInt("a_B_c") == 2748);
 }
 
 /**
