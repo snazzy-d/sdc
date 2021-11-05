@@ -4,12 +4,16 @@ import source.context;
 
 import config.value;
 
-auto parseAndExtend(C)(ref C config, Context context, string filename) {
+auto parseAndExtendIfExist(C)(ref C config, Context context, string filename) {
 	import std.file;
 	if (!exists(filename)) {
 		return;
 	}
 	
+	return config.parseAndExtend(context, filename);
+}
+
+auto parseAndExtend(C)(ref C config, Context context, string filename) {
 	import source.location;
 	auto base = context.registerFile(Location.init, filename, "");
 	
@@ -25,16 +29,16 @@ auto parseAndExtend(C)(ref C config, Context context, string filename) {
 
 auto buildGlobalConfig(C)(ref C config, string name, Context context) {
 	// System wide configuration.
-	config.parseAndExtend(context, "/etc".buildPath(name));
+	import std.path;
+	config.parseAndExtendIfExist(context, "/etc".buildPath(name));
 	
 	// User wide configuration.
 	import std.process;
 	if (auto home = environment.get("HOME", "")) {
-		config.parseAndExtend(context, home.buildPath('.' ~ name));
+		config.parseAndExtendIfExist(context, home.buildPath('.' ~ name));
 	}
 	
 	// SDC's folder.
-	import std.file, std.path;
-	auto path = thisExePath.dirName().buildPath(name);
-	config.parseAndExtend(context, path);
+	import std.file;
+	config.parseAndExtendIfExist(context, thisExePath.dirName().buildPath(name));
 }
