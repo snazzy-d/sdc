@@ -590,7 +590,7 @@ struct SolveState {
 		
 		// This new line is at the same level as the previous line, yet belong to another span.
 		// This tends to make the code confusing to read, so we penalize this solution.
-		return 1000;
+		return 1;
 	}
 	
 	bool tryWrap(const Chunk[] line, size_t i) {
