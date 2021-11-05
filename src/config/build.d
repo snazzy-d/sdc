@@ -4,10 +4,10 @@ import source.context;
 
 import config.value;
 
-auto buildConfigFromFile(Context context, string filename) {
+void parseAndExtend(C)(ref C config, Context context, string filename) {
 	import std.file;
 	if (!exists(filename)) {
-		return Value(null);
+		return;
 	}
 	
 	import source.location;
@@ -16,25 +16,25 @@ auto buildConfigFromFile(Context context, string filename) {
 	import source.jsonlexer;
 	auto lexer = lex(base, context);
 	
+	// Workaround for https://issues.dlang.org/show_bug.cgi?id=22482
+	auto cfg = &config;
+	
 	import config.jsonparser;
-	return lexer.parseJSON();
+	cfg.extends(lexer.parseJSON());
 }
 
-auto buildBaseConfig(C)(ref C config, string name, Context context) {
+auto buildGlobalConfig(C)(ref C config, string name, Context context) {
 	// System wide configuration.
-	config.extends(context.buildConfigFromFile("/etc/" ~ name));
+	config.parseAndExtend(context, "/etc/" ~ name);
 	
 	// User wide configuration.
 	import std.process;
 	if (auto home = environment.get("HOME", "")) {
-		config.extends(context.buildConfigFromFile(home ~ "/." ~ name));
+		config.parseAndExtend(context, home ~ "/." ~ name);
 	}
 	
 	// SDC's folder.
-	import std.file, std.array;
-	auto path = thisExePath.split('/');
-	path[$ - 1] = name;
-	
-	config.extends(context.buildConfigFromFile(path.join("/")));
-	return config;
+	import std.file, std.path;
+	auto path = thisExePath.dirName() ~ '/' ~ name;
+	config.parseAndExtend(context, path);
 }
