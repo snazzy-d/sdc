@@ -26,6 +26,7 @@ private:
 		Declaration,
 		Statement,
 		Parameter,
+		Attribute,
 	}
 
 	Mode mode;
@@ -636,8 +637,7 @@ private:
 			
 			case At:
 				while(match(At)) {
-					nextToken();
-					parseIdentifier();
+					parseAttribute();
 					space();
 				}
 				
@@ -806,6 +806,11 @@ private:
 			case Identifier:
 				nextToken();
 				
+				if (mode == Mode.Attribute) {
+					break;
+				}
+				
+				parseStorageClasses(true);
 				if (!match(EqualMore)) {
 					break;
 				}
@@ -861,33 +866,49 @@ private:
 				break;
 			
 			case OpenParen:
+				if (mode == Mode.Attribute) {
+					parseArgumentList();
+					break;
+				}
+				
 				import source.parserutil;
 				auto lookahead = trange.getLookahead();
 				lookahead.popMatchingDelimiter!OpenParen();
 				
+				bool isLambda;
 				switch (lookahead.front.type) {
-					case Dot:
-						// Could be (type).identifier
+					case OpenBrace, EqualMore, At:
+					case Nothrow, Pure, Ref, Synchronized:
+						isLambda = true;
 						break;
 					
+					default:
+						isLambda = false;
+						break;
+				}
+				
+				if (!isLambda) {
+					// This isn't a lambda.
+					parseArgumentList();
+					break;
+				}
+				
+				// We have a lambda.
+				kind = IdentifierKind.Expression;
+				parseParameterList();
+				space();
+				parseStorageClasses(true);
+				
+				switch (token.type) {
 					case OpenBrace:
-						kind = IdentifierKind.Expression;
-						parseParameterList();
-						space();
 						parseLambda();
 						break;
 					
 					case EqualMore:
-						kind = IdentifierKind.Expression;
-						parseParameterList();
+						nextToken();
 						space();
-						if (match(EqualMore)) {
-							nextToken();
-							space();
-							split();
-							parseExpression();
-						}
-						
+						split();
+						parseExpression();
 						break;
 					
 					default:
@@ -1861,6 +1882,14 @@ private:
 		}
 	}
 	
+	void parseAttribute() in {
+		assert(match(TokenType.At));
+	} do {
+		auto guard = changeMode(Mode.Attribute);
+		nextToken();
+		parseIdentifier();
+	}
+	
 	bool parseStorageClasses(bool isPostfix = false) {
 		bool ret = false;
 		while (true) {
@@ -1900,8 +1929,7 @@ private:
 					break;
 				
 				case At:
-					nextToken();
-					parseIdentifier();
+					parseAttribute();
 					break;
 				
 				default:
