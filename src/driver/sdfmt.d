@@ -3,12 +3,14 @@ module driver.sdfmt;
 
 int main(string[] args) {
 	bool dbg = false;
+	bool inPlace = false;
 	
 	import std.getopt;
 	try {
 		auto help_info = getopt(
 			args, std.getopt.config.caseSensitive,
-			"debug",     "Include path",        &dbg,
+			"debug", "Enable debug",          &dbg,
+			"i",     "Format files in place", &inPlace,
 		);
 		
 		if (help_info.helpWanted || args.length == 1) {
@@ -68,8 +70,14 @@ int main(string[] args) {
 		import format.writer;
 		auto o = chunks.write(conf);
 		
-		import std.stdio;
-		writeln(o);
+		if (inPlace) {
+			// TODO: Only write if the file changed.
+			import std.file;
+			filename.write(o);
+		} else {
+			import std.stdio;
+			writeln(o);
+		}
 	}
 	
 	return 0;
