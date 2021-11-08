@@ -1809,6 +1809,16 @@ private:
 		runOnType!(TokenType.Identifier, nextToken)();
 		parseParameterList();
 		space();
+		
+		if (match(TokenType.If)) {
+			auto guard = span();
+			split();
+			nextToken();
+			space();
+			parseCondition();
+			space();
+		}
+		
 		parseBlock(Mode.Declaration);
 	}
 	
