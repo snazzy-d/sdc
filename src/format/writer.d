@@ -7,7 +7,10 @@ import std.container.rbtree;
 
 string write(Chunk[] chunks, Config config) {
 	auto context = Context(config, null);
-	return Writer(BlockSpecifier(chunks, 0, 0), &context).write().text;
+	auto w = Writer(BlockSpecifier(chunks, 0, 0), &context);
+	w.write();
+	w.buffer ~= '\n';
+	return w.buffer.data;
 }
 
 package:

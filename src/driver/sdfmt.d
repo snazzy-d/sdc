@@ -76,7 +76,7 @@ int main(string[] args) {
 			filename.write(o);
 		} else {
 			import std.stdio;
-			writeln(o);
+			write(o);
 		}
 	}
 	
