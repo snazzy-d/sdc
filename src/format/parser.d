@@ -2173,7 +2173,7 @@ private:
 				
 				split();
 				guard.registerFix(function(ListSpan s, size_t i) {
-					s.registerParam(i);
+					s.registerElement(i);
 				});
 				
 				fun();

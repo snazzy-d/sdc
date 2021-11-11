@@ -182,33 +182,37 @@ final class AlignedSpan : Span {
  * Span ensuring lists of items are formatted as expected.
  */
 final class ListSpan : Span {
-	size_t[] params;
+	size_t[] elements;
 	
 	this(Span parent) {
 		super(parent);
 	}
 	
-	void registerParam(size_t i) in {
-		assert(params.length == 0 || params[$ - 1] < i);
+	override uint getCost(const ref SolveState s) const {
+		return elements.length <= 1 ? 5 : 3;
+	}
+	
+	void registerElement(size_t i) in {
+		assert(elements.length == 0 || elements[$ - 1] < i);
 	} do {
-		params ~= i;
+		elements ~= i;
 	}
 	
 	bool isActive(const ref SolveState s) const {
-		return s.isSplit(params[0]) || !s.isUsed(this);
+		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
 	
 	override uint computeIndent(const ref SolveState s) const {
-		return (s.isSplit(params[0]) && s.isUsed(this)) ? 1 : 0;
+		return (s.isSplit(elements[0]) && s.isUsed(this)) ? 1 : 0;
 	}
 	
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		return (s.isSplit(params[0]) || !s.isUsed(this)) ? 0 : params[0];
+		return (s.isSplit(elements[0]) || !s.isUsed(this)) ? 0 : elements[0];
 	}
 	
 	override Split computeSplit(const ref SolveState s, size_t i) const {
-		size_t previous = params[0];
-		foreach (p; params) {
+		size_t previous = elements[0];
+		foreach (p; elements) {
 			if (p > i) {
 				// We went past the index we are interested in.
 				break;
