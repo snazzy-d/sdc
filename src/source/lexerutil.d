@@ -522,6 +522,12 @@ private:
 				
 				break;
 			
+			case 'f':
+				popChar();
+				
+				t.type = TokenType.FloatLiteral;
+				break;
+			
 			default:
 				break;
 		}
