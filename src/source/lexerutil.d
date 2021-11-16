@@ -496,7 +496,7 @@ private:
 		}
 	}
 	
-	Token lexNumericSuffix(uint begin) {
+	Token lexIntegralSuffix(uint begin) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
 		
@@ -552,7 +552,7 @@ private:
 		uint begin = index - 2;
 		popBinary();
 		
-		return lexNumericSuffix(begin);
+		return lexIntegralSuffix(begin);
 	}
 	
 	/**
@@ -571,71 +571,36 @@ private:
 		uint begin = index - 2;
 		popHexadecimal();
 		
-		return lexNumericSuffix(begin);
+		auto c = frontChar;
+		if (c != '.' && (c | 0x20) != 'p') {
+			return lexIntegralSuffix(begin);
+		}
+		
+		assert(0, "No floating point ATM");
 	}
 	
 	/**
-	 * Legacy literals.
+	 * Decimal literals.
 	 */
 	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
 		return lexNumeric(s[0]);
 	}
 	
 	auto lexNumeric(char c) {
-		Token t;
-		t.type = TokenType.IntegerLiteral;
-		immutable begin = index - 1;
-		
 		if (!isDecimal(c)) {
 			// FIXME: Proper error reporting.
 			assert(0, "invalid integer literal");
 		}
 		
+		uint begin = index - 1;
 		popDecimal();
 		
 		c = frontChar;
-		switch (c) {
-			case '.':
-				auto lookAhead = content;
-				lookAhead.popFront();
-				
-				if (lookAhead.front.isDigit()) {
-					popChar();
-					
-					t.type = TokenType.FloatLiteral;
-					
-					assert(0, "No floating point ATM");
-					// pumpChars!isDigit(content);
-				}
-				
-				break;
-			
-			case 'U', 'u':
-				popChar();
-				
-				c = frontChar;
-				if (c == 'L' || c == 'l') {
-					popChar();
-				}
-				
-				break;
-			
-			case 'L', 'l':
-				popChar();
-				
-				c = frontChar;
-				if (c == 'U' || c == 'u') {
-					popChar();
-				}
-				
-				break;
-			
-			default:
-				break;
+		if (c != '.' && (c | 0x20) != 'e') {
+			return lexIntegralSuffix(begin);
 		}
 		
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+		assert(0, "No floating point ATM");
 	}
 	
 	auto lexKeyword(string s)() {
