@@ -496,43 +496,11 @@ private:
 		}
 	}
 	
-	/**
-	 * Legacy literals.
-	 */
-	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
-		return lexNumeric(s[0]);
-	}
-	
-	Token lexNumeric(string s)() if (s.length == 2 && s[0] == '0') {
+	Token lexNumericSuffix(uint begin) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
-		immutable begin = index - 2;
 		
 		auto c = frontChar;
-		switch(s[1] | 0x20) {
-			case 'b':
-				if (!isBinary(c)) {
-					// FIXME: Proper error reporting.
-					assert(0, "invalid integer literal");
-				}
-				
-				popBinary();
-				break;
-			
-			case 'x':
-				if (!isHexadecimal(c)) {
-					// FIXME: Proper error reporting.
-					assert(0, "invalid integer literal");
-				}
-				
-				popHexadecimal();
-				break;
-			
-			default :
-				assert(0, s ~ " is not a valid prefix.");
-		}
-		
-		c = frontChar;
 		switch(c | 0x20) {
 			case 'u':
 				popChar();
@@ -560,6 +528,51 @@ private:
 		
 		t.location = base.getWithOffsets(begin, index);
 		return t;
+	}
+	
+	/**
+	 * Binary literals.
+	 */
+	Token lexNumeric(string s : "0B")() {
+		return lexNumeric!"0b"();
+	}
+	
+	Token lexNumeric(string s : "0b")() {
+		if (!isBinary(frontChar)) {
+			// FIXME: Proper error reporting.
+			assert(0, "invalid integer literal");
+		}
+		
+		uint begin = index - 2;
+		popBinary();
+		
+		return lexNumericSuffix(begin);
+	}
+	
+	/**
+	 * Hexadecimal literals.
+	 */
+	Token lexNumeric(string s : "0X")() {
+		return lexNumeric!"0x"();
+	}
+	
+	Token lexNumeric(string s : "0x")() {
+		if (!isHexadecimal(frontChar)) {
+			// FIXME: Proper error reporting.
+			assert(0, "invalid integer literal");
+		}
+		
+		uint begin = index - 2;
+		popHexadecimal();
+		
+		return lexNumericSuffix(begin);
+	}
+	
+	/**
+	 * Legacy literals.
+	 */
+	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
+		return lexNumeric(s[0]);
 	}
 	
 	auto lexNumeric(char c) {
