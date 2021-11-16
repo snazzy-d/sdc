@@ -572,11 +572,25 @@ private:
 		popHexadecimal();
 		
 		auto c = frontChar;
-		if (c != '.' && (c | 0x20) != 'p') {
-			return lexIntegralSuffix(begin);
+		if ((c | 0x20) == 'p') {
+			popChar();
+			
+			c = frontChar;
+			if (c == '+' || c == '-') {
+				popChar();
+				c = frontChar;
+			}
+			
+			popHexadecimal();
+			
+			Token t;
+			t.type = TokenType.FloatLiteral;
+			t.location = base.getWithOffsets(begin, index);
+			return t;
 		}
 		
-		assert(0, "No floating point ATM");
+		assert(c != '.', "No floating point ATM");
+		return lexIntegralSuffix(begin);
 	}
 	
 	/**
@@ -596,11 +610,25 @@ private:
 		popDecimal();
 		
 		c = frontChar;
-		if (c != '.' && (c | 0x20) != 'e') {
-			return lexIntegralSuffix(begin);
+		if ((c | 0x20) == 'e') {
+			popChar();
+			
+			c = frontChar;
+			if (c == '+' || c == '-') {
+				popChar();
+				c = frontChar;
+			}
+			
+			popDecimal();
+			
+			Token t;
+			t.type = TokenType.FloatLiteral;
+			t.location = base.getWithOffsets(begin, index);
+			return t;
 		}
 		
-		assert(0, "No floating point ATM");
+		assert(c != '.', "No floating point ATM");
+		return lexIntegralSuffix(begin);
 	}
 	
 	auto lexKeyword(string s)() {
