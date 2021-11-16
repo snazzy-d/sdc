@@ -456,6 +456,49 @@ private:
 		return t;
 	}
 	
+	/**
+	 * General integer lexing utilities.
+	 */
+	static bool isDecimal(char c) {
+		return c >= '0' && c <= '9';
+	}
+	
+	void popDecimal() {
+		auto c = frontChar;
+		while (isDecimal(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
+	static bool isHexadecimal(char c) {
+		auto hc = c | 0x20;
+		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
+	}
+	
+	void popHexadecimal() {
+		auto c = frontChar;
+		while (isHexadecimal(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
+	static bool isBinary(char c) {
+		return c == '0' || c == '1';
+	}
+	
+	void popBinary() {
+		auto c = frontChar;
+		while (isBinary(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
+	/**
+	 * Legacy literals.
+	 */
 	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
 		return lexNumeric(s[0]);
 	}
@@ -468,50 +511,28 @@ private:
 		auto c = frontChar;
 		switch(s[1] | 0x20) {
 			case 'b':
-				assert(c == '0' || c == '1', "invalid integer literal");
-				while (true) {
-					while (c == '0' || c == '1') {
-						popChar();
-						c = frontChar;
-					}
-					
-					if (c == '_') {
-						popChar();
-						c = frontChar;
-						continue;
-					}
-					
-					break;
+				if (!isBinary(c)) {
+					// FIXME: Proper error reporting.
+					assert(0, "invalid integer literal");
 				}
 				
+				popBinary();
 				break;
 			
 			case 'x':
-				auto hc = c | 0x20;
-				assert((c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f'), "invalid integer literal");
-				while (true) {
-					hc = c | 0x20;
-					while ((c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f')) {
-						popChar();
-						c = frontChar;
-						hc = c | 0x20;
-					}
-					
-					if (c == '_') {
-						popChar();
-						c = frontChar;
-						continue;
-					}
-					
-					break;
+				if (!isHexadecimal(c)) {
+					// FIXME: Proper error reporting.
+					assert(0, "invalid integer literal");
 				}
 				
+				popHexadecimal();
 				break;
 			
 			default :
 				assert(0, s ~ " is not a valid prefix.");
 		}
 		
+		c = frontChar;
 		switch(c | 0x20) {
 			case 'u':
 				popChar();
@@ -546,24 +567,14 @@ private:
 		t.type = TokenType.IntegerLiteral;
 		immutable begin = index - 1;
 		
-		assert(c >= '0' && c <= '9', "invalid integer literal");
-		
-		c = frontChar;
-		while (true) {
-			while (c >= '0' && c <= '9') {
-				popChar();
-				c = frontChar;
-			}
-			
-			if (c == '_') {
-				popChar();
-				c = frontChar;
-				continue;
-			}
-			
-			break;
+		if (!isDecimal(c)) {
+			// FIXME: Proper error reporting.
+			assert(0, "invalid integer literal");
 		}
 		
+		popDecimal();
+		
+		c = frontChar;
 		switch (c) {
 			case '.':
 				auto lookAhead = content;
