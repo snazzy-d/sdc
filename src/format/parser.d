@@ -902,8 +902,7 @@ private:
 				
 				switch (token.type) {
 					case OpenBrace:
-						parseLambda();
-						break;
+						goto Lambda;
 					
 					case EqualMore:
 						nextToken();
@@ -913,15 +912,18 @@ private:
 						break;
 					
 					default:
+						parseArgumentList();
 						break;
 				}
 				
-				parseArgumentList();
 				break;
 			
 			case OpenBrace:
 				// This is a parameterless lambda.
-				parseLambda();
+			
+			Lambda:
+				parseBlock(Mode.Statement);
+				clearSplitType();
 				break;
 			
 			case OpenBracket:
@@ -1140,11 +1142,6 @@ private:
 			nextToken();
 			newline(2);
 		}
-	}
-	
-	void parseLambda() {
-		parseBlock(Mode.Statement);
-		clearSplitType();
 	}
 	
 	bool parseControlFlowBlock(bool forceNewLine = true) {
