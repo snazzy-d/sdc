@@ -831,6 +831,7 @@ private:
 			case False:
 			case Null:
 			case IntegerLiteral:
+			case FloatLiteral:
 			case StringLiteral:
 			case CharacterLiteral:
 			case __File__:
