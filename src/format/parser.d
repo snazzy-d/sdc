@@ -918,8 +918,57 @@ private:
 				
 				break;
 			
-			case OpenBrace:
-				// This is a parameterless lambda.
+			case OpenBrace: {
+				// Try to detect if it is a struct literal or a parameterless lambda.
+				import source.parserutil;
+				auto lookahead = trange.getLookahead();
+				
+				lookahead.popFront();
+				if (lookahead.front.type != Identifier) {
+					goto Lambda;
+				}
+				
+				lookahead.popFront();
+				if (lookahead.front.type != Colon) {
+					goto Lambda;
+				}
+				
+				// We may still have a lambda starting with a labeled statement,
+				// so we go on the hunt for a semicolon.
+				lookahead.popFront();
+				while (true) {
+					switch (lookahead.front.type) {
+						case CloseBrace:
+							goto StructLiteral;
+						
+						case Semicolon:
+							goto Lambda;
+						
+						case End:
+							// This is malformed, assume literal.
+							goto StructLiteral;
+						
+						case OpenParen:
+							lookahead.popMatchingDelimiter!OpenParen();
+							break;
+						
+						case OpenBrace:
+							lookahead.popMatchingDelimiter!OpenBrace();
+							break;
+						
+						case OpenBracket:
+							lookahead.popMatchingDelimiter!OpenBracket();
+							break;
+						
+						default:
+							lookahead.popFront();
+					}
+				}
+			}
+			
+			StructLiteral:
+				parseStructLiteral();
+				break;
 			
 			Lambda:
 				parseBlock(Mode.Statement);
@@ -1090,20 +1139,28 @@ private:
 	/**
 	 * Statements
 	 */
+	bool parseEmptyBlock() {
+		if (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+			return false;
+		}
+		
+		{
+			// Flush comments so that they have the proper indentation.
+			auto guard = builder.indent();
+			flushComments();
+		}
+		
+		nextToken();
+		return true;
+	}
+	
 	void parseBlock(Mode m) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
 		
 		nextToken();
-		if (match(TokenType.CloseBrace) || match(TokenType.End)) {
-			{
-				// Flush comments so that they have the proper indentation.
-				auto guard = builder.indent();
-				flushComments();
-			}
-			
-			nextToken();
+		if (parseEmptyBlock()) {
 			newline(mode == Mode.Declaration ? 2 : 1);
 			return;
 		}
@@ -1705,6 +1762,51 @@ private:
 		}
 		
 		parseList!parseStructuralElement(TokenType.CloseParen);
+	}
+	
+	void parseStructLiteral() in {
+		assert(match(TokenType.OpenBrace));
+	} do {
+		nextToken();
+		if (parseEmptyBlock()) {
+			return;
+		}
+		
+		{
+			// We have an actual block.
+			clearSplitType();
+			
+			auto blockGuard = block();
+			auto indentGuard = builder.indent();
+			
+			newline(1);
+			split();
+			
+			while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+				parseMapEntry();
+				runOnType!(TokenType.Comma, nextToken)();
+				newline(1);
+			}
+			
+			// Flush comments so that they have the proper indentation.
+			flushComments();
+		}
+		
+		if (match(TokenType.CloseBrace)) {
+			clearSplitType();
+			newline(1);
+			nextToken();
+		}
+	}
+	
+	void parseMapEntry() {
+		auto guard = span();
+		runOnType!(TokenType.Identifier, nextToken)();
+		runOnType!(TokenType.Colon, nextToken)();
+		
+		split();
+		space();
+		parseExpression();
 	}
 	
 	/**
