@@ -529,14 +529,13 @@ private:
 				break;
 			
 			case Default: {
-					auto guard = builder.unindent();
-					newline();
-					nextToken();
-					parseColonBlock();
-				}
-				
+				auto guard = builder.unindent();
+				newline();
+				nextToken();
+				parseColonBlock();
 				break;
-
+			}
+			
 			case Goto:
 				nextToken();
 				if (match(Identifier) || match(Default)) {
