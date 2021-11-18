@@ -399,17 +399,7 @@ private:
 	
 	void parseColonBlock() {
 		runOnType!(TokenType.Colon, nextToken)();
-		if (!match(TokenType.OpenBrace)) {
-			newline(1);
-			return;
-		}
-		
-		import source.parserutil;
-		auto lookahead = trange.getLookahead();
-		lookahead.popMatchingDelimiter!(TokenType.OpenBrace)();
-		
-		auto nextType = lookahead.front.type;
-		if (nextType != TokenType.CloseBrace && nextType != TokenType.Case && nextType != TokenType.Default) {
+		if (!match(TokenType.OpenBrace) || newLineCount() > 0) {
 			newline(1);
 			return;
 		}
