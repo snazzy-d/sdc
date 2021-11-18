@@ -587,6 +587,17 @@ private:
 			 * Declaration
 			 */
 			case This:
+				// This template parameters.
+				auto lookahead = trange.getLookahead();
+				lookahead.popFront();
+				
+				if (lookahead.front.type == TokenType.Identifier) {
+					nextToken();
+					space();
+					parseTypedDeclaration();
+					break;
+				}
+				
 				// FIXME: customized parsing depending if declaration or statement are prefered.
 				// For now, assume ctor.
 				parseConstructor();
