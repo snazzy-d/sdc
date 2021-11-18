@@ -2,7 +2,7 @@ switch (x) do {
 	case 1:
 		break;
 
-		static if (c) {
+	static if (c) {
 			enum A = 3;
 
 		case 2: {
@@ -13,5 +13,5 @@ switch (x) do {
 
 		case 3:
 			foobar();
-		}
+	}
 } while (y);

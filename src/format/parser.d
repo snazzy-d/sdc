@@ -20,7 +20,8 @@ private:
 	import format.chunk;
 	Builder builder;
 	
-	uint extraIndent = 0;
+	bool needDoubleIndent = false;
+	bool doubleIndentBlock = false;
 	
 	enum Mode {
 		Declaration,
@@ -572,6 +573,46 @@ private:
 			case Assert:
 				parseExpression();
 				break;
+			
+			/**
+			 * Compile time constructs.
+			 */
+			case Static: {
+				// There is nothing special to do in this case, just move on.
+				if (!doubleIndentBlock) {
+					goto default;
+				}
+				
+				auto lookahead = trange.getLookahead();
+				lookahead.popFront();
+				auto t = lookahead.front.type;
+				
+				// This ia declaration.
+				if (t != If && t != Foreach && t != ForeachReverse) {
+					goto default;
+				}
+				
+				// Request the next nested block to be double indented.
+				auto oldNeedDoubleIndent = needDoubleIndent;
+				scope(exit) {
+					needDoubleIndent = oldNeedDoubleIndent;
+				}
+				
+				needDoubleIndent = true;
+				
+				auto guard = builder.unindent();
+				
+				nextToken();
+				space();
+				
+				if (match(If)) {
+					parseIf();
+				} else {
+					parseForeach();
+				}
+				
+				break;
+			}
 			
 			/**
 			 * Declaration
@@ -1171,17 +1212,18 @@ private:
 			clearSplitType();
 			
 			auto blockGuard = block();
-			
-			auto oldExtraIndent = extraIndent;
-			scope(exit) {
-				extraIndent = oldExtraIndent;
-			}
-			
-			auto indentGuard = builder.indent(1 + extraIndent);
+			auto indentGuard = builder.indent(1 + needDoubleIndent);
 			auto modeGuard = changeMode(m);
 			
-			// Do not extra indent sub blocks.
-			extraIndent = 0;
+			auto oldNeedDoubleIndent = needDoubleIndent;
+			auto oldDoubleIndentBlock = doubleIndentBlock;
+			scope(exit) {
+				needDoubleIndent = oldNeedDoubleIndent;
+				doubleIndentBlock = oldDoubleIndentBlock;
+			}
+			
+			doubleIndentBlock = needDoubleIndent;
+			needDoubleIndent = false;
 			
 			newline(1);
 			split();
@@ -1447,12 +1489,13 @@ private:
 		parseCondition();
 		space();
 		
-		auto oldExtraIndent = extraIndent;
+		// Request the next nested block to be double indented.
+		auto oldNeedDoubleIndent = needDoubleIndent;
 		scope(exit) {
-			extraIndent = oldExtraIndent;
+			needDoubleIndent = oldNeedDoubleIndent;
 		}
 		
-		extraIndent = 1;
+		needDoubleIndent = true;
 		parseStructuralElement();
 	}
 	
