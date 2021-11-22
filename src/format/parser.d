@@ -482,7 +482,12 @@ private:
 			
 			case Break, Continue:
 				nextToken();
-				runOnType!(Identifier, nextToken)();
+				
+				if (match(Identifier)) {
+					space();
+					nextToken();
+				}
+				
 				break;
 			
 			case With:
