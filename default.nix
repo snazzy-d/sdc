@@ -10,7 +10,7 @@ stdenv.mkDerivation
     ''
         makeFlagsArray+=(NATIVE_DMD_IMPORTS="-I${dmd}/include/dmd" ${dflagsDecl})
     '';
-    buildInputs = [nasm llvmPackages.bintools];
+    buildInputs = [nasm llvmPackages.libllvm];
 
 
     installPhase =
