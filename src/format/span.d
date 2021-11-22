@@ -5,58 +5,58 @@ import format.chunk;
 
 class Span {
 	Span parent = null;
-	
+
 	this(Span parent) {
 		this.parent = parent;
 	}
-	
+
 	uint getCost(const ref SolveState s) const {
 		return 3;
 	}
-	
+
 	// lhs < rhs => rhs.opCmp(rhs) < 0
 	final int opCmp(const Span rhs) const {
 		auto lhsPtr = cast(void*) this;
 		auto rhsPtr = cast(void*) rhs;
-		
+
 		return (lhsPtr > rhsPtr) - (lhsPtr < rhsPtr);
 	}
-	
+
 	@trusted
 	final override size_t toHash() const {
 		return cast(size_t) cast(void*) this;
 	}
-	
+
 	static string print(const Span span) {
-		if (span is null)  {
+		if (span is null) {
 			return "null";
 		}
-		
+
 		return span.toString();
 	}
-	
+
 	override string toString() const {
 		import std.conv;
 		return typeid(this).toString() ~ "(" ~ print(parent) ~ ")";
 	}
-	
+
 protected:
 	void register(size_t i) {}
-	
+
 	enum Split {
 		No,
 		Can,
 		Must,
 	}
-	
+
 	uint computeIndent(const ref SolveState s) const {
 		return s.isUsed(this) ? 1 : 0;
 	}
-	
+
 	size_t computeAlignIndex(const ref SolveState s, size_t i) const {
 		return 0;
 	}
-	
+
 	Split computeSplit(const ref SolveState s, size_t i) const {
 		return Split.Can;
 	}
@@ -71,12 +71,12 @@ void register(Span span, size_t i) {
 
 Span getTop(Span span) {
 	Span top = span;
-	
+
 	while (span !is null) {
 		top = span;
 		span = span.parent;
 	}
-	
+
 	return top;
 }
 
@@ -84,11 +84,11 @@ bool contains(const Span span, const Span s) {
 	if (span is null) {
 		return false;
 	}
-	
+
 	if (span is s) {
 		return true;
 	}
-	
+
 	return span.parent.contains(s);
 }
 
@@ -96,7 +96,7 @@ uint getIndent(const Span span, const ref SolveState s) {
 	if (span is null) {
 		return 0;
 	}
-	
+
 	return span.computeIndent(s) + span.parent.getIndent(s);
 }
 
@@ -104,16 +104,16 @@ size_t getAlignIndex(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return 0;
 	}
-	
+
 	auto ci = span.computeAlignIndex(s, i);
 	if (ci > 0 && ci != i) {
 		return ci;
 	}
-	
+
 	if (auto pi = span.parent.getAlignIndex(s, i)) {
 		return pi;
 	}
-	
+
 	return ci;
 }
 
@@ -121,11 +121,11 @@ bool canSplit(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return true;
 	}
-	
+
 	if (span.computeSplit(s, i) != Span.Split.Can) {
 		return false;
 	}
-	
+
 	return span.parent.canSplit(s, i);
 }
 
@@ -133,14 +133,14 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return false;
 	}
-	
-	final switch (span.computeSplit(s, i)) with (Span.Split)  {
+
+	final switch (span.computeSplit(s, i)) with (Span.Split) {
 		case No:
 			return false;
-		
+
 		case Must:
 			return true;
-		
+
 		case Can:
 			return span.parent.mustSplit(s, i);
 	}
@@ -153,7 +153,7 @@ final class PrefixSpan : Span {
 	this(Span parent) {
 		super(parent);
 	}
-	
+
 	override uint getCost(const ref SolveState s) const {
 		return s.isUsed(this) ? 5 : 0;
 	}
@@ -164,15 +164,15 @@ final class PrefixSpan : Span {
  */
 final class AlignedSpan : Span {
 	size_t first = size_t.max;
-	
+
 	this(Span parent) {
 		super(parent);
 	}
-	
+
 	override void register(size_t i) {
 		first = i < first ? i : first;
 	}
-	
+
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
 		return first;
 	}
@@ -183,33 +183,33 @@ final class AlignedSpan : Span {
  */
 final class ListSpan : Span {
 	size_t[] elements;
-	
+
 	this(Span parent) {
 		super(parent);
 	}
-	
+
 	override uint getCost(const ref SolveState s) const {
 		return elements.length <= 1 ? 5 : 3;
 	}
-	
+
 	void registerElement(size_t i) in {
 		assert(elements.length == 0 || elements[$ - 1] < i);
 	} do {
 		elements ~= i;
 	}
-	
+
 	bool isActive(const ref SolveState s) const {
 		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
-	
+
 	override uint computeIndent(const ref SolveState s) const {
 		return (s.isSplit(elements[0]) && s.isUsed(this)) ? 1 : 0;
 	}
-	
+
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
 		return (s.isSplit(elements[0]) || !s.isUsed(this)) ? 0 : elements[0];
 	}
-	
+
 	override Split computeSplit(const ref SolveState s, size_t i) const {
 		size_t previous = elements[0];
 		foreach (p; elements) {
@@ -217,13 +217,13 @@ final class ListSpan : Span {
 				// We went past the index we are interested in.
 				break;
 			}
-			
+
 			if (p < i) {
 				// We have not reached our goal, move on to the next param.
 				previous = p;
 				continue;
 			}
-			
+
 			// We are at a parameter junction. Split here if the preceding
 			// parameter is split.
 			foreach (c; previous + 1 .. p) {
@@ -231,11 +231,11 @@ final class ListSpan : Span {
 					return Split.Must;
 				}
 			}
-			
+
 			// Previous parameters isn't split, so there are no constraints.
 			break;
 		}
-		
+
 		return Split.Can;
 	}
 }
@@ -247,24 +247,24 @@ final class ListSpan : Span {
 final class ConditionalSpan : Span {
 	size_t questionMarkIndex = size_t.max;
 	size_t colonIndex = size_t.max;
-	
+
 	this(Span parent) {
 		super(parent);
 	}
-	
+
 	void setQuestionMarkIndex(size_t i) {
 		questionMarkIndex = i;
 	}
-	
+
 	void setColonIndex(size_t i) {
 		colonIndex = i;
 	}
-	
+
 	override Split computeSplit(const ref SolveState s, size_t i) const {
 		if (i != colonIndex) {
 			return Split.Can;
 		}
-		
+
 		return s.isSplit(questionMarkIndex) ? Split.Must : Split.No;
 	}
 }
